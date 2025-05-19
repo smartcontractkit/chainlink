@@ -2,72 +2,30 @@ package cmd
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func initCosmosNodeSubCmd(client *Client) cli.Command {
-	return nodeCommand("Cosmos", NewCosmosNodeClient(client),
-		cli.StringFlag{
-			Name:  "chain-id",
-			Usage: "chain ID",
-		},
-		cli.StringFlag{
-			Name:  "tendermint-url",
-			Usage: "Tendermint URL",
-		})
-}
-
-func initStarkNetNodeSubCmd(client *Client) cli.Command {
-	return nodeCommand("StarkNet", NewStarkNetNodeClient(client),
-		cli.StringFlag{
-			Name:  "chain-id",
-			Usage: "chain ID",
-		},
-		cli.StringFlag{
-			Name:  "url",
-			Usage: "URL",
-		})
-}
-
-func initEVMNodeSubCmd(client *Client) cli.Command {
-	return nodeCommand("EVM", NewEVMNodeClient(client),
-		cli.StringFlag{
-			Name:  "ws-url",
-			Usage: "Websocket URL",
-		},
-		cli.StringFlag{
-			Name:  "http-url",
-			Usage: "HTTP URL, optional",
-		},
-		cli.Int64Flag{
-			Name:  "chain-id",
-			Usage: "chain ID",
-		},
-		cli.StringFlag{
-			Name:  "type",
-			Usage: "primary|secondary",
-		})
-}
-
-func initSolanaNodeSubCmd(client *Client) cli.Command {
-	return nodeCommand("Solana", NewSolanaNodeClient(client),
-		cli.StringFlag{
-			Name:  "chain-id",
-			Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]",
-		},
-		cli.StringFlag{
-			Name:  "url",
-			Usage: "URL",
-		})
+func initNodeSubCmds(s *Shell) []cli.Command {
+	cmds := []cli.Command{}
+	for _, network := range slices.Sorted(maps.Keys(relay.SupportedNetworks)) {
+		if network == relay.NetworkDummy {
+			continue
+		}
+		cmds = append(cmds, nodeCommand(network, NewNodeClient(s, network)))
+	}
+	return cmds
 }
 
 // nodeCommand returns a cli.Command with subcommands for the given NodeClient.
 // A string cli.Flag for "name" is automatically included.
-func nodeCommand(typ string, client NodeClient, flags ...cli.Flag) cli.Command {
+func nodeCommand(typ string, client NodeClient) cli.Command {
 	lower := strings.ToLower(typ)
 	return cli.Command{
 		Name:  lower,
@@ -82,29 +40,64 @@ func nodeCommand(typ string, client NodeClient, flags ...cli.Flag) cli.Command {
 	}
 }
 
+// EVMNodePresenter implements TableRenderer for an EVMNodeResource.
+type NodePresenter struct {
+	presenters.NodeResource
+}
+
+// ToRow presents the EVMNodeResource as a slice of strings.
+func (p *NodePresenter) ToRow() []string {
+	return []string{p.Name, p.ChainID, p.State, p.Config}
+}
+
+// RenderTable implements TableRenderer
+func (p NodePresenter) RenderTable(rt RendererTable) error {
+	var rows [][]string
+	rows = append(rows, p.ToRow())
+	renderList(nodeHeaders, rows, rt.Writer)
+
+	return nil
+}
+
+// NodePresenters implements TableRenderer for a slice of NodePresenter.
+type NodePresenters []NodePresenter
+
+// RenderTable implements TableRenderer
+func (ps NodePresenters) RenderTable(rt RendererTable) error {
+	rows := [][]string{}
+
+	for _, p := range ps {
+		rows = append(rows, p.ToRow())
+	}
+
+	renderList(nodeHeaders, rows, rt.Writer)
+
+	return nil
+}
+
 // NodeClient is a generic client interface for any of node.
 type NodeClient interface {
 	IndexNodes(c *cli.Context) error
 }
 
-type nodeClient[N chains.Node, P TableRenderer, P2 ~[]P] struct {
-	*Client
-	path       string
-	createNode func(c *cli.Context) (N, error)
+type nodeClient[P TableRenderer] struct {
+	*Shell
+	path string
 }
 
-// newNodeClient returns a new NodeClient for a particular type of chains.Node.
-// P is a TableRenderer corresponding to R, and P2 is the slice variant (type P2 []P).
-func newNodeClient[N chains.Node, P TableRenderer, P2 ~[]P](c *Client, name string, createNode func(*cli.Context) (N, error)) NodeClient {
-	return &nodeClient[N, P, P2]{
-		Client:     c,
-		path:       "/v2/nodes/" + name,
-		createNode: createNode,
+// newNodeClient returns a new NodeClient for a particular type of NodeStatus.
+// P is a TableRenderer for []types.NodeStatus.
+func NewNodeClient(s *Shell, network string) NodeClient {
+	return &nodeClient[NodePresenters]{
+		Shell: s,
+		path:  "/v2/nodes/" + network,
 	}
 }
 
 // IndexNodes returns all nodes.
-func (cli *nodeClient[N, P, P2]) IndexNodes(c *cli.Context) (err error) {
+func (cli *nodeClient[P2]) IndexNodes(c *cli.Context) (err error) {
 	var p P2
 	return cli.getPage(cli.path, c.Int("page"), &p)
 }
+
+var nodeHeaders = []string{"Name", "Chain ID", "State", "Config"}

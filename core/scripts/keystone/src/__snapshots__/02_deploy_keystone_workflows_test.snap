@@ -1,0 +1,57 @@
+
+[TestCreateKeystoneWorkflowJob - 1]
+
+type = "workflow"
+schemaVersion = 1
+name = "keystone_workflow"
+workflow = """
+name: "ccip_kiab1" 
+owner: '0x1234567890abcdef1234567890abcdef12345678'
+triggers:
+ - id: streams-trigger@1.1.0
+   config:
+     maxFrequencyMs: 10000
+     feedIds:
+       - 'feed1'
+       - 'feed2'
+       - 'feed3'
+
+consensus:
+ - id: offchain_reporting@1.0.0
+   ref: ccip_feeds
+   inputs:
+     observations:
+       - $(trigger.outputs)
+   config:
+     report_id: '0001'
+     key_id: 'evm'
+     aggregation_method: data_feeds
+     aggregation_config:
+       feeds:
+        'feed1':
+          deviation: '0.05'
+          heartbeat: 1800
+        'feed2':
+          deviation: '0.05'
+          heartbeat: 1800
+        'feed3':
+          deviation: '0.05'
+          heartbeat: 1800
+     encoder: EVM
+     encoder_config:
+       abi: "(bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports"
+       abi: (bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports
+
+targets:
+ - id: target_id 
+   inputs:
+     signed_report: $(ccip_feeds.outputs)
+   config:
+     address: '0xabcdefabcdefabcdefabcdefabcdefabcdef'
+     deltaStage: 5s
+     schedule: oneAtATime
+
+"""
+workflowOwner = "0x1234567890abcdef1234567890abcdef12345678"
+
+---

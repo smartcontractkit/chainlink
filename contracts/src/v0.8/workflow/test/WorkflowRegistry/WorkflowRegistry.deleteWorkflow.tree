@@ -1,0 +1,12 @@
+WorkflowRegistry.deleteWorkflow
+├── when the registry is locked
+│   └── it should revert
+└── when the registry is not locked
+    ├── when the caller is not the workflow owner
+    │   └── it should revert
+    └── when the caller is the workflow owner
+        ├── when the caller is not an authorized address
+        │   └── it should revert
+        └── when the caller is an authorized address
+            ├── it should delete the workflow if the donID is not allowed and emit {WorkflowDeletedV1}
+            └── it should delete the workflow if the donID is allowed and emit {WorkflowDeletedV1}

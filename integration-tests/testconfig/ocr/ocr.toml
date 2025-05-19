@@ -1,0 +1,193 @@
+# product defaults
+[Common]
+chainlink_node_funding = 0.5
+
+[NodeConfig]
+BaseConfigTOML = """
+[Feature]
+FeedsManager = true
+LogPoller = true
+UICSAKeys = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+HTTPWriteTimeout = '3m'
+SessionTimeout = '999h0m0s'
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 1000
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[Database]
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
+
+[OCR]
+Enabled = true
+
+[P2P]
+[P2P.V2]
+ListenAddresses = ['0.0.0.0:6690']
+"""
+
+[OCR.Common]
+number_of_contracts=1
+
+# load test specific configuration
+[Load.OCR]
+[Load.OCR.Common]
+eth_funds = 3
+
+[Load.OCR.Load]
+test_duration = "3m"
+rate_limit_unit_duration = "1m"
+rate = 3
+verification_interval = "5s"
+verification_timeout = "3m"
+ea_change_interval = "5s"
+
+# volume test specific configuration
+[Volume.OCR]
+[Volume.OCR.Common]
+eth_funds = 3
+
+[Volume.OCR.Volume]
+test_duration = "3m"
+rate_limit_unit_duration = "1m"
+vu_requests_per_unit = 10
+rate = 1
+verification_interval = "5s"
+verification_timeout = "3m"
+ea_change_interval = "5s"
+
+# soak test specific configuration
+[Soak.Common]
+chainlink_node_funding = 0.5
+
+[Soak.OCR]
+[Soak.OCR.Common]
+test_duration="15m"
+number_of_contracts=2
+
+[Soak.OCR.Soak]
+time_between_rounds="1m"
+
+# Soak test configuration with Geth reorg below finality with FinalityTagEnabled=false
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.NodeConfig]
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityDepth = 30
+FinalityTagEnabled = false
+"""
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.Network]
+selected_networks=["simulated"]
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.Network.GethReorgConfig]
+enabled = true
+depth = 15
+delay_create = "3s"
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.Common]
+chainlink_node_funding = 0.5
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.OCR]
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.OCR.Common]
+test_duration="15m"
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.OCR.Soak]
+number_of_contracts=2
+time_between_rounds="1m"
+
+# Soak test configuration with Geth reorg below finality with FinalityTagEnabled=true
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.NodeConfig]
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityTagEnabled = true
+
+[HeadTracker]
+HistoryDepth = 10
+"""
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.Network]
+selected_networks=["simulated"]
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.Network.GethReorgConfig]
+enabled = true
+depth = 15
+delay_create = "3s"
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.Common]
+chainlink_node_funding = 0.5
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.OCR]
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.OCR.Common]
+test_duration="15m"
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.OCR.Soak]
+number_of_contracts=2
+time_between_rounds="1m"
+
+
+# OCR soak test configuration with gas spike on Anvil network
+[TestOCRSoak_GasSpike.Common]
+chainlink_node_funding = 0.5
+[TestOCRSoak_GasSpike.OCR.Common]
+test_duration="15m"
+[TestOCRSoak_GasSpike.OCR.Soak]
+number_of_contracts=2
+time_between_rounds="1m"
+[TestOCRSoak_GasSpike.Network]
+selected_networks=["Anvil"]
+[TestOCRSoak_GasSpike.Network.AnvilConfigs.anvil.GasSpikeSimulation]
+enabled = true
+start_gas_price = 2000000000
+gas_rise_percentage = 0.7
+gas_spike = true
+delay_create = "1m"
+duration = "3m"
+
+# OCR soak test configuration with change to gas limit on Anvil network
+[TestOCRSoak_ChangeBlockGasLimit.Common]
+chainlink_node_funding = 0.5
+[TestOCRSoak_ChangeBlockGasLimit.OCR.Common]
+test_duration="15m"
+[TestOCRSoak_ChangeBlockGasLimit.OCR.Soak]
+number_of_contracts=2
+time_between_rounds="1m"
+[TestOCRSoak_ChangeBlockGasLimit.Network]
+selected_networks=["Anvil"]
+[TestOCRSoak_ChangeBlockGasLimit.Network.AnvilConfigs.anvil.GasLimitSimulation]
+enabled = true
+next_gas_limit_percentage = 0.5
+delay_create = "1m"
+duration = "3m"
+
+[TestOCRSoak_RPCDownForAllCLNodes.Common]
+chainlink_node_funding = 0.5
+[TestOCRSoak_RPCDownForAllCLNodes.OCR.Common]
+test_duration="15m"
+[TestOCRSoak_RPCDownForAllCLNodes.OCR.Soak]
+number_of_contracts=2
+time_between_rounds="1m"
+[TestOCRSoak_RPCDownForAllCLNodes.Network]
+selected_networks=["simulated"]
+
+[TestOCRSoak_RPCDownForHalfCLNodes.Common]
+chainlink_node_funding = 0.5
+[TestOCRSoak_RPCDownForHalfCLNodes.OCR.Common]
+test_duration="15m"
+[TestOCRSoak_RPCDownForHalfCLNodes.OCR.Soak]
+number_of_contracts=2
+time_between_rounds="1m"
+[TestOCRSoak_RPCDownForHalfCLNodes.Network]
+selected_networks=["simulated"]

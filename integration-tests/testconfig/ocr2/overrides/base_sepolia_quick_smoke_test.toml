@@ -1,0 +1,18 @@
+[Network]
+selected_networks = ["BASE_SEPOLIA"]
+
+[Soak.Common]
+chainlink_node_funding = 1
+
+[Soak.OCR2]
+[Soak.OCR2.Common]
+test_duration = "10m"
+
+[Soak.OCR2.Soak]
+time_between_rounds = "2m"
+
+[OCR2.Common]
+number_of_contracts = 2
+
+[Seth]
+experiments_enabled = ["slow_funds_return"]

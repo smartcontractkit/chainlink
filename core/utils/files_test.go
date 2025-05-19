@@ -1,8 +1,8 @@
 package utils
 
 import (
+	"crypto/rand"
 	"encoding/hex"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,7 +13,10 @@ import (
 
 func tempFileName() string {
 	randBytes := make([]byte, 16)
-	rand.Read(randBytes)
+	_, err := rand.Read(randBytes)
+	if err != nil {
+		panic(err)
+	}
 	return filepath.Join(os.TempDir(), hex.EncodeToString(randBytes))
 }
 

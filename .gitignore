@@ -23,11 +23,15 @@ tools/clroot/db.sqlite3-wal
 .DS_Store
 .envrc
 .env*
+.dbenv
 !.github/actions/setup-postgres/.env
 .direnv
 .idea
 .vscode/
 *.iml
+debug.env
+operator_ui/install
+.devenv
 
 # codeship
 *.aes
@@ -42,19 +46,20 @@ cl_backup_*.tar.gz
 
 # Test artifacts
 core/cmd/TestClient_ImportExportP2PKeyBundle_test_key.json
-output.txt
 race.*
-golangci-lint-output.txt
+*output.txt
+/golangci-lint/
+.covdata
+core/services/job/testdata/wasm/testmodule.wasm
+core/services/job/testdata/wasm/testmodule.br
+temp-repo
 
 # DB state
-db/
+./db/
 .s.PGSQL.5432.lock
 
 # can be left behind by tests
 core/cmd/vrfkey1
-
-# left behind by webpack - compiled frontend assets
-core/web/assets
 
 # Integration Tests
 integration-tests/**/logs/
@@ -63,14 +68,48 @@ tests-*.xml
 tmp-manifest-*.yaml
 ztarrepo.tar.gz
 **/test-ledger/*
-__debug_bin
-
-# goreleaser builds
-cosign.*
-dist/
-MacOSX*
+__debug_bin*
+.test_summary/
+db_dumps/
+.run.id
+integration-tests/**/traces/
+integration-tests/**/integration-tests
+benchmark_report.csv
+benchmark_summary.json
+secrets.toml
+tmp_laneconfig/
+solana_contracts
 
 # Test & linter reports
 *report.xml
 *report.json
 *.out
+dot_graphs/
+
+contracts/yarn.lock
+
+# Ignore DevSpace cache and log folder
+.devspace/
+go.work*
+
+# This sometimes shows up for some reason
+tools/flakeytests/coverage.txt
+
+# Runtime test configuration that might contain secrets
+override*.toml
+
+# Python venv
+.venv/
+
+ocr_soak_report.csv
+
+vendor/*
+
+*.wasm
+contracts/lcov.info
+contracts/out/
+/cache
+
+# Used by plugins/chianlink.prebuilt.Dockerfile
+bin/
+lib/

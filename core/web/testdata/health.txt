@@ -1,0 +1,15 @@
+ok foo
+!  foo.bar
+	example error message
+ok foo.bar.1
+ok foo.bar.1.A
+ok foo.bar.1.B
+!  foo.bar.2
+	error:
+	this is a multi-line error:
+	new line:
+	original error
+!  foo.bar.2.A
+	failure!
+ok foo.bar.2.B
+ok foo.baz

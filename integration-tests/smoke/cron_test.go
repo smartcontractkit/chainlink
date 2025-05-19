@@ -1,65 +1,135 @@
 package smoke
 
 import (
-	"fmt"
-	"strings"
+	"net/http"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/parrot"
+
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-
-	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 func TestCronBasic(t *testing.T) {
 	t.Parallel()
-	testEnvironment := setupCronTest(t)
-	if testEnvironment.WillUseRemoteRunner() {
-		return
+	l := logging.GetTestLogger(t)
+
+	config, err := tc.GetConfig([]string{"Smoke"}, tc.Cron)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
-	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
-	mockServer, err := ctfClient.ConnectMockServer(testEnvironment)
-	require.NoError(t, err, "Creating mockserver client shouldn't fail")
-	chainlinkNode := chainlinkNodes[0]
-	err = mockServer.SetValuePath("/variable", 5)
-	require.NoError(t, err, "Setting value path in mockserver shouldn't fail")
-	// Register cleanup for any test
-	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, nil)
-		require.NoError(t, err, "Error tearing down environment")
-	})
+	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
 
-	bta := client.BridgeTypeAttributes{
-		Name:        fmt.Sprintf("variable-%s", uuid.NewV4().String()),
-		URL:         fmt.Sprintf("%s/variable", mockServer.Config.ClusterURL),
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestInstance(t).
+		WithTestConfig(&config).
+		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
+		WithMockAdapter().
+		WithCLNodes(1).
+		WithStandardCleanup().
+		Build()
+	require.NoError(t, err)
+
+	route := &parrot.Route{
+		Method:             parrot.MethodAny,
+		Path:               "/variable",
+		ResponseBody:       5,
+		ResponseStatusCode: http.StatusOK,
+	}
+	err = env.MockAdapter.SetAdapterRoute(route)
+	require.NoError(t, err, "Failed to set route in mock adapter")
+
+	bta := &nodeclient.BridgeTypeAttributes{
+		Name:        "variable-" + uuid.NewString(),
+		URL:         env.MockAdapter.InternalEndpoint + "/variable",
 		RequestData: "{}",
 	}
-	err = chainlinkNode.MustCreateBridge(&bta)
+	err = env.ClCluster.Nodes[0].API.MustCreateBridge(bta)
 	require.NoError(t, err, "Creating bridge in chainlink node shouldn't fail")
 
-	job, err := chainlinkNode.MustCreateJob(&client.CronJobSpec{
+	job, err := env.ClCluster.Nodes[0].API.MustCreateJob(&nodeclient.CronJobSpec{
 		Schedule:          "CRON_TZ=UTC * * * * * *",
-		ObservationSource: client.ObservationSourceSpecBridge(bta),
+		ObservationSource: nodeclient.ObservationSourceSpecBridge(bta),
 	})
 	require.NoError(t, err, "Creating Cron Job in chainlink node shouldn't fail")
 
 	gom := gomega.NewGomegaWithT(t)
 	gom.Eventually(func(g gomega.Gomega) {
-		jobRuns, err := chainlinkNode.MustReadRunsByJob(job.Data.ID)
+		jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(job.Data.ID)
+		if err != nil {
+			l.Info().Err(err).Msg("error while waiting for job runs")
+		}
+		g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Reading Job run data shouldn't fail")
+
+		g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically(">=", 5), "Expected number of job runs to be greater than 5, but got %d", len(jobRuns.Data))
+
+		for _, jr := range jobRuns.Data {
+			g.Expect(jr.Attributes.Errors).Should(gomega.Equal([]any{nil}), "Job run %s shouldn't have errors", jr.ID)
+		}
+	}, "2m", "3s").Should(gomega.Succeed())
+}
+
+func TestCronJobReplacement(t *testing.T) {
+	t.Parallel()
+	l := logging.GetTestLogger(t)
+
+	config, err := tc.GetConfig([]string{"Smoke"}, tc.Cron)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
+
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestInstance(t).
+		WithTestConfig(&config).
+		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
+		WithMockAdapter().
+		WithCLNodes(1).
+		WithStandardCleanup().
+		Build()
+	require.NoError(t, err)
+
+	route := &parrot.Route{
+		Method:             parrot.MethodAny,
+		Path:               "/variable",
+		ResponseBody:       5,
+		ResponseStatusCode: http.StatusOK,
+	}
+	err = env.MockAdapter.SetAdapterRoute(route)
+	require.NoError(t, err, "Failed to set route in mock adapter")
+
+	bta := &nodeclient.BridgeTypeAttributes{
+		Name:        "variable-" + uuid.NewString(),
+		URL:         env.MockAdapter.InternalEndpoint + "/variable",
+		RequestData: "{}",
+	}
+	err = env.ClCluster.Nodes[0].API.MustCreateBridge(bta)
+	require.NoError(t, err, "Creating bridge in chainlink node shouldn't fail")
+
+	// CRON job creation and replacement
+	job, err := env.ClCluster.Nodes[0].API.MustCreateJob(&nodeclient.CronJobSpec{
+		Schedule:          "CRON_TZ=UTC * * * * * *",
+		ObservationSource: nodeclient.ObservationSourceSpecBridge(bta),
+	})
+	require.NoError(t, err, "Creating Cron Job in chainlink node shouldn't fail")
+
+	gom := gomega.NewWithT(t)
+	gom.Eventually(func(g gomega.Gomega) {
+		jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(job.Data.ID)
+		if err != nil {
+			l.Info().Err(err).Msg("error while waiting for job runs")
+		}
 		g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Reading Job run data shouldn't fail")
 
 		g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically(">=", 5), "Expected number of job runs to be greater than 5, but got %d", len(jobRuns.Data))
@@ -67,30 +137,28 @@ func TestCronBasic(t *testing.T) {
 		for _, jr := range jobRuns.Data {
 			g.Expect(jr.Attributes.Errors).Should(gomega.Equal([]interface{}{nil}), "Job run %s shouldn't have errors", jr.ID)
 		}
-	}, "2m", "1s").Should(gomega.Succeed())
-}
+	}, "3m", "3s").Should(gomega.Succeed())
 
-func setupCronTest(t *testing.T) (testEnvironment *environment.Environment) {
-	network := networks.SelectedNetwork
-	evmConfig := ethereum.New(nil)
-	if !network.Simulated {
-		evmConfig = ethereum.New(&ethereum.Props{
-			NetworkName: network.Name,
-			Simulated:   network.Simulated,
-			WsURLs:      network.URLs,
-		})
-	}
-	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("smoke-cron-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
-		Test:            t,
-	}).
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"toml": client.AddNetworksConfig("", network),
-		}))
-	err := testEnvironment.Run()
-	require.NoError(t, err, "Error launching test environment")
-	return testEnvironment
+	err = env.ClCluster.Nodes[0].API.MustDeleteJob(job.Data.ID)
+	require.NoError(t, err)
+
+	job, err = env.ClCluster.Nodes[0].API.MustCreateJob(&nodeclient.CronJobSpec{
+		Schedule:          "CRON_TZ=UTC * * * * * *",
+		ObservationSource: nodeclient.ObservationSourceSpecBridge(bta),
+	})
+	require.NoError(t, err, "Recreating Cron Job in chainlink node shouldn't fail")
+
+	gom.Eventually(func(g gomega.Gomega) {
+		jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(job.Data.ID)
+		if err != nil {
+			l.Info().Err(err).Msg("error while waiting for job runs")
+		}
+		g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Reading Job run data shouldn't fail")
+
+		g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically(">=", 5), "Expected number of job runs to be greater than 5, but got %d", len(jobRuns.Data))
+
+		for _, jr := range jobRuns.Data {
+			g.Expect(jr.Attributes.Errors).Should(gomega.Equal([]interface{}{nil}), "Job run %s shouldn't have errors", jr.ID)
+		}
+	}, "3m", "3s").Should(gomega.Succeed())
 }

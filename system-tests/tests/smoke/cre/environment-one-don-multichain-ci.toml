@@ -1,0 +1,73 @@
+
+# first one is the home chain
+[[blockchains]]
+  chain_id = "1337"
+  port = "8545"
+  type = "anvil"
+
+[[blockchains]]
+  chain_id = "2337"
+  port = "8550"
+  type = "anvil"
+
+[custom_anvil_miner]
+  block_speed_seconds = 5
+
+[fake]
+  port = 8171
+
+[infra]
+  type = "docker"
+
+[jd]
+  image = "injected-at-runtime"
+
+[[workflow_configs]]
+  workflow_name = "porfeedone"
+  feed_id = "018e16c39e000320000000000000000000000000000000000000000000000000"
+
+  should_compile_new_workflow = false
+  use_cre_cli = true
+
+  [workflow_configs.compiled_config]
+  binary_url = "https://gist.githubusercontent.com/Tofel/e0b01e434eea52c619fc1b75c36704b4/raw/1bd684d59647c5b66e94b6cfa4766e5453781182/binary.wasm.br.b64"
+  # Every time that consumer address changes (e.g. due code sequence changes) we need to update the config used in CI. That config is identical to the one used, when executing local machine
+  # unless test uses fake data provider. In that case the IP of the fake data provider will be different in the CI, because it uses linux not macOS operating system and that changes the IP
+  # of 'host.docker.internal'. TL;DR is that when updating this config you can use config created during local execution, but you need to use data provider URL copied from the previous CI config.
+  config_url = "https://gist.githubusercontent.com/Tofel/d005f088a313a177cc42397586100a27/raw/e8353e29c9fdc1cdd3c718bc19121a3912925480/one_don_config.json_03_04_2025"
+
+[[workflow_configs]]
+  workflow_name = "porfeedtwo"
+  feed_id = "018e16c38e000320000000000000000000000000000000000000000000000000"
+
+  should_compile_new_workflow = false
+  use_cre_cli = true
+
+  [workflow_configs.compiled_config]
+    binary_url = "https://gist.githubusercontent.com/Tofel/e0b01e434eea52c619fc1b75c36704b4/raw/1bd684d59647c5b66e94b6cfa4766e5453781182/binary.wasm.br.b64"
+    config_url = "https://gist.githubusercontent.com/Tofel/103c913a48c2c5bcd7cb4673f3bde54d/raw/ba23c36e2409ca3c655254862a7195662a1b0f5e/one_don_config-second-feed.json_24_04_2025"
+
+[dependencies]
+  cron_capability_binary_path = "./cron"
+  cre_cli_binary_path = "./cre_v0.2.0_linux_amd64" # must be linux/amd64 to match our CI runner
+
+[[nodesets]]
+  http_port_range_start = 10100
+  name = "workflow"
+  nodes = 5
+  override_mode = "all"
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+    volume_name = "workflow_volume"
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "injected-at-runtime"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """

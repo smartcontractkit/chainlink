@@ -1,135 +1,162 @@
 # Integration Tests
 
-Here lives the integration tests for chainlink, utilizing our [chainlink-testing-framework](https://github.com/smartcontractkit/chainlink-testing-framework).
+- [Integration Tests](#integration-tests)
+  - [Summary](#summary)
+  - [Guidelines](#guidelines)
+    - [Pre-requisites](#pre-requisites)
+      - [Test and node configuration](#test-and-node-configuration)
+    - [Run Tests](#run-tests)
+      - [Locally (in Docker)](#locally-in-docker)
+        - [All tests in a suite](#all-tests-in-a-suite)
+        - [A single test](#a-single-test)
+      - [In Kubernetes](#in-kubernetes)
+        - [From local machine](#from-local-machine)
+      - [CI/GitHub Actions](#cigithub-actions)
 
-## Setup
+## Summary
 
-Prerequisites to run the tests.
+This directory represent a place for different types of integration and system level tests. It utilizes [Chainlink Testing Framework (CTF)](https://github.com/smartcontractkit/chainlink-testing-framework).
 
-### Install Dependencies
+> [!TIP]
+> **Testcontainers (Dockerized tests)**
+> If you want to have faster, locally running, more stable tests, utilize plain Docker containers (with the help of [Testcontainers](https://golang.testcontainers.org/)) instead of using GitHub Actions or Kubernetes.
 
-<details>
-  <summary>Install Go</summary>
+## Guidelines
 
-  [Install](https://go.dev/doc/install)
-</details>
+### Pre-requisites
 
-<details>
-  <summary>Install NodeJS</summary>
+1. [Installed Go](https://go.dev/)
+2. For local testing, [Installed Docker](https://www.docker.com/). Consider [increasing resources limits needed by Docker](https://stackoverflow.com/questions/44533319/how-to-assign-more-memory-to-docker-container) as most tests require building several containers for a Decentralized Oracle Network (e.g. OCR requires 6 nodes, 6 DBs, and a mock server).
+3. For remote testing, access to Kubernetes cluster/AWS Docker registry (if you are pulling images from private links).
+4. Docker image. If there is no image to pull from a registry, you may run tests against a custom build. Run the following command to build the image:
 
-  [Install](https://nodejs.org/en/download/)
-</details>
+    ```bash
+    make build_docker_image image=<your-image-name> tag=<your-tag>
+    ```
 
-<details>
-  <summary>Install Helm Charts</summary>
+    Example: `make build_docker_image image=chainlink tag=test-tag`
 
-  [Install Helm](https://helm.sh/docs/intro/install/#through-package-managers) if you don't already have it. Then add necessary charts with the below commands.
+5. RPC node/s (for testnets/mainnets).
+6. EOA's (wallet) Private Key (see [How to export an account's private key](https://support.metamask.io/ru/managing-my-wallet/secret-recovery-phrase-and-private-keys/how-to-export-an-accounts-private-key/))
+7. Sufficient amount of native token and LINK on EOA per a target chain.
 
-  ```sh
-  helm repo add chainlink-qa https://raw.githubusercontent.com/smartcontractkit/qa-charts/gh-pages/
-  helm repo add bitnami https://charts.bitnami.com/bitnami
-  helm repo update
-  ```
+#### Test and node configuration
 
-</details>
+1. Setup `.env` file in the root of `integration-tests` directory. See [example.env](./example.env) for how to set test-runner log level (not a node's log level), Slack notifications, and Kubernetes-related settings.
 
-## Connect to a Kubernetes Cluster
+   1. Ensure to **update you environment** with the following commands:
+      1. `cd integration-tests`
+      2. `source .env`
 
-Integration tests require a connection to an actively running kubernetes cluster. [Minikube](https://minikube.sigs.k8s.io/docs/start/)
-can work fine for some tests, but in order to run more rigorous tests, or to run with any parallelism, you'll need to either
-increase minikube's resources significantly, or get a more substantial cluster.
-This is necessary to deploy ephemeral testing environments, which include external adapters, chainlink nodes and their DBs,
-as well as some simulated blockchains, all depending on the types of tests and networks being used.
+2. Setup test secrets. See "how-to" details in the [Test Secrets in CTF](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/lib/config/README.md#test-secrets). If you want to run tests in CI, you will have to push test secrets to GitHub (see [Run GitHub Workflow with your test secrets](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/lib/config/README.md#run-github-workflow-with-your-test-secrets)).
 
-## Configure Environment
+3. Provide test and node configuration (for more details refer to [testconfig README](./testconfig/README.md) and `example.toml` files):
+   1. **Defaults** for all products are defined in `./testconfig/<product>/<product>.toml` files.
+   2. To **override default values**, create a `./testconfig/overrides.toml` file (yes, in the root of `testconfig`, not a product directory) specifying the values to override by your test (see some examples in [./testconfig/ocr2/overrides](./testconfig/ocr2/overrides)).
 
-See the [example.env](./example.env) file and use it as a template for your own `.env` file. This allows you to configure general settings like what name to associate with your tests, and which Chainlink version to use when running them.
+   > [!IMPORTANT]
+   > **Image version and node configs**
+   > 1. Pay attention to the `[ChainlinkImage].version` to test against the necessary remotely accessible version or [custom build](#pre-requisites).
+   > 2. When running OCR-related tests, pay attention to which version of OCR you enable/override in your `overrides.toml`.
+   > 3. Do not commit any sensitive data.
 
-You can also specify `EVM_KEYS` and `EVM_URLS` for running on live chains, or use specific identifiers as shown in the [example.env](./example.env) file.
+4. [Optional] Configure Seth (or use defaults), an evm client used by tests. Detailed instructions on how to configure it can be found in the [Seth README](./README_SETH.md) and [Seth repository](https://github.com/smartcontractkit/chainlink-testing-framework/tree/main/seth).
 
-Other `EVM_*` variables are retrieved when running with the `@general` tag, and is helpful for doing quick sanity checks on new chains or when tweaking variables.
+   > [!IMPORTANT]
+   > **Simulated mode (no test secrets needed)**
+   > Tests may run in a simulated mode, on a simulated chain (1337). In the `overrides.toml` file, set the following:
+   > 1. `[Network].selected_networks=["simulated"]`
+   > 2. `[[Seth.networks]].name = "Default"`
 
-**The tests will not automatically load your .env file. Remember to run `source .env` for changes to take effect.**
+### Run Tests
 
-## How to Run
+#### Locally (in Docker)
 
-Most of the time, you'll want to run tests on a simulated chain, for the purposes of speed and cost.
+> [!NOTE]
+> **Resources utilization by Docker**
+> It's recommended to run only one test at a time (run tests sequentially) on a local machine as it needs a lot of docker containers and can peg your resources otherwise. You will see docker containers spin up on your machine for each component of the test where you can inspect logs.
 
-### Smoke
+##### All tests in a suite
 
-Run all smoke tests with the below command. Will use your `SELECTED_NETWORKS` env var for which network to run on.
+1. Run CLI command(with `override.toml`):
 
-```sh
-make test_smoke # Run all smoke tests on the chosen SELECTED_NETWORKS
-SELECTED_NETWORKS="GOERLI" make test_smoke # Run all smoke tests on GOERLI network
-make test_smoke_simulated # Run all smoke tests on a simulated network
+   ```bash
+   BASE64_CONFIG_OVERRIDE=$(cat ./testconfig/overrides.toml | base64) go test -v -p 1 ./smoke/<product>_test.go
+   ```
+
+   Example:
+
+   ```bash
+   BASE64_CONFIG_OVERRIDE=$(cat ./testconfig/overrides.toml | base64) go test -v -p 1 ./smoke/ocr_test.go
+   ```
+
+   > [!WARNING]
+   > **Parallelized tests and nonce issues**
+   > Most tests are paralelized by default. To avoid nonce-related issues, it is recommended to run tests with disabled parallelization, e.g. with `-p 1`.
+
+2. Alternatively, you may use `make` commands (see more in [Makefile .PHONY lines](./Makefile)) for running suites of tests.
+    Example:
+
+    ```bash
+    make test_smoke_product product="ocr" ./scripts/run_product_tests
+    ```
+
+3. Logs of each Chainlink container will dump into the `smoke/logs/`.
+4. To enable debugging of HTTP and RPC clients set the following env vars:
+
+    ```bash
+    export SETH_LOG_LEVEL=debug
+    export RESTY_DEBUG=true
+    ```
+
+##### A single test
+
+Run CLI command (with `override.toml`):
+
+```bash
+BASE64_CONFIG_OVERRIDE=$(cat ./testconfig/overrides.toml | base64) go test -v -timeout 15m -run <"TestNameToRun"> ./<directory_name_with_tests>
 ```
 
-Run all smoke tests in parallel, only using simulated blockchains. *Note: As of now, you can only run tests in parallel on simulated chains, not on live ones. Running on parallel tests on live chains will give errors*
+Example:
 
-```sh
-make test_smoke_simulated args="-test.parallel=<number-of-parallel-tests>"
+```bash
+BASE64_CONFIG_OVERRIDE=$(cat ./testconfig/overrides.toml | base64) go test -v -timeout 15m -run "TestOCRv2Basic" ./smoke
 ```
 
-You can also run specific tests and debug tests in vscode by setting up your .vscode/settings.json with this information. Just replace all the "<put your ...>" with your information before running a test.
+#### In Kubernetes
 
-```json
-{
-    "makefile.extensionOutputFolder": "./.vscode",
-    "go.testEnvVars": {
-        "LOG_LEVEL": "debug",
-        "SELECTED_NETWORKS": "SIMULATED,SIMULATED_1,SIMULATED_2",
-        "CHAINLINK_IMAGE":"<put your account number here>.dkr.ecr.us-west-2.amazonaws.com/chainlink",
-        "CHAINLINK_VERSION":"develop",
-        "CHAINLINK_ENV_USER":"<put your name>",
-        "TEST_LOG_LEVEL":"debug",
-        "AWS_ACCESS_KEY_ID":"<put your access key id here>",
-        "AWS_SECRET_ACCESS_KEY":"<put your access key here>",
-        "AWS_SESSION_TOKEN":"<put your token here>"
-    },
-    "go.testTimeout": "900s"
-}
-```
+Such tests as Soak, Performance, Benchmark, and Chaos Tests remain bound to a Kubernetes run environment.
 
-You can also run your tests inside of kubernetes instead of from locally to reduce local resource usage and the number of ports that get forwarded to the cluster. This is not recommended for normal developement since building and pushing the image can be time heavy depending on your internet upload speeds. To do this you will want to either pull down an already built chainlink-tests image or build one yourself. To build and push one yourself you can run:
+1. Refer [Tests Run Books](./run-books/) to get more details on how to run specific per-product tests.
+2. Logs in CI are uploaded as GitHub artifacts.
 
-```sh
-make build_test_image tag=<a tag for your image> base_tag=latest suite="smoke soak chaos reorg migration performance" push=true
-```
+##### From local machine
 
-Once that is done building you can add this to your go.testEnvVars in .vscode/settings.json with the correct account number and tag filled out.
+1. Ensure all necessary configurations are provided (see [Test and node configuration](#test-and-node-configuration)).
+2. Log in to your Kubernetes cluster (with `aws sso login`)
+3. Run tests with the following CLI command:
 
-```json
-  "TEST_SUITE": "smoke",
-  "TEST_ARGS": "-test.timeout 30m",
-  "ENV_JOB_IMAGE":"<account number>.dkr.ecr.us-west-2.amazonaws.com/chainlink-env-tests:<tag you used in the build step>",
-```
+   ```bash
+   BASE64_CONFIG_OVERRIDE=$(cat ./testconfig/overrides.toml | base64) go test -v -timeout <max_test_timeout> -p 1 -run '<TestName>' ./<test_directory>
+   ```
 
-Once that is done you can run/debug your test using the vscode test view just like normal.
+   OR with `make` commands:
 
-### Soak
+   ```bash
+   BASE64_CONFIG_OVERRIDE=$(cat ./testconfig/overrides.toml | base64) make test_<your_test>
+   ```
 
-Currently we have 2 soak tests, both can be triggered using make commands.
+   Example (see make-commands in [Makefile .PHONY lines](./Makefile)):
 
-```sh
-make test_soak_ocr
-make test_soak_keeper
-```
+   ```bash
+   BASE64_CONFIG_OVERRIDE=$(cat ./testconfig/overrides.toml | base64) make test_chaos_ocr/make test_soak_ocr2/test_node_migrations
+   ```
 
-Soak tests will pull all their network information from the env vars that you can set in the `.env` file. *Reminder to run `source .env` for changes to take effect.*
+4. Use Kubernetes namespace printed out in logs to monitor and analyze test runs.
+5. Navigate to Grafana dashboards to for test results and logs.
 
-To configure specific parameters of how the soak tests run (e.g. test length, number of contracts), see the [./soak/tests](./soak/tests/) test specifications.
+#### CI/GitHub Actions
 
-See the [soak_runner](./soak/soak_runner_test.go) for more info on how the tests are run and configured.
-
-### Performance
-
-Currently, all performance tests are only run on simulated blockchains.
-
-```sh
-make test_perf
-```
-
-## Common Issues
-
-When upgrading to a new version, it's possible the helm charts have changed. There are a myriad of errors that can result from this, so it's best to just try running `helm repo update` when encountering an error you're unsure of.
+1. Ensure all necessary configurations are provided (see [Test and node configuration](#test-and-node-configuration)).
+2. Follow instructions provided in [E2E Tests on GitHub CI](../.github/E2E_TESTS_ON_GITHUB_CI.md).
+3. Refer [Tests Run Books](./run-books/) to get more details on how to run specific per-product tests.

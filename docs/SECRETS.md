@@ -38,7 +38,7 @@ Environment variable: `CL_DATABASE_URL`
 ```toml
 BackupURL = "postgresql://user:pass@read-replica.example.com:5432/dbname?sslmode=disable" # Example
 ```
-BackupURL is where the automatic database backup will pull from, rather than the main DATABASE_URL. It is recommended
+BackupURL is where the automatic database backup will pull from, rather than the main CL_DATABASE_URL. It is recommended
 to set this value to a read replica if you have one to avoid excessive load on the main database.
 
 Environment variable: `CL_DATABASE_BACKUP_URL`
@@ -51,29 +51,32 @@ AllowSimplePasswords skips the password complexity check normally enforced on UR
 
 Environment variable: `CL_DATABASE_ALLOW_SIMPLE_PASSWORDS`
 
-## Explorer
+## WebServer.LDAP
 ```toml
-[Explorer]
-AccessKey = "access_key" # Example
-Secret = "secret" # Example
+[WebServer.LDAP]
+ServerAddress = 'ldaps://127.0.0.1' # Example
+ReadOnlyUserLogin = 'viewer@example.com' # Example
+ReadOnlyUserPass = 'password' # Example
 ```
+Optional LDAP config
 
-
-### AccessKey
+### ServerAddress
 ```toml
-AccessKey = "access_key" # Example
+ServerAddress = 'ldaps://127.0.0.1' # Example
 ```
-AccessKey is the access key for authenticating with the Explorer.
+ServerAddress is the full ldaps:// address of the ldap server to authenticate with and query
 
-Environment variable: `CL_EXPLORER_ACCESS_KEY`
-
-### Secret
+### ReadOnlyUserLogin
 ```toml
-Secret = "secret" # Example
+ReadOnlyUserLogin = 'viewer@example.com' # Example
 ```
-Secret is the secret for authenticating with the Explorer.
+ReadOnlyUserLogin is the username of the read only root user used to authenticate the requested LDAP queries
 
-Environment variable: `CL_EXPLORER_SECRET`
+### ReadOnlyUserPass
+```toml
+ReadOnlyUserPass = 'password' # Example
+```
+ReadOnlyUserPass is the password for the above account
 
 ## Password
 ```toml
@@ -128,4 +131,71 @@ AuthToken = "prometheus-token" # Example
 AuthToken is the authorization key for the Prometheus metrics endpoint.
 
 Environment variable: `CL_PROMETHEUS_AUTH_TOKEN`
+
+## Mercury.Credentials.Name
+```toml
+[Mercury.Credentials.Name]
+Username = "A-Mercury-Username" # Example
+Password = "A-Mercury-Password" # Example
+URL = "https://example.com" # Example
+LegacyURL = "https://example.v1.com" # Example
+```
+
+
+### Username
+```toml
+Username = "A-Mercury-Username" # Example
+```
+Username is used for basic auth of the Mercury endpoint
+
+### Password
+```toml
+Password = "A-Mercury-Password" # Example
+```
+Password is used for basic auth of the Mercury endpoint
+
+### URL
+```toml
+URL = "https://example.com" # Example
+```
+URL is the Mercury endpoint base URL used to access Mercury price feed
+
+### LegacyURL
+```toml
+LegacyURL = "https://example.v1.com" # Example
+```
+LegacyURL is the Mercury legacy endpoint base URL used to access Mercury v0.2 price feed
+
+## Threshold
+```toml
+[Threshold]
+ThresholdKeyShare = "A-Threshold-Decryption-Key-Share" # Example
+```
+
+
+### ThresholdKeyShare
+```toml
+ThresholdKeyShare = "A-Threshold-Decryption-Key-Share" # Example
+```
+ThresholdKeyShare used by the threshold decryption OCR plugin
+
+## CRE.Streams
+```toml
+[CRE.Streams]
+ApiKey = "streams-api-key" # Example
+ApiSecret = "streams-api-secret" # Example
+```
+
+
+### ApiKey
+```toml
+ApiKey = "streams-api-key" # Example
+```
+ApiKey is the API key used for authenticating with the CLL Data Streams SDK.
+
+### ApiSecret
+```toml
+ApiSecret = "streams-api-secret" # Example
+```
+ApiSecret is the API secret used for authenticating with the CLL Data Streams SDK.
 

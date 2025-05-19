@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/upkeep_counter_wrapper"
 )
 
 // UpkeepCounterEvents print out emitted events and write to csv file
@@ -29,7 +29,7 @@ func (k *Keeper) UpkeepCounterEvents(ctx context.Context, hexAddr string, fromBl
 	if err != nil {
 		log.Fatalln("Failed to get upkeep iterator", err)
 	}
-	filename := fmt.Sprintf("%s.csv", hexAddr)
+	filename := hexAddr + ".csv"
 	file, err := os.Create(filename)
 	if err != nil {
 		log.Fatalln("failed to open file", err)
@@ -48,14 +48,14 @@ func (k *Keeper) UpkeepCounterEvents(ctx context.Context, hexAddr string, fromBl
 	for upkeepIterator.Next() {
 		fmt.Printf("%s,%s,%s,%s,%s\n",
 			upkeepIterator.Event.From,
-			upkeepIterator.Event.InitialBlock,
-			upkeepIterator.Event.LastBlock,
+			upkeepIterator.Event.InitialTimestamp,
+			upkeepIterator.Event.LastTimestamp,
 			upkeepIterator.Event.PreviousBlock,
 			upkeepIterator.Event.Counter,
 		)
 		row = []string{upkeepIterator.Event.From.String(),
-			upkeepIterator.Event.InitialBlock.String(),
-			upkeepIterator.Event.LastBlock.String(),
+			upkeepIterator.Event.InitialTimestamp.String(),
+			upkeepIterator.Event.LastTimestamp.String(),
 			upkeepIterator.Event.PreviousBlock.String(),
 			upkeepIterator.Event.Counter.String()}
 		if err = w.Write(row); err != nil {

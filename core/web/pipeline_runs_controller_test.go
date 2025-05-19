@@ -5,23 +5,27 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/freeport"
+
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -30,10 +34,11 @@ import (
 func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 	t.Parallel()
 
+	ctx := testutils.Context(t)
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(2 * time.Second)
-		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(10 * time.Millisecond)
+		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(2 * time.Second)
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(10 * time.Millisecond)
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
@@ -44,22 +49,20 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 		defer r.Body.Close()
 		bs, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
-		require.Equal(t, `{"result":"12345"}`, string(bs))
+		require.JSONEq(t, `{"result":"12345"}`, string(bs))
 	})
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL}, app.GetConfig())
+	_, bridge := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{URL: mockServer.URL})
 
 	// Add the job
-	var uuid uuid.UUID
+	uuid := uuid.New()
 	{
-		tomlStr := fmt.Sprintf(testspecs.WebhookSpecWithBody, bridge.Name.String())
-		jb, err := webhook.ValidatedWebhookSpec(tomlStr, app.GetExternalInitiatorManager())
+		tomlStr := fmt.Sprintf(testspecs.WebhookSpecWithBodyTemplate, uuid, bridge.Name.String())
+		jb, err := webhook.ValidatedWebhookSpec(ctx, tomlStr, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
 		err = app.AddJobV2(testutils.Context(t), &jb)
 		require.NoError(t, err)
-
-		uuid = jb.ExternalJobID
 	}
 
 	// Give the job.Spawner ample time to discover the job and start its service
@@ -68,7 +71,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 
 	// Make the request
 	{
-		client := app.NewHTTPClient(cltest.APIEmailAdmin)
+		client := app.NewHTTPClient(nil)
 		body := strings.NewReader(`{"data":{"result":"123.45"}}`)
 		response, cleanup := client.Post("/v2/jobs/"+uuid.String()+"/runs", body)
 		defer cleanup()
@@ -87,10 +90,11 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	t.Parallel()
 
+	ctx := testutils.Context(t)
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(2 * time.Second)
-		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(10 * time.Millisecond)
+		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(2 * time.Second)
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(10 * time.Millisecond)
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
@@ -99,28 +103,26 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	// Setup the bridges
 	mockServer := cltest.NewHTTPMockServer(t, 200, "POST", `{"data":{"result":"123.45"}}`)
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL}, app.GetConfig())
+	_, bridge := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{URL: mockServer.URL})
 
 	mockServer = cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
 		defer r.Body.Close()
 		bs, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
-		require.Equal(t, `{"result":"12345"}`, string(bs))
+		require.JSONEq(t, `{"result":"12345"}`, string(bs))
 	})
 
-	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL}, app.GetConfig())
+	_, submitBridge := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{URL: mockServer.URL})
 
 	// Add the job
-	var uuid uuid.UUID
+	uuid := uuid.New()
 	{
-		tomlStr := fmt.Sprintf(testspecs.WebhookSpecNoBody, bridge.Name.String(), submitBridge.Name.String())
-		jb, err := webhook.ValidatedWebhookSpec(tomlStr, app.GetExternalInitiatorManager())
+		tomlStr := testspecs.GetWebhookSpecNoBody(uuid, bridge.Name.String(), submitBridge.Name.String())
+		jb, err := webhook.ValidatedWebhookSpec(ctx, tomlStr, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
 		err = app.AddJobV2(testutils.Context(t), &jb)
 		require.NoError(t, err)
-
-		uuid = jb.ExternalJobID
 	}
 
 	// Give the job.Spawner ample time to discover the job and start its service
@@ -129,7 +131,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 
 	// Make the request (authorized as user)
 	{
-		client := app.NewHTTPClient(cltest.APIEmailAdmin)
+		client := app.NewHTTPClient(nil)
 		response, cleanup := client.Post("/v2/jobs/"+uuid.String()+"/runs", nil)
 		defer cleanup()
 		cltest.AssertServerResponse(t, response, http.StatusOK)
@@ -149,7 +151,12 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
-	response, cleanup := client.Get("/v2/pipeline/runs")
+	url := url.URL{Path: "/v2/pipeline/runs"}
+	query := url.Query()
+	query.Set("evmChainID", cltest.FixtureChainID.String())
+	url.RawQuery = query.Encode()
+
+	response, cleanup := client.Get(url.String())
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -172,7 +179,7 @@ func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
-	response, cleanup := client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID) + "/runs")
+	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs")
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -195,7 +202,7 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 func TestPipelineRunsController_Index_Pagination(t *testing.T) {
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
-	response, cleanup := client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID) + "/runs?page=1&size=1")
+	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs?page=1&size=1")
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -217,7 +224,7 @@ func TestPipelineRunsController_Index_Pagination(t *testing.T) {
 func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
-	response, cleanup := client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID) + "/runs/" + fmt.Sprintf("%v", runIDs[0]))
+	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs/" + strconv.FormatInt(runIDs[0], 10))
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -237,7 +244,7 @@ func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 	t.Parallel()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	response, cleanup := client.Get("/v2/jobs/1/runs/invalid-run-ID")
 	defer cleanup()
@@ -246,30 +253,33 @@ func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 
 func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int32, []int64) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.OCR.Enabled = ptr(true)
-		c.P2P.V1.Enabled = ptr(true)
+		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
 		c.EVM[0].NonceAutoSync = ptr(false)
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
 	})
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient, cltest.DefaultP2PKey)
-	require.NoError(t, app.Start(testutils.Context(t)))
-	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	require.NoError(t, app.Start(ctx))
+	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
+	client := app.NewHTTPClient(nil)
 
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
+	nameAndExternalJobID := uuid.New()
 	sp := fmt.Sprintf(`
 	type               = "offchainreporting"
 	schemaVersion      = 1
-	externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
+	externalJobID       = "%s"
+	name               = "%s"
 	contractAddress    = "%s"
-	p2pBootstrapPeers  = [
-		"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
-	]
-	p2pv2Bootstrappers = []
+	evmChainID		   = "0"
+	p2pv2Bootstrappers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
 	keyBundleID        = "%s"
 	transmitterAddress = "%s"
 	observationSource = """
@@ -290,7 +300,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 
 		answer [type=median index=0];
 	"""
-	`, testutils.NewAddress().Hex(), cltest.DefaultOCRKeyBundleID, key.Address.Hex())
+	`, nameAndExternalJobID, nameAndExternalJobID, testutils.NewAddress().Hex(), cltest.DefaultOCRKeyBundleID, key.Address.Hex())
 	var jb job.Job
 	err := toml.Unmarshal([]byte(sp), &jb)
 	require.NoError(t, err)

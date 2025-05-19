@@ -1,17 +1,17 @@
 version: 2
 updates:
   - package-ecosystem: gomod
-    directory: '/'
+    directory: "/"
     schedule:
       interval: monthly
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 0
     ignore:
       # Old versions are pinned for libocr.
       - dependency-name: github.com/libp2p/go-libp2p-core
       - dependency-name: github.com/libp2p/go-libp2p-peerstore
       - dependency-name: github.com/multiformats/go-multiaddr
   - package-ecosystem: npm
-    directory: '/'
+    directory: "/"
     schedule:
       interval: monthly
     open-pull-requests-limit: 0
@@ -24,7 +24,47 @@ updates:
         versions:
           - 4.17.21
   - package-ecosystem: github-actions
-    directory: '/'
+    directory: "/"
     schedule:
-      interval: daily
+      interval: monthly
+    open-pull-requests-limit: 0
+  - package-ecosystem: gomod
+    directory: "/lib"
+    schedule:
+      interval: "daily"
     open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "ctf"
+  - package-ecosystem: gomod
+    directory: "/wasp"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "ctf"
+  - package-ecosystem: gomod
+    directory: "/seth"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "ctf"
+  - package-ecosystem: gomod
+    directory: "/havoc"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "ctf"
+  - package-ecosystem: gomod
+    directory: "/k8s-test-runner"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "ctf"

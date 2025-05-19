@@ -7,15 +7,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out Code
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
-      - name: Run actionlint
-        uses: reviewdog/action-actionlint@b6feb003955cad286985c42e7047f4567a798f3f # v1.36.0
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+        uses: actions/checkout@v4
         with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Validate Github Action Workflows
-        continue-on-error: true
+          persist-credentials: false
+      - name: Run actionlint
+        uses: reviewdog/action-actionlint@c6ee1eb0a5d47b2af53a203652b5dac0b6c4016e # v1.43.0

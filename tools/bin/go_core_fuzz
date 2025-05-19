@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+set -o pipefail
+set +e
+
+SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
+OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
+FUZZ_TIMEOUT_MINUTES=${FUZZ_TIMEOUT_MINUTES:-"4"}
+
+TOTAL_SECONDS=$((FUZZ_TIMEOUT_MINUTES * 60))
+if (( TOTAL_SECONDS >= 180 )); then
+    # Allow for a buffer between the timeout and the fuzz test runtime
+    FUZZ_SECONDS=$((TOTAL_SECONDS - 60))
+else
+    echo "Increase FUZZ_TIMEOUT_MINUTES to >=3, received $FUZZ_TIMEOUT_MINUTES"
+    exit 1
+fi
+
+echo "total timeout minutes: $FUZZ_TIMEOUT_MINUTES"
+echo "fuzz seconds: $FUZZ_SECONDS"
+echo ""
+timeout "${FUZZ_TIMEOUT_MINUTES}"m ./fuzz/fuzz_all_native.py --ci --seconds "$FUZZ_SECONDS" --go_module_root ./ | tee $OUTPUT_FILE | grep -Ev '\[no test files\]|\[no tests to run\]'
+EXITCODE=${PIPESTATUS[0]}
+
+# Assert no known sensitive strings present in test logger output
+printf "\n----------------------------------------------\n\n"
+echo "Beginning check of output logs for sensitive strings"
+$SCRIPT_PATH/scrub_logs $OUTPUT_FILE
+if [[ $? != 0 ]]; then
+  exit 1
+fi
+
+echo "Exit code: $EXITCODE"
+
+case $EXITCODE in
+    0)
+        echo "All fuzz tests passed!"
+        ;;
+    124)
+        echo "ERROR: Fuzz tests timed out after ${FUZZ_TIMEOUT_MINUTES} minutes"
+        ;;
+    125)
+        echo "ERROR: The timeout command itself failed"
+        ;;
+    126)
+        echo "ERROR: The fuzz test command could not be executed"
+        ;;
+    127)
+        echo "ERROR: The fuzz test command was not found"
+        ;;
+    *)
+        if [[ $EXITCODE != 0 ]]; then
+            echo "ERROR: Fuzz tests failed with exit code $EXITCODE"
+            echo "Encountered fuzz test failures. Logging all failing fuzz inputs:"
+            find . -type f|fgrep '/testdata/fuzz/'|while read f; do echo $f; cat $f; done
+        fi
+        ;;
+esac
+
+exit $EXITCODE

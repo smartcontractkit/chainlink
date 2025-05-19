@@ -1,0 +1,6 @@
+# BSC uses Clique consensus with ~3s block times
+# Clique offers finality within (N/2)+1 blocks where N is number of signers
+# There are 21 BSC validators so theoretically finality should occur after 21/2+1 = 11 blocks
+ChainID = '56'
+# Keeping this >> 11 because it's not expensive and gives us a safety margin
+FinalityDepth = 50

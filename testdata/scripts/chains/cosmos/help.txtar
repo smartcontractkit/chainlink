@@ -1,0 +1,16 @@
+exec chainlink chains cosmos --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink chains cosmos - Commands for handling cosmos chains
+
+USAGE:
+   chainlink chains cosmos command [command options] [arguments...]
+
+COMMANDS:
+   list  List all existing cosmos chains
+
+OPTIONS:
+   --help, -h  show help
+   

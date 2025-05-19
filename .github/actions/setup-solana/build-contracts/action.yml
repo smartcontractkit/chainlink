@@ -1,0 +1,83 @@
+name: Solana build contracts
+description: Build Solana contracts
+inputs:
+  github-token:
+    description: "The Github token to use for authentication"
+    required: true
+    default: ${{ github.token }}
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout chainlink-ccip
+      uses: actions/checkout@v4
+      with:
+        repository: smartcontractkit/chainlink-ccip
+        path: chainlink-ccip
+        fetch-depth: 0
+    - name: Checkout branch based on CCIP Revision
+      id: get_checkout_ccip_chains_solana_revision
+      shell: bash
+      run: |
+        # get the short revision of the chainlink-ccip solana contracts dependency from the go.mod file
+        short_revision=$(grep "github.com/smartcontractkit/chainlink-ccip/chains/solana" deployment/go.mod | awk '{print $2}' | cut -d'-' -f3)
+
+        # since the github action checkout action doesn't support short revisions, we have to do it manually
+        cd chainlink-ccip
+        git checkout $short_revision
+
+        echo "CHAINLINK_CCIP_COMMIT_SHORT=${short_revision}" >> $GITHUB_ENV
+        echo "ARTIFACT_NAME=solana-ccip-${short_revision}" >> $GITHUB_ENV
+    - name: Check if artifact exists
+      id: check_artifact
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        ARTIFACT_RESPONSE=$(gh api repos/${{ github.repository }}/actions/artifacts?name=${{ env.ARTIFACT_NAME }})
+        ARTIFACT_FOUND=false
+        for artifact in $(echo "$ARTIFACT_RESPONSE" | jq -r '.artifacts[] | @json'); do
+          # Extract relevant fields directly from JSON
+          ARTIFACT_NAME=$(echo "$artifact" | jq -r '.name')
+          ARTIFACT_EXPIRED=$(echo "$artifact" | jq -r '.expired')
+          ARTIFACT_DOWNLOAD_URL=$(echo "$artifact" | jq -r '.archive_download_url')
+
+          if [[ "$ARTIFACT_NAME" == "${{ env.ARTIFACT_NAME }}" && "$ARTIFACT_EXPIRED" == false ]]; then
+            # First non-expired artifact found, set variables and break loop
+            echo "Artifact found"
+            echo "exists=true" >> $GITHUB_ENV
+            echo "ARTIFACT_DOWNLOAD_URL=$ARTIFACT_DOWNLOAD_URL" >> $GITHUB_ENV
+            ARTIFACT_FOUND=true
+            break
+          fi
+        done
+
+        if [[ "$ARTIFACT_FOUND" == false ]]; then
+          echo "Artifact not found or expired"
+          echo "exists=false" >> $GITHUB_ENV
+        fi
+
+
+    - name: Download artifact if it exists
+      if: env.exists == 'true'
+      shell: bash
+      run: |
+        curl -L -H "Authorization: token ${{ inputs.github-token }}" -o artifact.zip ${{ env.ARTIFACT_DOWNLOAD_URL }}
+        unzip artifact.zip -d /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
+
+    - name: Build artifact if not found
+      if: env.exists == 'false'
+      shell: bash
+      run: |
+        cd chainlink-ccip/chains/solana
+        make docker-build-contracts
+         # copy the built contracts so they can be used in the chainlink tests
+        mkdir -p /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
+        cp contracts/target/deploy/*.so /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
+    - name: Upload artifact (if newly built)
+      if: env.exists == 'false'
+      continue-on-error: true # don't fail if the upload fails, it might conflict with another job
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.ARTIFACT_NAME }}
+        path: chainlink-ccip/chains/solana/contracts/target/deploy/*.so

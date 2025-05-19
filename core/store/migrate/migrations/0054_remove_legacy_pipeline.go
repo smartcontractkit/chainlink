@@ -1,6 +1,7 @@
 package migrations
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/pkg/errors"
@@ -27,30 +28,28 @@ ALTER TABLE log_broadcasts RENAME COLUMN job_id_v2 TO job_id;
 ALTER TABLE job_spec_errors_v2 RENAME TO job_spec_errors;
 `
 
-func init() {
-	goose.AddMigration(Up54, Down54)
+type queryer interface {
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
 
-// nolint
-func Up54(tx *sql.Tx) error {
-	if err := CheckNoLegacyJobs(tx); err != nil {
+func Up54(ctx context.Context, tx *sql.Tx) error {
+	if err := CheckNoLegacyJobs(ctx, tx); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(up54); err != nil {
+	if _, err := tx.ExecContext(ctx, up54); err != nil {
 		return err
 	}
 	return nil
 }
 
-// nolint
-func Down54(tx *sql.Tx) error {
+func Down54(ctx context.Context, tx *sql.Tx) error {
 	return errors.New("irreversible migration")
 }
 
-// CheckNoLegacyJobs ensures that there are are no legacy job specs
-func CheckNoLegacyJobs(tx *sql.Tx) error {
+// CheckNoLegacyJobs ensures that there are no legacy job specs
+func CheckNoLegacyJobs(ctx context.Context, ds queryer) error {
 	var count int
-	if err := tx.QueryRow(`SELECT COUNT(*) FROM job_specs WHERE deleted_at IS NULL`).Scan(&count); err != nil {
+	if err := ds.QueryRowContext(ctx, `SELECT COUNT(*) FROM job_specs WHERE deleted_at IS NULL`).Scan(&count); err != nil {
 		return err
 	}
 	if count > 0 {
@@ -58,3 +57,5 @@ func CheckNoLegacyJobs(tx *sql.Tx) error {
 	}
 	return nil
 }
+
+var Migration54 = goose.NewGoMigration(54, &goose.GoFunc{RunTx: Up54}, &goose.GoFunc{RunTx: Down54})

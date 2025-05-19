@@ -1,0 +1,22 @@
+dir: "{{ .InterfaceDir }}/mocks"
+mockname: "{{ .InterfaceName }}"
+outpkg: mocks
+filename: "{{ .InterfaceName | snakecase }}.go"
+packages:
+  github.com/smartcontractkit/chainlink-deployments-framework/deployment:
+      config:
+        srcpkg: github.com/smartcontractkit/chainlink-deployments-framework/deployment
+        mockname: "Mock{{ .InterfaceName }}"
+        filename: offchain_client_mock.go
+        inpackage: true
+        dir: ./mocks/
+      interfaces:
+        OffchainClient:
+
+  github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper:
+    config:
+      dir: common/view/v1_0/mocks/
+      filename: workflow_registry_interface.go
+      outpkg: mocks
+    interfaces:
+      WorkflowRegistryInterface:

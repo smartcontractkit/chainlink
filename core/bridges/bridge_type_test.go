@@ -2,6 +2,7 @@ package bridges_test
 
 import (
 	"encoding/json"
+	"math"
 	"math/big"
 	"math/rand"
 	"net/url"
@@ -9,9 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common/math"
-
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"

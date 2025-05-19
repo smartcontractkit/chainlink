@@ -1,0 +1,75 @@
+// this file is auto-generated. DO NOT EDIT
+package types
+
+import (
+	"math/big"
+	"reflect"
+
+	"github.com/fxamacker/cbor/v2"
+	
+	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+)
+
+type SizedBigInt interface {
+	Verify() error
+	private()
+}
+
+var sizedBigIntType = reflect.TypeOf((*SizedBigInt)(nil)).Elem()
+func SizedBigIntType() reflect.Type {
+	return sizedBigIntType
+}
+
+{{ range . }}
+type {{.Prefix}}int{{.Size}} big.Int
+func (i *{{.Prefix}}int{{.Size}}) UnmarshalCBOR(input []byte) error {
+	bi := (*big.Int)(i)
+	if err := cbor.Unmarshal(input, bi); err != nil {
+		return err
+	}
+
+	return i.Verify()
+}
+
+func (i *{{.Prefix}}int{{.Size}}) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
+func (i *{{.Prefix}}int{{.Size}}) UnmarshalText(input []byte) error {
+	bi := (*big.Int)(i)
+	if _, ok := bi.SetString(string(input), 10); !ok {
+		return types.ErrInvalidType
+	}
+
+	return i.Verify()
+}
+
+func (i *{{.Prefix}}int{{.Size}}) MarshalText() ([]byte, error) {
+    bi := (*big.Int)(i)
+    return []byte(bi.String()), nil
+}
+
+func (i {{.Prefix}}int{{.Size}}) Verify() error {
+	bi := (big.Int)(i)
+	{{ if .Signed }}
+	if !codec.FitsInNBitsSigned({{.Size}}, &bi) {
+		return types.ErrInvalidType
+	}
+	{{ else }}
+	if bi.BitLen() > {{.Size}} || bi.Sign() < 0 {
+		return types.ErrInvalidType
+	}
+	{{ end }}
+	return nil
+}
+
+func (i {{.Prefix}}int{{.Size}}) private() {}
+
+func init() {
+	typeMap["{{.Prefix}}int{{.Size}}"] = &ABIEncodingType {
+		native: reflect.TypeOf((*big.Int)(nil)),
+		checked: reflect.TypeOf((*{{.Prefix}}int{{.Size}})(nil)),
+	}
+}
+{{ end }}

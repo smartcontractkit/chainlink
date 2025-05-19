@@ -9,16 +9,16 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	ocrcommon "github.com/smartcontractkit/libocr/commontypes"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/sqlx"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type db struct {
-	q            pg.Q
+	ds           sqlutil.DataSource
 	oracleSpecID int32
+	pluginID     int32
 	lggr         logger.SugaredLogger
 }
 
@@ -27,12 +27,11 @@ var (
 )
 
 // NewDB returns a new DB scoped to this oracleSpecID
-func NewDB(sqlxDB *sqlx.DB, oracleSpecID int32, lggr logger.Logger, cfg pg.QConfig) *db {
-	namedLogger := lggr.Named("OCR2.DB")
-
+func NewDB(ds sqlutil.DataSource, oracleSpecID int32, pluginID int32, lggr logger.Logger) *db {
 	return &db{
-		q:            pg.NewQ(sqlxDB, namedLogger, cfg),
+		ds:           ds,
 		oracleSpecID: oracleSpecID,
+		pluginID:     pluginID,
 		lggr:         logger.Sugared(lggr),
 	}
 }
@@ -49,7 +48,7 @@ func (d *db) ReadState(ctx context.Context, cd ocrtypes.ConfigDigest) (ps *ocrty
 	var tmp []int64
 	var highestSentEpochTmp int64
 
-	err = d.q.QueryRowxContext(ctx, stmt, d.oracleSpecID, cd).Scan(&ps.Epoch, &highestSentEpochTmp, pq.Array(&tmp))
+	err = d.ds.QueryRowxContext(ctx, stmt, d.oracleSpecID, cd).Scan(&ps.Epoch, &highestSentEpochTmp, pq.Array(&tmp))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -96,7 +95,9 @@ func (d *db) WriteState(ctx context.Context, cd ocrtypes.ConfigDigest, state ocr
 		 NOW()
 		)`
 
-	_, err := d.q.WithOpts(pg.WithLongQueryTimeout()).ExecContext(
+	ctx, cancel := context.WithTimeout(sqlutil.WithoutDefaultTimeout(ctx), time.Minute)
+	defer cancel()
+	_, err := d.ds.ExecContext(
 		ctx, stmt, d.oracleSpecID, cd, state.Epoch, state.HighestSentEpoch, pq.Array(&highestReceivedEpoch),
 	)
 
@@ -115,7 +116,7 @@ func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err er
 		offchain_config_version,
 		offchain_config
 	FROM ocr2_contract_configs
-	WHERE ocr2_oracle_spec_id = $1
+	WHERE ocr2_oracle_spec_id = $1 AND plugin_id = $2
 	LIMIT 1`
 
 	c = new(ocrtypes.ContractConfig)
@@ -124,7 +125,7 @@ func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err er
 	signers := [][]byte{}
 	transmitters := [][]byte{}
 
-	err = d.q.QueryRowx(stmt, d.oracleSpecID).Scan(
+	err = d.ds.QueryRowxContext(ctx, stmt, d.oracleSpecID, d.pluginID).Scan(
 		&digest,
 		&c.ConfigCount,
 		(*pq.ByteaArray)(&signers),
@@ -165,6 +166,7 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 	stmt := `
 	INSERT INTO ocr2_contract_configs (
 		ocr2_oracle_spec_id,
+		plugin_id,
 		config_digest,
 		config_count,
 		signers,
@@ -176,8 +178,8 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 		created_at,
 		updated_at
 	)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
-	ON CONFLICT (ocr2_oracle_spec_id) DO UPDATE SET
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+	ON CONFLICT (ocr2_oracle_spec_id, plugin_id) DO UPDATE SET
 		config_digest = EXCLUDED.config_digest,
 		config_count = EXCLUDED.config_count,
 		signers = EXCLUDED.signers,
@@ -188,8 +190,9 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 		offchain_config = EXCLUDED.offchain_config,
 		updated_at = NOW()
 	`
-	_, err := d.q.ExecContext(ctx, stmt,
+	_, err := d.ds.ExecContext(ctx, stmt,
 		d.oracleSpecID,
+		d.pluginID,
 		c.ConfigDigest,
 		c.ConfigCount,
 		pq.ByteaArray(signers),
@@ -216,7 +219,7 @@ func (d *db) StorePendingTransmission(ctx context.Context, t ocrtypes.ReportTime
 	copy(digest, t.ConfigDigest[:])
 
 	extraHash := make([]byte, 32)
-	copy(extraHash[:], tx.ExtraHash[:])
+	copy(extraHash, tx.ExtraHash[:])
 
 	stmt := `
 	INSERT INTO ocr2_pending_transmissions (
@@ -248,7 +251,7 @@ func (d *db) StorePendingTransmission(ctx context.Context, t ocrtypes.ReportTime
 		updated_at = NOW()
 	`
 
-	_, err := d.q.ExecContext(ctx, stmt,
+	_, err := d.ds.ExecContext(ctx, stmt,
 		d.oracleSpecID,
 		digest,
 		t.Epoch,
@@ -275,7 +278,7 @@ func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, cd ocrtyp
 	FROM ocr2_pending_transmissions
 	WHERE ocr2_oracle_spec_id = $1 AND config_digest = $2
 	`
-	rows, err := d.q.QueryxContext(ctx, stmt, d.oracleSpecID, cd)
+	rows, err := d.ds.QueryxContext(ctx, stmt, d.oracleSpecID, cd)
 	if err != nil {
 		return nil, errors.Wrap(err, "PendingTransmissionsWithConfigDigest failed to query rows")
 	}
@@ -321,7 +324,9 @@ func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, cd ocrtyp
 }
 
 func (d *db) DeletePendingTransmission(ctx context.Context, t ocrtypes.ReportTimestamp) (err error) {
-	_, err = d.q.WithOpts(pg.WithLongQueryTimeout()).ExecContext(ctx, `
+	ctx, cancel := context.WithTimeout(sqlutil.WithoutDefaultTimeout(ctx), time.Minute)
+	defer cancel()
+	_, err = d.ds.ExecContext(ctx, `
 DELETE FROM ocr2_pending_transmissions
 WHERE ocr2_oracle_spec_id = $1 AND  config_digest = $2 AND epoch = $3 AND round = $4
 `, d.oracleSpecID, t.ConfigDigest, t.Epoch, t.Round)
@@ -332,12 +337,43 @@ WHERE ocr2_oracle_spec_id = $1 AND  config_digest = $2 AND epoch = $3 AND round 
 }
 
 func (d *db) DeletePendingTransmissionsOlderThan(ctx context.Context, t time.Time) (err error) {
-	_, err = d.q.WithOpts(pg.WithLongQueryTimeout()).ExecContext(ctx, `
+	ctx, cancel := context.WithTimeout(sqlutil.WithoutDefaultTimeout(ctx), time.Minute)
+	defer cancel()
+	_, err = d.ds.ExecContext(ctx, `
 DELETE FROM ocr2_pending_transmissions
 WHERE ocr2_oracle_spec_id = $1 AND time < $2
 `, d.oracleSpecID, t)
 
 	err = errors.Wrap(err, "DeletePendingTransmissionsOlderThan failed")
+
+	return
+}
+
+func (d *db) ReadProtocolState(ctx context.Context, configDigest ocrtypes.ConfigDigest, key string) (value []byte, err error) {
+	err = d.ds.GetContext(ctx, &value, `
+SELECT value FROM ocr_protocol_states
+WHERE config_digest = $1 AND key = $2;
+`, configDigest, key)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	err = errors.Wrapf(err, "ReadProtocolState failed for job %d", d.oracleSpecID)
+
+	return
+}
+
+func (d *db) WriteProtocolState(ctx context.Context, configDigest ocrtypes.ConfigDigest, key string, value []byte) (err error) {
+	if value == nil {
+		_, err = d.ds.ExecContext(ctx, `DELETE FROM ocr_protocol_states WHERE config_digest = $1 AND key = $2;`, configDigest, key)
+	} else {
+		_, err = d.ds.ExecContext(ctx, `
+INSERT INTO ocr_protocol_states (config_digest, key, value) VALUES ($1, $2, $3)
+ON CONFLICT (config_digest, key) DO UPDATE SET value = $3;`, configDigest, key, value)
+	}
+
+	err = errors.Wrapf(err, "WriteProtocolState failed for job %d", d.oracleSpecID)
 
 	return
 }

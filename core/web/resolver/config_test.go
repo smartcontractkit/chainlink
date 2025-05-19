@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	_ "embed"
 	"encoding/json"
 	"fmt"
@@ -8,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
@@ -39,10 +39,9 @@ func TestResolver_ConfigV2(t *testing.T) {
 		{
 			name:          "empty",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				var opts chainlink.GeneralConfigOpts
-				require.NoError(f.t, opts.ParseTOML("", ""))
-				cfg, err := opts.New(logger.TestLogger(f.t))
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				opts := chainlink.GeneralConfigOpts{}
+				cfg, err := opts.New()
 				require.NoError(t, err)
 				f.App.On("GetConfig").Return(cfg)
 			},
@@ -52,10 +51,12 @@ func TestResolver_ConfigV2(t *testing.T) {
 		{
 			name:          "full",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				var opts chainlink.GeneralConfigOpts
-				require.NoError(f.t, opts.ParseTOML(configFull, ""))
-				cfg, err := opts.New(logger.TestLogger(f.t))
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				opts := chainlink.GeneralConfigOpts{
+					ConfigStrings:  []string{configFull},
+					SecretsStrings: []string{},
+				}
+				cfg, err := opts.New()
 				require.NoError(t, err)
 				f.App.On("GetConfig").Return(cfg)
 			},
@@ -65,10 +66,12 @@ func TestResolver_ConfigV2(t *testing.T) {
 		{
 			name:          "partial",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				var opts chainlink.GeneralConfigOpts
-				require.NoError(f.t, opts.ParseTOML(configMulti, ""))
-				cfg, err := opts.New(logger.TestLogger(f.t))
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				opts := chainlink.GeneralConfigOpts{
+					ConfigStrings:  []string{configMulti},
+					SecretsStrings: []string{},
+				}
+				cfg, err := opts.New()
 				require.NoError(t, err)
 				f.App.On("GetConfig").Return(cfg)
 			},

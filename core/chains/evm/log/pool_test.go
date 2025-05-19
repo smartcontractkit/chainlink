@@ -4,13 +4,12 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 var (
@@ -49,7 +48,7 @@ var (
 
 func TestUnit_AddLog(t *testing.T) {
 	t.Parallel()
-	var p iLogPool = newLogPool(logger.TestLogger(t))
+	var p iLogPool = newLogPool(logger.Test(t))
 
 	blockHash := common.BigToHash(big.NewInt(1))
 	l1 := types.Log{
@@ -105,7 +104,7 @@ func TestUnit_AddLog(t *testing.T) {
 
 func TestUnit_GetAndDeleteAll(t *testing.T) {
 	t.Parallel()
-	var p iLogPool = newLogPool(logger.TestLogger(t))
+	var p iLogPool = newLogPool(logger.Test(t))
 	p.addLog(L1)
 	p.addLog(L1) // duplicate an add
 	p.addLog(L21)
@@ -139,7 +138,7 @@ func TestUnit_GetAndDeleteAll(t *testing.T) {
 
 func TestUnit_GetLogsToSendWhenEmptyPool(t *testing.T) {
 	t.Parallel()
-	var p iLogPool = newLogPool(logger.TestLogger(t))
+	var p iLogPool = newLogPool(logger.Test(t))
 	logsOnBlocks, minBlockNumToSend := p.getLogsToSend(1)
 	assert.Equal(t, int64(0), minBlockNumToSend)
 	assert.ElementsMatch(t, []logsOnBlock{}, logsOnBlocks)
@@ -206,7 +205,7 @@ func TestUnit_GetLogsToSend(t *testing.T) {
 		},
 	}
 
-	var p iLogPool = newLogPool(logger.TestLogger(t))
+	var p iLogPool = newLogPool(logger.Test(t))
 	p.addLog(L1)
 	p.addLog(L21)
 	p.addLog(L3)
@@ -222,7 +221,7 @@ func TestUnit_GetLogsToSend(t *testing.T) {
 
 func TestUnit_DeleteOlderLogsWhenEmptyPool(t *testing.T) {
 	t.Parallel()
-	var p iLogPool = newLogPool(logger.TestLogger(t))
+	var p iLogPool = newLogPool(logger.Test(t))
 	keptDepth := p.deleteOlderLogs(1)
 	var expectedKeptDepth *int64
 	require.Equal(t, expectedKeptDepth, keptDepth)
@@ -286,7 +285,7 @@ func TestUnit_DeleteOlderLogs(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var p iLogPool = newLogPool(logger.TestLogger(t))
+			var p iLogPool = newLogPool(logger.Test(t))
 			p.addLog(L1)
 			p.addLog(L21)
 			p.addLog(L3)
@@ -302,7 +301,7 @@ func TestUnit_DeleteOlderLogs(t *testing.T) {
 
 func TestUnit_RemoveBlockWhenEmptyPool(t *testing.T) {
 	t.Parallel()
-	var p iLogPool = newLogPool(logger.TestLogger(t))
+	var p iLogPool = newLogPool(logger.Test(t))
 	p.removeBlock(L1.BlockHash, L1.BlockNumber)
 }
 
@@ -343,7 +342,7 @@ func TestUnit_RemoveBlock(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var p iLogPool = newLogPool(logger.TestLogger(t))
+			var p iLogPool = newLogPool(logger.Test(t))
 			p.addLog(L21)
 			p.addLog(L22)
 			p.addLog(L23)

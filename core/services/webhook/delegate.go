@@ -4,15 +4,16 @@ import (
 	"context"
 	"sync"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type (
@@ -20,10 +21,11 @@ type (
 		webhookJobRunner         *webhookJobRunner
 		externalInitiatorManager ExternalInitiatorManager
 		lggr                     logger.Logger
+		stopCh                   services.StopChan
 	}
 
 	JobRunner interface {
-		RunJob(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
+		RunJob(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error)
 	}
 )
 
@@ -35,6 +37,7 @@ func NewDelegate(runner pipeline.Runner, externalInitiatorManager ExternalInitia
 		externalInitiatorManager: externalInitiatorManager,
 		webhookJobRunner:         newWebhookJobRunner(runner, lggr),
 		lggr:                     lggr,
+		stopCh:                   make(services.StopChan),
 	}
 }
 
@@ -48,28 +51,32 @@ func (d *Delegate) JobType() job.Type {
 
 func (d *Delegate) BeforeJobCreated(spec job.Job) {}
 func (d *Delegate) AfterJobCreated(jb job.Job) {
-	err := d.externalInitiatorManager.Notify(*jb.WebhookSpecID)
+	ctx, cancel := d.stopCh.NewCtx()
+	defer cancel()
+	err := d.externalInitiatorManager.Notify(ctx, *jb.WebhookSpecID)
 	if err != nil {
 		d.lggr.Errorw("Webhook delegate AfterJobCreated errored",
-			"error", err,
+			"err", err,
 			"jobID", jb.ID,
 		)
 	}
 }
 
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {
-	err := d.externalInitiatorManager.DeleteJob(*spec.WebhookSpecID)
+	ctx, cancel := d.stopCh.NewCtx()
+	defer cancel()
+	err := d.externalInitiatorManager.DeleteJob(ctx, *spec.WebhookSpecID)
 	if err != nil {
 		d.lggr.Errorw("Webhook delegate OnDeleteJob errored",
-			"error", err,
+			"err", err,
 			"jobID", spec.ID,
 		)
 	}
 }
-func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
 	service := &pseudoService{
 		spec:             spec,
 		webhookJobRunner: d.webhookJobRunner,
@@ -111,7 +118,7 @@ func newWebhookJobRunner(runner pipeline.Runner, lggr logger.Logger) *webhookJob
 
 type registeredJob struct {
 	job.Job
-	chRemove chan struct{}
+	chRemove services.StopChan
 }
 
 func (r *webhookJobRunner) addSpec(spec job.Job) error {
@@ -144,7 +151,7 @@ func (r *webhookJobRunner) spec(externalJobID uuid.UUID) (registeredJob, bool) {
 
 var ErrJobNotExists = errors.New("job does not exist")
 
-func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error) {
+func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error) {
 	spec, exists := r.spec(jobUUID)
 	if !exists {
 		return 0, ErrJobNotExists
@@ -155,7 +162,7 @@ func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, reques
 		"uuid", spec.ExternalJobID,
 	)
 
-	ctx, cancel := utils.WithCloseChan(ctx, spec.chRemove)
+	ctx, cancel := spec.chRemove.Ctx(ctx)
 	defer cancel()
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
@@ -172,9 +179,9 @@ func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, reques
 
 	run := pipeline.NewRun(*spec.PipelineSpec, vars)
 
-	_, err := r.runner.Run(ctx, &run, jobLggr, true, nil)
+	_, err := r.runner.Run(ctx, run, true, nil)
 	if err != nil {
-		jobLggr.Errorw("Error running pipeline for webhook job", "error", err)
+		jobLggr.Errorw("Error running pipeline for webhook job", "err", err)
 		return 0, err
 	}
 	if run.ID == 0 {

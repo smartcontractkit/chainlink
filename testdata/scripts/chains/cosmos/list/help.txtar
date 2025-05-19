@@ -1,0 +1,9 @@
+exec chainlink chains cosmos list --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink chains cosmos list - List all existing cosmos chains
+
+USAGE:
+   chainlink chains cosmos list [arguments...]

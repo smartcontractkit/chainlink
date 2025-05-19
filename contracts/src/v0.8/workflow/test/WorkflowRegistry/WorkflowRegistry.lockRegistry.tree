@@ -1,0 +1,6 @@
+WorkflowRegistry.lockRegistry
+├── when the caller is not the contract owner
+│   └── it should revert
+└── when the caller is the contract owner
+    ├── it should lock the registry
+    └── it should emit {RegistryLockedV1}

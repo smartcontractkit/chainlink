@@ -1,0 +1,176 @@
+run:
+  timeout: 15m
+  allow-parallel-runners: true
+linters:
+  enable:
+    - containedctx
+    - depguard
+    - errname
+    - errorlint
+    - exhaustive
+    - fatcontext
+    - ginkgolinter
+    - gocritic
+    - goimports
+    - gosec
+    - loggercheck
+    - mirror
+    - misspell
+    - noctx
+    - nolintlint
+    - perfsprint
+    - prealloc
+    - revive
+    - rowserrcheck
+    - spancheck
+    - sqlclosecheck
+    - testifylint
+    - unconvert
+    - whitespace
+linters-settings:
+  exhaustive:
+    default-signifies-exhaustive: true
+  goimports:
+    local-prefixes: github.com/smartcontractkit/chainlink
+  golint:
+    min-confidence: 0.999
+  gosec:
+    excludes:
+      - G101
+  govet:
+    enable:
+      - shadow
+    settings:
+      printf:
+        # Additionally check chainlink custom loggers
+        funcs:
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Tracef
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Debugf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Infof
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Warnf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Errorf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Criticalf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Panicf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Fatalf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.SugaredLogger).AssumptionViolationf
+          - (github.com/smartcontractkit/chainlink-common/pkg/logger.Logger).Debugf
+          - (github.com/smartcontractkit/chainlink-common/pkg/logger.Logger).Infof
+          - (github.com/smartcontractkit/chainlink-common/pkg/logger.Logger).Warnf
+          - (github.com/smartcontractkit/chainlink-common/pkg/logger.Logger).Errorf
+          - (github.com/smartcontractkit/chainlink-common/pkg/logger.Logger).Panicf
+          - (github.com/smartcontractkit/chainlink-common/pkg/logger.Logger).Fatalf
+          - (github.com/smartcontractkit/chainlink-common/pkg/logger.SugaredLogger).AssumptionViolationf
+          - (github.com/smartcontractkit/chainlink-common/pkg/logger.SugaredLogger).Tracef
+          - (github.com/smartcontractkit/chainlink-common/pkg/logger.SugaredLogger).Criticalf
+  revive:
+    confidence: 0.8
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+      - name: empty-block
+      - name: superfluous-else
+      # - name: unused-parameter
+      - name: unreachable-code
+      - name: redefines-builtin-id
+      - name: waitgroup-by-value
+      - name: unconditional-recursion
+      - name: struct-tag
+      - name: string-format
+      - name: string-of-int
+      - name: range-val-address
+      - name: range-val-in-closure
+      - name: modifies-value-receiver
+      - name: modifies-parameter
+      - name: identical-branches
+      - name: get-return
+      # - name: flag-parameter // probably one we should work on doing better at in the future
+      - name: early-return
+      - name: defer
+      - name: constant-logical-expr
+      - name: confusing-naming
+      - name: confusing-results
+      - name: bool-literal-in-expr
+      - name: atomic
+  depguard:
+    rules:
+      main:
+        list-mode: lax
+        deny:
+          - pkg: cosmossdk.io/errors
+            desc: Use the standard library instead
+          - pkg: github.com/gofrs/uuid
+            desc: Use github.com/google/uuid instead
+          - pkg: github.com/jackc/pgx3
+            desc: Use github.com/jackc/pgx4 instead
+          - pkg: github.com/jackc/pgx5
+            desc: Use github.com/jackc/pgx4 instead
+          - pkg: github.com/satori/go.uuid
+            desc: Use github.com/google/uuid instead
+          - pkg: github.com/test-go/testify/assert
+            desc: Use github.com/stretchr/testify/assert instead
+          - pkg: github.com/test-go/testify/mock
+            desc: Use github.com/stretchr/testify/mock instead
+          - pkg: github.com/test-go/testify/require
+            desc: Use github.com/stretchr/testify/require instead
+          - pkg: go.uber.org/multierr
+            desc: Use the standard library instead, for example https://pkg.go.dev/errors#Join
+          - pkg: gopkg.in/guregu/null.v1
+            desc: Use gopkg.in/guregu/null.v4 instead
+          - pkg: gopkg.in/guregu/null.v2
+            desc: Use gopkg.in/guregu/null.v4 instead
+          - pkg: gopkg.in/guregu/null.v3
+            desc: Use gopkg.in/guregu/null.v4 instead
+          - pkg: github.com/go-gorm/gorm
+            desc: Use github.com/jmoiron/sqlx directly instead
+          - pkg: github.com/smartcontractkit/chainlink-integrations/evm
+            desc: Use github.com/smartcontractkit/chainlink-evm instead
+  loggercheck:
+    # Check that *w logging functions have even number of args (i.e., well formed key-value pairs).
+    rules:
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Tracew
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Debugw
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Infow
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Warnw
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Errorw
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Criticalw
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Panicw
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Fatalw
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.SugaredLogger).AssumptionViolationw
+      - (github.com/smartcontractkit/chainlink-common/pkg/logger.Logger).Debugw
+      - (github.com/smartcontractkit/chainlink-common/pkg/logger.Logger).Infow
+      - (github.com/smartcontractkit/chainlink-common/pkg/logger.Logger).Warnw
+      - (github.com/smartcontractkit/chainlink-common/pkg/logger.Logger).Errorw
+      - (github.com/smartcontractkit/chainlink-common/pkg/logger.Logger).Panicw
+      - (github.com/smartcontractkit/chainlink-common/pkg/logger.Logger).Fatalw
+      - (github.com/smartcontractkit/chainlink-common/pkg/logger.SugaredLogger).AssumptionViolationw
+      - (github.com/smartcontractkit/chainlink-common/pkg/logger.SugaredLogger).Tracew
+      - (github.com/smartcontractkit/chainlink-common/pkg/logger.SugaredLogger).Criticalw
+      - (github.com/smartcontractkit/chainlink-common/pkg/logger.SugaredLogger).With
+  nolintlint:
+    require-specific: true
+    require-explanation: true
+issues:
+  exclude-rules:
+    - text: "^G404: Use of weak random number generator"
+      linters:
+        - gosec
+    - linters:
+        - govet
+      text: "declaration of \"err\" shadows"

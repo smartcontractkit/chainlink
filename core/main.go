@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"fmt"
@@ -7,8 +7,8 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
+	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
@@ -16,33 +16,30 @@ import (
 func init() {
 	// check version
 	if static.Version == static.Unset {
-		if v2.EnvDev.IsTrue() {
+		if !build.IsProd() {
 			return
 		}
-		log.Println(`Version was unset but dev mode is enabled. Chainlink should be built with static.Version set to a valid semver for production builds.`)
+		log.Println(`Version was unset on production build. Chainlink should be built with static.Version set to a valid semver for production builds.`)
 	} else if _, err := semver.NewVersion(static.Version); err != nil {
 		panic(fmt.Sprintf("Version invalid: %q is not valid semver", static.Version))
 	}
 }
 
-func main() {
+func Main() (code int) {
 	recovery.ReportPanics(func() {
-		run(newProductionClient(), os.Args...)
+		app := cmd.NewApp(newProductionClient())
+		if err := app.Run(os.Args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error running app: %v\n", err)
+			code = 1
+		}
 	})
-}
-
-// run the CLI, providing further command instructions by default.
-func run(client *cmd.Client, args ...string) {
-	app := cmd.NewApp(client)
-	if err := app.Run(args); err != nil {
-		log.Fatalf("Error running app: %v\n", err)
-	}
+	return
 }
 
 // newProductionClient configures an instance of the CLI to be used in production.
-func newProductionClient() *cmd.Client {
+func newProductionClient() *cmd.Shell {
 	prompter := cmd.NewTerminalPrompter()
-	return &cmd.Client{
+	return &cmd.Shell{
 		Renderer:                       cmd.RendererTable{Writer: os.Stdout},
 		AppFactory:                     cmd.ChainlinkAppFactory{},
 		KeyStoreAuthenticator:          cmd.TerminalKeyStoreAuthenticator{Prompter: prompter},

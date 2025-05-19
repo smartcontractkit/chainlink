@@ -1,5 +1,5 @@
-ExplorerURL = ''
 InsecureFastScrypt = false
+InsecurePPROFHeap = false
 RootDir = '~/.chainlink'
 ShutdownGracePeriod = '5s'
 
@@ -7,6 +7,8 @@ ShutdownGracePeriod = '5s'
 FeedsManager = true
 LogPoller = false
 UICSAKeys = false
+CCIP = true
+MultiFeedsManagers = false
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1h0m0s'
@@ -14,7 +16,7 @@ DefaultLockTimeout = '15s'
 DefaultQueryTimeout = '10s'
 LogQueries = false
 MaxIdleConns = 10
-MaxOpenConns = 20
+MaxOpenConns = 100
 MigrateOnStartup = true
 
 [Database.Backup]
@@ -34,10 +36,8 @@ LeaseDuration = '10s'
 LeaseRefreshInterval = '1s'
 
 [TelemetryIngress]
-UniConn = true
+UniConn = false
 Logging = false
-ServerPubKey = ''
-URL = ''
 BufferSize = 100
 MaxBatchSize = 50
 SendInterval = '500ms'
@@ -62,6 +62,7 @@ MaxAgeDays = 0
 MaxBackups = 1
 
 [WebServer]
+AuthenticationMethod = 'local'
 AllowOrigins = 'http://localhost:3000,http://localhost:6688'
 BridgeResponseURL = ''
 BridgeCacheTTL = '0s'
@@ -70,6 +71,28 @@ HTTPPort = 6688
 SecureCookies = true
 SessionTimeout = '15m0s'
 SessionReaperExpiration = '240h0m0s'
+HTTPMaxSize = '32.77kb'
+StartTimeout = '15s'
+ListenIP = '0.0.0.0'
+
+[WebServer.LDAP]
+ServerTLS = true
+SessionTimeout = '15m0s'
+QueryTimeout = '2m0s'
+BaseUserAttr = 'uid'
+BaseDN = ''
+UsersDN = 'ou=users'
+GroupsDN = 'ou=groups'
+ActiveAttribute = ''
+ActiveAttributeAllowedValue = ''
+AdminUserGroupCN = 'NodeAdmins'
+EditUserGroupCN = 'NodeEditors'
+RunUserGroupCN = 'NodeRunners'
+ReadUserGroupCN = 'NodeReadOnly'
+UserApiTokenEnabled = false
+UserAPITokenDuration = '240h0m0s'
+UpstreamSyncInterval = '0s'
+UpstreamSyncRateLimit = '2m0s'
 
 [WebServer.MFA]
 RPID = ''
@@ -87,6 +110,7 @@ ForceRedirect = false
 Host = ''
 HTTPSPort = 6689
 KeyPath = ''
+ListenIP = '0.0.0.0'
 
 [JobPipeline]
 ExternalInitiatorsEnabled = false
@@ -95,6 +119,7 @@ MaxSuccessfulRuns = 10000
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '24h0m0s'
 ResultWriteQueueDepth = 100
+VerboseLogging = true
 
 [JobPipeline.HTTPRequest]
 DefaultTimeout = '15s'
@@ -114,6 +139,11 @@ ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 CaptureEATelemetry = false
+CaptureAutomationCustomTelemetry = true
+AllowNoBootstrappers = false
+DefaultTransactionQueueDepth = 1
+SimulateTransactions = false
+TraceLogging = false
 
 [OCR]
 Enabled = false
@@ -126,6 +156,7 @@ KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 SimulateTransactions = false
 TransmitterAddress = ''
 CaptureEATelemetry = false
+TraceLogging = false
 
 [P2P]
 IncomingMessageBufferSize = 10
@@ -133,21 +164,8 @@ OutgoingMessageBufferSize = 10
 PeerID = ''
 TraceLogging = false
 
-[P2P.V1]
-Enabled = true
-AnnounceIP = ''
-AnnouncePort = 0
-BootstrapCheckInterval = '20s'
-DefaultBootstrapPeers = []
-DHTAnnouncementCounterUserPrefix = 0
-DHTLookupInterval = 10
-ListenIP = '0.0.0.0'
-ListenPort = 0
-NewStreamTimeout = '10s'
-PeerstoreWriteInterval = '5m0s'
-
 [P2P.V2]
-Enabled = false
+Enabled = true
 AnnounceAddresses = []
 DefaultBootstrappers = []
 DeltaDial = '15s'
@@ -192,3 +210,113 @@ Debug = false
 DSN = ''
 Environment = ''
 Release = ''
+
+[Insecure]
+DevWebServer = false
+OCRDevelopmentMode = false
+InfiniteDepthQueries = false
+DisableRateLimiting = false
+
+[Tracing]
+Enabled = false
+CollectorTarget = ''
+NodeID = ''
+SamplingRatio = 0.0
+Mode = 'tls'
+TLSCertPath = ''
+
+[Mercury]
+VerboseLogging = false
+
+[Mercury.Cache]
+LatestReportTTL = '1s'
+MaxStaleAge = '1h0m0s'
+LatestReportDeadline = '5s'
+
+[Mercury.TLS]
+CertFile = ''
+
+[Mercury.Transmitter]
+Protocol = 'grpc'
+TransmitQueueMaxSize = 250000
+TransmitTimeout = '5s'
+TransmitConcurrency = 100
+ReaperFrequency = '1h0m0s'
+ReaperMaxAge = '48h0m0s'
+
+[Capabilities]
+[Capabilities.RateLimit]
+GlobalRPS = 200.0
+GlobalBurst = 200
+PerSenderRPS = 200.0
+PerSenderBurst = 200
+
+[Capabilities.Peering]
+IncomingMessageBufferSize = 10
+OutgoingMessageBufferSize = 10
+PeerID = ''
+TraceLogging = false
+
+[Capabilities.Peering.V2]
+Enabled = false
+AnnounceAddresses = []
+DefaultBootstrappers = []
+DeltaDial = '15s'
+DeltaReconcile = '1m0s'
+ListenAddresses = []
+
+[Capabilities.Dispatcher]
+SupportedVersion = 1
+ReceiverBufferSize = 10000
+
+[Capabilities.Dispatcher.RateLimit]
+GlobalRPS = 800.0
+GlobalBurst = 1000
+PerSenderRPS = 10.0
+PerSenderBurst = 50
+
+[Capabilities.ExternalRegistry]
+Address = ''
+NetworkID = 'evm'
+ChainID = '1'
+
+[Capabilities.WorkflowRegistry]
+Address = ''
+NetworkID = 'evm'
+ChainID = '1'
+MaxBinarySize = '20.00mb'
+MaxEncryptedSecretsSize = '26.40kb'
+MaxConfigSize = '50.00kb'
+SyncStrategy = 'event'
+
+[Capabilities.GatewayConnector]
+ChainIDForNodeKey = ''
+NodeAddress = ''
+DonID = ''
+WSHandshakeTimeoutMillis = 0
+AuthMinChallengeLen = 0
+AuthTimestampToleranceSec = 0
+
+[[Capabilities.GatewayConnector.Gateways]]
+ID = ''
+URL = ''
+
+[Telemetry]
+Enabled = false
+CACertFile = ''
+Endpoint = ''
+InsecureConnection = false
+TraceSampleRatio = 0.01
+EmitterBatchProcessor = true
+EmitterExportTimeout = '1s'
+ChipIngressEndpoint = ''
+
+[Workflows]
+[Workflows.Limits]
+Global = 200
+PerOwner = 200
+
+[CRE]
+[CRE.Streams]
+WsURL = ''
+RestURL = ''

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -23,7 +24,7 @@ func TestFiniteTicker(t *testing.T) {
 	now := time.Now()
 	stop := utils.FiniteTicker(testutils.TestInterval, onTick)
 
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		return counter.Load() >= 10
 	}, testutils.WaitTimeout(t), testutils.TestInterval)
 

@@ -1,0 +1,35 @@
+name: 'Detect Solidity Readonly Files Changes Composite Action'
+description: 'Detects changes in readonly solidity files and fails if they are modified.'
+outputs:
+  changes:
+    description: 'Whether or not changes were detected'
+    value: ${{ steps.changed_files.outputs.src }}
+runs:
+  using: 'composite'
+  steps:
+
+    - name: Filter paths
+      uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+      id: changed_files
+      with:
+        list-files: 'csv'
+        filters: |
+          read_only_sol:
+            - 'contracts/src/v0.8/interfaces/**/*'
+            - 'contracts/src/v0.8/automation/interfaces/**/*'
+            - 'contracts/src/v0.8/automation/upkeeps/**/*'
+            - 'contracts/src/v0.8/automation/v1_2/**/*'
+            - 'contracts/src/v0.8/automation/v1_3/**/*'
+            - 'contracts/src/v0.8/automation/v2_0/**/*'
+            - 'contracts/src/v0.8/automation/v2_1/**/*'
+            - 'contracts/src/v0.8/automation/v2_2/**/*'
+
+    - name: Fail if read-only files have changed
+      if: ${{ steps.changed_files.outputs.read_only_sol == 'true' }}
+      shell: bash
+      run: |
+        echo "One or more read-only Solidity file(s) has changed."
+        for file in ${{ steps.changed_files.outputs.read_only_sol_files }}; do
+          echo "$file was changed"
+        done
+        exit 1

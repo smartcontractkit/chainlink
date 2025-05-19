@@ -1,3 +1,5 @@
+// The block header feeder package enables automated lookback and blockhash filling beyond the
+// EVM 256 block lookback window to catch missed block hashes.
 package blockheaderfeeder
 
 import (
@@ -10,10 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	evmkeystore "github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 var (
@@ -43,11 +45,10 @@ func NewBlockHeaderFeeder(
 	waitBlocks int,
 	lookbackBlocks int,
 	latestBlock func(ctx context.Context) (uint64, error),
-	gethks keystore.Eth,
+	gethks evmkeystore.RoundRobin,
 	getBlockhashesBatchSize uint16,
 	storeBlockhashesBatchSize uint16,
-	fromAddresses []ethkey.EIP55Address,
-	chainID *big.Int,
+	fromAddresses []types.EIP55Address,
 ) *BlockHeaderFeeder {
 	return &BlockHeaderFeeder{
 		lggr:                      logger,
@@ -64,7 +65,6 @@ func NewBlockHeaderFeeder(
 		blockHeaderProvider:       blockHeaderProvider,
 		gethks:                    gethks,
 		fromAddresses:             fromAddresses,
-		chainID:                   chainID,
 	}
 }
 
@@ -83,16 +83,15 @@ type BlockHeaderFeeder struct {
 	lastRunBlock              uint64
 	getBlockhashesBatchSize   uint16
 	storeBlockhashesBatchSize uint16
-	gethks                    keystore.Eth
-	fromAddresses             []ethkey.EIP55Address
-	chainID                   *big.Int
+	gethks                    evmkeystore.RoundRobin
+	fromAddresses             []types.EIP55Address
 }
 
 // Run the feeder.
 func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 	latestBlockNumber, err := f.latestBlock(ctx)
 	if err != nil {
-		f.lggr.Errorw("Failed to fetch current block number", "error", err)
+		f.lggr.Errorw("Failed to fetch current block number", "err", err)
 		return errors.Wrap(err, "fetching block number")
 	}
 
@@ -118,7 +117,7 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 
 	lggr.Debugw("found lowest block number without blockhash", "minBlockNumber", minBlockNumber)
 
-	earliestStoredBlockNumber, err := f.findEarliestBlockNumberWithBlockhash(ctx, lggr, minBlockNumber.Uint64()+1, uint64(toBlock))
+	earliestStoredBlockNumber, err := f.findEarliestBlockNumberWithBlockhash(ctx, lggr, minBlockNumber.Uint64()+1, toBlock)
 	if err != nil {
 		return errors.Wrap(err, "finding earliest blocknumber with blockhash")
 	}
@@ -146,7 +145,7 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 	}
 
 	// use 1 sending key for all batches because ordering matters for StoreVerifyHeader
-	fromAddress, err := f.gethks.GetRoundRobinAddress(f.chainID, blockhashstore.SendingKeys(f.fromAddresses)...)
+	fromAddress, err := f.gethks.GetNextAddress(ctx, blockhashstore.SendingKeys(f.fromAddresses)...)
 	if err != nil {
 		return errors.Wrap(err, "getting round robin address")
 	}
@@ -202,7 +201,7 @@ func (f *BlockHeaderFeeder) findLowestBlockNumberWithoutBlockhash(ctx context.Co
 		stored, err := f.bhs.IsStored(ctx, block)
 		if err != nil {
 			lggr.Warnw("Failed to check if block is already stored",
-				"error", err,
+				"err", err,
 				"block", block)
 			continue
 		} else if stored {

@@ -1,0 +1,11 @@
+ChainID = "2020"
+FinalityTagEnabled = true
+LinkContractAddress = "0x3902228D6A3d2Dc44731fD9d45FeE6a61c722D0b"
+# Ronin produces blocks every 3 seconds
+LogPollInterval = "3s"
+NoNewHeadsThreshold = "3m"
+
+[GasEstimator]
+# Ronin uses default gas price of 20 gwei https://docs.skymavis.com/mavis/mpc/guides/estimate-gas#overview
+Mode = 'FeeHistory'
+PriceMax = "1000 gwei"

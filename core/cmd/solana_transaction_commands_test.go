@@ -3,7 +3,9 @@
 package cmd_test
 
 import (
+	"bytes"
 	"flag"
+	"os/exec"
 	"strconv"
 	"testing"
 	"time"
@@ -13,49 +15,44 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/v2/core/cmd"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 )
 
-func TestClient_SolanaSendSol(t *testing.T) {
+// TODO: move this test to `chainlink-solana` https://smartcontract-it.atlassian.net/browse/NONEVM-790
+func TestShell_SolanaSendSol(t *testing.T) {
+	ctx := testutils.Context(t)
 	chainID := "localnet"
 	url := solanaClient.SetupLocalSolNode(t)
 	node := solcfg.Node{
 		Name: ptr(t.Name()),
-		URL:  utils.MustParseURL(url),
+		URL:  config.MustParseURL(url),
 	}
-	cfg := solana.SolanaConfig{
+	cfg := solcfg.TOMLConfig{
 		ChainID: &chainID,
-		Nodes:   solana.SolanaNodes{&node},
+		Nodes:   solcfg.Nodes{&node},
+		Enabled: ptr(true),
 	}
 	app := solanaStartNewApplication(t, &cfg)
-	from, err := app.GetKeyStore().Solana().Create()
+	from, err := app.GetKeyStore().Solana().Create(ctx)
 	require.NoError(t, err)
 	to, err := solanago.NewRandomPrivateKey()
 	require.NoError(t, err)
 	solanaClient.FundTestAccounts(t, []solanago.PublicKey{from.PublicKey()}, url)
 
-	chain, err := app.GetChains().Solana.Chain(testutils.Context(t), chainID)
-	require.NoError(t, err)
-
-	reader, err := chain.Reader()
-	require.NoError(t, err)
-
 	require.Eventually(t, func() bool {
-		coin, err := reader.Balance(from.PublicKey())
-		if !assert.NoError(t, err) {
+		coin, err := balance(from.PublicKey(), url)
+		if err != nil {
 			return false
 		}
 		return coin == 100*solanago.LAMPORTS_PER_SOL
 	}, time.Minute, 5*time.Second)
 
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 	cliapp := cli.NewApp()
 
 	for _, tt := range []struct {
@@ -69,11 +66,11 @@ func TestClient_SolanaSendSol(t *testing.T) {
 	} {
 		tt := tt
 		t.Run(tt.amount, func(t *testing.T) {
-			startBal, err := reader.Balance(from.PublicKey())
+			startBal, err := balance(from.PublicKey(), url)
 			require.NoError(t, err)
 
 			set := flag.NewFlagSet("sendsolcoins", 0)
-			cltest.FlagSetApplyFromAction(client.SolanaSendSol, set, "solana")
+			flagSetApplyFromAction(client.SolanaSendSol, set, "solana")
 
 			require.NoError(t, set.Set("id", chainID))
 			require.NoError(t, set.Parse([]string{tt.amount, from.PublicKey().String(), to.PublicKey().String()}))
@@ -106,7 +103,8 @@ func TestClient_SolanaSendSol(t *testing.T) {
 				time.Sleep(time.Second) // wait for tx execution
 
 				// Check balance
-				endBal, err = reader.Balance(from.PublicKey())
+				endBal, err = balance(from.PublicKey(), url)
+				require.NoError(t, err)
 				require.NoError(t, err)
 
 				// exit if difference found
@@ -120,11 +118,24 @@ func TestClient_SolanaSendSol(t *testing.T) {
 			// Check balance
 			if assert.NotEqual(t, 0, startBal) && assert.NotEqual(t, 0, endBal) {
 				diff := startBal - endBal
-				receiveBal, err := reader.Balance(to.PublicKey())
+				receiveBal, err := balance(to.PublicKey(), url)
 				require.NoError(t, err)
 				assert.Equal(t, tt.amount, strconv.FormatUint(receiveBal, 10))
 				assert.Greater(t, diff, receiveBal)
 			}
 		})
 	}
+}
+
+func balance(key solanago.PublicKey, url string) (uint64, error) {
+	b, err := exec.Command("solana", "balance", "--lamports", key.String(), "--url", url).Output()
+	if err != nil {
+		return 0, err
+	}
+	b = bytes.TrimSuffix(b, []byte(" lamports\n"))
+	i, err := strconv.ParseUint(string(b), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return i, nil
 }

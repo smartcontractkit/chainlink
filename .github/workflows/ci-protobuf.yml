@@ -1,0 +1,26 @@
+name: CI ProtoBuf
+
+on:
+  pull_request:
+
+jobs:
+  buf-breaking:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup buf
+        uses: bufbuild/buf-setup-action@35c243d7f2a909b1d4e40399b348a7fdab27d78d # v1.34.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run buf breaking
+        uses: bufbuild/buf-breaking-action@c57b3d842a5c3f3b454756ef65305a50a587c5ba # v1.1.4
+        env:
+          REPO_URL: https://github.com/${{ github.repository }}
+          BASE_BRANCH: ${{ github.base_ref }}
+        with:
+          against: "${REPO_URL}.git#branch=${BASE_BRANCH}"

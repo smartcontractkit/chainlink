@@ -5,8 +5,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -64,7 +64,7 @@ type PollManager struct {
 }
 
 // NewPollManager initializes a new PollManager
-func NewPollManager(cfg PollManagerConfig, logger logger.Logger) (*PollManager, error) {
+func NewPollManager(cfg PollManagerConfig, lggr logger.Logger) (*PollManager, error) {
 	minBackoffDuration := cfg.MinRetryBackoffDuration
 	if cfg.IdleTimerPeriod < minBackoffDuration {
 		minBackoffDuration = cfg.IdleTimerPeriod
@@ -80,26 +80,23 @@ func NewPollManager(cfg PollManagerConfig, logger logger.Logger) (*PollManager, 
 		idleTimer.Reset(cfg.IdleTimerPeriod)
 	}
 
-	var drumbeatTicker utils.CronTicker
-	var err error
-	if cfg.DrumbeatEnabled {
-		drumbeatTicker, err = utils.NewCronTicker(cfg.DrumbeatSchedule)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	p := &PollManager{
 		cfg:    cfg,
-		logger: logger.Named("PollManager"),
+		logger: logger.Named(lggr, "PollManager"),
 
 		hibernationTimer: utils.NewResettableTimer(),
 		pollTicker:       utils.NewPausableTicker(cfg.PollTickerInterval),
 		idleTimer:        idleTimer,
 		roundTimer:       utils.NewResettableTimer(),
 		retryTicker:      utils.NewBackoffTicker(minBackoffDuration, maxBackoffDuration),
-		drumbeat:         drumbeatTicker,
 		chPoll:           make(chan PollRequest),
+	}
+	var err error
+	if cfg.DrumbeatEnabled {
+		p.drumbeat, err = utils.NewCronTicker(cfg.DrumbeatSchedule)
+		if err != nil {
+			return nil, err
+		}
 	}
 	p.isHibernating.Store(cfg.IsHibernating)
 	return p, nil
@@ -263,7 +260,6 @@ func (pm *PollManager) startPollTicker() {
 
 // startIdleTimer starts the idle timer if it is enabled
 func (pm *PollManager) startIdleTimer(roundStartedAtUTC uint64) {
-
 	if pm.cfg.IdleTimerDisabled {
 		pm.idleTimer.Stop()
 
@@ -281,7 +277,7 @@ func (pm *PollManager) startIdleTimer(roundStartedAtUTC uint64) {
 	deadline := startedAt.Add(pm.cfg.IdleTimerPeriod)
 	deadlineDuration := time.Until(deadline)
 
-	log := pm.logger.With(
+	log := logger.With(pm.logger,
 		"pollFrequency", pm.cfg.PollTickerInterval,
 		"idleDuration", pm.cfg.IdleTimerPeriod,
 		"startedAt", roundStartedAtUTC,
@@ -304,7 +300,7 @@ func (pm *PollManager) startIdleTimer(roundStartedAtUTC uint64) {
 
 // startRoundTimer starts the round timer
 func (pm *PollManager) startRoundTimer(roundTimesOutAt uint64) {
-	log := pm.logger.With(
+	log := logger.With(pm.logger,
 		"pollFrequency", pm.cfg.PollTickerInterval,
 		"idleDuration", pm.cfg.IdleTimerPeriod,
 		"timesOutAt", roundTimesOutAt,

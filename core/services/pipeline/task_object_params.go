@@ -124,7 +124,6 @@ func (o *ObjectParam) UnmarshalPipelineParam(val interface{}) error {
 		o.StringValue = v.StringValue
 		o.DecimalValue = v.DecimalValue
 		return nil
-
 	}
 
 	return fmt.Errorf("bad input for task: %T", val)

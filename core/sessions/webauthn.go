@@ -1,16 +1,17 @@
 package sessions
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"sync"
 
-	"github.com/duo-labs/webauthn/protocol"
-	"github.com/duo-labs/webauthn/webauthn"
-	"github.com/pkg/errors"
-	sqlxTypes "github.com/smartcontractkit/sqlx/types"
+	"github.com/go-webauthn/webauthn/protocol"
+	"github.com/go-webauthn/webauthn/webauthn"
+	sqlxTypes "github.com/jmoiron/sqlx/types"
+	pkgerrors "github.com/pkg/errors"
 )
 
 // WebAuthn holds the credentials for API user.
@@ -61,7 +62,7 @@ func (store *WebAuthnSessionStore) BeginWebAuthnRegistration(user User, uwas []W
 		return nil, err
 	}
 
-	userRegistrationIndexKey := fmt.Sprintf("%s-registration", user.Email)
+	userRegistrationIndexKey := user.Email + "-registration"
 	err = store.SaveWebauthnSession(userRegistrationIndexKey, sessionData)
 	if err != nil {
 		return nil, err
@@ -80,7 +81,7 @@ func (store *WebAuthnSessionStore) FinishWebAuthnRegistration(user User, uwas []
 		return nil, err
 	}
 
-	userRegistrationIndexKey := fmt.Sprintf("%s-registration", user.Email)
+	userRegistrationIndexKey := user.Email + "-registration"
 	sessionData, err := store.GetWebauthnSession(userRegistrationIndexKey)
 	if err != nil {
 		return nil, err
@@ -93,7 +94,7 @@ func (store *WebAuthnSessionStore) FinishWebAuthnRegistration(user User, uwas []
 
 	credential, err := webAuthn.FinishRegistration(waUser, sessionData, response)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to FinishRegistration")
+		return nil, pkgerrors.Wrap(err, "failed to FinishRegistration")
 	}
 
 	return credential, nil
@@ -120,7 +121,7 @@ func BeginWebAuthnLogin(user User, uwas []WebAuthn, sr SessionRequest) (*protoco
 		return nil, err
 	}
 
-	userLoginIndexKey := fmt.Sprintf("%s-authentication", user.Email)
+	userLoginIndexKey := user.Email + "-authentication"
 	err = sr.SessionStore.SaveWebauthnSession(userLoginIndexKey, sessionData)
 	if err != nil {
 		return nil, err
@@ -137,7 +138,7 @@ func FinishWebAuthnLogin(user User, uwas []WebAuthn, sr SessionRequest) error {
 	})
 
 	if err != nil {
-		return errors.Wrapf(err, "failed to create webAuthn structure with RPID: %s and RPOrigin: %s", sr.WebAuthnConfig.RPID, sr.WebAuthnConfig.RPOrigin)
+		return pkgerrors.Wrapf(err, "failed to create webAuthn structure with RPID: %s and RPOrigin: %s", sr.WebAuthnConfig.RPID, sr.WebAuthnConfig.RPOrigin)
 	}
 
 	credential, err := protocol.ParseCredentialRequestResponseBody(strings.NewReader(sr.WebAuthnData))
@@ -145,7 +146,7 @@ func FinishWebAuthnLogin(user User, uwas []WebAuthn, sr SessionRequest) error {
 		return err
 	}
 
-	userLoginIndexKey := fmt.Sprintf("%s-authentication", user.Email)
+	userLoginIndexKey := user.Email + "-authentication"
 	sessionData, err := sr.SessionStore.GetWebauthnSession(userLoginIndexKey)
 	if err != nil {
 		return err
@@ -209,7 +210,7 @@ func (u *WebAuthnUser) LoadWebAuthnCredentials(uwas []WebAuthn) error {
 		var credential webauthn.Credential
 		err := v.PublicKeyData.Unmarshal(&credential)
 		if err != nil {
-			return fmt.Errorf("error unmarshalling provided PublicKeyData: %s", err)
+			return fmt.Errorf("error unmarshalling provided PublicKeyData: %w", err)
 		}
 		u.WACredentials = append(u.WACredentials, credential)
 	}
@@ -272,14 +273,14 @@ func (store *WebAuthnSessionStore) take(key string) (val string, ok bool) {
 func (store *WebAuthnSessionStore) GetWebauthnSession(key string) (data webauthn.SessionData, err error) {
 	assertion, ok := store.take(key)
 	if !ok {
-		err = errors.New("assertion not in challenge store")
+		err = pkgerrors.New("assertion not in challenge store")
 		return
 	}
 	err = json.Unmarshal([]byte(assertion), &data)
 	return
 }
 
-func AddCredentialToUser(o ORM, email string, credential *webauthn.Credential) error {
+func AddCredentialToUser(ctx context.Context, ap AuthenticationProvider, email string, credential *webauthn.Credential) error {
 	credj, err := json.Marshal(credential)
 	if err != nil {
 		return err
@@ -289,5 +290,5 @@ func AddCredentialToUser(o ORM, email string, credential *webauthn.Credential) e
 		Email:         email,
 		PublicKeyData: sqlxTypes.JSONText(credj),
 	}
-	return o.SaveWebAuthn(&token)
+	return ap.SaveWebAuthn(ctx, &token)
 }

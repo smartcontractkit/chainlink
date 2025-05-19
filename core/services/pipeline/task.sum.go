@@ -7,7 +7,7 @@ import (
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 // Return types:

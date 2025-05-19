@@ -1,0 +1,66 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap/web-api-target@1.0.0",
+    "description": "A target that sends HTTP requests to a URL",
+    "$defs": {
+        "TargetPayload": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "The URL to send the request to"
+                },
+                "method": {
+                    "type": "string",
+                    "description": "The HTTP method to use for the request"
+                },
+                "headers": {
+                    "type": "object",
+                    "description": "The headers to include in the request",
+                    "additionalProperties" : {
+                        "type": "string"
+                    }
+                },
+                "body": {
+                    "type": "string",
+                    "description": "The body of the request"
+                }
+            },
+            "required": ["url"],
+            "additionalProperties": false
+        },
+        "TargetConfig": {
+            "type": "object",
+            "properties": {
+                "timeoutMs": {
+                    "type": "integer",
+                    "description": "The timeout in milliseconds for the request. If set to 0, the default value is 30 seconds",
+                    "minimum": 0,
+                    "maximum": 600000
+                },
+                "retryCount": {
+                    "type": "integer",
+                    "description": "The number of times to retry the request. Defaults to 0 retries",
+                    "minimum": 0,
+                    "maximum": 10
+                },
+                "deliveryMode": {
+                    "type": "string",
+                    "description": "The delivery mode for the request. Defaults to SingleNode"
+                }
+            },
+            "required": [],
+            "additionalProperties": false
+        }
+    },
+    "type": "object",
+    "properties": {
+      "config": {
+        "$ref": "#/$defs/TargetConfig"
+      },
+      "inputs": {
+        "$ref": "#/$defs/TargetPayload"
+      }
+    },
+    "required": ["config","inputs"]
+  }

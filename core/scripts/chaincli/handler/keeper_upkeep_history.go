@@ -18,8 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	registry11 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
-	registry12 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
+	registry11 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_1"
+	registry12 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 )
 
@@ -127,7 +127,7 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 			panic("unsupported registry version")
 		}
 
-		turnBinary, err2 := turnBlockHashBinary(block, bcpt, defaultLookBackRange, k.client)
+		turnBinary, err2 := turnBlockHashBinary(ctx, block, bcpt, defaultLookBackRange, k.client)
 		if err2 != nil {
 			log.Fatal("failed to calculate turn block hash: ", err2)
 		}
@@ -265,9 +265,9 @@ func printResultsToConsole(parsedResults []result) {
 	fmt.Fprintf(writer, "\n %s\t\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n", "----", "----", "----", "----", "----", "----", "----", "----", "----", "----")
 }
 
-func turnBlockHashBinary(blockNum, bcpt, lookback uint64, ethClient *ethclient.Client) (string, error) {
+func turnBlockHashBinary(ctx context.Context, blockNum, bcpt, lookback uint64, ethClient *ethclient.Client) (string, error) {
 	turnBlock := blockNum - (blockNum % bcpt) - lookback
-	block, err := ethClient.BlockByNumber(context.Background(), big.NewInt(int64(turnBlock)))
+	block, err := ethClient.BlockByNumber(ctx, big.NewInt(int64(turnBlock)))
 	if err != nil {
 		return "", err
 	}

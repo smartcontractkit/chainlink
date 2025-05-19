@@ -2,6 +2,28 @@
 LeaseRefreshInterval='6s'
 LeaseDuration='10s'
 
+[WebServer]
+AuthenticationMethod = 'ldap'
+
+[WebServer.LDAP]
+ServerTLS = true
+SessionTimeout = '15m0s'
+QueryTimeout = '2m0s'
+BaseUserAttr = ''
+BaseDN = ''
+UsersDN = ''
+GroupsDN = ''
+ActiveAttribute = ''
+ActiveAttributeAllowedValue = ''
+AdminUserGroupCN = ''
+EditUserGroupCN = ''
+RunUserGroupCN = ''
+ReadUserGroupCN = ''
+UserApiTokenEnabled = false
+UserAPITokenDuration = '240h0m0s'
+UpstreamSyncInterval = '0s'
+UpstreamSyncRateLimit = '2m0s'
+
 [[EVM]]
 ChainID = '1'
 Transactions.MaxInFlight= 10
@@ -31,6 +53,13 @@ SendOnly = true
 ChainID = '1'
 ChainType = 'Foo'
 FinalityDepth = 32
+FinalizedBlockOffset = 64
+
+[EVM.Transactions.AutoPurge]
+Enabled = true
+
+[EVM.Transactions.TransactionManagerV2]
+Enabled = false
 
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
@@ -41,6 +70,7 @@ PriceMax = 99
 
 [EVM.HeadTracker]
 HistoryDepth = 30
+MaxAllowedFinalityDepth = 0
 
 [[EVM.KeySpecific]]
 Key = '0xde709f2102306220921060314715629080e2fb77'
@@ -77,6 +107,41 @@ WSURL = 'ws://dupe.com'
 
 [[EVM]]
 
+[[EVM]]
+ChainID = '534352'
+ChainType = 'scroll'
+
+[EVM.Transactions.AutoPurge]
+Enabled = true
+DetectionApiUrl = ''
+
+[EVM.Transactions.TransactionManagerV2]
+Enabled = false
+
+[[EVM.Nodes]]
+Name = 'scroll node'
+WSURL = 'ws://foo.bar'
+HTTPURl = 'http://foo.bar'
+
+[[EVM]]
+ChainID = '100'
+LogBroadcasterEnabled = false
+
+[[EVM.Nodes]]
+Name = 'failing-fake'
+HTTPURl = 'http://foo.bar1'
+
+[[EVM]]
+ChainID = '101'
+LogBroadcasterEnabled = false
+
+[EVM.NodePool]
+NewHeadsPollInterval = '1s'
+
+[[EVM.Nodes]]
+Name = 'passing-fake'
+HTTPURl = 'http://foo.bar2'
+
 [[Cosmos]]
 ChainID = 'Malaga-420'
 
@@ -110,9 +175,36 @@ Name = 'bar'
 [[Starknet.Nodes]]
 Name = 'primary'
 URL = 'http://stark.node'
+APIKey = 'key'
 
 [[Starknet.Nodes]]
 Name = 'primary'
 URL = 'http://second.stark.node'
+APIKey = 'key'
 
 [[Starknet]]
+
+[[Aptos]]
+Enabled = 1
+
+[[Aptos.Nodes]]
+Name = 'primary'
+
+[[Aptos.Nodes]]
+Name = 'primary'
+
+[[Tron]]
+Enabled = 1
+
+[[Tron.Nodes]]
+Name = 'tron-test'
+
+[[Tron.Nodes]]
+Name = 'tron-test'
+
+[OCR2]
+Enabled = true
+
+[P2P]
+[P2P.V2]
+Enabled = false

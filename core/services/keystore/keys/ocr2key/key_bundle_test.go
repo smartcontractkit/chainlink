@@ -1,7 +1,6 @@
 package ocr2key_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -51,18 +50,6 @@ func TestOCR2Keys_New(t *testing.T) {
 	}
 }
 
-func TestOCR2KeyBundle_RawToKey(t *testing.T) {
-	t.Parallel()
-
-	for _, chain := range chaintype.SupportedChainTypes {
-		pk, err := ocr2key.New(chain)
-		require.NoError(t, err)
-
-		pkFromRaw := pk.Raw().Key()
-		assert.NotNil(t, pkFromRaw)
-	}
-}
-
 func TestOCR2KeyBundle_BundleBase(t *testing.T) {
 	t.Parallel()
 
@@ -71,6 +58,6 @@ func TestOCR2KeyBundle_BundleBase(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NotNil(t, kb.ID())
-		assert.Equal(t, fmt.Sprintf(`bundle: KeyBundle{chainType: %s, id: %s}`, chain, kb.ID()), fmt.Sprintf(`bundle: %s`, kb))
+		assert.Equal(t, chain, kb.ChainType())
 	}
 }

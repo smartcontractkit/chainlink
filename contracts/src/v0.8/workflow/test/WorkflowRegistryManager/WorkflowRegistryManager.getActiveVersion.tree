@@ -1,0 +1,5 @@
+WorkflowRegistryManager.getActiveVersion
+├── when no active version is available
+│   └── it should revert with NoActiveVersionAvailable
+└── when an active version exists
+    └── it should return the active version details

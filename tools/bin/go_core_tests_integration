@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -o pipefail
+set +e
+
+SCRIPT_PATH=$(dirname "$0"); SCRIPT_PATH=$(eval "cd \"$SCRIPT_PATH\" && pwd")
+OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
+EXTRA_FLAGS=""
+
+echo "Finding and running integration-tagged tests"
+INTEGRATION_TAGGED_TEST_FILES=$(find . -name '*_test.go' -exec grep -l '//go:build integration' {} +)
+if [[ -z $INTEGRATION_TAGGED_TEST_FILES ]]; then
+  echo "No integration-tagged tests found."
+  exit 0
+fi
+INTEGRATION_TEST_DIRS=$(echo "$INTEGRATION_TAGGED_TEST_FILES" | xargs -n1 dirname | sort -u)
+INTEGRATION_TEST_DIRS_SPACE_DELIMITED=$(echo "$INTEGRATION_TEST_DIRS" | tr '\n' ' ')
+
+echo "Test execution results: ---------------------"
+echo ""
+if [[ $GITHUB_EVENT_NAME == "schedule" ]]; then
+  # Experimental code to minimize size of this coverage report
+  # ALL_IMPORTS=$(go list -f '{{ join .Imports "\n" }}' $INTEGRATION_TEST_DIRS | sort -u)
+  # COVERPKG_DIRS=$(echo "$INTEGRATION_TEST_DIRS $ALL_IMPORTS" | grep "smartcontractkit/chainlink" | tr '\n' ',')
+  EXTRA_FLAGS="-covermode=atomic -coverpkg=./... -coverprofile=coverage.txt"
+fi
+go test -tags integration $EXTRA_FLAGS $INTEGRATION_TEST_DIRS_SPACE_DELIMITED | tee $OUTPUT_FILE | grep -Ev '\[no test files\]|\[no tests to run\]'
+EXITCODE=${PIPESTATUS[0]}
+
+# Assert no known sensitive strings present in test logger output
+printf "\n----------------------------------------------\n\n"
+echo "Beginning check of output logs for sensitive strings"
+$SCRIPT_PATH/scrub_logs $OUTPUT_FILE
+if [[ $? != 0 ]]; then
+  exit 1
+fi
+
+echo "Exit code: $EXITCODE"
+if [[ $EXITCODE != 0 ]]; then
+  echo "Encountered test failures."
+else
+  echo "All tests passed!"
+fi
+echo "go_core_tests exiting with code $EXITCODE"
+exit $EXITCODE

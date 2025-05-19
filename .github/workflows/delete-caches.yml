@@ -1,0 +1,69 @@
+name: Cleanup Caches
+
+# See:
+# https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/caching-dependencies-to-speed-up-workflows#force-deleting-cache-entries
+
+on:
+  pull_request:
+    types:
+      - closed
+
+jobs:
+  cleanup-branch-caches:
+    runs-on: ubuntu-latest
+    permissions:
+      # `actions:write` permission is required to delete caches
+      #   See also: https://docs.github.com/en/rest/actions/cache?apiVersion=2022-11-28#delete-a-github-actions-cache-for-a-repository-using-a-cache-id
+      actions: write
+      contents: read
+    env:
+      REPO: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup gh-actions-cache extension
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh extension install actions/gh-actions-cache
+
+      - name: Retrieve Trunk SHA
+        id: get-sha
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHA=$(gh pr view -R $REPO $PR_NUMBER --json mergeCommit --jq .mergeCommit.oid)
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+
+      - name: Cleanup Caches
+        env:
+          TRUNK_SHA: ${{ steps.get-sha.outputs.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+
+          PR_BRANCH=refs/pull/$PR_NUMBER/merge
+          echo "Fetching list of cache keys for the PR branch ($PR_BRANCH)"
+          PR_CACHE_KEYS=$(gh actions-cache list -R $REPO -B $PR_BRANCH | cut -f 1)
+
+          echo "Deleting caches for PR branch ($PR_BRANCH)..."
+          for CACHE_KEY in $PR_CACHE_KEYS; do
+              gh actions-cache delete $CACHE_KEY -R $REPO -B $PR_BRANCH --confirm
+          done
+
+          if [[ -n "$TRUNK_SHA" ]]; then
+            echo "Found corresponding merge commit $TRUNK_SHA"
+            QUEUE_BRANCH="gh-readonly-queue/develop/pr-${PR_NUMBER}-${TRUNK_SHA}"
+            echo "Fetching list of cache keys for the merge queue branch ($QUEUE_BRANCH)"
+            QUEUE_CACHE_KEYS=$(gh actions-cache list -R $REPO -B $QUEUE_BRANCH | cut -f 1)
+
+            echo "Deleting caches for merge queue branch ($QUEUE_BRANCH)..."
+            for CACHE_KEY in $QUEUE_CACHE_KEYS; do
+                gh actions-cache delete $CACHE_KEY -R $REPO -B $QUEUE_BRANCH --confirm
+            done
+          fi
+
+          echo "Done"

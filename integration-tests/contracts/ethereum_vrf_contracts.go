@@ -2,635 +2,83 @@ package contracts
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"time"
 
-	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2_5"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2plus_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2plus_wrapper_load_test_consumer"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2plus_wrapper_optimism"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_router"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_consumer_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_test_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_mock_ethlink_aggregator"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 )
-
-// DeployVRFContract deploy VRF contract
-func (e *EthereumContractDeployer) DeployVRFContract() (VRF, error) {
-	address, _, instance, err := e.client.DeployContract("VRF", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployVRF(auth, backend)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumVRF{
-		client:  e.client,
-		vrf:     instance.(*ethereum.VRF),
-		address: address,
-	}, err
-}
-
-// DeployBlockhashStore deploys blockhash store used with VRF contract
-func (e *EthereumContractDeployer) DeployBlockhashStore() (BlockHashStore, error) {
-	address, _, instance, err := e.client.DeployContract("BlockhashStore", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployBlockhashStore(auth, backend)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumBlockhashStore{
-		client:         e.client,
-		blockHashStore: instance.(*ethereum.BlockhashStore),
-		address:        address,
-	}, err
-}
-
-// DeployVRFCoordinatorV2 deploys VRFV2 coordinator contract
-func (e *EthereumContractDeployer) DeployVRFCoordinatorV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (VRFCoordinatorV2, error) {
-	address, _, instance, err := e.client.DeployContract("VRFCoordinatorV2", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployVRFCoordinatorV2(auth, backend, common.HexToAddress(linkAddr), common.HexToAddress(bhsAddr), common.HexToAddress(linkEthFeedAddr))
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumVRFCoordinatorV2{
-		client:      e.client,
-		coordinator: instance.(*ethereum.VRFCoordinatorV2),
-		address:     address,
-	}, err
-}
-
-// DeployVRFCoordinator deploys VRF coordinator contract
-func (e *EthereumContractDeployer) DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error) {
-	address, _, instance, err := e.client.DeployContract("VRFCoordinator", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployVRFCoordinator(auth, backend, common.HexToAddress(linkAddr), common.HexToAddress(bhsAddr))
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumVRFCoordinator{
-		client:      e.client,
-		coordinator: instance.(*ethereum.VRFCoordinator),
-		address:     address,
-	}, err
-}
-
-// DeployVRFConsumer deploys VRF consumer contract
-func (e *EthereumContractDeployer) DeployVRFConsumer(linkAddr string, coordinatorAddr string) (VRFConsumer, error) {
-	address, _, instance, err := e.client.DeployContract("VRFConsumer", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployVRFConsumer(auth, backend, common.HexToAddress(coordinatorAddr), common.HexToAddress(linkAddr))
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumVRFConsumer{
-		client:   e.client,
-		consumer: instance.(*ethereum.VRFConsumer),
-		address:  address,
-	}, err
-}
-
-// DeployVRFConsumerV2 deploys VRFv@ consumer contract
-func (e *EthereumContractDeployer) DeployVRFConsumerV2(linkAddr string, coordinatorAddr string) (VRFConsumerV2, error) {
-	address, _, instance, err := e.client.DeployContract("VRFConsumerV2", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployVRFConsumerV2(auth, backend, common.HexToAddress(coordinatorAddr), common.HexToAddress(linkAddr))
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumVRFConsumerV2{
-		client:   e.client,
-		consumer: instance.(*ethereum.VRFConsumerV2),
-		address:  address,
-	}, err
-}
-
-func (e *EthereumContractDeployer) DeployVRFv2Consumer(coordinatorAddr string) (VRFv2Consumer, error) {
-	address, _, instance, err := e.client.DeployContract("VRFv2Consumer", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return eth_contracts.DeployVRFv2Consumer(auth, backend, common.HexToAddress(coordinatorAddr))
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumVRFv2Consumer{
-		client:   e.client,
-		consumer: instance.(*eth_contracts.VRFv2Consumer),
-		address:  address,
-	}, err
-}
-
-// DeployDKG deploys DKG contract
-func (e *EthereumContractDeployer) DeployDKG() (DKG, error) {
-	address, _, instance, err := e.client.DeployContract("DKG", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return dkg.DeployDKG(auth, backend)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumDKG{
-		client:  e.client,
-		dkg:     instance.(*dkg.DKG),
-		address: address,
-	}, err
-}
-
-// DeployVRFRouter deploys VRF router contract
-func (e *EthereumContractDeployer) DeployVRFRouter() (VRFRouter, error) {
-	address, _, instance, err := e.client.DeployContract("VRFRouter", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_router.DeployVRFRouter(auth, backend)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumVRFRouter{
-		client:    e.client,
-		vrfRouter: instance.(*vrf_router.VRFRouter),
-		address:   address,
-	}, err
-}
-
-// DeployOCR2VRFCoordinator deploys CR2VRFCoordinator contract
-func (e *EthereumContractDeployer) DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddress string, linkEthFeedAddress string, vrfRouter string) (VRFCoordinatorV3, error) {
-	address, _, instance, err := e.client.DeployContract("VRFCoordinatorV3", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_coordinator.DeployVRFCoordinator(auth, backend, beaconPeriodBlocksCount, common.HexToAddress(linkAddress), common.HexToAddress(linkEthFeedAddress), common.HexToAddress(vrfRouter))
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumVRFCoordinatorV3{
-		client:           e.client,
-		vrfCoordinatorV3: instance.(*vrf_coordinator.VRFCoordinator),
-		address:          address,
-	}, err
-}
-
-// DeployVRFBeacon deploys DeployVRFBeacon contract
-func (e *EthereumContractDeployer) DeployVRFBeacon(vrfCoordinatorAddress string, linkAddress string, dkgAddress string, keyId string) (VRFBeacon, error) {
-	keyIDBytes, err := decodeHexTo32ByteArray(keyId)
-	if err != nil {
-		return nil, err
-	}
-	address, _, instance, err := e.client.DeployContract("VRFBeacon", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_beacon.DeployVRFBeacon(auth, backend, common.HexToAddress(linkAddress), common.HexToAddress(vrfCoordinatorAddress), common.HexToAddress(dkgAddress), keyIDBytes)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumVRFBeacon{
-		client:    e.client,
-		vrfBeacon: instance.(*vrf_beacon.VRFBeacon),
-		address:   address,
-	}, err
-}
-
-// DeployBatchBlockhashStore deploys DeployBatchBlockhashStore contract
-func (e *EthereumContractDeployer) DeployBatchBlockhashStore(blockhashStoreAddr string) (BatchBlockhashStore, error) {
-	address, _, instance, err := e.client.DeployContract("BatchBlockhashStore", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return batch_blockhash_store.DeployBatchBlockhashStore(auth, backend, common.HexToAddress(blockhashStoreAddr))
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumBatchBlockhashStore{
-		client:              e.client,
-		batchBlockhashStore: instance.(*batch_blockhash_store.BatchBlockhashStore),
-		address:             address,
-	}, err
-}
-
-// todo - solve import cycle
-func decodeHexTo32ByteArray(val string) ([32]byte, error) {
-	var byteArray [32]byte
-	decoded, err := hex.DecodeString(val)
-	if err != nil {
-		return [32]byte{}, err
-	}
-	if len(decoded) != 32 {
-		return [32]byte{}, fmt.Errorf("expected value to be 32 bytes but received %d bytes", len(decoded))
-	}
-	copy(byteArray[:], decoded)
-	return byteArray, err
-}
-
-// DeployVRFBeaconConsumer deploys VRFv@ consumer contract
-func (e *EthereumContractDeployer) DeployVRFBeaconConsumer(vrfRouterAddress string, beaconPeriodBlockCount *big.Int) (VRFBeaconConsumer, error) {
-	address, _, instance, err := e.client.DeployContract("VRFBeaconConsumer", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_beacon_consumer.DeployBeaconVRFConsumer(auth, backend, common.HexToAddress(vrfRouterAddress), false, beaconPeriodBlockCount)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumVRFBeaconConsumer{
-		client:            e.client,
-		vrfBeaconConsumer: instance.(*vrf_beacon_consumer.BeaconVRFConsumer),
-		address:           address,
-	}, err
-}
 
 // EthereumBlockhashStore represents a blockhash store for VRF contract
 type EthereumBlockhashStore struct {
 	address        *common.Address
-	client         blockchain.EVMClient
-	blockHashStore *ethereum.BlockhashStore
-}
-
-func (v *EthereumBlockhashStore) Address() string {
-	return v.address.Hex()
-}
-
-// EthereumVRFCoordinatorV2 represents VRFV2 coordinator contract
-type EthereumVRFCoordinatorV2 struct {
-	address     *common.Address
-	client      blockchain.EVMClient
-	coordinator *ethereum.VRFCoordinatorV2
-}
-
-func (v *EthereumVRFCoordinatorV2) Address() string {
-	return v.address.Hex()
-}
-
-func (v *EthereumVRFCoordinatorV2) HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-		Context: ctx,
-	}
-	hash, err := v.coordinator.HashOfKey(opts, pubKey)
-	if err != nil {
-		return [32]byte{}, err
-	}
-	return hash, nil
-}
-
-func (v *EthereumVRFCoordinatorV2) SetConfig(minimumRequestConfirmations uint16, maxGasLimit uint32, stalenessSeconds uint32, gasAfterPaymentCalculation uint32, fallbackWeiPerUnitLink *big.Int, feeConfig ethereum.VRFCoordinatorV2FeeConfig) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.SetConfig(
-		opts,
-		minimumRequestConfirmations,
-		maxGasLimit,
-		stalenessSeconds,
-		gasAfterPaymentCalculation,
-		fallbackWeiPerUnitLink,
-		feeConfig,
-	)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
-}
-
-func (v *EthereumVRFCoordinatorV2) RegisterProvingKey(
-	oracleAddr string,
-	publicProvingKey [2]*big.Int,
-) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.RegisterProvingKey(opts, common.HexToAddress(oracleAddr), publicProvingKey)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
-}
-
-func (v *EthereumVRFCoordinatorV2) CreateSubscription() error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.CreateSubscription(opts)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
+	client         *seth.Client
+	blockHashStore *blockhash_store.BlockhashStore
 }
 
 // EthereumVRFCoordinator represents VRF coordinator contract
 type EthereumVRFCoordinator struct {
 	address     *common.Address
-	client      blockchain.EVMClient
-	coordinator *ethereum.VRFCoordinator
+	client      *seth.Client
+	coordinator *solidity_vrf_coordinator_interface.VRFCoordinator
 }
 
-func (v *EthereumVRFCoordinator) Address() string {
+type EthereumVRFCoordinatorTestV2 struct {
+	address     *common.Address
+	client      *seth.Client
+	coordinator *vrf_coordinator_test_v2.VRFCoordinatorTestV2
+}
+
+func (v *EthereumVRFCoordinatorTestV2) Address() string {
 	return v.address.Hex()
-}
-
-// HashOfKey get a hash of proving key to use it as a request ID part for VRF
-func (v *EthereumVRFCoordinator) HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-		Context: ctx,
-	}
-	hash, err := v.coordinator.HashOfKey(opts, pubKey)
-	if err != nil {
-		return [32]byte{}, err
-	}
-	return hash, nil
-}
-
-// RegisterProvingKey register VRF proving key
-func (v *EthereumVRFCoordinator) RegisterProvingKey(
-	fee *big.Int,
-	oracleAddr string,
-	publicProvingKey [2]*big.Int,
-	jobID [32]byte,
-) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.coordinator.RegisterProvingKey(opts, fee, common.HexToAddress(oracleAddr), publicProvingKey, jobID)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
-}
-
-// EthereumVRFConsumerV2 represents VRFv2 consumer contract
-type EthereumVRFConsumerV2 struct {
-	address  *common.Address
-	client   blockchain.EVMClient
-	consumer *ethereum.VRFConsumerV2
-}
-
-// EthereumVRFv2Consumer represents VRFv2 consumer contract
-type EthereumVRFv2Consumer struct {
-	address  *common.Address
-	client   blockchain.EVMClient
-	consumer *eth_contracts.VRFv2Consumer
-}
-
-// CurrentSubscription get current VRFv2 subscription
-func (v *EthereumVRFConsumerV2) CurrentSubscription() (uint64, error) {
-	return v.consumer.SSubId(&bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-		Context: context.Background(),
-	})
-}
-
-// CreateFundedSubscription create funded subscription for VRFv2 randomness
-func (v *EthereumVRFConsumerV2) CreateFundedSubscription(funds *big.Int) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.consumer.TestCreateSubscriptionAndFund(opts, funds)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
-}
-
-// TopUpSubscriptionFunds add funds to a VRFv2 subscription
-func (v *EthereumVRFConsumerV2) TopUpSubscriptionFunds(funds *big.Int) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.consumer.TopUpSubscription(opts, funds)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
-}
-
-func (v *EthereumVRFConsumerV2) Address() string {
-	return v.address.Hex()
-}
-
-func (v *EthereumVRFv2Consumer) Address() string {
-	return v.address.Hex()
-}
-
-// GasAvailable get available gas after randomness fulfilled
-func (v *EthereumVRFConsumerV2) GasAvailable() (*big.Int, error) {
-	return v.consumer.SGasAvailable(&bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-		Context: context.Background(),
-	})
-}
-
-func (v *EthereumVRFConsumerV2) Fund(ethAmount *big.Float) error {
-	return v.client.Fund(v.address.Hex(), ethAmount)
-}
-
-// RequestRandomness request VRFv2 random words
-func (v *EthereumVRFConsumerV2) RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.consumer.TestRequestRandomness(opts, hash, subID, confs, gasLimit, numWords)
-	if err != nil {
-		return err
-	}
-	log.Info().Interface("Sub ID", subID).
-		Interface("Number of Words", numWords).
-		Interface("Number of Confirmations", confs).
-		Interface("Callback Gas Limit", gasLimit).
-		Interface("KeyHash", hex.EncodeToString(hash[:])).
-		Interface("Consumer Contract", v.address).
-		Msg("RequestRandomness called")
-	return v.client.ProcessTransaction(tx)
-}
-
-// RequestRandomness request VRFv2 random words
-func (v *EthereumVRFv2Consumer) RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.consumer.RequestRandomWords(opts, subID, gasLimit, confs, numWords, hash)
-	if err != nil {
-		return err
-	}
-	log.Info().Interface("Sub ID", subID).
-		Interface("Number of Words", numWords).
-		Interface("Number of Confirmations", confs).
-		Interface("Callback Gas Limit", gasLimit).
-		Interface("KeyHash", hex.EncodeToString(hash[:])).
-		Interface("Consumer Contract", v.address).
-		Msg("RequestRandomness called")
-	return v.client.ProcessTransaction(tx)
-}
-
-// RandomnessOutput get VRFv2 randomness output (word)
-func (v *EthereumVRFConsumerV2) RandomnessOutput(ctx context.Context, arg0 *big.Int) (*big.Int, error) {
-	return v.consumer.SRandomWords(&bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-		Context: ctx,
-	}, arg0)
-}
-
-func (v *EthereumVRFv2Consumer) GetRequestStatus(ctx context.Context, requestID *big.Int) (RequestStatus, error) {
-	return v.consumer.GetRequestStatus(&bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-		Context: ctx,
-	}, requestID)
-}
-
-func (v *EthereumVRFv2Consumer) GetLastRequestId(ctx context.Context) (*big.Int, error) {
-	return v.consumer.LastRequestId(&bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-		Context: ctx,
-	})
-}
-
-// GetAllRandomWords get all VRFv2 randomness output words
-func (v *EthereumVRFConsumerV2) GetAllRandomWords(ctx context.Context, num int) ([]*big.Int, error) {
-	words := make([]*big.Int, 0)
-	for i := 0; i < num; i++ {
-		word, err := v.consumer.SRandomWords(&bind.CallOpts{
-			From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-			Context: ctx,
-		}, big.NewInt(int64(i)))
-		if err != nil {
-			return nil, err
-		}
-		words = append(words, word)
-	}
-	return words, nil
-}
-
-// LoadExistingConsumer loads an EthereumVRFConsumerV2 with a specified address
-func (v *EthereumVRFConsumerV2) LoadExistingConsumer(address string, client blockchain.EVMClient) error {
-	a := common.HexToAddress(address)
-	consumer, err := ethereum.NewVRFConsumerV2(a, client.(*blockchain.EthereumClient).Client)
-	if err != nil {
-		return err
-	}
-	v.client = client
-	v.consumer = consumer
-	v.address = &a
-	return nil
 }
 
 // EthereumVRFConsumer represents VRF consumer contract
 type EthereumVRFConsumer struct {
 	address  *common.Address
-	client   blockchain.EVMClient
-	consumer *ethereum.VRFConsumer
+	client   *seth.Client
+	consumer *solidity_vrf_consumer_interface.VRFConsumer
 }
 
-func (v *EthereumVRFConsumer) Address() string {
-	return v.address.Hex()
+// EthereumVRF represents a VRF contract
+type EthereumVRF struct {
+	client  *seth.Client
+	vrf     *solidity_vrf_wrapper.VRF
+	address *common.Address
 }
 
-func (v *EthereumVRFConsumer) Fund(ethAmount *big.Float) error {
-	return v.client.Fund(v.address.Hex(), ethAmount)
+type EthereumVRFMockETHLINKAggregator struct {
+	client   *seth.Client
+	address  *common.Address
+	contract *vrf_mock_ethlink_aggregator.VRFMockETHLINKAggregator
 }
 
-// RequestRandomness requests VRF randomness
-func (v *EthereumVRFConsumer) RequestRandomness(hash [32]byte, fee *big.Int) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.consumer.TestRequestRandomness(opts, hash, fee)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
-}
-
-// CurrentRoundID helper roundID counter in consumer to check when all randomness requests are finished
-func (v *EthereumVRFConsumer) CurrentRoundID(ctx context.Context) (*big.Int, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-		Context: ctx,
-	}
-	return v.consumer.CurrentRoundID(opts)
-}
-
-func (v *EthereumVRFConsumer) WatchPerfEvents(ctx context.Context, eventChan chan<- *PerfEvent) error {
-	ethEventChan := make(chan *ethereum.VRFConsumerPerfMetricsEvent)
-	sub, err := v.consumer.WatchPerfMetricsEvent(&bind.WatchOpts{}, ethEventChan)
-	if err != nil {
-		return err
-	}
-	defer sub.Unsubscribe()
-	for {
-		select {
-		case event := <-ethEventChan:
-			eventChan <- &PerfEvent{
-				Contract:       v,
-				RequestID:      event.RequestId,
-				Round:          event.RoundID,
-				BlockTimestamp: event.Timestamp,
-			}
-		case err := <-sub.Err():
-			return err
-		case <-ctx.Done():
-			return nil
-		}
-	}
-}
-
-// RandomnessOutput get VRF randomness output
-func (v *EthereumVRFConsumer) RandomnessOutput(ctx context.Context) (*big.Int, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-		Context: ctx,
-	}
-	out, err := v.consumer.RandomnessOutput(opts)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
+// EthereumBatchBlockhashStore represents BatchBlockhashStore contract
+type EthereumBatchBlockhashStore struct {
+	address             common.Address
+	client              *seth.Client
+	batchBlockhashStore *batch_blockhash_store.BatchBlockhashStore
 }
 
 // VRFConsumerRoundConfirmer is a header subscription that awaits for a certain VRF round to be completed
@@ -701,491 +149,441 @@ func (f *VRFConsumerRoundConfirmer) Wait() error {
 	}
 }
 
-// EthereumVRF represents a VRF contract
-type EthereumVRF struct {
-	client  blockchain.EVMClient
-	vrf     *ethereum.VRF
-	address *common.Address
+func (v *EthereumBatchBlockhashStore) Address() string {
+	return v.address.Hex()
+}
+
+func (a *EthereumVRFMockETHLINKAggregator) Address() string {
+	return a.address.Hex()
+}
+
+func (a *EthereumVRFMockETHLINKAggregator) LatestRoundData() (*big.Int, error) {
+	data, err := a.contract.LatestRoundData(a.client.NewCallOpts())
+	if err != nil {
+		return nil, err
+	}
+	return data.Ans, nil
+}
+
+func (a *EthereumVRFMockETHLINKAggregator) LatestRoundDataUpdatedAt() (*big.Int, error) {
+	data, err := a.contract.LatestRoundData(a.client.NewCallOpts())
+	if err != nil {
+		return nil, err
+	}
+	return data.UpdatedAt, nil
+}
+
+func (a *EthereumVRFMockETHLINKAggregator) SetBlockTimestampDeduction(blockTimestampDeduction *big.Int) error {
+	_, err := a.client.Decode(a.contract.SetBlockTimestampDeduction(a.client.NewTXOpts(), blockTimestampDeduction))
+	return err
+}
+
+// DeployVRFContract deploy VRFv1 contract
+func DeployVRFv1Contract(seth *seth.Client) (VRF, error) {
+	abi, err := solidity_vrf_wrapper.VRFMetaData.GetAbi()
+	if err != nil {
+		return &EthereumVRF{}, fmt.Errorf("failed to get VRF ABI: %w", err)
+	}
+
+	vrfDeploymentData, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"VRF",
+		*abi,
+		common.FromHex(solidity_vrf_wrapper.VRFMetaData.Bin))
+	if err != nil {
+		return &EthereumVRF{}, fmt.Errorf("VRF instance deployment have failed: %w", err)
+	}
+
+	vrf, err := solidity_vrf_wrapper.NewVRF(vrfDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumVRF{}, fmt.Errorf("failed to instantiate VRF instance: %w", err)
+	}
+
+	return &EthereumVRF{
+		client:  seth,
+		vrf:     vrf,
+		address: &vrfDeploymentData.Address,
+	}, err
+}
+
+// DeployBlockhashStore deploys blockhash store used with VRF contract
+func DeployBlockhashStore(seth *seth.Client) (BlockHashStore, error) {
+	abi, err := blockhash_store.BlockhashStoreMetaData.GetAbi()
+	if err != nil {
+		return &EthereumBlockhashStore{}, fmt.Errorf("failed to get BlockhashStore ABI: %w", err)
+	}
+
+	storeDeploymentData, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"BlockhashStore",
+		*abi,
+		common.FromHex(blockhash_store.BlockhashStoreMetaData.Bin))
+	if err != nil {
+		return &EthereumBlockhashStore{}, fmt.Errorf("BlockhashStore instance deployment have failed: %w", err)
+	}
+
+	store, err := blockhash_store.NewBlockhashStore(storeDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumBlockhashStore{}, fmt.Errorf("failed to instantiate BlockhashStore instance: %w", err)
+	}
+
+	return &EthereumBlockhashStore{
+		client:         seth,
+		blockHashStore: store,
+		address:        &storeDeploymentData.Address,
+	}, err
+}
+
+// DeployVRFCoordinator deploys VRF coordinator contract
+func DeployVRFCoordinator(seth *seth.Client, linkAddr, bhsAddr string) (VRFCoordinator, error) {
+	abi, err := solidity_vrf_coordinator_interface.VRFCoordinatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumVRFCoordinator{}, fmt.Errorf("failed to get VRFCoordinator ABI: %w", err)
+	}
+
+	coordinatorDeploymentData, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"VRFCoordinator",
+		*abi,
+		common.FromHex(solidity_vrf_coordinator_interface.VRFCoordinatorMetaData.Bin),
+		common.HexToAddress(linkAddr),
+		common.HexToAddress(bhsAddr))
+	if err != nil {
+		return &EthereumVRFCoordinator{}, fmt.Errorf("VRFCoordinator instance deployment have failed: %w", err)
+	}
+
+	coordinator, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(coordinatorDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumVRFCoordinator{}, fmt.Errorf("failed to instantiate VRFCoordinator instance: %w", err)
+	}
+
+	return &EthereumVRFCoordinator{
+		client:      seth,
+		coordinator: coordinator,
+		address:     &coordinatorDeploymentData.Address,
+	}, err
+}
+
+func DeployVRFCoordinatorTestV2(seth *seth.Client, linkAddr, bhsAddr, linkEthFeedAddr string) (*EthereumVRFCoordinatorTestV2, error) {
+	abi, err := vrf_coordinator_test_v2.VRFCoordinatorTestV2MetaData.GetAbi()
+	if err != nil {
+		return &EthereumVRFCoordinatorTestV2{}, fmt.Errorf("failed to get VRFCoordinatorTestV2 ABI: %w", err)
+	}
+
+	coordinatorDeploymentData, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"VRFCoordinatorTestV2",
+		*abi,
+		common.FromHex(vrf_coordinator_test_v2.VRFCoordinatorTestV2MetaData.Bin),
+		common.HexToAddress(linkAddr),
+		common.HexToAddress(bhsAddr),
+		common.HexToAddress(linkEthFeedAddr))
+	if err != nil {
+		return &EthereumVRFCoordinatorTestV2{}, fmt.Errorf("VRFCoordinatorTestV2 instance deployment have failed: %w", err)
+	}
+
+	coordinator, err := vrf_coordinator_test_v2.NewVRFCoordinatorTestV2(coordinatorDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumVRFCoordinatorTestV2{}, fmt.Errorf("failed to instantiate VRFCoordinatorTestV2 instance: %w", err)
+	}
+
+	return &EthereumVRFCoordinatorTestV2{
+		client:      seth,
+		coordinator: coordinator,
+		address:     &coordinatorDeploymentData.Address,
+	}, err
+}
+
+// DeployVRFConsumer deploys VRF consumer contract
+func DeployVRFConsumer(seth *seth.Client, linkAddr, coordinatorAddr string) (VRFConsumer, error) {
+	abi, err := solidity_vrf_consumer_interface.VRFConsumerMetaData.GetAbi()
+	if err != nil {
+		return &EthereumVRFConsumer{}, fmt.Errorf("failed to get VRFConsumer ABI: %w", err)
+	}
+
+	consumerDeploymentData, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"VRFConsumer",
+		*abi,
+		common.FromHex(solidity_vrf_consumer_interface.VRFConsumerMetaData.Bin),
+		common.HexToAddress(coordinatorAddr),
+		common.HexToAddress(linkAddr),
+	)
+	if err != nil {
+		return &EthereumVRFConsumer{}, fmt.Errorf("VRFConsumer instance deployment have failed: %w", err)
+	}
+
+	consumer, err := solidity_vrf_consumer_interface.NewVRFConsumer(consumerDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumVRFConsumer{}, fmt.Errorf("failed to instantiate VRFConsumer instance: %w", err)
+	}
+
+	return &EthereumVRFConsumer{
+		client:   seth,
+		consumer: consumer,
+		address:  &consumerDeploymentData.Address,
+	}, err
+}
+
+func DeployVRFMockETHLINKFeed(seth *seth.Client, answer *big.Int) (VRFMockETHLINKFeed, error) {
+	abi, err := vrf_mock_ethlink_aggregator.VRFMockETHLINKAggregatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumVRFMockETHLINKAggregator{}, fmt.Errorf("failed to get VRFMockETHLINKAggregator ABI: %w", err)
+	}
+
+	deployment, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"VRFMockETHLINKAggregator",
+		*abi,
+		common.FromHex(vrf_mock_ethlink_aggregator.VRFMockETHLINKAggregatorMetaData.Bin),
+		answer,
+	)
+	if err != nil {
+		return &EthereumVRFMockETHLINKAggregator{}, fmt.Errorf("VRFMockETHLINKAggregator deployment have failed: %w", err)
+	}
+
+	contract, err := vrf_mock_ethlink_aggregator.NewVRFMockETHLINKAggregator(deployment.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumVRFMockETHLINKAggregator{}, fmt.Errorf("failed to instantiate VRFMockETHLINKAggregator instance: %w", err)
+	}
+
+	return &EthereumVRFMockETHLINKAggregator{
+		client:   seth,
+		contract: contract,
+		address:  &deployment.Address,
+	}, err
+}
+
+func LoadVRFMockETHLINKFeed(client *seth.Client, address common.Address) (VRFMockETHLINKFeed, error) {
+	abi, err := mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumVRFMockETHLINKFeed{}, fmt.Errorf("failed to get VRFMockETHLINKAggregator ABI: %w", err)
+	}
+	client.ContractStore.AddABI("VRFMockETHLINKAggregator", *abi)
+	client.ContractStore.AddBIN("VRFMockETHLINKAggregator", common.FromHex(mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.Bin))
+
+	instance, err := vrf_mock_ethlink_aggregator.NewVRFMockETHLINKAggregator(address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumVRFMockETHLINKFeed{}, fmt.Errorf("failed to instantiate VRFMockETHLINKAggregator instance: %w", err)
+	}
+
+	return &EthereumVRFMockETHLINKFeed{
+		address: address,
+		client:  client,
+		feed:    instance,
+	}, nil
+}
+
+func (v *EthereumBlockhashStore) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumBlockhashStore) GetBlockHash(ctx context.Context, blockNumber *big.Int) ([32]byte, error) {
+	blockHash, err := v.blockHashStore.GetBlockhash(&bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	}, blockNumber)
+	if err != nil {
+		return [32]byte{}, err
+	}
+	return blockHash, nil
+}
+
+func (v *EthereumBlockhashStore) StoreVerifyHeader(blockNumber *big.Int, blockHeader []byte) error {
+	_, err := v.client.Decode(v.blockHashStore.StoreVerifyHeader(
+		v.client.NewTXOpts(),
+		blockNumber,
+		blockHeader,
+	))
+	return err
+}
+
+func (v *EthereumVRFCoordinator) Address() string {
+	return v.address.Hex()
+}
+
+// HashOfKey get a hash of proving key to use it as a request ID part for VRF
+func (v *EthereumVRFCoordinator) HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error) {
+	hash, err := v.coordinator.HashOfKey(&bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	}, pubKey)
+	if err != nil {
+		return [32]byte{}, err
+	}
+	return hash, nil
+}
+
+// RegisterProvingKey register VRF proving key
+func (v *EthereumVRFCoordinator) RegisterProvingKey(
+	fee *big.Int,
+	oracleAddr string,
+	publicProvingKey [2]*big.Int,
+	jobID [32]byte,
+) error {
+	_, err := v.client.Decode(v.coordinator.RegisterProvingKey(v.client.NewTXOpts(), fee, common.HexToAddress(oracleAddr), publicProvingKey, jobID))
+	return err
+}
+
+func (v *EthereumVRFConsumer) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumVRFConsumer) Fund(_ *big.Float) error {
+	panic("do not use this function, use actions.SendFunds() instead, otherwise we will have to deal with circular dependencies")
+}
+
+// RequestRandomness requests VRF randomness
+func (v *EthereumVRFConsumer) RequestRandomness(hash [32]byte, fee *big.Int) error {
+	_, err := v.client.Decode(v.consumer.TestRequestRandomness(v.client.NewTXOpts(), hash, fee))
+	return err
+}
+
+// CurrentRoundID helper roundID counter in consumer to check when all randomness requests are finished
+func (v *EthereumVRFConsumer) CurrentRoundID(ctx context.Context) (*big.Int, error) {
+	return v.consumer.CurrentRoundID(&bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	})
+}
+
+// RandomnessOutput get VRF randomness output
+func (v *EthereumVRFConsumer) RandomnessOutput(ctx context.Context) (*big.Int, error) {
+	return v.consumer.RandomnessOutput(&bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	})
 }
 
 // Fund sends specified currencies to the contract
-func (v *EthereumVRF) Fund(ethAmount *big.Float) error {
-	return v.client.Fund(v.address.Hex(), ethAmount)
+func (v *EthereumVRF) Fund(_ *big.Float) error {
+	panic("do not use this function, use actions.SendFunds() instead, otherwise we will have to deal with circular dependencies")
 }
 
 // ProofLength returns the PROOFLENGTH call from the VRF contract
-func (v *EthereumVRF) ProofLength(ctxt context.Context) (*big.Int, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-		Context: ctxt,
-	}
-	return v.vrf.PROOFLENGTH(opts)
-}
-
-// EthereumDKG represents DKG contract
-type EthereumDKG struct {
-	address *common.Address
-	client  blockchain.EVMClient
-	dkg     *dkg.DKG
-}
-
-func (dkgContract *EthereumDKG) Address() string {
-	return dkgContract.address.Hex()
-}
-
-func (dkgContract *EthereumDKG) AddClient(keyID string, clientAddress string) error {
-	keyIDBytes, err := decodeHexTo32ByteArray(keyID)
-	if err != nil {
-		return err
-	}
-	opts, err := dkgContract.client.TransactionOpts(dkgContract.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := dkgContract.dkg.AddClient(
-		opts,
-		keyIDBytes,
-		common.HexToAddress(clientAddress),
-	)
-	if err != nil {
-		return err
-	}
-	return dkgContract.client.ProcessTransaction(tx)
-
-}
-
-func (dkgContract *EthereumDKG) SetConfig(
-	signerAddresses []common.Address,
-	transmitterAddresses []common.Address,
-	f uint8,
-	onchainConfig []byte,
-	offchainConfigVersion uint64,
-	offchainConfig []byte,
-) error {
-	opts, err := dkgContract.client.TransactionOpts(dkgContract.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := dkgContract.dkg.SetConfig(
-		opts,
-		signerAddresses,
-		transmitterAddresses,
-		f,
-		onchainConfig,
-		offchainConfigVersion,
-		offchainConfig,
-	)
-	if err != nil {
-		return err
-	}
-	return dkgContract.client.ProcessTransaction(tx)
-}
-
-func (dkgContract *EthereumDKG) WaitForTransmittedEvent(timeout time.Duration) (*dkg.DKGTransmitted, error) {
-	transmittedEventsChannel := make(chan *dkg.DKGTransmitted)
-	subscription, err := dkgContract.dkg.WatchTransmitted(nil, transmittedEventsChannel)
-	if err != nil {
-		return nil, err
-	}
-	defer subscription.Unsubscribe()
-
-	for {
-		select {
-		case err = <-subscription.Err():
-			return nil, err
-		case <-time.After(timeout):
-			return nil, errors.New("timeout waiting for DKGTransmitted event")
-		case transmittedEvent := <-transmittedEventsChannel:
-			return transmittedEvent, nil
-		}
-	}
-}
-
-func (dkgContract *EthereumDKG) WaitForConfigSetEvent(timeout time.Duration) (*dkg.DKGConfigSet, error) {
-	configSetEventsChannel := make(chan *dkg.DKGConfigSet)
-	subscription, err := dkgContract.dkg.WatchConfigSet(nil, configSetEventsChannel)
-	if err != nil {
-		return nil, err
-	}
-	defer subscription.Unsubscribe()
-
-	for {
-		select {
-		case err = <-subscription.Err():
-			return nil, err
-		case <-time.After(timeout):
-			return nil, errors.New("timeout waiting for DKGConfigSet event")
-		case configSetEvent := <-configSetEventsChannel:
-			return configSetEvent, nil
-		}
-	}
-}
-
-// EthereumVRFRouter represents EthereumVRFRouter contract
-type EthereumVRFRouter struct {
-	address   *common.Address
-	client    blockchain.EVMClient
-	vrfRouter *vrf_router.VRFRouter
-}
-
-func (router *EthereumVRFRouter) Address() string {
-	return router.address.Hex()
-}
-
-func (router *EthereumVRFRouter) RegisterCoordinator(coordinatorAddress string) error {
-	opts, err := router.client.TransactionOpts(router.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := router.vrfRouter.RegisterCoordinator(
-		opts,
-		common.HexToAddress(coordinatorAddress),
-	)
-	if err != nil {
-		return err
-	}
-	return router.client.ProcessTransaction(tx)
-}
-
-// EthereumVRFCoordinatorV3 represents VRFCoordinatorV3 contract
-type EthereumVRFCoordinatorV3 struct {
-	address          *common.Address
-	client           blockchain.EVMClient
-	vrfCoordinatorV3 *vrf_coordinator.VRFCoordinator
-}
-
-func (coordinator *EthereumVRFCoordinatorV3) Address() string {
-	return coordinator.address.Hex()
-}
-
-func (coordinator *EthereumVRFCoordinatorV3) SetProducer(producerAddress string) error {
-	opts, err := coordinator.client.TransactionOpts(coordinator.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := coordinator.vrfCoordinatorV3.SetProducer(
-		opts,
-		common.HexToAddress(producerAddress),
-	)
-	if err != nil {
-		return err
-	}
-	return coordinator.client.ProcessTransaction(tx)
-}
-
-func (coordinator *EthereumVRFCoordinatorV3) CreateSubscription() error {
-	opts, err := coordinator.client.TransactionOpts(coordinator.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := coordinator.vrfCoordinatorV3.CreateSubscription(
-		opts,
-	)
-	if err != nil {
-		return err
-	}
-	return coordinator.client.ProcessTransaction(tx)
-}
-
-func (coordinator *EthereumVRFCoordinatorV3) FindSubscriptionID() (*big.Int, error) {
-	fopts := &bind.FilterOpts{}
-	owner := coordinator.client.GetDefaultWallet().Address()
-
-	subscriptionIterator, err := coordinator.vrfCoordinatorV3.FilterSubscriptionCreated(
-		fopts,
-		nil,
-		[]common.Address{common.HexToAddress(owner)},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if !subscriptionIterator.Next() {
-		return nil, fmt.Errorf("expected at leats 1 subID for the given owner %s", owner)
-	}
-
-	return subscriptionIterator.Event.SubId, nil
-}
-
-func (coordinator *EthereumVRFCoordinatorV2) AddConsumer(subId uint64, consumerAddress string) error {
-	opts, err := coordinator.client.TransactionOpts(coordinator.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := coordinator.coordinator.AddConsumer(
-		opts,
-		subId,
-		common.HexToAddress(consumerAddress),
-	)
-	if err != nil {
-		return err
-	}
-	return coordinator.client.ProcessTransaction(tx)
-}
-
-func (coordinator *EthereumVRFCoordinatorV3) AddConsumer(subId *big.Int, consumerAddress string) error {
-	opts, err := coordinator.client.TransactionOpts(coordinator.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := coordinator.vrfCoordinatorV3.AddConsumer(
-		opts,
-		subId,
-		common.HexToAddress(consumerAddress),
-	)
-	if err != nil {
-		return err
-	}
-	return coordinator.client.ProcessTransaction(tx)
-}
-
-// EthereumVRFBeacon represents VRFBeacon contract
-type EthereumVRFBeacon struct {
-	address   *common.Address
-	client    blockchain.EVMClient
-	vrfBeacon *vrf_beacon.VRFBeacon
-}
-
-func (beacon *EthereumVRFBeacon) Address() string {
-	return beacon.address.Hex()
-}
-
-func (beacon *EthereumVRFBeacon) SetPayees(transmitterAddresses []common.Address, payeesAddresses []common.Address) error {
-	opts, err := beacon.client.TransactionOpts(beacon.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-
-	tx, err := beacon.vrfBeacon.SetPayees(
-		opts,
-		transmitterAddresses,
-		payeesAddresses,
-	)
-	if err != nil {
-		return err
-	}
-	return beacon.client.ProcessTransaction(tx)
-}
-
-func (beacon *EthereumVRFBeacon) SetConfig(
-	signerAddresses []common.Address,
-	transmitterAddresses []common.Address,
-	f uint8,
-	onchainConfig []byte,
-	offchainConfigVersion uint64,
-	offchainConfig []byte,
-) error {
-	opts, err := beacon.client.TransactionOpts(beacon.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := beacon.vrfBeacon.SetConfig(
-		opts,
-		signerAddresses,
-		transmitterAddresses,
-		f,
-		onchainConfig,
-		offchainConfigVersion,
-		offchainConfig,
-	)
-	if err != nil {
-		return err
-	}
-	return beacon.client.ProcessTransaction(tx)
-}
-
-func (beacon *EthereumVRFBeacon) WaitForConfigSetEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconConfigSet, error) {
-	configSetEventsChannel := make(chan *vrf_beacon.VRFBeaconConfigSet)
-	subscription, err := beacon.vrfBeacon.WatchConfigSet(nil, configSetEventsChannel)
-	if err != nil {
-		return nil, err
-	}
-	defer subscription.Unsubscribe()
-
-	for {
-		select {
-		case err := <-subscription.Err():
-			return nil, err
-		case <-time.After(timeout):
-			return nil, fmt.Errorf("timeout waiting for config set event")
-		case configSetEvent := <-configSetEventsChannel:
-			return configSetEvent, nil
-		}
-	}
-}
-
-func (beacon *EthereumVRFBeacon) WaitForNewTransmissionEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconNewTransmission, error) {
-	newTransmissionEventsChannel := make(chan *vrf_beacon.VRFBeaconNewTransmission)
-	subscription, err := beacon.vrfBeacon.WatchNewTransmission(nil, newTransmissionEventsChannel, nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer subscription.Unsubscribe()
-
-	for {
-		select {
-		case err := <-subscription.Err():
-			return nil, err
-		case <-time.After(timeout):
-			return nil, fmt.Errorf("timeout waiting for new transmission event")
-		case newTransmissionEvent := <-newTransmissionEventsChannel:
-			return newTransmissionEvent, nil
-		}
-	}
-}
-
-func (beacon *EthereumVRFBeacon) LatestConfigDigestAndEpoch(ctx context.Context) (vrf_beacon.LatestConfigDigestAndEpoch,
-	error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(beacon.client.GetDefaultWallet().Address()),
+func (v *EthereumVRF) ProofLength(ctx context.Context) (*big.Int, error) {
+	return v.vrf.PROOFLENGTH(&bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
-	}
-	return beacon.vrfBeacon.LatestConfigDigestAndEpoch(opts)
+	})
 }
 
-// EthereumVRFBeaconConsumer represents VRFBeaconConsumer contract
-type EthereumVRFBeaconConsumer struct {
-	address           *common.Address
-	client            blockchain.EVMClient
-	vrfBeaconConsumer *vrf_beacon_consumer.BeaconVRFConsumer
-	abi               string
+func LoadVRFCoordinatorV2_5(seth *seth.Client, addr string) (VRFCoordinatorV2_5, error) {
+	address := common.HexToAddress(addr)
+	abi, err := vrf_coordinator_v2_5.VRFCoordinatorV25MetaData.GetAbi()
+	if err != nil {
+		return &EthereumVRFCoordinatorV2_5{}, fmt.Errorf("failed to get VRFCoordinatorV2_5 ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("VRFCoordinatorV2_5", *abi)
+	seth.ContractStore.AddBIN("VRFCoordinatorV2_5", common.FromHex(vrf_coordinator_v2_5.VRFCoordinatorV25MetaData.Bin))
+
+	contract, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumVRFCoordinatorV2_5{}, fmt.Errorf("failed to instantiate VRFCoordinatorV2_5 instance: %w", err)
+	}
+
+	return &EthereumVRFCoordinatorV2_5{
+		client:      seth,
+		address:     address,
+		coordinator: contract,
+	}, nil
 }
 
-func (consumer *EthereumVRFBeaconConsumer) Address() string {
-	return consumer.address.Hex()
+func LoadBlockHashStore(seth *seth.Client, addr string) (BlockHashStore, error) {
+	address := common.HexToAddress(addr)
+	abi, err := blockhash_store.BlockhashStoreMetaData.GetAbi()
+	if err != nil {
+		return &EthereumBlockhashStore{}, fmt.Errorf("failed to get BlockHashStore ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("BlockHashStore", *abi)
+	seth.ContractStore.AddBIN("BlockHashStore", common.FromHex(blockhash_store.BlockhashStoreMetaData.Bin))
+
+	contract, err := blockhash_store.NewBlockhashStore(address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumBlockhashStore{}, fmt.Errorf("failed to instantiate BlockHashStore instance: %w", err)
+	}
+
+	return &EthereumBlockhashStore{
+		client:         seth,
+		address:        &address,
+		blockHashStore: contract,
+	}, nil
 }
 
-func (consumer *EthereumVRFBeaconConsumer) RequestRandomness(
-	numWords uint16,
-	subID, confirmationDelayArg *big.Int,
-) (*types.Receipt, error) {
-	opts, err := consumer.client.TransactionOpts(consumer.client.GetDefaultWallet())
+func LoadVRFv2PlusLoadTestConsumer(seth *seth.Client, addr string) (VRFv2PlusLoadTestConsumer, error) {
+	address := common.HexToAddress(addr)
+	abi, err := vrf_v2plus_load_test_with_metrics.VRFV2PlusLoadTestWithMetricsMetaData.GetAbi()
 	if err != nil {
-		return nil, errors.Wrap(err, "TransactionOpts failed")
+		return &EthereumVRFv2PlusLoadTestConsumer{}, fmt.Errorf("failed to get VRFV2PlusLoadTestWithMetrics ABI: %w", err)
 	}
-	tx, err := consumer.vrfBeaconConsumer.TestRequestRandomness(
-		opts,
-		numWords,
-		subID,
-		confirmationDelayArg,
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "TestRequestRandomness failed")
-	}
-	err = consumer.client.ProcessTransaction(tx)
-	if err != nil {
-		return nil, errors.Wrap(err, "ProcessTransaction failed")
-	}
-	err = consumer.client.WaitForEvents()
+	seth.ContractStore.AddABI("VRFV2PlusLoadTestWithMetrics", *abi)
+	seth.ContractStore.AddBIN("VRFV2PlusLoadTestWithMetrics", common.FromHex(vrf_v2plus_load_test_with_metrics.VRFV2PlusLoadTestWithMetricsMetaData.Bin))
 
+	contract, err := vrf_v2plus_load_test_with_metrics.NewVRFV2PlusLoadTestWithMetrics(address, wrappers.MustNewWrappedContractBackend(nil, seth))
 	if err != nil {
-		return nil, errors.Wrap(err, "WaitForEvents failed")
+		return &EthereumVRFv2PlusLoadTestConsumer{}, fmt.Errorf("failed to instantiate VRFV2PlusLoadTestWithMetrics instance: %w", err)
 	}
-	receipt, err := consumer.client.GetTxReceipt(tx.Hash())
-	if err != nil {
-		return nil, errors.Wrap(err, "GetTxReceipt failed")
-	}
-	log.Info().Interface("Sub ID", subID).
-		Interface("Number of Words", numWords).
-		Interface("Number of Confirmations", confirmationDelayArg).
-		Msg("RequestRandomness called")
-	return receipt, nil
+
+	return &EthereumVRFv2PlusLoadTestConsumer{
+		client:   seth,
+		address:  address,
+		consumer: contract,
+	}, nil
 }
 
-func (consumer *EthereumVRFBeaconConsumer) RedeemRandomness(
-	subID, requestID *big.Int,
-) error {
-	opts, err := consumer.client.TransactionOpts(consumer.client.GetDefaultWallet())
+func LoadVRFV2PlusWrapper(seth *seth.Client, addr string) (VRFV2PlusWrapper, error) {
+	address := common.HexToAddress(addr)
+	abi, err := vrfv2plus_wrapper.VRFV2PlusWrapperMetaData.GetAbi()
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to get VRFV2PlusWrapper ABI: %w", err)
 	}
-	tx, err := consumer.vrfBeaconConsumer.TestRedeemRandomness(
-		opts,
-		subID,
-		requestID,
-	)
+	seth.ContractStore.AddABI("VRFV2PlusWrapper", *abi)
+	seth.ContractStore.AddBIN("VRFV2PlusWrapper", common.FromHex(vrfv2plus_wrapper.VRFV2PlusWrapperMetaData.Bin))
+	contract, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(address, wrappers.MustNewWrappedContractBackend(nil, seth))
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to instantiate VRFV2PlusWrapper instance: %w", err)
 	}
-	log.Info().Interface("Sub ID", subID).
-		Interface("Request ID", requestID).
-		Msg("RedeemRandomness called")
-	return consumer.client.ProcessTransaction(tx)
+	return &EthereumVRFV2PlusWrapper{
+		client:  seth,
+		address: address,
+		wrapper: contract,
+	}, nil
 }
 
-func (consumer *EthereumVRFBeaconConsumer) RequestRandomnessFulfillment(
-	numWords uint16,
-	subID, confirmationDelayArg *big.Int,
-	callbackGasLimit uint32,
-	arguments []byte,
-) (*types.Receipt, error) {
-	opts, err := consumer.client.TransactionOpts(consumer.client.GetDefaultWallet())
+func LoadVRFV2PlusWrapperOptimism(seth *seth.Client, addr string) (*EthereumVRFV2PlusWrapperOptimism, error) {
+	address := common.HexToAddress(addr)
+	abi, err := vrfv2plus_wrapper_optimism.VRFV2PlusWrapperOptimismMetaData.GetAbi()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get VRFV2PlusWrapper_Optimism ABI: %w", err)
 	}
-	tx, err := consumer.vrfBeaconConsumer.TestRequestRandomnessFulfillment(
-		opts,
-		subID,
-		numWords,
-		confirmationDelayArg,
-		callbackGasLimit,
-		arguments,
-	)
+	seth.ContractStore.AddABI("VRFV2PlusWrapper_Optimism", *abi)
+	seth.ContractStore.AddBIN("VRFV2PlusWrapper_Optimism", common.FromHex(vrfv2plus_wrapper_optimism.VRFV2PlusWrapperOptimismMetaData.Bin))
+	contract, err := vrfv2plus_wrapper_optimism.NewVRFV2PlusWrapperOptimism(address, wrappers.MustNewWrappedContractBackend(nil, seth))
 	if err != nil {
-		return nil, errors.Wrap(err, "TestRequestRandomnessFulfillment failed")
+		return nil, fmt.Errorf("failed to instantiate VRFV2PlusWrapper_Optimism instance: %w", err)
 	}
-	err = consumer.client.ProcessTransaction(tx)
-	if err != nil {
-		return nil, errors.Wrap(err, "ProcessTransaction failed")
-	}
-	err = consumer.client.WaitForEvents()
-
-	if err != nil {
-		return nil, errors.Wrap(err, "WaitForEvents failed")
-	}
-	receipt, err := consumer.client.GetTxReceipt(tx.Hash())
-	if err != nil {
-		return nil, errors.Wrap(err, "GetTxReceipt failed")
-	}
-	log.Info().Interface("Sub ID", subID).
-		Interface("Number of Words", numWords).
-		Interface("Number of Confirmations", confirmationDelayArg).
-		Interface("Callback Gas Limit", callbackGasLimit).
-		Msg("RequestRandomnessFulfillment called")
-	return receipt, nil
+	return &EthereumVRFV2PlusWrapperOptimism{
+		client:  seth,
+		Address: address,
+		wrapper: contract,
+	}, nil
 }
 
-func (consumer *EthereumVRFBeaconConsumer) IBeaconPeriodBlocks(ctx context.Context) (*big.Int, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(consumer.client.GetDefaultWallet().Address()),
-		Context: ctx,
+func LoadVRFV2WrapperLoadTestConsumer(seth *seth.Client, addr string) (*EthereumVRFV2PlusWrapperLoadTestConsumer, error) {
+	address := common.HexToAddress(addr)
+	abi, err := vrfv2plus_wrapper_load_test_consumer.VRFV2PlusWrapperLoadTestConsumerMetaData.GetAbi()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get VRFV2PlusWrapperLoadTestConsumer ABI: %w", err)
 	}
-	return consumer.vrfBeaconConsumer.IBeaconPeriodBlocks(opts)
-}
-
-func (consumer *EthereumVRFBeaconConsumer) GetRequestIdsBy(ctx context.Context, nextBeaconOutputHeight *big.Int, confDelay *big.Int) (*big.Int, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(consumer.client.GetDefaultWallet().Address()),
-		Context: ctx,
+	seth.ContractStore.AddABI("VRFV2PlusWrapperLoadTestConsumer", *abi)
+	seth.ContractStore.AddBIN("VRFV2PlusWrapperLoadTestConsumer", common.FromHex(vrfv2plus_wrapper_load_test_consumer.VRFV2PlusWrapperLoadTestConsumerMetaData.Bin))
+	contract, err := vrfv2plus_wrapper_load_test_consumer.NewVRFV2PlusWrapperLoadTestConsumer(address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate VRFV2PlusWrapperLoadTestConsumer instance: %w", err)
 	}
-	return consumer.vrfBeaconConsumer.SRequestsIDs(opts, nextBeaconOutputHeight, confDelay)
-}
-
-func (consumer *EthereumVRFBeaconConsumer) GetRandomnessByRequestId(ctx context.Context, requestID *big.Int, numWordIndex *big.Int) (*big.Int, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(consumer.client.GetDefaultWallet().Address()),
-		Context: ctx,
-	}
-	return consumer.vrfBeaconConsumer.SReceivedRandomnessByRequestID(opts, requestID, numWordIndex)
-}
-
-// EthereumBatchBlockhashStore represents BatchBlockhashStore contract
-type EthereumBatchBlockhashStore struct {
-	address             *common.Address
-	client              blockchain.EVMClient
-	batchBlockhashStore *batch_blockhash_store.BatchBlockhashStore
-}
-
-func (v *EthereumBatchBlockhashStore) Address() string {
-	return v.address.Hex()
+	return &EthereumVRFV2PlusWrapperLoadTestConsumer{
+		client:   seth,
+		address:  address,
+		consumer: contract,
+	}, nil
 }

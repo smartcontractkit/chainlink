@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+option go_package = "core/services/ocr2/plugins/functions/encoding";
+
+package encoding;
+
+// These protos are used internally by the OCR2 reporting plugin to
+// pass data between initial phases. Report is ABI-encoded.
+message Query {
+    repeated bytes requestIDs = 1;
+}
+
+message Observation {
+    repeated ProcessedRequest processedRequests = 1;
+}
+
+message ProcessedRequest {
+  bytes requestID = 1;
+  bytes result = 2;
+  bytes error = 3;
+  uint32 callbackGasLimit = 4;
+  bytes coordinatorContract = 5;
+  bytes onchainMetadata = 6;
+}

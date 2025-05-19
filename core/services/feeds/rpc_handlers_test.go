@@ -1,16 +1,16 @@
 package feeds_test
 
 import (
+	"fmt"
 	"testing"
 
-	uuid "github.com/satori/go.uuid"
-	"github.com/stretchr/testify/mock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
-	pb "github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
 )
 
 type TestRPCHandlers struct {
@@ -22,15 +22,9 @@ type TestRPCHandlers struct {
 
 func setupTestHandlers(t *testing.T) *TestRPCHandlers {
 	var (
-		svc            = &mocks.Service{}
+		svc            = mocks.NewService(t)
 		feedsManagerID = int64(1)
 	)
-
-	t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t,
-			svc,
-		)
-	})
 
 	return &TestRPCHandlers{
 		RPCHandlers:    feeds.NewRPCHandlers(svc, feedsManagerID),
@@ -41,10 +35,11 @@ func setupTestHandlers(t *testing.T) *TestRPCHandlers {
 
 func Test_RPCHandlers_ProposeJob(t *testing.T) {
 	var (
-		ctx     = testutils.Context(t)
-		jobID   = uuid.NewV4()
-		spec    = FluxMonitorTestSpec
-		version = int64(1)
+		ctx                  = testutils.Context(t)
+		jobID                = uuid.New()
+		nameAndExternalJobID = uuid.New()
+		spec                 = fmt.Sprintf(FluxMonitorTestSpecTemplate, nameAndExternalJobID, nameAndExternalJobID)
+		version              = int64(1)
 	)
 	h := setupTestHandlers(t)
 
@@ -68,7 +63,7 @@ func Test_RPCHandlers_ProposeJob(t *testing.T) {
 func Test_RPCHandlers_DeleteJob(t *testing.T) {
 	var (
 		ctx   = testutils.Context(t)
-		jobID = uuid.NewV4()
+		jobID = uuid.New()
 	)
 	h := setupTestHandlers(t)
 
@@ -88,7 +83,7 @@ func Test_RPCHandlers_DeleteJob(t *testing.T) {
 func Test_RPCHandlers_RevokeJob(t *testing.T) {
 	var (
 		ctx   = testutils.Context(t)
-		jobID = uuid.NewV4()
+		jobID = uuid.New()
 	)
 	h := setupTestHandlers(t)
 

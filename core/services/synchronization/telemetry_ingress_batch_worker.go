@@ -1,98 +1,82 @@
 package synchronization
 
 import (
-	"sync"
+	"context"
 	"sync/atomic"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // telemetryIngressBatchWorker pushes telemetry in batches to the ingress server via wsrpc.
 // A worker is created per ContractID.
 type telemetryIngressBatchWorker struct {
-	services.ServiceCtx
+	services.Service
 
 	telemMaxBatchSize uint
-	telemSendInterval time.Duration
 	telemSendTimeout  time.Duration
 	telemClient       telemPb.TelemClient
-	wgDone            *sync.WaitGroup
-	chDone            chan struct{}
 	chTelemetry       chan TelemPayload
 	contractID        string
 	telemType         TelemetryType
 	logging           bool
 	lggr              logger.Logger
 	dropMessageCount  atomic.Uint32
+
+	// endpointURL is used for reporting metrics
+	endpointURL string
 }
 
 // NewTelemetryIngressBatchWorker returns a worker for a given contractID that can send
 // telemetry to the ingress server via WSRPC
 func NewTelemetryIngressBatchWorker(
 	telemMaxBatchSize uint,
-	telemSendInterval time.Duration,
 	telemSendTimeout time.Duration,
 	telemClient telemPb.TelemClient,
-	wgDone *sync.WaitGroup,
-	chDone chan struct{},
 	chTelemetry chan TelemPayload,
 	contractID string,
 	telemType TelemetryType,
-	globalLogger logger.Logger,
+	lggr logger.Logger,
 	logging bool,
+	endpointURL string,
 ) *telemetryIngressBatchWorker {
 	return &telemetryIngressBatchWorker{
-		telemSendInterval: telemSendInterval,
 		telemSendTimeout:  telemSendTimeout,
 		telemMaxBatchSize: telemMaxBatchSize,
 		telemClient:       telemClient,
-		wgDone:            wgDone,
-		chDone:            chDone,
 		chTelemetry:       chTelemetry,
 		contractID:        contractID,
 		telemType:         telemType,
 		logging:           logging,
-		lggr:              globalLogger.Named("TelemetryIngressBatchWorker"),
+		lggr:              logger.Named(lggr, "TelemetryIngressBatchWorker"),
+		endpointURL:       endpointURL,
 	}
 }
 
-// Start sends batched telemetry to the ingress server on an interval
-func (tw *telemetryIngressBatchWorker) Start() {
-	tw.wgDone.Add(1)
-	sendTicker := time.NewTicker(tw.telemSendInterval)
+// Send sends batched telemetry to the ingress server on an interval
+func (tw *telemetryIngressBatchWorker) Send(ctx context.Context) {
+	if len(tw.chTelemetry) == 0 {
+		return
+	}
 
-	go func() {
-		defer tw.wgDone.Done()
+	// Send batched telemetry to the ingress server, log any errors
+	telemBatchReq := tw.BuildTelemBatchReq()
+	ctx, cancel := context.WithTimeout(ctx, tw.telemSendTimeout)
+	_, err := tw.telemClient.TelemBatch(ctx, telemBatchReq)
+	cancel()
 
-		for {
-			select {
-			case <-sendTicker.C:
-				if len(tw.chTelemetry) == 0 {
-					continue
-				}
-
-				// Send batched telemetry to the ingress server, log any errors
-				telemBatchReq := tw.BuildTelemBatchReq()
-				ctx, cancel := utils.ContextFromChanWithDeadline(tw.chDone, tw.telemSendTimeout)
-				_, err := tw.telemClient.TelemBatch(ctx, telemBatchReq)
-				cancel()
-
-				if err != nil {
-					tw.lggr.Warnf("Could not send telemetry: %v", err)
-					continue
-				}
-				if tw.logging {
-					tw.lggr.Debugw("Successfully sent telemetry to ingress server", "contractID", telemBatchReq.ContractId, "telemType", telemBatchReq.TelemetryType, "telemetry", telemBatchReq.Telemetry)
-				}
-			case <-tw.chDone:
-				return
-			}
-		}
-	}()
+	if err != nil {
+		tw.lggr.Warnf("Could not send telemetry: %v", err)
+		TelemetryClientMessagesSendErrors.WithLabelValues(tw.endpointURL, string(tw.telemType)).Inc()
+		return
+	}
+	TelemetryClientMessagesSent.WithLabelValues(tw.endpointURL, string(tw.telemType)).Inc()
+	if tw.logging {
+		tw.lggr.Debugw("Successfully sent telemetry to ingress server", "contractID", telemBatchReq.ContractId, "telemType", telemBatchReq.TelemetryType, "telemetry", telemBatchReq.Telemetry)
+	}
 }
 
 // logBufferFullWithExpBackoff logs messages at
@@ -109,6 +93,8 @@ func (tw *telemetryIngressBatchWorker) Start() {
 // etc...
 func (tw *telemetryIngressBatchWorker) logBufferFullWithExpBackoff(payload TelemPayload) {
 	count := tw.dropMessageCount.Add(1)
+	TelemetryClientMessagesDropped.WithLabelValues(tw.endpointURL, string(tw.telemType)).Inc()
+
 	if count > 0 && (count%100 == 0 || count&(count-1) == 0) {
 		tw.lggr.Warnw("telemetry ingress client buffer full, dropping message", "telemetry", payload.Telemetry, "droppedCount", count)
 	}

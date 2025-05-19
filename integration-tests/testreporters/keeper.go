@@ -4,7 +4,6 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -13,15 +12,15 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 )
 
 // KeeperBlockTimeTestReporter enables reporting on the keeper block time test
 type KeeperBlockTimeTestReporter struct {
 	Reports                        []KeeperBlockTimeTestReport `json:"reports"`
 	ReportMutex                    sync.Mutex
-	AttemptedChainlinkTransactions []*client.TransactionsData `json:"attemptedChainlinkTransactions"`
+	AttemptedChainlinkTransactions []*nodeclient.TransactionsData `json:"attemptedChainlinkTransactions"`
 
 	namespace                 string
 	keeperReportFile          string
@@ -65,7 +64,7 @@ func (k *KeeperBlockTimeTestReporter) WriteReport(folderLocation string) error {
 	}
 	var totalExpected, totalSuccessful, totalMissed, worstMiss int64
 	for contractIndex, report := range k.Reports {
-		avg, max := int64AvgMax(report.AllMissedUpkeeps)
+		avg, maxVal := int64AvgMax(report.AllMissedUpkeeps)
 		err = keeperReportWriter.Write([]string{
 			fmt.Sprint(contractIndex),
 			report.ContractAddress,
@@ -73,13 +72,13 @@ func (k *KeeperBlockTimeTestReporter) WriteReport(folderLocation string) error {
 			fmt.Sprint(report.TotalSuccessfulUpkeeps),
 			fmt.Sprint(len(report.AllMissedUpkeeps)),
 			fmt.Sprint(avg),
-			fmt.Sprint(max),
+			fmt.Sprint(maxVal),
 			fmt.Sprintf("%.2f%%", (float64(report.TotalSuccessfulUpkeeps)/float64(report.TotalExpectedUpkeeps))*100),
 		})
 		totalExpected += report.TotalExpectedUpkeeps
 		totalSuccessful += report.TotalSuccessfulUpkeeps
 		totalMissed += int64(len(report.AllMissedUpkeeps))
-		worstMiss = int64(math.Max(float64(max), float64(worstMiss)))
+		worstMiss = max(maxVal, worstMiss)
 		if err != nil {
 			return err
 		}
@@ -137,24 +136,22 @@ func (k *KeeperBlockTimeTestReporter) SendSlackNotification(t *testing.T, slackC
 		return err
 	}
 
-	if err := testreporters.UploadSlackFile(slackClient, slack.FileUploadParameters{
+	if err := testreporters.UploadSlackFile(slackClient, slack.UploadFileV2Parameters{
 		Title:           fmt.Sprintf("Keeper Block Time Test Report %s", k.namespace),
-		Filetype:        "csv",
 		Filename:        fmt.Sprintf("keeper_block_time_%s.csv", k.namespace),
 		File:            k.keeperReportFile,
 		InitialComment:  fmt.Sprintf("Keeper Block Time Test Report %s", k.namespace),
-		Channels:        []string{testreporters.SlackChannel},
+		Channel:         testreporters.SlackChannel,
 		ThreadTimestamp: ts,
 	}); err != nil {
 		return err
 	}
-	return testreporters.UploadSlackFile(slackClient, slack.FileUploadParameters{
+	return testreporters.UploadSlackFile(slackClient, slack.UploadFileV2Parameters{
 		Title:           fmt.Sprintf("Keeper Block Time Attempted Chainlink Txs %s", k.namespace),
-		Filetype:        "json",
 		Filename:        fmt.Sprintf("attempted_cl_txs_%s.json", k.namespace),
 		File:            k.attemptedTransactionsFile,
 		InitialComment:  fmt.Sprintf("Keeper Block Time Attempted Txs %s", k.namespace),
-		Channels:        []string{testreporters.SlackChannel},
+		Channel:         testreporters.SlackChannel,
 		ThreadTimestamp: ts,
 	})
 }
@@ -162,13 +159,13 @@ func (k *KeeperBlockTimeTestReporter) SendSlackNotification(t *testing.T, slackC
 // int64AvgMax helper calculates the avg and the max values in a list
 func int64AvgMax(in []int64) (float64, int64) {
 	var sum int64
-	var max int64
+	var val int64 // max
 	if len(in) == 0 {
 		return 0, 0
 	}
 	for _, num := range in {
 		sum += num
-		max = int64(math.Max(float64(max), float64(num)))
+		val = max(val, num)
 	}
-	return float64(sum) / float64(len(in)), max
+	return float64(sum) / float64(len(in)), val
 }

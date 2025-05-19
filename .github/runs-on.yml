@@ -1,0 +1,30 @@
+runners:
+  # Used for go-mod-cache.yml
+  # 4cpu/8gp offers better EBS performance over 2cpu/4gb
+  4core-8gb-large-ubuntu-s3:
+    cpu: 4
+    ram: 8
+    family: c7
+    image: ubuntu24-full-x64
+    disk: large
+    extras: [ "s3-cache" ]
+
+  # Used for ci-core.yml jobs
+  32core-256gb-large-ubuntu-r7-s3:
+    cpu: 32
+    ram: 256
+    family: r7
+    disk: large
+    image: ubuntu24-full-x64
+    extras: [ "s3-cache"]
+
+  # Used for race tests / ccip deployment tests
+  64core-128gb-large-ubuntu-c7-s3:
+    cpu: 64
+    ram: 128
+    family: c7
+    disk: large
+    image: ubuntu24-full-x64
+    extras: [ "s3-cache"]
+
+

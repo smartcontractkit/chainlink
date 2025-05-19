@@ -8,19 +8,20 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type KeeperIndexMap map[ethkey.EIP55Address]int32
+type KeeperIndexMap map[types.EIP55Address]int32
 
 type Registry struct {
 	ID                int64
 	BlockCountPerTurn int32
 	CheckGas          uint32
-	ContractAddress   ethkey.EIP55Address
-	FromAddress       ethkey.EIP55Address
+	ContractAddress   types.EIP55Address
+	FromAddress       types.EIP55Address
 	JobID             int32
 	KeeperIndex       int32
 	NumKeepers        int32
@@ -34,7 +35,7 @@ type UpkeepRegistration struct {
 	LastRunBlockHeight  int64
 	RegistryID          int64
 	Registry            Registry
-	UpkeepID            *utils.Big
+	UpkeepID            *big.Big
 	LastKeeperIndex     null.Int64
 	PositioningConstant int32
 }
@@ -60,16 +61,16 @@ func (upkeep UpkeepRegistration) PrettyID() string {
 	return NewUpkeepIdentifier(upkeep.UpkeepID).String()
 }
 
-func NewUpkeepIdentifier(i *utils.Big) *UpkeepIdentifier {
+func NewUpkeepIdentifier(i *big.Big) *UpkeepIdentifier {
 	val := UpkeepIdentifier(*i)
 	return &val
 }
 
-type UpkeepIdentifier utils.Big
+type UpkeepIdentifier big.Big
 
 // String produces a hex encoded value, zero padded, prefixed with UpkeepPrefix
 func (ui UpkeepIdentifier) String() string {
-	val := utils.Big(ui)
+	val := big.Big(ui)
 	result, err := utils.Uint256ToBytes(val.ToInt())
 	if err != nil {
 		panic(errors.Wrap(err, "invariant, invalid upkeepID"))

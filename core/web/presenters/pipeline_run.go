@@ -5,6 +5,7 @@ import (
 
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -15,14 +16,14 @@ type PipelineRunResource struct {
 	Outputs []*string `json:"outputs"`
 	// XXX: Here for backwards compatibility, can be removed later
 	// Deprecated: Errors
-	Errors       []*string                 `json:"errors"`
-	AllErrors    []*string                 `json:"allErrors"`
-	FatalErrors  []*string                 `json:"fatalErrors"`
-	Inputs       pipeline.JSONSerializable `json:"inputs"`
-	TaskRuns     []PipelineTaskRunResource `json:"taskRuns"`
-	CreatedAt    time.Time                 `json:"createdAt"`
-	FinishedAt   null.Time                 `json:"finishedAt"`
-	PipelineSpec PipelineSpec              `json:"pipelineSpec"`
+	Errors       []*string                         `json:"errors"`
+	AllErrors    []*string                         `json:"allErrors"`
+	FatalErrors  []*string                         `json:"fatalErrors"`
+	Inputs       jsonserializable.JSONSerializable `json:"inputs"`
+	TaskRuns     []PipelineTaskRunResource         `json:"taskRuns"`
+	CreatedAt    time.Time                         `json:"createdAt"`
+	FinishedAt   null.Time                         `json:"finishedAt"`
+	PipelineSpec PipelineSpec                      `json:"pipelineSpec"`
 }
 
 // GetName implements the api2go EntityNamer interface

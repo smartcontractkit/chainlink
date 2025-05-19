@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo " ┌──────────────────────────────────────────────┐"
+echo " │      Compiling L2EP contracts...             │"
+echo " └──────────────────────────────────────────────┘"
+
+PROJECT="l2ep"
+
+CONTRACTS_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../ && pwd -P )"
+export FOUNDRY_PROFILE="$PROJECT"
+
+compileContract () {
+  local contract
+  contract=$(basename "$1")
+  echo "Compiling" "$contract"
+
+  local command
+  command="forge build $CONTRACTS_DIR/src/v0.8/$PROJECT/"$1.sol" \
+       --root $CONTRACTS_DIR \
+       --extra-output-files bin abi \
+       -o $CONTRACTS_DIR/solc/$PROJECT/$contract"
+  $command
+}
+
+compileContract arbitrum/ArbitrumValidator
+compileContract arbitrum/ArbitrumSequencerUptimeFeed
+compileContract arbitrum/ArbitrumCrossDomainForwarder
+compileContract arbitrum/ArbitrumCrossDomainGovernor
+
+compileContract optimism/OptimismValidator
+compileContract optimism/OptimismSequencerUptimeFeed
+compileContract optimism/OptimismCrossDomainForwarder
+compileContract optimism/OptimismCrossDomainGovernor
+
+compileContract scroll/ScrollValidator
+compileContract scroll/ScrollSequencerUptimeFeed
+compileContract scroll/ScrollCrossDomainForwarder
+compileContract scroll/ScrollCrossDomainGovernor

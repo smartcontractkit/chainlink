@@ -1,0 +1,108 @@
+! exec chainlink node -c config.toml -s secrets.toml validate
+cmp stderr err.txt
+cmp stdout out.txt
+
+-- config.toml --
+Log.Level = 'debug'
+
+[[EVM]]
+ChainID = '1'
+
+[[EVM]]
+ChainID = '1'
+
+[[EVM.Nodes]]
+Name = 'fake'
+WSURL = 'wss://foo.bar/ws'
+HTTPURL = 'https://foo.bar'
+
+[[EVM.Nodes]]
+Name = 'fake'
+WSURL = 'wss://foo.bar/ws'
+HTTPURL = 'https://foo.bar'
+
+[[Cosmos]]
+ChainID = 'Malaga-420'
+
+[[Cosmos]]
+ChainID = 'Malaga-420'
+
+[[Cosmos.Nodes]]
+Name = 'primary'
+TendermintURL = 'http://tender.mint'
+
+[[Cosmos.Nodes]]
+Name = 'primary'
+TendermintURL = 'http://tender.mint'
+
+[[Solana]]
+ChainID = 'mainnet'
+
+[[Solana]]
+ChainID = 'mainnet'
+
+[[Solana.Nodes]]
+Name = 'primary'
+URL = 'http://solana.web'
+
+[[Solana.Nodes]]
+Name = 'primary'
+URL = 'http://solana.web'
+
+[[Starknet]]
+ChainID = 'foobar'
+
+[[Starknet]]
+ChainID = 'foobar'
+
+[[Starknet.Nodes]]
+Name = 'primary'
+URL = 'http://stark.node'
+
+[[Starknet.Nodes]]
+Name = 'primary'
+URL = 'http://stark.node'
+
+[[Tron]]
+ChainID = '1'
+
+[[Tron]]
+ChainID = '1'
+
+[[Tron.Nodes]]
+Name = 'fake'
+URL = 'https://foo.bar'
+
+[[Tron.Nodes]]
+Name = 'fake'
+URL = 'https://foo.bar'
+
+-- secrets.toml --
+[Database]
+URL = 'postgresql://user:pass@localhost:5432/dbname?sslmode=disable'
+BackupURL = ''
+
+[Password]
+Keystore = ''
+
+-- out.txt --
+-- err.txt --
+Error running app: invalid configuration: 5 errors:
+	- EVM: 4 errors:
+		- 1.ChainID: invalid value (1): duplicate - must be unique
+		- 1.Nodes.1.Name: invalid value (fake): duplicate - must be unique
+		- 1.Nodes.1.WSURL: invalid value (wss://foo.bar/ws): duplicate - must be unique
+		- 1.Nodes.1.HTTPURL: invalid value (https://foo.bar): duplicate - must be unique
+	- Cosmos: 2 errors:
+		- 1.ChainID: invalid value (Malaga-420): duplicate - must be unique
+		- 1.Nodes.1.Name: invalid value (primary): duplicate - must be unique
+	- Solana: 3 errors:
+		- 1.ChainID: invalid value (mainnet): duplicate - must be unique
+		- 1.Nodes.1.Name: invalid value (primary): duplicate - must be unique
+		- 1.Nodes.1.URL: invalid value (http://solana.web): duplicate - must be unique
+	- Starknet: 2 errors:
+		- 1.ChainID: invalid value (foobar): duplicate - must be unique
+		- 1.Nodes.1.Name: invalid value (primary): duplicate - must be unique
+	- Tron: 2 errors:
+		- 1.ChainID: invalid value (1): duplicate - must be unique
+		- 1.Nodes.1.Name: invalid value (fake): duplicate - must be unique

@@ -1,6 +1,8 @@
 package webhook
 
 import (
+	"context"
+
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -18,7 +20,7 @@ type TOMLWebhookSpec struct {
 	ExternalInitiators []TOMLWebhookSpecExternalInitiator `toml:"externalInitiators"`
 }
 
-func ValidatedWebhookSpec(tomlString string, externalInitiatorManager ExternalInitiatorManager) (jb job.Job, err error) {
+func ValidatedWebhookSpec(ctx context.Context, tomlString string, externalInitiatorManager ExternalInitiatorManager) (jb job.Job, err error) {
 	var tree *toml.Tree
 	tree, err = toml.Load(tomlString)
 	if err != nil {
@@ -40,7 +42,7 @@ func ValidatedWebhookSpec(tomlString string, externalInitiatorManager ExternalIn
 
 	var externalInitiatorWebhookSpecs []job.ExternalInitiatorWebhookSpec
 	for _, eiSpec := range tomlSpec.ExternalInitiators {
-		ei, findErr := externalInitiatorManager.FindExternalInitiatorByName(eiSpec.Name)
+		ei, findErr := externalInitiatorManager.FindExternalInitiatorByName(ctx, eiSpec.Name)
 		if findErr != nil {
 			err = multierr.Combine(err, errors.Wrapf(findErr, "unable to find external initiator named %s", eiSpec.Name))
 			continue

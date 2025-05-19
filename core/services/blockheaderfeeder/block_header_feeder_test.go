@@ -6,35 +6,36 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	keystoremocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 )
 
+type testCase struct {
+	name                string
+	requests            []blockhashstore.Event
+	fulfillments        []blockhashstore.Event
+	wait                int
+	lookback            int
+	latest              uint64
+	alreadyStored       []uint64
+	expectedStored      []uint64
+	expectedErrMsg      string
+	getBatchSize        uint16
+	storeBatchSize      uint16
+	getBatchCallCount   uint16
+	storeBatchCallCount uint16
+	storedEarliest      bool
+	bhs                 blockhashstore.TestBHS
+	batchBHS            blockhashstore.TestBatchBHS
+}
+
 func TestFeeder(t *testing.T) {
-	tests := []struct {
-		name                string
-		requests            []blockhashstore.Event
-		fulfillments        []blockhashstore.Event
-		wait                int
-		lookback            int
-		latest              uint64
-		alreadyStored       []uint64
-		expectedStored      []uint64
-		expectedErrMsg      string
-		getBatchSize        uint16
-		storeBatchSize      uint16
-		getBatchCallCount   uint16
-		storeBatchCallCount uint16
-		storedEarliest      bool
-		bhs                 blockhashstore.TestBHS
-		batchBHS            blockhashstore.TestBatchBHS
-	}{
+	tests := []testCase{
 		{
 			name:                "single missing block",
 			requests:            []blockhashstore.Event{{Block: 150, ID: "request"}},
@@ -182,51 +183,53 @@ func TestFeeder(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		lggr := logger.TestLogger(t)
-		lggr.Debugf("running test case: %s", test.name)
-		coordinator := &blockhashstore.TestCoordinator{
-			RequestEvents:     test.requests,
-			FulfillmentEvents: test.fulfillments,
-		}
-
-		test.batchBHS.Stored = append(test.batchBHS.Stored, test.alreadyStored...)
-
-		blockHeaderProvider := &blockhashstore.TestBlockHeaderProvider{}
-		fromAddress := "0x469aA2CD13e037DC5236320783dCfd0e641c0559"
-		fromAddresses := []ethkey.EIP55Address{(ethkey.EIP55Address(fromAddress))}
-		ks := keystoremocks.NewEth(t)
-		ks.On("GetRoundRobinAddress", testutils.FixtureChainID, mock.Anything).Maybe().Return(common.HexToAddress(fromAddress), nil)
-
-		feeder := NewBlockHeaderFeeder(
-			lggr,
-			coordinator,
-			&test.bhs,
-			&test.batchBHS,
-			blockHeaderProvider,
-			test.wait,
-			test.lookback,
-			func(ctx context.Context) (uint64, error) {
-				return test.latest, nil
-			},
-			ks,
-			test.getBatchSize,
-			test.storeBatchSize,
-			fromAddresses,
-			testutils.FixtureChainID,
-		)
-
-		err := feeder.Run(testutils.Context(t))
-		if test.expectedErrMsg == "" {
-			require.NoError(t, err)
-		} else {
-			require.EqualError(t, err, test.expectedErrMsg)
-		}
-
-		require.ElementsMatch(t, test.expectedStored, test.batchBHS.Stored)
-		require.Equal(t, test.storedEarliest, test.bhs.StoredEarliest)
-		require.Equal(t, test.getBatchCallCount, test.batchBHS.GetBlockhashesCallCounter)
-		require.Equal(t, test.storeBatchCallCount, test.batchBHS.StoreVerifyHeaderCallCounter)
+		t.Run(test.name, test.testFeeder)
 	}
+}
+
+func (test testCase) testFeeder(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	lggr.Debugf("running test case: %s", test.name)
+	coordinator := &blockhashstore.TestCoordinator{
+		RequestEvents:     test.requests,
+		FulfillmentEvents: test.fulfillments,
+	}
+
+	test.batchBHS.Stored = append(test.batchBHS.Stored, test.alreadyStored...)
+
+	blockHeaderProvider := &blockhashstore.TestBlockHeaderProvider{}
+	fromAddress := "0x469aA2CD13e037DC5236320783dCfd0e641c0559"
+	fromAddresses := []types.EIP55Address{types.EIP55Address(fromAddress)}
+	ks := keystest.Addresses{common.HexToAddress(fromAddress)}
+
+	feeder := NewBlockHeaderFeeder(
+		lggr,
+		coordinator,
+		&test.bhs,
+		&test.batchBHS,
+		blockHeaderProvider,
+		test.wait,
+		test.lookback,
+		func(ctx context.Context) (uint64, error) {
+			return test.latest, nil
+		},
+		ks,
+		test.getBatchSize,
+		test.storeBatchSize,
+		fromAddresses,
+	)
+
+	err := feeder.Run(testutils.Context(t))
+	if test.expectedErrMsg == "" {
+		require.NoError(t, err)
+	} else {
+		require.EqualError(t, err, test.expectedErrMsg)
+	}
+
+	require.ElementsMatch(t, test.expectedStored, test.batchBHS.Stored)
+	require.Equal(t, test.storedEarliest, test.bhs.StoredEarliest)
+	require.Equal(t, test.getBatchCallCount, test.batchBHS.GetBlockhashesCallCounter)
+	require.Equal(t, test.storeBatchCallCount, test.batchBHS.StoreVerifyHeaderCallCounter)
 }
 
 func TestFeeder_CachesStoredBlocks(t *testing.T) {
@@ -238,9 +241,8 @@ func TestFeeder_CachesStoredBlocks(t *testing.T) {
 	batchBHS := &blockhashstore.TestBatchBHS{Stored: []uint64{75}}
 	blockHeaderProvider := &blockhashstore.TestBlockHeaderProvider{}
 	fromAddress := "0x469aA2CD13e037DC5236320783dCfd0e641c0559"
-	fromAddresses := []ethkey.EIP55Address{(ethkey.EIP55Address(fromAddress))}
-	ks := keystoremocks.NewEth(t)
-	ks.On("GetRoundRobinAddress", testutils.FixtureChainID, mock.Anything).Maybe().Return(common.HexToAddress(fromAddress), nil)
+	fromAddresses := []types.EIP55Address{types.EIP55Address(fromAddress)}
+	ks := keystest.Addresses{common.HexToAddress(fromAddress)}
 
 	feeder := NewBlockHeaderFeeder(
 		logger.TestLogger(t),
@@ -257,7 +259,6 @@ func TestFeeder_CachesStoredBlocks(t *testing.T) {
 		1,
 		1,
 		fromAddresses,
-		testutils.FixtureChainID,
 	)
 
 	// Should store block 74. block 75 was already stored from above

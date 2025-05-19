@@ -1,54 +1,120 @@
 package pg
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"log"
+	"os"
 	"time"
 
-	// need to make sure pgx driver is registered before opening connection
-	_ "github.com/jackc/pgx/v4/stdlib"
-	uuid "github.com/satori/go.uuid"
-	"github.com/scylladb/go-reflectx"
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jackc/pgconn"
+	_ "github.com/jackc/pgx/v4/stdlib" // need to make sure pgx driver is registered before opening connection
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
+	commonpg "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/sqltest"
 )
 
-type ConnectionConfig interface {
-	DatabaseDefaultIdleInTxSessionTimeout() time.Duration
-	DatabaseDefaultLockTimeout() time.Duration
-	ORMMaxOpenConns() int
-	ORMMaxIdleConns() int
+var MinRequiredPGVersion = 110000
+
+func init() {
+	// from: https://www.postgresql.org/support/versioning/
+	now := time.Now()
+	if now.Year() > 2023 {
+		MinRequiredPGVersion = 120000
+	} else if now.Year() > 2024 {
+		MinRequiredPGVersion = 130000
+	} else if now.Year() > 2025 {
+		MinRequiredPGVersion = 140000
+	} else if now.Year() > 2026 {
+		MinRequiredPGVersion = 150000
+	} else if now.Year() > 2027 {
+		MinRequiredPGVersion = 160000
+	}
 }
 
-func NewConnection(uri string, dialect dialects.DialectName, config ConnectionConfig) (db *sqlx.DB, err error) {
-	if dialect == dialects.TransactionWrappedPostgres {
-		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
-		// should be encapsulated in it's own transaction, and thus needs its own
-		// unique id.
-		//
-		// We can happily throw away the original uri here because if we are using
-		// txdb it should have already been set at the point where we called
-		// txdb.Register
-		uri = uuid.NewV4().String()
-	}
+type ConnectionConfig interface {
+	DefaultIdleInTxSessionTimeout() time.Duration
+	DefaultLockTimeout() time.Duration
+	MaxOpenConns() int
+	MaxIdleConns() int
+}
 
-	// Initialize sql/sqlx
-	db, err = sqlx.Open(string(dialect), uri)
+func NewConnection(ctx context.Context, uri string, driverName string, config ConnectionConfig) (db *sqlx.DB, err error) {
+	if driverName == commonpg.DriverTxWrappedPostgres {
+		if err = sqltest.RegisterTxDB(uri); err != nil {
+			return nil, fmt.Errorf("failed to register %s: %w", commonpg.DriverTxWrappedPostgres, err)
+		}
+	}
+	db, err = commonpg.DBConfig{
+		IdleInTxSessionTimeout: config.DefaultIdleInTxSessionTimeout(),
+		LockTimeout:            config.DefaultLockTimeout(),
+		MaxOpenConns:           config.MaxOpenConns(),
+		MaxIdleConns:           config.MaxIdleConns(),
+	}.New(ctx, uri, driverName)
 	if err != nil {
 		return nil, err
 	}
-	db.MapperFunc(reflectx.CamelToSnakeASCII)
+	setMaxMercuryConns(db, config)
 
-	// Set default connection options
-	lockTimeout := config.DatabaseDefaultLockTimeout().Milliseconds()
-	idleInTxSessionTimeout := config.DatabaseDefaultIdleInTxSessionTimeout().Milliseconds()
-	stmt := fmt.Sprintf(`SET TIME ZONE 'UTC'; SET lock_timeout = %d; SET idle_in_transaction_session_timeout = %d; SET default_transaction_isolation = %q`,
-		lockTimeout, idleInTxSessionTimeout, DefaultIsolation.String())
-	if _, err = db.Exec(stmt); err != nil {
-		return nil, err
+	if os.Getenv("SKIP_PG_VERSION_CHECK") != "true" {
+		if err = checkVersion(db, MinRequiredPGVersion); err != nil {
+			return nil, err
+		}
 	}
-	db.SetMaxOpenConns(config.ORMMaxOpenConns())
-	db.SetMaxIdleConns(config.ORMMaxIdleConns())
 
 	return db, nil
+}
+
+func setMaxMercuryConns(db *sqlx.DB, config ConnectionConfig) {
+	// HACK: In the case of mercury jobs, one conn is needed per job for good
+	// performance. Most nops will forget to increase the defaults to account
+	// for this so we detect it here instead.
+	//
+	// This problem will be solved by replacing mercury with parallel
+	// compositions (llo plugin).
+	//
+	// See: https://smartcontract-it.atlassian.net/browse/MERC-3654
+	var cnt int
+	if err := db.Get(&cnt, `SELECT COUNT(*) FROM ocr2_oracle_specs WHERE plugin_type = 'mercury'`); err != nil {
+		const errUndefinedTable = "42P01"
+		var pqerr *pgconn.PgError
+		if errors.As(err, &pqerr) {
+			if pqerr.Code == errUndefinedTable {
+				// no mercury jobs defined
+				return
+			}
+		}
+		log.Printf("Error checking mercury jobs: %s", err.Error())
+		return
+	}
+	if cnt > config.MaxOpenConns() {
+		log.Printf("Detected %d mercury jobs, increasing max open connections from %d to %d", cnt, config.MaxOpenConns(), cnt)
+		db.SetMaxOpenConns(cnt)
+	}
+	if cnt > config.MaxIdleConns() {
+		log.Printf("Detected %d mercury jobs, increasing max idle connections from %d to %d", cnt, config.MaxIdleConns(), cnt)
+		db.SetMaxIdleConns(cnt)
+	}
+}
+
+type Getter interface {
+	Get(dest interface{}, query string, args ...interface{}) error
+}
+
+func checkVersion(db Getter, minVersion int) error {
+	var version int
+	if err := db.Get(&version, "SHOW server_version_num"); err != nil {
+		log.Printf("Error getting server version, skipping Postgres version check: %s", err.Error())
+		return nil
+	}
+	if version < 10000 {
+		log.Printf("Unexpectedly small version, skipping Postgres version check (you are running: %d)", version)
+		return nil
+	}
+	if version < minVersion {
+		return fmt.Errorf("The minimum required Postgres server version is %d, you are running: %d, which is EOL (see: https://www.postgresql.org/support/versioning/). It is recommended to upgrade your Postgres server. To forcibly override this check, set SKIP_PG_VERSION_CHECK=true", minVersion/10000, version/10000)
+	}
+	return nil
 }

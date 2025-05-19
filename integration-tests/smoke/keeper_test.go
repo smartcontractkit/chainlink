@@ -4,51 +4,39 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"os"
 	"strconv"
-	"strings"
 	"testing"
+	"time"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 const (
 	keeperDefaultUpkeepGasLimit       = uint32(2500000)
 	keeperDefaultLinkFunds            = int64(9e18)
-	keeperDefaultUpkeepsToDeploy      = 10
+	keeperDefaultUpkeepsToDeploy      = 2
 	numUpkeepsAllowedForStragglingTxs = 6
 	keeperExpectedData                = "abcdef"
-	keeperBaseTOML                    = `[Keeper]
-	TurnLookBack = 0
-	
-	[Keeper.Registry]
-	SyncInterval = '5s'
-	PerformGasOverhead = 150_000`
 )
 
 var (
-	keeperEnvVars = map[string]any{
-		"KEEPER_TURN_LOOK_BACK":                "0",
-		"KEEPER_REGISTRY_SYNC_INTERVAL":        "5s",
-		"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD": "150000",
-	}
-
 	keeperDefaultRegistryConfig = contracts.KeeperRegistrySettings{
 		PaymentPremiumPPB:    uint32(200000000),
 		FlatFeeMicroLINK:     uint32(0),
@@ -91,22 +79,25 @@ var (
 
 func TestKeeperBasicSmoke(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_1_1": ethereum.RegistryVersion_1_1,
-		"registry_1_2": ethereum.RegistryVersion_1_2,
-		"registry_1_3": ethereum.RegistryVersion_1_3,
+	registryVersions := []ethereum.KeeperRegistryVersion{
+		ethereum.RegistryVersion_1_1,
+		ethereum.RegistryVersion_1_2,
+		ethereum.RegistryVersion_1_3,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
+	for _, rv := range registryVersions {
 		registryVersion := rv
-		t.Run(name, func(t *testing.T) {
+		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
-			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "basic-smoke")
-			if onlyStartRunner {
-				return
-			}
+			l := logging.GetTestLogger(t)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Keeper)
+			require.NoError(t, err, "Failed to get config")
+
+			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+			sb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get start block")
+
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -114,25 +105,28 @@ func TestKeeperBasicSmoke(t *testing.T) {
 				keeperDefaultUpkeepsToDeploy,
 				keeperDefaultUpkeepGasLimit,
 				linkToken,
-				contractDeployer,
 				chainClient,
 				big.NewInt(keeperDefaultLinkFunds),
 			)
-			gom := gomega.NewGomegaWithT(t)
 
-			actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRConfig{})
-			err := chainClient.WaitForEvents()
+			t.Cleanup(func() {
+				actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
+			})
+
+			_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, strconv.FormatInt(chainClient.ChainID, 10))
 			require.NoError(t, err, "Error creating keeper jobs")
 
-			gom.Eventually(func(g gomega.Gomega) {
-				// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 10
+			gom := gomega.NewGomegaWithT(t)
+			gom.Eventually(func(g gomega.Gomega) error {
+				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
 				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(context.Background())
+					counter, err := consumers[i].Counter(testcontext.Get(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(10)),
 						"Expected consumer counter to be greater than 10, but got %d", counter.Int64())
 					l.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 				}
+				return nil
 			}, "5m", "1s").Should(gomega.Succeed())
 
 			// Cancel all the registered upkeeps via the registry
@@ -141,14 +135,11 @@ func TestKeeperBasicSmoke(t *testing.T) {
 				require.NoError(t, err, "Could not cancel upkeep at index %d", i)
 			}
 
-			err = chainClient.WaitForEvents()
-			require.NoError(t, err, "Error waiting for upkeeps to be cancelled")
-
 			var countersAfterCancellation = make([]*big.Int, len(upkeepIDs))
 
 			for i := 0; i < len(upkeepIDs); i++ {
 				// Obtain the amount of times the upkeep has been executed so far
-				countersAfterCancellation[i], err = consumers[i].Counter(context.Background())
+				countersAfterCancellation[i], err = consumers[i].Counter(testcontext.Get(t))
 				require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 				l.Info().Int("Index", i).Int64("Upkeeps Performed", countersAfterCancellation[i].Int64()).Msg("Cancelled Upkeep")
 			}
@@ -156,8 +147,8 @@ func TestKeeperBasicSmoke(t *testing.T) {
 			gom.Consistently(func(g gomega.Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
 					// Expect the counter to remain constant because the upkeep was cancelled, so it shouldn't increase anymore
-					latestCounter, err := consumers[i].Counter(context.Background())
-					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
+					latestCounter, err := consumers[i].Counter(testcontext.Get(t))
+					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 					g.Expect(latestCounter.Int64()).Should(gomega.Equal(countersAfterCancellation[i].Int64()),
 						"Expected consumer counter to remain constant at %d, but got %d",
 						countersAfterCancellation[i].Int64(), latestCounter.Int64())
@@ -169,22 +160,29 @@ func TestKeeperBasicSmoke(t *testing.T) {
 
 func TestKeeperBlockCountPerTurn(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_1_1": ethereum.RegistryVersion_1_1,
-		"registry_1_2": ethereum.RegistryVersion_1_2,
-		"registry_1_3": ethereum.RegistryVersion_1_3,
+	registryVersions := []ethereum.KeeperRegistryVersion{
+		ethereum.RegistryVersion_1_1,
+		ethereum.RegistryVersion_1_2,
+		ethereum.RegistryVersion_1_3,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
+	for _, rv := range registryVersions {
 		registryVersion := rv
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "bcpt")
-			if onlyStartRunner {
-				return
+		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			if registryVersion == ethereum.RegistryVersion_1_2 {
+				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-556")
 			}
+
+			t.Parallel()
+			l := logging.GetTestLogger(t)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Keeper)
+			require.NoError(t, err, "Failed to get config")
+
+			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+			sb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get start block")
+
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -192,110 +190,150 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 				keeperDefaultUpkeepsToDeploy,
 				keeperDefaultUpkeepGasLimit,
 				linkToken,
-				contractDeployer,
 				chainClient,
 				big.NewInt(keeperDefaultLinkFunds),
 			)
-			gom := gomega.NewGomegaWithT(t)
 
-			actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRConfig{})
-			err := chainClient.WaitForEvents()
+			_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, strconv.FormatInt(chainClient.ChainID, 10))
 			require.NoError(t, err, "Error creating keeper jobs")
 
-			keepersPerformed := make([]string, 0)
-			upkeepID := upkeepIDs[0]
+			t.Cleanup(func() {
+				actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
+			})
 
-			// Wait for upkeep to be performed twice by different keepers (buddies)
-			gom.Eventually(func(g gomega.Gomega) {
-				counter, err := consumers[0].Counter(context.Background())
-				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
-				l.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
+			keepersPerformedLowFreq := map[*big.Int][]string{}
 
-				upkeepInfo, err := registry.GetUpkeepInfo(context.Background(), upkeepID)
-				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Registry's getUpkeep shouldn't fail")
+			// gom := gomega.NewGomegaWithT(t)
+			// Wait for upkeep to be performed by two different keepers that alternate (buddies)
+			l.Info().Msg("Waiting for 2m for upkeeps to be performed by different keepers")
+			ticker := time.NewTicker(1 * time.Second)
+			defer ticker.Stop()
 
-				latestKeeper := upkeepInfo.LastKeeper
-				l.Info().Str("keeper", latestKeeper).Msg("last keeper to perform upkeep")
-				g.Expect(latestKeeper).ShouldNot(gomega.Equal(actions.ZeroAddress.String()), "Last keeper should be non zero")
-				g.Expect(latestKeeper).ShouldNot(gomega.BeElementOf(keepersPerformed), "A new keeper node should perform this upkeep")
+			stop := time.After(2 * time.Minute)
 
-				l.Info().Str("keeper", latestKeeper).Msg("New keeper performed upkeep")
-				keepersPerformed = append(keepersPerformed, latestKeeper)
-			}, "1m", "1s").Should(gomega.Succeed())
+		LOW_LOOP:
+			for {
+				select {
+				case <-ticker.C:
+					for i := 0; i < len(upkeepIDs); i++ {
+						counter, err := consumers[i].Counter(testcontext.Get(t))
+						require.NoError(t, err, "Calling consumer's counter shouldn't fail")
+						l.Info().Str("UpkeepId", upkeepIDs[i].String()).Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 
-			gom.Eventually(func(g gomega.Gomega) {
-				upkeepInfo, err := registry.GetUpkeepInfo(context.Background(), upkeepID)
-				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Registry's getUpkeep shouldn't fail")
+						upkeepInfo, err := registry.GetUpkeepInfo(testcontext.Get(t), upkeepIDs[i])
+						require.NoError(t, err, "Registry's getUpkeep shouldn't fail")
 
-				latestKeeper := upkeepInfo.LastKeeper
-				g.Expect(latestKeeper).ShouldNot(gomega.Equal(actions.ZeroAddress.String()), "Last keeper should be non zero")
-				g.Expect(latestKeeper).ShouldNot(gomega.BeElementOf(keepersPerformed), "A new keeper node should perform this upkeep")
+						latestKeeper := upkeepInfo.LastKeeper
+						if latestKeeper == actions.ZeroAddress.String() {
+							continue
+						}
 
-				l.Info().Str("Keeper", latestKeeper).Msg("New keeper performed upkeep")
-				keepersPerformed = append(keepersPerformed, latestKeeper)
-			}, "1m", "1s").Should(gomega.Succeed())
+						keepersPerformedLowFreq[upkeepIDs[i]] = append(keepersPerformedLowFreq[upkeepIDs[i]], latestKeeper)
+					}
+				case <-stop:
+					ticker.Stop()
+					break LOW_LOOP
+				}
+			}
 
-			// Expect no new keepers to perform for a while
-			gom.Consistently(func(g gomega.Gomega) {
-				upkeepInfo, err := registry.GetUpkeepInfo(context.Background(), upkeepID)
-				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Registry's getUpkeep shouldn't fail")
-
-				latestKeeper := upkeepInfo.LastKeeper
-				g.Expect(latestKeeper).ShouldNot(gomega.Equal(actions.ZeroAddress.String()), "Last keeper should be non zero")
-				g.Expect(latestKeeper).Should(gomega.BeElementOf(keepersPerformed), "Existing keepers should alternate turns within BCPT")
-			}, "1m", "1s").Should(gomega.Succeed())
+			require.GreaterOrEqual(t, 2, len(keepersPerformedLowFreq), "At least 2 different keepers should have been performing upkeeps")
 
 			// Now set BCPT to be low, so keepers change turn frequently
-			err = registry.SetConfig(lowBCPTRegistryConfig, contracts.OCRConfig{})
+			err = registry.SetConfig(lowBCPTRegistryConfig, contracts.OCRv2Config{})
 			require.NoError(t, err, "Error setting registry config")
-			err = chainClient.WaitForEvents()
-			require.NoError(t, err, "Error waiting for set config tx")
 
-			// Expect a new keeper to perform
-			gom.Eventually(func(g gomega.Gomega) {
-				counter, err := consumers[0].Counter(context.Background())
-				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
-				l.Info().Int64("Upkeep counter", counter.Int64()).Msg("Num upkeeps performed")
+			keepersPerformedHigherFreq := map[*big.Int][]string{}
 
-				upkeepInfo, err := registry.GetUpkeepInfo(context.Background(), upkeepID)
-				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Registry's getUpkeep shouldn't fail")
+			ticker = time.NewTicker(1 * time.Second)
+			defer ticker.Stop()
 
-				latestKeeper := upkeepInfo.LastKeeper
-				l.Info().Str("keeper", latestKeeper).Msg("last keeper to perform upkeep")
-				g.Expect(latestKeeper).ShouldNot(gomega.Equal(actions.ZeroAddress.String()), "Last keeper should be non zero")
-				g.Expect(latestKeeper).ShouldNot(gomega.BeElementOf(keepersPerformed), "A new keeper node should perform this upkeep")
+			stop = time.After(2 * time.Minute)
 
-				l.Info().Str("keeper", latestKeeper).Msg("New keeper performed upkeep")
-				keepersPerformed = append(keepersPerformed, latestKeeper)
-			}, "1m", "1s").Should(gomega.Succeed())
+		HIGH_LOOP:
+			for {
+				select {
+				case <-ticker.C:
+					for i := 0; i < len(upkeepIDs); i++ {
+						counter, err := consumers[i].Counter(testcontext.Get(t))
+						require.NoError(t, err, "Calling consumer's counter shouldn't fail")
+						l.Info().Str("UpkeepId", upkeepIDs[i].String()).Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
+
+						upkeepInfo, err := registry.GetUpkeepInfo(testcontext.Get(t), upkeepIDs[i])
+						require.NoError(t, err, "Registry's getUpkeep shouldn't fail")
+
+						latestKeeper := upkeepInfo.LastKeeper
+						if latestKeeper == actions.ZeroAddress.String() {
+							continue
+						}
+
+						keepersPerformedHigherFreq[upkeepIDs[i]] = append(keepersPerformedHigherFreq[upkeepIDs[i]], latestKeeper)
+					}
+				case <-stop:
+					ticker.Stop()
+					break HIGH_LOOP
+				}
+			}
+
+			require.GreaterOrEqual(t, 3, len(keepersPerformedHigherFreq), "At least 3 different keepers should have been performing upkeeps after BCPT change")
+
+			var countFreq = func(keepers []string, freqMap map[string]int) {
+				for _, keeper := range keepers {
+					freqMap[keeper]++
+				}
+			}
+
+			for i := 0; i < len(upkeepIDs); i++ {
+				lowFreqMap := make(map[string]int)
+				highFreqMap := make(map[string]int)
+
+				countFreq(keepersPerformedLowFreq[upkeepIDs[i]], lowFreqMap)
+				countFreq(keepersPerformedHigherFreq[upkeepIDs[i]], highFreqMap)
+
+				require.Greater(t, len(highFreqMap), len(lowFreqMap), "High frequency map should have more keepers than low frequency map")
+
+				l.Info().Interface("Low BCPT", lowFreqMap).Interface("High BCPT", highFreqMap).Str("UpkeepID", upkeepIDs[i].String()).Msg("Keeper frequency map")
+
+				for lowKeeper, lowFreq := range lowFreqMap {
+					highFreq, ok := highFreqMap[lowKeeper]
+					// it might happen due to fluke that a keeper is not found in high frequency map
+					if !ok {
+						continue
+					}
+					// require.True(t, ok, "Keeper %s not found in high frequency map. This should not happen", lowKeeper)
+					require.GreaterOrEqual(t, lowFreq, highFreq, "Keeper %s should have performed less times with high BCPT than with low BCPT", lowKeeper)
+				}
+			}
 		})
 	}
 }
 
 func TestKeeperSimulation(t *testing.T) {
 	t.Parallel()
-	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_1_2": ethereum.RegistryVersion_1_2,
-		"registry_1_3": ethereum.RegistryVersion_1_3,
+	registryVersions := []ethereum.KeeperRegistryVersion{
+		ethereum.RegistryVersion_1_2,
+		ethereum.RegistryVersion_1_3,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
+	for _, rv := range registryVersions {
 		registryVersion := rv
-		t.Run(name, func(t *testing.T) {
+		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
-			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "simulation")
-			if onlyStartRunner {
-				return
-			}
+			l := logging.GetTestLogger(t)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Keeper)
+			require.NoError(t, err, "Failed to get config")
+
+			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+			sb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get start block")
+
 			registry, _, consumersPerformance, upkeepIDs := actions.DeployPerformanceKeeperContracts(
 				t,
+				chainClient,
 				registryVersion,
 				keeperDefaultUpkeepsToDeploy,
 				keeperDefaultUpkeepGasLimit,
 				linkToken,
-				contractDeployer,
-				chainClient,
 				&keeperDefaultRegistryConfig,
 				big.NewInt(keeperDefaultLinkFunds),
 				10000,   // How many blocks this upkeep will be eligible from first upkeep block
@@ -303,19 +341,22 @@ func TestKeeperSimulation(t *testing.T) {
 				100000,  // How much gas should be burned on checkUpkeep() calls
 				4000000, // How much gas should be burned on performUpkeep() calls. Initially set higher than defaultUpkeepGasLimit
 			)
-			gom := gomega.NewGomegaWithT(t)
 
-			actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRConfig{})
-			err := chainClient.WaitForEvents()
+			_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, strconv.FormatInt(chainClient.ChainID, 10))
 			require.NoError(t, err, "Error creating keeper jobs")
+
+			t.Cleanup(func() {
+				actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
+			})
 
 			consumerPerformance := consumersPerformance[0]
 			upkeepID := upkeepIDs[0]
 
+			gom := gomega.NewGomegaWithT(t)
 			// Initially performGas is set high, so performUpkeep reverts and no upkeep should be performed
 			gom.Consistently(func(g gomega.Gomega) {
 				// Consumer count should remain at 0
-				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
+				cnt, err := consumerPerformance.GetUpkeepCount(testcontext.Get(t))
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's Counter shouldn't fail")
 				g.Expect(cnt.Int64()).Should(
 					gomega.Equal(int64(0)),
@@ -323,24 +364,23 @@ func TestKeeperSimulation(t *testing.T) {
 				)
 
 				// Not even reverted upkeeps should be performed. Last keeper for the upkeep should be 0 address
-				upkeepInfo, err := registry.GetUpkeepInfo(context.Background(), upkeepID)
+				upkeepInfo, err := registry.GetUpkeepInfo(testcontext.Get(t), upkeepID)
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Registry's getUpkeep shouldn't fail")
 				g.Expect(upkeepInfo.LastKeeper).Should(gomega.Equal(actions.ZeroAddress.String()), "Last keeper should be zero address")
 			}, "1m", "1s").Should(gomega.Succeed())
 
 			// Set performGas on consumer to be low, so that performUpkeep starts becoming successful
-			err = consumerPerformance.SetPerformGasToBurn(context.Background(), big.NewInt(100000))
+			err = consumerPerformance.SetPerformGasToBurn(testcontext.Get(t), big.NewInt(100000))
 			require.NoError(t, err, "Error setting PerformGasToBurn")
-			err = chainClient.WaitForEvents()
-			require.NoError(t, err, "Error waiting to set PerformGasToBurn")
 
 			// Upkeep should now start performing
-			gom.Eventually(func(g gomega.Gomega) {
-				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
+			gom.Eventually(func(g gomega.Gomega) error {
+				cnt, err := consumerPerformance.GetUpkeepCount(testcontext.Get(t))
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's Counter shouldn't fail")
 				g.Expect(cnt.Int64()).Should(gomega.BeNumerically(">", int64(0)),
 					"Expected consumer counter to be greater than 0, but got %d", cnt.Int64(),
 				)
+				return nil
 			}, "1m", "1s").Should(gomega.Succeed())
 		})
 	}
@@ -348,29 +388,31 @@ func TestKeeperSimulation(t *testing.T) {
 
 func TestKeeperCheckPerformGasLimit(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_1_2": ethereum.RegistryVersion_1_2,
-		"registry_1_3": ethereum.RegistryVersion_1_3,
+	registryVersions := []ethereum.KeeperRegistryVersion{
+		ethereum.RegistryVersion_1_2,
+		ethereum.RegistryVersion_1_3,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
+	for _, rv := range registryVersions {
 		registryVersion := rv
-		t.Run(name, func(t *testing.T) {
+		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
-			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "gas-limit")
-			if onlyStartRunner {
-				return
-			}
+			l := logging.GetTestLogger(t)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Keeper)
+			require.NoError(t, err, "Failed to get config")
+
+			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+			sb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get start block")
+
 			registry, _, consumersPerformance, upkeepIDs := actions.DeployPerformanceKeeperContracts(
 				t,
+				chainClient,
 				registryVersion,
 				keeperDefaultUpkeepsToDeploy,
 				keeperDefaultUpkeepGasLimit,
 				linkToken,
-				contractDeployer,
-				chainClient,
 				&keeperDefaultRegistryConfig,
 				big.NewInt(keeperDefaultLinkFunds),
 				10000,   // How many blocks this upkeep will be eligible from first upkeep block
@@ -378,83 +420,103 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 				100000,  // How much gas should be burned on checkUpkeep() calls
 				4000000, // How much gas should be burned on performUpkeep() calls. Initially set higher than defaultUpkeepGasLimit
 			)
-			gom := gomega.NewGomegaWithT(t)
 
-			actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRConfig{})
-			err := chainClient.WaitForEvents()
+			_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, strconv.FormatInt(chainClient.ChainID, 10))
 			require.NoError(t, err, "Error creating keeper jobs")
 
-			consumerPerformance := consumersPerformance[0]
-			upkeepID := upkeepIDs[0]
+			t.Cleanup(func() {
+				actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
+			})
 
+			gom := gomega.NewGomegaWithT(t)
 			// Initially performGas is set higher than defaultUpkeepGasLimit, so no upkeep should be performed
+			l.Info().Msg("Waiting for 1m for upkeeps to be performed")
 			gom.Consistently(func(g gomega.Gomega) {
-				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
-				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
-				g.Expect(cnt.Int64()).Should(
-					gomega.Equal(int64(0)),
-					"Expected consumer counter to remain constant at %d, but got %d", 0, cnt.Int64(),
-				)
+				for i := 0; i < len(upkeepIDs); i++ {
+					cnt, err := consumersPerformance[i].GetUpkeepCount(testcontext.Get(t))
+					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
+					g.Expect(cnt.Int64()).Should(
+						gomega.Equal(int64(0)),
+						"Expected consumer counter to remain constant at %d, but got %d", 0, cnt.Int64(),
+					)
+				}
 			}, "1m", "1s").Should(gomega.Succeed())
 
 			// Increase gas limit for the upkeep, higher than the performGasBurn
-			err = registry.SetUpkeepGasLimit(upkeepID, uint32(4500000))
-			require.NoError(t, err, "Error setting Upkeep gas limit")
-			err = chainClient.WaitForEvents()
-			require.NoError(t, err, "Error waiting for SetUpkeepGasLimit tx")
+			l.Info().Msg("Setting upkeep gas limit higher than performGasBurn")
+			for i := 0; i < len(upkeepIDs); i++ {
+				err = registry.SetUpkeepGasLimit(upkeepIDs[i], uint32(4500000))
+				require.NoError(t, err, "Error setting Upkeep gas limit")
+			}
 
 			// Upkeep should now start performing
+			l.Info().Msg("Waiting for 1m for upkeeps to be performed")
 			gom.Eventually(func(g gomega.Gomega) {
-				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
-				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
-				g.Expect(cnt.Int64()).Should(gomega.BeNumerically(">", int64(0)),
-					"Expected consumer counter to be greater than 0, but got %d", cnt.Int64(),
-				)
+				for i := 0; i < len(upkeepIDs); i++ {
+					cnt, err := consumersPerformance[i].GetUpkeepCount(testcontext.Get(t))
+					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
+					g.Expect(cnt.Int64()).Should(gomega.BeNumerically(">", int64(0)),
+						"Expected consumer counter to be greater than 0, but got %d", cnt.Int64(),
+					)
+				}
 			}, "1m", "1s").Should(gomega.Succeed())
 
 			// Now increase the checkGasBurn on consumer, upkeep should stop performing
-			err = consumerPerformance.SetCheckGasToBurn(context.Background(), big.NewInt(3000000))
-			require.NoError(t, err, "Error setting CheckGasToBurn")
-			err = chainClient.WaitForEvents()
-			require.NoError(t, err, "Error waiting for SetCheckGasToBurn tx")
+			l.Info().Msg("Setting checkGasBurn higher than performGasBurn")
+			for i := 0; i < len(upkeepIDs); i++ {
+				err = consumersPerformance[i].SetCheckGasToBurn(testcontext.Get(t), big.NewInt(3000000))
+				require.NoError(t, err, "Error setting CheckGasToBurn")
+			}
 
 			// Get existing performed count
-			existingCnt, err := consumerPerformance.GetUpkeepCount(context.Background())
-			require.NoError(t, err, "Error calling consumer's counter")
-			l.Info().Int64("Upkeep counter", existingCnt.Int64()).Msg("Check Gas Increased")
+			existingCnts := make(map[*big.Int]*big.Int)
+			for i := 0; i < len(upkeepIDs); i++ {
+				existingCnt, err := consumersPerformance[i].GetUpkeepCount(testcontext.Get(t))
+				existingCnts[upkeepIDs[i]] = existingCnt
+				require.NoError(t, err, "Error calling consumer's counter")
+				l.Info().Int64("Upkeep counter", existingCnt.Int64()).Msg("Check Gas Increased")
+			}
 
 			// In most cases count should remain constant, but there might be a straggling perform tx which
 			// gets committed later. Since every keeper node cannot have more than 1 straggling tx, it
 			// is sufficient to check that the upkeep count does not increase by more than 6.
+			l.Info().Msg("Waiting for 3m to make sure no more than 6 upkeeps are performed")
 			gom.Consistently(func(g gomega.Gomega) {
-				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
-				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
-				g.Expect(cnt.Int64()).Should(
-					gomega.BeNumerically("<=", existingCnt.Int64()+numUpkeepsAllowedForStragglingTxs),
-					"Expected consumer counter to remain constant at %d, but got %d", existingCnt.Int64(), cnt.Int64(),
-				)
+				for i := 0; i < len(upkeepIDs); i++ {
+					cnt, err := consumersPerformance[i].GetUpkeepCount(testcontext.Get(t))
+					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
+					existingCnt := existingCnts[upkeepIDs[i]]
+					g.Expect(cnt.Int64()).Should(
+						gomega.BeNumerically("<=", existingCnt.Int64()+numUpkeepsAllowedForStragglingTxs),
+						"Expected consumer counter to remain constant at %d, but got %d", existingCnt.Int64(), cnt.Int64(),
+					)
+				}
 			}, "3m", "1s").Should(gomega.Succeed())
 
-			existingCnt, err = consumerPerformance.GetUpkeepCount(context.Background())
-			require.NoError(t, err, "Error calling consumer's counter")
-			existingCntInt := existingCnt.Int64()
-			l.Info().Int64("Upkeep counter", existingCntInt).Msg("Upkeep counter when consistently block finished")
+			for i := 0; i < len(upkeepIDs); i++ {
+				existingCnt, err := consumersPerformance[i].GetUpkeepCount(testcontext.Get(t))
+				existingCnts[upkeepIDs[i]] = existingCnt
+				require.NoError(t, err, "Error calling consumer's counter")
+				l.Info().Int64("Upkeep counter", existingCnt.Int64()).Msg("Upkeep counter when consistently block finished")
+			}
 
 			// Now increase checkGasLimit on registry
 			highCheckGasLimit := keeperDefaultRegistryConfig
 			highCheckGasLimit.CheckGasLimit = uint32(5000000)
-			err = registry.SetConfig(highCheckGasLimit, contracts.OCRConfig{})
+			err = registry.SetConfig(highCheckGasLimit, contracts.OCRv2Config{})
 			require.NoError(t, err, "Error setting registry config")
-			err = chainClient.WaitForEvents()
-			require.NoError(t, err, "Error waiting for set config tx")
 
 			// Upkeep should start performing again, and it should get regularly performed
+			l.Info().Msg("Waiting for 1m for upkeeps to be performed")
 			gom.Eventually(func(g gomega.Gomega) {
-				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
-				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's Counter shouldn't fail")
-				g.Expect(cnt.Int64()).Should(gomega.BeNumerically(">", existingCntInt),
-					"Expected consumer counter to be greater than %d, but got %d", existingCntInt, cnt.Int64(),
-				)
+				for i := 0; i < len(upkeepIDs); i++ {
+					cnt, err := consumersPerformance[i].GetUpkeepCount(testcontext.Get(t))
+					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's Counter shouldn't fail")
+					existingCnt := existingCnts[upkeepIDs[i]]
+					g.Expect(cnt.Int64()).Should(gomega.BeNumerically(">", existingCnt.Int64()),
+						"Expected consumer counter to be greater than %d, but got %d", existingCnt.Int64(), cnt.Int64(),
+					)
+				}
 			}, "1m", "1s").Should(gomega.Succeed())
 		})
 	}
@@ -462,22 +524,25 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 
 func TestKeeperRegisterUpkeep(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_1_1": ethereum.RegistryVersion_1_1,
-		"registry_1_2": ethereum.RegistryVersion_1_2,
-		"registry_1_3": ethereum.RegistryVersion_1_3,
+	registryVersions := []ethereum.KeeperRegistryVersion{
+		ethereum.RegistryVersion_1_1,
+		ethereum.RegistryVersion_1_2,
+		ethereum.RegistryVersion_1_3,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
+	for _, rv := range registryVersions {
 		registryVersion := rv
-		t.Run(name, func(t *testing.T) {
+		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
-			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "register-upkeep")
-			if onlyStartRunner {
-				return
-			}
+			l := logging.GetTestLogger(t)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Keeper)
+			require.NoError(t, err, "Failed to get config")
+
+			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+			sb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get start block")
+
 			registry, registrar, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -485,23 +550,24 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 				keeperDefaultUpkeepsToDeploy,
 				keeperDefaultUpkeepGasLimit,
 				linkToken,
-				contractDeployer,
 				chainClient,
 				big.NewInt(keeperDefaultLinkFunds),
 			)
-			gom := gomega.NewGomegaWithT(t)
-
-			actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRConfig{})
-			err := chainClient.WaitForEvents()
+			_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, strconv.FormatInt(chainClient.ChainID, 10))
 			require.NoError(t, err, "Error creating keeper jobs")
+
+			t.Cleanup(func() {
+				actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
+			})
 
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
 
+			gom := gomega.NewGomegaWithT(t)
 			// Observe that the upkeeps which are initially registered are performing and
 			// store the value of their initial counters in order to compare later on that the value increased.
-			gom.Eventually(func(g gomega.Gomega) {
+			gom.Eventually(func(g gomega.Gomega) error {
 				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(context.Background())
+					counter, err := consumers[i].Counter(testcontext.Get(t))
 					initialCounters[i] = counter
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter"+
 						" for upkeep at index "+strconv.Itoa(i))
@@ -512,26 +578,28 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 						Int("Upkeep ID", i).
 						Msg("Number of upkeeps performed")
 				}
+				return nil
 			}, "1m", "1s").Should(gomega.Succeed())
 
-			newConsumers, _ := actions.RegisterNewUpkeeps(t, contractDeployer, chainClient, linkToken,
+			newConsumers, _ := actions.RegisterNewUpkeeps(t, chainClient, linkToken,
 				registry, registrar, keeperDefaultUpkeepGasLimit, 1)
 
 			// We know that newConsumers has size 1, so we can just use the newly registered upkeep.
 			newUpkeep := newConsumers[0]
 
 			// Test that the newly registered upkeep is also performing.
-			gom.Eventually(func(g gomega.Gomega) {
-				counter, err := newUpkeep.Counter(context.Background())
+			gom.Eventually(func(g gomega.Gomega) error {
+				counter, err := newUpkeep.Counter(testcontext.Get(t))
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling newly deployed upkeep's counter shouldn't fail")
 				g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
 					"Expected newly registered upkeep's counter to be greater than 0, but got %d", counter.Int64())
 				l.Info().Msg("Newly registered upkeeps performed " + strconv.Itoa(int(counter.Int64())) + " times")
+				return nil
 			}, "1m", "1s").Should(gomega.Succeed())
 
-			gom.Eventually(func(g gomega.Gomega) {
+			gom.Eventually(func(g gomega.Gomega) error {
 				for i := 0; i < len(upkeepIDs); i++ {
-					currentCounter, err := consumers[i].Counter(context.Background())
+					currentCounter, err := consumers[i].Counter(testcontext.Get(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
 
 					l.Info().
@@ -544,6 +612,7 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 						"Expected counter to have increased from initial value of %s, but got %s",
 						initialCounters[i], currentCounter)
 				}
+				return nil
 			}, "1m", "1s").Should(gomega.Succeed())
 		})
 	}
@@ -551,21 +620,25 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 
 func TestKeeperAddFunds(t *testing.T) {
 	t.Parallel()
-	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_1_1": ethereum.RegistryVersion_1_1,
-		"registry_1_2": ethereum.RegistryVersion_1_2,
-		"registry_1_3": ethereum.RegistryVersion_1_3,
+	registryVersions := []ethereum.KeeperRegistryVersion{
+		ethereum.RegistryVersion_1_1,
+		ethereum.RegistryVersion_1_2,
+		ethereum.RegistryVersion_1_3,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
+	for _, rv := range registryVersions {
 		registryVersion := rv
-		t.Run(name, func(t *testing.T) {
+		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
-			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "add-funds")
-			if onlyStartRunner {
-				return
-			}
+			l := logging.GetTestLogger(t)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Keeper)
+			require.NoError(t, err, "Failed to get config")
+
+			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+			sb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get start block")
+
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -573,42 +646,48 @@ func TestKeeperAddFunds(t *testing.T) {
 				keeperDefaultUpkeepsToDeploy,
 				keeperDefaultUpkeepGasLimit,
 				linkToken,
-				contractDeployer,
 				chainClient,
 				big.NewInt(1),
 			)
-			gom := gomega.NewGomegaWithT(t)
 
-			actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRConfig{})
-			err := chainClient.WaitForEvents()
+			_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, strconv.FormatInt(chainClient.ChainID, 10))
 			require.NoError(t, err, "Error creating keeper jobs")
 
+			t.Cleanup(func() {
+				actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
+			})
+
 			// Since the upkeep is currently underfunded, check that it doesn't get executed
+			gom := gomega.NewGomegaWithT(t)
+			l.Info().Msg("Waiting for 1m to make sure no upkeeps are performed")
 			gom.Consistently(func(g gomega.Gomega) {
-				counter, err := consumers[0].Counter(context.Background())
-				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
-				g.Expect(counter.Int64()).Should(gomega.Equal(int64(0)),
-					"Expected consumer counter to remain zero, but got %d", counter.Int64())
+				for i := 0; i < len(upkeepIDs); i++ {
+					counter, err := consumers[i].Counter(testcontext.Get(t))
+					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
+					g.Expect(counter.Int64()).Should(gomega.Equal(int64(0)),
+						"Expected consumer counter to remain zero, but got %d", counter.Int64())
+				}
 			}, "1m", "1s").Should(gomega.Succeed())
 
 			// Grant permission to the registry to fund the upkeep
-			err = linkToken.Approve(registry.Address(), big.NewInt(9e18))
+			err = linkToken.Approve(registry.Address(), big.NewInt(0).Mul(big.NewInt(9e18), big.NewInt(int64(len(upkeepIDs)))))
 			require.NoError(t, err, "Error approving permissions for registry")
-			err = chainClient.WaitForEvents()
-			require.NoError(t, err, "Error waiting for events")
 
 			// Add funds to the upkeep whose ID we know from above
-			err = registry.AddUpkeepFunds(upkeepIDs[0], big.NewInt(9e18))
-			require.NoError(t, err, "Error funding upkeep")
-			err = chainClient.WaitForEvents()
-			require.NoError(t, err, "Error waiting for events")
+			l.Info().Msg("Adding funds to upkeeps")
+			for i := 0; i < len(upkeepIDs); i++ {
+				err = registry.AddUpkeepFunds(upkeepIDs[i], big.NewInt(9e18))
+				require.NoError(t, err, "Error funding upkeep")
+			}
 
 			// Now the new upkeep should be performing because we added enough funds
 			gom.Eventually(func(g gomega.Gomega) {
-				counter, err := consumers[0].Counter(context.Background())
-				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
-				g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
-					"Expected newly registered upkeep's counter to be greater than 0, but got %d", counter.Int64())
+				for i := 0; i < len(upkeepIDs); i++ {
+					counter, err := consumers[i].Counter(testcontext.Get(t))
+					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
+					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
+						"Expected newly registered upkeep's counter to be greater than 0, but got %d", counter.Int64())
+				}
 			}, "1m", "1s").Should(gomega.Succeed())
 		})
 	}
@@ -616,22 +695,31 @@ func TestKeeperAddFunds(t *testing.T) {
 
 func TestKeeperRemove(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_1_1": ethereum.RegistryVersion_1_1,
-		"registry_1_2": ethereum.RegistryVersion_1_2,
-		"registry_1_3": ethereum.RegistryVersion_1_3,
+	registryVersions := []ethereum.KeeperRegistryVersion{
+		ethereum.RegistryVersion_1_1,
+		ethereum.RegistryVersion_1_2,
+		ethereum.RegistryVersion_1_3,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
+	for _, rv := range registryVersions {
 		registryVersion := rv
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "remove")
-			if onlyStartRunner {
-				return
+		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			if registryVersion == ethereum.RegistryVersion_1_2 {
+				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-435")
 			}
+			if registryVersion == ethereum.RegistryVersion_1_3 {
+				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-557")
+			}
+			t.Parallel()
+			l := logging.GetTestLogger(t)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Keeper)
+			require.NoError(t, err, "Failed to get config")
+
+			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+			sb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get start block")
+
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -639,29 +727,33 @@ func TestKeeperRemove(t *testing.T) {
 				keeperDefaultUpkeepsToDeploy,
 				keeperDefaultUpkeepGasLimit,
 				linkToken,
-				contractDeployer,
 				chainClient,
 				big.NewInt(keeperDefaultLinkFunds),
 			)
-			gom := gomega.NewGomegaWithT(t)
 
-			actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRConfig{})
-			err := chainClient.WaitForEvents()
+			_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, strconv.FormatInt(chainClient.ChainID, 10))
 			require.NoError(t, err, "Error creating keeper jobs")
 
+			t.Cleanup(func() {
+				actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
+			})
+
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
+
+			gom := gomega.NewGomegaWithT(t)
 			// Make sure the upkeeps are running before we remove a keeper
-			gom.Eventually(func(g gomega.Gomega) {
+			gom.Eventually(func(g gomega.Gomega) error {
 				for upkeepID := 0; upkeepID < len(upkeepIDs); upkeepID++ {
-					counter, err := consumers[upkeepID].Counter(context.Background())
+					counter, err := consumers[upkeepID].Counter(testcontext.Get(t))
 					initialCounters[upkeepID] = counter
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter"+
 						" for upkeep with ID "+strconv.Itoa(upkeepID))
-					g.Expect(counter.Cmp(big.NewInt(0)) == 1, "Expected consumer counter to be greater than 0, but got %s", counter)
+					g.Expect(counter.Cmp(big.NewInt(0))).To(gomega.Equal(1), "Expected consumer counter to be greater than 0, but got %s", counter)
 				}
+				return nil
 			}, "1m", "1s").Should(gomega.Succeed())
 
-			keepers, err := registry.GetKeeperList(context.Background())
+			keepers, err := registry.GetKeeperList(testcontext.Get(t))
 			require.NoError(t, err, "Error getting list of Keepers")
 
 			// Remove the first keeper from the list
@@ -675,20 +767,19 @@ func TestKeeperRemove(t *testing.T) {
 				require.NoError(t, err, "Error building payee list")
 			}
 
-			err = registry.SetKeepers(newKeeperList, payees, contracts.OCRConfig{})
+			err = registry.SetKeepers(newKeeperList, payees, contracts.OCRv2Config{})
 			require.NoError(t, err, "Error setting new list of Keepers")
-			err = chainClient.WaitForEvents()
-			require.NoError(t, err, "Error waiting for events")
 			l.Info().Msg("Successfully removed keeper at address " + keepers[0] + " from the list of Keepers")
 
 			// The upkeeps should still perform and their counters should have increased compared to the first check
-			gom.Eventually(func(g gomega.Gomega) {
+			gom.Eventually(func(g gomega.Gomega) error {
 				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(context.Background())
+					counter, err := consumers[i].Counter(testcontext.Get(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
-					g.Expect(counter.Cmp(initialCounters[i]) == 1, "Expected consumer counter to be greater "+
+					g.Expect(counter.Cmp(initialCounters[i])).To(gomega.Equal(1), "Expected consumer counter to be greater "+
 						"than initial counter which was %s, but got %s", initialCounters[i], counter)
 				}
+				return nil
 			}, "1m", "1s").Should(gomega.Succeed())
 		})
 	}
@@ -696,20 +787,24 @@ func TestKeeperRemove(t *testing.T) {
 
 func TestKeeperPauseRegistry(t *testing.T) {
 	t.Parallel()
-	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_1_2": ethereum.RegistryVersion_1_2,
-		"registry_1_3": ethereum.RegistryVersion_1_3,
+	registryVersions := []ethereum.KeeperRegistryVersion{
+		ethereum.RegistryVersion_1_2,
+		ethereum.RegistryVersion_1_3,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
+	for _, rv := range registryVersions {
 		registryVersion := rv
-		t.Run(name, func(t *testing.T) {
+		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
-			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "pause-registry")
-			if onlyStartRunner {
-				return
-			}
+			l := logging.GetTestLogger(t)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Keeper)
+			require.NoError(t, err, "Failed to get config")
+
+			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+			sb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get start block")
+
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -717,36 +812,37 @@ func TestKeeperPauseRegistry(t *testing.T) {
 				keeperDefaultUpkeepsToDeploy,
 				keeperDefaultUpkeepGasLimit,
 				linkToken,
-				contractDeployer,
 				chainClient,
 				big.NewInt(keeperDefaultLinkFunds),
 			)
 			gom := gomega.NewGomegaWithT(t)
 
-			actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRConfig{})
-			err := chainClient.WaitForEvents()
+			_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, strconv.FormatInt(chainClient.ChainID, 10))
 			require.NoError(t, err, "Error creating keeper jobs")
 
+			t.Cleanup(func() {
+				actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
+			})
+
 			// Observe that the upkeeps which are initially registered are performing
-			gom.Eventually(func(g gomega.Gomega) {
+			gom.Eventually(func(g gomega.Gomega) error {
 				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(context.Background())
+					counter, err := consumers[i].Counter(testcontext.Get(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
 						"Expected consumer counter to be greater than 0, but got %d")
 				}
+				return nil
 			}, "1m", "1s").Should(gomega.Succeed())
 
 			// Pause the registry
 			err = registry.Pause()
 			require.NoError(t, err, "Error pausing the registry")
-			err = chainClient.WaitForEvents()
-			require.NoError(t, err, "Error waiting for events")
 
 			// Store how many times each upkeep performed once the registry was successfully paused
 			var countersAfterPause = make([]*big.Int, len(upkeepIDs))
 			for i := 0; i < len(upkeepIDs); i++ {
-				countersAfterPause[i], err = consumers[i].Counter(context.Background())
+				countersAfterPause[i], err = consumers[i].Counter(testcontext.Get(t))
 				require.NoError(t, err, "Error retrieving consumer at index %d", i)
 			}
 
@@ -754,7 +850,7 @@ func TestKeeperPauseRegistry(t *testing.T) {
 			// because they are no longer getting serviced
 			gom.Consistently(func(g gomega.Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
-					latestCounter, err := consumers[i].Counter(context.Background())
+					latestCounter, err := consumers[i].Counter(testcontext.Get(t))
 					require.NoError(t, err, "Error retrieving consumer contract at index %d", i)
 					g.Expect(latestCounter.Int64()).Should(gomega.Equal(countersAfterPause[i].Int64()),
 						"Expected consumer counter to remain constant at %d, but got %d",
@@ -767,10 +863,14 @@ func TestKeeperPauseRegistry(t *testing.T) {
 
 func TestKeeperMigrateRegistry(t *testing.T) {
 	t.Parallel()
-	chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "migrate-registry")
-	if onlyStartRunner {
-		return
-	}
+	l := logging.GetTestLogger(t)
+	config, err := tc.GetConfig([]string{"Smoke"}, tc.Keeper)
+	require.NoError(t, err, "Error getting config")
+	chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+	sb, err := chainClient.Client.BlockNumber(context.Background())
+	require.NoError(t, err, "Failed to get start block")
+
 	registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 		t,
 		ethereum.RegistryVersion_1_2,
@@ -778,15 +878,16 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 		keeperDefaultUpkeepsToDeploy,
 		keeperDefaultUpkeepGasLimit,
 		linkToken,
-		contractDeployer,
 		chainClient,
 		big.NewInt(keeperDefaultLinkFunds),
 	)
-	gom := gomega.NewGomegaWithT(t)
 
-	actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRConfig{})
-	err := chainClient.WaitForEvents()
+	_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, strconv.FormatInt(chainClient.ChainID, 10))
 	require.NoError(t, err, "Error creating keeper jobs")
+
+	t.Cleanup(func() {
+		actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, ethereum.RegistryVersion_1_2)()
+	})
 
 	// Deploy the second registry, second registrar, and the same number of upkeeps as the first one
 	secondRegistry, _, _, _ := actions.DeployKeeperContracts(
@@ -796,73 +897,88 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 		keeperDefaultUpkeepsToDeploy,
 		keeperDefaultUpkeepGasLimit,
 		linkToken,
-		contractDeployer,
 		chainClient,
 		big.NewInt(keeperDefaultLinkFunds),
 	)
 
 	// Set the jobs for the second registry
-	actions.CreateKeeperJobs(t, chainlinkNodes, secondRegistry, contracts.OCRConfig{})
-	err = chainClient.WaitForEvents()
+	_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, secondRegistry, contracts.OCRv2Config{}, strconv.FormatInt(chainClient.ChainID, 10))
 	require.NoError(t, err, "Error creating keeper jobs")
 
 	err = registry.SetMigrationPermissions(common.HexToAddress(secondRegistry.Address()), 3)
 	require.NoError(t, err, "Error setting bidirectional permissions for first registry")
 	err = secondRegistry.SetMigrationPermissions(common.HexToAddress(registry.Address()), 3)
 	require.NoError(t, err, "Error setting bidirectional permissions for second registry")
-	err = chainClient.WaitForEvents()
-	require.NoError(t, err, "Error waiting to set permissions")
+
+	gom := gomega.NewGomegaWithT(t)
 
 	// Check that the first upkeep from the first registry is performing (before being migrated)
+	l.Info().Msg("Waiting for 1m for upkeeps to be performed before migration")
 	gom.Eventually(func(g gomega.Gomega) {
-		counterBeforeMigration, err := consumers[0].Counter(context.Background())
-		g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
-		g.Expect(counterBeforeMigration.Int64()).Should(gomega.BeNumerically(">", int64(0)),
-			"Expected consumer counter to be greater than 0, but got %s", counterBeforeMigration)
+		for i := 0; i < len(upkeepIDs); i++ {
+			counterBeforeMigration, err := consumers[i].Counter(testcontext.Get(t))
+			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
+			g.Expect(counterBeforeMigration.Int64()).Should(gomega.BeNumerically(">", int64(0)),
+				"Expected consumer counter to be greater than 0, but got %s", counterBeforeMigration)
+		}
 	}, "1m", "1s").Should(gomega.Succeed())
 
-	// Migrate the upkeep with index 0 from the first to the second registry
-	err = registry.Migrate([]*big.Int{upkeepIDs[0]}, common.HexToAddress(secondRegistry.Address()))
-	require.NoError(t, err, "Error migrating first upkeep")
-	err = chainClient.WaitForEvents()
-	require.NoError(t, err, "Error waiting for migration")
+	// Migrate the upkeeps from the first to the second registry
+	for i := 0; i < len(upkeepIDs); i++ {
+		err = registry.Migrate([]*big.Int{upkeepIDs[i]}, common.HexToAddress(secondRegistry.Address()))
+		require.NoError(t, err, "Error migrating first upkeep")
+	}
 
 	// Pause the first registry, in that way we make sure that the upkeep is being performed by the second one
 	err = registry.Pause()
 	require.NoError(t, err, "Error pausing registry")
-	err = chainClient.WaitForEvents()
-	require.NoError(t, err, "Error waiting to pause first registry")
 
-	counterAfterMigration, err := consumers[0].Counter(context.Background())
-	require.NoError(t, err, "Error calling consumer's counter")
+	counterAfterMigrationPerUpkeep := make(map[*big.Int]*big.Int)
+
+	for i := 0; i < len(upkeepIDs); i++ {
+		counterAfterMigration, err := consumers[i].Counter(testcontext.Get(t))
+		require.NoError(t, err, "Error calling consumer's counter")
+		counterAfterMigrationPerUpkeep[upkeepIDs[i]] = counterAfterMigration
+	}
 
 	// Check that once we migrated the upkeep, the counter has increased
+	l.Info().Msg("Waiting for 1m for upkeeps to be performed after migration")
 	gom.Eventually(func(g gomega.Gomega) {
-		currentCounter, err := consumers[0].Counter(context.Background())
-		g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
-		g.Expect(currentCounter.Int64()).Should(gomega.BeNumerically(">", counterAfterMigration.Int64()),
-			"Expected counter to have increased, but stayed constant at %s", counterAfterMigration)
+		for i := 0; i < len(upkeepIDs); i++ {
+			currentCounter, err := consumers[i].Counter(testcontext.Get(t))
+			counterAfterMigration := counterAfterMigrationPerUpkeep[upkeepIDs[i]]
+			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
+			g.Expect(currentCounter.Int64()).Should(gomega.BeNumerically(">", counterAfterMigration.Int64()),
+				"Expected counter to have increased, but stayed constant at %s", counterAfterMigration)
+		}
 	}, "1m", "1s").Should(gomega.Succeed())
 }
 
 func TestKeeperNodeDown(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_1_1": ethereum.RegistryVersion_1_1,
-		"registry_1_2": ethereum.RegistryVersion_1_2,
-		"registry_1_3": ethereum.RegistryVersion_1_3,
+	registryVersions := []ethereum.KeeperRegistryVersion{
+		ethereum.RegistryVersion_1_1,
+		ethereum.RegistryVersion_1_2,
+		ethereum.RegistryVersion_1_3,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
+	for _, rv := range registryVersions {
 		registryVersion := rv
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "node-down")
-			if onlyStartRunner {
-				return
+		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			if t.Name() == "TestKeeperNodeDown/registry_1_3" {
+				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-398")
 			}
+
+			t.Parallel()
+			l := logging.GetTestLogger(t)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Keeper)
+			require.NoError(t, err, "Failed to get config")
+
+			chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+			sb, err := chainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get start block")
+
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -870,64 +986,68 @@ func TestKeeperNodeDown(t *testing.T) {
 				keeperDefaultUpkeepsToDeploy,
 				keeperDefaultUpkeepGasLimit,
 				linkToken,
-				contractDeployer,
 				chainClient,
 				big.NewInt(keeperDefaultLinkFunds),
 			)
-			gom := gomega.NewGomegaWithT(t)
 
-			actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRConfig{})
-			err := chainClient.WaitForEvents()
+			jobs, err := actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, strconv.FormatInt(chainClient.ChainID, 10))
 			require.NoError(t, err, "Error creating keeper jobs")
+
+			t.Cleanup(func() {
+				actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
+			})
 
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
 
+			gom := gomega.NewGomegaWithT(t)
 			// Watch upkeeps being performed and store their counters in order to compare them later in the test
-			gom.Eventually(func(g gomega.Gomega) {
+			gom.Eventually(func(g gomega.Gomega) error {
 				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(context.Background())
+					counter, err := consumers[i].Counter(testcontext.Get(t))
 					initialCounters[i] = counter
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
 						"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
 				}
+				return nil
 			}, "1m", "1s").Should(gomega.Succeed())
 
 			// Take down half of the Keeper nodes by deleting the Keeper job registered above (after registry deployment)
 			firstHalfToTakeDown := chainlinkNodes[:len(chainlinkNodes)/2+1]
 			for i, nodeToTakeDown := range firstHalfToTakeDown {
-				err = nodeToTakeDown.MustDeleteJob("1")
+				err = nodeToTakeDown.MustDeleteJob(jobs[0].Data.ID)
 				require.NoError(t, err, "Error deleting job from node %d", i)
-				err = chainClient.WaitForEvents()
-				require.NoError(t, err, "Error waiting for events")
 			}
 			l.Info().Msg("Successfully managed to take down the first half of the nodes")
 
 			// Assert that upkeeps are still performed and their counters have increased
-			gom.Eventually(func(g gomega.Gomega) {
+			gom.Eventually(func(g gomega.Gomega) error {
 				for i := 0; i < len(upkeepIDs); i++ {
-					currentCounter, err := consumers[i].Counter(context.Background())
+					currentCounter, err := consumers[i].Counter(testcontext.Get(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 					g.Expect(currentCounter.Int64()).Should(gomega.BeNumerically(">", initialCounters[i].Int64()),
 						"Expected counter to have increased from initial value of %s, but got %s",
 						initialCounters[i], currentCounter)
 				}
+				return nil
 			}, "3m", "1s").Should(gomega.Succeed())
 
 			// Take down the other half of the Keeper nodes
-			secondHalfToTakeDown := chainlinkNodes[len(chainlinkNodes)/2+1:]
+			nodesAndJobs := []nodeAndJob{}
+			for i, n := range chainlinkNodes {
+				nodesAndJobs = append(nodesAndJobs, nodeAndJob{node: n, job: jobs[i]})
+			}
+			secondHalfToTakeDown := nodesAndJobs[len(nodesAndJobs)/2+1:]
 			for i, nodeToTakeDown := range secondHalfToTakeDown {
-				err = nodeToTakeDown.MustDeleteJob("1")
+				err = nodeToTakeDown.node.MustDeleteJob(nodeToTakeDown.job.Data.ID)
 				require.NoError(t, err, "Error deleting job from node %d", i)
-				err = chainClient.WaitForEvents()
-				require.NoError(t, err, "Error waiting for events")
 			}
 			l.Info().Msg("Successfully managed to take down the second half of the nodes")
 
 			// See how many times each upkeep was executed
 			var countersAfterNoMoreNodes = make([]*big.Int, len(upkeepIDs))
 			for i := 0; i < len(upkeepIDs); i++ {
-				countersAfterNoMoreNodes[i], err = consumers[i].Counter(context.Background())
+				countersAfterNoMoreNodes[i], err = consumers[i].Counter(testcontext.Get(t))
 				require.NoError(t, err, "Error retrieving consumer counter %d", i)
 				l.Info().
 					Int("Index", i).
@@ -940,7 +1060,7 @@ func TestKeeperNodeDown(t *testing.T) {
 			// so a +6 on the upper limit side should be sufficient.
 			gom.Consistently(func(g gomega.Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
-					latestCounter, err := consumers[i].Counter(context.Background())
+					latestCounter, err := consumers[i].Counter(testcontext.Get(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 					g.Expect(latestCounter.Int64()).Should(gomega.BeNumerically("<=",
 						countersAfterNoMoreNodes[i].Int64()+numUpkeepsAllowedForStragglingTxs,
@@ -953,13 +1073,22 @@ func TestKeeperNodeDown(t *testing.T) {
 	}
 }
 
+type nodeAndJob struct {
+	node *nodeclient.ChainlinkClient
+	job  *nodeclient.Job
+}
+
 func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-	chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "pause-upkeep")
-	if onlyStartRunner {
-		return
-	}
+	l := logging.GetTestLogger(t)
+	config, err := tc.GetConfig([]string{"Smoke"}, tc.Keeper)
+	require.NoError(t, err, "Failed to get config")
+
+	chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+	sb, err := chainClient.Client.BlockNumber(context.Background())
+	require.NoError(t, err, "Failed to get start block")
+
 	registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 		t,
 		ethereum.RegistryVersion_1_3,
@@ -967,25 +1096,28 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 		keeperDefaultUpkeepsToDeploy,
 		keeperDefaultUpkeepGasLimit,
 		linkToken,
-		contractDeployer,
 		chainClient,
 		big.NewInt(keeperDefaultLinkFunds),
 	)
-	gom := gomega.NewGomegaWithT(t)
 
-	actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRConfig{})
-	err := chainClient.WaitForEvents()
+	_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, strconv.FormatInt(chainClient.ChainID, 10))
 	require.NoError(t, err, "Error creating keeper jobs")
 
-	gom.Eventually(func(g gomega.Gomega) {
+	t.Cleanup(func() {
+		actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, ethereum.RegistryVersion_1_3)()
+	})
+
+	gom := gomega.NewGomegaWithT(t)
+	gom.Eventually(func(g gomega.Gomega) error {
 		// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 5
 		for i := 0; i < len(upkeepIDs); i++ {
-			counter, err := consumers[i].Counter(context.Background())
+			counter, err := consumers[i].Counter(testcontext.Get(t))
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
 			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(5)),
 				"Expected consumer counter to be greater than 5, but got %d", counter.Int64())
 			l.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 		}
+		return nil
 	}, "3m", "1s").Should(gomega.Succeed())
 
 	// pause all the registered upkeeps via the registry
@@ -994,13 +1126,10 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 		require.NoError(t, err, "Error pausing upkeep at index %d", i)
 	}
 
-	err = chainClient.WaitForEvents()
-	require.NoError(t, err, "Error waiting to pause upkeeps")
-
 	var countersAfterPause = make([]*big.Int, len(upkeepIDs))
 	for i := 0; i < len(upkeepIDs); i++ {
 		// Obtain the amount of times the upkeep has been executed so far
-		countersAfterPause[i], err = consumers[i].Counter(context.Background())
+		countersAfterPause[i], err = consumers[i].Counter(testcontext.Get(t))
 		require.NoError(t, err, "Error retrieving upkeep count at index %d", i)
 		l.Info().
 			Int("Index", i).
@@ -1013,7 +1142,7 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 			// In most cases counters should remain constant, but there might be a straggling perform tx which
 			// gets committed later. Since every keeper node cannot have more than 1 straggling tx, it
 			// is sufficient to check that the upkeep count does not increase by more than 6.
-			latestCounter, err := consumers[i].Counter(context.Background())
+			latestCounter, err := consumers[i].Counter(testcontext.Get(t))
 			require.NoError(t, err, "Error retrieving counter at index %d", i)
 			g.Expect(latestCounter.Int64()).Should(gomega.BeNumerically("<=", countersAfterPause[i].Int64()+numUpkeepsAllowedForStragglingTxs),
 				"Expected consumer counter not have increased more than %d, but got %d",
@@ -1027,51 +1156,55 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 		require.NoError(t, err, "Error un-pausing upkeep at index %d", i)
 	}
 
-	err = chainClient.WaitForEvents()
-	require.NoError(t, err, "Error waiting to un-pause upkeeps")
-
-	gom.Eventually(func(g gomega.Gomega) {
+	gom.Eventually(func(g gomega.Gomega) error {
 		// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 5 + numbers of performing before pause
 		for i := 0; i < len(upkeepIDs); i++ {
-			counter, err := consumers[i].Counter(context.Background())
+			counter, err := consumers[i].Counter(testcontext.Get(t))
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter"+
 				" for upkeep at index %d", i)
 			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(5)+countersAfterPause[i].Int64()),
 				"Expected consumer counter to be greater than %d, but got %d", int64(5)+countersAfterPause[i].Int64(), counter.Int64())
 			l.Info().Int64("Upkeeps", counter.Int64()).Msg("Upkeeps Performed")
 		}
+		return nil
 	}, "3m", "1s").Should(gomega.Succeed())
 }
 
 func TestKeeperUpdateCheckData(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-	chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "pause-upkeep")
-	if onlyStartRunner {
-		return
-	}
+	l := logging.GetTestLogger(t)
+	config, err := tc.GetConfig([]string{"Smoke"}, tc.Keeper)
+	require.NoError(t, err, "Failed to get config")
+
+	chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+
+	sb, err := chainClient.Client.BlockNumber(context.Background())
+	require.NoError(t, err, "Failed to get start block")
+
 	registry, _, performDataChecker, upkeepIDs := actions.DeployPerformDataCheckerContracts(
 		t,
+		chainClient,
 		ethereum.RegistryVersion_1_3,
 		keeperDefaultUpkeepsToDeploy,
 		keeperDefaultUpkeepGasLimit,
 		linkToken,
-		contractDeployer,
-		chainClient,
 		&lowBCPTRegistryConfig,
 		big.NewInt(keeperDefaultLinkFunds),
 		[]byte(keeperExpectedData),
 	)
-	gom := gomega.NewGomegaWithT(t)
 
-	actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRConfig{})
-	err := chainClient.WaitForEvents()
+	_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, strconv.FormatInt(chainClient.ChainID, 10))
 	require.NoError(t, err, "Error creating keeper jobs")
 
+	t.Cleanup(func() {
+		actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, ethereum.RegistryVersion_1_3)()
+	})
+
+	gom := gomega.NewGomegaWithT(t)
 	gom.Consistently(func(g gomega.Gomega) {
 		// expect the counter to remain 0 because perform data does not match
 		for i := 0; i < len(upkeepIDs); i++ {
-			counter, err := performDataChecker[i].Counter(context.Background())
+			counter, err := performDataChecker[i].Counter(testcontext.Get(t))
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve perform data checker for upkeep at index %d", i)
 			g.Expect(counter.Int64()).Should(gomega.Equal(int64(0)),
 				"Expected perform data checker counter to be 0, but got %d", counter.Int64())
@@ -1084,102 +1217,123 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 		require.NoError(t, err, "Error updating check data at index %d", i)
 	}
 
-	err = chainClient.WaitForEvents()
-	require.NoError(t, err, "Error waiting for updated check data")
-
 	// retrieve new check data for all upkeeps
 	for i := 0; i < len(upkeepIDs); i++ {
-		upkeep, err := registry.GetUpkeepInfo(context.Background(), upkeepIDs[i])
+		upkeep, err := registry.GetUpkeepInfo(testcontext.Get(t), upkeepIDs[i])
 		require.NoError(t, err, "Error getting upkeep info from index %d", i)
 		require.Equal(t, []byte(keeperExpectedData), upkeep.CheckData, "Check data not as expected")
 	}
 
-	gom.Eventually(func(g gomega.Gomega) {
+	gom.Eventually(func(g gomega.Gomega) error {
 		// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 5
 		for i := 0; i < len(upkeepIDs); i++ {
-			counter, err := performDataChecker[i].Counter(context.Background())
+			counter, err := performDataChecker[i].Counter(testcontext.Get(t))
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve perform data checker counter for upkeep at index %d", i)
 			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(5)),
 				"Expected perform data checker counter to be greater than 5, but got %d", counter.Int64())
 			l.Info().Int64("Upkeep perform data checker", counter.Int64()).Msg("Number of upkeeps performed")
 		}
+		return nil
 	}, "3m", "1s").Should(gomega.Succeed())
 }
 
-func setupKeeperTest(
-	t *testing.T,
-	testName string,
-) (
-	chainClient blockchain.EVMClient,
-	chainlinkNodes []*client.Chainlink,
-	contractDeployer contracts.ContractDeployer,
-	linkToken contracts.LinkToken,
-	onlyStartRunner bool,
+func setupKeeperTest(l zerolog.Logger, t *testing.T, config *tc.TestConfig) (
+	*seth.Client,
+	[]*nodeclient.ChainlinkClient,
+	contracts.LinkToken,
+	*test_env.CLClusterTestEnv,
 ) {
-	network := networks.SelectedNetwork
-	evmConfig := eth.New(nil)
-	if !network.Simulated {
-		evmConfig = eth.New(&eth.Props{
-			NetworkName: network.Name,
-			Simulated:   network.Simulated,
-			WsURLs:      network.URLs,
-		})
-		// For if we end up using env vars
-		keeperEnvVars["ETH_URL"] = network.URLs[0]
-		keeperEnvVars["ETH_HTTP_URL"] = network.HTTPURLs[0]
-		keeperEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(network.ChainID)
-	}
+	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, config)
+	require.NoError(t, err, "Error building ethereum network config")
 
-	chainlinkChart := chainlink.New(0, map[string]interface{}{
-		"replicas": "5",
-		"toml":     client.AddNetworksConfig(keeperBaseTOML, network),
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestInstance(t).
+		WithTestConfig(config).
+		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
+		WithCLNodes(5).
+		WithStandardCleanup().
+		Build()
+	require.NoError(t, err, "Error deploying test environment")
+
+	evmNetwork, err := env.GetFirstEvmNetwork()
+	require.NoError(t, err, "Error getting first evm network")
+
+	sethClient, err := utils.TestAwareSethClient(t, config, evmNetwork)
+	require.NoError(t, err, "Error getting seth client")
+
+	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(*config.Common.ChainlinkNodeFunding))
+	require.NoError(t, err, "Failed to fund the nodes")
+
+	t.Cleanup(func() {
+		// ignore error, we will see failures in the logs anyway
+		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()))
 	})
 
-	useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
-	if useEnvVars == "true" {
-		chainlinkChart = chainlink.NewVersioned(0, "0.0.11", map[string]any{
-			"replicas": "5",
-			"env":      keeperEnvVars,
-		})
+	linkTokenContract, err := contracts.DeployLinkTokenContract(l, sethClient)
+	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
+
+	return sethClient, env.ClCluster.NodeAPIs(), linkTokenContract, env
+}
+
+func TestKeeperJobReplacement(t *testing.T) {
+	t.Parallel()
+	l := logging.GetTestLogger(t)
+	registryVersion := ethereum.RegistryVersion_1_3
+	config, err := tc.GetConfig([]string{"Smoke"}, tc.Keeper)
+	require.NoError(t, err, "Failed to get config")
+
+	chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
+	registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
+		t,
+		registryVersion,
+		keeperDefaultRegistryConfig,
+		keeperDefaultUpkeepsToDeploy,
+		keeperDefaultUpkeepGasLimit,
+		linkToken,
+		chainClient,
+		big.NewInt(keeperDefaultLinkFunds),
+	)
+	gom := gomega.NewGomegaWithT(t)
+
+	_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, strconv.FormatInt(chainClient.ChainID, 10))
+	require.NoError(t, err, "Error creating keeper jobs")
+
+	gom.Eventually(func(g gomega.Gomega) error {
+		// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
+		for i := 0; i < len(upkeepIDs); i++ {
+			counter, err := consumers[i].Counter(testcontext.Get(t))
+			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
+			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(10)),
+				"Expected consumer counter to be greater than 10, but got %d", counter.Int64())
+			l.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
+		}
+		return nil
+	}, "5m", "1s").Should(gomega.Succeed())
+
+	for _, n := range chainlinkNodes {
+		jobs, _, err := n.ReadJobs()
+		require.NoError(t, err)
+		for _, maps := range jobs.Data {
+			_, ok := maps["id"]
+			require.True(t, ok)
+			id := maps["id"].(string)
+			_, err := n.DeleteJob(id)
+			require.NoError(t, err)
+		}
 	}
 
-	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
-	testEnvironment := environment.New(
-		&environment.Config{
-			NamespacePrefix: fmt.Sprintf("smoke-keeper-%s-%s", testName, networkName),
-			Test:            t,
-		}).
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(evmConfig).
-		AddHelm(chainlinkChart)
-	err := testEnvironment.Run()
-	require.NoError(t, err, "Error deploying test environment")
-	onlyStartRunner = testEnvironment.WillUseRemoteRunner()
-	if !onlyStartRunner {
-		chainClient, err = blockchain.NewEVMClient(network, testEnvironment)
-		require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-		contractDeployer, err = contracts.NewContractDeployer(chainClient)
-		require.NoError(t, err, "Deploying contracts shouldn't fail")
-		chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
-		require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
-		chainClient.ParallelTransactions(true)
+	_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, strconv.FormatInt(chainClient.ChainID, 10))
+	require.NoError(t, err, "Error creating keeper jobs")
 
-		// Register cleanup for any test
-		t.Cleanup(func() {
-			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
-			require.NoError(t, err, "Error tearing down environment")
-		})
-
-		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.5))
-		require.NoError(t, err, "Funding Chainlink nodes shouldn't fail")
-
-		linkToken, err = contractDeployer.DeployLinkTokenContract()
-		require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-
-		err = chainClient.WaitForEvents()
-		require.NoError(t, err, "Error waiting for events")
-	}
-
-	return chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner
+	gom.Eventually(func(g gomega.Gomega) error {
+		// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
+		for i := 0; i < len(upkeepIDs); i++ {
+			counter, err := consumers[i].Counter(testcontext.Get(t))
+			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
+			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(10)),
+				"Expected consumer counter to be greater than 10, but got %d", counter.Int64())
+			l.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
+		}
+		return nil
+	}, "5m", "1s").Should(gomega.Succeed())
 }

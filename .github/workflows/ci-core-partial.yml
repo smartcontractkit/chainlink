@@ -1,0 +1,296 @@
+name: Experimental Test Optimization
+
+# Disable
+on:
+  workflow_dispatch:
+  # push:
+  #   branches:
+  #     - develop
+  #     # - "release/*"
+  # # merge_group:
+  # pull_request:
+  # schedule:
+  #   - cron: "0 1 * * *"
+
+env:
+  # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
+  # when they should not be using it, while still allowing us to DRY up the setup
+  DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+
+jobs:
+  filter:
+    name: Detect Changes
+    permissions:
+      pull-requests: read
+    outputs:
+      should-run-all-tests: ${{ steps.match-some.outputs.test-data == 'true' }}
+      should-collect-coverage: ${{ github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: match-some
+        with:
+          # "if any changed file matches one or more of the conditions" (https://github.com/dorny/paths-filter/issues/225)
+          predicate-quantifier: some
+          # test-data - any changes to any testdata files/paths
+          filters: |
+            test-data:
+              - '**/testdata/**'
+
+  run-unit-tests:
+    name: Tests (${{ matrix.type.test-suite }})
+    needs: filter
+    runs-on: ubuntu22.04-32cores-128GB
+    permissions:
+      id-token: write
+      contents: write
+      actions: write
+    strategy:
+      fail-fast: false
+      matrix:
+        type:
+          - test-suite: "core"
+            module-directory: "./"
+            build-flags: "-tags=integration"
+          - test-suite: "ccip-deployment"
+            module-directory: "./deployment"
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          build-cache-version: ${{ matrix.type.test-suite }}
+          restore-build-cache-only: "false"
+
+      - name: Setup Solana
+        uses: ./.github/actions/setup-solana
+
+      - name: Setup wasmd
+        uses: ./.github/actions/setup-wasmd
+
+      - name: Setup Postgres
+        uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
+
+      - name: Setup CI Core Environment
+        uses: ./.github/actions/setup-ci-core-tests
+        with:
+          db-url: ${{ env.DB_URL }}
+          go-mod-download-directory: ${{ matrix.type.test-suite == 'ccip-deployment' && matrix.type.module-directory || '' }}
+
+      - name: Build Tests
+        uses: smartcontractkit/.github/apps/go-conditional-tests@57f99fbea73056c490c766d50ef582a13ec4f3bb # go-conditional-tests@0.2.0
+        timeout-minutes: 10
+        with:
+          pipeline-step: "build"
+          build-concurrency: "32"
+          collect-coverage: ${{ needs.filter.outputs.should-collect-coverage }}
+          test-suite: ${{ matrix.type.test-suite }}
+          module-directory: ${{ matrix.type.module-directory }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          build-flags: ${{ matrix.type.build-flags }}
+
+      - name: Run Tests
+        uses: smartcontractkit/.github/apps/go-conditional-tests@57f99fbea73056c490c766d50ef582a13ec4f3bb # go-conditional-tests@0.2.0
+        timeout-minutes: 15
+        env:
+          CL_DATABASE_URL: ${{ env.DB_URL }}
+        with:
+          pipeline-step: "run"
+          run-concurrency: "16"
+          run-all-tests: ${{ needs.filter.outputs.should-run-all-tests }}
+          collect-coverage: ${{ needs.filter.outputs.should-collect-coverage }}
+          test-suite: ${{ matrix.type.test-suite }}
+          module-directory: ${{ matrix.type.module-directory }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Test Index
+        uses: smartcontractkit/.github/apps/go-conditional-tests@57f99fbea73056c490c766d50ef582a13ec4f3bb # go-conditional-tests@0.2.0
+        with:
+          pipeline-step: "update"
+          collect-coverage: ${{ needs.filter.outputs.should-collect-coverage }}
+          test-suite: ${{ matrix.type.test-suite }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Print postgres logs
+        if: ${{ always() }}
+        uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
+        with:
+          print-logs: 'true'
+
+  scan:
+    name: SonarQube Scan
+    needs: [run-unit-tests, filter]
+    if: ${{ needs.filter.outputs.should-collect-coverage == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          # fetches all history for all tags and branches to provide more metadata for sonar reports
+          fetch-depth: 0
+
+      - name: Download all workflow run artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: coverage
+          pattern: coverage-*
+          merge-multiple: true
+
+      - name: Check and Set SonarQube Report Paths
+        shell: bash
+        run: |
+          ARGS=""
+          sonarqube_coverage_report_paths=$(find ./coverage -name '*.cover.out' | paste -sd "," -)
+
+          # TODO uncomment when linting in enabled
+          # Check and assign paths for lint reports
+          # if [ -d "golangci-lint-report" ]; then
+          #   sonarqube_lint_report_paths=$(find golangci-lint-report -name 'golangci-lint-report.xml' | paste -sd "," -)
+          # else
+          #   sonarqube_lint_report_paths=""
+          # fi
+          # if [[ -z "$sonarqube_lint_report_paths" ]]; then
+          #   echo "::warning::No lint report paths found, will not pass to sonarqube"
+          # else
+          #   echo "Found lint report paths: $sonarqube_lint_report_paths"
+          #   ARGS="$ARGS -Dsonar.go.golangci-lint.reportPaths=$sonarqube_lint_report_paths"
+          # fi
+
+          if [[ -z "$sonarqube_coverage_report_paths" ]]; then
+            echo "::warning::No coverage report paths found, will not pass to sonarqube"
+          else
+            echo "Found coverage report paths: $sonarqube_coverage_report_paths"
+            ARGS="$ARGS -Dsonar.go.coverage.reportPaths=$sonarqube_coverage_report_paths"
+          fi
+
+          echo "Final SONARQUBE_ARGS: $ARGS"
+          echo "SONARQUBE_ARGS=$ARGS" >> $GITHUB_ENV
+
+      - name: SonarQube Scan
+        if: ${{ env.SONARQUBE_ARGS != '' }}
+        uses: sonarsource/sonarqube-scan-action@aecaf43ae57e412bd97d70ef9ce6076e672fe0a9 # v2.3.0
+        with:
+          args: ${{ env.SONARQUBE_ARGS }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
+
+  run-fuzz-tests:
+    name: Tests (fuzz)
+    runs-on: ubuntu22.04-32cores-128GB
+    if: ${{ github.event_name == 'schedule' }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          build-cache-version: "fuzz"
+          restore-build-cache-only: "true"
+
+      - name: Setup Solana
+        uses: ./.github/actions/setup-solana
+
+      - name: Setup wasmd
+        uses: ./.github/actions/setup-wasmd
+
+      - name: Setup Postgres
+        uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
+
+      - name: Setup CI Core Environment
+        uses: ./.github/actions/setup-ci-core-tests
+        with:
+          db-url: ${{ env.DB_URL }}
+
+      - name: Increase Timeouts
+        if: ${{ github.event_name == 'schedule'}}
+        run: |
+          echo "FUZZ_TIMEOUT_MINUTES=10">> $GITHUB_ENV
+
+      - name: Run Fuzz Tests
+        env:
+          OUTPUT_FILE: ./output.txt
+          CL_DATABASE_URL: ${{ env.DB_URL }}
+        run: ./tools/bin/go_core_fuzz ./...
+
+      - name: Print postgres logs
+        if: ${{ always() }}
+        uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
+        with:
+          print-logs: 'true'
+
+  run-race-tests:
+    name: Tests (race)
+    runs-on: ubuntu22.04-32cores-128GB
+    if: ${{ github.event_name == 'schedule' }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          build-cache-version: "race"
+          restore-build-cache-only: "true"
+
+      - name: Setup Solana
+        uses: ./.github/actions/setup-solana
+
+      - name: Setup wasmd
+        uses: ./.github/actions/setup-wasmd
+
+      - name: Setup Postgres
+        uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
+
+      - name: Setup CI Core Environment
+        uses: ./.github/actions/setup-ci-core-tests
+        with:
+          db-url: ${{ env.DB_URL }}
+
+      - name: Increase Timeouts
+        if: ${{ github.event_name == 'schedule'}}
+        run: |
+          echo "TIMEOUT=10m" >> $GITHUB_ENV
+          echo "COUNT=50" >> $GITHUB_ENV
+
+      - name: Run Race Tests
+        env:
+          OUTPUT_FILE: ./output.txt
+          CL_DATABASE_URL: ${{ env.DB_URL }}
+        run: ./tools/bin/go_core_race_tests ./...
+
+      - name: Print Races
+        id: print-races
+        if: ${{ failure() }}
+        run: |
+          find race.* | xargs cat > race.txt
+          if [[ -s race.txt ]]; then
+            cat race.txt
+            echo "post_to_slack=true" >> $GITHUB_OUTPUT
+          else
+            echo "post_to_slack=false" >> $GITHUB_OUTPUT
+          fi
+          echo "github.event_name: ${{ github.event_name }}"
+          echo "github.ref: ${{ github.ref }}"
+
+      - name: Print postgres logs
+        if: ${{ always() }}
+        uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
+        with:
+          print-logs: 'true'

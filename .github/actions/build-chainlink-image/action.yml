@@ -1,0 +1,54 @@
+name: Build Chainlink Image
+description: A composite action that allows building and publishing the Chainlink image for integration testing
+
+inputs:
+  tag_suffix:
+    description: The suffix to append to the image tag (usually blank or "-plugins")
+    default: ""
+  dockerfile:
+    description: The path to the Dockerfile to use (usually core/chainlink.Dockerfile or plugins/chainlink.Dockerfile)
+    default: core/chainlink.Dockerfile
+  git_commit_sha:
+    description: The git commit sha to use for the image tag
+    default: ${{ github.sha }}
+  AWS_REGION:
+    description: "AWS region to use for ECR"
+  AWS_ROLE_TO_ASSUME:
+    description: "AWS role to assume for ECR"
+  dep_evm_sha:
+    description: The chainlink-evm commit sha to use in go deps
+    required: false
+  check_image_exists:
+    description: "Check if the image exists in ECR before building"
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Check if image exists
+      if: ${{ inputs.dep_evm_sha != '' || inputs.check_image_exists == 'true'}}
+      id: check-image
+      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
+      with:
+        repository: chainlink
+        tag: ${{ inputs.git_commit_sha }}${{ inputs.tag_suffix }}
+        AWS_REGION: ${{ inputs.AWS_REGION }}
+        AWS_ROLE_TO_ASSUME: ${{ inputs.AWS_ROLE_TO_ASSUME }}
+    - name: Build Image
+      if: steps.check-image.outputs.exists != 'true'
+      uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/0.2.0
+      with:
+        cl_repo: smartcontractkit/chainlink
+        cl_ref: ${{ inputs.git_commit_sha }}
+        cl_dockerfile: ${{ inputs.dockerfile }}
+        push_tag: ${{ env.CHAINLINK_IMAGE }}:${{ inputs.git_commit_sha }}${{ inputs.tag_suffix }}
+        QA_AWS_REGION: ${{ inputs.AWS_REGION }}
+        QA_AWS_ROLE_TO_ASSUME: ${{ inputs.AWS_ROLE_TO_ASSUME }}
+        GO_COVER_FLAG: true
+        dep_evm_sha: ${{ inputs.dep_evm_sha }}
+    - name: Print Chainlink Image Built
+      shell: sh
+      run: |
+        echo "### Chainlink node image tag used for this test run :link:" >>$GITHUB_STEP_SUMMARY
+        echo "\`${{inputs.git_commit_sha}}\`" >>$GITHUB_STEP_SUMMARY

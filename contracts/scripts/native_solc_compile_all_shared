@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo " ┌──────────────────────────────────────────────┐"
+echo " │          Compiling shared contracts...       │"
+echo " └──────────────────────────────────────────────┘"
+
+PROJECT="shared"
+FOUNDRY_PROJECT_SUFFIX=""
+
+CONTRACTS_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../ && pwd -P )"
+export FOUNDRY_PROFILE="$PROJECT"$FOUNDRY_PROJECT_SUFFIX
+
+compileContract() {
+  local contract
+  contract=$(basename "$1")
+  echo "Compiling" "$contract"
+
+  if [ -n "$2" ]; then
+    echo "Compiling from another project: ""$2"
+    PROJECT=$2
+  fi
+
+  # We override the foundry.toml Solidity version to not change the bytecode.
+  local command
+  command="forge build $CONTRACTS_DIR/src/v0.8/$PROJECT/"$1.sol" \
+   --root $CONTRACTS_DIR \
+   --extra-output-files bin abi \
+   --use 0.8.19 \
+   -o $CONTRACTS_DIR/solc/$PROJECT/$contract"
+
+  $command
+}
+
+compileContract interfaces/AggregatorV3Interface
+compileContract interfaces/ITypeAndVersion
+compileContract token/ERC677/ERC677
+compileContract token/ERC677/BurnMintERC677
+compileContract token/ERC677/LinkToken
+compileContract token/ERC20/BurnMintERC20
+compileContract test/helpers/ChainReaderTester
+compileContract test/helpers/LogEmitter
+compileContract test/helpers/VRFLogEmitter
+compileContract mocks/MockV3Aggregator
+compileContract mocks/WERC20Mock
+
+compileContract openzeppelin-solidity/v4.8.3/contracts/token/ERC20/ERC20 vendor
+compileContract multicall/ebd8b64/src/Multicall3 vendor
+compileContract canonical-weth/WETH9 vendor

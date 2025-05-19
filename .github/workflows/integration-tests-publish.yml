@@ -1,13 +1,15 @@
-name: Integration Tests Publish
+name: Test Image Publish
 # Publish the compiled integration tests
 
 on:
   push:
     branches:
       - develop
+  workflow_dispatch:
 
 env:
   ECR_TAG: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:develop
+  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
 
 jobs:
   publish-integration-test-image:
@@ -16,28 +18,65 @@ jobs:
       id-token: write
       contents: read
     name: Publish Integration Test Image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu22.04-8cores-32GB
     steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@v1
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Publish Integration Test Image
-        continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
-      - name: build test runner
-        uses: smartcontractkit/chainlink-github-actions/docker/build-push@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup Other Tags If Not Workflow Dispatch
+        id: tags
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          echo "other_tags=${ECR_TAG}" >> $GITHUB_OUTPUT
+      - name: Build Image
+        uses: smartcontractkit/.github/actions/ctf-build-test-image@6781e048ecc1aadf7d605722c32e8068a5f829ce # ctf-build-test-image@0.2.0
         with:
-          tags: ${{ env.ECR_TAG }}
-          file: ./integration-tests/test.Dockerfile
-          build-args: |
-            BASE_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/test-base-image
-            IMAGE_VERSION=v0.3.17
-            SUITES="chaos migration performance reorg smoke soak benchmark"
+          other_tags: ${{ steps.tags.outputs.other_tags }}
+          suites: 'chaos migration reorg smoke soak load benchmark ccip-tests/load ccip-tests/smoke ccip-tests/chaos'
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      - name: Notify Slack
+        # Only run this notification for merge to develop failures
+        if: failure() && github.event_name != 'workflow_dispatch'
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+        with:
+          channel-id: "#team-test-tooling-internal"
+          slack-message: ":x: :mild-panic-intensifies: Publish Integration Test Image failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}\nRepository: Chainlink\n${{ format('Notifying <!subteam^{0}|{0}>', secrets.GUARDIAN_SLACK_NOTIFICATION_HANDLE)}}"
+  build-chainlink-image:
+    environment: integration
+    # Only run this build for workflow_dispatch
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      matrix:
+        image:
+          - name: ""
+            dockerfile: core/chainlink.Dockerfile
+            tag-suffix: ""
+          # uncomment in the future if we end up needing to soak test the plugins image
+          # - name: (plugins)
+          #   dockerfile: plugins/chainlink.Dockerfile
+          #   tag-suffix: -plugins
+    name: Build Chainlink Image ${{ matrix.image.name }}
+    runs-on: ubuntu22.04-8cores-32GB
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Build Chainlink Image
+        uses: ./.github/actions/build-chainlink-image
+        with:
+          tag_suffix: ${{ matrix.image.tag-suffix }}
+          dockerfile: ${{ matrix.image.dockerfile }}
+          git_commit_sha: ${{ github.sha }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}

@@ -9,7 +9,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/http"
 )
 
@@ -20,14 +22,14 @@ func TestUnrestrictedHTTPClient(t *testing.T) {
 	assert.True(t, client.Transport.(*netHttp.Transport).DisableCompression)
 	client.Transport = newMockTransport()
 
-	netReq, err := netHttp.NewRequest("GET", "http://localhost", bytes.NewReader([]byte{}))
+	netReq, err := netHttp.NewRequestWithContext(testutils.Context(t), "GET", "http://localhost", bytes.NewReader([]byte{}))
 	assert.NoError(t, err)
 
 	req := &http.HTTPRequest{
 		Client:  client,
 		Request: netReq,
 		Config:  http.HTTPRequestConfig{SizeLimit: 1000},
-		Logger:  logger.NullLogger,
+		Logger:  logger.Nop(),
 	}
 
 	response, statusCode, headers, err := req.SendRequest()

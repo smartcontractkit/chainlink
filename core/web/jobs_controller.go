@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 
+	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
@@ -19,15 +20,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -45,7 +49,7 @@ func (jc *JobsController) Index(c *gin.Context, size, page, offset int) {
 		size = 1000
 	}
 
-	jobs, count, err := jc.App.JobORM().FindJobs(offset, size)
+	jobs, count, err := jc.App.JobORM().FindJobs(c.Request.Context(), offset, size)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -63,14 +67,15 @@ func (jc *JobsController) Index(c *gin.Context, size, page, offset int) {
 // Example:
 // "GET <application>/jobs/:ID"
 func (jc *JobsController) Show(c *gin.Context) {
+	ctx := c.Request.Context()
 	var err error
 	jobSpec := job.Job{}
-	if externalJobID, pErr := uuid.FromString(c.Param("ID")); pErr == nil {
+	if externalJobID, pErr := uuid.Parse(c.Param("ID")); pErr == nil {
 		// Find a job by external job ID
-		jobSpec, err = jc.App.JobORM().FindJobByExternalJobID(externalJobID, pg.WithParentCtx(c.Request.Context()))
+		jobSpec, err = jc.App.JobORM().FindJobByExternalJobID(ctx, externalJobID)
 	} else if pErr = jobSpec.SetID(c.Param("ID")); pErr == nil {
 		// Find a job by job ID
-		jobSpec, err = jc.App.JobORM().FindJobTx(jobSpec.ID)
+		jobSpec, err = jc.App.JobORM().FindJob(ctx, jobSpec.ID)
 	} else {
 		jsonAPIError(c, http.StatusUnprocessableEntity, pErr)
 		return
@@ -102,7 +107,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 		return
 	}
 
-	jb, status, err := jc.validateJobSpec(request.TOML)
+	jb, status, err := jc.validateJobSpec(c.Request.Context(), request.TOML)
 	if err != nil {
 		jsonAPIError(c, status, err)
 		return
@@ -112,7 +117,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	defer cancel()
 	err = jc.App.AddJobV2(ctx, &jb)
 	if err != nil {
-		if errors.Is(errors.Cause(err), job.ErrNoSuchKeyBundle) || errors.As(err, &keystore.KeyNotFoundError{}) || errors.Is(errors.Cause(err), job.ErrNoSuchTransmitterKey) {
+		if errors.Is(errors.Cause(err), job.ErrNoSuchKeyBundle) || errors.As(err, &keystore.KeyNotFoundError{}) || errors.Is(errors.Cause(err), job.ErrNoSuchTransmitterKey) || errors.Is(errors.Cause(err), job.ErrNoSuchSendingKey) {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}
@@ -124,7 +129,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	if err == nil {
 		jc.App.GetAuditLogger().Audit(audit.JobCreated, map[string]interface{}{"job": string(jbj)})
 	} else {
-		jc.App.GetLogger().Errorf("Could not send audit log for JobCreation", "err", err)
+		jc.App.GetLogger().Errorw("Could not send audit log for JobCreation", "err", err)
 	}
 
 	jsonAPIResponse(c, presenters.NewJobResource(jb), jb.Type.String())
@@ -171,7 +176,7 @@ func (jc *JobsController) Update(c *gin.Context) {
 		return
 	}
 
-	jb, status, err := jc.validateJobSpec(request.TOML)
+	jb, status, err := jc.validateJobSpec(c.Request.Context(), request.TOML)
 	if err != nil {
 		jsonAPIError(c, status, err)
 		return
@@ -200,7 +205,7 @@ func (jc *JobsController) Update(c *gin.Context) {
 
 	err = jc.App.AddJobV2(ctx, &jb)
 	if err != nil {
-		if errors.Is(errors.Cause(err), job.ErrNoSuchKeyBundle) || errors.As(err, &keystore.KeyNotFoundError{}) || errors.Is(errors.Cause(err), job.ErrNoSuchTransmitterKey) {
+		if errors.Is(errors.Cause(err), job.ErrNoSuchKeyBundle) || errors.As(err, &keystore.KeyNotFoundError{}) || errors.Is(errors.Cause(err), job.ErrNoSuchTransmitterKey) || errors.Is(errors.Cause(err), job.ErrNoSuchSendingKey) {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}
@@ -211,42 +216,51 @@ func (jc *JobsController) Update(c *gin.Context) {
 	jsonAPIResponse(c, presenters.NewJobResource(jb), jb.Type.String())
 }
 
-func (jc *JobsController) validateJobSpec(tomlString string) (jb job.Job, statusCode int, err error) {
+func (jc *JobsController) validateJobSpec(ctx context.Context, tomlString string) (jb job.Job, statusCode int, err error) {
 	jobType, err := job.ValidateSpec(tomlString)
 	if err != nil {
 		return jb, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse TOML")
 	}
-
 	config := jc.App.GetConfig()
 	switch jobType {
 	case job.OffchainReporting:
-		jb, err = ocr.ValidatedOracleSpecToml(jc.App.GetChains().EVM, tomlString)
-		if !config.Dev() && !config.FeatureOffchainReporting() {
+		jb, err = ocr.ValidatedOracleSpecToml(config, jc.App.GetRelayers().LegacyEVMChains(), tomlString)
+		if !config.OCR().Enabled() {
 			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
 	case job.OffchainReporting2:
-		jb, err = validate.ValidatedOracleSpecToml(config, tomlString)
-		if !config.Dev() && !config.FeatureOffchainReporting2() {
+		jb, err = validate.ValidatedOracleSpecToml(ctx, config.OCR2(), config.Insecure(), tomlString, jc.App.GetLoopRegistrarConfig())
+		if !config.OCR2().Enabled() {
 			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
 		}
 	case job.DirectRequest:
 		jb, err = directrequest.ValidatedDirectRequestSpec(tomlString)
 	case job.FluxMonitor:
-		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config, tomlString)
+		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config.JobPipeline(), tomlString)
 	case job.Keeper:
 		jb, err = keeper.ValidatedKeeperSpec(tomlString)
 	case job.Cron:
 		jb, err = cron.ValidatedCronSpec(tomlString)
 	case job.VRF:
-		jb, err = vrf.ValidatedVRFSpec(tomlString)
+		jb, err = vrfcommon.ValidatedVRFSpec(tomlString)
 	case job.Webhook:
-		jb, err = webhook.ValidatedWebhookSpec(tomlString, jc.App.GetExternalInitiatorManager())
+		jb, err = webhook.ValidatedWebhookSpec(ctx, tomlString, jc.App.GetExternalInitiatorManager())
 	case job.BlockhashStore:
 		jb, err = blockhashstore.ValidatedSpec(tomlString)
 	case job.BlockHeaderFeeder:
 		jb, err = blockheaderfeeder.ValidatedSpec(tomlString)
 	case job.Bootstrap:
 		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(tomlString)
+	case job.Gateway:
+		jb, err = gateway.ValidatedGatewaySpec(tomlString)
+	case job.Stream:
+		jb, err = streams.ValidatedStreamSpec(tomlString)
+	case job.Workflow:
+		jb, err = workflows.ValidatedWorkflowJobSpec(ctx, tomlString)
+	case job.StandardCapabilities:
+		jb, err = standardcapabilities.ValidatedStandardCapabilitiesSpec(tomlString)
+	case job.CCIP:
+		jb, err = ccip.ValidatedCCIPSpec(tomlString)
 	default:
 		return jb, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", jobType)
 	}

@@ -10,4 +10,4 @@ CREATE TABLE feeds_managers (
     updated_at timestamp with time zone NOT NULL
 );
 -- +goose Down
-	DROP TABLE feeds_managers
+	DROP TABLE feeds_managers;

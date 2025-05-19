@@ -3,9 +3,9 @@ package blockheaderfeeder
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -14,7 +14,7 @@ import (
 func ValidatedSpec(tomlString string) (job.Job, error) {
 	jb := job.Job{
 		// Default to generating a UUID, can be overwritten by the specified one in tomlString.
-		ExternalJobID: uuid.NewV4(),
+		ExternalJobID: uuid.New(),
 	}
 
 	tree, err := toml.Load(tomlString)
@@ -38,9 +38,9 @@ func ValidatedSpec(tomlString string) (job.Job, error) {
 	}
 
 	// Required fields
-	if spec.CoordinatorV1Address == nil && spec.CoordinatorV2Address == nil {
+	if spec.CoordinatorV1Address == nil && spec.CoordinatorV2Address == nil && spec.CoordinatorV2PlusAddress == nil {
 		return jb, errors.New(
-			`at least one of "coordinatorV1Address" and "coordinatorV2Address" must be set`)
+			`at least one of "coordinatorV1Address", "coordinatorV2Address" and "coordinatorV2PlusAddress" must be set`)
 	}
 	if spec.BlockhashStoreAddress == "" {
 		return jb, notSet("blockhashStoreAddress")

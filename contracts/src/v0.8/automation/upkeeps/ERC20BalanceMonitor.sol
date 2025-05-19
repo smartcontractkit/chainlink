@@ -2,10 +2,10 @@
 
 pragma solidity ^0.8.4;
 
-import "../../ConfirmedOwner.sol";
-import "../../interfaces/automation/KeeperCompatibleInterface.sol";
-import "../../vendor/openzeppelin-solidity/v4.7.0/contracts/security/Pausable.sol";
-import "../../vendor/openzeppelin-solidity/v4.7.0/contracts/token/ERC20/utils/SafeERC20.sol";
+import "../../shared/access/ConfirmedOwner.sol";
+import "../interfaces/KeeperCompatibleInterface.sol";
+import "../../vendor/openzeppelin-solidity/v4.8.3/contracts/security/Pausable.sol";
+import "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title The ERC20BalanceMonitor contract.
@@ -163,13 +163,9 @@ contract ERC20BalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
    * @notice Gets list of subscription ids that are underfunded and returns a keeper-compatible payload.
    * @return upkeepNeeded signals if upkeep is needed, performData is an abi encoded list of subscription ids that need funds
    */
-  function checkUpkeep(bytes calldata)
-    external
-    view
-    override
-    whenNotPaused
-    returns (bool upkeepNeeded, bytes memory performData)
-  {
+  function checkUpkeep(
+    bytes calldata
+  ) external view override whenNotPaused returns (bool upkeepNeeded, bytes memory performData) {
     address[] memory needsFunding = getUnderfundedAddresses();
     upkeepNeeded = needsFunding.length > 0;
     performData = abi.encode(needsFunding);
@@ -253,16 +249,9 @@ contract ERC20BalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterf
   /**
    * @notice Gets configuration information for an address on the watchlist
    */
-  function getAccountInfo(address targetAddress)
-    external
-    view
-    returns (
-      bool isActive,
-      uint96 minBalance,
-      uint96 topUpLevel,
-      uint56 lastTopUpTimestamp
-    )
-  {
+  function getAccountInfo(
+    address targetAddress
+  ) external view returns (bool isActive, uint96 minBalance, uint96 topUpLevel, uint56 lastTopUpTimestamp) {
     Target memory target = s_targets[targetAddress];
     return (target.isActive, target.minBalance, target.topUpLevel, target.lastTopUpTimestamp);
   }

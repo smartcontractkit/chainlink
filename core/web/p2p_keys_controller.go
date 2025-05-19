@@ -29,11 +29,14 @@ func (p2pkc *P2PKeysController) Index(c *gin.Context) {
 	jsonAPIResponse(c, presenters.NewP2PKeyResources(keys), "p2pKey")
 }
 
+const keyType = "Ed25519"
+
 // Create and return a P2P key
 // Example:
 // "POST <application>/keys/p2p"
 func (p2pkc *P2PKeysController) Create(c *gin.Context) {
-	key, err := p2pkc.App.GetKeyStore().P2P().Create()
+	ctx := c.Request.Context()
+	key, err := p2pkc.App.GetKeyStore().P2P().Create(ctx)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -44,7 +47,7 @@ func (p2pkc *P2PKeysController) Create(c *gin.Context) {
 		"id":           key.ID(),
 		"p2pPublicKey": key.PublicKeyHex(),
 		"p2pPeerID":    key.PeerID(),
-		"p2pType":      key.Type(),
+		"p2pType":      keyType,
 	})
 	jsonAPIResponse(c, presenters.NewP2PKeyResource(key), "p2pKey")
 }
@@ -54,6 +57,7 @@ func (p2pkc *P2PKeysController) Create(c *gin.Context) {
 // "DELETE <application>/keys/p2p/:keyID"
 // "DELETE <application>/keys/p2p/:keyID?hard=true"
 func (p2pkc *P2PKeysController) Delete(c *gin.Context) {
+	ctx := c.Request.Context()
 	keyID, err := p2pkey.MakePeerID(c.Param("keyID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -64,7 +68,7 @@ func (p2pkc *P2PKeysController) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusNotFound, err)
 		return
 	}
-	_, err = p2pkc.App.GetKeyStore().P2P().Delete(key.PeerID())
+	_, err = p2pkc.App.GetKeyStore().P2P().Delete(ctx, key.PeerID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -83,6 +87,7 @@ func (p2pkc *P2PKeysController) Delete(c *gin.Context) {
 // "Post <application>/keys/p2p/import"
 func (p2pkc *P2PKeysController) Import(c *gin.Context) {
 	defer p2pkc.App.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Import request body")
+	ctx := c.Request.Context()
 
 	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -90,7 +95,7 @@ func (p2pkc *P2PKeysController) Import(c *gin.Context) {
 		return
 	}
 	oldPassword := c.Query("oldpassword")
-	key, err := p2pkc.App.GetKeyStore().P2P().Import(bytes, oldPassword)
+	key, err := p2pkc.App.GetKeyStore().P2P().Import(ctx, bytes, oldPassword)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -101,7 +106,7 @@ func (p2pkc *P2PKeysController) Import(c *gin.Context) {
 		"id":           key.ID(),
 		"p2pPublicKey": key.PublicKeyHex(),
 		"p2pPeerID":    key.PeerID(),
-		"p2pType":      key.Type(),
+		"p2pType":      keyType,
 	})
 
 	jsonAPIResponse(c, presenters.NewP2PKeyResource(key), "p2pKey")

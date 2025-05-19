@@ -9,10 +9,16 @@ union JobSpec =
     WebhookSpec |
     BlockhashStoreSpec |
     BlockHeaderFeederSpec |
-    BootstrapSpec
+    BootstrapSpec |
+    GatewaySpec |
+    WorkflowSpec |
+    StandardCapabilitiesSpec |
+    StreamSpec |
+    CCIPSpec
 
 type CronSpec {
     schedule: String!
+    evmChainID: String
     createdAt: Time!
 }
 
@@ -21,7 +27,6 @@ type DirectRequestSpec {
     createdAt: Time!
     evmChainID: String
     minIncomingConfirmations: Int!
-    minIncomingConfirmationsEnv: Boolean!
     minContractPaymentLinkJuels: String!
     requesters: [String!]
 }
@@ -51,29 +56,20 @@ type KeeperSpec {
 
 type OCRSpec {
     blockchainTimeout: String
-    blockchainTimeoutEnv: Boolean!
     contractAddress: String!
     contractConfigConfirmations: Int
-    contractConfigConfirmationsEnv: Boolean!
     contractConfigTrackerPollInterval: String
-    contractConfigTrackerPollIntervalEnv: Boolean!
     contractConfigTrackerSubscribeInterval: String
-    contractConfigTrackerSubscribeIntervalEnv: Boolean!
     createdAt: Time!
     evmChainID: String
     isBootstrapPeer: Boolean!
     keyBundleID: String
     observationTimeout: String
-    observationTimeoutEnv: Boolean!
-    p2pBootstrapPeers: [String!]
     p2pv2Bootstrappers: [String!]
     transmitterAddress: String
     databaseTimeout: String!
-    databaseTimeoutEnv: Boolean!
     observationGracePeriod: String!
-    observationGracePeriodEnv: Boolean!
     contractTransmitterTransmitTimeout: String!
-    contractTransmitterTransmitTimeoutEnv: Boolean!
 }
 
 type OCR2Spec {
@@ -87,10 +83,12 @@ type OCR2Spec {
     p2pv2Bootstrappers: [String!]
     relay: String!
     relayConfig: Map!
+    onchainSigningStrategy: Map!
     transmitterID: String
     pluginType: String!
     pluginConfig: Map!
-    feedID: String!
+    feedID: String
+    allowNoBootstrappers: Boolean!
 }
 
 type VRFSpec {
@@ -99,7 +97,6 @@ type VRFSpec {
     evmChainID: String
     fromAddresses: [String!]
     minIncomingConfirmations: Int!
-    minIncomingConfirmationsEnv: Boolean!
     pollPeriod: String!
     publicKey: String!
     requestedConfsDelay: Int!
@@ -107,10 +104,12 @@ type VRFSpec {
     batchCoordinatorAddress: String
     batchFulfillmentEnabled: Boolean!
     batchFulfillmentGasMultiplier: Float!
+    customRevertsPipelineEnabled: Boolean
     chunkSize: Int!
     backoffInitialDelay: String!
     backoffMaxDelay: String!
     gasLanePrice: String
+    vrfOwnerAddress: String
 }
 
 type WebhookSpec {
@@ -120,9 +119,13 @@ type WebhookSpec {
 type BlockhashStoreSpec {
     coordinatorV1Address: String
     coordinatorV2Address: String
+    coordinatorV2PlusAddress: String
     waitBlocks: Int!
     lookbackBlocks: Int!
     blockhashStoreAddress: String!
+    trustedBlockhashStoreAddress: String
+    trustedBlockhashStoreBatchSize: Int!
+    heartbeatPeriod: String!
     pollPeriod: String!
     runTimeout: String!
     evmChainID: String
@@ -133,6 +136,7 @@ type BlockhashStoreSpec {
 type BlockHeaderFeederSpec {
     coordinatorV1Address: String
     coordinatorV2Address: String
+    coordinatorV2PlusAddress: String
     waitBlocks: Int!
     lookbackBlocks: Int!
     blockhashStoreAddress: String!
@@ -156,4 +160,39 @@ type BootstrapSpec {
     contractConfigTrackerPollInterval: String
     contractConfigConfirmations: Int
     createdAt: Time!
+}
+
+type GatewaySpec {
+    id: ID!
+    gatewayConfig: Map!
+    createdAt: Time!
+}
+
+type WorkflowSpec {
+    id: ID!
+    workflowID: String!
+    workflow: String!
+    workflowOwner: String!
+    createdAt: Time!
+    updatedAt: Time!
+}
+
+type StandardCapabilitiesSpec {
+    id: ID!
+    createdAt: Time!
+    command: String!
+    config: String
+}
+
+type StreamSpec {
+    streamID: String
+}
+
+type CCIPSpec {
+    createdAt: Time!
+    updatedAt: Time!
+    capabilityVersion: String!
+    capabilityLabelledName: String!
+    ocrKeyBundleIDs: Map!
+    p2pKeyID: String!
 }

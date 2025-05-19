@@ -1,0 +1,168 @@
+[RpcHttpUrls]
+ETHEREUM_MAINNET = [
+    'https:....',
+    'https:......',
+]
+AVALANCHE_MAINNET = [
+    'https:....',
+    'https:......',
+]
+BASE_MAINNET = [
+    'https:....',
+    'https:......',
+]
+ARBITRUM_MAINNET = [
+    'https:....',
+    'https:......',
+]
+BSC_MAINNET = [
+    'https:....',
+    'https:......',
+]
+OPTIMISM_MAINNET = [
+    'https:....',
+    'https:......',
+]
+POLYGON_MAINNET = [
+    'https:....',
+    'https:......',
+]
+WEMIX_MAINNET = [
+    'https:....',
+    'https:......',
+]
+KROMA_MAINNET = [
+    'https:....',
+    'https:......',
+]
+
+OPTIMISM_SEPOLIA = [
+    'https:....',
+    'https:......',
+]
+SEPOLIA = [
+    'https:....',
+    'https:......',
+]
+AVALANCHE_FUJI = [
+    'https:....',
+    'https:......',
+]
+ARBITRUM_SEPOLIA = [
+    'https:....',
+    'https:......',
+]
+POLYGON_MUMBAI = [
+    'https:....',
+    'https:......',
+]
+BASE_SEPOLIA = [
+    'https:....',
+    'https:......',
+]
+BSC_TESTNET = [
+    'https:....',
+    'https:......',
+]
+KROMA_SEPOLIA = [
+    'https:....',
+    'https:......',
+]
+WEMIX_TESTNET = [
+    'https:....',
+    'https:......',
+]
+
+[RpcWsUrls]
+ETHEREUM_MAINNET = [
+    'wss://......',
+    'wss://.........'
+]
+AVALANCHE_MAINNET = [
+    'wss://......',
+    'wss://.........'
+]
+BASE_MAINNET = [
+    'wss://......',
+    'wss://.........'
+]
+ARBITRUM_MAINNET = [
+    'wss://......',
+    'wss://.........'
+]
+BSC_MAINNET = [
+    'wss://......',
+    'wss://.........'
+]
+POLYGON_MAINNET = [
+    'wss://......',
+    'wss://.........'
+]
+OPTIMISM_MAINNET = [
+    'wss://......',
+    'wss://.........'
+]
+WEMIX_MAINNET = [
+    'wss://......',
+    'wss://.........'
+]
+KROMA_MAINNET = [
+    'wss://......',
+    'wss://.........'
+]
+OPTIMISM_SEPOLIA = [
+    'wss://......',
+    'wss://.........'
+]
+SEPOLIA = [
+    'wss://......',
+    'wss://.........'
+]
+AVALANCHE_FUJI = [
+    'wss://......',
+    'wss://.........'
+]
+ARBITRUM_SEPOLIA = [
+    'wss://......',
+    'wss://.........'
+]
+POLYGON_MUMBAI = [
+    'wss://......',
+    'wss://.........'
+]
+BASE_SEPOLIA = [
+    'wss://......',
+    'wss://.........'
+]
+BSC_TESTNET = [
+    'wss://......',
+    'wss://.........'
+]
+KROMA_SEPOLIA = [
+    'wss://......',
+    'wss://.........'
+]
+WEMIX_TESTNET = [
+    'wss://......',
+    'wss://.........'
+]
+
+[WalletKeys]
+ETHEREUM_MAINNET = ['<your private key goes here>']
+AVALANCHE_MAINNET = ['<your private key goes here>']
+BASE_MAINNET = ['<your private key goes here>']
+ARBITRUM_MAINNET = ['<your private key goes here>']
+BSC_MAINNET = ['<your private key goes here>']
+POLYGON_MAINNET = ['<your private key goes here>']
+OPTIMISM_MAINNET = ['<your private key goes here>']
+WEMIX_MAINNET = ['<your private key goes here>']
+KROMA_MAINNET = ['<your private key goes here>']
+OPTIMISM_SEPOLIA = ['<your private key goes here>']
+SEPOLIA = ['<your private key goes here>']
+AVALANCHE_FUJI = ['<your private key goes here>']
+ARBITRUM_SEPOLIA = ['<your private key goes here>']
+POLYGON_MUMBAI = ['<your private key goes here>']
+BASE_SEPOLIA = ['<your private key goes here>']
+BSC_TESTNET = ['<your private key goes here>']
+KROMA_SEPOLIA = ['<your private key goes here>']
+WEMIX_TESTNET = ['<your private key goes here>']

@@ -3,6 +3,7 @@ package presenters
 import (
 	"encoding/hex"
 	"fmt"
+	"sort"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
@@ -70,6 +71,13 @@ func NewOCR2KeysBundleResources(keys []ocr2key.KeyBundle) []OCR2KeysBundleResour
 	for _, key := range keys {
 		rs = append(rs, *NewOCR2KeysBundleResource(key))
 	}
+	// sort by chain type alphabetical, tie-break with ID
+	sort.SliceStable(rs, func(i, j int) bool {
+		if rs[i].ChainType == rs[j].ChainType {
+			return rs[i].ID < rs[j].ID
+		}
+		return rs[i].ChainType < rs[j].ChainType
+	})
 
 	return rs
 }

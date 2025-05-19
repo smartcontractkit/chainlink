@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo " ┌──────────────────────────────────────────────┐"
+echo " │          Compiling CCIP contracts...         │"
+echo " └──────────────────────────────────────────────┘"
+
+# The offRamp uses a specific lower optimization runs value. All other contracts use the default value
+# as specified in the foundry.toml.
+OPTIMIZE_RUNS_OFFRAMP=800
+OPTIMIZE_RUNS_FEE_QUOTER=10000
+PROJECT="ccip"
+FOUNDRY_PROJECT_SUFFIX="-compile"
+export FOUNDRY_PROFILE="$PROJECT"$FOUNDRY_PROJECT_SUFFIX
+
+CONTRACTS_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../ && pwd -P )"
+ABI_DIR="$CONTRACTS_DIR"/abi/v0.8/
+mkdir -p "$ABI_DIR"
+
+compileContract() {
+  local contract
+  contract=$(basename "$1")
+  echo "Compiling" "$contract"
+
+  local command
+  command="forge build $CONTRACTS_DIR/src/v0.8/$PROJECT/"$1.sol" \
+   --root $CONTRACTS_DIR \
+   $(getOptimizations "$contract") \
+   --extra-output-files bin abi \
+   -o $CONTRACTS_DIR/solc/$PROJECT/$contract"
+
+  $command
+
+  # Copy the generated abi files to a single folder
+  cp "$CONTRACTS_DIR"/solc/$PROJECT/"$contract"/"$contract".sol/"$contract".abi.json "$ABI_DIR""$contract".abi
+}
+
+# Define optimization overrides in this function. Anything that is not an override will use the default value
+# as specified in the foundry.toml.
+function getOptimizations() {
+    local optimize_runs_override=""
+
+    case $1 in
+      "OffRamp" | "OffRampWithMessageTransformer")
+        optimize_runs_override="--optimizer-runs $OPTIMIZE_RUNS_OFFRAMP"
+        ;;
+      "FeeQuoter")
+        optimize_runs_override="--optimizer-runs $OPTIMIZE_RUNS_FEE_QUOTER"
+        ;;
+    esac
+
+    echo "$optimize_runs_override"
+}
+
+compileContract offRamp/OffRamp
+compileContract FeeQuoter
+compileContract onRamp/OnRamp
+compileContract applications/PingPongDemo
+compileContract applications/EtherSenderReceiver
+compileContract MultiAggregateRateLimiter
+compileContract Router
+compileContract tokenAdminRegistry/TokenAdminRegistry
+compileContract tokenAdminRegistry/RegistryModuleOwnerCustom
+compileContract capability/CCIPHome
+compileContract NonceManager
+compileContract rmn/RMNRemote
+compileContract rmn/RMNHome
+compileContract rmn/RMNProxy
+
+# Pools
+compileContract pools/LockReleaseTokenPool
+compileContract pools/BurnMintTokenPool
+compileContract pools/BurnFromMintTokenPool
+compileContract pools/BurnWithFromMintTokenPool
+compileContract pools/BurnToAddressMintTokenPool
+compileContract pools/TokenPool
+compileContract pools/USDC/USDCTokenPool
+compileContract pools/SiloedLockReleaseTokenPool
+
+# Test helpers
+compileContract test/helpers/BurnMintERC677Helper
+compileContract test/helpers/MessageHasher
+compileContract test/helpers/USDCReaderTester
+compileContract test/helpers/ReportCodec
+compileContract test/helpers/receivers/MaybeRevertMessageReceiver
+compileContract test/helpers/receivers/LogMessageDataReceiver
+compileContract test/helpers/MultiOCR3Helper
+compileContract test/mocks/MockE2EUSDCTokenMessenger
+compileContract test/mocks/MockE2EUSDCTransmitter
+compileContract test/helpers/CCIPReaderTester
+# Offchain test encoding utils
+compileContract test/helpers/EncodingUtils
+
+# Message Transformer On/OffRamps
+compileContract offRamp/OffRampWithMessageTransformer
+compileContract onRamp/OnRampWithMessageTransformer
+
+

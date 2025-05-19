@@ -2,16 +2,20 @@ package blockhashstore
 
 import (
 	"context"
+	"crypto/rand"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/rand"
 )
 
 type TestCoordinator struct {
 	RequestEvents     []Event
 	FulfillmentEvents []Event
+}
+
+func (t *TestCoordinator) Addresses() []common.Address {
+	return []common.Address{}
 }
 
 func (t *TestCoordinator) Requests(_ context.Context, fromBlock uint64, toBlock uint64) ([]Event, error) {
@@ -55,6 +59,16 @@ func (t *TestBHS) Store(_ context.Context, blockNum uint64) error {
 
 	t.Stored = append(t.Stored, blockNum)
 	return nil
+}
+
+func (t *TestBHS) IsTrusted() bool {
+	return false
+}
+
+func (t *TestBHS) StoreTrusted(
+	ctx context.Context, blockNums []uint64, blockhashes []common.Hash, recentBlock uint64, recentBlockhash common.Hash,
+) error {
+	return errors.New("not implemented")
 }
 
 func (t *TestBHS) IsStored(_ context.Context, blockNum uint64) (bool, error) {
@@ -126,7 +140,7 @@ type TestBlockHeaderProvider struct {
 func (p *TestBlockHeaderProvider) RlpHeadersBatch(ctx context.Context, blockRange []*big.Int) ([][]byte, error) {
 	var headers [][]byte
 	for range blockRange {
-		var randomBytes [30]byte //random length
+		var randomBytes [30]byte // random length
 		_, err := rand.Read(randomBytes[:])
 		if err != nil {
 			return nil, err

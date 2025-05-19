@@ -9,6 +9,7 @@ type Plugins {
 	execute: Boolean!
 	median: Boolean!
 	mercury: Boolean!
+	rebalancer: Boolean!
 }
 
 type FeedsManager {
@@ -19,6 +20,7 @@ type FeedsManager {
 	jobProposals: [JobProposal!]!
 	isConnectionActive: Boolean!
 	createdAt: Time!
+	disabledAt: Time
 	chainConfigs: [FeedsManagerChainConfig!]!
 }
 
@@ -27,6 +29,7 @@ type FeedsManagerChainConfig {
 	chainID: String!
 	chainType: String!
 	accountAddr: String!
+	accountAddrPubKey: String
 	adminAddr: String!
 	fluxMonitorJobConfig: FluxMonitorJobConfig!
 	ocr1JobConfig: OCR1JobConfig!
@@ -49,6 +52,7 @@ type OCR2JobConfig {
 	enabled: Boolean!
 	isBootstrap: Boolean!
 	multiaddr: String
+	forwarderAddress: String
 	p2pPeerID: String
 	keyBundleID: String
 	plugins: Plugins!
@@ -74,6 +78,13 @@ type CreateFeedsManagerSuccess {
     feedsManager: FeedsManager!
 }
 
+type DuplicateFeedsManagerError implements Error {
+	message: String!
+	code: ErrorCode!
+}
+
+# DEPRECATED: No longer used since we now support multiple feeds manager.
+# Keeping this to avoid breaking change.
 type SingleFeedsManagerError implements Error {
 	message: String!
 	code: ErrorCode!
@@ -81,7 +92,8 @@ type SingleFeedsManagerError implements Error {
 
 # CreateFeedsManagerPayload defines the response when creating a feeds manager
 union CreateFeedsManagerPayload = CreateFeedsManagerSuccess
-	| SingleFeedsManagerError
+	| DuplicateFeedsManagerError
+	| SingleFeedsManagerError # // TODO: delete once multiple feeds managers support is released
 	| NotFoundError
 	| InputErrors
 
@@ -107,6 +119,7 @@ input CreateFeedsManagerChainConfigInput {
 	chainID: String!
 	chainType: String!
 	accountAddr: String!
+	accountAddrPubKey: String
 	adminAddr: String!
 	fluxMonitorEnabled: Boolean!
 	ocr1Enabled: Boolean!
@@ -117,6 +130,7 @@ input CreateFeedsManagerChainConfigInput {
 	ocr2Enabled: Boolean!
 	ocr2IsBootstrap: Boolean
 	ocr2Multiaddr: String
+	ocr2ForwarderAddress: String
 	ocr2P2PPeerID: String
 	ocr2KeyBundleID: String
 	ocr2Plugins: String!
@@ -147,6 +161,7 @@ union DeleteFeedsManagerChainConfigPayload = DeleteFeedsManagerChainConfigSucces
 
 input UpdateFeedsManagerChainConfigInput {
 	accountAddr: String!
+	accountAddrPubKey: String
 	adminAddr: String!
 	fluxMonitorEnabled: Boolean!
 	ocr1Enabled: Boolean!
@@ -157,6 +172,7 @@ input UpdateFeedsManagerChainConfigInput {
 	ocr2Enabled: Boolean!
 	ocr2IsBootstrap: Boolean
 	ocr2Multiaddr: String
+	ocr2ForwarderAddress: String
 	ocr2P2PPeerID: String
 	ocr2KeyBundleID: String
 	ocr2Plugins: String!
@@ -173,3 +189,17 @@ type UpdateFeedsManagerChainConfigSuccess {
 union UpdateFeedsManagerChainConfigPayload = UpdateFeedsManagerChainConfigSuccess
 	| NotFoundError
 	| InputErrors
+
+type EnableFeedsManagerSuccess {
+    feedsManager: FeedsManager!
+}
+
+union EnableFeedsManagerPayload = EnableFeedsManagerSuccess
+	| NotFoundError
+
+type DisableFeedsManagerSuccess {
+    feedsManager: FeedsManager!
+}
+
+union DisableFeedsManagerPayload = DisableFeedsManagerSuccess
+	| NotFoundError

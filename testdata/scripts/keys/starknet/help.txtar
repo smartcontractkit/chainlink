@@ -1,0 +1,20 @@
+exec chainlink keys starknet --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink keys starknet - Remote commands for administering the node's StarkNet keys
+
+USAGE:
+   chainlink keys starknet command [command options] [arguments...]
+
+COMMANDS:
+   create  Create a StarkNet key
+   import  Import StarkNet key from keyfile
+   export  Export StarkNet key to keyfile
+   delete  Delete StarkNet key if present
+   list    List the StarkNet keys
+
+OPTIONS:
+   --help, -h  show help
+   

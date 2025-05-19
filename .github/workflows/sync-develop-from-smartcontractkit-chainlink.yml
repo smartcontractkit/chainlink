@@ -10,8 +10,9 @@ jobs:
     name: Sync
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+      - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           ref: develop
         if: env.GITHUB_REPOSITORY != 'smartcontractkit/chainlink'
       - name: Sync
@@ -27,12 +28,3 @@ jobs:
             git push origin upstream/develop:develop
           fi
         if: env.GITHUB_REPOSITORY != 'smartcontractkit/chainlink'
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Sync
-        continue-on-error: true

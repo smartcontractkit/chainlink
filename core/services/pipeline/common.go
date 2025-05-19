@@ -1,12 +1,9 @@
 package pipeline
 
 import (
-	"bytes"
 	"context"
-	"database/sql/driver"
-	"encoding/json"
 	"errors"
-	"math/big"
+	"fmt"
 	"net/url"
 	"reflect"
 	"sort"
@@ -14,36 +11,40 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
+	"github.com/google/uuid"
 	pkgerrors "github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	cnull "github.com/smartcontractkit/chainlink/v2/core/null"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
-	CronJobType               string = "cron"
-	DirectRequestJobType      string = "directrequest"
-	FluxMonitorJobType        string = "fluxmonitor"
-	OffchainReportingJobType  string = "offchainreporting"
-	OffchainReporting2JobType string = "offchainreporting2"
-	KeeperJobType             string = "keeper"
-	VRFJobType                string = "vrf"
-	BlockhashStoreJobType     string = "blockhashstore"
-	BlockHeaderFeederJobType  string = "blockheaderfeeder"
-	WebhookJobType            string = "webhook"
-	BootstrapJobType          string = "bootstrap"
+	BlockHeaderFeederJobType       string = "blockheaderfeeder"
+	BlockhashStoreJobType          string = "blockhashstore"
+	BootstrapJobType               string = "bootstrap"
+	CronJobType                    string = "cron"
+	CCIPJobType                    string = "ccip"
+	DirectRequestJobType           string = "directrequest"
+	FluxMonitorJobType             string = "fluxmonitor"
+	GatewayJobType                 string = "gateway"
+	KeeperJobType                  string = "keeper"
+	LegacyGasStationServerJobType  string = "legacygasstationserver"
+	LegacyGasStationSidecarJobType string = "legacygasstationsidecar"
+	OffchainReporting2JobType      string = "offchainreporting2"
+	OffchainReportingJobType       string = "offchainreporting"
+	StreamJobType                  string = "stream"
+	VRFJobType                     string = "vrf"
+	WebhookJobType                 string = "webhook"
+	WorkflowJobType                string = "workflow"
+	StandardCapabilitiesJobType    string = "standardcapabilities"
 )
-
-//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name Task --output ./mocks/ --case=underscore
 
 type (
 	Task interface {
@@ -59,18 +60,23 @@ type (
 		TaskRetries() uint32
 		TaskMinBackoff() time.Duration
 		TaskMaxBackoff() time.Duration
+		TaskTags() string
+		TaskStreamID() *uint32
+		GetDescendantTasks() []Task
 	}
 
 	Config interface {
+		DefaultHTTPLimit() int64
+		DefaultHTTPTimeout() commonconfig.Duration
+		MaxRunDuration() time.Duration
+		ReaperInterval() time.Duration
+		ReaperThreshold() time.Duration
+		VerboseLogging() bool
+	}
+
+	BridgeConfig interface {
 		BridgeResponseURL() *url.URL
 		BridgeCacheTTL() time.Duration
-		DatabaseURL() url.URL
-		DefaultHTTPLimit() int64
-		DefaultHTTPTimeout() models.Duration
-		TriggerFallbackDBPollInterval() time.Duration
-		JobPipelineMaxRunDuration() time.Duration
-		JobPipelineReaperInterval() time.Duration
-		JobPipelineReaperThreshold() time.Duration
 	}
 )
 
@@ -134,8 +140,8 @@ type Result struct {
 }
 
 // OutputDB dumps a single result output for a pipeline_run or pipeline_task_run
-func (result Result) OutputDB() JSONSerializable {
-	return JSONSerializable{Val: result.Value, Valid: !(result.Value == nil || (reflect.ValueOf(result.Value).Kind() == reflect.Ptr && reflect.ValueOf(result.Value).IsNil()))}
+func (result Result) OutputDB() jsonserializable.JSONSerializable {
+	return jsonserializable.JSONSerializable{Val: result.Value, Valid: !(result.Value == nil || (reflect.ValueOf(result.Value).Kind() == reflect.Ptr && reflect.ValueOf(result.Value).IsNil()))}
 }
 
 // ErrorDB dumps a single result error for a pipeline_task_run
@@ -195,8 +201,8 @@ func (result FinalResult) SingularResult() (Result, error) {
 // TaskSpecID will always be non-zero
 type TaskRunResult struct {
 	ID         uuid.UUID
-	Task       Task
-	TaskRun    TaskRun
+	Task       Task    `json:"-"`
+	TaskRun    TaskRun `json:"-"`
 	Result     Result
 	Attempts   uint
 	CreatedAt  time.Time
@@ -216,9 +222,20 @@ func (result *TaskRunResult) IsTerminal() bool {
 // TaskRunResults represents a collection of results for all task runs for one pipeline run
 type TaskRunResults []TaskRunResult
 
+// GetTaskRunResultsFinishedAt returns latest finishedAt time from TaskRunResults.
+func (trrs TaskRunResults) GetTaskRunResultsFinishedAt() time.Time {
+	var finishedTime time.Time
+	for _, trr := range trrs {
+		if trr.FinishedAt.Valid && trr.FinishedAt.Time.After(finishedTime) {
+			finishedTime = trr.FinishedAt.Time
+		}
+	}
+	return finishedTime
+}
+
 // FinalResult pulls the FinalResult for the pipeline_run from the task runs
 // It needs to respect the output index of each task
-func (trrs TaskRunResults) FinalResult(l logger.Logger) FinalResult {
+func (trrs TaskRunResults) FinalResult() FinalResult {
 	var found bool
 	var fr FinalResult
 	sort.Slice(trrs, func(i, j int) bool {
@@ -234,9 +251,29 @@ func (trrs TaskRunResults) FinalResult(l logger.Logger) FinalResult {
 	}
 
 	if !found {
-		l.Panicw("Expected at least one task to be final", "tasks", trrs)
+		panic(fmt.Sprintf("expected at least one task to be final: %v", trrs))
 	}
 	return fr
+}
+
+// Terminals returns all terminal task run results
+func (trrs TaskRunResults) Terminals() (terminals []TaskRunResult) {
+	for _, trr := range trrs {
+		if trr.IsTerminal() {
+			terminals = append(terminals, trr)
+		}
+	}
+	return
+}
+
+// GetNextTaskOf returns the task with the next id or nil if it does not exist
+func (trrs *TaskRunResults) GetTaskRunResultOf(task Task) *TaskRunResult {
+	for _, trr := range *trrs {
+		if trr.Task.Base().id == task.Base().id {
+			return &trr
+		}
+	}
+	return nil
 }
 
 // GetNextTaskOf returns the task with the next id or nil if it does not exist
@@ -252,104 +289,14 @@ func (trrs *TaskRunResults) GetNextTaskOf(task TaskRunResult) *TaskRunResult {
 	return nil
 }
 
-type JSONSerializable struct {
-	Val   interface{}
-	Valid bool
-}
-
-func reinterpetJsonNumbers(val interface{}) (interface{}, error) {
-	switch v := val.(type) {
-	case json.Number:
-		return getJsonNumberValue(v)
-	case []interface{}:
-		s := make([]interface{}, len(v))
-		for i, vv := range v {
-			ival, ierr := reinterpetJsonNumbers(vv)
-			if ierr != nil {
-				return nil, ierr
-			}
-			s[i] = ival
-		}
-		return s, nil
-	case map[string]interface{}:
-		m := make(map[string]interface{}, len(v))
-		for k, vv := range v {
-			ival, ierr := reinterpetJsonNumbers(vv)
-			if ierr != nil {
-				return nil, ierr
-			}
-			m[k] = ival
-		}
-		return m, nil
-	}
-	return val, nil
-}
-
-// UnmarshalJSON implements custom unmarshaling logic
-func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
-	if js == nil {
-		*js = JSONSerializable{}
-	}
-	if len(bs) == 0 {
-		js.Valid = false
-		return nil
-	}
-
-	var decoded interface{}
-	d := json.NewDecoder(bytes.NewReader(bs))
-	d.UseNumber()
-	if err := d.Decode(&decoded); err != nil {
-		return err
-	}
-
-	if decoded != nil {
-		reinterpreted, err := reinterpetJsonNumbers(decoded)
-		if err != nil {
-			return err
-		}
-
-		*js = JSONSerializable{
-			Valid: true,
-			Val:   reinterpreted,
+func (trrs TaskRunResults) AllErrors() error {
+	var errs []error
+	for _, trr := range trrs {
+		if trr.Result.Error != nil {
+			errs = append(errs, trr.Result.Error)
 		}
 	}
-
-	return nil
-}
-
-// MarshalJSON implements custom marshaling logic
-func (js JSONSerializable) MarshalJSON() ([]byte, error) {
-	if !js.Valid {
-		return json.Marshal(nil)
-	}
-	jsWithHex := replaceBytesWithHex(js.Val)
-	return json.Marshal(jsWithHex)
-}
-
-func (js *JSONSerializable) Scan(value interface{}) error {
-	if value == nil {
-		*js = JSONSerializable{}
-		return nil
-	}
-	bytes, ok := value.([]byte)
-	if !ok {
-		return pkgerrors.Errorf("JSONSerializable#Scan received a value of type %T", value)
-	}
-	if js == nil {
-		*js = JSONSerializable{}
-	}
-	return js.UnmarshalJSON(bytes)
-}
-
-func (js JSONSerializable) Value() (driver.Value, error) {
-	if !js.Valid {
-		return nil, nil
-	}
-	return js.MarshalJSON()
-}
-
-func (js *JSONSerializable) Empty() bool {
-	return js == nil || !js.Valid
+	return errors.Join(errs...)
 }
 
 type TaskType string
@@ -371,7 +318,6 @@ const (
 	TaskTypeETHABIEncode     TaskType = "ethabiencode"
 	TaskTypeETHABIEncode2    TaskType = "ethabiencode2"
 	TaskTypeETHCall          TaskType = "ethcall"
-	TaskTypeETHGetBlock      TaskType = "ethgetblock"
 	TaskTypeETHTx            TaskType = "ethtx"
 	TaskTypeEstimateGasLimit TaskType = "estimategaslimit"
 	TaskTypeHTTP             TaskType = "http"
@@ -391,6 +337,7 @@ const (
 	TaskTypeUppercase        TaskType = "uppercase"
 	TaskTypeVRF              TaskType = "vrf"
 	TaskTypeVRFV2            TaskType = "vrfv2"
+	TaskTypeVRFV2Plus        TaskType = "vrfv2plus"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
@@ -407,7 +354,7 @@ var (
 )
 
 func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID string) (_ Task, err error) {
-	defer utils.WrapIfError(&err, "UnmarshalTaskFromMap")
+	defer cutils.WrapIfError(&err, "UnmarshalTaskFromMap")
 
 	switch taskMap.(type) {
 	default:
@@ -447,12 +394,12 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &VRFTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeVRFV2:
 		task = &VRFTaskV2{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeVRFV2Plus:
+		task = &VRFTaskV2Plus{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeEstimateGasLimit:
 		task = &EstimateGasLimitTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHCall:
 		task = &ETHCallTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
-	case TaskTypeETHGetBlock:
-		task = &ETHGetBlockTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHTx:
 		task = &ETHTxTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHABIEncode:
@@ -493,9 +440,11 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		return nil, pkgerrors.Errorf(`unknown task type: "%v"`, taskType)
 	}
 
+	metadata := mapstructure.Metadata{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result:           task,
 		WeaklyTypedInput: true,
+		Metadata:         &metadata,
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
 			mapstructure.StringToTimeDurationHookFunc(),
 			func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
@@ -519,6 +468,23 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 	if err != nil {
 		return nil, err
 	}
+
+	// valid explicit index values are 0-based
+	for _, key := range metadata.Keys {
+		if key == "index" {
+			if task.OutputIndex() < 0 {
+				return nil, errors.New("result sorting indexes should start with 0")
+			}
+		}
+	}
+
+	// the 'unset' value should be -1 to allow explicit indexes to be 0-based
+	for _, key := range metadata.Unset {
+		if key == "index" {
+			task.Base().Index = -1
+		}
+	}
+
 	return task, nil
 }
 
@@ -543,133 +509,66 @@ func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{},
 	return vals, nil
 }
 
-func getChainByString(chainSet evm.ChainSet, str string) (evm.Chain, error) {
-	if str == "" {
-		return chainSet.Default()
-	}
-	id, ok := new(big.Int).SetString(str, 10)
-	if !ok {
-		return nil, pkgerrors.Errorf("invalid EVM chain ID: %s", str)
-	}
-	return chainSet.Get(id)
-}
+var ErrInvalidEVMChainID = errors.New("invalid EVM chain ID")
 
-func SelectGasLimit(cfg config.ChainScopedConfig, jobType string, specGasLimit *uint32) uint32 {
+func SelectGasLimit(ge config.GasEstimator, jobType string, specGasLimit *uint32) uint64 {
 	if specGasLimit != nil {
-		return *specGasLimit
+		return uint64(*specGasLimit)
 	}
 
+	jt := ge.LimitJobType()
 	var jobTypeGasLimit *uint32
 	switch jobType {
 	case DirectRequestJobType:
-		jobTypeGasLimit = cfg.EvmGasLimitDRJobType()
+		jobTypeGasLimit = jt.DR()
 	case FluxMonitorJobType:
-		jobTypeGasLimit = cfg.EvmGasLimitFMJobType()
+		jobTypeGasLimit = jt.FM()
 	case OffchainReportingJobType:
-		jobTypeGasLimit = cfg.EvmGasLimitOCRJobType()
+		jobTypeGasLimit = jt.OCR()
+	case OffchainReporting2JobType:
+		jobTypeGasLimit = jt.OCR2()
 	case KeeperJobType:
-		jobTypeGasLimit = cfg.EvmGasLimitKeeperJobType()
+		jobTypeGasLimit = jt.Keeper()
 	case VRFJobType:
-		jobTypeGasLimit = cfg.EvmGasLimitVRFJobType()
+		jobTypeGasLimit = jt.VRF()
 	}
 
 	if jobTypeGasLimit != nil {
-		return *jobTypeGasLimit
+		return uint64(*jobTypeGasLimit)
 	}
-	return cfg.EvmGasLimitDefault()
+	return ge.LimitDefault()
 }
 
-// replaceBytesWithHex replaces all []byte with hex-encoded strings
-func replaceBytesWithHex(val interface{}) interface{} {
-	switch value := val.(type) {
-	case nil:
-		return value
-	case []byte:
-		return utils.StringToHex(string(value))
-	case common.Address:
-		return value.Hex()
-	case common.Hash:
-		return value.Hex()
-	case [][]byte:
-		var list []string
-		for _, bytes := range value {
-			list = append(list, utils.StringToHex(string(bytes)))
-		}
-		return list
-	case []common.Address:
-		var list []string
-		for _, addr := range value {
-			list = append(list, addr.Hex())
-		}
-		return list
-	case []common.Hash:
-		var list []string
-		for _, hash := range value {
-			list = append(list, hash.Hex())
-		}
-		return list
-	case []interface{}:
-		if value == nil {
-			return value
-		}
-		var list []interface{}
-		for _, item := range value {
-			list = append(list, replaceBytesWithHex(item))
-		}
-		return list
-	case map[string]interface{}:
-		if value == nil {
-			return value
-		}
-		m := make(map[string]interface{})
-		for k, v := range value {
-			m[k] = replaceBytesWithHex(v)
-		}
-		return m
-	default:
-		// This handles solidity types: bytes1..bytes32,
-		// which map to [1]uint8..[32]uint8 when decoded.
-		// We persist them as hex strings, and we know ETH ABI encoders
-		// can parse hex strings, same as BytesParam does.
-		if s := uint8ArrayToSlice(value); s != nil {
-			return replaceBytesWithHex(s)
-		}
-		return value
+func selectBlock(block string) (string, error) {
+	if block == "" {
+		return "latest", nil
 	}
+	block = strings.ToLower(block)
+	if block == "pending" || block == "latest" {
+		return block, nil
+	}
+	return "", pkgerrors.Errorf("unsupported block param: %s", block)
 }
 
-// uint8ArrayToSlice converts [N]uint8 array to slice.
-func uint8ArrayToSlice(arr interface{}) interface{} {
-	t := reflect.TypeOf(arr)
-	if t.Kind() != reflect.Array || t.Elem().Kind() != reflect.Uint8 {
+// WithTelemetry adds an optional telemetry channel to the context. If ch is
+// non-nil, certain tasks MAY choose to send arbitrary telemetry data on this
+// channel. The provided channel SHOULD be buffered, but if it blocks, the task
+// SHOULD NOT block.
+type contextKey string
+
+const ctxTelemetryKey contextKey = "telemetry"
+
+func WithTelemetryCh(ctx context.Context, ch chan<- interface{}) context.Context {
+	if ch == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, ctxTelemetryKey, ch)
+}
+
+func GetTelemetryCh(ctx context.Context) chan<- interface{} {
+	ch, ok := ctx.Value(ctxTelemetryKey).(chan<- interface{})
+	if !ok {
 		return nil
 	}
-	v := reflect.ValueOf(arr)
-	s := reflect.MakeSlice(reflect.SliceOf(t.Elem()), v.Len(), v.Len())
-	reflect.Copy(s, v)
-	return s.Interface()
-}
-
-func getJsonNumberValue(value json.Number) (interface{}, error) {
-	var result interface{}
-
-	bn, ok := new(big.Int).SetString(value.String(), 10)
-	if ok {
-		if bn.IsInt64() {
-			result = bn.Int64()
-		} else if bn.IsUint64() {
-			result = bn.Uint64()
-		} else {
-			result = bn
-		}
-	} else {
-		f, err := value.Float64()
-		if err == nil {
-			result = f
-		} else {
-			return nil, pkgerrors.Errorf("failed to parse json.Value: %v", err)
-		}
-	}
-
-	return result, nil
+	return ch
 }

@@ -8,18 +8,20 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
+	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func initEthKeysSubCmd(client *Client) cli.Command {
+func initEthKeysSubCmd(s *Shell) cli.Command {
 	return cli.Command{
 		Name:  "eth",
 		Usage: "Remote commands for administering the node's Ethereum keys",
@@ -27,7 +29,7 @@ func initEthKeysSubCmd(client *Client) cli.Command {
 			{
 				Name:   "create",
 				Usage:  "Create a key in the node's keystore alongside the existing key; to create an original key, just run the node",
-				Action: client.CreateETHKey,
+				Action: s.CreateETHKey,
 				Flags: []cli.Flag{
 					cli.StringFlag{
 						Name:  "evm-chain-id, evmChainID",
@@ -41,8 +43,8 @@ func initEthKeysSubCmd(client *Client) cli.Command {
 			},
 			{
 				Name:   "list",
-				Usage:  "List available Ethereum accounts with their ETH & LINK balances, nonces, and other metadata",
-				Action: client.ListETHKeys,
+				Usage:  "List available Ethereum accounts with their ETH & LINK balances and other metadata",
+				Action: s.ListETHKeys,
 			},
 			{
 				Name:  "delete",
@@ -53,7 +55,7 @@ func initEthKeysSubCmd(client *Client) cli.Command {
 						Usage: "skip the confirmation prompt",
 					},
 				},
-				Action: client.DeleteETHKey,
+				Action: s.DeleteETHKey,
 			},
 			{
 				Name:  "import",
@@ -68,7 +70,7 @@ func initEthKeysSubCmd(client *Client) cli.Command {
 						Usage: "Chain ID for the key. If left blank, default chain will be used.",
 					},
 				},
-				Action: client.ImportETHKey,
+				Action: s.ImportETHKey,
 			},
 			{
 				Name:  "export",
@@ -83,12 +85,12 @@ func initEthKeysSubCmd(client *Client) cli.Command {
 						Usage: "Path where the JSON file will be saved (required)",
 					},
 				},
-				Action: client.ExportETHKey,
+				Action: s.ExportETHKey,
 			},
 			{
 				Name:   "chain",
 				Usage:  "Update an EVM key for the given chain",
-				Action: client.UpdateChainEVMKey,
+				Action: s.UpdateChainEVMKey,
 				Flags: []cli.Flag{
 					cli.StringFlag{
 						Name:     "address",
@@ -99,10 +101,6 @@ func initEthKeysSubCmd(client *Client) cli.Command {
 						Name:     "evm-chain-id, evmChainID",
 						Usage:    "chain ID of the key",
 						Required: true,
-					},
-					cli.Uint64Flag{
-						Name:  "set-next-nonce, setNextNonce",
-						Usage: "manually set the next nonce for the key on the given chain. This should not be necessary during normal operation. USE WITH CAUTION: Setting this incorrectly can break your node",
 					},
 					cli.BoolFlag{
 						Name:  "enable",
@@ -127,20 +125,31 @@ type EthKeyPresenter struct {
 }
 
 func (p *EthKeyPresenter) ToRow() []string {
+	eth := "Unknown"
+	if p.EthBalance != nil {
+		eth = p.EthBalance.String()
+	}
+	link := "Unknown"
+	if p.LinkBalance != nil {
+		link = p.LinkBalance.String()
+	}
+	gas := "None"
+	if p.MaxGasPriceWei != nil {
+		gas = p.MaxGasPriceWei.String()
+	}
 	return []string{
 		p.Address,
 		p.EVMChainID.String(),
-		fmt.Sprintf("%d", p.NextNonce),
-		p.EthBalance.String(),
-		p.LinkBalance.String(),
-		fmt.Sprintf("%v", p.Disabled),
+		eth,
+		link,
+		strconv.FormatBool(p.Disabled),
 		p.CreatedAt.String(),
 		p.UpdatedAt.String(),
-		p.MaxGasPriceWei.String(),
+		gas,
 	}
 }
 
-var ethKeysTableHeaders = []string{"Address", "EVM Chain ID", "Next Nonce", "ETH", "LINK", "Disabled", "Created", "Updated", "Max Gas Price Wei"}
+var ethKeysTableHeaders = []string{"Address", "EVM Chain ID", "ETH", "LINK", "Disabled", "Created", "Updated", "Max Gas Price Wei"}
 
 // RenderTable implements TableRenderer
 func (p *EthKeyPresenter) RenderTable(rt RendererTable) error {
@@ -148,7 +157,7 @@ func (p *EthKeyPresenter) RenderTable(rt RendererTable) error {
 
 	renderList(ethKeysTableHeaders, rows, rt.Writer)
 
-	return utils.JustError(rt.Write([]byte("\n")))
+	return cutils.JustError(rt.Write([]byte("\n")))
 }
 
 type EthKeyPresenters []EthKeyPresenter
@@ -167,10 +176,11 @@ func (ps EthKeyPresenters) RenderTable(rt RendererTable) error {
 }
 
 // ListETHKeys renders the active account address with its ETH & LINK balance
-func (cli *Client) ListETHKeys(c *cli.Context) (err error) {
-	resp, err := cli.HTTP.Get("/v2/keys/evm")
+func (s *Shell) ListETHKeys(_ *cli.Context) (err error) {
+	resp, err := s.HTTP.Get(s.ctx(), "/v2/keys/evm")
+
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -178,12 +188,12 @@ func (cli *Client) ListETHKeys(c *cli.Context) (err error) {
 		}
 	}()
 
-	return cli.renderAPIResponse(resp, &EthKeyPresenters{}, "🔑 ETH keys")
+	return s.renderAPIResponse(resp, &EthKeyPresenters{}, "🔑 ETH keys")
 }
 
 // CreateETHKey creates a new ethereum key with the same password
 // as the one used to unlock the existing key.
-func (cli *Client) CreateETHKey(c *cli.Context) (err error) {
+func (s *Shell) CreateETHKey(c *cli.Context) (err error) {
 	createUrl := url.URL{
 		Path: "/v2/keys/evm",
 	}
@@ -197,9 +207,9 @@ func (cli *Client) CreateETHKey(c *cli.Context) (err error) {
 	}
 
 	createUrl.RawQuery = query.Encode()
-	resp, err := cli.HTTP.Post(createUrl.String(), nil)
+	resp, err := s.HTTP.Post(s.ctx(), createUrl.String(), nil)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -207,14 +217,14 @@ func (cli *Client) CreateETHKey(c *cli.Context) (err error) {
 		}
 	}()
 
-	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "ETH key created.\n\n🔑 New key")
+	return s.renderAPIResponse(resp, &EthKeyPresenter{}, "ETH key created.\n\n🔑 New key")
 }
 
 // DeleteETHKey hard deletes an Ethereum key,
 // address of key must be passed
-func (cli *Client) DeleteETHKey(c *cli.Context) (err error) {
+func (s *Shell) DeleteETHKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the address of the key to be deleted"))
+		return s.errorOut(errors.New("Must pass the address of the key to be deleted"))
 	}
 	address := c.Args().Get(0)
 
@@ -222,9 +232,9 @@ func (cli *Client) DeleteETHKey(c *cli.Context) (err error) {
 		return nil
 	}
 
-	resp, err := cli.HTTP.Delete("/v2/keys/evm/" + address)
+	resp, err := s.HTTP.Delete(s.ctx(), "/v2/keys/evm/"+address)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -232,42 +242,41 @@ func (cli *Client) DeleteETHKey(c *cli.Context) (err error) {
 		}
 	}()
 
-	if resp.StatusCode != http.StatusNoContent {
+	if resp.StatusCode != http.StatusOK {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return cli.errorOut(errors.Wrap(err, "Failed to read request response"))
+			return s.errorOut(errors.Wrap(err, "Failed to read request response"))
 		}
 		var result *models.JSONAPIErrors
 		err = json.Unmarshal(body, &result)
 		if err != nil {
-			return cli.errorOut(errors.Wrapf(err, "Unable to unmarshal json from body '%s'", string(body)))
+			return s.errorOut(errors.Wrapf(err, "Unable to unmarshal json from body '%s'", string(body)))
 		}
-		return cli.errorOut(errors.Errorf("Delete ETH key failed: %s", result.Error()))
+		return s.errorOut(errors.Errorf("Delete ETH key failed: %s", result.Error()))
 	}
-	fmt.Println(fmt.Sprintf("Deleted ETH key: %s", address))
-	return nil
+	return s.renderAPIResponse(resp, &EthKeyPresenter{}, fmt.Sprintf("🔑 Deleted ETH key: %s\n", address))
 }
 
 // ImportETHKey imports an Ethereum key,
 // file path must be passed
-func (cli *Client) ImportETHKey(c *cli.Context) (err error) {
+func (s *Shell) ImportETHKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the filepath of the key to be imported"))
+		return s.errorOut(errors.New("Must pass the filepath of the key to be imported"))
 	}
 
 	oldPasswordFile := c.String("old-password")
 	if len(oldPasswordFile) == 0 {
-		return cli.errorOut(errors.New("Must specify --old-password/-p flag"))
+		return s.errorOut(errors.New("Must specify --old-password/-p flag"))
 	}
 	oldPassword, err := os.ReadFile(oldPasswordFile)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "Could not read password file"))
+		return s.errorOut(errors.Wrap(err, "Could not read password file"))
 	}
 
 	filepath := c.Args().Get(0)
 	keyJSON, err := os.ReadFile(filepath)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	importUrl := url.URL{
@@ -282,9 +291,9 @@ func (cli *Client) ImportETHKey(c *cli.Context) (err error) {
 	}
 
 	importUrl.RawQuery = query.Encode()
-	resp, err := cli.HTTP.Post(importUrl.String(), bytes.NewReader(keyJSON))
+	resp, err := s.HTTP.Post(s.ctx(), importUrl.String(), bytes.NewReader(keyJSON))
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -292,28 +301,28 @@ func (cli *Client) ImportETHKey(c *cli.Context) (err error) {
 		}
 	}()
 
-	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "🔑 Imported ETH key")
+	return s.renderAPIResponse(resp, &EthKeyPresenter{}, "🔑 Imported ETH key")
 }
 
 // ExportETHKey exports an ETH key,
 // address must be passed
-func (cli *Client) ExportETHKey(c *cli.Context) (err error) {
+func (s *Shell) ExportETHKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the address of the key to export"))
+		return s.errorOut(errors.New("Must pass the address of the key to export"))
 	}
 
 	newPasswordFile := c.String("new-password")
 	if len(newPasswordFile) == 0 {
-		return cli.errorOut(errors.New("Must specify --new-password/-p flag"))
+		return s.errorOut(errors.New("Must specify --new-password/-p flag"))
 	}
 	newPassword, err := os.ReadFile(newPasswordFile)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "Could not read password file"))
+		return s.errorOut(errors.Wrap(err, "Could not read password file"))
 	}
 
 	filepath := c.String("output")
 	if len(newPassword) == 0 {
-		return cli.errorOut(errors.New("Must specify --output/-o flag"))
+		return s.errorOut(errors.New("Must specify --output/-o flag"))
 	}
 
 	address := c.Args().Get(0)
@@ -324,9 +333,9 @@ func (cli *Client) ExportETHKey(c *cli.Context) (err error) {
 	query.Set("newpassword", strings.TrimSpace(string(newPassword)))
 
 	exportUrl.RawQuery = query.Encode()
-	resp, err := cli.HTTP.Post(exportUrl.String(), nil)
+	resp, err := s.HTTP.Post(s.ctx(), exportUrl.String(), nil)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
+		return s.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -335,29 +344,29 @@ func (cli *Client) ExportETHKey(c *cli.Context) (err error) {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return cli.errorOut(fmt.Errorf("error exporting: %w", httpError(resp)))
+		return s.errorOut(fmt.Errorf("error exporting: %w", httpError(resp)))
 	}
 
 	keyJSON, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "Could not read response body"))
+		return s.errorOut(errors.Wrap(err, "Could not read response body"))
 	}
 
 	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0o600)
 	if err != nil {
-		return cli.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
+		return s.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
 	}
 
 	_, err = os.Stderr.WriteString("🔑 Exported ETH key " + address + " to " + filepath + "\n")
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	return nil
 }
 
 // UpdateChainEVMKey updates settings for the given key on the given chain
-func (cli *Client) UpdateChainEVMKey(c *cli.Context) (err error) {
+func (s *Shell) UpdateChainEVMKey(c *cli.Context) (err error) {
 	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
 	query := chainURL.Query()
 
@@ -368,11 +377,8 @@ func (cli *Client) UpdateChainEVMKey(c *cli.Context) (err error) {
 	abandon := c.String("abandon")
 	query.Set("abandon", abandon)
 
-	if c.IsSet("set-next-nonce") {
-		query.Set("nextNonce", c.String("set-next-nonce"))
-	}
 	if c.IsSet("enable") && c.IsSet("disable") {
-		return cli.errorOut(errors.New("cannot set both --enable and --disable simultaneously"))
+		return s.errorOut(errors.New("cannot set both --enable and --disable simultaneously"))
 	} else if c.Bool("enable") {
 		query.Set("enabled", "true")
 	} else if c.Bool("disable") {
@@ -380,9 +386,9 @@ func (cli *Client) UpdateChainEVMKey(c *cli.Context) (err error) {
 	}
 
 	chainURL.RawQuery = query.Encode()
-	resp, err := cli.HTTP.Post(chainURL.String(), nil)
+	resp, err := s.HTTP.Post(s.ctx(), chainURL.String(), nil)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
+		return s.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -391,8 +397,8 @@ func (cli *Client) UpdateChainEVMKey(c *cli.Context) (err error) {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return cli.errorOut(fmt.Errorf("error resetting key: %w", httpError(resp)))
+		return s.errorOut(fmt.Errorf("error resetting key: %w", httpError(resp)))
 	}
 
-	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "🔑 Updated ETH key")
+	return s.renderAPIResponse(resp, &EthKeyPresenter{}, "🔑 Updated ETH key")
 }

@@ -1,0 +1,65 @@
+
+[TestGenerateOCR3Config - 1]
+{
+ "F": 1,
+ "OffchainConfig": "<nonemptyvalue>",
+ "OffchainConfigVersion": 30,
+ "OnchainConfig": "0x",
+ "Signers": [
+  "011400321bc7af41a634375526006365a31bf32b4cfa7c0520004ca789105da974eec967758ad32b575741d6cb36c1bb3bcfd87b235502cc1753",
+  "0114005192c43a68efb7a698c0459ff8591a115da128ee052000169008927a60e6c03e99aac6fa268dabaf4d00e117419861d87836211267361b",
+  "011400ed613636925af2df6ed8332d95028eabcbe95a3f052000ce86b34de67249f92058f69e47961907ebbf8a71c12123f1d2a7cab4874f6365",
+  "01140053b5bbc0efa2e2d2770029bab5d5a647a260a72b052000f2cb4932d3ce8c10bf67c60d35372a5ff1578255e25c2a119c2dea70e919567a"
+ ],
+ "Transmitters": [
+  "0x75cf1355cC4Eb358feaBb9e269a4DAEeB6721DBB",
+  "0xc6dcE30f492CBD223b9946603192f22D86e783ca",
+  "0x1289d00A6565Afcd6437B09548F6019EF49696d0",
+  "0x4b92B0aaC39932B7302676F48e78FA91852DC0EE"
+ ]
+}
+---
+
+[TestGenSpecs - 1]
+
+type = "bootstrap"
+schemaVersion = 1
+name = "ocr3_bootstrap"
+contractID = "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
+relay = "evm"
+
+[relayConfig]
+chainID = "1337"
+providerType = "ocr3-capability"
+
+
+
+type = "offchainreporting2"
+schemaVersion = 1
+name = "ocr3_oracle"
+contractID = "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
+ocrKeyBundleID = "20ccdc97afdf467465590115e3da4e5eb591bf5f43808e81a5d0807cd889b3c7"
+p2pv2Bootstrappers = [
+  "12D3KooWFSmZaLFF1nu3mzxPKj43F89WgVDqkpvwFUHBfMHSqpVq@app-0-ks-wf-bt-node1:6690",
+]
+relay = "evm"
+pluginType = "plugin"
+transmitterID = "12D3KooWHhXyDmHB6D1UQosLXmhczw3zxB3DLYBuq9Unb4iCD4Sc"
+
+[relayConfig]
+chainID = "1337"
+
+[pluginConfig]
+command = "chainlink-ocr3-capability"
+ocrVersion = 3
+pluginName = "ocr-capability"
+providerType = "ocr3-capability"
+telemetryType = "plugin"
+
+[onchainSigningStrategy]
+strategyName = 'multi-chain'
+[onchainSigningStrategy.config]
+evm = "20ccdc97afdf467465590115e3da4e5eb591bf5f43808e81a5d0807cd889b3c7"
+aptos = "ac364cec9fe7d9ea1035fc511e5b2f30900caa6e65ac0501168005d05129e088"
+
+---

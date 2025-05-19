@@ -1,19 +1,18 @@
 package web_test
 
 import (
-	"fmt"
 	"net/http"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSolanaKeysController_Index_HappyPath(t *testing.T) {
@@ -41,7 +40,7 @@ func TestSolanaKeysController_Create_HappyPath(t *testing.T) {
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 	keyStore := app.GetKeyStore()
 
 	response, cleanup := client.Post("/v2/keys/solana", nil)
@@ -75,31 +74,33 @@ func TestSolanaKeysController_Delete_NonExistentSolanaKeyID(t *testing.T) {
 
 func TestSolanaKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	client, keyStore := setupSolanaKeysControllerTests(t)
 
 	keys, _ := keyStore.Solana().GetAll()
 	initialLength := len(keys)
-	key, _ := keyStore.Solana().Create()
+	key, _ := keyStore.Solana().Create(ctx)
 
-	response, cleanup := client.Delete(fmt.Sprintf("/v2/keys/solana/%s", key.ID()))
+	response, cleanup := client.Delete("/v2/keys/solana/" + key.ID())
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	assert.Error(t, utils.JustError(keyStore.Solana().Get(key.ID())))
 
 	keys, _ = keyStore.Solana().GetAll()
-	assert.Equal(t, initialLength, len(keys))
+	assert.Len(t, keys, initialLength)
 }
 
 func setupSolanaKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
 	t.Helper()
+	ctx := testutils.Context(t)
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
-	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
-	require.NoError(t, app.KeyStore.Solana().Add(cltest.DefaultSolanaKey))
+	require.NoError(t, app.Start(ctx))
+	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.Solana().Add(ctx, cltest.DefaultSolanaKey))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	return client, app.GetKeyStore()
 }

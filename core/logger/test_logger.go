@@ -14,8 +14,12 @@ import (
 // Log level is DEBUG by default.
 //
 // Note: It is not necessary to Sync().
-func TestLogger(tb testing.TB) SugaredLogger {
-	return testLogger(tb, nil)
+func TestLogger(tb testing.TB, lvl ...zapcore.Level) SugaredLogger {
+	defaultLevel := zapcore.DebugLevel
+	if len(lvl) > 0 {
+		defaultLevel = lvl[0]
+	}
+	return testLogger(tb, nil, defaultLevel)
 }
 
 // TestLoggerObserved creates a logger with an observer that can be used to
@@ -24,12 +28,12 @@ func TestLogger(tb testing.TB) SugaredLogger {
 // Note: It is not necessary to Sync().
 func TestLoggerObserved(tb testing.TB, lvl zapcore.Level) (Logger, *observer.ObservedLogs) {
 	observedZapCore, observedLogs := observer.New(lvl)
-	return testLogger(tb, observedZapCore), observedLogs
+	return testLogger(tb, observedZapCore, lvl), observedLogs
 }
 
 // testLogger returns a new SugaredLogger for tests. core is optional.
-func testLogger(tb testing.TB, core zapcore.Core) SugaredLogger {
-	a := zap.NewAtomicLevelAt(zap.DebugLevel)
+func testLogger(tb testing.TB, core zapcore.Core, lvl zapcore.Level) SugaredLogger {
+	a := zap.NewAtomicLevelAt(lvl)
 	opts := []zaptest.LoggerOption{zaptest.Level(a)}
 	zapOpts := []zap.Option{zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel)}
 	if core != nil {
@@ -42,5 +46,5 @@ func testLogger(tb testing.TB, core zapcore.Core) SugaredLogger {
 		level:         a,
 		SugaredLogger: zaptest.NewLogger(tb, opts...).Sugar(),
 	}
-	return Sugared(l)
+	return Sugared(l.With("version", verShaNameStatic()))
 }

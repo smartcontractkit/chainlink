@@ -189,27 +189,6 @@ func TestWebURL_String_HasNilURL(t *testing.T) {
 	assert.Equal(t, "", w.String())
 }
 
-func TestDuration_MarshalJSON(t *testing.T) {
-	tests := []struct {
-		name  string
-		input models.Duration
-		want  string
-	}{
-		{"zero", models.MustMakeDuration(0), `"0s"`},
-		{"one second", models.MustMakeDuration(time.Second), `"1s"`},
-		{"one minute", models.MustMakeDuration(time.Minute), `"1m0s"`},
-		{"one hour", models.MustMakeDuration(time.Hour), `"1h0m0s"`},
-		{"one hour thirty minutes", models.MustMakeDuration(time.Hour + 30*time.Minute), `"1h30m0s"`},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			b, err := json.Marshal(&test.input)
-			assert.NoError(t, err)
-			assert.Equal(t, test.want, string(b))
-		})
-	}
-}
-
 func TestCron_UnmarshalJSON_Success(t *testing.T) {
 	t.Parallel()
 
@@ -383,49 +362,6 @@ func TestInterval_MarshalText_UnmarshalText(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, i, iNew)
-}
-
-func TestDuration_Scan_Value(t *testing.T) {
-	t.Parallel()
-
-	d := models.MustMakeDuration(100)
-	require.NotNil(t, d)
-
-	val, err := d.Value()
-	require.NoError(t, err)
-
-	dNew := models.MustMakeDuration(0)
-	err = dNew.Scan(val)
-	require.NoError(t, err)
-
-	require.Equal(t, d, dNew)
-}
-
-func TestDuration_MarshalJSON_UnmarshalJSON(t *testing.T) {
-	t.Parallel()
-
-	d := models.MustMakeDuration(100)
-	require.NotNil(t, d)
-
-	json, err := d.MarshalJSON()
-	require.NoError(t, err)
-
-	dNew := models.MustMakeDuration(0)
-	err = dNew.UnmarshalJSON(json)
-	require.NoError(t, err)
-
-	require.Equal(t, d, dNew)
-}
-
-func TestDuration_MakeDurationFromString(t *testing.T) {
-	t.Parallel()
-
-	d, err := models.ParseDuration("1s")
-	require.NoError(t, err)
-	require.Equal(t, 1*time.Second, d.Duration())
-
-	_, err = models.ParseDuration("xyz")
-	require.Error(t, err)
 }
 
 func TestWebURL_Scan_Value(t *testing.T) {

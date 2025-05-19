@@ -3,6 +3,7 @@ package bridges_test
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
@@ -18,8 +19,9 @@ func TestNewExternalInitiator(t *testing.T) {
 	assert.Len(t, eia.Secret, 64)
 
 	url := cltest.WebURL(t, "http://localhost:8888")
+	name := uuid.New().String()
 	eir := &bridges.ExternalInitiatorRequest{
-		Name: "bitcoin",
+		Name: name,
 		URL:  &url,
 	}
 	ei, err := bridges.NewExternalInitiator(eia, eir)

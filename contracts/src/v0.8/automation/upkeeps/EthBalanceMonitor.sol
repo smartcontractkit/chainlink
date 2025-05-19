@@ -2,8 +2,8 @@
 
 pragma solidity 0.8.6;
 
-import "../../ConfirmedOwner.sol";
-import "../../interfaces/automation/KeeperCompatibleInterface.sol";
+import "../../shared/access/ConfirmedOwner.sol";
+import "../interfaces/KeeperCompatibleInterface.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
 /**
@@ -147,13 +147,9 @@ contract EthBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterfac
    * @notice Get list of addresses that are underfunded and return keeper-compatible payload
    * @return upkeepNeeded signals if upkeep is needed, performData is an abi encoded list of addresses that need funds
    */
-  function checkUpkeep(bytes calldata)
-    external
-    view
-    override
-    whenNotPaused
-    returns (bool upkeepNeeded, bytes memory performData)
-  {
+  function checkUpkeep(
+    bytes calldata
+  ) external view override whenNotPaused returns (bool upkeepNeeded, bytes memory performData) {
     address[] memory needsFunding = getUnderfundedAddresses();
     upkeepNeeded = needsFunding.length > 0;
     performData = abi.encode(needsFunding);
@@ -228,16 +224,9 @@ contract EthBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterfac
   /**
    * @notice Gets configuration information for an address on the watchlist
    */
-  function getAccountInfo(address targetAddress)
-    external
-    view
-    returns (
-      bool isActive,
-      uint96 minBalanceWei,
-      uint96 topUpAmountWei,
-      uint56 lastTopUpTimestamp
-    )
-  {
+  function getAccountInfo(
+    address targetAddress
+  ) external view returns (bool isActive, uint96 minBalanceWei, uint96 topUpAmountWei, uint56 lastTopUpTimestamp) {
     Target memory target = s_targets[targetAddress];
     return (target.isActive, target.minBalanceWei, target.topUpAmountWei, target.lastTopUpTimestamp);
   }

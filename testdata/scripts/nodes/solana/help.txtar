@@ -1,0 +1,16 @@
+exec chainlink nodes solana --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink nodes solana - Commands for handling solana node configuration
+
+USAGE:
+   chainlink nodes solana command [command options] [arguments...]
+
+COMMANDS:
+   list  List all existing solana nodes
+
+OPTIONS:
+   --help, -h  show help
+   

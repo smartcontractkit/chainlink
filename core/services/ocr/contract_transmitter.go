@@ -60,7 +60,7 @@ func (oc *OCRContractTransmitter) Transmit(ctx context.Context, report []byte, r
 		return errors.Wrap(err, "abi.Pack failed")
 	}
 
-	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload), "failed to send Eth transaction")
+	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload, nil), "failed to send Eth transaction")
 }
 
 func (oc *OCRContractTransmitter) LatestTransmissionDetails(ctx context.Context) (configDigest ocrtypes.ConfigDigest, epoch uint32, round uint8, latestAnswer ocrtypes.Observation, latestTimestamp time.Time, err error) {

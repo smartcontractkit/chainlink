@@ -9,18 +9,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type mockConfig struct {
 	t                    *testing.T
 	root                 string
-	pollInterval         *models.Duration
-	gatherDuration       *models.Duration
-	traceDuration        *models.Duration
+	pollInterval         *commonconfig.Duration
+	gatherDuration       *commonconfig.Duration
+	traceDuration        *commonconfig.Duration
 	profileSize          utils.FileSize
 	cpuProfileRate       int
 	memProfileRate       int
@@ -31,8 +32,8 @@ type mockConfig struct {
 }
 
 var (
-	testInterval = time.Duration(50 * time.Millisecond)
-	testDuration = time.Duration(20 * time.Millisecond)
+	testInterval = 50 * time.Millisecond
+	testDuration = 20 * time.Millisecond
 	testRate     = 100
 	testSize     = 16 * 1024 * 1024
 )
@@ -40,9 +41,9 @@ var (
 func newMockConfig(t *testing.T) *mockConfig {
 	return &mockConfig{
 		root:                 t.TempDir(),
-		pollInterval:         models.MustNewDuration(testInterval),
-		gatherDuration:       models.MustNewDuration(testDuration),
-		traceDuration:        models.MustNewDuration(testDuration),
+		pollInterval:         commonconfig.MustNewDuration(testInterval),
+		gatherDuration:       commonconfig.MustNewDuration(testDuration),
+		traceDuration:        commonconfig.MustNewDuration(testDuration),
 		profileSize:          utils.FileSize(testSize),
 		memProfileRate:       runtime.MemProfileRate,
 		blockProfileRate:     testRate,
@@ -53,57 +54,56 @@ func newMockConfig(t *testing.T) *mockConfig {
 	}
 }
 
-func (c mockConfig) AutoPprofProfileRoot() string {
+func (c mockConfig) ProfileRoot() string {
 	return c.root
 }
 
-func (c mockConfig) AutoPprofPollInterval() models.Duration {
+func (c mockConfig) PollInterval() commonconfig.Duration {
 	return *c.pollInterval
 }
 
-func (c mockConfig) AutoPprofGatherDuration() models.Duration {
+func (c mockConfig) GatherDuration() commonconfig.Duration {
 	return *c.gatherDuration
 }
 
-func (c mockConfig) AutoPprofGatherTraceDuration() models.Duration {
+func (c mockConfig) GatherTraceDuration() commonconfig.Duration {
 	return *c.traceDuration
 }
 
-func (c mockConfig) AutoPprofMaxProfileSize() utils.FileSize {
+func (c mockConfig) MaxProfileSize() utils.FileSize {
 	return c.profileSize
 }
 
-func (c mockConfig) AutoPprofCPUProfileRate() int {
+func (c mockConfig) CPUProfileRate() int {
 	return c.cpuProfileRate
 }
 
-func (c mockConfig) AutoPprofMemProfileRate() int {
+func (c mockConfig) MemProfileRate() int {
 	return c.memProfileRate
 }
 
-func (c mockConfig) AutoPprofBlockProfileRate() int {
+func (c mockConfig) BlockProfileRate() int {
 	return c.blockProfileRate
 }
 
-func (c mockConfig) AutoPprofMutexProfileFraction() int {
+func (c mockConfig) MutexProfileFraction() int {
 	return c.mutexProfileFraction
 }
 
-func (c mockConfig) AutoPprofMemThreshold() utils.FileSize {
+func (c mockConfig) MemThreshold() utils.FileSize {
 	return c.memThreshold
 }
 
-func (c mockConfig) AutoPprofGoroutineThreshold() int {
+func (c mockConfig) GoroutineThreshold() int {
 	return c.goroutineThreshold
 }
 
 func TestNurse(t *testing.T) {
-
 	l := logger.TestLogger(t)
 	nrse := NewNurse(newMockConfig(t), l)
 	nrse.AddCheck("test", func() (bool, Meta) { return true, Meta{} })
 
-	require.NoError(t, nrse.Start())
+	require.NoError(t, nrse.Start(tests.Context(t)))
 	defer func() { require.NoError(t, nrse.Close()) }()
 
 	require.NoError(t, nrse.appendLog(time.Now(), "test", Meta{}))
@@ -112,7 +112,7 @@ func TestNurse(t *testing.T) {
 	require.NoError(t, err)
 	n, err := wc.Write([]byte("junk"))
 	require.NoError(t, err)
-	require.Greater(t, n, 0)
+	require.Positive(t, n)
 	require.NoError(t, wc.Close())
 
 	wc, err = nrse.createFile(time.Now(), "testgz", false)
@@ -127,16 +127,13 @@ func TestNurse(t *testing.T) {
 	testutils.AssertEventually(t, func() bool { return profileExists(t, nrse, traceProfName) })
 	n2, err := nrse.totalProfileBytes()
 	require.NoError(t, err)
-	require.Greater(t, n2, uint64(0))
-
+	require.Positive(t, n2)
 }
 
 func profileExists(t *testing.T, nrse *Nurse, typ string) bool {
 	profiles, err := nrse.listProfiles()
-	require.Nil(t, err)
-	var names []string
+	require.NoError(t, err)
 	for _, p := range profiles {
-		names = append(names, p.Name())
 		if strings.Contains(p.Name(), typ) {
 			return true
 		}

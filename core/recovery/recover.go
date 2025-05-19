@@ -3,38 +3,38 @@ package recovery
 import (
 	"github.com/getsentry/sentry-go"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func ReportPanics(fn func()) {
-	defer func() {
-		if err := recover(); err != nil {
-			sentry.CurrentHub().Recover(err)
-			sentry.Flush(logger.SentryFlushDeadline)
+	HandleFn(fn, func(err any) {
+		sentry.CurrentHub().Recover(err)
+		sentry.Flush(corelogger.SentryFlushDeadline)
 
-			panic(err)
-		}
-	}()
-	fn()
+		panic(err)
+	})
 }
 
 func WrapRecover(lggr logger.Logger, fn func()) {
-	defer func() {
-		if err := recover(); err != nil {
-			lggr.Recover(err)
-		}
-	}()
-	fn()
+	WrapRecoverHandle(lggr, fn, nil)
 }
 
-func WrapRecoverHandle(lggr logger.Logger, fn func(), onPanic func(interface{})) {
-	defer func() {
-		if err := recover(); err != nil {
-			lggr.Recover(err)
+func WrapRecoverHandle(lggr logger.Logger, fn func(), onPanic func(recovered any)) {
+	HandleFn(fn, func(recovered any) {
+		logger.Sugared(lggr).Criticalw("Recovered goroutine panic", "panic", recovered)
 
-			if onPanic != nil {
-				onPanic(err)
-			}
+		if onPanic != nil {
+			onPanic(recovered)
+		}
+	})
+}
+
+func HandleFn(fn func(), onPanic func(recovered any)) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			onPanic(recovered)
 		}
 	}()
 	fn()

@@ -1,0 +1,27 @@
+{
+  "OracleConfig": {
+    "MaxQueryLengthBytes": 1000000,
+    "MaxObservationLengthBytes": 1000000,
+    "MaxReportLengthBytes": 1000000,
+    "MaxBatchSize": 20,
+    "UniqueReports": true,
+
+    "DeltaProgressMillis": 5000,
+    "DeltaResendMillis": 5000,
+    "DeltaInitialMillis": 5000,
+    "DeltaRoundMillis": 2000,
+    "DeltaGraceMillis": 500,
+    "DeltaCertifiedCommitRequestMillis": 1000,
+    "DeltaStageMillis": 30000,
+    "MaxRoundsPerEpoch": 10,
+    "TransmissionSchedule": [7],
+
+    "MaxDurationQueryMillis": 1000,
+    "MaxDurationObservationMillis": 1000,
+    "MaxDurationReportMillis": 1000,
+    "MaxDurationShouldAcceptMillis": 1000,
+    "MaxDurationShouldTransmitMillis": 1000,
+
+    "MaxFaultyOracles": 1
+  }
+}

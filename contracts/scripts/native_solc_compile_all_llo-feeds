@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo " ┌──────────────────────────────────────────────┐"
+echo " │    Compiling Low Latency Oracle contracts... │"
+echo " └──────────────────────────────────────────────┘"
+
+PROJECT="llo-feeds"
+
+CONTRACTS_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../ && pwd -P )"
+export FOUNDRY_PROFILE="$PROJECT"
+
+compileContract() {
+  local contract
+  contract=$(basename "$2")
+  echo "Compiling" "$contract"
+
+  local command
+  command="forge build $CONTRACTS_DIR/src/v0.8/$PROJECT/"$1"/"$2.sol" \
+   --root $CONTRACTS_DIR \
+   --extra-output-files bin abi \
+   -o $CONTRACTS_DIR/solc/$PROJECT/$1/$contract"
+  $command
+}
+
+compileContract v0.3.0 Verifier
+compileContract v0.3.0 VerifierProxy
+compileContract v0.3.0 FeeManager
+compileContract v0.3.0 RewardManager
+compileContract v0.4.0 DestinationVerifier
+compileContract v0.4.0 DestinationVerifierProxy
+compileContract v0.4.0 DestinationFeeManager
+compileContract v0.4.0 DestinationRewardManager
+compileContract v0.5.0 configuration/ChannelConfigStore
+compileContract v0.5.0 configuration/Configurator
+compileContract v0.5.0 Verifier
+compileContract v0.5.0 VerifierProxy
+compileContract v0.5.0 FeeManager
+compileContract v0.5.0 RewardManager
+
+# Test | Mocks
+compileContract v0.3.0 test/mocks/ErroredVerifier
+compileContract v0.3.0 test/mocks/ExposedVerifier
+compileContract v0.5.0 configuration/test/mocks/ExposedConfigurator
+compileContract v0.5.0 test/mocks/MockFeeManager

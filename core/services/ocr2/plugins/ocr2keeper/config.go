@@ -2,7 +2,7 @@ package ocr2keeper
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"time"
 )
 
@@ -31,6 +31,10 @@ func (d Duration) Value() time.Duration {
 	return time.Duration(d)
 }
 
+// NOTE: This plugin config is shared among different versions of keepers
+// Any changes to this config should keep in mind existing production
+// deployments of all versions of keepers and should be backwards compatible
+// with existing job specs.
 type PluginConfig struct {
 	// CacheExpiration is the duration of time a cached key is available. Use
 	// this value to balance memory usage and RPC calls. A new set of keys is
@@ -52,27 +56,31 @@ type PluginConfig struct {
 	// workers or slower RPC responses will cause this queue to build up.
 	// Adding new items to the queue will block if the queue becomes full.
 	ServiceQueueLength int `json:"serviceQueueLength"`
+	// ContractVersion is the contract version
+	ContractVersion string `json:"contractVersion"`
+	// CaptureAutomationCustomTelemetry is a bool flag to toggle Custom Telemetry Service
+	CaptureAutomationCustomTelemetry *bool `json:"captureAutomationCustomTelemetry,omitempty"`
 }
 
 func ValidatePluginConfig(cfg PluginConfig) error {
 	if cfg.CacheExpiration < 0 {
-		return fmt.Errorf("cache expiration cannot be less than zero")
+		return errors.New("cache expiration cannot be less than zero")
 	}
 
 	if cfg.CacheEvictionInterval < 0 {
-		return fmt.Errorf("cache eviction interval cannot be less than zero")
+		return errors.New("cache eviction interval cannot be less than zero")
 	}
 
 	if cfg.CacheEvictionInterval > 0 && cfg.CacheEvictionInterval.Value() < time.Second {
-		return fmt.Errorf("cache eviction interval should be more than every second")
+		return errors.New("cache eviction interval should be more than every second")
 	}
 
 	if cfg.MaxServiceWorkers < 0 {
-		return fmt.Errorf("max service workers cannot be less than zero")
+		return errors.New("max service workers cannot be less than zero")
 	}
 
 	if cfg.ServiceQueueLength < 0 {
-		return fmt.Errorf("service queue length cannot be less than zero")
+		return errors.New("service queue length cannot be less than zero")
 	}
 
 	return nil

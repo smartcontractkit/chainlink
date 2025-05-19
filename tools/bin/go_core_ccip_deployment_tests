@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -o pipefail
+set +e
+
+SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
+OUTPUT_FILE=${OUTPUT_FILE:-"../output.txt"}
+EXTRA_FLAGS=""
+
+if [[ -n "$USE_FLAKEGUARD" ]]; then
+  # Install flakeguard
+  go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@bc66d27e3325a1fecedc0fc932d13d3e54ff6f25
+  # Install gotestsum to parse JSON test outputs from flakeguard to console outputs
+  go install gotest.tools/gotestsum@v1.12.2
+
+  # Make sure bins are in PATH
+  PATH=$PATH:$(go env GOPATH)/bin
+  export PATH
+
+  # Run go tests with flakeguard auto test rerun
+  flakeguard run \
+    --test-packages "./..." \
+    --project-path="deployment" \
+    --run-count=1 \
+    --rerun-failed-count=3 \
+    --min-pass-ratio=1 \
+    --main-results-path="go_core_ccip_deployment_tests_flakeguard_results/main/test_results.json" \
+    --rerun-results-path="go_core_ccip_deployment_tests_flakeguard_results/rerun/test_results.json"
+  EXITCODE=${PIPESTATUS[0]}
+else
+  cd ./deployment || exit
+  go mod download
+
+  echo "Test execution results: ---------------------"
+  echo ""
+
+  if [[ $GITHUB_EVENT_NAME == "schedule" ]]; then
+    EXTRA_FLAGS="-covermode=atomic -coverpkg=./... -coverprofile=coverage.txt"
+  fi
+
+  go test ./... $EXTRA_FLAGS | tee "$OUTPUT_FILE" | grep -Ev '\[no test files\]|\[no tests to run\]'
+  EXITCODE=${PIPESTATUS[0]}
+
+  # Assert no known sensitive strings present in test logger output
+  printf "\n----------------------------------------------\n\n"
+  echo "Beginning check of output logs for sensitive strings"
+  "$SCRIPT_PATH"/scrub_logs "$OUTPUT_FILE"
+  if [[ $? != 0 ]]; then
+    exit 1
+  fi
+fi
+
+cd ..
+echo "Exit code: $EXITCODE"
+if [[ $EXITCODE != 0 ]]; then
+  echo "Encountered test failures."
+else
+  echo "All tests passed!"
+fi
+
+echo "go_core_ccip_deployment_tests exiting with code $EXITCODE"
+exit $EXITCODE

@@ -2,128 +2,231 @@ package soak
 
 import (
 	"fmt"
-	"math/big"
-	"os"
-	"strconv"
-	"strings"
 	"testing"
-	"time"
 
-	"github.com/kelseyhightower/envconfig"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/seth"
+
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
+	"time"
+
+	"github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
+	"github.com/google/uuid"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/config"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
-func TestOCRSoak(t *testing.T) {
-	l := utils.GetTestLogger(t)
-	testEnvironment, network, testInputs := SetupOCRSoakEnv(t)
-	if testEnvironment.WillUseRemoteRunner() {
+func TestOCRv1Soak(t *testing.T) {
+	config, err := tc.GetConfig([]string{"Soak"}, tc.OCR)
+	require.NoError(t, err, "Error getting config")
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
+	require.NoError(t, err, "Error creating OCR soak test")
+	executeOCRSoakTest(t, ocrSoakTest, &config)
+}
+
+func TestOCRv2Soak(t *testing.T) {
+	config, err := tc.GetConfig([]string{"Soak"}, tc.OCR2)
+	require.NoError(t, err, "Error getting config")
+
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
+	require.NoError(t, err, "Error creating OCR soak test")
+	executeOCRSoakTest(t, ocrSoakTest, &config)
+}
+
+func TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled(t *testing.T) {
+	config, err := tc.GetConfig([]string{t.Name()}, tc.OCR)
+	require.NoError(t, err, "Error getting config")
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
+	require.NoError(t, err, "Error creating OCR soak test")
+	executeOCRSoakTest(t, ocrSoakTest, &config)
+}
+
+func TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled(t *testing.T) {
+	config, err := tc.GetConfig([]string{t.Name()}, tc.OCR)
+	require.NoError(t, err, "Error getting config")
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
+	require.NoError(t, err, "Error creating OCR soak test")
+	executeOCRSoakTest(t, ocrSoakTest, &config)
+}
+
+func TestOCRSoak_GasSpike(t *testing.T) {
+	config, err := tc.GetConfig([]string{t.Name()}, tc.OCR)
+	require.NoError(t, err, "Error getting config")
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
+	require.NoError(t, err, "Error creating OCR soak test")
+	executeOCRSoakTest(t, ocrSoakTest, &config)
+}
+
+// TestOCRSoak_ChangeBlockGasLimit changes next block gas limit and sets it to percentage of last gasUsed in previous block creating congestion
+func TestOCRSoak_ChangeBlockGasLimit(t *testing.T) {
+	config, err := tc.GetConfig([]string{t.Name()}, tc.OCR)
+	require.NoError(t, err, "Error getting config")
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
+	require.NoError(t, err, "Error creating OCR soak test")
+	executeOCRSoakTest(t, ocrSoakTest, &config)
+}
+
+// TestOCRSoak_RPCDownForAllCLNodes simulates a network chaos by bringing down network to RPC node for all Chainlink Nodes
+func TestOCRSoak_RPCDownForAllCLNodes(t *testing.T) {
+	config, err := tc.GetConfig([]string{t.Name()}, tc.OCR)
+	require.NoError(t, err, "Error getting config")
+	require.True(t, config.Network.IsSimulatedGethSelected(), "This test requires simulated geth")
+
+	namespace := fmt.Sprintf("%s-%s", "soak-ocr-simulated-geth", uuid.NewString()[0:5])
+	chaos, err := gethNetworkDownChaos(GethNetworkDownChaosOpts{
+		DelayCreate: time.Minute * 2,
+		Duration:    time.Minute * 5,
+		Name:        "ocr-soak-test-geth-network-down-all-nodes",
+		Description: "Geth Network Down For All Chainlink Nodes",
+		Namespace:   namespace,
+		TargetSelector: v1alpha1.PodSelector{
+			Selector: v1alpha1.PodSelectorSpec{
+				GenericSelectorSpec: v1alpha1.GenericSelectorSpec{
+					Namespaces:     []string{namespace},
+					LabelSelectors: map[string]string{"app": "chainlink-0"},
+				},
+			},
+			Mode: v1alpha1.AllMode,
+		},
+	})
+	require.NoError(t, err, "Error creating chaos")
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config,
+		testsetups.WithNamespace(namespace),
+		testsetups.WithChaos([]*havoc.Chaos{chaos}),
+	)
+	require.NoError(t, err, "Error creating OCR soak test")
+	executeOCRSoakTest(t, ocrSoakTest, &config)
+}
+
+// TestOCRSoak_RPCDownForAllCLNodes simulates a network chaos by bringing down network to RPC node for 50% of Chainlink Nodes
+func TestOCRSoak_RPCDownForHalfCLNodes(t *testing.T) {
+	config, err := tc.GetConfig([]string{t.Name()}, tc.OCR)
+	require.NoError(t, err, "Error getting config")
+	require.True(t, config.Network.IsSimulatedGethSelected(), "This test requires simulated geth")
+
+	namespace := fmt.Sprintf("%s-%s", "soak-ocr-simulated-geth", uuid.NewString()[0:5])
+	chaos, err := gethNetworkDownChaos(GethNetworkDownChaosOpts{
+		DelayCreate: time.Minute * 2,
+		Duration:    time.Minute * 5,
+		Name:        "ocr-soak-test-geth-network-down-half-nodes",
+		Description: "Geth Network Down For 50 Percent Of Chainlink Nodes",
+		Namespace:   namespace,
+		TargetSelector: v1alpha1.PodSelector{
+			Selector: v1alpha1.PodSelectorSpec{
+				GenericSelectorSpec: v1alpha1.GenericSelectorSpec{
+					Namespaces:     []string{namespace},
+					LabelSelectors: map[string]string{"app": "chainlink-0"},
+				},
+			},
+			Mode:  v1alpha1.FixedPercentMode,
+			Value: "50",
+		},
+	})
+	require.NoError(t, err, "Error creating chaos")
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config,
+		testsetups.WithNamespace(namespace),
+		testsetups.WithChaos([]*havoc.Chaos{chaos}),
+	)
+	require.NoError(t, err, "Error creating OCR soak test")
+	executeOCRSoakTest(t, ocrSoakTest, &config)
+}
+
+func executeOCRSoakTest(t *testing.T, test *testsetups.OCRSoakTest, config *tc.TestConfig) {
+	l := logging.GetTestLogger(t)
+
+	// validate Seth config before anything else, but only for live networks (simulated will fail, since there's no chain started yet)
+	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
+	if !network.Simulated {
+		_, err := seth_utils.GetChainClient(config, network)
+		require.NoError(t, err, "Error creating seth client")
+	}
+
+	l.Info().Str("test", t.Name()).Msg("Starting OCR soak test")
+	if !test.Interrupted() {
+		test.DeployEnvironment(config)
+	}
+
+	if test.Environment().WillUseRemoteRunner() {
 		return
 	}
-
-	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
-	require.NoError(t, err, "Error connecting to network")
-
-	ocrSoakTest := testsetups.NewOCRSoakTest(&testsetups.OCRSoakTestInputs{
-		BlockchainClient:     chainClient,
-		TestDuration:         testInputs.TestDuration,
-		NumberOfContracts:    2,
-		ChainlinkNodeFunding: big.NewFloat(testInputs.ChainlinkNodeFunding),
-		ExpectedRoundTime:    time.Minute * 2,
-		RoundTimeout:         time.Minute * 15,
-		TimeBetweenRounds:    testInputs.TimeBetweenRounds,
-		StartingAdapterValue: 5,
-	})
 	t.Cleanup(func() {
-		if err := actions.TeardownRemoteSuite(ocrSoakTest.TearDownVals(t)); err != nil {
+		if err := actions.TeardownRemoteSuite(test.TearDownVals(t)); err != nil {
 			l.Error().Err(err).Msg("Error tearing down environment")
+		} else {
+			err := test.Environment().Client.RemoveNamespace(test.Environment().Cfg.Namespace)
+			if err != nil {
+				l.Error().Err(err).Msg("Error removing namespace")
+			}
 		}
 	})
-	ocrSoakTest.Setup(t, testEnvironment)
-	l.Info().Msg("Set up soak test")
-	ocrSoakTest.Run(t)
+	if test.Interrupted() {
+		err := test.LoadState()
+		require.NoError(t, err, "Error loading state")
+		test.Resume()
+	} else {
+		test.Setup(config)
+		test.Run()
+	}
 }
 
-func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetwork, OcrSoakInputs) {
-	var testInputs OcrSoakInputs
-	err := envconfig.Process("OCR", &testInputs)
-	require.NoError(t, err, "Error reading OCR soak test inputs")
-	testInputs.setForRemoteRunner()
-
-	network := networks.SelectedNetwork // Environment currently being used to soak test on
-	var ocrEnvVars = map[string]any{
-		"P2P_LISTEN_IP":   "0.0.0.0",
-		"P2P_LISTEN_PORT": "6690",
-	}
-	// For if we end up using env vars
-	ocrEnvVars["ETH_URL"] = network.URLs[0]
-	ocrEnvVars["ETH_HTTP_URL"] = network.HTTPURLs[0]
-	ocrEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(network.ChainID)
-
-	baseEnvironmentConfig := &environment.Config{
-		TTL: time.Hour * 720, // 30 days,
-		NamespacePrefix: fmt.Sprintf(
-			"soak-ocr-%s",
-			strings.ReplaceAll(strings.ToLower(network.Name), " ", "-"),
-		),
-		Test: t,
-	}
-
-	replicas := 6
-	testEnvironment := environment.New(baseEnvironmentConfig).
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(ethereum.New(&ethereum.Props{
-			NetworkName: network.Name,
-			Simulated:   network.Simulated,
-			WsURLs:      network.URLs,
-		}))
-	for i := 0; i < replicas; i++ {
-		useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
-		if useEnvVars == "true" {
-			testEnvironment.AddHelm(chainlink.NewVersioned(i, "0.0.11", map[string]any{
-				"env": ocrEnvVars,
-			}))
-		} else {
-			testEnvironment.AddHelm(chainlink.New(i, map[string]any{
-				"toml": client.AddNetworksConfig(config.BaseOCRP2PV1Config, network),
-			}))
-		}
-	}
-	err = testEnvironment.Run()
-	require.NoError(t, err, "Error launching test environment")
-	return testEnvironment, network, testInputs
+type GethNetworkDownChaosOpts struct {
+	Name           string
+	Namespace      string
+	Description    string
+	TargetSelector v1alpha1.PodSelector
+	DelayCreate    time.Duration
+	Duration       time.Duration
 }
 
-type OcrSoakInputs struct {
-	TestDuration         time.Duration `envconfig:"TEST_DURATION" default:"15m"`
-	ChainlinkNodeFunding float64       `envconfig:"CHAINLINK_NODE_FUNDING" default:".1"`
-	TimeBetweenRounds    time.Duration `envconfig:"TIME_BETWEEN_ROUNDS" default:"1m"`
-}
-
-func (i OcrSoakInputs) setForRemoteRunner() {
-	os.Setenv("TEST_OCR_TEST_DURATION", i.TestDuration.String())
-	os.Setenv("TEST_OCR_CHAINLINK_NODE_FUNDING", strconv.FormatFloat(i.ChainlinkNodeFunding, 'f', -1, 64))
-	os.Setenv("TEST_OCR_TIME_BETWEEN_ROUNDS", i.TimeBetweenRounds.String())
-
-	selectedNetworks := strings.Split(os.Getenv("SELECTED_NETWORKS"), ",")
-	for _, networkPrefix := range selectedNetworks {
-		urlEnv := fmt.Sprintf("%s_URLS", networkPrefix)
-		httpEnv := fmt.Sprintf("%s_HTTP_URLS", networkPrefix)
-		os.Setenv(fmt.Sprintf("TEST_%s", urlEnv), os.Getenv(urlEnv))
-		os.Setenv(fmt.Sprintf("TEST_%s", httpEnv), os.Getenv(httpEnv))
+func gethNetworkDownChaos(opts GethNetworkDownChaosOpts) (*havoc.Chaos, error) {
+	k8sClient, err := havoc.NewChaosMeshClient()
+	if err != nil {
+		return nil, err
 	}
+	return havoc.NewChaos(havoc.ChaosOpts{
+		Description: opts.Description,
+		DelayCreate: opts.DelayCreate,
+		Object: &v1alpha1.NetworkChaos{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "NetworkChaos",
+				APIVersion: "chaos-mesh.org/v1alpha1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      opts.Name,
+				Namespace: opts.Namespace,
+			},
+			Spec: v1alpha1.NetworkChaosSpec{
+				Action: v1alpha1.LossAction,
+				PodSelector: v1alpha1.PodSelector{
+					Mode: v1alpha1.AllMode,
+					Selector: v1alpha1.PodSelectorSpec{
+						GenericSelectorSpec: v1alpha1.GenericSelectorSpec{
+							Namespaces:     []string{opts.Namespace},
+							LabelSelectors: map[string]string{"app": "geth"},
+						},
+					},
+				},
+				Duration:  ptr.Ptr(opts.Duration.String()),
+				Direction: v1alpha1.Both,
+				Target:    &opts.TargetSelector,
+				TcParameter: v1alpha1.TcParameter{
+					Loss: &v1alpha1.LossSpec{
+						Loss: "100",
+					},
+				},
+			},
+		},
+		Client: k8sClient,
+		Logger: &havoc.Logger,
+	})
+
 }

@@ -1,0 +1,32 @@
+ChainID = '10'
+ChainType = 'optimismBedrock'
+FinalityDepth = 200
+FinalityTagEnabled = true
+LinkContractAddress = '0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6'
+LogPollInterval = '2s'
+NoNewHeadsThreshold = '40s'
+MinIncomingConfirmations = 1
+NoNewFinalizedHeadsThreshold = '13m'
+
+[GasEstimator]
+EIP1559DynamicFees = true
+PriceMin = '1 wei'
+BumpMin = '100 wei'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 24
+
+[Transactions]
+ResendAfterThreshold = '30s'
+
+[HeadTracker]
+HistoryDepth = 300
+
+[NodePool]
+SyncThreshold = 10
+
+[OCR]
+ContractConfirmations = 1
+
+[OCR2.Automation]
+GasLimit = 6500000

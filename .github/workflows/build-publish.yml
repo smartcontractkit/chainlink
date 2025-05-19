@@ -1,45 +1,182 @@
-name: 'Build Chainlink and Publish'
+name: "Build, Sign and Publish Chainlink"
 
 on:
-  # Mimics old circleci behaviour
   push:
     tags:
-      - 'v*'
-    branches:
-      - master
-      - 'release/**'
+      - "v*"
+
+env:
+  ECR_HOSTNAME: public.ecr.aws
 
 jobs:
+  checks:
+    name: "Checks"
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      git-tag-type: ${{ steps.check-git-tag-type.outputs.git-tag-type }}
+      ecr-image-name: ${{ steps.check-git-tag-type.outputs.ecr-image-name }}
+      is-release: ${{ steps.release-tag-check.outputs.is-release }}
+      is-pre-release: ${{ steps.release-tag-check.outputs.is-pre-release }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check git tag type
+        id: check-git-tag-type
+        shell: bash
+        env:
+          GIT_TAG: ${{ github.ref_name}}
+        run: |
+          # Check if git tag is related to CCIP
+          # Should match:
+          #   v2.23.1-ccip1.5
+          #   v2.23.1-ccip1.5-beta.0
+          #   v2.23.1-ccip1.5-rc.1
+          #   v2.23.1-ccip
+          regex_pattern='^v[0-9]+\.[0-9]+\.[0-9]+-ccip.*$'
+          if [[ $GIT_TAG =~ $regex_pattern ]]; then
+            echo "git-tag-type=ccip" | tee -a "$GITHUB_OUTPUT"
+            echo "ecr-image-name=chainlink/ccip" | tee -a "$GITHUB_OUTPUT"
+          else
+            echo "git-tag-type=core" | tee -a "$GITHUB_OUTPUT"
+            echo "ecr-image-name=chainlink/chainlink" | tee -a "$GITHUB_OUTPUT"
+          fi
+      - name: Check release tag
+        id: release-tag-check
+        uses: smartcontractkit/.github/actions/release-tag-check@c5c4a8186da4218cff6cac8184e47dd3dec69ba3 # release-tag-check@0.1.0
+      - name: Check for VERSION file bump on tags
+        # Avoids checking VERSION file bump on forks or from CCIP releases.
+        if: ${{ github.repository == 'smartcontractkit/chainlink' && steps.check-git-tag-type.outputs.git-tag-type == 'core' }}
+        uses: ./.github/actions/version-file-bump
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check Tag Signature
+        uses: smartcontractkit/.github/actions/check-if-verified@6319f88a06e307c360dff43c3ac25d0581894a75 # check-if-verified@1.0.0
+        with:
+          tag: ${{ github.ref_name }}
+          assert: true
+      - name: Fail if git tag is not from allowed branches
+        uses: smartcontractkit/.github/actions/guard-tag-from-branch@01d931b0455a754d12e7143cc54a5a3521a8f6f6 # guard-tag-from-branch@0.1.3
+        with:
+          tag: ${{ github.ref_name }}
+          branch-regex: '^(develop|release\/.*)'
+
   build-sign-publish-chainlink:
-    if: ${{ ! startsWith(github.ref_name, 'release/') }}
-    runs-on: ubuntu-20.04
+    needs: [checks]
+    runs-on: ubuntu-24.04
     environment: build-publish
     permissions:
       id-token: write
-      contents: read
+      contents: write
+      attestations: write
+    outputs:
+      docker-image-tag: ${{ steps.build-sign-publish.outputs.docker-image-tag }}
+      docker-image-digest: ${{ steps.build-sign-publish.outputs.docker-image-digest }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Build, sign and publish chainlink image
+        id: build-sign-publish
         uses: ./.github/actions/build-sign-publish-chainlink
         with:
           publish: true
           aws-role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
           aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
           aws-region: ${{ secrets.AWS_REGION }}
+          ecr-hostname: ${{ env.ECR_HOSTNAME }}
+          ecr-image-name: ${{ needs.checks.outputs.ecr-image-name }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
           sign-images: true
-          sign-method: 'keypair'
-          cosign-private-key: ${{ secrets.COSIGN_PRIVATE_KEY }}
-          cosign-public-key: ${{ secrets.COSIGN_PUBLIC_KEY }}
-          cosign-password: ${{ secrets.COSIGN_PASSWORD }}
           verify-signature: true
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+          git-tag-type: ${{ needs.checks.outputs.git-tag-type }}
+
+      - name: Attest Docker image
+        uses: actions/attest-build-provenance@6149ea5740be74af77f260b9db67e633f6b0a9a1 # v1.4.2
         with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: build-sign-publish-chainlink
-        continue-on-error: true
+          subject-digest: ${{ steps.build-sign-publish.outputs.docker-image-digest }}
+          subject-name: ${{ env.ECR_HOSTNAME }}/${{ needs.checks.outputs.ecr-image-name }}
+          push-to-registry: true
+
+  # XXX: This is using a new way to build images. Other jobs should be updated to use this in the future.
+  build-sign-publish-chainlink-plugins:
+    needs: [checks]
+    if: needs.checks.outputs.git-tag-type == 'core'
+    permissions:
+      contents: read
+      id-token: write
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@b37583d758e3992e0d5bfdb5a36ca243ce53ff59 # 2025-04-22
+    with:
+      aws-ecr-name: chainlink
+      aws-region-ecr: us-east-1
+      aws-region-gati: us-west-2
+      dockerfile: plugins/chainlink.Dockerfile
+      docker-build-context: .
+      docker-build-args: |
+        CHAINLINK_USER=chainlink
+        COMMIT_SHA=${{ github.sha }}
+        CL_INSTALL_PRIVATE_PLUGINS=true
+        CL_APTOS_CMD=chainlink-aptos
+      docker-build-cache-disabled: "true"
+      docker-image-type: tag
+      docker-manifest-sign: true
+      docker-registry-url-override: public.ecr.aws/chainlink
+      docker-tag-custom-suffix: "-plugins"
+      git-sha: ${{ github.sha }}
+      github-event-name: ${{ github.event_name }}
+      github-ref-name: ${{ github.ref_name }}
+      github-workflow-repository: ${{ github.repository }}
+    secrets:
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
+      AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_SDLC_BUILD_PUBLISH_ARN }}
+      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+
+  # Notify Slack channel for new git tags.
+  slack-notify:
+    if: github.ref_type == 'tag'
+    needs: [checks, build-sign-publish-chainlink]
+    runs-on: ubuntu-24.04
+    environment: build-publish
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Notify Slack
+        uses: smartcontractkit/.github/actions/slack-notify-git-ref@31e00facdd8f57a2bc7868b5e4c8591bf2aa3727 # slack-notify-git-ref@0.1.2
+        with:
+          slack-channel-id: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
+          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }} # Releng Bot
+          git-ref: ${{ github.ref_name }}
+          git-ref-type: ${{ github.ref_type }}
+          changelog-url: >-
+            ${{
+              github.ref_type == 'tag' &&
+              format(
+                'https://github.com/{0}/blob/{1}/CHANGELOG.md',
+                github.repository,
+                github.ref_name
+              ) || ''
+            }}
+          docker-image-name: >-
+            ${{
+              github.ref_type == 'tag' &&
+              format(
+                '{0}/{1}:{2}',
+                env.ECR_HOSTNAME,
+                needs.checks.outputs.ecr-image-name,
+                needs.build-sign-publish-chainlink.outputs.docker-image-tag
+              ) || ''
+            }}
+          docker-image-digest: >-
+            ${{
+              github.ref_type == 'tag' &&
+              needs.build-sign-publish-chainlink.outputs.docker-image-digest || ''
+            }}

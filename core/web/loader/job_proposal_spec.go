@@ -14,10 +14,10 @@ type jobProposalSpecBatcher struct {
 	app chainlink.Application
 }
 
-func (b *jobProposalSpecBatcher) loadByJobProposalsIDs(_ context.Context, keys dataloader.Keys) []*dataloader.Result {
+func (b *jobProposalSpecBatcher) loadByJobProposalsIDs(ctx context.Context, keys dataloader.Keys) []*dataloader.Result {
 	ids, keyOrder := keyOrderInt64(keys)
 
-	specs, err := b.app.GetFeedsService().ListSpecsByJobProposalIDs(ids)
+	specs, err := b.app.GetFeedsService().ListSpecsByJobProposalIDs(ctx, ids)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}

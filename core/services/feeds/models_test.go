@@ -24,6 +24,16 @@ func Test_NewChainType(t *testing.T) {
 			want: ChainTypeEVM,
 		},
 		{
+			name: "Starknet Chain Type",
+			give: "STARKNET",
+			want: ChainTypeStarknet,
+		},
+		{
+			name: "Tron Chain Type",
+			give: "TRON",
+			want: ChainTypeTron,
+		},
+		{
 			name:    "Invalid Chain Type",
 			give:    "",
 			want:    ChainTypeUnknown,
@@ -50,23 +60,27 @@ func Test_ToPluginType(t *testing.T) {
 
 	pt, err := ToPluginType("commit")
 	require.NoError(t, err)
-	assert.Equal(t, pt, PluginTypeCommit)
+	assert.Equal(t, PluginTypeCommit, pt)
 
 	pt, err = ToPluginType("execute")
 	require.NoError(t, err)
-	assert.Equal(t, pt, PluginTypeExecute)
+	assert.Equal(t, PluginTypeExecute, pt)
 
 	pt, err = ToPluginType("median")
 	require.NoError(t, err)
-	assert.Equal(t, pt, PluginTypeMedian)
+	assert.Equal(t, PluginTypeMedian, pt)
 
 	pt, err = ToPluginType("mercury")
 	require.NoError(t, err)
-	assert.Equal(t, pt, PluginTypeMercury)
+	assert.Equal(t, PluginTypeMercury, pt)
+
+	pt, err = ToPluginType("rebalancer")
+	require.NoError(t, err)
+	assert.Equal(t, PluginTypeRebalancer, pt)
 
 	pt, err = ToPluginType("xxx")
 	require.Error(t, err)
-	assert.Equal(t, pt, PluginTypeUnknown)
+	assert.Equal(t, PluginTypeUnknown, pt)
 	assert.EqualError(t, err, "unknown plugin type")
 }
 
@@ -77,6 +91,7 @@ func Test_FromPluginType(t *testing.T) {
 	assert.Equal(t, "execute", FromPluginTypeInput(PluginTypeExecute))
 	assert.Equal(t, "median", FromPluginTypeInput(PluginTypeMedian))
 	assert.Equal(t, "mercury", FromPluginTypeInput(PluginTypeMercury))
+	assert.Equal(t, "rebalancer", FromPluginTypeInput(PluginTypeRebalancer))
 	assert.Equal(t, "unknown", FromPluginTypeInput(PluginTypeUnknown))
 }
 
@@ -241,12 +256,13 @@ func Test_Plugins_Value(t *testing.T) {
 
 	var (
 		give = Plugins{
-			Commit:  true,
-			Execute: true,
-			Median:  false,
-			Mercury: true,
+			Commit:     true,
+			Execute:    true,
+			Median:     false,
+			Mercury:    true,
+			Rebalancer: false,
 		}
-		want = `{"commit":true,"execute":true,"median":false,"mercury":true}`
+		want = `{"commit":true,"execute":true,"median":false,"mercury":true,"rebalancer":false}`
 	)
 
 	val, err := give.Value()
@@ -262,12 +278,13 @@ func Test_Plugins_Scan(t *testing.T) {
 	t.Parallel()
 
 	var (
-		give = `{"commit":true,"execute":true,"median":false,"mercury":true}`
+		give = `{"commit":true,"execute":true,"median":false,"mercury":true,"rebalancer":false}`
 		want = Plugins{
-			Commit:  true,
-			Execute: true,
-			Median:  false,
-			Mercury: true,
+			Commit:     true,
+			Execute:    true,
+			Median:     false,
+			Mercury:    true,
+			Rebalancer: false,
 		}
 	)
 
@@ -282,20 +299,22 @@ func Test_OCR2Config_Value(t *testing.T) {
 	t.Parallel()
 
 	var (
-		give = OCR2Config{
-			Enabled:     true,
-			IsBootstrap: false,
-			Multiaddr:   null.StringFrom("multiaddr"),
-			P2PPeerID:   null.StringFrom("peerid"),
-			KeyBundleID: null.StringFrom("ocrkeyid"),
+		give = OCR2ConfigModel{
+			Enabled:          true,
+			IsBootstrap:      false,
+			Multiaddr:        null.StringFrom("multiaddr"),
+			ForwarderAddress: null.StringFrom("forwarderaddress"),
+			P2PPeerID:        null.StringFrom("peerid"),
+			KeyBundleID:      null.StringFrom("ocrkeyid"),
 			Plugins: Plugins{
-				Commit:  true,
-				Execute: true,
-				Median:  false,
-				Mercury: true,
+				Commit:     true,
+				Execute:    true,
+				Median:     false,
+				Mercury:    true,
+				Rebalancer: false,
 			},
 		}
-		want = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid","plugins":{"commit":true,"execute":true,"median":false,"mercury":true}}`
+		want = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","forwarder_address":"forwarderaddress","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid","plugins":{"commit":true,"execute":true,"median":false,"mercury":true,"rebalancer":false}}`
 	)
 
 	val, err := give.Value()
@@ -311,23 +330,25 @@ func Test_OCR2Config_Scan(t *testing.T) {
 	t.Parallel()
 
 	var (
-		give = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid","plugins":{"commit":true,"execute":true,"median":false,"mercury":true}}`
-		want = OCR2Config{
-			Enabled:     true,
-			IsBootstrap: false,
-			Multiaddr:   null.StringFrom("multiaddr"),
-			P2PPeerID:   null.StringFrom("peerid"),
-			KeyBundleID: null.StringFrom("ocrkeyid"),
+		give = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","forwarder_address":"forwarderaddress","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid","plugins":{"commit":true,"execute":true,"median":false,"mercury":true,"rebalancer":false}}`
+		want = OCR2ConfigModel{
+			Enabled:          true,
+			IsBootstrap:      false,
+			Multiaddr:        null.StringFrom("multiaddr"),
+			ForwarderAddress: null.StringFrom("forwarderaddress"),
+			P2PPeerID:        null.StringFrom("peerid"),
+			KeyBundleID:      null.StringFrom("ocrkeyid"),
 			Plugins: Plugins{
-				Commit:  true,
-				Execute: true,
-				Median:  false,
-				Mercury: true,
+				Commit:     true,
+				Execute:    true,
+				Median:     false,
+				Mercury:    true,
+				Rebalancer: false,
 			},
 		}
 	)
 
-	var actual OCR2Config
+	var actual OCR2ConfigModel
 	err := actual.Scan([]byte(give))
 	require.NoError(t, err)
 
@@ -373,4 +394,29 @@ func Test_JobProposal_CanEditDefinition(t *testing.T) {
 			assert.Equal(t, tc.want, jp.CanEditDefinition())
 		})
 	}
+}
+
+// Test_toMetrics tests the toMetrics method
+func Test_toMetrics(t *testing.T) {
+	t.Parallel()
+
+	jpCounts := JobProposalCounts{
+		Cancelled: 0,
+		Pending:   1,
+		Approved:  2,
+		Rejected:  3,
+		Deleted:   4,
+		Revoked:   5,
+	}
+
+	metrics := jpCounts.toMetrics()
+
+	assert.Equal(t, map[JobProposalStatus]float64{
+		JobProposalStatusCancelled: 0,
+		JobProposalStatusPending:   1,
+		JobProposalStatusApproved:  2,
+		JobProposalStatusRejected:  3,
+		JobProposalStatusDeleted:   4,
+		JobProposalStatusRevoked:   5,
+	}, metrics)
 }

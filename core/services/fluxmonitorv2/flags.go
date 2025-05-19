@@ -6,13 +6,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flags_wrapper"
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
-
-//go:generate mockery --quiet --name Flags --output ./mocks/ --case=underscore --structname Flags --filename flags.go
 
 type Flags interface {
 	ContractExists() bool

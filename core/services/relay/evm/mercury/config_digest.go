@@ -1,21 +1,22 @@
 package mercury
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math/big"
 	"strings"
 
-	"github.com/ava-labs/coreth/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/wsrpc/credentials"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_exposed_verifier"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/exposed_verifier"
 )
 
 func makeConfigDigestArgs() abi.Arguments {
-	abi, err := abi.JSON(strings.NewReader(mercury_exposed_verifier.MercuryExposedVerifierABI))
+	abi, err := abi.JSON(strings.NewReader(exposed_verifier.ExposedVerifierABI))
 	if err != nil {
 		// assertion
 		panic(fmt.Sprintf("could not parse aggregator ABI: %s", err.Error()))
@@ -27,7 +28,7 @@ var configDigestArgs = makeConfigDigestArgs()
 
 func configDigest(
 	feedID common.Hash,
-	chainID uint64,
+	chainID *big.Int,
 	contractAddress common.Address,
 	configCount uint64,
 	oracles []common.Address,
@@ -36,12 +37,11 @@ func configDigest(
 	onchainConfig []byte,
 	offchainConfigVersion uint64,
 	offchainConfig []byte,
+	prefix types.ConfigDigestPrefix,
 ) types.ConfigDigest {
-	chainIDBig := new(big.Int)
-	chainIDBig.SetUint64(chainID)
 	msg, err := configDigestArgs.Pack(
 		feedID,
-		chainIDBig,
+		chainID,
 		contractAddress,
 		configCount,
 		oracles,
@@ -61,11 +61,6 @@ func configDigest(
 		// assertion
 		panic("copy too little data")
 	}
-	if types.ConfigDigestPrefixEVM != 1 {
-		// assertion
-		panic("wrong ConfigDigestPrefix")
-	}
-	configDigest[0] = 0
-	configDigest[1] = 1
+	binary.BigEndian.PutUint16(configDigest[:2], uint16(prefix))
 	return configDigest
 }

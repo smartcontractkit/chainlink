@@ -7,13 +7,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // LeaseLock handles taking an exclusive lease on database access. This is not
@@ -55,10 +56,10 @@ type LeaseLock interface {
 	Release()
 }
 
-type LeaseLockConfig interface {
-	DatabaseDefaultQueryTimeout() time.Duration
-	LeaseLockDuration() time.Duration
-	LeaseLockRefreshInterval() time.Duration
+type LeaseLockConfig struct {
+	DefaultQueryTimeout  time.Duration
+	LeaseDuration        time.Duration
+	LeaseRefreshInterval time.Duration
 }
 
 var _ LeaseLock = &leaseLock{}
@@ -75,9 +76,7 @@ type leaseLock struct {
 
 // NewLeaseLock creates a "leaseLock" - an entity that tries to take an exclusive lease on the database
 func NewLeaseLock(db *sqlx.DB, appID uuid.UUID, lggr logger.Logger, cfg LeaseLockConfig) LeaseLock {
-	refreshInterval := cfg.LeaseLockRefreshInterval()
-	leaseDuration := cfg.LeaseLockDuration()
-	if refreshInterval > leaseDuration/2 {
+	if cfg.LeaseRefreshInterval > cfg.LeaseDuration/2 {
 		panic("refresh interval must be <= half the lease duration")
 	}
 	return &leaseLock{appID, db, nil, cfg, lggr.Named("LeaseLock").With("appID", appID), func() {}, sync.WaitGroup{}}
@@ -96,7 +95,7 @@ func (l *leaseLock) TakeAndHold(ctx context.Context) (err error) {
 		var err error
 
 		err = func() error {
-			qctx, cancel := context.WithTimeout(ctx, l.cfg.DatabaseDefaultQueryTimeout())
+			qctx, cancel := context.WithTimeout(ctx, l.cfg.DefaultQueryTimeout)
 			defer cancel()
 			if l.conn == nil {
 				if err = l.checkoutConn(qctx); err != nil {
@@ -134,7 +133,7 @@ func (l *leaseLock) TakeAndHold(ctx context.Context) (err error) {
 				err = multierr.Combine(err, l.conn.Close())
 			}
 			return err
-		case <-time.After(utils.WithJitter(l.cfg.LeaseLockRefreshInterval())):
+		case <-time.After(utils.WithJitter(l.cfg.LeaseRefreshInterval)):
 		}
 	}
 	l.logger.Debug("Got exclusive lease on database")
@@ -178,7 +177,7 @@ func (l *leaseLock) setInitialTimeouts(ctx context.Context) error {
 	// occurring where we get stuck waiting for the table lock, or hang during
 	// the transaction - we do not want to leave rows locked if this process is
 	// dead
-	ms := l.cfg.LeaseLockDuration().Milliseconds()
+	ms := l.cfg.LeaseDuration.Milliseconds()
 	return multierr.Combine(
 		utils.JustError(l.conn.ExecContext(ctx, fmt.Sprintf(`SET SESSION lock_timeout = %d`, ms))),
 		utils.JustError(l.conn.ExecContext(ctx, fmt.Sprintf(`SET SESSION idle_in_transaction_session_timeout = %d`, ms))),
@@ -194,13 +193,13 @@ func (l *leaseLock) logRetry(count int) {
 func (l *leaseLock) loop(ctx context.Context) {
 	defer l.wgReleased.Done()
 
-	refresh := time.NewTicker(l.cfg.LeaseLockRefreshInterval())
+	refresh := time.NewTicker(l.cfg.LeaseRefreshInterval)
 	defer refresh.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			qctx, cancel := context.WithTimeout(context.Background(), l.cfg.DatabaseDefaultQueryTimeout())
+			qctx, cancel := context.WithTimeout(context.Background(), l.cfg.DefaultQueryTimeout)
 			err := multierr.Combine(
 				utils.JustError(l.conn.ExecContext(qctx, `UPDATE lease_lock SET expires_at=NOW() WHERE client_id = $1 AND expires_at > NOW()`, l.id)),
 				l.conn.Close(),
@@ -211,7 +210,7 @@ func (l *leaseLock) loop(ctx context.Context) {
 			}
 			return
 		case <-refresh.C:
-			qctx, cancel := context.WithTimeout(ctx, l.cfg.LeaseLockDuration())
+			qctx, cancel := context.WithTimeout(ctx, l.cfg.LeaseDuration)
 			gotLease, err := l.getLease(qctx, false)
 			if errors.Is(err, sql.ErrConnDone) {
 				l.logger.Warnw("DB connection was unexpectedly closed; checking out a new one", "err", err)
@@ -246,14 +245,16 @@ var initialSQL = []string{
 // If some other error occurred, returns the error
 func (l *leaseLock) getLease(ctx context.Context, isInitial bool) (gotLease bool, err error) {
 	l.logger.Trace("Refreshing database lease")
-	leaseDuration := fmt.Sprintf("%f seconds", l.cfg.LeaseLockDuration().Seconds())
+	leaseDuration := fmt.Sprintf("%f seconds", l.cfg.LeaseDuration.Seconds())
 
 	// NOTE: Uses database time for all calculations since it's conceivable
 	// that node local times might be skewed compared to each other
-	err = sqlxTransactionQ(ctx, l.conn, l.logger, func(tx Queryer) error {
+	err = sqlutil.TransactConn(ctx, func(ds sqlutil.DataSource) sqlutil.DataSource {
+		return ds
+	}, l.conn, nil, func(tx sqlutil.DataSource) error {
 		if isInitial {
 			for _, query := range initialSQL {
-				if _, err = tx.Exec(query); err != nil {
+				if _, err = tx.ExecContext(ctx, query); err != nil {
 					return errors.Wrap(err, "failed to create initial lease_lock table")
 				}
 			}
@@ -261,7 +262,7 @@ func (l *leaseLock) getLease(ctx context.Context, isInitial bool) (gotLease bool
 
 		// Upsert the lease_lock, only overwriting an existing one if the existing one has expired
 		var res sql.Result
-		res, err = tx.Exec(`
+		res, err = tx.ExecContext(ctx, `
 INSERT INTO lease_lock (client_id, expires_at) VALUES ($1, NOW()+$2::interval) ON CONFLICT ((client_id IS NOT NULL)) DO UPDATE SET
 client_id = EXCLUDED.client_id,
 expires_at = EXCLUDED.expires_at

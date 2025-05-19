@@ -6,13 +6,14 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 )
 
 // NewTestHTTPClient returns a real HTTP client that may only make requests to
 // localhost
 func NewTestLocalOnlyHTTPClient() *http.Client {
-	tr := http.DefaultTransport.(*http.Transport).Clone()
+	// Don't use the default transport, we want zero limits and zero timeouts
+	tr := &http.Transport{}
 	tr.DialContext = testDialContext
 	tr.DisableCompression = true
 	return &http.Client{Transport: tr}
@@ -31,7 +32,7 @@ func testDialContext(ctx context.Context, network, address string) (net.Conn, er
 	}
 	a := con.RemoteAddr().(*net.TCPAddr)
 	if a != nil && !a.IP.IsLoopback() {
-		return nil, errors.Errorf("Test HTTP client may only dial localhost, got address: %v", a.String())
+		return nil, pkgerrors.Errorf("Test HTTP client may only dial localhost, got address: %v", a.String())
 	}
 	return con, err
 }

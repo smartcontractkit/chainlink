@@ -1,0 +1,13 @@
+WorkflowRegistry.updateAuthorizedAddresses
+├── when the caller is not the owner
+│   └── it should revert
+└── when the caller is the owner
+    ├── when the registry is locked
+    │   └── it should revert
+    └── when the registry is not locked
+        ├── when the bool input is true 
+        │   ├── it should add the addresses s_authorizedAddresses
+        │   └── it should emit {AuthorizedAddressesUpdatedV1}
+        └── when the bool input is false
+            ├── it should remove the addresses from s_authorizedAddresses
+            └── it should emit {AuthorizedAddressesUpdatedV1}

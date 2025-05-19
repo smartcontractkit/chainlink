@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -o pipefail
+set +e
+
+SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
+OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
+EXTRA_FLAGS=""
+
+cd ./core/scripts || exit
+go mod download
+echo "Test execution results: ---------------------"
+echo ""
+
+if [[ $GITHUB_EVENT_NAME == "schedule" ]]; then
+  EXTRA_FLAGS="-covermode=atomic -coverpkg=./... -coverprofile=coverage.txt"
+fi
+go test ./... $EXTRA_FLAGS | tee $OUTPUT_FILE | grep -Ev '\[no test files\]|\[no tests to run\]'
+EXITCODE=${PIPESTATUS[0]}
+
+# Assert no known sensitive strings present in test logger output
+printf "\n----------------------------------------------\n\n"
+echo "Beginning check of output logs for sensitive strings"
+$SCRIPT_PATH/scrub_logs $OUTPUT_FILE
+cd ..
+if [[ $? != 0 ]]; then
+  exit 1
+fi
+
+echo "Exit code: $EXITCODE"
+if [[ $EXITCODE != 0 ]]; then
+  echo "Encountered test failures."
+else
+  echo "All tests passed!"
+fi
+echo "go_core_scripts_tests exiting with code $EXITCODE"
+exit $EXITCODE

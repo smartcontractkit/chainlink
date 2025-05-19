@@ -8,11 +8,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -28,29 +30,40 @@ type Spec struct {
 	JobID   int32  `json:"-"`
 	JobName string `json:"-"`
 	JobType string `json:"-"`
+
+	Pipeline *Pipeline `json:"-" db:"-"` // This may be nil, or may be populated manually as a cache. There is no locking on this, so be careful
 }
 
-func (s Spec) Pipeline() (*Pipeline, error) {
+func (s *Spec) GetOrParsePipeline() (*Pipeline, error) {
+	if s.Pipeline != nil {
+		return s.Pipeline, nil
+	}
+	return s.ParsePipeline()
+}
+
+func (s *Spec) ParsePipeline() (*Pipeline, error) {
 	return Parse(s.DotDagSource)
 }
 
 type Run struct {
-	ID             int64            `json:"-"`
-	PipelineSpecID int32            `json:"-"`
-	PipelineSpec   Spec             `json:"pipelineSpec"`
-	Meta           JSONSerializable `json:"meta"`
+	ID             int64                             `json:"-"`
+	JobID          int32                             `json:"-"`
+	PipelineSpecID int32                             `json:"-"`
+	PruningKey     int32                             `json:"-"` // This currently refers to the upstream job ID
+	PipelineSpec   Spec                              `json:"pipelineSpec"`
+	Meta           jsonserializable.JSONSerializable `json:"meta"`
 	// The errors are only ever strings
 	// DB example: [null, null, "my error"]
-	AllErrors   RunErrors        `json:"all_errors"`
-	FatalErrors RunErrors        `json:"fatal_errors"`
-	Inputs      JSONSerializable `json:"inputs"`
+	AllErrors   RunErrors                         `json:"all_errors"`
+	FatalErrors RunErrors                         `json:"fatal_errors"`
+	Inputs      jsonserializable.JSONSerializable `json:"inputs"`
 	// Its expected that Output.Val is of type []interface{}.
 	// DB example: [1234, {"a": 10}, null]
-	Outputs          JSONSerializable `json:"outputs"`
-	CreatedAt        time.Time        `json:"createdAt"`
-	FinishedAt       null.Time        `json:"finishedAt"`
-	PipelineTaskRuns []TaskRun        `json:"taskRuns"`
-	State            RunStatus        `json:"state"`
+	Outputs          jsonserializable.JSONSerializable `json:"outputs"`
+	CreatedAt        time.Time                         `json:"createdAt"`
+	FinishedAt       null.Time                         `json:"finishedAt"`
+	PipelineTaskRuns []TaskRun                         `json:"taskRuns"`
+	State            RunStatus                         `json:"state"`
 
 	Pending bool
 	// FailSilently is used to signal that a task with the failEarly flag has failed, and we want to not put this in the db
@@ -58,7 +71,7 @@ type Run struct {
 }
 
 func (r Run) GetID() string {
-	return fmt.Sprintf("%v", r.ID)
+	return strconv.FormatInt(r.ID, 10)
 }
 
 func (r *Run) SetID(value string) error {
@@ -66,7 +79,7 @@ func (r *Run) SetID(value string) error {
 	if err != nil {
 		return err
 	}
-	r.ID = int64(ID)
+	r.ID = ID
 	return nil
 }
 
@@ -252,16 +265,16 @@ func (rr ResumeRequest) ToResult() (Result, error) {
 }
 
 type TaskRun struct {
-	ID            uuid.UUID        `json:"id"`
-	Type          TaskType         `json:"type"`
-	PipelineRun   Run              `json:"-"`
-	PipelineRunID int64            `json:"-"`
-	Output        JSONSerializable `json:"output"`
-	Error         null.String      `json:"error"`
-	CreatedAt     time.Time        `json:"createdAt"`
-	FinishedAt    null.Time        `json:"finishedAt"`
-	Index         int32            `json:"index"`
-	DotID         string           `json:"dotId"`
+	ID            uuid.UUID                         `json:"id"`
+	Type          TaskType                          `json:"type"`
+	PipelineRun   Run                               `json:"-"`
+	PipelineRunID int64                             `json:"-"`
+	Output        jsonserializable.JSONSerializable `json:"output"`
+	Error         null.String                       `json:"error"`
+	CreatedAt     time.Time                         `json:"createdAt"`
+	FinishedAt    null.Time                         `json:"finishedAt"`
+	Index         int32                             `json:"index"`
+	DotID         string                            `json:"dotId"`
 
 	// Used internally for sorting completed results
 	task Task
@@ -272,7 +285,7 @@ func (tr TaskRun) GetID() string {
 }
 
 func (tr *TaskRun) SetID(value string) error {
-	ID, err := uuid.FromString(value)
+	ID, err := uuid.Parse(value)
 	if err != nil {
 		return err
 	}

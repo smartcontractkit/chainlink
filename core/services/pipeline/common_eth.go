@@ -195,7 +195,6 @@ func convertToETHABIType(val interface{}, abiType abi.Type) (interface{}, error)
 
 	case abi.TupleTy:
 		return convertToETHABITuple(abiType, srcVal)
-
 	}
 	return nil, errors.Wrapf(ErrBadInput, "cannot convert %v to %v", srcVal.Type(), abiType)
 }

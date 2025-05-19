@@ -1,31 +1,34 @@
 package functions
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"reflect"
+	"math"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/ocr2dr_oracle"
+	"github.com/smartcontractkit/libocr/commontypes"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink/v2/core/cbor"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
+	evmrelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 )
 
 var (
-	_ log.Listener   = &FunctionsListener{}
-	_ job.ServiceCtx = &FunctionsListener{}
-
 	sizeBuckets = []float64{
 		1024,
 		1024 * 4,
@@ -35,51 +38,51 @@ var (
 		1024 * 256,
 	}
 
-	promOracleEvent = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "functions_oracle_event",
-		Help: "Metric to track received oracle events",
-	}, []string{"oracle", "event"})
+	promRequestReceived = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_request_received",
+		Help: "Metric to track received request events",
+	}, []string{"router"})
 
 	promRequestInternalError = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "functions_request_internal_error",
 		Help: "Metric to track internal errors",
-	}, []string{"oracle"})
+	}, []string{"router"})
 
 	promRequestComputationError = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "functions_request_computation_error",
 		Help: "Metric to track computation errors",
-	}, []string{"oracle"})
+	}, []string{"router"})
 
 	promRequestComputationSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "functions_request_computation_success",
 		Help: "Metric to track number of computed requests",
-	}, []string{"oracle"})
+	}, []string{"router"})
 
 	promRequestTimeout = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "functions_request_timeout",
 		Help: "Metric to track number of timed out requests",
-	}, []string{"oracle"})
+	}, []string{"router"})
 
 	promRequestConfirmed = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "functions_request_confirmed",
 		Help: "Metric to track number of confirmed requests",
-	}, []string{"oracle", "responseType"})
+	}, []string{"router"})
 
 	promRequestDataSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "functions_request_data_size",
 		Help:    "Metric to track request data size",
 		Buckets: sizeBuckets,
-	}, []string{"oracle"})
+	}, []string{"router"})
 
 	promComputationResultSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "functions_request_computation_result_size",
 		Help: "Metric to track computation result size in bytes",
-	}, []string{"oracle"})
+	}, []string{"router"})
 
 	promComputationErrorSize = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "functions_request_computation_error_size",
 		Help: "Metric to track computation error size in bytes",
-	}, []string{"oracle"})
+	}, []string{"router"})
 
 	promComputationDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "functions_request_computation_duration",
@@ -93,357 +96,382 @@ var (
 			float64(30 * time.Second),
 			float64(60 * time.Second),
 		},
-	}, []string{"oracle"})
+	}, []string{"router"})
+
+	promPrunedRequests = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "functions_request_pruned",
+		Help: "Metric to track number of requests pruned from the DB",
+	}, []string{"router"})
 )
 
 const (
-	CBORParseTaskName   string = "decode_cbor"
-	ParseResultTaskName string = "parse_result"
-	ParseErrorTaskName  string = "parse_error"
+	DefaultPruneMaxStoredRequests uint32 = 20_000
+	DefaultPruneCheckFrequencySec uint32 = 60 * 10
+	DefaultPruneBatchSize         uint32 = 500
+
+	// Used in place of OnchainMetadata for all offchain requests.
+	OffchainRequestMarker string = "OFFCHAIN_REQUEST"
+
+	FlagCBORMaxSize    uint32 = 1
+	FlagSecretsMaxSize uint32 = 2
 )
 
-type FunctionsListener struct {
-	utils.StartStopOnce
-	oracle            *ocr2dr_oracle.OCR2DROracle
-	oracleHexAddr     string
-	job               job.Job
-	pipelineRunner    pipeline.Runner
-	jobORM            job.ORM
-	logBroadcaster    log.Broadcaster
-	shutdownWaitGroup sync.WaitGroup
-	mbOracleEvents    *utils.Mailbox[log.Broadcast]
-	serviceContext    context.Context
-	serviceCancel     context.CancelFunc
-	chStop            chan struct{}
-	pluginORM         ORM
-	pluginConfig      config.PluginConfig
-	logger            logger.Logger
-	mailMon           *utils.MailboxMonitor
+type FunctionsListener interface {
+	job.ServiceCtx
+
+	HandleOffchainRequest(ctx context.Context, request *OffchainRequest) error
 }
+
+type functionsListener struct {
+	services.StateMachine
+	client             client.Client
+	contractAddressHex string
+	job                job.Job
+	bridgeAccessor     BridgeAccessor
+	shutdownWaitGroup  sync.WaitGroup
+	chStop             services.StopChan
+	pluginORM          ORM
+	pluginConfig       config.PluginConfig
+	s4Storage          s4.Storage
+	logger             logger.Logger
+	urlsMonEndpoint    commontypes.MonitoringEndpoint
+	decryptor          threshold.Decryptor
+	logPollerWrapper   evmrelayTypes.LogPollerWrapper
+}
+
+var _ FunctionsListener = &functionsListener{}
+
+func (l *functionsListener) HealthReport() map[string]error {
+	return map[string]error{l.Name(): l.Healthy()}
+}
+
+func (l *functionsListener) Name() string { return l.logger.Name() }
 
 func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
 }
 
-func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, jb job.Job, runner pipeline.Runner, jobORM job.ORM, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor) *FunctionsListener {
-	return &FunctionsListener{
-		oracle:         oracle,
-		oracleHexAddr:  oracle.Address().Hex(),
-		job:            jb,
-		pipelineRunner: runner,
-		jobORM:         jobORM,
-		logBroadcaster: logBroadcaster,
-		mbOracleEvents: utils.NewHighCapacityMailbox[log.Broadcast](),
-		chStop:         make(chan struct{}),
-		pluginORM:      pluginORM,
-		pluginConfig:   pluginConfig,
-		logger:         lggr,
-		mailMon:        mailMon,
+func NewFunctionsListener(
+	job job.Job,
+	client client.Client,
+	contractAddressHex string,
+	bridgeAccessor BridgeAccessor,
+	pluginORM ORM,
+	pluginConfig config.PluginConfig,
+	s4Storage s4.Storage,
+	lggr logger.Logger,
+	urlsMonEndpoint commontypes.MonitoringEndpoint,
+	decryptor threshold.Decryptor,
+	logPollerWrapper evmrelayTypes.LogPollerWrapper,
+) *functionsListener {
+	return &functionsListener{
+		client:             client,
+		contractAddressHex: contractAddressHex,
+		job:                job,
+		bridgeAccessor:     bridgeAccessor,
+		chStop:             make(chan struct{}),
+		pluginORM:          pluginORM,
+		pluginConfig:       pluginConfig,
+		s4Storage:          s4Storage,
+		logger:             lggr,
+		urlsMonEndpoint:    urlsMonEndpoint,
+		decryptor:          decryptor,
+		logPollerWrapper:   logPollerWrapper,
 	}
 }
 
 // Start complies with job.Service
-func (l *FunctionsListener) Start(context.Context) error {
+func (l *functionsListener) Start(context.Context) error {
 	return l.StartOnce("FunctionsListener", func() error {
-		l.serviceContext, l.serviceCancel = context.WithCancel(context.Background())
-		unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{
-			Contract: l.oracle.Address(),
-			ParseLog: l.oracle.ParseLog,
-			LogsWithTopics: map[common.Hash][][]log.Topic{
-				ocr2dr_oracle.OCR2DROracleOracleRequest{}.Topic():        {},
-				ocr2dr_oracle.OCR2DROracleOracleResponse{}.Topic():       {},
-				ocr2dr_oracle.OCR2DROracleUserCallbackError{}.Topic():    {},
-				ocr2dr_oracle.OCR2DROracleUserCallbackRawError{}.Topic(): {},
-			},
-			MinIncomingConfirmations: l.pluginConfig.MinIncomingConfirmations,
-		})
+		switch l.pluginConfig.ContractVersion {
+		case 1:
+			l.shutdownWaitGroup.Add(1)
+			go l.processOracleEventsV1()
+		default:
+			return fmt.Errorf("unsupported contract version: %d", l.pluginConfig.ContractVersion)
+		}
+
 		if l.pluginConfig.ListenerEventHandlerTimeoutSec == 0 {
 			l.logger.Warn("listenerEventHandlerTimeoutSec set to zero! ORM calls will never time out.")
 		}
 		l.shutdownWaitGroup.Add(3)
-		go l.processOracleEvents()
 		go l.timeoutRequests()
+		go l.pruneRequests()
 		go func() {
 			<-l.chStop
-			unsubscribeLogs()
 			l.shutdownWaitGroup.Done()
 		}()
-
-		l.mailMon.Monitor(l.mbOracleEvents, "FunctionsListener", "OracleEvents", fmt.Sprint(l.job.ID))
-
 		return nil
 	})
 }
 
 // Close complies with job.Service
-func (l *FunctionsListener) Close() error {
+func (l *functionsListener) Close() error {
 	return l.StopOnce("FunctionsListener", func() error {
-		l.serviceCancel()
 		close(l.chStop)
 		l.shutdownWaitGroup.Wait()
-
-		return l.mbOracleEvents.Close()
+		return nil
 	})
 }
 
-// HandleLog implements log.Listener
-func (l *FunctionsListener) HandleLog(lb log.Broadcast) {
-	log := lb.DecodedLog()
-	if log == nil || reflect.ValueOf(log).IsNil() {
-		l.logger.Error("HandleLog: ignoring nil value")
+func (l *functionsListener) processOracleEventsV1() {
+	defer l.shutdownWaitGroup.Done()
+	ctx, cancel := l.chStop.NewCtx()
+	defer cancel()
+	freqMillis := l.pluginConfig.ListenerEventsCheckFrequencyMillis
+	if freqMillis == 0 {
+		l.logger.Errorw("ListenerEventsCheckFrequencyMillis must set to more than 0 in PluginConfig")
 		return
 	}
-
-	switch log := log.(type) {
-	case *ocr2dr_oracle.OCR2DROracleOracleRequest, *ocr2dr_oracle.OCR2DROracleOracleResponse, *ocr2dr_oracle.OCR2DROracleUserCallbackError, *ocr2dr_oracle.OCR2DROracleUserCallbackRawError:
-		wasOverCapacity := l.mbOracleEvents.Deliver(lb)
-		if wasOverCapacity {
-			l.logger.Error("OracleRequest log mailbox is over capacity - dropped the oldest log")
-		}
-	default:
-		l.logger.Errorf("Unexpected log type %T", log)
-	}
-}
-
-// JobID() complies with log.Listener
-func (l *FunctionsListener) JobID() int32 {
-	return l.job.ID
-}
-
-func (l *FunctionsListener) processOracleEvents() {
-	defer l.shutdownWaitGroup.Done()
+	ticker := time.NewTicker(time.Duration(freqMillis) * time.Millisecond)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-l.chStop:
 			return
-		case <-l.mbOracleEvents.Notify():
-			for {
-				select {
-				case <-l.chStop:
-					return
-				default:
-				}
-				lb, exists := l.mbOracleEvents.Retrieve()
-				if !exists {
-					break
-				}
-				was, err := l.logBroadcaster.WasAlreadyConsumed(lb)
-				if err != nil {
-					l.logger.Errorw("Could not determine if log was already consumed", "error", err)
-					continue
-				} else if was {
-					continue
-				}
-
-				log := lb.DecodedLog()
-				if log == nil || reflect.ValueOf(log).IsNil() {
-					l.logger.Error("processOracleEvents: ignoring nil value")
-					continue
-				}
-
-				switch log := log.(type) {
-				case *ocr2dr_oracle.OCR2DROracleOracleRequest:
-					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "OracleRequest").Inc()
-					l.shutdownWaitGroup.Add(1)
-					go l.handleOracleRequest(log, lb)
-				case *ocr2dr_oracle.OCR2DROracleOracleResponse:
-					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "OracleResponse").Inc()
-					l.shutdownWaitGroup.Add(1)
-					go l.handleOracleResponse("OracleResponse", log.RequestId, lb)
-				case *ocr2dr_oracle.OCR2DROracleUserCallbackError:
-					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "UserCallbackError").Inc()
-					l.shutdownWaitGroup.Add(1)
-					go l.handleOracleResponse("UserCallbackError", log.RequestId, lb)
-				case *ocr2dr_oracle.OCR2DROracleUserCallbackRawError:
-					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "UserCallbackRawError").Inc()
-					l.shutdownWaitGroup.Add(1)
-					go l.handleOracleResponse("UserCallbackRawError", log.RequestId, lb)
-				default:
-					l.logger.Warnf("Unexpected log type %T", log)
-				}
+		case <-ticker.C:
+			requests, responses, err := l.logPollerWrapper.LatestEvents(ctx)
+			if err != nil {
+				l.logger.Errorw("error when calling LatestEvents()", "err", err)
+				break
+			}
+			l.logger.Debugw("processOracleEventsV1: processing v1 events", "nRequests", len(requests), "nResponses", len(responses))
+			for _, request := range requests {
+				request := request
+				l.shutdownWaitGroup.Add(1)
+				go l.handleOracleRequestV1(&request)
+			}
+			for _, response := range responses {
+				response := response
+				l.shutdownWaitGroup.Add(1)
+				go l.handleOracleResponseV1(&response)
 			}
 		}
 	}
 }
 
-// Process result from the EA saved by a jsonparse pipeline task.
-// That value is a valid JSON string so it contains double quote characters.
-// Allowed inputs are:
-//
-//  1. "" (2 characters) -> return empty byte array
-//  2. "0x<val>" where <val> is a non-empty, valid hex -> return hex-decoded <val>
-func ExtractRawBytes(input []byte) ([]byte, error) {
-	if bytes.Equal(input, []byte("null")) {
-		return nil, fmt.Errorf("null value")
-	}
-	if len(input) < 2 || input[0] != '"' || input[len(input)-1] != '"' {
-		return nil, fmt.Errorf("unable to decode input (expected quotes): %v", input)
-	}
-	input = input[1 : len(input)-1]
-	if len(input) == 0 {
-		return []byte{}, nil
-	}
-	if bytes.Equal(input, []byte("0x0")) {
-		// special case with odd number of digits
-		return []byte{0}, nil
-	}
-	if len(input) < 4 || len(input)%2 != 0 {
-		return nil, fmt.Errorf("input is not a valid, non-empty hex string of even length: %v", input)
-	}
-	return utils.TryParseHex(string(input))
-}
-
-func (l *FunctionsListener) getNewHandlerContext() (context.Context, context.CancelFunc) {
+func (l *functionsListener) getNewHandlerContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := l.chStop.NewCtx()
 	timeoutSec := l.pluginConfig.ListenerEventHandlerTimeoutSec
 	if timeoutSec == 0 {
-		return context.WithCancel(l.serviceContext)
+		return ctx, cancel
 	}
-	return context.WithTimeout(l.serviceContext, time.Duration(timeoutSec)*time.Second)
+	var cancel2 func()
+	ctx, cancel2 = context.WithTimeout(ctx, time.Duration(timeoutSec)*time.Second)
+	return ctx, func() {
+		cancel2()
+		cancel()
+	}
 }
 
-func (l *FunctionsListener) setError(ctx context.Context, requestId RequestID, runId int64, errType ErrType, errBytes []byte) {
+func (l *functionsListener) setError(ctx context.Context, requestId RequestID, errType ErrType, errBytes []byte) {
 	if errType == INTERNAL_ERROR {
-		promRequestInternalError.WithLabelValues(l.oracleHexAddr).Inc()
+		promRequestInternalError.WithLabelValues(l.contractAddressHex).Inc()
 	} else {
-		promRequestComputationError.WithLabelValues(l.oracleHexAddr).Inc()
+		promRequestComputationError.WithLabelValues(l.contractAddressHex).Inc()
 	}
 	readyForProcessing := errType != INTERNAL_ERROR
-	if err := l.pluginORM.SetError(requestId, runId, errType, errBytes, time.Now(), readyForProcessing, pg.WithParentCtx(ctx)); err != nil {
+	if err := l.pluginORM.SetError(ctx, requestId, errType, errBytes, time.Now(), readyForProcessing); err != nil {
 		l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(requestId), "err", err)
 	}
 }
 
-func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOracleRequest, lb log.Broadcast) {
+func (l *functionsListener) getMaxCBORsize(flags RequestFlags) uint32 {
+	idx := flags[FlagCBORMaxSize]
+	if int(idx) >= len(l.pluginConfig.MaxRequestSizesList) {
+		return l.pluginConfig.MaxRequestSizeBytes // deprecated
+	}
+	return l.pluginConfig.MaxRequestSizesList[idx]
+}
+
+func (l *functionsListener) getMaxSecretsSize(flags RequestFlags) uint32 {
+	idx := flags[FlagSecretsMaxSize]
+	if int(idx) >= len(l.pluginConfig.MaxSecretsSizesList) {
+		return math.MaxUint32 // not enforced if not configured
+	}
+	return l.pluginConfig.MaxSecretsSizesList[idx]
+}
+
+func (l *functionsListener) HandleOffchainRequest(ctx context.Context, request *OffchainRequest) error {
+	if request == nil {
+		return errors.New("HandleOffchainRequest: received nil request")
+	}
+	if len(request.RequestId) != RequestIDLength {
+		return fmt.Errorf("HandleOffchainRequest: invalid request ID length %d", len(request.RequestId))
+	}
+	if len(request.SubscriptionOwner) != common.AddressLength || len(request.RequestInitiator) != common.AddressLength {
+		return errors.New("HandleOffchainRequest: SubscriptionOwner and RequestInitiator must be set to valid addresses")
+	}
+	if request.Timestamp < uint64(time.Now().Unix()-int64(l.pluginConfig.RequestTimeoutSec)) {
+		return errors.New("HandleOffchainRequest: request timestamp is too old")
+	}
+
+	var requestId RequestID
+	copy(requestId[:], request.RequestId[:32])
+	subscriptionOwner := common.BytesToAddress(request.SubscriptionOwner)
+	senderAddr := common.BytesToAddress(request.RequestInitiator)
+	emptyTxHash := common.Hash{}
+	zeroCallbackGasLimit := uint32(0)
+	newReq := &Request{
+		RequestID:        requestId,
+		RequestTxHash:    &emptyTxHash,
+		ReceivedAt:       time.Now(),
+		Flags:            []byte{},
+		CallbackGasLimit: &zeroCallbackGasLimit,
+		// use sender address in place of coordinator contract to keep batches uniform
+		CoordinatorContractAddress: &senderAddr,
+		OnchainMetadata:            []byte(OffchainRequestMarker),
+	}
+	if err := l.pluginORM.CreateRequest(ctx, newReq); err != nil {
+		if errors.Is(err, ErrDuplicateRequestID) {
+			l.logger.Warnw("HandleOffchainRequest: received duplicate request ID", "requestID", formatRequestId(requestId), "err", err)
+		} else {
+			l.logger.Errorw("HandleOffchainRequest: failed to create a DB entry for new request", "requestID", formatRequestId(requestId), "err", err)
+		}
+		return err
+	}
+	return l.handleRequest(ctx, requestId, request.SubscriptionId, subscriptionOwner, RequestFlags{}, &request.Data)
+}
+
+func (l *functionsListener) handleOracleRequestV1(request *evmrelayTypes.OracleRequest) {
 	defer l.shutdownWaitGroup.Done()
-	l.logger.Infow("oracle request received", "requestID", formatRequestId(request.RequestId))
-
-	promRequestDataSize.WithLabelValues(l.oracleHexAddr).Observe(float64(len(request.Data)))
-
-	requestData := make(map[string]interface{})
-	requestData["requestId"] = formatRequestId(request.RequestId)
-	meta := make(map[string]interface{})
-	meta["oracleRequest"] = requestData
-
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
-			"databaseID":    l.job.ID,
-			"externalJobID": l.job.ExternalJobID,
-			"name":          l.job.Name.ValueOrZero(),
-		},
-		"jobRun": map[string]interface{}{
-			"meta":                  meta,
-			"logBlockHash":          request.Raw.BlockHash,
-			"logBlockNumber":        request.Raw.BlockNumber,
-			"logTxHash":             request.Raw.TxHash,
-			"logAddress":            request.Raw.Address,
-			"logTopics":             request.Raw.Topics,
-			"logData":               request.Raw.Data,
-			"blockReceiptsRoot":     lb.ReceiptsRoot(),
-			"blockTransactionsRoot": lb.TransactionsRoot(),
-			"blockStateRoot":        lb.StateRoot(),
-		},
-	})
-
-	startTime := time.Now()
-	defer func() {
-		duration := time.Since(startTime)
-		promComputationDuration.WithLabelValues(l.oracleHexAddr).Observe(float64(duration.Milliseconds()))
-	}()
-
+	l.logger.Infow("handleOracleRequestV1: oracle request v1 received", "requestID", formatRequestId(request.RequestId))
 	ctx, cancel := l.getNewHandlerContext()
 	defer cancel()
 
-	err := l.pluginORM.CreateRequest(request.RequestId, time.Now(), &request.Raw.TxHash, pg.WithParentCtx(ctx))
+	callbackGasLimit := uint32(request.CallbackGasLimit)
+	newReq := &Request{
+		RequestID:                  request.RequestId,
+		RequestTxHash:              &request.TxHash,
+		ReceivedAt:                 time.Now(),
+		Flags:                      request.Flags[:],
+		CallbackGasLimit:           &callbackGasLimit,
+		CoordinatorContractAddress: &request.CoordinatorContract,
+		OnchainMetadata:            request.OnchainMetadata,
+	}
+	if err := l.pluginORM.CreateRequest(ctx, newReq); err != nil {
+		if errors.Is(err, ErrDuplicateRequestID) {
+			l.logger.Warnw("handleOracleRequestV1: received a log with duplicate request ID", "requestID", formatRequestId(request.RequestId), "err", err)
+		} else {
+			l.logger.Errorw("handleOracleRequestV1: failed to create a DB entry for new request", "requestID", formatRequestId(request.RequestId), "err", err)
+		}
+		return
+	}
+
+	promRequestReceived.WithLabelValues(l.contractAddressHex).Inc()
+	promRequestDataSize.WithLabelValues(l.contractAddressHex).Observe(float64(len(request.Data)))
+	requestData, err := l.parseCBOR(request.RequestId, request.Data, l.getMaxCBORsize(request.Flags))
 	if err != nil {
-		l.logger.Errorw("failed to create a DB entry for new request", "requestID", formatRequestId(request.RequestId), "err", err)
+		l.setError(ctx, request.RequestId, USER_ERROR, []byte(err.Error()))
 		return
 	}
-	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
-
-	if l.pluginConfig.MaxRequestSizeBytes > 0 && uint32(len(request.Data)) > l.pluginConfig.MaxRequestSizeBytes {
-		l.logger.Errorw("request too big", "requestID", formatRequestId(request.RequestId), "requestSize", len(request.Data), "maxRequestSize", l.pluginConfig.MaxRequestSizeBytes)
-		l.setError(ctx, request.RequestId, 0, USER_ERROR, []byte(fmt.Sprintf("request too big (max %d bytes)", l.pluginConfig.MaxRequestSizeBytes)))
-		return
-	}
-
-	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
-	_, err = l.pipelineRunner.Run(ctx, &run, l.logger, true, nil)
+	err = l.handleRequest(ctx, request.RequestId, request.SubscriptionId, request.SubscriptionOwner, request.Flags, requestData)
 	if err != nil {
-		l.logger.Errorw("pipeline run failed", "requestID", formatRequestId(request.RequestId), "runID", run.ID, "err", err)
-		return
+		l.logger.Errorw("handleOracleRequestV1: error in handleRequest()", "requestID", formatRequestId(request.RequestId), "err", err)
 	}
-	l.logger.Infow("pipeline run finished", "requestID", formatRequestId(request.RequestId), "runID", run.ID)
+}
 
-	_, cborParseErr := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, CBORParseTaskName, pg.WithParentCtx(ctx))
-	if cborParseErr != nil {
-		l.logger.Errorw("failed to parse CBOR", "requestID", formatRequestId(request.RequestId), "err", cborParseErr)
-		l.setError(ctx, request.RequestId, run.ID, USER_ERROR, []byte("CBOR parsing error"))
-		return
+func (l *functionsListener) parseCBOR(requestId RequestID, cborData []byte, maxSizeBytes uint32) (*RequestData, error) {
+	if maxSizeBytes > 0 && uint32(len(cborData)) > maxSizeBytes {
+		l.logger.Errorw("request too big", "requestID", formatRequestId(requestId), "requestSize", len(cborData), "maxRequestSize", maxSizeBytes)
+		return nil, fmt.Errorf("request too big (max %d bytes)", maxSizeBytes)
 	}
 
-	computationResult, errResult := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseResultTaskName, pg.WithParentCtx(ctx))
-	if errResult != nil {
-		// Internal problem: Can't find computation results
-		l.logger.Errorw("internal error: can't retrieve computation results field", "requestID", formatRequestId(request.RequestId))
-		l.setError(ctx, request.RequestId, run.ID, INTERNAL_ERROR, []byte(errResult.Error()))
-		return
-	}
-	computationResult, errResult = ExtractRawBytes(computationResult)
-	if errResult != nil {
-		l.logger.Errorw("failed to extract result", "requestID", formatRequestId(request.RequestId), "err", errResult)
-		return
+	var requestData RequestData
+	if err := cbor.ParseDietCBORToStruct(cborData, &requestData); err != nil {
+		l.logger.Errorw("failed to parse CBOR", "requestID", formatRequestId(requestId), "err", err)
+		return nil, errors.New("CBOR parsing error")
 	}
 
-	computationError, errErr := l.jobORM.FindTaskResultByRunIDAndTaskName(run.ID, ParseErrorTaskName, pg.WithParentCtx(ctx))
-	if errErr != nil {
-		// Internal problem: Can't find computation errors
-		l.logger.Errorw("internal error: can't retrieve computation error field", "requestID", formatRequestId(request.RequestId))
-		l.setError(ctx, request.RequestId, run.ID, INTERNAL_ERROR, []byte(errErr.Error()))
-		return
+	return &requestData, nil
+}
+
+// Handle secret fetching/decryption and functions computation. Return error only for internal errors.
+func (l *functionsListener) handleRequest(ctx context.Context, requestID RequestID, subscriptionId uint64, subscriptionOwner common.Address, flags RequestFlags, requestData *RequestData) error {
+	startTime := time.Now()
+	defer func() {
+		duration := time.Since(startTime)
+		promComputationDuration.WithLabelValues(l.contractAddressHex).Observe(float64(duration.Milliseconds()))
+	}()
+	requestIDStr := formatRequestId(requestID)
+	l.logger.Infow("processing request", "requestID", requestIDStr)
+
+	eaClient, err := l.bridgeAccessor.NewExternalAdapterClient(ctx)
+	if err != nil {
+		l.logger.Errorw("failed to create ExternalAdapterClient", "requestID", requestIDStr, "err", err)
+		l.setError(ctx, requestID, INTERNAL_ERROR, []byte(err.Error()))
+		return err
 	}
-	computationError, errErr = ExtractRawBytes(computationError)
-	if errErr != nil {
-		l.logger.Errorw("failed to extract error", "requestID", formatRequestId(request.RequestId), "err", errErr)
-		return
+
+	nodeProvidedSecrets, userErr, internalErr := l.getSecrets(ctx, eaClient, requestID, subscriptionOwner, requestData)
+	if internalErr != nil {
+		l.logger.Errorw("internal error during getSecrets", "requestID", requestIDStr, "err", internalErr)
+		l.setError(ctx, requestID, INTERNAL_ERROR, []byte(internalErr.Error()))
+		return internalErr
+	}
+	if userErr != nil {
+		l.logger.Debugw("user error during getSecrets", "requestID", requestIDStr, "err", userErr)
+		l.setError(ctx, requestID, USER_ERROR, []byte(userErr.Error()))
+		return nil // user error
+	}
+
+	maxSecretsSize := l.getMaxSecretsSize(flags)
+	if uint32(len(nodeProvidedSecrets)) > maxSecretsSize {
+		l.logger.Errorw("secrets size too big", "requestID", requestIDStr, "secretsSize", len(nodeProvidedSecrets), "maxSecretsSize", maxSecretsSize)
+		l.setError(ctx, requestID, USER_ERROR, []byte("secrets size too big"))
+		return nil // user error
+	}
+
+	computationResult, computationError, domains, err := eaClient.RunComputation(ctx, requestIDStr, l.job.Name.ValueOrZero(), subscriptionOwner.Hex(), subscriptionId, flags, nodeProvidedSecrets, requestData)
+
+	if err != nil {
+		l.logger.Errorw("internal adapter error", "requestID", requestIDStr, "err", err)
+		l.setError(ctx, requestID, INTERNAL_ERROR, []byte(err.Error()))
+		return err
+	}
+
+	if len(computationError) == 0 && len(computationResult) == 0 {
+		l.logger.Errorw("both result and error are empty - saving result", "requestID", requestIDStr)
+		computationResult = []byte{}
+		computationError = []byte{}
+	}
+
+	if len(domains) > 0 {
+		l.reportSourceCodeDomains(requestID, domains)
 	}
 
 	if len(computationError) != 0 {
 		if len(computationResult) != 0 {
-			l.logger.Warnw("both result and error are non-empty - using error", "requestID", formatRequestId(request.RequestId))
+			l.logger.Warnw("both result and error are non-empty - using error", "requestID", requestIDStr)
 		}
-		l.logger.Debugw("saving computation error", "requestID", formatRequestId(request.RequestId))
-		l.setError(ctx, request.RequestId, run.ID, USER_ERROR, computationError)
-		promComputationErrorSize.WithLabelValues(l.oracleHexAddr).Set(float64(len(computationError)))
+		l.logger.Debugw("saving computation error", "requestID", requestIDStr)
+		l.setError(ctx, requestID, USER_ERROR, computationError)
+		promComputationErrorSize.WithLabelValues(l.contractAddressHex).Set(float64(len(computationError)))
 	} else {
-		promRequestComputationSuccess.WithLabelValues(l.oracleHexAddr).Inc()
-		promComputationResultSize.WithLabelValues(l.oracleHexAddr).Set(float64(len(computationResult)))
-		l.logger.Debugw("saving computation result", "requestID", formatRequestId(request.RequestId))
-		if err2 := l.pluginORM.SetResult(request.RequestId, run.ID, computationResult, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
-			l.logger.Errorw("call to SetResult failed", "requestID", formatRequestId(request.RequestId), "err", err2)
+		promRequestComputationSuccess.WithLabelValues(l.contractAddressHex).Inc()
+		promComputationResultSize.WithLabelValues(l.contractAddressHex).Set(float64(len(computationResult)))
+		l.logger.Debugw("saving computation result", "requestID", requestIDStr)
+		if err2 := l.pluginORM.SetResult(ctx, requestID, computationResult, time.Now()); err2 != nil {
+			l.logger.Errorw("call to SetResult failed", "requestID", requestIDStr, "err", err2)
+			return err2
 		}
 	}
+	return nil
 }
 
-func (l *FunctionsListener) handleOracleResponse(responseType string, requestID [32]byte, lb log.Broadcast) {
+func (l *functionsListener) handleOracleResponseV1(response *evmrelayTypes.OracleResponse) {
 	defer l.shutdownWaitGroup.Done()
-	l.logger.Infow("oracle response received", "type", responseType, "requestID", formatRequestId(requestID))
+	l.logger.Infow("oracle response v1 received", "requestID", formatRequestId(response.RequestId))
 
 	ctx, cancel := l.getNewHandlerContext()
 	defer cancel()
-	if err := l.pluginORM.SetConfirmed(requestID, pg.WithParentCtx(ctx)); err != nil {
-		l.logger.Errorw("setting CONFIRMED state failed", "requestID", formatRequestId(requestID), "err", err)
+	if err := l.pluginORM.SetConfirmed(ctx, response.RequestId); err != nil {
+		l.logger.Errorw("setting CONFIRMED state failed", "requestID", formatRequestId(response.RequestId), "err", err)
 	}
-	promRequestConfirmed.WithLabelValues(l.oracleHexAddr, responseType).Inc()
-	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
+	promRequestConfirmed.WithLabelValues(l.contractAddressHex).Inc()
 }
 
-func (l *FunctionsListener) markLogConsumed(lb log.Broadcast, qopts ...pg.QOpt) {
-	if err := l.logBroadcaster.MarkConsumed(lb, qopts...); err != nil {
-		l.logger.Errorw("unable to mark log consumed", "err", err, "log", lb.String())
-	}
-}
-
-func (l *FunctionsListener) timeoutRequests() {
+func (l *functionsListener) timeoutRequests() {
 	defer l.shutdownWaitGroup.Done()
 	timeoutSec, freqSec, batchSize := l.pluginConfig.RequestTimeoutSec, l.pluginConfig.RequestTimeoutCheckFrequencySec, l.pluginConfig.RequestTimeoutBatchLookupSize
 	if timeoutSec == 0 || freqSec == 0 || batchSize == 0 {
@@ -459,14 +487,14 @@ func (l *FunctionsListener) timeoutRequests() {
 		case <-ticker.C:
 			cutoff := time.Now().Add(-(time.Duration(timeoutSec) * time.Second))
 			ctx, cancel := l.getNewHandlerContext()
-			ids, err := l.pluginORM.TimeoutExpiredResults(cutoff, batchSize, pg.WithParentCtx(ctx))
+			ids, err := l.pluginORM.TimeoutExpiredResults(ctx, cutoff, batchSize)
 			cancel()
 			if err != nil {
 				l.logger.Errorw("error when calling FindExpiredResults", "err", err)
 				break
 			}
 			if len(ids) > 0 {
-				promRequestTimeout.WithLabelValues(l.oracleHexAddr).Add(float64(len(ids)))
+				promRequestTimeout.WithLabelValues(l.contractAddressHex).Add(float64(len(ids)))
 				var idStrs []string
 				for _, id := range ids {
 					idStrs = append(idStrs, formatRequestId(id))
@@ -477,4 +505,121 @@ func (l *FunctionsListener) timeoutRequests() {
 			}
 		}
 	}
+}
+
+func (l *functionsListener) pruneRequests() {
+	defer l.shutdownWaitGroup.Done()
+	maxStoredRequests, freqSec, batchSize := l.pluginConfig.PruneMaxStoredRequests, l.pluginConfig.PruneCheckFrequencySec, l.pluginConfig.PruneBatchSize
+	if maxStoredRequests == 0 {
+		l.logger.Warnw("pruneMaxStoredRequests not configured - using default", "DefaultPruneMaxStoredRequests", DefaultPruneMaxStoredRequests)
+		maxStoredRequests = DefaultPruneMaxStoredRequests
+	}
+	if freqSec == 0 {
+		l.logger.Warnw("pruneCheckFrequencySec not configured - using default", "DefaultPruneCheckFrequencySec", DefaultPruneCheckFrequencySec)
+		freqSec = DefaultPruneCheckFrequencySec
+	}
+	if batchSize == 0 {
+		l.logger.Warnw("pruneBatchSize not configured - using default", "DefaultPruneBatchSize", DefaultPruneBatchSize)
+		batchSize = DefaultPruneBatchSize
+	}
+
+	ticker := time.NewTicker(time.Duration(freqSec) * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-l.chStop:
+			return
+		case <-ticker.C:
+			ctx, cancel := l.getNewHandlerContext()
+			startTime := time.Now()
+			nTotal, nPruned, err := l.pluginORM.PruneOldestRequests(ctx, maxStoredRequests, batchSize)
+			cancel()
+			elapsedMillis := time.Since(startTime).Milliseconds()
+			if err != nil {
+				l.logger.Errorw("error when calling PruneOldestRequests", "err", err, "elapsedMillis", elapsedMillis)
+				break
+			}
+			if nPruned > 0 {
+				promPrunedRequests.WithLabelValues(l.contractAddressHex).Add(float64(nPruned))
+				l.logger.Debugw("pruned requests from the DB", "nTotal", nTotal, "nPruned", nPruned, "elapsedMillis", elapsedMillis)
+			} else {
+				l.logger.Debugw("no pruned requests at this time", "nTotal", nTotal, "elapsedMillis", elapsedMillis)
+			}
+		}
+	}
+}
+
+func (l *functionsListener) reportSourceCodeDomains(requestId RequestID, domains []string) {
+	r := &telem.FunctionsRequest{
+		RequestId:   formatRequestId(requestId),
+		NodeAddress: l.job.OCR2OracleSpec.TransmitterID.ValueOrZero(),
+		Domains:     domains,
+	}
+
+	bytes, err := proto.Marshal(r)
+	if err != nil {
+		l.logger.Warnw("telem.FunctionsRequest marshal error", "err", err)
+	} else {
+		l.urlsMonEndpoint.SendLog(bytes)
+	}
+}
+
+func (l *functionsListener) getSecrets(ctx context.Context, eaClient ExternalAdapterClient, requestID RequestID, subscriptionOwner common.Address, requestData *RequestData) (decryptedSecrets string, userError, internalError error) {
+	if l.decryptor == nil {
+		l.logger.Warn("Decryptor not configured")
+		return "", nil, nil
+	}
+
+	var secrets []byte
+	requestIDStr := formatRequestId(requestID)
+
+	switch requestData.SecretsLocation {
+	case LocationInline:
+		if len(requestData.Secrets) > 0 {
+			l.logger.Warnw("request used Inline secrets location, processing with no secrets", "requestID", requestIDStr)
+		} else {
+			l.logger.Debugw("request does not use any secrets", "requestID", requestIDStr)
+		}
+		return "", nil, nil
+	case LocationRemote:
+		thresholdEncSecrets, userError, err := eaClient.FetchEncryptedSecrets(ctx, requestData.Secrets, requestIDStr, l.job.Name.ValueOrZero())
+		if err != nil {
+			return "", nil, errors.Wrap(err, "failed to fetch encrypted secrets")
+		}
+		if len(userError) != 0 {
+			return "", errors.New(string(userError)), nil
+		}
+		secrets = thresholdEncSecrets
+	case LocationDONHosted:
+		if l.s4Storage == nil {
+			return "", nil, errors.New("S4 storage not configured")
+		}
+		var donSecrets DONHostedSecrets
+		if err := cbor.ParseDietCBORToStruct(requestData.Secrets, &donSecrets); err != nil {
+			return "", errors.Wrap(err, "failed to parse DONHosted secrets CBOR"), nil
+		}
+		record, _, err := l.s4Storage.Get(ctx, &s4.Key{
+			Address: subscriptionOwner,
+			SlotId:  donSecrets.SlotID,
+			Version: donSecrets.Version,
+		})
+		if err != nil {
+			return "", errors.Wrap(err, "failed to fetch DONHosted secrets"), nil
+		}
+		secrets = record.Payload
+	}
+
+	if len(secrets) == 0 {
+		return "", nil, nil
+	}
+
+	decryptCtx, cancel := context.WithTimeout(ctx, time.Duration(l.pluginConfig.DecryptionQueueConfig.DecryptRequestTimeoutSec)*time.Second)
+	defer cancel()
+
+	decryptedSecretsBytes, err := l.decryptor.Decrypt(decryptCtx, requestID[:], secrets)
+	if err != nil {
+		l.logger.Debugw("threshold decryption of secrets failed", "requestID", requestIDStr, "err", err)
+		return "", errors.New("threshold decryption of secrets failed"), nil
+	}
+	return string(decryptedSecretsBytes), nil, nil
 }

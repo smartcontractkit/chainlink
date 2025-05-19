@@ -1,0 +1,32 @@
+ChainID = '1101'
+ChainType = 'zkevm'
+FinalityDepth = 1000
+NoNewHeadsThreshold = '6m'
+MinIncomingConfirmations = 1
+LogPollInterval = '30s'
+RPCBlockQueryDelay = 15
+RPCDefaultBatchSize = 100
+
+[OCR]
+ContractConfirmations = 1
+
+[Transactions]
+ResendAfterThreshold = '3m'
+
+[GasEstimator]
+Mode = 'FeeHistory'
+# The FeeHistory estimator does not enforce PriceMin, setting it to 0 to not place any limits on the price
+PriceMin = '0'
+BumpPercent = 40
+
+[GasEstimator.FeeHistory]
+# Refresh the suggested price every 4 seconds, to stay slightly below their polling rate of 5s
+CacheTimeout = '4s'
+
+[HeadTracker]
+# Polygon suffers from a tremendous number of re-orgs, we need to set this to something very large to be conservative enough
+HistoryDepth = 2000
+
+[Transactions.AutoPurge]
+Enabled = true
+MinAttempts = 3

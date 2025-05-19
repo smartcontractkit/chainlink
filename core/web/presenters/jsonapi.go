@@ -1,6 +1,7 @@
 package presenters
 
 import (
+	"fmt"
 	"strconv"
 )
 
@@ -12,6 +13,11 @@ type JAID struct {
 
 func NewJAID(id string) JAID {
 	return JAID{id}
+}
+
+// NewPrefixedJAID prefixes JAID with chain id in %s/%s format.
+func NewPrefixedJAID(id string, prefix string) JAID {
+	return JAID{ID: fmt.Sprintf("%s/%s", prefix, id)}
 }
 
 // NewJAIDInt32 converts an int32 into a JAID

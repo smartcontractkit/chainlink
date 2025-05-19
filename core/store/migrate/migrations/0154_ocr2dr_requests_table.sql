@@ -1,5 +1,6 @@
 -- +goose Up
 
+-- see 0183_functions_new_fields.sql for changes
 CREATE TABLE ocr2dr_requests(
     request_id bytea CHECK (octet_length(request_id) = 32) PRIMARY KEY,
     contract_address bytea CHECK (octet_length(contract_address) = 20) NOT NULL,

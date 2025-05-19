@@ -9,22 +9,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -49,7 +48,7 @@ func TestHTTPTask_Happy(t *testing.T) {
 		RequestData: btcUSDPairing,
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	task.HelperSetDependencies(config, c, c)
+	task.HelperSetDependencies(config.JobPipeline(), c, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -74,7 +73,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 	tests := []struct {
 		name                  string
 		requestData           string
-		meta                  pipeline.JSONSerializable
+		meta                  jsonserializable.JSONSerializable
 		inputs                []pipeline.Result
 		vars                  pipeline.Vars
 		expectedRequestData   map[string]interface{}
@@ -84,7 +83,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 		{
 			"requestData (empty) + meta",
 			``,
-			pipeline.JSONSerializable{validMeta, true},
+			jsonserializable.JSONSerializable{Val: validMeta, Valid: true},
 			[]pipeline.Result{{Value: 123.45}},
 			pipeline.NewVarsFrom(map[string]interface{}{"some_data": map[string]interface{}{"foo": 543.21}}),
 			map[string]interface{}{},
@@ -94,7 +93,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 		{
 			"requestData (pure variable) + meta",
 			`$(some_data)`,
-			pipeline.JSONSerializable{validMeta, true},
+			jsonserializable.JSONSerializable{Val: validMeta, Valid: true},
 			[]pipeline.Result{{Value: 123.45}},
 			pipeline.NewVarsFrom(map[string]interface{}{"some_data": map[string]interface{}{"foo": 543.21}}),
 			map[string]interface{}{"foo": 543.21},
@@ -104,7 +103,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 		{
 			"requestData (pure variable)",
 			`$(some_data)`,
-			pipeline.JSONSerializable{nil, false},
+			jsonserializable.JSONSerializable{Val: nil, Valid: false},
 			[]pipeline.Result{{Value: 123.45}},
 			pipeline.NewVarsFrom(map[string]interface{}{"some_data": map[string]interface{}{"foo": 543.21}}),
 			map[string]interface{}{"foo": 543.21},
@@ -114,7 +113,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 		{
 			"requestData (pure variable, missing)",
 			`$(some_data)`,
-			pipeline.JSONSerializable{validMeta, true},
+			jsonserializable.JSONSerializable{Val: validMeta, Valid: true},
 			[]pipeline.Result{{Value: 123.45}},
 			pipeline.NewVarsFrom(map[string]interface{}{"not_some_data": map[string]interface{}{"foo": 543.21}}),
 			nil,
@@ -124,7 +123,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 		{
 			"requestData (pure variable, not a map)",
 			`$(some_data)`,
-			pipeline.JSONSerializable{validMeta, true},
+			jsonserializable.JSONSerializable{Val: validMeta, Valid: true},
 			[]pipeline.Result{{Value: 123.45}},
 			pipeline.NewVarsFrom(map[string]interface{}{"some_data": 543.21}),
 			nil,
@@ -134,7 +133,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 		{
 			"requestData (interpolation) + meta",
 			`{"data":{"result":$(medianize)}}`,
-			pipeline.JSONSerializable{validMeta, true},
+			jsonserializable.JSONSerializable{Val: validMeta, Valid: true},
 			[]pipeline.Result{{Value: 123.45}},
 			pipeline.NewVarsFrom(map[string]interface{}{"medianize": 543.21}),
 			map[string]interface{}{"data": map[string]interface{}{"result": 543.21}},
@@ -144,7 +143,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 		{
 			"requestData (interpolation, missing)",
 			`{"data":{"result":$(medianize)}}`,
-			pipeline.JSONSerializable{validMeta, true},
+			jsonserializable.JSONSerializable{Val: validMeta, Valid: true},
 			[]pipeline.Result{{Value: 123.45}},
 			pipeline.NewVarsFrom(map[string]interface{}{"nope": "foo bar"}),
 			nil,
@@ -168,8 +167,8 @@ func TestHTTPTask_Variables(t *testing.T) {
 			feedURL, err := url.ParseRequestURI(s1.URL)
 			require.NoError(t, err)
 
-			orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
-			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
+			orm := bridges.NewORM(db)
+			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
 
 			task := pipeline.BridgeTask{
 				BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
@@ -177,10 +176,10 @@ func TestHTTPTask_Variables(t *testing.T) {
 				RequestData: test.requestData,
 			}
 			c := clhttptest.NewTestLocalOnlyHTTPClient()
-			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg)
-			specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+			specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 			require.NoError(t, err)
-			task.HelperSetDependencies(cfg, orm, specID, uuid.UUID{}, c)
+			task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
 			err = test.vars.Set("meta", test.meta)
 			require.NoError(t, err)
@@ -193,7 +192,6 @@ func TestHTTPTask_Variables(t *testing.T) {
 				if test.expectedErrorContains != "" {
 					require.Contains(t, result.Error.Error(), test.expectedErrorContains)
 				}
-
 			} else {
 				require.NoError(t, result.Error)
 				require.NotNil(t, result.Value)
@@ -230,9 +228,9 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 		RequestData: ethUSDPairing,
 	}
 	// Use real clients here to actually test the local connection blocking
-	r := clhttp.NewRestrictedHTTPClient(config, logger.TestLogger(t))
+	r := clhttp.NewRestrictedHTTPClient(config.Database(), logger.TestLogger(t))
 	u := clhttp.NewUnrestrictedHTTPClient()
-	task.HelperSetDependencies(config, r, u)
+	task.HelperSetDependencies(config.JobPipeline(), r, u)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -264,9 +262,9 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusTooManyRequests)
-		err := json.NewEncoder(w).Encode(adapterResponse{
-			ErrorMessage: null.StringFrom("could not hit data fetcher"),
-		})
+		resp := &adapterResponse{}
+		resp.SetErrorMessage("could not hit data fetcher")
+		err := json.NewEncoder(w).Encode(resp)
 		require.NoError(t, err)
 	})
 
@@ -279,7 +277,7 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 		URL:         server.URL,
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetDependencies(config, c, c)
+	task.HelperSetDependencies(config.JobPipeline(), c, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -310,7 +308,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 		RequestData: ethUSDPairing,
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	task.HelperSetDependencies(config, c, c)
+	task.HelperSetDependencies(config.JobPipeline(), c, c)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -358,12 +356,12 @@ func TestHTTPTask_Headers(t *testing.T) {
 			Headers:     `["X-Header-1", "foo", "X-Header-2", "bar"]`,
 		}
 		c := clhttptest.NewTestLocalOnlyHTTPClient()
-		task.HelperSetDependencies(config, c, c)
+		task.HelperSetDependencies(config.JobPipeline(), c, c)
 
 		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
 		assert.Equal(t, `{"fooresponse": 1}`, result.Value)
-		assert.Nil(t, result.Error)
+		assert.NoError(t, result.Error)
 
 		assert.Equal(t, append(standardHeaders, "X-Header-1", "foo", "X-Header-2", "bar"), allHeaders(headers))
 	})
@@ -378,7 +376,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 
 		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
-		assert.NotNil(t, result.Error)
+		assert.Error(t, result.Error)
 		assert.Equal(t, `headers must have an even number of elements`, result.Error.Error())
 		assert.Nil(t, result.Value)
 	})
@@ -404,12 +402,12 @@ func TestHTTPTask_Headers(t *testing.T) {
 			Headers:     `["X-Header-1", "foo", "Content-Type", "footype", "X-Header-2", "bar"]`,
 		}
 		c := clhttptest.NewTestLocalOnlyHTTPClient()
-		task.HelperSetDependencies(config, c, c)
+		task.HelperSetDependencies(config.JobPipeline(), c, c)
 
 		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
 		assert.Equal(t, `{"fooresponse": 3}`, result.Value)
-		assert.Nil(t, result.Error)
+		assert.NoError(t, result.Error)
 
 		assert.Equal(t, []string{"Content-Length", "38", "Content-Type", "footype", "User-Agent", "Go-http-client/1.1", "X-Header-1", "foo", "X-Header-2", "bar"}, allHeaders(headers))
 	})

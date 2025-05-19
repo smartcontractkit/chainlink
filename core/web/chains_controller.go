@@ -5,11 +5,13 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/manyminds/api2go/jsonapi"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 type ChainsController interface {
@@ -19,73 +21,60 @@ type ChainsController interface {
 	Show(*gin.Context)
 }
 
-type chainsController[I chains.ID, R jsonapi.EntityNamer] struct {
-	resourceName  string
-	chainSet      chains.Chains[I]
-	errNotEnabled error
-	parseChainID  func(string) (I, error)
-	newResource   func(chains.ChainConfig) R
-	lggr          logger.Logger
-	auditLogger   audit.AuditLogger
-}
-
 type errChainDisabled struct {
-	name   string
-	envVar string
+	name    string
+	tomlKey string
 }
 
 func (e errChainDisabled) Error() string {
-	return fmt.Sprintf("%s is disabled: Set %s=true to enable", e.name, e.envVar)
+	return fmt.Sprintf("%s is disabled: Set %s=true to enable", e.name, e.tomlKey)
 }
 
-func newChainsController[I chains.ID, R jsonapi.EntityNamer](prefix string, chainSet chains.Chains[I], errNotEnabled error,
-	parseChainID func(string) (I, error), newResource func(chains.ChainConfig) R, lggr logger.Logger, auditLogger audit.AuditLogger) *chainsController[I, R] {
-	return &chainsController[I, R]{
-		resourceName:  prefix + "_chain",
-		chainSet:      chainSet,
-		errNotEnabled: errNotEnabled,
-		parseChainID:  parseChainID,
-		newResource:   newResource,
-		lggr:          lggr,
-		auditLogger:   auditLogger,
+type chainsController struct {
+	chainStats  chainlink.RelayerChainInteroperators
+	newResource func(chainlink.NetworkChainStatus) presenters.ChainResource
+	lggr        logger.Logger
+	auditLogger audit.AuditLogger
+}
+
+func NewChainsController(chainStats chainlink.RelayerChainInteroperators, lggr logger.Logger, auditLogger audit.AuditLogger) *chainsController {
+	return &chainsController{
+		chainStats:  chainStats,
+		newResource: presenters.NewChainResource,
+		lggr:        lggr,
+		auditLogger: auditLogger,
 	}
 }
 
-func (cc *chainsController[I, R]) Index(c *gin.Context, size, page, offset int) {
-	if cc.chainSet == nil {
-		jsonAPIError(c, http.StatusBadRequest, cc.errNotEnabled)
-		return
+func (cc *chainsController) Index(c *gin.Context, size, page, offset int) {
+	chainStats := cc.chainStats
+	if network := c.Param("network"); network != "" {
+		chainStats = chainStats.List(chainlink.FilterRelayersByType(network))
 	}
-	chains, count, err := cc.chainSet.Index(offset, size)
+
+	chains, count, err := chainStats.ChainStatuses(c.Request.Context(), offset, size)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}
 
-	var resources []R
+	resources := []presenters.ChainResource{}
 	for _, chain := range chains {
 		resources = append(resources, cc.newResource(chain))
 	}
 
-	paginatedResponse(c, cc.resourceName, size, page, resources, count, err)
+	paginatedResponse(c, "chain", size, page, resources, count, err)
 }
 
-func (cc *chainsController[I, R]) Show(c *gin.Context) {
-	if cc.chainSet == nil {
-		jsonAPIError(c, http.StatusBadRequest, cc.errNotEnabled)
-		return
-	}
-	id, err := cc.parseChainID(c.Param("ID"))
-	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-		return
-	}
-	chain, err := cc.chainSet.Show(id)
+func (cc *chainsController) Show(c *gin.Context) {
+	relayID := types.RelayID{Network: c.Param("network"), ChainID: c.Param("ID")}
+	chain, err := cc.chainStats.ChainStatus(c.Request.Context(), relayID)
+	status := chainlink.NetworkChainStatus{ChainStatus: chain, Network: relayID.Network}
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}
 
-	jsonAPIResponse(c, cc.newResource(chain), cc.resourceName)
+	jsonAPIResponse(c, cc.newResource(status), "chain")
 }

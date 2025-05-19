@@ -1,0 +1,27 @@
+{{range $i, $a := .Datasources}}
+{{- $srcNum:=inc $i -}}
+// data source {{$srcNum}}
+ds{{$srcNum}}_payload [type=bridge name="bridge-{{$a.BridgeName}}" timeout="50s" requestData={{$a.ReqData}}];
+
+ds{{$srcNum}}_benchmark [type=jsonparse path="{{$.ReportFields.Benchmark.ResultPath}}"];
+ds{{$srcNum}}_bid [type=jsonparse path="{{$.ReportFields.Bid.ResultPath}}"];
+ds{{$srcNum}}_ask [type=jsonparse path="{{$.ReportFields.Ask.ResultPath}}"];
+{{end -}}
+
+{{range $i, $a := .Datasources}}
+{{- $srcNum:=inc $i -}}
+ds{{$srcNum}}_payload -> ds{{$srcNum}}_benchmark -> benchmark_price;
+{{end -}}
+benchmark_price [type=median allowedFaults={{.AllowedFaults}} index=0];
+
+{{range $i, $a := .Datasources}}
+{{- $srcNum:=inc $i -}}
+ds{{$srcNum}}_payload -> ds{{$srcNum}}_bid -> bid_price;
+{{end -}}
+bid_price [type=median allowedFaults={{.AllowedFaults}} index=1];
+
+{{range $i, $a := .Datasources}}
+{{- $srcNum:=inc $i -}}
+ds{{$srcNum}}_payload -> ds{{$srcNum}}_ask -> ask_price;
+{{end -}}
+ask_price [type=median allowedFaults={{.AllowedFaults}} index=2];

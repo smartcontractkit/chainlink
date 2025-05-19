@@ -1,0 +1,114 @@
+name: CI lint for Golang
+description: Runs CI lint for Golang
+inputs:
+  go-directory:
+    description: Go directory to run commands from
+    default: "."
+  # setup-go inputs
+  only-modules:
+    description: Set to 'true' to only cache modules
+    default: "false"
+  cache-version:
+    description: Set this to cache bust
+    default: "1"
+  go-version-file:
+    description: Set where the go version file is located at
+    default: "go.mod"
+  go-module-file:
+    description: Set where the go module file is located at
+    default: "go.sum"
+
+outputs:
+  golang-report-artifact-url:
+    description: The URL to the uploaded artifact
+    value: ${{ steps.upload-artifact.outputs.artifact-url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout repo (full)
+      uses: actions/checkout@v4
+      # Only do a full checkout on merge_groups
+      if: github.event_name == 'merge_group'
+      with:
+        persist-credentials: false
+        fetch-depth: 0
+
+    - name: Checkout repo
+      uses: actions/checkout@v4
+      if: github.event_name != 'merge_group'
+      with:
+        persist-credentials: false
+        fetch-depth: 1
+
+    - name: Setup Go
+      uses: ./.github/actions/setup-go
+      with:
+        only-modules: ${{ inputs.only-modules }}
+        cache-version: ${{ inputs.cache-version }}
+        go-version-file: ${{ inputs.go-version-file }}
+        go-module-file: ${{ inputs.go-module-file }}
+
+    - name: Touching core/web/assets/index.html
+      shell: bash
+      run: mkdir -p core/web/assets && touch core/web/assets/index.html
+
+    - name: Set Golangci-lint working directory
+      shell: bash
+      id: set-working-directory
+      # XXX: Don't use `.` default working directory here due to issues with the golangci-lint-action.
+      run: |
+        if [ "${{ inputs.go-directory }}" == "." ]; then
+          echo "golangci-lint-working-directory=" >> $GITHUB_OUTPUT
+        else
+          echo "golangci-lint-working-directory=${{ inputs.go-directory }}/" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Golangci-lint
+      uses: golangci/golangci-lint-action@38e1018663fa5173f3968ea0777460d3de38f256 # v5.3.0
+      with:
+        version: v1.64.7
+        only-new-issues: true
+        args: --out-format colored-line-number,checkstyle:golangci-lint-report.xml
+        working-directory: ${{ steps.set-working-directory.outputs.golangci-lint-working-directory }}
+
+    - name: Print Golangci-lint report results
+      if: failure()
+      shell: bash
+      run: cat ./${{ steps.set-working-directory.outputs.golangci-lint-working-directory }}golangci-lint-report.xml
+
+      # Get a valid name for the upload-artifact step.
+      # Avoid error: `The artifact name is not valid: <path>/<to>/<artifact>/` caused by `/`.
+      # Remove trailing `/` from the directory name: `core/scripts/` -> `core/scripts`.
+      # Replace remaining `/` with `-`: `core/scripts` -> `core-scripts`.
+      # Assign `root` if the directory name is empty (ref: step.id: set-working-directory).
+    - name: Get valid suffix for artifact name
+      if: always()
+      id: suffix
+      shell: bash
+      run: |
+        go_directory=${{ steps.set-working-directory.outputs.golangci-lint-working-directory }}
+        echo "Validating if directory name '$go_directory' is empty or has slashes"
+
+        if [[ $go_directory == *\/* ]]; then
+            suffix=$(echo "$go_directory" | sed 's:\/$::' | tr '/' '-')
+            echo "Directory name with slashes '$go_directory' updated to a valid artifact suffix '$suffix'"
+        elif [[ $go_directory == "" ]]; then
+          suffix="root"
+          echo "Root directory (empty string) updated to a valid artifact suffix '$suffix'"
+        else
+          suffix="$go_directory"
+          echo "Directory name is valid for the artifact suffix: '$suffix'"
+        fi
+
+        echo "suffix=${suffix}" >> $GITHUB_OUTPUT
+
+    - name: Store Golangci-lint report artifact
+      if: always()
+      id: upload-artifact
+      uses: actions/upload-artifact@v4
+      with:
+        # Use a unique suffix for each lint report artifact to avoid duplication errors
+        name: golangci-lint-report-${{ steps.suffix.outputs.suffix }}
+        # N/B: value may be empty (no slash) OR `<path>/<to>/<module>/` (with slash tat the end)
+        path: ./${{ steps.set-working-directory.outputs.golangci-lint-working-directory }}golangci-lint-report.xml

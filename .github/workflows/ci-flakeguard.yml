@@ -1,0 +1,73 @@
+name: Flakeguard CI Core
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Run on key branches to make sure integration is good, otherwise run on all PR's
+on:
+  pull_request:
+
+jobs:
+
+  detect-changes:
+    name: Detect Changes
+    permissions:
+      pull-requests: read
+    outputs:
+      deployment-changes: ${{ steps.some.outputs.deployment == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: some
+        with:
+          filters: |
+            deployment:
+              - 'deployment/**'
+
+  trigger-flaky-test-detection-for-root-project:
+      name: Flakeguard Root Project
+      if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }} 
+      uses: ./.github/workflows/flakeguard.yml
+      with:
+        repoUrl: 'https://github.com/smartcontractkit/chainlink'
+        projectPath: '.'
+        baseRef: ${{ github.base_ref }}
+        headRef: ${{ github.head_ref }}
+        maxPassRatio: '1.0'
+        findByTestFilesDiff: true
+        findByAffectedPackages: false
+        slackNotificationAfterTestsChannelId: 'C07TRF65CNS' #flaky-test-detector-notifications
+        extraArgs: '{ "skipped_tests": "", "run_with_race": "true", "print_failed_tests": "true", "test_repeat_count": "3", "omit_test_outputs_on_success": "true" }'
+      secrets:
+        SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+        FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+  trigger-flaky-test-detection-for-deployment-project:
+    name: Flakeguard Deployment Project
+    uses: ./.github/workflows/flakeguard.yml
+    needs: [detect-changes]
+    if: ${{ (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (needs.detect-changes.outputs.deployment-changes == 'true') }}
+    with:
+      repoUrl: 'https://github.com/smartcontractkit/chainlink'
+      projectPath: 'deployment'
+      baseRef: ${{ github.base_ref }}
+      headRef: ${{ github.head_ref }}
+      maxPassRatio: '1.0'
+      findByTestFilesDiff: true
+      findByAffectedPackages: false
+      slackNotificationAfterTestsChannelId: 'C07TRF65CNS' #flaky-test-detector-notifications
+      extraArgs: '{ "skipped_tests": "TestAddLane", "run_with_race": "true", "print_failed_tests": "true", "test_repeat_count": "3", "omit_test_outputs_on_success": "true" }'
+    secrets:
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

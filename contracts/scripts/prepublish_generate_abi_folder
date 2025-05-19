@@ -9,7 +9,7 @@ SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd .. && pwd -P )"
 TARGET="abi"
 
 # For each version directory in src, copy the json files to the correct location
-versions=( v0.4 v0.5 v0.6 v0.7 v0.8 )
+versions=( v0.8 )
 for version in "${versions[@]}"
 do
   rm -rf $SCRIPTPATH/$TARGET/$version

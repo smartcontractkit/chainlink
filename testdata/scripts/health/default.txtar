@@ -1,0 +1,169 @@
+# start node
+exec sh -c 'eval "echo \"$(cat config.toml.tmpl)\" > config.toml"'
+exec chainlink node -c config.toml start -p password -a creds &
+
+# initialize client
+env NODEURL=http://localhost:$PORT
+exec curl --retry 10 --retry-max-time 60 --retry-connrefused $NODEURL
+exec chainlink --remote-node-url $NODEURL admin login -file creds --bypass-version-check
+
+exec chainlink --remote-node-url $NODEURL health
+cmp stdout out.txt
+
+exec chainlink --remote-node-url $NODEURL health -json
+cp stdout compact.json
+exec jq . compact.json
+cmp stdout out.json
+
+-- testdb.txt --
+CL_DATABASE_URL
+-- testport.txt --
+PORT
+
+-- password --
+T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ
+-- creds --
+notreal@fakeemail.ch
+fj293fbBnlQ!f9vNs
+
+-- config.toml.tmpl --
+[Webserver]
+HTTPPort = $PORT
+
+-- out.txt --
+ok HeadReporter
+ok Heartbeat
+ok JobSpawner
+ok LLOTransmissionReaper
+ok Mailbox.Monitor
+ok Mercury.WSRPCPool
+ok Mercury.WSRPCPool.CacheSet
+ok PipelineORM
+ok PipelineRunner
+ok PipelineRunner.BridgeCache
+ok RetirementReportCache
+ok TelemetryManager
+ok WorkflowStore
+
+-- out.json --
+{
+  "data": [
+    {
+      "type": "checks",
+      "id": "HeadReporter",
+      "attributes": {
+        "name": "HeadReporter",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Heartbeat",
+      "attributes": {
+        "name": "Heartbeat",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "JobSpawner",
+      "attributes": {
+        "name": "JobSpawner",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "LLOTransmissionReaper",
+      "attributes": {
+        "name": "LLOTransmissionReaper",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Mailbox.Monitor",
+      "attributes": {
+        "name": "Mailbox.Monitor",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Mercury.WSRPCPool",
+      "attributes": {
+        "name": "Mercury.WSRPCPool",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Mercury.WSRPCPool.CacheSet",
+      "attributes": {
+        "name": "Mercury.WSRPCPool.CacheSet",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "PipelineORM",
+      "attributes": {
+        "name": "PipelineORM",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "PipelineRunner",
+      "attributes": {
+        "name": "PipelineRunner",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "PipelineRunner.BridgeCache",
+      "attributes": {
+        "name": "PipelineRunner.BridgeCache",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "RetirementReportCache",
+      "attributes": {
+        "name": "RetirementReportCache",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "TelemetryManager",
+      "attributes": {
+        "name": "TelemetryManager",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "WorkflowStore",
+      "attributes": {
+        "name": "WorkflowStore",
+        "status": "passing",
+        "output": ""
+      }
+    }
+  ]
+}

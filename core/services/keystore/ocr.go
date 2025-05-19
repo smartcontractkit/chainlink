@@ -1,6 +1,7 @@
 package keystore
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -8,19 +9,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 )
 
-//go:generate mockery --quiet --name OCR --output ./mocks/ --case=underscore
-
 type OCR interface {
 	Get(id string) (ocrkey.KeyV2, error)
 	GetAll() ([]ocrkey.KeyV2, error)
-	Create() (ocrkey.KeyV2, error)
-	Add(key ocrkey.KeyV2) error
-	Delete(id string) (ocrkey.KeyV2, error)
-	Import(keyJSON []byte, password string) (ocrkey.KeyV2, error)
+	Create(ctx context.Context) (ocrkey.KeyV2, error)
+	Add(ctx context.Context, key ocrkey.KeyV2) error
+	Delete(ctx context.Context, id string) (ocrkey.KeyV2, error)
+	Import(ctx context.Context, keyJSON []byte, password string) (ocrkey.KeyV2, error)
 	Export(id string, password string) ([]byte, error)
-	EnsureKey() error
-
-	GetV1KeysAsV2() ([]ocrkey.KeyV2, error)
+	EnsureKey(ctx context.Context) error
 }
 
 // KeyNotFoundError is returned when we don't find a requested key
@@ -66,7 +63,7 @@ func (ks *ocr) GetAll() (keys []ocrkey.KeyV2, _ error) {
 	return keys, nil
 }
 
-func (ks *ocr) Create() (ocrkey.KeyV2, error) {
+func (ks *ocr) Create(ctx context.Context) (ocrkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -76,10 +73,10 @@ func (ks *ocr) Create() (ocrkey.KeyV2, error) {
 	if err != nil {
 		return ocrkey.KeyV2{}, err
 	}
-	return key, ks.safeAddKey(key)
+	return key, ks.safeAddKey(ctx, key)
 }
 
-func (ks *ocr) Add(key ocrkey.KeyV2) error {
+func (ks *ocr) Add(ctx context.Context, key ocrkey.KeyV2) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -88,10 +85,10 @@ func (ks *ocr) Add(key ocrkey.KeyV2) error {
 	if _, found := ks.keyRing.OCR[key.ID()]; found {
 		return fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return ks.safeAddKey(key)
+	return ks.safeAddKey(ctx, key)
 }
 
-func (ks *ocr) Delete(id string) (ocrkey.KeyV2, error) {
+func (ks *ocr) Delete(ctx context.Context, id string) (ocrkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -101,11 +98,11 @@ func (ks *ocr) Delete(id string) (ocrkey.KeyV2, error) {
 	if err != nil {
 		return ocrkey.KeyV2{}, err
 	}
-	err = ks.safeRemoveKey(key)
+	err = ks.safeRemoveKey(ctx, key)
 	return key, err
 }
 
-func (ks *ocr) Import(keyJSON []byte, password string) (ocrkey.KeyV2, error) {
+func (ks *ocr) Import(ctx context.Context, keyJSON []byte, password string) (ocrkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -118,7 +115,7 @@ func (ks *ocr) Import(keyJSON []byte, password string) (ocrkey.KeyV2, error) {
 	if _, found := ks.keyRing.OCR[key.ID()]; found {
 		return ocrkey.KeyV2{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.keyManager.safeAddKey(key)
+	return key, ks.keyManager.safeAddKey(ctx, key)
 }
 
 func (ks *ocr) Export(id string, password string) ([]byte, error) {
@@ -135,7 +132,7 @@ func (ks *ocr) Export(id string, password string) ([]byte, error) {
 }
 
 // EnsureKey verifies whether the OCR key has been seeded, if not, it creates it.
-func (ks *ocr) EnsureKey() error {
+func (ks *ocr) EnsureKey(ctx context.Context) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -153,22 +150,7 @@ func (ks *ocr) EnsureKey() error {
 
 	ks.logger.Infof("Created OCR key with ID %s", key.ID())
 
-	return ks.safeAddKey(key)
-}
-
-func (ks *ocr) GetV1KeysAsV2() (keys []ocrkey.KeyV2, _ error) {
-	v1Keys, err := ks.orm.GetEncryptedV1OCRKeys()
-	if err != nil {
-		return keys, err
-	}
-	for _, keyV1 := range v1Keys {
-		pk, err := keyV1.Decrypt(ks.password)
-		if err != nil {
-			return keys, err
-		}
-		keys = append(keys, pk.ToV2())
-	}
-	return keys, nil
+	return ks.safeAddKey(ctx, key)
 }
 
 func (ks *ocr) getByID(id string) (ocrkey.KeyV2, error) {

@@ -2,149 +2,76 @@ name: On Demand OCR Soak Test
 on:
   workflow_dispatch:
     inputs:
-      network:
-        description: Network to run tests on
+      testToRun:
+        description: Select a test to run from .github/e2e-tests.yml
+        required: true
+        default: soak/ocr_test.go:TestOCRv1Soak
         type: choice
         options:
-          - "SIMULATED"
-          - "GOERLI"
-          - "OPTIMISM_GOERLI"
-          - "ARBITRUM_GOERLI"
-      fundingPrivateKey:
-        description: Private funding key (Skip for Simulated)
+          - soak/ocr_test.go:TestOCRv1Soak
+          - soak/ocr_test.go:TestOCRv2Soak
+          - soak/ocr_test.go:TestForwarderOCRv1Soak
+          - soak/ocr_test.go:TestForwarderOCRv2Soak
+          - soak/ocr_test.go:TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled
+          - soak/ocr_test.go:TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled
+          - soak/ocr_test.go:TestOCRSoak_GasSpike
+          - soak/ocr_test.go:TestOCRSoak_ChangeBlockGasLimit
+          - soak/ocr_test.go:TestOCRSoak_RPCDownForAllCLNodes
+          - soak/ocr_test.go:TestOCRSoak_RPCDownForHalfCLNodes
+      test_config_override_path:
+        description: Path to a test config file used to override the default test config
         required: false
         type: string
-      wsURL:
-        description: WS URL for the network (Skip for Simulated)
+      test_secrets_override_key:
+        description: 'Key to run tests with custom test secrets'
         required: false
         type: string
-      httpURL:
-        description: HTTP URL for the network (Skip for Simulated)
-        required: false
+      chainlink_version:
+        description: Chainlink image version to use
+        default: develop
+        required: true
         type: string
       slackMemberID:
         description: Slack Member ID (Not your @)
         required: true
         default: U01A2B2C3D4
+      team:
+        description: Team to run the tests for (e.g. BIX, CCIP)
+        required: true
         type: string
-      chainlinkImage:
-        description: Container image location for the Chainlink nodes
-        required: true
-        default: public.ecr.aws/chainlink/chainlink
-      chainlinkVersion:
-        description: Container image version for the Chainlink nodes
-        required: true
-        default: "1.11.0"
-      testDuration:
-        description: Duration of the test (time string)
-        required: false
-        default: 15m
-      chainlinkNodeFunding:
-        description: How much to fund each Chainlink node (in ETH)
-        required: false
-        default: ".001"
-      timeBetweenRounds:
-        description: How long to wait before starting a new round
-        required: false
-        default: 1m
 
 jobs:
-  ocr_soak_test:
-    name: ${{ inputs.network }} OCR Soak Test
-    environment: integration
-    runs-on: ubuntu-latest
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    env:
-      CHAINLINK_COMMIT_SHA: ${{ inputs.chainlinkVersion }}
-      CHAINLINK_ENV_USER: ${{ github.actor }}
-      SELECTED_NETWORKS: ${{ inputs.network }}
+  run-e2e-tests-workflow:
+    name: Run E2E Tests
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639ad9c899df967dc44b86520db48e19c8abeaca
+    with:
+      test_path: .github/e2e-tests.yml
+      test_ids: ${{ inputs.testToRun}}
+      test_config_override_path: ${{ inputs.test_config_override_path }}
+      chainlink_version: ${{ inputs.chainlink_version }}
+      SLACK_USER: ${{ inputs.slackMemberID }}
+      team: ${{ inputs.team }}
+      test_secrets_override_key: ${{ inputs.test_secrets_override_key }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      TEST_SECRETS_OVERRIDE_BASE64: ${{ secrets[inputs.test_secrets_override_key] }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
-      OCR_TEST_DURATION: ${{ inputs.testDuration }}
-      OCR_CHAINLINK_NODE_FUNDING: ${{ inputs.chainlinkNodeFunding }}
-      OCR_TIME_BETWEEN_ROUNDS: ${{ inputs.timeBetweenRounds }}
-      TEST_LOG_LEVEL: debug
-      REF_NAME: ${{ github.head_ref || github.ref_name }}
-      ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
-    steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@v1
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: ${{ inputs.network }} OCR Soak Test
-        continue-on-error: true
-      - name: Get Inputs
-        run: |
-          EVM_URLS=$(jq -r '.inputs.wsURL' $GITHUB_EVENT_PATH)
-          EVM_HTTP_URLS=$(jq -r '.inputs.httpURL' $GITHUB_EVENT_PATH)
-          EVM_KEYS=$(jq -r '.inputs.fundingPrivateKey' $GITHUB_EVENT_PATH)
-          SLACK_USER=$(jq -r '.inputs.slackMemberID' $GITHUB_EVENT_PATH)
-
-          echo ::add-mask::$EVM_URLS
-          echo ::add-mask::$EVM_HTTP_URLS
-          echo ::add-mask::$EVM_KEYS
-          echo ::add-mask::$SLACK_USER
-
-          echo EVM_URLS=$EVM_URLS >> $GITHUB_ENV
-          echo EVM_HTTP_URLS=$EVM_HTTP_URLS >> $GITHUB_ENV
-          echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
-          echo SLACK_USER=$SLACK_USER >> $GITHUB_ENV
-      - name: Checkout the repo
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
-        with:
-          ref: ${{ env.REF_NAME }}
-      - name: Setup Push Tag
-        id: push
-        shell: bash
-        run: |
-          echo "### chainlink image used for this test run :link:" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ inputs.chainlinkVersion }}\`" >>$GITHUB_STEP_SUMMARY
-          echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
-          if [ "${{ env.REF_NAME }}" != "develop" ]; then
-            # use sha if not on develop
-            echo "tag=${{ env.ENV_JOB_IMAGE_BASE }}:soak.${{ github.sha }}" >>$GITHUB_OUTPUT
-            echo "\`soak.${{ github.sha }}\`" >>$GITHUB_STEP_SUMMARY
-          else
-            # default to develop
-            echo "tag=${{ env.ENV_JOB_IMAGE_BASE }}:develop" >>$GITHUB_OUTPUT
-            echo "\`develop\`" >>$GITHUB_STEP_SUMMARY
-          fi
-      - name: Build Test Runner
-        if: ${{ env.REF_NAME != 'develop' }}
-        uses: smartcontractkit/chainlink-github-actions/docker/build-push@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
-        with:
-          tags: ${{ steps.push.outputs.tag }}
-          file: ./integration-tests/test.Dockerfile
-          build-args: |
-            BASE_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/test-base-image
-            IMAGE_VERSION=v0.3.17
-            SUITES="soak"
-          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
-        env:
-          DETACH_RUNNER: true
-          TEST_SUITE: soak
-          TEST_ARGS: -test.timeout 900h -test.memprofile memprofile.out -test.cpuprofile profile.out
-          ENV_JOB_IMAGE: ${{ steps.push.outputs.tag }}
-          # We can comment these out when we have a stable soak test and aren't worried about resource consumption
-          TEST_UPLOAD_CPU_PROFILE: true
-          TEST_UPLOAD_MEM_PROFILE: true
-        with:
-          test_command_to_run: cd ./integration-tests && go test -v -count=1 -run ^TestOCRSoak$ ./soak
-          test_download_vendor_packages_command: make gomod
-          cl_repo: ${{ inputs.chainlinkImage }}
-          cl_image_tag: ${{ inputs.chainlinkVersion }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          should_cleanup: false
-          go_mod_path: ./integration-tests/go.mod
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
+      AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}

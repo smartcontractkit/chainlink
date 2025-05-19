@@ -1,0 +1,1123 @@
+scalar Time
+scalar Map
+scalar Bytes
+
+schema {
+    query: Query
+    mutation: Mutation
+}
+
+type Query {
+    bridge(id: ID!): BridgePayload!
+    bridges(offset: Int, limit: Int): BridgesPayload!
+    chain(id: ID!, network: String): ChainPayload!
+    chains(offset: Int, limit: Int): ChainsPayload!
+    configv2: ConfigV2Payload!
+    csaKeys: CSAKeysPayload!
+    ethKeys: EthKeysPayload!
+    ethTransaction(hash: ID!): EthTransactionPayload!
+    ethTransactions(offset: Int, limit: Int): EthTransactionsPayload!
+    ethTransactionsAttempts(offset: Int, limit: Int): EthTransactionAttemptsPayload!
+    features: FeaturesPayload!
+    feedsManager(id: ID!): FeedsManagerPayload!
+    feedsManagers: FeedsManagersPayload!
+    globalLogLevel: GlobalLogLevelPayload!
+    job(id: ID!): JobPayload!
+    jobs(offset: Int, limit: Int): JobsPayload!
+    jobProposal(id: ID!): JobProposalPayload!
+    jobRun(id: ID!): JobRunPayload!
+    jobRuns(offset: Int, limit: Int): JobRunsPayload!
+    node(id: ID!): NodePayload!
+    nodes(offset: Int, limit: Int): NodesPayload!
+    ocrKeyBundles: OCRKeyBundlesPayload!
+    ocr2KeyBundles: OCR2KeyBundlesPayload!
+    p2pKeys: P2PKeysPayload!
+    solanaKeys: SolanaKeysPayload!
+    aptosKeys: AptosKeysPayload!
+    cosmosKeys: CosmosKeysPayload!
+    starknetKeys: StarkNetKeysPayload!
+    tronKeys: TronKeysPayload!
+    sqlLogging: GetSQLLoggingPayload!
+    vrfKey(id: ID!): VRFKeyPayload!
+    vrfKeys: VRFKeysPayload!
+}
+
+type Mutation {
+    approveJobProposalSpec(id: ID!, force: Boolean): ApproveJobProposalSpecPayload!
+    cancelJobProposalSpec(id: ID!): CancelJobProposalSpecPayload!
+    createAPIToken(input: CreateAPITokenInput!): CreateAPITokenPayload!
+    createBridge(input: CreateBridgeInput!): CreateBridgePayload!
+    createCSAKey: CreateCSAKeyPayload!
+    createFeedsManager(input: CreateFeedsManagerInput!): CreateFeedsManagerPayload!
+    createFeedsManagerChainConfig(input: CreateFeedsManagerChainConfigInput!): CreateFeedsManagerChainConfigPayload!
+    createJob(input: CreateJobInput!): CreateJobPayload!
+    createOCRKeyBundle: CreateOCRKeyBundlePayload!
+    createOCR2KeyBundle(chainType: OCR2ChainType!): CreateOCR2KeyBundlePayload!
+    createP2PKey: CreateP2PKeyPayload!
+    deleteAPIToken(input: DeleteAPITokenInput!): DeleteAPITokenPayload!
+    deleteBridge(id: ID!): DeleteBridgePayload!
+    deleteCSAKey(id: ID!): DeleteCSAKeyPayload!
+    deleteFeedsManagerChainConfig(id: ID!): DeleteFeedsManagerChainConfigPayload!
+    deleteJob(id: ID!): DeleteJobPayload!
+    deleteOCRKeyBundle(id: ID!): DeleteOCRKeyBundlePayload!
+    deleteOCR2KeyBundle(id: ID!): DeleteOCR2KeyBundlePayload!
+    deleteP2PKey(id: ID!): DeleteP2PKeyPayload!
+    createVRFKey: CreateVRFKeyPayload!
+    deleteVRFKey(id: ID!): DeleteVRFKeyPayload!
+    dismissJobError(id: ID!): DismissJobErrorPayload!
+    rejectJobProposalSpec(id: ID!): RejectJobProposalSpecPayload!
+    runJob(id: ID!): RunJobPayload!
+    setGlobalLogLevel(level: LogLevel!): SetGlobalLogLevelPayload!
+    setSQLLogging(input: SetSQLLoggingInput!): SetSQLLoggingPayload!
+    updateBridge(id: ID!, input: UpdateBridgeInput!): UpdateBridgePayload!
+    updateFeedsManager(id: ID!, input: UpdateFeedsManagerInput!): UpdateFeedsManagerPayload!
+    enableFeedsManager(id: ID!): EnableFeedsManagerPayload!
+    disableFeedsManager(id: ID!): DisableFeedsManagerPayload!
+    updateFeedsManagerChainConfig(id: ID!, input: UpdateFeedsManagerChainConfigInput!): UpdateFeedsManagerChainConfigPayload!
+    updateJobProposalSpecDefinition(id: ID!, input: UpdateJobProposalSpecDefinitionInput!): UpdateJobProposalSpecDefinitionPayload!
+    updateUserPassword(input: UpdatePasswordInput!): UpdatePasswordPayload!
+}
+type APIToken {
+    accessKey: String!
+    secret: String!
+}
+
+input CreateAPITokenInput {
+    password: String!
+}
+
+type CreateAPITokenSuccess {
+    token: APIToken!
+}
+
+union CreateAPITokenPayload = CreateAPITokenSuccess | InputErrors
+
+input DeleteAPITokenInput {
+    password: String!
+}
+
+type DeleteAPITokenResult {
+    accessKey: String!
+}
+
+type DeleteAPITokenSuccess {
+    token: DeleteAPITokenResult!
+}
+
+union DeleteAPITokenPayload = DeleteAPITokenSuccess | InputErrors
+type AptosKey {
+	id: ID!
+	account: String!
+}
+
+type AptosKeysPayload {
+	results: [AptosKey!]!
+}
+type Bridge {
+    id: ID!
+    name: String!
+    url: String!
+    confirmations: Int!
+    outgoingToken: String!
+    minimumContractPayment: String!
+    createdAt: Time!
+}
+
+# BridgePayload defines the response to fetch a single bridge by name
+union BridgePayload = Bridge | NotFoundError
+
+# BridgesPayload defines the response when fetching a page of bridges
+type BridgesPayload implements PaginatedPayload {
+    results: [Bridge!]!
+    metadata: PaginationMetadata!
+}
+
+# CreateBridgeInput defines the input to create a bridge
+input CreateBridgeInput {
+    name: String!
+    url: String!
+    confirmations: Int!
+    minimumContractPayment: String!
+}
+
+# CreateBridgeSuccess defines the success response when creating a bridge
+type CreateBridgeSuccess {
+    bridge: Bridge!
+    incomingToken: String!
+}
+
+# CreateBridgeInput defines the response when creating a bridge
+union CreateBridgePayload = CreateBridgeSuccess
+
+# UpdateBridgeInput defines the input to update a bridge
+input UpdateBridgeInput {
+    name: String!
+    url: String!
+    confirmations: Int!
+    minimumContractPayment: String!
+}
+
+# UpdateBridgeSuccess defines the success response when updating a bridge
+type UpdateBridgeSuccess {
+    bridge: Bridge!
+}
+
+# CreateBridgeInput defines the response when updating a bridge
+union UpdateBridgePayload = UpdateBridgeSuccess | NotFoundError
+
+type DeleteBridgeSuccess {
+    bridge: Bridge!
+}
+
+type DeleteBridgeInvalidNameError implements Error {
+    code: ErrorCode!
+    message: String!
+}
+
+type DeleteBridgeConflictError implements Error {
+    code: ErrorCode!
+    message: String!
+}
+
+union DeleteBridgePayload = DeleteBridgeSuccess
+    | DeleteBridgeInvalidNameError
+    | DeleteBridgeConflictError
+    | NotFoundError
+type Chain {
+    id: ID!
+    enabled: Boolean!
+    config: String!
+    network: String!
+}
+
+union ChainPayload = Chain | NotFoundError
+
+type ChainsPayload implements PaginatedPayload {
+    results: [Chain!]!
+    metadata: PaginationMetadata!
+}
+type ConfigV2Payload {
+  user: String!
+  effective: String!
+}
+type CosmosKey {
+	id: ID!
+}
+
+type CosmosKeysPayload {
+	results: [CosmosKey!]!
+}
+type CSAKey {
+    id: ID!
+    publicKey: String!
+    version: Int!
+}
+
+type CSAKeysPayload {
+    results: [CSAKey!]!
+}
+
+type CreateCSAKeySuccess {
+    csaKey: CSAKey!
+}
+
+type CSAKeyExistsError implements Error {
+    message: String!
+    code: ErrorCode!
+}
+
+union CreateCSAKeyPayload = CreateCSAKeySuccess | CSAKeyExistsError
+
+type DeleteCSAKeySuccess {
+    csaKey: CSAKey!
+}
+
+union DeleteCSAKeyPayload = DeleteCSAKeySuccess | NotFoundError
+enum ErrorCode {
+	NOT_FOUND
+	INVALID_INPUT
+	UNPROCESSABLE
+}
+
+interface Error {
+	message: String!
+	code: ErrorCode!
+}
+
+type NotFoundError implements Error {
+	message: String!
+	code: ErrorCode!
+}
+
+type InputError implements Error {
+	message: String!
+	code: ErrorCode!
+	path: String!
+  }
+
+type InputErrors {
+	errors: [InputError!]!
+}
+type EthKey {
+    address: String!
+    isDisabled: Boolean!
+    createdAt: Time!
+    updatedAt: Time!
+    chain: Chain!
+    ethBalance: String
+    linkBalance: String
+    maxGasPriceWei: String
+}
+
+type EthKeysPayload {
+    results: [EthKey!]!
+}
+type EthTransaction {
+	state: String!
+	data: Bytes!
+	from: String!
+	to: String!
+	gasLimit: String!
+	value: String!
+	evmChainID: ID!
+	nonce: String
+	gasPrice: String!
+	hash: String!
+	hex: String!
+	sentAt: String
+	chain: Chain!
+	attempts: [EthTransactionAttempt!]!
+}
+
+union EthTransactionPayload = EthTransaction | NotFoundError
+
+type EthTransactionsPayload implements PaginatedPayload {
+    results: [EthTransaction!]!
+    metadata: PaginationMetadata!
+}
+type EthTransactionAttempt {
+	gasPrice: String!
+	hash: String!
+	hex: String!
+	sentAt: String
+}
+
+type EthTransactionAttemptsPayload implements PaginatedPayload {
+    results: [EthTransactionAttempt!]!
+    metadata: PaginationMetadata!
+}
+type Features {
+    csa: Boolean!
+    feedsManager: Boolean!
+    multiFeedsManagers: Boolean!
+}
+
+# FeaturesPayload defines the response of fetching the features availability in the UI
+union FeaturesPayload = Features
+enum JobType {
+	FLUX_MONITOR
+	OCR
+	OCR2
+}
+
+type Plugins {
+	commit: Boolean!
+	execute: Boolean!
+	median: Boolean!
+	mercury: Boolean!
+	rebalancer: Boolean!
+}
+
+type FeedsManager {
+	id: ID!
+	name: String!
+	uri: String!
+	publicKey: String!
+	jobProposals: [JobProposal!]!
+	isConnectionActive: Boolean!
+	createdAt: Time!
+	disabledAt: Time
+	chainConfigs: [FeedsManagerChainConfig!]!
+}
+
+type FeedsManagerChainConfig {
+	id: ID!
+	chainID: String!
+	chainType: String!
+	accountAddr: String!
+	accountAddrPubKey: String
+	adminAddr: String!
+	fluxMonitorJobConfig: FluxMonitorJobConfig!
+	ocr1JobConfig: OCR1JobConfig!
+	ocr2JobConfig: OCR2JobConfig!
+}
+
+type FluxMonitorJobConfig {
+	enabled: Boolean!
+}
+
+type OCR1JobConfig {
+	enabled: Boolean!
+	isBootstrap: Boolean!
+	multiaddr: String
+	p2pPeerID: String
+	keyBundleID: String
+}
+
+type OCR2JobConfig {
+	enabled: Boolean!
+	isBootstrap: Boolean!
+	multiaddr: String
+	forwarderAddress: String
+	p2pPeerID: String
+	keyBundleID: String
+	plugins: Plugins!
+}
+
+# FeedsManagerPayload defines the response to fetch a single feeds manager by id
+union FeedsManagerPayload = FeedsManager | NotFoundError
+
+# FeedsManagersPayload defines the response when fetching feeds managers
+type FeedsManagersPayload {
+    results: [FeedsManager!]!
+}
+
+input CreateFeedsManagerInput {
+	name: String!
+	uri: String!
+	publicKey: String!
+}
+
+# CreateFeedsManagerSuccess defines the success response when creating a feeds
+# manager
+type CreateFeedsManagerSuccess {
+    feedsManager: FeedsManager!
+}
+
+type DuplicateFeedsManagerError implements Error {
+	message: String!
+	code: ErrorCode!
+}
+
+# DEPRECATED: No longer used since we now support multiple feeds manager.
+# Keeping this to avoid breaking change.
+type SingleFeedsManagerError implements Error {
+	message: String!
+	code: ErrorCode!
+}
+
+# CreateFeedsManagerPayload defines the response when creating a feeds manager
+union CreateFeedsManagerPayload = CreateFeedsManagerSuccess
+	| DuplicateFeedsManagerError
+	| SingleFeedsManagerError # // TODO: delete once multiple feeds managers support is released
+	| NotFoundError
+	| InputErrors
+
+input UpdateFeedsManagerInput {
+	name: String!
+	uri: String!
+	publicKey: String!
+}
+
+# UpdateFeedsManagerSuccess defines the success response when updating a feeds
+# manager
+type UpdateFeedsManagerSuccess {
+    feedsManager: FeedsManager!
+}
+
+# UpdateFeedsManagerPayload defines the response when updating a feeds manager
+union UpdateFeedsManagerPayload = UpdateFeedsManagerSuccess
+	| NotFoundError
+	| InputErrors
+
+input CreateFeedsManagerChainConfigInput {
+	feedsManagerID: ID!
+	chainID: String!
+	chainType: String!
+	accountAddr: String!
+	accountAddrPubKey: String
+	adminAddr: String!
+	fluxMonitorEnabled: Boolean!
+	ocr1Enabled: Boolean!
+	ocr1IsBootstrap: Boolean
+	ocr1Multiaddr: String
+	ocr1P2PPeerID: String
+	ocr1KeyBundleID: String
+	ocr2Enabled: Boolean!
+	ocr2IsBootstrap: Boolean
+	ocr2Multiaddr: String
+	ocr2ForwarderAddress: String
+	ocr2P2PPeerID: String
+	ocr2KeyBundleID: String
+	ocr2Plugins: String!
+}
+
+# CreateFeedsManagerChainConfigSuccess defines the success response when
+# creating a chain config for a feeds manager.
+type CreateFeedsManagerChainConfigSuccess {
+    chainConfig: FeedsManagerChainConfig!
+}
+
+# CreateFeedsManagerChainConfigPayload defines the response when creating a
+# feeds manager chain config.
+union CreateFeedsManagerChainConfigPayload = CreateFeedsManagerChainConfigSuccess
+	| NotFoundError
+	| InputErrors
+
+# DeleteFeedsManagerChainConfigSuccess defines the success response when
+# deleting a chain config for a feeds manager.
+type DeleteFeedsManagerChainConfigSuccess {
+    chainConfig: FeedsManagerChainConfig!
+}
+
+# DeleteFeedsManagerChainConfigPayload defines the response when creating a
+# feeds manager chain config.
+union DeleteFeedsManagerChainConfigPayload = DeleteFeedsManagerChainConfigSuccess
+	| NotFoundError
+
+input UpdateFeedsManagerChainConfigInput {
+	accountAddr: String!
+	accountAddrPubKey: String
+	adminAddr: String!
+	fluxMonitorEnabled: Boolean!
+	ocr1Enabled: Boolean!
+	ocr1IsBootstrap: Boolean
+	ocr1Multiaddr: String
+	ocr1P2PPeerID: String
+	ocr1KeyBundleID: String
+	ocr2Enabled: Boolean!
+	ocr2IsBootstrap: Boolean
+	ocr2Multiaddr: String
+	ocr2ForwarderAddress: String
+	ocr2P2PPeerID: String
+	ocr2KeyBundleID: String
+	ocr2Plugins: String!
+}
+
+# UpdateFeedsManagerChainConfigSuccess defines the success response when
+# updating a chain config for a feeds manager.
+type UpdateFeedsManagerChainConfigSuccess {
+    chainConfig: FeedsManagerChainConfig!
+}
+
+# UpdateFeedsManagerChainConfigPayload defines the response when updating a
+# feeds manager chain config.
+union UpdateFeedsManagerChainConfigPayload = UpdateFeedsManagerChainConfigSuccess
+	| NotFoundError
+	| InputErrors
+
+type EnableFeedsManagerSuccess {
+    feedsManager: FeedsManager!
+}
+
+union EnableFeedsManagerPayload = EnableFeedsManagerSuccess
+	| NotFoundError
+
+type DisableFeedsManagerSuccess {
+    feedsManager: FeedsManager!
+}
+
+union DisableFeedsManagerPayload = DisableFeedsManagerSuccess
+	| NotFoundError
+type Job {
+    id: ID!
+    name: String!
+    schemaVersion: Int!
+    gasLimit: Int
+    forwardingAllowed: Boolean
+    maxTaskDuration: String!
+    externalJobID: String!
+    type: String!
+    spec: JobSpec!
+    runs(offset: Int, limit: Int): JobRunsPayload!
+    observationSource: String!
+    errors: [JobError!]!
+    createdAt: Time!
+}
+
+# JobsPayload defines the response when fetching a page of jobs
+type JobsPayload implements PaginatedPayload {
+    results: [Job!]!
+    metadata: PaginationMetadata!
+}
+
+# JobPayload defines the response when a job
+union JobPayload = Job | NotFoundError
+
+input CreateJobInput {
+    TOML: String!
+}
+
+type CreateJobSuccess {
+    job: Job!
+}
+
+union CreateJobPayload = CreateJobSuccess | InputErrors
+
+type DeleteJobSuccess {
+    job: Job!
+}
+
+union DeleteJobPayload = DeleteJobSuccess | NotFoundError
+type JobError {
+    id: ID!
+	description: String!
+	occurrences: Int!
+	createdAt: Time!
+	updatedAt: Time!
+}
+
+type DismissJobErrorSuccess {
+	jobError: JobError!
+}
+
+union DismissJobErrorPayload = DismissJobErrorSuccess | NotFoundError
+enum JobProposalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  DELETED
+  REVOKED
+}
+
+type JobProposal {
+  id: ID!
+  name: String
+  status: JobProposalStatus!
+  remoteUUID: String!
+  externalJobID: String
+  jobID: String
+  feedsManager: FeedsManager!
+  multiAddrs: [String!]!
+  pendingUpdate: Boolean!
+  specs: [JobProposalSpec!]!
+  latestSpec: JobProposalSpec!
+}
+
+union JobProposalPayload = JobProposal | NotFoundError
+enum SpecStatus {
+    UNKNOWN
+    PENDING
+    APPROVED
+    REJECTED
+    CANCELLED
+    REVOKED
+}
+
+type JobProposalSpec {
+    id: ID!
+    definition: String!
+    version: Int!
+    status: SpecStatus!
+    statusUpdatedAt: Time!
+    createdAt: Time!
+    updatedAt: Time!
+}
+
+type JobAlreadyExistsError implements Error {
+    message: String!
+    code: ErrorCode!
+}
+
+
+# ApproveJobProposalSpec
+
+type ApproveJobProposalSpecSuccess {
+    spec: JobProposalSpec!
+}
+
+union ApproveJobProposalSpecPayload = ApproveJobProposalSpecSuccess | NotFoundError | JobAlreadyExistsError
+
+# CancelJobProposalSpec
+
+type CancelJobProposalSpecSuccess {
+    spec: JobProposalSpec!
+}
+
+union CancelJobProposalSpecPayload = CancelJobProposalSpecSuccess | NotFoundError
+
+
+# RejectJobProposalSpec
+
+type RejectJobProposalSpecSuccess {
+    spec: JobProposalSpec!
+}
+
+union RejectJobProposalSpecPayload = RejectJobProposalSpecSuccess | NotFoundError
+
+# UpdateJobProposalSpec
+
+input UpdateJobProposalSpecDefinitionInput {
+    definition: String!
+}
+
+type UpdateJobProposalSpecDefinitionSuccess {
+    spec: JobProposalSpec!
+}
+
+union UpdateJobProposalSpecDefinitionPayload = UpdateJobProposalSpecDefinitionSuccess | NotFoundError
+enum JobRunStatus {
+    UNKNOWN
+    RUNNING
+    SUSPENDED
+    ERRORED
+    COMPLETED
+}
+
+type JobRun {
+    id: ID!
+    outputs: [String]!
+    allErrors: [String!]!
+    fatalErrors: [String!]!
+    inputs: String!
+    createdAt: Time!
+    finishedAt: Time
+    taskRuns: [TaskRun!]!
+    status: JobRunStatus!
+    job: Job!
+}
+
+# JobRunsPayload defines the response when fetching a page of runs
+type JobRunsPayload implements PaginatedPayload {
+    results: [JobRun!]!
+    metadata: PaginationMetadata!
+}
+
+union JobRunPayload = JobRun | NotFoundError
+
+type RunJobSuccess {
+    jobRun: JobRun!
+}
+
+type RunJobCannotRunError implements Error {
+	message: String!
+	code: ErrorCode!
+}
+
+union RunJobPayload = RunJobSuccess | NotFoundError | RunJobCannotRunError
+enum LogLevel {
+    DEBUG
+    INFO
+    WARN
+    ERROR
+}
+
+type GlobalLogLevel {
+    level: LogLevel!
+}
+
+union GlobalLogLevelPayload = GlobalLogLevel
+
+type LogLevelConfig {
+    keeper: LogLevel
+    headTracker: LogLevel
+    fluxMonitor: LogLevel
+}
+
+input LogLevelConfigInput {
+    keeper: LogLevel
+    headTracker: LogLevel
+    fluxMonitor: LogLevel
+}
+
+input SetServicesLogLevelsInput {
+   config: LogLevelConfigInput!
+}
+
+type SetServicesLogLevelsSuccess {
+    config: LogLevelConfig!
+}
+
+union SetServicesLogLevelsPayload = SetServicesLogLevelsSuccess | InputErrors
+
+type SQLLogging {
+    enabled: Boolean!
+}
+
+input SetSQLLoggingInput {
+    enabled: Boolean!
+}
+
+type SetSQLLoggingSuccess {
+    sqlLogging: SQLLogging!
+}
+
+union SetSQLLoggingPayload = SetSQLLoggingSuccess
+
+union GetSQLLoggingPayload = SQLLogging
+
+type SetGlobalLogLevelSuccess {
+    globalLogLevel: GlobalLogLevel!
+}
+
+union SetGlobalLogLevelPayload = SetGlobalLogLevelSuccess | InputErrors
+type Node {
+    id: ID!
+    name: String!
+    wsURL: String!
+    httpURL: String!
+    chain: Chain!
+    state: String!
+    sendOnly: Boolean!
+    order: Int
+}
+
+union NodePayload = Node | NotFoundError
+
+type NodesPayload implements PaginatedPayload {
+    results: [Node!]!
+    metadata: PaginationMetadata!
+}
+type OCRKeyBundle {
+    id: ID!
+    configPublicKey: String!
+    offChainPublicKey: String!
+    onChainSigningAddress: String!
+}
+
+type OCRKeyBundlesPayload {
+    results: [OCRKeyBundle!]!
+}
+
+type CreateOCRKeyBundleSuccess {
+    bundle: OCRKeyBundle!
+}
+
+union CreateOCRKeyBundlePayload = CreateOCRKeyBundleSuccess
+
+type DeleteOCRKeyBundleSuccess {
+    bundle: OCRKeyBundle!
+}
+
+union DeleteOCRKeyBundlePayload = DeleteOCRKeyBundleSuccess | NotFoundError
+enum OCR2ChainType {
+    EVM
+    COSMOS
+    SOLANA
+    STARKNET
+    APTOS
+    TRON
+}
+
+type OCR2KeyBundle {
+	id: ID!
+	chainType: OCR2ChainType
+	configPublicKey: String!
+	onChainPublicKey: String!
+	offChainPublicKey: String!
+}
+
+type OCR2KeyBundlesPayload {
+    results: [OCR2KeyBundle!]!
+}
+
+type CreateOCR2KeyBundleSuccess {
+    bundle: OCR2KeyBundle!
+}
+
+union CreateOCR2KeyBundlePayload = CreateOCR2KeyBundleSuccess
+
+type DeleteOCR2KeyBundleSuccess {
+    bundle: OCR2KeyBundle!
+}
+
+union DeleteOCR2KeyBundlePayload = DeleteOCR2KeyBundleSuccess | NotFoundError
+type P2PKey {
+    id: ID!
+    peerID: String!
+    publicKey: String!
+}
+
+type P2PKeysPayload {
+    results: [P2PKey!]!
+}
+
+type CreateP2PKeySuccess {
+    p2pKey: P2PKey!
+}
+
+union CreateP2PKeyPayload = CreateP2PKeySuccess
+
+
+type DeleteP2PKeySuccess {
+    p2pKey: P2PKey!
+}
+
+union DeleteP2PKeyPayload = DeleteP2PKeySuccess | NotFoundError
+type PaginationMetadata {
+    total: Int!
+}
+
+interface PaginatedPayload {
+    metadata: PaginationMetadata!
+}
+type SolanaKey {
+	id: ID!
+}
+
+type SolanaKeysPayload {
+	results: [SolanaKey!]!
+}
+union JobSpec =
+    CronSpec |
+    DirectRequestSpec |
+    KeeperSpec |
+    FluxMonitorSpec |
+    OCRSpec |
+    OCR2Spec |
+    VRFSpec |
+    WebhookSpec |
+    BlockhashStoreSpec |
+    BlockHeaderFeederSpec |
+    BootstrapSpec |
+    GatewaySpec |
+    WorkflowSpec |
+    StandardCapabilitiesSpec |
+    StreamSpec |
+    CCIPSpec
+
+type CronSpec {
+    schedule: String!
+    evmChainID: String
+    createdAt: Time!
+}
+
+type DirectRequestSpec {
+    contractAddress: String!
+    createdAt: Time!
+    evmChainID: String
+    minIncomingConfirmations: Int!
+    minContractPaymentLinkJuels: String!
+    requesters: [String!]
+}
+
+type FluxMonitorSpec {
+    absoluteThreshold: Float!
+    contractAddress: String!
+    createdAt: Time!
+    drumbeatEnabled: Boolean!
+    drumbeatRandomDelay: String
+    drumbeatSchedule: String
+    evmChainID: String
+    idleTimerDisabled: Boolean!
+    idleTimerPeriod: String!
+    minPayment: String
+    pollTimerDisabled: Boolean!
+    pollTimerPeriod: String!
+    threshold: Float!
+}
+
+type KeeperSpec {
+    contractAddress: String!
+    createdAt: Time!
+    evmChainID: String
+    fromAddress: String
+}
+
+type OCRSpec {
+    blockchainTimeout: String
+    contractAddress: String!
+    contractConfigConfirmations: Int
+    contractConfigTrackerPollInterval: String
+    contractConfigTrackerSubscribeInterval: String
+    createdAt: Time!
+    evmChainID: String
+    isBootstrapPeer: Boolean!
+    keyBundleID: String
+    observationTimeout: String
+    p2pv2Bootstrappers: [String!]
+    transmitterAddress: String
+    databaseTimeout: String!
+    observationGracePeriod: String!
+    contractTransmitterTransmitTimeout: String!
+}
+
+type OCR2Spec {
+    blockchainTimeout: String
+    contractID: String!
+    contractConfigConfirmations: Int
+    contractConfigTrackerPollInterval: String
+    createdAt: Time!
+    ocrKeyBundleID: String
+    monitoringEndpoint: String
+    p2pv2Bootstrappers: [String!]
+    relay: String!
+    relayConfig: Map!
+    onchainSigningStrategy: Map!
+    transmitterID: String
+    pluginType: String!
+    pluginConfig: Map!
+    feedID: String
+    allowNoBootstrappers: Boolean!
+}
+
+type VRFSpec {
+    coordinatorAddress: String!
+    createdAt: Time!
+    evmChainID: String
+    fromAddresses: [String!]
+    minIncomingConfirmations: Int!
+    pollPeriod: String!
+    publicKey: String!
+    requestedConfsDelay: Int!
+    requestTimeout: String!
+    batchCoordinatorAddress: String
+    batchFulfillmentEnabled: Boolean!
+    batchFulfillmentGasMultiplier: Float!
+    customRevertsPipelineEnabled: Boolean
+    chunkSize: Int!
+    backoffInitialDelay: String!
+    backoffMaxDelay: String!
+    gasLanePrice: String
+    vrfOwnerAddress: String
+}
+
+type WebhookSpec {
+    createdAt: Time!
+}
+
+type BlockhashStoreSpec {
+    coordinatorV1Address: String
+    coordinatorV2Address: String
+    coordinatorV2PlusAddress: String
+    waitBlocks: Int!
+    lookbackBlocks: Int!
+    blockhashStoreAddress: String!
+    trustedBlockhashStoreAddress: String
+    trustedBlockhashStoreBatchSize: Int!
+    heartbeatPeriod: String!
+    pollPeriod: String!
+    runTimeout: String!
+    evmChainID: String
+    fromAddresses: [String!]
+    createdAt: Time!
+}
+
+type BlockHeaderFeederSpec {
+    coordinatorV1Address: String
+    coordinatorV2Address: String
+    coordinatorV2PlusAddress: String
+    waitBlocks: Int!
+    lookbackBlocks: Int!
+    blockhashStoreAddress: String!
+    batchBlockhashStoreAddress: String!
+    pollPeriod: String!
+    runTimeout: String!
+    evmChainID: String
+    getBlockhashesBatchSize: Int!
+    storeBlockhashesBatchSize: Int!
+    fromAddresses: [String!]
+    createdAt: Time!
+}
+
+type BootstrapSpec {
+    id: ID!
+    contractID: String!
+    relay: String!
+    relayConfig: Map!
+    monitoringEndpoint: String
+    blockchainTimeout: String
+    contractConfigTrackerPollInterval: String
+    contractConfigConfirmations: Int
+    createdAt: Time!
+}
+
+type GatewaySpec {
+    id: ID!
+    gatewayConfig: Map!
+    createdAt: Time!
+}
+
+type WorkflowSpec {
+    id: ID!
+    workflowID: String!
+    workflow: String!
+    workflowOwner: String!
+    createdAt: Time!
+    updatedAt: Time!
+}
+
+type StandardCapabilitiesSpec {
+    id: ID!
+    createdAt: Time!
+    command: String!
+    config: String
+}
+
+type StreamSpec {
+    streamID: String
+}
+
+type CCIPSpec {
+    createdAt: Time!
+    updatedAt: Time!
+    capabilityVersion: String!
+    capabilityLabelledName: String!
+    ocrKeyBundleIDs: Map!
+    p2pKeyID: String!
+}
+type StarkNetKey {
+	id: ID!
+}
+
+type StarkNetKeysPayload {
+	results: [StarkNetKey!]!
+}
+type TaskRun {
+    id: ID!
+    dotID: String!
+    type: String!
+    output: String!
+    error: String
+    createdAt: Time!
+    finishedAt: Time
+}
+type TronKey {
+	id: ID!
+}
+
+type TronKeysPayload {
+	results: [TronKey!]!
+}
+type User {
+    email: String!
+    createdAt: Time!
+}
+
+input UpdatePasswordInput {
+    oldPassword: String!
+    newPassword: String!
+}
+
+type UpdatePasswordSuccess {
+    user: User!
+}
+
+union UpdatePasswordPayload = UpdatePasswordSuccess | InputErrors
+type VRFKey {
+    id: ID!
+    compressed: String!
+    uncompressed: String!
+    hash: String!
+}
+
+type VRFKeySuccess {
+    key: VRFKey!
+}
+
+union VRFKeyPayload = VRFKeySuccess | NotFoundError
+
+type VRFKeysPayload {
+    results: [VRFKey!]!
+}
+
+type CreateVRFKeyPayload {
+    key: VRFKey!
+}
+
+type DeleteVRFKeySuccess {
+    key: VRFKey!
+}
+
+union DeleteVRFKeyPayload = DeleteVRFKeySuccess | NotFoundError

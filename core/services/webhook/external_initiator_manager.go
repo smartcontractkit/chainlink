@@ -2,58 +2,52 @@ package webhook
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/sqlx"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-//go:generate mockery --quiet --name ExternalInitiatorManager --output ./mocks/ --case=underscore
-
 // ExternalInitiatorManager manages HTTP requests to remote external initiators
 type ExternalInitiatorManager interface {
-	Notify(webhookSpecID int32) error
-	DeleteJob(webhookSpecID int32) error
-	FindExternalInitiatorByName(name string) (bridges.ExternalInitiator, error)
+	Notify(ctx context.Context, webhookSpecID int32) error
+	DeleteJob(ctx context.Context, webhookSpecID int32) error
+	FindExternalInitiatorByName(ctx context.Context, name string) (bridges.ExternalInitiator, error)
 }
 
-//go:generate mockery --quiet --name HTTPClient --output ./mocks/ --case=underscore
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
 type externalInitiatorManager struct {
-	q          pg.Q
+	ds         sqlutil.DataSource
 	httpclient HTTPClient
 }
 
 var _ ExternalInitiatorManager = (*externalInitiatorManager)(nil)
 
 // NewExternalInitiatorManager returns the concrete externalInitiatorManager
-func NewExternalInitiatorManager(db *sqlx.DB, httpclient HTTPClient, lggr logger.Logger, cfg pg.QConfig) *externalInitiatorManager {
-	namedLogger := lggr.Named("ExternalInitiatorManager")
+func NewExternalInitiatorManager(ds sqlutil.DataSource, httpclient HTTPClient) *externalInitiatorManager {
 	return &externalInitiatorManager{
-		q:          pg.NewQ(db, namedLogger, cfg),
+		ds:         ds,
 		httpclient: httpclient,
 	}
 }
 
 // Notify sends a POST notification to the External Initiator
 // responsible for initiating the Job Spec.
-func (m externalInitiatorManager) Notify(webhookSpecID int32) error {
-	eiWebhookSpecs, jobID, err := m.Load(webhookSpecID)
+func (m *externalInitiatorManager) Notify(ctx context.Context, webhookSpecID int32) error {
+	eiWebhookSpecs, jobID, err := m.Load(ctx, webhookSpecID)
 	if err != nil {
 		return err
 	}
@@ -71,7 +65,7 @@ func (m externalInitiatorManager) Notify(webhookSpecID int32) error {
 		if err != nil {
 			return errors.Wrap(err, "new Job Spec notification")
 		}
-		req, err := newNotifyHTTPRequest(buf, ei)
+		req, err := newNotifyHTTPRequest(ctx, buf, ei)
 		if err != nil {
 			return errors.Wrap(err, "creating notify HTTP request")
 		}
@@ -89,19 +83,21 @@ func (m externalInitiatorManager) Notify(webhookSpecID int32) error {
 	return nil
 }
 
-func (m externalInitiatorManager) Load(webhookSpecID int32) (eiWebhookSpecs []job.ExternalInitiatorWebhookSpec, jobID uuid.UUID, err error) {
-	err = m.q.Transaction(func(tx pg.Queryer) error {
-		if err = tx.Get(&jobID, "SELECT external_job_id FROM jobs WHERE webhook_spec_id = $1", webhookSpecID); err != nil {
+func (m *externalInitiatorManager) Load(ctx context.Context, webhookSpecID int32) (eiWebhookSpecs []job.ExternalInitiatorWebhookSpec, jobID uuid.UUID, err error) {
+	err = sqlutil.Transact(ctx, func(ds sqlutil.DataSource) *externalInitiatorManager {
+		return NewExternalInitiatorManager(ds, m.httpclient)
+	}, m.ds, nil, func(tx *externalInitiatorManager) error {
+		if err = tx.ds.GetContext(ctx, &jobID, "SELECT external_job_id FROM jobs WHERE webhook_spec_id = $1", webhookSpecID); err != nil {
 			if err = errors.Wrapf(err, "failed to load job ID from job for webhook spec with ID %d", webhookSpecID); err != nil {
 				return err
 			}
 		}
-		if err = tx.Select(&eiWebhookSpecs, "SELECT * FROM external_initiator_webhook_specs WHERE external_initiator_webhook_specs.webhook_spec_id = $1", webhookSpecID); err != nil {
+		if err = tx.ds.SelectContext(ctx, &eiWebhookSpecs, "SELECT * FROM external_initiator_webhook_specs WHERE external_initiator_webhook_specs.webhook_spec_id = $1", webhookSpecID); err != nil {
 			if err = errors.Wrapf(err, "failed to load external_initiator_webhook_specs for webhook_spec_id %d", webhookSpecID); err != nil {
 				return err
 			}
 		}
-		if err = m.eagerLoadExternalInitiator(tx, eiWebhookSpecs); err != nil {
+		if err = tx.eagerLoadExternalInitiator(ctx, eiWebhookSpecs); err != nil {
 			if err = errors.Wrapf(err, "failed to preload ExternalInitiator for webhook_spec_id %d", webhookSpecID); err != nil {
 				return err
 			}
@@ -112,7 +108,7 @@ func (m externalInitiatorManager) Load(webhookSpecID int32) (eiWebhookSpecs []jo
 	return
 }
 
-func (m externalInitiatorManager) eagerLoadExternalInitiator(q pg.Queryer, txs []job.ExternalInitiatorWebhookSpec) error {
+func (m *externalInitiatorManager) eagerLoadExternalInitiator(ctx context.Context, txs []job.ExternalInitiatorWebhookSpec) error {
 	var ids []int64
 	for _, tx := range txs {
 		ids = append(ids, tx.ExternalInitiatorID)
@@ -121,7 +117,7 @@ func (m externalInitiatorManager) eagerLoadExternalInitiator(q pg.Queryer, txs [
 		return nil
 	}
 	var externalInitiators []bridges.ExternalInitiator
-	if err := sqlx.Select(q, &externalInitiators, `SELECT * FROM external_initiators WHERE external_initiators.id = ANY($1);`, pq.Array(ids)); err != nil {
+	if err := m.ds.SelectContext(ctx, &externalInitiators, `SELECT * FROM external_initiators WHERE external_initiators.id = ANY($1);`, pq.Array(ids)); err != nil {
 		return err
 	}
 
@@ -136,8 +132,8 @@ func (m externalInitiatorManager) eagerLoadExternalInitiator(q pg.Queryer, txs [
 	return nil
 }
 
-func (m externalInitiatorManager) DeleteJob(webhookSpecID int32) error {
-	eiWebhookSpecs, jobID, err := m.Load(webhookSpecID)
+func (m *externalInitiatorManager) DeleteJob(ctx context.Context, webhookSpecID int32) error {
+	eiWebhookSpecs, jobID, err := m.Load(ctx, webhookSpecID)
 	if err != nil {
 		return err
 	}
@@ -147,7 +143,7 @@ func (m externalInitiatorManager) DeleteJob(webhookSpecID int32) error {
 			continue
 		}
 
-		req, err := newDeleteJobFromExternalInitiatorHTTPRequest(ei, jobID)
+		req, err := newDeleteJobFromExternalInitiatorHTTPRequest(ctx, ei, jobID)
 		if err != nil {
 			return errors.Wrap(err, "creating delete HTTP request")
 		}
@@ -165,9 +161,9 @@ func (m externalInitiatorManager) DeleteJob(webhookSpecID int32) error {
 	return nil
 }
 
-func (m externalInitiatorManager) FindExternalInitiatorByName(name string) (bridges.ExternalInitiator, error) {
+func (m *externalInitiatorManager) FindExternalInitiatorByName(ctx context.Context, name string) (bridges.ExternalInitiator, error) {
 	var exi bridges.ExternalInitiator
-	err := m.q.Get(&exi, "SELECT * FROM external_initiators WHERE lower(external_initiators.name) = lower($1)", name)
+	err := m.ds.GetContext(ctx, &exi, "SELECT * FROM external_initiators WHERE lower(external_initiators.name) = lower($1)", name)
 	return exi, err
 }
 
@@ -178,8 +174,8 @@ type JobSpecNotice struct {
 	Params models.JSON `json:"params,omitempty"`
 }
 
-func newNotifyHTTPRequest(buf []byte, ei bridges.ExternalInitiator) (*http.Request, error) {
-	req, err := http.NewRequest(http.MethodPost, ei.URL.String(), bytes.NewBuffer(buf))
+func newNotifyHTTPRequest(ctx context.Context, buf []byte, ei bridges.ExternalInitiator) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ei.URL.String(), bytes.NewBuffer(buf))
 	if err != nil {
 		return nil, err
 	}
@@ -187,10 +183,10 @@ func newNotifyHTTPRequest(buf []byte, ei bridges.ExternalInitiator) (*http.Reque
 	return req, nil
 }
 
-func newDeleteJobFromExternalInitiatorHTTPRequest(ei bridges.ExternalInitiator, jobID uuid.UUID) (*http.Request, error) {
+func newDeleteJobFromExternalInitiatorHTTPRequest(ctx context.Context, ei bridges.ExternalInitiator, jobID uuid.UUID) (*http.Request, error) {
 	url := fmt.Sprintf("%s/%s", ei.URL.String(), jobID)
 
-	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -208,8 +204,8 @@ type NullExternalInitiatorManager struct{}
 
 var _ ExternalInitiatorManager = (*NullExternalInitiatorManager)(nil)
 
-func (NullExternalInitiatorManager) Notify(int32) error    { return nil }
-func (NullExternalInitiatorManager) DeleteJob(int32) error { return nil }
-func (NullExternalInitiatorManager) FindExternalInitiatorByName(name string) (bridges.ExternalInitiator, error) {
+func (NullExternalInitiatorManager) Notify(context.Context, int32) error    { return nil }
+func (NullExternalInitiatorManager) DeleteJob(context.Context, int32) error { return nil }
+func (NullExternalInitiatorManager) FindExternalInitiatorByName(ctx context.Context, name string) (bridges.ExternalInitiator, error) {
 	return bridges.ExternalInitiator{}, nil
 }

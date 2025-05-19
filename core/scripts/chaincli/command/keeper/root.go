@@ -13,11 +13,15 @@ var RootCmd = &cobra.Command{
 
 func init() {
 	RootCmd.AddCommand(deployCmd)
+	RootCmd.AddCommand(debugCmd)
 	RootCmd.AddCommand(jobCmd)
+	RootCmd.AddCommand(logsCmd)
 	RootCmd.AddCommand(registryCmd)
 	RootCmd.AddCommand(launchAndTestCmd)
 	RootCmd.AddCommand(upkeepEventsCmd)
 	RootCmd.AddCommand(upkeepHistoryCmd)
 	RootCmd.AddCommand(ocr2UpkeepReportHistoryCmd)
 	RootCmd.AddCommand(ocr2UpdateConfigCmd)
+	RootCmd.AddCommand(scrapeNodes)
+	RootCmd.AddCommand(verifiableLoad)
 }

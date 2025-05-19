@@ -43,6 +43,11 @@ func (r *FeedsManagerChainConfigResolver) AccountAddr() string {
 	return r.cfg.AccountAddress
 }
 
+// AccountAddrPubKey resolves the chain configs's account address public key.
+func (r *FeedsManagerChainConfigResolver) AccountAddrPubKey() *string {
+	return r.cfg.AccountAddressPublicKey.Ptr()
+}
+
 // AdminAddr resolves the chain configs's admin address.
 func (r *FeedsManagerChainConfigResolver) AdminAddr() string {
 	return r.cfg.AdminAddress
@@ -96,7 +101,7 @@ func (r *OCR1JobConfigResolver) KeyBundleID() *string {
 }
 
 type OCR2JobConfigResolver struct {
-	cfg feeds.OCR2Config
+	cfg feeds.OCR2ConfigModel
 }
 
 func (r *OCR2JobConfigResolver) Enabled() bool {
@@ -109,6 +114,10 @@ func (r *OCR2JobConfigResolver) IsBootstrap() bool {
 
 func (r *OCR2JobConfigResolver) Multiaddr() *string {
 	return r.cfg.Multiaddr.Ptr()
+}
+
+func (r *OCR2JobConfigResolver) ForwarderAddress() *string {
+	return r.cfg.ForwarderAddress.Ptr()
 }
 
 func (r *OCR2JobConfigResolver) P2PPeerID() *string {

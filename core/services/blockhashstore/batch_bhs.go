@@ -9,16 +9,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 )
 
 type batchBHSConfig interface {
-	EvmGasLimitDefault() uint32
+	LimitDefault() uint64
 }
 
 type BatchBlockhashStore struct {
@@ -26,17 +23,12 @@ type BatchBlockhashStore struct {
 	txm      txmgr.TxManager
 	abi      *abi.ABI
 	batchbhs batch_blockhash_store.BatchBlockhashStoreInterface
-	lggr     logger.Logger
 }
 
 func NewBatchBHS(
 	config batchBHSConfig,
-	fromAddresses []ethkey.EIP55Address,
 	txm txmgr.TxManager,
 	batchbhs batch_blockhash_store.BatchBlockhashStoreInterface,
-	chainID *big.Int,
-	gethks keystore.Eth,
-	lggr logger.Logger,
 ) (*BatchBlockhashStore, error) {
 	abi, err := batch_blockhash_store.BatchBlockhashStoreMetaData.GetAbi()
 	if err != nil {
@@ -47,7 +39,6 @@ func NewBatchBHS(
 		txm:      txm,
 		abi:      abi,
 		batchbhs: batchbhs,
-		lggr:     lggr,
 	}, nil
 }
 
@@ -65,13 +56,13 @@ func (b *BatchBlockhashStore) StoreVerifyHeader(ctx context.Context, blockNumber
 		return errors.Wrap(err, "packing args")
 	}
 
-	_, err = b.txm.CreateEthTransaction(txmgr.NewTx{
+	_, err = b.txm.CreateTransaction(ctx, txmgr.TxRequest{
 		FromAddress:    fromAddress,
 		ToAddress:      b.batchbhs.Address(),
 		EncodedPayload: payload,
-		GasLimit:       b.config.EvmGasLimitDefault(),
-		Strategy:       txmgr.NewSendEveryStrategy(),
-	}, pg.WithParentCtx(ctx))
+		FeeLimit:       b.config.LimitDefault(),
+		Strategy:       txmgrcommon.NewSendEveryStrategy(),
+	})
 
 	if err != nil {
 		return errors.Wrap(err, "creating transaction")

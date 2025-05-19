@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 )
 
 // NewKey pulled from geth
@@ -19,7 +19,7 @@ func NewKey() (key keystore.Key, err error) {
 
 	id, err := uuid.NewRandom()
 	if err != nil {
-		return key, errors.Errorf("Could not create random uuid: %v", err)
+		return key, pkgerrors.Errorf("Could not create random uuid: %v", err)
 	}
 
 	return keystore.Key{

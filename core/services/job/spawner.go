@@ -8,29 +8,26 @@ import (
 	"sync"
 
 	pkgerrors "github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
-
-//go:generate mockery --quiet --name Spawner --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name Delegate --output ./mocks/ --case=underscore
 
 type (
 	// Spawner manages the spinning up and down of the long-running
 	// services that perform the work described by job specs.  Each active job spec
 	// has 1 or more of these services associated with it.
 	Spawner interface {
-		services.ServiceCtx
+		services.Service
 
 		// CreateJob creates a new job and starts services.
 		// All services must start without errors for the job to be active.
-		CreateJob(jb *Job, qopts ...pg.QOpt) (err error)
+		CreateJob(ctx context.Context, ds sqlutil.DataSource, jb *Job) (err error)
 		// DeleteJob deletes a job and stops any active services.
-		DeleteJob(jobID int32, qopts ...pg.QOpt) error
+		DeleteJob(ctx context.Context, ds sqlutil.DataSource, jobID int32) error
 		// ActiveJobs returns a map of jobs with active services (started without error).
 		ActiveJobs() map[int32]Job
 
@@ -40,17 +37,22 @@ type (
 		StartService(ctx context.Context, spec Job) error
 	}
 
+	Checker interface {
+		Register(service services.HealthReporter) error
+		Unregister(name string) error
+	}
+
 	spawner struct {
+		services.StateMachine
 		orm              ORM
 		config           Config
+		checker          Checker
 		jobTypeDelegates map[Type]Delegate
 		activeJobs       map[int32]activeJob
 		activeJobsMu     sync.RWMutex
-		q                pg.Q
 		lggr             logger.Logger
 
-		utils.StartStopOnce
-		chStop              chan struct{}
+		chStop              services.StopChan
 		lbDependentAwaiters []utils.DependentAwaiter
 	}
 
@@ -58,20 +60,20 @@ type (
 	Delegate interface {
 		JobType() Type
 		// BeforeJobCreated is only called once on first time job create.
-		BeforeJobCreated(spec Job)
+		BeforeJobCreated(Job)
 		// ServicesForSpec returns services to be started and stopped for this
 		// job. In case a given job type relies upon well-defined startup/shutdown
 		// ordering for services, they are started in the order they are given
 		// and stopped in reverse order.
-		ServicesForSpec(spec Job) ([]ServiceCtx, error)
-		AfterJobCreated(spec Job)
-		BeforeJobDeleted(spec Job)
+		ServicesForSpec(context.Context, Job) ([]ServiceCtx, error)
+		AfterJobCreated(Job)
+		BeforeJobDeleted(Job)
 		// OnDeleteJob will be called from within DELETE db transaction.  Any db
 		// commands issued within OnDeleteJob() should be performed first, before any
 		// non-db side effects.  This is required in order to guarantee mutual atomicity between
 		// all tasks intended to happen during job deletion.  For the same reason, the job will
 		// not show up in the db within OnDeleteJob(), even though it is still actively running.
-		OnDeleteJob(spec Job, q pg.Queryer) error
+		OnDeleteJob(ctx context.Context, jb Job) error
 	}
 
 	activeJob struct {
@@ -83,16 +85,16 @@ type (
 
 var _ Spawner = (*spawner)(nil)
 
-func NewSpawner(orm ORM, config Config, jobTypeDelegates map[Type]Delegate, db *sqlx.DB, lggr logger.Logger, lbDependentAwaiters []utils.DependentAwaiter) *spawner {
+func NewSpawner(orm ORM, config Config, checker Checker, jobTypeDelegates map[Type]Delegate, lggr logger.Logger, lbDependentAwaiters []utils.DependentAwaiter) *spawner {
 	namedLogger := lggr.Named("JobSpawner")
 	s := &spawner{
 		orm:                 orm,
 		config:              config,
+		checker:             checker,
 		jobTypeDelegates:    jobTypeDelegates,
-		q:                   pg.NewQ(db, namedLogger, config),
 		lggr:                namedLogger,
 		activeJobs:          make(map[int32]activeJob),
-		chStop:              make(chan struct{}),
+		chStop:              make(services.StopChan),
 		lbDependentAwaiters: lbDependentAwaiters,
 	}
 	return s
@@ -103,7 +105,6 @@ func (js *spawner) Start(ctx context.Context) error {
 	return js.StartOnce("JobSpawner", func() error {
 		js.startAllServices(ctx)
 		return nil
-
 	})
 }
 
@@ -112,7 +113,6 @@ func (js *spawner) Close() error {
 		close(js.chStop)
 		js.stopAllServices()
 		return nil
-
 	})
 }
 
@@ -121,24 +121,36 @@ func (js *spawner) Name() string {
 }
 
 func (js *spawner) HealthReport() map[string]error {
-	return map[string]error{js.Name(): js.StartStopOnce.Healthy()}
+	return map[string]error{js.Name(): js.Healthy()}
 }
 
 func (js *spawner) startAllServices(ctx context.Context) {
 	// TODO: rename to find AllJobs
-	specs, _, err := js.orm.FindJobs(0, math.MaxUint32)
+	jbs, _, err := js.orm.FindJobs(ctx, 0, math.MaxUint32)
 	if err != nil {
-		werr := fmt.Errorf("couldn't fetch unclaimed jobs: %v", err)
+		werr := fmt.Errorf("couldn't fetch unclaimed jobs: %w", err)
 		js.lggr.Critical(werr.Error())
 		js.SvcErrBuffer.Append(werr)
 		return
 	}
 
-	for _, spec := range specs {
-		if err = js.StartService(ctx, spec); err != nil {
-			js.lggr.Errorf("Couldn't start service %q: %v", spec.Name.ValueOrZero(), err)
-		}
+	jobIDs := make([]int32, len(jbs))
+	for i, jb := range jbs {
+		jobIDs[i] = jb.ID
 	}
+	js.lggr.Debugw("Starting jobs...", "jobIDs", jobIDs)
+	wg := sync.WaitGroup{}
+	wg.Add(len(jbs))
+	for _, jb := range jbs {
+		go func(jb Job) {
+			defer wg.Done()
+			if err = js.StartService(ctx, jb); err != nil {
+				js.lggr.Errorw("Couldn't start job", "jobID", jb.ID, "jobName", jb.Name.ValueOrZero(), "err", err)
+			}
+		}(jb)
+	}
+	wg.Wait()
+	js.lggr.Debugw("Started jobs", "jobIDs", jobIDs)
 	// Log Broadcaster fully starts after all initial Register calls are done from other starting services
 	// to make sure the initial backfill covers those subscribers.
 	for _, lbd := range js.lbDependentAwaiters {
@@ -148,15 +160,23 @@ func (js *spawner) startAllServices(ctx context.Context) {
 
 func (js *spawner) stopAllServices() {
 	jobIDs := js.activeJobIDs()
+	wg := sync.WaitGroup{}
+	js.lggr.Debugw("Stopping jobs...", "jobIDs", jobIDs)
+	wg.Add(len(jobIDs))
 	for _, jobID := range jobIDs {
-		js.stopService(jobID)
+		go func(jobID int32) {
+			defer wg.Done()
+			js.stopService(jobID)
+		}(jobID)
 	}
+	wg.Wait()
+	js.lggr.Debugw("Stopped jobs", "jobIDs", jobIDs)
 }
 
 // stopService removes the job from memory and stop the services.
 // It will always delete the job from memory even if closing the services fail.
 func (js *spawner) stopService(jobID int32) {
-	js.lggr.Debugw("Stopping services for job", "jobID", jobID)
+	lggr := js.lggr.With("jobID", jobID)
 	js.activeJobsMu.Lock()
 	defer js.activeJobsMu.Unlock()
 
@@ -164,26 +184,29 @@ func (js *spawner) stopService(jobID int32) {
 
 	for i := len(aj.services) - 1; i >= 0; i-- {
 		service := aj.services[i]
-		err := service.Close()
-		if err != nil {
-			js.lggr.Criticalw("Error stopping job service", "jobID", jobID, "error", err, "subservice", i, "serviceType", reflect.TypeOf(service))
+		sLggr := lggr.With("subservice", i, "serviceType", reflect.TypeOf(service))
+		if c, ok := service.(services.HealthReporter); ok {
+			if err := js.checker.Unregister(c.Name()); err != nil {
+				sLggr.Warnw("Failed to unregister service from health checker", "err", err)
+			}
+		}
+		if err := service.Close(); err != nil {
+			sLggr.Criticalw("Error stopping job service", "err", err)
 			js.SvcErrBuffer.Append(pkgerrors.Wrap(err, "error stopping job service"))
-		} else {
-			js.lggr.Debugw("Stopped job service", "jobID", jobID, "subservice", i, "serviceType", fmt.Sprintf("%T", service))
 		}
 	}
-	js.lggr.Debugw("Stopped all services for job", "jobID", jobID)
 
 	delete(js.activeJobs, jobID)
 }
 
 func (js *spawner) StartService(ctx context.Context, jb Job) error {
+	lggr := js.lggr.With("jobID", jb.ID)
 	js.activeJobsMu.Lock()
 	defer js.activeJobsMu.Unlock()
 
 	delegate, exists := js.jobTypeDelegates[jb.Type]
 	if !exists {
-		js.lggr.Errorw("Job type has not been registered with job.Spawner", "type", jb.Type, "jobID", jb.ID)
+		lggr.Errorw("Job type has not been registered with job.Spawner", "type", jb.Type)
 		return pkgerrors.Errorf("unregistered type %q for job: %d", jb.Type, jb.ID)
 	}
 	// We always add the active job in the activeJob map, even in the case
@@ -200,34 +223,42 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 		jb.PipelineSpec.GasLimit = &jb.GasLimit.Uint32
 	}
 
-	srvs, err := delegate.ServicesForSpec(jb)
+	srvs, err := delegate.ServicesForSpec(ctx, jb)
 	if err != nil {
-		js.lggr.Errorw("Error creating services for job", "jobID", jb.ID, "error", err)
-		cctx, cancel := utils.ContextFromChan(js.chStop)
+		lggr.Errorw("Error creating services for job", "err", err)
+		cctx, cancel := js.chStop.NewCtx()
 		defer cancel()
-		js.orm.TryRecordError(jb.ID, err.Error(), pg.WithParentCtx(cctx))
+		js.orm.TryRecordError(cctx, jb.ID, err.Error())
 		js.activeJobs[jb.ID] = aj
 		return pkgerrors.Wrapf(err, "failed to create services for job: %d", jb.ID)
 	}
-
-	js.lggr.Debugw("JobSpawner: Starting services for job", "jobID", jb.ID, "count", len(srvs))
 
 	var ms services.MultiStart
 	for _, srv := range srvs {
 		err = ms.Start(ctx, srv)
 		if err != nil {
-			js.lggr.Critical("Error starting service for job", "jobID", jb.ID, "error", err)
+			lggr.Criticalw("Error starting service for job", "err", err)
 			return err
+		}
+		if c, ok := srv.(services.HealthReporter); ok {
+			err = js.checker.Register(c)
+			if err != nil {
+				lggr.Errorw("Error registering service with health checker", "err", err)
+				return err
+			}
 		}
 		aj.services = append(aj.services, srv)
 	}
-	js.lggr.Debugw("JobSpawner: Finished starting services for job", "jobID", jb.ID, "count", len(srvs))
 	js.activeJobs[jb.ID] = aj
 	return nil
 }
 
 // Should not get called before Start()
-func (js *spawner) CreateJob(jb *Job, qopts ...pg.QOpt) (err error) {
+func (js *spawner) CreateJob(ctx context.Context, ds sqlutil.DataSource, jb *Job) (err error) {
+	orm := js.orm
+	if ds != nil {
+		orm = orm.WithDataSource(ds)
+	}
 	delegate, exists := js.jobTypeDelegates[jb.Type]
 	if !exists {
 		js.lggr.Errorf("job type '%s' has not been registered with the job.Spawner", jb.Type)
@@ -235,25 +266,17 @@ func (js *spawner) CreateJob(jb *Job, qopts ...pg.QOpt) (err error) {
 		return
 	}
 
-	q := js.q.WithOpts(qopts...)
-	pctx, cancel := utils.WithCloseChan(q.ParentCtx, js.chStop)
-	defer cancel()
-	q.ParentCtx = pctx
-
-	ctx, cancel := q.Context()
-	defer cancel()
-
-	err = js.orm.CreateJob(jb, pg.WithQueryer(q.Queryer), pg.WithParentCtx(ctx))
+	err = orm.CreateJob(ctx, jb)
 	if err != nil {
-		js.lggr.Errorw("Error creating job", "type", jb.Type, "error", err)
+		js.lggr.Errorw("Error creating job", "type", jb.Type, "err", err)
 		return
 	}
 	js.lggr.Infow("Created job", "type", jb.Type, "jobID", jb.ID)
 
 	delegate.BeforeJobCreated(*jb)
-	err = js.StartService(pctx, *jb)
+	err = js.StartService(ctx, *jb)
 	if err != nil {
-		js.lggr.Errorw("Error starting job services", "type", jb.Type, "jobID", jb.ID, "error", err)
+		js.lggr.Errorw("Error starting job services", "type", jb.Type, "jobID", jb.ID, "err", err)
 	} else {
 		js.lggr.Infow("Started job services", "type", jb.Type, "jobID", jb.ID)
 	}
@@ -264,7 +287,10 @@ func (js *spawner) CreateJob(jb *Job, qopts ...pg.QOpt) (err error) {
 }
 
 // Should not get called before Start()
-func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
+func (js *spawner) DeleteJob(ctx context.Context, ds sqlutil.DataSource, jobID int32) error {
+	if ds == nil {
+		ds = js.orm.DataSource()
+	}
 	if jobID == 0 {
 		return pkgerrors.New("will not delete job with 0 ID")
 	}
@@ -280,15 +306,8 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 		aj, exists = js.activeJobs[jobID]
 	}()
 
-	q := js.q.WithOpts(qopts...)
-	pctx, cancel := utils.WithCloseChan(q.ParentCtx, js.chStop)
-	defer cancel()
-	q.ParentCtx = pctx
-	ctx, cancel := q.Context()
-	defer cancel()
-
 	if !exists { // inactive, so look up the spec and delegate
-		jb, err := js.orm.FindJob(ctx, jobID)
+		jb, err := js.orm.WithDataSource(ds).FindJob(ctx, jobID)
 		if err != nil {
 			return pkgerrors.Wrapf(err, "job %d not found", jobID)
 		}
@@ -304,26 +323,22 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 		}
 	}
 
-	lggr.Debugw("Callback: BeforeDeleteJob")
 	aj.delegate.BeforeJobDeleted(aj.spec)
-	lggr.Debugw("Callback: BeforeDeleteJob done")
 
-	err := q.Transaction(func(tx pg.Queryer) error {
-		err := js.orm.DeleteJob(jobID, pg.WithQueryer(tx))
+	err := sqlutil.Transact(ctx, js.orm.WithDataSource, ds, nil, func(tx ORM) error {
+		err := tx.DeleteJob(ctx, jobID, aj.spec.Type)
 		if err != nil {
-			js.lggr.Errorw("Error deleting job", "jobID", jobID, "error", err)
+			js.lggr.Errorw("Error deleting job", "jobID", jobID, "err", err)
 			return err
 		}
 		// This comes after calling orm.DeleteJob(), so that any non-db side effects inside it only get executed if
 		// we know the DELETE will succeed.  The DELETE will be finalized only if all db transactions in OnDeleteJob()
 		// succeed.  If either of those fails, the job will not be stopped and everything will be rolled back.
-		lggr.Debugw("Callback: OnDeleteJob")
-		err = aj.delegate.OnDeleteJob(aj.spec, tx)
+		err = aj.delegate.OnDeleteJob(ctx, aj.spec)
 		if err != nil {
 			return err
 		}
 
-		lggr.Debugw("Callback: OnDeleteJob done")
 		return nil
 	})
 
@@ -369,11 +384,13 @@ func (n *NullDelegate) JobType() Type {
 }
 
 // ServicesForSpec does no-op.
-func (n *NullDelegate) ServicesForSpec(spec Job) (s []ServiceCtx, err error) {
+func (n *NullDelegate) ServicesForSpec(ctx context.Context, spec Job) (s []ServiceCtx, err error) {
 	return
 }
 
-func (n *NullDelegate) BeforeJobCreated(spec Job)                {}
-func (n *NullDelegate) AfterJobCreated(spec Job)                 {}
-func (n *NullDelegate) BeforeJobDeleted(spec Job)                {}
-func (n *NullDelegate) OnDeleteJob(spec Job, q pg.Queryer) error { return nil }
+func (n *NullDelegate) BeforeJobCreated(spec Job) {}
+func (n *NullDelegate) AfterJobCreated(spec Job)  {}
+func (n *NullDelegate) BeforeJobDeleted(spec Job) {}
+func (n *NullDelegate) OnDeleteJob(context.Context, Job) error {
+	return nil
+}

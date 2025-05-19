@@ -18,14 +18,14 @@
 
 pragma solidity 0.8.6;
 
-import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/proxy/Proxy.sol";
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "../../ConfirmedOwner.sol";
-import "../KeeperBase.sol";
-import "../../interfaces/automation/KeeperCompatibleInterface.sol";
-import {Cron as CronInternal, Spec} from "../../libraries/internal/Cron.sol";
-import {Cron as CronExternal} from "../../libraries/external/Cron.sol";
+import {Pausable} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/security/Pausable.sol";
+import {Proxy} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/proxy/Proxy.sol";
+import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
+import {KeeperBase as KeeperBase} from "../KeeperBase.sol";
+import {KeeperCompatibleInterface as KeeperCompatibleInterface} from "../interfaces/KeeperCompatibleInterface.sol";
+import {Cron as CronInternal, Spec} from "../libraries/internal/Cron.sol";
+import {Cron as CronExternal} from "../libraries/external/Cron.sol";
 
 /**
  * @title The CronUpkeep contract
@@ -65,12 +65,7 @@ contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pa
    * @param maxJobs the max number of cron jobs this contract will support
    * @param firstJob an optional encoding of the first cron job
    */
-  constructor(
-    address owner,
-    address delegate,
-    uint256 maxJobs,
-    bytes memory firstJob
-  ) ConfirmedOwner(owner) {
+  constructor(address owner, address delegate, uint256 maxJobs, bytes memory firstJob) ConfirmedOwner(owner) {
     s_delegate = delegate;
     s_maxJobs = maxJobs;
     if (firstJob.length > 0) {
@@ -192,16 +187,13 @@ contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pa
              cronString - the string representing the cron job
              nextTick - the timestamp of the next time the cron job will run
    */
-  function getCronJob(uint256 id)
+  function getCronJob(
+    uint256 id
+  )
     external
     view
     onlyValidCronID(id)
-    returns (
-      address target,
-      bytes memory handler,
-      string memory cronString,
-      uint256 nextTick
-    )
+    returns (address target, bytes memory handler, string memory cronString, uint256 nextTick)
   {
     Spec memory spec = s_specs[id];
     return (s_targets[id], s_handlers[id], CronExternal.toCronString(spec), CronExternal.nextTick(spec));
@@ -213,11 +205,7 @@ contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pa
    * @param handler the function signature on the target contract to call
    * @param spec the cron spec to create
    */
-  function createCronJobFromSpec(
-    address target,
-    bytes memory handler,
-    Spec memory spec
-  ) internal {
+  function createCronJobFromSpec(address target, bytes memory handler, Spec memory spec) internal {
     uint256 newID = s_nextCronJobID;
     s_activeCronJobIDs.add(newID);
     s_targets[newID] = target;
@@ -240,12 +228,7 @@ contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pa
    * @param target the contract to forward the tx to
    * @param handler the handler of the contract receiving the forwarded tx
    */
-  function validate(
-    uint256 id,
-    uint256 tickTime,
-    address target,
-    bytes memory handler
-  ) private {
+  function validate(uint256 id, uint256 tickTime, address target, bytes memory handler) private {
     tickTime = tickTime - (tickTime % 60); // remove seconds from tick time
     if (block.timestamp < tickTime) {
       revert TickInFuture();

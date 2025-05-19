@@ -1,129 +1,137 @@
 package smoke
 
 import (
-	"context"
-	"fmt"
 	"math/big"
-	"os"
-	"strings"
 	"testing"
+	"time"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
+)
+
+const (
+	ErrWatchingNewOCRRound = "Error watching for new OCR round"
 )
 
 func TestOCRBasic(t *testing.T) {
 	t.Parallel()
-	testEnvironment, testNetwork := setupOCRTest(t)
-	if testEnvironment.WillUseRemoteRunner() {
-		return
-	}
+	l := logging.GetTestLogger(t)
 
-	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
-	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient)
-	require.NoError(t, err, "Deploying contracts shouldn't fail")
+	env, ocrInstances, sethClient := prepareORCv1SmokeTestEnv(t, l, 5)
+	nodeClients := env.ClCluster.NodeAPIs()
+	workerNodes := nodeClients[1:]
 
-	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
-	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
-	mockServer, err := ctfClient.ConnectMockServer(testEnvironment)
-	require.NoError(t, err, "Creating mockserver clients shouldn't fail")
+	err := actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockAdapter)
+	require.NoError(t, err, "Error setting all adapter responses to the same value")
 
-	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
-		require.NoError(t, err, "Error tearing down environment")
-	})
-	chainClient.ParallelTransactions(true)
+	err = actions.WatchNewOCRRound(l, sethClient, 2, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(3*time.Minute))
+	require.NoError(t, err, ErrWatchingNewOCRRound)
 
-	linkTokenContract, err := contractDeployer.DeployLinkTokenContract()
-	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-
-	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.05))
-	require.NoError(t, err, "Error funding Chainlink nodes")
-
-	ocrInstances, err := actions.DeployOCRContracts(1, linkTokenContract, contractDeployer, chainlinkNodes, chainClient)
-	require.NoError(t, err)
-	err = chainClient.WaitForEvents()
-	require.NoError(t, err, "Error waiting for events")
-
-	err = actions.SetAllAdapterResponsesToTheSameValue(5, ocrInstances, chainlinkNodes, mockServer)
-	require.NoError(t, err)
-	err = actions.CreateOCRJobs(ocrInstances, chainlinkNodes, mockServer)
-	require.NoError(t, err)
-	err = actions.StartNewRound(1, ocrInstances, chainClient)
-	require.NoError(t, err)
-
-	answer, err := ocrInstances[0].GetLatestAnswer(context.Background())
-	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
-	require.Equal(t, int64(5), answer.Int64(), "Expected latest answer from OCR contract to be 5 but got %d", answer.Int64())
-
-	err = actions.SetAllAdapterResponsesToTheSameValue(10, ocrInstances, chainlinkNodes, mockServer)
-	require.NoError(t, err)
-	err = actions.StartNewRound(2, ocrInstances, chainClient)
-	require.NoError(t, err)
-
-	answer, err = ocrInstances[0].GetLatestAnswer(context.Background())
+	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest OCR answer")
 	require.Equal(t, int64(10), answer.Int64(), "Expected latest answer from OCR contract to be 10 but got %d", answer.Int64())
 }
 
-var ocrEnvVars = map[string]any{}
+func TestOCRJobReplacement(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-528")
 
-func setupOCRTest(t *testing.T) (
-	testEnvironment *environment.Environment,
-	testNetwork blockchain.EVMNetwork,
-) {
-	l := utils.GetTestLogger(t)
-	testNetwork = networks.SelectedNetwork
-	evmConfig := ethereum.New(nil)
-	if !testNetwork.Simulated {
-		evmConfig = ethereum.New(&ethereum.Props{
-			NetworkName: testNetwork.Name,
-			Simulated:   testNetwork.Simulated,
-			WsURLs:      testNetwork.URLs,
-		})
-		// For if we end up using env vars
-		ocrEnvVars["ETH_URL"] = testNetwork.URLs[0]
-		ocrEnvVars["ETH_HTTP_URL"] = testNetwork.HTTPURLs[0]
-		ocrEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(testNetwork.ChainID)
-	}
-	chainlinkChart := chainlink.New(0, map[string]interface{}{
-		"toml":     client.AddNetworksConfig(config.BaseOCRP2PV1Config, testNetwork),
-		"replicas": 6,
+	t.Parallel()
+	l := logging.GetTestLogger(t)
+
+	env, ocrInstances, sethClient := prepareORCv1SmokeTestEnv(t, l, 5)
+	nodeClients := env.ClCluster.NodeAPIs()
+	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
+
+	err := actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockAdapter)
+	require.NoError(t, err, "Error setting all adapter responses to the same value")
+	err = actions.WatchNewOCRRound(l, sethClient, 2, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(3*time.Minute))
+	require.NoError(t, err, ErrWatchingNewOCRRound)
+
+	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
+	require.NoError(t, err, "Error getting latest OCR answer")
+	require.Equal(t, int64(10), answer.Int64(), "Expected latest answer from OCR contract to be 10 but got %d", answer.Int64())
+
+	err = actions.DeleteJobs(nodeClients)
+	require.NoError(t, err, "Error deleting OCR jobs")
+
+	err = actions.DeleteBridges(nodeClients)
+	require.NoError(t, err, "Error deleting OCR bridges")
+
+	// Recreate job
+	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, big.NewInt(sethClient.ChainID))
+	require.NoError(t, err, "Error creating OCR jobs")
+
+	err = actions.WatchNewOCRRound(l, sethClient, 1, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(3*time.Minute))
+	require.NoError(t, err, ErrWatchingNewOCRRound)
+
+	answer, err = ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
+	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
+	require.Equal(t, int64(10), answer.Int64(), "Expected latest answer from OCR contract to be 10 but got %d", answer.Int64())
+}
+
+func prepareORCv1SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult int64) (*test_env.CLClusterTestEnv, []contracts.OffchainAggregator, *seth.Client) {
+	config, err := tc.GetConfig([]string{"Smoke"}, tc.OCR)
+	require.NoError(t, err, "Error getting config")
+
+	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
+
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestInstance(t).
+		WithTestConfig(&config).
+		WithPrivateEthereumNetwork(network.EthereumNetworkConfig).
+		WithMockAdapter().
+		WithCLNodes(6).
+		WithStandardCleanup().
+		Build()
+	require.NoError(t, err)
+
+	evmNetwork, err := env.GetFirstEvmNetwork()
+	require.NoError(t, err, "Error getting first evm network")
+
+	sethClient, err := utils.TestAwareSethClient(t, config, evmNetwork)
+	require.NoError(t, err, "Error getting seth client")
+
+	nodeClients := env.ClCluster.NodeAPIs()
+	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
+
+	t.Cleanup(func() {
+		// ignore error, we will see failures in the logs anyway
+		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()))
 	})
 
-	useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
-	if useEnvVars == "true" {
-		chainlinkChart = chainlink.NewVersioned(0, "0.0.11", map[string]any{
-			"replicas": 6,
-			"env":      ocrEnvVars,
-		})
-		l.Debug().Interface("Env", ocrEnvVars).Msg("Using Environment Variable Config")
-	}
+	linkContract, err := actions.LinkTokenContract(l, sethClient, config.OCR)
+	require.NoError(t, err, "Error loading/deploying LinkToken contract")
 
-	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("smoke-ocr-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		Test:            t,
-	}).
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(evmConfig).
-		AddHelm(chainlinkChart)
-	err := testEnvironment.Run()
-	require.NoError(t, err, "Error running test environment")
-	return testEnvironment, testNetwork
+	ocrInstances, err := actions.SetupOCRv1Contracts(l, sethClient, config.OCR, common.HexToAddress(linkContract.Address()), contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes))
+	require.NoError(t, err, "Error deploying OCR contracts")
+
+	// there is no need to fund the nodes unless the OCR contract and job are configured
+	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes), big.NewFloat(*config.Common.ChainlinkNodeFunding))
+	require.NoError(t, err, "Error funding Chainlink nodes")
+
+	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, big.NewInt(sethClient.ChainID))
+	require.NoError(t, err, "Error creating OCR jobs")
+
+	err = actions.WatchNewOCRRound(l, sethClient, 1, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(3*time.Minute))
+	require.NoError(t, err, "Error watching for new OCR round")
+
+	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
+	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
+	require.Equal(t, firstRoundResult, answer.Int64(), "Expected latest answer from OCR contract to be 5 but got %d", answer.Int64())
+
+	return env, ocrInstances, sethClient
 }

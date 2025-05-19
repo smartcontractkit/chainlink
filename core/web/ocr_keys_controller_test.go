@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
@@ -69,11 +69,12 @@ func TestOCRKeysController_Delete_NonExistentOCRKeyID(t *testing.T) {
 }
 
 func TestOCRKeysController_Delete_HappyPath(t *testing.T) {
+	ctx := testutils.Context(t)
 	client, OCRKeyStore := setupOCRKeysControllerTests(t)
 
 	keys, _ := OCRKeyStore.GetAll()
 	initialLength := len(keys)
-	key, _ := OCRKeyStore.Create()
+	key, _ := OCRKeyStore.Create(ctx)
 
 	response, cleanup := client.Delete("/v2/keys/ocr/" + key.ID())
 	t.Cleanup(cleanup)
@@ -81,17 +82,18 @@ func TestOCRKeysController_Delete_HappyPath(t *testing.T) {
 	assert.Error(t, utils.JustError(OCRKeyStore.Get(key.ID())))
 
 	keys, _ = OCRKeyStore.GetAll()
-	assert.Equal(t, initialLength, len(keys))
+	assert.Len(t, keys, initialLength)
 }
 
 func setupOCRKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.OCR) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
-	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 
 	return client, app.GetKeyStore().OCR()
 }

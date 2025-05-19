@@ -1,0 +1,9 @@
+exec chainlink nodes starknet list --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink nodes starknet list - List all existing starknet nodes
+
+USAGE:
+   chainlink nodes starknet list [arguments...]

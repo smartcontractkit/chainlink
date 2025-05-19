@@ -35,9 +35,20 @@ GasPriceBufferPercent = 10
 [AutoPprof]
 CPUProfileRate = 7
 
+[Workflows]
+[Workflows.Limits]
+Global = 200
+PerOwner = 200
+
 [[EVM]]
 ChainID = '1'
 FinalityDepth = 26
+FinalityTagEnabled = true
+FinalizedBlockOffset = 0
+
+[EVM.OCR2]
+[EVM.OCR2.Automation]
+GasLimit = 10500000
 
 [[EVM.Nodes]]
 Name = 'primary'
@@ -55,8 +66,8 @@ ChainID = '42'
 PriceDefault = '9.223372036854775807 ether'
 
 [[EVM.Nodes]]
-Name = 'primary'
-WSURL = 'wss://web.socket/test'
+Name = 'foo'
+WSURL = 'wss://web.socket/test/foo'
 
 [[EVM]]
 ChainID = '137'
@@ -65,45 +76,59 @@ ChainID = '137'
 Mode = 'FixedPrice'
 
 [[EVM.Nodes]]
-Name = 'primary'
-WSURL = 'wss://web.socket/test'
-
-[[Cosmos]]
-ChainID = 'Ibiza-808'
-MaxMsgsPerBatch = 13
-
-[[Cosmos.Nodes]]
-Name = 'primary'
-TendermintURL = 'http://columbus.cosmos.com'
-
-[[Cosmos]]
-ChainID = 'Malaga-420'
-BlocksUntilTxTimeout = 20
-
-[[Cosmos.Nodes]]
-Name = 'primary'
-TendermintURL = 'http://bombay.cosmos.com'
+Name = 'bar'
+WSURL = 'wss://web.socket/test/bar'
 
 [[Solana]]
 ChainID = 'mainnet'
 MaxRetries = 12
 
+[Solana.MultiNode]
+Enabled = false
+PollFailureThreshold = 5
+PollInterval = '1s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+NodeIsSyncingEnabled = false
+LeaseDuration = '1m0s'
+FinalizedBlockPollInterval = '1s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+VerifyChainID = true
+NodeNoNewHeadsThreshold = '1m0s'
+NoNewFinalizedHeadsThreshold = '1m0s'
+FinalityDepth = 0
+FinalityTagEnabled = true
+FinalizedBlockOffset = 0
+
 [[Solana.Nodes]]
 Name = 'primary'
 URL = 'http://mainnet.solana.com'
+SendOnly = false
 
 [[Solana]]
 ChainID = 'testnet'
 OCR2CachePollPeriod = '1m0s'
 
+[Solana.MultiNode]
+Enabled = false
+PollFailureThreshold = 5
+PollInterval = '1s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+NodeIsSyncingEnabled = false
+LeaseDuration = '1m0s'
+FinalizedBlockPollInterval = '1s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+VerifyChainID = true
+NodeNoNewHeadsThreshold = '1m0s'
+NoNewFinalizedHeadsThreshold = '1m0s'
+FinalityDepth = 0
+FinalityTagEnabled = true
+FinalizedBlockOffset = 0
+
 [[Solana.Nodes]]
-Name = 'primary'
+Name = 'secondary'
 URL = 'http://testnet.solana.com'
-
-[[Starknet]]
-ChainID = 'foobar'
-TxSendFrequency = '1h0m0s'
-
-[[Starknet.Nodes]]
-Name = 'primary'
-URL = 'http://stark.node'
+SendOnly = false

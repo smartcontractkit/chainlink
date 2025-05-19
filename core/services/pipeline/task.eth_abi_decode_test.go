@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var testsABIDecode = []struct {
@@ -25,6 +25,20 @@ var testsABIDecode = []struct {
 	expectedErrorCause    error
 	expectedErrorContains string
 }{
+	{
+		"uint256",
+		"uint256 data",
+		"$(data)",
+		NewVarsFrom(map[string]interface{}{
+			"data": "0x000000000000000000000000000000000000000000000000105ba6a589b23a81",
+		}),
+		nil,
+		map[string]interface{}{
+			"data": big.NewInt(1178718957397490305),
+		},
+		nil,
+		"",
+	},
 	{
 		"uint256, bool, int256, string",
 		"uint256 u, bool b, int256 i, string s",

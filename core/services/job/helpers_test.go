@@ -1,22 +1,23 @@
 package job_test
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/smartcontractkit/freeport"
 
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -33,10 +34,8 @@ const (
 type               = "offchainreporting"
 schemaVersion      = 1
 contractAddress    = "%s"
-p2pBootstrapPeers  = [
-    "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
-]
-p2pv2Bootstrappers = []
+evmChainID		   = "0"
+p2pv2Bootstrappers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
 isBootstrapPeer    = false
 keyBundleID        = "%s"
 monitoringEndpoint = "chain.link:4321"
@@ -50,31 +49,29 @@ observationSource = """
 	%s
 """
 `
-	ocr2vrfJobSpecTemplate = `
-type                 	= "offchainreporting2"
-schemaVersion        	= 1
-name                 	= "ocr2 vrf spec"
-maxTaskDuration      	= "10s"
-contractID           	= "%s"
-ocrKeyBundleID       	= "%s"
-relay                	= "evm"
-pluginType           	= "ocr2vrf"
-transmitterID        	= "%s"
-forwardingAllowed       = %t
+
+	ocr2Keeper21JobSpecTemplate = `
+type = "offchainreporting2"
+pluginType = "ocr2automation"
+relay = "evm"
+name = "ocr2keeper"
+schemaVersion = 1
+contractID = "%s"
+contractConfigTrackerPollInterval = "15s"
+ocrKeyBundleID = "%s"
+transmitterID = "%s"
+p2pv2Bootstrappers = [
+"%s"
+]
 
 [relayConfig]
-chainID              	= %d
-fromBlock               = %d
-sendingKeys             = [%s]
+chainID = %d
 
 [pluginConfig]
-dkgEncryptionPublicKey 	= "%s"
-dkgSigningPublicKey    	= "%s"
-dkgKeyID               	= "%s"
-dkgContractAddress     	= "%s"
-
-vrfCoordinatorAddress   = "%s"
-linkEthFeedAddress     	= "%s"
+maxServiceWorkers = 100
+cacheEvictionInterval = "1s"
+mercuryCredentialName = "%s"
+contractVersion = "v2.1"
 `
 	voterTurnoutDataSourceTemplate = `
 // data source 1
@@ -105,11 +102,12 @@ ds1 -> ds1_parse -> ds1_multiply;
 		type               = "offchainreporting"
 		schemaVersion      = 1
 		contractAddress    = "%s"
-		p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
+		p2pv2Bootstrappers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
 		isBootstrapPeer    = false
 		transmitterAddress = "%s"
 		keyBundleID = "%s"
 		observationTimeout = "10s"
+		evmChainID		   = "0"
 		observationSource = """
 ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true" %s];
 ds1_parse    [type=jsonparse path="USD" lax=true];
@@ -120,18 +118,16 @@ ds1 -> ds1_parse;
 		type               = "offchainreporting"
 		schemaVersion      = 1
 		contractAddress    = "%s"
-		p2pBootstrapPeers  = []
+		evmChainID		   = "0"
 		isBootstrapPeer    = true
 `
 	ocrJobSpecText = `
 type               = "offchainreporting"
 schemaVersion      = 1
 contractAddress    = "%s"
+evmChainID		   = "0"
 p2pPeerID          = "%s"
-p2pBootstrapPeers  = [
-    "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
-]
-p2pv2Bootstrappers = []
+p2pv2Bootstrappers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
 isBootstrapPeer    = false
 keyBundleID        = "%s"
 monitoringEndpoint = "chain.link:4321"
@@ -169,7 +165,7 @@ func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address, b1, b2 stri
 	jobSpecText := fmt.Sprintf(ocrJobSpecText, testutils.NewAddress().Hex(), peerID, ocrKeyID, transmitterAddress.Hex(), b1, b2)
 
 	dbSpec := job.Job{
-		ExternalJobID: uuid.NewV4(),
+		ExternalJobID: uuid.New(),
 	}
 	err := toml.Unmarshal([]byte(jobSpecText), &dbSpec)
 	require.NoError(t, err)
@@ -188,7 +184,7 @@ func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address, b1, b2 stri
 func compareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
 	require.NotNil(t, expected.OCROracleSpec)
 	require.Equal(t, expected.OCROracleSpec.ContractAddress, actual.OCROracleSpec.ContractAddress)
-	require.Equal(t, expected.OCROracleSpec.P2PBootstrapPeers, actual.OCROracleSpec.P2PBootstrapPeers)
+	require.Equal(t, expected.OCROracleSpec.P2PV2Bootstrappers, actual.OCROracleSpec.P2PV2Bootstrappers)
 	require.Equal(t, expected.OCROracleSpec.IsBootstrapPeer, actual.OCROracleSpec.IsBootstrapPeer)
 	require.Equal(t, expected.OCROracleSpec.EncryptedOCRKeyBundleID, actual.OCROracleSpec.EncryptedOCRKeyBundleID)
 	require.Equal(t, expected.OCROracleSpec.TransmitterAddress, actual.OCROracleSpec.TransmitterAddress)
@@ -201,7 +197,6 @@ func compareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
 
 func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig, contractAddress, transmitterAddress, keyBundle, fetchUrl, timeout string) *job.Job {
 	var ocrSpec = job.OCROracleSpec{
-		P2PBootstrapPeers:                      pq.StringArray{},
 		P2PV2Bootstrappers:                     pq.StringArray{},
 		ObservationTimeout:                     models.Interval(10 * time.Second),
 		BlockchainTimeout:                      models.Interval(20 * time.Second),
@@ -213,11 +208,20 @@ func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralC
 		Name:          null.NewString("a job", true),
 		Type:          job.OffchainReporting,
 		SchemaVersion: 1,
-		ExternalJobID: uuid.NewV4(),
+		ExternalJobID: uuid.New(),
 	}
 	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, transmitterAddress, keyBundle, fetchUrl, timeout)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: evmtest.NewEthClientMockWithDefaultChain(t), GeneralConfig: cfg})
-	_, err := ocr.ValidatedOracleSpecToml(cc, s)
+	keyStore := cltest.NewKeyStore(t, db)
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		ChainConfigs:   cfg.EVMConfigs(),
+		DatabaseConfig: cfg.Database(),
+		FeatureConfig:  cfg.Feature(),
+		ListenerConfig: cfg.Database().Listener(),
+		DB:             db,
+		Client:         clienttest.NewClientWithDefaultChainID(t),
+		KeyStore:       keyStore.Eth(),
+	})
+	_, err := ocr.ValidatedOracleSpecToml(cfg, legacyChains, s)
 	require.NoError(t, err)
 	err = toml.Unmarshal([]byte(s), &os)
 	require.NoError(t, err)
@@ -251,7 +255,7 @@ func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, transmitterAddress commo
 func makeOCRJobSpecFromToml(t *testing.T, jobSpecToml string) *job.Job {
 	t.Helper()
 
-	id := uuid.NewV4()
+	id := uuid.New()
 	var jb = job.Job{
 		Name:          null.StringFrom(id.String()),
 		ExternalJobID: id,
@@ -269,38 +273,20 @@ func makeOCRJobSpecFromToml(t *testing.T, jobSpecToml string) *job.Job {
 	return &jb
 }
 
-func makeOCR2VRFJobSpec(t testing.TB, ks keystore.Master, cfg chainlink.GeneralConfig,
-	transmitter common.Address, chainID *big.Int, fromBlock uint64) *job.Job {
+func makeOCR2Keeper21JobSpec(t testing.TB, ks keystore.Master, transmitter common.Address, chainID *big.Int) *job.Job {
 	t.Helper()
+	ctx := testutils.Context(t)
 
-	useForwarders := false
-	_, beacon := cltest.MustInsertRandomKey(t, ks.Eth())
-	_, coordinator := cltest.MustInsertRandomKey(t, ks.Eth())
-	_, feed := cltest.MustInsertRandomKey(t, ks.Eth())
-	_, dkg := cltest.MustInsertRandomKey(t, ks.Eth())
-	sendingKeys := fmt.Sprintf(`"%s"`, transmitter)
-	kb, _ := ks.OCR2().Create(chaintype.EVM)
+	bootstrapNodePort := freeport.GetOne(t)
+	bootstrapPeerID := "peerId"
 
-	vrfKey := make([]byte, 32)
-	_, err := rand.Read(vrfKey)
-	require.NoError(t, err)
+	kb, _ := ks.OCR2().Create(ctx, chaintype.EVM)
+	_, registry := cltest.MustInsertRandomKey(t, ks.Eth())
 
-	ocr2vrfJob := fmt.Sprintf(ocr2vrfJobSpecTemplate,
-		beacon.String(),
-		kb.ID(),
-		transmitter,
-		useForwarders,
-		chainID,
-		fromBlock,
-		sendingKeys,
-		ks.DKGEncrypt(),
-		ks.DKGSign(),
-		hex.EncodeToString(vrfKey[:]),
-		dkg.String(),
-		coordinator.String(),
-		feed.String(),
-	)
-	jobSpec := makeOCR2JobSpecFromToml(t, ocr2vrfJob)
+	ocr2Keeper21Job := fmt.Sprintf(ocr2Keeper21JobSpecTemplate, registry.String(), kb.ID(), transmitter,
+		fmt.Sprintf("%s127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), chainID, "mercury cred")
+
+	jobSpec := makeOCR2JobSpecFromToml(t, ocr2Keeper21Job)
 
 	return jobSpec
 }
@@ -308,7 +294,7 @@ func makeOCR2VRFJobSpec(t testing.TB, ks keystore.Master, cfg chainlink.GeneralC
 func makeOCR2JobSpecFromToml(t testing.TB, jobSpecToml string) *job.Job {
 	t.Helper()
 
-	id := uuid.NewV4()
+	id := uuid.New()
 	var jb = job.Job{
 		Name:          null.StringFrom(id.String()),
 		ExternalJobID: id,

@@ -2,7 +2,9 @@ package testutils
 
 import (
 	"context"
-	"flag"
+	"crypto/ecdsa"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"math"
 	"math/big"
@@ -15,20 +17,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/sqlx"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zaptest/observer"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	// NOTE: To avoid circular dependencies, this package MUST NOT import
 	// anything from "github.com/smartcontractkit/chainlink/v2/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 const (
@@ -44,24 +46,22 @@ var FixtureChainID = big.NewInt(0)
 // SimulatedChainID is the chain ID for the go-ethereum simulated backend
 var SimulatedChainID = big.NewInt(1337)
 
-// MustNewSimTransactor returns a transactor for interacting with the
-// geth simulated backend.
-func MustNewSimTransactor(t testing.TB) *bind.TransactOpts {
-	key, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	transactor, err := bind.NewKeyedTransactorWithChainID(key, SimulatedChainID)
-	require.NoError(t, err)
-	return transactor
-}
-
 // NewAddress return a random new address
 func NewAddress() common.Address {
 	return common.BytesToAddress(randomBytes(20))
 }
 
-func NewAddressPtr() *common.Address {
-	a := common.BytesToAddress(randomBytes(20))
-	return &a
+// NewPrivateKeyAndAddress returns a new private key and the corresponding address
+func NewPrivateKeyAndAddress(t testing.TB) (*ecdsa.PrivateKey, common.Address) {
+	privateKey, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	require.True(t, ok)
+
+	address := crypto.PubkeyToAddress(*publicKeyECDSA)
+	return privateKey, address
 }
 
 // NewRandomPositiveInt64 returns a (non-cryptographically secure) random positive int64
@@ -79,7 +79,10 @@ func NewRandomEVMChainID() *big.Int {
 
 func randomBytes(n int) []byte {
 	b := make([]byte, n)
-	_, _ = mrand.Read(b) // Assignment for errcheck. Only used in tests so we can ignore.
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
 	return b
 }
 
@@ -91,7 +94,7 @@ func Random32Byte() (b [32]byte) {
 
 // RandomizeName appends a random UUID to the provided name
 func RandomizeName(n string) string {
-	id := uuid.NewV4().String()
+	id := uuid.New().String()
 	return n + id
 }
 
@@ -109,27 +112,9 @@ func WaitTimeout(t *testing.T) time.Duration {
 	return DefaultWaitTimeout
 }
 
-// AfterWaitTimeout returns a channel that will send a time value when the
-// WaitTimeout is reached
-func AfterWaitTimeout(t *testing.T) <-chan time.Time {
-	return time.After(WaitTimeout(t))
-}
-
 // Context returns a context with the test's deadline, if available.
 func Context(tb testing.TB) context.Context {
-	ctx := context.Background()
-	var cancel func()
-	switch t := tb.(type) {
-	case *testing.T:
-		if d, ok := t.Deadline(); ok {
-			ctx, cancel = context.WithDeadline(ctx, d)
-		}
-	}
-	if cancel == nil {
-		ctx, cancel = context.WithCancel(ctx)
-	}
-	tb.Cleanup(cancel)
-	return ctx
+	return tb.Context()
 }
 
 // MustParseURL parses the URL or fails the test
@@ -270,6 +255,8 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 			var resp JSONRPCResponse
 			if chainID != nil && m.String() == "eth_chainId" {
 				resp.Result = `"0x` + chainID.Text(16) + `"`
+			} else if m.String() == "eth_syncing" {
+				resp.Result = "false"
 			} else {
 				resp = callback(m.String(), req.Get("params"))
 			}
@@ -332,9 +319,14 @@ func IntToHex(n int) string {
 // risk of spamming
 const TestInterval = 100 * time.Millisecond
 
-// AssertEventually waits for f to return true
-func AssertEventually(t *testing.T, f func() bool) {
-	assert.Eventually(t, f, WaitTimeout(t), TestInterval/2)
+// AssertEventually calls assert.Eventually with default wait and tick durations.
+func AssertEventually(t *testing.T, f func() bool) bool {
+	return assert.Eventually(t, f, WaitTimeout(t), TestInterval/2)
+}
+
+// RequireEventually calls assert.Eventually with default wait and tick durations.
+func RequireEventually(t *testing.T, f func() bool) {
+	require.Eventually(t, f, WaitTimeout(t), TestInterval/2)
 }
 
 // RequireLogMessage fails the test if emitted logs don't contain the given message
@@ -357,21 +349,36 @@ func RequireLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg st
 //
 //	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
 //	lggr := logger.TestLogger(t, observedZapCore)
-func WaitForLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg string) {
-	AssertEventually(t, func() bool {
+func WaitForLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg string) (le observer.LoggedEntry) {
+	RequireEventually(t, func() bool {
 		for _, l := range observedLogs.All() {
 			if strings.Contains(l.Message, msg) {
+				le = l
 				return true
 			}
 		}
 		return false
 	})
+	return
+}
+
+func WaitForLogMessageWithField(t *testing.T, observedLogs *observer.ObservedLogs, msg, field, value string) (le observer.LoggedEntry) {
+	RequireEventually(t, func() bool {
+		for _, l := range observedLogs.All() {
+			if strings.Contains(l.Message, msg) && strings.Contains(l.ContextMap()[field].(string), value) {
+				le = l
+				return true
+			}
+		}
+		return false
+	})
+	return
 }
 
 // WaitForLogMessageCount waits until at least count log message containing the
 // specified msg is emitted
 func WaitForLogMessageCount(t *testing.T, observedLogs *observer.ObservedLogs, msg string, count int) {
-	AssertEventually(t, func() bool {
+	RequireEventually(t, func() bool {
 		i := 0
 		for _, l := range observedLogs.All() {
 			if strings.Contains(l.Message, msg) {
@@ -385,31 +392,39 @@ func WaitForLogMessageCount(t *testing.T, observedLogs *observer.ObservedLogs, m
 	})
 }
 
-// SkipShort skips tb during -short runs, and notes why.
-func SkipShort(tb testing.TB, why string) {
-	if testing.Short() {
-		tb.Skipf("skipping: %s", why)
-	}
-}
-
 // SkipShortDB skips tb during -short runs, and notes the DB dependency.
 func SkipShortDB(tb testing.TB) {
-	SkipShort(tb, "DB dependency")
+	tests.SkipShort(tb, "DB dependency")
 }
 
-func AssertCount(t *testing.T, db *sqlx.DB, tableName string, expected int64) {
+func AssertCount(t testing.TB, ds sqlutil.DataSource, tableName string, expected int64) {
 	t.Helper()
+	ctx := Context(t)
 	var count int64
-	err := db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
+	err := ds.GetContext(ctx, &count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
 	require.NoError(t, err)
 	require.Equal(t, expected, count)
-}
-
-func NewTestFlagSet() *flag.FlagSet {
-	return flag.NewFlagSet("test", flag.PanicOnError)
 }
 
 // Ptr takes pointer of anything
 func Ptr[T any](v T) *T {
 	return &v
+}
+
+func MustDecodeBase64(s string) (b []byte) {
+	var err error
+	b, err = base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
+func MustRandBytes(n int) (b []byte) {
+	b = make([]byte, n)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+	return
 }

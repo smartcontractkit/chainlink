@@ -8,10 +8,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 
 	"github.com/gin-gonic/gin"
@@ -45,7 +44,9 @@ func TestGuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			resp, err := client.Get(app.Server.URL + tc.path)
+			req, err := http.NewRequestWithContext(testutils.Context(t), "GET", app.Server.URL+tc.path, nil)
+			require.NoError(t, err)
+			resp, err := client.Do(req)
 			require.NoError(t, err)
 			cltest.AssertServerResponse(t, resp, http.StatusOK)
 		})
@@ -76,7 +77,9 @@ func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			resp, err := client.Get(app.Server.URL + tc.path)
+			req, err := http.NewRequestWithContext(testutils.Context(t), "GET", app.Server.URL+tc.path, nil)
+			require.NoError(t, err)
+			resp, err := client.Do(req)
 			require.NoError(t, err)
 			cltest.AssertServerResponse(t, resp, http.StatusNotFound)
 		})
@@ -86,9 +89,7 @@ func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	t.Parallel()
 
-	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.DevMode = false
-	})
+	config := configtest.NewGeneralConfig(t, nil)
 	app := cltest.NewApplicationWithConfig(t, config)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -97,13 +98,17 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	// Make calls equal to the rate limit
 	rateLimit := 20
 	for i := 0; i < rateLimit; i++ {
-		resp, err := client.Get(app.Server.URL + "/")
+		req, err := http.NewRequestWithContext(testutils.Context(t), "GET", app.Server.URL+"/", nil)
+		require.NoError(t, err)
+		resp, err := client.Do(req)
 		require.NoError(t, err)
 		cltest.AssertServerResponse(t, resp, http.StatusOK)
 	}
 
 	// Last request fails
-	resp, err := client.Get(app.Server.URL + "/")
+	req, err := http.NewRequestWithContext(testutils.Context(t), "GET", app.Server.URL+"/", nil)
+	require.NoError(t, err)
+	resp, err := client.Do(req)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
 }
@@ -118,7 +123,7 @@ func TestGuiAssets_AssetsFS(t *testing.T) {
 		recorder := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(recorder)
 		var err error
-		c.Request, err = http.NewRequest("GET", "http://localhost:6688/fixtures/operator_ui/assets/main.js", nil)
+		c.Request, err = http.NewRequestWithContext(c, "GET", "http://localhost:6688/fixtures/operator_ui/assets/main.js", nil)
 		require.NoError(t, err)
 		handler(c)
 
@@ -126,7 +131,7 @@ func TestGuiAssets_AssetsFS(t *testing.T) {
 
 		recorder = httptest.NewRecorder()
 		c, _ = gin.CreateTestContext(recorder)
-		c.Request, err = http.NewRequest("GET", "http://localhost:6688/fixtures/operator_ui/assets/kinda_main.js", nil)
+		c.Request, err = http.NewRequestWithContext(c, "GET", "http://localhost:6688/fixtures/operator_ui/assets/kinda_main.js", nil)
 		require.NoError(t, err)
 		handler(c)
 
@@ -137,7 +142,7 @@ func TestGuiAssets_AssetsFS(t *testing.T) {
 		recorder := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(recorder)
 		var err error
-		c.Request, err = http.NewRequest("GET", "http://localhost:6688/fixtures/operator_ui/assets/main.js", nil)
+		c.Request, err = http.NewRequestWithContext(c, "GET", "http://localhost:6688/fixtures/operator_ui/assets/main.js", nil)
 		require.NoError(t, err)
 		c.Request.Header.Set("Accept-Encoding", "gzip")
 		handler(c)
@@ -147,7 +152,7 @@ func TestGuiAssets_AssetsFS(t *testing.T) {
 
 		recorder = httptest.NewRecorder()
 		c, _ = gin.CreateTestContext(recorder)
-		c.Request, err = http.NewRequest("GET", "http://localhost:6688/fixtures/operator_ui/assets/kinda_main.js", nil)
+		c.Request, err = http.NewRequestWithContext(c, "GET", "http://localhost:6688/fixtures/operator_ui/assets/kinda_main.js", nil)
 		require.NoError(t, err)
 		c.Request.Header.Set("Accept-Encoding", "gzip")
 		handler(c)

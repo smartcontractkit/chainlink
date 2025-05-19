@@ -1,17 +1,18 @@
 package ocrcommon_test
 
 import (
+	"context"
+	"database/sql"
 	"math/big"
 	mrand "math/rand"
 	"testing"
 
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -34,7 +35,7 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 		var changedInL1Block int64 = 5541
 
 		latestBlock := blocks[1000]
-		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
+		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(latestBlock, nil).Once()
 
 		from, to, err := abt.BinarySearch(ctx, changedInL1Block)
 		require.NoError(t, err)
@@ -51,11 +52,10 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 		var changedInL1Block int64 = 42
 
 		latestBlock := blocks[1000]
-		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
+		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(latestBlock, nil).Once()
 
-		tmp := new(evmtypes.Head)
-		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(tmp, nil).Run(func(args mock.Arguments) {
-			*tmp = blocks[args[1].(*big.Int).Int64()]
+		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(func(_ context.Context, num *big.Int) (*evmtypes.Head, error) {
+			return blocks[num.Int64()], nil
 		})
 
 		_, _, err := abt.BinarySearch(ctx, changedInL1Block)
@@ -71,11 +71,10 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 		var changedInL1Block int64 = 5043
 
 		latestBlock := blocks[1000]
-		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
+		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(latestBlock, nil).Once()
 
-		tmp := new(evmtypes.Head)
-		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(tmp, nil).Run(func(args mock.Arguments) {
-			*tmp = blocks[args[1].(*big.Int).Int64()]
+		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(func(_ context.Context, num *big.Int) (*evmtypes.Head, error) {
+			return blocks[num.Int64()], nil
 		})
 
 		_, _, err := abt.BinarySearch(ctx, changedInL1Block)
@@ -91,12 +90,10 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 		var changedInL1Block int64 = 5042
 
 		latestBlock := blocks[1000]
-		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
+		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(latestBlock, nil).Once()
 
-		tmp := new(evmtypes.Head)
-		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(tmp, nil).Run(func(args mock.Arguments) {
-			h := blocks[args[1].(*big.Int).Int64()]
-			*tmp = h
+		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(func(_ context.Context, num *big.Int) (*evmtypes.Head, error) {
+			return blocks[num.Int64()], nil
 		})
 
 		from, to, err := abt.BinarySearch(ctx, changedInL1Block)
@@ -114,12 +111,10 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 		var changedInL1Block int64 = 5000
 
 		latestBlock := blocks[1000]
-		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
+		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(latestBlock, nil).Once()
 
-		tmp := new(evmtypes.Head)
-		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(tmp, nil).Run(func(args mock.Arguments) {
-			h := blocks[args[1].(*big.Int).Int64()]
-			*tmp = h
+		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(func(_ context.Context, num *big.Int) (*evmtypes.Head, error) {
+			return blocks[num.Int64()], nil
 		})
 
 		from, to, err := abt.BinarySearch(ctx, changedInL1Block)
@@ -137,12 +132,10 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 		var changedInL1Block int64 = 5540
 
 		latestBlock := blocks[1000]
-		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
+		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(latestBlock, nil).Once()
 
-		tmp := new(evmtypes.Head)
-		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(tmp, nil).Run(func(args mock.Arguments) {
-			h := blocks[args[1].(*big.Int).Int64()]
-			*tmp = h
+		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(func(_ context.Context, num *big.Int) (*evmtypes.Head, error) {
+			return blocks[num.Int64()], nil
 		})
 
 		from, to, err := abt.BinarySearch(ctx, changedInL1Block)
@@ -161,12 +154,10 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 
 		latestBlock := blocks[1000]
 		// Latest is never cached
-		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
+		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(latestBlock, nil).Once()
 
-		tmp := new(evmtypes.Head)
-		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Times(20+18+14).Return(tmp, nil).Run(func(args mock.Arguments) {
-			h := blocks[args[1].(*big.Int).Int64()]
-			*tmp = h
+		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(func(_ context.Context, num *big.Int) (*evmtypes.Head, error) {
+			return blocks[num.Int64()], nil
 		})
 
 		// First search, nothing cached (total 21 - bsearch 20)
@@ -230,16 +221,16 @@ func TestArbitrumBlockTranslator_NumberToQueryRange(t *testing.T) {
 	})
 }
 
-func generateDeterministicL2Blocks() (heads []evmtypes.Head) {
+func generateDeterministicL2Blocks() (heads []*evmtypes.Head) {
 	source := mrand.NewSource(0)
 	deterministicRand := mrand.New(source)
 	l2max := 1000
 	var l1BlockNumber int64 = 5000
 	var parentHash common.Hash
 	for i := 0; i <= l2max; i++ {
-		head := evmtypes.Head{
+		head := &evmtypes.Head{
 			Number:        int64(i),
-			L1BlockNumber: null.Int64From(l1BlockNumber),
+			L1BlockNumber: sql.NullInt64{Int64: l1BlockNumber, Valid: true},
 			Hash:          utils.NewHash(),
 			ParentHash:    parentHash,
 		}

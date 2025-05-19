@@ -1,0 +1,13 @@
+ChainID = '978658'
+
+[GasEstimator]
+# high LimitDefault for worst case pubdata bytes with BatchGasLimit reduced to 4M in OCR2Config
+LimitDefault = 600_000_000
+FeeCapDefault = '2000 gwei'
+PriceDefault = '100 mwei'
+# p999 value for gasPrice based on historical data
+PriceMax = '2000 gwei'
+
+[GasEstimator.BlockHistory]
+# increasing this to smooth out gas estimation
+BlockHistorySize = 200

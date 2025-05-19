@@ -1,0 +1,86 @@
+name: Run Selected E2E Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      chainlink_version:
+        description: 'Enter Chainlink version to use for the tests. Example: "v2.10.0" or sha'
+        required: false
+        type: string
+      require_chainlink_plugin_versions_in_qa_ecr:
+        description:
+          'Check Chainlink plugins versions to be present in QA ECR. If not,
+          build and push the image to QA ECR. Takes comma separated list of
+          Chainlink image versions. Example:
+          "5733cdcda9a9fc6da6343798b119b2ae136146cd,0b7d2c497a508efa5a827714780d908b7b8eda19"'
+        required: false
+        type: string            
+      test_ids:
+        description: 'Run all tests "*" by default. Or, enter test IDs to run separated by commas. Example: "run_all_in_ocr_tests_go,run_TestOCRv2Request_in_ocr2_test_go". Check all test IDs in .github/e2e-tests.yml'
+        default: "*"
+        required: true
+        type: string
+      test_secrets_override_key:
+        description: 'Enter the secret key to override test secrets'
+        required: false
+        type: string
+      test_config_override_path:
+        description: 'Path to a test config file used to override the default test config'
+        required: false
+        type: string
+      with_existing_remote_runner_version:
+        description: 'Use the existing remote runner version for k8s tests. Example: "d3bf5044af33e08be788a2df31c4a745cf69d787"'
+        required: false
+        type: string
+      workflow_run_name:
+        description: 'Enter the name of the workflow run'
+        default: 'Run E2E Tests'
+        required: false
+        type: string
+      extraArgs:
+        required: false
+        type: string
+        default: '{ "flakeguard_enable": "false", "flakeguard_run_count": "3" }'
+        description: 'JSON of extra arguments for the workflow.'
+
+run-name: ${{ inputs.workflow_run_name }}
+
+jobs:
+  call-run-e2e-tests-workflow:
+    name: Run E2E Tests
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639ad9c899df967dc44b86520db48e19c8abeaca
+    with:
+      chainlink_version: ${{ github.event.inputs.chainlink_version }}
+      require_chainlink_plugin_versions_in_qa_ecr: ${{ inputs.require_chainlink_plugin_versions_in_qa_ecr || '' }}
+      test_path: .github/e2e-tests.yml
+      test_ids: ${{ github.event.inputs.test_ids }}
+      test_config_override_path: ${{ github.event.inputs.test_config_override_path }}
+      with_existing_remote_runner_version: ${{ github.event.inputs.with_existing_remote_runner_version }}
+      test_secrets_override_key: ${{ github.event.inputs.test_secrets_override_key }}
+      extraArgs: ${{ github.event.inputs.extraArgs }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      TEST_SECRETS_OVERRIDE_BASE64: ${{ secrets[inputs.test_secrets_override_key] }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
+      AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_LAMBDA_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}

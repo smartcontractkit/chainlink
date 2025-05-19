@@ -1,0 +1,45 @@
+name: Setup CI Core Tests
+description: |
+  Shared setup steps for ci-core.
+  Note: Other actions should not be called from this action. There is
+  weird behavior when nesting reusable actions.
+inputs:
+  go-mod-download-directory:
+    description: |
+      The directory to run go mod download in. If not provided, it will not run go mod download.
+    required: false
+    default: ""
+
+  db-url:
+    description: |
+      The expected database URL
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Touching core/web/assets/index.html
+      shell: bash
+      run: mkdir -p core/web/assets && touch core/web/assets/index.html
+
+    - name: Download Go vendor packages
+      shell: bash
+      run: go mod download
+
+    - name: Go Mod Download (optional)
+      if: ${{ inputs.go-mod-download-directory != '' }}
+      shell: bash
+      working-directory: ${{ inputs.go-mod-download-directory }}
+      run: go mod download
+
+    - name: Setup DB
+      shell: bash
+      run: go run ./core/store/cmd/preparetest
+      env:
+        CL_DATABASE_URL: ${{ inputs.db-url }}
+
+    - name: Install LOOP Plugins
+      shell: bash
+      run: |
+        make install-loopinstall
+        make install-plugins-public

@@ -6,7 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -19,9 +19,10 @@ func Test_FeaturesController_List(t *testing.T) {
 	app := cltest.NewApplicationWithConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		csa := true
 		c.Feature.UICSAKeys = &csa
+		c.Feature.MultiFeedsManagers = &csa
 	}))
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	resp, cleanup := client.Get("/v2/features")
 	t.Cleanup(cleanup)
@@ -30,11 +31,14 @@ func Test_FeaturesController_List(t *testing.T) {
 	resources := []presenters.FeatureResource{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp), &resources)
 	require.NoError(t, err)
-	require.Len(t, resources, 2)
+	require.Len(t, resources, 3)
 
 	assert.Equal(t, "csa", resources[0].ID)
 	assert.True(t, resources[0].Enabled)
 
 	assert.Equal(t, "feeds_manager", resources[1].ID)
 	assert.True(t, resources[1].Enabled)
+
+	assert.Equal(t, "multi_feeds_managers", resources[2].ID)
+	assert.True(t, resources[2].Enabled)
 }

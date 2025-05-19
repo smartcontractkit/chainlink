@@ -1,0 +1,185 @@
+# CODEOWNERS Best Practices
+# 1. Per Github docs: "Order is important; the last matching pattern takes the most precedence."
+# Please define less specific codeowner paths before more specific codeowner paths in order for the more specific rule to have priority
+# 2. Per Github docs:
+# "create a new file called CODEOWNERS in the .github/, root, or docs/ directory of the repository...
+# ...GitHub will search for them in that order and use the first one it finds."
+# Please put the CODEOWNERS file in .github
+
+# Root
+* @smartcontractkit/foundations @smartcontractkit/core
+
+.changeset @smartcontractkit/foundations @smartcontractkit/core
+
+# Chains
+/common @smartcontractkit/bix-framework @smartcontractkit/core
+/core/chains/ @smartcontractkit/bix-framework @smartcontractkit/core
+/core/chains/evm/txm @dimriou @smartcontractkit/bix-framework @smartcontractkit/core
+/evm @jmank88 @pavel-raykov @DylanTinianov
+
+# Services
+/core/services/directrequest @smartcontractkit/foundations
+/core/services/feeds @smartcontractkit/deployment-automation @smartcontractkit/core
+/core/services/synchronization/telem @smartcontractkit/data-tooling @smartcontractkit/core
+/core/capabilities/ @smartcontractkit/keystone @smartcontractkit/capabilities-team
+/core/capabilities/ccip @smartcontractkit/ccip-offchain
+
+# To be deprecated in Chainlink V3
+/core/services/fluxmonitorv2 @smartcontractkit/foundations @smartcontractkit/core
+/core/services/job @smartcontractkit/foundations @smartcontractkit/core
+/core/services/keystore @smartcontractkit/foundations @smartcontractkit/core
+/core/services/ocr* @smartcontractkit/foundations @smartcontractkit/core
+/core/services/periodicbackup @smartcontractkit/foundations @smartcontractkit/core
+/core/services/pg @smartcontractkit/foundations @samsondav @smartcontractkit/core
+/core/services/pipeline @smartcontractkit/foundations @smartcontractkit/bix-framework @smartcontractkit/core
+/core/services/telemetry @smartcontractkit/data-tooling @smartcontractkit/core
+/core/services/relay/evm/mercury @smartcontractkit/data-streams-engineers @smartcontractkit/core
+/core/services/webhook @smartcontractkit/foundations @smartcontractkit/bix-framework @smartcontractkit/core
+/core/services/llo @smartcontractkit/data-streams-engineers @smartcontractkit/core
+
+# CCIP
+/core/services/ccip @smartcontractkit/ccip
+/core/services/ocr2/plugins/ccip @smartcontractkit/ccip
+
+# VRF-related services
+/core/services/vrf @smartcontractkit/dev-services @smartcontractkit/core
+/core/services/blockhashstore @smartcontractkit/dev-services @smartcontractkit/core
+/core/services/blockheaderfeeder @smartcontractkit/dev-services @smartcontractkit/core
+/core/services/pipeline/task.vrf.go @smartcontractkit/dev-services
+/core/services/pipeline/task.vrfv2.go @smartcontractkit/dev-services
+/core/services/pipeline/task.vrfv2plus.go @smartcontractkit/dev-services
+
+# Keeper/Automation-related services
+/core/services/keeper @smartcontractkit/dev-services
+/core/services/ocr2/plugins/ocr2keeper @smartcontractkit/dev-services
+
+# Chainlink Functions
+core/services/functions @smartcontractkit/dev-services
+core/services/ocr2/plugins/functions @smartcontractkit/dev-services
+core/services/s4 @smartcontractkit/dev-services
+core/service/ocr2/plugins/s4 @smartcontractkit/dev-services
+core/services/ocr2/plugins/threshold @smartcontractkit/dev-services
+core/services/relay/evm/functions @smartcontractkit/dev-services
+core/scripts/functions @smartcontractkit/dev-services
+core/scripts/gateway @smartcontractkit/dev-services
+
+# Keystone
+/core/services/registrysyncer @smartcontractkit/keystone
+/core/services/workflows @smartcontractkit/keystone
+/core/services/standardcapabilities @smartcontractkit/keystone
+/core/scripts/keystone @smartcontractkit/keystone
+
+# Contracts catch all, for files not matched by the more specific patterns below
+/contracts/ @smartcontractkit/core-solidity
+
+# First we match on project names to catch files like the compilation scripts and other files
+# not placed in the project directories. This could give some false positives, so afterwards
+# we match on the project directories to ensure the entire directory is always owned by the
+# correct team.
+/contracts/**/*keeper* @smartcontractkit/dev-services
+/contracts/**/*upkeep* @smartcontractkit/dev-services
+/contracts/**/*automation* @smartcontractkit/dev-services
+/contracts/**/*ccip* @smartcontractkit/ccip-onchain
+/contracts/**/*functions* @smartcontractkit/dev-services
+/contracts/**/*l2ep* @smartcontractkit/bix-ship
+/contracts/**/*llo-feeds* @smartcontractkit/data-streams-engineers
+/contracts/**/*operatorforwarder* @smartcontractkit/data-feeds-engineers
+/contracts/**/*data-feeds* @smartcontractkit/data-feeds-engineers
+/contracts/**/*vrf* @smartcontractkit/dev-services
+/contracts/**/*keystone* @smartcontractkit/keystone
+
+/contracts/src/v0.8/automation @smartcontractkit/dev-services
+/contracts/src/v0.8/ccip @smartcontractkit/ccip-onchain
+/contracts/src/v0.8/functions @smartcontractkit/dev-services
+/contracts/src/v0.8/l2ep @smartcontractkit/bix-build
+/contracts/src/v0.8/llo-feeds @smartcontractkit/data-streams-engineers
+# TODO: mocks folder, folder should be removed and files moved to the correct folders
+/contracts/src/v0.8/operatorforwarder @smartcontractkit/data-feeds-engineers
+/contracts/src/v0.8/data-feeds @smartcontractkit/data-feeds-engineers
+/contracts/src/v0.8/shared @smartcontractkit/core-solidity
+/contracts/src/v0.8/vrf @smartcontractkit/dev-services
+/contracts/src/v0.8/keystone @smartcontractkit/keystone
+/contracts/src/v0.8/workflow @smartcontractkit/dev-services
+
+/core/gethwrappers/ccip @smartcontractkit/ccip-onchain
+/core/gethwrappers/functions @smartcontractkit/dev-services
+/core/gethwrappers/keystone @smartcontractkit/keystone
+/core/gethwrappers/llo-feeds @smartcontractkit/data-streams-engineers
+/core/gethwrappers/operatorforwarder @smartcontractkit/data-feeds-engineers
+/core/gethwrappers/data-feeds @smartcontractkit/data-feeds-engineers
+/core/gethwrappers/shared @smartcontractkit/core-solidity
+/core/gethwrappers/workflow @smartcontractkit/dev-services
+
+# The following don't exist yet but should. They are already included here to allow the teams to
+# set these folders up and own them immediately.
+/core/gethwrappers/keeper @smartcontractkit/dev-services
+/core/gethwrappers/upkeep @smartcontractkit/dev-services
+/core/gethwrappers/automation @smartcontractkit/dev-services
+/core/gethwrappers/l2ep @smartcontractkit/bix-ship
+/core/gethwrappers/vrf @smartcontractkit/dev-services
+
+# Remove changeset files from the codeowners
+/contracts/.changeset
+# Gas snapshots are always checked by the CI so they don't need codeowners.
+/contracts/gas-snapshots
+
+# At the end, match any files missed by the patterns above
+/contracts/scripts/native_solc_compile_all_events_mock @smartcontractkit/dev-services
+
+# GQL API
+/core/web/resolver @smartcontractkit/deployment-automation @smartcontractkit/foundations @smartcontractkit/core
+/core/web/schema @smartcontractkit/deployment-automation @smartcontractkit/foundations @smartcontractkit/core
+
+
+# Tests
+/integration-tests/ @smartcontractkit/devex-tooling @smartcontractkit/core
+/integration-tests/ccip-tests @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
+/integration-tests/**/*keeper* @smartcontractkit/dev-services @smartcontractkit/core
+/integration-tests/**/*automation* @smartcontractkit/dev-services @smartcontractkit/core
+/integration-tests/**/*ccip* @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
+
+# Deployment tooling
+/deployment @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
+/deployment/ccip @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
+/deployment/ccip/changeset/globals @smartcontractkit/ccip-offchain
+/deployment/keystone @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
+/deployment/ccip/changeset/solana @smartcontractkit/solana-tooling @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
+/deployment/ccip/view/solana @smartcontractkit/solana-tooling @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
+/deployment/data-feeds @smartcontractkit/data-feeds-engineers @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
+/deployment/data-streams @smartcontractkit/data-streams-engineers @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
+# TODO: As more products add their deployment logic here, add the team as an owner
+
+# CI/CD
+/.github/** @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core
+/.github/CODEOWNERS @smartcontractkit/core @smartcontractkit/foundations
+/.github/workflows/build-publish.yml @smartcontractkit/devex-cicd
+/.github/workflows/performance-tests.yml @smartcontractkit/devex-tooling
+/.github/workflows/automation-ondemand-tests.yml @smartcontractkit/dev-services
+/.github/workflows/automation-benchmark-tests.yml @smartcontractkit/dev-services
+/.github/workflows/automation-load-tests.yml @smartcontractkit/dev-services
+/.github/workflows/automation-nightly-tests.yml @smartcontractkit/dev-services
+/.github/workflows/*solidity* @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core-solidity
+/tools/plugout @smartcontractkit/devex-cicd
+
+/core/chainlink.Dockerfile @smartcontractkit/devex-cicd @smartcontractkit/foundations @smartcontractkit/core
+
+# Dependencies
+contracts/scripts/requirements.txt @smartcontractkit/core
+.tool-versions @smartcontractkit/core
+.nvmrc @smartcontractkit/core
+contracts/package.json @smartcontractkit/foundations @smartcontractkit/core
+contracts/pnpm.lock @smartcontractkit/core
+go.mod @smartcontractkit/core @smartcontractkit/foundations
+go.sum @smartcontractkit/core @smartcontractkit/foundations
+integration-tests/go.mod @smartcontractkit/core @smartcontractkit/devex-tooling @smartcontractkit/foundations
+integration-tests/go.sum @smartcontractkit/core @smartcontractkit/devex-tooling @smartcontractkit/foundations
+flake.nix @smartcontractkit/core
+flake.lock @smartcontractkit/core
+
+# Config
+./docs/CONFIG.md @smartcontractkit/foundations @smartcontractkit/core @smartcontractkit/devrel
+./internal/config/docs.toml @smartcontractkit/foundations @smartcontractkit/core @smartcontractkit/devrel
+
+
+# Runs-On
+./github/runs-on.yml @smartcontractkit/prodsec-public

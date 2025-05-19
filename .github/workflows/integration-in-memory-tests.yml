@@ -1,0 +1,160 @@
+#
+# Workflow to run in-memory integration tests
+# Test matrix is defined in .github/integration-in-memory-tests.yml
+#
+name: Integration In-Memory Tests
+run-name: Integration In-Memory Tests
+on:
+  merge_group:
+  pull_request:
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+    inputs:
+      cl_ref:
+        description: 'The ref to checkout, defaults to the calling branch'
+        required: false
+        type: string
+
+# Only run 1 of this workflow at a time per PR
+concurrency:
+  group: ${{ github.ref }}-${{ github.repository }}-${{ github.event_name }}--integration-tests
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    environment: integration
+    name: Check Paths That Require Tests To Run
+    runs-on: ubuntu-latest
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref }}
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changes
+        with:
+          filters: |
+            github_ci_changes:
+              - '.github/workflows/integration-tests.yml'
+              - '.github/workflows/integration-in-memory-tests.yml'
+              - '.github/integration-in-memory-tests.yml'
+            core_changes:
+              - '**/*.go'
+              - '**/*go.sum'
+              - '**/*go.mod'
+              - '**/*Dockerfile'
+              - 'core/**/migrations/*.sql'
+              - 'core/**/config/**/*.toml'
+              - 'integration-tests/**/*.toml'
+            ccip_changes:
+              - '**/*ccip*'
+              - '**/*ccip*/**'
+      - name: Ignore Filter On Workflow Dispatch
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        id: ignore-filter
+        run: echo "changes=true" >> $GITHUB_OUTPUT
+    outputs:
+      github_ci_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.github_ci_changes }}
+      core_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.core_changes }}
+      ccip_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.ccip_changes }}
+
+  run-ccip-integration-in-memory--tests-for-pr:
+    name: Run CCIP integration In Memory Tests For PR
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: changes
+    if: github.event_name == 'pull_request' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639ad9c899df967dc44b86520db48e19c8abeaca
+    with:
+      workflow_name: Run CCIP Integration Tests For PR
+      chainlink_version: ${{ inputs.cl_ref || github.sha }}
+      test_path: .github/integration-in-memory-tests.yml
+      test_trigger: PR Integration CCIP Tests
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
+      AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+
+  run-ccip-integration-in-memory-tests-for-merge-queue:
+    name: Run CCIP Integration In Memory Tests For Merge Queue
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: changes
+    if: github.event_name == 'merge_group' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639ad9c899df967dc44b86520db48e19c8abeaca
+    with:
+      workflow_name: Run CCIP Integration Tests For Merge Queue
+      chainlink_version: ${{ inputs.cl_ref || github.sha }}
+      test_path: .github/integration-in-memory-tests.yml
+      test_trigger: Merge Queue Integration CCIP Tests
+      slack_notification_after_tests: on_failure
+      slack_notification_after_tests_channel_id: "#ccip-testing"
+      slack_notification_after_tests_name: CCIP Integration Tests In Merge Queue
+      extraArgs: ${{ '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
+    secrets:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
+      AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+
+  check-integration-test-results:
+    if: always()
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [run-ccip-integration-in-memory--tests-for-pr,run-ccip-integration-in-memory-tests-for-merge-queue]
+    steps:
+      - name: Fail the job if ccip tests in PR not successful
+        if: always() && needs.run-ccip-integration-in-memory--tests-for-pr.result == 'failure'
+        run: exit 1
+
+      - name: Fail the job if ccip tests in merge queue not successful
+        if: always() && needs.run-ccip-integration-in-memory-tests-for-merge-queue.result == 'failure'
+        run: exit 1
+
+  cleanup:
+    name: Clean up integration environment deployments
+    if: always()
+    needs: [run-ccip-integration-in-memory--tests-for-pr, run-ccip-integration-in-memory-tests-for-merge-queue]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref }}
+
+      - name: 🧼 Clean up Environment
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: ./.github/actions/delete-deployments
+        with:
+          environment: integration
+          ref: ${{ github.head_ref }} # See https://github.com/github/docs/issues/15319#issuecomment-1476705663

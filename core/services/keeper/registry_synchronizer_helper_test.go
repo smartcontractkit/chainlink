@@ -5,22 +5,24 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const syncInterval = 1000 * time.Hour // prevents sync timer from triggering during test
@@ -29,22 +31,29 @@ const syncUpkeepQueueSize = 10
 func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	*sqlx.DB,
 	*keeper.RegistrySynchronizer,
-	*evmmocks.Client,
+	*clienttest.Client,
 	*logmocks.Broadcaster,
 	job.Job,
 ) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	scopedConfig := evmtest.NewChainScopedConfig(t, cfg)
-	korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig)
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	korm := keeper.NewORM(db, logger.TestLogger(t))
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
+	keyStore := cltest.NewKeyStore(t, db)
 	lbMock := logmocks.NewBroadcaster(t)
 	lbMock.On("AddDependents", 1).Maybe()
 	j := cltest.MustInsertKeeperJob(t, db, korm, cltest.NewEIP55Address(), cltest.NewEIP55Address())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, LogBroadcaster: lbMock, GeneralConfig: cfg})
-	ch := evmtest.MustGetDefaultChain(t, cc)
-	keyStore := cltest.NewKeyStore(t, db, cfg)
-	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore, nil, nil)
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		DB:             db,
+		Client:         ethClient,
+		LogBroadcaster: lbMock,
+		ChainConfigs:   cfg.EVMConfigs(),
+		DatabaseConfig: cfg.Database(),
+		FeatureConfig:  cfg.Feature(),
+		ListenerConfig: cfg.Database().Listener(),
+		KeyStore:       keyStore.Eth(),
+	})
+	jpv2 := cltest.NewJobPipelineV2(t, cfg.WebServer(), cfg.JobPipeline(), legacyChains, db, keyStore, nil, nil)
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
 
 	switch version {
@@ -57,6 +66,8 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	case keeper.RegistryVersion_1_3:
 		registryMock := cltest.NewContractMockReceiver(t, ethClient, keeper.Registry1_3ABI, contractAddress)
 		registryMock.MockResponse("typeAndVersion", "KeeperRegistry 1.3.0").Once()
+	case keeper.RegistryVersion_2_0, keeper.RegistryVersion_2_1:
+		t.Fatalf("Unsupported version: %s", version)
 	}
 
 	registryWrapper, err := keeper.NewRegistryWrapper(j.KeeperSpec.ContractAddress, ethClient)
@@ -67,9 +78,9 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	})).Maybe().Return(func() {})
 	lbMock.On("IsConnected").Return(true).Maybe()
 
-	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
+	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 
-	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config())
+	orm := keeper.NewORM(db, logger.TestLogger(t))
 	synchronizer := keeper.NewRegistrySynchronizer(keeper.RegistrySynchronizerOptions{
 		Job:                      j,
 		RegistryWrapper:          *registryWrapper,

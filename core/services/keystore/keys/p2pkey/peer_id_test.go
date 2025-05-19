@@ -10,16 +10,16 @@ import (
 
 func TestP2PKeys_PeerID(t *testing.T) {
 	t.Run("make peer ID", func(t *testing.T) {
-		id, err := MakePeerID("11")
+		id, err := MakePeerID("12D3KooWM1111111111111111111111111111111111111111111")
 		require.NoError(t, err)
 		_, err = MakePeerID("invalid")
 		assert.Error(t, err)
 
-		assert.Equal(t, "p2p_11", id.String())
+		assert.Equal(t, "p2p_12D3KooWM1111111111111111111111111111111111111111111", id.String())
 	})
 
 	t.Run("unmarshals new ID", func(t *testing.T) {
-		id, err := MakePeerID("11")
+		id, err := MakePeerID("12D3KooWM1111111111111111111111111111111111111111111")
 		require.NoError(t, err)
 		fakeKey := MustNewV2XXXTestingOnly(big.NewInt(1))
 
@@ -30,7 +30,7 @@ func TestP2PKeys_PeerID(t *testing.T) {
 	})
 
 	t.Run("scans new ID", func(t *testing.T) {
-		id, err := MakePeerID("11")
+		id, err := MakePeerID("12D3KooWM1111111111111111111111111111111111111111111")
 		require.NoError(t, err)
 		fakeKey := MustNewV2XXXTestingOnly(big.NewInt(1))
 

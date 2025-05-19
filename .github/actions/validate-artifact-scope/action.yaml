@@ -1,0 +1,103 @@
+name: Validate Artifact Scope
+description: Checks there are any modified Solidity files outside of the specified scope. If so, it prints a warning message, but does not fail the workflow.
+inputs:
+  product:
+    description: The product for which the artifacts are being generated
+    required: true
+  sol_files:
+    description: Comma-separated (CSV) or space-separated (shell) list of Solidity files to check
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Transform input array
+      id: transform_input_array
+      shell: bash
+      run: |
+        is_csv_format() {
+          local input="$1"
+          if [[ "$input" =~ "," ]]; then
+            return 0
+          else
+            return 1
+          fi
+        }
+        
+        is_space_separated_string() {
+          local input="$1"
+          if [[ "$input" =~ ^[^[:space:]]+([[:space:]][^[:space:]]+)*$ ]]; then
+            return 0
+          else
+            return 1
+          fi
+        }
+        
+        array="${{ inputs.sol_files }}"
+        
+        if is_csv_format "$array"; then
+          echo "::debug::CSV format detected, nothing to do"
+          echo "sol_files=$array" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        
+        if is_space_separated_string "$array"; then
+          echo "::debug::Space-separated format detected, converting to CSV"
+          csv_array="${array// /,}"
+          echo "sol_files=$csv_array" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        
+        echo "::error::Invalid input format for sol_files. Please provide a comma-separated (CSV) or space-separated (shell) list of Solidity files"
+        exit 1
+
+    - name: Check for changes outside of artifact scope
+      shell: bash
+      run: |
+        echo "::debug::All modified contracts:"
+        echo "${{ steps.transform_input_array.outputs.sol_files }}" | tr ',' '\n'
+        if [ "${{ inputs.product }}" = "shared" ]; then
+          excluded_paths_pattern="!/^contracts\/src\/v0\.8\/interfaces/ && !/^contracts\/src\/v0\.8\/${{ inputs.product }}/ && !/^contracts\/src\/v0\.8\/[^\/]+\.sol$/"
+        else
+          excluded_paths_pattern="!/^contracts\/src\/v0\.8\/${{ inputs.product }}/"
+        fi
+        echo "::debug::Excluded paths: $excluded_paths_pattern"
+        unexpected_files=$(echo "${{ steps.transform_input_array.outputs.sol_files }}" | tr ',' '\n' | awk "$excluded_paths_pattern")
+        missing_files=""
+        set -e 
+        set -o pipefail
+        if [[ -n "$unexpected_files" ]]; then
+          products=()
+          productsStr=""
+          IFS=$'\n' read -r -d '' -a files <<< "$unexpected_files" || true
+          echo "Files: ${files[@]}"
+        
+          for file in "${files[@]}"; do
+            missing_files+="$file,"
+        
+            product=$(echo "$file" | awk -F'src/v0.8/' '{if ($2 ~ /\//) print substr($2, 1, index($2, "/")-1); else print "shared"}')
+            if [[ ! " ${products[@]} " =~ " ${product} " ]]; then
+              products+=("$product")
+              productsStr+="$product, "
+            fi
+          done
+          productsStr=${productsStr%, }
+        
+          set +e 
+          set +o pipefail
+        
+          missing_files=$(echo $missing_files | tr ',' '\n')
+        
+          echo "Error: Found modified contracts outside of the expected scope: ${{ inputs.product }}"
+          echo "Files:"
+          echo "$missing_files"
+          echo "Action required: If you want to generate artifacts for other products ($productsStr) run this workflow again with updated configuration"
+        
+          echo "# Warning!" >> $GITHUB_STEP_SUMMARY
+          echo "## Reason: Found modified contracts outside of the expected scope: ${{ inputs.product }}" >> $GITHUB_STEP_SUMMARY
+          echo "### Files:" >> $GITHUB_STEP_SUMMARY
+          echo "$missing_files" >> $GITHUB_STEP_SUMMARY
+          echo "## Action required: If you want to generate artifacts for other products ($productsStr) run this workflow again with updated configuration" >> $GITHUB_STEP_SUMMARY            
+        else
+          echo "No unexpected files found."
+        fi

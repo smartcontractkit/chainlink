@@ -3,47 +3,50 @@ package handler
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"math/big"
 	"os"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/olekukonko/tablewriter"
-	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	plugintypes "github.com/smartcontractkit/ocr2keepers/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+
+	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
+
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
 
 func OCR2GetConfig(hdlr *baseHandler, registry_addr string) error {
-
 	b, err := common.ParseHexOrString(registry_addr)
 	if err != nil {
-		return fmt.Errorf("failed to parse address hash: %s", err)
+		return fmt.Errorf("failed to parse address hash: %w", err)
 	}
 
 	addr := common.BytesToAddress(b)
 	registry, err := keeper_registry_wrapper2_0.NewKeeperRegistry(addr, hdlr.client)
 	if err != nil {
-		return fmt.Errorf("failed to create caller for address and backend: %s", err)
+		return fmt.Errorf("failed to create caller for address and backend: %w", err)
 	}
 
 	log.Printf("getting config details from contract: %s\n", addr.Hex())
 	detail, err := registry.LatestConfigDetails(nil)
 	if err != nil {
-		return fmt.Errorf("failed to get latest config detail from contract: %s", err)
+		return fmt.Errorf("failed to get latest config detail from contract: %w", err)
 	}
 
 	block, err := hdlr.client.BlockByNumber(context.Background(), big.NewInt(int64(detail.BlockNumber)))
 	if err != nil {
-		return fmt.Errorf("failed to get block at number %d: %s", detail.BlockNumber, err)
+		return fmt.Errorf("failed to get block at number %d: %w", detail.BlockNumber, err)
 	}
 
 	config, err := configFromBlock(block, addr, detail)
 	if err != nil {
-		return fmt.Errorf("failed to get config from block: %s", err)
+		return fmt.Errorf("failed to get config from block: %w", err)
 	}
 
 	printConfigValues(config)
@@ -52,7 +55,7 @@ func OCR2GetConfig(hdlr *baseHandler, registry_addr string) error {
 
 func configFromBlock(bl *types.Block, addr common.Address, detail keeper_registry_wrapper2_0.LatestConfigDetails) (*confighelper.PublicConfig, error) {
 	for _, tx := range bl.Transactions() {
-		if tx.To() != nil && bytes.Compare(tx.To()[:], addr[:]) == 0 {
+		if tx.To() != nil && bytes.Equal(tx.To()[:], addr[:]) {
 			// this is our transaction
 			// txRes, txErr, err := getTransactionDetailForHashes(hdlr, []string{tx})
 			ocr2Tx, err := NewBaseOCR2Tx(tx)
@@ -92,7 +95,7 @@ func configFromBlock(bl *types.Block, addr common.Address, detail keeper_registr
 		}
 	}
 
-	return nil, fmt.Errorf("public config not found")
+	return nil, errors.New("public config not found")
 }
 
 func printConfigValues(config *confighelper.PublicConfig) {
@@ -103,24 +106,24 @@ func printConfigValues(config *confighelper.PublicConfig) {
 	data = append(data, []string{"DeltaRound", config.DeltaRound.String()})
 	data = append(data, []string{"DeltaGrace", config.DeltaGrace.String()})
 	data = append(data, []string{"DeltaStage", config.DeltaStage.String()})
-	data = append(data, []string{"RMax", fmt.Sprintf("%d", config.RMax)})
+	data = append(data, []string{"RMax", strconv.FormatUint(uint64(config.RMax), 10)})
 	data = append(data, []string{"S", fmt.Sprintf("%v", config.S)})
 	data = append(data, []string{"MaxDurationQuery", config.MaxDurationQuery.String()})
 	data = append(data, []string{"MaxDurationObservation", config.MaxDurationObservation.String()})
 	data = append(data, []string{"MaxDurationReport", config.MaxDurationReport.String()})
 	data = append(data, []string{"MaxDurationShouldAcceptFinalizedReport", config.MaxDurationShouldAcceptFinalizedReport.String()})
 	data = append(data, []string{"MaxDurationShouldTransmitAcceptedReport", config.MaxDurationShouldTransmitAcceptedReport.String()})
-	data = append(data, []string{"F", fmt.Sprintf("%v", config.F)})
+	data = append(data, []string{"F", strconv.Itoa(config.F)})
 
-	if offConf, err := plugintypes.DecodeOffchainConfig(config.ReportingPluginConfig); err == nil {
+	if offConf, err := ocr2keepers20config.DecodeOffchainConfig(config.ReportingPluginConfig); err == nil {
 		data = append(data, []string{"", ""})
 		data = append(data, []string{"TargetProbability", offConf.TargetProbability})
-		data = append(data, []string{"GasLimitPerReport", fmt.Sprintf("%d", offConf.GasLimitPerReport)})
-		data = append(data, []string{"GasOverheadPerUpkeep", fmt.Sprintf("%d", offConf.GasOverheadPerUpkeep)})
-		data = append(data, []string{"MinConfirmations", fmt.Sprintf("%d", offConf.MinConfirmations)})
-		data = append(data, []string{"PerformLockoutWindow", fmt.Sprintf("%d", offConf.PerformLockoutWindow)})
-		data = append(data, []string{"SamplingJobDuration", fmt.Sprintf("%d", offConf.SamplingJobDuration)})
-		data = append(data, []string{"TargetInRounds", fmt.Sprintf("%d", offConf.TargetInRounds)})
+		data = append(data, []string{"GasLimitPerReport", strconv.FormatUint(uint64(offConf.GasLimitPerReport), 10)})
+		data = append(data, []string{"GasOverheadPerUpkeep", strconv.FormatUint(uint64(offConf.GasOverheadPerUpkeep), 10)})
+		data = append(data, []string{"MinConfirmations", strconv.Itoa(offConf.MinConfirmations)})
+		data = append(data, []string{"PerformLockoutWindow", strconv.FormatInt(offConf.PerformLockoutWindow, 10)})
+		data = append(data, []string{"SamplingJobDuration", strconv.FormatInt(offConf.SamplingJobDuration, 10)})
+		data = append(data, []string{"TargetInRounds", strconv.Itoa(offConf.TargetInRounds)})
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)

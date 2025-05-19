@@ -2,12 +2,15 @@ package keeper
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -24,10 +27,10 @@ var (
 type RegistrySynchronizerOptions struct {
 	Job                      job.Job
 	RegistryWrapper          RegistryWrapper
-	ORM                      ORM
+	ORM                      *ORM
 	JRM                      job.ORM
 	LogBroadcaster           log.Broadcaster
-	MailMon                  *utils.MailboxMonitor
+	MailMon                  *mailbox.Monitor
 	SyncInterval             time.Duration
 	MinIncomingConfirmations uint32
 	Logger                   logger.Logger
@@ -36,21 +39,21 @@ type RegistrySynchronizerOptions struct {
 }
 
 type RegistrySynchronizer struct {
-	utils.StartStopOnce
-	chStop                   chan struct{}
+	services.StateMachine
+	chStop                   services.StopChan
 	registryWrapper          RegistryWrapper
 	interval                 time.Duration
 	job                      job.Job
 	jrm                      job.ORM
 	logBroadcaster           log.Broadcaster
-	mbLogs                   *utils.Mailbox[log.Broadcast]
+	mbLogs                   *mailbox.Mailbox[log.Broadcast]
 	minIncomingConfirmations uint32
 	effectiveKeeperAddress   common.Address
-	orm                      ORM
+	orm                      *ORM
 	logger                   logger.SugaredLogger
 	wgDone                   sync.WaitGroup
-	syncUpkeepQueueSize      uint32 //Represents the max number of upkeeps that can be synced in parallel
-	mailMon                  *utils.MailboxMonitor
+	syncUpkeepQueueSize      uint32 // Represents the max number of upkeeps that can be synced in parallel
+	mailMon                  *mailbox.Monitor
 }
 
 // NewRegistrySynchronizer is the constructor of RegistrySynchronizer
@@ -62,7 +65,7 @@ func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchron
 		job:                      opts.Job,
 		jrm:                      opts.JRM,
 		logBroadcaster:           opts.LogBroadcaster,
-		mbLogs:                   utils.NewMailbox[log.Broadcast](5_000), // Arbitrary limit, better to have excess capacity
+		mbLogs:                   mailbox.New[log.Broadcast](5_000), // Arbitrary limit, better to have excess capacity
 		minIncomingConfirmations: opts.MinIncomingConfirmations,
 		orm:                      opts.ORM,
 		effectiveKeeperAddress:   opts.EffectiveKeeperAddress,
@@ -79,7 +82,6 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 		go rs.run()
 
 		var upkeepPerformedFilter [][]log.Topic
-		upkeepPerformedFilter = nil
 
 		logListenerOpts, err := rs.registryWrapper.GetLogListenerOpts(rs.minIncomingConfirmations, upkeepPerformedFilter)
 		if err != nil {
@@ -93,7 +95,7 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 			<-rs.chStop
 		}()
 
-		rs.mailMon.Monitor(rs.mbLogs, "RegistrySynchronizer", "Logs", fmt.Sprint(rs.job.ID))
+		rs.mailMon.Monitor(rs.mbLogs, "RegistrySynchronizer", "Logs", strconv.Itoa(int(rs.job.ID)))
 
 		return nil
 	})
@@ -112,17 +114,20 @@ func (rs *RegistrySynchronizer) run() {
 	defer rs.wgDone.Done()
 	defer syncTicker.Stop()
 
-	rs.fullSync()
+	ctx, cancel := rs.chStop.NewCtx()
+	defer cancel()
+
+	rs.fullSync(ctx)
 
 	for {
 		select {
 		case <-rs.chStop:
 			return
 		case <-syncTicker.Ticks():
-			rs.fullSync()
+			rs.fullSync(ctx)
 			syncTicker.Reset(rs.interval)
 		case <-rs.mbLogs.Notify():
-			rs.processLogs()
+			rs.processLogs(ctx)
 		}
 	}
 }

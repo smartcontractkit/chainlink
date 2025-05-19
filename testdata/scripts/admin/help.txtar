@@ -1,0 +1,21 @@
+exec chainlink admin --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink admin - Commands for remotely taking admin related actions
+
+USAGE:
+   chainlink admin command [command options] [arguments...]
+
+COMMANDS:
+   chpass   Change your API password remotely
+   login    Login to remote client by creating a session cookie
+   logout   Delete any local sessions
+   profile  Collects profile metrics from the node.
+   status   Displays the health of various services running inside the node.
+   users    Create, edit permissions, or delete API users
+
+OPTIONS:
+   --help, -h  show help
+   

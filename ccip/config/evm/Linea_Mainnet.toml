@@ -1,0 +1,22 @@
+ChainID = '59144'
+#3s block time ~ 20m finality based on committee decision
+FinalityDepth = 600
+# Blocks are only emitted when a transaction happens / no empty blocks
+NoNewHeadsThreshold = '0'
+
+[GasEstimator]
+BumpPercent = 40
+PriceMin = '400 mwei'
+
+[Transactions]
+# increase resend time to align with finality
+ResendAfterThreshold = '3m'
+
+# set greater than finality depth
+[HeadTracker]
+HistoryDepth = 350
+
+[Transactions.AutoPurge]
+Enabled = true
+Threshold = 50 # 50 blocks at 3s block time ~2.5 minutes
+MinAttempts = 3

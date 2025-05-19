@@ -1,6 +1,6 @@
 package pg
 
-import "github.com/smartcontractkit/sqlx"
+import "github.com/jmoiron/sqlx"
 
 func SetConn(lock interface{}, conn *sqlx.Conn) {
 	switch v := lock.(type) {

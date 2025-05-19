@@ -1,0 +1,20 @@
+exec chainlink keys vrf --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink keys vrf - Remote commands for administering the node's vrf keys
+
+USAGE:
+   chainlink keys vrf command [command options] [arguments...]
+
+COMMANDS:
+   create  Create a VRF key
+   import  Import VRF key from keyfile
+   export  Export VRF key to keyfile
+   delete  Archive or delete VRF key from memory and the database, if present. Note that jobs referencing the removed key will also be removed.
+   list    List the VRF keys
+
+OPTIONS:
+   --help, -h  show help
+   

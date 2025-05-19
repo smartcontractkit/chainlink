@@ -1,12 +1,15 @@
 package resolver
 
 import (
+	"context"
 	"testing"
 
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 func TestResolver_SetSQLLogging(t *testing.T) {
@@ -33,7 +36,7 @@ func TestResolver_SetSQLLogging(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.Mocks.cfg.On("SetLogSQL", true).Return(nil)
 				f.App.On("GetConfig").Return(f.Mocks.cfg)
 			},
@@ -53,6 +56,13 @@ func TestResolver_SetSQLLogging(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
+type databaseConfig struct {
+	config.Database
+	logSQL bool
+}
+
+func (d *databaseConfig) LogSQL() bool { return d.logSQL }
+
 func TestResolver_SQLLogging(t *testing.T) {
 	t.Parallel()
 
@@ -70,8 +80,8 @@ func TestResolver_SQLLogging(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.cfg.On("LogSQL").Return(false)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.cfg.On("Database").Return(&databaseConfig{logSQL: false})
 				f.App.On("GetConfig").Return(f.Mocks.cfg)
 			},
 			query: query,
@@ -85,6 +95,15 @@ func TestResolver_SQLLogging(t *testing.T) {
 	}
 
 	RunGQLTests(t, testCases)
+}
+
+type log struct {
+	config.Log
+	level zapcore.Level
+}
+
+func (l *log) Level() zapcore.Level {
+	return l.level
 }
 
 func TestResolver_GlobalLogLevel(t *testing.T) {
@@ -108,8 +127,8 @@ func TestResolver_GlobalLogLevel(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.cfg.On("LogLevel").Return(warnLvl)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.cfg.On("Log").Return(&log{level: warnLvl})
 				f.App.On("GetConfig").Return(f.Mocks.cfg)
 			},
 			query: query,
@@ -160,7 +179,7 @@ func TestResolver_SetGlobalLogLevel(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("SetLogLevel", errorLvl).Return(nil)
 			},
 			query:     mutation,
@@ -177,7 +196,7 @@ func TestResolver_SetGlobalLogLevel(t *testing.T) {
 		{
 			name:          "generic error on SetLogLevel",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("SetLogLevel", errorLvl).Return(gError)
 			},
 			query:     mutation,

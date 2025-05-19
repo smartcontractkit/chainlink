@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+# Generates go.md
+
+set -e
+
+echo "# smartcontractkit Go modules
+## Main module
+\`\`\`mermaid
+flowchart LR
+  subgraph chains
+    chainlink-aptos
+    chainlink-cosmos
+    chainlink-evm
+    chainlink-solana
+    chainlink-starknet/relayer
+    chainlink-tron/relayer
+  end
+
+  subgraph products
+    chainlink-automation
+    chainlink-data-streams
+    chainlink-feeds
+    chainlink-functions
+    chainlink-vrf
+  end
+
+  classDef group stroke-dasharray:6,fill:none;
+  class chains,products group
+"
+go mod graph | modgraph -prefix github.com/smartcontractkit/
+echo "\`\`\`"
+
+echo "## All modules
+\`\`\`mermaid
+flowchart LR
+  subgraph chains
+    chainlink-aptos
+    chainlink-cosmos
+    chainlink-evm
+    chainlink-solana
+    chainlink-starknet/relayer
+    chainlink-tron/relayer
+  end
+
+  subgraph products
+    chainlink-automation
+    chainlink-data-streams
+    chainlink-feeds
+    chainlink-functions
+    chainlink-vrf
+  end
+
+  classDef group stroke-dasharray:6,fill:none;
+  class chains,products group
+"
+gomods graph | modgraph -prefix github.com/smartcontractkit/
+echo "\`\`\`"

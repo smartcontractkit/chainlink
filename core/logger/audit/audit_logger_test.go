@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -57,27 +58,27 @@ func (mock *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 
 type Config struct{}
 
-func (c Config) AuditLoggerEnabled() bool {
+func (c Config) Enabled() bool {
 	return true
 }
 
-func (c Config) AuditLoggerEnvironment() string {
+func (c Config) Environment() string {
 	return "test"
 }
 
-func (c Config) AuditLoggerForwardToUrl() (models.URL, error) {
-	url, err := models.ParseURL("http://localhost:9898")
+func (c Config) ForwardToUrl() (commonconfig.URL, error) {
+	url, err := commonconfig.ParseURL("http://localhost:9898")
 	if err != nil {
-		return models.URL{}, err
+		return commonconfig.URL{}, err
 	}
 	return *url, nil
 }
 
-func (c Config) AuditLoggerHeaders() (audit.ServiceHeaders, error) {
-	return make(audit.ServiceHeaders, 0), nil
+func (c Config) Headers() (models.ServiceHeaders, error) {
+	return make(models.ServiceHeaders, 0), nil
 }
 
-func (c Config) AuditLoggerJsonWrapperKey() string {
+func (c Config) JsonWrapperKey() string {
 	return ""
 }
 
@@ -117,7 +118,7 @@ func TestCheckLoginAuditLog(t *testing.T) {
 
 	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
-	client := app.NewAuthenticatingClient(prompter)
+	client := app.NewAuthenticatingShell(prompter)
 
 	set := flag.NewFlagSet("test", 0)
 	set.Bool("bypass-version-check", true, "")
@@ -133,10 +134,10 @@ func TestCheckLoginAuditLog(t *testing.T) {
 		deserialized := &LoginLogItem{}
 		assert.NoError(t, json.Unmarshal([]byte(event.body), deserialized))
 
-		assert.Equal(t, deserialized.Data.Email, cltest.APIEmailAdmin)
-		assert.Equal(t, deserialized.Env, "test")
+		assert.Equal(t, cltest.APIEmailAdmin, deserialized.Data.Email)
+		assert.Equal(t, "test", deserialized.Env)
 
-		assert.Equal(t, deserialized.EventID, "AUTH_LOGIN_SUCCESS_NO_2FA")
+		assert.Equal(t, "AUTH_LOGIN_SUCCESS_NO_2FA", deserialized.EventID)
 		return
 	case <-time.After(5 * time.Second):
 	}

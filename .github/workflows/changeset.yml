@@ -1,0 +1,210 @@
+#
+# This action checks PRs to see if any changeset files were added in the PR core files were changed.
+# If none were, it will add a comment in the PR to run changeset command to generate a changeset file.
+#
+name: Changeset
+
+on: pull_request
+
+jobs:
+  changeset:
+    env:
+      TAGS: |
+        - `#added` For any new functionality added.
+        - `#breaking_change` For any functionality that requires manual action for the node to boot.
+        - `#bugfix` For bug fixes.
+        - `#changed` For any change to the existing functionality.
+        - `#db_update` For any feature that introduces updates to database schema.
+        - `#deprecation_notice` For any upcoming deprecation functionality.
+        - `#internal` For changesets that need to be excluded from the final changelog.
+        - `#nops` For any feature that is NOP facing and needs to be in the official Release Notes for the release.
+        - `#removed` For any functionality/config that is removed.
+        - `#updated` For any functionality that is updated.
+        - `#wip` For any change that is not ready yet and external communication about it should be held off till it is feature complete.
+
+    # For security reasons, GITHUB_TOKEN is read-only on forks, so we cannot leave comments on PRs.
+    # This check skips the job if it is detected we are running on a fork.
+    if: ${{ github.event.pull_request.head.repo.full_name == 'smartcontractkit/chainlink' }}
+    name: Changeset checker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: files-changed
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          predicate-quantifier: every
+          list-files: shell
+          filters: |
+            shared:
+              - common/**
+              - '!common/**/*_test.go'
+              - plugins/**
+              - '!plugins/**/*_test.go'
+            core:
+              - core/**
+              - '!core/**/*_test.go'
+              - '!core/**/*.md'
+              - '!core/**/*.json'
+              - '!core/chainlink.Dockerfile'
+              - '!core/gethwrappers/**'
+            core-changeset:
+              - added: '.changeset/*.md'
+
+      - name: Check for changeset tags for core
+        id: changeset-tags
+        if: ${{ steps.files-changed.outputs.core-changeset == 'true' }}
+        shell: bash
+        run: bash ./.github/scripts/check-changeset-tags.sh ${{ steps.files-changed.outputs.core-changeset_files }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
+        if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
+        with:
+          version: ^10.0.0
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: ./pnpm-lock.yaml
+
+      - name: Get next chainlink core version
+        id: chainlink-version
+        if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
+        run: |
+          pnpm install && pnpm changeset version
+          echo "chainlink_version=$(jq -r '.version' package.json)" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # we need to set the top level directory for the jira-tracing action manually
+      # because now we are working with two repositories and automatic detection would
+      # select the repository with jira-tracing and not the chainlink repository
+      - name: Setup git top level directory
+        id: find-git-top-level-dir
+        run: echo "top_level_dir=$(pwd)" >> $GITHUB_OUTPUT
+
+      - name: Checkout .Github repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/.github
+          ref: a104d316e1d8bf08f7283b90356450c72157e149 # 2025-04-03
+          path: ./dot_github
+
+      - name: Update Jira ticket for core
+        id: jira
+        if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
+        shell: bash
+        working-directory: ./dot_github
+        run: |
+          echo "COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
+          pnpm install --filter jira-tracing && pnpm --filter jira-tracing issue:update
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JIRA_HOST: ${{ vars.JIRA_HOST }}
+          JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          GIT_TOP_LEVEL_DIR: ${{ steps.find-git-top-level-dir.outputs.top_level_dir }}
+          CHAINLINK_VERSION: ${{ steps.chainlink-version.outputs.chainlink_version }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+
+      - name: Make a comment
+        uses: thollander/actions-comment-pull-request@fabd468d3a1a0b97feee5f6b9e499eab0dd903f6 # v2.5.0
+        if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JIRA_COMMENT: ${{ steps.jira.outputs.jiraComment }}
+        with:
+          message: |
+            I see you updated files related to `core`. Please run `pnpm changeset` in the root directory to add a changeset as well as in the text include at least one of the following tags:
+            ${{ env.TAGS }}
+            ${{ env.JIRA_COMMENT }}
+          reactions: eyes
+          comment_tag: changeset-core
+          mode: ${{ steps.files-changed.outputs.core-changeset == 'false' && 'upsert' || 'delete' }}
+          create_if_not_exists: ${{ steps.files-changed.outputs.core-changeset == 'false' && 'true' || 'false' }}
+
+      - name: Check for new changeset for core
+        if: ${{ (steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true') && steps.files-changed.outputs.core-changeset == 'false' }}
+        shell: bash
+        run: |
+          echo "Please run pnpm changeset to add a changeset for core and include in the text at least one tag."
+          exit 1
+
+      - name: Make a comment
+        uses: thollander/actions-comment-pull-request@fabd468d3a1a0b97feee5f6b9e499eab0dd903f6 # v2.5.0
+        if: ${{ steps.files-changed.outputs.core-changeset == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JIRA_COMMENT: ${{ steps.jira.outputs.jiraComment }}
+        with:
+          message: |
+            I see you added a changeset file but it does not contain a tag. Please edit the text include at least one of the following tags:
+            ${{ env.TAGS }}
+            ${{ env.JIRA_COMMENT }}
+          reactions: eyes
+          comment_tag: changeset-core-tags
+          mode: ${{ steps.changeset-tags.outputs.has_tags == 'false' && 'upsert' || 'delete' }}
+          create_if_not_exists: ${{ steps.changeset-tags.outputs.has_tags == 'false' && 'true' || 'false' }}
+
+      - name: Check for new changeset tags for core
+        if: ${{ steps.files-changed.outputs.core-changeset == 'true' && steps.changeset-tags.outputs.has_tags == 'false' }}
+        shell: bash
+        run: |
+          echo "Please include at least one tag in the core changeset file"
+          exit 1
+
+  contracts-changeset:
+    name: Contracts Changeset Checker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: files-changed
+        with:
+          predicate-quantifier: every
+          list-files: shell
+          filters: |
+            contracts-changeset:
+              - added|modified: 'contracts/.changeset/*.md'
+
+      - name: Setup node
+        uses: ./.github/actions/setup-nodejs
+        if: ${{ steps.files-changed.outputs.contracts-changeset == 'true' }}
+
+      - name: Install base dependencies
+        if: ${{ steps.files-changed.outputs.contracts-changeset == 'true' }}
+        run: pnpm i
+
+      - name: Validate changeset files
+        if: ${{ steps.files-changed.outputs.contracts-changeset == 'true' }}
+        working-directory: contracts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pnpm changeset version
+
+      - name: Comment Failure
+        if: ${{ failure() && steps.files-changed.outputs.contracts-changeset == 'true' }}
+        uses: thollander/actions-comment-pull-request@fabd468d3a1a0b97feee5f6b9e499eab0dd903f6 # v2.5.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          message: |
+            It appears that the changeset file you've added or modified in `contracts/.changeset` is not valid.
+            Please delete the file and run `pnpm changeset` in the contracts directory.

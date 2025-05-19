@@ -1,0 +1,10 @@
+exec chainlink node db status --help
+cmp stdout out.txt
+! stderr .
+
+-- out.txt --
+NAME:
+   chainlink node db status - Display the current database migration status.
+
+USAGE:
+   chainlink node db status [arguments...]

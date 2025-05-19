@@ -1,13 +1,14 @@
 package keystore_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -16,15 +17,15 @@ import (
 
 func Test_OCR2KeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewTestGeneralConfig(t)
-	keyStore := keystore.ExposedNewMaster(t, db, cfg)
-	require.NoError(t, keyStore.Unlock(cltest.Password))
+	keyStore := keystore.ExposedNewMaster(t, db)
+	require.NoError(t, keyStore.Unlock(testutils.Context(t), cltest.Password))
 	ks := keyStore.OCR2()
 	reset := func() {
+		ctx := context.Background() // Executed on cleanup
 		_, err := db.Exec("DELETE FROM encrypted_key_rings")
 		require.NoError(t, err)
 		keyStore.ResetXXXTestOnly()
-		err = keyStore.Unlock(cltest.Password)
+		err = keyStore.Unlock(ctx, cltest.Password)
 		require.NoError(t, err)
 	}
 
@@ -32,7 +33,7 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 		defer reset()
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
-		require.Equal(t, 0, len(keys))
+		require.Empty(t, keys)
 	})
 
 	t.Run("errors when getting non-existent ID", func(t *testing.T) {
@@ -43,9 +44,10 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 
 	t.Run("creates a key with valid type", func(t *testing.T) {
 		defer reset()
+		ctx := testutils.Context(t)
 		// lopp through different chain types
 		for _, chain := range chaintype.SupportedChainTypes {
-			key, err := ks.Create(chain)
+			key, err := ks.Create(ctx, chain)
 			require.NoError(t, err)
 			retrievedKey, err := ks.Get(key.ID())
 			require.NoError(t, err)
@@ -55,16 +57,16 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 
 	t.Run("gets keys by type", func(t *testing.T) {
 		defer reset()
+		ctx := testutils.Context(t)
 
 		created := map[chaintype.ChainType]bool{}
 		for _, chain := range chaintype.SupportedChainTypes {
-
 			// validate no keys exist for chain
 			keys, err := ks.GetAllOfType(chain)
 			require.NoError(t, err)
-			require.Len(t, keys, 0)
+			require.Empty(t, keys)
 
-			_, err = ks.Create(chain)
+			_, err = ks.Create(ctx, chain)
 			require.NoError(t, err)
 			created[chain] = true
 
@@ -76,33 +78,35 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 					require.Len(t, keys, 1)
 					continue
 				}
-				require.Len(t, keys, 0)
+				require.Empty(t, keys)
 			}
 		}
 	})
 
 	t.Run("errors when creating a key with an invalid type", func(t *testing.T) {
 		defer reset()
-		_, err := ks.Create("foobar")
+		ctx := testutils.Context(t)
+		_, err := ks.Create(ctx, "foobar")
 		require.Error(t, err)
 	})
 
 	t.Run("imports and exports a key", func(t *testing.T) {
 		defer reset()
+		ctx := testutils.Context(t)
 		for _, chain := range chaintype.SupportedChainTypes {
-			key, err := ks.Create(chain)
+			key, err := ks.Create(ctx, chain)
 			require.NoError(t, err)
 			exportJSON, err := ks.Export(key.ID(), cltest.Password)
 			require.NoError(t, err)
 			_, err = ks.Export("non-existent", cltest.Password)
 			assert.Error(t, err)
-			err = ks.Delete(key.ID())
+			err = ks.Delete(ctx, key.ID())
 			require.NoError(t, err)
 			_, err = ks.Get(key.ID())
 			require.Error(t, err)
-			importedKey, err := ks.Import(exportJSON, cltest.Password)
+			importedKey, err := ks.Import(ctx, exportJSON, cltest.Password)
 			require.NoError(t, err)
-			_, err = ks.Import([]byte(""), cltest.Password)
+			_, err = ks.Import(ctx, []byte(""), cltest.Password)
 			assert.Error(t, err)
 			require.Equal(t, key.ID(), importedKey.ID())
 			retrievedKey, err := ks.Get(key.ID())
@@ -114,23 +118,24 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {
 		defer reset()
+		ctx := testutils.Context(t)
 		for _, chain := range chaintype.SupportedChainTypes {
 			newKey, err := ocr2key.New(chain)
 			require.NoError(t, err)
-			err = ks.Add(newKey)
+			err = ks.Add(ctx, newKey)
 			require.NoError(t, err)
-			err = ks.Add(newKey)
+			err = ks.Add(ctx, newKey)
 			assert.Error(t, err)
 			keys, err := ks.GetAll()
 			require.NoError(t, err)
-			require.Equal(t, 1, len(keys))
-			err = ks.Delete(newKey.ID())
+			require.Len(t, keys, 1)
+			err = ks.Delete(ctx, newKey.ID())
 			require.NoError(t, err)
-			err = ks.Delete(newKey.ID())
+			err = ks.Delete(ctx, newKey.ID())
 			assert.Error(t, err)
 			keys, err = ks.GetAll()
 			require.NoError(t, err)
-			require.Equal(t, 0, len(keys))
+			require.Empty(t, keys)
 			_, err = ks.Get(newKey.ID())
 			require.Error(t, err)
 		}
@@ -138,21 +143,70 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 
 	t.Run("ensures key", func(t *testing.T) {
 		defer reset()
-		err := ks.EnsureKeys()
+		ctx := testutils.Context(t)
+		err := ks.EnsureKeys(ctx, chaintype.SupportedChainTypes...)
 		assert.NoError(t, err)
 
 		keys, err := ks.GetAll()
 		assert.NoError(t, err)
 		require.Equal(t, len(chaintype.SupportedChainTypes), len(keys))
 
-		err = ks.EnsureKeys()
+		err = ks.EnsureKeys(ctx, chaintype.SupportedChainTypes...)
 		assert.NoError(t, err)
 
 		// loop through different supported chain types
 		for _, chain := range chaintype.SupportedChainTypes {
 			keys, err := ks.GetAllOfType(chain)
 			assert.NoError(t, err)
-			require.Equal(t, 1, len(keys))
+			require.Len(t, keys, 1)
 		}
+	})
+
+	t.Run("ensures key only for enabled chains", func(t *testing.T) {
+		defer reset()
+		ctx := testutils.Context(t)
+		err := ks.EnsureKeys(ctx, chaintype.EVM)
+		assert.NoError(t, err)
+
+		keys, err := ks.GetAll()
+		assert.NoError(t, err)
+		require.Len(t, keys, 1)
+		require.Equal(t, chaintype.EVM, keys[0].ChainType())
+
+		err = ks.EnsureKeys(ctx, chaintype.Cosmos)
+		assert.NoError(t, err)
+
+		keys, err = ks.GetAll()
+		assert.NoError(t, err)
+		require.Len(t, keys, 2)
+
+		cosmosKeys, err := ks.GetAllOfType(chaintype.Cosmos)
+		assert.NoError(t, err)
+		require.Len(t, cosmosKeys, 1)
+		require.Equal(t, chaintype.Cosmos, cosmosKeys[0].ChainType())
+
+		err = ks.EnsureKeys(ctx, chaintype.StarkNet)
+		assert.NoError(t, err)
+
+		keys, err = ks.GetAll()
+		assert.NoError(t, err)
+		require.Len(t, keys, 3)
+
+		starknetKeys, err := ks.GetAllOfType(chaintype.StarkNet)
+		require.NoError(t, err)
+		require.Len(t, starknetKeys, 1)
+		require.Equal(t, chaintype.StarkNet, starknetKeys[0].ChainType())
+
+		err = ks.EnsureKeys(ctx, chaintype.Tron)
+		require.NoError(t, err)
+
+		keys, err = ks.GetAll()
+		require.NoError(t, err)
+		require.Len(t, keys, 4)
+
+		tronKeys, err := ks.GetAllOfType(chaintype.Tron)
+		require.NoError(t, err)
+		require.Len(t, tronKeys, 1)
+		require.Equal(t, chaintype.Tron, tronKeys[0].ChainType())
 	})
 }

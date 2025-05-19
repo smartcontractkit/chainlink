@@ -2,38 +2,12 @@ name: Automation Benchmark Test
 on:
   workflow_dispatch:
     inputs:
-      chainlinkVersion:
-        description: Chainlink image version to use
-        required: true
-        type: string
-        default: 1.10.0
-      chainlinkImage:
-        description: Chainlink image repo to use
-        required: true
-        type: string
-        default: public.ecr.aws/chainlink/chainlink
-      network:
-        description: Network to run tests on
-        required: true
-        type: choice
-        options:
-          - SIMULATED
-          - SIMULATED_NONDEV
-          - GOERLI
-          - ARBITRUM_GOERLI
-          - OPTIMISM_GOERLI
-          - MUMBAI
-          - SEPOLIA
-      TestInputs:
-        description: TestInputs
+      test_config_override_path:
+        description: Path to a test config file used to override the default test config
         required: false
         type: string
-      wsURL:
-        description: WS URL for the network (Skip for Simulated)
-        required: false
-        type: string
-      httpURL:
-        description: HTTP URL for the network (Skip for Simulated)
+      test_secrets_override_key:
+        description: Key to run tests with custom test secrets
         required: false
         type: string
       slackMemberID:
@@ -41,100 +15,48 @@ on:
         required: true
         default: U02Q14G80TY
         type: string
-      fundingPrivateKey:
-        description: Private funding key (Skip for Simulated)
-        required: false
+      testType:
+        description: Type of test to run (benchmark, soak)
+        required: true
+        default: benchmark
+        type: string
+      team:
+        description: Team to run the tests for (e.g. BIX, CCIP)
+        required: true
         type: string
 
 jobs:
-  automation_benchmark:
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    name: ${{ inputs.network }} Automation Benchmark Test
-    runs-on: ubuntu-latest
-    env:
-      SELECTED_NETWORKS: ${{ inputs.network }}
-      SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
+  run-e2e-tests-workflow:
+    name: Run E2E Tests
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639ad9c899df967dc44b86520db48e19c8abeaca
+    with:
+      test_path: .github/e2e-tests.yml
+      test_ids: '${{ inputs.testType }}/automation_test.go:TestAutomationBenchmark'
+      test_config_override_path: ${{ inputs.test_config_override_path }}
+      SLACK_USER: ${{ inputs.slackMemberID }}
       SLACK_CHANNEL: C03KJ5S7KEK
-      TEST_INPUTS: ${{ inputs.TestInputs }}
-      CHAINLINK_ENV_USER: ${{ github.actor }}
-      REF_NAME: ${{ github.head_ref || github.ref_name }}
-      ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
-    steps:
-      - name: Setup Push Tag
-        id: push
-        shell: bash
-        run: |
-          echo "### chainlink image used for this test run :link:" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ inputs.chainlinkVersion }}\`" >>$GITHUB_STEP_SUMMARY
-          echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
-          if [ "${{ env.REF_NAME }}" != "develop" ]; then
-            # use sha if not on develop
-            echo "tag=${{ env.ENV_JOB_IMAGE_BASE }}:benchmark.${{ github.sha }}" >>$GITHUB_OUTPUT
-            echo "\`benchmark.${{ github.sha }}\`" >>$GITHUB_STEP_SUMMARY
-          else
-            # default to develop
-            echo "tag=${{ env.ENV_JOB_IMAGE_BASE }}:develop" >>$GITHUB_OUTPUT
-            echo "\`develop\`" >>$GITHUB_STEP_SUMMARY
-          fi
-      - name: Add mask
-        run: |
-          EVM_URLS=$(jq -r '.inputs.wsURL' $GITHUB_EVENT_PATH)
-          EVM_HTTP_URLS=$(jq -r '.inputs.httpURL' $GITHUB_EVENT_PATH)
-          EVM_KEYS=$(jq -r '.inputs.fundingPrivateKey' $GITHUB_EVENT_PATH)
-          SLACK_USER=$(jq -r '.inputs.slackMemberID' $GITHUB_EVENT_PATH)
-          echo ::add-mask::$EVM_URLS
-          echo ::add-mask::$EVM_HTTP_URLS
-          echo ::add-mask::$EVM_KEYS
-          echo ::add-mask::$SLACK_USER
-          echo EVM_URLS=$EVM_URLS >> $GITHUB_ENV
-          echo EVM_HTTP_URLS=$EVM_HTTP_URLS >> $GITHUB_ENV
-          echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
-          echo SLACK_USER=$SLACK_USER >> $GITHUB_ENV
-      - name: Checkout the repo
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
-        with:
-          ref: ${{ env.REF_NAME }}
-      - name: build test runner
-        if: ${{ env.REF_NAME != 'develop' }}
-        uses: smartcontractkit/chainlink-github-actions/docker/build-push@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
-        with:
-          tags: ${{ steps.push.outputs.tag }}
-          file: ./integration-tests/test.Dockerfile
-          build-args: |
-            BASE_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/test-base-image
-            IMAGE_VERSION=v0.3.17
-            SUITES="benchmark"
-          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@09358ba70818d6252aa3f7b8ba6022192f716e71 # v2.1.3
-        env:
-          DETACH_RUNNER: true
-          TEST_SUITE: benchmark
-          TEST_ARGS: -test.timeout 720h
-          ENV_JOB_IMAGE: ${{ steps.push.outputs.tag }}
-        with:
-          test_command_to_run: cd integration-tests && go test -timeout 30m -v -run ^TestAutomationBenchmark$ ./benchmark -count=1
-          test_download_vendor_packages_command: make gomod
-          cl_repo: ${{ inputs.chainlinkImage }}
-          cl_image_tag: ${{ inputs.chainlinkVersion }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          should_cleanup: false
-          go_mod_path: ./integration-tests/go.mod
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: ${{ inputs.network }} Automation Benchmark Test
-        continue-on-error: true
+      team: ${{ inputs.team }}
+      test_secrets_override_key: ${{ github.event.inputs.test_secrets_override_key }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      TEST_SECRETS_OVERRIDE_BASE64: ${{ secrets[inputs.test_secrets_override_key] }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
+      MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
+      AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}

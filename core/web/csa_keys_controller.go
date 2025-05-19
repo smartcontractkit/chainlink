@@ -34,7 +34,8 @@ func (ctrl *CSAKeysController) Index(c *gin.Context) {
 // Example:
 // "POST <application>/keys/csa"
 func (ctrl *CSAKeysController) Create(c *gin.Context) {
-	key, err := ctrl.App.GetKeyStore().CSA().Create()
+	ctx := c.Request.Context()
+	key, err := ctrl.App.GetKeyStore().CSA().Create(ctx)
 	if err != nil {
 		if errors.Is(err, keystore.ErrCSAKeyExists) {
 			jsonAPIError(c, http.StatusBadRequest, err)
@@ -56,6 +57,7 @@ func (ctrl *CSAKeysController) Create(c *gin.Context) {
 // Import imports a CSA key
 func (ctrl *CSAKeysController) Import(c *gin.Context) {
 	defer ctrl.App.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Import request body")
+	ctx := c.Request.Context()
 
 	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -63,7 +65,7 @@ func (ctrl *CSAKeysController) Import(c *gin.Context) {
 		return
 	}
 	oldPassword := c.Query("oldpassword")
-	key, err := ctrl.App.GetKeyStore().CSA().Import(bytes, oldPassword)
+	key, err := ctrl.App.GetKeyStore().CSA().Import(ctx, bytes, oldPassword)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return

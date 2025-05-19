@@ -3,23 +3,23 @@ package fluxmonitorv2
 import (
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type ValidationConfig interface {
-	DefaultHTTPTimeout() models.Duration
+	DefaultHTTPTimeout() commonconfig.Duration
 }
 
 func ValidatedFluxMonitorSpec(config ValidationConfig, ts string) (job.Job, error) {
 	var jb = job.Job{
-		ExternalJobID: uuid.NewV4(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
+		ExternalJobID: uuid.New(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
 	}
 	var spec job.FluxMonitorSpec
 	tree, err := toml.Load(ts)

@@ -8,8 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 // Coordinator defines an interface for fetching request and fulfillment metadata from a VRF
@@ -42,6 +42,10 @@ type BHS interface {
 
 	// StoreEarliest stores the earliest possible blockhash (i.e. block.number - 256)
 	StoreEarliest(ctx context.Context) error
+
+	IsTrusted() bool
+
+	StoreTrusted(ctx context.Context, blockNums []uint64, blockhashes []common.Hash, recentBlock uint64, recentBlockhash common.Hash) error
 }
 
 func GetUnfulfilledBlocksAndRequests(
@@ -53,10 +57,10 @@ func GetUnfulfilledBlocksAndRequests(
 	blockToRequests := make(map[uint64]map[string]struct{})
 	requestIDToBlock := make(map[string]uint64)
 
-	reqs, err := coordinator.Requests(ctx, uint64(fromBlock), uint64(toBlock))
+	reqs, err := coordinator.Requests(ctx, fromBlock, toBlock)
 	if err != nil {
 		lggr.Errorw("Failed to fetch VRF requests",
-			"error", err)
+			"err", err)
 		return nil, errors.Wrap(err, "fetching VRF requests")
 	}
 	for _, req := range reqs {
@@ -67,10 +71,10 @@ func GetUnfulfilledBlocksAndRequests(
 		requestIDToBlock[req.ID] = req.Block
 	}
 
-	fuls, err := coordinator.Fulfillments(ctx, uint64(fromBlock))
+	fuls, err := coordinator.Fulfillments(ctx, fromBlock)
 	if err != nil {
 		lggr.Errorw("Failed to fetch VRF fulfillments",
-			"error", err)
+			"err", err)
 		return nil, errors.Wrap(err, "fetching VRF fulfillments")
 	}
 	for _, ful := range fuls {
@@ -127,7 +131,7 @@ func GetSearchWindow(latestBlock, waitBlocks, lookbackBlocks int) (uint64, uint6
 }
 
 // SendingKeys returns a list of sending keys (common.Address) given EIP55 addresses
-func SendingKeys(fromAddresses []ethkey.EIP55Address) []common.Address {
+func SendingKeys(fromAddresses []types.EIP55Address) []common.Address {
 	var keys []common.Address
 	for _, a := range fromAddresses {
 		keys = append(keys, a.Address())

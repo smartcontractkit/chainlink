@@ -1,0 +1,104 @@
+name: On Demand VRFV2 Performance Test
+on:
+  workflow_dispatch:
+    inputs:
+      performanceTestType:
+        description: Performance Test Type of test to run
+        type: choice
+        options:
+          - "Smoke"
+          - "Soak"
+          - "Load"
+          - "Stress"
+          - "Spike"
+      test_list_regex:
+        description: "Regex for tests to run"
+        required: false
+        default: "(TestVRFV2Performance)"
+      test_config_override_path:
+        description: Path to a test config file used to override the default test config
+        required: false
+        type: string
+      test_secrets_override_key:
+        description: 'Key to run tests with custom test secrets'
+        required: false
+        type: string
+      notify_user_id_on_failure:
+        description: 'Enter Slack user ID to notify on test failure'
+        required: false
+        type: string
+
+jobs:
+  set-tests-to-run:
+    name: Set tests to run
+    runs-on: ubuntu-latest
+    outputs:
+      test_list: ${{ steps.set-tests.outputs.test_list }}
+    env:
+      GH_INPUTS_TEST_LIST_REGEX: ${{ inputs.test_list_regex }}
+      GH_INPUTS_TEST_CONFIG_OVERRIDE_PATH: ${{ inputs.test_config_override_path }}
+      GH_INPUTS_PERFORMANCE_TEST_TYPE: ${{ inputs.performanceTestType }}
+    steps:
+      - name: Generate Test List JSON
+        id: set-tests
+        run: |
+          TEST_CMD='cd integration-tests/load && go test -v -count=1 -timeout 24h -run "$GH_INPUTS_TEST_LIST_REGEX" ./vrfv2'
+          TEST_CONFIG_OVERRIDE_PATH=$GH_INPUTS_TEST_CONFIG_OVERRIDE_PATH
+          TEST_TYPE=$GH_INPUTS_PERFORMANCE_TEST_TYPE
+
+          TEST_LIST=$(jq -n -c \
+            --arg test_cmd "$TEST_CMD" \
+            --arg test_config_override_path "$TEST_CONFIG_OVERRIDE_PATH" \
+            --arg TEST_TYPE "$TEST_TYPE" \
+            '{
+              "tests": [
+                {
+                  "id": "TestVRFv2Plus_Performance",
+                  "path": "integration-tests/load/vrfv2plus/vrfv2plus_test.go",
+                  "runs_on": "ubuntu22.04-8cores-32GB",
+                  "test_env_type": "docker",
+                  "test_cmd": $test_cmd,
+                  "test_config_override_path": $test_config_override_path,
+                  "test_env_vars": {
+                    "TEST_TYPE": $TEST_TYPE
+                  }
+                }
+              ]
+            }')
+
+          echo "test_list=$TEST_LIST" >> $GITHUB_OUTPUT
+
+  run-e2e-tests-workflow:
+    name: Run E2E Tests
+    needs: set-tests-to-run
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@2e0f146b5352cbf5b00525687ae65ccc9828abb6
+    with:
+      custom_test_list_json: ${{ needs.set-tests-to-run.outputs.test_list }}
+      chainlink_version: ${{ inputs.chainlink_version }}
+      slack_notification_after_tests: always
+      slack_notification_after_tests_name: "VRF V2 Performance Tests with test config: ${{ inputs.test_config_override_path || 'default' }}"
+      slack_notification_after_tests_notify_user_id_on_failure: ${{ inputs.notify_user_id_on_failure }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      TEST_SECRETS_OVERRIDE_BASE64: ${{ secrets[inputs.test_secrets_override_key] }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
+      SLACK_CHANNEL: ${{ secrets.QA_VRF_SLACK_CHANNEL }}
+      MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
+      AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}

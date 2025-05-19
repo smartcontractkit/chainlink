@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"testing"
@@ -27,12 +28,12 @@ func TestResolver_JobErrors(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					ID: int32(1),
 				}, nil)
-				f.Mocks.jobORM.On("FindSpecErrorsByJobIDs", []int32{1}, mock.Anything).Return([]job.SpecError{
+				f.Mocks.jobORM.On("FindSpecErrorsByJobIDs", mock.Anything, []int32{1}, mock.Anything).Return([]job.SpecError{
 					{
 						ID:          errorID,
 						Description: "no contract code at given address",
@@ -123,8 +124,8 @@ func TestResolver_DismissJobError(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.jobORM.On("FindSpecError", id).Return(job.SpecError{
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindSpecError", mock.Anything, id).Return(job.SpecError{
 					ID:          id,
 					Occurrences: 5,
 					Description: "test-description",
@@ -140,8 +141,8 @@ func TestResolver_DismissJobError(t *testing.T) {
 		{
 			name:          "not found on FindSpecError()",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.jobORM.On("FindSpecError", id).Return(job.SpecError{}, sql.ErrNoRows)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindSpecError", mock.Anything, id).Return(job.SpecError{}, sql.ErrNoRows)
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 			},
 			query:     mutation,
@@ -158,8 +159,8 @@ func TestResolver_DismissJobError(t *testing.T) {
 		{
 			name:          "not found on DismissError()",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.jobORM.On("FindSpecError", id).Return(job.SpecError{}, nil)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindSpecError", mock.Anything, id).Return(job.SpecError{}, nil)
 				f.Mocks.jobORM.On("DismissError", mock.Anything, id).Return(sql.ErrNoRows)
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 			},
@@ -177,8 +178,8 @@ func TestResolver_DismissJobError(t *testing.T) {
 		{
 			name:          "generic error on FindSpecError()",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.jobORM.On("FindSpecError", id).Return(job.SpecError{}, gError)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindSpecError", mock.Anything, id).Return(job.SpecError{}, gError)
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 			},
 			query:     mutation,
@@ -196,8 +197,8 @@ func TestResolver_DismissJobError(t *testing.T) {
 		{
 			name:          "generic error on DismissError()",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.jobORM.On("FindSpecError", id).Return(job.SpecError{}, nil)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindSpecError", mock.Anything, id).Return(job.SpecError{}, nil)
 				f.Mocks.jobORM.On("DismissError", mock.Anything, id).Return(gError)
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 			},

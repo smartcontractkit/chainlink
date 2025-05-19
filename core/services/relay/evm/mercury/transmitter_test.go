@@ -2,199 +2,348 @@ package mercury
 
 import (
 	"context"
+	"math/big"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	mercurytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
+	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type MockWSRPCClient struct {
-	transmit     func(ctx context.Context, in *pb.TransmitRequest) (*pb.TransmitResponse, error)
-	latestReport func(ctx context.Context, req *pb.LatestReportRequest) (resp *pb.LatestReportResponse, err error)
+type mockCfg struct{}
+
+func (m mockCfg) Protocol() config.MercuryTransmitterProtocol {
+	return config.MercuryTransmitterProtocolGRPC
 }
 
-func (m MockWSRPCClient) Name() string                   { return "" }
-func (m MockWSRPCClient) Start(context.Context) error    { return nil }
-func (m MockWSRPCClient) Close() error                   { return nil }
-func (m MockWSRPCClient) HealthReport() map[string]error { return map[string]error{} }
-func (m MockWSRPCClient) Ready() error                   { return nil }
-func (m MockWSRPCClient) Transmit(ctx context.Context, in *pb.TransmitRequest) (*pb.TransmitResponse, error) {
-	return m.transmit(ctx, in)
-}
-func (m MockWSRPCClient) LatestReport(ctx context.Context, in *pb.LatestReportRequest) (*pb.LatestReportResponse, error) {
-	return m.latestReport(ctx, in)
+func (m mockCfg) TransmitQueueMaxSize() uint32 {
+	return 100_000
 }
 
-var _ wsrpc.Client = &MockWSRPCClient{}
-
-type MockTracker struct {
-	latestConfigDetails func(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error)
+func (m mockCfg) TransmitTimeout() commonconfig.Duration {
+	return *commonconfig.MustNewDuration(1 * time.Hour)
 }
-
-func (m MockTracker) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-	return m.latestConfigDetails(ctx)
-}
-
-var _ ConfigTracker = &MockTracker{}
 
 func Test_MercuryTransmitter_Transmit(t *testing.T) {
-	t.Parallel()
+	lggr := logger.Test(t)
+	db := pgtest.NewSqlxDB(t)
+	var jobID int32
+	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
+	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
+	codec := new(mockCodec)
+	benchmarkPriceDecoder := func(ctx context.Context, feedID mercuryutils.FeedID, report ocrtypes.Report) (*big.Int, error) {
+		return codec.BenchmarkPriceFromReport(ctx, report)
+	}
+	orm := NewORM(db)
+	clients := map[string]wsrpc.Client{}
 
-	lggr := logger.TestLogger(t)
+	t.Run("with one mercury server", func(t *testing.T) {
+		t.Run("v1 report transmission successfully enqueued", func(t *testing.T) {
+			report := sampleV1Report
+			c := &mocks.MockWSRPCClient{}
+			clients[sURL] = c
+			mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec, benchmarkPriceDecoder, nil)
+			// init the queue since we skipped starting transmitter
+			mt.servers[sURL].q.Init([]*Transmission{})
+			err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
+			require.NoError(t, err)
 
-	t.Run("successful transmit", func(t *testing.T) {
-		c := MockWSRPCClient{
-			transmit: func(ctx context.Context, in *pb.TransmitRequest) (out *pb.TransmitResponse, err error) {
-				require.NotNil(t, in)
-				assert.Equal(t, samplePayloadHex, hexutil.Encode(in.Payload))
-				out = new(pb.TransmitResponse)
-				out.Code = 42
-				out.Error = ""
-				return out, nil
-			},
-		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
-		err := mt.Transmit(testutils.Context(t), sampleReportContext, sampleReport, sampleSigs)
+			// ensure it was added to the queue
+			require.Equal(t, mt.servers[sURL].q.(*transmitQueue).pq.Len(), 1)
+			assert.Subset(t, mt.servers[sURL].q.(*transmitQueue).pq.Pop().(*Transmission).Req.Payload, report)
+		})
+		t.Run("v2 report transmission successfully enqueued", func(t *testing.T) {
+			report := sampleV2Report
+			c := &mocks.MockWSRPCClient{}
+			clients[sURL] = c
+			mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec, benchmarkPriceDecoder, nil)
+			// init the queue since we skipped starting transmitter
+			mt.servers[sURL].q.Init([]*Transmission{})
+			err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
+			require.NoError(t, err)
 
-		require.NoError(t, err)
+			// ensure it was added to the queue
+			require.Equal(t, mt.servers[sURL].q.(*transmitQueue).pq.Len(), 1)
+			assert.Subset(t, mt.servers[sURL].q.(*transmitQueue).pq.Pop().(*Transmission).Req.Payload, report)
+		})
+		t.Run("v3 report transmission successfully enqueued", func(t *testing.T) {
+			report := sampleV3Report
+			c := &mocks.MockWSRPCClient{}
+			clients[sURL] = c
+			mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec, benchmarkPriceDecoder, nil)
+			// init the queue since we skipped starting transmitter
+			mt.servers[sURL].q.Init([]*Transmission{})
+			err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
+			require.NoError(t, err)
+
+			// ensure it was added to the queue
+			require.Equal(t, mt.servers[sURL].q.(*transmitQueue).pq.Len(), 1)
+			assert.Subset(t, mt.servers[sURL].q.(*transmitQueue).pq.Pop().(*Transmission).Req.Payload, report)
+		})
+		t.Run("v3 report transmission sent only to trigger service", func(t *testing.T) {
+			report := sampleV3Report
+			c := &mocks.MockWSRPCClient{}
+			clients[sURL] = c
+			triggerService, err := triggers.NewMercuryTriggerService(0, "", "", lggr)
+			require.NoError(t, err)
+			mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec, benchmarkPriceDecoder, triggerService)
+			// init the queue since we skipped starting transmitter
+			mt.servers[sURL].q.Init([]*Transmission{})
+			err = mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
+			require.NoError(t, err)
+			// queue is empty
+			require.Equal(t, mt.servers[sURL].q.(*transmitQueue).pq.Len(), 0)
+		})
 	})
 
-	t.Run("failing transmit", func(t *testing.T) {
-		c := MockWSRPCClient{
-			transmit: func(ctx context.Context, in *pb.TransmitRequest) (out *pb.TransmitResponse, err error) {
-				return nil, errors.New("foo error")
-			},
-		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
-		err := mt.Transmit(testutils.Context(t), sampleReportContext, sampleReport, sampleSigs)
+	t.Run("with multiple mercury servers", func(t *testing.T) {
+		report := sampleV3Report
+		c := &mocks.MockWSRPCClient{}
+		clients[sURL] = c
+		clients[sURL2] = c
+		clients[sURL3] = c
 
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "foo error")
+		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec, benchmarkPriceDecoder, nil)
+		// init the queue since we skipped starting transmitter
+		mt.servers[sURL].q.Init([]*Transmission{})
+		mt.servers[sURL2].q.Init([]*Transmission{})
+		mt.servers[sURL3].q.Init([]*Transmission{})
+
+		err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
+		require.NoError(t, err)
+
+		// ensure it was added to the queue
+		require.Equal(t, mt.servers[sURL].q.(*transmitQueue).pq.Len(), 1)
+		assert.Subset(t, mt.servers[sURL].q.(*transmitQueue).pq.Pop().(*Transmission).Req.Payload, report)
+		require.Equal(t, mt.servers[sURL2].q.(*transmitQueue).pq.Len(), 1)
+		assert.Subset(t, mt.servers[sURL2].q.(*transmitQueue).pq.Pop().(*Transmission).Req.Payload, report)
+		require.Equal(t, mt.servers[sURL3].q.(*transmitQueue).pq.Len(), 1)
+		assert.Subset(t, mt.servers[sURL3].q.(*transmitQueue).pq.Pop().(*Transmission).Req.Payload, report)
 	})
 }
 
-func Test_MercuryTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
+func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 	t.Parallel()
+	lggr := logger.Test(t)
+	db := pgtest.NewSqlxDB(t)
+	var jobID int32
+	codec := new(mockCodec)
+	benchmarkPriceDecoder := func(ctx context.Context, feedID mercuryutils.FeedID, report ocrtypes.Report) (*big.Int, error) {
+		return codec.BenchmarkPriceFromReport(ctx, report)
+	}
 
-	lggr := logger.TestLogger(t)
-
-	sampleConfigDigest := utils.NewHash().Bytes()
-	wrongFeedID := []byte{1, 2, 3, 4}
+	orm := NewORM(db)
+	clients := map[string]wsrpc.Client{}
 
 	t.Run("successful query", func(t *testing.T) {
-		c := MockWSRPCClient{
-			latestReport: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
+		c := &mocks.MockWSRPCClient{
+			LatestReportF: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
 				require.NotNil(t, in)
 				assert.Equal(t, hexutil.Encode(sampleFeedID[:]), hexutil.Encode(in.FeedId))
 				out = new(pb.LatestReportResponse)
 				out.Report = new(pb.Report)
 				out.Report.FeedId = sampleFeedID[:]
-				out.Report.ConfigDigest = sampleConfigDigest
-				out.Report.Epoch = 42
+				out.Report.ObservationsTimestamp = 42
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
-		cd, epoch, err := mt.LatestConfigDigestAndEpoch(testutils.Context(t))
+		clients[sURL] = c
+		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec, benchmarkPriceDecoder, nil)
+		ts, err := mt.LatestTimestamp(testutils.Context(t))
 		require.NoError(t, err)
 
-		assert.Equal(t, hexutil.Encode(sampleConfigDigest[:]), hexutil.Encode(cd[:]))
-		assert.Equal(t, 42, int(epoch))
+		assert.Equal(t, int64(42), ts)
 	})
+
+	t.Run("successful query returning nil report (new feed) gives latest timestamp = -1", func(t *testing.T) {
+		c := &mocks.MockWSRPCClient{
+			LatestReportF: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
+				out = new(pb.LatestReportResponse)
+				out.Report = nil
+				return out, nil
+			},
+		}
+		clients[sURL] = c
+		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec, benchmarkPriceDecoder, nil)
+		ts, err := mt.LatestTimestamp(testutils.Context(t))
+		require.NoError(t, err)
+
+		assert.Equal(t, int64(-1), ts)
+	})
+
 	t.Run("failing query", func(t *testing.T) {
-		c := MockWSRPCClient{
-			latestReport: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
+		c := &mocks.MockWSRPCClient{
+			LatestReportF: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
 				return nil, errors.New("something exploded")
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
-		_, _, err := mt.LatestConfigDigestAndEpoch(testutils.Context(t))
+		clients[sURL] = c
+		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec, benchmarkPriceDecoder, nil)
+		_, err := mt.LatestTimestamp(testutils.Context(t))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
 	})
-	t.Run("return feed ID is wrong", func(t *testing.T) {
-		c := MockWSRPCClient{
-			latestReport: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
+
+	t.Run("with multiple servers, uses latest", func(t *testing.T) {
+		clients[sURL] = &mocks.MockWSRPCClient{
+			LatestReportF: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
+				return nil, errors.New("something exploded")
+			},
+		}
+		clients[sURL2] = &mocks.MockWSRPCClient{
+			LatestReportF: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
+				out = new(pb.LatestReportResponse)
+				out.Report = new(pb.Report)
+				out.Report.FeedId = sampleFeedID[:]
+				out.Report.ObservationsTimestamp = 42
+				return out, nil
+			},
+		}
+		clients[sURL3] = &mocks.MockWSRPCClient{
+			LatestReportF: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
+				out = new(pb.LatestReportResponse)
+				out.Report = new(pb.Report)
+				out.Report.FeedId = sampleFeedID[:]
+				out.Report.ObservationsTimestamp = 41
+				return out, nil
+			},
+		}
+		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec, benchmarkPriceDecoder, nil)
+		ts, err := mt.LatestTimestamp(testutils.Context(t))
+		require.NoError(t, err)
+
+		assert.Equal(t, int64(42), ts)
+	})
+}
+
+type mockCodec struct {
+	val *big.Int
+	err error
+}
+
+var _ mercurytypes.ReportCodec = &mockCodec{}
+
+func (m *mockCodec) BenchmarkPriceFromReport(ctx context.Context, _ ocrtypes.Report) (*big.Int, error) {
+	return m.val, m.err
+}
+
+func (m *mockCodec) ObservationTimestampFromReport(ctx context.Context, report ocrtypes.Report) (uint32, error) {
+	return 0, nil
+}
+
+func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+	db := pgtest.NewSqlxDB(t)
+	var jobID int32
+
+	codec := new(mockCodec)
+	benchmarkPriceDecoder := func(ctx context.Context, feedID mercuryutils.FeedID, report ocrtypes.Report) (*big.Int, error) {
+		return codec.BenchmarkPriceFromReport(ctx, report)
+	}
+	orm := NewORM(db)
+	clients := map[string]wsrpc.Client{}
+
+	t.Run("successful query", func(t *testing.T) {
+		originalPrice := big.NewInt(123456789)
+		c := &mocks.MockWSRPCClient{
+			LatestReportF: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
 				require.NotNil(t, in)
 				assert.Equal(t, hexutil.Encode(sampleFeedID[:]), hexutil.Encode(in.FeedId))
 				out = new(pb.LatestReportResponse)
 				out.Report = new(pb.Report)
-				out.Report.FeedId = wrongFeedID
-				out.Report.ConfigDigest = sampleConfigDigest
-				out.Report.Epoch = 42
+				out.Report.FeedId = sampleFeedID[:]
+				out.Report.Payload = buildSamplePayload([]byte("doesn't matter"))
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
-		_, _, err := mt.LatestConfigDigestAndEpoch(testutils.Context(t))
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "LatestConfigDigestAndEpoch failed; mismatched feed IDs, expected: 0x1c916b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472, got: 0x01020304")
-	})
-	t.Run("LatestReport returns nil response", func(t *testing.T) {
-		c := MockWSRPCClient{
-			latestReport: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
-				return
-			},
-		}
-		tracker := &MockTracker{}
-		mt := NewTransmitter(lggr, tracker, c, sampleClientPubKey, sampleFeedID)
-		_, _, err := mt.LatestConfigDigestAndEpoch(testutils.Context(t))
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "LatestConfigDigestAndEpoch expected LatestReport to return non-nil response")
-	})
+		clients[sURL] = c
+		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec, benchmarkPriceDecoder, nil)
 
-	t.Run("falls back to latest config details if report is nil", func(t *testing.T) {
-		c := MockWSRPCClient{
-			latestReport: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
-				out = new(pb.LatestReportResponse)
-				return
-			},
-		}
-		t.Run("LatestConfigDetails succeeds", func(t *testing.T) {
-			tracker := &MockTracker{
-				latestConfigDetails: func(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-					return 123, ocrtypes.ConfigDigest(sampleConfigDigest), nil
-				},
-			}
-			mt := NewTransmitter(lggr, tracker, c, sampleClientPubKey, sampleFeedID)
-			cd, epoch, err := mt.LatestConfigDigestAndEpoch(testutils.Context(t))
+		t.Run("BenchmarkPriceFromReport succeeds", func(t *testing.T) {
+			codec.val = originalPrice
+			codec.err = nil
+
+			price, err := mt.LatestPrice(testutils.Context(t), sampleFeedID)
 			require.NoError(t, err)
 
-			assert.Equal(t, ocrtypes.ConfigDigest(sampleConfigDigest), cd)
-			assert.Equal(t, 0, int(epoch)) // always returns zero epoch if latest report is empty
+			assert.Equal(t, originalPrice, price)
 		})
-		t.Run("LatestConfigDetails fails", func(t *testing.T) {
-			tracker := &MockTracker{
-				latestConfigDetails: func(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-					return changedInBlock, configDigest, errors.New("something exploded")
-				},
-			}
-			mt := NewTransmitter(lggr, tracker, c, sampleClientPubKey, sampleFeedID)
-			_, _, err := mt.LatestConfigDigestAndEpoch(testutils.Context(t))
+		t.Run("BenchmarkPriceFromReport fails", func(t *testing.T) {
+			codec.val = nil
+			codec.err = errors.New("something exploded")
+
+			_, err := mt.LatestPrice(testutils.Context(t), sampleFeedID)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), "something exploded")
+
+			assert.EqualError(t, err, "something exploded")
 		})
+	})
+
+	t.Run("successful query returning nil report (new feed)", func(t *testing.T) {
+		c := &mocks.MockWSRPCClient{
+			LatestReportF: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
+				out = new(pb.LatestReportResponse)
+				out.Report = nil
+				return out, nil
+			},
+		}
+		clients[sURL] = c
+		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec, benchmarkPriceDecoder, nil)
+		price, err := mt.LatestPrice(testutils.Context(t), sampleFeedID)
+		require.NoError(t, err)
+
+		assert.Nil(t, price)
+	})
+
+	t.Run("failing query", func(t *testing.T) {
+		c := &mocks.MockWSRPCClient{
+			LatestReportF: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
+				return nil, errors.New("something exploded")
+			},
+		}
+		clients[sURL] = c
+		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec, benchmarkPriceDecoder, nil)
+		_, err := mt.LatestPrice(testutils.Context(t), sampleFeedID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "something exploded")
 	})
 }
 
 func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 	t.Parallel()
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
+	db := pgtest.NewSqlxDB(t)
+	var jobID int32
+	codec := new(mockCodec)
+	benchmarkPriceDecoder := func(ctx context.Context, feedID mercuryutils.FeedID, report ocrtypes.Report) (*big.Int, error) {
+		return codec.BenchmarkPriceFromReport(ctx, report)
+	}
+	orm := NewORM(db)
+	clients := map[string]wsrpc.Client{}
 
 	t.Run("successful query", func(t *testing.T) {
-		c := MockWSRPCClient{
-			latestReport: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
+		c := &mocks.MockWSRPCClient{
+			LatestReportF: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
 				require.NotNil(t, in)
 				assert.Equal(t, hexutil.Encode(sampleFeedID[:]), hexutil.Encode(in.FeedId))
 				out = new(pb.LatestReportResponse)
@@ -204,26 +353,44 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
+		clients[sURL] = c
+		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec, benchmarkPriceDecoder, nil)
 		bn, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.NoError(t, err)
 
-		assert.Equal(t, 42, int(bn))
+		require.NotNil(t, bn)
+		assert.Equal(t, 42, int(*bn))
+	})
+	t.Run("successful query returning nil report (new feed)", func(t *testing.T) {
+		c := &mocks.MockWSRPCClient{
+			LatestReportF: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
+				out = new(pb.LatestReportResponse)
+				out.Report = nil
+				return out, nil
+			},
+		}
+		clients[sURL] = c
+		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec, benchmarkPriceDecoder, nil)
+		bn, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
+		require.NoError(t, err)
+
+		assert.Nil(t, bn)
 	})
 	t.Run("failing query", func(t *testing.T) {
-		c := MockWSRPCClient{
-			latestReport: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
+		c := &mocks.MockWSRPCClient{
+			LatestReportF: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
 				return nil, errors.New("something exploded")
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
+		clients[sURL] = c
+		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec, benchmarkPriceDecoder, nil)
 		_, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
 	})
 	t.Run("return feed ID is wrong", func(t *testing.T) {
-		c := MockWSRPCClient{
-			latestReport: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
+		c := &mocks.MockWSRPCClient{
+			LatestReportF: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
 				require.NotNil(t, in)
 				assert.Equal(t, hexutil.Encode(sampleFeedID[:]), hexutil.Encode(in.FeedId))
 				out = new(pb.LatestReportResponse)
@@ -233,9 +400,200 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
+		clients[sURL] = c
+		mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec, benchmarkPriceDecoder, nil)
 		_, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "FetchInitialMaxFinalizedBlockNumber failed; mismatched feed IDs, expected: 0x1c916b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472, got: 0x")
+		assert.Contains(t, err.Error(), "latestReport failed; mismatched feed IDs, expected: 0x1c916b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472, got: 0x")
+	})
+}
+
+func Test_sortReportsLatestFirst(t *testing.T) {
+	reports := []*pb.Report{
+		nil,
+		{ObservationsTimestamp: 1},
+		{ObservationsTimestamp: 1},
+		{ObservationsTimestamp: 2},
+		{CurrentBlockNumber: 1},
+		nil,
+		{CurrentBlockNumber: 2},
+		{},
+	}
+
+	sortReportsLatestFirst(reports)
+
+	assert.Equal(t, int64(2), reports[0].ObservationsTimestamp)
+	assert.Equal(t, int64(1), reports[1].ObservationsTimestamp)
+	assert.Equal(t, int64(1), reports[2].ObservationsTimestamp)
+	assert.Equal(t, int64(0), reports[3].ObservationsTimestamp)
+	assert.Equal(t, int64(2), reports[3].CurrentBlockNumber)
+	assert.Equal(t, int64(0), reports[4].ObservationsTimestamp)
+	assert.Equal(t, int64(1), reports[4].CurrentBlockNumber)
+	assert.Equal(t, int64(0), reports[5].ObservationsTimestamp)
+	assert.Equal(t, int64(0), reports[5].CurrentBlockNumber)
+	assert.Nil(t, reports[6])
+	assert.Nil(t, reports[7])
+}
+
+type mockQ struct {
+	ch chan *Transmission
+}
+
+func newMockQ() *mockQ {
+	return &mockQ{make(chan *Transmission, 100)}
+}
+
+func (m *mockQ) Start(context.Context) error { return nil }
+func (m *mockQ) Close() error {
+	m.ch <- nil
+	return nil
+}
+func (m *mockQ) Ready() error                   { return nil }
+func (m *mockQ) HealthReport() map[string]error { return nil }
+func (m *mockQ) Name() string                   { return "" }
+func (m *mockQ) BlockingPop() (t *Transmission) {
+	val := <-m.ch
+	return val
+}
+func (m *mockQ) Push(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext) (ok bool) {
+	m.ch <- &Transmission{Req: req, ReportCtx: reportCtx}
+	return true
+}
+func (m *mockQ) Init(transmissions []*Transmission) {}
+func (m *mockQ) IsEmpty() bool                      { return false }
+
+func Test_MercuryTransmitter_runQueueLoop(t *testing.T) {
+	feedIDHex := utils.NewHash().Hex()
+	lggr := logger.Test(t)
+	c := &mocks.MockWSRPCClient{}
+	db := pgtest.NewSqlxDB(t)
+	orm := NewORM(db)
+	pm := NewPersistenceManager(lggr, sURL, orm, 0, 0, 0, 0)
+	cfg := mockCfg{}
+
+	s := newServer(lggr, cfg, c, pm, sURL, feedIDHex)
+
+	req := &pb.TransmitRequest{
+		Payload:      []byte{1, 2, 3},
+		ReportFormat: 32,
+	}
+
+	t.Run("pulls from queue and transmits successfully", func(t *testing.T) {
+		transmit := make(chan *pb.TransmitRequest, 1)
+		c.TransmitF = func(ctx context.Context, in *pb.TransmitRequest) (*pb.TransmitResponse, error) {
+			transmit <- in
+			return &pb.TransmitResponse{Code: 0, Error: ""}, nil
+		}
+		q := newMockQ()
+		s.q = q
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+
+		go s.runQueueLoop(nil, wg, feedIDHex)
+
+		q.Push(req, sampleReportContext)
+
+		select {
+		case tr := <-transmit:
+			assert.Equal(t, []byte{1, 2, 3}, tr.Payload)
+			assert.Equal(t, 32, int(tr.ReportFormat))
+			// case <-time.After(testutils.WaitTimeout(t)):
+		case <-time.After(1 * time.Second):
+			t.Fatal("expected a transmit request to be sent")
+		}
+
+		q.Close()
+		wg.Wait()
+	})
+
+	t.Run("on duplicate, success", func(t *testing.T) {
+		transmit := make(chan *pb.TransmitRequest, 1)
+		c.TransmitF = func(ctx context.Context, in *pb.TransmitRequest) (*pb.TransmitResponse, error) {
+			transmit <- in
+			return &pb.TransmitResponse{Code: DuplicateReport, Error: ""}, nil
+		}
+		q := newMockQ()
+		s.q = q
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+
+		go s.runQueueLoop(nil, wg, feedIDHex)
+
+		q.Push(req, sampleReportContext)
+
+		select {
+		case tr := <-transmit:
+			assert.Equal(t, []byte{1, 2, 3}, tr.Payload)
+			assert.Equal(t, 32, int(tr.ReportFormat))
+			// case <-time.After(testutils.WaitTimeout(t)):
+		case <-time.After(1 * time.Second):
+			t.Fatal("expected a transmit request to be sent")
+		}
+
+		q.Close()
+		wg.Wait()
+	})
+	t.Run("on server-side error, does not retry", func(t *testing.T) {
+		transmit := make(chan *pb.TransmitRequest, 1)
+		c.TransmitF = func(ctx context.Context, in *pb.TransmitRequest) (*pb.TransmitResponse, error) {
+			transmit <- in
+			return &pb.TransmitResponse{Code: DuplicateReport, Error: ""}, nil
+		}
+		q := newMockQ()
+		s.q = q
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+
+		go s.runQueueLoop(nil, wg, feedIDHex)
+
+		q.Push(req, sampleReportContext)
+
+		select {
+		case tr := <-transmit:
+			assert.Equal(t, []byte{1, 2, 3}, tr.Payload)
+			assert.Equal(t, 32, int(tr.ReportFormat))
+			// case <-time.After(testutils.WaitTimeout(t)):
+		case <-time.After(1 * time.Second):
+			t.Fatal("expected a transmit request to be sent")
+		}
+
+		q.Close()
+		wg.Wait()
+	})
+	t.Run("on transmit error, retries", func(t *testing.T) {
+		transmit := make(chan *pb.TransmitRequest, 1)
+		c.TransmitF = func(ctx context.Context, in *pb.TransmitRequest) (*pb.TransmitResponse, error) {
+			transmit <- in
+			return &pb.TransmitResponse{}, errors.New("transmission error")
+		}
+		q := newMockQ()
+		s.q = q
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+		stopCh := make(chan struct{}, 1)
+
+		go s.runQueueLoop(stopCh, wg, feedIDHex)
+
+		q.Push(req, sampleReportContext)
+
+		cnt := 0
+	Loop:
+		for {
+			select {
+			case tr := <-transmit:
+				assert.Equal(t, []byte{1, 2, 3}, tr.Payload)
+				assert.Equal(t, 32, int(tr.ReportFormat))
+				if cnt > 2 {
+					break Loop
+				}
+				cnt++
+				// case <-time.After(testutils.WaitTimeout(t)):
+			case <-time.After(1 * time.Second):
+				t.Fatal("expected 3 transmit requests to be sent")
+			}
+		}
+
+		close(stopCh)
+		wg.Wait()
 	})
 }

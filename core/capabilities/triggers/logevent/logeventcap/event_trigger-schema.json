@@ -1,0 +1,76 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent/logeventcap/log-event-trigger",
+    "$defs": {
+        "head": {
+            "type": "object",
+            "properties": {
+                "Height": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "Hash": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "Timestamp": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            },
+            "required": ["Height", "Hash", "Timestamp"]
+        },
+        "config": {
+            "type": "object",
+            "properties": {
+                "contractName": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "contractAddress": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "contractEventName": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "contractReaderConfig": {
+                    "type": "object",
+                    "properties": {
+                        "contracts": {
+                            "type": "object"
+                        }
+                    },
+                    "required": ["contracts"]
+                }
+            },
+            "required": ["contractName", "contractAddress", "contractEventName", "contractReaderConfig"]
+        },
+        "output": {
+            "type": "object",
+            "properties": {
+                "Cursor": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "Head": {
+                    "$ref": "#/$defs/head"
+                },
+                "Data": {
+                    "type": "object"
+                }
+            },
+            "required": ["Cursor", "Head", "Data"]
+        }
+    },
+    "type": "object",
+    "properties": {
+      "Config": {
+        "$ref": "#/$defs/config"
+      },
+      "Outputs": {
+        "$ref": "#/$defs/output"
+      }
+    }
+  }

@@ -1,0 +1,194 @@
+[PrivateEthereumNetwork]
+ethereum_version="eth2"
+consensus_layer="prysm"
+
+[PrivateEthereumNetwork.EthereumChainConfig]
+seconds_per_slot=4
+slots_per_epoch=2
+
+[NodeConfig]
+BaseConfigTOML = """
+[Feature]
+FeedsManager = true
+LogPoller = true
+UICSAKeys = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+HTTPWriteTimeout = '3m'
+SessionTimeout = '999h0m0s'
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 1000
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[Database]
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
+
+[OCR2]
+Enabled = true
+
+[Keeper]
+TurnLookBack = 0
+
+[Keeper.Registry]
+PerformGasOverhead = 150000
+SyncInterval = '5m0s'
+
+[P2P]
+[P2P.V2]
+Enabled = true
+ListenAddresses = ['0.0.0.0:6690']
+AnnounceAddresses = ['0.0.0.0:6690']
+DeltaDial = '500ms'
+DeltaReconcile = '5s'
+"""
+
+# Chainlnk node settings that will be used by all tests
+# BackupLogPollerBlockDelay = 0 disables the backup log poller
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityTagEnabled = true
+"""
+
+[Seth]
+ephemeral_addresses_number = 50
+
+# product defaults
+[LogPoller]
+[LogPoller.General]
+generator = "looped"
+contracts = 2
+events_per_tx = 4
+use_finality_tag = true
+
+[LogPoller.Looped]
+execution_count = 100
+min_emit_wait_time_ms = 400
+max_emit_wait_time_ms = 600
+
+# test-specific
+[TestLogPollerFewFiltersFixedDepth.NodeConfig]
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityDepth = 10
+FinalityTagEnabled = false
+"""
+[TestLogPollerFewFiltersFixedDepth.LogPoller.General]
+use_finality_tag = false
+
+[TestLogManyFiltersPollerFinalityTag.LogPoller.General]
+contracts = 300
+events_per_tx = 3
+
+[TestLogManyFiltersPollerFinalityTag.LogPoller.Looped]
+execution_count = 30
+
+[TestLogManyFiltersPollerFixedDepth.NodeConfig]
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityDepth = 10
+FinalityTagEnabled = false
+"""
+
+[TestLogManyFiltersPollerFixedDepth.LogPoller.General]
+use_finality_tag = false
+contracts = 300
+events_per_tx = 3
+
+[TestLogManyFiltersPollerFixedDepth.LogPoller.Looped]
+execution_count = 30
+
+[TestLogPollerWithChaosFinalityTag.LogPoller.General]
+execution_count = 30
+[TestLogPollerWithChaosFinalityTag.LogPoller.Chaos]
+experiment_count = 4
+target_component = "chainlink"
+
+[TestLogPollerWithChaosFixedDepth.NodeConfig]
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityDepth = 10
+FinalityTagEnabled = false
+"""
+
+[TestLogPollerWithChaosFixedDepth.LogPoller.General]
+execution_count = 30
+use_finality_tag = false
+[TestLogPollerWithChaosFixedDepth.LogPoller.Chaos]
+experiment_count = 4
+target_component = "chainlink"
+
+[TestLogPollerWithChaosPostgresFinalityTag.LogPoller.General]
+execution_count = 30
+[TestLogPollerWithChaosPostgresFinalityTag.LogPoller.Chaos]
+experiment_count = 4
+target_component = "postgres"
+
+[TestLogPollerWithChaosPostgresFixedDepth.NodeConfig]
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityDepth = 10
+FinalityTagEnabled = false
+"""
+
+[TestLogPollerWithChaosPostgresFixedDepth.LogPoller.General]
+execution_count = 30
+use_finality_tag = false
+[TestLogPollerWithChaosPostgresFixedDepth.LogPoller.Chaos]
+experiment_count = 4
+target_component = "postgres"
+
+[TestLogPollerReplayFixedDepth.NodeConfig]
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityDepth = 10
+FinalityTagEnabled = false
+"""
+[TestLogPollerReplayFixedDepth.LogPoller.General]
+use_finality_tag = false
+
+[TestReorgAboveFinality_FinalityTagDisabled.NodeConfig]
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityDepth = 10
+FinalityTagEnabled = false
+"""
+[TestReorgAboveFinality_FinalityTagDisabled.PrivateEthereumNetwork]
+ethereum_version = "eth1"
+execution_layer = "geth"

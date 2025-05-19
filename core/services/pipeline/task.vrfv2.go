@@ -12,9 +12,10 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 )
@@ -39,7 +40,7 @@ func (t *VRFTaskV2) Type() TaskType {
 	return TaskTypeVRFV2
 }
 
-func (t *VRFTaskV2) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *VRFTaskV2) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	if len(inputs) != 1 {
 		return Result{Error: ErrWrongInputCardinality}, runInfo
 	}
@@ -96,7 +97,7 @@ func (t *VRFTaskV2) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []
 	}
 	pk, err := secp256k1.NewPublicKeyFromBytes(pubKey)
 	if err != nil {
-		return Result{Error: fmt.Errorf("failed to create PublicKey from bytes %v", err)}, runInfo
+		return Result{Error: fmt.Errorf("failed to create PublicKey from bytes %w", err)}, runInfo
 	}
 	pkh := pk.MustHash()
 	// Validate the key against the spec
@@ -134,13 +135,16 @@ func (t *VRFTaskV2) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []
 		return Result{Error: err}, runInfo
 	}
 	results := make(map[string]interface{})
-	results["output"] = hexutil.Encode(b)
-	// RequestID needs to be a [32]byte for EthTxMeta.
+	output := hexutil.Encode(b)
+	results["output"] = output
+	// RequestID needs to be a [32]byte for EvmTxMeta.
 	results["requestID"] = hexutil.Encode(requestId.Bytes())
 
 	// store vrf proof and request commitment separately so they can be used in a batch fashion
 	results["proof"] = onChainProof
 	results["requestCommitment"] = rc
+
+	lggr.Debugw("Completed VRF V2 task run", "reqID", requestId.String(), "output", output)
 
 	return Result{Value: results}, runInfo
 }

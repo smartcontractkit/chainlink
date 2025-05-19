@@ -1,45 +1,54 @@
 package keeper
 
 import (
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
+	"context"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // To make sure Delegate struct implements job.Delegate interface
 var _ job.Delegate = (*Delegate)(nil)
 
+type DelegateConfig interface {
+	Keeper() config.Keeper
+}
+
 type Delegate struct {
-	logger   logger.Logger
-	db       *sqlx.DB
-	jrm      job.ORM
-	pr       pipeline.Runner
-	chainSet evm.ChainSet
-	mailMon  *utils.MailboxMonitor
+	cfg          DelegateConfig
+	logger       logger.Logger
+	ds           sqlutil.DataSource
+	jrm          job.ORM
+	pr           pipeline.Runner
+	legacyChains legacyevm.LegacyChainContainer
+	mailMon      *mailbox.Monitor
 }
 
 // NewDelegate is the constructor of Delegate
 func NewDelegate(
-	db *sqlx.DB,
+	cfg DelegateConfig,
+	ds sqlutil.DataSource,
 	jrm job.ORM,
 	pr pipeline.Runner,
 	logger logger.Logger,
-	chainSet evm.ChainSet,
-	mailMon *utils.MailboxMonitor,
+	legacyChains legacyevm.LegacyChainContainer,
+	mailMon *mailbox.Monitor,
 ) *Delegate {
 	return &Delegate{
-		logger:   logger,
-		db:       db,
-		jrm:      jrm,
-		pr:       pr,
-		chainSet: chainSet,
-		mailMon:  mailMon,
+		cfg:          cfg,
+		logger:       logger,
+		ds:           ds,
+		jrm:          jrm,
+		pr:           pr,
+		legacyChains: legacyChains,
+		mailMon:      mailMon,
 	}
 }
 
@@ -48,22 +57,22 @@ func (d *Delegate) JobType() job.Type {
 	return job.Keeper
 }
 
-func (d *Delegate) BeforeJobCreated(spec job.Job)                {}
-func (d *Delegate) AfterJobCreated(spec job.Job)                 {}
-func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
-func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) BeforeJobCreated(spec job.Job)                       {}
+func (d *Delegate) AfterJobCreated(spec job.Job)                        {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job)                       {}
+func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err error) {
+func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services []job.ServiceCtx, err error) {
 	if spec.KeeperSpec == nil {
 		return nil, errors.Errorf("Delegate expects a *job.KeeperSpec to be present, got %v", spec)
 	}
-	chain, err := d.chainSet.Get(spec.KeeperSpec.EVMChainID.ToInt())
+	chain, err := d.legacyChains.Get(spec.KeeperSpec.EVMChainID.String())
 	if err != nil {
 		return nil, err
 	}
 	registryAddress := spec.KeeperSpec.ContractAddress
-	orm := NewORM(d.db, d.logger, chain.Config())
+	orm := NewORM(d.ds, d.logger)
 	svcLogger := d.logger.With(
 		"jobID", spec.ID,
 		"registryAddress", registryAddress.Hex(),
@@ -75,7 +84,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 	}
 	svcLogger.Info("Registry version is: ", registryWrapper.Version)
 
-	minIncomingConfirmations := chain.Config().MinIncomingConfirmations()
+	minIncomingConfirmations := chain.Config().EVM().MinIncomingConfirmations()
 	if spec.KeeperSpec.MinIncomingConfirmations != nil {
 		minIncomingConfirmations = *spec.KeeperSpec.MinIncomingConfirmations
 	}
@@ -84,7 +93,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 	// In the case of forwarding, the keeper address is the forwarder contract deployed onchain between EOA and Registry.
 	effectiveKeeperAddress := spec.KeeperSpec.FromAddress.Address()
 	if spec.ForwardingAllowed {
-		fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(spec.KeeperSpec.FromAddress.Address())
+		fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(ctx, spec.KeeperSpec.FromAddress.Address())
 		if fwderr == nil {
 			effectiveKeeperAddress = fwdrAddress
 		} else {
@@ -92,6 +101,8 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		}
 	}
 
+	keeper := d.cfg.Keeper()
+	registry := keeper.Registry()
 	registrySynchronizer := NewRegistrySynchronizer(RegistrySynchronizerOptions{
 		Job:                      spec,
 		RegistryWrapper:          *registryWrapper,
@@ -99,10 +110,10 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		JRM:                      d.jrm,
 		LogBroadcaster:           chain.LogBroadcaster(),
 		MailMon:                  d.mailMon,
-		SyncInterval:             chain.Config().KeeperRegistrySyncInterval(),
+		SyncInterval:             registry.SyncInterval(),
 		MinIncomingConfirmations: minIncomingConfirmations,
 		Logger:                   svcLogger,
-		SyncUpkeepQueueSize:      chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
+		SyncUpkeepQueueSize:      registry.SyncUpkeepQueueSize(),
 		EffectiveKeeperAddress:   effectiveKeeperAddress,
 	})
 	upkeepExecuter := NewUpkeepExecuter(
@@ -113,7 +124,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		chain.HeadBroadcaster(),
 		chain.GasEstimator(),
 		svcLogger,
-		chain.Config(),
+		d.cfg.Keeper(),
 		effectiveKeeperAddress,
 	)
 

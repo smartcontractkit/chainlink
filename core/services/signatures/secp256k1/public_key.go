@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"go.dedis.ch/kyber/v3"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
 // PublicKey is a secp256k1 point in compressed format
@@ -56,7 +56,7 @@ func NewPublicKeyFromBytes(rawKey []byte) (PublicKey, error) {
 	}
 	var k PublicKey
 	if c := copy(k[:], rawKey); c != CompressedPublicKeyLength {
-		panic(fmt.Errorf("failed to copy entire key to return value"))
+		panic(errors.New("failed to copy entire key to return value"))
 	}
 	return k, nil
 }

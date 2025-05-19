@@ -1,14 +1,13 @@
 package web_test
 
 import (
-	"fmt"
 	"net/http"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
@@ -40,8 +39,9 @@ func TestCosmosKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	ctx := testutils.Context(t)
+	require.NoError(t, app.Start(ctx))
+	client := app.NewHTTPClient(nil)
 	keyStore := app.GetKeyStore()
 
 	response, cleanup := client.Post("/v2/keys/cosmos", nil)
@@ -75,30 +75,32 @@ func TestCosmosKeysController_Delete_NonExistentCosmosKeyID(t *testing.T) {
 
 func TestCosmosKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	client, keyStore := setupCosmosKeysControllerTests(t)
 
 	keys, _ := keyStore.Cosmos().GetAll()
 	initialLength := len(keys)
-	key, _ := keyStore.Cosmos().Create()
+	key, _ := keyStore.Cosmos().Create(ctx)
 
-	response, cleanup := client.Delete(fmt.Sprintf("/v2/keys/cosmos/%s", key.ID()))
+	response, cleanup := client.Delete("/v2/keys/cosmos/" + key.ID())
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	assert.Error(t, utils.JustError(keyStore.Cosmos().Get(key.ID())))
 
 	keys, _ = keyStore.Cosmos().GetAll()
-	assert.Equal(t, initialLength, len(keys))
+	assert.Len(t, keys, initialLength)
 }
 
 func setupCosmosKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
 	t.Helper()
+	ctx := testutils.Context(t)
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
-	require.NoError(t, app.KeyStore.Cosmos().Add(cltest.DefaultCosmosKey))
+	require.NoError(t, app.Start(ctx))
+	require.NoError(t, app.KeyStore.Cosmos().Add(ctx, cltest.DefaultCosmosKey))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	return client, app.GetKeyStore()
 }

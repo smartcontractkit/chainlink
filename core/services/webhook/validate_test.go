@@ -6,9 +6,11 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	webhookmocks "github.com/smartcontractkit/chainlink/v2/core/services/webhook/mocks"
@@ -96,8 +98,8 @@ func TestValidatedWebJobSpec(t *testing.T) {
             """
             `,
 			mock: func(t *testing.T, eim *webhookmocks.ExternalInitiatorManager) {
-				eim.On("FindExternalInitiatorByName", "foo").Return(bridges.ExternalInitiator{ID: 42}, nil).Once()
-				eim.On("FindExternalInitiatorByName", "bar").Return(bridges.ExternalInitiator{ID: 43}, nil).Once()
+				eim.On("FindExternalInitiatorByName", mock.Anything, "foo").Return(bridges.ExternalInitiator{ID: 42}, nil).Once()
+				eim.On("FindExternalInitiatorByName", mock.Anything, "bar").Return(bridges.ExternalInitiator{ID: 43}, nil).Once()
 			},
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.NoError(t, err)
@@ -134,9 +136,9 @@ func TestValidatedWebJobSpec(t *testing.T) {
             """
             `,
 			mock: func(t *testing.T, eim *webhookmocks.ExternalInitiatorManager) {
-				eim.On("FindExternalInitiatorByName", "foo").Return(bridges.ExternalInitiator{ID: 42}, nil).Once()
-				eim.On("FindExternalInitiatorByName", "bar").Return(bridges.ExternalInitiator{}, errors.New("something exploded")).Once()
-				eim.On("FindExternalInitiatorByName", "baz").Return(bridges.ExternalInitiator{}, errors.New("something exploded")).Once()
+				eim.On("FindExternalInitiatorByName", mock.Anything, "foo").Return(bridges.ExternalInitiator{ID: 42}, nil).Once()
+				eim.On("FindExternalInitiatorByName", mock.Anything, "bar").Return(bridges.ExternalInitiator{}, errors.New("something exploded")).Once()
+				eim.On("FindExternalInitiatorByName", mock.Anything, "baz").Return(bridges.ExternalInitiator{}, errors.New("something exploded")).Once()
 			},
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.EqualError(t, err, "unable to find external initiator named bar: something exploded; unable to find external initiator named baz: something exploded")
@@ -147,11 +149,12 @@ func TestValidatedWebJobSpec(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+			ctx := testutils.Context(t)
 			eim := new(webhookmocks.ExternalInitiatorManager)
 			if tc.mock != nil {
 				tc.mock(t, eim)
 			}
-			s, err := webhook.ValidatedWebhookSpec(tc.toml, eim)
+			s, err := webhook.ValidatedWebhookSpec(ctx, tc.toml, eim)
 			tc.assertion(t, s, err)
 		})
 	}

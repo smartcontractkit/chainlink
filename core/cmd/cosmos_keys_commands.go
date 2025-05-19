@@ -1,8 +1,8 @@
 package cmd
 
 import (
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -52,6 +52,6 @@ func (ps CosmosKeyPresenters) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func NewCosmosKeysClient(c *Client) KeysClient {
-	return newKeysClient[cosmoskey.Key, CosmosKeyPresenter, CosmosKeyPresenters]("Cosmos", c)
+func NewCosmosKeysClient(s *Shell) KeysClient {
+	return newKeysClient[cosmoskey.Key, CosmosKeyPresenter, CosmosKeyPresenters]("Cosmos", s)
 }

@@ -46,7 +46,7 @@ func TestField_SetIntAndEqual(t *testing.T) {
 }
 
 func TestField_String(t *testing.T) {
-	require.Equal(t, fieldZero.String(), "fieldElt{0}")
+	require.Equal(t, "fieldElt{0}", fieldZero.String())
 }
 
 func TestField_Equal(t *testing.T) {
@@ -74,7 +74,7 @@ func TestField_SmokeTestPick(t *testing.T) {
 	f := newFieldZero()
 	f.Pick(randomStream)
 	observedFieldElt(t, f)
-	assert.True(t, f.int().Cmp(big.NewInt(1000000000)) == 1,
+	assert.Equal(t, f.int().Cmp(big.NewInt(1000000000)), 1,
 		"should be greater than 1000000000, with very high probability")
 }
 
@@ -109,7 +109,6 @@ func TestField_Clone(t *testing.T) {
 	assert.Equal(t, f, g, "clone output does not equal original")
 	g.Add(f, f)
 	assert.Equal(t, f, h, "clone does not make a copy")
-
 }
 
 func TestField_SetBytesAndBytes(t *testing.T) {
@@ -132,12 +131,12 @@ func TestField_MaybeSquareRootInField(t *testing.T) {
 	for i := 0; i < numFieldSamples; i++ {
 		f.Pick(randomStream)
 		observedFieldElt(t, f)
-		require.True(t, f.int().Cmp(q) == -1, "picked larger value than q: %s", f)
-		require.True(t, f.int().Cmp(big.NewInt(-1)) != -1,
+		require.Equal(t, f.int().Cmp(q), -1, "picked larger value than q: %s", f)
+		require.NotEqual(t, f.int().Cmp(big.NewInt(-1)), -1,
 			"backing int must be non-negative")
 		s := fieldSquare(f)
 		g := maybeSqrtInField(s)
-		require.NotEqual(t, g, (*fieldElt)(nil))
+		require.NotEqual(t, (*fieldElt)(nil), g)
 		ng := newFieldZero().Neg(g)
 		require.True(t, f.Equal(g) || f.Equal(ng), "squaring something and "+
 			"taking the square root should give ± the original: failed with %s", f)

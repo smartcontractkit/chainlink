@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 )
 
 // GetterFunc is a function that either returns a value or an error.
@@ -131,7 +133,7 @@ func JSONWithVarExprs(jsExpr string, vars Vars, allowErrors bool) GetterFunc {
 		if err := jd.Decode(&val); err != nil {
 			return nil, errors.Wrapf(ErrBadInput, "while unmarshalling JSON: %v; js: %s", err, string(replaced))
 		}
-		reinterpreted, err := reinterpetJsonNumbers(val)
+		reinterpreted, err := jsonserializable.ReinterpretJSONNumbers(val)
 		if err != nil {
 			return nil, errors.Wrapf(ErrBadInput, "while processing json.Number: %v; js: %s", err, string(replaced))
 		}
@@ -145,7 +147,7 @@ func JSONWithVarExprs(jsExpr string, vars Vars, allowErrors bool) GetterFunc {
 				}
 				keypath, is := maybeKeypath.(string)
 				if !is {
-					return nil, errors.Wrapf(ErrBadInput, fmt.Sprintf("you cannot use %s in your JSON", chainlinkKeyPath))
+					return nil, errors.Wrap(ErrBadInput, fmt.Sprintf("you cannot use %s in your JSON", chainlinkKeyPath))
 				}
 				newVal, err := vars.Get(keypath)
 				if err != nil {

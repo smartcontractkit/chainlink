@@ -1,30 +1,58 @@
 package keystore
 
 import (
+	"context"
+	"crypto"
+	"crypto/rand"
 	"fmt"
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 )
-
-//go:generate mockery --quiet --name CSA --output mocks/ --case=underscore
 
 // ErrCSAKeyExists describes the error when the CSA key already exists
 var ErrCSAKeyExists = errors.New("can only have 1 CSA key")
 
-// type CSAKeystoreInterface interface {
 type CSA interface {
 	Get(id string) (csakey.KeyV2, error)
 	GetAll() ([]csakey.KeyV2, error)
-	Create() (csakey.KeyV2, error)
-	Add(key csakey.KeyV2) error
-	Delete(id string) (csakey.KeyV2, error)
-	Import(keyJSON []byte, password string) (csakey.KeyV2, error)
+	Create(ctx context.Context) (csakey.KeyV2, error)
+	Add(ctx context.Context, key csakey.KeyV2) error
+	Delete(ctx context.Context, id string) (csakey.KeyV2, error)
+	Import(ctx context.Context, keyJSON []byte, password string) (csakey.KeyV2, error)
 	Export(id string, password string) ([]byte, error)
-	EnsureKey() error
+	EnsureKey(ctx context.Context) error
+}
 
-	GetV1KeysAsV2() ([]csakey.KeyV2, error)
+var _ loop.Keystore = &CSASigner{}
+
+type CSASigner struct {
+	CSA
+}
+
+func (c CSASigner) Accounts(ctx context.Context) (accounts []string, err error) {
+	keys, err := c.CSA.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	for _, key := range keys {
+		accounts = append(accounts, key.ID())
+	}
+	return
+}
+
+func (c CSASigner) Sign(ctx context.Context, account string, data []byte) (signed []byte, err error) {
+	k, err := c.CSA.Get(account)
+	if err != nil {
+		return nil, err
+	}
+	// loopp spec requires passing nil hash to check existence of id
+	if data == nil {
+		return nil, nil
+	}
+	return k.Sign(rand.Reader, data, crypto.Hash(0))
 }
 
 type csa struct {
@@ -60,7 +88,7 @@ func (ks *csa) GetAll() (keys []csakey.KeyV2, _ error) {
 	return keys, nil
 }
 
-func (ks *csa) Create() (csakey.KeyV2, error) {
+func (ks *csa) Create(ctx context.Context) (csakey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -76,10 +104,10 @@ func (ks *csa) Create() (csakey.KeyV2, error) {
 	if err != nil {
 		return csakey.KeyV2{}, err
 	}
-	return key, ks.safeAddKey(key)
+	return key, ks.safeAddKey(ctx, key)
 }
 
-func (ks *csa) Add(key csakey.KeyV2) error {
+func (ks *csa) Add(ctx context.Context, key csakey.KeyV2) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -88,10 +116,10 @@ func (ks *csa) Add(key csakey.KeyV2) error {
 	if len(ks.keyRing.CSA) > 0 {
 		return ErrCSAKeyExists
 	}
-	return ks.safeAddKey(key)
+	return ks.safeAddKey(ctx, key)
 }
 
-func (ks *csa) Delete(id string) (csakey.KeyV2, error) {
+func (ks *csa) Delete(ctx context.Context, id string) (csakey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -102,12 +130,12 @@ func (ks *csa) Delete(id string) (csakey.KeyV2, error) {
 		return csakey.KeyV2{}, err
 	}
 
-	err = ks.safeRemoveKey(key)
+	err = ks.safeRemoveKey(ctx, key)
 
 	return key, err
 }
 
-func (ks *csa) Import(keyJSON []byte, password string) (csakey.KeyV2, error) {
+func (ks *csa) Import(ctx context.Context, keyJSON []byte, password string) (csakey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -120,7 +148,7 @@ func (ks *csa) Import(keyJSON []byte, password string) (csakey.KeyV2, error) {
 	if _, found := ks.keyRing.CSA[key.ID()]; found {
 		return csakey.KeyV2{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.keyManager.safeAddKey(key)
+	return key, ks.keyManager.safeAddKey(ctx, key)
 }
 
 func (ks *csa) Export(id string, password string) ([]byte, error) {
@@ -137,7 +165,7 @@ func (ks *csa) Export(id string, password string) ([]byte, error) {
 }
 
 // EnsureKey verifies whether the CSA key has been seeded, if not, it creates it.
-func (ks *csa) EnsureKey() error {
+func (ks *csa) EnsureKey(ctx context.Context) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -155,22 +183,7 @@ func (ks *csa) EnsureKey() error {
 
 	ks.logger.Infof("Created CSA key with ID %s", key.ID())
 
-	return ks.safeAddKey(key)
-}
-
-func (ks *csa) GetV1KeysAsV2() (keys []csakey.KeyV2, _ error) {
-	v1Keys, err := ks.orm.GetEncryptedV1CSAKeys()
-	if err != nil {
-		return keys, err
-	}
-	for _, keyV1 := range v1Keys {
-		err := keyV1.Unlock(ks.password)
-		if err != nil {
-			return keys, err
-		}
-		keys = append(keys, keyV1.ToV2())
-	}
-	return keys, nil
+	return ks.safeAddKey(ctx, key)
 }
 
 func (ks *csa) getByID(id string) (csakey.KeyV2, error) {

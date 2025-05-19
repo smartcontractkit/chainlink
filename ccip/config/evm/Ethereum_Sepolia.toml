@@ -1,0 +1,14 @@
+ChainID = '11155111'
+LinkContractAddress = '0x779877A7B0D9E8603169DdbD7836e478b4624789'
+MinContractPayment = '0.1 link'
+FinalityTagEnabled = true
+
+[GasEstimator]
+EIP1559DynamicFees = true
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 4
+TransactionPercentile = 50
+
+[OCR2.Automation]
+GasLimit = 10500000

@@ -1,0 +1,15 @@
+[Network]
+selected_networks = ["SCROLL_SEPOLIA"]
+
+[Soak.Common]
+chainlink_node_funding = 1
+
+[Soak.OCR]
+[Soak.OCR.Common]
+test_duration = "24h"
+
+[Soak.OCR.Soak]
+time_between_rounds = "2m"
+
+[OCR.Common]
+number_of_contracts = 2

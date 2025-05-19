@@ -3,7 +3,7 @@ package cron_test
 import (
 	"testing"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -11,8 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
@@ -22,29 +21,27 @@ import (
 )
 
 func TestCronV2Pipeline(t *testing.T) {
-	runner := new(pipelinemocks.Runner)
+	runner := pipelinemocks.NewRunner(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 
-	keyStore := cltest.NewKeyStore(t, db, cfg)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: evmtest.NewEthClientMockWithDefaultChain(t)})
+	keyStore := cltest.NewKeyStore(t, db)
 	lggr := logger.TestLogger(t)
-	orm := pipeline.NewORM(db, lggr, cfg)
-	btORM := bridges.NewORM(db, lggr, cfg)
-	jobORM := job.NewORM(db, cc, orm, btORM, keyStore, lggr, cfg)
+	orm := pipeline.NewORM(db, lggr, cfg.JobPipeline().MaxSuccessfulRuns())
+	btORM := bridges.NewORM(db)
+	jobORM := job.NewORM(db, orm, btORM, keyStore, lggr)
 
 	jb := &job.Job{
 		Type:          job.Cron,
 		SchemaVersion: 1,
 		CronSpec:      &job.CronSpec{CronSchedule: "@every 1s"},
 		PipelineSpec:  &pipeline.Spec{},
-		ExternalJobID: uuid.NewV4(),
+		ExternalJobID: uuid.New(),
 	}
 	delegate := cron.NewDelegate(runner, lggr)
 
-	err := jobORM.CreateJob(jb)
-	require.NoError(t, err)
-	serviceArray, err := delegate.ServicesForSpec(*jb)
+	require.NoError(t, jobORM.CreateJob(testutils.Context(t), jb))
+	serviceArray, err := delegate.ServicesForSpec(testutils.Context(t), *jb)
 	require.NoError(t, err)
 	assert.Len(t, serviceArray, 1)
 	service := serviceArray[0]

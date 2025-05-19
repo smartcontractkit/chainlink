@@ -5,9 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/manyminds/api2go/jsonapi"
@@ -21,7 +23,7 @@ func TestETHKeyResource(t *testing.T) {
 		addressStr = "0x2aCFF2ec69aa9945Ed84f4F281eCCF6911A3B0eD"
 		address    = common.HexToAddress(addressStr)
 	)
-	eip55address, err := ethkey.NewEIP55Address(addressStr)
+	eip55address, err := types.NewEIP55Address(addressStr)
 	require.NoError(t, err)
 	key := ethkey.KeyV2{
 		Address:      address,
@@ -30,8 +32,7 @@ func TestETHKeyResource(t *testing.T) {
 
 	state := ethkey.State{
 		ID:         1,
-		EVMChainID: *utils.NewBigI(42),
-		NextNonce:  99,
+		EVMChainID: *big.NewI(42),
 		Address:    eip55address,
 		CreatedAt:  now,
 		UpdatedAt:  now,
@@ -40,13 +41,13 @@ func TestETHKeyResource(t *testing.T) {
 
 	r := NewETHKeyResource(key, state,
 		SetETHKeyEthBalance(assets.NewEth(1)),
-		SetETHKeyLinkBalance(assets.NewLinkFromJuels(1)),
-		SetETHKeyMaxGasPriceWei(utils.NewBigI(12345)),
+		SetETHKeyLinkBalance(commonassets.NewLinkFromJuels(1)),
+		SetETHKeyMaxGasPriceWei(big.NewI(12345)),
 	)
 
 	assert.Equal(t, assets.NewEth(1), r.EthBalance)
-	assert.Equal(t, assets.NewLinkFromJuels(1), r.LinkBalance)
-	assert.Equal(t, utils.NewBigI(12345), r.MaxGasPriceWei)
+	assert.Equal(t, commonassets.NewLinkFromJuels(1), r.LinkBalance)
+	assert.Equal(t, big.NewI(12345), r.MaxGasPriceWei)
 
 	b, err := jsonapi.Marshal(r)
 	require.NoError(t, err)
@@ -55,11 +56,10 @@ func TestETHKeyResource(t *testing.T) {
 	{
 		"data":{
 		   "type":"eTHKeys",
-		   "id":"%s",
+		   "id":"42/%s",
 		   "attributes":{
 			  "address":"%s",
 			  "evmChainID":"42",
-			  "nextNonce": 99,
 			  "ethBalance":"1",
 			  "linkBalance":"1",
 			  "disabled":true,
@@ -85,11 +85,10 @@ func TestETHKeyResource(t *testing.T) {
 	{
 		"data": {
 			"type":"eTHKeys",
-			"id":"%s",
+			"id":"42/%s",
 			"attributes":{
 				"address":"%s",
 			  	"evmChainID":"42",
-			    "nextNonce": 99,
 				"ethBalance":null,
 				"linkBalance":null,
 				"disabled":true,

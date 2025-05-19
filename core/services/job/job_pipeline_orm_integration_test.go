@@ -4,14 +4,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/jmoiron/sqlx"
+
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -25,6 +29,7 @@ func clearJobsDb(t *testing.T, db *sqlx.DB) {
 }
 
 func TestPipelineORM_Integration(t *testing.T) {
+	ctx := testutils.Context(t)
 	const DotStr = `
         // data source 1
         ds1          [type=bridge name=voter_turnout];
@@ -43,15 +48,15 @@ func TestPipelineORM_Integration(t *testing.T) {
         answer2 [type=bridge name=election_winner index=1];
     `
 
-	config := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(30 * time.Millisecond)
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(30 * time.Millisecond)
 	})
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db, config)
+	keyStore := cltest.NewKeyStore(t, db)
 	ethKeyStore := keyStore.Eth()
 
 	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, keyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 
 	var specID int32
 
@@ -118,18 +123,19 @@ func TestPipelineORM_Integration(t *testing.T) {
 	ds1.BaseTask = pipeline.NewBaseTask(0, "ds1", nil, []pipeline.Task{ds1_parse}, 0)
 	ds2.BaseTask = pipeline.NewBaseTask(3, "ds2", nil, []pipeline.Task{ds2_parse}, 0)
 	expectedTasks := []pipeline.Task{ds1, ds1_parse, ds1_multiply, ds2, ds2_parse, ds2_multiply, answer1, answer2}
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
-	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
 	t.Run("creates task DAGs", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		clearJobsDb(t, db)
 
-		orm := pipeline.NewORM(db, logger.TestLogger(t), config)
+		orm := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
 
 		p, err := pipeline.Parse(DotStr)
 		require.NoError(t, err)
 
-		specID, err = orm.CreateSpec(*p, models.Interval(0))
+		specID, err = orm.CreateSpec(ctx, *p, models.Interval(0))
 		require.NoError(t, err)
 
 		var pipelineSpecs []pipeline.Spec
@@ -146,31 +152,36 @@ func TestPipelineORM_Integration(t *testing.T) {
 
 	t.Run("creates runs", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
-		cfg := configtest2.NewTestGeneralConfig(t)
 		clearJobsDb(t, db)
-		orm := pipeline.NewORM(db, logger.TestLogger(t), cfg)
-		btORM := bridges.NewORM(db, logger.TestLogger(t), cfg)
-		cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{Client: evmtest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config})
-		runner := pipeline.NewRunner(orm, btORM, config, cc, nil, nil, lggr, nil, nil)
+		orm := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
+		btORM := bridges.NewORM(db)
+		legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+			ChainConfigs:   config.EVMConfigs(),
+			DatabaseConfig: config.Database(),
+			FeatureConfig:  config.Feature(),
+			ListenerConfig: config.Database().Listener(),
+			Client:         clienttest.NewClientWithDefaultChainID(t),
+			DB:             db,
+			KeyStore:       keyStore.Eth(),
+		})
+		runner := pipeline.NewRunner(orm, btORM, config.JobPipeline(), config.WebServer(), legacyChains, nil, nil, lggr, nil, nil)
 
-		jobORM := NewTestORM(t, db, cc, orm, btORM, keyStore, cfg)
+		jobORM := NewTestORM(t, db, orm, btORM, keyStore)
 
 		dbSpec := makeVoterTurnoutOCRJobSpec(t, transmitterAddress, bridge.Name.String(), bridge2.Name.String())
 
 		// Need a job in order to create a run
-		err := jobORM.CreateJob(dbSpec)
-		require.NoError(t, err)
+		require.NoError(t, jobORM.CreateJob(testutils.Context(t), dbSpec))
 
 		var pipelineSpecs []pipeline.Spec
-		sql := `SELECT * FROM pipeline_specs;`
-		err = db.Select(&pipelineSpecs, sql)
-		require.NoError(t, err)
+		sql := `SELECT pipeline_specs.*, job_pipeline_specs.job_id FROM pipeline_specs JOIN job_pipeline_specs ON (pipeline_specs.id = job_pipeline_specs.pipeline_spec_id);`
+		require.NoError(t, db.Select(&pipelineSpecs, sql))
 		require.Len(t, pipelineSpecs, 1)
 		require.Equal(t, dbSpec.PipelineSpecID, pipelineSpecs[0].ID)
 		pipelineSpecID := pipelineSpecs[0].ID
 
 		// Create the run
-		runID, _, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), pipelineSpecs[0], pipeline.NewVarsFrom(nil), lggr, true)
+		runID, _, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), pipelineSpecs[0], pipeline.NewVarsFrom(nil), true)
 		require.NoError(t, err)
 
 		// Check the DB for the pipeline.Run

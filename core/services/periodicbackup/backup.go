@@ -11,11 +11,11 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -37,56 +37,53 @@ type backupResult struct {
 
 type (
 	DatabaseBackup interface {
-		services.ServiceCtx
+		services.Service
 		RunBackup(version string) error
 	}
 
 	databaseBackup struct {
+		services.StateMachine
 		logger          logger.Logger
 		databaseURL     url.URL
 		mode            config.DatabaseBackupMode
 		frequency       time.Duration
 		outputParentDir string
 		done            chan bool
-		utils.StartStopOnce
 	}
 
-	Config interface {
-		DatabaseBackupMode() config.DatabaseBackupMode
-		DatabaseBackupFrequency() time.Duration
-		DatabaseBackupURL() *url.URL
-		DatabaseBackupDir() string
-		DatabaseURL() url.URL
-		RootDir() string
+	BackupConfig interface {
+		URL() *url.URL
+		Dir() string
+		Mode() config.DatabaseBackupMode
+		Frequency() time.Duration
 	}
 )
 
 // NewDatabaseBackup instantiates a *databaseBackup
-func NewDatabaseBackup(config Config, lggr logger.Logger) (DatabaseBackup, error) {
+func NewDatabaseBackup(dbUrl url.URL, rootDir string, backupConfig BackupConfig, lggr logger.Logger) (DatabaseBackup, error) {
 	lggr = lggr.Named("DatabaseBackup")
-	dbUrl := config.DatabaseURL()
-	dbBackupUrl := config.DatabaseBackupURL()
+	dbBackupUrl := backupConfig.URL()
 	if dbBackupUrl != nil {
 		dbUrl = *dbBackupUrl
 	}
 
-	outputParentDir := filepath.Join(config.RootDir(), "backup")
-	if config.DatabaseBackupDir() != "" {
-		dir, err := filepath.Abs(config.DatabaseBackupDir())
+	outputParentDir := filepath.Join(rootDir, "backup")
+	if backupConfig.Dir() != "" {
+		dir, err := filepath.Abs(backupConfig.Dir())
 		if err != nil {
-			return nil, errors.Errorf("failed to get path for Database.Backup.Dir (%s) - please set it to a valid directory path", config.DatabaseBackupDir())
+			return nil, errors.Errorf("failed to get path for Database.Backup.Dir (%s) - please set it to a valid directory path", backupConfig.Dir())
 		}
 		outputParentDir = dir
 	}
 
 	return &databaseBackup{
+		services.StateMachine{},
 		lggr,
 		dbUrl,
-		config.DatabaseBackupMode(),
-		config.DatabaseBackupFrequency(),
+		backupConfig.Mode(),
+		backupConfig.Frequency(),
 		outputParentDir,
 		make(chan bool),
-		utils.StartStopOnce{},
 	}, nil
 }
 
@@ -132,7 +129,7 @@ func (backup *databaseBackup) Name() string {
 }
 
 func (backup *databaseBackup) HealthReport() map[string]error {
-	return map[string]error{backup.Name(): backup.StartStopOnce.Healthy()}
+	return map[string]error{backup.Name(): backup.Healthy()}
 }
 
 func (backup *databaseBackup) frequencyIsTooSmall() bool {
@@ -175,7 +172,7 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 
 	if backup.mode == config.DatabaseBackupModeLite {
 		for _, table := range excludedDataFromTables {
-			args = append(args, fmt.Sprintf("--exclude-table-data=%s", table))
+			args = append(args, "--exclude-table-data="+table)
 		}
 	}
 

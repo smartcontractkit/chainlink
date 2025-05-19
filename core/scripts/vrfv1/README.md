@@ -87,13 +87,13 @@ Ownerless Consumer: <YOUR CONSUMER ADDRESS> TX Hash: <YOUR TX HASH>
 
 Since the ownerless consumer does not hold LINK funds, it can only request
 randomness through a transferAndCall from the 
-[LINK contract](../../../contracts/src/v0.4/LinkToken.sol). The transaction has
+[LINK contract](../../../contracts/src/v0.8/shared/token/ERC677/LinkToken.sol). The transaction has
 the following steps:
 1. An externally owned account (controlled by your private key) initiates a
    transferAndCall on the LinkToken contract.
 2. The LinkToken contract transfers funds to the ownerless consumer.
 3. The ownerless consumer requests randomness from the
-   [VRF Coordinator](../../../contracts/src/v0.6/VRFCoordinator.sol), using the
+   [VRF Coordinator](https://github.com/smartcontractkit/chainlink-contracts-deprecated/blob/main/contracts/src/v0.6/VRFCoordinator.sol), using the
    LINK from step 2 to pay for it.
 
 To request randomness for your chosen consumer, run:

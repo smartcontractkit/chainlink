@@ -6,15 +6,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestValidate(t *testing.T) {
-	v1Coordinator := ethkey.EIP55Address("0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139")
-	v2Coordinator := ethkey.EIP55Address("0x2be990eE17832b59E0086534c5ea2459Aa75E38F")
-	fromAddresses := []ethkey.EIP55Address{("0x469aA2CD13e037DC5236320783dCfd0e641c0559")}
+	v1Coordinator := types.EIP55Address("0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139")
+	v2Coordinator := types.EIP55Address("0x2be990eE17832b59E0086534c5ea2459Aa75E38F")
+	fromAddresses := []types.EIP55Address{("0x469aA2CD13e037DC5236320783dCfd0e641c0559")}
 
 	var tests = []struct {
 		name      string
@@ -45,11 +45,11 @@ fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 					os.BlockhashStoreSpec.CoordinatorV2Address)
 				require.Equal(t, int32(59), os.BlockhashStoreSpec.WaitBlocks)
 				require.Equal(t, int32(159), os.BlockhashStoreSpec.LookbackBlocks)
-				require.Equal(t, ethkey.EIP55Address("0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"),
+				require.Equal(t, types.EIP55Address("0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"),
 					os.BlockhashStoreSpec.BlockhashStoreAddress)
 				require.Equal(t, 23*time.Second, os.BlockhashStoreSpec.PollPeriod)
 				require.Equal(t, 7*time.Second, os.BlockhashStoreSpec.RunTimeout)
-				require.Equal(t, utils.NewBigI(4), os.BlockhashStoreSpec.EVMChainID)
+				require.Equal(t, big.NewI(4), os.BlockhashStoreSpec.EVMChainID)
 				require.Equal(t, fromAddresses,
 					os.BlockhashStoreSpec.FromAddresses)
 			},
@@ -67,6 +67,27 @@ evmChainID = "4"`,
 				require.NoError(t, err)
 				require.Equal(t, int32(100), os.BlockhashStoreSpec.WaitBlocks)
 				require.Equal(t, int32(200), os.BlockhashStoreSpec.LookbackBlocks)
+				require.Equal(t, time.Duration(0), os.BlockhashStoreSpec.HeartbeatPeriod)
+				require.Nil(t, os.BlockhashStoreSpec.FromAddresses)
+				require.Equal(t, 30*time.Second, os.BlockhashStoreSpec.PollPeriod)
+				require.Equal(t, 30*time.Second, os.BlockhashStoreSpec.RunTimeout)
+			},
+		},
+		{
+			name: "heartbeattimeset",
+			toml: `
+type = "blockhashstore"
+name = "heartbeat-blocks-test"
+coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
+coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
+blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
+heartbeatPeriod = "650s"
+evmChainID = "4"`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.NoError(t, err)
+				require.Equal(t, int32(100), os.BlockhashStoreSpec.WaitBlocks)
+				require.Equal(t, int32(200), os.BlockhashStoreSpec.LookbackBlocks)
+				require.Equal(t, time.Duration(650)*time.Second, os.BlockhashStoreSpec.HeartbeatPeriod)
 				require.Nil(t, os.BlockhashStoreSpec.FromAddresses)
 				require.Equal(t, 30*time.Second, os.BlockhashStoreSpec.PollPeriod)
 				require.Equal(t, 30*time.Second, os.BlockhashStoreSpec.RunTimeout)
@@ -112,7 +133,7 @@ blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 evmChainID = "4"
 fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.EqualError(t, err, `at least one of "coordinatorV1Address" and "coordinatorV2Address" must be set`)
+				require.EqualError(t, err, `at least one of "coordinatorV1Address", "coordinatorV2Address" and "coordinatorV2PlusAddress" must be set`)
 			},
 		},
 		{
@@ -181,6 +202,22 @@ blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 evmChainID = "4"`,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.EqualError(t, err, `"waitBlocks" must be less than "lookbackBlocks"`)
+			},
+		},
+		{
+			name: "invalid waitBlocks higher than lookbackBlocks",
+			toml: `
+type = "blockhashstore"
+name = "valid-test"
+coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
+coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
+waitBlocks = 10
+lookbackBlocks = 100
+blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
+trustedBlockhashStoreAddress = "0x469aA2CD13e037DC5236320783dCfd0e641c0559"
+evmChainID = "4"`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.EqualError(t, err, `"trustedBlockhashStoreBatchSize" must be set`)
 			},
 		},
 		{

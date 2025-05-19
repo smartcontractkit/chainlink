@@ -2,6 +2,7 @@ type Chain {
     id: ID!
     enabled: Boolean!
     config: String!
+    network: String!
 }
 
 union ChainPayload = Chain | NotFoundError

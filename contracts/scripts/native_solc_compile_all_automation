@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo " ┌──────────────────────────────────────────────┐"
+echo " │       Compiling Automation contracts...      │"
+echo " └──────────────────────────────────────────────┘"
+
+PROJECT="automation"
+CONTRACTS_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../ && pwd -P )"
+
+compileContract() {
+  local contract=$(basename "$2")
+  echo "Compiling" "$contract"
+
+  local command
+  command="env FOUNDRY_PROFILE=$1 forge build $CONTRACTS_DIR/src/v0.8/$PROJECT/$2.sol \
+   --root $CONTRACTS_DIR \
+   --extra-output-files bin abi \
+   -o $CONTRACTS_DIR/solc/$PROJECT/$contract"
+  $command
+}
+
+compileContract automation-compile-12 upkeeps/CronUpkeepFactory
+compileContract automation-compile-12 v1_2/KeeperRegistrar1_2
+compileContract automation-compile-12 v1_2/KeeperRegistry1_2
+compileContract automation-compile-12 v1_2/KeeperRegistryCheckUpkeepGasUsageWrapper1_2
+compileContract automation-compile-12 v1_3/KeeperRegistry1_3
+compileContract automation-compile-12 v1_3/KeeperRegistryLogic1_3
+compileContract automation-compile-12 v2_0/KeeperRegistrar2_0
+compileContract automation-compile-12 v2_0/KeeperRegistry2_0
+compileContract automation-compile-12 v2_0/KeeperRegistryLogic2_0
+compileContract automation-compile-12 UpkeepTranscoder
+compileContract automation-compile-12 mocks/MockAggregatorProxy
+compileContract automation-compile-12 testhelpers/LogUpkeepCounter
+compileContract automation-compile-12 testhelpers/SimpleLogUpkeepCounter
+compileContract automation-compile-12 mocks/KeeperRegistrar1_2Mock
+compileContract automation-compile-12 mocks/KeeperRegistryCheckUpkeepGasUsageWrapper1_2Mock
+
+compileContract automation-compile-21 v2_1/AutomationRegistrar2_1
+compileContract automation-compile-21 v2_1/KeeperRegistry2_1
+compileContract automation-compile-21 v2_1/KeeperRegistryLogicA2_1
+compileContract automation-compile-21 v2_1/KeeperRegistryLogicB2_1
+compileContract automation-compile-21 v2_1/AutomationUtils2_1
+compileContract automation-compile-21 interfaces/v2_1/IKeeperRegistryMaster
+compileContract automation-compile-21 interfaces/ILogAutomation
+compileContract automation-compile-21 AutomationForwarderLogic
+compileContract automation-compile-21 testhelpers/LogTriggeredStreamsLookup
+compileContract automation-compile-21 testhelpers/DummyProtocol
+compileContract automation-compile-21 testhelpers/KeeperConsumer
+compileContract automation-compile-21 testhelpers/KeeperConsumerPerformance
+compileContract automation-compile-21 testhelpers/PerformDataChecker
+compileContract automation-compile-21 testhelpers/UpkeepPerformCounterRestrictive
+compileContract automation-compile-21 testhelpers/UpkeepCounter
+compileContract automation-compile-21 interfaces/StreamsLookupCompatibleInterface
+compileContract automation-compile-21 testhelpers/VerifiableLoadUpkeep
+compileContract automation-compile-21 testhelpers/VerifiableLoadStreamsLookupUpkeep
+compileContract automation-compile-21 testhelpers/VerifiableLoadLogTriggerUpkeep
+compileContract automation-compile-21 testhelpers/AutomationConsumerBenchmark
+compileContract automation-compile-21 testhelpers/StreamsLookupUpkeep
+
+compileContract automation-compile-22 v2_2/AutomationRegistry2_2
+compileContract automation-compile-22 v2_2/AutomationRegistryLogicA2_2
+compileContract automation-compile-22 v2_2/AutomationRegistryLogicB2_2
+compileContract automation-compile-22 v2_2/AutomationUtils2_2
+compileContract automation-compile-22 interfaces/v2_2/IAutomationRegistryMaster
+compileContract automation-compile-22 chains/ArbitrumModule
+compileContract automation-compile-22 chains/ChainModuleBase
+compileContract automation-compile-22 chains/OptimismModuleV2
+compileContract automation-compile-22 chains/ScrollModule
+compileContract automation-compile-22 interfaces/IChainModule
+compileContract automation-compile-22 interfaces/IAutomationV21PlusCommon
+compileContract automation-compile-22 AutomationCompatibleUtils
+compileContract automation-compile-22 v2_3/AutomationRegistrar2_3
+compileContract automation-compile-22 v2_3/AutomationRegistry2_3
+compileContract automation-compile-22 v2_3/AutomationRegistryLogicA2_3
+compileContract automation-compile-22 v2_3/AutomationRegistryLogicB2_3
+compileContract automation-compile-22 v2_3/AutomationRegistryLogicC2_3
+compileContract automation-compile-22 v2_3/AutomationUtils2_3
+compileContract automation-compile-22 interfaces/v2_3/IAutomationRegistryMaster2_3
+compileContract automation-compile-22 testhelpers/MockETHUSDAggregator

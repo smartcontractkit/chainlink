@@ -10,9 +10,11 @@ tmp/
 contracts/node_modules
 examples/
 
+deployment/
 integration/
 integration-scripts/
 integration-tests/
+system-tests/
 
 tools/gethnet/datadir/geth
 tools/clroot/db.bolt
@@ -30,3 +32,6 @@ codeship-*.yml
 dockercfg
 credentials.env
 gcr_creds.env
+
+go.work
+go.work.sum

@@ -6,10 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
+
+	proto "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
@@ -23,11 +25,12 @@ const (
 type PluginType string
 
 const (
-	PluginTypeCommit  PluginType = "COMMIT"
-	PluginTypeExecute PluginType = "EXECUTE"
-	PluginTypeMedian  PluginType = "MEDIAN"
-	PluginTypeMercury PluginType = "MERCURY"
-	PluginTypeUnknown PluginType = "UNKNOWN"
+	PluginTypeCommit     PluginType = "COMMIT"
+	PluginTypeExecute    PluginType = "EXECUTE"
+	PluginTypeMedian     PluginType = "MEDIAN"
+	PluginTypeMercury    PluginType = "MERCURY"
+	PluginTypeRebalancer PluginType = "REBALANCER"
+	PluginTypeUnknown    PluginType = "UNKNOWN"
 )
 
 func FromPluginTypeInput(pt PluginType) string {
@@ -44,16 +47,19 @@ func ToPluginType(s string) (PluginType, error) {
 		return PluginTypeMedian, nil
 	case "mercury":
 		return PluginTypeMercury, nil
+	case "rebalancer":
+		return PluginTypeRebalancer, nil
 	default:
 		return PluginTypeUnknown, errors.New("unknown plugin type")
 	}
 }
 
 type Plugins struct {
-	Commit  bool `json:"commit"`
-	Execute bool `json:"execute"`
-	Median  bool `json:"median"`
-	Mercury bool `json:"mercury"`
+	Commit     bool `json:"commit"`
+	Execute    bool `json:"execute"`
+	Median     bool `json:"median"`
+	Mercury    bool `json:"mercury"`
+	Rebalancer bool `json:"rebalancer"`
 }
 
 func (p Plugins) Value() (driver.Value, error) {
@@ -72,17 +78,38 @@ func (p *Plugins) Scan(value interface{}) error {
 type ChainType string
 
 const (
-	ChainTypeUnknown ChainType = "UNKNOWN"
-	ChainTypeEVM     ChainType = "EVM"
+	ChainTypeUnknown  ChainType = "UNKNOWN"
+	ChainTypeAptos    ChainType = "APTOS"
+	ChainTypeEVM      ChainType = "EVM"
+	ChainTypeSolana   ChainType = "SOLANA"
+	ChainTypeStarknet ChainType = "STARKNET"
+	ChainTypeTron     ChainType = "TRON"
 )
 
 func NewChainType(s string) (ChainType, error) {
 	switch s {
 	case "EVM":
 		return ChainTypeEVM, nil
+	case "STARKNET":
+		return ChainTypeStarknet, nil
+	case "SOLANA":
+		return ChainTypeSolana, nil
+	case "APTOS":
+		return ChainTypeAptos, nil
+	case "TRON":
+		return ChainTypeTron, nil
 	default:
 		return ChainTypeUnknown, errors.New("invalid chain type")
 	}
+}
+
+// ChainTypeToProtoChainType converts a ChainType to a proto.ChainType.
+func ChainTypeToProtoChainType(chainType ChainType) proto.ChainType {
+	prefixed := "CHAIN_TYPE_" + string(chainType)
+	if chainType, exists := proto.ChainType_value[prefixed]; exists {
+		return proto.ChainType(chainType)
+	}
+	return proto.ChainType_CHAIN_TYPE_UNSPECIFIED
 }
 
 // FeedsManager defines a registered Feeds Manager Service and the connection
@@ -95,21 +122,23 @@ type FeedsManager struct {
 	IsConnectionActive bool
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
+	DisabledAt         *time.Time
 }
 
 // ChainConfig defines the chain configuration for a Feeds Manager.
 type ChainConfig struct {
-	ID                int64
-	FeedsManagerID    int64
-	ChainID           string
-	ChainType         ChainType
-	AccountAddress    string
-	AdminAddress      string
-	FluxMonitorConfig FluxMonitorConfig
-	OCR1Config        OCR1Config
-	OCR2Config        OCR2Config
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID                      int64
+	FeedsManagerID          int64
+	ChainID                 string
+	ChainType               ChainType
+	AccountAddress          string
+	AccountAddressPublicKey null.String
+	AdminAddress            string
+	FluxMonitorConfig       FluxMonitorConfig
+	OCR1Config              OCR1Config
+	OCR2Config              OCR2ConfigModel
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
 }
 
 // FluxMonitorConfig defines configuration for FluxMonitorJobs.
@@ -152,21 +181,22 @@ func (c *OCR1Config) Scan(value interface{}) error {
 	return json.Unmarshal(b, &c)
 }
 
-// OCR2Config defines configuration for OCR2 Jobs.
-type OCR2Config struct {
-	Enabled     bool        `json:"enabled"`
-	IsBootstrap bool        `json:"is_bootstrap"`
-	Multiaddr   null.String `json:"multiaddr"`
-	P2PPeerID   null.String `json:"p2p_peer_id"`
-	KeyBundleID null.String `json:"key_bundle_id"`
-	Plugins     Plugins     `json:"plugins"`
+// OCR2ConfigModel defines configuration for OCR2 Jobs.
+type OCR2ConfigModel struct {
+	Enabled          bool        `json:"enabled"`
+	IsBootstrap      bool        `json:"is_bootstrap"`
+	Multiaddr        null.String `json:"multiaddr"`
+	ForwarderAddress null.String `json:"forwarder_address"`
+	P2PPeerID        null.String `json:"p2p_peer_id"`
+	KeyBundleID      null.String `json:"key_bundle_id"`
+	Plugins          Plugins     `json:"plugins"`
 }
 
-func (c OCR2Config) Value() (driver.Value, error) {
+func (c OCR2ConfigModel) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }
 
-func (c *OCR2Config) Scan(value interface{}) error {
+func (c *OCR2ConfigModel) Scan(value interface{}) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")
@@ -250,15 +280,19 @@ type JobProposalCounts struct {
 	Cancelled int64
 	Approved  int64
 	Rejected  int64
+	Deleted   int64
+	Revoked   int64
 }
 
 // toMetrics transforms JobProposalCounts into a map with float64 values for setting metrics
 // in prometheus.
 func (jpc *JobProposalCounts) toMetrics() map[JobProposalStatus]float64 {
-	metrics := make(map[JobProposalStatus]float64, 4)
+	metrics := make(map[JobProposalStatus]float64, 6)
 	metrics[JobProposalStatusPending] = float64(jpc.Pending)
 	metrics[JobProposalStatusApproved] = float64(jpc.Approved)
 	metrics[JobProposalStatusCancelled] = float64(jpc.Cancelled)
 	metrics[JobProposalStatusRejected] = float64(jpc.Rejected)
+	metrics[JobProposalStatusRevoked] = float64(jpc.Revoked)
+	metrics[JobProposalStatusDeleted] = float64(jpc.Deleted)
 	return metrics
 }

@@ -1,0 +1,44 @@
+services:
+  prometheus:
+    image: prom/prometheus:main
+    container_name: chainlink-prometheus
+    volumes:
+      - ./prometheus/:/etc/prometheus/
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yaml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    restart: always
+    ports:
+      - 9090:9090
+  grafana:
+    image: grafana/grafana:10.4.3
+    user: "472"
+    depends_on:
+      - prometheus
+      - alertmanager
+    ports:
+      - 3000:3000
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning/:/etc/grafana/provisioning/
+    env_file:
+      - ./grafana/config.monitoring
+    restart: always
+  alertmanager:
+    image: prom/alertmanager:main
+    container_name: chainlink-alertmanager
+    volumes:
+      - "./alertmanager:/config"
+      - alertmanager-data:/data
+    command: --config.file=/config/alertmanager.yml --log.level=debug
+    restart: always
+    ports:
+      - 9093:9093
+
+volumes:
+  alertmanager-data: {}
+  prometheus_data: {}
+  grafana_data: {}

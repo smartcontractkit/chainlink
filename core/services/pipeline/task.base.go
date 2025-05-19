@@ -3,7 +3,7 @@ package pipeline
 import (
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 )
@@ -21,6 +21,10 @@ type BaseTask struct {
 	Retries    null.Uint32   `mapstructure:"retries"`
 	MinBackoff time.Duration `mapstructure:"minBackoff"`
 	MaxBackoff time.Duration `mapstructure:"maxBackoff"`
+
+	Tags string `mapstructure:"tags" json:"-"`
+
+	StreamID null.Uint32 `mapstructure:"streamID"`
 
 	uuid uuid.UUID
 }
@@ -76,4 +80,40 @@ func (t BaseTask) TaskMaxBackoff() time.Duration {
 		return t.MaxBackoff
 	}
 	return time.Minute
+}
+
+func (t BaseTask) TaskTags() string {
+	return t.Tags
+}
+
+func (t BaseTask) TaskStreamID() *uint32 {
+	if t.StreamID.Valid {
+		return &t.StreamID.Uint32
+	}
+	return nil
+}
+
+// GetDescendantTasks retrieves all descendant tasks of a given task
+func (t BaseTask) GetDescendantTasks() []Task {
+	if len(t.outputs) == 0 {
+		return []Task{}
+	}
+	var descendants []Task
+	queue := append([]Task{}, t.outputs...)
+	visited := make(map[int]bool)
+
+	for len(queue) > 0 {
+		currentTask := queue[0]
+		queue = queue[1:]
+
+		taskID := currentTask.ID()
+		if visited[taskID] {
+			continue
+		}
+		visited[taskID] = true
+		descendants = append(descendants, currentTask)
+		queue = append(queue, currentTask.Outputs()...)
+	}
+
+	return descendants
 }

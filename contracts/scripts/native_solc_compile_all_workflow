@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo " ┌──────────────────────────────────────────────┐"
+echo " │    Compiling Workflow contracts...           │"
+echo " └──────────────────────────────────────────────┘"
+
+PROJECT="workflow"
+
+CONTRACTS_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../ && pwd -P )"
+export FOUNDRY_PROFILE="$PROJECT"
+
+compileContract () {
+  local contract
+  contract=$(basename "$1")
+  echo "Compiling" "$contract"
+
+  local command
+  command="forge build $CONTRACTS_DIR/src/v0.8/$PROJECT/"$1.sol" \
+   --root $CONTRACTS_DIR \
+   --extra-output-files bin abi \
+   -o $CONTRACTS_DIR/solc/$PROJECT/$contract"
+  $command
+}
+
+compileContract WorkflowRegistry

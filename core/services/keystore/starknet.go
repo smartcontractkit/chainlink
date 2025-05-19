@@ -1,25 +1,24 @@
 package keystore
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pkg/errors"
 
-	stark "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 )
 
-//go:generate mockery --quiet --name StarkNet --output ./mocks/ --case=underscore --filename starknet.go
-
 type StarkNet interface {
-	Get(id string) (stark.Key, error)
-	GetAll() ([]stark.Key, error)
-	Create() (stark.Key, error)
-	Add(key stark.Key) error
-	Delete(id string) (stark.Key, error)
-	Import(keyJSON []byte, password string) (stark.Key, error)
+	Get(id string) (starkkey.Key, error)
+	GetAll() ([]starkkey.Key, error)
+	Create(ctx context.Context) (starkkey.Key, error)
+	Add(ctx context.Context, key starkkey.Key) error
+	Delete(ctx context.Context, id string) (starkkey.Key, error)
+	Import(ctx context.Context, keyJSON []byte, password string) (starkkey.Key, error)
 	Export(id string, password string) ([]byte, error)
-	EnsureKey() error
+	EnsureKey(ctx context.Context) error
 }
 
 type starknet struct {
@@ -34,16 +33,16 @@ func newStarkNetKeyStore(km *keyManager) *starknet {
 	}
 }
 
-func (ks *starknet) Get(id string) (stark.Key, error) {
+func (ks *starknet) Get(id string) (starkkey.Key, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
-		return stark.Key{}, ErrLocked
+		return starkkey.Key{}, ErrLocked
 	}
 	return ks.getByID(id)
 }
 
-func (ks *starknet) GetAll() (keys []stark.Key, _ error) {
+func (ks *starknet) GetAll() (keys []starkkey.Key, _ error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -55,20 +54,20 @@ func (ks *starknet) GetAll() (keys []stark.Key, _ error) {
 	return keys, nil
 }
 
-func (ks *starknet) Create() (stark.Key, error) {
+func (ks *starknet) Create(ctx context.Context) (starkkey.Key, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
-		return stark.Key{}, ErrLocked
+		return starkkey.Key{}, ErrLocked
 	}
-	key, err := stark.New()
+	key, err := starkkey.New()
 	if err != nil {
-		return stark.Key{}, err
+		return starkkey.Key{}, err
 	}
-	return key, ks.safeAddKey(key)
+	return key, ks.safeAddKey(ctx, key)
 }
 
-func (ks *starknet) Add(key stark.Key) error {
+func (ks *starknet) Add(ctx context.Context, key starkkey.Key) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -77,37 +76,37 @@ func (ks *starknet) Add(key stark.Key) error {
 	if _, found := ks.keyRing.StarkNet[key.ID()]; found {
 		return fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return ks.safeAddKey(key)
+	return ks.safeAddKey(ctx, key)
 }
 
-func (ks *starknet) Delete(id string) (stark.Key, error) {
+func (ks *starknet) Delete(ctx context.Context, id string) (starkkey.Key, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
-		return stark.Key{}, ErrLocked
+		return starkkey.Key{}, ErrLocked
 	}
 	key, err := ks.getByID(id)
 	if err != nil {
-		return stark.Key{}, err
+		return starkkey.Key{}, err
 	}
-	err = ks.safeRemoveKey(key)
+	err = ks.safeRemoveKey(ctx, key)
 	return key, err
 }
 
-func (ks *starknet) Import(keyJSON []byte, password string) (stark.Key, error) {
+func (ks *starknet) Import(ctx context.Context, keyJSON []byte, password string) (starkkey.Key, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
-		return stark.Key{}, ErrLocked
+		return starkkey.Key{}, ErrLocked
 	}
 	key, err := starkkey.FromEncryptedJSON(keyJSON, password)
 	if err != nil {
-		return stark.Key{}, errors.Wrap(err, "StarkNetKeyStore#ImportKey failed to decrypt key")
+		return starkkey.Key{}, errors.Wrap(err, "StarkNetKeyStore#ImportKey failed to decrypt key")
 	}
 	if _, found := ks.keyRing.StarkNet[key.ID()]; found {
-		return stark.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
+		return starkkey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.keyManager.safeAddKey(key)
+	return key, ks.keyManager.safeAddKey(ctx, key)
 }
 
 func (ks *starknet) Export(id string, password string) ([]byte, error) {
@@ -123,7 +122,7 @@ func (ks *starknet) Export(id string, password string) ([]byte, error) {
 	return starkkey.ToEncryptedJSON(key, password, ks.scryptParams)
 }
 
-func (ks *starknet) EnsureKey() error {
+func (ks *starknet) EnsureKey(ctx context.Context) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -133,24 +132,57 @@ func (ks *starknet) EnsureKey() error {
 		return nil
 	}
 
-	key, err := stark.New()
+	key, err := starkkey.New()
 	if err != nil {
 		return err
 	}
 
 	ks.logger.Infof("Created StarkNet key with ID %s", key.ID())
 
-	return ks.safeAddKey(key)
+	return ks.safeAddKey(ctx, key)
 }
 
-var (
-	ErrNoStarkNetKey = errors.New("no starknet keys exist")
-)
-
-func (ks *starknet) getByID(id string) (stark.Key, error) {
+func (ks *starknet) getByID(id string) (starkkey.Key, error) {
 	key, found := ks.keyRing.StarkNet[id]
 	if !found {
-		return stark.Key{}, KeyNotFoundError{ID: id, KeyType: "StarkNet"}
+		return starkkey.Key{}, KeyNotFoundError{ID: id, KeyType: "StarkNet"}
 	}
 	return key, nil
+}
+
+// StarknetLooppSigner implements [github.com/smartcontractkit/chainlink-common/pkg/loop.Keystore] interface and the requirements
+// of signature d/encoding of the [github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm.NewKeystoreAdapter]
+type StarknetLooppSigner struct {
+	StarkNet
+}
+
+var _ loop.Keystore = &StarknetLooppSigner{}
+
+// Sign implements [loop.Keystore]
+// hash is expected to be the byte representation of big.Int
+// the returned []byte is an encoded [github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/starknet.Signature].
+// this enables compatibility with [github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm.NewKeystoreAdapter]
+func (lk *StarknetLooppSigner) Sign(ctx context.Context, id string, hash []byte) ([]byte, error) {
+	k, err := lk.Get(id)
+	if err != nil {
+		return nil, err
+	}
+	// loopp spec requires passing nil hash to check existence of id
+	if hash == nil {
+		return nil, nil
+	}
+
+	return k.Sign(hash)
+}
+
+func (lk *StarknetLooppSigner) Accounts(ctx context.Context) ([]string, error) {
+	ks, err := lk.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	as := make([]string, 0, len(ks))
+	for _, k := range ks {
+		as = append(as, k.ID())
+	}
+	return as, nil
 }

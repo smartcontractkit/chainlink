@@ -1,0 +1,13 @@
+exec chainlink config loglevel --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink config loglevel - Set log level
+
+USAGE:
+   chainlink config loglevel [command options] [arguments...]
+
+OPTIONS:
+   --level value  set log level for node (debug||info||warn||error)
+   

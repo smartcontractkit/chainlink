@@ -6,15 +6,19 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/graph-gophers/graphql-go"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
 )
 
 type ETHKey struct {
 	state ethkey.State
-	addr  ethkey.EIP55Address
-	chain evm.Chain
+	addr  types.EIP55Address
+	chain legacyevm.Chain
 }
 
 type ETHKeyResolver struct {
@@ -36,7 +40,8 @@ func NewETHKeys(keys []ETHKey) []*ETHKeyResolver {
 }
 
 func (r *ETHKeyResolver) Chain(ctx context.Context) (*ChainResolver, error) {
-	chain, err := loader.GetChainByID(ctx, r.key.state.EVMChainID.String())
+	relayID := commonTypes.NewRelayID(relay.NetworkEVM, r.key.state.EVMChainID.String())
+	chain, err := loader.GetChainByRelayID(ctx, relayID.Name())
 	if err != nil {
 		return nil, err
 	}
@@ -80,8 +85,8 @@ func (r *ETHKeyResolver) LINKBalance(ctx context.Context) *string {
 	}
 
 	client := r.key.chain.Client()
-	addr := common.HexToAddress(r.key.chain.Config().LinkContractAddress())
-	balance, err := client.GetLINKBalance(ctx, addr, r.key.state.Address.Address())
+	linkAddr := common.HexToAddress(r.key.chain.Config().EVM().LinkContractAddress())
+	balance, err := client.LINKBalance(ctx, r.key.state.Address.Address(), linkAddr)
 	if err != nil {
 		return nil
 	}
@@ -99,7 +104,7 @@ func (r *ETHKeyResolver) MaxGasPriceWei() *string {
 		return nil
 	}
 
-	gasPrice := r.key.chain.Config().KeySpecificMaxGasPriceWei(r.key.addr.Address())
+	gasPrice := r.key.chain.Config().EVM().GasEstimator().PriceMaxKey(r.key.addr.Address())
 
 	if gasPrice != nil {
 		val := gasPrice.ToInt().String()

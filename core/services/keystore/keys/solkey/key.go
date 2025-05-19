@@ -4,43 +4,28 @@ import (
 	"crypto"
 	"crypto/ed25519"
 	crypto_rand "crypto/rand"
-	"fmt"
 	"io"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/mr-tron/base58"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
-// Raw represents the ETH private key
-type Raw []byte
-
-// Key gets the Key
-func (raw Raw) Key() Key {
-	privKey := ed25519.NewKeyFromSeed(raw)
-	pubKey := make([]byte, ed25519.PublicKeySize)
-	copy(pubKey, privKey[ed25519.PublicKeySize:])
+func KeyFor(raw internal.Raw) Key {
+	privKey := ed25519.NewKeyFromSeed(internal.Bytes(raw))
 	return Key{
-		privkey: privKey,
-		pubKey:  pubKey,
+		raw:    raw,
+		signFn: privKey.Sign,
+		pubKey: privKey.Public().(ed25519.PublicKey),
 	}
 }
 
-// String returns description
-func (raw Raw) String() string {
-	return "<Solana Raw Private Key>"
-}
-
-// GoString wraps String()
-func (raw Raw) GoString() string {
-	return raw.String()
-}
-
-var _ fmt.GoStringer = &Key{}
-
 // Key represents Solana key
 type Key struct {
-	privkey ed25519.PrivateKey
-	pubKey  ed25519.PublicKey
+	raw    internal.Raw
+	signFn func(io.Reader, []byte, crypto.SignerOpts) ([]byte, error)
+	pubKey ed25519.PublicKey
 }
 
 // New creates new Key
@@ -63,8 +48,9 @@ func newFrom(reader io.Reader) (Key, error) {
 		return Key{}, err
 	}
 	return Key{
-		privkey: priv,
-		pubKey:  pub,
+		raw:    internal.NewRaw(priv.Seed()),
+		signFn: priv.Sign,
+		pubKey: pub,
 	}, nil
 }
 
@@ -84,23 +70,11 @@ func (key Key) PublicKeyStr() string {
 }
 
 // Raw from private key
-func (key Key) Raw() Raw {
-	return key.privkey.Seed()
-}
-
-// String is the print-friendly format of the Key
-func (key Key) String() string {
-	return fmt.Sprintf("SolanaKey{PrivateKey: <redacted>, Public Key: %s}", key.PublicKeyStr())
-}
-
-// GoString wraps String()
-func (key Key) GoString() string {
-	return key.String()
-}
+func (key Key) Raw() internal.Raw { return key.raw }
 
 // Sign is used to sign a message
 func (key Key) Sign(msg []byte) ([]byte, error) {
-	return key.privkey.Sign(crypto_rand.Reader, msg, crypto.Hash(0))
+	return key.signFn(crypto_rand.Reader, msg, crypto.Hash(0))
 }
 
 // PublicKey copies public key slice

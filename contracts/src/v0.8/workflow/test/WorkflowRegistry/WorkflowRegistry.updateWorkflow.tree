@@ -1,0 +1,34 @@
+WorkflowRegistry.updateWorkflow
+├── when the caller is not an authorized address
+│   └── it should revert
+└── when the caller is an authorized address
+    ├── when the registry is locked
+    │   └── it should revert
+    └── when the registry is not locked
+        ├── when the donID is not allowed
+        │   └── it should revert
+        └── when the donID is allowed
+            ├── when the caller is not the workflow owner
+            │   └── it should revert
+            └── when the caller is the workflow owner
+                ├── when an existing workflow is not found with the given workflow name
+                │   └── it should revert
+                ├── when none of the URLs are updated
+                │   └── it should revert
+                ├── when the binaryURL is empty
+                │   └── it should revert
+                ├── when the binaryURL is too long
+                │   └── it should revert
+                ├── when the configURL is too long
+                │   └── it should revert
+                ├── when the secretsURL is too long
+                │   └── it should revert
+                ├── when the workflowID is invalid
+                │   └── it should revert
+                ├── when the workflowID is already in used by another workflow
+                │   └── it should revert
+                └── when the workflow inputs are all valid
+                    ├── it should update the existing workflow in s_workflows with the new values
+                    ├── it should emit {WorkflowUpdatedV1}
+                    └── when the secretsURL is not empty
+                        └── it should add the url + key to s_secretsHashToWorkflows

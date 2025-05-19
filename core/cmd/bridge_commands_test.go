@@ -3,6 +3,7 @@ package cmd_test
 import (
 	"bytes"
 	"flag"
+	"fmt"
 	"testing"
 	"time"
 
@@ -61,18 +62,19 @@ func TestBridgePresenter_RenderTable(t *testing.T) {
 	assert.NotContains(t, output, outgoingToken)
 }
 
-func TestClient_IndexBridges(t *testing.T) {
+func TestShell_IndexBridges(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	app := startNewApplicationV2(t, nil)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	bt1 := &bridges.BridgeType{
 		Name:          bridges.MustParseBridgeName("cliindexbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	err := app.BridgeORM().CreateBridgeType(bt1)
+	err := app.BridgeORM().CreateBridgeType(ctx, bt1)
 	require.NoError(t, err)
 
 	bt2 := &bridges.BridgeType{
@@ -80,12 +82,12 @@ func TestClient_IndexBridges(t *testing.T) {
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	err = app.BridgeORM().CreateBridgeType(bt2)
+	err = app.BridgeORM().CreateBridgeType(ctx, bt2)
 	require.NoError(t, err)
 
-	require.Nil(t, client.IndexBridges(cltest.EmptyCLIContext()))
+	require.NoError(t, client.IndexBridges(cltest.EmptyCLIContext()))
 	bridges := *r.Renders[0].(*cmd.BridgePresenters)
-	require.Equal(t, 2, len(bridges))
+	require.Len(t, bridges, 2)
 	p := bridges[0]
 	assert.Equal(t, bt1.Name.String(), p.Name)
 	assert.Equal(t, bt1.URL.String(), p.URL)
@@ -97,21 +99,21 @@ func TestClient_IndexBridges(t *testing.T) {
 	assert.Equal(t, bt2.Confirmations, p.Confirmations)
 }
 
-func TestClient_ShowBridge(t *testing.T) {
+func TestShell_ShowBridge(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	bt := &bridges.BridgeType{
 		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("showbridge")),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	require.NoError(t, app.BridgeORM().CreateBridgeType(bt))
+	require.NoError(t, app.BridgeORM().CreateBridgeType(testutils.Context(t), bt))
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.ShowBridge, set, "")
+	flagSetApplyFromAction(client.ShowBridge, set, "")
 
 	require.NoError(t, set.Parse([]string{bt.Name.String()}))
 
@@ -125,11 +127,11 @@ func TestClient_ShowBridge(t *testing.T) {
 	assert.Equal(t, bt.Confirmations, p.Confirmations)
 }
 
-func TestClient_CreateBridge(t *testing.T) {
+func TestShell_CreateBridge(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	client, _ := app.NewClientAndRenderer()
+	client, _ := app.NewShellAndRenderer()
 
 	tests := []struct {
 		name    string
@@ -148,7 +150,7 @@ func TestClient_CreateBridge(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			set := flag.NewFlagSet("bridge", 0)
-			cltest.FlagSetApplyFromAction(client.CreateBridge, set, "")
+			flagSetApplyFromAction(client.CreateBridge, set, "")
 
 			require.NoError(t, set.Parse([]string{test.param}))
 
@@ -156,28 +158,28 @@ func TestClient_CreateBridge(t *testing.T) {
 			if test.errored {
 				assert.Error(t, client.CreateBridge(c))
 			} else {
-				assert.Nil(t, client.CreateBridge(c))
+				assert.NoError(t, client.CreateBridge(c))
 			}
 		})
 	}
 }
 
-func TestClient_RemoveBridge(t *testing.T) {
+func TestShell_RemoveBridge(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	bt := &bridges.BridgeType{
 		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("removebridge")),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	err := app.BridgeORM().CreateBridgeType(bt)
+	err := app.BridgeORM().CreateBridgeType(testutils.Context(t), bt)
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RemoveBridge, set, "")
+	flagSetApplyFromAction(client.RemoveBridge, set, "")
 
 	require.NoError(t, set.Parse([]string{bt.Name.String()}))
 
@@ -189,4 +191,45 @@ func TestClient_RemoveBridge(t *testing.T) {
 	assert.Equal(t, bt.Name.String(), p.Name)
 	assert.Equal(t, bt.URL.String(), p.URL)
 	assert.Equal(t, bt.Confirmations, p.Confirmations)
+}
+func TestShell_UpdateBridge(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplicationV2(t, nil)
+	client, _ := app.NewShellAndRenderer()
+	name := testutils.RandomizeName("updatebridge")
+
+	bt := &bridges.BridgeType{
+		Name:          bridges.MustParseBridgeName(name),
+		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
+		Confirmations: 0,
+	}
+	require.NoError(t, app.BridgeORM().CreateBridgeType(testutils.Context(t), bt))
+	tests := []struct {
+		name    string
+		args    []string
+		errored bool
+	}{
+		{"NoArgs", []string{}, true},
+		{"OnlyName", []string{name}, true},
+		{"ValidUpdate", []string{name, fmt.Sprintf(`{ "name": "%s", "url": "http://localhost:3000/updated" }`, name)}, false},
+		{"InvalidJSON", []string{name, `{ "url": "http://localhost:3000/updated"`}, true},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			set := flag.NewFlagSet("bridge", 0)
+			flagSetApplyFromAction(client.UpdateBridge, set, "")
+
+			require.NoError(t, set.Parse(test.args))
+
+			c := cli.NewContext(nil, set, nil)
+			if test.errored {
+				assert.Error(t, client.UpdateBridge(c))
+			} else {
+				assert.NoError(t, client.UpdateBridge(c))
+			}
+		})
+	}
 }

@@ -1,0 +1,69 @@
+{
+  "name": "@chainlink/contracts-ccip",
+  "version": "1.6.0",
+  "description": "Chainlink smart contracts for CCIP",
+  "author": "Chainlink devs",
+  "license": "BUSL-1.1",
+  "private": false,
+  "scripts": {
+    "lint": "eslint --ext js,ts .",
+    "prettier:check": "prettier '**/*' --check --ignore-unknown",
+    "prettier:write": "prettier '**/*' --write --ignore-unknown",
+    "publish-beta": "pnpm publish --tag beta",
+    "publish-prod": "npm dist-tag add @chainlink/contracts-ccip@1.6.0 latest",
+    "compile": "./scripts/native_solc_compile_all_ccip",
+    "prepublishOnly": "pnpm compile",
+    "verify:ccip-files": "diff ./release/ccip/package.json ./package.json && diff ./release/ccip/README.md ./README.md"
+  },
+  "files": [
+    "foundry.toml",
+    "src/v0.8/ccip/**/*.sol",
+    "src/v0.8/shared/access/*.sol",
+    "src/v0.8/shared/call/CallWithExactGas.sol",
+    "src/v0.8/shared/enumerable/EnumerableMapBytes32.sol",
+    "src/v0.8/shared/enumerable/EnumerableMapAddresses.sol",
+    "src/v0.8/shared/enumerable/EnumerableSetWithBytes16.sol",
+    "src/v0.8/shared/interfaces/IOwnable.sol",
+    "src/v0.8/shared/interfaces/ITypeAndVersion.sol",
+    "src/v0.8/shared/interfaces/IERC677Receiver.sol",
+    "src/v0.8/shared/interfaces/AggregatorV3Interface.sol",
+    "src/v0.8/shared/interfaces/AccessControllerInterface.sol",
+    "src/v0.8/shared/token/**/*.sol",
+    "src/v0.8/shared/util/SortedSetValidationUtil.sol",
+    "src/v0.8/keystone/interfaces/**/*",
+    "src/v0.8/keystone/KeystoneFeedsPermissionHandler.sol",
+    "src/v0.8/keystone/lib/KeystoneFeedDefaultMetadataLib.sol",
+    "src/v0.8/vendor/openzeppelin-solidity/v4.8.3",
+    "src/v0.8/vendor/openzeppelin-solidity/v5.0.2",
+    "src/v0.8/vendor/Context.sol",
+    "src/v0.8/vendor/Pausable.sol",
+    "abi/v0.8/",
+    "src/v0.8/ccip/LICENSE.md",
+    "src/v0.8/ccip/v1.5-CCIP-License-grants.md",
+    "!src/v0.8/ccip/test/**/*",
+    "src/v0.8/ccip/test/mocks/**/*",
+    "!src/v0.8/ccip/test/mocks/test/*",
+    "scripts/native_solc_compile_all_ccip"
+  ],
+  "engines": {
+    "node": ">=18",
+    "pnpm": ">=10"
+  },
+  "dependencies": {
+    "@changesets/cli": "~2.27.8",
+    "@changesets/get-github-info": "^0.6.0",
+    "semver": "^7.6.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.17",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.3",
+    "prettier": "^3.5.0",
+    "prettier-plugin-solidity": "^1.4.2",
+    "solhint-plugin-prettier": "^0.1.0",
+    "typescript": "^5.7.3"
+  }
+}

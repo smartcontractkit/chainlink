@@ -1,0 +1,41 @@
+name: Chain Selectors Version Check
+
+on:
+  push:
+    branches:
+      - develop
+      - release/*
+    tags:
+      - v*
+  pull_request:
+    branches:
+      - release/*
+
+
+jobs:
+  verify-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          only-modules: true
+          go-version-file: "go.mod"
+
+      - name: Get chain-selectors version
+        id: get-chain-selectors-version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current_chain_selector_version=$(go list -m -f '{{.Version}}' github.com/smartcontractkit/chain-selectors)
+          latest_chain_selector_version=$(gh release view -R smartcontractkit/chain-selectors --json tagName --jq '.tagName')
+          if [[ "$current_chain_selector_version" != "$latest_chain_selector_version" ]]; then
+            echo "::error:: Chain Selectors version mismatch. Current version: $current_chain_selector_version, Latest version: $latest_chain_selector_version"
+            exit 1
+          fi

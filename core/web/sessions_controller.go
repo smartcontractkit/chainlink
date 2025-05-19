@@ -29,17 +29,18 @@ func NewSessionsController(app chainlink.Application) *SessionsController {
 // in a cookie.
 func (sc *SessionsController) Create(c *gin.Context) {
 	defer sc.App.WakeSessionReaper()
+	ctx := c.Request.Context()
 	sc.App.GetLogger().Debugf("TRACE: Starting Session Creation")
 
 	session := sessions.Default(c)
 	var sr clsessions.SessionRequest
 	if err := c.ShouldBindJSON(&sr); err != nil {
-		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("error binding json %v", err))
+		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("error binding json %w", err))
 		return
 	}
 
 	// Does this user have 2FA enabled?
-	userWebAuthnTokens, err := sc.App.SessionORM().GetUserWebAuthn(sr.Email)
+	userWebAuthnTokens, err := sc.App.AuthenticationProvider().GetUserWebAuthn(ctx, sr.Email)
 	if err != nil {
 		sc.App.GetLogger().Errorf("Error loading user WebAuthn data: %s", err)
 		jsonAPIError(c, http.StatusInternalServerError, errors.New("internal Server Error"))
@@ -53,7 +54,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 		sr.WebAuthnConfig = sc.App.GetWebAuthnConfiguration()
 	}
 
-	sid, err := sc.App.SessionORM().CreateSession(sr)
+	sid, err := sc.App.AuthenticationProvider().CreateSession(ctx, sr)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnauthorized, err)
 		return
@@ -70,6 +71,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 // Destroy removes the specified session ID from the database.
 func (sc *SessionsController) Destroy(c *gin.Context) {
 	defer sc.App.WakeSessionReaper()
+	ctx := c.Request.Context()
 
 	session := sessions.Default(c)
 	defer session.Clear()
@@ -78,7 +80,7 @@ func (sc *SessionsController) Destroy(c *gin.Context) {
 		jsonAPIResponse(c, Session{Authenticated: false}, "session")
 		return
 	}
-	if err := sc.App.SessionORM().DeleteUserSession(sessionID); err != nil {
+	if err := sc.App.AuthenticationProvider().DeleteUserSession(ctx, sessionID); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}

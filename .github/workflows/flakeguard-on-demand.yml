@@ -1,0 +1,74 @@
+name: Flakeguard On Demand
+
+on:
+  workflow_dispatch:
+    inputs:
+      repoUrl:
+        description: 'The URL of the repository to run the flaky test detection.'
+        required: true
+        type: string
+        default: 'https://github.com/smartcontractkit/chainlink'
+      projectPath:
+        required: true
+        type: string
+        description: 'The path to the project to run the flaky test detection.'
+        default: '.'          
+      baseRef:
+        required: false
+        type: string
+        description: 'The base reference or branch to compare changes for detecting flaky tests. Set only when running diffs between branches. E.g. (develop)'
+      headRef:
+        required: false
+        type: string
+        description: 'The head reference or branch to compare changes for detecting flaky tests. Default is the current branch. E.g. (develop)'
+      runAllTests:
+        required: false
+        type: boolean
+        description: 'Run all tests in the project.'
+        default: true      
+      maxPassRatio:
+        required: false
+        type: string
+        description: 'The maximum (non-inclusive) pass ratio threshold for a test to be considered a failure. Any tests below this pass rate will be considered flaky.'
+        default: '1.0'
+      findByTestFilesDiff:
+        required: false
+        type: boolean
+        description: 'Find new or updated test packages by comparing test files diff.'
+        default: true
+      findByAffectedPackages:
+        required: false
+        type: boolean
+        description: 'Find new or updated test packages by comparing affected packages.'
+        default: false
+      slack_notification_after_tests_channel_id:
+        description: "Slack channel ID to send the notification to for failed tests."
+        required: false
+        type: string
+      extraArgs:
+        required: false
+        type: string
+        default: '{ "skipped_tests": "", "test_repeat_count": "5", "all_tests_runner": "ubuntu22.04-32cores-128GB", "all_tests_runner_count": "3", "run_with_race": "false" }'
+        description: 'JSON of extra arguments for the workflow.'    
+
+jobs:
+  trigger-flaky-test-detection:
+    name: Find Flaky Tests
+    uses: ./.github/workflows/flakeguard.yml
+    with:
+      repoUrl: ${{ inputs.repoUrl }}
+      baseRef: ${{ inputs.baseRef }}
+      projectPath: ${{ inputs.projectPath }}
+      headRef: ${{ inputs.headRef }}
+      maxPassRatio: ${{ inputs.maxPassRatio }}
+      runAllTests: ${{ inputs.runAllTests }}
+      findByTestFilesDiff: ${{ inputs.findByTestFilesDiff }}
+      findByAffectedPackages: ${{ inputs.findByAffectedPackages }}
+      slackNotificationAfterTestsChannelId: ${{ inputs.slack_notification_after_tests_channel_id || 'C07TRF65CNS' }} #flaky-test-detector-notifications
+      extraArgs: ${{ inputs.extraArgs }}
+    secrets:
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

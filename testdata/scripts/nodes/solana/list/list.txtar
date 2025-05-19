@@ -1,0 +1,59 @@
+# start node
+exec sh -c 'eval "echo \"$(cat config.toml.tmpl)\" > config.toml"'
+exec chainlink node -c config.toml start -p password -a creds &
+
+# initialize client
+env NODEURL=http://localhost:$PORT
+exec curl --retry 10 --retry-max-time 60 --retry-connrefused $NODEURL
+exec chainlink --remote-node-url $NODEURL admin login -file creds --bypass-version-check
+
+exec chainlink --remote-node-url $NODEURL nodes solana list
+cmp stdout out.txt
+
+-- testdb.txt --
+CL_DATABASE_URL
+-- testport.txt --
+PORT
+
+-- password --
+T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ
+-- creds --
+notreal@fakeemail.ch
+fj293fbBnlQ!f9vNs
+
+-- config.toml.tmpl --
+[Webserver]
+HTTPPort = $PORT
+
+[[Solana]]
+ChainID = '68472'
+
+[[Solana.Nodes]]
+Name = 'Blue'
+URL = 'wss://primaryfoo.bar'
+
+[[Solana.Nodes]]
+Name = 'Yellow'
+URL = 'wss://sendonlyfoo.bar'
+
+-- out.txt --
+
+-----------------------------
+Name:     Blue
+Chain ID: 68472
+State:    
+Config:   Name = 'Blue'
+URL = 'wss://primaryfoo.bar'
+SendOnly = false
+Order = 100
+
+-----------------------------
+Name:     Yellow
+Chain ID: 68472
+State:    
+Config:   Name = 'Yellow'
+URL = 'wss://sendonlyfoo.bar'
+SendOnly = false
+Order = 100
+
+-----------------------------

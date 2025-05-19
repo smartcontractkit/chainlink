@@ -24,7 +24,7 @@ func (r *CSAKeyResolver) ID() graphql.ID {
 
 // PubKey resolves the CSA Key public key string.
 func (r *CSAKeyResolver) PublicKey() string {
-	return r.key.PublicKeyString()
+	return "csa_" + r.key.PublicKeyString()
 }
 
 // Version resolves the CSA Key version number.

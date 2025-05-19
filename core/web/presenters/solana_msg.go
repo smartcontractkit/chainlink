@@ -17,7 +17,7 @@ func (SolanaMsgResource) GetName() string {
 // NewSolanaMsgResource returns a new partial SolanaMsgResource.
 func NewSolanaMsgResource(id string, chainID string) SolanaMsgResource {
 	return SolanaMsgResource{
-		JAID:    NewJAID(id),
+		JAID:    NewPrefixedJAID(id, chainID),
 		ChainID: chainID,
 	}
 }

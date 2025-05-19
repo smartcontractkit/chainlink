@@ -17,13 +17,14 @@ func TestPipelineJobSpecErrorsController_Delete_2(t *testing.T) {
 
 	description := "job spec error description"
 
-	require.NoError(t, app.JobORM().RecordError(jID, description))
+	ctx := testutils.Context(t)
+	require.NoError(t, app.JobORM().RecordError(ctx, jID, description))
 
 	// FindJob -> find error
 	j, err := app.JobORM().FindJob(testutils.Context(t), jID)
 	require.NoError(t, err)
 	t.Log(j.JobSpecErrors)
-	require.GreaterOrEqual(t, len(j.JobSpecErrors), 1) // second 'got nil head' error may have occured also
+	require.GreaterOrEqual(t, len(j.JobSpecErrors), 1) // second 'got nil head' error may have occurred also
 	var id int64 = -1
 	for i := range j.JobSpecErrors {
 		jse := j.JobSpecErrors[i]

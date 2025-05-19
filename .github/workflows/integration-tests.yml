@@ -1,264 +1,698 @@
+# N/B: ci-core, which runs on PRs, will trigger linting for affected directories/modules
+# no need to run lint twice
 name: Integration Tests
+run-name: Integration Tests ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
 on:
+  merge_group:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
   push:
     tags:
       - "*"
+    branches:
+      - develop
+  workflow_dispatch:
+    inputs:
+      cl_ref:
+        description: "The ref to checkout, defaults to the calling branch"
+        required: false
+        type: string
+      evm-ref:
+        description: "The sha of the chainlink-evm commit to use if wanted"
+        required: false
+        type: string
+      run_solana:
+        description: "Run solana tests"
+        required: false
+        type: string
+        default: "false"
+      distinct_run_name:
+        description: "A unique identifier for this run, only use from other repos"
+        required: false
+        type: string
 
-# Only run 1 of this workflow at a time per PR
+# Only run 1 of this workflow at a time per PR, but don't cancel runs on develop
 concurrency:
-  group: integration-tests-chainlink-${{ github.ref }}
+  group: ${{ github.ref != 'refs/heads/develop' && format('{0}-{1}-{2}-e2e-tests-{3}', github.ref, github.repository, github.event_name, inputs.distinct_run_name) || github.sha }}
   cancel-in-progress: true
 
 env:
-  # for test image builds
-  SOLANA_TEST_ECR: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests
-  TEST_BASE_ECR: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/test-base-image
-  TEST_BASE_VERSION: v0.3.29
-
   # for run-test variables and environment
-  ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:ci.${{ github.sha }}
+  ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ inputs.evm-ref || github.sha }}
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
-  CHAINLINK_VERSION: ci.${{ github.sha }}
   TEST_SUITE: smoke
-  TEST_ARGS: -test.timeout 30m
+  TEST_ARGS: -test.timeout 12m
+  INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
+  MOD_CACHE_VERSION: 2
+  COLLECTION_ID: chainlink-e2e-tests
 
 jobs:
+  enforce-ctf-version:
+    name: Enforce CTF Version
+    runs-on: ubuntu-latest
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - run: echo "${{github.event_name}}"
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref }}
+      - name: Check Merge Group Condition
+        id: condition-check
+        run: |
+          echo "Checking event condition..."
+          SHOULD_ENFORCE="false"
+          if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
+              echo "We are in a merge_group event, now check if we are on the develop branch"
+              target_branch=$(cat $GITHUB_EVENT_PATH | jq -r .merge_group.base_ref)
+              if [[ "$target_branch" == "refs/heads/develop" ]]; then
+                  echo "We are on the develop branch, we should enforce ctf version"
+                  SHOULD_ENFORCE="true"
+              fi
+          fi
+          echo "should we enforce ctf version = $SHOULD_ENFORCE"
+          echo "should-enforce=$SHOULD_ENFORCE" >> $GITHUB_OUTPUT
+      - name: Enforce CTF Version
+        if: steps.condition-check.outputs.should-enforce == 'true'
+        uses: smartcontractkit/.github/actions/ctf-check-mod-version@21b0189c5fdca0318617d259634b1a91e6d80262 # ctf-check-mod-version@0.0.0
+        with:
+          go-project-path: ./integration-tests
+          module-name: github.com/smartcontractkit/chainlink-testing-framework/lib
+          enforce-semantic-tag: "true"
   changes:
+    # Don't run E2E tests on PR, unless it's tagged with "run-e2e-tests"
+    if: ${{ github.event_name != 'pull_request' || contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests') }}
     environment: integration
     name: Check Paths That Require Tests To Run
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
-      - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref }}
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
         with:
           filters: |
-            src:
+            github_ci_changes:
+              - '.github/workflows/integration-tests.yml'
+              - '.github/workflows/run-e2e-tests-reusable-workflow.yml'
+              - '.github/e2e-tests.yml'
+            core_changes: &core_changes
               - '**/*.go'
               - '**/*go.sum'
               - '**/*go.mod'
-              - '.github/workflows/integration-tests.yml'
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Check Paths That Require Tests To Run
-        continue-on-error: true
+              - '**/*Dockerfile'
+              - 'core/**/migrations/*.sql'
+              - 'core/**/config/**/*.toml'
+              - 'integration-tests/**/*.toml'
+            cre_changes:
+              - *core_changes
+              - 'contracts/src/**/keystone/**'
+              - 'core/gethwrappers/keystone/**'
+              - 'contracts/GNUmakefile'
+              - 'contracts/foundry.toml'
+              - 'contracts/package.json'
+            ccip_changes:
+              - '**/*ccip*'
+              - '**/*ccip*/**'
+      - name: Ignore Filter On Workflow Dispatch
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        id: ignore-filter
+        run: echo "changes=true" >> $GITHUB_OUTPUT
     outputs:
-      src: ${{ steps.changes.outputs.src }}
+      github_ci_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.github_ci_changes }}
+      core_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.core_changes }}
+      ccip_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.ccip_changes }}
+      cre_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.cre_changes }}
 
   build-chainlink:
     environment: integration
     permissions:
       id-token: write
       contents: read
-    name: Build Chainlink Image
-    runs-on: ubuntu20.04-16cores-64GB
-    needs: [changes]
+    strategy:
+      matrix:
+        image:
+          - name: ""
+            dockerfile: core/chainlink.Dockerfile
+            tag-suffix: ""
+          - name: (plugins)
+            dockerfile: plugins/chainlink.Dockerfile
+            tag-suffix: -plugins
+
+    name: Build Chainlink Image ${{ matrix.image.name }}
+    runs-on: ubuntu22.04-8cores-32GB
+    needs: [changes, enforce-ctf-version]
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
-      - name: Build Image
-        if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@ab595504ae9cf10c60eb8d2c5ce025284e58b210 # v2.1.5
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref || github.sha }}
+      - name: Setup Github Token
+        if: ${{ inputs.evm-ref }}
+        id: get-gh-token
+        uses: smartcontractkit/.github/actions/setup-github-token@ef78fa97bf3c77de6563db1175422703e9e6674f # setup-github-token@0.2.1
         with:
-          cl_repo: smartcontractkit/chainlink
-          cl_ref: ${{ github.sha }}
-          push_tag: ${{ env.CHAINLINK_IMAGE }}:${{ env.CHAINLINK_VERSION }}
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-      - name: Print Chainlink Image Built
-        run: |
-          echo "### chainlink image tag used for this test run :link:" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ env.CHAINLINK_VERSION }}\`" >>$GITHUB_STEP_SUMMARY
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+          aws-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          set-git-config: "true"
+      - name: Build Chainlink Image
+        if: needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.cre_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true' || github.event_name == 'workflow_dispatch'
+        uses: ./.github/actions/build-chainlink-image
         with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Build Chainlink Image
-        continue-on-error: true
-
-  build-test-image:
-    environment: integration
-    permissions:
-      id-token: write
-      contents: read
-    name: Build Test Image
-    runs-on: ubuntu20.04-16cores-64GB
-    needs: [changes]
-    steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@v1
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Build Test Image
-        continue-on-error: true
-      - name: Checkout the repo
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-      - name: Check if image exists
-        id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
-        with:
-          repository: chainlink-tests
-          tag: ${{ env.CHAINLINK_VERSION }}
+          tag_suffix: ${{ matrix.image.tag-suffix }}
+          dockerfile: ${{ matrix.image.dockerfile }}
+          git_commit_sha: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-      - name: build test runner
-        if: steps.check-image.outputs.exists == 'false'
-        uses: smartcontractkit/chainlink-github-actions/docker/build-push@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
-        with:
-          tags: ${{ env.ENV_JOB_IMAGE }}
-          file: ./integration-tests/test.Dockerfile
-          build-args: |
-            BASE_IMAGE=${{ env.TEST_BASE_ECR }}
-            IMAGE_VERSION=${{ env.TEST_BASE_VERSION }}
-            SUITES="smoke soak chaos benchmark migration performance"
-          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-      - name: Print Image Built
-        run: |
-          echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ env.CHAINLINK_VERSION }}\`" >>$GITHUB_STEP_SUMMARY
+          dep_evm_sha: ${{ inputs.evm-ref }}
 
-  eth-smoke-tests-matrix:
-    environment: integration
+  run-core-cre-e2e-tests-for-pr:
+    name: Run Core CRE E2E Tests For PR
     permissions:
+      actions: read
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, changes, build-test-image]
-    env:
-      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
-      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
-      CHAINLINK_ENV_USER: ${{ github.actor }}
-      TEST_LOG_LEVEL: debug
-    strategy:
-      fail-fast: false
-      matrix:
-        product:
-          - name: automation
-            nodes: 9
-            os: ubuntu-latest
-            pyroscope_env: ""
-          - name: cron
-            nodes: 1
-            os: ubuntu-latest
-            pyroscope_env: ""
-          - name: flux
-            nodes: 1
-            os: ubuntu-latest
-            pyroscope_env: ""
-          - name: keeper
-            nodes: 30
-            os: ubuntu20.04-4cores-16GB
-            pyroscope_env: ""
-          - name: forwarder_ocr
-            nodes: 1
-            os: ubuntu-latest
-            pyroscope_env: ""
-          - name: ocr
-            nodes: 1
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-ocr-evm-simulated
-          - name: runlog
-            nodes: 1
-            os: ubuntu-latest
-            pyroscope_env: ""
-          - name: vrf
-            nodes: 1
-            os: ubuntu-latest
-            pyroscope_env: ""
-          - name: vrfv2
-            nodes: 1
-            os: ubuntu-latest
-            pyroscope_env: ""
-          - name: ocr2vrf
-            nodes: 2
-            os: ubuntu-latest
-            pyroscope_env: ""
-    runs-on: ${{ matrix.product.os }}
-    name: ETH Smoke Tests ${{ matrix.product.name }}
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-      ## Run this step when changes that require tests to be run are made
-      - name: Run Tests
-        if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
-        env:
-          PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-        with:
-          test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ./smoke/${{ matrix.product.name }}_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ env.CHAINLINK_VERSION }}
-          artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: EVM Smoke Test Results ${{ matrix.product.name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+    needs: [build-chainlink, changes]
+    if: github.event_name == 'pull_request' && ( needs.changes.outputs.cre_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639ad9c899df967dc44b86520db48e19c8abeaca
+    with:
+      workflow_name: Run Core CRE Tests For PR
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      test_path: .github/e2e-tests.yml
+      test_trigger: PR CRE E2E Core Tests
+      upload_cl_node_coverage_artifact: true
+      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
+      enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_LAMBDA_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
 
-      ## Run this step when changes that do not need the test to run are made
-      - name: Run Setup
-        if: needs.changes.outputs.src == 'false'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
-        with:
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          go_mod_path: ./integration-tests/go.mod
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+  run-core-cre-e2e-tests-for-merge-queue:
+    name: Run Core CRE E2E Tests For Merge Queue
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, changes]
+    if: github.event_name == 'merge_group' && ( needs.changes.outputs.cre_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639ad9c899df967dc44b86520db48e19c8abeaca
+    with:
+      workflow_name: Run Core CRE Tests For Merge Queue
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      test_path: .github/e2e-tests.yml
+      test_trigger: Merge Queue CRE E2E Core Tests
+      upload_cl_node_coverage_artifact: true
+      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
+      enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_LAMBDA_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
 
-      - name: Upload test log
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
-        if: failure()
-        with:
-          name: test-log-${{ matrix.product.name }}
-          path: /tmp/gotest.log
-          retention-days: 7
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
-        continue-on-error: true
-  ### Used to check the required checks box when the matrix completes
-  eth-smoke-tests:
+  run-core-cre-e2e-tests-for-push:
+    name: Run Core CRE E2E Tests For Push
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, changes]
+    if: github.event_name == 'push'
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639ad9c899df967dc44b86520db48e19c8abeaca
+    with:
+      workflow_name: Run Core CRE Tests For Merge Queue
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      test_path: .github/e2e-tests.yml
+      test_trigger: Merge Queue CRE E2E Core Tests
+      upload_cl_node_coverage_artifact: true
+      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
+      enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_LAMBDA_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+
+  run-core-e2e-tests-for-pr:
+    name: Run Core E2E Tests For PR
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, changes]
+    if: github.event_name == 'pull_request' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639ad9c899df967dc44b86520db48e19c8abeaca
+    with:
+      workflow_name: Run Core E2E Tests For PR
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      test_path: .github/e2e-tests.yml
+      test_trigger: PR E2E Core Tests
+      upload_cl_node_coverage_artifact: true
+      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
+      enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+
+  run-core-e2e-tests-for-merge-queue:
+    name: Run Core E2E Tests For Merge Queue
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, changes]
+    if: github.event_name == 'merge_group' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639ad9c899df967dc44b86520db48e19c8abeaca
+    with:
+      workflow_name: Run Core E2E Tests For Merge Queue
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      test_path: .github/e2e-tests.yml
+      test_trigger: Merge Queue E2E Core Tests
+      # Run tests with flakeguard and rerun failed tests once
+      extraArgs: ${{ '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
+      upload_cl_node_coverage_artifact: true
+      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
+      enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+
+  run-core-e2e-tests-for-push:
+    name: Run Core E2E Tests For Push
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, changes]
+    if: github.event_name == 'push'
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639ad9c899df967dc44b86520db48e19c8abeaca
+    with:
+      workflow_name: Run Core E2E Tests For Push
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      test_path: .github/e2e-tests.yml
+      test_trigger: Push E2E Core Tests
+      # Run tests with flakeguard and rerun failed tests once
+      extraArgs: ${{ '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
+      upload_cl_node_coverage_artifact: true
+      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
+      enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+
+  run-ccip-e2e-tests-for-pr:
+    name: Run CCIP E2E Tests For PR
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, changes]
+    if: github.event_name == 'pull_request' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639ad9c899df967dc44b86520db48e19c8abeaca
+    with:
+      workflow_name: Run CCIP E2E Tests For PR
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      test_path: .github/e2e-tests.yml
+      test_trigger: PR E2E CCIP Tests
+      upload_cl_node_coverage_artifact: true
+      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
+      enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      team: "CCIP"
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
+      AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+
+  run-ccip-e2e-tests-for-merge-queue:
+    name: Run CCIP E2E Tests For Merge Queue
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, changes]
+    if: github.event_name == 'merge_group' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639ad9c899df967dc44b86520db48e19c8abeaca
+    with:
+      workflow_name: Run CCIP E2E Tests For Merge Queue
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      test_path: .github/e2e-tests.yml
+      # Run tests with flakeguard and rerun failed tests once
+      extraArgs: ${{ '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
+      test_trigger: Merge Queue E2E CCIP Tests
+      upload_cl_node_coverage_artifact: true
+      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
+      enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      team: "CCIP"
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
+      AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+
+  run-ccip-e2e-tests-for-push:
+    name: Run CCIP E2E Tests For Push
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, changes]
+    if: github.event_name == 'push'
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639ad9c899df967dc44b86520db48e19c8abeaca
+    with:
+      workflow_name: Run CCIP E2E Tests For Push
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      test_path: .github/e2e-tests.yml
+      # Run tests with flakeguard and rerun failed tests once
+      extraArgs: ${{ '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
+      test_trigger: Push E2E CCIP Tests
+      upload_cl_node_coverage_artifact: true
+      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
+      enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      team: "CCIP"
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
+      AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+
+  check-e2e-test-results:
     if: always()
-    runs-on: ubuntu-latest
     name: ETH Smoke Tests
-    needs: eth-smoke-tests-matrix
+    runs-on: ubuntu-latest
+    needs:
+      [
+        build-chainlink,
+        run-core-e2e-tests-for-pr,
+        run-core-cre-e2e-tests-for-pr,
+        run-ccip-e2e-tests-for-pr,
+        run-core-e2e-tests-for-merge-queue,
+        run-ccip-e2e-tests-for-merge-queue,
+        run-core-cre-e2e-tests-for-merge-queue,
+      ]
     steps:
-      - name: Check smoke test matrix status
-        if: needs.eth-smoke-tests-matrix.result != 'success'
+      - name: Check Core test results
+        id: check_core_results
+        run: |
+          results='${{ needs.run-core-e2e-tests-for-pr.outputs.test_results }}'
+          echo "Core e2e test results:"
+          echo "$results" | jq .
+
+          node_migration_tests_failed=$(echo $results | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
+          echo "node_migration_tests_failed=$node_migration_tests_failed" >> $GITHUB_OUTPUT
+
+      - name: Check Core CRE test results
+        id: check_core_cre_results
+        run: |
+          results='${{ needs.run-core-cre-e2e-tests-for-pr.outputs.test_results }}'
+          echo "CRE e2e test results:"
+          echo "$results" | jq .
+
+          node_migration_tests_failed=$(echo $results | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
+          echo "node_migration_tests_failed=$node_migration_tests_failed" >> $GITHUB_OUTPUT
+
+      - name: Check CCIP test results
+        id: check_ccip_results
+        run: |
+          if [[ '${{ needs.run-ccip-e2e-tests-for-pr.result }}' != 'skipped' ]]; then
+            results='${{ needs.run-ccip-e2e-tests-for-pr.outputs.test_results }}'
+            echo "CCIP test results:"
+            echo "$results" | jq .
+          else
+            echo "CCIP tests were skipped."
+          fi
+
+      - name: Fail the job if core tests in PR not successful
+        if: always() && needs.run-core-e2e-tests-for-pr.result == 'failure'
         run: exit 1
 
-  ### Solana Section
+      - name: Fail the job if CRE tests in PR not successful
+        if: always() && needs.run-core-cre-e2e-tests-for-pr.result == 'failure'
+        run: exit 1
+
+      - name: Fail the job if core tests in merge queue not successful
+        if: always() && needs.run-core-e2e-tests-for-merge-queue.result == 'failure'
+        run: exit 1
+
+      - name: Fail the job if CRE tests in merge queue not successful
+        if: always() && needs.run-core-cre-e2e-tests-for-merge-queue.result == 'failure'
+        run: exit 1
+
+      - name: Fail the job if Chainlink image wasn't built
+        if: always() && needs.build-chainlink.result == 'failure'
+        run: exit 1
+
+  cleanup:
+    name: Clean up integration environment deployments
+    if: always()
+    needs:
+      [
+        run-core-e2e-tests-for-pr,
+        run-ccip-e2e-tests-for-pr,
+        run-core-e2e-tests-for-merge-queue,
+        run-ccip-e2e-tests-for-merge-queue,
+      ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref || github.sha }}
+
+      - name: 🧼 Clean up Environment
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: ./.github/actions/delete-deployments
+        with:
+          environment: integration
+          ref: ${{ github.head_ref }} # See https://github.com/github/docs/issues/15319#issuecomment-1476705663
+
+  show-chainlink-node-coverage:
+    name: Show Chainlink Node Go Coverage
+    if: false
+    # if: always()
+    needs:
+      [
+        run-core-e2e-tests-for-pr,
+        run-ccip-e2e-tests-for-pr,
+        run-core-e2e-tests-for-merge-queue,
+        run-ccip-e2e-tests-for-merge-queue,
+      ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref || github.sha }}
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: cl_node_coverage_data
+          pattern: cl_node_coverage_data_*
+          merge-multiple: true
+      - name: Show Coverage
+        run: go run ./integration-tests/scripts/show_coverage.go "${{ github.workspace }}/cl_node_coverage_data/*/merged"
+
+  ## Solana Section
   get_solana_sha:
+    # We don't directly merge dependabot PRs, so let's not waste the resources\
+    if: ${{ github.actor != 'dependabot[bot]' && inputs.run_solana != 'false' }}
     name: Get Solana Sha From Go Mod
     environment: Integration
     runs-on: ubuntu-latest
@@ -266,19 +700,30 @@ jobs:
       sha: ${{ steps.getsha.outputs.sha }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref || github.sha }}
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          only-modules: "true"
       - name: Get the sha from go mod
         id: getshortsha
         run: |
           sol_ver=$(go list -m -json github.com/smartcontractkit/chainlink-solana  | jq -r .Version)
+          if [ -z "${sol_ver}" ]; then
+              echo "Error: could not get the solana version from the go.mod file, look above for error(s)"
+              exit 1
+          fi
           short_sha="${sol_ver##*-}"
           echo "short sha is: ${short_sha}"
           echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
       - name: Checkout solana
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@v4
         with:
+          persist-credentials: false
           repository: smartcontractkit/chainlink-solana
           ref: develop
           fetch-depth: 0
@@ -287,7 +732,11 @@ jobs:
         id: getsha
         run: |
           cd solanapath
-          full_sha=$(git rev-parse ${{steps.getshortsha.outputs.short_sha}})
+          full_sha=$(git rev-parse ${{steps.getshortsha.outputs.short_sha}}^{}) # additional suffix allows handling tagged versions as well
+          if [ -z "${full_sha}" ]; then
+              echo "Error: could not get the full sha from the short sha using git, look above for error(s)"
+              exit 1
+          fi
           echo "sha is: ${full_sha}"
           echo "sha=${full_sha}" >> "$GITHUB_OUTPUT"
 
@@ -300,8 +749,9 @@ jobs:
       projectserum_version: ${{ steps.psversion.outputs.projectserum_version }}
     steps:
       - name: Checkout the solana repo
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@v4
         with:
+          persist-credentials: false
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Get ProjectSerum Version
@@ -323,10 +773,10 @@ jobs:
     steps:
       - name: Check if image exists
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@0ce1e67b254a4f041e03cc6f0e3afc987b47c7bd # v2.3.30
         with:
           repository: chainlink-solana-tests
-          tag: ci.${{ needs.get_solana_sha.outputs.sha }}
+          tag: ${{ needs.get_solana_sha.outputs.sha }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
@@ -338,33 +788,73 @@ jobs:
       id-token: write
       contents: read
     name: Solana Build Artifacts
-    runs-on: ubuntu20.04-16cores-64GB
-    needs: [changes, get_projectserum_version, solana-test-image-exists, get_solana_sha]
-    container:
-      image: projectserum/build:${{ needs.get_projectserum_version.outputs.projectserum_version }}
-      env:
-        RUSTUP_HOME: "/root/.rustup"
-        FORCE_COLOR: 1
+    runs-on: ubuntu22.04-8cores-32GB
+    needs:
+      [
+        changes,
+        get_projectserum_version,
+        solana-test-image-exists,
+        get_solana_sha,
+      ]
     steps:
       - name: Checkout the solana repo
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@v4
         with:
+          persist-credentials: false
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Build contracts
-        if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@4b971869e26b79c7ce3fb7c98005cc2e3f350915 # stable action on Oct 12 2022
+        if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
+        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@841f6229b6a0be0114c47cb676b1136d92f935c9 # node20 update on may 10, 2024
         with:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
+          runner-os: ${{ runner.os }}
+
+  solana-build-test-image:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    name: Solana Build Test Image
+    runs-on: ubuntu22.04-8cores-32GB
+    needs:
+      [
+        solana-build-contracts,
+        solana-test-image-exists,
+        changes,
+        get_solana_sha,
+      ]
+    env:
+      CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
+      GOTOOLCHAIN: auto
+    steps:
+      - name: Checkout the repo
+        if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
+        uses: actions/checkout@v4
         with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Solana Build Artifacts
-        continue-on-error: true
+          persist-credentials: false
+          repository: smartcontractkit/chainlink-solana
+          ref: ${{ needs.get_solana_sha.outputs.sha }}
+      - name: Download Artifacts
+        if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
+        uses: actions/download-artifact@v4
+        with:
+          name: artifacts
+          path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
+      - name: Build Test Image
+        if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
+        uses: smartcontractkit/.github/actions/ctf-build-test-image@a5e4f4c8fbb8e15ab2ad131552eca6ac83c4f4b3 # ctf-build-test-image@0.1.0
+        with:
+          repository: chainlink-solana-tests
+          tag: ${{ needs.get_solana_sha.outputs.sha }}
+          suites: smoke
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      - run: echo "this exists so we don't have to run anything else if the build is skipped"
+        if: needs.changes.outputs.core_changes == 'false' || needs.solana-test-image-exists.outputs.exists == 'true'
 
   solana-smoke-tests:
     environment: integration
@@ -374,142 +864,157 @@ jobs:
       id-token: write
       contents: read
     name: Solana Smoke Tests
-    runs-on: ubuntu-latest
-    needs: [build-chainlink, solana-build-contracts, solana-test-image-exists, changes, get_solana_sha]
+    runs-on: ubuntu22.04-8cores-32GB
+    needs:
+      [
+        build-chainlink,
+        solana-build-contracts,
+        solana-build-test-image,
+        changes,
+        get_solana_sha,
+      ]
     env:
-      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+      CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_LOG_LEVEL: debug
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+        uses: actions/checkout@v4
         with:
+          persist-credentials: false
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
-      - name: Download Artifacts
-        if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: actions/download-artifact@v3
+      - name: Run Setup
+        if: needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch'
+        uses: smartcontractkit/.github/actions/ctf-setup-run-tests-environment@4ff522b1aef76519d2ced17b5d052927754fd34b # ctf-setup-run-tests-environment@v0.2.1
         with:
-          name: artifacts
-          path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
-      - name: Build Test Runner
-        if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: smartcontractkit/chainlink-github-actions/docker/build-push@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
-        with:
-          tags: ${{ env.SOLANA_TEST_ECR }}:ci.${{ needs.get_solana_sha.outputs.sha }}
-          file: ./integration-tests/test.Dockerfile
-          build-args: |
-            BASE_IMAGE=${{ env.TEST_BASE_ECR }}
-            IMAGE_VERSION=${{ env.TEST_BASE_VERSION }}
-            SUITES="smoke"
-          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-      - name: Print Solana Tests Image
+          go_mod_path: ./integration-tests/go.mod
+          cache_restore_only: true
+          cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          main-dns-zone: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
+          k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
+      - name: Pull Artifacts
+        if: needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch'
         run: |
-          echo "### chainlink-solana-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
-          echo "\`ci.${{ needs.get_solana_sha.outputs.sha }}\`" >>$GITHUB_STEP_SUMMARY
+          IMAGE_NAME=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }}
+          # Pull the Docker image
+          docker pull "$IMAGE_NAME"
+
+          # Create a container without starting it
+          CONTAINER_ID=$(docker create "$IMAGE_NAME")
+
+          # Copy the artifacts from the container
+          mkdir -p ./${{env.CONTRACT_ARTIFACTS_PATH}}/
+          docker cp "$CONTAINER_ID:/go/testdir/${{env.CONTRACT_ARTIFACTS_PATH}}/" "./${{env.CONTRACT_ARTIFACTS_PATH}}/../"
+
+          # Remove the created container
+          docker rm "$CONTAINER_ID"
+      - name: Install Solana CLI # required for ensuring the local test validator is configured correctly
+        run: ./scripts/install-solana-ci.sh
+
+      - name: Install gauntlet
+        run: |
+          yarn --cwd ./gauntlet install --frozen-lockfile
+          yarn --cwd ./gauntlet build
+          yarn --cwd ./gauntlet gauntlet
+      - name: Generate config overrides
+        env:
+          GH_INPUTS_EVM_REF: ${{ inputs.evm-ref }}
+          GH_SHA: ${{ inputs.cl_ref || github.sha }}
+        run:
+          | # https://github.com/smartcontractkit/chainlink-testing-framework/lib/blob/main/config/README.md
+          cat << EOF > config.toml
+          [ChainlinkImage]
+          version="${{ env.evm-ref || env.GH_SHA }}"
+          [Common]
+          user="${{ github.actor }}"
+          internal_docker_repo = "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com"
+          EOF
+          # shellcheck disable=SC2002
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          # shellcheck disable=SC2086
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          # shellcheck disable=SC2086
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
       - name: Run Tests
-        if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
+        if: needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch'
+        uses: smartcontractkit/.github/actions/ctf-run-tests@725dd141dd77cc87dad420e9484416fc4ae26be2 # ctf-run-tests@v0.5.0
         with:
-          test_command_to_run: export ENV_JOB_IMAGE=${{ env.SOLANA_TEST_ECR }}:ci.${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
+          test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
+          test_config_override_base64: ${{ env.BASE64_CONFIG_OVERRIDE }}
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ env.CHAINLINK_VERSION }}
-          artifacts_location: /home/runner/work/chainlink-solana/chainlink-solana/integration-tests/logs
+          cl_image_tag: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
           publish_check_name: Solana Smoke Test Results
           go_mod_path: ./integration-tests/go.mod
+          cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
           token: ${{ secrets.GITHUB_TOKEN }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          artifacts_name: solana-test-artifacts
+          artifacts_location: |
+            ./integration-tests/smoke/logs
+            ./integration-tests/smoke/db_dumps
+            ./integration-tests/smoke/seth_artifacts
+            /tmp/gotest.log
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Solana Smoke Tests
+          run_setup: false
+          go_coverage_src_dir: /var/tmp/go-coverage
+          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
+          main-dns-zone: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
+          k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
+
+        env:
+          E2E_TEST_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
+          E2E_TEST_SOLANA_SECRET: thisisatestingonlysecret
+          CHAINLINK_USER_TEAM: "BIX"
+
+      - name: Upload Coverage Data
+        uses: actions/upload-artifact@v4
+        timeout-minutes: 2
         continue-on-error: true
-  ### End Solana Section
+        with:
+          name: cl_node_coverage_data_solana_tests
+          path: .covdata
+          retention-days: 1
 
-  ### Start Live Testnet Section
-
-  testnet-smoke-tests-matrix:
-    if: startsWith(github.ref, 'refs/tags/') ## Only run live tests on new tags
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, build-test-image]
-    env:
-      SELECTED_NETWORKS: ${{ matrix.testnet }}
-      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
-      CHAINLINK_ENV_USER: ${{ github.actor }}
-      TEST_LOG_LEVEL: debug
-      EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
-      TEST_EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
-      GOERLI_URLS: ${{ secrets.QA_GOERLI_URLS }}
-      TEST_GOERLI_URLS: ${{ secrets.QA_GOERLI_URLS }}
-      GOERLI_HTTP_URLS: ${{ secrets.QA_GOERLI_HTTP_URLS }}
-      TEST_GOERLI_HTTP_URLS: ${{ secrets.QA_GOERLI_HTTP_URLS }}
-      OPTIMISM_GOERLI_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_URLS }}
-      TEST_OPTIMISM_GOERLI_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_URLS }}
-      OPTIMISM_GOERLI_HTTP_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_HTTP_URLS }}
-      TEST_OPTIMISM_GOERLI_HTTP_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_HTTP_URLS }}
-      ARBITRUM_GOERLI_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_URLS }}
-      TEST_ARBITRUM_GOERLI_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_URLS }}
-      ARBITRUM_GOERLI_HTTP_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_HTTP_URLS }}
-      TEST_ARBITRUM_GOERLI_HTTP_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_HTTP_URLS }}
-    strategy:
-      fail-fast: false
-      matrix:
-        testnet: [GOERLI, OPTIMISM_GOERLI, ARBITRUM_GOERLI]
-    name: Live Testnet Smoke Tests ${{ matrix.testnet }}
+  notify-test-failure:
+    name: Notify Test Failure
+    # TODO: uncomment this when we want to notify on test failures post-merge, if Phase 3 is necessary
+    if: false
+    # if: ${{ github.ref_name == 'develop' && failure() }}
+    needs: [check-e2e-test-results, solana-smoke-tests]
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+      - name: Send slack notification for failed migration tests
+        id: send-slack-notification
+        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
-      ## Only run OCR smoke test for now
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-ocr-evm-${{ matrix.testnet }} # TODO: Only for OCR for now
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-        with:
-          test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 ./smoke/ocr_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: make gomod
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ env.CHAINLINK_VERSION }}
-          artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: ${{ matrix.testnet }} OCR Smoke Test Results
-          token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-      - name: Notify Slack
-        if: false ## TODO: This is currently noisy and needs to be more compact.
-        id: slack
-        uses: slackapi/slack-github-action@007b2c3c751a190b6f0f040e47ed024deaa72844 # v1.23.0
-        with:
-          channel-id: ${{ secrets.QA_RELEASE_SLACK_CHANNEL }}
+          errors: "true"
+          method: chat.postMessage
+          token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
             {
-              "text": "",
+              "channel": "C023GJUSQ0H",
+              "text": "E2E Tests Failed Post-Merge, Immediate Action Required",
               "blocks": [
                 {
-                  "type": "header",
+                  "type": "section",
                   "text": {
-                    "type": "plain_text",
-                    "text": "Live Smoke Test Results for ${{ matrix.testnet }} ${{ job.status == 'success' && ':white_check_mark:' || ':x:'}}",
-                    "emoji": true
+                    "type": "mrkdwn",
+                    "text": "*:rotating_light: E2E Tests Failed Post-Merge, Immediate Action Required :rotating_light:*"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Alerting <!subteam^S04SLH4V4JJ|devex-cicd-oncall> and <@U01Q4N37KFG>, E2E tests failed for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. This commit was already merged to develop by user `${{ github.actor }}`. Please follow instructions below to remedy the issue."
                   }
                 },
                 {
@@ -519,32 +1024,8 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "Tag: <${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}>\nCommit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>"
-                  }
-                },
-                {
-                  "type": "divider"
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "OCR ${{ job.status == 'success' && ':white_check_mark:' || ':x:'}}"
+                    "text": "1. Use the `/gh-lookup ${{ github.actor }}` command to find the who made the commit.\n2. <https://smartcontract-it.atlassian.net/wiki/spaces/ENG/pages/597262421/Raising+an+Incident|Raise a Pager Duty Incident> with that engineer to fix the issue.\n3. Start a 1 hour timer. If the E2E tests cannot be made passing on `develop` branch by then, please use `git revert <last-green-commit>` to revert the `develop` branch back to a happy state.\n4. Write a quick summary of the actions taken and post it in a thread to this message."
                   }
                 }
               ]
             }
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
-
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@808c183d1f5c26a4f3fd50b75d3cf7b58d9aa293
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Live Testnet Smoke Tests ${{ matrix.testnet }}
-        continue-on-error: true
-
-  ### End Live Testnet Section

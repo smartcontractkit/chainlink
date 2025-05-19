@@ -1,0 +1,43 @@
+[ChainlinkImage]
+version="latest"
+
+[Load.Seth]
+root_key_funds_buffer = 1_000_000
+
+[Load.Common]
+chainlink_node_funding = 1000
+
+[Load.Automation.AutomationConfig]
+use_log_buffer_v1=false
+
+[Load.Automation.AutomationConfig.PluginConfig.LogProviderConfig]
+block_rate=1
+log_limit=2
+
+[Load.Automation]
+[Load.Automation.General]
+number_of_nodes=6
+duration=3600
+block_time=1
+spec_type="recommended"
+chainlink_node_log_level="debug"
+use_prometheus=true
+remove_namespace = true
+
+[Load.Automation.DataStreams]
+enabled=false
+
+[[Load.Automation.Load]]
+number_of_upkeeps=50
+number_of_events = 1
+number_of_spam_matching_events = 0
+number_of_spam_non_matching_events = 0
+check_burn_amount = 0
+perform_burn_amount = 0
+upkeep_gas_limit = 1000000
+shared_trigger = false
+is_streams_lookup = false
+feeds = []
+
+[Pyroscope]
+enabled=false

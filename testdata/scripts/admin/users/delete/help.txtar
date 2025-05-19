@@ -1,0 +1,13 @@
+exec chainlink admin users delete --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink admin users delete - Delete an API user
+
+USAGE:
+   chainlink admin users delete [command options] [arguments...]
+
+OPTIONS:
+   --email value  Email of API user to delete
+   

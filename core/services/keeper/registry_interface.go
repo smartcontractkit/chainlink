@@ -11,13 +11,12 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	registry1_1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
-	registry1_2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
-	registry1_3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
-	type_and_version "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/type_and_version_interface_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	registry1_1 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_1"
+	registry1_2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_2"
+	registry1_3 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_3"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/type_and_version"
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 )
 
 type RegistryVersion int32
@@ -28,6 +27,7 @@ const (
 	RegistryVersion_1_2
 	RegistryVersion_1_3
 	RegistryVersion_2_0
+	RegistryVersion_2_1
 )
 
 func (rv RegistryVersion) String() string {
@@ -52,7 +52,7 @@ type upkeepGetter interface {
 // RegistryWrapper implements a layer on top of different versions of registry wrappers
 // to provide a unified layer to rest of the codebase
 type RegistryWrapper struct {
-	Address     ethkey.EIP55Address
+	Address     evmtypes.EIP55Address
 	Version     RegistryVersion
 	contract1_1 *registry1_1.KeeperRegistry
 	contract1_2 *registry1_2.KeeperRegistry
@@ -60,15 +60,15 @@ type RegistryWrapper struct {
 	evmClient   evmclient.Client
 }
 
-func NewRegistryWrapper(address ethkey.EIP55Address, evmClient evmclient.Client) (*RegistryWrapper, error) {
-	interface_wrapper, err := type_and_version.NewTypeAndVersionInterface(
+func NewRegistryWrapper(address evmtypes.EIP55Address, evmClient evmclient.Client) (*RegistryWrapper, error) {
+	interfaceWrapper, err := type_and_version.NewITypeAndVersion(
 		address.Address(),
 		evmClient,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create type and interface wrapper")
 	}
-	version, err := getRegistryVersion(interface_wrapper)
+	version, err := getRegistryVersion(interfaceWrapper)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to determine version of keeper registry contract")
 	}
@@ -105,7 +105,7 @@ func NewRegistryWrapper(address ethkey.EIP55Address, evmClient evmclient.Client)
 	}, nil
 }
 
-func getRegistryVersion(contract *type_and_version.TypeAndVersionInterface) (*RegistryVersion, error) {
+func getRegistryVersion(contract *type_and_version.ITypeAndVersion) (*RegistryVersion, error) {
 	typeAndVersion, err := contract.TypeAndVersion(nil)
 	if err != nil {
 		jsonErr := evmclient.ExtractRPCErrorOrNil(err)
@@ -161,11 +161,11 @@ func (rw *RegistryWrapper) getUpkeepCount(opts *bind.CallOpts) (*big.Int, error)
 	}
 }
 
-func (rw *RegistryWrapper) GetActiveUpkeepIDs(opts *bind.CallOpts) ([]*big.Int, error) {
+func (rw *RegistryWrapper) GetActiveUpkeepIDs(ctx context.Context, opts *bind.CallOpts) ([]*big.Int, error) {
 	if opts == nil || opts.BlockNumber.Int64() == 0 {
 		var head *evmtypes.Head
 		// fetch the current block number so batched GetActiveUpkeepIDs calls can be performed on the same block
-		head, err := rw.evmClient.HeadByNumber(context.Background(), nil)
+		head, err := rw.evmClient.HeadByNumber(ctx, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to fetch EVM block header")
 		}
@@ -184,9 +184,9 @@ func (rw *RegistryWrapper) GetActiveUpkeepIDs(opts *bind.CallOpts) ([]*big.Int, 
 	}
 	switch rw.Version {
 	case RegistryVersion_1_0, RegistryVersion_1_1:
-		cancelledUpkeeps, err := rw.contract1_1.GetCanceledUpkeepList(opts)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get cancelled upkeeps")
+		cancelledUpkeeps, err2 := rw.contract1_1.GetCanceledUpkeepList(opts)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "failed to get cancelled upkeeps")
 		}
 		cancelledSet := make(map[int64]bool)
 		for _, upkeepID := range cancelledUpkeeps {

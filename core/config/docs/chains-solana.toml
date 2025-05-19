@@ -1,0 +1,106 @@
+[[Solana]]
+# ChainID is the Solana chain ID. Must be one of: mainnet, testnet, devnet, localnet. Mandatory.
+ChainID = 'mainnet' # Example
+# Enabled enables this chain.
+Enabled = false # Default
+# BlockTime specifies the average time between blocks on this chain
+BlockTime = '500ms' # Default
+# BalancePollPeriod is the rate to poll for SOL balance and update Prometheus metrics.
+BalancePollPeriod = '5s' # Default
+# ConfirmPollPeriod is the rate to poll for signature confirmation.
+ConfirmPollPeriod = '500ms' # Default
+# OCR2CachePollPeriod is the rate to poll for the OCR2 state cache.
+OCR2CachePollPeriod = '1s' # Default
+# OCR2CacheTTL is the stale OCR2 cache deadline.
+OCR2CacheTTL = '1m' # Default
+# TxTimeout is the timeout for sending txes to an RPC endpoint.
+TxTimeout = '1m' # Default
+# TxRetryTimeout is the duration for tx manager to attempt rebroadcasting to RPC, before giving up.
+TxRetryTimeout = '10s' # Default
+# TxConfirmTimeout is the duration to wait when confirming a tx signature, before discarding as unconfirmed.
+TxConfirmTimeout = '30s' # Default
+# TxExpirationRebroadcast enables or disables transaction rebroadcast if expired. Expiration check is performed every `ConfirmPollPeriod`
+# A transaction is considered expired if the blockhash it was sent with is 150 blocks older than the latest blockhash.
+TxExpirationRebroadcast = false # Default
+# TxRetentionTimeout is the duration to retain transactions in storage after being marked as finalized or errored. Set to 0 to immediately drop transactions.
+TxRetentionTimeout = '0s' # Default
+# SkipPreflight enables or disables preflight checks when sending txs.
+SkipPreflight = true # Default
+# Commitment is the confirmation level for solana state and transactions. ([documentation](https://docs.solana.com/developing/clients/jsonrpc-api#configuring-state-commitment))
+Commitment = 'confirmed' # Default
+# MaxRetries is the maximum number of times the RPC node will automatically rebroadcast a tx.
+# The default is 0 for custom txm rebroadcasting method, set to -1 to use the RPC node's default retry strategy.
+MaxRetries = 0 # Default
+# FeeEstimatorMode is the method used to determine the base fee
+FeeEstimatorMode = 'fixed' # Default
+# ComputeUnitPriceMax is the maximum price per compute unit that a transaction can be bumped to
+ComputeUnitPriceMax = 1000 # Default
+# ComputeUnitPriceMin is the minimum price per compute unit that transaction can have
+ComputeUnitPriceMin = 0 # Default
+# ComputeUnitPriceDefault is the default price per compute unit price, and the starting base fee when FeeEstimatorMode = 'fixed'
+ComputeUnitPriceDefault = 0 # Default
+# FeeBumpPeriod is the amount of time before a tx is retried with a fee bump. WARNING: If FeeBumpPeriod is shorter than blockhash expiration, multiple valid transactions can exist in parallel. This can result in higher costs and can cause unexpected behaviors if contracts do not de-dupe txs
+FeeBumpPeriod = '3s' # Default
+# BlockHistoryPollPeriod is the rate to poll for blocks in the block history fee estimator
+BlockHistoryPollPeriod = '5s' # Default
+# BlockHistorySize is the number of blocks to take into consideration when using FeeEstimatorMode = 'blockhistory' to determine compute unit price.
+# If set to 1, the compute unit price will be determined by the median of the last block's compute unit prices. 
+# If set N > 1, the compute unit price will be determined by the average of the medians of the last N blocks' compute unit prices.
+# DISCLAIMER: If set to a value greater than BlockHistoryBatchLoadSize, initial estimations during startup would be over smaller block ranges until the cache is filled.
+BlockHistorySize = 1 # Default
+# BlockHistoryBatchLoadSize is the number of latest blocks to fetch from the chain to store in the cache every BlockHistoryPollPeriod.
+# This config is only relevant if BlockHistorySize > 1 and if BlockHistorySize is greater than BlockHistoryBatchLoadSize.
+# Ensure the value is greater than the number of blocks that would be produced between each BlockHistoryPollPeriod to avoid gaps in block history.
+BlockHistoryBatchLoadSize = 20 # Default
+# ComputeUnitLimitDefault is the compute units limit applied to transactions unless overriden during the txm enqueue
+ComputeUnitLimitDefault = 200_000 # Default
+# EstimateComputeUnitLimit enables or disables compute unit limit estimations per transaction. If estimations return 0 used compute, the ComputeUnitLimitDefault value is used, if set.
+EstimateComputeUnitLimit = false # Default
+# LogPollerStartingLookback
+LogPollerStartingLookback = '24h0m0s' # Default
+
+[Solana.MultiNode]
+# Enabled enables the multinode feature.
+Enabled = false # Default
+# PollFailureThreshold is the number of consecutive poll failures before a node is considered unhealthy.
+PollFailureThreshold = 5 # Default
+# PollInterval is the rate to poll for node health.
+PollInterval = '10s' # Default
+# SelectionMode is the method used to select the next best node to use.
+SelectionMode = 'PriorityLevel' # Default
+# SyncThreshold is the number of blocks behind the best node that a node can be before it is considered out of sync.
+SyncThreshold = 5 # Default
+# NodeIsSyncingEnabled enables the feature to avoid sending transactions to nodes that are syncing. Not relavant for Solana.
+NodeIsSyncingEnabled = false # Default
+# LeaseDuration is the max duration a node can be leased for.
+LeaseDuration = '1m0s' # Default
+# NewHeadsPollInterval is the rate to poll for new heads.
+NewHeadsPollInterval = '10s' # Default
+# FinalizedBlockPollInterval is the rate to poll for the finalized block.
+FinalizedBlockPollInterval = '10s' # Default
+# EnforceRepeatableRead enforces the repeatable read guarantee for multinode.
+EnforceRepeatableRead = true # Default
+# DeathDeclarationDelay is the duration to wait before declaring a node dead.
+DeathDeclarationDelay = '10s' # Default
+# VerifyChainID enforces RPC Client ChainIDs to match configured ChainID
+VerifyChainID = true # Default
+# NodeNoNewHeadsThreshold is the duration to wait before declaring a node unhealthy due to no new heads.
+NodeNoNewHeadsThreshold = '10s' # Default
+# NoNewFinalizedHeadsThreshold is the duration to wait before declaring a node unhealthy due to no new finalized heads.
+NoNewFinalizedHeadsThreshold = '10s' # Default
+# FinalityDepth is not used when finality tags are enabled.
+FinalityDepth = 0 # Default
+# FinalityTagEnabled enables the use of finality tags.
+FinalityTagEnabled = true # Default
+# FinalizedBlockOffset is the offset from the finalized block to use for finality tags.
+FinalizedBlockOffset = 0 # Default
+
+[[Solana.Nodes]]
+# Name is a unique (per-chain) identifier for this node.
+Name = 'primary' # Example
+# URL is the HTTP(S) endpoint for this node.
+URL = 'http://solana.web' # Example
+# SendOnly is a multinode config that only sends transactions to a node and does not read state
+SendOnly = false # Default
+# Order specifies the priority for each node. 1 is highest priority down to 100 being the lowest.
+Order = 100 # Default

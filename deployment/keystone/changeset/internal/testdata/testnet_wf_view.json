@@ -1,0 +1,262 @@
+{
+    "cl-keystone-one-0": {
+        "nodeID": "node_00",
+        "isBootstrap": false,
+        "ocrKeys": {
+            "aptos-testnet": {
+                "offchainPublicKey": "4ec55bbe76a6b1fdc885c59da85a8fe44cf06afe1e4719f0824a731937526c52",
+                "onchainPublicKey": "b8834eaa062f0df4ccfe7832253920071ec14dc4f78b13ecdda10b824e2dd3b6",
+                "peerID": "p2p_12D3KooWMWUKdoAc2ruZf9f55p7NVFj7AFiPm67xjQ8BZBwkqyYv",
+                "transmitAccount": " ",
+                "configEncryptionPublicKey": "559ea4ee5774a31d97914a4220d6a47094ae8e2cf0806e80e1eacd851f3e6757",
+                "keyBundleID": "b4504e84ea307cc2afffca0206bd4bf8e98acc5a03c9bd47b2456e3845a5d1fa"
+            },
+            "ethereum-testnet-sepolia": {
+                "offchainPublicKey": "03dacd15fc96c965c648e3623180de002b71a97cf6eeca9affb91f461dcd6ce1",
+                "onchainPublicKey": "b35409a8d4f9a18da55c5b2bb08a3f5f68d44442",
+                "peerID": "p2p_12D3KooWMWUKdoAc2ruZf9f55p7NVFj7AFiPm67xjQ8BZBwkqyYv",
+                "transmitAccount": "0x2877F08d9c5Cc9F401F730Fa418fAE563A9a2FF3",
+                "configEncryptionPublicKey": "5193f72fc7b4323a86088fb0acb4e4494ae351920b3944bd726a59e8dbcdd45f",
+                "keyBundleID": "665a101d79d310cb0a5ebf695b06e8fc8082b5cbe62d7d362d80d47447a31fea"
+            }
+        },
+        "payeeAddress": "",
+        "csaKey": "403b72f0b1b3b5f5a91bcfedb7f28599767502a04b5b7e067fcf3782e23eeb9c",
+        "isConnected": true,
+        "isEnabled": true
+    },
+    "cl-keystone-one-1": {
+        "nodeID": "node_01",
+        "isBootstrap": false,
+        "ocrKeys": {
+            "aptos-testnet": {
+                "offchainPublicKey": "a38dbe521643479d78ab5477cae78161a5de0030c95098e3fbb09add6aca9508",
+                "onchainPublicKey": "247d0189f65f58be83a4e7d87ff338aaf8956e9acb9fcc783f34f9edc29d1b40",
+                "peerID": "p2p_12D3KooWCbDiL7sP9BVby5KaZqPpaVP1RBokoa9ShzH5WhkYX46v",
+                "transmitAccount": " ",
+                "configEncryptionPublicKey": "a38dbe521643479d78ab5477cae78161a5de0030c95098e3fbb09add6aca9508",
+                "keyBundleID": "4b6418b8ab88ea1244c3c48eb5f4c86f9f0301aebffcac4fcfac5cdfb7cf6933"
+            },
+            "ethereum-testnet-sepolia": {
+                "offchainPublicKey": "255096a3b7ade10e29c648e0b407fc486180464f713446b1da04f013df6179c8",
+                "onchainPublicKey": "8258f4c4761cc445333017608044a204fd0c006a",
+                "peerID": "p2p_12D3KooWCbDiL7sP9BVby5KaZqPpaVP1RBokoa9ShzH5WhkYX46v",
+                "transmitAccount": "0x415aa1E9a1bcB3929ed92bFa1F9735Dc0D45AD31",
+                "configEncryptionPublicKey": "2c45fec2320f6bcd36444529a86d9f8b4439499a5d8272dec9bcbbebb5e1bf01",
+                "keyBundleID": "7a9b75510b8d09932b98142419bef52436ff725dd9395469473b487ef87fdfb0"
+            }
+        },
+        "payeeAddress": "",
+        "csaKey": "28b91143ec9111796a7d63e14c1cf6bb01b4ed59667ab54f5bc72ebe49c881be",
+        "isConnected": true,
+        "isEnabled": true
+    },
+    "cl-keystone-one-2": {
+        "nodeID": "node_MgvchYopDVSBv3BCpNgEk",
+        "isBootstrap": false,
+        "ocrKeys": {
+            "aptos-testnet": {
+                "offchainPublicKey": "450aa794c87198a595761a8c18f0f1590046c8092960036638d002256af95254",
+                "onchainPublicKey": "ba20d3da9b07663f1e8039081a514649fd61a48be2d241bc63537ee47d028fcd",
+                "peerID": "p2p_12D3KooWGDmBKZ7B3PynGrvfHTJMEecpjfHts9YK5NWk8oJuxcAo",
+                "transmitAccount": " ",
+                "configEncryptionPublicKey": "412a4bed6b064c17168871d28dbb965cc0a898f7b19eb3fa7cd01d3e3d10b66c",
+                "keyBundleID": "e57c608a899d80e510913d2c7ef55758ee81e9eb73eb531003af1564307fd133"
+            },
+            "ethereum-testnet-sepolia": {
+                "offchainPublicKey": "dba3c61e5f8bec594be481bcaf67ecea0d1c2950edb15b158ce3dbc77877def3",
+                "onchainPublicKey": "d4dcc573e9d24a8b27a07bba670ba3a2ab36e5bb",
+                "peerID": "p2p_12D3KooWGDmBKZ7B3PynGrvfHTJMEecpjfHts9YK5NWk8oJuxcAo",
+                "transmitAccount": "0xCea84bC1881F3cE14BA13Dc3a00DC1Ff3D553fF0",
+                "configEncryptionPublicKey": "ee466234b3b2f65b13c848b17aa6a8d4e0aa0311d3bf8e77a64f20b04ed48d39",
+                "keyBundleID": "1d20490fe469dd6af3d418cc310a6e835181fa13e8dc80156bcbe302b7afcd34"
+            }
+        },
+        "payeeAddress": "",
+        "csaKey": "7a166fbc816eb4a4dcb620d11c3ccac5c085d56b1972374100116f87619debb8",
+        "isConnected": true,
+        "isEnabled": true
+    },
+    "cl-keystone-one-3": {
+        "nodeID": "node_Q9CZrC45VZZkMnCbDNgzH",
+        "isBootstrap": false,
+        "ocrKeys": {
+            "aptos-testnet": {
+                "offchainPublicKey": "886044b333af681ab4bf3be663122524ece9725e110ac2a64cda8526cad6983e",
+                "onchainPublicKey": "046faf34ebfe42510251e6098bc34fa3dd5f2de38ac07e47f2d1b34ac770639f",
+                "peerID": "p2p_12D3KooWCcVLytqinD8xMn27NvomcQhj2mqMVzyGemz6oPwv1SMT",
+                "transmitAccount": " ",
+                "configEncryptionPublicKey": "a7f3435bfbaabebd1572142ff1aec9ed98758d9bb098f1fcc77262fcae7f4171",
+                "keyBundleID": "5811a96a0c3b5f5b52973eee10e5771cf5953d37d5616ea71f7ae76f09f6e332"
+            },
+            "ethereum-testnet-sepolia": {
+                "offchainPublicKey": "b4c4993d6c15fee63800db901a8b35fa419057610962caab1c1d7bed55709127",
+                "onchainPublicKey": "6607c140e558631407f33bafbabd103863cee876",
+                "peerID": "p2p_12D3KooWCcVLytqinD8xMn27NvomcQhj2mqMVzyGemz6oPwv1SMT",
+                "transmitAccount": "0xA9eFB53c513E413762b2Be5299D161d8E6e7278e",
+                "configEncryptionPublicKey": "63375a3d175364bd299e7cecf352cb3e469dd30116cf1418f2b7571fb46c4a4b",
+                "keyBundleID": "8843b5db0608f92dac38ca56775766a08db9ee82224a19595d04bd6c58b38fbd"
+            }
+        },
+        "payeeAddress": "",
+        "csaKey": "487901e0c0a9d3c66e7cfc50f3a9e3cdbfdf1b0107273d73d94a91d278545516",
+        "isConnected": true,
+        "isEnabled": true
+    },
+    "cl-keystone-one-4": {
+        "nodeID": "node_q9CQHG4n4QozxAz5UCufa",
+        "isBootstrap": false,
+        "ocrKeys": {
+            "aptos-testnet": {
+                "offchainPublicKey": "b34bb49788541de8b6cfb321799a41927a391a4eb135c74f6cb14eec0531ee6f",
+                "onchainPublicKey": "1221e131ef21014a6a99ed22376eb869746a3b5e30fd202cf79e44efaeb8c5c2",
+                "peerID": "p2p_12D3KooWHqR1w26yHatTSZQW3xbRct9SxWzVj9X4SpU916Hy8jYg",
+                "transmitAccount": " ",
+                "configEncryptionPublicKey": "96ae354418e50dcd5b3dae62e8f0bc911bbce7f761220837aacdaa6f82bd0f29",
+                "keyBundleID": "b1ab478c1322bc4f8227be50898a8044efc70cf0156ec53cf132119db7e94dea"
+            },
+            "ethereum-testnet-sepolia": {
+                "offchainPublicKey": "2a4c7dec127fdd8145e48c5edb9467225098bd8c8ad1dade868325b787affbde",
+                "onchainPublicKey": "a6f35436cb7bffd615cc47a0a04aa0a78696a144",
+                "peerID": "p2p_12D3KooWHqR1w26yHatTSZQW3xbRct9SxWzVj9X4SpU916Hy8jYg",
+                "transmitAccount": "0x6F5cAb24Fb7412bB516b3468b9F3a9c471d25fE5",
+                "configEncryptionPublicKey": "c812eab2415f45cc1d2afdb2be2e3ea419bb7851acfc30c07b4df42c856e8f74",
+                "keyBundleID": "8e563a16ec5a802345b162d0f31149e8d5055014a31847d7b20d6de500aa48bd"
+            }
+        },
+        "payeeAddress": "",
+        "csaKey": "07e0ffc57b6263604df517b94bd986169451a3c90600a855bb19212dc575de54",
+        "isConnected": true,
+        "isEnabled": true
+    },
+    "cl-keystone-one-5": {
+        "nodeID": "node_sS3MELvKpNQBMqh7t5QL5",
+        "isBootstrap": false,
+        "ocrKeys": {
+            "aptos-testnet": {
+                "offchainPublicKey": "11674b98849d8e070ac69d37c284b3091fcd374913f52b2b83ce2d9a4a4e0213",
+                "onchainPublicKey": "425d1354a7b8180252a221040c718cac0ba0251c7efe31a2acefbba578dc2153",
+                "peerID": "p2p_12D3KooWR8d5kbZb7YiQWKpT1J1PfMqNaGAmb4jBFx9DWag4hpSZ",
+                "transmitAccount": " ",
+                "configEncryptionPublicKey": "263bee0d09d90e0e618c4cdd630d1437f7377f2d544df57f39ddd47984970555",
+                "keyBundleID": "44b5f46bfbb04d0984469298ec43c350ec6b2cd4556b18265ebac1b6cc329c7c"
+            },
+            "ethereum-testnet-sepolia": {
+                "offchainPublicKey": "283471ed66d61fbe11f64eff65d738b59a0301c9a4f846280db26c64c9fdd3f8",
+                "onchainPublicKey": "657587eb55cecd6f90b97297b611c3024e488cc0",
+                "peerID": "p2p_12D3KooWR8d5kbZb7YiQWKpT1J1PfMqNaGAmb4jBFx9DWag4hpSZ",
+                "transmitAccount": "0xdAd1F3F8ec690cf335D46c50EdA5547CeF875161",
+                "configEncryptionPublicKey": "36de4924cf11938b4461aea1ce99cb640e9603d9a7c294ab6c54acd51d575a49",
+                "keyBundleID": "99fad0362cc8dc8a57a8e616e68133a6d5a8834e08a1b4819710f0e912df5abc"
+            }
+        },
+        "payeeAddress": "",
+        "csaKey": "4542f4fd2ed150c8c976b39802fe3d994aec3ac94fd11e7817f693b1c9a1dabb",
+        "isConnected": true,
+        "isEnabled": true
+    },
+    "cl-keystone-one-6": {
+        "nodeID": "node_jb1oicMu3xxx2N2e4JWvE",
+        "isBootstrap": false,
+        "ocrKeys": {
+            "aptos-testnet": {
+                "offchainPublicKey": "6fc8c3fb55b39577abbab20028bee93d1d6d8a888dd298354b95d4af3ccb6009",
+                "onchainPublicKey": "4a94c75cb9fe8b1fba86fd4b71ad130943281fdefad10216c46eb2285d60950f",
+                "peerID": "p2p_12D3KooWNJ8de3PUURZ2oucrVTpnRTqNBTUYwHLQjK9LzN3E6Mfn",
+                "transmitAccount": " ",
+                "configEncryptionPublicKey": "3ae1a1c713e4ad63f67191fd93620c9eebe44e1d5f3264036ec0fbcd59cf9664",
+                "keyBundleID": "b419e9e3f1256aa2907a1a396bdf27ba5002a30eee440ab96cb60369429ce277"
+            },
+            "ethereum-testnet-sepolia": {
+                "offchainPublicKey": "aa3419628ea3536783742d17d8adf05681aa6a6bd2b206fbde78c7e5aa38586d",
+                "onchainPublicKey": "4885973b2fcf061d5cdfb8f74c5139bd3056e9da",
+                "peerID": "p2p_12D3KooWNJ8de3PUURZ2oucrVTpnRTqNBTUYwHLQjK9LzN3E6Mfn",
+                "transmitAccount": "0x19e10B063a62B1574AE19020A64fDe6419892dA6",
+                "configEncryptionPublicKey": "8c6c7d889ac6cc9e663ae48073bbf130fae105d6a3689636db27752e3e3e6816",
+                "keyBundleID": "62d36269d916b4834b17dc6d637c1c39b0895396249a0845764c898e83f63525"
+            }
+        },
+        "payeeAddress": "",
+        "csaKey": "75ac63fc97a31e31168084e0de8ccd2bea90059b609d962f3e43fc296cdba28d",
+        "isConnected": true,
+        "isEnabled": true
+    },
+    "cl-keystone-one-7": {
+        "nodeID": "node_nokJcFtJ5hunVbgLXufKn",
+        "isBootstrap": false,
+        "ocrKeys": {
+            "aptos-testnet": {
+                "offchainPublicKey": "cf0684a0e59399fe9b92cfc740d9696f925e78ee7d0273947e5f7b830070eaaa",
+                "onchainPublicKey": "96dc85670c49caa986de4ad288e680e9afb0f5491160dcbb4868ca718e194fc8",
+                "peerID": "p2p_12D3KooWQMCj73V5xmCd6C5VsJr7rbFG2TF9LwVcLiiBqXps9MgC",
+                "transmitAccount": " ",
+                "configEncryptionPublicKey": "209eea27e73b0ecc1c49b3ea274e4a18a1f5ed62fd79f443f0b5b9cc6019356e",
+                "keyBundleID": "14082da0f33b4cec842bc1e1002e617a194ed4a81105603bd6c1edf784aa3743"
+            },
+            "ethereum-testnet-sepolia": {
+                "offchainPublicKey": "01496edce35663071d74472e02119432ba059b3904d205e4358014410e4f2be3",
+                "onchainPublicKey": "213803bb9f9715379aaf11aadb0212369701dc0a",
+                "peerID": "p2p_12D3KooWQMCj73V5xmCd6C5VsJr7rbFG2TF9LwVcLiiBqXps9MgC",
+                "transmitAccount": "0x9ad9f3AD49e5aB0F28bD694d211a90297bD90D7f",
+                "configEncryptionPublicKey": "4d2f75f98b911c20fe7808384312d8b913e6b7a98c34d05c6e461434c92b4502",
+                "keyBundleID": "e6d6ffec6cff01ac20d57bc42626c8e955293f232d383bf468351d867a7b8213"
+            }
+        },
+        "payeeAddress": "",
+        "csaKey": "b473091fe1d4dbbc26ad71c67b4432f8f4280e06bab5e2122a92f4ab8b6ff2f5",
+        "isConnected": true,
+        "isEnabled": true
+    },
+    "cl-keystone-one-8": {
+        "nodeID": "node_7iTc33UzaAj6XmGa5hHC9",
+        "isBootstrap": false,
+        "ocrKeys": {
+            "aptos-testnet": {
+                "offchainPublicKey": "c791d2b9d3562f991af68ab7164a19734d551a9404d91c9571fdcdc5dcb237ca",
+                "onchainPublicKey": "bddafb20cc50d89e0ae2f244908c27b1d639615d8186b28c357669de3359f208",
+                "peerID": "p2p_12D3KooWAUagqMycsro27kFznSQRHbhfCBLx8nKD4ptTiUGDe38c",
+                "transmitAccount": " ",
+                "configEncryptionPublicKey": "0874e6cd5c8e651ab0ff564a474832ed9eaf2c5025b553f908d04921d9777d50",
+                "keyBundleID": "6726df46033038b724a4e6371807b6aa09efc829d0a3f7a5db4fd7df4b69fea7"
+            },
+            "ethereum-testnet-sepolia": {
+                "offchainPublicKey": "ad08c2a5878cada53521f4e2bb449f191ccca7899246721a0deeea19f7b83f70",
+                "onchainPublicKey": "8c2aa1e6fad88a6006dfb116eb866cbad2910314",
+                "peerID": "p2p_12D3KooWAUagqMycsro27kFznSQRHbhfCBLx8nKD4ptTiUGDe38c",
+                "transmitAccount": "0x31B179dcF8f9036C30f04bE578793e51bF14A39E",
+                "configEncryptionPublicKey": "e3d4d7a7372a3b1110db0290ab3649eb5fbb0daf6cf3ae02cfe5f367700d9264",
+                "keyBundleID": "be0d639de3ae3cbeaa31ca369514f748ba1d271145cba6796bcc12aace2f64c3"
+            }
+        },
+        "payeeAddress": "",
+        "csaKey": "1141dd1e46797ced9b0fbad49115f18507f6f6e6e3cc86e7e5ba169e58645adc",
+        "isConnected": true,
+        "isEnabled": true
+    },
+    "cl-keystone-one-9": {
+        "nodeID": "node_V3xAXNftjt6sxkfRgmw9J",
+        "isBootstrap": false,
+        "ocrKeys": {
+            "aptos-testnet": {
+                "offchainPublicKey": "ff1144bbf648e6f76c58d0ce53a9a2cbe9a284d52db8691a714cac8e3a96b8b4",
+                "onchainPublicKey": "4fa557850e4d5c21b3963c97414c1f37792700c4d3b8abdb904b765fd47e39bf",
+                "peerID": "p2p_12D3KooWBCMCCZZ8x57AXvJvpCujqhZzTjWXbReaRE8TxNr5dM4U",
+                "transmitAccount": " ",
+                "configEncryptionPublicKey": "6a1f37f06833c55ecf46233439ea6179a835bac6f2b2dee725b747c121813149",
+                "keyBundleID": "d834cf7c830df7510228b33b138c018ff16b4eecf82273ed3bcd862bbbc046d4"
+            },
+            "ethereum-testnet-sepolia": {
+                "offchainPublicKey": "c805572b813a072067eab2087ddbee8aa719090e12890b15c01094f0d3f74a5f",
+                "onchainPublicKey": "679296b7c1eb4948efcc87efc550940a182e610c",
+                "peerID": "p2p_12D3KooWBCMCCZZ8x57AXvJvpCujqhZzTjWXbReaRE8TxNr5dM4U",
+                "transmitAccount": "0x0b04cE574E80Da73191Ec141c0016a54A6404056",
+                "configEncryptionPublicKey": "09fced0207611ed618bf0759ab128d9797e15b18e46436be1a56a91e4043ec0e",
+                "keyBundleID": "1c28e76d180d1ed1524e61845fa58a384415de7e51017edf1f8c553e28357772"
+            }
+        },
+        "payeeAddress": "",
+        "csaKey": "412dc6fe48ea4e34baaa77da2e3b032d39b938597b6f3d61fe7ed183a827a431",
+        "isConnected": true,
+        "isEnabled": true
+    }
+}

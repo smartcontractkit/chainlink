@@ -13,15 +13,14 @@ import (
 
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type db struct {
-	q            pg.Q
+	ds           sqlutil.DataSource
 	oracleSpecID int32
 	lggr         logger.SugaredLogger
 }
@@ -32,14 +31,15 @@ var (
 )
 
 // NewDB returns a new DB scoped to this oracleSpecID
-func NewDB(sqlxDB *sqlx.DB, oracleSpecID int32, lggr logger.Logger, cfg pg.QConfig) *db {
-	namedLogger := lggr.Named("OCR.DB")
-
+func NewDB(ds sqlutil.DataSource, oracleSpecID int32, lggr logger.Logger) *db {
 	return &db{
-		q:            pg.NewQ(sqlxDB, namedLogger, cfg),
+		ds:           ds,
 		oracleSpecID: oracleSpecID,
 		lggr:         logger.Sugared(lggr),
 	}
+}
+func (d *db) WithDataSource(ds sqlutil.DataSource) OCRContractTrackerDB {
+	return NewDB(ds, d.oracleSpecID, d.lggr)
 }
 
 func (d *db) ReadState(ctx context.Context, cd ocrtypes.ConfigDigest) (ps *ocrtypes.PersistentState, err error) {
@@ -54,7 +54,7 @@ func (d *db) ReadState(ctx context.Context, cd ocrtypes.ConfigDigest) (ps *ocrty
 	var tmp []int64
 	var highestSentEpochTmp int64
 
-	err = d.q.QueryRowxContext(ctx, stmt, d.oracleSpecID, cd).Scan(&ps.Epoch, &highestSentEpochTmp, pq.Array(&tmp))
+	err = d.ds.QueryRowxContext(ctx, stmt, d.oracleSpecID, cd).Scan(&ps.Epoch, &highestSentEpochTmp, pq.Array(&tmp))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -90,7 +90,9 @@ func (d *db) WriteState(ctx context.Context, cd ocrtypes.ConfigDigest, state ocr
 		 NOW()
 		)
 	`
-	_, err := d.q.WithOpts(pg.WithLongQueryTimeout()).ExecContext(
+	ctx, cancel := context.WithTimeout(sqlutil.WithoutDefaultTimeout(ctx), time.Minute)
+	defer cancel()
+	_, err := d.ds.ExecContext(
 		ctx, stmt, d.oracleSpecID, cd, state.Epoch, state.HighestSentEpoch, pq.Array(&highestReceivedEpoch),
 	)
 
@@ -109,7 +111,7 @@ func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err er
 	var signers [][]byte
 	var transmitters [][]byte
 
-	err = d.q.QueryRowContext(ctx, stmt, d.oracleSpecID).Scan(
+	err = d.ds.QueryRowxContext(ctx, stmt, d.oracleSpecID).Scan(
 		&c.ConfigDigest,
 		(*pq.ByteaArray)(&signers),
 		(*pq.ByteaArray)(&transmitters),
@@ -155,13 +157,13 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 		encoded = EXCLUDED.encoded,
 		updated_at = NOW()
 	`
-	_, err := d.q.ExecContext(ctx, stmt, d.oracleSpecID, c.ConfigDigest, pq.ByteaArray(signers), pq.ByteaArray(transmitters), c.Threshold, int(c.EncodedConfigVersion), c.Encoded)
+	_, err := d.ds.ExecContext(ctx, stmt, d.oracleSpecID, c.ConfigDigest, pq.ByteaArray(signers), pq.ByteaArray(transmitters), c.Threshold, int(c.EncodedConfigVersion), c.Encoded)
 
 	return errors.Wrap(err, "WriteConfig failed")
 }
 
-func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.PendingTransmissionKey, p ocrtypes.PendingTransmission) error {
-	median := utils.NewBig(p.Median)
+func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.ReportTimestamp, p ocrtypes.PendingTransmission) error {
+	median := big.New(p.Median)
 	var rs [][]byte
 	var ss [][]byte
 	// Note: p.Rs and p.Ss are of type [][32]byte.
@@ -201,13 +203,14 @@ func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.PendingTra
 		updated_at = NOW()
 	`
 
-	_, err := d.q.ExecContext(ctx, stmt, d.oracleSpecID, k.ConfigDigest, k.Epoch, k.Round, p.Time, median, p.SerializedReport, pq.ByteaArray(rs), pq.ByteaArray(ss), p.Vs[:])
+	_, err := d.ds.ExecContext(ctx, stmt, d.oracleSpecID, k.ConfigDigest, k.Epoch, k.Round, p.Time, median, p.SerializedReport, pq.ByteaArray(rs), pq.ByteaArray(ss), p.Vs[:])
 
 	return errors.Wrap(err, "StorePendingTransmission failed")
 }
 
-func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, cd ocrtypes.ConfigDigest) (map[ocrtypes.PendingTransmissionKey]ocrtypes.PendingTransmission, error) {
-	rows, err := d.q.QueryContext(ctx, `
+func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, cd ocrtypes.ConfigDigest) (map[ocrtypes.ReportTimestamp]ocrtypes.PendingTransmission, error) {
+	//nolint:sqlclosecheck // false positive
+	rows, err := d.ds.QueryContext(ctx, `
 SELECT
 	config_digest,
 	epoch,
@@ -226,13 +229,13 @@ WHERE ocr_oracle_spec_id = $1 AND config_digest = $2
 	}
 	defer d.lggr.ErrorIfFn(rows.Close, "Error closing ocr_pending_transmissions rows")
 
-	m := make(map[ocrtypes.PendingTransmissionKey]ocrtypes.PendingTransmission)
+	m := make(map[ocrtypes.ReportTimestamp]ocrtypes.PendingTransmission)
 
 	for rows.Next() {
-		k := ocrtypes.PendingTransmissionKey{}
+		k := ocrtypes.ReportTimestamp{}
 		p := ocrtypes.PendingTransmission{}
 
-		var median utils.Big
+		var median big.Big
 		var rs [][]byte
 		var ss [][]byte
 		var vs []byte
@@ -267,8 +270,10 @@ WHERE ocr_oracle_spec_id = $1 AND config_digest = $2
 	return m, nil
 }
 
-func (d *db) DeletePendingTransmission(ctx context.Context, k ocrtypes.PendingTransmissionKey) (err error) {
-	_, err = d.q.WithOpts(pg.WithLongQueryTimeout()).ExecContext(ctx, `
+func (d *db) DeletePendingTransmission(ctx context.Context, k ocrtypes.ReportTimestamp) (err error) {
+	ctx, cancel := context.WithTimeout(sqlutil.WithoutDefaultTimeout(ctx), time.Minute)
+	defer cancel()
+	_, err = d.ds.ExecContext(ctx, `
 DELETE FROM ocr_pending_transmissions
 WHERE ocr_oracle_spec_id = $1 AND  config_digest = $2 AND epoch = $3 AND round = $4
 `, d.oracleSpecID, k.ConfigDigest, k.Epoch, k.Round)
@@ -279,7 +284,9 @@ WHERE ocr_oracle_spec_id = $1 AND  config_digest = $2 AND epoch = $3 AND round =
 }
 
 func (d *db) DeletePendingTransmissionsOlderThan(ctx context.Context, t time.Time) (err error) {
-	_, err = d.q.WithOpts(pg.WithLongQueryTimeout()).ExecContext(ctx, `
+	ctx, cancel := context.WithTimeout(sqlutil.WithoutDefaultTimeout(ctx), time.Minute)
+	defer cancel()
+	_, err = d.ds.ExecContext(ctx, `
 DELETE FROM ocr_pending_transmissions
 WHERE ocr_oracle_spec_id = $1 AND time < $2
 `, d.oracleSpecID, t)
@@ -289,12 +296,12 @@ WHERE ocr_oracle_spec_id = $1 AND time < $2
 	return
 }
 
-func (d *db) SaveLatestRoundRequested(tx pg.Queryer, rr offchainaggregator.OffchainAggregatorRoundRequested) error {
+func (d *db) SaveLatestRoundRequested(ctx context.Context, rr offchainaggregator.OffchainAggregatorRoundRequested) error {
 	rawLog, err := json.Marshal(rr.Raw)
 	if err != nil {
 		return errors.Wrap(err, "could not marshal log as JSON")
 	}
-	_, err = tx.Exec(`
+	_, err = d.ds.ExecContext(ctx, `
 INSERT INTO ocr_latest_round_requested (ocr_oracle_spec_id, requester, config_digest, epoch, round, raw)
 VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (ocr_oracle_spec_id) DO UPDATE SET
 	requester = EXCLUDED.requester,
@@ -307,8 +314,8 @@ VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (ocr_oracle_spec_id) DO UPDATE SET
 	return errors.Wrap(err, "could not save latest round requested")
 }
 
-func (d *db) LoadLatestRoundRequested() (rr offchainaggregator.OffchainAggregatorRoundRequested, err error) {
-	rows, err := d.q.Query(`
+func (d *db) LoadLatestRoundRequested(ctx context.Context) (rr offchainaggregator.OffchainAggregatorRoundRequested, err error) {
+	rows, err := d.ds.QueryContext(ctx, `
 SELECT requester, config_digest, epoch, round, raw
 FROM ocr_latest_round_requested
 WHERE ocr_oracle_spec_id = $1
@@ -317,6 +324,7 @@ LIMIT 1
 	if err != nil {
 		return rr, errors.Wrap(err, "LoadLatestRoundRequested failed to query rows")
 	}
+	defer func() { err = multierr.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
 		var configDigest []byte
@@ -336,8 +344,6 @@ LIMIT 1
 	if err = rows.Err(); err != nil {
 		return
 	}
-
-	err = multierr.Combine(err, rows.Close())
 
 	return
 }

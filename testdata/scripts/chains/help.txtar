@@ -1,0 +1,21 @@
+exec chainlink chains --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink chains - Commands for handling chain configuration
+
+USAGE:
+   chainlink chains command [command options] [arguments...]
+
+COMMANDS:
+   aptos     Commands for handling aptos chains
+   cosmos    Commands for handling cosmos chains
+   evm       Commands for handling evm chains
+   solana    Commands for handling solana chains
+   starknet  Commands for handling starknet chains
+   tron      Commands for handling tron chains
+
+OPTIONS:
+   --help, -h  show help
+   

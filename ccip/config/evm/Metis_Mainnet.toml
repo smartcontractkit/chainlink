@@ -1,0 +1,30 @@
+# Metis is an L2 chain based on Optimism.
+ChainID = '1088'
+# Sequencer offers absolute finality
+# High variation on finality depth triggered a commitee to investigate
+# and set 500 as a secure finality depth.
+# https://chainlink-core.slack.com/archives/C0725LNLJLA/p1717118469587219
+FinalityDepth = 500
+# FT and FD are both present here because the dev effort rely only on FinalityTagEnabled are still in progress.
+# We expect to be able to rely only on FinalityTagEnabled=true in the short future.
+# https://chainlink-core.slack.com/archives/C05CS33N08N/p1715102940763339?thread_ts=1715102478.537529&cid=C05CS33N08N
+FinalityTagEnabled = true
+MinIncomingConfirmations = 1
+NoNewHeadsThreshold = '0'
+OCR.ContractConfirmations = 1
+
+[GasEstimator]
+Mode = 'SuggestedPrice'
+# Metis uses the SuggestedPrice estimator; we don't want to place any limits on the minimum gas price
+PriceMin = '0'
+
+[GasEstimator.BlockHistory]
+# Force an error if someone enables the estimator by accident; we never want to run the block history estimator on metisaa
+BlockHistorySize = 0
+
+[NodePool]
+SyncThreshold = 10
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'

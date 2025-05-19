@@ -1,0 +1,19 @@
+exec chainlink admin users --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink admin users - Create, edit permissions, or delete API users
+
+USAGE:
+   chainlink admin users command [command options] [arguments...]
+
+COMMANDS:
+   list    Lists all API users and their roles
+   create  Create a new API user
+   chrole  Changes an API user's role
+   delete  Delete an API user
+
+OPTIONS:
+   --help, -h  show help
+   

@@ -1,0 +1,381 @@
+# start node
+exec sh -c 'eval "echo \"$(cat config.toml.tmpl)\" > config.toml"'
+exec chainlink node -c config.toml start -p password -a creds &
+
+# initialize client
+env NODEURL=http://localhost:$PORT
+exec curl --retry 10 --retry-max-time 60 --retry-connrefused $NODEURL
+exec chainlink --remote-node-url $NODEURL admin login -file creds --bypass-version-check
+
+exec chainlink --remote-node-url $NODEURL health
+cmp stdout out.txt
+
+exec chainlink --remote-node-url $NODEURL health -json
+cp stdout compact.json
+exec jq . compact.json
+cmp stdout out.json
+
+exec chainlink --remote-node-url $NODEURL health -failing
+cmp stdout out-unhealthy.txt
+
+exec chainlink --remote-node-url $NODEURL health -f -json
+cp stdout compact.json
+exec jq . compact.json
+cmp stdout out-unhealthy.json
+
+-- testdb.txt --
+CL_DATABASE_URL
+-- testport.txt --
+PORT
+
+-- password --
+T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ
+-- creds --
+notreal@fakeemail.ch
+fj293fbBnlQ!f9vNs
+
+-- config.toml.tmpl --
+[Webserver]
+HTTPPort = $PORT
+
+[[EVM]]
+ChainID = '1'
+
+[[EVM.Nodes]]
+Name = 'fake'
+WSURL = 'wss://foo.bar/ws'
+HTTPURL = 'https://foo.bar'
+
+[[Solana]]
+ChainID = 'Bar'
+
+[[Solana.Nodes]]
+Name = 'primary'
+URL = 'http://solana.web'
+
+-- out.txt --
+ok EVM.1
+ok EVM.1.BalanceMonitor
+ok EVM.1.HeadBroadcaster
+ok EVM.1.HeadTracker
+!  EVM.1.HeadTracker.HeadListener
+	Listener is not connected
+ok EVM.1.LogBroadcaster
+ok EVM.1.Relayer
+ok EVM.1.Txm
+ok EVM.1.Txm.BlockHistoryEstimator
+ok EVM.1.Txm.Broadcaster
+ok EVM.1.Txm.Confirmer
+ok EVM.1.Txm.Finalizer
+ok EVM.1.Txm.WrappedEvmEstimator
+ok HeadReporter
+ok Heartbeat
+ok JobSpawner
+ok LLOTransmissionReaper
+ok Mailbox.Monitor
+ok Mercury.WSRPCPool
+ok Mercury.WSRPCPool.CacheSet
+ok PipelineORM
+ok PipelineRunner
+ok PipelineRunner.BridgeCache
+ok RetirementReportCache
+ok Solana.Bar.Chain
+ok Solana.Bar.Chain.BalanceMonitor
+ok Solana.Bar.Chain.Txm
+ok Solana.Bar.Relayer
+ok TelemetryManager
+ok WorkflowStore
+
+-- out-unhealthy.txt --
+!  EVM.1.HeadTracker.HeadListener
+	Listener is not connected
+
+-- out.json --
+{
+  "data": [
+    {
+      "type": "checks",
+      "id": "EVM.1",
+      "attributes": {
+        "name": "EVM.1",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "EVM.1.BalanceMonitor",
+      "attributes": {
+        "name": "EVM.1.BalanceMonitor",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "EVM.1.HeadBroadcaster",
+      "attributes": {
+        "name": "EVM.1.HeadBroadcaster",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "EVM.1.HeadTracker",
+      "attributes": {
+        "name": "EVM.1.HeadTracker",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "EVM.1.HeadTracker.HeadListener",
+      "attributes": {
+        "name": "EVM.1.HeadTracker.HeadListener",
+        "status": "failing",
+        "output": "Listener is not connected"
+      }
+    },
+    {
+      "type": "checks",
+      "id": "EVM.1.LogBroadcaster",
+      "attributes": {
+        "name": "EVM.1.LogBroadcaster",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "EVM.1.Relayer",
+      "attributes": {
+        "name": "EVM.1.Relayer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "EVM.1.Txm",
+      "attributes": {
+        "name": "EVM.1.Txm",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "EVM.1.Txm.BlockHistoryEstimator",
+      "attributes": {
+        "name": "EVM.1.Txm.BlockHistoryEstimator",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "EVM.1.Txm.Broadcaster",
+      "attributes": {
+        "name": "EVM.1.Txm.Broadcaster",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "EVM.1.Txm.Confirmer",
+      "attributes": {
+        "name": "EVM.1.Txm.Confirmer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "EVM.1.Txm.Finalizer",
+      "attributes": {
+        "name": "EVM.1.Txm.Finalizer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "EVM.1.Txm.WrappedEvmEstimator",
+      "attributes": {
+        "name": "EVM.1.Txm.WrappedEvmEstimator",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "HeadReporter",
+      "attributes": {
+        "name": "HeadReporter",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Heartbeat",
+      "attributes": {
+        "name": "Heartbeat",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "JobSpawner",
+      "attributes": {
+        "name": "JobSpawner",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "LLOTransmissionReaper",
+      "attributes": {
+        "name": "LLOTransmissionReaper",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Mailbox.Monitor",
+      "attributes": {
+        "name": "Mailbox.Monitor",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Mercury.WSRPCPool",
+      "attributes": {
+        "name": "Mercury.WSRPCPool",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Mercury.WSRPCPool.CacheSet",
+      "attributes": {
+        "name": "Mercury.WSRPCPool.CacheSet",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "PipelineORM",
+      "attributes": {
+        "name": "PipelineORM",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "PipelineRunner",
+      "attributes": {
+        "name": "PipelineRunner",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "PipelineRunner.BridgeCache",
+      "attributes": {
+        "name": "PipelineRunner.BridgeCache",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "RetirementReportCache",
+      "attributes": {
+        "name": "RetirementReportCache",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Solana.Bar.Chain",
+      "attributes": {
+        "name": "Solana.Bar.Chain",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Solana.Bar.Chain.BalanceMonitor",
+      "attributes": {
+        "name": "Solana.Bar.Chain.BalanceMonitor",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Solana.Bar.Chain.Txm",
+      "attributes": {
+        "name": "Solana.Bar.Chain.Txm",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Solana.Bar.Relayer",
+      "attributes": {
+        "name": "Solana.Bar.Relayer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "TelemetryManager",
+      "attributes": {
+        "name": "TelemetryManager",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "WorkflowStore",
+      "attributes": {
+        "name": "WorkflowStore",
+        "status": "passing",
+        "output": ""
+      }
+    }
+  ]
+}
+-- out-unhealthy.json --
+{
+  "data": [
+    {
+      "type": "checks",
+      "id": "EVM.1.HeadTracker.HeadListener",
+      "attributes": {
+        "name": "EVM.1.HeadTracker.HeadListener",
+        "status": "failing",
+        "output": "Listener is not connected"
+      }
+    }
+  ]
+}

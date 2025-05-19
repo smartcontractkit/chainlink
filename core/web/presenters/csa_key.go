@@ -19,7 +19,7 @@ func (CSAKeyResource) GetName() string {
 func NewCSAKeyResource(key csakey.KeyV2) *CSAKeyResource {
 	r := &CSAKeyResource{
 		JAID:    NewJAID(key.ID()),
-		PubKey:  key.PublicKeyString(),
+		PubKey:  "csa_" + key.PublicKeyString(),
 		Version: 1,
 	}
 

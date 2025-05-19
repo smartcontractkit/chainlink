@@ -1,12 +1,13 @@
 package pipeline
 
 import (
+	"context"
 	"net/http"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 )
 
 const (
@@ -31,11 +32,13 @@ const (
 
 func (t *BridgeTask) HelperSetDependencies(
 	config Config,
+	bridgeConfig BridgeConfig,
 	orm bridges.ORM,
 	specId int32,
 	id uuid.UUID,
 	httpClient *http.Client) {
 	t.config = config
+	t.bridgeConfig = bridgeConfig
 	t.orm = orm
 	t.uuid = id
 	t.httpClient = httpClient
@@ -48,21 +51,18 @@ func (t *HTTPTask) HelperSetDependencies(config Config, restrictedHTTPClient, un
 	t.unrestrictedHTTPClient = unrestrictedHTTPClient
 }
 
-func (t *ETHCallTask) HelperSetDependencies(cc evm.ChainSet, config Config, specGasLimit *uint32, jobType string) {
-	t.chainSet = cc
+func (t *ETHCallTask) HelperSetDependencies(legacyChains legacyevm.LegacyChainContainer, config Config, specGasLimit *uint32, jobType string) {
+	t.legacyChains = legacyChains
 	t.config = config
 	t.specGasLimit = specGasLimit
 	t.jobType = jobType
 }
 
-func (t *ETHTxTask) HelperSetDependencies(cc evm.ChainSet, keyStore ETHKeyStore, specGasLimit *uint32, jobType string) {
-	t.chainSet = cc
+func (t *ETHTxTask) HelperSetDependencies(legacyChains legacyevm.LegacyChainContainer, keyStore ETHKeyStore, specGasLimit *uint32, jobType string) {
+	t.legacyChains = legacyChains
 	t.keyStore = keyStore
 	t.specGasLimit = specGasLimit
 	t.jobType = jobType
 }
 
-func (t *ETHGetBlockTask) HelperSetDependencies(cc evm.ChainSet, config Config) {
-	t.chainSet = cc
-	t.config = config
-}
+func (o *orm) Prune(ctx context.Context, pipelineSpecID int32) { o.prune(ctx, o.ds, pipelineSpecID) }

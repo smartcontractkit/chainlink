@@ -1,12 +1,12 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -17,34 +17,38 @@ type TerminalKeyStoreAuthenticator struct {
 	Prompter Prompter
 }
 
-func (auth TerminalKeyStoreAuthenticator) authenticate(keyStore keystore.Master, cfg config.BasicConfig) error {
-	isEmpty, err := keyStore.IsEmpty()
+type KeystorePassword interface {
+	Keystore() string
+}
+
+func (auth TerminalKeyStoreAuthenticator) Authenticate(ctx context.Context, keyStore keystore.Master, password KeystorePassword) error {
+	isEmpty, err := keyStore.IsEmpty(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error determining if keystore is empty")
 	}
-	password := cfg.KeystorePassword()
+	pw := password.Keystore()
 
-	if len(password) != 0 {
+	if len(pw) != 0 {
 		// Because we changed password requirements to increase complexity, to
 		// not break backward compatibility we enforce this only for empty key
 		// stores.
-		if err = auth.validatePasswordStrength(password); err != nil && isEmpty {
+		if err = auth.validatePasswordStrength(pw); err != nil && isEmpty {
 			return err
 		}
-		return keyStore.Unlock(password)
+		return keyStore.Unlock(ctx, pw)
 	}
 	interactive := auth.Prompter.IsTerminal()
 	if !interactive {
 		return errors.New("no password provided")
 	} else if !isEmpty {
-		password = auth.promptExistingPassword()
+		pw = auth.promptExistingPassword()
 	} else {
-		password, err = auth.promptNewPassword()
+		pw, err = auth.promptNewPassword()
 	}
 	if err != nil {
 		return err
 	}
-	return keyStore.Unlock(password)
+	return keyStore.Unlock(ctx, pw)
 }
 
 func (auth TerminalKeyStoreAuthenticator) validatePasswordStrength(password string) error {

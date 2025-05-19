@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 var privateIPBlocks []*net.IPNet
@@ -27,7 +27,7 @@ func init() {
 	} {
 		_, block, err := net.ParseCIDR(cidr)
 		if err != nil {
-			panic(fmt.Errorf("parse error on %q: %v", cidr, err))
+			panic(fmt.Errorf("parse error on %q: %w", cidr, err))
 		}
 		privateIPBlocks = append(privateIPBlocks, block)
 	}
@@ -63,7 +63,7 @@ func isRestrictedIP(ip net.IP, cfg httpClientConfig) (bool, error) {
 }
 
 func isBlacklistedIP(ip net.IP, cfg httpClientConfig) (bool, error) {
-	dbURL := cfg.DatabaseURL()
+	dbURL := cfg.URL()
 	if dbURL.String() == "" {
 		return false, nil
 	}

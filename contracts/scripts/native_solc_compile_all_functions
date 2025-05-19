@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo " ┌──────────────────────────────────────────────┐"
+echo " │      Compiling Functions contracts...        │"
+echo " └──────────────────────────────────────────────┘"
+
+PROJECT="functions"
+
+CONTRACTS_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../ && pwd -P )"
+
+export FOUNDRY_PROFILE="$PROJECT"
+
+compileContract () {
+  local contract
+  contract=$(basename "$1")
+  echo "Compiling" "$contract"
+
+  local command
+  command="forge build $CONTRACTS_DIR/src/v0.8/$PROJECT/"$1.sol" \
+   --root $CONTRACTS_DIR \
+   --extra-output-files bin abi \
+   -o $CONTRACTS_DIR/solc/$PROJECT/$contract"
+   $command
+}
+
+############################
+# Version 1 (Mainnet Preview)
+############################
+
+compileContract dev/v1_X/libraries/FunctionsRequest
+compileContract dev/v1_X/FunctionsClient
+compileContract dev/v1_X/FunctionsRouter
+compileContract dev/v1_X/FunctionsCoordinator
+compileContract dev/v1_X/accessControl/TermsOfServiceAllowList
+compileContract dev/v1_X/example/FunctionsClientExample
+
+# Test helpers
+compileContract tests/v1_X/testhelpers/FunctionsCoordinatorTestHelper
+compileContract tests/v1_X/testhelpers/FunctionsLoadTestClient
+
+# Mocks
+compileContract dev/v1_X/mocks/FunctionsV1EventsMock

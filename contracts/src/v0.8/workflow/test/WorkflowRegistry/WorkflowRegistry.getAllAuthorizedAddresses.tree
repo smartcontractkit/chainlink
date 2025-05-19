@@ -1,0 +1,9 @@
+WorkflowRegistry.getAllAuthorizedAddresses
+├── when the set of authorized addresses is empty
+│   └── it should return an empty array
+├── when there is a single authorized address
+│   └── it should return an array with one element
+├── when there are multiple authorized addresses
+│   └── it should return an array with all the authorized addresses
+└── when the registry is locked
+    └── it should behave the same as when the registry is not locked

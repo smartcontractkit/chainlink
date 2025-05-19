@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"testing"
 
-	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/sqlx"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -23,8 +23,9 @@ const (
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			contractAddress    = "%s"
+			evmChainID		   = "0"
 			p2pPeerID          = "%s"
-			p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
+			p2pv2Bootstrappers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
 			isBootstrapPeer    = false
 			transmitterAddress = "%s"
 			keyBundleID = "%s"
@@ -37,34 +38,34 @@ const (
 	`
 )
 
-func MinimalOCRNonBootstrapSpec(contractAddress, transmitterAddress ethkey.EIP55Address, peerID p2pkey.PeerID, keyBundleID string) string {
+func MinimalOCRNonBootstrapSpec(contractAddress, transmitterAddress types.EIP55Address, peerID p2pkey.PeerID, keyBundleID string) string {
 	return fmt.Sprintf(minimalOCRNonBootstrapTemplate, contractAddress, peerID, transmitterAddress.Hex(), keyBundleID)
 }
 
-func MustInsertWebhookSpec(t *testing.T, db *sqlx.DB) (job.Job, job.WebhookSpec) {
-	jobORM, pipelineORM := getORMs(t, db)
+func MustInsertWebhookSpec(t *testing.T, ds sqlutil.DataSource) (job.Job, job.WebhookSpec) {
+	ctx := testutils.Context(t)
+	jobORM, pipelineORM := getORMs(t, ds)
 	webhookSpec := job.WebhookSpec{}
-	require.NoError(t, jobORM.InsertWebhookSpec(&webhookSpec))
+	require.NoError(t, jobORM.InsertWebhookSpec(ctx, &webhookSpec))
 
 	pSpec := pipeline.Pipeline{}
-	pipelineSpecID, err := pipelineORM.CreateSpec(pSpec, 0)
+	pipelineSpecID, err := pipelineORM.CreateSpec(ctx, pSpec, 0)
 	require.NoError(t, err)
 
 	createdJob := job.Job{WebhookSpecID: &webhookSpec.ID, WebhookSpec: &webhookSpec, SchemaVersion: 1, Type: "webhook",
-		ExternalJobID: uuid.NewV4(), PipelineSpecID: pipelineSpecID}
-	require.NoError(t, jobORM.InsertJob(&createdJob))
+		ExternalJobID: uuid.New(), PipelineSpecID: pipelineSpecID}
+	require.NoError(t, jobORM.InsertJob(ctx, &createdJob))
 
 	return createdJob, webhookSpec
 }
 
-func getORMs(t *testing.T, db *sqlx.DB) (jobORM job.ORM, pipelineORM pipeline.ORM) {
+func getORMs(t *testing.T, ds sqlutil.DataSource) (jobORM job.ORM, pipelineORM pipeline.ORM) {
 	config := configtest.NewTestGeneralConfig(t)
-	keyStore := NewKeyStore(t, db, config)
+	keyStore := NewKeyStore(t, ds)
 	lggr := logger.TestLogger(t)
-	pipelineORM = pipeline.NewORM(db, lggr, config)
-	bridgeORM := bridges.NewORM(db, lggr, config)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	jobORM = job.NewORM(db, cc, pipelineORM, bridgeORM, keyStore, lggr, config)
+	pipelineORM = pipeline.NewORM(ds, lggr, config.JobPipeline().MaxSuccessfulRuns())
+	bridgeORM := bridges.NewORM(ds)
+	jobORM = job.NewORM(ds, pipelineORM, bridgeORM, keyStore, lggr)
 	t.Cleanup(func() { jobORM.Close() })
 	return
 }

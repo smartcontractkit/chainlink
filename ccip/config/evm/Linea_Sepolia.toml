@@ -1,0 +1,21 @@
+ChainID = '59141'
+FinalityDepth = 200 #3s block time ~ 20m finality based on committee decision
+
+[GasEstimator]
+PriceMax = '2500 gwei' #higher max price to account for zkoverflow replacement txs
+BumpPercent = 10
+BumpThreshold = 10
+FeeCapDefault = '2500 gwei'
+TipCapDefault = '5 gwei'
+TipCapMin = '1 gwei'
+
+[Transactions]
+ResendAfterThreshold = '30s'
+
+[HeadTracker]
+HistoryDepth = 200
+
+[GasEstimator.BlockHistory]
+# Default is 24, which leads to bumpy gas prices. In CCIP
+# we want to smooth out the gas prices, so we increase the sample size.
+BlockHistorySize = 200

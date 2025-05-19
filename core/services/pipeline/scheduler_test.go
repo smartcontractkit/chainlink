@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
@@ -99,7 +99,7 @@ func TestScheduler(t *testing.T) {
 			assertion: func(t *testing.T, p Pipeline, results map[int]TaskRunResult) {
 				result := results[p.ByDotID("a").ID()]
 				// a has no errors
-				require.Equal(t, nil, result.Result.Error)
+				require.NoError(t, result.Result.Error)
 				require.Equal(t, 1, result.Result.Value)
 				require.Equal(t, uint(2), result.Attempts)
 			},
@@ -135,7 +135,7 @@ func TestScheduler(t *testing.T) {
 		require.NoError(t, err)
 		vars := NewVarsFrom(nil)
 		run := NewRun(Spec{}, vars)
-		s := newScheduler(p, &run, vars, logger.TestLogger(t))
+		s := newScheduler(p, run, vars, logger.TestLogger(t))
 
 		go s.Run()
 
@@ -145,7 +145,7 @@ func TestScheduler(t *testing.T) {
 				require.Equal(t, event.expected, taskRun.task.DotID())
 				now := time.Now()
 				s.report(testutils.Context(t), TaskRunResult{
-					ID:         uuid.NewV4(),
+					ID:         uuid.New(),
 					Task:       taskRun.task,
 					Result:     event.result,
 					FinishedAt: null.TimeFrom(now),
@@ -165,6 +165,5 @@ func TestScheduler(t *testing.T) {
 		}
 
 		test.assertion(t, *p, s.results)
-
 	}
 }

@@ -1,8 +1,8 @@
 package presenters
 
 import (
-	"encoding/hex"
 	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/manyminds/api2go/jsonapi"
@@ -13,13 +13,9 @@ import (
 )
 
 func TestP2PKeyResource(t *testing.T) {
-	key, err := p2pkey.NewV2()
-	require.NoError(t, err)
+	key := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 	peerID := key.PeerID()
 	peerIDStr := peerID.String()
-	pubKey := key.GetPublic()
-	pubKeyBytes, err := pubKey.Raw()
-	require.NoError(t, err)
 
 	r := NewP2PKeyResource(key)
 	b, err := jsonapi.Marshal(r)
@@ -35,7 +31,7 @@ func TestP2PKeyResource(t *testing.T) {
 				"publicKey": "%s"
 			}
 		}
-	}`, key.ID(), peerIDStr, hex.EncodeToString(pubKeyBytes))
+	}`, key.ID(), peerIDStr, key.PublicKeyHex())
 
 	assert.JSONEq(t, expected, string(b))
 
@@ -53,7 +49,7 @@ func TestP2PKeyResource(t *testing.T) {
 				"publicKey": "%s"
 			}
 		}
-	}`, key.ID(), peerIDStr, hex.EncodeToString(pubKeyBytes))
+	}`, key.ID(), peerIDStr, key.PublicKeyHex())
 
 	assert.JSONEq(t, expected, string(b))
 }

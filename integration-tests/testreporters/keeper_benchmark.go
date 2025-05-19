@@ -14,20 +14,17 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-)
-
-var (
-	DashboardUrl = os.Getenv("GRAFANA_DASHBOARD_URL")
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 )
 
 // KeeperBenchmarkTestReporter enables reporting on the keeper benchmark test
 type KeeperBenchmarkTestReporter struct {
 	Reports                        []KeeperBenchmarkTestReport `json:"reports"`
 	ReportMutex                    sync.Mutex
-	AttemptedChainlinkTransactions []*client.TransactionsData `json:"attemptedChainlinkTransactions"`
+	AttemptedChainlinkTransactions []*nodeclient.TransactionsData `json:"attemptedChainlinkTransactions"`
 	NumRevertedUpkeeps             int64
+	NumStaleUpkeepReports          int64
 	Summary                        KeeperBenchmarkTestSummary `json:"summary"`
 
 	namespace                 string
@@ -60,8 +57,10 @@ type KeeperBenchmarkTestMetrics struct {
 	Delay                         map[string]interface{} `json:"delay"`
 	PercentWithinSLA              float64                `json:"percentWithinSLA"`
 	PercentRevert                 float64                `json:"percentRevert"`
+	PercentStale                  float64                `json:"percentStale"`
 	TotalTimesEligible            int64                  `json:"totalTimesEligible"`
 	TotalTimesPerformed           int64                  `json:"totalTimesPerformed"`
+	TotalStaleReports             int64                  `json:"totalStaleReports"`
 	AverageActualPerformsPerBlock float64                `json:"averageActualPerformsPerBlock"`
 }
 
@@ -91,7 +90,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 	defer keeperReportFile.Close()
 
 	keeperReportWriter := csv.NewWriter(keeperReportFile)
-	var totalEligibleCount, totalPerformed, totalMissedSLA, totalReverted int64
+	var totalEligibleCount, totalPerformed, totalMissedSLA, totalReverted, totalStaleReports int64
 	var allDelays []int64
 	for _, report := range k.Reports {
 		totalEligibleCount += report.TotalEligibleCount
@@ -101,10 +100,12 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 		allDelays = append(allDelays, report.AllCheckDelays...)
 	}
 	totalReverted = k.NumRevertedUpkeeps
+	totalStaleReports = k.NumStaleUpkeepReports
 	pctWithinSLA := (1.0 - float64(totalMissedSLA)/float64(totalEligibleCount)) * 100
-	var pctReverted float64
+	var pctReverted, pctStale float64
 	if totalPerformed > 0 {
 		pctReverted = (float64(totalReverted) / float64(totalPerformed)) * 100
+		pctStale = (float64(totalStaleReports) / float64(totalPerformed)) * 100
 	}
 
 	err = keeperReportWriter.Write([]string{"Full Test Summary"})
@@ -115,6 +116,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 		"Total Times Eligible",
 		"Total Performed",
 		"Total Reverted",
+		"Total Stale Reports",
 		"Average Perform Delay",
 		"Median Perform Delay",
 		"90th pct Perform Delay",
@@ -122,22 +124,25 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 		"Max Perform Delay",
 		"Percent Within SLA",
 		"Percent Revert",
+		"Percent Stale",
 	})
 	if err != nil {
 		return err
 	}
-	avg, median, ninetyPct, ninetyNinePct, max := intListStats(allDelays)
+	avg, median, ninetyPct, ninetyNinePct, maxVal := IntListStats(allDelays)
 	err = keeperReportWriter.Write([]string{
 		fmt.Sprint(totalEligibleCount),
 		fmt.Sprint(totalPerformed),
 		fmt.Sprint(totalReverted),
+		fmt.Sprint(totalStaleReports),
 		fmt.Sprintf("%.2f", avg),
 		fmt.Sprint(median),
 		fmt.Sprint(ninetyPct),
 		fmt.Sprint(ninetyNinePct),
-		fmt.Sprint(max),
+		fmt.Sprint(maxVal),
 		fmt.Sprintf("%.2f%%", pctWithinSLA),
 		fmt.Sprintf("%.2f%%", pctReverted),
+		fmt.Sprintf("%.2f%%", pctStale),
 	})
 	if err != nil {
 		return err
@@ -151,7 +156,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 		Int64("Median Perform Delay", median).
 		Int64("90th pct Perform Delay", ninetyPct).
 		Int64("99th pct Perform Delay", ninetyNinePct).
-		Int64("Max Perform Delay", max).
+		Int64("Max Perform Delay", maxVal).
 		Float64("Percent Within SLA", pctWithinSLA).
 		Float64("Percent Reverted", pctReverted).
 		Msg("Calculated Aggregate Results")
@@ -174,7 +179,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 	}
 
 	for contractIndex, report := range k.Reports {
-		avg, median, ninetyPct, ninetyNinePct, max := intListStats(report.AllCheckDelays)
+		avg, median, ninetyPct, ninetyNinePct, maxVal = IntListStats(report.AllCheckDelays)
 		err = keeperReportWriter.Write([]string{
 			fmt.Sprint(contractIndex),
 			report.RegistryAddress,
@@ -185,7 +190,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 			fmt.Sprint(median),
 			fmt.Sprint(ninetyPct),
 			fmt.Sprint(ninetyNinePct),
-			fmt.Sprint(max),
+			fmt.Sprint(maxVal),
 			fmt.Sprintf("%.2f%%", (1.0-float64(report.TotalSLAMissedUpkeeps)/float64(report.TotalEligibleCount))*100),
 		})
 		if err != nil {
@@ -210,14 +215,17 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 		"median": median,
 		"90p":    ninetyPct,
 		"99p":    ninetyNinePct,
-		"max":    max,
+		"max":    maxVal,
 	}
 	k.Summary.Metrics.PercentWithinSLA = pctWithinSLA
 	k.Summary.Metrics.PercentRevert = pctReverted
 	k.Summary.Metrics.TotalTimesEligible = totalEligibleCount
 	k.Summary.Metrics.TotalTimesPerformed = totalPerformed
-	k.Summary.Metrics.AverageActualPerformsPerBlock = float64(totalPerformed) / float64(k.Summary.TestInputs["BlockRange"].(int64))
-
+	k.Summary.Metrics.TotalStaleReports = totalStaleReports
+	k.Summary.Metrics.PercentStale = pctStale
+	if k.Summary.TestInputs["BlockRange"] != nil {
+		k.Summary.Metrics.AverageActualPerformsPerBlock = float64(totalPerformed) / float64(k.Summary.TestInputs["BlockRange"].(int64))
+	}
 	// TODO: Set test expectations
 	/* Expect(int64(pctWithinSLA)).Should(BeNumerically(">=", int64(80)), "Expected PercentWithinSLA to be greater than or equal to 80, but got %f", pctWithinSLA)
 	Expect(int64(pctReverted)).Should(BeNumerically("<=", int64(10)), "Expected PercentRevert to be less than or equal to 10, but got %f", pctReverted)
@@ -238,7 +246,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 }
 
 // SendSlackNotification sends a slack notification on the results of the test
-func (k *KeeperBenchmarkTestReporter) SendSlackNotification(t *testing.T, slackClient *slack.Client) error {
+func (k *KeeperBenchmarkTestReporter) SendSlackNotification(t *testing.T, slackClient *slack.Client, grafanaUrlProvider testreporters.GrafanaURLProvider) error {
 	if slackClient == nil {
 		slackClient = slack.New(testreporters.SlackAPIKey)
 	}
@@ -256,45 +264,54 @@ func (k *KeeperBenchmarkTestReporter) SendSlackNotification(t *testing.T, slackC
 		return err
 	}
 
-	formattedDashboardUrl := fmt.Sprintf("%s&from=%d&to=%d&var-namespace=%s&var-cl_node=chainlink-0-0", DashboardUrl, k.Summary.StartTime, k.Summary.EndTime, k.namespace)
-	log.Info().Str("Dashboard", formattedDashboardUrl).Msg("Dashboard URL")
+	grafanaUrl, err := grafanaUrlProvider.GetGrafanaBaseURL()
+	if err != nil {
+		return err
+	}
 
-	if err := testreporters.UploadSlackFile(slackClient, slack.FileUploadParameters{
+	dashboardUrl, err := grafanaUrlProvider.GetGrafanaDashboardURL()
+	if err != nil {
+		return err
+	}
+
+	formattedDashboardURL := fmt.Sprintf("%s%s?from=%d&to=%d&var-namespace=%s&var-cl_node=chainlink-0-0", grafanaUrl, dashboardUrl, k.Summary.StartTime, k.Summary.EndTime, k.namespace)
+	log.Info().Str("Dashboard", formattedDashboardURL).Msg("Dashboard URL")
+
+	if err := testreporters.UploadSlackFile(slackClient, slack.UploadFileV2Parameters{
 		Title:           fmt.Sprintf("Automation Benchmark Test Summary %s", k.namespace),
-		Filetype:        "json",
 		Filename:        fmt.Sprintf("automation_benchmark_summary_%s.json", k.namespace),
 		File:            k.keeperSummaryFile,
-		InitialComment:  fmt.Sprintf("Automation Benchmark Test Summary %s.\n<%s|Test Dashboard> ", k.namespace, formattedDashboardUrl),
-		Channels:        []string{testreporters.SlackChannel},
+		InitialComment:  fmt.Sprintf("Automation Benchmark Test Summary %s.\n<%s|Test Dashboard> ", k.namespace, formattedDashboardURL),
+		Channel:         testreporters.SlackChannel,
 		ThreadTimestamp: ts,
 	}); err != nil {
 		return err
 	}
 
-	if err := testreporters.UploadSlackFile(slackClient, slack.FileUploadParameters{
+	if err := testreporters.UploadSlackFile(slackClient, slack.UploadFileV2Parameters{
 		Title:           fmt.Sprintf("Automation Benchmark Test Report %s", k.namespace),
-		Filetype:        "csv",
 		Filename:        fmt.Sprintf("automation_benchmark_report_%s.csv", k.namespace),
 		File:            k.keeperReportFile,
 		InitialComment:  fmt.Sprintf("Automation Benchmark Test Report %s", k.namespace),
-		Channels:        []string{testreporters.SlackChannel},
+		Channel:         testreporters.SlackChannel,
 		ThreadTimestamp: ts,
 	}); err != nil {
 		return err
 	}
-	return testreporters.UploadSlackFile(slackClient, slack.FileUploadParameters{
+	return testreporters.UploadSlackFile(slackClient, slack.UploadFileV2Parameters{
 		Title:           fmt.Sprintf("Automation Benchmark Attempted Chainlink Txs %s", k.namespace),
-		Filetype:        "json",
 		Filename:        fmt.Sprintf("attempted_cl_txs_%s.json", k.namespace),
 		File:            k.attemptedTransactionsFile,
 		InitialComment:  fmt.Sprintf("Automation Benchmark Attempted Txs %s", k.namespace),
-		Channels:        []string{testreporters.SlackChannel},
+		Channel:         testreporters.SlackChannel,
 		ThreadTimestamp: ts,
 	})
 }
 
 // intListStats helper calculates some statistics on an int list: avg, median, 90pct, 99pct, max
-func intListStats(in []int64) (float64, int64, int64, int64, int64) {
+//
+//nolint:revive
+func IntListStats(in []int64) (float64, int64, int64, int64, int64) {
 	length := len(in)
 	if length == 0 {
 		return 0, 0, 0, 0, 0

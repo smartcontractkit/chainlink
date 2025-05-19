@@ -1,0 +1,33 @@
+ChainID = '44787'
+ChainType = 'celo'
+# FT and FD are both present here because the dev effort rely only on FinalityTagEnabled are still in progress.
+# We expect to be able to rely only on FinalityTagEnabled=true in the short future.
+# https://chainlink-core.slack.com/archives/C05CS33N08N/p1715102940763339?thread_ts=1715102478.537529&cid=C05CS33N08N
+FinalityTagEnabled = true
+FinalityDepth = 2750 # mean finality time of ~37 minutes + 500 block buffer
+LogPollInterval = '1s' # 1 sec block rate
+NoNewHeadsThreshold = '1m'
+MinIncomingConfirmations = 1
+NoNewFinalizedHeadsThreshold = '45m' # Set slightly higher than mean finality time
+
+[GasEstimator]
+EIP1559DynamicFees = true
+PriceMin = '5 gwei' # Mean gas price around 5 gwei and celo txns are extremely cheap at ~0.00088 CELO per txn ($0.000058)
+PriceMax = '1000 gwei' # DS&A recommendation
+
+[GasEstimator.BlockHistory]
+# Default is 8, which leads to bumpy gas prices. In CCIP
+# we want to smooth out the gas prices, so we increase the sample size.
+BlockHistorySize = 200
+
+[Transactions]
+ResendAfterThreshold = '30s'
+
+[HeadTracker]
+HistoryDepth = 300
+
+[NodePool]
+SyncThreshold = 10 # recommended for OP stack chains
+
+[OCR]
+ContractConfirmations = 1 # recommended for OP stack chains

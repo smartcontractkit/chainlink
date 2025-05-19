@@ -10,12 +10,12 @@ import (
 	"github.com/slack-go/slack"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 )
 
 type ChainlinkProfileTestReporter struct {
-	Results   []*client.ChainlinkProfileResults
+	Results   []*nodeclient.ChainlinkProfileResults
 	namespace string
 }
 
@@ -54,7 +54,7 @@ func (c *ChainlinkProfileTestReporter) WriteReport(folderLocation string) error 
 }
 
 // SendNotification hasn't been implemented for this test
-func (c *ChainlinkProfileTestReporter) SendSlackNotification(t *testing.T, slackClient *slack.Client) error {
+func (c *ChainlinkProfileTestReporter) SendSlackNotification(_ *testing.T, _ *slack.Client, _ testreporters.GrafanaURLProvider) error {
 	log.Warn().Msg("No Slack notification integration for Chainlink profile tests")
 	return nil
 }

@@ -1,0 +1,51 @@
+[Common]
+# chainlink node funding in native token
+chainlink_node_funding = 2
+
+[Logging]
+test_log_collect = true
+
+[Network]
+selected_networks = ['SEPOLIA', 'AVALANCHE_FUJI', 'BSC_TESTNET']
+
+[Network.EVMNetworks.SEPOLIA]
+evm_name = 'Sepolia Testnet'
+evm_chain_id = 11155111
+evm_simulated = false
+client_implementation = 'Ethereum'
+evm_chainlink_transaction_limit = 5000
+evm_transaction_timeout = '5m'
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 1000
+evm_supports_eip1559 = true
+evm_default_gas_limit = 6000000
+evm_finality_tag = true
+
+[Network.EVMNetworks.AVALANCHE_FUJI]
+evm_name = 'Avalanche Fuji'
+evm_chain_id = 43113
+evm_simulated = false
+client_implementation = 'Ethereum'
+evm_chainlink_transaction_limit = 5000
+evm_transaction_timeout = '2m'
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 1000
+evm_supports_eip1559 = true
+evm_default_gas_limit = 6000000
+evm_finality_tag = true
+
+[Network.EVMNetworks.BSC_TESTNET]
+evm_name = 'BSC Testnet'
+evm_chain_id = 97
+evm_simulated = false
+client_implementation = 'BSC'
+evm_chainlink_transaction_limit = 5000
+evm_transaction_timeout = '2m'
+evm_minimum_confirmations = 3
+evm_gas_estimation_buffer = 0
+evm_supports_eip1559 = true
+evm_default_gas_limit = 6000000
+evm_finality_tag = true
+
+[CCIP]
+HomeChainSelector = '16015286601757825753' # for sepolia

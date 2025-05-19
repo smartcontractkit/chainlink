@@ -1,0 +1,6 @@
+exec chainlink node db migrate
+! stdout .
+stderr 'Migrating database:'
+
+-- testdb.txt --
+CL_DATABASE_URL

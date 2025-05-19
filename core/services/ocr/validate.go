@@ -5,41 +5,47 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	"github.com/multiformats/go-multiaddr"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/libocr/offchainreporting"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	config2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
+type GeneralConfig interface {
+	OCR() coreconfig.OCR
+	Insecure() coreconfig.Insecure
+}
+
 type ValidationConfig interface {
-	ChainType() config.ChainType
-	Dev() bool
-	OCRBlockchainTimeout() time.Duration
-	OCRContractConfirmations() uint16
-	OCRContractPollInterval() time.Duration
-	OCRContractSubscribeInterval() time.Duration
-	OCRContractTransmitterTransmitTimeout() time.Duration
-	OCRDatabaseTimeout() time.Duration
-	OCRKeyBundleID() (string, error)
-	OCRObservationGracePeriod() time.Duration
-	OCRObservationTimeout() time.Duration
-	OCRTransmitterAddress() (ethkey.EIP55Address, error)
-	P2PPeerID() p2pkey.PeerID
-	OCRCaptureEATelemetry() bool
+	ChainType() chaintype.ChainType
+}
+
+type OCRValidationConfig interface {
+	BlockchainTimeout() time.Duration
+	CaptureEATelemetry() bool
+	ContractPollInterval() time.Duration
+	ContractSubscribeInterval() time.Duration
+	KeyBundleID() (string, error)
+	ObservationTimeout() time.Duration
+	TransmitterAddress() (types.EIP55Address, error)
+}
+
+type insecureConfig interface {
+	OCRDevelopmentMode() bool
 }
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
-func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job, error) {
-	return ValidatedOracleSpecTomlCfg(func(id *big.Int) (config2.ChainScopedConfig, error) {
-		c, err := chainSet.Get(id)
+func ValidatedOracleSpecToml(gcfg GeneralConfig, legacyChains legacyevm.LegacyChainContainer, tomlString string) (job.Job, error) {
+	return ValidatedOracleSpecTomlCfg(gcfg, func(id *big.Int) (evmconfig.ChainScopedConfig, error) {
+		c, err := legacyChains.Get(id.String())
 		if err != nil {
 			return nil, err
 		}
@@ -47,7 +53,7 @@ func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job,
 	}, tomlString)
 }
 
-func ValidatedOracleSpecTomlCfg(configFn func(id *big.Int) (config2.ChainScopedConfig, error), tomlString string) (job.Job, error) {
+func ValidatedOracleSpecTomlCfg(gcfg GeneralConfig, configFn func(id *big.Int) (evmconfig.ChainScopedConfig, error), tomlString string) (job.Job, error) {
 	var jb = job.Job{}
 	var spec job.OCROracleSpec
 	tree, err := toml.Load(tomlString)
@@ -77,11 +83,6 @@ func ValidatedOracleSpecTomlCfg(configFn func(id *big.Int) (config2.ChainScopedC
 	if !tree.Has("isBootstrapPeer") {
 		return jb, errors.New("isBootstrapPeer is not defined")
 	}
-	for i := range spec.P2PBootstrapPeers {
-		if _, err = multiaddr.NewMultiaddr(spec.P2PBootstrapPeers[i]); err != nil {
-			return jb, errors.Wrapf(err, "p2p bootstrap peer %v is invalid", spec.P2PBootstrapPeers[i])
-		}
-	}
 
 	if len(spec.P2PV2Bootstrappers) > 0 {
 		_, err = ocrcommon.ParseBootstrapPeers(spec.P2PV2Bootstrappers)
@@ -96,13 +97,13 @@ func ValidatedOracleSpecTomlCfg(configFn func(id *big.Int) (config2.ChainScopedC
 	}
 
 	if spec.IsBootstrapPeer {
-		if err := validateBootstrapSpec(tree, jb); err != nil {
+		if err := validateBootstrapSpec(tree); err != nil {
 			return jb, err
 		}
-	} else if err := validateNonBootstrapSpec(tree, cfg, jb); err != nil {
+	} else if err := validateNonBootstrapSpec(tree, jb, gcfg.OCR().ObservationTimeout()); err != nil {
 		return jb, err
 	}
-	if err := validateTimingParameters(cfg, spec); err != nil {
+	if err := validateTimingParameters(cfg.EVM(), cfg.EVM().OCR(), gcfg.Insecure(), spec, gcfg.OCR()); err != nil {
 		return jb, err
 	}
 	return jb, nil
@@ -125,12 +126,12 @@ var (
 	}
 )
 
-func validateTimingParameters(cfg ValidationConfig, spec job.OCROracleSpec) error {
-	lc := toLocalConfig(cfg, spec)
+func validateTimingParameters(cfg ValidationConfig, evmOcrCfg evmconfig.OCR, insecureCfg insecureConfig, spec job.OCROracleSpec, ocrCfg job.OCRConfig) error {
+	lc := toLocalConfig(cfg, evmOcrCfg, insecureCfg, spec, ocrCfg)
 	return errors.Wrap(offchainreporting.SanityCheckLocalConfig(lc), "offchainreporting.SanityCheckLocalConfig failed")
 }
 
-func validateBootstrapSpec(tree *toml.Tree, spec job.Job) error {
+func validateBootstrapSpec(tree *toml.Tree) error {
 	expected, notExpected := ocrcommon.CloneSet(params), ocrcommon.CloneSet(nonBootstrapParams)
 	for k := range bootstrapParams {
 		expected[k] = struct{}{}
@@ -138,7 +139,7 @@ func validateBootstrapSpec(tree *toml.Tree, spec job.Job) error {
 	return ocrcommon.ValidateExplicitlySetKeys(tree, expected, notExpected, "bootstrap")
 }
 
-func validateNonBootstrapSpec(tree *toml.Tree, config ValidationConfig, spec job.Job) error {
+func validateNonBootstrapSpec(tree *toml.Tree, spec job.Job, ocrObservationTimeout time.Duration) error {
 	expected, notExpected := ocrcommon.CloneSet(params), ocrcommon.CloneSet(bootstrapParams)
 	for k := range nonBootstrapParams {
 		expected[k] = struct{}{}
@@ -153,7 +154,7 @@ func validateNonBootstrapSpec(tree *toml.Tree, config ValidationConfig, spec job
 	if spec.OCROracleSpec.ObservationTimeout != 0 {
 		observationTimeout = spec.OCROracleSpec.ObservationTimeout.Duration()
 	} else {
-		observationTimeout = config.OCRObservationTimeout()
+		observationTimeout = ocrObservationTimeout
 	}
 	if time.Duration(spec.MaxTaskDuration) > observationTimeout {
 		return errors.Errorf("max task duration must be < observation timeout")

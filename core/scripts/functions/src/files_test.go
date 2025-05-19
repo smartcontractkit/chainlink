@@ -31,7 +31,6 @@ func Test_writeLines(t *testing.T) {
 			got, err := readLines(pth)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.args.lines, got)
-
 		})
 	}
 }

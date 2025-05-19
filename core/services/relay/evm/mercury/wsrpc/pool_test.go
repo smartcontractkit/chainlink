@@ -9,18 +9,20 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var _ Client = &mockClient{}
 
 type mockClient struct {
-	started bool
-	closed  bool
+	started   bool
+	closed    bool
+	rawClient pb.MercuryClient
 }
 
 func (c *mockClient) Transmit(ctx context.Context, in *pb.TransmitRequest) (out *pb.TransmitResponse, err error) {
@@ -40,18 +42,21 @@ func (c *mockClient) Close() error {
 func (c *mockClient) Name() string                   { return "mock client" }
 func (c *mockClient) Ready() error                   { return nil }
 func (c *mockClient) HealthReport() map[string]error { return nil }
+func (c *mockClient) ServerURL() string              { return "mock client url" }
+func (c *mockClient) RawClient() pb.MercuryClient    { return c.rawClient }
 
 func newMockClient(lggr logger.Logger) *mockClient {
 	return &mockClient{}
 }
 
 func Test_Pool(t *testing.T) {
-	lggr := logger.TestLogger(t).Named("PoolTestLogger")
+	lggr := logger.Sugared(logger.Test(t)).Named("PoolTestLogger")
 
 	ctx := testutils.Context(t)
 
 	t.Run("Checkout", func(t *testing.T) {
 		p := newPool(lggr)
+		p.cacheSet = &mockCacheSet{}
 
 		t.Run("checks out one started client", func(t *testing.T) {
 			clientPrivKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(rand.Int63()))
@@ -59,14 +64,13 @@ func Test_Pool(t *testing.T) {
 			serverURL := "example.com:443/ws"
 
 			client := newMockClient(lggr)
-			p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string) Client {
-				assert.Equal(t, clientPrivKey, cprivk)
-				assert.Equal(t, serverPubKey, spubk)
-				assert.Equal(t, serverURL, surl)
+			p.newClient = func(opts ClientOpts) Client {
+				assert.Equal(t, serverPubKey, opts.ServerPubKey)
+				assert.Equal(t, serverURL, opts.ServerURL)
 				return client
 			}
 
-			c, err := p.Checkout(ctx, clientPrivKey, serverPubKey, serverURL)
+			c, err := p.Checkout(ctx, clientPrivKey.PublicKeyString(), clientPrivKey, serverPubKey, serverURL)
 			require.NoError(t, err)
 
 			assert.True(t, client.started)
@@ -78,7 +82,7 @@ func Test_Pool(t *testing.T) {
 
 			assert.Len(t, conn.checkouts, 1)
 			assert.Same(t, lggr, conn.lggr)
-			assert.Equal(t, clientPrivKey, conn.clientPrivKey)
+			assert.Equal(t, clientPrivKey.PublicKeyString(), conn.clientPubKeyHex)
 			assert.Equal(t, serverPubKey, conn.serverPubKey)
 			assert.Equal(t, serverURL, conn.serverURL)
 			assert.Same(t, p, conn.pool)
@@ -105,8 +109,8 @@ func Test_Pool(t *testing.T) {
 				"example.invalid:8000/ws",
 			}
 
-			p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string) Client {
-				return newMockClient(lggr)
+			p.newClient = func(opts ClientOpts) Client {
+				return newMockClient(opts.Logger)
 			}
 
 			// conn 1
@@ -199,6 +203,7 @@ func Test_Pool(t *testing.T) {
 	})
 
 	p := newPool(lggr)
+	p.cacheSet = &mockCacheSet{}
 
 	t.Run("Name", func(t *testing.T) {
 		assert.Equal(t, "PoolTestLogger", p.Name())
@@ -220,8 +225,8 @@ func Test_Pool(t *testing.T) {
 		}
 
 		var clients []*mockClient
-		p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string) Client {
-			c := newMockClient(lggr)
+		p.newClient = func(opts ClientOpts) Client {
+			c := newMockClient(opts.Logger)
 			clients = append(clients, c)
 			return c
 		}
@@ -253,8 +258,8 @@ func Test_Pool(t *testing.T) {
 	})
 }
 
-func mustCheckout(t *testing.T, p *pool, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string) Client {
-	c, err := p.Checkout(testutils.Context(t), clientPrivKey, serverPubKey, serverURL)
+func mustCheckout(t *testing.T, p *pool, csaKey csakey.KeyV2, serverPubKey []byte, serverURL string) Client {
+	c, err := p.Checkout(testutils.Context(t), csaKey.PublicKeyString(), csaKey, serverPubKey, serverURL)
 	require.NoError(t, err)
 	return c
 }

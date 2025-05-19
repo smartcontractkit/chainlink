@@ -1,13 +1,12 @@
 package fluxmonitorv2
 
 import (
-	"regexp"
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/tomlutils"
 
 	"github.com/stretchr/testify/assert"
@@ -16,9 +15,12 @@ import (
 
 type testcfg struct{}
 
-func (testcfg) DefaultHTTPTimeout() models.Duration { return models.MustMakeDuration(2 * time.Second) }
+func (testcfg) DefaultHTTPTimeout() commonconfig.Duration {
+	return *commonconfig.MustNewDuration(2 * time.Second)
+}
 
 func TestValidate(t *testing.T) {
+	t.Parallel()
 	var tt = []struct {
 		name      string
 		toml      string
@@ -71,13 +73,13 @@ answer1 [type=median index=0];
 				assert.Equal(t, "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42", j.FluxMonitorSpec.ContractAddress.String())
 				assert.Equal(t, tomlutils.Float32(0.5), spec.Threshold)
 				assert.Equal(t, tomlutils.Float32(0), spec.AbsoluteThreshold)
-				assert.Equal(t, true, spec.IdleTimerDisabled)
+				assert.True(t, spec.IdleTimerDisabled)
 				assert.Equal(t, 1*time.Minute, spec.PollTimerPeriod)
-				assert.Equal(t, false, spec.PollTimerDisabled)
-				assert.Equal(t, true, spec.DrumbeatEnabled)
+				assert.False(t, spec.PollTimerDisabled)
+				assert.True(t, spec.DrumbeatEnabled)
 				assert.Equal(t, "@every 1m", spec.DrumbeatSchedule)
 				assert.Equal(t, 10*time.Second, spec.DrumbeatRandomDelay)
-				assert.Equal(t, false, spec.PollTimerDisabled)
+				assert.False(t, spec.PollTimerDisabled)
 				assert.Equal(t, assets.NewLinkFromJuels(1000000000000000000), spec.MinPayment)
 				assert.NotZero(t, j.Pipeline)
 			},
@@ -107,7 +109,7 @@ ds1 -> ds1_parse;
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Nil(t, s.FluxMonitorSpec)
 				require.Error(t, err)
-				assert.Regexp(t, regexp.MustCompile("^.*is not a valid EIP55 formatted address$"), err.Error())
+				assert.Regexp(t, "^.*is not a valid EIP55 formatted address$", err.Error())
 			},
 		},
 		{

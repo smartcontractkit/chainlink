@@ -1,0 +1,24 @@
+server:
+  http_listen_port: 3200
+
+distributor:
+  receivers:                           
+    otlp:
+      protocols:
+        http:
+        grpc:
+
+ingester:
+  max_block_duration: 5m      # cut the headblock when this much time passes. this is being set for demo purposes and should probably be left alone normally
+
+compactor:
+  compaction:
+    block_retention: 1h       # overall Tempo trace retention. set for demo purposes
+
+storage:
+  trace:
+    backend: local            # backend configuration to use
+    wal:
+      path: /tmp/tempo/wal    # where to store the wal locally
+    local:
+      path: /tmp/tempo/blocks

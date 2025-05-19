@@ -1,0 +1,23 @@
+ChainID = '59902'
+# FT and FD are both present here because the dev effort rely only on FinalityTagEnabled are still in progress.
+# We expect to be able to rely only on FinalityTagEnabled=true in the short future.
+# https://chainlink-core.slack.com/archives/C05CS33N08N/p1715102940763339?thread_ts=1715102478.537529&cid=C05CS33N08N
+FinalityDepth = 3000
+FinalityTagEnabled = true
+MinIncomingConfirmations = 1
+NoNewHeadsThreshold = '0'
+OCR.ContractConfirmations = 1
+
+[GasEstimator]
+Mode = 'SuggestedPrice'
+PriceMin = '0'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 0
+
+[NodePool]
+SyncThreshold = 10
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'

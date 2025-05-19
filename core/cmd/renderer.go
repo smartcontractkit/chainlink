@@ -132,8 +132,8 @@ func renderList(fields []string, items [][]string, writer io.Writer) {
 		}
 		itemsRendered = append(itemsRendered, strings.Join(lines, "\n"))
 	}
-	divider := strings.Repeat("-", maxLineLength)
-	listRendered := divider + "\n" + strings.Join(itemsRendered, "\n"+divider+"\n")
+	divider := "\n" + strings.Repeat("-", maxLineLength) + "\n"
+	listRendered := divider + strings.Join(itemsRendered, divider) + divider
 	_, err := writer.Write([]byte(listRendered))
 	if err != nil {
 		// Handles errcheck

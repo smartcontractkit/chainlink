@@ -1,24 +1,24 @@
 package keystore
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 )
-
-//go:generate mockery --quiet --name Cosmos --output ./mocks/ --case=underscore --filename cosmos.go
 
 type Cosmos interface {
 	Get(id string) (cosmoskey.Key, error)
 	GetAll() ([]cosmoskey.Key, error)
-	Create() (cosmoskey.Key, error)
-	Add(key cosmoskey.Key) error
-	Delete(id string) (cosmoskey.Key, error)
-	Import(keyJSON []byte, password string) (cosmoskey.Key, error)
+	Create(ctx context.Context) (cosmoskey.Key, error)
+	Add(ctx context.Context, key cosmoskey.Key) error
+	Delete(ctx context.Context, id string) (cosmoskey.Key, error)
+	Import(ctx context.Context, keyJSON []byte, password string) (cosmoskey.Key, error)
 	Export(id string, password string) ([]byte, error)
-	EnsureKey() error
+	EnsureKey(ctx context.Context) error
 }
 
 type cosmos struct {
@@ -54,17 +54,17 @@ func (ks *cosmos) GetAll() (keys []cosmoskey.Key, _ error) {
 	return keys, nil
 }
 
-func (ks *cosmos) Create() (cosmoskey.Key, error) {
+func (ks *cosmos) Create(ctx context.Context) (cosmoskey.Key, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
 		return cosmoskey.Key{}, ErrLocked
 	}
 	key := cosmoskey.New()
-	return key, ks.safeAddKey(key)
+	return key, ks.safeAddKey(ctx, key)
 }
 
-func (ks *cosmos) Add(key cosmoskey.Key) error {
+func (ks *cosmos) Add(ctx context.Context, key cosmoskey.Key) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -73,10 +73,10 @@ func (ks *cosmos) Add(key cosmoskey.Key) error {
 	if _, found := ks.keyRing.Cosmos[key.ID()]; found {
 		return fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return ks.safeAddKey(key)
+	return ks.safeAddKey(ctx, key)
 }
 
-func (ks *cosmos) Delete(id string) (cosmoskey.Key, error) {
+func (ks *cosmos) Delete(ctx context.Context, id string) (cosmoskey.Key, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -86,11 +86,11 @@ func (ks *cosmos) Delete(id string) (cosmoskey.Key, error) {
 	if err != nil {
 		return cosmoskey.Key{}, err
 	}
-	err = ks.safeRemoveKey(key)
+	err = ks.safeRemoveKey(ctx, key)
 	return key, err
 }
 
-func (ks *cosmos) Import(keyJSON []byte, password string) (cosmoskey.Key, error) {
+func (ks *cosmos) Import(ctx context.Context, keyJSON []byte, password string) (cosmoskey.Key, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -103,7 +103,7 @@ func (ks *cosmos) Import(keyJSON []byte, password string) (cosmoskey.Key, error)
 	if _, found := ks.keyRing.Cosmos[key.ID()]; found {
 		return cosmoskey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.keyManager.safeAddKey(key)
+	return key, ks.keyManager.safeAddKey(ctx, key)
 }
 
 func (ks *cosmos) Export(id string, password string) ([]byte, error) {
@@ -119,7 +119,7 @@ func (ks *cosmos) Export(id string, password string) ([]byte, error) {
 	return key.ToEncryptedJSON(password, ks.scryptParams)
 }
 
-func (ks *cosmos) EnsureKey() error {
+func (ks *cosmos) EnsureKey(ctx context.Context) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -134,12 +134,8 @@ func (ks *cosmos) EnsureKey() error {
 
 	ks.logger.Infof("Created Cosmos key with ID %s", key.ID())
 
-	return ks.safeAddKey(key)
+	return ks.safeAddKey(ctx, key)
 }
-
-var (
-	ErrNoCosmosKey = errors.New("no cosmos keys exist")
-)
 
 func (ks *cosmos) getByID(id string) (cosmoskey.Key, error) {
 	key, found := ks.keyRing.Cosmos[id]
@@ -147,4 +143,39 @@ func (ks *cosmos) getByID(id string) (cosmoskey.Key, error) {
 		return cosmoskey.Key{}, KeyNotFoundError{ID: id, KeyType: "Cosmos"}
 	}
 	return key, nil
+}
+
+// CosmosLoopSigner implements the [github.com/smartcontractkit/chainlink-common/pkg/loop.Keystore] interface and
+// handles signing for Cosmos messages.
+type CosmosLoopSigner struct {
+	Cosmos
+}
+
+var _ loop.Keystore = &CosmosLoopSigner{}
+
+func (lk *CosmosLoopSigner) Sign(ctx context.Context, id string, hash []byte) ([]byte, error) {
+	k, err := lk.Get(id)
+	if err != nil {
+		return nil, err
+	}
+	// loopp spec requires passing nil hash to check existence of id
+	if hash == nil {
+		return nil, nil
+	}
+
+	return k.Sign(hash)
+}
+
+func (lk *CosmosLoopSigner) Accounts(ctx context.Context) ([]string, error) {
+	keys, err := lk.GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	accounts := []string{}
+	for _, k := range keys {
+		accounts = append(accounts, k.ID())
+	}
+
+	return accounts, nil
 }

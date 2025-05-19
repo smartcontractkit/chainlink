@@ -1,15 +1,17 @@
 package log
 
 import (
+	"context"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
 var _ Listener = testListener{}
@@ -18,15 +20,15 @@ type testListener struct {
 	jobID int32
 }
 
-func (tl testListener) JobID() int32        { return tl.jobID }
-func (tl testListener) HandleLog(Broadcast) { panic("not implemented") }
+func (tl testListener) JobID() int32                         { return tl.jobID }
+func (tl testListener) HandleLog(context.Context, Broadcast) { panic("not implemented") }
 
 func newTestListener(t *testing.T, jobID int32) testListener {
 	return testListener{jobID}
 }
 
 func newTestRegistrations(t *testing.T) *registrations {
-	return newRegistrations(logger.TestLogger(t), *testutils.FixtureChainID)
+	return newRegistrations(logger.Test(t), *testutils.FixtureChainID)
 }
 
 func newTopic() Topic {
@@ -49,8 +51,7 @@ func TestUnit_Registrations_InvariantViolations(t *testing.T) {
 
 	// Different subscriber same jobID/contract address is not ok
 	assert.Panics(t, func() {
-		opts := ListenerOpts{Contract: contractAddr, MinIncomingConfirmations: 1}
-		subError := &subscriber{l, opts}
+		subError := &subscriber{l, ListenerOpts{Contract: contractAddr, MinIncomingConfirmations: 1}}
 
 		r.addSubscriber(subError)
 	})

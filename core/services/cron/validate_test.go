@@ -1,7 +1,6 @@
 package cron_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/manyminds/api2go/jsonapi"
@@ -56,7 +55,7 @@ ds -> ds_parse -> ds_multiply;
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
-				assert.True(t, strings.Contains(err.Error(), "cron schedule must specify a time zone using CRON_TZ"))
+				assert.Contains(t, err.Error(), "cron schedule must specify a time zone using CRON_TZ")
 			},
 		},
 		{
@@ -74,7 +73,7 @@ ds -> ds_parse -> ds_multiply;
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
-				assert.True(t, strings.Contains(err.Error(), "invalid cron schedule"))
+				assert.Contains(t, err.Error(), "invalid cron schedule")
 			},
 		},
 	}

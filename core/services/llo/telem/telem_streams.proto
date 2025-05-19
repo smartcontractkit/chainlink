@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/llo/telem";
+
+package telem;
+
+message LLOBridgeTelemetry {
+    string bridge_adapter_name = 1;
+    bytes bridge_request_data = 2;
+    bytes bridge_response_data = 3;
+    optional string bridge_response_error = 4;
+    int32 bridge_response_status_code = 5;
+    int64 request_start_timestamp=6;
+    int64 request_finish_timestamp=7;
+    bool local_cache_hit = 8;
+
+    int32 spec_id = 9;
+    optional uint32 stream_id = 10;
+    string dot_id = 11;
+    uint32 don_id = 12;
+    uint64 seq_nr = 13;
+    bytes config_digest = 14;
+
+    int64 observation_timestamp = 15;
+}
+
+// LLOObservationTelemetry packet sent for each stream on every call to
+// Observation (once per round)
+message LLOObservationTelemetry {
+    uint32 stream_id = 1;
+    int32 stream_value_type = 2;
+    bytes stream_value_binary = 3;
+    string stream_value_text = 4;
+    optional string observation_error = 5;
+    int64 observation_timestamp = 6;
+    int64 observation_finished_at = 7;
+    uint32 don_id = 8;
+    uint64 seq_nr = 9;
+    bytes config_digest = 10;
+}

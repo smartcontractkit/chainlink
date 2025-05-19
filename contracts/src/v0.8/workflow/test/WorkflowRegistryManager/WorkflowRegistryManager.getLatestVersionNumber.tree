@@ -1,0 +1,5 @@
+WorkflowRegistryManager.getLatestVersionNumber
+├── when no versions have been registered
+│   └── it should revert with NoVersionsRegistered
+└── when versions have been registered
+    └── it should return the latest registered version number
