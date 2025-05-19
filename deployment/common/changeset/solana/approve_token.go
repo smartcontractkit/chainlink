@@ -89,10 +89,10 @@ func preconditionsApproveToken(e cldf.Environment, cfg ApproveTokenConfig) error
 		return fmt.Errorf("failed to get chain state for selector %d", cfg.ChainSelector)
 	}
 
-	if cfg.AddressToApprove == (solana.PublicKey{}) {
+	if cfg.AddressToApprove.Equals(solana.PublicKey{}) {
 		return errors.New("address to approve is not set")
 	}
-	if cfg.TokenProgram == (solana.PublicKey{}) {
+	if cfg.TokenProgram.Equals(solana.PublicKey{}) {
 		return errors.New("token program is not set")
 	}
 
