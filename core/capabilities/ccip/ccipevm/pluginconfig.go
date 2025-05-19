@@ -10,7 +10,7 @@ import (
 const defaultCommitGasLimit = 500_000
 
 // InitializePluginConfig returns a PluginConfig for EVM chains.
-func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraDataCodecProvider) ccipcommon.PluginConfig {
+func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraDataCodec) ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{
 		CommitPluginCodec:          NewCommitPluginCodecV1(),
 		ExecutePluginCodec:         NewExecutePluginCodecV1(extraDataCodec),
@@ -20,7 +20,7 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraD
 		RMNCrypto:                  NewEVMRMNCrypto(lggr.Named(chainsel.FamilyEVM).Named("RMNCrypto")),
 		ContractTransmitterFactory: ocrimpls.NewEVMContractTransmitterFactory(extraDataCodec),
 		ChainRW:                    ChainCWProvider{},
-		ExtraDataCodec:             ExtraDataCodec{},
+		ExtraDataCodec:             EVMExtraDataCodec{},
 		AddressCodec:               AddressCodec{},
 	}
 }

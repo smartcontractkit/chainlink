@@ -35,9 +35,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var extraDataCodec = ccipcommon.ExtraDataCodecProvider(map[string]ccipcommon.SourceChainExtraDataCodec{
-	chainsel.FamilyEVM:    ExtraDataCodec{},
-	chainsel.FamilySolana: ccipsolana.ExtraDataCodec{},
+var extraDataCodec = ccipcommon.ExtraDataCodec(map[string]ccipcommon.SourceChainExtraDataCodec{
+	chainsel.FamilyEVM:    EVMExtraDataCodec{},
+	chainsel.FamilySolana: ccipsolana.SolanaExtraDataCodec{},
 })
 
 // NOTE: these test cases are only EVM <-> EVM.

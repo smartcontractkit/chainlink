@@ -29,12 +29,12 @@ type PluginConfig struct {
 type PluginServices struct {
 	PluginConfig   PluginConfig
 	AddrCodec      AddressCodec
-	ExtraDataCodec ExtraDataCodecProvider
+	ExtraDataCodec ExtraDataCodec
 	ChainRW        MultiChainRW
 }
 
 // InitFunction defines a function to initialize a PluginConfig.
-type InitFunction func(logger.Logger, ExtraDataCodecProvider) PluginConfig
+type InitFunction func(logger.Logger, ExtraDataCodec) PluginConfig
 
 var registeredFactories = make(map[string]InitFunction)
 
@@ -51,7 +51,7 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 	}
 
 	pluginServices := PluginServices{
-		ExtraDataCodec: make(ExtraDataCodecProvider), // lazy initialize it after factory init call
+		ExtraDataCodec: make(ExtraDataCodec), // lazy initialize it after factory init call
 	}
 
 	addressCodecMap := make(map[string]ChainSpecificAddressCodec)

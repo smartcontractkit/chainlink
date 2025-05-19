@@ -40,11 +40,11 @@ type SVMExecCallArgs struct {
 
 // SVMContractTransmitterFactory implements the transmitter factory for SVM chains.
 type SVMContractTransmitterFactory struct {
-	extraDataCodec ccipcommon.ExtraDataCodecProvider
+	extraDataCodec ccipcommon.ExtraDataCodec
 }
 
 // NewSVMContractTransmitterFactory returns a new SVMContractTransmitterFactory.
-func NewSVMContractTransmitterFactory(extraDataCodec ccipcommon.ExtraDataCodecProvider) *SVMContractTransmitterFactory {
+func NewSVMContractTransmitterFactory(extraDataCodec ccipcommon.ExtraDataCodec) *SVMContractTransmitterFactory {
 	return &SVMContractTransmitterFactory{
 		extraDataCodec: extraDataCodec,
 	}
@@ -56,7 +56,7 @@ var SVMExecCalldataFunc = func(
 	report ocr3types.ReportWithInfo[[]byte],
 	_, _ [][32]byte,
 	_ [32]byte,
-	extraDataCodec ccipcommon.ExtraDataCodecProvider,
+	extraDataCodec ccipcommon.ExtraDataCodec,
 ) (contract string, method string, args any, err error) {
 	var info ccipocr3.ExecuteReportInfo
 	if len(report.Info) != 0 {
@@ -93,7 +93,7 @@ func NewSVMCommitCalldataFunc(defaultMethod, priceOnlyMethod string) ToCalldataF
 		report ocr3types.ReportWithInfo[[]byte],
 		rs, ss [][32]byte,
 		vs [32]byte,
-		_ ccipcommon.ExtraDataCodecProvider,
+		_ ccipcommon.ExtraDataCodec,
 	) (string, string, any, error) {
 		var info ccipocr3.CommitReportInfo
 		if len(report.Info) != 0 {
@@ -125,7 +125,7 @@ func NewSVMCommitCalldataFunc(defaultMethod, priceOnlyMethod string) ToCalldataF
 }
 
 // decodeExecData decodes the extra data from an execute report.
-func decodeExecData(report ccipocr3.ExecuteReportInfo, codec ccipcommon.ExtraDataCodecProvider) (ccipcommon.ExtraDataDecoded, error) {
+func decodeExecData(report ccipocr3.ExecuteReportInfo, codec ccipcommon.ExtraDataCodec) (ccipcommon.ExtraDataDecoded, error) {
 	// only one report one message, since this is a stop-gap solution for solana
 	if len(report.AbstractReports) != 1 {
 		return ccipcommon.ExtraDataDecoded{}, fmt.Errorf("unexpected report length, expected 1, got %d", len(report.AbstractReports))

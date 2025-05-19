@@ -190,9 +190,9 @@ func abiEncodeUint32(data uint32) ([]byte, error) {
 
 // Test EVM -> SVM extra data decoding in contract transmitter
 func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
-	extraDataCodec := ccipcommon.ExtraDataCodecProvider(map[string]ccipcommon.SourceChainExtraDataCodec{
-		chainsel.FamilyEVM:    ccipevm.ExtraDataCodec{},
-		chainsel.FamilySolana: ccipsolana.ExtraDataCodec{},
+	extraDataCodec := ccipcommon.ExtraDataCodec(map[string]ccipcommon.SourceChainExtraDataCodec{
+		chainsel.FamilyEVM:    ccipevm.EVMExtraDataCodec{},
+		chainsel.FamilySolana: ccipsolana.SolanaExtraDataCodec{},
 	})
 	t.Run("fails when multiple reports are included", func(t *testing.T) {
 		reports := []ccipocr3.ExecutePluginReportSingleChain{{}, {}}

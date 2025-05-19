@@ -187,7 +187,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			edc := ccipcommon.ExtraDataCodecProvider(registeredMockExtraDataCodecMap)
+			edc := ccipcommon.ExtraDataCodec(registeredMockExtraDataCodecMap)
 			codec := NewExecutePluginCodecV1(edc)
 			report := tc.report(randomExecuteReport(t, d, tc.chainSelector, tc.gasLimit, tc.destGasAmount))
 			bytes, err := codec.Encode(ctx, report)

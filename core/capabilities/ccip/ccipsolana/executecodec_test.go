@@ -185,7 +185,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 		chainsel.FamilySolana: mockExtraDataCodec,
 	}
 
-	edc := ccipcommon.ExtraDataCodecProvider(registeredMockExtraDataCodecMap)
+	edc := ccipcommon.ExtraDataCodec(registeredMockExtraDataCodecMap)
 	cd := NewExecutePluginCodecV1(edc)
 
 	for _, tc := range testCases {
@@ -269,7 +269,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 		err = onChainReport.MarshalWithEncoder(encoder)
 		require.NoError(t, err)
 
-		edc := ccipcommon.ExtraDataCodecProvider(registeredMockExtraDataCodecMap)
+		edc := ccipcommon.ExtraDataCodec(registeredMockExtraDataCodecMap)
 		executeCodec := NewExecutePluginCodecV1(edc)
 		decode, err := executeCodec.Decode(testutils.Context(t), buf.Bytes())
 		require.NoError(t, err)
@@ -286,7 +286,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 
 	t.Run("decode Borsh encoded execute report", func(t *testing.T) {
 		ocrReport := randomExecuteReport(t, 124615329519749607)
-		edc := ccipcommon.ExtraDataCodecProvider(registeredMockExtraDataCodecMap)
+		edc := ccipcommon.ExtraDataCodec(registeredMockExtraDataCodecMap)
 		cd := NewExecutePluginCodecV1(edc)
 		encodedReport, err := cd.Encode(testutils.Context(t), ocrReport)
 		require.NoError(t, err)

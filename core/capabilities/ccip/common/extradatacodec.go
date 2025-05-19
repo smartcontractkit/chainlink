@@ -8,11 +8,11 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
-// ExtraDataCodecProvider is a map of chain family to SourceChainExtraDataCodec
-type ExtraDataCodecProvider map[string]SourceChainExtraDataCodec
+// ExtraDataCodec is a map of chain family to SourceChainExtraDataCodec
+type ExtraDataCodec map[string]SourceChainExtraDataCodec
 
 // DecodeExtraArgs reformats bytes into a chain agnostic map[string]any representation for extra args
-func (c ExtraDataCodecProvider) DecodeExtraArgs(extraArgs cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error) {
+func (c ExtraDataCodec) DecodeExtraArgs(extraArgs cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error) {
 	if len(extraArgs) == 0 {
 		// return empty map if extraArgs is empty
 		return nil, nil
@@ -32,7 +32,7 @@ func (c ExtraDataCodecProvider) DecodeExtraArgs(extraArgs cciptypes.Bytes, sourc
 }
 
 // DecodeTokenAmountDestExecData reformats bytes to chain-agnostic map[string]any for tokenAmount DestExecData field
-func (c ExtraDataCodecProvider) DecodeTokenAmountDestExecData(destExecData cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error) {
+func (c ExtraDataCodec) DecodeTokenAmountDestExecData(destExecData cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error) {
 	if len(destExecData) == 0 {
 		// return empty map if destExecData is empty
 		return nil, nil

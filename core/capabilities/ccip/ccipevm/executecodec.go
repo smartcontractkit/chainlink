@@ -19,10 +19,10 @@ import (
 // - "OffRamp 1.6.0"
 type ExecutePluginCodecV1 struct {
 	executeReportMethodInputs abi.Arguments
-	extraDataCodec            ccipcommon.ExtraDataCodecProvider
+	extraDataCodec            ccipcommon.ExtraDataCodec
 }
 
-func NewExecutePluginCodecV1(extraDataCodec ccipcommon.ExtraDataCodecProvider) *ExecutePluginCodecV1 {
+func NewExecutePluginCodecV1(extraDataCodec ccipcommon.ExtraDataCodec) *ExecutePluginCodecV1 {
 	abiParsed, err := abi.JSON(strings.NewReader(offramp.OffRampABI))
 	if err != nil {
 		panic(fmt.Errorf("parse multi offramp abi: %s", err))
