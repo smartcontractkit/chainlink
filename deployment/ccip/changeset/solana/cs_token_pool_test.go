@@ -439,7 +439,7 @@ func TestAddTokenPoolE2EWithoutMcms(t *testing.T) {
 	// evm deployment
 	e, _, err = deployEVMTokenPool(t, e, evmChain)
 	require.NoError(t, err)
-	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	_, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.E2ETokenPool),
 			ccipChangesetSolana.E2ETokenPoolConfig{
