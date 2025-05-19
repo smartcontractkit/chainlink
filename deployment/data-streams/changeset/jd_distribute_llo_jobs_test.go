@@ -7,19 +7,17 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+
 	jdJob "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
-	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
 
 func TestDistributeLLOJobSpecs(t *testing.T) {
@@ -31,19 +29,7 @@ func TestDistributeLLOJobSpecs(t *testing.T) {
 		ShouldDeployLinkToken: false,
 		NumNodes:              2,
 		NumBootstrapNodes:     1,
-		NodeLabels: []*ptypes.Label{
-			{
-				Key:   devenv.LabelProductKey,
-				Value: pointer.To(utils.ProductLabel),
-			},
-			{
-				Key:   devenv.LabelEnvironmentKey,
-				Value: pointer.To(testutil.TestDON.Env),
-			},
-			{
-				Key: utils.DonIdentifier(testutil.TestDON.ID, testutil.TestDON.Name),
-			},
-		},
+		NodeLabels:            testutil.GetNodeLabels(testutil.TestDON.ID, testutil.TestDON.Name, testutil.TestDON.Env),
 	}).Environment
 
 	bootstrapNodeNames, oracleNodeNames := collectNodeNames(t, env, 2, 1)

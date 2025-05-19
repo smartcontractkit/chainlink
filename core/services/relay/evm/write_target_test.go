@@ -23,24 +23,22 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
-	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	gasmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	dftypes "github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds"
 	portypes "github.com/smartcontractkit/chainlink-evm/pkg/report/por"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform"
 
-	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-
 	ocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
+	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	pollermocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -114,7 +112,7 @@ func TestEvmWrite(t *testing.T) {
 	chain := evmmocks.NewChain(t)
 	txManager := txmmocks.NewMockEvmTxManager(t)
 	evmClient := clienttest.NewClient(t)
-	poller := pollermocks.NewLogPoller(t)
+	poller := lpmocks.NewLogPoller(t)
 
 	chain.On("Start", mock.Anything).Return(nil)
 	chain.On("Close").Return(nil)

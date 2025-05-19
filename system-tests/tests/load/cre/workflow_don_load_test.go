@@ -181,7 +181,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	for i := range in.WorkflowDONLoad.Jobs {
 		feedsAddresses[i] = make([]FeedWithStreamID, 0)
 		for streamID := range in.WorkflowDONLoad.Streams {
-			_, id := NewFeedID(t)
+			_, id := NewFeedIDDF2(t)
 			feedsAddresses[i] = append(feedsAddresses[i], FeedWithStreamID{
 				Feed:     id,
 				StreamID: (in.WorkflowDONLoad.Streams * i) + streamID + 1,
@@ -370,9 +370,20 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	mocksClient := mock_capability.NewMockCapabilityController(testLogger)
 	mockClientsAddress := make([]string, 0)
 	if in.Infra.InfraType == "docker" {
-		// TODO: For CTFv2 we should get the ports from the .toml
-		// Need to add addresses manually
-		mockClientsAddress = []string{"127.0.0.1:13401", "127.0.0.1:13402", "127.0.0.1:13403", "127.0.0.1:13404"}
+		for _, nodeSet := range in.NodeSets {
+			if nodeSet.Name == "writer" {
+				for i, n := range nodeSet.NodeSpecs {
+					if i == 0 {
+						continue
+					}
+					if len(n.Node.CustomPorts) == 0 {
+						panic("no custom port specified, mock capability running in kind must have a custom port in order to connect")
+					}
+					ports := strings.Split(n.Node.CustomPorts[0], ":")
+					mockClientsAddress = append(mockClientsAddress, "127.0.0.1:"+ports[0])
+				}
+			}
+		}
 	} else {
 		for i := range setupOutput.nodeOutput[1].CLNodes {
 			// TODO: This is brittle, switch to checking the node label
@@ -418,7 +429,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		Run(false)
 	require.NoError(t, err, "wasp load test did not finish successfully")
 
-	runChaosSuite(t, in)
 	g.Wait()
 }
 
@@ -704,6 +714,7 @@ func saveKeyBundles(keyBundles []ocr2key.KeyBundle) error {
 	}
 
 	for i, kb := range keyBundles {
+		framework.L.Info().Msgf("Saving OCR2 Key ID: %s, OnChainPublicKey: %s", kb.ID(), kb.OnChainPublicKey())
 		bytes, err := kb.Marshal()
 		if err != nil {
 			return fmt.Errorf("failed to marshal key bundle %d: %w", i, err)
@@ -749,10 +760,20 @@ func loadKeyBundlesFromCache() ([]ocr2key.KeyBundle, error) {
 	return keyBundles, nil
 }
 
-func NewFeedID(t *testing.T) ([32]byte, string) {
+// NewFeedIDDF2 creates a random Data Feeds 2.0 format https://docs.google.com/document/d/13ciwTx8lSUfyz1IdETwpxlIVSn1lwYzGtzOBBTpl5Vg/edit?tab=t.0#heading=h.dxx2wwn1dmoz
+func NewFeedIDDF2(t *testing.T) ([32]byte, string) {
 	buf := [32]byte{}
 	_, err := crand.Read(buf[:])
 	require.NoError(t, err, "cannot create feedID")
+	buf[0] = 0x01 // format byte
+	buf[5] = 0x00 // attribute
+	buf[6] = 0x03 // attribute
+	buf[7] = 0x00 // data type byte
+
+	for i := 8; i < 16; i++ {
+		buf[i] = 0x00
+	}
+
 	return buf, "0x" + hex.EncodeToString(buf[:])
 }
 

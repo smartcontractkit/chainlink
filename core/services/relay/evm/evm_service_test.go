@@ -15,8 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
-	pollermocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -28,7 +28,7 @@ func TestEVMService(t *testing.T) {
 	chain := evmmocks.NewChain(t)
 	txManager := txmmocks.NewMockEvmTxManager(t)
 	evmClient := clienttest.NewClient(t)
-	poller := pollermocks.NewLogPoller(t)
+	poller := lpmocks.NewLogPoller(t)
 	ht := headstest.NewTracker[*types.Head](t)
 
 	chain.On("TxManager").Return(txManager).Maybe()

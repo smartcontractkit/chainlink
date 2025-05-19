@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
+	eth_types "github.com/ethereum/go-ethereum/core/types"
 	"github.com/gagliardetto/solana-go"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -104,10 +107,25 @@ func deployLinkTokenContractEVM(
 ) (*cldf.ContractDeploy[*link_token.LinkToken], error) {
 	linkToken, err := cldf.DeployContract[*link_token.LinkToken](lggr, chain, ab,
 		func(chain cldf.Chain) cldf.ContractDeploy[*link_token.LinkToken] {
-			linkTokenAddr, tx, linkToken, err2 := link_token.DeployLinkToken(
-				chain.DeployerKey,
-				chain.Client,
+			var (
+				linkTokenAddr common.Address
+				tx            *eth_types.Transaction
+				linkToken     *link_token.LinkToken
+				err2          error
 			)
+			if !chain.IsZkSyncVM {
+				linkTokenAddr, tx, linkToken, err2 = link_token.DeployLinkToken(
+					chain.DeployerKey,
+					chain.Client,
+				)
+			} else {
+				linkTokenAddr, _, linkToken, err2 = link_token.DeployLinkTokenZk(
+					nil,
+					chain.ClientZkSyncVM,
+					chain.DeployerKeyZkSyncVM,
+					chain.Client,
+				)
+			}
 			return cldf.ContractDeploy[*link_token.LinkToken]{
 				Address:  linkTokenAddr,
 				Contract: linkToken,

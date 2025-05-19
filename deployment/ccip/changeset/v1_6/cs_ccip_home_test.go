@@ -125,7 +125,7 @@ func Test_PromoteCandidate(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
 			var (
@@ -223,7 +223,7 @@ func Test_SetCandidate(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
 			var (
@@ -363,7 +363,7 @@ func Test_RevokeCandidate(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
 			var (
@@ -514,7 +514,7 @@ func Test_UpdateChainConfigs(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
 			ccipHome := state.Chains[tenv.HomeChainSel].CCIPHome
@@ -568,8 +568,8 @@ func Test_UpdateChainConfigs(t *testing.T) {
 						RemoteChainAdds: map[uint64]v1_6.ChainConfig{
 							otherChain: {
 								EncodableChainConfig: chainconfig.ChainConfig{
-									GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
-									DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
+									GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
+									DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
 									OptimisticConfirmations: globals.OptimisticConfirmations,
 								},
 								FChain:  otherChainConfig.FChain,
