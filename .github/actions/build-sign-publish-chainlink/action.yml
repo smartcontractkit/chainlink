@@ -260,7 +260,7 @@ runs:
       name: Sign the published non-root Docker image using keyless method
       shell: sh
       run: |
-        cosign sign "${{ env.nonroot_image_name }}" --yes
+        cosign sign -y "${{ env.nonroot_image_name }}@${{ env.nonroot_image_digest }}"
 
     - if: inputs.verify-signature == 'true'
       name: Verify the signature of the published non-root Docker image using keyless
