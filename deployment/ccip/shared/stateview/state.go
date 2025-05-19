@@ -1059,7 +1059,7 @@ func LoadChainState(ctx context.Context, chain cldf.Chain, addresses map[string]
 				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
 			}
 			state.BurnMintTokens677Helper[ccipshared.TokenSymbol(symbol)] = ERC677HelperToken
-			state.ABIByAddress[address] = burn_mint_erc677_helper.BurnMintERC677HelperAB
+			state.ABIByAddress[address] = burn_mint_erc677_helper.BurnMintERC677HelperABI
 		default:
 			// ManyChainMultiSig 1.0.0 can have any of these labels, it can have either 1,2 or 3 of these -
 			// bypasser, proposer and canceller

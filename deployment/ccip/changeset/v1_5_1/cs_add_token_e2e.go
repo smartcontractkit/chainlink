@@ -104,6 +104,13 @@ type AddTokenE2EConfig struct {
 // It creates the configuration for deploying and configuring token pools and token admin registry.
 // It then validates the configuration.
 func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e cldf.Environment, symbol shared.TokenSymbol, timelockCfg *proposalutils.TimelockConfig, existingPool bool) error {
+
+	c.deployPool = &DeployTokenPoolContractsConfig{
+		TokenSymbol:  symbol,
+		NewPools:     make(map[uint64]DeployTokenPoolInput),
+		IsTestRouter: c.IsTestRouter,
+	}
+
 	// ensuring already existing pool has ownership transferred to MCMs
 	if existingPool {
 		c.ConfigurePools.MCMS = timelockCfg
@@ -113,12 +120,7 @@ func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e cldf.Enviro
 		Pools: make(map[uint64]map[shared.TokenSymbol]TokenPoolInfo),
 	}
 	for chain, poolCfg := range c.PoolConfig {
-		tpCfg := TokenPoolConfig{
-			ChainUpdates:        poolCfg.RateLimiterConfig,
-			Version:             poolCfg.PoolVersion,
-			OverrideTokenSymbol: poolCfg.OverrideTokenSymbol,
-			SolChainUpdates:     poolCfg.SolChainUpdates,
-		}
+		tpCfg := TokenPoolConfig{}
 		poolInfo := TokenPoolInfo{
 			Version:       poolCfg.PoolVersion,
 			ExternalAdmin: poolCfg.ExternalAdmin,
@@ -126,14 +128,8 @@ func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e cldf.Enviro
 
 		if poolCfg.ExistingPoolType == nil {
 			// deploy new tokenPool
-			if poolCfg.DeployPoolConfig != nil {
+			if poolCfg.DeployPoolConfig == nil {
 				return fmt.Errorf("existing pool type must be provided for chain %d, if no deploy pool config is there", chain)
-			}
-
-			c.deployPool = &DeployTokenPoolContractsConfig{
-				TokenSymbol:  symbol,
-				NewPools:     make(map[uint64]DeployTokenPoolInput),
-				IsTestRouter: c.IsTestRouter,
 			}
 
 			c.deployPool.NewPools[chain] = *poolCfg.DeployPoolConfig
