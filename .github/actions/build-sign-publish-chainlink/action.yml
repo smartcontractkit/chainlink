@@ -253,7 +253,7 @@ runs:
       name: Install cosign
       uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
       with:
-        cosign-release: "v1.6.0"
+        cosign-release: "v2.4.0"
 
     # This automatically signs the image with the correct OIDC provider from Github
     - if: inputs.sign-images == 'true'
