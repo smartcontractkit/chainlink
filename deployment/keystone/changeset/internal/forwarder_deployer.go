@@ -81,8 +81,10 @@ type ConfigureForwarderContractsRequest struct {
 	UseMCMS bool
 }
 type ConfigureForwarderContractsResponse struct {
-	ConfiguredForwarderAddresses map[uint64]common.Address
-	OpsPerChain                  map[uint64]mcmstypes.BatchOperation
+	// ForwarderAddresses is a map of chain selector to forwarder contract address that has been configured (non-MCMS),
+	// or will be configured (MCMS).
+	ForwarderAddresses map[uint64]common.Address
+	OpsPerChain        map[uint64]mcmstypes.BatchOperation
 }
 
 // Depreciated: use [changeset.ConfigureForwardContracts] instead
@@ -98,7 +100,7 @@ func ConfigureForwardContracts(env *cldf.Environment, req ConfigureForwarderCont
 	}
 
 	opPerChain := make(map[uint64]mcmstypes.BatchOperation)
-	configuredForwarders := make(map[uint64]common.Address)
+	forwarderAddresses := make(map[uint64]common.Address)
 	// configure forwarders on all chains
 	for _, chain := range env.Chains {
 		if _, shouldInclude := req.Chains[chain.Selector]; len(req.Chains) > 0 && !shouldInclude {
@@ -116,10 +118,10 @@ func ConfigureForwardContracts(env *cldf.Environment, req ConfigureForwarderCont
 		for k, op := range ops {
 			opPerChain[k] = op
 		}
-		configuredForwarders[chain.Selector] = contracts.Forwarder.Address()
+		forwarderAddresses[chain.Selector] = contracts.Forwarder.Address()
 	}
 	return &ConfigureForwarderContractsResponse{
-		ConfiguredForwarderAddresses: configuredForwarders,
-		OpsPerChain:                  opPerChain,
+		ForwarderAddresses: forwarderAddresses,
+		OpsPerChain:        opPerChain,
 	}, nil
 }

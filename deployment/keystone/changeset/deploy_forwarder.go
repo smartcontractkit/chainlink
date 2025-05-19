@@ -135,7 +135,7 @@ func ConfigureForwardContracts(env cldf.Environment, req ConfigureForwardContrac
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		for chainSelector, op := range r.OpsPerChain {
-			fwrAddr, ok := r.ConfiguredForwarderAddresses[chainSelector]
+			fwrAddr, ok := r.ForwarderAddresses[chainSelector]
 			if !ok {
 				return out, fmt.Errorf("expected configured forwarder address for chain selector %d", chainSelector)
 			}
