@@ -3,11 +3,12 @@ package capabilities
 import (
 	"crypto/rand"
 
+	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
-	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 )
 
 func randomWord() [32]byte {
