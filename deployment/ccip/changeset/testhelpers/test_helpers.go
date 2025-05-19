@@ -1397,6 +1397,7 @@ func DeployTransferableTokenSolana(
 				PoolType:        &bnm,
 				TokenPubKey:     solTokenAddress,
 				WritableIndexes: []uint8{3, 4, 7},
+				Metadata:        shared.CLLMetadata,
 			},
 		),
 	)
