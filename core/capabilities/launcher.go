@@ -125,18 +125,66 @@ func NewLauncher(
 // Returns boolean as:
 //   - true: filter out
 //   - false: keep
-func filterDon2Don(myDON capabilities.DON, d registrysyncer.DON) bool {
+func filterDon2Don(logger logger.Logger, isCapabilityDON bool, isWorkflowDON bool, d registrysyncer.DON) bool {
 	// Below logic is based on identification who is who using a workflow acceptance flag:
 	//  d.DON.AcceptsWorkflows == true
-	//
-	// We identify 3 cases from the perspective of the node:
-	//  - if I'm workflow DON my peers should be only capability DONs
-	//  - if I'm capability my peers should only be workflow DONs
-	//  - if I'm both workflow & capability DON I am like being a workflow DON and connect only to capability DONs
-	if (myDON.AcceptsWorkflows && d.DON.AcceptsWorkflows) || (!myDON.AcceptsWorkflows && !d.DON.AcceptsWorkflows) {
+	// We identify few cases from the perspective of the node:
+	if isCapabilityDON && isWorkflowDON {
+		// as both workflow & capability DON let's just connect to anything
+		return false
+	}
+	if !isCapabilityDON && !isWorkflowDON {
+		// as none of workflow & capability DON don't use bandwidth
+		return true
+	}
+	if isWorkflowDON && d.DON.AcceptsWorkflows {
+		logger.Debugw("filterDon2Don: as a workflow DON my peers should be only capability DONs - filtering out", "DON.ID", d.ID)
+		return true
+	}
+	if isCapabilityDON && !d.DON.AcceptsWorkflows {
+		logger.Debugw("filterDon2Don: as a capability DON my peers should only be workflow DONs - filtering out", "DON.ID", d.ID)
 		return true // filter out
 	}
 	return false // keep
+}
+
+func (w *launcher) identifyPeers(isCapabilityDON bool, isWorkflowDON bool, allDONIDs []registrysyncer.DonID, state *registrysyncer.LocalRegistry) map[ragetypes.PeerID]p2ptypes.StreamConfig {
+	allPeers := make(map[ragetypes.PeerID]p2ptypes.StreamConfig)
+	for _, id := range allDONIDs {
+		d := state.IDsToDONs[id]
+		if !d.DON.IsPublic {
+			continue
+		}
+		if filterDon2Don(w.lggr, isCapabilityDON, isWorkflowDON, d) {
+			continue
+		}
+		for _, nid := range d.DON.Members {
+			allPeers[nid] = defaultStreamConfig
+		}
+
+	}
+	return allPeers
+}
+
+func (w *launcher) identifyPublicDONs(allDONIDs []registrysyncer.DonID, state *registrysyncer.LocalRegistry) []registrysyncer.DON {
+	publicDONs := make([]registrysyncer.DON, 0)
+	for _, id := range allDONIDs {
+		d := state.IDsToDONs[id]
+		if !d.DON.IsPublic {
+			continue
+		}
+		publicDONs = append(publicDONs, d)
+	}
+	return publicDONs
+}
+
+func (w *launcher) identifyAllDONs(state *registrysyncer.LocalRegistry) []registrysyncer.DonID {
+	allDONIDs := make([]registrysyncer.DonID, 0)
+	for id := range state.IDsToDONs {
+		allDONIDs = append(allDONIDs, id)
+	}
+	slices.Sort(allDONIDs) // ensure deterministic order
+	return allDONIDs
 }
 
 func (w *launcher) Start(ctx context.Context) error {
@@ -169,48 +217,13 @@ func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegist
 	w.lggr.Debug("CapabilitiesLauncher triggered...")
 	w.registry.SetLocalRegistry(state)
 
-	allDONIDs := []registrysyncer.DonID{}
-	for id := range state.IDsToDONs {
-		allDONIDs = append(allDONIDs, id)
-	}
-	slices.Sort(allDONIDs) // ensure deterministic order
+	allDONIDs := w.identifyAllDONs(state)
 
 	// Let's start by updating the list of Peers
 	// We do this by creating a new entry for each node belonging
 	// to a public DON.
 	// We also add the hardcoded peers determined by the NetworkSetup.
-	allPeers := make(map[ragetypes.PeerID]p2ptypes.StreamConfig)
-
-	publicDONs := []registrysyncer.DON{}
-
-	myDON := state.IDsToDONs[registrysyncer.DonID(
-		state.IDsToNodes[w.peerWrapper.GetPeer().ID()].WorkflowDONId,
-	)].DON
-
-	for _, id := range allDONIDs {
-		d := state.IDsToDONs[id]
-		if !d.DON.IsPublic {
-			continue
-		}
-
-		if filterDon2Don(myDON, d) {
-			continue
-		}
-
-		publicDONs = append(publicDONs, d)
-
-		for _, nid := range d.DON.Members {
-			allPeers[nid] = defaultStreamConfig
-		}
-	}
-
-	// TODO: be a bit smarter about who we connect to; we should ideally only
-	// be connecting to peers when we need to.
-	// https://smartcontract-it.atlassian.net/browse/KS-330
-	err := w.peerWrapper.GetPeer().UpdateConnections(allPeers)
-	if err != nil {
-		return fmt.Errorf("failed to update peer connections: %w", err)
-	}
+	publicDONs := w.identifyPublicDONs(allDONIDs, state)
 
 	// Next, we need to split the DONs into the following:
 	// - workflow DONs the current node is a part of.
@@ -255,7 +268,8 @@ func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegist
 
 	// Now, if my node is a workflow DON, let's setup any shims
 	// to external capabilities.
-	if len(myWorkflowDONs) > 0 {
+	isWorkflowDON := len(myWorkflowDONs) > 0
+	if isWorkflowDON {
 		myDON := myWorkflowDONs[0]
 
 		// NOTE: this is enforced on-chain and so should never happen.
@@ -276,13 +290,22 @@ func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegist
 
 	// Finally, if I'm in a capability DON, let's enable external access
 	// to the capability.
-	if len(myCapabilityDONs) > 0 {
+	isCapabilityDON := len(myCapabilityDONs) > 0
+	if isCapabilityDON {
 		for _, myDON := range myCapabilityDONs {
 			err := w.exposeCapabilities(ctx, myID, myDON, state, remoteWorkflowDONs)
 			if err != nil {
 				return err
 			}
 		}
+	}
+
+	// We should ideally only be connecting to peers when we need to.
+	// https://smartcontract-it.atlassian.net/browse/KS-330
+	allPeers := w.identifyPeers(isCapabilityDON, isWorkflowDON, allDONIDs, state)
+	err := w.peerWrapper.GetPeer().UpdateConnections(allPeers)
+	if err != nil {
+		return fmt.Errorf("failed to update peer connections: %w", err)
 	}
 
 	return nil
