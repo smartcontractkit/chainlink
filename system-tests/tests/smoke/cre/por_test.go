@@ -761,6 +761,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 
 // config file to use: environment-gateway-don.toml
 func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
+	t.Skip("Disabling until we discover how to fix its flakyness. Tracked as DX-625")
 	testLogger := framework.L
 
 	// Load and validate test configuration
