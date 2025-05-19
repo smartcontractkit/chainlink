@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
-	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -56,7 +56,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db).Eth()
 	sendingKey, _ := cltest.MustInsertRandomKey(t, kst)
-	lp := &mocklp.LogPoller{}
+	lp := &lpmocks.LogPoller{}
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{}, nil)
 

@@ -4,8 +4,11 @@ import (
 	"fmt"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/mcms"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // use this changeset to add a token pool and lookup table
@@ -19,6 +22,7 @@ type E2ETokenPoolConfig struct {
 	SetPool                               []SetPoolConfig
 	RemoteChainTokenPool                  []RemoteChainTokenPoolConfig
 	ConfigureTokenPoolContractsChangesets []v1_5_1.ConfigureTokenPoolContractsConfig
+	MCMS                                  *proposalutils.TimelockConfig
 }
 
 func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOutput, error) {
@@ -133,6 +137,18 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 		if len(output.MCMSTimelockProposals) > 0 {
 			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
 		}
+	}
+	allProposals := finalOutput.MCMSTimelockProposals
+	if len(allProposals) > 0 {
+		state, err := stateview.LoadOnchainState(e)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		}
+		proposal, err := proposalutils.AggregateProposals(e, state.EVMMCMSStateByChain(), state.SolanaMCMSStateByChain(e), allProposals, "Update multiple token pools", cfg.MCMS)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
+		}
+		finalOutput.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
 	}
 
 	return finalOutput, nil
