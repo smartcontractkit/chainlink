@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -17,9 +16,9 @@ import (
 // Returns a new addressbook and data store with deployed forwarder/storage contracts addresses.
 var DeployPlatformChangeset = cldf.CreateChangeSet(deployPlatformLogic, deployPlatformPrecondition)
 
-func deployPlatformLogic(env deployment.Environment, c types.DeployAptosConfig) (deployment.ChangesetOutput, error) {
+func deployPlatformLogic(env cldf.Environment, c types.DeployAptosConfig) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	dataStore := datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]()
 
 	for _, chainSelector := range c.ChainsToDeploy {
@@ -31,19 +30,19 @@ func deployPlatformLogic(env deployment.Environment, c types.DeployAptosConfig) 
 			ownerAddress = aptos.AccountAddress{}
 			err := ownerAddress.ParseStringRelaxed(c.Owner)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return cldf.ChangesetOutput{}, err
 			}
 		}
 
 		platformResponse, err := DeployPlatform(chain, ownerAddress, c.Labels)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy ChainlinkPlatform: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy ChainlinkPlatform: %w", err)
 		}
 		lggr.Infof("Deployed %s chain selector %d addr %s", platformResponse.Tv.String(), chain.Selector, platformResponse.Address.String())
 
 		err = ab.Save(chain.Selector, platformResponse.Address.String(), platformResponse.Tv)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to save ChainlinkPlatform: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save ChainlinkPlatform: %w", err)
 		}
 
 		if err = dataStore.Addresses().Add(
@@ -56,14 +55,14 @@ func deployPlatformLogic(env deployment.Environment, c types.DeployAptosConfig) 
 				Labels:        datastore.NewLabelSet(c.Labels...),
 			},
 		); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to save address ref in datastore: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save address ref in datastore: %w", err)
 		}
 	}
 
-	return deployment.ChangesetOutput{AddressBook: ab, DataStore: dataStore}, nil
+	return cldf.ChangesetOutput{AddressBook: ab, DataStore: dataStore}, nil
 }
 
-func deployPlatformPrecondition(env deployment.Environment, c types.DeployAptosConfig) error {
+func deployPlatformPrecondition(env cldf.Environment, c types.DeployAptosConfig) error {
 	for _, chainSelector := range c.ChainsToDeploy {
 		_, ok := env.AptosChains[chainSelector]
 		if !ok {

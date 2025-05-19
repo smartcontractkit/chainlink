@@ -221,3 +221,10 @@ type DeployPlatformResponse struct {
 	Tv       cldf.TypeAndVersion
 	Contract *moduleplatform.Platform
 }
+
+type DeployDataFeedsResponse struct {
+	Address  aptos.AccountAddress
+	Tx       api.Hash
+	Tv       cldf.TypeAndVersion
+	Contract *modulefeeds.DataFeeds
+}

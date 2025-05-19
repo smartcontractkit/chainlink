@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -17,9 +16,9 @@ import (
 // Returns a new addressbook and datastore with deployed router/registry contracts addresses.
 var DeployDataFeedsChangeset = cldf.CreateChangeSet(deployDataFeedsLogic, deployDataFeedsPrecondition)
 
-func deployDataFeedsLogic(env deployment.Environment, c types.DeployAptosConfig) (deployment.ChangesetOutput, error) {
+func deployDataFeedsLogic(env cldf.Environment, c types.DeployAptosConfig) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	dataStore := datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]()
 
 	for _, chainSelector := range c.ChainsToDeploy {
@@ -31,7 +30,7 @@ func deployDataFeedsLogic(env deployment.Environment, c types.DeployAptosConfig)
 			ownerAddress = aptos.AccountAddress{}
 			err := ownerAddress.ParseStringRelaxed(c.Owner)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return cldf.ChangesetOutput{}, err
 			}
 		}
 
@@ -43,18 +42,18 @@ func deployDataFeedsLogic(env deployment.Environment, c types.DeployAptosConfig)
 		platformAccountAddress := aptos.AccountAddress{}
 		err := platformAccountAddress.ParseStringRelaxed(record.Address)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 
 		dataFeedsResponse, err := DeployDataFeeds(chain, ownerAddress, platformAccountAddress, c.Labels)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy ChainlinkDataFeeds: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy ChainlinkDataFeeds: %w", err)
 		}
 		lggr.Infof("Deployed %s chain selector %d addr %s", dataFeedsResponse.Tv.String(), chain.Selector, dataFeedsResponse.Address.String())
 
 		err = ab.Save(chain.Selector, dataFeedsResponse.Address.String(), dataFeedsResponse.Tv)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to save ChainlinkDataFeeds: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save ChainlinkDataFeeds: %w", err)
 		}
 
 		if err = dataStore.Addresses().Add(
@@ -67,14 +66,14 @@ func deployDataFeedsLogic(env deployment.Environment, c types.DeployAptosConfig)
 				Labels:        datastore.NewLabelSet(c.Labels...),
 			},
 		); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to save address ref in datastore: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save address ref in datastore: %w", err)
 		}
 	}
 
-	return deployment.ChangesetOutput{AddressBook: ab, DataStore: dataStore}, nil
+	return cldf.ChangesetOutput{AddressBook: ab, DataStore: dataStore}, nil
 }
 
-func deployDataFeedsPrecondition(env deployment.Environment, c types.DeployAptosConfig) error {
+func deployDataFeedsPrecondition(env cldf.Environment, c types.DeployAptosConfig) error {
 	for _, chainSelector := range c.ChainsToDeploy {
 		_, ok := env.AptosChains[chainSelector]
 		if !ok {
