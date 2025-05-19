@@ -1313,6 +1313,7 @@ func DeployTransferableTokenSolana(
 				ChainSelector: solChainSel,
 				TokenPubKey:   solTokenAddress,
 				PoolType:      &bnm,
+				Metadata:      shared.CLLMetadata,
 			},
 		),
 	)

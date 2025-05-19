@@ -300,6 +300,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 				ChainSelector: solChain1,
 				TokenPubKey:   tokenAddressLockRelease,
 				PoolType:      &lnr,
+				Metadata:      shared.CLLMetadata,
 			},
 		),
 		commonchangeset.Configure(
@@ -308,6 +309,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 				ChainSelector: solChain1,
 				TokenPubKey:   tokenAddressBurnMint,
 				PoolType:      &bnm,
+				Metadata:      shared.CLLMetadata,
 			},
 		),
 	})
