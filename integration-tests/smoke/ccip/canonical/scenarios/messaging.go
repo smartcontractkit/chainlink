@@ -11,6 +11,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func AllMessagingScenariosNames() []string {
+	return []string{
+		"messaging_to_ccip_receiver",
+		"messaging_to_eoa",
+	}
+}
+
+func AllMessagingScenarios(t *testing.T) []types.Scenario {
+	return []types.Scenario{
+		NewMessagingToCCIPReceiverScenario(t, ValidationTypeExec),
+		NewMessagingToEOAScenario(t, ValidationTypeExec),
+	}
+}
+
 // ValidationType is the type of validation to perform in the scenario.
 type ValidationType int
 
@@ -21,11 +35,19 @@ const (
 )
 
 func NewMessagingToCCIPReceiverScenario(t *testing.T, validationType ValidationType) types.Scenario {
-	return &messagingToCCIPReceiverScenario{validationType: validationType}
+	return &messagingToCCIPReceiverScenario{
+		name:           "messaging_to_ccip_receiver",
+		validationType: validationType,
+	}
 }
 
 type messagingToCCIPReceiverScenario struct {
+	name           string
 	validationType ValidationType
+}
+
+func (s *messagingToCCIPReceiverScenario) Name() string {
+	return s.name
 }
 
 func (s *messagingToCCIPReceiverScenario) Run(t *testing.T, ctx types.ExecContext) {
@@ -94,11 +116,19 @@ func (s *messagingToCCIPReceiverScenario) Run(t *testing.T, ctx types.ExecContex
 }
 
 func NewMessagingToEOAScenario(t *testing.T, validationType ValidationType) types.Scenario {
-	return &messagingToEOAScenario{validationType: validationType}
+	return &messagingToEOAScenario{
+		name:           "messaging_to_eoa",
+		validationType: validationType,
+	}
 }
 
 type messagingToEOAScenario struct {
+	name           string
 	validationType ValidationType
+}
+
+func (s *messagingToEOAScenario) Name() string {
+	return s.name
 }
 
 func (s *messagingToEOAScenario) Run(t *testing.T, ctx types.ExecContext) {

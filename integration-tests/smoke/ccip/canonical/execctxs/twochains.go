@@ -14,13 +14,35 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func AllOneToOneExecContextNames() []string {
+	return []string{
+		"evm_2_evm",
+		"evm_2_solana",
+		"solana_2_evm",
+	}
+}
+
+// AllOneToOneExecContexts returns a list of all one-source-to-one-dest execution contexts for testing.
+func AllOneToOneExecContexts(t *testing.T) []types.ExecContext {
+	return []types.ExecContext{
+		NewEVM2EVMCtx(t),
+		NewEVM2SolanaCtx(t),
+		NewSolana2EVM(t),
+	}
+}
+
 var _ types.ExecContext = &execCtx{}
 
 type execCtx struct {
+	name    string
 	env     cldf.Environment
 	state   stateview.CCIPOnChainState
 	sources []types.Adapter
 	dest    types.Adapter
+}
+
+func (e *execCtx) Name() string {
+	return e.name
 }
 
 // ReplayLogs implements types.ExecContext.
@@ -61,6 +83,7 @@ func NewEVM2EVMCtx(t *testing.T) types.ExecContext {
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
 	return &execCtx{
+		name:  "evm_2_evm",
 		env:   e.Env,
 		state: state,
 		sources: []types.Adapter{
@@ -91,6 +114,7 @@ func NewEVM2SolanaCtx(t *testing.T) types.ExecContext {
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
 	return &execCtx{
+		name:  "evm_2_solana",
 		env:   e.Env,
 		state: state,
 		sources: []types.Adapter{
@@ -116,6 +140,7 @@ func NewSolana2EVM(t *testing.T) types.ExecContext {
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
 	return &execCtx{
+		name:  "solana_2_evm",
 		env:   e.Env,
 		state: state,
 		sources: []types.Adapter{

@@ -107,12 +107,18 @@ type Adapter interface {
 // Scenario is our interface for running a specific test case.
 // Scenarios include logic to trigger a test case and also validate the outcome.
 type Scenario interface {
+	// Name is a human-readable name of this test scenario.
+	Name() string
+	// Run executes the scenario in the given context.
 	Run(t *testing.T, ctx ExecContext)
 }
 
 // ExecContext is our interface for representing the execution context of a test.
 // All scenarios must be executed within the context of an ExecContext.
 type ExecContext interface {
+	// Name is a human-readable name of this exec context.
+	Name() string
+
 	// Env returns the environment in which the test is being executed.
 	Env() cldf.Environment
 
