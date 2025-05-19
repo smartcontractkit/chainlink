@@ -148,7 +148,8 @@ func TestDeployChainContractsChangesetPreload(t *testing.T) {
 	// for a simple local in memory test, they will always be present, because we need them to spin up the in memory chain
 	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, initialDeployCS(t, e, nil))
 	require.NoError(t, err)
-	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
+	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
+	require.NoError(t, err)
 }
 
 func skipInCI(t *testing.T) {
@@ -189,7 +190,8 @@ func TestUpgrade(t *testing.T) {
 		},
 	))
 	require.NoError(t, err)
-	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
+	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
+	require.NoError(t, err)
 
 	feeAggregatorPrivKey2, _ := solana.NewRandomPrivateKey()
 	feeAggregatorPubKey2 := feeAggregatorPrivKey2.PublicKey()
@@ -291,7 +293,8 @@ func TestUpgrade(t *testing.T) {
 		),
 	})
 	require.NoError(t, err)
-	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
+	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
+	require.NoError(t, err)
 	state, err = stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	oldOffRampAddress := state.SolChains[solChainSelectors[0]].OffRamp
@@ -351,7 +354,8 @@ func TestUpgrade(t *testing.T) {
 	require.Equal(t, 2, numOffRamps)
 	require.NoError(t, err)
 	// solana verification
-	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
+	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
+	require.NoError(t, err)
 }
 
 func TestIDL(t *testing.T) {
