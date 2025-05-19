@@ -270,10 +270,6 @@ func GetNodeLabels(donID uint64, donName string, env string) []*ptypes.Label {
 			Key: utils.DonIDLabel(donID, donName),
 		},
 		{
-			Key:   devenv.LabelNodeTypeKey,
-			Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
-		},
-		{
 			Key:   devenv.LabelEnvironmentKey,
 			Value: pointer.To(env),
 		},
