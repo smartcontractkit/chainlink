@@ -13,7 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	mocks2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
@@ -23,7 +23,7 @@ func TestOnRamp(t *testing.T) {
 	for _, versionStr := range []string{ccipdata.V1_2_0, ccipdata.V1_5_0} {
 		lggr := logger.Test(t)
 		addr := cciptypes.Address(utils.RandomAddress().String())
-		lp := mocks2.NewLogPoller(t)
+		lp := lpmocks.NewLogPoller(t)
 
 		sourceSelector := uint64(1000)
 		destSelector := uint64(2000)

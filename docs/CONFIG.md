@@ -2143,6 +2143,26 @@ foo = "bar" # Example
 ```
 foo is an example resource attribute
 
+## CRE.Streams
+```toml
+[CRE.Streams]
+WsURL = "streams.url" # Example
+RestURL = "streams.url" # Example
+```
+
+
+### WsURL
+```toml
+WsURL = "streams.url" # Example
+```
+WsURL is the websockets url for the streams sdk config
+
+### RestURL
+```toml
+RestURL = "streams.url" # Example
+```
+RestURL is the REST url for the streams sdk config
+
 ## EVM
 EVM defaults depend on ChainID:
 

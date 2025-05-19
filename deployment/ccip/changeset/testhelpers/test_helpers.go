@@ -1313,6 +1313,7 @@ func DeployTransferableTokenSolana(
 				ChainSelector: solChainSel,
 				TokenPubKey:   solTokenAddress,
 				PoolType:      &bnm,
+				Metadata:      shared.CLLMetadata,
 			},
 		),
 	)
@@ -1343,6 +1344,7 @@ func DeployTransferableTokenSolana(
 				SolChainSelector: solChainSel,
 				SolTokenPubKey:   solTokenAddress,
 				SolPoolType:      &bnm,
+				Metadata:         shared.CLLMetadata,
 				EVMRemoteConfigs: map[uint64]ccipChangeSetSolana.EVMRemoteConfig{
 					evmChainSel: {
 						TokenSymbol: shared.TokenSymbol(evmTokenName),
@@ -1395,6 +1397,7 @@ func DeployTransferableTokenSolana(
 				PoolType:        &bnm,
 				TokenPubKey:     solTokenAddress,
 				WritableIndexes: []uint8{3, 4, 7},
+				Metadata:        shared.CLLMetadata,
 			},
 		),
 	)
@@ -2218,8 +2221,9 @@ func TransferOwnershipSolana(
 	// If we don't fund, execute() calls will fail with "no funds" errors.
 	timelockSignerPDA = state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	mcmSignerPDA = state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
-	memory.FundSolanaAccounts(e.GetContext(), t, []solana.PublicKey{timelockSignerPDA, mcmSignerPDA},
+	err = memory.FundSolanaAccounts(e.GetContext(), []solana.PublicKey{timelockSignerPDA, mcmSignerPDA},
 		100, e.SolChains[solChain].Client)
+	require.NoError(t, err)
 	t.Logf("funded timelock signer PDA: %s", timelockSignerPDA.String())
 	t.Logf("funded mcm signer PDA: %s", mcmSignerPDA.String())
 	// Apply transfer ownership changeset
@@ -2242,6 +2246,7 @@ func GenTestTransferOwnershipConfig(
 	e DeployedEnv,
 	chains []uint64,
 	state stateview.CCIPOnChainState,
+	withTestRouterTransfer bool,
 ) commoncs.TransferToMCMSWithTimelockConfig {
 	var (
 		timelocksPerChain = make(map[uint64]common.Address)
@@ -2257,10 +2262,12 @@ func GenTestTransferOwnershipConfig(
 			state.Chains[chain].FeeQuoter.Address(),
 			state.Chains[chain].NonceManager.Address(),
 			state.Chains[chain].RMNRemote.Address(),
-			state.Chains[chain].TestRouter.Address(),
 			state.Chains[chain].Router.Address(),
 			state.Chains[chain].TokenAdminRegistry.Address(),
 			state.Chains[chain].RMNProxy.Address(),
+		}
+		if withTestRouterTransfer {
+			contracts[chain] = append(contracts[chain], state.Chains[chain].TestRouter.Address())
 		}
 	}
 
@@ -2305,6 +2312,7 @@ func TransferToTimelock(
 	tenv DeployedEnv,
 	state stateview.CCIPOnChainState,
 	chains []uint64,
+	withTestRouterTransfer bool,
 ) {
 	timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts, len(chains)+1)
 	for _, chain := range chains {
@@ -2323,9 +2331,9 @@ func TransferToTimelock(
 		timelockContracts,
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
-			GenTestTransferOwnershipConfig(tenv, chains, state),
+			GenTestTransferOwnershipConfig(tenv, chains, state, withTestRouterTransfer),
 		),
 	)
 	require.NoError(t, err)
-	AssertTimelockOwnership(t, tenv, chains, state)
+	AssertTimelockOwnership(t, tenv, chains, state, withTestRouterTransfer)
 }

@@ -68,7 +68,7 @@ func TestUpdateOnRampsDests(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -144,7 +144,7 @@ func TestUpdateOnRampDynamicConfig(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -212,7 +212,7 @@ func TestUpdateOnRampAllowList(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -291,7 +291,7 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -402,7 +402,7 @@ func TestUpdateOffRampsSources(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -478,7 +478,7 @@ func TestUpdateFQDests(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -571,7 +571,7 @@ func TestUpdateRouterRamps(t *testing.T) {
 					chains = []uint64{source, dest}
 				}
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				testhelpers.TransferToTimelock(t, tenv, state, chains)
+				testhelpers.TransferToTimelock(t, tenv, state, chains, true)
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -650,7 +650,7 @@ func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -710,7 +710,7 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -904,8 +904,8 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 			//nolint:gosec // disable G115
 			FChain: uint8(len(envNodes.NonBootstraps().PeerIDs())),
 			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
-				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
+				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
 				OptimisticConfirmations: globals.OptimisticConfirmations,
 			},
 		}
@@ -989,7 +989,7 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -1048,7 +1048,7 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 			require.NoError(t, err)
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -1184,7 +1184,7 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig
@@ -1277,7 +1277,7 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 			require.NoError(t, err)
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest})
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
 			var mcmsConfig *proposalutils.TimelockConfig

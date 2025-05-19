@@ -247,7 +247,10 @@ func DeployAndMaybeSaveToAddressBook(
 	if metadata != "" && metadata != shared.CLLMetadata {
 		overallocate = false
 	}
-	programID, err := chain.DeployProgram(e.Logger, programName, isUpgrade, overallocate)
+	programID, err := chain.DeployProgram(e.Logger, cldf.SolProgramInfo{
+		Name:  programName,
+		Bytes: deployment.SolanaProgramBytes[programName],
+	}, isUpgrade, overallocate)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to deploy program: %w", err)
 	}

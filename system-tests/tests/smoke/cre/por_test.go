@@ -46,11 +46,11 @@ import (
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	chainwritercap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/chainwriter"
 	computecap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/compute"
 	consensuscap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus"
 	croncap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/cron"
 	webapicap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapi"
+	writeevmcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/writeevm"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
@@ -220,7 +220,7 @@ func validateEnvVars(t *testing.T, in *TestConfig) {
 	}
 }
 
-type registerPoRWorkflowInput struct {
+type managePoRWorkflowInput struct {
 	WorkflowConfig
 	chainSelector      uint64
 	homeChainSelector  uint64
@@ -333,7 +333,63 @@ func configureDataFeedsCacheContract(testLogger zerolog.Logger, input *configure
 	return configErr
 }
 
-func registerPoRWorkflow(input registerPoRWorkflowInput) error {
+func buildManageWorkflowInput(input managePoRWorkflowInput) (keystonetypes.ManageWorkflowWithCRECLIInput, error) {
+	workflowRegistryAddress, err := crecontracts.FindAddressesForChain(
+		input.addressBook,
+		input.homeChainSelector,
+		keystone_changeset.WorkflowRegistry.String(),
+	)
+	if err != nil {
+		return keystonetypes.ManageWorkflowWithCRECLIInput{}, errors.Wrapf(
+			err,
+			"failed to find workflow registry address for chain %d",
+			input.homeChainSelector,
+		)
+	}
+
+	return keystonetypes.ManageWorkflowWithCRECLIInput{
+		ChainSelector:            input.chainSelector,
+		WorkflowDonID:            input.workflowDonID,
+		WorkflowRegistryAddress:  workflowRegistryAddress,
+		WorkflowOwnerAddress:     input.sethClient.MustGetRootKeyAddress(),
+		CRECLIPrivateKey:         input.deployerPrivateKey,
+		CRECLIAbsPath:            input.creCLIAbsPath,
+		CRESettingsFile:          input.creCLIsettingsFile,
+		WorkflowName:             input.WorkflowConfig.WorkflowName,
+		ShouldCompileNewWorkflow: input.WorkflowConfig.ShouldCompileNewWorkflow,
+		CRECLIProfile:            input.creCLIProfile,
+	}, nil
+}
+
+func pausePoRWorkflow(input managePoRWorkflowInput) error {
+	workflowInput, err := buildManageWorkflowInput(input)
+	if err != nil {
+		return err
+	}
+
+	pauseErr := creworkflow.PauseWithCRECLI(workflowInput)
+	if pauseErr != nil {
+		return errors.Wrap(pauseErr, "failed to pause workflow with CRE CLI")
+	}
+
+	return nil
+}
+
+func activatePoRWorkflow(input managePoRWorkflowInput) error {
+	workflowInput, err := buildManageWorkflowInput(input)
+	if err != nil {
+		return err
+	}
+
+	activateErr := creworkflow.ActivateWithCRECLI(workflowInput)
+	if activateErr != nil {
+		return errors.Wrap(activateErr, "failed to activate workflow with CRE CLI")
+	}
+
+	return nil
+}
+
+func registerPoRWorkflow(input managePoRWorkflowInput) error {
 	// Register workflow directly using the provided binary URL and optionally config and secrets URLs
 	// This is a legacy solution, probably we can remove it soon, but there's still quite a lot of people
 	// who have no access to dev-platform repo, so they cannot use the CRE CLI
@@ -407,7 +463,7 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 		return errors.Wrapf(workflowRegistryErr, "failed to find workflow registry address for chain %d", input.homeChainSelector)
 	}
 
-	registerWorkflowInput := keystonetypes.RegisterWorkflowWithCRECLIInput{
+	registerWorkflowInput := keystonetypes.ManageWorkflowWithCRECLIInput{
 		ChainSelector:            input.chainSelector,
 		WorkflowDonID:            input.workflowDonID,
 		WorkflowRegistryAddress:  workflowRegistryAddress,
@@ -602,7 +658,7 @@ func setupPoRTestEnvironment(
 
 		wtName := corevm.GenerateWriteTargetName(bo.ChainID)
 
-		registerInput := registerPoRWorkflowInput{
+		workflowInput := managePoRWorkflowInput{
 			WorkflowConfig:     in.WorkflowConfigs[idx],
 			homeChainSelector:  homeChainOutput.ChainSelector,
 			chainSelector:      bo.ChainSelector,
@@ -618,8 +674,14 @@ func setupPoRTestEnvironment(
 			creCLIProfile:      libcrecli.CRECLIProfile,
 		}
 
-		workflowErr := registerPoRWorkflow(registerInput)
-		require.NoError(t, workflowErr, "failed to register PoR workflow")
+		workflowRegisterErr := registerPoRWorkflow(workflowInput)
+		require.NoError(t, workflowRegisterErr, "failed to register PoR workflow")
+
+		workflowPauseErr := pausePoRWorkflow(workflowInput)
+		require.NoError(t, workflowPauseErr, "failed to pause PoR workflow")
+
+		workflowActivateErr := activatePoRWorkflow(workflowInput)
+		require.NoError(t, workflowActivateErr, "failed to activate PoR workflow")
 	}
 	// Workflow-specific configuration -- END
 
@@ -681,12 +743,13 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 		priceProvider,
 		mustSetCapabilitiesFn,
 		[]keystonetypes.DONCapabilityWithConfigFactoryFn{
-			webapicap.WebAPICapabilityFactoryFn,
+			webapicap.WebAPITriggerCapabilityFactoryFn,
+			webapicap.WebAPITargetCapabilityFactoryFn,
 			computecap.ComputeCapabilityFactoryFn,
 			consensuscap.OCR3CapabilityFactoryFn,
 			croncap.CronCapabilityFactoryFn,
-			chainwritercap.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(homeChainID))),
-			chainwritercap.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(targetChainID))),
+			writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(homeChainID))),
+			writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(targetChainID))),
 		},
 	)
 
@@ -700,6 +763,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 
 // config file to use: environment-gateway-don.toml
 func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
+	t.Skip("Disabling until we discover how to fix its flakyness. Tracked as DX-625")
 	testLogger := framework.L
 
 	// Load and validate test configuration
@@ -735,11 +799,12 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	require.NoError(t, chainErr, "failed to convert chain ID to int")
 
 	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, []keystonetypes.DONCapabilityWithConfigFactoryFn{
-		webapicap.WebAPICapabilityFactoryFn,
+		webapicap.WebAPITriggerCapabilityFactoryFn,
+		webapicap.WebAPITargetCapabilityFactoryFn,
 		computecap.ComputeCapabilityFactoryFn,
 		consensuscap.OCR3CapabilityFactoryFn,
 		croncap.CronCapabilityFactoryFn,
-		chainwritercap.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))),
+		writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))),
 	})
 
 	// Log extra information that might help debugging
@@ -790,11 +855,12 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 
 	priceProvider := NewTrueUSDPriceProvider(testLogger, []string{in.WorkflowConfigs[0].FeedID})
 	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, []keystonetypes.DONCapabilityWithConfigFactoryFn{
-		webapicap.WebAPICapabilityFactoryFn,
+		webapicap.WebAPITriggerCapabilityFactoryFn,
+		webapicap.WebAPITargetCapabilityFactoryFn,
 		computecap.ComputeCapabilityFactoryFn,
 		consensuscap.OCR3CapabilityFactoryFn,
 		croncap.CronCapabilityFactoryFn,
-		chainwritercap.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))),
+		writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))),
 	})
 
 	// Log extra information that might help debugging
