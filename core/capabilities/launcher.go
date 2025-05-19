@@ -161,7 +161,6 @@ func (w *launcher) identifyPeers(isCapabilityDON bool, isWorkflowDON bool, allDO
 		for _, nid := range d.DON.Members {
 			allPeers[nid] = defaultStreamConfig
 		}
-
 	}
 	return allPeers
 }

@@ -1197,7 +1197,7 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 			launcher.identifyAllDONs(state),
 			state,
 		)
-		require.Equal(t, expected[i], len(allPeers))
+		require.Len(t, allPeers, expected[i])
 	}
 
 	err = launcher.Launch(t.Context(), state)
