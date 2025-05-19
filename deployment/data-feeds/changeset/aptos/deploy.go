@@ -7,11 +7,11 @@ import (
 
 	modulefeeds "github.com/smartcontractkit/chainlink-aptos/bindings/data_feeds"
 	moduleplatform "github.com/smartcontractkit/chainlink-aptos/bindings/platform"
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-func DeployPlatform(chain deployment.AptosChain, owner aptos.AccountAddress, labels []string) (*types.DeployPlatformResponse, error) {
+func DeployPlatform(chain cldf.AptosChain, owner aptos.AccountAddress, labels []string) (*types.DeployPlatformResponse, error) {
 	address, pendingTX, platformModule, err := moduleplatform.DeployToObject(chain.DeployerSigner, chain.Client, owner)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy ChainlinkPlatform: %w", err)
@@ -24,7 +24,7 @@ func DeployPlatform(chain deployment.AptosChain, owner aptos.AccountAddress, lab
 
 	// ChainlinkPlatform package contracts don't implement typeAndVersion interface, so we have to set it manually
 	tvStr := "ChainlinkPlatform 1.0.0"
-	tv, err := deployment.TypeAndVersionFromString(tvStr)
+	tv, err := cldf.TypeAndVersionFromString(tvStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse type and version from %s, %w", pendingTX.Hash, err)
 	}
@@ -42,7 +42,7 @@ func DeployPlatform(chain deployment.AptosChain, owner aptos.AccountAddress, lab
 	return resp, nil
 }
 
-func DeployDataFeeds(chain deployment.AptosChain, owner aptos.AccountAddress, platform aptos.AccountAddress, labels []string) (*types.DeployDataFeedsResponse, error) {
+func DeployDataFeeds(chain cldf.AptosChain, owner aptos.AccountAddress, platform aptos.AccountAddress, labels []string) (*types.DeployDataFeedsResponse, error) {
 	address, pendingTX, feedsModule, err := modulefeeds.DeployToObject(chain.DeployerSigner, chain.Client, owner, platform)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy ChainlinkDataFeeds: %w", err)
@@ -55,7 +55,7 @@ func DeployDataFeeds(chain deployment.AptosChain, owner aptos.AccountAddress, pl
 
 	// ChainlinkDataFeeds package contracts don't implement typeAndVersion interface, so we have to set it manually
 	tvStr := "ChainlinkDataFeeds 1.0.0"
-	tv, err := deployment.TypeAndVersionFromString(tvStr)
+	tv, err := cldf.TypeAndVersionFromString(tvStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 	}
