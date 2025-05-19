@@ -1301,7 +1301,7 @@ func DeployTransferableTokenSolana(
 		return nil, nil, solana.PublicKey{}, err
 	}
 	// find solana token address
-	solAddresses, err := e.ExistingAddresses.AddressesForChain(solChainSel) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+	solAddresses, err := e.ExistingAddresses.AddressesForChain(solChainSel)
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}

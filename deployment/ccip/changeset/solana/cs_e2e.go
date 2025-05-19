@@ -11,7 +11,13 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
-// use this changeset to add a token pool and lookup table
+// use this changeset to
+// add a token pool and lookup table
+// register the deployer key as the token admin to the token admin registry
+// accept the admin role as the deployer key
+// call setPool on the token admin registry
+// configure evm pools on the solana side
+// configure solana pools on the evm side
 var _ cldf.ChangeSet[E2ETokenPoolConfig] = E2ETokenPool
 
 type E2ETokenPoolConfig struct {
