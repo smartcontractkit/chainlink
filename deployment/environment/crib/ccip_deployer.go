@@ -323,7 +323,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64) (
 
 		privKey, err := solana.NewRandomPrivateKey()
 		if err != nil {
-			return *e, fmt.Errorf("failed to create the link token priv key", err)
+			return *e, fmt.Errorf("failed to create the link token priv key: %w", err)
 		}
 		solLinkChangeset := commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken),
@@ -608,6 +608,9 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 		link := state.SolChains[solChainSel].LinkToken
 		tokenProgramID, _ := state.SolChains[solChainSel].TokenToTokenProgram(link)
 		deployerATA, _, err := soltokens.FindAssociatedTokenAddress(tokenProgramID, link, sourceAccount.PublicKey())
+		if err != nil {
+			return *e, fmt.Errorf("failed to find associated token address: %w", err)
+		}
 		ixApproveLink, err := soltokens.TokenApproveChecked(
 			1e2*1e9,
 			9,
@@ -617,6 +620,9 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 			billingSignerPDA,
 			sourceAccount.PublicKey(),
 			[]solana.PublicKey{})
+		if err != nil {
+			return *e, fmt.Errorf("failed to create approve instruction: %w", err)
+		}
 		_, err = solcommon.SendAndConfirm(e.GetContext(), rpcClient, []solana.Instruction{ixApproveLink}, sourceAccount, solconfig.DefaultCommitment)
 		if err != nil {
 			return *e, fmt.Errorf("failed to confirm instructions for approving router to spend deployer's wSOL: %w", err)
