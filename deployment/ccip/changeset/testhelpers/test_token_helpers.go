@@ -20,6 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -28,8 +31,8 @@ import (
 )
 
 const (
-	LocalTokenDecimals                       = 18
-	TestTokenSymbol    changeset.TokenSymbol = "TEST"
+	LocalTokenDecimals                    = 18
+	TestTokenSymbol    shared.TokenSymbol = "TEST"
 )
 
 // CreateSymmetricRateLimits is a utility to quickly create a rate limiter config with equal inbound and outbound values.
@@ -53,13 +56,13 @@ func SetupTwoChainEnvironmentWithTokens(
 	t *testing.T,
 	lggr logger.Logger,
 	transferToTimelock bool,
-) (env deployment.Environment, sel1 uint64, sel2 uint64, ercmap map[uint64]*cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677], contractmap map[uint64]*proposalutils.TimelockExecutionContracts) {
+) (env cldf.Environment, sel1 uint64, sel2 uint64, ercmap map[uint64]*cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677], contractmap map[uint64]*proposalutils.TimelockExecutionContracts) {
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains: 2,
 	})
 	selectors := e.AllChainSelectors()
 
-	addressBook := deployment.NewMemoryAddressBook()
+	addressBook := cldf.NewMemoryAddressBook()
 	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, len(selectors))
 	for i, selector := range selectors {
 		prereqCfg[i] = changeset.DeployPrerequisiteConfigPerChain{
@@ -76,7 +79,7 @@ func SetupTwoChainEnvironmentWithTokens(
 	tokens := make(map[uint64]*cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677])
 	for _, selector := range selectors {
 		token, err := cldf.DeployContract(e.Logger, e.Chains[selector], addressBook,
-			func(chain deployment.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+			func(chain cldf.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 				tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 					e.Chains[selector].DeployerKey,
 					e.Chains[selector].Client,
@@ -88,7 +91,7 @@ func SetupTwoChainEnvironmentWithTokens(
 				return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 					Address:  tokenAddress,
 					Contract: token,
-					Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+					Tv:       cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_0_0),
 					Tx:       tx,
 					Err:      err,
 				}
@@ -111,7 +114,7 @@ func SetupTwoChainEnvironmentWithTokens(
 	)
 	require.NoError(t, err)
 
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	// We only need the token admin registry to be owned by the timelock in these tests
@@ -149,7 +152,7 @@ func SetupTwoChainEnvironmentWithTokens(
 }
 
 // getPoolsOwnedByDeployer returns any pools that need to be transferred to timelock.
-func getPoolsOwnedByDeployer[T commonchangeset.Ownable](t *testing.T, contracts map[semver.Version]T, chain deployment.Chain) []common.Address {
+func getPoolsOwnedByDeployer[T commonchangeset.Ownable](t *testing.T, contracts map[semver.Version]T, chain cldf.Chain) []common.Address {
 	var addresses []common.Address
 	for _, contract := range contracts {
 		owner, err := contract.Owner(nil)
@@ -164,10 +167,10 @@ func getPoolsOwnedByDeployer[T commonchangeset.Ownable](t *testing.T, contracts 
 // DeployTestTokenPools deploys token pools tied for the TEST token across multiple chains.
 func DeployTestTokenPools(
 	t *testing.T,
-	e deployment.Environment,
+	e cldf.Environment,
 	newPools map[uint64]v1_5_1.DeployTokenPoolInput,
 	transferToTimelock bool,
-) deployment.Environment {
+) cldf.Environment {
 	selectors := e.AllChainSelectors()
 
 	e, err := commonchangeset.Apply(t, e, nil,
@@ -181,7 +184,7 @@ func DeployTestTokenPools(
 	)
 	require.NoError(t, err)
 
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	if transferToTimelock {
@@ -198,13 +201,13 @@ func DeployTestTokenPools(
 		for _, selector := range selectors {
 			if newPool, ok := newPools[selector]; ok {
 				switch newPool.Type {
-				case changeset.BurnFromMintTokenPool:
+				case shared.BurnFromMintTokenPool:
 					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.Chains[selector].BurnFromMintTokenPools[TestTokenSymbol], e.Chains[selector])
-				case changeset.BurnWithFromMintTokenPool:
+				case shared.BurnWithFromMintTokenPool:
 					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.Chains[selector].BurnWithFromMintTokenPools[TestTokenSymbol], e.Chains[selector])
-				case changeset.BurnMintTokenPool:
+				case shared.BurnMintTokenPool:
 					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.Chains[selector].BurnMintTokenPools[TestTokenSymbol], e.Chains[selector])
-				case changeset.LockReleaseTokenPool:
+				case shared.LockReleaseTokenPool:
 					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.Chains[selector].LockReleaseTokenPools[TestTokenSymbol], e.Chains[selector])
 				}
 			}

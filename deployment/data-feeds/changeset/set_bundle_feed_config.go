@@ -7,7 +7,7 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -15,7 +15,7 @@ import (
 // This changeset may return a timelock proposal if the MCMS config is provided, otherwise it will execute the transaction with the deployer key.
 var SetBundleFeedConfigChangeset = cldf.CreateChangeSet(setBundleFeedConfigLogic, setBundleFeedConfigPrecondition)
 
-func setBundleFeedConfigLogic(env deployment.Environment, c types.SetFeedBundleConfig) (deployment.ChangesetOutput, error) {
+func setBundleFeedConfigLogic(env cldf.Environment, c types.SetFeedBundleConfig) (cldf.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)
 	chain := env.Chains[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
@@ -23,7 +23,7 @@ func setBundleFeedConfigLogic(env deployment.Environment, c types.SetFeedBundleC
 
 	txOpt := chain.DeployerKey
 	if c.McmsConfig != nil {
-		txOpt = deployment.SimTransactOpts()
+		txOpt = cldf.SimTransactOpts()
 	}
 
 	dataIDs, _ := FeedIDsToBytes16(c.DataIDs)
@@ -40,23 +40,23 @@ func setBundleFeedConfigLogic(env deployment.Environment, c types.SetFeedBundleC
 		}
 		proposal, err := BuildMultiChainProposals(env, "proposal to set feed config on a cache", proposals, c.McmsConfig.MinDelay)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+		return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 	}
 
-	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+	if _, err := cldf.ConfirmIfNoError(chain, tx, err); err != nil {
 		if tx != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 		}
 
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to submit transaction: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to submit transaction: %w", err)
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
-func setBundleFeedConfigPrecondition(env deployment.Environment, c types.SetFeedBundleConfig) error {
+func setBundleFeedConfigPrecondition(env cldf.Environment, c types.SetFeedBundleConfig) error {
 	_, ok := env.Chains[c.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)

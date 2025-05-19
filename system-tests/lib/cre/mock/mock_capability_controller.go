@@ -137,6 +137,37 @@ func (c *Controller) SendTrigger(ctx context.Context, id string, eventID string,
 	return nil
 }
 
+type CapInfos struct {
+	Node         string
+	Capabilities []capabilities.CapabilityInfo
+}
+
+func (c *Controller) List(ctx context.Context) ([]CapInfos, error) {
+	info := make([]CapInfos, 0)
+	for _, client := range c.Nodes {
+		data, err := client.API.List(ctx, &pb2.ListRequest{})
+		if err != nil {
+			return nil, err
+		}
+		framework.L.Info().Msgf("Fetching capabilityes for node %s", client.URL)
+		caps := make([]capabilities.CapabilityInfo, 0)
+		for _, d := range data.CapInfos {
+			caps = append(caps, capabilities.CapabilityInfo{
+				ID:             d.ID,
+				CapabilityType: capabilities.CapabilityType(d.CapabilityType),
+				Description:    d.Description,
+				IsLocal:        d.IsLocal,
+			})
+		}
+
+		info = append(info, CapInfos{
+			Node:         client.URL,
+			Capabilities: caps,
+		})
+	}
+	return info, nil
+}
+
 func (c *Controller) HookExecutables(ctx context.Context, ch chan capabilities.CapabilityRequest) error {
 	for _, client := range c.Nodes {
 		hook, errC := client.API.HookExecutables(context.TODO())

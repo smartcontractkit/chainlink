@@ -6,19 +6,20 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 // data streams contract types
 const (
-	ChannelConfigStore deployment.ContractType = "ChannelConfigStore"
-	Configurator       deployment.ContractType = "Configurator"
-	FeeManager         deployment.ContractType = "FeeManager"
-	RewardManager      deployment.ContractType = "RewardManager"
-	Verifier           deployment.ContractType = "Verifier"
-	VerifierProxy      deployment.ContractType = "VerifierProxy"
+	ChannelConfigStore cldf.ContractType = "ChannelConfigStore"
+	Configurator       cldf.ContractType = "Configurator"
+	FeeManager         cldf.ContractType = "FeeManager"
+	RewardManager      cldf.ContractType = "RewardManager"
+	Verifier           cldf.ContractType = "Verifier"
+	VerifierProxy      cldf.ContractType = "VerifierProxy"
 )
 
 type (

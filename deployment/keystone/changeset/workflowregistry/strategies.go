@@ -10,27 +10,28 @@ import (
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
 type strategy interface {
-	Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (deployment.ChangesetOutput, error)
+	Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (cldf.ChangesetOutput, error)
 }
 
 type simpleTransaction struct {
-	chain deployment.Chain
+	chain cldf.Chain
 }
 
-func (s *simpleTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (deployment.ChangesetOutput, error) {
+func (s *simpleTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (cldf.ChangesetOutput, error) {
 	tx, err := callFn(s.chain.DeployerKey)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	_, err = s.chain.Confirm(tx)
-	return deployment.ChangesetOutput{}, err
+	return cldf.ChangesetOutput{}, err
 }
 
 type mcmsTransaction struct {
@@ -39,20 +40,20 @@ type mcmsTransaction struct {
 	Address     common.Address
 	ChainSel    uint64
 	ContractSet *changeset.ContractSet
-	Env         deployment.Environment
+	Env         cldf.Environment
 }
 
-func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (deployment.ChangesetOutput, error) {
-	opts := deployment.SimTransactOpts()
+func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (cldf.ChangesetOutput, error) {
+	opts := cldf.SimTransactOpts()
 
 	tx, err := callFn(opts)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	timelocksPerChain := map[uint64]string{
@@ -63,7 +64,7 @@ func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 	}
 	inspector, err := proposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	inspectorPerChain := map[uint64]sdk.Inspector{
 		m.ChainSel: inspector,
@@ -79,10 +80,10 @@ func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 		proposalutils.TimelockConfig{MinDelay: m.Config.MinDuration},
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
 	}, nil
 }

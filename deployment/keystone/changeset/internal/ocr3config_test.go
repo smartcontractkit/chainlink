@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -92,7 +93,7 @@ func Test_configureOCR3Request_generateOCR3Config(t *testing.T) {
 	r := configureOCR3Request{
 		cfg:   &cfg,
 		nodes: nodes,
-		chain: deployment.Chain{
+		chain: cldf.Chain{
 			Selector: chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
 		},
 		ocrSecrets: cldf.XXXGenerateTestOCRSecrets(),
@@ -112,7 +113,7 @@ func Test_configureOCR3Request_generateOCR3Config(t *testing.T) {
 		r := configureOCR3Request{
 			cfg:   &cfg2,
 			nodes: nodes,
-			chain: deployment.Chain{
+			chain: cldf.Chain{
 				Selector: chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
 			},
 			ocrSecrets: cldf.XXXGenerateTestOCRSecrets(),
@@ -126,7 +127,7 @@ func Test_configureOCR3Request_generateOCR3Config(t *testing.T) {
 		r := configureOCR3Request{
 			cfg:   &cfg2,
 			nodes: nodes,
-			chain: deployment.Chain{
+			chain: cldf.Chain{
 				Selector: chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
 			},
 			ocrSecrets: cldf.XXXGenerateTestOCRSecrets(),

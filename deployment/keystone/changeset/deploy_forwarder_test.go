@@ -14,7 +14,7 @@ import (
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -36,7 +36,7 @@ func TestDeployForwarder(t *testing.T) {
 	registrySel := env.AllChainSelectors()[0]
 
 	t.Run("should deploy forwarder", func(t *testing.T) {
-		ab := deployment.NewMemoryAddressBook()
+		ab := cldf.NewMemoryAddressBook()
 
 		// deploy forwarder
 		env.ExistingAddresses = ab
@@ -77,7 +77,7 @@ func TestConfigureForwarders(t *testing.T) {
 		},
 	}
 
-	excludeChainsIfNeeded := func(excludeChains bool, env deployment.Environment) (uint64, map[uint64]struct{}) {
+	excludeChainsIfNeeded := func(excludeChains bool, env cldf.Environment) (uint64, map[uint64]struct{}) {
 		if !excludeChains {
 			return 0, nil
 		}

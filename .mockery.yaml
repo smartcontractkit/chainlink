@@ -27,7 +27,8 @@ packages:
       OracleCreator:
   github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common:
     interfaces:
-      ExtraDataCodec:
+      SourceChainExtraDataCodec:
+      ChainSpecificAddressCodec:
   github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types:
     interfaces:
       Dispatcher:
@@ -39,15 +40,13 @@ packages:
       AbigenContract:
   github.com/smartcontractkit/chainlink-evm/pkg/logpoller:
     config:
-      dir: core/chains/evm/logpoller/mocks
+      dir: common/logpoller/mocks
     interfaces:
       LogPoller:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr:
+  github.com/smartcontractkit/chainlink-evm/pkg/txmgr:
+    config:
+      dir: common/txmgr/mocks
     interfaces:
-      ChainConfig:
-        config:
-          mockname: Config
-          filename: config.go
       EvmTxStore:
   github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm:
     interfaces:

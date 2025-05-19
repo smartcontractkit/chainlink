@@ -9,15 +9,15 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/deployment"
-	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -37,6 +37,7 @@ var (
 
 // this key only works on simulated geth chains in crib
 const simChainTestKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+const solChainTestKey = "57qbvFjTChfNwQxqkFZwjHp7xYoPZa7f9ow6GA59msfCH1g6onSjKUTrrLp4w1nAwbwQuit8YgJJ2AwT9BSwownC"
 
 // step 1: setup
 // Parse the test config
@@ -58,7 +59,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	// generate environment from crib-produced files
 	cribEnv := crib.NewDevspaceEnvFromStateDir(lggr, *userOverrides.CribEnvDirectory)
-	cribDeployOutput, err := cribEnv.GetConfig(simChainTestKey)
+	cribDeployOutput, err := cribEnv.GetConfig(simChainTestKey, solChainTestKey)
 	require.NoError(t, err)
 	env, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
 	require.NoError(t, err)
@@ -93,7 +94,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	// Keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
-	state, err := ccipchangeset.LoadOnchainState(*env)
+	state, err := stateview.LoadOnchainState(*env)
 	require.NoError(t, err)
 
 	finalSeqNrCommitChannels := make(map[uint64]chan finalSeqNrReport)
@@ -277,8 +278,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 func prepareAccountToSendLink(
 	t *testing.T,
-	state ccipchangeset.CCIPOnChainState,
-	e deployment.Environment,
+	state stateview.CCIPOnChainState,
+	e cldf.Environment,
 	src uint64,
 	srcAccount *bind.TransactOpts) error {
 	lggr := logger.Test(t)
@@ -288,7 +289,7 @@ func prepareAccountToSendLink(
 
 	lggr.Infow("Granting mint and burn roles")
 	tx, err := srcLink.GrantMintAndBurnRoles(srcDeployer, srcAccount.From)
-	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
 	if err != nil {
 		return err
 	}
@@ -300,7 +301,7 @@ func prepareAccountToSendLink(
 		srcAccount.From,
 		big.NewInt(20_000),
 	)
-	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
 	if err != nil {
 		return err
 	}
@@ -310,6 +311,6 @@ func prepareAccountToSendLink(
 	// Approve the router to spend the tokens and confirm the tx's
 	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount
 	tx, err = srcLink.Approve(srcAccount, state.Chains[src].Router.Address(), math.MaxBig256)
-	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
 	return err
 }

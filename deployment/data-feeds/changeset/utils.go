@@ -7,6 +7,9 @@ import (
 	"io/fs"
 
 	workflowUtils "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
 )
@@ -81,9 +84,9 @@ func GetDecimalsFromFeedID(feedID string) (uint8, error) {
 	return 0, nil
 }
 
-func GetDataFeedsCacheAddress(ab deployment.AddressBook, chainSelector uint64, label *string) string {
+func GetDataFeedsCacheAddress(ab cldf.AddressBook, chainSelector uint64, label *string) string {
 	dataFeedsCacheAddress := ""
-	cacheTV := deployment.NewTypeAndVersion(DataFeedsCache, deployment.Version1_0_0)
+	cacheTV := cldf.NewTypeAndVersion(DataFeedsCache, deployment.Version1_0_0)
 	if label != nil {
 		cacheTV.Labels.Add(*label)
 	} else {
@@ -102,25 +105,4 @@ func GetDataFeedsCacheAddress(ab deployment.AddressBook, chainSelector uint64, l
 	}
 
 	return dataFeedsCacheAddress
-}
-
-type WrappedChangeSet[C any] struct {
-	operation deployment.ChangeSetV2[C]
-}
-
-// RunChangeset is used to run a changeset in another changeset
-// It executes VerifyPreconditions internally to handle changeset errors.
-func RunChangeset[C any](
-	operation deployment.ChangeSetV2[C],
-	env deployment.Environment,
-	config C,
-) (deployment.ChangesetOutput, error) {
-	cs := WrappedChangeSet[C]{operation: operation}
-
-	err := cs.operation.VerifyPreconditions(env, config)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run precondition: %w", err)
-	}
-
-	return cs.operation.Apply(env, config)
 }

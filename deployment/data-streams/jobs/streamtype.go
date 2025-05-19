@@ -6,6 +6,9 @@ const (
 	StreamTypeQuote        = StreamType("quote")
 	StreamTypeMedian       = StreamType("median")
 	StreamTypeMarketStatus = StreamType("market-status")
+	StreamTypeFundingRate  = StreamType("funding-rate")
+	StreamTypeRWA          = StreamType("rwa")
+	StreamTypeDEX          = StreamType("dex")
 	StreamTypeDataLink     = StreamType("data-link")
 	// StreamTypeConsolidated is used for the consolidated stream type
 	StreamTypeConsolidated = StreamType("consolidated")

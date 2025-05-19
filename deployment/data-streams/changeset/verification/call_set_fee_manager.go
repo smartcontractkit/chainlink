@@ -7,59 +7,57 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	mcmslib "github.com/smartcontractkit/mcms"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
 )
 
 // SetFeeManagerChangeset sets the active FeeManager contract on the proxy contract
-var SetFeeManagerChangeset deployment.ChangeSetV2[VerifierProxySetFeeManagerConfig] = &verifierProxySetFeeManager{}
-
-type verifierProxySetFeeManager struct{}
+var SetFeeManagerChangeset = cldf.CreateChangeSet(verifierProxySetFeeManagerLogic, verifierProxySetFeeManagerPrecondition)
 
 type VerifierProxySetFeeManagerConfig struct {
 	ConfigPerChain map[uint64][]SetFeeManagerConfig
-	MCMSConfig     *changeset.MCMSConfig
+	MCMSConfig     *types.MCMSConfig
 }
 
 type SetFeeManagerConfig struct {
-	ContractAddress   common.Address
-	FeeManagerAddress common.Address
+	VerifierProxyAddress common.Address
+	FeeManagerAddress    common.Address
 }
 
-func (v verifierProxySetFeeManager) Apply(e deployment.Environment, cfg VerifierProxySetFeeManagerConfig) (deployment.ChangesetOutput, error) {
+func verifierProxySetFeeManagerLogic(e cldf.Environment, cfg VerifierProxySetFeeManagerConfig) (cldf.ChangesetOutput, error) {
 	txs, err := GetSetFeeManagerTxs(e, cfg)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	if cfg.MCMSConfig != nil {
 		proposal, err := mcmsutil.CreateMCMSProposal(e, txs, cfg.MCMSConfig.MinDelay, "Set FeeManager proposal")
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
-		return deployment.ChangesetOutput{
+		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
 		}, nil
 	}
 
 	_, err = txutil.SignAndExecute(e, txs)
-	return deployment.ChangesetOutput{}, err
+	return cldf.ChangesetOutput{}, err
 }
 
 // GetSetFeeManagerTxs - returns the transactions to set fee manager on the verifier proxy.
 // Does not sign the TXs
-func GetSetFeeManagerTxs(e deployment.Environment, cfg VerifierProxySetFeeManagerConfig) ([]*txutil.PreparedTx, error) {
+func GetSetFeeManagerTxs(e cldf.Environment, cfg VerifierProxySetFeeManagerConfig) ([]*txutil.PreparedTx, error) {
 	var preparedTxs []*txutil.PreparedTx
 	for chainSelector, configs := range cfg.ConfigPerChain {
 		for _, config := range configs {
-			state, err := maybeLoadVerifierProxyState(e, chainSelector, config.ContractAddress.String())
+			state, err := maybeLoadVerifierProxyState(e, chainSelector, config.VerifierProxyAddress.String())
 			if err != nil {
 				return nil, fmt.Errorf("failed to load verifier proxy state: %w", err)
 			}
-			tx, err := state.VerifierProxy.SetFeeManager(deployment.SimTransactOpts(), config.FeeManagerAddress)
+			tx, err := state.VerifierProxy.SetFeeManager(cldf.SimTransactOpts(), config.FeeManagerAddress)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create SetFeeManager transaction: %w", err)
 			}
@@ -74,12 +72,12 @@ func GetSetFeeManagerTxs(e deployment.Environment, cfg VerifierProxySetFeeManage
 	return preparedTxs, nil
 }
 
-func (v verifierProxySetFeeManager) VerifyPreconditions(e deployment.Environment, cfg VerifierProxySetFeeManagerConfig) error {
+func verifierProxySetFeeManagerPrecondition(e cldf.Environment, cfg VerifierProxySetFeeManagerConfig) error {
 	if len(cfg.ConfigPerChain) == 0 {
 		return errors.New("ConfigPerChain is empty")
 	}
 	for cs := range cfg.ConfigPerChain {
-		if err := deployment.IsValidChainSelector(cs); err != nil {
+		if err := cldf.IsValidChainSelector(cs); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
 		}
 	}

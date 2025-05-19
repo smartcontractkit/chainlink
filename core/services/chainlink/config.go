@@ -416,6 +416,10 @@ func (s *Secrets) SetFrom(f *Secrets) (err error) {
 		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "P2PKey"))
 	}
 
+	if err2 := s.CRE.SetFrom(&f.CRE); err2 != nil {
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "CRE"))
+	}
+
 	_, err = commonconfig.MultiErrorList(err)
 
 	return err

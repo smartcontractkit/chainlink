@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -42,8 +43,10 @@ const (
 	defaultMaxTriggerSubscriptions             = 10
 	defaultTriggerEventQueueSize               = 1000
 
-	defaultMaxConcurrentWorkflowExecutions = 100
-	defaultMaxConcurrentCapabilityCalls    = 10
+	defaultMaxConcurrentWorkflowExecutions         = 100
+	defaultMaxConcurrentCapabilityCallsPerWorkflow = 10
+	defaultWorkflowExecutionTimeoutMs              = 1000 * 60 * 10 // 10 minutes
+	defaultCapabilityCallTimeoutMs                 = 1000 * 60 * 8  // 8 minutes
 
 	defaultShutdownTimeoutMs = 5000
 )
@@ -57,8 +60,10 @@ type EngineLimits struct {
 	MaxTriggerSubscriptions             uint16
 	TriggerEventQueueSize               uint16
 
-	MaxConcurrentWorkflowExecutions uint16
-	MaxConcurrentCapabilityCalls    uint16
+	MaxConcurrentWorkflowExecutions         uint16
+	MaxConcurrentCapabilityCallsPerWorkflow uint16
+	WorkflowExecutionTimeoutMs              uint32
+	CapabilityCallTimeoutMs                 uint32
 
 	ShutdownTimeoutMs uint32
 }
@@ -67,7 +72,12 @@ type LifecycleHooks struct {
 	OnInitialized          func(err error)
 	OnSubscribedToTriggers func(triggerIDs []string)
 	OnExecutionFinished    func(executionID string)
-	OnRateLimited          func(executionID string)
+
+	// TODO(CAPPL-736): handle execution result.
+	// OnResultReceived exposes the execution result for now.  By default, if
+	// unspecified, it is a no-op and the result is logged.
+	OnResultReceived func(*wasmpb.ExecutionResult)
+	OnRateLimited    func(executionID string)
 }
 
 func (c *EngineConfig) Validate() error {
@@ -133,8 +143,14 @@ func (l *EngineLimits) setDefaultLimits() {
 	if l.MaxConcurrentWorkflowExecutions == 0 {
 		l.MaxConcurrentWorkflowExecutions = defaultMaxConcurrentWorkflowExecutions
 	}
-	if l.MaxConcurrentCapabilityCalls == 0 {
-		l.MaxConcurrentCapabilityCalls = defaultMaxConcurrentCapabilityCalls
+	if l.MaxConcurrentCapabilityCallsPerWorkflow == 0 {
+		l.MaxConcurrentCapabilityCallsPerWorkflow = defaultMaxConcurrentCapabilityCallsPerWorkflow
+	}
+	if l.WorkflowExecutionTimeoutMs == 0 {
+		l.WorkflowExecutionTimeoutMs = defaultWorkflowExecutionTimeoutMs
+	}
+	if l.CapabilityCallTimeoutMs == 0 {
+		l.CapabilityCallTimeoutMs = defaultCapabilityCallTimeoutMs
 	}
 	if l.ShutdownTimeoutMs == 0 {
 		l.ShutdownTimeoutMs = defaultShutdownTimeoutMs
@@ -148,6 +164,9 @@ func (h *LifecycleHooks) setDefaultHooks() {
 	}
 	if h.OnSubscribedToTriggers == nil {
 		h.OnSubscribedToTriggers = func(triggerIDs []string) {}
+	}
+	if h.OnResultReceived == nil {
+		h.OnResultReceived = func(res *wasmpb.ExecutionResult) {}
 	}
 	if h.OnExecutionFinished == nil {
 		h.OnExecutionFinished = func(executionID string) {}

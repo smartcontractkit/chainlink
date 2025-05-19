@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -21,7 +22,9 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	workflow_registry_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
@@ -31,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -63,7 +67,7 @@ const (
 
 type SetupOutput struct {
 	WorkflowRegistryConfigurationOutput *keystonetypes.WorkflowRegistryOutput
-	CldEnvironment                      *deployment.Environment
+	CldEnvironment                      *cldf.Environment
 	BlockchainOutput                    []*BlockchainOutput
 	DonTopology                         *keystonetypes.DonTopology
 	NodeOutput                          []*keystonetypes.WrappedNodeOutput
@@ -122,17 +126,20 @@ func SetupTestEnvironment(
 	}
 	bi.blockchainsInput = append(bi.blockchainsInput, input.BlockchainsInput...)
 
+	startTime := time.Now()
+	fmt.Printf("\033[35m\n[Stage 1/10] Starting %d blockchain(s)\033[0m\n\n", len(bi.blockchainsInput))
+
 	blockchainsOutput, bcOutErr := CreateBlockchains(testLogger, bi)
 	if bcOutErr != nil {
 		return nil, pkgerrors.Wrap(bcOutErr, "failed to create blockchains")
 	}
 
-	// create deployment.Environment that will contain only chain information in order to deploy contracts with the CLD
 	homeChainOutput := blockchainsOutput[0]
 	chainsConfigs := []devenv.ChainConfig{}
+
 	for _, bcOut := range blockchainsOutput {
 		chainsConfigs = append(chainsConfigs, devenv.ChainConfig{
-			ChainID:   bcOut.SethClient.Cfg.Network.ChainID,
+			ChainID:   strconv.FormatUint(bcOut.SethClient.Cfg.Network.ChainID, 10),
 			ChainName: bcOut.SethClient.Cfg.Network.Name,
 			ChainType: strings.ToUpper(bcOut.BlockchainOutput.Family),
 			WSRPCs: []devenv.CribRPCs{{
@@ -147,21 +154,26 @@ func SetupTestEnvironment(
 		})
 	}
 
-	allChains, allChainsErr := devenv.NewChains(singeFileLogger, chainsConfigs)
+	allChains, _, allChainsErr := devenv.NewChains(singeFileLogger, chainsConfigs)
 	if allChainsErr != nil {
 		return nil, pkgerrors.Wrap(allChainsErr, "failed to create chains")
 	}
 
-	allChainsCLDEnvironment := &deployment.Environment{
+	allChainsCLDEnvironment := &cldf.Environment{
 		Logger:            singeFileLogger,
 		Chains:            allChains,
-		ExistingAddresses: deployment.NewMemoryAddressBook(),
+		ExistingAddresses: cldf.NewMemoryAddressBook(),
 		GetContext: func() context.Context {
 			return ctx
 		},
 	}
 
-	// Deploy all Keystone contracts
+	fmt.Printf("\033[35m\n[Stage 1/10] Blockchains started in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())
+	startTime = time.Now()
+	fmt.Printf("\033[35m[Stage 2/10] Deploying Keystone contracts\033[0m\n\n")
+
+	// we could try to parallelise deployment of these contracts, but it's difficult, because there's no way to make chain.DeployerKey dynamic
+	// in order to manually increment the nonce for each contract
 	ocr3Output, ocr3Err := keystone_changeset.DeployOCR3(*allChainsCLDEnvironment, homeChainOutput.ChainSelector) // //nolint:staticcheck // will migrate in DX-641
 	if ocr3Err != nil {
 		return nil, pkgerrors.Wrap(ocr3Err, "failed to deploy OCR3 contract")
@@ -196,20 +208,33 @@ func SetupTestEnvironment(
 	testLogger.Info().Msgf("Deployed Workflow Registry contract on chain %d at %s", homeChainOutput.ChainSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.WorkflowRegistry.String())) //nolint:staticcheck // won't migrate now
 
 	// Deploy forwarders for all chains
+	contractErrGroup := &errgroup.Group{}
 	for _, bcOut := range blockchainsOutput {
-		output, err := keystone_changeset.DeployForwarder(*allChainsCLDEnvironment, keystone_changeset.DeployForwarderRequest{
-			ChainSelectors: []uint64{bcOut.ChainSelector},
-		})
-		if err != nil {
-			return nil, pkgerrors.Wrap(err, "failed to deploy forwarder contract")
-		}
+		contractErrGroup.Go(func() error {
+			output, err := keystone_changeset.DeployForwarder(*allChainsCLDEnvironment, keystone_changeset.DeployForwarderRequest{
+				ChainSelectors: []uint64{bcOut.ChainSelector},
+			})
+			if err != nil {
+				return pkgerrors.Wrap(err, "failed to deploy forwarder contract")
+			}
 
-		mergeErr = allChainsCLDEnvironment.ExistingAddresses.Merge(output.AddressBook) //nolint:staticcheck // won't migrate now
-		if mergeErr != nil {
-			return nil, pkgerrors.Wrap(mergeErr, "failed to merge address book")
-		}
-		testLogger.Info().Msgf("Deployed Forwarder contract on chain %d at %s", bcOut.ChainSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, bcOut.ChainSelector, keystone_changeset.KeystoneForwarder.String())) //nolint:staticcheck // won't migrate now
+			mergeErr := allChainsCLDEnvironment.ExistingAddresses.Merge(output.AddressBook) //nolint:staticcheck // won't migrate now
+			if mergeErr != nil {
+				return pkgerrors.Wrap(mergeErr, "failed to merge address book")
+			}
+			testLogger.Info().Msgf("Deployed Forwarder contract on chain %d at %s", bcOut.ChainSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, bcOut.ChainSelector, keystone_changeset.KeystoneForwarder.String())) //nolint:staticcheck // won't migrate now
+
+			return nil
+		})
 	}
+
+	if err := contractErrGroup.Wait(); err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to deploy Keystone contracts")
+	}
+
+	fmt.Printf("\033[35m\n[Stage 2/10] Contracts deployed in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())
+	startTime = time.Now()
+	fmt.Printf("\033[35m[Stage 3/10] Configuring Workflow Registry contract\033[0m\n\n")
 
 	// Translate node input to structure required further down the road and put as much information
 	// as we have at this point in labels. It will be used to generate node configs
@@ -217,6 +242,23 @@ func SetupTestEnvironment(
 	if topoErr != nil {
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
 	}
+
+	// Configure Workflow Registry contract
+	workflowRegistryInput := &keystonetypes.WorkflowRegistryInput{
+		ChainSelector:  homeChainOutput.ChainSelector,
+		CldEnv:         allChainsCLDEnvironment,
+		AllowedDonIDs:  []uint32{topology.WorkflowDONID},
+		WorkflowOwners: []common.Address{homeChainOutput.SethClient.MustGetRootKeyAddress()},
+	}
+
+	_, workflowErr := libcontracts.ConfigureWorkflowRegistry(testLogger, workflowRegistryInput)
+	if workflowErr != nil {
+		return nil, pkgerrors.Wrap(workflowErr, "failed to configure workflow registry")
+	}
+
+	fmt.Printf("\033[35m\n[Stage 3/10] Workflow Registry configured in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())
+	startTime = time.Now()
+	fmt.Printf("\033[35m[Stage 4/10] Preparing DON(s) configuration\033[0m\n\n")
 
 	// Generate EVM and P2P keys or read them from the config
 	// That way we can pass them final configs and do away with restarting the nodes
@@ -253,19 +295,6 @@ func SetupTestEnvironment(
 	topology, addKeysErr := cresecrets.AddKeysToTopology(topology, keys)
 	if addKeysErr != nil {
 		return nil, pkgerrors.Wrap(addKeysErr, "failed to add keys to topology")
-	}
-
-	// Configure Workflow Registry contract
-	workflowRegistryInput := &keystonetypes.WorkflowRegistryInput{
-		ChainSelector:  homeChainOutput.ChainSelector,
-		CldEnv:         allChainsCLDEnvironment,
-		AllowedDonIDs:  []uint32{topology.WorkflowDONID},
-		WorkflowOwners: []common.Address{homeChainOutput.SethClient.MustGetRootKeyAddress()},
-	}
-
-	_, workflowErr := libcontracts.ConfigureWorkflowRegistry(testLogger, workflowRegistryInput)
-	if workflowErr != nil {
-		return nil, pkgerrors.Wrap(workflowErr, "failed to configure workflow registry")
 	}
 
 	peeringData, peeringErr := libdon.FindPeeringData(topology)
@@ -371,21 +400,11 @@ func SetupTestEnvironment(
 		}
 	}
 
+	fmt.Printf("\033[35m\n[Stage 4/10] DONs configuration prepared in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())
+	startTime = time.Now()
+	fmt.Printf("\033[35m[Stage 5/10] Starting Job Distributor\033[0m\n\n")
+
 	if input.InfraInput.InfraType == libtypes.CRIB {
-		testLogger.Info().Msg("Saving node configs and secret overrides")
-		deployCribDonsInput := &keystonetypes.DeployCribDonsInput{
-			Topology:       topology,
-			NodeSetInputs:  input.CapabilitiesAwareNodeSets,
-			NixShell:       nixShell,
-			CribConfigsDir: cribConfigsDir,
-		}
-
-		var devspaceErr error
-		input.CapabilitiesAwareNodeSets, devspaceErr = crib.DeployDons(deployCribDonsInput)
-		if devspaceErr != nil {
-			return nil, pkgerrors.Wrap(devspaceErr, "failed to deploy Dons with devspace")
-		}
-
 		deployCribJdInput := &keystonetypes.DeployCribJdInput{
 			JDInput:        &input.JdInput,
 			NixShell:       nixShell,
@@ -408,6 +427,26 @@ func SetupTestEnvironment(
 			jdErr = errors.Join(jdErr, errors.New("ensure that you either you have built the local image or you are logged into AWS with a profile that can read it (`aws sso login --profile <foo>)`"))
 		}
 		return nil, jdErr
+	}
+
+	fmt.Printf("\033[35m\n[Stage 5/10] Job Distributor started in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())
+	startTime = time.Now()
+	fmt.Printf("\033[35m[Stage 6/10] Starting %d DON(s)\033[0m\n\n", len(input.CapabilitiesAwareNodeSets))
+
+	if input.InfraInput.InfraType == libtypes.CRIB {
+		testLogger.Info().Msg("Saving node configs and secret overrides")
+		deployCribDonsInput := &keystonetypes.DeployCribDonsInput{
+			Topology:       topology,
+			NodeSetInputs:  input.CapabilitiesAwareNodeSets,
+			NixShell:       nixShell,
+			CribConfigsDir: cribConfigsDir,
+		}
+
+		var devspaceErr error
+		input.CapabilitiesAwareNodeSets, devspaceErr = crib.DeployDons(deployCribDonsInput)
+		if devspaceErr != nil {
+			return nil, pkgerrors.Wrap(devspaceErr, "failed to deploy Dons with devspace")
+		}
 	}
 
 	nodeSetOutput := make([]*keystonetypes.WrappedNodeOutput, 0, len(input.CapabilitiesAwareNodeSets))
@@ -450,23 +489,55 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(cldErr, "failed to build full CLD environment")
 	}
 
+	fmt.Printf("\033[35m\n[Stage 6/10] DONs started in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())
+	startTime = time.Now()
+	fmt.Printf("\033[35m[Stage 7/10] Funding Chainlink nodes\033[0m\n\n")
+
 	// Fund the nodes
+	concurrentNonceMap, concurrentNonceMapErr := NewConcurrentNonceMap(blockchainsOutput)
+	if concurrentNonceMapErr != nil {
+		return nil, pkgerrors.Wrap(concurrentNonceMapErr, "failed to create concurrent nonce map")
+	}
+
+	// Decrement the nonce for each chain, because we will increment it in the next loop
+	for _, bcOut := range blockchainsOutput {
+		concurrentNonceMap.Decrement(bcOut.ChainID)
+	}
+
+	errGroup := &errgroup.Group{}
 	for _, metaDon := range fullCldOutput.DonTopology.DonsWithMetadata {
-		for _, node := range metaDon.DON.Nodes {
-			for _, bcOut := range blockchainsOutput {
-				_, fundingErr := libfunding.SendFunds(zerolog.Logger{}, bcOut.SethClient, libtypes.FundsToSend{
-					ToAddress: common.HexToAddress(
-						node.AccountAddr[strconv.FormatUint(bcOut.ChainID, 10)]),
-					Amount:     big.NewInt(5000000000000000000),
-					PrivateKey: bcOut.SethClient.MustGetRootPrivateKey(),
+		for _, bcOut := range blockchainsOutput {
+			for _, node := range metaDon.DON.Nodes {
+				errGroup.Go(func() error {
+					nodeAddress := node.AccountAddr[strconv.FormatUint(bcOut.ChainID, 10)]
+					if nodeAddress == "" {
+						return nil
+					}
+
+					nonce := concurrentNonceMap.Increment(bcOut.ChainID)
+
+					_, fundingErr := libfunding.SendFunds(zerolog.Logger{}, bcOut.SethClient, libtypes.FundsToSend{
+						ToAddress:  common.HexToAddress(nodeAddress),
+						Amount:     big.NewInt(5000000000000000000),
+						PrivateKey: bcOut.SethClient.MustGetRootPrivateKey(),
+						Nonce:      ptr.Ptr(nonce),
+					})
+					if fundingErr != nil {
+						return pkgerrors.Wrapf(fundingErr, "failed to fund node %s", nodeAddress)
+					}
+					return nil
 				})
-				if fundingErr != nil {
-					return nil, pkgerrors.Wrapf(fundingErr, "failed to fund node %s",
-						node.AccountAddr[strconv.FormatUint(bcOut.ChainID, 10)])
-				}
 			}
 		}
 	}
+
+	if err := errGroup.Wait(); err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to fund nodes")
+	}
+
+	fmt.Printf("\033[35m\n[Stage 7/10] Chainlink nodes funded in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())
+	startTime = time.Now()
+	fmt.Printf("\033[35m[Stage 8/10] Creating jobs\033[0m\n\n")
 
 	donToJobSpecs := make(keystonetypes.DonsToJobSpecs)
 
@@ -497,7 +568,9 @@ func SetupTestEnvironment(
 	// CAUTION: It is crucial to configure OCR3 jobs on nodes before configuring the workflow contracts.
 	// Wait for OCR listeners to be ready before setting the configuration.
 	// If the ConfigSet event is missed, OCR protocol will not start.
-	testLogger.Info().Msg("Waiting for ConfigWatcher health check")
+	fmt.Printf("\033[35m\n[Stage 8/10] Jobs created in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())
+	startTime = time.Now()
+	fmt.Printf("\033[35m[Stage 9/10] Waiting for Log Poller to start tracking OCR3 contract\033[0m\n\n")
 
 	for idx, nodeSetOut := range nodeSetOutput {
 		if !flags.HasFlag(input.CapabilitiesAwareNodeSets[idx].Capabilities, cretypes.OCR3Capability) {
@@ -517,7 +590,10 @@ func SetupTestEnvironment(
 			return nil, pkgerrors.Wrap(err, "failed to wait for ConfigWatcher health check")
 		}
 	}
-	testLogger.Info().Msg("Proceeding to set OCR3 and Keystone configuration...")
+
+	fmt.Printf("\033[35m\n[Stage 9/10] Log Poller started in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())
+	startTime = time.Now()
+	fmt.Printf("\033[35m[Stage 10/10] Configuring OCR3 and Keystone contracts\033[0m\n\n")
 
 	// Configure the Forwarder, OCR3 and Capabilities contracts
 	configureKeystoneInput := keystonetypes.ConfigureKeystoneInput{
@@ -540,6 +616,8 @@ func SetupTestEnvironment(
 	if keystoneErr != nil {
 		return nil, pkgerrors.Wrap(keystoneErr, "failed to configure keystone contracts")
 	}
+
+	fmt.Printf("\033[35m\n[Stage 10/10] OCR3 and Keystone contracts configured in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())
 
 	return &SetupOutput{
 		WorkflowRegistryConfigurationOutput: workflowRegistryInput.Out, // pass to caller, so that it can be optionally attached to TestConfig and saved to disk
@@ -574,6 +652,7 @@ func CreateBlockchains(
 	if len(input.blockchainsInput) == 0 {
 		return nil, pkgerrors.New("blockchain input is nil")
 	}
+
 	blockchainOutput := make([]*BlockchainOutput, 0)
 	for _, bi := range input.blockchainsInput {
 		var bcOut *blockchain.Output
@@ -636,6 +715,7 @@ func CreateBlockchains(
 			c:                  bcOut,
 		})
 	}
+
 	return blockchainOutput, nil
 }
 
@@ -645,6 +725,8 @@ func CreateJobDistributor(input *jd.Input) (*jd.Output, error) {
 		jdVersion := os.Getenv(E2eJobDistributorVersionEnvVarName)
 		input.Image = fmt.Sprintf("%s:%s", jdImage, jdVersion)
 	}
+
+	fmt.Println("JD image", input.Image)
 
 	jdOutput, err := jd.NewJD(input)
 	if err != nil {
@@ -661,4 +743,37 @@ func mergeJobSpecSlices(from, to keystonetypes.DonsToJobSpecs) {
 		}
 		to[fromDonID] = append(to[fromDonID], fromJobSpecs...)
 	}
+}
+
+type ConcurrentNonceMap struct {
+	mu             sync.Mutex
+	nonceByChainID map[uint64]uint64
+}
+
+func NewConcurrentNonceMap(blockchainOutputs []*BlockchainOutput) (*ConcurrentNonceMap, error) {
+	nonceByChainID := make(map[uint64]uint64)
+	for _, bcOut := range blockchainOutputs {
+		ctx, cancel := context.WithTimeout(context.Background(), bcOut.SethClient.Cfg.Network.TxnTimeout.Duration())
+		var err error
+		nonceByChainID[bcOut.ChainID], err = bcOut.SethClient.Client.PendingNonceAt(ctx, bcOut.SethClient.MustGetRootKeyAddress())
+		cancel()
+		if err != nil {
+			cancel()
+			return nil, pkgerrors.Wrapf(err, "failed to get nonce for chain %d", bcOut.ChainID)
+		}
+	}
+	return &ConcurrentNonceMap{nonceByChainID: nonceByChainID}, nil
+}
+
+func (c *ConcurrentNonceMap) Decrement(chainID uint64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.nonceByChainID[chainID]--
+}
+
+func (c *ConcurrentNonceMap) Increment(chainID uint64) uint64 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.nonceByChainID[chainID]++
+	return c.nonceByChainID[chainID]
 }

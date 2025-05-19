@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"syscall"
@@ -18,18 +19,19 @@ import (
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	chainreadercap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/chainreader"
-	chainwritercap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/chainwriter"
 	computecap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/compute"
 	consensuscap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus"
 	croncap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/cron"
+	logeventtriggercap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/logevent"
+	readcontractcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/readcontract"
 	webapicap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapi"
+	writeevmcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/writeevm"
 	gatewayconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/gateway"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/chainreader"
 	crecompute "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/compute"
 	creconsensus "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
 	crecron "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/cron"
 	cregateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway"
+	crelogevent "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/logevent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/webapi"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
@@ -105,7 +107,10 @@ var startCmd = &cobra.Command{
 			if p != nil {
 				fmt.Println("Panicked when starting environment")
 				if err, ok := p.(error); ok {
-					fmt.Fprint(os.Stderr, errors.Wrap(err, "error:\n%s").Error())
+					fmt.Fprint(os.Stderr, "Error:")
+					fmt.Fprint(os.Stderr, err)
+					fmt.Fprint(os.Stderr, "Stack trace:")
+					fmt.Fprint(os.Stderr, string(debug.Stack()))
 				} else {
 					fmt.Fprintf(os.Stderr, "panic: %v", p)
 				}
@@ -122,6 +127,9 @@ var startCmd = &cobra.Command{
 		if topologyFlag != TopologySimplified && topologyFlag != TopologyFull {
 			return fmt.Errorf("invalid topology: %s. Valid topologies are: %s, %s", topologyFlag, TopologySimplified, TopologyFull)
 		}
+
+		startTime := time.Now()
+		fmt.Printf("\033[35m\nStarting CRE environment\033[0m\n\n")
 
 		if os.Getenv("CTF_CONFIGS") == "" {
 			// use default config
@@ -147,8 +155,6 @@ var startCmd = &cobra.Command{
 			fmt.Printf("Set PRIVATE_KEY environment variable to default value: %s\n", os.Getenv("PRIVATE_KEY"))
 		}
 
-		fmt.Println("Starting the environment...")
-
 		// set TESTCONTAINERS_RYUK_DISABLED to true to disable Ryuk, so that Ryuk doesn't destroy the containers, when the command ends
 		setErr := os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
 		if setErr != nil {
@@ -157,6 +163,11 @@ var startCmd = &cobra.Command{
 
 		output, err := startCLIEnvironment(topologyFlag, extraAllowedPortsFlag)
 		if err != nil {
+			fmt.Fprint(os.Stderr, "Error:")
+			fmt.Fprint(os.Stderr, err)
+			fmt.Fprint(os.Stderr, "Stack trace:")
+			fmt.Fprint(os.Stderr, string(debug.Stack()))
+
 			waitOnErrorTimeoutDurationFn()
 			removeErr := framework.RemoveTestContainers()
 			if removeErr != nil {
@@ -174,6 +185,7 @@ var startCmd = &cobra.Command{
 				rpcs[bcOut.ChainSelector] = bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl
 			}
 			creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
+				crecli.CRECLIProfile,
 				homeChainOut.SethClient.MustGetRootKeyAddress(),
 				output.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 				output.DonTopology.WorkflowDonID,
@@ -185,13 +197,13 @@ var startCmd = &cobra.Command{
 				return settingsErr
 			}
 
-			// Copy the file to current directory as cre.settings.yaml
+			// Copy the file to current directory as cre.yaml
 			currentDir, cErr := os.Getwd()
 			if cErr != nil {
 				return cErr
 			}
 
-			targetPath := filepath.Join(currentDir, "cre.settings.yaml")
+			targetPath := filepath.Join(currentDir, "cre.yaml")
 			input, err := os.ReadFile(creCLISettingsFile.Name())
 			if err != nil {
 				return err
@@ -211,11 +223,10 @@ var startCmd = &cobra.Command{
 		}
 
 		// TODO print urls?
-
-		fmt.Println()
-		fmt.Println("Environment started successfully")
+		fmt.Printf("\033[35m\nEnvironment setup completed successfully in %.2f minutes\033[0m\n\n", time.Since(startTime).Minutes())
 		fmt.Println()
 		fmt.Println("To terminate execute: ctf d rm")
+		fmt.Println()
 
 		return nil
 	},
@@ -272,7 +283,7 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 			return nil, fmt.Errorf("expected 1 nodeset, got %d", len(in.NodeSets))
 		}
 		// add support for more binaries if needed
-		workflowDONCapabilities := []string{cretypes.OCR3Capability, cretypes.CustomComputeCapability, cretypes.WebAPITriggerCapability, cretypes.WriteEVMCapability, cretypes.WebAPITargetCapability}
+		workflowDONCapabilities := []string{cretypes.OCR3Capability, cretypes.CustomComputeCapability, cretypes.WriteEVMCapability, cretypes.WebAPITriggerCapability, cretypes.WebAPITargetCapability}
 		if in.ExtraCapabilities.CronCapabilityBinaryPath != "" {
 			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.CronCapability)
 			capabilitiesBinaryPaths[cretypes.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
@@ -309,12 +320,12 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 			capabilitiesBinaryPaths[cretypes.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
 		}
 
-		capabiliitesDONCapabilities := []string{cretypes.WriteEVMCapability, cretypes.WebAPITargetCapability}
 		if in.ExtraCapabilities.LogEventTriggerBinaryPath != "" {
-			capabiliitesDONCapabilities = append(capabiliitesDONCapabilities, cretypes.LogTriggerCapability)
+			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.LogTriggerCapability)
 			capabilitiesBinaryPaths[cretypes.LogTriggerCapability] = in.ExtraCapabilities.LogEventTriggerBinaryPath
 		}
 
+		capabiliitesDONCapabilities := []string{cretypes.WriteEVMCapability, cretypes.WebAPITargetCapability}
 		if in.ExtraCapabilities.ReadContractBinaryPath != "" {
 			capabiliitesDONCapabilities = append(capabiliitesDONCapabilities, cretypes.ReadContractCapability)
 			capabilitiesBinaryPaths[cretypes.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
@@ -343,22 +354,23 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 		}
 	}
 
-	fmt.Println("DON topology:")
+	fmt.Println("\033[35m\nDON topology:\033[0m")
 	for _, nodeSet := range capabilitiesAwareNodeSets {
-		fmt.Printf("%s\n", strings.ToUpper(nodeSet.Input.Name))
-		fmt.Printf("\tNode count: %d\n", len(nodeSet.Input.NodeSpecs))
+		fmt.Printf("\033[35m%s\033[0m\n", strings.ToUpper(nodeSet.Input.Name))
+		fmt.Printf("\033[35m\tNode count: %d\033[0m\n", len(nodeSet.Input.NodeSpecs))
 		capabilitiesDesc := "none"
 		if len(nodeSet.Capabilities) > 0 {
 			capabilitiesDesc = strings.Join(nodeSet.Capabilities, ", ")
 		}
-		fmt.Printf("\tCapabilities: %s\n", capabilitiesDesc)
-		fmt.Printf("\tDON Types: %s\n", strings.Join(nodeSet.DONTypes, ", "))
-		fmt.Println()
+		fmt.Printf("\033[35m\tCapabilities: %s\033[0m\n", capabilitiesDesc)
+		fmt.Printf("\033[35m\tDON Types: %s\033[0m", strings.Join(nodeSet.DONTypes, ", "))
+		fmt.Printf("\033[0m\n\n")
 	}
 
 	// add support for more capabilities if needed
 	capabilityFactoryFns := []cretypes.DONCapabilityWithConfigFactoryFn{
-		webapicap.WebAPICapabilityFactoryFn,
+		webapicap.WebAPITriggerCapabilityFactoryFn,
+		webapicap.WebAPITargetCapabilityFactoryFn,
 		computecap.ComputeCapabilityFactoryFn,
 		consensuscap.OCR3CapabilityFactoryFn,
 		croncap.CronCapabilityFactoryFn,
@@ -376,7 +388,8 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 
 	jobSpecFactoryFunctions := []cretypes.JobSpecFactoryFn{
 		// add support for more job spec factory functions if needed
-		webapi.WebAPIJobSpecFactoryFn,
+		webapi.WebAPITriggerJobSpecFactoryFn,
+		webapi.WebAPITargetJobSpecFactoryFn,
 		creconsensus.ConsensusJobSpecFactoryFn(libc.MustSafeUint64(int64(homeChainIDInt))),
 		crecron.CronJobSpecFactoryFn(filepath.Join(containerPath, filepath.Base(in.ExtraCapabilities.CronCapabilityBinaryPath))),
 		cregateway.GatewayJobSpecFactoryFn([]int{}, []string{}, []string{"0.0.0.0/0"}),
@@ -388,19 +401,20 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 		if chainErr != nil {
 			return nil, fmt.Errorf("failed to convert chain ID to int: %w", chainErr)
 		}
-		capabilityFactoryFns = append(capabilityFactoryFns, chainwritercap.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))))
-		capabilityFactoryFns = append(capabilityFactoryFns, chainreadercap.ChainReaderCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
+		capabilityFactoryFns = append(capabilityFactoryFns, writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))))
+		capabilityFactoryFns = append(capabilityFactoryFns, readcontractcap.ReadContractCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
+		capabilityFactoryFns = append(capabilityFactoryFns, logeventtriggercap.LogEventTriggerCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
 
-		jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, chainreader.ChainReaderJobSpecFactoryFn(
+		jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, crelogevent.LogEventTriggerJobSpecFactoryFn(
 			chainIDInt,
 			"evm",
 			// path within the container/pod
 			filepath.Join(containerPath, filepath.Base(in.ExtraCapabilities.LogEventTriggerBinaryPath)),
-			filepath.Join(containerPath, filepath.Base(in.ExtraCapabilities.ReadContractBinaryPath)),
 		))
 	}
 
 	universalSetupInput := creenv.SetupInput{
+		ExtraAllowedPorts:                    extraAllowedPorts,
 		CapabilitiesAwareNodeSets:            capabilitiesAwareNodeSets,
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
 		BlockchainsInput:                     in.Blockchains,

@@ -9,16 +9,17 @@ import (
 
 	rewardManager "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 )
 
 func runCallUpdateRewardRecipients(t *testing.T, useMCMS bool) {
-	e := testutil.NewMemoryEnv(t, true)
-	chain := e.Chains[testutil.TestChain.Selector]
+	testEnv := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
+		ShouldDeployMCMS:      useMCMS,
+		ShouldDeployLinkToken: true,
+	})
+	e, rewardManagerAddr := RewardManagerDeploy(t, testEnv)
 	chainSelector := testutil.TestChain.Selector
-
-	e, rewardManagerAddr, _ := DeployRewardManagerAndLink(t, e)
+	chain := e.Chains[chainSelector]
 
 	recipients := []rewardManager.CommonAddressAndWeight{
 		{
@@ -44,6 +45,7 @@ func runCallUpdateRewardRecipients(t *testing.T, useMCMS bool) {
 						RewardRecipientAndWeights: recipients,
 					}},
 				},
+				MCMSConfig: testutil.GetMCMSConfig(useMCMS),
 			},
 		),
 	)
@@ -76,27 +78,21 @@ func runCallUpdateRewardRecipients(t *testing.T, useMCMS bool) {
 		},
 	}
 
-	var timelocks map[uint64]*proposalutils.TimelockExecutionContracts
-	if useMCMS {
-		e, _, timelocks = testutil.DeployMCMS(t, e, map[uint64][]common.Address{
-			chainSelector: {rewardManagerAddr},
-		})
-	}
-
-	e, err = commonChangesets.Apply(t, e, timelocks,
-		commonChangesets.Configure(
-			UpdateRewardRecipientsChangeset,
-			UpdateRewardRecipientsConfig{
-				ConfigsByChain: map[uint64][]UpdateRewardRecipients{
-					testutil.TestChain.Selector: {UpdateRewardRecipients{
-						RewardManagerAddress:      rewardManagerAddr,
-						PoolID:                    poolID,
-						RewardRecipientAndWeights: recipientsUpdated,
-					}},
+	e, _, err = commonChangesets.ApplyChangesetsV2(
+		t, e, []commonChangesets.ConfiguredChangeSet{
+			commonChangesets.Configure(
+				UpdateRewardRecipientsChangeset,
+				UpdateRewardRecipientsConfig{
+					ConfigsByChain: map[uint64][]UpdateRewardRecipients{
+						testutil.TestChain.Selector: {UpdateRewardRecipients{
+							RewardManagerAddress:      rewardManagerAddr,
+							PoolID:                    poolID,
+							RewardRecipientAndWeights: recipientsUpdated,
+						}},
+					},
+					MCMSConfig: testutil.GetMCMSConfig(useMCMS),
 				},
-				MCMSConfig: testutil.GetMCMSConfig(useMCMS),
-			},
-		),
+			)},
 	)
 	require.NoError(t, err)
 

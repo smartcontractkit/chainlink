@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
@@ -43,14 +43,14 @@ func (cfg SetConfigConfig) Validate() error {
 	return nil
 }
 
-func setConfigPrecondition(_ deployment.Environment, cc SetConfigConfig) error {
+func setConfigPrecondition(_ cldf.Environment, cc SetConfigConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid SetConfig config: %w", err)
 	}
 	return nil
 }
 
-func setConfigLogic(e deployment.Environment, cfg SetConfigConfig) (deployment.ChangesetOutput, error) {
+func setConfigLogic(e cldf.Environment, cfg SetConfigConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.Verifier.String(),
@@ -59,7 +59,7 @@ func setConfigLogic(e deployment.Environment, cfg SetConfigConfig) (deployment.C
 		doSetConfig,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building SetConfig txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building SetConfig txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "SetConfig proposal")
@@ -67,7 +67,7 @@ func setConfigLogic(e deployment.Environment, cfg SetConfigConfig) (deployment.C
 
 func doSetConfig(v *verifier_v0_5_0.Verifier, ac SetConfig) (*goEthTypes.Transaction, error) {
 	return v.SetConfig(
-		deployment.SimTransactOpts(),
+		cldf.SimTransactOpts(),
 		ac.ConfigDigest,
 		ac.Signers,
 		ac.F,

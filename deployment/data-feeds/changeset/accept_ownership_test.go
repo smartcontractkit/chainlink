@@ -8,9 +8,9 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -42,7 +42,7 @@ func TestAcceptOwnership(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	timeLockAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "RBACTimelock")
+	timeLockAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "RBACTimelock")
 	require.NoError(t, err)
 
 	cache, _ := DeployCache(chain, []string{})
