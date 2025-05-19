@@ -1,6 +1,7 @@
 package aptos
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
@@ -19,7 +20,7 @@ func setWorkflowConfigLogic(env cldf.Environment, c types.SetRegistryWorkflowCon
 	chain := env.AptosChains[c.ChainSelector]
 	chainState := state.AptosChains[c.ChainSelector]
 	cacheAccountAddress := aptos.AccountAddress{}
-	cacheAccountAddress.ParseStringRelaxed(c.CacheAddress)
+	_ = cacheAccountAddress.ParseStringRelaxed(c.CacheAddress)
 	contract := *chainState.DataFeeds[cacheAccountAddress]
 
 	var allowedWorkflowOwners [][]byte
@@ -47,7 +48,7 @@ func setWorkflowConfigLogic(env cldf.Environment, c types.SetRegistryWorkflowCon
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	if tx.Success == false {
+	if !tx.Success {
 		fmt.Println("Transaction failed", tx.Hash)
 	} else {
 		fmt.Println("Transaction succeeded", tx.Hash)
@@ -58,7 +59,7 @@ func setWorkflowConfigLogic(env cldf.Environment, c types.SetRegistryWorkflowCon
 
 func setWorkflowConfigPrecondition(env cldf.Environment, c types.SetRegistryWorkflowConfig) error {
 	if len(c.AllowedWorkflowOwners) == 0 {
-		return fmt.Errorf("allowedWorkflowOwners cannot be empty")
+		return errors.New("allowedWorkflowOwners cannot be empty")
 	}
 
 	return changeset.ValidateCacheForAptosChain(env, c.ChainSelector, c.CacheAddress)

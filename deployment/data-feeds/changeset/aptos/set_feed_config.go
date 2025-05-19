@@ -20,7 +20,7 @@ func setFeedConfigLogic(env cldf.Environment, c types.SetRegistryFeedConfig) (cl
 	chain := env.AptosChains[c.ChainSelector]
 	chainState := state.AptosChains[c.ChainSelector]
 	cacheAccountAddress := aptos.AccountAddress{}
-	cacheAccountAddress.ParseStringRelaxed(c.CacheAddress)
+	_ = cacheAccountAddress.ParseStringRelaxed(c.CacheAddress)
 	contract := *chainState.DataFeeds[cacheAccountAddress]
 
 	dataIDs, _ := changeset.FeedIDsToBytes(c.DataIDs)
@@ -40,7 +40,7 @@ func setFeedConfigLogic(env cldf.Environment, c types.SetRegistryFeedConfig) (cl
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	if tx.Success == false {
+	if !tx.Success {
 		fmt.Println("Transaction failed", tx.Hash)
 	} else {
 		fmt.Println("Transaction succeeded", tx.Hash)

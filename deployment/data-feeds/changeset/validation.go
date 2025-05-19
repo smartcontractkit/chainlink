@@ -45,7 +45,7 @@ func ValidateMCMSAddresses(ab cldf.AddressBook, chainSelector uint64) error {
 	return nil
 }
 
-func ValidateCacheForAptosChain(env deployment.Environment, chainSelector uint64, cacheAddress string) error {
+func ValidateCacheForAptosChain(env cldf.Environment, chainSelector uint64, cacheAddress string) error {
 	state, err := LoadAptosOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load on chain state %w", err)

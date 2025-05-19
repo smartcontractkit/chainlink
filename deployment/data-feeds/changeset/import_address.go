@@ -5,10 +5,9 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
@@ -25,7 +24,7 @@ type AddressSchema struct {
 	Labels    []string               `json:"labels"`
 }
 
-func importAddressToDatastoreLogic(env deployment.Environment, c types.ImportAddressesConfig) (cldf.ChangesetOutput, error) {
+func importAddressToDatastoreLogic(env cldf.Environment, c types.ImportAddressesConfig) (cldf.ChangesetOutput, error) {
 	ds := datastore.NewMemoryDataStore[
 		datastore.DefaultMetadata,
 		datastore.DefaultMetadata,
@@ -56,7 +55,7 @@ func importAddressToDatastoreLogic(env deployment.Environment, c types.ImportAdd
 	return cldf.ChangesetOutput{DataStore: ds}, nil
 }
 
-func importAddressToDatastorePrecondition(env deployment.Environment, c types.ImportAddressesConfig) error {
+func importAddressToDatastorePrecondition(env cldf.Environment, c types.ImportAddressesConfig) error {
 	_, evmOK := env.Chains[c.ChainSelector]
 	_, aptosOK := env.AptosChains[c.ChainSelector]
 	_, solOK := env.SolChains[c.ChainSelector]

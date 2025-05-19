@@ -53,7 +53,7 @@ type DataFeedsOnChainState struct {
 	AptosChains map[uint64]DataFeedsAptosChainState
 }
 
-func LoadAptosOnchainState(e deployment.Environment) (DataFeedsOnChainState, error) {
+func LoadAptosOnchainState(e cldf.Environment) (DataFeedsOnChainState, error) {
 	state := DataFeedsOnChainState{
 		AptosChains: make(map[uint64]DataFeedsAptosChainState),
 	}
@@ -141,14 +141,13 @@ func LoadChainState(logger logger.Logger, chain cldf_evm.Chain, addresses map[st
 }
 
 // LoadAptosChainState Loads all state for aptos chain into state
-func LoadAptosChainState(logger logger.Logger, chain deployment.AptosChain, addresses []datastore.AddressRef) (*DataFeedsAptosChainState, error) {
+func LoadAptosChainState(logger logger.Logger, chain cldf.AptosChain, addresses []datastore.AddressRef) (*DataFeedsAptosChainState, error) {
 	var state DataFeedsAptosChainState
 
 	state.DataFeeds = make(map[aptos.AccountAddress]*modulefeeds.DataFeeds)
 
 	for _, address := range addresses {
 		if address.Type == ChainlinkDataFeedsPackage {
-
 			feedsAddress := aptos.AccountAddress{}
 			err := feedsAddress.ParseStringRelaxed(address.Address)
 			if err != nil {
