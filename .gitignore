@@ -110,6 +110,8 @@ contracts/lcov.info
 contracts/out/
 /cache
 
-# Used by plugins/chianlink.prebuilt.Dockerfile
-bin/
-lib/
+# Used by plugins/chainlink.prebuilt.Dockerfile
+/bin/
+/lib/
+/build/bin/
+/build/lib/
