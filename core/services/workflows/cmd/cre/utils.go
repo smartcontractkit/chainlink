@@ -8,6 +8,7 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	cronserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron/server"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
@@ -32,7 +33,13 @@ const (
 	defaultName                      = "myworkflow"
 )
 
-func NewStandaloneEngine(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry, binary []byte, config []byte) (services.Service, error) {
+func NewStandaloneEngine(
+	ctx context.Context,
+	lggr logger.Logger,
+	registry *capabilities.Registry,
+	binary []byte, config []byte,
+	billingClientAddr string,
+) (services.Service, error) {
 	labeler := custmsg.NewLabeler()
 	moduleConfig := &host.ModuleConfig{
 		Logger:                  lggr,
