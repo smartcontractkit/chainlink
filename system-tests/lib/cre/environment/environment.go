@@ -54,6 +54,7 @@ import (
 	libfunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
 	libinfra "github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	libnix "github.com/smartcontractkit/chainlink/system-tests/lib/nix"
+	liboutput "github.com/smartcontractkit/chainlink/system-tests/lib/output"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
@@ -127,7 +128,7 @@ func SetupTestEnvironment(
 	bi.blockchainsInput = append(bi.blockchainsInput, input.BlockchainsInput...)
 
 	startTime := time.Now()
-	fmt.Printf("\033[35m\n[Stage 1/10] Starting %d blockchain(s)\033[0m\n\n", len(bi.blockchainsInput))
+	fmt.Print(liboutput.PurpleText("\n[Stage 1/10] Starting %d blockchain(s)\033[0m\n\n", len(bi.blockchainsInput)))
 
 	blockchainsOutput, bcOutErr := CreateBlockchains(testLogger, bi)
 	if bcOutErr != nil {
@@ -168,9 +169,9 @@ func SetupTestEnvironment(
 		},
 	}
 
-	fmt.Printf("\033[35m\n[Stage 1/10] Blockchains started in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())
+	fmt.Print(liboutput.PurpleText("\n[Stage 1/10] Blockchains started in %.2f seconds\033[0m\n", time.Since(startTime).Seconds()))
 	startTime = time.Now()
-	fmt.Printf("\033[35m[Stage 2/10] Deploying Keystone contracts\033[0m\n\n")
+	fmt.Print(liboutput.PurpleText("\033[35m[Stage 2/10] Deploying Keystone contracts\033[0m\n\n"))
 
 	// we could try to parallelise deployment of these contracts, but it's difficult, because there's no way to make chain.DeployerKey dynamic
 	// in order to manually increment the nonce for each contract
@@ -232,9 +233,9 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(err, "failed to deploy Keystone contracts")
 	}
 
-	fmt.Printf("\033[35m\n[Stage 2/10] Contracts deployed in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())
+	fmt.Print(liboutput.PurpleText("\n[Stage 2/10] Contracts deployed in %.2f seconds\033[0m\n", time.Since(startTime).Seconds()))
 	startTime = time.Now()
-	fmt.Printf("\033[35m[Stage 3/10] Configuring Workflow Registry contract\033[0m\n\n")
+	fmt.Print(liboutput.PurpleText("\033[35m[Stage 3/10] Configuring Workflow Registry contract\033[0m\n\n"))
 
 	// Translate node input to structure required further down the road and put as much information
 	// as we have at this point in labels. It will be used to generate node configs
@@ -256,9 +257,9 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(workflowErr, "failed to configure workflow registry")
 	}
 
-	fmt.Printf("\033[35m\n[Stage 3/10] Workflow Registry configured in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())
+	fmt.Print(liboutput.PurpleText("\n[Stage 3/10] Workflow Registry configured in %.2f seconds\033[0m\n", time.Since(startTime).Seconds()))
 	startTime = time.Now()
-	fmt.Printf("\033[35m[Stage 4/10] Preparing DON(s) configuration\033[0m\n\n")
+	fmt.Print(liboutput.PurpleText("\033[35m[Stage 4/10] Preparing DON(s) configuration\033[0m\n\n"))
 
 	// Generate EVM and P2P keys or read them from the config
 	// That way we can pass them final configs and do away with restarting the nodes
@@ -400,9 +401,9 @@ func SetupTestEnvironment(
 		}
 	}
 
-	fmt.Printf("\033[35m\n[Stage 4/10] DONs configuration prepared in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())
+	fmt.Print(liboutput.PurpleText("\n[Stage 4/10] DONs configuration prepared in %.2f seconds\033[0m\n", time.Since(startTime).Seconds()))
 	startTime = time.Now()
-	fmt.Printf("\033[35m[Stage 5/10] Starting Job Distributor\033[0m\n\n")
+	fmt.Print(liboutput.PurpleText("\033[35m[Stage 5/10] Starting Job Distributor\033[0m\n\n"))
 
 	if input.InfraInput.InfraType == libtypes.CRIB {
 		deployCribJdInput := &keystonetypes.DeployCribJdInput{
@@ -429,9 +430,9 @@ func SetupTestEnvironment(
 		return nil, jdErr
 	}
 
-	fmt.Printf("\033[35m\n[Stage 5/10] Job Distributor started in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())
+	fmt.Print(liboutput.PurpleText("\n[Stage 5/10] Job Distributor started in %.2f seconds\033[0m\n", time.Since(startTime).Seconds()))
 	startTime = time.Now()
-	fmt.Printf("\033[35m[Stage 6/10] Starting %d DON(s)\033[0m\n\n", len(input.CapabilitiesAwareNodeSets))
+	fmt.Print(liboutput.PurpleText("\033[35m[Stage 6/10] Starting %d DON(s)\033[0m\n\n", len(input.CapabilitiesAwareNodeSets)))
 
 	if input.InfraInput.InfraType == libtypes.CRIB {
 		testLogger.Info().Msg("Saving node configs and secret overrides")
@@ -489,9 +490,9 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(cldErr, "failed to build full CLD environment")
 	}
 
-	fmt.Printf("\033[35m\n[Stage 6/10] DONs started in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())
+	fmt.Print(liboutput.PurpleText("\n[Stage 6/10] DONs started in %.2f seconds\033[0m\n", time.Since(startTime).Seconds()))
 	startTime = time.Now()
-	fmt.Printf("\033[35m[Stage 7/10] Funding Chainlink nodes\033[0m\n\n")
+	fmt.Print(liboutput.PurpleText("\033[35m[Stage 7/10] Funding Chainlink nodes\033[0m\n\n"))
 
 	// Fund the nodes
 	concurrentNonceMap, concurrentNonceMapErr := NewConcurrentNonceMap(blockchainsOutput)
@@ -535,9 +536,9 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(err, "failed to fund nodes")
 	}
 
-	fmt.Printf("\033[35m\n[Stage 7/10] Chainlink nodes funded in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())
+	fmt.Print(liboutput.PurpleText("\033[35m\n[Stage 7/10] Chainlink nodes funded in %.2f seconds\033[0m\n", time.Since(startTime).Seconds()))
 	startTime = time.Now()
-	fmt.Printf("\033[35m[Stage 8/10] Creating jobs\033[0m\n\n")
+	fmt.Print(liboutput.PurpleText("\033[35m[Stage 8/10] Creating jobs\033[0m\n\n"))
 
 	donToJobSpecs := make(keystonetypes.DonsToJobSpecs)
 
@@ -568,9 +569,9 @@ func SetupTestEnvironment(
 	// CAUTION: It is crucial to configure OCR3 jobs on nodes before configuring the workflow contracts.
 	// Wait for OCR listeners to be ready before setting the configuration.
 	// If the ConfigSet event is missed, OCR protocol will not start.
-	fmt.Printf("\033[35m\n[Stage 8/10] Jobs created in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())
+	fmt.Print(liboutput.PurpleText("\n[Stage 8/10] Jobs created in %.2f seconds\033[0m\n", time.Since(startTime).Seconds()))
 	startTime = time.Now()
-	fmt.Printf("\033[35m[Stage 9/10] Waiting for Log Poller to start tracking OCR3 contract\033[0m\n\n")
+	fmt.Print(liboutput.PurpleText("\033[35m[Stage 9/10] Waiting for Log Poller to start tracking OCR3 contract\033[0m\n\n"))
 
 	for idx, nodeSetOut := range nodeSetOutput {
 		if !flags.HasFlag(input.CapabilitiesAwareNodeSets[idx].Capabilities, cretypes.OCR3Capability) {
@@ -591,9 +592,9 @@ func SetupTestEnvironment(
 		}
 	}
 
-	fmt.Printf("\033[35m\n[Stage 9/10] Log Poller started in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())
+	fmt.Print(liboutput.PurpleText("\n[Stage 9/10] Log Poller started in %.2f seconds\033[0m\n", time.Since(startTime).Seconds()))
 	startTime = time.Now()
-	fmt.Printf("\033[35m[Stage 10/10] Configuring OCR3 and Keystone contracts\033[0m\n\n")
+	fmt.Print(liboutput.PurpleText("\033[35m[Stage 10/10] Configuring OCR3 and Keystone contracts\033[0m\n\n"))
 
 	// Configure the Forwarder, OCR3 and Capabilities contracts
 	configureKeystoneInput := keystonetypes.ConfigureKeystoneInput{
@@ -617,7 +618,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(keystoneErr, "failed to configure keystone contracts")
 	}
 
-	fmt.Printf("\033[35m\n[Stage 10/10] OCR3 and Keystone contracts configured in %.2f seconds\033[0m\n\n", time.Since(startTime).Seconds())
+	fmt.Print(liboutput.PurpleText("\n[Stage 10/10] OCR3 and Keystone contracts configured in %.2f seconds\033[0m\n\n", time.Since(startTime).Seconds()))
 
 	return &SetupOutput{
 		WorkflowRegistryConfigurationOutput: workflowRegistryInput.Out, // pass to caller, so that it can be optionally attached to TestConfig and saved to disk

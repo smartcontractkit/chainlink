@@ -45,6 +45,7 @@ import (
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
+	liboutput "github.com/smartcontractkit/chainlink/system-tests/lib/output"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/cmd/examples/pkg/deploy"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/cmd/examples/pkg/verify"
@@ -145,12 +146,11 @@ var startCmd = &cobra.Command{
 			if p != nil {
 				fmt.Println("Panicked when starting environment")
 				if err, ok := p.(error); ok {
-					fmt.Fprint(os.Stderr, "Error:")
-					fmt.Fprint(os.Stderr, err)
-					fmt.Fprint(os.Stderr, "Stack trace:")
-					fmt.Fprint(os.Stderr, string(debug.Stack()))
+					fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+					fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
 				} else {
-					fmt.Fprintf(os.Stderr, "panic: %v", p)
+					fmt.Fprintf(os.Stderr, "panic: %v\n", p)
+					fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
 				}
 
 				waitOnErrorTimeoutDurationFn()
@@ -166,8 +166,8 @@ var startCmd = &cobra.Command{
 			return fmt.Errorf("invalid topology: %s. Valid topologies are: %s, %s", topologyFlag, TopologySimplified, TopologyFull)
 		}
 
+		printCRELogo()
 		startTime := time.Now()
-		fmt.Printf("\033[35m\nStarting CRE environment\033[0m\n\n")
 
 		if os.Getenv("CTF_CONFIGS") == "" {
 			// use default config
@@ -201,10 +201,8 @@ var startCmd = &cobra.Command{
 
 		output, err := startCLIEnvironment(topologyFlag, extraAllowedPortsFlag)
 		if err != nil {
-			fmt.Fprint(os.Stderr, "Error:")
-			fmt.Fprint(os.Stderr, err)
-			fmt.Fprint(os.Stderr, "Stack trace:")
-			fmt.Fprint(os.Stderr, string(debug.Stack()))
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
 
 			waitOnErrorTimeoutDurationFn()
 			removeErr := framework.RemoveTestContainers()
@@ -261,17 +259,17 @@ var startCmd = &cobra.Command{
 		}
 
 		// TODO print urls?
-		fmt.Printf("\033[35m\nEnvironment setup completed successfully in %.2f seconds\033[0m\n\n", time.Since(startTime).Seconds())
+		fmt.Print(liboutput.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(startTime).Seconds()))
 		fmt.Print("To terminate execute: ctf d rm\n\n")
 
 		if withExample {
-			fmt.Print(PurplePrint("\nRegistering and verifying example workflow\n\n"))
+			fmt.Print(liboutput.PurpleText("\nRegistering and verifying example workflow\n\n"))
 			deployErr := deployAndVerifyExampleWorkflow(homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, homeChainOut.ChainID)
 			if deployErr != nil {
 				fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 			}
 
-			fmt.Printf("\033[35m\nEnvironment setup completed successfully in %.2f seconds\033[0m\n\n", time.Since(startTime).Seconds())
+			fmt.Print(liboutput.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(startTime).Seconds()))
 			fmt.Print("To terminate execute: ctf d rm\n\n")
 		}
 
@@ -396,17 +394,16 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 		}
 	}
 
-	fmt.Println("\033[35m\nDON topology:\033[0m")
+	fmt.Print(liboutput.PurpleText("DON topology:\n"))
 	for _, nodeSet := range capabilitiesAwareNodeSets {
-		fmt.Printf("\033[35m%s\033[0m\n", strings.ToUpper(nodeSet.Input.Name))
-		fmt.Printf("\033[35m\tNode count: %d\033[0m\n", len(nodeSet.Input.NodeSpecs))
+		fmt.Print(liboutput.PurpleText("%s\n", strings.ToUpper(nodeSet.Input.Name)))
+		fmt.Print(liboutput.PurpleText("\tNode count: %d\n", len(nodeSet.Input.NodeSpecs)))
 		capabilitiesDesc := "none"
 		if len(nodeSet.Capabilities) > 0 {
 			capabilitiesDesc = strings.Join(nodeSet.Capabilities, ", ")
 		}
-		fmt.Printf("\033[35m\tCapabilities: %s\033[0m\n", capabilitiesDesc)
-		fmt.Printf("\033[35m\tDON Types: %s\033[0m", strings.Join(nodeSet.DONTypes, ", "))
-		fmt.Printf("\033[0m\n\n")
+		fmt.Print(liboutput.PurpleText("\tCapabilities: %s\n", capabilitiesDesc))
+		fmt.Print(liboutput.PurpleText("\tDON Types: %s\n\n", strings.Join(nodeSet.DONTypes, ", ")))
 	}
 
 	// add support for more capabilities if needed
@@ -480,13 +477,13 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 func deployAndVerifyExampleWorkflow(rpcURL string, chainID uint64) error {
 	totalStart := time.Now()
 	start := time.Now()
-	fmt.Print(PurplePrint("\n[Stage 1/3] Deploying Permissionless Feeds Consumer\n\n"))
+	fmt.Print(liboutput.PurpleText("\n[Stage 1/3] Deploying Permissionless Feeds Consumer\n\n"))
 	consumerContractAddress, consumerErr := deploy.DeployPermissionlessFeedsConsumer(rpcURL)
 	if consumerErr != nil {
 		return errors.Wrap(consumerErr, "failed to deploy Permissionless Feeds Consumer contract")
 	}
 
-	fmt.Printf(PurplePrint("\n[Stage 1/3] Deployed Permissionless Feeds Consumer in %.2f seconds\n"), time.Since(start).Seconds())
+	fmt.Print(liboutput.PurpleText("\n[Stage 1/3] Deployed Permissionless Feeds Consumer in %.2f seconds\n", time.Since(start).Seconds()))
 
 	workflowData, workflowDataErr := readWorkflowData()
 	if workflowDataErr != nil {
@@ -494,15 +491,15 @@ func deployAndVerifyExampleWorkflow(rpcURL string, chainID uint64) error {
 	}
 
 	start = time.Now()
-	fmt.Print(PurplePrint("\n[Stage 2/3] Registering example Proof-of-Reserve workflow\n\n"))
+	fmt.Print(liboutput.PurpleText("\n[Stage 2/3] Registering example Proof-of-Reserve workflow\n\n"))
 
 	deployErr := deployExampleWorkflow(chainID, *workflowData)
 	if deployErr != nil {
 		return errors.Wrap(deployErr, "failed to deploy example workflow")
 	}
 
-	fmt.Printf(PurplePrint("\n[Stage 2/3] Registered workflow in %.2f seconds\n\n"), time.Since(start).Seconds())
-	fmt.Printf(PurplePrint("\n[Stage 3/3] Waiting for %s for workflow to execute successuly\n"), exampleWorkflowTimeout)
+	fmt.Print(liboutput.PurpleText("\n[Stage 2/3] Registered workflow in %.2f seconds\n\n", time.Since(start).Seconds()))
+	fmt.Print(liboutput.PurpleText("\n[Stage 3/3] Waiting for %s for workflow to execute successuly\n", exampleWorkflowTimeout))
 	waitTime, waitTimeErr := time.ParseDuration(exampleWorkflowTimeout)
 	if waitTimeErr != nil {
 		return errors.Wrapf(waitTimeErr, "failed to parse %s to time.Duration", exampleWorkflowTimeout)
@@ -511,18 +508,18 @@ func deployAndVerifyExampleWorkflow(rpcURL string, chainID uint64) error {
 	// ignore return as if verification failed it will print that info
 	_ = verify.ProofOfReserve(rpcURL, consumerContractAddress.Hex(), workflowData.FeedID, true, waitTime)
 
-	fmt.Printf(PurplePrint("\n[Stage 3/3] Example workflow executed in %.2f seconds\n"), time.Since(totalStart).Seconds())
+	fmt.Print(liboutput.PurpleText("\n[Stage 3/3] Example workflow executed in %.2f seconds\n", time.Since(totalStart).Seconds()))
 	start = time.Now()
-	fmt.Print(PurplePrint("\n[CLEANUP] Pausing example workflow\n\n"))
-	pauseErr := pauseExampleWorkflow()
+	fmt.Print(liboutput.PurpleText("\n[CLEANUP] Pausing example workflow\n\n"))
+	pauseErr := pauseExampleWorkflow(chainID)
 	if pauseErr != nil {
 		fmt.Printf("Failed to pause example workflow: %s\nPlease pause it manually\n", pauseErr)
 	}
 
-	fmt.Printf(PurplePrint("\n[CLEANUP] Paused example workflow in %.2f seconds\n\n"), time.Since(start).Seconds())
+	fmt.Print(liboutput.PurpleText("\n[CLEANUP] Paused example workflow in %.2f seconds\n\n", time.Since(start).Seconds()))
 
 	if isBlockscoutRunning() {
-		fmt.Println(PurplePrint("Open http://localhost/address/0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE?tab=internal_txns to check consumer contract's transaction history\n"))
+		fmt.Print(liboutput.PurpleText("Open http://localhost/address/0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE?tab=internal_txns to check consumer contract's transaction history\n"))
 	}
 
 	return nil
@@ -531,7 +528,7 @@ func deployAndVerifyExampleWorkflow(rpcURL string, chainID uint64) error {
 var creCLI = "cre_v0.2.0_darwin_arm64"
 var exampleWorkflowName = "exampleworkflow"
 
-func prepareCLIInput() (*cretypes.ManageWorkflowWithCRECLIInput, error) {
+func prepareCLIInput(chainID uint64) (*cretypes.ManageWorkflowWithCRECLIInput, error) {
 	if !isCRECLIIsAvailable() {
 		if downloadErr := tryToDownloadCRECLI(); downloadErr != nil {
 			return nil, errors.Wrap(downloadErr, "failed to download CRE CLI")
@@ -545,7 +542,12 @@ func prepareCLIInput() (*cretypes.ManageWorkflowWithCRECLIInput, error) {
 
 	CRECLIAbsPath, CRECLIAbsPathErr := filepath.Abs(creCLI)
 	if CRECLIAbsPathErr != nil {
-		return nil, errors.Wrap(CRECLIAbsPathErr, "failed to find absolute path of the CRE CLI binary")
+		// If not found in current directory, try to find it in PATH
+		path, lookErr := exec.LookPath(creCLI)
+		if lookErr != nil {
+			return nil, errors.Wrap(CRECLIAbsPathErr, "failed to find absolute path of the CRE CLI binary")
+		}
+		CRECLIAbsPath = path
 	}
 
 	deployerPrivateKey := os.Getenv("PRIVATE_KEY")
@@ -591,7 +593,7 @@ func prepareCLIInput() (*cretypes.ManageWorkflowWithCRECLIInput, error) {
 }
 
 func deployExampleWorkflow(chainID uint64, workflowData workflowData) error {
-	registerWorkflowInput, registerWorkflowInputErr := prepareCLIInput()
+	registerWorkflowInput, registerWorkflowInputErr := prepareCLIInput(chainID)
 	if registerWorkflowInputErr != nil {
 		return errors.Wrap(registerWorkflowInputErr, "failed to prepare CLI input")
 	}
@@ -609,8 +611,8 @@ func deployExampleWorkflow(chainID uint64, workflowData workflowData) error {
 	return nil
 }
 
-func pauseExampleWorkflow() error {
-	pauseWorkflowInput, pauseWorkflowInputErr := prepareCLIInput()
+func pauseExampleWorkflow(chainID uint64) error {
+	pauseWorkflowInput, pauseWorkflowInputErr := prepareCLIInput(chainID)
 	if pauseWorkflowInputErr != nil {
 		return errors.Wrap(pauseWorkflowInputErr, "failed to prepare CLI input")
 	}
@@ -645,12 +647,22 @@ func readWorkflowData() (*workflowData, error) {
 }
 
 func isCRECLIIsAvailable() bool {
-	_, statErr := os.Stat(creCLI)
-	return statErr == nil
+	if _, statErr := os.Stat(creCLI); statErr == nil {
+		return true
+	}
+
+	pathCmd := exec.Command("which", creCLI)
+	if err := pathCmd.Run(); err == nil {
+		return true
+	}
+
+	return false
 }
 
 func tryToDownloadCRECLI() error {
-	commandArgs := []string{"release", "download", "v0.2.0", "--repo", "smartcontractkit/dev-platform", "--pattern", "*darwin_arm64*"}
+	start := time.Now()
+	fmt.Print(liboutput.PurpleText("\n[Stage 2a/3] Downloading CRE CLI\n\n"))
+	commandArgs := []string{"release", "download", "v0.2.0", "--repo", "smartcontractkit/dev-platform", "--pattern", "*darwin_arm64*", "--skip-existing"}
 
 	ghCmd := exec.Command("gh", commandArgs...) // #nosec G204
 	ghCmd.Stdout = os.Stdout
@@ -663,7 +675,8 @@ func tryToDownloadCRECLI() error {
 		return errors.Wrap(waitErr, "failed to wait for gh cli command")
 	}
 
-	tarArgs := []string{"-xf", "cre_v0.2.0_darwin_arm64.tar.gz"}
+	archiveName := "cre_v0.2.0_darwin_arm64.tar.gz"
+	tarArgs := []string{"-xf", archiveName}
 	tarCmd := exec.Command("tar", tarArgs...)
 
 	tarCmd.Stdout = os.Stdout
@@ -676,11 +689,14 @@ func tryToDownloadCRECLI() error {
 		return errors.Wrap(waitErr, "failed to wait for tar command")
 	}
 
-	return nil
-}
+	removeErr := os.Remove(archiveName)
+	if removeErr != nil {
+		fmt.Fprintf(os.Stderr, "failed to remove %s. Please remove it manually.\n", archiveName)
+	}
 
-func PurplePrint(text string) string {
-	return fmt.Sprintf("\033[35m%s\033[0m", text)
+	fmt.Print(liboutput.PurpleText("\n[Stage 2a/3] CRE CLI downloaded in %.2f seconds\n\n", time.Since(start).Seconds()))
+
+	return nil
 }
 
 func isBlockscoutRunning() bool {
@@ -703,4 +719,18 @@ func isBlockscoutRunning() bool {
 	}
 
 	return false
+}
+
+func printCRELogo() {
+	blue := "\033[38;5;33m"
+	reset := "\033[0m"
+
+	fmt.Println()
+	fmt.Println(blue + "	db       .d88b.   .o88b.  .d8b.  db            .o88b. d8888b. d88888b" + reset)
+	fmt.Println(blue + "	88      .8P  Y8. d8P  Y8 d8' `8b 88           d8P  Y8 88  `8D 88'" + reset)
+	fmt.Println(blue + "	88      88    88 8P      88ooo88 88           8P      88oobY' 88ooooo" + reset)
+	fmt.Println(blue + "	88      88    88 8b      88~~~88 88           8b      88`8b   88~~~~~" + reset)
+	fmt.Println(blue + "	88booo. `8b  d8' Y8b  d8 88   88 88booo.      Y8b  d8 88 `88. 88." + reset)
+	fmt.Println(blue + "	Y88888P  `Y88P'   `Y88P' YP   YP Y88888P       `Y88P' 88   YD Y88888P" + reset)
+	fmt.Println()
 }

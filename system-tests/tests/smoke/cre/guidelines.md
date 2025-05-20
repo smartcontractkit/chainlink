@@ -235,7 +235,7 @@ Optionally:
     ```
     (warning, that stack is pretty heavy)
     - To download the `ctf` binary follow the steps described [here](https://smartcontractkit.github.io/chainlink-testing-framework/framework/getting_started.html)
-7. **Download GH CLI (to execute example workflow)**
+7. **Download and configure GH CLI (if CRE CLI  is missing or not in your PATH)**
   - Either download from [cli.github.com](https://cli.github.com/) or install with Homebrew with `brew install gh`
   - Configure with `gh auth login`
 
