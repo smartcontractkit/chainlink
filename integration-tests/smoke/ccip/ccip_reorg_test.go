@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -357,7 +356,7 @@ func buildChainSelectorToRPCURLMap(t *testing.T, dockerEnv *testsetups.DeployedL
 	chainSelToRPCURL := make(map[uint64]string)
 	for _, chain := range devEnvConfig.Chains {
 		require.GreaterOrEqual(t, len(chain.HTTPRPCs), 1)
-		details, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(chain.ChainID, 10), chainsel.FamilyEVM)
+		details, err := chainsel.GetChainDetailsByChainIDAndFamily(chain.ChainID, chainsel.FamilyEVM)
 		require.NoError(t, err)
 		chainSelToRPCURL[details.ChainSelector] = chain.HTTPRPCs[0].Internal
 	}

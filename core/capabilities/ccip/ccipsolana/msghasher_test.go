@@ -7,30 +7,28 @@ import (
 	"testing"
 
 	"github.com/gagliardetto/solana-go"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestMessageHasher_EVM2SVM(t *testing.T) {
-	var extraDataCodec = ccipcommon.NewExtraDataCodec(ccipevm.ExtraDataCodec{}, ExtraDataCodec{})
+	registeredExtraDataCodecMap := map[string]ccipcommon.SourceChainExtraDataCodec{
+		chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
+		chainsel.FamilySolana: ExtraDataDecoder{},
+	}
+	var extraDataCodec = ccipcommon.ExtraDataCodec(registeredExtraDataCodecMap)
 	any2AnyMsg, any2SolanaMsg, msgAccounts := createEVM2SolanaMessages(t)
 	msgHasher := NewMessageHasherV1(logger.Test(t), extraDataCodec)
 	actualHash, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
@@ -58,7 +56,14 @@ func TestMessageHasher_InvalidReceiver(t *testing.T) {
 			[32]byte(solana.SystemProgramID.Bytes()),
 		},
 	}, nil).Maybe()
-	msgHasher := NewMessageHasherV1(logger.Test(t), ccipcommon.NewExtraDataCodec(mockExtraDataCodec, mockExtraDataCodec))
+
+	registeredMockExtraDataCodecMap := map[string]ccipcommon.SourceChainExtraDataCodec{
+		chainsel.FamilyEVM:    mockExtraDataCodec,
+		chainsel.FamilySolana: mockExtraDataCodec,
+	}
+
+	edc := ccipcommon.ExtraDataCodec(registeredMockExtraDataCodecMap)
+	msgHasher := NewMessageHasherV1(logger.Test(t), edc)
 	_, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
 	require.Error(t, err)
 }
@@ -81,7 +86,13 @@ func TestMessageHasher_InvalidDestinationTokenAddress(t *testing.T) {
 			[32]byte(solana.SystemProgramID.Bytes()),
 		},
 	}, nil).Maybe()
-	msgHasher := NewMessageHasherV1(logger.Test(t), ccipcommon.NewExtraDataCodec(mockExtraDataCodec, mockExtraDataCodec))
+
+	registeredMockExtraDataCodecMap := map[string]ccipcommon.SourceChainExtraDataCodec{
+		chainsel.FamilyEVM:    mockExtraDataCodec,
+		chainsel.FamilySolana: mockExtraDataCodec,
+	}
+	edc := ccipcommon.ExtraDataCodec(registeredMockExtraDataCodecMap)
+	msgHasher := NewMessageHasherV1(logger.Test(t), edc)
 	_, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
 	require.Error(t, err)
 }

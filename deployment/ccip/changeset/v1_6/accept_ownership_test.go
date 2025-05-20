@@ -44,11 +44,11 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	_, err = commonchangeset.Apply(t, e.Env, timelockContracts,
 		// note this doesn't have proposals.
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
-			testhelpers.GenTestTransferOwnershipConfig(e, allChains, state),
+			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
+			testhelpers.GenTestTransferOwnershipConfig(e, allChains, state, true),
 		),
 	)
 	require.NoError(t, err)
 
-	testhelpers.AssertTimelockOwnership(t, e, allChains, state)
+	testhelpers.AssertTimelockOwnership(t, e, allChains, state, true)
 }

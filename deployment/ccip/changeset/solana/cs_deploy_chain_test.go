@@ -54,7 +54,7 @@ func verifyProgramSizes(t *testing.T, e cldf.Environment) {
 		deployment.McmProgramName:                  chainState.McmProgram,
 		deployment.RMNRemoteProgramName:            state.SolChains[e.AllChainSelectorsSolana()[0]].RMNRemote,
 	}
-	for program, sizeBytes := range cldf.GetSolanaProgramBytes() {
+	for program, sizeBytes := range deployment.SolanaProgramBytes {
 		t.Logf("Verifying program %s size is at least %d bytes", program, sizeBytes)
 		programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programsToState[program].Bytes()}, solana.BPFLoaderUpgradeableProgramID)
 		programDataSize, err := ccipChangesetSolana.GetSolProgramSize(&e, e.SolChains[e.AllChainSelectorsSolana()[0]], programDataAccount)
@@ -358,17 +358,21 @@ func TestIDL(t *testing.T) {
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.UploadIDL),
 			ccipChangesetSolana.IDLConfig{
-				ChainSelector:        solChain,
-				GitCommitSha:         "",
-				Router:               true,
-				FeeQuoter:            true,
-				OffRamp:              true,
-				RMNRemote:            true,
-				BurnMintTokenPool:    true,
-				LockReleaseTokenPool: true,
-				AccessController:     true,
-				Timelock:             true,
-				MCM:                  true,
+				ChainSelector: solChain,
+				GitCommitSha:  "",
+				Router:        true,
+				FeeQuoter:     true,
+				OffRamp:       true,
+				RMNRemote:     true,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+				LockReleaseTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+				AccessController: true,
+				Timelock:         true,
+				MCM:              true,
 			},
 		),
 	})
@@ -409,15 +413,19 @@ func TestIDL(t *testing.T) {
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.UpgradeIDL),
 			ccipChangesetSolana.IDLConfig{
-				ChainSelector:        solChain,
-				GitCommitSha:         "",
-				OffRamp:              true,
-				RMNRemote:            true,
-				BurnMintTokenPool:    true,
-				LockReleaseTokenPool: true,
-				AccessController:     true,
-				Timelock:             true,
-				MCM:                  true,
+				ChainSelector: solChain,
+				GitCommitSha:  "",
+				OffRamp:       true,
+				RMNRemote:     true,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+				LockReleaseTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+				AccessController: true,
+				Timelock:         true,
+				MCM:              true,
 			},
 		),
 	})

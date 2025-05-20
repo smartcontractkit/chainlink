@@ -100,14 +100,15 @@ func ProposeJobs(ctx context.Context, env cldf.Environment, workflowJobSpec stri
 	}
 
 	for _, node := range nodes {
-		env.Logger.Debugf("Proposing jof for node %s", node.Name)
+		env.Logger.Debugf("Proposing job for node %s", node.Name)
 		resp, err := env.Offchain.ProposeJob(ctx, &jobv1.ProposeJobRequest{
 			NodeId: node.Id,
 			Spec:   workflowJobSpec,
 			Labels: jobLabels,
 		})
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose job: %w", err)
+			env.Logger.Errorf("failed to propose job: %s", err)
+			continue
 		}
 		env.Logger.Debugf("Job proposed %s", resp.Proposal.JobId)
 		out.Jobs = append(out.Jobs, cldf.ProposedJob{
