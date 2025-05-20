@@ -11,8 +11,8 @@
    - [PoR Workflow Source Code](#por-workflow-source-code)
    - [Test Timeout](#test-timeout)
    - [Visual Studio Code Debug Configuration](#visual-studio-code-debug-configuration)
-2. [Using the CLI](#2-cli-usage)
-   - [Prerequisits](#prerequisites-for-docker)
+2. [Using the CLI](#2-using-the-cli)
+   - [Prerequisites](#prerequisites-for-docker)
    - [Start Environment](#start-environment)
    - [Stop Environment](#stop-environment)
    - [Restart Environment](#restarting-the-environment)
@@ -250,7 +250,7 @@ When starting the environment in AWS-managed Kubernetes make sure to source `.en
 
 ### Start Environment
 ```bash
-# while in system-tests/tests/smoke/cre/cnmd
+# while in system-tests/tests/smoke/cre/cmd
 go run main.go env start
 ```
 
