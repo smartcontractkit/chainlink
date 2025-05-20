@@ -93,7 +93,7 @@ func validateExecOffchainConfig(e cldf.Environment, c *pluginconfig.ExecuteOffch
 			}
 		case pluginconfig.LBTCHandlerType:
 			if err := validateLBTCConfig(e, observerConfig.LBTCObserverConfig, state); err != nil {
-				return fmt.Errorf("invalid USDC config: %w", err)
+				return fmt.Errorf("invalid LBTC config: %w", err)
 			}
 		default:
 			return fmt.Errorf("unknown token observer config type: %s", observerConfig.Type)
