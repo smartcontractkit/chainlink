@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"reflect"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -447,10 +446,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 		//		   The configuration is set by via the input field ConfigurePools. This is so that we can have flexibility during configuration.
 		//		   For ex: deploy chainB token, pool and configure with already deployed chainA tokenPool.
 		//		   If config is not provided in the input, it skips this step.
-		if reflect.DeepEqual(
-			cfg.ConfigurePools,
-			ConfigureTokenPoolContractsConfig{},
-		) {
+		if len(cfg.ConfigurePools.PoolUpdates) == 0 {
 			e.Logger.Infow("only deployment done, the pools haven't been configured")
 			continue
 		}

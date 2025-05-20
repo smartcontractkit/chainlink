@@ -238,7 +238,7 @@ type ConfigureTokenPoolContractsConfig struct {
 
 func (c ConfigureTokenPoolContractsConfig) Validate(env cldf.Environment) error {
 	if c.TokenSymbol == "" {
-		return errors.New("token symbol must be defined")
+		return errors.New("token symbol must be defined SISHIR")
 	}
 	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
