@@ -340,31 +340,36 @@ func loadCapabilityRegistry(registryChain cldf.Chain, env cldf.Environment, ref 
 	if err != nil {
 		return nil, fmt.Errorf("failed to check registry ref: %w", err)
 	}
+
 	var cr *OwnedContract[*capabilities_registry.CapabilitiesRegistry]
-	if ref != nil {
-		a, err := env.DataStore.Addresses().Get(ref)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get address: %w", err)
-		}
-		cr, err = GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](env.DataStore.Addresses(), registryChain, a.Address)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get owned contract: %w", err)
-		}
-	} else {
-		// TODO: CRE-400 remove this once we have migrated all environments to use datastore
-		// This is a temporary backward compatibility until all the CLD environments are migrated to use datastore
-		cs, err := getContractSetsV2(env.Logger, getContractSetsRequestV2{
-			Chains:      map[uint64]cldf.Chain{registryChain.Selector: registryChain},
-			AddressBook: env.ExistingAddresses, //nolint:staticcheck  // TODO CRE-400 remove this once we have migrated all environments to use datastore
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to get contract sets: %w", err)
-		}
-		contractSet, exists := cs.ContractSets[registryChain.Selector]
-		if !exists {
-			return nil, fmt.Errorf("contract set not found for chain %d", registryChain.Selector)
-		}
-		cr = contractSet.CapabilitiesRegistry
+
+	// `shouldUseDatastore` is already checking for the nil ref, no need to `ref == nil` here
+	a, err := env.DataStore.Addresses().Get(ref)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get address: %w", err)
 	}
+	cr, err = GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](env.DataStore.Addresses(), registryChain, a.Address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get owned contract: %w", err)
+	}
+
 	return cr, nil
+}
+
+func getTransferableContracts(addressStore datastore.AddressRefStore, chainSelector uint64) []common.Address {
+	var transferableContracts []common.Address
+
+	addresses := addressStore.Filter(datastore.AddressRefByChainSelector(chainSelector))
+	for _, addr := range addresses {
+		isOCR3Capability := addr.Type == datastore.ContractType(OCR3Capability)
+		isWorkflowRegistry := addr.Type == datastore.ContractType(WorkflowRegistry)
+		isKeystoneForwarder := addr.Type == datastore.ContractType(KeystoneForwarder)
+		isCapabilityRegistry := addr.Type == datastore.ContractType(CapabilitiesRegistry)
+
+		if isCapabilityRegistry || isWorkflowRegistry || isKeystoneForwarder || isOCR3Capability {
+			transferableContracts = append(transferableContracts, common.HexToAddress(addr.Address))
+		}
+	}
+
+	return transferableContracts
 }

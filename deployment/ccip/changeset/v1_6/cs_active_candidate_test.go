@@ -133,12 +133,12 @@ func Test_ActiveCandidate(t *testing.T) {
 	// and set new config digest on the offramp.
 	_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
-			testhelpers.GenTestTransferOwnershipConfig(tenv, allChains, state),
+			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
+			testhelpers.GenTestTransferOwnershipConfig(tenv, allChains, state, true),
 		),
 	)
 	require.NoError(t, err)
-	testhelpers.AssertTimelockOwnership(t, tenv, allChains, state)
+	testhelpers.AssertTimelockOwnership(t, tenv, allChains, state, true)
 
 	sendMsg := func() {
 		block, err := testhelpers.LatestBlock(testcontext.Get(t), tenv.Env, dest)

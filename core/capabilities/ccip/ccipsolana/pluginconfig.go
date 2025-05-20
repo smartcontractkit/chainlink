@@ -19,5 +19,13 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraD
 		GasEstimateProvider:        NewGasEstimateProvider(extraDataCodec),
 		RMNCrypto:                  nil,
 		ContractTransmitterFactory: ocrimpls.NewSVMContractTransmitterFactory(extraDataCodec),
+		AddressCodec:               AddressCodec{},
+		ChainRW:                    ChainRWProvider{},
+		ExtraDataCodec:             ExtraDataDecoder{},
 	}
+}
+
+func init() {
+	// Register the Solana plugin config factory
+	ccipcommon.RegisterPluginConfig(chainsel.FamilySolana, InitializePluginConfig)
 }

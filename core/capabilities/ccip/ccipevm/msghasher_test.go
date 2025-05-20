@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	agbinary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -34,7 +35,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var extraDataCodec = ccipcommon.NewExtraDataCodec(ExtraDataCodec{}, ccipsolana.ExtraDataCodec{})
+var extraDataCodec = ccipcommon.ExtraDataCodec(map[string]ccipcommon.SourceChainExtraDataCodec{
+	chainsel.FamilyEVM:    ExtraDataDecoder{},
+	chainsel.FamilySolana: ccipsolana.ExtraDataDecoder{},
+})
 
 // NOTE: these test cases are only EVM <-> EVM.
 // Update these cases once we have non-EVM examples.

@@ -180,6 +180,61 @@ func streamIDLabelsFor(sid *string) ([]*ptypes.Label, error) {
 	}, nil
 }
 
+// streamIDLabelsFromReportFields returns a list of labels for the virtual streamIDs from the report fields.
+// This function does NOT return nil, it returns an empty slice if no labels are found.
+func streamIDLabelsFromReportFields(rf jobs.ReportFields) ([]*ptypes.Label, error) {
+	labels := []*ptypes.Label{}
+
+	switch rf := rf.(type) {
+	case jobs.MedianReportFields:
+		l, err := streamIDLabelsFor(rf.Benchmark.StreamID)
+		if err != nil {
+			return nil, err
+		}
+		labels = append(labels, l...)
+
+	case jobs.QuoteReportFields:
+		l, err := streamIDLabelsFor(rf.Benchmark.StreamID)
+		if err != nil {
+			return nil, err
+		}
+		labels = append(labels, l...)
+		l, err = streamIDLabelsFor(rf.Bid.StreamID)
+		if err != nil {
+			return nil, err
+		}
+		labels = append(labels, l...)
+		l, err = streamIDLabelsFor(rf.Ask.StreamID)
+		if err != nil {
+			return nil, err
+		}
+		labels = append(labels, l...)
+
+	default:
+		return nil, fmt.Errorf("unknown report fields type: %T", rf)
+	}
+
+	return labels, nil
+}
+
+// streamIDLabelsFor returns a list of labels for the streamID.
+// We intentionally return a list, so we can return an empty one.
+func streamIDLabelsFor(sid *string) ([]*ptypes.Label, error) {
+	if sid == nil {
+		// It's fine to not have a streamID in the report fields.
+		return nil, nil
+	}
+	id, err := strconv.ParseUint(*sid, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse streamID: %w", err)
+	}
+	return []*ptypes.Label{
+		{
+			Key: utils.StreamIDLabel(uint32(id)),
+		},
+	}, nil
+}
+
 func (f CsDistributeStreamJobSpecs) VerifyPreconditions(_ cldf.Environment, config CsDistributeStreamJobSpecsConfig) error {
 	if config.Filter == nil {
 		return errors.New("filter is required")

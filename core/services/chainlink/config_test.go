@@ -568,6 +568,12 @@ func TestConfig_Marshal(t *testing.T) {
 		EmitterExportTimeout:  commoncfg.MustNewDuration(1 * time.Second),
 		ChipIngressEndpoint:   ptr("example.com/chip-ingress"),
 	}
+	full.CRE = toml.CreConfig{
+		Streams: &toml.StreamsConfig{
+			WsURL:   ptr("streams.url"),
+			RestURL: ptr("streams.url"),
+		},
+	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
 			ChainID: ubig.NewI(1),

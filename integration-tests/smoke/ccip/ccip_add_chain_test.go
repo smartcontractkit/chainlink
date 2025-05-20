@@ -761,7 +761,7 @@ func transferToMCMSAndRenounceTimelockDeployer(
 	onlyChainContracts bool,
 ) {
 	apps := make([]commonchangeset.ConfiguredChangeSet, 0, len(chains)+1)
-	cfg := testhelpers.GenTestTransferOwnershipConfig(e, chains, state)
+	cfg := testhelpers.GenTestTransferOwnershipConfig(e, chains, state, true)
 	if onlyChainContracts {
 		// filter out the home chain contracts from e.HomeChainSel
 		var homeChainContracts = map[common.Address]struct{}{
@@ -778,7 +778,7 @@ func transferToMCMSAndRenounceTimelockDeployer(
 		cfg.ContractsByChain[e.HomeChainSel] = chainContracts
 	}
 	apps = append(apps, commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+		cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 		cfg,
 	))
 	for _, chain := range chains {

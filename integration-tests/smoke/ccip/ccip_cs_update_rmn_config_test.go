@@ -201,7 +201,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 		// This is required because RMNHome is initially owned by the deployer
 		_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+				cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 				commonchangeset.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: contractsByChain,
 					MCMSConfig: proposalutils.TimelockConfig{
@@ -396,7 +396,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	e.Env, err = commonchangeset.Apply(t, e.Env, timelockContractsPerChain,
 		// transfer ownership of RMNProxy to timelock
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MCMSConfig: proposalutils.TimelockConfig{
