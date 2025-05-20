@@ -67,14 +67,30 @@ func (tt *TestTopology) IDsToNodesMaker(triggerCapID [32]byte) map[p2ptypes.Peer
 	return IDsToNodes
 }
 
-func (tt *TestTopology) MakeLocalRegistry(dID uint32, capDonID uint32, triggerCapID [32]byte, fullTriggerCapID string) *registrysyncer.LocalRegistry {
+// Function creates LocalRegistry structure populated with 3 DONs:
+//  - workflow DON (4 members)
+//  - capabilites only DON (4 members)
+//  - workflow & capabilites DON (1 member: selected capability DON accepting workflows)
+func (tt *TestTopology) MakeLocalRegistry(
+	workflowDONID uint32,
+	capabilitiesDONID uint32,
+	workflowNCapabilitiesDONID uint32,
+	triggerCapID [32]byte,
+	fullTriggerCapID string,
+) *registrysyncer.LocalRegistry {
 	return &registrysyncer.LocalRegistry{
 		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
-			registrysyncer.DonID(dID): {
-				DON: tt.DonMaker(dID, tt.workflowDonNodes, true),
+			registrysyncer.DonID(workflowDONID): {
+				DON: tt.DonMaker(workflowDONID, tt.workflowDonNodes, true),
 			},
-			registrysyncer.DonID(capDonID): {
-				DON: tt.DonMaker(capDonID, tt.capabilityDonNodes, false),
+			registrysyncer.DonID(capabilitiesDONID): {
+				DON: tt.DonMaker(capabilitiesDONID, tt.capabilityDonNodes, false),
+				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+					fullTriggerCapID: {},
+				},
+			},
+			registrysyncer.DonID(workflowNCapabilitiesDONID): {
+				DON: tt.DonMaker(workflowNCapabilitiesDONID, tt.capabilityDonNodes[2:3], true),
 				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
 					fullTriggerCapID: {},
 				},

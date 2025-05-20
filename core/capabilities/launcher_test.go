@@ -1117,15 +1117,27 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 	tt := NewTestTopology(pid, 4, 4)
 
 	triggerCapID := randomWord()
-	dID := uint32(1)
-	capDonID := uint32(2)
+	workflowDONID := uint32(1)
+	capabilitiesDONID := uint32(2)
+	workflowNCapabilitiesDONID := uint32(3)
 
 	// The below state describes a Capability DON (AcceptsWorkflows = true),
 	// which exposes the streams-trigger and write_chain capabilities.
 	// We expect receivers to be wired up.
-	state := tt.MakeLocalRegistry(dID, capDonID, triggerCapID, fullTriggerCapID)
+	state := tt.MakeLocalRegistry(
+		workflowDONID,
+		capabilitiesDONID,
+		workflowNCapabilitiesDONID,
+		triggerCapID,
+		fullTriggerCapID,
+	)
 
-	dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.AnythingOfType("*remote.triggerPublisher")).Return(remote.ErrReceiverExists)
+	dispatcher.On(
+		"SetReceiver",
+		fullTriggerCapID,
+		capabilitiesDONID,
+		mock.AnythingOfType("*remote.triggerPublisher"),
+	).Return(remote.ErrReceiverExists)
 
 	launcher := NewLauncher(
 		lggr,
@@ -1167,12 +1179,27 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 	tt := NewTestTopology(pid, 4, 4)
 
 	triggerCapID := randomWord()
-	dID := uint32(1)
-	capDonID := uint32(2)
+	workflowDONID := uint32(1)
+	capabilitiesDONID := uint32(2)
+	workflowNCapabilitiesDONID := uint32(3)
 
-	state := tt.MakeLocalRegistry(dID, capDonID, triggerCapID, fullTriggerCapID)
+	localRegistry := tt.MakeLocalRegistry(
+		workflowDONID,
+		capabilitiesDONID,
+		workflowNCapabilitiesDONID,
+		triggerCapID,
+		fullTriggerCapID,
+	)
+	//
+	//specialDONID := tt.workflowDonNodes[3]
+	//localRegistry.IDsToNodes[specialDONID].CapabilitiesDONIds
 
-	dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.AnythingOfType("*remote.triggerPublisher")).Return(remote.ErrReceiverExists)
+	dispatcher.On(
+		"SetReceiver",
+		fullTriggerCapID,
+		capabilitiesDONID,
+		mock.AnythingOfType("*remote.triggerPublisher"),
+	).Return(remote.ErrReceiverExists)
 
 	launcher := NewLauncher(
 		lggr,
@@ -1182,25 +1209,31 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 		&mockDonNotifier{},
 	)
 
-	inputs := [][]bool{
-		{true, true},
+	inputsWhereBelongs := [][]bool{
+		{true, true}, // { belongsToACapabilityDON, belongsToAWorkflowDON }
 		{true, false},
 		{false, true},
 		{false, false},
 	}
-	expected := []int{8, 4, 4, 0}
 
-	for i := range inputs {
-		allPeers := launcher.identifyPeers(
-			inputs[i][0],
-			inputs[i][1],
-			launcher.identifyAllDONs(state),
-			state,
-		)
-		require.Len(t, allPeers, expected[i])
+	expectedPeerCount := []int{
+		8, // we expect all DONs members
+		5, // we expect all capability DONs members (4+1)
+		4, // we expect all workflow DONs members
+		0, // the node does nothing, we expect no peers
 	}
 
-	err = launcher.Launch(t.Context(), state)
+	for i := range inputsWhereBelongs {
+		allPeers := launcher.identifyPeers(
+			inputsWhereBelongs[i][0],
+			inputsWhereBelongs[i][1],
+			launcher.identifyAllDONs(localRegistry),
+			localRegistry,
+		)
+		require.Len(t, allPeers, expectedPeerCount[i])
+	}
+
+	err = launcher.Launch(t.Context(), localRegistry)
 	require.NoError(t, err)
 	defer launcher.Close()
 }
