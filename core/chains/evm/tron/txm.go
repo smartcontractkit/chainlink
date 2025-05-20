@@ -31,6 +31,6 @@ func ConstructTronTxm(logger logger.Logger, cfg *config.ChainScoped, nodes []*to
 		// Maximum number of transactions to buffer in the broadcast channel.
 		BroadcastChanSize: 100,
 		// Number of seconds to wait between polling the blockchain for transaction confirmation.
-		ConfirmPollSecs: 2,
+		ConfirmPollSecs: 5,
 	}), nil
 }
