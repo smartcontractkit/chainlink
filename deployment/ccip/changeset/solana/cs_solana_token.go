@@ -293,12 +293,19 @@ func SetTokenAuthority(e cldf.Environment, cfg SetTokenAuthorityConfig) (cldf.Ch
 }
 
 type TokenMetadata struct {
-	TokenPubkey     solana.PublicKey
-	MetadataJson    string           // only to be provided on initial upload
-	UpdateAuthority solana.PublicKey // used to set update authority of the token metadata PDA after initial upload
-	UpdateName      string           // used to update the name of the token metadata PDA after initial upload
-	UpdateSymbol    string           // used to update the symbol of the token metadata PDA after initial upload
-	UpdateUri       string           // used to update the uri of the token metadata PDA after initial upload
+	TokenPubkey solana.PublicKey
+	// https://metaboss.dev/create.html#metadata
+	// only to be provided on initial upload, it takes in name, symbol, uri
+	// after initial upload, those fields can be updated using the update inputs
+	// put the json in ccip/env/input dir in CLD
+	MetadataJsonPath string
+	UpdateAuthority  solana.PublicKey // used to set update authority of the token metadata PDA after initial upload
+	// https://metaboss.dev/update.html#update-name
+	UpdateName string // used to update the name of the token metadata PDA after initial upload
+	// https://metaboss.dev/update.html#update-symbol
+	UpdateSymbol string // used to update the symbol of the token metadata PDA after initial upload
+	// https://metaboss.dev/update.html#update-uri
+	UpdateUri string // used to update the uri of the token metadata PDA after initial upload
 }
 
 type UploadTokenMetadataConfig struct {
@@ -317,9 +324,9 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 		}
 
 		// initial upload
-		if metadata.MetadataJson != "" {
+		if metadata.MetadataJsonPath != "" {
 			e.Logger.Infow("Uploading token metadata", "tokenPubkey", metadata.TokenPubkey.String())
-			args := []string{"create", "metadata", "--mint", metadata.TokenPubkey.String(), "--metadata", metadata.MetadataJson}
+			args := []string{"create", "metadata", "--mint", metadata.TokenPubkey.String(), "--metadata", metadata.MetadataJsonPath}
 			e.Logger.Info(args)
 			output, err := runCommand("metaboss", args, chain.ProgramsPath)
 			e.Logger.Debugw("metaboss output", "output", output)
@@ -345,7 +352,7 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 		}
 
 		// update name
-		if metadata.MetadataJson == "" && metadata.UpdateName != "" {
+		if metadata.MetadataJsonPath == "" && metadata.UpdateName != "" {
 			e.Logger.Infow("Updating token metadata name", "tokenPubkey", metadata.TokenPubkey.String())
 			args := []string{"update", "name", "--account", metadata.TokenPubkey.String(), "--new-name", metadata.UpdateName}
 			e.Logger.Info(args)
@@ -359,7 +366,7 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 		}
 
 		// update symbol
-		if metadata.MetadataJson == "" && metadata.UpdateSymbol != "" {
+		if metadata.MetadataJsonPath == "" && metadata.UpdateSymbol != "" {
 			e.Logger.Infow("Updating token metadata symbol", "tokenPubkey", metadata.TokenPubkey.String())
 			args := []string{"update", "symbol", "--account", metadata.TokenPubkey.String(), "--new-symbol", metadata.UpdateSymbol}
 			e.Logger.Info(args)
@@ -373,7 +380,7 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 		}
 
 		// update uri
-		if metadata.MetadataJson == "" && metadata.UpdateUri != "" {
+		if metadata.MetadataJsonPath == "" && metadata.UpdateUri != "" {
 			e.Logger.Infow("Updating token metadata uri", "tokenPubkey", metadata.TokenPubkey.String())
 			args := []string{"update", "uri", "--account", metadata.TokenPubkey.String(), "--new-uri", metadata.UpdateUri}
 			e.Logger.Info(args)
