@@ -153,7 +153,7 @@ func TestConnectNewChain(t *testing.T) {
 				}
 				e, err = commonchangeset.Apply(t, e, timelockContracts,
 					commonchangeset.Configure(
-						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: contractsToTransfer,
 							MCMSConfig: proposalutils.TimelockConfig{
@@ -367,7 +367,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				)
 				e, err = commonchangeset.Apply(t, e, timelockContracts,
 					commonchangeset.Configure(
-						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: contractsToTransfer,
 							MCMSConfig: proposalutils.TimelockConfig{

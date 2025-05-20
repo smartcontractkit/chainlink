@@ -13,13 +13,14 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/jmoiron/sqlx"
-	"github.com/stretchr/testify/require"
-
-	defaults "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/default"
-
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/multi_ocr3_helper"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
@@ -39,6 +40,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"    // Register EVM plugin config factories
+	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana" // Register Solana plugin config factories
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -186,7 +190,10 @@ func abiEncodeUint32(data uint32) ([]byte, error) {
 
 // Test EVM -> SVM extra data decoding in contract transmitter
 func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
-	extraDataCodec := defaults.DefaultExtraDataCodec
+	extraDataCodec := ccipcommon.ExtraDataCodec(map[string]ccipcommon.SourceChainExtraDataCodec{
+		chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
+		chainsel.FamilySolana: ccipsolana.ExtraDataDecoder{},
+	})
 	t.Run("fails when multiple reports are included", func(t *testing.T) {
 		reports := []ccipocr3.ExecutePluginReportSingleChain{{}, {}}
 		reportWithInfo := ccipocr3.ExecuteReportInfo{
@@ -200,7 +207,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 			Report: randomReport(t, 96),
 			Info:   encodedExecReport,
 		}
-		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, &extraDataCodec)
+		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
 		require.Contains(t, err.Error(), "unexpected report length, expected 1, got 2")
 	})
 	t.Run("fails when multiple report contains multiple messages", func(t *testing.T) {
@@ -218,7 +225,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 			Report: randomReport(t, 96),
 			Info:   encodedExecReport,
 		}
-		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, &extraDataCodec)
+		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
 		require.Contains(t, err.Error(), "unexpected message length, expected 1, got 2")
 	})
 	t.Run("fails with invalid extra args", func(t *testing.T) {
@@ -250,7 +257,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 			Info:   encodedExecReport,
 		}
 
-		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, &extraDataCodec)
+		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
 		require.Contains(t, err.Error(), "unknown extra args tag")
 	})
 	t.Run("fails with invalid extra exec data", func(t *testing.T) {
@@ -286,7 +293,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 			Info:   encodedExecReport,
 		}
 
-		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, &extraDataCodec)
+		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
 		require.Contains(t, err.Error(), "failed to decode token amount dest exec data: decode dest gas amount: abi decode uint32: abi: cannot marshal in to go type: length insufficient 4 require 32")
 	})
 	t.Run("Successfully decodes valid EVM -> SOL report", func(t *testing.T) {
@@ -324,7 +331,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 			Info:   encodedExecReport,
 		}
 
-		_, _, args, err := ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, &extraDataCodec)
+		_, _, args, err := ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
 		require.NoError(t, err)
 
 		expectedArgs, ok := args.(ocrimpls.SVMExecCallArgs)

@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -251,11 +250,6 @@ type configureDataFeedsCacheInput struct {
 }
 
 func configureDataFeedsCacheContract(testLogger zerolog.Logger, input *configureDataFeedsCacheInput) error {
-	chainIDInt, intErr := strconv.Atoi(input.blockchain.ChainID)
-	if intErr != nil {
-		return errors.Wrap(intErr, "failed to convert chain ID to int")
-	}
-
 	forwarderAddress, forwarderErr := crecontracts.FindAddressesForChain(input.fullCldEnvironment.ExistingAddresses, input.chainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck // won't migrate now
 	if forwarderErr != nil {
 		return errors.Wrapf(forwarderErr, "failed to find forwarder address for chain %d", input.chainSelector)
@@ -264,56 +258,6 @@ func configureDataFeedsCacheContract(testLogger zerolog.Logger, input *configure
 	dataFeedsCacheAddress, dataFeedsCacheErr := crecontracts.FindAddressesForChain(input.fullCldEnvironment.ExistingAddresses, input.chainSelector, df_changeset.DataFeedsCache.String()) //nolint:staticcheck // won't migrate now
 	if dataFeedsCacheErr != nil {
 		return errors.Wrapf(dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", input.chainSelector)
-	}
-
-	if input.useCRECLI {
-		// These two env vars are required by the CRE CLI
-		err := os.Setenv("CRE_ETH_PRIVATE_KEY", input.deployerPrivateKey)
-		if err != nil {
-			return errors.Wrap(err, "failed to set CRE_ETH_PRIVATE_KEY")
-		}
-		err = os.Setenv("CRE_PROFILE", libcrecli.CRECLIProfile)
-		if err != nil {
-			return errors.Wrap(err, "failed to set CRE_PROFILE")
-		}
-
-		dfAdminErr := libcrecli.SetFeedAdmin(input.creCLIAbsPath, chainIDInt, input.sethClient.MustGetRootKeyAddress(), input.settingsFile)
-		if dfAdminErr != nil {
-			return errors.Wrap(dfAdminErr, "failed to set feed admin")
-		}
-
-		cleanFeedID := strings.TrimPrefix(input.feedID, "0x")
-
-		// Ensure the feed ID is long enough
-		if len(cleanFeedID) < 14 { // Need at least 7 bytes (14 hex chars)
-			return fmt.Errorf("feed ID too short: %s", input.feedID)
-		} else if len(cleanFeedID) > 32 {
-			cleanFeedID = cleanFeedID[:32]
-		}
-
-		// Extract decimals from feed ID
-		decimals, decimalsErr := df_changeset.GetDecimalsFromFeedID(cleanFeedID)
-		if decimalsErr != nil {
-			return errors.Wrapf(decimalsErr, "failed to get decimals from feed ID %s", input.feedID)
-		}
-
-		dfConfigErr := libcrecli.SetFeedConfig(
-			input.creCLIAbsPath,
-			input.feedID,
-			strconv.Itoa(int(decimals)),
-			"PoR test feed",
-			chainIDInt,
-			[]common.Address{forwarderAddress},
-			[]common.Address{input.sethClient.MustGetRootKeyAddress()},
-			[]string{input.workflowName},
-			input.settingsFile,
-		)
-
-		if dfConfigErr != nil {
-			return errors.Wrap(dfConfigErr, "failed to set feed config")
-		}
-
-		return nil
 	}
 
 	configInput := &keystonetypes.ConfigureDataFeedsCacheInput{

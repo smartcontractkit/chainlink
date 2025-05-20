@@ -1268,17 +1268,19 @@ func DeployTransferableTokenSolana(
 	}
 
 	addresses := e.ExistingAddresses //nolint:staticcheck // addressbook still valid
-	// deploy evm token
+	// deploy evm token and pool
 	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.Chains[evmChainSel], evmDeployer, addresses, evmTokenName)
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
+	// attach token and pool to the registry
 	if err := attachTokenToTheRegistry(e.Chains[evmChainSel], state.Chains[evmChainSel], evmDeployer, evmToken.Address(), evmPool.Address()); err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
 	solDeployerKey := e.SolChains[solChainSel].DeployerKey.PublicKey()
 
 	// deploy solana token
+	solTokenName := evmTokenName
 	e, err = commoncs.Apply(nil, e, nil,
 		commoncs.Configure(
 			// this makes the deployer the mint authority by default
@@ -1287,6 +1289,7 @@ func DeployTransferableTokenSolana(
 				ChainSelector:    solChainSel,
 				TokenProgramName: shared.SPL2022Tokens,
 				TokenDecimals:    9,
+				TokenSymbol:      solTokenName,
 				ATAList:          []string{solDeployerKey.String()},
 				MintAmountToAddress: map[string]uint64{
 					solDeployerKey.String(): uint64(1000e9),
@@ -1297,23 +1300,85 @@ func DeployTransferableTokenSolana(
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
-
-	state, err = stateview.LoadOnchainState(e)
+	// find solana token address
+	solAddresses, err := e.ExistingAddresses.AddressesForChain(solChainSel)
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
-	solTokenAddress := state.SolChains[solChainSel].SPL2022Tokens[0]
+	solTokenAddress := solanastateview.FindSolanaAddress(
+		cldf.TypeAndVersion{
+			Type:    shared.SPL2022Tokens,
+			Version: deployment.Version1_0_0,
+			Labels:  cldf.NewLabelSet(solTokenName),
+		},
+		solAddresses,
+	)
 	bnm := solTestTokenPool.BurnAndMint_PoolType
 
+	// deploy and configure solana token pool
 	e, err = commoncs.Apply(nil, e, nil,
 		commoncs.Configure(
 			// deploy token pool and set the burn/mint authority to the tokenPool
-			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.AddTokenPoolAndLookupTable),
-			ccipChangeSetSolana.TokenPoolConfig{
-				ChainSelector: solChainSel,
-				TokenPubKey:   solTokenAddress,
-				PoolType:      &bnm,
-				Metadata:      shared.CLLMetadata,
+			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.E2ETokenPool),
+			ccipChangeSetSolana.E2ETokenPoolConfig{
+				AddTokenPoolAndLookupTable: []ccipChangeSetSolana.TokenPoolConfig{
+					{
+						ChainSelector: solChainSel,
+						TokenPubKey:   solTokenAddress,
+						PoolType:      &bnm,
+						Metadata:      shared.CLLMetadata,
+					},
+				},
+				RegisterTokenAdminRegistry: []ccipChangeSetSolana.RegisterTokenAdminRegistryConfig{
+					{
+						ChainSelector:           solChainSel,
+						TokenPubKey:             solTokenAddress,
+						TokenAdminRegistryAdmin: solDeployerKey.String(),
+						RegisterType:            ccipChangeSetSolana.ViaGetCcipAdminInstruction,
+					},
+				},
+				AcceptAdminRoleTokenAdminRegistry: []ccipChangeSetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
+					{
+						ChainSelector: solChainSel,
+						TokenPubKey:   solTokenAddress,
+					},
+				},
+				SetPool: []ccipChangeSetSolana.SetPoolConfig{
+					{
+						ChainSelector:   solChainSel,
+						TokenPubKey:     solTokenAddress,
+						PoolType:        &bnm,
+						Metadata:        shared.CLLMetadata,
+						WritableIndexes: []uint8{3, 4, 7},
+					},
+				},
+				RemoteChainTokenPool: []ccipChangeSetSolana.RemoteChainTokenPoolConfig{
+					{
+						SolChainSelector: solChainSel,
+						SolTokenPubKey:   solTokenAddress,
+						SolPoolType:      &bnm,
+						Metadata:         shared.CLLMetadata,
+						EVMRemoteConfigs: map[uint64]ccipChangeSetSolana.EVMRemoteConfig{
+							evmChainSel: {
+								TokenSymbol: shared.TokenSymbol(evmTokenName),
+								PoolType:    shared.BurnMintTokenPool,
+								PoolVersion: shared.CurrentTokenPoolVersion,
+								RateLimiterConfig: ccipChangeSetSolana.RateLimiterConfig{
+									Inbound: solTestTokenPool.RateLimitConfig{
+										Enabled:  false,
+										Capacity: 0,
+										Rate:     0,
+									},
+									Outbound: solTestTokenPool.RateLimitConfig{
+										Enabled:  false,
+										Capacity: 0,
+										Rate:     0,
+									},
+								},
+							},
+						},
+					},
+				},
 			},
 		),
 	)
@@ -1336,74 +1401,6 @@ func DeployTransferableTokenSolana(
 		return nil, nil, solana.PublicKey{}, err
 	}
 
-	// configure solana
-	e, err = commoncs.Apply(nil, e, nil,
-		commoncs.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.SetupTokenPoolForRemoteChain),
-			ccipChangeSetSolana.RemoteChainTokenPoolConfig{
-				SolChainSelector: solChainSel,
-				SolTokenPubKey:   solTokenAddress,
-				SolPoolType:      &bnm,
-				Metadata:         shared.CLLMetadata,
-				EVMRemoteConfigs: map[uint64]ccipChangeSetSolana.EVMRemoteConfig{
-					evmChainSel: {
-						TokenSymbol: shared.TokenSymbol(evmTokenName),
-						PoolType:    shared.BurnMintTokenPool,
-						PoolVersion: shared.CurrentTokenPoolVersion,
-						RateLimiterConfig: ccipChangeSetSolana.RateLimiterConfig{
-							Inbound:  solTestTokenPool.RateLimitConfig{},
-							Outbound: solTestTokenPool.RateLimitConfig{},
-						},
-					},
-				},
-			},
-		),
-		commoncs.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.AddTokenTransferFeeForRemoteChain),
-			ccipChangeSetSolana.TokenTransferFeeForRemoteChainConfig{
-				ChainSelector:       solChainSel,
-				RemoteChainSelector: evmChainSel,
-				TokenPubKey:         solTokenAddress.String(),
-				Config: solFeeQuoter.TokenTransferFeeConfig{
-					MinFeeUsdcents:    800,
-					MaxFeeUsdcents:    1600,
-					DeciBps:           0,
-					DestGasOverhead:   90000,
-					DestBytesOverhead: 100,
-					IsEnabled:         true,
-				},
-			},
-		),
-		commoncs.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.RegisterTokenAdminRegistry),
-			ccipChangeSetSolana.RegisterTokenAdminRegistryConfig{
-				ChainSelector:           solChainSel,
-				TokenPubKey:             solTokenAddress,
-				TokenAdminRegistryAdmin: e.SolChains[solChainSel].DeployerKey.PublicKey().String(),
-				RegisterType:            ccipChangeSetSolana.ViaGetCcipAdminInstruction,
-			},
-		),
-		commoncs.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.AcceptAdminRoleTokenAdminRegistry),
-			ccipChangeSetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
-				ChainSelector: solChainSel,
-				TokenPubKey:   solTokenAddress,
-			},
-		),
-		commoncs.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.SetPool),
-			ccipChangeSetSolana.SetPoolConfig{
-				ChainSelector:   solChainSel,
-				PoolType:        &bnm,
-				TokenPubKey:     solTokenAddress,
-				WritableIndexes: []uint8{3, 4, 7},
-				Metadata:        shared.CLLMetadata,
-			},
-		),
-	)
-	if err != nil {
-		return nil, nil, solana.PublicKey{}, err
-	}
 	return evmToken, evmPool, solTokenAddress, nil
 }
 
