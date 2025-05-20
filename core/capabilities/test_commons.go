@@ -68,9 +68,9 @@ func (tt *TestTopology) IDsToNodesMaker(triggerCapID [32]byte) map[p2ptypes.Peer
 }
 
 // Function creates LocalRegistry structure populated with 3 DONs:
-//  - workflow DON (4 members)
-//  - capabilites only DON (4 members)
-//  - workflow & capabilites DON (1 member: selected capability DON accepting workflows)
+// - workflow DON (4 members)
+// - capabilities only DON (4 members)
+// - workflow & capabilities DON (1 member: selected capability DON accepting workflows)
 func (tt *TestTopology) MakeLocalRegistry(
 	workflowDONID uint32,
 	capabilitiesDONID uint32,
