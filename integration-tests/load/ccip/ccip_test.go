@@ -2,11 +2,12 @@ package ccip
 
 import (
 	"context"
-	"golang.org/x/sync/errgroup"
 	"math/big"
 	"sync"
 	"testing"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/gagliardetto/solana-go"
 
