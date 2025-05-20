@@ -1,0 +1,7 @@
+[toolchain]
+anchor_version = "0.29.0"
+
+[provider]
+cluster = "https://nd-086-122-802.p2pify.com/b36f181a4f62d93a330bda8fdb288031"
+wallet = "~/.config/solana/id_devnet.json"
+
