@@ -3,12 +3,10 @@ package ocr2key
 import (
 	"crypto/ed25519"
 	"crypto/sha256"
-	"encoding/binary"
 	"io"
 
 	"github.com/hdevalence/ed25519consensus"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/sha3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -53,22 +51,18 @@ func (tkr *tonKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Re
 }
 
 func (tkr *tonKeyring) Sign3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) ([]byte, error) {
-	bytes, err := tkr.reportToSigData3(digest, seqNr, r)
-	if err != nil {
-		return nil, err
-	}
+	bytes := tkr.reportToSigData3(digest, seqNr, r)
 	return tkr.SignBlob(bytes)
 }
 
-func (tkr *tonKeyring) reportToSigData3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) ([]byte, error) {
+func (tkr *tonKeyring) reportToSigData3(digest types.ConfigDigest, seqNr uint64, report ocrtypes.Report) []byte {
 	rawReportContext := RawReportContext3(digest, seqNr)
-	h := sha3.NewLegacyKeccak256()
-	reportLen := uint16(len(r)) //nolint:gosec // use uint16 for consistency and deterministic sizing
-	err := binary.Write(h, binary.LittleEndian, reportLen)
-	h.Write(r)
+	h := sha256.New()
+	h.Write([]byte{uint8(len(report))}) //nolint:gosec // assumes len(report) < 256
+	h.Write(report)
 	h.Write(rawReportContext[0][:])
 	h.Write(rawReportContext[1][:])
-	return h.Sum(nil), err
+	return h.Sum(nil)
 }
 
 func (tkr *tonKeyring) SignBlob(b []byte) ([]byte, error) {
@@ -82,10 +76,7 @@ func (tkr *tonKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocr
 }
 
 func (tkr *tonKeyring) Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
-	hash, err := tkr.reportToSigData3(cd, seqNr, r)
-	if err != nil {
-		return false
-	}
+	hash := tkr.reportToSigData3(cd, seqNr, r)
 	return tkr.VerifyBlob(publicKey, hash, signature)
 }
 

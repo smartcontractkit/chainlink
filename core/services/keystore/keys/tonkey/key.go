@@ -16,6 +16,21 @@ import (
 	"github.com/xssnick/tonutils-go/ton/wallet"
 )
 
+var (
+	// defaultWalletVersion is the default wallet configuration used for Highload V3 wallet addresses.
+	defaultWalletVersion = wallet.ConfigHighloadV3{
+		MessageTTL: 120, // 2 minutes TTL
+		MessageBuilder: func(ctx context.Context, subWalletId uint32) (id uint32, createdAt int64, err error) {
+			tm := time.Now().Unix() - 30
+			return uint32(10000 + tm%(1<<23)), tm, nil
+		},
+	}
+
+	// defaultWorkchain is the default workchain ID for generating wallet addresses.
+	// revive:disable:var-declaration // explicit 0 for readiness purposes
+	defaultWorkchain int8 = 0
+)
+
 // Key represents a TON ed25519 key
 type Key struct {
 	raw    internal.Raw
@@ -104,16 +119,7 @@ func (key Key) PubkeyToAddressWith(version wallet.VersionConfig, workchain int8)
 
 // PubkeyToAddress returns the wallet v3 address for workchain 0
 func (key Key) PubkeyToAddress() *address.Address {
-	ver := wallet.ConfigHighloadV3{
-		MessageTTL: 120, // 2 minutes TTL
-		MessageBuilder: func(ctx context.Context, subWalletId uint32) (id uint32, createdAt int64, err error) {
-			tm := time.Now().Unix() - 30
-			//nolint:gosec // safe: tm is always positive, within uint32 range
-			return uint32(10000 + tm%(1<<23)), tm, nil
-		},
-	}
-	workchain := int8(0)
-	addr, err := key.PubkeyToAddressWith(ver, workchain)
+	addr, err := key.PubkeyToAddressWith(defaultWalletVersion, defaultWorkchain)
 	if err != nil {
 		panic(fmt.Errorf("failed to get address: %w", err))
 	}
