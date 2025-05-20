@@ -540,14 +540,9 @@ func prepareCLIInput(chainID uint64) (*cretypes.ManageWorkflowWithCRECLIInput, e
 		return nil, errors.Wrapf(chainSelectorErr, "failed to find chain selector for chainID %d", chainID)
 	}
 
-	CRECLIAbsPath, CRECLIAbsPathErr := filepath.Abs(creCLI)
+	CRECLIAbsPath, CRECLIAbsPathErr := creCLIAbsPath()
 	if CRECLIAbsPathErr != nil {
-		// If not found in current directory, try to find it in PATH
-		path, lookErr := exec.LookPath(creCLI)
-		if lookErr != nil {
-			return nil, errors.Wrap(CRECLIAbsPathErr, "failed to find absolute path of the CRE CLI binary")
-		}
-		CRECLIAbsPath = path
+		return nil, errors.Wrap(CRECLIAbsPathErr, "failed to get absolute path of the CRE CLI binary")
 	}
 
 	deployerPrivateKey := os.Getenv("PRIVATE_KEY")
@@ -560,7 +555,6 @@ func prepareCLIInput(chainID uint64) (*cretypes.ManageWorkflowWithCRECLIInput, e
 		return nil, errors.Wrap(pkErr, "failed to parse the private key")
 	}
 
-	// Derive public key
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
@@ -697,6 +691,27 @@ func tryToDownloadCRECLI() error {
 	fmt.Print(liboutput.PurpleText("\n[Stage 2a/3] CRE CLI downloaded in %.2f seconds\n\n", time.Since(start).Seconds()))
 
 	return nil
+}
+
+func creCLIAbsPath() (string, error) {
+	var CRECLIAbsPath string
+
+	_, statErr := os.Stat(creCLI)
+	if statErr != nil {
+		path, lookErr := exec.LookPath(creCLI)
+		if lookErr != nil {
+			return "", errors.Wrap(lookErr, "failed to find absolute path of the CRE CLI binary in PATH")
+		}
+		CRECLIAbsPath = path
+	} else {
+		var CRECLIAbsPathErr error
+		CRECLIAbsPath, CRECLIAbsPathErr = filepath.Abs(creCLI)
+		if CRECLIAbsPathErr != nil {
+			return "", errors.Wrap(CRECLIAbsPathErr, "failed to find absolute path of the CRE CLI binary in current directory")
+		}
+	}
+
+	return CRECLIAbsPath, nil
 }
 
 func isBlockscoutRunning() bool {
