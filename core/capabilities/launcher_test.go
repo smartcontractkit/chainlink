@@ -1190,9 +1190,6 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 		triggerCapID,
 		fullTriggerCapID,
 	)
-	//
-	//specialDONID := tt.workflowDonNodes[3]
-	//localRegistry.IDsToNodes[specialDONID].CapabilitiesDONIds
 
 	dispatcher.On(
 		"SetReceiver",
