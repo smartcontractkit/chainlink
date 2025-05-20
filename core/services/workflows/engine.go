@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -146,7 +147,7 @@ type Engine struct {
 	clock          clockwork.Clock
 	ratelimiter    *ratelimiter.RateLimiter
 	workflowLimits *syncerlimiter.Limits
-	meterReports   *MeterReports
+	meterReports   *metering.MeterReports
 }
 
 func (e *Engine) Start(_ context.Context) error {
@@ -494,7 +495,7 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, triggerID string, event *values.Map) error {
-	e.meterReports.Add(executionID, NewMeteringReport())
+	e.meterReports.Add(executionID, metering.NewMeteringReport(e.logger))
 
 	err := events.EmitExecutionStartedEvent(ctx, e.cma, triggerID, executionID)
 	if err != nil {
@@ -585,7 +586,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 
 		// this case is only for resuming executions and should be updated when metering is added to save execution state
 		if _, ok := e.meterReports.Get(stepUpdate.ExecutionID); !ok {
-			e.meterReports.Add(stepUpdate.ExecutionID, NewMeteringReport())
+			e.meterReports.Add(stepUpdate.ExecutionID, metering.NewMeteringReport(e.logger))
 		}
 
 		return e.finishExecution(ctx, cma, state.ExecutionID, status)
@@ -810,16 +811,16 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		stepStatus = store.StatusCompleted
 	}
 
-	meteringSteps := make([]MeteringReportStep, len(response.Metadata.Metering))
+	meteringSteps := make([]metering.MeteringReportStep, len(response.Metadata.Metering))
 
 	for idx, detail := range response.Metadata.Metering {
-		unit := MeteringSpendUnit(detail.SpendUnit)
+		unit := metering.MeteringSpendUnit(detail.SpendUnit)
 		value, err := unit.StringToSpendValue(detail.SpendValue)
 		if err != nil {
 			l.Error(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
 		}
 
-		meteringSteps[idx] = MeteringReportStep{
+		meteringSteps[idx] = metering.MeteringReportStep{
 			Peer2PeerID: detail.Peer2PeerID,
 			SpendUnit:   unit,
 			SpendValue:  value,
@@ -827,7 +828,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	}
 
 	if rpt, ok := e.meterReports.Get(msg.state.ExecutionID); ok {
-		if err := rpt.SetStep(MeteringReportStepRef(stepState.Ref), meteringSteps); err != nil {
+		if err := rpt.SetStep(metering.MeteringReportStepRef(stepState.Ref), meteringSteps); err != nil {
 			l.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", stepState.Ref, err))
 		}
 		e.metrics.with(platform.KeyWorkflowID, e.workflow.id).incrementWorkflowMissingMeteringReport(ctx)
@@ -1187,7 +1188,7 @@ func (e *Engine) heartbeat(ctx context.Context) {
 	}
 }
 
-func (e *Engine) sendMeteringReportToBilling(ctx context.Context, report *MeteringReport, workflowID string, executionID string) error {
+func (e *Engine) sendMeteringReportToBilling(ctx context.Context, report *metering.MeteringReport, workflowID string, executionID string) error {
 	if e.billingClient != nil {
 		req := billing.SubmitWorkflowReceiptRequest{
 			AccountId:           e.workflow.owner,
@@ -1452,9 +1453,11 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	workflow.owner = cfg.WorkflowOwner
 	workflow.name = cfg.WorkflowName
 
+	lggr := cfg.Lggr.With("workflowID", cfg.WorkflowID)
+
 	engine = &Engine{
 		cma:            cma,
-		logger:         cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
+		logger:         lggr.Named("WorkflowEngine"),
 		metrics:        workflowsMetricLabeler{metrics.NewLabeler().With(platform.KeyWorkflowID, cfg.WorkflowID, platform.KeyWorkflowOwner, cfg.WorkflowOwner, platform.KeyWorkflowName, cfg.WorkflowName.String()), *em},
 		registry:       cfg.Registry,
 		workflow:       workflow,
@@ -1481,7 +1484,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
 		workflowLimits:       cfg.WorkflowLimits,
-		meterReports:         NewMeterReports(),
+		meterReports:         metering.NewMeterReports(),
 		billingClient:        cfg.BillingClient,
 	}
 

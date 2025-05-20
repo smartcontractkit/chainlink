@@ -33,7 +33,10 @@ func deployAccessControllerProgram(
 	}
 
 	if programID.IsZero() {
-		deployedProgramID, err := chain.DeployProgram(e.Logger, "access_controller", false, true)
+		deployedProgramID, err := chain.DeployProgram(e.Logger, cldf.SolProgramInfo{
+			Name:  deployment.AccessControllerProgramName,
+			Bytes: deployment.SolanaProgramBytes[deployment.AccessControllerProgramName],
+		}, false, true)
 		if err != nil {
 			return fmt.Errorf("failed to deploy access controller program: %w", err)
 		}

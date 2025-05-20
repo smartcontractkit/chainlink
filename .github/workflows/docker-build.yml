@@ -161,3 +161,14 @@ jobs:
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
       AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+
+  call-nightly-e2e-tests:
+    if: ${{ github.event_name == 'schedule' }}
+    needs: [docker-core-plugins]
+    uses: smartcontractkit/chainlink/.github/workflows/cre-local-env-tests.yaml@5256f32781ffbc7f754e2f3ab65b3d1c060775bf # develop SHA from 19th May 2025
+    with:
+      chainlink_image_tag: ${{ needs.docker-core-plugins.outputs.docker-manifest-tag }}
+      chainlink_version: develop
+    secrets:
+      inherit
+

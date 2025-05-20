@@ -21,7 +21,7 @@ type EnvironmentConfig struct {
 }
 
 func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config EnvironmentConfig) (*cldf.Environment, *DON, error) {
-	chains, err := NewChains(lggr, config.Chains)
+	chains, solChains, err := NewChains(lggr, config.Chains)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create chains: %w", err)
 	}
@@ -60,7 +60,7 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 			datastore.DefaultMetadata,
 		]().Seal(),
 		chains,
-		nil, // sending nil for solana chains right now, we can build this when we need it
+		solChains,
 		nil, // sending nil for aptos chains right now, we can build this when we need it
 		nodeIDs,
 		offChain,

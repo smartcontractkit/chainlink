@@ -11,17 +11,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -81,75 +77,6 @@ func (t TransferToMCMSWithTimelockConfig) Validate(e cldf.Environment) error {
 	}
 
 	return nil
-}
-
-var _ cldf.ChangeSet[TransferToMCMSWithTimelockConfig] = TransferToMCMSWithTimelock
-
-// TransferToMCMSWithTimelock creates a changeset that transfers ownership of all the
-// contracts in the provided configuration to the timelock on the chain and generates
-// a corresponding accept ownership proposal to complete the transfer.
-// It assumes that DeployMCMSWithTimelockV2 has already been run s.t.
-// the timelock and mcmses exist on the chain and that the proposed addresses to transfer ownership
-// are currently owned by the deployer key.
-// Deprecated: Use TransferToMCMSWithTimelockV2 instead.
-func TransferToMCMSWithTimelock(
-	e cldf.Environment,
-	cfg TransferToMCMSWithTimelockConfig,
-) (cldf.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-	var batches []timelock.BatchChainOperation
-	timelocksByChain := make(map[uint64]common.Address)
-	proposersByChain := make(map[uint64]*owner_helpers.ManyChainMultiSig)
-	for chainSelector, contracts := range cfg.ContractsByChain {
-		// Already validated that the timelock/proposer exists.
-		timelockAddr, _ := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock)
-		proposerAddr, _ := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig)
-		timelocksByChain[chainSelector] = common.HexToAddress(timelockAddr)
-		proposer, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(proposerAddr), e.Chains[chainSelector].Client)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create proposer mcms: %w", err)
-		}
-		proposersByChain[chainSelector] = proposer
-
-		var ops []mcms.Operation
-		for _, contract := range contracts {
-			// Just using the ownership interface.
-			// Already validated is ownable.
-			owner, c, _ := LoadOwnableContract(contract, e.Chains[chainSelector].Client)
-			if owner.String() == timelockAddr {
-				// Already owned by timelock.
-				e.Logger.Infof("contract %s already owned by timelock", contract)
-				continue
-			}
-			tx, err := c.TransferOwnership(e.Chains[chainSelector].DeployerKey, common.HexToAddress(timelockAddr))
-			_, err = cldf.ConfirmIfNoError(e.Chains[chainSelector], tx, err)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of contract %T: %w", contract, err)
-			}
-			tx, err = c.AcceptOwnership(cldf.SimTransactOpts())
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate accept ownership calldata of %s: %w", contract, err)
-			}
-			ops = append(ops, mcms.Operation{
-				To:    contract,
-				Data:  tx.Data(),
-				Value: big.NewInt(0),
-			})
-		}
-		batches = append(batches, timelock.BatchChainOperation{
-			ChainIdentifier: mcms.ChainIdentifier(chainSelector),
-			Batch:           ops,
-		})
-	}
-	proposal, err := proposalutils.BuildProposalFromBatches(
-		timelocksByChain, proposersByChain, batches, "Transfer ownership to timelock", cfg.MCMSConfig.MinDelay)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w, batches: %+v", err, batches)
-	}
-
-	return cldf.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{*proposal}}, nil
 }
 
 var _ cldf.ChangeSet[TransferToMCMSWithTimelockConfig] = TransferToMCMSWithTimelockV2

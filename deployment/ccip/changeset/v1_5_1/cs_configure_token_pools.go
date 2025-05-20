@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/mcms"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -37,7 +38,10 @@ import (
 //  1. it adds chain support with the desired rate limits
 //  2. it adds the desired remote pool addresses to the token pool on the chain
 //  3. if there used to be an existing token pool on tokenadmin_registry, it adds the remote pool addresses of that token pool to ensure 0 downtime
-var _ cldf.ChangeSet[ConfigureTokenPoolContractsConfig] = ConfigureTokenPoolContractsChangeset
+var (
+	_                           cldf.ChangeSet[ConfigureTokenPoolContractsConfig] = ConfigureTokenPoolContractsChangeset
+	ConfigureMultipleTokenPools                                                   = cldf.CreateChangeSet(configureMultiplePoolLogic, configureMultiplePoolPreconditionValidation)
+)
 
 // RateLimiterConfig defines the inbound and outbound rate limits for a remote chain.
 type RateLimiterConfig struct {
@@ -93,23 +97,27 @@ type SolChainUpdate struct {
 }
 
 func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state solanastateview.CCIPChainState) (token solana.PublicKey, tokenPool solana.PublicKey, err error) {
-	metadata := shared.CLLMetadata
-	if c.Metadata != "" {
-		metadata = c.Metadata
+	if c.Metadata == "" {
+		err = errors.New("metadata must be defined for solana token pool in SolChainUpdate")
+		return
 	}
 
 	var tokenPoolProgram solana.PublicKey
 	switch c.Type {
 	case shared.BurnMintTokenPool:
-		tokenPoolProgram = state.BurnMintTokenPools[metadata]
+		tokenPoolProgram = state.BurnMintTokenPools[c.Metadata]
 	case shared.LockReleaseTokenPool:
-		tokenPoolProgram = state.LockReleaseTokenPools[metadata]
+		tokenPoolProgram = state.LockReleaseTokenPools[c.Metadata]
 	default:
 		err = fmt.Errorf("unknown solana token pool type %s", c.Type)
 		return
 	}
 	if c.TokenAddress == "" {
 		err = errors.New("token address must be defined")
+		return
+	}
+	if tokenPoolProgram.IsZero() {
+		err = fmt.Errorf("token pool program %s is not defined for metadata %s", tokenPoolProgram, c.Metadata)
 		return
 	}
 	token = solana.MustPublicKeyFromBase58(c.TokenAddress)
@@ -352,8 +360,19 @@ func configureTokenPool(
 			if err != nil {
 				return fmt.Errorf("failed to get remote token for chain with selector %d: %w", remoteChainSelector, err)
 			}
-			if !bytes.Equal(remoteTokenAddress.Bytes(), remoteToken) {
-				// Remove & later re-add the chain if the token has changed
+			remotePoolAddresses, err := tokenPool.GetRemotePools(&bind.CallOpts{Context: ctx}, remoteChainSelector)
+			if err != nil {
+				return fmt.Errorf("failed to get remote pools for chain with selector %d: %w", remoteChainSelector, err)
+			}
+			isRemotePoolSupported := false
+			for _, address := range remotePoolAddresses {
+				if bytes.Equal(address, remotePoolAddress.Bytes()) {
+					isRemotePoolSupported = true
+					break
+				}
+			}
+			if !bytes.Equal(remoteTokenAddress.Bytes(), remoteToken) || !isRemotePoolSupported {
+				// Remove & later re-add the chain if the remote token has changed OR the remote pool address is not supported
 				chainRemovals = append(chainRemovals, remoteChainSelector)
 				addChain = true
 			} else {
@@ -487,4 +506,56 @@ func GetTokenStateFromPoolEVM(
 		return nil, utils.ZeroAddress, token_admin_registry.TokenAdminRegistryTokenConfig{}, fmt.Errorf("failed to get config of token with address %s from registry on %s: %w", tokenAddress, chain.String(), err)
 	}
 	return tokenPool, tokenAddress, tokenConfig, nil
+}
+
+type ConfigureMultipleTokenPoolsConfig struct {
+	Tokens []*ConfigureTokenPoolContractsConfig
+	MCMS   *proposalutils.TimelockConfig // this will override the MCMS in the token pool configs
+}
+
+func configureMultiplePoolPreconditionValidation(env cldf.Environment, c ConfigureMultipleTokenPoolsConfig) error {
+	if len(c.Tokens) == 0 {
+		return errors.New("no tokens to configure")
+	}
+	for _, token := range c.Tokens {
+		if c.MCMS != nil {
+			token.MCMS = c.MCMS
+		}
+		if err := token.Validate(env); err != nil {
+			return fmt.Errorf("invalid token configuration: %w", err)
+		}
+	}
+	return nil
+}
+
+func configureMultiplePoolLogic(env cldf.Environment, c ConfigureMultipleTokenPoolsConfig) (cldf.ChangesetOutput, error) {
+	finalOutput := cldf.ChangesetOutput{}
+	state, err := stateview.LoadOnchainState(env)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	for _, token := range c.Tokens {
+		if c.MCMS != nil {
+			token.MCMS = c.MCMS
+		}
+		output, err := ConfigureTokenPoolContractsChangeset(env, *token)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure token pool: %w", err)
+		}
+		err = cldf.MergeChangesetOutput(env, &finalOutput, output)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output: %w", err)
+		}
+	}
+	// if there are multiple proposals, aggregate them so that we don't have to propose them separately
+	if len(finalOutput.MCMSTimelockProposals) > 1 {
+		aggregatedProposals, err := proposalutils.AggregateProposals(
+			env, state.EVMMCMSStateByChain(), nil, finalOutput.MCMSTimelockProposals,
+			"Add Tokens E2E", c.MCMS)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
+		}
+		finalOutput.MCMSTimelockProposals = []mcms.TimelockProposal{*aggregatedProposals}
+	}
+	return finalOutput, nil
 }

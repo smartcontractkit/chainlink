@@ -30,3 +30,4 @@ plugins:
       moduleURI: "github.com/smartcontractkit/capabilities/workflowevent"
       gitRef: "86191e815fb879118fb303bfd974a120c1945daa"
       installPath: "github.com/smartcontractkit/capabilities/workflowevent"
+

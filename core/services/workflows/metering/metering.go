@@ -1,4 +1,4 @@
-package workflows
+package metering
 
 import (
 	"errors"
@@ -8,6 +8,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type MeteringReportStepRef string
@@ -79,13 +80,19 @@ type MeteringReportStep struct {
 }
 
 type MeteringReport struct {
-	mu    sync.RWMutex
-	steps map[MeteringReportStepRef][]MeteringReportStep
+	balance *balanceStore
+	mu      sync.RWMutex
+	steps   map[MeteringReportStepRef][]MeteringReportStep
+	lggr    logger.Logger
 }
 
-func NewMeteringReport() *MeteringReport {
+func NewMeteringReport(lggr logger.Logger) *MeteringReport {
+	logger := lggr.Named("Metering")
+	balanceStore := NewBalanceStore(0, map[string]decimal.Decimal{}, logger)
 	return &MeteringReport{
-		steps: make(map[MeteringReportStepRef][]MeteringReportStep),
+		balance: balanceStore,
+		steps:   make(map[MeteringReportStepRef][]MeteringReportStep),
+		lggr:    logger,
 	}
 }
 

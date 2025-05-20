@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/sync/errgroup"
 
@@ -16,27 +17,77 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+)
+
+const (
+	solFundingLamports = 100000
+	evmFundingEth      = 100
 )
 
 func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env cldf.Environment) error {
-	transmittersStr := make([]common.Address, 0)
-	fundingAmount := new(big.Int).Mul(deployment.UBigInt(100), deployment.UBigInt(1e18)) // 100 ETH
+	evmFundingAmount := new(big.Int).Mul(deployment.UBigInt(evmFundingEth), deployment.UBigInt(1e18))
 
 	g := new(errgroup.Group)
-	for sel, chain := range env.Chains {
-		sel, chain := sel, chain
-		g.Go(func() error {
-			for _, n := range nodeInfo {
-				chainID, err := chainsel.GetChainIDFromSelector(sel)
+
+	// Handle EVM funding
+	if len(env.Chains) > 0 {
+		for sel, chain := range env.Chains {
+			sel, chain := sel, chain
+			g.Go(func() error {
+				var evmAccounts []common.Address
+				for _, n := range nodeInfo {
+					chainID, err := chainsel.GetChainIDFromSelector(sel)
+					if err != nil {
+						lggr.Errorw("could not get chain id from selector", "selector", sel, "err", err)
+						return err
+					}
+					addr := common.HexToAddress(n.AccountAddr[chainID])
+					evmAccounts = append(evmAccounts, addr)
+				}
+
+				err := SendFundsToAccounts(env.GetContext(), lggr, chain, evmAccounts, evmFundingAmount, sel)
 				if err != nil {
-					lggr.Errorw("could not get chain id from selector", "selector", sel, "err", err)
+					lggr.Errorw("error funding evm accounts", "selector", sel, "err", err)
 					return err
 				}
-				addr := common.HexToAddress(n.AccountAddr[chainID])
-				transmittersStr = append(transmittersStr, addr)
-			}
-			return SendFundsToAccounts(env.GetContext(), lggr, chain, transmittersStr, fundingAmount, sel)
-		})
+				return nil
+			})
+		}
+	}
+
+	// Handle Solana funding
+	if len(env.SolChains) > 0 {
+		lggr.Info("Funding solana transmitters")
+		for sel, chain := range env.SolChains {
+			sel, chain := sel, chain
+			g.Go(func() error {
+				var solanaAddrs []solana.PublicKey
+				for _, n := range nodeInfo {
+					chainID, err := chainsel.GetChainIDFromSelector(sel)
+					if err != nil {
+						lggr.Errorw("could not get chain id from selector", "selector", sel, "err", err)
+						return err
+					}
+					base58Addr := n.AccountAddr[chainID]
+					lggr.Debugf("Found %v solana transmitter address", base58Addr)
+
+					pk, err := solana.PublicKeyFromBase58(base58Addr)
+					if err != nil {
+						lggr.Errorw("error converting base58 to solana PublicKey", "err", err, "address", base58Addr)
+						return err
+					}
+					solanaAddrs = append(solanaAddrs, pk)
+				}
+
+				err := memory.FundSolanaAccounts(env.GetContext(), solanaAddrs, solFundingLamports, chain.Client)
+				if err != nil {
+					lggr.Errorw("error funding solana accounts", "err", err, "selector", sel)
+					return err
+				}
+				return nil
+			})
+		}
 	}
 
 	return g.Wait()
