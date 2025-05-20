@@ -165,7 +165,7 @@ jobs:
   call-nightly-e2e-tests:
     if: ${{ github.event_name == 'schedule' }}
     needs: [docker-core-plugins]
-    uses: smartcontractkit/chainlink/.github/workflows/cre-local-env-tests.yaml@830af050dc5d9388a728c8be63586011cec181e6
+    uses: smartcontractkit/chainlink/.github/workflows/cre-local-env-tests.yaml@5256f32781ffbc7f754e2f3ab65b3d1c060775bf # develop SHA from 19th May 2025
     with:
       chainlink_image_tag: ${{ needs.docker-core-plugins.outputs.docker-manifest-tag }}
       chainlink_version: develop

@@ -249,7 +249,7 @@ func TestRemoveDons(t *testing.T) {
 			},
 		},
 		commoncs.Configure(
-			cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+			cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 			commoncs.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: map[uint64][]common.Address{
 					e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
@@ -402,7 +402,7 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 						},
 					},
 					commoncs.Configure(
-						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: map[uint64][]common.Address{
 								e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
@@ -560,7 +560,7 @@ func TestRemoveNodes(t *testing.T) {
 						},
 					},
 					commoncs.Configure(
-						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: map[uint64][]common.Address{
 								e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
