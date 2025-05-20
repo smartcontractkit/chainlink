@@ -15,7 +15,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mlt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagelimitationstest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -34,16 +33,6 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 
 	testhelpers.AddLanesForAll(t, &testEnv, onChainState)
 
-	srcToken, _ := setupTokens(
-		t,
-		onChainState,
-		testEnv,
-		chains[0],
-		chains[1],
-		deployment.E18Mult(10_000),
-		deployment.E18Mult(10_000),
-	)
-
 	chain0DestConfig, err := onChainState.Chains[chains[0]].FeeQuoter.GetDestChainConfig(callOpts, chains[1])
 	require.NoError(t, err)
 	t.Logf("0->1 destination config: %+v", chain0DestConfig)
@@ -53,7 +42,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 		onChainState,
 		chains[0],
 		chains[1],
-		srcToken.Address(),
+		common.HexToAddress("0x0"),
 		chain0DestConfig,
 		false, // testRouter
 		true,  // validateResp
