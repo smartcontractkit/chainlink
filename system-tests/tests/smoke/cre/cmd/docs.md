@@ -88,6 +88,9 @@ When starting the environment in AWS-managed Kubernetes make sure to source `.en
 ```bash
 # while in system-tests/tests/smoke/cre/cmd
 go run main.go env start
+
+# or to start environment with an example workflow
+go run main.go env start --with-example
 ```
 
 Optional parameters:

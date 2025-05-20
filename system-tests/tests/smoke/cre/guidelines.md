@@ -265,6 +265,8 @@ Optional parameters:
 ```bash
 # while in system-tests/tests/smoke/cre/cnmd
 go run main.go env stop
+# or to start environment with an example workflow
+go run main.go env start --with-example
 ```
 
 Or... if you have the CTF binary:
