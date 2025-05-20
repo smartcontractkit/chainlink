@@ -2,15 +2,14 @@ package common
 
 import (
 	"fmt"
-
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"maps"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-// PluginConfig is a struct that contains the configuration for a plugin.
+// PluginConfig holds the configuration for a plugin.
 type PluginConfig struct {
 	CommitPluginCodec          cciptypes.CommitPluginCodec
 	ExecutePluginCodec         cciptypes.ExecutePluginCodec
@@ -21,30 +20,54 @@ type PluginConfig struct {
 	ContractTransmitterFactory cctypes.ContractTransmitterFactory
 	// PriceOnlyCommitFn optional method override for price only commit reports.
 	PriceOnlyCommitFn string
+	ChainRW           ChainRWProvider
+	AddressCodec      ChainSpecificAddressCodec
+	ExtraDataCodec    SourceChainExtraDataCodec
 }
 
-// PluginConfigFactory is a factory for creating PluginConfig instances.
-type PluginConfigFactory struct {
-	EVMPluginConfig    PluginConfig
-	SolanaPluginConfig PluginConfig
+// PluginServices aggregates services for a specific chain family.
+type PluginServices struct {
+	PluginConfig   PluginConfig
+	AddrCodec      AddressCodec
+	ExtraDataCodec ExtraDataCodec
+	ChainRW        MultiChainRW
 }
 
-// NewPluginConfigFactory is a constructor for PluginConfigFactory.
-func NewPluginConfigFactory(evmPluginConfig, solanaPluginConfig PluginConfig) *PluginConfigFactory {
-	return &PluginConfigFactory{
-		EVMPluginConfig:    evmPluginConfig,
-		SolanaPluginConfig: solanaPluginConfig,
+// InitFunction defines a function to initialize a PluginConfig.
+type InitFunction func(logger.Logger, ExtraDataCodec) PluginConfig
+
+var registeredFactories = make(map[string]InitFunction)
+
+// RegisterPluginConfig registers a plugin config factory for a chain family.
+func RegisterPluginConfig(chainFamily string, factory InitFunction) {
+	registeredFactories[chainFamily] = factory
+}
+
+// GetPluginServices initializes and returns PluginServices for a chain family.
+func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, error) {
+	_, exists := registeredFactories[chainFamily]
+	if !exists {
+		return PluginServices{}, fmt.Errorf("unsupported chain family: %s (available: %v)", chainFamily, maps.Keys(registeredFactories))
 	}
-}
 
-// CreatePluginConfig creates a PluginConfig instance based on the chain family.
-func (f *PluginConfigFactory) CreatePluginConfig(chainFamily string) (PluginConfig, error) {
-	switch chainFamily {
-	case chainsel.FamilyEVM:
-		return f.EVMPluginConfig, nil
-	case chainsel.FamilySolana:
-		return f.SolanaPluginConfig, nil
-	default:
-		return PluginConfig{}, fmt.Errorf("unsupported chain family: %s", chainFamily)
+	pluginServices := PluginServices{
+		ExtraDataCodec: make(ExtraDataCodec), // lazy initialize it after factory init call
 	}
+
+	addressCodecMap := make(map[string]ChainSpecificAddressCodec)
+	chainRWProviderMap := make(map[string]ChainRWProvider)
+
+	for family, initFunc := range registeredFactories {
+		config := initFunc(lggr, pluginServices.ExtraDataCodec)
+		addressCodecMap[family] = config.AddressCodec
+		chainRWProviderMap[family] = config.ChainRW
+		pluginServices.ExtraDataCodec[family] = config.ExtraDataCodec // initialize and update it with the map
+		if family == chainFamily {
+			pluginServices.PluginConfig = config
+		}
+	}
+
+	pluginServices.AddrCodec = NewAddressCodec(addressCodecMap)
+	pluginServices.ChainRW = NewCRCW(chainRWProviderMap)
+	return pluginServices, nil
 }
