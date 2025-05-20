@@ -24,7 +24,7 @@ func TestEmitTimestampNano(t *testing.T) {
 	stepRef := "step"
 	beholder := tests.Beholder(t)
 	labeler := custmsg.NewLabeler()
-	timeMatcher := regexp.MustCompile(`[0-9\-]{10}T[0-9:]{8}\.[0-9]+\-[0-9:]{5}`) // basic regex for RFC3339Nano
+	timeMatcher := regexp.MustCompile(`[0-9\-]{10}T[0-9:]{8}\.[0-9Z\-:]+`) // basic regex for RFC3339Nano
 
 	t.Run(events.WorkflowExecutionStarted, func(t *testing.T) {
 		require.NoError(t, events.EmitExecutionStartedEvent(t.Context(), labeler, triggerID, executionID))
