@@ -446,7 +446,7 @@ func startCLIEnvironment(topologyFlag string, withPluginsDockerImageFlag string,
 
 	logEventTriggerBinaryName := filepath.Base(in.ExtraCapabilities.LogEventTriggerBinaryPath)
 	if withPluginsDockerImageFlag != "" {
-		logEventTriggerBinaryName = "logevent"
+		logEventTriggerBinaryName = "log-event-trigger"
 	}
 
 	readContractBinaryName := filepath.Base(in.ExtraCapabilities.ReadContractBinaryPath)
