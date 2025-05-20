@@ -211,9 +211,6 @@ func validateLBTCConfig(e cldf.Environment, lbtcConfig *pluginconfig.LBTCObserve
 					"Found: %s, but in LBTC config was provided: %s", sel, lbtcPool, sourcePoolAddr)
 			}
 		}
-		if onchainState.USDCTokenPools == nil || onchainState.USDCTokenPools[deployment.Version1_5_1] == nil {
-			return fmt.Errorf("chain %d does not have LBTC sourcePool lbtcPool deployed with version %s", sel, deployment.Version1_5_1)
-		}
 	}
 	return nil
 }
