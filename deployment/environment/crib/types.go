@@ -27,7 +27,7 @@ type DeployCCIPOutput struct {
 }
 
 func NewDeployEnvironmentFromCribOutput(lggr logger.Logger, output DeployOutput) (*cldf.Environment, error) {
-	chains, err := devenv.NewChains(lggr, output.Chains)
+	chains, solChains, err := devenv.NewChains(lggr, output.Chains)
 	if err != nil {
 		return nil, err
 	}
@@ -40,8 +40,8 @@ func NewDeployEnvironmentFromCribOutput(lggr logger.Logger, output DeployOutput)
 			datastore.DefaultMetadata,
 		]().Seal(),
 		chains,
-		nil, // nil for solana chains, can use memory solana chain example when required
-		nil, // nil for aptos chains, can use memory solana chain example when required
+		solChains, // nil for solana chains, can use memory solana chain example when required
+		nil,       // nil for aptos chains, can use memory solana chain example when required
 		output.NodeIDs,
 		nil, // todo: populate the offchain client using output.DON
 		//nolint:gocritic // intentionally use a lambda to allow dynamic context replacement in Environment Commit 90ee880

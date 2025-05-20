@@ -621,7 +621,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 
 	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MCMSConfig: proposalutils.TimelockConfig{

@@ -26,10 +26,10 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
+	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
-	pollermocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -106,7 +106,7 @@ func TestEvmWrite(t *testing.T) {
 	chain := evmmocks.NewChain(t)
 	txManager := txmmocks.NewMockEvmTxManager(t)
 	evmClient := clienttest.NewClient(t)
-	poller := pollermocks.NewLogPoller(t)
+	poller := lpmocks.NewLogPoller(t)
 
 	// This is a very error-prone way to mock an on-chain response to a GetLatestValue("getTransmissionInfo") call
 	// It's a bit of a hack, but it's the best way to do it without a lot of refactoring

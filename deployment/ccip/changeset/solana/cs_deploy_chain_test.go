@@ -358,17 +358,21 @@ func TestIDL(t *testing.T) {
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.UploadIDL),
 			ccipChangesetSolana.IDLConfig{
-				ChainSelector:        solChain,
-				GitCommitSha:         "",
-				Router:               true,
-				FeeQuoter:            true,
-				OffRamp:              true,
-				RMNRemote:            true,
-				BurnMintTokenPool:    true,
-				LockReleaseTokenPool: true,
-				AccessController:     true,
-				Timelock:             true,
-				MCM:                  true,
+				ChainSelector: solChain,
+				GitCommitSha:  "",
+				Router:        true,
+				FeeQuoter:     true,
+				OffRamp:       true,
+				RMNRemote:     true,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+				LockReleaseTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+				AccessController: true,
+				Timelock:         true,
+				MCM:              true,
 			},
 		),
 	})
@@ -409,15 +413,19 @@ func TestIDL(t *testing.T) {
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.UpgradeIDL),
 			ccipChangesetSolana.IDLConfig{
-				ChainSelector:        solChain,
-				GitCommitSha:         "",
-				OffRamp:              true,
-				RMNRemote:            true,
-				BurnMintTokenPool:    true,
-				LockReleaseTokenPool: true,
-				AccessController:     true,
-				Timelock:             true,
-				MCM:                  true,
+				ChainSelector: solChain,
+				GitCommitSha:  "",
+				OffRamp:       true,
+				RMNRemote:     true,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+				LockReleaseTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+				AccessController: true,
+				Timelock:         true,
+				MCM:              true,
 			},
 		),
 	})

@@ -867,6 +867,9 @@ func (cfg TokenPoolLookupTableConfig) Validate(e cldf.Environment) error {
 	if cfg.PoolType == nil {
 		return errors.New("pool type must be defined")
 	}
+	if cfg.Metadata == "" {
+		return errors.New("metadata must be defined")
+	}
 	return validatePoolDeployment(&e, *cfg.PoolType, cfg.ChainSelector, cfg.TokenPubKey, false, cfg.Metadata)
 }
 
@@ -921,11 +924,7 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 	tv := cldf.NewTypeAndVersion(shared.TokenPoolLookupTable, deployment.Version1_0_0)
 	tv.Labels.Add(tokenPubKey.String())
 	tv.Labels.Add(cfg.PoolType.String())
-	metadata := shared.CLLMetadata
-	if cfg.Metadata != "" {
-		metadata = cfg.Metadata
-	}
-	tv.Labels.Add(metadata)
+	tv.Labels.Add(cfg.Metadata)
 	if err := newAddressBook.Save(cfg.ChainSelector, table.String(), tv); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to save tokenpool address lookup table: %w", err)
 	}
@@ -970,11 +969,10 @@ func (cfg SetPoolConfig) Validate(e cldf.Environment) error {
 	if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
 		return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot set pool", tokenPubKey.String(), routerProgramAddress.String())
 	}
-	metadata := shared.CLLMetadata
-	if cfg.Metadata != "" {
-		metadata = cfg.Metadata
+	if cfg.Metadata == "" {
+		return errors.New("metadata must be defined")
 	}
-	if lut, ok := chainState.TokenPoolLookupTable[tokenPubKey][*cfg.PoolType][metadata]; !ok || lut.IsZero() {
+	if lut, ok := chainState.TokenPoolLookupTable[tokenPubKey][*cfg.PoolType][cfg.Metadata]; !ok || lut.IsZero() {
 		return fmt.Errorf("token pool lookup table not found for (mint: %s)", tokenPubKey.String())
 	}
 	return nil
@@ -995,11 +993,7 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 	solRouter.SetProgramID(routerProgramAddress)
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 
-	metadata := shared.CLLMetadata
-	if cfg.Metadata != "" {
-		metadata = cfg.Metadata
-	}
-	lookupTablePubKey := chainState.TokenPoolLookupTable[tokenPubKey][*cfg.PoolType][metadata]
+	lookupTablePubKey := chainState.TokenPoolLookupTable[tokenPubKey][*cfg.PoolType][cfg.Metadata]
 	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
@@ -1015,7 +1009,7 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 		cfg.MCMS,
 		shared.Router,
 		tokenPubKey,
-		metadata,
+		cfg.Metadata,
 	)
 	base := solRouter.NewSetPoolInstruction(
 		cfg.WritableIndexes,

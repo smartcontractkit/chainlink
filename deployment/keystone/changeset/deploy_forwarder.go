@@ -10,8 +10,8 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -129,26 +129,28 @@ func ConfigureForwardContracts(env cldf.Environment, req ConfigureForwardContrac
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure forward contracts: %w", err)
 	}
 
-	cresp, err := getContractSetsV2(env.Logger, getContractSetsRequestV2{
-		Chains:      env.Chains,
-		AddressBook: env.ExistingAddresses,
-	})
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get contract sets: %w", err)
-	}
-
 	var out cldf.ChangesetOutput
 	if req.UseMCMS() {
 		if len(r.OpsPerChain) == 0 {
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		for chainSelector, op := range r.OpsPerChain {
-			contracts := cresp.ContractSets[chainSelector]
+			fwrAddr, ok := r.ForwarderAddresses[chainSelector]
+			if !ok {
+				return out, fmt.Errorf("expected configured forwarder address for chain selector %d", chainSelector)
+			}
+			fwr, err := GetOwnedContractV2[*forwarder.KeystoneForwarder](env.DataStore.Addresses(), env.Chains[chainSelector], fwrAddr.String())
+			if err != nil {
+				return out, fmt.Errorf("failed to get forwarder contract for chain selector %d: %w", chainSelector, err)
+			}
+			if fwr.McmsContracts == nil {
+				return out, fmt.Errorf("expected forwarder contract %s to be owned by MCMS for chain selector %d", fwrAddr.String(), chainSelector)
+			}
 			timelocksPerChain := map[uint64]string{
-				chainSelector: contracts.Forwarder.McmsContracts.Timelock.Address().Hex(),
+				chainSelector: fwr.McmsContracts.Timelock.Address().Hex(),
 			}
 			proposerMCMSes := map[uint64]string{
-				chainSelector: contracts.Forwarder.McmsContracts.ProposerMcm.Address().Hex(),
+				chainSelector: fwr.McmsContracts.ProposerMcm.Address().Hex(),
 			}
 			inspector, err := proposalutils.McmsInspectorForChain(env, chainSelector)
 			if err != nil {
