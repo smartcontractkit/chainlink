@@ -16,10 +16,6 @@ plugins:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
       gitRef: "86191e815fb879118fb303bfd974a120c1945daa"
       installPath: "github.com/smartcontractkit/capabilities/cron"
-  logevent:
-    - moduleURI: "github.com/smartcontractkit/chainlink/v2"
-      gitRef: "5356b8eca7d5bff554baf420fd4c7850a5909f85"
-      installPath: "github.com/smartcontractkit/chainlink/v2/plugins/cmd/capabilities/log-event-trigger"
   kvstore:
     - enabled: false
       moduleURI: "github.com/smartcontractkit/capabilities/kvstore"
