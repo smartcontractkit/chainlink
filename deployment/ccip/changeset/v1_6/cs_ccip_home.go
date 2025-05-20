@@ -187,29 +187,32 @@ func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state s
 
 func validateLBTCConfig(e cldf.Environment, lbtcConfig *pluginconfig.LBTCObserverConfig, state stateview.CCIPOnChainState) error {
 	for sel, sourcePool := range lbtcConfig.SourcePoolAddressByChain {
-		onchainState, ok := state.Chains[uint64(sel)]
+		chainState, ok := state.Chains[uint64(sel)]
 		if !ok {
 			return fmt.Errorf("chain %d does not exist in state but provided in LBTCObserverConfig", sel)
 		}
 		sourcePoolAddr := common.HexToAddress(sourcePool)
 		sourcePool, err := token_pool.NewTokenPool(sourcePoolAddr, e.Chains[uint64(sel)].Client)
 		if err != nil {
-			return err
+			return fmt.Errorf("chain %d has an error while requesting LBTC source token pool %s: %w", sel, sourcePoolAddr, err)
 		}
 		lbtcToken, err := sourcePool.GetToken(nil)
 		if err != nil {
-			return err
+			return fmt.Errorf("chain %d has an error while requesting LBTC token address: %w", sel, err)
 		}
-		if lbtcPool, err := onchainState.TokenAdminRegistry.GetPool(nil, lbtcToken); err != nil {
-			return err
-		} else {
-			if lbtcPool == (common.Address{}) {
-				return fmt.Errorf("chain %d missing LBTC pool in TokenAdminRegistry", sel)
-			}
-			if lbtcPool != sourcePoolAddr {
-				return fmt.Errorf("chain %d has invalid LBTC pool registered in TokenAdminRegistry. "+
-					"Found: %s, but in LBTC config was provided: %s", sel, lbtcPool, sourcePoolAddr)
-			}
+		tokenRegistry := chainState.TokenAdminRegistry
+		lbtcPool, err := tokenRegistry.GetPool(nil, lbtcToken)
+		if err != nil {
+			return fmt.Errorf("chain %d has an error while requesting LBTC token pool (token=%s) from "+
+				"TokenAdminRegistry (address=%s): %w", sel, lbtcToken, tokenRegistry.Address(), err)
+		}
+		if lbtcPool == (common.Address{}) {
+			return fmt.Errorf("chain %d missing LBTC pool in TokenAdminRegistry (address=%s)", sel,
+				tokenRegistry.Address())
+		}
+		if lbtcPool != sourcePoolAddr {
+			return fmt.Errorf("chain %d has invalid LBTC pool registered in TokenAdminRegistry (address=%s). "+
+				"Found: %s, but in LBTC config was: %s", sel, tokenRegistry.Address(), lbtcPool, sourcePoolAddr)
 		}
 	}
 	return nil
