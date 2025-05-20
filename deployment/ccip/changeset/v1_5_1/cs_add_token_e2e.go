@@ -61,20 +61,11 @@ type E2ETokenAndPoolConfig struct {
 	// This will be populated from the tokenDeploymentConfig if it is provided.
 	DeployPoolConfig *DeployTokenPoolInput `json:"deployPoolConfig,omitempty"`
 
-	// Provide if pool is already deployed and you want to just configure it
-	ExistingPoolType *cldf.ContractType `json:"existingPoolType,omitempty"`
-
 	// Version of the pool being deployed.
 	PoolVersion semver.Version `json:"poolVersion"`
 
 	// ExternalAdmin is the external administrator of the token pool on the registry.
 	ExternalAdmin common.Address `json:"externalAdmin"`
-
-	// Configuration for the rate limiter per chain.
-	RateLimiterConfig RateLimiterPerChain `json:"rateLimiterConfig"`
-
-	// SolChainUpdates defines the Solana chains and corresponding rate limits that should be defined on the token pool.
-	SolChainUpdates map[uint64]SolChainUpdate `json:"solChainUpdates,omitempty"`
 
 	// OverrideTokenSymbol is the token symbol to use to override against main symbol
 	// (ex: override to clCCIP-LnM when the main token symbol is CCIP-LnM)
@@ -102,18 +93,13 @@ type AddTokenE2EConfig struct {
 // newConfigurePoolAndTokenAdminRegConfig populated internal fields in AddTokenE2EConfig.
 // It creates the configuration for deploying and configuring token pools and token admin registry.
 // It then validates the configuration.
-func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e cldf.Environment, symbol shared.TokenSymbol, timelockCfg *proposalutils.TimelockConfig, existingPool bool) error {
-
+func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e cldf.Environment, symbol shared.TokenSymbol, timelockCfg *proposalutils.TimelockConfig) error {
 	c.deployPool = &DeployTokenPoolContractsConfig{
 		TokenSymbol:  symbol,
 		NewPools:     make(map[uint64]DeployTokenPoolInput),
 		IsTestRouter: c.IsTestRouter,
 	}
 
-	// ensuring already existing pool has ownership transferred to MCMs
-	if existingPool {
-		c.ConfigurePools.MCMS = timelockCfg
-	}
 	c.configureTokenAdminReg = TokenAdminRegistryChangesetConfig{
 		MCMS:  timelockCfg,
 		Pools: make(map[uint64]map[shared.TokenSymbol]TokenPoolInfo),
@@ -125,20 +111,9 @@ func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e cldf.Enviro
 			ExternalAdmin: poolCfg.ExternalAdmin,
 		}
 
-		if poolCfg.ExistingPoolType == nil {
-			// deploy new tokenPool
-			if poolCfg.DeployPoolConfig == nil {
-				return fmt.Errorf("existing pool type must be provided for chain %d, if no deploy pool config is there", chain)
-			}
-
-			c.deployPool.NewPools[chain] = *poolCfg.DeployPoolConfig
-			tpCfg.Type = poolCfg.DeployPoolConfig.Type
-			poolInfo.Type = poolCfg.DeployPoolConfig.Type
-		} else {
-			// no need to deploy new tokenPool
-			tpCfg.Type = *poolCfg.ExistingPoolType
-			poolInfo.Type = *poolCfg.ExistingPoolType
-		}
+		c.deployPool.NewPools[chain] = *poolCfg.DeployPoolConfig
+		tpCfg.Type = poolCfg.DeployPoolConfig.Type
+		poolInfo.Type = poolCfg.DeployPoolConfig.Type
 
 		// Populate the TokenAdminRegistryChangesetConfig for each chain.
 		if _, ok := c.configureTokenAdminReg.Pools[chain]; !ok {
@@ -146,10 +121,9 @@ func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e cldf.Enviro
 		}
 		c.configureTokenAdminReg.Pools[chain][symbol] = poolInfo
 	}
-	if !existingPool {
-		if err := c.deployPool.Validate(e); err != nil {
-			return fmt.Errorf("failed to validate deploy pool config: %w", err)
-		}
+
+	if err := c.deployPool.Validate(e); err != nil {
+		return fmt.Errorf("failed to validate deploy pool config: %w", err)
 	}
 
 	// rest of the validation should be done after token pools are deployed
@@ -254,40 +228,32 @@ func addTokenE2EPreconditionValidation(e cldf.Environment, config AddTokensE2ECo
 				return fmt.Errorf("failed to validate chain %d: %w", chain, err)
 			}
 
-			if poolCfg.ExistingPoolType == nil {
-				if (poolCfg.DeployPoolConfig != nil) == (poolCfg.TokenDeploymentConfig != nil) {
-					return fmt.Errorf("must provide either DeploymentConfig or TokenDeploymentConfig for token %s: cannot provide both or neither", token)
+			if (poolCfg.DeployPoolConfig != nil) == (poolCfg.TokenDeploymentConfig != nil) {
+				return fmt.Errorf("must provide either DeploymentConfig or TokenDeploymentConfig for token %s: cannot provide both or neither", token)
+			}
+			if poolCfg.TokenDeploymentConfig != nil {
+				if poolCfg.TokenDeploymentConfig.TokenSymbol != token {
+					return fmt.Errorf("token symbol %s in token deployment config does not match token %s", poolCfg.TokenDeploymentConfig.TokenSymbol, token)
 				}
-				if poolCfg.TokenDeploymentConfig != nil {
-					if poolCfg.TokenDeploymentConfig.TokenSymbol != token {
-						return fmt.Errorf("token symbol %s in token deployment config does not match token %s", poolCfg.TokenDeploymentConfig.TokenSymbol, token)
-					}
-					if err := poolCfg.TokenDeploymentConfig.Validate(); err != nil {
-						return fmt.Errorf("failed to validate token deployment config for token %s: %w", token, err)
-					}
-					// the rest of the internal fields are populated from the PoolConfig and it will be validated once the tokens are deployed
-				} else {
-					if poolCfg.DeployPoolConfig == nil {
-						return fmt.Errorf("must provide pool DeploymentConfig for token %s when TokenDeploymentConfig is not provided", token)
-					}
-					if err := poolCfg.DeployPoolConfig.Validate(e.GetContext(), e.Chains[chain], state.Chains[chain], token); err != nil {
-						return fmt.Errorf("failed to validate token pool config for token %s: %w", token, err)
-					}
-					// populate the internal fields for deploying and configuring token pools and token admin registry and validate them
-					err := cfg.newConfigurePoolAndTokenAdminRegConfig(e, token, config.MCMS, false)
-					if err != nil {
-						return err
-					}
-					config.Tokens[token] = cfg
+				if err := poolCfg.TokenDeploymentConfig.Validate(); err != nil {
+					return fmt.Errorf("failed to validate token deployment config for token %s: %w", token, err)
 				}
+				// the rest of the internal fields are populated from the PoolConfig and it will be validated once the tokens are deployed
 			} else {
+				if poolCfg.DeployPoolConfig == nil {
+					return fmt.Errorf("must provide pool DeploymentConfig for token %s when TokenDeploymentConfig is not provided", token)
+				}
+				if err := poolCfg.DeployPoolConfig.Validate(e.GetContext(), e.Chains[chain], state.Chains[chain], token); err != nil {
+					return fmt.Errorf("failed to validate token pool config for token %s: %w", token, err)
+				}
 				// populate the internal fields for deploying and configuring token pools and token admin registry and validate them
-				err := cfg.newConfigurePoolAndTokenAdminRegConfig(e, token, config.MCMS, true)
+				err := cfg.newConfigurePoolAndTokenAdminRegConfig(e, token, config.MCMS)
 				if err != nil {
 					return err
 				}
 				config.Tokens[token] = cfg
 			}
+
 		}
 	}
 	return nil
@@ -330,7 +296,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
 			}
 			// populate the configuration for deploying and configuring token pools and token admin registry
-			if err := cfg.newConfigurePoolAndTokenAdminRegConfig(e, token, config.MCMS, false); err != nil {
+			if err := cfg.newConfigurePoolAndTokenAdminRegConfig(e, token, config.MCMS); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate configuration for "+
 					"deploying and configuring token pools and token admin registry: %w", err)
 			}
