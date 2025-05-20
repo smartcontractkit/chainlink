@@ -137,12 +137,9 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	for ind := range *userOverrides.NumDestinationChains {
 		cs := env.AllChainSelectors()[ind]
 		other := env.AllChainSelectorsExcluding([]uint64{cs})
-		var mu sync.Mutex
 		for _, src := range other {
 			//todo: handle solana source keys
-			mu.Lock()
 			evmSourceKeys[src] = transmitKeys[src][ind]
-			mu.Unlock()
 		}
 	}
 
