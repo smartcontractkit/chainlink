@@ -12,11 +12,10 @@
    - [Test Timeout](#test-timeout)
    - [Visual Studio Code Debug Configuration](#visual-studio-code-debug-configuration)
 2. [Using the CLI](#2-cli-usage)
+   - [Prerequisits](#prerequisites-for-docker)
    - [Start Environment](#start-environment)
    - [Stop Environment](#stop-environment)
-   - [Before You Start](#before-you-start)
-   - [Environment Variables](#environment-variables-1)
-   - [Cleanup](#cleanup)
+   - [Restart Environment](#restarting-the-environment)
 3. [Docker vs Kubernetes (k8s)](#3-docker-vs-kubernetes-k8s)
 4. [CRIB Requirements](#4-crib-requirements)
 5. [Setting Docker Images for CRIB Execution](#5-setting-docker-images-for-crib-execution)
@@ -230,7 +229,15 @@ Optionally:
      ```bash
      ctf obs up
      ```
+   - If you want Blockscout block explorer, run:
+    ```bash
+    ctf bs u
+    ```
+    (warning, that stack is pretty heavy)
     - To download the `ctf` binary follow the steps described [here](https://smartcontractkit.github.io/chainlink-testing-framework/framework/getting_started.html)
+7. **Download GH CLI (to execute example workflow)**
+  - Either download from [cli.github.com](https://cli.github.com/) or install with Homebrew with `brew install gh`
+  - Configure with `gh auth login`
 
 Optional environment variables used by the CLI:
 - `CTF_CONFIGS`: TOML config path
@@ -238,6 +245,8 @@ Optional environment variables used by the CLI:
 - `TESTCONTAINERS_RYUK_DISABLED`: Set to "true" to disable cleanup
 
 When starting the environment in AWS-managed Kubernetes make sure to source `.env` environment from the `crib/deployments/cre` folder specific for AWS. Remember, that it must include ingress domain settings.
+
+---
 
 ### Start Environment
 ```bash
@@ -249,6 +258,8 @@ Optional parameters:
 - `-t`: Topology (`simplified` or `full`)
 - `-w`: Wait on error before cleanup (e.g. to inspect Docker logs, e.g. `-w 5m`)
 - `-e`: Extra ports for which external access by the DON should be allowed (e.g. when making API calls)
+- `-x`: Registers an example PoR workflow using CRE CLI and verifies it
+- `-s`: Time to wait for example workflow to execute successfuly (defaults to `5m`)
 
 ### Stop Environment
 ```bash
@@ -260,6 +271,15 @@ Or... if you have the CTF binary:
 ```
 ctf d rm
 ```
+---
+
+### Restarting the environment
+
+If you are using Blockscout and you restart the environment **you need to restart the block explorer** if you want to see current block history. If you don't you will see stale state of the previous environment. To restart execute:
+```bash
+ctf bs r
+```
+
 ---
 
 ### Further use

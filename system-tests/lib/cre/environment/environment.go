@@ -617,7 +617,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(keystoneErr, "failed to configure keystone contracts")
 	}
 
-	fmt.Printf("\033[35m\n[Stage 10/10] OCR3 and Keystone contracts configured in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())
+	fmt.Printf("\033[35m\n[Stage 10/10] OCR3 and Keystone contracts configured in %.2f seconds\033[0m\n\n", time.Since(startTime).Seconds())
 
 	return &SetupOutput{
 		WorkflowRegistryConfigurationOutput: workflowRegistryInput.Out, // pass to caller, so that it can be optionally attached to TestConfig and saved to disk
@@ -725,8 +725,6 @@ func CreateJobDistributor(input *jd.Input) (*jd.Output, error) {
 		jdVersion := os.Getenv(E2eJobDistributorVersionEnvVarName)
 		input.Image = fmt.Sprintf("%s:%s", jdImage, jdVersion)
 	}
-
-	fmt.Println("JD image", input.Image)
 
 	jdOutput, err := jd.NewJD(input)
 	if err != nil {

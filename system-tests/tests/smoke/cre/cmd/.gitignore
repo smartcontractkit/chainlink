@@ -1,0 +1,8 @@
+# ctf binary artifacts
+compose/
+blockscout/
+
+examples/contracts/abi
+examples/contracts/bin
+
+*.yaml

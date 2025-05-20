@@ -2,8 +2,11 @@ package environment
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
@@ -12,8 +15,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/client"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
@@ -35,8 +43,11 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/webapi"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
+	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/cmd/examples/pkg/deploy"
+	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/cmd/examples/pkg/verify"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
@@ -44,26 +55,28 @@ import (
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 )
 
-var EnvironmentCmd = &cobra.Command{
-	Use:   "env",
-	Short: "Environment commands",
-	Long:  `Commands to manage the environment`,
-}
-
-func init() {
-	EnvironmentCmd.AddCommand(startCmd)
-	EnvironmentCmd.AddCommand(stopCmd)
-
-	startCmd.Flags().StringVarP(&topologyFlag, "topology", "t", "simplified", "Topology to use for the environment (simiplified or full)")
-	startCmd.Flags().StringVarP(&waitOnErrorTimeoutFlag, "wait-on-error-timeout", "w", "", "Wait on error timeout (e.g. 10s, 1m, 1h)")
-	startCmd.Flags().IntSliceVarP(&extraAllowedPortsFlag, "extra-allowed-ports", "e", []int{}, "Extra allowed ports (e.g. 8080,8081)")
-}
-
 const manualCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove containers with 'ctf' label and delete their volumes`
 
 var topologyFlag string
 var waitOnErrorTimeoutFlag string
 var extraAllowedPortsFlag []int
+var withExample bool
+var exampleWorkflowTimeout string
+
+func init() {
+	EnvironmentCmd.AddCommand(startCmd)
+	EnvironmentCmd.AddCommand(stopCmd)
+	EnvironmentCmd.AddCommand(deployAndVerifyExampleWorkflowCmd)
+
+	startCmd.Flags().StringVarP(&topologyFlag, "topology", "t", "simplified", "Topology to use for the environment (simiplified or full)")
+	startCmd.Flags().StringVarP(&waitOnErrorTimeoutFlag, "wait-on-error-timeout", "w", "", "Wait on error timeout (e.g. 10s, 1m, 1h)")
+	startCmd.Flags().IntSliceVarP(&extraAllowedPortsFlag, "extra-allowed-ports", "e", []int{}, "Extra allowed ports (e.g. 8080,8081)")
+	startCmd.Flags().BoolVarP(&withExample, "with-example", "x", false, "Deploy and register example workflow")
+	startCmd.Flags().StringVarP(&exampleWorkflowTimeout, "example-workflow-timeout", "u", "5m", "Time to wait until example workflow succeeds")
+
+	deployAndVerifyExampleWorkflowCmd.Flags().StringVarP(&rpcURL, "rpc-url", "r", "http://localhost:8545", "RPC URL")
+	deployAndVerifyExampleWorkflowCmd.Flags().Uint64VarP(&chainID, "chain-id", "c", 1337, "Chain ID")
+}
 
 var waitOnErrorTimeoutDurationFn = func() {
 	if waitOnErrorTimeoutFlag != "" {
@@ -75,6 +88,31 @@ var waitOnErrorTimeoutDurationFn = func() {
 		fmt.Printf("Waiting %s on error before cleanup\n", waitOnErrorTimeoutFlag)
 		time.Sleep(waitOnErrorTimeoutDuration)
 	}
+}
+
+var EnvironmentCmd = &cobra.Command{
+	Use:   "env",
+	Short: "Environment commands",
+	Long:  `Commands to manage the environment`,
+}
+
+const (
+	TopologySimplified = "simplified"
+	TopologyFull       = "full"
+)
+
+type Config struct {
+	Blockchains       []*blockchain.Input     `toml:"blockchains" validate:"required"`
+	NodeSets          []*ns.Input             `toml:"nodesets" validate:"required"`
+	JD                *jd.Input               `toml:"jd" validate:"required"`
+	Infra             *libtypes.InfraInput    `toml:"infra" validate:"required"`
+	ExtraCapabilities ExtraCapabilitiesConfig `toml:"extra_capabilities"`
+}
+
+type ExtraCapabilitiesConfig struct {
+	CronCapabilityBinaryPath  string `toml:"cron_capability_binary_path"`
+	LogEventTriggerBinaryPath string `toml:"log_event_trigger_binary_path"`
+	ReadContractBinaryPath    string `toml:"read_contract_capability_binary_path"`
 }
 
 var startCmd = &cobra.Command{
@@ -223,10 +261,19 @@ var startCmd = &cobra.Command{
 		}
 
 		// TODO print urls?
-		fmt.Printf("\033[35m\nEnvironment setup completed successfully in %.2f minutes\033[0m\n\n", time.Since(startTime).Minutes())
-		fmt.Println()
-		fmt.Println("To terminate execute: ctf d rm")
-		fmt.Println()
+		fmt.Printf("\033[35m\nEnvironment setup completed successfully in %.2f seconds\033[0m\n\n", time.Since(startTime).Seconds())
+		fmt.Print("To terminate execute: ctf d rm\n\n")
+
+		if withExample {
+			fmt.Print(PurplePrint("\nRegistering and verifying example workflow\n\n"))
+			deployErr := deployAndVerifyExampleWorkflow(homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, homeChainOut.ChainID)
+			if deployErr != nil {
+				fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
+			}
+
+			fmt.Printf("\033[35m\nEnvironment setup completed successfully in %.2f seconds\033[0m\n\n", time.Since(startTime).Seconds())
+			fmt.Print("To terminate execute: ctf d rm\n\n")
+		}
 
 		return nil
 	},
@@ -247,23 +294,18 @@ var stopCmd = &cobra.Command{
 	},
 }
 
-const (
-	TopologySimplified = "simplified"
-	TopologyFull       = "full"
+var (
+	rpcURL  string
+	chainID uint64
 )
 
-type Config struct {
-	Blockchains       []*blockchain.Input     `toml:"blockchains" validate:"required"`
-	NodeSets          []*ns.Input             `toml:"nodesets" validate:"required"`
-	JD                *jd.Input               `toml:"jd" validate:"required"`
-	Infra             *libtypes.InfraInput    `toml:"infra" validate:"required"`
-	ExtraCapabilities ExtraCapabilitiesConfig `toml:"extra_capabilities"`
-}
-
-type ExtraCapabilitiesConfig struct {
-	CronCapabilityBinaryPath  string `toml:"cron_capability_binary_path"`
-	LogEventTriggerBinaryPath string `toml:"log_event_trigger_binary_path"`
-	ReadContractBinaryPath    string `toml:"read_contract_capability_binary_path"`
+var deployAndVerifyExampleWorkflowCmd = &cobra.Command{
+	Use:   "deploy-verify-example",
+	Short: "Deploys and verifies example (optionally)",
+	Long:  `Deploys a simple Proof-of-Reserve workflow and, optionally, wait until it succeeds`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return deployAndVerifyExampleWorkflow(rpcURL, chainID)
+	},
 }
 
 func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.SetupOutput, error) {
@@ -433,4 +475,232 @@ func startCLIEnvironment(topologyFlag string, extraAllowedPorts []int) (*creenv.
 	}
 
 	return universalSetupOutput, nil
+}
+
+func deployAndVerifyExampleWorkflow(rpcURL string, chainID uint64) error {
+	totalStart := time.Now()
+	start := time.Now()
+	fmt.Print(PurplePrint("\n[Stage 1/3] Deploying Permissionless Feeds Consumer\n\n"))
+	consumerContractAddress, consumerErr := deploy.DeployPermissionlessFeedsConsumer(rpcURL)
+	if consumerErr != nil {
+		return errors.Wrap(consumerErr, "failed to deploy Permissionless Feeds Consumer contract")
+	}
+
+	fmt.Printf(PurplePrint("\n[Stage 1/3] Deployed Permissionless Feeds Consumer in %.2f seconds\n"), time.Since(start).Seconds())
+
+	workflowData, workflowDataErr := readWorkflowData()
+	if workflowDataErr != nil {
+		return errors.Wrap(workflowDataErr, "failed to read workflow data")
+	}
+
+	start = time.Now()
+	fmt.Print(PurplePrint("\n[Stage 2/3] Registering example Proof-of-Reserve workflow\n\n"))
+
+	deployErr := deployExampleWorkflow(chainID, *workflowData)
+	if deployErr != nil {
+		return errors.Wrap(deployErr, "failed to deploy example workflow")
+	}
+
+	fmt.Printf(PurplePrint("\n[Stage 2/3] Registered workflow in %.2f seconds\n\n"), time.Since(start).Seconds())
+	fmt.Printf(PurplePrint("\n[Stage 3/3] Waiting for %s for workflow to execute successuly\n"), exampleWorkflowTimeout)
+	waitTime, waitTimeErr := time.ParseDuration(exampleWorkflowTimeout)
+	if waitTimeErr != nil {
+		return errors.Wrapf(waitTimeErr, "failed to parse %s to time.Duration", exampleWorkflowTimeout)
+	}
+
+	// ignore return as if verification failed it will print that info
+	_ = verify.ProofOfReserve(rpcURL, consumerContractAddress.Hex(), workflowData.FeedID, true, waitTime)
+
+	fmt.Printf(PurplePrint("\n[Stage 3/3] Example workflow executed in %.2f seconds\n"), time.Since(totalStart).Seconds())
+	start = time.Now()
+	fmt.Print(PurplePrint("\n[CLEANUP] Pausing example workflow\n\n"))
+	pauseErr := pauseExampleWorkflow()
+	if pauseErr != nil {
+		fmt.Printf("Failed to pause example workflow: %s\nPlease pause it manually\n", pauseErr)
+	}
+
+	fmt.Printf(PurplePrint("\n[CLEANUP] Paused example workflow in %.2f seconds\n\n"), time.Since(start).Seconds())
+
+	if isBlockscoutRunning() {
+		fmt.Println(PurplePrint("Open http://localhost/address/0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE?tab=internal_txns to check consumer contract's transaction history\n"))
+	}
+
+	return nil
+}
+
+var creCLI = "cre_v0.2.0_darwin_arm64"
+var exampleWorkflowName = "exampleworkflow"
+
+func prepareCLIInput() (*cretypes.ManageWorkflowWithCRECLIInput, error) {
+	if !isCRECLIIsAvailable() {
+		if downloadErr := tryToDownloadCRECLI(); downloadErr != nil {
+			return nil, errors.Wrap(downloadErr, "failed to download CRE CLI")
+		}
+	}
+
+	chainSelector, chainSelectorErr := chainselectors.SelectorFromChainId(chainID)
+	if chainSelectorErr != nil {
+		return nil, errors.Wrapf(chainSelectorErr, "failed to find chain selector for chainID %d", chainID)
+	}
+
+	CRECLIAbsPath, CRECLIAbsPathErr := filepath.Abs(creCLI)
+	if CRECLIAbsPathErr != nil {
+		return nil, errors.Wrap(CRECLIAbsPathErr, "failed to find absolute path of the CRE CLI binary")
+	}
+
+	deployerPrivateKey := os.Getenv("PRIVATE_KEY")
+	if deployerPrivateKey == "" {
+		deployerPrivateKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	}
+
+	privateKey, pkErr := crypto.HexToECDSA(deployerPrivateKey)
+	if pkErr != nil {
+		return nil, errors.Wrap(pkErr, "failed to parse the private key")
+	}
+
+	// Derive public key
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, errors.New("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
+	}
+
+	deployerAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
+
+	cliSettingsFileName := "cre.yaml"
+	if _, cliFileErr := os.Stat(cliSettingsFileName); os.IsNotExist(cliFileErr) {
+		return nil, errors.Wrap(cliFileErr, "CRE CLI settings file not found")
+	}
+
+	cliSettingsFile, cliSettingsFilhErr := os.OpenFile(cliSettingsFileName, os.O_RDONLY, 0600)
+	if cliSettingsFilhErr != nil {
+		return nil, errors.Wrap(cliSettingsFilhErr, "failed to open the CRE CLI settings file")
+	}
+
+	return &cretypes.ManageWorkflowWithCRECLIInput{
+		ChainSelector:            chainSelector,
+		WorkflowDonID:            1,
+		WorkflowOwnerAddress:     deployerAddress,
+		CRECLIPrivateKey:         deployerPrivateKey,
+		CRECLIAbsPath:            CRECLIAbsPath,
+		CRESettingsFile:          cliSettingsFile,
+		WorkflowName:             exampleWorkflowName,
+		ShouldCompileNewWorkflow: false,
+		CRECLIProfile:            "test",
+	}, nil
+}
+
+func deployExampleWorkflow(chainID uint64, workflowData workflowData) error {
+	registerWorkflowInput, registerWorkflowInputErr := prepareCLIInput()
+	if registerWorkflowInputErr != nil {
+		return errors.Wrap(registerWorkflowInputErr, "failed to prepare CLI input")
+	}
+
+	registerWorkflowInput.ExistingWorkflow = &cretypes.ExistingWorkflow{
+		BinaryURL: workflowData.BinaryURL,
+		ConfigURL: &workflowData.ConfigURL,
+	}
+
+	registerErr := creworkflow.RegisterWithCRECLI(*registerWorkflowInput)
+	if registerErr != nil {
+		return errors.Wrap(registerErr, "failed to register workflow")
+	}
+
+	return nil
+}
+
+func pauseExampleWorkflow() error {
+	pauseWorkflowInput, pauseWorkflowInputErr := prepareCLIInput()
+	if pauseWorkflowInputErr != nil {
+		return errors.Wrap(pauseWorkflowInputErr, "failed to prepare CLI input")
+	}
+
+	pauseErr := creworkflow.PauseWithCRECLI(*pauseWorkflowInput)
+	if pauseErr != nil {
+		return errors.Wrap(pauseErr, "failed to pause workflow")
+	}
+
+	return nil
+}
+
+type workflowData struct {
+	BinaryURL string `json:"binary_url"`
+	ConfigURL string `json:"config_url"`
+	FeedID    string `json:"feed_id"`
+}
+
+func readWorkflowData() (*workflowData, error) {
+	wdFileContent, wdFileErr := os.ReadFile("./examples/workflows/proof-of-reserve/workflow_data.json")
+	if wdFileErr != nil {
+		return nil, errors.Wrap(wdFileErr, "failed to open workflow_data.json file")
+	}
+
+	wdData := &workflowData{}
+	unmarshallErr := json.Unmarshal(wdFileContent, wdData)
+	if unmarshallErr != nil {
+		return nil, errors.Wrap(unmarshallErr, "failed to unmarshall workflow data")
+	}
+
+	return wdData, nil
+}
+
+func isCRECLIIsAvailable() bool {
+	_, statErr := os.Stat(creCLI)
+	return statErr == nil
+}
+
+func tryToDownloadCRECLI() error {
+	commandArgs := []string{"release", "download", "v0.2.0", "--repo", "smartcontractkit/dev-platform", "--pattern", "*darwin_arm64*"}
+
+	ghCmd := exec.Command("gh", commandArgs...) // #nosec G204
+	ghCmd.Stdout = os.Stdout
+	ghCmd.Stderr = os.Stderr
+	if startErr := ghCmd.Start(); startErr != nil {
+		return errors.Wrap(startErr, "failed to start gh cli command")
+	}
+
+	if waitErr := ghCmd.Wait(); waitErr != nil {
+		return errors.Wrap(waitErr, "failed to wait for gh cli command")
+	}
+
+	tarArgs := []string{"-xf", "cre_v0.2.0_darwin_arm64.tar.gz"}
+	tarCmd := exec.Command("tar", tarArgs...)
+
+	tarCmd.Stdout = os.Stdout
+	tarCmd.Stderr = os.Stderr
+	if startErr := tarCmd.Start(); startErr != nil {
+		return errors.Wrap(startErr, "failed to start tar command")
+	}
+
+	if waitErr := tarCmd.Wait(); waitErr != nil {
+		return errors.Wrap(waitErr, "failed to wait for tar command")
+	}
+
+	return nil
+}
+
+func PurplePrint(text string) string {
+	return fmt.Sprintf("\033[35m%s\033[0m", text)
+}
+
+func isBlockscoutRunning() bool {
+	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	if err != nil {
+		return false
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	containers, err := dockerClient.ContainerList(ctx, container.ListOptions{All: true})
+	if err != nil {
+		return false
+	}
+
+	for _, container := range containers {
+		if strings.Contains(strings.ToLower(container.Names[0]), "blockscout") {
+			return true
+		}
+	}
+
+	return false
 }
