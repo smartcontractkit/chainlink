@@ -12,6 +12,10 @@ import (
 )
 
 func AppendBinariesPathsNodeSpec(nodeSetInput *types.CapabilitiesAwareNodeSet, donMetadata *types.DonMetadata, customBinariesPaths map[types.CapabilityFlag]string) (*types.CapabilitiesAwareNodeSet, error) {
+	if len(customBinariesPaths) == 0 {
+		return nodeSetInput, nil
+	}
+
 	// if no capabilities are defined in TOML, but DON has ones that we know require custom binaries
 	// append them to the node specification
 	hasCapabilitiesBinaries := false

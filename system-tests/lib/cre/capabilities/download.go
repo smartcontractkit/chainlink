@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/client"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
@@ -42,7 +43,7 @@ func DefaultContainerDirectory(infraType types.InfraType) (string, error) {
 		return "/home/chainlink", nil
 	case types.Docker:
 		// needs to match what CTFv2 uses by default, we should define a constant there and import it here
-		return "/home/capabilities", nil
+		return clnode.DefaultCapabilitiesDir, nil
 	default:
 		return "", fmt.Errorf("unknown infra type: %s", infraType)
 	}

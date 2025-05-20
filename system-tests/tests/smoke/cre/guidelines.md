@@ -179,15 +179,20 @@ Example `launch.json` entry:
 The CLI manages test environments. It lives in `system-tests/smoke/cre/cmd`.
 
 ### Prerequisites (for Docker) ###
+## Prerequisites (for Docker) ###
 1. **Docker installed and running**
-- with usage of default Docker socket **enabled**
-- with Apple Virtualization framework **enabled**
-- with VirtioFS **enabled**
-- with use of containerd for pulling and storing images **disabled**
+    - with usage of default Docker socket **enabled**
+    - with Apple Virtualization framework **enabled**
+    - with VirtioFS **enabled**
+    - with use of containerd for pulling and storing images **disabled**
 2. **Logged in to Docker**
-- Run `docker login`
+    - Run `docker login`
 3. **Job Distributor Docker image available**
-- [This section](#job-distributor-image) explains how to build it locally
+    - [This section](#job-distributor-image) explains how to build it locally
+4. **Download CRE CLI v0.2.0**
+    - download it from [smartcontract/dev-platform](https://github.com/smartcontractkit/dev-platform/releases/tag/v0.2.0) or
+    - using GH CLI: `gh release download v0.2.0 --repo smartcontractkit/dev-platform --pattern '*darwin_arm64*'`
+    - remove it from MacOs' quarantine `xattr -d com.apple.quarantine cre_v0.2.0_darwin_arm64`
 
 Optionally:
 1. **Choose the Right Topology**
@@ -197,13 +202,13 @@ Optionally:
    - Some capabilities like `cron`, `log-event-trigger`, or `read-contract` are not embedded in all Chainlink images.
    - If your use case requires them, you can either:
       - Download binaries from [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities/releases/tag/v1.0.2-alpha) release page or
-      - Use GH CLI to download them, e.g. `gh release download v1.0.2-alpha --repo smartcontractkit/capabilities --pattern 'amd64_cron'`
+      - Use GH CLI to download them, e.g. `gh release download v1.0.2-alpha --repo smartcontractkit/capabilities --pattern 'amd64_cron' && mv amd64_cron cron`
       Make sure they are built for `linux/amd64`!
 
      Once that is done reference them in your TOML like:
        ```toml
        [extra_capabilities]
-       cron_capability_binary_path = "../cron"
+       cron_capability_binary_path = "../cron" # remember to adjust binary name
        ```
    - If the capability is already baked into your CL image (check the Dockerfile), comment out the TOML path line to skip copying.
 3. **Ensure Binaries Are in the Right Location**
@@ -260,6 +265,7 @@ Optional parameters:
 - `-e`: Extra ports for which external access by the DON should be allowed (e.g. when making API calls)
 - `-x`: Registers an example PoR workflow using CRE CLI and verifies it
 - `-s`: Time to wait for example workflow to execute successfuly (defaults to `5m`)
+- `-p`: Docker image to use (must contain all of the following capabilities: `ocr3`, `cron`, `readcontract` and `logevent`)
 
 ### Stop Environment
 ```bash
