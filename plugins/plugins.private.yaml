@@ -8,10 +8,6 @@ defaults:
   goflags: "-ldflags=-s"
 
 plugins:
-  aptos:
-    - moduleURI: "github.com/smartcontractkit/chainlink-internal-integrations/aptos/relayer"
-      gitRef: "2.21.0-beta16-aptos"
-      installPath: "github.com/smartcontractkit/chainlink-internal-integrations/aptos/relayer/cmd/chainlink-aptos"
   cron:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
       gitRef: "86191e815fb879118fb303bfd974a120c1945daa"
