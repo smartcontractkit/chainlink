@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/safe"
 )
@@ -50,6 +52,8 @@ type Engine struct {
 	allTriggerEventsQueueCh chan enqueuedTriggerEvent
 	executionsSemaphore     chan struct{}
 	capCallsSemaphore       chan struct{}
+
+	meterReports *metering.Reports
 }
 
 type enqueuedTriggerEvent struct {
@@ -72,6 +76,7 @@ func NewEngine(ctx context.Context, cfg *EngineConfig) (*Engine, error) {
 		allTriggerEventsQueueCh: make(chan enqueuedTriggerEvent, cfg.LocalLimits.TriggerEventQueueSize),
 		executionsSemaphore:     make(chan struct{}, cfg.LocalLimits.MaxConcurrentWorkflowExecutions),
 		capCallsSemaphore:       make(chan struct{}, cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow),
+		meterReports:            metering.NewReports(),
 	}
 	engine.Service, engine.srvcEng = services.Config{
 		Name:  "WorkflowEngineV2",
@@ -289,6 +294,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 
+	e.meterReports.Add(executionID, metering.NewReport(e.cfg.Lggr))
+
 	result, err := e.cfg.Module.Execute(subCtx, &wasmpb.ExecuteRequest{
 		Id: executionID,
 		Request: &wasmpb.ExecuteRequest_Trigger{
@@ -307,6 +314,9 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}
 
 	// TODO(CAPPL-736): handle execution result
+
+	e.meterReports.Delete(executionID)
+
 	e.cfg.Lggr.Infow("Workflow execution finished", "executionID", executionID, "result", result)
 	e.cfg.Hooks.OnResultReceived(result)
 	e.cfg.Hooks.OnExecutionFinished(executionID)
@@ -336,11 +346,34 @@ func (e *Engine) CallCapability(ctx context.Context, request *sdkpb.CapabilityRe
 		},
 	}
 
+	meterReport, ok := e.meterReports.Get(request.ExecutionId)
+	if !ok {
+		e.cfg.Lggr.Error("no metering report found for %v", request.ExecutionId)
+	}
+	capInfo, err := capability.Info(ctx)
+	if err != nil {
+		e.cfg.Lggr.Error("could not get capability info for %v", capReq.CapabilityId)
+	}
+	// TODO: After (CAPPL-881) replace with call ID
+	count := meterReport.IncrementRefCount(metering.ReportStepRef(capReq.CapabilityId))
+	callID := capReq.CapabilityId + strconv.FormatUint(count, 10)
+	ref := metering.ReportStepRef(callID)
+	err = meterReport.ReserveStep(ref, capInfo)
+	if err != nil {
+		e.cfg.Lggr.Error("could not reserve for %s: %w", callID, err)
+	}
+
 	// TODO(CAPPL-737): run with a timeout
 	capResp, err := capability.Execute(ctx, capReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute capability: %w", err)
 	}
+
+	err = meterReport.SetStep(ref, capResp.Metadata.Metering)
+	if err != nil {
+		e.cfg.Lggr.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", ref, err))
+	}
+
 	return &sdkpb.CapabilityResponse{
 		Response: &sdkpb.CapabilityResponse_Payload{
 			Payload: capResp.Payload,
