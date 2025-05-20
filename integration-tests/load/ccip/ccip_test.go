@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/gagliardetto/solana-go"
+	"golang.org/x/sync/errgroup"
 	"math/big"
 	"sync"
 	"testing"
@@ -211,40 +212,53 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		}
 	}
 
+	evmSourceKeys := make(map[uint64]*bind.TransactOpts)
+	solSourceKeys := make(map[uint64]*solana.PrivateKey)
+	var mu sync.Mutex
+	for ind, cs := range destinationChains {
+		other := env.AllChainSelectorsAllFamiliesExcluding([]uint64{cs})
+		for _, src := range other {
+			selFamily, err := selectors.GetSelectorFamily(src)
+			if err != nil {
+				lggr.Errorw("Failed to get selector family", "chainSelector", src, "error", err)
+			}
+			mu.Lock()
+			switch selFamily {
+			case selectors.FamilyEVM:
+				evmSourceKeys[src] = evmSenders[src][ind]
+
+			case selectors.FamilySolana:
+				solSourceKeys[src] = env.SolChains[src].DeployerKey
+			}
+			mu.Unlock()
+		}
+	}
+
 	// confirmed dest chains need a subscription
 	for ind, cs := range destinationChains {
-		evmSourceKeys := make(map[uint64]*bind.TransactOpts)
-		solSourceKeys := make(map[uint64]*solana.PrivateKey)
 		other := env.AllChainSelectorsAllFamiliesExcluding([]uint64{cs})
-		var mu sync.Mutex
-		var wg2 sync.WaitGroup
+		g := new(errgroup.Group)
 		for _, src := range other {
-			wg2.Add(1)
-			go func(src uint64) {
-				defer wg2.Done()
+			src := src
+			g.Go(func() error {
 				selFamily, err := selectors.GetSelectorFamily(src)
 				require.NoError(t, err)
 				switch selFamily {
 				case selectors.FamilyEVM:
-					mu.Lock()
-					evmSourceKeys[src] = evmSenders[src][ind]
-					mu.Unlock()
-					require.NoError(t, prepareAccountToSendLink(
+					return prepareAccountToSendLink(
 						lggr,
 						state,
 						*env,
 						src,
 						evmSourceKeys[src],
-					))
-				case selectors.FamilySolana:
-					mu.Lock()
-					solSourceKeys[src] = env.SolChains[src].DeployerKey
-					mu.Unlock()
+					)
+				default:
+					return nil
 				}
+			})
 
-			}(src)
 		}
-		wg2.Wait()
+		require.NoError(t, g.Wait())
 
 		finalSeqNrCommitChannels[cs] = make(chan finalSeqNrReport)
 		finalSeqNrExecChannels[cs] = make(chan finalSeqNrReport)

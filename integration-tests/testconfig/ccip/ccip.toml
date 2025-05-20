@@ -412,7 +412,7 @@ ephemeral_addresses_number = 0
 
 [Load.CCIP.Load]
 # 0 - no chaos, 1 - rpc latency, 2 - full chaos suite
-ChaosMode = 2
+ChaosMode = 0
 # works only with Load.CCIP.ChaosMode = 1
 RPCLatency = "400ms"
 RPCJitter = "0ms"
@@ -432,14 +432,14 @@ MessageDetails = [
 # overrides the `DataLengthBytes` when sending messages to/from Solana. This is due to block size limitations
 SolanaDataSize = 50
 # each destination chain will receive 1 incoming request per RequestFrequency for the duration of LoadDuration
-RequestFrequency = "30s"
-LoadDuration = "2h"
-TestLabel = "milestone2"
+RequestFrequency = "20s"
+LoadDuration = "1h"
+TestLabel = "50_chains"
 # destination chain selectors to send messages to
-NumDestinationChains = 6
+NumDestinationChains = 50
 # Directory where we receive environment configuration from crib
 CribEnvDirectory = "../../../../crib/deployments/ccip-v2/.tmp"
-TimeoutDuration = "30m"
+TimeoutDuration = "1h"
 OOOExecution = false
 
 [CCIP.Chaos]

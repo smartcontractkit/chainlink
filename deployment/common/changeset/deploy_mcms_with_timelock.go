@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -41,49 +42,55 @@ func DeployMCMSWithTimelockV2(
 ) (deployment.ChangesetOutput, error) {
 	newAddresses := deployment.NewMemoryAddressBook()
 
+	g := new(errgroup.Group)
 	for chainSel, cfg := range cfgByChain {
-		family, err := chain_selectors.GetSelectorFamily(chainSel)
-		if err != nil {
-			return deployment.ChangesetOutput{AddressBook: newAddresses}, err
-		}
+		chainSel, cfg := chainSel, cfg
+		g.Go(func() error {
 
-		switch family {
-		case chain_selectors.FamilyEVM:
-			// load mcms state
-			// we load the state one by one to void early return from MaybeLoadMCMSWithTimelockState
-			// due to one of the chain not found
-			var chainstate *state.MCMSWithTimelockState
-			s, err := state.MaybeLoadMCMSWithTimelockState(env, []uint64{chainSel})
+			family, err := chain_selectors.GetSelectorFamily(chainSel)
 			if err != nil {
-				// if the state is not found for chain, we assume it's a fresh deployment
-				if !strings.Contains(err.Error(), deployment.ErrChainNotFound.Error()) {
-					return deployment.ChangesetOutput{}, err
+				return err
+			}
+
+			switch family {
+			case chain_selectors.FamilyEVM:
+				// load mcms state
+				// we load the state one by one to void early return from MaybeLoadMCMSWithTimelockState
+				// due to one of the chain not found
+				var chainstate *state.MCMSWithTimelockState
+				s, err := state.MaybeLoadMCMSWithTimelockState(env, []uint64{chainSel})
+				if err != nil {
+					// if the state is not found for chain, we assume it's a fresh deployment
+					if !strings.Contains(err.Error(), deployment.ErrChainNotFound.Error()) {
+						return err
+					}
 				}
-			}
-			if s != nil {
-				chainstate = s[chainSel]
-			}
-			_, err = evminternal.DeployMCMSWithTimelockContractsEVM(env.GetContext(), env.Logger, env.Chains[chainSel], newAddresses, cfg, chainstate)
-			if err != nil {
-				return deployment.ChangesetOutput{AddressBook: newAddresses}, err
-			}
+				if s != nil {
+					chainstate = s[chainSel]
+				}
+				_, err = evminternal.DeployMCMSWithTimelockContractsEVM(env.GetContext(), env.Logger, env.Chains[chainSel], newAddresses, cfg, chainstate)
+				if err != nil {
+					return err
+				}
 
-		case chain_selectors.FamilySolana:
-			// this is not used in CLD as we need to dynamically resolve the artifacts to deploy these contracts
-			// we did not want to add the artifact resolution logic here, so we instead deploy using ccip/changeset/solana/cs_deploy_chain.go
-			// for in memory tests, programs and state are pre-loaded, so we use this function via testhelpers.TransferOwnershipSolana
-			_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.SolChains[chainSel], newAddresses, cfg)
-			if err != nil {
-				return deployment.ChangesetOutput{AddressBook: newAddresses}, err
-			}
+			case chain_selectors.FamilySolana:
+				// this is not used in CLD as we need to dynamically resolve the artifacts to deploy these contracts
+				// we did not want to add the artifact resolution logic here, so we instead deploy using ccip/changeset/solana/cs_deploy_chain.go
+				// for in memory tests, programs and state are pre-loaded, so we use this function via testhelpers.TransferOwnershipSolana
+				_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.SolChains[chainSel], newAddresses, cfg)
+				if err != nil {
+					return err
+				}
 
-		default:
-			err = fmt.Errorf("unsupported chain family: %s", family)
-			return deployment.ChangesetOutput{AddressBook: newAddresses}, err
-		}
+			default:
+				err = fmt.Errorf("unsupported chain family: %s", family)
+				return err
+			}
+			return nil
+		})
 	}
 
-	return deployment.ChangesetOutput{AddressBook: newAddresses}, nil
+	return deployment.ChangesetOutput{AddressBook: newAddresses}, g.Wait()
 }
 
 type GrantRoleInput struct {

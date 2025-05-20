@@ -84,7 +84,7 @@ func subscribeTransmitEvents(
 			End:   atomic.NewUint64(0),
 		}
 	}
-	
+
 	sink := make(chan *onramp.OnRampCCIPMessageSent)
 	subscription := event.Resubscribe(SubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
 		return onRamp.WatchCCIPMessageSent(&bind.WatchOpts{
@@ -139,9 +139,6 @@ func subscribeTransmitEvents(
 				"srcChain", srcChainSel)
 			return
 		case <-loadFinished:
-			fmt.Printf("transmit watcher for %d has seqnums %+v", srcChainSel, seqNums)
-
-			lggr.Debugw("load finished, closing transmit watchers", "srcChainSel", srcChainSel)
 			for csPair, seqNumRange := range maps.All(seqNums) {
 				lggr.Infow("pushing finalized sequence numbers for ",
 					"csPair", csPair,
@@ -604,7 +601,7 @@ func prepareAccountToSendLink(
 	lggr.Infow("Setting up link token", "src", src)
 	srcLink := state.Chains[src].LinkToken
 
-	lggr.Infow("Granting mint and burn roles")
+	lggr.Infow("Granting mint and burn roles", "srcDeployer", srcDeployer.From, "srcACcount", srcAccount.From)
 	tx, err := srcLink.GrantMintAndBurnRoles(srcDeployer, srcAccount.From)
 	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
 	if err != nil {
