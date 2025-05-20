@@ -77,9 +77,8 @@ packages:
           mockname: Flags
   github.com/smartcontractkit/chainlink/v2/core/logger:
     config:
-      dir: "{{ .InterfaceDir }}"
+      dir: "{{ .InterfaceDir }}/mocks"
       mockname: "Mock{{ .InterfaceName }}"
-      inpackage: true
       filename: logger_mocks.go
     interfaces:
       Logger:

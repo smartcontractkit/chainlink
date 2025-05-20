@@ -1,4 +1,4 @@
-package logger
+package logger_test
 
 import (
 	"errors"
@@ -8,6 +8,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/mocks"
 )
 
 var errTest = errors.New("error")
@@ -17,10 +20,10 @@ func TestLogger_Passthrough(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		create func(passthrough Logger) Logger
+		create func(passthrough logger.Logger) logger.Logger
 	}{
-		{"prometheus", newPrometheusLogger},
-		{"sentry", newSentryLogger},
+		{"prometheus", logger.NewPrometheusLogger},
+		{"sentry", logger.NewSentryLogger},
 	}
 
 	for _, test := range tests {
@@ -74,8 +77,8 @@ func TestLogger_Passthrough(t *testing.T) {
 	}
 }
 
-func setupMockLogger(t *testing.T) *MockLogger {
-	ml := NewMockLogger(t)
+func setupMockLogger(t *testing.T) *mocks.MockLogger {
+	ml := mocks.NewMockLogger(t)
 
 	ml.On("Helper", 1).Return(ml).Once()
 	ml.On("With", mock.Anything, mock.Anything).Return(ml)
