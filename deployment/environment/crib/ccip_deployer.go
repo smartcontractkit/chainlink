@@ -542,6 +542,7 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 					ChainSelector: solChainSel,
 					TokenPubKey:   solTokenAddress,
 					PoolType:      &bnm,
+					Metadata:      "CLL",
 				},
 			),
 			// register token admin registry solana
@@ -570,6 +571,7 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 					TokenPubKey:     solTokenAddress,
 					WritableIndexes: []uint8{3, 4, 7},
 					PoolType:        &bnm,
+					Metadata:        "CLL",
 				},
 			),
 		)
