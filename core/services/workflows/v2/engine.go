@@ -310,6 +310,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	if err != nil {
 		e.cfg.Lggr.Errorw("Workflow execution failed", "err", err)
 		// TODO(CAPPL-736): observability
+		e.meterReports.Delete(executionID)
 		return
 	}
 
@@ -336,6 +337,10 @@ func (e *Engine) CallCapability(ctx context.Context, request *sdkpb.CapabilityRe
 	if err != nil {
 		return nil, fmt.Errorf("trigger capability not found: %w", err)
 	}
+	capInfo, err := capability.Info(ctx)
+	if err != nil {
+		e.cfg.Lggr.Error("could not get capability info for %v", request.Id)
+	}
 
 	capReq := capabilities.CapabilityRequest{
 		Payload:      request.Payload,
@@ -349,10 +354,6 @@ func (e *Engine) CallCapability(ctx context.Context, request *sdkpb.CapabilityRe
 	meterReport, ok := e.meterReports.Get(request.ExecutionId)
 	if !ok {
 		e.cfg.Lggr.Error("no metering report found for %v", request.ExecutionId)
-	}
-	capInfo, err := capability.Info(ctx)
-	if err != nil {
-		e.cfg.Lggr.Error("could not get capability info for %v", capReq.CapabilityId)
 	}
 	// TODO: After (CAPPL-881) replace with call ID
 	count := meterReport.IncrementRefCount(metering.ReportStepRef(capReq.CapabilityId))
