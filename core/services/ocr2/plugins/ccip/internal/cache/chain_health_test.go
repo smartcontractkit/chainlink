@@ -3,7 +3,6 @@ package cache
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -12,15 +11,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 )
 
 func Test_RMNStateCaching(t *testing.T) {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	mockCommitStore := mocks.NewCommitStoreReader(t)
 	mockOnRamp := mocks.NewOnRampReader(t)
@@ -48,7 +45,7 @@ func Test_RMNStateCaching(t *testing.T) {
 	assert.NoError(t, err)
 
 	healthy, err = chainState.IsHealthy(ctx)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.False(t, healthy)
 
 	// Chain is not cursed, but previous curse should be "sticky" even when force refreshing
@@ -59,12 +56,12 @@ func Test_RMNStateCaching(t *testing.T) {
 	assert.NoError(t, err)
 
 	healthy, err = chainState.IsHealthy(ctx)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.False(t, healthy)
 }
 
 func Test_ChainStateIsCached(t *testing.T) {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	mockCommitStore := mocks.NewCommitStoreReader(t)
 	mockOnRamp := mocks.NewOnRampReader(t)
@@ -169,7 +166,7 @@ func Test_ChainStateIsHealthy(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			mockCommitStore := mocks.NewCommitStoreReader(t)
 			mockOnRamp := mocks.NewOnRampReader(t)
 
@@ -206,7 +203,7 @@ func Test_RefreshingInBackground(t *testing.T) {
 		10*time.Microsecond,
 		10*time.Microsecond,
 	)
-	require.NoError(t, chainState.Start(tests.Context(t)))
+	require.NoError(t, chainState.Start(t.Context()))
 
 	// All healthy
 	assertHealthy(t, chainState, true)
@@ -216,7 +213,7 @@ func Test_RefreshingInBackground(t *testing.T) {
 	assertHealthy(t, chainState, false)
 
 	// Commit store error
-	mockCommitStore.set(false, fmt.Errorf("commit store error"))
+	mockCommitStore.set(false, errors.New("commit store error"))
 	assertError(t, chainState)
 
 	// Commit store is back
@@ -228,7 +225,7 @@ func Test_RefreshingInBackground(t *testing.T) {
 	assertHealthy(t, chainState, false)
 
 	// OnRamp error
-	mockOnRamp.set(false, fmt.Errorf("onramp error"))
+	mockOnRamp.set(false, errors.New("onramp error"))
 	assertError(t, chainState)
 
 	// All back in healthy state

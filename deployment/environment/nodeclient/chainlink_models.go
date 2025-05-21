@@ -9,8 +9,8 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 // EIServiceConfig represents External Initiator service config
@@ -33,17 +33,23 @@ type ResponseSlice struct {
 	Data []map[string]interface{}
 }
 
+// HealthCheck corresponds to presenters.Check.
+type HealthCheck struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
+	Output string `json:"output"`
+}
+
+// HealthResponseDetails is the generic model for services health statuses.
+type HealthResponseDetail struct {
+	Type       string      `json:"type"`
+	ID         string      `json:"id"`
+	Attributes HealthCheck `json:"attributes"`
+}
+
 // HealthResponse is the generic model for services health statuses
 type HealthResponse struct {
-	Data []struct {
-		Type       string `json:"type"`
-		ID         string `json:"id"`
-		Attributes struct {
-			Name   string `json:"name"`
-			Status string `json:"status"`
-			Output string `json:"output"`
-		} `json:"attributes"`
-	} `json:"data"`
+	Data []HealthResponseDetail `json:"data"`
 }
 
 // Response is the generic model that can be used for all Chainlink API responses
@@ -1548,4 +1554,30 @@ type ReplayResponseData struct {
 type ReplayResponseAttributes struct {
 	Message    string   `json:"message"`
 	EVMChainID *big.Big `json:"evmChainID"`
+}
+
+// OCR2ExportKey is the model that represents the exported VRF key
+type OCR2ExportKey struct {
+	KeyType           string `json:"keyType"`
+	ChainType         string `json:"chainType"`
+	ID                string `json:"id"`
+	OnchainPublicKey  string `json:"onchainPublicKey"`
+	OffchainPublicKey string `json:"offchainPublicKey"`
+	ConfigPublicKey   string `json:"configPublicKey"`
+	Crypto            struct {
+		Cipher       string `json:"cipher"`
+		Ciphertext   string `json:"ciphertext"`
+		Cipherparams struct {
+			Iv string `json:"iv"`
+		} `json:"cipherparams"`
+		Kdf       string `json:"kdf"`
+		Kdfparams struct {
+			Dklen int    `json:"dklen"`
+			N     int    `json:"n"`
+			P     int    `json:"p"`
+			R     int    `json:"r"`
+			Salt  string `json:"salt"`
+		} `json:"kdfparams"`
+		Mac string `json:"mac"`
+	} `json:"crypto"`
 }

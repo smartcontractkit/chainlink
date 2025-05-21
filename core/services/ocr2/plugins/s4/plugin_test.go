@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
 	s4_svc "github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	s4_mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -217,7 +217,7 @@ func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 		should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, report)
 		assert.NoError(t, err)
 		assert.False(t, should)
-		assert.Equal(t, 10, len(ormRows))
+		assert.Len(t, ormRows, 10)
 		compareRows(t, rows, ormRows)
 	})
 
@@ -248,7 +248,7 @@ func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 		should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, report)
 		assert.NoError(t, err)
 		assert.False(t, should)
-		assert.Equal(t, 0, len(ormRows))
+		assert.Empty(t, ormRows)
 	})
 }
 

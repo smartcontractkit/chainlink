@@ -8,35 +8,25 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/curve"
+
+	adapters "github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/starknet"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
-// Raw represents the Stark private key
-type Raw []byte
-
-// Key gets the Key
-func (raw Raw) Key() Key {
-	k := Key{}
+func KeyFor(raw internal.Raw) Key {
+	k := Key{raw: raw}
 	var err error
 
-	k.priv = new(big.Int).SetBytes(raw)
-	k.pub.X, k.pub.Y, err = curve.Curve.PrivateToPoint(k.priv)
+	priv := new(big.Int).SetBytes(internal.Bytes(raw))
+	k.signFn = func(hash *big.Int) (x, y *big.Int, err error) {
+		return curve.Curve.Sign(hash, priv)
+	}
+	k.pub.X, k.pub.Y, err = curve.Curve.PrivateToPoint(priv)
 	if err != nil {
 		panic(err) // key not generated
 	}
 	return k
 }
-
-// String returns description
-func (raw Raw) String() string {
-	return "<Starknet Raw Private Key>"
-}
-
-// GoString wraps String()
-func (raw Raw) GoString() string {
-	return raw.String()
-}
-
-var _ fmt.GoStringer = &Key{}
 
 type PublicKey struct {
 	X, Y *big.Int
@@ -44,8 +34,9 @@ type PublicKey struct {
 
 // Key represents Starknet key
 type Key struct {
-	priv *big.Int
-	pub  PublicKey
+	raw    internal.Raw
+	signFn func(*big.Int) (x, y *big.Int, err error)
+	pub    PublicKey
 }
 
 // New creates new Key
@@ -79,23 +70,19 @@ func (key Key) StarkKeyStr() string {
 }
 
 // Raw from private key
-func (key Key) Raw() Raw {
-	return key.priv.Bytes()
-}
+func (key Key) Raw() internal.Raw { return key.raw }
 
-// String is the print-friendly format of the Key
-func (key Key) String() string {
-	return fmt.Sprintf("StarknetKey{PrivateKey: <redacted>, StarkKey: %s}", key.StarkKeyStr())
-}
-
-// GoString wraps String()
-func (key Key) GoString() string {
-	return key.String()
-}
-
-// ToPrivKey returns the key usable for signing.
-func (key Key) ToPrivKey() *big.Int {
-	return key.priv
+func (key Key) Sign(hash []byte) ([]byte, error) {
+	starkHash := new(big.Int).SetBytes(hash)
+	x, y, err := key.signFn(starkHash)
+	if err != nil {
+		return nil, fmt.Errorf("error signing data with curve: %w", err)
+	}
+	sig, err := adapters.SignatureFromBigInts(x, y)
+	if err != nil {
+		return nil, err
+	}
+	return sig.Bytes()
 }
 
 // PublicKey copies public key object

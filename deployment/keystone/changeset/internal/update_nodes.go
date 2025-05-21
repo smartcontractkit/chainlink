@@ -9,15 +9,16 @@ import (
 	"sort"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 type NodeUpdate struct {
@@ -29,19 +30,19 @@ type NodeUpdate struct {
 }
 
 type UpdateNodesRequest struct {
-	Chain       deployment.Chain
-	ContractSet *ContractSet // contract set for the given chain
+	Chain                cldf.Chain
+	CapabilitiesRegistry *kcr.CapabilitiesRegistry
 
 	P2pToUpdates map[p2pkey.PeerID]NodeUpdate
 
 	UseMCMS bool
 	// If UseMCMS is true, and Ops is not nil then the UpdateNodes contract operation
 	// will be added to the Ops.Batch
-	Ops *timelock.BatchChainOperation
+	Ops *mcmstypes.BatchOperation
 }
 
 func (req *UpdateNodesRequest) NodeParams() ([]kcr.CapabilitiesRegistryNodeParams, error) {
-	return makeNodeParams(req.ContractSet.CapabilitiesRegistry, req.P2pToUpdates)
+	return makeNodeParams(req.CapabilitiesRegistry, req.P2pToUpdates)
 }
 
 // P2PSignerEnc represent the key fields in kcr.CapabilitiesRegistryNodeParams
@@ -79,7 +80,7 @@ func (req *UpdateNodesRequest) Validate() error {
 		}
 	}
 
-	if req.ContractSet.CapabilitiesRegistry == nil {
+	if req.CapabilitiesRegistry == nil {
 		return errors.New("registry is nil")
 	}
 
@@ -90,7 +91,7 @@ type UpdateNodesResponse struct {
 	NodeParams []kcr.CapabilitiesRegistryNodeParams
 	// MCMS operation to update the nodes
 	// The operation is added to the Batch of the given Ops if not nil
-	Ops *timelock.BatchChainOperation
+	Ops *mcmstypes.BatchOperation
 }
 
 // UpdateNodes updates the nodes in the registry
@@ -103,17 +104,17 @@ func UpdateNodes(lggr logger.Logger, req *UpdateNodesRequest) (*UpdateNodesRespo
 
 	params, err := req.NodeParams()
 	if err != nil {
-		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = cldf.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to make node params: %w", err)
 	}
 	txOpts := req.Chain.DeployerKey
 	if req.UseMCMS {
-		txOpts = deployment.SimTransactOpts()
+		txOpts = cldf.SimTransactOpts()
 	}
-	registry := req.ContractSet.CapabilitiesRegistry
+	registry := req.CapabilitiesRegistry
 	tx, err := registry.UpdateNodes(txOpts, params)
 	if err != nil {
-		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = cldf.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call UpdateNodes: %w", err)
 	}
 
@@ -124,21 +125,20 @@ func UpdateNodes(lggr logger.Logger, req *UpdateNodesRequest) (*UpdateNodesRespo
 			return nil, fmt.Errorf("failed to confirm UpdateNodes confirm transaction %s: %w", tx.Hash().String(), err)
 		}
 	} else {
-		op := mcms.Operation{
-			To:    registry.Address(),
-			Data:  tx.Data(),
-			Value: big.NewInt(0),
+		transaction, err := proposalutils.TransactionForChain(req.Chain.Selector, registry.Address().Hex(), tx.Data(), big.NewInt(0), "", nil)
+		if err != nil {
+			return nil, err
 		}
 
 		if ops == nil {
-			ops = &timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(req.Chain.Selector),
-				Batch: []mcms.Operation{
-					op,
+			ops = &mcmstypes.BatchOperation{
+				ChainSelector: mcmstypes.ChainSelector(req.Chain.Selector),
+				Transactions: []mcmstypes.Transaction{
+					transaction,
 				},
 			}
 		} else {
-			ops.Batch = append(ops.Batch, op)
+			ops.Transactions = append(ops.Transactions, transaction)
 		}
 	}
 
@@ -146,7 +146,7 @@ func UpdateNodes(lggr logger.Logger, req *UpdateNodesRequest) (*UpdateNodesRespo
 }
 
 // AppendCapabilities appends the capabilities to the existing capabilities of the nodes listed in p2pIds in the registry
-func AppendCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, chain deployment.Chain, p2pIds []p2pkey.PeerID, capabilities []kcr.CapabilitiesRegistryCapability) (map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability, error) {
+func AppendCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, chain cldf.Chain, p2pIds []p2pkey.PeerID, capabilities []kcr.CapabilitiesRegistryCapability) (map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability, error) {
 	out := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
 	allCapabilities, err := registry.GetCapabilities(&bind.CallOpts{})
 	if err != nil {
@@ -203,7 +203,7 @@ func makeNodeParams(registry *kcr.CapabilitiesRegistry,
 
 	nodes, err := registry.GetNodesByP2PIds(&bind.CallOpts{}, PeerIDsToBytes(p2pIds))
 	if err != nil {
-		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = cldf.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to get nodes by p2p ids: %w", err)
 	}
 	for _, node := range nodes {

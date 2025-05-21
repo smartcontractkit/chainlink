@@ -34,6 +34,7 @@ HTTPPort = $PORT
 ok HeadReporter
 ok Heartbeat
 ok JobSpawner
+ok LLOTransmissionReaper
 ok Mailbox.Monitor
 ok Mercury.WSRPCPool
 ok Mercury.WSRPCPool.CacheSet
@@ -42,7 +43,7 @@ ok PipelineRunner
 ok PipelineRunner.BridgeCache
 ok RetirementReportCache
 ok TelemetryManager
-ok WorkflowDBStore
+ok WorkflowStore
 
 -- out.json --
 {
@@ -70,6 +71,15 @@ ok WorkflowDBStore
       "id": "JobSpawner",
       "attributes": {
         "name": "JobSpawner",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "LLOTransmissionReaper",
+      "attributes": {
+        "name": "LLOTransmissionReaper",
         "status": "passing",
         "output": ""
       }
@@ -148,9 +158,9 @@ ok WorkflowDBStore
     },
     {
       "type": "checks",
-      "id": "WorkflowDBStore",
+      "id": "WorkflowStore",
       "attributes": {
-        "name": "WorkflowDBStore",
+        "name": "WorkflowStore",
         "status": "passing",
         "output": ""
       }

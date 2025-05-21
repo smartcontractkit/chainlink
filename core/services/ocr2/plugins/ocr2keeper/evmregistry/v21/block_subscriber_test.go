@@ -1,7 +1,7 @@
 package evm
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 	"time"
 
@@ -11,13 +11,14 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 const historySize = 4
@@ -26,56 +27,56 @@ const finality = uint32(4)
 
 func TestBlockSubscriber_Subscribe(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	var hb types.HeadBroadcaster
+	var hb heads.Broadcaster
 	var lp logpoller.LogPoller
 
 	bs := NewBlockSubscriber(hb, lp, finality, lggr)
 	bs.blockHistorySize = historySize
 	bs.blockSize = blockSize
 	subId, _, err := bs.Subscribe()
-	assert.Nil(t, err)
-	assert.Equal(t, subId, 1)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, subId)
 	subId, _, err = bs.Subscribe()
-	assert.Nil(t, err)
-	assert.Equal(t, subId, 2)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, subId)
 	subId, _, err = bs.Subscribe()
-	assert.Nil(t, err)
-	assert.Equal(t, subId, 3)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, subId)
 }
 
 func TestBlockSubscriber_Unsubscribe(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	var hb types.HeadBroadcaster
+	var hb heads.Broadcaster
 	var lp logpoller.LogPoller
 
 	bs := NewBlockSubscriber(hb, lp, finality, lggr)
 	bs.blockHistorySize = historySize
 	bs.blockSize = blockSize
 	subId, _, err := bs.Subscribe()
-	assert.Nil(t, err)
-	assert.Equal(t, subId, 1)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, subId)
 	subId, _, err = bs.Subscribe()
-	assert.Nil(t, err)
-	assert.Equal(t, subId, 2)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, subId)
 	err = bs.Unsubscribe(1)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestBlockSubscriber_Unsubscribe_Failure(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	var hb types.HeadBroadcaster
+	var hb heads.Broadcaster
 	var lp logpoller.LogPoller
 
 	bs := NewBlockSubscriber(hb, lp, finality, lggr)
 	bs.blockHistorySize = historySize
 	bs.blockSize = blockSize
 	err := bs.Unsubscribe(2)
-	assert.Equal(t, err.Error(), "subscriber 2 does not exist")
+	assert.Equal(t, "subscriber 2 does not exist", err.Error())
 }
 
 func TestBlockSubscriber_GetBlockRange(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	var hb types.HeadBroadcaster
+	var hb heads.Broadcaster
 
 	tests := []struct {
 		Name           string
@@ -85,7 +86,7 @@ func TestBlockSubscriber_GetBlockRange(t *testing.T) {
 	}{
 		{
 			Name:           "failed to get latest block",
-			LatestBlockErr: fmt.Errorf("failed to get latest block"),
+			LatestBlockErr: errors.New("failed to get latest block"),
 		},
 		{
 			Name:           "get block range",
@@ -97,7 +98,7 @@ func TestBlockSubscriber_GetBlockRange(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.Name, func(t *testing.T) {
 			lp := new(mocks.LogPoller)
-			lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: tc.LatestBlock}, tc.LatestBlockErr)
+			lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{BlockNumber: tc.LatestBlock}, tc.LatestBlockErr)
 			bs := NewBlockSubscriber(hb, lp, finality, lggr)
 			bs.blockHistorySize = historySize
 			bs.blockSize = blockSize
@@ -114,23 +115,23 @@ func TestBlockSubscriber_GetBlockRange(t *testing.T) {
 
 func TestBlockSubscriber_InitializeBlocks(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	var hb types.HeadBroadcaster
+	var hb heads.Broadcaster
 
 	tests := []struct {
 		Name             string
 		Blocks           []uint64
-		PollerBlocks     []logpoller.LogPollerBlock
+		PollerBlocks     []logpoller.Block
 		LastClearedBlock int64
 		Error            error
 	}{
 		{
 			Name:  "failed to get latest block",
-			Error: fmt.Errorf("failed to get log poller blocks"),
+			Error: errors.New("failed to get log poller blocks"),
 		},
 		{
 			Name:   "get block range",
 			Blocks: []uint64{97, 98, 99, 100},
-			PollerBlocks: []logpoller.LogPollerBlock{
+			PollerBlocks: []logpoller.Block{
 				{
 					BlockNumber: 97,
 					BlockHash:   common.HexToHash("0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"),
@@ -177,7 +178,7 @@ func TestBlockSubscriber_InitializeBlocks(t *testing.T) {
 
 func TestBlockSubscriber_BuildHistory(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	var hb types.HeadBroadcaster
+	var hb heads.Broadcaster
 	lp := new(mocks.LogPoller)
 
 	tests := []struct {
@@ -227,7 +228,7 @@ func TestBlockSubscriber_BuildHistory(t *testing.T) {
 
 func TestBlockSubscriber_Cleanup(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	var hb types.HeadBroadcaster
+	var hb heads.Broadcaster
 	lp := new(mocks.LogPoller)
 
 	tests := []struct {
@@ -275,12 +276,12 @@ func TestBlockSubscriber_Cleanup(t *testing.T) {
 
 func TestBlockSubscriber_Start(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	hb := htmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
+	hb := headstest.NewBroadcaster[*evmtypes.Head, common.Hash](t)
 	hb.On("Subscribe", mock.Anything).Return(&evmtypes.Head{Number: 42}, func() {})
 	lp := new(mocks.LogPoller)
-	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: 100}, nil)
+	lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{BlockNumber: 100}, nil)
 	blocks := []uint64{97, 98, 99, 100}
-	pollerBlocks := []logpoller.LogPollerBlock{
+	pollerBlocks := []logpoller.Block{
 		{
 			BlockNumber: 97,
 			BlockHash:   common.HexToHash("0xda2f9d1359eadd7b93338703adc07d942021a78195564038321ef53f23f87333"),
@@ -305,7 +306,7 @@ func TestBlockSubscriber_Start(t *testing.T) {
 	bs.blockHistorySize = historySize
 	bs.blockSize = blockSize
 	err := bs.Start(testutils.Context(t))
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	h97 := evmtypes.Head{
 		Number: 97,
@@ -346,7 +347,7 @@ func TestBlockSubscriber_Start(t *testing.T) {
 
 	// add 1 subscriber
 	subId1, c1, err := bs.Subscribe()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, 1, subId1)
 
 	h101 := &evmtypes.Head{
@@ -379,7 +380,7 @@ func TestBlockSubscriber_Start(t *testing.T) {
 
 	// add 2nd subscriber
 	subId2, c2, err := bs.Subscribe()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, 2, subId2)
 
 	// re-org happens

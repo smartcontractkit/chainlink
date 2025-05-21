@@ -1,0 +1,10 @@
+ChainID = '80094'
+
+[GasEstimator]
+EIP1559DynamicFees = true
+Mode = 'FeeHistory'
+
+[GasEstimator.FeeHistory]
+# block_time was: 5s, per recommendation skip 1-2 blocks
+CacheTimeout = '10s'
+

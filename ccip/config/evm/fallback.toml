@@ -67,7 +67,7 @@ CacheTimeout = '10s'
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
-SamplingInterval = '1s'
+SamplingInterval = '5s'
 FinalityTagBypass = true
 MaxAllowedFinalityDepth = 10000
 PersistenceEnabled = true
@@ -83,6 +83,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = false
 DeathDeclarationDelay = '10s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4

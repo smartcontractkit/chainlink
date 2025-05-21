@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -31,11 +31,11 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		ocrkey.MustNewV2XXXTestingOnly(big.NewInt(2)),
 	}
 	var ocr2 []ocr2key.KeyBundle
-	var ocr2_raw []ocr2key.Raw
+	ocr2Raw := make([][]byte, 0, len(chaintype.SupportedChainTypes))
 	for _, chain := range chaintype.SupportedChainTypes {
 		key := ocr2key.MustNewInsecure(rand.Reader, chain)
 		ocr2 = append(ocr2, key)
-		ocr2_raw = append(ocr2_raw, key.Raw())
+		ocr2Raw = append(ocr2Raw, internal.RawBytes(key))
 	}
 	p2p1, p2p2 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)), p2pkey.MustNewV2XXXTestingOnly(big.NewInt(2))
 	sol1, sol2 := solkey.MustNewInsecure(rand.Reader), solkey.MustNewInsecure(rand.Reader)
@@ -43,15 +43,15 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 	tk1, tk2 := cosmoskey.MustNewInsecure(rand.Reader), cosmoskey.MustNewInsecure(rand.Reader)
 	uk1, uk2 := tronkey.MustNewInsecure(rand.Reader), tronkey.MustNewInsecure(rand.Reader)
 	originalKeyRingRaw := rawKeyRing{
-		CSA:    []csakey.Raw{csa1.Raw(), csa2.Raw()},
-		Eth:    []ethkey.Raw{eth1.Raw(), eth2.Raw()},
-		OCR:    []ocrkey.Raw{ocr[0].Raw(), ocr[1].Raw()},
-		OCR2:   ocr2_raw,
-		P2P:    []p2pkey.Raw{p2p1.Raw(), p2p2.Raw()},
-		Solana: []solkey.Raw{sol1.Raw(), sol2.Raw()},
-		VRF:    []vrfkey.Raw{vrf1.Raw(), vrf2.Raw()},
-		Cosmos: []cosmoskey.Raw{tk1.Raw(), tk2.Raw()},
-		Tron:   []tronkey.Raw{uk1.Raw(), uk2.Raw()},
+		CSA:    [][]byte{internal.RawBytes(csa1), internal.RawBytes(csa2)},
+		Eth:    [][]byte{internal.RawBytes(eth1), internal.RawBytes(eth2)},
+		OCR:    [][]byte{internal.RawBytes(ocr[0]), internal.RawBytes(ocr[1])},
+		OCR2:   ocr2Raw,
+		P2P:    [][]byte{internal.RawBytes(p2p1), internal.RawBytes(p2p2)},
+		Solana: [][]byte{internal.RawBytes(sol1), internal.RawBytes(sol2)},
+		VRF:    [][]byte{internal.RawBytes(vrf1), internal.RawBytes(vrf2)},
+		Cosmos: [][]byte{internal.RawBytes(tk1), internal.RawBytes(tk2)},
+		Tron:   [][]byte{internal.RawBytes(uk1), internal.RawBytes(uk2)},
 	}
 	originalKeyRing, kerr := originalKeyRingRaw.keys()
 	require.NoError(t, kerr)
@@ -62,7 +62,7 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		decryptedKeyRing, err := encryptedKr.Decrypt(password)
 		require.NoError(t, err)
 		// compare cosmos keys
-		require.Equal(t, 2, len(decryptedKeyRing.Cosmos))
+		require.Len(t, decryptedKeyRing.Cosmos, 2)
 		require.Equal(t, originalKeyRing.Cosmos[tk1.ID()].PublicKey(), decryptedKeyRing.Cosmos[tk1.ID()].PublicKey())
 		require.Equal(t, originalKeyRing.Cosmos[tk2.ID()].PublicKey(), decryptedKeyRing.Cosmos[tk2.ID()].PublicKey())
 		// compare tron keys
@@ -70,24 +70,18 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		require.Equal(t, originalKeyRing.Tron[uk1.ID()].Base58Address(), decryptedKeyRing.Tron[uk1.ID()].Base58Address())
 		require.Equal(t, originalKeyRing.Tron[uk2.ID()].Base58Address(), decryptedKeyRing.Tron[uk2.ID()].Base58Address())
 		// compare csa keys
-		require.Equal(t, 2, len(decryptedKeyRing.CSA))
+		require.Len(t, decryptedKeyRing.CSA, 2)
 		require.Equal(t, originalKeyRing.CSA[csa1.ID()].PublicKey, decryptedKeyRing.CSA[csa1.ID()].PublicKey)
 		require.Equal(t, originalKeyRing.CSA[csa2.ID()].PublicKey, decryptedKeyRing.CSA[csa2.ID()].PublicKey)
 		// compare eth keys
-		require.Equal(t, 2, len(decryptedKeyRing.Eth))
+		require.Len(t, decryptedKeyRing.Eth, 2)
 		require.Equal(t, originalKeyRing.Eth[eth1.ID()].Address, decryptedKeyRing.Eth[eth1.ID()].Address)
 		require.Equal(t, originalKeyRing.Eth[eth2.ID()].Address, decryptedKeyRing.Eth[eth2.ID()].Address)
 		// compare ocr keys
-		require.Equal(t, 2, len(decryptedKeyRing.OCR))
-		require.Equal(t, originalKeyRing.OCR[ocr[0].ID()].OnChainSigning.X, decryptedKeyRing.OCR[ocr[0].ID()].OnChainSigning.X)
-		require.Equal(t, originalKeyRing.OCR[ocr[0].ID()].OnChainSigning.Y, decryptedKeyRing.OCR[ocr[0].ID()].OnChainSigning.Y)
-		require.Equal(t, originalKeyRing.OCR[ocr[0].ID()].OnChainSigning.D, decryptedKeyRing.OCR[ocr[0].ID()].OnChainSigning.D)
-		require.Equal(t, originalKeyRing.OCR[ocr[0].ID()].OffChainSigning, decryptedKeyRing.OCR[ocr[0].ID()].OffChainSigning)
+		require.Len(t, decryptedKeyRing.OCR, 2)
+		require.Equal(t, internal.RawBytes(originalKeyRing.OCR[ocr[0].ID()]), internal.RawBytes(decryptedKeyRing.OCR[ocr[0].ID()]))
 		require.Equal(t, originalKeyRing.OCR[ocr[0].ID()].OffChainEncryption, decryptedKeyRing.OCR[ocr[0].ID()].OffChainEncryption)
-		require.Equal(t, originalKeyRing.OCR[ocr[1].ID()].OnChainSigning.X, decryptedKeyRing.OCR[ocr[1].ID()].OnChainSigning.X)
-		require.Equal(t, originalKeyRing.OCR[ocr[1].ID()].OnChainSigning.Y, decryptedKeyRing.OCR[ocr[1].ID()].OnChainSigning.Y)
-		require.Equal(t, originalKeyRing.OCR[ocr[1].ID()].OnChainSigning.D, decryptedKeyRing.OCR[ocr[1].ID()].OnChainSigning.D)
-		require.Equal(t, originalKeyRing.OCR[ocr[1].ID()].OffChainSigning, decryptedKeyRing.OCR[ocr[1].ID()].OffChainSigning)
+		require.Equal(t, internal.RawBytes(originalKeyRing.OCR[ocr[1].ID()]), internal.RawBytes(decryptedKeyRing.OCR[ocr[1].ID()]))
 		require.Equal(t, originalKeyRing.OCR[ocr[1].ID()].OffChainEncryption, decryptedKeyRing.OCR[ocr[1].ID()].OffChainEncryption)
 		// compare ocr2 keys
 		require.Equal(t, len(chaintype.SupportedChainTypes), len(decryptedKeyRing.OCR2))
@@ -98,16 +92,16 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 			require.Equal(t, originalKeyRing.OCR2[id].ChainType(), decryptedKeyRing.OCR2[id].ChainType())
 		}
 		// compare p2p keys
-		require.Equal(t, 2, len(decryptedKeyRing.P2P))
+		require.Len(t, decryptedKeyRing.P2P, 2)
 		require.Equal(t, originalKeyRing.P2P[p2p1.ID()].PublicKeyHex(), decryptedKeyRing.P2P[p2p1.ID()].PublicKeyHex())
 		require.Equal(t, originalKeyRing.P2P[p2p1.ID()].PeerID(), decryptedKeyRing.P2P[p2p1.ID()].PeerID())
 		require.Equal(t, originalKeyRing.P2P[p2p2.ID()].PublicKeyHex(), decryptedKeyRing.P2P[p2p2.ID()].PublicKeyHex())
 		require.Equal(t, originalKeyRing.P2P[p2p2.ID()].PeerID(), decryptedKeyRing.P2P[p2p2.ID()].PeerID())
 		// compare solana keys
-		require.Equal(t, 2, len(decryptedKeyRing.Solana))
+		require.Len(t, decryptedKeyRing.Solana, 2)
 		require.Equal(t, originalKeyRing.Solana[sol1.ID()].GetPublic(), decryptedKeyRing.Solana[sol1.ID()].GetPublic())
 		// compare vrf keys
-		require.Equal(t, 2, len(decryptedKeyRing.VRF))
+		require.Len(t, decryptedKeyRing.VRF, 2)
 		require.Equal(t, originalKeyRing.VRF[vrf1.ID()].PublicKey, decryptedKeyRing.VRF[vrf1.ID()].PublicKey)
 		require.Equal(t, originalKeyRing.VRF[vrf2.ID()].PublicKey, decryptedKeyRing.VRF[vrf2.ID()].PublicKey)
 	})
@@ -138,7 +132,7 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		newRawJson, _ := json.Marshal(allKeys)
 		err = originalKeyRing.LegacyKeys.StoreUnsupported(newRawJson, originalKeyRing)
 		require.NoError(t, err)
-		require.Equal(t, originalKeyRing.LegacyKeys.legacyRawKeys.len(), 6)
+		require.Equal(t, 6, originalKeyRing.LegacyKeys.legacyRawKeys.len())
 		marshalledRawKeyRingJson, err := json.Marshal(originalKeyRing.raw())
 		require.NoError(t, err)
 		unloadedKeysJson, err := originalKeyRing.LegacyKeys.UnloadUnsupported(marshalledRawKeyRingJson)
@@ -148,7 +142,7 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check if keys where added to the raw json
-		require.Equal(t, shouldHaveAllKeys["foo"], []string{"bar", "biz"})
+		require.Equal(t, []string{"bar", "biz"}, shouldHaveAllKeys["foo"])
 		require.Contains(t, shouldHaveAllKeys["OCR2"], newOCR2Key1.Raw().String())
 		require.Contains(t, shouldHaveAllKeys["OCR2"], newOCR2Key2.Raw().String())
 		require.Contains(t, shouldHaveAllKeys["P2P"], newP2PKey1.Raw().String())
@@ -160,78 +154,4 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		_, err = originalKeyRing.LegacyKeys.UnloadUnsupported(nil)
 		require.Error(t, err)
 	})
-}
-
-func TestResourceMutex_LockUnlock(t *testing.T) {
-	rm := &ResourceMutex{}
-
-	err := rm.TryLock(TXMv1)
-	require.NoError(t, err)
-
-	err = rm.Unlock(TXMv1)
-	require.NoError(t, err)
-}
-
-func TestResourceMutex_LockByDifferentServiceType(t *testing.T) {
-	rm := &ResourceMutex{}
-
-	err := rm.TryLock(TXMv1)
-	require.NoError(t, err)
-
-	err = rm.TryLock(TXMv2)
-	require.Error(t, err)
-	require.Equal(t, "resource is locked by another service type", err.Error())
-}
-
-func TestResourceMutex_UnlockWithoutLock(t *testing.T) {
-	rm := &ResourceMutex{}
-
-	err := rm.Unlock(TXMv1)
-	require.Error(t, err)
-	require.Equal(t, "no active lock", err.Error())
-
-	require.NoError(t, rm.TryLock(TXMv1))
-	err = rm.Unlock(TXMv2)
-	require.Error(t, err)
-	require.Equal(t, "no active lock for this service type", err.Error())
-}
-
-func TestResourceMutex_MultipleLocks(t *testing.T) {
-	rm := &ResourceMutex{}
-
-	err := rm.TryLock(TXMv1)
-	require.NoError(t, err)
-
-	err = rm.TryLock(TXMv1)
-	require.NoError(t, err)
-
-	err = rm.Unlock(TXMv1)
-	require.NoError(t, err)
-
-	err = rm.Unlock(TXMv1)
-	require.NoError(t, err)
-}
-
-func TestIsLocked_WhenResourceIsLockedByServiceType(t *testing.T) {
-	rm := &ResourceMutex{serviceType: TXMv1, count: 1}
-
-	locked, err := rm.IsLocked(TXMv1)
-	require.NoError(t, err)
-	require.True(t, locked)
-}
-
-func TestIsLocked_WhenResourceIsNotLockedByServiceType(t *testing.T) {
-	rm := &ResourceMutex{}
-
-	locked, err := rm.IsLocked(TXMv1)
-	require.NoError(t, err)
-	require.False(t, locked)
-}
-
-func TestIsLocked_WhenResourceIsLockedByDifferentServiceType(t *testing.T) {
-	rm := &ResourceMutex{serviceType: TXMv2, count: 1}
-
-	locked, err := rm.IsLocked(TXMv1)
-	require.NoError(t, err)
-	require.False(t, locked)
 }

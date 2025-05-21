@@ -9,14 +9,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
 // Intention of this test is to ensure that the lane can be disabled and enabled correctly
@@ -28,7 +30,7 @@ func TestDisableLane(t *testing.T) {
 	)
 
 	e := tenv.Env
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	// add all lanes
@@ -44,8 +46,7 @@ func TestDisableLane(t *testing.T) {
 		wethPrice              = deployment.E18Mult(4000)
 		noOfRequests           = 3
 		sendmessage            = func(src, dest uint64, deployer *bind.TransactOpts) (*onramp.OnRampCCIPMessageSent, error) {
-			return testhelpers.DoSendRequest(
-				t,
+			return testhelpers.SendRequest(
 				e,
 				state,
 				testhelpers.WithSender(deployer),
@@ -114,7 +115,7 @@ func TestDisableLane(t *testing.T) {
 
 	// check getting token and gas price form fee quoter returns error when A -> C lane is disabled
 	gp, err := state.Chains[chainA].FeeQuoter.GetTokenAndGasPrices(&bind.CallOpts{
-		Context: tests.Context(t),
+		Context: t.Context(),
 	}, state.Chains[chainC].Weth9.Address(), chainC)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "execution reverted")
@@ -131,7 +132,7 @@ func TestDisableLane(t *testing.T) {
 				state.Chains[pair.SourceChainSelector].LinkToken.Address(): linkPrice,
 				state.Chains[pair.SourceChainSelector].Weth9.Address():     wethPrice,
 			},
-			changeset.DefaultFeeQuoterDestChainConfig(true))
+			v1_6.DefaultFeeQuoterDestChainConfig(true))
 	}
 	// send a message in all the lane including re-enabled lanes
 	for _, pair := range pairs {

@@ -19,13 +19,13 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func ptr[T any](t T) *T { return &t }
@@ -92,7 +92,7 @@ func TestShell_ListETHKeys(t *testing.T) {
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(commonassets.NewLinkFromJuels(13), nil)
-	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.EVM[0].NonceAutoSync = ptr(false)
@@ -103,8 +103,8 @@ func TestShell_ListETHKeys(t *testing.T) {
 	)
 	client, r := app.NewShellAndRenderer()
 
-	assert.Nil(t, client.ListETHKeys(cltest.EmptyCLIContext()))
-	require.Equal(t, 1, len(r.Renders))
+	assert.NoError(t, client.ListETHKeys(cltest.EmptyCLIContext()))
+	require.Len(t, r.Renders, 1)
 	balances := *r.Renders[0].(*cmd.EthKeyPresenters)
 	assert.Equal(t, app.Keys[0].Address.Hex(), balances[0].Address)
 	assert.Equal(t, "0.000000000000000042", balances[0].EthBalance.String())
@@ -117,7 +117,7 @@ func TestShell_ListETHKeys_Error(t *testing.T) {
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("fake error"))
 	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("fake error"))
-	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.EVM[0].NonceAutoSync = ptr(false)
@@ -128,8 +128,8 @@ func TestShell_ListETHKeys_Error(t *testing.T) {
 	)
 	client, r := app.NewShellAndRenderer()
 
-	assert.Nil(t, client.ListETHKeys(cltest.EmptyCLIContext()))
-	require.Equal(t, 1, len(r.Renders))
+	assert.NoError(t, client.ListETHKeys(cltest.EmptyCLIContext()))
+	require.Len(t, r.Renders, 1)
 	balances := *r.Renders[0].(*cmd.EthKeyPresenters)
 	assert.Equal(t, app.Keys[0].Address.Hex(), balances[0].Address)
 	assert.Nil(t, balances[0].EthBalance)
@@ -149,11 +149,11 @@ func TestShell_ListETHKeys_Disabled(t *testing.T) {
 	client, r := app.NewShellAndRenderer()
 	keys, err := app.KeyStore.Eth().GetAll(testutils.Context(t))
 	require.NoError(t, err)
-	require.Equal(t, 1, len(keys))
+	require.Len(t, keys, 1)
 	k := keys[0]
 
-	assert.Nil(t, client.ListETHKeys(cltest.EmptyCLIContext()))
-	require.Equal(t, 1, len(r.Renders))
+	assert.NoError(t, client.ListETHKeys(cltest.EmptyCLIContext()))
+	require.Len(t, r.Renders, 1)
 	balances := *r.Renders[0].(*cmd.EthKeyPresenters)
 	assert.Equal(t, app.Keys[0].Address.Hex(), balances[0].Address)
 	assert.Nil(t, balances[0].EthBalance)
@@ -171,7 +171,7 @@ func TestShell_CreateETHKey(t *testing.T) {
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(commonassets.NewLinkFromJuels(42), nil)
-	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
@@ -187,7 +187,7 @@ func TestShell_CreateETHKey(t *testing.T) {
 	cltest.AssertCount(t, db, "evm.key_states", 1) // The initial funding key
 	keys, err := app.KeyStore.Eth().GetAll(testutils.Context(t))
 	require.NoError(t, err)
-	require.Equal(t, 1, len(keys))
+	require.Len(t, keys, 1)
 
 	id := big.NewInt(0)
 
@@ -203,7 +203,7 @@ func TestShell_CreateETHKey(t *testing.T) {
 	cltest.AssertCount(t, db, "evm.key_states", 2)
 	keys, err = app.KeyStore.Eth().GetAll(testutils.Context(t))
 	require.NoError(t, err)
-	require.Equal(t, 2, len(keys))
+	require.Len(t, keys, 2)
 }
 
 func TestShell_DeleteETHKey(t *testing.T) {
@@ -246,7 +246,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(commonassets.NewLinkFromJuels(42), nil)
-	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.EVM[0].NonceAutoSync = ptr(false)
@@ -350,7 +350,7 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 	t.Cleanup(func() { deleteKeyExportFile(t) })
 
 	ethClient := newEthMock(t)
-	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.EVM[0].NonceAutoSync = ptr(false)

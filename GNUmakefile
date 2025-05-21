@@ -5,6 +5,10 @@ VERSION = $(shell jq -r '.version' package.json)
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 GCFLAGS = -gcflags "$(GO_GCFLAGS)"
+# Set to true to install private plugins (will require GitHub auth).
+CL_INSTALL_PRIVATE_PLUGINS ?= false
+# Output directory for loopinstall plugin manifests (set by caller)
+CL_LOOPINSTALL_OUTPUT_DIR ?=
 
 .PHONY: install
 install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -14,11 +18,7 @@ install-git-hooks: ## Install git hooks.
 	git config core.hooksPath .githooks
 
 .PHONY: install-chainlink-autoinstall
-install-chainlink-autoinstall: | pnpmdep gomod install-chainlink ## Autoinstall chainlink.
-
-.PHONY: pnpmdep
-pnpmdep: ## Install solidity contract dependencies through pnpm
-	(cd contracts && pnpm i)
+install-chainlink-autoinstall: | gomod install-chainlink ## Autoinstall chainlink.
 
 .PHONY: gomod
 gomod: ## Ensure chainlink's go dependencies are installed.
@@ -30,6 +30,10 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 .PHONY: gomodtidy
 gomodtidy: gomods ## Run go mod tidy on all modules.
 	gomods tidy
+
+.PHONY: tidy
+tidy: gomodtidy ## Tidy all modules and add to git.
+	git add '**go.*'
 
 .PHONY: docs
 docs: ## Install and run pkgsite to view Go docs
@@ -57,27 +61,31 @@ chainlink-dev: ## Build a dev build of chainlink binary.
 chainlink-test: ## Build a test build of chainlink binary.
 	go build $(GOFLAGS) .
 
-.PHONY: install-medianpoc
-install-medianpoc: ## Build & install the chainlink-medianpoc binary.
+.PHONY: install-loopinstall
+install-loopinstall:
+	go install github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
+
+.PHONY: install-plugins-public
+install-plugins-public: ## Build & install public remote LOOPP binaries (plugins).
+	@if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
+		loopinstall --concurrency 5 --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/public.json ./plugins/plugins.public.yaml; \
+	else \
+		loopinstall --concurrency 5 ./plugins/plugins.public.yaml; \
+	fi
+
+.PHONY: install-plugins-private
+install-plugins-private: ## Build & install private remote LOOPP binaries (plugins).
+	if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
+		GOPRIVATE=github.com/smartcontractkit/* loopinstall --concurrency 5 --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json ./plugins/plugins.private.yaml; \
+	else \
+		GOPRIVATE=github.com/smartcontractkit/* loopinstall --concurrency 5 ./plugins/plugins.private.yaml; \
+	fi
+
+.PHONY: install-plugins-local
+install-plugins-local: ## Build & install local plugins.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
-
-.PHONY: install-ocr3-capability
-install-ocr3-capability: ## Build & install the chainlink-ocr3-capability binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-ocr3-capability
-
-.PHONY: install-plugins
-install-plugins: ## Build & install LOOPP binaries for products and chains.
-	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds) && \
-	go install ./cmd/chainlink-feeds
-	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-data-streams) && \
-	go install ./mercury/cmd/chainlink-mercury
-	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-cosmos) && \
-	go install ./pkg/cosmos/cmd/chainlink-cosmos
-	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana) && \
-	go install ./pkg/solana/cmd/chainlink-solana
-	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer) && \
-	go install ./pkg/chainlink/cmd/chainlink-starknet
-
+	go install $(GOFLAGS) ./plugins/cmd/capabilities/log-event-trigger
 .PHONY: docker ## Build the chainlink docker image
 docker:
 	docker buildx build \
@@ -94,24 +102,31 @@ docker-ccip:
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	-f ccip/ccip.Dockerfile .
 
+# Define a comma variable for use in $(eval) (needed for the PRIVATE_PLUGIN_ARGS)
+comma := ,
 .PHONY: docker-plugins ## Build the chainlink-plugins docker image
 docker-plugins:
+	@if [ "$(CL_INSTALL_PRIVATE_PLUGINS)" = "true" ] && [ -z "$(GITHUB_TOKEN)" ]; then \
+		echo "Error: GITHUB_TOKEN environment variable is required when CL_INSTALL_PRIVATE_PLUGINS=true"; \
+		exit 1; \
+	fi
+	$(eval PRIVATE_PLUGIN_ARGS := $(if $(and $(filter true,$(CL_INSTALL_PRIVATE_PLUGINS)),$(GITHUB_TOKEN)),--secret id=GIT_AUTH_TOKEN$(comma)env=GITHUB_TOKEN))
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
-	-f plugins/chainlink.Dockerfile .
+	--build-arg CL_APTOS_CMD=chainlink-aptos \
+	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
+	$(PRIVATE_PLUGIN_ARGS) \
+	-f plugins/chainlink.Dockerfile . \
+	-t chainlink-plugins:latest
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend
 	go run operator_ui/install.go .
 
-.PHONY: abigen
-abigen: ## Build & install abigen.
-	./tools/bin/build_abigen
-
 .PHONY: generate
-generate: abigen codecgen mockery protoc gomods ## Execute all go:generate commands.
+generate: codecgen mockery protoc gomods ## Execute all go:generate commands.
 	## Updating PATH makes sure that go:generate uses the version of protoc installed by the protoc make command.
-	export PATH=$(HOME)/.local/bin:$(PATH); gomods -w go generate -x ./...
+	export PATH="$(HOME)/.local/bin:$(PATH)"; gomods -w go generate -x ./...
 	find . -type f -name .mockery.yaml -execdir mockery \; ## Execute mockery for all .mockery.yaml files
 
 .PHONY: rm-mocked
@@ -138,15 +153,15 @@ setup-testdb: ## Setup the test database.
 
 .PHONY: testdb
 testdb: ## Prepares the test database.
-	go run . local db preparetest
+	go run ./core/store/cmd/preparetest
 
 .PHONY: testdb-force
 testdb-force: ## Prepares the test database, drops any pesky user connections that stand in the the way.
-	go run . local db preparetest --force
+	go run ./core/store/cmd/preparetest --force
 
 .PHONY: testdb-user-only
 testdb-user-only: ## Prepares the test database with user only.
-	go run . local db preparetest --user-only
+	go run ./core/store/cmd/preparetest --user-only
 
 .PHONY: gomods
 gomods: ## Install gomods
@@ -160,7 +175,7 @@ gomodslocalupdate: gomods ## Run gomod-local-update
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.50.0
+	go install github.com/vektra/mockery/v2@v2.53.0
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
@@ -188,7 +203,7 @@ config-docs: ## Generate core node configuration documentation
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
 	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.62.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 | tee ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.64.7 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 | tee ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
 
 .PHONY: modgraph
 modgraph:
@@ -199,17 +214,31 @@ modgraph:
 test-short: ## Run 'go test -short' and suppress uninteresting output
 	go test -short ./... | grep -v "\[no test files\]" | grep -v "\(cached\)"
 
-.PHONY: run_flakeguard_validate_tests
-run_flakeguard_validate_tests:
+.PHONY: run_flakeguard_validate_unit_tests
+run_flakeguard_validate_unit_tests:
 	@read -p "Enter a comma-separated list of test packages (e.g., package1,package2): " PKGS; \
 	 read -p "Enter the number of times to rerun the tests (e.g., 5): " REPS; \
-	 read -p "Enter the test runner (default: ubuntu-20.04): " RUNNER; \
-	 RUNNER=$${RUNNER:-ubuntu-20.04}; \
+	 read -p "Enter the test runner (default: ubuntu-24.04): " RUNNER; \
+	 RUNNER=$${RUNNER:-ubuntu-24.04}; \
 	 gh workflow run flakeguard-validate-tests.yml \
 	   -f testPackages="$${PKGS}" \
 	   -f testRepeatCount="$${REPS}" \
 	   -f runTestsWithRace="true" \
 	   -f testRunner="$${RUNNER}"
+
+.PHONY: run_flakeguard_validate_e2e_tests
+run_flakeguard_validate_e2e_tests:
+	@read -p "Enter test ids (e.g., smoke/forwarders_ocr2_test.go:*,smoke/vrf_test.go:*): " TEST_IDS; \
+	 read -p "Enter the number of times to run the tests (default: 5): " REPS; \
+	 read -p "Enter the chainlink version (default: develop): " CHAINLINK_VERSION; \
+	 read -p "Enter the branch name to run the workflow (default: develop): " BRANCH; \
+	 REPS=$${REPS:-5}; \
+	 CHAINLINK_VERSION=$${CHAINLINK_VERSION:-develop}; \
+	 BRANCH=$${BRANCH:-develop}; \
+	 gh workflow run run-selected-e2e-tests.yml --ref "$${BRANCH}" \
+	   -f chainlink_version="$${CHAINLINK_VERSION}" \
+	   -f test_ids="$${TEST_IDS}" \
+	   -f extraArgs='{ "flakeguard_enable": "true", "flakeguard_run_count": "'$$REPS'" }'
 
 help:
 	@echo ""

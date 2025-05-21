@@ -1,36 +1,40 @@
 package log_test
 
 import (
+	"context"
+	crand "crypto/rand"
 	"math/big"
 	"math/rand"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
 )
 
 func TestORM_broadcasts(t *testing.T) {
 	db := testutils.NewSqlxDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-	orm := log.NewORM(db, cltest.FixtureChainID)
+	orm := log.NewORM(db, *testutils.FixtureChainID)
 
-	_, addr := cltest.MustInsertRandomKey(t, ethKeyStore)
-	specV2 := cltest.MustInsertV2JobSpec(t, db, addr)
+	jobID := mustInsertV2JobSpec(t, db, testutils.NewAddress())
 
 	const selectQuery = `SELECT consumed FROM log_broadcasts
 		WHERE block_hash = $1 AND block_number = $2 AND log_index = $3 AND job_id = $4 AND evm_chain_id = $5`
 
-	listener := &mockListener{specV2.ID}
+	listener := &mockListener{jobID}
 
-	rawLog := cltest.RandomLog(t)
-	queryArgs := []interface{}{rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID(), cltest.FixtureChainID.String()}
+	rawLog := randomLog(t)
+	queryArgs := []interface{}{rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID(), testutils.FixtureChainID.String()}
 
 	// No rows
 	res, err := db.Exec(selectQuery, queryArgs...)
@@ -80,7 +84,7 @@ func TestORM_broadcasts(t *testing.T) {
 func TestORM_pending(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := testutils.NewSqlxDB(t)
-	orm := log.NewORM(db, cltest.FixtureChainID)
+	orm := log.NewORM(db, *testutils.FixtureChainID)
 
 	num, err := orm.GetPendingMinBlock(ctx)
 	require.NoError(t, err)
@@ -105,49 +109,46 @@ func TestORM_pending(t *testing.T) {
 func TestORM_MarkUnconsumed(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := testutils.NewSqlxDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-	orm := log.NewORM(db, cltest.FixtureChainID)
+	orm := log.NewORM(db, *testutils.FixtureChainID)
 
-	_, addr1 := cltest.MustInsertRandomKey(t, ethKeyStore)
-	job1 := cltest.MustInsertV2JobSpec(t, db, addr1)
+	job1 := mustInsertV2JobSpec(t, db, testutils.NewAddress())
 
-	_, addr2 := cltest.MustInsertRandomKey(t, ethKeyStore)
-	job2 := cltest.MustInsertV2JobSpec(t, db, addr2)
+	job2 := mustInsertV2JobSpec(t, db, testutils.NewAddress())
 
-	logBefore := cltest.RandomLog(t)
+	logBefore := randomLog(t)
 	logBefore.BlockNumber = 34
 	require.NoError(t,
-		orm.CreateBroadcast(ctx, logBefore.BlockHash, logBefore.BlockNumber, logBefore.Index, job1.ID))
+		orm.CreateBroadcast(ctx, logBefore.BlockHash, logBefore.BlockNumber, logBefore.Index, job1))
 	require.NoError(t,
-		orm.MarkBroadcastConsumed(ctx, logBefore.BlockHash, logBefore.BlockNumber, logBefore.Index, job1.ID))
+		orm.MarkBroadcastConsumed(ctx, logBefore.BlockHash, logBefore.BlockNumber, logBefore.Index, job1))
 
-	logAt := cltest.RandomLog(t)
+	logAt := randomLog(t)
 	logAt.BlockNumber = 38
 	require.NoError(t,
-		orm.CreateBroadcast(ctx, logAt.BlockHash, logAt.BlockNumber, logAt.Index, job1.ID))
+		orm.CreateBroadcast(ctx, logAt.BlockHash, logAt.BlockNumber, logAt.Index, job1))
 	require.NoError(t,
-		orm.MarkBroadcastConsumed(ctx, logAt.BlockHash, logAt.BlockNumber, logAt.Index, job1.ID))
+		orm.MarkBroadcastConsumed(ctx, logAt.BlockHash, logAt.BlockNumber, logAt.Index, job1))
 
-	logAfter := cltest.RandomLog(t)
+	logAfter := randomLog(t)
 	logAfter.BlockNumber = 40
 	require.NoError(t,
-		orm.CreateBroadcast(ctx, logAfter.BlockHash, logAfter.BlockNumber, logAfter.Index, job2.ID))
+		orm.CreateBroadcast(ctx, logAfter.BlockHash, logAfter.BlockNumber, logAfter.Index, job2))
 	require.NoError(t,
-		orm.MarkBroadcastConsumed(ctx, logAfter.BlockHash, logAfter.BlockNumber, logAfter.Index, job2.ID))
+		orm.MarkBroadcastConsumed(ctx, logAfter.BlockHash, logAfter.BlockNumber, logAfter.Index, job2))
 
 	// logAt and logAfter should now be marked unconsumed. logBefore is still consumed.
 	require.NoError(t, orm.MarkBroadcastsUnconsumed(ctx, 38))
 
-	consumed, err := orm.WasBroadcastConsumed(ctx, logBefore.BlockHash, logBefore.Index, job1.ID)
+	consumed, err := orm.WasBroadcastConsumed(ctx, logBefore.BlockHash, logBefore.Index, job1)
 	require.NoError(t, err)
 	require.True(t, consumed)
 
-	consumed, err = orm.WasBroadcastConsumed(ctx, logAt.BlockHash, logAt.Index, job1.ID)
+	consumed, err = orm.WasBroadcastConsumed(ctx, logAt.BlockHash, logAt.Index, job1)
 	require.NoError(t, err)
 	require.False(t, consumed)
 
-	consumed, err = orm.WasBroadcastConsumed(ctx, logAfter.BlockHash, logAfter.Index, job2.ID)
+	consumed, err = orm.WasBroadcastConsumed(ctx, logAfter.BlockHash, logAfter.Index, job2)
 	require.NoError(t, err)
 	require.False(t, consumed)
 }
@@ -203,9 +204,9 @@ func TestORM_Reinitialize(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			db := testutils.NewSqlxDB(t)
 			ctx := testutils.Context(t)
-			orm := log.NewORM(db, cltest.FixtureChainID)
+			orm := log.NewORM(db, *testutils.FixtureChainID)
 
-			jobID := cltest.MustInsertV2JobSpec(t, db, common.BigToAddress(big.NewInt(rand.Int63()))).ID
+			jobID := mustInsertV2JobSpec(t, db, common.BigToAddress(big.NewInt(rand.Int63())))
 
 			for _, b := range tt.broadcasts {
 				if b.Consumed {
@@ -237,4 +238,55 @@ func TestORM_Reinitialize(t *testing.T) {
 			}
 		})
 	}
+}
+
+type mockListener struct {
+	jobID int32
+}
+
+func (l *mockListener) JobID() int32                             { return l.jobID }
+func (l *mockListener) HandleLog(context.Context, log.Broadcast) {}
+
+func randomLog(t *testing.T) types.Log {
+	t.Helper()
+
+	topics := make([]common.Hash, 4)
+	for i := range topics {
+		topics[i] = evmutils.NewHash()
+	}
+
+	return types.Log{
+		Address:     testutils.NewAddress(),
+		BlockHash:   evmutils.NewHash(),
+		BlockNumber: uint64(rand.Intn(9999999)),
+		Index:       uint(rand.Intn(9999999)),
+		Data:        randomBytes(t, 512),
+		Topics:      []common.Hash{evmutils.NewHash(), evmutils.NewHash(), evmutils.NewHash(), evmutils.NewHash()},
+	}
+}
+
+func randomBytes(t *testing.T, n int) []byte {
+	b := make([]byte, n)
+	_, err := crand.Read(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+func mustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Address) int32 {
+	t.Helper()
+
+	addr := evmtypes.MustEIP55Address(transmitterAddress.Hex())
+
+	var oracleSpecId int32
+	require.NoError(t, db.Get(&oracleSpecId, `INSERT INTO ocr_oracle_specs (created_at, updated_at, contract_address, p2pv2_bootstrappers, is_bootstrap_peer, transmitter_address, evm_chain_id, contract_config_confirmations) VALUES (
+	NOW(),NOW(),$1,'{}',false,$2,0,0
+	) RETURNING id`, evmtypes.MustEIP55Address(testutils.NewAddress().Hex()), &addr))
+
+	var jobSpecId int32
+	require.NoError(t, db.Get(&jobSpecId, `INSERT INTO jobs (schema_version, created_at, type, ocr_oracle_spec_id, external_job_id) VALUES (
+    1,NOW(),0,$1,$2) RETURNING id`, oracleSpecId, uuid.New()))
+
+	return jobSpecId
 }

@@ -23,7 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -31,6 +30,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/freeport"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -41,17 +42,23 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/consumer_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flags_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/multiwordconsumer_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/operator"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/consumer_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/multiwordconsumer_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -71,12 +78,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
-	evmtestutils "github.com/smartcontractkit/chainlink/v2/evm/testutils"
-	"github.com/smartcontractkit/chainlink/v2/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 var oneETH = assets.Eth(*big.NewInt(1000000000000000000))
@@ -294,12 +295,12 @@ type OperatorContracts struct {
 	linkToken                 *link_token_interface.LinkToken
 	multiWord                 *multiwordconsumer_wrapper.MultiWordConsumer
 	singleWord                *consumer_wrapper.Consumer
-	operator                  *operator_wrapper.Operator
+	operator                  *operator.Operator
 	sim                       types.Backend
 }
 
 func setupOperatorContracts(t *testing.T) OperatorContracts {
-	user := testutils.MustNewSimTransactor(t)
+	user := evmtestutils.MustNewSimTransactor(t)
 	genesisData := gethtypes.GenesisAlloc{
 		user.From: {Balance: assets.Ether(1000).ToInt()},
 	}
@@ -308,7 +309,7 @@ func setupOperatorContracts(t *testing.T) OperatorContracts {
 	require.NoError(t, err)
 	b.Commit()
 
-	operatorAddress, _, operatorContract, err := operator_wrapper.DeployOperator(user, b.Client(), linkTokenAddress, user.From)
+	operatorAddress, _, operatorContract, err := operator.DeployOperator(user, b.Client(), linkTokenAddress, user.From)
 	require.NoError(t, err)
 	b.Commit()
 
@@ -385,7 +386,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			// Fund node account with ETH.
 			n, err := b.Client().NonceAt(testutils.Context(t), operatorContracts.user.From, nil)
 			require.NoError(t, err)
-			tx = cltest.NewLegacyTransaction(n, sendingKeys[0].Address, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
+			tx = evmtestutils.NewLegacyTransaction(n, sendingKeys[0].Address, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
 			signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
 			require.NoError(t, err)
 			err = b.Client().SendTransaction(testutils.Context(t), signedTx)
@@ -481,7 +482,7 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 	// Fund node account with ETH.
 	n, err := b.Client().NonceAt(testutils.Context(t), operatorContracts.user.From, nil)
 	require.NoError(t, err)
-	tx := cltest.NewLegacyTransaction(n, sendingKeys[0].Address, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
+	tx := evmtestutils.NewLegacyTransaction(n, sendingKeys[0].Address, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
 	require.NoError(t, err)
 	err = b.Client().SendTransaction(testutils.Context(t), signedTx)
@@ -642,14 +643,14 @@ observationSource   = """
 		require.Len(t, outputs, 1)
 		output := outputs[0]
 		receipt := output.(map[string]interface{})
-		assert.Equal(t, "0x13", receipt["blockNumber"])
+		assert.Equal(t, "0x19", receipt["blockNumber"])
 		assert.Equal(t, "0x7a120", receipt["gasUsed"])
 		assert.Equal(t, "0x0", receipt["status"])
 	})
 }
 
 func setupOCRContracts(t *testing.T) (*bind.TransactOpts, types.Backend, common.Address, *offchainaggregator.OffchainAggregator, *flags_wrapper.Flags, common.Address) {
-	owner := testutils.MustNewSimTransactor(t)
+	owner := evmtestutils.MustNewSimTransactor(t)
 	sb := new(big.Int)
 	sb, _ = sb.SetString("100000000000000000000000", 10) // 1000 eth
 	genesisData := gethtypes.GenesisAlloc{
@@ -726,7 +727,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV2 int,
 	n, err := b.Client().NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
-	tx := cltest.NewLegacyTransaction(n, transmitter, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
+	tx := evmtestutils.NewLegacyTransaction(n, transmitter, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
 	err = b.Client().SendTransaction(testutils.Context(t), signedTx)
@@ -769,7 +770,7 @@ func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 in
 	n, err := b.Client().NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
-	tx := cltest.NewLegacyTransaction(n, transmitter, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
+	tx := evmtestutils.NewLegacyTransaction(n, transmitter, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
 	err = b.Client().SendTransaction(testutils.Context(t), signedTx)
@@ -1026,7 +1027,7 @@ observationSource = """
 			}
 			metaLock.Lock()
 			defer metaLock.Unlock()
-			assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
+			assert.Empty(t, expectedMeta, "expected metadata %v", expectedMeta)
 		})
 	}
 }
@@ -1256,7 +1257,7 @@ observationSource = """
 		}
 		metaLock.Lock()
 		defer metaLock.Unlock()
-		assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
+		assert.Empty(t, expectedMeta, "expected metadata %v", expectedMeta)
 	})
 }
 
@@ -1285,13 +1286,13 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	kst := cltest.NewKeyStore(t, db)
 	require.NoError(t, kst.Unlock(ctx, cltest.Password))
 
-	chainsAndConfig := evmtest.NewLegacyChainsAndConfig(t, evmtest.TestChainOpts{
-		GeneralConfig:  cfg,
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		ChainConfigs:   cfg.EVMConfigs(),
 		DatabaseConfig: cfg.Database(),
 		FeatureConfig:  cfg.Feature(),
 		ListenerConfig: cfg.Database().Listener(),
-		DB:             db,
 		KeyStore:       kst.Eth(),
+		DB:             db,
 		Client:         ethClient,
 	})
 
@@ -1349,7 +1350,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("HeadByHash", mock.Anything, h41.Hash).Return(&h41, nil).Maybe()
 	ethClient.On("HeadByHash", mock.Anything, h42.Hash).Return(&h42, nil).Maybe()
 
-	for _, re := range chainsAndConfig.Slice() {
+	for _, re := range legacyChains.Slice() {
 		servicetest.Run(t, re)
 	}
 	var newHeads evmtestutils.RawSub[*types.Head]
@@ -1359,7 +1360,6 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		t.Fatal("timed out waiting for app to subscribe")
 	}
 
-	legacyChains := chainsAndConfig.NewLegacyChains()
 	chain := evmtest.MustGetDefaultChain(t, legacyChains)
 	estimator := chain.GasEstimator()
 	gasPrice, gasLimit, err := estimator.GetFee(testutils.Context(t), nil, 500_000, maxGasPrice, nil, nil)
@@ -1402,13 +1402,13 @@ func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
 func assertPricesUint256(t *testing.T, usd, eur, jpy *big.Int, consumer *multiwordconsumer_wrapper.MultiWordConsumer) {
 	haveUsd, err := consumer.UsdInt(nil)
 	require.NoError(t, err)
-	assert.True(t, usd.Cmp(haveUsd) == 0)
+	assert.Equal(t, usd.Cmp(haveUsd), 0)
 	haveEur, err := consumer.EurInt(nil)
 	require.NoError(t, err)
-	assert.True(t, eur.Cmp(haveEur) == 0)
+	assert.Equal(t, eur.Cmp(haveEur), 0)
 	haveJpy, err := consumer.JpyInt(nil)
 	require.NoError(t, err)
-	assert.True(t, jpy.Cmp(haveJpy) == 0)
+	assert.Equal(t, jpy.Cmp(haveJpy), 0)
 }
 
 func ptr[T any](v T) *T { return &v }
@@ -1416,13 +1416,13 @@ func ptr[T any](v T) *T { return &v }
 func assertPipelineTaskRunsSuccessful(t testing.TB, runs []pipeline.TaskRun) {
 	t.Helper()
 	for i, run := range runs {
-		require.True(t, run.Error.IsZero(), fmt.Sprintf("pipeline.Task run failed (idx: %v, dotID: %v, error: '%v')", i, run.GetDotID(), run.Error.ValueOrZero()))
+		require.True(t, run.Error.IsZero(), "pipeline.Task run failed (idx: %v, dotID: %v, error: '%v')", i, run.GetDotID(), run.Error.ValueOrZero())
 	}
 }
 
 func assertPipelineTaskRunsErrored(t testing.TB, runs []pipeline.TaskRun) {
 	t.Helper()
 	for i, run := range runs {
-		require.False(t, run.Error.IsZero(), fmt.Sprintf("expected pipeline.Task run to have failed, but it succeeded (idx: %v, dotID: %v, output: '%v')", i, run.GetDotID(), run.Output))
+		require.False(t, run.Error.IsZero(), "expected pipeline.Task run to have failed, but it succeeded (idx: %v, dotID: %v, output: '%v')", i, run.GetDotID(), run.Output)
 	}
 }

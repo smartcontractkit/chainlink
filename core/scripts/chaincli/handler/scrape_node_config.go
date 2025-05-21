@@ -258,7 +258,7 @@ func (h *baseHandler) scrapeNodeInfo(ctx context.Context, wg *sync.WaitGroup, i 
 
 	err := writeJSON(ni, strconv.Itoa(i)+".json")
 	if err != nil {
-		panic(fmt.Errorf("failed to write node info to JSON: %v", err))
+		panic(fmt.Errorf("failed to write node info to JSON: %w", err))
 	}
 
 	nodes[nodeAddresses[0]] = ni

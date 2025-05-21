@@ -48,7 +48,7 @@ func TestTestLogger(t *testing.T) {
 	assert.Equal(t, serviceName, log.LoggerName)
 	assert.Equal(t, value, log.ContextMap()[key])
 	assert.Contains(t, log.Caller.String(), "core/logger/test_logger_test.go")
-	assert.Equal(t, log.Caller.Line, 41)
+	assert.Equal(t, 41, log.Caller.Line)
 
 	const (
 		workerName           = "WorkerName"

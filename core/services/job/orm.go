@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -21,6 +19,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
+	evmkeystore "github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -30,9 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/evm/config"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 var (
@@ -78,7 +77,10 @@ type ORM interface {
 	WithDataSource(source sqlutil.DataSource) ORM
 
 	FindJobIDByWorkflow(ctx context.Context, spec WorkflowSpec) (int32, error)
+	// TODO rename function to indicate it is CCIP-specific, not generic?
 	FindJobIDByCapabilityNameAndVersion(ctx context.Context, spec CCIPSpec) (int32, error)
+	FindStandardCapabilityJobID(ctx context.Context, spec StandardCapabilitiesSpec) (int32, error)
+	FindGatewayJobID(ctx context.Context, spec GatewaySpec) (int32, error)
 
 	FindJobIDByStreamID(ctx context.Context, streamID uint32) (int32, error)
 }
@@ -331,13 +333,8 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 					return errors.New("invalid transmitter address in dual transmission config")
 				}
 
-				rawMeta, ok := dualTransmissionConfig["meta"].(map[string]interface{})
-				if !ok {
+				if _, ok := dualTransmissionConfig["meta"].(map[string]interface{}); !ok {
 					return errors.New("invalid dual transmission meta")
-				}
-
-				if err = validateDualTransmissionMeta(rawMeta); err != nil {
-					return err
 				}
 
 				if err = validateKeyStoreMatchForRelay(ctx, jb.OCR2OracleSpec.Relay, tx.keyStore, dtTransmitterAddress); err != nil {
@@ -345,20 +342,14 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 				}
 
 				// Check if secondary transmitter address is used as primary somewhere else
-				hasLock, err2 := checkIfKeyHasLock(ctx, tx.keyStore.Eth(), common.HexToAddress(dtTransmitterAddress), keystore.TXMv1)
-				if err2 != nil {
-					return err2
-				} else if hasLock {
+				if checkIfKeyHasLock(ctx, tx.keyStore.Eth(), common.HexToAddress(dtTransmitterAddress), evmkeystore.TXMv1) {
 					return errors.Errorf("key %s cannot be a secondary transmitter address because it's used a primary transmitter in another job", dtTransmitterAddress)
 				}
 			}
 
 			// Check if primary transmitter address is used as secondary somewhere else, don't check for mercury as it uses CSA keys for transmitters
 			if jb.OCR2OracleSpec.PluginType != types.Mercury {
-				hasLock, err2 := checkIfKeyHasLock(ctx, tx.keyStore.Eth(), common.HexToAddress(jb.OCR2OracleSpec.TransmitterID.String), keystore.TXMv2)
-				if err2 != nil {
-					return err2
-				} else if hasLock {
+				if checkIfKeyHasLock(ctx, tx.keyStore.Eth(), common.HexToAddress(jb.OCR2OracleSpec.TransmitterID.String), evmkeystore.TXMv2) {
 					return errors.Errorf("key %s cannot be a (primary) transmitter address because it's used a secondary transmitter address in another job", jb.OCR2OracleSpec.TransmitterID.String)
 				}
 			}
@@ -571,10 +562,10 @@ func (o *orm) insertOCROracleSpec(ctx context.Context, spec *OCROracleSpec) (spe
 
 func (o *orm) insertOCR2OracleSpec(ctx context.Context, spec *OCR2OracleSpec) (specID int32, err error) {
 	return o.prepareQuerySpecID(ctx, `INSERT INTO ocr2_oracle_specs (contract_id, feed_id, relay, relay_config, plugin_type, plugin_config, onchain_signing_strategy, p2pv2_bootstrappers, ocr_key_bundle_id, transmitter_id,
-					blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations,
+					blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations, allow_no_bootstrappers,
 					created_at, updated_at)
 			VALUES (:contract_id, :feed_id, :relay, :relay_config, :plugin_type, :plugin_config, :onchain_signing_strategy, :p2pv2_bootstrappers, :ocr_key_bundle_id, :transmitter_id,
-					 :blockchain_timeout, :contract_config_tracker_poll_interval, :contract_config_confirmations,
+					 :blockchain_timeout, :contract_config_tracker_poll_interval, :contract_config_confirmations, :allow_no_bootstrappers,
 					NOW(), NOW())
 			RETURNING id;`, spec)
 }
@@ -821,7 +812,7 @@ func (o *orm) DeleteJob(ctx context.Context, id int32, jobType Type) error {
 								%s
 							),`, q)
 	}
-	query += `	
+	query += `
 		deleted_job_pipeline_specs AS (
 			DELETE FROM job_pipeline_specs WHERE job_id IN (SELECT id FROM deleted_jobs) RETURNING pipeline_spec_id
 		)
@@ -1179,6 +1170,30 @@ INNER JOIN ccip_specs ccip on jobs.ccip_spec_id = ccip.id AND ccip.capability_la
 	return
 }
 
+func (o *orm) FindStandardCapabilityJobID(ctx context.Context, spec StandardCapabilitiesSpec) (jobID int32, err error) {
+	stmt := `
+SELECT jobs.id FROM jobs
+INNER JOIN standardcapabilities_specs sc on jobs.standard_capabilities_spec_id = sc.id AND sc.command = $1
+`
+	err = o.ds.GetContext(ctx, &jobID, stmt, spec.Command)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		err = fmt.Errorf("error searching for job for standardcapabilities (command) ('%s'): %w", spec.Command, err)
+	}
+	return
+}
+
+func (o *orm) FindGatewayJobID(ctx context.Context, spec GatewaySpec) (jobID int32, err error) {
+	stmt := `
+SELECT jobs.id FROM jobs
+INNER JOIN gateway_specs gs on jobs.gateway_spec_id = gs.id
+WHERE gs.gateway_config @> jsonb_build_object('ConnectionManagerConfig', jsonb_build_object('AuthGatewayId', $1::text));`
+	err = o.ds.GetContext(ctx, &jobID, stmt, spec.AuthGatewayID())
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		err = fmt.Errorf("error searching for job for gateway (ConnectionManagerConfig.AuthGatewayId) ('%s'): %w", spec.AuthGatewayID(), err)
+	}
+	return
+}
+
 // PipelineRunsByJobsIDs returns pipeline runs for multiple jobs, not preloading data
 func (o *orm) PipelineRunsByJobsIDs(ctx context.Context, ids []int32) (runs []pipeline.Run, err error) {
 	err = o.transact(ctx, false, func(tx *orm) error {
@@ -1400,7 +1415,7 @@ func (o *orm) PipelineRuns(ctx context.Context, jobID *int32, offset, size int) 
 		filter = fmt.Sprintf("JOIN job_pipeline_specs USING(pipeline_spec_id) WHERE job_pipeline_specs.job_id = %d", *jobID)
 	}
 	err = o.transact(ctx, false, func(tx *orm) error {
-		sql := fmt.Sprintf(`SELECT count(*) FROM pipeline_runs %s`, filter)
+		sql := "SELECT count(*) FROM pipeline_runs " + filter
 		if err = tx.ds.QueryRowxContext(ctx, sql).Scan(&count); err != nil {
 			return errors.Wrap(err, "error counting runs")
 		}
@@ -1702,75 +1717,8 @@ func (o *orm) loadJobSpecErrors(ctx context.Context, jb *Job) error {
 	return errors.Wrapf(o.ds.SelectContext(ctx, &jb.JobSpecErrors, `SELECT * FROM job_spec_errors WHERE job_id = $1`, jb.ID), "failed to load job spec errors for job %d", jb.ID)
 }
 
-func validateDualTransmissionHint(vals []interface{}) error {
-	accepted := []string{"contract_address", "function_selector", "logs", "calldata", "default_logs"}
-	for _, v := range vals {
-		valString, ok := v.(string)
-		if !ok {
-			return errors.Errorf("dual transmission meta value %v is not a string", v)
-		}
-		if !slices.Contains(accepted, valString) {
-			return errors.Errorf("dual transmission meta.hint value %s should be one of the following %s", valString, accepted)
-		}
-	}
-	return nil
-}
-
-func validateDualTransmissionRefund(vals []interface{}) error {
-	totalRefund := 0
-	for _, v := range vals {
-		valString, ok := v.(string)
-		if !ok {
-			return errors.Errorf("dual transmission meta value %v is not a string", v)
-		}
-
-		s := strings.Split(valString, ":")
-		if len(s) != 2 {
-			return errors.New("invalid dual transmission refund, format should be <ADDRESS>:<PERCENT>")
-		}
-		if !common.IsHexAddress(s[0]) {
-			return errors.Errorf("invalid dual transmission refund address, %s is not a valid address", s[0])
-		}
-		percent, err := strconv.Atoi(s[1])
-		if err != nil {
-			return errors.Errorf("invalid dual transmission refund percent, %s is not a number", s[1])
-		}
-		totalRefund += percent
-	}
-
-	if totalRefund >= 100 {
-		return errors.New("invalid dual transmission refund percentages, total sum of percentages must be less than 100")
-	}
-	return nil
-}
-
-func validateDualTransmissionMeta(meta map[string]interface{}) error {
-	for k, v := range meta {
-		metaFieldValues, ok := v.([]interface{})
-		if !ok {
-			return errors.Errorf("dual transmission meta value %s is not a slice", k)
-		}
-		if k == "hint" {
-			if err := validateDualTransmissionHint(metaFieldValues); err != nil {
-				return err
-			}
-		}
-
-		if k == "refund" {
-			if err := validateDualTransmissionRefund(metaFieldValues); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func checkIfKeyHasLock(ctx context.Context, ks keystore.Eth, address common.Address, usage keystore.ServiceType) (bool, error) {
-	rm, err := ks.GetResourceMutex(ctx, address)
-	if err != nil {
-		return false, err
-	}
+func checkIfKeyHasLock(ctx context.Context, ks keystore.Eth, address common.Address, usage evmkeystore.ServiceType) bool {
+	rm := ks.GetResourceMutex(ctx, address)
 
 	return rm.IsLocked(usage)
 }

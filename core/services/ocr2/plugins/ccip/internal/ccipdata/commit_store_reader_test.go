@@ -15,14 +15,20 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_helper_1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
+	gasmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
+	rollupMocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/rollups/mocks"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+
+	commit_store_helper_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/commit_store_helper"
+	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
+	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
@@ -32,12 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas"
-	gasmocks "github.com/smartcontractkit/chainlink/v2/evm/gas/mocks"
-	rollupMocks "github.com/smartcontractkit/chainlink/v2/evm/gas/rollups/mocks"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 func TestCommitOffchainConfig_Encoding(t *testing.T) {
@@ -145,10 +145,10 @@ func TestCommitStoreReaders(t *testing.T) {
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            2,
 		BackfillBatchSize:        3,
-		RpcBatchSize:             2,
+		RPCBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	headTracker := headtracker.NewSimulatedHeadTracker(ec, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	headTracker := headstest.NewSimulatedHeadTracker(ec, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 	if lpOpts.PollPeriod == 0 {
 		lpOpts.PollPeriod = 1 * time.Hour
 	}
@@ -295,7 +295,7 @@ func TestCommitStoreReaders(t *testing.T) {
 
 			reps, err := cr.GetCommitReportMatchingSeqNum(ctx, rep.Interval.Max+1, 0)
 			require.NoError(t, err)
-			assert.Len(t, reps, 0)
+			assert.Empty(t, reps)
 
 			reps, err = cr.GetCommitReportMatchingSeqNum(ctx, rep.Interval.Max, 0)
 			require.NoError(t, err)
@@ -315,7 +315,7 @@ func TestCommitStoreReaders(t *testing.T) {
 
 			reps, err = cr.GetCommitReportMatchingSeqNum(ctx, rep.Interval.Min-1, 0)
 			require.NoError(t, err)
-			require.Len(t, reps, 0)
+			require.Empty(t, reps)
 
 			// Sanity
 			reps, err = cr.GetAcceptedCommitReportsGteTimestamp(ctx, time.Unix(0, 0), 0)
@@ -329,7 +329,7 @@ func TestCommitStoreReaders(t *testing.T) {
 			// Until we detect the config, we'll have empty offchain config
 			c1, err := cr.OffchainConfig(ctx)
 			require.NoError(t, err)
-			assert.Equal(t, c1, cciptypes.CommitOffchainConfig{})
+			assert.Equal(t, cciptypes.CommitOffchainConfig{}, c1)
 			newPr, err := cr.ChangeConfig(ctx, configs[v][0], configs[v][1])
 			require.NoError(t, err)
 			assert.Equal(t, ccipcalc.EvmAddrToGeneric(prs[v]), newPr)
@@ -344,7 +344,7 @@ func TestCommitStoreReaders(t *testing.T) {
 
 			gp, err := gpe.GetGasPrice(ctx)
 			require.NoError(t, err)
-			assert.True(t, gp.Cmp(big.NewInt(0)) > 0)
+			assert.Positive(t, gp.Cmp(big.NewInt(0)))
 		})
 	}
 }
@@ -373,7 +373,7 @@ func TestNewCommitStoreReader(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(tc.typeAndVersion, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			b, err := utils.ABIEncode(`[{"type":"string"}]`, tc.typeAndVersion)
 			require.NoError(t, err)
 			c := clienttest.NewClient(t)

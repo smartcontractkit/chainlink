@@ -43,6 +43,39 @@ type PluginConfig struct {
 
 	// Mercury servers
 	Servers map[string]utils.PlainHexBytes `json:"servers" toml:"servers"`
+
+	Transmitters []TransmitterConfig `json:"transmitters" toml:"transmitters"`
+}
+
+type TransmitterType int
+
+const (
+	TransmitterTypeCRE TransmitterType = iota
+)
+
+func (t TransmitterType) String() string {
+	switch t {
+	case TransmitterTypeCRE:
+		return "cre"
+	default:
+		return fmt.Sprintf("unknown transmitter type: %d", t)
+	}
+}
+
+func (t *TransmitterType) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "cre":
+		*t = TransmitterTypeCRE
+	default:
+		return fmt.Errorf("unknown transmitter type: %s", text)
+	}
+	return nil
+}
+
+type TransmitterConfig struct {
+	Type TransmitterType `json:"type" toml:"type"`
+	// each sub-transmitter can have its own specific configuration
+	Opts json.RawMessage `json:"opts" toml:"opts"`
 }
 
 func (p *PluginConfig) Unmarshal(data []byte) error {
@@ -64,8 +97,8 @@ func (p PluginConfig) Validate() (merr error) {
 		merr = errors.Join(merr, errors.New("llo: DonID must be specified and not zero"))
 	}
 
-	if len(p.Servers) == 0 {
-		merr = errors.Join(merr, errors.New("llo: At least one Mercury server must be specified"))
+	if len(p.Servers) == 0 && len(p.Transmitters) == 0 {
+		merr = errors.Join(merr, errors.New("llo: At least one Mercury server or Transmitter must be specified"))
 	} else {
 		for serverName, serverPubKey := range p.Servers {
 			if err := validateURL(serverName); err != nil {
@@ -104,7 +137,7 @@ func validateURL(rawServerURL string) error {
 	if schemeRegexp.MatchString(rawServerURL) {
 		normalizedURI = rawServerURL
 	} else {
-		normalizedURI = fmt.Sprintf("wss://%s", rawServerURL)
+		normalizedURI = "wss://" + rawServerURL
 	}
 	uri, err := url.ParseRequestURI(normalizedURI)
 	if err != nil {

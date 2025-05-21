@@ -7,10 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
-	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -46,7 +47,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    deployment.ChangesetOutput
+		want    cldf.ChangesetOutput
 		wantErr bool
 	}{
 		{
@@ -54,7 +55,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 			args: args{
 				lggr: lggr,
 				req: &internal.UpdateNodeCapabilitiesImplRequest{
-					Chain: deployment.Chain{},
+					Chain: cldf.Chain{},
 				},
 				initialState: &kstest.SetupTestRegistryRequest{},
 			},
@@ -85,7 +86,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 					},
 				},
 			},
-			want:    deployment.ChangesetOutput{},
+			want:    cldf.ChangesetOutput{},
 			wantErr: false,
 		},
 	}
@@ -93,7 +94,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setupResp := kstest.SetupTestRegistry(t, lggr, tt.args.initialState)
 			tt.args.req.Chain = setupResp.Chain
-			tt.args.req.ContractSet = setupResp.ContractSet
+			tt.args.req.CapabilitiesRegistry = setupResp.CapabilitiesRegistry
 
 			got, err := internal.UpdateNodeCapabilitiesImpl(tt.args.lggr, tt.args.req)
 			if (err != nil) != tt.wantErr {

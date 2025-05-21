@@ -11,7 +11,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read/mocks"
 )
@@ -110,6 +110,47 @@ func TestBindingsRegistry(t *testing.T) {
 		mBatch.AssertExpectations(t)
 		mRdr0.AssertExpectations(t)
 		mRdr1.AssertExpectations(t)
+		mReg.AssertExpectations(t)
+	})
+
+	t.Run("bind twice is noop", func(t *testing.T) {
+		t.Parallel()
+
+		mRdr0 := new(mocks.Reader)
+		mReg := new(mocks.Registrar)
+
+		named := read.NewBindingsRegistry()
+
+		// register is called once through RegisterAll and again in Bind
+		mRdr0.EXPECT().Register(mock.Anything).Return(nil)
+
+		mRdr0.EXPECT().Bind(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+		mReg.EXPECT().HasFilter(mock.Anything).Return(false)
+		mReg.EXPECT().RegisterFilter(mock.Anything, mock.Anything).Return(nil).Times(4) //2 times per init + 1 time per bind(3) + 1 time per bind new address
+		// part of the init phase of chain reader
+		require.NoError(t, named.AddReader(contractName1, methodName1, mRdr0))
+		_ = named.SetFilter(contractName1, filterWithSigs)
+
+		// run within the start phase of chain reader
+		require.NoError(t, named.RegisterAll(context.Background(), mReg))
+
+		bindings := []commontypes.BoundContract{
+			{Address: "0x24", Name: contractName1},
+			{Address: "0x25", Name: contractName1},
+			{Address: "0x26", Name: contractName1},
+		}
+
+		// calling bind now should trigger register filter just once
+		_ = named.Bind(context.Background(), mReg, bindings)
+		_ = named.Bind(context.Background(), mReg, bindings)
+		_ = named.Bind(context.Background(), mReg, bindings)
+
+		// this will trigger register filter
+		bindings[0].Address = "0x99"
+		_ = named.Bind(context.Background(), mReg, bindings)
+
+		mRdr0.AssertExpectations(t)
 		mReg.AssertExpectations(t)
 	})
 }

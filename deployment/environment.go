@@ -3,218 +3,30 @@ package deployment
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
+	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/hashicorp/go-multierror"
+	"google.golang.org/grpc"
+
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"google.golang.org/grpc"
+	libocrtypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
-
-// OnchainClient is an EVM chain client.
-// For EVM specifically we can use existing geth interface
-// to abstract chain clients.
-type OnchainClient interface {
-	bind.ContractBackend
-	bind.DeployBackend
-	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
-	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
-}
-
-// OffchainClient interacts with the job-distributor
-// which is a family agnostic interface for performing
-// DON operations.
-type OffchainClient interface {
-	jobv1.JobServiceClient
-	nodev1.NodeServiceClient
-	csav1.CSAServiceClient
-}
-
-// Chain represents an EVM chain.
-type Chain struct {
-	// Selectors used as canonical chain identifier.
-	Selector uint64
-	Client   OnchainClient
-	// Note the Sign function can be abstract supporting a variety of key storage mechanisms (e.g. KMS etc).
-	DeployerKey *bind.TransactOpts
-	Confirm     func(tx *types.Transaction) (uint64, error)
-	// Users are a set of keys that can be used to interact with the chain.
-	// These are distinct from the deployer key.
-	Users []*bind.TransactOpts
-}
-
-func (c Chain) String() string {
-	chainInfo, err := ChainInfo(c.Selector)
-	if err != nil {
-		// we should never get here, if the selector is invalid it should not be in the environment
-		panic(err)
-	}
-	return fmt.Sprintf("%s (%d)", chainInfo.ChainName, chainInfo.ChainSelector)
-}
-
-func (c Chain) Name() string {
-	chainInfo, err := ChainInfo(c.Selector)
-	if err != nil {
-		// we should never get here, if the selector is invalid it should not be in the environment
-		panic(err)
-	}
-	if chainInfo.ChainName == "" {
-		return strconv.FormatUint(c.Selector, 10)
-	}
-	return chainInfo.ChainName
-}
-
-// Environment represents an instance of a deployed product
-// including on and offchain components. It is intended to be
-// cross-family to enable a coherent view of a product deployed
-// to all its chains.
-// TODO: Add SolChains, AptosChain etc.
-// using Go bindings/libraries from their respective
-// repositories i.e. chainlink-solana, chainlink-cosmos
-// You can think of ExistingAddresses as a set of
-// family agnostic "onchain pointers" meant to be used in conjunction
-// with chain fields to read/write relevant chain state. Similarly,
-// you can think of NodeIDs as "offchain pointers" to be used in
-// conjunction with the Offchain client to read/write relevant
-// offchain state (i.e. state in the DON(s)).
-type Environment struct {
-	Name              string
-	Logger            logger.Logger
-	ExistingAddresses AddressBook
-	Chains            map[uint64]Chain
-	SolChains         map[uint64]SolChain
-	NodeIDs           []string
-	Offchain          OffchainClient
-	GetContext        func() context.Context
-	OCRSecrets        OCRSecrets
-}
-
-func NewEnvironment(
-	name string,
-	logger logger.Logger,
-	existingAddrs AddressBook,
-	chains map[uint64]Chain,
-	solChains map[uint64]SolChain,
-	nodeIDs []string,
-	offchain OffchainClient,
-	ctx func() context.Context,
-	secrets OCRSecrets,
-) *Environment {
-	return &Environment{
-		Name:              name,
-		Logger:            logger,
-		ExistingAddresses: existingAddrs,
-		Chains:            chains,
-		SolChains:         solChains,
-		NodeIDs:           nodeIDs,
-		Offchain:          offchain,
-		GetContext:        ctx,
-		OCRSecrets:        secrets,
-	}
-}
-
-func (e Environment) AllChainSelectors() []uint64 {
-	var selectors []uint64
-	for sel := range e.Chains {
-		selectors = append(selectors, sel)
-	}
-	sort.Slice(selectors, func(i, j int) bool {
-		return selectors[i] < selectors[j]
-	})
-	return selectors
-}
-
-func (e Environment) AllChainSelectorsExcluding(excluding []uint64) []uint64 {
-	var selectors []uint64
-	for sel := range e.Chains {
-		excluded := false
-		for _, toExclude := range excluding {
-			if sel == toExclude {
-				excluded = true
-			}
-		}
-		if excluded {
-			continue
-		}
-		selectors = append(selectors, sel)
-	}
-	sort.Slice(selectors, func(i, j int) bool {
-		return selectors[i] < selectors[j]
-	})
-	return selectors
-}
-
-func (e Environment) AllChainSelectorsSolana() []uint64 {
-	selectors := make([]uint64, 0, len(e.SolChains))
-	for sel := range e.SolChains {
-		selectors = append(selectors, sel)
-	}
-	sort.Slice(selectors, func(i, j int) bool {
-		return selectors[i] < selectors[j]
-	})
-	return selectors
-}
-
-func (e Environment) AllDeployerKeys() []common.Address {
-	var deployerKeys []common.Address
-	for sel := range e.Chains {
-		deployerKeys = append(deployerKeys, e.Chains[sel].DeployerKey.From)
-	}
-	return deployerKeys
-}
-
-func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, error) {
-	if err != nil {
-		//revive:disable
-		var d rpc.DataError
-		ok := errors.As(err, &d)
-		if ok {
-			return 0, fmt.Errorf("transaction reverted on chain %s: Error %s ErrorData %v", chain.String(), d.Error(), d.ErrorData())
-		}
-		return 0, err
-	}
-	return chain.Confirm(tx)
-}
-
-func MaybeDataErr(err error) error {
-	//revive:disable
-	var d rpc.DataError
-	ok := errors.As(err, &d)
-	if ok {
-		return fmt.Errorf("%s: %v", d.Error(), d.ErrorData())
-	}
-	return err
-}
-
-func DecodedErrFromABIIfDataErr(err error, abi string) error {
-	var d rpc.DataError
-	ok := errors.As(err, &d)
-	if ok {
-		errReason, err := parseErrorFromABI(fmt.Sprintf("%s", d.ErrorData()), abi)
-		if err != nil {
-			return fmt.Errorf("%s: %v", d.Error(), d.ErrorData())
-		}
-		return fmt.Errorf("%s due to %s: %v", d.Error(), errReason, d.ErrorData())
-	}
-	return err
-}
 
 func UBigInt(i uint64) *big.Int {
 	return new(big.Int).SetUint64(i)
@@ -232,6 +44,15 @@ type OCRConfig struct {
 	TransmitAccount           types2.Account
 	ConfigEncryptionPublicKey types3.ConfigEncryptionPublicKey
 	KeyBundleID               string
+}
+
+func (ocrCfg OCRConfig) JDOCR2KeyBundle() *nodev1.OCR2Config_OCRKeyBundle {
+	return &nodev1.OCR2Config_OCRKeyBundle{
+		OffchainPublicKey:     hex.EncodeToString(ocrCfg.OffchainPublicKey[:]),
+		OnchainSigningAddress: hex.EncodeToString(ocrCfg.OnchainPublicKey),
+		ConfigPublicKey:       hex.EncodeToString(ocrCfg.ConfigEncryptionPublicKey[:]),
+		BundleId:              ocrCfg.KeyBundleID,
+	}
 }
 
 // Nodes includes is a group CL nodes.
@@ -264,13 +85,24 @@ func (n Nodes) DefaultF() uint8 {
 	return uint8(len(n) / 3)
 }
 
+func (n Nodes) IDs() []string {
+	var ids []string
+	for _, node := range n {
+		ids = append(ids, node.NodeID)
+	}
+	return ids
+}
+
 func (n Nodes) BootstrapLocators() []string {
 	bootstrapMp := make(map[string]struct{})
 	for _, node := range n {
 		if node.IsBootstrap {
-			bootstrapMp[fmt.Sprintf("%s@%s",
-				// p2p_12D3... -> 12D3...
-				node.PeerID.String()[4:], node.MultiAddr)] = struct{}{}
+			key := node.MultiAddr
+			// compatibility with legacy code. unclear what code path is setting half baked node.MultiAddr
+			if !isValidMultiAddr(key) {
+				key = fmt.Sprintf("%s@%s", strings.TrimPrefix(node.PeerID.String(), "p2p_"), node.MultiAddr)
+			}
+			bootstrapMp[key] = struct{}{}
 		}
 	}
 	var locators []string
@@ -280,10 +112,40 @@ func (n Nodes) BootstrapLocators() []string {
 	return locators
 }
 
+// P2PIDsPresentInJD - For a given p2pIDs, check if the nodes are present in JD.
+func (n Nodes) P2PIDsPresentInJD(p2pIDs [][32]byte) error {
+	var allErrs error
+	for _, p2pID := range p2pIDs {
+		p2pIDString := "p2p_" + libocrtypes.PeerID(p2pID).String()
+		if !slices.ContainsFunc(n, func(n Node) bool {
+			return p2pIDString == n.PeerID.String()
+		}) {
+			allErrs = multierror.Append(allErrs, fmt.Errorf("node with p2pID %s not found in JD", p2pIDString))
+		}
+	}
+	return allErrs
+}
+
+func isValidMultiAddr(s string) bool {
+	// Define the regular expression pattern
+	pattern := `^(.+)@(.+):(\d+)$`
+
+	// Compile the regular expression
+	re := regexp.MustCompile(pattern)
+	matches := re.FindStringSubmatch(s)
+	if len(matches) != 4 { // 4 because the entire match + 3 submatches
+		return false
+	}
+
+	_, err := p2pkey.MakePeerID("p2p_" + matches[1])
+	return err == nil
+}
+
 type Node struct {
 	NodeID         string
 	Name           string
 	CSAKey         string
+	WorkflowKey    string
 	SelToOCRConfig map[chain_selectors.ChainDetails]OCRConfig
 	PeerID         p2pkey.PeerID
 	IsBootstrap    bool
@@ -312,8 +174,44 @@ func (n Node) OCRConfigForChainSelector(chainSel uint64) (OCRConfig, bool) {
 	if err != nil {
 		return OCRConfig{}, false
 	}
+	// only applicable for test related simulated chains, the chains don't have a name
+	if want.ChainName == "" {
+		want.ChainName = strconv.FormatUint(want.ChainSelector, 10)
+	}
 	c, ok := n.SelToOCRConfig[want]
 	return c, ok
+}
+
+// ChainConfigs returns the chain configs for this node
+// in the format required by JD
+//
+// WARNING: this is a lossy conversion because the Node abstraction
+// is not as rich as the JD abstraction
+func (n Node) ChainConfigs() ([]*nodev1.ChainConfig, error) {
+	var out []*nodev1.ChainConfig
+	for details, ocrCfg := range n.SelToOCRConfig {
+		c, err := detailsToChain(details)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get convert chain details: %w", err)
+		}
+		out = append(out, &nodev1.ChainConfig{
+			Chain: c,
+			// only have ocr2 in Node
+			Ocr2Config: &nodev1.OCR2Config{
+				OcrKeyBundle: ocrCfg.JDOCR2KeyBundle(),
+				P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+					PeerId: n.PeerID.String(),
+					// note: we don't have the public key in the OCRConfig struct
+				},
+				IsBootstrap: n.IsBootstrap,
+				Multiaddr:   n.MultiAddr,
+			},
+			AccountAddress: string(ocrCfg.TransmitAccount),
+			AdminAddress:   n.AdminAddr,
+			NodeId:         n.NodeID,
+		})
+	}
+	return out, nil
 }
 
 func MustPeerIDFromString(s string) p2pkey.PeerID {
@@ -329,8 +227,16 @@ type NodeChainConfigsLister interface {
 	ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error)
 }
 
+var ErrMissingNodeMetadata = errors.New("missing node metadata")
+
 // Gathers all the node info through JD required to be able to set
 // OCR config for example. nodeIDs can be JD IDs or PeerIDs
+//
+// It is optimistic execution and will attempt to return an element for all
+// nodes in the input list that exists in JD
+//
+// If some subset of nodes cannot have all their metadata returned, the error with be
+// [ErrMissingNodeMetadata] and the caller can choose to handle or continue.
 func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 	if len(nodeIDs) == 0 {
 		return nil, nil
@@ -364,95 +270,183 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 	}
 
 	var nodes []Node
+	onlyMissingEVMChain := true
+	var xerr error
 	for _, node := range nodesFromJD.GetNodes() {
 		// TODO: Filter should accept multiple nodes
 		nodeChainConfigs, err := oc.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
 			NodeIds: []string{node.Id},
 		}})
 		if err != nil {
+			return nil, fmt.Errorf("failed to list node chain configs for node %s id %s: %w", node.Name, node.Id, err)
+		}
+		n, err := NewNodeFromJD(node, nodeChainConfigs.ChainConfigs)
+		if err != nil {
+			xerr = errors.Join(xerr, fmt.Errorf("failed to get node metadata for node %s id %s: %w", node.Name, node.Id, err))
+			if !errors.Is(err, ErrMissingEVMChain) {
+				onlyMissingEVMChain = false
+			}
+		}
+		nodes = append(nodes, *n)
+	}
+	if xerr != nil && onlyMissingEVMChain {
+		xerr = errors.Join(ErrMissingNodeMetadata, xerr)
+	}
+	return nodes, xerr
+}
+
+var ErrMissingEVMChain = errors.New("no EVM chain found")
+
+// NewNodeFromJD creates a Node from a JD Node. Populating all the fields requires an enabled
+// EVM chain and OCR2 config. If this does not exist, the Node will be returned with
+// the minimal fields populated and return a [ErrMissingEVMChain] error.
+func NewNodeFromJD(jdNode *nodev1.Node, chainConfigs []*nodev1.ChainConfig) (*Node, error) {
+	// the protobuf does not map well to the domain model
+	// we have to infer the p2p key, bootstrap and multiaddr from some chain config
+	// arbitrarily pick the first EVM chain config
+	// we use EVM because the home or registry chain is always EVM
+	emptyNode := &Node{
+		NodeID:         jdNode.Id,
+		Name:           jdNode.Name,
+		CSAKey:         jdNode.PublicKey,
+		WorkflowKey:    jdNode.GetWorkflowKey(),
+		SelToOCRConfig: make(map[chain_selectors.ChainDetails]OCRConfig),
+	}
+	var goldenConfig *nodev1.ChainConfig
+	for _, chainConfig := range chainConfigs {
+		if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_EVM {
+			goldenConfig = chainConfig
+			break
+		}
+	}
+	if goldenConfig == nil {
+		return emptyNode, fmt.Errorf("node '%s', id '%s', csa '%s': %w", jdNode.Name, jdNode.Id, jdNode.PublicKey, ErrMissingEVMChain)
+	}
+	selToOCRConfig := make(map[chain_selectors.ChainDetails]OCRConfig)
+	bootstrap := goldenConfig.Ocr2Config.IsBootstrap
+	if !bootstrap { // no ocr config on bootstrap
+		var err error
+		selToOCRConfig, err = ChainConfigsToOCRConfig(chainConfigs)
+		if err != nil {
+			return emptyNode, fmt.Errorf("failed to get chain to ocr config: %w", err)
+		}
+	}
+	return &Node{
+		NodeID:         jdNode.Id,
+		Name:           jdNode.Name,
+		CSAKey:         jdNode.PublicKey,
+		WorkflowKey:    jdNode.GetWorkflowKey(),
+		SelToOCRConfig: selToOCRConfig,
+		IsBootstrap:    bootstrap,
+		PeerID:         MustPeerIDFromString(goldenConfig.Ocr2Config.P2PKeyBundle.PeerId),
+		MultiAddr:      goldenConfig.Ocr2Config.Multiaddr,
+		AdminAddr:      goldenConfig.AdminAddress,
+		Labels:         jdNode.Labels,
+	}, nil
+}
+
+func ChainConfigsToOCRConfig(chainConfigs []*nodev1.ChainConfig) (map[chain_selectors.ChainDetails]OCRConfig, error) {
+	selToOCRConfig := make(map[chain_selectors.ChainDetails]OCRConfig)
+	for _, chainConfig := range chainConfigs {
+		b := common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.OffchainPublicKey)
+		var opk types2.OffchainPublicKey
+		copy(opk[:], b)
+
+		b = common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.ConfigPublicKey)
+		var cpk types3.ConfigEncryptionPublicKey
+		copy(cpk[:], b)
+
+		var pubkey types3.OnchainPublicKey
+		if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_EVM {
+			// convert from pubkey to address
+			pubkey = common.HexToAddress(chainConfig.Ocr2Config.OcrKeyBundle.OnchainSigningAddress).Bytes()
+		} else {
+			pubkey = common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.OnchainSigningAddress)
+		}
+
+		details, err := chainToDetails(chainConfig.Chain)
+		if err != nil {
 			return nil, err
 		}
-		selToOCRConfig := make(map[chain_selectors.ChainDetails]OCRConfig)
-		bootstrap := false
-		var peerID p2pkey.PeerID
-		var multiAddr string
-		var adminAddr string
-		for _, chainConfig := range nodeChainConfigs.ChainConfigs {
-			// NOTE: Assume same peerID/multiAddr for all chains.
-			// Might make sense to change proto as peerID/multiAddr is 1-1 with nodeID?
-			peerID = MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId)
-			multiAddr = chainConfig.Ocr2Config.Multiaddr
-			if chainConfig.Ocr2Config.IsBootstrap {
-				// NOTE: Assume same peerID for all chains.
-				// Might make sense to change proto as peerID is 1-1 with nodeID?
-				bootstrap = true
-				break
-			}
-			b := common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.OffchainPublicKey)
-			var opk types2.OffchainPublicKey
-			copy(opk[:], b)
 
-			b = common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.ConfigPublicKey)
-			var cpk types3.ConfigEncryptionPublicKey
-			copy(cpk[:], b)
-
-			var pubkey types3.OnchainPublicKey
-			if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_EVM {
-				// convert from pubkey to address
-				pubkey = common.HexToAddress(chainConfig.Ocr2Config.OcrKeyBundle.OnchainSigningAddress).Bytes()
-			} else {
-				pubkey = common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.OnchainSigningAddress)
-			}
-
-			ocrConfig := OCRConfig{
-				OffchainPublicKey:         opk,
-				OnchainPublicKey:          pubkey,
-				PeerID:                    MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId),
-				TransmitAccount:           types2.Account(chainConfig.AccountAddress),
-				ConfigEncryptionPublicKey: cpk,
-				KeyBundleID:               chainConfig.Ocr2Config.OcrKeyBundle.BundleId,
-			}
-
-			if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_EVM {
-				// NOTE: Assume same adminAddr for all chains. We always use EVM addr
-				adminAddr = chainConfig.AdminAddress
-			}
-
-			var family string
-			switch chainConfig.Chain.Type {
-			case nodev1.ChainType_CHAIN_TYPE_EVM:
-				family = chain_selectors.FamilyEVM
-			case nodev1.ChainType_CHAIN_TYPE_APTOS:
-				family = chain_selectors.FamilyAptos
-			case nodev1.ChainType_CHAIN_TYPE_SOLANA:
-				family = chain_selectors.FamilySolana
-			case nodev1.ChainType_CHAIN_TYPE_STARKNET:
-				family = chain_selectors.FamilyStarknet
-			default:
-				return nil, fmt.Errorf("unsupported chain type %s", chainConfig.Chain.Type)
-			}
-
-			details, err := chain_selectors.GetChainDetailsByChainIDAndFamily(chainConfig.Chain.Id, family)
-			if err != nil {
-				return nil, err
-			}
-
-			selToOCRConfig[details] = ocrConfig
+		selToOCRConfig[details] = OCRConfig{
+			OffchainPublicKey:         opk,
+			OnchainPublicKey:          pubkey,
+			PeerID:                    MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId),
+			TransmitAccount:           types2.Account(chainConfig.AccountAddress),
+			ConfigEncryptionPublicKey: cpk,
+			KeyBundleID:               chainConfig.Ocr2Config.OcrKeyBundle.BundleId,
 		}
-		nodes = append(nodes, Node{
-			NodeID:         node.Id,
-			Name:           node.Name,
-			CSAKey:         node.PublicKey,
-			SelToOCRConfig: selToOCRConfig,
-			IsBootstrap:    bootstrap,
-			PeerID:         peerID,
-			MultiAddr:      multiAddr,
-			AdminAddr:      adminAddr,
-			Labels:         node.Labels,
-		})
+	}
+	return selToOCRConfig, nil
+}
+
+func chainToDetails(c *nodev1.Chain) (chain_selectors.ChainDetails, error) {
+	var family string
+	switch c.Type {
+	case nodev1.ChainType_CHAIN_TYPE_EVM:
+		family = chain_selectors.FamilyEVM
+	case nodev1.ChainType_CHAIN_TYPE_APTOS:
+		family = chain_selectors.FamilyAptos
+	case nodev1.ChainType_CHAIN_TYPE_SOLANA:
+		family = chain_selectors.FamilySolana
+	case nodev1.ChainType_CHAIN_TYPE_STARKNET:
+		family = chain_selectors.FamilyStarknet
+	default:
+		return chain_selectors.ChainDetails{}, fmt.Errorf("unsupported chain type %s", c.Type)
+	}
+	if family == chain_selectors.FamilySolana {
+		// Temporary workaround to handle cases when solana chainId was not using the standard genesis hash,
+		// but using old strings mainnet/testnet/devnet.
+		switch c.Id {
+		case "mainnet":
+			c.Id = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"
+		case "devnet":
+			c.Id = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG"
+		case "testnet":
+			c.Id = "4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY"
+		}
+	}
+	details, err := chain_selectors.GetChainDetailsByChainIDAndFamily(c.Id, family)
+	if err != nil {
+		return chain_selectors.ChainDetails{}, err
+	}
+	// only applicable for test related simulated chains, the chains don't have a name
+	if details.ChainName == "" {
+		details.ChainName = strconv.FormatUint(details.ChainSelector, 10)
+	}
+	return details, nil
+}
+
+func detailsToChain(details chain_selectors.ChainDetails) (*nodev1.Chain, error) {
+	family, err := chain_selectors.GetSelectorFamily(details.ChainSelector)
+	if err != nil {
+		return nil, err
 	}
 
-	return nodes, nil
+	var t nodev1.ChainType
+	switch family {
+	case chain_selectors.FamilyEVM:
+		t = nodev1.ChainType_CHAIN_TYPE_EVM
+	case chain_selectors.FamilyAptos:
+		t = nodev1.ChainType_CHAIN_TYPE_APTOS
+	case chain_selectors.FamilySolana:
+		t = nodev1.ChainType_CHAIN_TYPE_SOLANA
+	case chain_selectors.FamilyStarknet:
+		t = nodev1.ChainType_CHAIN_TYPE_STARKNET
+	default:
+		return nil, fmt.Errorf("unsupported chain family %s", family)
+	}
+
+	id, err := chain_selectors.GetChainIDFromSelector(details.ChainSelector)
+	if err != nil {
+		return nil, err
+	}
+
+	return &nodev1.Chain{
+		Type: t,
+		Id:   id,
+	}, nil
 }
 
 type CapabilityRegistryConfig struct {

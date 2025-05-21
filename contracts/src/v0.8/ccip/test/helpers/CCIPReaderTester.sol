@@ -87,6 +87,6 @@ contract CCIPReaderTester {
   function emitCommitReportAccepted(
     OffRamp.CommitReport memory report
   ) external {
-    emit OffRamp.CommitReportAccepted(report.merkleRoots, report.priceUpdates);
+    emit OffRamp.CommitReportAccepted(report.blessedMerkleRoots, report.unblessedMerkleRoots, report.priceUpdates);
   }
 }

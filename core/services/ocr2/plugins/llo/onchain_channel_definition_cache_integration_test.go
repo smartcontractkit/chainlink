@@ -2,6 +2,7 @@ package llo_test
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,16 +24,19 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
 )
 
 type mockHTTPClient struct {
@@ -131,7 +135,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	const ETHMainnetChainSelector uint64 = 5009297550715157269
 	orm := llo.NewChainScopedORM(db, ETHMainnetChainSelector)
 
-	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
+	steve := evmtestutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := types.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	backend.Commit() // ensure starting block number at least 1
@@ -147,10 +151,10 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            1,
 		BackfillBatchSize:        3,
-		RpcBatchSize:             2,
+		RPCBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	ht := headtracker.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	ht := headstest.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 	lp := logpoller.NewLogPoller(
 		logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, ht, lpOpts)
 	servicetest.Run(t, lp)
@@ -158,7 +162,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	client := &mockHTTPClient{}
 	donID := rand.Uint32()
 
-	cdc := llo.NewChannelDefinitionCache(lggr, orm, client, lp, configStoreAddress, donID, 0, llo.WithLogPollInterval(100*time.Millisecond))
+	cdc := channeldefinitions.NewChannelDefinitionCache(lggr, orm, client, lp, configStoreAddress, donID, 0, channeldefinitions.WithLogPollInterval(100*time.Millisecond))
 	servicetest.Run(t, cdc)
 
 	t.Run("before any logs, returns empty Definitions", func(t *testing.T) {
@@ -269,7 +273,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 		assert.Equal(t, uint32(3), fields["version"])
 		assert.Equal(t, "http://example.com/foo3", fields["url"])
-		assert.Equal(t, fmt.Sprintf("%x", sampleDefinitionsSHA), fields["sha"])
+		assert.Equal(t, hex.EncodeToString(sampleDefinitionsSHA[:]), fields["sha"])
 		assert.Equal(t, donID, fields["donID"])
 
 		assert.Equal(t, sampleDefinitions, cdc.Definitions())
@@ -286,7 +290,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 		t.Run("new cdc with same config should load from DB", func(t *testing.T) {
 			// fromBlock far in the future to ensure logs are not used
-			cdc2 := llo.NewChannelDefinitionCache(lggr, orm, client, lp, configStoreAddress, donID, 1000)
+			cdc2 := channeldefinitions.NewChannelDefinitionCache(lggr, orm, client, lp, configStoreAddress, donID, 1000)
 			servicetest.Run(t, cdc2)
 
 			assert.Equal(t, sampleDefinitions, cdc.Definitions())
@@ -352,7 +356,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 		assert.Equal(t, uint32(5), fields["version"])
 		assert.Equal(t, "http://example.com/foo5", fields["url"])
-		assert.Equal(t, fmt.Sprintf("%x", sampleDefinitionsSHA), fields["sha"])
+		assert.Equal(t, hex.EncodeToString(sampleDefinitionsSHA[:]), fields["sha"])
 		assert.Equal(t, donID, fields["donID"])
 
 		assert.Equal(t, sampleDefinitions, cdc.Definitions())

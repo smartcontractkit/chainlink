@@ -149,7 +149,7 @@ func (s *Shell) CreateOCR2KeyBundle(c *cli.Context) error {
 		)
 	}
 	chainType := c.Args().Get(0)
-	resp, err := s.HTTP.Post(s.ctx(), fmt.Sprintf("/v2/keys/ocr2/%s", chainType), nil)
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/keys/ocr2/"+chainType, nil)
 	if err != nil {
 		return s.errorOut(err)
 	}

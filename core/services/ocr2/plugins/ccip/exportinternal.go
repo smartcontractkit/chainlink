@@ -12,7 +12,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
@@ -24,8 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas"
 )
 
 const OffchainAggregator = "OffchainAggregator"
@@ -82,8 +82,19 @@ type DynamicPriceGetter = pricegetter.DynamicPriceGetter
 
 type AllTokensPriceGetter = pricegetter.AllTokensPriceGetter
 
-func NewPipelineGetter(source string, runner pipeline.Runner, jobID int32, externalJobID uuid.UUID, name string, lggr logger.Logger) (*pricegetter.PipelineGetter, error) {
-	return pricegetter.NewPipelineGetter(source, runner, jobID, externalJobID, name, lggr)
+func NewPipelineGetter(
+	source string,
+	runner pipeline.Runner,
+	jobID int32,
+	externalJobID uuid.UUID,
+	name string,
+	lggr logger.Logger,
+	sourceNativeTokenAddr ccip.Address,
+	sourceChainSelector uint64,
+	destChainSelector uint64,
+) (*pricegetter.PipelineGetter, error) {
+	return pricegetter.NewPipelineGetter(source, runner, jobID, externalJobID, name, lggr,
+		sourceNativeTokenAddr, sourceChainSelector, destChainSelector)
 }
 
 func NewDynamicPriceGetterClient(batchCaller rpclib.EvmBatchCaller) DynamicPriceGetterClient {

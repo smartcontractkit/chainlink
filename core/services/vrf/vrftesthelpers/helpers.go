@@ -15,13 +15,16 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_consumer_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_consumer_interface_v08"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_request_id"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_request_id_v08"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_consumer_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_consumer_interface_v08"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_request_id"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_request_id_v08"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
@@ -31,8 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var (
@@ -183,16 +184,18 @@ func NewVRFCoordinatorUniverseWithV08Consumer(t *testing.T, key ethkey.KeyV2) Co
 func NewVRFCoordinatorUniverse(t *testing.T, keys ...ethkey.KeyV2) CoordinatorUniverse {
 	var oracleTransactors []*bind.TransactOpts
 	for _, key := range keys {
-		oracleTransactor, err := bind.NewKeyedTransactorWithChainID(key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
-		require.NoError(t, err)
+		oracleTransactor := &bind.TransactOpts{
+			From:   key.Address,
+			Signer: key.SignerFn(testutils.SimulatedChainID),
+		}
 		oracleTransactors = append(oracleTransactors, oracleTransactor)
 	}
 
 	var (
-		sergey = testutils.MustNewSimTransactor(t)
-		neil   = testutils.MustNewSimTransactor(t)
-		ned    = testutils.MustNewSimTransactor(t)
-		carol  = testutils.MustNewSimTransactor(t)
+		sergey = evmtestutils.MustNewSimTransactor(t)
+		neil   = evmtestutils.MustNewSimTransactor(t)
+		ned    = evmtestutils.MustNewSimTransactor(t)
+		carol  = evmtestutils.MustNewSimTransactor(t)
 	)
 	genesisData := gethtypes.GenesisAlloc{
 		sergey.From: {Balance: assets.Ether(1000).ToInt()},

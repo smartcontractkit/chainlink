@@ -6,11 +6,11 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -195,7 +195,7 @@ func TestStorage_PutAndGet(t *testing.T) {
 
 	rec, metadata, err := storage.Get(testutils.Context(t), key)
 	assert.NoError(t, err)
-	assert.Equal(t, false, metadata.Confirmed)
+	assert.False(t, metadata.Confirmed)
 	assert.Equal(t, signature, metadata.Signature)
 	assert.Equal(t, record.Expiration, rec.Expiration)
 	assert.Equal(t, record.Payload, rec.Payload)

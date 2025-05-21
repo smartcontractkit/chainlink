@@ -17,7 +17,7 @@ var (
 	StalenessSeconds            = int64(86400)
 	GasAfterPayment             = int64(33285)
 
-	//vrfv2
+	// vrfv2
 	FlatFeeTier1 = int64(500)
 	FlatFeeTier2 = int64(500)
 	FlatFeeTier3 = int64(500)
@@ -28,7 +28,7 @@ var (
 	ReqsForTier4 = int64(0)
 	ReqsForTier5 = int64(0)
 
-	//vrfv2plus
+	// vrfv2plus
 	FlatFeeNativePPM        = uint32(500)
 	FlatFeeLinkDiscountPPM  = uint32(100)
 	NativePremiumPercentage = uint8(1)

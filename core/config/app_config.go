@@ -19,8 +19,8 @@ type AppConfig interface {
 	RootDir() string
 	ShutdownGracePeriod() time.Duration
 	InsecureFastScrypt() bool
+	InsecurePPROFHeap() bool
 	EVMEnabled() bool
-	EVMRPCEnabled() bool
 	CosmosEnabled() bool
 	SolanaEnabled() bool
 	StarkNetEnabled() bool
@@ -37,6 +37,7 @@ type AppConfig interface {
 	AuditLogger() AuditLogger
 	AutoPprof() AutoPprof
 	Capabilities() Capabilities
+	Workflows() Workflows
 	Database() Database
 	Feature() Feature
 	FluxMonitor() FluxMonitor
@@ -57,6 +58,7 @@ type AppConfig interface {
 	WebServer() WebServer
 	Tracing() Tracing
 	Telemetry() Telemetry
+	CRE() CRE
 }
 
 type DatabaseBackupMode string

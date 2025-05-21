@@ -9,13 +9,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
-	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	mcmslib "github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/sdk"
+	"github.com/smartcontractkit/mcms/sdk/evm"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -28,29 +30,22 @@ type TransferConfig struct {
 	Value *big.Int
 }
 
-type MCMSConfig struct {
-	MinDelay     time.Duration // delay for timelock worker to execute the transfers.
-	OverrideRoot bool
-}
-
 type LinkTransferConfig struct {
 	Transfers  map[uint64][]TransferConfig
 	From       common.Address
-	McmsConfig *MCMSConfig
+	McmsConfig *proposalutils.TimelockConfig
 }
 
-var _ deployment.ChangeSet[*LinkTransferConfig] = LinkTransfer
-
-func getDeployer(e deployment.Environment, chain uint64, mcmConfig *MCMSConfig) *bind.TransactOpts {
+func getDeployer(e cldf.Environment, chain uint64, mcmConfig *proposalutils.TimelockConfig) *bind.TransactOpts {
 	if mcmConfig == nil {
 		return e.Chains[chain].DeployerKey
 	}
 
-	return deployment.SimTransactOpts()
+	return cldf.SimTransactOpts()
 }
 
 // Validate checks that the LinkTransferConfig is valid.
-func (cfg LinkTransferConfig) Validate(e deployment.Environment) error {
+func (cfg LinkTransferConfig) Validate(e cldf.Environment) error {
 	ctx := e.GetContext()
 	// Check that Transfers map has at least one chainSel
 	if len(cfg.Transfers) == 0 {
@@ -99,6 +94,9 @@ func (cfg LinkTransferConfig) Validate(e deployment.Environment) error {
 		}
 		// check that from address has enough funds for the transfers
 		balance, err := linkState.LinkToken.BalanceOf(&bind.CallOpts{Context: ctx}, cfg.From)
+		if err != nil {
+			return fmt.Errorf("error getting balance of sender: %w", err)
+		}
 		if balance.Cmp(totalAmount) < 0 {
 			return fmt.Errorf("sender does not have enough funds for transfers for chain selector %d, required: %s, available: %s", chainSel, totalAmount.String(), balance.String())
 		}
@@ -117,7 +115,7 @@ func (cfg LinkTransferConfig) Validate(e deployment.Environment) error {
 }
 
 // initStatePerChain initializes the state for each chain selector on the provided config
-func initStatePerChain(cfg *LinkTransferConfig, e deployment.Environment) (
+func initStatePerChain(cfg *LinkTransferConfig, e cldf.Environment) (
 	linkStatePerChain map[uint64]*changeset.LinkTokenState,
 	mcmsStatePerChain map[uint64]*changeset.MCMSWithTimelockState,
 	err error) {
@@ -141,19 +139,19 @@ func initStatePerChain(cfg *LinkTransferConfig, e deployment.Environment) (
 
 // transferOrBuildTx transfers the LINK tokens or builds the tx for the MCMS proposal
 func transferOrBuildTx(
-	e deployment.Environment,
+	e cldf.Environment,
 	linkState *changeset.LinkTokenState,
 	transfer TransferConfig,
 	opts *bind.TransactOpts,
-	chain deployment.Chain,
-	mcmsConfig *MCMSConfig) (*ethTypes.Transaction, error) {
+	chain cldf.Chain,
+	mcmsConfig *proposalutils.TimelockConfig) (*ethTypes.Transaction, error) {
 	tx, err := linkState.LinkToken.Transfer(opts, transfer.To, transfer.Value)
 	if err != nil {
 		return nil, fmt.Errorf("error packing transfer tx data: %w", err)
 	}
 	// only wait for tx if we are not using MCMS
 	if mcmsConfig == nil {
-		if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+		if _, err := cldf.ConfirmIfNoError(chain, tx, err); err != nil {
 			e.Logger.Errorw("Failed to confirm transfer tx", "chain", chain.String(), "err", err)
 			return nil, err
 		}
@@ -161,38 +159,37 @@ func transferOrBuildTx(
 	return tx, nil
 }
 
-// LinkTransfer takes the given link transfers and executes them or creates an MCMS proposal for them.
-func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment.ChangesetOutput, error) {
+// LinkTransferV2 is an reimplementation of LinkTransfer that uses the new MCMS SDK.
+func LinkTransferV2(e cldf.Environment, cfg *LinkTransferConfig) (cldf.ChangesetOutput, error) {
 	err := cfg.Validate(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid LinkTransferConfig: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid LinkTransferConfig: %w", err)
 	}
-	chainSelectors := []uint64{}
-	for chainSelector := range cfg.Transfers {
-		chainSelectors = append(chainSelectors, chainSelector)
-	}
-	mcmsPerChain := map[uint64]*owner_helpers.ManyChainMultiSig{}
 
-	timelockAddresses := map[uint64]common.Address{}
-	// Initialize state for each chain
+	proposerAddressPerChain := map[uint64]string{}
+	inspectorPerChain := map[uint64]sdk.Inspector{}
+	timelockAddressesPerChain := map[uint64]string{}
 	linkStatePerChain, mcmsStatePerChain, err := initStatePerChain(cfg, e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
 
-	allBatches := []timelock.BatchChainOperation{}
+	allBatches := []mcmstypes.BatchOperation{}
 	for chainSelector := range cfg.Transfers {
-		chainID := mcms.ChainIdentifier(chainSelector)
 		chain := e.Chains[chainSelector]
 		linkAddress := linkStatePerChain[chainSelector].LinkToken.Address()
 		mcmsState := mcmsStatePerChain[chainSelector]
 		linkState := linkStatePerChain[chainSelector]
 
-		timelockAddress := mcmsState.Timelock.Address()
+		proposerAddressPerChain[chainSelector] = mcmsState.ProposerMcm.Address().Hex()
+		inspectorPerChain[chainSelector] = evm.NewInspector(chain.Client)
 
-		mcmsPerChain[uint64(chainID)] = mcmsState.ProposerMcm
+		timelockAddress := mcmsState.Timelock.Address().Hex()
+		timelockAddressesPerChain[chainSelector] = timelockAddress
 
-		timelockAddresses[chainSelector] = timelockAddress
-		batch := timelock.BatchChainOperation{
-			ChainIdentifier: chainID,
-			Batch:           []mcms.Operation{},
+		batch := mcmstypes.BatchOperation{
+			ChainSelector: mcmstypes.ChainSelector(chainSelector),
+			Transactions:  []mcmstypes.Transaction{},
 		}
 
 		opts := getDeployer(e, chainSelector, cfg.McmsConfig)
@@ -200,15 +197,10 @@ func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment
 		for _, transfer := range cfg.Transfers[chainSelector] {
 			tx, err := transferOrBuildTx(e, linkState, transfer, opts, chain, cfg.McmsConfig)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return cldf.ChangesetOutput{}, err
 			}
-			op := mcms.Operation{
-				To:           linkAddress,
-				Data:         tx.Data(),
-				Value:        big.NewInt(0),
-				ContractType: string(types.LinkToken),
-			}
-			batch.Batch = append(batch.Batch, op)
+			op := evm.NewTransaction(linkAddress, tx.Data(), big.NewInt(0), string(types.LinkToken), []string{})
+			batch.Transactions = append(batch.Transactions, op)
 			totalAmount.Add(totalAmount, transfer.Value)
 		}
 
@@ -216,21 +208,23 @@ func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment
 	}
 
 	if cfg.McmsConfig != nil {
-		proposal, err := proposalutils.BuildProposalFromBatches(
-			timelockAddresses,
-			mcmsPerChain,
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+			e,
+			timelockAddressesPerChain,
+			proposerAddressPerChain,
+			inspectorPerChain,
 			allBatches,
 			"LINK Value transfer proposal",
-			cfg.McmsConfig.MinDelay,
+			*cfg.McmsConfig,
 		)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 
-		return deployment.ChangesetOutput{
-			Proposals: []timelock.MCMSWithTimelockProposal{*proposal},
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
 		}, nil
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }

@@ -2,15 +2,12 @@ package keystore_test
 
 import (
 	"context"
-	"fmt"
-	"math/big"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
-	"github.com/NethermindEth/starknet.go/curve"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -19,8 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
-
-	starktxm "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm"
 )
 
 func Test_StarkNetKeyStore_E2E(t *testing.T) {
@@ -40,7 +35,7 @@ func Test_StarkNetKeyStore_E2E(t *testing.T) {
 		defer reset()
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
-		require.Equal(t, 0, len(keys))
+		require.Empty(t, keys)
 	})
 
 	t.Run("errors when getting non-existent ID", func(t *testing.T) {
@@ -56,7 +51,7 @@ func Test_StarkNetKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
-		require.Equal(t, key, retrievedKey)
+		requireEqualKeys(t, key, retrievedKey)
 	})
 
 	t.Run("imports and exports a key", func(t *testing.T) {
@@ -75,7 +70,7 @@ func Test_StarkNetKeyStore_E2E(t *testing.T) {
 		require.Equal(t, key.ID(), importedKey.ID())
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
-		require.Equal(t, importedKey, retrievedKey)
+		requireEqualKeys(t, importedKey, retrievedKey)
 	})
 
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {
@@ -87,12 +82,12 @@ func Test_StarkNetKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
-		require.Equal(t, 1, len(keys))
+		require.Len(t, keys, 1)
 		_, err = ks.Delete(ctx, newKey.ID())
 		require.NoError(t, err)
 		keys, err = ks.GetAll()
 		require.NoError(t, err)
-		require.Equal(t, 0, len(keys))
+		require.Empty(t, keys)
 		_, err = ks.Get(newKey.ID())
 		require.Error(t, err)
 	})
@@ -108,7 +103,7 @@ func Test_StarkNetKeyStore_E2E(t *testing.T) {
 
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
-		require.Equal(t, 1, len(keys))
+		require.Len(t, keys, 1)
 	})
 }
 
@@ -130,26 +125,9 @@ func TestStarknetSigner(t *testing.T) {
 		require.NoError(t, err)
 	})
 	t.Run("key doesn't exists", func(t *testing.T) {
-		baseKs.On("Get", mock.Anything).Return(starkkey.Key{}, fmt.Errorf("key doesn't exist"))
+		baseKs.On("Get", mock.Anything).Return(starkkey.Key{}, errors.New("key doesn't exist"))
 		signed, err := lk.Sign(testutils.Context(t), "not an address", nil)
 		require.Nil(t, signed)
 		require.Error(t, err)
-	})
-
-	// TODO BCF-2242 remove this test once we have starknet smoke/integration tests
-	// that exercise the transaction signing.
-	t.Run("keystore adapter integration", func(t *testing.T) {
-		adapter := starktxm.NewKeystoreAdapter(lk)
-		baseKs.On("Get", starknetSenderAddr).Return(starkKey, nil)
-		hash, err := curve.Curve.PedersenHash([]*big.Int{big.NewInt(42)})
-		require.NoError(t, err)
-		r, s, err := adapter.Sign(testutils.Context(t), starknetSenderAddr, hash)
-		require.NoError(t, err)
-		require.NotNil(t, r)
-		require.NotNil(t, s)
-
-		pubx, puby, err := curve.Curve.PrivateToPoint(starkKey.ToPrivKey())
-		require.NoError(t, err)
-		require.True(t, curve.Curve.Verify(hash, r, s, pubx, puby))
 	})
 }

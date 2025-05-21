@@ -2,6 +2,7 @@ package llo_test
 
 import (
 	"context"
+	"crypto"
 	"crypto/ed25519"
 	"errors"
 	"fmt"
@@ -16,7 +17,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/wsrpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc/mtls"
 
+	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/credentials"
 	"github.com/smartcontractkit/wsrpc/peer"
 
@@ -33,8 +34,9 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
@@ -50,16 +52,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var _ pb.MercuryServer = &wsrpcMercuryServer{}
 
 type mercuryServer struct {
 	rpc.UnimplementedTransmitterServer
-	privKey ed25519.PrivateKey
-	reqsCh  chan *rpc.TransmitRequest
-	t       *testing.T
+	csaSigner crypto.Signer
+	packetsCh chan *packet
+	t         *testing.T
 }
 
 func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.PublicKey) (serverURL string) {
@@ -69,7 +70,7 @@ func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.Publ
 		t.Fatalf("[MAIN] failed to listen: %v", err)
 	}
 	serverURL = lis.Addr().String()
-	sMtls, err := mtls.NewTransportCredentials(srv.privKey, pubKeys)
+	sMtls, err := mtls.NewTransportSigner(srv.csaSigner, pubKeys)
 	require.NoError(t, err)
 	s := grpc.NewServer(grpc.Creds(sMtls))
 
@@ -86,12 +87,21 @@ func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.Publ
 	return
 }
 
-func NewMercuryServer(t *testing.T, privKey ed25519.PrivateKey, reqsCh chan *rpc.TransmitRequest) *mercuryServer {
-	return &mercuryServer{rpc.UnimplementedTransmitterServer{}, privKey, reqsCh, t}
+//nolint:containedctx // it's just to pass the context back for testing
+type packet struct {
+	req *rpc.TransmitRequest
+	ctx context.Context
+}
+
+func NewMercuryServer(t *testing.T, csaSigner crypto.Signer, packetsCh chan *packet) *mercuryServer {
+	return &mercuryServer{rpc.UnimplementedTransmitterServer{}, csaSigner, packetsCh, t}
 }
 
 func (s *mercuryServer) Transmit(ctx context.Context, req *rpc.TransmitRequest) (*rpc.TransmitResponse, error) {
-	s.reqsCh <- req
+	s.packetsCh <- &packet{
+		req: req,
+		ctx: ctx,
+	}
 
 	return &rpc.TransmitResponse{
 		Code:  1,
@@ -104,9 +114,9 @@ func (s *mercuryServer) LatestReport(ctx context.Context, lrr *rpc.LatestReportR
 }
 
 type wsrpcMercuryServer struct {
-	privKey ed25519.PrivateKey
-	reqsCh  chan wsrpcRequest
-	t       *testing.T
+	csaSigner crypto.Signer
+	reqsCh    chan wsrpcRequest
+	t         *testing.T
 }
 
 type wsrpcRequest struct {
@@ -118,8 +128,8 @@ func (r wsrpcRequest) TransmitterID() ocr2types.Account {
 	return ocr2types.Account(fmt.Sprintf("%x", r.pk))
 }
 
-func NewWSRPCMercuryServer(t *testing.T, privKey ed25519.PrivateKey, reqsCh chan wsrpcRequest) *wsrpcMercuryServer {
-	return &wsrpcMercuryServer{privKey, reqsCh, t}
+func NewWSRPCMercuryServer(t *testing.T, csaSigner crypto.Signer, reqsCh chan wsrpcRequest) *wsrpcMercuryServer {
+	return &wsrpcMercuryServer{csaSigner, reqsCh, t}
 }
 
 func (s *wsrpcMercuryServer) Transmit(ctx context.Context, req *pb.TransmitRequest) (*pb.TransmitResponse, error) {
@@ -147,7 +157,7 @@ func startWSRPCMercuryServer(t *testing.T, srv *wsrpcMercuryServer, pubKeys []ed
 		t.Fatalf("[MAIN] failed to listen: %v", err)
 	}
 	serverURL = lis.Addr().String()
-	s := wsrpc.NewServer(wsrpc.WithCreds(srv.privKey, pubKeys))
+	s := wsrpc.NewServer(wsrpc.WithSigner(srv.csaSigner, pubKeys))
 
 	// Register mercury implementation with the wsrpc server
 	pb.RegisterMercuryServer(s, srv)
@@ -200,7 +210,7 @@ func setupNode(
 	dbName string,
 	backend evmtypes.Backend,
 	csaKey csakey.KeyV2,
-	transmissionMode config.MercuryTransmitterProtocol,
+	f func(*chainlink.Config),
 ) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs) {
 	k := big.NewInt(int64(port)) // keys unique to port
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(k)
@@ -239,13 +249,22 @@ func setupNode(
 
 		// [Mercury]
 		c.Mercury.VerboseLogging = ptr(true)
-		c.Mercury.Transmitter.TransmitConcurrency = ptr(uint32(5)) // Avoid a ridiculous number of goroutines
-		if transmissionMode != "" {
-			c.Mercury.Transmitter.Protocol = ptr(transmissionMode)
+
+		// [Log]
+		c.Log.Level = ptr(toml.LogLevel(zapcore.DebugLevel)) // generally speaking we want debug level for logs unless overridden
+
+		// [EVM.Transactions]
+		for _, evmCfg := range c.EVM {
+			evmCfg.Transactions.Enabled = ptr(false) // don't need txmgr
+		}
+
+		// Optional overrides
+		if f != nil {
+			f(c)
 		}
 	})
 
-	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observedLogs := logger.TestLoggerObserved(t, config.Log().Level())
 	if backend != nil {
 		app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
 	} else {
@@ -416,7 +435,7 @@ func createSingleDecimalBridge(t *testing.T, name string, i int, p decimal.Decim
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		b, err := io.ReadAll(req.Body)
 		require.NoError(t, err)
-		require.Equal(t, `{"data":{"data":"foo"}}`, string(b))
+		require.JSONEq(t, `{"data":{"data":"foo"}}`, string(b))
 
 		res.WriteHeader(http.StatusOK)
 		val := p.String()
@@ -435,12 +454,11 @@ func createSingleDecimalBridge(t *testing.T, name string, i int, p decimal.Decim
 	return bridgeName
 }
 
-func createBridge(t *testing.T, bridgeName string, resultJSON string, borm bridges.ORM) {
+func createBridge(t *testing.T, bridgeName string, responseJSON string, borm bridges.ORM) {
 	ctx := testutils.Context(t)
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(http.StatusOK)
-		resp := fmt.Sprintf(`{"result": %s}`, resultJSON)
-		_, err := res.Write([]byte(resp))
+		_, err := res.Write([]byte(responseJSON))
 		if err != nil {
 			t.Fatalf("failed to write response: %v", err)
 		}
@@ -451,6 +469,16 @@ func createBridge(t *testing.T, bridgeName string, resultJSON string, borm bridg
 		Name: bridges.BridgeName(bridgeName),
 		URL:  models.WebURL(*u),
 	}))
+}
+
+func addMemoStreamSpecs(t *testing.T, node Node, streams []Stream) {
+	for _, strm := range streams {
+		addStreamSpec(t, node, fmt.Sprintf("memo-%d", strm.id), &strm.id, fmt.Sprintf(`
+	value         [type=memo value="%s"];
+	multiply 	  [type=multiply times=1];
+	value -> multiply;
+	`, strm.baseBenchmarkPrice))
+	}
 }
 
 func addOCRJobsEVMPremiumLegacy(

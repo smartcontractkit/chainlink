@@ -11,27 +11,29 @@ import (
 	"go.uber.org/multierr"
 
 	common "github.com/smartcontractkit/chainlink-common/pkg/chains"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas/rollups"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/monitor"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	trontxm "github.com/smartcontractkit/chainlink-tron/relayer/txm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas/rollups"
-	"github.com/smartcontractkit/chainlink/v2/evm/keystore"
-	"github.com/smartcontractkit/chainlink/v2/evm/monitor"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/tron"
 )
 
 type Chain interface {
@@ -41,13 +43,18 @@ type Chain interface {
 	Client() client.Client
 	Config() config.ChainScopedConfig
 	LogBroadcaster() log.Broadcaster
-	HeadBroadcaster() httypes.HeadBroadcaster
+	HeadBroadcaster() heads.Broadcaster
 	TxManager() txmgr.TxManager
-	HeadTracker() httypes.HeadTracker
+	HeadTracker() heads.Tracker
 	Logger() logger.Logger
 	BalanceMonitor() monitor.BalanceMonitor
 	LogPoller() logpoller.LogPoller
 	GasEstimator() gas.EvmFeeEstimator
+}
+
+// ChainTronSupport is an Chain interface extension for Tron support.
+type ChainTronSupport interface {
+	GetTronTXM() *trontxm.TronTxm
 }
 
 var (
@@ -108,13 +115,15 @@ type chain struct {
 	client          client.Client
 	txm             txmgr.TxManager
 	logger          logger.Logger
-	headBroadcaster httypes.HeadBroadcaster
-	headTracker     httypes.HeadTracker
+	headBroadcaster heads.Broadcaster
+	headTracker     heads.Tracker
 	logBroadcaster  log.Broadcaster
 	logPoller       logpoller.LogPoller
 	balanceMonitor  monitor.BalanceMonitor
-	keyStore        keystore.Eth
 	gasEstimator    gas.EvmFeeEstimator
+
+	// Extends with support for the Tron TXM
+	tronTxm *trontxm.TronTxm
 }
 
 type errChainDisabled struct {
@@ -125,24 +134,18 @@ func (e errChainDisabled) Error() string {
 	return fmt.Sprintf("cannot create new chain with ID %s, the chain is disabled", e.ChainID.String())
 }
 
-// TODO BCF-2509 what is this and does it need the entire app config?
-type AppConfig interface {
-	EVMRPCEnabled() bool
-	toml.HasEVMConfigs
-}
-
 type FeatureConfig interface {
 	LogPoller() bool
 }
 
 type ChainRelayOpts struct {
 	Logger   logger.Logger
-	KeyStore keystore.Eth
+	KeyStore keys.ChainStore
 	ChainOpts
 }
 
 type ChainOpts struct {
-	AppConfig      AppConfig
+	ChainConfigs   toml.EVMConfigs
 	DatabaseConfig txmgr.DatabaseConfig
 	FeatureConfig  FeatureConfig
 	ListenerConfig txmgr.ListenerConfig
@@ -154,18 +157,19 @@ type ChainOpts struct {
 
 	// TODO BCF-2513 remove test code from the API
 	// Gen-functions are useful for dependency injection by tests
+	GenChainStore     func(ks core.Keystore, i *big.Int) keys.ChainStore
 	GenEthClient      func(*big.Int) client.Client
 	GenLogBroadcaster func(*big.Int) log.Broadcaster
 	GenLogPoller      func(*big.Int) logpoller.LogPoller
-	GenHeadTracker    func(*big.Int, httypes.HeadBroadcaster) httypes.HeadTracker
+	GenHeadTracker    func(*big.Int, heads.Broadcaster) heads.Tracker
 	GenTxManager      func(*big.Int) txmgr.TxManager
 	GenGasEstimator   func(*big.Int) gas.EvmFeeEstimator
 }
 
 func (o ChainOpts) Validate() error {
 	var err error
-	if o.AppConfig == nil {
-		err = errors.Join(err, errors.New("nil AppConfig"))
+	if o.ChainConfigs == nil {
+		err = errors.Join(err, errors.New("nil ChainConfigs"))
 	}
 	if o.DatabaseConfig == nil {
 		err = errors.Join(err, errors.New("nil DatabaseConfig"))
@@ -176,7 +180,6 @@ func (o ChainOpts) Validate() error {
 	if o.ListenerConfig == nil {
 		err = errors.Join(err, errors.New("nil ListenerConfig"))
 	}
-
 	if o.MailMon == nil {
 		err = errors.Join(err, errors.New("nil MailMon"))
 	}
@@ -189,27 +192,26 @@ func (o ChainOpts) Validate() error {
 	return err
 }
 
-func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayOpts, clientsByChainID map[string]rollups.DAClient) (Chain, error) {
+func NewTOMLChain(chain *toml.EVMConfig, opts ChainRelayOpts, clientsByChainID map[string]rollups.DAClient) (Chain, error) {
 	err := opts.Validate()
 	if err != nil {
 		return nil, err
 	}
 	chainID := chain.ChainID
-	l := opts.Logger.With("evmChainID", chainID.String())
 	if !chain.IsEnabled() {
 		return nil, errChainDisabled{ChainID: chainID}
 	}
-	cfg := config.NewTOMLChainScopedConfig(chain, l)
+	cfg := config.NewTOMLChainScopedConfig(chain)
 	// note: per-chain validation is not necessary at this point since everything is checked earlier on boot.
-	return newChain(ctx, cfg, chain.Nodes, opts, clientsByChainID)
+	return newChain(cfg, chain.Nodes, opts, clientsByChainID)
 }
 
-func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, clientsByChainID map[string]rollups.DAClient) (*chain, error) {
+func newChain(cfg *config.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, clientsByChainID map[string]rollups.DAClient) (*chain, error) {
 	chainID := cfg.EVM().ChainID()
 	l := opts.Logger
 	var cl client.Client
 	var err error
-	if !opts.AppConfig.EVMRPCEnabled() {
+	if !opts.ChainConfigs.RPCEnabled() {
 		cl = client.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
 		cl, err = client.NewEvmClient(cfg.EVM().NodePool(), cfg.EVM(), cfg.EVM().NodePool().Errors(), l, chainID, nodes, cfg.EVM().ChainType())
@@ -220,20 +222,20 @@ func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, 
 		cl = opts.GenEthClient(chainID)
 	}
 
-	headBroadcaster := headtracker.NewHeadBroadcaster(l)
-	headSaver := headtracker.NullSaver
-	var headTracker httypes.HeadTracker
-	if !opts.AppConfig.EVMRPCEnabled() {
-		headTracker = headtracker.NullTracker
+	headBroadcaster := heads.NewBroadcaster(l)
+	headSaver := heads.NullSaver
+	var headTracker heads.Tracker
+	if !opts.ChainConfigs.RPCEnabled() {
+		headTracker = heads.NullTracker
 	} else if opts.GenHeadTracker == nil {
-		var orm headtracker.ORM
+		var orm heads.ORM
 		if cfg.EVM().HeadTracker().PersistenceEnabled() {
-			orm = headtracker.NewORM(*chainID, opts.DS)
+			orm = heads.NewORM(*chainID, opts.DS)
 		} else {
-			orm = headtracker.NewNullORM()
+			orm = heads.NewNullORM()
 		}
-		headSaver = headtracker.NewHeadSaver(l, orm, cfg.EVM(), cfg.EVM().HeadTracker())
-		headTracker = headtracker.NewHeadTracker(l, cl, cfg.EVM(), cfg.EVM().HeadTracker(), headBroadcaster, headSaver, opts.MailMon)
+		headSaver = heads.NewSaver(l, orm, cfg.EVM(), cfg.EVM().HeadTracker())
+		headTracker = heads.NewTracker(l, cl, cfg.EVM(), cfg.EVM().HeadTracker(), headBroadcaster, headSaver, opts.MailMon)
 	} else {
 		headTracker = opts.GenHeadTracker(chainID, headBroadcaster)
 	}
@@ -248,13 +250,19 @@ func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, 
 				UseFinalityTag:           cfg.EVM().FinalityTagEnabled(),
 				FinalityDepth:            int64(cfg.EVM().FinalityDepth()),
 				BackfillBatchSize:        int64(cfg.EVM().LogBackfillBatchSize()),
-				RpcBatchSize:             int64(cfg.EVM().RPCDefaultBatchSize()),
+				RPCBatchSize:             int64(cfg.EVM().RPCDefaultBatchSize()),
 				KeepFinalizedBlocksDepth: int64(cfg.EVM().LogKeepBlocksDepth()),
 				LogPrunePageSize:         int64(cfg.EVM().LogPrunePageSize()),
 				BackupPollerBlockDelay:   int64(cfg.EVM().BackupLogPollerBlockDelay()),
 				ClientErrors:             cfg.EVM().NodePool().Errors(),
 			}
-			logPoller = logpoller.NewLogPoller(logpoller.NewObservedORM(chainID, opts.DS, l), cl, l, headTracker, lpOpts)
+
+			lpORM, err := logpoller.NewObservedORM(chainID, opts.DS, l)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create logpoller observed ORM: %w", err)
+			}
+
+			logPoller = logpoller.NewLogPoller(lpORM, cl, l, headTracker, lpOpts)
 		}
 	}
 
@@ -267,8 +275,10 @@ func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, 
 	// note: gas estimator is started as a part of the txm
 	var txm txmgr.TxManager
 	//nolint:gocritic // ignoring suggestion to convert to switch statement
-	if !opts.AppConfig.EVMRPCEnabled() {
+	if !opts.ChainConfigs.RPCEnabled() {
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
+	} else if cfg.EVM().ChainType() == chaintype.ChainTron {
+		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("EVM TXM disabled for tron based chains %d, using Tron TXM instead", chainID)}
 	} else if !cfg.EVM().Transactions().Enabled() {
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("TXM disabled for chain %d", chainID)}
 	} else {
@@ -280,26 +290,20 @@ func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, 
 
 	headBroadcaster.Subscribe(txm)
 
-	// Highest seen head height is used as part of the start of LogBroadcaster backfill range
-	highestSeenHead, err := headSaver.LatestHeadFromDB(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	var balanceMonitor monitor.BalanceMonitor
-	if opts.AppConfig.EVMRPCEnabled() && cfg.EVM().BalanceMonitor().Enabled() {
+	if opts.ChainConfigs.RPCEnabled() && cfg.EVM().BalanceMonitor().Enabled() {
 		balanceMonitor = monitor.NewBalanceMonitor(cl, opts.KeyStore, l)
 		headBroadcaster.Subscribe(balanceMonitor)
 	}
 
 	var logBroadcaster log.Broadcaster
-	if !opts.AppConfig.EVMRPCEnabled() {
+	if !opts.ChainConfigs.RPCEnabled() {
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if !cfg.EVM().LogBroadcasterEnabled() {
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("LogBroadcaster disabled for chain %d", chainID)}
 	} else if opts.GenLogBroadcaster == nil {
 		logORM := log.NewORM(opts.DS, *chainID)
-		logBroadcaster = log.NewBroadcaster(logORM, cl, cfg.EVM(), l, highestSeenHead, opts.MailMon)
+		logBroadcaster = log.NewBroadcaster(logORM, cl, cfg.EVM(), l, headSaver.LatestHeadFromDB, opts.MailMon)
 	} else {
 		logBroadcaster = opts.GenLogBroadcaster(chainID)
 	}
@@ -310,6 +314,15 @@ func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, 
 	logBroadcaster.AddDependents(1)
 
 	headBroadcaster.Subscribe(logBroadcaster)
+
+	// Construct the Tron TXM, will be nil if the chaintype is not tron
+	var tronTxm *trontxm.TronTxm
+	if cfg.EVM().ChainType() == chaintype.ChainTron {
+		tronTxm, err = tron.ConstructTronTxm(l, cfg, nodes, opts.KeyStore)
+		if err != nil {
+			return nil, fmt.Errorf("failed to construct tron txm: %w", err)
+		}
+	}
 
 	return &chain{
 		id:              chainID,
@@ -322,8 +335,10 @@ func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, 
 		logBroadcaster:  logBroadcaster,
 		logPoller:       logPoller,
 		balanceMonitor:  balanceMonitor,
-		keyStore:        opts.KeyStore,
 		gasEstimator:    gasEstimator,
+
+		// Extends with support for the Tron TXM
+		tronTxm: tronTxm,
 	}, nil
 }
 
@@ -345,6 +360,12 @@ func (c *chain) Start(ctx context.Context) error {
 		if err := ms.Start(ctx, c.txm, c.headBroadcaster, c.headTracker, c.logBroadcaster); err != nil {
 			return err
 		}
+
+		if c.cfg.EVM().ChainType() == chaintype.ChainTron {
+			c.gasEstimator.Start(ctx) // Still need gas estimator to be working for the OCR2 plugin
+			c.tronTxm.Start(ctx)
+		}
+
 		if c.balanceMonitor != nil {
 			if err := ms.Start(ctx, c.balanceMonitor); err != nil {
 				return err
@@ -371,6 +392,13 @@ func (c *chain) Close() error {
 		merr = multierr.Combine(merr, c.headBroadcaster.Close())
 		c.logger.Debug("Chain: stopping evmTxm")
 		merr = multierr.Combine(merr, c.txm.Close())
+
+		// Tron doesn't use the EVM TXM but still uses the gas estimator, we'll close it here
+		if c.cfg.EVM().ChainType() == chaintype.ChainTron {
+			merr = multierr.Combine(merr, c.gasEstimator.Close())
+			merr = multierr.Combine(merr, c.tronTxm.Close())
+		}
+
 		c.logger.Debug("Chain: stopping client")
 		c.client.Close()
 		c.logger.Debug("Chain: stopped")
@@ -412,6 +440,14 @@ func (c *chain) HealthReport() map[string]error {
 
 func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	return errors.New("LOOPP not yet supported")
+}
+
+func (c *chain) Replay(ctx context.Context, fromBlock string, args map[string]any) error {
+	block, err := strconv.ParseInt(fromBlock, 10, 64)
+	if err != nil {
+		return err
+	}
+	return c.logPoller.Replay(ctx, block)
 }
 
 func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
@@ -488,14 +524,17 @@ func (c *chain) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken 
 	return common.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
 }
 
-func (c *chain) ID() *big.Int                             { return c.id }
-func (c *chain) Client() client.Client                    { return c.client }
-func (c *chain) Config() config.ChainScopedConfig         { return c.cfg }
-func (c *chain) LogBroadcaster() log.Broadcaster          { return c.logBroadcaster }
-func (c *chain) LogPoller() logpoller.LogPoller           { return c.logPoller }
-func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster { return c.headBroadcaster }
-func (c *chain) TxManager() txmgr.TxManager               { return c.txm }
-func (c *chain) HeadTracker() httypes.HeadTracker         { return c.headTracker }
-func (c *chain) Logger() logger.Logger                    { return c.logger }
-func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
-func (c *chain) GasEstimator() gas.EvmFeeEstimator        { return c.gasEstimator }
+func (c *chain) ID() *big.Int                           { return c.id }
+func (c *chain) Client() client.Client                  { return c.client }
+func (c *chain) Config() config.ChainScopedConfig       { return c.cfg }
+func (c *chain) LogBroadcaster() log.Broadcaster        { return c.logBroadcaster }
+func (c *chain) LogPoller() logpoller.LogPoller         { return c.logPoller }
+func (c *chain) HeadBroadcaster() heads.Broadcaster     { return c.headBroadcaster }
+func (c *chain) TxManager() txmgr.TxManager             { return c.txm }
+func (c *chain) HeadTracker() heads.Tracker             { return c.headTracker }
+func (c *chain) Logger() logger.Logger                  { return c.logger }
+func (c *chain) BalanceMonitor() monitor.BalanceMonitor { return c.balanceMonitor }
+func (c *chain) GasEstimator() gas.EvmFeeEstimator      { return c.gasEstimator }
+
+// Add ChainTronSupport
+func (c *chain) GetTronTXM() *trontxm.TronTxm { return c.tronTxm }

@@ -20,12 +20,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/http"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 const (
@@ -166,7 +166,7 @@ func NewUSDCTokenDataReaderWithHttpClient(
 // configured.
 func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, tokenIndex int) ([]byte, error) {
 	if tokenIndex < 0 || tokenIndex >= len(msg.TokenAmounts) {
-		return nil, fmt.Errorf("token index out of bounds")
+		return nil, errors.New("token index out of bounds")
 	}
 
 	if s.inCoolDownPeriod() {

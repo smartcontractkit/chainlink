@@ -7,7 +7,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 const (
@@ -19,8 +20,8 @@ type EnvironmentConfig struct {
 	JDConfig JDConfig
 }
 
-func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config EnvironmentConfig) (*deployment.Environment, *DON, error) {
-	chains, err := NewChains(lggr, config.Chains)
+func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config EnvironmentConfig) (*cldf.Environment, *DON, error) {
+	chains, solChains, err := NewChains(lggr, config.Chains)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create chains: %w", err)
 	}
@@ -38,22 +39,32 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 	}
 	var nodeIDs []string
 	if jd.don != nil {
-		err = jd.don.CreateSupportedChains(ctx(), config.Chains, *jd)
-		if err != nil {
-			return nil, nil, err
+		// Gateway DON doesn't require any chain setup, and trying to create chains for it will fail,
+		// because its nodes are missing chain-related configuration. Of course, we could add that configuration,
+		// but its not how it is setup on production.
+		if len(config.Chains) > 0 {
+			err = jd.don.CreateSupportedChains(ctx(), config.Chains, *jd)
+			if err != nil {
+				return nil, nil, err
+			}
 		}
 		nodeIDs = jd.don.NodeIds()
 	}
 
-	return deployment.NewEnvironment(
+	return cldf.NewEnvironment(
 		DevEnv,
 		lggr,
-		deployment.NewMemoryAddressBook(),
+		cldf.NewMemoryAddressBook(),
+		datastore.NewMemoryDataStore[
+			datastore.DefaultMetadata,
+			datastore.DefaultMetadata,
+		]().Seal(),
 		chains,
-		nil, // sending nil for solana chains right now, we can build this when we need it
+		solChains,
+		nil, // sending nil for aptos chains right now, we can build this when we need it
 		nodeIDs,
 		offChain,
 		ctx,
-		deployment.XXXGenerateTestOCRSecrets(),
+		cldf.XXXGenerateTestOCRSecrets(),
 	), jd.don, nil
 }

@@ -19,17 +19,18 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_2_0"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+
+	commit_store_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/logpollerutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 const (
@@ -248,11 +249,11 @@ func (c *CommitStore) ChangeConfig(_ context.Context, onchainConfig []byte, offc
 	defer c.configMu.Unlock()
 
 	if c.estimator == nil {
-		return "", fmt.Errorf("this CommitStore estimator is nil. SetGasEstimator should be called before ChangeConfig")
+		return "", errors.New("this CommitStore estimator is nil. SetGasEstimator should be called before ChangeConfig")
 	}
 
 	if c.sourceMaxGasPrice == nil {
-		return "", fmt.Errorf("this CommitStore sourceMaxGasPrice is nil. SetSourceMaxGasPrice should be called before ChangeConfig")
+		return "", errors.New("this CommitStore sourceMaxGasPrice is nil. SetSourceMaxGasPrice should be called before ChangeConfig")
 	}
 
 	c.gasPriceEstimator = prices.NewDAGasPriceEstimator(

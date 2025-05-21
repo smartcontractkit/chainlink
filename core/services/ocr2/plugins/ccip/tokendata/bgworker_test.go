@@ -2,6 +2,7 @@ package tokendata_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -12,9 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 func TestBackgroundWorker(t *testing.T) {
@@ -73,8 +74,8 @@ func TestBackgroundWorker(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, tokenData[msg.TokenAmounts[0].Token], b[0])
 	}
-	assert.True(t, time.Since(tStart) < 600*time.Millisecond)
-	assert.True(t, time.Since(tStart) > 200*time.Millisecond)
+	assert.Less(t, time.Since(tStart), 600*time.Millisecond)
+	assert.Greater(t, time.Since(tStart), 200*time.Millisecond)
 
 	tStart = time.Now()
 	for _, msg := range msgs {
@@ -82,7 +83,7 @@ func TestBackgroundWorker(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, tokenData[msg.TokenAmounts[0].Token], b[0])
 	}
-	assert.True(t, time.Since(tStart) < 200*time.Millisecond)
+	assert.Less(t, time.Since(tStart), 200*time.Millisecond)
 
 	w.AddJobsFromMsgs(ctx, msgs) // same messages are added but they should already be in cache
 	tStart = time.Now()
@@ -91,7 +92,7 @@ func TestBackgroundWorker(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, tokenData[msg.TokenAmounts[0].Token], b[0])
 	}
-	assert.True(t, time.Since(tStart) < 200*time.Millisecond)
+	assert.Less(t, time.Since(tStart), 200*time.Millisecond)
 
 	require.NoError(t, w.Close())
 }
@@ -127,7 +128,7 @@ func TestBackgroundWorker_RetryOnErrors(t *testing.T) {
 
 	// reader2 returns an error
 	rdr2.On("ReadTokenData", mock.Anything, msgs[1], 0).
-		Return(nil, fmt.Errorf("some err")).Once()
+		Return(nil, errors.New("some err")).Once()
 
 	w.AddJobsFromMsgs(ctx, msgs)
 	// processing of the messages should have started at this point

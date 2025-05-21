@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,16 +22,16 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var (
@@ -153,7 +154,7 @@ func (lsn *Listener) Start(ctx context.Context) error {
 		go lsn.RunLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
 		go lsn.RunHeadListener(unsubscribeHeadBroadcaster)
 
-		lsn.MailMon.Monitor(lsn.ReqLogs, "VRFListener", "RequestLogs", fmt.Sprint(lsn.Job.ID))
+		lsn.MailMon.Monitor(lsn.ReqLogs, "VRFListener", "RequestLogs", strconv.Itoa(int(lsn.Job.ID)))
 		return nil
 	})
 }

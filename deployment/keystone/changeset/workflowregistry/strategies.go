@@ -6,32 +6,32 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	mcmslib "github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/sdk"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
 type strategy interface {
-	Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (deployment.ChangesetOutput, error)
+	Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (cldf.ChangesetOutput, error)
 }
 
 type simpleTransaction struct {
-	chain deployment.Chain
+	chain cldf.Chain
 }
 
-func (s *simpleTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (deployment.ChangesetOutput, error) {
+func (s *simpleTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (cldf.ChangesetOutput, error) {
 	tx, err := callFn(s.chain.DeployerKey)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	_, err = s.chain.Confirm(tx)
-	return deployment.ChangesetOutput{}, err
+	return cldf.ChangesetOutput{}, err
 }
 
 type mcmsTransaction struct {
@@ -40,46 +40,50 @@ type mcmsTransaction struct {
 	Address     common.Address
 	ChainSel    uint64
 	ContractSet *changeset.ContractSet
+	Env         cldf.Environment
 }
 
-func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (deployment.ChangesetOutput, error) {
-	opts := deployment.SimTransactOpts()
+func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (cldf.ChangesetOutput, error) {
+	opts := cldf.SimTransactOpts()
 
 	tx, err := callFn(opts)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
-	op := timelock.BatchChainOperation{
-		ChainIdentifier: mcms.ChainIdentifier(m.ChainSel),
-		Batch: []mcms.Operation{
-			{
-				Data:  tx.Data(),
-				To:    m.Address,
-				Value: big.NewInt(0),
-			},
-		},
+	op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
 	}
 
-	timelocksPerChain := map[uint64]common.Address{
-		m.ChainSel: m.ContractSet.Timelock.Address(),
+	timelocksPerChain := map[uint64]string{
+		m.ChainSel: m.ContractSet.Timelock.Address().Hex(),
 	}
-	proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
-		m.ChainSel: m.ContractSet.ProposerMcm,
+	proposerMCMSes := map[uint64]string{
+		m.ChainSel: m.ContractSet.ProposerMcm.Address().Hex(),
+	}
+	inspector, err := proposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	inspectorPerChain := map[uint64]sdk.Inspector{
+		m.ChainSel: inspector,
 	}
 
-	proposal, err := proposalutils.BuildProposalFromBatches(
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		m.Env,
 		timelocksPerChain,
 		proposerMCMSes,
-		[]timelock.BatchChainOperation{op},
+		inspectorPerChain,
+		[]mcmstypes.BatchOperation{op},
 		m.Description,
-		m.Config.MinDuration,
+		proposalutils.TimelockConfig{MinDelay: m.Config.MinDuration},
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
-	return deployment.ChangesetOutput{
-		Proposals: []timelock.MCMSWithTimelockProposal{*proposal},
+	return cldf.ChangesetOutput{
+		MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
 	}, nil
 }

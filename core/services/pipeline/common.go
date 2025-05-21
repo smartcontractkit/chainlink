@@ -21,8 +21,8 @@ import (
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	cnull "github.com/smartcontractkit/chainlink/v2/core/null"
-	"github.com/smartcontractkit/chainlink/v2/evm/config"
 )
 
 const (
@@ -287,6 +287,16 @@ func (trrs *TaskRunResults) GetNextTaskOf(task TaskRunResult) *TaskRunResult {
 	}
 
 	return nil
+}
+
+func (trrs TaskRunResults) AllErrors() error {
+	var errs []error
+	for _, trr := range trrs {
+		if trr.Result.Error != nil {
+			errs = append(errs, trr.Result.Error)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 type TaskType string

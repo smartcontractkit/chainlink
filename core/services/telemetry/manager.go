@@ -11,8 +11,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
@@ -80,10 +81,25 @@ func (m *Manager) GenMonitoringEndpoint(network string, chainID string, contract
 	}
 
 	if m.useBatchSend {
-		return NewIngressAgentBatch(e.client, network, chainID, contractID, telemType)
+		return NewTypedIngressAgentBatch(e.client, network, chainID, contractID, telemType)
 	}
 
-	return NewIngressAgent(e.client, network, chainID, contractID, telemType)
+	return NewTypedIngressAgent(e.client, network, chainID, contractID, telemType)
+}
+
+func (m *Manager) GenMultitypeMonitoringEndpoint(network string, chainID string, contractID string) MultitypeMonitoringEndpoint {
+	e, found := m.getEndpoint(network, chainID)
+
+	if !found {
+		m.eng.Warnf("no telemetry endpoint found for network %q chainID %q, telemetry for contractID %q will NOT be sent", network, chainID, contractID)
+		return &NoopAgent{}
+	}
+
+	if m.useBatchSend {
+		return NewMultiIngressAgentBatch(e.client, network, chainID, contractID)
+	}
+
+	return NewMultiIngressAgent(e.client, network, chainID, contractID)
 }
 
 func (m *Manager) newEndpoint(e config.TelemetryIngressEndpoint, lggr logger.Logger, cfg config.TelemetryIngress) (services.Service, error) {
@@ -112,7 +128,7 @@ func (m *Manager) newEndpoint(e config.TelemetryIngressEndpoint, lggr logger.Log
 	if m.useBatchSend {
 		tClient = synchronization.NewTelemetryIngressBatchClient(e.URL(), e.ServerPubKey(), m.ks, cfg.Logging(), lggr, cfg.BufferSize(), cfg.MaxBatchSize(), cfg.SendInterval(), cfg.SendTimeout(), cfg.UniConn())
 	} else {
-		tClient = synchronization.NewTelemetryIngressClient(e.URL(), e.ServerPubKey(), m.ks, cfg.Logging(), lggr, cfg.BufferSize())
+		tClient = synchronization.NewTelemetryIngressClient(e.URL(), e.ServerPubKey(), m.ks, lggr, cfg.BufferSize())
 	}
 
 	te := telemetryEndpoint{

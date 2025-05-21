@@ -9,13 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
 	s4_svc "github.com/smartcontractkit/chainlink/v2/core/services/s4"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -291,7 +291,7 @@ func TestS4Integration_Expired(t *testing.T) {
 	for i := 0; i < don.size; i++ {
 		snapshot, err := don.orms[i].GetSnapshot(ctx, s4_svc.NewFullAddressRange())
 		require.NoError(t, err)
-		require.Len(t, snapshot, 0)
+		require.Empty(t, snapshot)
 	}
 }
 

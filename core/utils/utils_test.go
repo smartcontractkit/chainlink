@@ -41,7 +41,7 @@ func TestUtils_NewSecret(t *testing.T) {
 			t.Parallel()
 
 			secret := utils.NewSecret(test.numOfBytes)
-			assert.Equal(t, test.wantStrLen, len(secret))
+			assert.Len(t, secret, test.wantStrLen)
 		})
 	}
 }
@@ -74,7 +74,7 @@ func TestUtils_DurationFromNow(t *testing.T) {
 
 	future := time.Now().Add(time.Second)
 	duration := utils.DurationFromNow(future)
-	assert.True(t, 0 < duration)
+	assert.Positive(t, duration)
 }
 
 func TestBoundedQueue(t *testing.T) {
@@ -203,24 +203,6 @@ func TestHashPassword(t *testing.T) {
 
 	ok = utils.CheckPasswordHash("God", h)
 	assert.False(t, ok)
-}
-
-func TestBoxOutput(t *testing.T) {
-	t.Parallel()
-
-	output := utils.BoxOutput("some error %d %s", 123, "foo")
-	const expected = "\n" +
-		"↘↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↙\n" +
-		"→                      ←\n" +
-		"→  README README       ←\n" +
-		"→                      ←\n" +
-		"→  some error 123 foo  ←\n" +
-		"→                      ←\n" +
-		"→  README README       ←\n" +
-		"→                      ←\n" +
-		"↗↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↖\n" +
-		"\n"
-	assert.Equal(t, expected, output)
 }
 
 func TestISO8601UTC(t *testing.T) {
@@ -503,7 +485,7 @@ func TestErrorBuffer(t *testing.T) {
 		buff.Append(err2)
 		combined := buff.Flush()
 		errs := utils.UnwrapError(combined)
-		assert.Equal(t, 2, len(errs))
+		assert.Len(t, errs, 2)
 		assert.Equal(t, err1.Error(), errs[0].Error())
 		assert.Equal(t, err2.Error(), errs[1].Error())
 	})
@@ -517,7 +499,7 @@ func TestErrorBuffer(t *testing.T) {
 		buff.Append(err3)
 		combined := buff.Flush()
 		errs := utils.UnwrapError(combined)
-		assert.Equal(t, 2, len(errs))
+		assert.Len(t, errs, 2)
 		assert.Equal(t, err2.Error(), errs[0].Error())
 		assert.Equal(t, err3.Error(), errs[1].Error())
 	})
@@ -531,14 +513,14 @@ func TestErrorBuffer(t *testing.T) {
 
 		combined := buff.Flush()
 		errs := utils.UnwrapError(combined)
-		assert.Equal(t, 20, len(errs))
+		assert.Len(t, errs, 20)
 		assert.Equal(t, "err#20", errs[19].Error())
 	})
 
 	t.Run("UnwrapError returns the a single element err array if passed err is not a joinedError", func(t *testing.T) {
 		t.Parallel()
 		errs := utils.UnwrapError(err1)
-		assert.Equal(t, 1, len(errs))
+		assert.Len(t, errs, 1)
 		assert.Equal(t, err1.Error(), errs[0].Error())
 	})
 
@@ -547,6 +529,6 @@ func TestErrorBuffer(t *testing.T) {
 		buff := utils.ErrorBuffer{}
 
 		combined := buff.Flush()
-		require.Nil(t, combined)
+		require.NoError(t, combined)
 	})
 }

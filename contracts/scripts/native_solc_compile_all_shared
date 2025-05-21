@@ -47,3 +47,4 @@ compileContract mocks/WERC20Mock
 
 compileContract openzeppelin-solidity/v4.8.3/contracts/token/ERC20/ERC20 vendor
 compileContract multicall/ebd8b64/src/Multicall3 vendor
+compileContract canonical-weth/WETH9 vendor

@@ -1,6 +1,8 @@
 package validate
 
 import (
+	"crypto/sha256"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -32,13 +34,13 @@ func ValidatedCCIPSpec(tomlString string) (jb job.Job, err error) {
 		return job.Job{}, fmt.Errorf("the only supported type is currently 'ccip', got %s", jb.Type)
 	}
 	if jb.CCIPSpec.CapabilityLabelledName == "" {
-		return job.Job{}, fmt.Errorf("capabilityLabelledName must be set")
+		return job.Job{}, errors.New("capabilityLabelledName must be set")
 	}
 	if jb.CCIPSpec.CapabilityVersion == "" {
-		return job.Job{}, fmt.Errorf("capabilityVersion must be set")
+		return job.Job{}, errors.New("capabilityVersion must be set")
 	}
 	if jb.CCIPSpec.P2PKeyID == "" {
-		return job.Job{}, fmt.Errorf("p2pKeyID must be set")
+		return job.Job{}, errors.New("p2pKeyID must be set")
 	}
 
 	// ensure that the P2PV2Bootstrappers is in the right format.
@@ -72,7 +74,7 @@ func NewCCIPSpecToml(spec SpecArgs) (string, error) {
 		Name          string `toml:"name"`
 		ExternalJobID string `toml:"externalJobID"`
 	}
-	extJobID, err := uuid.NewRandom()
+	extJobID, err := ExternalJobID(spec)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate external job id: %w", err)
 	}
@@ -80,12 +82,27 @@ func NewCCIPSpecToml(spec SpecArgs) (string, error) {
 		SpecArgs:      spec,
 		Type:          "ccip",
 		SchemaVersion: 1,
-		Name:          fmt.Sprintf("%s-%s", "ccip", extJobID.String()),
-		ExternalJobID: extJobID.String(),
+		Name:          fmt.Sprintf("%s-%s", "ccip", extJobID),
+		ExternalJobID: extJobID,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal spec into toml: %w", err)
 	}
 
 	return string(marshaled), nil
+}
+
+func ExternalJobID(spec SpecArgs) (string, error) {
+	in := []byte(fmt.Sprintf("%s%s%s", spec.CapabilityLabelledName, spec.CapabilityVersion, spec.P2PKeyID))
+	sha256Hash := sha256.New()
+	sha256Hash.Write(in)
+	in = sha256Hash.Sum(nil)[:16]
+	// tag as valid UUID v4 https://github.com/google/uuid/blob/0f11ee6918f41a04c201eceeadf612a377bc7fbc/version4.go#L53-L54
+	in[6] = (in[6] & 0x0f) | 0x40 // Version 4
+	in[8] = (in[8] & 0x3f) | 0x80 // Variant is 10
+	id, err := uuid.FromBytes(in)
+	if err != nil {
+		return "", err
+	}
+	return id.String(), nil
 }

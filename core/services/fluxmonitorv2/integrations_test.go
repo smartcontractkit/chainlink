@@ -27,11 +27,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flags_wrapper"
+	faw "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
-	faw "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -44,9 +48,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 const description = "exactly thirty-three characters!!"
@@ -108,15 +109,17 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 
 	key, err := ethkey.NewV2()
 	require.NoError(t, err)
-	oracleTransactor, err := bind.NewKeyedTransactorWithChainID(key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
-	require.NoError(t, err)
+	oracleTransactor := &bind.TransactOpts{
+		From:   key.Address,
+		Signer: key.SignerFn(testutils.SimulatedChainID),
+	}
 
 	var f fluxAggregatorUniverse
 	f.evmChainID = *testutils.SimulatedChainID
 	f.key = key
-	f.sergey = testutils.MustNewSimTransactor(t)
-	f.neil = testutils.MustNewSimTransactor(t)
-	f.ned = testutils.MustNewSimTransactor(t)
+	f.sergey = evmtestutils.MustNewSimTransactor(t)
+	f.neil = evmtestutils.MustNewSimTransactor(t)
+	f.ned = evmtestutils.MustNewSimTransactor(t)
 	f.nallory = oracleTransactor
 	genesisData := gethtypes.GenesisAlloc{
 		f.sergey.From:  {Balance: assets.Ether(1000).ToInt()},
@@ -287,7 +290,7 @@ func checkSubmission(t *testing.T, p answerParams, currentBalance int64, receipt
 		require.Len(t, nrlogs, 1, "FluxAggregator did not emit correct NewRound "+
 			"log")
 	} else {
-		assert.Len(t, cltest.GetLogs(t, nil, inrlogs), 0, "FluxAggregator emitted "+
+		assert.Empty(t, cltest.GetLogs(t, nil, inrlogs), "FluxAggregator emitted "+
 			"unexpected NewRound log")
 	}
 
@@ -607,8 +610,8 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			expMetaMu.Lock()
 			defer expMetaMu.Unlock()
 			assert.Len(t, expectedMeta, 2, "expected metadata %v", expectedMeta)
-			assert.Greater(t, expectedMeta["100"].count, 0, "Stored answer metadata does not contain 100 but contains: %v", expectedMeta)
-			assert.Greater(t, expectedMeta["103"].count, 0, "Stored answer metadata does not contain 103 but contains: %v", expectedMeta)
+			assert.Positive(t, expectedMeta["100"].count, "Stored answer metadata does not contain 100 but contains: %v", expectedMeta)
+			assert.Positive(t, expectedMeta["103"].count, "Stored answer metadata does not contain 103 but contains: %v", expectedMeta)
 			assert.Greater(t, expectedMeta["103"].updatedAt, expectedMeta["100"].updatedAt)
 		})
 	}

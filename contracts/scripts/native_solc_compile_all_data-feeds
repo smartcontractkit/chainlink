@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo " ┌────────────────────────────────────────────────────┐"
+echo " │          Compiling Data Feeds contracts...         │"
+echo " └────────────────────────────────────────────────────┘"
+
+
+PROJECT="data-feeds"
+
+CONTRACTS_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../ && pwd -P )"
+echo "Contracts directory: $CONTRACTS_DIR"
+
+export FOUNDRY_PROFILE="$PROJECT"
+
+compileContract() {
+  local contract
+  contract=$(basename "$1")
+  echo "Compiling" "$contract"
+
+  local command
+  command="forge build $CONTRACTS_DIR/src/v0.8/$PROJECT/"$1.sol" \
+   --root $CONTRACTS_DIR \
+   --extra-output-files bin abi \
+   -o $CONTRACTS_DIR/solc/$PROJECT/$contract"
+
+  $command
+}
+
+
+compileContract BundleAggregatorProxy
+compileContract DataFeedsCache

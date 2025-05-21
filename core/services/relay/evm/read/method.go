@@ -16,10 +16,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var ErrEmptyContractReturnValue = errors.New("the contract return value was empty")
@@ -30,7 +29,7 @@ type MethodBinding struct {
 	method       string
 
 	// dependencies
-	client               evmclient.Client
+	client               EVMMethodClient
 	ht                   logpoller.HeadTracker
 	lggr                 logger.Logger
 	confirmationsMapping map[primitives.ConfidenceLevel]types.Confirmations
@@ -41,9 +40,14 @@ type MethodBinding struct {
 	mu       sync.RWMutex
 }
 
+type EVMMethodClient interface {
+	CodeAt(context.Context, common.Address, *big.Int) ([]byte, error)
+	CallContract(context.Context, ethereum.CallMsg, *big.Int) ([]byte, error)
+}
+
 func NewMethodBinding(
 	name, method string,
-	client evmclient.Client,
+	client EVMMethodClient,
 	heads logpoller.HeadTracker,
 	confs map[primitives.ConfidenceLevel]types.Confirmations,
 	lggr logger.Logger,

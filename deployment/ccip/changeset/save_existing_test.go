@@ -8,8 +8,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -30,28 +33,28 @@ func TestSaveExistingCCIP(t *testing.T) {
 	cfg := commonchangeset.ExistingContractsConfig{
 		ExistingContracts: []commonchangeset.Contract{
 			{
-				Address:        common.BigToAddress(big.NewInt(1)),
-				TypeAndVersion: deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0),
+				Address:        common.BigToAddress(big.NewInt(1)).String(),
+				TypeAndVersion: cldf.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0),
 				ChainSelector:  chain1,
 			},
 			{
-				Address:        common.BigToAddress(big.NewInt(2)),
-				TypeAndVersion: deployment.NewTypeAndVersion(changeset.WETH9, deployment.Version1_0_0),
+				Address:        common.BigToAddress(big.NewInt(2)).String(),
+				TypeAndVersion: cldf.NewTypeAndVersion(shared.WETH9, deployment.Version1_0_0),
 				ChainSelector:  chain1,
 			},
 			{
-				Address:        common.BigToAddress(big.NewInt(3)),
-				TypeAndVersion: deployment.NewTypeAndVersion(changeset.TokenAdminRegistry, deployment.Version1_5_0),
+				Address:        common.BigToAddress(big.NewInt(3)).String(),
+				TypeAndVersion: cldf.NewTypeAndVersion(shared.TokenAdminRegistry, deployment.Version1_5_0),
 				ChainSelector:  chain1,
 			},
 			{
-				Address:        common.BigToAddress(big.NewInt(4)),
-				TypeAndVersion: deployment.NewTypeAndVersion(changeset.RegistryModule, deployment.Version1_5_0),
+				Address:        common.BigToAddress(big.NewInt(4)).String(),
+				TypeAndVersion: cldf.NewTypeAndVersion(shared.RegistryModule, deployment.Version1_6_0),
 				ChainSelector:  chain2,
 			},
 			{
-				Address:        common.BigToAddress(big.NewInt(5)),
-				TypeAndVersion: deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_2_0),
+				Address:        common.BigToAddress(big.NewInt(5)).String(),
+				TypeAndVersion: cldf.NewTypeAndVersion(shared.Router, deployment.Version1_2_0),
 				ChainSelector:  chain2,
 			},
 		},
@@ -61,11 +64,12 @@ func TestSaveExistingCCIP(t *testing.T) {
 	require.NoError(t, err)
 	err = e.ExistingAddresses.Merge(output.AddressBook)
 	require.NoError(t, err)
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 	require.Equal(t, state.Chains[chain1].LinkToken.Address(), common.BigToAddress(big.NewInt(1)))
 	require.Equal(t, state.Chains[chain1].Weth9.Address(), common.BigToAddress(big.NewInt(2)))
 	require.Equal(t, state.Chains[chain1].TokenAdminRegistry.Address(), common.BigToAddress(big.NewInt(3)))
-	require.Equal(t, state.Chains[chain2].RegistryModule.Address(), common.BigToAddress(big.NewInt(4)))
+	require.NotEmpty(t, state.Chains[chain2].RegistryModules1_6)
+	require.Equal(t, state.Chains[chain2].RegistryModules1_6[0].Address(), common.BigToAddress(big.NewInt(4)))
 	require.Equal(t, state.Chains[chain2].Router.Address(), common.BigToAddress(big.NewInt(5)))
 }

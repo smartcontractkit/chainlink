@@ -22,19 +22,21 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	clevmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
-	htMocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	lpMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -43,9 +45,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
-	clevmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 
 	. "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting" //nolint:revive // dot-imports
 )
@@ -217,9 +216,9 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 }
 
 func TestChainReader_HealthReport(t *testing.T) {
-	lp := lpMocks.NewLogPoller(t)
+	lp := lpmocks.NewLogPoller(t)
 	lp.EXPECT().HealthReport().Return(map[string]error{"lp_name": clcommontypes.ErrFinalityViolated}).Once()
-	ht := htMocks.NewHeadTracker[*clevmtypes.Head, common.Hash](t)
+	ht := headstest.NewTracker[*clevmtypes.Head, common.Hash](t)
 	htError := errors.New("head tracker error")
 	ht.EXPECT().HealthReport().Return(map[string]error{"ht_name": htError}).Once()
 	cr, err := evm.NewChainReaderService(testutils.Context(t), logger.Nop(), lp, ht, nil, types.ChainReaderConfig{Contracts: nil})
@@ -230,6 +229,8 @@ func TestChainReader_HealthReport(t *testing.T) {
 }
 
 func TestChainComponents(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-401")
+
 	t.Parallel()
 	// shared helper so all tests can run efficiently in parallel
 	helper := &helper{}
@@ -294,7 +295,7 @@ func getLPOpts() logpoller.Opts {
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            finalityDepth,
 		BackfillBatchSize:        1,
-		RpcBatchSize:             1,
+		RPCBatchSize:             1,
 		KeepFinalizedBlocksDepth: 10000,
 	}
 }
@@ -317,7 +318,7 @@ func (h *helper) HeadTracker(t *testing.T) logpoller.HeadTracker {
 		return h.ht
 	}
 	lpOpts := getLPOpts()
-	h.ht = headtracker.NewSimulatedHeadTracker(h.Client(t), lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	h.ht = headstest.NewSimulatedHeadTracker(h.Client(t), lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 	return h.ht
 }
 

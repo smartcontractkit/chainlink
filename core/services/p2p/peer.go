@@ -2,12 +2,14 @@ package p2p
 
 import (
 	"context"
+	"crypto"
 	"crypto/ed25519"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/smartcontractkit/libocr/networking/ragedisco"
 	nettypes "github.com/smartcontractkit/libocr/networking/types"
 	"github.com/smartcontractkit/libocr/ragep2p"
@@ -16,6 +18,7 @@ import (
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -25,7 +28,7 @@ var (
 )
 
 type PeerConfig struct {
-	PrivateKey ed25519.PrivateKey
+	PrivateKey crypto.Signer
 	// List of <ip>:<port> addresses.
 	ListenAddresses []string
 	// List of <host>:<port> addresses. If empty, defaults to ListenAddresses.
@@ -57,7 +60,7 @@ type peer struct {
 var _ p2ptypes.Peer = &peer{}
 
 func NewPeer(cfg PeerConfig, lggr logger.Logger) (*peer, error) {
-	peerID, err := ragetypes.PeerIDFromPrivateKey(cfg.PrivateKey)
+	peerID, err := ragetypes.PeerIDFromPublicKey(cfg.PrivateKey.Public().(ed25519.PublicKey))
 	if err != nil {
 		return nil, fmt.Errorf("error extracting v2 peer ID from private key: %w", err)
 	}
@@ -77,9 +80,14 @@ func NewPeer(cfg PeerConfig, lggr logger.Logger) (*peer, error) {
 	discoverer := ragedisco.NewRagep2pDiscoverer(cfg.DeltaReconcile, announceAddresses, cfg.DiscovererDatabase, cfg.MetricsRegisterer)
 	commonLggr := commonlogger.NewOCRWrapper(lggr, true, func(string) {})
 
+	peerKeyring, err := ocrcommon.NewSignerPeerKeyring(cfg.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+
 	host, err := ragep2p.NewHost(
 		ragep2p.HostConfig{DurationBetweenDials: cfg.DeltaDial},
-		cfg.PrivateKey,
+		peerKeyring,
 		cfg.ListenAddresses,
 		discoverer,
 		commonLggr,

@@ -22,37 +22,37 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/counter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/weth9_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/counter"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/weth9"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_coordinator"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_load_test_client"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_router"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_gas_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/oracle_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/test_api_consumer_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/operator"
 	contractsethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_gas_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
 
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
+	iregistry22 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	iregistry21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_1"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_3"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
-	iregistry22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 )
 
 // OCRv2Config represents the config for the OCRv2 contract
@@ -475,20 +475,20 @@ func (e *EthereumOperatorFactory) DeployNewOperatorAndForwarder() (*types.Transa
 type EthereumOperator struct {
 	address  *common.Address
 	client   *seth.Client
-	operator *operator_wrapper.Operator
+	operator *operator.Operator
 	l        zerolog.Logger
 }
 
 func LoadEthereumOperator(logger zerolog.Logger, seth *seth.Client, contractAddress common.Address) (EthereumOperator, error) {
 
-	abi, err := operator_wrapper.OperatorMetaData.GetAbi()
+	abi, err := operator.OperatorMetaData.GetAbi()
 	if err != nil {
 		return EthereumOperator{}, err
 	}
 	seth.ContractStore.AddABI("EthereumOperator", *abi)
-	seth.ContractStore.AddBIN("EthereumOperator", common.FromHex(operator_wrapper.OperatorMetaData.Bin))
+	seth.ContractStore.AddBIN("EthereumOperator", common.FromHex(operator.OperatorMetaData.Bin))
 
-	operator, err := operator_wrapper.NewOperator(contractAddress, seth.Client)
+	operator, err := operator.NewOperator(contractAddress, seth.Client)
 	if err != nil {
 		return EthereumOperator{}, err
 	}
@@ -1481,22 +1481,22 @@ func (e *EthereumFunctionsLoadTestClient) SendRequestWithDONHostedSecrets(times 
 // EthereumWETHToken represents a WETH address
 type EthereumWETHToken struct {
 	client   *seth.Client
-	instance *weth9_wrapper.WETH9
+	instance *weth9.WETH9
 	address  common.Address
 	l        zerolog.Logger
 }
 
 func DeployWETHTokenContract(l zerolog.Logger, client *seth.Client) (*EthereumWETHToken, error) {
-	wethTokenAbi, err := weth9_wrapper.WETH9MetaData.GetAbi()
+	wethTokenAbi, err := weth9.WETH9MetaData.GetAbi()
 	if err != nil {
 		return &EthereumWETHToken{}, fmt.Errorf("failed to get WETH token ABI: %w", err)
 	}
-	wethDeploymentData, err := client.DeployContract(client.NewTXOpts(), "WETHToken", *wethTokenAbi, common.FromHex(weth9_wrapper.WETH9MetaData.Bin))
+	wethDeploymentData, err := client.DeployContract(client.NewTXOpts(), "WETHToken", *wethTokenAbi, common.FromHex(weth9.WETH9MetaData.Bin))
 	if err != nil {
 		return &EthereumWETHToken{}, fmt.Errorf("WETH token instance deployment failed: %w", err)
 	}
 
-	wethToken, err := weth9_wrapper.NewWETH9(wethDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, client))
+	wethToken, err := weth9.NewWETH9(wethDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, client))
 	if err != nil {
 		return &EthereumWETHToken{}, fmt.Errorf("failed to instantiate WETHToken instance: %w", err)
 	}
@@ -1510,15 +1510,15 @@ func DeployWETHTokenContract(l zerolog.Logger, client *seth.Client) (*EthereumWE
 }
 
 func LoadWETHTokenContract(l zerolog.Logger, client *seth.Client, address common.Address) (*EthereumWETHToken, error) {
-	abi, err := weth9_wrapper.WETH9MetaData.GetAbi()
+	abi, err := weth9.WETH9MetaData.GetAbi()
 	if err != nil {
 		return &EthereumWETHToken{}, fmt.Errorf("failed to get WETH token ABI: %w", err)
 	}
 
 	client.ContractStore.AddABI("WETHToken", *abi)
-	client.ContractStore.AddBIN("WETHToken", common.FromHex(weth9_wrapper.WETH9MetaData.Bin))
+	client.ContractStore.AddBIN("WETHToken", common.FromHex(weth9.WETH9MetaData.Bin))
 
-	wethToken, err := weth9_wrapper.NewWETH9(address, wrappers.MustNewWrappedContractBackend(nil, client))
+	wethToken, err := weth9.NewWETH9(address, wrappers.MustNewWrappedContractBackend(nil, client))
 	if err != nil {
 		return &EthereumWETHToken{}, fmt.Errorf("failed to instantiate WETHToken instance: %w", err)
 	}

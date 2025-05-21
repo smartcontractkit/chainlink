@@ -5,7 +5,11 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"math/big"
 	rand2 "math/rand/v2"
 	"strings"
 	"sync"
@@ -15,24 +19,27 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
+
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 
 	"github.com/stretchr/testify/require"
@@ -47,15 +54,26 @@ var rlConfig = ratelimiter.Config{
 	PerSenderBurst: 30,
 }
 
+var wlConfig = syncerlimiter.Config{
+	Global:   200,
+	PerOwner: 200,
+}
+
 type testEvtHandler struct {
 	events []syncer.Event
 	mux    sync.Mutex
+	errFn  func() error
 }
+
+func (m *testEvtHandler) Close() error { return nil }
 
 func (m *testEvtHandler) Handle(ctx context.Context, event syncer.Event) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	m.events = append(m.events, event)
+	if m.errFn != nil {
+		return m.errFn()
+	}
 	return nil
 }
 
@@ -75,8 +93,9 @@ func (m *testEvtHandler) GetEvents() []syncer.Event {
 	return eventsCopy
 }
 
-func newTestEvtHandler() *testEvtHandler {
+func newTestEvtHandler(errFn func() error) *testEvtHandler {
 	return &testEvtHandler{
+		errFn:  errFn,
 		events: make([]syncer.Event, 0),
 	}
 }
@@ -135,17 +154,18 @@ func Test_EventHandlerStateSync(t *testing.T) {
 		registerWorkflow(t, backendTH, wfRegistryC, workflow)
 	}
 
-	testEventHandler := newTestEvtHandler()
+	testEventHandler := newTestEvtHandler(nil)
 
 	// Create the registry
-	registry := syncer.NewWorkflowRegistry(
+	registry, err := syncer.NewWorkflowRegistry(
 		lggr,
 		func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.WorkflowEventPollerConfig{
-			QueryCount: 20,
+		syncer.Config{
+			QueryCount:   20,
+			SyncStrategy: syncer.SyncStrategyEvent,
 		},
 		testEventHandler,
 		&testDonNotifier{
@@ -154,8 +174,10 @@ func Test_EventHandlerStateSync(t *testing.T) {
 			},
 			err: nil,
 		},
+		syncer.NewEngineRegistry(),
 		syncer.WithTicker(eventPollTicker.C),
 	)
+	require.NoError(t, err)
 
 	servicetest.Run(t, registry)
 
@@ -165,7 +187,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 	}, tests.WaitTimeout(t), time.Second)
 
 	for _, event := range testEventHandler.GetEvents() {
-		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.GetEventType())
+		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.EventType)
 	}
 
 	testEventHandler.ClearEvents()
@@ -213,15 +235,15 @@ func Test_EventHandlerStateSync(t *testing.T) {
 			for idx, event := range events {
 				switch idx % 5 {
 				case 0:
-					assert.Equal(t, syncer.WorkflowRegisteredEvent, event.GetEventType())
+					assert.Equal(t, syncer.WorkflowRegisteredEvent, event.EventType)
 				case 1:
-					assert.Equal(t, syncer.WorkflowActivatedEvent, event.GetEventType())
+					assert.Equal(t, syncer.WorkflowActivatedEvent, event.EventType)
 				case 2:
-					assert.Equal(t, syncer.WorkflowPausedEvent, event.GetEventType())
+					assert.Equal(t, syncer.WorkflowPausedEvent, event.EventType)
 				case 3:
-					assert.Equal(t, syncer.WorkflowUpdatedEvent, event.GetEventType())
+					assert.Equal(t, syncer.WorkflowUpdatedEvent, event.EventType)
 				case 4:
-					assert.Equal(t, syncer.WorkflowDeletedEvent, event.GetEventType())
+					assert.Equal(t, syncer.WorkflowDeletedEvent, event.EventType)
 				}
 			}
 			return true
@@ -230,7 +252,6 @@ func Test_EventHandlerStateSync(t *testing.T) {
 		return false
 	}, tests.WaitTimeout(t), time.Second)
 }
-
 func Test_InitialStateSync(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
@@ -240,11 +261,9 @@ func Test_InitialStateSync(t *testing.T) {
 	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
 	backendTH.Backend.Commit()
 	require.NoError(t, err)
-
 	// setup contract state to allow the secrets to be updated
 	updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{donID}, true)
 	updateAuthorizedAddress(t, backendTH, wfRegistryC, []common.Address{backendTH.ContractsOwner.From}, true)
-
 	// The number of workflows should be greater than the workflow registry contracts pagination limit to ensure
 	// that the syncer will query the contract multiple times to get the full list of workflows
 	numberWorkflows := 250
@@ -262,18 +281,18 @@ func Test_InitialStateSync(t *testing.T) {
 		workflow.ID = workflowID
 		registerWorkflow(t, backendTH, wfRegistryC, workflow)
 	}
-
-	testEventHandler := newTestEvtHandler()
+	testEventHandler := newTestEvtHandler(nil)
 
 	// Create the worker
-	worker := syncer.NewWorkflowRegistry(
+	worker, err := syncer.NewWorkflowRegistry(
 		lggr,
 		func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.WorkflowEventPollerConfig{
-			QueryCount: 20,
+		syncer.Config{
+			QueryCount:   20,
+			SyncStrategy: syncer.SyncStrategyEvent,
 		},
 		testEventHandler,
 		&testDonNotifier{
@@ -282,8 +301,10 @@ func Test_InitialStateSync(t *testing.T) {
 			},
 			err: nil,
 		},
+		syncer.NewEngineRegistry(),
 		syncer.WithTicker(make(chan time.Time)),
 	)
+	require.NoError(t, err)
 
 	servicetest.Run(t, worker)
 
@@ -292,81 +313,201 @@ func Test_InitialStateSync(t *testing.T) {
 	}, tests.WaitTimeout(t), time.Second)
 
 	for _, event := range testEventHandler.GetEvents() {
-		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.GetEventType())
+		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.EventType)
 	}
 }
 
 func Test_SecretsWorker(t *testing.T) {
-	var (
-		ctx       = coretestutils.Context(t)
-		lggr      = logger.TestLogger(t)
-		emitter   = custmsg.NewLabeler()
-		backendTH = testutils.NewEVMBackendTH(t)
-		db        = pgtest.NewSqlxDB(t)
-		orm       = syncer.NewWorkflowRegistryDS(db, lggr)
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-732")
+	tc := []struct {
+		ss syncer.SyncStrategy
+	}{
+		{ss: syncer.SyncStrategyEvent},
+		{ss: syncer.SyncStrategyReconciliation},
+	}
 
-		giveTicker     = time.NewTicker(500 * time.Millisecond)
-		giveSecretsURL = "https://original-url.com"
-		donID          = uint32(1)
-		giveWorkflow   = RegisterWorkflowCMD{
-			Name:       "test-wf",
-			DonID:      donID,
-			Status:     uint8(1),
-			SecretsURL: giveSecretsURL,
-			BinaryURL:  "someurl",
+	for _, tt := range tc {
+		t.Run(string(tt.ss), func(t *testing.T) {
+			var (
+				ctx       = coretestutils.Context(t)
+				lggr      = logger.TestLogger(t)
+				emitter   = custmsg.NewLabeler()
+				backendTH = testutils.NewEVMBackendTH(t)
+				db        = pgtest.NewSqlxDB(t)
+				orm       = artifacts.NewWorkflowRegistryDS(db, lggr)
+
+				encryptionKey  = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+				workflowOwner  = backendTH.ContractsOwner.From.Hex()
+				beforeContents = "contents"
+				afterContents  = "updated contents"
+				giveTicker     = time.NewTicker(500 * time.Millisecond)
+				giveSecretsURL = "https://original-url.com"
+				donID          = uint32(1)
+				giveWorkflow   = RegisterWorkflowCMD{
+					Name:       "test-wf",
+					DonID:      donID,
+					Status:     uint8(0),
+					SecretsURL: giveSecretsURL,
+					BinaryURL:  "someurl",
+				}
+			)
+
+			beforeSecretsPayload := encryptSecrets(t, workflowOwner, map[string][]string{
+				"SECRET_A": {beforeContents},
+			}, encryptionKey)
+			afterSecretsPayload := encryptSecrets(t, workflowOwner, map[string][]string{
+				"SECRET_A": {afterContents},
+			}, encryptionKey)
+			fetcherFn := func(_ context.Context, _ string, _ ghcapabilities.Request) ([]byte, error) {
+				return afterSecretsPayload, nil
+			}
+
+			defer giveTicker.Stop()
+
+			// fill ID with randomd data
+			var giveID [32]byte
+			_, err := rand.Read((giveID)[:])
+			require.NoError(t, err)
+			giveWorkflow.ID = giveID
+
+			// Deploy a test workflow_registry
+			wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
+			backendTH.Backend.Commit()
+			require.NoError(t, err)
+
+			// Seed the DB
+			hash, err := crypto.Keccak256(append(backendTH.ContractsOwner.From[:], []byte(giveSecretsURL)...))
+			require.NoError(t, err)
+			giveHash := hex.EncodeToString(hash)
+
+			gotID, err := orm.Create(ctx, giveSecretsURL, giveHash, string(beforeSecretsPayload))
+			require.NoError(t, err)
+
+			gotSecretsURL, err := orm.GetSecretsURLByID(ctx, gotID)
+			require.NoError(t, err)
+			require.Equal(t, giveSecretsURL, gotSecretsURL)
+
+			// verify the DB
+			contents, err := orm.GetContents(ctx, giveSecretsURL)
+			require.NoError(t, err)
+			require.Equal(t, string(beforeSecretsPayload), contents)
+			rl, err := ratelimiter.NewRateLimiter(rlConfig)
+			require.NoError(t, err)
+
+			wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
+			require.NoError(t, err)
+
+			store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), encryptionKey, emitter)
+
+			engineRegistry := syncer.NewEngineRegistry()
+
+			evtHandler, err := syncer.NewEventHandler(lggr, nil, nil, engineRegistry,
+				emitter, rl, wl, store)
+			require.NoError(t, err)
+			handler := &testSecretsWorkEventHandler{
+				wrappedHandler: evtHandler,
+				registeredCh:   make(chan syncer.Event, 1),
+			}
+
+			worker, err := syncer.NewWorkflowRegistry(
+				lggr,
+				func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+					return backendTH.NewContractReader(ctx, t, bytes)
+				},
+				wfRegistryAddr.Hex(),
+				syncer.Config{
+					QueryCount:   20,
+					SyncStrategy: tt.ss,
+				},
+				handler,
+				&testDonNotifier{
+					don: capabilities.DON{
+						ID: donID,
+					},
+					err: nil,
+				},
+				engineRegistry,
+				syncer.WithTicker(giveTicker.C),
+			)
+			require.NoError(t, err)
+
+			// setup contract state to allow the secrets to be updated
+			updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{donID}, true)
+			updateAuthorizedAddress(t, backendTH, wfRegistryC, []common.Address{backendTH.ContractsOwner.From}, true)
+			registerWorkflow(t, backendTH, wfRegistryC, giveWorkflow)
+
+			servicetest.Run(t, worker)
+
+			// wait for the workflow to be registered
+			<-handler.registeredCh
+
+			// generate a log event
+			requestForceUpdateSecrets(t, backendTH, wfRegistryC, giveSecretsURL)
+
+			// Require the secrets contents to eventually be updated
+			require.Eventually(t, func() bool {
+				secrets, err := orm.GetContents(ctx, giveSecretsURL)
+				lggr.Debugf("got secrets %v", secrets)
+				require.NoError(t, err)
+				return secrets == string(afterSecretsPayload)
+			}, tests.WaitTimeout(t), time.Second)
+		})
+	}
+}
+
+func Test_RegistrySyncer_SkipsEventsNotBelongingToDON(t *testing.T) {
+	var (
+		lggr      = logger.TestLogger(t)
+		backendTH = testutils.NewEVMBackendTH(t)
+
+		giveTicker      = time.NewTicker(500 * time.Millisecond)
+		giveBinaryURL   = "https://original-url.com"
+		donID           = uint32(1)
+		otherDonID      = uint32(2)
+		skippedWorkflow = RegisterWorkflowCMD{
+			Name:      "test-wf2",
+			DonID:     otherDonID,
+			Status:    uint8(1),
+			BinaryURL: giveBinaryURL,
 		}
-		giveContents = "contents"
+		giveWorkflow = RegisterWorkflowCMD{
+			Name:      "test-wf",
+			DonID:     donID,
+			Status:    uint8(1),
+			BinaryURL: "someurl",
+		}
 		wantContents = "updated contents"
-		fetcherFn    = func(_ context.Context, _ string, _ uint32) ([]byte, error) {
-			return []byte(wantContents), nil
-		}
 	)
 
 	defer giveTicker.Stop()
-
-	// fill ID with randomd data
-	var giveID [32]byte
-	_, err := rand.Read((giveID)[:])
-	require.NoError(t, err)
-	giveWorkflow.ID = giveID
 
 	// Deploy a test workflow_registry
 	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
 	backendTH.Backend.Commit()
 	require.NoError(t, err)
 
-	// Seed the DB
-	hash, err := crypto.Keccak256(append(backendTH.ContractsOwner.From[:], []byte(giveSecretsURL)...))
+	from := [20]byte(backendTH.ContractsOwner.From)
+	id, err := pkgworkflows.GenerateWorkflowID(from[:], "test-wf", []byte(wantContents), []byte(""), "")
 	require.NoError(t, err)
-	giveHash := hex.EncodeToString(hash)
+	giveWorkflow.ID = id
 
-	gotID, err := orm.Create(ctx, giveSecretsURL, giveHash, giveContents)
+	from = [20]byte(backendTH.ContractsOwner.From)
+	id, err = pkgworkflows.GenerateWorkflowID(from[:], "test-wf", []byte(wantContents), []byte("dummy config"), "")
 	require.NoError(t, err)
+	skippedWorkflow.ID = id
 
-	gotSecretsURL, err := orm.GetSecretsURLByID(ctx, gotID)
-	require.NoError(t, err)
-	require.Equal(t, giveSecretsURL, gotSecretsURL)
+	handler := newTestEvtHandler(nil)
 
-	// verify the DB
-	contents, err := orm.GetContents(ctx, giveSecretsURL)
-	require.NoError(t, err)
-	require.Equal(t, contents, giveContents)
-
-	rl, err := ratelimiter.NewRateLimiter(rlConfig)
-	require.NoError(t, err)
-	handler := &testSecretsWorkEventHandler{
-		wrappedHandler: syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
-			emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl),
-		registeredCh: make(chan syncer.Event, 1),
-	}
-
-	worker := syncer.NewWorkflowRegistry(
+	worker, err := syncer.NewWorkflowRegistry(
 		lggr,
 		func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.WorkflowEventPollerConfig{QueryCount: 20},
+		syncer.Config{
+			QueryCount:   20,
+			SyncStrategy: syncer.SyncStrategyEvent,
+		},
 		handler,
 		&testDonNotifier{
 			don: capabilities.DON{
@@ -374,28 +515,25 @@ func Test_SecretsWorker(t *testing.T) {
 			},
 			err: nil,
 		},
+		syncer.NewEngineRegistry(),
 		syncer.WithTicker(giveTicker.C),
 	)
+	require.NoError(t, err)
 
 	// setup contract state to allow the secrets to be updated
-	updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{donID}, true)
+	updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{donID, otherDonID}, true)
 	updateAuthorizedAddress(t, backendTH, wfRegistryC, []common.Address{backendTH.ContractsOwner.From}, true)
-	registerWorkflow(t, backendTH, wfRegistryC, giveWorkflow)
 
 	servicetest.Run(t, worker)
 
-	// wait for the workflow to be registered
-	<-handler.registeredCh
-
 	// generate a log event
-	requestForceUpdateSecrets(t, backendTH, wfRegistryC, giveSecretsURL)
+	registerWorkflow(t, backendTH, wfRegistryC, skippedWorkflow)
+	registerWorkflow(t, backendTH, wfRegistryC, giveWorkflow)
 
-	// Require the secrets contents to eventually be updated
 	require.Eventually(t, func() bool {
-		secrets, err := orm.GetContents(ctx, giveSecretsURL)
-		lggr.Debugf("got secrets %v", secrets)
-		require.NoError(t, err)
-		return secrets == wantContents
+		// we process events in order, and should only receive 1 event
+		// the first is skipped as it belongs to another don.
+		return len(handler.GetEvents()) == 1
 	}, tests.WaitTimeout(t), time.Second)
 }
 
@@ -406,7 +544,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 		emitter   = custmsg.NewLabeler()
 		backendTH = testutils.NewEVMBackendTH(t)
 		db        = pgtest.NewSqlxDB(t)
-		orm       = syncer.NewWorkflowRegistryDS(db, lggr)
+		orm       = artifacts.NewWorkflowRegistryDS(db, lggr)
 
 		giveTicker    = time.NewTicker(500 * time.Millisecond)
 		giveBinaryURL = "https://original-url.com"
@@ -418,7 +556,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 			BinaryURL: giveBinaryURL,
 		}
 		wantContents = "updated contents"
-		fetcherFn    = func(_ context.Context, _ string, _ uint32) ([]byte, error) {
+		fetcherFn    = func(_ context.Context, _ string, _ ghcapabilities.Request) ([]byte, error) {
 			return []byte(base64.StdEncoding.EncodeToString([]byte(wantContents))), nil
 		}
 	)
@@ -438,16 +576,25 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	er := syncer.NewEngineRegistry()
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
-	handler := syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
-		emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, syncer.WithEngineRegistry(er))
 
-	worker := syncer.NewWorkflowRegistry(
+	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
+	require.NoError(t, err)
+
+	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
+
+	handler, err := syncer.NewEventHandler(lggr, nil, nil, er, emitter, rl, wl, store)
+	require.NoError(t, err)
+
+	worker, err := syncer.NewWorkflowRegistry(
 		lggr,
 		func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.WorkflowEventPollerConfig{QueryCount: 20},
+		syncer.Config{
+			QueryCount:   20,
+			SyncStrategy: syncer.SyncStrategyEvent,
+		},
 		handler,
 		&testDonNotifier{
 			don: capabilities.DON{
@@ -455,8 +602,10 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 			},
 			err: nil,
 		},
+		er,
 		syncer.WithTicker(giveTicker.C),
 	)
+	require.NoError(t, err)
 
 	// setup contract state to allow the secrets to be updated
 	updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{donID}, true)
@@ -469,8 +618,8 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 
 	// Require the secrets contents to eventually be updated
 	require.Eventually(t, func() bool {
-		_, err = er.Get("test-wf")
-		if err == nil {
+		_, ok := er.Get(syncer.EngineRegistryKey{Owner: backendTH.ContractsOwner.From.Bytes(), Name: "test-wf"})
+		if ok {
 			return false
 		}
 
@@ -492,12 +641,6 @@ func (m *mockService) Ready() error { return nil }
 
 func (m *mockService) Name() string { return "svc" }
 
-type mockEngineFactory struct{}
-
-func (m *mockEngineFactory) new(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error) {
-	return &mockService{}, nil
-}
-
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	var (
 		ctx       = coretestutils.Context(t)
@@ -505,7 +648,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 		emitter   = custmsg.NewLabeler()
 		backendTH = testutils.NewEVMBackendTH(t)
 		db        = pgtest.NewSqlxDB(t)
-		orm       = syncer.NewWorkflowRegistryDS(db, lggr)
+		orm       = artifacts.NewWorkflowRegistryDS(db, lggr)
 
 		giveTicker    = time.NewTicker(500 * time.Millisecond)
 		giveBinaryURL = "https://original-url.com"
@@ -517,7 +660,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 			BinaryURL: giveBinaryURL,
 		}
 		wantContents = "updated contents"
-		fetcherFn    = func(_ context.Context, _ string, _ uint32) ([]byte, error) {
+		fetcherFn    = func(_ context.Context, _ string, _ ghcapabilities.Request) ([]byte, error) {
 			return []byte(base64.StdEncoding.EncodeToString([]byte(wantContents))), nil
 		}
 	)
@@ -534,31 +677,28 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	require.NoError(t, err)
 	giveWorkflow.ID = id
 
-	mf := &mockEngineFactory{}
 	er := syncer.NewEngineRegistry()
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
-	handler := syncer.NewEventHandler(
-		lggr,
-		orm,
-		fetcherFn,
-		nil,
-		nil,
-		emitter,
-		clockwork.NewFakeClock(),
-		workflowkey.Key{},
-		rl,
-		syncer.WithEngineRegistry(er),
-		syncer.WithEngineFactoryFn(mf.new),
-	)
+	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
+	require.NoError(t, err)
 
-	worker := syncer.NewWorkflowRegistry(
+	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
+
+	handler, err := syncer.NewEventHandler(lggr, nil, nil, er,
+		emitter, rl, wl, store, syncer.WithStaticEngine(&mockService{}))
+	require.NoError(t, err)
+
+	worker, err := syncer.NewWorkflowRegistry(
 		lggr,
 		func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.WorkflowEventPollerConfig{QueryCount: 20},
+		syncer.Config{
+			QueryCount:   20,
+			SyncStrategy: syncer.SyncStrategyEvent,
+		},
 		handler,
 		&testDonNotifier{
 			don: capabilities.DON{
@@ -566,8 +706,10 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 			},
 			err: nil,
 		},
+		er,
 		syncer.WithTicker(giveTicker.C),
 	)
+	require.NoError(t, err)
 
 	// setup contract state to allow the secrets to be updated
 	updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{donID}, true)
@@ -580,15 +722,157 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 
 	// Require the secrets contents to eventually be updated
 	require.Eventually(t, func() bool {
-		_, err := er.Get("test-wf")
-		if err != nil {
-			return err != nil
+		_, ok := er.Get(syncer.EngineRegistryKey{Owner: backendTH.ContractsOwner.From.Bytes(), Name: "test-wf"})
+		if !ok {
+			return false
 		}
 
 		owner := strings.ToLower(backendTH.ContractsOwner.From.Hex()[2:])
 		_, err = orm.GetWorkflowSpec(ctx, owner, "test-wf")
 		return err == nil
 	}, tests.WaitTimeout(t), time.Second)
+}
+
+func Test_StratReconciliation_InitialStateSync(t *testing.T) {
+	t.Run("with heavy load", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		backendTH := testutils.NewEVMBackendTH(t)
+		donID := uint32(1)
+
+		// Deploy a test workflow_registry
+		wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
+		backendTH.Backend.Commit()
+		require.NoError(t, err)
+
+		// setup contract state to allow the secrets to be updated
+		updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{donID}, true)
+		updateAuthorizedAddress(t, backendTH, wfRegistryC, []common.Address{backendTH.ContractsOwner.From}, true)
+
+		// Use a high number of workflows
+		// Tested up to 7_000
+		numberWorkflows := 1_000
+		for i := 0; i < numberWorkflows; i++ {
+			var workflowID [32]byte
+			_, err = rand.Read((workflowID)[:])
+			require.NoError(t, err)
+			workflow := RegisterWorkflowCMD{
+				Name:       fmt.Sprintf("test-wf-%d", i),
+				DonID:      donID,
+				Status:     uint8(0),
+				SecretsURL: "someurl",
+				BinaryURL:  "someurl",
+			}
+			workflow.ID = workflowID
+			registerWorkflow(t, backendTH, wfRegistryC, workflow)
+		}
+
+		testEventHandler := newTestEvtHandler(nil)
+
+		// Create the worker
+		worker, err := syncer.NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+				return backendTH.NewContractReader(ctx, t, bytes)
+			},
+			wfRegistryAddr.Hex(),
+			syncer.Config{
+				QueryCount:   20,
+				SyncStrategy: syncer.SyncStrategyReconciliation,
+			},
+			testEventHandler,
+			&testDonNotifier{
+				don: capabilities.DON{
+					ID: donID,
+				},
+				err: nil,
+			},
+			syncer.NewEngineRegistry(),
+			syncer.WithRetryInterval(1*time.Second),
+		)
+		require.NoError(t, err)
+
+		servicetest.Run(t, worker)
+
+		require.Eventually(t, func() bool {
+			return len(testEventHandler.GetEvents()) == numberWorkflows
+		}, 30*time.Second, 1*time.Second)
+
+		for _, event := range testEventHandler.GetEvents() {
+			assert.Equal(t, syncer.WorkflowRegisteredEvent, event.EventType)
+		}
+	})
+}
+
+func Test_StratReconciliation_RetriesWithBackoff(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	backendTH := testutils.NewEVMBackendTH(t)
+	donID := uint32(1)
+
+	// Deploy a test workflow_registry
+	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
+	backendTH.Backend.Commit()
+	require.NoError(t, err)
+
+	// setup contract state to allow the secrets to be updated
+	updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{donID}, true)
+	updateAuthorizedAddress(t, backendTH, wfRegistryC, []common.Address{backendTH.ContractsOwner.From}, true)
+
+	var workflowID [32]byte
+	_, err = rand.Read((workflowID)[:])
+	require.NoError(t, err)
+	workflow := RegisterWorkflowCMD{
+		Name:       "test-wf",
+		DonID:      donID,
+		Status:     uint8(0),
+		SecretsURL: "someurl",
+		BinaryURL:  "someurl",
+	}
+	workflow.ID = workflowID
+	registerWorkflow(t, backendTH, wfRegistryC, workflow)
+
+	var retryCount int
+	testEventHandler := newTestEvtHandler(func() error {
+		if retryCount <= 1 {
+			retryCount++
+			return errors.New("error handling event")
+		}
+		return nil
+
+	})
+
+	// Create the worker
+	worker, err := syncer.NewWorkflowRegistry(
+		lggr,
+		func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+			return backendTH.NewContractReader(ctx, t, bytes)
+		},
+		wfRegistryAddr.Hex(),
+		syncer.Config{
+			QueryCount:   20,
+			SyncStrategy: syncer.SyncStrategyReconciliation,
+		},
+		testEventHandler,
+		&testDonNotifier{
+			don: capabilities.DON{
+				ID: donID,
+			},
+			err: nil,
+		},
+		syncer.NewEngineRegistry(),
+		syncer.WithRetryInterval(1*time.Second),
+	)
+	require.NoError(t, err)
+
+	servicetest.Run(t, worker)
+
+	require.Eventually(t, func() bool {
+		return len(testEventHandler.GetEvents()) == 1
+	}, 30*time.Second, 1*time.Second)
+
+	event := testEventHandler.GetEvents()[0]
+	assert.Equal(t, syncer.WorkflowRegisteredEvent, event.EventType)
+
+	assert.Equal(t, 1, retryCount)
 }
 
 func updateAuthorizedAddress(
@@ -726,6 +1010,7 @@ func updateWorkflow(
 }
 
 type evtHandler interface {
+	io.Closer
 	Handle(ctx context.Context, event syncer.Event) error
 }
 
@@ -734,14 +1019,41 @@ type testSecretsWorkEventHandler struct {
 	registeredCh   chan syncer.Event
 }
 
+func (m *testSecretsWorkEventHandler) Close() error { return m.wrappedHandler.Close() }
+
 func (m *testSecretsWorkEventHandler) Handle(ctx context.Context, event syncer.Event) error {
 	switch {
-	case event.GetEventType() == syncer.ForceUpdateSecretsEvent:
+	case event.EventType == syncer.ForceUpdateSecretsEvent:
 		return m.wrappedHandler.Handle(ctx, event)
-	case event.GetEventType() == syncer.WorkflowRegisteredEvent:
+	case event.EventType == syncer.WorkflowRegisteredEvent:
 		m.registeredCh <- event
 		return nil
 	default:
-		panic(fmt.Sprintf("unexpected event type: %v", event.GetEventType()))
+		panic(fmt.Sprintf("unexpected event type: %v", event.EventType))
 	}
+}
+
+func encryptSecrets(t *testing.T, workflowOwner string, secretsMap map[string][]string, encryptionKey workflowkey.Key) []byte {
+	sm, secretsEnvVars, err := secrets.EncryptSecretsForNodes(
+		workflowOwner,
+		secretsMap,
+		map[string][32]byte{
+			"p2pId": encryptionKey.PublicKey(),
+		},
+		secrets.SecretsConfig{},
+	)
+	require.NoError(t, err)
+
+	secretsPayload, err := json.Marshal(secrets.EncryptedSecretsResult{
+		EncryptedSecrets: sm,
+		Metadata: secrets.Metadata{
+			WorkflowOwner:          workflowOwner,
+			EnvVarsAssignedToNodes: secretsEnvVars,
+			NodePublicEncryptionKeys: map[string]string{
+				"p2pId": encryptionKey.PublicKeyString(),
+			},
+		},
+	})
+	require.NoError(t, err)
+	return secretsPayload
 }

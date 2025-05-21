@@ -15,15 +15,18 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/multicall3"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/multicall3"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 )
 
 const (
@@ -32,22 +35,27 @@ const (
 
 type batchTestSetup struct {
 	e            testhelpers.DeployedEnv
-	state        changeset.CCIPOnChainState
+	state        stateview.CCIPOnChainState
 	sourceChain1 uint64
 	sourceChain2 uint64
 	destChain    uint64
 }
 
-func newBatchTestSetup(t *testing.T) batchTestSetup {
+func newBatchTestSetup(t *testing.T, opts ...testhelpers.TestOps) batchTestSetup {
 	// Setup 3 chains, with 2 lanes going to the dest.
-	e, _, _ := testsetups.NewIntegrationEnvironment(
-		t,
+	options := []testhelpers.TestOps{
 		testhelpers.WithMultiCall3(),
 		testhelpers.WithNumOfChains(3),
 		testhelpers.WithNumOfUsersPerChain(2),
+	}
+	options = append(options, opts...)
+
+	e, _, _ := testsetups.NewIntegrationEnvironment(
+		t,
+		options...,
 	)
 
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	allChainSelectors := maps.Keys(e.Env.Chains)
@@ -134,10 +142,47 @@ func Test_CCIPBatching_MaxBatchSizeEVM(t *testing.T) {
 	require.NoErrorf(t, err, "failed to confirm commit from chain %d", sourceChain)
 }
 
+var multiRootReportOverride = testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+	params.CommitOffChainConfig.MultipleReportsEnabled = true
+	params.CommitOffChainConfig.MaxMerkleRootsPerReport = 1
+	return params
+})
+
+var multiPriceReportOverride = testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+	params.CommitOffChainConfig.MultipleReportsEnabled = true
+	params.CommitOffChainConfig.MaxMerkleRootsPerReport = 1
+	params.CommitOffChainConfig.MaxPricesPerReport = 1
+	return params
+})
+
 func Test_CCIPBatching_MultiSource(t *testing.T) {
+	ccipBatchingMultiSource(t)
+}
+
+func Test_CCIPBatching_MultiSource_MultiRoot(t *testing.T) {
+	ccipBatchingMultiSource(t, multiRootReportOverride)
+}
+
+func Test_CCIPBatching_MultiSource_MultiPrice(t *testing.T) {
+	ccipBatchingMultiSource(t, multiPriceReportOverride)
+}
+
+func Test_CCIPBatching_SingleSource(t *testing.T) {
+	ccipBatchingSingleSource(t)
+}
+
+func Test_CCIPBatching_SingleSource_MultiRoot(t *testing.T) {
+	ccipBatchingMultiSource(t, multiRootReportOverride)
+}
+
+func Test_CCIPBatching_SingleSource_MultiPrice(t *testing.T) {
+	ccipBatchingMultiSource(t, multiPriceReportOverride)
+}
+
+func ccipBatchingMultiSource(t *testing.T, opts ...testhelpers.TestOps) {
 	// Setup 3 chains, with 2 lanes going to the dest.
 	ctx := testhelpers.Context(t)
-	setup := newBatchTestSetup(t)
+	setup := newBatchTestSetup(t, opts...)
 	sourceChain1, sourceChain2, destChain, e, state := setup.sourceChain1, setup.sourceChain2, setup.destChain, setup.e, setup.state
 
 	var (
@@ -259,10 +304,10 @@ func Test_CCIPBatching_MultiSource(t *testing.T) {
 	}
 }
 
-func Test_CCIPBatching_SingleSource(t *testing.T) {
+func ccipBatchingSingleSource(t *testing.T, opts ...testhelpers.TestOps) {
 	// Setup 3 chains, with 2 lanes going to the dest.
 	ctx := testhelpers.Context(t)
-	setup := newBatchTestSetup(t)
+	setup := newBatchTestSetup(t, opts...)
 	sourceChain1, sourceChain2, destChain, e, state := setup.sourceChain1, setup.sourceChain2, setup.destChain, setup.e, setup.state
 
 	var (
@@ -323,7 +368,7 @@ type outputErr[T any] struct {
 func assertExecAsync(
 	t *testing.T,
 	e testhelpers.DeployedEnv,
-	state changeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	sourceChainSelector,
 	destChainSelector uint64,
 	seqNums []uint64,
@@ -346,7 +391,7 @@ func assertExecAsync(
 func assertCommitReportsAsync(
 	t *testing.T,
 	e testhelpers.DeployedEnv,
-	state changeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	sourceChainSelector,
 	destChainSelector uint64,
 	startSeqNum,
@@ -372,7 +417,7 @@ func sendMessagesAsync(
 	ctx context.Context,
 	t *testing.T,
 	e testhelpers.DeployedEnv,
-	state changeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	sourceChainSelector,
 	destChainSelector uint64,
 	numMessages int,
@@ -415,7 +460,7 @@ func sendMessagesAsync(
 func sendMessages(
 	ctx context.Context,
 	t *testing.T,
-	sourceChain deployment.Chain,
+	sourceChain cldf.Chain,
 	sourceTransactOpts *bind.TransactOpts,
 	sourceOnRamp onramp.OnRampInterface,
 	sourceRouter *router.Router,
@@ -450,7 +495,7 @@ func sendMessages(
 		},
 		calls,
 	)
-	_, err = deployment.ConfirmIfNoError(sourceChain, tx, err)
+	_, err = cldf.ConfirmIfNoError(sourceChain, tx, err)
 	if err != nil {
 		return fmt.Errorf("send messages via multicall3: %w", err)
 	}

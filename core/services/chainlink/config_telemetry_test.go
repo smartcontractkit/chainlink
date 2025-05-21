@@ -2,9 +2,11 @@ package chainlink
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
@@ -139,6 +141,66 @@ func TestTelemetryConfig_TraceSampleRatio(t *testing.T) {
 			assert.InEpsilon(t, tt.expected, tc.TraceSampleRatio(), 0.0001)
 		})
 	}
+}
+
+func TestTelemetryConfig_EmitterBatchProcessor(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  bool
+	}{
+		{"EmitterBatchProcessorTrue", toml.Telemetry{EmitterBatchProcessor: ptr(true)}, true},
+		{"EmitterBatchProcessorFalse", toml.Telemetry{EmitterBatchProcessor: ptr(false)}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.EmitterBatchProcessor())
+		})
+	}
+}
+
+func TestTelemetryConfig_EmitterExportTimeout(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  time.Duration
+	}{
+		{"EmitterExportTimeoutSet", toml.Telemetry{EmitterExportTimeout: ptrDuration(5 * time.Second)}, 5 * time.Second},
+		{"EmitterExportTimeoutNil", toml.Telemetry{EmitterExportTimeout: nil}, 0},
+		{"EmitterExportTimeoutZero", toml.Telemetry{EmitterExportTimeout: ptrDuration(0)}, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.EmitterExportTimeout())
+		})
+	}
+}
+
+func TestTelemetryConfig_ChipIngressEndpoint(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  string
+	}{
+		{"ChipIngressEndpointSet", toml.Telemetry{ChipIngressEndpoint: ptr("localhost:8080")}, "localhost:8080"},
+		{"ChipIngressEndpointNil", toml.Telemetry{ChipIngressEndpoint: nil}, ""},
+		{"ChipIngressEndpointEmpty", toml.Telemetry{ChipIngressEndpoint: ptr("")}, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.ChipIngressEndpoint())
+		})
+	}
+}
+
+func ptrDuration(d time.Duration) *config.Duration {
+	return config.MustNewDuration(d)
 }
 
 func ptrFloat(f float64) *float64 {

@@ -2,7 +2,7 @@ package evm
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"math/big"
 	"strings"
 	"sync/atomic"
@@ -21,16 +21,16 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_compatible_interface"
+	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/streams_lookup_compatible_interface"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	gasMocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mocks"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	gasMocks "github.com/smartcontractkit/chainlink/v2/evm/gas/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
@@ -107,8 +107,8 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				WorkID:   "work",
 			},
 			poller: &mockLogPoller{
-				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.LogPollerBlock, error) {
-					return []logpoller.LogPollerBlock{
+				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.Block, error) {
+					return []logpoller.Block{
 						{
 							BlockHash: common.HexToHash("abcdef"),
 						},
@@ -131,8 +131,8 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				WorkID:   "work",
 			},
 			poller: &mockLogPoller{
-				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.LogPollerBlock, error) {
-					return []logpoller.LogPollerBlock{
+				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.Block, error) {
+					return []logpoller.Block{
 						{
 							BlockHash: common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
 						},
@@ -155,8 +155,8 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				WorkID:   "work",
 			},
 			poller: &mockLogPoller{
-				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.LogPollerBlock, error) {
-					return []logpoller.LogPollerBlock{
+				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.Block, error) {
+					return []logpoller.Block{
 						{
 							BlockHash: common.HexToHash("0xcba5cf9e2bb32373c76015384e1098912d9510a72481c78057fcb088209167de"),
 						},
@@ -200,7 +200,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 			}
 			if tc.makeEthCall {
 				client := new(clienttest.Client)
-				client.On("BlockByNumber", mock.Anything, tc.checkBlock).Return(nil, fmt.Errorf("error"))
+				client.On("BlockByNumber", mock.Anything, tc.checkBlock).Return(nil, errors.New("error"))
 				e.client = client
 			}
 
@@ -213,11 +213,11 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 
 type mockLogPoller struct {
 	logpoller.LogPoller
-	GetBlocksRangeFn func(ctx context.Context, numbers []uint64) ([]logpoller.LogPollerBlock, error)
+	GetBlocksRangeFn func(ctx context.Context, numbers []uint64) ([]logpoller.Block, error)
 	IndexedLogsFn    func(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs evmtypes.Confirmations) ([]logpoller.Log, error)
 }
 
-func (p *mockLogPoller) GetBlocksRange(ctx context.Context, numbers []uint64) ([]logpoller.LogPollerBlock, error) {
+func (p *mockLogPoller) GetBlocksRange(ctx context.Context, numbers []uint64) ([]logpoller.Block, error) {
 	return p.GetBlocksRangeFn(ctx, numbers)
 }
 
@@ -267,7 +267,7 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 			state:       encoding.RpcFlakyFailure,
 			retryable:   true,
 			makeEthCall: true,
-			ethCallErr:  fmt.Errorf("error"),
+			ethCallErr:  errors.New("error"),
 		},
 		{
 			name:     "log block no longer exists",
@@ -484,8 +484,8 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			},
 			receipts: map[string]*evmtypes.Receipt{},
 			poller: &mockLogPoller{
-				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.LogPollerBlock, error) {
-					return []logpoller.LogPollerBlock{
+				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.Block, error) {
+					return []logpoller.Block{
 						{
 							BlockHash: common.HexToHash("0xcba5cf9e2bb32373c76015384e1098912d9510a72481c78057fcb088209167de"),
 						},
@@ -493,7 +493,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 				},
 			},
 			ethCallErrors: map[string]error{
-				uid1.String(): fmt.Errorf("error"),
+				uid1.String(): errors.New("error"),
 			},
 		},
 	}
@@ -644,7 +644,7 @@ func TestRegistry_SimulatePerformUpkeeps(t *testing.T) {
 			})).Return(nil).
 				Run(func(args mock.Arguments) {
 					be := args.Get(1).([]rpc.BatchElem)
-					be[0].Error = fmt.Errorf("error")
+					be[0].Error = errors.New("error")
 					res := "0x0001"
 					be[1].Result = res
 				}).Once()
@@ -669,9 +669,9 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	lggr := logger.Test(t)
 	addr := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
 	keeperRegistryABI, err := abi.JSON(strings.NewReader(ac.IAutomationV21PlusCommonABI))
-	require.Nil(t, err, "need registry abi")
+	require.NoError(t, err, "need registry abi")
 	streamsLookupCompatibleABI, err := abi.JSON(strings.NewReader(streams_lookup_compatible_interface.StreamsLookupCompatibleInterfaceABI))
-	require.Nil(t, err, "need mercury abi")
+	require.NoError(t, err, "need mercury abi")
 	var logPoller logpoller.LogPoller
 	mockReg := mocks.NewRegistry(t)
 	mockHttpClient := mocks.NewHttpClient(t)

@@ -2,7 +2,9 @@ package ccip
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
+	"fmt"
 	"math/big"
 	"slices"
 	"strconv"
@@ -13,26 +15,106 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
+func TestRMN_IncorrectSig(t *testing.T) {
+	runRmnTestCase(t, rmnTestCase{
+		nodesWithIncorrectSigner: []int{0, 1},
+		name:                     "messages with incorrect RMN signature",
+		waitForExec:              true,
+		passIfNoCommitAfter:      15 * time.Second,
+		homeChainConfig: homeChainConfig{
+			f: map[int]int{chain0: 1, chain1: 1},
+		},
+		remoteChainsConfig: []remoteChainConfig{
+			{chainIdx: chain0, f: 1},
+			{chainIdx: chain1, f: 1},
+		},
+		rmnNodes: []rmnNode{
+			{id: 0, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 1, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 2, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+		},
+		messagesToSend: []messageToSend{
+			{fromChainIdx: chain0, toChainIdx: chain1, count: 1},
+		},
+	})
+}
+
 func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
+	runRmnTestCase(t, rmnTestCase{
+		name:        "messages on two lanes including batching one lane RMN-enabled the other RMN-disabled",
+		waitForExec: true,
+		homeChainConfig: homeChainConfig{
+			f: map[int]int{
+				chain0: 1,
+				//chain1: RMN-Disabled if no f defined
+			},
+		},
+		remoteChainsConfig: []remoteChainConfig{
+			{chainIdx: chain0, f: 1},
+			{chainIdx: chain1, f: 1},
+		},
+		rmnNodes: []rmnNode{
+			{id: 0, isSigner: true, observedChainIdxs: []int{chain0}},
+			{id: 1, isSigner: true, observedChainIdxs: []int{chain0}},
+			{id: 2, isSigner: true, observedChainIdxs: []int{chain0}},
+		},
+		messagesToSend: []messageToSend{
+			{fromChainIdx: chain0, toChainIdx: chain1, count: 1},
+			{fromChainIdx: chain1, toChainIdx: chain0, count: 5},
+		},
+	})
+}
+
+func TestRMN_SimpleVerificationDisabledOnDestination(t *testing.T) {
+	runRmnTestCase(t, rmnTestCase{
+		name:        "messages on two lanes one lane RMN-enabled the other RMN-disabled",
+		waitForExec: true,
+		homeChainConfig: homeChainConfig{
+			f: map[int]int{
+				chain1: 1,
+			},
+		},
+		remoteChainsConfig: []remoteChainConfig{
+			{chainIdx: chain2, f: 1},
+		},
+		rmnNodes: []rmnNode{
+			{id: 0, isSigner: true, observedChainIdxs: []int{chain1, chain2}},
+			{id: 1, isSigner: true, observedChainIdxs: []int{chain1, chain2}},
+			{id: 2, isSigner: true, observedChainIdxs: []int{chain1, chain2}},
+		},
+		messagesToSend: []messageToSend{
+			{fromChainIdx: chain0, toChainIdx: chain2, count: 1},
+			{fromChainIdx: chain1, toChainIdx: chain2, count: 1},
+		},
+	})
+}
+
+func TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause(t *testing.T) {
 	runRmnTestCase(t, rmnTestCase{
 		name:        "messages on two lanes including batching",
 		waitForExec: true,
@@ -44,8 +126,8 @@ func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
 			{chainIdx: chain1, f: 1},
 		},
 		rmnNodes: []rmnNode{
-			{id: 0, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
-			{id: 1, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 0, isSigner: true, observedChainIdxs: []int{chain0, chain1}, forceExit: true, restart: true},
+			{id: 1, isSigner: true, observedChainIdxs: []int{chain0, chain1}, forceExit: true, restart: true},
 			{id: 2, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
 		},
 		messagesToSend: []messageToSend{
@@ -234,6 +316,7 @@ func TestRMN_GlobalCurseTwoMessagesOnTwoLanes(t *testing.T) {
 const (
 	chain0      = 0
 	chain1      = 1
+	chain2      = 2
 	globalCurse = 1000
 )
 
@@ -246,13 +329,10 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	envWithRMN, rmnCluster, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithRMNEnabled(len(tc.rmnNodes)),
 	)
-	t.Logf("envWithRmn: %#v", envWithRMN)
-
 	tc.populateFields(t, envWithRMN, rmnCluster)
 
-	onChainState, err := changeset.LoadOnchainState(envWithRMN.Env)
+	onChainState, err := stateview.LoadOnchainState(envWithRMN.Env)
 	require.NoError(t, err)
-	t.Logf("onChainState: %#v", onChainState)
 
 	homeChainState, ok := onChainState.Chains[envWithRMN.HomeChainSel]
 	require.True(t, ok)
@@ -271,7 +351,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	candidateDigest, err := homeChainState.RMNHome.GetCandidateDigest(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err)
 
-	_, err = changeset.SetRMNHomeCandidateConfigChangeset(envWithRMN.Env, changeset.SetRMNHomeCandidateConfig{
+	_, err = v1_6.SetRMNHomeCandidateConfigChangeset(envWithRMN.Env, v1_6.SetRMNHomeCandidateConfig{
 		HomeChainSelector: envWithRMN.HomeChainSel,
 		RMNStaticConfig:   staticConfig,
 		RMNDynamicConfig:  dynamicConfig,
@@ -285,7 +365,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	t.Logf("RMNHome candidateDigest after setting new candidate: %x", candidateDigest[:])
 	t.Logf("Promoting RMNHome candidate with candidateDigest: %x", candidateDigest[:])
 
-	_, err = changeset.PromoteRMNHomeCandidateConfigChangeset(envWithRMN.Env, changeset.PromoteRMNHomeCandidateConfig{
+	_, err = v1_6.PromoteRMNHomeCandidateConfigChangeset(envWithRMN.Env, v1_6.PromoteRMNHomeCandidateConfig{
 		HomeChainSelector: envWithRMN.HomeChainSel,
 		DigestToPromote:   candidateDigest,
 	})
@@ -298,19 +378,19 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		"active digest should be the same as the previously candidate digest after promotion, previous candidate: %x, active: %x",
 		candidateDigest[:], activeDigest[:])
 
-	rmnRemoteConfig := make(map[uint64]changeset.RMNRemoteConfig)
+	rmnRemoteConfig := make(map[uint64]v1_6.RMNRemoteConfig)
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		selector := tc.pf.chainSelectors[remoteCfg.chainIdx]
 		if remoteCfg.f < 0 {
 			t.Fatalf("remoteCfg.f is negative: %d", remoteCfg.f)
 		}
-		rmnRemoteConfig[selector] = changeset.RMNRemoteConfig{
+		rmnRemoteConfig[selector] = v1_6.RMNRemoteConfig{
 			F:       uint64(remoteCfg.f),
-			Signers: tc.pf.rmnRemoteSigners,
+			Signers: tc.alterSigners(t, tc.pf.rmnRemoteSigners),
 		}
 	}
 
-	_, err = changeset.SetRMNRemoteConfigChangeset(envWithRMN.Env, changeset.SetRMNRemoteConfig{
+	_, err = v1_6.SetRMNRemoteConfigChangeset(envWithRMN.Env, v1_6.SetRMNRemoteConfig{
 		HomeChainSelector: envWithRMN.HomeChainSel,
 		RMNRemoteConfigs:  rmnRemoteConfig,
 	})
@@ -318,12 +398,21 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 
 	tc.killMarkedRmnNodes(t, rmnCluster)
 
+	envWithRMN.RmnEnabledSourceChains = make(map[uint64]bool)
+	for chainIdx := range tc.homeChainConfig.f {
+		chainSel := tc.pf.chainSelectors[chainIdx]
+		envWithRMN.RmnEnabledSourceChains[chainSel] = true
+	}
+
 	testhelpers.ReplayLogs(t, envWithRMN.Env.Offchain, envWithRMN.ReplayBlocks)
 	testhelpers.AddLanesForAll(t, &envWithRMN, onChainState)
 	disabledNodes := tc.disableOraclesIfThisIsACursingTestCase(ctx, t, envWithRMN)
 
 	startBlocks, seqNumCommit, seqNumExec := tc.sendMessages(t, onChainState, envWithRMN)
 	t.Logf("Sent all messages, seqNumCommit: %v seqNumExec: %v", seqNumCommit, seqNumExec)
+
+	cleanup := tc.restartNode(t, rmnCluster)
+	defer cleanup()
 
 	eg := errgroup.Group{}
 	tc.callContractsToCurseChains(ctx, t, onChainState, envWithRMN)
@@ -349,6 +438,31 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		t.Fatalf("test case is wrong: no message was sent to non-cursed chains when you " +
 			"define curse subjects, your test case should have at least one message not expected to be delivered")
 	}
+
+	hasCommitReportBeenReceived := false
+	// Trying to replay logs at intervals to avoid test flakiness
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if (hasCommitReportBeenReceived) || tc.passIfNoCommitAfter > 0 {
+					return
+				}
+				// Do not assert on error as we replay logs to avoid race condition where nodes are being shut down and we call replay
+				replayBlocks := make(map[uint64]uint64)
+				for srcDestPair := range seqNumCommit {
+					replayBlocks[srcDestPair.SourceChainSelector] = 1
+					replayBlocks[srcDestPair.DestChainSelector] = 1
+				}
+				t.Logf("replaying logs after waiting for more than 1 minute (%v)", replayBlocks)
+				testhelpers.ReplayLogs(t, envWithRMN.Env.Offchain, replayBlocks, testhelpers.WithAssertOnError(false))
+			case <-t.Context().Done():
+				return
+			}
+		}
+	}()
 
 	commitReportReceived := make(chan struct{})
 	go func() {
@@ -385,6 +499,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 
 	t.Logf("⌛ Waiting for commit reports...")
 	<-commitReportReceived // wait for commit reports
+	hasCommitReportBeenReceived = true
 	t.Logf("✅ Commit report")
 
 	require.NoError(t, eg.Wait())
@@ -428,6 +543,7 @@ type rmnNode struct {
 	isSigner          bool
 	observedChainIdxs []int
 	forceExit         bool // force exit will simply force exit the rmn node to simulate failure scenarios
+	restart           bool // restart will restart the rmn node to simulate failure scenarios
 }
 
 type messageToSend struct {
@@ -449,6 +565,7 @@ type rmnTestCase struct {
 	remoteChainsConfig            []remoteChainConfig
 	rmnNodes                      []rmnNode
 	messagesToSend                []messageToSend
+	nodesWithIncorrectSigner      []int
 
 	// populated fields after environment setup
 	pf testCasePopulatedFields
@@ -461,6 +578,29 @@ type testCasePopulatedFields struct {
 	rmnHomeSourceChains              []rmn_home.RMNHomeSourceChain
 	cursedSubjectsPerChainSel        map[uint64][]uint64
 	revokedCursedSubjectsPerChainSel map[uint64]map[uint64]time.Duration
+}
+
+func (tc *rmnTestCase) alterSigners(t *testing.T, signers []rmn_remote.RMNRemoteSigner) []rmn_remote.RMNRemoteSigner {
+	for _, n := range tc.nodesWithIncorrectSigner {
+		for i, s := range signers {
+			if n >= 0 && s.NodeIndex == uint64(n) {
+				// Random address ethereum private key
+				privateKey, err := crypto.GenerateKey()
+				if err != nil {
+					t.Fatalf("failed to generate private key: %v", err)
+				}
+				publicKey := privateKey.Public()
+				publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+				if !ok {
+					t.Fatalf("failed to cast public key to ECDSA")
+				}
+				address := crypto.PubkeyToAddress(*publicKeyECDSA)
+				signers[i].OnchainPublicKey = address
+			}
+		}
+	}
+
+	return signers
 }
 
 func (tc *rmnTestCase) populateFields(t *testing.T, envWithRMN testhelpers.DeployedEnv, rmnCluster devenv.RMNCluster) {
@@ -552,6 +692,36 @@ func (tc rmnTestCase) killMarkedRmnNodes(t *testing.T, rmnCluster devenv.RMNClus
 	}
 }
 
+func (tc rmnTestCase) restartNode(t *testing.T, rmnCluster devenv.RMNCluster) func() {
+	errCh := make(chan error, 1)
+	go func() {
+		time.Sleep(10 * time.Second)
+		for _, n := range tc.rmnNodes {
+			if n.restart {
+				t.Logf("Restarting RMN node %d", n.id)
+				rmnN := rmnCluster.Nodes["rmn_"+strconv.Itoa(n.id)]
+				if err := osutil.ExecCmd(zerolog.Nop(), "docker start "+rmnN.Proxy.ContainerName); err != nil {
+					errCh <- err
+					return
+				}
+				t.Logf("Restarted RMN node %d", n.id)
+			}
+		}
+		errCh <- nil
+	}()
+	require.NoError(t, <-errCh)
+	return func() {
+		for _, n := range tc.rmnNodes {
+			if n.restart {
+				t.Logf("Stopping RMN node %d", n.id)
+				rmnN := rmnCluster.Nodes["rmn_"+strconv.Itoa(n.id)]
+				require.NoError(t, osutil.ExecCmd(zerolog.Nop(), "docker stop "+rmnN.Proxy.ContainerName))
+				t.Logf("Stopped RMN node %d", n.id)
+			}
+		}
+	}
+}
+
 func (tc rmnTestCase) disableOraclesIfThisIsACursingTestCase(ctx context.Context, t *testing.T, envWithRMN testhelpers.DeployedEnv) []string {
 	disabledNodes := make([]string, 0)
 
@@ -573,7 +743,7 @@ func (tc rmnTestCase) disableOraclesIfThisIsACursingTestCase(ctx context.Context
 	return disabledNodes
 }
 
-func (tc rmnTestCase) sendMessages(t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) (map[uint64]*uint64, map[testhelpers.SourceDestPair]uint64, map[testhelpers.SourceDestPair][]uint64) {
+func (tc rmnTestCase) sendMessages(t *testing.T, onChainState stateview.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) (map[uint64]*uint64, map[testhelpers.SourceDestPair]uint64, map[testhelpers.SourceDestPair][]uint64) {
 	startBlocks := make(map[uint64]*uint64)
 	seqNumCommit := make(map[testhelpers.SourceDestPair]uint64)
 	seqNumExec := make(map[testhelpers.SourceDestPair][]uint64)
@@ -589,7 +759,7 @@ func (tc rmnTestCase) sendMessages(t *testing.T, onChainState changeset.CCIPOnCh
 				TokenAmounts: nil,
 				FeeToken:     common.HexToAddress("0x0"),
 				ExtraArgs:    nil,
-			})
+			}, testhelpers.WithMaxRetries(5))
 			seqNumCommit[testhelpers.SourceDestPair{
 				SourceChainSelector: fromChain,
 				DestChainSelector:   toChain,
@@ -608,7 +778,7 @@ func (tc rmnTestCase) sendMessages(t *testing.T, onChainState changeset.CCIPOnCh
 	return startBlocks, seqNumCommit, seqNumExec
 }
 
-func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) {
+func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing.T, onChainState stateview.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) {
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
 		chState, ok := onChainState.Chains[remoteSel]
@@ -622,15 +792,15 @@ func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing
 		}
 
 		for _, subjectDescription := range cursedSubjects {
-			curseActions := make([]changeset.CurseAction, 0)
+			curseActions := make([]v1_6.CurseAction, 0)
 
 			if subjectDescription == globalCurse {
-				curseActions = append(curseActions, changeset.CurseGloballyOnlyOnChain(remoteSel))
+				curseActions = append(curseActions, v1_6.CurseGloballyOnlyOnChain(remoteSel))
 			} else {
-				curseActions = append(curseActions, changeset.CurseLaneOnlyOnSource(remoteSel, tc.pf.chainSelectors[subjectDescription]))
+				curseActions = append(curseActions, v1_6.CurseLaneOnlyOnSource(remoteSel, tc.pf.chainSelectors[subjectDescription]))
 			}
 
-			_, err := changeset.RMNCurseChangeset(envWithRMN.Env, changeset.RMNCurseConfig{
+			_, err := v1_6.RMNCurseChangeset(envWithRMN.Env, v1_6.RMNCurseConfig{
 				CurseActions: curseActions,
 				Reason:       "test curse",
 			})
@@ -643,7 +813,7 @@ func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing
 	}
 }
 
-func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, eg *errgroup.Group, t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) {
+func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, eg *errgroup.Group, t *testing.T, onChainState stateview.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) {
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
 		chState, ok := onChainState.Chains[remoteSel]
@@ -654,15 +824,15 @@ func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, eg
 		cursedSubjects := tc.revokedCursedSubjectsPerChain[remoteCfg.chainIdx]
 
 		for subjectDescription, revokeAfter := range cursedSubjects {
-			curseActions := make([]changeset.CurseAction, 0)
+			curseActions := make([]v1_6.CurseAction, 0)
 
 			if subjectDescription == globalCurse {
-				curseActions = append(curseActions, changeset.CurseGloballyOnlyOnChain(remoteSel))
+				curseActions = append(curseActions, v1_6.CurseGloballyOnlyOnChain(remoteSel))
 			} else {
-				curseActions = append(curseActions, changeset.CurseLaneOnlyOnSource(remoteSel, tc.pf.chainSelectors[subjectDescription]))
+				curseActions = append(curseActions, v1_6.CurseLaneOnlyOnSource(remoteSel, tc.pf.chainSelectors[subjectDescription]))
 			}
 
-			_, err := changeset.RMNCurseChangeset(envWithRMN.Env, changeset.RMNCurseConfig{
+			_, err := v1_6.RMNCurseChangeset(envWithRMN.Env, v1_6.RMNCurseConfig{
 				CurseActions: curseActions,
 				Reason:       "test curse",
 			})
@@ -672,7 +842,7 @@ func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, eg
 				<-time.NewTimer(revokeAfter).C
 				t.Logf("revoking curse on subject %d (%d)", subjectDescription, subjectDescription)
 
-				_, err := changeset.RMNUncurseChangeset(envWithRMN.Env, changeset.RMNCurseConfig{
+				_, err := v1_6.RMNUncurseChangeset(envWithRMN.Env, v1_6.RMNCurseConfig{
 					CurseActions: curseActions,
 					Reason:       "test uncurse",
 				})
@@ -704,5 +874,287 @@ func (tc rmnTestCase) enableOracles(ctx context.Context, t *testing.T, envWithRM
 		_, err := envWithRMN.Env.Offchain.EnableNode(ctx, &node.EnableNodeRequest{Id: n})
 		require.NoError(t, err)
 		t.Logf("node %s enabled", n)
+	}
+}
+
+func configureAndPromoteRMNHome(
+	t *testing.T,
+	tc *rmnTestCase,
+	envWithRMN testhelpers.DeployedEnv,
+	rmnCluster devenv.RMNCluster,
+) stateview.CCIPOnChainState {
+	ctx := testcontext.Get(t)
+	tc.populateFields(t, envWithRMN, rmnCluster)
+
+	// Load on-chain state
+	onChainState, err := stateview.LoadOnchainState(envWithRMN.Env)
+	require.NoError(t, err)
+
+	// Get the home chain state and the candidate/active digests
+	homeChainState, ok := onChainState.Chains[envWithRMN.HomeChainSel]
+	require.True(t, ok)
+
+	allDigests, err := homeChainState.RMNHome.GetConfigDigests(&bind.CallOpts{Context: ctx})
+	require.NoError(t, err)
+	t.Logf("RMNHome candidateDigest before setting new candidate: %x, activeDigest: %x",
+		allDigests.CandidateConfigDigest[:], allDigests.ActiveConfigDigest[:])
+
+	// Configure candidate using the populated test-case fields
+	staticConfig := rmn_home.RMNHomeStaticConfig{Nodes: tc.pf.rmnHomeNodes, OffchainConfig: []byte{}}
+	dynamicConfig := rmn_home.RMNHomeDynamicConfig{SourceChains: tc.pf.rmnHomeSourceChains, OffchainConfig: []byte{}}
+	t.Logf("Setting RMNHome candidate with staticConfig: %+v, dynamicConfig: %+v, current candidateDigest: %x",
+		staticConfig, dynamicConfig, allDigests.CandidateConfigDigest[:])
+
+	candidateDigest, err := homeChainState.RMNHome.GetCandidateDigest(&bind.CallOpts{Context: ctx})
+	require.NoError(t, err)
+
+	_, err = v1_6.SetRMNHomeCandidateConfigChangeset(envWithRMN.Env, v1_6.SetRMNHomeCandidateConfig{
+		HomeChainSelector: envWithRMN.HomeChainSel,
+		RMNStaticConfig:   staticConfig,
+		RMNDynamicConfig:  dynamicConfig,
+		DigestToOverride:  candidateDigest,
+	})
+	require.NoError(t, err)
+
+	candidateDigest, err = homeChainState.RMNHome.GetCandidateDigest(&bind.CallOpts{Context: ctx})
+	require.NoError(t, err)
+	t.Logf("RMNHome candidateDigest after setting new candidate: %x", candidateDigest[:])
+	t.Logf("Promoting RMNHome candidate with candidateDigest: %x", candidateDigest[:])
+
+	// Promote candidate
+	_, err = v1_6.PromoteRMNHomeCandidateConfigChangeset(envWithRMN.Env, v1_6.PromoteRMNHomeCandidateConfig{
+		HomeChainSelector: envWithRMN.HomeChainSel,
+		DigestToPromote:   candidateDigest,
+	})
+	require.NoError(t, err)
+
+	// Validate that candidate promotion is successful
+	activeDigest, err := homeChainState.RMNHome.GetActiveDigest(&bind.CallOpts{Context: ctx})
+	require.NoError(t, err)
+	require.Equalf(t, candidateDigest, activeDigest,
+		"active digest should be the same as the previously candidate digest after promotion, previous candidate: %x, active: %x",
+		candidateDigest[:], activeDigest[:])
+
+	// Configure remote chain settings
+	rmnRemoteConfig := make(map[uint64]v1_6.RMNRemoteConfig)
+	for _, remoteCfg := range tc.remoteChainsConfig {
+		selector := tc.pf.chainSelectors[remoteCfg.chainIdx]
+		if remoteCfg.f < 0 {
+			t.Fatalf("remoteCfg.f is negative: %d", remoteCfg.f)
+		}
+		rmnRemoteConfig[selector] = v1_6.RMNRemoteConfig{
+			F:       uint64(remoteCfg.f),
+			Signers: tc.pf.rmnRemoteSigners,
+		}
+	}
+	_, err = v1_6.SetRMNRemoteConfigChangeset(envWithRMN.Env, v1_6.SetRMNRemoteConfig{
+		HomeChainSelector: envWithRMN.HomeChainSel,
+		RMNRemoteConfigs:  rmnRemoteConfig,
+	})
+	require.NoError(t, err)
+
+	return onChainState
+}
+
+func performReorgTest(t *testing.T, e testhelpers.DeployedEnv, l logging.Logger, dockerEnv *testsetups.DeployedLocalDevEnvironment, state stateview.CCIPOnChainState, nonBootstrapP2PIDs []string) (sourceSelector uint64, destSelector uint64) {
+	// Chain setup
+	allChains := e.Env.AllChainSelectors()
+	require.GreaterOrEqual(t, len(allChains), 2)
+	sourceSelector = allChains[0]
+	destSelector = allChains[1]
+
+	// Build RPC map and get clients
+	chainSelToRPCURL := buildChainSelectorToRPCURLMap(t, dockerEnv)
+	sourceClient := ctf_client.NewRPCClient(chainSelToRPCURL[sourceSelector], nil)
+
+	// Setup CCIP lane
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceSelector, destSelector, false)
+	waitForLogPollerFilters(l)
+
+	// Send initial message
+	msgBeforeReorg := sendCCIPMessage(t, e.Env, state, sourceSelector, destSelector, l)
+
+	// Wait and perform reorg
+	minBlock := msgBeforeReorg.Raw.BlockNumber + lessThanFinalityReorgDepth - 1
+	waitForBlockNumber(t, sourceClient, minBlock, 1*time.Minute, 500*time.Millisecond, l)
+	performReorg(t, sourceClient, lessThanFinalityReorgDepth, l)
+
+	// Verify message consistency
+	msgAfterReorg := sendCCIPMessage(t, e.Env, state, sourceSelector, destSelector, l)
+	require.Equal(t, msgBeforeReorg.Message.Header.SequenceNumber, msgAfterReorg.Message.Header.SequenceNumber)
+	require.Equal(t, msgBeforeReorg.Message.Header.MessageId, msgAfterReorg.Message.Header.MessageId)
+
+	// Check node health
+	nodeAPIs := dockerEnv.GetCLClusterTestEnv().ClCluster.NodeAPIs()
+	checkFinalityViolations(
+		t,
+		nodeAPIs,
+		nonBootstrapP2PIDs,
+		getHeadTrackerService(t, sourceSelector),
+		getLogPollerService(t, sourceSelector),
+		l,
+		0,              // no nodes reporting finality violation
+		1*time.Minute,  // timeout
+		10*time.Second, // interval
+	)
+
+	return sourceSelector, destSelector
+}
+
+func Test_CCIPReorg_BelowFinality_OnSource_WithRMN(t *testing.T) {
+	tc := rmnTestCase{
+		homeChainConfig: homeChainConfig{
+			f: map[int]int{chain0: 1, chain1: 1},
+		},
+		remoteChainsConfig: []remoteChainConfig{
+			{chainIdx: chain0, f: 1},
+			{chainIdx: chain1, f: 1},
+		},
+		rmnNodes: []rmnNode{
+			{id: 0, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 1, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 2, isSigner: true, observedChainIdxs: []int{chain0, chain1}}, // one rmn node is down
+		},
+	}
+	e, l, dockerEnv, nonBootstrapP2PIDs, state, rmnCluster := setupReorgTest(t,
+		testhelpers.WithExtraConfigTomls([]string{"Test_CCIPReorg_BelowFinality_OnSource_WithRMN.toml"}),
+		testhelpers.WithRMNEnabled(len(tc.rmnNodes)),
+		testhelpers.WithRMNConfDepth(20),
+	)
+
+	configureAndPromoteRMNHome(t, &tc, e, rmnCluster)
+
+	e.RmnEnabledSourceChains = make(map[uint64]bool)
+	for chainIdx := range tc.homeChainConfig.f {
+		chainSel := tc.pf.chainSelectors[chainIdx]
+		e.RmnEnabledSourceChains[chainSel] = true
+	}
+
+	sourceSelector, destSelector := performReorgTest(t, e, l, dockerEnv, state, nonBootstrapP2PIDs)
+
+	_, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
+		t,
+		sourceSelector,
+		e.Env.Chains[destSelector],
+		state.Chains[destSelector].OffRamp,
+		nil, // startBlock
+		ccipocr3.NewSeqNumRange(1, 1),
+		false, // enforceSingleCommit
+	)
+	require.NoError(t, err)
+}
+
+func Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Recover(t *testing.T) {
+	tc := rmnTestCase{
+		homeChainConfig: homeChainConfig{
+			f: map[int]int{chain0: 1, chain1: 1},
+		},
+		remoteChainsConfig: []remoteChainConfig{
+			{chainIdx: chain0, f: 1},
+			{chainIdx: chain1, f: 1},
+		},
+		rmnNodes: []rmnNode{
+			{id: 0, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 1, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 2, isSigner: true, observedChainIdxs: []int{chain0, chain1}}, // one rmn node is down
+		},
+	}
+	e, l, dockerEnv, nonBootstrapP2PIDs, state, rmnCluster := setupReorgTest(t,
+		testhelpers.WithExtraConfigTomls([]string{"Test_CCIPReorg_BelowFinality_OnSource_WithRMN.toml"}),
+		testhelpers.WithRMNEnabled(len(tc.rmnNodes)),
+		testhelpers.WithRMNConfDepth(0),
+	)
+
+	configureAndPromoteRMNHome(t, &tc, e, rmnCluster)
+
+	e.RmnEnabledSourceChains = make(map[uint64]bool)
+	fmt.Printf("Setup RMN enabled")
+	for chainIdx := range tc.homeChainConfig.f {
+		chainSel := tc.pf.chainSelectors[chainIdx]
+		e.RmnEnabledSourceChains[chainSel] = true
+		fmt.Printf("Setup RMN enabled for chain %d", chainSel)
+	}
+
+	sourceSelector, destSelector := performReorgTest(t, e, l, dockerEnv, state, nonBootstrapP2PIDs)
+
+	err := rmnCluster.Restart(t.Context())
+	require.NoError(t, err)
+
+	_, err = testhelpers.ConfirmCommitWithExpectedSeqNumRange(
+		t,
+		sourceSelector,
+		e.Env.Chains[destSelector],
+		state.Chains[destSelector].OffRamp,
+		nil, // startBlock
+		ccipocr3.NewSeqNumRange(1, 1),
+		false, // enforceSingleCommit
+	)
+	require.NoError(t, err)
+}
+
+func Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Block(t *testing.T) {
+	tc := rmnTestCase{
+		homeChainConfig: homeChainConfig{
+			f: map[int]int{chain0: 1, chain1: 1},
+		},
+		remoteChainsConfig: []remoteChainConfig{
+			{chainIdx: chain0, f: 1},
+			{chainIdx: chain1, f: 1},
+		},
+		rmnNodes: []rmnNode{
+			{id: 0, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 1, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 2, isSigner: true, observedChainIdxs: []int{chain0, chain1}}, // one rmn node is down
+		},
+	}
+	e, l, dockerEnv, nonBootstrapP2PIDs, state, rmnCluster := setupReorgTest(t,
+		testhelpers.WithExtraConfigTomls([]string{"Test_CCIPReorg_BelowFinality_OnSource_WithRMN.toml"}),
+		testhelpers.WithRMNEnabled(len(tc.rmnNodes)),
+		testhelpers.WithRMNConfDepth(0),
+	)
+
+	configureAndPromoteRMNHome(t, &tc, e, rmnCluster)
+
+	e.RmnEnabledSourceChains = make(map[uint64]bool)
+	fmt.Printf("Setup RMN enabled")
+	for chainIdx := range tc.homeChainConfig.f {
+		chainSel := tc.pf.chainSelectors[chainIdx]
+		e.RmnEnabledSourceChains[chainSel] = true
+		fmt.Printf("Setup RMN enabled for chain %d", chainSel)
+	}
+
+	sourceSelector, destSelector := performReorgTest(t, e, l, dockerEnv, state, nonBootstrapP2PIDs)
+
+	commitReportReceived := make(chan struct{})
+	commitReportError := make(chan error)
+	// Verify commit
+	go func() {
+		_, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
+			t,
+			sourceSelector,
+			e.Env.Chains[destSelector],
+			state.Chains[destSelector].OffRamp,
+			nil, // startBlock
+			ccipocr3.NewSeqNumRange(1, 1),
+			false, // enforceSingleCommit
+		)
+
+		if err != nil {
+			commitReportError <- err
+		} else {
+			commitReportReceived <- struct{}{}
+		}
+	}()
+
+	tim := time.NewTimer(15 * time.Second)
+	t.Logf("waiting for 15s before asserting that commit report was not received")
+	select {
+	case err := <-commitReportError:
+		t.Errorf("Error while confirming commit: %v", err)
+	case <-commitReportReceived:
+		t.Errorf("Commit report was received while it was not expected")
+		return
+	case <-tim.C:
+		return
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/protobuf/proto"
@@ -14,8 +15,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 type peer struct {
@@ -104,7 +105,7 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 	}
 
 	os.Setenv("ETH_URL", *ethUrl)
-	os.Setenv("ETH_CHAIN_ID", fmt.Sprintf("%d", *chainID))
+	os.Setenv("ETH_CHAIN_ID", strconv.FormatInt(*chainID, 10))
 	os.Setenv("ACCOUNT_KEY", *accountKey)
 	os.Setenv("INSECURE_SKIP_VERIFY", "true")
 
@@ -269,7 +270,6 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 	if err != nil {
 		log.Printf("workflowDON: failed to AddDON: %s", err)
 	}
-
 }
 
 func deployCapabilitiesRegistry(env helpers.Environment) *kcr.CapabilitiesRegistry {

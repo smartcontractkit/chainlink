@@ -7,8 +7,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	ocr3_capability "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
+	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 type OCR3Deployer struct {
@@ -46,7 +47,7 @@ func (c *OCR3Deployer) deploy(req DeployRequest) (*DeployResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get type and version: %w", err)
 	}
-	tv, err := deployment.TypeAndVersionFromString(tvStr)
+	tv, err := cldf.TypeAndVersionFromString(tvStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 	}

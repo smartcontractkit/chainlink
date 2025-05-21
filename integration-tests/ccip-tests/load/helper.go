@@ -23,10 +23,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
 type ChaosConfig struct {
@@ -206,7 +206,7 @@ func (l *LoadArgs) ValidateCurseFollowedByUncurse() {
 		// try to send requests on lanes on which curse is applied on source RMN and the request should revert
 		// data-only transfer is sufficient
 		lane.Source.TransferAmount = []*big.Int{}
-		failedTx, _, _, err := lane.Source.SendRequest(lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
+		failedTx, _, _, _, err := lane.Source.SendRequest(lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
 		if lane.Source.Common.ChainClient.GetNetworkConfig().MinimumConfirmations > 0 {
 			require.Error(l.t, err)
 		} else {

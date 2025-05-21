@@ -10,12 +10,12 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func initEVMTxSubCmd(s *Shell) cli.Command {
@@ -78,7 +78,7 @@ func (p *EthTxPresenter) RenderTable(rt RendererTable) error {
 		p.From.Hex(),
 		p.Nonce,
 		p.To.Hex(),
-		fmt.Sprint(p.State),
+		p.State,
 	})
 
 	render(fmt.Sprintf("Ethereum Transaction %v", p.Hash.Hex()), table)
@@ -97,7 +97,7 @@ func (ps EthTxPresenters) RenderTable(rt RendererTable) error {
 			p.From.Hex(),
 			p.GasPrice,
 			p.SentAt,
-			fmt.Sprint(p.State),
+			p.State,
 		})
 	}
 

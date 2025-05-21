@@ -11,8 +11,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -24,7 +25,6 @@ import (
 	keystoremocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 )
 
 func TestETHCallTask(t *testing.T) {
@@ -314,7 +314,7 @@ func TestETHCallTask(t *testing.T) {
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {
 				legacyChains = evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 					DB:             db,
-					GeneralConfig:  cfg,
+					ChainConfigs:   cfg.EVMConfigs(),
 					DatabaseConfig: cfg.Database(),
 					FeatureConfig:  cfg.Feature(),
 					ListenerConfig: cfg.Database().Listener(),

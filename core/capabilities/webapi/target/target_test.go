@@ -30,6 +30,12 @@ const (
 )
 
 var defaultConfig = webapi.ServiceConfig{
+	OutgoingRateLimiter: common.RateLimiterConfig{
+		GlobalRPS:      100.0,
+		GlobalBurst:    100,
+		PerSenderRPS:   100.0,
+		PerSenderBurst: 100,
+	},
 	RateLimiter: common.RateLimiterConfig{
 		GlobalRPS:      100.0,
 		GlobalBurst:    100,
@@ -51,7 +57,8 @@ func setup(t *testing.T, config webapi.ServiceConfig) testHarness {
 	registry := registrymock.NewCapabilitiesRegistry(t)
 	connector := gcmocks.NewGatewayConnector(t)
 	lggr := logger.Test(t)
-	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config, ghcapabilities.MethodWebAPITarget, lggr)
+
+	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config, ghcapabilities.MethodWebAPITarget, lggr, webapi.WithFixedStart())
 	require.NoError(t, err)
 
 	capability, err := NewCapability(config, registry, connectorHandler, lggr)
@@ -177,7 +184,7 @@ func TestCapability_Execute(t *testing.T) {
 	th := setup(t, defaultConfig)
 	ctx := testutils.Context(t)
 	th.connector.EXPECT().DonID().Return("donID")
-	th.connector.EXPECT().GatewayIDs().Return([]string{"gateway2", "gateway1"})
+	th.connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
 	t.Run("happy case", func(t *testing.T) {
 		regReq := capabilities.RegisterToWorkflowRequest{

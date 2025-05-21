@@ -4,10 +4,11 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
@@ -26,17 +27,17 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 		{
 			name: "base",
 			args: args{dataLen: 5, numTokens: 2, extraArgs: makeExtraArgsV1(200_000), tokenGasOverhead: 10},
-			want: 1_372_284,
+			want: 922_284,
 		},
 		{
 			name: "large",
 			args: args{dataLen: 1000, numTokens: 1000, extraArgs: makeExtraArgsV1(200_000), tokenGasOverhead: 1},
-			want: 347_028_520,
+			want: 296_678_520,
 		},
 		{
 			name: "overheadGas test 1",
 			args: args{dataLen: 0, numTokens: 0, extraArgs: makeExtraArgsV1(200_000), tokenGasOverhead: 100},
-			want: 669_920,
+			want: 319_920,
 		},
 		{
 			name: "overheadGas test 2",
@@ -46,7 +47,7 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 				extraArgs:        makeExtraArgsV1(200_000),
 				tokenGasOverhead: 2,
 			},
-			want: 1_025_950,
+			want: 625_950,
 		},
 		{
 			name: "allowOOO set to true makes no difference to final gas estimate",
@@ -56,7 +57,7 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 				extraArgs:        makeExtraArgsV2(200_000, true),
 				tokenGasOverhead: 100,
 			},
-			want: 1_372_464,
+			want: 922_464,
 		},
 		{
 			name: "allowOOO set to false makes no difference to final gas estimate",
@@ -66,7 +67,7 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 				extraArgs:        makeExtraArgsV2(200_000, false),
 				tokenGasOverhead: 100,
 			},
-			want: 1_372_464,
+			want: 922_464,
 		},
 	}
 
@@ -77,7 +78,9 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 				TokenAmounts: getTokenAmounts(t, tt.args.numTokens, tt.args.tokenGasOverhead),
 				ExtraArgs:    tt.args.extraArgs,
 			}
-			ep := EstimateProvider{}
+			// Set the source chain selector to be EVM for now
+			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector)
+			ep := EstimateProvider{extraDataCodec}
 			got := ep.CalculateMessageMaxGas(msg)
 			t.Log(got)
 			assert.Equalf(t, tt.want, got, "calculateMessageMaxGas(%v, %v)", tt.args.dataLen, tt.args.numTokens)
@@ -104,7 +107,7 @@ func TestCalculateMaxGas(t *testing.T) {
 			numberOfTokens:   0,
 			extraArgs:        makeExtraArgsV1(200_000),
 			tokenGasOverhead: 10,
-			want:             672_992,
+			want:             322_992,
 		},
 		{
 			name:             "maxGasOverheadGas 2",
@@ -113,7 +116,7 @@ func TestCalculateMaxGas(t *testing.T) {
 			numberOfTokens:   1,
 			extraArgs:        makeExtraArgsV1(200_000),
 			tokenGasOverhead: 10,
-			want:             1_028_518,
+			want:             628_518,
 		},
 		{
 			name:             "v2 extra args",
@@ -122,7 +125,7 @@ func TestCalculateMaxGas(t *testing.T) {
 			numberOfTokens:   1,
 			extraArgs:        makeExtraArgsV2(200_000, true),
 			tokenGasOverhead: 10,
-			want:             1_028_518,
+			want:             628_518,
 		},
 	}
 
@@ -133,8 +136,9 @@ func TestCalculateMaxGas(t *testing.T) {
 				TokenAmounts: getTokenAmounts(t, tt.numberOfTokens, tt.tokenGasOverhead),
 				ExtraArgs:    tt.extraArgs,
 			}
-			ep := EstimateProvider{}
 
+			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector)
+			ep := EstimateProvider{extraDataCodec: extraDataCodec}
 			gotTree := ep.CalculateMerkleTreeGas(tt.numRequests)
 			gotMsg := ep.CalculateMessageMaxGas(msg)
 			t.Log("want", tt.want, "got", gotTree+gotMsg)
@@ -144,45 +148,32 @@ func TestCalculateMaxGas(t *testing.T) {
 }
 
 func makeExtraArgsV1(gasLimit uint64) []byte {
-	// extra args is the tag followed by the gas limit abi-encoded.
-	var extraArgs []byte
-	extraArgs = append(extraArgs, evmExtraArgsV1Tag...)
-	gasLimitBytes := new(big.Int).SetUint64(gasLimit).Bytes()
-	// pad from the left to 32 bytes
-	gasLimitBytes = common.LeftPadBytes(gasLimitBytes, 32)
-	extraArgs = append(extraArgs, gasLimitBytes...)
+	extraArgs, err := SerializeEVMExtraArgsV1(message_hasher.ClientEVMExtraArgsV1{
+		GasLimit: new(big.Int).SetUint64(gasLimit),
+	})
+	if err != nil {
+		panic(err)
+	}
 	return extraArgs
 }
 
 func makeExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
-	// extra args is the tag followed by the gas limit and allowOOO abi-encoded.
-	var extraArgs []byte
-	extraArgs = append(extraArgs, evmExtraArgsV2Tag...)
-	gasLimitBytes := new(big.Int).SetUint64(gasLimit).Bytes()
-	// pad from the left to 32 bytes
-	gasLimitBytes = common.LeftPadBytes(gasLimitBytes, 32)
-
-	// abi-encode allowOOO
-	var allowOOOBytes []byte
-	if allowOOO {
-		allowOOOBytes = append(allowOOOBytes, 1)
-	} else {
-		allowOOOBytes = append(allowOOOBytes, 0)
+	extraArgs, err := SerializeClientGenericExtraArgsV2(message_hasher.ClientGenericExtraArgsV2{
+		GasLimit:                 new(big.Int).SetUint64(gasLimit),
+		AllowOutOfOrderExecution: allowOOO,
+	})
+	if err != nil {
+		panic(err)
 	}
-	// pad from the left to 32 bytes
-	allowOOOBytes = common.LeftPadBytes(allowOOOBytes, 32)
-
-	extraArgs = append(extraArgs, gasLimitBytes...)
-	extraArgs = append(extraArgs, allowOOOBytes...)
 	return extraArgs
 }
 
 func getTokenAmounts(t *testing.T, numTokens int, tokenGasOverhead uint32) []ccipocr3.RampTokenAmount {
-	tokenDestGasOverhead, err := TokenDestGasOverheadABI.Pack(tokenGasOverhead)
+	tokenDestGasOverhead, err := abiEncodeUint32(tokenGasOverhead)
 	require.NoError(t, err)
 
 	tokenAmounts := make([]ccipocr3.RampTokenAmount, numTokens)
-	for i := 0; i < numTokens; i++ {
+	for i := range numTokens {
 		tokenAmounts[i] = ccipocr3.RampTokenAmount{
 			DestExecData: tokenDestGasOverhead,
 		}

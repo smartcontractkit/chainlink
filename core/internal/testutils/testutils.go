@@ -17,7 +17,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -46,17 +45,6 @@ var FixtureChainID = big.NewInt(0)
 
 // SimulatedChainID is the chain ID for the go-ethereum simulated backend
 var SimulatedChainID = big.NewInt(1337)
-
-// MustNewSimTransactor returns a transactor for interacting with the
-// geth simulated backend.
-// TODO use evm/testutils
-func MustNewSimTransactor(t testing.TB) *bind.TransactOpts {
-	key, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	transactor, err := bind.NewKeyedTransactorWithChainID(key, SimulatedChainID)
-	require.NoError(t, err)
-	return transactor
-}
 
 // NewAddress return a random new address
 func NewAddress() common.Address {
@@ -126,7 +114,7 @@ func WaitTimeout(t *testing.T) time.Duration {
 
 // Context returns a context with the test's deadline, if available.
 func Context(tb testing.TB) context.Context {
-	return tests.Context(tb)
+	return tb.Context()
 }
 
 // MustParseURL parses the URL or fails the test
@@ -409,7 +397,7 @@ func SkipShortDB(tb testing.TB) {
 	tests.SkipShort(tb, "DB dependency")
 }
 
-func AssertCount(t *testing.T, ds sqlutil.DataSource, tableName string, expected int64) {
+func AssertCount(t testing.TB, ds sqlutil.DataSource, tableName string, expected int64) {
 	t.Helper()
 	ctx := Context(t)
 	var count int64

@@ -10,11 +10,13 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -272,22 +274,49 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 		case capabilities.CapabilityTypeTrigger:
 			newTriggerFn := func(info capabilities.CapabilityInfo) (capabilityService, error) {
 				var aggregator remotetypes.Aggregator
-				if strings.HasPrefix(info.ID, "streams-trigger") {
-					codec := streams.NewCodec(w.lggr)
-
-					signers, err := signersFor(remoteDON, state)
+				switch {
+				case strings.HasPrefix(info.ID, "streams-trigger"):
+					v := info.ID[strings.LastIndexAny(info.ID, "@")+1:] // +1 to skip the @; also gracefully handle the case where there is no @ (which should not happen)
+					version, err := semver.NewVersion(v)
 					if err != nil {
-						return nil, err
+						return nil, fmt.Errorf("could not extract version from %s (%s): %w", info.ID, v, err)
 					}
+					switch version.Major() {
+					case 1: // legacy streams trigger
+						codec := streams.NewCodec(w.lggr)
 
-					aggregator = triggers.NewMercuryRemoteAggregator(
-						codec,
-						signers,
-						int(remoteDON.F+1),
-						info.ID,
-						w.lggr,
-					)
-				} else {
+						signers, err := signersFor(remoteDON, state)
+						if err != nil {
+							return nil, err
+						}
+
+						aggregator = triggers.NewMercuryRemoteAggregator(
+							codec,
+							signers,
+							int(remoteDON.F+1),
+							info.ID,
+							w.lggr,
+						)
+					case 2: // LLO
+						// TODO: add a flag in capability onchain config to indicate whether it's OCR based
+						// the "SignedReport" aggregator is generic
+						signers, err := signersFor(remoteDON, state)
+						if err != nil {
+							return nil, err
+						}
+
+						const maxAgeSec = 120 // TODO move to capability onchain config
+						aggregator = aggregation.NewSignedReportRemoteAggregator(
+							signers,
+							int(remoteDON.F+1),
+							info.ID,
+							maxAgeSec,
+							w.lggr,
+						)
+					default:
+						return nil, fmt.Errorf("unsupported stream trigger %s", info.ID)
+					}
+				default:
 					aggregator = aggregation.NewDefaultModeAggregator(uint32(remoteDON.F) + 1)
 				}
 
@@ -329,7 +358,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 				return fmt.Errorf("failed to add action shim: %w", err)
 			}
 		case capabilities.CapabilityTypeConsensus:
-			w.lggr.Warn("no remote client configured for capability type consensus, skipping configuration")
+			// nothing to do; we don't support remote consensus capabilities for now
 		case capabilities.CapabilityTypeTarget:
 			newTargetFn := func(info capabilities.CapabilityInfo) (capabilityService, error) {
 				client := executable.NewClient(
@@ -364,7 +393,7 @@ func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		capabilityID,
 		capability.CapabilityType,
-		fmt.Sprintf("Remote Capability for %s", capabilityID),
+		"Remote Capability for "+capabilityID,
 		&don.DON,
 	)
 	if err != nil {
@@ -381,7 +410,7 @@ func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability
 		// If the capability already exists, then it's either local
 		// or we've handled this in a previous syncer iteration,
 		// let's skip and move on to other capabilities.
-		if errors.Is(err, ErrCapabilityAlreadyExists) {
+		if errors.Is(err, registry.ErrCapabilityAlreadyExists) {
 			return nil
 		}
 
@@ -407,7 +436,8 @@ func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability
 
 var (
 	// TODO: make this configurable
-	defaultTargetRequestTimeout = 8 * time.Minute
+	defaultTargetRequestTimeout                 = 8 * time.Minute
+	defaultMaxParallelCapabilityExecuteRequests = 1000
 )
 
 func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don registrysyncer.DON, state *registrysyncer.LocalRegistry, remoteWorkflowDONs []registrysyncer.DON) error {
@@ -473,6 +503,7 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 					idsToDONs,
 					w.dispatcher,
 					defaultTargetRequestTimeout,
+					defaultMaxParallelCapabilityExecuteRequests,
 					w.lggr,
 				), nil
 			}
@@ -505,6 +536,7 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 					idsToDONs,
 					w.dispatcher,
 					defaultTargetRequestTimeout,
+					defaultMaxParallelCapabilityExecuteRequests,
 					w.lggr,
 				), nil
 			}
@@ -526,7 +558,7 @@ func (w *launcher) addReceiver(ctx context.Context, capability registrysyncer.Ca
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		capID,
 		capability.CapabilityType,
-		fmt.Sprintf("Remote Capability for %s", capability.ID),
+		"Remote Capability for "+capability.ID,
 		&don.DON,
 	)
 	if err != nil {

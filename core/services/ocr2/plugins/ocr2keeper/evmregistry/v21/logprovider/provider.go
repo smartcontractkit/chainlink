@@ -20,8 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
+	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -30,8 +30,8 @@ import (
 var (
 	LogProviderServiceName = "LogEventProvider"
 
-	ErrHeadNotAvailable   = fmt.Errorf("head not available")
-	ErrBlockLimitExceeded = fmt.Errorf("block limit exceeded")
+	ErrHeadNotAvailable   = errors.New("head not available")
+	ErrBlockLimitExceeded = errors.New("block limit exceeded")
 
 	// AllowedLogsPerUpkeep is the maximum number of logs allowed per upkeep every single call.
 	AllowedLogsPerUpkeep = 5
@@ -203,7 +203,7 @@ func (p *logEventProvider) HealthReport() map[string]error {
 func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
 	latest, err := p.poller.LatestBlock(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
+		return nil, fmt.Errorf("%w: %w", ErrHeadNotAvailable, err)
 	}
 	prommetrics.AutomationLogProviderLatestBlock.Set(float64(latest.BlockNumber))
 	payloads := p.getLogsFromBuffer(latest.BlockNumber)
@@ -308,7 +308,7 @@ func (p *logEventProvider) ReadLogs(pctx context.Context, ids ...*big.Int) error
 
 	latest, err := p.poller.LatestBlock(ctx)
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
+		return fmt.Errorf("%w: %w", ErrHeadNotAvailable, err)
 	}
 	if latest.BlockNumber == 0 {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, "latest block is 0")

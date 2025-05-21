@@ -3,7 +3,6 @@ package allowlist_test
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -16,13 +15,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	clienttest "github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist"
 	amocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	clienttest "github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 )
 
 const (
@@ -325,7 +324,7 @@ func TestExtractContractVersion(t *testing.T) {
 	}
 
 	var errInvalidVersion = func(v string) *string {
-		ev := fmt.Sprintf("version not found in string: %s", v)
+		ev := "version not found in string: " + v
 		return &ev
 	}
 

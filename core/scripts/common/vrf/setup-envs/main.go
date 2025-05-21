@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -14,13 +15,13 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/constants"
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
 	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/v2scripts"
 	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2plus/testnet/v2plusscripts"
 	clcmd "github.com/smartcontractkit/chainlink/v2/core/cmd"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -128,7 +129,7 @@ func main() {
 	fmt.Println("Using Coordinator type:", *coordinatorType)
 
 	if *simulationBlock != "pending" && *simulationBlock != "latest" {
-		helpers.PanicErr(fmt.Errorf("simulation block must be 'pending' or 'latest'"))
+		helpers.PanicErr(errors.New("simulation block must be 'pending' or 'latest'"))
 	}
 
 	fundingAmount := decimal.RequireFromString(*nodeSendingKeyFundingAmount).BigInt()
@@ -323,14 +324,14 @@ func main() {
 			node := node
 			client, app := connectToNode(&node.URL, output, node.CredsFile)
 
-			//GET ALL JOBS
+			// GET ALL JOBS
 			jobIDs := getAllJobIDs(client, app, output)
 
-			//DELETE ALL EXISTING JOBS
+			// DELETE ALL EXISTING JOBS
 			for _, jobID := range jobIDs {
 				deleteJob(jobID, client, app, output)
 			}
-			//CREATE JOBS
+			// CREATE JOBS
 
 			switch key {
 			case model.VRFPrimaryNodeName:

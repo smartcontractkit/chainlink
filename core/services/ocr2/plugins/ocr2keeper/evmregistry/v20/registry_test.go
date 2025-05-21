@@ -1,7 +1,7 @@
 package evm
 
 import (
-	"fmt"
+	"errors"
 	"math/big"
 	"testing"
 	"time"
@@ -12,12 +12,13 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 
-	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+
+	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func TestGetActiveUpkeepKeys(t *testing.T) {
@@ -46,7 +47,7 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 				actives[id] = activeUpkeep{ID: idNum}
 			}
 
-			mht := htmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+			mht := headstest.NewTracker[*evmtypes.Head, common.Hash](t)
 
 			rg := &EvmRegistry{
 				HeadProvider: HeadProvider{
@@ -60,7 +61,7 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 			if test.ExpectedErr != nil {
 				assert.ErrorIs(t, err, test.ExpectedErr)
 			} else {
-				assert.Nil(t, err)
+				assert.NoError(t, err)
 			}
 
 			if len(test.ExpectedKeys) > 0 {
@@ -100,7 +101,7 @@ func TestPollLogs(t *testing.T) {
 				OutputErr   error
 			}{
 				OutputBlock: 0,
-				OutputErr:   fmt.Errorf("test error output"),
+				OutputErr:   errors.New("test error output"),
 			},
 		},
 		{
@@ -151,7 +152,7 @@ func TestPollLogs(t *testing.T) {
 				InputStart: 250,
 				InputEnd:   500,
 				OutputLogs: []logpoller.Log{},
-				OutputErr:  fmt.Errorf("test output error"),
+				OutputErr:  errors.New("test output error"),
 			},
 		},
 		{
@@ -176,8 +177,8 @@ func TestPollLogs(t *testing.T) {
 				InputStart: 250,
 				InputEnd:   500,
 				OutputLogs: []logpoller.Log{
-					{EvmChainId: ubig.New(big.NewInt(5)), LogIndex: 1},
-					{EvmChainId: ubig.New(big.NewInt(6)), LogIndex: 2},
+					{EVMChainID: ubig.New(big.NewInt(5)), LogIndex: 1},
+					{EVMChainID: ubig.New(big.NewInt(6)), LogIndex: 2},
 				},
 				OutputErr: nil,
 			},
@@ -191,7 +192,7 @@ func TestPollLogs(t *testing.T) {
 
 			if test.LatestBlock != nil {
 				mp.On("LatestBlock", mock.Anything).
-					Return(logpoller.LogPollerBlock{BlockNumber: test.LatestBlock.OutputBlock}, test.LatestBlock.OutputErr)
+					Return(logpoller.Block{BlockNumber: test.LatestBlock.OutputBlock}, test.LatestBlock.OutputErr)
 			}
 
 			if test.LogsWithSigs != nil {
@@ -212,7 +213,7 @@ func TestPollLogs(t *testing.T) {
 			if test.ExpectedErr != nil {
 				assert.ErrorIs(t, err, test.ExpectedErr)
 			} else {
-				assert.Nil(t, err)
+				assert.NoError(t, err)
 			}
 
 			var outputLogCount int

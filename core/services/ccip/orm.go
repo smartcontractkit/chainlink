@@ -2,13 +2,14 @@ package ccip
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 )
 
 type GasPrice struct {
@@ -38,7 +39,7 @@ var _ ORM = (*orm)(nil)
 
 func NewORM(ds sqlutil.DataSource, lggr logger.Logger) (ORM, error) {
 	if ds == nil {
-		return nil, fmt.Errorf("datasource to CCIP NewORM cannot be nil")
+		return nil, errors.New("datasource to CCIP NewORM cannot be nil")
 	}
 
 	return &orm{

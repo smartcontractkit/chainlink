@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL 1.1
 pragma solidity 0.8.24;
 
 import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
@@ -161,6 +161,7 @@ contract CapabilitiesRegistry is INodeInfoProvider, OwnerIsCreator, ITypeAndVers
 
   /// @notice CapabilityConfiguration is a struct that holds the capability configuration
   /// for a specific DON
+  /// Note RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct CapabilityConfiguration {
     /// @notice The capability Id
     bytes32 capabilityId;
@@ -199,6 +200,7 @@ contract CapabilitiesRegistry is INodeInfoProvider, OwnerIsCreator, ITypeAndVers
     mapping(uint32 configCount => DONCapabilityConfig donConfig) config;
   }
 
+  /// Note RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct DONInfo {
     /// @notice Computed. Auto-increment.
     uint32 id;
@@ -389,7 +391,7 @@ contract CapabilitiesRegistry is INodeInfoProvider, OwnerIsCreator, ITypeAndVers
   /// @param hashedCapabilityId The hashed ID of the deprecated capability
   event CapabilityDeprecated(bytes32 indexed hashedCapabilityId);
 
-  string public constant override typeAndVersion = "CapabilitiesRegistry 1.1.0";
+  string public constant override typeAndVersion = "CapabilitiesRegistry 1.2.0";
 
   /// @notice Mapping of capabilities
   mapping(bytes32 hashedCapabilityId => Capability capability) private s_capabilities;
@@ -852,6 +854,7 @@ contract CapabilitiesRegistry is INodeInfoProvider, OwnerIsCreator, ITypeAndVers
 
   /// @notice Returns the list of configured DONs
   /// @return DONInfo[] The list of configured DONs
+  /// Note RMN depends on this struct, if changing, please notify the RMN maintainers.
   function getDONs() external view returns (DONInfo[] memory) {
     /// Minus one to account for s_nextDONId starting at index 1
     uint32 donId = s_nextDONId;

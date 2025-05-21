@@ -16,12 +16,12 @@ import (
 	"golang.org/x/mod/semver"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_allow_list"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_allow_list"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_router"
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
 )
 
 const (
@@ -102,7 +102,7 @@ func NewOnchainAllowlist(client evmclient.Client, config OnchainAllowlistConfig,
 
 	contractV1, err := functions_router.NewFunctionsRouter(config.ContractAddress, client)
 	if err != nil {
-		return nil, fmt.Errorf("unexpected error during functions_router.NewFunctionsRouter: %s", err)
+		return nil, fmt.Errorf("unexpected error during functions_router.NewFunctionsRouter: %w", err)
 	}
 	allowlist := &onchainAllowlist{
 		config:             config,

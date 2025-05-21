@@ -16,11 +16,15 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_external_sub_owner_example"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -32,10 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 var (
@@ -99,7 +99,7 @@ func TestVRFV2Integration_ForceFulfillmentRevertedTxn_Retry(t *testing.T) {
 	waitForForceFulfillment(t, th, req, th.subs[0], true, 2)
 
 	receipts, err := getTxnReceiptDB(th.db, -1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, receipts, 2)
 	require.Equal(t, uint64(0), receipts[0].EVMReceipt.Status)
 	require.Equal(t, uint64(1), receipts[1].EVMReceipt.Status)
@@ -121,7 +121,7 @@ func TestVRFV2Integration_CanceledSubForceFulfillmentRevertedTxn_Retry(t *testin
 	waitForForceFulfillment(t, th, req, th.subs[0], true, 2)
 
 	receipts, err := getTxnReceiptDB(th.db, -1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, receipts, 2)
 	require.Equal(t, uint64(0), receipts[0].EVMReceipt.Status)
 	require.Equal(t, uint64(1), receipts[1].EVMReceipt.Status)
@@ -150,10 +150,10 @@ func TestUniqueReqById_NoPendingReceipts(t *testing.T) {
 	require.Len(t, res, 2)
 	for _, r := range res {
 		if r.RequestID == "1" {
-			require.Equal(t, r.ForceFulfillmentAttempt, 2)
+			require.Equal(t, 2, r.ForceFulfillmentAttempt)
 		}
 		if r.RequestID == "2" {
-			require.Equal(t, r.ForceFulfillmentAttempt, 4)
+			require.Equal(t, 4, r.ForceFulfillmentAttempt)
 		}
 	}
 }
@@ -181,7 +181,7 @@ func TestUniqueReqById_WithPendingReceipts(t *testing.T) {
 	require.Len(t, res, 1)
 	for _, r := range res {
 		if r.RequestID == "1" {
-			require.Equal(t, r.ForceFulfillmentAttempt, 2)
+			require.Equal(t, 2, r.ForceFulfillmentAttempt)
 		}
 	}
 }
@@ -250,7 +250,7 @@ func makeVRFReq(t *testing.T, th *revertTxnTH, sub *vrfSub) (req *vrfReq) {
 	callbackGasLimit := uint32(600_000)
 	_, err := th.eoaConsumer.RequestRandomWords(th.uni.neil, sub.subID,
 		callbackGasLimit, uint16(confs), numWords, th.keyHash)
-	require.NoError(t, err, fmt.Sprintf("failed to request randomness from consumer: %v", err))
+	require.NoError(t, err, "failed to request randomness from consumer: %v", err)
 	th.uni.backend.Commit()
 
 	// Generate VRF proof
@@ -310,7 +310,7 @@ func fulfillVRFReq(t *testing.T,
 	mine(t, req.requestID, big.NewInt(int64(sub.subID)), th.uni.backend, th.db, vrfcommon.V2, th.chainID)
 
 	receipts, err := getTxnReceiptDB(th.db, etx.ID)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, receipts, 1)
 	require.Equal(t, uint64(0), receipts[0].EVMReceipt.Status)
 	req.txID = etx.ID
@@ -370,7 +370,7 @@ func fulfilBatchVRFReq(t *testing.T,
 	mineBatch(t, requestIDInts, big.NewInt(int64(sub.subID)), th.uni.backend, th.db, vrfcommon.V2, chainID)
 
 	receipts, err := getTxnReceiptDB(th.db, etx.ID)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, receipts, 1)
 	require.Equal(t, uint64(1), receipts[0].EVMReceipt.Status)
 }
@@ -482,7 +482,7 @@ func getTxnReceiptDB(db *sqlx.DB, txesID int64) ([]v2.TxnReceiptDB, error) {
 		WITH txes AS (
 			SELECT *
 			FROM evm.txes
-			WHERE (state = 'confirmed' OR state = 'unconfirmed')
+			WHERE (state = 'confirmed' OR state = 'finalized')
 				AND id = $1
 		), attempts AS (
 			SELECT *
@@ -688,7 +688,7 @@ func setupSub(t *testing.T, th *revertTxnTH, subID uint64, balance uint64) {
 	consumers := sub.Consumers()
 	require.NoError(t, err, "failed to get subscription with id %d", subID)
 	require.Equal(t, big.NewInt(int64(balance)), sub.Balance())
-	require.Equal(t, 1, len(consumers))
+	require.Len(t, consumers, 1)
 	require.Equal(t, th.eoaConsumerAddr, consumers[0])
 	require.Equal(t, uni.neil.From, sub.Owner())
 }

@@ -12,11 +12,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_router"
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
 )
 
 const defaultStoreBatchSize = 100
@@ -64,7 +64,7 @@ func NewOnchainSubscriptions(client evmclient.Client, config OnchainSubscription
 	}
 	router, err := functions_router.NewFunctionsRouter(config.ContractAddress, client)
 	if err != nil {
-		return nil, fmt.Errorf("unexpected error during functions_router.NewFunctionsRouter: %s", err)
+		return nil, fmt.Errorf("unexpected error during functions_router.NewFunctionsRouter: %w", err)
 	}
 
 	// if StoreBatchSize is not specified use the default value

@@ -19,6 +19,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	configtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -31,25 +38,21 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	configtoml "github.com/smartcontractkit/chainlink/v2/evm/config/toml"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 const mercuryOracleTOML = `name = 'LINK / ETH | 0x0000000000000000000000000000000000000000000000000000000000000001 | verifier_proxy 0x0000000000000000000000000000000000000001'
@@ -187,8 +190,8 @@ func TestORM(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, specErrors, 2)
 
-		assert.Equal(t, specErrors[0].Occurrences, uint(2))
-		assert.Equal(t, specErrors[1].Occurrences, uint(1))
+		assert.Equal(t, uint(2), specErrors[0].Occurrences)
+		assert.Equal(t, uint(1), specErrors[1].Occurrences)
 		assert.True(t, specErrors[0].CreatedAt.Before(specErrors[0].UpdatedAt), "expected created_at (%s) to be before updated_at (%s)", specErrors[0].CreatedAt, specErrors[0].UpdatedAt)
 		assert.Equal(t, specErrors[0].Description, ocrSpecError1)
 		assert.Equal(t, specErrors[1].Description, ocrSpecError2)
@@ -377,7 +380,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 
 		_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 		legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
-			GeneralConfig:  config,
+			ChainConfigs:   config.EVMConfigs(),
 			DatabaseConfig: config.Database(),
 			FeatureConfig:  config.Feature(),
 			ListenerConfig: config.Database().Listener(),
@@ -803,7 +806,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 		JobID:              externalJobID.UUID.String(),
 	})
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
-		GeneralConfig:  config,
+		ChainConfigs:   config.EVMConfigs(),
 		DatabaseConfig: config.Database(),
 		FeatureConfig:  config.Feature(),
 		ListenerConfig: config.Database().Listener(),
@@ -1080,7 +1083,7 @@ func Test_FindJobs(t *testing.T) {
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
-		GeneralConfig:  config,
+		ChainConfigs:   config.EVMConfigs(),
 		DatabaseConfig: config.Database(),
 		FeatureConfig:  config.Feature(),
 		ListenerConfig: config.Database().Listener(),
@@ -1112,7 +1115,7 @@ func Test_FindJobs(t *testing.T) {
 		jobs, count, err2 := orm.FindJobs(testutils.Context(t), 0, 2)
 		require.NoError(t, err2)
 		require.Len(t, jobs, 2)
-		assert.Equal(t, count, 2)
+		assert.Equal(t, 2, count)
 
 		expectedJobs := []job.Job{jb2, jb1}
 
@@ -1125,7 +1128,7 @@ func Test_FindJobs(t *testing.T) {
 		jobs, count, err2 := orm.FindJobs(testutils.Context(t), 0, 1)
 		require.NoError(t, err2)
 		require.Len(t, jobs, 1)
-		assert.Equal(t, count, 2)
+		assert.Equal(t, 2, count)
 
 		expectedJobs := []job.Job{jb2}
 
@@ -1171,7 +1174,7 @@ func Test_FindJob(t *testing.T) {
 	externalJobID := uuid.New()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
-		GeneralConfig:  config,
+		ChainConfigs:   config.EVMConfigs(),
 		DatabaseConfig: config.Database(),
 		FeatureConfig:  config.Feature(),
 		ListenerConfig: config.Database().Listener(),
@@ -1260,7 +1263,7 @@ func Test_FindJob(t *testing.T) {
 		assert.Equal(t, jb.ID, job.ID)
 		assert.Equal(t, jb.Name, job.Name)
 
-		require.Greater(t, jb.PipelineSpecID, int32(0))
+		require.Positive(t, jb.PipelineSpecID)
 		require.NotNil(t, jb.PipelineSpec)
 		require.NotNil(t, jb.OCROracleSpecID)
 		require.NotNil(t, jb.OCROracleSpec)
@@ -1274,7 +1277,7 @@ func Test_FindJob(t *testing.T) {
 		assert.Equal(t, jb.ID, job.ID)
 		assert.Equal(t, jb.Name, job.Name)
 
-		require.Greater(t, jb.PipelineSpecID, int32(0))
+		require.Positive(t, jb.PipelineSpecID)
 		require.NotNil(t, jb.PipelineSpec)
 		require.NotNil(t, jb.OCROracleSpecID)
 		require.NotNil(t, jb.OCROracleSpec)
@@ -1374,7 +1377,7 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 		assert.Equal(t, jb.ID, jbs[0].ID)
 		assert.Equal(t, jb.Name, jbs[0].Name)
 
-		require.Greater(t, jbs[0].PipelineSpecID, int32(0))
+		require.Positive(t, jbs[0].PipelineSpecID)
 		require.Equal(t, jb.PipelineSpecID, jbs[0].PipelineSpecID)
 		require.NotNil(t, jbs[0].PipelineSpec)
 	})
@@ -1383,7 +1386,7 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 		ctx := testutils.Context(t)
 		jbs, err2 := orm.FindJobsByPipelineSpecIDs(ctx, []int32{-1})
 		require.NoError(t, err2)
-		assert.Len(t, jbs, 0)
+		assert.Empty(t, jbs)
 	})
 
 	t.Run("with chainID disabled", func(t *testing.T) {
@@ -1409,12 +1412,12 @@ func Test_FindPipelineRuns(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db)
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
-		GeneralConfig:  config,
+		ChainConfigs:   config.EVMConfigs(),
 		DatabaseConfig: config.Database(),
 		FeatureConfig:  config.Feature(),
 		ListenerConfig: config.Database().Listener(),
-		DB:             db,
 		KeyStore:       keyStore.Eth(),
+		DB:             db,
 	})
 	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
@@ -1440,7 +1443,7 @@ func Test_FindPipelineRuns(t *testing.T) {
 		ctx := testutils.Context(t)
 		runs, count, err2 := orm.PipelineRuns(ctx, nil, 0, 10)
 		require.NoError(t, err2)
-		assert.Equal(t, count, 0)
+		assert.Equal(t, 0, count)
 		assert.Empty(t, runs)
 	})
 
@@ -1451,7 +1454,7 @@ func Test_FindPipelineRuns(t *testing.T) {
 		runs, count, err2 := orm.PipelineRuns(ctx, nil, 0, 10)
 		require.NoError(t, err2)
 
-		assert.Equal(t, count, 1)
+		assert.Equal(t, 1, count)
 		actual := runs[0]
 
 		// Test pipeline run fields
@@ -1479,7 +1482,7 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db)
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
-		GeneralConfig:  config,
+		ChainConfigs:   config.EVMConfigs(),
 		DatabaseConfig: config.Database(),
 		FeatureConfig:  config.Feature(),
 		ListenerConfig: config.Database().Listener(),
@@ -1510,7 +1513,7 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 		ctx := testutils.Context(t)
 		runs, count, err2 := orm.PipelineRuns(ctx, &jb.ID, 0, 10)
 		require.NoError(t, err2)
-		assert.Equal(t, count, 0)
+		assert.Equal(t, 0, count)
 		assert.Empty(t, runs)
 	})
 
@@ -1548,7 +1551,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db)
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
-		GeneralConfig:  config,
+		ChainConfigs:   config.EVMConfigs(),
 		DatabaseConfig: config.Database(),
 		FeatureConfig:  config.Feature(),
 		ListenerConfig: config.Database().Listener(),
@@ -1669,7 +1672,7 @@ func Test_FindPipelineRunsByIDs(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db)
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
-		GeneralConfig:  config,
+		ChainConfigs:   config.EVMConfigs(),
 		DatabaseConfig: config.Database(),
 		FeatureConfig:  config.Feature(),
 		ListenerConfig: config.Database().Listener(),
@@ -1746,7 +1749,7 @@ func Test_FindPipelineRunByID(t *testing.T) {
 	t.Run("with no pipeline run", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		run, err2 := orm.FindPipelineRunByID(ctx, -1)
-		assert.Equal(t, run, pipeline.Run{})
+		assert.Equal(t, pipeline.Run{}, run)
 		require.ErrorIs(t, err2, sql.ErrNoRows)
 	})
 
@@ -1802,8 +1805,8 @@ func Test_FindJobWithoutSpecErrors(t *testing.T) {
 	jbWithErrors, err := orm.FindJob(testutils.Context(t), jobSpec.ID)
 	require.NoError(t, err)
 
-	assert.Equal(t, len(jb.JobSpecErrors), 0)
-	assert.Equal(t, len(jbWithErrors.JobSpecErrors), 2)
+	assert.Empty(t, jb.JobSpecErrors)
+	assert.Len(t, jbWithErrors.JobSpecErrors, 2)
 }
 
 func Test_FindSpecErrorsByJobIDs(t *testing.T) {
@@ -1838,7 +1841,7 @@ func Test_FindSpecErrorsByJobIDs(t *testing.T) {
 	specErrs, err := orm.FindSpecErrorsByJobIDs(ctx, []int32{jobSpec.ID})
 	require.NoError(t, err)
 
-	assert.Equal(t, len(specErrs), 2)
+	assert.Len(t, specErrs, 2)
 }
 
 func Test_CountPipelineRunsByJobID(t *testing.T) {
@@ -1855,7 +1858,7 @@ func Test_CountPipelineRunsByJobID(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db)
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
-		GeneralConfig:  config,
+		ChainConfigs:   config.EVMConfigs(),
 		DatabaseConfig: config.Database(),
 		FeatureConfig:  config.Feature(),
 		ListenerConfig: config.Database().Listener(),
@@ -1996,7 +1999,7 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 			ctx := testutils.Context(t)
 			ks := cltest.NewKeyStore(t, tt.fields.ds)
 
-			secretsORM := syncer.NewWorkflowRegistryDS(tt.fields.ds, logger.TestLogger(t))
+			secretsORM := artifacts.NewWorkflowRegistryDS(tt.fields.ds, logger.TestLogger(t))
 
 			sid, err := secretsORM.Create(ctx, "some-url.com", fmt.Sprintf("some-hash-%d", i), "some-contentz")
 			require.NoError(t, err)
@@ -2038,7 +2041,7 @@ func Test_ORM_FindJobByWorkflow_Multiple(t *testing.T) {
 			bridges.NewORM(db),
 			cltest.NewKeyStore(t, db))
 		ctx := testutils.Context(t)
-		secretsORM := syncer.NewWorkflowRegistryDS(db, logger.TestLogger(t))
+		secretsORM := artifacts.NewWorkflowRegistryDS(db, logger.TestLogger(t))
 
 		var sids []int64
 		for i := 0; i < 3; i++ {
@@ -2084,7 +2087,7 @@ func Test_ORM_FindJobByWorkflow_Multiple(t *testing.T) {
 			assert.EqualValues(t, j.WorkflowSpec.WorkflowID, s.WorkflowID)
 			assert.EqualValues(t, j.WorkflowSpec.WorkflowOwner, s.WorkflowOwner)
 			assert.EqualValues(t, j.WorkflowSpec.WorkflowName, s.WorkflowName)
-			assert.Equal(t, j.WorkflowSpec.SpecType, job.YamlSpec)
+			assert.Equal(t, job.YamlSpec, j.WorkflowSpec.SpecType)
 		}
 	})
 }
@@ -2175,7 +2178,7 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 	emptyTransmitterAddress := `
 		enableDualTransmission=true
 		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C'
 		transmitterAddress = ''
 	`
 	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+emptyTransmitterAddress, nil)
@@ -2184,100 +2187,10 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 
 	dtTransmitterAddress := cltest.MustGenerateRandomKey(t)
 
-	metaNotSliceDualTransmissionSpec := fmt.Sprintf(`
-		enableDualTransmission=true
-		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
-		transmitterAddress = '%s'
-		[relayConfig.dualTransmission.meta]
-		key1 = 'val1'
-		key2 = ['val2','val3']
-		`,
-		dtTransmitterAddress.Address.String())
-
-	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+metaNotSliceDualTransmissionSpec, nil)
-	require.NoError(t, err)
-	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "dual transmission meta value key1 is not a slice")
-
-	hintNotValidDualTransmissionSpec := fmt.Sprintf(`
-		enableDualTransmission=true
-		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
-		transmitterAddress = '%s'
-		[relayConfig.dualTransmission.meta]
-		hint = ['some-invalid-hint']
-		key2 = ['val2','val3']
-		`,
-		dtTransmitterAddress.Address.String())
-
-	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+hintNotValidDualTransmissionSpec, nil)
-	require.NoError(t, err)
-	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "dual transmission meta.hint value some-invalid-hint should be one of the following [contract_address function_selector logs calldata default_logs]")
-
-	invalidRefundFormatDualTransmissionSpec := fmt.Sprintf(`
-		enableDualTransmission=true
-		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
-		transmitterAddress = '%s'
-		[relayConfig.dualTransmission.meta]
-		hint = ['calldata','logs']
-		refund = ['0x00']
-		`,
-		dtTransmitterAddress.Address.String())
-
-	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+invalidRefundFormatDualTransmissionSpec, nil)
-	require.NoError(t, err)
-	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "invalid dual transmission refund, format should be <ADDRESS>:<PERCENT>")
-
-	invalidRefundAddressFormatDualTransmissionSpec := fmt.Sprintf(`
-		enableDualTransmission=true
-		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
-		transmitterAddress = '%s'
-		[relayConfig.dualTransmission.meta]
-		hint = ['calldata','logs']
-		refund = ['0x000:50']
-		`,
-		dtTransmitterAddress.Address.String())
-
-	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+invalidRefundAddressFormatDualTransmissionSpec, nil)
-	require.NoError(t, err)
-	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "invalid dual transmission refund address, 0x000 is not a valid address")
-
-	invalidRefundPercentFormatDualTransmissionSpec := fmt.Sprintf(`
-		enableDualTransmission=true
-		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
-		transmitterAddress = '%s'
-		[relayConfig.dualTransmission.meta]
-		hint = ['calldata','logs']
-		refund = ['0x0000000000000000000000000000000000000000:A']
-		`,
-		dtTransmitterAddress.Address.String())
-
-	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+invalidRefundPercentFormatDualTransmissionSpec, nil)
-	require.NoError(t, err)
-	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "invalid dual transmission refund percent, A is not a number")
-
-	invalidRefundPercentTotalFormatDualTransmissionSpec := fmt.Sprintf(`
-		enableDualTransmission=true
-		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
-		transmitterAddress = '%s'
-		[relayConfig.dualTransmission.meta]
-		hint = ['calldata','logs']
-		refund = ['0x0000000000000000000000000000000000000000:50','0x0000000000000000000000000000000000000001:50']
-		`,
-		dtTransmitterAddress.Address.String())
-
-	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+invalidRefundPercentTotalFormatDualTransmissionSpec, nil)
-	require.NoError(t, err)
-	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "invalid dual transmission refund percentages, total sum of percentages must be less than 100")
-
 	completeDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true
 		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C'
 		transmitterAddress = '%s'
 		[relayConfig.dualTransmission.meta]
 		key1 = ['val1']
@@ -2330,7 +2243,7 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 		completeDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true
 		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C'
 		transmitterAddress = '%s'
 		[relayConfig.dualTransmission.meta]
 		key1 = ['val1']
@@ -2351,7 +2264,7 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 		completeDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true
 		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C'
 		transmitterAddress = '%s'
 		[relayConfig.dualTransmission.meta]
 		key1 = ['val1']
@@ -2359,12 +2272,10 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 		`,
 			dtTransmitterAddress.Address.String())
 
-		rm, err := ks.Eth().GetResourceMutex(ctx, transmitterID)
-		require.NoError(t, err)
-		require.NoError(t, rm.TryLock(keystore.TXMv1))
-		rm, err = ks.Eth().GetResourceMutex(ctx, dtTransmitterAddress.Address)
-		require.NoError(t, err)
-		require.NoError(t, rm.TryLock(keystore.TXMv2))
+		rm := ks.Eth().GetResourceMutex(ctx, transmitterID)
+		require.NoError(t, rm.TryLock(keys.TXMv1))
+		rm = ks.Eth().GetResourceMutex(ctx, dtTransmitterAddress.Address)
+		require.NoError(t, rm.TryLock(keys.TXMv2))
 		jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+completeDualTransmissionSpec, nil)
 		require.NoError(t, err)
 
@@ -2375,17 +2286,15 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 	})
 
 	t.Run("keys locked but job spec misconfigured", func(t *testing.T) {
-		rm, err := ks.Eth().GetResourceMutex(ctx, transmitterID)
-		require.NoError(t, err)
-		require.NoError(t, rm.TryLock(keystore.TXMv1))
-		rm, err = ks.Eth().GetResourceMutex(ctx, dtTransmitterAddress.Address)
-		require.NoError(t, err)
-		require.NoError(t, rm.TryLock(keystore.TXMv2))
+		rm := ks.Eth().GetResourceMutex(ctx, transmitterID)
+		require.NoError(t, rm.TryLock(keys.TXMv1))
+		rm = ks.Eth().GetResourceMutex(ctx, dtTransmitterAddress.Address)
+		require.NoError(t, rm.TryLock(keys.TXMv2))
 
 		completeDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true
 		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C'
 		transmitterAddress = '%s'
 		[relayConfig.dualTransmission.meta]
 		key1 = ['val1']
@@ -2401,4 +2310,144 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 
 		require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "cannot be a secondary transmitter address because it's used a primary transmitter in another job")
 	})
+}
+
+func Test_FindGatewayJobID(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+
+	config := configtest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+
+	keyStore := cltest.NewKeyStore(t, db)
+	err := keyStore.OCR().Add(ctx, cltest.DefaultOCRKey)
+	require.NoError(t, err, "failed to add OCR key")
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db)
+	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
+
+	gatewayJob, err := gateway.ValidatedGatewaySpec(testspecs.GetGatewaySpec())
+	require.NoError(t, err, "failed to validate gateway spec")
+
+	err = orm.CreateJob(ctx, &gatewayJob)
+	require.NoError(t, err, "failed to create gateway job")
+	var jobSpec job.Job
+	err = db.Get(&jobSpec, "SELECT * FROM jobs")
+	require.NoError(t, err, "failed to get gateway job from db")
+
+	// find only by auth gateway id
+	gatewayJobSpec := job.GatewaySpec{
+		GatewayConfig: job.JSONConfig{
+			"ConnectionManagerConfig": map[string]interface{}{
+				"AuthGatewayId": "gateway",
+			},
+		},
+	}
+	id, err := orm.FindGatewayJobID(ctx, gatewayJobSpec)
+	require.NoError(t, err, "failed to find gateway job by auth gateway id")
+	require.Equal(t, jobSpec.ID, id, "mismatch job id")
+}
+
+func Test_FindGatewayJobID_NoMatch(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+
+	config := configtest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+
+	keyStore := cltest.NewKeyStore(t, db)
+	err := keyStore.OCR().Add(ctx, cltest.DefaultOCRKey)
+	require.NoError(t, err, "failed to add OCR key")
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db)
+	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
+
+	gatewayJob, err := gateway.ValidatedGatewaySpec(testspecs.GetGatewaySpec())
+	require.NoError(t, err, "failed to validate gateway spec")
+
+	err = orm.CreateJob(ctx, &gatewayJob)
+	require.NoError(t, err, "failed to create gateway job")
+	var jobSpec job.Job
+	err = db.Get(&jobSpec, "SELECT * FROM jobs")
+	require.NoError(t, err, "failed to get gateway job from db")
+
+	// different auth gateway id
+	gatewayJobSpec := job.GatewaySpec{
+		GatewayConfig: job.JSONConfig{
+			"ConnectionManagerConfig": map[string]interface{}{
+				"AuthGatewayId": "another_gateway",
+			},
+		},
+	}
+	id, err := orm.FindGatewayJobID(ctx, gatewayJobSpec)
+	require.Error(t, err, "found gateway job by auth gateway id")
+	require.Equal(t, int32(0), id, "found non-zero job id")
+}
+
+func Test_FindStandardCapabilityJobID(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+
+	config := configtest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+
+	keyStore := cltest.NewKeyStore(t, db)
+	err := keyStore.OCR().Add(ctx, cltest.DefaultOCRKey)
+	require.NoError(t, err, "failed to add OCR key")
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db)
+	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
+
+	stdJob, err := standardcapabilities.ValidatedStandardCapabilitiesSpec(testspecs.GetStandardCapabilitySpec())
+	require.NoError(t, err, "failed to validate standard capabilities spec")
+
+	err = orm.CreateJob(ctx, &stdJob)
+	require.NoError(t, err, "failed to create standard capabilities job")
+	var jobSpec job.Job
+	err = db.Get(&jobSpec, "SELECT * FROM jobs")
+	require.NoError(t, err, "failed to get standard capabilities job from db")
+
+	stdCapJobSpec := job.StandardCapabilitiesSpec{
+		Command: "/home/capabilities/some_capability_linux_amd64",
+	}
+
+	id, err := orm.FindStandardCapabilityJobID(ctx, stdCapJobSpec)
+	require.NoError(t, err, "failed to find standard capabilities by command")
+	require.Equal(t, jobSpec.ID, id, "mismatch job id")
+}
+
+func Test_FindStandardCapabilityJobID_NoMatch(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+
+	config := configtest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+
+	keyStore := cltest.NewKeyStore(t, db)
+	err := keyStore.OCR().Add(ctx, cltest.DefaultOCRKey)
+	require.NoError(t, err, "failed to add OCR key")
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db)
+	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
+
+	stdJob, err := standardcapabilities.ValidatedStandardCapabilitiesSpec(testspecs.GetStandardCapabilitySpec())
+	require.NoError(t, err, "failed to validate standard capabilities spec")
+
+	err = orm.CreateJob(ctx, &stdJob)
+	require.NoError(t, err, "failed to create standard capabilities job")
+	var jobSpec job.Job
+	err = db.Get(&jobSpec, "SELECT * FROM jobs")
+	require.NoError(t, err, "failed to get standard capabilities job from db")
+
+	stdCapJobSpec := job.StandardCapabilitiesSpec{
+		Command: "/home/capabilities/some_other_capability_linux_amd64",
+	}
+
+	id, err := orm.FindStandardCapabilityJobID(ctx, stdCapJobSpec)
+	require.Error(t, err, "found standard capabilities with different command")
+	require.Equal(t, int32(0), id, "found non-zero job id")
 }

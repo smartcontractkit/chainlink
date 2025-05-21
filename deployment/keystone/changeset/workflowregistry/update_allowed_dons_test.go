@@ -11,7 +11,8 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -31,9 +32,9 @@ func TestUpdateAllowedDons(t *testing.T) {
 
 	assert.Empty(t, dons)
 
-	env := deployment.Environment{
+	env := cldf.Environment{
 		Logger: lggr,
-		Chains: map[uint64]deployment.Chain{
+		Chains: map[uint64]cldf.Chain{
 			chainSel: resp.Chain,
 		},
 		ExistingAddresses: resp.AddressBook,
@@ -72,10 +73,10 @@ func TestUpdateAllowedDons(t *testing.T) {
 }
 
 func Test_UpdateAllowedDons_WithMCMS(t *testing.T) {
-	te := test.SetupTestEnv(t, test.TestConfig{
-		WFDonConfig:     test.DonConfig{N: 4},
-		AssetDonConfig:  test.DonConfig{N: 4},
-		WriterDonConfig: test.DonConfig{N: 4},
+	te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
+		WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
+		AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
+		WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 		NumChains:       1,
 		UseMCMS:         true,
 	})
@@ -89,22 +90,22 @@ func Test_UpdateAllowedDons_WithMCMS(t *testing.T) {
 
 	out, err := workflowregistry.UpdateAllowedDons(te.Env, req)
 	require.NoError(t, err)
-	require.Len(t, out.Proposals, 1)
+	require.Len(t, out.MCMSTimelockProposals, 1)
 	require.Nil(t, out.AddressBook)
 
-	contracts := te.ContractSets()[te.RegistrySelector]
+	capReg := te.OwnedCapabilityRegistry()
 	timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{
 		te.RegistrySelector: {
-			Timelock:  contracts.Timelock,
-			CallProxy: contracts.CallProxy,
+			Timelock:  capReg.McmsContracts.Timelock,
+			CallProxy: capReg.McmsContracts.CallProxy,
 		},
 	}
 
-	_, err = commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(workflowregistry.UpdateAllowedDons),
-			Config:    req,
-		},
-	})
+	_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(workflowregistry.UpdateAllowedDons),
+			req,
+		),
+	)
 	require.NoError(t, err)
 }

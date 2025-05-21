@@ -9,8 +9,11 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/curve"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 var _ types.OnchainKeyring = &OCR2Key{}
@@ -47,11 +50,7 @@ func ReportToSigData(reportCtx types.ReportContext, report types.Report) (*big.I
 		dataArray = append(dataArray, new(big.Int).SetBytes(splitReport[i]))
 	}
 
-	hash, err := curve.Curve.ComputeHashOnElements(dataArray)
-	if err != nil {
-		return &big.Int{}, err
-	}
-	return hash, nil
+	return curve.ComputeHashOnElements(dataArray), nil
 }
 
 func (sk *OCR2Key) Sign(reportCtx types.ReportContext, report types.Report) ([]byte, error) {
@@ -59,7 +58,7 @@ func (sk *OCR2Key) Sign(reportCtx types.ReportContext, report types.Report) ([]b
 	if err != nil {
 		return []byte{}, err
 	}
-	r, s, err := curve.Curve.Sign(hash, sk.priv)
+	r, s, err := sk.signFn(hash)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -71,10 +70,10 @@ func (sk *OCR2Key) Sign(reportCtx types.ReportContext, report types.Report) ([]b
 
 	// encoding: public key (32 bytes) + r (32 bytes) + s (32 bytes)
 	buff := bytes.NewBuffer([]byte(sk.PublicKey()))
-	if _, err := buff.Write(padBytes(r.Bytes(), byteLen)); err != nil {
+	if _, err := buff.Write(padBytes(r.Bytes())); err != nil {
 		return []byte{}, err
 	}
-	if _, err := buff.Write(padBytes(s.Bytes(), byteLen)); err != nil {
+	if _, err := buff.Write(padBytes(s.Bytes())); err != nil {
 		return []byte{}, err
 	}
 
@@ -86,6 +85,10 @@ func (sk *OCR2Key) Sign(reportCtx types.ReportContext, report types.Report) ([]b
 }
 
 func (sk *OCR2Key) Sign3(digest types.ConfigDigest, seqNr uint64, r types.Report) (signature []byte, err error) {
+	return nil, errors.New("not implemented")
+}
+
+func (sk *OCR2Key) SignBlob(b []byte) ([]byte, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -128,26 +131,28 @@ func (sk *OCR2Key) Verify3(publicKey types.OnchainPublicKey, cd types.ConfigDige
 	return false
 }
 
+func (sk *OCR2Key) VerifyBlob(pubkey types.OnchainPublicKey, b, sig []byte) bool {
+	return false
+}
+
 func (sk *OCR2Key) MaxSignatureLength() int {
 	return 32 + 32 + 32 // publickey + r + s
 }
 
 func (sk *OCR2Key) Marshal() ([]byte, error) {
-	return padBytes(sk.priv.Bytes(), sk.privateKeyLen()), nil
+	return padBytes(internal.Bytes(sk.raw)), nil
 }
 
-func (sk *OCR2Key) privateKeyLen() int {
-	// https://github.com/NethermindEth/juno/blob/3e71279632d82689e5af03e26693ca5c58a2376e/pkg/crypto/weierstrass/weierstrass.go#L377
-	return 32
-}
+// https://github.com/NethermindEth/juno/blob/3e71279632d82689e5af03e26693ca5c58a2376e/pkg/crypto/weierstrass/weierstrass.go#L377
+const privateKeyLen = 32
 
 func (sk *OCR2Key) Unmarshal(in []byte) error {
 	// enforce byte length
-	if len(in) != sk.privateKeyLen() {
-		return errors.Errorf("unexpected seed size, got %d want %d", len(in), sk.privateKeyLen())
+	if len(in) != privateKeyLen {
+		return errors.Errorf("unexpected seed size, got %d want %d", len(in), privateKeyLen)
 	}
 
-	sk.Key = Raw(in).Key()
+	sk.Key = KeyFor(internal.NewRaw(in))
 	return nil
 }
 

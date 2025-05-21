@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"sync"
@@ -22,15 +23,15 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -39,7 +40,6 @@ import (
 	syncerMocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
 )
 
 var writeChainCapability = kcr.CapabilitiesRegistryCapability{
@@ -49,7 +49,7 @@ var writeChainCapability = kcr.CapabilitiesRegistryCapability{
 }
 
 func startNewChainWithRegistry(t *testing.T) (*kcr.CapabilitiesRegistry, common.Address, *bind.TransactOpts, *simulated.Backend) {
-	owner := testutils.MustNewSimTransactor(t)
+	owner := evmtestutils.MustNewSimTransactor(t)
 
 	i := &big.Int{}
 	oneEth, _ := i.SetString("100000000000000000000", 10)
@@ -99,7 +99,7 @@ func newContractReaderFactory(t *testing.T, simulatedBackend *simulated.Backend)
 	)
 	db := pgtest.NewSqlxDB(t)
 	const finalityDepth = 2
-	ht := headtracker.NewSimulatedHeadTracker(client, false, finalityDepth)
+	ht := headstest.NewSimulatedHeadTracker(client, false, finalityDepth)
 	lp := logpoller.NewLogPoller(
 		logpoller.NewORM(testutils.SimulatedChainID, db, lggr),
 		client,
@@ -109,7 +109,7 @@ func newContractReaderFactory(t *testing.T, simulatedBackend *simulated.Backend)
 			PollPeriod:               100 * time.Millisecond,
 			FinalityDepth:            finalityDepth,
 			BackfillBatchSize:        3,
-			RpcBatchSize:             2,
+			RPCBatchSize:             2,
 			KeepFinalizedBlocksDepth: 1000,
 		},
 	)
@@ -464,7 +464,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 
 	factory := newContractReaderFactory(t, sim)
 	syncerORM := newORM(t)
-	syncerORM.ormMock.On("LatestLocalRegistry", mock.Anything).Return(nil, fmt.Errorf("no state found"))
+	syncerORM.ormMock.On("LatestLocalRegistry", mock.Anything).Return(nil, errors.New("no state found"))
 	syncerORM.ormMock.On("AddLocalRegistry", mock.Anything, mock.Anything).Return(nil)
 	syncer, err := newTestSyncer(logger.TestLogger(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
 	require.NoError(t, err)
@@ -495,7 +495,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 }
 
 func TestSyncer_LocalNode(t *testing.T) {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 
 	var pid p2ptypes.PeerID

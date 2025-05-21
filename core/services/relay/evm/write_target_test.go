@@ -14,17 +14,23 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
-	"github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
+	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	gasmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+
+	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
+	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
-	pollermocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
-	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -32,11 +38,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	relayevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	gasmocks "github.com/smartcontractkit/chainlink/v2/evm/gas/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var forwardABI = evmtypes.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
@@ -47,7 +51,7 @@ func newMockedEncodeTransmissionInfo() ([]byte, error) {
 		InvalidReceiver: false,
 		State:           0,
 		Success:         false,
-		TransmissionId:  [32]byte{},
+		TransmissionID:  [32]byte{},
 		Transmitter:     common.HexToAddress("0x0"),
 	}
 
@@ -89,8 +93,8 @@ func newMockedEncodeTransmissionInfo() ([]byte, error) {
 	padSuccess := make([]byte, 31)
 	buffer.Write(padSuccess)
 
-	// Encode TransmissionId (as bytes32)
-	buffer.Write(info.TransmissionId[:])
+	// Encode TransmissionID (as bytes32)
+	buffer.Write(info.TransmissionID[:])
 
 	// Encode Transmitter (as address)
 	buffer.Write(info.Transmitter.Bytes())
@@ -102,7 +106,7 @@ func TestEvmWrite(t *testing.T) {
 	chain := evmmocks.NewChain(t)
 	txManager := txmmocks.NewMockEvmTxManager(t)
 	evmClient := clienttest.NewClient(t)
-	poller := pollermocks.NewLogPoller(t)
+	poller := lpmocks.NewLogPoller(t)
 
 	// This is a very error-prone way to mock an on-chain response to a GetLatestValue("getTransmissionInfo") call
 	// It's a bit of a hack, but it's the best way to do it without a lot of refactoring
@@ -113,11 +117,13 @@ func TestEvmWrite(t *testing.T) {
 
 	txManager.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(commonTypes.Finalized, nil)
 
+	chain.On("Start", mock.Anything).Return(nil)
+	chain.On("Close").Return(nil)
 	chain.On("ID").Return(big.NewInt(11155111))
 	chain.On("TxManager").Return(txManager)
 	chain.On("LogPoller").Return(poller)
 
-	ht := mocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+	ht := headstest.NewTracker[*evmtypes.Head, common.Hash](t)
 	ht.On("LatestAndFinalizedBlock", mock.Anything).Return(&evmtypes.Head{}, &evmtypes.Head{}, nil)
 	chain.On("HeadTracker").Return(ht)
 
@@ -145,12 +151,14 @@ func TestEvmWrite(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	cRegistry := evmcapabilities.NewRegistry(lggr)
-	relayer, err := relayevm.NewRelayer(testutils.Context(t), lggr, chain, relayevm.RelayerOpts{
+	relayer, err := relayevm.NewRelayer(lggr, chain, relayevm.RelayerOpts{
 		DS:                   db,
-		CSAETHKeystore:       keyStore,
+		EVMKeystore:          keys.NewChainStore(keystore.NewEthSigner(keyStore.Eth(), chain.ID()), chain.ID()),
+		CSAKeystore:          &keystore.CSASigner{CSA: keyStore.CSA()},
 		CapabilitiesRegistry: cRegistry,
 	})
 	require.NoError(t, err)
+	servicetest.Run(t, relayer)
 	registeredCapabilities, err := cRegistry.List(testutils.Context(t))
 	require.NoError(t, err)
 	require.Len(t, registeredCapabilities, 1) // WriteTarget should be added to the registry
@@ -264,21 +272,25 @@ func TestEvmWrite(t *testing.T) {
 		testChain := evmmocks.NewChain(t)
 		testCfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].Workflow.FromAddress = nil
-
 			forwarderA := testutils.NewAddress()
 			forwarderAddr, err2 := evmtypes.NewEIP55Address(forwarderA.Hex())
 			require.NoError(t, err2)
 			c.EVM[0].Workflow.ForwarderAddress = &forwarderAddr
 		})
+		testChain.On("Start", mock.Anything).Return(nil)
+		testChain.On("Close").Return(nil)
+		testChain.On("ID").Return(big.NewInt(11155111))
 		testChain.On("Config").Return(evmtest.NewChainScopedConfig(t, testCfg))
 		capabilityRegistry := evmcapabilities.NewRegistry(lggr)
 
-		_, err := relayevm.NewRelayer(ctx, lggr, testChain, relayevm.RelayerOpts{
+		relayer, err := relayevm.NewRelayer(lggr, testChain, relayevm.RelayerOpts{
 			DS:                   db,
-			CSAETHKeystore:       keyStore,
+			EVMKeystore:          keys.NewChainStore(keystore.NewEthSigner(keyStore.Eth(), chain.ID()), chain.ID()),
+			CSAKeystore:          &keystore.CSASigner{CSA: keyStore.CSA()},
 			CapabilitiesRegistry: capabilityRegistry,
 		})
 		require.NoError(t, err)
+		servicetest.Run(t, relayer)
 
 		l, err := capabilityRegistry.List(ctx)
 		require.NoError(t, err)

@@ -24,14 +24,12 @@ tools/clroot/db.sqlite3-wal
 .envrc
 .env*
 .dbenv
-!crib/.env.example
 !.github/actions/setup-postgres/.env
 .direnv
 .idea
 .vscode/
 *.iml
 debug.env
-*.txt
 operator_ui/install
 .devenv
 
@@ -54,6 +52,7 @@ race.*
 .covdata
 core/services/job/testdata/wasm/testmodule.wasm
 core/services/job/testdata/wasm/testmodule.br
+temp-repo
 
 # DB state
 ./db/
@@ -79,11 +78,7 @@ benchmark_report.csv
 benchmark_summary.json
 secrets.toml
 tmp_laneconfig/
-
-# goreleaser builds
-cosign.*
-dist/
-MacOSX*
+solana_contracts
 
 # Test & linter reports
 *report.xml
@@ -100,9 +95,6 @@ go.work*
 # This sometimes shows up for some reason
 tools/flakeytests/coverage.txt
 
-# Fuzz tests can create these files
-**/testdata/fuzz/*
-
 # Runtime test configuration that might contain secrets
 override*.toml
 
@@ -115,4 +107,9 @@ vendor/*
 
 *.wasm
 contracts/lcov.info
+contracts/out/
 /cache
+
+# Used by plugins/chianlink.prebuilt.Dockerfile
+bin/
+lib/

@@ -240,14 +240,14 @@ func TestUserController_DeleteUser(t *testing.T) {
 	err := app.AuthenticationProvider().CreateUser(ctx, &user)
 	require.NoError(t, err)
 
-	resp, cleanup := client.Delete(fmt.Sprintf("/v2/users/%s", url.QueryEscape(user.Email)))
+	resp, cleanup := client.Delete("/v2/users/" + url.QueryEscape(user.Email))
 	t.Cleanup(cleanup)
 	errors := cltest.ParseJSONAPIErrors(t, resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Empty(t, errors.Errors)
 
 	// second attempt would fail
-	resp, cleanup = client.Delete(fmt.Sprintf("/v2/users/%s", url.QueryEscape(user.Email)))
+	resp, cleanup = client.Delete("/v2/users/" + url.QueryEscape(user.Email))
 	t.Cleanup(cleanup)
 	errors = cltest.ParseJSONAPIErrors(t, resp.Body)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)

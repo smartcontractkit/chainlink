@@ -37,22 +37,27 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 
-	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	evmheads "github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -91,13 +96,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	// Force import of pgtest to ensure that txdb is registered as a DB driver
 	_ "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -277,25 +275,6 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 	return app
 }
 
-func setKeys(t testing.TB, app *TestApplication, flagsAndDeps ...interface{}) (chainID ubig.Big) {
-	ctx := testutils.Context(t)
-
-	for _, dep := range flagsAndDeps {
-		switch v := dep.(type) {
-		case ethkey.KeyV2:
-			app.Keys = append(app.Keys, v)
-		case p2pkey.KeyV2:
-			require.NoError(t, app.GetKeyStore().P2P().Add(ctx, v))
-		case csakey.KeyV2:
-			require.NoError(t, app.GetKeyStore().CSA().Add(ctx, v))
-		case ocr2key.KeyBundle:
-			require.NoError(t, app.GetKeyStore().OCR2().Add(ctx, v))
-		}
-	}
-
-	return
-}
-
 const (
 	UseRealExternalInitiatorManager = "UseRealExternalInitiatorManager"
 )
@@ -359,9 +338,9 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
-	var syncerFetcherFunc syncer.FetcherFunc
+	var syncerFetcherFunc artifacts.FetcherFunc
 	for _, dep := range flagsAndDeps {
-		syncerFetcherFunc, _ = dep.(syncer.FetcherFunc)
+		syncerFetcherFunc, _ = dep.(artifacts.FetcherFunc)
 		if syncerFetcherFunc != nil {
 			break
 		}
@@ -409,12 +388,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
-	keyStore := keystore.NewInMemory(ds, utils.FastScryptParams, lggr)
-	require.NoError(t, keyStore.Unlock(ctx, Password))
-
-	mailMon := mailbox.NewMonitor(cfg.AppID().String(), lggr.Named("Mailbox"))
-	loopRegistry := plugins.NewTestLoopRegistry(lggr)
-
 	mercuryPool := wsrpc.NewPool(lggr, cache.Config{
 		LatestReportTTL:      cfg.Mercury().Cache().LatestReportTTL(),
 		MaxStaleAge:          cfg.Mercury().Cache().MaxStaleAge(),
@@ -422,111 +395,62 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	})
 
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	retirementReportCache := llo.NewRetirementReportCache(lggr, ds)
-	relayerFactory := chainlink.RelayerFactory{
-		Logger:                lggr,
-		LoopRegistry:          loopRegistry,
-		GRPCOpts:              loop.GRPCOpts{},
-		Registerer:            prometheus.NewRegistry(), // Don't use global registry here since otherwise multiple apps can create name conflicts. Could also potentially give a mock registry to test prometheus.
-		MercuryPool:           mercuryPool,
-		CapabilitiesRegistry:  capabilitiesRegistry,
-		HTTPClient:            c,
-		RetirementReportCache: retirementReportCache,
-	}
 
-	evmOpts := chainlink.EVMFactoryConfig{
-		ChainOpts: legacyevm.ChainOpts{
-			AppConfig:      cfg,
-			DatabaseConfig: cfg.Database(),
-			ListenerConfig: cfg.Database().Listener(),
-			FeatureConfig:  cfg.Feature(),
-			MailMon:        mailMon,
-			DS:             ds,
-		},
-		CSAETHKeystore: keyStore,
-		MercuryConfig:  cfg.Mercury(),
-	}
-
+	var evmFactoryConfigFn func(config *chainlink.EVMFactoryConfig)
 	if cfg.EVMEnabled() {
 		if ethClient == nil {
 			ethClient = evmclient.NewNullClient(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), lggr)
 		}
 		chainId := ethClient.ConfiguredChainID()
-		evmOpts.GenEthClient = func(_ *big.Int) evmclient.Client {
-			if chainId.Cmp(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs())) != 0 {
-				t.Fatalf("expected eth client ChainID %d to match evm config chain id %d", chainId, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
+		evmFactoryConfigFn = func(fc *chainlink.EVMFactoryConfig) {
+			fc.GenEthClient = func(_ *big.Int) evmclient.Client {
+				if chainId.Cmp(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs())) != 0 {
+					t.Fatalf("expected eth client ChainID %d to match evm config chain id %d", chainId, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
+				}
+				return ethClient
 			}
-			return ethClient
+		}
+	}
+	keyStore := keystore.NewInMemory(ds, utils.FastScryptParams, lggr)
+	require.NoError(t, keyStore.Unlock(ctx, Password))
+
+	for _, dep := range flagsAndDeps {
+		switch v := dep.(type) {
+		case p2pkey.KeyV2:
+			require.NoError(t, keyStore.P2P().Add(ctx, v))
+		case csakey.KeyV2:
+			require.NoError(t, keyStore.CSA().Add(ctx, v))
+		case ocr2key.KeyBundle:
+			require.NoError(t, keyStore.OCR2().Add(ctx, v))
 		}
 	}
 
-	// evm alway enabled for backward compatibility
-	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitDummy(ctx, relayerFactory), chainlink.InitEVM(ctx, relayerFactory, evmOpts)}
-
-	if cfg.CosmosEnabled() {
-		cosmosCfg := chainlink.CosmosFactoryConfig{
-			Keystore:    keyStore.Cosmos(),
-			TOMLConfigs: cfg.CosmosConfigs(),
-			DS:          ds,
-		}
-		initOps = append(initOps, chainlink.InitCosmos(ctx, relayerFactory, cosmosCfg))
-	}
-	if cfg.SolanaEnabled() {
-		solanaCfg := chainlink.SolanaFactoryConfig{
-			Keystore:    keyStore.Solana(),
-			TOMLConfigs: cfg.SolanaConfigs(),
-			DS:          ds,
-		}
-		initOps = append(initOps, chainlink.InitSolana(ctx, relayerFactory, solanaCfg))
-	}
-	if cfg.StarkNetEnabled() {
-		starkCfg := chainlink.StarkNetFactoryConfig{
-			Keystore:    keyStore.StarkNet(),
-			TOMLConfigs: cfg.StarknetConfigs(),
-		}
-		initOps = append(initOps, chainlink.InitStarknet(ctx, relayerFactory, starkCfg))
-	}
-	if cfg.AptosEnabled() {
-		aptosCfg := chainlink.AptosFactoryConfig{
-			Keystore:    keyStore.Aptos(),
-			TOMLConfigs: cfg.AptosConfigs(),
-		}
-		initOps = append(initOps, chainlink.InitAptos(ctx, relayerFactory, aptosCfg))
-	}
-	if cfg.TronEnabled() {
-		tronCfg := chainlink.TronFactoryConfig{
-			Keystore:    keyStore.Tron(),
-			TOMLConfigs: cfg.TronConfigs(),
-		}
-		initOps = append(initOps, chainlink.InitTron(ctx, relayerFactory, tronCfg))
-	}
-
-	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
-	if err != nil {
-		t.Fatal(err)
-	}
-	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
-		Config:                     cfg,
-		MailMon:                    mailMon,
-		DS:                         ds,
-		KeyStore:                   keyStore,
-		RelayerChainInteroperators: relayChainInterops,
-		Logger:                     lggr,
-		AuditLogger:                auditLogger,
-		CloseLogger:                lggr.Sync,
-		ExternalInitiatorManager:   externalInitiatorManager,
-		RestrictedHTTPClient:       c,
-		UnrestrictedHTTPClient:     c,
-		SecretGenerator:            MockSecretGenerator{},
-		LoopRegistry:               plugins.NewTestLoopRegistry(lggr),
-		MercuryPool:                mercuryPool,
-		CapabilitiesRegistry:       capabilitiesRegistry,
-		CapabilitiesDispatcher:     dispatcher,
-		CapabilitiesPeerWrapper:    peerWrapper,
-		NewOracleFactoryFn:         newOracleFactoryFn,
-		FetcherFunc:                syncerFetcherFunc,
-		FetcherFactoryFn:           computeFetcherFactory,
-		RetirementReportCache:      retirementReportCache,
+	appInstance, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
+		CREOpts: chainlink.CREOpts{
+			CapabilitiesRegistry:    capabilitiesRegistry,
+			CapabilitiesDispatcher:  dispatcher,
+			CapabilitiesPeerWrapper: peerWrapper,
+			FetcherFunc:             syncerFetcherFunc,
+			FetcherFactoryFn:        computeFetcherFactory,
+		},
+		Config:   cfg,
+		DS:       ds,
+		KeyStore: keyStore,
+		Logger:   lggr,
+		// Don't use global registry here since otherwise multiple apps can create name conflicts.
+		// Could also potentially give a mock registry to test prometheus.
+		Registerer:               prometheus.NewRegistry(),
+		AuditLogger:              auditLogger,
+		CloseLogger:              lggr.Sync,
+		ExternalInitiatorManager: externalInitiatorManager,
+		RestrictedHTTPClient:     c,
+		UnrestrictedHTTPClient:   c,
+		SecretGenerator:          MockSecretGenerator{},
+		MercuryPool:              mercuryPool,
+		NewOracleFactoryFn:       newOracleFactoryFn,
+		RetirementReportCache:    retirement.NewRetirementReportCache(lggr, ds),
+		LLOTransmissionReaper:    llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency().Duration(), cfg.Mercury().Transmitter().ReaperMaxAge().Duration()),
+		EVMFactoryConfigFn:       evmFactoryConfigFn,
 	})
 
 	require.NoError(t, err)
@@ -535,6 +459,11 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		t:                    t,
 		ChainlinkApplication: app,
 		Logger:               lggr,
+	}
+	for _, dep := range flagsAndDeps {
+		if k, ok := dep.(ethkey.KeyV2); ok {
+			ta.Keys = append(ta.Keys, k)
+		}
 	}
 
 	srvr := httptest.NewUnstartedServer(web.Router(t, app, nil))
@@ -545,8 +474,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	if !useRealExternalInitiatorManager {
 		app.ExternalInitiatorManager = externalInitiatorManager
 	}
-
-	setKeys(t, ta, flagsAndDeps...)
 
 	return ta
 }
@@ -849,7 +776,7 @@ func ParseJSONAPIResponse(t testing.TB, resp *http.Response, resource interface{
 	input := ParseResponseBody(t, resp)
 	err := jsonapi.Unmarshal(input, resource)
 	if err != nil {
-		return fmt.Errorf("web: unable to unmarshal data, %+v", err)
+		return fmt.Errorf("web: unable to unmarshal data, %w", err)
 	}
 
 	return nil
@@ -1332,7 +1259,7 @@ func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 
 // MockApplicationEthCalls mocks all calls made by the chainlink application as
 // standard when starting and stopping
-func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *clienttest.Client, sub *commonmocks.Subscription) {
+func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *clienttest.Client, sub *clienttest.Subscription) {
 	t.Helper()
 
 	// Start
@@ -1344,20 +1271,8 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *clie
 	ethClient.On("Close").Return().Maybe()
 }
 
-func BatchElemMatchesParams(req rpc.BatchElem, arg interface{}, method string) bool {
-	return req.Method == method &&
-		len(req.Args) == 1 && req.Args[0] == arg
-}
-
-func BatchElemMustMatchParams(t *testing.T, req rpc.BatchElem, hash common.Hash, method string) {
-	t.Helper()
-	if !BatchElemMatchesParams(req, hash, method) {
-		t.Fatalf("Batch hash %v does not match expected %v", req.Args[0], hash)
-	}
-}
-
 // SimulateIncomingHeads spawns a goroutine which sends a stream of heads and closes the returned channel when finished.
-func SimulateIncomingHeads(t *testing.T, heads []*evmtypes.Head, headTrackables ...httypes.HeadTrackable) (done chan struct{}) {
+func SimulateIncomingHeads(t *testing.T, heads []*evmtypes.Head, headTrackables ...evmheads.Trackable) (done chan struct{}) {
 	// Build the full chain of heads
 	ctx := testutils.Context(t)
 	done = make(chan struct{})
@@ -1513,37 +1428,7 @@ func (fn HeadTrackableFunc) OnNewLongestChain(ctx context.Context, head *evmtype
 	fn(ctx, head)
 }
 
-type testifyExpectationsAsserter interface {
-	AssertExpectations(t mock.TestingT) bool
-}
-
-type fakeT struct{}
-
-func (ft fakeT) Logf(format string, args ...interface{})   {}
-func (ft fakeT) Errorf(format string, args ...interface{}) {}
-func (ft fakeT) FailNow()                                  {}
-
-func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, timeout time.Duration, interval time.Duration) {
-	t.Helper()
-
-	chTimeout := time.After(timeout)
-	for {
-		var ft fakeT
-		success := mock.AssertExpectations(ft)
-		if success {
-			return
-		}
-		select {
-		case <-chTimeout:
-			mock.AssertExpectations(t)
-			t.FailNow()
-		default:
-			time.Sleep(interval)
-		}
-	}
-}
-
-func AssertCount(t *testing.T, ds sqlutil.DataSource, tableName string, expected int64) {
+func AssertCount(t testing.TB, ds sqlutil.DataSource, tableName string, expected int64) {
 	testutils.AssertCount(t, ds, tableName, expected)
 }
 
@@ -1566,7 +1451,7 @@ func AssertCountStays(t testing.TB, ds sqlutil.DataSource, tableName string, wan
 	var count int64
 	var err error
 	g.Consistently(func() int64 {
-		err = ds.GetContext(ctx, &count, fmt.Sprintf(`SELECT count(*) FROM %s`, tableName))
+		err = ds.GetContext(ctx, &count, "SELECT count(*) FROM "+tableName)
 		assert.NoError(t, err)
 		return count
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
@@ -1588,17 +1473,13 @@ func MustWebURL(t *testing.T, s string) *models.WebURL {
 	return (*models.WebURL)(uri)
 }
 
-func NewTestTxStore(t *testing.T, ds sqlutil.DataSource) txmgr.TestEvmTxStore {
-	return txmgr.NewTxStore(ds, logger.TestLogger(t))
-}
-
 // ClearDBTables deletes all rows from the given tables
 func ClearDBTables(t *testing.T, db *sqlx.DB, tables ...string) {
 	tx, err := db.Beginx()
 	require.NoError(t, err)
 
 	for _, table := range tables {
-		_, err = tx.Exec(fmt.Sprintf("DELETE FROM %s", table))
+		_, err = tx.Exec("DELETE FROM " + table)
 		require.NoError(t, err)
 	}
 

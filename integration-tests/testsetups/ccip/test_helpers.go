@@ -34,9 +34,11 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
+	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -48,7 +50,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	evmcfg "github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 )
 
 // DeployedLocalDevEnvironment is a helper struct for setting up a local dev environment with docker
@@ -59,6 +60,14 @@ type DeployedLocalDevEnvironment struct {
 	GenericTCConfig *testhelpers.TestConfigs
 	devEnvTestCfg   tc.TestConfig
 	devEnvCfg       *devenv.EnvironmentConfig
+}
+
+func (l *DeployedLocalDevEnvironment) GetCLClusterTestEnv() *test_env.CLClusterTestEnv {
+	return l.testEnv
+}
+
+func (l *DeployedLocalDevEnvironment) GetDevEnvConfig() *devenv.EnvironmentConfig {
+	return l.devEnvCfg
 }
 
 func (l *DeployedLocalDevEnvironment) DeployedEnvironment() testhelpers.DeployedEnv {
@@ -76,13 +85,15 @@ func (l *DeployedLocalDevEnvironment) TestConfigs() *testhelpers.TestConfigs {
 func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testcontext.Get(t)
-	envConfig, testEnv, cfg := CreateDockerEnv(t)
+	envConfig, testEnv, cfg := CreateDockerEnv(t, l.GenericTCConfig)
 	l.devEnvTestCfg = cfg
 	l.testEnv = testEnv
 	l.devEnvCfg = envConfig
 	users := make(map[uint64][]*bind.TransactOpts)
 	for _, chain := range envConfig.Chains {
-		details, found := chainsel.ChainByEvmChainID(chain.ChainID)
+		chainID, err := strconv.ParseUint(chain.ChainID, 10, 64)
+		require.NoError(t, err)
+		details, found := chainsel.ChainByEvmChainID(chainID)
 		require.Truef(t, found, "chain not found")
 		users[details.Selector] = chain.Users
 	}
@@ -90,9 +101,9 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
 	feedSel := l.devEnvTestCfg.CCIP.GetFeedChainSelector()
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
-	chains, err := devenv.NewChains(lggr, envConfig.Chains)
+	chains, _, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
-	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, chains)
+	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, l.DeployedEnv.Env)
 	require.NoError(t, err)
 	l.DeployedEnv.Users = users
 	l.DeployedEnv.Env.Chains = chains
@@ -122,8 +133,26 @@ func (l *DeployedLocalDevEnvironment) StartNodes(t *testing.T, crConfig deployme
 	FundNodes(t, zeroLogLggr, l.testEnv, l.devEnvTestCfg, don.PluginNodes())
 }
 
+func (l *DeployedLocalDevEnvironment) DeleteJobs(ctx context.Context, jobIDs map[string][]string) error {
+	nodesByID := make(map[string]devenv.Node)
+	for _, n := range l.DON.Nodes {
+		nodesByID[n.NodeID] = n
+	}
+	for id, node := range nodesByID {
+		if jobsToDelete, ok := jobIDs[id]; ok {
+			for _, jobToDelete := range jobsToDelete {
+				err := node.DeleteJob(ctx, jobToDelete)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (l *DeployedLocalDevEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string {
-	err := ccipactions.SetMockServerWithUSDCAttestation(l.testEnv.MockAdapter, nil, isUSDCAttestationMissing)
+	err := ccipactions.SetMockServerWithUSDCAttestation(l.testEnv.MockAdapter, isUSDCAttestationMissing)
 	require.NoError(t, err)
 	return l.testEnv.MockAdapter.InternalEndpoint
 }
@@ -179,7 +208,7 @@ func NewIntegrationEnvironment(t *testing.T, opts ...testhelpers.TestOps) (testh
 			deployedEnv := testhelpers.NewEnvironmentWithJobsAndContracts(t, dockerEnv)
 			l := logging.GetTestLogger(t)
 			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
-			config := GenerateTestRMNConfig(t, testCfg.NumOfRMNNodes, deployedEnv, MustNetworksToRPCMap(dockerEnv.testEnv.EVMNetworks))
+			config := GenerateTestRMNConfig(t, testCfg.NumOfRMNNodes, deployedEnv, MustNetworksToRPCMap(dockerEnv.testEnv.EVMNetworks), testCfg.RMNConfDepth)
 			require.NotNil(t, dockerEnv.devEnvTestCfg.CCIP)
 			rmnCluster, err := devenv.NewRMNCluster(
 				t, l,
@@ -286,6 +315,7 @@ func MustCCIPNameToRMNName(a string) string {
 	m := map[string]string{
 		chainsel.GETH_TESTNET.Name:  "DevnetAlpha",
 		chainsel.GETH_DEVNET_2.Name: "DevnetBeta",
+		chainsel.GETH_DEVNET_3.Name: "DevnetGamma",
 		// TODO: Add more as needed.
 	}
 	v, ok := m[a]
@@ -295,14 +325,14 @@ func MustCCIPNameToRMNName(a string) string {
 	return v
 }
 
-func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.DeployedEnv, rpcMap map[uint64]string) map[string]devenv.RMNConfig {
+func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.DeployedEnv, rpcMap map[uint64]string, confDepth int) map[string]devenv.RMNConfig {
 	// Find the bootstrappers.
 	nodes, err := deployment.NodeInfo(tenv.Env.NodeIDs, tenv.Env.Offchain)
 	require.NoError(t, err)
 	bootstrappers := nodes.BootstrapLocators()
 
 	// Just set all RMN nodes to support all chains.
-	state, err := changeset.LoadOnchainState(tenv.Env)
+	state, err := stateview.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 	var chainParams []devenv.ChainParam
 	var remoteChains []devenv.RemoteChains
@@ -316,7 +346,7 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.Deploye
 			Stability: devenv.Stability{
 				Type:              "ConfirmationDepth",
 				SoftConfirmations: 0,
-				HardConfirmations: 0,
+				HardConfirmations: confDepth,
 			},
 		})
 		remoteChains = append(remoteChains, devenv.RemoteChains{
@@ -374,7 +404,7 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.Deploye
 // CreateDockerEnv creates a new test environment with simulated private ethereum networks and job distributor
 // It returns the EnvironmentConfig which holds the chain config and JD config
 // The test environment is then used to start chainlink nodes
-func CreateDockerEnv(t *testing.T) (
+func CreateDockerEnv(t *testing.T, v1_6TestConfig *testhelpers.TestConfigs) (
 	*devenv.EnvironmentConfig,
 	*test_env.CLClusterTestEnv,
 	tc.TestConfig,
@@ -383,7 +413,13 @@ func CreateDockerEnv(t *testing.T) (
 		require.NoError(t, gotenv.Load(".env"), "Error loading .env file")
 	}
 
-	cfg, err := tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.CCIP)
+	var cfg tc.TestConfig
+	var err error
+	if v1_6TestConfig != nil {
+		cfg, err = tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.CCIP, v1_6TestConfig.ExtraConfigTomls...)
+	} else {
+		cfg, err = tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.CCIP)
+	}
 	require.NoError(t, err, "Error getting config")
 
 	evmNetworks := networks.MustGetSelectedNetworkConfig(cfg.GetNetworkConfig())
@@ -398,11 +434,17 @@ func CreateDockerEnv(t *testing.T) (
 	}
 
 	// ignore critical CL node logs until they are fixed, as otherwise tests will fail
-	var logScannerSettings = test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(testreporters.NewAllowedLogMessage(
-		"No live RPC nodes available",
-		"CL nodes are started before simulated chains, so this is expected",
-		zapcore.DPanicLevel,
-		testreporters.WarnAboutAllowedMsgs_No),
+	var allowedMessages = []testreporters.AllowedLogMessage{
+		testreporters.NewAllowedLogMessage(
+			"No live RPC nodes available",
+			"CL nodes are started before simulated chains, so this is expected",
+			zapcore.DPanicLevel,
+			testreporters.WarnAboutAllowedMsgs_No),
+		testreporters.NewAllowedLogMessage(
+			"Lane processing is stopped because source chain is cursed or CommitStore is down",
+			"Curse test are expected to trigger this logs",
+			zapcore.DPanicLevel,
+			testreporters.WarnAboutAllowedMsgs_Yes),
 		testreporters.NewAllowedLogMessage(
 			"Error stopping job service",
 			"Possible lifecycle bug in chainlink: failed to close RMN home reader:  has already been stopped: already stopped",
@@ -413,7 +455,18 @@ func CreateDockerEnv(t *testing.T) (
 			"Possible lifecycle bug in chainlink.",
 			zapcore.DPanicLevel,
 			testreporters.WarnAboutAllowedMsgs_No),
-	)
+	}
+	if v1_6TestConfig != nil {
+		for _, logMsg := range v1_6TestConfig.LogMessagesToIgnore {
+			allowedMessages = append(allowedMessages, testreporters.NewAllowedLogMessage(
+				logMsg.Msg,
+				logMsg.Reason,
+				logMsg.Level,
+				testreporters.WarnAboutAllowedMsgs_No,
+			))
+		}
+	}
+	var logScannerSettings = test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(allowedMessages...)
 
 	builder := test_env.NewCLTestEnvBuilder().
 		WithTestConfig(&cfg).
@@ -608,7 +661,7 @@ func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv
 				return fmt.Errorf("negative chain ID: %d", evmNetwork.ChainID)
 			}
 			for _, node := range nodes {
-				nodeAddr, ok := node.AccountAddr[uint64(evmNetwork.ChainID)]
+				nodeAddr, ok := node.AccountAddr[strconv.FormatInt(evmNetwork.ChainID, 10)]
 				if !ok {
 					return fmt.Errorf("account address not found for chain %d", evmNetwork.ChainID)
 				}
@@ -629,10 +682,7 @@ func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv
 				if receipt == nil {
 					return fmt.Errorf("receipt is nil")
 				}
-				txHash := "(none)"
-				if receipt != nil {
-					txHash = receipt.TxHash.String()
-				}
+				txHash := receipt.TxHash.String()
 				lggr.Info().
 					Str("From", fromAddress.Hex()).
 					Str("To", toAddr.String()).
@@ -704,7 +754,7 @@ func CreateChainConfigFromNetworks(
 		chainName, err := chainsel.NameFromChainId(chainId)
 		require.NoError(t, err, "Error getting chain name")
 		chainCfg := devenv.ChainConfig{
-			ChainID:   chainId,
+			ChainID:   strconv.FormatUint(chainId, 10),
 			ChainName: chainName,
 			ChainType: "EVM",
 			WSRPCs: []devenv.CribRPCs{

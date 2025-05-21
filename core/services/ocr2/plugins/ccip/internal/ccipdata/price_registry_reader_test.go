@@ -19,19 +19,21 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+
+	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
+	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 type priceRegReaderTH struct {
@@ -56,7 +58,7 @@ func commitAndGetBlockTs(ec *client.SimulatedBackendClient) uint64 {
 }
 
 func newSim(t *testing.T) (*bind.TransactOpts, *client.SimulatedBackendClient) {
-	user := testutils.MustNewSimTransactor(t)
+	user := evmtestutils.MustNewSimTransactor(t)
 	sim := simulated.NewBackend(map[common.Address]types.Account{
 		user.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
@@ -75,10 +77,10 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            2,
 		BackfillBatchSize:        3,
-		RpcBatchSize:             2,
+		RPCBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	headTracker := headtracker.NewSimulatedHeadTracker(ec, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	headTracker := headstest.NewSimulatedHeadTracker(ec, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 	if lpOpts.PollPeriod == 0 {
 		lpOpts.PollPeriod = 1 * time.Hour
 	}
@@ -173,7 +175,7 @@ func testPriceRegistryReader(t *testing.T, th priceRegReaderTH, pr ccipdata.Pric
 	// Note unsupported chain selector simply returns an empty set not an error
 	gasUpdates, err := pr.GetGasPriceUpdatesCreatedAfter(ctx, 1e6, time.Unix(0, 0), 0)
 	require.NoError(t, err)
-	assert.Len(t, gasUpdates, 0)
+	assert.Empty(t, gasUpdates)
 
 	for i, ts := range th.blockTs {
 		// Should see all updates >= ts.
@@ -209,7 +211,7 @@ func testPriceRegistryReader(t *testing.T, th priceRegReaderTH, pr ccipdata.Pric
 	// Empty token set should return empty set no error.
 	gotEmpty, err := pr.GetTokenPrices(ctx, []cciptypes.Address{})
 	require.NoError(t, err)
-	assert.Len(t, gotEmpty, 0)
+	assert.Empty(t, gotEmpty)
 
 	// We expect latest token prices to apply
 	allTokenUpdates, err := pr.GetTokenPriceUpdatesCreatedAfter(ctx, time.Unix(0, 0), 0)
@@ -260,7 +262,7 @@ func TestNewPriceRegistryReader(t *testing.T) {
 			expectedErr:    "",
 		},
 		{
-			typeAndVersion: "PriceRegistry 1.6.0-dev",
+			typeAndVersion: "PriceRegistry 1.6.0",
 			expectedErr:    "",
 		},
 		{

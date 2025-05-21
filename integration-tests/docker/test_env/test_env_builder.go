@@ -1,6 +1,7 @@
 package test_env
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -43,7 +44,7 @@ type ChainlinkNodeLogScannerSettings struct {
 }
 
 type CLTestEnvBuilder struct {
-	hasKillgrave                    bool
+	hasParrot                       bool
 	jdConfig                        *ccip.JDConfig
 	clNodeConfig                    *chainlink.Config
 	secretsConfig                   string
@@ -66,6 +67,12 @@ type CLTestEnvBuilder struct {
 var DefaultAllowedMessages = []testreporters.AllowedLogMessage{
 	testreporters.NewAllowedLogMessage("Failed to get LINK balance", "Happens only when we deploy LINK token for test purposes. Harmless.", zapcore.ErrorLevel, testreporters.WarnAboutAllowedMsgs_No),
 	testreporters.NewAllowedLogMessage("Error stopping job service", "It's a known issue with lifecycle. There's ongoing work that will fix it.", zapcore.DPanicLevel, testreporters.WarnAboutAllowedMsgs_No),
+	testreporters.NewAllowedLogMessage(
+		"No live RPC nodes available",
+		"Networking or infra issues can cause brief disconnections from the node to RPC nodes, especially at startup. This isn't a concern as long as the test passes otherwise",
+		zapcore.DPanicLevel,
+		testreporters.WarnAboutAllowedMsgs_Yes,
+	),
 }
 
 var DefaultChainlinkNodeLogScannerSettings = ChainlinkNodeLogScannerSettings{
@@ -176,7 +183,7 @@ func (b *CLTestEnvBuilder) WithSecretsConfig(secrets string) *CLTestEnvBuilder {
 }
 
 func (b *CLTestEnvBuilder) WithMockAdapter() *CLTestEnvBuilder {
-	b.hasKillgrave = true
+	b.hasParrot = true
 	return b
 }
 
@@ -221,7 +228,7 @@ func (b *CLTestEnvBuilder) WithEVMNetworkOptions(opts ...EVMNetworkOption) *CLTe
 
 func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	if b.testConfig == nil {
-		return nil, fmt.Errorf("test config must be set")
+		return nil, errors.New("test config must be set")
 	}
 
 	if b.te == nil {
@@ -295,17 +302,24 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 					for _, f := range logFiles {
 						file := f
 						verifyLogsGroup.Go(func() error {
-							verifyErr := testreporters.VerifyLogFile(file, b.chainlinkNodeLogScannerSettings.FailingLogLevel, b.chainlinkNodeLogScannerSettings.Threshold, b.chainlinkNodeLogScannerSettings.AllowedMessages...)
+							verifyErr := testreporters.VerifyLogFile(
+								file,
+								b.chainlinkNodeLogScannerSettings.FailingLogLevel,
+								b.chainlinkNodeLogScannerSettings.Threshold,
+								b.chainlinkNodeLogScannerSettings.AllowedMessages...,
+							)
 							_ = file.Close()
 							// ignore processing errors
-							if verifyErr != nil && !strings.Contains(verifyErr.Error(), testreporters.MultipleLogsAtLogLevelErr) && !strings.Contains(verifyErr.Error(), testreporters.OneLogAtLogLevelErr) {
+							if verifyErr != nil && !strings.Contains(verifyErr.Error(), testreporters.MultipleLogsAtLogLevelErr) &&
+								!strings.Contains(verifyErr.Error(), testreporters.OneLogAtLogLevelErr) {
 								b.l.Error().Err(verifyErr).Msg("Error processing CL node logs")
 
 								return nil
 
 								// if it's not a processing error, we want to fail the test; we also can stop processing logs all together at this point
-							} else if verifyErr != nil && (strings.Contains(verifyErr.Error(), testreporters.MultipleLogsAtLogLevelErr) || strings.Contains(verifyErr.Error(), testreporters.OneLogAtLogLevelErr)) {
-
+							} else if verifyErr != nil &&
+								(strings.Contains(verifyErr.Error(), testreporters.MultipleLogsAtLogLevelErr) ||
+									strings.Contains(verifyErr.Error(), testreporters.OneLogAtLogLevelErr)) {
 								return verifyErr
 							}
 							return nil
@@ -313,12 +327,12 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 					}
 
 					if logVerificationErr := verifyLogsGroup.Wait(); logVerificationErr != nil {
-						b.t.Errorf("Found a concerning log in Chainklink Node logs: %v", logVerificationErr)
+						b.t.Errorf("Found a concerning log in Chainlink Node logs: %v", logVerificationErr)
 					}
 				}
 			}
 
-			b.l.Info().Msg("Staring to dump state of all Postgres DBs used by Chainlink Nodes")
+			b.l.Info().Msg("Starting to dump state of all Postgres DBs used by Chainlink Nodes")
 
 			dbDumpFolder := "db_dumps"
 			dbDumpPath := fmt.Sprintf("%s/%s-%s", dbDumpFolder, b.t.Name(), time.Now().Format("2006-01-02T15-04-05"))
@@ -364,12 +378,15 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		b.l.Warn().Msg("Won't dump container and postgres logs, because either test instance is not set or cleanup type is set to none")
 	}
 
-	if b.hasKillgrave {
+	if b.hasParrot {
 		if b.te.DockerNetwork == nil {
-			return nil, fmt.Errorf("test environment builder failed: %w", fmt.Errorf("cannot start mock adapter without a network"))
+			return nil, fmt.Errorf("test environment builder failed: %w", errors.New("cannot start mock adapter without a network"))
 		}
 
-		b.te.MockAdapter = test_env.NewKillgrave([]string{b.te.DockerNetwork.Name}, "")
+		b.te.MockAdapter = test_env.NewParrot(
+			[]string{b.te.DockerNetwork.Name},
+			test_env.WithStartupTimeout(2*time.Minute),
+		)
 
 		err = b.te.StartMockAdapter()
 		if err != nil {
@@ -394,7 +411,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	case CleanUpTypeNone:
 		b.l.Warn().Msg("test environment won't be cleaned up")
 	case "":
-		return b.te, fmt.Errorf("test environment builder failed: %w", fmt.Errorf("explicit cleanup type must be set when building test environment"))
+		return b.te, fmt.Errorf("test environment builder failed: %w", errors.New("explicit cleanup type must be set when building test environment"))
 	}
 
 	if b.jdConfig != nil {
@@ -556,7 +573,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 	b.l.Info().
 		Str("privateEthereumNetwork", enDesc).
-		Bool("hasKillgrave", b.hasKillgrave).
+		Bool("hasParrot", b.hasParrot).
 		Bool("hasJobDistributor", b.jdConfig != nil).
 		Int("clNodesCount", b.clNodesCount).
 		Strs("customNodeCsaKeys", b.customNodeCsaKeys).

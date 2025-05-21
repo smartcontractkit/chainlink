@@ -5,7 +5,11 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"strings"
+	"sync"
+	"time"
 
+	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -17,13 +21,16 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
@@ -31,11 +38,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	ocr2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
-	"github.com/smartcontractkit/chainlink/v2/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
+	cryptoutils "github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -75,6 +81,10 @@ var (
 		// Job Proposal status
 		"status",
 	})
+
+	defaultSyncMinDelay    = 10 * time.Second
+	defaultSyncMaxDelay    = 30 * time.Minute
+	defaultSyncMaxAttempts = uint(48 + 8) // 30m * 48 =~ 24h; plus the initial 8 shorter retries
 )
 
 // Service represents a behavior of the feeds service
@@ -124,6 +134,7 @@ type service struct {
 	jobORM              job.ORM
 	ds                  sqlutil.DataSource
 	csaKeyStore         keystore.CSA
+	csaSigner           *core.Ed25519Signer
 	p2pKeyStore         keystore.P2P
 	ocr1KeyStore        keystore.OCR
 	ocr2KeyStore        keystore.OCR2
@@ -140,6 +151,10 @@ type service struct {
 	lggr                logger.Logger
 	version             string
 	loopRegistrarConfig plugins.RegistrarConfig
+	syncNodeInfoCancel  atomicCancelFns
+	syncMinDelay        time.Duration
+	syncMaxDelay        time.Duration
+	syncMaxAttempts     uint
 }
 
 // NewService constructs a new feeds service
@@ -159,6 +174,7 @@ func NewService(
 	lggr logger.Logger,
 	version string,
 	rc plugins.RegistrarConfig,
+	opts ...ServiceOption,
 ) *service {
 	lggr = lggr.Named("Feeds")
 	svc := &service{
@@ -182,6 +198,14 @@ func NewService(
 		lggr:                lggr,
 		version:             version,
 		loopRegistrarConfig: rc,
+		syncNodeInfoCancel:  atomicCancelFns{fns: map[int64]context.CancelFunc{}},
+		syncMinDelay:        defaultSyncMinDelay,
+		syncMaxDelay:        defaultSyncMaxDelay,
+		syncMaxAttempts:     defaultSyncMaxAttempts,
+	}
+
+	for _, opt := range opts {
+		opt(svc)
 	}
 
 	return svc
@@ -190,7 +214,7 @@ func NewService(
 type RegisterManagerParams struct {
 	Name         string
 	URI          string
-	PublicKey    crypto.PublicKey
+	PublicKey    cryptoutils.PublicKey
 	ChainConfigs []ChainConfig
 }
 
@@ -241,20 +265,50 @@ func (s *service) RegisterManager(ctx context.Context, params RegisterManagerPar
 		return 0, err
 	}
 
-	privkey, err := s.getCSAPrivateKey()
-	if err != nil {
-		return 0, err
-	}
-
 	// Establish a connection
 	mgr.ID = id
-	s.connectFeedManager(ctx, mgr, privkey)
+	s.connectFeedManager(mgr)
 
 	return id, nil
 }
 
-// SyncNodeInfo syncs the node's information with FMS
+// syncNodeInfoWithRetry syncs the node's information with FMS. In case of failures,
+// it retries with an exponential backoff for up to 24h.
+func (s *service) syncNodeInfoWithRetry(id int64) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// cancel the previous context -- and, by extension, the existing goroutine --
+	// so that we can start anew
+	s.syncNodeInfoCancel.callAndSwap(id, cancel)
+
+	retryOpts := []retry.Option{
+		retry.Context(ctx),
+		retry.DelayType(retry.BackOffDelay),
+		retry.Delay(s.syncMinDelay),
+		retry.MaxDelay(s.syncMaxDelay),
+		retry.Attempts(s.syncMaxAttempts),
+		retry.LastErrorOnly(true),
+		retry.OnRetry(func(attempt uint, err error) {
+			s.lggr.Infow("failed to sync node info", "attempt", attempt, "err", err.Error())
+		}),
+	}
+
+	go func() {
+		err := retry.Do(func() error { return s.SyncNodeInfo(ctx, id) }, retryOpts...)
+		if err != nil {
+			s.lggr.Errorw("failed to sync node info; aborting", "err", err)
+		} else {
+			s.lggr.Info("successfully synced node info")
+		}
+
+		s.syncNodeInfoCancel.callAndSwap(id, nil)
+	}()
+}
+
 func (s *service) SyncNodeInfo(ctx context.Context, id int64) error {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
 	// Get the FMS RPC client
 	fmsClient, err := s.connMgr.GetClient(id)
 	if err != nil {
@@ -278,13 +332,38 @@ func (s *service) SyncNodeInfo(ctx context.Context, id int64) error {
 		cfgMsgs = append(cfgMsgs, cfgMsg)
 	}
 
-	workflowKey := s.getWorkflowPublicKey()
-	if _, err = fmsClient.UpdateNode(ctx, &pb.UpdateNodeRequest{
-		Version:      s.version,
-		ChainConfigs: cfgMsgs,
-		WorkflowKey:  &workflowKey,
-	}); err != nil {
-		return err
+	p2pKeysBundles := make([]*pb.P2PKeyBundle, 0)
+	p2pKeysV2, err := s.p2pKeyStore.GetAll()
+	if err != nil {
+		s.lggr.Errorf("p2pKeyStore.GetAll: %v", err)
+	}
+
+	if err == nil {
+		for _, key := range p2pKeysV2 {
+			bundle := s.newP2PBundle(key)
+
+			p2pKeysBundles = append(p2pKeysBundles, bundle)
+		}
+	}
+
+	workflowKey := s.getWorkflowPublicKey(ctx)
+
+	resp, err := fmsClient.UpdateNode(ctx, &pb.UpdateNodeRequest{
+		Version:       s.version,
+		ChainConfigs:  cfgMsgs,
+		WorkflowKey:   &workflowKey,
+		P2PKeyBundles: p2pKeysBundles,
+	})
+	if err != nil {
+		return errors.Wrap(err, "SyncNodeInfo.UpdateNode call failed")
+	}
+	if len(resp.ChainConfigErrors) > 0 {
+		errMsgs := make([]string, 0, len(resp.ChainConfigErrors))
+		for _, ccErr := range resp.ChainConfigErrors {
+			errMsgs = append(errMsgs, ccErr.Message)
+		}
+
+		return errors.Errorf("SyncNodeInfo.UpdateNode call partially failed: %s", strings.Join(errMsgs, "; "))
 	}
 
 	return nil
@@ -298,7 +377,7 @@ func (s *service) UpdateManager(ctx context.Context, mgr FeedsManager) error {
 		return errors.Wrap(err, "could not update manager")
 	}
 
-	if err := s.restartConnection(ctx, mgr); err != nil {
+	if err := s.restartConnection(mgr); err != nil {
 		s.lggr.Errorf("could not restart FMS connection: %v", err)
 	}
 
@@ -311,7 +390,7 @@ func (s *service) EnableManager(ctx context.Context, id int64) (*FeedsManager, e
 		return nil, errors.Wrap(err, "could not enable manager")
 	}
 
-	if err := s.restartConnection(ctx, *mgr); err != nil {
+	if err := s.restartConnection(*mgr); err != nil {
 		s.lggr.Errorf("could not restart FMS connection: %v", err)
 	}
 
@@ -400,9 +479,7 @@ func (s *service) CreateChainConfig(ctx context.Context, cfg ChainConfig) (int64
 		return 0, errors.Wrap(err, "CreateChainConfig: failed to fetch manager")
 	}
 
-	if err := s.SyncNodeInfo(ctx, mgr.ID); err != nil {
-		s.lggr.Infof("FMS: Unable to sync node info: %v", err)
-	}
+	s.syncNodeInfoWithRetry(mgr.ID)
 
 	return id, nil
 }
@@ -424,9 +501,7 @@ func (s *service) DeleteChainConfig(ctx context.Context, id int64) (int64, error
 		return 0, errors.Wrap(err, "DeleteChainConfig: failed to fetch manager")
 	}
 
-	if err := s.SyncNodeInfo(ctx, mgr.ID); err != nil {
-		s.lggr.Infof("FMS: Unable to sync node info: %v", err)
-	}
+	s.syncNodeInfoWithRetry(mgr.ID)
 
 	return id, nil
 }
@@ -465,9 +540,7 @@ func (s *service) UpdateChainConfig(ctx context.Context, cfg ChainConfig) (int64
 		return 0, errors.Wrap(err, "UpdateChainConfig failed: could not get chain config")
 	}
 
-	if err := s.SyncNodeInfo(ctx, ccfg.FeedsManagerID); err != nil {
-		s.lggr.Infof("FMS: Unable to sync node info: %v", err)
-	}
+	s.syncNodeInfoWithRetry(ccfg.FeedsManagerID)
 
 	return id, nil
 }
@@ -643,7 +716,7 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 
 		if exists {
 			// note: CLO auto-increments the version number on re-proposal, so this should never happen
-			return 0, errors.New("proposed job spec version already exists")
+			return 0, fmt.Errorf("external job id %s: version conflict: version %d already exists at job proposal id %d %v", args.RemoteUUID, args.Version, existing.ID, *existing)
 		}
 	}
 
@@ -891,6 +964,16 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 				if txerr != nil && !errors.Is(txerr, sql.ErrNoRows) {
 					return fmt.Errorf("failed while checking for existing ccip job: %w", txerr)
 				}
+			case job.StandardCapabilities:
+				// Only possible to match standard capabilities by external job id
+				// no-op
+			case job.Gateway:
+				existingJobID, txerr = tx.jobORM.FindGatewayJobID(ctx, *j.GatewaySpec)
+				// Return an error if the repository errors. If there is a not found
+				// error we want to continue with approving the job.
+				if txerr != nil && !errors.Is(txerr, sql.ErrNoRows) {
+					return fmt.Errorf("failed while checking for existing gateway job: %w", txerr)
+				}
 			case job.Stream:
 				existingJobID, txerr = tx.jobORM.FindJobIDByStreamID(ctx, *j.StreamID)
 				// Return an error if the repository errors. If there is a not found
@@ -1019,9 +1102,7 @@ func (s *service) CancelSpec(ctx context.Context, id int64) error {
 	)
 
 	err = s.transact(ctx, func(tx datasources) error {
-		var (
-			txerr error
-		)
+		var txerr error
 
 		if txerr = tx.orm.CancelSpec(ctx, id); txerr != nil {
 			return txerr
@@ -1102,8 +1183,15 @@ func (s *service) UpdateSpecDefinition(ctx context.Context, id int64, defn strin
 // Start starts the service.
 func (s *service) Start(ctx context.Context) error {
 	return s.StartOnce("FeedsService", func() error {
-		privkey, err := s.getCSAPrivateKey()
+		key, err := keystore.GetDefault(ctx, s.csaKeyStore)
 		if err != nil {
+			return err
+		}
+		s.csaSigner, err = core.NewEd25519Signer(key.ID(), keystore.CSASigner{CSA: s.csaKeyStore}.Sign)
+		if err != nil {
+			return err
+		}
+		if err = s.csaSigner.Start(ctx); err != nil {
 			return err
 		}
 
@@ -1121,12 +1209,12 @@ func (s *service) Start(ctx context.Context) error {
 			s.lggr.Infof("starting connection to %d feeds managers", len(mgrs))
 			for _, mgr := range mgrs {
 				if mgr.DisabledAt == nil {
-					s.connectFeedManager(ctx, mgr, privkey)
+					s.connectFeedManager(mgr)
 				}
 			}
 		} else {
 			if mgrs[0].DisabledAt == nil {
-				s.connectFeedManager(ctx, mgrs[0], privkey)
+				s.connectFeedManager(mgrs[0])
 			}
 		}
 
@@ -1141,19 +1229,20 @@ func (s *service) Start(ctx context.Context) error {
 // Close shuts down the service
 func (s *service) Close() error {
 	return s.StopOnce("FeedsService", func() error {
+		s.syncNodeInfoCancel.callAllAndClear()
+
 		// This blocks until it finishes
 		s.connMgr.Close()
-
-		return nil
+		return s.csaSigner.Close()
 	})
 }
 
 // connectFeedManager connects to a feeds manager
-func (s *service) connectFeedManager(ctx context.Context, mgr FeedsManager, privkey []byte) {
+func (s *service) connectFeedManager(mgr FeedsManager) {
 	s.connMgr.Connect(ConnectOpts{
 		FeedsManagerID: mgr.ID,
 		URI:            mgr.URI,
-		Privkey:        privkey,
+		CSASigner:      s.csaSigner,
 		Pubkey:         mgr.PublicKey,
 		Handlers: &RPCHandlers{
 			feedsManagerID: mgr.ID,
@@ -1161,39 +1250,20 @@ func (s *service) connectFeedManager(ctx context.Context, mgr FeedsManager, priv
 		},
 		OnConnect: func(pb.FeedsManagerClient) {
 			// Sync the node's information with FMS once connected
-			err := s.SyncNodeInfo(ctx, mgr.ID)
-			if err != nil {
-				s.lggr.Infof("Error syncing node info: %v", err)
-			}
+			s.syncNodeInfoWithRetry(mgr.ID)
 		},
 	})
-}
-
-// getCSAPrivateKey gets the server's CSA private key
-func (s *service) getCSAPrivateKey() (privkey []byte, err error) {
-	// Fetch the server's public key
-	keys, err := s.csaKeyStore.GetAll()
-	if err != nil {
-		return privkey, err
-	}
-	if len(keys) < 1 {
-		return privkey, errors.New("CSA key does not exist")
-	}
-	return keys[0].Raw(), nil
 }
 
 // getWorkflowPublicKey retrieves the server's Workflow public key.
 // Since there will be at most one key, it returns the first key found.
 // If an error occurs or no keys are found, it returns blank.
-func (s *service) getWorkflowPublicKey() string {
-	keys, err := s.workflowKeyStore.GetAll()
+func (s *service) getWorkflowPublicKey(ctx context.Context) string {
+	key, err := keystore.GetDefault(ctx, s.workflowKeyStore)
 	if err != nil {
 		return ""
 	}
-	if len(keys) < 1 {
-		return ""
-	}
-	return keys[0].PublicKeyString()
+	return key.PublicKeyString()
 }
 
 // observeJobProposalCounts is a helper method that queries the repository for the count of
@@ -1208,8 +1278,10 @@ func (s *service) observeJobProposalCounts(ctx context.Context) error {
 	metrics := counts.toMetrics()
 
 	// Set the prometheus gauge metrics.
-	for _, status := range []JobProposalStatus{JobProposalStatusPending, JobProposalStatusApproved,
-		JobProposalStatusCancelled, JobProposalStatusRejected, JobProposalStatusDeleted, JobProposalStatusRevoked} {
+	for _, status := range []JobProposalStatus{
+		JobProposalStatusPending, JobProposalStatusApproved,
+		JobProposalStatusCancelled, JobProposalStatusRejected, JobProposalStatusDeleted, JobProposalStatusRevoked,
+	} {
 		status := status
 
 		promJobProposalCounts.With(prometheus.Labels{"status": string(status)}).Set(metrics[status])
@@ -1304,6 +1376,10 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 		js, err = ccip.ValidatedCCIPSpec(spec)
 	case job.Stream:
 		js, err = streams.ValidatedStreamSpec(spec)
+	case job.Gateway:
+		js, err = gateway.ValidatedGatewaySpec(spec)
+	case job.StandardCapabilities:
+		js, err = standardcapabilities.ValidatedStandardCapabilitiesSpec(spec)
 	default:
 		return nil, errors.Errorf("unknown job type: %s", jobType)
 	}
@@ -1312,6 +1388,16 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 	}
 
 	return &js, nil
+}
+
+// newP2PBundle generates a P2PKeyBundle protobuf message.
+func (s *service) newP2PBundle(key p2pkey.KeyV2) *pb.P2PKeyBundle {
+	pbP2PBundle := pb.P2PKeyBundle{
+		PeerId:    key.PeerID().String(),
+		PublicKey: key.PublicKeyHex(),
+	}
+
+	return &pbP2PBundle
 }
 
 // newChainConfigMsg generates a chain config protobuf message.
@@ -1475,20 +1561,14 @@ func (s *service) validateProposeJobArgs(ctx context.Context, args ProposeJobArg
 	return nil
 }
 
-func (s *service) restartConnection(ctx context.Context, mgr FeedsManager) error {
+func (s *service) restartConnection(mgr FeedsManager) error {
 	s.lggr.Infof("Restarting connection")
 
 	if err := s.connMgr.Disconnect(mgr.ID); err != nil {
 		s.lggr.Info("Feeds Manager not connected, attempting to connect")
 	}
 
-	// Establish a new connection
-	privkey, err := s.getCSAPrivateKey()
-	if err != nil {
-		return err
-	}
-
-	s.connectFeedManager(ctx, mgr, privkey)
+	s.connectFeedManager(mgr)
 
 	return nil
 }
@@ -1549,6 +1629,49 @@ func (s *service) isRevokable(propStatus JobProposalStatus, specStatus SpecStatu
 	return propStatus != JobProposalStatusDeleted && (specStatus == SpecStatusPending || specStatus == SpecStatusCancelled)
 }
 
+type atomicCancelFns struct {
+	fns   map[int64]context.CancelFunc
+	mutex sync.Mutex
+}
+
+func (f *atomicCancelFns) callAndSwap(id int64, other func()) {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
+	fn, found := f.fns[id]
+	if found && fn != nil {
+		fn()
+	}
+
+	f.fns[id] = other
+}
+
+func (f *atomicCancelFns) callAllAndClear() {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
+	for _, fn := range f.fns {
+		if fn != nil {
+			fn()
+		}
+	}
+	clear(f.fns)
+}
+
+type ServiceOption func(*service)
+
+func WithSyncMinDelay(delay time.Duration) ServiceOption {
+	return func(s *service) { s.syncMinDelay = delay }
+}
+
+func WithSyncMaxDelay(delay time.Duration) ServiceOption {
+	return func(s *service) { s.syncMaxDelay = delay }
+}
+
+func WithSyncMaxAttempts(attempts uint) ServiceOption {
+	return func(s *service) { s.syncMaxAttempts = attempts }
+}
+
 var _ Service = &NullService{}
 
 // NullService defines an implementation of the Feeds Service that is used
@@ -1561,24 +1684,31 @@ func (ns NullService) Close() error                    { return nil }
 func (ns NullService) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	return ErrFeedsManagerDisabled
 }
+
 func (ns NullService) CountJobProposalsByStatus(ctx context.Context) (*JobProposalCounts, error) {
 	return nil, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) CancelSpec(ctx context.Context, id int64) error {
 	return ErrFeedsManagerDisabled
 }
+
 func (ns NullService) GetJobProposal(ctx context.Context, id int64) (*JobProposal, error) {
 	return nil, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) ListSpecsByJobProposalIDs(ctx context.Context, ids []int64) ([]JobProposalSpec, error) {
 	return nil, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) GetManager(ctx context.Context, id int64) (*FeedsManager, error) {
 	return nil, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) ListManagersByIDs(ctx context.Context, ids []int64) ([]FeedsManager, error) {
 	return nil, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) GetSpec(ctx context.Context, id int64) (*JobProposalSpec, error) {
 	return nil, ErrFeedsManagerDisabled
 }
@@ -1586,15 +1716,19 @@ func (ns NullService) ListManagers(ctx context.Context) ([]FeedsManager, error) 
 func (ns NullService) CreateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) GetChainConfig(ctx context.Context, id int64) (*ChainConfig, error) {
 	return nil, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) DeleteChainConfig(ctx context.Context, id int64) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) ListChainConfigsByManagerIDs(ctx context.Context, mgrIDs []int64) ([]ChainConfig, error) {
 	return nil, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) UpdateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
@@ -1602,18 +1736,23 @@ func (ns NullService) ListJobProposals(ctx context.Context) ([]JobProposal, erro
 func (ns NullService) ListJobProposalsByManagersIDs(ctx context.Context, ids []int64) ([]JobProposal, error) {
 	return nil, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) RegisterManager(ctx context.Context, params RegisterManagerParams) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) RejectSpec(ctx context.Context, id int64) error {
 	return ErrFeedsManagerDisabled
 }
@@ -1621,15 +1760,19 @@ func (ns NullService) SyncNodeInfo(ctx context.Context, id int64) error { return
 func (ns NullService) UpdateManager(ctx context.Context, mgr FeedsManager) error {
 	return ErrFeedsManagerDisabled
 }
+
 func (ns NullService) EnableManager(ctx context.Context, id int64) (*FeedsManager, error) {
 	return nil, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) DisableManager(ctx context.Context, id int64) (*FeedsManager, error) {
 	return nil, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) IsJobManaged(ctx context.Context, jobID int64) (bool, error) {
 	return false, nil
 }
+
 func (ns NullService) UpdateSpecDefinition(ctx context.Context, id int64, spec string) error {
 	return ErrFeedsManagerDisabled
 }

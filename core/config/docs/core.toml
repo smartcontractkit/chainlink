@@ -1,6 +1,9 @@
 # **ADVANCED**
 # InsecureFastScrypt causes all key stores to encrypt using "fast" scrypt params instead. This is insecure and only useful for local testing. DO NOT ENABLE THIS IN PRODUCTION.
 InsecureFastScrypt = false # Default
+# **ADVANCED**
+# InsecurePPROFHeap allows dumping the heap in pprof. This is very useful for debugging memory leaks but in certain rare cases may potentially expose sensitive data e.g. private key components, so is disabled by default.
+InsecurePPROFHeap = false # Default
 # RootDir is the Chainlink node's root directory. This is the default directory for logging, database backups, cookies, and other misc Chainlink node files. Chainlink nodes will always ensure this directory has 700 permissions because it might contain sensitive data.
 RootDir = '~/.chainlink' # Default
 # ShutdownGracePeriod is the maximum time allowed to shut down gracefully. If exceeded, the node will terminate immediately to avoid being SIGKILLed.
@@ -359,6 +362,8 @@ KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false # Default
 # CaptureAutomationCustomTelemetry toggles collecting automation specific telemetry
 CaptureAutomationCustomTelemetry = true # Default
+# AllowNoBootstrappers enables single-node consensus without bootstrapper nodes (i.e. f=0, n=1)
+AllowNoBootstrappers = false # Default
 # DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in OCR2. Set to 0 to use `SendEvery` strategy instead.
 DefaultTransactionQueueDepth = 1 # Default
 # SimulateTransactions enables transaction simulation for OCR2.
@@ -450,9 +455,9 @@ GlobalRPS = 200 # Default
 # GlobalBurst is the global burst limit for the dispatcher.
 GlobalBurst = 200 # Default
 # PerSenderRPS is the per-sender rate limit for the dispatcher.
-PerSenderRPS = 100 # Default
+PerSenderRPS = 200 # Default
 # PerSenderBurst is the per-sender burst limit for the dispatcher.
-PerSenderBurst = 100 # Default
+PerSenderBurst = 200 # Default
 
 [Capabilities.WorkflowRegistry]
 # Address is the address for the workflow registry contract.
@@ -467,6 +472,16 @@ MaxBinarySize = '20.00mb' # Default
 MaxEncryptedSecretsSize = '26.40kb' # Default
 # MaxConfigSize is the maximum size of a config that can be fetched from the given config url.
 MaxConfigSize = '50.00kb' # Default
+# SyncStrategy is the strategy that will be used to bring the node up to date with the latest Workflow Registry contract state.
+# Options are: event which watches for contract events or reconciliation which diffs workflow metadata state.
+SyncStrategy = 'event' # Default
+
+[Workflows]
+[Workflows.Limits]
+# Global is the maximum number of workflows that can be registered globally.
+Global = 200 # Default
+# PerOwner is the maximum number of workflows that can be registered per owner.
+PerOwner = 200 # Default
 
 [Capabilities.ExternalRegistry]
 # Address is the address for the capabilities registry contract.
@@ -707,14 +722,14 @@ CertFile = "/path/to/client/certs.pem" # Example
 # Options are either:
 # - "wsrpc" for the legacy websocket protocol
 # - "grpc" for the gRPC protocol
-Protocol = "wsrpc" # Default
+Protocol = "grpc" # Default
 # TransmitQueueMaxSize controls the size of the transmit queue. This is scoped
 # per OCR instance. If the queue is full, the transmitter will start dropping
 # the oldest messages in order to make space.
 #
 # This is useful if mercury server goes offline and the nop needs to buffer
 # transmissions.
-TransmitQueueMaxSize = 100_000 # Default
+TransmitQueueMaxSize = 250_000 # Default
 # TransmitTimeout controls how long the transmitter will wait for a response
 # when sending a message to the mercury server, before aborting and considering
 # the transmission to be failed.
@@ -723,6 +738,12 @@ TransmitTimeout = "5s" # Default
 #
 # Only has effect with LLO jobs.
 TransmitConcurrency = 100 # Default
+# ReaperFrequency controls how often the stale transmission reaper will run.
+# Setting to 0 disables the reaper.
+ReaperFrequency = "1h" # Default
+# ReaperMaxAge controls how old a transmission can be before it is considered
+# stale. Setting to 0 disables the reaper.
+ReaperMaxAge = "48h" # Default
 
 # Telemetry holds OTEL settings.
 # This data includes open telemetry metrics, traces, & logs.
@@ -744,8 +765,16 @@ TraceSampleRatio = 0.01 # Default
 EmitterBatchProcessor = true # Default
 # EmitterExportTimeout sets timeout for exporting telemetry events
 EmitterExportTimeout = '1s' # Default
+# ChipIngressEndpoint enables sending custom messages to CHIP Ingress.
+ChipIngressEndpoint = '' # Default
 
 # ResourceAttributes are global metadata to include with all telemetry.
 [Telemetry.ResourceAttributes]
 # foo is an example resource attribute
 foo = "bar" # Example
+
+[CRE.Streams]
+# WsURL is the websockets url for the streams sdk config
+WsURL = "streams.url" # Example
+# RestURL is the REST url for the streams sdk config
+RestURL = "streams.url" # Example

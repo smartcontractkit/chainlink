@@ -9,8 +9,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 )
 
@@ -38,6 +39,11 @@ func (r *relayer) NewContractWriter(ctx context.Context, chainWriterConfig []byt
 func (r *relayer) NewContractReader(ctx context.Context, contractReaderConfig []byte) (types.ContractReader, error) {
 	return nil, nil
 }
+
+func (r *relayer) EVM() (types.EVMService, error) {
+	return nil, nil
+}
+
 func (r *relayer) NewConfigProvider(_ context.Context, rargs types.RelayArgs) (types.ConfigProvider, error) {
 	var cfg RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &cfg); err != nil {
@@ -58,11 +64,11 @@ func (r *relayer) NewLLOProvider(ctx context.Context, rargs types.RelayArgs, par
 	if err = pluginCfg.Unmarshal(pargs.PluginConfig); err != nil {
 		return nil, err
 	}
-	cdc, err := llo.NewStaticChannelDefinitionCache(r.lggr, pluginCfg.ChannelDefinitions)
+	cdc, err := channeldefinitions.NewStaticChannelDefinitionCache(r.lggr, pluginCfg.ChannelDefinitions)
 	if err != nil {
 		return nil, err
 	}
-	src := llo.NewNeverShouldRetireCache()
+	src := retirement.NewNeverShouldRetireCache()
 	return NewLLOProvider(r.lggr, cp, transmitter, cdc, src), nil
 }
 func (r *relayer) LatestHead(_ context.Context) (types.Head, error) {
@@ -75,6 +81,9 @@ func (r *relayer) ListNodeStatuses(ctx context.Context, pageSize int32, pageToke
 	return nil, "", 0, nil
 }
 func (r *relayer) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+	return nil
+}
+func (r *relayer) Replay(ctx context.Context, fromBlock string, args map[string]any) error {
 	return nil
 }
 func (r *relayer) Name() string                { return r.lggr.Name() }

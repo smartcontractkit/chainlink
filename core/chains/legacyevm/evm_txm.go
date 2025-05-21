@@ -3,15 +3,16 @@ package legacyevm
 import (
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas/rollups"
+
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas/rollups"
+	evmheads "github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 )
 
 func newEvmTxm(
@@ -23,14 +24,14 @@ func newEvmTxm(
 	lggr logger.Logger,
 	logPoller logpoller.LogPoller,
 	opts ChainRelayOpts,
-	headTracker httypes.HeadTracker,
+	headTracker evmheads.Tracker,
 	estimator gas.EvmFeeEstimator,
 ) (txm txmgr.TxManager,
 	err error,
 ) {
 	chainID := cfg.ChainID()
 
-	lggr = lggr.Named("Txm")
+	lggr = logger.Named(lggr, "Txm")
 	lggr.Infow("Initializing EVM transaction manager",
 		"bumpTxDepth", cfg.GasEstimator().BumpTxDepth(),
 		"maxInFlightTransactions", cfg.Transactions().MaxInFlight(),
@@ -86,7 +87,7 @@ func newGasEstimator(
 	opts ChainRelayOpts,
 	clientsByChainID map[string]rollups.DAClient,
 ) (estimator gas.EvmFeeEstimator, err error) {
-	lggr = lggr.Named("Txm")
+	lggr = logger.Named(lggr, "Txm")
 	chainID := cfg.ChainID()
 	// build estimator from factory
 	if opts.GenGasEstimator == nil {

@@ -14,17 +14,17 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 // Test harness with EVM backend and chainlink core services like
@@ -36,8 +36,7 @@ type EVMBackendTH struct {
 	Backend   evmtypes.Backend
 	EVMClient evmclient.Client
 
-	ContractsOwner    *bind.TransactOpts
-	ContractsOwnerKey ethkey.KeyV2
+	ContractsOwner *bind.TransactOpts
 
 	HeadTracker logpoller.HeadTracker
 	LogPoller   logpoller.LogPoller
@@ -48,8 +47,10 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 	lggr := logger.Test(t)
 
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	contractsOwner, err := bind.NewKeyedTransactorWithChainID(ownerKey.ToEcdsaPrivKey(), testutils.SimulatedChainID)
-	require.NoError(t, err)
+	contractsOwner := &bind.TransactOpts{
+		From:   ownerKey.Address,
+		Signer: ownerKey.SignerFn(testutils.SimulatedChainID),
+	}
 
 	// Setup simulated go-ethereum EVM backend
 	genesisData := core.GenesisAlloc{
@@ -74,8 +75,7 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 		Backend:   backend,
 		EVMClient: client,
 
-		ContractsOwner:    contractsOwner,
-		ContractsOwnerKey: ownerKey,
+		ContractsOwner: contractsOwner,
 	}
 	th.HeadTracker, th.LogPoller = th.SetupCoreServices(t)
 
@@ -86,7 +86,7 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 func (th *EVMBackendTH) SetupCoreServices(t *testing.T) (logpoller.HeadTracker, logpoller.LogPoller) {
 	db := pgtest.NewSqlxDB(t)
 	const finalityDepth = 2
-	ht := headtracker.NewSimulatedHeadTracker(th.EVMClient, false, finalityDepth)
+	ht := headstest.NewSimulatedHeadTracker(th.EVMClient, false, finalityDepth)
 	lp := logpoller.NewLogPoller(
 		logpoller.NewORM(testutils.SimulatedChainID, db, th.Lggr),
 		th.EVMClient,
@@ -96,7 +96,7 @@ func (th *EVMBackendTH) SetupCoreServices(t *testing.T) (logpoller.HeadTracker, 
 			PollPeriod:               100 * time.Millisecond,
 			FinalityDepth:            finalityDepth,
 			BackfillBatchSize:        3,
-			RpcBatchSize:             2,
+			RPCBatchSize:             2,
 			KeepFinalizedBlocksDepth: 1000,
 		},
 	)

@@ -31,7 +31,8 @@ contract OffRampWithMessageTransformer_executeSingleReport is OffRampSetup {
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
       onRamp: ON_RAMP_ADDRESS_1,
-      isEnabled: true
+      isEnabled: true,
+      isRMNVerificationDisabled: false
     });
 
     // set up off ramp with message transformer from configs

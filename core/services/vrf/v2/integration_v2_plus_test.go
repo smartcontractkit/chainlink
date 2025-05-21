@@ -18,25 +18,29 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2plus"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/trusted_blockhash_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2_plus_upgradeable_example"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_plus_v2_example"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_malicious_consumer_v2_plus"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_single_consumer"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_sub_owner"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_proxy_admin"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_consumer_example"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_reverting_example"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/trusted_blockhash_store"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_consumer_v2_plus_upgradeable_example"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2_5"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2_plus_v2_example"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2plus_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_malicious_consumer_v2_plus"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_v2plus_single_consumer"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_v2plus_sub_owner"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_proxy_admin"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2plus_consumer_example"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2plus_reverting_example"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -49,10 +53,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 type coordinatorV2PlusUniverse struct {
@@ -68,22 +68,24 @@ type coordinatorV2PlusUniverse struct {
 
 func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumers int, trusting bool) coordinatorV2PlusUniverse {
 	tests.SkipShort(t, "VRFCoordinatorV2Universe")
-	oracleTransactor, err := bind.NewKeyedTransactorWithChainID(key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
-	require.NoError(t, err)
+	oracleTransactor := &bind.TransactOpts{
+		From:   key.Address,
+		Signer: key.SignerFn(testutils.SimulatedChainID),
+	}
 	var (
-		sergey       = testutils.MustNewSimTransactor(t)
-		neil         = testutils.MustNewSimTransactor(t)
-		ned          = testutils.MustNewSimTransactor(t)
-		evil         = testutils.MustNewSimTransactor(t)
-		reverter     = testutils.MustNewSimTransactor(t)
-		submanager   = testutils.MustNewSimTransactor(t)
+		sergey       = evmtestutils.MustNewSimTransactor(t)
+		neil         = evmtestutils.MustNewSimTransactor(t)
+		ned          = evmtestutils.MustNewSimTransactor(t)
+		evil         = evmtestutils.MustNewSimTransactor(t)
+		reverter     = evmtestutils.MustNewSimTransactor(t)
+		submanager   = evmtestutils.MustNewSimTransactor(t)
 		nallory      = oracleTransactor
 		vrfConsumers []*bind.TransactOpts
 	)
 
 	// Create consumer contract deployer identities
 	for i := 0; i < numConsumers; i++ {
-		vrfConsumers = append(vrfConsumers, testutils.MustNewSimTransactor(t))
+		vrfConsumers = append(vrfConsumers, evmtestutils.MustNewSimTransactor(t))
 	}
 
 	genesisData := gethtypes.GenesisAlloc{
@@ -717,8 +719,8 @@ func TestVRFV2PlusIntegration_ConsumerProxy_CoordinatorZeroAddress(t *testing.T)
 }
 
 func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
-	owner := testutils.MustNewSimTransactor(t)
-	random := testutils.MustNewSimTransactor(t)
+	owner := evmtestutils.MustNewSimTransactor(t)
+	random := evmtestutils.MustNewSimTransactor(t)
 	genesisData := gethtypes.GenesisAlloc{
 		owner.From:  {Balance: assets.Ether(10).ToInt()},
 		random.From: {Balance: assets.Ether(10).ToInt()},
@@ -799,8 +801,8 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_SimpleConsumerExample(t *testing.T) {
-	owner := testutils.MustNewSimTransactor(t)
-	random := testutils.MustNewSimTransactor(t)
+	owner := evmtestutils.MustNewSimTransactor(t)
+	random := evmtestutils.MustNewSimTransactor(t)
 	genesisData := gethtypes.GenesisAlloc{
 		owner.From: {Balance: assets.Ether(10).ToInt()},
 	}

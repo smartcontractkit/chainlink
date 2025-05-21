@@ -17,11 +17,16 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_external_sub_owner_example"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	v2 "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -34,11 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	v2 "github.com/smartcontractkit/chainlink/v2/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func testSingleConsumerHappyPath(
@@ -949,7 +949,7 @@ func testSingleConsumerForcedFulfillment(
 	sub, err := uni.oldRootContract.GetSubscription(nil, subID)
 	require.NoError(t, err, "failed to get subscription with id %d", subID)
 	require.Equal(t, assets.Ether(5).ToInt(), sub.Balance())
-	require.Equal(t, 1, len(sub.Consumers()))
+	require.Len(t, sub.Consumers(), 1)
 	require.Equal(t, eoaConsumerAddr, sub.Consumers()[0])
 	require.Equal(t, uni.neil.From, sub.Owner())
 
@@ -1057,7 +1057,7 @@ func testSingleConsumerForcedFulfillment(
 		require.Equal(t, subID.Uint64(), it.Event.SubId)
 		require.Equal(t, eoaConsumerAddr.String(), it.Event.Sender.String())
 	}
-	require.Greater(t, i, 0)
+	require.Positive(t, i)
 
 	t.Log("Done!")
 }
@@ -1263,8 +1263,8 @@ func testSingleConsumerBigGasCallbackSandwich(
 	{
 		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
-		assert.Equal(t, 0, len(runs))
-		assert.Equal(t, 3, len(reqIDs))
+		assert.Empty(t, runs)
+		assert.Len(t, reqIDs, 3)
 	}
 
 	// Wait for the 50_000 gas randomness request to be enqueued.
@@ -1295,7 +1295,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 	{
 		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
-		assert.Equal(t, 1, len(runs))
+		assert.Len(t, runs, 1)
 	}
 
 	// Make some randomness requests, each one block apart, this time without a low-gas request present in the callbackGasLimit slice.
@@ -1737,8 +1737,8 @@ func testMaliciousConsumer(
 	for it.Next() {
 		fulfillments = append(fulfillments, it.Event())
 	}
-	require.Equal(t, 1, len(fulfillments))
-	require.Equal(t, false, fulfillments[0].Success())
+	require.Len(t, fulfillments, 1)
+	require.False(t, fulfillments[0].Success())
 
 	// It should not have succeeded in placing another request.
 	it2, err2 := uni.rootContract.FilterRandomWordsRequested(nil, nil, nil, nil)
@@ -1747,7 +1747,7 @@ func testMaliciousConsumer(
 	for it2.Next() {
 		requests = append(requests, it2.Event())
 	}
-	require.Equal(t, 1, len(requests))
+	require.Len(t, requests, 1)
 }
 
 func testReplayOldRequestsOnStartUp(

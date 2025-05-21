@@ -2,7 +2,9 @@ package wrapper
 
 import (
 	"context"
-	"crypto/ed25519"
+	"crypto"
+	"crypto/rand"
+	"errors"
 	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -24,7 +26,7 @@ type peerWrapper struct {
 	peer        types.Peer
 	keystoreP2P keystore.P2P
 	p2pConfig   config.P2P
-	privateKey  ed25519.PrivateKey
+	privateKey  crypto.Signer
 	lggr        logger.Logger
 	ds          sqlutil.DataSource
 }
@@ -60,7 +62,7 @@ func (e *peerWrapper) convertPeerConfig() (p2p.PeerConfig, error) {
 	}
 
 	peerConfig := p2p.PeerConfig{
-		PrivateKey: key.PrivKey,
+		PrivateKey: key,
 
 		ListenAddresses:   e.p2pConfig.V2().ListenAddresses(),
 		AnnounceAddresses: e.p2pConfig.V2().AnnounceAddresses(),
@@ -131,7 +133,7 @@ func (e *peerWrapper) Name() string {
 
 func (e *peerWrapper) Sign(msg []byte) ([]byte, error) {
 	if e.privateKey == nil {
-		return nil, fmt.Errorf("private key not set")
+		return nil, errors.New("private key not set")
 	}
-	return ed25519.Sign(e.privateKey, msg), nil
+	return e.privateKey.Sign(rand.Reader, msg, crypto.Hash(0))
 }

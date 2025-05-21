@@ -144,7 +144,7 @@ func TestPacker_UnpackGetUpkeepPrivilegeConfig(t *testing.T) {
 				assert.NoError(t, err, "packed data should unmarshal using json encoding")
 				assert.Equal(t, []byte(`{"mercuryEnabled":true}`), b)
 			} else {
-				assert.NotNil(t, err, "error expected from unpack function")
+				assert.Error(t, err, "error expected from unpack function")
 			}
 		})
 	}
@@ -184,7 +184,7 @@ func TestPacker_PackGetUpkeepPrivilegeConfig(t *testing.T) {
 
 				assert.Equal(t, test.raw, b, "raw bytes for output should match expected")
 			} else {
-				assert.NotNil(t, err, "error expected from packing function")
+				assert.Error(t, err, "error expected from packing function")
 			}
 		})
 	}
@@ -235,7 +235,7 @@ func TestPacker_UnpackCheckCallbackResult(t *testing.T) {
 			if test.ErrorString != "" {
 				assert.EqualError(t, err, test.ErrorString+hexutil.Encode(test.CallbackResp))
 			} else {
-				assert.Nil(t, err)
+				assert.NoError(t, err)
 			}
 			assert.Equal(t, test.UpkeepNeeded, needed)
 			assert.Equal(t, test.PerformData, pd)
@@ -278,7 +278,7 @@ func TestPacker_PackUserCheckErrorHandler(t *testing.T) {
 
 				assert.Equal(t, test.rawOutput, b, "raw bytes for output should match expected")
 			} else {
-				assert.NotNil(t, err, "error expected from packing function")
+				assert.Error(t, err, "error expected from packing function")
 			}
 		})
 	}

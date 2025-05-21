@@ -2,7 +2,7 @@ package ocr
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -22,14 +22,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 // configMailboxSanityLimit is the maximum number of configs that can be held
@@ -41,7 +42,7 @@ const configMailboxSanityLimit = 100
 var (
 	_ ocrtypes.ContractConfigTracker = &OCRContractTracker{}
 	_ log.Listener                   = &OCRContractTracker{}
-	_ httypes.HeadTrackable          = &OCRContractTracker{}
+	_ heads.Trackable                = &OCRContractTracker{}
 
 	OCRContractConfigSet            = getEventTopic("ConfigSet")
 	OCRContractLatestRoundRequested = getEventTopic("RoundRequested")
@@ -67,7 +68,7 @@ type (
 		mailMon          *mailbox.Monitor
 
 		// HeadBroadcaster
-		headBroadcaster  httypes.HeadBroadcaster
+		headBroadcaster  heads.Broadcaster
 		unsubscribeHeads func()
 
 		// Start/Stop lifecycle
@@ -113,7 +114,7 @@ func NewOCRContractTracker(
 	ds sqlutil.DataSource,
 	ocrDB OCRContractTrackerDB,
 	cfg ocrcommon.Config,
-	headBroadcaster httypes.HeadBroadcaster,
+	headBroadcaster heads.Broadcaster,
 	mailMon *mailbox.Monitor,
 ) (o *OCRContractTracker) {
 	logger = logger.Named("OCRContractTracker")
@@ -167,7 +168,7 @@ func (t *OCRContractTracker) Start(ctx context.Context) error {
 		t.wg.Add(1)
 		go t.processLogs()
 
-		t.mailMon.Monitor(t.configsMB, "OCRContractTracker", "Configs", fmt.Sprint(t.jobID))
+		t.mailMon.Monitor(t.configsMB, "OCRContractTracker", "Configs", strconv.Itoa(int(t.jobID)))
 
 		return nil
 	})
@@ -399,7 +400,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 		// care about the block height; we have no way of getting the L1 block
 		// height anyway
 		return 0, nil
-	case "", chaintype.ChainArbitrum, chaintype.ChainAstar, chaintype.ChainCelo, chaintype.ChainGnosis, chaintype.ChainHedera, chaintype.ChainKroma, chaintype.ChainOptimismBedrock, chaintype.ChainSei, chaintype.ChainScroll, chaintype.ChainWeMix, chaintype.ChainXLayer, chaintype.ChainZkEvm, chaintype.ChainZkSync, chaintype.ChainZircuit:
+	case "", chaintype.ChainArbitrum, chaintype.ChainAstar, chaintype.ChainCelo, chaintype.ChainGnosis, chaintype.ChainHedera, chaintype.ChainKroma, chaintype.ChainOptimismBedrock, chaintype.ChainSei, chaintype.ChainScroll, chaintype.ChainWeMix, chaintype.ChainXLayer, chaintype.ChainZkEvm, chaintype.ChainZkSync, chaintype.ChainZircuit, chaintype.ChainRootstock:
 		// continue
 	}
 	latestBlockHeight := t.getLatestBlockHeight()
@@ -455,7 +456,7 @@ func getEventTopic(name string) gethCommon.Hash {
 	}
 	event, exists := abi.Events[name]
 	if !exists {
-		panic(fmt.Sprintf("abi.Events was missing %s", name))
+		panic("abi.Events was missing " + name)
 	}
 	return event.ID
 }

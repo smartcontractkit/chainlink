@@ -4,7 +4,6 @@ description: |
   Note: Other actions should not be called from this action. There is
   weird behavior when nesting reusable actions.
 inputs:
-
   go-mod-download-directory:
     description: |
       The directory to run go mod download in. If not provided, it will not run go mod download.
@@ -33,18 +32,14 @@ runs:
       working-directory: ${{ inputs.go-mod-download-directory }}
       run: go mod download
 
-    - name: Build binary
-      shell: bash
-      run: go build -o chainlink.test .
-
     - name: Setup DB
       shell: bash
-      run: ./chainlink.test local db preparetest
+      run: go run ./core/store/cmd/preparetest
       env:
         CL_DATABASE_URL: ${{ inputs.db-url }}
 
     - name: Install LOOP Plugins
       shell: bash
-      run: make install-plugins
-
-
+      run: |
+        make install-loopinstall
+        make install-plugins-public

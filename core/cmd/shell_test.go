@@ -20,7 +20,6 @@ import (
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/sqltest"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -30,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
@@ -354,29 +354,31 @@ func TestNewUserCache(t *testing.T) {
 func TestSetupSolanaRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := plugins.NewTestLoopRegistry(lggr)
-	ks := mocks.NewSolana(t)
+	ks := &keystore.StarknetLooppSigner{StarkNet: mocks.NewStarkNet(t)}
 	ds := sqltest.NewNoOpDataSource()
 
 	// config 3 chains but only enable 2 => should only be 2 relayer
 	nEnabledChains := 2
+	chainCfg := solcfg.Chain{}
+	chainCfg.SetDefaults()
 	tConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Solana = solcfg.TOMLConfigs{
 			&solcfg.TOMLConfig{
 				ChainID: ptr[string]("solana-id-1"),
 				Enabled: ptr(true),
-				Chain:   solcfg.Chain{},
+				Chain:   chainCfg,
 				Nodes:   []*solcfg.Node{},
 			},
 			&solcfg.TOMLConfig{
 				ChainID: ptr[string]("solana-id-2"),
 				Enabled: ptr(true),
-				Chain:   solcfg.Chain{},
+				Chain:   chainCfg,
 				Nodes:   []*solcfg.Node{},
 			},
 			&solcfg.TOMLConfig{
 				ChainID: ptr[string]("disabled-solana-id-1"),
 				Enabled: ptr(false),
-				Chain:   solcfg.Chain{},
+				Chain:   chainCfg,
 				Nodes:   []*solcfg.Node{},
 			},
 		}
@@ -399,24 +401,23 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	}
 
 	cfg := chainlink.SolanaFactoryConfig{
-		Keystore:    ks,
 		TOMLConfigs: tConfig.SolanaConfigs(),
 		DS:          ds}
 
 	// not parallel; shared state
 	t.Run("no plugin", func(t *testing.T) {
-		relayers, err := rf.NewSolana(cfg)
+		relayers, err := rf.NewSolana(ks, cfg)
 		require.NoError(t, err)
 		require.NotNil(t, relayers)
 		require.Len(t, relayers, nEnabledChains)
 		// no using plugin, so registry should be empty
-		require.Len(t, reg.List(), 0)
+		require.Empty(t, reg.List())
 	})
 
 	t.Run("plugin", func(t *testing.T) {
 		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
 
-		relayers, err := rf.NewSolana(cfg)
+		relayers, err := rf.NewSolana(ks, cfg)
 		require.NoError(t, err)
 		require.NotNil(t, relayers)
 		require.Len(t, relayers, nEnabledChains)
@@ -430,32 +431,31 @@ func TestSetupSolanaRelayer(t *testing.T) {
 			&solcfg.TOMLConfig{
 				ChainID: ptr[string]("dupe"),
 				Enabled: ptr(true),
-				Chain:   solcfg.Chain{},
+				Chain:   chainCfg,
 				Nodes:   []*solcfg.Node{},
 			},
 			&solcfg.TOMLConfig{
 				ChainID: ptr[string]("dupe"),
 				Enabled: ptr(true),
-				Chain:   solcfg.Chain{},
+				Chain:   chainCfg,
 				Nodes:   []*solcfg.Node{},
 			},
 		}
 	})
 	dupCfg := chainlink.SolanaFactoryConfig{
-		Keystore:    ks,
 		TOMLConfigs: duplicateConfig.SolanaConfigs(),
 		DS:          ds,
 	}
 
 	// not parallel; shared state
 	t.Run("no plugin, duplicate chains", func(t *testing.T) {
-		_, err := rf.NewSolana(dupCfg)
+		_, err := rf.NewSolana(ks, dupCfg)
 		require.Error(t, err)
 	})
 
 	t.Run("plugin, duplicate chains", func(t *testing.T) {
 		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
-		_, err := rf.NewSolana(dupCfg)
+		_, err := rf.NewSolana(ks, dupCfg)
 		require.Error(t, err)
 	})
 
@@ -463,8 +463,7 @@ func TestSetupSolanaRelayer(t *testing.T) {
 		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
 		t.Setenv("CL_SOLANA_ENV", "fake_path")
 
-		_, err := rf.NewSolana(chainlink.SolanaFactoryConfig{
-			Keystore:    ks,
+		_, err := rf.NewSolana(ks, chainlink.SolanaFactoryConfig{
 			TOMLConfigs: t2Config.SolanaConfigs(),
 			DS:          ds,
 		})
@@ -475,7 +474,7 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	t.Run("plugin already registered", func(t *testing.T) {
 		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
 
-		_, err := rf.NewSolana(cfg)
+		_, err := rf.NewSolana(ks, cfg)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create Solana LOOP command")
 	})
@@ -484,43 +483,35 @@ func TestSetupSolanaRelayer(t *testing.T) {
 func TestSetupStarkNetRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := plugins.NewTestLoopRegistry(lggr)
-	ks := mocks.NewStarkNet(t)
+	ks := &keystore.StarknetLooppSigner{StarkNet: mocks.NewStarkNet(t)}
 	// config 3 chains but only enable 2 => should only be 2 relayer
 	nEnabledChains := 2
 	tConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Starknet = stkcfg.TOMLConfigs{
-			&stkcfg.TOMLConfig{
-				ChainID:   ptr[string]("starknet-id-1"),
-				Enabled:   ptr(true),
-				Chain:     stkcfg.Chain{},
-				Nodes:     []*stkcfg.Node{},
-				FeederURL: commoncfg.MustParseURL("https://feeder.url"),
+		c.Starknet = chainlink.RawConfigs{
+			{
+				"ChainID":   "starknet-id-1",
+				"Enabled":   true,
+				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
 			},
-			&stkcfg.TOMLConfig{
-				ChainID:   ptr[string]("starknet-id-2"),
-				Enabled:   ptr(true),
-				Chain:     stkcfg.Chain{},
-				Nodes:     []*stkcfg.Node{},
-				FeederURL: commoncfg.MustParseURL("https://feeder.url"),
+			{
+				"ChainID":   "starknet-id-2",
+				"Enabled":   true,
+				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
 			},
-			&stkcfg.TOMLConfig{
-				ChainID:   ptr[string]("disabled-starknet-id-1"),
-				Enabled:   ptr(false),
-				Chain:     stkcfg.Chain{},
-				Nodes:     []*stkcfg.Node{},
-				FeederURL: commoncfg.MustParseURL("https://feeder.url"),
+			{
+				"ChainID":   "disabled-starknet-id-1",
+				"Enabled":   ptr(false),
+				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
 			},
 		}
 	})
 
 	t2Config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Starknet = stkcfg.TOMLConfigs{
-			&stkcfg.TOMLConfig{
-				ChainID:   ptr[string]("starknet-id-3"),
-				Enabled:   ptr(true),
-				Chain:     stkcfg.Chain{},
-				Nodes:     []*stkcfg.Node{},
-				FeederURL: commoncfg.MustParseURL("https://feeder.url"),
+		c.Starknet = chainlink.RawConfigs{
+			{
+				"ChainID":   "starknet-id-3",
+				"Enabled":   true,
+				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
 			},
 		}
 	})
@@ -529,17 +520,7 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 		LoopRegistry: reg,
 	}
 
-	// not parallel; shared state
-	t.Run("no plugin", func(t *testing.T) {
-		relayers, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
-		require.NoError(t, err)
-		require.NotNil(t, relayers)
-		require.Len(t, relayers, nEnabledChains)
-		// no using plugin, so registry should be empty
-		require.Len(t, reg.List(), 0)
-	})
-
-	t.Run("plugin", func(t *testing.T) {
+	t.Run("plugin-cmd", func(t *testing.T) {
 		t.Setenv("CL_STARKNET_CMD", "phony_starknet_cmd")
 
 		relayers, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
@@ -552,20 +533,16 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 
 	// test that duplicate enabled chains is an error when
 	duplicateConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Starknet = stkcfg.TOMLConfigs{
-			&stkcfg.TOMLConfig{
-				ChainID:   ptr[string]("dupe"),
-				Enabled:   ptr(true),
-				Chain:     stkcfg.Chain{},
-				Nodes:     []*stkcfg.Node{},
-				FeederURL: commoncfg.MustParseURL("https://feeder.url"),
+		c.Starknet = chainlink.RawConfigs{
+			{
+				"ChainID":   "dupe",
+				"Enabled":   true,
+				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
 			},
-			&stkcfg.TOMLConfig{
-				ChainID:   ptr[string]("dupe"),
-				Enabled:   ptr(true),
-				Chain:     stkcfg.Chain{},
-				Nodes:     []*stkcfg.Node{},
-				FeederURL: commoncfg.MustParseURL("https://feeder.url"),
+			{
+				"ChainID":   "dupe",
+				"Enabled":   true,
+				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
 			},
 		}
 	})
@@ -588,7 +565,7 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 
 		_, err := rf.NewStarkNet(ks, t2Config.StarknetConfigs())
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to parse Starknet env file")
+		require.ErrorContains(t, err, "failed to parse env file")
 	})
 
 	t.Run("plugin already registered", func(t *testing.T) {
@@ -596,7 +573,7 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 
 		_, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to create StarkNet LOOP command")
+		require.ErrorContains(t, err, "failed to create LOOP command")
 	})
 }
 

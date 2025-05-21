@@ -3,8 +3,8 @@ package evm
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/big"
+	"strconv"
 	"testing"
 	"time"
 
@@ -17,20 +17,20 @@ import (
 	autotypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	evmhttypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
-	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
-	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
+	evmheads "github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated"
+	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
+	autov2common "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
+	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func TestMercuryConfig_RemoveTrailingSlash(t *testing.T) {
@@ -102,7 +102,7 @@ func TestPollLogs(t *testing.T) {
 				OutputErr   error
 			}{
 				OutputBlock: 0,
-				OutputErr:   fmt.Errorf("test error output"),
+				OutputErr:   errors.New("test error output"),
 			},
 		},
 		{
@@ -153,7 +153,7 @@ func TestPollLogs(t *testing.T) {
 				InputStart: 250,
 				InputEnd:   500,
 				OutputLogs: []logpoller.Log{},
-				OutputErr:  fmt.Errorf("test output error"),
+				OutputErr:  errors.New("test output error"),
 			},
 		},
 		{
@@ -178,8 +178,8 @@ func TestPollLogs(t *testing.T) {
 				InputStart: 250,
 				InputEnd:   500,
 				OutputLogs: []logpoller.Log{
-					{EvmChainId: ubig.New(big.NewInt(5)), LogIndex: 1},
-					{EvmChainId: ubig.New(big.NewInt(6)), LogIndex: 2},
+					{EVMChainID: ubig.New(big.NewInt(5)), LogIndex: 1},
+					{EVMChainID: ubig.New(big.NewInt(6)), LogIndex: 2},
 				},
 				OutputErr: nil,
 			},
@@ -193,7 +193,7 @@ func TestPollLogs(t *testing.T) {
 
 			if test.LatestBlock != nil {
 				mp.On("LatestBlock", mock.Anything).
-					Return(logpoller.LogPollerBlock{BlockNumber: test.LatestBlock.OutputBlock}, test.LatestBlock.OutputErr)
+					Return(logpoller.Block{BlockNumber: test.LatestBlock.OutputBlock}, test.LatestBlock.OutputErr)
 			}
 
 			if test.LogsWithSigs != nil {
@@ -214,7 +214,7 @@ func TestPollLogs(t *testing.T) {
 			if test.ExpectedErr != nil {
 				assert.ErrorIs(t, err, test.ExpectedErr)
 			} else {
-				assert.Nil(t, err)
+				assert.NoError(t, err)
 			}
 
 			var outputLogCount int
@@ -263,7 +263,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			logEventProvider: &mockLogEventProvider{
 				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 					// of the ids specified in the test, only one is a valid log trigger upkeep
-					assert.Equal(t, 1, len(ids))
+					assert.Len(t, ids, 1)
 					return ids, nil
 				},
 			},
@@ -288,7 +288,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			logEventProvider: &mockLogEventProvider{
 				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 					// of the ids specified in the test, only one is a valid log trigger upkeep
-					assert.Equal(t, 1, len(ids))
+					assert.Len(t, ids, 1)
 					return ids, nil
 				},
 			},
@@ -313,7 +313,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			logEventProvider: &mockLogEventProvider{
 				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 					// of the ids specified in the test, only one is a valid log trigger upkeep
-					assert.Equal(t, 1, len(ids))
+					assert.Len(t, ids, 1)
 					return ids, nil
 				},
 			},
@@ -342,7 +342,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			logEventProvider: &mockLogEventProvider{
 				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 					// of the ids specified in the test, only one is a valid log trigger upkeep
-					assert.Equal(t, 1, len(ids))
+					assert.Len(t, ids, 1)
 					return ids, nil
 				},
 				RegisterFilterFn: func(ctx context.Context, opts logprovider.FilterOptions) error {
@@ -396,7 +396,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			logEventProvider: &mockLogEventProvider{
 				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 					// of the ids specified in the test, only two are a valid log trigger upkeep
-					assert.Equal(t, 2, len(ids))
+					assert.Len(t, ids, 2)
 					return ids, nil
 				},
 				RegisterFilterFn: func(ctx context.Context, opts logprovider.FilterOptions) error {
@@ -442,13 +442,13 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			ids: func() []*big.Int {
 				res := []*big.Int{}
 				for i := 0; i < logTriggerRefreshBatchSize*3; i++ {
-					res = append(res, core.GenUpkeepID(autotypes.LogTrigger, fmt.Sprintf("%d", i)).BigInt())
+					res = append(res, core.GenUpkeepID(autotypes.LogTrigger, strconv.Itoa(i)).BigInt())
 				}
 				return res
 			}(),
 			logEventProvider: &mockLogEventProvider{
 				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
-					assert.Equal(t, logTriggerRefreshBatchSize, len(ids))
+					assert.Len(t, ids, logTriggerRefreshBatchSize)
 					return ids, nil
 				},
 				RegisterFilterFn: func(ctx context.Context, opts logprovider.FilterOptions) error {
@@ -494,14 +494,14 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			ids: func() []*big.Int {
 				res := []*big.Int{}
 				for i := 0; i < logTriggerRefreshBatchSize+3; i++ {
-					res = append(res, core.GenUpkeepID(autotypes.LogTrigger, fmt.Sprintf("%d", i)).BigInt())
+					res = append(res, core.GenUpkeepID(autotypes.LogTrigger, strconv.Itoa(i)).BigInt())
 				}
 				return res
 			}(),
 			logEventProvider: &mockLogEventProvider{
 				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 					if len(ids) != logTriggerRefreshBatchSize {
-						assert.Equal(t, 3, len(ids))
+						assert.Len(t, ids, 3)
 					}
 					return ids, nil
 				},
@@ -545,9 +545,9 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			lggr := logger.Test(t)
-			var hb evmhttypes.HeadBroadcaster
+			var hb evmheads.Broadcaster
 			var lp logpoller.LogPoller
 
 			bs := NewBlockSubscriber(hb, lp, 1000, lggr)

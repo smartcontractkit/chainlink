@@ -14,26 +14,24 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc/mtls"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_Client(t *testing.T) {
-	ctx := tests.Context(t)
 	clientPrivKey := ed25519.NewKeyFromSeed(randomBytes(t, 32))
 	serverPrivKey := ed25519.NewKeyFromSeed(randomBytes(t, 32))
 
 	t.Run("Transmit errors if not started", func(t *testing.T) {
 		c := NewClient(ClientOpts{
-			Logger:        logger.TestLogger(t),
-			ClientPrivKey: clientPrivKey,
-			ServerPubKey:  serverPrivKey.Public().(ed25519.PublicKey),
-			ServerURL:     "example.com",
+			Logger:       logger.TestLogger(t),
+			ClientSigner: clientPrivKey,
+			ServerPubKey: serverPrivKey.Public().(ed25519.PublicKey),
+			ServerURL:    "example.com",
 		})
 
-		resp, err := c.Transmit(tests.Context(t), &rpc.TransmitRequest{})
+		resp, err := c.Transmit(t.Context(), &rpc.TransmitRequest{})
 		assert.Nil(t, resp)
 		require.EqualError(t, err, "service is Unstarted, not started")
 	})
@@ -43,10 +41,10 @@ func Test_Client(t *testing.T) {
 		serverURL := srv.start(t, []ed25519.PublicKey{clientPrivKey.Public().(ed25519.PublicKey)})
 
 		c := NewClient(ClientOpts{
-			Logger:        logger.TestLogger(t),
-			ClientPrivKey: clientPrivKey,
-			ServerPubKey:  serverPrivKey.Public().(ed25519.PublicKey),
-			ServerURL:     serverURL,
+			Logger:       logger.TestLogger(t),
+			ClientSigner: clientPrivKey,
+			ServerPubKey: serverPrivKey.Public().(ed25519.PublicKey),
+			ServerURL:    serverURL,
 		})
 
 		servicetest.Run(t, c)
@@ -55,7 +53,7 @@ func Test_Client(t *testing.T) {
 			Payload:      []byte("report"),
 			ReportFormat: 42,
 		}
-		resp, err := c.Transmit(ctx, req)
+		resp, err := c.Transmit(t.Context(), req)
 		require.NoError(t, err)
 
 		assert.Equal(t, "", resp.Error)

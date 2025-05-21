@@ -2,26 +2,36 @@ package ccip
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"math/big"
-	"math/rand"
+	mathrand "math/rand"
 	"time"
-
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
-	"github.com/smartcontractkit/chainlink/deployment"
-	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
+	selectors "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 )
 
 type SeqNumRange struct {
@@ -30,169 +40,88 @@ type SeqNumRange struct {
 }
 
 type DestinationGun struct {
-	l             logger.Logger
-	env           deployment.Environment
-	seqNums       map[testhelpers.SourceDestPair]SeqNumRange
-	roundNum      *atomic.Int32
-	chainSelector uint64
-	receiver      common.Address
-	testConfig    *ccip.LoadConfig
-	loki          *wasp.LokiClient
+	l                logger.Logger
+	env              cldf.Environment
+	state            *stateview.CCIPOnChainState
+	roundNum         *atomic.Int32
+	chainSelector    uint64
+	receiver         common.Address
+	testConfig       *ccip.LoadConfig
+	evmSourceKeys    map[uint64]*bind.TransactOpts
+	solanaSourceKeys map[uint64]*solana.PrivateKey
+	chainOffset      int
+	metricPipe       chan messageData
 }
 
-func NewDestinationGun(l logger.Logger, chainSelector uint64, env deployment.Environment, receiver common.Address, overrides *ccip.LoadConfig, loki *wasp.LokiClient) (*DestinationGun, error) {
-	seqNums := make(map[testhelpers.SourceDestPair]SeqNumRange)
-	for _, cs := range env.AllChainSelectorsExcluding([]uint64{chainSelector}) {
-		// query for the actual sequence number
-		seqNums[testhelpers.SourceDestPair{
-			SourceChainSelector: cs,
-			DestChainSelector:   chainSelector,
-		}] = SeqNumRange{
-			Start: atomic.NewUint64(0),
-			End:   atomic.NewUint64(0),
-		}
-	}
+func NewDestinationGun(
+	l logger.Logger,
+	chainSelector uint64,
+	env cldf.Environment,
+	state *stateview.CCIPOnChainState,
+	receiver common.Address,
+	overrides *ccip.LoadConfig,
+	evmSourceKeys map[uint64]*bind.TransactOpts,
+	solanaSourceKeys map[uint64]*solana.PrivateKey,
+	chainOffset int,
+	metricPipe chan messageData,
+) (*DestinationGun, error) {
 	dg := DestinationGun{
-		l:             l,
-		env:           env,
-		seqNums:       seqNums,
-		roundNum:      &atomic.Int32{},
-		chainSelector: chainSelector,
-		receiver:      receiver,
-		testConfig:    overrides,
-		loki:          loki,
-	}
-
-	err := dg.Validate()
-	if err != nil {
-		return nil, err
+		l:                l,
+		env:              env,
+		state:            state,
+		roundNum:         &atomic.Int32{},
+		chainSelector:    chainSelector,
+		receiver:         receiver,
+		testConfig:       overrides,
+		evmSourceKeys:    evmSourceKeys,
+		solanaSourceKeys: solanaSourceKeys,
+		chainOffset:      chainOffset,
+		metricPipe:       metricPipe,
 	}
 
 	return &dg, nil
 }
 
-func (m *DestinationGun) Validate() error {
-	if len(*m.testConfig.MessageTypeWeights) != 3 {
-		return errors.New(
-			"message type must have 3 weights corresponding to message only, token only, token with message")
-	}
-	sum := 0
-	for _, weight := range *m.testConfig.MessageTypeWeights {
-		sum += weight
-	}
-	if sum != 100 {
-		return errors.New("message type weights must sum to 100")
-	}
-	return nil
-}
-
 func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	m.roundNum.Add(1)
-	requestedRound := m.roundNum.Load()
-
-	waspGroup := fmt.Sprintf("%d-%s", m.chainSelector, "messageOnly")
-
-	state, err := ccipchangeset.LoadOnchainState(m.env)
-	if err != nil {
-		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
-	}
-
 	src, err := m.MustSourceChain()
 	if err != nil {
-		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
+		return &wasp.Response{Error: err.Error(), Group: "", Failed: true}
 	}
+	waspGroup := fmt.Sprintf("%d->%d", src, m.chainSelector)
 
-	lokiLabels, err := setLokiLabels(src, m.chainSelector)
-	if err != nil {
-		m.l.Errorw("Failed setting loki labels", "error", err)
-	}
-
-	csPair := testhelpers.SourceDestPair{
-		SourceChainSelector: src,
-		DestChainSelector:   m.chainSelector,
-	}
-
-	r := state.Chains[src].Router
-
-	msg, err := m.GetMessage()
+	selectorFamily, err := selectors.GetSelectorFamily(src)
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
 
-	fee, err := r.GetFee(
-		&bind.CallOpts{Context: context.Background()}, m.chainSelector, msg)
+	switch selectorFamily {
+	case selectors.FamilyEVM:
+		err = m.sendEVMMessage(src)
+	case selectors.FamilySolana:
+		err = m.sendSolanaMessage(src)
+	}
 	if err != nil {
-		m.l.Errorw("could not get fee ",
-			"dstChainSelector", m.chainSelector,
-			"msg", msg,
-			"fee", fee,
-			"err", deployment.MaybeDataErr(err))
+		m.l.Errorw("Failed to transmit message",
+			"gun", waspGroup,
+			"sourceChainFamily", selectorFamily,
+			err, cldf.MaybeDataErr(err))
+		if m.metricPipe != nil {
+			// in the event of an error, still push a metric
+			// sequence numbers start at 1 so using 0 as a sentinel value
+			data := messageData{
+				eventType: transmitted,
+				srcDstSeqNum: srcDstSeqNum{
+					src:    src,
+					dst:    m.chainSelector,
+					seqNum: 0,
+				},
+				timestamp: uint64(time.Now().Unix()), //nolint:gosec // G115
+			}
+			m.metricPipe <- data
+		}
+
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
-	}
-	if msg.FeeToken == common.HexToAddress("0x0") {
-		m.env.Chains[src].DeployerKey.Value = fee
-		defer func() { m.env.Chains[src].DeployerKey.Value = nil }()
-	}
-	m.l.Debugw("sending message ",
-		"srcChain", src,
-		"dstChain", m.chainSelector,
-		"round", requestedRound,
-		"fee", fee,
-		"msg", msg)
-	tx, err := r.CcipSend(
-		m.env.Chains[src].DeployerKey,
-		m.chainSelector,
-		msg)
-	if err != nil {
-		m.l.Errorw("execution reverted from ",
-			"sourceChain", src,
-			"destchain", m.chainSelector,
-			"err", deployment.MaybeDataErr(err))
-		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
-	}
-
-	blockNum, err := m.env.Chains[src].Confirm(tx)
-	if err != nil {
-		m.l.Errorw("could not confirm tx on source", "tx", tx, "err", deployment.MaybeDataErr(err))
-		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
-	}
-
-	// todo: wasp should not manage confirming the message
-	// instead, we should manage the sequence number atomically (at a higher level)
-	it, err := state.Chains[src].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
-		Start:   blockNum,
-		End:     &blockNum,
-		Context: context.Background(),
-	}, []uint64{m.chainSelector}, []uint64{})
-	if err != nil {
-		m.l.Errorw("could not find sent message event on src chain", "src", src, "dst", m.chainSelector, "err", err)
-		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
-	}
-	if !it.Next() {
-		m.l.Errorw("Could not find event")
-		return &wasp.Response{Error: "Could not iterate", Group: waspGroup, Failed: true}
-	}
-
-	m.l.Infow("Transmitted message with",
-		"sourceChain", src,
-		"destChain", m.chainSelector,
-		"sequence number", it.Event.SequenceNumber)
-
-	SendMetricsToLoki(m.l, m.loki, lokiLabels, &LokiMetric{
-		EventType:      transmitted,
-		Timestamp:      time.Now(),
-		SequenceNumber: it.Event.SequenceNumber,
-	})
-
-	// if this is the first time we are sending a message, set the start sequence number
-	// if we ran into a concurrency issue, store the lowest sequence number
-	if it.Event.SequenceNumber < m.seqNums[csPair].Start.Load() || m.seqNums[csPair].End.Load() == 0 {
-		m.seqNums[csPair].Start.Store(it.Event.SequenceNumber)
-	}
-
-	// only store the greatest sequence number we have seen as the maximum
-	if it.Event.SequenceNumber > m.seqNums[csPair].End.Load() {
-		m.seqNums[csPair].End.Store(it.Event.SequenceNumber)
 	}
 
 	return &wasp.Response{Failed: false, Group: waspGroup}
@@ -200,65 +129,266 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 
 // MustSourceChain will return a chain selector to send a message from
 func (m *DestinationGun) MustSourceChain() (uint64, error) {
-	// TODO: make this smarter by checking if this chain has sent a message recently, if so, switch to the next chain
-	// Currently performing a round robin
 	otherCS := m.env.AllChainSelectorsExcluding([]uint64{m.chainSelector})
+	// todo: uncomment to enable solana as a source chain
+	// otherCS := m.env.AllChainSelectorsAllFamilliesExcluding([]uint64{m.chainSelector})
 	if len(otherCS) == 0 {
 		return 0, errors.New("no other chains to send from")
 	}
-	index := int(m.roundNum.Load()) % len(otherCS)
+	index := (int(m.roundNum.Load()) + m.chainOffset) % len(otherCS)
 	return otherCS[index], nil
 }
+func (m *DestinationGun) sendEVMMessage(src uint64) error {
+	acc := m.evmSourceKeys[src]
+	r := m.state.Chains[src].Router
 
-// GetMessage will return the message to be sent while considering expected load of different messages
-func (m *DestinationGun) GetMessage() (router.ClientEVM2AnyMessage, error) {
+	msg, gasLimit, err := m.GetEVMMessage(src)
+	if err != nil {
+		return err
+	}
+	// Set the gas limit for this tx
+	if gasLimit != 0 {
+		//nolint:gosec // it's okay here
+		acc.GasLimit = uint64(gasLimit)
+	}
+
+	fee, err := r.GetFee(
+		&bind.CallOpts{Context: context.Background()}, m.chainSelector, msg)
+	if err != nil {
+		m.l.Errorw("could not get fee ",
+			"dstChainSelector", m.chainSelector,
+			"fee", fee,
+			"err", cldf.MaybeDataErr(err))
+		return err
+	}
+	if msg.FeeToken == common.HexToAddress("0x0") {
+		acc.Value = fee
+	}
+	msgWithoutData := msg
+	msgWithoutData.Data = nil
+	m.l.Debugw("sending message ",
+		"srcChain", src,
+		"dstChain", m.chainSelector,
+		"fee", fee,
+		"msg size", len(msg.Data),
+		"msgWithoutData", msgWithoutData)
+	tx, err := r.CcipSend(
+		acc,
+		m.chainSelector,
+		msg)
+	if err != nil {
+		m.l.Errorw("execution reverted from ",
+			"sourceChain", src,
+			"destchain", m.chainSelector,
+			"err", cldf.MaybeDataErr(err))
+		return err
+	}
+
+	_, err = m.env.Chains[src].Confirm(tx)
+	if err != nil {
+		m.l.Errorw("could not confirm tx on source", "tx", tx, "err", cldf.MaybeDataErr(err))
+		return err
+	}
+
+	return nil
+}
+
+// GetEVMMessage will return the message to be sent while considering expected load of different messages
+// returns the message, gas limit
+func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage, int64, error) {
 	rcv, err := utils.ABIEncode(`[{"type":"address"}]`, m.receiver)
 	if err != nil {
 		m.l.Error("Error encoding receiver address")
-		return router.ClientEVM2AnyMessage{}, err
+		return router.ClientEVM2AnyMessage{}, 0, err
+	}
+	extraArgs, err := GetEVMExtraArgsV2(big.NewInt(0), *m.testConfig.OOOExecution)
+	if err != nil {
+		m.l.Error("Error encoding extra args")
+		return router.ClientEVM2AnyMessage{}, 0, err
 	}
 
-	messages := []router.ClientEVM2AnyMessage{
-		{
-			Receiver:     rcv,
-			Data:         common.Hex2Bytes("0xabcdefabcdef"),
-			TokenAmounts: nil,
-			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    nil,
-		},
-		{
-			Receiver: rcv,
-			TokenAmounts: []router.ClientEVMTokenAmount{
-				{
-					Token:  common.HexToAddress("0x0"),
-					Amount: big.NewInt(100),
-				},
-			},
-			Data:      common.Hex2Bytes("0xabcdefabcdef"),
-			FeeToken:  common.HexToAddress("0x0"),
-			ExtraArgs: nil,
-		},
-		{
-			Receiver: rcv,
-			Data:     common.Hex2Bytes("message with token"),
-			TokenAmounts: []router.ClientEVMTokenAmount{
-				{
-					Token:  common.HexToAddress("0x0"),
-					Amount: big.NewInt(100),
-				},
-			},
-			FeeToken:  common.HexToAddress("0x0"),
-			ExtraArgs: nil,
-		},
+	// Select a message type based on ratio
+	randomValue := mathrand.Intn(100)
+	accumulatedRatio := 0
+	var selectedMsgDetails *ccip.MsgDetails
+
+	for _, msg := range *m.testConfig.MessageDetails {
+		accumulatedRatio += *msg.Ratio
+		if randomValue < accumulatedRatio {
+			selectedMsgDetails = &msg
+			break
+		}
 	}
-	// Select a random message
-	randomValue := rand.Intn(100)
-	switch {
-	case randomValue < (*m.testConfig.MessageTypeWeights)[0]:
-		return messages[0], nil
-	case randomValue < (*m.testConfig.MessageTypeWeights)[0]+(*m.testConfig.MessageTypeWeights)[1]:
-		return messages[1], nil
-	default:
-		return messages[2], nil
+
+	if selectedMsgDetails == nil {
+		return router.ClientEVM2AnyMessage{}, 0, errors.New("failed to select message type")
 	}
+
+	m.l.Infow("Selected message type", "msgType", *selectedMsgDetails.MsgType)
+
+	message := router.ClientEVM2AnyMessage{
+		Receiver:  rcv,
+		FeeToken:  common.HexToAddress("0x0"),
+		ExtraArgs: extraArgs,
+	}
+
+	// Set data length if it's a data transfer
+	if selectedMsgDetails.IsDataTransfer() {
+		dataLength := *selectedMsgDetails.DataLengthBytes
+		data := make([]byte, dataLength)
+		_, err2 := rand.Read(data)
+		if err2 != nil {
+			return router.ClientEVM2AnyMessage{}, 0, err2
+		}
+		message.Data = data
+	}
+
+	// When it's not a programmable token transfer the receiver can be an EOA, we use a random address to denote that
+	if selectedMsgDetails.IsTokenOnlyTransfer() {
+		receiver, err := utils.ABIEncode(`[{"type":"address"}]`, common.HexToAddress(utils.RandomAddress().Hex()))
+		if err != nil {
+			m.l.Error("Error encoding receiver address")
+			return router.ClientEVM2AnyMessage{}, 0, err
+		}
+		message.Receiver = receiver
+	}
+
+	// Set token amounts if it's a token transfer
+	if selectedMsgDetails.IsTokenTransfer() {
+		message.TokenAmounts = []router.ClientEVMTokenAmount{
+			{
+				Token:  m.state.Chains[src].LinkToken.Address(),
+				Amount: big.NewInt(1),
+			},
+		}
+	}
+
+	gasLimit := int64(0)
+	if selectedMsgDetails.DestGasLimit != nil {
+		gasLimit = *selectedMsgDetails.DestGasLimit
+	}
+
+	return message, gasLimit, nil
+}
+
+func GetEVMExtraArgsV2(gasLimit *big.Int, allowOutOfOrder bool) ([]byte, error) {
+	EVMV2Tag := hexutil.MustDecode("0x181dcf10")
+
+	encodedArgs, err := utils.ABIEncode(`[{"type":"uint256"},{"type":"bool"}]`, gasLimit, allowOutOfOrder)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(EVMV2Tag, encodedArgs...), nil
+}
+
+func (m *DestinationGun) sendSolanaMessage(src uint64) error {
+	acc := m.solanaSourceKeys[src]
+	s := m.state.SolChains[src]
+	sourceKey := m.solanaSourceKeys[src]
+
+	msg, err := m.getSolanaMessage(src, acc)
+	if err != nil {
+		return err
+	}
+
+	// if fee token is 0, fallback to WSOL
+	if msg.FeeToken.IsZero() {
+		msg.FeeToken = m.state.SolChains[src].WSOL
+	}
+
+	destinationChainStatePDA, err := solstate.FindDestChainStatePDA(m.chainSelector, s.Router)
+	if err != nil {
+		return err
+	}
+
+	noncePDA, err := solstate.FindNoncePDA(m.chainSelector, sourceKey.PublicKey(), s.Router)
+	if err != nil {
+		return err
+	}
+	feeToken := msg.FeeToken
+
+	linkFqBillingConfigPDA, _, err := solstate.FindFqBillingTokenConfigPDA(s.LinkToken, s.FeeQuoter)
+	if err != nil {
+		return err
+	}
+	feeTokenFqBillingConfigPDA, _, err := solstate.FindFqBillingTokenConfigPDA(feeToken, s.FeeQuoter)
+	if err != nil {
+		return err
+	}
+
+	billingSignerPDA, _, err := solstate.FindFeeBillingSignerPDA(s.Router)
+	if err != nil {
+		return err
+	}
+
+	feeTokenUserATA, _, err := soltokens.FindAssociatedTokenAddress(solana.TokenProgramID, feeToken, sourceKey.PublicKey())
+	if err != nil {
+		return err
+	}
+	feeTokenReceiverATA, _, err := soltokens.FindAssociatedTokenAddress(solana.TokenProgramID, feeToken, billingSignerPDA)
+	if err != nil {
+		return err
+	}
+	fqDestChainPDA, _, err := solstate.FindFqDestChainPDA(m.chainSelector, s.FeeQuoter)
+	if err != nil {
+		return err
+	}
+
+	base := ccip_router.NewCcipSendInstruction(
+		m.chainSelector,
+		msg,
+		[]byte{}, // starting indices for accounts, calculated later
+		s.RouterConfigPDA,
+		destinationChainStatePDA,
+		noncePDA,
+		sourceKey.PublicKey(),
+		solana.SystemProgramID,
+		solana.TokenProgramID,
+		feeToken,
+		feeTokenUserATA,
+		feeTokenReceiverATA,
+		billingSignerPDA,
+		s.FeeQuoter,
+		s.FeeQuoterConfigPDA,
+		fqDestChainPDA,
+		feeTokenFqBillingConfigPDA,
+		linkFqBillingConfigPDA,
+		solana.PublicKey{},
+		solana.PublicKey{},
+		solana.PublicKey{},
+	)
+	base.GetFeeTokenUserAssociatedAccountAccount().WRITE()
+	instruction, err := base.ValidateAndBuild()
+	if err != nil {
+		m.l.Errorw("failed to build instruction",
+			"src", src,
+			"dest", m.chainSelector,
+			"err", cldf.MaybeDataErr(err))
+		return err
+	}
+
+	result, err := solcommon.SendAndConfirm(
+		m.env.GetContext(),
+		m.env.SolChains[src].Client,
+		[]solana.Instruction{instruction},
+		*sourceKey,
+		rpc.CommitmentConfirmed)
+	if err != nil || result == nil {
+		m.l.Errorw("could not confirm solana tx on source",
+			"src", src,
+			"dest", m.chainSelector)
+		return err
+	}
+
+	return nil
+}
+
+func (m *DestinationGun) getSolanaMessage(src uint64, account *solana.PrivateKey) (ccip_router.SVM2AnyMessage, error) {
+	return ccip_router.SVM2AnyMessage{
+		Receiver:     common.LeftPadBytes(m.receiver.Bytes(), 32),
+		TokenAmounts: nil,
+		Data:         []byte("hello world"),
+		ExtraArgs:    []byte{},
+	}, nil
 }

@@ -265,7 +265,7 @@ func (s *Shell) DeleteVRFKey(c *cli.Context) error {
 func getPublicKey(c *cli.Context) (secp256k1.PublicKey, error) {
 	pkHexString := c.Args().Get(0)
 	if pkHexString == "" {
-		return secp256k1.PublicKey{}, fmt.Errorf("must specify public key")
+		return secp256k1.PublicKey{}, errors.New("must specify public key")
 	}
 	publicKey, err := secp256k1.NewPublicKeyFromHex(pkHexString)
 	if err != nil {

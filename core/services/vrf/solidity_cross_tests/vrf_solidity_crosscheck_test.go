@@ -16,13 +16,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_verifier_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_verifier_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	proof2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 )
 
 // Cross-checks of golang implementation details vs corresponding solidity
@@ -366,7 +366,7 @@ func TestVRF_MarshalProof(t *testing.T) {
 		require.NoError(t, err, "failed to marshal VRF proof for on-chain verification")
 		response, err := deployVRFTestHelper(t).RandomValueFromVRFProof(nil, mproof[:])
 		require.NoError(t, err, "failed on-chain to verify VRF proof / get its output")
-		require.True(t, response.Cmp(proof.Output) == 0,
+		require.Equal(t, response.Cmp(proof.Output), 0,
 			"on-chain VRF output differs from off-chain!")
 		corruptionTargetByte := r.Int63n(int64(len(mproof)))
 		// Only the lower 160 bits of the word containing uWitness have any effect

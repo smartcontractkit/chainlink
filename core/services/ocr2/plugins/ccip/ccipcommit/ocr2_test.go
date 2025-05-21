@@ -3,7 +3,6 @@ package ccipcommit
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"math/rand"
 	"slices"
@@ -26,10 +25,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	mocks2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
@@ -43,8 +43,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	ccipdbmocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdb/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas/mocks"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 func TestCommitReportingPlugin_Observation(t *testing.T) {
@@ -432,7 +430,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 				return true
 			})).Return(destDecimals, nil).Maybe()
 
-			lp := mocks2.NewLogPoller(t)
+			lp := lpmocks.NewLogPoller(t)
 			commitStoreReader, err := v1_2_0.NewCommitStore(logger.TestLogger(t), utils.RandomAddress(), nil, lp, feeEstimatorConfig)
 			assert.NoError(t, err)
 
@@ -714,12 +712,12 @@ func TestCommitReportingPlugin_observePriceUpdates(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 
 			mockPriceService := ccipdbmocks.NewPriceService(t)
 			var psError error
 			if tc.psError {
-				psError = fmt.Errorf("price service error")
+				psError = errors.New("price service error")
 			}
 			mockPriceService.On("GetGasAndTokenPrices", ctx, destChainSelector).Return(
 				tc.psGasPricesResult,

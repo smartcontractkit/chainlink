@@ -19,7 +19,6 @@ linters:
     - noctx
     - nolintlint
     - perfsprint
-    - prealloc
     - revive
     - rowserrcheck
     - spancheck
@@ -139,6 +138,10 @@ linters-settings:
             desc: Use gopkg.in/guregu/null.v4 instead
           - pkg: github.com/go-gorm/gorm
             desc: Use github.com/jmoiron/sqlx directly instead
+          - pkg: github.com/smartcontractkit/chainlink-integrations/evm
+            desc: Use github.com/smartcontractkit/chainlink-evm instead
+          - pkg: github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal
+            desc: Use github.com/smartcontractkit/mcms instead
   loggercheck:
     # Check that *w logging functions have even number of args (i.e., well formed key-value pairs).
     rules:
@@ -166,6 +169,10 @@ linters-settings:
     require-explanation: true
 issues:
   exclude-rules:
+    # when performing simple refactor, the usage of addressbook will fail CI, this is a temporary ignore
+    - text: "SA1019: (.*).ExistingAddresses is deprecated: AddressBook is deprecated"
+      linters:
+          - staticcheck
     - text: "^var-naming: don't use an underscore in package name"
       linters:
           - revive
@@ -178,3 +185,17 @@ issues:
     - linters:
         - govet
       text: "declaration of \"err\" shadows"
+    # ignore false positive by revive on the function names (ID, Version, Description) clash between sequence and operation
+    - path: operations/operation.go
+      text: "^confusing-naming:"
+      linters:
+        - revive
+    - path: operations/sequence.go
+      text: "^confusing-naming:"
+      linters:
+        - revive
+    # ignore false positive by revive on function names for BaseDataStore interface implementations
+    - path: datastore/memory_datastore.go
+      text: "^confusing-naming:"
+      linters:
+        - revive

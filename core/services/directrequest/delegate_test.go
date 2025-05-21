@@ -18,10 +18,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/operator"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -33,11 +35,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func TestDelegate_ServicesForSpec(t *testing.T) {
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	runner := pipeline_mocks.NewRunner(t)
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -46,7 +47,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db)
 	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
-		GeneralConfig:  cfg,
+		ChainConfigs:   cfg.EVMConfigs(),
 		DatabaseConfig: cfg.Database(),
 		FeatureConfig:  cfg.Feature(),
 		ListenerConfig: cfg.Database().Listener(),
@@ -84,7 +85,7 @@ type DirectRequestUniverse struct {
 }
 
 func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfig, specF func(spec *job.Job)) *DirectRequestUniverse {
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	broadcaster := log_mocks.NewBroadcaster(t)
 	runner := pipeline_mocks.NewRunner(t)
 	broadcaster.On("AddDependents", 1)
@@ -94,7 +95,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfi
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
-		GeneralConfig:  cfg,
+		ChainConfigs:   cfg.EVMConfigs(),
 		DatabaseConfig: cfg.Database(),
 		FeatureConfig:  cfg.Feature(),
 		ListenerConfig: cfg.Database().Listener(),
@@ -165,7 +166,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("EVMChainID").Return(*big.NewInt(0))
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logOracleRequest := operator_wrapper.OperatorOracleRequest{
+		logOracleRequest := operator.OperatorOracleRequest{
 			CancelExpiration: big.NewInt(0),
 		}
 		log.On("RawLog").Return(types.Log{
@@ -212,7 +213,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log := log_mocks.NewBroadcast(t)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil).Maybe()
-		logOracleRequest := operator_wrapper.OperatorOracleRequest{
+		logOracleRequest := operator.OperatorOracleRequest{
 			CancelExpiration: big.NewInt(0),
 		}
 		log.On("RawLog").Return(types.Log{
@@ -262,7 +263,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) { lbAwaiter.ItHappened() }).Return(nil)
 
-		logCancelOracleRequest := operator_wrapper.OperatorCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
+		logCancelOracleRequest := operator.OperatorCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
 		logAwaiter := cltest.NewAwaiter()
 		log.On("DecodedLog").Run(func(args mock.Arguments) { logAwaiter.ItHappened() }).Return(&logCancelOracleRequest)
 		log.On("RawLog").Return(types.Log{
@@ -289,7 +290,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log := log_mocks.NewBroadcast(t)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logCancelOracleRequest := operator_wrapper.OperatorCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
+		logCancelOracleRequest := operator.OperatorCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				{},
@@ -323,7 +324,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		runLog.On("EVMChainID").Return(*big.NewInt(0))
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logOracleRequest := operator_wrapper.OperatorOracleRequest{
+		logOracleRequest := operator.OperatorOracleRequest{
 			CancelExpiration: big.NewInt(0),
 			RequestId:        uni.spec.ExternalIDEncodeStringToTopic(),
 		}
@@ -340,7 +341,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		cancelLog := log_mocks.NewBroadcast(t)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logCancelOracleRequest := operator_wrapper.OperatorCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
+		logCancelOracleRequest := operator.OperatorCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
 		cancelLog.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				{},
@@ -394,7 +395,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("EVMChainID").Return(*big.NewInt(0))
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logOracleRequest := operator_wrapper.OperatorOracleRequest{
+		logOracleRequest := operator.OperatorOracleRequest{
 			CancelExpiration: big.NewInt(0),
 			Payment:          big.NewInt(100),
 		}
@@ -443,7 +444,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log := log_mocks.NewBroadcast(t)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logOracleRequest := operator_wrapper.OperatorOracleRequest{
+		logOracleRequest := operator.OperatorOracleRequest{
 			CancelExpiration: big.NewInt(0),
 			Payment:          big.NewInt(99),
 		}
@@ -489,7 +490,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("EVMChainID").Return(*big.NewInt(0))
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logOracleRequest := operator_wrapper.OperatorOracleRequest{
+		logOracleRequest := operator.OperatorOracleRequest{
 			CancelExpiration: big.NewInt(0),
 			Payment:          big.NewInt(100),
 			Requester:        requester,
@@ -545,7 +546,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log := log_mocks.NewBroadcast(t)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		logOracleRequest := operator_wrapper.OperatorOracleRequest{
+		logOracleRequest := operator.OperatorOracleRequest{
 			CancelExpiration: big.NewInt(0),
 			Payment:          big.NewInt(100),
 			Requester:        requester,

@@ -12,9 +12,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 )
 
 // 1. Each listener being registered can specify a custom NumConfirmations - number of block confirmations required for any log being sent to it.
@@ -414,7 +413,7 @@ func (r *handler) sendLog(ctx context.Context, log types.Log, latestHead *evmtyp
 			}
 		}
 
-		logCopy := gethwrappers.DeepCopyLog(log)
+		logCopy := deepCopyLog(log)
 
 		var decodedLog generated.AbigenLog
 		var err error
@@ -458,4 +457,24 @@ func (r *handler) sendLog(ctx context.Context, log types.Log, latestHead *evmtyp
 		}()
 	}
 	wg.Wait()
+}
+
+func deepCopyLog(l types.Log) types.Log {
+	var cpy types.Log
+	cpy.Address = l.Address
+	if l.Topics != nil {
+		cpy.Topics = make([]common.Hash, len(l.Topics))
+		copy(cpy.Topics, l.Topics)
+	}
+	if l.Data != nil {
+		cpy.Data = make([]byte, len(l.Data))
+		copy(cpy.Data, l.Data)
+	}
+	cpy.BlockNumber = l.BlockNumber
+	cpy.TxHash = l.TxHash
+	cpy.TxIndex = l.TxIndex
+	cpy.BlockHash = l.BlockHash
+	cpy.Index = l.Index
+	cpy.Removed = l.Removed
+	return cpy
 }

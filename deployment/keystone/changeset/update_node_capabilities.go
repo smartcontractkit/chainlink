@@ -5,21 +5,24 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	"github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-var _ deployment.ChangeSet[*MutateNodeCapabilitiesRequest] = UpdateNodeCapabilities
+var _ cldf.ChangeSet[*MutateNodeCapabilitiesRequest] = UpdateNodeCapabilities
 
 type P2PSignerEnc = internal.P2PSignerEnc
 
@@ -59,17 +62,27 @@ type MutateNodeCapabilitiesRequest struct {
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
 	MCMSConfig *MCMSConfig
+
+	// RegistryRef is the reference to the registry contract in the datastore.
+	RegistryRef datastore.AddressRefKey
 }
 
-func (req *MutateNodeCapabilitiesRequest) Validate() error {
+func (req *MutateNodeCapabilitiesRequest) Validate(e cldf.Environment) error {
 	if len(req.P2pToCapabilities) == 0 {
 		return errors.New("p2pToCapabilities is empty")
 	}
 	_, exists := chainsel.ChainBySelector(req.RegistryChainSel)
 	if !exists {
-		return fmt.Errorf("registry chain selector %d does not exist", req.RegistryChainSel)
+		return fmt.Errorf("invalid registry chain selector %d: selector does not exist", req.RegistryChainSel)
 	}
 
+	_, exists = e.Chains[req.RegistryChainSel]
+	if !exists {
+		return fmt.Errorf("invalid registry chain selector %d: chain does not exist in environment", req.RegistryChainSel)
+	}
+	if err := shouldUseDatastore(e, req.RegistryRef); err != nil {
+		return fmt.Errorf("invalid registry reference: %w", err)
+	}
 	return nil
 }
 
@@ -77,69 +90,67 @@ func (req *MutateNodeCapabilitiesRequest) UseMCMS() bool {
 	return req.MCMSConfig != nil
 }
 
-func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e deployment.Environment) (*internal.UpdateNodeCapabilitiesImplRequest, error) {
-	if err := req.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
+func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e cldf.Environment) (*internal.UpdateNodeCapabilitiesImplRequest, *OwnedContract[*kcr.CapabilitiesRegistry], error) {
+	if err := req.Validate(e); err != nil {
+		return nil, nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
 	}
-	registryChain, ok := e.Chains[req.RegistryChainSel]
-	if !ok {
-		return nil, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
-	}
-	resp, err := internal.GetContractSets(e.Logger, &internal.GetContractSetsRequest{
-		Chains:      map[uint64]deployment.Chain{req.RegistryChainSel: registryChain},
-		AddressBook: e.ExistingAddresses,
-	})
+	registryChain := e.Chains[req.RegistryChainSel] // exists because of the validation above
+	capReg, err := loadCapabilityRegistry(registryChain, e, req.RegistryRef)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get contract sets: %w", err)
-	}
-	contractSet, exists := resp.ContractSets[req.RegistryChainSel]
-	if !exists {
-		return nil, fmt.Errorf("contract set not found for chain %d", req.RegistryChainSel)
+		return nil, nil, fmt.Errorf("failed to load capability registry: %w", err)
 	}
 
 	return &internal.UpdateNodeCapabilitiesImplRequest{
-		Chain:             registryChain,
-		ContractSet:       &contractSet,
-		P2pToCapabilities: req.P2pToCapabilities,
-		UseMCMS:           req.UseMCMS(),
-	}, nil
+		Chain:                registryChain,
+		CapabilitiesRegistry: capReg.Contract,
+		P2pToCapabilities:    req.P2pToCapabilities,
+		UseMCMS:              req.UseMCMS(),
+	}, capReg, nil
 }
 
 // UpdateNodeCapabilities updates the capabilities of nodes in the registry
-func UpdateNodeCapabilities(env deployment.Environment, req *UpdateNodeCapabilitiesRequest) (deployment.ChangesetOutput, error) {
-	c, err := req.updateNodeCapabilitiesImplRequest(env)
+func UpdateNodeCapabilities(env cldf.Environment, req *UpdateNodeCapabilitiesRequest) (cldf.ChangesetOutput, error) {
+	c, capReg, err := req.updateNodeCapabilitiesImplRequest(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert request: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert request: %w", err)
 	}
 
 	r, err := internal.UpdateNodeCapabilitiesImpl(env.Logger, c)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to update nodes: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to update nodes: %w", err)
 	}
 
-	out := deployment.ChangesetOutput{}
+	out := cldf.ChangesetOutput{}
 	if req.UseMCMS() {
 		if r.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
-		timelocksPerChain := map[uint64]common.Address{
-			c.Chain.Selector: c.ContractSet.Timelock.Address(),
+		timelocksPerChain := map[uint64]string{
+			c.Chain.Selector: capReg.McmsContracts.Timelock.Address().Hex(),
 		}
-		proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
-			c.Chain.Selector: c.ContractSet.ProposerMcm,
+		proposerMCMSes := map[uint64]string{
+			c.Chain.Selector: capReg.McmsContracts.ProposerMcm.Address().Hex(),
 		}
-
-		proposal, err := proposalutils.BuildProposalFromBatches(
+		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+		inspectorPerChain := map[uint64]mcmssdk.Inspector{
+			req.RegistryChainSel: inspector,
+		}
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+			env,
 			timelocksPerChain,
 			proposerMCMSes,
-			[]timelock.BatchChainOperation{*r.Ops},
+			inspectorPerChain,
+			[]types.BatchOperation{*r.Ops},
 			"proposal to set update node capabilities",
-			req.MCMSConfig.MinDuration,
+			proposalutils.TimelockConfig{MinDelay: req.MCMSConfig.MinDuration},
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		out.Proposals = []timelock.MCMSWithTimelockProposal{*proposal}
+		out.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
 	}
 	return out, nil
 }

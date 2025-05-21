@@ -73,8 +73,10 @@ compileContract pools/LockReleaseTokenPool
 compileContract pools/BurnMintTokenPool
 compileContract pools/BurnFromMintTokenPool
 compileContract pools/BurnWithFromMintTokenPool
+compileContract pools/BurnToAddressMintTokenPool
 compileContract pools/TokenPool
 compileContract pools/USDC/USDCTokenPool
+compileContract pools/SiloedLockReleaseTokenPool
 
 # Test helpers
 compileContract test/helpers/BurnMintERC677Helper
@@ -86,7 +88,6 @@ compileContract test/helpers/receivers/LogMessageDataReceiver
 compileContract test/helpers/MultiOCR3Helper
 compileContract test/mocks/MockE2EUSDCTokenMessenger
 compileContract test/mocks/MockE2EUSDCTransmitter
-compileContract test/WETH9
 compileContract test/helpers/CCIPReaderTester
 # Offchain test encoding utils
 compileContract test/helpers/EncodingUtils

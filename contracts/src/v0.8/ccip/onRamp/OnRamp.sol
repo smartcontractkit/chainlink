@@ -47,6 +47,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, Ownable2StepMsgSender 
     uint64 indexed destChainSelector, uint64 sequenceNumber, IRouter router, bool allowlistEnabled
   );
   event FeeTokenWithdrawn(address indexed feeAggregator, address indexed feeToken, uint256 amount);
+
   /// RMN depends on this event, if changing, please notify the RMN maintainers.
   event CCIPMessageSent(
     uint64 indexed destChainSelector, uint64 indexed sequenceNumber, Internal.EVM2AnyRampMessage message
@@ -56,7 +57,6 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, Ownable2StepMsgSender 
   event AllowListSendersRemoved(uint64 indexed destChainSelector, address[] senders);
 
   /// @dev Struct that contains the static configuration.
-  /// RMN depends on this struct, if changing, please notify the RMN maintainers.
   // solhint-disable-next-line gas-struct-packing
   struct StaticConfig {
     uint64 chainSelector; // ────╮ Source chain selector.
@@ -103,7 +103,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, Ownable2StepMsgSender 
   }
 
   // STATIC CONFIG
-  string public constant override typeAndVersion = "OnRamp 1.6.0-dev";
+  string public constant override typeAndVersion = "OnRamp 1.6.0";
   /// @dev The chain ID of the source chain that this contract is deployed to.
   uint64 private immutable i_chainSelector;
   /// @dev The rmn contract.
@@ -212,28 +212,27 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, Ownable2StepMsgSender 
       tokenAmounts: new Internal.EVM2AnyTokenTransfer[](message.tokenAmounts.length)
     });
 
-    // Lock / burn the tokens as last step. TokenPools may not always be trusted.
-    Client.EVMTokenAmount[] memory tokenAmounts = message.tokenAmounts;
-    for (uint256 i = 0; i < message.tokenAmounts.length; ++i) {
-      newMessage.tokenAmounts[i] =
-        _lockOrBurnSingleToken(tokenAmounts[i], destChainSelector, message.receiver, originalSender);
-    }
-
     // Convert message fee to juels and retrieve converted args.
     // Validate pool return data after it is populated (view function - no state changes).
     bool isOutOfOrderExecution;
-    bytes memory convertedExtraArgs;
-    bytes[] memory destExecDataPerToken;
-    (newMessage.feeValueJuels, isOutOfOrderExecution, convertedExtraArgs, destExecDataPerToken) = IFeeQuoter(
+    bytes memory tokenReceiver;
+    (newMessage.feeValueJuels, isOutOfOrderExecution, newMessage.extraArgs, tokenReceiver) = IFeeQuoter(
       s_dynamicConfig.feeQuoter
-    ).processMessageArgs(
-      destChainSelector, message.feeToken, feeTokenAmount, message.extraArgs, newMessage.tokenAmounts, tokenAmounts
-    );
+    ).processMessageArgs(destChainSelector, message.feeToken, feeTokenAmount, message.extraArgs, message.receiver);
 
+    Client.EVMTokenAmount[] memory tokenAmounts = message.tokenAmounts;
+    // Lock / burn the tokens as last step. TokenPools may not always be trusted.
+    for (uint256 i = 0; i < message.tokenAmounts.length; ++i) {
+      newMessage.tokenAmounts[i] =
+        _lockOrBurnSingleToken(tokenAmounts[i], destChainSelector, tokenReceiver, originalSender);
+    }
+
+    bytes[] memory destExecDataPerToken = IFeeQuoter(s_dynamicConfig.feeQuoter).processPoolReturnData(
+      destChainSelector, newMessage.tokenAmounts, tokenAmounts
+    );
     newMessage.header.nonce = isOutOfOrderExecution
       ? 0
       : INonceManager(i_nonceManager).getIncrementedOutboundNonce(destChainSelector, originalSender);
-    newMessage.extraArgs = convertedExtraArgs;
 
     for (uint256 i = 0; i < newMessage.tokenAmounts.length; ++i) {
       newMessage.tokenAmounts[i].destExecData = destExecDataPerToken[i];
@@ -315,7 +314,6 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, Ownable2StepMsgSender 
   // ================================================================
 
   /// @notice Returns the static onRamp config.
-  /// @dev RMN depends on this function, if modified, please notify the RMN maintainers.
   /// @return staticConfig the static configuration.
   function getStaticConfig() external view returns (StaticConfig memory) {
     return StaticConfig({

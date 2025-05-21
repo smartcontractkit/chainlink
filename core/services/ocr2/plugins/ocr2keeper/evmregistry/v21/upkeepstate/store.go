@@ -2,7 +2,7 @@ package upkeepstate
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"io"
 	"math/big"
 	"sync"
@@ -13,9 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 const (
@@ -101,7 +101,7 @@ func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScann
 func (u *upkeepStateStore) Start(pctx context.Context) error {
 	return u.StartOnce(UpkeepStateStoreServiceName, func() error {
 		if err := u.scanner.Start(pctx); err != nil {
-			return fmt.Errorf("failed to start scanner")
+			return errors.New("failed to start scanner")
 		}
 
 		u.lggr.Debug("Starting upkeep state store")

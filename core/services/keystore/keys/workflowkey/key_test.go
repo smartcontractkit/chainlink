@@ -3,12 +3,14 @@ package workflowkey
 import (
 	cryptorand "crypto/rand"
 	"encoding/hex"
-	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/box"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 func TestNew(t *testing.T) {
@@ -16,7 +18,7 @@ func TestNew(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NotNil(t, key.PublicKey)
-	assert.NotNil(t, key.privateKey)
+	assert.NotNil(t, key.raw)
 }
 
 func TestPublicKey(t *testing.T) {
@@ -26,33 +28,21 @@ func TestPublicKey(t *testing.T) {
 	assert.Equal(t, *key.publicKey, key.PublicKey())
 }
 
-func TestEncryptKeyRawPrivateKey(t *testing.T) {
-	privKey, err := New()
-	require.NoError(t, err)
-
-	privateKey := privKey.Raw()
-
-	assert.Equal(t, "<Workflow Raw Private Key>", privateKey.String())
-	assert.Equal(t, privateKey.String(), privateKey.GoString())
-}
-
 func TestEncryptKeyFromRawPrivateKey(t *testing.T) {
 	boxPubKey, boxPrivKey, err := box.GenerateKey(cryptorand.Reader)
 	require.NoError(t, err)
 
 	privKey := make([]byte, 32)
 	copy(privKey, boxPrivKey[:])
-	key := Raw(privKey).Key()
+	key := KeyFor(internal.NewRaw(privKey))
 
 	assert.Equal(t, boxPubKey, key.publicKey)
-	assert.Equal(t, boxPrivKey, key.privateKey)
-	assert.Equal(t, key.String(), key.GoString())
+	assert.Equal(t, boxPrivKey[:], internal.Bytes(key.raw))
 
 	byteBoxPubKey := make([]byte, 32)
 	copy(byteBoxPubKey, boxPubKey[:])
 
 	assert.Equal(t, hex.EncodeToString(byteBoxPubKey), key.PublicKeyString())
-	assert.Equal(t, fmt.Sprintf("WorkflowKey{PrivateKey: <redacted>, PublicKey: %s}", byteBoxPubKey), key.String())
 }
 
 func TestPublicKeyStringAndID(t *testing.T) {
@@ -85,4 +75,42 @@ func TestDecrypt(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, secret, plaintext)
+}
+
+func TestMustNewXXXTestingOnly(t *testing.T) {
+	tests := []struct {
+		name        string
+		k           *big.Int
+		wantSuccess bool
+	}{
+		{
+			name:        "generates valid key from big.Int",
+			k:           big.NewInt(1),
+			wantSuccess: true,
+		},
+		{
+			name:        "panics on nil input",
+			k:           nil,
+			wantSuccess: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if !tt.wantSuccess {
+				require.Panics(t, func() { MustNewXXXTestingOnly(tt.k) })
+				return
+			}
+
+			key := MustNewXXXTestingOnly(tt.k)
+			require.NotNil(t, key.raw)
+			require.NotNil(t, key.publicKey)
+
+			// Verify key generation is deterministic
+			if tt.k.Cmp(big.NewInt(1)) != 0 {
+				key1 := MustNewXXXTestingOnly(tt.k)
+				require.Equal(t, key1.PublicKey(), key.PublicKey())
+			}
+		})
+	}
 }

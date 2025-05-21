@@ -9,12 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 type batchBHSConfig interface {
@@ -26,17 +23,12 @@ type BatchBlockhashStore struct {
 	txm      txmgr.TxManager
 	abi      *abi.ABI
 	batchbhs batch_blockhash_store.BatchBlockhashStoreInterface
-	lggr     logger.Logger
 }
 
 func NewBatchBHS(
 	config batchBHSConfig,
-	fromAddresses []types.EIP55Address,
 	txm txmgr.TxManager,
 	batchbhs batch_blockhash_store.BatchBlockhashStoreInterface,
-	chainID *big.Int,
-	gethks keystore.Eth,
-	lggr logger.Logger,
 ) (*BatchBlockhashStore, error) {
 	abi, err := batch_blockhash_store.BatchBlockhashStoreMetaData.GetAbi()
 	if err != nil {
@@ -47,7 +39,6 @@ func NewBatchBHS(
 		txm:      txm,
 		abi:      abi,
 		batchbhs: batchbhs,
-		lggr:     lggr,
 	}, nil
 }
 

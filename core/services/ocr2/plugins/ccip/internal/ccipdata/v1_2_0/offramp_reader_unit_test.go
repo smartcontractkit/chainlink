@@ -2,7 +2,7 @@ package v1_2_0
 
 import (
 	"encoding/binary"
-	"fmt"
+	"errors"
 	"math/rand"
 	"slices"
 	"testing"
@@ -15,19 +15,20 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_2_0"
-	mock_contracts "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/mocks/v1_2_0"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+
+	evm_2_evm_offramp_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
+	mock_contracts "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib/rpclibmocks"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 func TestOffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
@@ -47,7 +48,7 @@ func TestOffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
 		{
 			name: "rpc error",
 			outputChangeFn: func(outputs []rpclib.DataAndErr) []rpclib.DataAndErr {
-				outputs[2].Err = fmt.Errorf("some error")
+				outputs[2].Err = errors.New("some error")
 				return outputs
 			},
 			expErr: true,
@@ -111,7 +112,7 @@ func TestCachedOffRampTokens(t *testing.T) {
 	mockOffRamp.On("Address").Return(utils.RandomAddress())
 
 	lp := mocks.NewLogPoller(t)
-	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: rand.Int63()}, nil)
+	lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{BlockNumber: rand.Int63()}, nil)
 
 	offRamp := OffRamp{
 		offRampV120:    mockOffRamp,
@@ -193,7 +194,7 @@ func Test_LogsAreProperlyMarkedAsFinalized(t *testing.T) {
 
 			lp := mocks.NewLogPoller(t)
 			lp.On("LatestBlock", mock.Anything).
-				Return(logpoller.LogPollerBlock{FinalizedBlockNumber: tt.lastFinalizedBlock}, nil)
+				Return(logpoller.Block{FinalizedBlockNumber: tt.lastFinalizedBlock}, nil)
 			lp.On("IndexedLogsTopicRange", mock.Anything, ExecutionStateChangedEvent, offrampAddress, 1, logpoller.EvmWord(minSeqNr), logpoller.EvmWord(maxSeqNr), evmtypes.Confirmations(0)).
 				Return(inputLogs, nil)
 

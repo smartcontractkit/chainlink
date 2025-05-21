@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -19,7 +20,7 @@ func TestPluginPortManager(t *testing.T) {
 	pFoo, err := m.Register("foo")
 	require.NoError(t, err)
 	require.Equal(t, "foo", pFoo.Name)
-	require.Greater(t, pFoo.EnvCfg.PrometheusPort, 0)
+	require.Positive(t, pFoo.EnvCfg.PrometheusPort)
 	// test duplicate
 	pNil, err := m.Register("foo")
 	require.ErrorIs(t, err, ErrExists)
@@ -62,6 +63,8 @@ func (m mockCfgTelemetry) TraceSampleRatio() float64 { return 0.42 }
 func (m mockCfgTelemetry) EmitterBatchProcessor() bool { return true }
 
 func (m mockCfgTelemetry) EmitterExportTimeout() time.Duration { return 1 * time.Second }
+
+func (m mockCfgTelemetry) ChipIngressEndpoint() string { return "example.com/chip-ingress" }
 
 type mockCfgDatabase struct{}
 
@@ -108,12 +111,12 @@ func TestLoopRegistry_Register(t *testing.T) {
 
 	// Test case 1: Register new loop
 	registeredLoop, err := loopRegistry.Register("testID")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, "testID", registeredLoop.Name)
 
 	envCfg := registeredLoop.EnvCfg
 
-	require.Equal(t, &url.URL{Scheme: "fake", Host: "database.url"}, envCfg.DatabaseURL)
+	require.Equal(t, (*commonconfig.SecretURL)(&url.URL{Scheme: "fake", Host: "database.url"}), envCfg.DatabaseURL)
 	require.Equal(t, time.Hour, envCfg.DatabaseIdleInTxSessionTimeout)
 	require.Equal(t, time.Minute, envCfg.DatabaseLockTimeout)
 	require.Equal(t, time.Second, envCfg.DatabaseQueryTimeout)
@@ -135,4 +138,6 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, 0.42, envCfg.TelemetryTraceSampleRatio)
 	require.True(t, envCfg.TelemetryEmitterBatchProcessor)
 	require.Equal(t, 1*time.Second, envCfg.TelemetryEmitterExportTimeout)
+
+	require.Equal(t, "example.com/chip-ingress", envCfg.ChipIngressEndpoint)
 }

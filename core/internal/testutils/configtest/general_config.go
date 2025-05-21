@@ -10,13 +10,13 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 const DefaultPeerID = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
@@ -46,6 +46,7 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	s.Password.Keystore = models.NewSecret("dummy-to-pass-validation")
 
 	c.Insecure.OCRDevelopmentMode = ptr(true)
+	c.InsecurePPROFHeap = ptr(true)
 	c.InsecureFastScrypt = ptr(true)
 	c.ShutdownGracePeriod = commonconfig.MustNewDuration(testutils.DefaultWaitTimeout)
 

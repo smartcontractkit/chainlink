@@ -58,6 +58,14 @@ func (m *mercuryTransmitterConfig) TransmitConcurrency() uint32 {
 	return *m.c.TransmitConcurrency
 }
 
+func (m *mercuryTransmitterConfig) ReaperFrequency() commonconfig.Duration {
+	return *m.c.ReaperFrequency
+}
+
+func (m *mercuryTransmitterConfig) ReaperMaxAge() commonconfig.Duration {
+	return *m.c.ReaperMaxAge
+}
+
 type mercuryConfig struct {
 	c toml.Mercury
 	s toml.MercurySecrets

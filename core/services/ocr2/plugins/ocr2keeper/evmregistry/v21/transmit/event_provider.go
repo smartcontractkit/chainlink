@@ -14,10 +14,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
+	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
 )
 
 var _ types.TransmitEventProvider = &EventProvider{}

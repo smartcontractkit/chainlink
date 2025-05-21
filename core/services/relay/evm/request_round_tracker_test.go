@@ -15,8 +15,11 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
@@ -27,8 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mocks"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 func mustNewContract(t *testing.T, address gethCommon.Address) *offchain_aggregator_wrapper.OffchainAggregator {
@@ -46,7 +47,7 @@ func mustNewFilterer(t *testing.T, address gethCommon.Address) *ocr2aggregator.O
 type contractTrackerUni struct {
 	db                  *mocks.RequestRoundDB
 	lb                  *logmocks.Broadcaster
-	hb                  *htmocks.HeadBroadcaster[*evmtypes.Head, common.Hash]
+	hb                  *headstest.Broadcaster[*evmtypes.Head, common.Hash]
 	ec                  *clienttest.Client
 	requestRoundTracker *evm.RequestRoundTracker
 }
@@ -74,7 +75,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	}
 	uni.db = mocks.NewRequestRoundDB(t)
 	uni.lb = logmocks.NewBroadcaster(t)
-	uni.hb = htmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
+	uni.hb = headstest.NewBroadcaster[*evmtypes.Head, common.Hash](t)
 	uni.ec = clienttest.NewClient(t)
 
 	db := pgtest.NewSqlxDB(t)
@@ -117,7 +118,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		require.Equal(t, 0, int(round))
 		require.Equal(t, 0, int(epoch))
 
-		uni.requestRoundTracker.HandleLog(tests.Context(t), logBroadcast)
+		uni.requestRoundTracker.HandleLog(t.Context(), logBroadcast)
 
 		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
@@ -139,7 +140,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		require.Equal(t, 0, int(round))
 		require.Equal(t, 0, int(epoch))
 
-		uni.requestRoundTracker.HandleLog(tests.Context(t), logBroadcast)
+		uni.requestRoundTracker.HandleLog(t.Context(), logBroadcast)
 
 		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
@@ -171,7 +172,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		})).Return(nil)
 		uni.db.On("WithDataSource", mock.Anything).Return(uni.db)
 
-		uni.requestRoundTracker.HandleLog(tests.Context(t), logBroadcast)
+		uni.requestRoundTracker.HandleLog(t.Context(), logBroadcast)
 
 		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
@@ -191,7 +192,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 			return rr.Epoch == 1 && rr.Round == 9
 		})).Return(nil)
 
-		uni.requestRoundTracker.HandleLog(tests.Context(t), logBroadcast2)
+		uni.requestRoundTracker.HandleLog(t.Context(), logBroadcast2)
 
 		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
@@ -200,7 +201,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		assert.Equal(t, 9, int(round))
 
 		// Same round with lower epoch is ignored
-		uni.requestRoundTracker.HandleLog(tests.Context(t), logBroadcast)
+		uni.requestRoundTracker.HandleLog(t.Context(), logBroadcast)
 
 		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
@@ -221,7 +222,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 			return rr.Epoch == 2 && rr.Round == 1
 		})).Return(nil)
 
-		uni.requestRoundTracker.HandleLog(tests.Context(t), logBroadcast3)
+		uni.requestRoundTracker.HandleLog(t.Context(), logBroadcast3)
 
 		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
@@ -243,7 +244,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		uni.db.On("SaveLatestRoundRequested", mock.Anything, mock.Anything).Return(errors.New("something exploded"))
 		uni.db.On("WithDataSource", mock.Anything).Return(uni.db)
 
-		uni.requestRoundTracker.HandleLog(tests.Context(t), logBroadcast)
+		uni.requestRoundTracker.HandleLog(t.Context(), logBroadcast)
 
 		configDigest, epoch, round, err := uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)

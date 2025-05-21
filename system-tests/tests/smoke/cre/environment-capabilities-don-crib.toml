@@ -1,0 +1,98 @@
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+
+[custom_anvil_miner]
+  block_speed_seconds = 5
+
+[jd]
+  # change to your version
+  image = "jd-test-1:0.9.0"
+
+[infra]
+  # either "docker" or "crib"
+  type = "crib"
+
+  [infra.crib]
+  namespace = "crib-local"
+  folder_location = "/Users/bartektofel/Desktop/repos/crib/deployments/cre"
+  # either "aws" or "kind"
+  provider = "kind"
+
+[[workflow_configs]]
+  workflow_name = "abcdefgasd"
+  # 0x01 8e16c39e 0000 20 0000000000000000 = ETH/USD Benchmark Price with 0 decimals
+  feed_id = "018e16c39e000320000000000000000000000000000000000000000000000000"
+
+  use_cre_cli = true
+  should_compile_new_workflow = true
+  # PoR test workflow is stored in smartcontractkit/proof-of-reserves-workflow-e2e-test repository
+  # config below assumes that you have it cloned next to chainlink repository
+  workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test"
+
+[dependencies]
+  cron_capability_binary_path = "./cron"
+  cre_cli_binary_path = "./cre_v0.2.0_darwin_arm64"
+
+[[nodesets]]
+  nodes = 5
+  override_mode = "all"
+  http_port_range_start = 10100
+  name = "workflow"
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:e530f1c"
+      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """
+
+[[nodesets]]
+  nodes = 2
+  override_mode = "all"
+  http_port_range_start = 10200
+  name = "capability"
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13100
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:e530f1c"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """
+
+[[nodesets]]
+  nodes = 1
+  override_mode = "all"
+  http_port_range_start = 10300
+  name = "gateway"
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13200
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:e530f1c"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """

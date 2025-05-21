@@ -4,6 +4,7 @@ run:
 linters:
   enable:
     - containedctx
+    - copyloopvar
     - depguard
     - errname
     - errorlint
@@ -144,6 +145,10 @@ linters-settings:
             desc: Use gopkg.in/guregu/null.v4 instead
           - pkg: github.com/go-gorm/gorm
             desc: Use github.com/jmoiron/sqlx directly instead
+          - pkg: github.com/smartcontractkit/chainlink-integrations/evm
+            desc: Use github.com/smartcontractkit/chainlink-evm instead
+          - pkg: github.com/consul/sdk/freeport
+            desc: Use github.com/smartcontractkit/freeport instead
   loggercheck:
     # Check that *w logging functions have even number of args (i.e., well formed key-value pairs).
     rules:
@@ -170,6 +175,7 @@ linters-settings:
     require-specific: true
     require-explanation: true
 issues:
+  max-same-issues: 0
   exclude-rules:
     - path: test
       text: "^G404:"

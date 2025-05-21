@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
@@ -41,6 +42,10 @@ func (m MockRelayer) NewContractReader(_ context.Context, _ []byte) (commontypes
 	panic("not implemented")
 }
 
+func (m MockRelayer) EVM() (types.EVMService, error) {
+	panic("not implemented")
+}
+
 func (m MockRelayer) LatestHead(_ context.Context) (commontypes.Head, error) {
 	return m.Head, nil
 }
@@ -54,6 +59,10 @@ func (m MockRelayer) ListNodeStatuses(ctx context.Context, pageSize int32, pageT
 }
 
 func (m MockRelayer) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+	panic("not implemented")
+}
+
+func (m MockRelayer) Replay(ctx context.Context, fromBlock string, args map[string]any) error {
 	panic("not implemented")
 }
 

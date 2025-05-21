@@ -52,7 +52,6 @@ type Master interface {
 	Unlock(ctx context.Context, password string) error
 	IsEmpty(ctx context.Context) (bool, error)
 }
-
 type master struct {
 	*keyManager
 	cosmos   *cosmos

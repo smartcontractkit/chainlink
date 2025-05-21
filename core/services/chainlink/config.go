@@ -10,18 +10,15 @@ import (
 
 	gotoml "github.com/pelletier/go-toml/v2"
 
-	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
-
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
+	configtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
-	configtoml "github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 )
 
 // Config is the root type used for TOML configuration.
@@ -39,11 +36,11 @@ type Config struct {
 
 	EVM configtoml.EVMConfigs `toml:",omitempty"`
 
-	Cosmos coscfg.TOMLConfigs `toml:",omitempty"`
+	Cosmos RawConfigs `toml:",omitempty"`
 
 	Solana solcfg.TOMLConfigs `toml:",omitempty"`
 
-	Starknet stkcfg.TOMLConfigs `toml:",omitempty"`
+	Starknet RawConfigs `toml:",omitempty"`
 
 	Aptos RawConfigs `toml:",omitempty"`
 
@@ -52,6 +49,12 @@ type Config struct {
 
 // RawConfigs is a list of RawConfig.
 type RawConfigs []RawConfig
+
+func (rs RawConfigs) SetDefaults() {
+	for _, r := range rs {
+		r.SetDefaults()
+	}
+}
 
 func (rs *RawConfigs) SetFrom(configs RawConfigs) error {
 	if err := configs.validateKeys(); err != nil {
@@ -182,8 +185,12 @@ func (c RawConfig) ValidateConfig() error {
 }
 
 func (c RawConfig) IsEnabled() bool {
-	enabled, ok := c["Enabled"].(bool)
-	return ok && enabled
+	s := c["Enabled"]
+	if s == nil {
+		return true // default to true if omitted
+	}
+	b, ok := s.(bool)
+	return ok && b
 }
 
 func (c RawConfig) ChainID() string {
@@ -192,6 +199,9 @@ func (c RawConfig) ChainID() string {
 }
 
 func (c *RawConfig) SetFrom(config RawConfig) error {
+	if e := config["Enabled"]; e != nil {
+		(*c)["Enabled"] = e
+	}
 	parsedRawConfig, err := c.parse()
 	if err != nil {
 		return err
@@ -250,6 +260,13 @@ func (c RawConfig) NodeNames() []string {
 	return nodeNames
 }
 
+func (c RawConfig) SetDefaults() {
+	if e, ok := c["Enabled"].(bool); ok && e {
+		// already enabled by default so drop it
+		delete(c, "Enabled")
+	}
+}
+
 // TOMLString returns a TOML encoded string.
 func (c *Config) TOMLString() (string, error) {
 	b, err := gotoml.Marshal(c)
@@ -302,6 +319,8 @@ func (c *Config) setDefaults() {
 	core.SetFrom(&c.Core)
 	c.Core = core
 
+	c.Aptos.SetDefaults()
+
 	for i := range c.EVM {
 		if input := c.EVM[i]; input == nil {
 			c.EVM[i] = &configtoml.EVMConfig{Chain: configtoml.Defaults(nil)}
@@ -310,12 +329,7 @@ func (c *Config) setDefaults() {
 		}
 	}
 
-	for i := range c.Cosmos {
-		if c.Cosmos[i] == nil {
-			c.Cosmos[i] = new(coscfg.TOMLConfig)
-		}
-		c.Cosmos[i].Chain.SetDefaults()
-	}
+	c.Cosmos.SetDefaults()
 
 	for i := range c.Solana {
 		if c.Solana[i] == nil {
@@ -324,12 +338,9 @@ func (c *Config) setDefaults() {
 		c.Solana[i].Chain.SetDefaults()
 	}
 
-	for i := range c.Starknet {
-		if c.Starknet[i] == nil {
-			c.Starknet[i] = new(stkcfg.TOMLConfig)
-		}
-		c.Starknet[i].Chain.SetDefaults()
-	}
+	c.Starknet.SetDefaults()
+
+	c.Tron.SetDefaults()
 }
 
 func (c *Config) SetFrom(f *Config) (err error) {
@@ -339,7 +350,7 @@ func (c *Config) SetFrom(f *Config) (err error) {
 		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err1, "EVM"))
 	}
 
-	if err2 := c.Cosmos.SetFrom(&f.Cosmos); err2 != nil {
+	if err2 := c.Cosmos.SetFrom(f.Cosmos); err2 != nil {
 		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "Cosmos"))
 	}
 
@@ -347,7 +358,7 @@ func (c *Config) SetFrom(f *Config) (err error) {
 		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err3, "Solana"))
 	}
 
-	if err4 := c.Starknet.SetFrom(&f.Starknet); err4 != nil {
+	if err4 := c.Starknet.SetFrom(f.Starknet); err4 != nil {
 		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err4, "Starknet"))
 	}
 
@@ -397,6 +408,18 @@ func (s *Secrets) SetFrom(f *Secrets) (err error) {
 		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "Threshold"))
 	}
 
+	if err2 := s.EVM.SetFrom(&f.EVM); err2 != nil {
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "EthKeys"))
+	}
+
+	if err2 := s.P2PKey.SetFrom(&f.P2PKey); err2 != nil {
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "P2PKey"))
+	}
+
+	if err2 := s.CRE.SetFrom(&f.CRE); err2 != nil {
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "CRE"))
+	}
+
 	_, err = commonconfig.MultiErrorList(err)
 
 	return err
@@ -417,12 +440,27 @@ func (s *Secrets) TOMLString() (string, error) {
 	return string(b), nil
 }
 
-var ErrInvalidSecrets = errors.New("invalid secrets")
+type InvalidSecretsError struct {
+	err error
+}
+
+func (e InvalidSecretsError) Error() string {
+	return fmt.Sprintf("invalid secrets: %v", e.err)
+}
+
+func (e InvalidSecretsError) Unwrap() error {
+	return e.err
+}
+
+func (e InvalidSecretsError) Is(err error) bool {
+	_, ok := err.(InvalidSecretsError) //nolint:errcheck // implementing errors.Is
+	return ok
+}
 
 // Validate validates every consitutent secret and return an accumulated error
 func (s *Secrets) Validate() error {
 	if err := commonconfig.Validate(s); err != nil {
-		return fmt.Errorf("%w: %s", ErrInvalidSecrets, err)
+		return InvalidSecretsError{err: err}
 	}
 	return nil
 }
@@ -444,7 +482,7 @@ func (s *Secrets) ValidateDB() error {
 	s.setDefaults()
 	v := &dbValidationType{s.Database}
 	if err := commonconfig.Validate(v); err != nil {
-		return fmt.Errorf("%w: %s", ErrInvalidSecrets, err)
+		return InvalidSecretsError{err: err}
 	}
 	return nil
 }

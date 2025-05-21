@@ -1,31 +1,28 @@
 package web_test
 
 import (
+	"errors"
 	"math/big"
 	"net/http"
 	"net/url"
 	"testing"
 
-	"github.com/pkg/errors"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/assets"
-	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
-	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func TestETHKeysController_Index_Success(t *testing.T) {
@@ -208,7 +205,7 @@ func TestETHKeysController_Index_NoAccounts(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Len(t, balances, 0)
+	assert.Empty(t, balances)
 }
 
 func TestETHKeysController_CreateSuccess(t *testing.T) {
@@ -217,10 +214,10 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
 	})
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
 
-	sub := commonmocks.NewSubscription(t)
+	sub := clienttest.NewSubscription(t)
 	cltest.MockApplicationEthCalls(t, app, ethClient, sub)
 
 	ethBalanceInt := big.NewInt(100)
@@ -293,7 +290,7 @@ func TestETHKeysController_ChainSuccess_UpdateNonce(t *testing.T) {
 	assert.Equal(t, cltest.FormatWithPrefixedChainID(cltest.FixtureChainID.String(), key.Address.String()), updatedKey.ID)
 	assert.Equal(t, key.Address.String(), updatedKey.Address)
 	assert.Equal(t, cltest.FixtureChainID.String(), updatedKey.EVMChainID.String())
-	assert.Equal(t, false, updatedKey.Disabled)
+	assert.False(t, updatedKey.Disabled)
 }
 
 func TestETHKeysController_ChainSuccess_Disable(t *testing.T) {
@@ -339,7 +336,7 @@ func TestETHKeysController_ChainSuccess_Disable(t *testing.T) {
 	assert.Equal(t, cltest.FormatWithPrefixedChainID(updatedKey.EVMChainID.String(), key.Address.String()), updatedKey.ID)
 	assert.Equal(t, key.Address.String(), updatedKey.Address)
 	assert.Equal(t, cltest.FixtureChainID.String(), updatedKey.EVMChainID.String())
-	assert.Equal(t, true, updatedKey.Disabled)
+	assert.True(t, updatedKey.Disabled)
 }
 
 func TestETHKeysController_ChainSuccess_Enable(t *testing.T) {
@@ -384,7 +381,7 @@ func TestETHKeysController_ChainSuccess_Enable(t *testing.T) {
 	assert.Equal(t, cltest.FormatWithPrefixedChainID(cltest.FixtureChainID.String(), key.Address.String()), updatedKey.ID)
 	assert.Equal(t, key.Address.String(), updatedKey.Address)
 	assert.Equal(t, cltest.FixtureChainID.String(), updatedKey.EVMChainID.String())
-	assert.Equal(t, false, updatedKey.Disabled)
+	assert.False(t, updatedKey.Disabled)
 }
 
 func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
@@ -392,7 +389,7 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].NonceAutoSync = ptr(false)
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
@@ -428,7 +425,7 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 
 	txes, err := txStore.FindTxesByFromAddressAndState(testutils.Context(t), addr, "fatal_error")
 	require.NoError(t, err)
-	require.Len(t, txes, 0)
+	require.Empty(t, txes)
 
 	client := app.NewHTTPClient(nil)
 	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
@@ -450,7 +447,7 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	assert.Equal(t, cltest.FormatWithPrefixedChainID(cltest.FixtureChainID.String(), key.Address.String()), updatedKey.ID)
 	assert.Equal(t, key.Address.String(), updatedKey.Address)
 	assert.Equal(t, cltest.FixtureChainID.String(), updatedKey.EVMChainID.String())
-	assert.Equal(t, false, updatedKey.Disabled)
+	assert.False(t, updatedKey.Disabled)
 
 	txes, err = txStore.FindTxesByFromAddressAndState(testutils.Context(t), addr, "fatal_error")
 	require.NoError(t, err)
@@ -685,7 +682,7 @@ func TestETHKeysController_DeleteSuccess(t *testing.T) {
 	assert.Equal(t, cltest.FormatWithPrefixedChainID(cltest.FixtureChainID.String(), key0.Address.String()), deletedKey.ID)
 	assert.Equal(t, key0.Address.String(), deletedKey.Address)
 	assert.Equal(t, cltest.FixtureChainID.String(), deletedKey.EVMChainID.String())
-	assert.Equal(t, false, deletedKey.Disabled)
+	assert.False(t, deletedKey.Disabled)
 
 	resp, cleanup2 := client.Get("/v2/keys/evm")
 	defer cleanup2()

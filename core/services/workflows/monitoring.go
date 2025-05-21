@@ -25,15 +25,22 @@ type engineMetrics struct {
 	workflowUnregisteredCounter              metric.Int64Counter
 	workflowExecutionRateLimitGlobalCounter  metric.Int64Counter
 	workflowExecutionRateLimitPerUserCounter metric.Int64Counter
+	workflowLimitGlobalCounter               metric.Int64Counter
+	workflowLimitPerOwnerCounter             metric.Int64Counter
 	workflowExecutionLatencyGauge            metric.Int64Gauge // ms
 	workflowStepErrorCounter                 metric.Int64Counter
 	workflowInitializationCounter            metric.Int64Counter
-	engineHeartbeatCounter                   metric.Int64Counter
-	workflowCompletedDurationSeconds         metric.Int64Histogram
-	workflowEarlyExitDurationSeconds         metric.Int64Histogram
-	workflowErrorDurationSeconds             metric.Int64Histogram
-	workflowTimeoutDurationSeconds           metric.Int64Histogram
-	workflowStepDurationSeconds              metric.Int64Histogram
+
+	// Deprecated: use the gauge instead
+	engineHeartbeatCounter metric.Int64Counter
+	engineHeartbeatGauge   metric.Int64Gauge
+
+	workflowCompletedDurationSeconds metric.Int64Histogram
+	workflowEarlyExitDurationSeconds metric.Int64Histogram
+	workflowErrorDurationSeconds     metric.Int64Histogram
+	workflowTimeoutDurationSeconds   metric.Int64Histogram
+	workflowStepDurationSeconds      metric.Int64Histogram
+	workflowMissingMeteringReport    metric.Int64Counter
 }
 
 func initMonitoringResources() (em *engineMetrics, err error) {
@@ -47,6 +54,16 @@ func initMonitoringResources() (em *engineMetrics, err error) {
 	em.workflowExecutionRateLimitPerUserCounter, err = beholder.GetMeter().Int64Counter("platform_engine_execution_ratelimit_peruser")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register execution rate limit per user counter: %w", err)
+	}
+
+	em.workflowLimitGlobalCounter, err = beholder.GetMeter().Int64Counter("platform_engine_limit_global")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register execution limit global counter: %w", err)
+	}
+
+	em.workflowLimitPerOwnerCounter, err = beholder.GetMeter().Int64Counter("platform_engine_limit_perowner")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register execution limit per owner counter: %w", err)
 	}
 
 	em.registerTriggerFailureCounter, err = beholder.GetMeter().Int64Counter("platform_engine_registertrigger_failures")
@@ -101,9 +118,15 @@ func initMonitoringResources() (em *engineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register workflow step error counter: %w", err)
 	}
 
+	// Deprecated: use the gauge below
 	em.engineHeartbeatCounter, err = beholder.GetMeter().Int64Counter("platform_engine_heartbeat")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register engine heartbeat counter: %w", err)
+	}
+
+	em.engineHeartbeatGauge, err = beholder.GetMeter().Int64Gauge("platform_engine_workflow_heartbeat")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register engine heartbeat gauge: %w", err)
 	}
 
 	em.workflowCompletedDurationSeconds, err = beholder.GetMeter().Int64Histogram(
@@ -146,6 +169,11 @@ func initMonitoringResources() (em *engineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register step execution time histogram: %w", err)
 	}
 
+	em.workflowMissingMeteringReport, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_missing_metering_report")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register workflow metering missing counter: %w", err)
+	}
+
 	return em, nil
 }
 
@@ -162,7 +190,8 @@ func MetricViews() []sdkmetric.View {
 		sdkmetric.NewView(
 			sdkmetric.Instrument{Name: "platform_engine_workflow_completed_time_seconds"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-				Boundaries: []float64{0, 10, 30, 60, 120, 300, 600, 900, 1200},
+				// increased granularity for the workflow execution latencies near expected values
+				Boundaries: []float64{0, 10, 20, 40, 50, 70, 90, 120, 150, 180, 210, 300, 600, 900, 1200},
 			}},
 		),
 		sdkmetric.NewView(
@@ -201,6 +230,16 @@ func (c workflowsMetricLabeler) incrementWorkflowExecutionRateLimitPerUserCounte
 	c.em.workflowExecutionRateLimitPerUserCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
+func (c workflowsMetricLabeler) incrementWorkflowLimitGlobalCounter(ctx context.Context) {
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	c.em.workflowLimitGlobalCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c workflowsMetricLabeler) incrementWorkflowLimitPerOwnerCounter(ctx context.Context) {
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	c.em.workflowLimitPerOwnerCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
 func (c workflowsMetricLabeler) incrementRegisterTriggerFailureCounter(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.registerTriggerFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
@@ -234,6 +273,11 @@ func (c workflowsMetricLabeler) updateTotalWorkflowsGauge(ctx context.Context, v
 func (c workflowsMetricLabeler) incrementEngineHeartbeatCounter(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.engineHeartbeatCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c workflowsMetricLabeler) engineHeartbeatGauge(ctx context.Context, val int64) {
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	c.em.engineHeartbeatGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
 }
 
 func (c workflowsMetricLabeler) incrementCapabilityFailureCounter(ctx context.Context) {
@@ -279,4 +323,9 @@ func (c workflowsMetricLabeler) updateWorkflowTimeoutDurationHistogram(ctx conte
 func (c workflowsMetricLabeler) updateWorkflowStepDurationHistogram(ctx context.Context, duration int64) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowStepDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
+}
+
+func (c workflowsMetricLabeler) incrementWorkflowMissingMeteringReport(ctx context.Context) {
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	c.em.workflowMissingMeteringReport.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }

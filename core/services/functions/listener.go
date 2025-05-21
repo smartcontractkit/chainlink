@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink/v2/core/cbor"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -25,7 +26,6 @@ import (
 	evmrelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
 )
 
 var (
@@ -300,10 +300,10 @@ func (l *functionsListener) HandleOffchainRequest(ctx context.Context, request *
 		return fmt.Errorf("HandleOffchainRequest: invalid request ID length %d", len(request.RequestId))
 	}
 	if len(request.SubscriptionOwner) != common.AddressLength || len(request.RequestInitiator) != common.AddressLength {
-		return fmt.Errorf("HandleOffchainRequest: SubscriptionOwner and RequestInitiator must be set to valid addresses")
+		return errors.New("HandleOffchainRequest: SubscriptionOwner and RequestInitiator must be set to valid addresses")
 	}
 	if request.Timestamp < uint64(time.Now().Unix()-int64(l.pluginConfig.RequestTimeoutSec)) {
-		return fmt.Errorf("HandleOffchainRequest: request timestamp is too old")
+		return errors.New("HandleOffchainRequest: request timestamp is too old")
 	}
 
 	var requestId RequestID

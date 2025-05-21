@@ -1,19 +1,19 @@
 package logprovider
 
 import (
-	"fmt"
+	"errors"
 	"math/big"
 	"testing"
-
-	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
@@ -110,7 +110,7 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 				lp := new(mocks.LogPoller)
 				lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 				lp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
-				lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
+				lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{}, nil)
 				hasFitlerTimes := 1
 				if tc.unregister {
 					hasFitlerTimes = 2
@@ -149,7 +149,7 @@ func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 	mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
 	mp.On("HasFilter", mock.Anything).Return(false)
-	mp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
+	mp.On("LatestBlock", mock.Anything).Return(logpoller.Block{}, nil)
 	mp.On("ReplayAsync", mock.Anything).Return(nil)
 
 	p := NewLogProvider(logger.TestLogger(t), mp, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
@@ -174,7 +174,7 @@ func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 
 	newIds, err := p.RefreshActiveUpkeeps(ctx)
 	require.NoError(t, err)
-	require.Len(t, newIds, 0)
+	require.Empty(t, newIds)
 	mp.On("HasFilter", p.filterName(core.GenUpkeepID(types.LogTrigger, "2222").BigInt())).Return(true)
 	newIds, err = p.RefreshActiveUpkeeps(
 		ctx,
@@ -210,7 +210,7 @@ func TestLogEventProvider_ValidateLogTriggerConfig(t *testing.T) {
 				FilterSelector:  0,
 				Topic0:          eventSig,
 			},
-			fmt.Errorf("invalid contract address: zeroed"),
+			errors.New("invalid contract address: zeroed"),
 		},
 		{
 			"invalid topic0",
@@ -218,7 +218,7 @@ func TestLogEventProvider_ValidateLogTriggerConfig(t *testing.T) {
 				ContractAddress: contractAddress,
 				FilterSelector:  0,
 			},
-			fmt.Errorf("invalid topic0: zeroed"),
+			errors.New("invalid topic0: zeroed"),
 		},
 		{
 			"success",
@@ -227,7 +227,7 @@ func TestLogEventProvider_ValidateLogTriggerConfig(t *testing.T) {
 				FilterSelector:  8,
 				Topic0:          eventSig,
 			},
-			fmt.Errorf("invalid filter selector: larger or equal to 8"),
+			errors.New("invalid filter selector: larger or equal to 8"),
 		},
 	}
 

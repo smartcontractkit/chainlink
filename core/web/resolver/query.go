@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -111,10 +112,7 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	relayersMap, err := r.App.GetRelayers().GetIDToRelayerMap()
-	if err != nil {
-		return nil, err
-	}
+	relayersMap := r.App.GetRelayers().GetIDToRelayerMap()
 
 	chains := make([]chainlink.NetworkChainStatus, 0, len(relayersMap))
 	for k, v := range relayersMap {
@@ -454,12 +452,12 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 
 	keys, err := ks.GetAll(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("error getting unlocked keys: %v", err)
+		return nil, fmt.Errorf("error getting unlocked keys: %w", err)
 	}
 
 	states, err := ks.GetStatesForKeys(ctx, keys)
 	if err != nil {
-		return nil, fmt.Errorf("error getting key states: %v", err)
+		return nil, fmt.Errorf("error getting key states: %w", err)
 	}
 
 	var ethKeys []ETHKey

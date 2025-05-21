@@ -6,39 +6,42 @@ import (
 	"fmt"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 
-	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 var (
-	CapabilitiesRegistry      deployment.ContractType = "CapabilitiesRegistry"      // https://github.com/smartcontractkit/chainlink/blob/50c1b3dbf31bd145b312739b08967600a5c67f30/contracts/src/v0.8/keystone/CapabilitiesRegistry.sol#L392
-	WorkflowRegistry          deployment.ContractType = "WorkflowRegistry"          // https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/workflow/WorkflowRegistry.sol
-	KeystoneForwarder         deployment.ContractType = "KeystoneForwarder"         // https://github.com/smartcontractkit/chainlink/blob/50c1b3dbf31bd145b312739b08967600a5c67f30/contracts/src/v0.8/keystone/KeystoneForwarder.sol#L90
-	OCR3Capability            deployment.ContractType = "OCR3Capability"            // https://github.com/smartcontractkit/chainlink/blob/50c1b3dbf31bd145b312739b08967600a5c67f30/contracts/src/v0.8/keystone/OCR3Capability.sol#L12
-	FeedConsumer              deployment.ContractType = "FeedConsumer"              // no type and a version in contract https://github.com/smartcontractkit/chainlink/blob/89183a8a5d22b1aeca0ade3b76d16aa84067aa57/contracts/src/v0.8/keystone/KeystoneFeedsConsumer.sol#L1
-	RBACTimelock              deployment.ContractType = "RBACTimelock"              // no type and a version in contract https://github.com/smartcontractkit/ccip-owner-contracts/blob/main/src/RBACTimelock.sol
-	ProposerManyChainMultiSig deployment.ContractType = "ProposerManyChainMultiSig" // no type and a version in contract https://github.com/smartcontractkit/ccip-owner-contracts/blob/main/src/ManyChainMultiSig.sol
+	CapabilitiesRegistry      cldf.ContractType = "CapabilitiesRegistry"      // https://github.com/smartcontractkit/chainlink/blob/50c1b3dbf31bd145b312739b08967600a5c67f30/contracts/src/v0.8/keystone/CapabilitiesRegistry.sol#L392
+	WorkflowRegistry          cldf.ContractType = "WorkflowRegistry"          // https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/workflow/WorkflowRegistry.sol
+	KeystoneForwarder         cldf.ContractType = "KeystoneForwarder"         // https://github.com/smartcontractkit/chainlink/blob/50c1b3dbf31bd145b312739b08967600a5c67f30/contracts/src/v0.8/keystone/KeystoneForwarder.sol#L90
+	OCR3Capability            cldf.ContractType = "OCR3Capability"            // https://github.com/smartcontractkit/chainlink/blob/50c1b3dbf31bd145b312739b08967600a5c67f30/contracts/src/v0.8/keystone/OCR3Capability.sol#L12
+	FeedConsumer              cldf.ContractType = "FeedConsumer"              // no type and a version in contract https://github.com/smartcontractkit/chainlink/blob/89183a8a5d22b1aeca0ade3b76d16aa84067aa57/contracts/src/v0.8/keystone/KeystoneFeedsConsumer.sol#L1
+	RBACTimelock              cldf.ContractType = "RBACTimelock"              // no type and a version in contract https://github.com/smartcontractkit/ccip-owner-contracts/blob/main/src/RBACTimelock.sol
+	ProposerManyChainMultiSig cldf.ContractType = "ProposerManyChainMultiSig" // no type and a version in contract https://github.com/smartcontractkit/ccip-owner-contracts/blob/main/src/ManyChainMultiSig.sol
 )
 
 type DeployResponse struct {
 	Address common.Address
 	Tx      common.Hash // todo: chain agnostic
-	Tv      deployment.TypeAndVersion
+	Tv      cldf.TypeAndVersion
 }
 
 type DeployRequest struct {
-	Chain deployment.Chain
+	Chain cldf.Chain
 }
 
 type DonNode struct {
@@ -70,15 +73,10 @@ func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
 		aptosOcr2KeyBundleId = aptosCC.KeyBundleID
 		aptosOnchainPublicKey = fmt.Sprintf("%x", aptosCC.OnchainPublicKey[:])
 	}
-	registryChainID, err := chainsel.ChainIdFromSelector(registryChainSel)
-	if err != nil {
-		panic(err)
+	evmCC, exists := o.OCRConfigForChainSelector(registryChainSel)
+	if !exists {
+		panic(fmt.Sprintf("ocr2 config not found for chain selector %d", registryChainSel))
 	}
-	registryChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(int(registryChainID)), chainsel.FamilyEVM)
-	if err != nil {
-		panic(err)
-	}
-	evmCC := o.SelToOCRConfig[registryChainDetails]
 	return NodeKeys{
 		EthAddress:            string(evmCC.TransmitAccount),
 		P2PPeerID:             strings.TrimPrefix(o.PeerID.String(), "p2p_"),
@@ -200,13 +198,24 @@ func nopsToNodes(donInfos []DonInfo, dons []DonCapabilities, chainSelector uint6
 	return out, nil
 }
 
-// mapDonsToCaps converts a list of DonCapabilities to a map of don name to capabilities
-func mapDonsToCaps(dons []DonInfo) map[string][]DONCapabilityWithConfig {
-	out := make(map[string][]DONCapabilityWithConfig)
+func mapDonsToCaps(registry *kcr.CapabilitiesRegistry, dons []DonInfo) (map[string][]RegisteredCapability, error) {
+	out := make(map[string][]RegisteredCapability)
 	for _, don := range dons {
-		out[don.Name] = don.Capabilities
+		var caps []RegisteredCapability
+		for _, c := range don.Capabilities {
+			id, err := registry.GetHashedCapabilityId(nil, c.Capability.LabelledName, c.Capability.Version)
+			if err != nil {
+				return nil, fmt.Errorf("failed to call GetHashedCapabilityId: %w", err)
+			}
+			caps = append(caps, RegisteredCapability{
+				ID:                             id,
+				CapabilitiesRegistryCapability: c.Capability,
+				Config:                         c.Config,
+			})
+		}
+		out[don.Name] = caps
 	}
-	return out
+	return out, nil
 }
 
 // mapDonsToNodes returns a map of don name to simplified representation of their nodes
@@ -244,7 +253,7 @@ type RegisteredDonConfig struct {
 	RegistryChainSel uint64
 }
 
-func NewRegisteredDon(env deployment.Environment, cfg RegisteredDonConfig) (*RegisteredDon, error) {
+func NewRegisteredDon(env cldf.Environment, cfg RegisteredDonConfig) (*RegisteredDon, error) {
 	// load the don info from the capabilities registry
 	r, err := GetContractSets(env.Logger, &GetContractSetsRequest{
 		Chains:      env.Chains,
@@ -254,6 +263,10 @@ func NewRegisteredDon(env deployment.Environment, cfg RegisteredDonConfig) (*Reg
 		return nil, fmt.Errorf("failed to get contract sets: %w", err)
 	}
 	capReg := r.ContractSets[cfg.RegistryChainSel].CapabilitiesRegistry
+
+	if capReg == nil {
+		return nil, errors.New("capabilities registry not found in contract sets")
+	}
 
 	di, err := capReg.GetDONs(nil)
 	if err != nil {

@@ -20,6 +20,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -28,11 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/tomlutils"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 const (
@@ -259,7 +259,7 @@ type PipelineRun struct {
 }
 
 func (pr PipelineRun) GetID() string {
-	return fmt.Sprintf("%v", pr.ID)
+	return strconv.FormatInt(pr.ID, 10)
 }
 
 func (pr *PipelineRun) SetID(value string) error {
@@ -295,7 +295,7 @@ type OCROracleSpec struct {
 
 // GetID is a getter function that returns the ID of the spec.
 func (s OCROracleSpec) GetID() string {
-	return fmt.Sprintf("%v", s.ID)
+	return strconv.Itoa(int(s.ID))
 }
 
 // SetID is a setter function that sets the ID of the spec.
@@ -387,6 +387,9 @@ type OCR2OracleSpec struct {
 	UpdatedAt                         time.Time            `toml:"-"`
 	CaptureEATelemetry                bool                 `toml:"captureEATelemetry"`
 	CaptureAutomationCustomTelemetry  bool                 `toml:"captureAutomationCustomTelemetry"`
+	// AllowNoBootstrappers is a flag that allows the job to start without any bootstrappers
+	// This is useful for testing and deployments where the node is not configured to conduct consensus (i.e. f = 0 and n = 1).
+	AllowNoBootstrappers bool `toml:"allowNoBootstrappers"`
 }
 
 func validateRelayID(id types.RelayID) error {
@@ -424,7 +427,7 @@ func (s *OCR2OracleSpec) getChainID() (string, error) {
 func (s *OCR2OracleSpec) getChainIdFromRelayConfig() (string, error) {
 	v, exists := s.RelayConfig["chainID"]
 	if !exists {
-		return "", fmt.Errorf("chainID does not exist")
+		return "", errors.New("chainID does not exist")
 	}
 	switch t := v.(type) {
 	case string:
@@ -443,7 +446,7 @@ func (s *OCR2OracleSpec) getChainIdFromRelayConfig() (string, error) {
 
 // GetID is a getter function that returns the ID of the spec.
 func (s OCR2OracleSpec) GetID() string {
-	return fmt.Sprintf("%v", s.ID)
+	return strconv.Itoa(int(s.ID))
 }
 
 // SetID is a setter function that sets the ID of the spec.
@@ -472,7 +475,7 @@ type WebhookSpec struct {
 }
 
 func (w WebhookSpec) GetID() string {
-	return fmt.Sprintf("%v", w.ID)
+	return strconv.Itoa(int(w.ID))
 }
 
 func (w *WebhookSpec) SetID(value string) error {
@@ -504,7 +507,7 @@ type CronSpec struct {
 }
 
 func (s CronSpec) GetID() string {
-	return fmt.Sprintf("%v", s.ID)
+	return strconv.Itoa(int(s.ID))
 }
 
 func (s *CronSpec) SetID(value string) error {
@@ -811,7 +814,7 @@ type GatewaySpec struct {
 }
 
 func (s GatewaySpec) GetID() string {
-	return fmt.Sprintf("%v", s.ID)
+	return strconv.Itoa(int(s.ID))
 }
 
 func (s *GatewaySpec) SetID(value string) error {
@@ -821,6 +824,22 @@ func (s *GatewaySpec) SetID(value string) error {
 	}
 	s.ID = int32(ID)
 	return nil
+}
+
+// AuthGatewayID returns AuthGatewayId or empty string, if not found or it's not a string
+func (s *GatewaySpec) AuthGatewayID() string {
+	// not using config.GatewayConfig directly to avoid import cycle
+	if nsc, ok := s.GatewayConfig["ConnectionManagerConfig"]; ok {
+		if nscMap, ok := nsc.(map[string]interface{}); ok {
+			if authGatewayID, ok := nscMap["AuthGatewayId"]; ok {
+				if authGatewayIDStr, ok := authGatewayID.(string); ok {
+					return authGatewayIDStr
+				}
+			}
+		}
+	}
+
+	return ""
 }
 
 // EALSpec defines the job spec for the gas station.
@@ -881,9 +900,9 @@ type WorkflowSpec struct {
 	Config   string `toml:"config" db:"config"` // the raw representation of the config
 	// fields derived from the yaml spec, used for indexing the database
 	// note: i tried to make these private, but translating them to the database seems to require them to be public
-	WorkflowID    string             `toml:"-" db:"workflow_id"`    // Derived. Do not modify. the CID of the workflow.
-	WorkflowOwner string             `toml:"-" db:"workflow_owner"` // Derived. Do not modify. the owner of the workflow.
-	WorkflowName  string             `toml:"-" db:"workflow_name"`  // Derived. Do not modify. the name of the workflow.
+	WorkflowID    string             `toml:"-" db:"workflow_id"` // Derived. Do not modify. the CID of the workflow.
+	WorkflowOwner string             `toml:"workflow_owner" db:"workflow_owner"`
+	WorkflowName  string             `toml:"workflow_name" db:"workflow_name"`
 	Status        WorkflowSpecStatus `db:"status"`
 	BinaryURL     string             `db:"binary_url"`
 	ConfigURL     string             `db:"config_url"`
@@ -912,8 +931,14 @@ func (w *WorkflowSpec) Validate(ctx context.Context) error {
 		return err
 	}
 
-	w.WorkflowOwner = strings.TrimPrefix(s.Owner, "0x") // the json schema validation ensures it is a hex string with 0x prefix, but the database does not store the prefix
-	w.WorkflowName = s.Name
+	// For yaml-based workflow specs, use the owner & name fields defined there.
+	// For wasm workflows, use the `workflow_name` & `workflow_owner` fields directly from the job spec.
+	if s.Owner+s.Name != "" {
+		w.WorkflowOwner = strings.TrimPrefix(s.Owner, "0x") // the json schema validation ensures it is a hex string with 0x prefix, but the database does not store the prefix
+		w.WorkflowName = s.Name
+	} else {
+		w.WorkflowOwner = strings.TrimPrefix(w.WorkflowOwner, "0x")
+	}
 
 	if len(w.WorkflowID) != workflowIDLen {
 		return fmt.Errorf("%w: incorrect length for id %s: expected %d, got %d", ErrInvalidWorkflowID, w.WorkflowID, workflowIDLen, len(w.WorkflowID))
@@ -1015,7 +1040,7 @@ type StandardCapabilitiesSpec struct {
 }
 
 func (w *StandardCapabilitiesSpec) GetID() string {
-	return fmt.Sprintf("%v", w.ID)
+	return strconv.Itoa(int(w.ID))
 }
 
 func (w *StandardCapabilitiesSpec) SetID(value string) error {
