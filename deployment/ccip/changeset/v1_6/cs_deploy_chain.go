@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"golang.org/x/sync/errgroup"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -311,12 +312,29 @@ func deployChainContractsEVM(e cldf.Environment, chain cldf.Chain, ab cldf.Addre
 		// TODO: Correctly configure RMN remote.
 		rmnRemote, err := cldf.DeployContract(e.Logger, chain, ab,
 			func(chain cldf.Chain) cldf.ContractDeploy[*rmn_remote.RMNRemote] {
-				rmnRemoteAddr, tx, rmnRemote, err2 := rmn_remote.DeployRMNRemote(
-					chain.DeployerKey,
-					chain.Client,
-					chain.Selector,
-					rmnLegacyAddr,
+				var (
+					rmnRemoteAddr common.Address
+					tx            *types.Transaction
+					rmnRemote     *rmn_remote.RMNRemote
+					err2          error
 				)
+				if chain.IsZkSyncVM {
+					rmnRemoteAddr, _, rmnRemote, err2 = rmn_remote.DeployRMNRemoteZk(
+						nil,
+						chain.ClientZkSyncVM,
+						chain.DeployerKeyZkSyncVM,
+						chain.Client,
+						chain.Selector,
+						rmnLegacyAddr,
+					)
+				} else {
+					rmnRemoteAddr, tx, rmnRemote, err2 = rmn_remote.DeployRMNRemote(
+						chain.DeployerKey,
+						chain.Client,
+						chain.Selector,
+						rmnLegacyAddr,
+					)
+				}
 				return cldf.ContractDeploy[*rmn_remote.RMNRemote]{
 					Address: rmnRemoteAddr, Contract: rmnRemote, Tx: tx, Tv: cldf.NewTypeAndVersion(shared.RMNRemote, deployment.Version1_6_0), Err: err2,
 				}
@@ -375,12 +393,29 @@ func deployChainContractsEVM(e cldf.Environment, chain cldf.Chain, ab cldf.Addre
 	if chainState.TestRouter == nil {
 		_, err := cldf.DeployContract(e.Logger, chain, ab,
 			func(chain cldf.Chain) cldf.ContractDeploy[*router.Router] {
-				routerAddr, tx2, routerC, err2 := router.DeployRouter(
-					chain.DeployerKey,
-					chain.Client,
-					chainState.Weth9.Address(),
-					RMNProxy.Address(),
+				var (
+					routerAddr common.Address
+					tx2        *types.Transaction
+					routerC    *router.Router
+					err2       error
 				)
+				if chain.IsZkSyncVM {
+					routerAddr, _, routerC, err2 = router.DeployRouterZk(
+						nil,
+						chain.ClientZkSyncVM,
+						chain.DeployerKeyZkSyncVM,
+						chain.Client,
+						chainState.Weth9.Address(),
+						RMNProxy.Address(),
+					)
+				} else {
+					routerAddr, tx2, routerC, err2 = router.DeployRouter(
+						chain.DeployerKey,
+						chain.Client,
+						chainState.Weth9.Address(),
+						RMNProxy.Address(),
+					)
+				}
 				return cldf.ContractDeploy[*router.Router]{
 					Address: routerAddr, Contract: routerC, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.TestRouter, deployment.Version1_2_0), Err: err2,
 				}
@@ -397,11 +432,27 @@ func deployChainContractsEVM(e cldf.Environment, chain cldf.Chain, ab cldf.Addre
 	if chainState.NonceManager == nil {
 		nonceManager, err := cldf.DeployContract(e.Logger, chain, ab,
 			func(chain cldf.Chain) cldf.ContractDeploy[*nonce_manager.NonceManager] {
-				nonceManagerAddr, tx2, nonceManager, err2 := nonce_manager.DeployNonceManager(
-					chain.DeployerKey,
-					chain.Client,
-					[]common.Address{}, // Need to add onRamp after
+				var (
+					nonceManagerAddr common.Address
+					tx2              *types.Transaction
+					nonceManager     *nonce_manager.NonceManager
+					err2             error
 				)
+				if chain.IsZkSyncVM {
+					nonceManagerAddr, _, nonceManager, err2 = nonce_manager.DeployNonceManagerZk(
+						nil,
+						chain.ClientZkSyncVM,
+						chain.DeployerKeyZkSyncVM,
+						chain.Client,
+						[]common.Address{},
+					)
+				} else {
+					nonceManagerAddr, tx2, nonceManager, err2 = nonce_manager.DeployNonceManager(
+						chain.DeployerKey,
+						chain.Client,
+						[]common.Address{}, // Need to add onRamp after
+					)
+				}
 				return cldf.ContractDeploy[*nonce_manager.NonceManager]{
 					Address: nonceManagerAddr, Contract: nonceManager, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.NonceManager, deployment.Version1_6_0), Err: err2,
 				}
@@ -418,30 +469,66 @@ func deployChainContractsEVM(e cldf.Environment, chain cldf.Chain, ab cldf.Addre
 	if chainState.FeeQuoter == nil {
 		feeQuoter, err := cldf.DeployContract(e.Logger, chain, ab,
 			func(chain cldf.Chain) cldf.ContractDeploy[*fee_quoter.FeeQuoter] {
-				prAddr, tx2, pr, err2 := fee_quoter.DeployFeeQuoter(
-					chain.DeployerKey,
-					chain.Client,
-					fee_quoter.FeeQuoterStaticConfig{
-						MaxFeeJuelsPerMsg:            contractParams.FeeQuoterParams.MaxFeeJuelsPerMsg,
-						LinkToken:                    linkTokenContractAddr,
-						TokenPriceStalenessThreshold: contractParams.FeeQuoterParams.TokenPriceStalenessThreshold,
-					},
-					[]common.Address{state.Chains[chain.Selector].Timelock.Address()}, // timelock should be able to update, ramps added after
-					[]common.Address{weth9Contract.Address(), linkTokenContractAddr},  // fee tokens
-					contractParams.FeeQuoterParams.TokenPriceFeedUpdates,
-					contractParams.FeeQuoterParams.TokenTransferFeeConfigArgs,
-					append([]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
-						{
-							PremiumMultiplierWeiPerEth: contractParams.FeeQuoterParams.LinkPremiumMultiplierWeiPerEth,
-							Token:                      linkTokenContractAddr,
-						},
-						{
-							PremiumMultiplierWeiPerEth: contractParams.FeeQuoterParams.WethPremiumMultiplierWeiPerEth,
-							Token:                      weth9Contract.Address(),
-						},
-					}, contractParams.FeeQuoterParams.MorePremiumMultiplierWeiPerEth...),
-					contractParams.FeeQuoterParams.DestChainConfigArgs,
+				var (
+					prAddr common.Address
+					tx2    *types.Transaction
+					pr     *fee_quoter.FeeQuoter
+					err2   error
 				)
+				if chain.IsZkSyncVM {
+					prAddr, _, pr, err2 = fee_quoter.DeployFeeQuoterZk(
+						nil,
+						chain.ClientZkSyncVM,
+						chain.DeployerKeyZkSyncVM,
+						chain.Client,
+						fee_quoter.FeeQuoterStaticConfig{
+							MaxFeeJuelsPerMsg:            contractParams.FeeQuoterParams.MaxFeeJuelsPerMsg,
+							LinkToken:                    linkTokenContractAddr,
+							TokenPriceStalenessThreshold: contractParams.FeeQuoterParams.TokenPriceStalenessThreshold,
+						},
+						[]common.Address{state.Chains[chain.Selector].Timelock.Address()},
+						[]common.Address{weth9Contract.Address(), linkTokenContractAddr},
+						contractParams.FeeQuoterParams.TokenPriceFeedUpdates,
+						contractParams.FeeQuoterParams.TokenTransferFeeConfigArgs,
+						append([]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
+							{
+								PremiumMultiplierWeiPerEth: contractParams.FeeQuoterParams.LinkPremiumMultiplierWeiPerEth,
+								Token:                      linkTokenContractAddr,
+							},
+							{
+								PremiumMultiplierWeiPerEth: contractParams.FeeQuoterParams.WethPremiumMultiplierWeiPerEth,
+								Token:                      weth9Contract.Address(),
+							},
+						}, contractParams.FeeQuoterParams.MorePremiumMultiplierWeiPerEth...),
+						contractParams.FeeQuoterParams.DestChainConfigArgs,
+					)
+				} else {
+
+					prAddr, tx2, pr, err2 = fee_quoter.DeployFeeQuoter(
+						chain.DeployerKey,
+						chain.Client,
+						fee_quoter.FeeQuoterStaticConfig{
+							MaxFeeJuelsPerMsg:            contractParams.FeeQuoterParams.MaxFeeJuelsPerMsg,
+							LinkToken:                    linkTokenContractAddr,
+							TokenPriceStalenessThreshold: contractParams.FeeQuoterParams.TokenPriceStalenessThreshold,
+						},
+						[]common.Address{state.Chains[chain.Selector].Timelock.Address()}, // timelock should be able to update, ramps added after
+						[]common.Address{weth9Contract.Address(), linkTokenContractAddr},  // fee tokens
+						contractParams.FeeQuoterParams.TokenPriceFeedUpdates,
+						contractParams.FeeQuoterParams.TokenTransferFeeConfigArgs,
+						append([]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
+							{
+								PremiumMultiplierWeiPerEth: contractParams.FeeQuoterParams.LinkPremiumMultiplierWeiPerEth,
+								Token:                      linkTokenContractAddr,
+							},
+							{
+								PremiumMultiplierWeiPerEth: contractParams.FeeQuoterParams.WethPremiumMultiplierWeiPerEth,
+								Token:                      weth9Contract.Address(),
+							},
+						}, contractParams.FeeQuoterParams.MorePremiumMultiplierWeiPerEth...),
+						contractParams.FeeQuoterParams.DestChainConfigArgs,
+					)
+				}
 				return cldf.ContractDeploy[*fee_quoter.FeeQuoter]{
 					Address: prAddr, Contract: pr, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_6_0), Err: err2,
 				}
@@ -458,21 +545,47 @@ func deployChainContractsEVM(e cldf.Environment, chain cldf.Chain, ab cldf.Addre
 	if onRampContract == nil {
 		onRamp, err := cldf.DeployContract(e.Logger, chain, ab,
 			func(chain cldf.Chain) cldf.ContractDeploy[*onramp.OnRamp] {
-				onRampAddr, tx2, onRamp, err2 := onramp.DeployOnRamp(
-					chain.DeployerKey,
-					chain.Client,
-					onramp.OnRampStaticConfig{
-						ChainSelector:      chain.Selector,
-						RmnRemote:          RMNProxy.Address(),
-						NonceManager:       nmContract.Address(),
-						TokenAdminRegistry: tokenAdminReg.Address(),
-					},
-					onramp.OnRampDynamicConfig{
-						FeeQuoter:     feeQuoterContract.Address(),
-						FeeAggregator: chain.DeployerKey.From, // TODO real fee aggregator, using deployer key for now
-					},
-					[]onramp.OnRampDestChainConfigArgs{},
+				var (
+					onRampAddr common.Address
+					tx2        *types.Transaction
+					onRamp     *onramp.OnRamp
+					err2       error
 				)
+				if chain.IsZkSyncVM {
+					onRampAddr, _, onRamp, err2 = onramp.DeployOnRampZk(
+						nil,
+						chain.ClientZkSyncVM,
+						chain.DeployerKeyZkSyncVM,
+						chain.Client,
+						onramp.OnRampStaticConfig{
+							ChainSelector:      chain.Selector,
+							RmnRemote:          RMNProxy.Address(),
+							NonceManager:       nmContract.Address(),
+							TokenAdminRegistry: tokenAdminReg.Address(),
+						},
+						onramp.OnRampDynamicConfig{
+							FeeQuoter:     feeQuoterContract.Address(),
+							FeeAggregator: chain.DeployerKey.From, // TODO real fee aggregator, using deployer key for now
+						},
+						[]onramp.OnRampDestChainConfigArgs{},
+					)
+				} else {
+					onRampAddr, tx2, onRamp, err2 = onramp.DeployOnRamp(
+						chain.DeployerKey,
+						chain.Client,
+						onramp.OnRampStaticConfig{
+							ChainSelector:      chain.Selector,
+							RmnRemote:          RMNProxy.Address(),
+							NonceManager:       nmContract.Address(),
+							TokenAdminRegistry: tokenAdminReg.Address(),
+						},
+						onramp.OnRampDynamicConfig{
+							FeeQuoter:     feeQuoterContract.Address(),
+							FeeAggregator: chain.DeployerKey.From, // TODO real fee aggregator, using deployer key for now
+						},
+						[]onramp.OnRampDestChainConfigArgs{},
+					)
+				}
 				return cldf.ContractDeploy[*onramp.OnRamp]{
 					Address: onRampAddr, Contract: onRamp, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.OnRamp, deployment.Version1_6_0), Err: err2,
 				}
@@ -489,23 +602,51 @@ func deployChainContractsEVM(e cldf.Environment, chain cldf.Chain, ab cldf.Addre
 	if offRampContract == nil {
 		offRamp, err := cldf.DeployContract(e.Logger, chain, ab,
 			func(chain cldf.Chain) cldf.ContractDeploy[*offramp.OffRamp] {
-				offRampAddr, tx2, offRamp, err2 := offramp.DeployOffRamp(
-					chain.DeployerKey,
-					chain.Client,
-					offramp.OffRampStaticConfig{
-						ChainSelector:        chain.Selector,
-						GasForCallExactCheck: contractParams.OffRampParams.GasForCallExactCheck,
-						RmnRemote:            RMNProxy.Address(),
-						NonceManager:         nmContract.Address(),
-						TokenAdminRegistry:   tokenAdminReg.Address(),
-					},
-					offramp.OffRampDynamicConfig{
-						FeeQuoter:                               feeQuoterContract.Address(),
-						PermissionLessExecutionThresholdSeconds: contractParams.OffRampParams.PermissionLessExecutionThresholdSeconds,
-						MessageInterceptor:                      contractParams.OffRampParams.MessageInterceptor,
-					},
-					[]offramp.OffRampSourceChainConfigArgs{},
+				var (
+					offRampAddr common.Address
+					tx2         *types.Transaction
+					offRamp     *offramp.OffRamp
+					err2        error
 				)
+				if chain.IsZkSyncVM {
+					offRampAddr, _, offRamp, err2 = offramp.DeployOffRampZk(
+						nil,
+						chain.ClientZkSyncVM,
+						chain.DeployerKeyZkSyncVM,
+						chain.Client,
+						offramp.OffRampStaticConfig{
+							ChainSelector:        chain.Selector,
+							GasForCallExactCheck: contractParams.OffRampParams.GasForCallExactCheck,
+							RmnRemote:            RMNProxy.Address(),
+							NonceManager:         nmContract.Address(),
+							TokenAdminRegistry:   tokenAdminReg.Address(),
+						},
+						offramp.OffRampDynamicConfig{
+							FeeQuoter:                               feeQuoterContract.Address(),
+							PermissionLessExecutionThresholdSeconds: contractParams.OffRampParams.PermissionLessExecutionThresholdSeconds,
+							MessageInterceptor:                      contractParams.OffRampParams.MessageInterceptor,
+						},
+						[]offramp.OffRampSourceChainConfigArgs{},
+					)
+				} else {
+					offRampAddr, tx2, offRamp, err2 = offramp.DeployOffRamp(
+						chain.DeployerKey,
+						chain.Client,
+						offramp.OffRampStaticConfig{
+							ChainSelector:        chain.Selector,
+							GasForCallExactCheck: contractParams.OffRampParams.GasForCallExactCheck,
+							RmnRemote:            RMNProxy.Address(),
+							NonceManager:         nmContract.Address(),
+							TokenAdminRegistry:   tokenAdminReg.Address(),
+						},
+						offramp.OffRampDynamicConfig{
+							FeeQuoter:                               feeQuoterContract.Address(),
+							PermissionLessExecutionThresholdSeconds: contractParams.OffRampParams.PermissionLessExecutionThresholdSeconds,
+							MessageInterceptor:                      contractParams.OffRampParams.MessageInterceptor,
+						},
+						[]offramp.OffRampSourceChainConfigArgs{},
+					)
+				}
 				return cldf.ContractDeploy[*offramp.OffRamp]{
 					Address: offRampAddr, Contract: offRamp, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_6_0), Err: err2,
 				}

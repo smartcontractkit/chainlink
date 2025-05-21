@@ -30,8 +30,31 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		Chains:     2,
 		Nodes:      4,
 	})
+	homeChainSel := e.AllChainSelectors()[0]
+	testDeployChainContractsChangesetWithEnv(t, e, homeChainSel)
+}
+
+func TestDeployChainContractsChangesetZk(t *testing.T) {
+	t.Parallel()
+	lggr := logger.TestLogger(t)
+	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		Bootstraps: 1,
+		Chains:     1,
+		ZkChains:   1,
+		Nodes:      4,
+	})
+	var homeChainSel uint64
+	for _, chain := range e.Chains {
+		if !chain.IsZkSyncVM {
+			homeChainSel = chain.Selector
+			break
+		}
+	}
+	testDeployChainContractsChangesetWithEnv(t, e, homeChainSel)
+}
+
+func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, homeChainSel uint64) {
 	evmSelectors := e.AllChainSelectors()
-	homeChainSel := evmSelectors[0]
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
