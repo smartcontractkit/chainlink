@@ -156,6 +156,16 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 			},
 			ExpRevert: true,
 		},
+		{
+			TestSetup: testSetup,
+			Name:      "send message without extra args should fail with invalid args",
+			Msg: router.ClientEVM2AnyMessage{
+				Receiver: common.LeftPadBytes(receiver[:], 32),
+				Data:     []byte("abc"),
+				FeeToken: common.HexToAddress("0x0"),
+			},
+			ExpRevert: true,
+		},
 	}
 
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
