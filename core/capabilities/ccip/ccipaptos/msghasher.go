@@ -66,7 +66,7 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 	lggr.Debugw("hashing message", "msg", msg)
 
 	rampTokenAmounts := make([]any2AptosTokenTransfer, len(msg.TokenAmounts))
-	for _, rta := range msg.TokenAmounts {
+	for i, rta := range msg.TokenAmounts {
 		destGasAmount, err := abiDecodeUint32(rta.DestExecData)
 		if err != nil {
 			return [32]byte{}, fmt.Errorf("decode dest gas amount: %w", err)
@@ -83,13 +83,13 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 		lggr.Debugw("abi decoded dest token address",
 			"destTokenAddress", destTokenAddress)
 
-		rampTokenAmounts = append(rampTokenAmounts, any2AptosTokenTransfer{
+		rampTokenAmounts[i] = any2AptosTokenTransfer{
 			SourcePoolAddress: rta.SourcePoolAddress,
 			DestTokenAddress:  destTokenAddress,
 			DestGasAmount:     destGasAmount,
 			ExtraData:         rta.ExtraData,
 			Amount:            rta.Amount.Int,
-		})
+		}
 	}
 
 	// one difference from EVM is that we don't left pad the OnRamp to 32 bytes here, we use the source chain's canonical bytes encoding directly.
