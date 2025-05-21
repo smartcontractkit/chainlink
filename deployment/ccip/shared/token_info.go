@@ -26,14 +26,19 @@ type defaultRegistry struct{}
 
 var registry TokenRegistry = defaultRegistry{}
 
+// SetRegistry sets the global token registry implementation.
 func SetRegistry(r TokenRegistry) {
 	registry = r
 }
 
+// GetSymbolFromDescription retrieves the TokenSymbol associated with the given description.
+// Delegates the lookup to the current registry implementation.
 func GetSymbolFromDescription(desc string) (TokenSymbol, bool) {
 	return registry.GetSymbol(desc)
 }
 
+// GetSymbol implements the default registry's lookup logic.
+// It returns the TokenSymbol corresponding to a description, if found.
 func (defaultRegistry) GetSymbol(desc string) (TokenSymbol, bool) {
 	symbol, ok := DescriptionToTokenSymbol[desc]
 	return symbol, ok
