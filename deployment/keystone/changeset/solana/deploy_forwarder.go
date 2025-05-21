@@ -1,8 +1,8 @@
 package solana
 
 import (
-	ks_forwarder "github.com/smartcontractki/chainlink-solana/contracts/generated/keystone_forwarder"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	ks_forwarder "github.com/smartcontractkit/chainlink-solana/contracts/generated/keystone_forwarder"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/solana"
 )
 
@@ -25,7 +25,5 @@ type InitializeForwardContractsRequest struct {
 var _ cldf.ChangeSet[InitializeForwardContractsRequest] = InitializeForwarderContract
 
 func InitializeForwarderContract(env cldf.Environment, req InitializeForwardContractsRequest) (cldf.ChangesetOutput, error) {
-	cl := env.SolChains[0].Client
-	ks_forwarder.Initialize()
-	return cldf.ChangesetOutput{}, nil
+	instruction, err := ks_forwarder.NewInitializeInstruction()
 }
