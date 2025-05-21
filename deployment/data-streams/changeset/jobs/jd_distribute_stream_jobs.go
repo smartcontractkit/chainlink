@@ -1,4 +1,4 @@
-package changeset
+package jobs
 
 import (
 	"context"
@@ -56,7 +56,11 @@ func (CsDistributeStreamJobSpecs) Apply(e cldf.Environment, cfg CsDistributeStre
 	// Add a label to the job spec to identify the related DON
 	cfg.Labels = append(cfg.Labels,
 		&ptypes.Label{
-			Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
+			Key: utils.DonIDLabel(cfg.Filter.DONID, cfg.Filter.DONName),
+		},
+		&ptypes.Label{
+			Key:   devenv.LabelJobTypeKey,
+			Value: pointer.To(devenv.LabelJobTypeValueStream),
 		},
 	)
 
@@ -67,24 +71,38 @@ func (CsDistributeStreamJobSpecs) Apply(e cldf.Environment, cfg CsDistributeStre
 
 	var proposals []*jobv1.ProposeJobRequest
 	for _, s := range cfg.Streams {
-		for _, n := range oracleNodes {
-			localLabels := append(cfg.Labels, //nolint: gocritic // locally modified copy of labels
-				&ptypes.Label{
-					Key:   devenv.LabelStreamIDKey,
-					Value: pointer.To(strconv.FormatUint(uint64(s.StreamID), 10)),
-				},
-				&ptypes.Label{
-					Key:   devenv.LabelJobTypeKey,
-					Value: pointer.To(devenv.LabelJobTypeValueStream),
-				},
-			)
+		// Start with the common labels.
+		streamLabels := append([]*ptypes.Label{}, cfg.Labels...)
+		// Some streams might not have an ID.
+		if s.StreamID > 0 {
+			streamLabels = append(streamLabels, &ptypes.Label{
+				Key:   utils.StreamIDLabel(s.StreamID),
+				Value: pointer.To(s.Name),
+			})
+		}
+		virtualStreamIDLabels, err := streamIDLabelsFromReportFields(s.ReportFields)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get streamID labels: %w", err)
+		}
+		streamLabels = append(streamLabels, virtualStreamIDLabels...)
 
+		for _, n := range oracleNodes {
+			// Check if there is already a job spec for this stream on this node:
+			streamID := s.StreamID
+			if streamID == 0 {
+				if len(virtualStreamIDLabels) == 0 {
+					return cldf.ChangesetOutput{}, fmt.Errorf("no top level or virtual streamID found for stream %s", s.Name)
+				}
+				streamID, err = utils.StreamIDFromLabel(virtualStreamIDLabels[0].Key)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to parse streamID from label: %w", err)
+				}
+			}
 			// Check if there is already a job spec for this stream on this node:
 			externalJobID, err := fetchExternalJobID(e, n.Id, []*ptypes.Selector{
 				{
-					Key:   devenv.LabelStreamIDKey,
-					Value: pointer.To(strconv.FormatUint(uint64(s.StreamID), 10)),
-					Op:    ptypes.SelectorOp_EQ,
+					Key: utils.StreamIDLabel(streamID),
+					Op:  ptypes.SelectorOp_EXIST,
 				},
 			})
 			if err != nil {
@@ -104,7 +122,7 @@ func (CsDistributeStreamJobSpecs) Apply(e cldf.Environment, cfg CsDistributeStre
 			proposals = append(proposals, &jobv1.ProposeJobRequest{
 				NodeId: n.Id,
 				Spec:   string(renderedSpec),
-				Labels: localLabels,
+				Labels: streamLabels,
 			})
 		}
 	}
@@ -154,6 +172,61 @@ func generateDatasources(cc StreamSpecConfig) []jobs.Datasource {
 		}
 	}
 	return dss
+}
+
+// streamIDLabelsFromReportFields returns a list of labels for the virtual streamIDs from the report fields.
+// This function does NOT return nil, it returns an empty slice if no labels are found.
+func streamIDLabelsFromReportFields(rf jobs.ReportFields) ([]*ptypes.Label, error) {
+	labels := []*ptypes.Label{}
+
+	switch rf := rf.(type) {
+	case jobs.MedianReportFields:
+		l, err := streamIDLabelsFor(rf.Benchmark.StreamID)
+		if err != nil {
+			return nil, err
+		}
+		labels = append(labels, l...)
+
+	case jobs.QuoteReportFields:
+		l, err := streamIDLabelsFor(rf.Benchmark.StreamID)
+		if err != nil {
+			return nil, err
+		}
+		labels = append(labels, l...)
+		l, err = streamIDLabelsFor(rf.Bid.StreamID)
+		if err != nil {
+			return nil, err
+		}
+		labels = append(labels, l...)
+		l, err = streamIDLabelsFor(rf.Ask.StreamID)
+		if err != nil {
+			return nil, err
+		}
+		labels = append(labels, l...)
+
+	default:
+		return nil, fmt.Errorf("unknown report fields type: %T", rf)
+	}
+
+	return labels, nil
+}
+
+// streamIDLabelsFor returns a list of labels for the streamID.
+// We intentionally return a list, so we can return an empty one.
+func streamIDLabelsFor(sid *string) ([]*ptypes.Label, error) {
+	if sid == nil {
+		// It's fine to not have a streamID in the report fields.
+		return nil, nil
+	}
+	id, err := strconv.ParseUint(*sid, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse streamID: %w", err)
+	}
+	return []*ptypes.Label{
+		{
+			Key: utils.StreamIDLabel(uint32(id)),
+		},
+	}, nil
 }
 
 func (f CsDistributeStreamJobSpecs) VerifyPreconditions(_ cldf.Environment, config CsDistributeStreamJobSpecsConfig) error {

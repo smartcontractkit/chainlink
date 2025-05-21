@@ -6,14 +6,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 )
 
 func TestSetupEnv(t *testing.T) {
 	t.Parallel()
-	ctx := tests.Context(t)
 
 	t.Run("test env with in memory nodes", func(t *testing.T) {
 		for _, useMCMS := range []bool{true, false} {
@@ -44,7 +42,7 @@ func TestSetupEnv(t *testing.T) {
 					require.NotNil(t, forwarders[0])
 					require.NotNil(t, forwarders[0].Contract)
 				}
-				r, err := te.Env.Offchain.ListNodes(ctx, &node.ListNodesRequest{})
+				r, err := te.Env.Offchain.ListNodes(t.Context(), &node.ListNodesRequest{})
 				require.NoError(t, err)
 				require.Len(t, r.Nodes, 12)
 				for _, donNames := range []string{"wfDon", "assetDon", "writerDon"} {
@@ -68,7 +66,7 @@ func TestSetupEnv(t *testing.T) {
 				require.Len(t, te.Env.Chains, 3)
 				require.NotEmpty(t, te.RegistrySelector)
 				require.NotNil(t, te.Env.Offchain)
-				r, err := te.Env.Offchain.ListNodes(ctx, &node.ListNodesRequest{})
+				r, err := te.Env.Offchain.ListNodes(t.Context(), &node.ListNodesRequest{})
 				require.NoError(t, err)
 				require.Len(t, r.Nodes, 12)
 				for _, donNames := range []string{"wfDon", "assetDon", "writerDon"} {
