@@ -1,4 +1,4 @@
-package workflows
+package metering
 
 import (
 	"strconv"
@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
+
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestMeteringReport(t *testing.T) {
@@ -20,7 +22,7 @@ func TestMeteringReport(t *testing.T) {
 	t.Run("MedianSpend returns median for multiple spend units", func(t *testing.T) {
 		t.Parallel()
 
-		report := NewMeteringReport()
+		report := NewMeteringReport(logger.TestLogger(t))
 		steps := []MeteringReportStep{
 			{"abc", testUnitA, testUnitA.IntToSpendValue(1)},
 			{"xyz", testUnitA, testUnitA.IntToSpendValue(2)},
@@ -52,7 +54,7 @@ func TestMeteringReport(t *testing.T) {
 	t.Run("MedianSpend returns median single spend value", func(t *testing.T) {
 		t.Parallel()
 
-		report := NewMeteringReport()
+		report := NewMeteringReport(logger.TestLogger(t))
 		steps := []MeteringReportStep{
 			{"abc", testUnitA, testUnitA.IntToSpendValue(1)},
 		}
@@ -76,7 +78,7 @@ func TestMeteringReport(t *testing.T) {
 	t.Run("MedianSpend returns median odd number of spend values", func(t *testing.T) {
 		t.Parallel()
 
-		report := NewMeteringReport()
+		report := NewMeteringReport(logger.TestLogger(t))
 		steps := []MeteringReportStep{
 			{"abc", testUnitA, testUnitA.IntToSpendValue(1)},
 			{"abc", testUnitA, testUnitA.IntToSpendValue(3)},
@@ -102,7 +104,7 @@ func TestMeteringReport(t *testing.T) {
 	t.Run("MedianSpend returns median as average for even number of spend values", func(t *testing.T) {
 		t.Parallel()
 
-		report := NewMeteringReport()
+		report := NewMeteringReport(logger.TestLogger(t))
 		steps := []MeteringReportStep{
 			{"xyz", testUnitA, testUnitA.IntToSpendValue(42)},
 			{"abc", testUnitA, testUnitA.IntToSpendValue(1)},
@@ -128,7 +130,7 @@ func TestMeteringReport(t *testing.T) {
 
 	t.Run("SetStep returns error if step already exists", func(t *testing.T) {
 		t.Parallel()
-		report := NewMeteringReport()
+		report := NewMeteringReport(logger.TestLogger(t))
 		steps := []MeteringReportStep{
 			{"xyz", testUnitA, testUnitA.IntToSpendValue(42)},
 			{"abc", testUnitA, testUnitA.IntToSpendValue(1)},
@@ -148,7 +150,7 @@ func Test_MeterReports(t *testing.T) {
 	wg.Add(3)
 	go func() {
 		defer wg.Done()
-		mr.Add("exec1", NewMeteringReport())
+		mr.Add("exec1", NewMeteringReport(logger.TestLogger(t)))
 		r, ok := mr.Get("exec1")
 		assert.True(t, ok)
 		//nolint:errcheck // depending on the concurrent timing, this may or may not err
@@ -157,7 +159,7 @@ func Test_MeterReports(t *testing.T) {
 	}()
 	go func() {
 		defer wg.Done()
-		mr.Add("exec2", NewMeteringReport())
+		mr.Add("exec2", NewMeteringReport(logger.TestLogger(t)))
 		r, ok := mr.Get("exec2")
 		assert.True(t, ok)
 		err := r.SetStep("ref1", []MeteringReportStep{})
@@ -166,7 +168,7 @@ func Test_MeterReports(t *testing.T) {
 	}()
 	go func() {
 		defer wg.Done()
-		mr.Add("exec1", NewMeteringReport())
+		mr.Add("exec1", NewMeteringReport(logger.TestLogger(t)))
 		r, ok := mr.Get("exec1")
 		assert.True(t, ok)
 		//nolint:errcheck // depending on the concurrent timing, this may or may not err
@@ -181,9 +183,9 @@ func Test_MeterReports(t *testing.T) {
 func Test_MeterReportsLength(t *testing.T) {
 	mr := NewMeterReports()
 
-	mr.Add("exec1", NewMeteringReport())
-	mr.Add("exec2", NewMeteringReport())
-	mr.Add("exec3", NewMeteringReport())
+	mr.Add("exec1", NewMeteringReport(logger.TestLogger(t)))
+	mr.Add("exec2", NewMeteringReport(logger.TestLogger(t)))
+	mr.Add("exec3", NewMeteringReport(logger.TestLogger(t)))
 	assert.Equal(t, 3, mr.Len())
 
 	mr.Delete("exec2")

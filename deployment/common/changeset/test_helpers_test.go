@@ -1,12 +1,10 @@
 package changeset
 
 import (
-	"context"
 	"errors"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -79,7 +77,7 @@ func NewNoopEnvironment(t *testing.T) cldf.Environment {
 		map[uint64]cldf.AptosChain{},
 		[]string{},
 		nil,
-		func() context.Context { return tests.Context(t) },
+		t.Context,
 		cldf.XXXGenerateTestOCRSecrets(),
 	)
 }
