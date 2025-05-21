@@ -23,19 +23,19 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
-	evmheads "github.com/smartcontractkit/chainlink-evm/pkg/heads"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper"
-	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/configtest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
@@ -1666,7 +1666,7 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int, f
 	return helper
 }
 
-func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client, highestSeenHead *evmtypes.Head, overridesFn func(c *toml.EVMConfig)) *broadcasterHelper {
+func newBroadcasterHelperWithEthClient(t *testing.T, ethClient client.Client, highestSeenHead *evmtypes.Head, overridesFn func(c *toml.EVMConfig)) *broadcasterHelper {
 	config := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
 		c.FinalityDepth = ptr[uint32](10)
 
@@ -1969,7 +1969,7 @@ func newMockEthClient(t *testing.T, chchRawLogs chan<- testutils.RawSub[types.Lo
 }
 
 // SimulateIncomingHeads spawns a goroutine which sends a stream of heads and closes the returned channel when finished.
-func simulateIncomingHeads(t *testing.T, heads []*evmtypes.Head, headTrackables ...evmheads.Trackable) (done chan struct{}) {
+func simulateIncomingHeads(t *testing.T, heads []*evmtypes.Head, headTrackables ...heads.Trackable) (done chan struct{}) {
 	// Build the full chain of heads
 	ctx := testutils.Context(t)
 	done = make(chan struct{})
