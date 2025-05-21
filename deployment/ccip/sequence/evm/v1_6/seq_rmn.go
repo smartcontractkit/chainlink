@@ -38,7 +38,7 @@ var (
 				if err != nil {
 					return report.Output, fmt.Errorf("failed to set RMNRemoteConfig for chain %d: %w", chainSelector, err)
 				}
-				if err := finalOutput.Merge(report.Output, deps.Env); err != nil {
+				if err := finalOutput.Merge(report.Output); err != nil {
 					return opsutil.OpOutput{}, fmt.Errorf("failed to merge output for chain %d: %w", chainSelector, err)
 				}
 			}
@@ -55,7 +55,6 @@ var (
 				return opsutil.OpOutput{
 					Proposals:                  report.Output,
 					DescribedTimelockProposals: finalOutput.DescribedTimelockProposals,
-					AddressBook:                finalOutput.AddressBook,
 				}, err
 			}
 			return *finalOutput, nil

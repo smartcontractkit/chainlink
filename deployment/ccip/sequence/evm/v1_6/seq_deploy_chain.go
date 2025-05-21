@@ -65,8 +65,7 @@ var (
 		"DeployChainContractsSeq",
 		semver.MustParse("1.0.0"),
 		"Deploys all 1.6 chain contracts for the specified evm chain(s)",
-		func(b operations.Bundle, deps opsutil.OpDependencies, input DeployChainContractsConfig) (map[uint64]map[string]cldf.TypeAndVersion, error) {
-			ab := cldf.NewMemoryAddressBook()
+		func(b operations.Bundle, deps opsutil.OpDependencies, input DeployChainContractsConfig) (any, error) {
 			state := deps.CurrentState
 			e := deps.Env
 			grp := errgroup.Group{}
@@ -118,13 +117,10 @@ var (
 						e.Logger.Errorw("RMNProxy not found", "chain", chain.String())
 						return fmt.Errorf("rmn proxy not found for chain %s, deploy the prerequisites first", chain.String())
 					}
-					deployInput := opsutil.DeployContractInput{
-						Chain: chainSelector,
-						AB:    ab,
-					}
+
 					// Deploy RMNRemote if not already deployed
 					rmnRemote := chainState.RMNRemote
-					report, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployRMNRemoteOp, deps, deployInput)
+					report, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployRMNRemoteOp, deps, chainSelector)
 					if err != nil {
 						return fmt.Errorf("failed to deploy RMNRemote for chain %d: %w", chainSelector, err)
 					}
@@ -168,14 +164,14 @@ var (
 					}
 					// Deploy Test Router if not already deployed
 					_, err = operations.ExecuteOperation(b, ccipopsv1_2.DeployRouter, deps, ccipopsv1_2.DeployRouterInput{
-						DeployContractInput: deployInput,
-						IsTestRouter:        true,
+						Chain:        chainSelector,
+						IsTestRouter: true,
 					})
 					if err != nil {
 						return fmt.Errorf("failed to deploy test router for chain %d: %w", chainSelector, err)
 					}
 					// Deploy NonceManager if not already deployed
-					nmReport, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployNonceManagerOp, deps, deployInput)
+					nmReport, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployNonceManagerOp, deps, chainSelector)
 					if err != nil {
 						return fmt.Errorf("failed to deploy nonce manager for chain %d: %w", chainSelector, err)
 					}
@@ -196,10 +192,10 @@ var (
 					}
 					// Deploy FeeQuoter if not already deployed
 					feeQReport, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployFeeQuoterOp, deps, ccipopsv1_6.DeployFeeQInput{
-						DeployContractInput: deployInput,
-						Params:              contractParams.FeeQuoterParams,
-						LinkAddr:            linkAddr,
-						WethAddr:            chainState.Weth9.Address(),
+						Chain:    chainSelector,
+						Params:   contractParams.FeeQuoterParams,
+						LinkAddr: linkAddr,
+						WethAddr: chainState.Weth9.Address(),
 					})
 					if err != nil {
 						return fmt.Errorf("failed to deploy fee quoter for chain %d: %w", chainSelector, err)
@@ -221,7 +217,7 @@ var (
 					deps.CurrentState.Chains[chainSelector] = chainState
 					stateUpdateMu.Unlock()
 					// Deploy OnRamp if not already deployed
-					onRampReport, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployOnRampOp, deps, deployInput)
+					onRampReport, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployOnRampOp, deps, chainSelector)
 					if err != nil {
 						return fmt.Errorf("failed to deploy onRamp for chain %d: %w", chainSelector, err)
 					}
@@ -239,8 +235,8 @@ var (
 					}
 					// // Deploy OffRamp if not already deployed
 					offRampReport, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployOffRampOp, deps, ccipopsv1_6.DeployOffRampInput{
-						DeployContractInput: deployInput,
-						Params:              contractParams.OffRampParams,
+						Chain:  chainSelector,
+						Params: contractParams.OffRampParams,
 					})
 					if err != nil {
 						return fmt.Errorf("failed to deploy offramp for chain %d: %w", chainSelector, err)
@@ -328,12 +324,7 @@ var (
 			if err := grp.Wait(); err != nil {
 				return nil, fmt.Errorf("failed to deploy chain contracts: %w", err)
 			}
-			allAddresses, err := ab.Addresses()
-			if err != nil {
-				return nil, fmt.Errorf("failed to get addresses from address book: %w", err)
-			}
-
-			return allAddresses, nil
+			return nil, nil
 		})
 )
 

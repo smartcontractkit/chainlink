@@ -24,7 +24,7 @@ var (
 		func(b operations.Bundle, deps opsutil.OpDependencies, input DeployOffRampInput) (common.Address, error) {
 			state := deps.CurrentState
 			e := deps.Env
-			ab := input.AB
+			ab := deps.AddressBook
 			chain := e.Chains[input.Chain]
 			chainState, chainExists := state.Chains[input.Chain]
 			if !chainExists {
@@ -84,7 +84,7 @@ var (
 )
 
 type DeployOffRampInput struct {
-	opsutil.DeployContractInput
+	Chain  uint64
 	Params OffRampParams
 }
 

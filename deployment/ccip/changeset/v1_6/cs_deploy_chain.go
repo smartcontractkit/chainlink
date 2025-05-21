@@ -102,8 +102,9 @@ func deployChainContractsForChains(
 	deps := opsutil.OpDependencies{
 		Env:          e,
 		CurrentState: existingState,
+		AddressBook:  cldf.NewMemoryAddressBook(),
 	}
-	report, err := operations.ExecuteSequence(e.OperationsBundle, ccipseq.DeployChainContractsSeq, deps, ccipseq.DeployChainContractsConfig{
+	_, err = operations.ExecuteSequence(e.OperationsBundle, ccipseq.DeployChainContractsSeq, deps, ccipseq.DeployChainContractsConfig{
 		HomeChainSelector:      homeChainSel,
 		ContractParamsPerChain: contractParamsPerChain,
 	})
@@ -112,5 +113,5 @@ func deployChainContractsForChains(
 		return nil, err
 	}
 
-	return cldf.NewMemoryAddressBookFromMap(report.Output), nil
+	return deps.AddressBook, nil
 }

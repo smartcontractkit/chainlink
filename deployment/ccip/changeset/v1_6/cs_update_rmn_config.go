@@ -666,5 +666,5 @@ func SetRMNRemoteConfigChangeset(e cldf.Environment, config ccipseq.SetRMNRemote
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute SetRMNRemoteConfig sequence: %w", err)
 	}
 
-	return seqReport.Output.ToChangesetOutput(), nil
+	return seqReport.Output.ToChangesetOutput(deps), nil
 }

@@ -16,7 +16,7 @@ import (
 
 type DeployRouterInput struct {
 	IsTestRouter bool
-	opsutil.DeployContractInput
+	Chain        uint64
 }
 
 var (
@@ -27,7 +27,7 @@ var (
 		func(b operations.Bundle, deps opsutil.OpDependencies, input DeployRouterInput) (common.Address, error) {
 			state := deps.CurrentState
 			e := deps.Env
-			ab := input.AB
+			ab := deps.AddressBook
 			chain := deps.Env.Chains[input.Chain]
 			chainState, chainExists := state.Chains[input.Chain]
 			if !chainExists {

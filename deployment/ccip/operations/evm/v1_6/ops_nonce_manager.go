@@ -24,12 +24,12 @@ var (
 		"DeployNonceManager",
 		semver.MustParse("1.0.0"),
 		"Deploys NonceManager 1.6 contract on the specified evm chain",
-		func(b operations.Bundle, deps opsutil.OpDependencies, input opsutil.DeployContractInput) (common.Address, error) {
+		func(b operations.Bundle, deps opsutil.OpDependencies, input uint64) (common.Address, error) {
 			state := deps.CurrentState
 			e := deps.Env
-			ab := input.AB
-			chain := e.Chains[input.Chain]
-			chainState, chainExists := state.Chains[input.Chain]
+			ab := deps.AddressBook
+			chain := e.Chains[input]
+			chainState, chainExists := state.Chains[input]
 			if !chainExists {
 				return common.Address{}, fmt.Errorf("chain %s not found in existing state, "+
 					"deploy the prerequisites first", chain.String())

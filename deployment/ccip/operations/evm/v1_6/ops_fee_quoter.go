@@ -21,7 +21,7 @@ import (
 )
 
 type DeployFeeQInput struct {
-	opsutil.DeployContractInput
+	Chain    uint64
 	Params   FeeQuoterParams
 	LinkAddr common.Address
 	WethAddr common.Address
@@ -36,7 +36,7 @@ var (
 			state := deps.CurrentState
 			e := deps.Env
 			chain := deps.Env.Chains[input.Chain]
-			ab := cldf.NewMemoryAddressBook()
+			ab := deps.AddressBook
 			chainState, chainExists := state.Chains[input.Chain]
 			if !chainExists {
 				return common.Address{}, fmt.Errorf("chain %s not found in existing state, "+
@@ -45,7 +45,7 @@ var (
 
 			contractParams := input.Params
 			if chainState.FeeQuoter == nil {
-				feeQuoter, err := cldf.DeployContract(e.Logger, chain, ab,
+				feeQ, err := cldf.DeployContract(e.Logger, chain, ab,
 					func(chain cldf.Chain) cldf.ContractDeploy[*fee_quoter.FeeQuoter] {
 						prAddr, tx2, pr, err2 := fee_quoter.DeployFeeQuoter(
 							chain.DeployerKey,
@@ -79,7 +79,7 @@ var (
 					e.Logger.Errorw("Failed to deploy fee quoter", "chain", chain.String(), "err", err)
 					return common.Address{}, err
 				}
-				return feeQuoter.Address, nil
+				return feeQ.Address, nil
 			}
 			e.Logger.Infow("fee quoter already deployed", "chain", chain.String(), "addr", chainState.FeeQuoter.Address)
 			return common.Address{}, nil
