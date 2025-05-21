@@ -8,6 +8,10 @@ defaults:
   goflags: "-ldflags=-s"
 
 plugins:
+  aptos:
+    - moduleURI: "github.com/smartcontractkit/chainlink-aptos"
+      gitRef: "a9a1f1d5d3e26adeae13e223496fee83886be85b"
+      installPath: "github.com/smartcontractkit/chainlink-aptos/cmd/chainlink-aptos"
   cosmos:
     - moduleURI: "github.com/smartcontractkit/chainlink-cosmos"
       # Git reference - can be a tag, branch, or commit hash

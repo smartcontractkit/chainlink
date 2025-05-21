@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
@@ -864,7 +863,7 @@ func Test_Prune(t *testing.T) {
 	jobID := ps1.ID
 
 	t.Run("when there are no runs to prune, does nothing", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		porm.Prune(ctx, jobID)
 
 		// no error logs; it did nothing
@@ -901,7 +900,7 @@ func Test_Prune(t *testing.T) {
 		mustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusSuspended, jobID2)
 	}
 
-	porm.Prune(tests.Context(t), jobID2)
+	porm.Prune(t.Context(), jobID2)
 
 	cnt := pgtest.MustCount(t, db, "SELECT count(*) FROM pipeline_runs WHERE pipeline_spec_id = $1 AND state = $2", ps1.ID, pipeline.RunStatusCompleted)
 	assert.Equal(t, 20, cnt)

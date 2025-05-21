@@ -114,13 +114,3 @@ func validateUpdate(t *testing.T, te test.EnvWrapper, expected map[p2pkey.PeerID
 		assert.Equal(t, expected[node.P2pId].Signer, node.Signer)
 	}
 }
-
-func p2pIDs(t *testing.T, vals []string) [][32]byte {
-	var out [][32]byte
-	for _, v := range vals {
-		id, err := p2pkey.MakePeerID(v)
-		require.NoError(t, err)
-		out = append(out, id)
-	}
-	return out
-}
