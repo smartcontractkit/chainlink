@@ -1832,8 +1832,8 @@ func (helper *broadcasterHelper) newLogListenerWithJob(name string) *simpleLogLi
 
 	var cronID int32
 	require.NoError(t, db.Get(&cronID, `INSERT INTO cron_specs (cron_schedule,created_at,updated_at) VALUES ('zzz', NOW(), NOW()) RETURNING id`))
-	var jodID int32
-	require.NoError(t, db.Get(&jodID, `INSERT INTO jobs (schema_version,type,external_job_id,created_at,cron_spec_id) VALUES (1, 0, $1, NOW(), $2) RETURNING id`, uuid.New(), cronID))
+	var jobID int32
+	require.NoError(t, db.Get(&jobID, `INSERT INTO jobs (schema_version,type,external_job_id,created_at,cron_spec_id) VALUES (1, 0, $1, NOW(), $2) RETURNING id`, uuid.New(), cronID))
 
 	var rec received
 	return &simpleLogListener{
@@ -1842,7 +1842,7 @@ func (helper *broadcasterHelper) newLogListenerWithJob(name string) *simpleLogLi
 		name:     name,
 		received: &rec,
 		t:        t,
-		jobID:    jodID,
+		jobID:    jobID,
 	}
 }
 
