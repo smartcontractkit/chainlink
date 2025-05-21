@@ -183,7 +183,7 @@ func addCandidatesForNewChainPrecondition(e cldf.Environment, c AddCandidatesFor
 		return fmt.Errorf("failed to validate deployment config for new chain: %w", err)
 	}
 	if c.NewChain.RMNRemoteConfig != nil {
-		if err := c.rmnRemoteConfigForNewChain().Validate(); err != nil {
+		if err := c.rmnRemoteConfigForNewChain().Validate(e, state); err != nil {
 			return fmt.Errorf("failed to validate RMN remote config for new chain: %w", err)
 		}
 	}

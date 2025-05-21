@@ -33,14 +33,14 @@ var (
 		"DeployRMNRemote",
 		semver.MustParse("1.0.0"),
 		"Deploys RMNRemote 1.6 contract on the specified evm chain",
-		func(b operations.Bundle, deps opsutil.OpDependencies, input opsutil.DeployContractInput) (cldf.ContractDeploy[*rmn_remote.RMNRemote], error) {
+		func(b operations.Bundle, deps opsutil.OpDependencies, input opsutil.DeployContractInput) (common.Address, error) {
 			state := deps.CurrentState
 			e := deps.Env
 			ab := input.AB
-			chain := input.Chain
+			chain := e.Chains[input.Chain]
 			chainState, chainExists := state.Chains[chain.Selector]
 			if !chainExists {
-				return cldf.ContractDeploy[*rmn_remote.RMNRemote]{}, fmt.Errorf("chain %s not found in existing state, "+
+				return common.Address{}, fmt.Errorf("chain %s not found in existing state, "+
 					"deploy the prerequisites first", chain.String())
 			}
 			var rmnLegacyAddr common.Address
@@ -69,17 +69,12 @@ var (
 					})
 				if err != nil {
 					e.Logger.Errorw("Failed to deploy RMNRemote", "chain", chain.String(), "err", err)
-					return cldf.ContractDeploy[*rmn_remote.RMNRemote]{}, err
+					return common.Address{}, err
 				}
-				return cldf.ContractDeploy[*rmn_remote.RMNRemote]{
-					Address:  contract.Address,
-					Contract: contract.Contract,
-					Tx:       contract.Tx,
-					Tv:       contract.Tv,
-				}, nil
+				return contract.Address, nil
 			} else {
 				e.Logger.Infow("rmn remote already deployed, no-op", "chain", chain.String(), "addr", chainState.RMNRemote.Address)
-				return cldf.ContractDeploy[*rmn_remote.RMNRemote]{}, nil
+				return common.Address{}, nil
 			}
 		})
 

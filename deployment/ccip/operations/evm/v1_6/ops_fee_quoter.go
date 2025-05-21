@@ -6,92 +6,149 @@ import (
 	"math/big"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
-type DeployRouterInput struct {
-	Chain        cldf.Chain
-	IsTestRouter bool
+type DeployFeeQInput struct {
+	opsutil.DeployContractInput
+	Params   FeeQuoterParams
+	LinkAddr common.Address
+	WethAddr common.Address
 }
 
 var (
-	DeployRouter = operations.NewOperation(
-		"DeployRouter",
+	DeployFeeQuoterOp = operations.NewOperation(
+		"DeployFeeQuoter",
 		semver.MustParse("1.0.0"),
-		"Deploys Router contract on the specified evm chain",
-		func(b operations.Bundle, deps opsutil.OpDependencies, input DeployRouterInput) (opsutil.OpOutput, error) {
+		"Deploys FeeQuoter 1.6 contract on the specified evm chain",
+		func(b operations.Bundle, deps opsutil.OpDependencies, input DeployFeeQInput) (common.Address, error) {
 			state := deps.CurrentState
 			e := deps.Env
+			chain := deps.Env.Chains[input.Chain]
 			ab := cldf.NewMemoryAddressBook()
-			chainState, chainExists := state.Chains[input.Chain.Selector]
+			chainState, chainExists := state.Chains[input.Chain]
 			if !chainExists {
-				return opsutil.OpOutput{}, fmt.Errorf("chain %s not found in existing state, "+
-					"deploy the prerequisites first", input.Chain.String())
+				return common.Address{}, fmt.Errorf("chain %s not found in existing state, "+
+					"deploy the prerequisites first", chain.String())
 			}
-			chain := input.Chain
-			rmnProxy := chainState.RMNProxy
-			if chainState.RMNProxy == nil {
-				e.Logger.Errorw("RMNProxy not found", "chain", chain.String())
-				return opsutil.OpOutput{}, fmt.Errorf("rmn proxy not found for chain %s, deploy the prerequisites first", chain.String())
-			}
-			deployFn := func(chain cldf.Chain, tv cldf.TypeAndVersion) error {
-				_, err := cldf.DeployContract(e.Logger, chain, ab,
-					func(chain cldf.Chain) cldf.ContractDeploy[*router.Router] {
-						routerAddr, tx2, routerC, err2 := router.DeployRouter(
+
+			contractParams := input.Params
+			if chainState.FeeQuoter == nil {
+				feeQuoter, err := cldf.DeployContract(e.Logger, chain, ab,
+					func(chain cldf.Chain) cldf.ContractDeploy[*fee_quoter.FeeQuoter] {
+						prAddr, tx2, pr, err2 := fee_quoter.DeployFeeQuoter(
 							chain.DeployerKey,
 							chain.Client,
-							chainState.Weth9.Address(),
-							rmnProxy.Address(),
+							fee_quoter.FeeQuoterStaticConfig{
+								MaxFeeJuelsPerMsg:            contractParams.MaxFeeJuelsPerMsg,
+								LinkToken:                    input.LinkAddr,
+								TokenPriceStalenessThreshold: contractParams.TokenPriceStalenessThreshold,
+							},
+							[]common.Address{state.Chains[chain.Selector].Timelock.Address()}, // timelock should be able to update, ramps added after
+							[]common.Address{input.WethAddr, input.LinkAddr},                  // fee tokens
+							contractParams.TokenPriceFeedUpdates,
+							contractParams.TokenTransferFeeConfigArgs,
+							append([]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
+								{
+									PremiumMultiplierWeiPerEth: contractParams.LinkPremiumMultiplierWeiPerEth,
+									Token:                      input.LinkAddr,
+								},
+								{
+									PremiumMultiplierWeiPerEth: contractParams.WethPremiumMultiplierWeiPerEth,
+									Token:                      input.WethAddr,
+								},
+							}, contractParams.MorePremiumMultiplierWeiPerEth...),
+							contractParams.DestChainConfigArgs,
 						)
-						return cldf.ContractDeploy[*router.Router]{
-							Address: routerAddr, Contract: routerC, Tx: tx2, Tv: tv, Err: err2,
+						return cldf.ContractDeploy[*fee_quoter.FeeQuoter]{
+							Address: prAddr, Contract: pr, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_6_0), Err: err2,
 						}
 					})
 				if err != nil {
-					e.Logger.Errorw("Failed to deploy router", "chain", chain.String(), "err", err)
-					return err
+					e.Logger.Errorw("Failed to deploy fee quoter", "chain", chain.String(), "err", err)
+					return common.Address{}, err
 				}
-				return nil
+				return feeQuoter.Address, nil
 			}
-			if input.IsTestRouter {
-				if chainState.TestRouter != nil {
-					e.Logger.Infow("test router already deployed", "chain", chain.String(), "addr", chainState.TestRouter.Address)
-					return opsutil.OpOutput{
-						AddressBook: ab,
-					}, nil
-				}
-				err := deployFn(chain, cldf.NewTypeAndVersion(shared.TestRouter, deployment.Version1_2_0))
-				if err != nil {
-					return opsutil.OpOutput{}, err
-				}
-				e.Logger.Infow("deployed test router", "chain", chain.String(), "addr", chainState.TestRouter.Address)
-				return opsutil.OpOutput{
-					AddressBook: ab,
-				}, nil
-			}
-			if chainState.Router != nil {
-				e.Logger.Infow("router already deployed, no-op", "chain", chain.String(), "addr", chainState.Router.Address)
-				return opsutil.OpOutput{
-					AddressBook: ab,
-				}, nil
-			}
-			err := deployFn(chain, cldf.NewTypeAndVersion(shared.Router, deployment.Version1_2_0))
+			e.Logger.Infow("fee quoter already deployed", "chain", chain.String(), "addr", chainState.FeeQuoter.Address)
+			return common.Address{}, nil
+		})
+
+	FeeQApplyAuthorizedCallerOp = operations.NewOperation(
+		"FeeQApplyAuthorizedCallerOp",
+		semver.MustParse("1.0.0"),
+		"Apply authorized caller to FeeQuoter 1.6 contract on the specified evm chain",
+		func(b operations.Bundle, deps opsutil.OpDependencies, input FeeQApplyAuthorizedCallerOpInput) (opsutil.OpOutput, error) {
+			state := deps.CurrentState
+			e := deps.Env
+			err := input.Validate(deps.Env, state)
 			if err != nil {
 				return opsutil.OpOutput{}, err
 			}
-			e.Logger.Infow("deployed router", "chain", chain.String(), "addr", chainState.Router.Address)
+			chain := deps.Env.Chains[input.ChainSelector]
+			chainState := state.Chains[input.ChainSelector]
+			deployerGroup := deployergroup.NewDeployerGroup(e, state, input.MCMS).
+				WithDeploymentContext(fmt.Sprintf("set FeeQuoter authorized caller on %s", chain.String()))
+			opts, err := deployerGroup.GetDeployer(input.ChainSelector)
+			if err != nil {
+				return opsutil.OpOutput{}, fmt.Errorf("failed to get deployer for %s", chain)
+			}
+			feeQ := chainState.FeeQuoter
+			_, err = feeQ.ApplyAuthorizedCallerUpdates(opts, input.Callers)
+			if err != nil {
+				e.Logger.Errorw("Failed to apply authorized caller updates", "chain", chain.String(), "err", err)
+				return opsutil.OpOutput{}, fmt.Errorf("failed to apply authorized caller updates: %w", err)
+			}
+			csOutput, err := deployerGroup.Enact()
+			if err != nil {
+				return opsutil.OpOutput{}, fmt.Errorf("failed to apply authorized caller updates: %w", err)
+			}
 			return opsutil.OpOutput{
-				AddressBook: ab,
-			}, err
+				Proposals:                  csOutput.MCMSTimelockProposals,
+				DescribedTimelockProposals: csOutput.DescribedTimelockProposals,
+			}, nil
 		})
 )
+
+type FeeQApplyAuthorizedCallerOpInput struct {
+	ChainSelector uint64
+	Callers       fee_quoter.AuthorizedCallersAuthorizedCallerArgs
+	MCMS          *proposalutils.TimelockConfig
+}
+
+func (i FeeQApplyAuthorizedCallerOpInput) Validate(env cldf.Environment, state stateview.CCIPOnChainState) error {
+	err := stateview.ValidateChain(env, state, i.ChainSelector, i.MCMS)
+	if err != nil {
+		return err
+	}
+	chain := env.Chains[i.ChainSelector]
+	if state.Chains[i.ChainSelector].FeeQuoter == nil {
+		return fmt.Errorf("FeeQuoter not found for chain %s", chain.String())
+	}
+	err = commoncs.ValidateOwnership(
+		env.GetContext(), i.MCMS != nil,
+		chain.DeployerKey.From, state.Chains[i.ChainSelector].Timelock.Address(),
+		state.Chains[i.ChainSelector].FeeQuoter,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to validate ownership: %w", err)
+	}
+	if len(i.Callers.AddedCallers) == 0 && len(i.Callers.RemovedCallers) == 0 {
+		return errors.New("at least one caller is required")
+	}
+	return nil
+}
 
 type FeeQuoterParams struct {
 	MaxFeeJuelsPerMsg              *big.Int

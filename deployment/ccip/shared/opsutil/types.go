@@ -3,7 +3,6 @@ package opsutil
 import (
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/mcms"
 
@@ -11,22 +10,22 @@ import (
 )
 
 type DeployContractInput struct {
-	Chain cldf.Chain
+	Chain uint64
 	AB    cldf.AddressBook
 }
 
 type OpDependencies struct {
-	Env          deployment.Environment
+	Env          cldf.Environment
 	CurrentState stateview.CCIPOnChainState
 }
 
 type OpOutput struct {
 	Proposals                  []mcms.TimelockProposal
 	DescribedTimelockProposals []string
-	AddressBook                deployment.AddressBook
+	AddressBook                cldf.AddressBook
 }
 
-func (o *OpOutput) Merge(other OpOutput, env deployment.Environment) error {
+func (o *OpOutput) Merge(other OpOutput, env cldf.Environment) error {
 	if o.AddressBook == nil {
 		o.AddressBook = other.AddressBook
 	} else if other.AddressBook != nil {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -22,21 +23,22 @@ var (
 	DeployRouter = operations.NewOperation(
 		"DeployRouter",
 		semver.MustParse("1.0.0"),
-		"Deploys Router contract on the specified evm chain",
-		func(b operations.Bundle, deps opsutil.OpDependencies, input DeployRouterInput) (cldf.ContractDeploy[*router.Router], error) {
+		"Deploys Router 1.2 contract on the specified evm chain",
+		func(b operations.Bundle, deps opsutil.OpDependencies, input DeployRouterInput) (common.Address, error) {
 			state := deps.CurrentState
 			e := deps.Env
 			ab := input.AB
-			chainState, chainExists := state.Chains[input.Chain.Selector]
+			chain := deps.Env.Chains[input.Chain]
+			chainState, chainExists := state.Chains[input.Chain]
 			if !chainExists {
-				return cldf.ContractDeploy[*router.Router]{}, fmt.Errorf("chain %s not found in existing state, "+
-					"deploy the prerequisites first", input.Chain.String())
+				return common.Address{}, fmt.Errorf("chain %s not found in existing state, "+
+					"deploy the prerequisites first", chain.String())
 			}
-			chain := input.Chain
+
 			rmnProxy := chainState.RMNProxy
 			if chainState.RMNProxy == nil {
 				e.Logger.Errorw("RMNProxy not found", "chain", chain.String())
-				return cldf.ContractDeploy[*router.Router]{}, fmt.Errorf("rmn proxy not found for chain %s, deploy the prerequisites first", chain.String())
+				return common.Address{}, fmt.Errorf("rmn proxy not found for chain %s, deploy the prerequisites first", chain.String())
 			}
 			deployFn := func(chain cldf.Chain, tv cldf.TypeAndVersion) (cldf.ContractDeploy[*router.Router], error) {
 				r, err := cldf.DeployContract(e.Logger, chain, ab,
@@ -66,24 +68,24 @@ var (
 			if input.IsTestRouter {
 				if chainState.TestRouter != nil {
 					e.Logger.Infow("test router already deployed", "chain", chain.String(), "addr", chainState.TestRouter.Address)
-					return cldf.ContractDeploy[*router.Router]{}, nil
+					return common.Address{}, nil
 				}
 				r, err := deployFn(chain, cldf.NewTypeAndVersion(shared.TestRouter, deployment.Version1_2_0))
 				if err != nil {
-					return cldf.ContractDeploy[*router.Router]{}, err
+					return common.Address{}, err
 				}
 				e.Logger.Infow("deployed test router", "chain", chain.String(), "addr", chainState.TestRouter.Address)
-				return r, nil
+				return r.Address, nil
 			}
 			if chainState.Router != nil {
 				e.Logger.Infow("router already deployed, no-op", "chain", chain.String(), "addr", chainState.Router.Address)
-				return cldf.ContractDeploy[*router.Router]{}, nil
+				return common.Address{}, nil
 			}
 			r, err := deployFn(chain, cldf.NewTypeAndVersion(shared.Router, deployment.Version1_2_0))
 			if err != nil {
-				return cldf.ContractDeploy[*router.Router]{}, err
+				return common.Address{}, err
 			}
 			e.Logger.Infow("deployed router", "chain", chain.String(), "addr", chainState.Router.Address)
-			return r, err
+			return r.Address, err
 		})
 )
