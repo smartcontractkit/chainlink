@@ -346,6 +346,9 @@ func GetChainReaderConfig() (chainreader.ChainReaderConfig, error) {
 								},
 							},
 						},
+						EventFilterRenames: map[string]string{
+							"DestChain": "DestChainSelector",
+						},
 					},
 				},
 			},
