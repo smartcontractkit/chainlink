@@ -20,7 +20,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
@@ -49,7 +48,7 @@ const solChainTestKey = "57qbvFjTChfNwQxqkFZwjHp7xYoPZa7f9ow6GA59msfCH1g6onSjKUT
 // wait for ccip to finish, push remaining data
 func TestCCIPLoad_RPS(t *testing.T) {
 	lggr := logger.Test(t)
-	ctx, cancel := context.WithCancel(tests.Context(t))
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// get user defined configurations
