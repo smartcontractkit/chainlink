@@ -2,15 +2,10 @@ package solana
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
 
-	solBurnMintTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/burnmint_token_pool"
-	solLockReleaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/lockrelease_token_pool"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
-	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -20,7 +15,6 @@ import (
 
 type TokenPoolView struct {
 	PoolType             string                                     `json:"poolType,omitempty"`
-	TypeAndVersion       string                                     `json:"typeAndVersion,omitempty"`
 	PoolMetadata         string                                     `json:"poolMetadata,omitempty"`
 	TokenPoolChainConfig map[uint64]map[string]TokenPoolChainConfig `json:"chainConfig,omitempty"`
 	TokenPoolState       map[string]TokenPoolState                  `json:"state,omitempty"`
@@ -65,44 +59,45 @@ type TokenPoolRateLimitTokenBucket struct {
 func GenerateTokenPoolView(chain cldf.SolChain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey, poolType string, poolMetadata string) (TokenPoolView, error) {
 	view := TokenPoolView{}
 	view.PoolType = poolType
-	switch poolType {
-	case solTestTokenPool.BurnAndMint_PoolType.String():
-		solBurnMintTokenPool.SetProgramID(program)
-		ixn, err := solBurnMintTokenPool.NewTypeVersionInstruction(solana.SysVarClockPubkey).ValidateAndBuild()
-		if err != nil {
-			return view, fmt.Errorf("failed to build instruction: %w", err)
-		}
-		result, err := solCommonUtil.SendAndConfirmWithLookupTables(context.Background(), chain.Client, []solana.Instruction{ixn}, *chain.DeployerKey, rpc.CommitmentConfirmed, nil)
-		if err != nil {
-			return view, fmt.Errorf("failed to confirm instruction: %w", err)
-		}
-		output, err := solCommonUtil.ExtractTypedReturnValue(context.Background(), result.Meta.LogMessages, program.String(), func(b []byte) string {
-			return string(b[4:])
-		})
-		if err != nil {
-			return view, fmt.Errorf("failed to extract typed return value: %w", err)
-		}
-		view.TypeAndVersion = output
-	case solTestTokenPool.LockAndRelease_PoolType.String():
-		solLockReleaseTokenPool.SetProgramID(program)
-		ixn, err := solLockReleaseTokenPool.NewTypeVersionInstruction(solana.SysVarClockPubkey).ValidateAndBuild()
-		if err != nil {
-			return view, fmt.Errorf("failed to build instruction: %w", err)
-		}
-		result, err := solCommonUtil.SendAndConfirmWithLookupTables(context.Background(), chain.Client, []solana.Instruction{ixn}, *chain.DeployerKey, rpc.CommitmentConfirmed, nil)
-		if err != nil {
-			return view, fmt.Errorf("failed to confirm instruction: %w", err)
-		}
-		output, err := solCommonUtil.ExtractTypedReturnValue(context.Background(), result.Meta.LogMessages, program.String(), func(b []byte) string {
-			return string(b[4:])
-		})
-		if err != nil {
-			return view, fmt.Errorf("failed to extract typed return value: %w", err)
-		}
-		view.TypeAndVersion = output
-	default:
-		return view, fmt.Errorf("unknown pool type %s", poolType)
-	}
+	// skip this to avoid incurring fees on every state generation
+	// switch poolType {
+	// case solTestTokenPool.BurnAndMint_PoolType.String():
+	// 	solBurnMintTokenPool.SetProgramID(program)
+	// 	ixn, err := solBurnMintTokenPool.NewTypeVersionInstruction(solana.SysVarClockPubkey).ValidateAndBuild()
+	// 	if err != nil {
+	// 		return view, fmt.Errorf("failed to build instruction: %w", err)
+	// 	}
+	// 	result, err := solCommonUtil.SendAndConfirmWithLookupTables(context.Background(), chain.Client, []solana.Instruction{ixn}, *chain.DeployerKey, rpc.CommitmentConfirmed, nil)
+	// 	if err != nil {
+	// 		return view, fmt.Errorf("failed to confirm instruction: %w", err)
+	// 	}
+	// 	output, err := solCommonUtil.ExtractTypedReturnValue(context.Background(), result.Meta.LogMessages, program.String(), func(b []byte) string {
+	// 		return string(b[4:])
+	// 	})
+	// 	if err != nil {
+	// 		return view, fmt.Errorf("failed to extract typed return value: %w", err)
+	// 	}
+	// 	view.TypeAndVersion = output
+	// case solTestTokenPool.LockAndRelease_PoolType.String():
+	// 	solLockReleaseTokenPool.SetProgramID(program)
+	// 	ixn, err := solLockReleaseTokenPool.NewTypeVersionInstruction(solana.SysVarClockPubkey).ValidateAndBuild()
+	// 	if err != nil {
+	// 		return view, fmt.Errorf("failed to build instruction: %w", err)
+	// 	}
+	// 	result, err := solCommonUtil.SendAndConfirmWithLookupTables(context.Background(), chain.Client, []solana.Instruction{ixn}, *chain.DeployerKey, rpc.CommitmentConfirmed, nil)
+	// 	if err != nil {
+	// 		return view, fmt.Errorf("failed to confirm instruction: %w", err)
+	// 	}
+	// 	output, err := solCommonUtil.ExtractTypedReturnValue(context.Background(), result.Meta.LogMessages, program.String(), func(b []byte) string {
+	// 		return string(b[4:])
+	// 	})
+	// 	if err != nil {
+	// 		return view, fmt.Errorf("failed to extract typed return value: %w", err)
+	// 	}
+	// 	view.TypeAndVersion = output
+	// default:
+	// 	return view, fmt.Errorf("unknown pool type %s", poolType)
+	// }
 	view.PoolMetadata = poolMetadata
 	view.TokenPoolState = make(map[string]TokenPoolState)
 	view.TokenPoolChainConfig = make(map[uint64]map[string]TokenPoolChainConfig)
