@@ -20,9 +20,11 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -423,6 +425,116 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 			}
 		}
 	}
+}
+
+func TestAddTokenPoolE2EWithoutMcms(t *testing.T) {
+	t.Parallel()
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	solChain := tenv.Env.AllChainSelectorsSolana()[0]
+	evmChain := tenv.Env.AllChainSelectors()[0]
+	deployerKey := tenv.Env.SolChains[solChain].DeployerKey.PublicKey()
+	poolType := solTestTokenPool.BurnAndMint_PoolType
+	e, newTokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{deployerKey.String()})
+	require.NoError(t, err)
+	// evm deployment
+	e, _, err = deployEVMTokenPool(t, e, evmChain)
+	require.NoError(t, err)
+	_, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.E2ETokenPool),
+			ccipChangesetSolana.E2ETokenPoolConfig{
+				AddTokenPoolAndLookupTable: []ccipChangesetSolana.TokenPoolConfig{
+					{
+						ChainSelector: solChain,
+						TokenPubKey:   newTokenAddress,
+						PoolType:      &poolType,
+						Metadata:      shared.CLLMetadata,
+					},
+				},
+				RegisterTokenAdminRegistry: []ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
+					{
+						ChainSelector:           solChain,
+						TokenPubKey:             newTokenAddress,
+						TokenAdminRegistryAdmin: deployerKey.String(),
+						RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
+					},
+				},
+				AcceptAdminRoleTokenAdminRegistry: []ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
+					{
+						ChainSelector: solChain,
+						TokenPubKey:   newTokenAddress,
+					},
+				},
+				SetPool: []ccipChangesetSolana.SetPoolConfig{
+					{
+						ChainSelector:   solChain,
+						TokenPubKey:     newTokenAddress,
+						PoolType:        &poolType,
+						Metadata:        shared.CLLMetadata,
+						WritableIndexes: []uint8{3, 4, 7},
+					},
+				},
+				RemoteChainTokenPool: []ccipChangesetSolana.RemoteChainTokenPoolConfig{
+					{
+						SolChainSelector: solChain,
+						SolTokenPubKey:   newTokenAddress,
+						SolPoolType:      &poolType,
+						Metadata:         shared.CLLMetadata,
+						EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
+							evmChain: {
+								TokenSymbol: testhelpers.TestTokenSymbol,
+								PoolType:    shared.BurnMintTokenPool,
+								PoolVersion: shared.CurrentTokenPoolVersion,
+								RateLimiterConfig: ccipChangesetSolana.RateLimiterConfig{
+									Inbound: solBaseTokenPool.RateLimitConfig{
+										Enabled:  false,
+										Capacity: 0,
+										Rate:     0,
+									},
+									Outbound: solBaseTokenPool.RateLimitConfig{
+										Enabled:  false,
+										Capacity: 0,
+										Rate:     0,
+									},
+								},
+							},
+						},
+					},
+				},
+				ConfigureTokenPoolContractsChangesets: []v1_5_1.ConfigureTokenPoolContractsConfig{
+					{
+						TokenSymbol: testhelpers.TestTokenSymbol,
+						PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
+							evmChain: {
+								Type:    shared.BurnMintTokenPool,
+								Version: shared.CurrentTokenPoolVersion,
+								SolChainUpdates: map[uint64]v1_5_1.SolChainUpdate{
+									solChain: {
+										RateLimiterConfig: v1_5_1.RateLimiterConfig{
+											Inbound: token_pool.RateLimiterConfig{
+												IsEnabled: false,
+												Capacity:  big.NewInt(0),
+												Rate:      big.NewInt(0),
+											},
+											Outbound: token_pool.RateLimiterConfig{
+												IsEnabled: false,
+												Capacity:  big.NewInt(0),
+												Rate:      big.NewInt(0),
+											},
+										},
+										TokenAddress: newTokenAddress.String(),
+										Type:         shared.BurnMintTokenPool,
+										Metadata:     shared.CLLMetadata,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		),
+	})
+	require.NoError(t, err)
 }
 
 func TestPartnerTokenPools(t *testing.T) {

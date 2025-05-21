@@ -10,4 +10,4 @@ ds{{$srcNum}}_benchmark [type=jsonparse path="{{$.ReportFields.Benchmark.ResultP
 {{- $srcNum:=inc $i -}}
 ds{{$srcNum}}_payload -> ds{{$srcNum}}_benchmark -> benchmark_price;
 {{end -}}
-benchmark_price [type=median allowedFaults={{.AllowedFaults}} index=0];
+benchmark_price [type=median allowedFaults={{.AllowedFaults}} {{with $.ReportFields.Benchmark.StreamID}}streamID={{.}} {{end}}index=0];
