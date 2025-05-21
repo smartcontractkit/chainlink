@@ -1,6 +1,7 @@
 package shared
 
 import (
+	"maps"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -36,6 +37,29 @@ func GetSymbolFromDescription(desc string) (TokenSymbol, bool) {
 func (defaultRegistry) GetSymbol(desc string) (TokenSymbol, bool) {
 	symbol, ok := DescriptionToTokenSymbol[desc]
 	return symbol, ok
+}
+
+// NewMergedRegistry combines the defaultPriceFeed with new priceFeeds retrieved from CLD or elsewhere.
+func NewMergedRegistry(tokens map[string]TokenSymbol) TokenRegistry {
+	combined := make(map[string]TokenSymbol)
+
+	// Add core defaults from Chainlink
+	maps.Copy(combined, DescriptionToTokenSymbol)
+
+	// Override or extend with CLD-provided tokens
+	maps.Copy(combined, tokens)
+
+	return mergedRegistry{entries: combined}
+}
+
+// mergedRegistry is a local wrapper
+type mergedRegistry struct {
+	entries map[string]TokenSymbol
+}
+
+func (r mergedRegistry) GetSymbol(desc string) (TokenSymbol, bool) {
+	sym, ok := r.entries[desc]
+	return sym, ok
 }
 
 type TokenSymbol string
