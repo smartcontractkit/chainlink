@@ -1,4 +1,4 @@
-package changeset
+package jobs
 
 import (
 	"testing"
@@ -22,7 +22,6 @@ import (
 
 func TestDistributeStreamJobSpecs(t *testing.T) {
 	t.Parallel()
-	t.Skip("Skipping testing in CI environment") // flaking on CI
 
 	env := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
 		ShouldDeployMCMS:      false,
@@ -96,7 +95,7 @@ ds1_payload -> ds1_benchmark -> benchmark_price;
 ds2_payload -> ds2_benchmark -> benchmark_price;
 ds3_payload -> ds3_benchmark -> benchmark_price;
 ds4_payload -> ds4_benchmark -> benchmark_price;
-benchmark_price [type=median allowedFaults=3 index=0];
+benchmark_price [type=median allowedFaults=3 streamID=1234 index=0];
 
 ds1_payload -> ds1_bid -> bid_price;
 ds2_payload -> ds2_bid -> bid_price;
@@ -130,6 +129,8 @@ ask_price [type=median allowedFaults=3 index=2];
 					},
 					Benchmark: jobs.ReportFieldLLO{
 						ResultPath: "data,mid",
+						// We intentionally set just one virtual stream ID.
+						StreamID: pointer.To("1234"),
 					},
 					Ask: jobs.ReportFieldLLO{
 						ResultPath: "data,ask",

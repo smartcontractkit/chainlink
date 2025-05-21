@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/burn_mint_erc677_helper"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/log_message_data_receiver"
@@ -93,6 +94,7 @@ type CCIPChainState struct {
 	FactoryBurnMintERC20Token  *factory_burn_mint_erc20.FactoryBurnMintERC20
 	ERC677Tokens               map[shared.TokenSymbol]*erc677.ERC677
 	BurnMintTokens677          map[shared.TokenSymbol]*burn_mint_erc677.BurnMintERC677
+	BurnMintTokens677Helper    map[shared.TokenSymbol]*burn_mint_erc677_helper.BurnMintERC677Helper
 	BurnMintTokenPools         map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
 	BurnWithFromMintTokenPools map[shared.TokenSymbol]map[semver.Version]*burn_with_from_mint_token_pool.BurnWithFromMintTokenPool
 	BurnFromMintTokenPools     map[shared.TokenSymbol]map[semver.Version]*burn_from_mint_token_pool.BurnFromMintTokenPool
