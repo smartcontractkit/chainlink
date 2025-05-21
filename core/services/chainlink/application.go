@@ -357,7 +357,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	billingClient, err := billing.NewWorkflowClient(opts.Config.Billing().URL())
 	if err != nil {
-		return nil, errors.Errorf("NewApplication: failed to connect to billing client; %w", err)
+		globalLogger.Infof("NewApplication: failed to connect to billing client; %w", err)
 	}
 
 	creServices, err := newCREServices(ctx, globalLogger, opts.DS, keyStore, cfg.Capabilities(), cfg.Workflows(), relayChainInterops, opts.CREOpts, billingClient)
