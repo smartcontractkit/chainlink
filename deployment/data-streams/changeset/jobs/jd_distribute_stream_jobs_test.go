@@ -22,7 +22,6 @@ import (
 
 func TestDistributeStreamJobSpecs(t *testing.T) {
 	t.Parallel()
-	t.Skip("Skipping testing in CI environment") // flaking on CI
 
 	env := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
 		ShouldDeployMCMS:      false,

@@ -561,8 +561,8 @@ func SendRequestSol(
 		}
 		feeTokenProgramID = feeTokenInfo.Value.Owner
 
-		var mint token.Mint
-		if err := solbinary.NewBinDecoder(feeTokenInfo.Bytes()).Decode(&mint); err != nil {
+		_, err = GetSolanaTokenMintInfo(feeTokenInfo)
+		if err != nil {
 			return nil, fmt.Errorf("the provided fee token is not a valid token: (err = %w)", err)
 		}
 
@@ -570,6 +570,7 @@ func SendRequestSol(
 		if err != nil {
 			return nil, err
 		}
+
 		feeTokenUserATA = ata
 	}
 
@@ -657,12 +658,27 @@ func SendRequestSol(
 	for _, tokenAmount := range message.TokenAmounts {
 		tokenPubKey := tokenAmount.Token
 
-		tokenPoolPubKey, err := MatchTokenToTokenPool(ctx, client, tokenPubKey, []solana.PublicKey{s.LockReleaseTokenPools[shared.CLLMetadata], s.BurnMintTokenPools[shared.CLLMetadata]})
+		allTokenPools := solana.PublicKeySlice{}
+		allTokenPools = slices.AppendSeq(allTokenPools, maps.Values(s.LockReleaseTokenPools))
+		allTokenPools = slices.AppendSeq(allTokenPools, maps.Values(s.BurnMintTokenPools))
+
+		e.Logger.Infof("Found %d token pools in state - searching for matching token pool", len(allTokenPools))
+		tokenPoolPubKey, err := MatchTokenToTokenPool(ctx, client, tokenPubKey, allTokenPools)
 		if err != nil {
 			return nil, err
 		}
 
-		tokenPool, err := soltokens.NewTokenPool(solana.Token2022ProgramID, tokenPoolPubKey, tokenPubKey)
+		e.Logger.Infof("Token '%s' was matched to token pool '%s'",
+			tokenPubKey.String(),
+			tokenPoolPubKey.String(),
+		)
+
+		tokenProgramID, err := InferSolanaTokenProgramID(ctx, client, tokenPubKey)
+		if err != nil {
+			return nil, err
+		}
+
+		tokenPool, err := soltokens.NewTokenPool(tokenProgramID, tokenPoolPubKey, tokenPubKey)
 		if err != nil {
 			return nil, err
 		}
@@ -692,7 +708,7 @@ func SendRequestSol(
 
 		tokenPool.Billing[cfg.DestChain] = billingPDA
 
-		userTokenAccount, _, err := soltokens.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenPubKey, sender.PublicKey())
+		userTokenAccount, _, err := soltokens.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, sender.PublicKey())
 		if err != nil {
 			return nil, err
 		}
@@ -788,6 +804,35 @@ func ConvertSolanaCrossChainAmountToBigInt(amount ccip_router.CrossChainAmount) 
 	bytes := amount.LeBytes[:]
 	slices.Reverse(bytes) // convert to big-endian
 	return big.NewInt(0).SetBytes(bytes)
+}
+
+func InferSolanaTokenProgramID(ctx context.Context, client *rpc.Client, tokenPubKey solana.PublicKey) (solana.PublicKey, error) {
+	tokenAcctInfo, err := client.GetAccountInfo(ctx, tokenPubKey)
+	if errors.Is(err, rpc.ErrNotFound) {
+		// NOTE: we use a fallback value of Token2022ProgramID to maintain backwards compatibility with the Solana tests
+		return solana.Token2022ProgramID, nil
+	}
+	if err != nil {
+		return solana.PublicKey{}, err
+	}
+
+	_, err = GetSolanaTokenMintInfo(tokenAcctInfo)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("expected '%s' to be a token public key: (err = %w)", tokenPubKey, err)
+	}
+
+	return tokenAcctInfo.Value.Owner, nil
+}
+
+func GetSolanaTokenMintInfo(tokenAcctInfo *rpc.GetAccountInfoResult) (token.Mint, error) {
+	var mint token.Mint
+
+	err := solbinary.NewBinDecoder(tokenAcctInfo.Bytes()).Decode(&mint)
+	if err != nil {
+		return token.Mint{}, fmt.Errorf("failed to decode token mint data: (err = %w)", err)
+	}
+
+	return mint, nil
 }
 
 func MatchTokenToTokenPool(ctx context.Context, client *rpc.Client, tokenPubKey solana.PublicKey, tokenPoolPubKeys solana.PublicKeySlice) (solana.PublicKey, error) {

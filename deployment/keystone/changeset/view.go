@@ -126,7 +126,8 @@ func getContractsPerChain(e deployment.Environment) (contractsPerChain, error) {
 	for _, contractAddress := range contractAddresses {
 		chain, ok := e.Chains[contractAddress.ChainSelector]
 		if !ok {
-			errs = errors.Join(errs, fmt.Errorf("chain with selector %d not found", contractAddress.ChainSelector))
+			// the chain might not be present in the environment if it was removed due to RPC instability
+			e.Logger.Warnf("chain with selector %d not found, skipping contract address %s", contractAddress.ChainSelector, contractAddress.Address)
 			continue
 		}
 

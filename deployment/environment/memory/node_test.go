@@ -11,8 +11,6 @@ import (
 
 	"github.com/smartcontractkit/freeport"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -31,7 +29,7 @@ func TestNode(t *testing.T) {
 	}
 	node := NewNode(t, c)
 	// We expect 3 transmitter keys
-	keys, err := node.App.GetKeyStore().Eth().GetAll(tests.Context(t))
+	keys, err := node.App.GetKeyStore().Eth().GetAll(t.Context())
 	require.NoError(t, err)
 	require.Len(t, keys, 3)
 	// We expect 3 chains supported

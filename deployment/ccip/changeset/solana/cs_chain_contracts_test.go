@@ -56,6 +56,9 @@ func deployTokenAndMint(t *testing.T, tenv cldf.Environment, solChain uint64, wa
 			},
 		),
 	)
+	if err != nil {
+		return cldf.Environment{}, solana.PublicKey{}, err
+	}
 	addresses, err := e.ExistingAddresses.AddressesForChain(solChain) //nolint:staticcheck // addressbook still valid
 	require.NoError(t, err)
 	tokenAddress := solanastateview.FindSolanaAddress(

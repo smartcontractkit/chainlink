@@ -150,7 +150,7 @@ func TestConfigureForwarders(t *testing.T) {
 				csOut, err := changeset.ConfigureForwardContracts(te.Env, cfg)
 				require.NoError(t, err)
 				require.Nil(t, csOut.AddressBook)
-				require.Empty(t, csOut.Proposals)
+				require.Empty(t, csOut.MCMSTimelockProposals)
 				// check that forwarder
 				// TODO set up a listener to check that the forwarder is configured
 				forwardersByChain := te.OwnedForwarders()
