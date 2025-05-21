@@ -59,8 +59,8 @@ func TestInvalidOCR3Params(t *testing.T) {
 				HomeChainSelector: e.HomeChainSel,
 				ContractParamsPerChain: map[uint64]v1_6.ChainContractParams{
 					chain1: {
-						FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
-						OffRampParams:   v1_6.DefaultOffRampParams(),
+						FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
+						OffRampParams:   ccipops.DefaultOffRampParams(),
 					},
 				},
 			},

@@ -15,10 +15,10 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
@@ -26,11 +26,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
-
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 )
 
-var _ cldf.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
+var _ cldf.ChangeSet[ccipseq.DeployChainContractsConfig] = DeployChainContractsChangeset
 
 // DeployChainContracts deploys all new CCIP v1.6 or later contracts for the given chains.
 // It returns the new addresses for the contracts.
@@ -41,7 +39,7 @@ var _ cldf.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
 // In case of migrating from legacy ccip to 1.6, the previous RMN address should be set while deploying RMNRemote.
 // if there is no existing RMN address found, RMNRemote will be deployed with 0x0 address for previous RMN address
 // which will set RMN to 0x0 address immutably in RMNRemote.
-func DeployChainContractsChangeset(env cldf.Environment, c DeployChainContractsConfig) (cldf.ChangesetOutput, error) {
+func DeployChainContractsChangeset(env cldf.Environment, c ccipseq.DeployChainContractsConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
@@ -56,106 +54,11 @@ func DeployChainContractsChangeset(env cldf.Environment, c DeployChainContractsC
 	}, nil
 }
 
-type DeployChainContractsConfig struct {
-	HomeChainSelector      uint64
-	ContractParamsPerChain map[uint64]ChainContractParams
-}
-
-func (c DeployChainContractsConfig) Validate() error {
-	if err := cldf.IsValidChainSelector(c.HomeChainSelector); err != nil {
-		return fmt.Errorf("invalid home chain selector: %d - %w", c.HomeChainSelector, err)
-	}
-	for cs, args := range c.ContractParamsPerChain {
-		if err := cldf.IsValidChainSelector(cs); err != nil {
-			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
-		}
-		if err := args.Validate(); err != nil {
-			return fmt.Errorf("invalid contract args for chain %d: %w", cs, err)
-		}
-	}
-	return nil
-}
-
-type ChainContractParams struct {
-	FeeQuoterParams FeeQuoterParams
-	OffRampParams   OffRampParams
-}
-
-func (c ChainContractParams) Validate() error {
-	if err := c.FeeQuoterParams.Validate(); err != nil {
-		return fmt.Errorf("invalid FeeQuoterParams: %w", err)
-	}
-	if err := c.OffRampParams.Validate(false); err != nil {
-		return fmt.Errorf("invalid OffRampParams: %w", err)
-	}
-	return nil
-}
-
 type FeeQuoterParamsOld struct {
 	MaxFeeJuelsPerMsg              *big.Int
 	TokenPriceStalenessThreshold   uint32
 	LinkPremiumMultiplierWeiPerEth uint64
 	WethPremiumMultiplierWeiPerEth uint64
-}
-
-type FeeQuoterParams struct {
-	MaxFeeJuelsPerMsg              *big.Int
-	TokenPriceStalenessThreshold   uint32
-	LinkPremiumMultiplierWeiPerEth uint64
-	WethPremiumMultiplierWeiPerEth uint64
-	MorePremiumMultiplierWeiPerEth []fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs
-	TokenPriceFeedUpdates          []fee_quoter.FeeQuoterTokenPriceFeedUpdate
-	TokenTransferFeeConfigArgs     []fee_quoter.FeeQuoterTokenTransferFeeConfigArgs
-	DestChainConfigArgs            []fee_quoter.FeeQuoterDestChainConfigArgs
-}
-
-func (c FeeQuoterParams) Validate() error {
-	if c.MaxFeeJuelsPerMsg == nil {
-		return errors.New("MaxFeeJuelsPerMsg is nil")
-	}
-	if c.MaxFeeJuelsPerMsg.Cmp(big.NewInt(0)) <= 0 {
-		return errors.New("MaxFeeJuelsPerMsg must be positive")
-	}
-	if c.TokenPriceStalenessThreshold == 0 {
-		return errors.New("TokenPriceStalenessThreshold can't be 0")
-	}
-	return nil
-}
-
-func DefaultFeeQuoterParams() FeeQuoterParams {
-	return FeeQuoterParams{
-		MaxFeeJuelsPerMsg:              big.NewInt(0).Mul(big.NewInt(2e2), big.NewInt(1e18)),
-		TokenPriceStalenessThreshold:   uint32(24 * 60 * 60),
-		LinkPremiumMultiplierWeiPerEth: 9e17, // 0.9 ETH
-		WethPremiumMultiplierWeiPerEth: 1e18, // 1.0 ETH
-		TokenPriceFeedUpdates:          []fee_quoter.FeeQuoterTokenPriceFeedUpdate{},
-		TokenTransferFeeConfigArgs:     []fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{},
-		MorePremiumMultiplierWeiPerEth: []fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{},
-		DestChainConfigArgs:            []fee_quoter.FeeQuoterDestChainConfigArgs{},
-	}
-}
-
-type OffRampParams struct {
-	GasForCallExactCheck                    uint16
-	PermissionLessExecutionThresholdSeconds uint32
-	MessageInterceptor                      common.Address
-}
-
-func (c OffRampParams) Validate(ignoreGasForCallExactCheck bool) error {
-	if !ignoreGasForCallExactCheck && c.GasForCallExactCheck == 0 {
-		return errors.New("GasForCallExactCheck is 0")
-	}
-	if c.PermissionLessExecutionThresholdSeconds == 0 {
-		return errors.New("PermissionLessExecutionThresholdSeconds is 0")
-	}
-	return nil
-}
-
-func DefaultOffRampParams() OffRampParams {
-	return OffRampParams{
-		GasForCallExactCheck:                    uint16(5000),
-		PermissionLessExecutionThresholdSeconds: uint32(globals.PermissionLessExecutionThreshold.Seconds()),
-	}
 }
 
 func ValidateHomeChainState(e cldf.Environment, homeChainSel uint64, existingState stateview.CCIPOnChainState) error {
@@ -205,7 +108,7 @@ func deployChainContractsForChains(
 	e cldf.Environment,
 	ab cldf.AddressBook,
 	homeChainSel uint64,
-	contractParamsPerChain map[uint64]ChainContractParams) error {
+	contractParamsPerChain map[uint64]ccipseq.ChainContractParams) error {
 	existingState, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
@@ -258,7 +161,7 @@ func deployChainContractsForChains(
 	return nil
 }
 
-func deployChainContractsEVM(e cldf.Environment, chain cldf.Chain, ab cldf.AddressBook, rmnHome *rmn_home.RMNHome, contractParams ChainContractParams) error {
+func deployChainContractsEVM(e cldf.Environment, chain cldf.Chain, ab cldf.AddressBook, rmnHome *rmn_home.RMNHome, contractParams ccipseq.ChainContractParams) error {
 	// check for existing contracts
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
@@ -268,66 +171,6 @@ func deployChainContractsEVM(e cldf.Environment, chain cldf.Chain, ab cldf.Addre
 	chainState, chainExists := state.Chains[chain.Selector]
 	if !chainExists {
 		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
-	}
-	if chainState.Weth9 == nil {
-		return fmt.Errorf("weth9 not found for chain %s, deploy the prerequisites first", chain.String())
-	}
-	if chainState.Timelock == nil {
-		return fmt.Errorf("timelock not found for chain %s, deploy the mcms contracts first", chain.String())
-	}
-	weth9Contract := chainState.Weth9
-	linkTokenContractAddr, err := chainState.LinkTokenAddress()
-	if err != nil {
-		return fmt.Errorf("failed to get link token address for chain %s: %w", chain.String(), err)
-	}
-	if chainState.TokenAdminRegistry == nil {
-		return fmt.Errorf("token admin registry not found for chain %s, deploy the prerequisites first", chain.String())
-	}
-	tokenAdminReg := chainState.TokenAdminRegistry
-	if len(chainState.RegistryModules1_6) == 0 && len(chainState.RegistryModules1_5) == 0 {
-		return fmt.Errorf("registry module not found for chain %s, deploy the prerequisites first", chain.String())
-	}
-	if chainState.Router == nil {
-		return fmt.Errorf("router not found for chain %s, deploy the prerequisites first", chain.String())
-	}
-	RMNProxy := chainState.RMNProxy
-	if chainState.RMNProxy == nil {
-		e.Logger.Errorw("RMNProxy not found", "chain", chain.String())
-		return fmt.Errorf("rmn proxy not found for chain %s, deploy the prerequisites first", chain.String())
-	}
-	var rmnLegacyAddr common.Address
-	if chainState.MockRMN != nil {
-		rmnLegacyAddr = chainState.MockRMN.Address()
-	}
-	// If RMN is deployed, set rmnLegacyAddr to the RMN address
-	if chainState.RMN != nil {
-		rmnLegacyAddr = chainState.RMN.Address()
-	}
-	if rmnLegacyAddr == (common.Address{}) {
-		e.Logger.Warnf("No legacy RMN contract found for chain %s, will not setRMN in RMNRemote", chain.String())
-	}
-	rmnRemoteContract := chainState.RMNRemote
-	if chainState.RMNRemote == nil {
-		// TODO: Correctly configure RMN remote.
-		rmnRemote, err := cldf.DeployContract(e.Logger, chain, ab,
-			func(chain cldf.Chain) cldf.ContractDeploy[*rmn_remote.RMNRemote] {
-				rmnRemoteAddr, tx, rmnRemote, err2 := rmn_remote.DeployRMNRemote(
-					chain.DeployerKey,
-					chain.Client,
-					chain.Selector,
-					rmnLegacyAddr,
-				)
-				return cldf.ContractDeploy[*rmn_remote.RMNRemote]{
-					Address: rmnRemoteAddr, Contract: rmnRemote, Tx: tx, Tv: cldf.NewTypeAndVersion(shared.RMNRemote, deployment.Version1_6_0), Err: err2,
-				}
-			})
-		if err != nil {
-			e.Logger.Errorw("Failed to deploy RMNRemote", "chain", chain.String(), "err", err)
-			return err
-		}
-		rmnRemoteContract = rmnRemote.Contract
-	} else {
-		e.Logger.Infow("rmn remote already deployed", "chain", chain.String(), "addr", chainState.RMNRemote.Address)
 	}
 
 	activeDigest, err := rmnHome.GetActiveDigest(&bind.CallOpts{})
@@ -370,27 +213,6 @@ func deployChainContractsEVM(e cldf.Environment, chain cldf.Chain, ab cldf.Addre
 			return err
 		}
 		e.Logger.Infow("rmn remote config set", "chain", chain.String())
-	}
-
-	if chainState.TestRouter == nil {
-		_, err := cldf.DeployContract(e.Logger, chain, ab,
-			func(chain cldf.Chain) cldf.ContractDeploy[*router.Router] {
-				routerAddr, tx2, routerC, err2 := router.DeployRouter(
-					chain.DeployerKey,
-					chain.Client,
-					chainState.Weth9.Address(),
-					RMNProxy.Address(),
-				)
-				return cldf.ContractDeploy[*router.Router]{
-					Address: routerAddr, Contract: routerC, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.TestRouter, deployment.Version1_2_0), Err: err2,
-				}
-			})
-		if err != nil {
-			e.Logger.Errorw("Failed to deploy test router", "chain", chain.String(), "err", err)
-			return err
-		}
-	} else {
-		e.Logger.Infow("test router already deployed", "chain", chain.String(), "addr", chainState.TestRouter.Address)
 	}
 
 	nmContract := chainState.NonceManager
