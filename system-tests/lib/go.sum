@@ -121,8 +121,8 @@ github.com/apache/arrow-go/v18 v18.0.0 h1:1dBDaSbH3LtulTyOVYaBCHO3yVRwjV+TZaqn3g
 github.com/apache/arrow-go/v18 v18.0.0/go.mod h1:t6+cWRSmKgdQ6HsxisQjok+jBpKGhRDiqcf3p0p/F+A=
 github.com/apache/thrift v0.21.0 h1:tdPmh/ptjE1IJnhbhrcl2++TauVjy242rkV/UzJChnE=
 github.com/apache/thrift v0.21.0/go.mod h1:W1H8aR/QRtYNvrPeFXBtobyRkd0/YVhTc6i07XIAgDw=
-github.com/aptos-labs/aptos-go-sdk v1.6.3-0.20250331001805-0680b714db6d h1:VsrpaOlsWs+XaofivnfP9gU5aSBmRudoJEMZvXGvrok=
-github.com/aptos-labs/aptos-go-sdk v1.6.3-0.20250331001805-0680b714db6d/go.mod h1:BgddSKFtfWFLK+no8l+AwCcb/Lh1lv74ybYLzeonloo=
+github.com/aptos-labs/aptos-go-sdk v1.7.0 h1:4FSjePHenTWMf/285tS/Im3Xb+rXy01j4IHl6KdJGXw=
+github.com/aptos-labs/aptos-go-sdk v1.7.0/go.mod h1:vYm/yHr6cQpoUBMw/Q93SRR1IhP0mPTBrEGjShwUvXc=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e/go.mod h1:3U/XgcO3hCbHZ8TKRvWD2dDTCfh9M9ya+I9JpbB7O8o=
 github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da/go.mod h1:Q73ZrmVTwzkszR9V5SSuryQ31EELlFMUz1kKyl939pY=
 github.com/armon/go-radix v0.0.0-20180808171621-7fddfc383310/go.mod h1:ufUuZ+zHj4x4TnLV4JWEpy2hxWSpsRywHrMgIH9cCH8=
@@ -1222,8 +1222,8 @@ github.com/smartcontractkit/ccip-owner-contracts v0.1.0 h1:GiBDtlx7539o7AKlDV+9L
 github.com/smartcontractkit/ccip-owner-contracts v0.1.0/go.mod h1:NnT6w4Kj42OFFXhSx99LvJZWPpMjmo4+CpDEWfw61xY=
 github.com/smartcontractkit/chain-selectors v1.0.57 h1:KApvb/Kpn15YalY7khFQaHH3mb7teX7JF/gwvq3ti7M=
 github.com/smartcontractkit/chain-selectors v1.0.57/go.mod h1:xsKM0aN3YGcQKTPRPDDtPx2l4mlTN1Djmg0VVXV40b8=
-github.com/smartcontractkit/chainlink-aptos v0.0.0-20250502091650-484cfa7ccddf h1:zzG5D68tGbDBW3mQW6sa50ga0kGRQp9S7F4vqZO0ZrU=
-github.com/smartcontractkit/chainlink-aptos v0.0.0-20250502091650-484cfa7ccddf/go.mod h1:yj4d1XS6lBOXM1sDMP1ULCbRJgOuBYf2V7VtQ6Qgev8=
+github.com/smartcontractkit/chainlink-aptos v0.0.0-20250521104113-54f9407e4575 h1:XxacRSsKHYcr4UR/2HyPES3sZeESHyzOA0JqPFXXitk=
+github.com/smartcontractkit/chainlink-aptos v0.0.0-20250521104113-54f9407e4575/go.mod h1:ITBdddHYp2ocxNjTgBXDGqzWop2qGXenzFK6Oek+uqc=
 github.com/smartcontractkit/chainlink-automation v0.8.1 h1:sTc9LKpBvcKPc1JDYAmgBc2xpDKBco/Q4h4ydl6+UUU=
 github.com/smartcontractkit/chainlink-automation v0.8.1/go.mod h1:Iij36PvWZ6blrdC5A/nrQUBuf3MH3JvsBB9sSyc9W08=
 github.com/smartcontractkit/chainlink-ccip v0.0.0-20250515091132-6c08936b29ab h1:O8NTsAlJYAVRBOD69zlHnEmNvLkQQ3Nnzl0VAsgtFBs=
