@@ -23,6 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+	evmheads "github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper"
@@ -37,7 +39,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+)
+
+const (
+	// DBPollingInterval can't be too short to avoid DOSing the test database
+	DBPollingInterval = 100 * time.Millisecond
 )
 
 func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
@@ -54,22 +60,22 @@ func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	defer helper.stop()
 
 	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 0 }, testutils.WaitTimeout(t), 100*time.Millisecond)
-	g.Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(0)))
+	g.Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, DBPollingInterval).Should(gomega.Equal(int32(0)))
 
 	helper.lb.DependentReady()
 
 	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 0 }, testutils.WaitTimeout(t), 100*time.Millisecond)
-	g.Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(0)))
+	g.Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, DBPollingInterval).Should(gomega.Equal(int32(0)))
 
 	helper.lb.DependentReady()
 
 	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 1 }, testutils.WaitTimeout(t), 100*time.Millisecond)
-	g.Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
+	g.Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, DBPollingInterval).Should(gomega.Equal(int32(1)))
 
 	helper.unsubscribeAll()
 
 	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() == 1 }, testutils.WaitTimeout(t), 100*time.Millisecond)
-	g.Consistently(func() int32 { return helper.mockEth.UnsubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
+	g.Consistently(func() int32 { return helper.mockEth.UnsubscribeCallCount() }, 1*time.Second, DBPollingInterval).Should(gomega.Equal(int32(1)))
 }
 
 func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
@@ -90,7 +96,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 
 	chchRawLogs := make(chan testutils.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), nil)
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, head(lastStoredBlockHeight), nil)
 	helper.mockEth = mockEth
 
 	blockBackfillDepth := helper.config.BlockBackfillDepth()
@@ -117,8 +123,8 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	defer helper.stop()
 
 	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 1 }, testutils.WaitTimeout(t), time.Second)
-	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
-	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.UnsubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(0)))
+	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, DBPollingInterval).Should(gomega.Equal(int32(1)))
+	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.UnsubscribeCallCount() }, 1*time.Second, DBPollingInterval).Should(gomega.Equal(int32(0)))
 
 	require.Eventually(t, func() bool { return backfillCount.Load() == 1 }, testutils.WaitTimeout(t), 100*time.Millisecond)
 	helper.unsubscribeAll()
@@ -133,8 +139,8 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	helper.register(listenerLast, newMockContract(t), 1)
 
 	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() >= 1 }, testutils.WaitTimeout(t), time.Second)
-	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(2)))
-	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.UnsubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
+	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, DBPollingInterval).Should(gomega.Equal(int32(2)))
+	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.UnsubscribeCallCount() }, 1*time.Second, DBPollingInterval).Should(gomega.Equal(int32(1)))
 
 	require.Eventually(t, func() bool { return backfillCount.Load() == 2 }, testutils.WaitTimeout(t), time.Second)
 }
@@ -156,7 +162,7 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 
 	chchRawLogs := make(chan testutils.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), nil)
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, head(lastStoredBlockHeight), nil)
 	helper.mockEth = mockEth
 
 	maxNumConfirmations := int64(10)
@@ -203,7 +209,7 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 		blockHeight = 10
 	)
 
-	blocks := cltest.NewBlocks(t, blockHeight+3)
+	blocks := newBlocks(t, blockHeight+3)
 	contract, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 	sentLogs := []types.Log{
@@ -215,7 +221,7 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 		FilterLogs:       4,
 		FilterLogsResult: sentLogs,
 	})
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(blockHeight), nil)
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, head(blockHeight), nil)
 	helper.mockEth = mockEth
 
 	listener := helper.newLogListenerWithJob("listener")
@@ -232,20 +238,20 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 		// Replay from block 2, the logs should be delivered. An incoming head must be simulated to
 		// trigger log delivery.
 		helper.lb.ReplayFromBlock(2, false)
-		<-cltest.SimulateIncomingHeads(t, blocks.Slice(10, 11), helper.lb)
+		<-simulateIncomingHeads(t, blocks.Slice(10, 11), helper.lb)
 		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 2 }, testutils.WaitTimeout(t), time.Second,
 			"expected unique logs to be 2 but was %d", len(listener.getUniqueLogs()))
 
 		// Replay again, the logs are already marked consumed, so they should not be included in
 		// getUniqueLogs.
 		helper.lb.ReplayFromBlock(2, false)
-		<-cltest.SimulateIncomingHeads(t, blocks.Slice(11, 12), helper.lb)
+		<-simulateIncomingHeads(t, blocks.Slice(11, 12), helper.lb)
 		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 2 }, testutils.WaitTimeout(t), time.Second,
 			"expected unique logs to be 2 but was %d", len(listener.getUniqueLogs()))
 
 		// Replay again with forceBroadcast. The logs are consumed again.
 		helper.lb.ReplayFromBlock(2, true)
-		<-cltest.SimulateIncomingHeads(t, blocks.Slice(12, 13), helper.lb)
+		<-simulateIncomingHeads(t, blocks.Slice(12, 13), helper.lb)
 		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 4 }, testutils.WaitTimeout(t), time.Second,
 			"expected unique logs to be 4 but was %d", len(listener.getUniqueLogs()))
 	}()
@@ -257,7 +263,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	contract1 := newMockContract(t)
 	contract2 := newMockContract(t)
 
-	blocks := cltest.NewBlocks(t, 10)
+	blocks := newBlocks(t, 10)
 	const (
 		log1Block = 1
 		log2Block = 4
@@ -378,7 +384,7 @@ func (helper *broadcasterHelper) simulateHeads(t *testing.T, listener, listener2
 	helper.lb.DependentReady()
 	helper.lb.DependentReady()
 
-	headsDone := cltest.SimulateIncomingHeads(t, heads, helper.lb)
+	headsDone := simulateIncomingHeads(t, heads, helper.lb)
 
 	if do != nil {
 		do()
@@ -418,7 +424,7 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 
 	chchRawLogs := make(chan testutils.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), func(c *toml.EVMConfig) {
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, head(lastStoredBlockHeight), func(c *toml.EVMConfig) {
 		c.BlockBackfillSkip = ptr(true)
 		c.BlockBackfillDepth = ptr[uint32](15)
 	})
@@ -468,7 +474,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 
 	chchRawLogs := make(chan testutils.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), func(c *toml.EVMConfig) {
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, head(lastStoredBlockHeight), func(c *toml.EVMConfig) {
 		c.LogBackfillBatchSize = ptr(uint32(batchSize))
 	})
 	helper.mockEth = mockEth
@@ -524,7 +530,7 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 
-	blocks := cltest.NewBlocks(t, 7)
+	blocks := newBlocks(t, 7)
 	backfilledLogs := make([]types.Log, 0)
 	for i := 0; i < 50; i++ {
 		aLog := blocks.LogOnBlockNum(0, contract1.Address())
@@ -541,7 +547,7 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 
 	chchRawLogs := make(chan testutils.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), func(c *toml.EVMConfig) {
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, head(lastStoredBlockHeight), func(c *toml.EVMConfig) {
 		c.LogBackfillBatchSize = ptr(batchSize)
 	})
 	helper.mockEth = mockEth
@@ -573,7 +579,7 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	contract2, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 
-	blocks := cltest.NewBlocks(t, 10)
+	blocks := newBlocks(t, 10)
 	addr1SentLogs := []types.Log{
 		blocks.LogOnBlockNum(1, contract1.Address()),
 		blocks.LogOnBlockNum(2, contract1.Address()),
@@ -599,7 +605,7 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		helper.start()
 		defer helper.stop()
 
-		headsDone := cltest.SimulateIncomingHeads(t, blocks.Slice(0, 10), helper.lb)
+		headsDone := simulateIncomingHeads(t, blocks.Slice(0, 10), helper.lb)
 
 		defer helper.unsubscribeAll()
 
@@ -631,7 +637,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 
-	blocks := cltest.NewBlocks(t, 10)
+	blocks := newBlocks(t, 10)
 	addr1SentLogs := []types.Log{
 		blocks.LogOnBlockNum(1, contract1.Address()),
 		blocks.LogOnBlockNum(2, contract1.Address()),
@@ -644,7 +650,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 	helper.register(listener1, contract1, 1)
 	helper.register(listener2, contract1, 8)
 
-	_ = cltest.SimulateIncomingHeads(t, blocks.Slice(0, 10), helper.lb)
+	_ = simulateIncomingHeads(t, blocks.Slice(0, 10), helper.lb)
 
 	chRawLogs := <-helper.chchRawLogs
 
@@ -710,7 +716,7 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 
-	blocks := cltest.NewBlocks(t, 20)
+	blocks := newBlocks(t, 20)
 	addr1SentLogs := []types.Log{
 		blocks.LogOnBlockNum(1, contract1.Address()),
 		blocks.LogOnBlockNum(2, contract1.Address()),
@@ -725,7 +731,7 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 	helper.register(listener1, contract1, 1)
 	helper.register(listener2, contract1, 3)
 
-	headsDone := cltest.SimulateIncomingHeads(t, blocks.Slice(0, 6), helper.lb)
+	headsDone := simulateIncomingHeads(t, blocks.Slice(0, 6), helper.lb)
 
 	chRawLogs := <-helper.chchRawLogs
 
@@ -737,14 +743,14 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 	<-headsDone
 
 	helper.register(listener3, contract1, 1)
-	<-cltest.SimulateIncomingHeads(t, blocks.Slice(6, 9), helper.lb)
+	<-simulateIncomingHeads(t, blocks.Slice(6, 9), helper.lb)
 
 	// the new listener should still receive 2 of the 3 logs
 	helper.requireBroadcastCount(8)
 	require.Equal(t, 2, len(listener3.received.getUniqueLogs()))
 
 	helper.register(listener4, contract1, 1)
-	<-cltest.SimulateIncomingHeads(t, blocks.Slice(9, 12), helper.lb)
+	<-simulateIncomingHeads(t, blocks.Slice(9, 12), helper.lb)
 
 	// but this one should receive none
 	require.Equal(t, 0, len(listener4.received.getUniqueLogs()))
@@ -761,7 +767,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 
-	blocks := cltest.NewBlocks(t, 20)
+	blocks := newBlocks(t, 20)
 	addr1SentLogs := []types.Log{
 		blocks.LogOnBlockNum(1, contract1.Address()),
 		blocks.LogOnBlockNum(2, contract1.Address()),
@@ -776,7 +782,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 	helper.register(listener1, contract1, 1)
 	helper.register(listener2, contract1, 3)
 
-	headsDone := cltest.SimulateIncomingHeads(t, blocks.Slice(0, 6), helper.lb)
+	headsDone := simulateIncomingHeads(t, blocks.Slice(0, 6), helper.lb)
 
 	chRawLogs := <-helper.chchRawLogs
 
@@ -788,14 +794,14 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 	helper.requireBroadcastCount(6)
 
 	helper.register(listener3, contract1, 1)
-	<-cltest.SimulateIncomingHeads(t, blocks.Slice(7, 9), helper.lb)
+	<-simulateIncomingHeads(t, blocks.Slice(7, 9), helper.lb)
 
 	// the new listener should still receive 3 logs because of finality depth being higher than max NumConfirmations
 	helper.requireBroadcastCount(9)
 	require.Equal(t, 3, len(listener3.received.getUniqueLogs()))
 
 	helper.register(listener4, contract1, 1)
-	<-cltest.SimulateIncomingHeads(t, blocks.Slice(10, 12), helper.lb)
+	<-simulateIncomingHeads(t, blocks.Slice(10, 12), helper.lb)
 
 	// but this one should receive none
 	require.Equal(t, 0, len(listener4.received.getUniqueLogs()))
@@ -812,7 +818,7 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 
-	blocks := cltest.NewBlocks(t, 20)
+	blocks := newBlocks(t, 20)
 
 	topic := (flux_aggregator_wrapper.FluxAggregatorNewRound{}).Topic()
 	field1Value1 := utils.NewHash()
@@ -864,7 +870,7 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 		},
 	)
 
-	headsDone := cltest.SimulateIncomingHeads(t, blocks.Slice(0, 6), helper.lb)
+	headsDone := simulateIncomingHeads(t, blocks.Slice(0, 6), helper.lb)
 
 	chRawLogs := <-helper.chchRawLogs
 
@@ -891,7 +897,7 @@ func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 
-	blocks := cltest.NewBlocks(t, 12)
+	blocks := newBlocks(t, 12)
 	addr1SentLogs := []types.Log{
 		blocks.LogOnBlockNum(1, contract1.Address()),
 		blocks.LogOnBlockNum(2, contract1.Address()),
@@ -910,11 +916,11 @@ func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 	chRawLogs.TrySend(addr1SentLogs[1])
 	chRawLogs.TrySend(addr1SentLogs[2])
 
-	<-cltest.SimulateIncomingHeads(t, blocks.Slice(0, 4), helper.lb)
+	<-simulateIncomingHeads(t, blocks.Slice(0, 4), helper.lb)
 
 	chRawLogs.TrySend(addr1SentLogs[3])
 
-	<-cltest.SimulateIncomingHeads(t, blocks.Slice(4, 9), helper.lb)
+	<-simulateIncomingHeads(t, blocks.Slice(4, 9), helper.lb)
 
 	helper.requireBroadcastCount(4)
 	helper.stop()
@@ -928,7 +934,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithLogsEarlierThanHeads(t *testi
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 
-	blocks := cltest.NewBlocks(t, 10)
+	blocks := newBlocks(t, 10)
 	addr1SentLogs := []types.Log{
 		blocks.LogOnBlockNum(1, contract1.Address()),
 		blocks.LogOnBlockNum(2, contract1.Address()),
@@ -944,7 +950,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithLogsEarlierThanHeads(t *testi
 		chRawLogs.TrySend(log)
 	}
 
-	<-cltest.SimulateIncomingHeads(t, blocks.Slice(0, 10), helper.lb)
+	<-simulateIncomingHeads(t, blocks.Slice(0, 10), helper.lb)
 
 	helper.requireBroadcastCount(3)
 	helper.stop()
@@ -971,7 +977,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testi
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 
-	blocks := cltest.NewBlocks(t, 12)
+	blocks := newBlocks(t, 12)
 	addr1SentLogs := []types.Log{
 		blocks.LogOnBlockNum(1, contract1.Address()),
 		blocks.LogOnBlockNum(2, contract1.Address()),
@@ -983,13 +989,13 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testi
 
 	chRawLogs := <-helper.chchRawLogs
 
-	<-cltest.SimulateIncomingHeads(t, blocks.Slice(0, 7), helper.lb)
+	<-simulateIncomingHeads(t, blocks.Slice(0, 7), helper.lb)
 
 	for _, log := range addr1SentLogs {
 		chRawLogs.TrySend(log)
 	}
 
-	<-cltest.SimulateIncomingHeads(t, blocks.Slice(7, 9), helper.lb)
+	<-simulateIncomingHeads(t, blocks.Slice(7, 9), helper.lb)
 
 	helper.requireBroadcastCount(3)
 	helper.stop()
@@ -1148,7 +1154,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 	addrA := common.HexToAddress("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 	addrB := common.HexToAddress("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
 
-	blocks := cltest.NewBlocks(t, 20)
+	blocks := newBlocks(t, 20)
 
 	logsA := make(map[uint]types.Log)
 	logsB := make(map[uint]types.Log)
@@ -1246,8 +1252,8 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 
 			// Send initial logs
 			chRawLogs1 := <-helper.chchRawLogs
-			headsDone := cltest.SimulateIncomingHeads(t, blocks.Slice(test.blockHeight1, test.blockHeight2+2),
-				helper.lb, cltest.HeadTrackableFunc(func(_ context.Context, head *evmtypes.Head) {
+			headsDone := simulateIncomingHeads(t, blocks.Slice(test.blockHeight1, test.blockHeight2+2),
+				helper.lb, headTrackableFunc(func(_ context.Context, head *evmtypes.Head) {
 					n := uint(head.Number)
 					if l, ok := logsA[n]; ok && slices.Contains(test.batch1, n) {
 						chRawLogs1.TrySend(l)
@@ -1282,8 +1288,8 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 
 			// Send second batch of new logs
 			chRawLogs2 := <-helper.chchRawLogs
-			headsDone = cltest.SimulateIncomingHeads(t, blocks.Slice(test.blockHeight2, -1),
-				helper.lb, cltest.HeadTrackableFunc(func(_ context.Context, head *evmtypes.Head) {
+			headsDone = simulateIncomingHeads(t, blocks.Slice(test.blockHeight2, -1),
+				helper.lb, headTrackableFunc(func(_ context.Context, head *evmtypes.Head) {
 					n := uint(head.Number)
 					if l, ok := logsA[n]; ok && slices.Contains(test.batch2, n) {
 						chRawLogs2.TrySend(l)
@@ -1374,7 +1380,7 @@ func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 	helper.start()
 	defer helper.stop()
 
-	blocks := cltest.NewBlocks(t, 20)
+	blocks := newBlocks(t, 20)
 
 	logListener := helper.newLogListenerWithJob("logListener")
 
@@ -1385,7 +1391,7 @@ func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 
 	helper.register(logListener, contract, uint32(5))
 
-	headsDone := cltest.SimulateIncomingHeads(t, blocks.Slice(3, 20), helper.lb)
+	headsDone := simulateIncomingHeads(t, blocks.Slice(3, 20), helper.lb)
 
 	chRawLogs := <-helper.chchRawLogs
 
@@ -1405,7 +1411,7 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 	helper.start()
 	defer helper.stop()
 
-	blocks := cltest.NewBlocks(t, 10)
+	blocks := newBlocks(t, 10)
 	blocksForked := blocks.ForkAt(t, 1, 5)
 
 	var (
@@ -1503,7 +1509,7 @@ func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
 	}
 	helper.registerWithTopics(listener1, contract, topics1, 1)
 	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 1 }, testutils.WaitTimeout(t), 100*time.Millisecond)
-	g.Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
+	g.Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, DBPollingInterval).Should(gomega.Equal(int32(1)))
 
 	<-helper.chchRawLogs
 
@@ -1512,7 +1518,7 @@ func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
 	}
 	helper.registerWithTopics(listener2, contract, topics2, 1)
 	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 2 }, testutils.WaitTimeout(t), 100*time.Millisecond)
-	g.Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(2)))
+	g.Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, DBPollingInterval).Should(gomega.Equal(int32(2)))
 
 	helper.unsubscribeAll()
 }
@@ -1633,10 +1639,10 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 	// we assume the log broadcaster is done sending.
 	gm.Eventually(func() bool {
 		return len(listener1.getUniqueLogs()) == len(addr1SentLogs) && len(listener2.getUniqueLogs()) == len(addr1SentLogs)
-	}, 2*time.Second, cltest.DBPollingInterval).Should(gomega.BeTrue())
+	}, 2*time.Second, DBPollingInterval).Should(gomega.BeTrue())
 	gm.Consistently(func() bool {
 		return len(listener1.getUniqueLogs()) == len(addr1SentLogs) && len(listener2.getUniqueLogs()) == len(addr1SentLogs)
-	}, 1*time.Second, cltest.DBPollingInterval).Should(gomega.BeTrue())
+	}, 1*time.Second, DBPollingInterval).Should(gomega.BeTrue())
 }
 
 func ptr[T any](t T) *T { return &t }
@@ -1960,4 +1966,186 @@ func newMockEthClient(t *testing.T, chchRawLogs chan<- testutils.RawSub[types.Lo
 	}
 
 	return mockEth
+}
+
+// SimulateIncomingHeads spawns a goroutine which sends a stream of heads and closes the returned channel when finished.
+func simulateIncomingHeads(t *testing.T, heads []*evmtypes.Head, headTrackables ...evmheads.Trackable) (done chan struct{}) {
+	// Build the full chain of heads
+	ctx := testutils.Context(t)
+	done = make(chan struct{})
+	go func(t *testing.T) {
+		defer close(done)
+		ticker := time.NewTicker(250 * time.Millisecond)
+		defer ticker.Stop()
+
+		for _, h := range heads {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				t.Logf("Sending head: %d", h.Number)
+				for _, ht := range headTrackables {
+					ht.OnNewLongestChain(ctx, h)
+				}
+			}
+		}
+	}(t)
+	return done
+}
+
+// blocks - a helper logic to construct a range of linked heads
+// and an ability to fork and create logs from them
+type blocks struct {
+	t       *testing.T
+	Hashes  []common.Hash
+	mHashes map[int64]common.Hash
+	Heads   map[int64]*evmtypes.Head
+}
+
+func (b *blocks) LogOnBlockNum(i uint64, addr common.Address) types.Log {
+	return rawNewRoundLog(b.t, addr, b.Hashes[i], i, 0, false)
+}
+
+func (b *blocks) LogOnBlockNumRemoved(i uint64, addr common.Address) types.Log {
+	return rawNewRoundLog(b.t, addr, b.Hashes[i], i, 0, true)
+}
+
+func (b *blocks) LogOnBlockNumWithIndex(i uint64, logIndex uint, addr common.Address) types.Log {
+	return rawNewRoundLog(b.t, addr, b.Hashes[i], i, logIndex, false)
+}
+
+func (b *blocks) LogOnBlockNumWithIndexRemoved(i uint64, logIndex uint, addr common.Address) types.Log {
+	return rawNewRoundLog(b.t, addr, b.Hashes[i], i, logIndex, true)
+}
+
+func (b *blocks) LogOnBlockNumWithTopics(i uint64, logIndex uint, addr common.Address, topics []common.Hash) types.Log {
+	return rawNewRoundLogWithTopics(b.t, addr, b.Hashes[i], i, logIndex, false, topics)
+}
+
+func rawNewRoundLog(t *testing.T, contractAddr common.Address, blockHash common.Hash, blockNumber uint64, logIndex uint, removed bool) types.Log {
+	t.Helper()
+	topic := (flux_aggregator_wrapper.FluxAggregatorNewRound{}).Topic()
+	topics := []common.Hash{topic, utils.NewHash(), utils.NewHash()}
+	return rawNewRoundLogWithTopics(t, contractAddr, blockHash, blockNumber, logIndex, removed, topics)
+}
+
+func rawNewRoundLogWithTopics(t *testing.T, contractAddr common.Address, blockHash common.Hash, blockNumber uint64, logIndex uint, removed bool, topics []common.Hash) types.Log {
+	t.Helper()
+	return types.Log{
+		Address:     contractAddr,
+		BlockHash:   blockHash,
+		BlockNumber: blockNumber,
+		Index:       logIndex,
+		Topics:      topics,
+		Data:        []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+		Removed:     removed,
+	}
+}
+
+func (b *blocks) Head(number uint64) *evmtypes.Head {
+	return b.Heads[int64(number)]
+}
+
+func (b *blocks) ForkAt(t *testing.T, blockNum int64, numHashes int) *blocks {
+	forked := newBlocks(t, len(b.Heads)+numHashes)
+	if _, exists := forked.Heads[blockNum]; !exists {
+		t.Fatalf("Not enough length for block num: %v", blockNum)
+	}
+
+	for i := int64(0); i < blockNum; i++ {
+		forked.Heads[i] = b.Heads[i]
+	}
+
+	forked.Heads[blockNum].ParentHash = b.Heads[blockNum].ParentHash
+	forked.Heads[blockNum].Parent.Store(b.Heads[blockNum].Parent.Load())
+	return forked
+}
+
+func (b *blocks) NewHead(number uint64) *evmtypes.Head {
+	parentNumber := number - 1
+	parent, ok := b.Heads[int64(parentNumber)]
+	if !ok {
+		b.t.Fatalf("Can't find parent block at index: %v", parentNumber)
+	}
+	head := &evmtypes.Head{
+		Number:     parent.Number + 1,
+		Hash:       utils.NewHash(),
+		ParentHash: parent.Hash,
+		Timestamp:  time.Unix(parent.Number+1, 0),
+		EVMChainID: ubig.New(testutils.FixtureChainID),
+	}
+	head.Parent.Store(parent)
+	return head
+}
+
+// Slice returns a slice of heads from number i to j. Set j < 0 for all remaining.
+func (b *blocks) Slice(i, j int) []*evmtypes.Head {
+	b.t.Logf("Slicing heads from %v to %v...", i, j)
+
+	if j > 0 && j-i > len(b.Heads) {
+		b.t.Fatalf("invalid configuration: too few blocks %d for range length %d", len(b.Heads), j-i)
+	}
+	return b.slice(i, j)
+}
+
+func (b *blocks) slice(i, j int) (heads []*evmtypes.Head) {
+	if j > 0 {
+		heads = make([]*evmtypes.Head, 0, j-i)
+	}
+	for n := i; j < 0 || n < j; n++ {
+		h, ok := b.Heads[int64(n)]
+		if !ok {
+			if j < 0 {
+				break // done
+			}
+			b.t.Fatalf("invalid configuration: block %d not found", n)
+		}
+		heads = append(heads, h)
+	}
+	return
+}
+
+func newBlocks(t *testing.T, numHashes int) *blocks {
+	hashes := make([]common.Hash, 0)
+	heads := make(map[int64]*evmtypes.Head)
+	now := time.Now()
+	for i := int64(0); i < int64(numHashes); i++ {
+		hash := utils.NewHash()
+		hashes = append(hashes, hash)
+
+		heads[i] = &evmtypes.Head{
+			Hash:       hash,
+			Number:     i,
+			Timestamp:  now.Add(time.Duration(i) * time.Second),
+			EVMChainID: ubig.New(testutils.FixtureChainID),
+		}
+		if i > 0 {
+			parent := heads[i-1]
+			heads[i].Parent.Store(parent)
+			heads[i].ParentHash = parent.Hash
+		}
+	}
+
+	hashesMap := make(map[int64]common.Hash)
+	for i := 0; i < len(hashes); i++ {
+		hashesMap[int64(i)] = hashes[i]
+	}
+
+	return &blocks{
+		t:       t,
+		Hashes:  hashes,
+		mHashes: hashesMap,
+		Heads:   heads,
+	}
+}
+
+type headTrackableFunc func(context.Context, *evmtypes.Head)
+
+func (fn headTrackableFunc) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
+	fn(ctx, head)
+}
+
+func head(num int64) *evmtypes.Head {
+	h := evmtypes.NewHead(big.NewInt(num), utils.NewHash(), utils.NewHash(), ubig.New(testutils.FixtureChainID))
+	return &h
 }
