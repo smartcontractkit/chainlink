@@ -20,6 +20,7 @@ type TokenPoolView struct {
 }
 
 type TokenPoolState struct {
+	PDA                   string   `json:"pda,omitempty"`
 	PoolType              string   `json:"poolType,omitempty"`
 	TokenProgram          string   `json:"tokenProgram,omitempty"`
 	Mint                  string   `json:"mint,omitempty"`
@@ -39,6 +40,7 @@ type TokenPoolState struct {
 }
 
 type TokenPoolChainConfig struct {
+	PDA               string                        `json:"pda,omitempty"`
 	PoolAddresses     []string                      `json:"poolAddresses,omitempty"`
 	TokenAddress      string                        `json:"tokenAddress,omitempty"`
 	Decimals          uint8                         `json:"decimals,omitempty"`
@@ -68,6 +70,7 @@ func GenerateTokenPoolView(chain cldf.SolChain, program solana.PublicKey, remote
 			var remoteChainConfigAccount solTestTokenPool.ChainConfig
 			if err := chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount); err == nil {
 				view.TokenPoolChainConfig[remote][token.String()] = TokenPoolChainConfig{
+					PDA:           remoteChainConfigPDA.String(),
 					PoolAddresses: make([]string, len(remoteChainConfigAccount.Base.Remote.PoolAddresses)),
 					TokenAddress:  shared.GetAddressFromBytes(remote, remoteChainConfigAccount.Base.Remote.TokenAddress.Address),
 					Decimals:      remoteChainConfigAccount.Base.Remote.Decimals,
@@ -96,6 +99,7 @@ func GenerateTokenPoolView(chain cldf.SolChain, program solana.PublicKey, remote
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(token, program)
 		if err := chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &programData); err == nil {
 			view.TokenPoolState[token.String()] = TokenPoolState{
+				PDA:                   poolConfigPDA.String(),
 				PoolType:              programData.PoolType.String(),
 				TokenProgram:          programData.Config.TokenProgram.String(),
 				Mint:                  programData.Config.Mint.String(),
