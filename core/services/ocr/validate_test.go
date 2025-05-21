@@ -24,6 +24,7 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -458,6 +459,7 @@ func TestOnChainContractAvailability(t *testing.T) {
 	require.NoError(t, err, "could not decode contract binary")
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.OCR.ConfigLogValidation = testutils.Ptr(true)
 	})
 	legacyChain := cltest.NewLegacyChainsWithMockChain(t, client, cfg)
 	jobSpec := `

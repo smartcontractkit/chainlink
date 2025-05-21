@@ -1049,6 +1049,7 @@ SimulateTransactions = false # Default
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e' # Example
 CaptureEATelemetry = false # Default
 TraceLogging = false # Default
+ConfigLogValidation = false # Default
 ```
 This section applies only if you are running off-chain reporting jobs.
 
@@ -1126,6 +1127,12 @@ CaptureEATelemetry toggles collecting extra information from External Adaptares
 TraceLogging = false # Default
 ```
 TraceLogging enables trace level logging.
+
+### ConfigLogValidation
+```toml
+ConfigLogValidation = false # Default
+```
+ConfigLogValidation ensures contract configuration logs are accessible when validating OCR jobs. Enable this when using RPC providers that don't maintain complete historical logs.
 
 ## P2P
 ```toml

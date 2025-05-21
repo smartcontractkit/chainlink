@@ -1137,6 +1137,7 @@ type OCR struct {
 	TransmitterAddress   *types.EIP55Address
 	CaptureEATelemetry   *bool
 	TraceLogging         *bool
+	ConfigLogValidation  *bool
 }
 
 func (o *OCR) setFrom(f *OCR) {
@@ -1172,6 +1173,9 @@ func (o *OCR) setFrom(f *OCR) {
 	}
 	if v := f.TraceLogging; v != nil {
 		o.TraceLogging = v
+	}
+	if v := f.ConfigLogValidation; v != nil {
+		o.ConfigLogValidation = v
 	}
 }
 

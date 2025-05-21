@@ -55,11 +55,12 @@ func ValidatedOracleSpecToml(gcfg GeneralConfig, legacyChains legacyevm.LegacyCh
 		if err != nil {
 			return nil, err
 		}
-		_, err = validateContractConfig(legacyChains, id, contractAddress)
-		if err != nil {
-			return nil, err
+		if gcfg.OCR().ConfigLogValidation() {
+			_, err = validateContractConfig(legacyChains, id, contractAddress)
+			if err != nil {
+				return nil, err
+			}
 		}
-
 		return c.Config(), nil
 	}, tomlString)
 }
