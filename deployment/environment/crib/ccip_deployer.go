@@ -689,26 +689,6 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 				cs = testhelpers.AddEVMDestChangesets(&deployedEnv, evmSelector, solSelector, false)
 				laneChangesets = append(laneChangesets, cs...)
 
-				// Adding prices for the LINK and WSOL tokens on SOL
-				laneChangesets = append(laneChangesets,
-					commonchangeset.Configure(
-						cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenTransferFeeForRemoteChain),
-						ccipChangesetSolana.TokenTransferFeeForRemoteChainConfig{
-							ChainSelector:       solSelector,
-							RemoteChainSelector: evmSelector,
-							TokenPubKey:         solChainState.LinkToken.String(),
-							Config: solFeeQuoter.TokenTransferFeeConfig{
-								MinFeeUsdcents:    800,
-								MaxFeeUsdcents:    1600,
-								DeciBps:           0,
-								DestGasOverhead:   90000,
-								DestBytesOverhead: 100,
-								IsEnabled:         true,
-							},
-						},
-					),
-				)
-
 				bnm := test_token_pool.BurnAndMint_PoolType
 				laneChangesets = append(laneChangesets,
 					commonchangeset.Configure(
