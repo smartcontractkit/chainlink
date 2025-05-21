@@ -61,9 +61,9 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 			false, // testRouter
 		)
 	)
+	ccipChainState := state.AptosChains[destChain]
 
 	t.Run("Sould Succeed Message From Evm to Aptos", func(t *testing.T) {
-		ccipChainState := state.AptosChains[destChain]
 		message := []byte("Hello Aptos, from EVM!")
 		out = messagingtest.Run(t,
 			messagingtest.TestCase{
@@ -116,7 +116,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 	tcs := []mlt.TestCase{
 		{
 			TestSetup: testSetup,
-			Name:      "send message with data length equal to maximum data bytes allowed",
+			Name:      "send message to an EOA",
 			Msg: router.ClientEVM2AnyMessage{
 				Receiver:  common.LeftPadBytes(receiver[:], 32),
 				Data:      []byte(strings.Repeat("0", int(testSetup.SrcFeeQuoterDestChainConfig.MaxDataBytes))),
@@ -126,9 +126,19 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 		},
 		{
 			TestSetup: testSetup,
+			Name:      "send message with data length equal to maximum data bytes allowed",
+			Msg: router.ClientEVM2AnyMessage{
+				Receiver:  ccipChainState.ReceiverAddress[:],
+				Data:      []byte(strings.Repeat("0", int(testSetup.SrcFeeQuoterDestChainConfig.MaxDataBytes))),
+				FeeToken:  common.HexToAddress("0x0"),
+				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(100000, true),
+			},
+		},
+		{
+			TestSetup: testSetup,
 			Name:      "send message with gas limit equal to maximum gas limit allowed",
 			Msg: router.ClientEVM2AnyMessage{
-				Receiver:  common.LeftPadBytes(receiver[:], 32),
+				Receiver:  ccipChainState.ReceiverAddress[:],
 				Data:      []byte(strings.Repeat("0", int(testSetup.SrcFeeQuoterDestChainConfig.MaxDataBytes))),
 				FeeToken:  common.HexToAddress("0x0"),
 				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(testSetup.SrcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
@@ -138,7 +148,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 			TestSetup: testSetup,
 			Name:      "send message with data length exceeding maximum data bytes allowed",
 			Msg: router.ClientEVM2AnyMessage{
-				Receiver:  common.LeftPadBytes(receiver[:], 32),
+				Receiver:  ccipChainState.ReceiverAddress[:],
 				Data:      []byte(strings.Repeat("0", int(testSetup.SrcFeeQuoterDestChainConfig.MaxDataBytes)+1)),
 				FeeToken:  common.HexToAddress("0x0"),
 				ExtraArgs: nil,
@@ -149,7 +159,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 			TestSetup: testSetup,
 			Name:      "send message with gas limit exceeding maximum gas limit allowed",
 			Msg: router.ClientEVM2AnyMessage{
-				Receiver:  common.LeftPadBytes(receiver[:], 32),
+				Receiver:  ccipChainState.ReceiverAddress[:],
 				Data:      []byte("abc"),
 				FeeToken:  common.HexToAddress("0x0"),
 				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(testSetup.SrcFeeQuoterDestChainConfig.MaxPerMsgGasLimit)+1, true),
@@ -160,7 +170,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 			TestSetup: testSetup,
 			Name:      "send message without extra args should fail with invalid args",
 			Msg: router.ClientEVM2AnyMessage{
-				Receiver: common.LeftPadBytes(receiver[:], 32),
+				Receiver: ccipChainState.ReceiverAddress[:],
 				Data:     []byte("abc"),
 				FeeToken: common.HexToAddress("0x0"),
 			},
