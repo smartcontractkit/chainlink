@@ -194,6 +194,8 @@ type TokenTransferFeeForRemoteChainConfig struct {
 	MCMS                *proposalutils.TimelockConfig
 }
 
+const MinDestBytesOverhead = 32
+
 func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e cldf.Environment) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
@@ -204,6 +206,15 @@ func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e cldf.Environment) err
 	chain := e.SolChains[cfg.ChainSelector]
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
 		return fmt.Errorf("fee quoter validation failed: %w", err)
+	}
+	if cfg.Config.DestBytesOverhead < 32 {
+		e.Logger.Infow("dest bytes overhead is less than minimum. Setting to minimum value",
+			"destBytesOverhead", cfg.Config.DestBytesOverhead,
+			"minDestBytesOverhead", MinDestBytesOverhead)
+		cfg.Config.DestBytesOverhead = MinDestBytesOverhead
+	}
+	if cfg.Config.MinFeeUsdcents > cfg.Config.MaxFeeUsdcents {
+		return fmt.Errorf("min fee %d cannot be greater than max fee %d", cfg.Config.MinFeeUsdcents, cfg.Config.MaxFeeUsdcents)
 	}
 
 	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.FeeQuoter: true})

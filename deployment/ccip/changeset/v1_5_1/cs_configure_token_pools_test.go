@@ -796,6 +796,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 					ChainSelector: selector,
 					TokenPubKey:   tokenAddress,
 					PoolType:      &bnm,
+					Metadata:      shared.CLLMetadata,
 				},
 			),
 		})
@@ -908,6 +909,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 						ChainSelector: selector,
 						TokenPubKey:   tokenAddress,
 						PoolType:      &bnm,
+						Metadata:      shared.CLLMetadata,
 					},
 				),
 			})
@@ -965,6 +967,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 						ChainSelector: selector,
 						TokenPubKey:   tokenAddress,
 						PoolType:      &lr,
+						Metadata:      shared.CLLMetadata,
 					},
 				),
 			})

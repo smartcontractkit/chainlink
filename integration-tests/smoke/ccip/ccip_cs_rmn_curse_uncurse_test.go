@@ -500,7 +500,7 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state s
 	// This is required because RMN Contracts is initially owned by the deployer
 	_, err := commonchangeset.Apply(t, e.Env, timelocksPerChain,
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MCMSConfig: proposalutils.TimelockConfig{

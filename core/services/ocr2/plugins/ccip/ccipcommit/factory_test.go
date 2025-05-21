@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ccip2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
@@ -27,7 +26,7 @@ import (
 // first call to each of these functions to fail, then all subsequent calls succeed. We assert that NewReportingPlugin
 // retries a sufficient number of times to get through the transient errors and eventually succeed.
 func TestNewReportingPluginRetriesUntilSuccess(t *testing.T) {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	commitConfig := CommitPluginStaticConfig{}
 	commitConfig.lggr = logger.TestLogger(t)
 	commitConfig.metricsCollector = ccip2.NoopMetricsCollector

@@ -92,6 +92,7 @@ func proposeWFJobsToJDLogic(env cldf.Environment, c types.ProposeWFJobsConfig) (
 		workflowSpecConfig.WriteTargetTrigger,
 		targetSchedule,
 		workflowSpecConfig.CREStepTimeout,
+		workflowSpecConfig.TargetProcessor,
 		cacheAddress,
 	)
 	if err != nil {

@@ -1,4 +1,4 @@
-package changeset
+package jobs
 
 import (
 	"context"
@@ -65,7 +65,7 @@ func (CsDistributeLLOJobSpecs) Apply(e cldf.Environment, cfg CsDistributeLLOJobS
 	// Add a label to the job spec to identify the related DON
 	cfg.Labels = append(cfg.Labels,
 		&ptypes.Label{
-			Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
+			Key: utils.DonIDLabel(cfg.Filter.DONID, cfg.Filter.DONName),
 		},
 		&ptypes.Label{
 			Key:   devenv.LabelJobTypeKey,
@@ -93,7 +93,7 @@ func (CsDistributeLLOJobSpecs) Apply(e cldf.Environment, cfg CsDistributeLLOJobS
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose all jobs: %w", err)
 	}
 
-	err = labelNodesForProposals(e.GetContext(), e.Offchain, allProposals, utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName))
+	err = labelNodesForProposals(e.GetContext(), e.Offchain, allProposals, utils.DonIDLabel(cfg.Filter.DONID, cfg.Filter.DONName))
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to label nodes for proposals: %w", err)
 	}
@@ -136,7 +136,7 @@ func generateBootstrapProposals(
 				Op:    ptypes.SelectorOp_EQ,
 			},
 			{
-				Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
+				Key: utils.DonIDLabel(cfg.Filter.DONID, cfg.Filter.DONName),
 				Op:  ptypes.SelectorOp_EXIST,
 			},
 		})
@@ -243,7 +243,7 @@ func generateOracleProposals(
 				Op:    ptypes.SelectorOp_EQ,
 			},
 			{
-				Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
+				Key: utils.DonIDLabel(cfg.Filter.DONID, cfg.Filter.DONName),
 				Op:  ptypes.SelectorOp_EXIST,
 			},
 		})
@@ -309,10 +309,10 @@ func getBootstrapMultiAddr(ctx context.Context, e cldf.Environment, cfg CsDistri
 		respBoots, err := e.Offchain.ListNodes(ctx, &node.ListNodesRequest{
 			Filter: &node.ListNodesRequest_Filter{
 				Selectors: []*ptypes.Selector{
-					// We can afford to filter by DonIdentifier here because if the caller didn't provide any bootstrap node IDs,
-					// then they are updating an existing job spec and the bootstrap nodes are already labeled with the DON ID.
+					// We can afford to filter by DonIDLabel here because if the caller didn't provide any bootstrap node IDs,
+					// then they are updating an existing job spec and the bootstrap nodes are already labelled with the DON ID.
 					{
-						Key: utils.DonIdentifier(cfg.Filter.DONID, cfg.Filter.DONName),
+						Key: utils.DonIDLabel(cfg.Filter.DONID, cfg.Filter.DONName),
 						Op:  ptypes.SelectorOp_EXIST,
 					},
 					{

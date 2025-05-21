@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/common"
+	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -82,19 +83,22 @@ func ConfigureOCR3Contract(env cldf.Environment, cfg ConfigureOCR3Config) (cldf.
 		if resp.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
-		r, err := getContractSetsV2(env.Logger, getContractSetsRequestV2{
-			Chains:      env.Chains,
-			AddressBook: env.ExistingAddresses,
-		})
-		if err != nil {
-			return out, fmt.Errorf("failed to get contract sets: %w", err)
+
+		chain, ok := env.Chains[cfg.ChainSel]
+		if !ok {
+			return out, fmt.Errorf("chain %d not found in environment", cfg.ChainSel)
 		}
-		contracts := r.ContractSets[cfg.ChainSel]
+
+		contract, err := GetOwnedContractV2[*ocr3_capability.OCR3Capability](env.DataStore.Addresses(), chain, cfg.Address.Hex())
+		if err != nil {
+			return out, fmt.Errorf("failed to get OCR3 contract: %w", err)
+		}
+
 		timelocksPerChain := map[uint64]string{
-			cfg.ChainSel: contracts.OCR3[*cfg.Address].McmsContracts.Timelock.Address().Hex(),
+			cfg.ChainSel: contract.McmsContracts.Timelock.Address().Hex(),
 		}
 		proposerMCMSes := map[uint64]string{
-			cfg.ChainSel: contracts.OCR3[*cfg.Address].McmsContracts.ProposerMcm.Address().Hex(),
+			cfg.ChainSel: contract.McmsContracts.ProposerMcm.Address().Hex(),
 		}
 
 		inspector, err := proposalutils.McmsInspectorForChain(env, cfg.ChainSel)

@@ -9,7 +9,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/exp/maps"
 
@@ -24,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
@@ -89,6 +89,10 @@ func validateExecOffchainConfig(e cldf.Environment, c *pluginconfig.ExecuteOffch
 		case pluginconfig.USDCCCTPHandlerType:
 			if err := validateUSDCConfig(observerConfig.USDCCCTPObserverConfig, state); err != nil {
 				return fmt.Errorf("invalid USDC config: %w", err)
+			}
+		case pluginconfig.LBTCHandlerType:
+			if err := validateLBTCConfig(e, observerConfig.LBTCObserverConfig, state); err != nil {
+				return fmt.Errorf("invalid LBTC config: %w", err)
 			}
 		default:
 			return fmt.Errorf("unknown token observer config type: %s", observerConfig.Type)
@@ -175,6 +179,39 @@ func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state s
 			return fmt.Errorf("chain %d has USDC token pool deployed at %s, "+
 				"but SourcePoolAddress %s is provided in USDCCCTPObserverConfig",
 				sel, onchainState.USDCTokenPools[deployment.Version1_5_1].Address().String(), token.SourcePoolAddress)
+		}
+	}
+	return nil
+}
+
+func validateLBTCConfig(e cldf.Environment, lbtcConfig *pluginconfig.LBTCObserverConfig, state stateview.CCIPOnChainState) error {
+	for sel, sourcePool := range lbtcConfig.SourcePoolAddressByChain {
+		chainState, ok := state.Chains[uint64(sel)]
+		if !ok {
+			return fmt.Errorf("chain %d does not exist in state but provided in LBTCObserverConfig", sel)
+		}
+		sourcePoolAddr := common.HexToAddress(sourcePool)
+		sourcePool, err := token_pool.NewTokenPool(sourcePoolAddr, e.Chains[uint64(sel)].Client)
+		if err != nil {
+			return fmt.Errorf("chain %d has an error while requesting LBTC source token pool %s: %w", sel, sourcePoolAddr, err)
+		}
+		lbtcToken, err := sourcePool.GetToken(nil)
+		if err != nil {
+			return fmt.Errorf("chain %d has an error while requesting LBTC token address: %w", sel, err)
+		}
+		tokenRegistry := chainState.TokenAdminRegistry
+		lbtcPool, err := tokenRegistry.GetPool(nil, lbtcToken)
+		if err != nil {
+			return fmt.Errorf("chain %d has an error while requesting LBTC token pool (token=%s) from "+
+				"TokenAdminRegistry (address=%s): %w", sel, lbtcToken, tokenRegistry.Address(), err)
+		}
+		if lbtcPool == (common.Address{}) {
+			return fmt.Errorf("chain %d missing LBTC pool in TokenAdminRegistry (address=%s)", sel,
+				tokenRegistry.Address())
+		}
+		if lbtcPool != sourcePoolAddr {
+			return fmt.Errorf("chain %d has invalid LBTC pool registered in TokenAdminRegistry (address=%s). "+
+				"Found: %s, but in LBTC config was: %s", sel, tokenRegistry.Address(), lbtcPool, sourcePoolAddr)
 		}
 	}
 	return nil
@@ -1478,7 +1515,6 @@ func deployDonIDClaimerChangesetLogic(e cldf.Environment, _ DeployDonIDClaimerCo
 		}, fmt.Errorf("failed to deploy donIDClaimer contract: %w", err)
 	}
 	return cldf.ChangesetOutput{
-		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: ab,
 	}, nil
 }

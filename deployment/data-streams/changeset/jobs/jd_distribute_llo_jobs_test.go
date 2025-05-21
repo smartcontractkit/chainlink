@@ -1,4 +1,4 @@
-package changeset
+package jobs
 
 import (
 	"strings"
@@ -22,7 +22,7 @@ import (
 
 func TestDistributeLLOJobSpecs(t *testing.T) {
 	t.Parallel()
-	t.Skip("Skipping testing in CI environment") // flaking on CI
+	// force CI rerun
 
 	env := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
 		ShouldDeployMCMS:      false,
@@ -69,7 +69,7 @@ donID = 1
 servers = {'mercury-pipeline-testnet-producer.TEST.cldev.cloud:1340' = '0000005187b1498c0ccb2e56d5ee8040a03a4955822ed208749b474058fc3f9c'}
 `
 
-	bootstrapSpec := `name = 'bootstrap'
+	bootstrapSpec := `name = 'don | 1'
 type = 'bootstrap'
 schemaVersion = 1
 contractID = '0x4170ed0880ac9a755fd29b2688956bd959f923f4'

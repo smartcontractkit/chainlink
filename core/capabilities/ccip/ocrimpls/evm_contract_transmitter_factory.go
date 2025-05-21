@@ -50,7 +50,7 @@ var EVMExecCallDataFunc = func(
 	report ocr3types.ReportWithInfo[[]byte],
 	_, _ [][32]byte,
 	_ [32]byte,
-	_ *ccipcommon.ExtraDataCodec,
+	_ ccipcommon.ExtraDataCodec,
 ) (contract string, method string, args any, err error) {
 	return consts.ContractNameOffRamp,
 		consts.MethodExecute,
@@ -67,7 +67,7 @@ func NewEVMCommitCalldataFunc(commitMethod string) ToCalldataFunc {
 		report ocr3types.ReportWithInfo[[]byte],
 		rs, ss [][32]byte,
 		vs [32]byte,
-		_ *ccipcommon.ExtraDataCodec,
+		_ ccipcommon.ExtraDataCodec,
 	) (string, string, any, error) {
 		return consts.ContractNameOffRamp,
 			commitMethod,

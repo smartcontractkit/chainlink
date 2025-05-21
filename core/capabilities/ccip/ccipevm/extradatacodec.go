@@ -14,11 +14,11 @@ const (
 	evmDestExecDataKey    = "destGasAmount"
 )
 
-// ExtraDataCodec is a concrete implementation of SourceChainExtraDataCodec
-type ExtraDataCodec struct{}
+// ExtraDataDecoder is a concrete implementation of SourceChainExtraDataCodec
+type ExtraDataDecoder struct{}
 
 // DecodeDestExecDataToMap reformats bytes into a chain agnostic map[string]interface{} representation for dest exec data
-func (d ExtraDataCodec) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]interface{}, error) {
+func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]interface{}, error) {
 	destGasAmount, err := abiDecodeUint32(destExecData)
 	if err != nil {
 		return nil, fmt.Errorf("decode dest gas amount: %w", err)
@@ -30,7 +30,7 @@ func (d ExtraDataCodec) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (m
 }
 
 // DecodeExtraArgsToMap reformats bytes into a chain agnostic map[string]any representation for extra args
-func (d ExtraDataCodec) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[string]any, error) {
+func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[string]any, error) {
 	if len(extraArgs) < 4 {
 		return nil, fmt.Errorf("extra args too short: %d, should be at least 4 (i.e the extraArgs tag)", len(extraArgs))
 	}
@@ -85,5 +85,5 @@ func (d ExtraDataCodec) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[str
 	return output, nil
 }
 
-// Ensure ExtraDataCodec implements the SourceChainExtraDataCodec interface
-var _ ccipcommon.SourceChainExtraDataCodec = &ExtraDataCodec{}
+// Ensure ExtraDataDecoder implements the SourceChainExtraDataCodec interface
+var _ ccipcommon.SourceChainExtraDataCodec = &ExtraDataDecoder{}

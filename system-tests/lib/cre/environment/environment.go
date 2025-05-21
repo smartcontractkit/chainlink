@@ -726,6 +726,8 @@ func CreateJobDistributor(input *jd.Input) (*jd.Output, error) {
 		input.Image = fmt.Sprintf("%s:%s", jdImage, jdVersion)
 	}
 
+	fmt.Println("JD image", input.Image)
+
 	jdOutput, err := jd.NewJD(input)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to create new job distributor")

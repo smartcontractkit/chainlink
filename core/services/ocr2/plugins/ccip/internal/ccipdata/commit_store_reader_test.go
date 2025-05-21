@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
@@ -374,7 +373,7 @@ func TestNewCommitStoreReader(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(tc.typeAndVersion, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			b, err := utils.ABIEncode(`[{"type":"string"}]`, tc.typeAndVersion)
 			require.NoError(t, err)
 			c := clienttest.NewClient(t)
