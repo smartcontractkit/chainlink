@@ -8,7 +8,6 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
-	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 
@@ -720,41 +719,6 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 		if err != nil {
 			return *e, fmt.Errorf("failed to apply sol evm lane changesets: %w", err)
 		}
-
-		_, err = commonchangeset.Apply(nil, *e, nil,
-			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
-				ccipChangesetSolana.BillingTokenConfig{
-					ChainSelector: solSelector,
-					TokenPubKey:   solChainState.LinkToken.String(),
-					Config: solFeeQuoter.BillingTokenConfig{
-						Enabled: true,
-						Mint:    solChainState.LinkToken,
-						UsdPerToken: solFeeQuoter.TimestampedPackedU224{
-							Value:     [28]uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 47, 249, 29, 137, 48, 78, 71, 37, 75, 184, 0, 0},
-							Timestamp: time.Now().Unix(),
-						},
-						PremiumMultiplierWeiPerEth: 9e17,
-					},
-				},
-			),
-			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
-				ccipChangesetSolana.BillingTokenConfig{
-					ChainSelector: solSelector,
-					TokenPubKey:   solChainState.WSOL.String(),
-					Config: solFeeQuoter.BillingTokenConfig{
-						Enabled: true,
-						Mint:    solana.SolMint,
-						UsdPerToken: solFeeQuoter.TimestampedPackedU224{
-							Value:     [28]uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 223, 177, 176, 240, 163, 138, 116, 244, 164, 248, 0, 0},
-							Timestamp: time.Now().Unix(),
-						},
-						PremiumMultiplierWeiPerEth: 1e18,
-					},
-				},
-			),
-		)
 	}
 	return *e, nil
 }
