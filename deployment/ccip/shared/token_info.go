@@ -16,6 +16,28 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/aggregator_v3_interface"
 )
 
+type TokenRegistry interface {
+	GetSymbol(desc string) (TokenSymbol, bool)
+}
+
+// Default implementation
+type defaultRegistry struct{}
+
+var registry TokenRegistry = defaultRegistry{}
+
+func SetRegistry(r TokenRegistry) {
+	registry = r
+}
+
+func GetSymbolFromDescription(desc string) (TokenSymbol, bool) {
+	return registry.GetSymbol(desc)
+}
+
+func (defaultRegistry) GetSymbol(desc string) (TokenSymbol, bool) {
+	symbol, ok := DescriptionToTokenSymbol[desc]
+	return symbol, ok
+}
+
 type TokenSymbol string
 
 func (ts TokenSymbol) String() string {
