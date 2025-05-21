@@ -7,8 +7,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/cmd/examples/contracts/permissionless_feeds_consumer"
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/contracts/permissionless_feeds_consumer"
 )
 
 func ProofOfReserve(rpcUrl, consumerContractAddress, feedID string, untilSuccessful bool, waitTime time.Duration) error {

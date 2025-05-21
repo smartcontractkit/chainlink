@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/cmd/examples/pkg/deploy"
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/deploy"
 )
 
 var rpcUrl string

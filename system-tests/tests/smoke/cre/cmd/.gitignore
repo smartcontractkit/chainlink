@@ -2,7 +2,4 @@
 compose/
 blockscout/
 
-examples/contracts/abi
-examples/contracts/bin
-
 *.yaml

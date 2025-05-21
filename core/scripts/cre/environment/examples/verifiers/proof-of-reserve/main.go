@@ -4,8 +4,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/cmd/examples/pkg/verify"
 	"github.com/spf13/cobra"
+
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/verify"
 )
 
 func main() {

@@ -25,6 +25,8 @@ import (
 
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/deploy"
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/verify"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	computecap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/compute"
@@ -48,8 +50,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
-	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/cmd/examples/pkg/deploy"
-	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/cmd/examples/pkg/verify"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
@@ -706,7 +706,7 @@ func isCRECLIIsAvailable() bool {
 
 func tryToDownloadCRECLI() error {
 	start := time.Now()
-	fmt.Print(libformat.PurpleText("\n[Stage 2a/3] Downloading CRE CLI\n\n"))
+	fmt.Print(libformat.PurpleText("\n[Stage 2a/3] Downloading CRE CLI\n"))
 	commandArgs := []string{"release", "download", "v0.2.0", "--repo", "smartcontractkit/dev-platform", "--pattern", "*darwin_arm64*", "--skip-existing"}
 
 	ghCmd := exec.Command("gh", commandArgs...) // #nosec G204
@@ -739,7 +739,7 @@ func tryToDownloadCRECLI() error {
 		fmt.Fprintf(os.Stderr, "failed to remove %s. Please remove it manually.\n", archiveName)
 	}
 
-	fmt.Print(libformat.PurpleText("\n[Stage 2a/3] CRE CLI downloaded in %.2f seconds\n\n", time.Since(start).Seconds()))
+	fmt.Print(libformat.PurpleText("[Stage 2a/3] CRE CLI downloaded in %.2f seconds\n\n", time.Since(start).Seconds()))
 
 	return nil
 }

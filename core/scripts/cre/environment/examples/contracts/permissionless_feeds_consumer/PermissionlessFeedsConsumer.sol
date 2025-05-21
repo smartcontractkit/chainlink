@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.24 ^0.8.0;
 
-// system-tests/tests/smoke/cre/cmd/examples/contracts/dependencies/interfaces/IOwnable.sol
+// core/scripts/cre/environment/examples/contracts/dependencies/interfaces/IOwnable.sol
 
 interface IOwnable {
   function owner() external returns (address);
@@ -11,7 +11,7 @@ interface IOwnable {
   function acceptOwnership() external;
 }
 
-// system-tests/tests/smoke/cre/cmd/examples/contracts/dependencies/vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/IERC165.sol
+// core/scripts/cre/environment/examples/contracts/dependencies/vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/IERC165.sol
 
 // OpenZeppelin Contracts v4.4.1 (utils/introspection/IERC165.sol)
 
@@ -36,7 +36,7 @@ interface IERC165 {
     function supportsInterface(bytes4 interfaceId) external view returns (bool);
 }
 
-// system-tests/tests/smoke/cre/cmd/examples/contracts/dependencies/access/ConfirmedOwnerWithProposal.sol
+// core/scripts/cre/environment/examples/contracts/dependencies/access/ConfirmedOwnerWithProposal.sol
 
 /// @title The ConfirmedOwner contract
 /// @notice A contract with helpers for basic contract ownership.
@@ -102,7 +102,7 @@ contract ConfirmedOwnerWithProposal is IOwnable {
   }
 }
 
-// system-tests/tests/smoke/cre/cmd/examples/contracts/dependencies/interfaces/IReceiver.sol
+// core/scripts/cre/environment/examples/contracts/dependencies/interfaces/IReceiver.sol
 
 /// @title IReceiver - receives keystone reports
 /// @notice Implementations must support the IReceiver interface through ERC165.
@@ -115,11 +115,11 @@ interface IReceiver is IERC165 {
   function onReport(bytes calldata metadata, bytes calldata report) external;
 }
 
-// system-tests/tests/smoke/cre/cmd/examples/contracts/dependencies/vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol
+// core/scripts/cre/environment/examples/contracts/dependencies/vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol
 
 // OpenZeppelin Contracts v4.4.1 (interfaces/IERC165.sol)
 
-// system-tests/tests/smoke/cre/cmd/examples/contracts/dependencies/access/ConfirmedOwner.sol
+// core/scripts/cre/environment/examples/contracts/dependencies/access/ConfirmedOwner.sol
 
 /// @title The ConfirmedOwner contract
 /// @notice A contract with helpers for basic contract ownership.
@@ -127,7 +127,7 @@ contract ConfirmedOwner is ConfirmedOwnerWithProposal {
   constructor(address newOwner) ConfirmedOwnerWithProposal(newOwner, address(0)) {}
 }
 
-// system-tests/tests/smoke/cre/cmd/examples/contracts/dependencies/access/OwnerIsCreator.sol
+// core/scripts/cre/environment/examples/contracts/dependencies/access/OwnerIsCreator.sol
 
 /// @title The OwnerIsCreator contract
 /// @notice A contract with helpers for basic contract ownership.
@@ -135,7 +135,7 @@ contract OwnerIsCreator is ConfirmedOwner {
   constructor() ConfirmedOwner(msg.sender) {}
 }
 
-// system-tests/tests/smoke/cre/cmd/examples/contracts/permissionless_feeds_consumer/PermissionlessFeedsConsumer.sol
+// core/scripts/cre/environment/examples/contracts/permissionless_feeds_consumer/PermissionlessFeedsConsumer.sol
 
 contract PermissionlessFeedsConsumer is IReceiver, OwnerIsCreator {
   event FeedReceived(bytes32 indexed feedId, uint224 price, uint32 timestamp);
