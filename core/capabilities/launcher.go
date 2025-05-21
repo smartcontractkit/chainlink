@@ -118,7 +118,7 @@ func NewLauncher(
 	}
 }
 
-// CRE-326: Maintain only necessary Don2Don connections:
+// Maintain only necessary Don2Don connections:
 //   - Workflow DONs connect only to other DONs that have at least one remote capability
 //   - Capability DONs connect only to workflow DONs
 //
@@ -126,7 +126,7 @@ func NewLauncher(
 //   - true: filter out
 //   - false: keep
 func filterDon2Don(
-	logger logger.Logger,
+	lggr logger.Logger,
 	belongsToACapabilityDON bool,
 	belongsToAWorkflowDON bool,
 	candidatePeerDON registrysyncer.DON,
@@ -143,11 +143,11 @@ func filterDon2Don(
 	}
 	if !belongsToACapabilityDON && !belongsToAWorkflowDON {
 		// as none of workflow & capability DON don't use bandwidth
-		logger.Warn("filterDon2Don: node does not belong to workflow or capability DON; misconfiguration")
+		lggr.Warn("filterDon2Don: node does not belong to workflow or capability DON; misconfiguration")
 		return true // filter out
 	}
 	if belongsToAWorkflowDON && !candidatePeerBelongsToCapabilityDON {
-		logger.Debugw(
+		lggr.Debugw(
 			"filterDon2Don: as a workflow DON my peers should be only capability DONs - filtering out",
 			"DON.ID",
 			candidatePeerDON.ID,
@@ -155,7 +155,7 @@ func filterDon2Don(
 		return true // filter out
 	}
 	if belongsToACapabilityDON && !candidatePeerBelongsToWorkflowDON {
-		logger.Debugw(
+		lggr.Debugw(
 			"filterDon2Don: as a capability DON my peers should only be workflow DONs - filtering out",
 			"DON.ID",
 			candidatePeerDON.ID,
@@ -165,14 +165,13 @@ func filterDon2Don(
 	return false // keep
 }
 
-func (w *launcher) identifyPeers(
+func (w *launcher) peers(
 	belongsToACapabilityDON bool,
 	belongsToAWorkflowDON bool,
-	allDONIDs []registrysyncer.DonID,
 	localRegistry *registrysyncer.LocalRegistry,
 ) map[ragetypes.PeerID]p2ptypes.StreamConfig {
 	allPeers := make(map[ragetypes.PeerID]p2ptypes.StreamConfig)
-	for _, id := range allDONIDs {
+	for _, id := range w.allDONs(localRegistry) {
 		candidatePeerDON := localRegistry.IDsToDONs[id]
 		if !candidatePeerDON.DON.IsPublic {
 			continue
@@ -187,7 +186,7 @@ func (w *launcher) identifyPeers(
 	return allPeers
 }
 
-func (w *launcher) identifyPublicDONs(
+func (w *launcher) publicDONs(
 	allDONIDs []registrysyncer.DonID,
 	localRegistry *registrysyncer.LocalRegistry,
 ) []registrysyncer.DON {
@@ -202,7 +201,7 @@ func (w *launcher) identifyPublicDONs(
 	return publicDONs
 }
 
-func (w *launcher) identifyAllDONs(localRegistry *registrysyncer.LocalRegistry) []registrysyncer.DonID {
+func (w *launcher) allDONs(localRegistry *registrysyncer.LocalRegistry) []registrysyncer.DonID {
 	allDONIDs := make([]registrysyncer.DonID, 0)
 	for id := range localRegistry.IDsToDONs {
 		allDONIDs = append(allDONIDs, id)
@@ -241,10 +240,10 @@ func (w *launcher) Launch(ctx context.Context, localRegistry *registrysyncer.Loc
 	w.lggr.Debug("CapabilitiesLauncher triggered...")
 	w.registry.SetLocalRegistry(localRegistry)
 
-	allDONIDs := w.identifyAllDONs(localRegistry)
+	allDONIDs := w.allDONs(localRegistry)
 
 	// Let's start by identifying public DONs
-	publicDONs := w.identifyPublicDONs(allDONIDs, localRegistry)
+	publicDONs := w.publicDONs(allDONIDs, localRegistry)
 
 	// Next, we need to split the DONs into the following:
 	// - workflow DONs the current node is a part of.
@@ -287,8 +286,6 @@ func (w *launcher) Launch(ctx context.Context, localRegistry *registrysyncer.Loc
 		}
 	}
 
-	// Now, if my node is a workflow DON, let's setup any shims
-	// to external capabilities.
 	belongsToAWorkflowDON := len(myWorkflowDONs) > 0
 	if belongsToAWorkflowDON {
 		myDON := myWorkflowDONs[0]
@@ -309,8 +306,6 @@ func (w *launcher) Launch(ctx context.Context, localRegistry *registrysyncer.Loc
 		}
 	}
 
-	// Finally, if I'm in a capability DON, let's enable external access
-	// to the capability.
 	belongsToACapabilityDON := len(myCapabilityDONs) > 0
 	if belongsToACapabilityDON {
 		for _, myDON := range myCapabilityDONs {
@@ -322,8 +317,8 @@ func (w *launcher) Launch(ctx context.Context, localRegistry *registrysyncer.Loc
 	}
 
 	// Lastly, we identify peers to connect to, based on their DONs functions
-	allPeers := w.identifyPeers(belongsToACapabilityDON, belongsToAWorkflowDON, allDONIDs, localRegistry)
-	err := w.peerWrapper.GetPeer().UpdateConnections(allPeers)
+	myPeers := w.peers(belongsToACapabilityDON, belongsToAWorkflowDON, localRegistry)
+	err := w.peerWrapper.GetPeer().UpdateConnections(myPeers)
 	if err != nil {
 		return fmt.Errorf("failed to update peer connections: %w", err)
 	}

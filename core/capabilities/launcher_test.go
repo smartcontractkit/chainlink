@@ -1221,10 +1221,9 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 	}
 
 	for i := range inputsWhereBelongs {
-		allPeers := launcher.identifyPeers(
+		allPeers := launcher.peers(
 			inputsWhereBelongs[i][0],
 			inputsWhereBelongs[i][1],
-			launcher.identifyAllDONs(localRegistry),
 			localRegistry,
 		)
 		require.Len(t, allPeers, expectedPeerCount[i])
