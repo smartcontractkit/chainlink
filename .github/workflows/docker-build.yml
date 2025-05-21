@@ -23,6 +23,8 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       build-type: ${{ steps.build-type.outputs.build-type }}
+      runner-arm64: ${{ steps.runner-labels.outputs.runner-arm64 }}
+      runner-amd64: ${{ steps.runner-labels.outputs.runner-amd64 }}
     steps:
       - name: Set Build Type
         id: build-type
@@ -41,6 +43,22 @@ jobs:
           else
             echo "::error::Unsupported build trigger: ${BUILD_TRIGGER}"
             exit 1
+          fi
+      - name: Set runner labels
+        id: runner-labels
+        shell: bash
+        env:
+          SH_RUNNER_LABEL_ARM64: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c7g/disk=large/image=ubuntu24-full-arm64
+          SH_RUNNER_LABEL_AMD64: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c7a/disk=large/image=ubuntu24-full-amd64
+          GH_RUNNER_LABEL_ARM64: ubuntu24.04-arm
+          GH_RUNNER_LABEL_AMD64: ubuntu24.04
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            echo "runner-arm64=${SH_RUNNER_LABEL_ARM64}" | tee -a "$GITHUB_OUTPUT"
+            echo "runner-amd64=${SH_RUNNER_LABEL_AMD64}" | tee -a "$GITHUB_OUTPUT"
+          else
+            echo "runner-arm64=${GH_RUNNER_LABEL_ARM64}" | tee -a "$GITHUB_OUTPUT"
+            echo "runner-amd64=${GH_RUNNER_LABEL_AMD64}" | tee -a "$GITHUB_OUTPUT"
           fi
 
   docker-core:
@@ -66,6 +84,8 @@ jobs:
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
       github-workflow-repository: ${{ github.repository }}
+      github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
+      github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
@@ -96,6 +116,8 @@ jobs:
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
       github-workflow-repository: ${{ github.repository }}
+      github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
+      github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
@@ -126,6 +148,8 @@ jobs:
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
       github-workflow-repository: ${{ github.repository }}
+      github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
+      github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
@@ -156,6 +180,8 @@ jobs:
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
       github-workflow-repository: ${{ github.repository }}
+      github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
+      github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
