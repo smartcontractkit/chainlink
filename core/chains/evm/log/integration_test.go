@@ -28,8 +28,8 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
-	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
-	evmconfigtest "github.com/smartcontractkit/chainlink-evm/pkg/config/configtest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/configtest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -1661,7 +1661,7 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int, f
 }
 
 func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client, highestSeenHead *evmtypes.Head, overridesFn func(c *toml.EVMConfig)) *broadcasterHelper {
-	config := evmconfigtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
+	config := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
 		c.FinalityDepth = ptr[uint32](10)
 
 		if overridesFn != nil {
@@ -1690,7 +1690,7 @@ type broadcasterHelper struct {
 	lb      log.BroadcasterInTest
 	db      *sqlx.DB
 	mockEth *clienttest.MockEth
-	config  evmconfig.EVM
+	config  config.EVM
 
 	// each received channel corresponds to one eth subscription
 	chchRawLogs   chan testutils.RawSub[types.Log]
