@@ -13,4 +13,5 @@ type DeployResponse struct {
 
 type DeployRequest struct {
 	Chain cldf.SolChain
+	cldf.SolProgramInfo
 }

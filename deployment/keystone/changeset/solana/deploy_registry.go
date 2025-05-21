@@ -25,6 +25,7 @@ func deploy(env cldf.Environment, req *DeployRequest) (cldf.ChangesetOutput, err
 	if !ok {
 		return cldf.ChangesetOutput{}, errors.New("chain not found in environment")
 	}
+
 	ab := cldf.NewMemoryAddressBook()
 	resp, err := req.deployFn(env.GetContext(), chain, ab)
 	if err != nil {

@@ -1,6 +1,8 @@
 package solana
 
 import (
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -31,9 +33,14 @@ func TestDeployForwarder(t *testing.T) {
 				BuildLocally:         true,
 				CleanDestinationDir:  false,
 				CreateDestinationDir: true,
-				CleanGitDir:          true,
+				CleanGitDir:          false,
 			},
 		}
+
+		// default solChain looking for contracts in ccip directory
+		chain := env.SolChains[registrySel]
+		chain.ProgramsPath = getProgramsPath()
+		env.SolChains[registrySel] = chain
 		// deploy forwarder
 		env.ExistingAddresses = ab
 		//	resp, err := changeset.DeployForwarder(env, changeset.DeployForwarderRequest{})
@@ -51,4 +58,13 @@ func TestDeployForwarder(t *testing.T) {
 		fa := resp.DataStore.Addresses().Filter(datastore.AddressRefByQualifier("my-test-forwarder"))
 		require.Len(t, fa, 1, "expected to find 'my-test-forwarder' qualifier")
 	})
+}
+
+func getProgramsPath() string {
+	// Get the directory of the current file (environment.go)
+	_, currentFile, _, _ := runtime.Caller(0)
+	// Go up to the root of the deployment package
+	rootDir := filepath.Dir(filepath.Dir(filepath.Dir(currentFile)))
+	// Construct the absolute path
+	return filepath.Join(rootDir, "changeset/solana", "contracts")
 }

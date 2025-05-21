@@ -22,10 +22,20 @@ func NewKeystoneForwarderDeployer() (*KeystoneForwarderDeployer, error) {
 }
 
 func (c *KeystoneForwarderDeployer) deploy(ctx context.Context, req DeployRequest) (*DeployResponse, error) {
+	pubKey, err := req.Chain.DeployProgram(c.lggr, req.SolProgramInfo, false, true)
+	if err != nil {
+		return nil, err
+	}
+
+	key, err := solana.PublicKeyFromBase58(pubKey)
+	if err != nil {
+		return nil, err
+	}
+
 	// TODO PLEX-354 mock for now, implement deploy logic here
 	// TODO add labels with deployment block/hash
 	return &DeployResponse{
-		Address: solana.PublicKey{},
+		Address: key,
 		Tx:      solana.Signature{},
 		Tv:      deployment.MustTypeAndVersionFromString("KeystoneForwarder 1.0.0"),
 	}, nil

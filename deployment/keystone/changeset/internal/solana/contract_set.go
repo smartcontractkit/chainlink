@@ -12,7 +12,10 @@ func DeployForwarder(ctx context.Context, chain cldf.SolChain, ab cldf.AddressBo
 	if err != nil {
 		return nil, fmt.Errorf("failed to create KeystoneForwarderDeployer: %w", err)
 	}
-	forwarderResp, err := forwarderDeployer.deploy(ctx, DeployRequest{Chain: chain})
+	forwarderResp, err := forwarderDeployer.deploy(ctx, DeployRequest{Chain: chain, SolProgramInfo: cldf.SolProgramInfo{
+		Name:  "keystone_forwarder",
+		Bytes: 300 * 1024,
+	}})
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy KeystoneForwarder: %w", err)
 	}
