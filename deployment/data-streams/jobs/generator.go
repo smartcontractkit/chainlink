@@ -16,8 +16,8 @@ func GeneratorForStreamType(st StreamType) (JobSpecGenerator, error) {
 	switch st {
 	case StreamTypeQuote:
 		return &QuoteStreamJobSpecGenerator{}, nil
-	// case StreamTypeMedian:
-	// 	return MedianStreamJobSpecGenerator{}, nil
+	case StreamTypeMedian:
+		return MedianStreamJobSpecGenerator{}, nil
 	default:
 		return nil, fmt.Errorf("unsupported stream type: %s", st)
 	}

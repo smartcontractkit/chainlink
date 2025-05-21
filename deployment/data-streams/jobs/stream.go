@@ -16,6 +16,8 @@ type BaseObservationSource struct {
 	AllowedFaults int
 }
 
+// StreamSpecConfig defines the configuration for a data stream specification.
+// It allows specifying a custom job spec generator for advanced use cases.
 type StreamSpecConfig struct {
 	StreamID   uint32
 	Name       string
