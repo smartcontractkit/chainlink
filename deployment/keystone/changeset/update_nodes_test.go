@@ -46,7 +46,7 @@ func TestUpdateNodes(t *testing.T) {
 
 		csOut, err := changeset.UpdateNodes(te.Env, &cfg)
 		require.NoError(t, err)
-		require.Empty(t, csOut.Proposals)
+		require.Empty(t, csOut.MCMSTimelockProposals)
 		require.Nil(t, csOut.AddressBook)
 
 		validateUpdate(t, te, updates)

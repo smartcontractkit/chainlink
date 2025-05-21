@@ -3,10 +3,12 @@ This file contains test helpers for the changeset package.
 The filename has a suffix of "_test.go" in order to not be included in the production build.
 */
 
-package changeset
+package jobs
 
 import (
 	"context"
+	"math/rand"
+	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -22,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jobs"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/environment/test"
 )
@@ -99,15 +102,17 @@ func sendTestStreamJobs(t *testing.T, e cldf.Environment, numOracles int, autoAp
 		},
 		Streams: []StreamSpecConfig{
 			{
-				StreamID:   1000001038,
+				StreamID:   randomStreamID(),
 				Name:       "ICP/USD-RefPrice",
 				StreamType: jobs.StreamTypeQuote,
 				ReportFields: jobs.QuoteReportFields{
 					Bid: jobs.ReportFieldLLO{
 						ResultPath: "data,bid",
+						StreamID:   pointer.To(strconv.FormatUint(uint64(randomStreamID()), 10)),
 					},
 					Benchmark: jobs.ReportFieldLLO{
 						ResultPath: "data,mid",
+						StreamID:   pointer.To(strconv.FormatUint(uint64(randomStreamID()), 10)),
 					},
 					Ask: jobs.ReportFieldLLO{
 						ResultPath: "data,ask",
@@ -158,4 +163,19 @@ func collectNodeNames(t *testing.T, e cldf.Environment, numOracles, numBootstrap
 	}
 
 	return bootstrapNodeNames, oracleNodeNames
+}
+
+// Cache the streamIDs we've used during this test cycle, so we don't repeat them.
+var usedStreamIDs = make(map[uint32]struct{})
+
+func randomStreamID() uint32 {
+	var id uint32
+	for {
+		id = rand.Uint32()%1000000000 + 1000000000
+		if _, ok := usedStreamIDs[id]; !ok {
+			break
+		}
+	}
+	usedStreamIDs[id] = struct{}{}
+	return id
 }
