@@ -6,6 +6,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+
 	solBurnMintTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/burnmint_token_pool"
 	solLockReleaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/lockrelease_token_pool"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
@@ -78,6 +79,9 @@ func GenerateTokenPoolView(chain cldf.SolChain, program solana.PublicKey, remote
 		output, err := solCommonUtil.ExtractTypedReturnValue(context.Background(), result.Meta.LogMessages, program.String(), func(b []byte) string {
 			return string(b[4:])
 		})
+		if err != nil {
+			return view, fmt.Errorf("failed to extract typed return value: %w", err)
+		}
 		view.TypeAndVersion = output
 	case solTestTokenPool.LockAndRelease_PoolType.String():
 		solLockReleaseTokenPool.SetProgramID(program)
@@ -92,6 +96,9 @@ func GenerateTokenPoolView(chain cldf.SolChain, program solana.PublicKey, remote
 		output, err := solCommonUtil.ExtractTypedReturnValue(context.Background(), result.Meta.LogMessages, program.String(), func(b []byte) string {
 			return string(b[4:])
 		})
+		if err != nil {
+			return view, fmt.Errorf("failed to extract typed return value: %w", err)
+		}
 		view.TypeAndVersion = output
 	default:
 		return view, fmt.Errorf("unknown pool type %s", poolType)
