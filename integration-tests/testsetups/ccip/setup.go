@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/credentials/insecure"
@@ -24,7 +25,6 @@ import (
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -78,9 +78,27 @@ func (l *DeployedLocalAnvilDevEnvironment) TestConfigs() *testhelpers.TestConfig
 	return l.GenericTCConfig
 }
 
+func (l *DeployedLocalAnvilDevEnvironment) DeleteJobs(ctx context.Context, jobIDs map[string][]string) error {
+	nodesByID := make(map[string]devenv.Node)
+	for _, n := range l.DON.Nodes {
+		nodesByID[n.NodeID] = n
+	}
+	for id, node := range nodesByID {
+		if jobsToDelete, ok := jobIDs[id]; ok {
+			for _, jobToDelete := range jobsToDelete {
+				err := node.DeleteJob(ctx, jobToDelete)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (l *DeployedLocalAnvilDevEnvironment) StartChains(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := testcontext.Get(t)
+	// ctx := testcontext.Get(t)
 	envConfig, cfg, bcs, in := createAnvilDockerNetwork(t, l.GenericTCConfig.Chains)
 	l.pvtKeys = in.Network.PrivateKeys
 	l.devEnvTestCfg = cfg
@@ -89,7 +107,9 @@ func (l *DeployedLocalAnvilDevEnvironment) StartChains(t *testing.T) {
 	l.in = in
 	users := make(map[uint64][]*bind.TransactOpts)
 	for _, chain := range envConfig.Chains {
-		details, found := chainsel.ChainByEvmChainID(chain.ChainID)
+		chainID, err := strconv.ParseUint(chain.ChainID, 10, 64)
+		require.NoError(t, err, "invalid chain id")
+		details, found := chainsel.ChainByEvmChainID(chainID)
 		require.Truef(t, found, "chain not found")
 		users[details.Selector] = chain.Users
 	}
@@ -97,15 +117,15 @@ func (l *DeployedLocalAnvilDevEnvironment) StartChains(t *testing.T) {
 	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
 	feedSel := l.devEnvTestCfg.CCIP.GetFeedChainSelector()
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
-	chains, err := devenv.NewChains(lggr, envConfig.Chains)
+	chains, _, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
-	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, chains)
-	require.NoError(t, err)
+	// replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, chains)
+	// require.NoError(t, err)
 	l.DeployedEnv.Users = users
 	l.DeployedEnv.Env.Chains = chains
 	l.DeployedEnv.FeedChainSel = feedSel
 	l.DeployedEnv.HomeChainSel = homeChainSel
-	l.DeployedEnv.ReplayBlocks = replayBlocks
+	// l.DeployedEnv.ReplayBlocks = replayBlocks
 }
 
 func (l *DeployedLocalAnvilDevEnvironment) StartNodes(t *testing.T, crConfig deployment.CapabilityRegistryConfig) {
@@ -124,16 +144,12 @@ func (l *DeployedLocalAnvilDevEnvironment) StartNodes(t *testing.T, crConfig dep
 	l.DON = don
 	l.DeployedEnv.Env = *e
 	fundNodes := func(chain *blockchain.Output) {
-		scSrc, err := seth.NewClientBuilder().
-			WithRpcUrl(chain.Nodes[0].HostWSUrl).
-			WithGasPriceEstimations(false, 0, seth.Priority_Fast).
-			WithTracing(seth.TracingLevel_All, []string{seth.TraceOutput_Console}).
-			WithPrivateKeys(l.pvtKeys).
-			Build()
-		require.NoError(t, err, "failed to create source chain seth client")
 		nodeClients, err := cl.New(nodeOut.CLNodes)
 		require.NoError(t, err, "failed to create node clients")
-		err = ns.FundNodes(scSrc.Client, nodeClients, l.pvtKeys[0], l.in.Common.NodeFundingAmount)
+		ethClient, err := ethclient.Dial(chain.Nodes[0].ExternalWSUrl)
+		require.NoError(t, err, "failed to create ethclient")
+		err = ns.FundNodes(ethClient, nodeClients, l.pvtKeys[0], l.in.Common.NodeFundingAmount)
+		err = ns.FundNodes(ethClient, nodeClients, l.pvtKeys[0], l.in.Common.NodeFundingAmount)
 		require.NoError(t, err, "failed to fund nodes")
 	}
 	// fund the nodes
@@ -145,7 +161,7 @@ func (l *DeployedLocalAnvilDevEnvironment) StartNodes(t *testing.T, crConfig dep
 func getNodeInfo(nodeOut *ns.Output, bootstrapNodeCount int) ([]devenv.NodeInfo, error) {
 	var nodeInfo []devenv.NodeInfo
 	for i := 1; i <= len(nodeOut.CLNodes); i++ {
-		p2pURL, err := url.Parse(nodeOut.CLNodes[i-1].Node.DockerP2PUrl)
+		p2pURL, err := url.Parse(nodeOut.CLNodes[i-1].Node.InternalP2PUrl)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse p2p url: %w", err)
 		}
@@ -155,7 +171,7 @@ func getNodeInfo(nodeOut *ns.Output, bootstrapNodeCount int) ([]devenv.NodeInfo,
 				Name:        fmt.Sprintf("bootstrap-%d", i),
 				P2PPort:     p2pURL.Port(),
 				CLConfig: clclient.ChainlinkConfig{
-					URL:        nodeOut.CLNodes[i-1].Node.HostURL,
+					URL:        nodeOut.CLNodes[i-1].Node.ExternalURL,
 					Email:      nodeOut.CLNodes[i-1].Node.APIAuthUser,
 					Password:   nodeOut.CLNodes[i-1].Node.APIAuthPassword,
 					InternalIP: nodeOut.CLNodes[i-1].Node.InternalIP,
@@ -167,7 +183,7 @@ func getNodeInfo(nodeOut *ns.Output, bootstrapNodeCount int) ([]devenv.NodeInfo,
 				Name:        fmt.Sprintf("node-%d", i),
 				P2PPort:     p2pURL.Port(),
 				CLConfig: clclient.ChainlinkConfig{
-					URL:        nodeOut.CLNodes[i-1].Node.HostURL,
+					URL:        nodeOut.CLNodes[i-1].Node.ExternalURL,
 					Email:      nodeOut.CLNodes[i-1].Node.APIAuthUser,
 					Password:   nodeOut.CLNodes[i-1].Node.APIAuthPassword,
 					InternalIP: nodeOut.CLNodes[i-1].Node.InternalIP,
@@ -224,9 +240,9 @@ func createAnvilDockerNetwork(t *testing.T, chainsCount int) (
 		require.NoError(t, err, "failed to convert port number to int")
 		for i := 1; i <= networksNeeded; i++ {
 			in.BlockchainNetworks = append(in.BlockchainNetworks, &blockchain.Input{
-				ChainID: strconv.Itoa(90000000 + i),
-				Type:    "anvil",
-				Port:    strconv.Itoa(finalPortID + i),
+				ChainID:                  strconv.Itoa(90000000 + i),
+				Type:                     "anvil",
+				Port:                     strconv.Itoa(finalPortID + i),
 				DockerCmdParamsOverrides: in.BlockchainNetworks[0].DockerCmdParamsOverrides,
 			})
 		}
@@ -240,39 +256,37 @@ func createAnvilDockerNetwork(t *testing.T, chainsCount int) (
 		// mine periodically if not overridden
 		//TODO: Need to handle this check in a better way instead of checking for nil
 		if in.BlockchainNetworks[c].DockerCmdParamsOverrides == nil {
-			miner := rpc.NewRemoteAnvilMiner(bc.Nodes[0].HostHTTPUrl, nil)
+			miner := rpc.NewRemoteAnvilMiner(bc.Nodes[0].ExternalHTTPUrl, nil)
 			miner.MinePeriodically(1 * time.Second)
 		}
 	}
 	jdOutput, err := jd.NewJD(in.JD)
 	require.NoError(t, err, "failed to create new job distributor")
 	jdConfig := devenv.JDConfig{
-		GRPC:  jdOutput.HostGRPCUrl,
-		WSRPC: jdOutput.DockerWSRPCUrl,
+		GRPC:  jdOutput.ExternalGRPCUrl,
+		WSRPC: jdOutput.InternalWSRPCUrl,
 		Creds: insecure.NewCredentials(),
 	}
 	chains := make([]devenv.ChainConfig, 0, len(blockchains))
 	for _, chain := range blockchains {
 		chainID, err := strconv.ParseInt(chain.ChainID, 10, 64)
 		require.NoError(t, err, "invalid chain id")
-		id, err := strconv.ParseUint(chain.ChainID, 10, 64)
-		require.NoError(t, err, "invalid chain id")
 		pvtKey, err := crypto.HexToECDSA(in.Network.PrivateKeys[0])
 		require.NoError(t, err, "invalid private key")
 		deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, big.NewInt(chainID))
 		require.NoError(t, err, "failed to create deployer")
 		chainCfg := devenv.ChainConfig{
-			ChainID:     id,
-			ChainName:   DefaultChainNamePrefix + chain.ChainID,
-			ChainType:   devenv.EVMChainType,
+			ChainID:   chain.ChainID,
+			ChainName: DefaultChainNamePrefix + chain.ChainID,
+			ChainType: devenv.EVMChainType,
 			WSRPCs: []devenv.CribRPCs{
 				{
-					External: chain.Nodes[0].HostWSUrl,
+					External: chain.Nodes[0].ExternalWSUrl,
 				},
 			},
 			HTTPRPCs: []devenv.CribRPCs{
 				{
-					Internal: chain.Nodes[0].HostHTTPUrl,
+					Internal: chain.Nodes[0].ExternalHTTPUrl,
 				},
 			},
 			DeployerKey: deployer,
@@ -338,8 +352,8 @@ func getChainSpecificNodeSpec(bcs []*blockchain.Output) string {
 				HTTPURL = '%s'`,
 				bc.ChainID,
 				"chain-"+bc.ChainID,
-				bc.Nodes[0].DockerInternalWSUrl,
-				bc.Nodes[0].DockerInternalHTTPUrl)
+				bc.Nodes[0].InternalWSUrl,
+				bc.Nodes[0].InternalHTTPUrl)
 		} else {
 			tomlNodeConfig += fmt.Sprintf(`
 				[[EVM]]
@@ -358,8 +372,8 @@ func getChainSpecificNodeSpec(bcs []*blockchain.Output) string {
 				HTTPURL = '%s'`,
 				bc.ChainID,
 				"chain-"+bc.ChainID,
-				bc.Nodes[0].DockerInternalWSUrl,
-				bc.Nodes[0].DockerInternalHTTPUrl)
+				bc.Nodes[0].InternalWSUrl,
+				bc.Nodes[0].InternalHTTPUrl)
 		}
 	}
 	return tomlNodeConfig

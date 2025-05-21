@@ -246,7 +246,7 @@ func NewIntegrationEnvironment(t *testing.T, opts ...testhelpers.TestOps) (testh
 		if testCfg.RMNEnabled {
 			deployedEnv := testhelpers.NewEnvironmentWithJobsAndContracts(t, anvilDockerEnv)
 			l := logging.GetTestLogger(t)
-			config := GenerateTestRMNConfig(t, testCfg.NumOfRMNNodes, deployedEnv, MustGetNetworksToRPCMap(anvilDockerEnv.bcs))
+			config := GenerateTestRMNConfig(t, testCfg.NumOfRMNNodes, deployedEnv, MustGetNetworksToRPCMap(anvilDockerEnv.bcs), testCfg.RMNConfDepth)
 			require.NotNil(t, anvilDockerEnv.devEnvTestCfg.CCIP)
 			rmnCluster, err := devenv.NewRMNCluster(
 				t, l,
@@ -306,7 +306,7 @@ func MustGetNetworksToRPCMap(networks []*ctfv2_blockchain.Output) map[uint64]str
 		if err != nil {
 			panic(err)
 		}
-		rpcs[sel] = network.Nodes[0].HostHTTPUrl
+		rpcs[sel] = network.Nodes[0].InternalHTTPUrl
 	}
 	return rpcs
 }
