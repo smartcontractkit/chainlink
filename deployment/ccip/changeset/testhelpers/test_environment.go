@@ -685,7 +685,7 @@ func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, pr
 	if err != nil {
 		return nil, err
 	}
-	value := [28]uint8{}
+	value := [28]uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 51, 51, 74, 153, 67, 41, 73, 55, 39, 96, 0, 0}
 	bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
 	if !ok {
 		return nil, errors.New("failed to set string to big.Int")
@@ -706,18 +706,18 @@ func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, pr
 								Mint:    state.SolChains[solChainSelector].LinkToken,
 								UsdPerToken: solFeeQuoter.TimestampedPackedU224{
 									Value:     value,
-									Timestamp: int64(100),
+									Timestamp: time.Now().Unix(),
 								},
-								PremiumMultiplierWeiPerEth: 100,
+								PremiumMultiplierWeiPerEth: 9e17,
 							},
 							{
 								Enabled: true,
 								Mint:    state.SolChains[solChainSelector].WSOL,
 								UsdPerToken: solFeeQuoter.TimestampedPackedU224{
 									Value:     value,
-									Timestamp: int64(100),
+									Timestamp: time.Now().Unix(),
 								},
-								PremiumMultiplierWeiPerEth: 100,
+								PremiumMultiplierWeiPerEth: 1e18,
 							},
 						},
 					},
