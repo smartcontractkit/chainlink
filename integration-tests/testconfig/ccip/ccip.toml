@@ -432,11 +432,11 @@ MessageDetails = [
 # overrides the `DataLengthBytes` when sending messages to/from Solana. This is due to block size limitations
 SolanaDataSize = 50
 # each destination chain will receive 1 incoming request per RequestFrequency for the duration of LoadDuration
-RequestFrequency = "20s"
+RequestFrequency = "30s"
 LoadDuration = "1h"
-TestLabel = "50_chains"
+TestLabel = "30_chains"
 # destination chain selectors to send messages to
-NumDestinationChains = 50
+NumDestinationChains = 30
 # Directory where we receive environment configuration from crib
 CribEnvDirectory = "../../../../crib/deployments/ccip-v2/.tmp"
 TimeoutDuration = "1h"
