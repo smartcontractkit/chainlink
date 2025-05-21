@@ -24,7 +24,6 @@ import (
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	loggermocks "github.com/smartcontractkit/chainlink/v2/core/logger/mocks"
 	bhsmocks "github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore/mocks"
 )
 
@@ -229,7 +228,7 @@ func TestStartHeartbeats(t *testing.T) {
 	t.Run("bhs_heartbeat_happy_path", func(t *testing.T) {
 		expectedDuration := 600 * time.Second
 		mockBHS := bhsmocks.NewBHS(t)
-		mockLogger := loggermocks.NewMockLogger(t)
+		mockLogger := logger.NewMockLogger(t)
 		feeder := NewFeeder(
 			mockLogger,
 			&TestCoordinator{}, // Not used for this test
@@ -274,7 +273,7 @@ func TestStartHeartbeats(t *testing.T) {
 		expectedDuration := 600 * time.Second
 		expectedError := errors.New("insufficient gas")
 		mockBHS := bhsmocks.NewBHS(t)
-		mockLogger := loggermocks.NewMockLogger(t)
+		mockLogger := logger.NewMockLogger(t)
 		feeder := NewFeeder(
 			mockLogger,
 			&TestCoordinator{}, // Not used for this test
@@ -321,7 +320,7 @@ func TestStartHeartbeats(t *testing.T) {
 	t.Run("bhs_heartbeat_sad_path_heartbeat_0", func(t *testing.T) {
 		expectedDuration := 0 * time.Second
 		mockBHS := bhsmocks.NewBHS(t)
-		mockLogger := loggermocks.NewMockLogger(t)
+		mockLogger := logger.NewMockLogger(t)
 		feeder := NewFeeder(
 			mockLogger,
 			&TestCoordinator{}, // Not used for this test

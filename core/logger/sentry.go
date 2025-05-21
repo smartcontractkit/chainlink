@@ -20,7 +20,7 @@ type sentryLogger struct {
 	h Logger
 }
 
-func NewSentryLogger(l Logger) Logger {
+func newSentryLogger(l Logger) Logger {
 	return &sentryLogger{h: l.Helper(1)}
 }
 

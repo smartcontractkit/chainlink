@@ -53,7 +53,7 @@ func newPrometheusLoggerWithCounters(
 	}
 }
 
-func NewPrometheusLogger(l Logger) Logger {
+func newPrometheusLogger(l Logger) Logger {
 	return newPrometheusLoggerWithCounters(l, warnCounter, errorCounter, criticalCounter, panicCounter, fatalCounter)
 }
 

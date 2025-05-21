@@ -197,9 +197,9 @@ func (c *Config) New() (Logger, func() error) {
 	}
 
 	if c.SentryEnabled {
-		l = NewSentryLogger(l)
+		l = newSentryLogger(l)
 	}
-	l = NewPrometheusLogger(l)
+	l = newPrometheusLogger(l)
 	l = l.With("version", verShaNameStatic())
 	return l, closeLogger
 }
