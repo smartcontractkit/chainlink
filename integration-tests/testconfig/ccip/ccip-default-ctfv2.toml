@@ -47,6 +47,7 @@ image = "jd:latest"
 port = 9111
 
 [nodeset]
+name = "don"
 nodes = 5
 p2p_port_range_start = 6690
 override_mode = "all"
@@ -58,6 +59,7 @@ image = "postgres:13.0"
 
 [nodeset.node_specs.node]
 image = "chainlink:latest"
+custom_ports = [] #["6690", "6691", "6692"]
 test_config_overrides = """
 [Feature]
 FeedsManager = true
