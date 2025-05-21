@@ -8,9 +8,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 type Mode string
@@ -20,6 +23,7 @@ const (
 	Mode_Online  Mode = "online"
 
 	DISABLE_TRACKING_ENV_VAR = "DISABLE_DX_TRACKING"
+	EnvVarLogLevel           = "DX_LOG_LEVEL"
 )
 
 type DxTracker struct {
@@ -27,20 +31,33 @@ type DxTracker struct {
 	testMode bool
 	noOp     bool
 
+	logger zerolog.Logger
+
 	apiToken       string
 	githubUsername string
 }
 
-func (t *DxTracker) New() (*DxTracker, error) {
+func NewDxTracker() (*DxTracker, error) {
+	t := &DxTracker{}
+
+	lvlStr := os.Getenv(EnvVarLogLevel)
+	if lvlStr == "" {
+		lvlStr = "info"
+	}
+	lvl, lvlErr := zerolog.ParseLevel(lvlStr)
+	if lvlErr != nil {
+		return nil, errors.Wrap(lvlErr, "failed to parse log level")
+	}
+	t.logger = log.With().Str("logger_name", "DxTracker").Logger().Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(lvl).With().Logger()
+
 	if os.Getenv(DISABLE_TRACKING_ENV_VAR) == "true" {
-		return &DxTracker{
-			noOp: true,
-		}, nil
+		t.noOp = true
+		return t, nil
 	}
 
-	c, isConfigAvailable, err := openConfig()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to open local config")
+	c, isConfigAvailable, configErr := openConfig()
+	if configErr != nil {
+		return nil, errors.Wrap(configErr, "failed to open local config")
 	}
 
 	// if local config is available read it and set mode to online
@@ -49,15 +66,16 @@ func (t *DxTracker) New() (*DxTracker, error) {
 	} else {
 		// if local config is not available check if gh cli is available
 		// try to configure tracker with gh cli
-		if checkIfGhCLIAvailable() {
+		if t.checkIfGhCLIAvailable() {
 			var userNameErr error
-			c.GithubUsername, userNameErr = readGHUsername()
+			c = &config{}
+			c.GithubUsername, userNameErr = t.readGHUsername()
 			if userNameErr != nil {
 				return nil, errors.Wrap(userNameErr, "failed to read github username")
 			}
 
 			var apiTokenErr error
-			c.DxAPIToken, apiTokenErr = readDXAPIToken()
+			c.DxAPIToken, apiTokenErr = t.readDXAPIToken()
 			if apiTokenErr != nil {
 				return nil, errors.Wrap(apiTokenErr, "failed to read github api token")
 			}
@@ -71,10 +89,6 @@ func (t *DxTracker) New() (*DxTracker, error) {
 		} else {
 			// if gh cli is not available, set mode to offline
 			t.mode = Mode_Offline
-			storageErr := createLocalStorage()
-			if storageErr != nil {
-				return nil, errors.Wrap(storageErr, "failed to create local storage")
-			}
 		}
 	}
 
@@ -85,10 +99,12 @@ func (t *DxTracker) New() (*DxTracker, error) {
 		go func() {
 			sendErr := t.sendSavedEvents()
 			if sendErr != nil {
-				fmt.Fprintf(os.Stderr, "failed to send saved events: %s\n", sendErr)
+				log.Debug().Msgf("failed to send saved events: %s\n", sendErr)
 			}
 		}()
 	}
+
+	t.logger.Debug().Msgf("DxTracker initialized with mode: %s", t.mode)
 
 	return t, nil
 }
@@ -99,23 +115,37 @@ func (t *DxTracker) Track(event string, metadata map[string]any) error {
 	}
 
 	if validateErr := validateEvent(event, time.Now().Unix(), metadata); validateErr != nil {
-		return validateErr
+		return errors.Wrap(validateErr, "failed to validate event")
 	}
+
+	timestamp := time.Now().Unix()
 
 	if t.mode == Mode_Online {
-		return t.sendEvent(event, time.Now().Unix(), metadata)
+		sendErr := t.sendEvent(event, timestamp, metadata)
+		if sendErr != nil {
+			t.logger.Debug().Msgf("failed to send event: %s", sendErr)
+			saveErr := t.saveEvent(event, timestamp, metadata)
+			if saveErr != nil {
+				t.logger.Debug().Msgf("failed to save event: %s", saveErr)
+
+				return sendErr
+			}
+		}
+
+		return nil
 	}
 
-	return t.saveEvent(event, metadata)
+	return t.saveEvent(event, timestamp, metadata)
 }
 
-func (t *DxTracker) sendEvent(eventName string, timestamp int64, metadata map[string]any) error {
+func (t *DxTracker) sendEvent(name string, timestamp int64, metadata map[string]any) error {
 	url := "https://api.getdx.com/events.track"
 
 	body := map[string]any{
-		"event":     eventName,
-		"metadata":  metadata,
-		"timestamp": timestamp,
+		"name":            name,
+		"metadata":        metadata,
+		"timestamp":       fmt.Sprintf("%d", timestamp),
+		"github_username": t.githubUsername,
 	}
 
 	if t.testMode {
@@ -127,11 +157,14 @@ func (t *DxTracker) sendEvent(eventName string, timestamp int64, metadata map[st
 		return errors.Wrap(err, "failed to marshal event")
 	}
 
+	t.logger.Debug().Msgf("Sending event: %s", string(jsonData))
+
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return errors.Wrap(err, "failed to create request")
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", t.apiToken))
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -158,29 +191,50 @@ func (t *DxTracker) sendEvent(eventName string, timestamp int64, metadata map[st
 	return nil
 }
 
-func checkIfGhCLIAvailable() bool {
+func (t *DxTracker) checkIfGhCLIAvailable() bool {
 	cmd := exec.Command("gh", "auth", "status")
 	_, err := cmd.Output()
+
+	t.logger.Info().Msgf("gh CLI available: %t", err == nil)
 
 	return err == nil
 }
 
-func readGHUsername() (string, error) {
+func (t *DxTracker) readGHUsername() (string, error) {
 	cmd := exec.Command("gh", "api", "user", "--jq", ".login")
 	output, err := cmd.Output()
 	if err != nil {
-		return "", errors.Wrap(err, "failed to run gh cli")
+		t.logger.Debug().Msgf("Failed to run GH CLI: %s", err)
+		return "", errors.Wrap(err, "failed to run GH CLI")
 	}
-	return string(output), nil
+
+	username := strings.Trim(strings.TrimSpace(string(output)), "\n\r")
+	if username == "" {
+		t.logger.Debug().Msg("Github username not found")
+		return "", errors.New("Github username not found")
+	}
+
+	t.logger.Debug().Msgf("Github username found: %s", username)
+
+	return strings.Trim(strings.TrimSpace(string(output)), "\n\r"), nil
 }
 
-func readDXAPIToken() (string, error) {
+func (t *DxTracker) readDXAPIToken() (string, error) {
 	cmd := exec.Command("gh", "variable", "get", "DX_API_TOKEN", "--repo", "smartcontractkit/local-cre-dx-tracking")
 	output, err := cmd.Output()
 	if err != nil {
-		return "", errors.Wrap(err, "failed to run gh cli")
+		t.logger.Debug().Msgf("failed to run GH CLI: %s", err)
+		return "", errors.Wrap(err, "failed to run GH CLI")
 	}
-	return string(output), nil
+
+	if len(output) == 0 {
+		t.logger.Debug().Msg("DX API token not found")
+		return "", errors.New("DX API token not found")
+	}
+
+	t.logger.Debug().Msg("DX API token found")
+
+	return strings.Trim(strings.TrimSpace(string(output)), "\n\r"), nil
 }
 
 type config struct {
@@ -189,125 +243,96 @@ type config struct {
 }
 
 func openConfig() (*config, bool, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, false, errors.Wrap(err, "failed to get user home directory")
+	configPath, pathErr := configPath()
+	if pathErr != nil {
+		return nil, false, errors.Wrap(pathErr, "failed to get config path")
 	}
-
-	configPath := filepath.Join(homeDir, ".dx", "config.json")
 
 	if _, statErr := os.Stat(configPath); os.IsNotExist(statErr) {
 		return nil, false, nil
 	}
 
-	configContent, err := os.ReadFile(configPath)
-	if err != nil {
-		return nil, false, errors.Wrap(err, "failed to read config file")
+	configContent, readErr := os.ReadFile(configPath)
+	if readErr != nil {
+		return nil, false, errors.Wrap(readErr, "failed to read config file")
 	}
 
 	var localConfig config
-	err = json.Unmarshal(configContent, &localConfig)
-	if err != nil {
-		return nil, false, errors.Wrap(err, "failed to unmarshal config file")
+	unmarshalErr := json.Unmarshal(configContent, &localConfig)
+	if unmarshalErr != nil {
+		return nil, false, errors.Wrap(unmarshalErr, "failed to unmarshal config file")
 	}
 
 	return &localConfig, true, nil
 }
 
 func saveConfig(c *config) error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return errors.Wrap(err, "failed to get user home directory")
+	configPath, pathErr := configPath()
+	if pathErr != nil {
+		return errors.Wrap(pathErr, "failed to get config path")
 	}
 
-	configPath := filepath.Join(homeDir, ".dx", "config.json")
-
-	err = os.MkdirAll(filepath.Dir(configPath), 0644)
-	if err != nil {
-		return errors.Wrap(err, "failed to create config directory")
+	mkdirErr := os.MkdirAll(filepath.Dir(configPath), 0755)
+	if mkdirErr != nil {
+		return errors.Wrap(mkdirErr, "failed to create config directory")
 	}
 
-	configFile, err := os.Create(configPath)
-	if err != nil {
-		return errors.Wrap(err, "failed to create config file")
+	configFile, createErr := os.Create(configPath)
+	if createErr != nil {
+		return errors.Wrap(createErr, "failed to create config file")
 	}
 	defer configFile.Close()
 
-	jsonData, err := json.Marshal(c)
-	if err != nil {
-		return errors.Wrap(err, "failed to marshal config")
+	jsonData, marshalErr := json.Marshal(c)
+	if marshalErr != nil {
+		return errors.Wrap(marshalErr, "failed to marshal config")
 	}
 
-	_, err = configFile.Write(jsonData)
-	if err != nil {
-		return errors.Wrap(err, "failed to write config file")
+	_, writeErr := configFile.Write(jsonData)
+	if writeErr != nil {
+		return errors.Wrap(writeErr, "failed to write config file")
 	}
 
 	return nil
 }
 
-func createLocalStorage() error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return errors.Wrap(err, "failed to get user home directory")
-	}
-
-	storagePath := filepath.Join(homeDir, ".dx", "storage", "events.json")
-
-	err = os.MkdirAll(storagePath, 0755)
-	if err != nil {
-		return errors.Wrap(err, "failed to create storage directory")
-	}
-
-	storageFile, err := os.Create(storagePath)
-	if err != nil {
-		return errors.Wrap(err, "failed to create storage file")
-	}
-	defer storageFile.Close()
-
-	return nil
+type event struct {
+	Name      string         `json:"name"`
+	Timestamp int64          `json:"timestamp"`
+	Metadata  map[string]any `json:"metadata"`
 }
 
-func (t *DxTracker) saveEvent(event string, metadata map[string]any) error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return errors.Wrap(err, "failed to get user home directory")
+func (t *DxTracker) saveEvent(name string, timestamp int64, metadata map[string]any) error {
+	storagePath, pathErr := storagePath()
+	if pathErr != nil {
+		return errors.Wrap(pathErr, "failed to get storage path")
 	}
 
-	storagePath := filepath.Join(homeDir, ".dx", "storage", "events.json")
+	var events []event
 
-	storageFile, err := os.OpenFile(storagePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return errors.Wrap(err, "failed to open storage file")
-	}
-	defer storageFile.Close()
-
-	var events []map[string]any
-	if _, err := os.Stat(storageFile.Name()); err == nil {
-		existingData, err := os.ReadFile(storageFile.Name())
-		if err != nil {
-			return errors.Wrap(err, "failed to read existing storage file")
-		}
-		if len(existingData) > 0 {
-			if err := json.Unmarshal(existingData, &events); err != nil {
-				return errors.Wrap(err, "failed to parse existing JSON data")
+	if _, statErr := os.Stat(storagePath); statErr == nil {
+		content, err := os.ReadFile(storagePath)
+		if err == nil && len(content) > 0 {
+			if err := json.Unmarshal(content, &events); err != nil {
+				t.logger.Debug().Msgf("Failed to parse JSON: %s", err)
+				events = []event{}
 			}
 		}
 	}
 
-	events = append(events, map[string]any{
-		"event":     event,
-		"metadata":  metadata,
-		"timestamp": time.Now().Unix(),
-	})
+	newEvent := event{
+		Name:      name,
+		Timestamp: timestamp,
+		Metadata:  metadata,
+	}
+	events = append(events, newEvent)
 
 	jsonData, err := json.MarshalIndent(events, "", "  ")
 	if err != nil {
 		return errors.Wrap(err, "failed to marshal events to JSON")
 	}
 
-	_, err = storageFile.Write(jsonData)
-	if err != nil {
+	if err := os.WriteFile(storagePath, jsonData, 0644); err != nil {
 		return errors.Wrap(err, "failed to write event to storage file")
 	}
 
@@ -315,14 +340,17 @@ func (t *DxTracker) saveEvent(event string, metadata map[string]any) error {
 }
 
 func (t *DxTracker) sendSavedEvents() error {
-	homeDir, homeErr := os.UserHomeDir()
-	if homeErr != nil {
-		return errors.Wrap(homeErr, "failed to get user home directory")
+	storagePath, pathErr := storagePath()
+	if pathErr != nil {
+		return errors.Wrap(pathErr, "failed to get storage path")
 	}
 
-	storagePath := filepath.Join(homeDir, ".dx", "storage", "events.json")
+	stats, statErr := os.Stat(storagePath)
+	if os.IsNotExist(statErr) {
+		return nil
+	}
 
-	if _, statErr := os.Stat(storagePath); os.IsNotExist(statErr) {
+	if stats.Size() == 0 {
 		return nil
 	}
 
@@ -332,65 +360,15 @@ func (t *DxTracker) sendSavedEvents() error {
 	}
 	defer storageFile.Close()
 
-	var events []any
+	var events []event
 
 	decoderErr := json.NewDecoder(storageFile).Decode(&events)
 	if decoderErr != nil {
 		return errors.Wrap(decoderErr, "failed to decode events from storage file")
 	}
 
-	var toEventFn = func(maybeEvent any) (eventName string, timestamp int64, metadata map[string]any, err error) {
-		if maybeEvent == nil {
-			return "", 0, nil, errors.New("event is nil")
-		}
-
-		if asMap, ok := maybeEvent.(map[string]any); ok {
-			eventKey, ok := asMap["event"]
-			if !ok {
-				return "", 0, nil, fmt.Errorf("potential event doesn't have 'event' key: %v", maybeEvent)
-			}
-
-			metadataKey, ok := asMap["metadata"]
-			if !ok {
-				return "", 0, nil, fmt.Errorf("potential event doesn't have 'metadata' key: %v", maybeEvent)
-			}
-
-			timestampKey, ok := asMap["timestamp"]
-			if !ok {
-				return "", 0, nil, fmt.Errorf("potential event doesn't have 'timestamp' key: %v", maybeEvent)
-			}
-
-			if eventContent, ok := eventKey.(string); ok {
-				eventName = eventContent
-			}
-
-			if metadataContent, ok := metadataKey.(map[string]any); ok {
-				metadata = metadataContent
-			}
-
-			if timestampContent, ok := timestampKey.(int64); ok {
-				timestamp = timestampContent
-			}
-
-			if validateErr := validateEvent(eventName, timestamp, metadata); validateErr != nil {
-				return "", 0, nil, validateErr
-			}
-
-			return eventName, timestamp, metadata, nil
-		}
-
-		return "", 0, nil, fmt.Errorf("event is not a map[string]any, but %T", maybeEvent)
-
-	}
-
 	for _, event := range events {
-		eventName, timestamp, metadata, toEventErr := toEventFn(event)
-		if toEventErr != nil {
-			fmt.Printf("failed to parse event: %s. Continuing...\n", toEventErr)
-			continue
-		}
-
-		sendErr := t.sendEvent(eventName, timestamp, metadata)
+		sendErr := t.sendEvent(event.Name, event.Timestamp, event.Metadata)
 		if sendErr != nil {
 			return errors.Wrap(sendErr, "failed to send event")
 		}
@@ -405,18 +383,16 @@ func (t *DxTracker) sendSavedEvents() error {
 }
 
 func (t *DxTracker) clearSavedEvents() error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return errors.Wrap(err, "failed to get user home directory")
+	storagePath, pathErr := storagePath()
+	if pathErr != nil {
+		return errors.Wrap(pathErr, "failed to get storage path")
 	}
 
-	storagePath := filepath.Join(homeDir, ".dx", "storage", "events.json")
-
-	file, err := os.OpenFile(storagePath, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return errors.Wrap(err, "failed to truncate storage file")
+	storageFile, openErr := os.OpenFile(storagePath, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+	if openErr != nil {
+		return errors.Wrap(openErr, "failed to truncate storage file")
 	}
-	defer file.Close()
+	defer storageFile.Close()
 
 	return nil
 }
@@ -435,4 +411,22 @@ func validateEvent(event string, timestamp int64, metadata map[string]any) error
 	}
 
 	return nil
+}
+
+func storagePath() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get user home directory")
+	}
+
+	return filepath.Join(homeDir, ".dx", "events.json"), nil
+}
+
+func configPath() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get user home directory")
+	}
+
+	return filepath.Join(homeDir, ".dx", "config.json"), nil
 }
