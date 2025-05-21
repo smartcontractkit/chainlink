@@ -66,6 +66,7 @@ func GenerateTokenPoolView(chain cldf.SolChain, program solana.PublicKey, remote
 	view.PoolType = poolType
 	switch poolType {
 	case solTestTokenPool.BurnAndMint_PoolType.String():
+		solBurnMintTokenPool.SetProgramID(program)
 		ixn, err := solBurnMintTokenPool.NewTypeVersionInstruction(solana.SysVarClockPubkey).ValidateAndBuild()
 		if err != nil {
 			return view, fmt.Errorf("failed to build instruction: %w", err)
@@ -79,6 +80,7 @@ func GenerateTokenPoolView(chain cldf.SolChain, program solana.PublicKey, remote
 		})
 		view.TypeAndVersion = output
 	case solTestTokenPool.LockAndRelease_PoolType.String():
+		solLockReleaseTokenPool.SetProgramID(program)
 		ixn, err := solLockReleaseTokenPool.NewTypeVersionInstruction(solana.SysVarClockPubkey).ValidateAndBuild()
 		if err != nil {
 			return view, fmt.Errorf("failed to build instruction: %w", err)
