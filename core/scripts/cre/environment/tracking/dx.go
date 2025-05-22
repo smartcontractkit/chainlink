@@ -18,6 +18,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// Mode determines whether events are sent immediately or stored for later transmission.
 type Mode string
 
 const (
@@ -29,6 +30,7 @@ const (
 	EnvVarDisableTracking = "DISABLE_DX_TRACKING"
 )
 
+// DxTracker manages event tracking with automatic retry and offline support.
 type DxTracker struct {
 	mode     Mode
 	testMode bool
@@ -40,6 +42,7 @@ type DxTracker struct {
 	githubUsername string
 }
 
+// NewDxTracker initializes a tracker with automatic GitHub CLI integration for authentication.
 func NewDxTracker() (*DxTracker, error) {
 	t := &DxTracker{}
 
@@ -121,6 +124,7 @@ func NewDxTracker() (*DxTracker, error) {
 	return t, nil
 }
 
+// Track queues or sends an event, automatically handling offline scenarios.
 func (t *DxTracker) Track(event string, metadata map[string]any) error {
 	if t.noOp {
 		return nil
@@ -149,6 +153,7 @@ func (t *DxTracker) Track(event string, metadata map[string]any) error {
 	return t.saveEvent(event, timestamp, metadata)
 }
 
+// sendEvent attempts to deliver an event to the DX API with a 15-second timeout.
 func (t *DxTracker) sendEvent(name string, timestamp int64, metadata map[string]any) error {
 	url := "https://api.getdx.com/events.track"
 
@@ -205,6 +210,7 @@ func (t *DxTracker) sendEvent(name string, timestamp int64, metadata map[string]
 	return nil
 }
 
+// checkIfGhCLIAvailable determines if GitHub CLI is available for authentication.
 func (t *DxTracker) checkIfGhCLIAvailable() bool {
 	cmd := exec.Command("gh", "auth", "status")
 	_, err := cmd.Output()
@@ -214,6 +220,7 @@ func (t *DxTracker) checkIfGhCLIAvailable() bool {
 	return err == nil
 }
 
+// readGHUsername fetches the authenticated GitHub username via CLI.
 func (t *DxTracker) readGHUsername() (string, error) {
 	cmd := exec.Command("gh", "api", "user", "--jq", ".login")
 	output, err := cmd.Output()
@@ -231,6 +238,7 @@ func (t *DxTracker) readGHUsername() (string, error) {
 	return strings.Trim(strings.TrimSpace(string(output)), "\n\r"), nil
 }
 
+// readDXAPIToken retrieves the API token from GitHub repository secrets.
 func (t *DxTracker) readDXAPIToken() (string, error) {
 	cmd := exec.Command("gh", "variable", "get", "DX_API_TOKEN", "--repo", "smartcontractkit/local-cre-dx-tracking")
 	output, err := cmd.Output()
@@ -247,11 +255,13 @@ func (t *DxTracker) readDXAPIToken() (string, error) {
 	return strings.Trim(strings.TrimSpace(string(output)), "\n\r"), nil
 }
 
+// config stores authentication credentials for the DX API.
 type config struct {
 	DxAPIToken     string `json:"dx_api_token"`
 	GithubUsername string `json:"github_username"`
 }
 
+// openConfig attempts to load existing configuration from the user's home directory.
 func openConfig() (*config, bool, error) {
 	configPath, pathErr := configPath()
 	if pathErr != nil {
@@ -276,10 +286,12 @@ func openConfig() (*config, bool, error) {
 	return &localConfig, true, nil
 }
 
+// isConfigValid ensures both API token and GitHub username are present.
 func isConfigValid(c *config) bool {
 	return c.DxAPIToken != "" && c.GithubUsername != ""
 }
 
+// saveConfig persists configuration to the user's home directory with proper permissions.
 func saveConfig(c *config) error {
 	configPath, pathErr := configPath()
 	if pathErr != nil {
@@ -310,12 +322,14 @@ func saveConfig(c *config) error {
 	return nil
 }
 
+// event represents a tracking event with its associated metadata.
 type event struct {
 	Name      string         `json:"name"`
 	Timestamp int64          `json:"timestamp"`
 	Metadata  map[string]any `json:"metadata"`
 }
 
+// saveEvent stores an event locally for later transmission when offline.
 func (t *DxTracker) saveEvent(name string, timestamp int64, metadata map[string]any) error {
 	t.logger.Debug().Msgf("Saving event. Name: %s, Timestamp: %d, Metadata: %v", name, timestamp, metadata)
 
@@ -355,6 +369,7 @@ func (t *DxTracker) saveEvent(name string, timestamp int64, metadata map[string]
 	return nil
 }
 
+// sendSavedEvents attempts to send all queued events and clears the queue on success.
 func (t *DxTracker) sendSavedEvents() error {
 	storagePath, pathErr := storagePath()
 	if pathErr != nil {
@@ -402,6 +417,7 @@ func (t *DxTracker) sendSavedEvents() error {
 	return nil
 }
 
+// clearSavedEvents removes all queued events after successful transmission.
 func (t *DxTracker) clearSavedEvents() error {
 	storagePath, pathErr := storagePath()
 	if pathErr != nil {
@@ -417,6 +433,7 @@ func (t *DxTracker) clearSavedEvents() error {
 	return nil
 }
 
+// validateEvent ensures all required event fields are present and non-empty.
 func validateEvent(event string, timestamp int64, metadata map[string]any) error {
 	if event == "" {
 		return errors.New("event is required")
@@ -433,6 +450,7 @@ func validateEvent(event string, timestamp int64, metadata map[string]any) error
 	return nil
 }
 
+// storagePath returns the path to the events queue file in the user's home directory.
 func storagePath() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -442,6 +460,7 @@ func storagePath() (string, error) {
 	return filepath.Join(homeDir, ".dx", "events.json"), nil
 }
 
+// configPath returns the path to the configuration file in the user's home directory.
 func configPath() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
