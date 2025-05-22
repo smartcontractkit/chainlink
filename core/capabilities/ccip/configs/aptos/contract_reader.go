@@ -280,10 +280,10 @@ func GetChainReaderConfig() (chainreader.ChainReaderConfig, error) {
 								SubFieldRenames: nil,
 							},
 							"message": {
-								NewName:         "Message",
+								NewName: "Message",
 								SubFieldRenames: map[string]chainreader.RenamedField{
 									"header": {
-										NewName:         "Header",
+										NewName: "Header",
 										SubFieldRenames: map[string]chainreader.RenamedField{
 											"source_chain_selector": {
 												NewName: "SourceChainSelector",
@@ -303,28 +303,28 @@ func GetChainReaderConfig() (chainreader.ChainReaderConfig, error) {
 										},
 									},
 									"sender": {
-										NewName:         "Sender",
+										NewName: "Sender",
 									},
 									"data": {
-										NewName:         "Data",
+										NewName: "Data",
 									},
 									"receiver": {
-										NewName:         "Receiver",
+										NewName: "Receiver",
 									},
 									"extra_args": {
-										NewName:         "ExtraArgs",
+										NewName: "ExtraArgs",
 									},
 									"fee_token": {
-										NewName:         "FeeToken",
+										NewName: "FeeToken",
 									},
 									"fee_token_amount": {
-										NewName:         "FeeTokenAmount",
+										NewName: "FeeTokenAmount",
 									},
 									"fee_value_juels": {
-										NewName:         "FeeValueJuels",
+										NewName: "FeeValueJuels",
 									},
 									"token_amounts": {
-										NewName:         "TokenAmounts",
+										NewName: "TokenAmounts",
 										SubFieldRenames: map[string]chainreader.RenamedField{
 											"source_pool_address": {
 												NewName: "SourcePoolAddress",
@@ -345,9 +345,6 @@ func GetChainReaderConfig() (chainreader.ChainReaderConfig, error) {
 									},
 								},
 							},
-						},
-						EventFilterRenames: map[string]string{
-							"DestChain": "DestChainSelector",
 						},
 					},
 				},

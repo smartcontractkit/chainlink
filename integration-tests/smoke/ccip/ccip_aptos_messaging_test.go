@@ -165,41 +165,35 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 		})
 	})
 
-	// mltTestSetup := mlt.NewTestSetup(
-	// 	t,
-	// 	state,
-	// 	sourceChain,
-	// 	destChain,
-	// 	common.HexToAddress("0x0"),
-	// 	srcFeeQuoterDestChainConfig,
-	// 	false, // testRouter
-	// 	true,  // validateResp
-	// 	mlt.WithDeployedEnv(e),
-	// )
+	t.Run("Missing ExtraArgs - Should Fail", func(t *testing.T) {
+		message := []byte("Hello Aptos, from EVM!")
+		mlt.Run(mlt.TestCase{
+			TestSetup: mltTestSetup,
+			Name:      "Missing ExtraArgs - Should Fail",
+			Msg: router.ClientEVM2AnyMessage{
+				Receiver:  ccipChainState.ReceiverAddress[:],
+				Data:      message,
+				FeeToken:  common.HexToAddress("0x0"),
+				ExtraArgs: []byte{},
+			},
+			ExpRevert: true,
+		})
+	})
 
-	// tcs := []mlt.TestCase{
-	// 	{
-	// 		TestSetup: mltTestSetup,
-	// 		Name:      "send message with gas limit exceeding maximum gas limit allowed",
-	// 		Msg: router.ClientEVM2AnyMessage{
-	// 			Receiver:  ccipChainState.ReceiverAddress[:],
-	// 			Data:      []byte("abc"),
-	// 			FeeToken:  common.HexToAddress("0x0"),
-	// 			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(mltTestSetup.SrcFeeQuoterDestChainConfig.MaxPerMsgGasLimit)+1, true),
-	// 		},
-	// 		ExpRevert: true,
-	// 	},
-	// 	{
-	// 		TestSetup: mltTestSetup,
-	// 		Name:      "send message without extra args should fail with invalid args",
-	// 		Msg: router.ClientEVM2AnyMessage{
-	// 			Receiver: ccipChainState.ReceiverAddress[:],
-	// 			Data:     []byte("abc"),
-	// 			FeeToken: common.HexToAddress("0x0"),
-	// 		},
-	// 		ExpRevert: true,
-	// 	},
-	// }
+	t.Run("OutOfOrder Execution False - Should Fail", func(t *testing.T) {
+		message := []byte("Hello Aptos, from EVM!")
+		mlt.Run(mlt.TestCase{
+			TestSetup: mltTestSetup,
+			Name:      "Missing ExtraArgs - Should Fail",
+			Msg: router.ClientEVM2AnyMessage{
+				Receiver:  ccipChainState.ReceiverAddress[:],
+				Data:      message,
+				FeeToken:  common.HexToAddress("0x0"),
+				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(100000, false),
+			},
+			ExpRevert: true,
+		})
+	})
 }
 
 func assertAptosMessageReceivedMatchesSource(t *testing.T, e testhelpers.DeployedEnv, destChain uint64, dummyReceiver aptos.AccountAddress, message []byte, sequenceNumber uint64) {
