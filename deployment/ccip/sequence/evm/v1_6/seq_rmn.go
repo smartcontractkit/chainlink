@@ -9,8 +9,8 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	ccipsharedops "github.com/smartcontractkit/chainlink/deployment/ccip/operations"
-	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operations/evm/v1_6"
+	ccipsharedops "github.com/smartcontractkit/chainlink/deployment/ccip/operation"
+	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
