@@ -19,7 +19,8 @@ import (
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/testutils"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/testutils/registry"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
@@ -336,10 +337,10 @@ func TestEngine_MockCapabilityRegistry_NoDAGBinary(t *testing.T) {
 	}
 
 	triggerMock, basicActionMock := setupExpectedCalls(t)
-	wrappedTriggerMock := &testutils.CapabilityWrapper{
+	wrappedTriggerMock := &registry.CapabilityWrapper{
 		Capability: triggerMock,
 	}
-	wrappedActionMock := &testutils.CapabilityWrapper{
+	wrappedActionMock := &registry.CapabilityWrapper{
 		Capability: basicActionMock,
 	}
 

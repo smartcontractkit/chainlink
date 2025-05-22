@@ -41,7 +41,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: system-tests/tests/go.mod
+          go-version-file: core/scripts/go.mod
 
       # We need to login to ECR to allow the test to pull the Job Distributor and Chainlink images
       - name: Configure AWS Credentials
@@ -63,7 +63,7 @@ jobs:
       - name: Overwrite chainlink version in TOML config
         shell: bash
         run: |
-          cat > system-tests/tests/smoke/cre/cmd/configs/ci-override.toml<< EOF
+          cat > core/scripts/cre/environment/configs/ci-override.toml<< EOF
           [jd]
             image = "injected-at-runtime"
 
@@ -91,7 +91,7 @@ jobs:
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
           E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag }}
         run: |
-          cd system-tests/tests/smoke/cre/cmd
+          cd core/scripts/cre/environment
           go run main.go env start
 
   notify-test-failure:

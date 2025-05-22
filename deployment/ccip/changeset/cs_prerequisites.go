@@ -128,7 +128,7 @@ func WithLegacyDeploymentEnabled(cfg V1_5DeploymentConfig) PrerequisiteOpt {
 func deployPrerequisiteChainContracts(e cldf.Environment, ab cldf.AddressBook, cfg DeployPrerequisiteConfig) error {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
-		e.Logger.Errorw("Failed to load existing onchain state", "err")
+		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return err
 	}
 	deployGrp := errgroup.Group{}
@@ -455,10 +455,9 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 			e.Logger.Errorw("Failed to deploy ccip multicall", "chain", chain.String(), "err", err)
 			return err
 		}
-	} else {
-		if mc3 != nil {
-			e.Logger.Info("ccip multicall already deployed", "chain", chain.String(), "addr", mc3.Address)
-		}
+	} else if mc3 != nil {
+		e.Logger.Info("ccip multicall already deployed", "chain", chain.String(), "addr", mc3.Address)
+
 	}
 	if deployOpts.USDCEnabled {
 		token, pool, messenger, transmitter, err1 := deployUSDC(e.Logger, chain, ab, rmnProxy.Address(), r.Address())

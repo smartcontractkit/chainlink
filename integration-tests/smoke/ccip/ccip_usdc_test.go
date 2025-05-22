@@ -9,8 +9,6 @@ import (
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -35,7 +33,7 @@ import (
  */
 func TestUSDCTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithNumOfUsersPerChain(3),
 		testhelpers.WithNumOfChains(3),

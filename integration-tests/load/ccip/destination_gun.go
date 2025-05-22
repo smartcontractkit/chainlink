@@ -9,19 +9,12 @@ import (
 	mathrand "math/rand"
 	"time"
 
-	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
-	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-
-	"go.uber.org/atomic"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
+	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -30,6 +23,10 @@ import (
 	selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 

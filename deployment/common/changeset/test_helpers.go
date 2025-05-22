@@ -106,27 +106,7 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, timelockContractsPerChain
 		if out.Jobs != nil {
 			// do nothing, as these jobs auto-accept.
 		}
-		if out.Proposals != nil {
-			for _, prop := range out.Proposals {
-				chains := mapset.NewSet[uint64]()
-				for _, op := range prop.Transactions {
-					chains.Add(uint64(op.ChainIdentifier))
-				}
 
-				signed := proposalutils.SignProposal(t, e, &prop)
-				for _, sel := range chains.ToSlice() {
-					timelockContracts, ok := timelockContractsPerChain[sel]
-					if !ok || timelockContracts == nil {
-						return cldf.Environment{}, fmt.Errorf("timelock contracts not found for chain %d", sel)
-					}
-
-					err := proposalutils.ExecuteProposal(t, e, signed, timelockContracts, sel) //nolint:staticcheck //SA1019 ignoring deprecated function for compatibility; we don't have tools to generate the new field
-					if err != nil {
-						return e, fmt.Errorf("failed to execute proposal: %w", err)
-					}
-				}
-			}
-		}
 		if out.MCMSTimelockProposals != nil {
 			for _, prop := range out.MCMSTimelockProposals {
 				mcmProp := proposalutils.SignMCMSTimelockProposal(t, e, &prop)

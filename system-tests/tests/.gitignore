@@ -8,7 +8,8 @@ abcdefgasd*.yaml
 porfeed*.yaml
 # DF Cache contract configuration artifacts
 set-feed-*.yaml
-# chainlink cli binary, it should be downloaded by the test
+
+# CRE CLI binary
 cre_v*
 
 .cre.settings.yaml
@@ -16,6 +17,8 @@ cre_v*
 # crib-specific CL node configuration and secrets that will be used to override the default configuration
 crib-configs/
 cache/
+
+logs/
 
 cre.yaml
 *.state.yaml
