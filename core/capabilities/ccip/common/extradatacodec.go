@@ -8,21 +8,8 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
-// ExtraDataCodec is a struct that holds the chain specific extra data codec
-type ExtraDataCodec struct {
-	EVMExtraDataCodec    SourceChainExtraDataCodec
-	SolanaExtraDataCodec SourceChainExtraDataCodec
-	AptosExtraDataCodec  SourceChainExtraDataCodec
-}
-
-// NewExtraDataCodec is a constructor for ExtraDataCodec
-func NewExtraDataCodec(evmExtraDataCodec, solanaExtraDataCodec, aptosExtraDataCodec SourceChainExtraDataCodec) ExtraDataCodec {
-	return ExtraDataCodec{
-		EVMExtraDataCodec:    evmExtraDataCodec,
-		SolanaExtraDataCodec: solanaExtraDataCodec,
-		AptosExtraDataCodec:  aptosExtraDataCodec,
-	}
-}
+// ExtraDataCodec is a map of chain family to SourceChainExtraDataCodec
+type ExtraDataCodec map[string]SourceChainExtraDataCodec
 
 // DecodeExtraArgs reformats bytes into a chain agnostic map[string]any representation for extra args
 func (c ExtraDataCodec) DecodeExtraArgs(extraArgs cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error) {
@@ -36,19 +23,12 @@ func (c ExtraDataCodec) DecodeExtraArgs(extraArgs cciptypes.Bytes, sourceChainSe
 		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", sourceChainSelector, err)
 	}
 
-	switch family {
-	case chainsel.FamilyEVM:
-		return c.EVMExtraDataCodec.DecodeExtraArgsToMap(extraArgs)
-
-	case chainsel.FamilySolana:
-		return c.SolanaExtraDataCodec.DecodeExtraArgsToMap(extraArgs)
-
-	case chainsel.FamilyAptos:
-		return c.AptosExtraDataCodec.DecodeExtraArgsToMap(extraArgs)
-
-	default:
+	codec, exist := c[family]
+	if !exist {
 		return nil, fmt.Errorf("unsupported family for extra args type %s", family)
 	}
+
+	return codec.DecodeExtraArgsToMap(extraArgs)
 }
 
 // DecodeTokenAmountDestExecData reformats bytes to chain-agnostic map[string]any for tokenAmount DestExecData field
@@ -63,17 +43,10 @@ func (c ExtraDataCodec) DecodeTokenAmountDestExecData(destExecData cciptypes.Byt
 		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", sourceChainSelector, err)
 	}
 
-	switch family {
-	case chainsel.FamilyEVM:
-		return c.EVMExtraDataCodec.DecodeDestExecDataToMap(destExecData)
-
-	case chainsel.FamilySolana:
-		return c.SolanaExtraDataCodec.DecodeDestExecDataToMap(destExecData)
-
-	case chainsel.FamilyAptos:
-		return c.AptosExtraDataCodec.DecodeDestExecDataToMap(destExecData)
-
-	default:
+	codec, exist := c[family]
+	if !exist {
 		return nil, fmt.Errorf("unsupported family for extra args type %s", family)
 	}
+
+	return codec.DecodeDestExecDataToMap(destExecData)
 }

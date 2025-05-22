@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -25,7 +24,6 @@ import (
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -292,26 +290,6 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, registry keeper.Regi
 	err = korm.UpsertUpkeep(ctx, &upkeep)
 	require.NoError(t, err)
 	return upkeep
-}
-
-func RawNewRoundLog(t *testing.T, contractAddr common.Address, blockHash common.Hash, blockNumber uint64, logIndex uint, removed bool) types.Log {
-	t.Helper()
-	topic := (flux_aggregator_wrapper.FluxAggregatorNewRound{}).Topic()
-	topics := []common.Hash{topic, evmutils.NewHash(), evmutils.NewHash()}
-	return RawNewRoundLogWithTopics(t, contractAddr, blockHash, blockNumber, logIndex, removed, topics)
-}
-
-func RawNewRoundLogWithTopics(t *testing.T, contractAddr common.Address, blockHash common.Hash, blockNumber uint64, logIndex uint, removed bool, topics []common.Hash) types.Log {
-	t.Helper()
-	return types.Log{
-		Address:     contractAddr,
-		BlockHash:   blockHash,
-		BlockNumber: blockNumber,
-		Index:       logIndex,
-		Topics:      topics,
-		Data:        []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-		Removed:     removed,
-	}
 }
 
 func MustInsertExternalInitiator(t *testing.T, orm bridges.ORM) (ei bridges.ExternalInitiator) {

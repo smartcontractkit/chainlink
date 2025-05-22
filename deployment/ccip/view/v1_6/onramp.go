@@ -71,7 +71,6 @@ func GenerateOnRampView(
 		if err != nil {
 			return OnRampView{}, fmt.Errorf("failed to generate destination chain specific data based on test router: %w", err)
 		}
-		destChainSpecificData = destChainSpecificDataBasedOnTestRouter
 	}
 	return OnRampView{
 		ContractMetaData:                       tv,

@@ -32,7 +32,10 @@ func deployTimelockProgram(
 	}
 
 	if programID.IsZero() {
-		deployedProgramID, err := chain.DeployProgram(log, "timelock", false, true)
+		deployedProgramID, err := chain.DeployProgram(log, cldf.SolProgramInfo{
+			Name:  deployment.TimelockProgramName,
+			Bytes: deployment.SolanaProgramBytes[deployment.TimelockProgramName],
+		}, false, true)
 		if err != nil {
 			return fmt.Errorf("failed to deploy timelock program: %w", err)
 		}

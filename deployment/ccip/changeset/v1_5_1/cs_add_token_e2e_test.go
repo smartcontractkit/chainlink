@@ -162,6 +162,7 @@ func TestAddTokenE2E(t *testing.T) {
 				poolConfig := addTokenE2EConfig.Tokens[testhelpers.TestTokenSymbol].PoolConfig
 				var deployPoolConfig *v1_5_1.DeployTokenPoolInput
 				var deployTokenConfig *v1_5_1.DeployTokenConfig
+				var _ *cldf.ContractType
 				if test.withNewToken {
 					deployTokenConfig = &v1_5_1.DeployTokenConfig{
 						TokenName:     string(testhelpers.TestTokenSymbol),
@@ -187,9 +188,9 @@ func TestAddTokenE2E(t *testing.T) {
 					DeployPoolConfig:      deployPoolConfig,
 					PoolVersion:           deployment.Version1_5_1,
 					ExternalAdmin:         externalAdmin,
-					RateLimiterConfig:     rateLimiterPerChain,
 				}
 			}
+
 			// apply the changeset
 			e, err = commonchangeset.Apply(t, e, timelockContracts,
 				commonchangeset.Configure(v1_5_1.AddTokensE2E, addTokenE2EConfig))
@@ -244,6 +245,14 @@ func TestAddTokenE2E(t *testing.T) {
 					remotePoolAddr = poolOnSelectorA.Address()
 					registry = registryOnB
 				}
+
+				var poolOwner common.Address
+				if test.withMCMS {
+					poolOwner = state.Chains[chain].Timelock.Address()
+				} else {
+					poolOwner = e.Chains[chain].DeployerKey.From
+				}
+
 				// check token pool is configured
 				validateMemberOfTokenPoolPair(
 					t,
@@ -255,8 +264,9 @@ func TestAddTokenE2E(t *testing.T) {
 					chain,
 					rateLimiterConfig.Inbound.Rate, // inbound & outbound are the same in this test
 					rateLimiterConfig.Inbound.Capacity,
-					e.Chains[chain].DeployerKey.From, // the pools are still owned by the deployer
+					poolOwner, // the pools are owned by timelock now if mcms is enabled
 				)
+
 				/*
 					This behavior is not currently enabled
 

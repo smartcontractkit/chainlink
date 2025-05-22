@@ -9,9 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
-	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -38,8 +35,6 @@ type LinkTransferConfig struct {
 	From       common.Address
 	McmsConfig *proposalutils.TimelockConfig
 }
-
-var _ cldf.ChangeSet[*LinkTransferConfig] = LinkTransfer
 
 func getDeployer(e cldf.Environment, chain uint64, mcmConfig *proposalutils.TimelockConfig) *bind.TransactOpts {
 	if mcmConfig == nil {
@@ -162,80 +157,6 @@ func transferOrBuildTx(
 		}
 	}
 	return tx, nil
-}
-
-// LinkTransfer takes the given link transfers and executes them or creates an MCMS proposal for them.
-func LinkTransfer(e cldf.Environment, cfg *LinkTransferConfig) (cldf.ChangesetOutput, error) {
-	err := cfg.Validate(e)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("invalid LinkTransferConfig: %w", err)
-	}
-
-	mcmsPerChain := map[uint64]*owner_helpers.ManyChainMultiSig{}
-
-	timelockAddresses := map[uint64]common.Address{}
-	// Initialize state for each chain
-	linkStatePerChain, mcmsStatePerChain, err := initStatePerChain(cfg, e)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-
-	allBatches := []timelock.BatchChainOperation{}
-	for chainSelector := range cfg.Transfers {
-		chainID := mcms.ChainIdentifier(chainSelector)
-		chain := e.Chains[chainSelector]
-		linkAddress := linkStatePerChain[chainSelector].LinkToken.Address()
-		mcmsState := mcmsStatePerChain[chainSelector]
-		linkState := linkStatePerChain[chainSelector]
-
-		timelockAddress := mcmsState.Timelock.Address()
-
-		mcmsPerChain[uint64(chainID)] = mcmsState.ProposerMcm
-
-		timelockAddresses[chainSelector] = timelockAddress
-		batch := timelock.BatchChainOperation{
-			ChainIdentifier: chainID,
-			Batch:           []mcms.Operation{},
-		}
-
-		opts := getDeployer(e, chainSelector, cfg.McmsConfig)
-		totalAmount := big.NewInt(0)
-		for _, transfer := range cfg.Transfers[chainSelector] {
-			tx, err := transferOrBuildTx(e, linkState, transfer, opts, chain, cfg.McmsConfig)
-			if err != nil {
-				return cldf.ChangesetOutput{}, err
-			}
-			op := mcms.Operation{
-				To:           linkAddress,
-				Data:         tx.Data(),
-				Value:        big.NewInt(0),
-				ContractType: string(types.LinkToken),
-			}
-			batch.Batch = append(batch.Batch, op)
-			totalAmount.Add(totalAmount, transfer.Value)
-		}
-
-		allBatches = append(allBatches, batch)
-	}
-
-	if cfg.McmsConfig != nil {
-		proposal, err := proposalutils.BuildProposalFromBatches(
-			timelockAddresses,
-			mcmsPerChain,
-			allBatches,
-			"LINK Value transfer proposal",
-			cfg.McmsConfig.MinDelay,
-		)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-
-		return cldf.ChangesetOutput{
-			Proposals: []timelock.MCMSWithTimelockProposal{*proposal},
-		}, nil
-	}
-
-	return cldf.ChangesetOutput{}, nil
 }
 
 // LinkTransferV2 is an reimplementation of LinkTransfer that uses the new MCMS SDK.

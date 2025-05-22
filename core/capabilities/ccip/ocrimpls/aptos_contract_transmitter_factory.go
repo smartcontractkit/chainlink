@@ -41,7 +41,7 @@ func NewAptosCommitCalldataFunc(commitMethod string) ToEd25519CalldataFunc {
 		rawReportCtx [2][32]byte,
 		report ocr3types.ReportWithInfo[[]byte],
 		signatures [][96]byte,
-		_ *ccipcommon.ExtraDataCodec,
+		_ ccipcommon.ExtraDataCodec,
 	) (string, string, any, error) {
 		return consts.ContractNameOffRamp,
 			commitMethod,
@@ -76,7 +76,7 @@ var AptosExecCallDataFunc = func(
 	rawReportCtx [2][32]byte,
 	report ocr3types.ReportWithInfo[[]byte],
 	signatures [][96]byte,
-	_ *ccipcommon.ExtraDataCodec,
+	_ ccipcommon.ExtraDataCodec,
 ) (contract string, method string, args any, err error) {
 	return consts.ContractNameOffRamp,
 		consts.MethodExecute,
