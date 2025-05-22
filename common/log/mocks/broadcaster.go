@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	log "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	log "github.com/smartcontractkit/chainlink-evm/pkg/log"
 	mock "github.com/stretchr/testify/mock"
 
 	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
