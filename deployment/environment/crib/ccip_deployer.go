@@ -77,6 +77,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
 
+const (
+	tokenApproveCheckedAmount = 1e4 * 1e9
+)
+
 // DeployHomeChainContracts deploys the home chain contracts so that the chainlink nodes can use the CR address in Capabilities.ExternalRegistry
 // Afterward, we call DeployHomeChainChangeset changeset with nodeinfo ( the peer id and all)
 func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel uint64, feedChainSel uint64) (deployment.CapabilityRegistryConfig, cldf.AddressBook, error) {
@@ -536,41 +540,39 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 			// add solana token pool and token pool lookup table
 			commonchangeset.Configure(
 				// deploy token pool and set the burn/mint authority to the tokenPool
-				cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPoolAndLookupTable),
-				ccipChangesetSolana.TokenPoolConfig{
-					ChainSelector: solChainSel,
-					TokenPubKey:   solTokenAddress,
-					PoolType:      &bnm,
-					Metadata:      "CLL",
-				},
-			),
-			// register token admin registry solana
-			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
-				ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
-					ChainSelector:           solChainSel,
-					TokenPubKey:             solTokenAddress,
-					TokenAdminRegistryAdmin: e.SolChains[solChainSel].DeployerKey.PublicKey().String(),
-					RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
-				},
-			),
-			// accept admin role token admin registry solana
-			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
-				ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
-					ChainSelector: solChainSel,
-					TokenPubKey:   solTokenAddress,
-				},
-			),
-			// set pool solana
-			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetPool),
-				ccipChangesetSolana.SetPoolConfig{
-					ChainSelector:   solChainSel,
-					TokenPubKey:     solTokenAddress,
-					WritableIndexes: []uint8{3, 4, 7},
-					PoolType:        &bnm,
-					Metadata:        "CLL",
+				cldf.CreateLegacyChangeSet(ccipChangesetSolana.E2ETokenPool),
+				ccipChangesetSolana.E2ETokenPoolConfig{
+					AddTokenPoolAndLookupTable: []ccipChangesetSolana.TokenPoolConfig{
+						{
+							ChainSelector: solChainSel,
+							TokenPubKey:   solTokenAddress,
+							PoolType:      &bnm,
+							Metadata:      shared.CLLMetadata,
+						},
+					},
+					RegisterTokenAdminRegistry: []ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
+						{
+							ChainSelector:           solChainSel,
+							TokenPubKey:             solTokenAddress,
+							TokenAdminRegistryAdmin: e.SolChains[solChainSel].DeployerKey.PublicKey().String(),
+							RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
+						},
+					},
+					AcceptAdminRoleTokenAdminRegistry: []ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
+						{
+							ChainSelector: solChainSel,
+							TokenPubKey:   solTokenAddress,
+						},
+					},
+					SetPool: []ccipChangesetSolana.SetPoolConfig{
+						{
+							ChainSelector:   solChainSel,
+							TokenPubKey:     solTokenAddress,
+							PoolType:        &bnm,
+							Metadata:        shared.CLLMetadata,
+							WritableIndexes: []uint8{3, 4, 7},
+						},
+					},
 				},
 			),
 		)
@@ -613,7 +615,7 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 			return *e, fmt.Errorf("failed to find associated token address: %w", err)
 		}
 		ixApproveLink, err := soltokens.TokenApproveChecked(
-			1e2*1e9,
+			tokenApproveCheckedAmount,
 			9,
 			tokenProgramID,
 			deployerATA,
