@@ -71,6 +71,7 @@ type SetupOutput struct {
 	BlockchainOutput                    []*BlockchainOutput
 	DonTopology                         *keystonetypes.DonTopology
 	NodeOutput                          []*keystonetypes.WrappedNodeOutput
+	InfraInput                          libtypes.InfraInput
 }
 
 type SetupInput struct {
@@ -625,6 +626,7 @@ func SetupTestEnvironment(
 		DonTopology:                         fullCldOutput.DonTopology,
 		NodeOutput:                          nodeSetOutput,
 		CldEnvironment:                      fullCldOutput.Environment,
+		InfraInput:                          input.InfraInput,
 	}, nil
 }
 

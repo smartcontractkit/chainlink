@@ -239,7 +239,7 @@ var startCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
 
-			dxErr := trackStartup(false, ptr.Ptr(strings.SplitN(startErr.Error(), "\n", 1)[0]), ptr.Ptr(false))
+			dxErr := trackStartup(false, "unknown", ptr.Ptr(strings.SplitN(startErr.Error(), "\n", 1)[0]), ptr.Ptr(false))
 			if dxErr != nil {
 				fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
 			}
@@ -302,7 +302,7 @@ var startCmd = &cobra.Command{
 		fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(provisioningStartTime).Seconds()))
 		fmt.Print("To terminate execute: ctf d rm\n\n")
 
-		dxErr := trackStartup(true, nil, nil)
+		dxErr := trackStartup(true, output.InfraInput.InfraType, nil, nil)
 		if dxErr != nil {
 			fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
 		}
@@ -322,9 +322,10 @@ var startCmd = &cobra.Command{
 	},
 }
 
-func trackStartup(success bool, errorMessage *string, panicked *bool) error {
+func trackStartup(success bool, infraType string, errorMessage *string, panicked *bool) error {
 	metadata := map[string]any{
 		"success": success,
+		"infra":   infraType,
 	}
 
 	if errorMessage != nil {

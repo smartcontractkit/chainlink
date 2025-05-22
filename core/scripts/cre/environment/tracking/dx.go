@@ -2,12 +2,14 @@ package tracking
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,11 +21,12 @@ import (
 type Mode string
 
 const (
-	Mode_Offline Mode = "offline"
-	Mode_Online  Mode = "online"
+	ModeOffline Mode = "offline"
+	ModeOnline  Mode = "online"
 
-	DISABLE_TRACKING_ENV_VAR = "DISABLE_DX_TRACKING"
-	EnvVarLogLevel           = "DX_LOG_LEVEL"
+	EnvVarLogLevel        = "DX_LOG_LEVEL"
+	EnvVarTestMode        = "DX_TEST_MODE"
+	EnvVarDisableTracking = "DISABLE_DX_TRACKING"
 )
 
 type DxTracker struct {
@@ -50,9 +53,14 @@ func NewDxTracker() (*DxTracker, error) {
 	}
 	t.logger = log.With().Str("logger_name", "DxTracker").Logger().Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(lvl).With().Logger()
 
-	if os.Getenv(DISABLE_TRACKING_ENV_VAR) == "true" {
+	if os.Getenv(EnvVarDisableTracking) == "true" {
 		t.noOp = true
+
 		return t, nil
+	}
+
+	if os.Getenv(EnvVarTestMode) == "true" {
+		t.testMode = true
 	}
 
 	c, isConfigAvailable, configErr := openConfig()
@@ -61,12 +69,14 @@ func NewDxTracker() (*DxTracker, error) {
 	}
 
 	// if local config is available read it and set mode to online
-	if isConfigAvailable {
-		t.mode = Mode_Online
+	if isConfigAvailable && isConfigValid(c) {
+		t.logger.Debug().Msg("Local config found, setting mode to online")
+		t.mode = ModeOnline
 	} else {
 		// if local config is not available check if gh cli is available
 		// try to configure tracker with gh cli
 		if t.checkIfGhCLIAvailable() {
+			t.logger.Debug().Msg("GH CLI available, creating config")
 			var userNameErr error
 			c = &config{}
 			c.GithubUsername, userNameErr = t.readGHUsername()
@@ -85,14 +95,16 @@ func NewDxTracker() (*DxTracker, error) {
 				return nil, errors.Wrap(saveErr, "failed to save config")
 			}
 
-			t.mode = Mode_Online
+			t.mode = ModeOnline
+			t.logger.Debug().Msg("Config created, setting mode to online")
 		} else {
 			// if gh cli is not available, set mode to offline
-			t.mode = Mode_Offline
+			t.mode = ModeOffline
+			t.logger.Debug().Msg("GH CLI not available, setting mode to offline")
 		}
 	}
 
-	if t.mode == Mode_Online {
+	if t.mode == ModeOnline {
 		t.apiToken = c.DxAPIToken
 		t.githubUsername = c.GithubUsername
 
@@ -120,10 +132,9 @@ func (t *DxTracker) Track(event string, metadata map[string]any) error {
 
 	timestamp := time.Now().Unix()
 
-	if t.mode == Mode_Online {
+	if t.mode == ModeOnline {
 		sendErr := t.sendEvent(event, timestamp, metadata)
 		if sendErr != nil {
-			t.logger.Debug().Msgf("failed to send event: %s", sendErr)
 			saveErr := t.saveEvent(event, timestamp, metadata)
 			if saveErr != nil {
 				t.logger.Debug().Msgf("failed to save event: %s", saveErr)
@@ -144,7 +155,7 @@ func (t *DxTracker) sendEvent(name string, timestamp int64, metadata map[string]
 	body := map[string]any{
 		"name":            name,
 		"metadata":        metadata,
-		"timestamp":       fmt.Sprintf("%d", timestamp),
+		"timestamp":       strconv.FormatInt(timestamp, 10),
 		"github_username": t.githubUsername,
 	}
 
@@ -159,12 +170,15 @@ func (t *DxTracker) sendEvent(name string, timestamp int64, metadata map[string]
 
 	t.logger.Debug().Msgf("Sending event: %s", string(jsonData))
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return errors.Wrap(err, "failed to create request")
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", t.apiToken))
+	req.Header.Set("Authorization", "Bearer "+t.apiToken)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -204,13 +218,11 @@ func (t *DxTracker) readGHUsername() (string, error) {
 	cmd := exec.Command("gh", "api", "user", "--jq", ".login")
 	output, err := cmd.Output()
 	if err != nil {
-		t.logger.Debug().Msgf("Failed to run GH CLI: %s", err)
 		return "", errors.Wrap(err, "failed to run GH CLI")
 	}
 
 	username := strings.Trim(strings.TrimSpace(string(output)), "\n\r")
 	if username == "" {
-		t.logger.Debug().Msg("Github username not found")
 		return "", errors.New("Github username not found")
 	}
 
@@ -223,12 +235,10 @@ func (t *DxTracker) readDXAPIToken() (string, error) {
 	cmd := exec.Command("gh", "variable", "get", "DX_API_TOKEN", "--repo", "smartcontractkit/local-cre-dx-tracking")
 	output, err := cmd.Output()
 	if err != nil {
-		t.logger.Debug().Msgf("failed to run GH CLI: %s", err)
 		return "", errors.Wrap(err, "failed to run GH CLI")
 	}
 
 	if len(output) == 0 {
-		t.logger.Debug().Msg("DX API token not found")
 		return "", errors.New("DX API token not found")
 	}
 
@@ -264,6 +274,10 @@ func openConfig() (*config, bool, error) {
 	}
 
 	return &localConfig, true, nil
+}
+
+func isConfigValid(c *config) bool {
+	return c.DxAPIToken != "" && c.GithubUsername != ""
 }
 
 func saveConfig(c *config) error {
@@ -303,6 +317,8 @@ type event struct {
 }
 
 func (t *DxTracker) saveEvent(name string, timestamp int64, metadata map[string]any) error {
+	t.logger.Debug().Msgf("Saving event. Name: %s, Timestamp: %d, Metadata: %v", name, timestamp, metadata)
+
 	storagePath, pathErr := storagePath()
 	if pathErr != nil {
 		return errors.Wrap(pathErr, "failed to get storage path")
@@ -332,7 +348,7 @@ func (t *DxTracker) saveEvent(name string, timestamp int64, metadata map[string]
 		return errors.Wrap(err, "failed to marshal events to JSON")
 	}
 
-	if err := os.WriteFile(storagePath, jsonData, 0644); err != nil {
+	if err := os.WriteFile(storagePath, jsonData, 0600); err != nil {
 		return errors.Wrap(err, "failed to write event to storage file")
 	}
 
@@ -367,6 +383,8 @@ func (t *DxTracker) sendSavedEvents() error {
 		return errors.Wrap(decoderErr, "failed to decode events from storage file")
 	}
 
+	t.logger.Debug().Msgf("Sending %d saved events", len(events))
+
 	for _, event := range events {
 		sendErr := t.sendEvent(event.Name, event.Timestamp, event.Metadata)
 		if sendErr != nil {
@@ -378,6 +396,8 @@ func (t *DxTracker) sendSavedEvents() error {
 	if clearErr != nil {
 		return errors.Wrap(clearErr, "failed to clear saved events")
 	}
+
+	t.logger.Debug().Msg("Saved events sent and cleared")
 
 	return nil
 }
