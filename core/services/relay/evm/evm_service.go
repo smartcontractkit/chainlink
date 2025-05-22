@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
 	evmtypes "github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
@@ -48,7 +49,7 @@ func (r *Relayer) EstimateGas(ctx context.Context, call *evmtypes.CallMsg) (uint
 	return r.chain.Client().EstimateGas(ctx, toEthMsg(call))
 }
 
-func (r *Relayer) TransactionByHash(ctx context.Context, hash evmtypes.Hash) (*evmtypes.Transaction, error) {
+func (r *Relayer) GetTransactionByHash(ctx context.Context, hash evmtypes.Hash) (*evmtypes.Transaction, error) {
 	tx, err := r.chain.Client().TransactionByHash(ctx, hash)
 	if err != nil {
 		return nil, err
@@ -57,7 +58,7 @@ func (r *Relayer) TransactionByHash(ctx context.Context, hash evmtypes.Hash) (*e
 	return convertTransaction(tx), nil
 }
 
-func (r *Relayer) TransactionReceipt(ctx context.Context, txHash evmtypes.Hash) (*evmtypes.Receipt, error) {
+func (r *Relayer) GetTransactionReceipt(ctx context.Context, txHash evmtypes.Hash) (*evmtypes.Receipt, error) {
 	receipt, err := r.chain.Client().TransactionReceipt(ctx, txHash)
 	if err != nil {
 		return nil, err
