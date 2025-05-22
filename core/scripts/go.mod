@@ -32,7 +32,7 @@ require (
 	github.com/prometheus/client_golang v1.22.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250521142121-7c024f6a1f09
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250522122235-262ad1f35716
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250519161208-80bc8b13c0e7
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250417193446-eeb0a7d1e049
 	github.com/smartcontractkit/chainlink-deployments-framework v0.1.2
