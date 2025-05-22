@@ -27,7 +27,7 @@ const (
 	BatchingStrategyID             = 0
 	OptimisticConfirmations        = 1
 	TransmissionDelayMultiplier    = 15 * time.Second
-	DefaultMaxCommitReportsToFetch = 500
+	DefaultMaxCommitReportsToFetch = 250
 	// ======================================
 
 	// ========= Onchain consts =========
