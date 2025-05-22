@@ -94,7 +94,7 @@ func TestStreamJobSpec_Median_MarshalTOML(t *testing.T) {
 		{
 			name: "multiple datasources with valid paths",
 			spec: StreamJobSpec{
-				Base: Base{
+				BaseJobSpec: BaseJobSpec{
 					Name:          "BTC/USD-Test",
 					Type:          "stream",
 					SchemaVersion: 1,
@@ -125,7 +125,7 @@ func TestStreamJobSpec_Median_MarshalTOML(t *testing.T) {
 		{
 			name: "empty datasource list",
 			spec: StreamJobSpec{
-				Base: Base{
+				BaseJobSpec: BaseJobSpec{
 					Name:          "Empty-Median-Test",
 					Type:          "stream",
 					SchemaVersion: 1,
@@ -169,7 +169,7 @@ func TestStreamJobSpec_Quote_MarshalTOML(t *testing.T) {
 		{
 			name: "multiple datasources with valid paths",
 			spec: StreamJobSpec{
-				Base: Base{
+				BaseJobSpec: BaseJobSpec{
 					Name:          "BTC/USD-Quote",
 					Type:          "stream",
 					SchemaVersion: 1,
@@ -206,7 +206,7 @@ func TestStreamJobSpec_Quote_MarshalTOML(t *testing.T) {
 		{
 			name: "empty datasource list",
 			spec: StreamJobSpec{
-				Base: Base{
+				BaseJobSpec: BaseJobSpec{
 					Name:          "Empty-Quote-Test",
 					Type:          "stream",
 					SchemaVersion: 1,

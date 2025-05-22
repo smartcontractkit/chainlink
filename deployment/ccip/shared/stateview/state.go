@@ -881,7 +881,7 @@ func LoadChainState(ctx context.Context, chain cldf.Chain, addresses map[string]
 			if err != nil {
 				return state, err
 			}
-			key, ok := ccipshared.DescriptionToTokenSymbol[desc]
+			key, ok := ccipshared.GetSymbolFromDescription(desc)
 			if !ok {
 				return state, fmt.Errorf("unknown feed description %s", desc)
 			}

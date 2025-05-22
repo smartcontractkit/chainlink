@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/google/uuid"
-
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
@@ -24,27 +22,11 @@ var _ cldf.ChangeSetV2[CsDistributeStreamJobSpecsConfig] = CsDistributeStreamJob
 
 type CsDistributeStreamJobSpecsConfig struct {
 	Filter  *jd.ListFilter
-	Streams []StreamSpecConfig
+	Streams []jobs.StreamSpecConfig
 	Labels  []*ptypes.Label
 
 	// NodeNames specifies on which nodes to distribute the job specs.
 	NodeNames []string
-}
-
-type StreamSpecConfig struct {
-	StreamID   uint32
-	Name       string
-	StreamType jobs.StreamType
-	// ReportFields should be QuoteReportFields, MedianReportFields, etc., based on the stream type.
-	ReportFields    jobs.ReportFields
-	EARequestParams EARequestParams
-	APIs            []string
-}
-
-type EARequestParams struct {
-	Endpoint string `json:"endpoint"`
-	From     string `json:"from"`
-	To       string `json:"to"`
 }
 
 type CsDistributeStreamJobSpecs struct{}
@@ -109,7 +91,13 @@ func (CsDistributeStreamJobSpecs) Apply(e cldf.Environment, cfg CsDistributeStre
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get externalJobID: %w", err)
 			}
 
-			spec, err := generateJobSpec(s, externalJobID)
+			if s.Generator == nil {
+				s.Generator, err = jobs.GeneratorForStreamType(s.StreamType)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to get generator for stream type %s: %w", s.StreamType, err)
+				}
+			}
+			spec, err := s.Generator.GenerateJobSpec(s, externalJobID)
 
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create stream job spec: %w", err)
@@ -135,43 +123,6 @@ func (CsDistributeStreamJobSpecs) Apply(e cldf.Environment, cfg CsDistributeStre
 	return cldf.ChangesetOutput{
 		Jobs: proposedJobs,
 	}, nil
-}
-
-func generateJobSpec(cc StreamSpecConfig, externalJobID uuid.UUID) (spec *jobs.StreamJobSpec, err error) {
-	if externalJobID == uuid.Nil {
-		externalJobID = uuid.New()
-	}
-	spec = &jobs.StreamJobSpec{
-		Base: jobs.Base{
-			Name:          fmt.Sprintf("%s | %d", cc.Name, cc.StreamID),
-			Type:          jobs.JobSpecTypeStream,
-			SchemaVersion: 1,
-			ExternalJobID: externalJobID,
-		},
-		StreamID: cc.StreamID,
-	}
-
-	datasources := generateDatasources(cc)
-	base := jobs.BaseObservationSource{
-		Datasources:   datasources,
-		AllowedFaults: len(datasources) - 1,
-	}
-
-	err = spec.SetObservationSource(base, cc.ReportFields)
-
-	return spec, err
-}
-
-func generateDatasources(cc StreamSpecConfig) []jobs.Datasource {
-	dss := make([]jobs.Datasource, len(cc.APIs))
-	params := cc.EARequestParams
-	for i, api := range cc.APIs {
-		dss[i] = jobs.Datasource{
-			BridgeName: api,
-			ReqData:    fmt.Sprintf(`"{\"data\":{\"endpoint\":\"%s\",\"from\":\"%s\",\"to\":\"%s\"}}"`, params.Endpoint, params.From, params.To),
-		}
-	}
-	return dss
 }
 
 // streamIDLabelsFromReportFields returns a list of labels for the virtual streamIDs from the report fields.
