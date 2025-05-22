@@ -77,9 +77,9 @@ func fetchNodesFromJD(ctx context.Context, env cldf.Environment, nodeFilters *No
 	return resp.Nodes, nil
 }
 
-func getNodes(ctx context.Context, env cldf.Environment, nodeIds []string) ([]*nodeapiv1.Node, error) {
-	nodes := make([]*nodeapiv1.Node, 0, len(nodeIds))
-	for _, nodeID := range nodeIds {
+func getNodes(ctx context.Context, env cldf.Environment, nodeIDs []string) ([]*nodeapiv1.Node, error) {
+	nodes := make([]*nodeapiv1.Node, 0, len(nodeIDs))
+	for _, nodeID := range nodeIDs {
 		resp, err := env.Offchain.GetNode(ctx, &nodeapiv1.GetNodeRequest{Id: nodeID})
 		if err != nil {
 			return nil, fmt.Errorf("failed to get node %s: %w", nodeID, err)
