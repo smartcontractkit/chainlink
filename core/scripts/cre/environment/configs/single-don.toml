@@ -47,6 +47,12 @@
       [Log]
       Level = 'debug'
       JSONConsole = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      InsecureConnection = true
+      TraceSampleRatio = 1
       """
 
   [[nodesets.node_specs]]
@@ -60,6 +66,12 @@
       [Log]
       Level = 'debug'
       JSONConsole = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      InsecureConnection = true
+      TraceSampleRatio = 1
       """
 
   [[nodesets.node_specs]]
@@ -73,6 +85,12 @@
       [Log]
       Level = 'debug'
       JSONConsole = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      InsecureConnection = true
+      TraceSampleRatio = 1
       """
 
   [[nodesets.node_specs]]
@@ -86,6 +104,12 @@
       [Log]
       Level = 'debug'
       JSONConsole = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      InsecureConnection = true
+      TraceSampleRatio = 1
       """
 
   [[nodesets.node_specs]]
@@ -99,4 +123,10 @@
       [Log]
       Level = 'debug'
       JSONConsole = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      InsecureConnection = true
+      TraceSampleRatio = 1
       """
