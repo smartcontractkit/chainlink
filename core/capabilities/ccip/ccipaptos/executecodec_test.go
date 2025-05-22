@@ -11,8 +11,6 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
@@ -90,7 +88,7 @@ var randomExecuteReport = func(t *testing.T, chainSelector uint64, gasLimit *big
 
 func TestExecutePluginCodecV1(t *testing.T) {
 	ctx := testutils.Context(t)
-	mockExtraDataCodec := mocks.NewSourceChainExtraDataCodec(t)
+	mockExtraDataCodec := &mocks.ExtraDataCodec{}
 	destGasAmount := rand.Uint32()
 	gasLimit := utils.RandUint256()
 
@@ -154,7 +152,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			codec := NewExecutePluginCodecV1(ccipcommon.NewExtraDataCodec(mockExtraDataCodec, mockExtraDataCodec, mockExtraDataCodec))
+			codec := NewExecutePluginCodecV1(mockExtraDataCodec)
 			// randomExecuteReport now uses the new encoding internally
 			report := tc.report(randomExecuteReport(t, tc.chainSelector, tc.gasLimit, tc.destGasAmount))
 			bytes, err := codec.Encode(ctx, report)

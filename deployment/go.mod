@@ -31,17 +31,17 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
-	github.com/smartcontractkit/chain-selectors v1.0.55
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250514143050-3ff5479ce820
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250515091132-6c08936b29ab
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250515132731-ad40fab9b75e
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250515101002-90b1d1b66ce4
-	github.com/smartcontractkit/chainlink-deployments-framework v0.1.1
+	github.com/smartcontractkit/chain-selectors v1.0.57
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250521134619-a9a1f1d5d3e2
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250520151840-9225ee08ced6
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250520123946-6aaf88e0848a
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250519161208-80bc8b13c0e7
+	github.com/smartcontractkit/chainlink-deployments-framework v0.3.0
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250515125821-cae192cd18bb
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250514200342-5169fbe9e28d
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.10.0
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.6.0
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250514193018-0b7546926e11
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250519165144-2167692b318c
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.8.1
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4
 	github.com/smartcontractkit/freeport v0.1.0

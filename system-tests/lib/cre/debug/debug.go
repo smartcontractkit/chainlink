@@ -63,7 +63,7 @@ func PrintTestDebug(testName string, l zerolog.Logger, input types.DebugInput) {
 		workflowNodeCount := len(workflowNodeSet)
 
 		if flags.HasFlag(debugDon.Flags, types.WorkflowDON) {
-			if detectedCount := checkHowManyNodesLogsHaveText(logFiles, workflowNodeCount, "handled workflow registration event"); detectedCount != workflowNodeCount {
+			if detectedCount := checkHowManyNodesLogsHaveText(logFiles, workflowNodeCount, "handled event.*WorkflowRegisteredV1"); detectedCount != workflowNodeCount {
 				l.Error().Msgf("❌ Workflow registration was not detected by all nodes (%d/%d)", detectedCount, workflowNodeCount)
 				return
 			}

@@ -12,16 +12,16 @@ ds{{$srcNum}}_ask [type=jsonparse path="{{$.ReportFields.Ask.ResultPath}}"];
 {{- $srcNum:=inc $i -}}
 ds{{$srcNum}}_payload -> ds{{$srcNum}}_benchmark -> benchmark_price;
 {{end -}}
-benchmark_price [type=median allowedFaults={{.AllowedFaults}} index=0];
+benchmark_price [type=median allowedFaults={{.AllowedFaults}} {{with $.ReportFields.Benchmark.StreamID}}streamID={{.}} {{end}}index=0];
 
 {{range $i, $a := .Datasources}}
 {{- $srcNum:=inc $i -}}
 ds{{$srcNum}}_payload -> ds{{$srcNum}}_bid -> bid_price;
 {{end -}}
-bid_price [type=median allowedFaults={{.AllowedFaults}} index=1];
+bid_price [type=median allowedFaults={{.AllowedFaults}} {{with $.ReportFields.Bid.StreamID}}streamID={{.}} {{end}}index=1];
 
 {{range $i, $a := .Datasources}}
 {{- $srcNum:=inc $i -}}
 ds{{$srcNum}}_payload -> ds{{$srcNum}}_ask -> ask_price;
 {{end -}}
-ask_price [type=median allowedFaults={{.AllowedFaults}} index=2];
+ask_price [type=median allowedFaults={{.AllowedFaults}} {{with $.ReportFields.Ask.StreamID}}streamID={{.}} {{end}}index=2];

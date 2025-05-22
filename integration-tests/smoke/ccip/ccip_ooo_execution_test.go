@@ -11,8 +11,6 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -36,7 +34,7 @@ import (
 // Messages 2 and 3 are untouched, because ordering is enforced.
 func Test_OutOfOrderExecution(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithUSDC(),

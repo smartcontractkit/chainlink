@@ -697,22 +697,16 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	var apps []commonchangeset.ConfiguredChangeSet
 	evmContractParams := make(map[uint64]v1_6.ChainContractParams)
 
-	evmChains := []uint64{}
+	var (
+		evmChains, solChains, aptosChains []uint64
+	)
 	for _, chain := range allChains {
 		if _, ok := e.Env.Chains[chain]; ok {
 			evmChains = append(evmChains, chain)
 		}
-	}
-
-	solChains := []uint64{}
-	for _, chain := range allChains {
 		if _, ok := e.Env.SolChains[chain]; ok {
 			solChains = append(solChains, chain)
 		}
-	}
-
-	aptosChains := []uint64{}
-	for _, chain := range allChains {
 		if _, ok := e.Env.AptosChains[chain]; ok {
 			aptosChains = append(aptosChains, chain)
 		}
@@ -876,6 +870,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		// TODO(aptos): update this for token transfers
 		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
 		linkTokenAddress := state.AptosChains[chain].LinkTokenAddress
+		linkTokenAddress.ParseStringRelaxed("0xa")
 		tokenInfo[cciptypes.UnknownEncodedAddress(linkTokenAddress.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
 
 		ocrOverride := tc.OCRConfigOverride

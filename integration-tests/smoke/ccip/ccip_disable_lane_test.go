@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -47,7 +46,7 @@ func TestDisableLane(t *testing.T) {
 		wethPrice              = deployment.E18Mult(4000)
 		noOfRequests           = 3
 		sendmessage            = func(src, dest uint64, deployer *bind.TransactOpts) (*onramp.OnRampCCIPMessageSent, error) {
-			return testhelpers.SendRequest(
+			out, err := testhelpers.SendRequest(
 				e,
 				state,
 				testhelpers.WithSender(deployer),
@@ -61,6 +60,10 @@ func TestDisableLane(t *testing.T) {
 					FeeToken:     common.HexToAddress("0x0"),
 					ExtraArgs:    nil,
 				}))
+			if err != nil {
+				return nil, err
+			}
+			return out.RawEvent.(*onramp.OnRampCCIPMessageSent), nil
 		}
 
 		assertSendRequestReverted = func(src, dest uint64, deployer *bind.TransactOpts) {
@@ -116,7 +119,7 @@ func TestDisableLane(t *testing.T) {
 
 	// check getting token and gas price form fee quoter returns error when A -> C lane is disabled
 	gp, err := state.Chains[chainA].FeeQuoter.GetTokenAndGasPrices(&bind.CallOpts{
-		Context: tests.Context(t),
+		Context: t.Context(),
 	}, state.Chains[chainC].Weth9.Address(), chainC)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "execution reverted")

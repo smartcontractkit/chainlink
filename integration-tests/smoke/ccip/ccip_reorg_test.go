@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -357,7 +356,7 @@ func buildChainSelectorToRPCURLMap(t *testing.T, dockerEnv *testsetups.DeployedL
 	chainSelToRPCURL := make(map[uint64]string)
 	for _, chain := range devEnvConfig.Chains {
 		require.GreaterOrEqual(t, len(chain.HTTPRPCs), 1)
-		details, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(chain.ChainID, 10), chainsel.FamilyEVM)
+		details, err := chainsel.GetChainDetailsByChainIDAndFamily(chain.ChainID, chainsel.FamilyEVM)
 		require.NoError(t, err)
 		chainSelToRPCURL[details.ChainSelector] = chain.HTTPRPCs[0].Internal
 	}
@@ -392,14 +391,15 @@ func sendCCIPMessage(
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
 	})
+	msgSentEvent := msgEvent.RawEvent.(*onramp.OnRampCCIPMessageSent)
 
 	l.Info().
-		Str("messageID", hexutil.Encode(msgEvent.Message.Header.MessageId[:])).
-		Uint64("blockNumber", msgEvent.Raw.BlockNumber).
-		Str("blockHash", msgEvent.Raw.BlockHash.String()).
+		Str("messageID", hexutil.Encode(msgSentEvent.Message.Header.MessageId[:])).
+		Uint64("blockNumber", msgSentEvent.Raw.BlockNumber).
+		Str("blockHash", msgSentEvent.Raw.BlockHash.String()).
 		Msg("Sent CCIP message")
 
-	return msgEvent
+	return msgSentEvent
 }
 
 // Check finality violations helper

@@ -53,7 +53,7 @@ func setupFiredrillTestEnv(t *testing.T) cldf.Environment {
 	mcmSigner := state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
 	mcmSignerBypasser := state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed)
 	solChain := env.SolChains[chainSelectorSolana]
-	memory.FundSolanaAccounts(env.GetContext(), t, []solana.PublicKey{timelockSigner, mcmSigner, mcmSignerBypasser, solChain.DeployerKey.PublicKey()}, 150, solChain.Client)
+	err = memory.FundSolanaAccounts(env.GetContext(), []solana.PublicKey{timelockSigner, mcmSigner, mcmSignerBypasser, solChain.DeployerKey.PublicKey()}, 150, solChain.Client)
 	require.NoError(t, err)
 	return env
 }

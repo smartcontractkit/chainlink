@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -144,7 +145,7 @@ func RunFeeTokenTestCase(tc FeeTokenTestCase) {
 	tc.t.Logf("fee token balance before: %s, fee token enabled: %s",
 		feeTokenBalanceBefore.String(), tc.feeToken.String())
 
-	msgSentEvent := testhelpers.TestSendRequest(
+	out := testhelpers.TestSendRequest(
 		tc.t,
 		tc.env,
 		state,
@@ -159,15 +160,16 @@ func RunFeeTokenTestCase(tc FeeTokenTestCase) {
 			ExtraArgs:    nil,
 		},
 	)
+	msgSentEvent := out.RawEvent.(*onramp.OnRampCCIPMessageSent)
 
 	expectedSeqNum[testhelpers.SourceDestPair{
 		SourceChainSelector: tc.src,
 		DestChainSelector:   tc.dst,
-	}] = msgSentEvent.SequenceNumber
+	}] = out.SequenceNumber
 	expectedSeqNumExec[testhelpers.SourceDestPair{
 		SourceChainSelector: tc.src,
 		DestChainSelector:   tc.dst,
-	}] = []uint64{msgSentEvent.SequenceNumber}
+	}] = []uint64{out.SequenceNumber}
 
 	// Check the fee token balance after the request and ensure fee tokens were spent
 	var feeTokenBalanceAfter *big.Int

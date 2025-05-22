@@ -14,7 +14,7 @@ COPY . .
 # Get the SHA of the current commit and save it to sha.txt
 RUN git rev-parse HEAD > /go/testdir/sha.txt
 
-ARG SUITES=chaos soak benchmark ccip-load
+ARG SUITES=chaos soak benchmark ccip-tests/load
 
 RUN /go/testdir/integration-tests/scripts/buildTests "${SUITES}"
 

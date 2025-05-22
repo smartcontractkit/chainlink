@@ -15,7 +15,7 @@ import (
 func Test_decodeExtraData(t *testing.T) {
 	d := testSetup(t)
 	gasLimit := big.NewInt(rand.Int63())
-	extraDataDecoder := &ExtraDataCodec{}
+	extraDataDecoder := &ExtraDataDecoder{}
 
 	t.Run("decode extra args into map evm v1", func(t *testing.T) {
 		encoded, err := d.contract.EncodeEVMExtraArgsV1(nil, message_hasher.ClientEVMExtraArgsV1{
@@ -68,7 +68,7 @@ func Test_decodeExtraData(t *testing.T) {
 
 func TestExtraDataDecoder_DecodeExtraArgsToMap_SVMDestination(t *testing.T) {
 	d := testSetup(t)
-	extraDataDecoder := &ExtraDataCodec{}
+	extraDataDecoder := &ExtraDataDecoder{}
 
 	t.Run("decode extra args into map svm", func(t *testing.T) {
 		key, err := solana.NewRandomPrivateKey()

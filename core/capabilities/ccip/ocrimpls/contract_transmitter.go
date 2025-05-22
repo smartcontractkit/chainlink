@@ -28,14 +28,14 @@ type ToCalldataFunc func(
 	report ocr3types.ReportWithInfo[[]byte],
 	rs, ss [][32]byte,
 	vs [32]byte,
-	codec *ccipcommon.ExtraDataCodec,
+	codec ccipcommon.ExtraDataCodec,
 ) (contract string, method string, args any, err error)
 
 type ToEd25519CalldataFunc func(
 	rawReportCtx [2][32]byte,
 	report ocr3types.ReportWithInfo[[]byte],
 	signatures [][96]byte,
-	codec *ccipcommon.ExtraDataCodec,
+	codec ccipcommon.ExtraDataCodec,
 ) (contract string, method string, args any, err error)
 
 var _ ocr3types.ContractTransmitter[[]byte] = &ccipTransmitter{}
@@ -63,7 +63,7 @@ func XXXNewContractTransmitterTestsOnly(
 		report ocr3types.ReportWithInfo[[]byte],
 		rs, ss [][32]byte,
 		vs [32]byte,
-		extraDataCodec *ccipcommon.ExtraDataCodec) (string, string, any, error) {
+		extraDataCodec ccipcommon.ExtraDataCodec) (string, string, any, error) {
 		_, _, args, err := toCalldataFn(rawReportCtx, report, rs, ss, vs, extraDataCodec)
 		return contractName, method, args, err
 	}
@@ -118,7 +118,7 @@ func (c *ccipTransmitter) Transmit(
 		}
 
 		// chain writer takes in the raw calldata and packs it on its own.
-		contract, method, args, err = c.toCalldataFn(rawReportCtx, reportWithInfo, rs, ss, vs, &c.extraDataCodec)
+		contract, method, args, err = c.toCalldataFn(rawReportCtx, reportWithInfo, rs, ss, vs, c.extraDataCodec)
 		if err != nil {
 			return fmt.Errorf("failed to generate ecdsa call data: %w", err)
 		}
@@ -134,7 +134,7 @@ func (c *ccipTransmitter) Transmit(
 			signatures = append(signatures, sigBytes)
 		}
 
-		contract, method, args, err = c.toEd25519CalldataFn(rawReportCtx, reportWithInfo, signatures, &c.extraDataCodec)
+		contract, method, args, err = c.toEd25519CalldataFn(rawReportCtx, reportWithInfo, signatures, c.extraDataCodec)
 		if err != nil {
 			return fmt.Errorf("failed to generate ed25519 call data: %w", err)
 		}

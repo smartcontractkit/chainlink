@@ -146,6 +146,13 @@ func setAptosSourceUpdates(lane config.LaneConfig, updateInputsByAptosChain map[
 	}
 	input.UpdateFeeQuoterPricesConfig.Prices.GasPrices[dest.Selector] = dest.GasPrice
 
+	if input.UpdateFeeQuoterPricesConfig.Prices.TokenPrices == nil {
+		input.UpdateFeeQuoterPricesConfig.Prices.TokenPrices = make(map[string]*big.Int)
+	}
+	aptUSDPrice28Decimals := big.NewInt(5)
+	aptUSDPrice28Decimals.Mul(aptUSDPrice28Decimals, big.NewInt(0).Exp(big.NewInt(10), big.NewInt(28), nil))
+	input.UpdateFeeQuoterPricesConfig.Prices.TokenPrices["0xa"] = aptUSDPrice28Decimals
+
 	// Setting the fee quoter destination on the source chain
 	input.UpdateFeeQuoterDestsConfig.MCMSAddress = mcmsAddress
 	if input.UpdateFeeQuoterDestsConfig.Updates == nil {
