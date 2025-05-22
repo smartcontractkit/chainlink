@@ -3,7 +3,6 @@ package v2
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
@@ -48,15 +47,12 @@ func (c *CapabilityExecutor) CallCapability(ctx context.Context, request *sdkpb.
 
 	meterReport, ok := c.meterReports.Get(c.ID)
 	if !ok {
-		c.cfg.Lggr.Error("no metering report found for %v", c.ID)
+		c.cfg.Lggr.Errorf("no metering report found for %v", c.ID)
 	}
-	// TODO: After (CAPPL-881) replace with call ID
-	count := meterReport.IncrementRefCount(metering.ReportStepRef(capReq.CapabilityId))
-	callID := capReq.CapabilityId + strconv.FormatUint(count, 10)
-	ref := metering.ReportStepRef(callID)
-	err = meterReport.ReserveStep(ref, capInfo)
+	meteringRef := metering.ReportStepRef(request.CallbackId)
+	err = meterReport.ReserveStep(meteringRef, capInfo)
 	if err != nil {
-		c.cfg.Lggr.Error("could not reserve for %s: %w", callID, err)
+		c.cfg.Lggr.Errorw("could not reserve for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 	}
 
 	// TODO(CAPPL-737): run with a timeout
@@ -65,9 +61,9 @@ func (c *CapabilityExecutor) CallCapability(ctx context.Context, request *sdkpb.
 		return nil, fmt.Errorf("failed to execute capability: %w", err)
 	}
 
-	err = meterReport.SetStep(ref, capResp.Metadata.Metering)
+	err = meterReport.SetStep(meteringRef, capResp.Metadata.Metering)
 	if err != nil {
-		c.cfg.Lggr.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", ref, err))
+		c.cfg.Lggr.Errorw("failed to set metering for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 	}
 
 	return &sdkpb.CapabilityResponse{
