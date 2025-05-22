@@ -99,7 +99,7 @@ func deployChainContractsForChains(
 	if err != nil {
 		return nil, err
 	}
-	deps := opsutil.OpDependencies{
+	deps := opsutil.ConfigureDependencies{
 		Env:          e,
 		CurrentState: existingState,
 		AddressBook:  cldf.NewMemoryAddressBook(),

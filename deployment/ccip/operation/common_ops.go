@@ -20,7 +20,7 @@ var (
 		"postOpsToAggregateProposals",
 		semver.MustParse("1.0.0"),
 		"Post ops to aggregate proposals",
-		func(b operations.Bundle, deps opsutil.OpDependencies, input PostOpsInput) ([]mcms.TimelockProposal, error) {
+		func(b operations.Bundle, deps opsutil.ConfigureDependencies, input PostOpsInput) ([]mcms.TimelockProposal, error) {
 			allProposals := input.Proposals
 			evmState := deps.CurrentState.EVMMCMSStateByChain()
 			solanaState := deps.CurrentState.SolanaMCMSStateByChain(deps.Env)

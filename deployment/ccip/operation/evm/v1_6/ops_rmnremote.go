@@ -39,69 +39,50 @@ var (
 		"DeployRMNRemote",
 		semver.MustParse("1.0.0"),
 		"Deploys RMNRemote 1.6 contract on the specified evm chain",
-		func(b operations.Bundle, deps opsutil.OpDependencies, input DeployRMNRemoteInput) (common.Address, error) {
-			state := deps.CurrentState
-			e := deps.Env
+		func(b operations.Bundle, deps opsutil.DeployContractDependencies, input DeployRMNRemoteInput) (common.Address, error) {
 			ab := deps.AddressBook
-			chain := e.Chains[input.ChainSelector]
-			chainState, chainExists := state.Chains[chain.Selector]
-			if !chainExists {
-				return common.Address{}, fmt.Errorf("chain %s not found in existing state, "+
-					"deploy the prerequisites first", chain.String())
+			chain := deps.Chain
+			contract, err := cldf.DeployContract(b.Logger, chain, ab,
+				func(chain cldf.Chain) cldf.ContractDeploy[*rmn_remote.RMNRemote] {
+					rmnRemoteAddr, tx, rmnRemote, err2 := rmn_remote.DeployRMNRemote(
+						chain.DeployerKey,
+						chain.Client,
+						chain.Selector,
+						input.RMNLegacyAddr,
+					)
+					return cldf.ContractDeploy[*rmn_remote.RMNRemote]{
+						Address: rmnRemoteAddr, Contract: rmnRemote, Tx: tx, Tv: cldf.NewTypeAndVersion(shared.RMNRemote, deployment.Version1_6_0), Err: err2,
+					}
+				})
+			if err != nil {
+				b.Logger.Errorw("Failed to deploy RMNRemote", "chain", chain.String(), "err", err)
+				return common.Address{}, err
 			}
-
-			if chainState.RMNRemote == nil {
-				contract, err := cldf.DeployContract(b.Logger, chain, ab,
-					func(chain cldf.Chain) cldf.ContractDeploy[*rmn_remote.RMNRemote] {
-						rmnRemoteAddr, tx, rmnRemote, err2 := rmn_remote.DeployRMNRemote(
-							chain.DeployerKey,
-							chain.Client,
-							chain.Selector,
-							input.RMNLegacyAddr,
-						)
-						return cldf.ContractDeploy[*rmn_remote.RMNRemote]{
-							Address: rmnRemoteAddr, Contract: rmnRemote, Tx: tx, Tv: cldf.NewTypeAndVersion(shared.RMNRemote, deployment.Version1_6_0), Err: err2,
-						}
-					})
-				if err != nil {
-					b.Logger.Errorw("Failed to deploy RMNRemote", "chain", chain.String(), "err", err)
-					return common.Address{}, err
-				}
-				return contract.Address, nil
-			}
-			b.Logger.Infow("rmn remote already deployed, no-op", "chain", chain.String(), "addr", chainState.RMNRemote.Address)
-			return common.Address{}, nil
+			return contract.Address, nil
 		})
 
 	SetRMNRemoteConfigOp = operations.NewOperation(
 		"SetRMNRemoteConfigOp",
 		semver.MustParse("1.0.0"),
 		"Setting RMNRemoteConfig based on ActiveDigest from RMNHome",
-		func(b operations.Bundle, deps opsutil.OpDependencies, input SetRMNRemoteConfig) (opsutil.OpOutput, error) {
-			e := deps.Env
+		func(b operations.Bundle, deps opsutil.ConfigureDependencies, input SetRMNRemoteConfig) (opsutil.OpOutput, error) {
 			state := deps.CurrentState
-			lggr := e.Logger
-			lggr.Infow("Setting RMNRemoteConfig based on ActiveDigest from RMNHome", "chain", input.ChainSelector)
-			chain, ok := e.Chains[input.ChainSelector]
-			if !ok {
-				return opsutil.OpOutput{}, fmt.Errorf("chain %d not found in environment", input.ChainSelector)
-			}
+			b.Logger.Infow("Setting RMNRemoteConfig based on ActiveDigest from RMNHome", "chain", input.ChainSelector)
+			e := deps.Env
+			chain := deps.Env.Chains[input.ChainSelector]
 			homeChainSel, err := state.HomeChainSelector()
 			if err != nil {
 				return opsutil.OpOutput{}, err
 			}
-			homeChain, ok := e.Chains[homeChainSel]
-			if !ok {
-				return opsutil.OpOutput{}, fmt.Errorf("chain %d not found in ", homeChainSel)
-			}
+
 			rmnHome := state.Chains[homeChainSel].RMNHome
 			if rmnHome == nil {
-				return opsutil.OpOutput{}, fmt.Errorf("RMNHome not found for chain %s", homeChain.String())
+				return opsutil.OpOutput{}, fmt.Errorf("RMNHome not found for chain %d", homeChainSel)
 			}
 
 			activeConfig, err := rmnHome.GetActiveDigest(nil)
 			if err != nil {
-				return opsutil.OpOutput{}, fmt.Errorf("failed to get RMNHome active digest for chain %s: %w", homeChain.String(), err)
+				return opsutil.OpOutput{}, fmt.Errorf("failed to get RMNHome active digest for chain %d: %w", homeChainSel, err)
 			}
 			rmnRemote := state.Chains[input.ChainSelector].RMNRemote
 			currentVersionConfig, err := rmnRemote.GetVersionedConfig(nil)
@@ -115,7 +96,7 @@ var (
 			}
 
 			if reflect.DeepEqual(currentVersionConfig.Config, newConfig) {
-				lggr.Infow("RMNRemote config already up to date, it's a no-op", "chain", chain.String())
+				b.Logger.Infow("RMNRemote config already up to date, it's a no-op", "chain", chain.String())
 				return opsutil.OpOutput{}, nil
 			}
 			deployerGroup := deployergroup.NewDeployerGroup(e, state, input.MCMSConfig).

@@ -34,63 +34,52 @@ var (
 		"DeployFeeQuoter",
 		semver.MustParse("1.0.0"),
 		"Deploys FeeQuoter 1.6 contract on the specified evm chain",
-		func(b operations.Bundle, deps opsutil.OpDependencies, input DeployFeeQInput) (common.Address, error) {
-			state := deps.CurrentState
-			chain := deps.Env.Chains[input.Chain]
+		func(b operations.Bundle, deps opsutil.DeployContractDependencies, input DeployFeeQInput) (common.Address, error) {
+			chain := deps.Chain
 			ab := deps.AddressBook
-			chainState, chainExists := state.Chains[input.Chain]
-			if !chainExists {
-				return common.Address{}, fmt.Errorf("chain %s not found in existing state, "+
-					"deploy the prerequisites first", chain.String())
-			}
-
 			contractParams := input.Params
-			if chainState.FeeQuoter == nil {
-				feeQ, err := cldf.DeployContract(b.Logger, chain, ab,
-					func(chain cldf.Chain) cldf.ContractDeploy[*fee_quoter.FeeQuoter] {
-						prAddr, tx2, pr, err2 := fee_quoter.DeployFeeQuoter(
-							chain.DeployerKey,
-							chain.Client,
-							fee_quoter.FeeQuoterStaticConfig{
-								MaxFeeJuelsPerMsg:            contractParams.MaxFeeJuelsPerMsg,
-								LinkToken:                    input.LinkAddr,
-								TokenPriceStalenessThreshold: contractParams.TokenPriceStalenessThreshold,
+			feeQ, err := cldf.DeployContract(b.Logger, chain, ab,
+				func(chain cldf.Chain) cldf.ContractDeploy[*fee_quoter.FeeQuoter] {
+					prAddr, tx2, pr, err2 := fee_quoter.DeployFeeQuoter(
+						chain.DeployerKey,
+						chain.Client,
+						fee_quoter.FeeQuoterStaticConfig{
+							MaxFeeJuelsPerMsg:            contractParams.MaxFeeJuelsPerMsg,
+							LinkToken:                    input.LinkAddr,
+							TokenPriceStalenessThreshold: contractParams.TokenPriceStalenessThreshold,
+						},
+						input.PriceUpdaters,
+						[]common.Address{input.WethAddr, input.LinkAddr}, // fee tokens
+						contractParams.TokenPriceFeedUpdates,
+						contractParams.TokenTransferFeeConfigArgs,
+						append([]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
+							{
+								PremiumMultiplierWeiPerEth: contractParams.LinkPremiumMultiplierWeiPerEth,
+								Token:                      input.LinkAddr,
 							},
-							input.PriceUpdaters,
-							[]common.Address{input.WethAddr, input.LinkAddr}, // fee tokens
-							contractParams.TokenPriceFeedUpdates,
-							contractParams.TokenTransferFeeConfigArgs,
-							append([]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
-								{
-									PremiumMultiplierWeiPerEth: contractParams.LinkPremiumMultiplierWeiPerEth,
-									Token:                      input.LinkAddr,
-								},
-								{
-									PremiumMultiplierWeiPerEth: contractParams.WethPremiumMultiplierWeiPerEth,
-									Token:                      input.WethAddr,
-								},
-							}, contractParams.MorePremiumMultiplierWeiPerEth...),
-							contractParams.DestChainConfigArgs,
-						)
-						return cldf.ContractDeploy[*fee_quoter.FeeQuoter]{
-							Address: prAddr, Contract: pr, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_6_0), Err: err2,
-						}
-					})
-				if err != nil {
-					b.Logger.Errorw("Failed to deploy fee quoter", "chain", chain.String(), "err", err)
-					return common.Address{}, err
-				}
-				return feeQ.Address, nil
+							{
+								PremiumMultiplierWeiPerEth: contractParams.WethPremiumMultiplierWeiPerEth,
+								Token:                      input.WethAddr,
+							},
+						}, contractParams.MorePremiumMultiplierWeiPerEth...),
+						contractParams.DestChainConfigArgs,
+					)
+					return cldf.ContractDeploy[*fee_quoter.FeeQuoter]{
+						Address: prAddr, Contract: pr, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_6_0), Err: err2,
+					}
+				})
+			if err != nil {
+				b.Logger.Errorw("Failed to deploy fee quoter", "chain", chain.String(), "err", err)
+				return common.Address{}, err
 			}
-			b.Logger.Infow("fee quoter already deployed", "chain", chain.String(), "addr", chainState.FeeQuoter.Address)
-			return common.Address{}, nil
+			return feeQ.Address, nil
 		})
 
 	FeeQApplyAuthorizedCallerOp = operations.NewOperation(
 		"FeeQApplyAuthorizedCallerOp",
 		semver.MustParse("1.0.0"),
 		"Apply authorized caller to FeeQuoter 1.6 contract on the specified evm chain",
-		func(b operations.Bundle, deps opsutil.OpDependencies, input FeeQApplyAuthorizedCallerOpInput) (opsutil.OpOutput, error) {
+		func(b operations.Bundle, deps opsutil.ConfigureDependencies, input FeeQApplyAuthorizedCallerOpInput) (opsutil.OpOutput, error) {
 			state := deps.CurrentState
 			e := deps.Env
 			err := input.Validate(deps.Env, state)

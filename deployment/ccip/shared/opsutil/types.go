@@ -8,10 +8,18 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
-type OpDependencies struct {
+// ConfigureDependencies is used on sequence and the operation which needs to configure contracts and make use of deployer group
+type ConfigureDependencies struct {
 	Env          cldf.Environment
 	CurrentState stateview.CCIPOnChainState
 	AddressBook  cldf.AddressBook
+}
+
+// DeployContractDependencies is used on operations which need to deploy contracts or operations which can be used without
+// the deployer group
+type DeployContractDependencies struct {
+	Chain       cldf.Chain
+	AddressBook cldf.AddressBook
 }
 
 type OpOutput struct {
@@ -29,7 +37,13 @@ func (o *OpOutput) Merge(other OpOutput) error {
 	return nil
 }
 
-func (o *OpOutput) ToChangesetOutput(deps OpDependencies) cldf.ChangesetOutput {
+func (o *OpOutput) ToChangesetOutput(deps *DeployContractDependencies) cldf.ChangesetOutput {
+	if deps == nil || deps.AddressBook == nil {
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals:      o.Proposals,
+			DescribedTimelockProposals: o.DescribedTimelockProposals,
+		}
+	}
 	return cldf.ChangesetOutput{
 		MCMSTimelockProposals:      o.Proposals,
 		DescribedTimelockProposals: o.DescribedTimelockProposals,

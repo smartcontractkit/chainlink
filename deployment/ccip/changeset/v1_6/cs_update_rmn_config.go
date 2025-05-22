@@ -657,7 +657,7 @@ func SetRMNRemoteConfigChangeset(e cldf.Environment, config ccipseq.SetRMNRemote
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	deps := opsutil.OpDependencies{
+	deps := opsutil.ConfigureDependencies{
 		Env:          e,
 		CurrentState: state,
 	}
@@ -666,5 +666,5 @@ func SetRMNRemoteConfigChangeset(e cldf.Environment, config ccipseq.SetRMNRemote
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute SetRMNRemoteConfig sequence: %w", err)
 	}
 
-	return seqReport.Output.ToChangesetOutput(deps), nil
+	return seqReport.Output.ToChangesetOutput(nil), nil
 }

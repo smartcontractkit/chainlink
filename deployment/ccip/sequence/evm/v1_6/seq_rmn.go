@@ -22,7 +22,7 @@ var (
 		"SetRMNRemoteConfigSequence",
 		semver.MustParse("1.0.0"),
 		"Set RMNRemoteConfig based on ActiveDigest from RMNHome for evm chain(s)",
-		func(b operations.Bundle, deps opsutil.OpDependencies, input SetRMNRemoteConfig) (opsutil.OpOutput, error) {
+		func(b operations.Bundle, deps opsutil.ConfigureDependencies, input SetRMNRemoteConfig) (opsutil.OpOutput, error) {
 			finalOutput := &opsutil.OpOutput{}
 			err := input.Validate(deps.Env, deps.CurrentState)
 			if err != nil {

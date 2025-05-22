@@ -66,7 +66,7 @@ var (
 		"DeployChainContractsSeq",
 		semver.MustParse("1.0.0"),
 		"Deploys all 1.6 chain contracts for the specified evm chain(s)",
-		func(b operations.Bundle, deps opsutil.OpDependencies, input DeployChainContractsConfig) (any, error) {
+		func(b operations.Bundle, deps opsutil.ConfigureDependencies, input DeployChainContractsConfig) (any, error) {
 			state := deps.CurrentState
 			e := deps.Env
 			grp := errgroup.Group{}
@@ -86,6 +86,10 @@ var (
 					chainState, chainExists := state.Chains[chainSelector]
 					if !chainExists {
 						return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
+					}
+					deployDeps := opsutil.DeployContractDependencies{
+						Chain:       chain,
+						AddressBook: deps.AddressBook,
 					}
 					staticLinkExists := state.Chains[chainSelector].StaticLinkToken != nil
 					linkExists := state.Chains[chainSelector].LinkToken != nil
@@ -133,14 +137,14 @@ var (
 					}
 
 					rmnRemote := chainState.RMNRemote
-					report, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployRMNRemoteOp, deps, ccipopsv1_6.DeployRMNRemoteInput{
-						ChainSelector: chainSelector,
-						RMNLegacyAddr: rmnLegacyAddr,
-					})
-					if err != nil {
-						return fmt.Errorf("failed to deploy RMNRemote for chain %d: %w", chainSelector, err)
-					}
 					if rmnRemote == nil {
+						report, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployRMNRemoteOp, deployDeps, ccipopsv1_6.DeployRMNRemoteInput{
+							ChainSelector: chainSelector,
+							RMNLegacyAddr: rmnLegacyAddr,
+						})
+						if err != nil {
+							return fmt.Errorf("failed to deploy RMNRemote for chain %d: %w", chainSelector, err)
+						}
 						if report.Output == (common.Address{}) {
 							return fmt.Errorf("failed to deploy RMNRemote for chain %d: empty address", chainSelector)
 						}
@@ -152,6 +156,8 @@ var (
 							return fmt.Errorf("failed to create RMNRemote contract for chain after deployment %d: %w", chainSelector, err)
 						}
 						chainState.RMNRemote = rmnRemote
+					} else {
+						b.Logger.Infow("rmn remote already deployed", "chain", chain.String(), "addr", chainState.RMNRemote.Address())
 					}
 					// set RMNRemote config if not already set
 					set, err := isRMNRemoteInitialSetUpCompleted(e, rmnHome, rmnRemote, chain)
@@ -179,22 +185,27 @@ var (
 						}
 					}
 					// Deploy Test Router if not already deployed
-					_, err = operations.ExecuteOperation(b, ccipopsv1_2.DeployRouter, deps, ccipopsv1_2.DeployRouterInput{
-						Chain:        chainSelector,
-						IsTestRouter: true,
-					})
-					if err != nil {
-						return fmt.Errorf("failed to deploy test router for chain %d: %w", chainSelector, err)
+					if chainState.TestRouter != nil {
+						b.Logger.Infow("test router already deployed", "chain", chain.String(), "addr", chainState.TestRouter.Address)
+					} else {
+						_, err = operations.ExecuteOperation(b, ccipopsv1_2.DeployRouter, deployDeps, ccipopsv1_2.DeployRouterInput{
+							IsTestRouter: true,
+							RMNProxy:     chainState.RMNProxy.Address(),
+							WethAddress:  chainState.Weth9.Address(),
+						})
+						if err != nil {
+							return fmt.Errorf("failed to deploy test router for chain %d: %w", chainSelector, err)
+						}
 					}
 					// Deploy NonceManager if not already deployed
-					nmReport, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployNonceManagerOp, deps, chainSelector)
-					if err != nil {
-						return fmt.Errorf("failed to deploy nonce manager for chain %d: %w", chainSelector, err)
-					}
-					if err != nil {
-						return fmt.Errorf("failed to deploy nonce manager for chain %d: %w", chainSelector, err)
-					}
 					if chainState.NonceManager == nil {
+						nmReport, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployNonceManagerOp, deployDeps, chainSelector)
+						if err != nil {
+							return fmt.Errorf("failed to deploy nonce manager for chain %d: %w", chainSelector, err)
+						}
+						if err != nil {
+							return fmt.Errorf("failed to deploy nonce manager for chain %d: %w", chainSelector, err)
+						}
 						if nmReport.Output == (common.Address{}) {
 							return fmt.Errorf("failed to deploy nonce manager for chain %d: empty address", chainSelector)
 						}
@@ -205,19 +216,21 @@ var (
 						if err != nil {
 							return fmt.Errorf("failed to create nonce manager contract for chain after deployment %d: %w", chainSelector, err)
 						}
+					} else {
+						b.Logger.Infow("nonce manager already deployed", "chain", chain.String(), "addr", chainState.NonceManager.Address())
 					}
 					// Deploy FeeQuoter if not already deployed
-					feeQReport, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployFeeQuoterOp, deps, ccipopsv1_6.DeployFeeQInput{
-						Chain:         chainSelector,
-						Params:        contractParams.FeeQuoterParams,
-						LinkAddr:      linkAddr,
-						WethAddr:      chainState.Weth9.Address(),
-						PriceUpdaters: []common.Address{chainState.Timelock.Address()}, // timelock should be able to update, ramps added after
-					})
-					if err != nil {
-						return fmt.Errorf("failed to deploy fee quoter for chain %d: %w", chainSelector, err)
-					}
 					if chainState.FeeQuoter == nil {
+						feeQReport, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployFeeQuoterOp, deployDeps, ccipopsv1_6.DeployFeeQInput{
+							Chain:         chainSelector,
+							Params:        contractParams.FeeQuoterParams,
+							LinkAddr:      linkAddr,
+							WethAddr:      chainState.Weth9.Address(),
+							PriceUpdaters: []common.Address{chainState.Timelock.Address()}, // timelock should be able to update, ramps added after
+						})
+						if err != nil {
+							return fmt.Errorf("failed to deploy fee quoter for chain %d: %w", chainSelector, err)
+						}
 						if feeQReport.Output == (common.Address{}) {
 							return fmt.Errorf("failed to deploy fee quoter for chain %d: empty address", chainSelector)
 						}
@@ -228,35 +241,37 @@ var (
 						if err != nil {
 							return fmt.Errorf("failed to create fee quoter contract for chain after deployment %d: %w", chainSelector, err)
 						}
+					} else {
+						b.Logger.Infow("fee quoter already deployed", "chain", chain.String(), "addr", chainState.FeeQuoter.Address())
 					}
 					if chainState.FeeQuoter == nil {
 						b.Logger.Errorw("FeeQuoter not found", "chain", chain.String())
-						return fmt.Errorf("fee quoter not found for chain %s, needed for onRamp deployment", chain.String())
+						return fmt.Errorf("fee quoter not found for chain %s, needed for onRamp/OffRamp deployment", chain.String())
 					}
 					if chainState.NonceManager == nil {
 						b.Logger.Errorw("NonceManager not found", "chain", chain.String())
-						return fmt.Errorf("nonce manager not found for chain %s, needed for onRamp deployment", chain.String())
+						return fmt.Errorf("nonce manager not found for chain %s, needed for onRamp/OffRamp deployment", chain.String())
 					}
 					// Deploy OnRamp if not already deployed
-					// if the fee aggregator is not set, use the deployer key address
-					// this is to ensure that feeAggregator is not set to zero address, otherwise there is chance of
-					// fund loss when WithdrawFeeToken is called on OnRamp
-					feeAggregator := chainState.FeeAggregator
-					if feeAggregator == (common.Address{}) {
-						feeAggregator = chain.DeployerKey.From
-					}
-					onRampReport, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployOnRampOp, deps, ccipopsv1_6.DeployOnRampInput{
-						ChainSelector:      chainSelector,
-						TokenAdminRegistry: chainState.TokenAdminRegistry.Address(),
-						NonceManager:       chainState.NonceManager.Address(),
-						RmnRemote:          chainState.RMNProxy.Address(),
-						FeeQuoter:          chainState.FeeQuoter.Address(),
-						FeeAggregator:      feeAggregator,
-					})
-					if err != nil {
-						return fmt.Errorf("failed to deploy onRamp for chain %d: %w", chainSelector, err)
-					}
 					if chainState.OnRamp == nil {
+						// if the fee aggregator is not set, use the deployer key address
+						// this is to ensure that feeAggregator is not set to zero address, otherwise there is chance of
+						// fund loss when WithdrawFeeToken is called on OnRamp
+						feeAggregator := chainState.FeeAggregator
+						if feeAggregator == (common.Address{}) {
+							feeAggregator = chain.DeployerKey.From
+						}
+						onRampReport, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployOnRampOp, deployDeps, ccipopsv1_6.DeployOnRampInput{
+							ChainSelector:      chainSelector,
+							TokenAdminRegistry: chainState.TokenAdminRegistry.Address(),
+							NonceManager:       chainState.NonceManager.Address(),
+							RmnRemote:          chainState.RMNProxy.Address(),
+							FeeQuoter:          chainState.FeeQuoter.Address(),
+							FeeAggregator:      feeAggregator,
+						})
+						if err != nil {
+							return fmt.Errorf("failed to deploy onRamp for chain %d: %w", chainSelector, err)
+						}
 						if onRampReport.Output == (common.Address{}) {
 							return fmt.Errorf("failed to deploy onRamp for chain %d: empty address", chainSelector)
 						}
@@ -267,20 +282,23 @@ var (
 						if err != nil {
 							return fmt.Errorf("failed to create onRamp contract for chain after deployment %d: %w", chainSelector, err)
 						}
+					} else {
+						b.Logger.Infow("onRamp already deployed", "chain", chain.String(), "addr", chainState.OnRamp.Address())
 					}
-					// // Deploy OffRamp if not already deployed
-					offRampReport, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployOffRampOp, deps, ccipopsv1_6.DeployOffRampInput{
-						Chain:              chainSelector,
-						Params:             contractParams.OffRampParams,
-						RmnRemote:          chainState.RMNProxy.Address(),
-						NonceManager:       chainState.NonceManager.Address(),
-						TokenAdminRegistry: chainState.TokenAdminRegistry.Address(),
-						FeeQuoter:          chainState.FeeQuoter.Address(),
-					})
-					if err != nil {
-						return fmt.Errorf("failed to deploy offramp for chain %d: %w", chainSelector, err)
-					}
+					// Deploy OffRamp if not already deployed
 					if chainState.OffRamp == nil {
+						offRampReport, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployOffRampOp, deployDeps, ccipopsv1_6.DeployOffRampInput{
+							Chain:              chainSelector,
+							Params:             contractParams.OffRampParams,
+							RmnRemote:          chainState.RMNProxy.Address(),
+							NonceManager:       chainState.NonceManager.Address(),
+							TokenAdminRegistry: chainState.TokenAdminRegistry.Address(),
+							FeeQuoter:          chainState.FeeQuoter.Address(),
+						})
+						if err != nil {
+							return fmt.Errorf("failed to deploy offramp for chain %d: %w", chainSelector, err)
+						}
+
 						if offRampReport.Output == (common.Address{}) {
 							return fmt.Errorf("failed to deploy offramp for chain %d: empty address", chainSelector)
 						}
@@ -291,7 +309,12 @@ var (
 						if err != nil {
 							return fmt.Errorf("failed to create offramp contract for chain after deployment %d: %w", chainSelector, err)
 						}
+					} else {
+						b.Logger.Infow("offramp already deployed", "chain", chain.String(), "addr", chainState.OffRamp.Address())
 					}
+					stateUpdateMu.Lock()
+					deps.CurrentState.Chains[chainSelector] = chainState
+					stateUpdateMu.Unlock()
 					callers, err := chainState.FeeQuoter.GetAllAuthorizedCallers(&bind.CallOpts{
 						Context: e.GetContext(),
 					})

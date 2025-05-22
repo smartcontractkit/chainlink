@@ -2,7 +2,6 @@ package v1_6
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -22,49 +21,37 @@ var (
 		"DeployOffRamp",
 		semver.MustParse("1.0.0"),
 		"Deploys OffRamp 1.6 contract on the specified evm chain",
-		func(b operations.Bundle, deps opsutil.OpDependencies, input DeployOffRampInput) (common.Address, error) {
-			state := deps.CurrentState
-			e := deps.Env
+		func(b operations.Bundle, deps opsutil.DeployContractDependencies, input DeployOffRampInput) (common.Address, error) {
 			ab := deps.AddressBook
-			chain := e.Chains[input.Chain]
-			chainState, chainExists := state.Chains[input.Chain]
-			if !chainExists {
-				return common.Address{}, fmt.Errorf("chain %s not found in existing state, "+
-					"deploy the prerequisites first", chain.String())
+			chain := deps.Chain
+			offRamp, err := cldf.DeployContract(b.Logger, chain, ab,
+				func(chain cldf.Chain) cldf.ContractDeploy[*offramp.OffRamp] {
+					offRampAddr, tx2, offRamp, err2 := offramp.DeployOffRamp(
+						chain.DeployerKey,
+						chain.Client,
+						offramp.OffRampStaticConfig{
+							ChainSelector:        chain.Selector,
+							GasForCallExactCheck: input.Params.GasForCallExactCheck,
+							RmnRemote:            input.RmnRemote,
+							NonceManager:         input.NonceManager,
+							TokenAdminRegistry:   input.TokenAdminRegistry,
+						},
+						offramp.OffRampDynamicConfig{
+							FeeQuoter:                               input.FeeQuoter,
+							PermissionLessExecutionThresholdSeconds: input.Params.PermissionLessExecutionThresholdSeconds,
+							MessageInterceptor:                      input.Params.MessageInterceptor,
+						},
+						[]offramp.OffRampSourceChainConfigArgs{},
+					)
+					return cldf.ContractDeploy[*offramp.OffRamp]{
+						Address: offRampAddr, Contract: offRamp, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_6_0), Err: err2,
+					}
+				})
+			if err != nil {
+				b.Logger.Errorw("Failed to deploy offramp", "chain", chain.String(), "err", err)
+				return common.Address{}, err
 			}
-			offRampContract := chainState.OffRamp
-			if offRampContract == nil {
-				offRamp, err := cldf.DeployContract(b.Logger, chain, ab,
-					func(chain cldf.Chain) cldf.ContractDeploy[*offramp.OffRamp] {
-						offRampAddr, tx2, offRamp, err2 := offramp.DeployOffRamp(
-							chain.DeployerKey,
-							chain.Client,
-							offramp.OffRampStaticConfig{
-								ChainSelector:        chain.Selector,
-								GasForCallExactCheck: input.Params.GasForCallExactCheck,
-								RmnRemote:            input.RmnRemote,
-								NonceManager:         input.NonceManager,
-								TokenAdminRegistry:   input.TokenAdminRegistry,
-							},
-							offramp.OffRampDynamicConfig{
-								FeeQuoter:                               input.FeeQuoter,
-								PermissionLessExecutionThresholdSeconds: input.Params.PermissionLessExecutionThresholdSeconds,
-								MessageInterceptor:                      input.Params.MessageInterceptor,
-							},
-							[]offramp.OffRampSourceChainConfigArgs{},
-						)
-						return cldf.ContractDeploy[*offramp.OffRamp]{
-							Address: offRampAddr, Contract: offRamp, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_6_0), Err: err2,
-						}
-					})
-				if err != nil {
-					b.Logger.Errorw("Failed to deploy offramp", "chain", chain.String(), "err", err)
-					return common.Address{}, err
-				}
-				return offRamp.Address, nil
-			}
-			b.Logger.Infow("offramp already deployed", "chain", chain.String(), "addr", chainState.OffRamp.Address)
-			return common.Address{}, nil
+			return offRamp.Address, nil
 		})
 )
 

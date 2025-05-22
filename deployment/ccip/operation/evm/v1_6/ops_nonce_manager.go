@@ -25,43 +25,32 @@ var (
 		"DeployNonceManager",
 		semver.MustParse("1.0.0"),
 		"Deploys NonceManager 1.6 contract on the specified evm chain",
-		func(b operations.Bundle, deps opsutil.OpDependencies, input uint64) (common.Address, error) {
-			state := deps.CurrentState
-			e := deps.Env
+		func(b operations.Bundle, deps opsutil.DeployContractDependencies, input uint64) (common.Address, error) {
 			ab := deps.AddressBook
-			chain := e.Chains[input]
-			chainState, chainExists := state.Chains[input]
-			if !chainExists {
-				return common.Address{}, fmt.Errorf("chain %s not found in existing state, "+
-					"deploy the prerequisites first", chain.String())
+			chain := deps.Chain
+			nonceManager, err := cldf.DeployContract(b.Logger, chain, ab,
+				func(chain cldf.Chain) cldf.ContractDeploy[*nonce_manager.NonceManager] {
+					nonceManagerAddr, tx2, nonceManager, err2 := nonce_manager.DeployNonceManager(
+						chain.DeployerKey,
+						chain.Client,
+						[]common.Address{}, // Need to add onRamp after
+					)
+					return cldf.ContractDeploy[*nonce_manager.NonceManager]{
+						Address: nonceManagerAddr, Contract: nonceManager, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.NonceManager, deployment.Version1_6_0), Err: err2,
+					}
+				})
+			if err != nil {
+				b.Logger.Errorw("Failed to deploy nonce manager", "chain", chain.String(), "err", err)
+				return common.Address{}, err
 			}
-			if chainState.NonceManager == nil {
-				nonceManager, err := cldf.DeployContract(b.Logger, chain, ab,
-					func(chain cldf.Chain) cldf.ContractDeploy[*nonce_manager.NonceManager] {
-						nonceManagerAddr, tx2, nonceManager, err2 := nonce_manager.DeployNonceManager(
-							chain.DeployerKey,
-							chain.Client,
-							[]common.Address{}, // Need to add onRamp after
-						)
-						return cldf.ContractDeploy[*nonce_manager.NonceManager]{
-							Address: nonceManagerAddr, Contract: nonceManager, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.NonceManager, deployment.Version1_6_0), Err: err2,
-						}
-					})
-				if err != nil {
-					b.Logger.Errorw("Failed to deploy nonce manager", "chain", chain.String(), "err", err)
-					return common.Address{}, err
-				}
-				return nonceManager.Address, nil
-			}
-			b.Logger.Infow("nonce manager already deployed", "chain", chain.String(), "addr", chainState.NonceManager.Address)
-			return common.Address{}, nil
+			return nonceManager.Address, nil
 		})
 
 	NonceManagerUpdateAuthorizedCallerOp = operations.NewOperation(
 		"NonceManagerUpdateAuthorizedCaller",
 		semver.MustParse("1.0.0"),
 		"Update authorized callers in NonceManager 1.6 contract on the specified evm chain",
-		func(b operations.Bundle, deps opsutil.OpDependencies, input NonceManagerUpdateAuthorizedCallerInput) (opsutil.OpOutput, error) {
+		func(b operations.Bundle, deps opsutil.ConfigureDependencies, input NonceManagerUpdateAuthorizedCallerInput) (opsutil.OpOutput, error) {
 			state := deps.CurrentState
 			e := deps.Env
 			err := input.Validate(e, state)
