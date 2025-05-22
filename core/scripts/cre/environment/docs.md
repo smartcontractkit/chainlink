@@ -142,7 +142,7 @@ Remember that the CRE CLI version needs to match your CPU architecture and opera
 
 ## DX Tracing
 
-To track environment usage and quality mertrics (success/failure rate, startup time) local CRE environment is integrated with DX. If you have `gh cli` configured and authenticated on your local machine it will be used to automatically setup DX integration in the background. If you don't, tracing data will be stored locally in `~/.dx/` and uploaded once either `gh cli` is available or valid `~/.dx/config.json` file appears.
+To track environment usage and quality metrics (success/failure rate, startup time) local CRE environment is integrated with DX. If you have `gh cli` configured and authenticated on your local machine it will be used to automatically setup DX integration in the background. If you don't, tracing data will be stored locally in `~/.dx/` and uploaded once either `gh cli` is available or valid `~/.dx/config.json` file appears.
 
 To opt out from tracing use the following environment variable:
 ```bash

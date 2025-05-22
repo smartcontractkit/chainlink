@@ -234,7 +234,6 @@ var startCmd = &cobra.Command{
 		}
 
 		output, startErr := startCLIEnvironment(topologyFlag, withPluginsDockerImageFlag, extraAllowedPortsFlag)
-		fmt.Println(startErr)
 		if startErr != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
