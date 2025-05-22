@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/gagliardetto/solana-go"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -16,7 +18,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -130,33 +131,37 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			finalSeqNrExecChannels)
 	}
 
+	evmSourceKeys := make(map[uint64]*bind.TransactOpts)
+	solanaSourceKeys := make(map[uint64]*solana.PrivateKey)
+	for ind := range *userOverrides.NumDestinationChains {
+		cs := env.AllChainSelectors()[ind]
+		other := env.AllChainSelectorsExcluding([]uint64{cs})
+		for _, src := range other {
+			//todo: handle solana source keys
+			evmSourceKeys[src] = transmitKeys[src][ind]
+		}
+	}
+
 	// confirmed dest chains need a subscription
 	for ind := range *userOverrides.NumDestinationChains {
 		cs := env.AllChainSelectors()[ind]
 
-		evmSourceKeys := make(map[uint64]*bind.TransactOpts)
-		solanaSourceKeys := make(map[uint64]*solana.PrivateKey)
-		// todo: make solana source keys
 		other := env.AllChainSelectorsExcluding([]uint64{cs})
-		var mu sync.Mutex
-		var wg2 sync.WaitGroup
-		wg2.Add(len(other))
+		g := new(errgroup.Group)
+
 		for _, src := range other {
-			go func(src uint64) {
-				defer wg2.Done()
-				mu.Lock()
-				evmSourceKeys[src] = transmitKeys[src][ind]
-				mu.Unlock()
-				assert.NoError(t, prepareAccountToSendLink(
+			src := src
+			g.Go(func() error {
+				return prepareAccountToSendLink(
 					t,
 					state,
 					*env,
 					src,
 					evmSourceKeys[src],
-				))
-			}(src)
+				)
+			})
 		}
-		wg2.Wait()
+		require.NoError(t, g.Wait())
 
 		gunMap[cs], err = NewDestinationGun(
 			env.Logger,
