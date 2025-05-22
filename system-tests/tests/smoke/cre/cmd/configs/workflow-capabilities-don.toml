@@ -60,7 +60,7 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
+      docker_ctx = "../../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
       user_config_overrides = """
@@ -81,7 +81,7 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
+      docker_ctx = "../../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
       custom_ports = ["5002:5002"]

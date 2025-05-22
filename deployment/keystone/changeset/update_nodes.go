@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -36,7 +35,7 @@ type UpdateNodesRequest struct {
 	RegistryRef datastore.AddressRefKey
 }
 
-func (r *UpdateNodesRequest) Validate(e deployment.Environment) error {
+func (r *UpdateNodesRequest) Validate(e cldf.Environment) error {
 	if r.P2pToUpdates == nil {
 		return errors.New("P2pToUpdates must be non-nil")
 	}
@@ -65,7 +64,7 @@ type NodeUpdate = internal.NodeUpdate
 
 // UpdateNodes updates a set of nodes.
 // The nodes and capabilities in the request must already exist in the registry contract.
-func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (cldf.ChangesetOutput, error) {
+func UpdateNodes(env cldf.Environment, req *UpdateNodesRequest) (cldf.ChangesetOutput, error) {
 	if err := req.Validate(env); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid request: %w", err)
 	}

@@ -11,7 +11,7 @@ import (
 	rewardManager "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
@@ -42,14 +42,14 @@ func (cfg UpdateRewardRecipientsConfig) Validate() error {
 	return nil
 }
 
-func updateRewardRecipientsPrecondition(_ deployment.Environment, cc UpdateRewardRecipientsConfig) error {
+func updateRewardRecipientsPrecondition(_ cldf.Environment, cc UpdateRewardRecipientsConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid UpdateRewardRecipients config: %w", err)
 	}
 	return nil
 }
 
-func updateRewardRecipientsLogic(e deployment.Environment, cfg UpdateRewardRecipientsConfig) (cldf.ChangesetOutput, error) {
+func updateRewardRecipientsLogic(e cldf.Environment, cfg UpdateRewardRecipientsConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.RewardManager.String(),
@@ -66,7 +66,7 @@ func updateRewardRecipientsLogic(e deployment.Environment, cfg UpdateRewardRecip
 
 func doUpdateRewardRecipients(vs *rewardManager.RewardManager, ur UpdateRewardRecipients) (*goEthTypes.Transaction, error) {
 	return vs.UpdateRewardRecipients(
-		deployment.SimTransactOpts(),
+		cldf.SimTransactOpts(),
 		ur.PoolID,
 		ur.RewardRecipientAndWeights,
 	)

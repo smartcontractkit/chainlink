@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
@@ -39,11 +39,11 @@ func (cfg ActivateConfigConfig) Validate() error {
 	return nil
 }
 
-func activateConfigPrecondition(_ deployment.Environment, cc ActivateConfigConfig) error {
+func activateConfigPrecondition(_ cldf.Environment, cc ActivateConfigConfig) error {
 	return cc.Validate()
 }
 
-func activateConfigLogic(e deployment.Environment, cfg ActivateConfigConfig) (cldf.ChangesetOutput, error) {
+func activateConfigLogic(e cldf.Environment, cfg ActivateConfigConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.VerifierProxy.String(),
@@ -63,7 +63,7 @@ func doActivateConfig(
 	ac ActivateConfig,
 ) (*goEthTypes.Transaction, error) {
 	return v.ActivateConfig(
-		deployment.SimTransactOpts(),
+		cldf.SimTransactOpts(),
 		ac.ConfigDigest,
 	)
 }

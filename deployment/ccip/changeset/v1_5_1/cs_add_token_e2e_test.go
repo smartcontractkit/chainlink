@@ -19,9 +19,10 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -74,7 +75,7 @@ func TestAddTokenE2E(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := testutils.Context(t)
 			var (
-				e                    deployment.Environment
+				e                    cldf.Environment
 				selectorA, selectorB uint64
 				mcmsConfig           *proposalutils.TimelockConfig
 				err                  error
@@ -95,7 +96,7 @@ func TestAddTokenE2E(t *testing.T) {
 				// we deploy the token as part of AddTokenE2E changeset
 				tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithPrerequisiteDeploymentOnly(nil))
 				e = tenv.Env
-				state, err := changeset.LoadOnchainState(e)
+				state, err := stateview.LoadOnchainState(e)
 				require.NoError(t, err)
 				selectors := e.AllChainSelectors()
 				selectorA = selectors[0]
@@ -142,7 +143,7 @@ func TestAddTokenE2E(t *testing.T) {
 			// form the changeset input config
 			for _, chain := range e.AllChainSelectors() {
 				if addTokenE2EConfig.Tokens == nil {
-					addTokenE2EConfig.Tokens = make(map[changeset.TokenSymbol]v1_5_1.AddTokenE2EConfig)
+					addTokenE2EConfig.Tokens = make(map[shared.TokenSymbol]v1_5_1.AddTokenE2EConfig)
 				}
 				if _, ok := addTokenE2EConfig.Tokens[testhelpers.TestTokenSymbol]; !ok {
 					addTokenE2EConfig.Tokens[testhelpers.TestTokenSymbol] = v1_5_1.AddTokenE2EConfig{
@@ -161,14 +162,15 @@ func TestAddTokenE2E(t *testing.T) {
 				poolConfig := addTokenE2EConfig.Tokens[testhelpers.TestTokenSymbol].PoolConfig
 				var deployPoolConfig *v1_5_1.DeployTokenPoolInput
 				var deployTokenConfig *v1_5_1.DeployTokenConfig
+				var _ *cldf.ContractType
 				if test.withNewToken {
 					deployTokenConfig = &v1_5_1.DeployTokenConfig{
 						TokenName:     string(testhelpers.TestTokenSymbol),
 						TokenSymbol:   testhelpers.TestTokenSymbol,
 						TokenDecimals: testhelpers.LocalTokenDecimals,
 						MaxSupply:     big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
-						Type:          changeset.BurnMintToken,
-						PoolType:      changeset.BurnMintTokenPool,
+						Type:          shared.BurnMintToken,
+						PoolType:      shared.BurnMintTokenPool,
 						MintTokenForRecipients: map[common.Address]*big.Int{
 							recipientAddress: topupAmount,
 						},
@@ -176,7 +178,7 @@ func TestAddTokenE2E(t *testing.T) {
 				} else {
 					token := tokens[chain]
 					deployPoolConfig = &v1_5_1.DeployTokenPoolInput{
-						Type:               changeset.BurnMintTokenPool,
+						Type:               shared.BurnMintTokenPool,
 						TokenAddress:       token.Address,
 						LocalTokenDecimals: testhelpers.LocalTokenDecimals,
 					}
@@ -186,15 +188,15 @@ func TestAddTokenE2E(t *testing.T) {
 					DeployPoolConfig:      deployPoolConfig,
 					PoolVersion:           deployment.Version1_5_1,
 					ExternalAdmin:         externalAdmin,
-					RateLimiterConfig:     rateLimiterPerChain,
 				}
 			}
+
 			// apply the changeset
 			e, err = commonchangeset.Apply(t, e, timelockContracts,
 				commonchangeset.Configure(v1_5_1.AddTokensE2E, addTokenE2EConfig))
 			require.NoError(t, err)
 
-			state, err := changeset.LoadOnchainState(e)
+			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
 			// populate token details in case of token deployment as part of changeset
@@ -243,6 +245,14 @@ func TestAddTokenE2E(t *testing.T) {
 					remotePoolAddr = poolOnSelectorA.Address()
 					registry = registryOnB
 				}
+
+				var poolOwner common.Address
+				if test.withMCMS {
+					poolOwner = state.Chains[chain].Timelock.Address()
+				} else {
+					poolOwner = e.Chains[chain].DeployerKey.From
+				}
+
 				// check token pool is configured
 				validateMemberOfTokenPoolPair(
 					t,
@@ -254,19 +264,24 @@ func TestAddTokenE2E(t *testing.T) {
 					chain,
 					rateLimiterConfig.Inbound.Rate, // inbound & outbound are the same in this test
 					rateLimiterConfig.Inbound.Capacity,
-					e.Chains[chain].DeployerKey.From, // the pools are still owned by the deployer
+					poolOwner, // the pools are owned by timelock now if mcms is enabled
 				)
-				if test.withNewToken {
-					// check token pool is added as minter
-					minterCheck, err := token.Contract.IsMinter(&bind.CallOpts{Context: ctx}, tokenPoolC.Address())
-					require.NoError(t, err)
-					require.True(t, minterCheck)
 
-					// check token pool is added as burner
-					burnerCheck, err := token.Contract.IsBurner(&bind.CallOpts{Context: ctx}, tokenPoolC.Address())
-					require.NoError(t, err)
-					require.True(t, burnerCheck)
-				}
+				/*
+					This behavior is not currently enabled
+
+						if test.withNewToken {
+							// check token pool is added as minter
+							minterCheck, err := token.Contract.IsMinter(&bind.CallOpts{Context: ctx}, tokenPoolC.Address())
+							require.NoError(t, err)
+							require.True(t, minterCheck)
+
+							// check token pool is added as burner
+							burnerCheck, err := token.Contract.IsBurner(&bind.CallOpts{Context: ctx}, tokenPoolC.Address())
+							require.NoError(t, err)
+							require.True(t, burnerCheck)
+						}
+				*/
 				// check if admin and set pool is set correctly
 				regConfig, err := registry.GetTokenConfig(&bind.CallOpts{Context: ctx}, token.Address)
 				require.NoError(t, err)

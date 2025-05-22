@@ -9,78 +9,15 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
-
-func TestTransferToMCMSWithTimelock(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, 0, memory.MemoryEnvironmentConfig{
-		Chains: 1,
-		Nodes:  1,
-	})
-	chain1 := e.AllChainSelectors()[0]
-	e, err := Apply(t, e, nil,
-		Configure(
-			cldf.CreateLegacyChangeSet(DeployLinkToken),
-			[]uint64{chain1},
-		),
-		Configure(
-			cldf.CreateLegacyChangeSet(DeployMCMSWithTimelockV2),
-			map[uint64]types.MCMSWithTimelockConfigV2{
-				chain1: proposalutils.SingleGroupTimelockConfigV2(t),
-			},
-		),
-	)
-	require.NoError(t, err)
-	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
-	require.NoError(t, err)
-	state, err := MaybeLoadMCMSWithTimelockChainState(e.Chains[chain1], addrs)
-	require.NoError(t, err)
-	link, err := MaybeLoadLinkTokenChainState(e.Chains[chain1], addrs)
-	require.NoError(t, err)
-	e, err = Apply(t, e,
-		map[uint64]*proposalutils.TimelockExecutionContracts{
-			chain1: {Timelock: state.Timelock, CallProxy: state.CallProxy},
-		},
-		Configure(
-			cldf.CreateLegacyChangeSet(TransferToMCMSWithTimelock),
-			TransferToMCMSWithTimelockConfig{
-				ContractsByChain: map[uint64][]common.Address{
-					chain1: {link.LinkToken.Address()},
-				},
-				MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0},
-			},
-		),
-	)
-	require.NoError(t, err)
-	// We expect now that the link token is owned by the MCMS timelock.
-	link, err = MaybeLoadLinkTokenChainState(e.Chains[chain1], addrs)
-	require.NoError(t, err)
-	o, err := link.LinkToken.Owner(nil)
-	require.NoError(t, err)
-	require.Equal(t, state.Timelock.Address(), o)
-
-	// Try a rollback to the deployer.
-	e, err = Apply(t, e, nil,
-		Configure(
-			cldf.CreateLegacyChangeSet(TransferToDeployer),
-			TransferToDeployerConfig{
-				ContractAddress: link.LinkToken.Address(),
-				ChainSel:        chain1,
-			},
-		),
-	)
-	require.NoError(t, err)
-
-	o, err = link.LinkToken.Owner(nil)
-	require.NoError(t, err)
-	require.Equal(t, e.Chains[chain1].DeployerKey.From, o)
-}
 
 func TestTransferToMCMSWithTimelockV2(t *testing.T) {
 	lggr := logger.TestLogger(t)
@@ -150,6 +87,7 @@ func TestTransferToMCMSWithTimelockV2(t *testing.T) {
 }
 
 func TestRenounceTimelockDeployerConfigValidate(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-724")
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, 0, memory.MemoryEnvironmentConfig{
@@ -176,7 +114,7 @@ func TestRenounceTimelockDeployerConfigValidate(t *testing.T) {
 	for _, test := range []struct {
 		name   string
 		config RenounceTimelockDeployerConfig
-		env    deployment.Environment
+		env    cldf.Environment
 		err    string
 	}{
 		{

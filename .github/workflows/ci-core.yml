@@ -197,6 +197,7 @@ jobs:
             is-self-hosted: ${{ needs.runner-config.outputs.deployment-tests-is-self-hosted }}
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
             setup-solana: "true"
+            setup-aptos: "true"
             use-flakeguard: 'true'
 
     name: Core Tests (${{ matrix.type.cmd }})
@@ -267,6 +268,12 @@ jobs:
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-solana == 'true' }}
         uses: ./.github/actions/setup-solana
 
+      - name: Setup Aptos
+        if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-aptos == 'true' }}
+        uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
+        with:
+          CLI_VERSION: 7.2.0
+
       - name: Setup wasmd
         if: ${{ matrix.type.should-run == 'true' }}
         uses: ./.github/actions/setup-wasmd
@@ -316,9 +323,7 @@ jobs:
           USE_FLAKEGUARD: ${{ matrix.type.use-flakeguard == 'true' && 'true' || '' }}
         run: |
           # See: https://github.com/golang/go/issues/69179
-          GODEBUG=goindex=0
-
-          ./tools/bin/${{ matrix.type.cmd }} ./...
+          GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./...
 
       - name: Generate Flakeguard Test Reports
         if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && matrix.type.use-flakeguard == 'true' }}

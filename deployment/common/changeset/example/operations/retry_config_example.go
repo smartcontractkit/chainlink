@@ -7,8 +7,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 /**
@@ -20,12 +18,12 @@ var _ cldf.ChangeSetV2[operations.EmptyInput] = DisableRetryExampleChangeset{}
 
 type DisableRetryExampleChangeset struct{}
 
-func (l DisableRetryExampleChangeset) VerifyPreconditions(e deployment.Environment, config operations.EmptyInput) error {
+func (l DisableRetryExampleChangeset) VerifyPreconditions(e cldf.Environment, config operations.EmptyInput) error {
 	// perform any preconditions checks here
 	return nil
 }
 
-func (l DisableRetryExampleChangeset) Apply(e deployment.Environment, config operations.EmptyInput) (cldf.ChangesetOutput, error) {
+func (l DisableRetryExampleChangeset) Apply(e cldf.Environment, config operations.EmptyInput) (cldf.ChangesetOutput, error) {
 	ab := cldf.NewMemoryAddressBook()
 
 	operationInput := SuccessFailOperationInput{ShouldFail: true}
@@ -45,12 +43,12 @@ var _ cldf.ChangeSetV2[operations.EmptyInput] = UpdateInputExampleChangeset{}
 
 type UpdateInputExampleChangeset struct{}
 
-func (l UpdateInputExampleChangeset) VerifyPreconditions(e deployment.Environment, config operations.EmptyInput) error {
+func (l UpdateInputExampleChangeset) VerifyPreconditions(e cldf.Environment, config operations.EmptyInput) error {
 	// perform any preconditions checks here
 	return nil
 }
 
-func (l UpdateInputExampleChangeset) Apply(e deployment.Environment, config operations.EmptyInput) (cldf.ChangesetOutput, error) {
+func (l UpdateInputExampleChangeset) Apply(e cldf.Environment, config operations.EmptyInput) (cldf.ChangesetOutput, error) {
 	ab := cldf.NewMemoryAddressBook()
 
 	operationInput := SuccessFailOperationInput{ShouldFail: true}

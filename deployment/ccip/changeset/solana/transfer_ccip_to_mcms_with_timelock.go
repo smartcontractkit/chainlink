@@ -13,9 +13,8 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	state2 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -28,12 +27,10 @@ type CCIPContractsToTransfer struct {
 	Router    bool
 	FeeQuoter bool
 	OffRamp   bool
-	// Token Pool PDA -> Token Mint
-	LockReleaseTokenPools        map[solana.PublicKey]solana.PublicKey
-	BurnMintTokenPools           map[solana.PublicKey]solana.PublicKey
-	LockReleaseTokenPoolMetadata string
-	BurnMintTokenPoolMetadata    string
-	RMNRemote                    bool
+	// metadata -> Token Pool PDA -> Token Mint
+	LockReleaseTokenPools map[string]map[solana.PublicKey]solana.PublicKey
+	BurnMintTokenPools    map[string]map[solana.PublicKey]solana.PublicKey
+	RMNRemote             bool
 }
 
 type TransferCCIPToMCMSWithTimelockSolanaConfig struct {
@@ -47,7 +44,7 @@ type TransferCCIPToMCMSWithTimelockSolanaConfig struct {
 }
 
 // ValidateContracts checks if the required contracts are present on the chain
-func ValidateContracts(state state2.SolCCIPChainState, chainSelector uint64, contracts CCIPContractsToTransfer) error {
+func ValidateContracts(state solanastateview.CCIPChainState, chainSelector uint64, contracts CCIPContractsToTransfer) error {
 	contractChecks := []struct {
 		enabled bool
 		value   solana.PublicKey
@@ -68,8 +65,8 @@ func ValidateContracts(state state2.SolCCIPChainState, chainSelector uint64, con
 	return nil
 }
 
-func (cfg TransferCCIPToMCMSWithTimelockSolanaConfig) Validate(e deployment.Environment) error {
-	ccipState, err := state2.LoadOnchainStateSolana(e)
+func (cfg TransferCCIPToMCMSWithTimelockSolanaConfig) Validate(e cldf.Environment) error {
+	ccipState, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -134,7 +131,7 @@ func (cfg TransferCCIPToMCMSWithTimelockSolanaConfig) Validate(e deployment.Envi
 // the timelock and mcms exist on the chain and that the proposed addresses to transfer ownership
 // are currently owned by the deployer key.
 func TransferCCIPToMCMSWithTimelockSolana(
-	e deployment.Environment,
+	e cldf.Environment,
 	cfg TransferCCIPToMCMSWithTimelockSolanaConfig,
 ) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
@@ -142,7 +139,7 @@ func TransferCCIPToMCMSWithTimelockSolana(
 	}
 	var batches []mcmsTypes.BatchOperation
 
-	ccipState, err := state2.LoadOnchainStateSolana(e)
+	ccipState, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -227,54 +224,50 @@ func TransferCCIPToMCMSWithTimelockSolana(
 				Transactions:  mcmsTxs,
 			})
 		}
-		for tokenPoolConfigPDA, tokenMint := range contractsToTransfer.LockReleaseTokenPools {
-			metadata := ccipChangeset.CLLMetadata
-			if contractsToTransfer.LockReleaseTokenPoolMetadata != "" {
-				metadata = contractsToTransfer.LockReleaseTokenPoolMetadata
+		for metadata, tokenPools := range contractsToTransfer.LockReleaseTokenPools {
+			for tokenPoolConfigPDA, tokenMint := range tokenPools {
+				mcmsTxs, err := transferOwnershipLockReleaseTokenPools(
+					ccipState,
+					tokenPoolConfigPDA,
+					tokenMint,
+					chainSelector,
+					solChain,
+					metadata,
+					currentOwner,
+					proposedOwner,
+					timelockSigner,
+				)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of lock-release token pools: %w", err)
+				}
+				batches = append(batches, mcmsTypes.BatchOperation{
+					ChainSelector: mcmsTypes.ChainSelector(chainSelector),
+					Transactions:  mcmsTxs,
+				})
 			}
-			mcmsTxs, err := transferOwnershipLockReleaseTokenPools(
-				ccipState,
-				tokenPoolConfigPDA,
-				tokenMint,
-				chainSelector,
-				solChain,
-				metadata,
-				currentOwner,
-				proposedOwner,
-				timelockSigner,
-			)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of lock-release token pools: %w", err)
-			}
-			batches = append(batches, mcmsTypes.BatchOperation{
-				ChainSelector: mcmsTypes.ChainSelector(chainSelector),
-				Transactions:  mcmsTxs,
-			})
 		}
 
-		for tokenPoolConfigPDA, tokenMint := range contractsToTransfer.BurnMintTokenPools {
-			metadata := ccipChangeset.CLLMetadata
-			if contractsToTransfer.BurnMintTokenPoolMetadata != "" {
-				metadata = contractsToTransfer.BurnMintTokenPoolMetadata
+		for metadata, tokenPools := range contractsToTransfer.BurnMintTokenPools {
+			for tokenPoolConfigPDA, tokenMint := range tokenPools {
+				mcmsTxs, err := transferOwnershipBurnMintTokenPools(
+					ccipState,
+					tokenPoolConfigPDA,
+					tokenMint,
+					chainSelector,
+					solChain,
+					metadata,
+					currentOwner,
+					proposedOwner,
+					timelockSigner,
+				)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of burn-mint token pools: %w", err)
+				}
+				batches = append(batches, mcmsTypes.BatchOperation{
+					ChainSelector: mcmsTypes.ChainSelector(chainSelector),
+					Transactions:  mcmsTxs,
+				})
 			}
-			mcmsTxs, err := transferOwnershipBurnMintTokenPools(
-				ccipState,
-				tokenPoolConfigPDA,
-				tokenMint,
-				chainSelector,
-				solChain,
-				metadata,
-				currentOwner,
-				proposedOwner,
-				timelockSigner,
-			)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of burn-mint token pools: %w", err)
-			}
-			batches = append(batches, mcmsTypes.BatchOperation{
-				ChainSelector: mcmsTypes.ChainSelector(chainSelector),
-				Transactions:  mcmsTxs,
-			})
 		}
 
 		if contractsToTransfer.RMNRemote {

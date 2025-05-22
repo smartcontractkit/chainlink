@@ -142,7 +142,7 @@ func (s *MCMSWithTimelockProgramsSolana) RoleAccount(role timelockBindings.Role)
 }
 
 func (s *MCMSWithTimelockProgramsSolana) GenerateView(
-	ctx context.Context, chain deployment.SolChain,
+	ctx context.Context, chain cldf.SolChain,
 ) (view.MCMSWithTimelockViewSolana, error) {
 	if err := s.Validate(); err != nil {
 		return view.MCMSWithTimelockViewSolana{}, fmt.Errorf("unable to validate state: %w", err)
@@ -164,7 +164,7 @@ type MCMSWithTimelockStateSolana struct {
 }
 
 // MaybeLoadMCMSWithTimelockState loads the MCMSWithTimelockState state for each chain in the given environment.
-func MaybeLoadMCMSWithTimelockStateSolana(env deployment.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockStateSolana, error) {
+func MaybeLoadMCMSWithTimelockStateSolana(env cldf.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockStateSolana, error) {
 	result := map[uint64]*MCMSWithTimelockStateSolana{}
 	for _, chainSelector := range chainSelectors {
 		chain, ok := env.SolChains[chainSelector]
@@ -196,7 +196,7 @@ func MaybeLoadMCMSWithTimelockStateSolana(env deployment.Environment, chainSelec
 // - Found but was unable to load a contract
 // - It only found part of the bundle of contracts
 // - If found more than one instance of a contract (we expect one bundle in the given addresses)
-func MaybeLoadMCMSWithTimelockChainStateSolana(chain deployment.SolChain, addresses map[string]cldf.TypeAndVersion) (*MCMSWithTimelockStateSolana, error) {
+func MaybeLoadMCMSWithTimelockChainStateSolana(chain cldf.SolChain, addresses map[string]cldf.TypeAndVersion) (*MCMSWithTimelockStateSolana, error) {
 	state := MCMSWithTimelockStateSolana{MCMSWithTimelockProgramsSolana: &MCMSWithTimelockProgramsSolana{}}
 
 	mcmProgram := cldf.NewTypeAndVersion(types.ManyChainMultisigProgram, deployment.Version1_0_0)

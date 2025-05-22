@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
@@ -16,9 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
+	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
-	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -214,6 +215,70 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 		ExecutionFee:        gasPrice,
 		DataAvailabilityFee: big.NewInt(l1OracleFee.Int64()),
 	}, nil
+}
+
+// GetEstimateFee returns total cost of TX execution in the underlying chain's currency.
+// The value (val) is included in the fee calculation.
+func (w *chainWriter) GetEstimateFee(ctx context.Context, contract, method string, args any, toAddress string, meta *commontypes.TxMeta, val *big.Int) (commontypes.EstimateFee, error) {
+	calldata, err := w.encoder.Encode(ctx, args, codec.WrapItemType(contract, method, true))
+	if err != nil {
+		return commontypes.EstimateFee{}, fmt.Errorf("%w: failed to encode args", err)
+	}
+
+	to := common.HexToAddress(toAddress)
+	var v assets.Eth
+	if val != nil {
+		v = assets.Eth(*val)
+	}
+
+	contractConfig, ok := w.contracts[contract]
+	if !ok {
+		return commontypes.EstimateFee{}, fmt.Errorf("contract config not found: %v", contract)
+	}
+
+	methodConfig, ok := contractConfig.Configs[method]
+	if !ok {
+		return commontypes.EstimateFee{}, fmt.Errorf("method config not found: %v", method)
+	}
+
+	gasLimit := methodConfig.GasLimit
+	if meta != nil && meta.GasLimit != nil {
+		gasLimit = meta.GasLimit.Uint64()
+	}
+
+	from := common.Address{}
+	cost, err := w.getMaxCost(ctx, v, calldata, gasLimit, w.maxGasPrice, &from, &to)
+	if err != nil {
+		return commontypes.EstimateFee{}, err
+	}
+
+	return commontypes.EstimateFee{
+		Fee:      cost,
+		Decimals: 18,
+	}, nil
+}
+
+func (w *chainWriter) getMaxCost(ctx context.Context, amount assets.Eth, calldata []byte,
+	gasLimit uint64, maxGasPrice *assets.Wei, fromAddress, toAddress *common.Address) (*big.Int, error) {
+	fee, err := w.GetFeeComponents(ctx)
+	var gasPrice *big.Int
+	if err != nil {
+		w.logger.Warnf("%w: GetFeeComponents failed; use maxFeePrice instead", err)
+		gasPrice = fee.ExecutionFee
+	} else {
+		gasPrice = (*big.Int)(maxGasPrice)
+	}
+
+	estimateGas, err := w.client.EstimateGas(ctx, ethereum.CallMsg{To: toAddress, Data: calldata})
+	if err != nil {
+		w.logger.Warnf("%w: EstimateGas failed; use gasLimit instead", err)
+		estimateGas = gasLimit
+	}
+
+	totalFee := new(big.Int).Mul(gasPrice, big.NewInt(int64(estimateGas)))
+	amountWithFees := new(big.Int).Add(amount.ToInt(), totalFee)
+
+	return amountWithFees, nil
 }
 
 func (w *chainWriter) Close() error {

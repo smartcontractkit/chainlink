@@ -11,18 +11,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -53,7 +48,7 @@ func LoadOwnableContract(addr common.Address, client bind.ContractBackend) (comm
 	return owner, c, nil
 }
 
-func (t TransferToMCMSWithTimelockConfig) Validate(e deployment.Environment) error {
+func (t TransferToMCMSWithTimelockConfig) Validate(e cldf.Environment) error {
 	for chainSelector, contracts := range t.ContractsByChain {
 		for _, contract := range contracts {
 			// Cannot transfer an unknown address.
@@ -84,80 +79,11 @@ func (t TransferToMCMSWithTimelockConfig) Validate(e deployment.Environment) err
 	return nil
 }
 
-var _ cldf.ChangeSet[TransferToMCMSWithTimelockConfig] = TransferToMCMSWithTimelock
-
-// TransferToMCMSWithTimelock creates a changeset that transfers ownership of all the
-// contracts in the provided configuration to the timelock on the chain and generates
-// a corresponding accept ownership proposal to complete the transfer.
-// It assumes that DeployMCMSWithTimelockV2 has already been run s.t.
-// the timelock and mcmses exist on the chain and that the proposed addresses to transfer ownership
-// are currently owned by the deployer key.
-// Deprecated: Use TransferToMCMSWithTimelockV2 instead.
-func TransferToMCMSWithTimelock(
-	e deployment.Environment,
-	cfg TransferToMCMSWithTimelockConfig,
-) (cldf.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-	var batches []timelock.BatchChainOperation
-	timelocksByChain := make(map[uint64]common.Address)
-	proposersByChain := make(map[uint64]*owner_helpers.ManyChainMultiSig)
-	for chainSelector, contracts := range cfg.ContractsByChain {
-		// Already validated that the timelock/proposer exists.
-		timelockAddr, _ := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock)
-		proposerAddr, _ := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig)
-		timelocksByChain[chainSelector] = common.HexToAddress(timelockAddr)
-		proposer, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(proposerAddr), e.Chains[chainSelector].Client)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create proposer mcms: %w", err)
-		}
-		proposersByChain[chainSelector] = proposer
-
-		var ops []mcms.Operation
-		for _, contract := range contracts {
-			// Just using the ownership interface.
-			// Already validated is ownable.
-			owner, c, _ := LoadOwnableContract(contract, e.Chains[chainSelector].Client)
-			if owner.String() == timelockAddr {
-				// Already owned by timelock.
-				e.Logger.Infof("contract %s already owned by timelock", contract)
-				continue
-			}
-			tx, err := c.TransferOwnership(e.Chains[chainSelector].DeployerKey, common.HexToAddress(timelockAddr))
-			_, err = deployment.ConfirmIfNoError(e.Chains[chainSelector], tx, err)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of contract %T: %w", contract, err)
-			}
-			tx, err = c.AcceptOwnership(deployment.SimTransactOpts())
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate accept ownership calldata of %s: %w", contract, err)
-			}
-			ops = append(ops, mcms.Operation{
-				To:    contract,
-				Data:  tx.Data(),
-				Value: big.NewInt(0),
-			})
-		}
-		batches = append(batches, timelock.BatchChainOperation{
-			ChainIdentifier: mcms.ChainIdentifier(chainSelector),
-			Batch:           ops,
-		})
-	}
-	proposal, err := proposalutils.BuildProposalFromBatches(
-		timelocksByChain, proposersByChain, batches, "Transfer ownership to timelock", cfg.MCMSConfig.MinDelay)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w, batches: %+v", err, batches)
-	}
-
-	return cldf.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{*proposal}}, nil
-}
-
 var _ cldf.ChangeSet[TransferToMCMSWithTimelockConfig] = TransferToMCMSWithTimelockV2
 
 // TransferToMCMSWithTimelockV2 is a reimplementation of TransferToMCMSWithTimelock which uses the new MCMS library.
 func TransferToMCMSWithTimelockV2(
-	e deployment.Environment,
+	e cldf.Environment,
 	cfg TransferToMCMSWithTimelockConfig,
 ) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
@@ -186,11 +112,11 @@ func TransferToMCMSWithTimelockV2(
 				continue
 			}
 			tx, err := c.TransferOwnership(e.Chains[chainSelector].DeployerKey, common.HexToAddress(timelockAddr))
-			_, err = deployment.ConfirmIfNoError(e.Chains[chainSelector], tx, err)
+			_, err = cldf.ConfirmIfNoError(e.Chains[chainSelector], tx, err)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of contract %T: %w", contract, err)
 			}
-			tx, err = c.AcceptOwnership(deployment.SimTransactOpts())
+			tx, err = c.AcceptOwnership(cldf.SimTransactOpts())
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate accept ownership calldata of %s: %w", contract, err)
 			}
@@ -227,7 +153,7 @@ type TransferToDeployerConfig struct {
 // still being a timelock admin and transfers the ownership of a contract
 // back to the deployer key. It's effectively the rollback function of transferring
 // to the timelock.
-func TransferToDeployer(e deployment.Environment, cfg TransferToDeployerConfig) (cldf.ChangesetOutput, error) {
+func TransferToDeployer(e cldf.Environment, cfg TransferToDeployerConfig) (cldf.ChangesetOutput, error) {
 	owner, ownable, err := LoadOwnableContract(cfg.ContractAddress, e.Chains[cfg.ChainSel].Client)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -236,7 +162,7 @@ func TransferToDeployer(e deployment.Environment, cfg TransferToDeployerConfig) 
 		e.Logger.Infof("Contract %s already owned by deployer", cfg.ContractAddress)
 		return cldf.ChangesetOutput{}, nil
 	}
-	tx, err := ownable.TransferOwnership(deployment.SimTransactOpts(), e.Chains[cfg.ChainSel].DeployerKey.From)
+	tx, err := ownable.TransferOwnership(cldf.SimTransactOpts(), e.Chains[cfg.ChainSel].DeployerKey.From)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -258,7 +184,7 @@ func TransferToDeployer(e deployment.Environment, cfg TransferToDeployerConfig) 
 	var salt [32]byte
 	binary.BigEndian.PutUint32(salt[:], uint32(time.Now().Unix()))
 	tx, err = tls.Timelock.ScheduleBatch(e.Chains[cfg.ChainSel].DeployerKey, calls, [32]byte{}, salt, big.NewInt(0))
-	if _, err = deployment.ConfirmIfNoErrorWithABI(e.Chains[cfg.ChainSel], tx, owner_helpers.RBACTimelockABI, err); err != nil {
+	if _, err = cldf.ConfirmIfNoErrorWithABI(e.Chains[cfg.ChainSel], tx, owner_helpers.RBACTimelockABI, err); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 	e.Logger.Infof("scheduled transfer ownership batch with tx %s", tx.Hash().Hex())
@@ -272,14 +198,14 @@ func TransferToDeployer(e deployment.Environment, cfg TransferToDeployerConfig) 
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error executing batch: %w", err)
 	}
-	if _, err = deployment.ConfirmIfNoErrorWithABI(e.Chains[cfg.ChainSel], tx, owner_helpers.RBACTimelockABI, err); err != nil {
+	if _, err = cldf.ConfirmIfNoErrorWithABI(e.Chains[cfg.ChainSel], tx, owner_helpers.RBACTimelockABI, err); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
 	e.Logger.Infof("executed transfer ownership to deployer key with tx %s", tx.Hash().Hex())
 
 	tx, err = ownable.AcceptOwnership(e.Chains[cfg.ChainSel].DeployerKey)
-	if _, err = deployment.ConfirmIfNoError(e.Chains[cfg.ChainSel], tx, err); err != nil {
+	if _, err = cldf.ConfirmIfNoError(e.Chains[cfg.ChainSel], tx, err); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 	e.Logger.Infof("deployer key accepted ownership tx %s", tx.Hash().Hex())
@@ -292,8 +218,8 @@ type RenounceTimelockDeployerConfig struct {
 	ChainSel uint64
 }
 
-func (cfg RenounceTimelockDeployerConfig) Validate(e deployment.Environment) error {
-	if err := deployment.IsValidChainSelector(cfg.ChainSel); err != nil {
+func (cfg RenounceTimelockDeployerConfig) Validate(e cldf.Environment) error {
+	if err := cldf.IsValidChainSelector(cfg.ChainSel); err != nil {
 		return fmt.Errorf("invalid chain selector: %w", err)
 	}
 
@@ -320,7 +246,7 @@ func (cfg RenounceTimelockDeployerConfig) Validate(e deployment.Environment) err
 }
 
 // RenounceTimelockDeployer revokes the deployer key from administering the contract.
-func RenounceTimelockDeployer(e deployment.Environment, cfg RenounceTimelockDeployerConfig) (cldf.ChangesetOutput, error) {
+func RenounceTimelockDeployer(e cldf.Environment, cfg RenounceTimelockDeployerConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -340,7 +266,7 @@ func RenounceTimelockDeployer(e deployment.Environment, cfg RenounceTimelockDepl
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to revoke deployer key: %w", err)
 	}
-	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, owner_helpers.RBACTimelockABI, err); err != nil {
+	if _, err := cldf.ConfirmIfNoErrorWithABI(chain, tx, owner_helpers.RBACTimelockABI, err); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 	e.Logger.Infof("revoked deployer key from owning contract %s", tl.Address().Hex())

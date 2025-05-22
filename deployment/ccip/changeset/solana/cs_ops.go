@@ -16,8 +16,9 @@ import (
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -42,8 +43,8 @@ type SetDefaultCodeVersionConfig struct {
 	MCMS          *proposalutils.TimelockConfig
 }
 
-func (cfg SetDefaultCodeVersionConfig) Validate(e deployment.Environment) error {
-	state, err := ccipChangeset.LoadOnchainState(e)
+func (cfg SetDefaultCodeVersionConfig) Validate(e cldf.Environment) error {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -58,38 +59,38 @@ func (cfg SetDefaultCodeVersionConfig) Validate(e deployment.Environment) error 
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
 		return err
 	}
-	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.FeeQuoter: true, ccipChangeset.OffRamp: true, ccipChangeset.Router: true})
+	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.FeeQuoter: true, shared.OffRamp: true, shared.Router: true})
 }
 
-func SetDefaultCodeVersion(e deployment.Environment, cfg SetDefaultCodeVersionConfig) (cldf.ChangesetOutput, error) {
+func SetDefaultCodeVersion(e cldf.Environment, cfg SetDefaultCodeVersionConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Setting default code version", "chain_selector", cfg.ChainSelector, "new_code_version", cfg.VersionEnum)
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
 	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
-	routerUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
-		ccipChangeset.Router,
+		shared.Router,
 		solana.PublicKey{},
 		"")
-	offRampUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+	offRampUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
-		ccipChangeset.OffRamp,
+		shared.OffRamp,
 		solana.PublicKey{},
 		"")
-	feeQuoterUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+	feeQuoterUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
-		ccipChangeset.FeeQuoter,
+		shared.FeeQuoter,
 		solana.PublicKey{},
 		"")
 	txns := make([]mcmsTypes.Transaction, 0)
@@ -99,7 +100,7 @@ func SetDefaultCodeVersion(e deployment.Environment, cfg SetDefaultCodeVersionCo
 		chain,
 		chainState,
 		cfg.MCMS,
-		ccipChangeset.Router,
+		shared.Router,
 		solana.PublicKey{},
 		"")
 	solRouter.SetProgramID(chainState.Router)
@@ -114,7 +115,7 @@ func SetDefaultCodeVersion(e deployment.Environment, cfg SetDefaultCodeVersionCo
 	}
 
 	if routerUsingMCMS {
-		tx, err := BuildMCMSTxn(ixn, chainState.Router.String(), ccipChangeset.Router)
+		tx, err := BuildMCMSTxn(ixn, chainState.Router.String(), shared.Router)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -128,7 +129,7 @@ func SetDefaultCodeVersion(e deployment.Environment, cfg SetDefaultCodeVersionCo
 		chain,
 		chainState,
 		cfg.MCMS,
-		ccipChangeset.OffRamp,
+		shared.OffRamp,
 		solana.PublicKey{},
 		"")
 	solOffRamp.SetProgramID(chainState.OffRamp)
@@ -142,7 +143,7 @@ func SetDefaultCodeVersion(e deployment.Environment, cfg SetDefaultCodeVersionCo
 	}
 
 	if offRampUsingMCMS {
-		tx, err := BuildMCMSTxn(ixn2, chainState.OffRamp.String(), ccipChangeset.OffRamp)
+		tx, err := BuildMCMSTxn(ixn2, chainState.OffRamp.String(), shared.OffRamp)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -156,7 +157,7 @@ func SetDefaultCodeVersion(e deployment.Environment, cfg SetDefaultCodeVersionCo
 		chain,
 		chainState,
 		cfg.MCMS,
-		ccipChangeset.FeeQuoter,
+		shared.FeeQuoter,
 		solana.PublicKey{},
 		"")
 	solFeeQuoter.SetProgramID(chainState.FeeQuoter)
@@ -170,7 +171,7 @@ func SetDefaultCodeVersion(e deployment.Environment, cfg SetDefaultCodeVersionCo
 	}
 
 	if feeQuoterUsingMCMS {
-		tx, err := BuildMCMSTxn(ixn3, chainState.FeeQuoter.String(), ccipChangeset.FeeQuoter)
+		tx, err := BuildMCMSTxn(ixn3, chainState.FeeQuoter.String(), shared.FeeQuoter)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -205,8 +206,8 @@ type UpdateSvmChainSelectorConfig struct {
 	MCMS             *proposalutils.TimelockConfig
 }
 
-func (cfg UpdateSvmChainSelectorConfig) Validate(e deployment.Environment) error {
-	state, err := ccipChangeset.LoadOnchainState(e)
+func (cfg UpdateSvmChainSelectorConfig) Validate(e cldf.Environment) error {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -218,32 +219,32 @@ func (cfg UpdateSvmChainSelectorConfig) Validate(e deployment.Environment) error
 	if err := validateOffRampConfig(chain, chainState); err != nil {
 		return err
 	}
-	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true, ccipChangeset.OffRamp: true})
+	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.Router: true, shared.OffRamp: true})
 }
 
-func UpdateSvmChainSelector(e deployment.Environment, cfg UpdateSvmChainSelectorConfig) (cldf.ChangesetOutput, error) {
+func UpdateSvmChainSelector(e cldf.Environment, cfg UpdateSvmChainSelectorConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Updating SVM chain selector", "old_chain_selector", cfg.OldChainSelector, "new_chain_selector", cfg.NewChainSelector)
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
 	chain := e.SolChains[cfg.OldChainSelector]
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.OldChainSelector]
 	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 
-	routerUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
-		ccipChangeset.Router,
+		shared.Router,
 		solana.PublicKey{},
 		"")
-	offRampUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+	offRampUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
-		ccipChangeset.OffRamp,
+		shared.OffRamp,
 		solana.PublicKey{},
 		"")
 	txns := make([]mcmsTypes.Transaction, 0)
@@ -253,7 +254,7 @@ func UpdateSvmChainSelector(e deployment.Environment, cfg UpdateSvmChainSelector
 		chain,
 		chainState,
 		cfg.MCMS,
-		ccipChangeset.Router,
+		shared.Router,
 		solana.PublicKey{},
 		"")
 	solRouter.SetProgramID(chainState.Router)
@@ -268,7 +269,7 @@ func UpdateSvmChainSelector(e deployment.Environment, cfg UpdateSvmChainSelector
 	}
 
 	if routerUsingMCMS {
-		tx, err := BuildMCMSTxn(ixn, chainState.Router.String(), ccipChangeset.Router)
+		tx, err := BuildMCMSTxn(ixn, chainState.Router.String(), shared.Router)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -282,7 +283,7 @@ func UpdateSvmChainSelector(e deployment.Environment, cfg UpdateSvmChainSelector
 		chain,
 		chainState,
 		cfg.MCMS,
-		ccipChangeset.OffRamp,
+		shared.OffRamp,
 		solana.PublicKey{},
 		"")
 	solOffRamp.SetProgramID(chainState.OffRamp)
@@ -296,7 +297,7 @@ func UpdateSvmChainSelector(e deployment.Environment, cfg UpdateSvmChainSelector
 	}
 
 	if offRampUsingMCMS {
-		tx, err := BuildMCMSTxn(ixn2, chainState.OffRamp.String(), ccipChangeset.OffRamp)
+		tx, err := BuildMCMSTxn(ixn2, chainState.OffRamp.String(), shared.OffRamp)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -331,8 +332,8 @@ type UpdateEnableManualExecutionAfterConfig struct {
 	MCMS                  *proposalutils.TimelockConfig
 }
 
-func (cfg UpdateEnableManualExecutionAfterConfig) Validate(e deployment.Environment) error {
-	state, err := ccipChangeset.LoadOnchainState(e)
+func (cfg UpdateEnableManualExecutionAfterConfig) Validate(e cldf.Environment) error {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -341,24 +342,24 @@ func (cfg UpdateEnableManualExecutionAfterConfig) Validate(e deployment.Environm
 	if err := validateOffRampConfig(chain, chainState); err != nil {
 		return err
 	}
-	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.OffRamp: true})
+	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.OffRamp: true})
 }
 
-func UpdateEnableManualExecutionAfter(e deployment.Environment, cfg UpdateEnableManualExecutionAfterConfig) (cldf.ChangesetOutput, error) {
+func UpdateEnableManualExecutionAfter(e cldf.Environment, cfg UpdateEnableManualExecutionAfterConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Updating enable manual execution after", "chain_selector", cfg.ChainSelector, "enable_manual_execution_after", cfg.EnableManualExecution)
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
 	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
-	offRampUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+	offRampUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
-		ccipChangeset.OffRamp,
+		shared.OffRamp,
 		solana.PublicKey{},
 		"")
 	txns := make([]mcmsTypes.Transaction, 0)
@@ -368,7 +369,7 @@ func UpdateEnableManualExecutionAfter(e deployment.Environment, cfg UpdateEnable
 		chain,
 		chainState,
 		cfg.MCMS,
-		ccipChangeset.OffRamp,
+		shared.OffRamp,
 		solana.PublicKey{},
 		"")
 	solOffRamp.SetProgramID(chainState.OffRamp)
@@ -382,7 +383,7 @@ func UpdateEnableManualExecutionAfter(e deployment.Environment, cfg UpdateEnable
 	}
 
 	if offRampUsingMCMS {
-		tx, err := BuildMCMSTxn(ixn2, chainState.OffRamp.String(), ccipChangeset.OffRamp)
+		tx, err := BuildMCMSTxn(ixn2, chainState.OffRamp.String(), shared.OffRamp)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -425,8 +426,8 @@ type ConfigureCCIPVersionConfig struct {
 	MCMS              *proposalutils.TimelockConfig
 }
 
-func (cfg ConfigureCCIPVersionConfig) Validate(e deployment.Environment) error {
-	state, err := ccipChangeset.LoadOnchainState(e)
+func (cfg ConfigureCCIPVersionConfig) Validate(e cldf.Environment) error {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -444,24 +445,24 @@ func (cfg ConfigureCCIPVersionConfig) Validate(e deployment.Environment) error {
 	if err != nil {
 		return fmt.Errorf("remote %d is not configured on solana chain %d", cfg.DestChainSelector, cfg.ChainSelector)
 	}
-	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true})
+	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.Router: true})
 }
 
-func ConfigureCCIPVersion(e deployment.Environment, cfg ConfigureCCIPVersionConfig) (cldf.ChangesetOutput, error) {
+func ConfigureCCIPVersion(e cldf.Environment, cfg ConfigureCCIPVersionConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
 	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	destChainStatePDA, _ := solState.FindDestChainStatePDA(cfg.DestChainSelector, chainState.Router)
 
-	routerUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
-		ccipChangeset.Router,
+		shared.Router,
 		solana.PublicKey{},
 		"")
 	txns := make([]mcmsTypes.Transaction, 0)
@@ -471,7 +472,7 @@ func ConfigureCCIPVersion(e deployment.Environment, cfg ConfigureCCIPVersionConf
 		chain,
 		chainState,
 		cfg.MCMS,
-		ccipChangeset.Router,
+		shared.Router,
 		solana.PublicKey{},
 		"")
 	solRouter.SetProgramID(chainState.Router)
@@ -500,7 +501,7 @@ func ConfigureCCIPVersion(e deployment.Environment, cfg ConfigureCCIPVersionConf
 	}
 
 	if routerUsingMCMS {
-		tx, err := BuildMCMSTxn(ixn, chainState.Router.String(), ccipChangeset.Router)
+		tx, err := BuildMCMSTxn(ixn, chainState.Router.String(), shared.Router)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -535,8 +536,8 @@ type RemoveOffRampConfig struct {
 	MCMS          *proposalutils.TimelockConfig
 }
 
-func (cfg RemoveOffRampConfig) Validate(e deployment.Environment) error {
-	state, err := ccipChangeset.LoadOnchainState(e)
+func (cfg RemoveOffRampConfig) Validate(e cldf.Environment) error {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -545,23 +546,23 @@ func (cfg RemoveOffRampConfig) Validate(e deployment.Environment) error {
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
-	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{ccipChangeset.Router: true})
+	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.Router: true})
 }
 
-func RemoveOffRamp(e deployment.Environment, cfg RemoveOffRampConfig) (cldf.ChangesetOutput, error) {
+func RemoveOffRamp(e cldf.Environment, cfg RemoveOffRampConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
 	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
-	routerUsingMCMS := ccipChangeset.IsSolanaProgramOwnedByTimelock(
+	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
-		ccipChangeset.Router,
+		shared.Router,
 		solana.PublicKey{},
 		"")
 	txns := make([]mcmsTypes.Transaction, 0)
@@ -571,7 +572,7 @@ func RemoveOffRamp(e deployment.Environment, cfg RemoveOffRampConfig) (cldf.Chan
 		chain,
 		chainState,
 		cfg.MCMS,
-		ccipChangeset.Router,
+		shared.Router,
 		solana.PublicKey{},
 		"")
 	solRouter.SetProgramID(chainState.Router)
@@ -588,7 +589,7 @@ func RemoveOffRamp(e deployment.Environment, cfg RemoveOffRampConfig) (cldf.Chan
 	}
 
 	if routerUsingMCMS {
-		tx, err := BuildMCMSTxn(ixn, chainState.Router.String(), ccipChangeset.Router)
+		tx, err := BuildMCMSTxn(ixn, chainState.Router.String(), shared.Router)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}

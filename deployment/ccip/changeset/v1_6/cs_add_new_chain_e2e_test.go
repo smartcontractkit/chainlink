@@ -19,11 +19,11 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -34,8 +34,8 @@ import (
 
 func checkConnectivity(
 	t *testing.T,
-	e deployment.Environment,
-	state changeset.CCIPOnChainState,
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
 	selector uint64,
 	remoteChainSelector uint64,
 	expectedRouter *router.Router,
@@ -118,7 +118,7 @@ func TestConnectNewChain(t *testing.T) {
 			})
 			e := deployedEnvironment.Env
 
-			state, err := changeset.LoadOnchainState(e)
+			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err, "must load onchain state")
 
 			selectors := e.AllChainSelectors()
@@ -153,7 +153,7 @@ func TestConnectNewChain(t *testing.T) {
 				}
 				e, err = commonchangeset.Apply(t, e, timelockContracts,
 					commonchangeset.Configure(
-						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: contractsToTransfer,
 							MCMSConfig: proposalutils.TimelockConfig{
@@ -285,7 +285,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				testCfg.ChainIDs = chainIDs
 			})
 			e := deployedEnvironment.Env
-			state, err := changeset.LoadOnchainState(e)
+			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err, "must load onchain state")
 
 			// Identify and delete addresses from the new chain
@@ -305,7 +305,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				}
 			}
 			e.ExistingAddresses = cldf.NewMemoryAddressBookFromMap(addressesByChain)
-			state, err = changeset.LoadOnchainState(e)
+			state, err = stateview.LoadOnchainState(e)
 			require.NoError(t, err, "must load onchain state")
 
 			// Identify and delete the DON ID for the new chain
@@ -367,7 +367,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				)
 				e, err = commonchangeset.Apply(t, e, timelockContracts,
 					commonchangeset.Configure(
-						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: contractsToTransfer,
 							MCMSConfig: proposalutils.TimelockConfig{
@@ -426,8 +426,8 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 					Readers: nodeInfo.NonBootstraps().PeerIDs(),
 					FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3), // #nosec G115 - Overflow is not a concern in this test scenario
 					EncodableChainConfig: chainconfig.ChainConfig{
-						GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
-						DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
+						GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
+						DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
 						OptimisticConfirmations: globals.OptimisticConfirmations,
 					},
 				},
@@ -444,14 +444,14 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				))
 			require.NoError(t, err, "must deploy donIDClaimer contract")
 
-			state, err = changeset.LoadOnchainState(e)
+			state, err = stateview.LoadOnchainState(e)
 			require.NoError(t, err, "must load onchain state")
 
 			if test.DonIDOffSet != nil {
 				tx, err := state.Chains[deployedEnvironment.HomeChainSel].DonIDClaimer.ClaimNextDONId(e.Chains[deployedEnvironment.HomeChainSel].DeployerKey)
 				require.NoError(t, err)
 
-				_, err = deployment.ConfirmIfNoErrorWithABI(e.Chains[deployedEnvironment.HomeChainSel], tx, don_id_claimer.DonIDClaimerABI, err)
+				_, err = cldf.ConfirmIfNoErrorWithABI(e.Chains[deployedEnvironment.HomeChainSel], tx, don_id_claimer.DonIDClaimerABI, err)
 				require.NoError(t, err)
 			}
 
@@ -471,7 +471,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				),
 			)
 			require.NoError(t, err, "must apply AddCandidatesForNewChainChangeset")
-			state, err = changeset.LoadOnchainState(e)
+			state, err = stateview.LoadOnchainState(e)
 			require.NoError(t, err, "must load onchain state")
 
 			capReg := state.Chains[deployedEnvironment.HomeChainSel].CapabilityRegistry

@@ -8,15 +8,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	solanasdk "github.com/gagliardetto/solana-go"
-	"github.com/smartcontractkit/mcms/sdk/evm"
-	"github.com/smartcontractkit/mcms/sdk/solana"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/mcms/sdk/evm"
+	"github.com/smartcontractkit/mcms/sdk/solana"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonchangesetsolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -27,7 +28,7 @@ import (
 )
 
 // setupSetConfigTestEnv deploys all required contracts for the setConfig MCMS contract call.
-func setupSetConfigTestEnv(t *testing.T) deployment.Environment {
+func setupSetConfigTestEnv(t *testing.T) cldf.Environment {
 	lggr := logger.TestLogger(t)
 	cfg := memory.MemoryEnvironmentConfig{
 		Chains:    2,
@@ -115,7 +116,7 @@ func TestSetConfigMCMSV2EVM(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 
 			env := setupSetConfigTestEnv(t)
 			chainSelector := env.AllChainSelectors()[0]
@@ -208,7 +209,7 @@ func TestSetConfigMCMSV2Solana(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 
 			env := setupSetConfigTestEnv(t)
 			chainSelectorSolana := env.AllChainSelectorsSolana()[0]
@@ -424,12 +425,13 @@ func TestValidateV2(t *testing.T) {
 }
 
 func fundSignerPDAs(
-	t *testing.T, env deployment.Environment, chainSelector uint64, chainState *state.MCMSWithTimelockStateSolana,
+	t *testing.T, env cldf.Environment, chainSelector uint64, chainState *state.MCMSWithTimelockStateSolana,
 ) {
 	t.Helper()
 	solChain := env.SolChains[chainSelector]
 	timelockSignerPDA := state.GetTimelockSignerPDA(chainState.TimelockProgram, chainState.TimelockSeed)
 	mcmSignerPDA := state.GetMCMSignerPDA(chainState.McmProgram, chainState.ProposerMcmSeed)
 	signerPDAs := []solanasdk.PublicKey{timelockSignerPDA, mcmSignerPDA}
-	memory.FundSolanaAccounts(env.GetContext(), t, signerPDAs, 1, solChain.Client)
+	err := memory.FundSolanaAccounts(env.GetContext(), signerPDAs, 1, solChain.Client)
+	require.NoError(t, err)
 }

@@ -2,6 +2,7 @@ package solana
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
@@ -10,7 +11,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	solToken "github.com/gagliardetto/solana-go/programs/token"
 
@@ -30,8 +31,7 @@ var _ cldf.ChangeSet[CreateSolanaTokenATAConfig] = CreateSolanaTokenATA
 // use this changeset to set the authority of a token
 var _ cldf.ChangeSet[SetTokenAuthorityConfig] = SetTokenAuthority
 
-func getMintIxs(e deployment.Environment, chain deployment.SolChain, tokenprogramID, mint solana.PublicKey, amountToAddress map[string]uint64) ([]solana.Instruction, error) {
-	instructions := []solana.Instruction{}
+func getMintIxs(e cldf.Environment, chain cldf.SolChain, tokenprogramID, mint solana.PublicKey, amountToAddress map[string]uint64) error {
 	for toAddress, amount := range amountToAddress {
 		e.Logger.Infof("Minting %d to %s", amount, toAddress)
 		toAddressBase58 := solana.MustPublicKeyFromBase58(toAddress)
@@ -39,15 +39,17 @@ func getMintIxs(e deployment.Environment, chain deployment.SolChain, tokenprogra
 		ata, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenprogramID, mint, toAddressBase58)
 		mintToI, err := solTokenUtil.MintTo(amount, tokenprogramID, mint, ata, chain.DeployerKey.PublicKey())
 		if err != nil {
-			return nil, err
+			return err
 		}
-		instructions = append(instructions, mintToI)
+		if err := chain.Confirm([]solana.Instruction{mintToI}); err != nil {
+			e.Logger.Errorw("Failed to confirm instructions for minting", "chain", chain.String(), "err", err)
+			return err
+		}
 	}
-	return instructions, nil
+	return nil
 }
 
-func createATAIx(e deployment.Environment, chain deployment.SolChain, tokenprogramID, mint solana.PublicKey, ataList []string) ([]solana.Instruction, error) {
-	instructions := []solana.Instruction{}
+func createATAIx(e cldf.Environment, chain cldf.SolChain, tokenprogramID, mint solana.PublicKey, ataList []string) error {
 	for _, ata := range ataList {
 		e.Logger.Infof("Creating ATA for account %s for token %s", ata, mint.String())
 		createATAIx, _, err := solTokenUtil.CreateAssociatedTokenAccount(
@@ -57,11 +59,14 @@ func createATAIx(e deployment.Environment, chain deployment.SolChain, tokenprogr
 			chain.DeployerKey.PublicKey(),
 		)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		instructions = append(instructions, createATAIx)
+		if err := chain.Confirm([]solana.Instruction{createATAIx}); err != nil {
+			e.Logger.Errorw("Failed to confirm instructions for ATA creation", "chain", chain.String(), "err", err)
+			return err
+		}
 	}
-	return instructions, nil
+	return nil
 }
 
 // TODO: add option to set token mint authority by taking in its public key
@@ -76,7 +81,7 @@ type DeploySolanaTokenConfig struct {
 	MintAmountToAddress map[string]uint64 // address -> amount
 }
 
-func NewTokenInstruction(chain deployment.SolChain, cfg DeploySolanaTokenConfig) ([]solana.Instruction, solana.PrivateKey, error) {
+func NewTokenInstruction(chain cldf.SolChain, cfg DeploySolanaTokenConfig) ([]solana.Instruction, solana.PrivateKey, error) {
 	tokenprogramID, err := GetTokenProgramID(cfg.TokenProgramName)
 	if err != nil {
 		return nil, nil, err
@@ -112,7 +117,7 @@ func NewTokenInstruction(chain deployment.SolChain, cfg DeploySolanaTokenConfig)
 	return instructions, mintPrivKey, nil
 }
 
-func DeploySolanaToken(e deployment.Environment, cfg DeploySolanaTokenConfig) (cldf.ChangesetOutput, error) {
+func DeploySolanaToken(e cldf.Environment, cfg DeploySolanaTokenConfig) (cldf.ChangesetOutput, error) {
 	chain, ok := e.SolChains[cfg.ChainSelector]
 	if !ok {
 		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
@@ -129,23 +134,21 @@ func DeploySolanaToken(e deployment.Environment, cfg DeploySolanaTokenConfig) (c
 		return cldf.ChangesetOutput{}, err
 	}
 
-	// ata ix
-	ataIxs, err := createATAIx(e, chain, tokenprogramID, mint, cfg.ATAList)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-	instructions = append(instructions, ataIxs...)
-
-	// mint ix
-	mintIxs, err := getMintIxs(e, chain, tokenprogramID, mint, cfg.MintAmountToAddress)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-	instructions = append(instructions, mintIxs...)
-
 	err = chain.Confirm(instructions, solCommonUtil.AddSigners(mintPrivKey))
 	if err != nil {
 		e.Logger.Errorw("Failed to confirm instructions for token deployment", "chain", chain.String(), "err", err)
+		return cldf.ChangesetOutput{}, err
+	}
+
+	// ata ix
+	err = createATAIx(e, chain, tokenprogramID, mint, cfg.ATAList)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
+	// mint ix
+	err = getMintIxs(e, chain, tokenprogramID, mint, cfg.MintAmountToAddress)
+	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
@@ -171,10 +174,10 @@ type MintSolanaTokenConfig struct {
 	AmountToAddress map[string]uint64 // address -> amount
 }
 
-func (cfg MintSolanaTokenConfig) Validate(e deployment.Environment) error {
+func (cfg MintSolanaTokenConfig) Validate(e cldf.Environment) error {
 	chain := e.SolChains[cfg.ChainSelector]
 	tokenAddress := solana.MustPublicKeyFromBase58(cfg.TokenPubkey)
-	state, err := ccipChangeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
@@ -200,14 +203,14 @@ func (cfg MintSolanaTokenConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func MintSolanaToken(e deployment.Environment, cfg MintSolanaTokenConfig) (cldf.ChangesetOutput, error) {
+func MintSolanaToken(e cldf.Environment, cfg MintSolanaTokenConfig) (cldf.ChangesetOutput, error) {
 	err := cfg.Validate(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 	// get chain
 	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	// get addresses
 	tokenAddress := solana.MustPublicKeyFromBase58(cfg.TokenPubkey)
@@ -215,14 +218,8 @@ func MintSolanaToken(e deployment.Environment, cfg MintSolanaTokenConfig) (cldf.
 	tokenprogramID, _ := chainState.TokenToTokenProgram(tokenAddress)
 
 	// get mint instructions
-	instructions, err := getMintIxs(e, chain, tokenprogramID, tokenAddress, cfg.AmountToAddress)
+	err = getMintIxs(e, chain, tokenprogramID, tokenAddress, cfg.AmountToAddress)
 	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-	// confirm instructions
-	err = chain.Confirm(instructions)
-	if err != nil {
-		e.Logger.Errorw("Failed to confirm instructions for token minting", "chain", chain.String(), "err", err)
 		return cldf.ChangesetOutput{}, err
 	}
 	e.Logger.Infow("Minted tokens on", "chain", cfg.ChainSelector, "for token", tokenAddress.String())
@@ -237,9 +234,9 @@ type CreateSolanaTokenATAConfig struct {
 	ATAList       []string // addresses to create ATAs for
 }
 
-func CreateSolanaTokenATA(e deployment.Environment, cfg CreateSolanaTokenATAConfig) (cldf.ChangesetOutput, error) {
+func CreateSolanaTokenATA(e cldf.Environment, cfg CreateSolanaTokenATAConfig) (cldf.ChangesetOutput, error) {
 	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
 	tokenprogramID, err := chainState.TokenToTokenProgram(cfg.TokenPubkey)
@@ -248,15 +245,8 @@ func CreateSolanaTokenATA(e deployment.Environment, cfg CreateSolanaTokenATAConf
 	}
 
 	// create instructions for each ATA
-	instructions, err := createATAIx(e, chain, tokenprogramID, cfg.TokenPubkey, cfg.ATAList)
+	err = createATAIx(e, chain, tokenprogramID, cfg.TokenPubkey, cfg.ATAList)
 	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-
-	// confirm instructions
-	err = chain.Confirm(instructions)
-	if err != nil {
-		e.Logger.Errorw("Failed to confirm instructions for ATA creation", "chain", chain.String(), "err", err)
 		return cldf.ChangesetOutput{}, err
 	}
 	e.Logger.Infow("Created ATAs on", "chain", cfg.ChainSelector, "for token", cfg.TokenPubkey.String(), "numATAs", len(cfg.ATAList))
@@ -271,9 +261,9 @@ type SetTokenAuthorityConfig struct {
 	NewAuthority  solana.PublicKey
 }
 
-func SetTokenAuthority(e deployment.Environment, cfg SetTokenAuthorityConfig) (cldf.ChangesetOutput, error) {
+func SetTokenAuthority(e cldf.Environment, cfg SetTokenAuthorityConfig) (cldf.ChangesetOutput, error) {
 	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := ccipChangeset.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
 	tokenprogramID, err := chainState.TokenToTokenProgram(cfg.TokenPubkey)
@@ -303,26 +293,107 @@ func SetTokenAuthority(e deployment.Environment, cfg SetTokenAuthorityConfig) (c
 	return cldf.ChangesetOutput{}, nil
 }
 
-type UploadTokenMetadataConfig struct {
-	ChainSelector     uint64
-	TokenPubkey       solana.PublicKey
-	TokenMetaDataFile string
+type TokenMetadata struct {
+	TokenPubkey solana.PublicKey
+	// https://metaboss.dev/create.html#metadata
+	// only to be provided on initial upload, it takes in name, symbol, uri
+	// after initial upload, those fields can be updated using the update inputs
+	// put the json in ccip/env/input dir in CLD
+	MetadataJSONPath string
+	UpdateAuthority  solana.PublicKey // used to set update authority of the token metadata PDA after initial upload
+	// https://metaboss.dev/update.html#update-name
+	UpdateName string // used to update the name of the token metadata PDA after initial upload
+	// https://metaboss.dev/update.html#update-symbol
+	UpdateSymbol string // used to update the symbol of the token metadata PDA after initial upload
+	// https://metaboss.dev/update.html#update-uri
+	UpdateURI string // used to update the uri of the token metadata PDA after initial upload
 }
 
-func UploadTokenMetadata(e deployment.Environment, cfg UploadTokenMetadataConfig) (cldf.ChangesetOutput, error) {
+type UploadTokenMetadataConfig struct {
+	ChainSelector uint64
+	TokenMetadata []TokenMetadata
+}
+
+func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cldf.ChangesetOutput, error) {
 	chain := e.SolChains[cfg.ChainSelector]
-	e.Logger.Infow("Uploading token metadata", "tokenPubkey", cfg.TokenPubkey.String())
 	_, _ = runCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
 	_, _ = runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
-	args := []string{"create", "metadata", "--mint", cfg.TokenPubkey.String(), "--metadata", cfg.TokenMetaDataFile}
-	e.Logger.Info(args)
-	output, err := runCommand("metaboss", args, chain.ProgramsPath)
-	e.Logger.Debugw("metaboss output", "output", output)
-	if err != nil {
-		e.Logger.Debugw("metaboss create error", "error", err)
-		return cldf.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
+	for _, metadata := range cfg.TokenMetadata {
+		if metadata.TokenPubkey.IsZero() {
+			e.Logger.Errorw("Token pubkey is zero", "tokenPubkey", metadata.TokenPubkey.String())
+			return cldf.ChangesetOutput{}, errors.New("token pubkey is zero")
+		}
+
+		// initial upload
+		if metadata.MetadataJSONPath != "" {
+			e.Logger.Infow("Uploading token metadata", "tokenPubkey", metadata.TokenPubkey.String())
+			args := []string{"create", "metadata", "--mint", metadata.TokenPubkey.String(), "--metadata", metadata.MetadataJSONPath}
+			e.Logger.Info(args)
+			output, err := runCommand("metaboss", args, chain.ProgramsPath)
+			e.Logger.Debugw("metaboss output", "output", output)
+			if err != nil {
+				e.Logger.Debugw("metaboss create error", "error", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
+			}
+			e.Logger.Infow("Token metadata uploaded", "tokenPubkey", metadata.TokenPubkey.String())
+		}
+
+		// update authority after initial upload
+		if !metadata.UpdateAuthority.IsZero() {
+			e.Logger.Infow("Updating token metadata authority", "tokenPubkey", metadata.TokenPubkey.String())
+			args := []string{"set", "update-authority", "--account", metadata.TokenPubkey.String(), "--new-update-authority", metadata.UpdateAuthority.String()}
+			e.Logger.Info(args)
+			output, err := runCommand("metaboss", args, chain.ProgramsPath)
+			e.Logger.Debugw("metaboss output", "output", output)
+			if err != nil {
+				e.Logger.Debugw("metaboss set error", "error", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
+			}
+			e.Logger.Infow("Token metadata update authority set", "tokenPubkey", metadata.TokenPubkey.String(), "updateAuthority", metadata.UpdateAuthority.String())
+		}
+
+		// update name
+		if metadata.MetadataJSONPath == "" && metadata.UpdateName != "" {
+			e.Logger.Infow("Updating token metadata name", "tokenPubkey", metadata.TokenPubkey.String())
+			args := []string{"update", "name", "--account", metadata.TokenPubkey.String(), "--new-name", metadata.UpdateName}
+			e.Logger.Info(args)
+			output, err := runCommand("metaboss", args, chain.ProgramsPath)
+			e.Logger.Debugw("metaboss output", "output", output)
+			if err != nil {
+				e.Logger.Debugw("metaboss update name error", "error", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
+			}
+			e.Logger.Infow("Token metadata name set", "tokenPubkey", metadata.TokenPubkey.String(), "name", metadata.UpdateName)
+		}
+
+		// update symbol
+		if metadata.MetadataJSONPath == "" && metadata.UpdateSymbol != "" {
+			e.Logger.Infow("Updating token metadata symbol", "tokenPubkey", metadata.TokenPubkey.String())
+			args := []string{"update", "symbol", "--account", metadata.TokenPubkey.String(), "--new-symbol", metadata.UpdateSymbol}
+			e.Logger.Info(args)
+			output, err := runCommand("metaboss", args, chain.ProgramsPath)
+			e.Logger.Debugw("metaboss output", "output", output)
+			if err != nil {
+				e.Logger.Debugw("metaboss update symbol error", "error", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
+			}
+			e.Logger.Infow("Token metadata symbol set", "tokenPubkey", metadata.TokenPubkey.String(), "symbol", metadata.UpdateSymbol)
+		}
+
+		// update uri
+		if metadata.MetadataJSONPath == "" && metadata.UpdateURI != "" {
+			e.Logger.Infow("Updating token metadata uri", "tokenPubkey", metadata.TokenPubkey.String())
+			args := []string{"update", "uri", "--account", metadata.TokenPubkey.String(), "--new-uri", metadata.UpdateURI}
+			e.Logger.Info(args)
+			output, err := runCommand("metaboss", args, chain.ProgramsPath)
+			e.Logger.Debugw("metaboss output", "output", output)
+			if err != nil {
+				e.Logger.Debugw("metaboss update uri error", "error", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
+			}
+			e.Logger.Infow("Token metadata uri set", "tokenPubkey", metadata.TokenPubkey.String(), "uri", metadata.UpdateURI)
+		}
 	}
-	e.Logger.Infow("Token metadata uploaded", "tokenPubkey", cfg.TokenPubkey.String())
 
 	return cldf.ChangesetOutput{}, nil
 }

@@ -328,6 +328,11 @@ ChipIngressEndpoint = ''
 Global = 200
 PerOwner = 200
 
+[CRE]
+[CRE.Streams]
+WsURL = ''
+RestURL = ''
+
 Invalid configuration: invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty
 	- Password.Keystore: empty: must be provided and non-empty

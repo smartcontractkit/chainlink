@@ -9,7 +9,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
@@ -28,7 +27,7 @@ type SetFeeManagerConfig struct {
 	FeeManagerAddress    common.Address
 }
 
-func verifierProxySetFeeManagerLogic(e deployment.Environment, cfg VerifierProxySetFeeManagerConfig) (cldf.ChangesetOutput, error) {
+func verifierProxySetFeeManagerLogic(e cldf.Environment, cfg VerifierProxySetFeeManagerConfig) (cldf.ChangesetOutput, error) {
 	txs, err := GetSetFeeManagerTxs(e, cfg)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -50,7 +49,7 @@ func verifierProxySetFeeManagerLogic(e deployment.Environment, cfg VerifierProxy
 
 // GetSetFeeManagerTxs - returns the transactions to set fee manager on the verifier proxy.
 // Does not sign the TXs
-func GetSetFeeManagerTxs(e deployment.Environment, cfg VerifierProxySetFeeManagerConfig) ([]*txutil.PreparedTx, error) {
+func GetSetFeeManagerTxs(e cldf.Environment, cfg VerifierProxySetFeeManagerConfig) ([]*txutil.PreparedTx, error) {
 	var preparedTxs []*txutil.PreparedTx
 	for chainSelector, configs := range cfg.ConfigPerChain {
 		for _, config := range configs {
@@ -58,7 +57,7 @@ func GetSetFeeManagerTxs(e deployment.Environment, cfg VerifierProxySetFeeManage
 			if err != nil {
 				return nil, fmt.Errorf("failed to load verifier proxy state: %w", err)
 			}
-			tx, err := state.VerifierProxy.SetFeeManager(deployment.SimTransactOpts(), config.FeeManagerAddress)
+			tx, err := state.VerifierProxy.SetFeeManager(cldf.SimTransactOpts(), config.FeeManagerAddress)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create SetFeeManager transaction: %w", err)
 			}
@@ -73,12 +72,12 @@ func GetSetFeeManagerTxs(e deployment.Environment, cfg VerifierProxySetFeeManage
 	return preparedTxs, nil
 }
 
-func verifierProxySetFeeManagerPrecondition(e deployment.Environment, cfg VerifierProxySetFeeManagerConfig) error {
+func verifierProxySetFeeManagerPrecondition(e cldf.Environment, cfg VerifierProxySetFeeManagerConfig) error {
 	if len(cfg.ConfigPerChain) == 0 {
 		return errors.New("ConfigPerChain is empty")
 	}
 	for cs := range cfg.ConfigPerChain {
-		if err := deployment.IsValidChainSelector(cs); err != nil {
+		if err := cldf.IsValidChainSelector(cs); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
 		}
 	}

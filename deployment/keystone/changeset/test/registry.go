@@ -47,7 +47,7 @@ type SetupTestRegistryRequest struct {
 
 type SetupTestRegistryResponse struct {
 	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
-	Chain                deployment.Chain
+	Chain                cldf.Chain
 	RegistrySelector     uint64
 	CapabilityCache      *CapabilityCache
 	Nops                 []*capabilities_registry.CapabilitiesRegistryNodeOperatorAdded
@@ -154,7 +154,7 @@ func MustAddCapabilities(
 	t *testing.T,
 	lggr logger.Logger,
 	in map[p2pkey.PeerID][]capabilities_registry.CapabilitiesRegistryCapability,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	registry *capabilities_registry.CapabilitiesRegistry,
 ) ([]internal.RegisteredCapability, *CapabilityCache) {
 	t.Helper()
@@ -215,7 +215,7 @@ func ToP2PToCapabilities(
 	return out
 }
 
-func deployCapReg(t *testing.T, chain deployment.Chain) *capabilities_registry.CapabilitiesRegistry {
+func deployCapReg(t *testing.T, chain cldf.Chain) *capabilities_registry.CapabilitiesRegistry {
 	capabilitiesRegistryDeployer, err := internal.NewCapabilitiesRegistryDeployer()
 	require.NoError(t, err)
 	_, err = capabilitiesRegistryDeployer.Deploy(internal.DeployRequest{Chain: chain})
@@ -223,10 +223,10 @@ func deployCapReg(t *testing.T, chain deployment.Chain) *capabilities_registry.C
 	return capabilitiesRegistryDeployer.Contract()
 }
 
-func addNops(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry *capabilities_registry.CapabilitiesRegistry, nops []capabilities_registry.CapabilitiesRegistryNodeOperator) *internal.RegisterNOPSResponse {
-	env := &deployment.Environment{
+func addNops(t *testing.T, lggr logger.Logger, chain cldf.Chain, registry *capabilities_registry.CapabilitiesRegistry, nops []capabilities_registry.CapabilitiesRegistryNodeOperator) *internal.RegisterNOPSResponse {
+	env := &cldf.Environment{
 		Logger: lggr,
-		Chains: map[uint64]deployment.Chain{
+		Chains: map[uint64]cldf.Chain{
 			chain.Selector: chain,
 		},
 		ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
@@ -250,13 +250,13 @@ func addNops(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry 
 func AddNodes(
 	t *testing.T,
 	lggr logger.Logger,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	registry *capabilities_registry.CapabilitiesRegistry,
 	nodes []capabilities_registry.CapabilitiesRegistryNodeParams,
 ) {
 	tx, err := registry.AddNodes(chain.DeployerKey, nodes)
 	if err != nil {
-		err2 := deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
+		err2 := cldf.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 		require.Fail(t, fmt.Sprintf("failed to call AddNodes: %s:  %s", err, err2))
 	}
 	_, err = chain.Confirm(tx)
@@ -266,7 +266,7 @@ func AddNodes(
 func addDons(
 	t *testing.T,
 	_ logger.Logger,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	registry *capabilities_registry.CapabilitiesRegistry,
 	capCache *CapabilityCache,
 	dons []Don,
@@ -296,7 +296,7 @@ func addDons(
 		f := len(don.P2PIDs)/3 + 1
 		tx, err := registry.AddDON(chain.DeployerKey, internal.PeerIDsToBytes(don.P2PIDs), capConfigs, isPublic, acceptsWorkflows, uint8(f))
 		if err != nil {
-			err2 := deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
+			err2 := cldf.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 			require.Fail(t, fmt.Sprintf("failed to call AddDON: %s:  %s", err, err2))
 		}
 		_, err = chain.Confirm(tx)
@@ -346,7 +346,7 @@ func (cc *CapabilityCache) Get(c capabilities_registry.CapabilitiesRegistryCapab
 // AddCapabilities adds the capabilities to the registry and returns the registered capabilities
 // if the capability is already registered, it will not be re-registered
 // if duplicate capabilities are passed, they will be deduped
-func (cc *CapabilityCache) AddCapabilities(_ logger.Logger, chain deployment.Chain, registry *capabilities_registry.CapabilitiesRegistry, capabilities []capabilities_registry.CapabilitiesRegistryCapability) []internal.RegisteredCapability {
+func (cc *CapabilityCache) AddCapabilities(_ logger.Logger, chain cldf.Chain, registry *capabilities_registry.CapabilitiesRegistry, capabilities []capabilities_registry.CapabilitiesRegistryCapability) []internal.RegisteredCapability {
 	t := cc.t
 	var out []internal.RegisteredCapability
 	// get the registered capabilities & dedup
@@ -373,7 +373,7 @@ func (cc *CapabilityCache) AddCapabilities(_ logger.Logger, chain deployment.Cha
 	}
 	tx, err := registry.AddCapabilities(chain.DeployerKey, toRegister)
 	if err != nil {
-		err2 := deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
+		err2 := cldf.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 		require.Fail(t, fmt.Sprintf("failed to call AddCapabilities: %s:  %s", err, err2))
 	}
 	_, err = chain.Confirm(tx)
@@ -395,9 +395,9 @@ func (cc *CapabilityCache) AddCapabilities(_ logger.Logger, chain deployment.Cha
 	return out
 }
 
-func testChain(t *testing.T) deployment.Chain {
+func testChain(t *testing.T) cldf.Chain {
 	chains, _ := memory.NewMemoryChains(t, 1, 5)
-	var chain deployment.Chain
+	var chain cldf.Chain
 	for _, c := range chains {
 		chain = c
 		break
