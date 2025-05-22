@@ -2484,13 +2484,22 @@ answer1 [type=median index=0];
 			force: false,
 		},
 		{
-			name:        "cancelled spec success when it is the latest spec",
+			name:        "cancelled spec success when no other spec is approved",
 			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
+				otherSpec := feeds.JobProposalSpec{
+					ID:            21,
+					Status:        feeds.SpecStatusRevoked,
+					JobProposalID: jp.ID,
+					Version:       2,
+					Definition:    fmt.Sprintf(defn, jp.ID),
+				}
+
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID).Return(cancelledSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(cancelledSpec, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
@@ -2524,6 +2533,26 @@ answer1 [type=median index=0];
 			},
 			id:    cancelledSpec.ID,
 			force: false,
+		},
+		{
+			name: "cancelled spec failed when another spec is approved",
+			before: func(svc *TestService) {
+				otherSpec := feeds.JobProposalSpec{
+					ID:            21,
+					Status:        feeds.SpecStatusApproved,
+					JobProposalID: jp.ID,
+					Version:       2,
+					Definition:    fmt.Sprintf(defn, jp.ID),
+				}
+
+				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID).Return(cancelledSpec, nil)
+				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{jp.ID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
+			},
+			id:      cancelledSpec.ID,
+			force:   false,
+			wantErr: "the job spec with version 2 is already approved",
 		},
 		{
 			name:        "pending job fail due to spec missing external job id",
@@ -2587,23 +2616,6 @@ answer1 [type=median index=0];
 			id:      rejectedSpec.ID,
 			force:   false,
 			wantErr: "cannot approve a rejected spec",
-		},
-		{
-			name: "cancelled spec failed not latest spec",
-			before: func(svc *TestService) {
-				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
-				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(&feeds.JobProposalSpec{
-					ID:            21,
-					Status:        feeds.SpecStatusPending,
-					JobProposalID: jp.ID,
-					Version:       2,
-					Definition:    defn,
-				}, nil)
-			},
-			id:      cancelledSpec.ID,
-			force:   false,
-			wantErr: "cannot approve a cancelled spec",
 		},
 		{
 			name:        "already existing job replacement (found via external job id) error",
@@ -3171,13 +3183,22 @@ updateInterval = "20m"
 			force: false,
 		},
 		{
-			name:        "cancelled spec success when it is the latest spec",
+			name:        "cancelled spec success when when no other spec is approved",
 			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
+				otherSpec := feeds.JobProposalSpec{
+					ID:            21,
+					Status:        feeds.SpecStatusRevoked,
+					JobProposalID: jp.ID,
+					Version:       2,
+					Definition:    fmt.Sprintf(defn, externalJobID.String()),
+				}
+
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(cancelledSpec, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
@@ -3213,21 +3234,24 @@ updateInterval = "20m"
 			force: false,
 		},
 		{
-			name: "cancelled spec failed not latest spec",
+			name: "cancelled spec failed when another spec is approved",
 			before: func(svc *TestService) {
-				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
-				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(&feeds.JobProposalSpec{
+				otherSpec := feeds.JobProposalSpec{
 					ID:            21,
-					Status:        feeds.SpecStatusPending,
+					Status:        feeds.SpecStatusApproved,
 					JobProposalID: jp.ID,
 					Version:       2,
-					Definition:    defn,
-				}, nil)
+					Definition:    fmt.Sprintf(defn, externalJobID.String()),
+				}
+
+				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
+				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
 			},
 			id:      cancelledSpec.ID,
 			force:   false,
-			wantErr: "cannot approve a cancelled spec",
+			wantErr: "the job spec with version 2 is already approved",
 		},
 		{
 			name: "rejected spec failed cannot be approved",
@@ -3679,15 +3703,23 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 			force: false,
 		},
 		{
-			name:        "cancelled spec success when it is the latest spec",
+			name:        "cancelled spec success when no other spec is approved",
 			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
+				otherSpec := feeds.JobProposalSpec{
+					ID:            21,
+					Status:        feeds.SpecStatusRevoked,
+					JobProposalID: jp.ID,
+					Version:       2,
+					Definition:    fmt.Sprintf(StreamTestSpecTemplate, streamName, externalJobID.String(), streamID),
+				}
+
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(cancelledSpec, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
-
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindJobIDByStreamID", mock.Anything, mock.Anything).Return(int32(0), sql.ErrNoRows)
 
@@ -3721,21 +3753,24 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 			force: false,
 		},
 		{
-			name: "cancelled spec failed not latest spec",
+			name: "cancelled spec failed when another spec is approved",
 			before: func(svc *TestService) {
-				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
-				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(&feeds.JobProposalSpec{
+				otherSpec := feeds.JobProposalSpec{
 					ID:            21,
-					Status:        feeds.SpecStatusPending,
+					Status:        feeds.SpecStatusApproved,
 					JobProposalID: jp.ID,
 					Version:       2,
-					Definition:    StreamTestSpecTemplate,
-				}, nil)
+					Definition:    fmt.Sprintf(StreamTestSpecTemplate, streamName, externalJobID.String(), streamID),
+				}
+
+				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
+				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
 			},
 			id:      cancelledSpec.ID,
 			force:   false,
-			wantErr: "cannot approve a cancelled spec",
+			wantErr: "the job spec with version 2 is already approved",
 		},
 		{
 			name: "rejected spec failed cannot be approved",
@@ -4211,13 +4246,22 @@ chainID = 0
 			force: false,
 		},
 		{
-			name:        "cancelled spec success when it is the latest spec",
+			name:        "cancelled spec success when no other spec is approved",
 			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
+				otherSpec := feeds.JobProposalSpec{
+					ID:            21,
+					Status:        feeds.SpecStatusRevoked,
+					JobProposalID: jp.ID,
+					Version:       2,
+					Definition:    fmt.Sprintf(defn, externalJobID.String()),
+				}
+
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(cancelledSpec, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
@@ -4253,21 +4297,24 @@ chainID = 0
 			force: false,
 		},
 		{
-			name: "cancelled spec failed not latest spec",
+			name: "cancelled spec failed when another spec is approved",
 			before: func(svc *TestService) {
-				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
-				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(&feeds.JobProposalSpec{
+				otherSpec := feeds.JobProposalSpec{
 					ID:            21,
-					Status:        feeds.SpecStatusPending,
+					Status:        feeds.SpecStatusApproved,
 					JobProposalID: jp.ID,
 					Version:       2,
-					Definition:    defn,
-				}, nil)
+					Definition:    fmt.Sprintf(defn, externalJobID.String()),
+				}
+
+				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
+				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
 			},
 			id:      cancelledSpec.ID,
 			force:   false,
-			wantErr: "cannot approve a cancelled spec",
+			wantErr: "the job spec with version 2 is already approved",
 		},
 		{
 			name: "rejected spec failed cannot be approved",

@@ -874,7 +874,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 		return errors.Wrap(err, "orm: job proposal")
 	}
 
-	if err = s.isApprovable(ctx, proposal.Status, proposal.ID, spec.Status, spec.ID); err != nil {
+	if err = s.isApprovable(ctx, proposal.Status, proposal.ID, spec.Status); err != nil {
 		return err
 	}
 
@@ -1590,7 +1590,7 @@ func extractName(defn string) null.String {
 // isApprovable returns nil if a spec can be approved based on the current
 // proposal and spec status, and if it can't be approved, the reason as an
 // error.
-func (s *service) isApprovable(ctx context.Context, propStatus JobProposalStatus, proposalID int64, specStatus SpecStatus, specID int64) error {
+func (s *service) isApprovable(ctx context.Context, propStatus JobProposalStatus, proposalID int64, specStatus SpecStatus) error {
 	if propStatus == JobProposalStatusDeleted {
 		return errors.New("cannot approve spec for a deleted job proposal")
 	}
@@ -1607,14 +1607,15 @@ func (s *service) isApprovable(ctx context.Context, propStatus JobProposalStatus
 	case SpecStatusRevoked:
 		return errors.New("cannot approve a revoked spec")
 	case SpecStatusCancelled:
-		// Allowed to approve a cancelled job if it is the latest job
-		latest, serr := s.orm.GetLatestSpec(ctx, proposalID)
+		// allow approval of a cancelled job if no other spec is approved
+		specs, serr := s.orm.ListSpecsByJobProposalIDs(ctx, []int64{proposalID})
 		if serr != nil {
 			return errors.Wrap(serr, "failed to get latest spec")
 		}
-
-		if latest.ID != specID {
-			return errors.New("cannot approve a cancelled spec")
+		for _, spec := range specs {
+			if spec.Status == SpecStatusApproved {
+				return fmt.Errorf("the job spec with version %d is already approved", spec.Version)
+			}
 		}
 
 		return nil
