@@ -229,7 +229,7 @@ flowchart LR
 	click chainlink-testing-framework/wasp href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-tron/relayer --> chainlink-evm
 	click chainlink-tron/relayer href "https://github.com/smartcontractkit/chainlink-tron"
-	chainlink/core/scripts --> chainlink/deployment
+	chainlink/core/scripts --> chainlink/system-tests/lib
 	click chainlink/core/scripts href "https://github.com/smartcontractkit/chainlink"
 	chainlink/deployment --> ccip-owner-contracts
 	chainlink/deployment --> chainlink-deployments-framework

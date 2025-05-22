@@ -4,10 +4,7 @@ go 1.24.2
 
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
-require (
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250402195829-918b2a02a926
-	github.com/smartcontractkit/chainlink/v2 v2.22.1-por-beta.5.0.20250430150202-611699e34308
-)
+require github.com/smartcontractkit/chainlink/v2 v2.22.1-por-beta.5.0.20250430150202-611699e34308
 
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../../
@@ -30,11 +27,12 @@ require (
 	github.com/smartcontractkit/chainlink-deployments-framework v0.4.0
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250515125821-cae192cd18bb
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.10.0
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.8.1
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.8.3
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.7
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.0
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.0
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-20250402195829-918b2a02a926
 	github.com/smartcontractkit/libocr v0.0.0-20250513175559-61c382d6cee4
 	github.com/spf13/cobra v1.9.1
@@ -110,7 +108,7 @@ require (
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.1.1-0.20220910012023-760eaf8b6816 // indirect
-	github.com/bits-and-blooms/bitset v1.17.0 // indirect
+	github.com/bits-and-blooms/bitset v1.20.0 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
 	github.com/block-vision/sui-go-sdk v1.0.6 // indirect
@@ -143,8 +141,8 @@ require (
 	github.com/coder/websocket v1.8.13 // indirect
 	github.com/cometbft/cometbft v0.38.17 // indirect
 	github.com/cometbft/cometbft-db v1.0.1 // indirect
-	github.com/consensys/bavard v0.1.22 // indirect
-	github.com/consensys/gnark-crypto v0.14.0 // indirect
+	github.com/consensys/bavard v0.1.27 // indirect
+	github.com/consensys/gnark-crypto v0.16.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v1.0.0-rc.1 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
