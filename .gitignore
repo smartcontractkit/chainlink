@@ -116,7 +116,7 @@ contracts/out/
 /build/bin/
 /build/lib/
 
-# artifacts of CRE environment creatio or CRE CLI usage
+# artifacts of CRE environment creation or CRE CLI usage
 core/scripts/cre/environment/*.yaml
 core/scripts/cre/environment/*.yml
 core/scripts/cre/environment/logs/
