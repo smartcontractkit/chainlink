@@ -144,10 +144,8 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, timelockContractsPerChain
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
 			GetContext:        e.GetContext,
-			OperationsBundle:  e.OperationsBundle,
+			OperationsBundle:  operations.NewBundle(e.GetContext, e.Logger, operations.NewMemoryReporter()), // to ensure that each migration is run in a clean environment
 		}
-		// to ensure that each migration is run in a clean environment
-		currentEnv.OperationsBundle = operations.NewBundle(e.GetContext, e.Logger, operations.NewMemoryReporter())
 	}
 	return currentEnv, nil
 }
@@ -213,7 +211,7 @@ func ApplyChangesetsV2(t *testing.T, e cldf.Environment, changesetApplications [
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
 			GetContext:        e.GetContext,
-			OperationsBundle:  e.OperationsBundle,
+			OperationsBundle:  operations.NewBundle(e.GetContext, e.Logger, operations.NewMemoryReporter()), // to ensure that each migration is run in a clean environment
 		}
 
 		if out.MCMSTimelockProposals != nil {
