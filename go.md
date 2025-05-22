@@ -131,9 +131,7 @@ flowchart LR
 	classDef outline stroke-dasharray:6,fill:none;
 	class chainlink-ccip-repo,chainlink-common-repo,chainlink-framework-repo,chainlink-protos-repo,tdh2-repo outline
 ```
-
 ## All modules
-
 ```mermaid
 flowchart LR
   subgraph chains
