@@ -381,13 +381,13 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 		contractsByChain[chain] = []common.Address{rmnProxy.Address()}
 	}
 	timelockContractsPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
-	allContractParams := make(map[uint64]v1_6.ChainContractParams)
+	allContractParams := make(map[uint64]ccipseq.ChainContractParams)
 	for _, chain := range allChains {
 		timelockContractsPerChain[chain] = &proposalutils.TimelockExecutionContracts{
 			Timelock:  state.Chains[chain].Timelock,
 			CallProxy: state.Chains[chain].CallProxy,
 		}
-		allContractParams[chain] = v1_6.ChainContractParams{
+		allContractParams[chain] = ccipseq.ChainContractParams{
 			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
 			OffRampParams:   ccipops.DefaultOffRampParams(),
 		}

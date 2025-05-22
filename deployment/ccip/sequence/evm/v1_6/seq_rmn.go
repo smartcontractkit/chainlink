@@ -4,9 +4,10 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
+	"golang.org/x/exp/maps"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"golang.org/x/exp/maps"
 
 	ccipsharedops "github.com/smartcontractkit/chainlink/deployment/ccip/operations"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operations/evm/v1_6"
@@ -90,6 +91,7 @@ func (c SetRMNRemoteConfig) Validate(env cldf.Environment, state stateview.CCIPO
 			}
 		}
 
+		//nolint:gosec // G115
 		if len(config.Signers) < 2*int(config.F)+1 {
 			return fmt.Errorf("signers count (%d) must be greater than or equal to %d", len(config.Signers), 2*config.F+1)
 		}

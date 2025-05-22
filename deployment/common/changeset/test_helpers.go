@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -145,6 +146,8 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, timelockContractsPerChain
 			GetContext:        e.GetContext,
 			OperationsBundle:  e.OperationsBundle,
 		}
+		// to ensure that each migration is run in a clean environment
+		currentEnv.OperationsBundle = operations.NewBundle(e.GetContext, e.Logger, operations.NewMemoryReporter())
 	}
 	return currentEnv, nil
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -70,7 +71,7 @@ var (
 			chain := deps.Env.Chains[input.ChainSelector]
 			chainState := state.Chains[input.ChainSelector]
 			deployerGroup := deployergroup.NewDeployerGroup(e, state, input.MCMS).
-				WithDeploymentContext(fmt.Sprintf("set NonceManager authorized caller on %s", chain.String()))
+				WithDeploymentContext("set NonceManager authorized caller on " + chain.String())
 			opts, err := deployerGroup.GetDeployer(input.ChainSelector)
 			if err != nil {
 				return opsutil.OpOutput{}, fmt.Errorf("failed to get deployer for %s", chain)

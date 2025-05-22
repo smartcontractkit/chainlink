@@ -72,10 +72,9 @@ var (
 					return common.Address{}, err
 				}
 				return contract.Address, nil
-			} else {
-				e.Logger.Infow("rmn remote already deployed, no-op", "chain", chain.String(), "addr", chainState.RMNRemote.Address)
-				return common.Address{}, nil
 			}
+			e.Logger.Infow("rmn remote already deployed, no-op", "chain", chain.String(), "addr", chainState.RMNRemote.Address)
+			return common.Address{}, nil
 		})
 
 	SetRMNRemoteConfigOp = operations.NewOperation(
@@ -124,7 +123,7 @@ var (
 				return opsutil.OpOutput{}, nil
 			}
 			deployerGroup := deployergroup.NewDeployerGroup(e, state, input.MCMSConfig).
-				WithDeploymentContext(fmt.Sprintf("set RMNRemote config for chain %s", chain.String()))
+				WithDeploymentContext("set RMNRemote config for chain " + chain.String())
 			opts, err := deployerGroup.GetDeployer(input.ChainSelector)
 			if err != nil {
 				return opsutil.OpOutput{}, fmt.Errorf("failed to get deployer for %s", chain)
