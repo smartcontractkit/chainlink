@@ -1,10 +1,13 @@
 package ccip
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"testing"
 
+	"github.com/aptos-labs/aptos-go-sdk"
+	aptosapi "github.com/aptos-labs/aptos-go-sdk/api"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -50,7 +53,6 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 		replayed bool
 		nonce    uint64
 		sender   = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
-		out      messagingtest.TestCaseOutput
 		setup    = messagingtest.NewTestSetupWithDeployedEnv(
 			t,
 			e,
@@ -62,10 +64,11 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 		)
 	)
 	ccipChainState := state.AptosChains[destChain]
+	receiver := state.AptosChains[destChain].ReceiverAddress
 
-	t.Run("Sould Succeed Message From Evm to Aptos", func(t *testing.T) {
+	t.Run("Message from EVM to Aptos should succeed and data should match", func(t *testing.T) {
 		message := []byte("Hello Aptos, from EVM!")
-		out = messagingtest.Run(t,
+		messagingtest.Run(t,
 			messagingtest.TestCase{
 				TestSetup:      setup,
 				Replayed:       replayed,
@@ -76,18 +79,9 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 				// true for out of order execution, which is necessary and enforced for Aptos
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, true),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				FeeToken:               "0x0",
 				ExtraAssertions: []func(t *testing.T){
-					func(t *testing.T) {
-						// TODO: check dummy receiver events
-						// dummyReceiver := state.AptosChains[destChain].ReceiverAddress
-						// events, err := e.Env.AptosChains[destChain].Client.EventsByHandle(dummyReceiver, fmt.Sprintf("%s::dummy_receiver::ReceivedMessage", dummyReceiver), "received_message_events", nil, nil)
-						// require.NoError(t, err)
-						// require.Len(t, events, 1)
-						// var receivedMessage module_dummy_receiver.ReceivedMessage
-						// err = codec.DecodeAptosJsonValue(events[0].Data, &receivedMessage)
-						// require.NoError(t, err)
-						// require.Equal(t, message, receivedMessage.Data)
-					},
+					func(t *testing.T) { assertAptosMessageReceivedMatchesSource(t, e, destChain, receiver, message) },
 				},
 			},
 		)
@@ -110,8 +104,6 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 		true,  // validateResp
 		mlt.WithDeployedEnv(e),
 	)
-
-	receiver := state.AptosChains[destChain].ReceiverAddress
 
 	tcs := []mlt.TestCase{
 		{
@@ -202,6 +194,20 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 			}] = []uint64{tco.MsgSentEvent.SequenceNumber}
 		}
 	}
+}
 
-	fmt.Printf("out: %v\n", out)
+func assertAptosMessageReceivedMatchesSource(t *testing.T, e testhelpers.DeployedEnv, destChain uint64, dummyReceiver aptos.AccountAddress, message []byte) {
+	event := getLatestDummyReceiverEvent(t, e.Env.AptosChains[destChain].Client, dummyReceiver)
+	data, ok := event.Data["data"].(string)
+	require.True(t, ok)
+	bs, err := hex.DecodeString(data)
+	require.NoError(t, err)
+	require.Equal(t, message, bs)
+}
+
+func getLatestDummyReceiverEvent(t *testing.T, rpcClient aptos.AptosRpcClient, dummyReceiver aptos.AccountAddress) *aptosapi.Event {
+	limit := uint64(1)
+	events, err := rpcClient.EventsByHandle(dummyReceiver, fmt.Sprintf("%s::dummy_receiver::CCIPReceiverState", dummyReceiver.String()), "received_message_events", nil, &limit)
+	require.NoError(t, err)
+	return events[0]
 }
