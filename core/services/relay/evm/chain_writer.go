@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -142,11 +141,6 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 	}
 
 	return nil
-}
-
-// PLACEHOLDER AS DON'T THINK THIS IS MERGED IN YET!! DON'T MERGE THIS
-func (a *chainWriter) GetEstimateFee(ctx context.Context, contract, method string, args any, toAddress string, meta *commontypes.TxMeta, val *big.Int) (commontypes.EstimateFee, error) {
-	return commontypes.EstimateFee{}, errors.New("not implemented")
 }
 
 func (w *chainWriter) parseContracts() error {
