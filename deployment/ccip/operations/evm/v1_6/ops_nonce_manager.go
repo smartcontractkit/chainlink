@@ -36,7 +36,7 @@ var (
 					"deploy the prerequisites first", chain.String())
 			}
 			if chainState.NonceManager == nil {
-				nonceManager, err := cldf.DeployContract(e.Logger, chain, ab,
+				nonceManager, err := cldf.DeployContract(b.Logger, chain, ab,
 					func(chain cldf.Chain) cldf.ContractDeploy[*nonce_manager.NonceManager] {
 						nonceManagerAddr, tx2, nonceManager, err2 := nonce_manager.DeployNonceManager(
 							chain.DeployerKey,
@@ -48,12 +48,12 @@ var (
 						}
 					})
 				if err != nil {
-					e.Logger.Errorw("Failed to deploy nonce manager", "chain", chain.String(), "err", err)
+					b.Logger.Errorw("Failed to deploy nonce manager", "chain", chain.String(), "err", err)
 					return common.Address{}, err
 				}
 				return nonceManager.Address, nil
 			}
-			e.Logger.Infow("nonce manager already deployed", "chain", chain.String(), "addr", chainState.NonceManager.Address)
+			b.Logger.Infow("nonce manager already deployed", "chain", chain.String(), "addr", chainState.NonceManager.Address)
 			return common.Address{}, nil
 		})
 
@@ -79,7 +79,7 @@ var (
 			nonceManager := chainState.NonceManager
 			_, err = nonceManager.ApplyAuthorizedCallerUpdates(opts, input.Callers)
 			if err != nil {
-				e.Logger.Errorw("Failed to apply authorized caller updates on NonceManager", "chain", chain.String(), "err", err)
+				b.Logger.Errorw("Failed to apply authorized caller updates on NonceManager", "chain", chain.String(), "err", err)
 				return opsutil.OpOutput{}, fmt.Errorf("failed to apply authorized caller updates on NonceManager: %w", err)
 			}
 			csOutput, err := deployerGroup.Enact()

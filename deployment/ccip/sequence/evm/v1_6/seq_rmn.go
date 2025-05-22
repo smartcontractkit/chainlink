@@ -52,7 +52,7 @@ var (
 				if err != nil {
 					return opsutil.OpOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
 				}
-				deps.Env.Logger.Infow("Generated proposal for RMNRemoteConfig", "chains", maps.Keys(input.RMNRemoteConfigs))
+				b.Logger.Infow("Generated proposal for RMNRemoteConfig", "chains", maps.Keys(input.RMNRemoteConfigs))
 				return opsutil.OpOutput{
 					Proposals:                  report.Output,
 					DescribedTimelockProposals: finalOutput.DescribedTimelockProposals,

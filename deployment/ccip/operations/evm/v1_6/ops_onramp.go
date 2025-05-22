@@ -32,19 +32,19 @@ var (
 			}
 			onRampContract := chainState.OnRamp
 			if chainState.RMNProxy == nil {
-				e.Logger.Errorw("RMNProxy not found", "chain", chain.String())
+				b.Logger.Errorw("RMNProxy not found", "chain", chain.String())
 				return common.Address{}, fmt.Errorf("rmn proxy not found for chain %s, deploy the prerequisites first", chain.String())
 			}
 			if chainState.FeeQuoter == nil {
-				e.Logger.Errorw("FeeQuoter not found", "chain", chain.String())
+				b.Logger.Errorw("FeeQuoter not found", "chain", chain.String())
 				return common.Address{}, fmt.Errorf("fee quoter not found for chain %s, needed for onRamp deployment", chain.String())
 			}
 			if chainState.NonceManager == nil {
-				e.Logger.Errorw("NonceManager not found", "chain", chain.String())
+				b.Logger.Errorw("NonceManager not found", "chain", chain.String())
 				return common.Address{}, fmt.Errorf("nonce manager not found for chain %s, needed for onRamp deployment", chain.String())
 			}
 			if chainState.TokenAdminRegistry == nil {
-				e.Logger.Errorw("TokenAdminRegistry not found", "chain", chain.String())
+				b.Logger.Errorw("TokenAdminRegistry not found", "chain", chain.String())
 				return common.Address{}, fmt.Errorf("token admin registry not found for chain %s, needed for onRamp deployment", chain.String())
 			}
 			if onRampContract == nil {
@@ -57,7 +57,7 @@ var (
 				} else {
 					feeAggregator = chain.DeployerKey.From
 				}
-				onRamp, err := cldf.DeployContract(e.Logger, chain, ab,
+				onRamp, err := cldf.DeployContract(b.Logger, chain, ab,
 					func(chain cldf.Chain) cldf.ContractDeploy[*onramp.OnRamp] {
 						onRampAddr, tx2, onRamp, err2 := onramp.DeployOnRamp(
 							chain.DeployerKey,
@@ -79,12 +79,12 @@ var (
 						}
 					})
 				if err != nil {
-					e.Logger.Errorw("Failed to deploy onramp", "chain", chain.String(), "err", err)
+					b.Logger.Errorw("Failed to deploy onramp", "chain", chain.String(), "err", err)
 					return common.Address{}, err
 				}
 				return onRamp.Address, nil
 			}
-			e.Logger.Infow("onramp already deployed", "chain", chain.String(), "addr", chainState.OnRamp.Address)
+			b.Logger.Infow("onramp already deployed", "chain", chain.String(), "addr", chainState.OnRamp.Address)
 			return common.Address{}, nil
 		})
 )

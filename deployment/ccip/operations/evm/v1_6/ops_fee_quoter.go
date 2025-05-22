@@ -35,7 +35,6 @@ var (
 		"Deploys FeeQuoter 1.6 contract on the specified evm chain",
 		func(b operations.Bundle, deps opsutil.OpDependencies, input DeployFeeQInput) (common.Address, error) {
 			state := deps.CurrentState
-			e := deps.Env
 			chain := deps.Env.Chains[input.Chain]
 			ab := deps.AddressBook
 			chainState, chainExists := state.Chains[input.Chain]
@@ -46,7 +45,7 @@ var (
 
 			contractParams := input.Params
 			if chainState.FeeQuoter == nil {
-				feeQ, err := cldf.DeployContract(e.Logger, chain, ab,
+				feeQ, err := cldf.DeployContract(b.Logger, chain, ab,
 					func(chain cldf.Chain) cldf.ContractDeploy[*fee_quoter.FeeQuoter] {
 						prAddr, tx2, pr, err2 := fee_quoter.DeployFeeQuoter(
 							chain.DeployerKey,
@@ -77,12 +76,12 @@ var (
 						}
 					})
 				if err != nil {
-					e.Logger.Errorw("Failed to deploy fee quoter", "chain", chain.String(), "err", err)
+					b.Logger.Errorw("Failed to deploy fee quoter", "chain", chain.String(), "err", err)
 					return common.Address{}, err
 				}
 				return feeQ.Address, nil
 			}
-			e.Logger.Infow("fee quoter already deployed", "chain", chain.String(), "addr", chainState.FeeQuoter.Address)
+			b.Logger.Infow("fee quoter already deployed", "chain", chain.String(), "addr", chainState.FeeQuoter.Address)
 			return common.Address{}, nil
 		})
 
@@ -108,7 +107,7 @@ var (
 			feeQ := chainState.FeeQuoter
 			_, err = feeQ.ApplyAuthorizedCallerUpdates(opts, input.Callers)
 			if err != nil {
-				e.Logger.Errorw("Failed to apply authorized caller updates", "chain", chain.String(), "err", err)
+				b.Logger.Errorw("Failed to apply authorized caller updates", "chain", chain.String(), "err", err)
 				return opsutil.OpOutput{}, fmt.Errorf("failed to apply authorized caller updates: %w", err)
 			}
 			csOutput, err := deployerGroup.Enact()

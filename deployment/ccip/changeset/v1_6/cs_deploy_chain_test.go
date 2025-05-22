@@ -123,7 +123,6 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 
 	// try to deploy chain contracts again and it should not deploy any new contracts except feequoter
 	// but should not error
-	// creating a new environment to avoid reusing the old one so that the sequence gets executed again
 	e, err = commonchangeset.Apply(t, e, nil, commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
 		ccipseq.DeployChainContractsConfig{

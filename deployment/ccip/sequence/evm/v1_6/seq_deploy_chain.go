@@ -115,7 +115,7 @@ var (
 						return fmt.Errorf("router not found for chain %s, deploy the prerequisites first", chain.String())
 					}
 					if chainState.RMNProxy == nil {
-						e.Logger.Errorw("RMNProxy not found", "chain", chain.String())
+						b.Logger.Errorw("RMNProxy not found", "chain", chain.String())
 						return fmt.Errorf("rmn proxy not found for chain %s, deploy the prerequisites first", chain.String())
 					}
 
@@ -258,7 +258,7 @@ var (
 						Context: e.GetContext(),
 					})
 					if err != nil {
-						e.Logger.Errorw("Failed to get fee quoter authorized callers",
+						b.Logger.Errorw("Failed to get fee quoter authorized callers",
 							"chain", chain.String(),
 							"feeQuoter", chainState.FeeQuoter.Address(),
 							"err", err)
@@ -275,20 +275,20 @@ var (
 							},
 						})
 						if err != nil {
-							e.Logger.Errorw("Failed to apply fee quoter authorized callers",
+							b.Logger.Errorw("Failed to apply fee quoter authorized callers",
 								"chain", chain.String(),
 								"feeQuoter", chainState.FeeQuoter.Address(),
 								"err", err)
 							return err
 						}
-						e.Logger.Infow("Added fee quoter authorized callers", "chain", chain.String(), "callers",
+						b.Logger.Infow("Added fee quoter authorized callers", "chain", chain.String(), "callers",
 							[]common.Address{chainState.OffRamp.Address(), chain.DeployerKey.From})
 					}
 					nmCallers, err := chainState.NonceManager.GetAllAuthorizedCallers(&bind.CallOpts{
 						Context: e.GetContext(),
 					})
 					if err != nil {
-						e.Logger.Errorw("Failed to get nonce manager authorized callers",
+						b.Logger.Errorw("Failed to get nonce manager authorized callers",
 							"chain", chain.String(),
 							"nonceManager", chainState.NonceManager.Address(),
 							"err", err)
@@ -307,13 +307,13 @@ var (
 								},
 							})
 						if err != nil {
-							e.Logger.Errorw("Failed to apply nonce manager authorized callers",
+							b.Logger.Errorw("Failed to apply nonce manager authorized callers",
 								"chain", chain.String(),
 								"nonceManager", chainState.NonceManager.Address(),
 								"err", err)
 							return err
 						}
-						e.Logger.Infow("Added nonce manager authorized callers",
+						b.Logger.Infow("Added nonce manager authorized callers",
 							"chain", chain.String(), "callers", []common.Address{
 								chainState.OffRamp.Address(),
 								chainState.OnRamp.Address(),

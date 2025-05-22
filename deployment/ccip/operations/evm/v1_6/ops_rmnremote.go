@@ -53,10 +53,10 @@ var (
 				rmnLegacyAddr = chainState.RMN.Address()
 			}
 			if rmnLegacyAddr == (common.Address{}) {
-				e.Logger.Warnf("No legacy RMN contract found for chain %s, will not setRMN in RMNRemote", chain.String())
+				b.Logger.Warnf("No legacy RMN contract found for chain %s, will not setRMN in RMNRemote", chain.String())
 			}
 			if chainState.RMNRemote == nil {
-				contract, err := cldf.DeployContract(e.Logger, chain, ab,
+				contract, err := cldf.DeployContract(b.Logger, chain, ab,
 					func(chain cldf.Chain) cldf.ContractDeploy[*rmn_remote.RMNRemote] {
 						rmnRemoteAddr, tx, rmnRemote, err2 := rmn_remote.DeployRMNRemote(
 							chain.DeployerKey,
@@ -69,12 +69,12 @@ var (
 						}
 					})
 				if err != nil {
-					e.Logger.Errorw("Failed to deploy RMNRemote", "chain", chain.String(), "err", err)
+					b.Logger.Errorw("Failed to deploy RMNRemote", "chain", chain.String(), "err", err)
 					return common.Address{}, err
 				}
 				return contract.Address, nil
 			}
-			e.Logger.Infow("rmn remote already deployed, no-op", "chain", chain.String(), "addr", chainState.RMNRemote.Address)
+			b.Logger.Infow("rmn remote already deployed, no-op", "chain", chain.String(), "addr", chainState.RMNRemote.Address)
 			return common.Address{}, nil
 		})
 
