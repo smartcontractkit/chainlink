@@ -71,7 +71,7 @@ var (
 			RootSnoozeTime:            *config.MustNewDuration(globals.RootSnoozeTime),
 			MessageVisibilityInterval: *config.MustNewDuration(globals.PermissionLessExecutionThreshold),
 			BatchingStrategyID:        globals.BatchingStrategyID,
-			MaxCommitReportsToFetch:   500,
+			MaxCommitReportsToFetch:   globals.DefaultMaxCommitReportsToFetch,
 		},
 	}
 )

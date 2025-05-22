@@ -21,12 +21,13 @@ const (
 	RemoteGasPriceBatchWriteFrequency = 20 * time.Minute
 	TokenPriceBatchWriteFrequency     = 2 * time.Hour
 	// Building batches with 6.5m and transmit with 8m to account for overhead.
-	BatchGasLimit               = 6_500_000
-	InflightCacheExpiry         = 1 * time.Minute
-	RootSnoozeTime              = 5 * time.Minute
-	BatchingStrategyID          = 0
-	OptimisticConfirmations     = 1
-	TransmissionDelayMultiplier = 15 * time.Second
+	BatchGasLimit                  = 6_500_000
+	InflightCacheExpiry            = 1 * time.Minute
+	RootSnoozeTime                 = 5 * time.Minute
+	BatchingStrategyID             = 0
+	OptimisticConfirmations        = 1
+	TransmissionDelayMultiplier    = 15 * time.Second
+	DefaultMaxCommitReportsToFetch = 500
 	// ======================================
 
 	// ========= Onchain consts =========
@@ -86,7 +87,7 @@ var (
 		TransmissionDelayMultiplier: TransmissionDelayMultiplier,
 		MaxReportMessages:           0,
 		MaxSingleChainReports:       0,
-		MaxCommitReportsToFetch:     500,
+		MaxCommitReportsToFetch:     DefaultMaxCommitReportsToFetch,
 		// Remaining fields cannot be statically set:
 		// TokenDataObservers: , // Must be configured in CLD
 	}
