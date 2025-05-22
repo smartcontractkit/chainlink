@@ -14,6 +14,7 @@ import (
 )
 
 type RouterView struct {
+	PDA                    string                              `json:"pda,omitempty"`
 	Version                uint8                               `json:"version,omitempty"`
 	DefaultCodeVersion     string                              `json:"defaultCodeVersion,omitempty"`
 	SvmChainSelector       uint64                              `json:"svmChainSelector,omitempty"`
@@ -28,12 +29,14 @@ type RouterView struct {
 }
 
 type RouterDestChainConfig struct {
+	PDA              string   `json:"pda,omitempty"`
 	LaneCodeVersion  string   `json:"laneCodeVersion,omitempty"`
 	AllowedSenders   []string `json:"allowedSenders,omitempty"`
 	AllowListEnabled bool     `json:"allowListEnabled,omitempty"`
 }
 
 type RouterTokenAdminRegistry struct {
+	PDA                  string   `json:"pda,omitempty"`
 	Version              uint8    `json:"version,omitempty"`
 	Administrator        string   `json:"administrator,omitempty"`
 	PendingAdministrator string   `json:"pendingAdministrator,omitempty"`
@@ -50,6 +53,7 @@ func GenerateRouterView(chain cldf.SolChain, program solana.PublicKey, remoteCha
 	if err != nil {
 		return view, fmt.Errorf("config not found in existing state, initialize the router first %d", chain.Selector)
 	}
+	view.PDA = configPDA.String()
 	view.DefaultCodeVersion = config.DefaultCodeVersion.String()
 	view.SvmChainSelector = config.SvmChainSelector
 	view.Owner = config.Owner.String()
@@ -70,6 +74,7 @@ func GenerateRouterView(chain cldf.SolChain, program solana.PublicKey, remoteCha
 			return view, fmt.Errorf("remote %d is not configured on solana chain %d", remote, chain.Selector)
 		}
 		view.DestinationChainConfig[remote] = RouterDestChainConfig{
+			PDA:              remoteChainPDA.String(),
 			LaneCodeVersion:  destChainStateAccount.Config.LaneCodeVersion.String(),
 			AllowedSenders:   make([]string, len(destChainStateAccount.Config.AllowedSenders)),
 			AllowListEnabled: destChainStateAccount.Config.AllowListEnabled,
@@ -87,6 +92,7 @@ func GenerateRouterView(chain cldf.SolChain, program solana.PublicKey, remoteCha
 		var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
 		if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err == nil {
 			view.TokenAdminRegistry[token.String()] = RouterTokenAdminRegistry{
+				PDA:                  tokenAdminRegistryPDA.String(),
 				Version:              tokenAdminRegistryAccount.Version,
 				Administrator:        tokenAdminRegistryAccount.Administrator.String(),
 				PendingAdministrator: tokenAdminRegistryAccount.PendingAdministrator.String(),
