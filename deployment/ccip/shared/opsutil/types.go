@@ -28,10 +28,10 @@ type OpOutput struct {
 }
 
 func (o *OpOutput) Merge(other OpOutput) error {
-	if len(other.Proposals) == 0 {
+	if len(other.Proposals) > 0 {
 		o.Proposals = append(o.Proposals, other.Proposals...)
 	}
-	if len(other.DescribedTimelockProposals) == 0 {
+	if len(other.DescribedTimelockProposals) > 0 {
 		o.DescribedTimelockProposals = append(o.DescribedTimelockProposals, other.DescribedTimelockProposals...)
 	}
 	return nil
