@@ -170,7 +170,8 @@ type WorkflowSpecConfig struct {
 	ConsensusAllowedPartialStaleness string
 	DeltaStageSec                    *int   // Default 45
 	TargetsSchedule                  string // Default "oneAtATime"
-	TriggersMaxFrequencyMs           *int   // Default 5000
+	TargetProcessor                  string
+	TriggersMaxFrequencyMs           *int // Default 5000
 	CREStepTimeout                   int64
 }
 

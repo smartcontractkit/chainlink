@@ -147,7 +147,7 @@ type Engine struct {
 	clock          clockwork.Clock
 	ratelimiter    *ratelimiter.RateLimiter
 	workflowLimits *syncerlimiter.Limits
-	meterReports   *metering.MeterReports
+	meterReports   *metering.Reports
 }
 
 func (e *Engine) Start(_ context.Context) error {
@@ -495,7 +495,7 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, triggerID string, event *values.Map) error {
-	e.meterReports.Add(executionID, metering.NewMeteringReport(e.logger))
+	e.meterReports.Add(executionID, metering.NewReport(e.logger))
 
 	err := events.EmitExecutionStartedEvent(ctx, e.cma, triggerID, executionID)
 	if err != nil {
@@ -586,7 +586,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 
 		// this case is only for resuming executions and should be updated when metering is added to save execution state
 		if _, ok := e.meterReports.Get(stepUpdate.ExecutionID); !ok {
-			e.meterReports.Add(stepUpdate.ExecutionID, metering.NewMeteringReport(e.logger))
+			e.meterReports.Add(stepUpdate.ExecutionID, metering.NewReport(e.logger))
 		}
 
 		return e.finishExecution(ctx, cma, state.ExecutionID, status)
@@ -655,7 +655,7 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 		}
 
 		// send metering report to billing if billing client is not nil
-		if err = e.sendMeteringReportToBilling(ctx, report, e.workflow.id, executionID); err != nil {
+		if err = e.sendReportToBilling(ctx, report, e.workflow.id, executionID); err != nil {
 			e.metrics.incrementWorkflowMissingMeteringReport(ctx)
 			l.Warn(fmt.Sprintf("metering report send to billing error %s", err))
 		}
@@ -811,16 +811,16 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		stepStatus = store.StatusCompleted
 	}
 
-	meteringSteps := make([]metering.MeteringReportStep, len(response.Metadata.Metering))
+	meteringSteps := make([]metering.ReportStep, len(response.Metadata.Metering))
 
 	for idx, detail := range response.Metadata.Metering {
-		unit := metering.MeteringSpendUnit(detail.SpendUnit)
+		unit := metering.SpendUnit(detail.SpendUnit)
 		value, err := unit.StringToSpendValue(detail.SpendValue)
 		if err != nil {
 			l.Error(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
 		}
 
-		meteringSteps[idx] = metering.MeteringReportStep{
+		meteringSteps[idx] = metering.ReportStep{
 			Peer2PeerID: detail.Peer2PeerID,
 			SpendUnit:   unit,
 			SpendValue:  value,
@@ -828,7 +828,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	}
 
 	if rpt, ok := e.meterReports.Get(msg.state.ExecutionID); ok {
-		if err := rpt.SetStep(metering.MeteringReportStepRef(stepState.Ref), meteringSteps); err != nil {
+		if err := rpt.SetStep(metering.ReportStepRef(stepState.Ref), meteringSteps); err != nil {
 			l.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", stepState.Ref, err))
 		}
 		e.metrics.with(platform.KeyWorkflowID, e.workflow.id).incrementWorkflowMissingMeteringReport(ctx)
@@ -1188,7 +1188,7 @@ func (e *Engine) heartbeat(ctx context.Context) {
 	}
 }
 
-func (e *Engine) sendMeteringReportToBilling(ctx context.Context, report *metering.MeteringReport, workflowID string, executionID string) error {
+func (e *Engine) sendReportToBilling(ctx context.Context, report *metering.Report, workflowID string, executionID string) error {
 	if e.billingClient != nil {
 		req := billing.SubmitWorkflowReceiptRequest{
 			AccountId:           e.workflow.owner,
@@ -1484,7 +1484,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
 		workflowLimits:       cfg.WorkflowLimits,
-		meterReports:         metering.NewMeterReports(),
+		meterReports:         metering.NewReports(),
 		billingClient:        cfg.BillingClient,
 	}
 

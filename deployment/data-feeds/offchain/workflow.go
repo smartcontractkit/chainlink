@@ -44,6 +44,7 @@ type WorkflowSpecCfg struct {
 	DeltaStageSec                    int
 	WriteTargetTrigger               string
 	TargetsSchedule                  string
+	TargetProcessor                  string
 	CREStepTimeout                   int64
 	DataFeedsCacheAddress            string
 }
@@ -81,6 +82,7 @@ func CreateWorkflowSpec(
 	writeTargetTrigger string,
 	targetsSchedule string,
 	creStepTimeout int64,
+	targetProcessor string,
 	cacheAddress string) (wfSpec string, err error) {
 	wfCfg := WorkflowSpecCfg{
 		Feeds:                            feeds,
@@ -96,6 +98,7 @@ func CreateWorkflowSpec(
 		DeltaStageSec:                    deltaStageSec,
 		WriteTargetTrigger:               writeTargetTrigger,
 		TargetsSchedule:                  targetsSchedule,
+		TargetProcessor:                  targetProcessor,
 		CREStepTimeout:                   creStepTimeout,
 		DataFeedsCacheAddress:            cacheAddress,
 	}

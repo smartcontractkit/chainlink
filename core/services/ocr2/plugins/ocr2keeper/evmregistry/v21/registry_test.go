@@ -17,7 +17,6 @@ import (
 	autotypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	evmheads "github.com/smartcontractkit/chainlink-evm/pkg/heads"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -546,7 +545,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			lggr := logger.Test(t)
 			var hb evmheads.Broadcaster
 			var lp logpoller.LogPoller

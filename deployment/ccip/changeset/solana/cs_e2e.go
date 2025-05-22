@@ -3,8 +3,9 @@ package solana
 import (
 	"fmt"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/mcms"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -150,9 +151,15 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 		finalOutput.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
 	}
 
-	err := e.ExistingAddresses.Remove(addressBookToRemove)
+	addresses, err := addressBookToRemove.Addresses()
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to remove temp address book from env: %w", err)
+		return finalOutput, nil
+	}
+	if len(addresses) > 0 {
+		err := e.ExistingAddresses.Remove(addressBookToRemove)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to remove temp address book from env: %w", err)
+		}
 	}
 
 	return finalOutput, nil
