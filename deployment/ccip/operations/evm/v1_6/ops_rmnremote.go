@@ -29,32 +29,27 @@ type RMNRemoteConfig struct {
 	F       uint64                       `json:"f"`
 }
 
+type DeployRMNRemoteInput struct {
+	RMNLegacyAddr common.Address `json:"rmnLegacyAddr"`
+	ChainSelector uint64         `json:"chainSelector"`
+}
+
 var (
 	DeployRMNRemoteOp = operations.NewOperation(
 		"DeployRMNRemote",
 		semver.MustParse("1.0.0"),
 		"Deploys RMNRemote 1.6 contract on the specified evm chain",
-		func(b operations.Bundle, deps opsutil.OpDependencies, input uint64) (common.Address, error) {
+		func(b operations.Bundle, deps opsutil.OpDependencies, input DeployRMNRemoteInput) (common.Address, error) {
 			state := deps.CurrentState
 			e := deps.Env
 			ab := deps.AddressBook
-			chain := e.Chains[input]
+			chain := e.Chains[input.ChainSelector]
 			chainState, chainExists := state.Chains[chain.Selector]
 			if !chainExists {
 				return common.Address{}, fmt.Errorf("chain %s not found in existing state, "+
 					"deploy the prerequisites first", chain.String())
 			}
-			var rmnLegacyAddr common.Address
-			if chainState.MockRMN != nil {
-				rmnLegacyAddr = chainState.MockRMN.Address()
-			}
-			// If RMN is deployed, set rmnLegacyAddr to the RMN address
-			if chainState.RMN != nil {
-				rmnLegacyAddr = chainState.RMN.Address()
-			}
-			if rmnLegacyAddr == (common.Address{}) {
-				b.Logger.Warnf("No legacy RMN contract found for chain %s, will not setRMN in RMNRemote", chain.String())
-			}
+
 			if chainState.RMNRemote == nil {
 				contract, err := cldf.DeployContract(b.Logger, chain, ab,
 					func(chain cldf.Chain) cldf.ContractDeploy[*rmn_remote.RMNRemote] {
@@ -62,7 +57,7 @@ var (
 							chain.DeployerKey,
 							chain.Client,
 							chain.Selector,
-							rmnLegacyAddr,
+							input.RMNLegacyAddr,
 						)
 						return cldf.ContractDeploy[*rmn_remote.RMNRemote]{
 							Address: rmnRemoteAddr, Contract: rmnRemote, Tx: tx, Tv: cldf.NewTypeAndVersion(shared.RMNRemote, deployment.Version1_6_0), Err: err2,

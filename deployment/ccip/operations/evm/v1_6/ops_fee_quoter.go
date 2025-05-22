@@ -22,10 +22,11 @@ import (
 )
 
 type DeployFeeQInput struct {
-	Chain    uint64
-	Params   FeeQuoterParams
-	LinkAddr common.Address
-	WethAddr common.Address
+	Chain         uint64
+	Params        FeeQuoterParams
+	LinkAddr      common.Address
+	WethAddr      common.Address
+	PriceUpdaters []common.Address
 }
 
 var (
@@ -55,8 +56,8 @@ var (
 								LinkToken:                    input.LinkAddr,
 								TokenPriceStalenessThreshold: contractParams.TokenPriceStalenessThreshold,
 							},
-							[]common.Address{state.Chains[chain.Selector].Timelock.Address()}, // timelock should be able to update, ramps added after
-							[]common.Address{input.WethAddr, input.LinkAddr},                  // fee tokens
+							input.PriceUpdaters,
+							[]common.Address{input.WethAddr, input.LinkAddr}, // fee tokens
 							contractParams.TokenPriceFeedUpdates,
 							contractParams.TokenTransferFeeConfigArgs,
 							append([]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{

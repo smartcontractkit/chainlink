@@ -32,22 +32,6 @@ var (
 				return common.Address{}, fmt.Errorf("chain %s not found in existing state, "+
 					"deploy the prerequisites first", chain.String())
 			}
-			if chainState.RMNProxy == nil {
-				b.Logger.Errorw("RMNProxy not found", "chain", chain.String())
-				return common.Address{}, fmt.Errorf("rmn proxy not found for chain %s", chain.String())
-			}
-			if chainState.FeeQuoter == nil {
-				b.Logger.Errorw("FeeQuoter not found", "chain", chain.String())
-				return common.Address{}, fmt.Errorf("fee quoter not found for chain %s", chain.String())
-			}
-			if chainState.NonceManager == nil {
-				b.Logger.Errorw("NonceManager not found", "chain", chain.String())
-				return common.Address{}, fmt.Errorf("nonce manager not found for chain %s", chain.String())
-			}
-			if chainState.TokenAdminRegistry == nil {
-				b.Logger.Errorw("TokenAdminRegistry not found", "chain", chain.String())
-				return common.Address{}, fmt.Errorf("token admin registry not found for chain %s", chain.String())
-			}
 			offRampContract := chainState.OffRamp
 			if offRampContract == nil {
 				offRamp, err := cldf.DeployContract(b.Logger, chain, ab,
@@ -58,12 +42,12 @@ var (
 							offramp.OffRampStaticConfig{
 								ChainSelector:        chain.Selector,
 								GasForCallExactCheck: input.Params.GasForCallExactCheck,
-								RmnRemote:            chainState.RMNProxy.Address(),
-								NonceManager:         chainState.NonceManager.Address(),
-								TokenAdminRegistry:   chainState.TokenAdminRegistry.Address(),
+								RmnRemote:            input.RmnRemote,
+								NonceManager:         input.NonceManager,
+								TokenAdminRegistry:   input.TokenAdminRegistry,
 							},
 							offramp.OffRampDynamicConfig{
-								FeeQuoter:                               chainState.FeeQuoter.Address(),
+								FeeQuoter:                               input.FeeQuoter,
 								PermissionLessExecutionThresholdSeconds: input.Params.PermissionLessExecutionThresholdSeconds,
 								MessageInterceptor:                      input.Params.MessageInterceptor,
 							},
@@ -85,8 +69,12 @@ var (
 )
 
 type DeployOffRampInput struct {
-	Chain  uint64
-	Params OffRampParams
+	Chain              uint64
+	Params             OffRampParams
+	FeeQuoter          common.Address
+	RmnRemote          common.Address
+	NonceManager       common.Address
+	TokenAdminRegistry common.Address
 }
 
 type OffRampParams struct {
