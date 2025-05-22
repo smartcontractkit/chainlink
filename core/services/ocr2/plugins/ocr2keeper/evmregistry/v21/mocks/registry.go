@@ -5,7 +5,7 @@ package mocks
 import (
 	big "math/big"
 
-	bind "github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
+	bind "github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	generated "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated"
 
