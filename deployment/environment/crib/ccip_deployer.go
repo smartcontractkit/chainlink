@@ -4,32 +4,29 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
-	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
-
 	"math"
 	"math/big"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/gagliardetto/solana-go"
+	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
+	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 
-	"github.com/gagliardetto/solana-go"
-	"github.com/rs/zerolog"
-
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -880,10 +877,10 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 	var execOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	// Should be configured in the future based on the load test scenario
 	chainType := v1_6.Default
-	_, err := testhelpers.DeployFeeds(e.Logger, e.ExistingAddresses, e.Chains[feedChainSel], testhelpers.DefaultLinkPrice, testhelpers.DefaultWethPrice)
-	if err != nil {
-		return *e, fmt.Errorf("failed to deploy feeds: %w", err)
-	}
+	// _, err := testhelpers.DeployFeeds(e.Logger, e.ExistingAddresses, e.Chains[feedChainSel], testhelpers.DefaultLinkPrice, testhelpers.DefaultWethPrice)
+	// if err != nil {
+	// 	return *e, fmt.Errorf("failed to deploy feeds: %w", err)
+	// }
 	state, err := stateview.LoadOnchainState(*e)
 	if err != nil {
 		return *e, fmt.Errorf("failed to load onchain state: %w", err)
