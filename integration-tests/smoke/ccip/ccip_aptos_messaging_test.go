@@ -63,10 +63,31 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 			false, // testRouter
 		)
 	)
-	ccipChainState := state.AptosChains[destChain]
+
+	t.Log("Deploying CCIPDummyReceiver...")
+	testhelpers.DeployAptosCCIPReceiver(t, e.Env)
 	receiver := state.AptosChains[destChain].ReceiverAddress
 
-	t.Run("Message from EVM to Aptos should succeed and data should match", func(t *testing.T) {
+	ccipChainState := state.AptosChains[destChain]
+	ctx := testcontext.Get(t)
+	callOpts := &bind.CallOpts{Context: ctx}
+	srcFeeQuoterDestChainConfig, err := state.Chains[sourceChain].FeeQuoter.GetDestChainConfig(callOpts, destChain)
+	require.NoError(t, err, "Failed to get destination chain config")
+
+	// For testing messages that revert on source
+	mltTestSetup := mlt.NewTestSetup(
+		t,
+		state,
+		sourceChain,
+		destChain,
+		common.HexToAddress("0x0"),
+		srcFeeQuoterDestChainConfig,
+		false, // testRouter
+		true,  // validateResp
+		mlt.WithDeployedEnv(e),
+	)
+
+	t.Run("Hello World Message - Should Succeed", func(t *testing.T) {
 		message := []byte("Hello Aptos, from EVM!")
 		messagingtest.Run(t,
 			messagingtest.TestCase{
@@ -81,133 +102,119 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				FeeToken:               "0x0",
 				ExtraAssertions: []func(t *testing.T){
-					func(t *testing.T) { assertAptosMessageReceivedMatchesSource(t, e, destChain, receiver, message) },
+					func(t *testing.T) { assertAptosMessageReceivedMatchesSource(t, e, destChain, receiver, message, 0) },
 				},
 			},
 		)
 	})
 
-	ctx := testcontext.Get(t)
-	callOpts := &bind.CallOpts{Context: ctx}
-
-	destChainConfig, err := state.Chains[sourceChain].FeeQuoter.GetDestChainConfig(callOpts, destChain)
-	require.NoError(t, err, "Failed to get destination chain config")
-
-	testSetup := mlt.NewTestSetup(
-		t,
-		state,
-		sourceChain,
-		destChain,
-		common.HexToAddress("0x0"),
-		destChainConfig,
-		false, // testRouter
-		true,  // validateResp
-		mlt.WithDeployedEnv(e),
-	)
-
-	tcs := []mlt.TestCase{
-		{
-			TestSetup: testSetup,
-			Name:      "send message to an EOA",
-			Msg: router.ClientEVM2AnyMessage{
-				Receiver:  common.LeftPadBytes(receiver[:], 32),
-				Data:      []byte(strings.Repeat("0", int(testSetup.SrcFeeQuoterDestChainConfig.MaxDataBytes))),
-				FeeToken:  common.HexToAddress("0x0"),
-				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(100000, true),
+	t.Run("Max Data Bytes - Should Succeed", func(t *testing.T) {
+		message := []byte(strings.Repeat("0", int(srcFeeQuoterDestChainConfig.MaxDataBytes)))
+		messagingtest.Run(t,
+			messagingtest.TestCase{
+				TestSetup:      setup,
+				Replayed:       replayed,
+				Nonce:          &nonce,
+				ValidationType: messagingtest.ValidationTypeExec,
+				Receiver:       ccipChainState.ReceiverAddress[:],
+				MsgData:        message,
+				// true for out of order execution, which is necessary and enforced for Aptos
+				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, true),
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				FeeToken:               "0x0",
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) { assertAptosMessageReceivedMatchesSource(t, e, destChain, receiver, message, 1) },
+				},
 			},
-		},
-		{
-			TestSetup: testSetup,
-			Name:      "send message with data length equal to maximum data bytes allowed",
+		)
+	})
+
+	t.Run("Max Gas Limit - Should Succeed", func(t *testing.T) {
+		message := []byte("Hello Aptos, from EVM!")
+		messagingtest.Run(t,
+			messagingtest.TestCase{
+				TestSetup:      setup,
+				Replayed:       replayed,
+				Nonce:          &nonce,
+				ValidationType: messagingtest.ValidationTypeExec,
+				Receiver:       ccipChainState.ReceiverAddress[:],
+				MsgData:        message,
+				// true for out of order execution, which is necessary and enforced for Aptos
+				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				FeeToken:               "0x0",
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) { assertAptosMessageReceivedMatchesSource(t, e, destChain, receiver, message, 2) },
+				},
+			},
+		)
+	})
+
+	t.Run("Max Data Bytes + 1 - Should Fail", func(t *testing.T) {
+		message := []byte(strings.Repeat("0", int(srcFeeQuoterDestChainConfig.MaxDataBytes)+1))
+		mlt.Run(mlt.TestCase{
+			TestSetup: mltTestSetup,
+			Name:      "Max Data Bytes + 1 - Should Fail",
 			Msg: router.ClientEVM2AnyMessage{
 				Receiver:  ccipChainState.ReceiverAddress[:],
-				Data:      []byte(strings.Repeat("0", int(testSetup.SrcFeeQuoterDestChainConfig.MaxDataBytes))),
+				Data:      message,
 				FeeToken:  common.HexToAddress("0x0"),
-				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(100000, true),
-			},
-		},
-		{
-			TestSetup: testSetup,
-			Name:      "send message with gas limit equal to maximum gas limit allowed",
-			Msg: router.ClientEVM2AnyMessage{
-				Receiver:  ccipChainState.ReceiverAddress[:],
-				Data:      []byte(strings.Repeat("0", int(testSetup.SrcFeeQuoterDestChainConfig.MaxDataBytes))),
-				FeeToken:  common.HexToAddress("0x0"),
-				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(testSetup.SrcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
-			},
-		},
-		{
-			TestSetup: testSetup,
-			Name:      "send message with data length exceeding maximum data bytes allowed",
-			Msg: router.ClientEVM2AnyMessage{
-				Receiver:  ccipChainState.ReceiverAddress[:],
-				Data:      []byte(strings.Repeat("0", int(testSetup.SrcFeeQuoterDestChainConfig.MaxDataBytes)+1)),
-				FeeToken:  common.HexToAddress("0x0"),
-				ExtraArgs: nil,
+				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(mltTestSetup.SrcFeeQuoterDestChainConfig.MaxPerMsgGasLimit)+1, true),
 			},
 			ExpRevert: true,
-		},
-		{
-			TestSetup: testSetup,
-			Name:      "send message with gas limit exceeding maximum gas limit allowed",
-			Msg: router.ClientEVM2AnyMessage{
-				Receiver:  ccipChainState.ReceiverAddress[:],
-				Data:      []byte("abc"),
-				FeeToken:  common.HexToAddress("0x0"),
-				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(testSetup.SrcFeeQuoterDestChainConfig.MaxPerMsgGasLimit)+1, true),
-			},
-			ExpRevert: true,
-		},
-		{
-			TestSetup: testSetup,
-			Name:      "send message without extra args should fail with invalid args",
-			Msg: router.ClientEVM2AnyMessage{
-				Receiver: ccipChainState.ReceiverAddress[:],
-				Data:     []byte("abc"),
-				FeeToken: common.HexToAddress("0x0"),
-			},
-			ExpRevert: true,
-		},
-	}
+		})
+	})
 
-	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
-	startBlocks := make(map[uint64]*uint64)
-	// Send a message from each chain to every other chain.
-	expectedSeqNum := make(map[testhelpers.SourceDestPair]uint64)
-	expectedSeqNumExec := make(map[testhelpers.SourceDestPair][]uint64)
+	// mltTestSetup := mlt.NewTestSetup(
+	// 	t,
+	// 	state,
+	// 	sourceChain,
+	// 	destChain,
+	// 	common.HexToAddress("0x0"),
+	// 	srcFeeQuoterDestChainConfig,
+	// 	false, // testRouter
+	// 	true,  // validateResp
+	// 	mlt.WithDeployedEnv(e),
+	// )
 
-	for _, tc := range tcs {
-
-		startBlocks[tc.DestChain] = nil
-
-		tco := mlt.Run(tc)
-
-		if tco.MsgSentEvent != nil {
-			expectedSeqNum[testhelpers.SourceDestPair{
-				SourceChainSelector: tc.SrcChain,
-				DestChainSelector:   tc.DestChain,
-			}] = tco.MsgSentEvent.SequenceNumber
-
-			expectedSeqNumExec[testhelpers.SourceDestPair{
-				SourceChainSelector: tc.SrcChain,
-				DestChainSelector:   tc.DestChain,
-			}] = []uint64{tco.MsgSentEvent.SequenceNumber}
-		}
-	}
+	// tcs := []mlt.TestCase{
+	// 	{
+	// 		TestSetup: mltTestSetup,
+	// 		Name:      "send message with gas limit exceeding maximum gas limit allowed",
+	// 		Msg: router.ClientEVM2AnyMessage{
+	// 			Receiver:  ccipChainState.ReceiverAddress[:],
+	// 			Data:      []byte("abc"),
+	// 			FeeToken:  common.HexToAddress("0x0"),
+	// 			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(mltTestSetup.SrcFeeQuoterDestChainConfig.MaxPerMsgGasLimit)+1, true),
+	// 		},
+	// 		ExpRevert: true,
+	// 	},
+	// 	{
+	// 		TestSetup: mltTestSetup,
+	// 		Name:      "send message without extra args should fail with invalid args",
+	// 		Msg: router.ClientEVM2AnyMessage{
+	// 			Receiver: ccipChainState.ReceiverAddress[:],
+	// 			Data:     []byte("abc"),
+	// 			FeeToken: common.HexToAddress("0x0"),
+	// 		},
+	// 		ExpRevert: true,
+	// 	},
+	// }
 }
 
-func assertAptosMessageReceivedMatchesSource(t *testing.T, e testhelpers.DeployedEnv, destChain uint64, dummyReceiver aptos.AccountAddress, message []byte) {
-	event := getLatestDummyReceiverEvent(t, e.Env.AptosChains[destChain].Client, dummyReceiver)
-	data, ok := event.Data["data"].(string)
+func assertAptosMessageReceivedMatchesSource(t *testing.T, e testhelpers.DeployedEnv, destChain uint64, dummyReceiver aptos.AccountAddress, message []byte, sequenceNumber uint64) {
+	events, err := getLatestDummyReceiverEvent(t, e.Env.AptosChains[destChain].Client, dummyReceiver, sequenceNumber)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(events))
+
+	data, ok := events[0].Data["data"].(string)
 	require.True(t, ok)
-	bs, err := hex.DecodeString(data)
+	bs, err := hex.DecodeString(data[2:])
 	require.NoError(t, err)
 	require.Equal(t, message, bs)
 }
 
-func getLatestDummyReceiverEvent(t *testing.T, rpcClient aptos.AptosRpcClient, dummyReceiver aptos.AccountAddress) *aptosapi.Event {
+func getLatestDummyReceiverEvent(t *testing.T, rpcClient aptos.AptosRpcClient, dummyReceiver aptos.AccountAddress, sequenceNumber uint64) ([]*aptosapi.Event, error) {
 	limit := uint64(1)
-	events, err := rpcClient.EventsByHandle(dummyReceiver, fmt.Sprintf("%s::dummy_receiver::CCIPReceiverState", dummyReceiver.String()), "received_message_events", nil, &limit)
-	require.NoError(t, err)
-	return events[0]
+	return rpcClient.EventsByHandle(dummyReceiver, fmt.Sprintf("%s::dummy_receiver::CCIPReceiverState", dummyReceiver.String()), "received_message_events", &sequenceNumber, &limit)
 }

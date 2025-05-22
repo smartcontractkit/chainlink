@@ -89,6 +89,7 @@ type TestCase struct {
 	ExtraArgs              []byte
 	FeeToken               string
 	ExpectedExecutionState int
+	ExpRevertOnSource      bool
 	ExtraAssertions        []func(t *testing.T)
 }
 
