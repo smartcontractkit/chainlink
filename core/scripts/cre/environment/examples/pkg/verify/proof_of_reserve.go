@@ -51,7 +51,7 @@ func ProofOfReserve(rpcUrl, consumerContractAddress, feedID string, untilSuccess
 		case <-ticker.C:
 			price, timestamp, priceErr := contract.GetPrice(sethClient.NewCallOpts(), common.HexToHash(feedID))
 			if priceErr != nil {
-				errors.Wrap(priceErr, "failed to asset value")
+				fmt.Printf("failed to read asset value: %s. Retrying in %d seconds...\n", priceErr, tickerSeconds)
 			}
 
 			if !untilSuccessful {

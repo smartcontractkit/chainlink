@@ -11,59 +11,59 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-type MeteringReportStepRef string
+type ReportStepRef string
 
-func (s MeteringReportStepRef) String() string {
+func (s ReportStepRef) String() string {
 	return string(s)
 }
 
-type MeteringSpendUnit string
+type SpendUnit string
 
-func (s MeteringSpendUnit) String() string {
+func (s SpendUnit) String() string {
 	return string(s)
 }
 
-func (s MeteringSpendUnit) DecimalToSpendValue(value decimal.Decimal) MeteringSpendValue {
-	return MeteringSpendValue{value: value, roundingPlace: 18}
+func (s SpendUnit) DecimalToSpendValue(value decimal.Decimal) SpendValue {
+	return SpendValue{value: value, roundingPlace: 18}
 }
 
-func (s MeteringSpendUnit) IntToSpendValue(value int64) MeteringSpendValue {
-	return MeteringSpendValue{value: decimal.NewFromInt(value), roundingPlace: 18}
+func (s SpendUnit) IntToSpendValue(value int64) SpendValue {
+	return SpendValue{value: decimal.NewFromInt(value), roundingPlace: 18}
 }
 
-func (s MeteringSpendUnit) StringToSpendValue(value string) (MeteringSpendValue, error) {
+func (s SpendUnit) StringToSpendValue(value string) (SpendValue, error) {
 	dec, err := decimal.NewFromString(value)
 	if err != nil {
-		return MeteringSpendValue{}, err
+		return SpendValue{}, err
 	}
 
-	return MeteringSpendValue{value: dec, roundingPlace: 18}, nil
+	return SpendValue{value: dec, roundingPlace: 18}, nil
 }
 
-type MeteringSpendValue struct {
+type SpendValue struct {
 	value         decimal.Decimal
 	roundingPlace uint8
 }
 
-func (v MeteringSpendValue) Add(value MeteringSpendValue) MeteringSpendValue {
-	return MeteringSpendValue{
+func (v SpendValue) Add(value SpendValue) SpendValue {
+	return SpendValue{
 		value:         v.value.Add(value.value),
 		roundingPlace: v.roundingPlace,
 	}
 }
 
-func (v MeteringSpendValue) Div(value MeteringSpendValue) MeteringSpendValue {
-	return MeteringSpendValue{
+func (v SpendValue) Div(value SpendValue) SpendValue {
+	return SpendValue{
 		value:         v.value.Div(value.value),
 		roundingPlace: v.roundingPlace,
 	}
 }
 
-func (v MeteringSpendValue) GreaterThan(value MeteringSpendValue) bool {
+func (v SpendValue) GreaterThan(value SpendValue) bool {
 	return v.value.GreaterThan(value.value)
 }
 
-func (v MeteringSpendValue) String() string {
+func (v SpendValue) String() string {
 	return v.value.StringFixedBank(int32(v.roundingPlace))
 }
 
@@ -73,41 +73,41 @@ type ProtoDetail struct {
 	Entity string
 }
 
-type MeteringReportStep struct {
+type ReportStep struct {
 	Peer2PeerID string
-	SpendUnit   MeteringSpendUnit
-	SpendValue  MeteringSpendValue
+	SpendUnit   SpendUnit
+	SpendValue  SpendValue
 }
 
-type MeteringReport struct {
+type Report struct {
 	balance *balanceStore
 	mu      sync.RWMutex
-	steps   map[MeteringReportStepRef][]MeteringReportStep
+	steps   map[ReportStepRef][]ReportStep
 	lggr    logger.Logger
 }
 
-func NewMeteringReport(lggr logger.Logger) *MeteringReport {
+func NewReport(lggr logger.Logger) *Report {
 	logger := lggr.Named("Metering")
 	balanceStore := NewBalanceStore(0, map[string]decimal.Decimal{}, logger)
-	return &MeteringReport{
+	return &Report{
 		balance: balanceStore,
-		steps:   make(map[MeteringReportStepRef][]MeteringReportStep),
+		steps:   make(map[ReportStepRef][]ReportStep),
 		lggr:    logger,
 	}
 }
 
-func (r *MeteringReport) MedianSpend() map[MeteringSpendUnit]MeteringSpendValue {
+func (r *Report) MedianSpend() map[SpendUnit]SpendValue {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	values := map[MeteringSpendUnit][]MeteringSpendValue{}
-	medians := map[MeteringSpendUnit]MeteringSpendValue{}
+	values := map[SpendUnit][]SpendValue{}
+	medians := map[SpendUnit]SpendValue{}
 
 	for _, nodeVals := range r.steps {
 		for _, step := range nodeVals {
 			vals, ok := values[step.SpendUnit]
 			if !ok {
-				vals = []MeteringSpendValue{}
+				vals = []SpendValue{}
 			}
 
 			values[step.SpendUnit] = append(vals, step.SpendValue)
@@ -133,7 +133,7 @@ func (r *MeteringReport) MedianSpend() map[MeteringSpendUnit]MeteringSpendValue 
 
 // SetStep sets the recorded spends for a given capability invocation in the engine.
 // We expect to only set this value once - an error is returned if a step would be overwritten
-func (r *MeteringReport) SetStep(ref MeteringReportStepRef, steps []MeteringReportStep) error {
+func (r *Report) SetStep(ref ReportStepRef, steps []ReportStep) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -146,7 +146,7 @@ func (r *MeteringReport) SetStep(ref MeteringReportStepRef, steps []MeteringRepo
 	return nil
 }
 
-func (r *MeteringReport) Message() *events.MeteringReport {
+func (r *Report) Message() *events.MeteringReport {
 	protoReport := &events.MeteringReport{
 		Steps:    map[string]*events.MeteringReportStep{},
 		Metadata: &events.WorkflowMetadata{},
@@ -170,47 +170,47 @@ func (r *MeteringReport) Message() *events.MeteringReport {
 	return protoReport
 }
 
-// MeterReports is a concurrency-safe wrapper around map[string]*MeteringReport.
-type MeterReports struct {
-	mu           sync.RWMutex
-	meterReports map[string]*MeteringReport
+// Reports is a concurrency-safe wrapper around map[string]*Report.
+type Reports struct {
+	mu      sync.RWMutex
+	reports map[string]*Report
 }
 
-// NewMeterReports initializes and returns a new MeterReports.
-func NewMeterReports() *MeterReports {
-	return &MeterReports{
-		meterReports: make(map[string]*MeteringReport),
+// NewReports initializes and returns a new Reports.
+func NewReports() *Reports {
+	return &Reports{
+		reports: make(map[string]*Report),
 	}
 }
 
-// Get retrieves a MeteringReport for a given key (if it exists).
-func (s *MeterReports) Get(key string) (*MeteringReport, bool) {
+// Get retrieves a Report for a given key (if it exists).
+func (s *Reports) Get(key string) (*Report, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	val, ok := s.meterReports[key]
+	val, ok := s.reports[key]
 	return val, ok
 }
 
-// Add inserts or updates a MeteringReport under the specified key.
-func (s *MeterReports) Add(key string, report *MeteringReport) {
+// Add inserts or updates a Report under the specified key.
+func (s *Reports) Add(key string, report *Report) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.meterReports[key] = report
+	s.reports[key] = report
 }
 
-// Delete removes the MeteringReport with the specified key.
-func (s *MeterReports) Delete(key string) {
+// Delete removes the Report with the specified key.
+func (s *Reports) Delete(key string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	delete(s.meterReports, key)
+	delete(s.reports, key)
 }
 
-func (s *MeterReports) Len() int {
+func (s *Reports) Len() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return len(s.meterReports)
+	return len(s.reports)
 }

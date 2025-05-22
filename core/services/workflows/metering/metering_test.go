@@ -13,17 +13,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestMeteringReport(t *testing.T) {
+func TestReport(t *testing.T) {
 	t.Parallel()
 
-	testUnitA := MeteringSpendUnit("a")
-	testUnitB := MeteringSpendUnit("b")
+	testUnitA := SpendUnit("a")
+	testUnitB := SpendUnit("b")
 
 	t.Run("MedianSpend returns median for multiple spend units", func(t *testing.T) {
 		t.Parallel()
 
-		report := NewMeteringReport(logger.TestLogger(t))
-		steps := []MeteringReportStep{
+		report := NewReport(logger.TestLogger(t))
+		steps := []ReportStep{
 			{"abc", testUnitA, testUnitA.IntToSpendValue(1)},
 			{"xyz", testUnitA, testUnitA.IntToSpendValue(2)},
 			{"abc", testUnitA, testUnitA.IntToSpendValue(3)},
@@ -33,10 +33,10 @@ func TestMeteringReport(t *testing.T) {
 		}
 
 		for idx := range steps {
-			require.NoError(t, report.SetStep(MeteringReportStepRef(strconv.Itoa(idx)), steps))
+			require.NoError(t, report.SetStep(ReportStepRef(strconv.Itoa(idx)), steps))
 		}
 
-		expected := map[MeteringSpendUnit]MeteringSpendValue{
+		expected := map[SpendUnit]SpendValue{
 			testUnitA: testUnitB.IntToSpendValue(2),
 			testUnitB: testUnitB.DecimalToSpendValue(decimal.NewFromFloat(0.2)),
 		}
@@ -54,16 +54,16 @@ func TestMeteringReport(t *testing.T) {
 	t.Run("MedianSpend returns median single spend value", func(t *testing.T) {
 		t.Parallel()
 
-		report := NewMeteringReport(logger.TestLogger(t))
-		steps := []MeteringReportStep{
+		report := NewReport(logger.TestLogger(t))
+		steps := []ReportStep{
 			{"abc", testUnitA, testUnitA.IntToSpendValue(1)},
 		}
 
 		for idx := range steps {
-			require.NoError(t, report.SetStep(MeteringReportStepRef(strconv.Itoa(idx)), steps))
+			require.NoError(t, report.SetStep(ReportStepRef(strconv.Itoa(idx)), steps))
 		}
 
-		expected := map[MeteringSpendUnit]MeteringSpendValue{
+		expected := map[SpendUnit]SpendValue{
 			testUnitA: testUnitA.IntToSpendValue(1),
 		}
 
@@ -78,18 +78,18 @@ func TestMeteringReport(t *testing.T) {
 	t.Run("MedianSpend returns median odd number of spend values", func(t *testing.T) {
 		t.Parallel()
 
-		report := NewMeteringReport(logger.TestLogger(t))
-		steps := []MeteringReportStep{
+		report := NewReport(logger.TestLogger(t))
+		steps := []ReportStep{
 			{"abc", testUnitA, testUnitA.IntToSpendValue(1)},
 			{"abc", testUnitA, testUnitA.IntToSpendValue(3)},
 			{"xyz", testUnitA, testUnitA.IntToSpendValue(2)},
 		}
 
 		for idx := range steps {
-			require.NoError(t, report.SetStep(MeteringReportStepRef(strconv.Itoa(idx)), steps))
+			require.NoError(t, report.SetStep(ReportStepRef(strconv.Itoa(idx)), steps))
 		}
 
-		expected := map[MeteringSpendUnit]MeteringSpendValue{
+		expected := map[SpendUnit]SpendValue{
 			testUnitA: testUnitA.IntToSpendValue(2),
 		}
 
@@ -104,8 +104,8 @@ func TestMeteringReport(t *testing.T) {
 	t.Run("MedianSpend returns median as average for even number of spend values", func(t *testing.T) {
 		t.Parallel()
 
-		report := NewMeteringReport(logger.TestLogger(t))
-		steps := []MeteringReportStep{
+		report := NewReport(logger.TestLogger(t))
+		steps := []ReportStep{
 			{"xyz", testUnitA, testUnitA.IntToSpendValue(42)},
 			{"abc", testUnitA, testUnitA.IntToSpendValue(1)},
 			{"abc", testUnitA, testUnitA.IntToSpendValue(3)},
@@ -113,10 +113,10 @@ func TestMeteringReport(t *testing.T) {
 		}
 
 		for idx := range steps {
-			require.NoError(t, report.SetStep(MeteringReportStepRef(strconv.Itoa(idx)), steps))
+			require.NoError(t, report.SetStep(ReportStepRef(strconv.Itoa(idx)), steps))
 		}
 
-		expected := map[MeteringSpendUnit]MeteringSpendValue{
+		expected := map[SpendUnit]SpendValue{
 			testUnitA: testUnitA.DecimalToSpendValue(decimal.NewFromFloat(2.5)),
 		}
 
@@ -130,8 +130,8 @@ func TestMeteringReport(t *testing.T) {
 
 	t.Run("SetStep returns error if step already exists", func(t *testing.T) {
 		t.Parallel()
-		report := NewMeteringReport(logger.TestLogger(t))
-		steps := []MeteringReportStep{
+		report := NewReport(logger.TestLogger(t))
+		steps := []ReportStep{
 			{"xyz", testUnitA, testUnitA.IntToSpendValue(42)},
 			{"abc", testUnitA, testUnitA.IntToSpendValue(1)},
 		}
@@ -144,35 +144,35 @@ func TestMeteringReport(t *testing.T) {
 // Test_MeterReports tests the Add, Get, Delete, and Len methods of a MeterReports.
 // It also tests concurrent safe access.
 func Test_MeterReports(t *testing.T) {
-	mr := NewMeterReports()
+	mr := NewReports()
 	assert.Equal(t, 0, mr.Len())
 	wg := sync.WaitGroup{}
 	wg.Add(3)
 	go func() {
 		defer wg.Done()
-		mr.Add("exec1", NewMeteringReport(logger.TestLogger(t)))
+		mr.Add("exec1", NewReport(logger.TestLogger(t)))
 		r, ok := mr.Get("exec1")
 		assert.True(t, ok)
 		//nolint:errcheck // depending on the concurrent timing, this may or may not err
-		r.SetStep("ref1", []MeteringReportStep{})
+		r.SetStep("ref1", []ReportStep{})
 		mr.Delete("exec1")
 	}()
 	go func() {
 		defer wg.Done()
-		mr.Add("exec2", NewMeteringReport(logger.TestLogger(t)))
+		mr.Add("exec2", NewReport(logger.TestLogger(t)))
 		r, ok := mr.Get("exec2")
 		assert.True(t, ok)
-		err := r.SetStep("ref1", []MeteringReportStep{})
+		err := r.SetStep("ref1", []ReportStep{})
 		assert.NoError(t, err)
 		mr.Delete("exec2")
 	}()
 	go func() {
 		defer wg.Done()
-		mr.Add("exec1", NewMeteringReport(logger.TestLogger(t)))
+		mr.Add("exec1", NewReport(logger.TestLogger(t)))
 		r, ok := mr.Get("exec1")
 		assert.True(t, ok)
 		//nolint:errcheck // depending on the concurrent timing, this may or may not err
-		r.SetStep("ref1", []MeteringReportStep{})
+		r.SetStep("ref1", []ReportStep{})
 		mr.Delete("exec1")
 	}()
 
@@ -181,11 +181,11 @@ func Test_MeterReports(t *testing.T) {
 }
 
 func Test_MeterReportsLength(t *testing.T) {
-	mr := NewMeterReports()
+	mr := NewReports()
 
-	mr.Add("exec1", NewMeteringReport(logger.TestLogger(t)))
-	mr.Add("exec2", NewMeteringReport(logger.TestLogger(t)))
-	mr.Add("exec3", NewMeteringReport(logger.TestLogger(t)))
+	mr.Add("exec1", NewReport(logger.TestLogger(t)))
+	mr.Add("exec2", NewReport(logger.TestLogger(t)))
+	mr.Add("exec3", NewReport(logger.TestLogger(t)))
 	assert.Equal(t, 3, mr.Len())
 
 	mr.Delete("exec2")
