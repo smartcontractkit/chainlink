@@ -5,13 +5,11 @@ import (
 	"os"
 
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/cmd/download"
-	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/cmd/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/cmd/root"
 )
 
 func init() {
 	root.RootCmd.AddCommand(download.DownloadCmd)
-	root.RootCmd.AddCommand(environment.EnvironmentCmd)
 }
 
 func main() {
