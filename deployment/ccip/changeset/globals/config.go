@@ -86,6 +86,7 @@ var (
 		TransmissionDelayMultiplier: TransmissionDelayMultiplier,
 		MaxReportMessages:           0,
 		MaxSingleChainReports:       0,
+		MaxCommitReportsToFetch:     1000,
 
 		// Remaining fields cannot be statically set:
 		// TokenDataObservers: , // Must be configured in CLD
