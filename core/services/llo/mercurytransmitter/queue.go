@@ -140,9 +140,16 @@ func (tq *transmitQueue) BlockingPop() (t *Transmission) {
 }
 
 func (tq *transmitQueue) IsEmpty() bool {
-	tq.mu.RLock()
-	defer tq.mu.RUnlock()
-	return tq.pq.Len() == 0
+	return tq.Len() == 0
+}
+
+func (tq *transmitQueue) Len() int {
+	tq.cond.L.Lock()
+	defer tq.cond.L.Unlock()
+
+	sz := tq.pq.Len()
+	tq.cond.Signal()
+	return sz
 }
 
 func (tq *transmitQueue) Start(context.Context) error {

@@ -9,6 +9,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -63,7 +66,7 @@ func (state MCMSWithTimelockState) GenerateMCMSWithTimelockView() (v1_0.MCMSWith
 // MaybeLoadMCMSWithTimelockState loads the MCMSWithTimelockState state for each chain in the given environment.
 // Deprecated: use MaybeLoadMCMSWithTimelockState from deployment/common/changeset/state/evm.go instead
 // if you are changing this, please make the similar changes in deployment/common/changeset/state
-func MaybeLoadMCMSWithTimelockState(env deployment.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockState, error) {
+func MaybeLoadMCMSWithTimelockState(env cldf.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockState, error) {
 	result := map[uint64]*MCMSWithTimelockState{}
 	for _, chainSelector := range chainSelectors {
 		chain, ok := env.Chains[chainSelector]
@@ -94,8 +97,8 @@ func MaybeLoadMCMSWithTimelockState(env deployment.Environment, chainSelectors [
 // Deprecated: use MaybeLoadMCMSWithTimelockChainState from deployment/common/changeset/state/evm.go instead
 // if you are changing this, please make the similar changes in deployment/common/changeset/state
 func MaybeLoadMCMSWithTimelockChainState(
-	chain deployment.Chain,
-	addresses map[string]deployment.TypeAndVersion,
+	chain cldf.Chain,
+	addresses map[string]cldf.TypeAndVersion,
 ) (*MCMSWithTimelockState, error) {
 	var (
 		state = MCMSWithTimelockState{
@@ -103,29 +106,29 @@ func MaybeLoadMCMSWithTimelockChainState(
 		}
 
 		// We expect one of each contract on the chain.
-		timelock  = deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
-		callProxy = deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0)
-		proposer  = deployment.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0)
-		canceller = deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0)
-		bypasser  = deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0)
+		timelock  = cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
+		callProxy = cldf.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0)
+		proposer  = cldf.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0)
+		canceller = cldf.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0)
+		bypasser  = cldf.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0)
 
 		// the same contract can have different roles
-		multichain    = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
-		proposerMCMS  = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
-		bypasserMCMS  = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
-		cancellerMCMS = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+		multichain    = cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+		proposerMCMS  = cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+		bypasserMCMS  = cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+		cancellerMCMS = cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
 	)
 
 	// Convert map keys to a slice
 	proposerMCMS.Labels.Add(types.ProposerRole.String())
 	bypasserMCMS.Labels.Add(types.BypasserRole.String())
 	cancellerMCMS.Labels.Add(types.CancellerRole.String())
-	wantTypes := []deployment.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy,
+	wantTypes := []cldf.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy,
 		proposerMCMS, bypasserMCMS, cancellerMCMS,
 	}
 
 	// Ensure we either have the bundle or not.
-	_, err := deployment.EnsureDeduped(addresses, wantTypes)
+	_, err := cldf.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check MCMS contracts on chain %s error: %w", chain.Name(), err)
 	}
@@ -180,7 +183,6 @@ func MaybeLoadMCMSWithTimelockChainState(
 				state.CancellerMcm = mcms
 			}
 		}
-
 	}
 	return &state, nil
 }
@@ -201,7 +203,7 @@ func (s LinkTokenState) GenerateLinkView() (v1_0.LinkTokenView, error) {
 // MaybeLoadLinkTokenState loads the LinkTokenState state for each chain in the given environment.
 // Deprecated: use MaybeLoadLinkTokenState from deployment/common/changeset/state/evm.go instead
 // if you are changing this, please make the similar changes in deployment/common/changeset/state
-func MaybeLoadLinkTokenState(env deployment.Environment, chainSelectors []uint64) (map[uint64]*LinkTokenState, error) {
+func MaybeLoadLinkTokenState(env cldf.Environment, chainSelectors []uint64) (map[uint64]*LinkTokenState, error) {
 	result := map[uint64]*LinkTokenState{}
 	for _, chainSelector := range chainSelectors {
 		chain, ok := env.Chains[chainSelector]
@@ -223,15 +225,15 @@ func MaybeLoadLinkTokenState(env deployment.Environment, chainSelectors []uint64
 
 // Deprecated: use MaybeLoadLinkTokenChainState from deployment/common/changeset/state/evm.go instead
 // if you are changing this, please make the similar changes in deployment/common/changeset/state
-func MaybeLoadLinkTokenChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*LinkTokenState, error) {
+func MaybeLoadLinkTokenChainState(chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (*LinkTokenState, error) {
 	state := LinkTokenState{}
-	linkToken := deployment.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0)
+	linkToken := cldf.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0)
 
 	// Convert map keys to a slice
-	wantTypes := []deployment.TypeAndVersion{linkToken}
+	wantTypes := []cldf.TypeAndVersion{linkToken}
 
 	// Ensure we either have the bundle or not.
-	_, err := deployment.EnsureDeduped(addresses, wantTypes)
+	_, err := cldf.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check link token on chain %s error: %w", chain.Name(), err)
 	}
@@ -263,15 +265,15 @@ func (s StaticLinkTokenState) GenerateStaticLinkView() (v1_0.StaticLinkTokenView
 
 // Deprecated: use MaybeLoadStaticLinkTokenState from deployment/common/changeset/state/evm.go instead
 // if you are changing this, please make the similar changes in deployment/common/changeset/state
-func MaybeLoadStaticLinkTokenState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*StaticLinkTokenState, error) {
+func MaybeLoadStaticLinkTokenState(chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (*StaticLinkTokenState, error) {
 	state := StaticLinkTokenState{}
-	staticLinkToken := deployment.NewTypeAndVersion(types.StaticLinkToken, deployment.Version1_0_0)
+	staticLinkToken := cldf.NewTypeAndVersion(types.StaticLinkToken, deployment.Version1_0_0)
 
 	// Convert map keys to a slice
-	wantTypes := []deployment.TypeAndVersion{staticLinkToken}
+	wantTypes := []cldf.TypeAndVersion{staticLinkToken}
 
 	// Ensure we either have the bundle or not.
-	_, err := deployment.EnsureDeduped(addresses, wantTypes)
+	_, err := cldf.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check static link token on chain %s error: %w", chain.Name(), err)
 	}

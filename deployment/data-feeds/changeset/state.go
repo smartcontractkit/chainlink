@@ -12,6 +12,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -20,13 +22,14 @@ import (
 
 	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
 	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/view"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/view/v1_0"
 )
 
 var (
-	DataFeedsCache deployment.ContractType = "DataFeedsCache"
+	DataFeedsCache cldf.ContractType = "DataFeedsCache"
 )
 
 type DataFeedsChainState struct {
@@ -40,7 +43,7 @@ type DataFeedsOnChainState struct {
 	Chains map[uint64]DataFeedsChainState
 }
 
-func LoadOnchainState(e deployment.Environment) (DataFeedsOnChainState, error) {
+func LoadOnchainState(e cldf.Environment) (DataFeedsOnChainState, error) {
 	state := DataFeedsOnChainState{
 		Chains: make(map[uint64]DataFeedsChainState),
 	}
@@ -48,10 +51,10 @@ func LoadOnchainState(e deployment.Environment) (DataFeedsOnChainState, error) {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			// Chain not found in address book, initialize empty
-			if !errors.Is(err, deployment.ErrChainNotFound) {
+			if !errors.Is(err, cldf.ErrChainNotFound) {
 				return state, err
 			}
-			addresses = make(map[string]deployment.TypeAndVersion)
+			addresses = make(map[string]cldf.TypeAndVersion)
 		}
 		chainState, err := LoadChainState(e.Logger, chain, addresses)
 		if err != nil {
@@ -63,7 +66,7 @@ func LoadOnchainState(e deployment.Environment) (DataFeedsOnChainState, error) {
 }
 
 // LoadChainState Loads all state for a chain into state
-func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*DataFeedsChainState, error) {
+func LoadChainState(logger logger.Logger, chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (*DataFeedsChainState, error) {
 	var state DataFeedsChainState
 
 	mcmsWithTimelock, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
@@ -72,10 +75,10 @@ func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[
 	}
 	state.MCMSWithTimelockState = *mcmsWithTimelock
 
-	dfCacheTV := deployment.NewTypeAndVersion(DataFeedsCache, deployment.Version1_0_0)
+	dfCacheTV := cldf.NewTypeAndVersion(DataFeedsCache, deployment.Version1_0_0)
 	dfCacheTV.Labels.Add("data-feeds")
 
-	devPlatformCacheTV := deployment.NewTypeAndVersion(DataFeedsCache, deployment.Version1_0_0)
+	devPlatformCacheTV := cldf.NewTypeAndVersion(DataFeedsCache, deployment.Version1_0_0)
 	devPlatformCacheTV.Labels.Add("dev-platform")
 
 	state.DataFeedsCache = make(map[common.Address]*cache.DataFeedsCache)
@@ -98,11 +101,11 @@ func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[
 			}
 			state.AggregatorProxy[common.HexToAddress(address)] = contract
 			state.ABIByAddress[address] = proxy.AggregatorProxyABI
-		case tv.String() == deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0).String():
+		case tv.String() == cldf.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0).String():
 			state.ABIByAddress[address] = gethwrappers.RBACTimelockABI
-		case tv.String() == deployment.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0).String():
+		case tv.String() == cldf.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0).String():
 			state.ABIByAddress[address] = gethwrappers.CallProxyABI
-		case tv.String() == deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0).String() || tv.String() == deployment.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0).String() || tv.String() == deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String():
+		case tv.String() == cldf.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0).String() || tv.String() == cldf.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0).String() || tv.String() == cldf.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String():
 			state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
 		default:
 			logger.Warnw("unknown contract type", "type", tv.Type)
@@ -111,10 +114,10 @@ func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[
 	return &state, nil
 }
 
-func (s DataFeedsOnChainState) View(chains []uint64, e deployment.Environment) (map[string]view.ChainView, error) {
+func (s DataFeedsOnChainState) View(chains []uint64, e cldf.Environment) (map[string]view.ChainView, error) {
 	m := make(map[string]view.ChainView)
 	for _, chainSelector := range chains {
-		chainInfo, err := deployment.ChainInfo(chainSelector)
+		chainInfo, err := cldf.ChainInfo(chainSelector)
 		if err != nil {
 			return m, err
 		}
@@ -136,7 +139,7 @@ func (s DataFeedsOnChainState) View(chains []uint64, e deployment.Environment) (
 	return m, nil
 }
 
-func GenerateFeedConfigView(e deployment.Environment, chainName string) *v1_0.FeedState {
+func GenerateFeedConfigView(e cldf.Environment, chainName string) *v1_0.FeedState {
 	baseDir := ".."
 	envName := e.Name
 

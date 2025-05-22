@@ -10,6 +10,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -31,15 +34,15 @@ func Test_GetContractSet(t *testing.T) {
 		{
 			name: "OK_picks unlabeled contracts by default",
 			giveRequest: func() *GetContractSetsRequest {
-				giveAB := map[uint64]map[string]deployment.TypeAndVersion{
+				giveAB := map[uint64]map[string]cldf.TypeAndVersion{
 					chain.Selector: {
-						"0xabc": deployment.NewTypeAndVersion(
-							deployment.ContractType("CapabilitiesRegistry"),
+						"0xabc": cldf.NewTypeAndVersion(
+							cldf.ContractType("CapabilitiesRegistry"),
 							deployment.Version1_0_0,
 						),
-						"0x123": func() deployment.TypeAndVersion {
-							tv := deployment.NewTypeAndVersion(
-								deployment.ContractType("CapabilitiesRegistry"),
+						"0x123": func() cldf.TypeAndVersion {
+							tv := cldf.NewTypeAndVersion(
+								cldf.ContractType("CapabilitiesRegistry"),
 								deployment.Version1_0_0,
 							)
 							tv.Labels.Add("SA")
@@ -47,11 +50,11 @@ func Test_GetContractSet(t *testing.T) {
 						}(),
 					},
 				}
-				ab := deployment.NewMemoryAddressBookFromMap(
+				ab := cldf.NewMemoryAddressBookFromMap(
 					giveAB,
 				)
 				req := &GetContractSetsRequest{
-					Chains: map[uint64]deployment.Chain{
+					Chains: map[uint64]cldf.Chain{
 						chain.Selector: {
 							Selector: chain.Selector,
 						},
@@ -78,15 +81,15 @@ func Test_GetContractSet(t *testing.T) {
 		{
 			name: "OK_resolves labeled contracts",
 			giveRequest: func() *GetContractSetsRequest {
-				giveAB := map[uint64]map[string]deployment.TypeAndVersion{
+				giveAB := map[uint64]map[string]cldf.TypeAndVersion{
 					chain.Selector: {
-						"0xabc": deployment.NewTypeAndVersion(
-							deployment.ContractType("CapabilitiesRegistry"),
+						"0xabc": cldf.NewTypeAndVersion(
+							cldf.ContractType("CapabilitiesRegistry"),
 							deployment.Version1_0_0,
 						),
-						"0x123": func() deployment.TypeAndVersion {
-							tv := deployment.NewTypeAndVersion(
-								deployment.ContractType("CapabilitiesRegistry"),
+						"0x123": func() cldf.TypeAndVersion {
+							tv := cldf.NewTypeAndVersion(
+								cldf.ContractType("CapabilitiesRegistry"),
 								deployment.Version1_0_0,
 							)
 							tv.Labels.Add("SA")
@@ -94,11 +97,11 @@ func Test_GetContractSet(t *testing.T) {
 						}(),
 					},
 				}
-				ab := deployment.NewMemoryAddressBookFromMap(
+				ab := cldf.NewMemoryAddressBookFromMap(
 					giveAB,
 				)
 				req := &GetContractSetsRequest{
-					Chains: map[uint64]deployment.Chain{
+					Chains: map[uint64]cldf.Chain{
 						chain.Selector: {
 							Selector: chain.Selector,
 						},

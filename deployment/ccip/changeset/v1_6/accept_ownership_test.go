@@ -7,8 +7,9 @@ import (
 	"golang.org/x/exp/maps"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -16,7 +17,7 @@ import (
 func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t)
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	allChains := maps.Keys(e.Env.Chains)
@@ -36,18 +37,18 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 
 	// at this point we have the initial deploys done, now we need to transfer ownership
 	// to the timelock contract
-	state, err = changeset.LoadOnchainState(e.Env)
+	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// compose the transfer ownership and accept ownership changesets
 	_, err = commonchangeset.Apply(t, e.Env, timelockContracts,
 		// note this doesn't have proposals.
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
-			testhelpers.GenTestTransferOwnershipConfig(e, allChains, state),
+			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
+			testhelpers.GenTestTransferOwnershipConfig(e, allChains, state, true),
 		),
 	)
 	require.NoError(t, err)
 
-	testhelpers.AssertTimelockOwnership(t, e, allChains, state)
+	testhelpers.AssertTimelockOwnership(t, e, allChains, state, true)
 }

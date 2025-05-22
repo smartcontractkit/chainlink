@@ -20,53 +20,69 @@ func TestMedianTask(t *testing.T) {
 		name          string
 		inputs        []pipeline.Result
 		allowedFaults string
+		lax           string
 		want          pipeline.Result
 	}{
 		{
 			"odd number of inputs",
 			[]pipeline.Result{{Value: mustDecimal(t, "1")}, {Value: mustDecimal(t, "2")}, {Value: mustDecimal(t, "3")}},
 			"1",
+			"",
 			pipeline.Result{Value: mustDecimal(t, "2")},
 		},
 		{
 			"even number of inputs",
 			[]pipeline.Result{{Value: mustDecimal(t, "1")}, {Value: mustDecimal(t, "2")}, {Value: mustDecimal(t, "3")}, {Value: mustDecimal(t, "4")}},
 			"2",
+			"",
 			pipeline.Result{Value: mustDecimal(t, "2.5")},
 		},
 		{
 			"one input",
 			[]pipeline.Result{{Value: mustDecimal(t, "1")}},
 			"0",
+			"",
 			pipeline.Result{Value: mustDecimal(t, "1")},
 		},
 		{
 			"zero inputs",
 			[]pipeline.Result{},
 			"0",
+			"",
 			pipeline.Result{Error: pipeline.ErrWrongInputCardinality},
 		},
 		{
 			"fewer errors than threshold",
 			[]pipeline.Result{{Error: errors.New("")}, {Value: mustDecimal(t, "2")}, {Value: mustDecimal(t, "3")}, {Value: mustDecimal(t, "4")}},
 			"2",
+			"",
 			pipeline.Result{Value: mustDecimal(t, "3")},
 		},
 		{
 			"exactly threshold of errors",
 			[]pipeline.Result{{Error: errors.New("")}, {Error: errors.New("")}, {Value: mustDecimal(t, "3")}, {Value: mustDecimal(t, "4")}},
 			"2",
+			"",
 			pipeline.Result{Value: mustDecimal(t, "3.5")},
 		},
 		{
 			"more errors than threshold",
 			[]pipeline.Result{{Error: errors.New("")}, {Error: errors.New("")}, {Error: errors.New("")}, {Value: mustDecimal(t, "4")}},
 			"2",
+			"",
 			pipeline.Result{Error: pipeline.ErrTooManyErrors},
+		},
+		{
+			"(unspecified AllowedFaults) zero inputs",
+			[]pipeline.Result{},
+			"",
+			"",
+			pipeline.Result{Error: pipeline.ErrWrongInputCardinality},
 		},
 		{
 			"(unspecified AllowedFaults) fewer errors than threshold",
 			[]pipeline.Result{{Error: errors.New("")}, {Error: errors.New("")}, {Value: mustDecimal(t, "3")}, {Value: mustDecimal(t, "4")}},
+			"",
 			"",
 			pipeline.Result{Value: mustDecimal(t, "3.5")},
 		},
@@ -74,12 +90,56 @@ func TestMedianTask(t *testing.T) {
 			"(unspecified AllowedFaults) exactly threshold of errors",
 			[]pipeline.Result{{Error: errors.New("")}, {Error: errors.New("")}, {Error: errors.New("")}, {Value: mustDecimal(t, "4")}},
 			"",
+			"",
 			pipeline.Result{Value: mustDecimal(t, "4")},
 		},
 		{
 			"(unspecified AllowedFaults) more errors than threshold",
 			[]pipeline.Result{{Error: errors.New("")}, {Error: errors.New("")}, {Error: errors.New("")}},
 			"",
+			"",
+			pipeline.Result{Error: pipeline.ErrTooManyErrors},
+		},
+		{
+			"(unspecified Lax) error on parsing nil inputs",
+			[]pipeline.Result{{}, {Value: mustDecimal(t, "2")}, {Value: mustDecimal(t, "3")}},
+			"",
+			"",
+			pipeline.Result{Error: pipeline.ErrBadInput},
+		},
+		{
+			"nil inputs with Lax enabled",
+			[]pipeline.Result{{}, {Value: errors.New("")}, {Value: mustDecimal(t, "2")}, {Value: mustDecimal(t, "3")}},
+			"",
+			"true",
+			pipeline.Result{Value: mustDecimal(t, "2.5")},
+		},
+		{
+			"zero inputs with Lax enabled",
+			[]pipeline.Result{},
+			"",
+			"true",
+			pipeline.Result{},
+		},
+		{
+			"zero non-nil inputs with Lax enabled",
+			[]pipeline.Result{{}, {}, {}},
+			"",
+			"true",
+			pipeline.Result{},
+		},
+		{
+			"nil inputs and exact threshold of errors with Lax enabled",
+			[]pipeline.Result{{}, {}, {Value: errors.New("")}, {Value: errors.New("")}},
+			"2",
+			"true",
+			pipeline.Result{},
+		},
+		{
+			"nil inputs and more errors than threshold with Lax enabled",
+			[]pipeline.Result{{}, {}, {Value: errors.New("")}, {Value: errors.New("")}},
+			"1",
+			"true",
 			pipeline.Result{Error: pipeline.ErrTooManyErrors},
 		},
 	}
@@ -90,6 +150,7 @@ func TestMedianTask(t *testing.T) {
 				task := pipeline.MedianTask{
 					BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
 					AllowedFaults: test.allowedFaults,
+					Lax:           test.lax,
 				}
 				output, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
 				assert.False(t, runInfo.IsPending)
@@ -98,7 +159,11 @@ func TestMedianTask(t *testing.T) {
 					require.Equal(t, test.want.Error, errors.Cause(output.Error))
 					require.Nil(t, output.Value)
 				} else {
-					require.Equal(t, test.want.Value.(*decimal.Decimal).String(), output.Value.(decimal.Decimal).String())
+					if test.want.Value == nil {
+						require.Nil(t, output.Value)
+					} else {
+						require.Equal(t, test.want.Value.(*decimal.Decimal).String(), output.Value.(decimal.Decimal).String())
+					}
 					require.NoError(t, output.Error)
 				}
 			})
@@ -118,6 +183,7 @@ func TestMedianTask(t *testing.T) {
 					BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
 					Values:        "$(foo.bar)",
 					AllowedFaults: test.allowedFaults,
+					Lax:           test.lax,
 				}
 				output, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
 				assert.False(t, runInfo.IsPending)
@@ -126,7 +192,11 @@ func TestMedianTask(t *testing.T) {
 					require.Equal(t, test.want.Error, errors.Cause(output.Error))
 					require.Nil(t, output.Value)
 				} else {
-					require.Equal(t, test.want.Value.(*decimal.Decimal).String(), output.Value.(decimal.Decimal).String())
+					if test.want.Value == nil {
+						require.Nil(t, output.Value)
+					} else {
+						require.Equal(t, test.want.Value.(*decimal.Decimal).String(), output.Value.(decimal.Decimal).String())
+					}
 					require.NoError(t, output.Error)
 				}
 			})
@@ -160,6 +230,7 @@ func TestMedianTask(t *testing.T) {
 					BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
 					Values:        valuesParam,
 					AllowedFaults: test.allowedFaults,
+					Lax:           test.lax,
 				}
 				output, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
 				assert.False(t, runInfo.IsPending)
@@ -168,7 +239,11 @@ func TestMedianTask(t *testing.T) {
 					require.Equal(t, test.want.Error, errors.Cause(output.Error))
 					require.Nil(t, output.Value)
 				} else {
-					require.Equal(t, test.want.Value.(*decimal.Decimal).String(), output.Value.(decimal.Decimal).String())
+					if test.want.Value == nil {
+						require.Nil(t, output.Value)
+					} else {
+						require.Equal(t, test.want.Value.(*decimal.Decimal).String(), output.Value.(decimal.Decimal).String())
+					}
 					require.NoError(t, output.Error)
 				}
 			})
@@ -176,7 +251,7 @@ func TestMedianTask(t *testing.T) {
 	}
 }
 
-func TestMedianTask_AllowedFaults_Unmarshal(t *testing.T) {
+func TestMedianTask_AllowedFaultsAndLax_Unmarshal(t *testing.T) {
 	t.Parallel()
 
 	p, err := pipeline.Parse(`
@@ -193,13 +268,14 @@ func TestMedianTask_AllowedFaults_Unmarshal(t *testing.T) {
 	ds1 -> ds1_parse -> ds1_multiply -> answer1;
 	ds2 -> ds2_parse -> ds2_multiply -> answer1;
 
-	answer1 [type=median                      index=0 allowedFaults=10];
+	answer1 [type=median                      index=0 allowedFaults=10 lax=true];
 	answer2 [type=bridge name=election_winner index=1];
 `)
 	require.NoError(t, err)
 	for _, task := range p.Tasks {
 		if task.Type() == pipeline.TaskTypeMedian {
 			require.Equal(t, "10", task.(*pipeline.MedianTask).AllowedFaults)
+			require.Equal(t, "true", task.(*pipeline.MedianTask).Lax)
 		}
 	}
 }

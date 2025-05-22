@@ -16,16 +16,18 @@ import (
 
 	solanaUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 func deployMCMProgram(
-	env deployment.Environment, chainState *state.MCMSWithTimelockStateSolana,
-	chain deployment.SolChain, addressBook deployment.AddressBook,
+	env cldf.Environment, chainState *state.MCMSWithTimelockStateSolana,
+	chain cldf.SolChain, addressBook cldf.AddressBook,
 ) error {
-	typeAndVersion := deployment.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
+	typeAndVersion := cldf.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
 	log := logger.With(env.Logger, "chain", chain.String(), "contract", typeAndVersion.String())
 
 	programID, _, err := chainState.GetStateFromType(commontypes.ManyChainMultisigProgram)
@@ -34,7 +36,10 @@ func deployMCMProgram(
 	}
 
 	if programID.IsZero() {
-		deployedProgramID, err := chain.DeployProgram(log, "mcm", false)
+		deployedProgramID, err := chain.DeployProgram(log, cldf.SolProgramInfo{
+			Name:  deployment.McmProgramName,
+			Bytes: deployment.SolanaProgramBytes[deployment.McmProgramName],
+		}, false, true)
 		if err != nil {
 			return fmt.Errorf("failed to deploy mcm program: %w", err)
 		}
@@ -63,8 +68,8 @@ func deployMCMProgram(
 }
 
 func initMCM(
-	env deployment.Environment, chainState *state.MCMSWithTimelockStateSolana, contractType deployment.ContractType,
-	chain deployment.SolChain, addressBook deployment.AddressBook, mcmConfig *mcmsTypes.Config,
+	env cldf.Environment, chainState *state.MCMSWithTimelockStateSolana, contractType cldf.ContractType,
+	chain cldf.SolChain, addressBook cldf.AddressBook, mcmConfig *mcmsTypes.Config,
 ) error {
 	if chainState.McmProgram.IsZero() {
 		return errors.New("mcm program is not deployed")
@@ -72,7 +77,7 @@ func initMCM(
 	programID := chainState.McmProgram
 	mcmBindings.SetProgramID(programID)
 
-	typeAndVersion := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
+	typeAndVersion := cldf.NewTypeAndVersion(contractType, deployment.Version1_0_0)
 	mcmProgram, mcmSeed, err := chainState.GetStateFromType(contractType)
 	if err != nil {
 		return fmt.Errorf("failed to get mcm state: %w", err)
@@ -122,7 +127,7 @@ func initMCM(
 	return nil
 }
 
-func initializeMCM(e deployment.Environment, chain deployment.SolChain, mcmProgram solana.PublicKey, multisigID state.PDASeed) error {
+func initializeMCM(e cldf.Environment, chain cldf.SolChain, mcmProgram solana.PublicKey, multisigID state.PDASeed) error {
 	var mcmConfig mcmBindings.MultisigConfig
 	err := chain.GetAccountDataBorshInto(e.GetContext(), state.GetMCMConfigPDA(mcmProgram, multisigID), &mcmConfig)
 	if err == nil {

@@ -9,17 +9,17 @@ import (
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -33,7 +33,7 @@ import (
  */
 func TestUSDCTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithNumOfUsersPerChain(3),
 		testhelpers.WithNumOfChains(3),
@@ -41,7 +41,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	)
 
 	e := tenv.Env
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	allChainSelectors := maps.Keys(e.Chains)
@@ -238,8 +238,8 @@ func TestUSDCTokenTransfer(t *testing.T) {
 func updateFeeQuoters(
 	t *testing.T,
 	lggr logger.Logger,
-	e deployment.Environment,
-	state changeset.CCIPOnChainState,
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
 	chainA, chainB, chainC uint64,
 	aChainUSDC, bChainUSDC, cChainUSDC *burn_mint_erc677.BurnMintERC677,
 ) error {

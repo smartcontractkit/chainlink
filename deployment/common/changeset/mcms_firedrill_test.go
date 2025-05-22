@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -19,7 +19,7 @@ import (
 )
 
 // setupFiredrillTestEnv deploys all required contracts for the firedrill proposal execution
-func setupFiredrillTestEnv(t *testing.T) deployment.Environment {
+func setupFiredrillTestEnv(t *testing.T) cldf.Environment {
 	lggr := logger.TestLogger(t)
 	cfg := memory.MemoryEnvironmentConfig{
 		Chains:    2,
@@ -53,7 +53,7 @@ func setupFiredrillTestEnv(t *testing.T) deployment.Environment {
 	mcmSigner := state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
 	mcmSignerBypasser := state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed)
 	solChain := env.SolChains[chainSelectorSolana]
-	memory.FundSolanaAccounts(env.GetContext(), t, []solana.PublicKey{timelockSigner, mcmSigner, mcmSignerBypasser, solChain.DeployerKey.PublicKey()}, 150, solChain.Client)
+	err = memory.FundSolanaAccounts(env.GetContext(), []solana.PublicKey{timelockSigner, mcmSigner, mcmSignerBypasser, solChain.DeployerKey.PublicKey()}, 150, solChain.Client)
 	require.NoError(t, err)
 	return env
 }

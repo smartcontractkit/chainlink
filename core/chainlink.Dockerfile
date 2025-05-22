@@ -72,7 +72,7 @@ COPY --from=buildplugins /go/bin/chainlink-feeds /usr/local/bin/
 # Install Solana LOOP Plugin
 COPY --from=buildplugins /go/bin/chainlink-solana /usr/local/bin/
 # Optionally enable the Solana LOOP Plugin
-ARG CL_SOLANA_CMD
+ARG CL_SOLANA_CMD=chainlink-solana
 ENV CL_SOLANA_CMD=${CL_SOLANA_CMD}
 
 # CCIP specific

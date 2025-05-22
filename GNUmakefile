@@ -85,7 +85,7 @@ install-plugins-private: ## Build & install private remote LOOPP binaries (plugi
 install-plugins-local: ## Build & install local plugins.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-ocr3-capability
-
+	go install $(GOFLAGS) ./plugins/cmd/capabilities/log-event-trigger
 .PHONY: docker ## Build the chainlink docker image
 docker:
 	docker buildx build \
@@ -114,7 +114,6 @@ docker-plugins:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	--build-arg CL_APTOS_CMD=chainlink-aptos \
-	--build-arg CL_SOLANA_CMD=chainlink-solana \
 	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
 	$(PRIVATE_PLUGIN_ARGS) \
 	-f plugins/chainlink.Dockerfile . \

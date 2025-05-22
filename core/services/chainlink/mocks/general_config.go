@@ -265,6 +265,53 @@ func (_c *GeneralConfig_AutoPprof_Call) RunAndReturn(run func() config.AutoPprof
 	return _c
 }
 
+// CRE provides a mock function with no fields
+func (_m *GeneralConfig) CRE() config.CRE {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for CRE")
+	}
+
+	var r0 config.CRE
+	if rf, ok := ret.Get(0).(func() config.CRE); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.CRE)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_CRE_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CRE'
+type GeneralConfig_CRE_Call struct {
+	*mock.Call
+}
+
+// CRE is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) CRE() *GeneralConfig_CRE_Call {
+	return &GeneralConfig_CRE_Call{Call: _e.mock.On("CRE")}
+}
+
+func (_c *GeneralConfig_CRE_Call) Run(run func()) *GeneralConfig_CRE_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_CRE_Call) Return(_a0 config.CRE) *GeneralConfig_CRE_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_CRE_Call) RunAndReturn(run func() config.CRE) *GeneralConfig_CRE_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Capabilities provides a mock function with no fields
 func (_m *GeneralConfig) Capabilities() config.Capabilities {
 	ret := _m.Called()

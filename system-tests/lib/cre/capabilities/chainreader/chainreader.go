@@ -12,6 +12,7 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
+// Deprecated: use capabilities.readcontract.ReadContractCapabilityFactory and capabilities.logevent.LogEventTriggerCapabilityFactory instead
 var ChainReaderCapabilityFactory = func(chainID uint64, chainFamily string) func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	return func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig

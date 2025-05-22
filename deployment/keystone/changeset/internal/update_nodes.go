@@ -14,10 +14,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 type NodeUpdate struct {
@@ -29,7 +30,7 @@ type NodeUpdate struct {
 }
 
 type UpdateNodesRequest struct {
-	Chain                deployment.Chain
+	Chain                cldf.Chain
 	CapabilitiesRegistry *kcr.CapabilitiesRegistry
 
 	P2pToUpdates map[p2pkey.PeerID]NodeUpdate
@@ -103,17 +104,17 @@ func UpdateNodes(lggr logger.Logger, req *UpdateNodesRequest) (*UpdateNodesRespo
 
 	params, err := req.NodeParams()
 	if err != nil {
-		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = cldf.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to make node params: %w", err)
 	}
 	txOpts := req.Chain.DeployerKey
 	if req.UseMCMS {
-		txOpts = deployment.SimTransactOpts()
+		txOpts = cldf.SimTransactOpts()
 	}
 	registry := req.CapabilitiesRegistry
 	tx, err := registry.UpdateNodes(txOpts, params)
 	if err != nil {
-		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = cldf.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call UpdateNodes: %w", err)
 	}
 
@@ -145,7 +146,7 @@ func UpdateNodes(lggr logger.Logger, req *UpdateNodesRequest) (*UpdateNodesRespo
 }
 
 // AppendCapabilities appends the capabilities to the existing capabilities of the nodes listed in p2pIds in the registry
-func AppendCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, chain deployment.Chain, p2pIds []p2pkey.PeerID, capabilities []kcr.CapabilitiesRegistryCapability) (map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability, error) {
+func AppendCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, chain cldf.Chain, p2pIds []p2pkey.PeerID, capabilities []kcr.CapabilitiesRegistryCapability) (map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability, error) {
 	out := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
 	allCapabilities, err := registry.GetCapabilities(&bind.CallOpts{})
 	if err != nil {
@@ -202,7 +203,7 @@ func makeNodeParams(registry *kcr.CapabilitiesRegistry,
 
 	nodes, err := registry.GetNodesByP2PIds(&bind.CallOpts{}, PeerIDsToBytes(p2pIds))
 	if err != nil {
-		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = cldf.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to get nodes by p2p ids: %w", err)
 	}
 	for _, node := range nodes {

@@ -15,7 +15,7 @@
 # If you want to use a specific commit or a branch you need to switch to the internal ECR in `~/.testsecrets`
 # E2E_TEST_CHAINLINK_IMAGE="<aws account number>.dkr.ecr.<aws region>.amazonaws.com/ccip"
 [CCIP.Env.NewCLCluster.Common.ChainlinkImage]
-version = "2.23.0-ccip"
+version = "2.24.0-ccip-beta.0"
 
 [CCIP]
 [CCIP.ContractVersions]
@@ -83,6 +83,7 @@ IsStateful = true
 DBArgs = ['shared_buffers=8192MB', 'effective_cache_size=16384MB', 'work_mem=128MB']
 
 [CCIP.Env.NewCLCluster.Common]
+DBTag = '15.13'
 BaseConfigTOML = """
 [Feature]
 LogPoller = true
@@ -109,8 +110,8 @@ Unauthenticated = 1000
 HTTPSPort = 0
 
 [Database]
-MaxIdleConns = 20
-MaxOpenConns = 40
+MaxIdleConns = 30
+MaxOpenConns = 60
 MigrateOnStartup = true
 
 [OCR2]

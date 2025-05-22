@@ -10,7 +10,9 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -22,18 +24,18 @@ func Test_RMNRemote_Curse_View(t *testing.T) {
 	})
 	chain := e.Chains[e.AllChainSelectors()[0]]
 	_, tx, remote, err := rmn_remote.DeployRMNRemote(chain.DeployerKey, chain.Client, e.AllChainSelectors()[0], common.Address{})
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
 	tx, err = remote.Curse(chain.DeployerKey, globals.GlobalCurseSubject())
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
 	family, err := chainsel.GetSelectorFamily(e.AllChainSelectors()[0])
 	require.NoError(t, err)
 
 	tx, err = remote.Curse(chain.DeployerKey, globals.FamilyAwareSelectorToSubject(e.AllChainSelectors()[0], family))
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
 	view, err := GenerateRMNRemoteView(remote)

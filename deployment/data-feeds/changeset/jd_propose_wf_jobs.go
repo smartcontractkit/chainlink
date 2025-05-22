@@ -10,7 +10,7 @@ import (
 	"time"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/view/v1_0"
@@ -23,11 +23,11 @@ const (
 // ProposeWFJobsToJDChangeset is a changeset that reads a feed state file, creates a workflow job spec from it and proposes it to JD.
 var ProposeWFJobsToJDChangeset = cldf.CreateChangeSet(proposeWFJobsToJDLogic, proposeWFJobsToJDPrecondition)
 
-func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsConfig) (deployment.ChangesetOutput, error) {
+func proposeWFJobsToJDLogic(env cldf.Environment, c types.ProposeWFJobsConfig) (cldf.ChangesetOutput, error) {
 	ctx, cancel := context.WithTimeout(env.GetContext(), timeout)
 	defer cancel()
 
-	chainInfo, _ := deployment.ChainInfo(c.ChainSelector)
+	chainInfo, _ := cldf.ChainInfo(c.ChainSelector)
 
 	feedStatePath := filepath.Join("feeds", chainInfo.ChainName+".json")
 	feedState, _ := LoadJSON[*v1_0.FeedState](feedStatePath, c.InputFS)
@@ -92,30 +92,29 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 		workflowSpecConfig.WriteTargetTrigger,
 		targetSchedule,
 		workflowSpecConfig.CREStepTimeout,
+		workflowSpecConfig.TargetProcessor,
 		cacheAddress,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create workflow spec: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create workflow spec: %w", err)
 	}
 
 	// create workflow job spec TOML
 	workflowJobSpec, err := offchain.JobSpecFromWorkflowSpec(workflowSpec, c.WorkflowJobName, workflowState.Owner)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create workflow job spec: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create workflow job spec: %w", err)
 	}
 
 	// propose workflow jobs to JD
 	out, err := offchain.ProposeJobs(ctx, env, workflowJobSpec, &workflowSpecConfig.WorkflowName, c.NodeFilter)
 	if err != nil {
 		env.Logger.Debugf("%s", workflowJobSpec)
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to propose workflow job spec: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose workflow job spec: %w", err)
 	}
 
-	// write the workflow spec to artifacts/workflows folder. Do not exit on error as the jobs are already proposed
-	baseDir := ".."
-	envName := env.Name
-
-	wfSpecPath := filepath.Join(baseDir, envName, "artifacts", "workflows", chainInfo.ChainName, workflowState.Name+".yaml")
+	// write the workflow spec to artifacts/migration_name folder. Do not exit on error as the jobs are already proposed
+	// using the absolute path to the file as the command is run from root in CLD pipeline
+	wfSpecPath := filepath.Join("domains", "data-feeds", env.Name, "artifacts", c.MigrationName, workflowState.Name+".yaml")
 	err = os.MkdirAll(filepath.Dir(wfSpecPath), 0755)
 	if err != nil {
 		env.Logger.Errorf("failed to create directory for workflow file: %s", err)
@@ -132,7 +131,11 @@ func proposeWFJobsToJDLogic(env deployment.Environment, c types.ProposeWFJobsCon
 	return out, nil
 }
 
-func proposeWFJobsToJDPrecondition(env deployment.Environment, c types.ProposeWFJobsConfig) error {
+func proposeWFJobsToJDPrecondition(env cldf.Environment, c types.ProposeWFJobsConfig) error {
+	if c.MigrationName == "" {
+		return errors.New("migration name is required")
+	}
+
 	if c.WorkflowJobName == "" {
 		return errors.New("workflow job name is required")
 	}
@@ -162,7 +165,7 @@ func proposeWFJobsToJDPrecondition(env deployment.Environment, c types.ProposeWF
 		return fmt.Errorf("failed to get consensus encoder abi: %w", err)
 	}
 
-	chainInfo, err := deployment.ChainInfo(c.ChainSelector)
+	chainInfo, err := cldf.ChainInfo(c.ChainSelector)
 	if err != nil {
 		return fmt.Errorf("failed to get chain info for chain %d: %w", c.ChainSelector, err)
 	}

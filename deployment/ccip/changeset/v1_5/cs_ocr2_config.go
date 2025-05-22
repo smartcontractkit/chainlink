@@ -6,18 +6,22 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 )
 
-var _ deployment.ChangeSet[OCR2Config] = SetOCR2ConfigForTestChangeset
+var _ cldf.ChangeSet[OCR2Config] = SetOCR2ConfigForTestChangeset
 
 type FinalOCR2Config struct {
 	Signers               []common.Address
@@ -64,11 +68,11 @@ func (c *CommitOCR2ConfigParams) PopulateOffChainAndOnChainCfg(priceReg common.A
 	return nil
 }
 
-func (c *CommitOCR2ConfigParams) Validate(state changeset.CCIPOnChainState) error {
-	if err := deployment.IsValidChainSelector(c.DestinationChainSelector); err != nil {
+func (c *CommitOCR2ConfigParams) Validate(state stateview.CCIPOnChainState) error {
+	if err := cldf.IsValidChainSelector(c.DestinationChainSelector); err != nil {
 		return fmt.Errorf("invalid DestinationChainSelector: %w", err)
 	}
-	if err := deployment.IsValidChainSelector(c.SourceChainSelector); err != nil {
+	if err := cldf.IsValidChainSelector(c.SourceChainSelector); err != nil {
 		return fmt.Errorf("invalid SourceChainSelector: %w", err)
 	}
 
@@ -131,11 +135,11 @@ func (e *ExecuteOCR2ConfigParams) PopulateOffChainAndOnChainCfg(router, priceReg
 	return nil
 }
 
-func (e *ExecuteOCR2ConfigParams) Validate(state changeset.CCIPOnChainState) error {
-	if err := deployment.IsValidChainSelector(e.SourceChainSelector); err != nil {
+func (e *ExecuteOCR2ConfigParams) Validate(state stateview.CCIPOnChainState) error {
+	if err := cldf.IsValidChainSelector(e.SourceChainSelector); err != nil {
 		return fmt.Errorf("invalid SourceChainSelector: %w", err)
 	}
-	if err := deployment.IsValidChainSelector(e.DestinationChainSelector); err != nil {
+	if err := cldf.IsValidChainSelector(e.DestinationChainSelector); err != nil {
 		return fmt.Errorf("invalid DestinationChainSelector: %w", err)
 	}
 	chain, exists := state.Chains[e.DestinationChainSelector]
@@ -163,7 +167,7 @@ type OCR2Config struct {
 	ExecConfigs   []ExecuteOCR2ConfigParams
 }
 
-func (o OCR2Config) Validate(state changeset.CCIPOnChainState) error {
+func (o OCR2Config) Validate(state stateview.CCIPOnChainState) error {
 	for _, c := range o.CommitConfigs {
 		if err := c.Validate(state); err != nil {
 			return err
@@ -179,21 +183,21 @@ func (o OCR2Config) Validate(state changeset.CCIPOnChainState) error {
 
 // SetOCR2ConfigForTestChangeset sets the OCR2 config on the chain for commit and offramp
 // This is currently not suitable for prod environments it's only for testing
-func SetOCR2ConfigForTestChangeset(env deployment.Environment, c OCR2Config) (deployment.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(env)
+func SetOCR2ConfigForTestChangeset(env cldf.Environment, c OCR2Config) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load CCIP onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load CCIP onchain state: %w", err)
 	}
 	if err := c.Validate(state); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid OCR2 config: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid OCR2 config: %w", err)
 	}
 	for _, commit := range c.CommitConfigs {
 		if err := commit.PopulateOffChainAndOnChainCfg(state.Chains[commit.DestinationChainSelector].PriceRegistry.Address()); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to populate offchain and onchain config for commit: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate offchain and onchain config for commit: %w", err)
 		}
 		finalCfg, err := deriveOCR2Config(env, commit.DestinationChainSelector, commit.OCR2ConfigParams)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to derive OCR2 config for commit: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to derive OCR2 config for commit: %w", err)
 		}
 		commitStore := state.Chains[commit.DestinationChainSelector].CommitStore[commit.SourceChainSelector]
 		chain := env.Chains[commit.DestinationChainSelector]
@@ -207,12 +211,12 @@ func SetOCR2ConfigForTestChangeset(env deployment.Environment, c OCR2Config) (de
 			finalCfg.OffchainConfig,
 		)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to set OCR2 config for commit store %s on chain %s: %w",
-				commitStore.Address().String(), chain.String(), deployment.MaybeDataErr(err))
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to set OCR2 config for commit store %s on chain %s: %w",
+				commitStore.Address().String(), chain.String(), cldf.MaybeDataErr(err))
 		}
 		_, err = chain.Confirm(tx)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm OCR2 for commit store %s config on chain %s: %w",
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm OCR2 for commit store %s config on chain %s: %w",
 				commitStore.Address().String(), chain.String(), err)
 		}
 	}
@@ -220,11 +224,11 @@ func SetOCR2ConfigForTestChangeset(env deployment.Environment, c OCR2Config) (de
 		if err := exec.PopulateOffChainAndOnChainCfg(
 			state.Chains[exec.DestinationChainSelector].Router.Address(),
 			state.Chains[exec.DestinationChainSelector].PriceRegistry.Address()); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to populate offchain and onchain config for offramp: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate offchain and onchain config for offramp: %w", err)
 		}
 		finalCfg, err := deriveOCR2Config(env, exec.DestinationChainSelector, exec.OCR2ConfigParams)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to derive OCR2 config for offramp: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to derive OCR2 config for offramp: %w", err)
 		}
 		offRamp := state.Chains[exec.DestinationChainSelector].EVM2EVMOffRamp[exec.SourceChainSelector]
 		chain := env.Chains[exec.DestinationChainSelector]
@@ -238,20 +242,20 @@ func SetOCR2ConfigForTestChangeset(env deployment.Environment, c OCR2Config) (de
 			finalCfg.OffchainConfig,
 		)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to set OCR2 config for offramp %s on chain %s: %w",
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to set OCR2 config for offramp %s on chain %s: %w",
 				offRamp.Address().String(), chain.String(), err)
 		}
 		_, err = chain.Confirm(tx)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm OCR2 for offramp %s config on chain %s: %w",
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm OCR2 for offramp %s config on chain %s: %w",
 				offRamp.Address().String(), chain.String(), err)
 		}
 	}
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
 func deriveOCR2Config(
-	env deployment.Environment,
+	env cldf.Environment,
 	chainSel uint64,
 	ocrParams confighelper.PublicConfig,
 ) (FinalOCR2Config, error) {

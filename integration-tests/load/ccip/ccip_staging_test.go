@@ -12,7 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
-	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 
@@ -22,7 +23,8 @@ import (
 func TestStaging_CCIP_Load(t *testing.T) {
 	lggr := logger.Test(t)
 
-	sourceKey := simChainTestKey
+	evmSourceKey := simChainTestKey
+	solSourceKey := solChainTestKey
 
 	// get user defined configurations
 	config, err := tc.GetConfig([]string{"Load"}, tc.CCIP)
@@ -31,13 +33,13 @@ func TestStaging_CCIP_Load(t *testing.T) {
 
 	// generate environment from crib-produced files
 	cribEnv := crib.NewDevspaceEnvFromStateDir(lggr, *userOverrides.CribEnvDirectory)
-	cribDeployOutput, err := cribEnv.GetConfig(sourceKey)
+	cribDeployOutput, err := cribEnv.GetConfig(evmSourceKey, solSourceKey)
 	require.NoError(t, err)
 	env, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
 	require.NoError(t, err)
 	require.NotNil(t, env)
 	userOverrides.Validate(t, env)
-	state, err := ccipchangeset.LoadOnchainState(*env)
+	state, err := stateview.LoadOnchainState(*env)
 	require.NoError(t, err)
 
 	// initialize additional accounts on other chains
@@ -111,7 +113,7 @@ func TestStaging_CCIP_Load(t *testing.T) {
 
 	lggr.Info("Load test complete, returning funds")
 	// return funds to source address at the end of the test
-	sourcePk, err := crypto.HexToECDSA(sourceKey)
+	sourcePk, err := crypto.HexToECDSA(evmSourceKey)
 	if err != nil {
 		lggr.Errorw("could not return funds to source address")
 	}

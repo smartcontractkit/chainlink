@@ -22,13 +22,18 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip"
+	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -38,19 +43,27 @@ import (
 )
 
 var (
-	_ deployment.ChangeSet[AddDonAndSetCandidateChangesetConfig] = AddDonAndSetCandidateChangeset
-	_ deployment.ChangeSet[PromoteCandidateChangesetConfig]      = PromoteCandidateChangeset
-	_ deployment.ChangeSet[SetCandidateChangesetConfig]          = SetCandidateChangeset
-	_ deployment.ChangeSet[RevokeCandidateChangesetConfig]       = RevokeCandidateChangeset
-	_ deployment.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfigChangeset
+	_ cldf.ChangeSet[AddDonAndSetCandidateChangesetConfig] = AddDonAndSetCandidateChangeset
+	_ cldf.ChangeSet[PromoteCandidateChangesetConfig]      = PromoteCandidateChangeset
+	_ cldf.ChangeSet[SetCandidateChangesetConfig]          = SetCandidateChangeset
+	_ cldf.ChangeSet[RevokeCandidateChangesetConfig]       = RevokeCandidateChangeset
+	_ cldf.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfigChangeset
+
+	DeployDonIDClaimerChangeset = cldf.CreateChangeSet(deployDonIDClaimerChangesetLogic, deployDonIDClaimerPrecondition)
+	DonIDClaimerOffSetChangeset = cldf.CreateChangeSet(donIDClaimerOffSetChangesetLogic, donIDClaimerOffSetChangesetPrecondition)
 )
 
-func findTokenInfo(tokens []changeset.TokenDetails, address common.Address) (string, uint8, error) {
+func findTokenInfo(tokens []shared.TokenDetails, address common.Address) (string, uint8, error) {
 	for _, token := range tokens {
 		if token.Address() == address {
 			tokenSymbol, err := token.Symbol(nil)
 			if err != nil {
 				return "", 0, fmt.Errorf("fetch token symbol for token %s: %w", address, err)
+			}
+			// TODO think of better solution
+			// there are tokens which have diff symbols in testnet and mainnet
+			if symbol, ok := shared.TokenSymbolSubstitute[tokenSymbol]; ok {
+				tokenSymbol = symbol
 			}
 			tokenDecimals, err := token.Decimals(nil)
 			if err != nil {
@@ -62,12 +75,12 @@ func findTokenInfo(tokens []changeset.TokenDetails, address common.Address) (str
 	return "", 0, fmt.Errorf("token %s not found in available tokens", address)
 }
 
-func validateExecOffchainConfig(e deployment.Environment, c *pluginconfig.ExecuteOffchainConfig, selector uint64, state changeset.CCIPOnChainState) error {
+func validateExecOffchainConfig(e cldf.Environment, c *pluginconfig.ExecuteOffchainConfig, selector uint64, state stateview.CCIPOnChainState) error {
 	if err := c.Validate(); err != nil {
 		return fmt.Errorf("invalid execute off-chain config: %w", err)
 	}
 	// get offRamp
-	if err := state.ValidateRamp(selector, changeset.OffRamp); err != nil {
+	if err := state.ValidateRamp(selector, shared.OffRamp); err != nil {
 		return fmt.Errorf("validate offRamp: %w", err)
 	}
 
@@ -77,6 +90,10 @@ func validateExecOffchainConfig(e deployment.Environment, c *pluginconfig.Execut
 			if err := validateUSDCConfig(observerConfig.USDCCCTPObserverConfig, state); err != nil {
 				return fmt.Errorf("invalid USDC config: %w", err)
 			}
+		case pluginconfig.LBTCHandlerType:
+			if err := validateLBTCConfig(e, observerConfig.LBTCObserverConfig, state); err != nil {
+				return fmt.Errorf("invalid LBTC config: %w", err)
+			}
 		default:
 			return fmt.Errorf("unknown token observer config type: %s", observerConfig.Type)
 		}
@@ -84,7 +101,7 @@ func validateExecOffchainConfig(e deployment.Environment, c *pluginconfig.Execut
 	return nil
 }
 
-func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector uint64, feedChainSel uint64, state changeset.CCIPOnChainState) error {
+func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector uint64, feedChainSel uint64, state stateview.CCIPOnChainState) error {
 	if err := c.Validate(); err != nil {
 		return fmt.Errorf("invalid commit off-chain config: %w", err)
 	}
@@ -106,7 +123,7 @@ func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector
 
 		aggregatorAddr := common.HexToAddress(string(tokenConfig.AggregatorAddress))
 		token := common.HexToAddress(tokenUnknownAddr.String())
-		tokenInfos := make([]changeset.TokenDetails, 0)
+		tokenInfos := make([]shared.TokenDetails, 0)
 		onchainState := state.Chains[selector]
 		for _, tk := range onchainState.BurnMintTokens677 {
 			tokenInfos = append(tokenInfos, tk)
@@ -117,7 +134,7 @@ func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector
 		for _, tk := range onchainState.ERC677Tokens {
 			tokenInfos = append(tokenInfos, tk)
 		}
-		var linkTokenInfo changeset.TokenDetails
+		var linkTokenInfo shared.TokenDetails
 		linkTokenInfo = onchainState.LinkToken
 		if onchainState.LinkToken == nil {
 			linkTokenInfo = onchainState.StaticLinkToken
@@ -133,7 +150,7 @@ func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector
 				symbol, token.String(), tokenConfig.Decimals, decimal)
 		}
 		feedChainState := state.Chains[feedChainSel]
-		aggregatorInState := feedChainState.USDFeeds[changeset.TokenSymbol(symbol)]
+		aggregatorInState := feedChainState.USDFeeds[shared.TokenSymbol(symbol)]
 		if aggregatorAddr == (common.Address{}) {
 			return fmt.Errorf("token %s -address %s has no aggregator in provided token config", symbol, token.String())
 		}
@@ -149,7 +166,7 @@ func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector
 	return nil
 }
 
-func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state changeset.CCIPOnChainState) error {
+func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state stateview.CCIPOnChainState) error {
 	for sel, token := range usdcConfig.Tokens {
 		onchainState, ok := state.Chains[uint64(sel)]
 		if !ok {
@@ -162,6 +179,39 @@ func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state c
 			return fmt.Errorf("chain %d has USDC token pool deployed at %s, "+
 				"but SourcePoolAddress %s is provided in USDCCCTPObserverConfig",
 				sel, onchainState.USDCTokenPools[deployment.Version1_5_1].Address().String(), token.SourcePoolAddress)
+		}
+	}
+	return nil
+}
+
+func validateLBTCConfig(e cldf.Environment, lbtcConfig *pluginconfig.LBTCObserverConfig, state stateview.CCIPOnChainState) error {
+	for sel, sourcePool := range lbtcConfig.SourcePoolAddressByChain {
+		chainState, ok := state.Chains[uint64(sel)]
+		if !ok {
+			return fmt.Errorf("chain %d does not exist in state but provided in LBTCObserverConfig", sel)
+		}
+		sourcePoolAddr := common.HexToAddress(sourcePool)
+		sourcePool, err := token_pool.NewTokenPool(sourcePoolAddr, e.Chains[uint64(sel)].Client)
+		if err != nil {
+			return fmt.Errorf("chain %d has an error while requesting LBTC source token pool %s: %w", sel, sourcePoolAddr, err)
+		}
+		lbtcToken, err := sourcePool.GetToken(nil)
+		if err != nil {
+			return fmt.Errorf("chain %d has an error while requesting LBTC token address: %w", sel, err)
+		}
+		tokenRegistry := chainState.TokenAdminRegistry
+		lbtcPool, err := tokenRegistry.GetPool(nil, lbtcToken)
+		if err != nil {
+			return fmt.Errorf("chain %d has an error while requesting LBTC token pool (token=%s) from "+
+				"TokenAdminRegistry (address=%s): %w", sel, lbtcToken, tokenRegistry.Address(), err)
+		}
+		if lbtcPool == (common.Address{}) {
+			return fmt.Errorf("chain %d missing LBTC pool in TokenAdminRegistry (address=%s)", sel,
+				tokenRegistry.Address())
+		}
+		if lbtcPool != sourcePoolAddr {
+			return fmt.Errorf("chain %d has invalid LBTC pool registered in TokenAdminRegistry (address=%s). "+
+				"Found: %s, but in LBTC config was: %s", sel, tokenRegistry.Address(), lbtcPool, sourcePoolAddr)
 		}
 	}
 	return nil
@@ -191,7 +241,7 @@ func (c CCIPOCRParams) Copy() CCIPOCRParams {
 	return newC
 }
 
-func (c CCIPOCRParams) Validate(e deployment.Environment, selector uint64, feedChainSel uint64, state changeset.CCIPOnChainState) error {
+func (c CCIPOCRParams) Validate(e cldf.Environment, selector uint64, feedChainSel uint64, state stateview.CCIPOnChainState) error {
 	if err := c.OCRParameters.Validate(); err != nil {
 		return fmt.Errorf("invalid OCR parameters: %w", err)
 	}
@@ -229,12 +279,12 @@ type PromoteCandidateChangesetConfig struct {
 	MCMS *proposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
-func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map[uint64]uint32, error) {
-	state, err := changeset.LoadOnchainState(e)
+func (p PromoteCandidateChangesetConfig) Validate(e cldf.Environment) (map[uint64]uint32, error) {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return nil, err
 	}
-	if err := changeset.ValidateChain(e, state, p.HomeChainSelector, p.MCMS); err != nil {
+	if err := stateview.ValidateChain(e, state, p.HomeChainSelector, p.MCMS); err != nil {
 		return nil, fmt.Errorf("home chain invalid: %w", err)
 	}
 	homeChainState := state.Chains[p.HomeChainSelector]
@@ -249,10 +299,10 @@ func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map
 			return nil, errors.New("PluginType must be set to either CCIPCommit or CCIPExec")
 		}
 		for _, chainSelector := range plugin.RemoteChainSelectors {
-			if err := deployment.IsValidChainSelector(chainSelector); err != nil {
+			if err := cldf.IsValidChainSelector(chainSelector); err != nil {
 				return nil, fmt.Errorf("don chain selector invalid: %w", err)
 			}
-			if err := state.ValidateRamp(chainSelector, changeset.OffRamp); err != nil {
+			if err := state.ValidateRamp(chainSelector, shared.OffRamp); err != nil {
 				return nil, err
 			}
 
@@ -309,26 +359,26 @@ func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map
 // PromoteCandidateChangeset is NOT idempotent, once candidate config is promoted to active, if it's called again,
 // It might promote empty candidate config to active, which is not desired.
 func PromoteCandidateChangeset(
-	e deployment.Environment,
+	e cldf.Environment,
 	cfg PromoteCandidateChangesetConfig,
-) (deployment.ChangesetOutput, error) {
+) (cldf.ChangesetOutput, error) {
 	donIDs, err := cfg.Validate(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("%w: %w", cldf.ErrInvalidConfig, err)
 	}
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("fetch node info: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("fetch node info: %w", err)
 	}
 
 	txOpts := e.Chains[cfg.HomeChainSelector].DeployerKey
 	if cfg.MCMS != nil {
-		txOpts = deployment.SimTransactOpts()
+		txOpts = cldf.SimTransactOpts()
 	}
 
 	homeChain := e.Chains[cfg.HomeChainSelector]
@@ -349,7 +399,7 @@ func PromoteCandidateChangeset(
 				cfg.MCMS != nil,
 			)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("generating promote candidate mcms txs: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("generating promote candidate mcms txs: %w", err)
 			}
 			mcmsTxs = append(mcmsTxs, promoteCandidateOps)
 		}
@@ -357,16 +407,16 @@ func PromoteCandidateChangeset(
 
 	// Disabled MCMS means that we already executed the txes, so just return early w/out the proposals.
 	if cfg.MCMS == nil {
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 
 	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: mcmsTxs}}
 
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
 	}
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
@@ -378,10 +428,10 @@ func PromoteCandidateChangeset(
 		*cfg.MCMS,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
-	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*prop}}, nil
+	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*prop}}, nil
 }
 
 type SetCandidatePluginInfo struct {
@@ -400,7 +450,7 @@ func (p SetCandidatePluginInfo) String() string {
 	return fmt.Sprintf("PluginType: %s, Chains: %v", p.PluginType.String(), allchains)
 }
 
-func (p SetCandidatePluginInfo) Validate(e deployment.Environment, state changeset.CCIPOnChainState, homeChain uint64, feedChain uint64) error {
+func (p SetCandidatePluginInfo) Validate(e cldf.Environment, state stateview.CCIPOnChainState, homeChain uint64, feedChain uint64) error {
 	if p.PluginType != types.PluginTypeCCIPCommit &&
 		p.PluginType != types.PluginTypeCCIPExec {
 		return errors.New("PluginType must be set to either CCIPCommit or CCIPExec")
@@ -409,10 +459,10 @@ func (p SetCandidatePluginInfo) Validate(e deployment.Environment, state changes
 		if _, exists := state.SupportedChains()[chainSelector]; !exists {
 			return fmt.Errorf("chain %d does not exist in state", chainSelector)
 		}
-		if err := deployment.IsValidChainSelector(chainSelector); err != nil {
+		if err := cldf.IsValidChainSelector(chainSelector); err != nil {
 			return fmt.Errorf("don chain selector invalid: %w", err)
 		}
-		if err := state.ValidateRamp(chainSelector, changeset.OffRamp); err != nil {
+		if err := state.ValidateRamp(chainSelector, shared.OffRamp); err != nil {
 			return err
 		}
 		if p.PluginType == types.PluginTypeCCIPCommit && params.CommitOffChainConfig == nil {
@@ -464,11 +514,11 @@ type SetCandidateConfigBase struct {
 	MCMS *proposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
-func (s SetCandidateConfigBase) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
-	if err := deployment.IsValidChainSelector(s.HomeChainSelector); err != nil {
+func (s SetCandidateConfigBase) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
+	if err := cldf.IsValidChainSelector(s.HomeChainSelector); err != nil {
 		return fmt.Errorf("home chain selector invalid: %w", err)
 	}
-	if err := deployment.IsValidChainSelector(s.FeedChainSelector); err != nil {
+	if err := cldf.IsValidChainSelector(s.FeedChainSelector); err != nil {
 		return fmt.Errorf("feed chain selector invalid: %w", err)
 	}
 	homeChainState, exists := state.Chains[s.HomeChainSelector]
@@ -505,9 +555,12 @@ type AddDonAndSetCandidateChangesetConfig struct {
 	// Only set one plugin at a time while you are adding the DON for the first time.
 	// For subsequent SetCandidate call use SetCandidateChangeset as that fetches the already added DONID and sets the candidate.
 	PluginInfo SetCandidatePluginInfo `json:"pluginInfo"`
+
+	// WARNING: Do not use if calling this changeset in isolation
+	DonIDOverride uint32 `json:"donIdOverride"`
 }
 
-func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
+func (a AddDonAndSetCandidateChangesetConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	if err := a.SetCandidateConfigBase.Validate(e, state); err != nil {
 		return err
 	}
@@ -547,33 +600,33 @@ func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment,
 // AddDonAndSetCandidateChangeset is not idempotent, if AddDON is called more than once for the same chain,
 // it will throw an error because the DON would already exist for that chain.
 func AddDonAndSetCandidateChangeset(
-	e deployment.Environment,
+	e cldf.Environment,
 	cfg AddDonAndSetCandidateChangesetConfig,
-) (deployment.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(e)
+) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	err = cfg.Validate(e, state)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("%w: %w", cldf.ErrInvalidConfig, err)
 	}
 
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("get node info: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("get node info: %w", err)
 	}
 
 	txOpts := e.Chains[cfg.HomeChainSelector].DeployerKey
 	if cfg.MCMS != nil {
-		txOpts = deployment.SimTransactOpts()
+		txOpts = cldf.SimTransactOpts()
 	}
 	var donMcmsTxs []mcmstypes.Transaction
 	for chainSelector, params := range cfg.PluginInfo.OCRConfigPerRemoteChainSelector {
 		offRampAddress, err := state.GetOffRampAddressBytes(chainSelector)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
 			state.Chains[cfg.HomeChainSelector].CCIPHome,
@@ -588,21 +641,27 @@ func AddDonAndSetCandidateChangeset(
 			cfg.PluginInfo.SkipChainConfigValidation,
 		)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 
 		pluginOCR3Config, ok := newDONArgs[cfg.PluginInfo.PluginType]
 		if !ok {
-			return deployment.ChangesetOutput{}, fmt.Errorf("missing plugin %s in ocr3Configs",
+			return cldf.ChangesetOutput{}, fmt.Errorf("missing plugin %s in ocr3Configs",
 				cfg.PluginInfo.PluginType.String())
 		}
 
-		expectedDonID, err := state.Chains[cfg.HomeChainSelector].CapabilityRegistry.GetNextDONId(&bind.CallOpts{
-			Context: e.GetContext(),
-		})
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("get next don id: %w", err)
+		var expectedDonID uint32
+		if cfg.DonIDOverride != 0 {
+			expectedDonID = cfg.DonIDOverride
+		} else {
+			expectedDonID, err = state.Chains[cfg.HomeChainSelector].CapabilityRegistry.GetNextDONId(&bind.CallOpts{
+				Context: e.GetContext(),
+			})
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("get next don id: %w", err)
+			}
 		}
+
 		addDonOp, err := newDonWithCandidateOp(
 			txOpts,
 			e.Chains[cfg.HomeChainSelector],
@@ -613,21 +672,21 @@ func AddDonAndSetCandidateChangeset(
 			cfg.MCMS != nil,
 		)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		donMcmsTxs = append(donMcmsTxs, addDonOp)
 	}
 	if cfg.MCMS == nil {
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 
 	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: donMcmsTxs}}
 
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
 	}
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
@@ -639,10 +698,10 @@ func AddDonAndSetCandidateChangeset(
 		*cfg.MCMS,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w", err)
 	}
 
-	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*prop}}, nil
+	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*prop}}, nil
 }
 
 // newDonWithCandidateOp sets the candidate commit config by calling setCandidate on CCIPHome contract through the AddDON call on CapReg contract
@@ -650,7 +709,7 @@ func AddDonAndSetCandidateChangeset(
 // This proposes to set up OCR3 config for the commit plugin for the DON
 func newDonWithCandidateOp(
 	txOpts *bind.TransactOpts,
-	homeChain deployment.Chain,
+	homeChain cldf.Chain,
 	donID uint32,
 	pluginConfig ccip_home.CCIPHomeOCR3Config,
 	capReg *capabilities_registry.CapabilitiesRegistry,
@@ -673,7 +732,7 @@ func newDonWithCandidateOp(
 		nodes.PeerIDs(),
 		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
 			{
-				CapabilityId: ccip.CCIPCapabilityID,
+				CapabilityId: shared.CCIPCapabilityID,
 				Config:       encodedSetCandidateCall,
 			},
 		},
@@ -684,7 +743,7 @@ func newDonWithCandidateOp(
 
 	// note: error check is handled below
 	if !mcmsEnabled {
-		_, err = deployment.ConfirmIfNoErrorWithABI(
+		_, err = cldf.ConfirmIfNoErrorWithABI(
 			homeChain, addDonTx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
 			return mcmstypes.Transaction{}, fmt.Errorf("error confirming addDon call: %w", err)
@@ -695,7 +754,7 @@ func newDonWithCandidateOp(
 	}
 
 	tx, err := proposalutils.TransactionForChain(homeChain.Selector, capReg.Address().Hex(), addDonTx.Data(),
-		big.NewInt(0), string(changeset.CapabilitiesRegistry), []string{})
+		big.NewInt(0), string(shared.CapabilitiesRegistry), []string{})
 	if err != nil {
 		return mcmstypes.Transaction{}, fmt.Errorf("failed to create AddDON mcms tx (don: %d; ptype: %s): %w",
 			donID, types.PluginType(pluginConfig.PluginType).String(), err)
@@ -713,7 +772,7 @@ type SetCandidateChangesetConfig struct {
 	DonIDOverrides map[uint64]uint32 `json:"donIdOverrides"`
 }
 
-func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) (map[uint64]uint32, error) {
+func (s SetCandidateChangesetConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) (map[uint64]uint32, error) {
 	err := s.SetCandidateConfigBase.Validate(e, state)
 	if err != nil {
 		return nil, err
@@ -750,27 +809,27 @@ func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state ch
 // SetCandidateChangeset generates a proposal to call setCandidate on the CCIPHome through the capability registry.
 // A DON must exist in order to use this changeset effectively, i.e AddDonAndSetCandidateChangeset must be called first.
 func SetCandidateChangeset(
-	e deployment.Environment,
+	e cldf.Environment,
 	cfg SetCandidateChangesetConfig,
-) (deployment.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(e)
+) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	chainToDonIDs, err := cfg.Validate(e, state)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("%w: %w", cldf.ErrInvalidConfig, err)
 	}
 
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("get node info: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("get node info: %w", err)
 	}
 
 	txOpts := e.Chains[cfg.HomeChainSelector].DeployerKey
 	if cfg.MCMS != nil {
-		txOpts = deployment.SimTransactOpts()
+		txOpts = cldf.SimTransactOpts()
 	}
 	var setCandidateMcmsTxs []mcmstypes.Transaction
 	pluginInfos := make([]string, 0)
@@ -779,7 +838,7 @@ func SetCandidateChangeset(
 		for chainSelector, params := range plugin.OCRConfigPerRemoteChainSelector {
 			offRampAddress, err := state.GetOffRampAddressBytes(chainSelector)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return cldf.ChangesetOutput{}, err
 			}
 			newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
 				state.Chains[cfg.HomeChainSelector].CCIPHome,
@@ -794,12 +853,12 @@ func SetCandidateChangeset(
 				plugin.SkipChainConfigValidation,
 			)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return cldf.ChangesetOutput{}, err
 			}
 
 			config, ok := newDONArgs[plugin.PluginType]
 			if !ok {
-				return deployment.ChangesetOutput{}, fmt.Errorf("missing %s plugin in ocr3Configs", plugin.PluginType.String())
+				return cldf.ChangesetOutput{}, fmt.Errorf("missing %s plugin in ocr3Configs", plugin.PluginType.String())
 			}
 
 			setCandidateMCMSOps, err := setCandidateOnExistingDon(
@@ -814,22 +873,22 @@ func SetCandidateChangeset(
 				cfg.MCMS != nil,
 			)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return cldf.ChangesetOutput{}, err
 			}
 			setCandidateMcmsTxs = append(setCandidateMcmsTxs, setCandidateMCMSOps...)
 		}
 	}
 	if cfg.MCMS == nil {
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 
 	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: setCandidateMcmsTxs}}
 
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
 	}
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
@@ -841,18 +900,18 @@ func SetCandidateChangeset(
 		*cfg.MCMS,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
-	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*prop}}, nil
+	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*prop}}, nil
 }
 
 // setCandidateOnExistingDon calls setCandidate on CCIPHome contract through the UpdateDON call on CapReg contract
 // This proposes to set up OCR3 config for the provided plugin for the DON
 func setCandidateOnExistingDon(
-	e deployment.Environment,
+	e cldf.Environment,
 	txOpts *bind.TransactOpts,
-	homeChain deployment.Chain,
+	homeChain cldf.Chain,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
 	nodes deployment.Nodes,
@@ -891,7 +950,7 @@ func setCandidateOnExistingDon(
 		nodes.PeerIDs(),
 		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
 			{
-				CapabilityId: ccip.CCIPCapabilityID,
+				CapabilityId: shared.CCIPCapabilityID,
 				Config:       encodedSetCandidateCall,
 			},
 		},
@@ -901,7 +960,7 @@ func setCandidateOnExistingDon(
 
 	// note: error check is handled below
 	if !mcmsEnabled {
-		_, err = deployment.ConfirmIfNoErrorWithABI(
+		_, err = cldf.ConfirmIfNoErrorWithABI(
 			homeChain, updateDonTx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
 			return nil, fmt.Errorf("error confirming UpdateDON call in set candidate (don: %d; ptype: %s): %w",
@@ -912,7 +971,7 @@ func setCandidateOnExistingDon(
 			donID, types.PluginType(pluginConfig.PluginType).String(), err)
 	}
 
-	tx, err := proposalutils.TransactionForChain(homeChain.Selector, capReg.Address().Hex(), updateDonTx.Data(), big.NewInt(0), string(changeset.CapabilitiesRegistry), []string{})
+	tx, err := proposalutils.TransactionForChain(homeChain.Selector, capReg.Address().Hex(), updateDonTx.Data(), big.NewInt(0), string(shared.CapabilitiesRegistry), []string{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create UpdateDON mcms tx in set candidate (don: %d; ptype: %s): %w",
 			donID, types.PluginType(pluginConfig.PluginType).String(), err)
@@ -924,7 +983,7 @@ func setCandidateOnExistingDon(
 // promoteCandidateOp will create the MCMS Operation for `promoteCandidateAndRevokeActive` directed towards the capabilityRegistry
 func promoteCandidateOp(
 	txOpts *bind.TransactOpts,
-	homeChain deployment.Chain,
+	homeChain cldf.Chain,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
 	nodes deployment.Nodes,
@@ -954,7 +1013,7 @@ func promoteCandidateOp(
 		nodes.PeerIDs(),
 		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
 			{
-				CapabilityId: ccip.CCIPCapabilityID,
+				CapabilityId: shared.CCIPCapabilityID,
 				Config:       encodedPromotionCall,
 			},
 		},
@@ -964,7 +1023,7 @@ func promoteCandidateOp(
 
 	// note: error check is handled below
 	if !mcmsEnabled {
-		_, err = deployment.ConfirmIfNoErrorWithABI(
+		_, err = cldf.ConfirmIfNoErrorWithABI(
 			homeChain, updateDonTx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
 			return mcmstypes.Transaction{}, fmt.Errorf("error confirming UpdateDON call in promote candidate (don: %d; ptype: %s): %w",
@@ -976,7 +1035,7 @@ func promoteCandidateOp(
 	}
 
 	tx, err := proposalutils.TransactionForChain(homeChain.Selector, capReg.Address().Hex(), updateDonTx.Data(),
-		big.NewInt(0), string(changeset.CapabilitiesRegistry), []string{})
+		big.NewInt(0), string(shared.CapabilitiesRegistry), []string{})
 	if err != nil {
 		return mcmstypes.Transaction{}, fmt.Errorf("failed to create UpdateDON mcms tx in promote candidate (don: %d; ptype: %s): %w",
 			donID, types.PluginType(pluginType).String(), err)
@@ -989,7 +1048,7 @@ func promoteCandidateOp(
 func promoteCandidateForChainOps(
 	lggr logger.Logger,
 	txOpts *bind.TransactOpts,
-	homeChain deployment.Chain,
+	homeChain cldf.Chain,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
 	nodes deployment.Nodes,
@@ -1038,11 +1097,11 @@ type RevokeCandidateChangesetConfig struct {
 	MCMS *proposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
-func (r RevokeCandidateChangesetConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) (donID uint32, err error) {
-	if err := deployment.IsValidChainSelector(r.HomeChainSelector); err != nil {
+func (r RevokeCandidateChangesetConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) (donID uint32, err error) {
+	if err := cldf.IsValidChainSelector(r.HomeChainSelector); err != nil {
 		return 0, fmt.Errorf("home chain selector invalid: %w", err)
 	}
-	if err := deployment.IsValidChainSelector(r.RemoteChainSelector); err != nil {
+	if err := cldf.IsValidChainSelector(r.RemoteChainSelector); err != nil {
 		return 0, fmt.Errorf("don chain selector invalid: %w", err)
 	}
 	if len(e.NodeIDs) == 0 {
@@ -1087,25 +1146,25 @@ func (r RevokeCandidateChangesetConfig) Validate(e deployment.Environment, state
 	return donID, nil
 }
 
-func RevokeCandidateChangeset(e deployment.Environment, cfg RevokeCandidateChangesetConfig) (deployment.ChangesetOutput, error) {
-	state, err := changeset.LoadOnchainState(e)
+func RevokeCandidateChangeset(e cldf.Environment, cfg RevokeCandidateChangesetConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	donID, err := cfg.Validate(e, state)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("%w: %w", cldf.ErrInvalidConfig, err)
 	}
 
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("fetch nodes info: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("fetch nodes info: %w", err)
 	}
 
 	txOpts := e.Chains[cfg.HomeChainSelector].DeployerKey
 	if cfg.MCMS != nil {
-		txOpts = deployment.SimTransactOpts()
+		txOpts = cldf.SimTransactOpts()
 	}
 
 	homeChain := e.Chains[cfg.HomeChainSelector]
@@ -1120,19 +1179,19 @@ func RevokeCandidateChangeset(e deployment.Environment, cfg RevokeCandidateChang
 		cfg.MCMS != nil,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("revoke candidate ops: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("revoke candidate ops: %w", err)
 	}
 	if cfg.MCMS == nil {
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 
 	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: ops}}
 
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
 	}
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
@@ -1144,15 +1203,15 @@ func RevokeCandidateChangeset(e deployment.Environment, cfg RevokeCandidateChang
 		*cfg.MCMS,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
-	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*prop}}, nil
+	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*prop}}, nil
 }
 
 func revokeCandidateOps(
 	txOpts *bind.TransactOpts,
-	homeChain deployment.Chain,
+	homeChain cldf.Chain,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
 	nodes deployment.Nodes,
@@ -1185,7 +1244,7 @@ func revokeCandidateOps(
 		nodes.PeerIDs(),
 		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
 			{
-				CapabilityId: ccip.CCIPCapabilityID,
+				CapabilityId: shared.CCIPCapabilityID,
 				Config:       encodedRevokeCandidateCall,
 			},
 		},
@@ -1195,7 +1254,7 @@ func revokeCandidateOps(
 
 	// note: error check is handled below
 	if !mcmsEnabled {
-		_, err = deployment.ConfirmIfNoErrorWithABI(
+		_, err = cldf.ConfirmIfNoErrorWithABI(
 			homeChain, updateDonTx,
 			capabilities_registry.CapabilitiesRegistryABI, err)
 		if err != nil {
@@ -1208,7 +1267,7 @@ func revokeCandidateOps(
 	}
 
 	tx, err := proposalutils.TransactionForChain(homeChain.Selector, capReg.Address().Hex(), updateDonTx.Data(),
-		big.NewInt(0), string(changeset.CapabilitiesRegistry), []string{})
+		big.NewInt(0), string(shared.CapabilitiesRegistry), []string{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create UpdateDON mcms tx in revoke candidate (don: %d; ptype: %s): %w",
 			donID, types.PluginType(pluginType).String(), err)
@@ -1230,12 +1289,12 @@ type UpdateChainConfigConfig struct {
 	MCMS               *proposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
-func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
-	state, err := changeset.LoadOnchainState(e)
+func (c UpdateChainConfigConfig) Validate(e cldf.Environment) error {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
-	if err := deployment.IsValidChainSelector(c.HomeChainSelector); err != nil {
+	if err := cldf.IsValidChainSelector(c.HomeChainSelector); err != nil {
 		return fmt.Errorf("home chain selector invalid: %w", err)
 	}
 	if len(c.RemoteChainRemoves) == 0 && len(c.RemoteChainAdds) == 0 {
@@ -1249,7 +1308,7 @@ func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
 		return err
 	}
 	for _, remove := range c.RemoteChainRemoves {
-		if err := deployment.IsValidChainSelector(remove); err != nil {
+		if err := cldf.IsValidChainSelector(remove); err != nil {
 			return fmt.Errorf("chain remove selector invalid: %w", err)
 		}
 		if _, ok := state.SupportedChains()[remove]; !ok {
@@ -1257,7 +1316,7 @@ func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
 		}
 	}
 	for add, ccfg := range c.RemoteChainAdds {
-		if err := deployment.IsValidChainSelector(add); err != nil {
+		if err := cldf.IsValidChainSelector(add); err != nil {
 			return fmt.Errorf("chain remove selector invalid: %w", err)
 		}
 		if _, ok := state.SupportedChains()[add]; !ok {
@@ -1276,24 +1335,24 @@ func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigConfig) (deployment.ChangesetOutput, error) {
+func UpdateChainConfigChangeset(e cldf.Environment, cfg UpdateChainConfigConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("%w: %w", cldf.ErrInvalidConfig, err)
 	}
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	txOpts := e.Chains[cfg.HomeChainSelector].DeployerKey
 	txOpts.Context = e.GetContext()
 	if cfg.MCMS != nil {
-		txOpts = deployment.SimTransactOpts()
+		txOpts = cldf.SimTransactOpts()
 	}
 	var adds []ccip_home.CCIPHomeChainConfigArgs
 	for chain, ccfg := range cfg.RemoteChainAdds {
 		encodedChainConfig, err := chainconfig.EncodeChainConfig(ccfg.EncodableChainConfig)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("encoding chain config: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("encoding chain config: %w", err)
 		}
 		chainConfig := ccip_home.CCIPHomeChainConfig{
 			Readers: ccfg.Readers,
@@ -1302,7 +1361,7 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 		}
 		existingCfg, err := state.Chains[cfg.HomeChainSelector].CCIPHome.GetChainConfig(nil, chain)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("get chain config for selector %d: %w", chain, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("get chain config for selector %d: %w", chain, err)
 		}
 		if isChainConfigEqual(existingCfg, chainConfig) {
 			e.Logger.Infow("Chain config already exists, not applying again",
@@ -1319,25 +1378,25 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 
 	tx, err := state.Chains[cfg.HomeChainSelector].CCIPHome.ApplyChainConfigUpdates(txOpts, cfg.RemoteChainRemoves, adds)
 	if cfg.MCMS == nil {
-		_, err = deployment.ConfirmIfNoErrorWithABI(e.Chains[cfg.HomeChainSelector], tx, ccip_home.CCIPHomeABI, err)
+		_, err = cldf.ConfirmIfNoErrorWithABI(e.Chains[cfg.HomeChainSelector], tx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		e.Logger.Infow("Updated chain config", "chain", cfg.HomeChainSelector, "removes", cfg.RemoteChainRemoves, "adds", cfg.RemoteChainAdds)
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 
 	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
 	batchOp, err := proposalutils.BatchOperationForChain(cfg.HomeChainSelector, state.Chains[cfg.HomeChainSelector].CCIPHome.Address().Hex(),
-		tx.Data(), big.NewInt(0), string(changeset.CCIPHome), []string{})
+		tx.Data(), big.NewInt(0), string(shared.CCIPHome), []string{})
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation: %w", err)
 	}
 
-	mcmsContractByChain, err := changeset.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
 	}
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
@@ -1349,11 +1408,11 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 		*cfg.MCMS,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 
 	e.Logger.Infof("Proposed chain config update on chain %d removes %v, adds %v", cfg.HomeChainSelector, cfg.RemoteChainRemoves, cfg.RemoteChainAdds)
-	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*prop}}, nil
+	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*prop}}, nil
 }
 
 func isChainConfigEqual(a, b ccip_home.CCIPHomeChainConfig) bool {
@@ -1429,5 +1488,161 @@ func ValidateCCIPHomeConfigSetUp(
 	if execConfigs.CandidateConfig.ConfigDigest != [32]byte{} {
 		return fmt.Errorf("candidate config digest is nonempty for exec, expected empty, cfg: %v", execConfigs.CandidateConfig)
 	}
+	return nil
+}
+
+type DeployDonIDClaimerConfig struct{}
+
+func deployDonIDClaimerChangesetLogic(e cldf.Environment, _ DeployDonIDClaimerConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
+		return cldf.ChangesetOutput{}, err
+	}
+
+	ab := cldf.NewMemoryAddressBook()
+	homeChainSel, err := state.HomeChainSelector()
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get HomeChainSelector: %w", err)
+	}
+
+	chain := e.Chains[homeChainSel]
+	err = deployDonIDClaimerContract(e, ab, state, chain)
+	if err != nil {
+		e.Logger.Errorw("Failed to deploy donIDClaimer contract", "err", err, "addressBook", ab)
+		return cldf.ChangesetOutput{
+			AddressBook: ab,
+		}, fmt.Errorf("failed to deploy donIDClaimer contract: %w", err)
+	}
+	return cldf.ChangesetOutput{
+		AddressBook: ab,
+	}, nil
+}
+
+func deployDonIDClaimerContract(e cldf.Environment, ab cldf.AddressBook, state stateview.CCIPOnChainState, chain cldf.Chain) error {
+	chainState, chainExists := state.Chains[chain.Selector]
+	if !chainExists {
+		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
+	}
+
+	if state.Chains[chain.Selector].DonIDClaimer == nil {
+		_, err := cldf.DeployContract(e.Logger, chain, ab,
+			func(chain cldf.Chain) cldf.ContractDeploy[*don_id_claimer.DonIDClaimer] {
+				donIDClaimerAddr, tx2, donIDClaimerC, err2 := don_id_claimer.DeployDonIDClaimer(
+					chain.DeployerKey,
+					chain.Client,
+					chainState.CapabilityRegistry.Address(),
+				)
+				return cldf.ContractDeploy[*don_id_claimer.DonIDClaimer]{
+					Address: donIDClaimerAddr, Contract: donIDClaimerC, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.DonIDClaimer, deployment.Version1_6_1), Err: err2,
+				}
+			})
+		if err != nil {
+			e.Logger.Errorw("Failed to deploy donIDClaimer contract", "chain", chain.String(), "err", err)
+			return err
+		}
+	} else {
+		e.Logger.Infow("DonIDClaimer already deployed", "chain", chain.String(), "addr", chainState.DonIDClaimer.Address)
+	}
+
+	return nil
+}
+
+func deployDonIDClaimerPrecondition(e cldf.Environment, _ DeployDonIDClaimerConfig) error {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	homeChainSel, err := state.HomeChainSelector()
+	if err != nil {
+		return fmt.Errorf("failed to get homeChainSelector state: %w", err)
+	}
+
+	return donIDClaimerValidationHelper(state, homeChainSel)
+}
+
+type DonIDClaimerOffSetConfig struct {
+	OffSet uint32 `json:"offset"`
+}
+
+func donIDClaimerOffSetChangesetLogic(e cldf.Environment, cfg DonIDClaimerOffSetConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
+		return cldf.ChangesetOutput{}, err
+	}
+
+	homeChainSel, err := state.HomeChainSelector()
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get HomeChainSelector: %w", err)
+	}
+
+	// perform the offset operation
+	donIDClaimer := state.Chains[homeChainSel].DonIDClaimer
+
+	txOpts := e.Chains[homeChainSel].DeployerKey
+	txOpts.Context = e.GetContext()
+
+	tx, err := donIDClaimer.SyncNextDONIdWithOffset(txOpts, cfg.OffSet)
+	if _, err := cldf.ConfirmIfNoErrorWithABI(e.Chains[homeChainSel], tx, don_id_claimer.DonIDClaimerABI, err); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("error apply offset to donIDClaimer for chain %d: %w", homeChainSel, err)
+	}
+
+	return cldf.ChangesetOutput{}, err
+}
+
+func donIDClaimerOffSetChangesetPrecondition(e cldf.Environment, c DonIDClaimerOffSetConfig) error {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
+		return err
+	}
+
+	homeChainSel, err := state.HomeChainSelector()
+	if err != nil {
+		return fmt.Errorf("failed to get homeChainSelector state: %w", err)
+	}
+
+	// check the donIDClaimer contract exist
+	if state.Chains[homeChainSel].DonIDClaimer == nil {
+		return errors.New("donIDClaimer contract does not exist")
+	}
+
+	err = donIDClaimerValidationHelper(state, homeChainSel)
+	if err != nil {
+		return err
+	}
+
+	txOpts := e.Chains[homeChainSel].DeployerKey
+	// ensure deployer key is authorized
+	isAuthorizedDeployer, err := state.Chains[homeChainSel].DonIDClaimer.IsAuthorizedDeployer(&bind.CallOpts{
+		Context: e.GetContext(),
+	}, txOpts.From)
+	if err != nil {
+		return fmt.Errorf("failed to run IsAuthorizedDeployed on home chain for donIDClaimer: %w", err)
+	}
+
+	if !isAuthorizedDeployer {
+		return fmt.Errorf("deployerKey %v is not authorized deployer on donIDClaimer. ", txOpts.From.String())
+	}
+
+	return nil
+}
+
+func donIDClaimerValidationHelper(state stateview.CCIPOnChainState, homeChainSelector uint64) error {
+	if err := cldf.IsValidChainSelector(homeChainSelector); err != nil {
+		return fmt.Errorf("home chain selector invalid: %w", err)
+	}
+
+	_, exists := state.Chains[homeChainSelector]
+	if !exists {
+		return fmt.Errorf("home chain %d does not exist", homeChainSelector)
+	}
+
+	if state.Chains[homeChainSelector].CapabilityRegistry == nil {
+		return errors.New("capabilityRegistry contract does not exist")
+	}
+
 	return nil
 }
