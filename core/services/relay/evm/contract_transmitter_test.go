@@ -20,7 +20,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -93,7 +92,7 @@ func TestContractTransmitter(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "000130da6b9315bd59af6b0a3f5463c0d0a39e92eaa34cbcbdbace7b3bfcc777", hex.EncodeToString(digest[:]))
 	assert.Equal(t, uint32(2), epoch)
-	from, err := ot.FromAccount(tests.Context(t))
+	from, err := ot.FromAccount(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, sampleAddress.String(), string(from))
 }

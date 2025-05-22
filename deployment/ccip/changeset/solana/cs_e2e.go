@@ -3,20 +3,26 @@ package solana
 import (
 	"fmt"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/mcms"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
-// use this changeset to add a token pool and lookup table
+// use this changeset to
+// add a token pool and lookup table
+// register the deployer key as the token admin to the token admin registry
+// accept the admin role as the deployer key
+// call setPool on the token admin registry
+// configure evm pools on the solana side
+// configure solana pools on the evm side
 var _ cldf.ChangeSet[E2ETokenPoolConfig] = E2ETokenPool
 
 type E2ETokenPoolConfig struct {
 	AddTokenPoolAndLookupTable            []TokenPoolConfig
-	AddTokenPoolLookupTable               []TokenPoolLookupTableConfig
 	RegisterTokenAdminRegistry            []RegisterTokenAdminRegistryConfig
 	AcceptAdminRoleTokenAdminRegistry     []AcceptAdminRoleTokenAdminRegistryConfig
 	SetPool                               []SetPoolConfig
@@ -33,27 +39,21 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 		e.Logger.Info("Final output: ", finalOutput.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	}(e)
 
+	var addressBookToRemove cldf.AddressBook
 	for _, tokenPoolConfig := range cfg.AddTokenPoolAndLookupTable {
 		output, err := AddTokenPoolAndLookupTable(e, tokenPoolConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add token pool lookup table: %w", err)
 		}
 		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			// merge into in memory address book for below changesets
+			err = e.ExistingAddresses.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
 			}
-		}
-		if len(output.MCMSTimelockProposals) > 0 {
-			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
-		}
-	}
-	for _, tokenPoolConfig := range cfg.AddTokenPoolLookupTable {
-		output, err := AddTokenPoolLookupTable(e, tokenPoolConfig)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add token pool lookup table: %w", err)
-		}
-		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			// later remove from in memory address book so that we can use the finalOutput address book to update the disk/in-memory address book
+			addressBookToRemove = output.AddressBook //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+
 			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
@@ -149,6 +149,17 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
 		}
 		finalOutput.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
+	}
+
+	addresses, err := addressBookToRemove.Addresses()
+	if err != nil {
+		return finalOutput, nil
+	}
+	if len(addresses) > 0 {
+		err := e.ExistingAddresses.Remove(addressBookToRemove)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to remove temp address book from env: %w", err)
+		}
 	}
 
 	return finalOutput, nil

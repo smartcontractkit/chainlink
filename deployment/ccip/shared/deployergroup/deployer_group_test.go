@@ -243,7 +243,7 @@ func TestDeployerGroupMCMS(t *testing.T) {
 
 			_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
 				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+					cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 					commonchangeset.TransferToMCMSWithTimelockConfig{
 						ContractsByChain: contractsByChain,
 						MCMSConfig: proposalutils.TimelockConfig{
@@ -322,7 +322,7 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 
 	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MCMSConfig: proposalutils.TimelockConfig{
@@ -388,7 +388,7 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 
 	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MCMSConfig: proposalutils.TimelockConfig{

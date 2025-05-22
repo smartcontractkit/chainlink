@@ -16,10 +16,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	defaults "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/default"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	commitocr3 "github.com/smartcontractkit/chainlink-ccip/commit"
@@ -31,6 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"    // Register EVM plugin config factories
+	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana" // Register Solana plugin config factories
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -131,7 +129,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, fmt.Errorf("failed to get public config from OCR config: %w", err)
 	}
 
-	pluginConfig, err := initializerPluginConfig(destChainFamily, i.lggr)
+	pluginServices, err := ccipcommon.GetPluginServices(i.lggr, destChainFamily)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize plugin config: %w", err)
 	}
@@ -164,6 +162,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	i.lggr.Infow("offramp address", "offrampAddrStr", config.Config.OfframpAddress, "selector", config.Config.ChainSelector)
 	contractReaders, chainWriters, err := i.createReadersAndWriters(
 		ctx,
+		pluginServices.ChainRW,
 		destChainID,
 		pluginType,
 		config,
@@ -198,7 +197,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 
 	// TODO: Extract the correct transmitter address from the destsFromAccount
 	factory, transmitter, err := i.createFactoryAndTransmitter(
-		donID, config, destRelayID, contractReaders, chainWriters, destChainWriter, destFromAccounts, publicConfig, destChainID, pluginConfig, offrampAddrStr)
+		donID, config, destRelayID, contractReaders, chainWriters, destChainWriter, destFromAccounts, publicConfig, destChainID, pluginServices.PluginConfig, offrampAddrStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create factory and transmitter: %w", err)
 	}
@@ -341,6 +340,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 
 func (i *pluginOracleCreator) createReadersAndWriters(
 	ctx context.Context,
+	crcw ccipcommon.MultiChainRW,
 	destChainID string,
 	pluginType cctypes.PluginType,
 	config cctypes.OCR3ConfigWithMeta,
@@ -371,7 +371,6 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 		return nil, nil, fmt.Errorf("failed to get chain ID from chain selector %d: %w", i.homeChainSelector, err)
 	}
 
-	crcw := defaults.DefaultCRCW
 	contractReaders := make(map[cciptypes.ChainSelector]types.ContractReader)
 	chainWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
 	for relayID, relayer := range i.relayers {
@@ -465,20 +464,6 @@ func decodeAndValidateOffchainConfig(
 		return ccipcommon.OffChainConfig{}, errors.New("invalid offchain config: both commit and exec configs are either set or unset")
 	}
 	return ofc, nil
-}
-
-// initializerPluginConfig initializes the plugin config for the given chain family.
-func initializerPluginConfig(destChainFamily string, lggr logger.Logger) (ccipcommon.PluginConfig, error) {
-	extraDataCodec := defaults.DefaultExtraDataCodec
-	pluginConfig, err := ccipcommon.NewPluginConfigFactory(
-		ccipevm.InitializePluginConfig(lggr, extraDataCodec),
-		ccipsolana.InitializePluginConfig(lggr, extraDataCodec),
-	).CreatePluginConfig(destChainFamily)
-	if err != nil {
-		return ccipcommon.PluginConfig{}, fmt.Errorf("failed to create plugin config: %w", err)
-	}
-
-	return pluginConfig, nil
 }
 
 func defaultLocalConfig() ocrtypes.LocalConfig {

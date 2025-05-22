@@ -8,6 +8,10 @@ defaults:
   goflags: "-ldflags=-s"
 
 plugins:
+  aptos:
+    - moduleURI: "github.com/smartcontractkit/chainlink-aptos"
+      gitRef: "547303093feb4adcbb2ef1c822b0760d0235c732"
+      installPath: "github.com/smartcontractkit/chainlink-aptos/cmd/chainlink-aptos"
   cosmos:
     - moduleURI: "github.com/smartcontractkit/chainlink-cosmos"
       # Git reference - can be a tag, branch, or commit hash
@@ -25,7 +29,7 @@ plugins:
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.1.2-0.20250516194721-92fae45fbb27"
+      gitRef: "v1.1.2-0.20250520235549-14888563ec87"
       installPath: "github.com/smartcontractkit/chainlink-solana/pkg/solana/cmd/chainlink-solana"
 
   starknet:

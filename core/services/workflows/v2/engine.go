@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -16,9 +18,24 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/safe"
 )
+
+type TriggerCapability interface {
+	Payload() *anypb.Any
+	capabilities.TriggerCapability
+}
+
+type triggerCapability struct {
+	capabilities.TriggerCapability
+	payload *anypb.Any
+}
+
+func (tc *triggerCapability) Payload() *anypb.Any {
+	return tc.payload
+}
 
 type Engine struct {
 	services.Service
@@ -28,13 +45,15 @@ type Engine struct {
 	localNode capabilities.Node
 
 	// registration ID -> trigger capability
-	triggers map[string]capabilities.TriggerCapability
+	triggers map[string]TriggerCapability
 	// used to separate registration and unregistration phases
 	triggersRegMu sync.Mutex
 
 	allTriggerEventsQueueCh chan enqueuedTriggerEvent
 	executionsSemaphore     chan struct{}
 	capCallsSemaphore       chan struct{}
+
+	meterReports *metering.Reports
 }
 
 type enqueuedTriggerEvent struct {
@@ -53,10 +72,11 @@ func NewEngine(ctx context.Context, cfg *EngineConfig) (*Engine, error) {
 	}
 	engine := &Engine{
 		cfg:                     cfg,
-		triggers:                make(map[string]capabilities.TriggerCapability),
+		triggers:                make(map[string]TriggerCapability),
 		allTriggerEventsQueueCh: make(chan enqueuedTriggerEvent, cfg.LocalLimits.TriggerEventQueueSize),
 		executionsSemaphore:     make(chan struct{}, cfg.LocalLimits.MaxConcurrentWorkflowExecutions),
 		capCallsSemaphore:       make(chan struct{}, cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow),
+		meterReports:            metering.NewReports(),
 	}
 	engine.Service, engine.srvcEng = services.Config{
 		Name:  "WorkflowEngineV2",
@@ -174,7 +194,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		triggerCap := triggers[i]
 		registrationID := fmt.Sprintf("trigger_reg_%s_%d", e.cfg.WorkflowID, i)
 		// TODO(CAPPL-737): run with a timeout
-		e.cfg.Lggr.Debugw("Registering trigger", "triggerID", sub.Id)
+		e.cfg.Lggr.Debugw("Registering trigger", "triggerID", sub.Id, "method", sub.Method)
 		triggerEventCh, err := triggerCap.RegisterTrigger(ctx, capabilities.TriggerRegistrationRequest{
 			TriggerID: registrationID,
 			Metadata: capabilities.RequestMetadata{
@@ -196,7 +216,10 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 			e.unregisterAllTriggers(ctx)
 			return fmt.Errorf("failed to register trigger: %w", err)
 		}
-		e.triggers[registrationID] = triggerCap
+		e.triggers[registrationID] = &triggerCapability{
+			TriggerCapability: triggerCap,
+			payload:           sub.Payload,
+		}
 		eventChans[i] = triggerEventCh
 		triggerCapIDs[i] = sub.Id
 	}
@@ -271,6 +294,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 
+	e.meterReports.Add(executionID, metering.NewReport(e.cfg.Lggr))
+
 	result, err := e.cfg.Module.Execute(subCtx, &wasmpb.ExecuteRequest{
 		Id: executionID,
 		Request: &wasmpb.ExecuteRequest_Trigger{
@@ -285,11 +310,15 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	if err != nil {
 		e.cfg.Lggr.Errorw("Workflow execution failed", "err", err)
 		// TODO(CAPPL-736): observability
+		e.meterReports.Delete(executionID)
 		return
 	}
 
 	// TODO(CAPPL-736): handle execution result
-	e.cfg.Lggr.Debugw("Workflow execution finished", "executionID", executionID, "result", result)
+
+	e.meterReports.Delete(executionID)
+
+	e.cfg.Lggr.Infow("Workflow execution finished", "executionID", executionID, "result", result)
 	e.cfg.Hooks.OnResultReceived(result)
 	e.cfg.Hooks.OnExecutionFinished(executionID)
 }
@@ -308,6 +337,10 @@ func (e *Engine) CallCapability(ctx context.Context, request *sdkpb.CapabilityRe
 	if err != nil {
 		return nil, fmt.Errorf("trigger capability not found: %w", err)
 	}
+	capInfo, err := capability.Info(ctx)
+	if err != nil {
+		e.cfg.Lggr.Error("could not get capability info for %v", request.Id)
+	}
 
 	capReq := capabilities.CapabilityRequest{
 		Payload:      request.Payload,
@@ -318,11 +351,30 @@ func (e *Engine) CallCapability(ctx context.Context, request *sdkpb.CapabilityRe
 		},
 	}
 
+	meterReport, ok := e.meterReports.Get(request.ExecutionId)
+	if !ok {
+		e.cfg.Lggr.Error("no metering report found for %v", request.ExecutionId)
+	}
+	// TODO: After (CAPPL-881) replace with call ID
+	count := meterReport.IncrementRefCount(metering.ReportStepRef(capReq.CapabilityId))
+	callID := capReq.CapabilityId + strconv.FormatUint(count, 10)
+	ref := metering.ReportStepRef(callID)
+	err = meterReport.ReserveStep(ref, capInfo)
+	if err != nil {
+		e.cfg.Lggr.Error("could not reserve for %s: %w", callID, err)
+	}
+
 	// TODO(CAPPL-737): run with a timeout
 	capResp, err := capability.Execute(ctx, capReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute capability: %w", err)
 	}
+
+	err = meterReport.SetStep(ref, capResp.Metadata.Metering)
+	if err != nil {
+		e.cfg.Lggr.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", ref, err))
+	}
+
 	return &sdkpb.CapabilityResponse{
 		Response: &sdkpb.CapabilityResponse_Payload{
 			Payload: capResp.Payload,
@@ -351,10 +403,11 @@ func (e *Engine) unregisterAllTriggers(ctx context.Context) {
 				WorkflowID:    e.cfg.WorkflowID,
 				WorkflowDonID: e.localNode.WorkflowDON.ID,
 			},
+			Payload: trigger.Payload(),
 		})
 		if err != nil {
 			e.cfg.Lggr.Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", err)
 		}
 	}
-	e.triggers = make(map[string]capabilities.TriggerCapability)
+	e.triggers = make(map[string]TriggerCapability)
 }
