@@ -296,14 +296,13 @@ func performCommonChecks(
 	availableFeeUsd := waitBoostedFee(time.Since(msg.BlockTimestamp), availableFee, batchCtx.offchainConfig.RelativeBoostPerWaitHour)
 	if availableFeeUsd.Cmp(execCostUsd) < 0 {
 		msgLggr.Infow(
-			"Skipping message - insufficient remaining fee",
+			"Message underpaid - insufficient remaining fee",
 			"availableFeeUsd", availableFeeUsd,
 			"execCostUsd", execCostUsd,
 			"sourceBlockTimestamp", msg.BlockTimestamp,
 			"waitTime", time.Since(msg.BlockTimestamp),
 			"boost", batchCtx.offchainConfig.RelativeBoostPerWaitHour,
 		)
-		return InsufficientRemainingFee, 0, nil, nil, nil
 	}
 
 	return SuccesfullyValidated, messageMaxGas, tokenData, msgValue, nil
