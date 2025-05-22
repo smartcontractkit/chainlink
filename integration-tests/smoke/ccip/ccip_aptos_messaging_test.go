@@ -10,11 +10,14 @@ import (
 	aptosapi "github.com/aptos-labs/aptos-go-sdk/api"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mlt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagelimitationstest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
@@ -62,6 +65,9 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 			sender,
 			false, // testRouter
 		)
+
+		// Tokens
+		EVM_LINK_TOKEN = state.Chains[sourceChain].LinkToken
 	)
 
 	t.Log("Deploying CCIPDummyReceiver...")
@@ -73,6 +79,20 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 	callOpts := &bind.CallOpts{Context: ctx}
 	srcFeeQuoterDestChainConfig, err := state.Chains[sourceChain].FeeQuoter.GetDestChainConfig(callOpts, destChain)
 	require.NoError(t, err, "Failed to get destination chain config")
+
+	// grant mint role
+	tx, err := EVM_LINK_TOKEN.GrantMintRole(e.Env.Chains[sourceChain].DeployerKey, common.BytesToAddress(sender))
+	_, err = cldf.ConfirmIfNoError(e.Env.Chains[sourceChain], tx, err)
+	require.NoError(t, err)
+
+	// mint token and approve to router
+	tx, err = EVM_LINK_TOKEN.Mint(e.Env.Chains[sourceChain].DeployerKey, common.BytesToAddress(sender), deployment.E18Mult(10_000))
+	_, err = cldf.ConfirmIfNoError(e.Env.Chains[sourceChain], tx, err)
+	require.NoError(t, err)
+
+	tx, err = EVM_LINK_TOKEN.Approve(e.Env.Chains[sourceChain].DeployerKey, state.Chains[sourceChain].Router.Address(), math.MaxBig256)
+	_, err = cldf.ConfirmIfNoError(e.Env.Chains[sourceChain], tx, err)
+	require.NoError(t, err)
 
 	// For testing messages that revert on source
 	mltTestSetup := mlt.NewTestSetup(
@@ -143,6 +163,27 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				FeeToken:               "0x0",
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) { assertAptosMessageReceivedMatchesSource(t, e, destChain, receiver, message, 2) },
+				},
+			},
+		)
+	})
+
+	t.Run("Fee Token (LINK) - Should Succeed", func(t *testing.T) {
+		message := []byte("Hello Aptos, from EVM!")
+		messagingtest.Run(t,
+			messagingtest.TestCase{
+				TestSetup:      setup,
+				Replayed:       replayed,
+				Nonce:          &nonce,
+				ValidationType: messagingtest.ValidationTypeExec,
+				Receiver:       ccipChainState.ReceiverAddress[:],
+				MsgData:        message,
+				// true for out of order execution, which is necessary and enforced for Aptos
+				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				FeeToken:               EVM_LINK_TOKEN.Address().String(),
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertAptosMessageReceivedMatchesSource(t, e, destChain, receiver, message, 2) },
 				},
