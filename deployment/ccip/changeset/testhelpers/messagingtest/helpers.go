@@ -4,9 +4,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	module_onramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp/onramp"
 	"github.com/stretchr/testify/require"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
@@ -16,7 +18,6 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -103,7 +104,7 @@ const (
 type TestCaseOutput struct {
 	Replayed     bool
 	Nonce        uint64
-	MsgSentEvent *onramp.OnRampCCIPMessageSent
+	MsgSentEvent *testhelpers.AnyMsgSentEvent
 }
 
 func sleepAndReplay(t *testing.T, e testhelpers.DeployedEnv, chainSelectors ...uint64) {
@@ -180,7 +181,18 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 			FeeToken:     feeToken,
 			ExtraArgs:    tc.ExtraArgs,
 		}
-
+	case chain_selectors.FamilyAptos:
+		feeToken := aptos.AccountAddress{}
+		if len(tc.FeeToken) > 0 {
+			feeToken.ParseStringRelaxed(tc.FeeToken)
+		}
+		msg = module_onramp.Aptos2AnyRampMessage{
+			Data:         tc.MsgData,
+			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
+			ExtraArgs:    tc.ExtraArgs,
+			FeeToken:     feeToken,
+			TokenAmounts: nil,
+		}
 	default:
 		tc.T.Errorf("unsupported source chain: %v", family)
 	}

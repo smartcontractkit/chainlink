@@ -99,7 +99,7 @@ func Run(tc TestCase) TestCaseOutput {
 		require.NoError(tc.T, err)
 	}
 
-	msgSentEvent, err := testhelpers.SendRequest(
+	out, err := testhelpers.SendRequest(
 		tc.Env, tc.OnchainState,
 		testhelpers.WithSourceChain(tc.SrcChain),
 		testhelpers.WithDestChain(tc.DestChain),
@@ -113,6 +113,7 @@ func Run(tc TestCase) TestCaseOutput {
 		return TestCaseOutput{}
 	}
 	require.NoError(tc.T, err)
+	msgSentEvent := out.RawEvent.(*onramp.OnRampCCIPMessageSent)
 
 	tc.T.Logf("Message not reverted as expected")
 

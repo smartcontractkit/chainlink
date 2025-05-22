@@ -14,8 +14,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aptos-labs/aptos-go-sdk"
+	aptosBind "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_dummy_receiver"
+	module_onramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp/onramp"
+	aptos_router "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"golang.org/x/sync/errgroup"
 
@@ -393,6 +398,14 @@ func CCIPSendCalldata(
 	return calldata, nil
 }
 
+type AnyMsgSentEvent struct {
+	SequenceNumber uint64
+	// RawEvent contains the raw event depending on the chain:
+	//  EVM:   *onramp.OnRampCCIPMessageSent
+	//  Aptos: module_onramp.CCIPMessageSent
+	RawEvent any
+}
+
 // testhelpers.SendRequest(t, e, state, src, dest, msg, opts...)
 // opts being testRouter, sender
 // always return error
@@ -406,7 +419,7 @@ func TestSendRequest(
 	testRouter bool,
 	msg any,
 	opts ...SendReqOpts,
-) (msgSentEvent *onramp.OnRampCCIPMessageSent) {
+) (msgSentEvent *AnyMsgSentEvent) {
 	baseOpts := []SendReqOpts{
 		WithSourceChain(src),
 		WithDestChain(dest),
@@ -480,7 +493,7 @@ func SendRequest(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
 	opts ...SendReqOpts,
-) (*onramp.OnRampCCIPMessageSent, error) {
+) (*AnyMsgSentEvent, error) {
 	cfg := &CCIPSendReqConfig{}
 	for _, opt := range opts {
 		opt(cfg)
@@ -496,7 +509,7 @@ func SendRequest(
 	case chainsel.FamilySolana:
 		return SendRequestSol(e, state, cfg)
 	case chainsel.FamilyAptos:
-		panic("Aptos - not implemented")
+		return SendRequestAptos(e, state, cfg)
 	default:
 		return nil, fmt.Errorf("send request: unsupported chain family: %v", family)
 	}
@@ -506,7 +519,7 @@ func SendRequestEVM(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
 	cfg *CCIPSendReqConfig,
-) (*onramp.OnRampCCIPMessageSent, error) {
+) (*AnyMsgSentEvent, error) {
 	// Set default sender if not provided
 	if cfg.Sender == nil {
 		cfg.Sender = e.Chains[cfg.SourceChain].DeployerKey
@@ -543,14 +556,17 @@ func SendRequestEVM(
 		it.Event.Message.Sender.String(),
 		cfg.IsTestRouter,
 	)
-	return it.Event, nil
+	return &AnyMsgSentEvent{
+		SequenceNumber: it.Event.SequenceNumber,
+		RawEvent:       it.Event,
+	}, nil
 }
 
 func SendRequestSol(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
 	cfg *CCIPSendReqConfig,
-) (*onramp.OnRampCCIPMessageSent, error) { // TODO: chain independent return value
+) (*AnyMsgSentEvent, error) { // TODO: chain independent return value
 	ctx := e.GetContext()
 
 	s := state.SolChains[cfg.SourceChain]
@@ -775,32 +791,124 @@ func SendRequestSol(
 		cfg.IsTestRouter,
 	)
 
-	return &onramp.OnRampCCIPMessageSent{
-		DestChainSelector: ccipMessageSentEvent.DestinationChainSelector,
-		SequenceNumber:    ccipMessageSentEvent.SequenceNumber,
-		Message: onramp.InternalEVM2AnyRampMessage{
-			Header: onramp.InternalRampMessageHeader{
-				SourceChainSelector: ccipMessageSentEvent.Message.Header.SourceChainSelector,
-				DestChainSelector:   ccipMessageSentEvent.Message.Header.DestChainSelector,
-				MessageId:           ccipMessageSentEvent.Message.Header.MessageId,
-				SequenceNumber:      ccipMessageSentEvent.SequenceNumber,
-				Nonce:               ccipMessageSentEvent.Message.Header.Nonce,
+	return &AnyMsgSentEvent{
+		SequenceNumber: ccipMessageSentEvent.SequenceNumber,
+		RawEvent: &onramp.OnRampCCIPMessageSent{
+			DestChainSelector: ccipMessageSentEvent.DestinationChainSelector,
+			SequenceNumber:    ccipMessageSentEvent.SequenceNumber,
+			Message: onramp.InternalEVM2AnyRampMessage{
+				Header: onramp.InternalRampMessageHeader{
+					SourceChainSelector: ccipMessageSentEvent.Message.Header.SourceChainSelector,
+					DestChainSelector:   ccipMessageSentEvent.Message.Header.DestChainSelector,
+					MessageId:           ccipMessageSentEvent.Message.Header.MessageId,
+					SequenceNumber:      ccipMessageSentEvent.SequenceNumber,
+					Nonce:               ccipMessageSentEvent.Message.Header.Nonce,
+				},
+				FeeTokenAmount: ConvertSolanaCrossChainAmountToBigInt(ccipMessageSentEvent.Message.FeeTokenAmount),
+				FeeValueJuels:  ConvertSolanaCrossChainAmountToBigInt(ccipMessageSentEvent.Message.FeeValueJuels),
+				ExtraArgs:      ccipMessageSentEvent.Message.ExtraArgs,
+				Receiver:       ccipMessageSentEvent.Message.Receiver,
+				Data:           ccipMessageSentEvent.Message.Data,
+
+				// TODO: these fields are EVM specific - need to revisit for Solana
+				FeeToken:     common.Address{}, // ccipMessageSentEvent.Message.FeeToken
+				Sender:       common.Address{}, // ccipMessageSentEvent.Message.Sender
+				TokenAmounts: []onramp.InternalEVM2AnyTokenTransfer{},
 			},
-			FeeTokenAmount: ConvertSolanaCrossChainAmountToBigInt(ccipMessageSentEvent.Message.FeeTokenAmount),
-			FeeValueJuels:  ConvertSolanaCrossChainAmountToBigInt(ccipMessageSentEvent.Message.FeeValueJuels),
-			ExtraArgs:      ccipMessageSentEvent.Message.ExtraArgs,
-			Receiver:       ccipMessageSentEvent.Message.Receiver,
-			Data:           ccipMessageSentEvent.Message.Data,
 
-			// TODO: these fields are EVM specific - need to revisit for Solana
-			FeeToken:     common.Address{}, // ccipMessageSentEvent.Message.FeeToken
-			Sender:       common.Address{}, // ccipMessageSentEvent.Message.Sender
-			TokenAmounts: []onramp.InternalEVM2AnyTokenTransfer{},
+			// TODO: EVM specific - need to revisit for Solana
+			Raw: types.Log{},
 		},
-
-		// TODO: EVM specific - need to revisit for Solana
-		Raw: types.Log{},
 	}, nil
+}
+
+func SendRequestAptos(
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
+	cfg *CCIPSendReqConfig,
+) (*AnyMsgSentEvent, error) {
+	sender := e.AptosChains[cfg.SourceChain].DeployerSigner
+	senderAddress := sender.AccountAddress()
+	client := e.AptosChains[cfg.SourceChain].Client
+
+	e.Logger.Infof("(Aptos) Sending CCIP request from chain selector %d to chain selector %d from sender %s",
+		cfg.SourceChain, cfg.DestChain, senderAddress.StringLong())
+
+	msg := cfg.Message.(module_onramp.Aptos2AnyRampMessage)
+	r := state.AptosChains[cfg.SourceChain].CCIPAddress
+	if cfg.IsTestRouter {
+		r = state.AptosChains[cfg.DestChain].TestRouterAddress
+	}
+
+	tokenAddresses := make([]aptos.AccountAddress, len(msg.TokenAmounts))
+	tokenAmounts := make([]uint64, len(msg.TokenAmounts))
+	tokenStoreAddresses := make([]aptos.AccountAddress, len(msg.TokenAmounts))
+	for i, v := range msg.TokenAmounts {
+		// TODO - struct missing input data
+		tokenAddresses[i] = v.SourcePoolAddress
+		tokenAmounts[i] = v.Amount
+		tokenStoreAddresses[i] = v.SourcePoolAddress
+	}
+
+	router := aptos_router.Bind(r, client)
+	fee, err := router.Router().GetFee(
+		nil,
+		cfg.DestChain,
+		msg.Receiver,
+		msg.Data,
+		tokenAddresses,
+		tokenAmounts,
+		tokenStoreAddresses,
+		msg.FeeToken,
+		aptos.AccountAddress{}, // TODO missing parameter
+		msg.ExtraArgs,
+	)
+	if err != nil {
+		e.Logger.Errorf("Estimating fee: %v", err)
+	}
+	e.Logger.Infof("Estimated fee: %v", fee)
+
+	opts := &aptosBind.TransactOpts{
+		Signer: sender,
+	}
+	tx, err := router.Router().CCIPSend(
+		opts,
+		cfg.DestChain,
+		msg.Receiver,
+		msg.Data,
+		tokenAddresses,
+		tokenAmounts,
+		tokenStoreAddresses,
+		msg.FeeToken,
+		aptos.AccountAddress{}, // TODO missing parameter
+		msg.ExtraArgs,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send fee: %w", err)
+	}
+	data, err := client.WaitForTransaction(tx.Hash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to wait for transaction: %w", err)
+	}
+	if !data.Success {
+		return nil, fmt.Errorf("transaction reverted: %v", data.VmStatus)
+	}
+	e.Logger.Infof("(Aptos) CCIP message sent (tx %s) from chain selector %d to chain selector %d", tx.Hash, cfg.SourceChain, cfg.DestChain)
+	for _, event := range data.Events {
+		e.Logger.Infof("Event type: %v", event.Type)
+		if event.Type == fmt.Sprintf("%s::onramp::CCIPMessageSent", r.StringLong()) {
+			var msgSentEvent module_onramp.CCIPMessageSent
+			if err := codec.DecodeAptosJsonValue(event.Data, &msgSentEvent); err != nil {
+				return nil, fmt.Errorf("failed to decode CCIPMessageSentEvent: %w", err)
+			}
+			e.Logger.Debugf("CCIPMessageSentEvent: %v", msgSentEvent)
+			return &AnyMsgSentEvent{
+				SequenceNumber: msgSentEvent.SequenceNumber,
+				RawEvent:       msgSentEvent,
+			}, nil
+		}
+	}
+	return nil, errors.New("failed to send CCIPMessageSentEvent")
 }
 
 func ConvertSolanaCrossChainAmountToBigInt(amount ccip_router.CrossChainAmount) *big.Int {
@@ -1085,7 +1193,7 @@ func addLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector ui
 					AllowListEnabled: false,
 				},
 				Selector:    destChainSelector,
-				GasPrice:    big.NewInt(1e17),
+				GasPrice:    big.NewInt(1e9),
 				TokenPrices: nil,
 				FeeQuoterDestChainConfig: fee_quoter.FeeQuoterDestChainConfig{
 					IsEnabled:                         true,
@@ -1902,7 +2010,7 @@ func Transfer(
 	useTestRouter bool,
 	data, extraArgs []byte,
 	feeToken string,
-) (*onramp.OnRampCCIPMessageSent, map[uint64]*uint64) {
+) (*AnyMsgSentEvent, map[uint64]*uint64) {
 	startBlocks := make(map[uint64]*uint64)
 
 	block, err := LatestBlock(ctx, env, destChain)

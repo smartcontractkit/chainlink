@@ -67,7 +67,7 @@ func GenerateChainsAptos(t *testing.T, numChains int) map[uint64]cldf.AptosChain
 		require.NoError(t, err)
 		account := createAptosAccount(t, true)
 
-		url, nodeClient := aptosChain(t, chainID, account.Address)
+		url, nodeClient := aptosChain(t, chainID, account)
 		chains[selector] = cldf.AptosChain{
 			Selector:       selector,
 			Client:         nodeClient,
@@ -89,7 +89,7 @@ func GenerateChainsAptos(t *testing.T, numChains int) map[uint64]cldf.AptosChain
 	return chains
 }
 
-func aptosChain(t *testing.T, chainID string, adminAddress aptos.AccountAddress) (string, *aptos.NodeClient) {
+func aptosChain(t *testing.T, chainID string, account *aptos.Account) (string, *aptos.NodeClient) {
 	t.Helper()
 
 	// initialize the docker network used by CTF
@@ -110,7 +110,7 @@ func aptosChain(t *testing.T, chainID string, adminAddress aptos.AccountAddress)
 			Image:       "", // filled out by defaultAptos function
 			Type:        "aptos",
 			ChainID:     chainID,
-			PublicKey:   adminAddress.String(),
+			PublicKey:   account.Address.StringLong(),
 			CustomPorts: []string{fmt.Sprintf("%d:8080", ports[0]), fmt.Sprintf("%d:8081", ports[1])},
 		}
 		output, err := blockchain.NewBlockchainNetwork(bcInput)
@@ -148,8 +148,34 @@ func aptosChain(t *testing.T, chainID string, adminAddress aptos.AccountAddress)
 	dc, err := framework.NewDockerClient()
 	require.NoError(t, err)
 	// incase we didn't use the default account above
-	_, err = dc.ExecContainer(containerName, []string{"aptos", "account", "fund-with-faucet", "--account", adminAddress.String(), "--amount", "100000000000"})
+	_, err = dc.ExecContainer(containerName, []string{"aptos", "account", "fund-with-faucet", "--account", account.Address.StringLong(), "--amount", "100000000000"})
 	require.NoError(t, err)
+
+	// Migrate APT Coin to FA, required for CCIP
+	payload := aptos.TransactionPayload{
+		Payload: &aptos.EntryFunction{
+			Module: aptos.ModuleId{
+				Address: aptos.AccountOne,
+				Name:    "coin",
+			},
+			Function: "migrate_to_fungible_store",
+			ArgTypes: []aptos.TypeTag{
+				{
+					Value: &aptos.StructTag{
+						Address: aptos.AccountOne,
+						Module:  "aptos_coin",
+						Name:    "AptosCoin",
+					},
+				},
+			},
+			Args: nil,
+		},
+	}
+	res, err := client.BuildSignAndSubmitTransaction(account, payload)
+	require.NoError(t, err)
+	tx, err := client.WaitForTransaction(res.Hash)
+	require.NoError(t, err)
+	require.Truef(t, tx.Success, "Migrating APT to FungibleAsset failed: %v", tx.VmStatus)
 
 	return url, client
 }
