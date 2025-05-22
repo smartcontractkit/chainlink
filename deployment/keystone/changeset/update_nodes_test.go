@@ -46,7 +46,7 @@ func TestUpdateNodes(t *testing.T) {
 
 		csOut, err := changeset.UpdateNodes(te.Env, &cfg)
 		require.NoError(t, err)
-		require.Empty(t, csOut.Proposals)
+		require.Empty(t, csOut.MCMSTimelockProposals)
 		require.Nil(t, csOut.AddressBook)
 
 		validateUpdate(t, te, updates)
@@ -113,14 +113,4 @@ func validateUpdate(t *testing.T, te test.EnvWrapper, expected map[p2pkey.PeerID
 		assert.Equal(t, expected[node.P2pId].EncryptionPublicKey, hex.EncodeToString(node.EncryptionPublicKey[:]))
 		assert.Equal(t, expected[node.P2pId].Signer, node.Signer)
 	}
-}
-
-func p2pIDs(t *testing.T, vals []string) [][32]byte {
-	var out [][32]byte
-	for _, v := range vals {
-		id, err := p2pkey.MakePeerID(v)
-		require.NoError(t, err)
-		out = append(out, id)
-	}
-	return out
 }

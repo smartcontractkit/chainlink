@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
@@ -310,7 +309,7 @@ func TestNewOffRampReader(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(tc.typeAndVersion, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			b, err := utils.ABIEncode(`[{"type":"string"}]`, tc.typeAndVersion)
 			require.NoError(t, err)
 			c := clienttest.NewClient(t)

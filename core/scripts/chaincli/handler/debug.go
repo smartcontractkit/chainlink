@@ -257,7 +257,8 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			failUnknown("failed to pack raw checkUpkeep call", err)
 		}
 		addLink("checkUpkeep simulation", tenderlySimLink(ctx, k.cfg, chainID, blockNum, rawCall, registryAddress))
-		rawCall = append(core.ILogAutomationABI.Methods["checkLog"].ID, triggerData...)
+		rawCall = core.ILogAutomationABI.Methods["checkLog"].ID
+		rawCall = append(rawCall, triggerData...)
 		addLink("checkLog (direct) simulation", tenderlySimLink(ctx, k.cfg, chainID, blockNum, rawCall, upkeepInfo.Target))
 	} else {
 		resolveIneligible(fmt.Sprintf("invalid trigger type: %d", triggerType))

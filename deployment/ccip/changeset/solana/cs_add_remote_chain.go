@@ -571,6 +571,9 @@ func doAddRemoteChainToOffRamp(
 				s.SolChains[chainSel].OffRampConfigPDA,
 				authority,
 			).ValidateAndBuild()
+			if err != nil {
+				return txns, fmt.Errorf("failed to generate instructions: %w", err)
+			}
 			e.Logger.Infow("update offramp config for remote chain", "remoteChainSel", remoteChainSel)
 		} else {
 			lookUpTableEntries = append(lookUpTableEntries,
@@ -584,6 +587,9 @@ func doAddRemoteChainToOffRamp(
 				authority,
 				solana.SystemProgramID,
 			).ValidateAndBuild()
+			if err != nil {
+				return txns, fmt.Errorf("failed to generate instructions: %w", err)
+			}
 			e.Logger.Infow("add offramp config for remote chain", "remoteChainSel", remoteChainSel)
 			remoteChainSelStr := strconv.FormatUint(remoteChainSel, 10)
 			tv := cldf.NewTypeAndVersion(shared.RemoteSource, deployment.Version1_0_0)
@@ -593,9 +599,7 @@ func doAddRemoteChainToOffRamp(
 				return txns, fmt.Errorf("failed to save source chain state to address book: %w", err)
 			}
 		}
-		if err != nil {
-			return txns, fmt.Errorf("failed to generate instructions: %w", err)
-		}
+
 		if offRampUsingMCMS {
 			tx, err := BuildMCMSTxn(offRampIx, offRampID.String(), shared.OffRamp)
 			if err != nil {

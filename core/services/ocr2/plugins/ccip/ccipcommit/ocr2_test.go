@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
@@ -713,7 +712,7 @@ func TestCommitReportingPlugin_observePriceUpdates(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 
 			mockPriceService := ccipdbmocks.NewPriceService(t)
 			var psError error
