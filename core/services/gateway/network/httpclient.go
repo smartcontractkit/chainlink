@@ -89,7 +89,6 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 	config.ApplyDefaults()
 	safeConfig := safeurl.
 		GetConfigBuilder().
-		SetTimeout(config.DefaultTimeout).
 		SetAllowedIPs(config.AllowedIPs...).
 		SetAllowedIPsCIDR(config.AllowedIPsCIDR...).
 		SetAllowedPorts(config.AllowedPorts...).
@@ -110,6 +109,9 @@ func disableRedirects(req *http.Request, via []*http.Request) error {
 	return errors.New("redirects are not allowed")
 }
 
+// Send executes an http request that is always time limited by at least the
+// default timeout.  Override the default timeout with a non-zero duration by
+// passing a Timeout value on the request.
 func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, error) {
 	to := req.Timeout
 	if to == 0 {
@@ -117,8 +119,10 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 	}
 
 	c.lggr.Debugw("sending HTTP request with timeout", "url", req.URL, "request timeout", to)
+
 	timeoutCtx, cancel := context.WithTimeout(ctx, to)
 	defer cancel()
+
 	r, err := http.NewRequestWithContext(timeoutCtx, req.Method, req.URL, bytes.NewBuffer(req.Body))
 	if err != nil {
 		return nil, err
