@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	gocache "github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -80,19 +79,37 @@ func makeStreamValues() llo.StreamValues {
 }
 
 type mockOpts struct {
-	verboseLogging bool
+	verboseLogging       bool
+	seqNr                uint64
+	outCtx               ocr3types.OutcomeContext
+	configDigest         ocr2types.ConfigDigest
+	observationTimestamp time.Time
 }
 
 func (m *mockOpts) VerboseLogging() bool { return m.verboseLogging }
-func (m *mockOpts) SeqNr() uint64        { return 1042 }
+func (m *mockOpts) SeqNr() uint64 {
+	if m.seqNr == 0 {
+		return 1042
+	}
+	return m.seqNr
+}
 func (m *mockOpts) OutCtx() ocr3types.OutcomeContext {
-	return ocr3types.OutcomeContext{SeqNr: 1042, PreviousOutcome: ocr3types.Outcome([]byte("foo"))}
+	if m.outCtx.SeqNr == 0 {
+		return ocr3types.OutcomeContext{SeqNr: 1042, PreviousOutcome: ocr3types.Outcome([]byte("foo"))}
+	}
+	return m.outCtx
 }
 func (m *mockOpts) ConfigDigest() ocr2types.ConfigDigest {
-	return ocr2types.ConfigDigest{6, 5, 4}
+	if m.configDigest.Hex() == "" {
+		return ocr2types.ConfigDigest{6, 5, 4}
+	}
+	return m.configDigest
 }
 func (m *mockOpts) ObservationTimestamp() time.Time {
-	return time.Unix(1737936858, 0)
+	if m.observationTimestamp.IsZero() {
+		return time.Unix(1737936858, 0)
+	}
+	return m.observationTimestamp
 }
 
 type mockTelemeter struct {
@@ -267,7 +284,8 @@ func Test_DataSource(t *testing.T) {
 			reg.pipelines[2] = makePipelineWithSingleResult[*big.Int](2, big.NewInt(40602), nil)
 
 			vals := makeStreamValues()
-			err := ds.Observe(ctx, vals, opts)
+			opts2 := &mockOpts{configDigest: ocr2types.ConfigDigest{6, 5, 7}}
+			err := ds.Observe(ctx, vals, opts2)
 			require.NoError(t, err)
 
 			// Verify initial values
@@ -283,7 +301,7 @@ func Test_DataSource(t *testing.T) {
 
 			// Second observation should use cached values
 			vals = makeStreamValues()
-			err = ds.Observe(ctx, vals, opts)
+			err = ds.Observe(ctx, vals, opts2)
 			require.NoError(t, err)
 
 			// Should still have original values from cache
@@ -294,26 +312,29 @@ func Test_DataSource(t *testing.T) {
 			}, vals)
 
 			// Verify cache metrics
-			assert.InEpsilon(t, float64(1), testutil.ToFloat64(promCacheHitCount.WithLabelValues("1")), 0.0001)
-			assert.InEpsilon(t, float64(1), testutil.ToFloat64(promCacheHitCount.WithLabelValues("2")), 0.0001)
-			assert.InEpsilon(t, float64(1), testutil.ToFloat64(promCacheMissCount.WithLabelValues("1")), 0.0001)
-			assert.InEpsilon(t, float64(1), testutil.ToFloat64(promCacheMissCount.WithLabelValues("2")), 0.0001)
+			assert.InEpsilon(t, float64(1), testutil.ToFloat64(
+				promCacheHitCount.WithLabelValues(opts2.ConfigDigest().Hex(), "1")), 0.0001)
+			assert.InEpsilon(t, float64(1), testutil.ToFloat64(
+				promCacheHitCount.WithLabelValues(opts2.ConfigDigest().Hex(), "2")), 0.0001)
+			assert.InEpsilon(t, float64(1), testutil.ToFloat64(
+				promCacheMissCount.WithLabelValues(opts2.ConfigDigest().Hex(), "1", "notFound")), 0.0001)
+			assert.InEpsilon(t, float64(1), testutil.ToFloat64(
+				promCacheMissCount.WithLabelValues(opts2.ConfigDigest().Hex(), "2", "notFound")), 0.0001)
 		})
 
 		t.Run("refreshes cache after expiration", func(t *testing.T) {
-			// Create a new data source with a very short cache TTL
 			ds := newDataSource(lggr, reg, telem.NullTelemeter, true)
-			ds.cache = gocache.New(10*time.Millisecond, 1*time.Minute)
 
 			// First observation
 			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(100), nil)
 			vals := llo.StreamValues{1: nil}
 
-			err := ds.Observe(ctx, vals, opts)
+			opts2 := &mockOpts{configDigest: ocr2types.ConfigDigest{6, 5, 9}}
+			err := ds.Observe(ctx, vals, opts2)
 			require.NoError(t, err)
 
 			// Wait for cache to expire
-			time.Sleep(20 * time.Millisecond)
+			time.Sleep(501 * time.Millisecond)
 
 			// Change pipeline result
 			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(200), nil)
@@ -335,7 +356,9 @@ func Test_DataSource(t *testing.T) {
 
 			// First observation to cache
 			vals := llo.StreamValues{1: nil}
-			err := ds.Observe(ctx, vals, opts)
+			opts2 := &mockOpts{configDigest: ocr2types.ConfigDigest{6, 5, 6}}
+
+			err := ds.Observe(ctx, vals, opts2)
 			require.NoError(t, err)
 
 			// Run multiple observations concurrently
@@ -345,7 +368,7 @@ func Test_DataSource(t *testing.T) {
 				go func() {
 					defer wg.Done()
 					vals := llo.StreamValues{1: nil}
-					err := ds.Observe(ctx, vals, opts)
+					err := ds.Observe(ctx, vals, opts2)
 					assert.NoError(t, err)
 					assert.Equal(t, llo.StreamValues{1: llo.ToDecimal(decimal.NewFromInt(100))}, vals)
 				}()
@@ -358,18 +381,20 @@ func Test_DataSource(t *testing.T) {
 
 		t.Run("handles cache errors gracefully", func(t *testing.T) {
 			ds := newDataSource(lggr, reg, telem.NullTelemeter, true)
-			ds.cache = gocache.New(100*time.Millisecond, 1*time.Minute)
 
 			// First observation with error
 			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, nil, errors.New("pipeline error"))
 			vals := makeStreamValues()
-			err := ds.Observe(ctx, vals, opts)
+			opts2 := &mockOpts{configDigest: ocr2types.ConfigDigest{6, 5, 2}}
+			err := ds.Observe(ctx, vals, opts2)
 			require.NoError(t, err) // Observe returns nil error even if some streams fail
+
+			time.Sleep(501 * time.Millisecond)
 
 			// Second observation should try again (not use cache for error case)
 			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(100), nil)
 			vals = llo.StreamValues{1: nil}
-			err = ds.Observe(ctx, vals, opts)
+			err = ds.Observe(ctx, vals, opts2)
 			require.NoError(t, err)
 
 			assert.Equal(t, llo.StreamValues{1: llo.ToDecimal(decimal.NewFromInt(100))}, vals)

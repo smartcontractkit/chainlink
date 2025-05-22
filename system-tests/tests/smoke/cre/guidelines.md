@@ -11,12 +11,7 @@
    - [PoR Workflow Source Code](#por-workflow-source-code)
    - [Test Timeout](#test-timeout)
    - [Visual Studio Code Debug Configuration](#visual-studio-code-debug-configuration)
-2. [Using the CLI](#2-cli-usage)
-   - [Start Environment](#start-environment)
-   - [Stop Environment](#stop-environment)
-   - [Before You Start](#before-you-start)
-   - [Environment Variables](#environment-variables-1)
-   - [Cleanup](#cleanup)
+2. [Using the CLI](#2-using-the-cli)
 3. [Docker vs Kubernetes (k8s)](#3-docker-vs-kubernetes-k8s)
 4. [CRIB Requirements](#4-crib-requirements)
 5. [Setting Docker Images for CRIB Execution](#5-setting-docker-images-for-crib-execution)
@@ -177,89 +172,8 @@ Example `launch.json` entry:
 
 ## 2. Using the CLI
 
-The CLI manages test environments. It lives in `system-tests/smoke/cre/cmd`.
+Local CRE environment and documentation were migrated to [core/scripts/cre/environment/docs.md](../../../../core/scripts/cre/environment/docs.md).
 
-### Prerequisites (for Docker) ###
-1. **Docker installed and running**
-- with usage of default Docker socket **enabled**
-- with Apple Virtualization framework **enabled**
-- with VirtioFS **enabled**
-- with use of containerd for pulling and storing images **disabled**
-2. **Logged in to Docker**
-- Run `docker login`
-3. **Job Distributor Docker image available**
-- [This section](#job-distributor-image) explains how to build it locally
-
-Optionally:
-1. **Choose the Right Topology**
-   - For a single DON with all capabilities: `configs/single-don.toml` (default)
-   - For a full topology (workflow DON + capabilities DON + gateway DON): `configs/workflow-capabilities-don.toml`
-2. **Download or Build Capability Binaries**
-   - Some capabilities like `cron`, `log-event-trigger`, or `read-contract` are not embedded in all Chainlink images.
-   - If your use case requires them, you can either:
-      - Download binaries from [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities/releases/tag/v1.0.2-alpha) release page or
-      - Use GH CLI to download them, e.g. `gh release download v1.0.2-alpha --repo smartcontractkit/capabilities --pattern 'amd64_cron'`
-      Make sure they are built for `linux/amd64`!
-
-     Once that is done reference them in your TOML like:
-       ```toml
-       [extra_capabilities]
-       cron_capability_binary_path = "../cron"
-       ```
-   - If the capability is already baked into your CL image (check the Dockerfile), comment out the TOML path line to skip copying.
-3. **Ensure Binaries Are in the Right Location**
-    - Default config of the CLI command will look for `cron`, and other capability binaries in `system-tests/tests/smoke/cre/`
-4.  **Decide whether to build or reuse Chainlink Docker Image**
-   - To build from your local branch:
-     ```toml
-     [nodesets.node_specs.node]
-     docker_ctx = "../../../.."
-     docker_file = "plugins/chainlink.Dockerfile"
-     ```
-   - To reuse a prebuilt image:
-     ```toml
-     [nodesets.node_specs.node]
-     image = "<your-Docker-image>:<your-tag>"
-     ```
-  Make these changes for **all** nodes in the nodeset.
-
-5. **Decide whether to use Docker or k8s**
-    - Read sections 3 to 9 starting [here](#2-docker-vs-kubernetes-k8s) to learn how to switch between Docker and Kubernetes
-6. **Start Observability Stack (Docker-only)**
-   - If you want Grafana/Prometheus support, run:
-     ```bash
-     ctf obs up
-     ```
-    - To download the `ctf` binary follow the steps described [here](https://smartcontractkit.github.io/chainlink-testing-framework/framework/getting_started.html)
-
-Optional environment variables used by the CLI:
-- `CTF_CONFIGS`: TOML config path
-- `PRIVATE_KEY`: Default test key if not set
-- `TESTCONTAINERS_RYUK_DISABLED`: Set to "true" to disable cleanup
-
-When starting the environment in AWS-managed Kubernetes make sure to source `.env` environment from the `crib/deployments/cre` folder specific for AWS. Remember, that it must include ingress domain settings.
-
-### Start Environment
-```bash
-# while in system-tests/tests/smoke/cre/cnmd
-go run main.go env start
-```
-
-Optional parameters:
-- `-t`: Topology (`simplified` or `full`)
-- `-w`: Wait on error before cleanup (e.g. to inspect Docker logs, e.g. `-w 5m`)
-- `-e`: Extra ports for which external access by the DON should be allowed (e.g. when making API calls)
-
-### Stop Environment
-```bash
-# while in system-tests/tests/smoke/cre/cnmd
-go run main.go env stop
-```
-
-Or... if you have the CTF binary:
-```
-ctf d rm
-```
 ---
 
 ### Further use
