@@ -158,7 +158,7 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 		}
 	}
 	lggr := e.Logger
-	chainState, chainExists := state.Chains[chain.Selector]
+	chainState, chainExists := state.EVMChainState(chain.Selector)
 	var weth9Contract *weth9.WETH9
 	var tokenAdminReg *token_admin_registry.TokenAdminRegistry
 	var tokenPoolFactory *token_pool_factory.TokenPoolFactory

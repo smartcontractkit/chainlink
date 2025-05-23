@@ -336,7 +336,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	onChainState, err := stateview.LoadOnchainState(envWithRMN.Env)
 	require.NoError(t, err)
 
-	homeChainState, ok := onChainState.Chains[envWithRMN.HomeChainSel]
+	homeChainState, ok := onChainState.EVMChainState(envWithRMN.HomeChainSel)
 	require.True(t, ok)
 
 	allDigests, err := homeChainState.RMNHome.GetConfigDigests(&bind.CallOpts{Context: ctx})
@@ -755,7 +755,7 @@ func (tc rmnTestCase) sendMessages(t *testing.T, onChainState stateview.CCIPOnCh
 
 		for i := 0; i < msg.count; i++ {
 			msgSentEvent := testhelpers.TestSendRequest(t, envWithRMN.Env, onChainState, fromChain, toChain, false, router.ClientEVM2AnyMessage{
-				Receiver:     common.LeftPadBytes(onChainState.Chains[toChain].Receiver.Address().Bytes(), 32),
+				Receiver:     common.LeftPadBytes(onChainState.MustGetEVMChainState(toChain).Receiver.Address().Bytes(), 32),
 				Data:         []byte("hello world"),
 				TokenAmounts: nil,
 				FeeToken:     common.HexToAddress("0x0"),
@@ -782,7 +782,7 @@ func (tc rmnTestCase) sendMessages(t *testing.T, onChainState stateview.CCIPOnCh
 func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing.T, onChainState stateview.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) {
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
-		chState, ok := onChainState.Chains[remoteSel]
+		chState, ok := onChainState.EVMChainState(remoteSel)
 		require.True(t, ok)
 		_, ok = envWithRMN.Env.Chains[remoteSel]
 		require.True(t, ok)
@@ -817,7 +817,7 @@ func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing
 func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, eg *errgroup.Group, t *testing.T, onChainState stateview.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) {
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
-		chState, ok := onChainState.Chains[remoteSel]
+		chState, ok := onChainState.EVMChainState(remoteSel)
 		require.True(t, ok)
 		_, ok = envWithRMN.Env.Chains[remoteSel]
 		require.True(t, ok)
@@ -892,7 +892,7 @@ func configureAndPromoteRMNHome(
 	require.NoError(t, err)
 
 	// Get the home chain state and the candidate/active digests
-	homeChainState, ok := onChainState.Chains[envWithRMN.HomeChainSel]
+	homeChainState, ok := onChainState.EVMChainState(envWithRMN.HomeChainSel)
 	require.True(t, ok)
 
 	allDigests, err := homeChainState.RMNHome.GetConfigDigests(&bind.CallOpts{Context: ctx})
@@ -1036,7 +1036,7 @@ func Test_CCIPReorg_BelowFinality_OnSource_WithRMN(t *testing.T) {
 		t,
 		sourceSelector,
 		e.Env.Chains[destSelector],
-		state.Chains[destSelector].OffRamp,
+		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),
 		false, // enforceSingleCommit
@@ -1084,7 +1084,7 @@ func Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Recover(t *testing.T) {
 		t,
 		sourceSelector,
 		e.Env.Chains[destSelector],
-		state.Chains[destSelector].OffRamp,
+		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),
 		false, // enforceSingleCommit
@@ -1133,7 +1133,7 @@ func Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Block(t *testing.T) {
 			t,
 			sourceSelector,
 			e.Env.Chains[destSelector],
-			state.Chains[destSelector].OffRamp,
+			state.MustGetEVMChainState(destSelector).OffRamp,
 			nil, // startBlock
 			ccipocr3.NewSeqNumRange(1, 1),
 			false, // enforceSingleCommit

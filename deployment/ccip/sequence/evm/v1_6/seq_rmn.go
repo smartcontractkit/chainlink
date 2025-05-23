@@ -74,13 +74,13 @@ func (c SetRMNRemoteConfig) Validate(env cldf.Environment, state stateview.CCIPO
 			return err
 		}
 		chain := env.Chains[chainSelector]
-		if state.Chains[chainSelector].RMNRemote == nil {
+		if state.MustGetEVMChainState(chainSelector).RMNRemote == nil {
 			return fmt.Errorf("RMNRemote not found for chain %s", chain.String())
 		}
 		err = commoncs.ValidateOwnership(
 			env.GetContext(), c.MCMSConfig != nil,
-			chain.DeployerKey.From, state.Chains[chainSelector].Timelock.Address(),
-			state.Chains[chainSelector].RMNRemote,
+			chain.DeployerKey.From, state.MustGetEVMChainState(chainSelector).Timelock.Address(),
+			state.MustGetEVMChainState(chainSelector).RMNRemote,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to validate ownership for chain %d: %w", chainSelector, err)

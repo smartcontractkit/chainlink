@@ -73,8 +73,8 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 			}
 
 			// Add EVM and Solana lane
-			evmChain1State := evmState.Chains[evmChain1]
-			evmChain2State := evmState.Chains[evmChain2]
+			evmChain1State, _ := evmState.EVMChainState(evmChain1)
+			evmChain2State, _ := evmState.EVMChainState(evmChain2)
 			feeQCfgSolana := solFeeQuoter.DestChainConfig{
 				IsEnabled:                   true,
 				DefaultTxGasLimit:           200000,
@@ -167,7 +167,7 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 
 			// evm changes
 			for _, evmChain := range evmChains {
-				evmChain1State = evmState.Chains[evmChain]
+				evmChain1State, _ = evmState.EVMChainState(evmChain1)
 
 				destCfg, err := evmChain1State.OnRamp.GetDestChainConfig(&bind.CallOpts{Context: ctx}, solChain)
 				require.NoError(t, err)

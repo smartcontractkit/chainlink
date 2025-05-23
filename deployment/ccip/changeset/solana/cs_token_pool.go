@@ -326,7 +326,7 @@ func (cfg EVMRemoteConfig) Validate(e cldf.Environment, state stateview.CCIPOnCh
 	if !ok {
 		return fmt.Errorf("chain with selector %d does not exist in environment", evmChainSelector)
 	}
-	chainState, ok := state.Chains[evmChainSelector]
+	chainState, ok := state.EVMChainState(evmChainSelector)
 	if !ok {
 		return fmt.Errorf("%s does not exist in state", chain.String())
 	}
@@ -385,7 +385,7 @@ func (cfg RemoteChainTokenPoolConfig) Validate(e cldf.Environment) error {
 
 func getOnChainEVMPoolConfig(e cldf.Environment, state stateview.CCIPOnChainState, evmChainSelector uint64, evmRemoteConfig EVMRemoteConfig) (solBaseTokenPool.RemoteConfig, error) {
 	evmChain := e.Chains[evmChainSelector]
-	evmChainState := state.Chains[evmChainSelector]
+	evmChainState := state.MustGetEVMChainState(evmChainSelector)
 	evmTokenPool, evmTokenAddress, _, evmErr := ccipChangeset_v1_5_1.GetTokenStateFromPoolEVM(context.Background(), evmRemoteConfig.TokenSymbol, evmRemoteConfig.PoolType, evmRemoteConfig.PoolVersion, evmChain, evmChainState)
 	if evmErr != nil {
 		return solBaseTokenPool.RemoteConfig{}, fmt.Errorf("failed to get token evm token pool and token address: %w", evmErr)

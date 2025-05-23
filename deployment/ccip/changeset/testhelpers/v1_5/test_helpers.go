@@ -67,8 +67,8 @@ func LaneConfigsForChains(t *testing.T, env cldf.Environment, state stateview.CC
 	for _, pair := range pairs {
 		dest := pair.DestChainSelector
 		src := pair.SourceChainSelector
-		sourceChainState := state.Chains[src]
-		destChainState := state.Chains[dest]
+		sourceChainState := state.MustGetEVMChainState(src)
+		destChainState := state.MustGetEVMChainState(dest)
 		_, err := sourceChainState.LinkTokenAddress()
 		require.NoError(t, err)
 		require.NotNil(t, sourceChainState.RMNProxy)
@@ -213,9 +213,9 @@ func LaneConfigsForChains(t *testing.T, env cldf.Environment, state stateview.CC
 
 // CreatePriceGetterConfig returns price getter config as json string.
 func CreatePriceGetterConfig(t *testing.T, state stateview.CCIPOnChainState, source, dest uint64) string {
-	sourceRouter := state.Chains[source].Router
-	destRouter := state.Chains[dest].Router
-	destLinkAddr, err := state.Chains[dest].LinkTokenAddress()
+	sourceRouter := state.MustGetEVMChainState(source).Router
+	destRouter := state.MustGetEVMChainState(dest).Router
+	destLinkAddr, err := state.MustGetEVMChainState(dest).LinkTokenAddress()
 	require.NoError(t, err)
 
 	linkPriceDest, ok := big.NewInt(0).SetString("8000000000000000000", 10)
@@ -294,7 +294,7 @@ func SendRequest(
 		return nil, err
 	}
 
-	onRamp := state.Chains[cfg.SourceChain].EVM2EVMOnRamp[cfg.DestChain]
+	onRamp := state.MustGetEVMChainState(cfg.SourceChain).EVM2EVMOnRamp[cfg.DestChain]
 
 	it, err := onRamp.FilterCCIPSendRequested(&bind.FilterOpts{
 		Start:   blockNum,
