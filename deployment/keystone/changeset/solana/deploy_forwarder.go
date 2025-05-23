@@ -2,28 +2,35 @@ package solana
 
 import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfdeployment "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	ks_forwarder "github.com/smartcontractkit/chainlink-solana/contracts/generated/keystone_forwarder"
-	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/solana"
+	cdeployment "github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 var _ cldf.ChangeSet[*DeployRequest] = DeployForwarder
 
+// move
+var Forwarder cldfdeployment.ContractType = "Forwarder"
+
 func DeployForwarder(env cldf.Environment, req *DeployRequest) (cldf.ChangesetOutput, error) {
 	if req.BuildConfig != nil {
-		err := BuildSolana(env, req.BuildConfig)
+		err := helpers.BuildSolana(env, req.BuildConfig, keystoneBuildParams)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
-	req.deployFn = solana.DeployForwarder
-	return deploy(env, req)
-}
+	chain := env.SolChains[req.ChainSel]
+	ab := cldf.NewMemoryAddressBook()
 
-type InitializeForwardContractsRequest struct {
-}
+	address, err := helpers.DeployAndMaybeSaveToAddressBook(env, chain, ab, Forwarder, cdeployment.Version1_0_0, false, "")
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
 
-var _ cldf.ChangeSet[InitializeForwardContractsRequest] = InitializeForwarderContract
+	ks_forwarder.SetProgramID(address)
 
-func InitializeForwarderContract(env cldf.Environment, req InitializeForwardContractsRequest) (cldf.ChangesetOutput, error) {
-	instruction, err := ks_forwarder.NewInitializeInstruction()
+	return cldf.ChangesetOutput{
+		AddressBook: ab,
+	}, nil
 }

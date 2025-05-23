@@ -18,6 +18,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
+// TODO add forwarder
 var programToVanityKey = map[cldf.ContractType]string{
 	shared.Router:    "Ccip",
 	shared.FeeQuoter: "FeeQ",
