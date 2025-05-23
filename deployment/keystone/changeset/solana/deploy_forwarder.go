@@ -19,7 +19,7 @@ var Forwarder cldfdeployment.ContractType = "Forwarder"
 
 func DeployForwarder(env cldf.Environment, req *DeployRequest) (cldf.ChangesetOutput, error) {
 	if req.BuildConfig != nil {
-		err := helpers.BuildSolana(env, req.BuildConfig, keystoneBuildParams)
+		err := helpers.BuildSolana(env, *req.BuildConfig, keystoneBuildParams)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}

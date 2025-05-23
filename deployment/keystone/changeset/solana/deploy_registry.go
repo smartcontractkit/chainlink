@@ -1,12 +1,8 @@
 package solana
 
-import (
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-)
+import "github.com/smartcontractkit/chainlink/deployment/helpers"
 
 type DeployRequest = struct {
 	ChainSel    uint64
-	Qualifier   string
-	Labels      *datastore.LabelSet
-	BuildConfig *BuildSolanaConfig
+	BuildConfig *helpers.BuildSolanaConfig
 }

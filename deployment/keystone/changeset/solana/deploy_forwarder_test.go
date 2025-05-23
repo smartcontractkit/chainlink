@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	"github.com/smartcontractkit/wsrpc/logger"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -26,10 +27,10 @@ func TestDeployForwarder(t *testing.T) {
 
 	t.Run("should deploy forwarder", func(t *testing.T) {
 		ab := cldf.NewMemoryAddressBook()
-		cfg := BuildSolanaConfig{
+		cfg := helpers.BuildSolanaConfig{
 			GitCommitSha:   "6442d0e438ca175b1b2ce059a174ba4bf4e8afc1",
 			DestinationDir: "./contracts",
-			LocalBuild: LocalBuildConfig{
+			LocalBuild: helpers.LocalBuildConfig{
 				BuildLocally:         true,
 				CleanDestinationDir:  false,
 				CreateDestinationDir: true,
@@ -43,10 +44,8 @@ func TestDeployForwarder(t *testing.T) {
 		env.SolChains[registrySel] = chain
 		// deploy forwarder
 		env.ExistingAddresses = ab
-		//	resp, err := changeset.DeployForwarder(env, changeset.DeployForwarderRequest{})
 		resp, err := DeployForwarder(env, &DeployRequest{
 			ChainSel:    registrySel,
-			Qualifier:   "my-test-forwarder",
 			BuildConfig: &cfg,
 		})
 		require.NoError(t, err)
