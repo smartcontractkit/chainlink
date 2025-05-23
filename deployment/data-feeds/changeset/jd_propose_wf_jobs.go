@@ -192,6 +192,10 @@ func proposeWFJobsToJDPrecondition(env cldf.Environment, c types.ProposeWFJobsCo
 		return errors.New("failed to get data feeds cache address")
 	}
 
+	if c.NodeFilter == nil {
+		return errors.New("missing node filter")
+	}
+
 	return nil
 }
 

@@ -61,7 +61,7 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 		val = reflect.ValueOf(args)
 		typ = reflect.TypeOf(args)
 	default:
-		return nil, fmt.Errorf("unknown extra args tag: %x", extraArgs)
+		return nil, fmt.Errorf("unknown extra args tag: %x", extraArgs[:4])
 	}
 
 	for i := 0; i < val.NumField(); i++ {
