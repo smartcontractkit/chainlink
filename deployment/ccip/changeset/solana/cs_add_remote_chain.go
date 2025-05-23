@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 // use these three changesets to add a remote chain to solana
@@ -183,7 +184,7 @@ func doAddRemoteChainToRouter(
 			}
 			e.Logger.Infow("update router config for remote chain", "remoteChainSel", remoteChainSel)
 			if routerUsingMCMS {
-				tx, err := BuildMCMSTxn(routerIx, ccipRouterID.String(), shared.Router)
+				tx, err := helpers.BuildMCMSTxn(routerIx, ccipRouterID.String(), shared.Router)
 				if err != nil {
 					return txns, fmt.Errorf("failed to create update router config transaction: %w", err)
 				}
@@ -227,7 +228,7 @@ func doAddRemoteChainToRouter(
 			if routerUsingMCMS {
 				// build transactions if mcms
 				for _, ix := range []solana.Instruction{routerIx, routerOfframpIx} {
-					tx, err := BuildMCMSTxn(ix, ccipRouterID.String(), shared.Router)
+					tx, err := helpers.BuildMCMSTxn(ix, ccipRouterID.String(), shared.Router)
 					if err != nil {
 						return txns, fmt.Errorf("failed to create add router config transaction: %w", err)
 					}
@@ -412,7 +413,7 @@ func doAddRemoteChainToFeeQuoter(
 			return txns, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		if feeQuoterUsingMCMS {
-			tx, err := BuildMCMSTxn(feeQuoterIx, feeQuoterID.String(), shared.FeeQuoter)
+			tx, err := helpers.BuildMCMSTxn(feeQuoterIx, feeQuoterID.String(), shared.FeeQuoter)
 			if err != nil {
 				return txns, fmt.Errorf("failed to create transaction: %w", err)
 			}
@@ -597,7 +598,7 @@ func doAddRemoteChainToOffRamp(
 			return txns, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		if offRampUsingMCMS {
-			tx, err := BuildMCMSTxn(offRampIx, offRampID.String(), shared.OffRamp)
+			tx, err := helpers.BuildMCMSTxn(offRampIx, offRampID.String(), shared.OffRamp)
 			if err != nil {
 				return txns, fmt.Errorf("failed to create transaction: %w", err)
 			}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 
 	solToken "github.com/gagliardetto/solana-go/programs/token"
 
@@ -302,12 +303,12 @@ type UploadTokenMetadataConfig struct {
 func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cldf.ChangesetOutput, error) {
 	chain := e.SolChains[cfg.ChainSelector]
 	e.Logger.Infow("Uploading token metadata", "tokenPubkey", cfg.TokenPubkey.String())
-	_, _ = runCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
-	_, _ = runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
+	_, _ = helpers.RunCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
+	_, _ = helpers.RunCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
 	if cfg.TokenMetaDataFile != "" {
 		args := []string{"create", "metadata", "--mint", cfg.TokenPubkey.String(), "--metadata", cfg.TokenMetaDataFile}
 		e.Logger.Info(args)
-		output, err := runCommand("metaboss", args, chain.ProgramsPath)
+		output, err := helpers.RunCommand("metaboss", args, chain.ProgramsPath)
 		e.Logger.Debugw("metaboss output", "output", output)
 		if err != nil {
 			e.Logger.Debugw("metaboss create error", "error", err)
@@ -318,7 +319,7 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 	if !cfg.TokenUpdateAuthority.IsZero() {
 		args := []string{"set", "update-authority", "--account", cfg.TokenPubkey.String(), "--new-update-authority", cfg.TokenUpdateAuthority.String()}
 		e.Logger.Info(args)
-		output, err := runCommand("metaboss", args, chain.ProgramsPath)
+		output, err := helpers.RunCommand("metaboss", args, chain.ProgramsPath)
 		e.Logger.Debugw("metaboss output", "output", output)
 		if err != nil {
 			e.Logger.Debugw("metaboss set error", "error", err)

@@ -25,6 +25,7 @@ import (
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 // use this to set the fee aggregator
@@ -226,7 +227,7 @@ func UpdateOffRampRefAddresses(
 	}
 
 	if offRampUsingMCMS {
-		tx, err := BuildMCMSTxn(ix, chainState.OffRamp.String(), shared.OffRamp)
+		tx, err := helpers.BuildMCMSTxn(ix, chainState.OffRamp.String(), shared.OffRamp)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -317,7 +318,7 @@ func SetUpgradeAuthorityChangeset(
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 			}
 		} else {
-			tx, err := BuildMCMSTxn(
+			tx, err := helpers.BuildMCMSTxn(
 				ixn,
 				solana.BPFLoaderUpgradeableProgramID.String(),
 				cldf.ContractType(solana.BPFLoaderUpgradeableProgramID.String()))
@@ -455,7 +456,7 @@ func SetFeeAggregator(e cldf.Environment, cfg SetFeeAggregatorConfig) (cldf.Chan
 	}
 
 	if routerUsingMCMS {
-		tx, err := BuildMCMSTxn(instruction, chainState.Router.String(), shared.Router)
+		tx, err := helpers.BuildMCMSTxn(instruction, chainState.Router.String(), shared.Router)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -479,7 +480,7 @@ func SetFeeAggregator(e cldf.Environment, cfg SetFeeAggregatorConfig) (cldf.Chan
 
 type DeployForTestConfig struct {
 	ChainSelector   uint64
-	BuildConfig     *BuildSolanaConfig
+	BuildConfig     *helpers.BuildSolanaConfig
 	ReceiverVersion *semver.Version // leave unset to default to v1.0.0
 	IsUpgrade       bool
 }
@@ -505,7 +506,7 @@ func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.Ch
 
 	if cfg.BuildConfig != nil {
 		e.Logger.Debugw("Building solana artifacts", "gitCommitSha", cfg.BuildConfig.GitCommitSha)
-		err := BuildSolana(e, *cfg.BuildConfig)
+		err := helpers.BuildSolana(e, *cfg.BuildConfig, ccipBuildParams)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build solana: %w", err)
 		}
@@ -523,13 +524,13 @@ func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.Ch
 	if !cfg.IsUpgrade {
 		//nolint:gocritic // this is a false positive, we need to check if the address is zero
 		if chainState.Receiver.IsZero() {
-			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.Receiver, deployment.Version1_0_0, false, "")
+			receiverAddress, err = helpers.DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.Receiver, deployment.Version1_0_0, false, "")
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
 			}
 		} else if cfg.ReceiverVersion != nil {
 			// this block is for re-deploying with a new version
-			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.Receiver, *cfg.ReceiverVersion, false, "")
+			receiverAddress, err = helpers.DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.Receiver, *cfg.ReceiverVersion, false, "")
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
 			}
@@ -556,12 +557,10 @@ func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.Ch
 		e.Logger.Infow("Deploying new receiver", "addr", chainState.Receiver.String())
 		receiverAddress = chainState.Receiver
 		// only support deployer key as upgrade authority. never transfer to timelock
-		_, err := generateUpgradeTxns(e, chain, ab, DeployChainContractsConfig{
-			UpgradeConfig: UpgradeConfig{
-				SpillAddress:     chain.DeployerKey.PublicKey(),
-				UpgradeAuthority: chain.DeployerKey.PublicKey(),
-			},
-		}, cfg.ReceiverVersion, chainState.Receiver, shared.Receiver)
+		_, err := helpers.GenerateUpgradeTxns(e, chain, ab,
+			chain.DeployerKey.PublicKey(),
+			chain.DeployerKey.PublicKey(),
+			cfg.ReceiverVersion, chainState.Receiver, shared.Receiver)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}

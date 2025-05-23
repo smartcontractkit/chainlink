@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 type TransferOwnershipFn func(
@@ -57,7 +58,7 @@ func transferAndWrapAcceptOwnership(
 	// We can't perform the accept ownership step here because the timelock signer is not a signer of the transaction
 	// 2. Wrap in MCMS transaction or confirm on-chain
 	if currentOwner.Equals(timelockSigner) {
-		mcmsTx, err := BuildMCMSTxn(ixTransfer, programID.String(), label)
+		mcmsTx, err := helpers.BuildMCMSTxn(ixTransfer, programID.String(), label)
 		if err != nil {
 			return mcmsTypes.Transaction{}, fmt.Errorf("%s: failed to create MCMS transaction: %w", label, err)
 		}
@@ -76,7 +77,7 @@ func transferAndWrapAcceptOwnership(
 
 	// 4. Wrap in MCMS transaction or confirm on-chain
 	if proposedOwner.Equals(timelockSigner) {
-		mcmsTx, err := BuildMCMSTxn(ixAccept, programID.String(), label)
+		mcmsTx, err := helpers.BuildMCMSTxn(ixAccept, programID.String(), label)
 		if err != nil {
 			return mcmsTypes.Transaction{}, fmt.Errorf("%s: failed to create MCMS transaction: %w", label, err)
 		}
@@ -505,7 +506,7 @@ func transferOwnershipRMNRemote(
 	// if the old owner is the timelock signer, we need to build the accept instruction and submit it
 	// We can't perform the accept ownership step here because the timelock signer is not a signer of the transaction
 	if currentOwner.Equals(timelockSigner) {
-		mcmsTx, err := BuildMCMSTxn(ixTransfer, programID.String(), label)
+		mcmsTx, err := helpers.BuildMCMSTxn(ixTransfer, programID.String(), label)
 		if err != nil {
 			return nil, fmt.Errorf("%s: failed to create MCMS transaction: %w", label, err)
 		}
@@ -527,7 +528,7 @@ func transferOwnershipRMNRemote(
 
 	if proposedOwner.Equals(timelockSigner) {
 		// 4. Wrap in MCMS transaction
-		mcmsTx, err := BuildMCMSTxn(ixAccept, programID.String(), label)
+		mcmsTx, err := helpers.BuildMCMSTxn(ixAccept, programID.String(), label)
 		if err != nil {
 			return nil, fmt.Errorf("%s: failed to create MCMS transaction: %w", label, err)
 		}

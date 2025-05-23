@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 const IdlIxTag uint64 = 0x0a69e9a778bcf440
@@ -97,7 +98,7 @@ func repoSetup(e cldf.Environment, chain cldf.SolChain, gitCommitSha string) err
 	}
 
 	// get anchor version
-	output, err := runCommand("anchor", []string{"--version"}, ".")
+	output, err := helpers.RunCommand("anchor", []string{"--version"}, ".")
 	if err != nil {
 		return errors.New("anchor-cli not installed in path")
 	}
@@ -168,7 +169,7 @@ func idlInit(e cldf.Environment, programsPath, programID, programName string) er
 	e.Logger.Infow("Uploading IDL", "programName", programName)
 	args := []string{"idl", "init", "--filepath", idlFile, programID}
 	e.Logger.Info(args)
-	output, err := runCommand("anchor", args, programsPath)
+	output, err := helpers.RunCommand("anchor", args, programsPath)
 	e.Logger.Debugw("IDL init output", "output", output)
 	if err != nil {
 		e.Logger.Debugw("IDL init error", "error", err)
@@ -187,7 +188,7 @@ func setIdlAuthority(e cldf.Environment, newAuthority, programsPath, programID, 
 		args = append(args, bufferAccount)
 	}
 	e.Logger.Info(args)
-	_, err := runCommand("anchor", args, programsPath)
+	_, err := helpers.RunCommand("anchor", args, programsPath)
 	if err != nil {
 		return fmt.Errorf("error setting idl authority: %w", err)
 	}
@@ -222,7 +223,7 @@ func writeBuffer(e cldf.Environment, programsPath, programID, programName string
 	e.Logger.Infow("Writing IDL buffer", "programID", programID)
 	args := []string{"idl", "write-buffer", "--filepath", idlFile, programID}
 	e.Logger.Info(args)
-	output, err := runCommand("anchor", args, programsPath)
+	output, err := helpers.RunCommand("anchor", args, programsPath)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("error writing IDL buffer: %w", err)
 	}
@@ -282,7 +283,7 @@ func upgradeIDLIx(e cldf.Environment, programsPath, programID, programName strin
 		return nil, fmt.Errorf("error generating set buffer ix: %w", err)
 	}
 	if c.MCMS != nil {
-		upgradeTx, err := BuildMCMSTxn(&instruction, programID, cldf.ContractType(programName))
+		upgradeTx, err := helpers.BuildMCMSTxn(&instruction, programID, cldf.ContractType(programName))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create upgrade transaction: %w", err)
 		}

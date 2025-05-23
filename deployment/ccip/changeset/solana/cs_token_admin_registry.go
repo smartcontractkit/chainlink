@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 // use these changesets to register a token admin registry, transfer the admin role, and accept the admin role
@@ -167,7 +168,7 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 		}
 	}
 	if routerUsingMCMS {
-		tx, err := BuildMCMSTxn(instruction, routerProgramAddress.String(), shared.Router)
+		tx, err := helpers.BuildMCMSTxn(instruction, routerProgramAddress.String(), shared.Router)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -283,7 +284,7 @@ func TransferAdminRoleTokenAdminRegistry(e cldf.Environment, cfg TransferAdminRo
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 	}
 	if routerUsingMCMS {
-		tx, err := BuildMCMSTxn(ix1, routerProgramAddress.String(), shared.Router)
+		tx, err := helpers.BuildMCMSTxn(ix1, routerProgramAddress.String(), shared.Router)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -395,7 +396,7 @@ func AcceptAdminRoleTokenAdminRegistry(e cldf.Environment, cfg AcceptAdminRoleTo
 	}
 	if routerUsingMCMS {
 		// We will only be able to accept the admin role if the pending admin is the timelock signer
-		tx, err := BuildMCMSTxn(ix1, routerProgramAddress.String(), shared.Router)
+		tx, err := helpers.BuildMCMSTxn(ix1, routerProgramAddress.String(), shared.Router)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}

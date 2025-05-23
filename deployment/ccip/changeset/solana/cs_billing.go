@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 // use this changeset to add a billing token to solana
@@ -134,7 +135,7 @@ func AddBillingToken(
 		return txns, fmt.Errorf("failed to generate instructions: %w", err)
 	}
 	if feeQuoterUsingMCMS {
-		tx, err := BuildMCMSTxn(ixConfig, chainState.FeeQuoter.String(), shared.FeeQuoter)
+		tx, err := helpers.BuildMCMSTxn(ixConfig, chainState.FeeQuoter.String(), shared.FeeQuoter)
 		if err != nil {
 			return txns, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -261,7 +262,7 @@ func AddTokenTransferFeeForRemoteChain(e cldf.Environment, cfg TokenTransferFeeF
 	e.Logger.Infow("Token billing set for remote chain", "chainSelector ", cfg.ChainSelector, "remoteChainSelector ", cfg.RemoteChainSelector, "tokenPubKey", tokenPubKey.String())
 
 	if feeQuoterUsingMCMS {
-		tx, err := BuildMCMSTxn(ix, chainState.FeeQuoter.String(), shared.FeeQuoter)
+		tx, err := helpers.BuildMCMSTxn(ix, chainState.FeeQuoter.String(), shared.FeeQuoter)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -379,7 +380,7 @@ func UpdatePrices(e cldf.Environment, cfg UpdatePricesConfig) (cldf.ChangesetOut
 	}
 
 	if feeQuoterUsingMCMS {
-		tx, err := BuildMCMSTxn(ix, s.SolChains[chainSel].FeeQuoter.String(), shared.FeeQuoter)
+		tx, err := helpers.BuildMCMSTxn(ix, s.SolChains[chainSel].FeeQuoter.String(), shared.FeeQuoter)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -491,7 +492,7 @@ func ModifyPriceUpdater(e cldf.Environment, cfg ModifyPriceUpdaterConfig) (cldf.
 	}
 
 	if feeQuoterUsingMCMS {
-		tx, err := BuildMCMSTxn(ix, s.SolChains[chainSel].FeeQuoter.String(), shared.FeeQuoter)
+		tx, err := helpers.BuildMCMSTxn(ix, s.SolChains[chainSel].FeeQuoter.String(), shared.FeeQuoter)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -595,7 +596,7 @@ func WithdrawBilledFunds(e cldf.Environment, cfg WithdrawBilledFundsConfig) (cld
 	}
 
 	if routerUsingMCMS {
-		tx, err := BuildMCMSTxn(ix, s.SolChains[chainSel].Router.String(), shared.Router)
+		tx, err := helpers.BuildMCMSTxn(ix, s.SolChains[chainSel].Router.String(), shared.Router)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -676,7 +677,7 @@ func SetMaxFeeJuelsPerMsg(e cldf.Environment, cfg SetMaxFeeJuelsPerMsgConfig) (c
 	}
 
 	if fqUsingMCMS {
-		tx, err := BuildMCMSTxn(instruction, chainState.FeeQuoter.String(), shared.FeeQuoter)
+		tx, err := helpers.BuildMCMSTxn(instruction, chainState.FeeQuoter.String(), shared.FeeQuoter)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}

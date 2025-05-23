@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 // use these changesets to set the default code version
@@ -115,7 +116,7 @@ func SetDefaultCodeVersion(e cldf.Environment, cfg SetDefaultCodeVersionConfig) 
 	}
 
 	if routerUsingMCMS {
-		tx, err := BuildMCMSTxn(ixn, chainState.Router.String(), shared.Router)
+		tx, err := helpers.BuildMCMSTxn(ixn, chainState.Router.String(), shared.Router)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -143,7 +144,7 @@ func SetDefaultCodeVersion(e cldf.Environment, cfg SetDefaultCodeVersionConfig) 
 	}
 
 	if offRampUsingMCMS {
-		tx, err := BuildMCMSTxn(ixn2, chainState.OffRamp.String(), shared.OffRamp)
+		tx, err := helpers.BuildMCMSTxn(ixn2, chainState.OffRamp.String(), shared.OffRamp)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -171,7 +172,7 @@ func SetDefaultCodeVersion(e cldf.Environment, cfg SetDefaultCodeVersionConfig) 
 	}
 
 	if feeQuoterUsingMCMS {
-		tx, err := BuildMCMSTxn(ixn3, chainState.FeeQuoter.String(), shared.FeeQuoter)
+		tx, err := helpers.BuildMCMSTxn(ixn3, chainState.FeeQuoter.String(), shared.FeeQuoter)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -269,7 +270,7 @@ func UpdateSvmChainSelector(e cldf.Environment, cfg UpdateSvmChainSelectorConfig
 	}
 
 	if routerUsingMCMS {
-		tx, err := BuildMCMSTxn(ixn, chainState.Router.String(), shared.Router)
+		tx, err := helpers.BuildMCMSTxn(ixn, chainState.Router.String(), shared.Router)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -297,7 +298,7 @@ func UpdateSvmChainSelector(e cldf.Environment, cfg UpdateSvmChainSelectorConfig
 	}
 
 	if offRampUsingMCMS {
-		tx, err := BuildMCMSTxn(ixn2, chainState.OffRamp.String(), shared.OffRamp)
+		tx, err := helpers.BuildMCMSTxn(ixn2, chainState.OffRamp.String(), shared.OffRamp)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -383,7 +384,7 @@ func UpdateEnableManualExecutionAfter(e cldf.Environment, cfg UpdateEnableManual
 	}
 
 	if offRampUsingMCMS {
-		tx, err := BuildMCMSTxn(ixn2, chainState.OffRamp.String(), shared.OffRamp)
+		tx, err := helpers.BuildMCMSTxn(ixn2, chainState.OffRamp.String(), shared.OffRamp)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -501,7 +502,7 @@ func ConfigureCCIPVersion(e cldf.Environment, cfg ConfigureCCIPVersionConfig) (c
 	}
 
 	if routerUsingMCMS {
-		tx, err := BuildMCMSTxn(ixn, chainState.Router.String(), shared.Router)
+		tx, err := helpers.BuildMCMSTxn(ixn, chainState.Router.String(), shared.Router)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -589,7 +590,7 @@ func RemoveOffRamp(e cldf.Environment, cfg RemoveOffRampConfig) (cldf.ChangesetO
 	}
 
 	if routerUsingMCMS {
-		tx, err := BuildMCMSTxn(ixn, chainState.Router.String(), shared.Router)
+		tx, err := helpers.BuildMCMSTxn(ixn, chainState.Router.String(), shared.Router)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}

@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 // use this changeset to add a token pool and lookup table
@@ -110,7 +111,7 @@ func validatePoolDeployment(
 // append mcms txns generated from solanainstructions
 func appendTxs(instructions []solana.Instruction, tokenPool solana.PublicKey, poolType cldf.ContractType, txns *[]mcmsTypes.Transaction) error {
 	for _, ixn := range instructions {
-		tx, err := BuildMCMSTxn(ixn, tokenPool.String(), poolType)
+		tx, err := helpers.BuildMCMSTxn(ixn, tokenPool.String(), poolType)
 		if err != nil {
 			return fmt.Errorf("failed to generate mcms txn: %w", err)
 		}
@@ -204,7 +205,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg TokenPoolConfig) (cldf.C
 	instructions := []solana.Instruction{createI}
 
 	var poolInitI solana.Instruction
-	programData, err := getSolProgramData(e, chain, tokenPool)
+	programData, err := helpers.GetSolProgramData(e, chain, tokenPool)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool program data: %w", err)
 	}
@@ -1033,7 +1034,7 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 	}
 
 	if routerUsingMCMS {
-		tx, err := BuildMCMSTxn(instruction, routerProgramAddress.String(), shared.Router)
+		tx, err := helpers.BuildMCMSTxn(instruction, routerProgramAddress.String(), shared.Router)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -1163,7 +1164,7 @@ func ConfigureTokenPoolAllowList(e cldf.Environment, cfg ConfigureTokenPoolAllow
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid pool type: %s", cfg.PoolType)
 	}
 	if tokenPoolUsingMcms {
-		tx, err := BuildMCMSTxn(ix, tokenPool.String(), contractType)
+		tx, err := helpers.BuildMCMSTxn(ix, tokenPool.String(), contractType)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -1285,7 +1286,7 @@ func RemoveFromTokenPoolAllowList(e cldf.Environment, cfg RemoveFromAllowListCon
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid pool type: %s", cfg.PoolType)
 	}
 	if tokenPoolUsingMcms {
-		tx, err := BuildMCMSTxn(ix, tokenPool.String(), contractType)
+		tx, err := helpers.BuildMCMSTxn(ix, tokenPool.String(), contractType)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
@@ -1674,7 +1675,7 @@ func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid pool type: %s", cfg.PoolType)
 	}
 	if tokenPoolUsingMcms {
-		tx, err := BuildMCMSTxn(ix, tokenPool.String(), contractType)
+		tx, err := helpers.BuildMCMSTxn(ix, tokenPool.String(), contractType)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}

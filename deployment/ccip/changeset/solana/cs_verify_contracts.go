@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 // https://solana.com/developers/guides/advanced/verified-builds
@@ -53,7 +54,7 @@ func runSolanaVerify(chain cldf.SolChain, programID, libraryName, commitHash, mo
 		"set",
 		"--keypair", chain.KeypairPath,
 	}
-	output, err := runCommand("solana", cmdArgs, ".")
+	output, err := helpers.RunCommand("solana", cmdArgs, ".")
 	fmt.Println(output)
 	if err != nil {
 		return fmt.Errorf("solana program verification failed: %s %w", output, err)
@@ -70,7 +71,7 @@ func runSolanaVerify(chain cldf.SolChain, programID, libraryName, commitHash, mo
 		"--skip-prompt",
 	}
 
-	output, err = runCommand("solana-verify", cmdArgs, ".")
+	output, err = helpers.RunCommand("solana-verify", cmdArgs, ".")
 	fmt.Println(output)
 	if err != nil {
 		return fmt.Errorf("solana program verification failed: %s %w", output, err)
@@ -85,7 +86,7 @@ func runSolanaVerify(chain cldf.SolChain, programID, libraryName, commitHash, mo
 			"--uploader", chain.DeployerKey.PublicKey().String(),
 			"--program-id", programID,
 		}
-		output, err := runCommand("solana-verify", cmdArgs, chain.ProgramsPath)
+		output, err := helpers.RunCommand("solana-verify", cmdArgs, chain.ProgramsPath)
 		fmt.Println(output)
 		if err != nil {
 			return fmt.Errorf("solana program verification failed: %s %w", output, err)

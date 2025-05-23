@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -432,10 +433,10 @@ func TestPartnerTokenPools(t *testing.T) {
 		ccipChangesetSolana.DeployChainContractsConfig{
 			HomeChainSelector: e.AllChainSelectors()[0],
 			ChainSelector:     solChainSelectors[0],
-			BuildConfig: &ccipChangesetSolana.BuildSolanaConfig{
+			BuildConfig: &helpers.BuildSolanaConfig{
 				GitCommitSha:   OldSha,
 				DestinationDir: e.SolChains[solChainSelectors[0]].ProgramsPath,
-				LocalBuild: ccipChangesetSolana.LocalBuildConfig{
+				LocalBuild: helpers.LocalBuildConfig{
 					BuildLocally: true,
 				},
 			},
