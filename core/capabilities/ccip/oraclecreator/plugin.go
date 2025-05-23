@@ -156,7 +156,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 
 	offrampAddrStr, err := i.addressCodec.AddressBytesToString(config.Config.OfframpAddress, cciptypes.ChainSelector(chainSelector))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to convert offramp address to string using address codec: %w", err)
 	}
 
 	i.lggr.Infow("offramp address", "offrampAddrStr", config.Config.OfframpAddress, "selector", config.Config.ChainSelector)
@@ -182,17 +182,18 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	onchainKeyring := ocrimpls.NewOnchainKeyring[[]byte](keybundle, i.lggr)
 
 	// build the contract transmitter
-	// assume that we are using the first account in the keybundle as the from account
-	// and that we are able to transmit to the dest chain.
-	// TODO: revisit this in the future, since not all oracles will be able to transmit to the dest chain.
+	// assume that we are using the first account in the keybundle as the from account.
 	destChainWriter, ok := chainWriters[config.Config.ChainSelector]
 	if !ok {
-		return nil, fmt.Errorf("no chain writer found for dest chain selector %d, can't create contract transmitter",
-			config.Config.ChainSelector)
+		i.lggr.Infow("no chain writer found for dest chain, will create nil transmitter",
+			"destChainID", destChainID,
+			"destChainSelector", config.Config.ChainSelector)
 	}
 	destFromAccounts, ok := i.transmitters[destRelayID]
 	if !ok {
-		return nil, fmt.Errorf("no transmitter found for dest relay ID %s, can't create contract transmitter", destRelayID)
+		i.lggr.Infow("no transmitters found for dest chain, will create nil transmitter",
+			"destChainID", destChainID,
+			"destChainSelector", config.Config.ChainSelector)
 	}
 
 	// TODO: Extract the correct transmitter address from the destsFromAccount
@@ -271,7 +272,8 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 		}
 
 		i.lggr.Infow("creating rmn peer client",
-			"bootstrapperLocators", i.bootstrapperLocators, "deltaRound", publicConfig.DeltaRound)
+			"bootstrapperLocators", i.bootstrapperLocators,
+			"deltaRound", publicConfig.DeltaRound)
 
 		rmnPeerClient := rmn.NewPeerClient(
 			i.lggr.Named("RMNPeerClient"),
@@ -298,15 +300,22 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				ContractWriters:   chainWriters,
 				RmnPeerClient:     rmnPeerClient,
 				RmnCrypto:         pluginConfig.RMNCrypto})
-		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, destChainID, "CCIPCommit")
-		transmitter = pluginConfig.ContractTransmitterFactory.NewCommitTransmitter(
-			i.lggr.Named("CCIPCommitTransmitter").Named(destRelayID.String()),
-			destChainWriter,
-			ocrtypes.Account(destFromAccounts[0]),
-			offrampAddrStr,
-			consts.MethodCommit,
-			pluginConfig.PriceOnlyCommitFn,
-		)
+		factory = promwrapper.NewReportingPluginFactory(factory, i.lggr, destChainID, "CCIPCommit")
+		if destChainWriter == nil {
+			i.lggr.Infow("no chain writer found for dest chain, creating nil transmitter",
+				"destChainID", destChainID,
+				"destChainSelector", config.Config.ChainSelector)
+			transmitter = ocrimpls.NewNoOpTransmitter(i.lggr)
+		} else {
+			transmitter = pluginConfig.ContractTransmitterFactory.NewCommitTransmitter(
+				i.lggr.Named("CCIPCommitTransmitter").Named(destRelayID.String()),
+				destChainWriter,
+				ocrtypes.Account(destFromAccounts[0]),
+				offrampAddrStr,
+				consts.MethodCommit,
+				pluginConfig.PriceOnlyCommitFn,
+			)
+		}
 	} else if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec) {
 		factory = execocr3.NewExecutePluginFactory(
 			execocr3.PluginFactoryParams{
@@ -325,19 +334,35 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				ContractReaders:  contractReaders,
 				ContractWriters:  chainWriters,
 			})
-		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, destChainID, "CCIPExec")
-		transmitter = pluginConfig.ContractTransmitterFactory.NewExecTransmitter(
-			i.lggr.Named("CCIPExecTransmitter").Named(destRelayID.String()),
-			destChainWriter,
-			ocrtypes.Account(destFromAccounts[0]),
-			offrampAddrStr,
-		)
+		factory = promwrapper.NewReportingPluginFactory(factory, i.lggr, destChainID, "CCIPExec")
+
+		if destChainWriter == nil {
+			i.lggr.Infow("no chain writer found for dest chain, creating nil transmitter",
+				"destChainID", destChainID,
+				"destChainSelector", config.Config.ChainSelector)
+			transmitter = ocrimpls.NewNoOpTransmitter(i.lggr)
+		} else {
+			transmitter = pluginConfig.ContractTransmitterFactory.NewExecTransmitter(
+				i.lggr.Named("CCIPExecTransmitter").Named(destRelayID.String()),
+				destChainWriter,
+				ocrtypes.Account(destFromAccounts[0]),
+				offrampAddrStr,
+			)
+		}
 	} else {
 		return nil, nil, fmt.Errorf("unsupported Plugin type %d", config.Config.PluginType)
 	}
 	return factory, transmitter, nil
 }
 
+// createReadersAndWriters creates the contract readers and writers for the relayers
+// that are available on this chainlink node.
+//
+// Relayers that are available on this node are exactly the chains that are enabled
+// in the node TOML config.
+//
+// Since not every node will support every chain, we may not have a reader/writer for
+// every chain that the role DON will be servicing.
 func (i *pluginOracleCreator) createReadersAndWriters(
 	ctx context.Context,
 	crcw ccipcommon.MultiChainRW,
