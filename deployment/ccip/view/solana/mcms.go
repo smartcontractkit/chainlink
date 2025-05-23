@@ -20,7 +20,7 @@ type MCMSWithTimelockView struct {
 }
 
 type TimelockView struct {
-	ProgramId                     string   `json:"programId,omitempty"`
+	ProgramID                     string   `json:"programId,omitempty"`
 	Owner                         string   `json:"owner,omitempty"`
 	ProposedOwner                 string   `json:"proposedOwner,omitempty"`
 	ProposerRoleAccessController  string   `json:"proposerRoleAccessController,omitempty"`
@@ -38,9 +38,9 @@ type MCMSView struct {
 }
 
 type MCMSConfig struct {
-	ProgramId     string   `json:"programId,omitempty"`
-	ChainId       uint64   `json:"chainId,omitempty"`
-	MultisigId    string   `json:"multisigId,omitempty"`
+	ProgramID     string   `json:"programId,omitempty"`
+	ChainID       uint64   `json:"chainId,omitempty"`
+	MultisigID    string   `json:"multisigId,omitempty"`
 	Owner         string   `json:"owner,omitempty"`
 	ProposedOwner string   `json:"proposedOwner,omitempty"`
 	GroupQuorums  string   `json:"groupQuorums,omitempty"`
@@ -72,40 +72,31 @@ func GenerateMCMSWithTimelockView(chain cldf.SolChain, addresses map[string]cldf
 	view.MCMS = MCMSView{}
 	var mcmData mcm.MultisigConfig
 	for _, mcmConfig := range []struct {
-		name string
-		pda  solana.PublicKey
+		name     string
+		pda      solana.PublicKey
+		mcmsView MCMSConfig
 	}{
-		{"Bypasser", state.GetMCMConfigPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed)},
-		{"Proposer", state.GetMCMConfigPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)},
-		{"Canceller", state.GetMCMConfigPDA(mcmState.McmProgram, mcmState.CancellerMcmSeed)},
+		{"Bypasser", state.GetMCMConfigPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed), view.MCMS.Bypasser},
+		{"Proposer", state.GetMCMConfigPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed), view.MCMS.Proposer},
+		{"Canceller", state.GetMCMConfigPDA(mcmState.McmProgram, mcmState.CancellerMcmSeed), view.MCMS.Canceller},
 	} {
 		err = chain.GetAccountDataBorshInto(context.Background(), mcmConfig.pda, &mcmData)
 		if err != nil {
 			return view, fmt.Errorf("failed to get account data for %s: %w", mcmConfig.name, err)
 		}
 		currConfig := MCMSConfig{
-			ProgramId:     mcmState.McmProgram.String(),
-			ChainId:       mcmData.ChainId,
-			MultisigId:    string(mcmData.MultisigId[:]),
+			ProgramID:     mcmState.McmProgram.String(),
+			ChainID:       mcmData.ChainId,
+			MultisigID:    string(mcmData.MultisigId[:]),
 			Owner:         mcmData.Owner.String(),
 			ProposedOwner: mcmData.ProposedOwner.String(),
 			GroupQuorums:  string(mcmData.GroupQuorums[:]),
 			GroupParents:  string(mcmData.GroupParents[:]),
 		}
 		for _, signer := range mcmData.Signers {
-			view.MCMS.Bypasser.Signers = append(view.MCMS.Bypasser.Signers, shared.GetAddressFromBytes(chain_selectors.ETHEREUM_MAINNET.Selector, signer.EvmAddress[:]))
+			mcmConfig.mcmsView.Signers = append(mcmConfig.mcmsView.Signers, shared.GetAddressFromBytes(chain_selectors.ETHEREUM_MAINNET.Selector, signer.EvmAddress[:]))
 		}
-		switch mcmConfig.name {
-		case "Bypasser":
-			view.MCMS.Bypasser = currConfig
-		case "Proposer":
-			view.MCMS.Proposer = currConfig
-		case "Canceller":
-			view.MCMS.Canceller = currConfig
-		default:
-			return view, fmt.Errorf("unknown mcm config name: %s", mcmConfig.name)
-		}
-
+		mcmConfig.mcmsView = currConfig
 	}
 
 	return view, nil
