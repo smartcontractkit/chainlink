@@ -145,7 +145,9 @@ func AggregateAndCleanup(e cldf.Environment, finalOutput *cldf.ChangesetOutput, 
 		if err != nil {
 			return fmt.Errorf("failed to aggregate proposals: %w", err)
 		}
-		finalOutput.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
+		if proposal != nil {
+			finalOutput.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
+		}
 	}
 	if addresses, err := abToRemove.Addresses(); err == nil && len(addresses) > 0 {
 		if err := e.ExistingAddresses.Remove(abToRemove); err != nil {
