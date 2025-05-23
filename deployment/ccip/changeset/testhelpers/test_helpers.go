@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -2320,6 +2321,16 @@ func DeployCCIPContractsTest(t *testing.T, solChains int) {
 	require.NoError(t, err)
 	if solChains > 0 {
 		DeploySolanaCcipReceiver(t, e.Env)
+		solanaChain := e.Env.SolChains[e.Env.AllChainSelectorsSolana()[0]]
+		addressBook := cldf.NewMemoryAddressBook()
+		mcmsConfig := commontypes.MCMSWithTimelockConfigV2{
+			Canceller:        proposalutils.SingleGroupMCMSV2(t),
+			Bypasser:         proposalutils.SingleGroupMCMSV2(t),
+			Proposer:         proposalutils.SingleGroupMCMSV2(t),
+			TimelockMinDelay: big.NewInt(1),
+		}
+		_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(e.Env, solanaChain, addressBook, mcmsConfig)
+		require.NoError(t, err)
 	}
 
 	// Assert expect every deployed address to be in the address book.

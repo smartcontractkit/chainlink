@@ -6,6 +6,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/mcm"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
@@ -58,7 +59,7 @@ func GenerateMCMSWithTimelockView(chain cldf.SolChain, addresses map[string]cldf
 	var timelockData timelock.Config
 	err = chain.GetAccountDataBorshInto(context.Background(), timelockConfigPDA, &timelockData)
 	if err != nil {
-		return view, fmt.Errorf("fee quoter config not found in existing state, initialize the fee quoter first %d", chain.Selector)
+		return view, fmt.Errorf("timelock config not found in existing state, initialize the timelock first %d", chain.Selector)
 	}
 	view.Timelock = TimelockView{
 		Owner:                         timelockData.Owner.String(),
@@ -69,16 +70,20 @@ func GenerateMCMSWithTimelockView(chain cldf.SolChain, addresses map[string]cldf
 		BypasserRoleAccessController:  timelockData.BypasserRoleAccessController.String(),
 		MinDelay:                      timelockData.MinDelay,
 	}
-	view.MCMS = MCMSView{}
+	view.MCMS = MCMSView{
+		Bypasser:  MCMSConfig{},
+		Proposer:  MCMSConfig{},
+		Canceller: MCMSConfig{},
+	}
 	var mcmData mcm.MultisigConfig
 	for _, mcmConfig := range []struct {
 		name     string
 		pda      solana.PublicKey
-		mcmsView MCMSConfig
+		mcmsView *MCMSConfig
 	}{
-		{"Bypasser", state.GetMCMConfigPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed), view.MCMS.Bypasser},
-		{"Proposer", state.GetMCMConfigPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed), view.MCMS.Proposer},
-		{"Canceller", state.GetMCMConfigPDA(mcmState.McmProgram, mcmState.CancellerMcmSeed), view.MCMS.Canceller},
+		{"Bypasser", state.GetMCMConfigPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed), &view.MCMS.Bypasser},
+		{"Proposer", state.GetMCMConfigPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed), &view.MCMS.Proposer},
+		{"Canceller", state.GetMCMConfigPDA(mcmState.McmProgram, mcmState.CancellerMcmSeed), &view.MCMS.Canceller},
 	} {
 		err = chain.GetAccountDataBorshInto(context.Background(), mcmConfig.pda, &mcmData)
 		if err != nil {
@@ -90,13 +95,13 @@ func GenerateMCMSWithTimelockView(chain cldf.SolChain, addresses map[string]cldf
 			MultisigID:    string(mcmData.MultisigId[:]),
 			Owner:         mcmData.Owner.String(),
 			ProposedOwner: mcmData.ProposedOwner.String(),
-			GroupQuorums:  string(mcmData.GroupQuorums[:]),
-			GroupParents:  string(mcmData.GroupParents[:]),
+			GroupQuorums:  shared.GetAddressFromBytes(chain_selectors.ETHEREUM_MAINNET.Selector, mcmData.GroupQuorums[:]),
+			GroupParents:  shared.GetAddressFromBytes(chain_selectors.ETHEREUM_MAINNET.Selector, mcmData.GroupParents[:]),
 		}
 		for _, signer := range mcmData.Signers {
 			mcmConfig.mcmsView.Signers = append(mcmConfig.mcmsView.Signers, shared.GetAddressFromBytes(chain_selectors.ETHEREUM_MAINNET.Selector, signer.EvmAddress[:]))
 		}
-		mcmConfig.mcmsView = currConfig
+		mcmConfig.mcmsView = &currConfig
 	}
 
 	return view, nil
