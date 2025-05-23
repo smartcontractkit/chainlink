@@ -127,7 +127,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
 				Nonce:                  &out.Nonce,
-				Receiver:               state.Chains[destChain].FeeQuoter.Address().Bytes(),
+				Receiver:               state.MustGetEVMChainState(destChain).FeeQuoter.Address().Bytes(),
 				MsgData:                []byte("hello FeeQuoter"),
 				ExtraArgs:              nil,                                 // default extraArgs
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call a contract not implementing CCIPReceiver
@@ -145,13 +145,13 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
 				Nonce:                  &out.Nonce,
-				Receiver:               state.Chains[destChain].Receiver.Address().Bytes(),
+				Receiver:               state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver"),
 				ExtraArgs:              nil, // default extraArgs
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) {
-						iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
+						iter, err := state.MustGetEVMChainState(destChain).Receiver.FilterMessageReceived(&bind.FilterOpts{
 							Context: ctx,
 							Start:   latestHead,
 						})
@@ -172,7 +172,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
 				Nonce:                  &out.Nonce,
-				Receiver:               state.Chains[destChain].Receiver.Address().Bytes(),
+				Receiver:               state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver with low exec gas"),
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(1, false), // 1 gas is too low.
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_FAILURE,      // state would be failed onchain due to low gas
@@ -445,14 +445,14 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 				TestSetup:              setup,
 				Replayed:               replayed,
 				Nonce:                  &nonce,
-				Receiver:               state.Chains[destChain].Receiver.Address().Bytes(),
+				Receiver:               state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver"),
 				FeeToken:               "",        // use native SOL - internally this will be converted to wSOL via Sync Native
 				ExtraArgs:              extraArgs, // default extraArgs
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) {
-						iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
+						iter, err := state.MustGetEVMChainState(destChain).Receiver.FilterMessageReceived(&bind.FilterOpts{
 							Context: ctx,
 							Start:   latestHead,
 						})
@@ -484,7 +484,7 @@ func monitorReExecutions(
 	ss *monitorState,
 ) {
 	sink := make(chan *offramp.OffRampSkippedAlreadyExecutedMessage)
-	sub, err := state.Chains[destChain].OffRamp.WatchSkippedAlreadyExecutedMessage(&bind.WatchOpts{
+	sub, err := state.MustGetEVMChainState(destChain).OffRamp.WatchSkippedAlreadyExecutedMessage(&bind.WatchOpts{
 		Start: nil,
 	}, sink)
 	if err != nil {

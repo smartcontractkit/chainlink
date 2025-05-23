@@ -159,7 +159,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 		testhelpers.WithDestChain(dest),
 		testhelpers.WithTestRouter(false),
 		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(oldState.Chains[dest].Receiver.Address().Bytes(), 32),
+			Receiver:     common.LeftPadBytes(oldState.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
@@ -170,7 +170,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 	require.NotNil(t, sentEvent)
 	destChain := e.Env.Chains[dest]
 	require.NoError(t, err)
-	v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, oldState.Chains[dest].CommitStore[src1],
+	v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
 		sentEvent.Message.SequenceNumber)
 }
 
@@ -287,7 +287,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 		testhelpers.WithDestChain(dest),
 		testhelpers.WithTestRouter(false),
 		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(oldState.Chains[dest].Receiver.Address().Bytes(), 32),
+			Receiver:     common.LeftPadBytes(oldState.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
@@ -305,7 +305,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	require.NotNil(t, sentEvent)
 	destChain := e.Env.Chains[dest]
 	require.NoError(t, err)
-	v1_5testhelpers.WaitForNoCommit(t, e.Env.Chains[src1], destChain, oldState.Chains[dest].CommitStore[src1],
+	v1_5testhelpers.WaitForNoCommit(t, e.Env.Chains[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
 		sentEvent.Message.SequenceNumber)
 }
 
@@ -424,7 +424,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 		testhelpers.WithDestChain(dest),
 		testhelpers.WithTestRouter(false),
 		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(oldState.Chains[dest].Receiver.Address().Bytes(), 32),
+			Receiver:     common.LeftPadBytes(oldState.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
@@ -441,12 +441,12 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 
 	require.NotNil(t, sentEvent)
 	destChain := e.Env.Chains[dest]
-	v1_5testhelpers.WaitForNoCommit(t, e.Env.Chains[src1], destChain, oldState.Chains[dest].CommitStore[src1],
+	v1_5testhelpers.WaitForNoCommit(t, e.Env.Chains[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
 		sentEvent.Message.SequenceNumber)
 
 	commitFound := make(chan struct{})
 	go func() {
-		v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, oldState.Chains[dest].CommitStore[src1],
+		v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
 			sentEvent.Message.SequenceNumber)
 		commitFound <- struct{}{}
 	}()
@@ -458,7 +458,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, chainSel := range e.Env.AllChainSelectors() {
-		subjects, err := state.Chains[chainSel].RMNRemote.GetCursedSubjects(nil)
+		subjects, err := state.MustGetEVMChainState(chainSel).RMNRemote.GetCursedSubjects(nil)
 		require.NoError(t, err)
 		require.Empty(t, subjects)
 	}
@@ -582,7 +582,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		testhelpers.WithDestChain(dest),
 		testhelpers.WithTestRouter(false),
 		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+			Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
@@ -594,28 +594,28 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	destChain := e.Env.Chains[dest]
 	destStartBlock, err := destChain.Client.HeaderByNumber(context.Background(), nil)
 	require.NoError(t, err)
-	v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src2], destChain, state.Chains[dest].CommitStore[src2],
+	v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src2], destChain, state.MustGetEVMChainState(dest).CommitStore[src2],
 		sentEvent.Message.SequenceNumber)
-	v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src2], destChain, state.Chains[dest].EVM2EVMOffRamp[src2],
+	v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src2], destChain, state.MustGetEVMChainState(dest).EVM2EVMOffRamp[src2],
 		[]uint64{sentEvent.Message.SequenceNumber}, destStartBlock.Number.Uint64())
 
 	// now that all 1.5 lanes work transfer ownership of the contracts to MCMS
 	contractsByChain := make(map[uint64][]common.Address)
 	for _, chain := range e.Env.AllChainSelectors() {
 		contractsByChain[chain] = []common.Address{
-			state.Chains[chain].Router.Address(),
-			state.Chains[chain].RMNProxy.Address(),
-			state.Chains[chain].PriceRegistry.Address(),
-			state.Chains[chain].TokenAdminRegistry.Address(),
-			state.Chains[chain].RMN.Address(),
+			state.MustGetEVMChainState(chain).Router.Address(),
+			state.MustGetEVMChainState(chain).RMNProxy.Address(),
+			state.MustGetEVMChainState(chain).PriceRegistry.Address(),
+			state.MustGetEVMChainState(chain).TokenAdminRegistry.Address(),
+			state.MustGetEVMChainState(chain).RMN.Address(),
 		}
-		if state.Chains[chain].EVM2EVMOnRamp != nil {
-			for _, onRamp := range state.Chains[chain].EVM2EVMOnRamp {
+		if state.MustGetEVMChainState(chain).EVM2EVMOnRamp != nil {
+			for _, onRamp := range state.MustGetEVMChainState(chain).EVM2EVMOnRamp {
 				contractsByChain[chain] = append(contractsByChain[chain], onRamp.Address())
 			}
 		}
-		if state.Chains[chain].EVM2EVMOffRamp != nil {
-			for _, offRamp := range state.Chains[chain].EVM2EVMOffRamp {
+		if state.MustGetEVMChainState(chain).EVM2EVMOffRamp != nil {
+			for _, offRamp := range state.MustGetEVMChainState(chain).EVM2EVMOffRamp {
 				contractsByChain[chain] = append(contractsByChain[chain], offRamp.Address())
 			}
 		}
@@ -711,7 +711,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		// from test router to ensure 1.6 is working.
 		testhelpers.WithSender(e.Users[src1][1]),
 		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+			Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
@@ -799,7 +799,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		testhelpers.WithDestChain(dest),
 		testhelpers.WithTestRouter(false),
 		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+			Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
@@ -809,7 +809,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, sentEvent)
 
-	v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src2], e.Env.Chains[dest], state.Chains[dest].EVM2EVMOffRamp[src2],
+	v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src2], e.Env.Chains[dest], state.MustGetEVMChainState(dest).EVM2EVMOffRamp[src2],
 		[]uint64{sentEventOnOtherLane.Message.SequenceNumber}, destStartBlock.Number.Uint64())
 
 	// stop the continuous messages in real router
@@ -817,9 +817,9 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	wg.Wait()
 	// start validating the messages sent in 1.5 and 1.6
 	for _, msg := range v1_5Msgs {
-		v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, state.Chains[dest].CommitStore[src1],
+		v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, state.MustGetEVMChainState(dest).CommitStore[src1],
 			msg.Message.SequenceNumber)
-		v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src1], destChain, state.Chains[dest].EVM2EVMOffRamp[src1],
+		v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src1], destChain, state.MustGetEVMChainState(dest).EVM2EVMOffRamp[src1],
 			[]uint64{msg.Message.SequenceNumber}, initialBlock)
 		lastNonce = msg.Message.Nonce
 	}
@@ -899,7 +899,7 @@ func sendMessageInRealRouter(
 		Sender:       e.Env.Chains[src].DeployerKey,
 		IsTestRouter: false,
 		Message: router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+			Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),

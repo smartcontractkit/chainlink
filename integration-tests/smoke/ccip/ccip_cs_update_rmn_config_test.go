@@ -196,7 +196,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 		contractsByChain[chainSelector] = []common.Address{rmnRemoteAddress}
 	}
 
-	contractsByChain[e.HomeChainSel] = append(contractsByChain[e.HomeChainSel], state.Chains[e.HomeChainSel].RMNHome.Address())
+	contractsByChain[e.HomeChainSel] = append(contractsByChain[e.HomeChainSel], state.MustGetEVMChainState(e.HomeChainSel).RMNHome.Address())
 
 	timelocksPerChain := deployergroup.BuildTimelockPerChain(e.Env, state)
 	if tc.useMCMS {
@@ -215,7 +215,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 		require.NoError(t, err)
 	}
 
-	rmnHome := state.Chains[e.HomeChainSel].RMNHome
+	rmnHome := state.MustGetEVMChainState(e.HomeChainSel).RMNHome
 
 	previousCandidateDigest, err := rmnHome.GetCandidateDigest(nil)
 	require.NoError(t, err)

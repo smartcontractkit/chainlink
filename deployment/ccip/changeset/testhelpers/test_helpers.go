@@ -1474,10 +1474,8 @@ func deployTokenPoolsInParallel(
 		if err != nil {
 			return err
 		}
-		if err := attachTokenToTheRegistry(chains[src], state.MustGetEVMChainState(src), srcActor, srcToken.Address(), srcPool.Address()); err != nil {
-			return err
-		}
-		return nil
+		err = attachTokenToTheRegistry(chains[src], state.MustGetEVMChainState(src), srcActor, srcToken.Address(), srcPool.Address())
+		return err
 	})
 	deployGrp.Go(func() error {
 		var err error
@@ -1485,10 +1483,8 @@ func deployTokenPoolsInParallel(
 		if err != nil {
 			return err
 		}
-		if err := attachTokenToTheRegistry(chains[dst], state.MustGetEVMChainState(dst), dstActor, dstToken.Address(), dstPool.Address()); err != nil {
-			return err
-		}
-		return nil
+		err = attachTokenToTheRegistry(chains[dst], state.MustGetEVMChainState(dst), dstActor, dstToken.Address(), dstPool.Address())
+		return err
 	})
 	if err := deployGrp.Wait(); err != nil {
 		return nil, nil, nil, nil, err
