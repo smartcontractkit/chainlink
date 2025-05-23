@@ -100,21 +100,21 @@ type CCIPOnChainState struct {
 }
 
 func (c CCIPOnChainState) EVMChains() []uint64 {
-	c.evmMu.Lock()
-	defer c.evmMu.Unlock()
+	c.evmMu.RLock()
+	defer c.evmMu.RUnlock()
 	return maps.Keys(c.Chains)
 }
 
 func (c CCIPOnChainState) EVMChainState(selector uint64) (evm.CCIPChainState, bool) {
-	c.evmMu.Lock()
-	defer c.evmMu.Unlock()
+	c.evmMu.RLock()
+	defer c.evmMu.RUnlock()
 	chainState, ok := c.Chains[selector]
 	return chainState, ok
 }
 
 func (c CCIPOnChainState) MustGetEVMChainState(selector uint64) evm.CCIPChainState {
-	c.evmMu.Lock()
-	defer c.evmMu.Unlock()
+	c.evmMu.RLock()
+	defer c.evmMu.RUnlock()
 	chainState, ok := c.Chains[selector]
 	if !ok {
 		panic("chain state not found for selector " + strconv.FormatUint(selector, 10))
