@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -27,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	ocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
@@ -89,17 +87,6 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, err
 	}
 
-	pollPeriod, err := commonconfig.NewDuration(2 * time.Second)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create poll period: %w", err)
-	}
-
-	// TODO: Unsure what the timeout should be, I don't see an EVM config that corresponds to this.
-	timeout, err := commonconfig.NewDuration(30 * time.Second)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create timeout: %w", err)
-	}
-
 	chainInfo, err := getChainInfo(chain.ID().Uint64())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain info: %w", err)
@@ -139,18 +126,19 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		ID:     id,
 		Logger: lggr,
 		Config: writetarget.Config{
-			ConfirmerPollPeriod: pollPeriod,
-			ConfirmerTimeout:    timeout,
+			ConfirmerPollPeriod: *config.PollPeriod(),
+			ConfirmerTimeout:    *config.AcceptanceTimeout(),
 		},
-		ChainInfo:        chainInfo,
-		Beholder:         beholder,
-		ChainService:     chain,
-		ContractReader:   cr,
-		EVMService:       evm,
-		ConfigValidateFn: evaluate,
-		NodeAddress:      config.FromAddress().String(),
-		ForwarderAddress: config.ForwarderAddress().String(),
-		TargetStrategy:   NewEVMTargetStrategy(cr, cw, config.ForwarderAddress().String(), gasLimitDefault, lggr),
+		ChainInfo:            chainInfo,
+		Beholder:             beholder,
+		ChainService:         chain,
+		ContractReader:       cr,
+		EVMService:           evm,
+		ConfigValidateFn:     evaluate,
+		NodeAddress:          config.FromAddress().String(),
+		ForwarderAddress:     config.ForwarderAddress().String(),
+		TargetStrategy:       NewEVMTargetStrategy(cr, cw, config.ForwarderAddress().String(), gasLimitDefault, lggr),
+		WriteAcceptanceState: *config.TxAcceptanceState(),
 	}
 
 	return writetarget.NewWriteTarget(opts), nil
