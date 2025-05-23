@@ -169,7 +169,8 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64) (view
 	}
 	chainView.MCMSWithTimelock, err = solanaview.GenerateMCMSWithTimelockView(e.SolChains[selector], addresses)
 	if err != nil {
-		return chainView, fmt.Errorf("failed to generate mcms with timelock view: %w", err)
+		e.Logger.Error("failed to generate MCMS with timelock view: %w", err)
+		return chainView, nil
 	}
 	return chainView, nil
 }
