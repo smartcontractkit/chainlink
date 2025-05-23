@@ -68,6 +68,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 
 		// Tokens
 		EVM_LINK_TOKEN = state.Chains[sourceChain].LinkToken
+		WETH_TOKEN     = state.Chains[sourceChain].Weth9
 	)
 
 	t.Log("Deploying CCIPDummyReceiver...")
@@ -91,6 +92,17 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 	require.NoError(t, err)
 
 	tx, err = EVM_LINK_TOKEN.Approve(e.Env.Chains[sourceChain].DeployerKey, state.Chains[sourceChain].Router.Address(), math.MaxBig256)
+	_, err = cldf.ConfirmIfNoError(e.Env.Chains[sourceChain], tx, err)
+	require.NoError(t, err)
+
+	// Deposit 1 ETH to get WETH
+	wethTransactOpts := *e.Env.Chains[sourceChain].DeployerKey
+	wethTransactOpts.Value = deployment.E18Mult(1)
+	tx, err = WETH_TOKEN.Deposit(&wethTransactOpts)
+	_, err = cldf.ConfirmIfNoError(e.Env.Chains[sourceChain], tx, err)
+	require.NoError(t, err)
+
+	tx, err = WETH_TOKEN.Approve(e.Env.Chains[sourceChain].DeployerKey, state.Chains[sourceChain].Router.Address(), math.MaxBig256)
 	_, err = cldf.ConfirmIfNoError(e.Env.Chains[sourceChain], tx, err)
 	require.NoError(t, err)
 
@@ -184,6 +196,27 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				FeeToken:               EVM_LINK_TOKEN.Address().String(),
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) { assertAptosMessageReceivedMatchesSource(t, e, destChain, receiver, message, 2) },
+				},
+			},
+		)
+	})
+
+	t.Run("Fee Token (WETH) - Should Succeed", func(t *testing.T) {
+		message := []byte("Hello Aptos, from EVM!")
+		messagingtest.Run(t,
+			messagingtest.TestCase{
+				TestSetup:      setup,
+				Replayed:       replayed,
+				Nonce:          &nonce,
+				ValidationType: messagingtest.ValidationTypeExec,
+				Receiver:       ccipChainState.ReceiverAddress[:],
+				MsgData:        message,
+				// true for out of order execution, which is necessary and enforced for Aptos
+				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				FeeToken:               WETH_TOKEN.Address().String(),
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertAptosMessageReceivedMatchesSource(t, e, destChain, receiver, message, 2) },
 				},
