@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	ks_shared "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/shared"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
@@ -327,5 +328,6 @@ func getTypeToProgramDeployName() map[cldf.ContractType]string {
 		types.ManyChainMultisigProgram: deployment.McmProgramName,
 		types.RBACTimelockProgram:      deployment.TimelockProgramName,
 		shared.Receiver:                deployment.ReceiverProgramName,
+		ks_shared.Forwarder:            deployment.KeystoneForwarderProgramName,
 	}
 }
