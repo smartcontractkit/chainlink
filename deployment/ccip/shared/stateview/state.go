@@ -96,7 +96,7 @@ type CCIPOnChainState struct {
 	Chains      map[uint64]evm.CCIPChainState
 	SolChains   map[uint64]solana.CCIPChainState
 	AptosChains map[uint64]aptosstate.CCIPChainState
-	evmMu       *sync.Mutex
+	evmMu       *sync.RWMutex
 }
 
 func (c CCIPOnChainState) EVMChains() []uint64 {
@@ -679,7 +679,7 @@ func LoadOnchainState(e cldf.Environment) (CCIPOnChainState, error) {
 		Chains:      make(map[uint64]evm.CCIPChainState),
 		SolChains:   solanaState.SolChains,
 		AptosChains: aptosChains,
-		evmMu:       &sync.Mutex{},
+		evmMu:       &sync.RWMutex{},
 	}
 	for chainSelector, chain := range e.Chains {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
