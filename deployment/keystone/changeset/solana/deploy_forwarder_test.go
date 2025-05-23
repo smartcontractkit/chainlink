@@ -7,6 +7,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	"github.com/smartcontractkit/wsrpc/logger"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -25,16 +26,16 @@ func TestDeployForwarder(t *testing.T) {
 
 	t.Run("should deploy forwarder", func(t *testing.T) {
 		ab := cldf.NewMemoryAddressBook()
-		//cfg := helpers.BuildSolanaConfig{
-		//	GitCommitSha:   "6442d0e438ca175b1b2ce059a174ba4bf4e8afc1",
-		//	DestinationDir: "./contracts",
-		//	LocalBuild: helpers.LocalBuildConfig{
-		//		BuildLocally:         true,
-		//		CleanDestinationDir:  false,
-		//		CreateDestinationDir: true,
-		//		CleanGitDir:          false,
-		//	},
-		//}
+		cfg := helpers.BuildSolanaConfig{
+			GitCommitSha:   "6442d0e438ca175b1b2ce059a174ba4bf4e8afc1",
+			DestinationDir: "./contracts",
+			LocalBuild: helpers.LocalBuildConfig{
+				BuildLocally:         true,
+				CleanDestinationDir:  false,
+				CreateDestinationDir: true,
+				CleanGitDir:          false,
+			},
+		}
 
 		// default solChain looking for contracts in ccip directory
 		chain := env.SolChains[registrySel]
@@ -44,7 +45,7 @@ func TestDeployForwarder(t *testing.T) {
 		env.ExistingAddresses = ab
 		resp, err := DeployForwarder(env, &DeployRequest{
 			ChainSel:    registrySel,
-			BuildConfig: nil,
+			BuildConfig: &cfg,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
