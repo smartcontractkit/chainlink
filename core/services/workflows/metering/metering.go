@@ -2,11 +2,13 @@ package metering
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"sync"
 
 	"github.com/shopspring/decimal"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -74,16 +76,21 @@ type ProtoDetail struct {
 }
 
 type ReportStep struct {
+	Reserve map[SpendUnit]SpendValue
+	Spend   map[SpendUnit][]ReportStepDetail
+}
+
+type ReportStepDetail struct {
 	Peer2PeerID string
-	SpendUnit   SpendUnit
 	SpendValue  SpendValue
 }
 
 type Report struct {
-	balance *balanceStore
-	mu      sync.RWMutex
-	steps   map[ReportStepRef][]ReportStep
-	lggr    logger.Logger
+	balance  *balanceStore
+	mu       sync.RWMutex
+	steps    map[ReportStepRef]ReportStep
+	lggr     logger.Logger
+	refCount map[ReportStepRef]uint64
 }
 
 func NewReport(lggr logger.Logger) *Report {
@@ -91,7 +98,7 @@ func NewReport(lggr logger.Logger) *Report {
 	balanceStore := NewBalanceStore(0, map[string]decimal.Decimal{}, logger)
 	return &Report{
 		balance: balanceStore,
-		steps:   make(map[ReportStepRef][]ReportStep),
+		steps:   make(map[ReportStepRef]ReportStep),
 		lggr:    logger,
 	}
 }
@@ -103,14 +110,16 @@ func (r *Report) MedianSpend() map[SpendUnit]SpendValue {
 	values := map[SpendUnit][]SpendValue{}
 	medians := map[SpendUnit]SpendValue{}
 
-	for _, nodeVals := range r.steps {
-		for _, step := range nodeVals {
-			vals, ok := values[step.SpendUnit]
+	for _, step := range r.steps {
+		for unit, details := range step.Spend {
+			_, ok := values[unit]
 			if !ok {
-				vals = []SpendValue{}
+				values[unit] = []SpendValue{}
 			}
 
-			values[step.SpendUnit] = append(vals, step.SpendValue)
+			for _, detail := range details {
+				values[unit] = append(values[unit], detail.SpendValue)
+			}
 		}
 	}
 
@@ -131,17 +140,58 @@ func (r *Report) MedianSpend() map[SpendUnit]SpendValue {
 	return medians
 }
 
-// SetStep sets the recorded spends for a given capability invocation in the engine.
+// ReserveStep earmarks the maximum spend for a given capability invocation in the engine.
 // We expect to only set this value once - an error is returned if a step would be overwritten
-func (r *Report) SetStep(ref ReportStepRef, steps []ReportStep) error {
+func (r *Report) ReserveStep(ref ReportStepRef, capInfo capabilities.CapabilityInfo) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if _, ok := r.steps[ref]; ok {
-		return errors.New("step already exists")
+		return errors.New("step reserve already exists")
 	}
 
-	r.steps[ref] = steps
+	// TODO: handle extra reserves for write step
+
+	r.steps[ref] = ReportStep{
+		Reserve: make(map[SpendUnit]SpendValue),
+		Spend:   nil,
+	}
+
+	return nil
+}
+
+// SetStep sets the recorded spends for a given capability invocation in the engine.
+// ReserveStep must be called before SetStep
+// We expect to only set this value once - an error is returned if a step would be overwritten
+func (r *Report) SetStep(ref ReportStepRef, steps []capabilities.MeteringNodeDetail) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	step, ok := r.steps[ref]
+	if !ok {
+		return errors.New("must call Report.ReserveStep first")
+	}
+
+	if step.Spend != nil {
+		return errors.New("step spend already exists")
+	}
+
+	spend := make(map[SpendUnit][]ReportStepDetail)
+
+	for _, detail := range steps {
+		unit := SpendUnit(detail.SpendUnit)
+		value, err := unit.StringToSpendValue(detail.SpendValue)
+		if err != nil {
+			r.lggr.Error(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
+		}
+		spend[unit] = append(spend[unit], ReportStepDetail{
+			Peer2PeerID: detail.Peer2PeerID,
+			SpendValue:  value,
+		})
+	}
+
+	step.Spend = spend
+	r.steps[ref] = step
 
 	return nil
 }
@@ -153,21 +203,36 @@ func (r *Report) Message() *events.MeteringReport {
 	}
 
 	for key, step := range r.steps {
-		nodeDetail := make([]*events.MeteringReportNodeDetail, len(step))
+		nodeDetails := []*events.MeteringReportNodeDetail{}
 
-		for idx, nodeVal := range step {
-			nodeDetail[idx] = &events.MeteringReportNodeDetail{
-				Peer_2PeerId: nodeVal.Peer2PeerID,
-				SpendUnit:    nodeVal.SpendUnit.String(),
-				SpendValue:   nodeVal.SpendValue.String(),
+		for unit, details := range step.Spend {
+			for _, detail := range details {
+				nodeDetails = append(nodeDetails, &events.MeteringReportNodeDetail{
+					Peer_2PeerId: detail.Peer2PeerID,
+					SpendUnit:    unit.String(),
+					SpendValue:   detail.SpendValue.String(),
+				})
 			}
 		}
+
 		protoReport.Steps[key.String()] = &events.MeteringReportStep{
-			Nodes: nodeDetail,
+			Nodes: nodeDetails,
 		}
 	}
 
 	return protoReport
+}
+
+// IncrementRefCount returns a count of the time the ref has been seen.
+// Used to build unique refs in EngineV2 until there are deterministic capability call IDs available
+// TODO: Remove with CAPPL-881
+func (r *Report) IncrementRefCount(ref ReportStepRef) uint64 {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	count := r.refCount[ref]
+	r.refCount[ref]++
+	return count
 }
 
 // Reports is a concurrency-safe wrapper around map[string]*Report.

@@ -110,6 +110,13 @@ contracts/lcov.info
 contracts/out/
 /cache
 
-# Used by plugins/chianlink.prebuilt.Dockerfile
-bin/
-lib/
+# Used by plugins/chainlink.prebuilt.Dockerfile
+/bin/
+/lib/
+/build/bin/
+/build/lib/
+
+# artifacts of CRE environment creation or CRE CLI usage
+core/scripts/cre/environment/*.yaml
+core/scripts/cre/environment/*.yml
+core/scripts/cre/environment/logs/

@@ -20,10 +20,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/operator"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/log"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	log_mocks "github.com/smartcontractkit/chainlink/v2/common/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"

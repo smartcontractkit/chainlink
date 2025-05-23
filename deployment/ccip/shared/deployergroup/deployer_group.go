@@ -448,11 +448,19 @@ func (d *DeployerGroup) enactDeployer() (cldf.ChangesetOutput, error) {
 						if err != nil {
 							return fmt.Errorf("failed to send transaction: %w", err)
 						}
-						// TODO how to pass abi here to decode error reason
-						_, err = cldf.ConfirmIfNoError(d.e.Chains[selector], evmTx.Tx, err)
-						if err != nil {
-							return fmt.Errorf("waiting for tx to be mined failed: %w", err)
+						abiStr, ok := d.state.Chains[selector].ABIByAddress[evmTx.Tx.To().Hex()]
+						if ok {
+							_, err = cldf.ConfirmIfNoErrorWithABI(d.e.Chains[selector], evmTx.Tx, abiStr, err)
+							if err != nil {
+								return fmt.Errorf("waiting for tx to be mined failed: %w", err)
+							}
+						} else {
+							_, err = cldf.ConfirmIfNoError(d.e.Chains[selector], evmTx.Tx, err)
+							if err != nil {
+								return fmt.Errorf("waiting for tx to be mined failed: %w", err)
+							}
 						}
+
 						d.e.Logger.Infow("Transaction sent", "chain", selector, "tx", evmTx.Tx.Hash().Hex(), "description", tx.Describe())
 					} else if solanaTx, ok := tx.(SolanaDescribedTransaction); ok {
 						err := d.e.SolChains[selector].Confirm([]solana.Instruction{solanaTx.Tx})

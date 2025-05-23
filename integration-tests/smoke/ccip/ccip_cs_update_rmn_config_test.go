@@ -17,6 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
+	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -290,9 +292,9 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 		signers = append(signers, nop.ToRMNRemoteSigner())
 	}
 
-	remoteConfigs := make(map[uint64]v1_6.RMNRemoteConfig, len(e.Env.Chains))
+	remoteConfigs := make(map[uint64]ccipops.RMNRemoteConfig, len(e.Env.Chains))
 	for _, chain := range e.Env.Chains {
-		remoteConfig := v1_6.RMNRemoteConfig{
+		remoteConfig := ccipops.RMNRemoteConfig{
 			Signers: signers,
 			F:       0,
 		}
@@ -300,10 +302,9 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 		remoteConfigs[chain.Selector] = remoteConfig
 	}
 
-	setRemoteConfig := v1_6.SetRMNRemoteConfig{
-		HomeChainSelector: e.HomeChainSel,
-		RMNRemoteConfigs:  remoteConfigs,
-		MCMSConfig:        mcmsConfig,
+	setRemoteConfig := ccipseq.SetRMNRemoteConfig{
+		RMNRemoteConfigs: remoteConfigs,
+		MCMSConfig:       mcmsConfig,
 	}
 
 	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
@@ -380,15 +381,15 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 		contractsByChain[chain] = []common.Address{rmnProxy.Address()}
 	}
 	timelockContractsPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
-	allContractParams := make(map[uint64]v1_6.ChainContractParams)
+	allContractParams := make(map[uint64]ccipseq.ChainContractParams)
 	for _, chain := range allChains {
 		timelockContractsPerChain[chain] = &proposalutils.TimelockExecutionContracts{
 			Timelock:  state.Chains[chain].Timelock,
 			CallProxy: state.Chains[chain].CallProxy,
 		}
-		allContractParams[chain] = v1_6.ChainContractParams{
-			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
-			OffRampParams:   v1_6.DefaultOffRampParams(),
+		allContractParams[chain] = ccipseq.ChainContractParams{
+			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
+			OffRampParams:   ccipops.DefaultOffRampParams(),
 		}
 	}
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
@@ -418,7 +419,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
-			v1_6.DeployChainContractsConfig{
+			ccipseq.DeployChainContractsConfig{
 				HomeChainSelector:      e.HomeChainSel,
 				ContractParamsPerChain: allContractParams,
 			},
