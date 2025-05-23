@@ -44,7 +44,7 @@ func AcceptAdminRoleChangeset(env cldf.Environment, c TokenAdminRegistryChangese
 
 	for chainSelector, tokenSymbolToPoolInfo := range c.Pools {
 		chain := env.Chains[chainSelector]
-		chainState := state.Chains[chainSelector]
+		chainState := state.MustGetEVMChainState(chainSelector)
 		opts, err := deployerGroup.GetDeployer(chainSelector)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get deployer for %s", chain)
