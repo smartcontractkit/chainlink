@@ -41,12 +41,13 @@ require (
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250514200342-5169fbe9e28d
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.10.0
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.6.0
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250514193018-0b7546926e11
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250521121446-cfb189956476
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.8.1
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4
 	github.com/smartcontractkit/freeport v0.1.0
 	github.com/smartcontractkit/libocr v0.0.0-20250513175559-61c382d6cee4
 	github.com/smartcontractkit/mcms v0.19.2
+	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945
 	github.com/spf13/cast v1.7.1
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.37.0
@@ -388,7 +389,6 @@ require (
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de // indirect
-	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945 // indirect
 	github.com/spf13/cobra v1.9.1 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/stephenlacy/go-ethereum-hdwallet v0.0.0-20230913225845-a4fa94429863 // indirect
@@ -489,4 +489,3 @@ require (
 
 // gotron-sdk is not longer maintained
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20250422175525-b7575d96bd4d
-replace github.com/smartcontractkit/chainlink-solana => ../../chainlink-solana
