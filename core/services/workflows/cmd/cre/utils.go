@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
+	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -151,10 +152,12 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 	if err != nil {
 		return nil, err
 	}
+
+	fakeConsensusServer := consensusserver.NewConsensusServer(fakeConsensus)
 	if err := registry.Add(ctx, fakeConsensus); err != nil {
 		return nil, err
 	}
-	caps = append(caps, fakeConsensus)
+	caps = append(caps, fakeConsensusServer)
 
 	writers := []string{"write_aptos-testnet@1.0.0"}
 	for _, writer := range writers {

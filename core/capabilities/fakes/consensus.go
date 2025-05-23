@@ -2,11 +2,13 @@ package fakes
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"google.golang.org/protobuf/proto"
 
 	"github.com/jonboulle/clockwork"
+	pb1 "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -15,9 +17,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/requests"
 	pbtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
+	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/values/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
+	pkgcaps "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 )
 
 // This capability simulates consensus by running the OCR plugin on a single node, without libOCR.
@@ -61,6 +68,7 @@ type capIface interface {
 }
 
 var _ services.Service = (*fakeConsensus)(nil)
+var _ consensusserver.ConsensusCapability = (*fakeConsensus)(nil)
 var _ commonCap.ExecutableCapability = (*fakeConsensus)(nil)
 
 const consensusCapID = "offchain_reporting@1.0.0"
@@ -90,13 +98,34 @@ func NewFakeConsensus(lggr logger.Logger, config FakeConsensusConfig) (*fakeCons
 	}
 	fc.Service, fc.eng = services.Config{
 		Name:  "fakeConsensus",
-		Start: fc.start,
-		Close: fc.close,
+		Start: fc.Start,
+		Close: fc.Close,
 	}.NewServiceEngine(lggr)
 	return fc, nil
 }
 
-func (fc *fakeConsensus) start(ctx context.Context) error {
+func (fc *fakeConsensus) Simple(ctx context.Context, metadata pkgcaps.RequestMetadata, input *pb1.SimpleConsensusInputs) (*pb.Value, error) {
+	return nil, nil
+}
+
+func (fc *fakeConsensus) Initialise(ctx context.Context, config string, _ core.TelemetryService,
+	_ core.KeyValueStore,
+	_ core.ErrorLog,
+	_ core.PipelineRunnerService,
+	_ core.RelayerSet,
+	_ core.OracleFactory) error {
+
+	// TODO: do validation of config here
+
+	err := fc.Start(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (fc *fakeConsensus) Start(ctx context.Context) error {
 	ticker := services.TickerConfig{
 		Initial:   500 * time.Millisecond,
 		JitterPct: 0.0,
@@ -105,7 +134,7 @@ func (fc *fakeConsensus) start(ctx context.Context) error {
 	return fc.cap.Start(ctx)
 }
 
-func (fc *fakeConsensus) close() error {
+func (fc *fakeConsensus) Close() error {
 	err := fc.cap.Close()
 	fc.stats.PrintToStdout("Consensus Capability Stats")
 	return err
@@ -194,7 +223,13 @@ func (fc *fakeConsensus) simulateOCRRound(ctx context.Context) {
 }
 
 func (fc *fakeConsensus) Execute(ctx context.Context, request commonCap.CapabilityRequest) (commonCap.CapabilityResponse, error) {
-	return fc.cap.Execute(ctx, request)
+	response := commonCap.CapabilityResponse{}
+	switch request.Method {
+	case "Simple":
+		return fc.cap.Execute(ctx, request)
+	default:
+		return response, fmt.Errorf("method %s not found", request.Method)
+	}
 }
 
 func (fc *fakeConsensus) RegisterToWorkflow(ctx context.Context, request commonCap.RegisterToWorkflowRequest) error {
@@ -215,4 +250,8 @@ func (fc *fakeConsensus) Info(ctx context.Context) (commonCap.CapabilityInfo, er
 		DON:            &commonCap.DON{},
 		IsLocal:        true,
 	}, nil
+}
+
+func (fc *fakeConsensus) Description() string {
+	return "Fake OCR Consensus"
 }
