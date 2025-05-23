@@ -22,7 +22,6 @@ import (
 
 func TestDistributeLLOJobSpecs(t *testing.T) {
 	t.Parallel()
-	// force CI rerun
 
 	env := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
 		ShouldDeployMCMS:      false,

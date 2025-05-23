@@ -33,11 +33,12 @@ packages:
     interfaces:
       Dispatcher:
       Receiver:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/log:
+  github.com/smartcontractkit/chainlink-evm/pkg/log:
+    config:
+      dir: common/log/mocks
     interfaces:
       Broadcaster:
       Broadcast:
-      AbigenContract:
   github.com/smartcontractkit/chainlink-evm/pkg/logpoller:
     config:
       dir: common/logpoller/mocks
