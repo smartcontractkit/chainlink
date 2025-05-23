@@ -1415,11 +1415,11 @@ func main() {
 
 		addresses := strings.Fields(*nodeSendingKeys)
 		firstSendingKey := strings.TrimSpace(addresses[0])
-		
+
 		for i := range addresses {
-    		addresses[i] = fmt.Sprintf("  \"%s\"", strings.TrimSpace(addresses[i]))		
+			addresses[i] = fmt.Sprintf("  \"%s\"", strings.TrimSpace(addresses[i]))
 		}
-		
+
 		addressesBlock := strings.Join(addresses, ",\n")
 
 		if *nodeType == "backup" {
@@ -1470,8 +1470,8 @@ simulate_fulfillment   [type=ethcall
 						block="%s"]
 decode_log->generate_proof->estimate_gas->simulate_fulfillment
 """
-		`, *gasLaneGwei, *nodeType, *coordinatorAddress, *batchCoordinatorAddress, *compressedPublicKey, *minConfirmations, *chainID, 
-		addressesBlock, *pollPeriod, *coordinatorAddress, firstSendingKey, *coordinatorAddress, *coordinatorAddress, *blockType)
+		`, *gasLaneGwei, *nodeType, *coordinatorAddress, *batchCoordinatorAddress, *compressedPublicKey, *minConfirmations, *chainID,
+			addressesBlock, *pollPeriod, *coordinatorAddress, firstSendingKey, *coordinatorAddress, *coordinatorAddress, *blockType)
 		fmt.Println("\nGenerated job spec:")
 		fmt.Println(jobSpec)
 	case "generate-bhs-job-spec":
@@ -1482,15 +1482,15 @@ decode_log->generate_proof->estimate_gas->simulate_fulfillment
 		chainID := cmd.String("chain-id", "", "EVM chain ID")
 		nodeSendingKeys := cmd.String("node-sending-keys", "", "Space separated node sending keys")
 		nodeType := cmd.String("node-type", "", "Node type can be primary or backup")
-		
+
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "blockhash-store-address", "poll-period", "chain-id", "node-sending-keys")
-		
+
 		addresses := strings.Fields(*nodeSendingKeys)
-		
+
 		for i := range addresses {
-    		addresses[i] = fmt.Sprintf("  \"%s\"", strings.TrimSpace(addresses[i]))		
+			addresses[i] = fmt.Sprintf("  \"%s\"", strings.TrimSpace(addresses[i]))
 		}
-		
+
 		addressesBlock := strings.Join(addresses, ",\n")
 
 		var waitBlocks string
