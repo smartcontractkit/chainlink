@@ -34,12 +34,12 @@ type E2ETokenPoolConfig struct {
 func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOutput, error) {
 	finalOutput := cldf.ChangesetOutput{}
 	finalOutput.AddressBook = cldf.NewMemoryAddressBook() //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+	addressBookToRemove := cldf.NewMemoryAddressBook()
 	defer func(e cldf.Environment) {
 		e.Logger.Info("SolanaE2ETokenPool changeset completed")
 		e.Logger.Info("Final output: ", finalOutput.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	}(e)
 
-	var addressBookToRemove cldf.AddressBook
 	for _, tokenPoolConfig := range cfg.AddTokenPoolAndLookupTable {
 		output, err := AddTokenPoolAndLookupTable(e, tokenPoolConfig)
 		if err != nil {
@@ -52,7 +52,10 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
 			}
 			// later remove from in memory address book so that we can use the finalOutput address book to update the disk/in-memory address book
-			addressBookToRemove = output.AddressBook //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			err = addressBookToRemove.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
+			}
 
 			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 			if err != nil {
