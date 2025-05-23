@@ -2,6 +2,7 @@ package solana
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
@@ -21,6 +22,7 @@ type MCMSWithTimelockView struct {
 }
 
 type TimelockView struct {
+	PDA                           string   `json:"pda,omitempty"`
 	ProgramID                     string   `json:"programId,omitempty"`
 	Owner                         string   `json:"owner,omitempty"`
 	ProposedOwner                 string   `json:"proposedOwner,omitempty"`
@@ -39,6 +41,7 @@ type MCMSView struct {
 }
 
 type MCMSConfig struct {
+	PDA           string   `json:"pda,omitempty"`
 	ProgramID     string   `json:"programId,omitempty"`
 	ChainID       uint64   `json:"chainId,omitempty"`
 	MultisigID    string   `json:"multisigId,omitempty"`
@@ -62,6 +65,7 @@ func GenerateMCMSWithTimelockView(chain cldf.SolChain, addresses map[string]cldf
 		return view, fmt.Errorf("timelock config not found in existing state, initialize the timelock first %d", chain.Selector)
 	}
 	view.Timelock = TimelockView{
+		PDA:                           timelockConfigPDA.String(),
 		Owner:                         timelockData.Owner.String(),
 		ProposedOwner:                 timelockData.ProposedOwner.String(),
 		ProposerRoleAccessController:  timelockData.ProposerRoleAccessController.String(),
@@ -89,13 +93,14 @@ func GenerateMCMSWithTimelockView(chain cldf.SolChain, addresses map[string]cldf
 			return view, fmt.Errorf("failed to get account data for %s: %w", mcmConfig.name, err)
 		}
 		currConfig := MCMSConfig{
+			PDA:           mcmConfig.pda.String(),
 			ProgramID:     mcmState.McmProgram.String(),
 			ChainID:       mcmData.ChainId,
 			MultisigID:    string(mcmData.MultisigId[:]),
 			Owner:         mcmData.Owner.String(),
 			ProposedOwner: mcmData.ProposedOwner.String(),
-			GroupQuorums:  shared.GetAddressFromBytes(chain_selectors.ETHEREUM_MAINNET.Selector, mcmData.GroupQuorums[:]),
-			GroupParents:  shared.GetAddressFromBytes(chain_selectors.ETHEREUM_MAINNET.Selector, mcmData.GroupParents[:]),
+			GroupQuorums:  toJSONString(mcmData.GroupQuorums),
+			GroupParents:  toJSONString(mcmData.GroupParents),
 			Signers:       []string{},
 		}
 		for _, signer := range mcmData.Signers {
@@ -114,4 +119,9 @@ func GenerateMCMSWithTimelockView(chain cldf.SolChain, addresses map[string]cldf
 	}
 
 	return view, nil
+}
+
+func toJSONString(arr [32]uint8) string {
+	b, _ := json.Marshal(arr)
+	return string(b)
 }

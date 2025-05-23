@@ -2317,8 +2317,6 @@ func DeployCCIPContractsTest(t *testing.T, solChains int) {
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	allChains := append(e.Env.AllChainSelectors(), e.Env.AllChainSelectorsSolana()...)
-	snap, solana, err := state.View(&e.Env, allChains)
-	require.NoError(t, err)
 	if solChains > 0 {
 		DeploySolanaCcipReceiver(t, e.Env)
 		commoncs.SetPreloadedSolanaAddresses(t, e.Env, e.Env.AllChainSelectorsSolana()[0])
@@ -2333,6 +2331,8 @@ func DeployCCIPContractsTest(t *testing.T, solChains int) {
 		_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(e.Env, solanaChain, addressBook, mcmsConfig)
 		require.NoError(t, err)
 	}
+	snap, solana, err := state.View(&e.Env, allChains)
+	require.NoError(t, err)
 
 	// Assert expect every deployed address to be in the address book.
 	// TODO (CCIP-3047): Add the rest of CCIPv2 representation
