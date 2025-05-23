@@ -314,6 +314,8 @@ func TestEngine_MockCapabilityRegistry_NoDAGBinary(t *testing.T) {
 	cfg := defaultTestConfig(t)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
+	cfg.BillingClient = new(mockBillingClient)
+
 	initDoneCh := make(chan error, 1)
 	subscribedToTriggersCh := make(chan []string, 1)
 	resultReceivedCh := make(chan *wasmpb.ExecutionResult, 1)
