@@ -13,11 +13,15 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"github.com/scylladb/go-reflectx"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
@@ -46,10 +50,10 @@ import (
 	libdevenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/devenv"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	creconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
+	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	cresecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
-	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 	libfunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
 	libinfra "github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -66,16 +70,16 @@ const (
 )
 
 type SetupOutput struct {
-	WorkflowRegistryConfigurationOutput *keystonetypes.WorkflowRegistryOutput
+	WorkflowRegistryConfigurationOutput *cretypes.WorkflowRegistryOutput
 	CldEnvironment                      *cldf.Environment
 	BlockchainOutput                    []*BlockchainOutput
-	DonTopology                         *keystonetypes.DonTopology
-	NodeOutput                          []*keystonetypes.WrappedNodeOutput
+	DonTopology                         *cretypes.DonTopology
+	NodeOutput                          []*cretypes.WrappedNodeOutput
 }
 
 type SetupInput struct {
 	ExtraAllowedPorts                    []int
-	CapabilitiesAwareNodeSets            []*keystonetypes.CapabilitiesAwareNodeSet
+	CapabilitiesAwareNodeSets            []*cretypes.CapabilitiesAwareNodeSet
 	CapabilitiesContractFactoryFunctions []func([]cretypes.CapabilityFlag) []keystone_changeset.DONCapabilityWithConfig
 	ConfigFactoryFunctions               []cretypes.ConfigFactoryFn
 	JobSpecFactoryFunctions              []cretypes.JobSpecFactoryFn
@@ -101,7 +105,7 @@ func SetupTestEnvironment(
 	// We need to have this reference in the outer scope, because subsequent functions will need it
 	var nixShell *libnix.Shell
 	if input.InfraInput.InfraType == libtypes.CRIB {
-		startNixShellInput := &keystonetypes.StartNixShellInput{
+		startNixShellInput := &cretypes.StartNixShellInput{
 			InfraInput:     &input.InfraInput,
 			CribConfigsDir: cribConfigsDir,
 			PurgeNamespace: true,
@@ -244,7 +248,7 @@ func SetupTestEnvironment(
 	}
 
 	// Configure Workflow Registry contract
-	workflowRegistryInput := &keystonetypes.WorkflowRegistryInput{
+	workflowRegistryInput := &cretypes.WorkflowRegistryInput{
 		ChainSelector:  homeChainOutput.ChainSelector,
 		CldEnv:         allChainsCLDEnvironment,
 		AllowedDonIDs:  []uint32{topology.WorkflowDONID},
@@ -262,7 +266,7 @@ func SetupTestEnvironment(
 
 	// Generate EVM and P2P keys or read them from the config
 	// That way we can pass them final configs and do away with restarting the nodes
-	var keys *keystonetypes.GenerateKeysOutput
+	var keys *cretypes.GenerateKeysOutput
 
 	keysOutput, keysOutputErr := cresecrets.KeysOutputFromConfig(input.CapabilitiesAwareNodeSets)
 	if keysOutputErr != nil {
@@ -280,7 +284,7 @@ func SetupTestEnvironment(
 		sethClients[bcOut.ChainSelector] = bcOut.SethClient
 	}
 
-	generateKeysInput := &keystonetypes.GenerateKeysInput{
+	generateKeysInput := &cretypes.GenerateKeysInput{
 		GenerateEVMKeysForChainIDs: chainIDs,
 		GenerateP2PKeys:            true,
 		Topology:                   topology,
@@ -332,7 +336,7 @@ func SetupTestEnvironment(
 		// generate configs only if they are not provided
 		if configsFound == 0 {
 			config, configErr := creconfig.Generate(
-				keystonetypes.GenerateConfigsInput{
+				cretypes.GenerateConfigsInput{
 					DonMetadata:            donMetadata,
 					BlockchainOutput:       bcOuts,
 					Flags:                  donMetadata.Flags,
@@ -354,7 +358,7 @@ func SetupTestEnvironment(
 
 		// generate secrets only if they are not provided
 		if secretsFound == 0 {
-			secretsInput := &keystonetypes.GenerateSecretsInput{
+			secretsInput := &cretypes.GenerateSecretsInput{
 				DonMetadata: donMetadata,
 			}
 
@@ -405,7 +409,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("[Stage 5/10] Starting Job Distributor\n\n"))
 
 	if input.InfraInput.InfraType == libtypes.CRIB {
-		deployCribJdInput := &keystonetypes.DeployCribJdInput{
+		deployCribJdInput := &cretypes.DeployCribJdInput{
 			JDInput:        &input.JdInput,
 			NixShell:       nixShell,
 			CribConfigsDir: cribConfigsDir,
@@ -435,7 +439,7 @@ func SetupTestEnvironment(
 
 	if input.InfraInput.InfraType == libtypes.CRIB {
 		testLogger.Info().Msg("Saving node configs and secret overrides")
-		deployCribDonsInput := &keystonetypes.DeployCribDonsInput{
+		deployCribDonsInput := &cretypes.DeployCribDonsInput{
 			Topology:       topology,
 			NodeSetInputs:  input.CapabilitiesAwareNodeSets,
 			NixShell:       nixShell,
@@ -449,14 +453,14 @@ func SetupTestEnvironment(
 		}
 	}
 
-	nodeSetOutput := make([]*keystonetypes.WrappedNodeOutput, 0, len(input.CapabilitiesAwareNodeSets))
+	nodeSetOutput := make([]*cretypes.WrappedNodeOutput, 0, len(input.CapabilitiesAwareNodeSets))
 	for _, nodeSetInput := range input.CapabilitiesAwareNodeSets {
 		nodeset, nodesetErr := ns.NewSharedDBNodeSet(nodeSetInput.Input, homeChainOutput.BlockchainOutput)
 		if nodesetErr != nil {
 			return nil, pkgerrors.Wrapf(nodesetErr, "failed to create node set named %s", nodeSetInput.Name)
 		}
 
-		nodeSetOutput = append(nodeSetOutput, &keystonetypes.WrappedNodeOutput{
+		nodeSetOutput = append(nodeSetOutput, &cretypes.WrappedNodeOutput{
 			Output:       nodeset,
 			NodeSetName:  nodeSetInput.Name,
 			Capabilities: nodeSetInput.Capabilities,
@@ -465,7 +469,7 @@ func SetupTestEnvironment(
 
 	// Prepare the CLD environment that's required by the keystone changeset
 	// Ugly glue hack ¯\_(ツ)_/¯
-	fullCldInput := &keystonetypes.FullCLDEnvironmentInput{
+	fullCldInput := &cretypes.FullCLDEnvironmentInput{
 		JdOutput:          jdOutput,
 		BlockchainOutputs: bcOuts,
 		SethClients:       sethClients,
@@ -539,7 +543,7 @@ func SetupTestEnvironment(
 	startTime = time.Now()
 	fmt.Print(libformat.PurpleText("[Stage 8/10] Creating jobs with Job Distributor\n\n"))
 
-	donToJobSpecs := make(keystonetypes.DonsToJobSpecs)
+	donToJobSpecs := make(cretypes.DonsToJobSpecs)
 
 	for _, jobSpecGeneratingFn := range input.JobSpecFactoryFunctions {
 		singleDonToJobSpecs, jobSpecsErr := jobSpecGeneratingFn(&cretypes.JobSpecFactoryInput{
@@ -554,7 +558,7 @@ func SetupTestEnvironment(
 		mergeJobSpecSlices(singleDonToJobSpecs, donToJobSpecs)
 	}
 
-	createJobsInput := keystonetypes.CreateJobsInput{
+	createJobsInput := cretypes.CreateJobsInput{
 		CldEnv:        fullCldOutput.Environment,
 		DonTopology:   fullCldOutput.DonTopology,
 		DonToJobSpecs: donToJobSpecs,
@@ -596,7 +600,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("[Stage 10/10] Configuring OCR3 and Keystone contracts\n\n"))
 
 	// Configure the Forwarder, OCR3 and Capabilities contracts
-	configureKeystoneInput := keystonetypes.ConfigureKeystoneInput{
+	configureKeystoneInput := cretypes.ConfigureKeystoneInput{
 		ChainSelector: homeChainOutput.ChainSelector,
 		CldEnv:        fullCldOutput.Environment,
 		Topology:      topology,
@@ -618,6 +622,28 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("\n[Stage 10/10] OCR3 and Keystone contracts configured in %.2f seconds\n\n", time.Since(startTime).Seconds()))
+
+	if input.InfraInput.InfraType != libtypes.CRIB {
+		hasGateway := false
+		for _, don := range fullCldOutput.DonTopology.DonsWithMetadata {
+			if flags.HasFlag(don.Flags, cretypes.GatewayDON) {
+				hasGateway = true
+				break
+			}
+		}
+
+		if hasGateway {
+			startTime = time.Now()
+			fmt.Print(libformat.PurpleText("[POST-SETUP] Waiting for all nodes to have expected Log Poller filters registered\n\n"))
+
+			testLogger.Info().Msg("Waiting for all nodes to have expected log pollerfilters registered...")
+			lpErr := waitForAllNodesToHaveExpectedFiltersRegistered(singeFileLogger, testLogger, homeChainOutput.ChainID, *fullCldOutput.DonTopology, input.CapabilitiesAwareNodeSets)
+			if lpErr != nil {
+				return nil, pkgerrors.Wrap(lpErr, "failed to wait for all nodes to have expected filters registered")
+			}
+			fmt.Print(libformat.PurpleText("\n[POST-SETUP] Wait finished in %.2f seconds\n\n", time.Since(startTime).Seconds()))
+		}
+	}
 
 	return &SetupOutput{
 		WorkflowRegistryConfigurationOutput: workflowRegistryInput.Out, // pass to caller, so that it can be optionally attached to TestConfig and saved to disk
@@ -662,7 +688,7 @@ func CreateBlockchains(
 				return nil, pkgerrors.New("nix shell is nil")
 			}
 
-			deployCribBlockchainInput := &keystonetypes.DeployCribBlockchainInput{
+			deployCribBlockchainInput := &cretypes.DeployCribBlockchainInput{
 				BlockchainInput: bi,
 				NixShell:        input.nixShell,
 				CribConfigsDir:  cribConfigsDir,
@@ -734,7 +760,7 @@ func CreateJobDistributor(input *jd.Input) (*jd.Output, error) {
 	return jdOutput, nil
 }
 
-func mergeJobSpecSlices(from, to keystonetypes.DonsToJobSpecs) {
+func mergeJobSpecSlices(from, to cretypes.DonsToJobSpecs) {
 	for fromDonID, fromJobSpecs := range from {
 		if _, ok := to[fromDonID]; !ok {
 			to[fromDonID] = make([]*jobv1.ProposeJobRequest, 0)
@@ -774,4 +800,89 @@ func (c *ConcurrentNonceMap) Increment(chainID uint64) uint64 {
 	defer c.mu.Unlock()
 	c.nonceByChainID[chainID]++
 	return c.nonceByChainID[chainID]
+}
+
+// waitForAllNodesToHaveExpectedFiltersRegistered manually checks if all WorkflowRegistry filters used by the LogPoller are registered for all nodes. We want to see if this will help with the flakiness.
+func waitForAllNodesToHaveExpectedFiltersRegistered(singeFileLogger *cldlogger.SingleFileLogger, testLogger zerolog.Logger, homeChainID uint64, donTopology cretypes.DonTopology, nodeSetInput []*cretypes.CapabilitiesAwareNodeSet) error {
+	for donIdx, don := range donTopology.DonsWithMetadata {
+		if !flags.HasFlag(don.Flags, cretypes.WorkflowDON) {
+			continue
+		}
+
+		workderNodes, workersErr := crenode.FindManyWithLabel(don.NodesMetadata, &cretypes.Label{Key: crenode.NodeTypeKey, Value: cretypes.WorkerNode}, crenode.EqualLabels)
+		if workersErr != nil {
+			return pkgerrors.Wrap(workersErr, "failed to find worker nodes")
+		}
+
+		results := make(map[int]bool)
+		ticker := 10 * time.Second
+		timeout := 2 * time.Minute
+
+		select {
+		case <-time.After(timeout):
+			return errors.New("timeout waiting for filters")
+		case <-time.Tick(ticker):
+			if len(results) == len(workderNodes) {
+				testLogger.Info().Msgf("All %d nodes have expected filters registered", len(workderNodes))
+				break
+			}
+
+			for _, workerNode := range workderNodes {
+				nodeIndex, nodeIndexErr := crenode.FindLabelValue(workerNode, crenode.IndexKey)
+				if nodeIndexErr != nil {
+					return pkgerrors.Wrap(nodeIndexErr, "failed to find node index")
+				}
+
+				nodeIndexInt, nodeIdxErr := strconv.Atoi(nodeIndex)
+				if nodeIdxErr != nil {
+					return pkgerrors.Wrap(nodeIdxErr, "failed to convert node index to int")
+				}
+
+				if _, ok := results[nodeIndexInt]; ok {
+					continue
+				}
+
+				testLogger.Info().Msgf("Checking if all WorkflowRegistry filters are registered for worker node %d", nodeIndexInt)
+				allFilters, filtersErr := getAllFilters(context.Background(), singeFileLogger, big.NewInt(libc.MustSafeInt64(homeChainID)), nodeIndexInt, nodeSetInput[donIdx].DbInput.Port)
+				if filtersErr != nil {
+					return pkgerrors.Wrap(filtersErr, "failed to get filters")
+				}
+
+				for _, filter := range allFilters {
+					if strings.Contains(filter.Name, "WorkflowRegistry") {
+						if len(filter.EventSigs) == 6 {
+							testLogger.Info().Msgf("Found all WorkflowRegistry filters for node %d", nodeIndexInt)
+							results[nodeIndexInt] = true
+							continue
+						}
+
+						testLogger.Info().Msgf("Found only %d WorkflowRegistry filters for node %d", len(filter.EventSigs), nodeIndexInt)
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func NewORM(logger *cldlogger.SingleFileLogger, chainID *big.Int, nodeIndex, externalPort int) (logpoller.ORM, *sqlx.DB, error) {
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", "127.0.0.1", externalPort, "chainlink", "thispasswordislongenough", fmt.Sprintf("db_%d", nodeIndex))
+	db, err := sqlx.Open("postgres", dsn)
+	if err != nil {
+		return nil, db, err
+	}
+
+	db.MapperFunc(reflectx.CamelToSnakeASCII)
+	return logpoller.NewORM(chainID, db, logger), db, nil
+}
+
+func getAllFilters(ctx context.Context, logger *cldlogger.SingleFileLogger, chainID *big.Int, nodeIndex, externalPort int) (map[string]logpoller.Filter, error) {
+	orm, db, err := NewORM(logger, chainID, nodeIndex, externalPort)
+	if err != nil {
+		return nil, err
+	}
+
+	defer db.Close()
+	return orm.LoadFilters(ctx)
 }

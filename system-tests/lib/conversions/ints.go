@@ -24,6 +24,14 @@ func MustSafeUint64(input int64) uint64 {
 	return uint64(input)
 }
 
+func MustSafeInt64(input uint64) int64 {
+	maxInt64 := (^uint64(0) >> 1) // Max value for int64
+	if input > maxInt64 {
+		panic(fmt.Errorf("uint64 %d exceeds int64 max value", input))
+	}
+	return int64(input)
+}
+
 func MustSafeUint32(input int) uint32 {
 	if input < 0 {
 		panic(fmt.Errorf("int %d is below uint32 min value", input))
