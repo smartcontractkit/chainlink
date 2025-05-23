@@ -320,7 +320,7 @@ var (
 						return err
 					}
 					// should only update callers if there are none, otherwise we might overwrite some existing callers for existing fee quoter
-					if len(callers) == 1 && (callers[0] == chain.DeployerKey.From || callers[0] == state.Chains[chain.Selector].Timelock.Address()) {
+					if len(callers) == 1 && (callers[0] == chain.DeployerKey.From || callers[0] == state.MustGetEVMChainState(chain.Selector).Timelock.Address()) {
 						_, err = operations.ExecuteOperation(b, ccipopsv1_6.FeeQApplyAuthorizedCallerOp, deps, ccipopsv1_6.FeeQApplyAuthorizedCallerOpInput{
 							ChainSelector: chainSelector,
 							Callers: fee_quoter.AuthorizedCallersAuthorizedCallerArgs{

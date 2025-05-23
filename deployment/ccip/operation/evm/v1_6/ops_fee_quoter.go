@@ -87,7 +87,7 @@ var (
 				return opsutil.OpOutput{}, err
 			}
 			chain := deps.Env.Chains[input.ChainSelector]
-			chainState := state.Chains[input.ChainSelector]
+			chainState := state.MustGetEVMChainState(input.ChainSelector)
 			deployerGroup := deployergroup.NewDeployerGroup(e, state, input.MCMS).
 				WithDeploymentContext("set FeeQuoter authorized caller on %s" + chain.String())
 			opts, err := deployerGroup.GetDeployer(input.ChainSelector)
@@ -123,13 +123,13 @@ func (i FeeQApplyAuthorizedCallerOpInput) Validate(env cldf.Environment, state s
 		return err
 	}
 	chain := env.Chains[i.ChainSelector]
-	if state.Chains[i.ChainSelector].FeeQuoter == nil {
+	if state.MustGetEVMChainState(i.ChainSelector).FeeQuoter == nil {
 		return fmt.Errorf("FeeQuoter not found for chain %s", chain.String())
 	}
 	err = commoncs.ValidateOwnership(
 		env.GetContext(), i.MCMS != nil,
-		chain.DeployerKey.From, state.Chains[i.ChainSelector].Timelock.Address(),
-		state.Chains[i.ChainSelector].FeeQuoter,
+		chain.DeployerKey.From, state.MustGetEVMChainState(i.ChainSelector).Timelock.Address(),
+		state.MustGetEVMChainState(i.ChainSelector).FeeQuoter,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership: %w", err)
