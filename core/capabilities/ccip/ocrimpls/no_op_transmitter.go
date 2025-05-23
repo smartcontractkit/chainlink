@@ -3,9 +3,10 @@ package ocrimpls
 import (
 	"context"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var _ ocr3types.ContractTransmitter[[]byte] = (*noOpTransmitter)(nil)
