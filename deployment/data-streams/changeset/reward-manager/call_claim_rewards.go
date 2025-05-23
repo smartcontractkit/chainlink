@@ -11,7 +11,7 @@ import (
 	rewardManager "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
@@ -41,14 +41,14 @@ func (cfg ClaimRewardsConfig) Validate() error {
 	return nil
 }
 
-func claimRewardsPrecondition(_ deployment.Environment, cc ClaimRewardsConfig) error {
+func claimRewardsPrecondition(_ cldf.Environment, cc ClaimRewardsConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid ClaimRewards config: %w", err)
 	}
 	return nil
 }
 
-func claimRewardsLogic(e deployment.Environment, cfg ClaimRewardsConfig) (deployment.ChangesetOutput, error) {
+func claimRewardsLogic(e cldf.Environment, cfg ClaimRewardsConfig) (cldf.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.RewardManager.String(),
@@ -57,7 +57,7 @@ func claimRewardsLogic(e deployment.Environment, cfg ClaimRewardsConfig) (deploy
 		doClaimRewards,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building ClaimRewards txs: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed building ClaimRewards txs: %w", err)
 	}
 
 	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "ClaimRewards proposal")
@@ -65,7 +65,7 @@ func claimRewardsLogic(e deployment.Environment, cfg ClaimRewardsConfig) (deploy
 
 func doClaimRewards(vs *rewardManager.RewardManager, cr ClaimRewards) (*goEthTypes.Transaction, error) {
 	return vs.ClaimRewards(
-		deployment.SimTransactOpts(),
+		cldf.SimTransactOpts(),
 		cr.PoolIDs,
 	)
 }

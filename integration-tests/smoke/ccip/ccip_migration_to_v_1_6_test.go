@@ -18,8 +18,12 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
+	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -68,7 +72,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 				},
 			}),
 	)
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	allChains := e.Env.AllChainSelectors()
 	src1, dest := allChains[0], allChains[1]
@@ -98,11 +102,11 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 		),
 	)
 	require.NoError(t, err)
-	oldState, err := changeset.LoadOnchainState(e.Env)
+	oldState, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
-	evmContractParams := make(map[uint64]v1_6.ChainContractParams)
+	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 	evmChains := []uint64{}
 	for _, chain := range allChains {
 		if _, ok := e.Env.Chains[chain]; ok {
@@ -110,9 +114,9 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 		}
 	}
 	for _, chain := range evmChains {
-		evmContractParams[chain] = v1_6.ChainContractParams{
-			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
-			OffRampParams:   v1_6.DefaultOffRampParams(),
+		evmContractParams[chain] = ccipseq.ChainContractParams{
+			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
+			OffRampParams:   ccipops.DefaultOffRampParams(),
 		}
 	}
 	var apps []commonchangeset.ConfiguredChangeSet
@@ -131,7 +135,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
-			v1_6.DeployChainContractsConfig{
+			ccipseq.DeployChainContractsConfig{
 				HomeChainSelector:      e.HomeChainSel,
 				ContractParamsPerChain: evmContractParams,
 			},
@@ -194,7 +198,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 				},
 			}),
 	)
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	allChains := e.Env.AllChainSelectors()
 	src1, dest := allChains[0], allChains[1]
@@ -224,11 +228,11 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 		),
 	)
 	require.NoError(t, err)
-	oldState, err := changeset.LoadOnchainState(e.Env)
+	oldState, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
-	evmContractParams := make(map[uint64]v1_6.ChainContractParams)
+	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 	evmChains := []uint64{}
 	for _, chain := range allChains {
 		if _, ok := e.Env.Chains[chain]; ok {
@@ -236,9 +240,9 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 		}
 	}
 	for _, chain := range evmChains {
-		evmContractParams[chain] = v1_6.ChainContractParams{
-			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
-			OffRampParams:   v1_6.DefaultOffRampParams(),
+		evmContractParams[chain] = ccipseq.ChainContractParams{
+			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
+			OffRampParams:   ccipops.DefaultOffRampParams(),
 		}
 	}
 	var apps []commonchangeset.ConfiguredChangeSet
@@ -257,7 +261,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
-			v1_6.DeployChainContractsConfig{
+			ccipseq.DeployChainContractsConfig{
 				HomeChainSelector:      e.HomeChainSel,
 				ContractParamsPerChain: evmContractParams,
 			},
@@ -330,7 +334,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 				},
 			}),
 	)
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	allChains := e.Env.AllChainSelectors()
 	src1, dest := allChains[0], allChains[1]
@@ -360,11 +364,11 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 		),
 	)
 	require.NoError(t, err)
-	oldState, err := changeset.LoadOnchainState(e.Env)
+	oldState, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
-	evmContractParams := make(map[uint64]v1_6.ChainContractParams)
+	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 	evmChains := []uint64{}
 	for _, chain := range allChains {
 		if _, ok := e.Env.Chains[chain]; ok {
@@ -372,9 +376,9 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 		}
 	}
 	for _, chain := range evmChains {
-		evmContractParams[chain] = v1_6.ChainContractParams{
-			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
-			OffRampParams:   v1_6.DefaultOffRampParams(),
+		evmContractParams[chain] = ccipseq.ChainContractParams{
+			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
+			OffRampParams:   ccipops.DefaultOffRampParams(),
 		}
 	}
 	var apps []commonchangeset.ConfiguredChangeSet
@@ -393,7 +397,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
-			v1_6.DeployChainContractsConfig{
+			ccipseq.DeployChainContractsConfig{
 				HomeChainSelector:      e.HomeChainSel,
 				ContractParamsPerChain: evmContractParams,
 			},
@@ -403,7 +407,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	require.NoError(t, err)
 	// reload state after adding lanes
 
-	state, err = changeset.LoadOnchainState(e.Env)
+	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
 
@@ -515,7 +519,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		// between nodes' calculated digest and the digest set on the contract
 		testhelpers.WithChainIDs([]uint64{chainselectors.GETH_TESTNET.EvmChainID}),
 	)
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	allChainsExcept1337 := e.Env.AllChainSelectorsExcluding([]uint64{chainselectors.GETH_TESTNET.Selector})
 	require.Contains(t, e.Env.AllChainSelectors(), chainselectors.GETH_TESTNET.Selector)
@@ -554,7 +558,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	)
 	require.NoError(t, err)
 	// reload state after adding lanes
-	state, err = changeset.LoadOnchainState(e.Env)
+	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
 	// ensure that all lanes are functional
@@ -619,7 +623,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 
 	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MCMSConfig: proposalutils.TimelockConfig{
@@ -684,7 +688,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		),
 	)
 	require.NoError(t, err)
-	state, err = changeset.LoadOnchainState(e.Env)
+	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// Enable a single 1.6 lane with test router
@@ -843,7 +847,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 func sendContinuousMessages(
 	t *testing.T,
 	e *testhelpers.DeployedEnv,
-	state *changeset.CCIPOnChainState,
+	state *stateview.CCIPOnChainState,
 	src, dest uint64,
 	done chan bool,
 ) (uint64, []*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested, []*onramp.OnRampCCIPMessageSent) {
@@ -886,7 +890,7 @@ func sendContinuousMessages(
 func sendMessageInRealRouter(
 	t *testing.T,
 	e *testhelpers.DeployedEnv,
-	state *changeset.CCIPOnChainState,
+	state *stateview.CCIPOnChainState,
 	src, dest uint64,
 ) any {
 	cfg := &testhelpers.CCIPSendReqConfig{

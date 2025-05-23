@@ -7,24 +7,33 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/view/v0_5"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
+
+	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/metadata"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 )
 
 // DeployVerifierProxyChangeset deploys VerifierProxy to the chains specified in the config.
-var DeployVerifierProxyChangeset deployment.ChangeSetV2[DeployVerifierProxyConfig] = &verifierProxyDeploy{}
+var DeployVerifierProxyChangeset = cldf.CreateChangeSet(verifierProxyDeployLogic, verifierProxyDeployPrecondition)
 
-type verifierProxyDeploy struct{}
 type DeployVerifierProxyConfig struct {
 	// ChainsToDeploy is a list of chain selectors to deploy the contract to.
 	ChainsToDeploy map[uint64]DeployVerifierProxy
 	Ownership      types.OwnershipSettings
 	Version        semver.Version
+}
+
+func (cfg DeployVerifierProxyConfig) GetOwnershipConfig() types.OwnershipSettings {
+	return cfg.Ownership
 }
 
 type DeployVerifierProxy struct {
@@ -42,67 +51,88 @@ func (cfg DeployVerifierProxyConfig) Validate() error {
 		return errors.New("ChainsToDeploy is empty")
 	}
 	for chain := range cfg.ChainsToDeploy {
-		if err := deployment.IsValidChainSelector(chain); err != nil {
+		if err := cldf.IsValidChainSelector(chain); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", chain, err)
 		}
 	}
 	return nil
 }
 
-func (v *verifierProxyDeploy) Apply(e deployment.Environment, cc DeployVerifierProxyConfig) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook()
-	err := deploy(e, ab, cc)
+func verifierProxyDeployLogic(e cldf.Environment, cc DeployVerifierProxyConfig) (cldf.ChangesetOutput, error) {
+	dataStore := ds.NewMemoryDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata]()
+	err := deploy(e, dataStore, cc)
 	if err != nil {
-		e.Logger.Errorw("Failed to deploy VerifierProxy", "err", err, "addresses", ab)
-		return deployment.ChangesetOutput{AddressBook: ab}, deployment.MaybeDataErr(err)
+		e.Logger.Errorw("Failed to deploy VerifierProxy", "err", err)
+		return cldf.ChangesetOutput{}, cldf.MaybeDataErr(err)
 	}
 
-	if cc.Ownership.ShouldTransfer && cc.Ownership.MCMSProposalConfig != nil {
-		filter := deployment.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0)
-		return mcmsutil.TransferToMCMSWithTimelockForTypeAndVersion(e, ab, filter, *cc.Ownership.MCMSProposalConfig)
+	records, err := dataStore.Addresses().Fetch()
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch addresses: %w", err)
+	}
+	proposals, err := mcmsutil.GetTransferOwnershipProposals(e, cc, records)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership to MCMS: %w", err)
 	}
 
-	return deployment.ChangesetOutput{
-		AddressBook: ab,
+	sealedDS, err := ds.ToDefault(dataStore.Seal())
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
+	}
+
+	return cldf.ChangesetOutput{
+		DataStore:             sealedDS,
+		MCMSTimelockProposals: proposals,
 	}, nil
 }
 
-func (v *verifierProxyDeploy) VerifyPreconditions(_ deployment.Environment, cc DeployVerifierProxyConfig) error {
+type HasOwnershipConfig interface {
+	GetOwnershipConfig() types.OwnershipSettings
+}
+
+func verifierProxyDeployPrecondition(_ cldf.Environment, cc DeployVerifierProxyConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployVerifierProxyConfig: %w", err)
 	}
 	return nil
 }
 
-func deploy(e deployment.Environment, ab deployment.AddressBook, cfg DeployVerifierProxyConfig) error {
+func deploy(e cldf.Environment,
+	dataStore ds.MutableDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata],
+	cfg DeployVerifierProxyConfig) error {
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployVerifierProxyConfig: %w", err)
 	}
 
-	for chainSel := range cfg.ChainsToDeploy {
+	for chainSel, chainCfg := range cfg.ChainsToDeploy {
 		chain, ok := e.Chains[chainSel]
 		if !ok {
 			return fmt.Errorf("chain not found for chain selector %d", chainSel)
 		}
-		deployProxy := cfg.ChainsToDeploy[chainSel]
-		_, err := changeset.DeployContract[*verifier_proxy_v0_5_0.VerifierProxy](e, ab, chain, verifyProxyDeployFn(deployProxy))
+
+		res, err := changeset.DeployContract(e, dataStore, chain, verifyProxyDeployFn(chainCfg), nil)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to deploy verifier proxy: %w", err)
 		}
-		chainAddresses, err := ab.AddressesForChain(chain.Selector)
+		contractMetadata := metadata.GenericContractMetadata[v0_5.VerifierProxyView]{
+			Metadata: metadata.CommonContractMetadata{
+				DeployBlock: res.Block,
+			},
+		}
+
+		serialized, err := metadata.NewSerializedContractMetadata(contractMetadata)
 		if err != nil {
-			e.Logger.Errorw("Failed to get chain addresses", "err", err)
-			return err
+			return fmt.Errorf("failed to serialize contract metadata: %w", err)
 		}
-		chainState, err := changeset.LoadChainState(e.Logger, chain, chainAddresses)
-		if err != nil {
-			e.Logger.Errorw("Failed to load chain state", "err", err)
-			return err
-		}
-		if len(chainState.VerifierProxys) == 0 {
-			errNoCCS := errors.New("no VerifierProxy on chain")
-			e.Logger.Error(errNoCCS)
-			return errNoCCS
+
+		if err = dataStore.ContractMetadata().Upsert(
+			ds.ContractMetadata[metadata.SerializedContractMetadata]{
+				ChainSelector: chain.Selector,
+				Address:       res.Address.String(),
+				Metadata:      *serialized,
+			},
+		); err != nil {
+			return fmt.Errorf("failed to upser contract metadata: %w", err)
 		}
 	}
 
@@ -111,7 +141,7 @@ func deploy(e deployment.Environment, ab deployment.AddressBook, cfg DeployVerif
 
 // verifyProxyDeployFn returns a function that deploys a VerifyProxy contract.
 func verifyProxyDeployFn(cfg DeployVerifierProxy) changeset.ContractDeployFn[*verifier_proxy_v0_5_0.VerifierProxy] {
-	return func(chain deployment.Chain) *changeset.ContractDeployment[*verifier_proxy_v0_5_0.VerifierProxy] {
+	return func(chain cldf.Chain) *changeset.ContractDeployment[*verifier_proxy_v0_5_0.VerifierProxy] {
 		addr, tx, contract, err := verifier_proxy_v0_5_0.DeployVerifierProxy(
 			chain.DeployerKey,
 			chain.Client,
@@ -122,11 +152,18 @@ func verifyProxyDeployFn(cfg DeployVerifierProxy) changeset.ContractDeployFn[*ve
 				Err: err,
 			}
 		}
+		bn, err := chain.Confirm(tx)
+		if err != nil {
+			return &changeset.ContractDeployment[*verifier_proxy_v0_5_0.VerifierProxy]{
+				Err: err,
+			}
+		}
 		return &changeset.ContractDeployment[*verifier_proxy_v0_5_0.VerifierProxy]{
 			Address:  addr,
+			Block:    bn,
 			Contract: contract,
 			Tx:       tx,
-			Tv:       deployment.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
+			Tv:       cldf.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
 			Err:      nil,
 		}
 	}

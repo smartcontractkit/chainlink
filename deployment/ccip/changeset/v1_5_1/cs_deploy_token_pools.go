@@ -16,8 +16,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_with_from_mint_token_pool"
@@ -26,12 +29,12 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 )
 
-var _ deployment.ChangeSet[DeployTokenPoolContractsConfig] = DeployTokenPoolContractsChangeset
+var _ cldf.ChangeSet[DeployTokenPoolContractsConfig] = DeployTokenPoolContractsChangeset
 
 // DeployTokenPoolInput defines all information required of the user to deploy a new token pool contract.
 type DeployTokenPoolInput struct {
 	// Type is the type of token pool that must be deployed.
-	Type deployment.ContractType
+	Type cldf.ContractType
 	// TokenAddress is the address of the token for which we are deploying a pool.
 	TokenAddress common.Address
 	// AllowList is the optional list of addresses permitted to initiate a token transfer.
@@ -43,17 +46,17 @@ type DeployTokenPoolInput struct {
 	AcceptLiquidity *bool
 }
 
-func (i DeployTokenPoolInput) Validate(ctx context.Context, chain deployment.Chain, state changeset.CCIPChainState, tokenSymbol changeset.TokenSymbol) error {
+func (i DeployTokenPoolInput) Validate(ctx context.Context, chain cldf.Chain, state evm.CCIPChainState, tokenSymbol shared.TokenSymbol) error {
 	// Ensure that required fields are populated
 	if i.TokenAddress == utils.ZeroAddress {
 		return errors.New("token address must be defined")
 	}
-	if i.Type == deployment.ContractType("") {
+	if i.Type == cldf.ContractType("") {
 		return errors.New("type must be defined")
 	}
 
 	// Validate that the type is known
-	if _, ok := changeset.TokenPoolTypes[i.Type]; !ok {
+	if _, ok := shared.TokenPoolTypes[i.Type]; !ok {
 		return fmt.Errorf("requested token pool type %s is unknown", i.Type)
 	}
 
@@ -80,17 +83,17 @@ func (i DeployTokenPoolInput) Validate(ctx context.Context, chain deployment.Cha
 	}
 
 	// Validate acceptLiquidity based on requested pool type
-	if i.Type == changeset.LockReleaseTokenPool && i.AcceptLiquidity == nil {
+	if i.Type == shared.LockReleaseTokenPool && i.AcceptLiquidity == nil {
 		return errors.New("accept liquidity must be defined for lock release pools")
 	}
-	if i.Type != changeset.LockReleaseTokenPool && i.AcceptLiquidity != nil {
+	if i.Type != shared.LockReleaseTokenPool && i.AcceptLiquidity != nil {
 		return errors.New("accept liquidity must be nil for burn mint pools")
 	}
 
 	// We should check if a token pool with this type, version, and symbol already exists
-	_, ok := changeset.GetTokenPoolAddressFromSymbolTypeAndVersion(state, chain, tokenSymbol, i.Type, changeset.CurrentTokenPoolVersion)
+	_, ok := GetTokenPoolAddressFromSymbolTypeAndVersion(state, chain, tokenSymbol, i.Type, shared.CurrentTokenPoolVersion)
 	if ok {
-		return fmt.Errorf("token pool with type %s and version %s already exists for %s on %s", i.Type, changeset.CurrentTokenPoolVersion, tokenSymbol, chain)
+		return fmt.Errorf("token pool with type %s and version %s already exists for %s on %s", i.Type, shared.CurrentTokenPoolVersion, tokenSymbol, chain)
 	}
 
 	return nil
@@ -99,25 +102,25 @@ func (i DeployTokenPoolInput) Validate(ctx context.Context, chain deployment.Cha
 // DeployTokenPoolContractsConfig defines the token pool contracts that need to be deployed on each chain.
 type DeployTokenPoolContractsConfig struct {
 	// Symbol is the symbol of the token for which we are deploying a pool.
-	TokenSymbol changeset.TokenSymbol
+	TokenSymbol shared.TokenSymbol
 	// NewPools defines the per-chain configuration of each new pool
 	NewPools map[uint64]DeployTokenPoolInput
 	// IsTestRouter indicates whether or not the test router should be used.
 	IsTestRouter bool
 }
 
-func (c DeployTokenPoolContractsConfig) Validate(env deployment.Environment) error {
+func (c DeployTokenPoolContractsConfig) Validate(env cldf.Environment) error {
 	// Ensure that required fields are populated
-	if c.TokenSymbol == changeset.TokenSymbol("") {
+	if c.TokenSymbol == shared.TokenSymbol("") {
 		return errors.New("token symbol must be defined")
 	}
 
-	state, err := changeset.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	for chainSelector, poolConfig := range c.NewPools {
-		err := deployment.IsValidChainSelector(chainSelector)
+		err := cldf.IsValidChainSelector(chainSelector)
 		if err != nil {
 			return fmt.Errorf("failed to validate chain selector %d: %w", chainSelector, err)
 		}
@@ -150,15 +153,15 @@ func (c DeployTokenPoolContractsConfig) Validate(env deployment.Environment) err
 }
 
 // DeployTokenPoolContractsChangeset deploys new pools for a given token across multiple chains.
-func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployTokenPoolContractsConfig) (deployment.ChangesetOutput, error) {
+func DeployTokenPoolContractsChangeset(env cldf.Environment, c DeployTokenPoolContractsConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(env); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployTokenPoolContractsConfig: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployTokenPoolContractsConfig: %w", err)
 	}
-	newAddresses := deployment.NewMemoryAddressBook()
+	newAddresses := cldf.NewMemoryAddressBook()
 
-	state, err := changeset.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	deployGrp := errgroup.Group{}
@@ -168,26 +171,20 @@ func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployToken
 		deployGrp.Go(func() error {
 			chain := env.Chains[chainSelector]
 			chainState := state.Chains[chainSelector]
-			contract, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig, c.IsTestRouter)
+			_, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig, c.IsTestRouter)
 			if err != nil {
 				return fmt.Errorf("failed to deploy token pool contract: %w", err)
-			}
-			if poolConfig.Type == changeset.BurnMintTokenPool {
-				err := grantAccessToPool(env.GetContext(), chain, contract.Address, poolConfig.TokenAddress)
-				if err != nil {
-					return fmt.Errorf("failed to grant token pool access to token: %s %w", poolConfig.TokenAddress, err)
-				}
 			}
 			return nil
 		})
 	}
 
 	if err := deployGrp.Wait(); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy %s token pool on %w",
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy %s token pool on %w",
 			c.TokenSymbol, err)
 	}
 
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
 	}, nil
 }
@@ -195,40 +192,40 @@ func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployToken
 // deployTokenPool deploys a token pool contract based on a given type & configuration.
 func deployTokenPool(
 	logger logger.Logger,
-	chain deployment.Chain,
-	chainState changeset.CCIPChainState,
-	addressBook deployment.AddressBook,
+	chain cldf.Chain,
+	chainState evm.CCIPChainState,
+	addressBook cldf.AddressBook,
 	poolConfig DeployTokenPoolInput,
 	isTestRouter bool,
-) (*deployment.ContractDeploy[*token_pool.TokenPool], error) {
+) (*cldf.ContractDeploy[*token_pool.TokenPool], error) {
 	router := chainState.Router
 	if isTestRouter {
 		router = chainState.TestRouter
 	}
 	rmnProxy := chainState.RMNProxy
 
-	return deployment.DeployContract(logger, chain, addressBook,
-		func(chain deployment.Chain) deployment.ContractDeploy[*token_pool.TokenPool] {
+	return cldf.DeployContract(logger, chain, addressBook,
+		func(chain cldf.Chain) cldf.ContractDeploy[*token_pool.TokenPool] {
 			var tpAddr common.Address
 			var tx *types.Transaction
 			var err error
 			switch poolConfig.Type {
-			case changeset.BurnMintTokenPool:
+			case shared.BurnMintTokenPool:
 				tpAddr, tx, _, err = burn_mint_token_pool.DeployBurnMintTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
 				)
-			case changeset.BurnWithFromMintTokenPool:
+			case shared.BurnWithFromMintTokenPool:
 				tpAddr, tx, _, err = burn_with_from_mint_token_pool.DeployBurnWithFromMintTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
 				)
-			case changeset.BurnFromMintTokenPool:
+			case shared.BurnFromMintTokenPool:
 				tpAddr, tx, _, err = burn_from_mint_token_pool.DeployBurnFromMintTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
 				)
-			case changeset.LockReleaseTokenPool:
+			case shared.LockReleaseTokenPool:
 				tpAddr, tx, _, err = lock_release_token_pool.DeployLockReleaseTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), *poolConfig.AcceptLiquidity, router.Address(),
@@ -238,10 +235,10 @@ func deployTokenPool(
 			if err == nil { // prevents overwriting the error (also, if there were an error with deployment, converting to an abstract token pool wouldn't be useful)
 				tp, err = token_pool.NewTokenPool(tpAddr, chain.Client)
 			}
-			return deployment.ContractDeploy[*token_pool.TokenPool]{
+			return cldf.ContractDeploy[*token_pool.TokenPool]{
 				Address:  tpAddr,
 				Contract: tp,
-				Tv:       deployment.NewTypeAndVersion(poolConfig.Type, changeset.CurrentTokenPoolVersion),
+				Tv:       cldf.NewTypeAndVersion(poolConfig.Type, shared.CurrentTokenPoolVersion),
 				Tx:       tx,
 				Err:      err,
 			}

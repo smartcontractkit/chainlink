@@ -7,12 +7,18 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/view/v0_5"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 
 	rewardManager "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 
+	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/metadata"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 )
 
@@ -27,37 +33,51 @@ type DeployRewardManagerConfig struct {
 	Ownership      types.OwnershipSettings
 }
 
+func (cc DeployRewardManagerConfig) GetOwnershipConfig() types.OwnershipSettings {
+	return cc.Ownership
+}
+
 func (cc DeployRewardManagerConfig) Validate() error {
 	if len(cc.ChainsToDeploy) == 0 {
 		return errors.New("ChainsToDeploy is empty")
 	}
 	for chain := range cc.ChainsToDeploy {
-		if err := deployment.IsValidChainSelector(chain); err != nil {
+		if err := cldf.IsValidChainSelector(chain); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", chain, err)
 		}
 	}
 	return nil
 }
 
-func deployRewardManagerLogic(e deployment.Environment, cc DeployRewardManagerConfig) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook()
-	err := deployRewardManager(e, ab, cc)
+func deployRewardManagerLogic(e cldf.Environment, cc DeployRewardManagerConfig) (cldf.ChangesetOutput, error) {
+	dataStore := ds.NewMemoryDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata]()
+	err := deployRewardManager(e, dataStore, cc)
 	if err != nil {
-		e.Logger.Errorw("Failed to deploy RewardManager", "err", err, "addresses", ab)
-		return deployment.ChangesetOutput{AddressBook: ab}, deployment.MaybeDataErr(err)
+		e.Logger.Errorw("Failed to deploy RewardManager", "err", err)
+		return cldf.ChangesetOutput{}, cldf.MaybeDataErr(err)
 	}
 
-	if cc.Ownership.ShouldTransfer && cc.Ownership.MCMSProposalConfig != nil {
-		filter := deployment.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0)
-		return mcmsutil.TransferToMCMSWithTimelockForTypeAndVersion(e, ab, filter, *cc.Ownership.MCMSProposalConfig)
+	records, err := dataStore.Addresses().Fetch()
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch addresses: %w", err)
+	}
+	proposals, err := mcmsutil.GetTransferOwnershipProposals(e, cc, records)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership to MCMS: %w", err)
 	}
 
-	return deployment.ChangesetOutput{
-		AddressBook: ab,
+	sealedDS, err := ds.ToDefault(dataStore.Seal())
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert data store to default format: %w", err)
+	}
+
+	return cldf.ChangesetOutput{
+		DataStore:             sealedDS,
+		MCMSTimelockProposals: proposals,
 	}, nil
 }
 
-func deployRewardManagerPrecondition(_ deployment.Environment, cc DeployRewardManagerConfig) error {
+func deployRewardManagerPrecondition(_ cldf.Environment, cc DeployRewardManagerConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployRewardManagerConfig: %w", err)
 	}
@@ -65,35 +85,42 @@ func deployRewardManagerPrecondition(_ deployment.Environment, cc DeployRewardMa
 	return nil
 }
 
-func deployRewardManager(e deployment.Environment, ab deployment.AddressBook, cc DeployRewardManagerConfig) error {
+func deployRewardManager(e cldf.Environment,
+	dataStore ds.MutableDataStore[metadata.SerializedContractMetadata, ds.DefaultMetadata],
+	cc DeployRewardManagerConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployRewardManagerConfig: %w", err)
 	}
 
-	for chainSel := range cc.ChainsToDeploy {
+	for chainSel, chainCfg := range cc.ChainsToDeploy {
 		chain, ok := e.Chains[chainSel]
 		if !ok {
 			return fmt.Errorf("chain not found for chain selector %d", chainSel)
 		}
-		deployRewardManager := cc.ChainsToDeploy[chainSel]
-		_, err := changeset.DeployContract(e, ab, chain, RewardManagerDeployFn(deployRewardManager.LinkTokenAddress))
+
+		res, err := changeset.DeployContract(e, dataStore, chain, RewardManagerDeployFn(chainCfg.LinkTokenAddress), nil)
 		if err != nil {
 			return err
 		}
-		chainAddresses, err := ab.AddressesForChain(chain.Selector)
-		if err != nil {
-			e.Logger.Errorw("Failed to get chain addresses", "err", err)
-			return err
+		contractMetadata := metadata.GenericContractMetadata[v0_5.RewardManagerView]{
+			Metadata: metadata.CommonContractMetadata{
+				DeployBlock: res.Block,
+			},
 		}
-		chainState, err := changeset.LoadChainState(e.Logger, chain, chainAddresses)
+
+		serialized, err := metadata.NewSerializedContractMetadata(contractMetadata)
 		if err != nil {
-			e.Logger.Errorw("Failed to load chain state", "err", err)
-			return err
+			return fmt.Errorf("failed to serialize contract metadata: %w", err)
 		}
-		if len(chainState.RewardManagers) == 0 {
-			errNoCCS := errors.New("no RewardManager on chain")
-			e.Logger.Error(errNoCCS)
-			return errNoCCS
+
+		if err = dataStore.ContractMetadata().Upsert(
+			ds.ContractMetadata[metadata.SerializedContractMetadata]{
+				ChainSelector: chain.Selector,
+				Address:       res.Address.String(),
+				Metadata:      *serialized,
+			},
+		); err != nil {
+			return fmt.Errorf("failed to upser contract metadata: %w", err)
 		}
 	}
 
@@ -101,7 +128,7 @@ func deployRewardManager(e deployment.Environment, ab deployment.AddressBook, cc
 }
 
 func RewardManagerDeployFn(linkAddress common.Address) changeset.ContractDeployFn[*rewardManager.RewardManager] {
-	return func(chain deployment.Chain) *changeset.ContractDeployment[*rewardManager.RewardManager] {
+	return func(chain cldf.Chain) *changeset.ContractDeployment[*rewardManager.RewardManager] {
 		ccsAddr, ccsTx, ccs, err := rewardManager.DeployRewardManager(
 			chain.DeployerKey,
 			chain.Client,
@@ -112,11 +139,18 @@ func RewardManagerDeployFn(linkAddress common.Address) changeset.ContractDeployF
 				Err: err,
 			}
 		}
+		bn, err := chain.Confirm(ccsTx)
+		if err != nil {
+			return &changeset.ContractDeployment[*rewardManager.RewardManager]{
+				Err: err,
+			}
+		}
 		return &changeset.ContractDeployment[*rewardManager.RewardManager]{
 			Address:  ccsAddr,
+			Block:    bn,
 			Contract: ccs,
 			Tx:       ccsTx,
-			Tv:       deployment.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0),
+			Tv:       cldf.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0),
 			Err:      nil,
 		}
 	}

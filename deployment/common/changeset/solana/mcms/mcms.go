@@ -4,7 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -14,13 +15,13 @@ import (
 // as well as the timelock program. It's not necessarily the only way to use
 // the timelock and MCMS, but its reasonable pattern.
 func DeployMCMSWithTimelockProgramsSolana(
-	e deployment.Environment,
-	chain deployment.SolChain,
-	addressBook deployment.AddressBook,
+	e cldf.Environment,
+	chain cldf.SolChain,
+	addressBook cldf.AddressBook,
 	config commontypes.MCMSWithTimelockConfigV2,
 ) (*state.MCMSWithTimelockStateSolana, error) {
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
-	if err != nil && !errors.Is(err, deployment.ErrChainNotFound) {
+	if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
 		return nil, fmt.Errorf("failed to get addresses for chain %v from environment: %w", chain.Selector, err)
 	}
 

@@ -11,15 +11,24 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonSolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+)
+
+const (
+	Evm1 = uint64(0)
+	Evm2 = uint64(1)
+	Sol1 = uint64(2)
 )
 
 type curseAssertion struct {
@@ -41,114 +50,125 @@ var testCases = []CurseTestCase{
 	{
 		name: "lane",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
-			return []v1_6.CurseAction{v1_6.CurseLaneBidirectionally(mapIDToSelector(0), mapIDToSelector(1))}
+			return []v1_6.CurseAction{v1_6.CurseLaneBidirectionally(mapIDToSelector(Evm1), mapIDToSelector(Evm2))}
 		},
 		curseAssertions: []curseAssertion{
-			{chainID: 0, subject: 1, cursed: true},
-			{chainID: 0, subject: 2, cursed: false},
-			{chainID: 1, subject: 0, cursed: true},
-			{chainID: 1, subject: 2, cursed: false},
-			{chainID: 2, subject: 0, cursed: false},
-			{chainID: 2, subject: 1, cursed: false},
+			{chainID: Evm1, subject: Evm2, cursed: true},
+			{chainID: Evm1, subject: Sol1, cursed: false},
+			{chainID: Evm2, subject: Evm1, cursed: true},
+			{chainID: Evm2, subject: Sol1, cursed: false},
+			{chainID: Sol1, subject: Evm1, cursed: false},
+			{chainID: Sol1, subject: Evm2, cursed: false},
 		},
 	},
 	{
 		name: "solana lane",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
-			return []v1_6.CurseAction{v1_6.CurseLaneBidirectionally(mapIDToSelector(0), mapIDToSelector(2))}
+			return []v1_6.CurseAction{v1_6.CurseLaneBidirectionally(mapIDToSelector(Evm1), mapIDToSelector(Sol1))}
 		},
 		curseAssertions: []curseAssertion{
-			{chainID: 0, subject: 1, cursed: false},
-			{chainID: 0, subject: 2, cursed: true},
-			{chainID: 1, subject: 0, cursed: false},
-			{chainID: 1, subject: 2, cursed: false},
-			{chainID: 2, subject: 0, cursed: true},
-			{chainID: 2, subject: 1, cursed: false},
+			{chainID: Evm1, subject: Evm2, cursed: false},
+			{chainID: Evm1, subject: Sol1, cursed: true},
+			{chainID: Evm2, subject: Evm1, cursed: false},
+			{chainID: Evm2, subject: Sol1, cursed: false},
+			{chainID: Sol1, subject: Evm1, cursed: true},
+			{chainID: Sol1, subject: Evm2, cursed: false},
 		},
 	},
 	{
 		name: "lane duplicate",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
 			return []v1_6.CurseAction{
-				v1_6.CurseLaneBidirectionally(mapIDToSelector(0), mapIDToSelector(2)),
-				v1_6.CurseLaneBidirectionally(mapIDToSelector(0), mapIDToSelector(2))}
+				v1_6.CurseLaneBidirectionally(mapIDToSelector(Evm1), mapIDToSelector(Sol1)),
+				v1_6.CurseLaneBidirectionally(mapIDToSelector(Evm1), mapIDToSelector(Sol1))}
 		},
 		curseAssertions: []curseAssertion{
-			{chainID: 0, subject: 1, cursed: false},
-			{chainID: 0, subject: 2, cursed: true},
-			{chainID: 1, subject: 0, cursed: false},
-			{chainID: 1, subject: 2, cursed: false},
-			{chainID: 2, subject: 0, cursed: true},
-			{chainID: 2, subject: 1, cursed: false},
+			{chainID: Evm1, subject: Evm2, cursed: false},
+			{chainID: Evm1, subject: Sol1, cursed: true},
+			{chainID: Evm2, subject: Evm1, cursed: false},
+			{chainID: Evm2, subject: Sol1, cursed: false},
+			{chainID: Sol1, subject: Evm1, cursed: true},
+			{chainID: Sol1, subject: Evm2, cursed: false},
 		},
 	},
 	{
 		name: "chain",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
-			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(0))}
+			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Evm1))}
 		},
 		curseAssertions: []curseAssertion{
-			{chainID: 0, globalCurse: true, cursed: true},
-			{chainID: 1, subject: 0, cursed: true},
-			{chainID: 1, subject: 2, cursed: false},
-			{chainID: 2, subject: 0, cursed: true},
-			{chainID: 2, subject: 1, cursed: false},
+			{chainID: Evm1, globalCurse: true, cursed: true},
+			{chainID: Evm2, subject: Evm1, cursed: true},
+			{chainID: Evm2, subject: Sol1, cursed: false},
+			{chainID: Sol1, subject: Evm1, cursed: true},
+			{chainID: Sol1, subject: Evm2, cursed: false},
 		},
 	},
 	{
 		name: "solana chain",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
-			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(2))}
+			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Sol1))}
 		},
 		curseAssertions: []curseAssertion{
-			{chainID: 2, globalCurse: true, cursed: true},
-			{chainID: 0, subject: 1, cursed: false},
-			{chainID: 0, subject: 2, cursed: true},
-			{chainID: 1, subject: 0, cursed: false},
-			{chainID: 1, subject: 2, cursed: true},
-			{chainID: 2, subject: 0, cursed: true},
-			{chainID: 2, subject: 1, cursed: true},
+			{chainID: Sol1, globalCurse: true, cursed: true},
+			{chainID: Evm1, subject: Evm2, cursed: false},
+			{chainID: Evm1, subject: Sol1, cursed: true},
+			{chainID: Evm2, subject: Evm1, cursed: false},
+			{chainID: Evm2, subject: Sol1, cursed: true},
+			{chainID: Sol1, subject: Evm1, cursed: true},
+			{chainID: Sol1, subject: Evm2, cursed: true},
 		},
 	},
 	{
 		name: "chain duplicate",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
-			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(0)), v1_6.CurseChain(mapIDToSelector(0))}
+			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Evm1)), v1_6.CurseChain(mapIDToSelector(Evm1))}
 		},
 		curseAssertions: []curseAssertion{
-			{chainID: 0, globalCurse: true, cursed: true},
-			{chainID: 1, subject: 0, cursed: true},
-			{chainID: 1, subject: 2, cursed: false},
-			{chainID: 2, subject: 0, cursed: true},
-			{chainID: 2, subject: 1, cursed: false},
+			{chainID: Evm1, globalCurse: true, cursed: true},
+			{chainID: Evm2, subject: Evm1, cursed: true},
+			{chainID: Evm2, subject: Sol1, cursed: false},
+			{chainID: Sol1, subject: Evm1, cursed: true},
+			{chainID: Sol1, subject: Evm2, cursed: false},
 		},
 	},
 	{
 		name: "solana chain duplicate",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
-			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(2)), v1_6.CurseChain(mapIDToSelector(2))}
+			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Sol1)), v1_6.CurseChain(mapIDToSelector(Sol1))}
 		},
 		curseAssertions: []curseAssertion{
-			{chainID: 2, globalCurse: true, cursed: true},
-			{chainID: 0, subject: 1, cursed: false},
-			{chainID: 0, subject: 2, cursed: true},
-			{chainID: 1, subject: 0, cursed: false},
-			{chainID: 1, subject: 2, cursed: true},
-			{chainID: 2, subject: 0, cursed: true},
-			{chainID: 2, subject: 1, cursed: true},
+			{chainID: Sol1, globalCurse: true, cursed: true},
+			{chainID: Evm1, subject: Evm2, cursed: false},
+			{chainID: Evm1, subject: Sol1, cursed: true},
+			{chainID: Evm2, subject: Evm1, cursed: false},
+			{chainID: Evm2, subject: Sol1, cursed: true},
+			{chainID: Sol1, subject: Evm1, cursed: true},
+			{chainID: Sol1, subject: Evm2, cursed: true},
 		},
 	},
 	{
 		name: "chain and lanes",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
-			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(0)), v1_6.CurseLaneBidirectionally(mapIDToSelector(1), mapIDToSelector(2))}
+			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Evm1)), v1_6.CurseLaneBidirectionally(mapIDToSelector(Evm2), mapIDToSelector(Sol1))}
 		},
 		curseAssertions: []curseAssertion{
-			{chainID: 0, globalCurse: true, cursed: true},
-			{chainID: 1, subject: 0, cursed: true},
-			{chainID: 1, subject: 2, cursed: true},
-			{chainID: 2, subject: 0, cursed: true},
-			{chainID: 2, subject: 1, cursed: true},
+			{chainID: Evm1, globalCurse: true, cursed: true},
+			{chainID: Evm2, subject: Evm1, cursed: true},
+			{chainID: Evm2, subject: Sol1, cursed: true},
+			{chainID: Sol1, subject: Evm1, cursed: true},
+			{chainID: Sol1, subject: Evm2, cursed: true},
+		},
+	},
+	{
+		name: "all chain",
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
+			return []v1_6.CurseAction{v1_6.CurseGloballyAllChains()}
+		},
+		curseAssertions: []curseAssertion{
+			{chainID: Evm1, globalCurse: true, cursed: true},
+			{chainID: Evm2, globalCurse: true, cursed: true},
+			{chainID: Sol1, globalCurse: true, cursed: true},
 		},
 	},
 }
@@ -226,7 +246,7 @@ func TestRMNCurseNoConnectedLanes(t *testing.T) {
 
 	config := v1_6.RMNCurseConfig{
 		CurseActions: []v1_6.CurseAction{
-			v1_6.CurseChain(mapIDToSelector(0)),
+			v1_6.CurseChain(mapIDToSelector(Evm1)),
 		},
 		Reason:                   "test curse",
 		IncludeNotConnectedLanes: false, // This will filter out non connected lanes
@@ -237,13 +257,13 @@ func TestRMNCurseNoConnectedLanes(t *testing.T) {
 
 	verifyTestCaseAssertions(t, &e, CurseTestCase{
 		curseAssertions: []curseAssertion{
-			{chainID: 0, globalCurse: true, cursed: true},
-			{chainID: 0, subject: 1, cursed: true}, // 0 is globally cursed return true for everything
-			{chainID: 0, subject: 2, cursed: true}, // 0 is globally cursed return true for everything
-			{chainID: 1, subject: 0, cursed: false},
-			{chainID: 1, subject: 2, cursed: false},
-			{chainID: 2, subject: 0, cursed: false},
-			{chainID: 2, subject: 1, cursed: false},
+			{chainID: Evm1, globalCurse: true, cursed: true},
+			{chainID: Evm1, subject: Evm2, cursed: true}, // 0 is globally cursed return true for everything
+			{chainID: Evm1, subject: Sol1, cursed: true}, // 0 is globally cursed return true for everything
+			{chainID: Evm2, subject: Evm1, cursed: false},
+			{chainID: Evm2, subject: Sol1, cursed: false},
+			{chainID: Sol1, subject: Evm1, cursed: false},
+			{chainID: Sol1, subject: Evm2, cursed: false},
 		},
 	}, mapIDToSelector)
 }
@@ -258,8 +278,8 @@ func TestRMNCurseOneConnectedLanes(t *testing.T) {
 	_, err := v1_6.UpdateOffRampSourcesChangeset(e.Env,
 		v1_6.UpdateOffRampSourcesConfig{
 			UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
-				mapIDToSelector(0): { // to
-					mapIDToSelector(1): { // from
+				mapIDToSelector(Evm1): { // to
+					mapIDToSelector(Evm2): { // from
 						IsEnabled:                 true,
 						TestRouter:                false,
 						IsRMNVerificationDisabled: true,
@@ -274,7 +294,7 @@ func TestRMNCurseOneConnectedLanes(t *testing.T) {
 
 	config := v1_6.RMNCurseConfig{
 		CurseActions: []v1_6.CurseAction{
-			v1_6.CurseChain(mapIDToSelector(0)),
+			v1_6.CurseChain(mapIDToSelector(Evm1)),
 		},
 		Reason:                   "test curse",
 		IncludeNotConnectedLanes: false, // This will filter out non connected lanes
@@ -285,13 +305,13 @@ func TestRMNCurseOneConnectedLanes(t *testing.T) {
 
 	verifyTestCaseAssertions(t, &e, CurseTestCase{
 		curseAssertions: []curseAssertion{
-			{chainID: 0, globalCurse: true, cursed: true},
-			{chainID: 0, subject: 1, cursed: true},
-			{chainID: 0, subject: 2, cursed: true}, // 2 is not connected to 0 but 0 is globally cursed return true for everything
-			{chainID: 1, subject: 0, cursed: true},
-			{chainID: 1, subject: 2, cursed: false},
-			{chainID: 2, subject: 0, cursed: false}, // 2 is not connected to 0
-			{chainID: 2, subject: 1, cursed: false},
+			{chainID: Evm1, globalCurse: true, cursed: true},
+			{chainID: Evm1, subject: Evm2, cursed: true},
+			{chainID: Evm1, subject: Sol1, cursed: true}, // 2 is not connected to 0 but 0 is globally cursed return true for everything
+			{chainID: Evm2, subject: Evm1, cursed: true},
+			{chainID: Evm2, subject: Sol1, cursed: false},
+			{chainID: Sol1, subject: Evm1, cursed: false}, // 2 is not connected to 0
+			{chainID: Sol1, subject: Evm2, cursed: false},
 		},
 	}, mapIDToSelector)
 }
@@ -306,8 +326,8 @@ func TestRMNCurseOneConnectedLanesGlobalOnly(t *testing.T) {
 	_, err := v1_6.UpdateOffRampSourcesChangeset(e.Env,
 		v1_6.UpdateOffRampSourcesConfig{
 			UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
-				mapIDToSelector(0): { // to
-					mapIDToSelector(1): { // from
+				mapIDToSelector(Evm1): { // to
+					mapIDToSelector(Evm2): { // from
 						IsEnabled:                 true,
 						TestRouter:                false,
 						IsRMNVerificationDisabled: true,
@@ -322,7 +342,7 @@ func TestRMNCurseOneConnectedLanesGlobalOnly(t *testing.T) {
 
 	config := v1_6.RMNCurseConfig{
 		CurseActions: []v1_6.CurseAction{
-			v1_6.CurseGloballyOnlyOnChain(mapIDToSelector(0)),
+			v1_6.CurseGloballyOnlyOnChain(mapIDToSelector(Evm1)),
 		},
 		Reason:                   "test curse",
 		IncludeNotConnectedLanes: false, // This will filter out non connected lanes
@@ -333,13 +353,13 @@ func TestRMNCurseOneConnectedLanesGlobalOnly(t *testing.T) {
 
 	verifyTestCaseAssertions(t, &e, CurseTestCase{
 		curseAssertions: []curseAssertion{
-			{chainID: 0, globalCurse: true, cursed: true},
-			{chainID: 0, subject: 1, cursed: true},
-			{chainID: 0, subject: 2, cursed: true}, // 2 is not connected to 0 but 0 is globally cursed return true for everything
-			{chainID: 1, subject: 0, cursed: false},
-			{chainID: 1, subject: 2, cursed: false},
-			{chainID: 2, subject: 0, cursed: false},
-			{chainID: 2, subject: 1, cursed: false},
+			{chainID: Evm1, globalCurse: true, cursed: true},
+			{chainID: Evm1, subject: Evm2, cursed: true},
+			{chainID: Evm1, subject: Sol1, cursed: true}, // 2 is not connected to 0 but 0 is globally cursed return true for everything
+			{chainID: Evm2, subject: Evm1, cursed: false},
+			{chainID: Evm2, subject: Sol1, cursed: false},
+			{chainID: Sol1, subject: Evm1, cursed: false},
+			{chainID: Sol1, subject: Evm2, cursed: false},
 		},
 	}, mapIDToSelector)
 }
@@ -354,8 +374,8 @@ func TestRMNCurseOneConnectedLanesLaneOnlyOnSource(t *testing.T) {
 	_, err := v1_6.UpdateOffRampSourcesChangeset(e.Env,
 		v1_6.UpdateOffRampSourcesConfig{
 			UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
-				mapIDToSelector(0): { // to
-					mapIDToSelector(1): { // from
+				mapIDToSelector(Evm1): { // to
+					mapIDToSelector(Evm2): { // from
 						IsEnabled:                 true,
 						TestRouter:                false,
 						IsRMNVerificationDisabled: true,
@@ -370,7 +390,7 @@ func TestRMNCurseOneConnectedLanesLaneOnlyOnSource(t *testing.T) {
 
 	config := v1_6.RMNCurseConfig{
 		CurseActions: []v1_6.CurseAction{
-			v1_6.CurseLaneOnlyOnSource(mapIDToSelector(0), mapIDToSelector(1)),
+			v1_6.CurseLaneOnlyOnSource(mapIDToSelector(Evm1), mapIDToSelector(Evm2)),
 		},
 		Reason:                   "test curse",
 		IncludeNotConnectedLanes: false, // This will filter out non connected lanes
@@ -381,12 +401,12 @@ func TestRMNCurseOneConnectedLanesLaneOnlyOnSource(t *testing.T) {
 
 	verifyTestCaseAssertions(t, &e, CurseTestCase{
 		curseAssertions: []curseAssertion{
-			{chainID: 0, subject: 1, cursed: true},
-			{chainID: 0, subject: 2, cursed: false},
-			{chainID: 1, subject: 0, cursed: false},
-			{chainID: 1, subject: 2, cursed: false},
-			{chainID: 2, subject: 0, cursed: false},
-			{chainID: 2, subject: 1, cursed: false},
+			{chainID: Evm1, subject: Evm2, cursed: true},
+			{chainID: Evm1, subject: Sol1, cursed: false},
+			{chainID: Evm2, subject: Evm1, cursed: false},
+			{chainID: Evm2, subject: Sol1, cursed: false},
+			{chainID: Sol1, subject: Evm1, cursed: false},
+			{chainID: Sol1, subject: Evm2, cursed: false},
 		},
 	}, mapIDToSelector)
 }
@@ -399,9 +419,9 @@ func TestRMNCurseOneConnectedLanesSolana(t *testing.T) {
 	}
 
 	_, err := ccipChangesetSolana.AddRemoteChainToOffRamp(e.Env, ccipChangesetSolana.AddRemoteChainToOffRampConfig{
-		ChainSelector: mapIDToSelector(2),
-		UpdatesByChain: map[uint64]ccipChangesetSolana.OffRampConfig{
-			mapIDToSelector(0): {
+		ChainSelector: mapIDToSelector(Sol1),
+		UpdatesByChain: map[uint64]*ccipChangesetSolana.OffRampConfig{
+			mapIDToSelector(Evm1): {
 				EnabledAsSource: true,
 				IsUpdate:        false,
 			},
@@ -413,7 +433,7 @@ func TestRMNCurseOneConnectedLanesSolana(t *testing.T) {
 
 	config := v1_6.RMNCurseConfig{
 		CurseActions: []v1_6.CurseAction{
-			v1_6.CurseChain(mapIDToSelector(0)),
+			v1_6.CurseChain(mapIDToSelector(Evm1)),
 		},
 		Reason:                   "test curse",
 		IncludeNotConnectedLanes: false, // This will filter out non connected lanes
@@ -424,13 +444,13 @@ func TestRMNCurseOneConnectedLanesSolana(t *testing.T) {
 
 	verifyTestCaseAssertions(t, &e, CurseTestCase{
 		curseAssertions: []curseAssertion{
-			{chainID: 0, globalCurse: true, cursed: true},
-			{chainID: 0, subject: 1, cursed: true},
-			{chainID: 0, subject: 2, cursed: true},
-			{chainID: 1, subject: 0, cursed: false},
-			{chainID: 1, subject: 2, cursed: false},
-			{chainID: 2, subject: 0, cursed: true},
-			{chainID: 2, subject: 1, cursed: false},
+			{chainID: Evm1, globalCurse: true, cursed: true},
+			{chainID: Evm1, subject: Evm2, cursed: true},
+			{chainID: Evm1, subject: Sol1, cursed: true},
+			{chainID: Evm2, subject: Evm1, cursed: false},
+			{chainID: Evm2, subject: Sol1, cursed: false},
+			{chainID: Sol1, subject: Evm1, cursed: true},
+			{chainID: Sol1, subject: Evm2, cursed: false},
 		},
 	}, mapIDToSelector)
 }
@@ -461,7 +481,7 @@ func runRmnUncurseTest(t *testing.T, tc CurseTestCase) {
 	verifyNoActiveCurseOnAllChains(t, &e)
 }
 
-func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state changeset.CCIPOnChainState) {
+func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state stateview.CCIPOnChainState) {
 	contractsByChain := make(map[uint64][]common.Address)
 	rmnRemotePerChain := v1_6.BuildRMNRemotePerChain(e.Env, state)
 	rmnRemoteAddressesByChain := make(map[uint64]common.Address)
@@ -476,11 +496,11 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state c
 	}
 
 	contractsByChain[e.HomeChainSel] = append(contractsByChain[e.HomeChainSel], state.Chains[e.HomeChainSel].RMNHome.Address())
-	timelocksPerChain := changeset.BuildTimelockPerChain(e.Env, state)
+	timelocksPerChain := deployergroup.BuildTimelockPerChain(e.Env, state)
 	// This is required because RMN Contracts is initially owned by the deployer
 	_, err := commonchangeset.Apply(t, e.Env, timelocksPerChain,
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MCMSConfig: proposalutils.TimelockConfig{
@@ -540,7 +560,7 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase, action types.Timelock
 		IncludeNotConnectedLanes: true,
 	}
 
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	verifyNoActiveCurseOnAllChains(t, &e)
@@ -678,7 +698,7 @@ func runRmnCurseMCMSTest(t *testing.T, tc CurseTestCase, action types.TimelockAc
 		IncludeNotConnectedLanes: true,
 	}
 
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	verifyNoActiveCurseOnAllChains(t, &e)
@@ -729,5 +749,143 @@ func verifyNoActiveCurseOnAllChains(t *testing.T, e *testhelpers.DeployedEnv) {
 			require.NoError(t, err)
 			require.False(t, isCursed, "chain %d subject %d", chainSelector, globals.FamilyAwareSelectorToSubject(selector, family))
 		}
+	}
+}
+
+type ForceOptionTestCase struct {
+	name               string
+	force              bool
+	expectedOperations int
+	expectProposal     bool
+	applyChangeset     func(
+		env *testhelpers.DeployedEnv,
+		config v1_6.RMNCurseConfig,
+		t *testing.T,
+	) deployment.ChangesetOutput
+}
+
+var forceOptionTestCases = []ForceOptionTestCase{
+	{
+		name: "RMNUncurseForceOptionFalse",
+		applyChangeset: func(env *testhelpers.DeployedEnv, config v1_6.RMNCurseConfig, t *testing.T) deployment.ChangesetOutput {
+			cs, err := v1_6.RMNUncurseChangeset(env.Env, config)
+			require.NoError(t, err)
+			return cs
+		},
+		force:          false,
+		expectProposal: false,
+	},
+	{
+		name: "RMNCurseForceOptionFalse",
+		applyChangeset: func(env *testhelpers.DeployedEnv, config v1_6.RMNCurseConfig, t *testing.T) deployment.ChangesetOutput {
+			_, _, err := commonchangeset.ApplyChangesetsV2(t, env.Env,
+				[]commonchangeset.ConfiguredChangeSet{
+					commonchangeset.Configure(
+						cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
+						config,
+					)},
+			)
+			require.NoError(t, err)
+
+			cs, err := v1_6.RMNCurseChangeset(env.Env, config)
+			require.NoError(t, err)
+
+			return cs
+		},
+		force:          false,
+		expectProposal: false,
+	},
+	{
+		name: "RMNUncurseForceOptionTrue",
+		applyChangeset: func(env *testhelpers.DeployedEnv, config v1_6.RMNCurseConfig, t *testing.T) deployment.ChangesetOutput {
+			cs, err := v1_6.RMNUncurseChangeset(env.Env, config)
+			require.NoError(t, err)
+			return cs
+		},
+		force:              true,
+		expectProposal:     true,
+		expectedOperations: 3, // 3 operations for 3 chains
+	},
+	{
+		name: "RMNCurseForceOptionTrue",
+		applyChangeset: func(env *testhelpers.DeployedEnv, config v1_6.RMNCurseConfig, t *testing.T) deployment.ChangesetOutput {
+			_, _, err := commonchangeset.ApplyChangesetsV2(t, env.Env,
+				[]commonchangeset.ConfiguredChangeSet{
+					commonchangeset.Configure(
+						cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
+						config,
+					)},
+			)
+			require.NoError(t, err)
+
+			cs, err := v1_6.RMNCurseChangeset(env.Env, config)
+			require.NoError(t, err)
+
+			return cs
+		},
+		force:              true,
+		expectProposal:     true,
+		expectedOperations: 3, // 3 operations for 3 chains
+	},
+}
+
+func TestGetAllCursableChainsEmptyWhenNoRMNRemote(t *testing.T) {
+	e, _ := testhelpers.NewMemoryEnvironment(
+		t, testhelpers.WithNumOfChains(2), testhelpers.WithSolChains(1),
+		testhelpers.WithPrerequisiteDeploymentOnly(nil),
+	)
+
+	cursableChains, err := v1_6.GetCursableChains(e.Env)
+	require.NoError(t, err)
+	require.NotNil(t, cursableChains)
+	require.Empty(t, cursableChains)
+}
+
+func TestGetAllCursableChainsWithRMNRemote(t *testing.T) {
+	e, _ := testhelpers.NewMemoryEnvironment(
+		t, testhelpers.WithNumOfChains(2), testhelpers.WithSolChains(1),
+	)
+
+	cursableChains, err := v1_6.GetCursableChains(e.Env)
+	require.NoError(t, err)
+	require.NotNil(t, cursableChains)
+	require.Len(t, cursableChains, 3)
+}
+
+func TestRMNUncurseForceOption(t *testing.T) {
+	for _, tc := range forceOptionTestCases {
+		t.Run(tc.name, func(t *testing.T) {
+			e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2), testhelpers.WithSolChains(1))
+
+			mapIDToSelector := func(id uint64) uint64 {
+				return v1_6.GetAllCursableChainsSelector(e.Env)[id]
+			}
+
+			state, err := stateview.LoadOnchainState(e.Env)
+			require.NoError(t, err)
+
+			transferRMNContractToMCMS(t, &e, state)
+
+			// Apply a curse changeset to create an active curse
+			config := v1_6.RMNCurseConfig{
+				CurseActions:             []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Evm1))},
+				Reason:                   "test curse",
+				IncludeNotConnectedLanes: true,
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
+				},
+				Force: tc.force,
+			}
+
+			cs := tc.applyChangeset(&e, config, t)
+
+			if tc.expectProposal {
+				require.Len(t, cs.MCMSTimelockProposals, 1)
+				proposal := cs.MCMSTimelockProposals[0]
+				require.Len(t, proposal.Operations, tc.expectedOperations)
+			} else {
+				require.Empty(t, cs.MCMSTimelockProposals)
+			}
+		})
 	}
 }

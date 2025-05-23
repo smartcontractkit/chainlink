@@ -11,29 +11,23 @@
    - [PoR Workflow Source Code](#por-workflow-source-code)
    - [Test Timeout](#test-timeout)
    - [Visual Studio Code Debug Configuration](#visual-studio-code-debug-configuration)
-
-2. [Docker vs Kubernetes (k8s)](#2-docker-vs-kubernetes-k8s)
-3. [CRIB Requirements](#3-crib-requirements)
-4. [Setting Docker Images for CRIB Execution](#4-setting-docker-images-for-crib-execution)
-5. [Running Tests in Local Kubernetes (kind)](#5-running-tests-in-local-kubernetes-kind)
-6. [CRIB Deployment Flow](#6-crib-deployment-flow)
-7. [Switching from kind to AWS Provider](#7-switching-from-kind-to-aws-provider)
-8. [CRIB Limitations & Considerations](#8-crib-limitations--considerations)
-9. [Adding a New Capability](#9-adding-a-new-capability)
-10. [Using a New Workflow](#10-using-a-new-workflow)
-11. [Deployer Address or Deployment Sequence Changes](#11-deployer-address-or-deployment-sequence-changes)
-12. [Adding a New Test to the CI](#12-adding-a-new-test-to-the-ci)
-13. [Multiple DONs](#13-multiple-dons)
-14. [Price Data Source](#14-price-data-source)
-15. [Using a Specific Docker Image for Chainlink Node](#15-using-a-specific-docker-image-for-chainlink-node)
-16. [Troubleshooting](#16-troubleshooting)
-17. [CLI Usage](#17-cli-usage)
-   - [Start Environment](#start-environment)
-   - [Stop Environment](#stop-environment)
-   - [Before You Start](#before-you-start)
-   - [Environment Variables](#environment-variables-1)
-   - [Cleanup](#cleanup)
-18. [Using Existing EVM & P2P Keys](#18-using-existing-evm--p2p-keys)
+2. [Using the CLI](#2-using-the-cli)
+3. [Docker vs Kubernetes (k8s)](#3-docker-vs-kubernetes-k8s)
+4. [CRIB Requirements](#4-crib-requirements)
+5. [Setting Docker Images for CRIB Execution](#5-setting-docker-images-for-crib-execution)
+6. [Running Tests in Local Kubernetes (kind)](#6-running-tests-in-local-kubernetes-kind)
+7. [CRIB Deployment Flow](#7-crib-deployment-flow)
+8. [Switching from kind to AWS Provider](#8-switching-from-kind-to-aws-provider)
+9. [CRIB Limitations & Considerations](#9-crib-limitations--considerations)
+10. [Adding a New Capability](#10-adding-a-new-capability)
+11. [Using a New Workflow](#11-using-a-new-workflow)
+12. [Deployer Address or Deployment Sequence Changes](#12-deployer-address-or-deployment-sequence-changes)
+13. [Adding a New Test to the CI](#13-adding-a-new-test-to-the-ci)
+14. [Multiple DONs](#14-multiple-dons)
+15. [Price Data Source](#15-price-data-source)
+16. [Using a Specific Docker Image for Chainlink Node](#16-using-a-specific-docker-image-for-chainlink-node)
+17. [Using Existing EVM & P2P Keys](#17-using-existing-evm--p2p-keys)
+18. [Troubleshooting](#18-troubleshooting)
 
 ---
 
@@ -97,9 +91,9 @@ Or pull from your internal registry and update the image name in `environment-*.
 
 ### CRE CLI Binary
 
-Download the CLI binary for your system from the [dev-platform repo](https://github.com/smartcontractkit/dev-platform). You can also build it locally.
+You can build it locally from [smartcontractkit/dev-platform](https://github.com/smartcontractkit/dev-platform) repo, download from [v0.0.2 release page](https://github.com/smartcontractkit/dev-platform/releases/tag/v0.2.0) or download using GH CLI: `gh release download v0.2.0 --repo smartcontractkit/dev-platform --pattern '*darwin_arm64*'`.
 
-**Required version**: `v0.1.5`
+**Required version**: ` v0.2.0`
 
 ---
 
@@ -119,7 +113,7 @@ This binary is needed for tests using the cron capability.
   cron_capability_binary_path = "./some-folder/cron"
 ```
 
-You can build it from [capabilities repo](https://github.com/smartcontractkit/capabilities) or download the release.
+You can build it from [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities) repo, download from [v1.0.2-alpha release page](https://github.com/smartcontractkit/capabilities/releases/tag/v1.0.2-alpha) or use GH CLI to download them, e.g. `gh release download v1.0.2-alpha --repo smartcontractkit/capabilities --pattern 'amd64_cron'`
 
 **Note**: Binary must be compiled for **Linux** and **amd64**.
 
@@ -176,7 +170,22 @@ Example `launch.json` entry:
 
 ---
 
-## 2. Docker vs Kubernetes (k8s)
+## 2. Using the CLI
+
+Local CRE environment and documentation were migrated to [core/scripts/cre/environment/docs.md](../../../../core/scripts/cre/environment/docs.md).
+
+---
+
+### Further use
+To manage workflows you will need the CRE CLI. You can either:
+- download it from [smartcontract/dev-platform](https://github.com/smartcontractkit/dev-platform/releases/tag/v0.2.0) or
+- using GH CLI: `gh release download v0.2.0 --repo smartcontractkit/dev-platform --pattern '*darwin_arm64*'`
+
+Remember that the CRE CLI version needs to match your CPU architecture and operating system.
+
+---
+
+## 3. Docker vs Kubernetes (k8s)
 
 The environment type is set in your TOML config:
 ```toml
@@ -198,7 +207,7 @@ Example TOML for CRIB:
 
 ---
 
-## 3. CRIB Requirements
+## 4. CRIB Requirements
 
 Before using CRIB, ensure the following:
 
@@ -238,7 +247,7 @@ Before using CRIB, ensure the following:
 
 ---
 
-## 4. Setting Docker Images for CRIB Execution
+## 5. Setting Docker Images for CRIB Execution
 
 CRIB does **not** support building Docker images from source during test runtime.
 
@@ -253,6 +262,16 @@ CRIB does **not** support building Docker images from source during test runtime
 ```toml
 [nodesets.node_specs.node]
   image = "localhost:5001/chainlink:112b9323-plugins-cron"
+```
+
+`localhost:5001` is the repository name for local Kind registry. In order to push your image there you need:
+- **tag a Docker image with prefix**, e.g. `docker tag chainlink-tmp:latest localhost:5001/chainlink:latest`
+- **pushh it to the local registry**, e.g. `docker push localhost:5001/chainlink:latest`
+
+**Also, it is crucial that you use an image, where default user is `chainlink`**. That's because Helm charts used for k8s deployment will start that container as that user and if your image was created using a different default user (e.g. `root`), then Chainlink application won't even start due to incorrect filesystem permissions. If you are building the image locally, use the following command:
+```bash
+# run in root of chainlink repository
+docker build -t localhost:5001/chainlink:<your-tag>> --build-arg CHAINLINK_USER=chainlink -f plugins/chainlink.Dockerfile
 ```
 
 ### Notes:
@@ -275,7 +294,7 @@ If you leave off the tag, CRIB will fail:
 
 ---
 
-## 5. Running Tests in Local Kubernetes (`kind`)
+## 6. Running Tests in Local Kubernetes (`kind`)
 
 ### Docker Registry Setup
 
@@ -336,7 +355,7 @@ Ensure DON type matches the `name` field in your TOML config.
 
 ---
 
-## 6. CRIB Deployment Flow
+## 7. CRIB Deployment Flow
 
 1. **Start a `nix develop` shell**, set:
    - `PROVIDER`, `DEVSPACE_NAMESPACE`, `CONFIG_OVERRIDES_DIR`
@@ -370,7 +389,7 @@ Ensure DON type matches the `name` field in your TOML config.
 
 ---
 
-## 7. Switching from `kind` to AWS Provider
+## 8. Switching from `kind` to AWS Provider
 
 When switching from a local `kind` setup to AWS:
 
@@ -381,7 +400,7 @@ Recommended: Always switch namespaces when changing providers.
 
 ---
 
-## 8. CRIB Limitations & Considerations
+## 9. CRIB Limitations & Considerations
 
 ### Gateway DON
 - Must run on a **dedicated node**
@@ -416,7 +435,7 @@ kubectl logs <POD_NAME>
 
 ---
 
-## 9. Adding a New Capability
+## 10. Adding a New Capability
 
 To add a new capability (e.g., writing to the Aptos chain), follow these detailed steps:
 
@@ -574,7 +593,7 @@ if setupErr != nil {
 }
 ```
 
-### 7. Run the Test
+### 8. Run the Test
 
 Once all pieces are configured, run the test as normal. Ensure that the logs show the capability was registered and the job executed successfully.
 
@@ -582,7 +601,7 @@ Once all pieces are configured, run the test as normal. Ensure that the logs sho
 
 ---
 
-## 10. Using a New Workflow
+## 11. Using a New Workflow
 
 You can test new workflows in two ways:
 
@@ -622,7 +641,7 @@ If the workflow is not configurable, pass an empty byte slice `[]byte{}` during 
 
 Workflows can be registered using:
 ```go
-input := keystonetypes.RegisterWorkflowWithCRECLIInput{
+input := keystonetypes.ManageWorkflowWithCRECLIInput{
   NewWorkflow: workflow,
   ShouldCompileNewWorkflow: true,
 }
@@ -671,7 +690,7 @@ newWorkflow := keystonetypes.NewWorkflow{
 
 Register it:
 ```go
-input := keystonetypes.RegisterWorkflowWithCRECLIInput{
+input := keystonetypes.ManageWorkflowWithCRECLIInput{
   NewWorkflow: newWorkflow,
   ShouldCompileNewWorkflow: true,
 }
@@ -740,7 +759,7 @@ createJobsErr := libdon.CreateJobs(testLogger, createJobsInput)
 
 ---
 
-## 11. Deployer Address or Deployment Sequence Changes
+## 12. Deployer Address or Deployment Sequence Changes
 
 CI assumes a stable deployer address and deployment sequence for consistency. This ensures contracts like the Data Feeds Cache remain at fixed addresses.
 
@@ -759,7 +778,7 @@ After uploading, update the `config_url` in your CI-specific TOML config.
 
 ---
 
-## 12. Adding a New Test to the CI
+## 13. Adding a New Test to the CI
 
 CI currently does not support uploading to Gist during test execution. Workflow binaries and configurations must be pre-uploaded.
 
@@ -825,7 +844,7 @@ Example entry:
 
 ---
 
-## 13. Multiple DONs
+## 14. Multiple DONs
 
 You can configure multiple DONs (Decentralized Oracle Networks) by modifying your TOML config and Go code accordingly.
 
@@ -900,7 +919,7 @@ For per-node customization (e.g. to import secrets), use `override_mode = "each"
 
 ---
 
-## 14. Price Data Source
+## 15. Price Data Source
 
 Supports both **live** and **mocked** price feeds.
 
@@ -928,7 +947,7 @@ The mock server:
 
 ---
 
-## 15. Using a Specific Docker Image for Chainlink Node
+## 16. Using a Specific Docker Image for Chainlink Node
 
 Default behavior builds an image from your current branch:
 ```toml
@@ -949,103 +968,7 @@ Apply this to every node in your config.
 
 ---
 
-## 16. Troubleshooting
-
-### Chainlink Node Migrations Fail
-Remove old Postgres volumes:
-```bash
-ctf d rm
-```
-Or remove volumes manually if `ctf` CLI is unavailable.
-
-### Docker Image Not Found
-If Docker build succeeds but the image isn’t found at runtime:
-- Restart your machine
-- Retry the test
-
----
-
-## 17. CLI Usage
-
-The CRE CLI manages local test environments. Run from `system-tests/smoke/cre/`.
-
-### Start Environment
-```bash
-cd cmd && go run main.go env start -t simplified -w 5m -e 8080,8081
-```
-
-- `-t`: Topology (`simplified` or `full`)
-- `-w`: Wait on error before cleanup (e.g. inspect logs)
-- `-e`: Extra ports for gateway access
-
-### Stop Environment
-```bash
-cd cmd && go run main.go env stop
-```
-
-### Before You Start
-
-Before launching the CRE environment with the CLI, make sure you:
-
-1. **Choose the Right Topology**
-   - For a single DON with all capabilities: `configs/single-don.toml`
-   - For a full topology (workflow DON + capabilities DON + gateway DON): `configs/workflow-capabilities-don.toml`
-
-2. **Download or Build Capability Binaries**
-   - Some capabilities like `cron`, `log-event-trigger`, or `read-contract` are not embedded in all Chainlink images.
-   - If not bundled in the image, you must:
-     - Download binaries from [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities/releases)
-     - Make sure they are built for `linux/amd64`
-     - Reference them in your TOML like:
-       ```toml
-       [extra_capabilities]
-       cron_capability_binary_path = "../cron"
-       ```
-   - If the capability is already baked into your CL image (check the Dockerfile), comment out the TOML path line to skip copying.
-
-3. **Build or Reuse Chainlink Docker Image**
-   - To build from your local branch:
-     ```toml
-     [nodesets.node_specs.node]
-     docker_ctx = "../../../.."
-     docker_file = "plugins/chainlink.Dockerfile"
-     ```
-   - To reuse a prebuilt image:
-     ```toml
-     [nodesets.node_specs.node]
-     image = "localhost:5001/chainlink:<tag>"
-     ```
-
-4. **Build or Pull the Job Distributor Image**
-   - Build manually as described earlier or pull from internal ECR.
-
-5. **Ensure Binaries Are in the Right Location**
-   - The `main.go` CLI command will look for `cron`, `cre`, and other binaries in `system-tests/tests/smoke/cre/`
-   - If you use the CLI download helper:
-     ```bash
-     go run main.go download all --output-dir ../ --cre-cli-version v0.1.5 --capabilities-name cron --capabilities-version v1.0.2-alpha
-     ```
-     Binaries will be saved in the correct location automatically.
-
-6. **(Optional) Start Observability Stack**
-   - If you want Grafana/Prometheus support, run:
-     ```bash
-     ctf obs up
-     ```
-- `CTF_CONFIGS`: TOML config path
-- `PRIVATE_KEY`: Default test key if not set
-- `TESTCONTAINERS_RYUK_DISABLED`: Set to "true" to disable cleanup
-
-When starting the environment make sure to source `.env` environment from the `crib/deployments/cre` folder specific for AWS. Remember, that it must include ingress domain settings.
-
-### Cleanup
-```bash
-ctf d rm
-```
-
----
-
-## 18. Using Existing EVM & P2P Keys
+## 17. Using Existing EVM & P2P Keys
 
 When using public chains with limited funding, use pre-funded, encrypted keys:
 
@@ -1068,3 +991,21 @@ TOML format:
 > Requires `override_mode = "each"` and the same keys across all chains
 
 These limitations come from the current CRE SDK logic and not Chainlink itself.
+
+---
+
+## 18. Troubleshooting
+
+### Chainlink Node Migrations Fail
+Remove old Postgres volumes:
+```bash
+ctf d rm
+```
+Or remove volumes manually if `ctf` CLI is unavailable.
+
+### Docker Image Not Found
+If Docker build succeeds but the image isn’t found at runtime:
+- Restart your machine
+- Retry the test
+
+---

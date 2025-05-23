@@ -7,10 +7,16 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
+	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -32,12 +38,12 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
-	contractParams := make(map[uint64]v1_6.ChainContractParams)
+	contractParams := make(map[uint64]ccipseq.ChainContractParams)
 	for _, chain := range e.AllChainSelectors() {
 		cfg[chain] = proposalutils.SingleGroupTimelockConfigV2(t)
-		contractParams[chain] = v1_6.ChainContractParams{
-			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
-			OffRampParams:   v1_6.DefaultOffRampParams(),
+		contractParams[chain] = ccipseq.ChainContractParams{
+			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
+			OffRampParams:   ccipops.DefaultOffRampParams(),
 		}
 	}
 	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
@@ -76,7 +82,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
-			v1_6.DeployChainContractsConfig{
+			ccipseq.DeployChainContractsConfig{
 				HomeChainSelector:      homeChainSel,
 				ContractParamsPerChain: contractParams,
 			},
@@ -85,7 +91,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	require.NoError(t, err)
 
 	// load onchain state
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	// verify all contracts populated
@@ -107,10 +113,10 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	}
 	// remove feequoter from address book
 	// and deploy again, it should deploy a new feequoter
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	for _, sel := range evmSelectors {
 		require.NoError(t, ab.Save(sel, state.Chains[sel].FeeQuoter.Address().Hex(),
-			deployment.NewTypeAndVersion(changeset.FeeQuoter, deployment.Version1_6_0)))
+			cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_6_0)))
 	}
 	//nolint:staticcheck //SA1019 ignoring deprecated
 	require.NoError(t, e.ExistingAddresses.Remove(ab))
@@ -119,14 +125,14 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	// but should not error
 	e, err = commonchangeset.Apply(t, e, nil, commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
-		v1_6.DeployChainContractsConfig{
+		ccipseq.DeployChainContractsConfig{
 			HomeChainSelector:      homeChainSel,
 			ContractParamsPerChain: contractParams,
 		},
 	))
 	require.NoError(t, err)
 	// verify all contracts populated
-	postState, err := changeset.LoadOnchainState(e)
+	postState, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 	for _, sel := range evmSelectors {
 		require.Equal(t, state.Chains[sel].RMNRemote, postState.Chains[sel].RMNRemote)
@@ -149,7 +155,7 @@ func TestDeployStaticLinkToken(t *testing.T) {
 	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithStaticLink())
 	// load onchain state
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	for _, chain := range e.Env.AllChainSelectors() {
 		require.NotNil(t, state.Chains[chain].StaticLinkToken)

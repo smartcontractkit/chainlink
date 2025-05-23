@@ -1,6 +1,8 @@
 package jobs
 
 import (
+	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 )
@@ -8,7 +10,7 @@ import (
 var _ JobSpec = &BootstrapSpec{}
 
 type BootstrapSpec struct {
-	Base
+	BaseJobSpec
 
 	ContractID  string      `toml:"contractID"`
 	DonID       uint64      `toml:"donID,omitempty"`
@@ -37,13 +39,13 @@ type RelayConfig struct {
 	FromBlock uint64 `toml:"fromBlock,omitempty"`
 }
 
-func NewBootstrapSpec(contractID string, donID uint64, relay RelayType, relayConfig RelayConfig, externalJobID uuid.UUID) *BootstrapSpec {
+func NewBootstrapSpec(contractID string, donID uint64, donName string, relay RelayType, relayConfig RelayConfig, externalJobID uuid.UUID) *BootstrapSpec {
 	if externalJobID == uuid.Nil {
 		externalJobID = uuid.New()
 	}
 	return &BootstrapSpec{
-		Base: Base{
-			Name:          "bootstrap",
+		BaseJobSpec: BaseJobSpec{
+			Name:          fmt.Sprintf("%s | %d", donName, donID),
 			Type:          JobSpecTypeBootstrap,
 			SchemaVersion: 1,
 			ExternalJobID: externalJobID,

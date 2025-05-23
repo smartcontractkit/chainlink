@@ -9,14 +9,16 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // AddCapabilities adds the capabilities to the registry
 //
 // It is idempotent. It deduplicates the input capabilities.
-func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, chain deployment.Chain, capabilities []kcr.CapabilitiesRegistryCapability, useMCMS bool) (*mcmstypes.BatchOperation, error) {
+func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, chain cldf.Chain, capabilities []kcr.CapabilitiesRegistryCapability, useMCMS bool) (*mcmstypes.BatchOperation, error) {
 	if len(capabilities) == 0 {
 		return nil, nil
 	}
@@ -31,7 +33,7 @@ func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, cha
 
 	tx, err := registry.AddCapabilities(chain.DeployerKey, deduped)
 	if err != nil {
-		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = cldf.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}
 
@@ -44,10 +46,10 @@ func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, cha
 	return nil, nil
 }
 
-func addCapabilitiesMCMSProposal(registry *kcr.CapabilitiesRegistry, caps []kcr.CapabilitiesRegistryCapability, regChain deployment.Chain) (*mcmstypes.BatchOperation, error) {
-	tx, err := registry.AddCapabilities(deployment.SimTransactOpts(), caps)
+func addCapabilitiesMCMSProposal(registry *kcr.CapabilitiesRegistry, caps []kcr.CapabilitiesRegistryCapability, regChain cldf.Chain) (*mcmstypes.BatchOperation, error) {
+	tx, err := registry.AddCapabilities(cldf.SimTransactOpts(), caps)
 	if err != nil {
-		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = cldf.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call AddNodeOperators: %w", err)
 	}
 

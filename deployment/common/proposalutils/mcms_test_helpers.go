@@ -13,8 +13,6 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
@@ -22,10 +20,10 @@ import (
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -62,52 +60,8 @@ func SingleGroupMCMSV2(t *testing.T) mcmstypes.Config {
 	return c
 }
 
-// Deprecated: Use SignMCMSTimelockProposal instead.
-func SignProposal(t *testing.T, env deployment.Environment, proposal *timelock.MCMSWithTimelockProposal) *mcms.Executor {
-	executorClients := make(map[mcms.ChainIdentifier]mcms.ContractDeployBackend)
-	for _, chain := range env.Chains {
-		chainselc, exists := chainsel.ChainBySelector(chain.Selector)
-		require.True(t, exists)
-		chainSel := mcms.ChainIdentifier(chainselc.Selector)
-		executorClients[chainSel] = chain.Client
-	}
-	executor, err := proposal.ToExecutor(true)
-	require.NoError(t, err)
-	payload, err := executor.SigningHash()
-	require.NoError(t, err)
-	// Sign the payload
-	sig, err := crypto.Sign(payload.Bytes(), TestXXXMCMSSigner)
-	require.NoError(t, err)
-	mcmSig, err := mcms.NewSignatureFromBytes(sig)
-	require.NoError(t, err)
-	executor.Proposal.AddSignature(mcmSig)
-	require.NoError(t, executor.Proposal.Validate())
-	return executor
-}
-
-// Deprecated: Use ExecuteMCMSTimelockProposalV2 instead.
-func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Executor,
-	timelockContracts *TimelockExecutionContracts, sel uint64) error {
-	t.Log("Executing proposal on chain", sel)
-	// Set the root.
-	tx, err2 := executor.SetRootOnChain(env.Chains[sel].Client, env.Chains[sel].DeployerKey, mcms.ChainIdentifier(sel))
-	if err2 != nil {
-		require.NoError(t, deployment.MaybeDataErr(err2), "failed to set root")
-	}
-
-	_, err2 = env.Chains[sel].Confirm(tx)
-	require.NoError(t, err2)
-	cfg := RunTimelockExecutorConfig{
-		Executor:          executor,
-		TimelockContracts: timelockContracts,
-		ChainSelector:     sel,
-	}
-	// return the error so devs can ensure expected reversions
-	return RunTimelockExecutor(env, cfg)
-}
-
 // SignMCMSTimelockProposal - Signs an MCMS timelock proposal.
-func SignMCMSTimelockProposal(t *testing.T, env deployment.Environment, proposal *mcmslib.TimelockProposal) *mcmslib.Proposal {
+func SignMCMSTimelockProposal(t *testing.T, env cldf.Environment, proposal *mcmslib.TimelockProposal) *mcmslib.Proposal {
 	converters := make(map[mcmstypes.ChainSelector]mcmssdk.TimelockConverter)
 	inspectorsMap := make(map[mcmstypes.ChainSelector]mcmssdk.Inspector)
 	for _, chain := range env.Chains {
@@ -160,7 +114,7 @@ func SignMCMSTimelockProposal(t *testing.T, env deployment.Environment, proposal
 }
 
 // SignMCMSProposal - Signs an MCMS proposal. For timelock proposal, use SignMCMSTimelockProposal instead.
-func SignMCMSProposal(t *testing.T, env deployment.Environment, proposal *mcmslib.Proposal) *mcmslib.Proposal {
+func SignMCMSProposal(t *testing.T, env cldf.Environment, proposal *mcmslib.Proposal) *mcmslib.Proposal {
 	converters := make(map[mcmstypes.ChainSelector]mcmssdk.TimelockConverter)
 	inspectorsMap := make(map[mcmstypes.ChainSelector]mcmssdk.Inspector)
 	for _, chain := range env.Chains {
@@ -199,7 +153,7 @@ func SignMCMSProposal(t *testing.T, env deployment.Environment, proposal *mcmsli
 }
 
 // ExecuteMCMSProposalV2 - Executes an MCMS proposal on a chain. For timelock proposal, use ExecuteMCMSTimelockProposalV2 instead.
-func ExecuteMCMSProposalV2(t *testing.T, env deployment.Environment, proposal *mcmslib.Proposal) error {
+func ExecuteMCMSProposalV2(t *testing.T, env cldf.Environment, proposal *mcmslib.Proposal) error {
 	t.Log("Executing proposal")
 
 	encoders, err := proposal.GetEncoders()
@@ -316,7 +270,7 @@ func ExecuteMCMSProposalV2(t *testing.T, env deployment.Environment, proposal *m
 
 // ExecuteMCMSTimelockProposalV2 - Includes an option to set callProxy to execute the calls through a proxy.
 // If the callProxy is not set, the calls will be executed directly to the timelock.
-func ExecuteMCMSTimelockProposalV2(t *testing.T, env deployment.Environment, timelockProposal *mcmslib.TimelockProposal, opts ...mcmslib.Option) error {
+func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockProposal *mcmslib.TimelockProposal, opts ...mcmslib.Option) error {
 	t.Log("Executing timelock proposal")
 
 	// build a "chainSelector => executor" map
@@ -415,7 +369,7 @@ func SingleGroupTimelockConfigV2(t *testing.T) commontypes.MCMSWithTimelockConfi
 	}
 }
 
-func findCallProxyAddress(t *testing.T, env deployment.Environment, chainSelector uint64) string {
+func findCallProxyAddress(t *testing.T, env cldf.Environment, chainSelector uint64) string {
 	addressesForChain, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 	require.NoError(t, err)
 

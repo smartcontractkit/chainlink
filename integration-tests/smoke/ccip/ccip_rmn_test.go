@@ -28,9 +28,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
+	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -331,7 +333,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	)
 	tc.populateFields(t, envWithRMN, rmnCluster)
 
-	onChainState, err := changeset.LoadOnchainState(envWithRMN.Env)
+	onChainState, err := stateview.LoadOnchainState(envWithRMN.Env)
 	require.NoError(t, err)
 
 	homeChainState, ok := onChainState.Chains[envWithRMN.HomeChainSel]
@@ -378,21 +380,20 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		"active digest should be the same as the previously candidate digest after promotion, previous candidate: %x, active: %x",
 		candidateDigest[:], activeDigest[:])
 
-	rmnRemoteConfig := make(map[uint64]v1_6.RMNRemoteConfig)
+	rmnRemoteConfig := make(map[uint64]ccipops.RMNRemoteConfig)
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		selector := tc.pf.chainSelectors[remoteCfg.chainIdx]
 		if remoteCfg.f < 0 {
 			t.Fatalf("remoteCfg.f is negative: %d", remoteCfg.f)
 		}
-		rmnRemoteConfig[selector] = v1_6.RMNRemoteConfig{
+		rmnRemoteConfig[selector] = ccipops.RMNRemoteConfig{
 			F:       uint64(remoteCfg.f),
 			Signers: tc.alterSigners(t, tc.pf.rmnRemoteSigners),
 		}
 	}
 
-	_, err = v1_6.SetRMNRemoteConfigChangeset(envWithRMN.Env, v1_6.SetRMNRemoteConfig{
-		HomeChainSelector: envWithRMN.HomeChainSel,
-		RMNRemoteConfigs:  rmnRemoteConfig,
+	_, err = v1_6.SetRMNRemoteConfigChangeset(envWithRMN.Env, ccipseq.SetRMNRemoteConfig{
+		RMNRemoteConfigs: rmnRemoteConfig,
 	})
 	require.NoError(t, err)
 
@@ -743,7 +744,7 @@ func (tc rmnTestCase) disableOraclesIfThisIsACursingTestCase(ctx context.Context
 	return disabledNodes
 }
 
-func (tc rmnTestCase) sendMessages(t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) (map[uint64]*uint64, map[testhelpers.SourceDestPair]uint64, map[testhelpers.SourceDestPair][]uint64) {
+func (tc rmnTestCase) sendMessages(t *testing.T, onChainState stateview.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) (map[uint64]*uint64, map[testhelpers.SourceDestPair]uint64, map[testhelpers.SourceDestPair][]uint64) {
 	startBlocks := make(map[uint64]*uint64)
 	seqNumCommit := make(map[testhelpers.SourceDestPair]uint64)
 	seqNumExec := make(map[testhelpers.SourceDestPair][]uint64)
@@ -778,7 +779,7 @@ func (tc rmnTestCase) sendMessages(t *testing.T, onChainState changeset.CCIPOnCh
 	return startBlocks, seqNumCommit, seqNumExec
 }
 
-func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) {
+func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing.T, onChainState stateview.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) {
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
 		chState, ok := onChainState.Chains[remoteSel]
@@ -813,7 +814,7 @@ func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing
 	}
 }
 
-func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, eg *errgroup.Group, t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) {
+func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, eg *errgroup.Group, t *testing.T, onChainState stateview.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) {
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
 		chState, ok := onChainState.Chains[remoteSel]
@@ -882,12 +883,12 @@ func configureAndPromoteRMNHome(
 	tc *rmnTestCase,
 	envWithRMN testhelpers.DeployedEnv,
 	rmnCluster devenv.RMNCluster,
-) changeset.CCIPOnChainState {
+) stateview.CCIPOnChainState {
 	ctx := testcontext.Get(t)
 	tc.populateFields(t, envWithRMN, rmnCluster)
 
 	// Load on-chain state
-	onChainState, err := changeset.LoadOnchainState(envWithRMN.Env)
+	onChainState, err := stateview.LoadOnchainState(envWithRMN.Env)
 	require.NoError(t, err)
 
 	// Get the home chain state and the candidate/active digests
@@ -936,27 +937,26 @@ func configureAndPromoteRMNHome(
 		candidateDigest[:], activeDigest[:])
 
 	// Configure remote chain settings
-	rmnRemoteConfig := make(map[uint64]v1_6.RMNRemoteConfig)
+	rmnRemoteConfig := make(map[uint64]ccipops.RMNRemoteConfig)
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		selector := tc.pf.chainSelectors[remoteCfg.chainIdx]
 		if remoteCfg.f < 0 {
 			t.Fatalf("remoteCfg.f is negative: %d", remoteCfg.f)
 		}
-		rmnRemoteConfig[selector] = v1_6.RMNRemoteConfig{
+		rmnRemoteConfig[selector] = ccipops.RMNRemoteConfig{
 			F:       uint64(remoteCfg.f),
 			Signers: tc.pf.rmnRemoteSigners,
 		}
 	}
-	_, err = v1_6.SetRMNRemoteConfigChangeset(envWithRMN.Env, v1_6.SetRMNRemoteConfig{
-		HomeChainSelector: envWithRMN.HomeChainSel,
-		RMNRemoteConfigs:  rmnRemoteConfig,
+	_, err = v1_6.SetRMNRemoteConfigChangeset(envWithRMN.Env, ccipseq.SetRMNRemoteConfig{
+		RMNRemoteConfigs: rmnRemoteConfig,
 	})
 	require.NoError(t, err)
 
 	return onChainState
 }
 
-func performReorgTest(t *testing.T, e testhelpers.DeployedEnv, l logging.Logger, dockerEnv *testsetups.DeployedLocalDevEnvironment, state changeset.CCIPOnChainState, nonBootstrapP2PIDs []string) (sourceSelector uint64, destSelector uint64) {
+func performReorgTest(t *testing.T, e testhelpers.DeployedEnv, l logging.Logger, dockerEnv *testsetups.DeployedLocalDevEnvironment, state stateview.CCIPOnChainState, nonBootstrapP2PIDs []string) (sourceSelector uint64, destSelector uint64) {
 	// Chain setup
 	allChains := e.Env.AllChainSelectors()
 	require.GreaterOrEqual(t, len(allChains), 2)
