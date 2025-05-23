@@ -77,13 +77,12 @@ func GenerateMCMSWithTimelockView(chain cldf.SolChain, addresses map[string]cldf
 	}
 	var mcmData mcm.MultisigConfig
 	for _, mcmConfig := range []struct {
-		name     string
-		pda      solana.PublicKey
-		mcmsView *MCMSConfig
+		name string
+		pda  solana.PublicKey
 	}{
-		{"Bypasser", state.GetMCMConfigPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed), &view.MCMS.Bypasser},
-		{"Proposer", state.GetMCMConfigPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed), &view.MCMS.Proposer},
-		{"Canceller", state.GetMCMConfigPDA(mcmState.McmProgram, mcmState.CancellerMcmSeed), &view.MCMS.Canceller},
+		{"Bypasser", state.GetMCMConfigPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed)},
+		{"Proposer", state.GetMCMConfigPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)},
+		{"Canceller", state.GetMCMConfigPDA(mcmState.McmProgram, mcmState.CancellerMcmSeed)},
 	} {
 		err = chain.GetAccountDataBorshInto(context.Background(), mcmConfig.pda, &mcmData)
 		if err != nil {
@@ -97,11 +96,21 @@ func GenerateMCMSWithTimelockView(chain cldf.SolChain, addresses map[string]cldf
 			ProposedOwner: mcmData.ProposedOwner.String(),
 			GroupQuorums:  shared.GetAddressFromBytes(chain_selectors.ETHEREUM_MAINNET.Selector, mcmData.GroupQuorums[:]),
 			GroupParents:  shared.GetAddressFromBytes(chain_selectors.ETHEREUM_MAINNET.Selector, mcmData.GroupParents[:]),
+			Signers:       []string{},
 		}
 		for _, signer := range mcmData.Signers {
-			mcmConfig.mcmsView.Signers = append(mcmConfig.mcmsView.Signers, shared.GetAddressFromBytes(chain_selectors.ETHEREUM_MAINNET.Selector, signer.EvmAddress[:]))
+			currConfig.Signers = append(currConfig.Signers, shared.GetAddressFromBytes(chain_selectors.ETHEREUM_MAINNET.Selector, signer.EvmAddress[:]))
 		}
-		mcmConfig.mcmsView = &currConfig
+		switch mcmConfig.name {
+		case "Bypasser":
+			view.MCMS.Bypasser = currConfig
+		case "Proposer":
+			view.MCMS.Proposer = currConfig
+		case "Canceller":
+			view.MCMS.Canceller = currConfig
+		default:
+			return view, fmt.Errorf("unknown mcm config name: %s", mcmConfig.name)
+		}
 	}
 
 	return view, nil

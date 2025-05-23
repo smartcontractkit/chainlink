@@ -2321,6 +2321,7 @@ func DeployCCIPContractsTest(t *testing.T, solChains int) {
 	require.NoError(t, err)
 	if solChains > 0 {
 		DeploySolanaCcipReceiver(t, e.Env)
+		commoncs.SetPreloadedSolanaAddresses(t, e.Env, e.Env.AllChainSelectorsSolana()[0])
 		solanaChain := e.Env.SolChains[e.Env.AllChainSelectorsSolana()[0]]
 		addressBook := cldf.NewMemoryAddressBook()
 		mcmsConfig := commontypes.MCMSWithTimelockConfigV2{
