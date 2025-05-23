@@ -935,12 +935,13 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 }
 
 type SetPoolConfig struct {
-	ChainSelector   uint64
-	TokenPubKey     solana.PublicKey
-	PoolType        *solTestTokenPool.PoolType
-	Metadata        string
-	WritableIndexes []uint8
-	MCMS            *proposalutils.TimelockConfig
+	ChainSelector     uint64
+	TokenPubKey       solana.PublicKey
+	PoolType          *solTestTokenPool.PoolType
+	Metadata          string
+	WritableIndexes   []uint8
+	MCMS              *proposalutils.TimelockConfig
+	SkipRegistryCheck bool
 }
 
 func (cfg SetPoolConfig) Validate(e cldf.Environment) error {
@@ -960,21 +961,24 @@ func (cfg SetPoolConfig) Validate(e cldf.Environment) error {
 	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, tokenPubKey, cfg.Metadata, map[cldf.ContractType]bool{shared.Router: true}); err != nil {
 		return err
 	}
-	routerProgramAddress, _, _ := chainState.GetRouterInfo()
-	tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
-	if err != nil {
-		return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), routerProgramAddress.String(), err)
-	}
-	var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
-	if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
-		return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot set pool", tokenPubKey.String(), routerProgramAddress.String())
-	}
 	if cfg.Metadata == "" {
 		return errors.New("metadata must be defined")
 	}
 	if lut, ok := chainState.TokenPoolLookupTable[tokenPubKey][*cfg.PoolType][cfg.Metadata]; !ok || lut.IsZero() {
 		return fmt.Errorf("token pool lookup table not found for (mint: %s)", tokenPubKey.String())
 	}
+	if !cfg.SkipRegistryCheck {
+		routerProgramAddress, _, _ := chainState.GetRouterInfo()
+		tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
+		if err != nil {
+			return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), routerProgramAddress.String(), err)
+		}
+		var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
+		if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
+			return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot set pool", tokenPubKey.String(), routerProgramAddress.String())
+		}
+	}
+
 	return nil
 }
 
