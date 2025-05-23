@@ -10,7 +10,7 @@ import (
 var _ JobSpec = &BootstrapSpec{}
 
 type BootstrapSpec struct {
-	Base
+	BaseJobSpec
 
 	ContractID  string      `toml:"contractID"`
 	DonID       uint64      `toml:"donID,omitempty"`
@@ -44,7 +44,7 @@ func NewBootstrapSpec(contractID string, donID uint64, donName string, relay Rel
 		externalJobID = uuid.New()
 	}
 	return &BootstrapSpec{
-		Base: Base{
+		BaseJobSpec: BaseJobSpec{
 			Name:          fmt.Sprintf("%s | %d", donName, donID),
 			Type:          JobSpecTypeBootstrap,
 			SchemaVersion: 1,

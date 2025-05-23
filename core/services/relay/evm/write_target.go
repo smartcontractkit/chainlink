@@ -121,7 +121,11 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, fmt.Errorf("failed to create EVM platform processors: %w", err)
 	}
 
-	beholder, err := writetarget.NewMonitor(lggr, evmProcessors, []writetarget.ProductSpecificProcessor{dfProcessor, ccipDfProcessor, porProcessor}, emitter)
+	beholder, err := writetarget.NewMonitor(lggr, evmProcessors, map[string]monitor.ProtoProcessor{
+		"evm-data-feeds":      dfProcessor,
+		"evm-data-feeds-ccip": ccipDfProcessor,
+		"evm-por-feeds":       porProcessor,
+	}, emitter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Aptos WT monitor client: %+w", err)
 	}
@@ -201,9 +205,10 @@ func evaluate(rawRequest capabilities.CapabilityRequest) (receiver string, err e
 		return "", err
 	}
 
-	reportMetadata, err := decodeReportMetadata(r.Inputs.SignedReport.Report)
+	// don't need tail in this case
+	reportMetadata, _, err := ocr3types.Decode(r.Inputs.SignedReport.Report)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to decode report metadata: %w", err)
 	}
 
 	if reportMetadata.Version != 1 {
@@ -237,18 +242,6 @@ func evaluate(rawRequest capabilities.CapabilityRequest) (receiver string, err e
 	}
 
 	return r.Config.Address, nil
-}
-
-func decodeReportMetadata(data []byte) (metadata ocr3types.Metadata, err error) {
-	if len(data) < metadata.Length() {
-		return metadata, fmt.Errorf("data too short: %d bytes", len(data))
-	}
-	// don't need tail in this case
-	decoded, _, err := ocr3types.Decode(data)
-	if err != nil {
-		return metadata, fmt.Errorf("failed to decode report metadata: %w", err)
-	}
-	return decoded, nil
 }
 
 func getChainInfo(chainID uint64) (monitor.ChainInfo, error) {

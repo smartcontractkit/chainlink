@@ -278,23 +278,9 @@ func configureDataFeedsCacheContract(testLogger zerolog.Logger, input *configure
 }
 
 func buildManageWorkflowInput(input managePoRWorkflowInput) (keystonetypes.ManageWorkflowWithCRECLIInput, error) {
-	workflowRegistryAddress, err := crecontracts.FindAddressesForChain(
-		input.addressBook,
-		input.homeChainSelector,
-		keystone_changeset.WorkflowRegistry.String(),
-	)
-	if err != nil {
-		return keystonetypes.ManageWorkflowWithCRECLIInput{}, errors.Wrapf(
-			err,
-			"failed to find workflow registry address for chain %d",
-			input.homeChainSelector,
-		)
-	}
-
 	return keystonetypes.ManageWorkflowWithCRECLIInput{
 		ChainSelector:            input.chainSelector,
 		WorkflowDonID:            input.workflowDonID,
-		WorkflowRegistryAddress:  workflowRegistryAddress,
 		WorkflowOwnerAddress:     input.sethClient.MustGetRootKeyAddress(),
 		CRECLIPrivateKey:         input.deployerPrivateKey,
 		CRECLIAbsPath:            input.creCLIAbsPath,
@@ -402,15 +388,9 @@ func registerPoRWorkflow(input managePoRWorkflowInput) error {
 		secretsFilePath = ptr.Ptr(secretsFile.Name())
 	}
 
-	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(input.addressBook, input.homeChainSelector, keystone_changeset.WorkflowRegistry.String())
-	if workflowRegistryErr != nil {
-		return errors.Wrapf(workflowRegistryErr, "failed to find workflow registry address for chain %d", input.homeChainSelector)
-	}
-
 	registerWorkflowInput := keystonetypes.ManageWorkflowWithCRECLIInput{
 		ChainSelector:            input.chainSelector,
 		WorkflowDonID:            input.workflowDonID,
-		WorkflowRegistryAddress:  workflowRegistryAddress,
 		WorkflowOwnerAddress:     input.sethClient.MustGetRootKeyAddress(),
 		CRECLIPrivateKey:         input.deployerPrivateKey,
 		CRECLIAbsPath:            input.creCLIAbsPath,

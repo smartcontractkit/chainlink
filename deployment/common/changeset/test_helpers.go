@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -106,27 +108,7 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, timelockContractsPerChain
 		if out.Jobs != nil {
 			// do nothing, as these jobs auto-accept.
 		}
-		if out.Proposals != nil {
-			for _, prop := range out.Proposals {
-				chains := mapset.NewSet[uint64]()
-				for _, op := range prop.Transactions {
-					chains.Add(uint64(op.ChainIdentifier))
-				}
 
-				signed := proposalutils.SignProposal(t, e, &prop)
-				for _, sel := range chains.ToSlice() {
-					timelockContracts, ok := timelockContractsPerChain[sel]
-					if !ok || timelockContracts == nil {
-						return cldf.Environment{}, fmt.Errorf("timelock contracts not found for chain %d", sel)
-					}
-
-					err := proposalutils.ExecuteProposal(t, e, signed, timelockContracts, sel) //nolint:staticcheck //SA1019 ignoring deprecated function for compatibility; we don't have tools to generate the new field
-					if err != nil {
-						return e, fmt.Errorf("failed to execute proposal: %w", err)
-					}
-				}
-			}
-		}
 		if out.MCMSTimelockProposals != nil {
 			for _, prop := range out.MCMSTimelockProposals {
 				mcmProp := proposalutils.SignMCMSTimelockProposal(t, e, &prop)
@@ -163,7 +145,7 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, timelockContractsPerChain
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
 			GetContext:        e.GetContext,
-			OperationsBundle:  e.OperationsBundle,
+			OperationsBundle:  operations.NewBundle(e.GetContext, e.Logger, operations.NewMemoryReporter()), // to ensure that each migration is run in a clean environment
 		}
 	}
 	return currentEnv, nil
@@ -230,7 +212,7 @@ func ApplyChangesetsV2(t *testing.T, e cldf.Environment, changesetApplications [
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
 			GetContext:        e.GetContext,
-			OperationsBundle:  e.OperationsBundle,
+			OperationsBundle:  operations.NewBundle(e.GetContext, e.Logger, operations.NewMemoryReporter()), // to ensure that each migration is run in a clean environment
 		}
 
 		if out.MCMSTimelockProposals != nil {

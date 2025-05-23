@@ -15,7 +15,6 @@ import (
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read"
 
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint:revive // dot-imports
@@ -182,7 +181,7 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 				cr := it.GetContractReader(t)
 				cw := it.GetContractWriter(t)
 				bindings := it.GetBindings(t)
-				ctx := tests.Context(t)
+				ctx := t.Context()
 				require.NoError(t, cr.Bind(ctx, bindings))
 				boundContract := BindingsByName(bindings, AnyContractName)[0]
 
@@ -213,7 +212,7 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 				cr := it.GetContractReader(t)
 				cw := it.GetContractWriter(t)
 				bindings := it.GetBindings(t)
-				ctx := tests.Context(t)
+				ctx := t.Context()
 				boundContract := BindingsByName(bindings, AnyContractName)[0]
 				require.NoError(t, cr.Bind(ctx, bindings))
 
@@ -249,7 +248,7 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 				cr := it.GetContractReader(t)
 				cw := it.GetContractWriter(t)
 				bindings := it.GetBindings(t)
-				ctx := tests.Context(t)
+				ctx := t.Context()
 				require.NoError(t, cr.Bind(ctx, bindings))
 				boundContract := BindingsByName(bindings, AnyContractName)[0]
 
@@ -285,7 +284,7 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 				cr := it.GetContractReader(t)
 				cw := it.GetContractWriter(t)
 				bindings := it.GetBindings(t)
-				ctx := tests.Context(t)
+				ctx := t.Context()
 				require.NoError(t, cr.Bind(ctx, bindings))
 				boundContract := BindingsByName(bindings, AnyContractName)[0]
 				empty12Bytes := [12]byte{}

@@ -43,7 +43,7 @@ func TestAddCapabilities(t *testing.T) {
 			RegistryRef:      te.CapabilityRegistryAddressRef(),
 		})
 		require.NoError(t, err)
-		require.Empty(t, csOut.Proposals)
+		require.Empty(t, csOut.MCMSTimelockProposals)
 		require.Nil(t, csOut.AddressBook)
 		assertCapabilitiesExist(t, te.CapabilitiesRegistry(), capabilitiesToAdd...)
 	})

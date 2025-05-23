@@ -8,7 +8,7 @@ import (
 )
 
 type LLOJobSpec struct {
-	Base
+	BaseJobSpec
 
 	ContractID                        string          `toml:"contractID"`
 	TransmitterID                     string          `toml:"transmitterID,omitempty"`

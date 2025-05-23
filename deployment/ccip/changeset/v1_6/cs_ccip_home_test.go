@@ -21,6 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
+	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -55,12 +57,12 @@ func TestInvalidOCR3Params(t *testing.T) {
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
-			v1_6.DeployChainContractsConfig{
+			ccipseq.DeployChainContractsConfig{
 				HomeChainSelector: e.HomeChainSel,
-				ContractParamsPerChain: map[uint64]v1_6.ChainContractParams{
+				ContractParamsPerChain: map[uint64]ccipseq.ChainContractParams{
 					chain1: {
-						FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
-						OffRampParams:   v1_6.DefaultOffRampParams(),
+						FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
+						OffRampParams:   ccipops.DefaultOffRampParams(),
 					},
 				},
 			},

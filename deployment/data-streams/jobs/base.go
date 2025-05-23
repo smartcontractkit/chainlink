@@ -11,7 +11,7 @@ var (
 	JobSpecTypeStream    JobSpecType = "stream"             // used for stream specs in LLO dons
 )
 
-type Base struct {
+type BaseJobSpec struct {
 	Name          string      `toml:"name"`
 	Type          JobSpecType `toml:"type"`
 	SchemaVersion uint        `toml:"schemaVersion"`

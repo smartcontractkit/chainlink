@@ -64,6 +64,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/burn_mint_erc677_helper"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
@@ -880,7 +881,7 @@ func LoadChainState(ctx context.Context, chain cldf.Chain, addresses map[string]
 			if err != nil {
 				return state, err
 			}
-			key, ok := ccipshared.DescriptionToTokenSymbol[desc]
+			key, ok := ccipshared.GetSymbolFromDescription(desc)
 			if !ok {
 				return state, fmt.Errorf("unknown feed description %s", desc)
 			}
@@ -1044,6 +1045,21 @@ func LoadChainState(ctx context.Context, chain cldf.Chain, addresses map[string]
 			}
 			state.DonIDClaimer = donIDClaimer
 			state.ABIByAddress[address] = don_id_claimer.DonIDClaimerABI
+		case cldf.NewTypeAndVersion(ccipshared.ERC677TokenHelper, deployment.Version1_0_0).String():
+			ERC677HelperToken, err := burn_mint_erc677_helper.NewBurnMintERC677Helper(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+
+			if state.BurnMintTokens677Helper == nil {
+				state.BurnMintTokens677Helper = make(map[ccipshared.TokenSymbol]*burn_mint_erc677_helper.BurnMintERC677Helper)
+			}
+			symbol, err := ERC677HelperToken.Symbol(nil)
+			if err != nil {
+				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
+			}
+			state.BurnMintTokens677Helper[ccipshared.TokenSymbol(symbol)] = ERC677HelperToken
+			state.ABIByAddress[address] = burn_mint_erc677_helper.BurnMintERC677HelperABI
 		default:
 			// ManyChainMultiSig 1.0.0 can have any of these labels, it can have either 1,2 or 3 of these -
 			// bypasser, proposer and canceller

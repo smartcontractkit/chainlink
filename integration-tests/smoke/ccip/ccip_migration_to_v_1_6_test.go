@@ -21,6 +21,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
+	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
@@ -104,7 +106,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 	require.NoError(t, err)
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
-	evmContractParams := make(map[uint64]v1_6.ChainContractParams)
+	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 	evmChains := []uint64{}
 	for _, chain := range allChains {
 		if _, ok := e.Env.Chains[chain]; ok {
@@ -112,9 +114,9 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 		}
 	}
 	for _, chain := range evmChains {
-		evmContractParams[chain] = v1_6.ChainContractParams{
-			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
-			OffRampParams:   v1_6.DefaultOffRampParams(),
+		evmContractParams[chain] = ccipseq.ChainContractParams{
+			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
+			OffRampParams:   ccipops.DefaultOffRampParams(),
 		}
 	}
 	var apps []commonchangeset.ConfiguredChangeSet
@@ -133,7 +135,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
-			v1_6.DeployChainContractsConfig{
+			ccipseq.DeployChainContractsConfig{
 				HomeChainSelector:      e.HomeChainSel,
 				ContractParamsPerChain: evmContractParams,
 			},
@@ -230,7 +232,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	require.NoError(t, err)
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
-	evmContractParams := make(map[uint64]v1_6.ChainContractParams)
+	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 	evmChains := []uint64{}
 	for _, chain := range allChains {
 		if _, ok := e.Env.Chains[chain]; ok {
@@ -238,9 +240,9 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 		}
 	}
 	for _, chain := range evmChains {
-		evmContractParams[chain] = v1_6.ChainContractParams{
-			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
-			OffRampParams:   v1_6.DefaultOffRampParams(),
+		evmContractParams[chain] = ccipseq.ChainContractParams{
+			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
+			OffRampParams:   ccipops.DefaultOffRampParams(),
 		}
 	}
 	var apps []commonchangeset.ConfiguredChangeSet
@@ -259,7 +261,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
-			v1_6.DeployChainContractsConfig{
+			ccipseq.DeployChainContractsConfig{
 				HomeChainSelector:      e.HomeChainSel,
 				ContractParamsPerChain: evmContractParams,
 			},
@@ -366,7 +368,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	require.NoError(t, err)
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
-	evmContractParams := make(map[uint64]v1_6.ChainContractParams)
+	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 	evmChains := []uint64{}
 	for _, chain := range allChains {
 		if _, ok := e.Env.Chains[chain]; ok {
@@ -374,9 +376,9 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 		}
 	}
 	for _, chain := range evmChains {
-		evmContractParams[chain] = v1_6.ChainContractParams{
-			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
-			OffRampParams:   v1_6.DefaultOffRampParams(),
+		evmContractParams[chain] = ccipseq.ChainContractParams{
+			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
+			OffRampParams:   ccipops.DefaultOffRampParams(),
 		}
 	}
 	var apps []commonchangeset.ConfiguredChangeSet
@@ -395,7 +397,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
-			v1_6.DeployChainContractsConfig{
+			ccipseq.DeployChainContractsConfig{
 				HomeChainSelector:      e.HomeChainSel,
 				ContractParamsPerChain: evmContractParams,
 			},

@@ -62,7 +62,7 @@ func TestLLOJobSpec_MarshalTOML(t *testing.T) {
 		{
 			name: "with fields populated",
 			spec: LLOJobSpec{
-				Base: Base{
+				BaseJobSpec: BaseJobSpec{
 					Name:          "Test-DON",
 					Type:          "offchainreporting2",
 					SchemaVersion: 1,
@@ -95,7 +95,7 @@ func TestLLOJobSpec_MarshalTOML(t *testing.T) {
 		{
 			name: "empty minimal fields",
 			spec: LLOJobSpec{
-				Base: Base{
+				BaseJobSpec: BaseJobSpec{
 					Name:          "Empty-DON-Test",
 					Type:          "offchainreporting2",
 					SchemaVersion: 1,

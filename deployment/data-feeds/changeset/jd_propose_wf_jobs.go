@@ -92,6 +92,7 @@ func proposeWFJobsToJDLogic(env cldf.Environment, c types.ProposeWFJobsConfig) (
 		workflowSpecConfig.WriteTargetTrigger,
 		targetSchedule,
 		workflowSpecConfig.CREStepTimeout,
+		workflowSpecConfig.TargetProcessor,
 		cacheAddress,
 	)
 	if err != nil {
@@ -189,6 +190,10 @@ func proposeWFJobsToJDPrecondition(env cldf.Environment, c types.ProposeWFJobsCo
 	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, &c.CacheLabel)
 	if cacheAddress == "" {
 		return errors.New("failed to get data feeds cache address")
+	}
+
+	if c.NodeFilter == nil {
+		return errors.New("missing node filter")
 	}
 
 	return nil

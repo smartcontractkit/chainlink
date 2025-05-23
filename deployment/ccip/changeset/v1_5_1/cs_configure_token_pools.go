@@ -46,9 +46,10 @@ var (
 // RateLimiterConfig defines the inbound and outbound rate limits for a remote chain.
 type RateLimiterConfig struct {
 	// Inbound is the rate limiter config for inbound transfers from a remote chain.
-	Inbound token_pool.RateLimiterConfig
+	Inbound token_pool.RateLimiterConfig `json:"inbound"`
+
 	// Outbound is the rate limiter config for outbound transfers to a remote chain.
-	Outbound token_pool.RateLimiterConfig
+	Outbound token_pool.RateLimiterConfig `json:"outbound"`
 }
 
 // validateRateLimterConfig validates rate and capacity in accordance with on-chain code.
@@ -85,15 +86,18 @@ func (c RateLimiterPerChain) Validate() error {
 // SolChainUpdate defines the rate limits and token address for a Solana chain.
 type SolChainUpdate struct {
 	// RateLimiterConfig defines the rate limits for the Solana chain.
-	RateLimiterConfig RateLimiterConfig
+	RateLimiterConfig RateLimiterConfig `json:"rateLimiterConfig"`
+
 	// TokenAddress is the address of the token on the Solana chain.
-	TokenAddress string
+	TokenAddress string `json:"tokenAddress"`
+
 	// Type is the type of the token pool.
-	Type cldf.ContractType
+	Type cldf.ContractType `json:"type"`
+
 	// Metadata is an identifier for which instance of the token pool this is.
 	// This is used to differentiate between multiple token pools on the same chain.
 	// e.g. "CLL" for the CLL token pool, "Partner1" for the partner token pool, etc.
-	Metadata string
+	Metadata string `json:"metadata"`
 }
 
 func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state solanastateview.CCIPChainState) (token solana.PublicKey, tokenPool solana.PublicKey, err error) {
@@ -149,16 +153,24 @@ func (c SolChainUpdate) Validate(state solanastateview.CCIPChainState) error {
 // TokenPoolConfig defines all the information required of the user to configure a token pool.
 type TokenPoolConfig struct {
 	// ChainUpdates defines the chains and corresponding rate limits that should be defined on the token pool.
-	ChainUpdates RateLimiterPerChain
+	ChainUpdates RateLimiterPerChain `json:"chainUpdates"`
+
 	// SolChainUpdates defines the Solana chains and corresponding rate limits that should be defined on the token pool.
-	SolChainUpdates map[uint64]SolChainUpdate
+	SolChainUpdates map[uint64]SolChainUpdate `json:"solChainUpdates"`
+
 	// Type is the type of the token pool.
-	Type cldf.ContractType
+	Type cldf.ContractType `json:"type"`
+
 	// Version is the version of the token pool.
-	Version semver.Version
-	// OverrideTokenSymbol is the token symbol to use to override against main symbol (ex: override to clCCIP-LnM when the main token symbol is CCIP-LnM)
+	Version semver.Version `json:"version"`
+
+	// OverrideTokenSymbol is the token symbol to use to override against main symbol
+	// (ex: override to clCCIP-LnM when the main token symbol is CCIP-LnM)
 	// WARNING: This should only be used in exceptional cases where the token symbol on a particular chain differs from the main tokenSymbol
-	OverrideTokenSymbol shared.TokenSymbol
+	OverrideTokenSymbol shared.TokenSymbol `json:"overrideTokenSymbol,omitempty"`
+
+	// SkipOwnershipValidation, if true, skips validation of ownership on the token pool. Optional, defaults to false.
+	SkipOwnershipValidation bool `json:"skipOwnershipValidation,omitempty"`
 }
 
 func (c TokenPoolConfig) Validate(ctx context.Context, chain cldf.Chain, ccipState stateview.CCIPOnChainState, useMcms bool, tokenSymbol shared.TokenSymbol) error {
@@ -182,14 +194,17 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain cldf.Chain, ccipSta
 	if !ok {
 		return fmt.Errorf("token pool does not exist on %s with symbol %s, type %s, and version %s", chain.String(), tokenSymbol, c.Type, c.Version)
 	}
-	tokenPool, err := token_pool.NewTokenPool(tokenPoolAddress, chain.Client)
-	if err != nil {
-		return fmt.Errorf("failed to connect address %s with token pool bindings: %w", tokenPoolAddress, err)
-	}
+	// skips ownership check while running e2e token pool deployment + configuration, as the pool isn't yet owned by timelock
+	if !c.SkipOwnershipValidation {
+		tokenPool, err := token_pool.NewTokenPool(tokenPoolAddress, chain.Client)
+		if err != nil {
+			return fmt.Errorf("failed to connect address %s with token pool bindings: %w", tokenPoolAddress, err)
+		}
 
-	// Validate that the token pool is owned by the address that will be actioning the transactions (i.e. Timelock or deployer key)
-	if err := commoncs.ValidateOwnership(ctx, useMcms, chain.DeployerKey.From, chainState.Timelock.Address(), tokenPool); err != nil {
-		return fmt.Errorf("token pool with address %s on %s failed ownership validation: %w", tokenPoolAddress, chain.String(), err)
+		// Validate that the token pool is owned by the address that will be actioning the transactions (i.e. Timelock or deployer key)
+		if err := commoncs.ValidateOwnership(ctx, useMcms, chain.DeployerKey.From, chainState.Timelock.Address(), tokenPool); err != nil {
+			return fmt.Errorf("token pool with address %s on %s failed ownership validation: %w", tokenPoolAddress, chain.String(), err)
+		}
 	}
 
 	// Validate chain configurations, namely rate limits

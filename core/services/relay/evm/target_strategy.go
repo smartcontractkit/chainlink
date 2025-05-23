@@ -65,7 +65,6 @@ type Config struct {
 
 func NewEVMTargetStrategy(cr commontypes.ContractReader, cw commontypes.ContractWriter, forwarder string, gasLimitDefault uint64, lggr logger.Logger) *evmTargetStrategy {
 	bound := atomic.Bool{}
-	bound.Store(false)
 	return &evmTargetStrategy{
 		cr:                 cr,
 		cw:                 cw,
@@ -89,7 +88,7 @@ func (t *evmTargetStrategy) QueryTransmissionState(ctx context.Context, reportID
 	b := make([]byte, 2)
 	binary.BigEndian.PutUint16(b, reportID)
 
-	if t.bound.Load() == false {
+	if !t.bound.Load() {
 		t.lggr.Debugw("Binding to forwarder address")
 		err := t.cr.Bind(ctx, []commontypes.BoundContract{t.binding})
 		if err != nil {
@@ -141,7 +140,7 @@ func (t *evmTargetStrategy) QueryTransmissionState(ctx context.Context, reportID
 			Status:      writetarget.TransmissionStateFatal,
 			Transmitter: transmissionInfo.Transmitter.String(),
 			Err:         ErrTxFailed,
-		}, ErrTxFailed
+		}, nil
 	case TransmissionStateFailed:
 		receiverGasMinimum := t.receiverGasMinimum
 		if r.Config.GasLimit != nil {
@@ -153,14 +152,14 @@ func (t *evmTargetStrategy) QueryTransmissionState(ctx context.Context, reportID
 				Status:      writetarget.TransmissionStateFatal,
 				Transmitter: transmissionInfo.Transmitter.String(),
 				Err:         ErrTxFailed,
-			}, ErrTxFailed
+			}, nil
 		} else {
 			t.lggr.Infow("non-empty report - transmission should be retried", "request", request, "reportLen", len(r.Inputs.SignedReport.Report), "reportContextLen", len(r.Inputs.SignedReport.Context), "nSignatures", len(r.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
 			return &writetarget.TransmissionState{
 				Status:      writetarget.TransmissionStateFailed,
 				Transmitter: transmissionInfo.Transmitter.String(),
 				Err:         ErrTxFailed,
-			}, ErrTxFailed
+			}, nil
 		}
 	}
 

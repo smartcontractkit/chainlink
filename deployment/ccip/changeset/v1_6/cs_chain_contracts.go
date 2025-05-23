@@ -23,6 +23,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -1593,7 +1594,7 @@ func SetOCR3OffRampChangeset(e cldf.Environment, cfg SetOCR3OffRampConfig) (cldf
 }
 
 type UpdateDynamicConfigOffRampConfig struct {
-	Updates map[uint64]OffRampParams
+	Updates map[uint64]ccipops.OffRampParams
 	MCMS    *proposalutils.TimelockConfig
 }
 

@@ -9,7 +9,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/exp/maps"
 
@@ -1516,7 +1515,6 @@ func deployDonIDClaimerChangesetLogic(e cldf.Environment, _ DeployDonIDClaimerCo
 		}, fmt.Errorf("failed to deploy donIDClaimer contract: %w", err)
 	}
 	return cldf.ChangesetOutput{
-		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: ab,
 	}, nil
 }

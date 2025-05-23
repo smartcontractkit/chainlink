@@ -56,7 +56,7 @@ func registerNodesForDON(e cldf.Environment, donName string, donID uint64, nodes
 		})
 
 		labels = append(labels, &ptypes.Label{
-			Key: utils.DonIdentifier(donID, donName),
+			Key: utils.DonIDLabel(donID, donName),
 		})
 
 		nodeID, err := e.Offchain.RegisterNode(e.GetContext(), &nodev1.RegisterNodeRequest{
