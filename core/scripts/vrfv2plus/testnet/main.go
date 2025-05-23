@@ -1479,7 +1479,7 @@ decode_log->generate_proof->estimate_gas->simulate_fulfillment
 		coordinatorAddress := cmd.String("coordinator-address", "", "VRF Coordinator address")
 		blockhashStoreAddress := cmd.String("blockhash-store-address", "", "Blockhash Store address")
 		pollPeriod := cmd.String("poll-period", "", "Poll period in seconds")
-		chainId := cmd.String("chain-id", "", "EVM chain ID")
+		chainID := cmd.String("chain-id", "", "EVM chain ID")
 		nodeSendingKeys := cmd.String("node-sending-keys", "", "Space separated node sending keys")
 		nodeType := cmd.String("node-type", "", "Node type can be primary or backup")
 		
@@ -1494,11 +1494,12 @@ decode_log->generate_proof->estimate_gas->simulate_fulfillment
 		addressesBlock := strings.Join(addresses, ",\n")
 
 		var waitBlocks string
-		if *nodeType == "primary" {
+		switch *nodeType {
+		case "primary":
 			waitBlocks = "30"
-		} else if *nodeType == "backup" {
+		case "backup":
 			waitBlocks = "60"
-		} else {
+		default:
 			panic("node type must be either primary or backup")
 		}
 
@@ -1518,7 +1519,7 @@ evmChainID = "%s"
 fromAddresses = [
 %s
 ]
-		`, *nodeType, *coordinatorAddress, *coordinatorAddress, waitBlocks, *blockhashStoreAddress, *pollPeriod, *chainId, addressesBlock)
+		`, *nodeType, *coordinatorAddress, *coordinatorAddress, waitBlocks, *blockhashStoreAddress, *pollPeriod, *chainID, addressesBlock)
 		fmt.Println("\nGenerated job spec:")
 		fmt.Println(jobSpec)
 	default:
