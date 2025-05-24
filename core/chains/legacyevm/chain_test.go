@@ -19,7 +19,7 @@ func TestLegacyChains(t *testing.T) {
 	c.On("ID").Return(big.NewInt(7))
 	m := map[string]legacyevm.Chain{c.ID().String(): c}
 
-	l := legacyevm.NewLegacyChains(m, []*toml.EVMConfig{nil})
+	l := legacyevm.NewLegacyChains(m, []*toml.EVMConfig{})
 	assert.NotNil(t, l.ChainNodeConfigs())
 	got, err := l.Get(c.ID().String())
 	assert.NoError(t, err)
@@ -45,7 +45,7 @@ func TestChainOpts_Validate(t *testing.T) {
 		{
 			name: "valid",
 			opts: legacyevm.ChainOpts{
-				ChainConfigs:   []*toml.EVMConfig{nil},
+				ChainConfigs:   []*toml.EVMConfig{},
 				DatabaseConfig: &dbCfg,
 				ListenerConfig: dbCfg.Listener(),
 				FeatureConfig:  &testFeatureConfig{},
