@@ -44,7 +44,7 @@ var (
 	// PromoteNewChainForConfigChangeset promotes exec and commit plugin candidates for the new chain on the home chain.
 	// It also connects the new chain to various destination chains through the test router.
 	// This changeset should be run after AddCandidatesForNewChainChangeset.
-	// This changeset is not idempotent because the underlying PromoteCandidateChangeset is not idepotent.
+	// This changeset is not idempotent because the underlying PromoteCandidateChangeset is not idempotent.
 	// Provide an MCMS config if the contracts on the existing chains are owned by MCMS (omit this config otherwise).
 	PromoteNewChainForConfigChangeset = cldf.CreateChangeSet(promoteNewChainForConfigLogic, promoteNewChainForConfigPrecondition)
 	// ConnectNewChainChangeset activates connects a new chain with other chains by updating onRamp, offRamp, and router contracts.
