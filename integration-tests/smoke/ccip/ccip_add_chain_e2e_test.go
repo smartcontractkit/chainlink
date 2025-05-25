@@ -42,7 +42,19 @@ func Test_AddChainE2E(t *testing.T) {
 
 	toDeploy := e.Env.AllChainSelectorsExcluding([]uint64{e.HomeChainSel, e.FeedChainSel})
 	initialSetToDeploy := e.Env.AllChainSelectorsExcluding(toDeploy)
-	e = setupChain(t, e, tEnv, initialSetToDeploy, false)
+
+	e = testhelpers.AddCCIPContractsToEnvironment(t, initialSetToDeploy, tEnv, false)
+	// Need to update what the RMNProxy is pointing to, otherwise plugin will not work.
+	var err error
+	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
+			v1_6.SetRMNRemoteOnRMNProxyConfig{
+				ChainSelectors: initialSetToDeploy,
+			},
+		),
+	)
+	require.NoError(t, err)
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
