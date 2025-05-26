@@ -40,7 +40,7 @@ func EmitExecutionStartedEvent(
 
 	event := &events.WorkflowExecutionStarted{
 		M:         metadata,
-		Timestamp: time.Now().String(),
+		Timestamp: time.Now().Format(time.RFC3339Nano),
 		TriggerID: triggerID,
 	}
 
@@ -53,7 +53,7 @@ func EmitExecutionFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter,
 
 	event := &events.WorkflowExecutionFinished{
 		M:         metadata,
-		Timestamp: time.Now().String(),
+		Timestamp: time.Now().Format(time.RFC3339Nano),
 		Status:    status,
 	}
 
@@ -66,7 +66,7 @@ func EmitCapabilityStartedEvent(ctx context.Context, cma custmsg.MessageEmitter,
 
 	event := &events.CapabilityExecutionStarted{
 		M:            metadata,
-		Timestamp:    time.Now().String(),
+		Timestamp:    time.Now().Format(time.RFC3339Nano),
 		CapabilityID: capabilityID,
 		StepRef:      stepRef,
 	}
@@ -80,7 +80,7 @@ func EmitCapabilityFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter
 
 	event := &events.CapabilityExecutionFinished{
 		M:            metadata,
-		Timestamp:    time.Now().String(),
+		Timestamp:    time.Now().Format(time.RFC3339Nano),
 		CapabilityID: capabilityID,
 		StepRef:      stepRef,
 		Status:       status,

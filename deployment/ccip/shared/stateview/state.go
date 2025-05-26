@@ -10,6 +10,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
@@ -95,6 +96,36 @@ type CCIPOnChainState struct {
 	Chains      map[uint64]evm.CCIPChainState
 	SolChains   map[uint64]solana.CCIPChainState
 	AptosChains map[uint64]aptosstate.CCIPChainState
+	evmMu       *sync.RWMutex
+}
+
+func (c CCIPOnChainState) EVMChains() []uint64 {
+	c.evmMu.RLock()
+	defer c.evmMu.RUnlock()
+	return maps.Keys(c.Chains)
+}
+
+func (c CCIPOnChainState) EVMChainState(selector uint64) (evm.CCIPChainState, bool) {
+	c.evmMu.RLock()
+	defer c.evmMu.RUnlock()
+	chainState, ok := c.Chains[selector]
+	return chainState, ok
+}
+
+func (c CCIPOnChainState) MustGetEVMChainState(selector uint64) evm.CCIPChainState {
+	c.evmMu.RLock()
+	defer c.evmMu.RUnlock()
+	chainState, ok := c.Chains[selector]
+	if !ok {
+		panic("chain state not found for selector " + strconv.FormatUint(selector, 10))
+	}
+	return chainState
+}
+
+func (c CCIPOnChainState) WriteEVMChainState(selector uint64, chainState evm.CCIPChainState) {
+	c.evmMu.Lock()
+	defer c.evmMu.Unlock()
+	c.Chains[selector] = chainState
 }
 
 // ValidatePostDeploymentState should be called after the deployment and configuration for all contracts
@@ -103,7 +134,8 @@ type CCIPOnChainState struct {
 func (c CCIPOnChainState) ValidatePostDeploymentState(e cldf.Environment) error {
 	onRampsBySelector := make(map[uint64]common.Address)
 	offRampsBySelector := make(map[uint64]offramp.OffRampInterface)
-	for selector, chainState := range c.Chains {
+	for _, selector := range c.EVMChains() {
+		chainState := c.MustGetEVMChainState(selector)
 		if chainState.OnRamp == nil {
 			return fmt.Errorf("onramp not found in the state for chain %d", selector)
 		}
@@ -118,7 +150,7 @@ func (c CCIPOnChainState) ValidatePostDeploymentState(e cldf.Environment) error 
 	if err != nil {
 		return fmt.Errorf("failed to get home chain selector: %w", err)
 	}
-	homeChainState := c.Chains[homeChain]
+	homeChainState := c.MustGetEVMChainState(homeChain)
 	if err := homeChainState.ValidateHomeChain(e, nodes, offRampsBySelector); err != nil {
 		return fmt.Errorf("failed to validate home chain %d: %w", homeChain, err)
 	}
@@ -139,7 +171,8 @@ func (c CCIPOnChainState) ValidatePostDeploymentState(e cldf.Environment) error 
 	for _, rmnHomeChain := range rmnHomeConfig.VersionedConfig.DynamicConfig.SourceChains {
 		isRMNEnabledInRMNHomeBySourceChain[rmnHomeChain.ChainSelector] = rmnHomeChain.FObserve > 0
 	}
-	for selector, chainState := range c.Chains {
+	for _, selector := range c.EVMChains() {
+		chainState := c.MustGetEVMChainState(selector)
 		isRMNEnabledInRmnRemote, err := chainState.ValidateRMNRemote(e, selector, rmnHomeActiveDigest)
 		if err != nil {
 			return fmt.Errorf("failed to validate RMNRemote %s for chain %d: %w", chainState.RMNRemote.Address().Hex(), selector, err)
@@ -162,7 +195,7 @@ func (c CCIPOnChainState) ValidatePostDeploymentState(e cldf.Environment) error 
 			if connectedChain == selector {
 				continue
 			}
-			otherOnRamps[connectedChain] = c.Chains[connectedChain].OnRamp.Address()
+			otherOnRamps[connectedChain] = c.MustGetEVMChainState(connectedChain).OnRamp.Address()
 		}
 		if err := chainState.ValidateOffRamp(e, selector, otherOnRamps, isRMNEnabledInRMNHomeBySourceChain); err != nil {
 			return fmt.Errorf("failed to validate offramp %s for chain %d: %w", chainState.OffRamp.Address().Hex(), selector, err)
@@ -179,7 +212,8 @@ func (c CCIPOnChainState) ValidatePostDeploymentState(e cldf.Environment) error 
 
 // HomeChainSelector returns the selector of the home chain based on the presence of RMNHome, CapabilityRegistry and CCIPHome contracts.
 func (c CCIPOnChainState) HomeChainSelector() (uint64, error) {
-	for selector, chain := range c.Chains {
+	for _, selector := range c.EVMChains() {
+		chain := c.MustGetEVMChainState(selector)
 		if chain.RMNHome != nil && chain.CapabilityRegistry != nil && chain.CCIPHome != nil {
 			return selector, nil
 		}
@@ -189,7 +223,8 @@ func (c CCIPOnChainState) HomeChainSelector() (uint64, error) {
 
 func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]commonstate.MCMSWithTimelockState {
 	mcmsStateByChain := make(map[uint64]commonstate.MCMSWithTimelockState)
-	for chainSelector, chain := range c.Chains {
+	for _, chainSelector := range c.EVMChains() {
+		chain := c.MustGetEVMChainState(chainSelector)
 		mcmsStateByChain[chainSelector] = commonstate.MCMSWithTimelockState{
 			CancellerMcm: chain.CancellerMcm,
 			BypasserMcm:  chain.BypasserMcm,
@@ -224,7 +259,7 @@ func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx con
 	}
 	switch family {
 	case chain_selectors.FamilyEVM:
-		chain, ok := c.Chains[selector]
+		chain, ok := c.EVMChainState(selector)
 		if !ok {
 			return 0, fmt.Errorf("chain %d not found in the state", selector)
 		}
@@ -281,7 +316,8 @@ func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx con
 }
 
 func (c CCIPOnChainState) Validate() error {
-	for sel, chain := range c.Chains {
+	for _, sel := range c.EVMChains() {
+		chain := c.MustGetEVMChainState(sel)
 		// cannot have static link and link together
 		if chain.LinkToken != nil && chain.StaticLinkToken != nil {
 			return fmt.Errorf("cannot have both link and static link token on the same chain %d", sel)
@@ -293,7 +329,7 @@ func (c CCIPOnChainState) Validate() error {
 func (c CCIPOnChainState) GetAllProposerMCMSForChains(chains []uint64) (map[uint64]*gethwrappers.ManyChainMultiSig, error) {
 	multiSigs := make(map[uint64]*gethwrappers.ManyChainMultiSig)
 	for _, chain := range chains {
-		chainState, ok := c.Chains[chain]
+		chainState, ok := c.EVMChainState(chain)
 		if !ok {
 			return nil, fmt.Errorf("chain %d not found", chain)
 		}
@@ -308,7 +344,7 @@ func (c CCIPOnChainState) GetAllProposerMCMSForChains(chains []uint64) (map[uint
 func (c CCIPOnChainState) GetAllTimeLocksForChains(chains []uint64) (map[uint64]common.Address, error) {
 	timelocks := make(map[uint64]common.Address)
 	for _, chain := range chains {
-		chainState, ok := c.Chains[chain]
+		chainState, ok := c.EVMChainState(chain)
 		if !ok {
 			return nil, fmt.Errorf("chain %d not found", chain)
 		}
@@ -322,7 +358,7 @@ func (c CCIPOnChainState) GetAllTimeLocksForChains(chains []uint64) (map[uint64]
 
 func (c CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 	chains := make(map[uint64]struct{})
-	for chain := range c.Chains {
+	for _, chain := range c.EVMChains() {
 		chains[chain] = struct{}{}
 	}
 	for chain := range c.SolChains {
@@ -345,7 +381,8 @@ func (c CCIPOnChainState) EnforceMCMSUsageIfProd(ctx context.Context, mcmsConfig
 	var ccipHome *ccip_home.CCIPHome
 	var capReg *capabilities_registry.CapabilitiesRegistry
 	var homeChainSelector uint64
-	for selector, chain := range c.Chains {
+	for _, selector := range c.EVMChains() {
+		chain := c.MustGetEVMChainState(selector)
 		if chain.CCIPHome == nil || chain.CapabilityRegistry == nil {
 			continue
 		}
@@ -366,7 +403,7 @@ func (c CCIPOnChainState) EnforceMCMSUsageIfProd(ctx context.Context, mcmsConfig
 	}
 	// If the timelock contract is not found on the home chain,
 	// we know that MCMS is not enforced.
-	timelock := c.Chains[homeChainSelector].Timelock
+	timelock := c.MustGetEVMChainState(homeChainSelector).Timelock
 	if timelock == nil {
 		return nil
 	}
@@ -398,7 +435,7 @@ func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel 
 		return fmt.Errorf("chain with selector %d not found in the environment", chainSel)
 	}
 
-	chainState, ok := c.Chains[chainSel]
+	chainState, ok := c.EVMChainState(chainSel)
 	if !ok {
 		return fmt.Errorf("%s not found in the state", chain)
 	}
@@ -472,10 +509,10 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (map[string
 			e.Logger.Infow("Generating view for", "chainSelector", chainSelector, "chainName", name, "chainID", id)
 			switch family {
 			case chain_selectors.FamilyEVM:
-				if _, ok := c.Chains[chainSelector]; !ok {
+				if _, ok := c.EVMChainState(chainSelector); !ok {
 					return fmt.Errorf("chain not supported %d", chainSelector)
 				}
-				chainState := c.Chains[chainSelector]
+				chainState := c.MustGetEVMChainState(chainSelector)
 				chainView, err := chainState.GenerateView(e.Logger, name)
 				if err != nil {
 					return err
@@ -489,7 +526,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (map[string
 					return fmt.Errorf("chain not supported %d", chainSelector)
 				}
 				chainState := c.SolChains[chainSelector]
-				chainView, err := chainState.GenerateView(e.SolChains[chainSelector])
+				chainView, err := chainState.GenerateView(e, chainSelector)
 				if err != nil {
 					return err
 				}
@@ -527,7 +564,7 @@ func (c CCIPOnChainState) GetOffRampAddressBytes(chainSelector uint64) ([]byte, 
 	var offRampAddress []byte
 	switch family {
 	case chain_selectors.FamilyEVM:
-		offRampAddress = c.Chains[chainSelector].OffRamp.Address().Bytes()
+		offRampAddress = c.MustGetEVMChainState(chainSelector).OffRamp.Address().Bytes()
 	case chain_selectors.FamilySolana:
 		offRampAddress = c.SolChains[chainSelector].OffRamp.Bytes()
 	case chain_selectors.FamilyAptos:
@@ -549,10 +586,10 @@ func (c CCIPOnChainState) GetOnRampAddressBytes(chainSelector uint64) ([]byte, e
 	var onRampAddressBytes []byte
 	switch family {
 	case chain_selectors.FamilyEVM:
-		if c.Chains[chainSelector].OnRamp == nil {
+		if c.MustGetEVMChainState(chainSelector).OnRamp == nil {
 			return nil, fmt.Errorf("no onramp found in the state for chain %d", chainSelector)
 		}
-		onRampAddressBytes = c.Chains[chainSelector].OnRamp.Address().Bytes()
+		onRampAddressBytes = c.MustGetEVMChainState(chainSelector).OnRamp.Address().Bytes()
 	case chain_selectors.FamilySolana:
 		if c.SolChains[chainSelector].Router.IsZero() {
 			return nil, fmt.Errorf("no router found in the state for chain %d", chainSelector)
@@ -578,7 +615,7 @@ func (c CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType cldf.Contr
 	}
 	switch family {
 	case chain_selectors.FamilyEVM:
-		chainState, exists := c.Chains[chainSelector]
+		chainState, exists := c.EVMChainState(chainSelector)
 		if !exists {
 			return fmt.Errorf("chain %d does not exist", chainSelector)
 		}
@@ -637,10 +674,12 @@ func LoadOnchainState(e cldf.Environment) (CCIPOnChainState, error) {
 	if err != nil {
 		return CCIPOnChainState{}, err
 	}
+
 	state := CCIPOnChainState{
 		Chains:      make(map[uint64]evm.CCIPChainState),
 		SolChains:   solanaState.SolChains,
 		AptosChains: aptosChains,
+		evmMu:       &sync.RWMutex{},
 	}
 	for chainSelector, chain := range e.Chains {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
@@ -655,7 +694,7 @@ func LoadOnchainState(e cldf.Environment) (CCIPOnChainState, error) {
 		if err != nil {
 			return state, err
 		}
-		state.Chains[chainSelector] = chainState
+		state.WriteEVMChainState(chainSelector, chainState)
 	}
 	return state, state.Validate()
 }
@@ -1084,7 +1123,7 @@ func ValidateChain(env cldf.Environment, state CCIPOnChainState, chainSel uint64
 	if !ok {
 		return fmt.Errorf("chain with selector %d does not exist in environment", chainSel)
 	}
-	chainState, ok := state.Chains[chainSel]
+	chainState, ok := state.EVMChainState(chainSel)
 	if !ok {
 		return fmt.Errorf("%s does not exist in state", chain)
 	}

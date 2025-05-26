@@ -19,6 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 )
 
+func WithBillingClient(client BillingClient) func(*Delegate) {
+	return func(e *Delegate) {
+		e.billingClient = client
+	}
+}
+
 type Delegate struct {
 	registry       core.CapabilitiesRegistry
 	secretsFetcher SecretsFor
@@ -26,6 +32,7 @@ type Delegate struct {
 	store          store.Store
 	ratelimiter    *ratelimiter.RateLimiter
 	workflowLimits *syncerlimiter.Limits
+	billingClient  BillingClient
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -91,6 +98,7 @@ func NewDelegate(
 	store store.Store,
 	ratelimiter *ratelimiter.RateLimiter,
 	workflowLimits *syncerlimiter.Limits,
+	opts ...func(*Delegate),
 ) *Delegate {
 	return &Delegate{
 		logger:   logger,

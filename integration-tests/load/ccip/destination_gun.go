@@ -140,7 +140,7 @@ func (m *DestinationGun) MustSourceChain() (uint64, error) {
 }
 func (m *DestinationGun) sendEVMMessage(src uint64) error {
 	acc := m.evmSourceKeys[src]
-	r := m.state.Chains[src].Router
+	r := m.state.MustGetEVMChainState(src).Router
 
 	msg, gasLimit, err := m.GetEVMMessage(src)
 	if err != nil {
@@ -257,7 +257,7 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 	if selectedMsgDetails.IsTokenTransfer() {
 		message.TokenAmounts = []router.ClientEVMTokenAmount{
 			{
-				Token:  m.state.Chains[src].LinkToken.Address(),
+				Token:  m.state.MustGetEVMChainState(src).LinkToken.Address(),
 				Amount: big.NewInt(1),
 			},
 		}

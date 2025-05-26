@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/utils"
 
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
@@ -126,7 +126,9 @@ func (m mockRelayer) LatestHead(_ context.Context) (types.Head, error) {
 }
 
 func Test_SolanaTelemetryReporter_ReportPeriodic(t *testing.T) {
-	blockHash := [32]byte(utils.GetRandomPubKey(t))
+	privKey, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+	blockHash := [32]byte(privKey.PublicKey())
 
 	head := types.Head{
 		Height:    "42",

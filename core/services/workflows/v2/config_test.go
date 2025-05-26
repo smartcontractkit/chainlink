@@ -1,13 +1,16 @@
 package v2_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/jonboulle/clockwork"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
+	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -56,6 +59,7 @@ func defaultTestConfig(t *testing.T) *v2.EngineConfig {
 		PerSenderBurst: 100,
 	})
 	require.NoError(t, err)
+
 	return &v2.EngineConfig{
 		Lggr:                 lggr,
 		Module:               modulemocks.NewModuleV2(t),
@@ -68,4 +72,19 @@ func defaultTestConfig(t *testing.T) *v2.EngineConfig {
 		GlobalLimits:         sLimiter,
 		ExecutionRateLimiter: rateLimiter,
 	}
+}
+
+type mockBillingClient struct {
+	mock.Mock
+}
+
+func (_m *mockBillingClient) SubmitWorkflowReceipt(ctx context.Context, req *billing.SubmitWorkflowReceiptRequest) (*billing.SubmitWorkflowReceiptResponse, error) {
+	args := _m.Called(ctx, req)
+
+	var a0 *billing.SubmitWorkflowReceiptResponse
+	if arg, ok := args.Get(0).(*billing.SubmitWorkflowReceiptResponse); ok {
+		a0 = arg
+	}
+
+	return a0, args.Error(1)
 }

@@ -90,6 +90,9 @@ func AddCapabilities(env cldf.Environment, req *AddCapabilitiesRequest) (cldf.Ch
 		if ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
+		if cr.McmsContracts == nil {
+			return out, fmt.Errorf("expected capabiity registry contract %s to be owned by MCMS", cr.Contract.Address().String())
+		}
 		timelocksPerChain := map[uint64]string{
 			registryChain.Selector: cr.McmsContracts.Timelock.Address().Hex(),
 		}

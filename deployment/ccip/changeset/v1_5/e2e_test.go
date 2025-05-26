@@ -85,7 +85,7 @@ func TestE2ELegacy(t *testing.T) {
 		testhelpers.WithDestChain(dest),
 		testhelpers.WithTestRouter(false),
 		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+			Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
@@ -96,6 +96,6 @@ func TestE2ELegacy(t *testing.T) {
 	require.NotNil(t, sentEvent)
 	destStartBlock, err := destChain.Client.HeaderByNumber(context.Background(), nil)
 	require.NoError(t, err)
-	v1_5.WaitForCommit(t, srcChain, destChain, state.Chains[dest].CommitStore[src], sentEvent.Message.SequenceNumber)
-	v1_5.WaitForExecute(t, srcChain, destChain, state.Chains[dest].EVM2EVMOffRamp[src], []uint64{sentEvent.Message.SequenceNumber}, destStartBlock.Number.Uint64())
+	v1_5.WaitForCommit(t, srcChain, destChain, state.MustGetEVMChainState(dest).CommitStore[src], sentEvent.Message.SequenceNumber)
+	v1_5.WaitForExecute(t, srcChain, destChain, state.MustGetEVMChainState(dest).EVM2EVMOffRamp[src], []uint64{sentEvent.Message.SequenceNumber}, destStartBlock.Number.Uint64())
 }

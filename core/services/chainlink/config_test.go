@@ -574,6 +574,9 @@ func TestConfig_Marshal(t *testing.T) {
 			RestURL: ptr("streams.url"),
 		},
 	}
+	full.Billing = toml.Billing{
+		URL: ptr("localhost:4319"),
+	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
 			ChainID: ubig.NewI(1),

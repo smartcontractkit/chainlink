@@ -14,6 +14,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
+	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -74,7 +76,7 @@ type NewChainDefinition struct {
 	// ChainDefinition holds basic chain info.
 	ChainDefinition `json:"chainDefinition"`
 	// ChainContractParams defines contract parameters for the chain.
-	ChainContractParams `json:"chainContractParams"`
+	ccipseq.ChainContractParams `json:"chainContractParams"`
 	// ExistingContracts defines any contracts that are already deployed on this chain.
 	ExistingContracts commoncs.ExistingContractsConfig `json:"existingContracts"`
 	// ConfigOnHome defines how this chain should be configured on the CCIPHome contract.
@@ -84,7 +86,7 @@ type NewChainDefinition struct {
 	// ExecOCRParams defines the OCR parameters for this chain's exec plugin.
 	ExecOCRParams CCIPOCRParams `json:"execOcrParams"`
 	// RMNRemoteConfig is the config for the RMNRemote contract.
-	RMNRemoteConfig *RMNRemoteConfig `json:"rmnRemoteConfig,omitempty"`
+	RMNRemoteConfig *ccipops.RMNRemoteConfig `json:"rmnRemoteConfig,omitempty"`
 }
 
 // AddCandidatesForNewChainConfig is a configuration struct for AddCandidatesForNewChainChangeset.
@@ -117,22 +119,21 @@ func (c AddCandidatesForNewChainConfig) prerequisiteConfigForNewChain() changese
 	}
 }
 
-func (c AddCandidatesForNewChainConfig) deploymentConfigForNewChain() DeployChainContractsConfig {
-	return DeployChainContractsConfig{
+func (c AddCandidatesForNewChainConfig) deploymentConfigForNewChain() ccipseq.DeployChainContractsConfig {
+	return ccipseq.DeployChainContractsConfig{
 		HomeChainSelector: c.HomeChainSelector,
-		ContractParamsPerChain: map[uint64]ChainContractParams{
+		ContractParamsPerChain: map[uint64]ccipseq.ChainContractParams{
 			c.NewChain.Selector: c.NewChain.ChainContractParams,
 		},
 	}
 }
 
-func (c AddCandidatesForNewChainConfig) rmnRemoteConfigForNewChain() SetRMNRemoteConfig {
+func (c AddCandidatesForNewChainConfig) rmnRemoteConfigForNewChain() ccipseq.SetRMNRemoteConfig {
 	if c.NewChain.RMNRemoteConfig == nil {
-		return SetRMNRemoteConfig{}
+		return ccipseq.SetRMNRemoteConfig{}
 	}
-	return SetRMNRemoteConfig{
-		HomeChainSelector: c.HomeChainSelector,
-		RMNRemoteConfigs: map[uint64]RMNRemoteConfig{
+	return ccipseq.SetRMNRemoteConfig{
+		RMNRemoteConfigs: map[uint64]ccipops.RMNRemoteConfig{
 			c.NewChain.Selector: *c.NewChain.RMNRemoteConfig,
 		},
 	}
@@ -182,7 +183,7 @@ func addCandidatesForNewChainPrecondition(e cldf.Environment, c AddCandidatesFor
 		return fmt.Errorf("failed to validate deployment config for new chain: %w", err)
 	}
 	if c.NewChain.RMNRemoteConfig != nil {
-		if err := c.rmnRemoteConfigForNewChain().Validate(); err != nil {
+		if err := c.rmnRemoteConfigForNewChain().Validate(e, state); err != nil {
 			return fmt.Errorf("failed to validate RMN remote config for new chain: %w", err)
 		}
 	}
