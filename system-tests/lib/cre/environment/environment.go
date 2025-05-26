@@ -802,6 +802,9 @@ func (c *ConcurrentNonceMap) Increment(chainID uint64) uint64 {
 	return c.nonceByChainID[chainID]
 }
 
+// must match nubmer of events we track in core/services/workflows/syncer/handler.go
+const NumberOfTrackedWorkflowRegistryEvents = 6
+
 // waitForAllNodesToHaveExpectedFiltersRegistered manually checks if all WorkflowRegistry filters used by the LogPoller are registered for all nodes. We want to see if this will help with the flakiness.
 func waitForAllNodesToHaveExpectedFiltersRegistered(singeFileLogger *cldlogger.SingleFileLogger, testLogger zerolog.Logger, homeChainID uint64, donTopology cretypes.DonTopology, nodeSetInput []*cretypes.CapabilitiesAwareNodeSet) error {
 	for donIdx, don := range donTopology.DonsWithMetadata {
@@ -850,7 +853,7 @@ func waitForAllNodesToHaveExpectedFiltersRegistered(singeFileLogger *cldlogger.S
 
 				for _, filter := range allFilters {
 					if strings.Contains(filter.Name, "WorkflowRegistry") {
-						if len(filter.EventSigs) == 6 {
+						if len(filter.EventSigs) == NumberOfTrackedWorkflowRegistryEvents {
 							testLogger.Info().Msgf("Found all WorkflowRegistry filters for node %d", nodeIndexInt)
 							results[nodeIndexInt] = true
 							continue
