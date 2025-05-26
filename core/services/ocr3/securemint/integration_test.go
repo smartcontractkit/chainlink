@@ -2,7 +2,6 @@ package llo_test
 
 import (
 	"crypto/ed25519"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -13,8 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -48,7 +45,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -247,20 +243,7 @@ func makeDefaultOCRConfig() *OCRConfig {
 	}
 }
 
-func WithPredecessorConfigDigest(predecessorConfigDigest ocr2types.ConfigDigest) OCRConfigOption {
-	return func(cfg *OCRConfig) {
-		onchainConfig, err := (&datastreamsllo.EVMOnchainConfigCodec{}).Encode(datastreamsllo.OnchainConfig{
-			Version:                 1,
-			PredecessorConfigDigest: &predecessorConfigDigest,
-		})
-		if err != nil {
-			panic(err)
-		}
-		cfg.OnchainConfig = onchainConfig
-	}
-}
-
-func WithOffchainConfig(offchainConfig datastreamsllo.OffchainConfig) OCRConfigOption {
+func withOffchainConfig(offchainConfig datastreamsllo.OffchainConfig) OCRConfigOption {
 	return func(cfg *OCRConfig) {
 		offchainConfigEncoded, err := offchainConfig.Encode()
 		if err != nil {
@@ -270,7 +253,7 @@ func WithOffchainConfig(offchainConfig datastreamsllo.OffchainConfig) OCRConfigO
 	}
 }
 
-func WithOracles(oracles []confighelper.OracleIdentityExtra) OCRConfigOption {
+func withOracles(oracles []confighelper.OracleIdentityExtra) OCRConfigOption {
 	return func(cfg *OCRConfig) {
 		cfg.Oracles = oracles
 		cfg.S = []int{len(oracles)} // all oracles transmit by default
@@ -314,7 +297,7 @@ func generateConfig(t *testing.T, opts ...OCRConfigOption) (signers []types.Onch
 }
 
 func setLegacyConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, legacyVerifier *verifier.Verifier, legacyVerifierAddr common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra, inOffchainConfig datastreamsllo.OffchainConfig) ocr2types.ConfigDigest {
-	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig := generateConfig(t, WithOracles(oracles), WithOffchainConfig(inOffchainConfig))
+	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig := generateConfig(t, withOracles(oracles), withOffchainConfig(inOffchainConfig))
 
 	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
 	require.NoError(t, err)
@@ -336,74 +319,6 @@ func setLegacyConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backe
 	require.NoError(t, err)
 
 	return l.ConfigDigest
-}
-
-func setStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, opts ...OCRConfigOption) ocr2types.ConfigDigest {
-	return setBlueGreenConfig(t, donID, steve, backend, configurator, configuratorAddress, nodes, opts...)
-}
-
-func setProductionConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, opts ...OCRConfigOption) ocr2types.ConfigDigest {
-	return setBlueGreenConfig(t, donID, steve, backend, configurator, configuratorAddress, nodes, opts...)
-}
-
-func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, opts ...OCRConfigOption) ocr2types.ConfigDigest {
-	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig := generateConfig(t, opts...)
-
-	var onchainPubKeys [][]byte
-	for _, signer := range signers {
-		onchainPubKeys = append(onchainPubKeys, signer)
-	}
-	offchainTransmitters := make([][32]byte, nNodes)
-	for i := 0; i < nNodes; i++ {
-		offchainTransmitters[i] = nodes[i].ClientPubKey
-	}
-	donIDPadded := llo.DonIDToBytes32(donID)
-	var isProduction bool
-	{
-		cfg, err := (&datastreamsllo.EVMOnchainConfigCodec{}).Decode(onchainConfig)
-		require.NoError(t, err)
-		isProduction = cfg.PredecessorConfigDigest == nil
-	}
-	var err error
-	if isProduction {
-		_, err = configurator.SetProductionConfig(steve, donIDPadded, onchainPubKeys, offchainTransmitters, fNodes, onchainConfig, offchainConfigVersion, offchainConfig)
-	} else {
-		_, err = configurator.SetStagingConfig(steve, donIDPadded, onchainPubKeys, offchainTransmitters, fNodes, onchainConfig, offchainConfigVersion, offchainConfig)
-	}
-	require.NoError(t, err)
-
-	// libocr requires a few confirmations to accept the config
-	backend.Commit()
-	backend.Commit()
-	backend.Commit()
-	backend.Commit()
-
-	var topic common.Hash
-	if isProduction {
-		topic = llo.ProductionConfigSet
-	} else {
-		topic = llo.StagingConfigSet
-	}
-	logs, err := backend.Client().FilterLogs(testutils.Context(t), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{[]common.Hash{topic, donIDPadded}}})
-	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(logs), 1)
-
-	cfg, err := mercury.ConfigFromLog(logs[len(logs)-1].Data)
-	require.NoError(t, err)
-
-	return cfg.ConfigDigest
-}
-
-func promoteStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, isGreenProduction bool) {
-	donIDPadded := llo.DonIDToBytes32(donID)
-	_, err := configurator.PromoteStagingConfig(steve, donIDPadded, isGreenProduction)
-	require.NoError(t, err)
-
-	// libocr requires a few confirmations to accept the config
-	backend.Commit()
-	backend.Commit()
-	backend.Commit()
-	backend.Commit()
 }
 
 func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
@@ -684,41 +599,4 @@ func newChannelDefinitionsServer(t *testing.T, channelDefinitions llotypes.Chann
 	}))
 	t.Cleanup(channelDefinitionsServer.Close)
 	return channelDefinitionsServer.URL, channelDefinitionsSHA
-}
-
-func mustNewType(t string) abi.Type {
-	result, err := abi.NewType(t, "", []abi.ArgumentMarshaling{})
-	if err != nil {
-		panic(fmt.Sprintf("Unexpected error during abi.NewType: %s", err))
-	}
-	return result
-}
-
-func mustMarshalJSON(v interface{}) string {
-	b, err := json.Marshal(v)
-	if err != nil {
-		panic(err)
-	}
-	return string(b)
-}
-
-func pad32bytes(d uint32) [32]byte {
-	var result [32]byte
-	binary.BigEndian.PutUint32(result[28:], d)
-	return result
-}
-
-func newSingleABIEncoder(typ string, multiplier *ubig.Big) (enc lloevm.ABIEncoder) {
-	if multiplier == nil {
-		err := json.Unmarshal([]byte(fmt.Sprintf(`{"type":"%s"}`, typ)), &enc)
-		if err != nil {
-			panic(err)
-		}
-		return
-	}
-	err := json.Unmarshal([]byte(fmt.Sprintf(`{"type":"%s","multiplier":"%s"}`, typ, multiplier.String())), &enc)
-	if err != nil {
-		panic(err)
-	}
-	return
 }
