@@ -726,6 +726,13 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		}
 	}
 
+	aptosChains := []uint64{}
+	for _, chain := range allChains {
+		if _, ok := e.Env.AptosChains[chain]; ok {
+			aptosChains = append(aptosChains, chain)
+		}
+	}
+
 	for _, chain := range evmChains {
 		evmContractParams[chain] = ccipseq.ChainContractParams{
 			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
@@ -761,6 +768,13 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	}
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, apps)
 	require.NoError(t, err)
+
+	if len(aptosChains) != 0 {
+		// Currently only one aptos chain is supported in test environment
+		aptosCs := DeployChainContractsToAptosCS(t, e, aptosChains[0])
+		e.Env, _, err = commonchangeset.ApplyChangesetsV2(t, e.Env, []commonchangeset.ConfiguredChangeSet{aptosCs})
+		require.NoError(t, err)
+	}
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -869,6 +883,27 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				DAGasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(DefaultDAGasPriceDeviationPPB)},
 				OptimisticConfirmations:   globals.OptimisticConfirmations,
 				ChainFeeDeviationDisabled: true,
+			},
+		}
+	}
+
+	for _, chain := range aptosChains {
+		// TODO(aptos): update this for token transfers
+		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
+		linkTokenAddress := state.AptosChains[chain].LinkTokenAddress
+		tokenInfo[cciptypes.UnknownEncodedAddress(linkTokenAddress.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
+
+		ocrOverride := tc.OCRConfigOverride
+		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenInfo, ocrOverride)
+		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
+		chainConfigs[chain] = v1_6.ChainConfig{
+			Readers: nodeInfo.NonBootstraps().PeerIDs(),
+			// #nosec G115 - Overflow is not a concern in this test scenario
+			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			EncodableChainConfig: chainconfig.ChainConfig{
+				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(DefaultGasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(DefaultDAGasPriceDeviationPPB)},
+				OptimisticConfirmations: globals.OptimisticConfirmations,
 			},
 		}
 	}

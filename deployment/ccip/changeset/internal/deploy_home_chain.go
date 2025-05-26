@@ -2,8 +2,10 @@ package internal
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -410,6 +412,11 @@ func BuildOCR3ConfigForCCIPHome(
 					return nil, fmt.Errorf("failed to decode SVM address '%s': %w", transmitter, err)
 				}
 				parsed = pk.Bytes()
+			case chain_selectors.FamilyAptos:
+				parsed, err = hex.DecodeString(strings.TrimPrefix(string(transmitter), "0x"))
+				if err != nil {
+					return nil, fmt.Errorf("failed to decode Aptos address '%s': %w", transmitter, err)
+				}
 			}
 			transmittersBytes[i] = parsed
 		}
