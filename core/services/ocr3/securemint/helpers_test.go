@@ -454,33 +454,6 @@ func createSingleDecimalBridge(t *testing.T, name string, i int, p decimal.Decim
 	return bridgeName
 }
 
-func createBridge(t *testing.T, bridgeName string, responseJSON string, borm bridges.ORM) {
-	ctx := testutils.Context(t)
-	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		res.WriteHeader(http.StatusOK)
-		_, err := res.Write([]byte(responseJSON))
-		if err != nil {
-			t.Fatalf("failed to write response: %v", err)
-		}
-	}))
-	t.Cleanup(bridge.Close)
-	u, _ := url.Parse(bridge.URL)
-	require.NoError(t, borm.CreateBridgeType(ctx, &bridges.BridgeType{
-		Name: bridges.BridgeName(bridgeName),
-		URL:  models.WebURL(*u),
-	}))
-}
-
-func addMemoStreamSpecs(t *testing.T, node Node, streams []Stream) {
-	for _, strm := range streams {
-		addStreamSpec(t, node, fmt.Sprintf("memo-%d", strm.id), &strm.id, fmt.Sprintf(`
-	value         [type=memo value="%s"];
-	multiply 	  [type=multiply times=1];
-	value -> multiply;
-	`, strm.baseBenchmarkPrice))
-	}
-}
-
 func addOCRJobsEVMPremiumLegacy(
 	t *testing.T,
 	streams []Stream,
