@@ -78,7 +78,7 @@ jobs:
 
   docker-core:
     needs: [init]
-    if: ${{ needs.init.outputs.should-run }}
+    if: ${{ needs.init.outputs.should-run == 'true' }}
     permissions:
       contents: read
       id-token: write
@@ -108,7 +108,7 @@ jobs:
 
   docker-core-plugins:
     needs: [init]
-    if: ${{ needs.init.outputs.should-run }}
+    if: ${{ needs.init.outputs.should-run == 'true' }}
     permissions:
       contents: read
       id-token: write
@@ -143,7 +143,7 @@ jobs:
 
   docker-ccip:
     needs: [init]
-    if: ${{ needs.init.outputs.should-run }}
+    if: ${{ needs.init.outputs.should-run == 'true' }}
     permissions:
       contents: read
       id-token: write
@@ -174,7 +174,7 @@ jobs:
 
   docker-ccip-plugins:
     needs: [init]
-    if: ${{ needs.init.outputs.should-run }}
+    if: ${{ needs.init.outputs.should-run == 'true' }}
     permissions:
       contents: read
       id-token: write
