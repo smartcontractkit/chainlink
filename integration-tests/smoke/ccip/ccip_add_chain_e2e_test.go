@@ -36,13 +36,13 @@ import (
 func Test_AddChainE2E(t *testing.T) {
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(
 		t,
-		testhelpers.WithExtraConfigTomls([]string{"Test_AddChainE2E.toml"}),
-		testhelpers.WithNumOfChains(3),
+		testhelpers.WithNumOfChains(4),
 		testhelpers.WithPrerequisiteDeploymentOnly(nil),
 	)
-
-	toDeploy := e.Env.AllChainSelectorsExcluding([]uint64{e.HomeChainSel, e.FeedChainSel})
-	initialSetToDeploy := e.Env.AllChainSelectorsExcluding(toDeploy)
+	initialSetToDeploy := []uint64{e.HomeChainSel, e.FeedChainSel}
+	remainingChains := e.Env.AllChainSelectorsExcluding(initialSetToDeploy)
+	thirdChain := remainingChains[0]
+	fourthChain := remainingChains[1]
 
 	e = testhelpers.AddCCIPContractsToEnvironment(t, initialSetToDeploy, tEnv, false)
 	// Need to update what the RMNProxy is pointing to, otherwise plugin will not work.
@@ -78,23 +78,14 @@ func Test_AddChainE2E(t *testing.T) {
 
 	testhelpers.SleepAndReplay(t, e.Env, 10*time.Second, initialSetToDeploy...)
 
-	// Build remote chain configurations
-	remoteChains := make([]v1_6.ChainDefinition, len(initialSetToDeploy))
-	for i, selector := range initialSetToDeploy {
-		remoteChains[i] = v1_6.ChainDefinition{
-			ConnectionConfig: v1_6.ConnectionConfig{
-				RMNVerificationDisabled: true,
-				AllowListEnabled:        false,
-			},
-			Selector: selector,
-			GasPrice: testhelpers.DefaultGasPrice,
-			TokenPrices: map[common.Address]*big.Int{
-				state.Chains[selector].LinkToken.Address(): testhelpers.DefaultLinkPrice,
-				state.Chains[selector].Weth9.Address():     testhelpers.DefaultWethPrice,
-			},
-			FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
-		}
-	}
+	// need donIDClaimer contract to be deployed before we can deploy the new chain
+	e.Env, err = commonchangeset.Apply(t, e.Env, nil,
+		commonchangeset.Configure(
+			v1_6.DeployDonIDClaimerChangeset,
+			v1_6.DeployDonIDClaimerConfig{},
+		))
+	require.NoError(t, err, "must deploy donIDClaimer contract")
+
 	// Fetch the timelock and call proxy contracts for the initial set of chains
 	timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts, len(initialSetToDeploy))
 	for _, selector := range initialSetToDeploy {
@@ -108,12 +99,100 @@ func Test_AddChainE2E(t *testing.T) {
 	e.Env, err = TransferOwnership(t, e.Env, timelockContracts, e.HomeChainSel, initialSetToDeploy, state)
 	require.NoError(t, err, "must transfer ownership of home and feed chain contracts to the timelock")
 
-	// setup the third chain with other two
-	nodeInfo, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	// setup the third chain with home and feed chain
+	SetupNewChain(t, e.HomeChainSel, e.FeedChainSel, thirdChain, initialSetToDeploy, e.Env, state, timelockContracts)
+
+	// setup the fourth chain with third chain alone
+	SetupNewChain(t, e.HomeChainSel, e.FeedChainSel, fourthChain, []uint64{thirdChain}, e.Env, state, timelockContracts)
+
+	// e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+	// 	commonchangeset.Configure(
+	// 		cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
+	// 		v1_6.SetRMNRemoteOnRMNProxyConfig{
+	// 			ChainSelectors: []uint64{chainToDeploy},
+	// 			MCMSConfig: &proposalutils.TimelockConfig{
+	// 				MinDelay:   0 * time.Second,
+	// 				MCMSAction: mcmstypes.TimelockActionSchedule,
+	// 			},
+	// 		},
+	// 	),
+	// )
+	// require.NoError(t, err)
+	state, err = stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	testhelpers.SleepAndReplay(t, e.Env, 60*time.Second, e.Env.AllChainSelectors()...)
+	SendMessages(t,
+		e.Env,
+		[]testhelpers.SourceDestPair{
+			{
+				SourceChainSelector: e.HomeChainSel,
+				DestChainSelector:   thirdChain,
+			},
+			{
+				SourceChainSelector: e.FeedChainSel,
+				DestChainSelector:   thirdChain,
+			},
+			{
+				SourceChainSelector: thirdChain,
+				DestChainSelector:   e.FeedChainSel,
+			},
+			{
+				SourceChainSelector: thirdChain,
+				DestChainSelector:   e.HomeChainSel,
+			},
+			{
+				SourceChainSelector: thirdChain,
+				DestChainSelector:   fourthChain,
+			},
+			{
+				SourceChainSelector: fourthChain,
+				DestChainSelector:   thirdChain,
+			},
+			{
+				SourceChainSelector: e.HomeChainSel,
+				DestChainSelector:   e.FeedChainSel,
+			},
+			{
+				SourceChainSelector: e.FeedChainSel,
+				DestChainSelector:   e.HomeChainSel,
+			},
+		},
+		state,
+		false,
+	)
+}
+
+func SetupNewChain(
+	t *testing.T,
+	homeChain, feedChain, chainToDeploy uint64,
+	remoteChains []uint64,
+	env cldf.Environment,
+	state stateview.CCIPOnChainState,
+	timelockContracts map[uint64]*proposalutils.TimelockExecutionContracts,
+) {
+	nodeInfo, err := deployment.NodeInfo(env.NodeIDs, env.Offchain)
 	require.NoError(t, err, "must get node info")
 	mcmsDeploymentCfg := proposalutils.SingleGroupTimelockConfigV2(t)
-	chainToDeploy := toDeploy[0]
-	tokenConfig := shared.NewTestTokenConfig(state.MustGetEVMChainState(e.FeedChainSel).USDFeeds)
+	tokenConfig := shared.NewTestTokenConfig(state.MustGetEVMChainState(feedChain).USDFeeds)
+
+	// Build remote chain configurations
+	remoteChainsDefinition := make([]v1_6.ChainDefinition, len(remoteChains))
+	for i, selector := range remoteChains {
+		remoteChainsDefinition[i] = v1_6.ChainDefinition{
+			ConnectionConfig: v1_6.ConnectionConfig{
+				RMNVerificationDisabled: true,
+				AllowListEnabled:        false,
+			},
+			Selector: selector,
+			GasPrice: testhelpers.DefaultGasPrice,
+			TokenPrices: map[common.Address]*big.Int{
+				state.Chains[selector].LinkToken.Address(): testhelpers.DefaultLinkPrice,
+				state.Chains[selector].Weth9.Address():     testhelpers.DefaultWethPrice,
+			},
+			FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
+		}
+	}
+
 	newChainDefinition := v1_6.NewChainDefinition{
 		ChainDefinition: v1_6.ChainDefinition{
 			ConnectionConfig: v1_6.ConnectionConfig{
@@ -144,8 +223,8 @@ func Test_AddChainE2E(t *testing.T) {
 		},
 		CommitOCRParams: v1_6.DeriveOCRParamsForCommit(
 			v1_6.SimulationTest,
-			e.FeedChainSel,
-			tokenConfig.GetTokenInfo(e.Env.Logger,
+			feedChain,
+			tokenConfig.GetTokenInfo(env.Logger,
 				state.MustGetEVMChainState(chainToDeploy).LinkToken.Address(),
 				state.MustGetEVMChainState(chainToDeploy).Weth9.Address(),
 			),
@@ -157,23 +236,15 @@ func Test_AddChainE2E(t *testing.T) {
 		ExecOCRParams: v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, nil, nil),
 	}
 
-	// need donIDClaimer contract to be deployed before we can deploy the new chain
-	e.Env, err = commonchangeset.Apply(t, e.Env, nil,
-		commonchangeset.Configure(
-			v1_6.DeployDonIDClaimerChangeset,
-			v1_6.DeployDonIDClaimerConfig{},
-		))
-	require.NoError(t, err, "must deploy donIDClaimer contract")
-
 	// Add candidate for new chain using AddCandidatesForNewChainChangeset
-	e.Env, err = commonchangeset.Apply(t, e.Env, timelockContracts,
+	env, err = commonchangeset.Apply(t, env, timelockContracts,
 		commonchangeset.Configure(
 			v1_6.AddCandidatesForNewChainChangeset,
 			v1_6.AddCandidatesForNewChainConfig{
-				HomeChainSelector:    e.HomeChainSel,
-				FeedChainSelector:    e.FeedChainSel,
+				HomeChainSelector:    homeChain,
+				FeedChainSelector:    feedChain,
 				NewChain:             newChainDefinition,
-				RemoteChains:         remoteChains,
+				RemoteChains:         remoteChainsDefinition,
 				MCMSDeploymentConfig: &mcmsDeploymentCfg,
 				MCMSConfig: &proposalutils.TimelockConfig{
 					MinDelay:   0 * time.Second,
@@ -186,13 +257,13 @@ func Test_AddChainE2E(t *testing.T) {
 	require.NoError(t, err, "must apply AddCandidatesForNewChainChangeset")
 
 	// Apply PromoteNewChainForConfigChangeset
-	e.Env, err = commonchangeset.Apply(t, e.Env, timelockContracts,
+	env, err = commonchangeset.Apply(t, env, timelockContracts,
 		commonchangeset.Configure(
 			v1_6.PromoteNewChainForConfigChangeset,
 			v1_6.PromoteNewChainForConfig{
-				HomeChainSelector: e.HomeChainSel,
+				HomeChainSelector: homeChain,
 				NewChain:          newChainDefinition,
-				RemoteChains:      remoteChains,
+				RemoteChains:      remoteChainsDefinition,
 				TestRouter:        pointer.ToBool(false),
 				MCMSConfig: &proposalutils.TimelockConfig{
 					MinDelay:   0 * time.Second,
@@ -202,53 +273,6 @@ func Test_AddChainE2E(t *testing.T) {
 		),
 	)
 	require.NoError(t, err, "must apply PromoteNewChainForConfigChangeset")
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
-			v1_6.SetRMNRemoteOnRMNProxyConfig{
-				ChainSelectors: []uint64{chainToDeploy},
-				MCMSConfig: &proposalutils.TimelockConfig{
-					MinDelay:   0 * time.Second,
-					MCMSAction: mcmstypes.TimelockActionSchedule,
-				},
-			},
-		),
-	)
-	require.NoError(t, err)
-	state, err = stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-	testhelpers.SleepAndReplay(t, e.Env, 60*time.Second, e.Env.AllChainSelectors()...)
-	SendMessages(t,
-		e.Env,
-		[]testhelpers.SourceDestPair{
-			{
-				SourceChainSelector: e.HomeChainSel,
-				DestChainSelector:   chainToDeploy,
-			},
-			{
-				SourceChainSelector: chainToDeploy,
-				DestChainSelector:   e.HomeChainSel,
-			},
-			{
-				SourceChainSelector: e.HomeChainSel,
-				DestChainSelector:   e.FeedChainSel,
-			},
-			{
-				SourceChainSelector: e.FeedChainSel,
-				DestChainSelector:   e.HomeChainSel,
-			},
-			{
-				SourceChainSelector: e.FeedChainSel,
-				DestChainSelector:   chainToDeploy,
-			},
-			{
-				SourceChainSelector: chainToDeploy,
-				DestChainSelector:   e.FeedChainSel,
-			},
-		},
-		state,
-		false,
-	)
 }
 
 func SendMessages(
