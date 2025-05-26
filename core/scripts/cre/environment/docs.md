@@ -96,7 +96,7 @@ go run main.go env start
 # or to start environment with an example workflow
 go run main.go env start --with-example
 
-# or to start environment with an imge that contains all supported capabilities
+# or to start environment with an image that contains all supported capabilities
 go run main.go env start --with-plugins-docker-image ***.dkr.ecr.***.amazonaws.com/chainlink:nightly-20250522-plugins
 ```
 

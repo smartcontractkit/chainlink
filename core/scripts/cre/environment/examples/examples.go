@@ -13,8 +13,8 @@ var rpcUrl string
 
 var DeployPermissionlessFeedsConsumerCmd = &cobra.Command{
 	Use:   "deploy-permissionless-feeds-consumer",
-	Short: "Download CRE CLI binary",
-	Long:  `Download the CRE CLI binary from GitHub releases`,
+	Short: "Deploy a Permissionless Feeds Consumer contract",
+	Long:  `Deploy a Permissionless Feeds Consumer contract to the specified blockchain network using the provided RPC URL.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		address, deployErr := deploy.DeployPermissionlessFeedsConsumer(rpcUrl)
 		if deployErr != nil {
