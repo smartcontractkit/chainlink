@@ -22,6 +22,12 @@ jobs:
   init:
     runs-on: ubuntu-24.04
     outputs:
+      should-run: >-
+        ${{
+          steps.pr-labels.outputs.check-label-found == 'true' ||
+          github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch'
+        }}
       build-type: ${{ steps.build-type.outputs.build-type }}
       runner-arm64: ${{ steps.runner-labels.outputs.runner-arm64 }}
       runner-amd64: ${{ steps.runner-labels.outputs.runner-amd64 }}
@@ -44,6 +50,14 @@ jobs:
             echo "::error::Unsupported build trigger: ${BUILD_TRIGGER}"
             exit 1
           fi
+
+      - name: Get PR Labels
+        id: pr-labels
+        uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
+        with:
+          check-label: "build-publish"
+          skip-merge-group: "true"
+
       - name: Set runner labels
         id: runner-labels
         shell: bash
@@ -57,12 +71,14 @@ jobs:
             echo "runner-arm64=${SH_RUNNER_LABEL_ARM64}" | tee -a "$GITHUB_OUTPUT"
             echo "runner-amd64=${SH_RUNNER_LABEL_AMD64}" | tee -a "$GITHUB_OUTPUT"
           else
+            # Use GitHub runner labels for non-PR events
             echo "runner-arm64=${GH_RUNNER_LABEL_ARM64}" | tee -a "$GITHUB_OUTPUT"
             echo "runner-amd64=${GH_RUNNER_LABEL_AMD64}" | tee -a "$GITHUB_OUTPUT"
           fi
 
   docker-core:
     needs: [init]
+    if: ${{ needs.init.outputs.should-run }}
     permissions:
       contents: read
       id-token: write
@@ -92,6 +108,7 @@ jobs:
 
   docker-core-plugins:
     needs: [init]
+    if: ${{ needs.init.outputs.should-run }}
     permissions:
       contents: read
       id-token: write
@@ -126,6 +143,7 @@ jobs:
 
   docker-ccip:
     needs: [init]
+    if: ${{ needs.init.outputs.should-run }}
     permissions:
       contents: read
       id-token: write
@@ -156,6 +174,7 @@ jobs:
 
   docker-ccip-plugins:
     needs: [init]
+    if: ${{ needs.init.outputs.should-run }}
     permissions:
       contents: read
       id-token: write
