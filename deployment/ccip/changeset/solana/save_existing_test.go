@@ -9,6 +9,8 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -66,6 +68,10 @@ func TestSaveExisting(t *testing.T) {
 		SolChains: map[uint64]cldf.SolChain{
 			chainsel.SOLANA_DEVNET.Selector: {},
 		},
+		BlockChains: chain.NewBlockChains(
+			map[uint64]chain.BlockChain{
+				chainsel.SOLANA_DEVNET.Selector: cldf_solana.Chain{},
+			}),
 	}
 	ExistingContracts := commonchangeset.ExistingContractsConfig{
 		ExistingContracts: []commonchangeset.Contract{

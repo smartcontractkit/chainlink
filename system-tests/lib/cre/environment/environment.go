@@ -27,6 +27,7 @@ import (
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -163,6 +164,11 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(allChainsErr, "failed to create chains")
 	}
 
+	blockChains := map[uint64]chain.BlockChain{}
+	for selector, ch := range allChains {
+		blockChains[selector] = ch
+	}
+
 	allChainsCLDEnvironment := &cldf.Environment{
 		Logger:            singeFileLogger,
 		Chains:            allChains,
@@ -170,6 +176,7 @@ func SetupTestEnvironment(
 		GetContext: func() context.Context {
 			return ctx
 		},
+		BlockChains: chain.NewBlockChains(blockChains),
 	}
 
 	fmt.Print(libformat.PurpleText("\n[Stage 1/10] Blockchains started in %.2f seconds\n", time.Since(startTime).Seconds()))

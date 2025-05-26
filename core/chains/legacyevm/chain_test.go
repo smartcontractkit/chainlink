@@ -8,28 +8,35 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/sqltest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 )
 
 func TestLegacyChains(t *testing.T) {
-	legacyevmCfg := configtest.NewGeneralConfig(t, nil)
-
 	c := mocks.NewChain(t)
 	c.On("ID").Return(big.NewInt(7))
 	m := map[string]legacyevm.Chain{c.ID().String(): c}
 
-	l := legacyevm.NewLegacyChains(m, legacyevmCfg.EVMConfigs())
+	l := legacyevm.NewLegacyChains(m, []*toml.EVMConfig{})
 	assert.NotNil(t, l.ChainNodeConfigs())
 	got, err := l.Get(c.ID().String())
 	assert.NoError(t, err)
 	assert.Equal(t, c, got)
 }
 
+var _ legacyevm.FeatureConfig = (*testFeatureConfig)(nil)
+
+type testFeatureConfig struct {
+}
+
+func (t *testFeatureConfig) LogPoller() bool {
+	return true
+}
+
 func TestChainOpts_Validate(t *testing.T) {
-	cfg := configtest.NewTestGeneralConfig(t)
+	dbCfg := txmgr.TestDatabaseConfig{}
 	tests := []struct {
 		name    string
 		opts    legacyevm.ChainOpts
@@ -38,10 +45,10 @@ func TestChainOpts_Validate(t *testing.T) {
 		{
 			name: "valid",
 			opts: legacyevm.ChainOpts{
-				ChainConfigs:   cfg.EVMConfigs(),
-				DatabaseConfig: cfg.Database(),
-				ListenerConfig: cfg.Database().Listener(),
-				FeatureConfig:  cfg.Feature(),
+				ChainConfigs:   []*toml.EVMConfig{},
+				DatabaseConfig: &dbCfg,
+				ListenerConfig: dbCfg.Listener(),
+				FeatureConfig:  &testFeatureConfig{},
 				MailMon:        &mailbox.Monitor{},
 				DS:             sqltest.NewNoOpDataSource(),
 			},
