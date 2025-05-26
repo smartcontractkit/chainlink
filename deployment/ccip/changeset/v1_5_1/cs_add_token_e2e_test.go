@@ -104,14 +104,14 @@ func TestAddTokenE2E(t *testing.T) {
 				// We only need the token admin registry to be owned by the timelock in these tests
 				timelockOwnedContractsByChain := make(map[uint64][]common.Address)
 				for _, selector := range selectors {
-					timelockOwnedContractsByChain[selector] = []common.Address{state.Chains[selector].TokenAdminRegistry.Address()}
+					timelockOwnedContractsByChain[selector] = []common.Address{state.MustGetEVMChainState(selector).TokenAdminRegistry.Address()}
 				}
 
 				// Assemble map of addresses required for Timelock scheduling & execution
 				for _, selector := range selectors {
 					timelockContracts[selector] = &proposalutils.TimelockExecutionContracts{
-						Timelock:  state.Chains[selector].Timelock,
-						CallProxy: state.Chains[selector].CallProxy,
+						Timelock:  state.MustGetEVMChainState(selector).Timelock,
+						CallProxy: state.MustGetEVMChainState(selector).CallProxy,
 					}
 				}
 				if test.withMCMS {

@@ -100,7 +100,7 @@ func (sucm *stepUpdateManager) len() int64 {
 
 type SecretsFor func(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error)
 
-type billingClient interface {
+type BillingClient interface {
 	SubmitWorkflowReceipt(context.Context, *billing.SubmitWorkflowReceiptRequest) (*billing.SubmitWorkflowReceiptResponse, error)
 }
 
@@ -125,7 +125,7 @@ type Engine struct {
 	maxExecutionDuration time.Duration
 	heartbeatCadence     time.Duration
 	stepTimeoutDuration  time.Duration
-	billingClient        billingClient
+	billingClient        BillingClient
 
 	// testing lifecycle hook to signal when an execution is finished.
 	onExecutionFinished func(string)
@@ -776,6 +776,26 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		Ref:         msg.stepRef,
 	}
 
+	meteringReport, mrOK := e.meterReports.Get(msg.state.ExecutionID)
+	if mrOK {
+		curStep, err := e.workflow.Vertex(msg.stepRef)
+		if err != nil {
+			l.Error(fmt.Sprintf("failed to get current step %s for metering report: %s", stepState.Ref, err))
+		}
+		capInfo, err := curStep.capability.Info(ctx)
+		if err != nil {
+			l.Error(fmt.Sprintf("failed to get capability info for %s: %s", stepState.Ref, err))
+		}
+		err = meteringReport.ReserveStep(metering.ReportStepRef(stepState.Ref), capInfo)
+		if err != nil {
+			l.Error(fmt.Sprintf("failed to reserve on metering report for %s: %s", stepState.Ref, err))
+		}
+	} else {
+		e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, msg.state.ExecutionID).incrementWorkflowMissingMeteringReport(ctx)
+		// TODO: to be bumped to error if all capabilities must implement metering
+		l.Warnf("no metering report found for %v", msg.state.ExecutionID)
+	}
+
 	logCustMsg(ctx, cma, "executing step", l)
 
 	stepExecutionStartTime := time.Now()
@@ -811,31 +831,11 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		stepStatus = store.StatusCompleted
 	}
 
-	meteringSteps := make([]metering.ReportStep, len(response.Metadata.Metering))
-
-	for idx, detail := range response.Metadata.Metering {
-		unit := metering.SpendUnit(detail.SpendUnit)
-		value, err := unit.StringToSpendValue(detail.SpendValue)
+	if mrOK {
+		err := meteringReport.SetStep(metering.ReportStepRef(stepState.Ref), response.Metadata.Metering)
 		if err != nil {
-			l.Error(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
-		}
-
-		meteringSteps[idx] = metering.ReportStep{
-			Peer2PeerID: detail.Peer2PeerID,
-			SpendUnit:   unit,
-			SpendValue:  value,
-		}
-	}
-
-	if rpt, ok := e.meterReports.Get(msg.state.ExecutionID); ok {
-		if err := rpt.SetStep(metering.ReportStepRef(stepState.Ref), meteringSteps); err != nil {
 			l.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", stepState.Ref, err))
 		}
-		e.metrics.with(platform.KeyWorkflowID, e.workflow.id).incrementWorkflowMissingMeteringReport(ctx)
-	} else {
-		e.metrics.with(platform.KeyWorkflowID, e.workflow.id).incrementWorkflowMissingMeteringReport(ctx)
-		// TODO: to be bumped to error if all capabilities must implement metering
-		l.Warnf("no metering report found for %v", msg.state.ExecutionID)
 	}
 
 	stepState.Status = stepStatus
@@ -1307,7 +1307,7 @@ type Config struct {
 	SecretsFetcher       SecretsFor
 	HeartbeatCadence     time.Duration
 	StepTimeout          time.Duration
-	BillingClient        billingClient
+	BillingClient        BillingClient
 
 	// RateLimiter limits the workflow execution steps globally and per
 	// second that a workflow owner can make

@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc677"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -243,7 +244,7 @@ func addTokenE2EPreconditionValidation(e cldf.Environment, config AddTokensE2ECo
 				if poolCfg.DeployPoolConfig == nil {
 					return fmt.Errorf("must provide pool DeploymentConfig for token %s when TokenDeploymentConfig is not provided", token)
 				}
-				if err := poolCfg.DeployPoolConfig.Validate(e.GetContext(), e.Chains[chain], state.Chains[chain], token); err != nil {
+				if err := poolCfg.DeployPoolConfig.Validate(e.GetContext(), e.Chains[chain], state.MustGetEVMChainState(chain), token); err != nil {
 					return fmt.Errorf("failed to validate token pool config for token %s: %w", token, err)
 				}
 				// populate the internal fields for deploying and configuring token pools and token admin registry and validate them

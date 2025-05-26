@@ -112,7 +112,7 @@ func Test_CCIPReorg_BelowFinality_OnSource(t *testing.T) {
 		t,
 		sourceSelector,
 		e.Env.Chains[destSelector],
-		state.Chains[destSelector].OffRamp,
+		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),
 		false, // enforceSingleCommit
@@ -144,7 +144,7 @@ func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {
 		t,
 		sourceSelector,
 		e.Env.Chains[destSelector],
-		state.Chains[destSelector].OffRamp,
+		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),
 		false, // enforceSingleCommit
@@ -161,7 +161,7 @@ func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {
 		t,
 		sourceSelector,
 		e.Env.Chains[destSelector],
-		state.Chains[destSelector].OffRamp,
+		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),
 		false, // enforceSingleCommit
@@ -196,7 +196,7 @@ func Test_CCIPReorg_GreaterThanFinality_OnDest(t *testing.T) {
 		t,
 		sourceSelector,
 		e.Env.Chains[destSelector],
-		state.Chains[destSelector].OffRamp,
+		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),
 		false, // enforceSingleCommit
@@ -278,7 +278,7 @@ func Test_CCIPReorg_GreaterThanFinality_OnSource(t *testing.T) {
 		t,
 		nonReorgSource,
 		e.Env.Chains[destSelector],
-		state.Chains[destSelector].OffRamp,
+		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),
 		false, // enforceSingleCommit
@@ -287,7 +287,7 @@ func Test_CCIPReorg_GreaterThanFinality_OnSource(t *testing.T) {
 
 	// Commit absence check on the reorged source
 	gomega.NewWithT(t).Consistently(func() bool {
-		it, err := state.Chains[destSelector].OffRamp.FilterCommitReportAccepted(&bind.FilterOpts{Start: 0})
+		it, err := state.MustGetEVMChainState(destSelector).OffRamp.FilterCommitReportAccepted(&bind.FilterOpts{Start: 0})
 		require.NoError(t, err)
 		var found bool
 	outer:
@@ -385,7 +385,7 @@ func sendCCIPMessage(
 	l logging.Logger,
 ) *onramp.OnRampCCIPMessageSent {
 	msgEvent := testhelpers.TestSendRequest(t, env, state, sourceSelector, destSelector, false, router.ClientEVM2AnyMessage{
-		Receiver:     common.LeftPadBytes(state.Chains[destSelector].Receiver.Address().Bytes(), 32),
+		Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(destSelector).Receiver.Address().Bytes(), 32),
 		Data:         []byte("hello world"),
 		TokenAmounts: nil,
 		FeeToken:     common.HexToAddress("0x0"),

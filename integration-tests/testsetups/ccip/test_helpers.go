@@ -285,7 +285,8 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.Deploye
 	var remoteChains []devenv.RemoteChains
 
 	var rpcs []devenv.Chain
-	for chainSel, chain := range state.Chains {
+	for _, chainSel := range state.EVMChains() {
+		chain := state.MustGetEVMChainState(chainSel)
 		c, _ := chainsel.ChainBySelector(chainSel)
 		rmnName := MustCCIPNameToRMNName(c.Name)
 		chainParams = append(chainParams, devenv.ChainParam{
@@ -315,9 +316,9 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.Deploye
 		},
 		HomeChain: devenv.HomeChain{
 			Name:                 MustCCIPNameToRMNName(hc.Name),
-			CapabilitiesRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address().String(),
-			CCIPHome:             state.Chains[tenv.HomeChainSel].CCIPHome.Address().String(),
-			RMNHome:              state.Chains[tenv.HomeChainSel].RMNHome.Address().String(),
+			CapabilitiesRegistry: state.MustGetEVMChainState(tenv.HomeChainSel).CapabilityRegistry.Address().String(),
+			CCIPHome:             state.MustGetEVMChainState(tenv.HomeChainSel).CCIPHome.Address().String(),
+			RMNHome:              state.MustGetEVMChainState(tenv.HomeChainSel).RMNHome.Address().String(),
 		},
 		RemoteChains: remoteChains,
 		ChainParams:  chainParams,

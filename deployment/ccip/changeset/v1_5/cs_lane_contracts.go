@@ -69,11 +69,11 @@ func (c *DeployLaneConfig) Validate(e cldf.Environment, state stateview.CCIPOnCh
 	if !exists {
 		return fmt.Errorf("destination chain %d not found in environment", c.DestinationChainSelector)
 	}
-	sourceChainState, exists := state.Chains[c.SourceChainSelector]
+	sourceChainState, exists := state.EVMChainState(c.SourceChainSelector)
 	if !exists {
 		return fmt.Errorf("source chain %d not found in state", c.SourceChainSelector)
 	}
-	destChainState, exists := state.Chains[c.DestinationChainSelector]
+	destChainState, exists := state.EVMChainState(c.DestinationChainSelector)
 	if !exists {
 		return fmt.Errorf("destination chain %d not found in state", c.DestinationChainSelector)
 	}
@@ -89,7 +89,7 @@ func (c *DeployLaneConfig) Validate(e cldf.Environment, state stateview.CCIPOnCh
 }
 
 func (c *DeployLaneConfig) populateAddresses(state stateview.CCIPOnChainState) error {
-	sourceChainState := state.Chains[c.SourceChainSelector]
+	sourceChainState := state.MustGetEVMChainState(c.SourceChainSelector)
 	srcLink, err := sourceChainState.LinkTokenAddress()
 	if err != nil {
 		return fmt.Errorf("failed to get LINK token address for source chain %d: %w", c.SourceChainSelector, err)
@@ -132,8 +132,8 @@ func DeployLanesChangeset(env cldf.Environment, c DeployLanesConfig) (cldf.Chang
 
 func deployLane(e cldf.Environment, state stateview.CCIPOnChainState, ab cldf.AddressBook, cfg DeployLaneConfig) error {
 	// update prices on the source price registry
-	sourceChainState := state.Chains[cfg.SourceChainSelector]
-	destChainState := state.Chains[cfg.DestinationChainSelector]
+	sourceChainState := state.MustGetEVMChainState(cfg.SourceChainSelector)
+	destChainState := state.MustGetEVMChainState(cfg.DestinationChainSelector)
 	sourceChain := e.Chains[cfg.SourceChainSelector]
 	destChain := e.Chains[cfg.DestinationChainSelector]
 	sourcePriceReg := sourceChainState.PriceRegistry

@@ -180,7 +180,7 @@ func generateOracleProposals(
 ) ([]*jobv1.ProposeJobRequest, error) {
 	// nils will be filled out later with n-specific values:
 	lloSpec := &jobs.LLOJobSpec{
-		Base: jobs.Base{
+		BaseJobSpec: jobs.BaseJobSpec{
 			Name:          fmt.Sprintf("%s | %d", cfg.Filter.DONName, cfg.Filter.DONID),
 			Type:          jobs.JobSpecTypeLLO,
 			SchemaVersion: 1,
@@ -254,7 +254,7 @@ func generateOracleProposals(
 			externalJobID = uuid.New()
 		}
 
-		lloSpec.Base.ExternalJobID = externalJobID
+		lloSpec.BaseJobSpec.ExternalJobID = externalJobID
 		lloSpec.TransmitterID = n.GetPublicKey() // CSAKey
 		lloSpec.OCRKeyBundleID = &nodeConfigMap[n.Id].OcrKeyBundle.BundleId
 

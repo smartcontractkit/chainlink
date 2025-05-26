@@ -60,7 +60,7 @@ func dummyDeployerGroupGrantMintChangeset(e cldf.Environment, cfg dummyDeployerG
 		return cldf.ChangesetOutput{}, err
 	}
 
-	token := state.Chains[cfg.selector].LinkToken
+	token := state.MustGetEVMChainState(cfg.selector).LinkToken
 
 	group := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("grant mint role")
 	deployer, err := group.GetDeployer(cfg.selector)
@@ -82,7 +82,7 @@ func dummyDeployerGroupMintChangeset(e cldf.Environment, cfg dummyDeployerGroupC
 		return cldf.ChangesetOutput{}, err
 	}
 
-	token := state.Chains[cfg.selector].LinkToken
+	token := state.MustGetEVMChainState(cfg.selector).LinkToken
 
 	group := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("mint tokens")
 	deployer, err := group.GetDeployer(cfg.selector)
@@ -109,7 +109,7 @@ func dummyDeployerGroupGrantMintMultiChainChangeset(e cldf.Environment, cfg dumm
 	group := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("grant mint role")
 	for _, mint := range cfg.mints {
 		selector := e.AllChainSelectors()[mint.selectorIndex]
-		token := state.Chains[selector].LinkToken
+		token := state.MustGetEVMChainState(selector).LinkToken
 
 		deployer, err := group.GetDeployer(selector)
 		if err != nil {
@@ -136,7 +136,7 @@ func dummyDeployerGroupMintMultiDeploymentContextChangeset(e cldf.Environment, c
 
 	for i, mint := range cfg.mints {
 		selector := e.AllChainSelectors()[mint.selectorIndex]
-		token := state.Chains[selector].LinkToken
+		token := state.MustGetEVMChainState(selector).LinkToken
 
 		if group == nil {
 			group = deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext(fmt.Sprintf("mint tokens %d", i+1))
@@ -201,7 +201,7 @@ func TestDeployerGroup(t *testing.T) {
 				state, err := stateview.LoadOnchainState(e.Env)
 				require.NoError(t, err)
 
-				token := state.Chains[e.HomeChainSel].LinkToken
+				token := state.MustGetEVMChainState(e.HomeChainSel).LinkToken
 
 				amount, err := token.BalanceOf(nil, tc.cfg.address)
 				require.NoError(t, err)
@@ -239,7 +239,7 @@ func TestDeployerGroupMCMS(t *testing.T) {
 			timelocksPerChain := deployergroup.BuildTimelockPerChain(e.Env, state)
 
 			contractsByChain := make(map[uint64][]common.Address)
-			contractsByChain[e.HomeChainSel] = []common.Address{state.Chains[e.HomeChainSel].LinkToken.Address()}
+			contractsByChain[e.HomeChainSel] = []common.Address{state.MustGetEVMChainState(e.HomeChainSel).LinkToken.Address()}
 
 			_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
 				commonchangeset.Configure(
@@ -273,7 +273,7 @@ func TestDeployerGroupMCMS(t *testing.T) {
 			state, err = stateview.LoadOnchainState(e.Env)
 			require.NoError(t, err)
 
-			token := state.Chains[e.HomeChainSel].LinkToken
+			token := state.MustGetEVMChainState(e.HomeChainSel).LinkToken
 
 			amount, err := token.BalanceOf(nil, tc.cfg.address)
 			require.NoError(t, err)
@@ -317,7 +317,7 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 
 	contractsByChain := make(map[uint64][]common.Address)
 	for _, chain := range e.Env.AllChainSelectors() {
-		contractsByChain[chain] = []common.Address{state.Chains[chain].LinkToken.Address()}
+		contractsByChain[chain] = []common.Address{state.MustGetEVMChainState(chain).LinkToken.Address()}
 	}
 
 	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
@@ -383,7 +383,7 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 
 	contractsByChain := make(map[uint64][]common.Address)
 	for _, chain := range e.Env.AllChainSelectors() {
-		contractsByChain[chain] = []common.Address{currentState.Chains[chain].LinkToken.Address()}
+		contractsByChain[chain] = []common.Address{currentState.MustGetEVMChainState(chain).LinkToken.Address()}
 	}
 
 	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
@@ -418,7 +418,7 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 	currentState, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	token := currentState.Chains[e.HomeChainSel].LinkToken
+	token := currentState.MustGetEVMChainState(e.HomeChainSel).LinkToken
 
 	amount, err := token.BalanceOf(nil, cfg.address)
 	require.NoError(t, err)

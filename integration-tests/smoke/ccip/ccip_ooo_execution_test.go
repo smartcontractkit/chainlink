@@ -178,7 +178,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	)
 
 	// Out of order programmable token transfer should be executed
-	fourthReceiver := state.Chains[destChain].Receiver.Address()
+	fourthReceiver := state.MustGetEVMChainState(destChain).Receiver.Address()
 	fourthMessage, _ := testhelpers.Transfer(
 		ctx,
 		t,
@@ -222,7 +222,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		t,
 		sourceChain,
 		e.Chains[destChain],
-		state.Chains[destChain].OffRamp,
+		state.MustGetEVMChainState(destChain).OffRamp,
 		startBlocks[destChain],
 		ccipocr3.NewSeqNumRange(
 			ccipocr3.SeqNum(firstMessage.SequenceNumber),
@@ -248,11 +248,11 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	)
 	require.Equal(t, expectedStatuses, execStates[identifier])
 
-	secondMsgState, err := state.Chains[destChain].OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, secondMsg.SequenceNumber)
+	secondMsgState, err := state.MustGetEVMChainState(destChain).OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, secondMsg.SequenceNumber)
 	require.NoError(t, err)
 	require.Equal(t, uint8(testhelpers.EXECUTION_STATE_UNTOUCHED), secondMsgState)
 
-	thirdMsgState, err := state.Chains[destChain].OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, thirdMessage.SequenceNumber)
+	thirdMsgState, err := state.MustGetEVMChainState(destChain).OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, thirdMessage.SequenceNumber)
 	require.NoError(t, err)
 	require.Equal(t, uint8(testhelpers.EXECUTION_STATE_UNTOUCHED), thirdMsgState)
 

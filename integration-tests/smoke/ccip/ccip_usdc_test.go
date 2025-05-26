@@ -158,7 +158,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		},
 		{
 			Name:        "USDC programmable token transfer to valid contract receiver",
-			Receiver:    state.Chains[chainC].Receiver.Address().Bytes(),
+			Receiver:    state.MustGetEVMChainState(chainC).Receiver.Address().Bytes(),
 			SourceChain: chainA,
 			DestChain:   chainC,
 			Tokens: []router.ClientEVMTokenAmount{
@@ -175,7 +175,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		},
 		{
 			Name:        "USDC programmable token transfer with too little gas",
-			Receiver:    state.Chains[chainB].Receiver.Address().Bytes(),
+			Receiver:    state.MustGetEVMChainState(chainB).Receiver.Address().Bytes(),
 			SourceChain: chainC,
 			DestChain:   chainB,
 			Tokens: []router.ClientEVMTokenAmount{

@@ -100,7 +100,7 @@ func sendTestStreamJobs(t *testing.T, e cldf.Environment, numOracles int, autoAp
 			NumOracleNodes:    numOracles,
 			NumBootstrapNodes: 0,
 		},
-		Streams: []StreamSpecConfig{
+		Streams: []jobs.StreamSpecConfig{
 			{
 				StreamID:   randomStreamID(),
 				Name:       "ICP/USD-RefPrice",
@@ -118,7 +118,7 @@ func sendTestStreamJobs(t *testing.T, e cldf.Environment, numOracles int, autoAp
 						ResultPath: "data,ask",
 					},
 				},
-				EARequestParams: EARequestParams{
+				EARequestParams: jobs.EARequestParams{
 					Endpoint: "cryptolwba",
 					From:     "ICP",
 					To:       "USD",

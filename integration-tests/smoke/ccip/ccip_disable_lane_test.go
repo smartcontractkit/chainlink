@@ -54,7 +54,7 @@ func TestDisableLane(t *testing.T) {
 				testhelpers.WithDestChain(dest),
 				testhelpers.WithTestRouter(false),
 				testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-					Receiver:     common.LeftPadBytes(state.Chains[chainB].Receiver.Address().Bytes(), 32),
+					Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(chainB).Receiver.Address().Bytes(), 32),
 					Data:         []byte("hello"),
 					TokenAmounts: nil,
 					FeeToken:     common.HexToAddress("0x0"),
@@ -114,9 +114,9 @@ func TestDisableLane(t *testing.T) {
 	assertSendRequestReverted(chainA, chainC, e.Chains[chainA].Users[0])
 
 	// check getting token and gas price form fee quoter returns error when A -> C lane is disabled
-	gp, err := state.Chains[chainA].FeeQuoter.GetTokenAndGasPrices(&bind.CallOpts{
+	gp, err := state.MustGetEVMChainState(chainA).FeeQuoter.GetTokenAndGasPrices(&bind.CallOpts{
 		Context: t.Context(),
-	}, state.Chains[chainC].Weth9.Address(), chainC)
+	}, state.MustGetEVMChainState(chainC).Weth9.Address(), chainC)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "execution reverted")
 	require.Nil(t, gp.GasPriceValue)
@@ -129,8 +129,8 @@ func TestDisableLane(t *testing.T) {
 				pair.DestChainSelector: testhelpers.DefaultGasPrice,
 			},
 			map[common.Address]*big.Int{
-				state.Chains[pair.SourceChainSelector].LinkToken.Address(): linkPrice,
-				state.Chains[pair.SourceChainSelector].Weth9.Address():     wethPrice,
+				state.MustGetEVMChainState(pair.SourceChainSelector).LinkToken.Address(): linkPrice,
+				state.MustGetEVMChainState(pair.SourceChainSelector).Weth9.Address():     wethPrice,
 			},
 			v1_6.DefaultFeeQuoterDestChainConfig(true))
 	}
