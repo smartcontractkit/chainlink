@@ -530,7 +530,6 @@ const (
 	TokenDataFetchError                  messageStatus = "token_data_fetch_error"
 	TokenNotInDestTokenPrices            messageStatus = "token_not_in_dest_token_prices"
 	TokenNotInSrcTokenPrices             messageStatus = "token_not_in_src_token_prices"
-	InsufficientRemainingFee             messageStatus = "insufficient_remaining_fee"
 	AddedToBatch                         messageStatus = "added_to_batch"
 	TXMCheckError                        messageStatus = "txm_check_error"
 	TXMFatalStatus                       messageStatus = "txm_fatal_status"
