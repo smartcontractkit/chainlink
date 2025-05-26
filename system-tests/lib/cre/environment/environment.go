@@ -38,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
@@ -877,7 +878,7 @@ func waitForAllNodesToHaveExpectedFiltersRegistered(singeFileLogger *cldlogger.S
 }
 
 func NewORM(logger *cldlogger.SingleFileLogger, chainID *big.Int, nodeIndex, externalPort int) (logpoller.ORM, *sqlx.DB, error) {
-	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", "127.0.0.1", externalPort, "chainlink", "thispasswordislongenough", fmt.Sprintf("db_%d", nodeIndex))
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", "127.0.0.1", externalPort, postgres.User, postgres.Password, fmt.Sprintf("db_%d", nodeIndex))
 	db, err := sqlx.Open("postgres", dsn)
 	if err != nil {
 		return nil, db, err
