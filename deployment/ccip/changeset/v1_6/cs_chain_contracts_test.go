@@ -26,6 +26,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
+	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
@@ -664,7 +666,7 @@ func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(v1_6.UpdateDynamicConfigOffRampChangeset),
 					v1_6.UpdateDynamicConfigOffRampConfig{
-						Updates: map[uint64]v1_6.OffRampParams{
+						Updates: map[uint64]ccipops.OffRampParams{
 							source: {
 								PermissionLessExecutionThresholdSeconds: uint32(2 * 60 * 60),
 								MessageInterceptor:                      msgInterceptor,
@@ -845,11 +847,11 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 	allChains := e.Env.AllChainSelectors()
-	evmContractParams := make(map[uint64]v1_6.ChainContractParams)
+	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 	for _, chain := range allChains {
-		evmContractParams[chain] = v1_6.ChainContractParams{
-			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
-			OffRampParams:   v1_6.DefaultOffRampParams(),
+		evmContractParams[chain] = ccipseq.ChainContractParams{
+			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
+			OffRampParams:   ccipops.DefaultOffRampParams(),
 		}
 	}
 	var apps []commonchangeset.ConfiguredChangeSet
@@ -869,7 +871,7 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
-			v1_6.DeployChainContractsConfig{
+			ccipseq.DeployChainContractsConfig{
 				HomeChainSelector:      e.HomeChainSel,
 				ContractParamsPerChain: evmContractParams,
 			},

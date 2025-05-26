@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -31,7 +32,16 @@ func NewDeployEnvironmentFromCribOutput(lggr logger.Logger, output DeployOutput)
 	if err != nil {
 		return nil, err
 	}
-	return cldf.NewEnvironment(
+
+	blockChains := map[uint64]chain.BlockChain{}
+	for _, c := range chains {
+		blockChains[c.Selector] = c
+	}
+	for _, c := range solChains {
+		blockChains[c.Selector] = c
+	}
+
+	return cldf.NewCLDFEnvironment(
 		CRIB_ENV_NAME,
 		lggr,
 		output.AddressBook,
@@ -47,5 +57,6 @@ func NewDeployEnvironmentFromCribOutput(lggr logger.Logger, output DeployOutput)
 		//nolint:gocritic // intentionally use a lambda to allow dynamic context replacement in Environment Commit 90ee880
 		func() context.Context { return context.Background() },
 		cldf.XXXGenerateTestOCRSecrets(),
+		chain.NewBlockChains(blockChains),
 	), nil
 }

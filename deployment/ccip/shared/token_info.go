@@ -1,6 +1,7 @@
 package shared
 
 import (
+	"maps"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -15,6 +16,56 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/aggregator_v3_interface"
 )
+
+type TokenRegistry interface {
+	GetSymbol(desc string) (TokenSymbol, bool)
+}
+
+// Default implementation
+type defaultRegistry struct{}
+
+var registry TokenRegistry = defaultRegistry{}
+
+// SetRegistry sets the global token registry implementation.
+func SetRegistry(r TokenRegistry) {
+	registry = r
+}
+
+// GetSymbolFromDescription retrieves the TokenSymbol associated with the given description.
+// Delegates the lookup to the current registry implementation.
+func GetSymbolFromDescription(desc string) (TokenSymbol, bool) {
+	return registry.GetSymbol(desc)
+}
+
+// GetSymbol implements the default registry's lookup logic.
+// It returns the TokenSymbol corresponding to a description, if found.
+func (defaultRegistry) GetSymbol(desc string) (TokenSymbol, bool) {
+	symbol, ok := DescriptionToTokenSymbol[desc]
+	return symbol, ok
+}
+
+// NewMergedRegistry combines the defaultPriceFeed with new priceFeeds retrieved from CLD or elsewhere.
+func NewMergedRegistry(tokens map[string]TokenSymbol) TokenRegistry {
+	combined := make(map[string]TokenSymbol)
+
+	// Add core defaults from Chainlink
+	maps.Copy(combined, DescriptionToTokenSymbol)
+
+	// Override or extend with CLD-provided tokens
+	maps.Copy(combined, tokens)
+
+	return mergedRegistry{entries: combined}
+}
+
+// mergedRegistry is a local wrapper
+type mergedRegistry struct {
+	entries map[string]TokenSymbol
+}
+
+func (r mergedRegistry) GetSymbol(desc string) (TokenSymbol, bool) {
+	sym, ok := r.entries[desc]
+	return sym, ok
+}
 
 type TokenSymbol string
 

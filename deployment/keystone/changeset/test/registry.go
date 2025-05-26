@@ -19,6 +19,7 @@ import (
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -237,6 +238,10 @@ func addNops(t *testing.T, lggr logger.Logger, chain cldf.Chain, registry *capab
 				},
 			},
 		}),
+		BlockChains: cldf_chain.NewBlockChains(
+			map[uint64]cldf_chain.BlockChain{
+				chain.Selector: chain,
+			}),
 	}
 	resp, err := internal.RegisterNOPS(context.TODO(), lggr, internal.RegisterNOPSRequest{
 		Env:                   env,

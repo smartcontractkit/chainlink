@@ -87,7 +87,7 @@ func (s CCIPChainState) GetRouterInfo() (router, routerConfigPDA solana.PublicKe
 	return s.Router, routerConfigPDA, nil
 }
 
-func (s CCIPChainState) GenerateView(solChain cldf.SolChain) (view.SolChainView, error) {
+func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64) (view.SolChainView, error) {
 	chainView := view.NewSolChain()
 	var remoteChains []uint64
 	for selector := range s.DestChainStatePDAs {
@@ -104,7 +104,7 @@ func (s CCIPChainState) GenerateView(solChain cldf.SolChain) (view.SolChainView,
 			if err != nil {
 				return chainView, fmt.Errorf("failed to find token program for token %s: %w", token, err)
 			}
-			tokenView, err := solanaview.GenerateTokenView(solChain, token, program.String())
+			tokenView, err := solanaview.GenerateTokenView(e.SolChains[selector], token, program.String())
 			if err != nil {
 				return chainView, fmt.Errorf("failed to generate token view for token %s: %w", token, err)
 			}
@@ -116,28 +116,28 @@ func (s CCIPChainState) GenerateView(solChain cldf.SolChain) (view.SolChainView,
 		}
 	}
 	if !s.FeeQuoter.IsZero() {
-		fqView, err := solanaview.GenerateFeeQuoterView(solChain, s.FeeQuoter, remoteChains, allTokens)
+		fqView, err := solanaview.GenerateFeeQuoterView(e.SolChains[selector], s.FeeQuoter, remoteChains, allTokens)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate fee quoter view %s: %w", s.FeeQuoter, err)
 		}
 		chainView.FeeQuoter[s.FeeQuoter.String()] = fqView
 	}
 	if !s.Router.IsZero() {
-		routerView, err := solanaview.GenerateRouterView(solChain, s.Router, remoteChains, allTokens)
+		routerView, err := solanaview.GenerateRouterView(e.SolChains[selector], s.Router, remoteChains, allTokens)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate router view %s: %w", s.Router, err)
 		}
 		chainView.Router[s.Router.String()] = routerView
 	}
 	if !s.OffRamp.IsZero() {
-		offRampView, err := solanaview.GenerateOffRampView(solChain, s.OffRamp, remoteChains, allTokens)
+		offRampView, err := solanaview.GenerateOffRampView(e.SolChains[selector], s.OffRamp, remoteChains, allTokens)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate offramp view %s: %w", s.OffRamp, err)
 		}
 		chainView.OffRamp[s.OffRamp.String()] = offRampView
 	}
 	if !s.RMNRemote.IsZero() {
-		rmnRemoteView, err := solanaview.GenerateRMNRemoteView(solChain, s.RMNRemote, remoteChains, allTokens)
+		rmnRemoteView, err := solanaview.GenerateRMNRemoteView(e.SolChains[selector], s.RMNRemote, remoteChains, allTokens)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate rmn remote view %s: %w", s.RMNRemote, err)
 		}
@@ -147,7 +147,7 @@ func (s CCIPChainState) GenerateView(solChain cldf.SolChain) (view.SolChainView,
 		if tokenPool.IsZero() {
 			continue
 		}
-		tokenPoolView, err := solanaview.GenerateTokenPoolView(solChain, tokenPool, remoteChains, allTokens, test_token_pool.BurnAndMint_PoolType.String(), metadata)
+		tokenPoolView, err := solanaview.GenerateTokenPoolView(e.SolChains[selector], tokenPool, remoteChains, allTokens, test_token_pool.BurnAndMint_PoolType.String(), metadata)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate burn mint token pool view %s: %w", tokenPool, err)
 		}
@@ -157,11 +157,20 @@ func (s CCIPChainState) GenerateView(solChain cldf.SolChain) (view.SolChainView,
 		if tokenPool.IsZero() {
 			continue
 		}
-		tokenPoolView, err := solanaview.GenerateTokenPoolView(solChain, tokenPool, remoteChains, allTokens, test_token_pool.LockAndRelease_PoolType.String(), metadata)
+		tokenPoolView, err := solanaview.GenerateTokenPoolView(e.SolChains[selector], tokenPool, remoteChains, allTokens, test_token_pool.LockAndRelease_PoolType.String(), metadata)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate lock release token pool view %s: %w", tokenPool, err)
 		}
 		chainView.TokenPool[tokenPool.String()] = tokenPoolView
+	}
+	addresses, err := e.ExistingAddresses.AddressesForChain(selector)
+	if err != nil {
+		return chainView, fmt.Errorf("failed to get existing addresses: %w", err)
+	}
+	chainView.MCMSWithTimelock, err = solanaview.GenerateMCMSWithTimelockView(e.SolChains[selector], addresses)
+	if err != nil {
+		e.Logger.Error("failed to generate MCMS with timelock view: %w", err)
+		return chainView, nil
 	}
 	return chainView, nil
 }

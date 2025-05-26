@@ -10,33 +10,37 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestMeteringReport(t *testing.T) {
+func TestReport(t *testing.T) {
 	t.Parallel()
 
-	testUnitA := MeteringSpendUnit("a")
-	testUnitB := MeteringSpendUnit("b")
+	testA := "a"
+	testUnitA := SpendUnit(testA)
+	testB := "b"
+	testUnitB := SpendUnit(testB)
 
 	t.Run("MedianSpend returns median for multiple spend units", func(t *testing.T) {
 		t.Parallel()
 
-		report := NewMeteringReport(logger.TestLogger(t))
-		steps := []MeteringReportStep{
-			{"abc", testUnitA, testUnitA.IntToSpendValue(1)},
-			{"xyz", testUnitA, testUnitA.IntToSpendValue(2)},
-			{"abc", testUnitA, testUnitA.IntToSpendValue(3)},
-			{"abc", testUnitB, testUnitB.DecimalToSpendValue(decimal.NewFromFloat(0.1))},
-			{"xyz", testUnitB, testUnitB.DecimalToSpendValue(decimal.NewFromFloat(0.2))},
-			{"abc", testUnitB, testUnitB.DecimalToSpendValue(decimal.NewFromFloat(0.3))},
+		report := NewReport(logger.TestLogger(t))
+		steps := []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "abc", SpendUnit: testA, SpendValue: "1"},
+			{Peer2PeerID: "xyz", SpendUnit: testA, SpendValue: "2"},
+			{Peer2PeerID: "abc", SpendUnit: testA, SpendValue: "3"},
+			{Peer2PeerID: "abc", SpendUnit: testB, SpendValue: "0.1"},
+			{Peer2PeerID: "xyz", SpendUnit: testB, SpendValue: "0.2"},
+			{Peer2PeerID: "abc", SpendUnit: testB, SpendValue: "0.3"},
 		}
 
 		for idx := range steps {
-			require.NoError(t, report.SetStep(MeteringReportStepRef(strconv.Itoa(idx)), steps))
+			require.NoError(t, report.ReserveStep(ReportStepRef(strconv.Itoa(idx)), capabilities.CapabilityInfo{}))
+			require.NoError(t, report.SetStep(ReportStepRef(strconv.Itoa(idx)), steps))
 		}
 
-		expected := map[MeteringSpendUnit]MeteringSpendValue{
+		expected := map[SpendUnit]SpendValue{
 			testUnitA: testUnitB.IntToSpendValue(2),
 			testUnitB: testUnitB.DecimalToSpendValue(decimal.NewFromFloat(0.2)),
 		}
@@ -54,16 +58,17 @@ func TestMeteringReport(t *testing.T) {
 	t.Run("MedianSpend returns median single spend value", func(t *testing.T) {
 		t.Parallel()
 
-		report := NewMeteringReport(logger.TestLogger(t))
-		steps := []MeteringReportStep{
-			{"abc", testUnitA, testUnitA.IntToSpendValue(1)},
+		report := NewReport(logger.TestLogger(t))
+		steps := []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "abc", SpendUnit: "a", SpendValue: "1"},
 		}
 
 		for idx := range steps {
-			require.NoError(t, report.SetStep(MeteringReportStepRef(strconv.Itoa(idx)), steps))
+			require.NoError(t, report.ReserveStep(ReportStepRef(strconv.Itoa(idx)), capabilities.CapabilityInfo{}))
+			require.NoError(t, report.SetStep(ReportStepRef(strconv.Itoa(idx)), steps))
 		}
 
-		expected := map[MeteringSpendUnit]MeteringSpendValue{
+		expected := map[SpendUnit]SpendValue{
 			testUnitA: testUnitA.IntToSpendValue(1),
 		}
 
@@ -78,18 +83,19 @@ func TestMeteringReport(t *testing.T) {
 	t.Run("MedianSpend returns median odd number of spend values", func(t *testing.T) {
 		t.Parallel()
 
-		report := NewMeteringReport(logger.TestLogger(t))
-		steps := []MeteringReportStep{
-			{"abc", testUnitA, testUnitA.IntToSpendValue(1)},
-			{"abc", testUnitA, testUnitA.IntToSpendValue(3)},
-			{"xyz", testUnitA, testUnitA.IntToSpendValue(2)},
+		report := NewReport(logger.TestLogger(t))
+		steps := []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "abc", SpendUnit: testA, SpendValue: "1"},
+			{Peer2PeerID: "abc", SpendUnit: testA, SpendValue: "3"},
+			{Peer2PeerID: "xyz", SpendUnit: testA, SpendValue: "2"},
 		}
 
 		for idx := range steps {
-			require.NoError(t, report.SetStep(MeteringReportStepRef(strconv.Itoa(idx)), steps))
+			require.NoError(t, report.ReserveStep(ReportStepRef(strconv.Itoa(idx)), capabilities.CapabilityInfo{}))
+			require.NoError(t, report.SetStep(ReportStepRef(strconv.Itoa(idx)), steps))
 		}
 
-		expected := map[MeteringSpendUnit]MeteringSpendValue{
+		expected := map[SpendUnit]SpendValue{
 			testUnitA: testUnitA.IntToSpendValue(2),
 		}
 
@@ -104,19 +110,20 @@ func TestMeteringReport(t *testing.T) {
 	t.Run("MedianSpend returns median as average for even number of spend values", func(t *testing.T) {
 		t.Parallel()
 
-		report := NewMeteringReport(logger.TestLogger(t))
-		steps := []MeteringReportStep{
-			{"xyz", testUnitA, testUnitA.IntToSpendValue(42)},
-			{"abc", testUnitA, testUnitA.IntToSpendValue(1)},
-			{"abc", testUnitA, testUnitA.IntToSpendValue(3)},
-			{"xyz", testUnitA, testUnitA.IntToSpendValue(2)},
+		report := NewReport(logger.TestLogger(t))
+		steps := []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "xyz", SpendUnit: testA, SpendValue: "42"},
+			{Peer2PeerID: "abc", SpendUnit: testA, SpendValue: "1"},
+			{Peer2PeerID: "abc", SpendUnit: testA, SpendValue: "3"},
+			{Peer2PeerID: "xyz", SpendUnit: testA, SpendValue: "2"},
 		}
 
 		for idx := range steps {
-			require.NoError(t, report.SetStep(MeteringReportStepRef(strconv.Itoa(idx)), steps))
+			require.NoError(t, report.ReserveStep(ReportStepRef(strconv.Itoa(idx)), capabilities.CapabilityInfo{}))
+			require.NoError(t, report.SetStep(ReportStepRef(strconv.Itoa(idx)), steps))
 		}
 
-		expected := map[MeteringSpendUnit]MeteringSpendValue{
+		expected := map[SpendUnit]SpendValue{
 			testUnitA: testUnitA.DecimalToSpendValue(decimal.NewFromFloat(2.5)),
 		}
 
@@ -128,14 +135,33 @@ func TestMeteringReport(t *testing.T) {
 		assert.Equal(t, expected[testUnitA].String(), median[testUnitA].String())
 	})
 
-	t.Run("SetStep returns error if step already exists", func(t *testing.T) {
+	t.Run("ReserveStep returns error if step already exists", func(t *testing.T) {
 		t.Parallel()
-		report := NewMeteringReport(logger.TestLogger(t))
-		steps := []MeteringReportStep{
-			{"xyz", testUnitA, testUnitA.IntToSpendValue(42)},
-			{"abc", testUnitA, testUnitA.IntToSpendValue(1)},
+		report := NewReport(logger.TestLogger(t))
+		require.NoError(t, report.ReserveStep(ReportStepRef("ref1"), capabilities.CapabilityInfo{}))
+		require.Error(t, report.ReserveStep(ReportStepRef("ref1"), capabilities.CapabilityInfo{}))
+	})
+
+	t.Run("SetStep returns error if reserve is not called first", func(t *testing.T) {
+		t.Parallel()
+		report := NewReport(logger.TestLogger(t))
+		steps := []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "xyz", SpendUnit: testA, SpendValue: "42"},
+			{Peer2PeerID: "abc", SpendUnit: testA, SpendValue: "1"},
 		}
 
+		require.Error(t, report.SetStep("ref1", steps))
+	})
+
+	t.Run("SetStep returns error if step already exists", func(t *testing.T) {
+		t.Parallel()
+		report := NewReport(logger.TestLogger(t))
+		steps := []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "xyz", SpendUnit: testA, SpendValue: "42"},
+			{Peer2PeerID: "abc", SpendUnit: testA, SpendValue: "1"},
+		}
+
+		require.NoError(t, report.ReserveStep(ReportStepRef("ref1"), capabilities.CapabilityInfo{}))
 		require.NoError(t, report.SetStep("ref1", steps))
 		require.Error(t, report.SetStep("ref1", steps))
 	})
@@ -144,35 +170,41 @@ func TestMeteringReport(t *testing.T) {
 // Test_MeterReports tests the Add, Get, Delete, and Len methods of a MeterReports.
 // It also tests concurrent safe access.
 func Test_MeterReports(t *testing.T) {
-	mr := NewMeterReports()
+	mr := NewReports()
 	assert.Equal(t, 0, mr.Len())
 	wg := sync.WaitGroup{}
 	wg.Add(3)
 	go func() {
 		defer wg.Done()
-		mr.Add("exec1", NewMeteringReport(logger.TestLogger(t)))
+		mr.Add("exec1", NewReport(logger.TestLogger(t)))
 		r, ok := mr.Get("exec1")
 		assert.True(t, ok)
 		//nolint:errcheck // depending on the concurrent timing, this may or may not err
-		r.SetStep("ref1", []MeteringReportStep{})
+		r.ReserveStep(ReportStepRef("ref1"), capabilities.CapabilityInfo{})
+		//nolint:errcheck // depending on the concurrent timing, this may or may not err
+		r.SetStep("ref1", []capabilities.MeteringNodeDetail{})
 		mr.Delete("exec1")
 	}()
 	go func() {
 		defer wg.Done()
-		mr.Add("exec2", NewMeteringReport(logger.TestLogger(t)))
+		mr.Add("exec2", NewReport(logger.TestLogger(t)))
 		r, ok := mr.Get("exec2")
 		assert.True(t, ok)
-		err := r.SetStep("ref1", []MeteringReportStep{})
+		err := r.ReserveStep(ReportStepRef("ref1"), capabilities.CapabilityInfo{})
+		assert.NoError(t, err)
+		err = r.SetStep("ref1", []capabilities.MeteringNodeDetail{})
 		assert.NoError(t, err)
 		mr.Delete("exec2")
 	}()
 	go func() {
 		defer wg.Done()
-		mr.Add("exec1", NewMeteringReport(logger.TestLogger(t)))
+		mr.Add("exec1", NewReport(logger.TestLogger(t)))
 		r, ok := mr.Get("exec1")
 		assert.True(t, ok)
 		//nolint:errcheck // depending on the concurrent timing, this may or may not err
-		r.SetStep("ref1", []MeteringReportStep{})
+		r.ReserveStep(ReportStepRef("ref1"), capabilities.CapabilityInfo{})
+		//nolint:errcheck // depending on the concurrent timing, this may or may not err
+		r.SetStep("ref1", []capabilities.MeteringNodeDetail{})
 		mr.Delete("exec1")
 	}()
 
@@ -181,11 +213,11 @@ func Test_MeterReports(t *testing.T) {
 }
 
 func Test_MeterReportsLength(t *testing.T) {
-	mr := NewMeterReports()
+	mr := NewReports()
 
-	mr.Add("exec1", NewMeteringReport(logger.TestLogger(t)))
-	mr.Add("exec2", NewMeteringReport(logger.TestLogger(t)))
-	mr.Add("exec3", NewMeteringReport(logger.TestLogger(t)))
+	mr.Add("exec1", NewReport(logger.TestLogger(t)))
+	mr.Add("exec2", NewReport(logger.TestLogger(t)))
+	mr.Add("exec3", NewReport(logger.TestLogger(t)))
 	assert.Equal(t, 3, mr.Len())
 
 	mr.Delete("exec2")

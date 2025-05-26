@@ -115,7 +115,7 @@ func jobSpecsForLane(
 	for _, node := range nodes {
 		var specs []string
 		for _, cfg := range lanesCfg.Configs {
-			destChainState := state.Chains[cfg.DestinationChainSelector]
+			destChainState := state.MustGetEVMChainState(cfg.DestinationChainSelector)
 			sourceChain := env.Chains[cfg.SourceChainSelector]
 			destChain := env.Chains[cfg.DestinationChainSelector]
 

@@ -55,3 +55,7 @@ targets:
       {{""}}
       cre_step_timeout: {{ .CREStepTimeout }}
       {{- end }}
+      {{- if .TargetProcessor -}}
+      {{""}}
+      processor: {{ .TargetProcessor }}
+      {{- end }}

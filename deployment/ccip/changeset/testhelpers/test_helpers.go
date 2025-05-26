@@ -285,9 +285,9 @@ func CCIPSendRequest(
 	cfg *CCIPSendReqConfig,
 ) (*types.Transaction, uint64, error) {
 	msg := cfg.Message.(router.ClientEVM2AnyMessage)
-	r := state.Chains[cfg.SourceChain].Router
+	r := state.MustGetEVMChainState(cfg.SourceChain).Router
 	if cfg.IsTestRouter {
-		r = state.Chains[cfg.SourceChain].TestRouter
+		r = state.MustGetEVMChainState(cfg.SourceChain).TestRouter
 	}
 
 	if msg.FeeToken == common.HexToAddress("0x0") { // fee is in native token
@@ -501,7 +501,7 @@ func SendRequestEVM(
 		return nil, err
 	}
 
-	it, err := state.Chains[cfg.SourceChain].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
+	it, err := state.MustGetEVMChainState(cfg.SourceChain).OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
 		Start:   blockNum,
 		End:     &blockNum,
 		Context: context.Background(),
@@ -561,8 +561,8 @@ func SendRequestSol(
 		}
 		feeTokenProgramID = feeTokenInfo.Value.Owner
 
-		var mint token.Mint
-		if err := solbinary.NewBinDecoder(feeTokenInfo.Bytes()).Decode(&mint); err != nil {
+		_, err = GetSolanaTokenMintInfo(feeTokenInfo)
+		if err != nil {
 			return nil, fmt.Errorf("the provided fee token is not a valid token: (err = %w)", err)
 		}
 
@@ -570,6 +570,7 @@ func SendRequestSol(
 		if err != nil {
 			return nil, err
 		}
+
 		feeTokenUserATA = ata
 	}
 
@@ -657,12 +658,27 @@ func SendRequestSol(
 	for _, tokenAmount := range message.TokenAmounts {
 		tokenPubKey := tokenAmount.Token
 
-		tokenPoolPubKey, err := MatchTokenToTokenPool(ctx, client, tokenPubKey, []solana.PublicKey{s.LockReleaseTokenPools[shared.CLLMetadata], s.BurnMintTokenPools[shared.CLLMetadata]})
+		allTokenPools := solana.PublicKeySlice{}
+		allTokenPools = slices.AppendSeq(allTokenPools, maps.Values(s.LockReleaseTokenPools))
+		allTokenPools = slices.AppendSeq(allTokenPools, maps.Values(s.BurnMintTokenPools))
+
+		e.Logger.Infof("Found %d token pools in state - searching for matching token pool", len(allTokenPools))
+		tokenPoolPubKey, err := MatchTokenToTokenPool(ctx, client, tokenPubKey, allTokenPools)
 		if err != nil {
 			return nil, err
 		}
 
-		tokenPool, err := soltokens.NewTokenPool(solana.Token2022ProgramID, tokenPoolPubKey, tokenPubKey)
+		e.Logger.Infof("Token '%s' was matched to token pool '%s'",
+			tokenPubKey.String(),
+			tokenPoolPubKey.String(),
+		)
+
+		tokenProgramID, err := InferSolanaTokenProgramID(ctx, client, tokenPubKey)
+		if err != nil {
+			return nil, err
+		}
+
+		tokenPool, err := soltokens.NewTokenPool(tokenProgramID, tokenPoolPubKey, tokenPubKey)
 		if err != nil {
 			return nil, err
 		}
@@ -692,7 +708,7 @@ func SendRequestSol(
 
 		tokenPool.Billing[cfg.DestChain] = billingPDA
 
-		userTokenAccount, _, err := soltokens.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenPubKey, sender.PublicKey())
+		userTokenAccount, _, err := soltokens.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, sender.PublicKey())
 		if err != nil {
 			return nil, err
 		}
@@ -788,6 +804,35 @@ func ConvertSolanaCrossChainAmountToBigInt(amount ccip_router.CrossChainAmount) 
 	bytes := amount.LeBytes[:]
 	slices.Reverse(bytes) // convert to big-endian
 	return big.NewInt(0).SetBytes(bytes)
+}
+
+func InferSolanaTokenProgramID(ctx context.Context, client *rpc.Client, tokenPubKey solana.PublicKey) (solana.PublicKey, error) {
+	tokenAcctInfo, err := client.GetAccountInfo(ctx, tokenPubKey)
+	if errors.Is(err, rpc.ErrNotFound) {
+		// NOTE: we use a fallback value of Token2022ProgramID to maintain backwards compatibility with the Solana tests
+		return solana.Token2022ProgramID, nil
+	}
+	if err != nil {
+		return solana.PublicKey{}, err
+	}
+
+	_, err = GetSolanaTokenMintInfo(tokenAcctInfo)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("expected '%s' to be a token public key: (err = %w)", tokenPubKey, err)
+	}
+
+	return tokenAcctInfo.Value.Owner, nil
+}
+
+func GetSolanaTokenMintInfo(tokenAcctInfo *rpc.GetAccountInfoResult) (token.Mint, error) {
+	var mint token.Mint
+
+	err := solbinary.NewBinDecoder(tokenAcctInfo.Bytes()).Decode(&mint)
+	if err != nil {
+		return token.Mint{}, fmt.Errorf("failed to decode token mint data: (err = %w)", err)
+	}
+
+	return mint, nil
 }
 
 func MatchTokenToTokenPool(ctx context.Context, client *rpc.Client, tokenPubKey solana.PublicKey, tokenPoolPubKeys solana.PublicKeySlice) (solana.PublicKey, error) {
@@ -1068,7 +1113,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 	fromFamily, _ := chainsel.GetSelectorFamily(from)
 	tokenPrices := map[common.Address]*big.Int{}
 	if fromFamily == chainsel.FamilyEVM {
-		stateChainFrom := state.Chains[from]
+		stateChainFrom := state.MustGetEVMChainState(from)
 		tokenPrices = map[common.Address]*big.Int{
 			stateChainFrom.LinkToken.Address(): DefaultLinkPrice,
 			stateChainFrom.Weth9.Address():     DefaultWethPrice,
@@ -1271,7 +1316,7 @@ func DeployTransferableTokenSolana(
 		return nil, nil, solana.PublicKey{}, err
 	}
 	// attach token and pool to the registry
-	if err := attachTokenToTheRegistry(e.Chains[evmChainSel], state.Chains[evmChainSel], evmDeployer, evmToken.Address(), evmPool.Address()); err != nil {
+	if err := attachTokenToTheRegistry(e.Chains[evmChainSel], state.MustGetEVMChainState(evmChainSel), evmDeployer, evmToken.Address(), evmPool.Address()); err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
 	solDeployerKey := e.SolChains[solChainSel].DeployerKey.PublicKey()
@@ -1429,10 +1474,8 @@ func deployTokenPoolsInParallel(
 		if err != nil {
 			return err
 		}
-		if err := attachTokenToTheRegistry(chains[src], state.Chains[src], srcActor, srcToken.Address(), srcPool.Address()); err != nil {
-			return err
-		}
-		return nil
+		err = attachTokenToTheRegistry(chains[src], state.MustGetEVMChainState(src), srcActor, srcToken.Address(), srcPool.Address())
+		return err
 	})
 	deployGrp.Go(func() error {
 		var err error
@@ -1440,10 +1483,8 @@ func deployTokenPoolsInParallel(
 		if err != nil {
 			return err
 		}
-		if err := attachTokenToTheRegistry(chains[dst], state.Chains[dst], dstActor, dstToken.Address(), dstPool.Address()); err != nil {
-			return err
-		}
-		return nil
+		err = attachTokenToTheRegistry(chains[dst], state.MustGetEVMChainState(dst), dstActor, dstToken.Address(), dstPool.Address())
+		return err
 	})
 	if err := deployGrp.Wait(); err != nil {
 		return nil, nil, nil, nil, err
@@ -1715,7 +1756,7 @@ func MintAndAllow(
 					_, err = e.Chains[chain].Confirm(tx)
 					require.NoError(t, err)
 
-					tx, err = token.Approve(sender, state.Chains[chain].Router.Address(), tenCoins)
+					tx, err = token.Approve(sender, state.MustGetEVMChainState(chain).Router.Address(), tenCoins)
 					require.NoError(t, err)
 					_, err = e.Chains[chain].Confirm(tx)
 					require.NoError(t, err)
@@ -2235,29 +2276,29 @@ func GenTestTransferOwnershipConfig(
 
 	// chain contracts
 	for _, chain := range chains {
-		timelocksPerChain[chain] = state.Chains[chain].Timelock.Address()
+		timelocksPerChain[chain] = state.MustGetEVMChainState(chain).Timelock.Address()
 		contracts[chain] = []common.Address{
-			state.Chains[chain].OnRamp.Address(),
-			state.Chains[chain].OffRamp.Address(),
-			state.Chains[chain].FeeQuoter.Address(),
-			state.Chains[chain].NonceManager.Address(),
-			state.Chains[chain].RMNRemote.Address(),
-			state.Chains[chain].Router.Address(),
-			state.Chains[chain].TokenAdminRegistry.Address(),
-			state.Chains[chain].RMNProxy.Address(),
+			state.MustGetEVMChainState(chain).OnRamp.Address(),
+			state.MustGetEVMChainState(chain).OffRamp.Address(),
+			state.MustGetEVMChainState(chain).FeeQuoter.Address(),
+			state.MustGetEVMChainState(chain).NonceManager.Address(),
+			state.MustGetEVMChainState(chain).RMNRemote.Address(),
+			state.MustGetEVMChainState(chain).Router.Address(),
+			state.MustGetEVMChainState(chain).TokenAdminRegistry.Address(),
+			state.MustGetEVMChainState(chain).RMNProxy.Address(),
 		}
 		if withTestRouterTransfer {
-			contracts[chain] = append(contracts[chain], state.Chains[chain].TestRouter.Address())
+			contracts[chain] = append(contracts[chain], state.MustGetEVMChainState(chain).TestRouter.Address())
 		}
 	}
 
 	// home chain
-	homeChainTimelockAddress := state.Chains[e.HomeChainSel].Timelock.Address()
+	homeChainTimelockAddress := state.MustGetEVMChainState(e.HomeChainSel).Timelock.Address()
 	timelocksPerChain[e.HomeChainSel] = homeChainTimelockAddress
 	contracts[e.HomeChainSel] = append(contracts[e.HomeChainSel],
-		state.Chains[e.HomeChainSel].CapabilityRegistry.Address(),
-		state.Chains[e.HomeChainSel].CCIPHome.Address(),
-		state.Chains[e.HomeChainSel].RMNHome.Address(),
+		state.MustGetEVMChainState(e.HomeChainSel).CapabilityRegistry.Address(),
+		state.MustGetEVMChainState(e.HomeChainSel).CCIPHome.Address(),
+		state.MustGetEVMChainState(e.HomeChainSel).RMNHome.Address(),
 	)
 
 	return commoncs.TransferToMCMSWithTimelockConfig{
@@ -2297,14 +2338,14 @@ func TransferToTimelock(
 	timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts, len(chains)+1)
 	for _, chain := range chains {
 		timelockContracts[chain] = &proposalutils.TimelockExecutionContracts{
-			Timelock:  state.Chains[chain].Timelock,
-			CallProxy: state.Chains[chain].CallProxy,
+			Timelock:  state.MustGetEVMChainState(chain).Timelock,
+			CallProxy: state.MustGetEVMChainState(chain).CallProxy,
 		}
 	}
 	// Add the home chain to the timelock contracts.
 	timelockContracts[tenv.HomeChainSel] = &proposalutils.TimelockExecutionContracts{
-		Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
-		CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+		Timelock:  state.MustGetEVMChainState(tenv.HomeChainSel).Timelock,
+		CallProxy: state.MustGetEVMChainState(tenv.HomeChainSel).CallProxy,
 	}
 	// Transfer ownership to timelock so that we can promote the zero digest later down the line.
 	_, err := commoncs.Apply(t, tenv.Env,

@@ -51,7 +51,8 @@ type ChainConfig struct {
 	HTTPRPCs           []CribRPCs               // http rpcs to connect to the chain
 	DeployerKey        *bind.TransactOpts       // key to deploy and configure contracts on the chain
 	SolDeployerKey     solana.PrivateKey
-	Users              []*bind.TransactOpts // map of addresses to their transact opts to interact with the chain as users
+	Users              []*bind.TransactOpts        // map of addresses to their transact opts to interact with the chain as users
+	MultiClientOpts    []func(c *cldf.MultiClient) // options to configure the multi client
 }
 
 func (c *ChainConfig) SetUsers(pvtkeys []string) error {
@@ -157,7 +158,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf.Cha
 
 			switch chainCfg.ChainType {
 			case EVMChainType:
-				ec, err := cldf.NewMultiClient(logger, rpcConf)
+				ec, err := cldf.NewMultiClient(logger, rpcConf, chainCfg.MultiClientOpts...)
 				if err != nil {
 					return fmt.Errorf("failed to create multi client: %w", err)
 				}

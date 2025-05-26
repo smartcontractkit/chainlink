@@ -19,10 +19,12 @@ func main() {
 	var wasmPath string
 	var configPath string
 	var debugMode bool
+	var billingClientAddr string
 
 	flag.StringVar(&wasmPath, "wasm", "", "Path to the WASM binary file")
 	flag.StringVar(&configPath, "config", "", "Path to the Config file")
 	flag.BoolVar(&debugMode, "debug", false, "Enable debug-level logging")
+	flag.StringVar(&billingClientAddr, "billing-client-address", "", "Billing client address; Leave empty for no client.")
 	flag.Parse()
 
 	if wasmPath == "" {
@@ -66,7 +68,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	run(ctx, lggr, registry, capabilities, binary, config)
+	run(ctx, lggr, registry, capabilities, binary, config, billingClientAddr)
 }
 
 // run instantiates the engine, starts it and blocks until the context is canceled.
@@ -75,8 +77,10 @@ func run(
 	lggr logger.Logger,
 	registry *capabilities.Registry,
 	capabilities []services.Service,
-	binary, config []byte) {
-	engine, err := NewStandaloneEngine(ctx, lggr, registry, binary, config)
+	binary, config []byte,
+	billingClientAddr string,
+) {
+	engine, err := NewStandaloneEngine(ctx, lggr, registry, binary, config, billingClientAddr)
 	if err != nil {
 		fmt.Printf("Failed to create engine: %v\n", err)
 		os.Exit(1)

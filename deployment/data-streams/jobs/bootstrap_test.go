@@ -46,7 +46,7 @@ func TestNewBootstrapSpec(t *testing.T) {
 			},
 			externalJobID: externalJobID,
 			want: &BootstrapSpec{
-				Base: Base{
+				BaseJobSpec: BaseJobSpec{
 					Name:          "don-123 | 123",
 					Type:          JobSpecTypeBootstrap,
 					SchemaVersion: 1,
@@ -79,7 +79,7 @@ func TestMarshalTOML(t *testing.T) {
 	t.Parallel()
 
 	bootstrapSpec := BootstrapSpec{
-		Base: Base{
+		BaseJobSpec: BaseJobSpec{
 			Name:          "bootstrap 1",
 			Type:          JobSpecTypeBootstrap,
 			SchemaVersion: 1,

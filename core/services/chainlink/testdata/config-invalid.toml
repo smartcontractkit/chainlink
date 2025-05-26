@@ -202,6 +202,15 @@ Name = 'tron-test'
 [[Tron.Nodes]]
 Name = 'tron-test'
 
+[[TON]]
+Enabled = 1
+
+[[TON.Nodes]]
+Name = 'ton-test'
+
+[[TON.Nodes]]
+Name = 'ton-test'
+
 [OCR2]
 Enabled = true
 

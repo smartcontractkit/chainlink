@@ -840,7 +840,7 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 		map[cciptypes.ChainSelector][]types.BoundContract{
 			cciptypes.ChainSelector(srcChain): {
 				{
-					Address: state.Chains[srcChain].OnRamp.Address().String(),
+					Address: state.MustGetEVMChainState(srcChain).OnRamp.Address().String(),
 					Name:    consts.ContractNameOnRamp,
 				},
 			},
@@ -852,7 +852,7 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 	maxExpectedSeqNum := uint64(10)
 	var i uint64
 	for i = 1; i < maxExpectedSeqNum; i++ {
-		msg := testhelpers.DefaultRouterMessage(state.Chains[destChain].Receiver.Address())
+		msg := testhelpers.DefaultRouterMessage(state.MustGetEVMChainState(destChain).Receiver.Address())
 		msgSentEvent := testhelpers.TestSendRequest(t, env.Env, state, srcChain, destChain, false, msg)
 		require.Equal(t, uint64(i), msgSentEvent.SequenceNumber)
 		require.Equal(t, uint64(i), msgSentEvent.Message.Header.Nonce) // check outbound nonce incremented
@@ -1199,7 +1199,7 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, source2, dest, false)
 
 	// Setup: Explicitly change the gas prices for source1 and source2 on dest's FeeQuoter
-	feeQuoterDest := state.Chains[dest].FeeQuoter
+	feeQuoterDest := state.MustGetEVMChainState(dest).FeeQuoter
 	source1GasPrice := big.NewInt(987654321) // Use a distinct value for source1
 	source2GasPrice := big.NewInt(123456789) // Use a distinct value for source2
 	_, err = feeQuoterDest.UpdatePrices(
@@ -1237,7 +1237,7 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 		map[cciptypes.ChainSelector][]types.BoundContract{
 			cciptypes.ChainSelector(dest): { // Binding for the reader's chain (dest)
 				{
-					Address: state.Chains[dest].FeeQuoter.Address().String(),
+					Address: state.MustGetEVMChainState(dest).FeeQuoter.Address().String(),
 					Name:    consts.ContractNameFeeQuoter,
 				},
 			},
@@ -1309,7 +1309,7 @@ func Test_LinkPriceUSD(t *testing.T) {
 		map[cciptypes.ChainSelector][]types.BoundContract{
 			cciptypes.ChainSelector(chain1): {
 				{
-					Address: state.Chains[chain1].FeeQuoter.Address().String(),
+					Address: state.MustGetEVMChainState(chain1).FeeQuoter.Address().String(),
 					Name:    consts.ContractNameFeeQuoter,
 				},
 			},
@@ -1344,11 +1344,11 @@ func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
 		map[cciptypes.ChainSelector][]types.BoundContract{
 			cciptypes.ChainSelector(chain2): {
 				{
-					Address: state.Chains[chain2].FeeQuoter.Address().String(),
+					Address: state.MustGetEVMChainState(chain2).FeeQuoter.Address().String(),
 					Name:    consts.ContractNameFeeQuoter,
 				},
 				{
-					Address: state.Chains[chain2].Router.Address().String(),
+					Address: state.MustGetEVMChainState(chain2).Router.Address().String(),
 					Name:    consts.ContractNameRouter,
 				},
 			},

@@ -74,13 +74,13 @@ func SetOCR3ConfigSolana(e cldf.Environment, cfg v1_6.SetOCR3OffRampConfig) (cld
 	var batches []mcmsTypes.BatchOperation
 	for _, remote := range cfg.RemoteChainSels {
 		donID, err := internal.DonIDForChain(
-			state.Chains[cfg.HomeChainSel].CapabilityRegistry,
-			state.Chains[cfg.HomeChainSel].CCIPHome,
+			state.MustGetEVMChainState(cfg.HomeChainSel).CapabilityRegistry,
+			state.MustGetEVMChainState(cfg.HomeChainSel).CCIPHome,
 			remote)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get don id for chain %d: %w", remote, err)
 		}
-		args, err := internal.BuildSetOCR3ConfigArgsSolana(donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote, cfg.CCIPHomeConfigType)
+		args, err := internal.BuildSetOCR3ConfigArgsSolana(donID, state.MustGetEVMChainState(cfg.HomeChainSel).CCIPHome, remote, cfg.CCIPHomeConfigType)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build set ocr3 config args: %w", err)
 		}

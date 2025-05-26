@@ -63,7 +63,7 @@ func ConfirmGasPriceUpdatedForAll(
 				return ConfirmGasPriceUpdated(
 					t,
 					dstChain,
-					state.Chains[srcChain.Selector].FeeQuoter,
+					state.MustGetEVMChainState(srcChain.Selector).FeeQuoter,
 					*startBlock,
 					gasPrice,
 				)
@@ -109,15 +109,15 @@ func ConfirmTokenPriceUpdatedForAll(
 			if startBlocks != nil {
 				startBlock = startBlocks[chain.Selector]
 			}
-			linkAddress := state.Chains[chain.Selector].LinkToken.Address()
-			wethAddress := state.Chains[chain.Selector].Weth9.Address()
+			linkAddress := state.MustGetEVMChainState(chain.Selector).LinkToken.Address()
+			wethAddress := state.MustGetEVMChainState(chain.Selector).Weth9.Address()
 			tokenToPrice := make(map[common.Address]*big.Int)
 			tokenToPrice[linkAddress] = linkPrice
 			tokenToPrice[wethAddress] = wethPrice
 			return ConfirmTokenPriceUpdated(
 				t,
 				chain,
-				state.Chains[chain.Selector].FeeQuoter,
+				state.MustGetEVMChainState(chain.Selector).FeeQuoter,
 				*startBlock,
 				tokenToPrice,
 			)
@@ -208,7 +208,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					t,
 					srcChain,
 					e.Chains[dstChain],
-					state.Chains[dstChain].OffRamp,
+					state.MustGetEVMChainState(dstChain).OffRamp,
 					startBlock,
 					ccipocr3.SeqNumRange{
 						ccipocr3.SeqNum(expectedSeqNum),
@@ -320,7 +320,7 @@ func ConfirmMultipleCommits(
 					t,
 					srcChain,
 					env.Chains[destChain],
-					state.Chains[destChain].OffRamp,
+					state.MustGetEVMChainState(destChain).OffRamp,
 					startBlocks[destChain],
 					seqRange,
 					enforceSingleCommit,
@@ -630,7 +630,7 @@ func ConfirmExecWithSeqNrsForAll(
 					t,
 					srcChain,
 					e.Chains[dstChain],
-					state.Chains[dstChain].OffRamp,
+					state.MustGetEVMChainState(dstChain).OffRamp,
 					startBlock,
 					seqRange,
 				)
@@ -913,31 +913,31 @@ func AssertTimelockOwnership(
 	// check that the ownership has been transferred correctly
 	for _, chain := range chains {
 		allContracts := []common.Address{
-			state.Chains[chain].OnRamp.Address(),
-			state.Chains[chain].OffRamp.Address(),
-			state.Chains[chain].FeeQuoter.Address(),
-			state.Chains[chain].NonceManager.Address(),
-			state.Chains[chain].RMNRemote.Address(),
-			state.Chains[chain].Router.Address(),
-			state.Chains[chain].TokenAdminRegistry.Address(),
-			state.Chains[chain].RMNProxy.Address(),
+			state.MustGetEVMChainState(chain).OnRamp.Address(),
+			state.MustGetEVMChainState(chain).OffRamp.Address(),
+			state.MustGetEVMChainState(chain).FeeQuoter.Address(),
+			state.MustGetEVMChainState(chain).NonceManager.Address(),
+			state.MustGetEVMChainState(chain).RMNRemote.Address(),
+			state.MustGetEVMChainState(chain).Router.Address(),
+			state.MustGetEVMChainState(chain).TokenAdminRegistry.Address(),
+			state.MustGetEVMChainState(chain).RMNProxy.Address(),
 		}
 		if withTestRouterTransfer {
-			allContracts = append(allContracts, state.Chains[chain].TestRouter.Address())
+			allContracts = append(allContracts, state.MustGetEVMChainState(chain).TestRouter.Address())
 		}
 		for _, contract := range allContracts {
 			owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.Chains[chain].Client)
 			require.NoError(t, err)
-			require.Equal(t, state.Chains[chain].Timelock.Address(), owner)
+			require.Equal(t, state.MustGetEVMChainState(chain).Timelock.Address(), owner)
 		}
 	}
 
 	// check home chain contracts ownership
-	homeChainTimelockAddress := state.Chains[e.HomeChainSel].Timelock.Address()
+	homeChainTimelockAddress := state.MustGetEVMChainState(e.HomeChainSel).Timelock.Address()
 	for _, contract := range []common.Address{
-		state.Chains[e.HomeChainSel].CapabilityRegistry.Address(),
-		state.Chains[e.HomeChainSel].CCIPHome.Address(),
-		state.Chains[e.HomeChainSel].RMNHome.Address(),
+		state.MustGetEVMChainState(e.HomeChainSel).CapabilityRegistry.Address(),
+		state.MustGetEVMChainState(e.HomeChainSel).CCIPHome.Address(),
+		state.MustGetEVMChainState(e.HomeChainSel).RMNHome.Address(),
 	} {
 		owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.Chains[e.HomeChainSel].Client)
 		require.NoError(t, err)

@@ -3,9 +3,10 @@ package ccipsolana
 import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -22,6 +23,7 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraD
 		AddressCodec:               AddressCodec{},
 		ChainRW:                    ChainRWProvider{},
 		ExtraDataCodec:             ExtraDataDecoder{},
+		PriceOnlyCommitFn:          consts.MethodCommitPriceOnly,
 	}
 }
 

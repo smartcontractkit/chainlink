@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/gagliardetto/solana-go"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -16,7 +18,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -118,7 +119,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		go subscribeTransmitEvents(
 			ctx,
 			lggr,
-			state.Chains[cs].OnRamp,
+			state.MustGetEVMChainState(cs).OnRamp,
 			other,
 			startBlocks[cs],
 			cs,
@@ -130,40 +131,44 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			finalSeqNrExecChannels)
 	}
 
+	evmSourceKeys := make(map[uint64]*bind.TransactOpts)
+	solanaSourceKeys := make(map[uint64]*solana.PrivateKey)
+	for ind := range *userOverrides.NumDestinationChains {
+		cs := env.AllChainSelectors()[ind]
+		other := env.AllChainSelectorsExcluding([]uint64{cs})
+		for _, src := range other {
+			//todo: handle solana source keys
+			evmSourceKeys[src] = transmitKeys[src][ind]
+		}
+	}
+
 	// confirmed dest chains need a subscription
 	for ind := range *userOverrides.NumDestinationChains {
 		cs := env.AllChainSelectors()[ind]
 
-		evmSourceKeys := make(map[uint64]*bind.TransactOpts)
-		solanaSourceKeys := make(map[uint64]*solana.PrivateKey)
-		// todo: make solana source keys
 		other := env.AllChainSelectorsExcluding([]uint64{cs})
-		var mu sync.Mutex
-		var wg2 sync.WaitGroup
-		wg2.Add(len(other))
+		g := new(errgroup.Group)
+
 		for _, src := range other {
-			go func(src uint64) {
-				defer wg2.Done()
-				mu.Lock()
-				evmSourceKeys[src] = transmitKeys[src][ind]
-				mu.Unlock()
-				assert.NoError(t, prepareAccountToSendLink(
+			src := src
+			g.Go(func() error {
+				return prepareAccountToSendLink(
 					t,
 					state,
 					*env,
 					src,
 					evmSourceKeys[src],
-				))
-			}(src)
+				)
+			})
 		}
-		wg2.Wait()
+		require.NoError(t, g.Wait())
 
 		gunMap[cs], err = NewDestinationGun(
 			env.Logger,
 			cs,
 			*env,
 			&state,
-			state.Chains[cs].Receiver.Address(),
+			state.MustGetEVMChainState(cs).Receiver.Address(),
 			userOverrides,
 			evmSourceKeys,
 			solanaSourceKeys,
@@ -182,7 +187,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		go subscribeCommitEvents(
 			ctx,
 			lggr,
-			state.Chains[cs].OffRamp,
+			state.MustGetEVMChainState(cs).OffRamp,
 			other,
 			startBlocks[cs],
 			cs,
@@ -193,7 +198,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		go subscribeExecutionEvents(
 			ctx,
 			lggr,
-			state.Chains[cs].OffRamp,
+			state.MustGetEVMChainState(cs).OffRamp,
 			other,
 			startBlocks[cs],
 			cs,
@@ -206,13 +211,13 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		go subscribeSkippedIncorrectNonce(
 			ctx,
 			cs,
-			state.Chains[cs].NonceManager,
+			state.MustGetEVMChainState(cs).NonceManager,
 			lggr)
 
 		go subscribeAlreadyExecuted(
 			ctx,
 			cs,
-			state.Chains[cs].OffRamp,
+			state.MustGetEVMChainState(cs).OffRamp,
 			lggr)
 	}
 
@@ -284,7 +289,7 @@ func prepareAccountToSendLink(
 	lggr := logger.Test(t)
 	srcDeployer := e.Chains[src].DeployerKey
 	lggr.Infow("Setting up link token", "src", src)
-	srcLink := state.Chains[src].LinkToken
+	srcLink := state.MustGetEVMChainState(src).LinkToken
 
 	lggr.Infow("Granting mint and burn roles")
 	tx, err := srcLink.GrantMintAndBurnRoles(srcDeployer, srcAccount.From)
@@ -309,7 +314,7 @@ func prepareAccountToSendLink(
 	lggr.Infow("Approving routers")
 	// Approve the router to spend the tokens and confirm the tx's
 	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount
-	tx, err = srcLink.Approve(srcAccount, state.Chains[src].Router.Address(), math.MaxBig256)
+	tx, err = srcLink.Approve(srcAccount, state.MustGetEVMChainState(src).Router.Address(), math.MaxBig256)
 	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
 	return err
 }

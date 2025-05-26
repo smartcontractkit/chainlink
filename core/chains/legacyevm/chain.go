@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas/rollups"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/log"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/monitor"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
@@ -32,7 +33,6 @@ import (
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	trontxm "github.com/smartcontractkit/chainlink-tron/relayer/txm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/tron"
 )
 

@@ -145,8 +145,8 @@ func TestAcceptAdminRoleChangeset_Execution(t *testing.T) {
 			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
-			registryOnA := state.Chains[selectorA].TokenAdminRegistry
-			registryOnB := state.Chains[selectorB].TokenAdminRegistry
+			registryOnA := state.MustGetEVMChainState(selectorA).TokenAdminRegistry
+			registryOnB := state.MustGetEVMChainState(selectorB).TokenAdminRegistry
 
 			e, err = commonchangeset.Apply(t, e, timelockContracts,
 				commonchangeset.Configure(
@@ -195,7 +195,7 @@ func TestAcceptAdminRoleChangeset_Execution(t *testing.T) {
 			configOnA, err := registryOnA.GetTokenConfig(nil, tokens[selectorA].Address)
 			require.NoError(t, err)
 			if mcmsConfig != nil {
-				require.Equal(t, state.Chains[selectorA].Timelock.Address(), configOnA.Administrator)
+				require.Equal(t, state.MustGetEVMChainState(selectorA).Timelock.Address(), configOnA.Administrator)
 			} else {
 				require.Equal(t, e.Chains[selectorA].DeployerKey.From, configOnA.Administrator)
 			}
@@ -203,7 +203,7 @@ func TestAcceptAdminRoleChangeset_Execution(t *testing.T) {
 			configOnB, err := registryOnB.GetTokenConfig(nil, tokens[selectorB].Address)
 			require.NoError(t, err)
 			if mcmsConfig != nil {
-				require.Equal(t, state.Chains[selectorB].Timelock.Address(), configOnB.Administrator)
+				require.Equal(t, state.MustGetEVMChainState(selectorB).Timelock.Address(), configOnB.Administrator)
 			} else {
 				require.Equal(t, e.Chains[selectorB].DeployerKey.From, configOnB.Administrator)
 			}

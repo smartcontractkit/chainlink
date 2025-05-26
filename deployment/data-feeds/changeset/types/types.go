@@ -170,7 +170,8 @@ type WorkflowSpecConfig struct {
 	ConsensusAllowedPartialStaleness string
 	DeltaStageSec                    *int   // Default 45
 	TargetsSchedule                  string // Default "oneAtATime"
-	TriggersMaxFrequencyMs           *int   // Default 5000
+	TargetProcessor                  string
+	TriggersMaxFrequencyMs           *int // Default 5000
 	CREStepTimeout                   int64
 }
 
@@ -181,14 +182,14 @@ type ProposeWFJobsConfig struct {
 	InputFS            embed.FS // filesystem to read the feeds json mapping
 	WorkflowJobName    string   // Required
 	WorkflowSpecConfig WorkflowSpecConfig
-	NodeFilter         *offchain.NodesFilter
+	NodeFilter         *offchain.NodesFilter // Required. Node filter to select the nodes to send the jobs to.
 }
 
 type ProposeBtJobsConfig struct {
 	ChainSelector    uint64
 	BootstrapJobName string
 	Contract         string
-	NodeFilter       *offchain.NodesFilter
+	NodeFilter       *offchain.NodesFilter // Node filter to select the nodes to send the jobs to.
 }
 
 type DeleteJobsConfig struct {

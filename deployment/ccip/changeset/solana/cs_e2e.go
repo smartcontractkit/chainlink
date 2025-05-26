@@ -3,8 +3,9 @@ package solana
 import (
 	"fmt"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/mcms"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -33,126 +34,38 @@ type E2ETokenPoolConfig struct {
 func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOutput, error) {
 	finalOutput := cldf.ChangesetOutput{}
 	finalOutput.AddressBook = cldf.NewMemoryAddressBook() //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+	addressBookToRemove := cldf.NewMemoryAddressBook()
 	defer func(e cldf.Environment) {
 		e.Logger.Info("SolanaE2ETokenPool changeset completed")
 		e.Logger.Info("Final output: ", finalOutput.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	}(e)
-
-	var addressBookToRemove cldf.AddressBook
-	for _, tokenPoolConfig := range cfg.AddTokenPoolAndLookupTable {
-		output, err := AddTokenPoolAndLookupTable(e, tokenPoolConfig)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add token pool lookup table: %w", err)
-		}
-		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			// merge into in memory address book for below changesets
-			err = e.ExistingAddresses.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
-			}
-			// later remove from in memory address book so that we can use the finalOutput address book to update the disk/in-memory address book
-			addressBookToRemove = output.AddressBook //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-
-			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
-			}
-		}
-		if len(output.MCMSTimelockProposals) > 0 {
-			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
-		}
-	}
-	for _, registerConfig := range cfg.RegisterTokenAdminRegistry {
-		output, err := RegisterTokenAdminRegistry(e, registerConfig)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to register token admin registry: %w", err)
-		}
-		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
-			}
-		}
-		if len(output.MCMSTimelockProposals) > 0 {
-			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
-		}
-	}
-	for _, acceptConfig := range cfg.AcceptAdminRoleTokenAdminRegistry {
-		output, err := AcceptAdminRoleTokenAdminRegistry(e, acceptConfig)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to accept admin role token admin registry: %w", err)
-		}
-		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
-			}
-		}
-		if len(output.MCMSTimelockProposals) > 0 {
-			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
-		}
-	}
-	for _, setPoolConfig := range cfg.SetPool {
-		output, err := SetPool(e, setPoolConfig)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to set pool: %w", err)
-		}
-		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
-			}
-		}
-		if len(output.MCMSTimelockProposals) > 0 {
-			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
-		}
-	}
-	for _, remoteChainConfig := range cfg.RemoteChainTokenPool {
-		output, err := SetupTokenPoolForRemoteChain(e, remoteChainConfig)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to remote chain token pool config: %w", err)
-		}
-		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
-			}
-		}
-		if len(output.MCMSTimelockProposals) > 0 {
-			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
-		}
-	}
-	for _, configureTokenPoolConfig := range cfg.ConfigureTokenPoolContractsChangesets {
-		output, err := v1_5_1.ConfigureTokenPoolContractsChangeset(e, configureTokenPoolConfig)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure token pool contracts: %w", err)
-		}
-		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
-			}
-		}
-		if len(output.MCMSTimelockProposals) > 0 {
-			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
-		}
-	}
-	allProposals := finalOutput.MCMSTimelockProposals
-	if len(allProposals) > 0 {
-		state, err := stateview.LoadOnchainState(e)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
-		}
-		proposal, err := proposalutils.AggregateProposals(e, state.EVMMCMSStateByChain(), state.SolanaMCMSStateByChain(e), allProposals, "Update multiple token pools", cfg.MCMS)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
-		}
-		finalOutput.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
-	}
-
-	err := e.ExistingAddresses.Remove(addressBookToRemove)
+	err := ProcessConfig(&e, cfg.AddTokenPoolAndLookupTable, AddTokenPoolAndLookupTable, &finalOutput, addressBookToRemove)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to remove temp address book from env: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to add token pool and lookup table: %w", err)
+	}
+	err = ProcessConfig(&e, cfg.RegisterTokenAdminRegistry, RegisterTokenAdminRegistry, &finalOutput, addressBookToRemove)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to register token admin registry: %w", err)
+	}
+	err = ProcessConfig(&e, cfg.AcceptAdminRoleTokenAdminRegistry, AcceptAdminRoleTokenAdminRegistry, &finalOutput, addressBookToRemove)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to accept admin role: %w", err)
+	}
+	err = ProcessConfig(&e, cfg.SetPool, SetPool, &finalOutput, addressBookToRemove)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to set pool: %w", err)
+	}
+	err = ProcessConfig(&e, cfg.RemoteChainTokenPool, SetupTokenPoolForRemoteChain, &finalOutput, addressBookToRemove)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure remote chain token pool: %w", err)
+	}
+	err = ProcessConfig(&e, cfg.ConfigureTokenPoolContractsChangesets, v1_5_1.ConfigureTokenPoolContractsChangeset, &finalOutput, addressBookToRemove)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure token pool contracts: %w", err)
+	}
+	err = AggregateAndCleanup(e, &finalOutput, addressBookToRemove, cfg.MCMS, "E2ETokenPool changeset")
+	if err != nil {
+		e.Logger.Error("failed to aggregate and cleanup: ", err)
 	}
 
 	return finalOutput, nil
@@ -167,56 +80,79 @@ type E2ETokenConfig struct {
 func E2EToken(e cldf.Environment, cfg E2ETokenConfig) (cldf.ChangesetOutput, error) {
 	finalOutput := cldf.ChangesetOutput{}
 	finalOutput.AddressBook = cldf.NewMemoryAddressBook() //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+	addressBookToRemove := cldf.NewMemoryAddressBook()
 	defer func(e cldf.Environment) {
 		e.Logger.Info("E2EToken changeset completed")
 		e.Logger.Info("Final output: ", finalOutput.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	}(e)
-
-	for _, config := range cfg.DeploySolanaToken {
-		output, err := DeploySolanaToken(e, config)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy solana token: %w", err)
-		}
-		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
-			}
-		}
-		if len(output.MCMSTimelockProposals) > 0 {
-			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
-		}
+	err := ProcessConfig(&e, cfg.DeploySolanaToken, DeploySolanaToken, &finalOutput, addressBookToRemove)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy solana token: %w", err)
 	}
-	for _, config := range cfg.UploadTokenMetadata {
-		output, err := UploadTokenMetadata(e, config)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to upload token metadata: %w", err)
-		}
-		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
-			}
-		}
-		if len(output.MCMSTimelockProposals) > 0 {
-			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
-		}
+	err = ProcessConfig(&e, cfg.UploadTokenMetadata, UploadTokenMetadata, &finalOutput, addressBookToRemove)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to upload token metadata: %w", err)
 	}
-	for _, config := range cfg.SetTokenAuthority {
-		output, err := SetTokenAuthority(e, config)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to register token admin registry: %w", err)
-		}
-		if output.AddressBook != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			err = finalOutput.AddressBook.Merge(output.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
-			}
-		}
-		if len(output.MCMSTimelockProposals) > 0 {
-			finalOutput.MCMSTimelockProposals = append(finalOutput.MCMSTimelockProposals, output.MCMSTimelockProposals...)
-		}
+	err = ProcessConfig(&e, cfg.SetTokenAuthority, SetTokenAuthority, &finalOutput, addressBookToRemove)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to set token authority: %w", err)
+	}
+	err = AggregateAndCleanup(e, &finalOutput, addressBookToRemove, nil, "E2EToken changeset")
+	if err != nil {
+		e.Logger.Error("failed to aggregate and cleanup: ", err)
 	}
 
 	return finalOutput, nil
+}
+
+func ProcessConfig[T any](
+	e *cldf.Environment,
+	configs []T,
+	handler func(cldf.Environment, T) (cldf.ChangesetOutput, error),
+	finalOutput *cldf.ChangesetOutput,
+	tempRemoveBook cldf.AddressBook,
+) error {
+	for _, cfg := range configs {
+		output, err := handler(*e, cfg)
+		if err != nil {
+			return err
+		}
+		err = cldf.MergeChangesetOutput(*e, finalOutput, output)
+		if err != nil {
+			return fmt.Errorf("failed to merge changeset output: %w", err)
+		}
+
+		if ab := output.AddressBook; ab != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			if err := tempRemoveBook.Merge(ab); err != nil {
+				return fmt.Errorf("failed to merge into temp: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+func AggregateAndCleanup(e cldf.Environment, finalOutput *cldf.ChangesetOutput, abToRemove cldf.AddressBook, cfg *proposalutils.TimelockConfig, proposalDesc string) error {
+	allProposals := finalOutput.MCMSTimelockProposals
+	if len(allProposals) > 0 {
+		state, err := stateview.LoadOnchainState(e)
+		if err != nil {
+			return fmt.Errorf("failed to load onchain state: %w", err)
+		}
+		proposal, err := proposalutils.AggregateProposals(
+			e, state.EVMMCMSStateByChain(), state.SolanaMCMSStateByChain(e),
+			allProposals, proposalDesc, cfg,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to aggregate proposals: %w", err)
+		}
+		if proposal != nil {
+			finalOutput.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
+		}
+	}
+	if addresses, err := abToRemove.Addresses(); err == nil && len(addresses) > 0 {
+		if err := e.ExistingAddresses.Remove(abToRemove); err != nil {
+			return fmt.Errorf("failed to remove temp address book: %w", err)
+		}
+	}
+	return nil
 }

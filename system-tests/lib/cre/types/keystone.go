@@ -559,7 +559,6 @@ type ManageWorkflowWithCRECLIInput struct {
 	ChainSelector            uint64
 	WorkflowName             string
 	WorkflowDonID            uint32
-	WorkflowRegistryAddress  common.Address
 	WorkflowOwnerAddress     common.Address
 	CRECLIPrivateKey         string
 	CRECLIAbsPath            string

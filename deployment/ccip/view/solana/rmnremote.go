@@ -14,6 +14,8 @@ import (
 )
 
 type RMNRemoteView struct {
+	ConfigPDA          string   `json:"configPDA,omitempty"`
+	CursePDA           string   `json:"cursePDA,omitempty"`
 	Version            uint8    `json:"version,omitempty"`
 	Owner              string   `json:"owner,omitempty"`
 	ProposedOwner      string   `json:"proposedOwner,omitempty"`
@@ -29,6 +31,7 @@ func GenerateRMNRemoteView(chain cldf.SolChain, program solana.PublicKey, remote
 	if err != nil {
 		return view, fmt.Errorf("config not found in existing state, initialize rmn first %d", chain.Selector)
 	}
+	view.ConfigPDA = configPDA.String()
 	view.DefaultCodeVersion = config.DefaultCodeVersion.String()
 	view.Owner = config.Owner.String()
 	view.ProposedOwner = config.ProposedOwner.String()
@@ -38,6 +41,7 @@ func GenerateRMNRemoteView(chain cldf.SolChain, program solana.PublicKey, remote
 	if err = chain.GetAccountDataBorshInto(context.Background(), cursePDA, &curseAccount); err != nil {
 		return view, fmt.Errorf("failed to get curse pda: %w", err)
 	}
+	view.CursePDA = cursePDA.String()
 	view.CurseSubjects = make([]string, len(curseAccount.CursedSubjects))
 	for i, curse := range curseAccount.CursedSubjects {
 		view.CurseSubjects[i] = base58.Encode(curse.Value[:])

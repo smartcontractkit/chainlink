@@ -135,7 +135,7 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 					Amount: oneE18,
 				},
 			},
-			Receiver: state.Chains[destChain].Receiver.Address().Bytes(),
+			Receiver: state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{Token: destToken.Address().Bytes(), Amount: oneE18},
 			},
@@ -159,7 +159,7 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 					Amount: oneE18,
 				},
 			},
-			Receiver:  state.Chains[sourceChain].Receiver.Address().Bytes(),
+			Receiver:  state.MustGetEVMChainState(sourceChain).Receiver.Address().Bytes(),
 			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(300_000, false),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{Token: selfServeSrcToken.Address().Bytes(), Amount: new(big.Int).Add(oneE18, oneE18)},
@@ -203,7 +203,7 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 					Amount: oneE18,
 				},
 			},
-			Receiver:  state.Chains[sourceChain].Receiver.Address().Bytes(),
+			Receiver:  state.MustGetEVMChainState(sourceChain).Receiver.Address().Bytes(),
 			Data:      []byte("this should be reverted because gasLimit is too low, no tokens are transferred as well"),
 			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(1, false),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
@@ -484,7 +484,7 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 					Amount: 1,
 				},
 			},
-			Receiver: state.Chains[destChain].Receiver.Address().Bytes(),
+			Receiver: state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				// due to the differences in decimals, 1 on SVM results to 1e9 on EVM
 				{Token: common.LeftPadBytes(destToken.Address().Bytes(), 32), Amount: new(big.Int).SetUint64(oneE9)},

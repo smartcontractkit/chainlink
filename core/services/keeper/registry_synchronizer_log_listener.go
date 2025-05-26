@@ -4,7 +4,7 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink-evm/pkg/log"
 )
 
 func (rs *RegistrySynchronizer) JobID() int32 {

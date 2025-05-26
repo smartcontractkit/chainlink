@@ -2,68 +2,70 @@ package metering
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"sync"
 
 	"github.com/shopspring/decimal"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-type MeteringReportStepRef string
+type ReportStepRef string
 
-func (s MeteringReportStepRef) String() string {
+func (s ReportStepRef) String() string {
 	return string(s)
 }
 
-type MeteringSpendUnit string
+type SpendUnit string
 
-func (s MeteringSpendUnit) String() string {
+func (s SpendUnit) String() string {
 	return string(s)
 }
 
-func (s MeteringSpendUnit) DecimalToSpendValue(value decimal.Decimal) MeteringSpendValue {
-	return MeteringSpendValue{value: value, roundingPlace: 18}
+func (s SpendUnit) DecimalToSpendValue(value decimal.Decimal) SpendValue {
+	return SpendValue{value: value, roundingPlace: 18}
 }
 
-func (s MeteringSpendUnit) IntToSpendValue(value int64) MeteringSpendValue {
-	return MeteringSpendValue{value: decimal.NewFromInt(value), roundingPlace: 18}
+func (s SpendUnit) IntToSpendValue(value int64) SpendValue {
+	return SpendValue{value: decimal.NewFromInt(value), roundingPlace: 18}
 }
 
-func (s MeteringSpendUnit) StringToSpendValue(value string) (MeteringSpendValue, error) {
+func (s SpendUnit) StringToSpendValue(value string) (SpendValue, error) {
 	dec, err := decimal.NewFromString(value)
 	if err != nil {
-		return MeteringSpendValue{}, err
+		return SpendValue{}, err
 	}
 
-	return MeteringSpendValue{value: dec, roundingPlace: 18}, nil
+	return SpendValue{value: dec, roundingPlace: 18}, nil
 }
 
-type MeteringSpendValue struct {
+type SpendValue struct {
 	value         decimal.Decimal
 	roundingPlace uint8
 }
 
-func (v MeteringSpendValue) Add(value MeteringSpendValue) MeteringSpendValue {
-	return MeteringSpendValue{
+func (v SpendValue) Add(value SpendValue) SpendValue {
+	return SpendValue{
 		value:         v.value.Add(value.value),
 		roundingPlace: v.roundingPlace,
 	}
 }
 
-func (v MeteringSpendValue) Div(value MeteringSpendValue) MeteringSpendValue {
-	return MeteringSpendValue{
+func (v SpendValue) Div(value SpendValue) SpendValue {
+	return SpendValue{
 		value:         v.value.Div(value.value),
 		roundingPlace: v.roundingPlace,
 	}
 }
 
-func (v MeteringSpendValue) GreaterThan(value MeteringSpendValue) bool {
+func (v SpendValue) GreaterThan(value SpendValue) bool {
 	return v.value.GreaterThan(value.value)
 }
 
-func (v MeteringSpendValue) String() string {
+func (v SpendValue) String() string {
 	return v.value.StringFixedBank(int32(v.roundingPlace))
 }
 
@@ -73,44 +75,52 @@ type ProtoDetail struct {
 	Entity string
 }
 
-type MeteringReportStep struct {
+type ReportStep struct {
+	Reserve map[SpendUnit]SpendValue
+	Spend   map[SpendUnit][]ReportStepDetail
+}
+
+type ReportStepDetail struct {
 	Peer2PeerID string
-	SpendUnit   MeteringSpendUnit
-	SpendValue  MeteringSpendValue
+	SpendValue  SpendValue
 }
 
-type MeteringReport struct {
-	balance *balanceStore
-	mu      sync.RWMutex
-	steps   map[MeteringReportStepRef][]MeteringReportStep
-	lggr    logger.Logger
+type Report struct {
+	balance  *balanceStore
+	mu       sync.RWMutex
+	steps    map[ReportStepRef]ReportStep
+	lggr     logger.Logger
+	refCount map[ReportStepRef]uint64
 }
 
-func NewMeteringReport(lggr logger.Logger) *MeteringReport {
+func NewReport(lggr logger.Logger) *Report {
 	logger := lggr.Named("Metering")
 	balanceStore := NewBalanceStore(0, map[string]decimal.Decimal{}, logger)
-	return &MeteringReport{
-		balance: balanceStore,
-		steps:   make(map[MeteringReportStepRef][]MeteringReportStep),
-		lggr:    logger,
+	return &Report{
+		balance:  balanceStore,
+		steps:    make(map[ReportStepRef]ReportStep),
+		lggr:     logger,
+		refCount: make(map[ReportStepRef]uint64),
 	}
 }
 
-func (r *MeteringReport) MedianSpend() map[MeteringSpendUnit]MeteringSpendValue {
+func (r *Report) MedianSpend() map[SpendUnit]SpendValue {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	values := map[MeteringSpendUnit][]MeteringSpendValue{}
-	medians := map[MeteringSpendUnit]MeteringSpendValue{}
+	values := map[SpendUnit][]SpendValue{}
+	medians := map[SpendUnit]SpendValue{}
 
-	for _, nodeVals := range r.steps {
-		for _, step := range nodeVals {
-			vals, ok := values[step.SpendUnit]
+	for _, step := range r.steps {
+		for unit, details := range step.Spend {
+			_, ok := values[unit]
 			if !ok {
-				vals = []MeteringSpendValue{}
+				values[unit] = []SpendValue{}
 			}
 
-			values[step.SpendUnit] = append(vals, step.SpendValue)
+			for _, detail := range details {
+				values[unit] = append(values[unit], detail.SpendValue)
+			}
 		}
 	}
 
@@ -131,86 +141,142 @@ func (r *MeteringReport) MedianSpend() map[MeteringSpendUnit]MeteringSpendValue 
 	return medians
 }
 
-// SetStep sets the recorded spends for a given capability invocation in the engine.
+// ReserveStep earmarks the maximum spend for a given capability invocation in the engine.
 // We expect to only set this value once - an error is returned if a step would be overwritten
-func (r *MeteringReport) SetStep(ref MeteringReportStepRef, steps []MeteringReportStep) error {
+func (r *Report) ReserveStep(ref ReportStepRef, capInfo capabilities.CapabilityInfo) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if _, ok := r.steps[ref]; ok {
-		return errors.New("step already exists")
+		return errors.New("step reserve already exists")
 	}
 
-	r.steps[ref] = steps
+	// TODO: handle extra reserves for write step
+
+	r.steps[ref] = ReportStep{
+		Reserve: make(map[SpendUnit]SpendValue),
+		Spend:   nil,
+	}
 
 	return nil
 }
 
-func (r *MeteringReport) Message() *events.MeteringReport {
+// SetStep sets the recorded spends for a given capability invocation in the engine.
+// ReserveStep must be called before SetStep
+// We expect to only set this value once - an error is returned if a step would be overwritten
+func (r *Report) SetStep(ref ReportStepRef, steps []capabilities.MeteringNodeDetail) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	step, ok := r.steps[ref]
+	if !ok {
+		return errors.New("must call Report.ReserveStep first")
+	}
+
+	if step.Spend != nil {
+		return errors.New("step spend already exists")
+	}
+
+	spend := make(map[SpendUnit][]ReportStepDetail)
+
+	for _, detail := range steps {
+		unit := SpendUnit(detail.SpendUnit)
+		value, err := unit.StringToSpendValue(detail.SpendValue)
+		if err != nil {
+			r.lggr.Error(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
+		}
+		spend[unit] = append(spend[unit], ReportStepDetail{
+			Peer2PeerID: detail.Peer2PeerID,
+			SpendValue:  value,
+		})
+	}
+
+	step.Spend = spend
+	r.steps[ref] = step
+
+	return nil
+}
+
+func (r *Report) Message() *events.MeteringReport {
 	protoReport := &events.MeteringReport{
 		Steps:    map[string]*events.MeteringReportStep{},
 		Metadata: &events.WorkflowMetadata{},
 	}
 
 	for key, step := range r.steps {
-		nodeDetail := make([]*events.MeteringReportNodeDetail, len(step))
+		nodeDetails := []*events.MeteringReportNodeDetail{}
 
-		for idx, nodeVal := range step {
-			nodeDetail[idx] = &events.MeteringReportNodeDetail{
-				Peer_2PeerId: nodeVal.Peer2PeerID,
-				SpendUnit:    nodeVal.SpendUnit.String(),
-				SpendValue:   nodeVal.SpendValue.String(),
+		for unit, details := range step.Spend {
+			for _, detail := range details {
+				nodeDetails = append(nodeDetails, &events.MeteringReportNodeDetail{
+					Peer_2PeerId: detail.Peer2PeerID,
+					SpendUnit:    unit.String(),
+					SpendValue:   detail.SpendValue.String(),
+				})
 			}
 		}
+
 		protoReport.Steps[key.String()] = &events.MeteringReportStep{
-			Nodes: nodeDetail,
+			Nodes: nodeDetails,
 		}
 	}
 
 	return protoReport
 }
 
-// MeterReports is a concurrency-safe wrapper around map[string]*MeteringReport.
-type MeterReports struct {
-	mu           sync.RWMutex
-	meterReports map[string]*MeteringReport
+// IncrementRefCount returns a count of the time the ref has been seen.
+// Used to build unique refs in EngineV2 until there are deterministic capability call IDs available
+// TODO: Remove with CAPPL-881
+func (r *Report) IncrementRefCount(ref ReportStepRef) uint64 {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	count := r.refCount[ref]
+	r.refCount[ref]++
+	return count
 }
 
-// NewMeterReports initializes and returns a new MeterReports.
-func NewMeterReports() *MeterReports {
-	return &MeterReports{
-		meterReports: make(map[string]*MeteringReport),
+// Reports is a concurrency-safe wrapper around map[string]*Report.
+type Reports struct {
+	mu      sync.RWMutex
+	reports map[string]*Report
+}
+
+// NewReports initializes and returns a new Reports.
+func NewReports() *Reports {
+	return &Reports{
+		reports: make(map[string]*Report),
 	}
 }
 
-// Get retrieves a MeteringReport for a given key (if it exists).
-func (s *MeterReports) Get(key string) (*MeteringReport, bool) {
+// Get retrieves a Report for a given key (if it exists).
+func (s *Reports) Get(key string) (*Report, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	val, ok := s.meterReports[key]
+	val, ok := s.reports[key]
 	return val, ok
 }
 
-// Add inserts or updates a MeteringReport under the specified key.
-func (s *MeterReports) Add(key string, report *MeteringReport) {
+// Add inserts or updates a Report under the specified key.
+func (s *Reports) Add(key string, report *Report) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.meterReports[key] = report
+	s.reports[key] = report
 }
 
-// Delete removes the MeteringReport with the specified key.
-func (s *MeterReports) Delete(key string) {
+// Delete removes the Report with the specified key.
+func (s *Reports) Delete(key string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	delete(s.meterReports, key)
+	delete(s.reports, key)
 }
 
-func (s *MeterReports) Len() int {
+func (s *Reports) Len() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return len(s.meterReports)
+	return len(s.reports)
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -192,6 +193,11 @@ func (te EnvWrapper) GetP2PIDs(donName string) P2PIDs {
 func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env cldf.Environment) {
 	chains, _ := memory.NewMemoryChains(t, nChains, 1)
 	registryChainSel = registryChain(t, chains)
+	blockChains := map[uint64]chain.BlockChain{}
+	for selector, ch := range chains {
+		blockChains[selector] = ch
+	}
+
 	// note that all the nodes require TOML configuration of the cap registry address
 	// and writers need forwarder address as TOML config
 	// we choose to use changesets to deploy the initial contracts because that's how it's done in the real world
@@ -202,6 +208,7 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env cldf.Envir
 		Chains:            chains,
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
 		DataStore:         datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]().Seal(),
+		BlockChains:       chain.NewBlockChains(blockChains),
 	}
 
 	forwarderChangesets := make([]commonchangeset.ConfiguredChangeSet, nChains)
@@ -442,7 +449,12 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 		dons.Put(newViewOnlyDon(donCfg.Name, n))
 	}
 
-	env := cldf.NewEnvironment(
+	blockChains := map[uint64]chain.BlockChain{}
+	for sel, c := range chains {
+		blockChains[sel] = c
+	}
+
+	env := cldf.NewCLDFEnvironment(
 		"view only nodes",
 		logger.Test(t),
 		cldf.NewMemoryAddressBook(),
@@ -457,6 +469,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 		envtest.NewJDService(dons.NodeList()),
 		t.Context,
 		cldf.XXXGenerateTestOCRSecrets(),
+		chain.NewBlockChains(blockChains),
 	)
 
 	return dons, *env
