@@ -308,29 +308,6 @@ observationSource = """
 	))
 }
 
-func addStreamSpec(
-	t *testing.T,
-	node Node,
-	name string,
-	streamID *uint32,
-	observationSource string,
-) (id int32) {
-	optionalStreamID := ""
-	if streamID != nil {
-		optionalStreamID = fmt.Sprintf("streamID = %d\n", *streamID)
-	}
-	specTOML := fmt.Sprintf(`
-type = "stream"
-schemaVersion = 1
-name = "%s"
-%s
-observationSource = """
-%s
-"""
-`, name, optionalStreamID, observationSource)
-	return node.AddStreamJob(t, specTOML)
-}
-
 func addQuoteStreamJob(
 	t *testing.T,
 	node Node,
@@ -398,27 +375,27 @@ func addLLOJob(
 	relayType,
 	relayConfig string,
 ) {
-	node.AddLLOJob(t, fmt.Sprintf(`
-type = "offchainreporting2"
-schemaVersion = 1
-name = "%s"
-forwardingAllowed = false
-maxTaskDuration = "1s"
-contractID = "%s"
-contractConfigTrackerPollInterval = "1s"
-ocrKeyBundleID = "%s"
-p2pv2Bootstrappers = [
-  "%s"
-]
-relay = "%s"
-pluginType = "llo"
-transmitterID = "%x"
-
-[pluginConfig]
-%s
-
-[relayConfig]
-%s`,
+	spec := fmt.Sprintf(`
+	type = "offchainreporting2"
+	schemaVersion = 1
+	name = "%s"
+	forwardingAllowed = false
+	maxTaskDuration = "1s"
+	contractID = "%s"
+	contractConfigTrackerPollInterval = "1s"
+	ocrKeyBundleID = "%s"
+	p2pv2Bootstrappers = [
+		"%s"
+	]
+	relay = "%s"
+	pluginType = "llo"
+	transmitterID = "%x"
+	
+	[pluginConfig]
+	%s
+	
+	[relayConfig]
+	%s`,
 		jobName,
 		configuratorAddr.Hex(),
 		node.KeyBundle.ID(),
@@ -427,7 +404,9 @@ transmitterID = "%x"
 		clientPubKey,
 		pluginConfig,
 		relayConfig,
-	))
+	)
+	t.Logf("llo spec: %s", spec)
+	node.AddLLOJob(t, spec)
 }
 
 func createSingleDecimalBridge(t *testing.T, name string, i int, p decimal.Decimal, borm bridges.ORM) (bridgeName string) {
@@ -522,4 +501,124 @@ func addOCRJobsEVMPremiumLegacy(
 		)
 	}
 	return jobIDs
+}
+
+func addSecureMintOCRJobs(
+	t *testing.T,
+	nodes []Node,
+	clientPubKeys []ed25519.PublicKey) (jobIDs map[int]int32) {
+
+	// node idx => job id
+	jobIDs = make(map[int]int32)
+
+	// Create one bridge and one SM Feed OCR job on each node
+	for i, node := range nodes {
+		name := "securemint-ea"
+		bmBridge := createSingleDecimalBridge(t, name, i, decimal.NewFromFloat32(1000), node.App.BridgeORM())
+		jobID := addSecureMintJob(
+			t,
+			node,
+			clientPubKeys[i],
+			bmBridge,
+		)
+		jobIDs[i] = jobID
+
+		// TODO(gg): do we need this?
+		// addLLOJob(
+		// 	t,
+		// 	node,
+		// 	configuratorAddress,
+		// 	bootstrapPeerID,
+		// 	bootstrapNodePort,
+		// 	clientPubKeys[i],
+		// 	"feed-1",
+		// 	pluginConfig,
+		// 	relayType,
+		// 	relayConfig,
+		// )
+	}
+	return jobIDs
+}
+
+func addSecureMintJob(
+	t *testing.T,
+	node Node,
+	clientPubKey ed25519.PublicKey,
+	bridgeName string,
+) (id int32) {
+
+	// TODO(gg): validate SM spec
+	// job, err := streams.ValidatedStreamSpec(spec)
+	// require.NoError(t, err)
+
+	spec := getJobSpec("0x0000000000000000000000000000000000000000", node.KeyBundle.ID(), clientPubKey, bridgeName)
+
+	c := node.App.GetConfig()
+
+	t.Logf("spec: %s", spec)
+	job, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), spec, nil)
+	require.NoError(t, err)
+
+	err = node.App.AddJobV2(testutils.Context(t), &job)
+	require.NoError(t, err)
+
+	return job.ID
+}
+
+func getJobSpec(ocrContractAddress string, keyBundleID string, clientPubKey ed25519.PublicKey, bridgeName string) string {
+
+	return fmt.Sprintf(`
+type               = "offchainreporting2"
+relay              = "evm"
+schemaVersion      = 1
+pluginType         = "median"
+name               = "secure mint spec"
+contractID         = "%s"
+ocrKeyBundleID     = "%s"
+transmitterID      = "%x"
+contractConfigConfirmations = 1
+contractConfigTrackerPollInterval = "1s"
+observationSource  = """
+    // data source 1
+    ds1          [type=bridge name="%s"];
+    ds1_parse    [type=jsonparse path="data"];
+    ds1_multiply [type=multiply times=1];
+
+
+    ds1 -> ds1_parse -> ds1_multiply -> answer1;
+
+	answer1 [type=median index=0];
+"""
+
+[relayConfig]
+chainID = 1337
+fromBlock = 1
+
+[pluginConfig]
+juelsPerFeeCoinSource = """
+		// data source 1
+		ds1          [type=bridge name="%s"];
+		ds1_parse    [type=jsonparse path="data"];
+		ds1_multiply [type=multiply times=1];
+
+		ds1 -> ds1_parse -> ds1_multiply -> answer1;
+
+	answer1 [type=median index=0];
+"""
+gasPriceSubunitsSource = """
+		// data source
+		dsp          [type=bridge name="%s"];
+		dsp_parse    [type=jsonparse path="data"];
+		dsp -> dsp_parse;
+"""
+[pluginConfig.juelsPerFeeCoinCache]
+updateInterval = "1m"
+`,
+		ocrContractAddress, // contract address
+		keyBundleID,        // ocr key bundle id
+		clientPubKey,       // transmitter id
+		bridgeName,         // bridge name
+		bridgeName,         // bridge name
+		bridgeName)         // bridge name
+
 }

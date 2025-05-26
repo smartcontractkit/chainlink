@@ -374,6 +374,9 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
 			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolWSRPC)
+
+			// TODO(gg): something like this + extra config
+			// c.Feature.SecureMint.Enabled = true
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -438,6 +441,9 @@ donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
 		addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, legacyVerifierAddr, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
+
+		// TODO(gg): maybe add pluginConfig, depending on new plugin
+		// addSecureMintOCRJobs(t, nodes, clientPubKeys)
 
 		// Set config on configurator
 		setLegacyConfig(

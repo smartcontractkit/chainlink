@@ -39,6 +39,7 @@ const (
 	LegacyGasStationSidecarJobType string = "legacygasstationsidecar"
 	OffchainReporting2JobType      string = "offchainreporting2"
 	OffchainReportingJobType       string = "offchainreporting"
+	SecureMintJobType              string = "securemint"
 	StreamJobType                  string = "stream"
 	VRFJobType                     string = "vrf"
 	WebhookJobType                 string = "webhook"
