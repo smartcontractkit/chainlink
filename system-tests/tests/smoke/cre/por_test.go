@@ -1,6 +1,7 @@
 package cre
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,7 +34,6 @@ import (
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
@@ -319,7 +319,7 @@ func activatePoRWorkflow(input managePoRWorkflowInput) error {
 	return nil
 }
 
-func registerPoRWorkflow(input managePoRWorkflowInput) error {
+func registerPoRWorkflow(ctx context.Context, input managePoRWorkflowInput) error {
 	// Register workflow directly using the provided binary URL and optionally config and secrets URLs
 	// This is a legacy solution, probably we can remove it soon, but there's still quite a lot of people
 	// who have no access to dev-platform repo, so they cannot use the CRE CLI
@@ -330,6 +330,7 @@ func registerPoRWorkflow(input managePoRWorkflowInput) error {
 		}
 
 		err := creworkflow.RegisterWithContract(
+			ctx,
 			input.sethClient,
 			workflowRegistryAddress,
 			input.workflowDonID,
@@ -496,7 +497,7 @@ func setupPoRTestEnvironment(
 		},
 	}
 
-	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testcontext.Get(t), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
+	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
 	require.NoError(t, setupErr, "failed to setup test environment")
 	homeChainOutput := universalSetupOutput.BlockchainOutput[0]
 
@@ -596,7 +597,7 @@ func setupPoRTestEnvironment(
 			creCLIProfile:      libcrecli.CRECLIProfile,
 		}
 
-		workflowRegisterErr := registerPoRWorkflow(workflowInput)
+		workflowRegisterErr := registerPoRWorkflow(t.Context(), workflowInput)
 		require.NoError(t, workflowRegisterErr, "failed to register PoR workflow")
 
 		workflowPauseErr := pausePoRWorkflow(workflowInput)
@@ -868,7 +869,7 @@ func debugTest(t *testing.T, testLogger zerolog.Logger, setupOutput *porSetupOut
 				BlockchainOutput: setupOutput.chainSelectorToBlockchainOutput[chainSelector],
 				InfraInput:       in.Infra,
 			}
-			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
+			lidebug.PrintTestDebug(t.Context(), t.Name(), testLogger, debugInput)
 		}
 	}
 }

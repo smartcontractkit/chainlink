@@ -484,7 +484,7 @@ func SetupTestEnvironment(
 		creds = insecure.NewCredentials()
 	}
 
-	fullCldOutput, cldErr := libdevenv.BuildFullCLDEnvironment(singeFileLogger, fullCldInput, creds)
+	fullCldOutput, cldErr := libdevenv.BuildFullCLDEnvironment(ctx, singeFileLogger, fullCldInput, creds)
 	if cldErr != nil {
 		return nil, pkgerrors.Wrap(cldErr, "failed to build full CLD environment")
 	}
@@ -494,7 +494,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("[Stage 7/10] Funding Chainlink nodes\n\n"))
 
 	// Fund the nodes
-	concurrentNonceMap, concurrentNonceMapErr := NewConcurrentNonceMap(blockchainsOutput)
+	concurrentNonceMap, concurrentNonceMapErr := NewConcurrentNonceMap(ctx, blockchainsOutput)
 	if concurrentNonceMapErr != nil {
 		return nil, pkgerrors.Wrap(concurrentNonceMapErr, "failed to create concurrent nonce map")
 	}
@@ -516,7 +516,7 @@ func SetupTestEnvironment(
 
 					nonce := concurrentNonceMap.Increment(bcOut.ChainID)
 
-					_, fundingErr := libfunding.SendFunds(zerolog.Logger{}, bcOut.SethClient, libtypes.FundsToSend{
+					_, fundingErr := libfunding.SendFunds(ctx, zerolog.Logger{}, bcOut.SethClient, libtypes.FundsToSend{
 						ToAddress:  common.HexToAddress(nodeAddress),
 						Amount:     big.NewInt(5000000000000000000),
 						PrivateKey: bcOut.SethClient.MustGetRootPrivateKey(),
@@ -560,7 +560,7 @@ func SetupTestEnvironment(
 		DonToJobSpecs: donToJobSpecs,
 	}
 
-	jobsErr := libdon.CreateJobs(testLogger, createJobsInput)
+	jobsErr := libdon.CreateJobs(ctx, testLogger, createJobsInput)
 	if jobsErr != nil {
 		return nil, pkgerrors.Wrap(jobsErr, "failed to create jobs")
 	}
@@ -748,12 +748,12 @@ type ConcurrentNonceMap struct {
 	nonceByChainID map[uint64]uint64
 }
 
-func NewConcurrentNonceMap(blockchainOutputs []*BlockchainOutput) (*ConcurrentNonceMap, error) {
+func NewConcurrentNonceMap(ctx context.Context, blockchainOutputs []*BlockchainOutput) (*ConcurrentNonceMap, error) {
 	nonceByChainID := make(map[uint64]uint64)
 	for _, bcOut := range blockchainOutputs {
-		ctx, cancel := context.WithTimeout(context.Background(), bcOut.SethClient.Cfg.Network.TxnTimeout.Duration())
 		var err error
-		nonceByChainID[bcOut.ChainID], err = bcOut.SethClient.Client.PendingNonceAt(ctx, bcOut.SethClient.MustGetRootKeyAddress())
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, bcOut.SethClient.Cfg.Network.TxnTimeout.Duration())
+		nonceByChainID[bcOut.ChainID], err = bcOut.SethClient.Client.PendingNonceAt(ctxWithTimeout, bcOut.SethClient.MustGetRootKeyAddress())
 		cancel()
 		if err != nil {
 			cancel()

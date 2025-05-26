@@ -505,7 +505,9 @@ func startCLIEnvironment(topologyFlag string, withPluginsDockerImageFlag string,
 		universalSetupInput.CustomBinariesPaths = capabilitiesBinaryPaths
 	}
 
-	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(context.Background(), testLogger, cldlogger.NewSingleFileLogger(nil), universalSetupInput)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, cldlogger.NewSingleFileLogger(nil), universalSetupInput)
 	if setupErr != nil {
 		return nil, fmt.Errorf("failed to setup test environment: %w", setupErr)
 	}
