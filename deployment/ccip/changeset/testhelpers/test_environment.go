@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -374,10 +375,23 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	m.Chains = chains
 	m.SolChains = memory.NewMemoryChainsSol(t, tc.SolChains)
 	m.AptosChains = memory.NewMemoryChainsAptos(t, tc.AptosChains)
+
+	blockChains := map[uint64]chain.BlockChain{}
+	for selector, ch := range m.Chains {
+		blockChains[selector] = ch
+	}
+	for selector, ch := range m.SolChains {
+		blockChains[selector] = ch
+	}
+	for selector, ch := range m.AptosChains {
+		blockChains[selector] = ch
+	}
+
 	env := cldf.Environment{
 		Chains:      m.Chains,
 		SolChains:   m.SolChains,
 		AptosChains: m.AptosChains,
+		BlockChains: chain.NewBlockChains(blockChains),
 	}
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
 	replayBlocks, err := LatestBlocksByChain(ctx, env)
