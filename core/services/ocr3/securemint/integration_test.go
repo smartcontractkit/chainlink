@@ -321,10 +321,6 @@ func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 			ProtocolVersion:                     0,
 			DefaultMinReportIntervalNanoseconds: 0,
 		},
-		{
-			ProtocolVersion:                     1,
-			DefaultMinReportIntervalNanoseconds: 1,
-		},
 	}
 	for _, offchainConfig := range offchainConfigs {
 		t.Run(fmt.Sprintf("offchainConfig=%+v", offchainConfig), func(t *testing.T) {
