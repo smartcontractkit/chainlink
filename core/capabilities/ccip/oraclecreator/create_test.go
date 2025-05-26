@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types/mocks"
@@ -24,9 +25,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	ocrcommon "github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	ocr3types "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	ocrcommon "github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 // TestPluginOracleCreatorCreate_InvalidSelector ensures that Create returns an error when an
