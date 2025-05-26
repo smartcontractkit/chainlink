@@ -22,6 +22,9 @@ jobs:
   init:
     runs-on: ubuntu-24.04
     outputs:
+      # To get an image from a feature branch, do one of the following:
+      # 1. Use a workflow dispatch
+      # 2. Add the `build-publish` label to your PR, and re-run the workflow (or push a commit)
       should-run: >-
         ${{
           steps.pr-labels.outputs.check-label-found == 'true' ||
