@@ -11,7 +11,10 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
@@ -40,6 +43,11 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 					4457093679053095497: {},
 				},
 				ExistingAddresses: cldf.NewMemoryAddressBook(),
+				BlockChains: chain.NewBlockChains(
+					map[uint64]chain.BlockChain{
+						743186221051783445:  aptos.Chain{},
+						4457093679053095497: aptos.Chain{},
+					}),
 			},
 			config: config.DeployAptosChainConfig{
 				ContractParamsPerChain: map[uint64]config.ChainContractParams{
@@ -73,6 +81,11 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 						},
 					},
 				),
+				BlockChains: chain.NewBlockChains(
+					map[uint64]chain.BlockChain{
+						743186221051783445:  aptos.Chain{},
+						4457093679053095497: aptos.Chain{},
+					}),
 			},
 			config: config.DeployAptosChainConfig{
 				ContractParamsPerChain: map[uint64]config.ChainContractParams{
@@ -101,6 +114,10 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 						},
 					},
 				),
+				BlockChains: chain.NewBlockChains(
+					map[uint64]chain.BlockChain{
+						4457093679053095497: aptos.Chain{},
+					}),
 			},
 			config: config.DeployAptosChainConfig{
 				ContractParamsPerChain: map[uint64]config.ChainContractParams{
@@ -141,6 +158,10 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 						4457093679053095497: {}, // No MCMS address in state
 					},
 				),
+				BlockChains: chain.NewBlockChains(
+					map[uint64]chain.BlockChain{
+						4457093679053095497: aptos.Chain{},
+					}),
 			},
 			config: config.DeployAptosChainConfig{
 				ContractParamsPerChain: map[uint64]config.ChainContractParams{
@@ -167,6 +188,10 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 						},
 					},
 				),
+				BlockChains: chain.NewBlockChains(
+					map[uint64]chain.BlockChain{
+						4457093679053095497: aptos.Chain{},
+					}),
 			},
 			config: config.DeployAptosChainConfig{
 				ContractParamsPerChain: map[uint64]config.ChainContractParams{

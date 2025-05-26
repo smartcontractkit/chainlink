@@ -5,6 +5,7 @@ enum OCR2ChainType {
     STARKNET
     APTOS
     TRON
+    TON
 }
 
 type OCR2KeyBundle {
