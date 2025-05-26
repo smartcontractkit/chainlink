@@ -139,6 +139,16 @@ func WithAssertOnError(assert bool) ReplayLogsOption {
 	}
 }
 
+// SleepAndReplay sleeps for the specified duration and then replays logs for the given chain selectors.
+func SleepAndReplay(t *testing.T, env cldf.Environment, duration time.Duration, chainSelectors ...uint64) {
+	time.Sleep(duration)
+	replayBlocks := make(map[uint64]uint64)
+	for _, selector := range chainSelectors {
+		replayBlocks[selector] = 1
+	}
+	ReplayLogs(t, env.Offchain, replayBlocks)
+}
+
 // ReplayLogs replays logs for the given blocks using the provided offchain client.
 // By default, it will assert on errors. Use WithAssertOnError(false) to change this behavior.
 func ReplayLogs(t *testing.T, oc cldf.OffchainClient, replayBlocks map[uint64]uint64, opts ...ReplayLogsOption) {

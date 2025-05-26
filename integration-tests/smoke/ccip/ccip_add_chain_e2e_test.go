@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -35,7 +36,7 @@ import (
 func Test_AddChainE2E(t *testing.T) {
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(
 		t,
-		// testhelpers.WithExtraConfigTomls([]string{"Test_AddChainE2E.toml"}),
+		testhelpers.WithExtraConfigTomls([]string{"Test_AddChainE2E.toml"}),
 		testhelpers.WithNumOfChains(3),
 		testhelpers.WithPrerequisiteDeploymentOnly(nil),
 	)
@@ -75,6 +76,8 @@ func Test_AddChainE2E(t *testing.T) {
 		}
 	}
 
+	testhelpers.SleepAndReplay(t, e.Env, 10*time.Second, initialSetToDeploy...)
+
 	// Build remote chain configurations
 	remoteChains := make([]v1_6.ChainDefinition, len(initialSetToDeploy))
 	for i, selector := range initialSetToDeploy {
@@ -110,6 +113,7 @@ func Test_AddChainE2E(t *testing.T) {
 	require.NoError(t, err, "must get node info")
 	mcmsDeploymentCfg := proposalutils.SingleGroupTimelockConfigV2(t)
 	chainToDeploy := toDeploy[0]
+	tokenConfig := shared.NewTestTokenConfig(state.MustGetEVMChainState(e.FeedChainSel).USDFeeds)
 	newChainDefinition := v1_6.NewChainDefinition{
 		ChainDefinition: v1_6.ChainDefinition{
 			ConnectionConfig: v1_6.ConnectionConfig{
@@ -132,13 +136,25 @@ func Test_AddChainE2E(t *testing.T) {
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
 			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3), // #nosec G115 - Overflow is not a concern in this test scenario
 			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
-				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
-				OptimisticConfirmations: globals.OptimisticConfirmations,
+				GasPriceDeviationPPB:      cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
+				OptimisticConfirmations:   globals.OptimisticConfirmations,
+				ChainFeeDeviationDisabled: false,
 			},
 		},
-		CommitOCRParams: v1_6.DeriveOCRParamsForCommit(v1_6.Default, e.FeedChainSel, nil, nil),
-		ExecOCRParams:   v1_6.DeriveOCRParamsForExec(v1_6.Default, nil, nil),
+		CommitOCRParams: v1_6.DeriveOCRParamsForCommit(
+			v1_6.SimulationTest,
+			e.FeedChainSel,
+			tokenConfig.GetTokenInfo(e.Env.Logger,
+				state.MustGetEVMChainState(chainToDeploy).LinkToken.Address(),
+				state.MustGetEVMChainState(chainToDeploy).Weth9.Address(),
+			),
+			func(ocrParams v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+				ocrParams.CommitOffChainConfig.RMNEnabled = false
+				return ocrParams
+			},
+		),
+		ExecOCRParams: v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, nil, nil),
 	}
 
 	// need donIDClaimer contract to be deployed before we can deploy the new chain
@@ -186,9 +202,22 @@ func Test_AddChainE2E(t *testing.T) {
 		),
 	)
 	require.NoError(t, err, "must apply PromoteNewChainForConfigChangeset")
+	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
+			v1_6.SetRMNRemoteOnRMNProxyConfig{
+				ChainSelectors: []uint64{chainToDeploy},
+				MCMSConfig: &proposalutils.TimelockConfig{
+					MinDelay:   0 * time.Second,
+					MCMSAction: mcmstypes.TimelockActionSchedule,
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	time.Sleep(120 * time.Second)
+	testhelpers.SleepAndReplay(t, e.Env, 60*time.Second, e.Env.AllChainSelectors()...)
 	SendMessages(t,
 		e.Env,
 		[]testhelpers.SourceDestPair{
@@ -196,26 +225,26 @@ func Test_AddChainE2E(t *testing.T) {
 				SourceChainSelector: e.HomeChainSel,
 				DestChainSelector:   chainToDeploy,
 			},
-			// {
-			// 	SourceChainSelector: chainToDeploy,
-			// 	DestChainSelector:   e.HomeChainSel,
-			// },
-			// {
-			// 	SourceChainSelector: e.HomeChainSel,
-			// 	DestChainSelector:   e.FeedChainSel,
-			// },
-			// {
-			// 	SourceChainSelector: e.FeedChainSel,
-			// 	DestChainSelector:   e.HomeChainSel,
-			// },
-			// {
-			// 	SourceChainSelector: e.FeedChainSel,
-			// 	DestChainSelector:   chainToDeploy,
-			// },
-			// {
-			// 	SourceChainSelector: chainToDeploy,
-			// 	DestChainSelector:   e.FeedChainSel,
-			// },
+			{
+				SourceChainSelector: chainToDeploy,
+				DestChainSelector:   e.HomeChainSel,
+			},
+			{
+				SourceChainSelector: e.HomeChainSel,
+				DestChainSelector:   e.FeedChainSel,
+			},
+			{
+				SourceChainSelector: e.FeedChainSel,
+				DestChainSelector:   e.HomeChainSel,
+			},
+			{
+				SourceChainSelector: e.FeedChainSel,
+				DestChainSelector:   chainToDeploy,
+			},
+			{
+				SourceChainSelector: chainToDeploy,
+				DestChainSelector:   e.FeedChainSel,
+			},
 		},
 		state,
 		false,
@@ -263,6 +292,7 @@ func SendMessages(
 		expectedSeqNumExec[pair] = append(expectedSeqNumExec[pair], msgSentEvent.SequenceNumber)
 
 	}
+	testhelpers.SleepAndReplay(t, env, 30*time.Second, env.AllChainSelectors()...)
 	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, env, state, expectedSeqNum, startBlocks)
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, env, state, expectedSeqNumExec, startBlocks)
 }
