@@ -68,17 +68,10 @@ var (
 func setupBlockchain(t *testing.T) (
 	*bind.TransactOpts,
 	evmtypes.Backend,
-	*configurator.Configurator,
-	common.Address,
 	*destination_verifier.DestinationVerifier,
-	common.Address,
-	*destination_verifier_proxy.DestinationVerifierProxy,
-	common.Address,
 	*channel_config_store.ChannelConfigStore,
 	common.Address,
 	*verifier.Verifier,
-	common.Address,
-	*verifier_proxy.VerifierProxy,
 	common.Address,
 ) {
 	steve := evmtestutils.MustNewSimTransactor(t) // config contract deployer and owner
@@ -88,7 +81,7 @@ func setupBlockchain(t *testing.T) (
 	backend.Commit() // ensure starting block number at least 1
 
 	// Configurator
-	configuratorAddress, _, configurator, err := configurator.DeployConfigurator(steve, backend.Client())
+	_, _, _, err := configurator.DeployConfigurator(steve, backend.Client())
 	require.NoError(t, err)
 	backend.Commit()
 
@@ -106,7 +99,7 @@ func setupBlockchain(t *testing.T) (
 	backend.Commit()
 
 	// Legacy mercury verifier
-	legacyVerifier, legacyVerifierAddr, legacyVerifierProxy, legacyVerifierProxyAddr := setupLegacyMercuryVerifier(t, steve, backend)
+	legacyVerifier, legacyVerifierAddr, _, _ := setupLegacyMercuryVerifier(t, steve, backend)
 
 	// ChannelConfigStore
 	configStoreAddress, _, configStore, err := channel_config_store.DeployChannelConfigStore(steve, backend.Client())
@@ -114,7 +107,7 @@ func setupBlockchain(t *testing.T) (
 
 	backend.Commit()
 
-	return steve, backend, configurator, configuratorAddress, destinationVerifier, destinationVerifierAddr, verifierProxy, destinationVerifierProxyAddr, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr, legacyVerifierProxy, legacyVerifierProxyAddr
+	return steve, backend, destinationVerifier, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr
 }
 
 func setupLegacyMercuryVerifier(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend) (*verifier.Verifier, common.Address, *verifier_proxy.VerifierProxy, common.Address) {
@@ -358,7 +351,7 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 		clientPubKeys[i] = key.PublicKey
 	}
 
-	steve, backend, _, _, verifier, _, _, _, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr, _, _ := setupBlockchain(t)
+	steve, backend, verifier, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr := setupBlockchain(t)
 	fromBlock := 1
 
 	// Setup bootstrap
