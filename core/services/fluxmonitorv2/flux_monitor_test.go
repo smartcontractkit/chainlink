@@ -769,7 +769,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 			tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
 
-			idleDurationOccured := make(chan struct{}, 3)
+			idleDurationOccurred := make(chan struct{}, 3)
 
 			tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(freshContractRoundDataResponse()).Once()
 			if tc.expectedToSubmit {
@@ -779,15 +779,15 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 				// idleDuration 1
 				roundState2 := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
 				tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState2, nil).Once().Run(func(args mock.Arguments) {
-					idleDurationOccured <- struct{}{}
+					idleDurationOccurred <- struct{}{}
 				})
 			}
 
 			require.NoError(t, fm.Start(testutils.Context(t)))
-			require.Empty(t, idleDurationOccured, "no Job Runs created")
+			require.Empty(t, idleDurationOccurred, "no Job Runs created")
 
 			if tc.expectedToSubmit {
-				g.Eventually(func() int { return len(idleDurationOccured) }, testutils.WaitTimeout(t)).Should(gomega.Equal(1))
+				g.Eventually(func() int { return len(idleDurationOccurred) }, testutils.WaitTimeout(t)).Should(gomega.Equal(1))
 
 				chBlock := make(chan struct{})
 				// NewRound resets the idle timer
@@ -808,16 +808,16 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 				// idleDuration 2
 				roundState3 := flux_aggregator_wrapper.OracleRoundState{RoundId: 3, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
 				tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState3, nil).Once().Run(func(args mock.Arguments) {
-					idleDurationOccured <- struct{}{}
+					idleDurationOccurred <- struct{}{}
 				})
 
-				g.Eventually(func() int { return len(idleDurationOccured) }, testutils.WaitTimeout(t)).Should(gomega.Equal(2))
+				g.Eventually(func() int { return len(idleDurationOccurred) }, testutils.WaitTimeout(t)).Should(gomega.Equal(2))
 			}
 
 			fm.Close()
 
 			if !tc.expectedToSubmit {
-				require.Empty(t, idleDurationOccured)
+				require.Empty(t, idleDurationOccurred)
 			}
 		})
 	}
@@ -849,7 +849,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 	tm.logBroadcaster.On("IsConnected").Return(true)
 	tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(freshContractRoundDataResponse()).Once()
 
-	pollOccured := make(chan struct{}, 4)
+	pollOccurred := make(chan struct{}, 4)
 
 	err := fm.Start(testutils.Context(t))
 	require.NoError(t, err)
