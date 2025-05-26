@@ -58,7 +58,7 @@ var (
 				return opsutil.OpOutput{}, err
 			}
 			chain := deps.Env.Chains[input.ChainSelector]
-			chainState := state.Chains[input.ChainSelector]
+			chainState := state.MustGetEVMChainState(input.ChainSelector)
 			deployerGroup := deployergroup.NewDeployerGroup(e, state, input.MCMS).
 				WithDeploymentContext("set NonceManager authorized caller on " + chain.String())
 			opts, err := deployerGroup.GetDeployer(input.ChainSelector)
@@ -94,13 +94,13 @@ func (n NonceManagerUpdateAuthorizedCallerInput) Validate(env cldf.Environment, 
 		return err
 	}
 	chain := env.Chains[n.ChainSelector]
-	if state.Chains[n.ChainSelector].NonceManager == nil {
+	if state.MustGetEVMChainState(n.ChainSelector).NonceManager == nil {
 		return fmt.Errorf("NonceManager not found for chain %s", chain.String())
 	}
 	err = commoncs.ValidateOwnership(
 		env.GetContext(), n.MCMS != nil,
-		chain.DeployerKey.From, state.Chains[n.ChainSelector].Timelock.Address(),
-		state.Chains[n.ChainSelector].NonceManager,
+		chain.DeployerKey.From, state.MustGetEVMChainState(n.ChainSelector).Timelock.Address(),
+		state.MustGetEVMChainState(n.ChainSelector).NonceManager,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership: %w", err)

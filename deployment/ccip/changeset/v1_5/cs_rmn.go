@@ -35,11 +35,11 @@ func (p PermaBlessConfigPerSourceChain) Validate(destChain uint64, state statevi
 	if err := cldf.IsValidChainSelector(p.SourceChainSelector); err != nil {
 		return fmt.Errorf("invalid SourceChainSelector: %w", err)
 	}
-	_, ok := state.Chains[p.SourceChainSelector]
+	_, ok := state.EVMChainState(p.SourceChainSelector)
 	if !ok {
 		return fmt.Errorf("source chain state not found for chain selector %d", p.SourceChainSelector)
 	}
-	destState := state.Chains[destChain]
+	destState := state.MustGetEVMChainState(destChain)
 	if destState.CommitStore[p.SourceChainSelector] == nil {
 		return fmt.Errorf("dest chain %d does not have a commit store for source chain %d", destChain, p.SourceChainSelector)
 	}
@@ -74,7 +74,7 @@ func (c PermaBlessCommitStoreConfig) Validate(env cldf.Environment) error {
 		if err := cldf.IsValidChainSelector(destChain); err != nil {
 			return fmt.Errorf("invalid DestChainSelector: %w", err)
 		}
-		destState, ok := state.Chains[destChain]
+		destState, ok := state.EVMChainState(destChain)
 		if !ok {
 			return fmt.Errorf("dest chain state not found for chain selector %d", destChain)
 		}
@@ -120,7 +120,7 @@ func PermaBlessCommitStoreChangeset(env cldf.Environment, c PermaBlessCommitStor
 	inspectors := make(map[uint64]mcmssdk.Inspector)
 
 	for destChain, cfg := range c.Configs {
-		destState := state.Chains[destChain]
+		destState := state.MustGetEVMChainState(destChain)
 		RMN := destState.RMN
 
 		var removes, adds []common.Address

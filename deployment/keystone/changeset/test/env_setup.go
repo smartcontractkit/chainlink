@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -442,7 +443,12 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 		dons.Put(newViewOnlyDon(donCfg.Name, n))
 	}
 
-	env := cldf.NewEnvironment(
+	blockChains := map[uint64]chain.BlockChain{}
+	for sel, c := range chains {
+		blockChains[sel] = c
+	}
+
+	env := cldf.NewCLDFEnvironment(
 		"view only nodes",
 		logger.Test(t),
 		cldf.NewMemoryAddressBook(),
@@ -457,6 +463,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 		envtest.NewJDService(dons.NodeList()),
 		t.Context,
 		cldf.XXXGenerateTestOCRSecrets(),
+		chain.NewBlockChains(blockChains),
 	)
 
 	return dons, *env

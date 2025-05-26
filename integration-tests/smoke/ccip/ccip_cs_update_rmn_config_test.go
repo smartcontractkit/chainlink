@@ -80,7 +80,7 @@ func TestSetDynamicConfig(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	rmnHome := state.Chains[e.HomeChainSel].RMNHome
+	rmnHome := state.MustGetEVMChainState(e.HomeChainSel).RMNHome
 
 	nops := []v1_6.RMNNopConfig{rmnStaging1, rmnStaging2, rmnStaging3}
 	nodes := make([]rmn_home.RMNHomeNode, 0, len(nops))
@@ -145,7 +145,7 @@ func TestRevokeConfig(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	rmnHome := state.Chains[e.HomeChainSel].RMNHome
+	rmnHome := state.MustGetEVMChainState(e.HomeChainSel).RMNHome
 
 	nops := []v1_6.RMNNopConfig{rmnStaging1, rmnStaging2, rmnStaging3}
 	nodes := make([]rmn_home.RMNHomeNode, 0, len(nops))
@@ -196,7 +196,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 		contractsByChain[chainSelector] = []common.Address{rmnRemoteAddress}
 	}
 
-	contractsByChain[e.HomeChainSel] = append(contractsByChain[e.HomeChainSel], state.Chains[e.HomeChainSel].RMNHome.Address())
+	contractsByChain[e.HomeChainSel] = append(contractsByChain[e.HomeChainSel], state.MustGetEVMChainState(e.HomeChainSel).RMNHome.Address())
 
 	timelocksPerChain := deployergroup.BuildTimelockPerChain(e.Env, state)
 	if tc.useMCMS {
@@ -215,7 +215,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 		require.NoError(t, err)
 	}
 
-	rmnHome := state.Chains[e.HomeChainSel].RMNHome
+	rmnHome := state.MustGetEVMChainState(e.HomeChainSel).RMNHome
 
 	previousCandidateDigest, err := rmnHome.GetCandidateDigest(nil)
 	require.NoError(t, err)
@@ -376,7 +376,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	for _, chain := range allChains {
-		rmnProxy := state.Chains[chain].RMNProxy
+		rmnProxy := state.MustGetEVMChainState(chain).RMNProxy
 		require.NotNil(t, rmnProxy)
 		contractsByChain[chain] = []common.Address{rmnProxy.Address()}
 	}
@@ -384,8 +384,8 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	allContractParams := make(map[uint64]ccipseq.ChainContractParams)
 	for _, chain := range allChains {
 		timelockContractsPerChain[chain] = &proposalutils.TimelockExecutionContracts{
-			Timelock:  state.Chains[chain].Timelock,
-			CallProxy: state.Chains[chain].CallProxy,
+			Timelock:  state.MustGetEVMChainState(chain).Timelock,
+			CallProxy: state.MustGetEVMChainState(chain).CallProxy,
 		}
 		allContractParams[chain] = ccipseq.ChainContractParams{
 			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
@@ -438,12 +438,12 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	for _, chain := range allChains {
-		rmnProxy := state.Chains[chain].RMNProxy
+		rmnProxy := state.MustGetEVMChainState(chain).RMNProxy
 		proxyOwner, err := rmnProxy.Owner(nil)
 		require.NoError(t, err)
-		require.Equal(t, state.Chains[chain].Timelock.Address(), proxyOwner)
+		require.Equal(t, state.MustGetEVMChainState(chain).Timelock.Address(), proxyOwner)
 		rmnAddr, err := rmnProxy.GetARM(nil)
 		require.NoError(t, err)
-		require.Equal(t, rmnAddr, state.Chains[chain].RMNRemote.Address())
+		require.Equal(t, rmnAddr, state.MustGetEVMChainState(chain).RMNRemote.Address())
 	}
 }

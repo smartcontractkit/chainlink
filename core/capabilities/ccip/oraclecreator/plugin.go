@@ -445,7 +445,7 @@ func decodeAndValidateOffchainConfig(
 		if err1 != nil {
 			return ccipcommon.OffChainConfig{}, fmt.Errorf("failed to decode execute offchain config: %w, raw: %s", err1, string(publicConfig.ReportingPluginConfig))
 		}
-		if err2 := execOffchainCfg.Validate(); err2 != nil {
+		if err2 := execOffchainCfg.ApplyDefaultsAndValidate(); err2 != nil {
 			return ccipcommon.OffChainConfig{}, fmt.Errorf("failed to validate execute offchain config: %w", err2)
 		}
 		ofc.Execute = &execOffchainCfg

@@ -3,7 +3,6 @@ package v1_6
 import (
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -70,11 +69,10 @@ var (
 			state := deps.CurrentState
 			e := deps.Env
 			grp := errgroup.Group{}
-			rmnHome := state.Chains[input.HomeChainSelector].RMNHome
+			rmnHome := state.MustGetEVMChainState(input.HomeChainSelector).RMNHome
 			if rmnHome == nil {
 				return nil, errors.New("rmn home not found, deploy home chain contracts first")
 			}
-			stateUpdateMu := sync.Mutex{}
 			for chainSelector, contractParams := range input.ContractParamsPerChain {
 				chainSelector := chainSelector
 				contractParams := contractParams
@@ -83,7 +81,7 @@ var (
 					if !ok {
 						return fmt.Errorf("chain %d not found in env", chainSelector)
 					}
-					chainState, chainExists := state.Chains[chainSelector]
+					chainState, chainExists := state.EVMChainState(chainSelector)
 					if !chainExists {
 						return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
 					}
@@ -91,9 +89,9 @@ var (
 						Chain:       chain,
 						AddressBook: deps.AddressBook,
 					}
-					staticLinkExists := state.Chains[chainSelector].StaticLinkToken != nil
-					linkExists := state.Chains[chainSelector].LinkToken != nil
-					weth9Exists := state.Chains[chainSelector].Weth9 != nil
+					staticLinkExists := state.MustGetEVMChainState(chainSelector).StaticLinkToken != nil
+					linkExists := state.MustGetEVMChainState(chainSelector).LinkToken != nil
+					weth9Exists := state.MustGetEVMChainState(chainSelector).Weth9 != nil
 					feeTokensAreValid := weth9Exists && (linkExists != staticLinkExists)
 					if !feeTokensAreValid {
 						return fmt.Errorf("fee tokens not valid for chain %d, staticLinkExists: %t, linkExists: %t, weth9Exists: %t", chainSelector, staticLinkExists, linkExists, weth9Exists)
@@ -167,9 +165,7 @@ var (
 					// if no config is set, we need to set it with active digest and initial empty signers
 					if !set {
 						// RMNRemote needs to be set in state
-						stateUpdateMu.Lock()
-						deps.CurrentState.Chains[chainSelector] = chainState
-						stateUpdateMu.Unlock()
+						deps.CurrentState.WriteEVMChainState(chainSelector, chainState)
 						// set RMNRemote config
 						_, err = operations.ExecuteOperation(b, ccipopsv1_6.SetRMNRemoteConfigOp, deps, ccipopsv1_6.SetRMNRemoteConfig{
 							RMNRemoteConfig: ccipopsv1_6.RMNRemoteConfig{
@@ -312,9 +308,7 @@ var (
 					} else {
 						b.Logger.Infow("offramp already deployed", "chain", chain.String(), "addr", chainState.OffRamp.Address())
 					}
-					stateUpdateMu.Lock()
-					deps.CurrentState.Chains[chainSelector] = chainState
-					stateUpdateMu.Unlock()
+					deps.CurrentState.WriteEVMChainState(chainSelector, chainState)
 					callers, err := chainState.FeeQuoter.GetAllAuthorizedCallers(&bind.CallOpts{
 						Context: e.GetContext(),
 					})
@@ -326,7 +320,7 @@ var (
 						return err
 					}
 					// should only update callers if there are none, otherwise we might overwrite some existing callers for existing fee quoter
-					if len(callers) == 1 && (callers[0] == chain.DeployerKey.From || callers[0] == state.Chains[chain.Selector].Timelock.Address()) {
+					if len(callers) == 1 && (callers[0] == chain.DeployerKey.From || callers[0] == state.MustGetEVMChainState(chain.Selector).Timelock.Address()) {
 						_, err = operations.ExecuteOperation(b, ccipopsv1_6.FeeQApplyAuthorizedCallerOp, deps, ccipopsv1_6.FeeQApplyAuthorizedCallerOpInput{
 							ChainSelector: chainSelector,
 							Callers: fee_quoter.AuthorizedCallersAuthorizedCallerArgs{

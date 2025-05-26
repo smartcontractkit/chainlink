@@ -175,7 +175,7 @@ func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
 	if d.mcmConfig != nil {
 		txOpts = cldf.SimTransactOpts()
 		txOpts = &bind.TransactOpts{
-			From:       d.state.Chains[chain].Timelock.Address(),
+			From:       d.state.MustGetEVMChainState(chain).Timelock.Address(),
 			Signer:     txOpts.Signer,
 			GasLimit:   txOpts.GasLimit,
 			GasPrice:   txOpts.GasPrice,
@@ -227,7 +227,7 @@ func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
 			return nil, err
 		}
 		var description string
-		if abiStr, ok := d.state.Chains[chain].ABIByAddress[tx.To().Hex()]; ok {
+		if abiStr, ok := d.state.MustGetEVMChainState(chain).ABIByAddress[tx.To().Hex()]; ok {
 			_abi, err := abi.JSON(strings.NewReader(abiStr))
 			if err != nil {
 				return nil, fmt.Errorf("could not get ABI: %w", err)
@@ -448,7 +448,7 @@ func (d *DeployerGroup) enactDeployer() (cldf.ChangesetOutput, error) {
 						if err != nil {
 							return fmt.Errorf("failed to send transaction: %w", err)
 						}
-						abiStr, ok := d.state.Chains[selector].ABIByAddress[evmTx.Tx.To().Hex()]
+						abiStr, ok := d.state.MustGetEVMChainState(selector).ABIByAddress[evmTx.Tx.To().Hex()]
 						if ok {
 							_, err = cldf.ConfirmIfNoErrorWithABI(d.e.Chains[selector], evmTx.Tx, abiStr, err)
 							if err != nil {
@@ -485,8 +485,8 @@ func BuildTimelockPerChain(e cldf.Environment, state stateview.CCIPOnChainState)
 	timelocksPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 	for _, chain := range e.Chains {
 		timelocksPerChain[chain.Selector] = &proposalutils.TimelockExecutionContracts{
-			Timelock:  state.Chains[chain.Selector].Timelock,
-			CallProxy: state.Chains[chain.Selector].CallProxy,
+			Timelock:  state.MustGetEVMChainState(chain.Selector).Timelock,
+			CallProxy: state.MustGetEVMChainState(chain.Selector).CallProxy,
 		}
 	}
 	return timelocksPerChain
@@ -495,7 +495,7 @@ func BuildTimelockPerChain(e cldf.Environment, state stateview.CCIPOnChainState)
 func BuildTimelockAddressPerChain(e cldf.Environment, onchainState stateview.CCIPOnChainState) map[uint64]string {
 	addressPerChain := make(map[uint64]string)
 	for _, chain := range e.Chains {
-		addressPerChain[chain.Selector] = onchainState.Chains[chain.Selector].Timelock.Address().Hex()
+		addressPerChain[chain.Selector] = onchainState.MustGetEVMChainState(chain.Selector).Timelock.Address().Hex()
 	}
 
 	// TODO: This should come from the Solana chain state which should be enhanced to contain timlock and MCMS address

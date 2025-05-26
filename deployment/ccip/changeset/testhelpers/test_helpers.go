@@ -285,9 +285,9 @@ func CCIPSendRequest(
 	cfg *CCIPSendReqConfig,
 ) (*types.Transaction, uint64, error) {
 	msg := cfg.Message.(router.ClientEVM2AnyMessage)
-	r := state.Chains[cfg.SourceChain].Router
+	r := state.MustGetEVMChainState(cfg.SourceChain).Router
 	if cfg.IsTestRouter {
-		r = state.Chains[cfg.SourceChain].TestRouter
+		r = state.MustGetEVMChainState(cfg.SourceChain).TestRouter
 	}
 
 	if msg.FeeToken == common.HexToAddress("0x0") { // fee is in native token
@@ -501,7 +501,7 @@ func SendRequestEVM(
 		return nil, err
 	}
 
-	it, err := state.Chains[cfg.SourceChain].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
+	it, err := state.MustGetEVMChainState(cfg.SourceChain).OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
 		Start:   blockNum,
 		End:     &blockNum,
 		Context: context.Background(),
@@ -1113,7 +1113,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 	fromFamily, _ := chainsel.GetSelectorFamily(from)
 	tokenPrices := map[common.Address]*big.Int{}
 	if fromFamily == chainsel.FamilyEVM {
-		stateChainFrom := state.Chains[from]
+		stateChainFrom := state.MustGetEVMChainState(from)
 		tokenPrices = map[common.Address]*big.Int{
 			stateChainFrom.LinkToken.Address(): DefaultLinkPrice,
 			stateChainFrom.Weth9.Address():     DefaultWethPrice,
@@ -1316,7 +1316,7 @@ func DeployTransferableTokenSolana(
 		return nil, nil, solana.PublicKey{}, err
 	}
 	// attach token and pool to the registry
-	if err := attachTokenToTheRegistry(e.Chains[evmChainSel], state.Chains[evmChainSel], evmDeployer, evmToken.Address(), evmPool.Address()); err != nil {
+	if err := attachTokenToTheRegistry(e.Chains[evmChainSel], state.MustGetEVMChainState(evmChainSel), evmDeployer, evmToken.Address(), evmPool.Address()); err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
 	solDeployerKey := e.SolChains[solChainSel].DeployerKey.PublicKey()
@@ -1474,10 +1474,8 @@ func deployTokenPoolsInParallel(
 		if err != nil {
 			return err
 		}
-		if err := attachTokenToTheRegistry(chains[src], state.Chains[src], srcActor, srcToken.Address(), srcPool.Address()); err != nil {
-			return err
-		}
-		return nil
+		err = attachTokenToTheRegistry(chains[src], state.MustGetEVMChainState(src), srcActor, srcToken.Address(), srcPool.Address())
+		return err
 	})
 	deployGrp.Go(func() error {
 		var err error
@@ -1485,10 +1483,8 @@ func deployTokenPoolsInParallel(
 		if err != nil {
 			return err
 		}
-		if err := attachTokenToTheRegistry(chains[dst], state.Chains[dst], dstActor, dstToken.Address(), dstPool.Address()); err != nil {
-			return err
-		}
-		return nil
+		err = attachTokenToTheRegistry(chains[dst], state.MustGetEVMChainState(dst), dstActor, dstToken.Address(), dstPool.Address())
+		return err
 	})
 	if err := deployGrp.Wait(); err != nil {
 		return nil, nil, nil, nil, err
@@ -1760,7 +1756,7 @@ func MintAndAllow(
 					_, err = e.Chains[chain].Confirm(tx)
 					require.NoError(t, err)
 
-					tx, err = token.Approve(sender, state.Chains[chain].Router.Address(), tenCoins)
+					tx, err = token.Approve(sender, state.MustGetEVMChainState(chain).Router.Address(), tenCoins)
 					require.NoError(t, err)
 					_, err = e.Chains[chain].Confirm(tx)
 					require.NoError(t, err)
@@ -2280,29 +2276,29 @@ func GenTestTransferOwnershipConfig(
 
 	// chain contracts
 	for _, chain := range chains {
-		timelocksPerChain[chain] = state.Chains[chain].Timelock.Address()
+		timelocksPerChain[chain] = state.MustGetEVMChainState(chain).Timelock.Address()
 		contracts[chain] = []common.Address{
-			state.Chains[chain].OnRamp.Address(),
-			state.Chains[chain].OffRamp.Address(),
-			state.Chains[chain].FeeQuoter.Address(),
-			state.Chains[chain].NonceManager.Address(),
-			state.Chains[chain].RMNRemote.Address(),
-			state.Chains[chain].Router.Address(),
-			state.Chains[chain].TokenAdminRegistry.Address(),
-			state.Chains[chain].RMNProxy.Address(),
+			state.MustGetEVMChainState(chain).OnRamp.Address(),
+			state.MustGetEVMChainState(chain).OffRamp.Address(),
+			state.MustGetEVMChainState(chain).FeeQuoter.Address(),
+			state.MustGetEVMChainState(chain).NonceManager.Address(),
+			state.MustGetEVMChainState(chain).RMNRemote.Address(),
+			state.MustGetEVMChainState(chain).Router.Address(),
+			state.MustGetEVMChainState(chain).TokenAdminRegistry.Address(),
+			state.MustGetEVMChainState(chain).RMNProxy.Address(),
 		}
 		if withTestRouterTransfer {
-			contracts[chain] = append(contracts[chain], state.Chains[chain].TestRouter.Address())
+			contracts[chain] = append(contracts[chain], state.MustGetEVMChainState(chain).TestRouter.Address())
 		}
 	}
 
 	// home chain
-	homeChainTimelockAddress := state.Chains[e.HomeChainSel].Timelock.Address()
+	homeChainTimelockAddress := state.MustGetEVMChainState(e.HomeChainSel).Timelock.Address()
 	timelocksPerChain[e.HomeChainSel] = homeChainTimelockAddress
 	contracts[e.HomeChainSel] = append(contracts[e.HomeChainSel],
-		state.Chains[e.HomeChainSel].CapabilityRegistry.Address(),
-		state.Chains[e.HomeChainSel].CCIPHome.Address(),
-		state.Chains[e.HomeChainSel].RMNHome.Address(),
+		state.MustGetEVMChainState(e.HomeChainSel).CapabilityRegistry.Address(),
+		state.MustGetEVMChainState(e.HomeChainSel).CCIPHome.Address(),
+		state.MustGetEVMChainState(e.HomeChainSel).RMNHome.Address(),
 	)
 
 	return commoncs.TransferToMCMSWithTimelockConfig{
@@ -2342,14 +2338,14 @@ func TransferToTimelock(
 	timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts, len(chains)+1)
 	for _, chain := range chains {
 		timelockContracts[chain] = &proposalutils.TimelockExecutionContracts{
-			Timelock:  state.Chains[chain].Timelock,
-			CallProxy: state.Chains[chain].CallProxy,
+			Timelock:  state.MustGetEVMChainState(chain).Timelock,
+			CallProxy: state.MustGetEVMChainState(chain).CallProxy,
 		}
 	}
 	// Add the home chain to the timelock contracts.
 	timelockContracts[tenv.HomeChainSel] = &proposalutils.TimelockExecutionContracts{
-		Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
-		CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+		Timelock:  state.MustGetEVMChainState(tenv.HomeChainSel).Timelock,
+		CallProxy: state.MustGetEVMChainState(tenv.HomeChainSel).CallProxy,
 	}
 	// Transfer ownership to timelock so that we can promote the zero digest later down the line.
 	_, err := commoncs.Apply(t, tenv.Env,

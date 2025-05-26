@@ -119,7 +119,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		go subscribeTransmitEvents(
 			ctx,
 			lggr,
-			state.Chains[cs].OnRamp,
+			state.MustGetEVMChainState(cs).OnRamp,
 			other,
 			startBlocks[cs],
 			cs,
@@ -168,7 +168,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			cs,
 			*env,
 			&state,
-			state.Chains[cs].Receiver.Address(),
+			state.MustGetEVMChainState(cs).Receiver.Address(),
 			userOverrides,
 			evmSourceKeys,
 			solanaSourceKeys,
@@ -187,7 +187,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		go subscribeCommitEvents(
 			ctx,
 			lggr,
-			state.Chains[cs].OffRamp,
+			state.MustGetEVMChainState(cs).OffRamp,
 			other,
 			startBlocks[cs],
 			cs,
@@ -198,7 +198,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		go subscribeExecutionEvents(
 			ctx,
 			lggr,
-			state.Chains[cs].OffRamp,
+			state.MustGetEVMChainState(cs).OffRamp,
 			other,
 			startBlocks[cs],
 			cs,
@@ -211,13 +211,13 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		go subscribeSkippedIncorrectNonce(
 			ctx,
 			cs,
-			state.Chains[cs].NonceManager,
+			state.MustGetEVMChainState(cs).NonceManager,
 			lggr)
 
 		go subscribeAlreadyExecuted(
 			ctx,
 			cs,
-			state.Chains[cs].OffRamp,
+			state.MustGetEVMChainState(cs).OffRamp,
 			lggr)
 	}
 
@@ -289,7 +289,7 @@ func prepareAccountToSendLink(
 	lggr := logger.Test(t)
 	srcDeployer := e.Chains[src].DeployerKey
 	lggr.Infow("Setting up link token", "src", src)
-	srcLink := state.Chains[src].LinkToken
+	srcLink := state.MustGetEVMChainState(src).LinkToken
 
 	lggr.Infow("Granting mint and burn roles")
 	tx, err := srcLink.GrantMintAndBurnRoles(srcDeployer, srcAccount.From)
@@ -314,7 +314,7 @@ func prepareAccountToSendLink(
 	lggr.Infow("Approving routers")
 	// Approve the router to spend the tokens and confirm the tx's
 	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount
-	tx, err = srcLink.Approve(srcAccount, state.Chains[src].Router.Address(), math.MaxBig256)
+	tx, err = srcLink.Approve(srcAccount, state.MustGetEVMChainState(src).Router.Address(), math.MaxBig256)
 	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
 	return err
 }

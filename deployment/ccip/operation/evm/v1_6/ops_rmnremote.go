@@ -75,7 +75,7 @@ var (
 				return opsutil.OpOutput{}, err
 			}
 
-			rmnHome := state.Chains[homeChainSel].RMNHome
+			rmnHome := state.MustGetEVMChainState(homeChainSel).RMNHome
 			if rmnHome == nil {
 				return opsutil.OpOutput{}, fmt.Errorf("RMNHome not found for chain %d", homeChainSel)
 			}
@@ -84,7 +84,7 @@ var (
 			if err != nil {
 				return opsutil.OpOutput{}, fmt.Errorf("failed to get RMNHome active digest for chain %d: %w", homeChainSel, err)
 			}
-			rmnRemote := state.Chains[input.ChainSelector].RMNRemote
+			rmnRemote := state.MustGetEVMChainState(input.ChainSelector).RMNRemote
 			currentVersionConfig, err := rmnRemote.GetVersionedConfig(nil)
 			if err != nil {
 				return opsutil.OpOutput{}, fmt.Errorf("failed to get RMNRemote config for chain %s: %w", chain, err)

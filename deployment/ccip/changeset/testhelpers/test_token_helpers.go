@@ -120,15 +120,15 @@ func SetupTwoChainEnvironmentWithTokens(
 	// We only need the token admin registry to be owned by the timelock in these tests
 	timelockOwnedContractsByChain := make(map[uint64][]common.Address)
 	for _, selector := range selectors {
-		timelockOwnedContractsByChain[selector] = []common.Address{state.Chains[selector].TokenAdminRegistry.Address()}
+		timelockOwnedContractsByChain[selector] = []common.Address{state.MustGetEVMChainState(selector).TokenAdminRegistry.Address()}
 	}
 
 	// Assemble map of addresses required for Timelock scheduling & execution
 	timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 	for _, selector := range selectors {
 		timelockContracts[selector] = &proposalutils.TimelockExecutionContracts{
-			Timelock:  state.Chains[selector].Timelock,
-			CallProxy: state.Chains[selector].CallProxy,
+			Timelock:  state.MustGetEVMChainState(selector).Timelock,
+			CallProxy: state.MustGetEVMChainState(selector).CallProxy,
 		}
 	}
 
@@ -192,8 +192,8 @@ func DeployTestTokenPools(
 		timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 		for _, selector := range selectors {
 			timelockContracts[selector] = &proposalutils.TimelockExecutionContracts{
-				Timelock:  state.Chains[selector].Timelock,
-				CallProxy: state.Chains[selector].CallProxy,
+				Timelock:  state.MustGetEVMChainState(selector).Timelock,
+				CallProxy: state.MustGetEVMChainState(selector).CallProxy,
 			}
 		}
 
@@ -202,13 +202,13 @@ func DeployTestTokenPools(
 			if newPool, ok := newPools[selector]; ok {
 				switch newPool.Type {
 				case shared.BurnFromMintTokenPool:
-					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.Chains[selector].BurnFromMintTokenPools[TestTokenSymbol], e.Chains[selector])
+					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).BurnFromMintTokenPools[TestTokenSymbol], e.Chains[selector])
 				case shared.BurnWithFromMintTokenPool:
-					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.Chains[selector].BurnWithFromMintTokenPools[TestTokenSymbol], e.Chains[selector])
+					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).BurnWithFromMintTokenPools[TestTokenSymbol], e.Chains[selector])
 				case shared.BurnMintTokenPool:
-					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.Chains[selector].BurnMintTokenPools[TestTokenSymbol], e.Chains[selector])
+					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).BurnMintTokenPools[TestTokenSymbol], e.Chains[selector])
 				case shared.LockReleaseTokenPool:
-					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.Chains[selector].LockReleaseTokenPools[TestTokenSymbol], e.Chains[selector])
+					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).LockReleaseTokenPools[TestTokenSymbol], e.Chains[selector])
 				}
 			}
 		}
