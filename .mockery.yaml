@@ -25,6 +25,7 @@ packages:
     interfaces:
       CCIPOracle:
       OracleCreator:
+      ContractTransmitterFactory:
   github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common:
     interfaces:
       SourceChainExtraDataCodec:

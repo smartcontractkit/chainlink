@@ -44,6 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -239,6 +240,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			hcr,
 			cciptypes.ChainSelector(homeChainChainSelector),
 			addressCodec,
+			p2pID,
 		)
 	} else {
 		oracleCreator = oraclecreator.NewBootstrapOracleCreator(
@@ -258,7 +260,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		ragep2ptypes.PeerID(p2pID.PeerID()),
 		d.lggr,
 		hcr,
-		12*time.Second, // tickInterval matches ethereum block time
+		utils.WithJitter(ccipreaderpkg.HomeChainPollingInterval),
 		oracleCreator,
 	)
 

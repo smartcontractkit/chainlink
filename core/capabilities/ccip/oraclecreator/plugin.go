@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
@@ -65,6 +66,7 @@ type pluginOracleCreator struct {
 	homeChainSelector     cciptypes.ChainSelector
 	relayers              map[types.RelayID]loop.Relayer
 	addressCodec          cciptypes.AddressCodec
+	p2pID                 p2pkey.KeyV2
 }
 
 func NewPluginOracleCreator(
@@ -83,6 +85,7 @@ func NewPluginOracleCreator(
 	homeChainReader ccipreaderpkg.HomeChain,
 	homeChainSelector cciptypes.ChainSelector,
 	addressCodec cciptypes.AddressCodec,
+	p2pID p2pkey.KeyV2,
 ) cctypes.OracleCreator {
 	return &pluginOracleCreator{
 		ocrKeyBundles:         ocrKeyBundles,
@@ -100,6 +103,7 @@ func NewPluginOracleCreator(
 		homeChainReader:       homeChainReader,
 		homeChainSelector:     homeChainSelector,
 		addressCodec:          addressCodec,
+		p2pID:                 p2pID,
 	}
 }
 
@@ -305,10 +309,18 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			i.lggr.Infow("no chain writer found for dest chain, creating nil transmitter",
 				"destChainID", destChainID,
 				"destChainSelector", config.Config.ChainSelector)
-			transmitter = ocrimpls.NewNoOpTransmitter(i.lggr)
+			transmitter = ocrimpls.NewNoOpTransmitter(
+				i.lggr.
+					Named("CCIPCommitNoOpTransmitter").
+					Named(destRelayID.String()).
+					Named(fmt.Sprintf("%d", config.Config.ChainSelector)),
+				i.p2pID.PeerID().String())
 		} else {
 			transmitter = pluginConfig.ContractTransmitterFactory.NewCommitTransmitter(
-				i.lggr.Named("CCIPCommitTransmitter").Named(destRelayID.String()),
+				i.lggr.
+					Named("CCIPCommitTransmitter").
+					Named(destRelayID.String()).
+					Named(fmt.Sprintf("%d", config.Config.ChainSelector)),
 				destChainWriter,
 				ocrtypes.Account(destFromAccounts[0]),
 				offrampAddrStr,
@@ -322,6 +334,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				Lggr: i.lggr.
 					Named("CCIPExecPlugin").
 					Named(destRelayID.String()).
+					Named(fmt.Sprintf("%d", config.Config.ChainSelector)).
 					Named(offrampAddrStr),
 				DonID:            donID,
 				OcrConfig:        ccipreaderpkg.OCR3ConfigWithMeta(config),
@@ -340,10 +353,18 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			i.lggr.Infow("no chain writer found for dest chain, creating nil transmitter",
 				"destChainID", destChainID,
 				"destChainSelector", config.Config.ChainSelector)
-			transmitter = ocrimpls.NewNoOpTransmitter(i.lggr)
+			transmitter = ocrimpls.NewNoOpTransmitter(
+				i.lggr.
+					Named("CCIPExecNoOpTransmitter").
+					Named(destRelayID.String()).
+					Named(fmt.Sprintf("%d", config.Config.ChainSelector)),
+				i.p2pID.PeerID().String())
 		} else {
 			transmitter = pluginConfig.ContractTransmitterFactory.NewExecTransmitter(
-				i.lggr.Named("CCIPExecTransmitter").Named(destRelayID.String()),
+				i.lggr.
+					Named("CCIPExecTransmitter").
+					Named(destRelayID.String()).
+					Named(fmt.Sprintf("%d", config.Config.ChainSelector)),
 				destChainWriter,
 				ocrtypes.Account(destFromAccounts[0]),
 				offrampAddrStr,
