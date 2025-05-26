@@ -5,4 +5,4 @@ docker run --name cl-postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=pos
 make setup-testdb
 ```
 
-example command: `CL_DATABASE_URL=postgresql://chainlink_dev:insecurepassword@localhost:5432/chainlink_development_test?sslmode=disable go test -timeout 15m -run ^TestIntegration_LLO_evm_premium_legacy$ github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo -v`
+example command: `CL_DATABASE_URL=postgresql://chainlink_dev:insecurepassword@localhost:5432/chainlink_development_test?sslmode=disable go test -timeout 15m -run ^TestIntegration_LLO_evm_premium_legacy$ github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint -v`

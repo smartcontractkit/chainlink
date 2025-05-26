@@ -358,7 +358,7 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 		clientPubKeys[i] = key.PublicKey
 	}
 
-	steve, backend, _, _, verifier, _, verifierProxy, _, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr, _, _ := setupBlockchain(t)
+	steve, backend, _, _, verifier, _, _, _, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr, _, _ := setupBlockchain(t)
 	fromBlock := 1
 
 	// Setup bootstrap
@@ -534,16 +534,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					assert.GreaterOrEqual(t, len(reportSigners), int(fNodes+1))
 					assert.Subset(t, signerAddresses, reportSigners)
 				}
-
-				// test on-chain verification
-				t.Run("on-chain verification", func(t *testing.T) {
-					t.Skip("SKIP - MERC-6637")
-					// Disabled because it flakes, sometimes returns "execution reverted"
-					// No idea why
-					// https://smartcontract-it.atlassian.net/browse/MERC-6637
-					_, err = verifierProxy.Verify(steve, req.req.Payload, []byte{})
-					require.NoError(t, err)
-				})
 
 				t.Logf("oracle %x reported for 0x%x", req.pk[:], feedID[:])
 
