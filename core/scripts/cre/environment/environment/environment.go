@@ -61,7 +61,7 @@ const manualCleanupMsg = `unexpected startup error. this may have stranded resou
 
 var topologyFlag string
 var waitOnErrorTimeoutFlag string
-var extraAllowedPortsFlag []int
+var extraAllowedGatewayPortsFlag []int
 var withExampleFlag bool
 var exampleWorkflowTimeoutFlag string
 var withPluginsDockerImageFlag string
@@ -73,7 +73,7 @@ func init() {
 
 	startCmd.Flags().StringVarP(&topologyFlag, "topology", "t", "simplified", "Topology to use for the environment (simiplified or full)")
 	startCmd.Flags().StringVarP(&waitOnErrorTimeoutFlag, "wait-on-error-timeout", "w", "", "Wait on error timeout (e.g. 10s, 1m, 1h)")
-	startCmd.Flags().IntSliceVarP(&extraAllowedPortsFlag, "extra-allowed-ports", "e", []int{}, "Extra allowed ports (e.g. 8080,8081)")
+	startCmd.Flags().IntSliceVarP(&extraAllowedGatewayPortsFlag, "extra-allowed-gateway-ports", "e", []int{}, "Extra allowed ports for outgoing connections from the Gateway DON (e.g. 8080,8081)")
 	startCmd.Flags().BoolVarP(&withExampleFlag, "with-example", "x", false, "Deploy and register example workflow")
 	startCmd.Flags().StringVarP(&exampleWorkflowTimeoutFlag, "example-workflow-timeout", "u", "5m", "Time to wait until example workflow succeeds")
 	startCmd.Flags().StringVarP(&withPluginsDockerImageFlag, "with-plugins-docker-image", "p", "", "Docker image to use (must have all capabilities included)")
@@ -202,7 +202,7 @@ var startCmd = &cobra.Command{
 			return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 		}
 
-		output, err := startCLIEnvironment(topologyFlag, withPluginsDockerImageFlag, extraAllowedPortsFlag)
+		output, err := startCLIEnvironment(topologyFlag, withPluginsDockerImageFlag, extraAllowedGatewayPortsFlag)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
@@ -309,7 +309,7 @@ var deployAndVerifyExampleWorkflowCmd = &cobra.Command{
 	},
 }
 
-func startCLIEnvironment(topologyFlag string, withPluginsDockerImageFlag string, extraAllowedPorts []int) (*creenv.SetupOutput, error) {
+func startCLIEnvironment(topologyFlag string, withPluginsDockerImageFlag string, extraAllowedGatewayPorts []int) (*creenv.SetupOutput, error) {
 	testLogger := framework.L
 
 	// Load and validate test configuration
@@ -460,7 +460,7 @@ func startCLIEnvironment(topologyFlag string, withPluginsDockerImageFlag string,
 		webapi.WebAPITargetJobSpecFactoryFn,
 		creconsensus.ConsensusJobSpecFactoryFn(libc.MustSafeUint64(int64(homeChainIDInt))),
 		crecron.CronJobSpecFactoryFn(filepath.Join(containerPath, cronBinaryName)),
-		cregateway.GatewayJobSpecFactoryFn([]int{}, []string{}, []string{"0.0.0.0/0"}),
+		cregateway.GatewayJobSpecFactoryFn(extraAllowedGatewayPorts, []string{}, []string{"0.0.0.0/0"}),
 		crecompute.ComputeJobSpecFactoryFn,
 	}
 
@@ -489,7 +489,6 @@ func startCLIEnvironment(topologyFlag string, withPluginsDockerImageFlag string,
 	}
 
 	universalSetupInput := creenv.SetupInput{
-		ExtraAllowedPorts:                    extraAllowedPorts,
 		CapabilitiesAwareNodeSets:            capabilitiesAwareNodeSets,
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
 		BlockchainsInput:                     in.Blockchains,

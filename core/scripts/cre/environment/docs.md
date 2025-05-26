@@ -63,7 +63,7 @@ Optionally:
   Make these changes for **all** nodes in the nodeset.
 
 5. **Decide whether to use Docker or k8s**
-    - Read sections 3 to 9 starting [here](#2-docker-vs-kubernetes-k8s) to learn how to switch between Docker and Kubernetes
+    - Read [Docker vs Kubernetes in guidelines.md](../../../../system-tests/tests/smoke/cre/guidelines.md) to learn how to switch between Docker and Kubernetes
 6. **Start Observability Stack (Docker-only)**
    - If you want Grafana/Prometheus support, run:
      ```bash
@@ -95,12 +95,17 @@ go run main.go env start
 
 # or to start environment with an example workflow
 go run main.go env start --with-example
+
+# or to start environment with an imge that contains all supported capabilities
+go run main.go env start --with-plugins-docker-image ***.dkr.ecr.***.amazonaws.com/chainlink:nightly-20250522-plugins
 ```
+
+> Important! **Nightly** Chainlink images are retained only for one day and built at 03:00 UTC. That means that in most cases you should use today's image, not yesterday's (as is the common practice).
 
 Optional parameters:
 - `-t`: Topology (`simplified` or `full`)
 - `-w`: Wait on error before cleanup (e.g. to inspect Docker logs, e.g. `-w 5m`)
-- `-e`: Extra ports for which external access by the DON should be allowed (e.g. when making API calls)
+- `-e`: Extra ports for which external access by the DON should be allowed (e.g. when making API calls or downloading WASM workflows)
 - `-x`: Registers an example PoR workflow using CRE CLI and verifies it
 - `-s`: Time to wait for example workflow to execute successfuly (defaults to `5m`)
 - `-p`: Docker `Plugins` image to use (must contain all of the following capabilities: `ocr3`, `cron`, `readcontract` and `logevent`)
