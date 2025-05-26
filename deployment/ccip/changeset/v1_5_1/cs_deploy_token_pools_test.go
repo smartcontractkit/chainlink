@@ -7,8 +7,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
@@ -70,7 +73,7 @@ func TestValidateDeployTokenPoolContractsConfig(t *testing.T) {
 			Input: v1_5_1.DeployTokenPoolContractsConfig{
 				TokenSymbol: "TEST",
 				NewPools: map[uint64]v1_5_1.DeployTokenPoolInput{
-					e.AllChainSelectors()[0]: v1_5_1.DeployTokenPoolInput{},
+					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: v1_5_1.DeployTokenPoolInput{},
 				},
 			},
 			ErrStr: "missing router",
@@ -80,7 +83,7 @@ func TestValidateDeployTokenPoolContractsConfig(t *testing.T) {
 			Input: v1_5_1.DeployTokenPoolContractsConfig{
 				TokenSymbol: "TEST",
 				NewPools: map[uint64]v1_5_1.DeployTokenPoolInput{
-					e.AllChainSelectors()[0]: v1_5_1.DeployTokenPoolInput{},
+					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: v1_5_1.DeployTokenPoolInput{},
 				},
 				IsTestRouter: true,
 			},

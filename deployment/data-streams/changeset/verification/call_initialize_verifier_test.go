@@ -8,9 +8,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
+
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
@@ -20,7 +24,7 @@ func TestInitializeVerifier(t *testing.T) {
 	t.Parallel()
 	e := testutil.NewMemoryEnv(t, true, 0)
 
-	chainSelector := e.AllChainSelectors()[0]
+	chainSelector := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	e, err := commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
 			DeployVerifierProxyChangeset,

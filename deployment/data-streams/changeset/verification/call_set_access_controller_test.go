@@ -6,6 +6,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
 
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -20,7 +23,7 @@ func TestSetAccessController(t *testing.T) {
 
 	e := testEnv.Environment
 	acAddress := common.HexToAddress("0x0000000000000000000000000000000000000123")
-	testChain := e.AllChainSelectors()[0]
+	testChain := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0]
 
 	e, verifierProxyAddr, _ := DeployVerifierProxyAndVerifier(t, e)
 

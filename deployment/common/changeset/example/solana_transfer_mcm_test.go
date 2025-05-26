@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 
@@ -34,7 +36,7 @@ func setupFundingTestEnv(t *testing.T) cldf.Environment {
 		SolChains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-	chainSelector := env.AllChainSelectorsSolana()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 
 	config := proposalutils.SingleGroupTimelockConfigV2(t)
 	err := testhelpers.SavePreloadedSolAddresses(env, chainSelector)
@@ -62,7 +64,7 @@ func TestTransferFromTimelockConfig_VerifyPreconditions(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	validEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{SolChains: 1})
 	validEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = cldf.SolChain{}
-	validSolChainSelector := validEnv.AllChainSelectorsSolana()[0]
+	validSolChainSelector := validEnv.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 	receiverKey := solana.NewWallet().PublicKey()
 	cs := example.TransferFromTimelock{}
 	timelockID := mcmsSolana.ContractAddress(
@@ -224,13 +226,14 @@ func TestTransferFromTimelockConfig_Apply(t *testing.T) {
 		TimelockCfg:     proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 		AmountsPerChain: amountsPerChain,
 	}
-	addresses, err := env.ExistingAddresses.AddressesForChain(env.AllChainSelectorsSolana()[0])
+	solChainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
+	addresses, err := env.ExistingAddresses.AddressesForChain(solChainSelector)
 	require.NoError(t, err)
-	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(env.SolChains[env.AllChainSelectorsSolana()[0]], addresses)
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(env.SolChains[solChainSelector], addresses)
 	require.NoError(t, err)
 	timelockSigner := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	mcmSigner := state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
-	chainSelector := env.AllChainSelectorsSolana()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 	solChain := env.SolChains[chainSelector]
 	err = memory.FundSolanaAccounts(env.GetContext(), []solana.PublicKey{timelockSigner, mcmSigner, solChain.DeployerKey.PublicKey()}, 150, solChain.Client)
 	require.NoError(t, err)

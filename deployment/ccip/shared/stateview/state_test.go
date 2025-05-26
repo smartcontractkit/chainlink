@@ -5,8 +5,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -30,7 +33,7 @@ func TestSmokeState(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 	state, err := stateview.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
-	_, _, err = state.View(&tenv.Env, tenv.Env.AllChainSelectors())
+	_, _, err = state.View(&tenv.Env, tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)))
 	require.NoError(t, err)
 }
 
@@ -164,7 +167,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 			e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 				Chains: 1,
 			})
-			homeChainSelector := e.AllChainSelectors()[0]
+			homeChainSelector := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
 			if test.DeployCCIPHome {
 				_, err = cldf.DeployContract(e.Logger, e.Chains[homeChainSelector], e.ExistingAddresses,
