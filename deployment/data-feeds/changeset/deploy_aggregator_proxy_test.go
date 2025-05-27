@@ -4,8 +4,11 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
@@ -24,7 +27,7 @@ func TestAggregatorProxy(t *testing.T) {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	chainSelector := env.AllChainSelectors()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
 	resp, err := commonChangesets.Apply(t, env, nil,
 		commonChangesets.Configure(

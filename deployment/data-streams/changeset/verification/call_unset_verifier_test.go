@@ -7,8 +7,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
+
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 )
@@ -21,7 +25,7 @@ func TestUnsetVerifier(t *testing.T) {
 	e := testEnv.Environment
 	e, verifierProxyAddr, verifierAddr := DeployVerifierProxyAndVerifier(t, e)
 
-	chainSelector := e.AllChainSelectors()[0]
+	chainSelector := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0]
 	chain := e.Chains[chainSelector]
 
 	verifier, err := verifier_v0_5_0.NewVerifier(verifierAddr, e.Chains[chainSelector].Client)

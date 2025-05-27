@@ -28,6 +28,7 @@ import (
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -129,7 +130,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 
 // MustSourceChain will return a chain selector to send a message from
 func (m *DestinationGun) MustSourceChain() (uint64, error) {
-	otherCS := m.env.AllChainSelectorsExcluding([]uint64{m.chainSelector})
+	otherCS := m.env.BlockChains.ListChainSelectors(cldf_chain.WithChainSelectorsExclusion([]uint64{m.chainSelector}))
 	// todo: uncomment to enable solana as a source chain
 	// otherCS := m.env.AllChainSelectorsAllFamilliesExcluding([]uint64{m.chainSelector})
 	if len(otherCS) == 0 {

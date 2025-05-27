@@ -12,12 +12,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/onsi/gomega"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
@@ -67,7 +69,7 @@ func Test_CCIPReorg_BelowFinality_OnSource(t *testing.T) {
 	)
 
 	// Chain setup
-	allChains := e.Env.AllChainSelectors()
+	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))
 	require.GreaterOrEqual(t, len(allChains), 2)
 	sourceSelector := allChains[0]
 	destSelector := allChains[1]
@@ -125,7 +127,7 @@ func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {
 		testhelpers.WithExtraConfigTomls([]string{t.Name() + ".toml"}),
 	)
 
-	allChains := e.Env.AllChainSelectors()
+	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))
 	require.GreaterOrEqual(t, len(allChains), 2)
 	sourceSelector := allChains[0]
 	destSelector := allChains[1]
@@ -172,7 +174,7 @@ func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {
 func Test_CCIPReorg_GreaterThanFinality_OnDest(t *testing.T) {
 	e, l, dockerEnv, nonBootstrapP2PIDs, state, _ := setupReorgTest(t, logsToIgnoreOpt)
 
-	allChains := e.Env.AllChainSelectors()
+	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))
 	require.GreaterOrEqual(t, len(allChains), 2)
 	sourceSelector := allChains[0]
 	destSelector := allChains[1]
@@ -237,7 +239,7 @@ func Test_CCIPReorg_GreaterThanFinality_OnDest(t *testing.T) {
 func Test_CCIPReorg_GreaterThanFinality_OnSource(t *testing.T) {
 	e, l, dockerEnv, nonBootstrapP2PIDs, state, _ := setupReorgTest(t, logsToIgnoreOpt)
 
-	allChains := e.Env.AllChainSelectors()
+	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))
 	require.GreaterOrEqual(t, len(allChains), 3)
 	reorgSource := allChains[0]
 	nonReorgSource := allChains[1]

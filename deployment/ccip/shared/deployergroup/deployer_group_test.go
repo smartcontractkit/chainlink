@@ -7,7 +7,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
@@ -108,7 +111,7 @@ func dummyDeployerGroupGrantMintMultiChainChangeset(e cldf.Environment, cfg dumm
 
 	group := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("grant mint role")
 	for _, mint := range cfg.mints {
-		selector := e.AllChainSelectors()[mint.selectorIndex]
+		selector := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[mint.selectorIndex]
 		token := state.MustGetEVMChainState(selector).LinkToken
 
 		deployer, err := group.GetDeployer(selector)
@@ -135,7 +138,7 @@ func dummyDeployerGroupMintMultiDeploymentContextChangeset(e cldf.Environment, c
 	var deployer *bind.TransactOpts
 
 	for i, mint := range cfg.mints {
-		selector := e.AllChainSelectors()[mint.selectorIndex]
+		selector := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[mint.selectorIndex]
 		token := state.MustGetEVMChainState(selector).LinkToken
 
 		if group == nil {
@@ -316,7 +319,7 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 	timelocksPerChain := deployergroup.BuildTimelockPerChain(e.Env, state)
 
 	contractsByChain := make(map[uint64][]common.Address)
-	for _, chain := range e.Env.AllChainSelectors() {
+	for _, chain := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 		contractsByChain[chain] = []common.Address{state.MustGetEVMChainState(chain).LinkToken.Address()}
 	}
 
@@ -347,9 +350,9 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 	require.Equal(t, "mint tokens 1", cs.MCMSTimelockProposals[0].Description)
 	require.Equal(t, "mint tokens 2", cs.MCMSTimelockProposals[1].Description)
 	require.Equal(t, "mint tokens 3", cs.MCMSTimelockProposals[2].Description)
-	require.Equal(t, uint64(2), cs.MCMSTimelockProposals[0].ChainMetadata[mcmstypes.ChainSelector(e.Env.AllChainSelectors()[tc.mints[0].selectorIndex])].StartingOpCount)
-	require.Equal(t, uint64(3), cs.MCMSTimelockProposals[1].ChainMetadata[mcmstypes.ChainSelector(e.Env.AllChainSelectors()[tc.mints[1].selectorIndex])].StartingOpCount)
-	require.Equal(t, uint64(2), cs.MCMSTimelockProposals[2].ChainMetadata[mcmstypes.ChainSelector(e.Env.AllChainSelectors()[tc.mints[2].selectorIndex])].StartingOpCount)
+	require.Equal(t, uint64(2), cs.MCMSTimelockProposals[0].ChainMetadata[mcmstypes.ChainSelector(e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[tc.mints[0].selectorIndex])].StartingOpCount)
+	require.Equal(t, uint64(3), cs.MCMSTimelockProposals[1].ChainMetadata[mcmstypes.ChainSelector(e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[tc.mints[1].selectorIndex])].StartingOpCount)
+	require.Equal(t, uint64(2), cs.MCMSTimelockProposals[2].ChainMetadata[mcmstypes.ChainSelector(e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[tc.mints[2].selectorIndex])].StartingOpCount)
 	require.Len(t, cs.DescribedTimelockProposals, len(tc.mints))
 	require.NotEmpty(t, cs.DescribedTimelockProposals[0])
 	require.NotEmpty(t, cs.DescribedTimelockProposals[1])
@@ -382,7 +385,7 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 	timelocksPerChain := deployergroup.BuildTimelockPerChain(e.Env, currentState)
 
 	contractsByChain := make(map[uint64][]common.Address)
-	for _, chain := range e.Env.AllChainSelectors() {
+	for _, chain := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 		contractsByChain[chain] = []common.Address{currentState.MustGetEVMChainState(chain).LinkToken.Address()}
 	}
 

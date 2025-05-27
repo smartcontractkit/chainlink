@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
@@ -768,8 +770,12 @@ func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
 		testhelpers.WithChainIDs([]uint64{chainselectors.GETH_TESTNET.EvmChainID}))
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	allChains := e.Env.AllChainSelectorsExcluding([]uint64{chainselectors.GETH_TESTNET.Selector})
-	require.Contains(t, e.Env.AllChainSelectors(), chainselectors.GETH_TESTNET.Selector)
+	allChains := e.Env.BlockChains.ListChainSelectors(
+		cldf_chain.WithFamily(chainselectors.FamilyEVM),
+		cldf_chain.WithChainSelectorsExclusion([]uint64{chainselectors.GETH_TESTNET.Selector}),
+	)
+
+	require.Contains(t, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)), chainselectors.GETH_TESTNET.Selector)
 	require.Len(t, allChains, 2)
 	src, dest := allChains[1], chainselectors.GETH_TESTNET.Selector
 	srcChain := e.Env.Chains[src]
@@ -777,7 +783,7 @@ func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
 	pairs := []testhelpers.SourceDestPair{
 		{SourceChainSelector: src, DestChainSelector: dest},
 	}
-	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tenv, false)
+	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)), tenv, false)
 	// try to apply previous ramps updates without having any previous ramps
 	// it should fail
 	_, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
@@ -846,7 +852,7 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 		testhelpers.WithPrerequisiteDeploymentOnly(nil))
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
-	allChains := e.Env.AllChainSelectors()
+	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 	for _, chain := range allChains {
 		evmContractParams[chain] = ccipseq.ChainContractParams{

@@ -11,6 +11,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
@@ -32,13 +33,14 @@ func (cs DeployAptosChain) VerifyPreconditions(env cldf.Environment, config conf
 	if err != nil {
 		return fmt.Errorf("failed to load existing Aptos onchain state: %w", err)
 	}
+	aptosChains := env.BlockChains.AptosChains()
 	var errs []error
 	for chainSel := range config.ContractParamsPerChain {
 		if err := config.Validate(); err != nil {
 			errs = append(errs, fmt.Errorf("invalid config for Aptos chain %d: %w", chainSel, err))
 			continue
 		}
-		if _, ok := env.AptosChains[chainSel]; !ok {
+		if _, ok := aptosChains[chainSel]; !ok {
 			errs = append(errs, fmt.Errorf("aptos chain %d not found in env", chainSel))
 		}
 		chainState, ok := state[chainSel]
@@ -69,10 +71,11 @@ func (cs DeployAptosChain) Apply(env cldf.Environment, config config.DeployAptos
 	seqReports := make([]operations.Report[any, any], 0)
 	proposals := make([]mcms.TimelockProposal, 0)
 
+	aptosChains := env.BlockChains.AptosChains()
 	// Deploy CCIP on each Aptos chain in config
 	for chainSel := range config.ContractParamsPerChain {
 		mcmsOperations := []mcmstypes.BatchOperation{}
-		aptosChain := env.AptosChains[chainSel]
+		aptosChain := aptosChains[chainSel]
 
 		deps := operation.AptosDeps{
 			AB:               ab,

@@ -6,8 +6,11 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
@@ -30,7 +33,7 @@ func TestSolanaTokenOps(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		SolChains: 1,
 	})
-	solChain1 := e.AllChainSelectorsSolana()[0]
+	solChain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 	e, err := commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			// deployer creates token

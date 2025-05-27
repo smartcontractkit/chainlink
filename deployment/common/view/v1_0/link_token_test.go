@@ -8,6 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
 
@@ -19,7 +22,7 @@ func TestLinkTokenView(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains: 1,
 	})
-	chain := e.Chains[e.AllChainSelectors()[0]]
+	chain := e.Chains[e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]]
 	_, tx, lt, err := link_token.DeployLinkToken(chain.DeployerKey, chain.Client)
 	require.NoError(t, err)
 	_, err = chain.Confirm(tx)
@@ -32,7 +35,7 @@ func TestLinkTokenViewZk(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		ZkChains: 1,
 	})
-	chain := e.Chains[e.AllChainSelectors()[0]]
+	chain := e.Chains[e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]]
 	_, _, lt, err := link_token.DeployLinkTokenZk(nil, chain.ClientZkSyncVM, chain.DeployerKeyZkSyncVM, chain.Client)
 	require.NoError(t, err)
 

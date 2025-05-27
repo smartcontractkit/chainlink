@@ -8,8 +8,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -27,7 +30,7 @@ func TestSignAndExecute_ETHTransfer(t *testing.T) {
 		Chains: 1,
 	})
 
-	testChain := e.AllChainSelectors()[0]
+	testChain := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0]
 	chain := e.Chains[testChain]
 
 	recipient := common.HexToAddress("0x742d35Cc6634C0532925a3b844Bc454e4438f44e")
@@ -69,7 +72,7 @@ func TestSignAndExecute_ContractInteraction(t *testing.T) {
 		Chains: 1,
 	})
 
-	testChain := e.AllChainSelectors()[0]
+	testChain := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0]
 	chain := e.Chains[testChain]
 
 	e, err := commonchangeset.Apply(t, e, nil,

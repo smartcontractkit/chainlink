@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
@@ -35,7 +37,7 @@ func setupUpdateDelayTestEnv(t *testing.T) cldf.Environment {
 		SolChains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-	chainSelector := env.AllChainSelectorsSolana()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 
 	config := proposalutils.SingleGroupTimelockConfigV2(t)
 	err := testhelpers.SavePreloadedSolAddresses(env, chainSelector)
@@ -64,7 +66,7 @@ func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	validEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{SolChains: 1})
 	validEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = cldf.SolChain{}
-	validSolChainSelector := validEnv.AllChainSelectorsSolana()[0]
+	validSolChainSelector := validEnv.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 
 	timelockID := mcmsSolana.ContractAddress(
 		solana.NewWallet().PublicKey(),
@@ -179,9 +181,10 @@ func TestUpdateTimelockDelaySolana_Apply(t *testing.T) {
 	t.Parallel()
 	env := setupUpdateDelayTestEnv(t)
 	newDelayDuration := 5 * time.Minute
+	solChainSel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 	config := commonSolana.UpdateTimelockDelaySolanaCfg{
 		DelayPerChain: map[uint64]time.Duration{
-			env.AllChainSelectorsSolana()[0]: newDelayDuration,
+			solChainSel: newDelayDuration,
 		},
 	}
 
@@ -192,7 +195,7 @@ func TestUpdateTimelockDelaySolana_Apply(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	chainSelector := env.AllChainSelectorsSolana()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 	solChain := env.SolChains[chainSelector]
 	//nolint:staticcheck // will wait till we can migrate from address book before using data store
 	addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector)

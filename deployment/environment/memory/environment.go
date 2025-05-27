@@ -15,6 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+
 	"github.com/smartcontractkit/freeport"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -68,7 +70,7 @@ type NewNodesConfig struct {
 	// Solana chains to be configured. Optional.
 	SolChains map[uint64]cldf.SolChain
 	// Aptos chains to be configured. Optional.
-	AptosChains    map[uint64]cldf.AptosChain
+	AptosChains    map[uint64]cldf_aptos.Chain
 	NumNodes       int
 	NumBootstraps  int
 	RegistryConfig deployment.CapabilityRegistryConfig
@@ -106,7 +108,7 @@ func NewMemoryChainsSol(t *testing.T, numChains int) map[uint64]cldf.SolChain {
 	return generateMemoryChainSol(mchains)
 }
 
-func NewMemoryChainsAptos(t *testing.T, numChains int) map[uint64]cldf.AptosChain {
+func NewMemoryChainsAptos(t *testing.T, numChains int) map[uint64]cldf_aptos.Chain {
 	return GenerateChainsAptos(t, numChains)
 }
 
@@ -241,7 +243,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 	lggr logger.Logger,
 	chains map[uint64]cldf.Chain,
 	solChains map[uint64]cldf.SolChain,
-	aptosChains map[uint64]cldf.AptosChain,
+	aptosChains map[uint64]cldf_aptos.Chain,
 	nodes map[string]Node,
 ) cldf.Environment {
 	var nodeIDs []string
@@ -328,7 +330,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 		]().Seal(),
 		chains,
 		solChains,
-		aptosChains,
+		nil, // this field will be deleted in future since env.BlockChains will now contain all the chains.
 		nodeIDs,
 		NewMemoryJobClient(nodes),
 		t.Context,

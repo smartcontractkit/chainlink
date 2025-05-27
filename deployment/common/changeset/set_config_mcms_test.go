@@ -8,8 +8,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	solanasdk "github.com/gagliardetto/solana-go"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	"github.com/smartcontractkit/mcms/sdk/solana"
@@ -35,8 +38,8 @@ func setupSetConfigTestEnv(t *testing.T) cldf.Environment {
 		SolChains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-	chainSelector := env.AllChainSelectors()[0]
-	chainSelectorSolana := env.AllChainSelectorsSolana()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	chainSelectorSolana := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 
 	commonchangeset.SetPreloadedSolanaAddresses(t, env, chainSelectorSolana)
 	config := proposalutils.SingleGroupTimelockConfigV2(t)
@@ -119,7 +122,7 @@ func TestSetConfigMCMSV2EVM(t *testing.T) {
 			ctx := t.Context()
 
 			env := setupSetConfigTestEnv(t)
-			chainSelector := env.AllChainSelectors()[0]
+			chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 			chain := env.Chains[chainSelector]
 			addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 			require.NoError(t, err)
@@ -212,7 +215,7 @@ func TestSetConfigMCMSV2Solana(t *testing.T) {
 			ctx := t.Context()
 
 			env := setupSetConfigTestEnv(t)
-			chainSelectorSolana := env.AllChainSelectorsSolana()[0]
+			chainSelectorSolana := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 			solChain := env.SolChains[chainSelectorSolana]
 
 			addrs, err := env.ExistingAddresses.AddressesForChain(chainSelectorSolana)
@@ -275,8 +278,8 @@ func TestValidateV2(t *testing.T) {
 	t.Parallel()
 	env := setupSetConfigTestEnv(t)
 
-	chainSelector := env.AllChainSelectors()[0]
-	chainSelectorSolana := env.AllChainSelectorsSolana()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	chainSelectorSolana := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 
 	cfg := proposalutils.SingleGroupMCMSV2(t)
 	cfgInvalid := proposalutils.SingleGroupMCMSV2(t)

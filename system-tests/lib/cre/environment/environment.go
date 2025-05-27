@@ -181,7 +181,9 @@ func SetupTestEnvironment(
 
 	// we could try to parallelise deployment of these contracts, but it's difficult, because there's no way to make chain.DeployerKey dynamic
 	// in order to manually increment the nonce for each contract
-	ocr3Output, ocr3Err := keystone_changeset.DeployOCR3(*allChainsCLDEnvironment, homeChainOutput.ChainSelector) // //nolint:staticcheck // will migrate in DX-641
+	ocr3Output, ocr3Err := keystone_changeset.DeployOCR3V2(*allChainsCLDEnvironment, &keystone_changeset.DeployRequestV2{
+		ChainSel: homeChainOutput.ChainSelector,
+	})
 	if ocr3Err != nil {
 		return nil, pkgerrors.Wrap(ocr3Err, "failed to deploy OCR3 contract")
 	}
