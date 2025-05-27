@@ -4,11 +4,15 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
@@ -30,7 +34,7 @@ func TestProposeAggregator(t *testing.T) {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	chainSelector := env.AllChainSelectors()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
 	// without MCMS
 	newEnv, err := commonChangesets.Apply(t, env, nil,
@@ -52,7 +56,7 @@ func TestProposeAggregator(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	proxyAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "AggregatorProxy")
+	proxyAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "AggregatorProxy")
 	require.NoError(t, err)
 
 	newEnv, err = commonChangesets.Apply(t, newEnv, nil,

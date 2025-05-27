@@ -121,6 +121,7 @@ type eventHandler struct {
 	ratelimiter            *ratelimiter.RateLimiter
 	workflowLimits         *syncerlimiter.Limits
 	workflowArtifactsStore WorkflowArtifactsStore
+	billingClient          workflows.BillingClient
 }
 
 type Event struct {
@@ -148,6 +149,12 @@ func WithStaticEngine(engine services.Service) func(*eventHandler) {
 	}
 }
 
+func WithBillingClient(client workflows.BillingClient) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.billingClient = client
+	}
+}
+
 type WorkflowArtifactsStore interface {
 	FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string) ([]byte, []byte, error)
 	GetWorkflowSpec(ctx context.Context, workflowOwner string, workflowName string) (*job.WorkflowSpec, error)
@@ -157,6 +164,7 @@ type WorkflowArtifactsStore interface {
 
 	// Secrets methods
 	GetSecrets(ctx context.Context, secretsURL string, WorkflowID [32]byte, WorkflowOwner []byte) ([]byte, error)
+	ValidateSecrets(ctx context.Context, workflowID, workflowOwner string) error
 	SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error)
 	GetSecretsURLHash(workflowOwner []byte, secretsURL []byte) ([]byte, error)
 	GetSecretsURLByID(ctx context.Context, id int64) (string, error)
@@ -444,12 +452,6 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 		return nil, err
 	}
 
-	// Calculate the hash of the binary and config files
-	hash, err := pkgworkflows.GenerateWorkflowID(payload.WorkflowOwner, payload.WorkflowName, decodedBinary, config, payload.SecretsURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate workflow id: %w", err)
-	}
-
 	// Always fetch secrets from the SecretsURL
 	var secrets []byte
 	if payload.SecretsURL != "" {
@@ -457,11 +459,6 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 		if err != nil {
 			return nil, fmt.Errorf("failed to get secrets: %w", err)
 		}
-	}
-
-	// Pre-check: verify that the workflowID matches; if it doesn't abort and log an error via Beholder.
-	if !types.WorkflowID(hash).Equal(payload.WorkflowID) {
-		return nil, fmt.Errorf("workflowID mismatch: %x != %x", hash, payload.WorkflowID)
 	}
 
 	status := toSpecStatus(payload.Status)
@@ -517,6 +514,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 			SecretsFetcher: h.workflowArtifactsStore.SecretsFor,
 			RateLimiter:    h.ratelimiter,
 			WorkflowLimits: h.workflowLimits,
+			BillingClient:  h.billingClient,
 		}
 		return workflows.NewEngine(ctx, cfg)
 	}
@@ -546,6 +544,11 @@ func (h *eventHandler) workflowUpdatedEvent(
 	ctx context.Context,
 	payload WorkflowUpdatedV1,
 ) error {
+	// Remove the old workflow engine from the local registry if it exists
+	if err := h.tryEngineCleanup(payload.WorkflowOwner, payload.WorkflowName); err != nil {
+		return err
+	}
+
 	registeredEvent := WorkflowRegisteredV1{
 		WorkflowID:    payload.NewWorkflowID,
 		WorkflowOwner: payload.WorkflowOwner,
@@ -690,6 +693,38 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return fmt.Errorf("failed to decode workflow spec binary: %w", err)
 	}
 
+	secretsURL := ""
+	if spec.SecretsID.Valid {
+		secretsURL, err = h.workflowArtifactsStore.GetSecretsURLByID(ctx, spec.SecretsID.Int64)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Before running the engine, handle validations
+	// Workflow ID should match what is generated from the stored artifacts
+	ownerBytes, err := hex.DecodeString(spec.WorkflowOwner)
+	if err != nil {
+		return fmt.Errorf("failed to decode owner: %w", err)
+	}
+	hash, err := pkgworkflows.GenerateWorkflowID(ownerBytes, spec.WorkflowName, decodedBinary, []byte(spec.Config), secretsURL)
+	if err != nil {
+		return fmt.Errorf("failed to generate workflow id: %w", err)
+	}
+	wid, err := types.WorkflowIDFromHex(spec.WorkflowID)
+	if err != nil {
+		return fmt.Errorf("invalid workflow id: %w", err)
+	}
+	if !types.WorkflowID(hash).Equal(wid) {
+		return fmt.Errorf("workflowID mismatch: %x != %x", hash, wid)
+	}
+
+	// Secrets should be valid
+	err = h.workflowArtifactsStore.ValidateSecrets(ctx, spec.WorkflowID, spec.WorkflowOwner)
+	if err != nil {
+		return err
+	}
+
 	// Start a new WorkflowEngine instance, and add it to local engine registry
 	workflowName, err := types.NewWorkflowName(spec.WorkflowName)
 	if err != nil {
@@ -709,16 +744,6 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 
 	if err = engine.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start workflow engine: %w", err)
-	}
-
-	ownerBytes, err := hex.DecodeString(spec.WorkflowOwner)
-	if err != nil {
-		return err
-	}
-
-	wid, err := types.WorkflowIDFromHex(spec.WorkflowID)
-	if err != nil {
-		return err
 	}
 
 	if err := h.engineRegistry.Add(EngineRegistryKey{Owner: ownerBytes, Name: spec.WorkflowName}, engine, wid); err != nil {

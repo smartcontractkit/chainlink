@@ -8,10 +8,12 @@ import (
 
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 type FeeQuoterView struct {
+	PDA                    string                                             `json:"pda,omitempty"`
 	Version                uint8                                              `json:"version,omitempty"`
 	Owner                  string                                             `json:"owner,omitempty"`
 	ProposedOwner          string                                             `json:"proposedOwner,omitempty"`
@@ -26,6 +28,7 @@ type FeeQuoterView struct {
 }
 
 type FeeQuoterDestChainConfig struct {
+	PDA                               string `json:"pda,omitempty"`
 	IsEnabled                         bool   `json:"isEnabled,omitempty"`
 	LaneCodeVersion                   string `json:"laneCodeVersion,omitempty"`
 	MaxNumberOfTokensPerMsg           uint16 `json:"maxNumberOfTokensPerMsg,omitempty"`
@@ -49,11 +52,13 @@ type FeeQuoterDestChainConfig struct {
 }
 
 type FeeQuoterBillingTokenConfig struct {
+	PDA                        string `json:"pda,omitempty"`
 	Enabled                    bool   `json:"enabled,omitempty"`
 	PremiumMultiplierWeiPerEth uint64 `json:"premiumMultiplierWeiPerEth,omitempty"`
 }
 
 type FeeQuoterTokenTransferConfig struct {
+	PDA               string `json:"pda,omitempty"`
 	MinFeeUsdcents    uint32 `json:"minFeeUsdcents,omitempty"`
 	MaxFeeUsdcents    uint32 `json:"maxFeeUsdcents,omitempty"`
 	DeciBps           uint16 `json:"deciBps,omitempty"`
@@ -62,7 +67,7 @@ type FeeQuoterTokenTransferConfig struct {
 	IsEnabled         bool   `json:"isEnabled,omitempty"`
 }
 
-func GenerateFeeQuoterView(chain deployment.SolChain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (FeeQuoterView, error) {
+func GenerateFeeQuoterView(chain cldf.SolChain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (FeeQuoterView, error) {
 	fq := FeeQuoterView{}
 	var fqConfig solFeeQuoter.Config
 	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(program)
@@ -70,6 +75,7 @@ func GenerateFeeQuoterView(chain deployment.SolChain, program solana.PublicKey, 
 	if err != nil {
 		return fq, fmt.Errorf("fee quoter config not found in existing state, initialize the fee quoter first %d", chain.Selector)
 	}
+	fq.PDA = feeQuoterConfigPDA.String()
 	fq.Version = fqConfig.Version
 	fq.Owner = fqConfig.Owner.String()
 	fq.ProposedOwner = fqConfig.ProposedOwner.String()
@@ -92,6 +98,7 @@ func GenerateFeeQuoterView(chain deployment.SolChain, program solana.PublicKey, 
 		}
 		fq.TokenTransferConfig[remote] = make(map[string]FeeQuoterTokenTransferConfig)
 		fq.DestinationChainConfig[remote] = FeeQuoterDestChainConfig{
+			PDA:                               fqRemoteChainPDA.String(),
 			IsEnabled:                         destChainStateAccount.Config.IsEnabled,
 			LaneCodeVersion:                   destChainStateAccount.Config.LaneCodeVersion.String(),
 			MaxNumberOfTokensPerMsg:           destChainStateAccount.Config.MaxNumberOfTokensPerMsg,
@@ -122,6 +129,7 @@ func GenerateFeeQuoterView(chain deployment.SolChain, program solana.PublicKey, 
 			var remoteBillingAccount solFeeQuoter.PerChainPerTokenConfig
 			if err := chain.GetAccountDataBorshInto(context.Background(), remoteBillingPDA, &remoteBillingAccount); err == nil {
 				fq.TokenTransferConfig[remote][token.String()] = FeeQuoterTokenTransferConfig{
+					PDA:               remoteBillingPDA.String(),
 					MinFeeUsdcents:    remoteBillingAccount.TokenTransferConfig.MinFeeUsdcents,
 					MaxFeeUsdcents:    remoteBillingAccount.TokenTransferConfig.MaxFeeUsdcents,
 					DeciBps:           remoteBillingAccount.TokenTransferConfig.DeciBps,
@@ -141,6 +149,7 @@ func GenerateFeeQuoterView(chain deployment.SolChain, program solana.PublicKey, 
 		var token0ConfigAccount solFeeQuoter.BillingTokenConfigWrapper
 		if err := chain.GetAccountDataBorshInto(context.Background(), billingConfigPDA, &token0ConfigAccount); err == nil {
 			fq.BillingTokenConfig[token.String()] = FeeQuoterBillingTokenConfig{
+				PDA:                        billingConfigPDA.String(),
 				Enabled:                    token0ConfigAccount.Config.Enabled,
 				PremiumMultiplierWeiPerEth: token0ConfigAccount.Config.PremiumMultiplierWeiPerEth,
 			}

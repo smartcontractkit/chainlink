@@ -6,17 +6,20 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -74,8 +77,8 @@ func getRemoteChains(chains []v1_6.ChainDefinition, currentIndex int) []v1_6.Cha
 
 func checkBidirectionalLaneConnectivity(
 	t *testing.T,
-	e deployment.Environment,
-	state changeset.CCIPOnChainState,
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
 	chainOne v1_6.ChainDefinition,
 	chainTwo v1_6.ChainDefinition,
 	testRouter bool,
@@ -311,10 +314,10 @@ func TestUpdateBidirectiConalLanesChangeset(t *testing.T) {
 			})
 			e := deployedEnvironment.Env
 
-			state, err := changeset.LoadOnchainState(e)
+			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err, "must load onchain state")
 
-			selectors := e.AllChainSelectors()
+			selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 
 			timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts, len(selectors))
 			for _, selector := range selectors {
@@ -341,7 +344,7 @@ func TestUpdateBidirectiConalLanesChangeset(t *testing.T) {
 				}
 				e, err = commonchangeset.Apply(t, e, timelockContracts,
 					commonchangeset.Configure(
-						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: contractsToTransfer,
 							MCMSConfig: proposalutils.TimelockConfig{

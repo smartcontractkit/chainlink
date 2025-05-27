@@ -1,0 +1,142 @@
+name: CRE Local Environment Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      chainlink_image_tag:
+        required: true
+        type: string
+        description: "The tag of the Chainlink image to use for the tests."
+      chainlink_version:
+        required: true
+        type: string
+        description: "The version of Chainlink repository to use for the tests."
+        default: "develop"
+  workflow_call:
+    inputs:
+      chainlink_image_tag:
+        required: true
+        type: string
+        description: "The tag of the Chainlink image to use for the tests."
+      chainlink_version:
+        required: true
+        type: string
+        description: "The version of Chainlink repository to use for the tests."
+        default: "develop"
+  pull_request:
+    types: [labeled, synchronize]
+
+jobs:
+  test-cli:
+    runs-on: ubuntu-latest
+    environment: "integration"
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-local-cre-env-tests'))
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || inputs.chainlink_version }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: core/scripts/go.mod
+
+      # We need to login to ECR to allow the test to pull the Job Distributor and Chainlink images
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
+        with:
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          role-duration-seconds: 1800
+          mask-aws-account-id: true
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+        with:
+          registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.AWS_ACCOUNT_ID_PROD) }}
+        env:
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Set date variable
+        id: set-date
+        if:  ${{ github.event_name == 'pull_request' }}
+        run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+
+      - name: Overwrite chainlink version in TOML config
+        shell: bash
+        run: |
+          cat > core/scripts/cre/environment/configs/ci-override.toml<< EOF
+          [jd]
+            image = "injected-at-runtime"
+
+          [[nodesets]]
+            nodes = 5
+            override_mode = "all"
+            http_port_range_start = 10100
+            name = "workflow"
+
+            [nodesets.db]
+              image = "postgres:12.0"
+              port = 13000
+
+            [[nodesets.node_specs]]
+              [nodesets.node_specs.node]
+                image = "injected-at-runtime"
+          EOF
+
+      - name: Start the CLI
+        shell: bash
+        env:
+          CTF_CONFIGS: "./configs/single-don.toml,./configs/ci-override.toml"
+          E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
+          E2E_JD_VERSION: "0.9.0"
+          E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
+          E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}
+        run: |
+          cd core/scripts/cre/environment
+          go run main.go env start
+
+  notify-test-failure:
+    name: Notify about local env startup failure
+    if: failure() && github.event_name != 'pull_request'
+    needs: [test-cli]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send slack notification for failed local env startup
+        id: send-slack-notification
+        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+        with:
+          errors: "true"
+          method: chat.postMessage
+          token: ${{ secrets.QA_SLACK_API_KEY }}
+          payload: |
+            {
+              "channel": "C0364FG2CN9",
+              "text": "Local CRE environment failed to start",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*:rotating_light: Local CRE environment failed to start :rotating_light:*"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Alerting <@U060CGGPY8H> local CRE environment failed to start for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. This commit was already merged to develop."
+                  }
+                }
+              ]
+            }
+
+
+
+

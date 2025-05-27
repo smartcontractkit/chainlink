@@ -5,14 +5,17 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 )
 
 type OffRampView struct {
+	PDA                        string                              `json:"pda,omitempty"`
 	Version                    uint8                               `json:"version,omitempty"`
 	DefaultCodeVersion         uint8                               `json:"defaultCodeVersion,omitempty"`
 	SvmChainSelector           uint64                              `json:"svmChainSelector,omitempty"`
@@ -24,6 +27,7 @@ type OffRampView struct {
 }
 
 type OffRampReferenceAddresses struct {
+	PDA                string `json:"pda,omitempty"`
 	Version            uint8  `json:"version,omitempty"`
 	Router             string `json:"router,omitempty"`
 	FeeQuoter          string `json:"feeQuoter,omitempty"`
@@ -32,13 +36,14 @@ type OffRampReferenceAddresses struct {
 }
 
 type OffRampSourceChainConfig struct {
+	PDA                       string `json:"pda,omitempty"`
 	IsEnabled                 bool   `json:"isEnabled,omitempty"`
 	IsRmnVerificationDisabled bool   `json:"isRmnVerificationDisabled,omitempty"`
 	LaneCodeVersion           string `json:"laneCodeVersion,omitempty"`
 	OnRamp                    string `json:"onRamp,omitempty"`
 }
 
-func GenerateOffRampView(chain deployment.SolChain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (OffRampView, error) {
+func GenerateOffRampView(chain cldf.SolChain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (OffRampView, error) {
 	view := OffRampView{}
 	var config solOffRamp.Config
 	configPDA, _, _ := solState.FindOfframpConfigPDA(program)
@@ -46,6 +51,7 @@ func GenerateOffRampView(chain deployment.SolChain, program solana.PublicKey, re
 	if err != nil {
 		return view, fmt.Errorf("config not found in existing state, initialize the off ramp first %d", chain.Selector)
 	}
+	view.PDA = configPDA.String()
 	view.DefaultCodeVersion = config.DefaultCodeVersion
 	view.SvmChainSelector = config.SvmChainSelector
 	view.Owner = config.Owner.String()
@@ -59,6 +65,7 @@ func GenerateOffRampView(chain deployment.SolChain, program solana.PublicKey, re
 		return view, fmt.Errorf("failed to get offramp reference addresses: %w", err)
 	}
 	view.ReferenceAddresses = OffRampReferenceAddresses{
+		PDA:                offRampReferenceAddressesPDA.String(),
 		Version:            referenceAddressesAccount.Version,
 		Router:             referenceAddressesAccount.Router.String(),
 		FeeQuoter:          referenceAddressesAccount.FeeQuoter.String(),
@@ -76,6 +83,7 @@ func GenerateOffRampView(chain deployment.SolChain, program solana.PublicKey, re
 		}
 		onRamp := chainStateAccount.Config.OnRamp
 		view.SourceChains[remote] = OffRampSourceChainConfig{
+			PDA:                       remoteChainPDA.String(),
 			IsEnabled:                 chainStateAccount.Config.IsEnabled,
 			IsRmnVerificationDisabled: chainStateAccount.Config.IsRmnVerificationDisabled,
 			LaneCodeVersion:           chainStateAccount.Config.LaneCodeVersion.String(),

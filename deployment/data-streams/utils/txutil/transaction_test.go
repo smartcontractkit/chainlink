@@ -8,13 +8,16 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -27,7 +30,7 @@ func TestSignAndExecute_ETHTransfer(t *testing.T) {
 		Chains: 1,
 	})
 
-	testChain := e.AllChainSelectors()[0]
+	testChain := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0]
 	chain := e.Chains[testChain]
 
 	recipient := common.HexToAddress("0x742d35Cc6634C0532925a3b844Bc454e4438f44e")
@@ -69,7 +72,7 @@ func TestSignAndExecute_ContractInteraction(t *testing.T) {
 		Chains: 1,
 	})
 
-	testChain := e.AllChainSelectors()[0]
+	testChain := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0]
 	chain := e.Chains[testChain]
 
 	e, err := commonchangeset.Apply(t, e, nil,
@@ -90,13 +93,13 @@ func TestSignAndExecute_ContractInteraction(t *testing.T) {
 	// grant minter permissions
 	tx, err := linkState.LinkToken.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
 	require.NoError(t, err)
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
 	// Mint the deployer address some tokens
 	tx, err = linkState.LinkToken.Mint(chain.DeployerKey, chain.DeployerKey.From, big.NewInt(500))
 	require.NoError(t, err)
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
 	// Deployer should have the tokens
@@ -114,7 +117,7 @@ func TestSignAndExecute_ContractInteraction(t *testing.T) {
 	// Transfer some tokens to multiple receivers
 	for _, receiver := range receivers {
 		// This is the key part - generate a transaction with call data / arguments but do not send it
-		tx, err = linkState.LinkToken.Transfer(deployment.SimTransactOpts(), receiver, big.NewInt(100))
+		tx, err = linkState.LinkToken.Transfer(cldf.SimTransactOpts(), receiver, big.NewInt(100))
 		require.NoError(t, err)
 		preparedTxs = append(preparedTxs, &PreparedTx{
 			Tx:            tx,

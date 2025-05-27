@@ -4,17 +4,20 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -29,7 +32,7 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	chainSelector := env.AllChainSelectors()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0]
 
 	newEnv, err := commonChangesets.Apply(t, env, nil,
 		commonChangesets.Configure(
@@ -48,7 +51,7 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	cacheAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
+	cacheAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
 	require.NoError(t, err)
 
 	dataID := "0x01bb0467f50003040000000000000000"
@@ -77,7 +80,7 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 	require.NoError(t, err)
 
 	// with MCMS
-	timeLockAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "RBACTimelock")
+	timeLockAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "RBACTimelock")
 	require.NoError(t, err)
 
 	newEnv, err = commonChangesets.Apply(t, newEnv, nil,

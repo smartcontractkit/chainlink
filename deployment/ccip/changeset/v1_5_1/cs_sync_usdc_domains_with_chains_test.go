@@ -10,11 +10,16 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -138,7 +143,7 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 				testCfg.IsUSDC = test.DeployUSDC
 			})
 			e := deployedEnvironment.Env
-			selectors := deployedEnvironment.Env.AllChainSelectors()
+			selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 
 			if test.DeployUSDC {
 				var err error
@@ -151,14 +156,14 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 									ChainUpdates: v1_5_1.RateLimiterPerChain{
 										selectors[1]: testhelpers.CreateSymmetricRateLimits(0, 0),
 									},
-									Type:    changeset.USDCTokenPool,
+									Type:    shared.USDCTokenPool,
 									Version: deployment.Version1_5_1,
 								},
 								selectors[1]: {
 									ChainUpdates: v1_5_1.RateLimiterPerChain{
 										selectors[0]: testhelpers.CreateSymmetricRateLimits(0, 0),
 									},
-									Type:    changeset.USDCTokenPool,
+									Type:    shared.USDCTokenPool,
 									Version: deployment.Version1_5_1,
 								},
 							},
@@ -169,7 +174,7 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			state, err := changeset.LoadOnchainState(e)
+			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
 			err = test.Input(selectors[0]).Validate(e, state)
@@ -197,9 +202,9 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 				testCfg.IsUSDC = true
 			})
 			e := deployedEnvironment.Env
-			selectors := e.AllChainSelectors()
+			selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 
-			state, err := changeset.LoadOnchainState(e)
+			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
 			timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts, len(selectors))
@@ -238,14 +243,14 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 								ChainUpdates: v1_5_1.RateLimiterPerChain{
 									selectors[1]: testhelpers.CreateSymmetricRateLimits(0, 0),
 								},
-								Type:    changeset.USDCTokenPool,
+								Type:    shared.USDCTokenPool,
 								Version: deployment.Version1_5_1,
 							},
 							selectors[1]: {
 								ChainUpdates: v1_5_1.RateLimiterPerChain{
 									selectors[0]: testhelpers.CreateSymmetricRateLimits(0, 0),
 								},
-								Type:    changeset.USDCTokenPool,
+								Type:    shared.USDCTokenPool,
 								Version: deployment.Version1_5_1,
 							},
 						},
@@ -273,7 +278,7 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			state, err = changeset.LoadOnchainState(e)
+			state, err = stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
 			for i, selector := range selectors {
@@ -310,7 +315,7 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 				},
 			})
 			require.NoError(t, err)
-			require.Empty(t, output.Proposals) //nolint:staticcheck //SA1019 ignoring deprecated field for compatibility; we don't have tools to generate the new field
+			require.Empty(t, output.MCMSTimelockProposals)
 		})
 	}
 }

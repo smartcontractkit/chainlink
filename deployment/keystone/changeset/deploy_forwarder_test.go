@@ -5,8 +5,11 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -14,7 +17,7 @@ import (
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -33,10 +36,10 @@ func TestDeployForwarder(t *testing.T) {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	registrySel := env.AllChainSelectors()[0]
+	registrySel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
 	t.Run("should deploy forwarder", func(t *testing.T) {
-		ab := deployment.NewMemoryAddressBook()
+		ab := cldf.NewMemoryAddressBook()
 
 		// deploy forwarder
 		env.ExistingAddresses = ab
@@ -77,7 +80,7 @@ func TestConfigureForwarders(t *testing.T) {
 		},
 	}
 
-	excludeChainsIfNeeded := func(excludeChains bool, env deployment.Environment) (uint64, map[uint64]struct{}) {
+	excludeChainsIfNeeded := func(excludeChains bool, env cldf.Environment) (uint64, map[uint64]struct{}) {
 		if !excludeChains {
 			return 0, nil
 		}
@@ -150,7 +153,7 @@ func TestConfigureForwarders(t *testing.T) {
 				csOut, err := changeset.ConfigureForwardContracts(te.Env, cfg)
 				require.NoError(t, err)
 				require.Nil(t, csOut.AddressBook)
-				require.Empty(t, csOut.Proposals)
+				require.Empty(t, csOut.MCMSTimelockProposals)
 				// check that forwarder
 				// TODO set up a listener to check that the forwarder is configured
 				forwardersByChain := te.OwnedForwarders()

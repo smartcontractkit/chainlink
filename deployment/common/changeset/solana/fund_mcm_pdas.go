@@ -7,11 +7,12 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
-var _ deployment.ChangeSetV2[FundMCMSignerConfig] = FundMCMSignersChangeset{}
+var _ cldf.ChangeSetV2[FundMCMSignerConfig] = FundMCMSignersChangeset{}
 
 type AmountsToTransfer struct {
 	ProposeMCM   uint64
@@ -29,7 +30,7 @@ type FundMCMSignerConfig struct {
 type FundMCMSignersChangeset struct{}
 
 // VerifyPreconditions checks if the deployer has enough SOL to fund the MCMS signers on each chain.
-func (f FundMCMSignersChangeset) VerifyPreconditions(e deployment.Environment, config FundMCMSignerConfig) error {
+func (f FundMCMSignersChangeset) VerifyPreconditions(e cldf.Environment, config FundMCMSignerConfig) error {
 	// the number of accounts to fund per chain (bypasser, canceller, proposer, timelock)
 	for chainSelector, chainCfg := range config.AmountsPerChain {
 		solChain, ok := e.SolChains[chainSelector]
@@ -65,16 +66,16 @@ func (f FundMCMSignersChangeset) VerifyPreconditions(e deployment.Environment, c
 }
 
 // Apply funds the MCMS signers on each chain.
-func (f FundMCMSignersChangeset) Apply(e deployment.Environment, config FundMCMSignerConfig) (deployment.ChangesetOutput, error) {
+func (f FundMCMSignersChangeset) Apply(e cldf.Environment, config FundMCMSignerConfig) (cldf.ChangesetOutput, error) {
 	for chainSelector, cfgAmounts := range config.AmountsPerChain {
 		solChain := e.SolChains[chainSelector]
 		addreses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 		}
 		mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addreses)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to load MCMS state: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS state: %w", err)
 		}
 
 		err = FundFromDeployerKey(
@@ -82,29 +83,29 @@ func (f FundMCMSignersChangeset) Apply(e deployment.Environment, config FundMCMS
 			[]solana.PublicKey{state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)},
 			cfgAmounts.Timelock)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fund timelock signer on chain %d: %w", chainSelector, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fund timelock signer on chain %d: %w", chainSelector, err)
 		}
 		err = FundFromDeployerKey(
 			solChain,
 			[]solana.PublicKey{state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)},
 			cfgAmounts.ProposeMCM)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fund MCMS proposer on chain %d: %w", chainSelector, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fund MCMS proposer on chain %d: %w", chainSelector, err)
 		}
 		err = FundFromDeployerKey(
 			solChain,
 			[]solana.PublicKey{state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.CancellerMcmSeed)},
 			cfgAmounts.CancellerMCM)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fund MCMS canceller on chain %d: %w", chainSelector, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fund MCMS canceller on chain %d: %w", chainSelector, err)
 		}
 		err = FundFromDeployerKey(
 			solChain,
 			[]solana.PublicKey{state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed)},
 			cfgAmounts.BypasserMCM)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fund mcm bypasser on chain %d: %w", chainSelector, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fund mcm bypasser on chain %d: %w", chainSelector, err)
 		}
 	}
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }

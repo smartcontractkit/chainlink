@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	goEthTypes "github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 // HasContractAddress is the generic interface for anything
@@ -18,7 +18,7 @@ type HasContractAddress interface {
 // ContractLoader is a function that, given an Environment, chain selector,
 // and contract address, returns the strongly-typed contract “state”
 type ContractLoader[S any] func(
-	e deployment.Environment,
+	e cldf.Environment,
 	chainSelector uint64,
 	contractAddr string,
 ) (*S, error)
@@ -37,11 +37,12 @@ type ContractMethod[S any, T any] func(
 // Calls the method function to build the transaction
 // Accumulates them into a slice of PreparedTx.
 func GetTxs[S any, T HasContractAddress](
-	e deployment.Environment,
+	e cldf.Environment,
 	contractType string,
 	configsByChain map[uint64][]T,
 	loader ContractLoader[S],
 	method ContractMethod[S, T],
+	tags ...string,
 ) ([]*PreparedTx, error) {
 	var preparedTxs []*PreparedTx
 
@@ -63,6 +64,7 @@ func GetTxs[S any, T HasContractAddress](
 				Tx:            tx,
 				ChainSelector: chainSelector,
 				ContractType:  contractType,
+				Tags:          tags,
 			})
 		}
 	}

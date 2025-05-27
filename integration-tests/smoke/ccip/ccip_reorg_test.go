@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -13,12 +12,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/onsi/gomega"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
@@ -26,9 +27,12 @@ import (
 
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipcs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
@@ -65,7 +69,7 @@ func Test_CCIPReorg_BelowFinality_OnSource(t *testing.T) {
 	)
 
 	// Chain setup
-	allChains := e.Env.AllChainSelectors()
+	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))
 	require.GreaterOrEqual(t, len(allChains), 2)
 	sourceSelector := allChains[0]
 	destSelector := allChains[1]
@@ -110,7 +114,7 @@ func Test_CCIPReorg_BelowFinality_OnSource(t *testing.T) {
 		t,
 		sourceSelector,
 		e.Env.Chains[destSelector],
-		state.Chains[destSelector].OffRamp,
+		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),
 		false, // enforceSingleCommit
@@ -123,7 +127,7 @@ func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {
 		testhelpers.WithExtraConfigTomls([]string{t.Name() + ".toml"}),
 	)
 
-	allChains := e.Env.AllChainSelectors()
+	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))
 	require.GreaterOrEqual(t, len(allChains), 2)
 	sourceSelector := allChains[0]
 	destSelector := allChains[1]
@@ -142,7 +146,7 @@ func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {
 		t,
 		sourceSelector,
 		e.Env.Chains[destSelector],
-		state.Chains[destSelector].OffRamp,
+		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),
 		false, // enforceSingleCommit
@@ -159,7 +163,7 @@ func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {
 		t,
 		sourceSelector,
 		e.Env.Chains[destSelector],
-		state.Chains[destSelector].OffRamp,
+		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),
 		false, // enforceSingleCommit
@@ -170,7 +174,7 @@ func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {
 func Test_CCIPReorg_GreaterThanFinality_OnDest(t *testing.T) {
 	e, l, dockerEnv, nonBootstrapP2PIDs, state, _ := setupReorgTest(t, logsToIgnoreOpt)
 
-	allChains := e.Env.AllChainSelectors()
+	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))
 	require.GreaterOrEqual(t, len(allChains), 2)
 	sourceSelector := allChains[0]
 	destSelector := allChains[1]
@@ -194,7 +198,7 @@ func Test_CCIPReorg_GreaterThanFinality_OnDest(t *testing.T) {
 		t,
 		sourceSelector,
 		e.Env.Chains[destSelector],
-		state.Chains[destSelector].OffRamp,
+		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),
 		false, // enforceSingleCommit
@@ -235,7 +239,7 @@ func Test_CCIPReorg_GreaterThanFinality_OnDest(t *testing.T) {
 func Test_CCIPReorg_GreaterThanFinality_OnSource(t *testing.T) {
 	e, l, dockerEnv, nonBootstrapP2PIDs, state, _ := setupReorgTest(t, logsToIgnoreOpt)
 
-	allChains := e.Env.AllChainSelectors()
+	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))
 	require.GreaterOrEqual(t, len(allChains), 3)
 	reorgSource := allChains[0]
 	nonReorgSource := allChains[1]
@@ -276,7 +280,7 @@ func Test_CCIPReorg_GreaterThanFinality_OnSource(t *testing.T) {
 		t,
 		nonReorgSource,
 		e.Env.Chains[destSelector],
-		state.Chains[destSelector].OffRamp,
+		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),
 		false, // enforceSingleCommit
@@ -285,7 +289,7 @@ func Test_CCIPReorg_GreaterThanFinality_OnSource(t *testing.T) {
 
 	// Commit absence check on the reorged source
 	gomega.NewWithT(t).Consistently(func() bool {
-		it, err := state.Chains[destSelector].OffRamp.FilterCommitReportAccepted(&bind.FilterOpts{Start: 0})
+		it, err := state.MustGetEVMChainState(destSelector).OffRamp.FilterCommitReportAccepted(&bind.FilterOpts{Start: 0})
 		require.NoError(t, err)
 		var found bool
 	outer:
@@ -317,7 +321,7 @@ func setupReorgTest(t *testing.T, testOpts ...testhelpers.TestOps) (
 	logging.Logger,
 	*testsetups.DeployedLocalDevEnvironment,
 	[]string,
-	ccipcs.CCIPOnChainState,
+	stateview.CCIPOnChainState,
 	devenv.RMNCluster,
 ) {
 	require.Equal(t, os.Getenv(testhelpers.ENVTESTTYPE), string(testhelpers.Docker),
@@ -331,7 +335,7 @@ func setupReorgTest(t *testing.T, testOpts ...testhelpers.TestOps) (
 	require.NoError(t, err)
 	nonBootstrapP2PIDs := getNonBootstrapP2PIDs(nodeInfos)
 
-	state, err := ccipcs.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	return e, l, dockerEnv, nonBootstrapP2PIDs, state, rmnCluster
@@ -354,7 +358,7 @@ func buildChainSelectorToRPCURLMap(t *testing.T, dockerEnv *testsetups.DeployedL
 	chainSelToRPCURL := make(map[uint64]string)
 	for _, chain := range devEnvConfig.Chains {
 		require.GreaterOrEqual(t, len(chain.HTTPRPCs), 1)
-		details, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(chain.ChainID, 10), chainsel.FamilyEVM)
+		details, err := chainsel.GetChainDetailsByChainIDAndFamily(chain.ChainID, chainsel.FamilyEVM)
 		require.NoError(t, err)
 		chainSelToRPCURL[details.ChainSelector] = chain.HTTPRPCs[0].Internal
 	}
@@ -377,13 +381,13 @@ func getHeadTrackerService(t *testing.T, chainSelector uint64) string {
 // Send CCIP message helper
 func sendCCIPMessage(
 	t *testing.T,
-	env deployment.Environment,
-	state ccipcs.CCIPOnChainState,
+	env cldf.Environment,
+	state stateview.CCIPOnChainState,
 	sourceSelector, destSelector uint64,
 	l logging.Logger,
 ) *onramp.OnRampCCIPMessageSent {
 	msgEvent := testhelpers.TestSendRequest(t, env, state, sourceSelector, destSelector, false, router.ClientEVM2AnyMessage{
-		Receiver:     common.LeftPadBytes(state.Chains[destSelector].Receiver.Address().Bytes(), 32),
+		Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(destSelector).Receiver.Address().Bytes(), 32),
 		Data:         []byte("hello world"),
 		TokenAmounts: nil,
 		FeeToken:     common.HexToAddress("0x0"),

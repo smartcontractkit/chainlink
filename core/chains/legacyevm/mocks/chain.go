@@ -16,7 +16,7 @@ import (
 
 	heads "github.com/smartcontractkit/chainlink-framework/chains/heads"
 
-	log "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	log "github.com/smartcontractkit/chainlink-evm/pkg/log"
 
 	logger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 

@@ -21,9 +21,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -72,8 +72,8 @@ func (g *relayGetter) Get(id types.RelayID) (loop.Relayer, error) {
 	return evmrelayer.NewLOOPRelayAdapter(g.r), nil
 }
 
-func (g *relayGetter) GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error) {
-	return map[types.RelayID]loop.Relayer{}, nil
+func (g *relayGetter) GetIDToRelayerMap() map[types.RelayID]loop.Relayer {
+	return map[types.RelayID]loop.Relayer{}
 }
 
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {
@@ -284,7 +284,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		config = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.Feature.LogPoller = func(b bool) *bool { return &b }(true)
 		})
-		lp := &mocklp.LogPoller{}
+		lp := &lpmocks.LogPoller{}
 
 		csaKeystore := &keystore.CSASigner{CSA: keyStore.CSA()}
 		testopts := evmtest.TestChainOpts{

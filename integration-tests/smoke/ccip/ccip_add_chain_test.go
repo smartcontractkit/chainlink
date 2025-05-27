@@ -10,9 +10,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	ccipcs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -45,7 +49,10 @@ func Test_AddChain(t *testing.T) {
 
 	allChains := maps.Keys(e.Env.Chains)
 	slices.Sort(allChains)
-	toDeploy := e.Env.AllChainSelectorsExcluding([]uint64{allChains[0]})
+	toDeploy := e.Env.BlockChains.ListChainSelectors(
+		cldf_chain.WithFamily(chain_selectors.FamilyEVM),
+		cldf_chain.WithChainSelectorsExclusion([]uint64{allChains[0]}),
+	)
 	require.Len(t, toDeploy, numChains-1)
 	remainingChain := allChains[0]
 	t.Log("initially deploying chains:", toDeploy, "and afterwards adding chain", remainingChain)
@@ -55,7 +62,7 @@ func Test_AddChain(t *testing.T) {
 	/////////////////////////////////////
 	e = setupChain(t, e, tEnv, toDeploy, false)
 
-	state, err := ccipcs.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
 	// check RMNRemote is up and RMNProxy is correctly wired.
@@ -105,7 +112,7 @@ func Test_AddChain(t *testing.T) {
 					continue
 				}
 
-				gp, err := state.Chains[source].FeeQuoter.GetDestinationChainGasPrice(&bind.CallOpts{
+				gp, err := state.MustGetEVMChainState(source).FeeQuoter.GetDestinationChainGasPrice(&bind.CallOpts{
 					Context: t.Context(),
 				}, dest)
 				require.NoError(t, err)
@@ -118,7 +125,7 @@ func Test_AddChain(t *testing.T) {
 				require.NoError(t, err)
 				block := latesthdr.Number.Uint64()
 				msgSentEvent := testhelpers.TestSendRequest(t, e.Env, state, source, dest, testRouter, router.ClientEVM2AnyMessage{
-					Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+					Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 					Data:         []byte("hello world"),
 					TokenAmounts: nil,
 					FeeToken:     common.HexToAddress("0x0"),
@@ -175,7 +182,7 @@ func Test_AddChain(t *testing.T) {
 	// transferred to MCMS.
 	e = setupChain(t, e, tEnv, []uint64{remainingChain}, true)
 
-	state, err = ccipcs.LoadOnchainState(e.Env)
+	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
 
@@ -199,7 +206,7 @@ func Test_AddChain(t *testing.T) {
 		true, // mcmsEnabled
 	)
 
-	state, err = ccipcs.LoadOnchainState(e.Env)
+	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	assertChainWiringOutbound(
@@ -317,7 +324,7 @@ func Test_AddChain(t *testing.T) {
 		true,  // mcmsEnabled
 	)
 
-	state, err = ccipcs.LoadOnchainState(e.Env)
+	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	assertChainWiringOutbound(
@@ -536,7 +543,7 @@ func setupChain(t *testing.T, e testhelpers.DeployedEnv, tEnv testhelpers.TestEn
 // It doesn't check that the existingChains have the newChain enabled as a dest.
 func assertChainWiringInbound(
 	t *testing.T,
-	state ccipcs.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	newChain uint64,
 	existingChains []uint64,
 	testRouterEnabled bool,
@@ -544,20 +551,20 @@ func assertChainWiringInbound(
 	for _, existingChain := range existingChains {
 		var rtr *router.Router
 		if testRouterEnabled {
-			rtr = state.Chains[newChain].TestRouter
+			rtr = state.MustGetEVMChainState(newChain).TestRouter
 		} else {
-			rtr = state.Chains[newChain].Router
+			rtr = state.MustGetEVMChainState(newChain).Router
 		}
 
 		// check that the offRamp has the existing chain enabled as a source.
 		// in addition, check that the onRamp set in the source chain config
 		// matches the address of the onRamp on the existing chain.
-		dcc, err := state.Chains[newChain].OffRamp.GetSourceChainConfig(&bind.CallOpts{
+		dcc, err := state.MustGetEVMChainState(newChain).OffRamp.GetSourceChainConfig(&bind.CallOpts{
 			Context: t.Context(),
 		}, existingChain)
 		require.NoError(t, err)
 		require.Equal(t, rtr.Address(), dcc.Router)
-		require.Equal(t, dcc.OnRamp, common.LeftPadBytes(state.Chains[existingChain].OnRamp.Address().Bytes(), 32))
+		require.Equal(t, dcc.OnRamp, common.LeftPadBytes(state.MustGetEVMChainState(existingChain).OnRamp.Address().Bytes(), 32))
 
 		// check that the router has the existing chain enabled as a source.
 		routerOffRamps, err := rtr.GetOffRamps(&bind.CallOpts{
@@ -568,7 +575,7 @@ func assertChainWiringInbound(
 		var found bool
 		for _, offRamp := range routerOffRamps {
 			if offRamp.SourceChainSelector == existingChain {
-				require.Equal(t, state.Chains[newChain].OffRamp.Address(), offRamp.OffRamp)
+				require.Equal(t, state.MustGetEVMChainState(newChain).OffRamp.Address(), offRamp.OffRamp)
 				found = true
 				break
 			}
@@ -582,7 +589,7 @@ func assertChainWiringInbound(
 // It doesn't check that the newChain can process the requests.
 func assertChainWiringOutbound(
 	t *testing.T,
-	state ccipcs.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	newChain uint64,
 	existingChains []uint64,
 	testRouterEnabled bool,
@@ -590,20 +597,20 @@ func assertChainWiringOutbound(
 	for _, existingChain := range existingChains {
 		var rtr *router.Router
 		if testRouterEnabled {
-			rtr = state.Chains[existingChain].TestRouter
+			rtr = state.MustGetEVMChainState(existingChain).TestRouter
 		} else {
-			rtr = state.Chains[existingChain].Router
+			rtr = state.MustGetEVMChainState(existingChain).Router
 		}
 
 		// check that the onRamp has the new chain enabled as a dest.
-		dcc, err := state.Chains[existingChain].OnRamp.GetDestChainConfig(&bind.CallOpts{
+		dcc, err := state.MustGetEVMChainState(existingChain).OnRamp.GetDestChainConfig(&bind.CallOpts{
 			Context: t.Context(),
 		}, newChain)
 		require.NoError(t, err)
 		require.Equal(t, rtr.Address(), dcc.Router)
 
 		// check that the feeQuoter has the new chain enabled as a dest.
-		fqdcc, err := state.Chains[existingChain].FeeQuoter.GetDestChainConfig(&bind.CallOpts{
+		fqdcc, err := state.MustGetEVMChainState(existingChain).FeeQuoter.GetDestChainConfig(&bind.CallOpts{
 			Context: t.Context(),
 		}, newChain)
 		require.NoError(t, err)
@@ -614,7 +621,7 @@ func assertChainWiringOutbound(
 			Context: t.Context(),
 		}, newChain)
 		require.NoError(t, err)
-		require.Equal(t, state.Chains[existingChain].OnRamp.Address(), routerOnRamp)
+		require.Equal(t, state.MustGetEVMChainState(existingChain).OnRamp.Address(), routerOnRamp)
 	}
 }
 
@@ -732,23 +739,23 @@ func offRampSourceUpdates(t *testing.T, dests []uint64, sources []uint64, testRo
 	return
 }
 
-func assertRMNRemoteAndProxyState(t *testing.T, chains []uint64, state ccipcs.CCIPOnChainState) {
+func assertRMNRemoteAndProxyState(t *testing.T, chains []uint64, state stateview.CCIPOnChainState) {
 	for _, chain := range chains {
-		require.NotEqual(t, common.Address{}, state.Chains[chain].RMNRemote.Address())
-		_, err := state.Chains[chain].RMNRemote.GetCursedSubjects(&bind.CallOpts{
+		require.NotEqual(t, common.Address{}, state.MustGetEVMChainState(chain).RMNRemote.Address())
+		_, err := state.MustGetEVMChainState(chain).RMNRemote.GetCursedSubjects(&bind.CallOpts{
 			Context: t.Context(),
 		})
 		require.NoError(t, err)
 
 		// check which address RMNProxy is pointing to
-		rmnAddress, err := state.Chains[chain].RMNProxy.GetARM(&bind.CallOpts{
+		rmnAddress, err := state.MustGetEVMChainState(chain).RMNProxy.GetARM(&bind.CallOpts{
 			Context: t.Context(),
 		})
 		require.NoError(t, err)
-		require.Equal(t, state.Chains[chain].RMNRemote.Address(), rmnAddress)
+		require.Equal(t, state.MustGetEVMChainState(chain).RMNRemote.Address(), rmnAddress)
 
-		t.Log("RMNRemote address for chain", chain, "is:", state.Chains[chain].RMNRemote.Address().Hex())
-		t.Log("RMNProxy address for chain", chain, "is:", state.Chains[chain].RMNProxy.Address().Hex())
+		t.Log("RMNRemote address for chain", chain, "is:", state.MustGetEVMChainState(chain).RMNRemote.Address().Hex())
+		t.Log("RMNProxy address for chain", chain, "is:", state.MustGetEVMChainState(chain).RMNProxy.Address().Hex())
 	}
 }
 
@@ -756,17 +763,17 @@ func transferToMCMSAndRenounceTimelockDeployer(
 	t *testing.T,
 	e testhelpers.DeployedEnv,
 	chains []uint64,
-	state ccipcs.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	onlyChainContracts bool,
 ) {
 	apps := make([]commonchangeset.ConfiguredChangeSet, 0, len(chains)+1)
-	cfg := testhelpers.GenTestTransferOwnershipConfig(e, chains, state)
+	cfg := testhelpers.GenTestTransferOwnershipConfig(e, chains, state, true)
 	if onlyChainContracts {
 		// filter out the home chain contracts from e.HomeChainSel
 		var homeChainContracts = map[common.Address]struct{}{
-			state.Chains[e.HomeChainSel].CapabilityRegistry.Address(): {},
-			state.Chains[e.HomeChainSel].CCIPHome.Address():           {},
-			state.Chains[e.HomeChainSel].RMNHome.Address():            {},
+			state.MustGetEVMChainState(e.HomeChainSel).CapabilityRegistry.Address(): {},
+			state.MustGetEVMChainState(e.HomeChainSel).CCIPHome.Address():           {},
+			state.MustGetEVMChainState(e.HomeChainSel).RMNHome.Address():            {},
 		}
 		var chainContracts []common.Address
 		for _, contract := range cfg.ContractsByChain[e.HomeChainSel] {
@@ -777,7 +784,7 @@ func transferToMCMSAndRenounceTimelockDeployer(
 		cfg.ContractsByChain[e.HomeChainSel] = chainContracts
 	}
 	apps = append(apps, commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+		cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 		cfg,
 	))
 	for _, chain := range chains {

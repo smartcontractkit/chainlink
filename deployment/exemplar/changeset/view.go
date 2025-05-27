@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 // ExemplarView represents a simplified view of the exemplar environment
@@ -32,7 +35,7 @@ var ViewExemplar deployment.ViewState = func(e deployment.Environment) (json.Mar
 	}
 
 	// Get chain information
-	for _, chainSel := range e.AllChainSelectors() {
+	for _, chainSel := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)) {
 		chain := e.Chains[chainSel]
 		chainName := fmt.Sprintf("%s (%d)", chain.Name(), chainSel)
 		view.Chains = append(view.Chains, chainName)

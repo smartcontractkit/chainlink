@@ -61,6 +61,8 @@ type Core struct {
 	Capabilities     Capabilities     `toml:",omitempty"`
 	Telemetry        Telemetry        `toml:",omitempty"`
 	Workflows        Workflows        `toml:",omitempty"`
+	CRE              CreConfig        `toml:",omitempty"`
+	Billing          Billing          `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -102,6 +104,8 @@ func (c *Core) SetFrom(f *Core) {
 	c.Insecure.setFrom(&f.Insecure)
 	c.Tracing.setFrom(&f.Tracing)
 	c.Telemetry.setFrom(&f.Telemetry)
+	c.CRE.setFrom(&f.CRE)
+	c.Billing.setFrom(&f.Billing)
 }
 
 func (c *Core) ValidateConfig() (err error) {
@@ -133,6 +137,7 @@ type Secrets struct {
 	Threshold  ThresholdKeyShareSecrets `toml:",omitempty"`
 	EVM        EthKeys                  `toml:",omitempty"` // choose EVM as the TOML field name to align with relayer config convention
 	P2PKey     P2PKey                   `toml:",omitempty"`
+	CRE        CreSecrets               `toml:",omitempty"`
 }
 
 type EthKeys struct {
@@ -1581,6 +1586,73 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 	return err
 }
 
+// StreamsConfig holds the WsURL and RestURL for configuring the
+// Streams SDK for use in the workflow engine
+type StreamsConfig struct {
+	WsURL   *string `toml:",omitempty"`
+	RestURL *string `toml:",omitempty"`
+}
+
+type CreConfig struct {
+	Streams *StreamsConfig `toml:",omitempty"`
+}
+
+func (c *CreConfig) setFrom(f *CreConfig) {
+	if f.Streams != nil {
+		if c.Streams == nil {
+			c.Streams = &StreamsConfig{}
+		}
+		if v := f.Streams.WsURL; v != nil {
+			c.Streams.WsURL = v
+		}
+		if v := f.Streams.RestURL; v != nil {
+			c.Streams.RestURL = v
+		}
+	}
+}
+
+type StreamsSecretConfig struct {
+	APIKey    *commonconfig.SecretString `toml:",omitempty"`
+	APISecret *commonconfig.SecretString `toml:",omitempty"`
+}
+
+type CreSecrets struct {
+	Streams *StreamsSecretConfig `toml:",omitempty"`
+}
+
+func (c *CreSecrets) SetFrom(f *CreSecrets) (err error) {
+	err = c.validateMerge(f)
+	if err != nil {
+		return err
+	}
+
+	if f.Streams != nil {
+		if c.Streams == nil {
+			c.Streams = &StreamsSecretConfig{}
+		}
+		if v := f.Streams.APIKey; v != nil {
+			c.Streams.APIKey = v
+		}
+		if v := f.Streams.APISecret; v != nil {
+			c.Streams.APISecret = v
+		}
+	}
+
+	return nil
+}
+
+func (c *CreSecrets) validateMerge(f *CreSecrets) (err error) {
+	if c.Streams != nil && f.Streams != nil {
+		if c.Streams.APIKey != nil && f.Streams.APIKey != nil {
+			err = multierr.Append(err, configutils.ErrOverride{Name: "Streams.APIKey"})
+		}
+		if c.Streams.APISecret != nil && f.Streams.APISecret != nil {
+			err = multierr.Append(err, configutils.ErrOverride{Name: "Streams.APISecret"})
+		}
+	}
+	return err
+}
+
 type EngineExecutionRateLimit struct {
 	GlobalRPS      *float64
 	GlobalBurst    *int
@@ -2005,4 +2077,22 @@ func isValidHostname(hostname string) bool {
 
 func isValidFilePath(path string) bool {
 	return len(path) > 0 && len(path) < 4096
+}
+
+type Billing struct {
+	URL *string
+}
+
+func (b *Billing) setFrom(f *Billing) {
+	if f.URL != nil {
+		b.URL = f.URL
+	}
+}
+
+func (b *Billing) ValidateConfig() error {
+	if b.URL == nil || *b.URL == "" {
+		return configutils.ErrInvalid{Name: "URL", Value: "", Msg: "billing service url must be set"}
+	}
+
+	return nil
 }

@@ -5,13 +5,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
+
 	rewardManager "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 )
 
 func loadRewardManagerState(
-	e deployment.Environment,
+	e cldf.Environment,
 	chainSel uint64,
 	contractAddr string,
 ) (*rewardManager.RewardManager, error) {
@@ -20,26 +25,13 @@ func loadRewardManagerState(
 		return nil, fmt.Errorf("chain %d not found", chainSel)
 	}
 
-	addresses, err := e.ExistingAddresses.AddressesForChain(chainSel)
-	if err != nil {
+	if err := utils.ValidateContract(e, chainSel, contractAddr, types.RewardManager, deployment.Version0_5_0); err != nil {
 		return nil, err
 	}
 
-	chainState, err := changeset.LoadChainState(e.Logger, chain, addresses)
+	conf, err := rewardManager.NewRewardManager(common.HexToAddress(contractAddr), chain.Client)
 	if err != nil {
-		e.Logger.Errorw("Failed to load chain state", "err", err)
 		return nil, err
-	}
-
-	conf, found := chainState.RewardManagers[common.HexToAddress(contractAddr)]
-
-	if !found {
-		return nil, fmt.Errorf(
-			"unable to find RewardManager contract on chain %s (selector %d, address %s)",
-			chain.Name(),
-			chain.Selector,
-			contractAddr,
-		)
 	}
 
 	return conf, nil

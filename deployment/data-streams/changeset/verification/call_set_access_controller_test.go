@@ -3,38 +3,29 @@ package verification
 import (
 	"testing"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 )
 
 func TestSetAccessController(t *testing.T) {
-	e := testutil.NewMemoryEnv(t, true, 0)
-	acAddress := common.HexToAddress("0x0000000000000000000000000000000000000123")
-	testChain := e.AllChainSelectors()[0]
-	e, err := commonChangesets.Apply(t, e, nil,
-		commonChangesets.Configure(
-			DeployVerifierProxyChangeset,
-			DeployVerifierProxyConfig{
-				ChainsToDeploy: map[uint64]DeployVerifierProxy{
-					testChain: {AccessControllerAddress: common.Address{}},
-				},
-				Version: *semver.MustParse("0.5.0"),
-			},
-		),
-	)
-	require.NoError(t, err)
+	t.Parallel()
+	testEnv := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
+		ShouldDeployMCMS: true,
+	})
 
-	// Ensure the VerifierProxy was deployed
-	verifierProxyAddrHex, err := deployment.SearchAddressBook(e.ExistingAddresses, testChain, types.VerifierProxy)
-	require.NoError(t, err)
-	verifierProxyAddr := common.HexToAddress(verifierProxyAddrHex)
+	e := testEnv.Environment
+	acAddress := common.HexToAddress("0x0000000000000000000000000000000000000123")
+	testChain := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0]
+
+	e, verifierProxyAddr, _ := DeployVerifierProxyAndVerifier(t, e)
 
 	cfg := VerifierProxySetAccessControllerConfig{
 		ConfigPerChain: map[uint64][]SetAccessControllerConfig{
@@ -44,7 +35,7 @@ func TestSetAccessController(t *testing.T) {
 		},
 	}
 
-	e, err = commonChangesets.Apply(t, e, nil,
+	e, err := commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
 			SetAccessControllerChangeset,
 			cfg,

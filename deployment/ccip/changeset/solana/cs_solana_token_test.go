@@ -6,17 +6,23 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -27,14 +33,14 @@ func TestSolanaTokenOps(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		SolChains: 1,
 	})
-	solChain1 := e.AllChainSelectorsSolana()[0]
+	solChain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 	e, err := commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			// deployer creates token
 			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
 			changeset_solana.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
-				TokenProgramName: ccipChangeset.SPL2022Tokens,
+				TokenProgramName: shared.SPL2022Tokens,
 				TokenDecimals:    9,
 				TokenSymbol:      "TEST_TOKEN",
 			},
@@ -42,13 +48,30 @@ func TestSolanaTokenOps(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	privKey, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			// deployer creates token
+			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
+			changeset_solana.DeploySolanaTokenConfig{
+				ChainSelector:    solChain1,
+				TokenProgramName: shared.SPLTokens,
+				MintPrivateKey:   privKey,
+				TokenDecimals:    9,
+				TokenSymbol:      "SPL_TEST_TOKEN",
+			},
+		),
+	)
+	require.NoError(t, err)
+
 	addresses, err := e.ExistingAddresses.AddressesForChain(solChain1) //nolint:staticcheck // addressbook still valid
 	require.NoError(t, err)
-	tokenAddress := ccipChangeset.FindSolanaAddress(
-		deployment.TypeAndVersion{
-			Type:    ccipChangeset.SPL2022Tokens,
+	tokenAddress := solanastateview.FindSolanaAddress(
+		cldf.TypeAndVersion{
+			Type:    shared.SPL2022Tokens,
 			Version: deployment.Version1_0_0,
-			Labels:  deployment.NewLabelSet("TEST_TOKEN"),
+			Labels:  cldf.NewLabelSet("TEST_TOKEN"),
 		},
 		addresses,
 	)
@@ -110,7 +133,7 @@ func TestSolanaTokenOps(t *testing.T) {
 			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
 			changeset_solana.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
-				TokenProgramName: ccipChangeset.SPL2022Tokens,
+				TokenProgramName: shared.SPLTokens,
 				TokenDecimals:    9,
 				TokenSymbol:      "TEST_TOKEN_2",
 				ATAList:          []string{deployerKey.String(), testUserPubKey.String()},
@@ -124,18 +147,18 @@ func TestSolanaTokenOps(t *testing.T) {
 	require.NoError(t, err)
 	addresses, err = e.ExistingAddresses.AddressesForChain(solChain1) //nolint:staticcheck // addressbook still valid
 	require.NoError(t, err)
-	tokenAddress2 := ccipChangeset.FindSolanaAddress(
-		deployment.TypeAndVersion{
-			Type:    ccipChangeset.SPL2022Tokens,
+	tokenAddress2 := solanastateview.FindSolanaAddress(
+		cldf.TypeAndVersion{
+			Type:    shared.SPLTokens,
 			Version: deployment.Version1_0_0,
-			Labels:  deployment.NewLabelSet("TEST_TOKEN_2"),
+			Labels:  cldf.NewLabelSet("TEST_TOKEN_2"),
 		},
 		addresses,
 	)
-	testUserATA2, _, err := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenAddress2, testUserPubKey)
+	testUserATA2, _, err := solTokenUtil.FindAssociatedTokenAddress(solana.TokenProgramID, tokenAddress2, testUserPubKey)
 	require.NoError(t, err)
 	deployerATA2, _, err := solTokenUtil.FindAssociatedTokenAddress(
-		solana.Token2022ProgramID,
+		solana.TokenProgramID,
 		tokenAddress2,
 		e.SolChains[solChain1].DeployerKey.PublicKey(),
 	)
@@ -153,5 +176,8 @@ func TestSolanaTokenOps(t *testing.T) {
 }
 
 func TestDeployLinkToken(t *testing.T) {
-	testhelpers.DeployLinkTokenTest(t, 1)
+	commonchangeset.DeployLinkTokenTest(t, memory.MemoryEnvironmentConfig{
+		Chains:    1,
+		SolChains: 1,
+	})
 }

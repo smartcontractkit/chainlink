@@ -28,10 +28,7 @@ func (b *chainBatcher) loadByIDs(ctx context.Context, keys dataloader.Keys) []*d
 	}
 
 	var cs []chainlink.NetworkChainStatus
-	relayersMap, err := b.app.GetRelayers().GetIDToRelayerMap()
-	if err != nil {
-		return []*dataloader.Result{{Data: nil, Error: err}}
-	}
+	relayersMap := b.app.GetRelayers().GetIDToRelayerMap()
 
 	for k, v := range relayersMap {
 		s, err := v.GetChainStatus(ctx)

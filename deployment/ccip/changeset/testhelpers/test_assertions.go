@@ -31,18 +31,19 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 func ConfirmGasPriceUpdatedForAll(
 	t *testing.T,
-	e deployment.Environment,
-	state changeset.CCIPOnChainState,
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
 	startBlocks map[uint64]*uint64,
 	gasPrice *big.Int,
 ) {
@@ -62,7 +63,7 @@ func ConfirmGasPriceUpdatedForAll(
 				return ConfirmGasPriceUpdated(
 					t,
 					dstChain,
-					state.Chains[srcChain.Selector].FeeQuoter,
+					state.MustGetEVMChainState(srcChain.Selector).FeeQuoter,
 					*startBlock,
 					gasPrice,
 				)
@@ -74,7 +75,7 @@ func ConfirmGasPriceUpdatedForAll(
 
 func ConfirmGasPriceUpdated(
 	t *testing.T,
-	dest deployment.Chain,
+	dest cldf.Chain,
 	srcFeeQuoter *fee_quoter.FeeQuoter,
 	startBlock uint64,
 	gasPrice *big.Int,
@@ -94,8 +95,8 @@ func ConfirmGasPriceUpdated(
 
 func ConfirmTokenPriceUpdatedForAll(
 	t *testing.T,
-	e deployment.Environment,
-	state changeset.CCIPOnChainState,
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
 	startBlocks map[uint64]*uint64,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
@@ -108,15 +109,15 @@ func ConfirmTokenPriceUpdatedForAll(
 			if startBlocks != nil {
 				startBlock = startBlocks[chain.Selector]
 			}
-			linkAddress := state.Chains[chain.Selector].LinkToken.Address()
-			wethAddress := state.Chains[chain.Selector].Weth9.Address()
+			linkAddress := state.MustGetEVMChainState(chain.Selector).LinkToken.Address()
+			wethAddress := state.MustGetEVMChainState(chain.Selector).Weth9.Address()
 			tokenToPrice := make(map[common.Address]*big.Int)
 			tokenToPrice[linkAddress] = linkPrice
 			tokenToPrice[wethAddress] = wethPrice
 			return ConfirmTokenPriceUpdated(
 				t,
 				chain,
-				state.Chains[chain.Selector].FeeQuoter,
+				state.MustGetEVMChainState(chain.Selector).FeeQuoter,
 				*startBlock,
 				tokenToPrice,
 			)
@@ -127,7 +128,7 @@ func ConfirmTokenPriceUpdatedForAll(
 
 func ConfirmTokenPriceUpdated(
 	t *testing.T,
-	chain deployment.Chain,
+	chain cldf.Chain,
 	feeQuoter *fee_quoter.FeeQuoter,
 	startBlock uint64,
 	tokenToInitialPrice map[common.Address]*big.Int,
@@ -179,8 +180,8 @@ type SourceDestPair struct {
 // If startBlocks is nil, it will start watching from the latest block.
 func ConfirmCommitForAllWithExpectedSeqNums(
 	t *testing.T,
-	e deployment.Environment,
-	state changeset.CCIPOnChainState,
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
 	expectedSeqNums map[SourceDestPair]uint64,
 	startBlocks map[uint64]*uint64,
 ) {
@@ -207,7 +208,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					t,
 					srcChain,
 					e.Chains[dstChain],
-					state.Chains[dstChain].OffRamp,
+					state.MustGetEVMChainState(dstChain).OffRamp,
 					startBlock,
 					ccipocr3.SeqNumRange{
 						ccipocr3.SeqNum(expectedSeqNum),
@@ -295,8 +296,8 @@ func (c *CommitReportTracker) allCommited(sourceChainSelector uint64) bool {
 // Waiting is done in parallel per every sourceChain/destChain (lane) passed as argument.
 func ConfirmMultipleCommits(
 	t *testing.T,
-	env deployment.Environment,
-	state changeset.CCIPOnChainState,
+	env cldf.Environment,
+	state stateview.CCIPOnChainState,
 	startBlocks map[uint64]*uint64,
 	enforceSingleCommit bool,
 	expectedSeqNums map[SourceDestPair]ccipocr3.SeqNumRange,
@@ -319,7 +320,7 @@ func ConfirmMultipleCommits(
 					t,
 					srcChain,
 					env.Chains[destChain],
-					state.Chains[destChain].OffRamp,
+					state.MustGetEVMChainState(destChain).OffRamp,
 					startBlocks[destChain],
 					seqRange,
 					enforceSingleCommit,
@@ -355,7 +356,7 @@ func ConfirmMultipleCommits(
 func ConfirmCommitWithExpectedSeqNumRange(
 	t *testing.T,
 	srcSelector uint64,
-	dest deployment.Chain,
+	dest cldf.Chain,
 	offRamp offramp.OffRampInterface,
 	startBlock *uint64,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
@@ -540,7 +541,7 @@ func SolEventEmitter[T any](
 func ConfirmCommitWithExpectedSeqNumRangeSol(
 	t *testing.T,
 	srcSelector uint64,
-	dest deployment.SolChain,
+	dest cldf.SolChain,
 	offrampAddress solana.PublicKey,
 	startSlot uint64,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
@@ -596,8 +597,8 @@ func ConfirmCommitWithExpectedSeqNumRangeSol(
 // If startBlocks is nil, it will start watching from the latest block.
 func ConfirmExecWithSeqNrsForAll(
 	t *testing.T,
-	e deployment.Environment,
-	state changeset.CCIPOnChainState,
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
 	expectedSeqNums map[SourceDestPair][]uint64,
 	startBlocks map[uint64]*uint64,
 ) (executionStates map[SourceDestPair]map[uint64]int) {
@@ -629,7 +630,7 @@ func ConfirmExecWithSeqNrsForAll(
 					t,
 					srcChain,
 					e.Chains[dstChain],
-					state.Chains[dstChain].OffRamp,
+					state.MustGetEVMChainState(dstChain).OffRamp,
 					startBlock,
 					seqRange,
 				)
@@ -675,7 +676,7 @@ func ConfirmExecWithSeqNrsForAll(
 func ConfirmExecWithSeqNrs(
 	t *testing.T,
 	sourceSelector uint64,
-	dest deployment.Chain,
+	dest cldf.Chain,
 	offRamp offramp.OffRampInterface,
 	startBlock *uint64,
 	expectedSeqNrs []uint64,
@@ -750,7 +751,7 @@ func ConfirmExecWithSeqNrs(
 func ConfirmExecWithSeqNrsSol(
 	t *testing.T,
 	srcSelector uint64,
-	dest deployment.SolChain,
+	dest cldf.SolChain,
 	offrampAddress solana.PublicKey,
 	startSlot uint64,
 	expectedSeqNrs []uint64,
@@ -801,7 +802,7 @@ func ConfirmExecWithSeqNrsSol(
 func ConfirmNoExecConsistentlyWithSeqNr(
 	t *testing.T,
 	sourceSelector uint64,
-	dest deployment.Chain,
+	dest cldf.Chain,
 	offRamp offramp.OffRampInterface,
 	expectedSeqNr uint64,
 	timeout time.Duration,
@@ -906,33 +907,37 @@ func AssertTimelockOwnership(
 	t *testing.T,
 	e DeployedEnv,
 	chains []uint64,
-	state changeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
+	withTestRouterTransfer bool,
 ) {
 	// check that the ownership has been transferred correctly
 	for _, chain := range chains {
-		for _, contract := range []common.Address{
-			state.Chains[chain].OnRamp.Address(),
-			state.Chains[chain].OffRamp.Address(),
-			state.Chains[chain].FeeQuoter.Address(),
-			state.Chains[chain].NonceManager.Address(),
-			state.Chains[chain].RMNRemote.Address(),
-			state.Chains[chain].TestRouter.Address(),
-			state.Chains[chain].Router.Address(),
-			state.Chains[chain].TokenAdminRegistry.Address(),
-			state.Chains[chain].RMNProxy.Address(),
-		} {
+		allContracts := []common.Address{
+			state.MustGetEVMChainState(chain).OnRamp.Address(),
+			state.MustGetEVMChainState(chain).OffRamp.Address(),
+			state.MustGetEVMChainState(chain).FeeQuoter.Address(),
+			state.MustGetEVMChainState(chain).NonceManager.Address(),
+			state.MustGetEVMChainState(chain).RMNRemote.Address(),
+			state.MustGetEVMChainState(chain).Router.Address(),
+			state.MustGetEVMChainState(chain).TokenAdminRegistry.Address(),
+			state.MustGetEVMChainState(chain).RMNProxy.Address(),
+		}
+		if withTestRouterTransfer {
+			allContracts = append(allContracts, state.MustGetEVMChainState(chain).TestRouter.Address())
+		}
+		for _, contract := range allContracts {
 			owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.Chains[chain].Client)
 			require.NoError(t, err)
-			require.Equal(t, state.Chains[chain].Timelock.Address(), owner)
+			require.Equal(t, state.MustGetEVMChainState(chain).Timelock.Address(), owner)
 		}
 	}
 
 	// check home chain contracts ownership
-	homeChainTimelockAddress := state.Chains[e.HomeChainSel].Timelock.Address()
+	homeChainTimelockAddress := state.MustGetEVMChainState(e.HomeChainSel).Timelock.Address()
 	for _, contract := range []common.Address{
-		state.Chains[e.HomeChainSel].CapabilityRegistry.Address(),
-		state.Chains[e.HomeChainSel].CCIPHome.Address(),
-		state.Chains[e.HomeChainSel].RMNHome.Address(),
+		state.MustGetEVMChainState(e.HomeChainSel).CapabilityRegistry.Address(),
+		state.MustGetEVMChainState(e.HomeChainSel).CCIPHome.Address(),
+		state.MustGetEVMChainState(e.HomeChainSel).RMNHome.Address(),
 	} {
 		owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.Chains[e.HomeChainSel].Client)
 		require.NoError(t, err)

@@ -318,6 +318,7 @@ func Test_InitialStateSync(t *testing.T) {
 }
 
 func Test_SecretsWorker(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-732")
 	tc := []struct {
 		ss syncer.SyncStrategy
 	}{

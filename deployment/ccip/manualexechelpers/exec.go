@@ -14,15 +14,17 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/deployment"
-	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm/manualexeclib"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 const (
@@ -115,8 +117,8 @@ func durationToBlocks(srcChainSel uint64, lookbackDuration time.Duration) uint64
 func getCommitRootAcceptedEvent(
 	ctx context.Context,
 	lggr logger.Logger,
-	env deployment.Environment,
-	state ccipchangeset.CCIPOnChainState,
+	env cldf.Environment,
+	state stateview.CCIPOnChainState,
 	srcChainSel uint64,
 	destChainSel uint64,
 	msgSeqNr uint64,
@@ -209,8 +211,8 @@ func findCommitRoot(
 func getCCIPMessageSentEvents(
 	ctx context.Context,
 	lggr logger.Logger,
-	env deployment.Environment,
-	state ccipchangeset.CCIPOnChainState,
+	env cldf.Environment,
+	state stateview.CCIPOnChainState,
 	srcChainSel uint64,
 	destChainSel uint64,
 	merkleRoot offramp.InternalMerkleRoot,
@@ -301,8 +303,8 @@ func getCCIPMessageSentEvents(
 func manuallyExecuteSingle(
 	ctx context.Context,
 	lggr logger.Logger,
-	state ccipchangeset.CCIPOnChainState,
-	env deployment.Environment,
+	state stateview.CCIPOnChainState,
+	env cldf.Environment,
 	srcChainSel uint64,
 	destChainSel uint64,
 	msgSeqNr uint64,
@@ -525,7 +527,7 @@ func manuallyExecuteSingle(
 			},
 		},
 	)
-	_, err = deployment.ConfirmIfNoErrorWithABI(env.Chains[destChainSel], tx, offramp.OffRampABI, err)
+	_, err = cldf.ConfirmIfNoErrorWithABI(env.Chains[destChainSel], tx, offramp.OffRampABI, err)
 	if err != nil {
 		return fmt.Errorf("failed to execute message: %w", err)
 	}
@@ -541,8 +543,8 @@ func manuallyExecuteSingle(
 func ManuallyExecuteAll(
 	ctx context.Context,
 	lggr logger.Logger,
-	state ccipchangeset.CCIPOnChainState,
-	env deployment.Environment,
+	state stateview.CCIPOnChainState,
+	env cldf.Environment,
 	srcChainSel uint64,
 	destChainSel uint64,
 	msgSeqNrs []int64,
@@ -551,9 +553,10 @@ func ManuallyExecuteAll(
 	stepDuration time.Duration,
 	reExecuteIfFailed bool,
 ) error {
-	extraDataCodec := ccipcommon.NewExtraDataCodec(ccipcommon.NewExtraDataCodecParams(ccipevm.ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{}))
-
-	// for large backfills, these caches can speed things up because we don't need to query
+	extraDataCodec := ccipcommon.ExtraDataCodec(map[string]ccipcommon.SourceChainExtraDataCodec{
+		chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
+		chainsel.FamilySolana: ccipsolana.ExtraDataDecoder{},
+	})
 	// the chain multiple times for the same root/messages.
 	messageSentCache := NewMessageSentCache()
 	commitRootCache := NewRootCache()
@@ -586,7 +589,7 @@ func ManuallyExecuteAll(
 func CheckAlreadyExecuted(
 	ctx context.Context,
 	lggr logger.Logger,
-	state ccipchangeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 	srcChainSel uint64,
 	destChainSel uint64,
 	msgSeqNrs []int64,

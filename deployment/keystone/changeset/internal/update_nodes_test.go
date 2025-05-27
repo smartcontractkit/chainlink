@@ -20,7 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
@@ -31,7 +33,7 @@ func Test_UpdateNodesRequest_validate(t *testing.T) {
 	type fields struct {
 		p2pToUpdates         map[p2pkey.PeerID]internal.NodeUpdate
 		nopToNodes           map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc
-		chain                deployment.Chain
+		chain                cldf.Chain
 		capabilitiesRegistry *kcr.CapabilitiesRegistry
 	}
 	tests := []struct {
@@ -44,7 +46,7 @@ func Test_UpdateNodesRequest_validate(t *testing.T) {
 			fields: fields{
 				p2pToUpdates:         map[p2pkey.PeerID]internal.NodeUpdate{},
 				nopToNodes:           nil,
-				chain:                deployment.Chain{},
+				chain:                cldf.Chain{},
 				capabilitiesRegistry: nil,
 			},
 			wantErr: true,
@@ -58,7 +60,7 @@ func Test_UpdateNodesRequest_validate(t *testing.T) {
 					},
 				},
 				nopToNodes:           nil,
-				chain:                deployment.Chain{},
+				chain:                cldf.Chain{},
 				capabilitiesRegistry: nil,
 			},
 			wantErr: true,
@@ -72,7 +74,7 @@ func Test_UpdateNodesRequest_validate(t *testing.T) {
 					},
 				},
 				nopToNodes:           nil,
-				chain:                deployment.Chain{},
+				chain:                cldf.Chain{},
 				capabilitiesRegistry: nil,
 			},
 			wantErr: true,
@@ -582,7 +584,7 @@ func TestUpdateNodes(t *testing.T) {
 		toRegister := p2pToCapabilitiesUpdated[testPeerID(t, "peerID_1")]
 		tx, err := registry.AddCapabilities(chain.DeployerKey, toRegister)
 		if err != nil {
-			err2 := deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+			err2 := cldf.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 			require.Fail(t, fmt.Sprintf("failed to call AddCapabilities: %s:  %s", err, err2))
 		}
 		_, err = chain.Confirm(tx)
@@ -690,9 +692,9 @@ func testPeerID(t *testing.T, s string) p2pkey.PeerID {
 	return p2pkey.PeerID(out)
 }
 
-func testChain(t *testing.T) deployment.Chain {
+func testChain(t *testing.T) cldf.Chain {
 	chains, _ := memory.NewMemoryChains(t, 1, 5)
-	var chain deployment.Chain
+	var chain cldf.Chain
 	for _, c := range chains {
 		chain = c
 		break

@@ -11,17 +11,25 @@ import (
 
 	"github.com/smartcontractkit/freeport"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 func TestNode(t *testing.T) {
 	chains, _ := NewMemoryChains(t, 3, 5)
 	ports := freeport.GetN(t, 1)
-	node := NewNode(t, ports[0], chains, nil, nil, zapcore.DebugLevel, false, deployment.CapabilityRegistryConfig{}, nil)
+	c := NewNodeConfig{
+		Port:           ports[0],
+		Chains:         chains,
+		Solchains:      nil,
+		Aptoschains:    nil,
+		LogLevel:       zapcore.DebugLevel,
+		Bootstrap:      false,
+		RegistryConfig: deployment.CapabilityRegistryConfig{},
+		CustomDBSetup:  nil,
+	}
+	node := NewNode(t, c)
 	// We expect 3 transmitter keys
-	keys, err := node.App.GetKeyStore().Eth().GetAll(tests.Context(t))
+	keys, err := node.App.GetKeyStore().Eth().GetAll(t.Context())
 	require.NoError(t, err)
 	require.Len(t, keys, 3)
 	// We expect 3 chains supported

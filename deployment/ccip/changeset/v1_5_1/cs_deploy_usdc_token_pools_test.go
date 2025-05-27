@@ -5,8 +5,11 @@ import (
 	"math/big"
 	"testing"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
@@ -15,9 +18,13 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -27,11 +34,11 @@ import (
 func deployUSDCPrerequisites(
 	t *testing.T,
 	logger logger.Logger,
-	chain deployment.Chain,
-	addressBook deployment.AddressBook,
-) (*deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677], *deployment.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger]) {
-	usdcToken, err := deployment.DeployContract(logger, chain, addressBook,
-		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+	chain cldf.Chain,
+	addressBook cldf.AddressBook,
+) (*cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677], *cldf.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger]) {
+	usdcToken, err := cldf.DeployContract(logger, chain, addressBook,
+		func(chain cldf.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 				chain.DeployerKey,
 				chain.Client,
@@ -40,10 +47,10 @@ func deployUSDCPrerequisites(
 				6,
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
-			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				Address:  tokenAddress,
 				Contract: token,
-				Tv:       deployment.NewTypeAndVersion(changeset.USDCTokenPool, deployment.Version1_5_1),
+				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_5_1),
 				Tx:       tx,
 				Err:      err,
 			}
@@ -51,13 +58,13 @@ func deployUSDCPrerequisites(
 	)
 	require.NoError(t, err)
 
-	transmitter, err := deployment.DeployContract(logger, chain, addressBook,
-		func(chain deployment.Chain) deployment.ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter] {
+	transmitter, err := cldf.DeployContract(logger, chain, addressBook,
+		func(chain cldf.Chain) cldf.ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter] {
 			transmitterAddress, tx, transmitter, err := mock_usdc_token_transmitter.DeployMockE2EUSDCTransmitter(chain.DeployerKey, chain.Client, 0, 1, usdcToken.Address)
-			return deployment.ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter]{
+			return cldf.ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter]{
 				Address:  transmitterAddress,
 				Contract: transmitter,
-				Tv:       deployment.NewTypeAndVersion(changeset.USDCMockTransmitter, deployment.Version1_0_0),
+				Tv:       cldf.NewTypeAndVersion(shared.USDCMockTransmitter, deployment.Version1_0_0),
 				Tx:       tx,
 				Err:      err,
 			}
@@ -65,13 +72,13 @@ func deployUSDCPrerequisites(
 	)
 	require.NoError(t, err)
 
-	messenger, err := deployment.DeployContract(logger, chain, addressBook,
-		func(chain deployment.Chain) deployment.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger] {
+	messenger, err := cldf.DeployContract(logger, chain, addressBook,
+		func(chain cldf.Chain) cldf.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger] {
 			messengerAddress, tx, messenger, err := mock_usdc_token_messenger.DeployMockE2EUSDCTokenMessenger(chain.DeployerKey, chain.Client, 0, transmitter.Address)
-			return deployment.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger]{
+			return cldf.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger]{
 				Address:  messengerAddress,
 				Contract: messenger,
-				Tv:       deployment.NewTypeAndVersion(changeset.USDCTokenMessenger, deployment.Version1_0_0),
+				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenMessenger, deployment.Version1_0_0),
 				Tx:       tx,
 				Err:      err,
 			}
@@ -117,7 +124,7 @@ func TestValidateDeployUSDCTokenPoolContractsConfig(t *testing.T) {
 			Msg: "Missing router",
 			Input: v1_5_1.DeployUSDCTokenPoolContractsConfig{
 				USDCPools: map[uint64]v1_5_1.DeployUSDCTokenPoolInput{
-					e.AllChainSelectors()[0]: v1_5_1.DeployUSDCTokenPoolInput{},
+					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: v1_5_1.DeployUSDCTokenPoolInput{},
 				},
 			},
 			ErrStr: "missing router",
@@ -139,14 +146,14 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains: 2,
 	})
-	selector := e.AllChainSelectors()[0]
+	selector := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	chain := e.Chains[selector]
-	addressBook := deployment.NewMemoryAddressBook()
+	addressBook := cldf.NewMemoryAddressBook()
 
 	usdcToken, tokenMessenger := deployUSDCPrerequisites(t, lggr, chain, addressBook)
 
-	nonUsdcToken, err := deployment.DeployContract(e.Logger, chain, addressBook,
-		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+	nonUsdcToken, err := cldf.DeployContract(e.Logger, chain, addressBook,
+		func(chain cldf.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 				chain.DeployerKey,
 				chain.Client,
@@ -155,10 +162,10 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 				6,
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
-			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				Address:  tokenAddress,
 				Contract: token,
-				Tv:       deployment.NewTypeAndVersion(changeset.USDCTokenPool, deployment.Version1_5_1),
+				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_5_1),
 				Tx:       tx,
 				Err:      err,
 			}
@@ -166,7 +173,7 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -241,9 +248,9 @@ func TestDeployUSDCTokenPoolContracts(t *testing.T) {
 			e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 				Chains: 2,
 			})
-			selectors := e.AllChainSelectors()
+			selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 
-			addressBook := deployment.NewMemoryAddressBook()
+			addressBook := cldf.NewMemoryAddressBook()
 			prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, len(selectors))
 			for i, selector := range selectors {
 				prereqCfg[i] = changeset.DeployPrerequisiteConfigPerChain{
@@ -286,7 +293,7 @@ func TestDeployUSDCTokenPoolContracts(t *testing.T) {
 				} else {
 					require.NoError(t, err)
 
-					state, err := changeset.LoadOnchainState(e)
+					state, err := stateview.LoadOnchainState(e)
 					require.NoError(t, err)
 
 					for _, selector := range selectors {

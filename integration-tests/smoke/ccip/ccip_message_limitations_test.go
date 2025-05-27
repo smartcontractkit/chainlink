@@ -14,10 +14,11 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mlt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagelimitationstest"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
@@ -28,7 +29,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 	testEnv, _, _ := testsetups.NewIntegrationEnvironment(t)
 	chains := maps.Keys(testEnv.Env.Chains)
 
-	onChainState, err := changeset.LoadOnchainState(testEnv.Env)
+	onChainState, err := stateview.LoadOnchainState(testEnv.Env)
 	require.NoError(t, err)
 
 	testhelpers.AddLanesForAll(t, &testEnv, onChainState)
@@ -43,7 +44,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 		deployment.E18Mult(10_000),
 	)
 
-	chain0DestConfig, err := onChainState.Chains[chains[0]].FeeQuoter.GetDestChainConfig(callOpts, chains[1])
+	chain0DestConfig, err := onChainState.MustGetEVMChainState(chains[0]).FeeQuoter.GetDestChainConfig(callOpts, chains[1])
 	require.NoError(t, err)
 	t.Logf("0->1 destination config: %+v", chain0DestConfig)
 
@@ -64,7 +65,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 			TestSetup: testSetup,
 			Name:      "hit limit on data",
 			Msg: router.ClientEVM2AnyMessage{
-				Receiver: common.LeftPadBytes(onChainState.Chains[testSetup.DestChain].Receiver.Address().Bytes(), 32),
+				Receiver: common.LeftPadBytes(onChainState.MustGetEVMChainState(testSetup.DestChain).Receiver.Address().Bytes(), 32),
 				Data:     []byte(strings.Repeat("0", int(testSetup.SrcFeeQuoterDestChainConfig.MaxDataBytes))),
 				FeeToken: common.HexToAddress("0x0"),
 			},
@@ -73,7 +74,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 			TestSetup: testSetup,
 			Name:      "hit limit on tokens",
 			Msg: router.ClientEVM2AnyMessage{
-				Receiver: common.LeftPadBytes(onChainState.Chains[testSetup.DestChain].Receiver.Address().Bytes(), 32),
+				Receiver: common.LeftPadBytes(onChainState.MustGetEVMChainState(testSetup.DestChain).Receiver.Address().Bytes(), 32),
 				TokenAmounts: slices.Repeat([]router.ClientEVMTokenAmount{
 					{Token: testSetup.SrcToken, Amount: big.NewInt(1)},
 				}, int(testSetup.SrcFeeQuoterDestChainConfig.MaxNumberOfTokensPerMsg)),
@@ -84,7 +85,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 			TestSetup: testSetup,
 			Name:      "hit limit on gas limit",
 			Msg: router.ClientEVM2AnyMessage{
-				Receiver:  common.LeftPadBytes(onChainState.Chains[testSetup.DestChain].Receiver.Address().Bytes(), 32),
+				Receiver:  common.LeftPadBytes(onChainState.MustGetEVMChainState(testSetup.DestChain).Receiver.Address().Bytes(), 32),
 				Data:      []byte(strings.Repeat("0", int(testSetup.SrcFeeQuoterDestChainConfig.MaxDataBytes))),
 				FeeToken:  common.HexToAddress("0x0"),
 				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(testSetup.SrcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
@@ -95,7 +96,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 		//	fromChain: chains[0],
 		//	toChain:   chains[1],
 		//	msg: router.ClientEVM2AnyMessage{
-		//		Receiver: common.LeftPadBytes(onChainState.Chains[chains[1]].Receiver.Address().Bytes(), 32),
+		//		Receiver: common.LeftPadBytes(onChainState.MustGetEVMChainState(chains[1]].Receiver)Address().Bytes(), 32),
 		//		Data:     []byte(strings.Repeat("0", int(chain0DestConfig.MaxDataBytes))),
 		//		TokenAmounts: slices.Repeat([]router.ClientEVMTokenAmount{
 		//			{Token: srcToken.Address(), Amount: big.NewInt(1)},
@@ -108,7 +109,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 			TestSetup: testSetup,
 			Name:      "exceeding maxDataBytes",
 			Msg: router.ClientEVM2AnyMessage{
-				Receiver:     common.LeftPadBytes(onChainState.Chains[testSetup.DestChain].Receiver.Address().Bytes(), 32),
+				Receiver:     common.LeftPadBytes(onChainState.MustGetEVMChainState(testSetup.DestChain).Receiver.Address().Bytes(), 32),
 				Data:         []byte(strings.Repeat("0", int(testSetup.SrcFeeQuoterDestChainConfig.MaxDataBytes)+1)),
 				TokenAmounts: []router.ClientEVMTokenAmount{},
 				FeeToken:     common.HexToAddress("0x0"),
@@ -120,7 +121,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 			TestSetup: testSetup,
 			Name:      "exceeding number of tokens",
 			Msg: router.ClientEVM2AnyMessage{
-				Receiver: common.LeftPadBytes(onChainState.Chains[testSetup.DestChain].Receiver.Address().Bytes(), 32),
+				Receiver: common.LeftPadBytes(onChainState.MustGetEVMChainState(testSetup.DestChain).Receiver.Address().Bytes(), 32),
 				Data:     []byte("abc"),
 				TokenAmounts: slices.Repeat([]router.ClientEVMTokenAmount{
 					{Token: testSetup.SrcToken, Amount: big.NewInt(1)},
@@ -134,7 +135,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 			TestSetup: testSetup,
 			Name:      "exceeding gas limit",
 			Msg: router.ClientEVM2AnyMessage{
-				Receiver:     common.LeftPadBytes(onChainState.Chains[testSetup.DestChain].Receiver.Address().Bytes(), 32),
+				Receiver:     common.LeftPadBytes(onChainState.MustGetEVMChainState(testSetup.DestChain).Receiver.Address().Bytes(), 32),
 				Data:         []byte("abc"),
 				TokenAmounts: []router.ClientEVMTokenAmount{},
 				FeeToken:     common.HexToAddress("0x0"),

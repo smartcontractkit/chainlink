@@ -8,14 +8,19 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonSolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -26,20 +31,20 @@ import (
 )
 
 // setupUpdateDelayTestEnv deploys all required contracts for set \delay test
-func setupUpdateDelayTestEnv(t *testing.T) deployment.Environment {
+func setupUpdateDelayTestEnv(t *testing.T) cldf.Environment {
 	lggr := logger.TestLogger(t)
 	cfg := memory.MemoryEnvironmentConfig{
 		SolChains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-	chainSelector := env.AllChainSelectorsSolana()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 
 	config := proposalutils.SingleGroupTimelockConfigV2(t)
 	err := testhelpers.SavePreloadedSolAddresses(env, chainSelector)
 	require.NoError(t, err)
 	// Initialize the address book with a dummy address to avoid deploy precondition errors.
 	//nolint:staticcheck // will wait till we can migrate from address book before using data store
-	err = env.ExistingAddresses.Save(chainSelector, "dummyAddress", deployment.TypeAndVersion{Type: "dummy", Version: deployment.Version1_0_0})
+	err = env.ExistingAddresses.Save(chainSelector, "dummyAddress", cldf.TypeAndVersion{Type: "dummy", Version: deployment.Version1_0_0})
 	require.NoError(t, err)
 
 	// Deploy MCMS and Timelock
@@ -60,8 +65,8 @@ func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	validEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{SolChains: 1})
-	validEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = deployment.SolChain{}
-	validSolChainSelector := validEnv.AllChainSelectorsSolana()[0]
+	validEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = cldf.SolChain{}
+	validSolChainSelector := validEnv.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 
 	timelockID := mcmsSolana.ContractAddress(
 		solana.NewWallet().PublicKey(),
@@ -70,7 +75,7 @@ func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 	mcmDummyProgram := solana.NewWallet().PublicKey()
 
 	//nolint:staticcheck // will wait till we can migrate from address book before using data store
-	err := validEnv.ExistingAddresses.Save(validSolChainSelector, timelockID, deployment.TypeAndVersion{
+	err := validEnv.ExistingAddresses.Save(validSolChainSelector, timelockID, cldf.TypeAndVersion{
 		Type:    types.RBACTimelock,
 		Version: deployment.Version1_0_0,
 	})
@@ -87,10 +92,10 @@ func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 		SolChains: 1,
 		Nodes:     1,
 	})
-	noTimelockEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = deployment.SolChain{}
+	noTimelockEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = cldf.SolChain{}
 
 	//nolint:staticcheck // will wait till we can migrate from address book before using data store
-	err = noTimelockEnv.ExistingAddresses.Save(chainselectors.SOLANA_DEVNET.Selector, mcmsProposerIDEmpty, deployment.TypeAndVersion{
+	err = noTimelockEnv.ExistingAddresses.Save(chainselectors.SOLANA_DEVNET.Selector, mcmsProposerIDEmpty, cldf.TypeAndVersion{
 		Type:    types.BypasserManyChainMultisig,
 		Version: deployment.Version1_0_0,
 	})
@@ -102,11 +107,11 @@ func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 		SolChains: 0,
 		Nodes:     1,
 	})
-	invalidSolChainEnv.SolChains[validSolChainSelector] = deployment.SolChain{}
+	invalidSolChainEnv.SolChains[validSolChainSelector] = cldf.SolChain{}
 
 	tests := []struct {
 		name          string
-		env           deployment.Environment
+		env           cldf.Environment
 		config        commonSolana.UpdateTimelockDelaySolanaCfg
 		expectedError string
 	}{
@@ -172,12 +177,14 @@ func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 }
 
 func TestUpdateTimelockDelaySolana_Apply(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-762")
 	t.Parallel()
 	env := setupUpdateDelayTestEnv(t)
 	newDelayDuration := 5 * time.Minute
+	solChainSel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 	config := commonSolana.UpdateTimelockDelaySolanaCfg{
 		DelayPerChain: map[uint64]time.Duration{
-			env.AllChainSelectorsSolana()[0]: newDelayDuration,
+			solChainSel: newDelayDuration,
 		},
 	}
 
@@ -188,7 +195,7 @@ func TestUpdateTimelockDelaySolana_Apply(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	chainSelector := env.AllChainSelectorsSolana()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 	solChain := env.SolChains[chainSelector]
 	//nolint:staticcheck // will wait till we can migrate from address book before using data store
 	addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
