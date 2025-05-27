@@ -1,6 +1,7 @@
 package solana
 
 import (
+	"fmt"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -23,9 +24,9 @@ func TestDeployForwarder(t *testing.T) {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 	registrySel := env.AllChainSelectorsSolana()[0]
+	ab := cldf.NewMemoryAddressBook()
 
 	t.Run("should deploy forwarder", func(t *testing.T) {
-		ab := cldf.NewMemoryAddressBook()
 		cfg := helpers.BuildSolanaConfig{
 			GitCommitSha:   "d047073ea230f965626716029f8d902729ddffed",
 			DestinationDir: "./contracts",
@@ -36,7 +37,7 @@ func TestDeployForwarder(t *testing.T) {
 				CleanGitDir:          true,
 			},
 		}
-
+		fmt.Println(cfg.GitCommitSha)
 		// default solChain looking for contracts in ccip directory
 		chain := env.SolChains[registrySel]
 		chain.ProgramsPath = getProgramsPath()
@@ -53,6 +54,14 @@ func TestDeployForwarder(t *testing.T) {
 		addrs, err := resp.AddressBook.AddressesForChain(registrySel)
 		require.NoError(t, err)
 		require.Len(t, addrs, 1)
+		env.ExistingAddresses = resp.AddressBook
+	})
+	t.Run("should pass upgrade authority", func(t *testing.T) {
+		_, err := SetForwarderUpgradeAuthority(env, &SetForwarderUpgradeAuthorityRequest{
+			ChainSel:            registrySel,
+			NewUpgradeAuthority: env.SolChains[registrySel].DeployerKey.PublicKey(),
+		})
+		require.NoError(t, err)
 	})
 }
 

@@ -66,9 +66,9 @@ type SetForwarderUpgradeAuthorityRequest = struct {
 	MCMS                *proposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
 }
 
-var _ cldf.ChangeSet[*SetForwarderUpgradeAuthorityRequest] = SetUpgradeAuthority
+var _ cldf.ChangeSet[*SetForwarderUpgradeAuthorityRequest] = SetForwarderUpgradeAuthority
 
-func SetUpgradeAuthority(env cldf.Environment, req *SetForwarderUpgradeAuthorityRequest) (cldf.ChangesetOutput, error) {
+func SetForwarderUpgradeAuthority(env cldf.Environment, req *SetForwarderUpgradeAuthorityRequest) (cldf.ChangesetOutput, error) {
 	chain, ok := env.SolChains[req.ChainSel]
 	if !ok {
 		return cldf.ChangesetOutput{}, fmt.Errorf("can't get chain for chain selector %d", req.ChainSel)
@@ -81,9 +81,12 @@ func SetUpgradeAuthority(env cldf.Environment, req *SetForwarderUpgradeAuthority
 
 	var forwarderPubKey solana.PublicKey
 	for address, tvStr := range addresses {
-		if tvStr.Type == keystoneForwarder {
+		if tvStr.Type == shared.Forwarder {
 			forwarderPubKey = solana.MustPublicKeyFromBase58(address)
 		}
+	}
+	if forwarderPubKey.IsZero() {
+		return cldf.ChangesetOutput{}, fmt.Errorf("forwarder not found for chain selector %d", req.ChainSel)
 	}
 
 	currentAuthority := chain.DeployerKey.PublicKey()
@@ -95,7 +98,7 @@ func SetUpgradeAuthority(env cldf.Environment, req *SetForwarderUpgradeAuthority
 		currentAuthority = timelockSignerPDA
 	}
 
-	env.Logger.Infow("Setting upgrade authority", "newUpgradeAuthority", req.NewUpgradeAuthority.String())
+	env.Logger.Infow("Setting upgrade authority for", forwarderPubKey.String(), "newUpgradeAuthority", req.NewUpgradeAuthority.String())
 	mcmsTxns := make([]mcmsTypes.Transaction, 0)
 	ixn := helpers.SetUpgradeAuthority(&env, forwarderPubKey, currentAuthority, req.NewUpgradeAuthority, false)
 	if req.MCMS == nil {
