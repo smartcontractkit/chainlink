@@ -68,8 +68,8 @@ jobs:
         env:
           SH_RUNNER_LABEL_ARM64: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c7g/disk=large/image=ubuntu24-full-arm64
           SH_RUNNER_LABEL_AMD64: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c7a/disk=large/image=ubuntu24-full-x64
-          GH_RUNNER_LABEL_ARM64: ubuntu24.04-arm
-          GH_RUNNER_LABEL_AMD64: ubuntu24.04
+          GH_RUNNER_LABEL_ARM64: ubuntu-24.04-arm
+          GH_RUNNER_LABEL_AMD64: ubuntu-24.04
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
             echo "runner-arm64=${SH_RUNNER_LABEL_ARM64}" | tee -a "$GITHUB_OUTPUT"
