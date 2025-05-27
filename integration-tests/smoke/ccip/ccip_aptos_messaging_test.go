@@ -67,8 +67,9 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 		)
 
 		// Tokens
-		EVM_LINK_TOKEN = state.Chains[sourceChain].LinkToken
-		WETH_TOKEN     = state.Chains[sourceChain].Weth9
+		NATIVE_FEE_TOKEN = "0x0"
+		EVM_LINK_TOKEN   = state.Chains[sourceChain].LinkToken
+		WETH_TOKEN       = state.Chains[sourceChain].Weth9
 	)
 
 	t.Log("Deploying CCIPDummyReceiver...")
@@ -132,7 +133,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 				// true for out of order execution, which is necessary and enforced for Aptos
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, true),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-				FeeToken:               "0x0",
+				FeeToken:               NATIVE_FEE_TOKEN,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertAptosMessageReceivedMatchesSource(t, e, destChain, receiver, message, 0) },
 				},
@@ -153,7 +154,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 				// true for out of order execution, which is necessary and enforced for Aptos
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, true),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-				FeeToken:               "0x0",
+				FeeToken:               NATIVE_FEE_TOKEN,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertAptosMessageReceivedMatchesSource(t, e, destChain, receiver, message, 1) },
 				},
@@ -174,10 +175,30 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 				// true for out of order execution, which is necessary and enforced for Aptos
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-				FeeToken:               "0x0",
+				FeeToken:               NATIVE_FEE_TOKEN,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertAptosMessageReceivedMatchesSource(t, e, destChain, receiver, message, 2) },
 				},
+			},
+		)
+	})
+
+	t.Run("Not Enough Gas on Destination - Should Fail (Status = 3)", func(t *testing.T) {
+		message := []byte("Hello Aptos, from EVM!")
+		gasLimit := uint64(1) // Obvious failure, but we want to test that the status is 3
+
+		messagingtest.Run(t,
+			messagingtest.TestCase{
+				TestSetup:      setup,
+				Replayed:       replayed,
+				Nonce:          &nonce,
+				ValidationType: messagingtest.ValidationTypeExec,
+				Receiver:       ccipChainState.ReceiverAddress[:],
+				MsgData:        message,
+				// true for out of order execution, which is necessary and enforced for Aptos
+				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(gasLimit, true),
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_FAILURE,
+				FeeToken:               NATIVE_FEE_TOKEN,
 			},
 		)
 	})
@@ -232,7 +253,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 			Msg: router.ClientEVM2AnyMessage{
 				Receiver:  ccipChainState.ReceiverAddress[:],
 				Data:      message,
-				FeeToken:  common.HexToAddress("0x0"),
+				FeeToken:  common.HexToAddress(NATIVE_FEE_TOKEN),
 				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(mltTestSetup.SrcFeeQuoterDestChainConfig.MaxPerMsgGasLimit)+1, true),
 			},
 			ExpRevert: true,
@@ -247,7 +268,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 			Msg: router.ClientEVM2AnyMessage{
 				Receiver:  ccipChainState.ReceiverAddress[:],
 				Data:      message,
-				FeeToken:  common.HexToAddress("0x0"),
+				FeeToken:  common.HexToAddress(NATIVE_FEE_TOKEN),
 				ExtraArgs: []byte{},
 			},
 			ExpRevert: true,
@@ -262,7 +283,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 			Msg: router.ClientEVM2AnyMessage{
 				Receiver:  ccipChainState.ReceiverAddress[:],
 				Data:      message,
-				FeeToken:  common.HexToAddress("0x0"),
+				FeeToken:  common.HexToAddress(NATIVE_FEE_TOKEN),
 				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(100000, false),
 			},
 			ExpRevert: true,
