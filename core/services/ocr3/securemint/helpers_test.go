@@ -554,7 +554,7 @@ func addSecureMintJob(i int,
 
 	addresses, err := node.App.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
-	spec := getJobSpec("0x0000000000000000000000000000000000000001", node.KeyBundle.ID(), addresses[0].String(), bridgeName)
+	spec := getSecureMintJobSpec("0x0000000000000000000000000000000000000001", node.KeyBundle.ID(), addresses[0].String(), bridgeName)
 
 	c := node.App.GetConfig()
 
@@ -568,9 +568,11 @@ func addSecureMintJob(i int,
 	return job.ID
 }
 
-func getJobSpec(ocrContractAddress, keyBundleID, transmitterAddress, bridgeName string) string {
+func getSecureMintJobSpec(ocrContractAddress, keyBundleID, transmitterAddress, bridgeName string) string {
 
 	// TODO(gg): allowNoBootstrappers set to true to make it start up - not sure if we want to set this to false later
+
+	// TODO(gg): pluginType = securemint
 
 	return fmt.Sprintf(`
 type               = "offchainreporting2"

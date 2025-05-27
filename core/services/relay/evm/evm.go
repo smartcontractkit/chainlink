@@ -951,6 +951,7 @@ func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, e
 	var transmitter Transmitter
 	var err error
 
+	// TODO(gg): here's where the Transmitter is created based on the OCR2PluginType
 	switch commontypes.OCR2PluginType(rargs.ProviderType) {
 	case commontypes.Median:
 		transmitter, err = ocrcommon.NewOCR2FeedsTransmitter(

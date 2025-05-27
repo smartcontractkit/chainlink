@@ -89,6 +89,7 @@ func TestFilterNamesFromSpec21(t *testing.T) {
 	require.ErrorContains(t, err, "not a valid EIP55 formatted address")
 }
 
+// TODO(gg): can use this test for inspiration as well
 func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	g := gomega.NewWithT(t)
 	lggr := logger.TestLogger(t)
