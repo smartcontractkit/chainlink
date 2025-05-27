@@ -220,6 +220,8 @@ func setupNode(
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		// TODO(gg): potentially update node config here
+
 		// [JobPipeline]
 		c.JobPipeline.MaxSuccessfulRuns = ptr(uint64(0))
 		c.JobPipeline.VerboseLogging = ptr(true)
@@ -266,7 +268,7 @@ func setupNode(
 
 	lggr, observedLogs := logger.TestLoggerObserved(t, config.Log().Level())
 	if backend != nil {
-		app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
+		app = cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
 	} else {
 		app = cltest.NewApplicationWithConfig(t, config, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
 	}
@@ -524,6 +526,7 @@ func addSecureMintOCRJobs(
 		jobIDs[i] = jobID
 
 		// TODO(gg): do we need this?
+		// TODO(gg): maybe add pluginConfig, depending on new plugin
 		// addLLOJob(
 		// 	t,
 		// 	node,
@@ -551,7 +554,9 @@ func addSecureMintJob(i int,
 	// job, err := streams.ValidatedStreamSpec(spec)
 	// require.NoError(t, err)
 
-	spec := getJobSpec("0x0000000000000000000000000000000000000000", node.KeyBundle.ID(), clientPubKey, bridgeName)
+	addresses, err := node.App.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), testutils.SimulatedChainID)
+	require.NoError(t, err)
+	spec := getJobSpec("0x0000000000000000000000000000000000000000", addresses[0].String(), node.ClientPubKey.String(), bridgeName)
 
 	c := node.App.GetConfig()
 
@@ -565,7 +570,7 @@ func addSecureMintJob(i int,
 	return job.ID
 }
 
-func getJobSpec(ocrContractAddress string, keyBundleID string, clientPubKey ed25519.PublicKey, bridgeName string) string {
+func getJobSpec(ocrContractAddress, keyBundleID, transmitterAddress, bridgeName string) string {
 
 	return fmt.Sprintf(`
 type               = "offchainreporting2"
@@ -575,7 +580,7 @@ pluginType         = "median"
 name               = "secure mint spec"
 contractID         = "%s"
 ocrKeyBundleID     = "%s"
-transmitterID      = "%x"
+transmitterID      = "%s"
 contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
 observationSource  = """
@@ -616,7 +621,7 @@ updateInterval = "1m"
 `,
 		ocrContractAddress, // contract address
 		keyBundleID,        // ocr key bundle id
-		clientPubKey,       // transmitter id
+		transmitterAddress, // transmitter id
 		bridgeName,         // bridge name
 		bridgeName,         // bridge name
 		bridgeName)         // bridge name

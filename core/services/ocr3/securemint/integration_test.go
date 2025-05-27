@@ -442,7 +442,6 @@ channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
 		addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, legacyVerifierAddr, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
 
-		// TODO(gg): maybe add pluginConfig, depending on new plugin
 		addSecureMintOCRJobs(t, nodes, clientPubKeys)
 
 		// Set config on configurator
@@ -551,7 +550,10 @@ func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKey
 		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], f)
 
 		nodes = append(nodes, Node{
-			app, transmitter, kb, observedLogs,
+			App:          app,
+			ClientPubKey: transmitter,
+			KeyBundle:    kb,
+			ObservedLogs: observedLogs,
 		})
 		offchainPublicKey, err := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
 		require.NoError(t, err)
