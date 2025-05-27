@@ -393,7 +393,6 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	env := cldf.Environment{
 		Chains:      m.Chains,
 		SolChains:   m.SolChains,
-		AptosChains: m.AptosChains,
 		BlockChains: cldf_chain.NewBlockChains(blockChains),
 	}
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)

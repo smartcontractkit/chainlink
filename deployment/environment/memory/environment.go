@@ -328,7 +328,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 		]().Seal(),
 		chains,
 		solChains,
-		aptosChains,
+		nil, // this field will be deleted in future
 		nodeIDs,
 		NewMemoryJobClient(nodes),
 		t.Context,

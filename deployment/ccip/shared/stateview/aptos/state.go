@@ -28,7 +28,7 @@ type CCIPChainState struct {
 // LoadOnchainStateAptos loads chain state for Aptos chains from env
 func LoadOnchainStateAptos(env cldf.Environment) (map[uint64]CCIPChainState, error) {
 	aptosChains := make(map[uint64]CCIPChainState)
-	for chainSelector := range env.AptosChains {
+	for chainSelector := range env.BlockChains.AptosChains() {
 		addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			// Chain not found in address book, initialize empty

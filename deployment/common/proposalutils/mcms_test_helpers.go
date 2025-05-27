@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -78,7 +79,7 @@ func SignMCMSTimelockProposal(t *testing.T, env cldf.Environment, proposal *mcms
 		converters[chainSel] = mcmssolanasdk.TimelockConverter{}
 		inspectorsMap[chainSel] = mcmssolanasdk.NewInspector(chain.Client)
 	}
-	for chainSelector, chain := range env.AptosChains {
+	for chainSelector, chain := range env.BlockChains.AptosChains() {
 		_, err := chainsel.AptosChainIdFromSelector(chainSelector)
 		require.NoError(t, err)
 		chainSel := mcmstypes.ChainSelector(chainSelector)
@@ -161,6 +162,7 @@ func ExecuteMCMSProposalV2(t *testing.T, env cldf.Environment, proposal *mcmslib
 
 	// build a map with chainSelector => executor
 	executorsMap := map[mcmstypes.ChainSelector]mcmssdk.Executor{}
+	aptosChains := env.BlockChains.AptosChains()
 	for _, op := range proposal.Operations {
 		family, err := chainsel.GetSelectorFamily(uint64(op.ChainSelector))
 		require.NoError(t, err)
@@ -187,8 +189,8 @@ func ExecuteMCMSProposalV2(t *testing.T, env cldf.Environment, proposal *mcmslib
 		case chainsel.FamilyAptos:
 			encoder := encoders[op.ChainSelector].(*mcmsaptossdk.Encoder)
 			executorsMap[op.ChainSelector] = mcmsaptossdk.NewExecutor(
-				env.AptosChains[uint64(op.ChainSelector)].Client,
-				env.AptosChains[uint64(op.ChainSelector)].DeployerSigner,
+				aptosChains[uint64(op.ChainSelector)].Client,
+				aptosChains[uint64(op.ChainSelector)].DeployerSigner,
 				encoder,
 				mcmsaptossdk.TimelockRoleProposer,
 			)
@@ -224,7 +226,7 @@ func ExecuteMCMSProposalV2(t *testing.T, env cldf.Environment, proposal *mcmslib
 			}
 		}
 		if family == chainsel.FamilyAptos {
-			chain := env.AptosChains[uint64(chainSelector)]
+			chain := aptosChains[uint64(chainSelector)]
 			tx := root.RawData.(*aptosapi.PendingTransaction)
 			t.Logf("[ExecuteMCMSProposalV2] SetRoot Aptos tx hash: %s", tx.Hash)
 			err = chain.Confirm(tx.Hash)
@@ -255,7 +257,7 @@ func ExecuteMCMSProposalV2(t *testing.T, env cldf.Environment, proposal *mcmslib
 			}
 		}
 		if family == chainsel.FamilyAptos {
-			chain := env.AptosChains[uint64(op.ChainSelector)]
+			chain := aptosChains[uint64(op.ChainSelector)]
 			tx := result.RawData.(*aptosapi.PendingTransaction)
 			t.Logf("[ExecuteMCMSProposalV2] Operation %d Aptos tx hash: %s", i, tx.Hash)
 			err = chain.Confirm(tx.Hash)
@@ -276,6 +278,7 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 	// build a "chainSelector => executor" map
 	executorsMap := map[mcmstypes.ChainSelector]mcmssdk.TimelockExecutor{}
 	callProxies := make([]string, len(timelockProposal.Operations))
+	aptosChains := env.BlockChains.AptosChains()
 	for i, op := range timelockProposal.Operations {
 		family, err := chainsel.GetSelectorFamily(uint64(op.ChainSelector))
 		require.NoError(t, err)
@@ -294,8 +297,8 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 
 		case chainsel.FamilyAptos:
 			executorsMap[op.ChainSelector] = mcmsaptossdk.NewTimelockExecutor(
-				env.AptosChains[uint64(op.ChainSelector)].Client,
-				env.AptosChains[uint64(op.ChainSelector)].DeployerSigner)
+				aptosChains[uint64(op.ChainSelector)].Client,
+				aptosChains[uint64(op.ChainSelector)].DeployerSigner)
 
 		default:
 			require.FailNow(t, "unsupported chain family")
@@ -339,7 +342,7 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 			}
 		}
 		if family == chainsel.FamilyAptos {
-			chain := env.AptosChains[uint64(op.ChainSelector)]
+			chain := aptosChains[uint64(op.ChainSelector)]
 			aptosTx := tx.RawData.(*aptosapi.PendingTransaction)
 			err = chain.Confirm(aptosTx.Hash)
 			if err != nil {

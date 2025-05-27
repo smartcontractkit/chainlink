@@ -38,7 +38,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250523142134-2057cda8d221
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250522183927-44d96a7ad0e5
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250417193446-eeb0a7d1e049
-	github.com/smartcontractkit/chainlink-deployments-framework v0.5.0
+	github.com/smartcontractkit/chainlink-deployments-framework v0.5.1-0.20250527010109-bbcfc3657004
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250522161404-27a8f7e1cc6c
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.8.3
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4

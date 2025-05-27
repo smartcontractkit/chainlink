@@ -15,7 +15,6 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
@@ -138,16 +137,6 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, timelockContractsPerChain
 			}
 		}
 
-		blockChains := map[uint64]chain.BlockChain{}
-		for selector, ch := range e.Chains {
-			blockChains[selector] = ch
-		}
-		for selector, ch := range e.SolChains {
-			blockChains[selector] = ch
-		}
-		for selector, ch := range e.AptosChains {
-			blockChains[selector] = ch
-		}
 		currentEnv = cldf.Environment{
 			Name:              e.Name,
 			Logger:            e.Logger,
@@ -155,13 +144,12 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, timelockContractsPerChain
 			DataStore:         ds,
 			Chains:            e.Chains,
 			SolChains:         e.SolChains,
-			AptosChains:       e.AptosChains,
 			NodeIDs:           e.NodeIDs,
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
 			GetContext:        e.GetContext,
 			OperationsBundle:  operations.NewBundle(e.GetContext, e.Logger, operations.NewMemoryReporter()), // to ensure that each migration is run in a clean environment
-			BlockChains:       chain.NewBlockChains(blockChains),
+			BlockChains:       e.BlockChains,
 		}
 	}
 	return currentEnv, nil
@@ -214,17 +202,6 @@ func ApplyChangesetsV2(t *testing.T, e cldf.Environment, changesetApplications [
 			// do nothing, as these jobs auto-accept.
 		}
 
-		blockChains := map[uint64]chain.BlockChain{}
-		for selector, ch := range e.Chains {
-			blockChains[selector] = ch
-		}
-		for selector, ch := range e.SolChains {
-			blockChains[selector] = ch
-		}
-		for selector, ch := range e.AptosChains {
-			blockChains[selector] = ch
-		}
-
 		// Updated environment may be required before executing proposals when proposals involve new addresses
 		// Ex. changesets[0] deploys MCMS, changesets[1] generates a proposal with the new MCMS addresses
 		currentEnv = cldf.Environment{
@@ -234,13 +211,12 @@ func ApplyChangesetsV2(t *testing.T, e cldf.Environment, changesetApplications [
 			DataStore:         ds,
 			Chains:            e.Chains,
 			SolChains:         e.SolChains,
-			AptosChains:       e.AptosChains,
 			NodeIDs:           e.NodeIDs,
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
 			GetContext:        e.GetContext,
 			OperationsBundle:  operations.NewBundle(e.GetContext, e.Logger, operations.NewMemoryReporter()), // to ensure that each migration is run in a clean environment
-			BlockChains:       chain.NewBlockChains(blockChains),
+			BlockChains:       e.BlockChains,
 		}
 
 		if out.MCMSTimelockProposals != nil {
