@@ -202,7 +202,9 @@ var startCmd = &cobra.Command{
 			return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 		}
 
-		output, err := startCLIEnvironment(topologyFlag, withPluginsDockerImageFlag, extraAllowedPortsFlag)
+		cmdContext := cmd.Context()
+
+		output, err := startCLIEnvironment(cmdContext, topologyFlag, withPluginsDockerImageFlag, extraAllowedPortsFlag)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
@@ -267,7 +269,7 @@ var startCmd = &cobra.Command{
 
 		if withExampleFlag {
 			fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
-			deployErr := deployAndVerifyExampleWorkflow(homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, homeChainOut.ChainID)
+			deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, homeChainOut.ChainID)
 			if deployErr != nil {
 				fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 			}
@@ -305,11 +307,11 @@ var deployAndVerifyExampleWorkflowCmd = &cobra.Command{
 	Short: "Deploys and verifies example (optionally)",
 	Long:  `Deploys a simple Proof-of-Reserve workflow and, optionally, wait until it succeeds`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return deployAndVerifyExampleWorkflow(rpcURL, chainID)
+		return deployAndVerifyExampleWorkflow(cmd.Context(), rpcURL, chainID)
 	},
 }
 
-func startCLIEnvironment(topologyFlag string, withPluginsDockerImageFlag string, extraAllowedPorts []int) (*creenv.SetupOutput, error) {
+func startCLIEnvironment(cmdContext context.Context, topologyFlag string, withPluginsDockerImageFlag string, extraAllowedPorts []int) (*creenv.SetupOutput, error) {
 	testLogger := framework.L
 
 	// Load and validate test configuration
@@ -505,7 +507,7 @@ func startCLIEnvironment(topologyFlag string, withPluginsDockerImageFlag string,
 		universalSetupInput.CustomBinariesPaths = capabilitiesBinaryPaths
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)
 	defer cancel()
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, cldlogger.NewSingleFileLogger(nil), universalSetupInput)
 	if setupErr != nil {
@@ -515,7 +517,7 @@ func startCLIEnvironment(topologyFlag string, withPluginsDockerImageFlag string,
 	return universalSetupOutput, nil
 }
 
-func deployAndVerifyExampleWorkflow(rpcURL string, chainID uint64) error {
+func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL string, chainID uint64) error {
 	totalStart := time.Now()
 	start := time.Now()
 	fmt.Print(libformat.PurpleText("[Stage 1/3] Deploying Permissionless Feeds Consumer\n\n"))
@@ -566,7 +568,7 @@ func deployAndVerifyExampleWorkflow(rpcURL string, chainID uint64) error {
 		return errors.Wrap(verifyErr, "failed to verify example workflow")
 	}
 
-	if isBlockscoutRunning() {
+	if isBlockscoutRunning(cmdContext) {
 		fmt.Print(libformat.PurpleText("Open http://localhost/address/0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE?tab=internal_txns to check consumer contract's transaction history\n"))
 	}
 
@@ -767,13 +769,13 @@ func creCLIAbsPath() (string, error) {
 	return CRECLIAbsPath, nil
 }
 
-func isBlockscoutRunning() bool {
+func isBlockscoutRunning(cmdContext context.Context) bool {
 	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
 	if err != nil {
 		return false
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(cmdContext, 15*time.Second)
 	defer cancel()
 	containers, err := dockerClient.ContainerList(ctx, container.ListOptions{All: true})
 	if err != nil {
