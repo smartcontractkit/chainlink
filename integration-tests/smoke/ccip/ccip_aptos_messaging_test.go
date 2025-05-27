@@ -38,7 +38,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 	fmt.Println("EVM: ", evmChainSelectors)
 	fmt.Println("Aptos: ", aptosChainSelectors)
 
-	// Deploy dummy receiver
+	// Deploy the dummy receiver contract
 	t.Log("Deploying CCIPDummyReceiver...")
 	testhelpers.DeployAptosCCIPReceiver(t, e.Env)
 

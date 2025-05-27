@@ -1,8 +1,10 @@
 package jobs
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	jdJob "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -19,6 +21,18 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jobs"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 )
+
+// capitaliserGenerator uses the quote stream generator and capitalises the word "endpoint" in the observation source.
+type capitaliserGenerator struct{}
+
+func (capitaliserGenerator) GenerateJobSpec(ssc jobs.StreamSpecConfig, externalJobID uuid.UUID) (spec *jobs.StreamJobSpec, err error) {
+	spec, err = jobs.QuoteStreamJobSpecGenerator{}.GenerateJobSpec(ssc, externalJobID)
+	if err != nil {
+		return spec, err
+	}
+	spec.ObservationSource = strings.ReplaceAll(spec.ObservationSource, "endpoint", "ENDPOINT")
+	return spec, err
+}
 
 func TestDistributeStreamJobSpecs(t *testing.T) {
 	t.Parallel()
@@ -118,7 +132,7 @@ ask_price [type=median allowedFaults=3 index=2];
 			EnvLabel:       testutil.TestDON.Env,
 			NumOracleNodes: 3,
 		},
-		Streams: []StreamSpecConfig{
+		Streams: []jobs.StreamSpecConfig{
 			{
 				StreamID:   1000001038,
 				Name:       "ICP/USD-RefPrice",
@@ -136,7 +150,7 @@ ask_price [type=median allowedFaults=3 index=2];
 						ResultPath: "data,ask",
 					},
 				},
-				EARequestParams: EARequestParams{
+				EARequestParams: jobs.EARequestParams{
 					Endpoint: "cryptolwba",
 					From:     "ICP",
 					To:       "USD",
@@ -217,6 +231,19 @@ ask_price [type=median allowedFaults=3 index=2];
 			},
 			wantErr: pointer.To("failed to get oracle nodes"),
 		},
+		{
+			name: "custom job spec generator",
+			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
+				for i := range c.Streams {
+					c.Streams[i].Generator = capitaliserGenerator{}
+				}
+				return c
+			},
+			// The capitaliserGenerator replaces "endpoint" with "ENDPOINT" in the observation source. Here we want to
+			// make sure that this custom generator is being used.
+			wantSpec:    strings.ReplaceAll(renderedSpec, "endpoint", "ENDPOINT"),
+			wantNumJobs: 3,
+		},
 	}
 
 	for _, tc := range tests {
@@ -277,7 +304,7 @@ func TestValidatePreconditions(t *testing.T) {
 			EnvLabel:       testutil.TestDON.Env,
 			NumOracleNodes: 1,
 		},
-		Streams: []StreamSpecConfig{
+		Streams: []jobs.StreamSpecConfig{
 			{
 				StreamID:   1000001038,
 				Name:       "ICP/USD-RefPrice",
@@ -293,7 +320,7 @@ func TestValidatePreconditions(t *testing.T) {
 						ResultPath: "data,ask",
 					},
 				},
-				EARequestParams: EARequestParams{
+				EARequestParams: jobs.EARequestParams{
 					Endpoint: "cryptolwba",
 					From:     "ICP",
 					To:       "USD",
@@ -352,7 +379,7 @@ func TestValidatePreconditions(t *testing.T) {
 			name:   "empty streams",
 			config: config,
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
-				c.Streams = []StreamSpecConfig{}
+				c.Streams = []jobs.StreamSpecConfig{}
 				return c
 			},
 			wantErr: pointer.To("streams are required"),
@@ -361,7 +388,7 @@ func TestValidatePreconditions(t *testing.T) {
 			name:   "no streamID",
 			config: config,
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
-				c.Streams = []StreamSpecConfig{{}}
+				c.Streams = []jobs.StreamSpecConfig{{}}
 				return c
 			},
 			wantErr: pointer.To("streamID is required for each stream"),
@@ -370,7 +397,7 @@ func TestValidatePreconditions(t *testing.T) {
 			name:   "no name",
 			config: config,
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
-				c.Streams = []StreamSpecConfig{
+				c.Streams = []jobs.StreamSpecConfig{
 					{
 						StreamID: 1000001038,
 					},
@@ -383,7 +410,7 @@ func TestValidatePreconditions(t *testing.T) {
 			name:   "invalid stream type",
 			config: config,
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
-				c.Streams = []StreamSpecConfig{
+				c.Streams = []jobs.StreamSpecConfig{
 					{
 						StreamID: 1000001038,
 						Name:     "ICP/USD-RefPrice",
@@ -397,7 +424,7 @@ func TestValidatePreconditions(t *testing.T) {
 			name:   "no report fields",
 			config: config,
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
-				c.Streams = []StreamSpecConfig{
+				c.Streams = []jobs.StreamSpecConfig{
 					{
 						StreamID:   1000001038,
 						Name:       "ICP/USD-RefPrice",
@@ -412,7 +439,7 @@ func TestValidatePreconditions(t *testing.T) {
 			name:   "no EARequestParams",
 			config: config,
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
-				c.Streams = []StreamSpecConfig{
+				c.Streams = []jobs.StreamSpecConfig{
 					{
 						StreamID:     1000001038,
 						Name:         "ICP/USD-RefPrice",
@@ -428,13 +455,13 @@ func TestValidatePreconditions(t *testing.T) {
 			name:   "no endpoint",
 			config: config,
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
-				c.Streams = []StreamSpecConfig{
+				c.Streams = []jobs.StreamSpecConfig{
 					{
 						StreamID:        1000001038,
 						Name:            "ICP/USD-RefPrice",
 						StreamType:      jobs.StreamTypeQuote,
 						ReportFields:    jobs.QuoteReportFields{},
-						EARequestParams: EARequestParams{},
+						EARequestParams: jobs.EARequestParams{},
 					},
 				}
 				return c
@@ -445,13 +472,13 @@ func TestValidatePreconditions(t *testing.T) {
 			name:   "no APIs",
 			config: config,
 			prepConfFn: func(c CsDistributeStreamJobSpecsConfig) CsDistributeStreamJobSpecsConfig {
-				c.Streams = []StreamSpecConfig{
+				c.Streams = []jobs.StreamSpecConfig{
 					{
 						StreamID:     1000001038,
 						Name:         "ICP/USD-RefPrice",
 						StreamType:   jobs.StreamTypeQuote,
 						ReportFields: jobs.QuoteReportFields{},
-						EARequestParams: EARequestParams{
+						EARequestParams: jobs.EARequestParams{
 							Endpoint: "cryptolwba",
 						},
 					},

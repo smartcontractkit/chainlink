@@ -48,7 +48,7 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 
 	sourceChain1 := allChainSelectors[0]
 
-	feeQuoter1 := state.Chains[sourceChain1].FeeQuoter
+	feeQuoter1 := state.MustGetEVMChainState(sourceChain1).FeeQuoter
 
 	feeTokensChain1, err := feeQuoter1.GetFeeTokens(callOpts)
 	require.NoError(t, err)

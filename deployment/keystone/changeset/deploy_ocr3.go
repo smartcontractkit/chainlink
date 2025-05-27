@@ -94,6 +94,10 @@ func ConfigureOCR3Contract(env cldf.Environment, cfg ConfigureOCR3Config) (cldf.
 			return out, fmt.Errorf("failed to get OCR3 contract: %w", err)
 		}
 
+		if contract.McmsContracts == nil {
+			return out, fmt.Errorf("expected OCR3 capabilty contract %s to be owned by MCMS", contract.Contract.Address().String())
+		}
+
 		timelocksPerChain := map[uint64]string{
 			cfg.ChainSel: contract.McmsContracts.Timelock.Address().Hex(),
 		}

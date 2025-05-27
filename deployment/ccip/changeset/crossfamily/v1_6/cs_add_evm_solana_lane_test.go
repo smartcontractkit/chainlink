@@ -73,8 +73,8 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 			}
 
 			// Add EVM and Solana lane
-			evmChain1State := evmState.Chains[evmChain1]
-			evmChain2State := evmState.Chains[evmChain2]
+			evmChainState, _ := evmState.EVMChainState(evmChain1)
+			evmChain2State, _ := evmState.EVMChainState(evmChain2)
 			feeQCfgSolana := solFeeQuoter.DestChainConfig{
 				IsEnabled:                   true,
 				DefaultTxGasLimit:           200000,
@@ -98,8 +98,8 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 						EVMFeeQuoterDestChainInput:           feeQCfgEVM,
 						InitialSolanaGasPriceForEVMFeeQuoter: testhelpers.DefaultGasPrice,
 						InitialEVMTokenPricesForEVMFeeQuoter: map[common.Address]*big.Int{
-							evmChain1State.LinkToken.Address(): testhelpers.DefaultLinkPrice,
-							evmChain1State.Weth9.Address():     testhelpers.DefaultWethPrice,
+							evmChainState.LinkToken.Address(): testhelpers.DefaultLinkPrice,
+							evmChainState.Weth9.Address():     testhelpers.DefaultWethPrice,
 						},
 						IsRMNVerificationDisabledOnEVMOffRamp: true,
 						SolanaRouterConfig: ccipChangesetSolana.RouterConfig{
@@ -167,23 +167,23 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 
 			// evm changes
 			for _, evmChain := range evmChains {
-				evmChain1State = evmState.Chains[evmChain]
+				evmChainState, _ = evmState.EVMChainState(evmChain)
 
-				destCfg, err := evmChain1State.OnRamp.GetDestChainConfig(&bind.CallOpts{Context: ctx}, solChain)
+				destCfg, err := evmChainState.OnRamp.GetDestChainConfig(&bind.CallOpts{Context: ctx}, solChain)
 				require.NoError(t, err)
-				require.Equal(t, evmChain1State.TestRouter.Address(), destCfg.Router)
+				require.Equal(t, evmChainState.TestRouter.Address(), destCfg.Router)
 				require.False(t, destCfg.AllowlistEnabled)
 
-				srcCfg, err := evmChain1State.OffRamp.GetSourceChainConfig(&bind.CallOpts{Context: ctx}, solChain)
+				srcCfg, err := evmChainState.OffRamp.GetSourceChainConfig(&bind.CallOpts{Context: ctx}, solChain)
 				require.NoError(t, err)
-				require.Equal(t, evmChain1State.TestRouter.Address(), destCfg.Router)
+				require.Equal(t, evmChainState.TestRouter.Address(), destCfg.Router)
 				require.True(t, srcCfg.IsRMNVerificationDisabled)
 				require.True(t, srcCfg.IsEnabled)
 				expOnRamp, err := evmState.GetOnRampAddressBytes(solChain)
 				require.NoError(t, err)
 				require.Equal(t, expOnRamp, srcCfg.OnRamp)
 
-				fqDestCfg, err := evmChain1State.FeeQuoter.GetDestChainConfig(&bind.CallOpts{Context: ctx}, solChain)
+				fqDestCfg, err := evmChainState.FeeQuoter.GetDestChainConfig(&bind.CallOpts{Context: ctx}, solChain)
 				require.NoError(t, err)
 				testhelpers.AssertEqualFeeConfig(t, feeQCfgEVM, fqDestCfg)
 			}

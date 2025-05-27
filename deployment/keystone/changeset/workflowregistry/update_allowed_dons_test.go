@@ -11,6 +11,7 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -38,6 +39,10 @@ func TestUpdateAllowedDons(t *testing.T) {
 			chainSel: resp.Chain,
 		},
 		ExistingAddresses: resp.AddressBook,
+		BlockChains: cldf_chain.NewBlockChains(
+			map[uint64]cldf_chain.BlockChain{
+				chainSel: resp.Chain,
+			}),
 	}
 
 	_, err = workflowregistry.UpdateAllowedDons(

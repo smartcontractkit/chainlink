@@ -57,18 +57,18 @@ func setupNewFeeToken(
 	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
-	tx, err = token.Approve(deployer, state.Chains[chainSelector].Router.Address(), math.MaxBig256)
+	tx, err = token.Approve(deployer, state.MustGetEVMChainState(chainSelector).Router.Address(), math.MaxBig256)
 	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
 	// add this new fee token to fee quoter
-	tx, err = state.Chains[chain.Selector].FeeQuoter.ApplyFeeTokensUpdates(deployer, []common.Address{}, []common.Address{tokenAddress})
+	tx, err = state.MustGetEVMChainState(chain.Selector).FeeQuoter.ApplyFeeTokensUpdates(deployer, []common.Address{}, []common.Address{tokenAddress})
 	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 	lggr.Infow("Added new fee token to fee quoter", "tokenAddress", tokenAddress)
 
 	// set price for this new token
-	tx, err = state.Chains[chain.Selector].FeeQuoter.UpdatePrices(
+	tx, err = state.MustGetEVMChainState(chain.Selector).FeeQuoter.UpdatePrices(
 		deployer,
 		fee_quoter.InternalPriceUpdates{
 			TokenPriceUpdates: []fee_quoter.InternalTokenPriceUpdate{
@@ -117,7 +117,7 @@ func setupTokens(
 	)
 	require.NoError(t, err)
 
-	linkToken := state.Chains[src].LinkToken
+	linkToken := state.MustGetEVMChainState(src).LinkToken
 
 	tx, err := srcToken.Mint(
 		e.Chains[src].DeployerKey,
@@ -138,11 +138,11 @@ func setupTokens(
 
 	// Approve the router to spend the tokens and confirm the tx's
 	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount
-	tx, err = srcToken.Approve(e.Chains[src].DeployerKey, state.Chains[src].Router.Address(), math.MaxBig256)
+	tx, err = srcToken.Approve(e.Chains[src].DeployerKey, state.MustGetEVMChainState(src).Router.Address(), math.MaxBig256)
 	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
 	require.NoError(t, err)
 
-	tx, err = dstToken.Approve(e.Chains[dest].DeployerKey, state.Chains[dest].Router.Address(), math.MaxBig256)
+	tx, err = dstToken.Approve(e.Chains[dest].DeployerKey, state.MustGetEVMChainState(dest).Router.Address(), math.MaxBig256)
 	_, err = cldf.ConfirmIfNoError(e.Chains[dest], tx, err)
 	require.NoError(t, err)
 
@@ -203,7 +203,7 @@ func Test_CCIPFees(t *testing.T) {
 			e,
 			sourceChain,
 			destChain,
-			state.Chains[sourceChain].LinkToken.Address(), // feeToken
+			state.MustGetEVMChainState(sourceChain).LinkToken.Address(), // feeToken
 			[]router.ClientEVMTokenAmount{
 				{
 					Token:  srcToken.Address(),
@@ -212,7 +212,7 @@ func Test_CCIPFees(t *testing.T) {
 			},
 			srcToken,
 			dstToken,
-			common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32), // receiver
+			common.LeftPadBytes(state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(), 32), // receiver
 			[]byte("hello ptt world"), // data
 			true,                      // assertTokenBalance
 			true,                      // assertExecution
@@ -236,7 +236,7 @@ func Test_CCIPFees(t *testing.T) {
 			// note the order of src and dest is reversed here
 			dstToken,
 			srcToken,
-			common.LeftPadBytes(state.Chains[sourceChain].Receiver.Address().Bytes(), 32), // receiver
+			common.LeftPadBytes(state.MustGetEVMChainState(sourceChain).Receiver.Address().Bytes(), 32), // receiver
 			[]byte("hello ptt world"), // data
 			true,                      // assertTokenBalance
 			true,                      // assertExecution
@@ -259,7 +259,7 @@ func Test_CCIPFees(t *testing.T) {
 			},
 			srcToken,
 			dstToken,
-			common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32), // receiver
+			common.LeftPadBytes(state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(), 32), // receiver
 			[]byte("hello ptt world"), // data
 			true,                      // assertTokenBalance
 			true,                      // assertExecution
@@ -272,7 +272,7 @@ func Test_CCIPFees(t *testing.T) {
 			e,
 			sourceChain,
 			destChain,
-			state.Chains[sourceChain].Weth9.Address(), // feeToken
+			state.MustGetEVMChainState(sourceChain).Weth9.Address(), // feeToken
 			[]router.ClientEVMTokenAmount{
 				{
 					Token:  srcToken.Address(),
@@ -281,7 +281,7 @@ func Test_CCIPFees(t *testing.T) {
 			},
 			srcToken,
 			dstToken,
-			common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32), // receiver
+			common.LeftPadBytes(state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(), 32), // receiver
 			[]byte("hello ptt world"), // data
 			true,                      // assertTokenBalance
 			true,                      // assertExecution
@@ -291,9 +291,9 @@ func Test_CCIPFees(t *testing.T) {
 	t.Run("Send programmable token transfer but revert not enough tokens", func(t *testing.T) {
 		// Send to the receiver on the destination chain paying with LINK token
 		var (
-			receiver = common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32)
+			receiver = common.LeftPadBytes(state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(), 32)
 			data     = []byte("")
-			feeToken = state.Chains[sourceChain].LinkToken.Address()
+			feeToken = state.MustGetEVMChainState(sourceChain).LinkToken.Address()
 		)
 
 		// Increase the token send amount to more than available to intentionally cause a revert
@@ -331,11 +331,11 @@ func Test_CCIPFees(t *testing.T) {
 			sourceChain,
 			destChain,
 			// no tokens, only data
-			state.Chains[sourceChain].LinkToken.Address(), // feeToken
+			state.MustGetEVMChainState(sourceChain).LinkToken.Address(), // feeToken
 			nil, // tokenAmounts
 			srcToken,
 			dstToken,
-			common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32), // receiver
+			common.LeftPadBytes(state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(), 32), // receiver
 			[]byte("hello link world"), // data
 			false,                      // assertTokenBalance
 			true,                       // assertExecution
@@ -353,7 +353,7 @@ func Test_CCIPFees(t *testing.T) {
 			nil, // tokenAmounts
 			srcToken,
 			dstToken,
-			common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32), // receiver
+			common.LeftPadBytes(state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(), 32), // receiver
 			[]byte("hello native world"), // data
 			false,                        // assertTokenBalance
 			true,                         // assertExecution
@@ -366,15 +366,15 @@ func Test_CCIPFees(t *testing.T) {
 			e,
 			sourceChain,
 			destChain,
-			state.Chains[sourceChain].Weth9.Address(), // feeToken
+			state.MustGetEVMChainState(sourceChain).Weth9.Address(), // feeToken
 			// no tokens, only data
 			nil, // tokenAmounts
 			srcToken,
 			dstToken,
-			common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32), // receiver
-			[]byte("hello wrapped native world"),                                        // data
-			false,                                                                       // assertTokenBalance
-			true,                                                                        // assertExecution
+			common.LeftPadBytes(state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(), 32), // receiver
+			[]byte("hello wrapped native world"),                                                      // data
+			false,                                                                                     // assertTokenBalance
+			true,                                                                                      // assertExecution
 		))
 	})
 
@@ -390,10 +390,10 @@ func Test_CCIPFees(t *testing.T) {
 			nil, // tokenAmounts
 			srcToken,
 			dstToken,
-			common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32), // receiver
-			[]byte("hello custom fee token world"),                                      // data
-			false,                                                                       // assertTokenBalance
-			true,                                                                        // assertExecution
+			common.LeftPadBytes(state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(), 32), // receiver
+			[]byte("hello custom fee token world"),                                                    // data
+			false,                                                                                     // assertTokenBalance
+			true,                                                                                      // assertExecution
 		))
 	})
 }

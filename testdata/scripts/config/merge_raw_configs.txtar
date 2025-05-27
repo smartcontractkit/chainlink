@@ -468,6 +468,9 @@ PerOwner = 200
 WsURL = ''
 RestURL = ''
 
+[Billing]
+URL = 'localhost:4319'
+
 [[Aptos]]
 ChainID = '1'
 Enabled = false

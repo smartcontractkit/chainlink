@@ -61,7 +61,7 @@ func (c TokenAdminRegistryChangesetConfig) Validate(
 		if !ok {
 			return fmt.Errorf("chain with selector %d does not exist in environment", chainSelector)
 		}
-		chainState, ok := state.Chains[chainSelector]
+		chainState, ok := state.EVMChainState(chainSelector)
 		if !ok {
 			return fmt.Errorf("%s does not exist in state", chain)
 		}
