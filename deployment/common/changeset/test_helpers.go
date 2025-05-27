@@ -9,10 +9,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
@@ -135,16 +137,6 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, timelockContractsPerChain
 			}
 		}
 
-		blockChains := map[uint64]chain.BlockChain{}
-		for selector, ch := range e.Chains {
-			blockChains[selector] = ch
-		}
-		for selector, ch := range e.SolChains {
-			blockChains[selector] = ch
-		}
-		for selector, ch := range e.AptosChains {
-			blockChains[selector] = ch
-		}
 		currentEnv = cldf.Environment{
 			Name:              e.Name,
 			Logger:            e.Logger,
@@ -152,13 +144,12 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, timelockContractsPerChain
 			DataStore:         ds,
 			Chains:            e.Chains,
 			SolChains:         e.SolChains,
-			AptosChains:       e.AptosChains,
 			NodeIDs:           e.NodeIDs,
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
 			GetContext:        e.GetContext,
 			OperationsBundle:  operations.NewBundle(e.GetContext, e.Logger, operations.NewMemoryReporter()), // to ensure that each migration is run in a clean environment
-			BlockChains:       chain.NewBlockChains(blockChains),
+			BlockChains:       e.BlockChains,
 		}
 	}
 	return currentEnv, nil
@@ -211,17 +202,6 @@ func ApplyChangesetsV2(t *testing.T, e cldf.Environment, changesetApplications [
 			// do nothing, as these jobs auto-accept.
 		}
 
-		blockChains := map[uint64]chain.BlockChain{}
-		for selector, ch := range e.Chains {
-			blockChains[selector] = ch
-		}
-		for selector, ch := range e.SolChains {
-			blockChains[selector] = ch
-		}
-		for selector, ch := range e.AptosChains {
-			blockChains[selector] = ch
-		}
-
 		// Updated environment may be required before executing proposals when proposals involve new addresses
 		// Ex. changesets[0] deploys MCMS, changesets[1] generates a proposal with the new MCMS addresses
 		currentEnv = cldf.Environment{
@@ -231,13 +211,12 @@ func ApplyChangesetsV2(t *testing.T, e cldf.Environment, changesetApplications [
 			DataStore:         ds,
 			Chains:            e.Chains,
 			SolChains:         e.SolChains,
-			AptosChains:       e.AptosChains,
 			NodeIDs:           e.NodeIDs,
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
 			GetContext:        e.GetContext,
 			OperationsBundle:  operations.NewBundle(e.GetContext, e.Logger, operations.NewMemoryReporter()), // to ensure that each migration is run in a clean environment
-			BlockChains:       chain.NewBlockChains(blockChains),
+			BlockChains:       e.BlockChains,
 		}
 
 		if out.MCMSTimelockProposals != nil {
@@ -284,7 +263,7 @@ func ApplyChangesetsV2(t *testing.T, e cldf.Environment, changesetApplications [
 func DeployLinkTokenTest(t *testing.T, memoryConfig memory.MemoryEnvironmentConfig) {
 	lggr := logger.Test(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memoryConfig)
-	chain1 := e.AllChainSelectors()[0]
+	chain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	config := []uint64{chain1}
 	e, err := ApplyChangesets(t, e, nil, []ConfiguredChangeSet{
 		Configure(
@@ -304,15 +283,17 @@ func DeployLinkTokenTest(t *testing.T, memoryConfig memory.MemoryEnvironmentConf
 	// solana test
 	if memoryConfig.SolChains > 0 {
 		solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
+		chainSelectorSolana := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 		e, err = Apply(t, e, nil,
 			Configure(cldf.CreateLegacyChangeSet(DeploySolanaLinkToken), DeploySolanaLinkTokenConfig{
-				ChainSelector: e.AllChainSelectorsSolana()[0],
+				ChainSelector: chainSelectorSolana,
 				TokenPrivKey:  solLinkTokenPrivKey,
 				TokenDecimals: 9,
 			}),
 		)
 		require.NoError(t, err)
-		addrs, err = e.ExistingAddresses.AddressesForChain(e.AllChainSelectorsSolana()[0])
+		chainSelectorSolana = e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
+		addrs, err = e.ExistingAddresses.AddressesForChain(chainSelectorSolana)
 		require.NoError(t, err)
 		require.NotEmpty(t, addrs)
 	}

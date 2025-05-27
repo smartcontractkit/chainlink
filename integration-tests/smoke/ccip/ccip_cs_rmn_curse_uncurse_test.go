@@ -11,6 +11,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms/types"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -511,7 +512,8 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state s
 	)
 	require.NoError(t, err)
 
-	for _, solChain := range e.Env.AllChainSelectorsSolana() {
+	chainSelectorSolana := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
+	for _, solChain := range chainSelectorSolana {
 		_, _ = testhelpers.TransferOwnershipSolana(t, &e.Env, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
 				Router:    true,

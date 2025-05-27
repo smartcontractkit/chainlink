@@ -10,6 +10,7 @@ import (
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/crypto"
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 
 	"github.com/smartcontractkit/freeport"
 
@@ -20,8 +21,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
@@ -55,12 +54,12 @@ func createAptosAccount(t *testing.T, useDefault bool) *aptos.Account {
 	}
 }
 
-func GenerateChainsAptos(t *testing.T, numChains int) map[uint64]cldf.AptosChain {
+func GenerateChainsAptos(t *testing.T, numChains int) map[uint64]cldf_aptos.Chain {
 	testAptosChainSelectors := getTestAptosChainSelectors()
 	if len(testAptosChainSelectors) < numChains {
 		t.Fatalf("not enough test aptos chain selectors available")
 	}
-	chains := make(map[uint64]cldf.AptosChain)
+	chains := make(map[uint64]cldf_aptos.Chain)
 	for i := 0; i < numChains; i++ {
 		selector := testAptosChainSelectors[i]
 		chainID, err := chainsel.GetChainIDFromSelector(selector)
@@ -68,7 +67,7 @@ func GenerateChainsAptos(t *testing.T, numChains int) map[uint64]cldf.AptosChain
 		account := createAptosAccount(t, true)
 
 		url, nodeClient := aptosChain(t, chainID, account.Address)
-		chains[selector] = cldf.AptosChain{
+		chains[selector] = cldf_aptos.Chain{
 			Selector:       selector,
 			Client:         nodeClient,
 			DeployerSigner: account,
@@ -151,7 +150,7 @@ func aptosChain(t *testing.T, chainID string, adminAddress aptos.AccountAddress)
 	return url, client
 }
 
-func createAptosChainConfig(chainID string, chain cldf.AptosChain) chainlink.RawConfig {
+func createAptosChainConfig(chainID string, chain cldf_aptos.Chain) chainlink.RawConfig {
 	chainConfig := chainlink.RawConfig{}
 
 	chainConfig["Enabled"] = true

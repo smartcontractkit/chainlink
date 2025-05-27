@@ -7,8 +7,11 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -60,7 +63,7 @@ func SetupTwoChainEnvironmentWithTokens(
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains: 2,
 	})
-	selectors := e.AllChainSelectors()
+	selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 
 	addressBook := cldf.NewMemoryAddressBook()
 	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, len(selectors))
@@ -171,7 +174,7 @@ func DeployTestTokenPools(
 	newPools map[uint64]v1_5_1.DeployTokenPoolInput,
 	transferToTimelock bool,
 ) cldf.Environment {
-	selectors := e.AllChainSelectors()
+	selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 
 	e, err := commonchangeset.Apply(t, e, nil,
 		commoncs.Configure(

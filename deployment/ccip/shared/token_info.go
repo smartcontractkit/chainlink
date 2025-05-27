@@ -81,6 +81,7 @@ const (
 	WPOLSymbol                 TokenSymbol = "WPOL"
 	WSSymbol                   TokenSymbol = "WS"
 	USDCSymbol                 TokenSymbol = "USDC"
+	LBTCSymbol                 TokenSymbol = "LBTC"
 	FactoryBurnMintERC20Symbol TokenSymbol = "Factory-BnM-ERC20"
 	CCIPBnMSymbol              TokenSymbol = "CCIP-BnM"
 	CCIPLnMSymbol              TokenSymbol = "CCIP-LnM"
