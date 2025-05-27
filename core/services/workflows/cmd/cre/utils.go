@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
+	evmchainserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm/capability/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
@@ -159,14 +160,12 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 	}
 	caps = append(caps, fakeConsensusServer)
 
-	writers := []string{"write_aptos-testnet@1.0.0"}
-	for _, writer := range writers {
-		writeCap := fakes.NewFakeWriteChain(lggr, writer)
-		if err := registry.Add(ctx, writeCap); err != nil {
-			return nil, err
-		}
-		caps = append(caps, writeCap)
+	fakeEvm := fakes.NewFakeEvmChain(lggr)
+	fakeEvmChain := evmchainserver.NewEVMServer(fakeEvm)
+	if err := registry.Add(ctx, fakeEvmChain); err != nil {
+		return nil, err
 	}
+	caps = append(caps, fakeEvmChain)
 
 	return caps, nil
 }

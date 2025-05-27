@@ -18,11 +18,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/requests"
 	pbtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	pkgcaps "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 )
@@ -48,10 +48,20 @@ func DefaultFakeConsensusConfig() FakeConsensusConfig {
 	}
 }
 
+const consensusCapID = "offchain_reporting@1.0.0"
+
+var consensusInfo = commonCap.MustNewCapabilityInfo(
+	consensusCapID,
+	commonCap.CapabilityTypeConsensus,
+	"A fake OCR consensus capability that can be used to simulate consensus.",
+)
+
 type fakeConsensus struct {
 	services.Service
+	commonCap.CapabilityInfo
 	eng *services.Engine
 
+	lggr        logger.Logger
 	config      FakeConsensusConfig
 	plugin      ocr3types.ReportingPlugin[[]byte]
 	transmitter *ocr3.ContractTransmitter
@@ -71,8 +81,6 @@ var _ services.Service = (*fakeConsensus)(nil)
 var _ consensusserver.ConsensusCapability = (*fakeConsensus)(nil)
 var _ commonCap.ExecutableCapability = (*fakeConsensus)(nil)
 
-const consensusCapID = "offchain_reporting@1.0.0"
-
 func NewFakeConsensus(lggr logger.Logger, config FakeConsensusConfig) (*fakeConsensus, error) {
 	rpConfig := ocr3types.ReportingPluginConfig{}
 	store := requests.NewStore()
@@ -89,12 +97,14 @@ func NewFakeConsensus(lggr logger.Logger, config FakeConsensusConfig) (*fakeCons
 	transmitter.SetCapability(capability)
 
 	fc := &fakeConsensus{
-		config:      config,
-		plugin:      plugin,
-		transmitter: transmitter,
-		store:       store,
-		cap:         capability,
-		stats:       *NewSimpleStats(),
+		lggr:           logger.Named(lggr, "Fake Consensus"),
+		CapabilityInfo: consensusInfo,
+		config:         config,
+		plugin:         plugin,
+		transmitter:    transmitter,
+		store:          store,
+		cap:            capability,
+		stats:          *NewSimpleStats(),
 	}
 	fc.Service, fc.eng = services.Config{
 		Name:  "fakeConsensus",
@@ -105,6 +115,7 @@ func NewFakeConsensus(lggr logger.Logger, config FakeConsensusConfig) (*fakeCons
 }
 
 func (fc *fakeConsensus) Simple(ctx context.Context, metadata pkgcaps.RequestMetadata, input *pb1.SimpleConsensusInputs) (*pb.Value, error) {
+	fc.eng.Infow("Simple Consensus", "input", input)
 	return nil, nil
 }
 
@@ -240,16 +251,6 @@ func (fc *fakeConsensus) RegisterToWorkflow(ctx context.Context, request commonC
 func (fc *fakeConsensus) UnregisterFromWorkflow(ctx context.Context, request commonCap.UnregisterFromWorkflowRequest) error {
 	fc.eng.Infow("Unegistering from Fake Consensus", "workflowID", request.Metadata.WorkflowID)
 	return fc.cap.UnregisterFromWorkflow(ctx, request)
-}
-
-func (fc *fakeConsensus) Info(ctx context.Context) (commonCap.CapabilityInfo, error) {
-	return commonCap.CapabilityInfo{
-		ID:             consensusCapID,
-		CapabilityType: commonCap.CapabilityTypeConsensus,
-		Description:    "Fake OCR Consensus",
-		DON:            &commonCap.DON{},
-		IsLocal:        true,
-	}, nil
 }
 
 func (fc *fakeConsensus) Description() string {
