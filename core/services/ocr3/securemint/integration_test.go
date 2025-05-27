@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -442,7 +443,10 @@ channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
 		addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, legacyVerifierAddr, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
 
-		addSecureMintOCRJobs(t, nodes)
+		jobIDs := addSecureMintOCRJobs(t, nodes)
+
+		t.Logf("jobIDs: %v", jobIDs)
+		//validateJobsRunningSuccessfully(t, nodes, jobIDs)
 
 		// Set config on configurator
 		setLegacyConfig(
@@ -586,4 +590,56 @@ func newChannelDefinitionsServer(t *testing.T, channelDefinitions llotypes.Chann
 	}))
 	t.Cleanup(channelDefinitionsServer.Close)
 	return channelDefinitionsServer.URL, channelDefinitionsSHA
+}
+
+func validateJobsRunningSuccessfully(t *testing.T, nodes []Node, jobIDs map[int]int32) {
+
+	// 1. Assert that all the OCR jobs get a run with valid values eventually
+	var wg sync.WaitGroup
+	for i, node := range nodes {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			t.Logf("finding pipeline runs for job %d on node %d", jobIDs[i], i)
+			completedRuns, err := node.App.JobORM().FindPipelineRunIDsByJobID(testutils.Context(t), jobIDs[i], 0, 10)
+			if !assert.NoError(t, err) {
+				t.Logf("assert error finding pipeline runs for job %d: %v", jobIDs[i], err)
+				return
+			} else {
+				t.Logf("found pipeline runs for job %d on node %d: %v", jobIDs[i], i, completedRuns)
+			}
+
+			// Want at least 2 runs so we see all the metadata.
+			pr := cltest.WaitForPipelineComplete(t, i, jobIDs[i], len(completedRuns)+2, 7, node.App.JobORM(), 30*time.Second, 5*time.Second)
+			jb, err := pr[0].Outputs.MarshalJSON()
+			if !assert.NoError(t, err) {
+				t.Logf("assert error marshalling outputs for job %d: %v", jobIDs[i], err)
+				return
+			}
+			assert.Equalf(t, []byte(fmt.Sprintf("[\"%d\"]", 1000*i)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1], "assert error: something unexpected happened")
+		}()
+	}
+	t.Logf("waiting for pipeline runs to complete")
+	wg.Wait()
+
+	// 2. Assert no job spec errors
+	for i, node := range nodes {
+		jobs, _, err := node.App.JobORM().FindJobs(testutils.Context(t), 0, 1000)
+		require.NoErrorf(t, err, "assert error finding jobs for node %d", i)
+		t.Logf("found jobs for node %d (%d): %v", i, len(jobs), jobs)
+		// No spec errors
+		for _, j := range jobs {
+			ignore := 0
+			for _, jse := range j.JobSpecErrors {
+				// Non-fatal timing related error, ignore for testing.
+				if strings.Contains(jse.Description, "leader's phase conflicts tGrace timeout") {
+					ignore++
+				} else {
+					t.Errorf("assert error: job spec error on node %d: %v", i, jse)
+				}
+			}
+			require.Lenf(t, j.JobSpecErrors, ignore, "assert error: job spec errors on node %d", i)
+		}
+	}
+
 }
