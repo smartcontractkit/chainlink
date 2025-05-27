@@ -100,10 +100,10 @@ func Test_AddChainE2E(t *testing.T) {
 	require.NoError(t, err, "must transfer ownership of home and feed chain contracts to the timelock")
 
 	// setup the third chain with home and feed chain
-	SetupNewChain(t, e.HomeChainSel, e.FeedChainSel, thirdChain, initialSetToDeploy, e.Env, state, timelockContracts)
+	e.Env = SetupNewChain(t, e.HomeChainSel, e.FeedChainSel, thirdChain, initialSetToDeploy, e.Env, state, timelockContracts)
 
 	// setup the fourth chain with third chain alone
-	SetupNewChain(t, e.HomeChainSel, e.FeedChainSel, fourthChain, []uint64{thirdChain}, e.Env, state, timelockContracts)
+	e.Env = SetupNewChain(t, e.HomeChainSel, e.FeedChainSel, fourthChain, []uint64{thirdChain}, e.Env, state, timelockContracts)
 
 	// e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
 	// 	commonchangeset.Configure(
@@ -169,7 +169,7 @@ func SetupNewChain(
 	env cldf.Environment,
 	state stateview.CCIPOnChainState,
 	timelockContracts map[uint64]*proposalutils.TimelockExecutionContracts,
-) {
+) cldf.Environment {
 	nodeInfo, err := deployment.NodeInfo(env.NodeIDs, env.Offchain)
 	require.NoError(t, err, "must get node info")
 	mcmsDeploymentCfg := proposalutils.SingleGroupTimelockConfigV2(t)
@@ -273,6 +273,8 @@ func SetupNewChain(
 		),
 	)
 	require.NoError(t, err, "must apply PromoteNewChainForConfigChangeset")
+
+	return env
 }
 
 func SendMessages(
