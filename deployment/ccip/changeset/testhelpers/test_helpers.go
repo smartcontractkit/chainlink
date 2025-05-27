@@ -234,7 +234,7 @@ func LatestBlock(ctx context.Context, env cldf.Environment, chainSelector uint64
 	case chainsel.FamilySolana:
 		return env.SolChains[chainSelector].Client.GetSlot(ctx, solconfig.DefaultCommitment)
 	case chainsel.FamilyAptos:
-		chainInfo, err := env.AptosChains[chainSelector].Client.Info()
+		chainInfo, err := env.BlockChains.AptosChains()[chainSelector].Client.Info()
 		if err != nil {
 			return 0, errors.Wrapf(err, "failed to get chain info for chain %d", chainSelector)
 		}
@@ -250,7 +250,7 @@ func LatestBlocksByChain(ctx context.Context, env cldf.Environment) (map[uint64]
 	chains := []uint64{}
 	chains = slices.AppendSeq(chains, maps.Keys(env.Chains))
 	chains = slices.AppendSeq(chains, maps.Keys(env.SolChains))
-	chains = slices.AppendSeq(chains, maps.Keys(env.AptosChains))
+	chains = slices.AppendSeq(chains, maps.Keys(env.BlockChains.AptosChains()))
 	for _, selector := range chains {
 		block, err := LatestBlock(ctx, env, selector)
 		if err != nil {
@@ -841,9 +841,9 @@ func SendRequestAptos(
 	state stateview.CCIPOnChainState,
 	cfg *CCIPSendReqConfig,
 ) (*AnyMsgSentEvent, error) {
-	sender := e.AptosChains[cfg.SourceChain].DeployerSigner
+	sender := e.BlockChains.AptosChains()[cfg.SourceChain].DeployerSigner
 	senderAddress := sender.AccountAddress()
-	client := e.AptosChains[cfg.SourceChain].Client
+	client := e.BlockChains.AptosChains()[cfg.SourceChain].Client
 
 	e.Logger.Infof("(Aptos) Sending CCIP request from chain selector %d to chain selector %d from sender %s",
 		cfg.SourceChain, cfg.DestChain, senderAddress.StringLong())
@@ -2622,10 +2622,10 @@ func DeployAptosCCIPReceiver(t *testing.T, e cldf.Environment) {
 	state, err := aptosstate.LoadOnchainStateAptos(e)
 	require.NoError(t, err)
 	for selector, onchainState := range state {
-		addr, tx, _, err := ccip_dummy_receiver.DeployToObject(e.AptosChains[selector].DeployerSigner, e.AptosChains[selector].Client, onchainState.CCIPAddress, onchainState.MCMSAddress)
+		addr, tx, _, err := ccip_dummy_receiver.DeployToObject(e.BlockChains.AptosChains()[selector].DeployerSigner, e.BlockChains.AptosChains()[selector].Client, onchainState.CCIPAddress, onchainState.MCMSAddress)
 		require.NoError(t, err)
 		t.Logf("(Aptos) CCIPDummyReceiver(ccip: %s, mcms: %s) deployed to %s in tx %s", onchainState.CCIPAddress.StringLong(), onchainState.MCMSAddress.StringLong(), addr.StringLong(), tx.Hash)
-		require.NoError(t, e.AptosChains[selector].Confirm(tx.Hash))
+		require.NoError(t, e.BlockChains.AptosChains()[selector].Confirm(tx.Hash))
 		e.ExistingAddresses.Save(selector, addr.StringLong(), cldf.NewTypeAndVersion(shared.AptosReceiverType, deployment.Version1_0_0))
 	}
 }

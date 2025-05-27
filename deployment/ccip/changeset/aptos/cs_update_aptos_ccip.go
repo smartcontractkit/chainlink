@@ -41,7 +41,7 @@ func (cs UpdateAptosChain) Apply(env cldf.Environment, cfg config.UpdateAptosCha
 	}
 
 	deps := operation.AptosDeps{
-		AptosChain:       env.AptosChains[cfg.ChainSelector],
+		AptosChain:       env.BlockChains.AptosChains()[cfg.ChainSelector],
 		OnChainState:     state[cfg.ChainSelector],
 		CCIPOnChainState: ccipState,
 	}

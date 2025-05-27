@@ -37,8 +37,8 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 				},
 				OnRampParams: config.OnRampParams{
 					ChainSelector:  chainSelector,
-					AllowlistAdmin: e.Env.AptosChains[chainSelector].DeployerSigner.AccountAddress(),
-					FeeAggregator:  e.Env.AptosChains[chainSelector].DeployerSigner.AccountAddress(),
+					AllowlistAdmin: e.Env.BlockChains.AptosChains()[chainSelector].DeployerSigner.AccountAddress(),
+					FeeAggregator:  e.Env.BlockChains.AptosChains()[chainSelector].DeployerSigner.AccountAddress(),
 				},
 			},
 		},
