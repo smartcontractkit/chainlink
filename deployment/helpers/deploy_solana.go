@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	solBinary "github.com/gagliardetto/binary"
@@ -15,6 +16,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/sdk"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 )
@@ -169,7 +173,7 @@ func BuildMCMSTxn(ixn solana.Instruction, programID string, contractType cldf.Co
 }
 
 // setUpgradeAuthority creates a transaction to set the upgrade authority for a program
-func setUpgradeAuthority(
+func SetUpgradeAuthority(
 	e *cldf.Environment,
 	programID solana.PublicKey,
 	currentUpgradeAuthority solana.PublicKey,
@@ -337,6 +341,57 @@ func GetSolProgramData(e cldf.Environment, chain cldf.SolChain, programID solana
 		return programData, fmt.Errorf("failed to unmarshal program data: %w", err)
 	}
 	return programData, nil
+}
+
+func BuildProposalsForTxns(
+	e cldf.Environment,
+	chainSelector uint64,
+	description string,
+	minDelay time.Duration,
+	txns []mcmsTypes.Transaction) (*mcms.TimelockProposal, error) {
+	timelocks := map[uint64]string{}
+	proposers := map[uint64]string{}
+	inspectors := map[uint64]sdk.Inspector{}
+	batches := make([]mcmsTypes.BatchOperation, 0)
+	chain := e.SolChains[chainSelector]
+	addresses, _ := e.ExistingAddresses.AddressesForChain(chainSelector)
+	mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+
+	timelocks[chainSelector] = mcmsSolana.ContractAddress(
+		mcmState.TimelockProgram,
+		mcmsSolana.PDASeed(mcmState.TimelockSeed),
+	)
+	proposers[chainSelector] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
+	inspectors[chainSelector] = mcmsSolana.NewInspector(chain.Client)
+	batches = append(batches, mcmsTypes.BatchOperation{
+		ChainSelector: mcmsTypes.ChainSelector(chainSelector),
+		Transactions:  txns,
+	})
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e,
+		timelocks,
+		proposers,
+		inspectors,
+		batches,
+		description,
+		proposalutils.TimelockConfig{MinDelay: minDelay})
+	if err != nil {
+		return nil, fmt.Errorf("failed to build proposal: %w", err)
+	}
+	return proposal, nil
+}
+
+func FetchTimelockSigner(e cldf.Environment, chainSelector uint64) (solana.PublicKey, error) {
+	addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("failed to load addresses for chain %d: %w", chainSelector, err)
+	}
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[chainSelector], addresses)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("failed to load mcm state: %w", err)
+	}
+	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	return timelockSignerPDA, nil
 }
 
 type CloseBuffersConfig struct {
