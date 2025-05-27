@@ -28,6 +28,7 @@ jobs:
       should-run: >-
         ${{
           steps.pr-labels.outputs.check-label-found == 'true' ||
+          github.event_name == 'push' ||
           github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch'
         }}
