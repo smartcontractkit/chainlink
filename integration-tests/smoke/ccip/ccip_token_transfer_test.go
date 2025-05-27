@@ -29,16 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-// duplicated from messagingtest
-func sleepAndReplay(t *testing.T, e testhelpers.DeployedEnv, chainSelectors ...uint64) {
-	time.Sleep(30 * time.Second)
-	replayBlocks := make(map[uint64]uint64)
-	for _, selector := range chainSelectors {
-		replayBlocks[selector] = 1
-	}
-	testhelpers.ReplayLogs(t, e.Env.Offchain, replayBlocks)
-}
-
 func TestTokenTransfer_EVM2EVM(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
@@ -524,7 +514,7 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 		testhelpers.TransferMultiple(ctx, t, e, state, tcs)
 
 	// HACK: we need to replay blocks only after the CCIP plugin has already properly booted
-	sleepAndReplay(t, tenv, sourceChain, destChain)
+	testhelpers.SleepAndReplay(t, e, 30*time.Second, sourceChain, destChain)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
