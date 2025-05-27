@@ -310,7 +310,6 @@ func SendMessages(
 		startBlocks[pair.DestChainSelector] = &block
 		expectedSeqNum[pair] = msgSentEvent.SequenceNumber
 		expectedSeqNumExec[pair] = append(expectedSeqNumExec[pair], msgSentEvent.SequenceNumber)
-
 	}
 	testhelpers.SleepAndReplay(t, env, 10*time.Second, env.AllChainSelectors()...)
 	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, env, state, expectedSeqNum, startBlocks)
