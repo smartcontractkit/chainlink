@@ -16,7 +16,7 @@ import (
 
 const defaultStartTimeout = 3 * time.Minute
 
-type standardCapabilities struct {
+type StandardCapabilities struct {
 	services.StateMachine
 	log                  logger.Logger
 	spec                 *job.StandardCapabilitiesSpec
@@ -36,7 +36,7 @@ type standardCapabilities struct {
 	startTimeout time.Duration
 }
 
-func newStandardCapabilities(
+func NewStandardCapabilities(
 	log logger.Logger,
 	spec *job.StandardCapabilitiesSpec,
 	pluginRegistrar plugins.RegistrarConfig,
@@ -47,8 +47,8 @@ func newStandardCapabilities(
 	pipelineRunner core.PipelineRunnerService,
 	relayerSet core.RelayerSet,
 	oracleFactory core.OracleFactory,
-) *standardCapabilities {
-	return &standardCapabilities{
+) *StandardCapabilities {
+	return &StandardCapabilities{
 		log:                  log,
 		spec:                 spec,
 		pluginRegistrar:      pluginRegistrar,
@@ -63,7 +63,7 @@ func newStandardCapabilities(
 	}
 }
 
-func (s *standardCapabilities) Start(ctx context.Context) error {
+func (s *StandardCapabilities) Start(ctx context.Context) error {
 	return s.StartOnce("StandardCapabilities", func() error {
 		cmdName := s.spec.Command
 
@@ -116,7 +116,7 @@ func (s *standardCapabilities) Start(ctx context.Context) error {
 	})
 }
 
-func (s *standardCapabilities) Close() error {
+func (s *StandardCapabilities) Close() error {
 	close(s.stopChan)
 	s.wg.Wait()
 	return s.StopOnce("StandardCapabilities", func() error {
