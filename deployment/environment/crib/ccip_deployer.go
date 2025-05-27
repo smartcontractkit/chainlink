@@ -267,7 +267,7 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 	}, nil
 }
 
-func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64) (cldf.Environment, error) {
+func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64, feedChainSel uint64) (cldf.Environment, error) {
 	chainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
 	chainConfigs := make(map[uint64]v1_6.ChainConfig)
@@ -433,7 +433,7 @@ func setupLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 	if err != nil {
 		return *e, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	chainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
+	evmSels := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	poolInput := make(map[uint64]v1_5_1.DeployTokenPoolInput)
 	pools := make(map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo)
 	for _, chain := range evmSels {
