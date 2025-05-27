@@ -23,6 +23,7 @@ import (
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -159,6 +160,11 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(allChainsErr, "failed to create chains")
 	}
 
+	blockChains := map[uint64]chain.BlockChain{}
+	for selector, ch := range allChains {
+		blockChains[selector] = ch
+	}
+
 	allChainsCLDEnvironment := &cldf.Environment{
 		Logger:            singeFileLogger,
 		Chains:            allChains,
@@ -166,6 +172,7 @@ func SetupTestEnvironment(
 		GetContext: func() context.Context {
 			return ctx
 		},
+		BlockChains: chain.NewBlockChains(blockChains),
 	}
 
 	fmt.Print(libformat.PurpleText("\n[Stage 1/10] Blockchains started in %.2f seconds\n", time.Since(startTime).Seconds()))
@@ -174,7 +181,9 @@ func SetupTestEnvironment(
 
 	// we could try to parallelise deployment of these contracts, but it's difficult, because there's no way to make chain.DeployerKey dynamic
 	// in order to manually increment the nonce for each contract
-	ocr3Output, ocr3Err := keystone_changeset.DeployOCR3(*allChainsCLDEnvironment, homeChainOutput.ChainSelector) // //nolint:staticcheck // will migrate in DX-641
+	ocr3Output, ocr3Err := keystone_changeset.DeployOCR3V2(*allChainsCLDEnvironment, &keystone_changeset.DeployRequestV2{
+		ChainSel: homeChainOutput.ChainSelector,
+	})
 	if ocr3Err != nil {
 		return nil, pkgerrors.Wrap(ocr3Err, "failed to deploy OCR3 contract")
 	}

@@ -3,8 +3,11 @@ package changeset_test
 import (
 	"testing"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -40,7 +43,7 @@ func TestDeployPrerequisitesZk(t *testing.T) {
 }
 
 func testDeployPrerequisitesWithEnv(t *testing.T, e cldf.Environment) {
-	newChain := e.AllChainSelectors()[0]
+	newChain := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	cfg := changeset.DeployPrerequisiteConfig{
 		Configs: []changeset.DeployPrerequisiteConfigPerChain{
 			{

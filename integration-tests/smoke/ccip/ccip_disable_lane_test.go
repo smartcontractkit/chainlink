@@ -6,8 +6,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/stretchr/testify/require"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -37,7 +40,7 @@ func TestDisableLane(t *testing.T) {
 	testhelpers.AddLanesForAll(t, &tenv, state)
 
 	var (
-		chains                 = e.AllChainSelectors()
+		chains                 = e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 		chainA, chainB, chainC = chains[0], chains[1], chains[2]
 		expectedSeqNumExec     = make(map[testhelpers.SourceDestPair][]uint64)
 		startBlocks            = make(map[uint64]*uint64)

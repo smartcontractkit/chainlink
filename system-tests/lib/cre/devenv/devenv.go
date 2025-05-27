@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/credentials"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -150,6 +151,11 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *type
 		jd = envs[0].Offchain
 	}
 
+	blockChains := map[uint64]chain.BlockChain{}
+	for selector, ch := range envs[0].Chains {
+		blockChains[selector] = ch
+	}
+
 	// we assume that all DONs run on the same chain and that there's only one chain
 	output := &types.FullCLDEnvironmentOutput{
 		Environment: &cldf.Environment{
@@ -161,6 +167,7 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *type
 			OCRSecrets:        envs[0].OCRSecrets,
 			GetContext:        envs[0].GetContext,
 			NodeIDs:           nodeIDs,
+			BlockChains:       chain.NewBlockChains(blockChains),
 		},
 	}
 

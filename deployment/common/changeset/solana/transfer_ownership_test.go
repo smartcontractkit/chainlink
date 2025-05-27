@@ -6,8 +6,11 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	accessControllerBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/access_controller"
 	mcmBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/mcm"
@@ -31,7 +34,7 @@ func TestTransferToMCMSToTimelockSolana(t *testing.T) {
 	log := logger.TestLogger(t)
 	envConfig := memory.MemoryEnvironmentConfig{Chains: 0, SolChains: 1}
 	env := memory.NewMemoryEnvironment(t, log, zapcore.InfoLevel, envConfig)
-	solanaSelector := env.AllChainSelectorsSolana()[0]
+	solanaSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 
 	commonchangeset.SetPreloadedSolanaAddresses(t, env, solanaSelector)
 	chainState := deployMCMS(t, env, solanaSelector)
