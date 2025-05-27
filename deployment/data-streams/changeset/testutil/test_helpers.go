@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	dsCs "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/mcms"
@@ -70,7 +72,7 @@ func NewMemoryEnv(t *testing.T, deployMCMS bool, optionalNumNodes ...int) cldf.E
 	}
 
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memEnvConf)
-	chainSelector := env.AllChainSelectors()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0]
 
 	if deployMCMS {
 		config := proposalutils.SingleGroupTimelockConfigV2(t)
@@ -118,7 +120,7 @@ func NewMemoryEnvV2(t *testing.T, cfg MemoryEnvConfig) MemoryEnv {
 	}
 
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memEnvConf)
-	chainSelector := env.AllChainSelectors()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0]
 	chain := env.Chains[chainSelector]
 
 	// Apply node labels:

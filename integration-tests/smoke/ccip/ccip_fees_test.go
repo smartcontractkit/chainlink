@@ -14,6 +14,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -172,7 +175,7 @@ func Test_CCIPFees(t *testing.T) {
 	)
 	e := tenv.Env
 
-	allChains := e.AllChainSelectors()
+	allChains := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	require.Len(t, allChains, 2, "need two chains for this test")
 	sourceChain := allChains[0]
 	destChain := allChains[1]

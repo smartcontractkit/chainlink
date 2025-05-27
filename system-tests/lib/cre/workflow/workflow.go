@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"context"
 	"encoding/hex"
 	"os"
 	"strings"
@@ -129,8 +130,8 @@ func ActivateWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
 	return nil
 }
 
-func RegisterWithContract(sc *seth.Client, workflowRegistryAddr common.Address, donID uint32, workflowName, binaryURL string, configURL, secretsURL *string) error {
-	workFlowData, err := libnet.DownloadAndDecodeBase64(binaryURL)
+func RegisterWithContract(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address, donID uint32, workflowName, binaryURL string, configURL, secretsURL *string) error {
+	workFlowData, err := libnet.DownloadAndDecodeBase64(ctx, binaryURL)
 	if err != nil {
 		return errors.Wrap(err, "failed to download and decode workflow binary")
 	}
@@ -138,7 +139,7 @@ func RegisterWithContract(sc *seth.Client, workflowRegistryAddr common.Address, 
 	var configData []byte
 	configURLToUse := ""
 	if configURL != nil {
-		configData, err = libnet.Download(*configURL)
+		configData, err = libnet.Download(ctx, *configURL)
 		if err != nil {
 			return errors.Wrap(err, "failed to download workflow config")
 		}
