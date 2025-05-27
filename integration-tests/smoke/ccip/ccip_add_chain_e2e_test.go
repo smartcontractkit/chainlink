@@ -32,7 +32,12 @@ import (
 // chains using two consolidated changesets.
 // 1. AddCandidatesForNewChainChangeset
 // 2. PromoteNewChainForConfigChangeset
-// This is a docker test
+// Scenario:
+// - Deploy 4 chains: home, feed, third, and fourth.
+// - Home and feed chains are already deployed and connected to each other.
+// - Third chain is connected to home and feed chains using consolidated changesets.
+// - Fourth chain is connected to the third chain using consolidated changesets.
+// - Messages are sent between all chains to verify the setup.
 func Test_AddChainE2E(t *testing.T) {
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(
 		t,
@@ -97,7 +102,8 @@ func Test_AddChainE2E(t *testing.T) {
 
 	// Transfer ownership of the home and feed chain contracts to the timelock
 	e.Env, err = TransferOwnership(t, e.Env, timelockContracts, e.HomeChainSel, initialSetToDeploy, state)
-	require.NoError(t, err, "must transfer ownership of home and feed chain contracts to the timelock")
+	require.NoError(t, err, "must transfer ownership of home %d and feed "+
+		"chain %d contracts to the timelock", e.HomeChainSel, e.FeedChainSel)
 
 	// setup the third chain with home and feed chain
 	e.Env = SetupNewChain(t, e.HomeChainSel, e.FeedChainSel, thirdChain, initialSetToDeploy, e.Env, state, timelockContracts)
@@ -105,22 +111,9 @@ func Test_AddChainE2E(t *testing.T) {
 	// setup the fourth chain with third chain alone
 	e.Env = SetupNewChain(t, e.HomeChainSel, e.FeedChainSel, fourthChain, []uint64{thirdChain}, e.Env, state, timelockContracts)
 
-	// e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
-	// 	commonchangeset.Configure(
-	// 		cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
-	// 		v1_6.SetRMNRemoteOnRMNProxyConfig{
-	// 			ChainSelectors: []uint64{chainToDeploy},
-	// 			MCMSConfig: &proposalutils.TimelockConfig{
-	// 				MinDelay:   0 * time.Second,
-	// 				MCMSAction: mcmstypes.TimelockActionSchedule,
-	// 			},
-	// 		},
-	// 	),
-	// )
-	// require.NoError(t, err)
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	testhelpers.SleepAndReplay(t, e.Env, 60*time.Second, e.Env.AllChainSelectors()...)
+	testhelpers.SleepAndReplay(t, e.Env, 30*time.Second, e.Env.AllChainSelectors()...)
 	SendMessages(t,
 		e.Env,
 		[]testhelpers.SourceDestPair{
@@ -254,7 +247,8 @@ func SetupNewChain(
 			},
 		),
 	)
-	require.NoError(t, err, "must apply AddCandidatesForNewChainChangeset")
+	require.NoError(t, err, "must apply AddCandidatesForNewChainChangeset, "+
+		"new chain: %d, remote chains: %v", chainToDeploy, remoteChains)
 
 	// Apply PromoteNewChainForConfigChangeset
 	env, err = commonchangeset.Apply(t, env, timelockContracts,
@@ -272,7 +266,8 @@ func SetupNewChain(
 			},
 		),
 	)
-	require.NoError(t, err, "must apply PromoteNewChainForConfigChangeset")
+	require.NoError(t, err, "must apply PromoteNewChainForConfigChangeset, "+
+		"new chain: %d, remote chains: %v", chainToDeploy, remoteChains)
 
 	return env
 }
@@ -295,7 +290,6 @@ func SendMessages(
 		latesthdr, err := env.Chains[pair.DestChainSelector].Client.HeaderByNumber(testcontext.Get(t), nil)
 		require.NoError(t, err)
 		block := latesthdr.Number.Uint64()
-		// time.Sleep(10 * time.Second)
 		msgSentEvent := testhelpers.TestSendRequest(
 			t,
 			env,
@@ -318,7 +312,7 @@ func SendMessages(
 		expectedSeqNumExec[pair] = append(expectedSeqNumExec[pair], msgSentEvent.SequenceNumber)
 
 	}
-	testhelpers.SleepAndReplay(t, env, 30*time.Second, env.AllChainSelectors()...)
+	testhelpers.SleepAndReplay(t, env, 10*time.Second, env.AllChainSelectors()...)
 	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, env, state, expectedSeqNum, startBlocks)
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, env, state, expectedSeqNumExec, startBlocks)
 }
@@ -350,9 +344,6 @@ func TransferOwnership(
 	contractsToTransfer[homeChainSelector] = append(
 		contractsToTransfer[homeChainSelector],
 		state.Chains[homeChainSelector].CCIPHome.Address(),
-	)
-	contractsToTransfer[homeChainSelector] = append(
-		contractsToTransfer[homeChainSelector],
 		state.Chains[homeChainSelector].CapabilityRegistry.Address(),
 	)
 
