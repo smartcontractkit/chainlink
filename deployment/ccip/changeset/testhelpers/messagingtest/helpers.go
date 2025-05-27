@@ -112,7 +112,7 @@ func sleepAndReplay(t *testing.T, e testhelpers.DeployedEnv, chainSelectors ...u
 	for _, selector := range chainSelectors {
 		replayBlocks[selector] = 1
 	}
-	testhelpers.ReplayLogs(t, e.Env.Offchain, replayBlocks)
+	testhelpers.ReplayLogs(t, e.Env.Offchain, replayBlocks, testhelpers.WithAssertOnError(false))
 }
 
 func getLatestNonce(tc TestCase) uint64 {

@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/exp/maps"
 
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 
@@ -76,6 +78,10 @@ type NewNodesConfig struct {
 	RegistryConfig deployment.CapabilityRegistryConfig
 	// SQL queries to run after DB creation, typically used for setting up testing state. Optional.
 	CustomDBSetup []string
+	// ChainTopology is the chain-node topology of the role DON.
+	ChainTopology ChainTopology
+	// HomeChainSel is the chain selector of the home chain.
+	HomeChainSel uint64
 }
 
 // For placeholders like aptos
@@ -204,7 +210,10 @@ func NewNodes(
 	// bootstrap nodes must be separate nodes from plugin nodes,
 	// since we won't run a bootstrapper and a plugin oracle on the same
 	// chainlink node in production.
-	for i := 0; i < cfg.NumBootstraps; i++ {
+	for i := range cfg.NumBootstraps {
+		// TODO: bootstrap nodes don't have to support anything other than the home chain.
+		// We should remove all non-home chains from the config below and make sure things
+		// run smoothly.
 		c := NewNodeConfig{
 			Port:           ports[i],
 			Chains:         cfg.Chains,
@@ -219,8 +228,14 @@ func NewNodes(
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
-	for i := 0; i < cfg.NumNodes; i++ {
+
+	var newNodeConfigs []NewNodeConfig
+	if cfg.ChainTopology.FChainToNumChains != nil {
+		newNodeConfigs = createNewNodeConfigsWithChainTopology(t, cfg, ports)
+	}
+	for i := range cfg.NumNodes {
 		c := NewNodeConfig{
+			// grab port offset by NumBootstraps, since above loop also takes some ports.
 			Port:           ports[cfg.NumBootstraps+i],
 			Chains:         cfg.Chains,
 			Solchains:      cfg.SolChains,
@@ -230,12 +245,148 @@ func NewNodes(
 			RegistryConfig: cfg.RegistryConfig,
 			CustomDBSetup:  cfg.CustomDBSetup,
 		}
-		// grab port offset by numBootstraps, since above loop also takes some ports.
+		// if chain topology is set, use the new node config from the chain topology,
+		// which may include a different set of chains to support.
+		if cfg.ChainTopology.FChainToNumChains != nil {
+			c = newNodeConfigs[i]
+		}
 		node := NewNode(t, c, configOpts...)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
 	return nodesByPeerID
+}
+
+func createNewNodeConfigsWithChainTopology(t *testing.T, cfg NewNodesConfig, ports []int) []NewNodeConfig {
+	homeChain, ok := cfg.Chains[cfg.HomeChainSel]
+	require.Truef(t, ok, "home chain %d not found in chains, %+v", cfg.HomeChainSel, cfg.Chains)
+
+	allEVMChains := maps.Values(cfg.Chains)
+	allSolChains := maps.Values(cfg.SolChains)
+	allAptosChains := maps.Values(cfg.AptosChains)
+
+	// combine all the chains into a single slice.
+	allChains := make([]any, 0, len(allEVMChains)+len(allSolChains)+len(allAptosChains))
+	for _, chain := range allEVMChains {
+		// Home chain is always EVM, so we can only check here.
+		// We don't include it in allChains because it must be supported by all nodes,
+		// so its a special case.
+		if chain.ChainSelector() == cfg.HomeChainSel {
+			continue
+		}
+		allChains = append(allChains, chain)
+	}
+	for _, chain := range allSolChains {
+		allChains = append(allChains, chain)
+	}
+	for _, chain := range allAptosChains {
+		allChains = append(allChains, chain)
+	}
+
+	// Validate that the chain topology is valid.
+	// This should've been done already but we do it again for safety.
+	totalChains := 0
+	for _, numChains := range cfg.ChainTopology.FChainToNumChains {
+		totalChains += numChains
+	}
+	require.Equalf(
+		t,
+		totalChains,
+		len(allChains),
+		"chain topology is invalid, totalChains: %d, expected: %d (total num chains minus home chain, which must be supported by all nodes)",
+		totalChains,
+		len(allChains),
+	)
+
+	var chainIdxToFChain = make(map[int]int) // index into allChains -> fChain value
+	var chainIdx int
+	for fChain, numChains := range cfg.ChainTopology.FChainToNumChains {
+		for range numChains {
+			chainIdxToFChain[chainIdx] = fChain
+			chainIdx++
+		}
+	}
+
+	// pseudocode:
+	// for each chain:
+	//   get the fChain value
+	//   use the fChain value to "draw" the nodes that will support this chain.
+	//   assign the chains to the nodes.
+	nodeIdxToChainIdxs := make(map[int][]int)
+	for chainIdx, fChain := range chainIdxToFChain {
+		// "draw" the nodes that will support this chain.
+		nodeIdxs := drawNodesForChain(t, fChain, cfg.NumNodes, cfg.ChainTopology.Seed)
+		// assign the chains to the nodes.
+		for _, nodeIdx := range nodeIdxs {
+			nodeIdxToChainIdxs[nodeIdx] = append(nodeIdxToChainIdxs[nodeIdx], chainIdx)
+		}
+	}
+
+	t.Logf("nodeIdxToChainIdxs: %v", nodeIdxToChainIdxs)
+
+	// create the new node configs.
+	var cfgs []NewNodeConfig
+	for i := range cfg.NumNodes {
+		nodeCfg := NewNodeConfig{
+			Port: ports[cfg.NumBootstraps+i],
+			// Every node must support the home chain, so include it in the starting config.
+			Chains:         map[uint64]cldf.Chain{homeChain.ChainSelector(): homeChain},
+			LogLevel:       cfg.LogLevel,
+			Bootstrap:      false,
+			RegistryConfig: cfg.RegistryConfig,
+			CustomDBSetup:  cfg.CustomDBSetup,
+		}
+		chainsSupported, ok := nodeIdxToChainIdxs[i]
+		require.Truef(t, ok, "node %d is not assigned to any chains", i)
+		for _, chainIdx := range chainsSupported {
+			chain := allChains[chainIdx]
+			switch theChain := chain.(type) {
+			case cldf.Chain:
+				nodeCfg.Chains[theChain.ChainSelector()] = theChain
+			case cldf.SolChain:
+				nodeCfg.Solchains[theChain.ChainSelector()] = theChain
+			case cldf_aptos.Chain:
+				nodeCfg.Aptoschains[theChain.ChainSelector()] = theChain
+			default:
+				require.Failf(
+					t,
+					"unsupported chain type",
+					"unsupported chain type: %T, forgot to add it to the switch statement?",
+					theChain,
+				)
+			}
+		}
+		cfgs = append(cfgs, nodeCfg)
+	}
+
+	return cfgs
+}
+
+// drawNodesForChain draws a set of nodes that will support a given fChain value.
+// Due to the randomness involved in the setup, a node might end up supporting multiple chains.
+// However, this setup ensures that at most 3 * fChain + 1 nodes will support a given chain.
+// TODO: we might want to make this more sophisticated in the future, e.g a node has a max # of chains it can support.
+func drawNodesForChain(t *testing.T, fChain int, numNodes int, seed int64) (nodeIdxs []int) {
+	require.Greaterf(t, fChain, 0, "fChain must be greater than 0, got %d", fChain)
+	require.GreaterOrEqualf(t, numNodes, 3*fChain+1, "numNodes must be at least 3*fChain+1, got %d", numNodes)
+
+	// Create a generator with a seed for reproducible setups.
+	gen := rand.New(rand.NewSource(seed))
+
+	numNodesToDraw := 3*fChain + 1
+	nodeIdxs = make([]int, 0, numNodesToDraw)
+	alreadyDrawn := make(map[int]bool)
+
+	for len(nodeIdxs) < numNodesToDraw {
+		drawnNodeIndex := gen.Intn(numNodes)
+
+		if !alreadyDrawn[drawnNodeIndex] {
+			nodeIdxs = append(nodeIdxs, drawnNodeIndex)
+			alreadyDrawn[drawnNodeIndex] = true
+		}
+	}
+
+	return nodeIdxs
 }
 
 func NewMemoryEnvironmentFromChainsNodes(

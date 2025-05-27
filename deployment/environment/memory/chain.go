@@ -43,6 +43,20 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 )
 
+// ChainTopology represents chain-node topology of the role DON.
+// Note that this does NOT affect the chain support of the home chain,
+// which all nodes must always support.
+type ChainTopology struct {
+	// FChainToNumChains maps (the fChain value) to the number of chains that have that fChain value.
+	// Note that the sum of all of the number of chains (i.e the values in the map) must be equal exactly to the number
+	// of chains set up in the test MINUS the home chain.
+	// For example, if we have 2 chains, and we want to have an fChain value of 2 for the first chain,
+	// and an fChain value of 1 for the second chain, we would set the map to:
+	// {2: 1, 1: 1}
+	FChainToNumChains map[int]int
+	Seed              int64
+}
+
 type EVMChain struct {
 	Backend     *simulated.Backend
 	DeployerKey *bind.TransactOpts

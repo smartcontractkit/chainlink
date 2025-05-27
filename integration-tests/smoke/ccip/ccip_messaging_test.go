@@ -3,6 +3,7 @@ package ccip
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -36,6 +37,116 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
+func Test_CCIPMessaging_EVM2EVM_RoleDON_AllSupportSource(t *testing.T) {
+	// Setup 3 chains and a single lane between chains that doesn't
+	// include the home chain.
+	// We need at least 7 nodes to set up a suitable role DON.
+	// In this scenario, 7 nodes will support the source chain, and
+	// only 4 nodes will support the destination chain. At least one
+	// node will end up supporting both source and dest in this particular
+	// scenario.
+	// This will help us test the scenario where not all nodes support the destination chain.
+	// There are two parts to the setup:
+	// 1. the chainlink nodes themselves must be configured to support only a subset of the chains
+	// that are spun up in the environment.
+	// 2. the fChain values must be set correctly on CCIPHome according to the determined topology.
+	// When spinning up an environment we don't know the chain IDs / selectors of the chains being
+	// spun up, so we can't have an explicit mapping of chain IDs to fChain values / node indices.
+	ctx := t.Context()
+
+	const (
+		// fRoleDON needs to be at least 2, since for a role don of size 4, we can't have
+		// different node/chain committees.
+		fRoleDON = 2
+		nRoleDON = 3*fRoleDON + 1
+
+		// we need at least 3 chains to test the role DON topology.
+		// this is because one chain will be the home chain, which all nodes
+		// must support, and the other two chains will be the source and dest
+		// chains, of which only some nodes will support the dest chain.
+		numChains = 3
+
+		fChainSource = 2
+		fChainDest   = 1
+	)
+
+	e, _, _ := testsetups.NewIntegrationEnvironment(
+		t,
+		testhelpers.WithNumOfChains(numChains),
+		testhelpers.WithNumOfNodes(nRoleDON),
+		testhelpers.WithChainTopology(memory.ChainTopology{
+			FChainToNumChains: map[int]int{
+				fChainSource: 1, // 1 chain with fChain fChainSource
+				fChainDest:   1, // 1 chain with fChain fChainDest
+			},
+			Seed: 42, // for reproducible setups.
+		}),
+	)
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	allChainSelectors := maps.Keys(e.Env.Chains)
+	require.Len(t, allChainSelectors, 3)
+	// filter out the home chain
+	var nonHomeChains []uint64
+	for _, chainSel := range allChainSelectors {
+		if chainSel != e.HomeChainSel {
+			nonHomeChains = append(nonHomeChains, chainSel)
+		}
+	}
+	require.Len(t, nonHomeChains, 2)
+
+	homeChainConfig, err := state.Chains[e.HomeChainSel].CCIPHome.GetChainConfig(&bind.CallOpts{
+		Context: ctx,
+	}, e.HomeChainSel)
+	require.NoError(t, err)
+	require.Equalf(t, homeChainConfig.FChain, uint8(fRoleDON), "home chain fChain must be %d, got %d", fRoleDON, homeChainConfig.FChain)
+
+	// get the fChain values of the chains to determine which will be the source
+	// and which will be the dest.
+	chainConfig0, err := state.Chains[e.HomeChainSel].CCIPHome.GetChainConfig(&bind.CallOpts{
+		Context: ctx,
+	}, nonHomeChains[0])
+	require.NoError(t, err)
+	chainConfig1, err := state.Chains[e.HomeChainSel].CCIPHome.GetChainConfig(&bind.CallOpts{
+		Context: ctx,
+	}, nonHomeChains[1])
+	require.NoError(t, err)
+	// the fChain values must be different, otherwise setup is incorrect.
+	require.NotEqual(t, chainConfig0.FChain, chainConfig1.FChain)
+
+	var sourceChain, destChain uint64
+	if chainConfig0.FChain == fChainSource {
+		sourceChain = nonHomeChains[0]
+		destChain = nonHomeChains[1]
+	} else {
+		sourceChain = nonHomeChains[1]
+		destChain = nonHomeChains[0]
+	}
+
+	t.Logf("home chain: %d, source chain: %d, dest chain: %d", e.HomeChainSel, sourceChain, destChain)
+
+	// Log the chain support of the memory nodes.
+	for _, node := range e.MemoryNodes {
+		t.Logf("node %s supports chains: %v", node.Keys.PeerID.String(), node.Chains)
+	}
+
+	// Log how many times each chain is supported by the memory nodes.
+	for _, chain := range allChainSelectors {
+		count := 0
+		for _, node := range e.MemoryNodes {
+			if slices.Contains(node.Chains, chain) {
+				count++
+			}
+		}
+		t.Logf("chain %d is supported by %d nodes", chain, count)
+	}
+
+	// now we can set up the lane.
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+}
+
 func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	// fix the chain ids for the test so we can appropriately set finality depth numbers on the destination chain.
 	chains := []chainsel.Chain{
@@ -50,6 +161,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
+		testhelpers.WithNumOfNodes(7),
 		testhelpers.WithChainIDs(chainIDs),
 		testhelpers.WithCLNodeConfigOpts(memory.WithFinalityDepths(map[uint64]uint32{
 			chains[1].EvmChainID: 30, // make dest chain finality depth 30 so we can observe exec behavior

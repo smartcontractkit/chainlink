@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	solanago "github.com/gagliardetto/solana-go"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	"golang.org/x/exp/maps"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -111,7 +113,14 @@ type TestConfigs struct {
 	// ExtraConfigTomls contains the filenames of additional toml files to be loaded
 	// to potentially override default configs.
 	ExtraConfigTomls []string
+
+	// CLNodeConfigOpts are the config options to be passed to the chainlink node.
+	// Only used in memory mode.
 	CLNodeConfigOpts []memory.ConfigOpt
+
+	// ChainTopology is the chain-node topology of the role DON.
+	// Only used in memory mode.
+	ChainTopology memory.ChainTopology
 }
 
 func (tc *TestConfigs) Validate() error {
@@ -127,7 +136,22 @@ func (tc *TestConfigs) Validate() error {
 	if tc.Type == Memory && tc.RMNEnabled {
 		return errors.New("cannot run RMN tests in memory mode")
 	}
+	if tc.Type == Memory && tc.ChainTopology.FChainToNumChains != nil {
+		totalChains := 0
+		for _, numChains := range tc.ChainTopology.FChainToNumChains {
+			totalChains += numChains
+		}
+		// minus 1 for the home chain.
+		if totalChains != tc.NumChains()-1 {
+			return fmt.Errorf("the sum of the number of chains in the chain topology must be equal to the number of chains set up in the test MINUS the home chain, got %d, expected %d", totalChains, tc.Chains-1)
+		}
+	}
 	return nil
+}
+
+// NumChains returns the total number of chains, across all families, set in this config.
+func (tc *TestConfigs) NumChains() int {
+	return tc.Chains + tc.AptosChains + tc.SolChains
 }
 
 func (tc *TestConfigs) MustSetEnvTypeOrDefault(t *testing.T) {
@@ -294,6 +318,12 @@ func WithNumOfBootstrapNodes(numBootstraps int) TestOps {
 	}
 }
 
+func WithChainTopology(topology memory.ChainTopology) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.ChainTopology = topology
+	}
+}
+
 type TestEnvironment interface {
 	SetupJobs(t *testing.T)
 	DeleteJobs(ctx context.Context, jobIDs map[string][]string) error
@@ -312,6 +342,9 @@ type DeployedEnv struct {
 	ReplayBlocks           map[uint64]uint64
 	Users                  map[uint64][]*bind.TransactOpts
 	RmnEnabledSourceChains map[uint64]bool
+
+	// MemoryNodes is only ever set in memory mode.
+	MemoryNodes []memory.Node
 }
 
 func (d *DeployedEnv) TimelockContracts(t *testing.T) map[uint64]*proposalutils.TimelockExecutionContracts {
@@ -332,7 +365,7 @@ func (d *DeployedEnv) SetupJobs(t *testing.T) {
 	_, err := commonchangeset.Apply(t, d.Env, nil,
 		commonchangeset.Configure(cldf.CreateLegacyChangeSet(v1_6.CCIPCapabilityJobspecChangeset), nil))
 	require.NoError(t, err)
-	ReplayLogs(t, d.Env.Offchain, d.ReplayBlocks)
+	ReplayLogs(t, d.Env.Offchain, d.ReplayBlocks, WithAssertOnError(false))
 }
 
 type MemoryEnvironment struct {
@@ -421,6 +454,8 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 		NumBootstraps:  tc.Bootstraps,
 		RegistryConfig: crConfig,
 		CustomDBSetup:  nil,
+		ChainTopology:  tc.ChainTopology,
+		HomeChainSel:   m.HomeChainSel,
 	}
 	nodes := memory.NewNodes(t, c, tc.CLNodeConfigOpts...)
 	ctx := testcontext.Get(t)
@@ -433,6 +468,7 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 	}
 	m.nodes = nodes
 	m.DeployedEnv.Env = memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, m.Chains, m.SolChains, m.AptosChains, nodes)
+	m.DeployedEnv.MemoryNodes = maps.Values(nodes)
 }
 
 func (m *MemoryEnvironment) DeleteJobs(ctx context.Context, jobIDs map[string][]string) error {
@@ -502,6 +538,7 @@ func NewMemoryEnvironment(t *testing.T, opts ...TestOps) (DeployedEnv, TestEnvir
 	for _, opt := range opts {
 		opt(testCfg)
 	}
+	testCfg.MustSetEnvTypeOrDefault(t)
 	require.NoError(t, testCfg.Validate(), "invalid test config")
 	env := &MemoryEnvironment{
 		TestConfig: testCfg,
@@ -809,7 +846,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	}
 	nodeInfo, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
-	// Build the per chain config.
+
+	// Build the CCIPHome chain configs.
 	chainConfigs := make(map[uint64]v1_6.ChainConfig)
 	commitOCRConfigs := make(map[uint64]v1_6.CCIPOCRParams)
 	execOCRConfigs := make(map[uint64]v1_6.CCIPOCRParams)
@@ -841,9 +879,25 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		}
 		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenConfig.GetTokenInfo(e.Env.Logger, linkTokenAddr, state.MustGetEVMChainState(chain).Weth9.Address()), ocrOverride)
 		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
+		// if we're in memory mode, we need to set the readers to the memory nodes.
+		var readers [][32]byte
+		if tc.Type == Memory && tc.ChainTopology.FChainToNumChains != nil {
+			nonBootstraps := nodeInfo.NonBootstraps().PeerIDs()
+			for _, node := range e.MemoryNodes {
+				// Bootstrap nodes are not included in the readers since they don't participate in the OCR plugin protocol,
+				// only (initially) peer discovery.
+				if slices.Contains(node.Chains, chain) && slices.Contains(nonBootstraps, [32]byte(node.Keys.PeerID)) {
+					readers = append(readers, node.Keys.PeerID)
+				}
+			}
+			t.Logf("setting readers for chain %d to %v due to topology %v", chain, readers, tc.ChainTopology.FChainToNumChains)
+		} else {
+			t.Logf("setting readers for chain %d to %v due to no topology", chain, nodeInfo.NonBootstraps().PeerIDs())
+			readers = nodeInfo.NonBootstraps().PeerIDs()
+		}
 		chainConfigs[chain] = v1_6.ChainConfig{
-			Readers: nodeInfo.NonBootstraps().PeerIDs(),
-			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			Readers: readers,
+			FChain:  uint8(len(readers) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:      cciptypes.BigInt{Int: big.NewInt(DefaultGasPriceDeviationPPB)},
 				DAGasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(DefaultDAGasPriceDeviationPPB)},
@@ -863,10 +917,21 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		ocrOverride := tc.OCRConfigOverride
 		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenInfo, ocrOverride)
 		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
+		var readers [][32]byte
+		if tc.Type == Memory && tc.ChainTopology.FChainToNumChains != nil {
+			for _, node := range e.MemoryNodes {
+				if slices.Contains(node.Chains, chain) {
+					readers = append(readers, node.Keys.PeerID)
+				}
+			}
+			t.Logf("setting readers for chain %d to %v due to topology %v", chain, readers, tc.ChainTopology.FChainToNumChains)
+		} else {
+			readers = nodeInfo.NonBootstraps().PeerIDs()
+		}
 		chainConfigs[chain] = v1_6.ChainConfig{
-			Readers: nodeInfo.NonBootstraps().PeerIDs(),
+			Readers: readers,
 			// #nosec G115 - Overflow is not a concern in this test scenario
-			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			FChain: uint8(len(readers) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:      cciptypes.BigInt{Int: big.NewInt(DefaultGasPriceDeviationPPB)},
 				DAGasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(DefaultDAGasPriceDeviationPPB)},
@@ -971,7 +1036,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelockContractsPerChain, apps)
 	require.NoError(t, err)
 
-	ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
+	ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks, WithAssertOnError(false))
 
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)

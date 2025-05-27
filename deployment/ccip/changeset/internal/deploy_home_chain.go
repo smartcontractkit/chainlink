@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -149,7 +150,13 @@ func BuildSetOCR3ConfigArgs(
 		var transmitterAddresses []common.Address
 		for _, node := range configForOCR3.Config.Nodes {
 			signerAddresses = append(signerAddresses, common.BytesToAddress(node.SignerKey))
-			transmitterAddresses = append(transmitterAddresses, common.BytesToAddress(node.TransmitterKey))
+
+			// Not all nodes support the destination chain, if the transmitter key is empty in the CCIPHome OCR3 config,
+			// it means that we can omit it from the transmitter whitelist on the OCR3 contract
+			// on the destination chain.
+			if len(node.TransmitterKey) > 0 {
+				transmitterAddresses = append(transmitterAddresses, common.BytesToAddress(node.TransmitterKey))
+			}
 		}
 
 		offrampOCR3Configs = append(offrampOCR3Configs, offramp.MultiOCR3BaseOCRConfigArgs{
@@ -205,17 +212,20 @@ func validateOCR3Config(chainSel uint64, configForOCR3 ccip_home.CCIPHomeOCR3Con
 		if bytes.IsEmpty(node.SignerKey) {
 			return fmt.Errorf("zero address found in signer key, chain %d", chainSel)
 		}
-		if bytes.IsEmpty(node.TransmitterKey) {
-			return fmt.Errorf("zero address found in transmitter key,  chain %d", chainSel)
-		}
+		// This check is not needed because the node can have a zero transmitter address if it does not support the destination chain.
+		// if bytes.IsEmpty(node.TransmitterKey) {
+		// 	return fmt.Errorf("zero address found in transmitter key,  chain %d", chainSel)
+		// }
 		if bytes.IsEmpty(node.P2pId[:]) {
 			return fmt.Errorf("empty p2p id, chain %d", chainSel)
 		}
-		// Signer and transmitter duplication must be checked
+		// Signer and non-zero transmitter duplication must be checked
 		if _, ok := mapSignerKey[hexutil.Encode(node.SignerKey)]; ok {
 			return fmt.Errorf("duplicate signer key found, chain %d", chainSel)
 		}
-		if _, ok := mapTransmitterKey[hexutil.Encode(node.TransmitterKey)]; ok {
+		// If len(node.TransmitterKey) == 0, the node does not support the destination chain, and we can definitely
+		// have more than one node not supporting the destination chain.
+		if _, ok := mapTransmitterKey[hexutil.Encode(node.TransmitterKey)]; ok && len(node.TransmitterKey) != 0 {
 			return fmt.Errorf("duplicate transmitter key found, chain %d", chainSel)
 		}
 		mapSignerKey[hexutil.Encode(node.SignerKey)] = struct{}{}
@@ -312,24 +322,69 @@ func BuildOCR3ConfigForCCIPHome(
 	execOffchainCfg *pluginconfig.ExecuteOffchainConfig,
 	skipChainConfigValidation bool,
 ) (map[types.PluginType]ccip_home.CCIPHomeOCR3Config, error) {
+	// check if we have info from this node for another chain in the same destFamily
+	destFamily, err := chain_selectors.GetSelectorFamily(destSelector)
+	if err != nil {
+		return nil, err
+	}
+
 	var p2pIDs [][32]byte
 	// Get OCR3 Config from helper
 	var schedule []int
 	var oracles []confighelper.OracleIdentityExtra
 	for _, node := range nodes {
 		schedule = append(schedule, 1)
+
+		// TODO: not every node supports the destination chain, but nodes must have an OCR identity for the
+		// destination chain, in order to be able to participate in the OCR protocol, sign reports, etc.
+		// However, JD currently only returns the "OCRConfig" for chains that are explicitly supported by the node,
+		// presumably in the TOML config.
+		// JD should instead give us the OCR identity for the destination chain, and, if the node does NOT
+		// actually support the chain (in terms of TOML config), then return an empty transmitter address,
+		// which is what we're supposed to set anyway if that particular node doesn't support the destination chain.
+		// The current workaround is to check if we have the OCR identity for the destination chain based off of
+		// the node's OCR identity for another chain in the same family.
+		// This is a HACK, because it is entirely possible that the destination chain is a unique family,
+		// and no other supported chain by the node has the same family, e.g. Solana.
 		cfg, exists := node.OCRConfigForChainSelector(destSelector)
 		if !exists {
-			return nil, fmt.Errorf("no OCR config for chain %d", destSelector)
+			// check if we have an oracle identity for another chain in the same family as destFamily.
+			allOCRConfigs := node.AllOCRConfigs()
+			for chainDetails, ocrConfig := range allOCRConfigs {
+				chainFamily, err := chain_selectors.GetSelectorFamily(chainDetails.ChainSelector)
+				if err != nil {
+					return nil, err
+				}
+
+				if chainFamily == destFamily {
+					cfg = ocrConfig
+					break
+				}
+			}
+
+			if cfg.OffchainPublicKey == [32]byte{} {
+				return nil, fmt.Errorf(
+					"no OCR config for chain %d (family %s) from node %s (peer id %s) and no other OCR config for another chain in the same family",
+					destSelector, destFamily, node.Name, node.PeerID.String(),
+				)
+			}
+		}
+
+		var transmitAccount ocrtypes.Account
+		if !exists {
+			transmitAccount = ocrtypes.Account("") // empty account means that the node cannot transmit for this chain
+		} else {
+			transmitAccount = cfg.TransmitAccount
 		}
 		p2pIDs = append(p2pIDs, node.PeerID)
 		oracles = append(oracles, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{
-				OnchainPublicKey:  cfg.OnchainPublicKey,
-				TransmitAccount:   cfg.TransmitAccount,
-				OffchainPublicKey: cfg.OffchainPublicKey,
-				PeerID:            cfg.PeerID.String()[4:],
-			}, ConfigEncryptionPublicKey: cfg.ConfigEncryptionPublicKey,
+				OnchainPublicKey:  cfg.OnchainPublicKey,    // should be the same for all chains within the same family
+				TransmitAccount:   transmitAccount,         // different per chain (!) can be empty if the node does not support the destination chain
+				OffchainPublicKey: cfg.OffchainPublicKey,   // should be the same for all chains within the same family
+				PeerID:            cfg.PeerID.String()[4:], // should be the same for all oracle identities
+			},
+			ConfigEncryptionPublicKey: cfg.ConfigEncryptionPublicKey, // should be the same for all chains within the same family
 		})
 	}
 
@@ -398,6 +453,13 @@ func BuildOCR3ConfigForCCIPHome(
 				return nil, err
 			}
 			var parsed []byte
+
+			// if the node does not support the destination chain, the transmitter address is empty.
+			if len(transmitter) == 0 {
+				transmittersBytes[i] = []byte{}
+				continue
+			}
+
 			switch family {
 			case chain_selectors.FamilyEVM:
 				parsed, err2 = common.ParseHexOrString(string(transmitter))
@@ -422,9 +484,12 @@ func BuildOCR3ConfigForCCIPHome(
 			OffchainConfigVersion: offchainConfigVersion,
 			OffchainConfig:        offchainConfig,
 		})
-		if err != nil {
+		// we can ignore the duplicate transmitter error because its possible that more than
+		// one node in the DON doesn't support transmitting to the destination chain.
+		if err != nil && !strings.Contains(err.Error(), "duplicate transmitter ''") {
 			return nil, fmt.Errorf("failed to validate ocr3 params: %w", err)
 		}
+
 		var ocrNodes []ccip_home.CCIPHomeOCR3Node
 		for i := range nodes {
 			ocrNodes = append(ocrNodes, ccip_home.CCIPHomeOCR3Node{
