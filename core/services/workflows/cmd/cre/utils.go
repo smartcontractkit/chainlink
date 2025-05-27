@@ -3,26 +3,30 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"path"
 	"time"
 
 	"github.com/jonboulle/clockwork"
 
-	cronserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron/server"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 const (
@@ -33,6 +37,16 @@ const (
 	defaultOwner                     = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	defaultName                      = "myworkflow"
 )
+
+type loopWrapper struct {
+	*standardcapabilities.StandardCapabilities
+}
+
+func (l *loopWrapper) Ready() error { return nil }
+
+func (l *loopWrapper) HealthReport() map[string]error { return make(map[string]error) }
+
+func (l *loopWrapper) Name() string { return "wrapped" }
 
 func NewStandaloneEngine(
 	ctx context.Context,
@@ -139,13 +153,24 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 	}
 	caps = append(caps, streamsTrigger)
 
-	cronTrigger := cronserver.NewCronServer(
-		fakes.NewTriggerService(lggr, nil),
-	)
-	if err := registry.Add(ctx, cronTrigger); err != nil {
-		return nil, fmt.Errorf("failed to add cron trigger to registry : %w", err)
+	pluginRegistrar := plugins.NewRegistrarConfig(
+		loop.GRPCOpts{},
+		func(name string) (*plugins.RegisteredLoop, error) { return &plugins.RegisteredLoop{}, nil },
+		func(loopId string) {})
+
+	goBinPath := os.Getenv("GOBIN")
+	spec := &job.StandardCapabilitiesSpec{
+		Command: path.Join(goBinPath, "cron"),
 	}
-	caps = append(caps, cronTrigger)
+
+	cronLoop := standardcapabilities.NewStandardCapabilities(lggr, spec,
+		pluginRegistrar, &fakes.TelemetryServiceMock{}, &fakes.KVStoreMock{},
+		registry, &fakes.ErrorLogMock{}, &fakes.PipelineRunnerServiceMock{},
+		&fakes.RelayerSetMock{}, &fakes.OracleFactoryMock{})
+
+	caps = append(caps, &loopWrapper{
+		StandardCapabilities: cronLoop,
+	})
 
 	fakeConsensus, err := fakes.NewFakeConsensus(lggr, fakes.DefaultFakeConsensusConfig())
 	if err != nil {
