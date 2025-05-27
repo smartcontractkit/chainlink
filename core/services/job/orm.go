@@ -167,7 +167,7 @@ func (o *orm) AssertBridgesExist(ctx context.Context, p pipeline.Pipeline) error
 	return nil
 }
 
-// CreateJob creates the job, and it's associated spec record.
+// CreateJob creates the job, and its associated spec record.
 // Expects an unmarshalled job spec as the jb argument i.e. output from ValidatedXX.
 // Scans all persisted records back into jb
 func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
