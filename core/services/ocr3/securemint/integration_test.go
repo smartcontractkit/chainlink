@@ -443,7 +443,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, legacyVerifierAddr, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
 
 		// TODO(gg): maybe add pluginConfig, depending on new plugin
-		// addSecureMintOCRJobs(t, nodes, clientPubKeys)
+		addSecureMintOCRJobs(t, nodes, clientPubKeys)
 
 		// Set config on configurator
 		setLegacyConfig(

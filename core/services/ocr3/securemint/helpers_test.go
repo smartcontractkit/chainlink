@@ -363,7 +363,7 @@ contractConfigTrackerPollInterval = "1s"
 providerType = "llo"`, relayType, name, configuratorAddress.Hex(), relayConfig))
 }
 
-func addLLOJob(
+func addLLOJob(i int,
 	t *testing.T,
 	node Node,
 	configuratorAddr common.Address,
@@ -405,7 +405,7 @@ func addLLOJob(
 		pluginConfig,
 		relayConfig,
 	)
-	t.Logf("llo spec: %s", spec)
+	t.Logf("node %d llo spec: %s", i, spec)
 	node.AddLLOJob(t, spec)
 }
 
@@ -487,7 +487,7 @@ func addOCRJobsEVMPremiumLegacy(
 				jobIDs[i][strm.id] = jobID
 			}
 		}
-		addLLOJob(
+		addLLOJob(i,
 			t,
 			node,
 			configuratorAddress,
@@ -515,7 +515,7 @@ func addSecureMintOCRJobs(
 	for i, node := range nodes {
 		name := "securemint-ea"
 		bmBridge := createSingleDecimalBridge(t, name, i, decimal.NewFromFloat32(1000), node.App.BridgeORM())
-		jobID := addSecureMintJob(
+		jobID := addSecureMintJob(i,
 			t,
 			node,
 			clientPubKeys[i],
@@ -540,7 +540,7 @@ func addSecureMintOCRJobs(
 	return jobIDs
 }
 
-func addSecureMintJob(
+func addSecureMintJob(i int,
 	t *testing.T,
 	node Node,
 	clientPubKey ed25519.PublicKey,
@@ -555,7 +555,7 @@ func addSecureMintJob(
 
 	c := node.App.GetConfig()
 
-	t.Logf("spec: %s", spec)
+	t.Logf("node %d sm spec: %s", i, spec)
 	job, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), spec, nil)
 	require.NoError(t, err)
 
