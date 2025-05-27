@@ -442,7 +442,7 @@ channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
 		addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, legacyVerifierAddr, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
 
-		addSecureMintOCRJobs(t, nodes, clientPubKeys)
+		addSecureMintOCRJobs(t, nodes)
 
 		// Set config on configurator
 		setLegacyConfig(

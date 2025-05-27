@@ -508,7 +508,7 @@ func addOCRJobsEVMPremiumLegacy(
 func addSecureMintOCRJobs(
 	t *testing.T,
 	nodes []Node,
-	clientPubKeys []ed25519.PublicKey) (jobIDs map[int]int32) {
+) (jobIDs map[int]int32) {
 
 	// node idx => job id
 	jobIDs = make(map[int]int32)
@@ -516,11 +516,10 @@ func addSecureMintOCRJobs(
 	// Create one bridge and one SM Feed OCR job on each node
 	for i, node := range nodes {
 		name := "securemint-ea"
-		bmBridge := createSingleDecimalBridge(t, name, i, decimal.NewFromFloat32(1000), node.App.BridgeORM())
+		bmBridge := createSecureMintBridge(t, name, i, decimal.NewFromFloat32(1000), node.App.BridgeORM())
 		jobID := addSecureMintJob(i,
 			t,
 			node,
-			clientPubKeys[i],
 			bmBridge,
 		)
 		jobIDs[i] = jobID
@@ -546,7 +545,6 @@ func addSecureMintOCRJobs(
 func addSecureMintJob(i int,
 	t *testing.T,
 	node Node,
-	clientPubKey ed25519.PublicKey,
 	bridgeName string,
 ) (id int32) {
 
@@ -629,5 +627,30 @@ updateInterval = "1m"
 		bridgeName,         // bridge name
 		bridgeName,         // bridge name
 		bridgeName)         // bridge name
+}
 
+func createSecureMintBridge(t *testing.T, name string, i int, p decimal.Decimal, borm bridges.ORM) (bridgeName string) {
+	ctx := testutils.Context(t)
+	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		b, err := io.ReadAll(req.Body)
+		require.NoError(t, err)
+		t.Logf("request body: %s", string(b))
+		// TODO(gg): assert on the EA request format here
+		// require.JSONEq(t, `{"meta":{"latestAnswer":"", "updatedAt": ""}}`, string(b))
+
+		res.WriteHeader(http.StatusOK)
+		val := p.String()
+		resp := fmt.Sprintf(`{"result": %s}`, val)
+		_, err = res.Write([]byte(resp))
+		require.NoError(t, err)
+	}))
+	t.Cleanup(bridge.Close)
+	u, _ := url.Parse(bridge.URL)
+	bridgeName = fmt.Sprintf("bridge-%s-%d", name, i)
+	require.NoError(t, borm.CreateBridgeType(ctx, &bridges.BridgeType{
+		Name: bridges.BridgeName(bridgeName),
+		URL:  models.WebURL(*u),
+	}))
+
+	return bridgeName
 }
