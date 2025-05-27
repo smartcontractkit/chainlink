@@ -556,7 +556,7 @@ func addSecureMintJob(i int,
 
 	addresses, err := node.App.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
-	spec := getJobSpec("0x0000000000000000000000000000000000000000", node.KeyBundle.ID(), addresses[0].String(), bridgeName)
+	spec := getJobSpec("0x0000000000000000000000000000000000000001", node.KeyBundle.ID(), addresses[0].String(), bridgeName)
 
 	c := node.App.GetConfig()
 
