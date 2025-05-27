@@ -1,6 +1,7 @@
 package stateview_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -12,7 +13,6 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
@@ -38,21 +38,25 @@ func TestSmokeState(t *testing.T) {
 }
 
 func TestMCMSState(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-106")
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNoJobsAndContracts())
-	addressbook := cldf.NewMemoryAddressBook()
-	newTv := cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
-	newTv.AddLabel(types.BypasserRole.String())
-	newTv.AddLabel(types.CancellerRole.String())
-	newTv.AddLabel(types.ProposerRole.String())
-	addr := utils.RandomAddress()
-	require.NoError(t, addressbook.Save(tenv.HomeChainSel, addr.String(), newTv))
-	require.NoError(t, tenv.Env.ExistingAddresses.Merge(addressbook))
-	state, err := stateview.LoadOnchainState(tenv.Env)
-	require.NoError(t, err)
-	require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].BypasserMcm.Address().String())
-	require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].ProposerMcm.Address().String())
-	require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].CancellerMcm.Address().String())
+	const iterations = 10 // Number of times to run the test
+	for i := 0; i < iterations; i++ {
+		t.Run(fmt.Sprintf("Iteration_%d", i+1), func(t *testing.T) {
+			tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNoJobsAndContracts())
+			addressbook := cldf.NewMemoryAddressBook()
+			newTv := cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+			newTv.AddLabel(types.BypasserRole.String())
+			newTv.AddLabel(types.CancellerRole.String())
+			newTv.AddLabel(types.ProposerRole.String())
+			addr := utils.RandomAddress()
+			require.NoError(t, addressbook.Save(tenv.HomeChainSel, addr.String(), newTv))
+			require.NoError(t, tenv.Env.ExistingAddresses.Merge(addressbook))
+			state, err := stateview.LoadOnchainState(tenv.Env)
+			require.NoError(t, err)
+			require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].BypasserMcm.Address().String())
+			require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].ProposerMcm.Address().String())
+			require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].CancellerMcm.Address().String())
+		})
+	}
 }
 
 func TestEnforceMCMSUsageIfProd(t *testing.T) {
