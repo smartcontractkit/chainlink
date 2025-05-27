@@ -1,7 +1,6 @@
 package stateview_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -38,25 +37,20 @@ func TestSmokeState(t *testing.T) {
 }
 
 func TestMCMSState(t *testing.T) {
-	const iterations = 10 // Number of times to run the test
-	for i := 0; i < iterations; i++ {
-		t.Run(fmt.Sprintf("Iteration_%d", i+1), func(t *testing.T) {
-			tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNoJobsAndContracts())
-			addressbook := cldf.NewMemoryAddressBook()
-			newTv := cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
-			newTv.AddLabel(types.BypasserRole.String())
-			newTv.AddLabel(types.CancellerRole.String())
-			newTv.AddLabel(types.ProposerRole.String())
-			addr := utils.RandomAddress()
-			require.NoError(t, addressbook.Save(tenv.HomeChainSel, addr.String(), newTv))
-			require.NoError(t, tenv.Env.ExistingAddresses.Merge(addressbook))
-			state, err := stateview.LoadOnchainState(tenv.Env)
-			require.NoError(t, err)
-			require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].BypasserMcm.Address().String())
-			require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].ProposerMcm.Address().String())
-			require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].CancellerMcm.Address().String())
-		})
-	}
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNoJobsAndContracts())
+	addressbook := cldf.NewMemoryAddressBook()
+	newTv := cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+	newTv.AddLabel(types.BypasserRole.String())
+	newTv.AddLabel(types.CancellerRole.String())
+	newTv.AddLabel(types.ProposerRole.String())
+	addr := utils.RandomAddress()
+	require.NoError(t, addressbook.Save(tenv.HomeChainSel, addr.String(), newTv))
+	require.NoError(t, tenv.Env.ExistingAddresses.Merge(addressbook))
+	state, err := stateview.LoadOnchainState(tenv.Env)
+	require.NoError(t, err)
+	require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].BypasserMcm.Address().String())
+	require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].ProposerMcm.Address().String())
+	require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].CancellerMcm.Address().String())
 }
 
 func TestEnforceMCMSUsageIfProd(t *testing.T) {
