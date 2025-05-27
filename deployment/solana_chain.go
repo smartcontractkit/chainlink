@@ -26,4 +26,5 @@ var SolanaProgramBytes = map[string]int{
 	TimelockProgramName:             1 * 1024 * 1024,
 	McmProgramName:                  1 * 1024 * 1024,
 	RMNRemoteProgramName:            3 * 1024 * 1024,
+	KeystoneForwarderProgramName:    5 * 1024 * 1024,
 }

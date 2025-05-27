@@ -27,13 +27,13 @@ func TestDeployForwarder(t *testing.T) {
 	t.Run("should deploy forwarder", func(t *testing.T) {
 		ab := cldf.NewMemoryAddressBook()
 		cfg := helpers.BuildSolanaConfig{
-			GitCommitSha:   "6442d0e438ca175b1b2ce059a174ba4bf4e8afc1",
+			GitCommitSha:   "d047073ea230f965626716029f8d902729ddffed",
 			DestinationDir: "./contracts",
 			LocalBuild: helpers.LocalBuildConfig{
 				BuildLocally:         true,
-				CleanDestinationDir:  false,
+				CleanDestinationDir:  true,
 				CreateDestinationDir: true,
-				CleanGitDir:          false,
+				CleanGitDir:          true,
 			},
 		}
 

@@ -298,7 +298,7 @@ func buildLocally(e cldf.Environment, config BuildSolanaConfig, params DomainPar
 }
 
 func BuildSolana(e cldf.Environment, config BuildSolanaConfig, params DomainParams) error {
-	// TODO support local build for keystone? move it to domains?
+	// TODO move Local Build to CCIP changesets
 	if !config.LocalBuild.BuildLocally {
 		e.Logger.Debug("Downloading Solana CCIP program artifacts...")
 		err := memory.DownloadSolanaCCIPProgramArtifacts(e.GetContext(), config.DestinationDir, e.Logger, config.GitCommitSha)
@@ -306,10 +306,10 @@ func BuildSolana(e cldf.Environment, config BuildSolanaConfig, params DomainPara
 			return fmt.Errorf("error downloading solana ccip program artifacts: %w", err)
 		}
 	} else {
-		e.Logger.Debug("Building Solana CCIP program artifacts locally...")
+		e.Logger.Debug("Building Solana program artifacts locally...")
 		err := buildLocally(e, config, params)
 		if err != nil {
-			return fmt.Errorf("error building solana ccip program artifacts: %w", err)
+			return fmt.Errorf("error building solana program artifacts: %w", err)
 		}
 	}
 
