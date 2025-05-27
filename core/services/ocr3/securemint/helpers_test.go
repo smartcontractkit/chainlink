@@ -572,6 +572,8 @@ func addSecureMintJob(i int,
 
 func getJobSpec(ocrContractAddress, keyBundleID, transmitterAddress, bridgeName string) string {
 
+	// TODO(gg): allowNoBootstrappers set to true to make it start up - not sure if we want to set this to false later
+
 	return fmt.Sprintf(`
 type               = "offchainreporting2"
 relay              = "evm"
@@ -594,6 +596,8 @@ observationSource  = """
 
 	answer1 [type=median index=0];
 """
+
+allowNoBootstrappers = true
 
 [relayConfig]
 chainID = 1337
