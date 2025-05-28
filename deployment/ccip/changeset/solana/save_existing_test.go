@@ -67,9 +67,6 @@ func TestSaveExisting(t *testing.T) {
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		SolChains: map[uint64]cldf.SolChain{
-			chainsel.SOLANA_DEVNET.Selector: {},
-		},
 		BlockChains: chain.NewBlockChains(
 			map[uint64]chain.BlockChain{
 				chainsel.SOLANA_DEVNET.Selector: cldf_solana.Chain{},

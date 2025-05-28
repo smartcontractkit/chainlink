@@ -166,8 +166,9 @@ type MCMSWithTimelockStateSolana struct {
 // MaybeLoadMCMSWithTimelockState loads the MCMSWithTimelockState state for each chain in the given environment.
 func MaybeLoadMCMSWithTimelockStateSolana(env cldf.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockStateSolana, error) {
 	result := map[uint64]*MCMSWithTimelockStateSolana{}
+	solChains := env.BlockChains.SolanaChains()
 	for _, chainSelector := range chainSelectors {
-		chain, ok := env.SolChains[chainSelector]
+		chain, ok := solChains[chainSelector]
 		if !ok {
 			return nil, fmt.Errorf("chain %d not found", chainSelector)
 		}

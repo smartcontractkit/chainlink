@@ -127,7 +127,7 @@ func (c RMNCurseConfig) Validate(e cldf.Environment) error {
 					return fmt.Errorf("invalid subject %x", action.SubjectToCurse)
 				}
 
-				targetChain := e.SolChains[action.ChainSelector]
+				targetChain := e.BlockChains.SolanaChains()[action.ChainSelector]
 				targetChainState, ok := state.SolChains[action.ChainSelector]
 				if !ok {
 					return fmt.Errorf("chain %s not found in onchain state", targetChain.String())
@@ -529,7 +529,7 @@ type SolanaCursableChain struct {
 }
 
 func (c SolanaCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error) {
-	chain := c.env.SolChains[c.selector]
+	chain := c.env.BlockChains.SolanaChains()[c.selector]
 	curseSubject := solRmnRemote.CurseSubject{
 		Value: subject,
 	}
@@ -645,7 +645,7 @@ func (c SolanaCursableChain) IsConnectedToSourceChain(selector uint64) (bool, er
 	}
 
 	var chainStateAccount solOffRamp.SourceChain
-	if err = c.env.SolChains[c.selector].GetAccountDataBorshInto(context.Background(), pda, &chainStateAccount); err != nil {
+	if err = c.env.BlockChains.SolanaChains()[c.selector].GetAccountDataBorshInto(context.Background(), pda, &chainStateAccount); err != nil {
 		return false, nil
 	}
 
@@ -653,7 +653,7 @@ func (c SolanaCursableChain) IsConnectedToSourceChain(selector uint64) (bool, er
 }
 
 func (c SolanaCursableChain) Name() string {
-	return c.env.SolChains[c.selector].Name()
+	return c.env.BlockChains.SolanaChains()[c.selector].Name()
 }
 
 type EvmCursableChain struct {

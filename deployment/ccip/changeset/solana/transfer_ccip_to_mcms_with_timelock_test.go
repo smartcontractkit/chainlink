@@ -10,6 +10,8 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	burnmint "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/burnmint_token_pool"
@@ -115,18 +117,12 @@ func TestValidateContracts(t *testing.T) {
 func TestValidate(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Bootstraps: 1,
-		Chains:     2,
-		SolChains:  1,
-		Nodes:      4,
+		SolChains: 1,
 	})
-	envWithInvalidSolChain := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Bootstraps: 1,
-		Chains:     2,
-		SolChains:  1,
-		Nodes:      4,
+	envWithInvalidSolChain := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{})
+	envWithInvalidSolChain.BlockChains = cldf_chain.NewBlockChains(map[uint64]cldf_chain.BlockChain{
+		chainselectors.ETHEREUM_TESTNET_SEPOLIA_LENS_1.Selector: cldf_solana.Chain{},
 	})
-	envWithInvalidSolChain.SolChains[chainselectors.ETHEREUM_TESTNET_SEPOLIA_LENS_1.Selector] = cldf.SolChain{}
 	timelockID := mcmsSolana.ContractAddress(solana.MustPublicKeyFromBase58(TimelockProgramID), [32]byte{'t', 'e', 's', 't'})
 	mcmsID := mcmsSolana.ContractAddress(solana.MustPublicKeyFromBase58(MCMProgramID), [32]byte{'t', 'e', 's', 't'})
 	solChain := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
@@ -142,22 +138,14 @@ func TestValidate(t *testing.T) {
 		expectedError    string
 	}{
 		{
-			name: "No chains found in environment",
-			env: memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-				Bootstraps: 1,
-				Chains:     0,
-				SolChains:  0,
-				Nodes:      4,
-			}),
+			name:          "No chains found in environment",
+			env:           memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{}),
 			expectedError: "no chains found",
 		},
 		{
 			name: "Chain selector not found in environment",
 			env: memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-				Bootstraps: 1,
-				Chains:     1,
-				SolChains:  1,
-				Nodes:      4,
+				SolChains: 1,
 			}),
 			contractsByChain: map[uint64]solanachangesets.CCIPContractsToTransfer{
 				99999: {Router: true, FeeQuoter: true},
@@ -210,7 +198,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 	homeChainSel := evmSelectors[0]
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
 	solChain1 := solChainSelectors[0]
-	solChain := e.SolChains[solChain1]
+	solChain := e.BlockChains.SolanaChains()[solChain1]
 	selectors := make([]uint64, 0, len(evmSelectors)+len(solChainSelectors))
 	selectors = append(selectors, evmSelectors...)
 	selectors = append(selectors, solChainSelectors...)
@@ -323,7 +311,7 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 	t.Parallel()
 	e, state := prepareEnvironmentForOwnershipTransfer(t)
 	solChain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
-	solChain := e.SolChains[solChain1]
+	solChain := e.BlockChains.SolanaChains()[solChain1]
 
 	tokenAddressLockRelease := state.SolChains[solChain1].SPL2022Tokens[0]
 	tokenAddressBurnMint := state.SolChains[solChain1].SPLTokens[0]
@@ -412,7 +400,7 @@ func TestTransferCCIPFromMCMSWithTimelockSolana(t *testing.T) {
 	t.Parallel()
 	e, state := prepareEnvironmentForOwnershipTransfer(t)
 	solChain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
-	solChain := e.SolChains[solChain1]
+	solChain := e.BlockChains.SolanaChains()[solChain1]
 
 	tokenAddressLockRelease := state.SolChains[solChain1].SPL2022Tokens[0]
 	tokenAddressBurnMint := state.SolChains[solChain1].SPLTokens[0]

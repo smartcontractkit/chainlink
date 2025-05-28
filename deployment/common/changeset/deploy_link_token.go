@@ -148,7 +148,7 @@ type DeploySolanaLinkTokenConfig struct {
 }
 
 func DeploySolanaLinkToken(e cldf.Environment, cfg DeploySolanaLinkTokenConfig) (cldf.ChangesetOutput, error) {
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	mint := cfg.TokenPrivKey
 	instructions, err := solTokenUtil.CreateToken(
 		context.Background(),

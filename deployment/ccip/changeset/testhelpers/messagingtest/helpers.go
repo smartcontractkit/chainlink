@@ -128,7 +128,7 @@ func getLatestNonce(tc TestCase) uint64 {
 		require.NoError(tc.T, err)
 	case chain_selectors.FamilySolana:
 		ctx := tc.T.Context()
-		client := tc.Env.SolChains[tc.DestChain].Client
+		client := tc.Env.BlockChains.SolanaChains()[tc.DestChain].Client
 		// TODO: solcommon.FindNoncePDA expected the sender to be a solana pubkey
 		chainSelectorLE := solcommon.Uint64ToLE(tc.DestChain)
 		noncePDA, _, err := solana.FindProgramAddress([][]byte{[]byte("nonce"), chainSelectorLE, tc.Sender}, tc.OnchainState.SolChains[tc.DestChain].Router)

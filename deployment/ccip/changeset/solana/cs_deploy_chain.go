@@ -168,7 +168,7 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 	}
 
 	chainSel := c.ChainSelector
-	chain := e.SolChains[chainSel]
+	chain := e.BlockChains.SolanaChains()[chainSel]
 	if existingState.SolChains[chainSel].LinkToken.IsZero() {
 		return cldf.ChangesetOutput{}, fmt.Errorf("fee tokens not found for chain %d", chainSel)
 	}
@@ -1091,7 +1091,7 @@ type CloseBuffersConfig struct {
 
 func CloseBuffersChangeset(e cldf.Environment, cfg CloseBuffersConfig) (cldf.ChangesetOutput, error) {
 	for _, buffer := range cfg.Buffers {
-		if err := e.SolChains[cfg.ChainSelector].CloseBuffers(e.Logger, buffer); err != nil {
+		if err := e.BlockChains.SolanaChains()[cfg.ChainSelector].CloseBuffers(e.Logger, buffer); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to close buffer: %w", err)
 		}
 	}

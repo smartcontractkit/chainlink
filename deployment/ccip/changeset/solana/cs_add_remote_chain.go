@@ -56,7 +56,7 @@ func (cfg *AddRemoteChainToRouterConfig) Validate(e cldf.Environment) error {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain, ok := e.SolChains[cfg.ChainSelector]
+	chain, ok := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
 	}
@@ -137,7 +137,7 @@ func doAddRemoteChainToRouter(
 	txns := make([]mcmsTypes.Transaction, 0)
 	chainSel := cfg.ChainSelector
 	updates := cfg.UpdatesByChain
-	chain := e.SolChains[chainSel]
+	chain := e.BlockChains.SolanaChains()[chainSel]
 	chainState := s.SolChains[chainSel]
 	ccipRouterID, routerConfigPDA, _ := s.SolChains[chainSel].GetRouterInfo()
 	offRampID := s.SolChains[chainSel].OffRamp
@@ -282,7 +282,7 @@ func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e cldf.Environment) error {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain, ok := e.SolChains[cfg.ChainSelector]
+	chain, ok := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
 	}
@@ -355,7 +355,7 @@ func doAddRemoteChainToFeeQuoter(
 	txns := make([]mcmsTypes.Transaction, 0)
 	chainSel := cfg.ChainSelector
 	updates := cfg.UpdatesByChain
-	chain := e.SolChains[chainSel]
+	chain := e.BlockChains.SolanaChains()[chainSel]
 	chainState := s.SolChains[chainSel]
 	feeQuoterID := s.SolChains[chainSel].FeeQuoter
 	offRampID := s.SolChains[chainSel].OffRamp
@@ -457,7 +457,7 @@ func (cfg *AddRemoteChainToOffRampConfig) Validate(e cldf.Environment) error {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain, ok := e.SolChains[cfg.ChainSelector]
+	chain, ok := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
 	}
@@ -531,7 +531,7 @@ func doAddRemoteChainToOffRamp(
 	txns := make([]mcmsTypes.Transaction, 0)
 	chainSel := cfg.ChainSelector
 	updates := cfg.UpdatesByChain
-	chain := e.SolChains[chainSel]
+	chain := e.BlockChains.SolanaChains()[chainSel]
 	chainState := s.SolChains[chainSel]
 	offRampID := s.SolChains[chainSel].OffRamp
 	offRampUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(

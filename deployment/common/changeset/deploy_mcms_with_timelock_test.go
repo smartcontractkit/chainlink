@@ -408,7 +408,7 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 
 	// solana chain 0
 	solanaState0 := solanaState[solanaSelectors[0]]
-	solanaChain0 := updatedEnv.SolChains[solanaSelectors[0]]
+	solanaChain0 := updatedEnv.BlockChains.SolanaChains()[solanaSelectors[0]]
 	solanaInspector := mcmssolanasdk.NewInspector(solanaChain0.Client)
 	solanaTimelockInspector := mcmssolanasdk.NewTimelockInspector(solanaChain0.Client)
 

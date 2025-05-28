@@ -52,7 +52,7 @@ func GetTokenProgramID(programName cldf.ContractType) (solana.PublicKey, error) 
 }
 
 func commonValidation(e cldf.Environment, selector uint64, tokenPubKey solana.PublicKey) error {
-	chain, ok := e.SolChains[selector]
+	chain, ok := e.BlockChains.SolanaChains()[selector]
 	if !ok {
 		return fmt.Errorf("chain selector %d not found in environment", selector)
 	}
@@ -139,7 +139,7 @@ type OffRampRefAddressesConfig struct {
 }
 
 func (cfg OffRampRefAddressesConfig) Validate(e cldf.Environment) error {
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -156,7 +156,7 @@ func UpdateOffRampRefAddresses(
 	config OffRampRefAddressesConfig,
 ) (cldf.ChangesetOutput, error) {
 	state, err := stateview.LoadOnchainStateSolana(e)
-	chain := e.SolChains[config.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[config.ChainSelector]
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return cldf.ChangesetOutput{}, err
@@ -260,7 +260,7 @@ func SetUpgradeAuthorityChangeset(
 	e cldf.Environment,
 	config SetUpgradeAuthorityConfig,
 ) (cldf.ChangesetOutput, error) {
-	chain := e.SolChains[config.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[config.ChainSelector]
 	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
@@ -389,7 +389,7 @@ func (cfg SetFeeAggregatorConfig) Validate(e cldf.Environment) error {
 	if !chainExists {
 		return fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
 	}
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
@@ -422,7 +422,7 @@ func SetFeeAggregator(e cldf.Environment, cfg SetFeeAggregatorConfig) (cldf.Chan
 
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 
 	feeAggregatorPubKey := solana.MustPublicKeyFromBase58(cfg.FeeAggregator)
 	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
@@ -493,7 +493,7 @@ func (cfg DeployForTestConfig) Validate(e cldf.Environment) error {
 	if !chainExists {
 		return fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
 	}
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 
 	return validateRouterConfig(chain, chainState)
 }
@@ -515,7 +515,7 @@ func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.Ch
 
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	ab := cldf.NewMemoryAddressBook()
 
 	var receiverAddress solana.PublicKey
@@ -585,7 +585,7 @@ func (cfg SetLinkTokenConfig) Validate(e cldf.Environment) error {
 	if !chainExists {
 		return fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
 	}
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 
 	return validateRouterConfig(chain, chainState)
 }
@@ -596,7 +596,7 @@ func SetLinkToken(e cldf.Environment, cfg SetLinkTokenConfig) (cldf.ChangesetOut
 	}
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 	feeQuoterConfigPDA, _, _ := solState.FindConfigPDA(chainState.FeeQuoter)
 

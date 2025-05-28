@@ -260,7 +260,7 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 	allSolChainSelectors := e.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySolana))
 	sourceChain, destChain := allChainSelectors[0], allSolChainSelectors[0]
 	ownerSourceChain := e.Chains[sourceChain].DeployerKey
-	// ownerDestChain := e.SolChains[destChain].DeployerKey
+	// ownerDestChain := e.BlockChains.SolanaChains()[destChain].DeployerKey
 
 	require.GreaterOrEqual(t, len(tenv.Users[sourceChain]), 2) // TODO: ???
 

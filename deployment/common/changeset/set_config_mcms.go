@@ -250,7 +250,7 @@ func setConfigSolana(
 	e cldf.Environment, chainSelector uint64, cfg ConfigPerRoleV2,
 	timelockAddressesPerChain, proposerMcmsPerChain map[uint64]string, useMCMS bool,
 ) ([]mcmstypes.BatchOperation, error) {
-	chain := e.SolChains[chainSelector]
+	chain := e.BlockChains.SolanaChains()[chainSelector]
 	mcmsStatePerChain, err := commonState.MaybeLoadMCMSWithTimelockStateSolana(e, []uint64{chainSelector})
 	if err != nil {
 		return nil, err

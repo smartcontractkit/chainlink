@@ -406,8 +406,8 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	allChainSelectors := maps.Keys(e.Env.Chains)
-	allSolChainSelectors := maps.Keys(e.Env.SolChains)
+	allChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
+	allSolChainSelectors := maps.Keys(e.Env.BlockChains.SolanaChains())
 	sourceChain := allSolChainSelectors[0]
 	destChain := allChainSelectors[0]
 	t.Log("All chain selectors:", allChainSelectors,
@@ -423,7 +423,7 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 	var (
 		replayed bool
 		nonce    uint64
-		sender   = common.LeftPadBytes(e.Env.SolChains[sourceChain].DeployerKey.PublicKey().Bytes(), 32)
+		sender   = common.LeftPadBytes(e.Env.BlockChains.SolanaChains()[sourceChain].DeployerKey.PublicKey().Bytes(), 32)
 		out      mt.TestCaseOutput
 		setup    = mt.NewTestSetupWithDeployedEnv(
 			t,

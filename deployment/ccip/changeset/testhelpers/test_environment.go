@@ -393,7 +393,6 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 
 	env := cldf.Environment{
 		Chains:      m.Chains,
-		SolChains:   m.SolChains,
 		BlockChains: cldf_chain.NewBlockChains(blockChains),
 	}
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
@@ -724,7 +723,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	solChains := []uint64{}
 	for _, chain := range allChains {
-		if _, ok := e.Env.SolChains[chain]; ok {
+		if _, ok := e.Env.BlockChains.SolanaChains()[chain]; ok {
 			solChains = append(solChains, chain)
 		}
 	}
