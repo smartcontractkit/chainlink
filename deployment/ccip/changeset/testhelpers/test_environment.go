@@ -15,8 +15,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	solanago "github.com/gagliardetto/solana-go"
-	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	"golang.org/x/exp/maps"
+
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -374,7 +376,7 @@ type MemoryEnvironment struct {
 	nodes       map[string]memory.Node
 	TestConfig  *TestConfigs
 	Chains      map[uint64]cldf.Chain
-	SolChains   map[uint64]cldf.SolChain
+	SolChains   map[uint64]cldf_solana.Chain
 	AptosChains map[uint64]cldf_aptos.Chain
 }
 
@@ -427,7 +429,6 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 
 	env := cldf.Environment{
 		Chains:      m.Chains,
-		SolChains:   m.SolChains,
 		BlockChains: cldf_chain.NewBlockChains(blockChains),
 	}
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
@@ -762,7 +763,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	solChains := []uint64{}
 	for _, chain := range allChains {
-		if _, ok := e.Env.SolChains[chain]; ok {
+		if _, ok := e.Env.BlockChains.SolanaChains()[chain]; ok {
 			solChains = append(solChains, chain)
 		}
 	}

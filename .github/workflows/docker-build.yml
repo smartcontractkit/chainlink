@@ -22,7 +22,19 @@ jobs:
   init:
     runs-on: ubuntu-24.04
     outputs:
+      # To get an image from a feature branch, do one of the following:
+      # 1. Use a workflow dispatch
+      # 2. Add the `build-publish` label to your PR, and re-run the workflow (or push a commit)
+      should-run: >-
+        ${{
+          steps.pr-labels.outputs.check-label-found == 'true' ||
+          github.event_name == 'push' ||
+          github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch'
+        }}
       build-type: ${{ steps.build-type.outputs.build-type }}
+      runner-arm64: ${{ steps.runner-labels.outputs.runner-arm64 }}
+      runner-amd64: ${{ steps.runner-labels.outputs.runner-amd64 }}
     steps:
       - name: Set Build Type
         id: build-type
@@ -43,8 +55,34 @@ jobs:
             exit 1
           fi
 
+      - name: Get PR Labels
+        id: pr-labels
+        uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
+        with:
+          check-label: "build-publish"
+          skip-merge-group: "true"
+
+      - name: Set runner labels
+        id: runner-labels
+        shell: bash
+        env:
+          SH_RUNNER_LABEL_ARM64: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c7g/disk=large/image=ubuntu24-full-arm64
+          SH_RUNNER_LABEL_AMD64: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c7a/disk=large/image=ubuntu24-full-x64
+          GH_RUNNER_LABEL_ARM64: ubuntu-24.04-arm
+          GH_RUNNER_LABEL_AMD64: ubuntu-24.04
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            echo "runner-arm64=${SH_RUNNER_LABEL_ARM64}" | tee -a "$GITHUB_OUTPUT"
+            echo "runner-amd64=${SH_RUNNER_LABEL_AMD64}" | tee -a "$GITHUB_OUTPUT"
+          else
+            # Use GitHub runner labels for non-PR events
+            echo "runner-arm64=${GH_RUNNER_LABEL_ARM64}" | tee -a "$GITHUB_OUTPUT"
+            echo "runner-amd64=${GH_RUNNER_LABEL_AMD64}" | tee -a "$GITHUB_OUTPUT"
+          fi
+
   docker-core:
     needs: [init]
+    if: ${{ needs.init.outputs.should-run == 'true' }}
     permissions:
       contents: read
       id-token: write
@@ -66,12 +104,15 @@ jobs:
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
       github-workflow-repository: ${{ github.repository }}
+      github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
+      github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
 
   docker-core-plugins:
     needs: [init]
+    if: ${{ needs.init.outputs.should-run == 'true' }}
     permissions:
       contents: read
       id-token: write
@@ -96,6 +137,8 @@ jobs:
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
       github-workflow-repository: ${{ github.repository }}
+      github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
+      github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
@@ -104,6 +147,7 @@ jobs:
 
   docker-ccip:
     needs: [init]
+    if: ${{ needs.init.outputs.should-run == 'true' }}
     permissions:
       contents: read
       id-token: write
@@ -126,12 +170,15 @@ jobs:
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
       github-workflow-repository: ${{ github.repository }}
+      github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
+      github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
 
   docker-ccip-plugins:
     needs: [init]
+    if: ${{ needs.init.outputs.should-run == 'true' }}
     permissions:
       contents: read
       id-token: write
@@ -156,6 +203,8 @@ jobs:
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
       github-workflow-repository: ${{ github.repository }}
+      github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
+      github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}

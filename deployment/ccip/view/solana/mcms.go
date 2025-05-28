@@ -7,9 +7,11 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/mcm"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 
@@ -52,7 +54,7 @@ type MCMSConfig struct {
 	Signers       []string `json:"signers,omitempty"`
 }
 
-func GenerateMCMSWithTimelockView(chain cldf.SolChain, addresses map[string]cldf.TypeAndVersion) (MCMSWithTimelockView, error) {
+func GenerateMCMSWithTimelockView(chain cldf_solana.Chain, addresses map[string]cldf.TypeAndVersion) (MCMSWithTimelockView, error) {
 	view := MCMSWithTimelockView{}
 	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
 	if err != nil {

@@ -36,7 +36,7 @@ func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewSolana(t *testing.T) 
 	envConfig := memory.MemoryEnvironmentConfig{SolChains: 1}
 	env := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, envConfig)
 	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
-	chain := env.SolChains[chainSelector]
+	chain := env.BlockChains.SolanaChains()[chainSelector]
 	defaultState := func() *state.MCMSWithTimelockStateSolana {
 		addressBook := cldf.NewMemoryAddressBook()
 		chainState, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, chain, addressBook,

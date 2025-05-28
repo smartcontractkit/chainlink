@@ -194,7 +194,7 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e cldf.Environment
 		return errors.New("active config digest is empty")
 	}
 	chainSel := homeCfg.Config.ChainSelector
-	if _, exists := e.SolChains[chainSel]; exists {
+	if _, exists := e.BlockChains.SolanaChains()[chainSel]; exists {
 		return nil
 	}
 	offRamp, ok := offRampsByChain[chainSel]
@@ -416,7 +416,7 @@ func (c CCIPChainState) ValidateRouter(e cldf.Environment, isTestRouter bool) ([
 	}
 	for _, d := range offRampDetails {
 		// skip if solana - solana state is maintained in solana
-		if _, exists := e.SolChains[d.SourceChainSelector]; exists {
+		if _, exists := e.BlockChains.SolanaChains()[d.SourceChainSelector]; exists {
 			continue
 		}
 		allConnectedChains = append(allConnectedChains, d.SourceChainSelector)

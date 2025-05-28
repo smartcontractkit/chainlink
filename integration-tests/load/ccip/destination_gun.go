@@ -371,7 +371,7 @@ func (m *DestinationGun) sendSolanaMessage(src uint64) error {
 
 	result, err := solcommon.SendAndConfirm(
 		m.env.GetContext(),
-		m.env.SolChains[src].Client,
+		m.env.BlockChains.SolanaChains()[src].Client,
 		[]solana.Instruction{instruction},
 		*sourceKey,
 		rpc.CommitmentConfirmed)

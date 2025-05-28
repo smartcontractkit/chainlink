@@ -238,12 +238,12 @@ func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]commonstate.MCMSWithT
 
 func (c CCIPOnChainState) SolanaMCMSStateByChain(e cldf.Environment) map[uint64]commonstate.MCMSWithTimelockStateSolana {
 	mcmsStateByChain := make(map[uint64]commonstate.MCMSWithTimelockStateSolana)
-	for chainSelector := range e.SolChains {
+	for chainSelector := range e.BlockChains.SolanaChains() {
 		addreses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			return mcmsStateByChain
 		}
-		mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[chainSelector], addreses)
+		mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[chainSelector], addreses)
 		if err != nil {
 			return mcmsStateByChain
 		}
@@ -279,7 +279,7 @@ func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx con
 		if !ok {
 			return 0, fmt.Errorf("chain %d not found in the state", selector)
 		}
-		chain, ok := env.SolChains[selector]
+		chain, ok := env.BlockChains.SolanaChains()[selector]
 		if !ok {
 			return 0, fmt.Errorf("solana chain %d not found in the environment", selector)
 		}
@@ -1146,7 +1146,7 @@ func LoadOnchainStateSolana(e cldf.Environment) (CCIPOnChainState, error) {
 	state := CCIPOnChainState{
 		SolChains: make(map[uint64]solana.CCIPChainState),
 	}
-	for chainSelector, chain := range e.SolChains {
+	for chainSelector, chain := range e.BlockChains.SolanaChains() {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			// Chain not found in address book, initialize empty

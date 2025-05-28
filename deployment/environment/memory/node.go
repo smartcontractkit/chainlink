@@ -22,6 +22,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
@@ -244,7 +246,7 @@ type NewNodeConfig struct {
 	// EVM chains to be configured. Optional.
 	Chains map[uint64]cldf.Chain
 	// Solana chains to be configured. Optional.
-	Solchains map[uint64]cldf.SolChain
+	Solchains map[uint64]cldf_solana.Chain
 	// Aptos chains to be configured. Optional.
 	Aptoschains    map[uint64]cldf_aptos.Chain
 	LogLevel       zapcore.Level
@@ -447,7 +449,7 @@ type Keys struct {
 func CreateKeys(t *testing.T,
 	app chainlink.Application,
 	chains map[uint64]cldf.Chain,
-	solchains map[uint64]cldf.SolChain,
+	solchains map[uint64]cldf_solana.Chain,
 	aptoschains map[uint64]cldf_aptos.Chain,
 ) Keys {
 	ctx := t.Context()
@@ -630,7 +632,7 @@ func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
 	}
 }
 
-func createSolanaChainConfig(chainID string, chain cldf.SolChain) *solcfg.TOMLConfig {
+func createSolanaChainConfig(chainID string, chain cldf_solana.Chain) *solcfg.TOMLConfig {
 	chainConfig := solcfg.Chain{}
 	chainConfig.SetDefaults()
 
