@@ -103,7 +103,6 @@ func TestDeployHomeChainIdempotent(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
-
 }
 
 func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
