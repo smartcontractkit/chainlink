@@ -10,12 +10,21 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/rs/zerolog/log"
 
+	solBurnMintTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/burnmint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	solLockReleaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/lockrelease_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+
+	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -85,6 +94,127 @@ func (s CCIPChainState) GetRouterInfo() (router, routerConfigPDA solana.PublicKe
 		return solana.PublicKey{}, solana.PublicKey{}, fmt.Errorf("failed to find config PDA: %w", err)
 	}
 	return s.Router, routerConfigPDA, nil
+}
+
+func (s CCIPChainState) GetActiveTokenPool(
+	poolType solTestTokenPool.PoolType,
+	metadata string,
+) (solana.PublicKey, cldf.ContractType) {
+	switch poolType {
+	case solTestTokenPool.BurnAndMint_PoolType:
+		if metadata == "" {
+			return s.BurnMintTokenPools[shared.CLLMetadata], shared.BurnMintTokenPool
+		}
+		return s.BurnMintTokenPools[metadata], shared.BurnMintTokenPool
+	case solTestTokenPool.LockAndRelease_PoolType:
+		if metadata == "" {
+			return s.LockReleaseTokenPools[shared.CLLMetadata], shared.LockReleaseTokenPool
+		}
+		return s.LockReleaseTokenPools[metadata], shared.LockReleaseTokenPool
+	default:
+		return solana.PublicKey{}, ""
+	}
+}
+
+func (s CCIPChainState) ValidatePoolDeployment(
+	e *cldf.Environment,
+	poolType solTestTokenPool.PoolType,
+	selector uint64,
+	tokenPubKey solana.PublicKey,
+	validatePoolConfig bool,
+	metadata string,
+) error {
+	chain := e.BlockChains.SolanaChains()[selector]
+
+	var tokenPool solana.PublicKey
+	var poolConfigAccount interface{}
+
+	if _, err := s.TokenToTokenProgram(tokenPubKey); err != nil {
+		return fmt.Errorf("token %s not found in existing state, deploy the token first", tokenPubKey.String())
+	}
+	tokenPool, _ = s.GetActiveTokenPool(poolType, metadata)
+	if tokenPool.IsZero() {
+		return fmt.Errorf("token pool of type %s not found in existing state, deploy the token pool first for chain %d", poolType, chain.Selector)
+	}
+	switch poolType {
+	case solTestTokenPool.BurnAndMint_PoolType:
+		poolConfigAccount = solBurnMintTokenPool.State{}
+	case solTestTokenPool.LockAndRelease_PoolType:
+		poolConfigAccount = solLockReleaseTokenPool.State{}
+	default:
+		return fmt.Errorf("invalid pool type: %s", poolType)
+	}
+
+	if validatePoolConfig {
+		poolConfigPDA, err := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
+		if err != nil {
+			return fmt.Errorf("failed to get token pool config address (mint: %s, pool: %s): %w", tokenPubKey.String(), tokenPool.String(), err)
+		}
+		if err := chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &poolConfigAccount); err != nil {
+			return fmt.Errorf("token pool config not found (mint: %s, pool: %s, type: %s): %w", tokenPubKey.String(), tokenPool.String(), poolType, err)
+		}
+	}
+	return nil
+}
+
+func (s CCIPChainState) CommonValidation(e cldf.Environment, selector uint64, tokenPubKey solana.PublicKey) error {
+	_, ok := e.BlockChains.SolanaChains()[selector]
+	if !ok {
+		return fmt.Errorf("chain selector %d not found in environment", selector)
+	}
+	if tokenPubKey.Equals(s.LinkToken) || tokenPubKey.Equals(s.WSOL) {
+		return nil
+	}
+	if _, err := s.TokenToTokenProgram(tokenPubKey); err != nil {
+		return fmt.Errorf("token %s not found in existing state, deploy the token first", tokenPubKey.String())
+	}
+	return nil
+}
+
+func (s CCIPChainState) ValidateRouterConfig(chain cldf.SolChain) error {
+	_, routerConfigPDA, err := s.GetRouterInfo()
+	if err != nil {
+		return err
+	}
+	var routerConfigAccount solRouter.Config
+	err = chain.GetAccountDataBorshInto(context.Background(), routerConfigPDA, &routerConfigAccount)
+	if err != nil {
+		return fmt.Errorf("router config not found in existing state, initialize the router first %d", chain.Selector)
+	}
+	return nil
+}
+
+func (s CCIPChainState) ValidateFeeAggregatorConfig(chain cldf.SolChain) error {
+	if s.GetFeeAggregator(chain).IsZero() {
+		return fmt.Errorf("fee aggregator not found in existing state, set the fee aggregator first for chain %d", chain.Selector)
+	}
+	return nil
+}
+
+func (s CCIPChainState) ValidateFeeQuoterConfig(chain cldf.SolChain) error {
+	if s.FeeQuoter.IsZero() {
+		return fmt.Errorf("fee quoter not found in existing state, deploy the fee quoter first for chain %d", chain.Selector)
+	}
+	var fqConfig solFeeQuoter.Config
+	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(s.FeeQuoter)
+	err := chain.GetAccountDataBorshInto(context.Background(), feeQuoterConfigPDA, &fqConfig)
+	if err != nil {
+		return fmt.Errorf("fee quoter config not found in existing state, initialize the fee quoter first %d", chain.Selector)
+	}
+	return nil
+}
+
+func (s CCIPChainState) ValidateOffRampConfig(chain cldf.SolChain) error {
+	if s.OffRamp.IsZero() {
+		return fmt.Errorf("offramp not found in existing state, deploy the offramp first for chain %d", chain.Selector)
+	}
+	var offRampConfig solOffRamp.Config
+	offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(s.OffRamp)
+	err := chain.GetAccountDataBorshInto(context.Background(), offRampConfigPDA, &offRampConfig)
+	if err != nil {
+		return fmt.Errorf("offramp config not found in existing state, initialize the offramp first %d", chain.Selector)
+	}
+	return nil
 }
 
 func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64) (view.SolChainView, error) {

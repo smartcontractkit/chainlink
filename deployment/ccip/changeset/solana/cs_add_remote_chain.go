@@ -56,7 +56,7 @@ func (cfg *AddRemoteChainToRouterConfig) Validate(e cldf.Environment, state stat
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
 	}
-	if err := validateRouterConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateRouterConfig(chain); err != nil {
 		return err
 	}
 
@@ -279,7 +279,7 @@ func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e cldf.Environment, state s
 		return fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
 	}
 
-	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateFeeQuoterConfig(chain); err != nil {
 		return err
 	}
 	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.FeeQuoter: true}); err != nil {
@@ -450,7 +450,7 @@ func (cfg *AddRemoteChainToOffRampConfig) Validate(e cldf.Environment, state sta
 		return fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
 	}
 
-	if err := validateOffRampConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateOffRampConfig(chain); err != nil {
 		return err
 	}
 	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.OffRamp: true}); err != nil {

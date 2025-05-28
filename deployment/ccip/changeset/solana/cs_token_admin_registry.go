@@ -43,7 +43,7 @@ type RegisterTokenAdminRegistryConfig struct {
 	MCMS                    *proposalutils.TimelockConfig
 }
 
-func (cfg RegisterTokenAdminRegistryConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
+func (cfg RegisterTokenAdminRegistryConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
 	if cfg.RegisterType != ViaGetCcipAdminInstruction && cfg.RegisterType != ViaOwnerInstruction {
 		return fmt.Errorf("invalid register type, valid types are %d and %d", ViaGetCcipAdminInstruction, ViaOwnerInstruction)
 	}
@@ -53,12 +53,11 @@ func (cfg RegisterTokenAdminRegistryConfig) Validate(e cldf.Environment, state s
 	}
 
 	tokenPubKey := cfg.TokenPubKey
-	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey, state); err != nil {
+	if err := chainState.CommonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
-	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateRouterConfig(chain); err != nil {
 		return err
 	}
 	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.Router: true}); err != nil {
@@ -82,11 +81,11 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	if err := cfg.Validate(e, state); err != nil {
+	chainState := state.SolChains[cfg.ChainSelector]
+	if err := cfg.Validate(e, chainState); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	chainState := state.SolChains[cfg.ChainSelector]
 	tokenPubKey := cfg.TokenPubKey
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
 	solRouter.SetProgramID(routerProgramAddress)
@@ -198,14 +197,13 @@ type TransferAdminRoleTokenAdminRegistryConfig struct {
 	MCMS                      *proposalutils.TimelockConfig
 }
 
-func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
+func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey, state); err != nil {
+	if err := chainState.CommonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
-	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateRouterConfig(chain); err != nil {
 		return err
 	}
 	currentAdmin := GetAuthorityForIxn(
@@ -248,10 +246,10 @@ func TransferAdminRoleTokenAdminRegistry(e cldf.Environment, cfg TransferAdminRo
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	if err := cfg.Validate(e, state); err != nil {
+	chainState := state.SolChains[cfg.ChainSelector]
+	if err := cfg.Validate(e, chainState); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
@@ -314,14 +312,13 @@ type AcceptAdminRoleTokenAdminRegistryConfig struct {
 	SkipRegistryCheck bool // set to true when you want to register and accept in the same proposal
 }
 
-func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
+func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
 	tokenPubKey := cfg.TokenPubKey
-	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey, state); err != nil {
+	if err := chainState.CommonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
-	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateRouterConfig(chain); err != nil {
 		return err
 	}
 	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.Router: true}); err != nil {
@@ -365,13 +362,12 @@ func AcceptAdminRoleTokenAdminRegistry(e cldf.Environment, cfg AcceptAdminRoleTo
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	if err := cfg.Validate(e, state); err != nil {
+	chainState := state.SolChains[cfg.ChainSelector]
+	if err := cfg.Validate(e, chainState); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	chainState := state.SolChains[cfg.ChainSelector]
 	tokenPubKey := cfg.TokenPubKey
-
 	// verified
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
 	solRouter.SetProgramID(routerProgramAddress)
