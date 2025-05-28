@@ -5,12 +5,11 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 )
 
 // FundFromAddressIxs transfers SOL from the given address to each provided account and waits for confirmations.
-func FundFromAddressIxs(solChain cldf.SolChain, from solana.PublicKey, accounts []solana.PublicKey, amount uint64) ([]solana.Instruction, error) {
+func FundFromAddressIxs(solChain cldf_solana.Chain, from solana.PublicKey, accounts []solana.PublicKey, amount uint64) ([]solana.Instruction, error) {
 	var ixs []solana.Instruction
 	for _, account := range accounts {
 		// Create a transfer instruction using the provided builder.
@@ -29,7 +28,7 @@ func FundFromAddressIxs(solChain cldf.SolChain, from solana.PublicKey, accounts 
 }
 
 // FundFromDeployerKey transfers SOL from the deployer to each provided account and waits for confirmations.
-func FundFromDeployerKey(solChain cldf.SolChain, accounts []solana.PublicKey, amount uint64) error {
+func FundFromDeployerKey(solChain cldf_solana.Chain, accounts []solana.PublicKey, amount uint64) error {
 	ixs, err := FundFromAddressIxs(solChain, solChain.DeployerKey.PublicKey(), accounts, amount)
 	if err != nil {
 		return fmt.Errorf("failed to create transfer instructions: %w", err)

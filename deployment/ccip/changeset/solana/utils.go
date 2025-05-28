@@ -11,6 +11,8 @@ import (
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -22,7 +24,7 @@ import (
 func ValidateMCMSConfigSolana(
 	e cldf.Environment,
 	mcms *proposalutils.TimelockConfig,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	chainState solanastateview.CCIPChainState,
 	tokenAddress solana.PublicKey,
 	tokenPoolMetadata string,
@@ -145,7 +147,7 @@ func FetchTimelockSigner(e cldf.Environment, chainSelector uint64) (solana.Publi
 
 func GetAuthorityForIxn(
 	e *cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	chainState solanastateview.CCIPChainState,
 	mcms *proposalutils.TimelockConfig,
 	contractType cldf.ContractType,

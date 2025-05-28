@@ -651,12 +651,19 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake, AuthorizationKey, feedIDs)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
-	homeChain := in.Blockchains[0]
-	targetChain := in.Blockchains[1]
-	homeChainID, chainErr := strconv.Atoi(homeChain.ChainID)
-	require.NoError(t, chainErr, "failed to convert home chain ID to int")
-	targetChainID, chainErr := strconv.Atoi(targetChain.ChainID)
-	require.NoError(t, chainErr, "failed to convert target chain ID to int")
+	capabilityFactoryFns := []keystonetypes.DONCapabilityWithConfigFactoryFn{
+		webapicap.WebAPITriggerCapabilityFactoryFn,
+		webapicap.WebAPITargetCapabilityFactoryFn,
+		computecap.ComputeCapabilityFactoryFn,
+		consensuscap.OCR3CapabilityFactoryFn,
+		croncap.CronCapabilityFactoryFn,
+	}
+
+	for _, bc := range in.Blockchains {
+		chainID, chainErr := strconv.Atoi(bc.ChainID)
+		require.NoError(t, chainErr, "failed to convert chain ID to int")
+		capabilityFactoryFns = append(capabilityFactoryFns, writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(chainID))))
+	}
 
 	setupOutput := setupPoRTestEnvironment(
 		t,
@@ -664,15 +671,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 		in,
 		priceProvider,
 		mustSetCapabilitiesFn,
-		[]keystonetypes.DONCapabilityWithConfigFactoryFn{
-			webapicap.WebAPITriggerCapabilityFactoryFn,
-			webapicap.WebAPITargetCapabilityFactoryFn,
-			computecap.ComputeCapabilityFactoryFn,
-			consensuscap.OCR3CapabilityFactoryFn,
-			croncap.CronCapabilityFactoryFn,
-			writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(homeChainID))),
-			writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(targetChainID))),
-		},
+		capabilityFactoryFns,
 	)
 
 	// Log extra information that might help debugging
