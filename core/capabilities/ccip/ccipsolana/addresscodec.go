@@ -1,7 +1,7 @@
 package ccipsolana
 
 import (
-	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
@@ -24,12 +24,12 @@ func (a AddressCodec) AddressStringToBytes(addr string) ([]byte, error) {
 	return pk.Bytes(), nil
 }
 
-func (a AddressCodec) RandomAddressBytes() ([]byte, error) {
+func (a AddressCodec) OracleIDAsAddressBytes(oracleID uint8) ([]byte, error) {
 	addr := make([]byte, solana.PublicKeyLength)
-	_, err := rand.Read(addr)
-	if err != nil {
-		return nil, err
-	}
+
+	// write oracleID into addr in big endian
+	binary.BigEndian.PutUint32(addr, uint32(oracleID))
+
 	// TODO: is it alright if the pub key is off the curve?
 	return solana.PublicKeyFromBytes(addr).Bytes(), nil
 }

@@ -51,8 +51,8 @@ func (ac AddressCodec) AddressStringToBytes(addr string, chainSelector cciptypes
 	return codec.AddressStringToBytes(addr)
 }
 
-// RandomAddressBytes returns valid random address bytes for a given chain selector.
-func (ac AddressCodec) RandomAddressBytes(chainSelector cciptypes.ChainSelector) ([]byte, error) {
+// OracleIDAsAddressBytes returns valid random address bytes for a given chain selector.
+func (ac AddressCodec) OracleIDAsAddressBytes(oracleID uint8, chainSelector cciptypes.ChainSelector) ([]byte, error) {
 	family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)
@@ -62,5 +62,5 @@ func (ac AddressCodec) RandomAddressBytes(chainSelector cciptypes.ChainSelector)
 		return nil, fmt.Errorf("unsupported family for address decode type %s", family)
 	}
 
-	return codec.RandomAddressBytes()
+	return codec.OracleIDAsAddressBytes(oracleID)
 }

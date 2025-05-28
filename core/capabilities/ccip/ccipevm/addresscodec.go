@@ -1,7 +1,7 @@
 package ccipevm
 
 import (
-	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -20,12 +20,11 @@ func (a AddressCodec) AddressStringToBytes(addr string) ([]byte, error) {
 	return common.HexToAddress(addr).Bytes(), nil
 }
 
-func (a AddressCodec) RandomAddressBytes() ([]byte, error) {
+func (a AddressCodec) OracleIDAsAddressBytes(oracleID uint8) ([]byte, error) {
 	addr := make([]byte, 20)
-	_, err := rand.Read(addr)
-	if err != nil {
-		panic(err)
-	}
+
+	// write oracleID into addr in big endian
+	binary.BigEndian.PutUint32(addr, uint32(oracleID))
 
 	return common.BytesToAddress(addr).Bytes(), nil
 }

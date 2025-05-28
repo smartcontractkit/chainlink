@@ -383,7 +383,7 @@ func BuildOCR3ConfigForCCIPHome(
 		var transmitAccount ocrtypes.Account
 		if !exists {
 			// empty account means that the node cannot transmit for this chain
-			// we replace this with a random address when doing the ocr config validation below, but it should remain empty
+			// we replace this with a canonical address with the oracle ID as the address when doing the ocr config validation below, but it should remain empty
 			// in the CCIPHome OCR config and it should not be included in the destination chain transmitters whitelist.
 			transmitAccount = ocrtypes.Account("")
 		} else {
@@ -548,18 +548,19 @@ func BuildOCR3ConfigForCCIPHome(
 	return ocr3Configs, nil
 }
 
-// replaceEmptyTransmitters replaces empty transmitters with a random address in order to pass OCR config validation.
+// replaceEmptyTransmitters replaces empty transmitters with a canonical address, using the oracle ID as the address in order to pass OCR config validation.
 // TODO: this is super hacky, should not have to do this.
 func replaceEmptyTransmitters(transmitters []ocrtypes.Account, addressCodec ccipcommon.AddressCodec, destSelector uint64) ([]ocrtypes.Account, error) {
 	var ret []ocrtypes.Account
-	for _, transmitter := range transmitters {
+	for oracleID, transmitter := range transmitters {
 		acct := transmitter
 		if len(acct) == 0 {
-			randomAddress, err := addressCodec.RandomAddressBytes(ccipocr3.ChainSelector(destSelector))
+			canonicalAddress, err := addressCodec.OracleIDAsAddressBytes(uint8(oracleID), ccipocr3.ChainSelector(destSelector))
 			if err != nil {
 				return nil, err
 			}
-			acctString, err := addressCodec.AddressBytesToString(randomAddress, ccipocr3.ChainSelector(destSelector))
+
+			acctString, err := addressCodec.AddressBytesToString(canonicalAddress, ccipocr3.ChainSelector(destSelector))
 			if err != nil {
 				return nil, err
 			}

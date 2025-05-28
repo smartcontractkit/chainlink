@@ -20,11 +20,8 @@ type configTracker struct {
 
 func NewConfigTracker(cfg cctypes.OCR3ConfigWithMeta, addressCodec ccipcommon.AddressCodec) *configTracker {
 	return &configTracker{
-		cfg:          cfg,
-		addressCodec: addressCodec,
-
-		// generate contract config only once because there is randomness involved in the transmitters
-		// when they're nil.
+		cfg:            cfg,
+		addressCodec:   addressCodec,
 		contractConfig: contractConfigFromOCRConfig(cfg, addressCodec),
 	}
 }
@@ -52,16 +49,17 @@ func (c *configTracker) Notify() <-chan struct{} {
 func contractConfigFromOCRConfig(cfg cctypes.OCR3ConfigWithMeta, addressCodec ccipcommon.AddressCodec) types.ContractConfig {
 	var signers [][]byte
 	var transmitters [][]byte
-	for _, node := range cfg.Config.Nodes {
+	for oracleID, node := range cfg.Config.Nodes {
 		signers = append(signers, node.SignerKey)
 
 		// nil transmitters in the OCR config are valid, it just means that this oracle does not support the destination chain.
-		// we generate a random address for the transmitter here so that we don't get an error when calling ocr3confighelper.PublicConfigFromContractConfig.
+		// we generate a canonical address with the oracle ID for the transmitter here so that we don't get an error when calling ocr3confighelper.PublicConfigFromContractConfig.
 		// the transmitters will never be used as part of the transmission protocol because the custom schedule should exclude nodes
 		// that cannot transmit to the destination chain.
+		// this canonical address is defined like so to make it clear that this particular oracle is not able to transmit to the destination chain.
 		transmitter := node.TransmitterKey
 		if len(transmitter) == 0 {
-			transmitter, _ = addressCodec.RandomAddressBytes(cfg.Config.ChainSelector)
+			transmitter, _ = addressCodec.OracleIDAsAddressBytes(uint8(oracleID), cfg.Config.ChainSelector)
 		}
 		transmitters = append(transmitters, transmitter)
 	}
