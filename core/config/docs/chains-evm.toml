@@ -474,6 +474,8 @@ Fatal = '(: |^)fatal' # Example
 ServiceUnavailable = '(: |^)service unavailable' # Example
 # TooManyResults is a regex pattern to match an eth_getLogs error indicating the result set is too large to return
 TooManyResults = '(: |^)too many results' # Example
+# MissingBlocks is a regex pattern to match an eth_getLogs error indicating the rpc server is permanently missing some blocks in the requested block range
+MissingBlocks = '(: |^)missing blocks' # Example
 
 [EVM.OCR]
 # ContractConfirmations sets `OCR.ContractConfirmations` for this EVM chain.
