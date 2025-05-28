@@ -83,10 +83,17 @@ func run(
 			fmt.Printf("Failed to start capability: %v\n", err2)
 			os.Exit(1)
 		}
-	}
 
-	lggr.Debug("waiting for 5 seconds to let cron spin up")
-	<-time.After(5 * time.Second)
+		// await the capability to be initialized if using a loop plugin
+		if standardcap, ok := cap.(*loopWrapper); ok {
+			ctxwt, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+			if err := standardcap.Await(ctxwt); err != nil {
+				fmt.Printf("Failed to await capability: %v\n", err)
+				os.Exit(1)
+			}
+		}
+	}
 
 	engine, err := NewStandaloneEngine(ctx, lggr, registry, binary, config, billingClientAddr)
 	if err != nil {
