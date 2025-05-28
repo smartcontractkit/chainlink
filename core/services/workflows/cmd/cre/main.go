@@ -69,6 +69,9 @@ func run(
 	binary, config []byte,
 	billingClientAddr string,
 ) {
+	lggr.Infof("executing engine in process: %d", os.Getpid())
+	<-time.After(15 * time.Second)
+
 	// Create the registry and fake capabilities
 	registry := capabilities.NewRegistry(lggr)
 	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
@@ -86,9 +89,10 @@ func run(
 
 		// await the capability to be initialized if using a loop plugin
 		if standardcap, ok := cap.(*loopWrapper); ok {
-			ctxwt, cancel := context.WithTimeout(ctx, 5*time.Second)
+			/* ctxwt, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
-			if err := standardcap.Await(ctxwt); err != nil {
+			_ = ctxwt */
+			if err := standardcap.Await(ctx); err != nil {
 				fmt.Printf("Failed to await capability: %v\n", err)
 				os.Exit(1)
 			}

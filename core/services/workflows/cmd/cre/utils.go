@@ -147,12 +147,12 @@ func SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWork
 
 func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
 	caps := make([]services.Service, 0)
-	streamsTrigger := fakes.NewFakeStreamsTrigger(lggr, 6)
+	/* streamsTrigger := fakes.NewFakeStreamsTrigger(lggr, 6)
 	if err := registry.Add(ctx, streamsTrigger); err != nil {
 		return nil, err
 	}
 	caps = append(caps, streamsTrigger)
-
+	*/
 	pluginRegistrar := plugins.NewRegistrarConfig(
 		loop.GRPCOpts{},
 		func(name string) (*plugins.RegisteredLoop, error) { return &plugins.RegisteredLoop{}, nil },
@@ -172,7 +172,7 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 		StandardCapabilities: cronLoop,
 	})
 
-	fakeConsensus, err := fakes.NewFakeConsensus(lggr, fakes.DefaultFakeConsensusConfig())
+	/* fakeConsensus, err := fakes.NewFakeConsensus(lggr, fakes.DefaultFakeConsensusConfig())
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 			return nil, err
 		}
 		caps = append(caps, writeCap)
-	}
+	} */
 
 	return caps, nil
 }
