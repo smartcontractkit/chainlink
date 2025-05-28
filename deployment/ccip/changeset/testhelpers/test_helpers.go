@@ -2145,7 +2145,7 @@ func SavePreloadedSolAddresses(e cldf.Environment, solChainSelector uint64) erro
 func ValidateSolanaState(e cldf.Environment, solChainSelectors []uint64) error {
 	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
-		return fmt.Errorf("Failed to load Solana state: %v", err)
+		return fmt.Errorf("Failed to load Solana state: %w", err)
 	}
 
 	ctx := e.GetContext()
@@ -2190,7 +2190,14 @@ func ValidateSolanaState(e cldf.Environment, solChainSelectors []uint64) error {
 
 		// Get offramp config
 		var offRampConfigAccount solOffRamp.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(ctx, chainState.OffRampConfigPDA, &offRampConfigAccount)
+		err = e.SolChains[sel].GetAccountDataBorshInto(
+			ctx,
+			chainState.OffRampConfigPDA,
+			&offRampConfigAccount,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to deserialize off-ramp config for chain %d: %w", sel, err)
+		}
 		if err != nil {
 			return fmt.Errorf("failed to deserialize offramp config for chain %d: %w", sel, err)
 		}
