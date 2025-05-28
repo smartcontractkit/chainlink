@@ -262,7 +262,6 @@ func generateConfig(t *testing.T, opts ...OCRConfigOption) (signers []types.Onch
 	for _, opt := range opts {
 		opt(cfg)
 	}
-	t.Logf("Using OCR config: %+v\n", cfg)
 	var err error
 	signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err = ocr3confighelper.ContractSetConfigArgsForTests(
 		cfg.DeltaProgress,
@@ -316,23 +315,7 @@ func setLegacyConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backe
 }
 
 func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
-	t.Parallel()
-	offchainConfigs := []datastreamsllo.OffchainConfig{
-		{
-			ProtocolVersion:                     0,
-			DefaultMinReportIntervalNanoseconds: 0,
-		},
-	}
-	for _, offchainConfig := range offchainConfigs {
-		t.Run(fmt.Sprintf("offchainConfig=%+v", offchainConfig), func(t *testing.T) {
-			t.Parallel()
-
-			testIntegrationLLOEVMPremiumLegacy(t, offchainConfig)
-		})
-	}
-}
-
-func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreamsllo.OffchainConfig) {
+	offchainConfig := datastreamsllo.OffchainConfig{ProtocolVersion: 0, DefaultMinReportIntervalNanoseconds: 0}
 	testStartTimeStamp := time.Now()
 	multiplier := decimal.New(1, 18)
 	expirationWindow := time.Hour / time.Second
@@ -357,195 +340,191 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
-	t.Run("using legacy verifier configuration contract, produces reports in v0.3 format", func(t *testing.T) {
-		reqs := make(chan wsrpcRequest, 100000)
-		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
-		serverPubKey := serverKey.PublicKey
-		srv := NewWSRPCMercuryServer(t, serverKey, reqs)
+	reqs := make(chan wsrpcRequest, 100000)
+	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
+	serverPubKey := serverKey.PublicKey
+	srv := NewWSRPCMercuryServer(t, serverKey, reqs)
 
-		serverURL := startWSRPCMercuryServer(t, srv, clientPubKeys)
+	serverURL := startWSRPCMercuryServer(t, srv, clientPubKeys)
 
-		donID := uint32(995544)
-		streams := []Stream{ethStream, linkStream, quoteStream1, quoteStream2}
-		streamMap := make(map[uint32]Stream)
-		for _, strm := range streams {
-			streamMap[strm.id] = strm
-		}
+	donID := uint32(995544)
+	streams := []Stream{ethStream, linkStream, quoteStream1, quoteStream2}
+	streamMap := make(map[uint32]Stream)
+	for _, strm := range streams {
+		streamMap[strm.id] = strm
+	}
 
-		// Setup oracle nodes
-		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolWSRPC)
+	// Setup oracle nodes
+	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
+		c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolWSRPC)
 
-			// TODO(gg): something like this + extra config
-			// c.Feature.SecureMint.Enabled = true
-		})
+		// TODO(gg): something like this + extra config
+		// c.Feature.SecureMint.Enabled = true
+	})
 
-		chainID := testutils.SimulatedChainID
-		relayType := "evm"
-		relayConfig := fmt.Sprintf(`
+	chainID := testutils.SimulatedChainID
+	relayType := "evm"
+	relayConfig := fmt.Sprintf(`
 chainID = "%s"
 fromBlock = %d
 lloDonID = %d
 lloConfigMode = "mercury"
 `, chainID, fromBlock, donID)
-		addBootstrapJob(t, bootstrapNode, legacyVerifierAddr, "job-2", relayType, relayConfig)
+	addBootstrapJob(t, bootstrapNode, legacyVerifierAddr, "job-2", relayType, relayConfig)
 
-		// Channel definitions
-		channelDefinitions := llotypes.ChannelDefinitions{
-			1: {
-				ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
-				Streams: []llotypes.Stream{
-					{
-						StreamID:   ethStreamID,
-						Aggregator: llotypes.AggregatorMedian,
-					},
-					{
-						StreamID:   linkStreamID,
-						Aggregator: llotypes.AggregatorMedian,
-					},
-					{
-						StreamID:   quoteStreamID1,
-						Aggregator: llotypes.AggregatorQuote,
-					},
+	// Channel definitions
+	channelDefinitions := llotypes.ChannelDefinitions{
+		1: {
+			ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
+			Streams: []llotypes.Stream{
+				{
+					StreamID:   ethStreamID,
+					Aggregator: llotypes.AggregatorMedian,
 				},
-				Opts: llotypes.ChannelOpts([]byte(fmt.Sprintf(`{"baseUSDFee":"0.1","expirationWindow":%d,"feedId":"0x%x","multiplier":"%s"}`, expirationWindow, quoteStreamFeedID1, multiplier.String()))),
-			},
-			2: {
-				ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
-				Streams: []llotypes.Stream{
-					{
-						StreamID:   ethStreamID,
-						Aggregator: llotypes.AggregatorMedian,
-					},
-					{
-						StreamID:   linkStreamID,
-						Aggregator: llotypes.AggregatorMedian,
-					},
-					{
-						StreamID:   quoteStreamID2,
-						Aggregator: llotypes.AggregatorQuote,
-					},
+				{
+					StreamID:   linkStreamID,
+					Aggregator: llotypes.AggregatorMedian,
 				},
-				Opts: llotypes.ChannelOpts([]byte(fmt.Sprintf(`{"baseUSDFee":"0.1","expirationWindow":%d,"feedId":"0x%x","multiplier":"%s"}`, expirationWindow, quoteStreamFeedID2, multiplier.String()))),
+				{
+					StreamID:   quoteStreamID1,
+					Aggregator: llotypes.AggregatorQuote,
+				},
 			},
-		}
+			Opts: llotypes.ChannelOpts([]byte(fmt.Sprintf(`{"baseUSDFee":"0.1","expirationWindow":%d,"feedId":"0x%x","multiplier":"%s"}`, expirationWindow, quoteStreamFeedID1, multiplier.String()))),
+		},
+		2: {
+			ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
+			Streams: []llotypes.Stream{
+				{
+					StreamID:   ethStreamID,
+					Aggregator: llotypes.AggregatorMedian,
+				},
+				{
+					StreamID:   linkStreamID,
+					Aggregator: llotypes.AggregatorMedian,
+				},
+				{
+					StreamID:   quoteStreamID2,
+					Aggregator: llotypes.AggregatorQuote,
+				},
+			},
+			Opts: llotypes.ChannelOpts([]byte(fmt.Sprintf(`{"baseUSDFee":"0.1","expirationWindow":%d,"feedId":"0x%x","multiplier":"%s"}`, expirationWindow, quoteStreamFeedID2, multiplier.String()))),
+		},
+	}
 
-		url, sha := newChannelDefinitionsServer(t, channelDefinitions)
+	url, sha := newChannelDefinitionsServer(t, channelDefinitions)
 
-		// Set channel definitions
-		_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
-		require.NoError(t, err)
-		backend.Commit()
+	// Set channel definitions
+	_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
+	require.NoError(t, err)
+	backend.Commit()
 
-		pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
+	pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
-		addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, legacyVerifierAddr, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
+	addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, legacyVerifierAddr, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
 
-		jobIDs := addSecureMintOCRJobs(t, nodes)
+	jobIDs := addSecureMintOCRJobs(t, nodes)
 
-		t.Logf("jobIDs: %v", jobIDs)
-		//validateJobsRunningSuccessfully(t, nodes, jobIDs)
+	t.Logf("jobIDs: %v", jobIDs)
+	// validateJobsRunningSuccessfully(t, nodes, jobIDs)
 
-		// Set config on configurator
-		setLegacyConfig(
-			t, donID, steve, backend, legacyVerifier, legacyVerifierAddr, nodes, oracles, offchainConfig,
-		)
+	// Set config on configurator
+	setLegacyConfig(
+		t, donID, steve, backend, legacyVerifier, legacyVerifierAddr, nodes, oracles, offchainConfig,
+	)
 
-		// Set config on the destination verifier
-		signerAddresses := make([]common.Address, len(oracles))
-		for i, oracle := range oracles {
-			signerAddresses[i] = common.BytesToAddress(oracle.OracleIdentity.OnchainPublicKey)
+	// Set config on the destination verifier
+	signerAddresses := make([]common.Address, len(oracles))
+	for i, oracle := range oracles {
+		signerAddresses[i] = common.BytesToAddress(oracle.OracleIdentity.OnchainPublicKey)
+	}
+	{
+		recipientAddressesAndWeights := []destination_verifier.CommonAddressAndWeight{}
+
+		_, err := verifier.SetConfig(steve, signerAddresses, fNodes, recipientAddressesAndWeights)
+		require.NoError(t, err)
+		backend.Commit()
+	}
+
+	// Expect at least one report per feed from each oracle
+	seen := make(map[[32]byte]map[credentials.StaticSizedPublicKey]struct{})
+	for _, cd := range channelDefinitions {
+		var opts lloevm.ReportFormatEVMPremiumLegacyOpts
+		err := json.Unmarshal(cd.Opts, &opts)
+		require.NoError(t, err)
+		// feedID will be deleted when all n oracles have reported
+		seen[opts.FeedID] = make(map[credentials.StaticSizedPublicKey]struct{}, nNodes)
+	}
+	for req := range reqs {
+		assert.Equal(t, uint32(llotypes.ReportFormatEVMPremiumLegacy), req.req.ReportFormat)
+		v := make(map[string]interface{})
+		err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
+		require.NoError(t, err)
+		report, exists := v["report"]
+		if !exists {
+			t.Fatalf("expected payload %#v to contain 'report'", v)
 		}
+		reportElems := make(map[string]interface{})
+		err = reportcodecv3.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
+		require.NoError(t, err)
+
+		feedID := reportElems["feedId"].([32]uint8)
+
+		if _, exists := seen[feedID]; !exists {
+			continue // already saw all oracles for this feed
+		}
+
+		var expectedBm, expectedBid, expectedAsk *big.Int
+		if feedID == quoteStreamFeedID1 {
+			expectedBm = quoteStream1.baseBenchmarkPrice.Mul(multiplier).BigInt()
+			expectedBid = quoteStream1.baseBid.Mul(multiplier).BigInt()
+			expectedAsk = quoteStream1.baseAsk.Mul(multiplier).BigInt()
+		} else if feedID == quoteStreamFeedID2 {
+			expectedBm = quoteStream2.baseBenchmarkPrice.Mul(multiplier).BigInt()
+			expectedBid = quoteStream2.baseBid.Mul(multiplier).BigInt()
+			expectedAsk = quoteStream2.baseAsk.Mul(multiplier).BigInt()
+		} else {
+			t.Fatalf("unrecognized feedID: 0x%x", feedID)
+		}
+
+		assert.GreaterOrEqual(t, reportElems["validFromTimestamp"].(uint32), uint32(testStartTimeStamp.Unix()))
+		assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp.Unix()))
+		assert.Equal(t, "33597747607000", reportElems["nativeFee"].(*big.Int).String())
+		assert.Equal(t, "7547169811320755", reportElems["linkFee"].(*big.Int).String())
+		assert.Equal(t, reportElems["observationsTimestamp"].(uint32)+uint32(expirationWindow), reportElems["expiresAt"].(uint32))
+		assert.Equal(t, expectedBm.String(), reportElems["benchmarkPrice"].(*big.Int).String())
+		assert.Equal(t, expectedBid.String(), reportElems["bid"].(*big.Int).String())
+		assert.Equal(t, expectedAsk.String(), reportElems["ask"].(*big.Int).String())
+
+		// emulate mercury server verifying report (local verification)
 		{
-			recipientAddressesAndWeights := []destination_verifier.CommonAddressAndWeight{}
+			rv := mercuryverifier.NewVerifier()
 
-			_, err := verifier.SetConfig(steve, signerAddresses, fNodes, recipientAddressesAndWeights)
+			reportSigners, err := rv.Verify(mercuryverifier.SignedReport{
+				RawRs:         v["rawRs"].([][32]byte),
+				RawSs:         v["rawSs"].([][32]byte),
+				RawVs:         v["rawVs"].([32]byte),
+				ReportContext: v["reportContext"].([3][32]byte),
+				Report:        v["report"].([]byte),
+			}, fNodes, signerAddresses)
 			require.NoError(t, err)
-			backend.Commit()
+			assert.GreaterOrEqual(t, len(reportSigners), int(fNodes+1))
+			assert.Subset(t, signerAddresses, reportSigners)
 		}
 
-		t.Run("receives at least one report per channel from each oracle when EAs are at 100% reliability", func(t *testing.T) {
-			// Expect at least one report per feed from each oracle
-			seen := make(map[[32]byte]map[credentials.StaticSizedPublicKey]struct{})
-			for _, cd := range channelDefinitions {
-				var opts lloevm.ReportFormatEVMPremiumLegacyOpts
-				err := json.Unmarshal(cd.Opts, &opts)
-				require.NoError(t, err)
-				// feedID will be deleted when all n oracles have reported
-				seen[opts.FeedID] = make(map[credentials.StaticSizedPublicKey]struct{}, nNodes)
+		t.Logf("oracle %x reported for 0x%x", req.pk[:], feedID[:])
+
+		seen[feedID][req.pk] = struct{}{}
+		if len(seen[feedID]) == nNodes {
+			t.Logf("all oracles reported for 0x%x", feedID[:])
+			delete(seen, feedID)
+			if len(seen) == 0 {
+				break // saw all oracles; success!
 			}
-			for req := range reqs {
-				assert.Equal(t, uint32(llotypes.ReportFormatEVMPremiumLegacy), req.req.ReportFormat)
-				v := make(map[string]interface{})
-				err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
-				require.NoError(t, err)
-				report, exists := v["report"]
-				if !exists {
-					t.Fatalf("expected payload %#v to contain 'report'", v)
-				}
-				reportElems := make(map[string]interface{})
-				err = reportcodecv3.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
-				require.NoError(t, err)
-
-				feedID := reportElems["feedId"].([32]uint8)
-
-				if _, exists := seen[feedID]; !exists {
-					continue // already saw all oracles for this feed
-				}
-
-				var expectedBm, expectedBid, expectedAsk *big.Int
-				if feedID == quoteStreamFeedID1 {
-					expectedBm = quoteStream1.baseBenchmarkPrice.Mul(multiplier).BigInt()
-					expectedBid = quoteStream1.baseBid.Mul(multiplier).BigInt()
-					expectedAsk = quoteStream1.baseAsk.Mul(multiplier).BigInt()
-				} else if feedID == quoteStreamFeedID2 {
-					expectedBm = quoteStream2.baseBenchmarkPrice.Mul(multiplier).BigInt()
-					expectedBid = quoteStream2.baseBid.Mul(multiplier).BigInt()
-					expectedAsk = quoteStream2.baseAsk.Mul(multiplier).BigInt()
-				} else {
-					t.Fatalf("unrecognized feedID: 0x%x", feedID)
-				}
-
-				assert.GreaterOrEqual(t, reportElems["validFromTimestamp"].(uint32), uint32(testStartTimeStamp.Unix()))
-				assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp.Unix()))
-				assert.Equal(t, "33597747607000", reportElems["nativeFee"].(*big.Int).String())
-				assert.Equal(t, "7547169811320755", reportElems["linkFee"].(*big.Int).String())
-				assert.Equal(t, reportElems["observationsTimestamp"].(uint32)+uint32(expirationWindow), reportElems["expiresAt"].(uint32))
-				assert.Equal(t, expectedBm.String(), reportElems["benchmarkPrice"].(*big.Int).String())
-				assert.Equal(t, expectedBid.String(), reportElems["bid"].(*big.Int).String())
-				assert.Equal(t, expectedAsk.String(), reportElems["ask"].(*big.Int).String())
-
-				// emulate mercury server verifying report (local verification)
-				{
-					rv := mercuryverifier.NewVerifier()
-
-					reportSigners, err := rv.Verify(mercuryverifier.SignedReport{
-						RawRs:         v["rawRs"].([][32]byte),
-						RawSs:         v["rawSs"].([][32]byte),
-						RawVs:         v["rawVs"].([32]byte),
-						ReportContext: v["reportContext"].([3][32]byte),
-						Report:        v["report"].([]byte),
-					}, fNodes, signerAddresses)
-					require.NoError(t, err)
-					assert.GreaterOrEqual(t, len(reportSigners), int(fNodes+1))
-					assert.Subset(t, signerAddresses, reportSigners)
-				}
-
-				t.Logf("oracle %x reported for 0x%x", req.pk[:], feedID[:])
-
-				seen[feedID][req.pk] = struct{}{}
-				if len(seen[feedID]) == nNodes {
-					t.Logf("all oracles reported for 0x%x", feedID[:])
-					delete(seen, feedID)
-					if len(seen) == 0 {
-						break // saw all oracles; success!
-					}
-				}
-			}
-		})
-	})
+		}
+	}
 }
 
 func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
