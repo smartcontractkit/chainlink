@@ -51,14 +51,10 @@ func GetTokenProgramID(programName cldf.ContractType) (solana.PublicKey, error) 
 	return programID, nil
 }
 
-func commonValidation(e cldf.Environment, selector uint64, tokenPubKey solana.PublicKey) error {
+func commonValidation(e cldf.Environment, selector uint64, tokenPubKey solana.PublicKey, state stateview.CCIPOnChainState) error {
 	chain, ok := e.BlockChains.SolanaChains()[selector]
 	if !ok {
 		return fmt.Errorf("chain selector %d not found in environment", selector)
-	}
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	chainState, chainExists := state.SolChains[selector]
 	if !chainExists {
@@ -138,12 +134,8 @@ type OffRampRefAddressesConfig struct {
 	MCMS               *proposalutils.TimelockConfig
 }
 
-func (cfg OffRampRefAddressesConfig) Validate(e cldf.Environment) error {
+func (cfg OffRampRefAddressesConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
 	chainState, chainExists := state.SolChains[chain.Selector]
 	if !chainExists {
 		return fmt.Errorf("chain %s not found in existing state, deploy the link token first", chain.String())
@@ -156,11 +148,15 @@ func UpdateOffRampRefAddresses(
 	config OffRampRefAddressesConfig,
 ) (cldf.ChangesetOutput, error) {
 	state, err := stateview.LoadOnchainStateSolana(e)
-	chain := e.BlockChains.SolanaChains()[config.ChainSelector]
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return cldf.ChangesetOutput{}, err
 	}
+	if err := config.Validate(e, state); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	chain := e.BlockChains.SolanaChains()[config.ChainSelector]
+
 	chainState, chainExists := state.SolChains[chain.Selector]
 	if !chainExists {
 		return cldf.ChangesetOutput{}, fmt.Errorf("chain %s not found in existing state, deploy the link token first", chain.String())
@@ -380,11 +376,7 @@ type SetFeeAggregatorConfig struct {
 	MCMS          *proposalutils.TimelockConfig
 }
 
-func (cfg SetFeeAggregatorConfig) Validate(e cldf.Environment) error {
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
+func (cfg SetFeeAggregatorConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	chainState, chainExists := state.SolChains[cfg.ChainSelector]
 	if !chainExists {
 		return fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
@@ -416,11 +408,13 @@ func (cfg SetFeeAggregatorConfig) Validate(e cldf.Environment) error {
 }
 
 func SetFeeAggregator(e cldf.Environment, cfg SetFeeAggregatorConfig) (cldf.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-
-	state, _ := stateview.LoadOnchainState(e)
+	if err := cfg.Validate(e, state); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 
@@ -484,11 +478,7 @@ type DeployForTestConfig struct {
 	IsUpgrade       bool
 }
 
-func (cfg DeployForTestConfig) Validate(e cldf.Environment) error {
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
+func (cfg DeployForTestConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	chainState, chainExists := state.SolChains[cfg.ChainSelector]
 	if !chainExists {
 		return fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
@@ -499,7 +489,11 @@ func (cfg DeployForTestConfig) Validate(e cldf.Environment) error {
 }
 
 func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	if err := cfg.Validate(e, state); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
@@ -513,13 +507,11 @@ func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.Ch
 		e.Logger.Debugw("Skipping solana build as no build config provided")
 	}
 
-	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	ab := cldf.NewMemoryAddressBook()
 
 	var receiverAddress solana.PublicKey
-	var err error
 	if !cfg.IsUpgrade {
 		//nolint:gocritic // this is a false positive, we need to check if the address is zero
 		if chainState.Receiver.IsZero() {
@@ -576,11 +568,7 @@ type SetLinkTokenConfig struct {
 	ChainSelector uint64
 }
 
-func (cfg SetLinkTokenConfig) Validate(e cldf.Environment) error {
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
+func (cfg SetLinkTokenConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	chainState, chainExists := state.SolChains[cfg.ChainSelector]
 	if !chainExists {
 		return fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
@@ -591,10 +579,13 @@ func (cfg SetLinkTokenConfig) Validate(e cldf.Environment) error {
 }
 
 func SetLinkToken(e cldf.Environment, cfg SetLinkTokenConfig) (cldf.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	state, _ := stateview.LoadOnchainState(e)
+	if err := cfg.Validate(e, state); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)

@@ -50,11 +50,7 @@ type RouterConfig struct {
 	IsUpdate bool
 }
 
-func (cfg *AddRemoteChainToRouterConfig) Validate(e cldf.Environment) error {
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
+func (cfg *AddRemoteChainToRouterConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain, ok := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if !ok {
@@ -99,12 +95,12 @@ func (cfg *AddRemoteChainToRouterConfig) Validate(e cldf.Environment) error {
 
 // Adds new remote chain configurations
 func AddRemoteChainToRouter(e cldf.Environment, cfg AddRemoteChainToRouterConfig) (cldf.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
+	s, err := stateview.LoadOnchainState(e)
+	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
-	s, err := stateview.LoadOnchainState(e)
-	if err != nil {
+	if err := cfg.Validate(e, s); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
@@ -276,11 +272,7 @@ type FeeQuoterConfig struct {
 	IsUpdate bool
 }
 
-func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e cldf.Environment) error {
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
+func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain, ok := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if !ok {
@@ -317,12 +309,12 @@ func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e cldf.Environment) error {
 
 // Adds new remote chain configurations
 func AddRemoteChainToFeeQuoter(e cldf.Environment, cfg AddRemoteChainToFeeQuoterConfig) (cldf.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
+	s, err := stateview.LoadOnchainState(e)
+	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
-	s, err := stateview.LoadOnchainState(e)
-	if err != nil {
+	if err := cfg.Validate(e, s); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
@@ -451,11 +443,7 @@ type OffRampConfig struct {
 	IsUpdate bool
 }
 
-func (cfg *AddRemoteChainToOffRampConfig) Validate(e cldf.Environment) error {
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
+func (cfg *AddRemoteChainToOffRampConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain, ok := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if !ok {
@@ -493,12 +481,12 @@ func (cfg *AddRemoteChainToOffRampConfig) Validate(e cldf.Environment) error {
 
 // Adds new remote chain configurations
 func AddRemoteChainToOffRamp(e cldf.Environment, cfg AddRemoteChainToOffRampConfig) (cldf.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
+	s, err := stateview.LoadOnchainState(e)
+	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
-	s, err := stateview.LoadOnchainState(e)
-	if err != nil {
+	if err := cfg.Validate(e, s); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
