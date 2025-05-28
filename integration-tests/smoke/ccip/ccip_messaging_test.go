@@ -173,7 +173,6 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
-		testhelpers.WithNumOfNodes(7),
 		testhelpers.WithChainIDs(chainIDs),
 		testhelpers.WithCLNodeConfigOpts(memory.WithFinalityDepths(map[uint64]uint32{
 			chains[1].EvmChainID: 30, // make dest chain finality depth 30 so we can observe exec behavior
