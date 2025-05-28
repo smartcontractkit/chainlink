@@ -388,7 +388,7 @@ func buildNodeConfigs(t *testing.T, cfg NewNodesConfig, ports []int, homeChain c
 // However, this setup ensures that at most 3 * fChain + 1 nodes will support a given chain.
 // TODO: we might want to make this more sophisticated in the future, e.g a node has a max # of chains it can support.
 func drawNodesForChain(t *testing.T, fChain int, numNodes int, seed int64) (nodeIdxs []int) {
-	require.Greaterf(t, fChain, 0, "fChain must be greater than 0, got %d", fChain)
+	require.Positivef(t, fChain, "fChain must be positive, got %d", fChain)
 	require.GreaterOrEqualf(t, numNodes, 3*fChain+1, "numNodes must be at least 3*fChain+1, got %d", numNodes)
 
 	// Create a generator with a seed for reproducible setups.
