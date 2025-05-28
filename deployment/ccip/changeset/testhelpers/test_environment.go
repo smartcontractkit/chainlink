@@ -1036,7 +1036,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelockContractsPerChain, apps)
 	require.NoError(t, err)
 
-	ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks, WithAssertOnError(false))
+	ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
 
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
