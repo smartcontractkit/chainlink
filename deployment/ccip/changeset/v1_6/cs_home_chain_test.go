@@ -1,6 +1,7 @@
 package v1_6_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -79,24 +80,30 @@ func TestDeployHomeChain(t *testing.T) {
 }
 
 func TestDeployHomeChainIdempotent(t *testing.T) {
-	e, _ := testhelpers.NewMemoryEnvironment(t)
-	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
-	require.NoError(t, err)
-	homeChainCfg := v1_6.DeployHomeChainConfig{
-		HomeChainSel:     e.HomeChainSel,
-		RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
-		RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
-		NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
-		NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
-			"NodeOperator": nodes.NonBootstraps().PeerIDs(),
-		},
+	const iterations = 20
+	for i := 0; i < iterations; i++ {
+		t.Run(fmt.Sprintf("iteration_%d", i), func(t *testing.T) {
+			e, _ := testhelpers.NewMemoryEnvironment(t)
+			nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+			require.NoError(t, err)
+			homeChainCfg := v1_6.DeployHomeChainConfig{
+				HomeChainSel:     e.HomeChainSel,
+				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+					"NodeOperator": nodes.NonBootstraps().PeerIDs(),
+				},
+			}
+			// apply the changeset once again to ensure idempotency
+			output, err := v1_6.DeployHomeChainChangeset(e.Env, homeChainCfg)
+			require.NoError(t, err)
+			require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
+			_, err = stateview.LoadOnchainState(e.Env)
+			require.NoError(t, err)
+		})
 	}
-	// apply the changeset once again to ensure idempotency
-	output, err := v1_6.DeployHomeChainChangeset(e.Env, homeChainCfg)
-	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
-	_, err = stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
+
 }
 
 func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
