@@ -72,6 +72,7 @@ jobs:
         shell: bash
         run: |
           cat > system-tests/tests/load/cre/ci-override.toml<< EOF
+          [binaries_config]
           [jd]
           image = "injected-at-runtime"
           
