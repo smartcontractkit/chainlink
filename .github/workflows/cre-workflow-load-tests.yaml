@@ -73,8 +73,8 @@ jobs:
         run: |
           cat > system-tests/tests/load/cre/ci-override.toml<< EOF
           [jd]
-            image = "injected-at-runtime"
-
+          image = "injected-at-runtime"
+          
           [[nodesets]]
           [[nodesets.node_specs]]
           [nodesets.node_specs.node]
@@ -84,8 +84,10 @@ jobs:
           [[nodesets.node_specs]]
           [nodesets.node_specs.node]
           image = "injected-at-runtime"
+          [[nodesets.node_specs]]
           [nodesets.node_specs.node]
           image = "injected-at-runtime"
+          [[nodesets.node_specs]]
           [nodesets.node_specs.node]
           image = "injected-at-runtime"
           EOF
