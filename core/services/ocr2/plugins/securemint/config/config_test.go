@@ -28,7 +28,7 @@ func TestValidatePluginConfig(t *testing.T) {
 		} {
 			t.Run(tc.name, func(t *testing.T) {
 				pc := PluginConfig{JuelsPerFeeCoinPipeline: tc.pipeline}
-				assert.EqualError(t, pc.ValidatePluginConfig(), tc.expectedError.Error())
+				assert.EqualError(t, pc.Validate(), tc.expectedError.Error())
 			})
 		}
 	})
@@ -40,7 +40,7 @@ func TestValidatePluginConfig(t *testing.T) {
 		} {
 			t.Run(tc.name, func(t *testing.T) {
 				pc := PluginConfig{JuelsPerFeeCoinPipeline: tc.pipeline, JuelsPerFeeCoinCache: &JuelsPerFeeCoinCache{UpdateInterval: tc.cacheDuration}}
-				assert.EqualError(t, pc.ValidatePluginConfig(), tc.expectedError.Error())
+				assert.EqualError(t, pc.Validate(), tc.expectedError.Error())
 			})
 		}
 	})
@@ -53,7 +53,7 @@ func TestValidatePluginConfig(t *testing.T) {
 		} {
 			t.Run(s.name, func(t *testing.T) {
 				pc := PluginConfig{JuelsPerFeeCoinPipeline: s.pipeline}
-				assert.NoError(t, pc.ValidatePluginConfig())
+				assert.NoError(t, pc.Validate())
 			})
 		}
 	})
