@@ -11,6 +11,7 @@ import (
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -54,7 +55,7 @@ func Test_GetContractSet(t *testing.T) {
 					giveAB,
 				)
 				req := &GetContractSetsRequest{
-					Chains: map[uint64]cldf.Chain{
+					Chains: map[uint64]cldf_evm.Chain{
 						chain.Selector: {
 							Selector: chain.Selector,
 						},
@@ -101,7 +102,7 @@ func Test_GetContractSet(t *testing.T) {
 					giveAB,
 				)
 				req := &GetContractSetsRequest{
-					Chains: map[uint64]cldf.Chain{
+					Chains: map[uint64]cldf_evm.Chain{
 						chain.Selector: {
 							Selector: chain.Selector,
 						},

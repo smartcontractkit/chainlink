@@ -58,7 +58,7 @@ func ConfigureInitialContracts(lggr logger.Logger, req *kslib.ConfigureContracts
 	}
 	// forwarder on all chains
 	foundForwarder = false
-	for _, c := range req.Env.Chains {
+	for _, c := range req.Env.BlockChains.EVMChains() {
 		addrs, err2 := req.Env.ExistingAddresses.AddressesForChain(c.Selector)
 		if err2 != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("no addresses found for chain %d: %w", c.Selector, err2)

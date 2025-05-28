@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -240,7 +241,7 @@ func TestKeystoneView(t *testing.T) {
 			}
 			var allDons = []internal.DonCapabilities{wfDonCapabilities}
 			cr, err := changeset.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](
-				env.Env.DataStore.Addresses(), env.Env.Chains[env.RegistrySelector], capabilityRegistryAddr,
+				env.Env.DataStore.Addresses(), env.Env.BlockChains.EVMChains()[env.RegistrySelector], capabilityRegistryAddr,
 			)
 			require.NoError(t, err)
 

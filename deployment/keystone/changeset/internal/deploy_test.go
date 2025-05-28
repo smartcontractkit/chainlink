@@ -17,6 +17,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -41,7 +42,7 @@ func Test_RegisterNOPS(t *testing.T) {
 		useMCMS = true
 		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]cldf.Chain{
+			Chains: map[uint64]cldf_evm.Chain{
 				chain.Selector: chain,
 			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
@@ -248,7 +249,7 @@ func Test_RegisterNodes(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				env := &cldf.Environment{
 					Logger: lggr,
-					Chains: map[uint64]cldf.Chain{
+					Chains: map[uint64]cldf_evm.Chain{
 						chain.Selector: chain,
 					},
 					ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
@@ -313,7 +314,7 @@ func Test_RegisterNodes(t *testing.T) {
 		useMCMS = true
 		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]cldf.Chain{
+			Chains: map[uint64]cldf_evm.Chain{
 				chain.Selector: chain,
 			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
@@ -368,7 +369,7 @@ func Test_RegisterNodes(t *testing.T) {
 		useMCMS = true
 		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]cldf.Chain{
+			Chains: map[uint64]cldf_evm.Chain{
 				chain.Selector: chain,
 			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
@@ -418,7 +419,7 @@ func Test_RegisterDons(t *testing.T) {
 		useMCMS = true
 		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]cldf.Chain{
+			Chains: map[uint64]cldf_evm.Chain{
 				chain.Selector: chain,
 			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
@@ -518,7 +519,7 @@ func Test_RegisterDons(t *testing.T) {
 
 		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]cldf.Chain{
+			Chains: map[uint64]cldf_evm.Chain{
 				setupResp.Chain.Selector: setupResp.Chain,
 			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
@@ -559,7 +560,7 @@ func Test_RegisterDons(t *testing.T) {
 		useMCMS = true
 		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]cldf.Chain{
+			Chains: map[uint64]cldf_evm.Chain{
 				chain.Selector: chain,
 			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{

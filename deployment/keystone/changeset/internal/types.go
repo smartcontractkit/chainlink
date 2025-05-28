@@ -14,6 +14,7 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -41,7 +42,7 @@ type DeployResponse struct {
 }
 
 type DeployRequest struct {
-	Chain cldf.Chain
+	Chain cldf_evm.Chain
 }
 
 type DonNode struct {
@@ -256,7 +257,7 @@ type RegisteredDonConfig struct {
 func NewRegisteredDon(env cldf.Environment, cfg RegisteredDonConfig) (*RegisteredDon, error) {
 	// load the don info from the capabilities registry
 	r, err := GetContractSets(env.Logger, &GetContractSetsRequest{
-		Chains:      env.Chains,
+		Chains:      env.BlockChains.EVMChains(),
 		AddressBook: env.ExistingAddresses,
 	})
 	if err != nil {
