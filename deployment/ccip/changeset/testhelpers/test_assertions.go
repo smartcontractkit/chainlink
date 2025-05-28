@@ -35,6 +35,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -241,7 +242,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRangeAptos(
 					t,
 					srcChain,
-					e.AptosChains[dstChain],
+					e.BlockChains.AptosChains()[dstChain],
 					state.AptosChains[dstChain].CCIPAddress,
 					startBlock,
 					ccipocr3.SeqNumRange{
@@ -362,7 +363,7 @@ func ConfirmMultipleCommits(
 				_, err := ConfirmCommitWithExpectedSeqNumRangeAptos(
 					t,
 					srcChain,
-					env.AptosChains[destChain],
+					env.BlockChains.AptosChains()[destChain],
 					state.AptosChains[destChain].CCIPAddress,
 					startBlocks[destChain],
 					seqRange,
@@ -690,7 +691,7 @@ func AptosEventEmitter[T any](
 func ConfirmCommitWithExpectedSeqNumRangeAptos(
 	t *testing.T,
 	srcSelector uint64,
-	dest cldf.AptosChain,
+	dest cldf_aptos.Chain,
 	offRampAddress aptos.AccountAddress,
 	startVersion *uint64,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
@@ -824,7 +825,7 @@ func ConfirmExecWithSeqNrsForAll(
 				innerExecutionStates, err = ConfirmExecWithExpectedSeqNrsAptos(
 					t,
 					srcChain,
-					e.AptosChains[dstChain],
+					e.BlockChains.AptosChains()[dstChain],
 					state.AptosChains[dstChain].CCIPAddress,
 					startBlock,
 					seqRange,
@@ -981,7 +982,7 @@ func ConfirmExecWithSeqNrsSol(
 func ConfirmExecWithExpectedSeqNrsAptos(
 	t *testing.T,
 	srcSelector uint64,
-	dest cldf.AptosChain,
+	dest cldf_aptos.Chain,
 	offRampAddress aptos.AccountAddress,
 	startVersion *uint64,
 	expectedSeqNrs []uint64,

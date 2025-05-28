@@ -9,6 +9,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
@@ -17,6 +18,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
@@ -762,8 +764,9 @@ func GetCursableChains(env cldf.Environment) (map[uint64]CursableChain, error) {
 
 func GetAllCursableChainsSelector(env cldf.Environment) []uint64 {
 	selectors := make([]uint64, 0)
-	selectors = append(selectors, env.AllChainSelectors()...)
-	selectors = append(selectors, env.AllChainSelectorsSolana()...)
+	selectors = append(selectors, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))...)
+	solSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
+	selectors = append(selectors, solSelectors...)
 	return selectors
 }
 

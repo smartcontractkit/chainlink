@@ -3,6 +3,8 @@ package aptos
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/stretchr/testify/assert"
 
@@ -27,9 +29,11 @@ func TestLoadOnchainStateAptos(t *testing.T) {
 		{
 			name: "success - chain not found in ab returns empty state",
 			env: cldf.Environment{
-				AptosChains: map[uint64]cldf.AptosChain{
-					743186221051783445: {},
-				},
+				BlockChains: chain.NewBlockChains(
+					map[uint64]chain.BlockChain{
+						743186221051783445: aptos.Chain{},
+					},
+				),
 				ExistingAddresses: getTestAddressBook(
 					t,
 					map[uint64]map[string]cldf.TypeAndVersion{
@@ -47,10 +51,12 @@ func TestLoadOnchainStateAptos(t *testing.T) {
 		{
 			name: "success - loads multiple aptos chains state",
 			env: cldf.Environment{
-				AptosChains: map[uint64]cldf.AptosChain{
-					743186221051783445:  {},
-					4457093679053095497: {},
-				},
+				BlockChains: chain.NewBlockChains(
+					map[uint64]chain.BlockChain{
+						743186221051783445:  aptos.Chain{},
+						4457093679053095497: aptos.Chain{},
+					},
+				),
 				ExistingAddresses: getTestAddressBook(
 					t,
 					map[uint64]map[string]cldf.TypeAndVersion{
@@ -78,9 +84,11 @@ func TestLoadOnchainStateAptos(t *testing.T) {
 		{
 			name: "error - failed to parse address",
 			env: cldf.Environment{
-				AptosChains: map[uint64]cldf.AptosChain{
-					743186221051783445: {},
-				},
+				BlockChains: chain.NewBlockChains(
+					map[uint64]chain.BlockChain{
+						743186221051783445: aptos.Chain{},
+					},
+				),
 				ExistingAddresses: getTestAddressBook(
 					t,
 					map[uint64]map[string]cldf.TypeAndVersion{

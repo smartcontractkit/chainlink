@@ -6,6 +6,7 @@ import (
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
@@ -28,7 +29,7 @@ type CCIPChainState struct {
 // LoadOnchainStateAptos loads chain state for Aptos chains from env
 func LoadOnchainStateAptos(env cldf.Environment) (map[uint64]CCIPChainState, error) {
 	aptosChains := make(map[uint64]CCIPChainState)
-	for chainSelector := range env.AptosChains {
+	for chainSelector := range env.BlockChains.AptosChains() {
 		addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			// Chain not found in address book, initialize empty
@@ -70,7 +71,7 @@ func loadAptosChainStateFromAddresses(addresses map[string]cldf.TypeAndVersion) 
 	return chainState, nil
 }
 
-func GetOfframpDynamicConfig(c cldf.AptosChain, ccipAddress aptos.AccountAddress) (module_offramp.DynamicConfig, error) {
+func GetOfframpDynamicConfig(c cldf_aptos.Chain, ccipAddress aptos.AccountAddress) (module_offramp.DynamicConfig, error) {
 	offrampBind := ccip_offramp.Bind(ccipAddress, c.Client)
 	return offrampBind.Offramp().GetDynamicConfig(&bind.CallOpts{})
 }

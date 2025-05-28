@@ -44,7 +44,7 @@ func TestAddAptosLanes_Apply(t *testing.T) {
 	aptosChainSelectors := env.AllChainSelectorsAptos()
 	require.Equal(t, 1, len(aptosChainSelectors), "Expected exactly 1 Aptos chain ")
 	chainSelector := aptosChainSelectors[0]
-	t.Log("Deployer: ", env.AptosChains[chainSelector].DeployerSigner)
+	t.Log("Deployer: ", env.BlockChains.AptosChains()[chainSelector].DeployerSigner)
 
 	// Deploy Lane
 	cfg := getMockUpdateConfig(t, emvSelector, emvSelector2, aptosSelector)
@@ -60,9 +60,9 @@ func TestAddAptosLanes_Apply(t *testing.T) {
 
 	// bind ccip aptos
 	aptosCCIPAddr := state.AptosChains[aptosSelector].CCIPAddress
-	aptosOnRamp := ccip_onramp.Bind(aptosCCIPAddr, env.AptosChains[aptosSelector].Client)
-	aptosOffRamp := ccip_offramp.Bind(aptosCCIPAddr, env.AptosChains[aptosSelector].Client)
-	aptosRouter := ccip_router.Bind(aptosCCIPAddr, env.AptosChains[aptosSelector].Client)
+	aptosOnRamp := ccip_onramp.Bind(aptosCCIPAddr, env.BlockChains.AptosChains()[aptosSelector].Client)
+	aptosOffRamp := ccip_offramp.Bind(aptosCCIPAddr, env.BlockChains.AptosChains()[aptosSelector].Client)
+	aptosRouter := ccip_router.Bind(aptosCCIPAddr, env.BlockChains.AptosChains()[aptosSelector].Client)
 
 	dynCfg, err := aptosOffRamp.Offramp().GetDynamicConfig(&bind.CallOpts{})
 	require.NoError(t, err)

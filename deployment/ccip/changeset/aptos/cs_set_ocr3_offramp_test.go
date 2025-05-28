@@ -47,7 +47,7 @@ func TestSetOCR3Offramp_Apply(t *testing.T) {
 
 	// bind ccip aptos
 	aptosCCIPAddr := state.AptosChains[env.AllChainSelectorsAptos()[0]].CCIPAddress
-	aptosOffRamp := ccip_offramp.Bind(aptosCCIPAddr, env.AptosChains[env.AllChainSelectorsAptos()[0]].Client)
+	aptosOffRamp := ccip_offramp.Bind(aptosCCIPAddr, env.BlockChains.AptosChains()[env.AllChainSelectorsAptos()[0]].Client)
 	ocr3Commit, err := aptosOffRamp.Offramp().LatestConfigDetails(nil, uint8(types.PluginTypeCCIPCommit))
 	require.NoError(t, err)
 	require.Len(t, ocr3Commit.Signers, 4)

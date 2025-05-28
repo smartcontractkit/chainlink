@@ -32,8 +32,8 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 		testhelpers.WithAptosChains(1),
 	)
 
-	evmChainSelectors := maps.Keys(e.Env.Chains)
-	aptosChainSelectors := maps.Keys(e.Env.AptosChains)
+	evmChainSelectors := e.Env.AllChainSelectors()
+	aptosChainSelectors := maps.Keys(e.Env.BlockChains.AptosChains())
 
 	fmt.Println("EVM: ", evmChainSelectors)
 	fmt.Println("Aptos: ", aptosChainSelectors)
@@ -315,9 +315,8 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 		testhelpers.WithNumOfChains(2),
 		testhelpers.WithAptosChains(1),
 	)
-
-	evmChainSelectors := maps.Keys(e.Env.Chains)
-	aptosChainSelectors := maps.Keys(e.Env.AptosChains)
+	evmChainSelectors := e.Env.AllChainSelectors()
+	aptosChainSelectors := maps.Keys(e.Env.BlockChains.AptosChains())
 
 	fmt.Println("EVM: ", evmChainSelectors)
 	fmt.Println("Aptos: ", aptosChainSelectors)
@@ -326,7 +325,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 	require.NoError(t, err)
 
 	sourceChain := aptosChainSelectors[0]
-	destChain := evmChainSelectors[0]
+	destChain := evmChainSelectors[1]
 
 	t.Log("Source chain (Aptos): ", sourceChain, "Dest chain (EVM): ", destChain)
 
@@ -335,7 +334,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 	var (
 		replayed      bool
 		nonce         uint64
-		senderAddress = e.Env.AptosChains[sourceChain].DeployerSigner.AccountAddress()
+		senderAddress = e.Env.BlockChains.AptosChains()[sourceChain].DeployerSigner.AccountAddress()
 		sender        = common.LeftPadBytes(senderAddress[:], 32)
 		out           messagingtest.TestCaseOutput
 		setup         = messagingtest.NewTestSetupWithDeployedEnv(
@@ -349,7 +348,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 		)
 	)
 
-	t.Run("Message to Aptos", func(t *testing.T) {
+	t.Run("Message to EVM", func(t *testing.T) {
 		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
 		require.NoError(t, err)
 		message := []byte("Hello EVM, from Aptos!")

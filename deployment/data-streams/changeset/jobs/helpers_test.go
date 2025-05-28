@@ -12,7 +12,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -31,7 +34,7 @@ import (
 
 // sendTestLLOJobs sends some test LLO jobs, which we can then revoke, retrieve, delete, etc.
 func sendTestLLOJobs(t *testing.T, e cldf.Environment, numOracles, numBootstraps int, autoApproveJobs bool) []cldf.ChangesetOutput {
-	chainSel := e.AllChainSelectors()[0]
+	chainSel := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	configurator := "0x4170ed0880ac9a755fd29b2688956bd959f923f4"
 	err := e.ExistingAddresses.Save(chainSel, configurator,
 		cldf.TypeAndVersion{

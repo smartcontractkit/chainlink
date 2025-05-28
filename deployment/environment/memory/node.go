@@ -22,6 +22,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -240,7 +242,7 @@ type NewNodeConfig struct {
 	// Solana chains to be configured. Optional.
 	Solchains map[uint64]cldf.SolChain
 	// Aptos chains to be configured. Optional.
-	Aptoschains    map[uint64]cldf.AptosChain
+	Aptoschains    map[uint64]cldf_aptos.Chain
 	LogLevel       zapcore.Level
 	Bootstrap      bool
 	RegistryConfig deployment.CapabilityRegistryConfig
@@ -441,7 +443,7 @@ func CreateKeys(t *testing.T,
 	app chainlink.Application,
 	chains map[uint64]cldf.Chain,
 	solchains map[uint64]cldf.SolChain,
-	aptoschains map[uint64]cldf.AptosChain,
+	aptoschains map[uint64]cldf_aptos.Chain,
 ) Keys {
 	ctx := t.Context()
 	_, err := app.GetKeyStore().P2P().Create(ctx)

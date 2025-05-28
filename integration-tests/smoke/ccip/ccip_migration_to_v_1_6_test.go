@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -74,7 +75,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 	)
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	allChains := e.Env.AllChainSelectors()
+	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	src1, dest := allChains[0], allChains[1]
 	pairs := []testhelpers.SourceDestPair{
 		{SourceChainSelector: src1, DestChainSelector: dest},
@@ -148,7 +149,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 
 	_, err = cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset).Apply(e.Env,
 		v1_6.SetRMNRemoteOnRMNProxyConfig{
-			ChainSelectors: e.Env.AllChainSelectors(),
+			ChainSelectors: e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)),
 		})
 	require.NoError(t, err)
 
@@ -200,7 +201,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	)
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	allChains := e.Env.AllChainSelectors()
+	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	src1, dest := allChains[0], allChains[1]
 	pairs := []testhelpers.SourceDestPair{
 		{SourceChainSelector: src1, DestChainSelector: dest},
@@ -276,7 +277,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 
 	_, err = cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset).Apply(e.Env,
 		v1_6.SetRMNRemoteOnRMNProxyConfig{
-			ChainSelectors: e.Env.AllChainSelectors(),
+			ChainSelectors: e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)),
 		})
 	require.NoError(t, err)
 
@@ -297,7 +298,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset).Apply(e.Env, v1_6.RMNCurseConfig{
-		CurseActions: []v1_6.CurseAction{v1_6.CurseChain(e.Env.AllChainSelectors()[0])},
+		CurseActions: []v1_6.CurseAction{v1_6.CurseChain(e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0])},
 		Reason:       "Curse test",
 	})
 	require.NoError(t, err)
@@ -336,7 +337,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	)
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	allChains := e.Env.AllChainSelectors()
+	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	src1, dest := allChains[0], allChains[1]
 	pairs := []testhelpers.SourceDestPair{
 		{SourceChainSelector: src1, DestChainSelector: dest},
@@ -413,7 +414,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 
 	_, err = cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset).Apply(e.Env,
 		v1_6.SetRMNRemoteOnRMNProxyConfig{
-			ChainSelectors: e.Env.AllChainSelectors(),
+			ChainSelectors: e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)),
 		})
 	require.NoError(t, err)
 
@@ -434,7 +435,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset).Apply(e.Env, v1_6.RMNCurseConfig{
-		CurseActions: []v1_6.CurseAction{v1_6.CurseChain(e.Env.AllChainSelectors()[0])},
+		CurseActions: []v1_6.CurseAction{v1_6.CurseChain(e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0])},
 		Reason:       "Curse test",
 	})
 	require.NoError(t, err)
@@ -452,12 +453,12 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	}()
 
 	_, err = cldf.CreateLegacyChangeSet(v1_6.RMNUncurseChangeset).Apply(e.Env, v1_6.RMNCurseConfig{
-		CurseActions: []v1_6.CurseAction{v1_6.CurseChain(e.Env.AllChainSelectors()[0])},
+		CurseActions: []v1_6.CurseAction{v1_6.CurseChain(e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0])},
 		Reason:       "Uncurse test",
 	})
 	require.NoError(t, err)
 
-	for _, chainSel := range e.Env.AllChainSelectors() {
+	for _, chainSel := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)) {
 		subjects, err := state.MustGetEVMChainState(chainSel).RMNRemote.GetCursedSubjects(nil)
 		require.NoError(t, err)
 		require.Empty(t, subjects)
@@ -521,8 +522,11 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	)
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	allChainsExcept1337 := e.Env.AllChainSelectorsExcluding([]uint64{chainselectors.GETH_TESTNET.Selector})
-	require.Contains(t, e.Env.AllChainSelectors(), chainselectors.GETH_TESTNET.Selector)
+	allChainsExcept1337 := e.Env.BlockChains.ListChainSelectors(
+		cldf_chain.WithFamily(chainselectors.FamilyEVM),
+		cldf_chain.WithChainSelectorsExclusion([]uint64{chainselectors.GETH_TESTNET.Selector}),
+	)
+	require.Contains(t, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)), chainselectors.GETH_TESTNET.Selector)
 	require.Len(t, allChainsExcept1337, 2)
 	src1, src2, dest := allChainsExcept1337[0], allChainsExcept1337[1], chainselectors.GETH_TESTNET.Selector
 	pairs := []testhelpers.SourceDestPair{
@@ -601,7 +605,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 
 	// now that all 1.5 lanes work transfer ownership of the contracts to MCMS
 	contractsByChain := make(map[uint64][]common.Address)
-	for _, chain := range e.Env.AllChainSelectors() {
+	for _, chain := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)) {
 		contractsByChain[chain] = []common.Address{
 			state.MustGetEVMChainState(chain).Router.Address(),
 			state.MustGetEVMChainState(chain).RMNProxy.Address(),
@@ -636,7 +640,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	// add 1.6 contracts to the environment and send 1.6 jobs
 	// First we need to deploy Homechain contracts and restart the nodes with updated cap registry
 	// in this test we have already deployed home chain contracts and the nodes are already running with the deployed cap registry.
-	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv, false)
+	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)), tEnv, false)
 	// Set RMNProxy to point to RMNRemote.
 	// nonce manager should point to 1.5 ramps
 	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
@@ -644,7 +648,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 			// as we have already transferred ownership for RMNProxy to MCMS, it needs to be done via MCMS proposal
 			cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
 			v1_6.SetRMNRemoteOnRMNProxyConfig{
-				ChainSelectors: e.Env.AllChainSelectors(),
+				ChainSelectors: e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)),
 				MCMSConfig: &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				},

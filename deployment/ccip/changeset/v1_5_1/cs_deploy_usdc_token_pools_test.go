@@ -5,8 +5,11 @@ import (
 	"math/big"
 	"testing"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
@@ -121,7 +124,7 @@ func TestValidateDeployUSDCTokenPoolContractsConfig(t *testing.T) {
 			Msg: "Missing router",
 			Input: v1_5_1.DeployUSDCTokenPoolContractsConfig{
 				USDCPools: map[uint64]v1_5_1.DeployUSDCTokenPoolInput{
-					e.AllChainSelectors()[0]: v1_5_1.DeployUSDCTokenPoolInput{},
+					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: v1_5_1.DeployUSDCTokenPoolInput{},
 				},
 			},
 			ErrStr: "missing router",
@@ -143,7 +146,7 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains: 2,
 	})
-	selector := e.AllChainSelectors()[0]
+	selector := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	chain := e.Chains[selector]
 	addressBook := cldf.NewMemoryAddressBook()
 
@@ -245,7 +248,7 @@ func TestDeployUSDCTokenPoolContracts(t *testing.T) {
 			e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 				Chains: 2,
 			})
-			selectors := e.AllChainSelectors()
+			selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 
 			addressBook := cldf.NewMemoryAddressBook()
 			prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, len(selectors))
