@@ -794,6 +794,7 @@ func setupLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (cldf.Env
 			},
 			TokenAddress: state.SolChains[solChain].LinkToken.String(),
 			Type:         shared.BurnMintTokenPool,
+			Metadata:     "CLL",
 		}
 		mu.Unlock()
 	}

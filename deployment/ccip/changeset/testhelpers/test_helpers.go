@@ -49,6 +49,8 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
@@ -895,25 +897,25 @@ func AddLane(
 	toFamily, _ := chainsel.GetSelectorFamily(to)
 	changesets := []commoncs.ConfiguredChangeSet{}
 	if fromFamily == chainsel.FamilyEVM {
-		evmSrcChangesets := AddEVMSrcChangesets(from, to, isTestRouter, gasprice, tokenPrices, fqCfg)
+		evmSrcChangesets := addEVMSrcChangesets(from, to, isTestRouter, gasprice, tokenPrices, fqCfg)
 		changesets = append(changesets, evmSrcChangesets...)
 	}
 	if toFamily == chainsel.FamilyEVM {
-		evmDstChangesets := AddEVMDestChangesets(e, to, from, isTestRouter)
+		evmDstChangesets := addEVMDestChangesets(e, to, from, isTestRouter)
 		changesets = append(changesets, evmDstChangesets...)
 	}
 	if fromFamily == chainsel.FamilySolana {
-		changesets = append(changesets, AddLaneSolanaChangesets(e, from, to, toFamily)...)
+		changesets = append(changesets, addLaneSolanaChangesets(t, e, from, to, toFamily)...)
 	}
 	if toFamily == chainsel.FamilySolana {
-		changesets = append(changesets, AddLaneSolanaChangesets(e, to, from, fromFamily)...)
+		changesets = append(changesets, addLaneSolanaChangesets(t, e, to, from, fromFamily)...)
 	}
 
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), changesets)
 	require.NoError(t, err)
 }
 
-func AddLaneSolanaChangesets(e *DeployedEnv, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
+func addLaneSolanaChangesets(t *testing.T, e *DeployedEnv, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
 	chainFamilySelector := [4]uint8{}
 	if remoteFamily == chainsel.FamilyEVM {
 		// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
@@ -972,7 +974,7 @@ func AddLaneSolanaChangesets(e *DeployedEnv, solChainSelector, remoteChainSelect
 	return solanaChangesets
 }
 
-func AddEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64]*big.Int, tokenPrices map[common.Address]*big.Int, fqCfg fee_quoter.FeeQuoterDestChainConfig) []commoncs.ConfiguredChangeSet {
+func addEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64]*big.Int, tokenPrices map[common.Address]*big.Int, fqCfg fee_quoter.FeeQuoterDestChainConfig) []commoncs.ConfiguredChangeSet {
 	evmSrcChangesets := []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
@@ -1027,7 +1029,7 @@ func AddEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64
 	return evmSrcChangesets
 }
 
-func AddEVMDestChangesets(e *DeployedEnv, to, from uint64, isTestRouter bool) []commoncs.ConfiguredChangeSet {
+func addEVMDestChangesets(e *DeployedEnv, to, from uint64, isTestRouter bool) []commoncs.ConfiguredChangeSet {
 	evmDstChangesets := []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
@@ -2142,82 +2144,52 @@ func SavePreloadedSolAddresses(e cldf.Environment, solChainSelector uint64) erro
 	return nil
 }
 
-func ValidateSolanaState(e cldf.Environment, solChainSelectors []uint64) error {
+func ValidateSolanaState(t *testing.T, e cldf.Environment, solChainSelectors []uint64) {
 	state, err := stateview.LoadOnchainStateSolana(e)
-	if err != nil {
-		return err
-	}
+	require.NoError(t, err, "Failed to load Solana state")
 
 	for _, sel := range solChainSelectors {
 		// Validate chain exists in state
 		chainState, exists := state.SolChains[sel]
-		if !exists {
-			return fmt.Errorf("Chain selector %d not found in Solana state", sel)
-		}
+		require.True(t, exists, "Chain selector %d not found in Solana state", sel)
 
 		// Validate addresses
-		if chainState.Router.IsZero() {
-			return fmt.Errorf("Router address is zero for chain %d", sel)
-		}
-		if chainState.OffRamp.IsZero() {
-			return fmt.Errorf("OffRamp address is zero for chain %d", sel)
-		}
-		if chainState.FeeQuoter.IsZero() {
-			return fmt.Errorf("FeeQuoter address is zero for chain %d", sel)
-		}
-		if chainState.LinkToken.IsZero() {
-			return fmt.Errorf("Link token address is zero for chain %d", sel)
-		}
-		if chainState.RMNRemote.IsZero() {
-			return fmt.Errorf("RMNRemote address is zero for chain %d", sel)
-		}
-
-		ctx := e.GetContext()
+		require.False(t, chainState.Router.IsZero(), "Router address is zero for chain %d", sel)
+		require.False(t, chainState.OffRamp.IsZero(), "OffRamp address is zero for chain %d", sel)
+		require.False(t, chainState.FeeQuoter.IsZero(), "FeeQuoter address is zero for chain %d", sel)
+		require.False(t, chainState.LinkToken.IsZero(), "Link token address is zero for chain %d", sel)
+		require.False(t, chainState.RMNRemote.IsZero(), "RMNRemote address is zero for chain %d", sel)
 
 		// Get router config
 		var routerConfigAccount solRouter.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(ctx, chainState.RouterConfigPDA, &routerConfigAccount)
-		if err != nil {
-			return err
-		}
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.RouterConfigPDA, &routerConfigAccount)
+		require.NoError(t, err, "Failed to deserialize router config for chain %d", sel)
+
 		// Get fee quoter config
 		var feeQuoterConfigAccount solFeeQuoter.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(ctx, chainState.FeeQuoterConfigPDA, &feeQuoterConfigAccount)
-		if err != nil {
-			return err
-		}
-		// Get off-ramp config
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.FeeQuoterConfigPDA, &feeQuoterConfigAccount)
+		require.NoError(t, err, "Failed to deserialize fee quoter config for chain %d", sel)
+
+		// Get offramp config
 		var offRampConfigAccount solOffRamp.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(ctx, chainState.OffRampConfigPDA, &offRampConfigAccount)
-		if err != nil {
-			return err
-		}
-		// Get RMN remote config
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.OffRampConfigPDA, &offRampConfigAccount)
+		require.NoError(t, err, "Failed to deserialize offramp config for chain %d", sel)
+
+		// Get rmn remote config
 		var rmnRemoteConfigAccount solRmnRemote.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(ctx, chainState.RMNRemoteConfigPDA, &rmnRemoteConfigAccount)
-		if err != nil {
-			return err
-		}
-		addressLookupTable, err := solanastateview.FetchOfframpLookupTable(ctx, e.BlockChains.SolanaChains()[sel], chainState.OffRamp)
-		if err != nil {
-			return err
-		}
-		err = e.SolChains[sel].GetAccountDataBorshInto(ctx, chainState.RMNRemoteConfigPDA, &rmnRemoteConfigAccount)
-		if err != nil {
-			return err
-		}
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.RMNRemoteConfigPDA, &rmnRemoteConfigAccount)
+		require.NoError(t, err, "Failed to deserialize rmn remote config for chain %d", sel)
+
+		addressLookupTable, err := solanastateview.FetchOfframpLookupTable(e.GetContext(), e.BlockChains.SolanaChains()[sel], chainState.OffRamp)
+		require.NoError(t, err, "Failed to get offramp lookup table for chain %d", sel)
+
 		addresses, err := solcommon.GetAddressLookupTable(
-			ctx,
+			e.GetContext(),
 			e.BlockChains.SolanaChains()[sel].Client,
 			addressLookupTable)
-		if err != nil {
-			return err
-		}
-		if len(addresses) < 22 {
-			return fmt.Errorf("Not enough addresses found in lookup table for chain %d", sel)
-		}
+		require.NoError(t, err, "Failed to get address lookup table for chain %d", sel)
+		require.GreaterOrEqual(t, len(addresses), 22, "Not enough addresses found in lookup table for chain %d", sel)
 	}
-	return nil
 }
 
 func DeploySolanaCcipReceiver(t *testing.T, e cldf.Environment) {
