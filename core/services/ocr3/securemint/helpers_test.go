@@ -560,8 +560,12 @@ func addSecureMintJob(i int,
 	job, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), spec, nil)
 	require.NoError(t, err)
 
+	t.Logf("Secure mint job spec id is %d", job.ID)
+
 	err = node.App.AddJobV2(testutils.Context(t), &job)
 	require.NoError(t, err)
+
+	t.Logf("After creation, Secure mint job spec id is %d", job.ID)
 
 	return job.ID
 }
@@ -632,15 +636,13 @@ updateInterval = "1m"
 func createSecureMintBridge(t *testing.T, name string, i int, p decimal.Decimal, borm bridges.ORM) (bridgeName string) {
 	ctx := testutils.Context(t)
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		b, err := io.ReadAll(req.Body)
-		require.NoError(t, err)
 		// TODO(gg): assert on the EA request format here
 		// require.JSONEq(t, `{"meta":{"latestAnswer":"", "updatedAt": ""}}`, string(b))
 
 		res.WriteHeader(http.StatusOK)
 		val := p.String()
 		resp := fmt.Sprintf(`{"data": %s}`, val)
-		_, err = res.Write([]byte(resp))
+		_, err := res.Write([]byte(resp))
 		require.NoError(t, err)
 	}))
 	t.Cleanup(bridge.Close)
