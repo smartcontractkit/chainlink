@@ -39,12 +39,8 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 		{
 			name: "success - valid configs",
 			env: cldf.Environment{
-				Name:   "test",
-				Logger: logger.TestLogger(t),
-				AptosChains: map[uint64]cldf.AptosChain{
-					743186221051783445:  {},
-					4457093679053095497: {},
-				},
+				Name:              "test",
+				Logger:            logger.TestLogger(t),
 				ExistingAddresses: cldf.NewMemoryAddressBook(),
 				BlockChains: chain.NewBlockChains(
 					map[uint64]chain.BlockChain{
@@ -69,10 +65,6 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 			env: cldf.Environment{
 				Name:   "test",
 				Logger: logger.TestLogger(t),
-				AptosChains: map[uint64]cldf.AptosChain{
-					743186221051783445:  {},
-					4457093679053095497: {},
-				},
 				ExistingAddresses: getTestAddressBook(
 					t,
 					map[uint64]map[string]cldf.TypeAndVersion{
@@ -103,9 +95,6 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 			env: cldf.Environment{
 				Name:   "test",
 				Logger: logger.TestLogger(t),
-				AptosChains: map[uint64]cldf.AptosChain{
-					4457093679053095497: {},
-				},
 				ExistingAddresses: getTestAddressBook(
 					t,
 					map[uint64]map[string]cldf.TypeAndVersion{
@@ -137,7 +126,6 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 				Name:              "test",
 				Logger:            logger.TestLogger(t),
 				ExistingAddresses: cldf.NewMemoryAddressBook(),
-				AptosChains:       map[uint64]cldf.AptosChain{},
 			},
 			config: config.DeployAptosChainConfig{
 				ContractParamsPerChain: map[uint64]config.ChainContractParams{
@@ -152,9 +140,6 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 			env: cldf.Environment{
 				Name:   "test",
 				Logger: logger.TestLogger(t),
-				AptosChains: map[uint64]cldf.AptosChain{
-					4457093679053095497: {},
-				},
 				ExistingAddresses: getTestAddressBook(
 					t,
 					map[uint64]map[string]cldf.TypeAndVersion{
@@ -180,9 +165,6 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 			env: cldf.Environment{
 				Name:   "test",
 				Logger: logger.TestLogger(t),
-				AptosChains: map[uint64]cldf.AptosChain{
-					4457093679053095497: {},
-				},
 				ExistingAddresses: getTestAddressBook(
 					t,
 					map[uint64]map[string]cldf.TypeAndVersion{
@@ -237,7 +219,7 @@ func TestDeployAptosChain_Apply(t *testing.T) {
 	aptosChainSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyAptos))
 	require.Len(t, aptosChainSelectors, 1, "Expected exactly 1 Aptos chain")
 	chainSelector := aptosChainSelectors[0]
-	t.Log("Deployer: ", env.AptosChains[chainSelector].DeployerSigner)
+	t.Log("Deployer: ", env.BlockChains.AptosChains()[chainSelector].DeployerSigner)
 
 	// Deploy CCIP to Aptos chain
 	mockCCIPParams := GetMockChainContractParams(t, chainSelector)
@@ -275,7 +257,7 @@ func TestDeployAptosChain_Apply(t *testing.T) {
 	require.NotEmpty(t, ccipAddr, "CCIP address should not be empty")
 
 	// Bind CCIP contract
-	offrampBind := ccip_offramp.Bind(ccipAddr, env.AptosChains[chainSelector].Client)
+	offrampBind := ccip_offramp.Bind(ccipAddr, env.BlockChains.AptosChains()[chainSelector].Client)
 	offRampSourceConfig, err := offrampBind.Offramp().GetSourceChainConfig(nil, mockCCIPParams.OffRampParams.SourceChainSelectors[0])
 	require.NoError(t, err)
 	require.True(t, offRampSourceConfig.IsEnabled, "contracts were not initialized correctly")

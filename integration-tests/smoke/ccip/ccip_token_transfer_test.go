@@ -27,6 +27,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 )
 
 // duplicated from messagingtest
@@ -252,8 +256,8 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(e.Chains), 2)
 
-	allChainSelectors := maps.Keys(e.Chains)
-	allSolChainSelectors := maps.Keys(e.SolChains)
+	allChainSelectors := e.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
+	allSolChainSelectors := e.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySolana))
 	sourceChain, destChain := allChainSelectors[0], allSolChainSelectors[0]
 	ownerSourceChain := e.Chains[sourceChain].DeployerKey
 	// ownerDestChain := e.SolChains[destChain].DeployerKey
@@ -386,12 +390,12 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(e.Chains), 2)
 
-	allChainSelectors := maps.Keys(e.Chains)
-	allSolChainSelectors := maps.Keys(e.SolChains)
+	allChainSelectors := e.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
+	allSolChainSelectors := e.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySolana))
 	sourceChain, destChain := allSolChainSelectors[0], allChainSelectors[0]
-	sender := e.SolChains[sourceChain].DeployerKey
+	sender := e.BlockChains.SolanaChains()[sourceChain].DeployerKey
 	ownerSourceChain := sender.PublicKey()
-	ownerDestChain := e.Chains[destChain].DeployerKey
+	ownerDestChain := e.BlockChains.EVMChains()[destChain].DeployerKey
 
 	require.GreaterOrEqual(t, len(tenv.Users[destChain]), 2) // TODO: ???
 
@@ -411,8 +415,9 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, sourceChain, destChain, false)
 
 	// TODO: handle in setup
-	deployer := e.SolChains[sourceChain].DeployerKey
-	rpcClient := e.SolChains[sourceChain].Client
+	solChains := e.BlockChains.SolanaChains()
+	deployer := solChains[sourceChain].DeployerKey
+	rpcClient := solChains[sourceChain].Client
 
 	// create ATA for user
 	tokenProgram := solana.TokenProgramID

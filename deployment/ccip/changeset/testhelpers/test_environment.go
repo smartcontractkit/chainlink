@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	solanago "github.com/gagliardetto/solana-go"
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -340,7 +341,7 @@ type MemoryEnvironment struct {
 	TestConfig  *TestConfigs
 	Chains      map[uint64]cldf.Chain
 	SolChains   map[uint64]cldf.SolChain
-	AptosChains map[uint64]cldf.AptosChain
+	AptosChains map[uint64]cldf_aptos.Chain
 }
 
 func (m *MemoryEnvironment) TestConfigs() *TestConfigs {
@@ -393,7 +394,6 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	env := cldf.Environment{
 		Chains:      m.Chains,
 		SolChains:   m.SolChains,
-		AptosChains: m.AptosChains,
 		BlockChains: cldf_chain.NewBlockChains(blockChains),
 	}
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)

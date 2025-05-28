@@ -1,6 +1,7 @@
 package don
 
 import (
+	"context"
 	"slices"
 	"strconv"
 
@@ -16,14 +17,14 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
-func CreateJobs(testLogger zerolog.Logger, input cretypes.CreateJobsInput) error {
+func CreateJobs(ctx context.Context, testLogger zerolog.Logger, input cretypes.CreateJobsInput) error {
 	if err := input.Validate(); err != nil {
 		return errors.Wrap(err, "input validation failed")
 	}
 
 	for _, don := range input.DonTopology.DonsWithMetadata {
 		if jobSpecs, ok := input.DonToJobSpecs[don.ID]; ok {
-			createErr := jobs.Create(input.CldEnv.Offchain, don.DON, don.Flags, jobSpecs)
+			createErr := jobs.Create(ctx, input.CldEnv.Offchain, don.DON, don.Flags, jobSpecs)
 			if createErr != nil {
 				return errors.Wrapf(createErr, "failed to create jobs for DON %d", don.ID)
 			}

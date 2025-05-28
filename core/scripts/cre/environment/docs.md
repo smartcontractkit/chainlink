@@ -9,10 +9,11 @@
    - [Restart Environment](#restarting-the-environment)
 
 2. [Job Distributor Image](#job-distributor-image)
+3. [Troubleshooting](#troubleshooting)
 
 # Using the CLI
 
-The CLI manages CRE test environments. It lives in `core/scripts/cre/environment`.
+The CLI manages CRE test environments. It is located in `core/scripts/cre/environment`.
 
 ## Prerequisites (for Docker) ###
 1. **Docker installed and running**
@@ -20,14 +21,23 @@ The CLI manages CRE test environments. It lives in `core/scripts/cre/environment
     - with Apple Virtualization framework **enabled**
     - with VirtioFS **enabled**
     - with use of containerd for pulling and storing images **disabled**
-2. **Logged in to Docker**
-    - Run `docker login`
-3. **Job Distributor Docker image available**
-    - [This section](#job-distributor-image) explains how to build it locally
-4. **Download CRE CLI v0.2.0**
-    - download it from [smartcontract/dev-platform](https://github.com/smartcontractkit/dev-platform/releases/tag/v0.2.0) or
-    - using GH CLI: `gh release download v0.2.0 --repo smartcontractkit/dev-platform --pattern '*darwin_arm64*'`
-    - remove it from MacOs' quarantine `xattr -d com.apple.quarantine cre_v0.2.0_darwin_arm64`
+2. **Job Distributor Docker image available**
+    - Either build it locally as described in [this section](#job-distributor-image)
+    - or download it from the PROD ECR (if you have access) and tag as `job-distributor:0.9.0`
+
+If you want to run an example workflow you also need to either:
+
+1. **Download CRE CLI v0.2.0**
+    - download it either from [smartcontract/dev-platform](https://github.com/smartcontractkit/dev-platform/releases/tag/v0.2.0)
+    - or using GH CLI by running: `gh release download v0.2.0 --repo smartcontractkit/dev-platform --pattern 'cre_v0.2.0_darwin_arm64.tar.gz'`
+    - once you have the archive downloaded run:
+      ```bash
+      tar -xf cre_v0.2.0_darwin_arm64.tar.gz
+      rm cre_v0.2.0_darwin_arm64.tar.gz
+      # do not worry about potential 'No such xattr: com.apple.quarantine' error
+      xattr -d com.apple.quarantine cre_v0.2.0_darwin_arm64
+      export "PATH=$(pwd):$PATH"
+      ```
 
 Optionally:
 1. **Choose the Right Topology**
@@ -43,46 +53,34 @@ Optionally:
      Once that is done reference them in your TOML like:
        ```toml
        [extra_capabilities]
-       cron_capability_binary_path = "../cron" # remember to adjust binary name
+       cron_capability_binary_path = "../cron" # remember to adjust binary name and path
+       # log even trigger and read-contract binaries go here
        ```
    - If the capability is already baked into your CL image (check the Dockerfile), comment out the TOML path line to skip copying.
-3. **Ensure Binaries Are in the Right Location**
-    - Default config of the CLI command will look for `cron`, and other capability binaries in `core/scripts/cre/environment`
-4.  **Decide whether to build or reuse Chainlink Docker Image**
-   - To build from your local branch:
-     ```toml
-     [nodesets.node_specs.node]
-     docker_ctx = "../../../.."
-     docker_file = "plugins/chainlink.Dockerfile"
-     ```
-   - To reuse a prebuilt image:
+3.  **Decide whether to build or reuse Chainlink Docker Image**
+   - By default, the configs builds the Docker image from your local branch. To use an existing image change to:
      ```toml
      [nodesets.node_specs.node]
      image = "<your-Docker-image>:<your-tag>"
      ```
-  Make these changes for **all** nodes in the nodeset.
+  Make these changes for **all** nodes in the nodeset in the TOML config.
 
-5. **Decide whether to use Docker or k8s**
-    - Read sections 3 to 9 starting [here](#2-docker-vs-kubernetes-k8s) to learn how to switch between Docker and Kubernetes
-6. **Start Observability Stack (Docker-only)**
-   - If you want Grafana/Prometheus support, run:
-     ```bash
-     ctf obs up
-     ```
-   - If you want Blockscout block explorer, run:
-    ```bash
-    ctf bs u
-    ```
-    (warning, that stack is pretty heavy)
+4. **Decide whether to use Docker or k8s**
+    - Read [Docker vs Kubernetes in guidelines.md](../../../../system-tests/tests/smoke/cre/guidelines.md) to learn how to switch between Docker and Kubernetes
+5. **Start Observability Stack (Docker-only)**
+      ```bash
+      # to start Loki, Grafana and Prometheus run:
+      ctf obs up
+
+     # to start Blockscout block explorer run:
+      ctf bs u
+      ```
     - To download the `ctf` binary follow the steps described [here](https://smartcontractkit.github.io/chainlink-testing-framework/framework/getting_started.html)
-7. **Download and configure GH CLI (if CRE CLI  is missing or not in your PATH)**
-  - Either download from [cli.github.com](https://cli.github.com/) or install with Homebrew with `brew install gh`
-  - Configure with `gh auth login`
 
 Optional environment variables used by the CLI:
-- `CTF_CONFIGS`: TOML config path
-- `PRIVATE_KEY`: Default test key if not set
-- `TESTCONTAINERS_RYUK_DISABLED`: Set to "true" to disable cleanup
+- `CTF_CONFIGS`: TOML config paths. Defaults to [./configs/single-don.toml](./configs/single-don.toml)
+- `PRIVATE_KEY`: Plaintext private key that will be used for all deployments (needs to be funded). Defaults to `ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
+- `TESTCONTAINERS_RYUK_DISABLED`: Set to "true" to disable cleanup. Defaults to `false`
 
 When starting the environment in AWS-managed Kubernetes make sure to source `.env` environment from the `crib/deployments/cre` folder specific for AWS. Remember, that it must include ingress domain settings.
 
@@ -93,17 +91,22 @@ When starting the environment in AWS-managed Kubernetes make sure to source `.en
 # while in core/scripts/cre/environment
 go run main.go env start
 
-# or to start environment with an example workflow
+# to start environment with an example workflow
 go run main.go env start --with-example
+
+# to start environment using image with all supported capabilities
+go run main.go env start --with-plugins-docker-image <SDLC_ACCOUNT_ID>dkr.ecr.<SDLC_ACCOUNT_REGION>.amazonaws.com/chainlink:nightly-<YYYMMDD>-plugins
 ```
+
+> Important! **Nightly** Chainlink images are retained only for one day and built at 03:00 UTC. That means that in most cases you should use today's image, not yesterday's.
 
 Optional parameters:
 - `-t`: Topology (`simplified` or `full`)
-- `-w`: Wait on error before cleanup (e.g. to inspect Docker logs, e.g. `-w 5m`)
-- `-e`: Extra ports for which external access by the DON should be allowed (e.g. when making API calls)
-- `-x`: Registers an example PoR workflow using CRE CLI and verifies it
+- `-w`: Wait on error before removing up Docker containers (e.g. to inspect Docker logs, e.g. `-w 5m`)
+- `-e`: Extra ports for which external access by the DON should be allowed (e.g. when making API calls or downloading WASM workflows)
+- `-x`: Registers an example PoR workflow using CRE CLI and verifies it executed successfuly
 - `-s`: Time to wait for example workflow to execute successfuly (defaults to `5m`)
-- `-p`: Docker `Plugins` image to use (must contain all of the following capabilities: `ocr3`, `cron`, `readcontract` and `logevent`)
+- `-p`: Docker `plugins` image to use (must contain all of the following capabilities: `ocr3`, `cron`, `readcontract` and `logevent`)
 
 
 ### Using existing Docker Plugins image
@@ -114,10 +117,8 @@ If you don't want to build Chainlink image from your local branch (default behav
 ```bash
 # while in core/scripts/cre/environment
 go run main.go env stop
-```
 
-Or... if you have the CTF binary:
-```
+# or... if you have the CTF binary
 ctf d rm
 ```
 ---
@@ -134,7 +135,10 @@ ctf bs r
 ## Further use
 To manage workflows you will need the CRE CLI. You can either:
 - download it from [smartcontract/dev-platform](https://github.com/smartcontractkit/dev-platform/releases/tag/v0.2.0) or
-- using GH CLI: `gh release download v0.2.0 --repo smartcontractkit/dev-platform --pattern '*darwin_arm64*'`
+- using GH CLI:
+  ```bash
+  gh release download v0.2.0 --repo smartcontractkit/dev-platform --pattern '*darwin_arm64*'
+  ```
 
 Remember that the CRE CLI version needs to match your CPU architecture and operating system.
 
@@ -152,4 +156,22 @@ git checkout v0.9.0
 docker build -t job-distributor:0.9.0 -f e2e/Dockerfile.e2e .
 ```
 
-Or pull from your internal registry and update the image name in `environment-*.toml`.
+If you pull the image from the PRO ECR remember to either update the image name in [TOML config](./configs/) for your chosed topology or to tag that image as `job-distributor:0.9.0`.
+
+## Troubleshooting
+
+### Docker fails to download public images
+Make sure you are logged in to Docker. Run: `docker login`
+
+### GH CLI is not installed
+Either download from [cli.github.com](https://cli.github.com) or install with Homebrew with:
+```bash
+brew install gh
+```
+
+Once installed, configure it by running:
+```bash
+gh auth login
+```
+
+For GH CLI to be used by the environment to download the CRE CLI you must have access to [smartcontract/dev-platform](https://github.com/smartcontractkit/dev-platform) repository.

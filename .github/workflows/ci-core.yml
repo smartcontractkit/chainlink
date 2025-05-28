@@ -215,35 +215,6 @@ jobs:
         if: ${{ matrix.type.is-self-hosted == 'true' }}
         uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
 
-      - name: Setup self-hosted directory mounts
-        # For self-hosted runners - the volume mounted to / is too small to handle everything stored in
-        # /home/runner. So we mount certain directories to the larger volume.
-        if: ${{ matrix.type.is-self-hosted == 'true' }}
-        run: |
-          if [ ! -d "/home/runner/_work" ]; then
-            echo "::warning::/home/runner/_work does not exist, skipping mount."
-            exit 0
-          fi
-
-          # Define the directories to mount as tuples of source:destination
-          DIRS=(
-            "/home/runner/_work/runner-go:/home/runner/go"
-            "/home/runner/_work/runner-cache:/home/runner/.cache"
-          )
-
-          # Process each directory pair
-          for DIR_PAIR in "${DIRS[@]}"; do
-            SRC_DIR=$(echo $DIR_PAIR | cut -d':' -f1)
-            DEST_DIR=$(echo $DIR_PAIR | cut -d':' -f2)
-
-            sudo mkdir -m 755 "$SRC_DIR"
-            sudo chown -R $(id -u):$(id -g) "$SRC_DIR"
-
-            mkdir -p "$DEST_DIR"
-            sudo mount --bind "$SRC_DIR" "$DEST_DIR"
-            echo "Successfully mounted $SRC_DIR to $DEST_DIR"
-          done
-
       - name: Checkout the repo
         if: ${{ matrix.type.should-run == 'true' }}
         uses: actions/checkout@v4
