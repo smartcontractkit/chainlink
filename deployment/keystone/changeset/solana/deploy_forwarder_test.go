@@ -27,34 +27,7 @@ func TestDeployForwarder(t *testing.T) {
 	ab := cldf.NewMemoryAddressBook()
 
 	t.Run("should deploy forwarder", func(t *testing.T) {
-		cfg := helpers.BuildSolanaConfig{
-			GitCommitSha:   "d047073ea230f965626716029f8d902729ddffed",
-			DestinationDir: "./contracts",
-			LocalBuild: helpers.LocalBuildConfig{
-				BuildLocally:         true,
-				CleanDestinationDir:  true,
-				CreateDestinationDir: true,
-				CleanGitDir:          true,
-			},
-		}
-		fmt.Println(cfg.GitCommitSha)
-		// default solChain looking for contracts in ccip directory
-		chain := env.SolChains[registrySel]
-		chain.ProgramsPath = getProgramsPath()
-		env.SolChains[registrySel] = chain
-		// deploy forwarder
-		env.ExistingAddresses = ab
-		resp, err := DeployForwarder(env, &DeployRequest{
-			ChainSel:    registrySel,
-			BuildConfig: &cfg,
-		})
-		require.NoError(t, err)
-		require.NotNil(t, resp)
-		// forwarder should be deployed on registry chain
-		addrs, err := resp.AddressBook.AddressesForChain(registrySel)
-		require.NoError(t, err)
-		require.Len(t, addrs, 1)
-		env.ExistingAddresses = resp.AddressBook
+		env = shouldDeployForwarder(t, env, registrySel, ab)
 	})
 	t.Run("should pass upgrade authority", func(t *testing.T) {
 		_, err := SetForwarderUpgradeAuthority(env, &SetForwarderUpgradeAuthorityRequest{
@@ -63,6 +36,39 @@ func TestDeployForwarder(t *testing.T) {
 		})
 		require.NoError(t, err)
 	})
+}
+
+func shouldDeployForwarder(t *testing.T, env cldf.Environment, registrySel uint64, ab cldf.AddressBook) cldf.Environment {
+	cfg := helpers.BuildSolanaConfig{
+		GitCommitSha:   "d047073ea230f965626716029f8d902729ddffed",
+		DestinationDir: "./contracts",
+		LocalBuild: helpers.LocalBuildConfig{
+			BuildLocally:         true,
+			CleanDestinationDir:  true,
+			CreateDestinationDir: true,
+			CleanGitDir:          true,
+		},
+	}
+	// defult
+	fmt.Println(cfg.GitCommitSha)
+	// default solChain looking for contracts in ccip directory
+	chain := env.SolChains[registrySel]
+	chain.ProgramsPath = getProgramsPath()
+	env.SolChains[registrySel] = chain
+	// deploy forwarder
+	env.ExistingAddresses = ab
+	resp, err := DeployForwarder(env, &DeployRequest{
+		ChainSel:    registrySel,
+		BuildConfig: nil,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	// forwarder should be deployed on registry chain
+	addrs, err := resp.AddressBook.AddressesForChain(registrySel)
+	require.NoError(t, err)
+	require.Len(t, addrs, 2) // forwarder programID, forwarder state
+	env.ExistingAddresses = resp.AddressBook
+	return env
 }
 
 func getProgramsPath() string {

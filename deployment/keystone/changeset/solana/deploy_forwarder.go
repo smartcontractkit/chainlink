@@ -7,6 +7,7 @@ import (
 	solanaUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	ks_forwarder "github.com/smartcontractkit/chainlink-solana/contracts/generated/keystone_forwarder"
+	"github.com/smartcontractkit/chainlink/deployment"
 	cdeployment "github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
@@ -40,21 +41,27 @@ func DeployForwarder(env cldf.Environment, req *DeployRequest) (cldf.ChangesetOu
 	// initialize
 	ks_forwarder.SetProgramID(address)
 
-	key, err := solana.NewRandomPrivateKey()
+	stateKey, err := solana.NewRandomPrivateKey()
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create random keys: %w", err)
 	}
 
-	instruction, err := ks_forwarder.NewInitializeInstruction(key.PublicKey(), chain.DeployerKey.PublicKey(), solana.SystemProgramID).ValidateAndBuild()
+	instruction, err := ks_forwarder.NewInitializeInstruction(stateKey.PublicKey(), chain.DeployerKey.PublicKey(), solana.SystemProgramID).ValidateAndBuild()
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build and validate initialize instruction %w", err)
 	}
 
 	instructions := []solana.Instruction{instruction}
-	if err = chain.Confirm(instructions, solanaUtils.AddSigners(key)); err != nil {
+	if err = chain.Confirm(instructions, solanaUtils.AddSigners(stateKey)); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm ")
 	}
 
+	tv := cldf.NewTypeAndVersion(shared.ForwarderState, deployment.Version1_0_0)
+	err = ab.Save(req.ChainSel, stateKey.PublicKey().String(), tv)
+
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to save forwarder state address: %w", err)
+	}
 	return cldf.ChangesetOutput{
 		AddressBook: ab,
 	}, nil
@@ -74,18 +81,12 @@ func SetForwarderUpgradeAuthority(env cldf.Environment, req *SetForwarderUpgrade
 		return cldf.ChangesetOutput{}, fmt.Errorf("can't get chain for chain selector %d", req.ChainSel)
 	}
 
-	addresses, err := env.ExistingAddresses.AddressesForChain(req.ChainSel)
+	state, err := loadOnchainState(env, req.ChainSel)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("can't get addresses for chain %d err: %w", req.ChainSel, err)
+		return cldf.ChangesetOutput{}, err
 	}
 
-	var forwarderPubKey solana.PublicKey
-	for address, tvStr := range addresses {
-		if tvStr.Type == shared.Forwarder {
-			forwarderPubKey = solana.MustPublicKeyFromBase58(address)
-		}
-	}
-	if forwarderPubKey.IsZero() {
+	if state.forwarderProgramID.IsZero() {
 		return cldf.ChangesetOutput{}, fmt.Errorf("forwarder not found for chain selector %d", req.ChainSel)
 	}
 
@@ -98,9 +99,9 @@ func SetForwarderUpgradeAuthority(env cldf.Environment, req *SetForwarderUpgrade
 		currentAuthority = timelockSignerPDA
 	}
 
-	env.Logger.Infow("Setting upgrade authority for", forwarderPubKey.String(), "newUpgradeAuthority", req.NewUpgradeAuthority.String())
+	env.Logger.Infow("Setting upgrade authority for", state.forwarderProgramID.String(), "newUpgradeAuthority", req.NewUpgradeAuthority.String())
 	mcmsTxns := make([]mcmsTypes.Transaction, 0)
-	ixn := helpers.SetUpgradeAuthority(&env, forwarderPubKey, currentAuthority, req.NewUpgradeAuthority, false)
+	ixn := helpers.SetUpgradeAuthority(&env, state.forwarderProgramID, currentAuthority, req.NewUpgradeAuthority, false)
 	if req.MCMS == nil {
 		if err := chain.Confirm([]solana.Instruction{ixn}); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
@@ -125,6 +126,6 @@ func SetForwarderUpgradeAuthority(env cldf.Environment, req *SetForwarderUpgrade
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil
 	}
-	return cldf.ChangesetOutput{}, nil
 
+	return cldf.ChangesetOutput{}, nil
 }
