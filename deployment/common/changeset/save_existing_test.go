@@ -22,7 +22,7 @@ func TestSaveExisting(t *testing.T) {
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		Chains: map[uint64]cldf.Chain{
+		Chains: map[uint64]cldf_evm.Chain{
 			chainsel.TEST_90000001.Selector: {},
 			chainsel.TEST_90000002.Selector: {},
 		},
@@ -69,7 +69,7 @@ func TestSaveExistingAddressWithLabels(t *testing.T) {
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		Chains: map[uint64]cldf.Chain{
+		Chains: map[uint64]cldf_evm.Chain{
 			chainsel.TEST_90000001.Selector: {},
 			chainsel.TEST_90000002.Selector: {},
 		},
@@ -112,7 +112,7 @@ func TestSaveExistingMCMSAddressWithLabels(t *testing.T) {
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		Chains: map[uint64]cldf.Chain{
+		Chains: map[uint64]cldf_evm.Chain{
 			chainsel.TEST_90000001.Selector: {},
 			chainsel.TEST_90000002.Selector: {},
 		},

@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
@@ -47,7 +48,7 @@ func DeployLinkToken(e cldf.Environment, chains []uint64) (cldf.ChangesetOutput,
 			// Deploy EVM LINK token
 			deployFn = func() error {
 				_, err := deployLinkTokenContractEVM(
-					e.Logger, e.Chains[chain], newAddresses,
+					e.Logger, e.BlockChains.EVMChains()[chain], newAddresses,
 				)
 				return err
 			}
@@ -74,12 +75,12 @@ func DeployStaticLinkToken(e cldf.Environment, chains []uint64) (cldf.ChangesetO
 	}
 	newAddresses := cldf.NewMemoryAddressBook()
 	for _, chainSel := range chains {
-		chain, ok := e.Chains[chainSel]
+		chain, ok := e.BlockChains.EVMChains()[chainSel]
 		if !ok {
 			return cldf.ChangesetOutput{}, fmt.Errorf("chain not found in environment: %d", chainSel)
 		}
 		_, err := cldf.DeployContract[*link_token_interface.LinkToken](e.Logger, chain, newAddresses,
-			func(chain cldf.Chain) cldf.ContractDeploy[*link_token_interface.LinkToken] {
+			func(chain cldf_evm.Chain) cldf.ContractDeploy[*link_token_interface.LinkToken] {
 				linkTokenAddr, tx, linkToken, err2 := link_token_interface.DeployLinkToken(
 					chain.DeployerKey,
 					chain.Client,
@@ -102,11 +103,11 @@ func DeployStaticLinkToken(e cldf.Environment, chains []uint64) (cldf.ChangesetO
 
 func deployLinkTokenContractEVM(
 	lggr logger.Logger,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	ab cldf.AddressBook,
 ) (*cldf.ContractDeploy[*link_token.LinkToken], error) {
 	linkToken, err := cldf.DeployContract[*link_token.LinkToken](lggr, chain, ab,
-		func(chain cldf.Chain) cldf.ContractDeploy[*link_token.LinkToken] {
+		func(chain cldf_evm.Chain) cldf.ContractDeploy[*link_token.LinkToken] {
 			var (
 				linkTokenAddr common.Address
 				tx            *eth_types.Transaction
