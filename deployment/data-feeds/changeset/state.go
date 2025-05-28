@@ -13,10 +13,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
+	modulefeeds "github.com/smartcontractkit/chainlink-aptos/bindings/data_feeds"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	modulefeeds "github.com/smartcontractkit/chainlink-aptos/bindings/data_feeds"
-
 
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
