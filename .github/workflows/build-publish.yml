@@ -111,7 +111,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@dx-893/reusable-docker-wf-without-arm-fix # TODO: 2025-05-28
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@4962346cc5ffc9f3840f48639e7b5fa179bcc2cc # 2025-05-28
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-east-1
