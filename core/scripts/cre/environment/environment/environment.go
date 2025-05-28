@@ -204,7 +204,7 @@ var startCmd = &cobra.Command{
 
 		cmdContext := cmd.Context()
 
-		output, err := startCLIEnvironment(cmdContext, topologyFlag, withPluginsDockerImageFlag, extraAllowedGatewayPortsFlag)
+		output, err := startCLIEnvironment(cmdContext, topologyFlag, withPluginsDockerImageFlag, withExampleFlag, extraAllowedGatewayPortsFlag)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
@@ -311,13 +311,18 @@ var deployAndVerifyExampleWorkflowCmd = &cobra.Command{
 	},
 }
 
-func startCLIEnvironment(cmdContext context.Context, topologyFlag string, withPluginsDockerImageFlag string, extraAllowedGatewayPorts []int) (*creenv.SetupOutput, error) {
+func startCLIEnvironment(cmdContext context.Context, topologyFlag string, withPluginsDockerImageFlag string, withExampleFlag bool, extraAllowedGatewayPorts []int) (*creenv.SetupOutput, error) {
 	testLogger := framework.L
 
 	// Load and validate test configuration
 	in, err := framework.Load[Config](nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load test configuration: %w", err)
+	}
+
+	// make sure that either cron is enabled or withPluginsDockerImageFlag is set
+	if withExampleFlag && (in.ExtraCapabilities.CronCapabilityBinaryPath == "" && withPluginsDockerImageFlag == "") {
+		return nil, fmt.Errorf("either cron binary path must be set in TOML config (%s) or you must use Docker image with all capabilities included and passed via withPluginsDockerImageFlag", os.Getenv("CTF_CONFIGS"))
 	}
 
 	capabilitiesBinaryPaths := map[cretypes.CapabilityFlag]string{}
