@@ -430,7 +430,7 @@ func (c CCIPOnChainState) EnforceMCMSUsageIfProd(ctx context.Context, mcmsConfig
 // If mcmsConfig is nil, the expected owner of each contract is the chain's deployer key.
 // If provided, the expected owner is the Timelock contract.
 func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel uint64, mcmsConfig *proposalutils.TimelockConfig) error {
-	chain, ok := e.Chains[chainSel]
+	chain, ok := e.BlockChains.EVMChains()[chainSel]
 	if !ok {
 		return fmt.Errorf("chain with selector %d not found in the environment", chainSel)
 	}
@@ -494,7 +494,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (map[string
 			if err != nil {
 				return err
 			}
-			chainInfo, err := cldf.ChainInfo(chainSelector)
+			chainInfo, err := cldf_evm.ChainInfo(chainSelector)
 			if err != nil {
 				return err
 			}
@@ -681,7 +681,7 @@ func LoadOnchainState(e cldf.Environment) (CCIPOnChainState, error) {
 		AptosChains: aptosChains,
 		evmMu:       &sync.RWMutex{},
 	}
-	for chainSelector, chain := range e.Chains {
+	for chainSelector, chain := range e.BlockChains.EVMChains() {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			if !errors.Is(err, cldf.ErrChainNotFound) {
@@ -700,7 +700,7 @@ func LoadOnchainState(e cldf.Environment) (CCIPOnChainState, error) {
 }
 
 // LoadChainState Loads all state for a chain into state
-func LoadChainState(ctx context.Context, chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (evm.CCIPChainState, error) {
+func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (evm.CCIPChainState, error) {
 	var state evm.CCIPChainState
 	mcmsWithTimelock, err := commonstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
@@ -1119,7 +1119,7 @@ func ValidateChain(env cldf.Environment, state CCIPOnChainState, chainSel uint64
 	if err != nil {
 		return fmt.Errorf("is not valid chain selector %d: %w", chainSel, err)
 	}
-	chain, ok := env.Chains[chainSel]
+	chain, ok := env.BlockChains.EVMChains()[chainSel]
 	if !ok {
 		return fmt.Errorf("chain with selector %d does not exist in environment", chainSel)
 	}

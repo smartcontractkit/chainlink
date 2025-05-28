@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -166,10 +167,10 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 				Chains: 1,
 			})
 			homeChainSelector := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-
+			evmChains := e.BlockChains.EVMChains()
 			if test.DeployCCIPHome {
-				_, err = cldf.DeployContract(e.Logger, e.Chains[homeChainSelector], e.ExistingAddresses,
-					func(chain cldf.Chain) cldf.ContractDeploy[*ccip_home.CCIPHome] {
+				_, err = cldf.DeployContract(e.Logger, evmChains[homeChainSelector], e.ExistingAddresses,
+					func(chain cldf_evm.Chain) cldf.ContractDeploy[*ccip_home.CCIPHome] {
 						address, tx2, contract, err2 := ccip_home.DeployCCIPHome(
 							chain.DeployerKey,
 							chain.Client,
@@ -183,8 +184,8 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 			}
 
 			if test.DeployCapReg {
-				_, err = cldf.DeployContract(e.Logger, e.Chains[homeChainSelector], e.ExistingAddresses,
-					func(chain cldf.Chain) cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
+				_, err = cldf.DeployContract(e.Logger, evmChains[homeChainSelector], e.ExistingAddresses,
+					func(chain cldf_evm.Chain) cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 						address, tx2, contract, err2 := capabilities_registry.DeployCapabilitiesRegistry(
 							chain.DeployerKey,
 							chain.Client,
