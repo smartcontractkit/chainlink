@@ -108,7 +108,6 @@ jobs:
           DATA_SOURCE_NAME: "Loki"
           GRAFANA_URL: "http://localhost:3000"
           LOKI_URL: "http://localhost:3030/loki/api/v1/push"
-          CHAINLINK_CLUSTER_VERSION: "2.6.0-preview-1896-f6cd441"
           LOAD_TEST: "true"
         run: |
           cd system-tests/tests/load/cre
