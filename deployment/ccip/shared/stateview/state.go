@@ -494,7 +494,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (map[string
 			if err != nil {
 				return err
 			}
-			chainInfo, err := cldf_evm.ChainInfo(chainSelector)
+			chainInfo, err := cldf.ChainInfo(chainSelector)
 			if err != nil {
 				return err
 			}
