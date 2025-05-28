@@ -427,7 +427,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	jobIDs := addSecureMintOCRJobs(t, nodes)
 
 	t.Logf("jobIDs: %v", jobIDs)
-	// validateJobsRunningSuccessfully(t, nodes, jobIDs)
+	validateJobsRunningSuccessfully(t, nodes, jobIDs)
 
 	// Set config on configurator
 	setLegacyConfig(
