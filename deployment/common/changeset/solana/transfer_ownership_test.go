@@ -6,8 +6,11 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	accessControllerBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/access_controller"
 	mcmBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/mcm"
@@ -31,7 +34,7 @@ func TestTransferToMCMSToTimelockSolana(t *testing.T) {
 	log := logger.TestLogger(t)
 	envConfig := memory.MemoryEnvironmentConfig{Chains: 0, SolChains: 1}
 	env := memory.NewMemoryEnvironment(t, log, zapcore.InfoLevel, envConfig)
-	solanaSelector := env.AllChainSelectorsSolana()[0]
+	solanaSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 
 	commonchangeset.SetPreloadedSolanaAddresses(t, env, solanaSelector)
 	chainState := deployMCMS(t, env, solanaSelector)
@@ -45,7 +48,7 @@ func TestTransferToMCMSToTimelockSolana(t *testing.T) {
 		},
 	)
 	// validate initial owner
-	deployer := env.SolChains[solanaSelector].DeployerKey.PublicKey()
+	deployer := env.BlockChains.SolanaChains()[solanaSelector].DeployerKey.PublicKey()
 	assertOwner(t, env, solanaSelector, chainState, deployer)
 
 	// --- act ---
@@ -60,7 +63,7 @@ func TestTransferToMCMSToTimelockSolana(t *testing.T) {
 func deployMCMS(t *testing.T, env cldf.Environment, selector uint64) *state.MCMSWithTimelockStateSolana {
 	t.Helper()
 
-	solanaChain := env.SolChains[selector]
+	solanaChain := env.BlockChains.SolanaChains()[selector]
 	addressBook := cldf.NewMemoryAddressBook()
 	mcmsConfig := commontypes.MCMSWithTimelockConfigV2{
 		Canceller:        proposalutils.SingleGroupMCMSV2(t),
@@ -95,7 +98,7 @@ func assertMCMOwner(
 ) {
 	t.Helper()
 	var config mcmBindings.MultisigConfig
-	err := env.SolChains[selector].GetAccountDataBorshInto(env.GetContext(), configPDA, &config)
+	err := env.BlockChains.SolanaChains()[selector].GetAccountDataBorshInto(env.GetContext(), configPDA, &config)
 	require.NoError(t, err)
 	require.Equal(t, want, config.Owner)
 }
@@ -105,7 +108,7 @@ func assertTimelockOwner(
 ) {
 	t.Helper()
 	var config timelockBindings.Config
-	err := env.SolChains[selector].GetAccountDataBorshInto(env.GetContext(), configPDA, &config)
+	err := env.BlockChains.SolanaChains()[selector].GetAccountDataBorshInto(env.GetContext(), configPDA, &config)
 	require.NoError(t, err)
 	require.Equal(t, want, config.Owner)
 }
@@ -115,7 +118,7 @@ func assertAccessControllerOwner(
 ) {
 	t.Helper()
 	var config accessControllerBindings.AccessController
-	err := env.SolChains[selector].GetAccountDataBorshInto(env.GetContext(), account, &config)
+	err := env.BlockChains.SolanaChains()[selector].GetAccountDataBorshInto(env.GetContext(), account, &config)
 	require.NoError(t, err)
 	require.Equal(t, want, config.Owner)
 }
@@ -124,7 +127,7 @@ func fundSignerPDAs(
 	t *testing.T, env cldf.Environment, chainSelector uint64, chainState *state.MCMSWithTimelockStateSolana,
 ) {
 	t.Helper()
-	solChain := env.SolChains[chainSelector]
+	solChain := env.BlockChains.SolanaChains()[chainSelector]
 	timelockSignerPDA := state.GetTimelockSignerPDA(chainState.TimelockProgram, chainState.TimelockSeed)
 	mcmSignerPDA := state.GetMCMSignerPDA(chainState.McmProgram, chainState.ProposerMcmSeed)
 	signerPDAs := []solana.PublicKey{timelockSignerPDA, mcmSignerPDA}

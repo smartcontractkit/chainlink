@@ -40,11 +40,7 @@ func importToAddressbookLogic(env cldf.Environment, c types.ImportToAddressbookC
 }
 
 func importToAddressbookPrecondition(env cldf.Environment, c types.ImportToAddressbookConfig) error {
-	_, evmOK := env.Chains[c.ChainSelector]
-	_, aptosOK := env.AptosChains[c.ChainSelector]
-	_, solOK := env.SolChains[c.ChainSelector]
-
-	if !evmOK && !aptosOK && !solOK {
+	if !env.BlockChains.Exists(c.ChainSelector) {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}
 

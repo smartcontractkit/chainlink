@@ -10,6 +10,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -46,7 +49,10 @@ func Test_AddChain(t *testing.T) {
 
 	allChains := maps.Keys(e.Env.Chains)
 	slices.Sort(allChains)
-	toDeploy := e.Env.AllChainSelectorsExcluding([]uint64{allChains[0]})
+	toDeploy := e.Env.BlockChains.ListChainSelectors(
+		cldf_chain.WithFamily(chain_selectors.FamilyEVM),
+		cldf_chain.WithChainSelectorsExclusion([]uint64{allChains[0]}),
+	)
 	require.Len(t, toDeploy, numChains-1)
 	remainingChain := allChains[0]
 	t.Log("initially deploying chains:", toDeploy, "and afterwards adding chain", remainingChain)

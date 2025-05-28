@@ -3,8 +3,11 @@ package v1_6_test
 import (
 	"testing"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -32,14 +35,14 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		Chains:     2,
 		Nodes:      4,
 	})
-	evmSelectors := e.AllChainSelectors()
+	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	homeChainSel := evmSelectors[0]
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	contractParams := make(map[uint64]ccipseq.ChainContractParams)
-	for _, chain := range e.AllChainSelectors() {
+	for _, chain := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 		cfg[chain] = proposalutils.SingleGroupTimelockConfigV2(t)
 		contractParams[chain] = ccipseq.ChainContractParams{
 			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
@@ -47,7 +50,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		}
 	}
 	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
-	for _, chain := range e.AllChainSelectors() {
+	for _, chain := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 		prereqCfg = append(prereqCfg, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 		})
@@ -157,7 +160,7 @@ func TestDeployStaticLinkToken(t *testing.T) {
 	// load onchain state
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	for _, chain := range e.Env.AllChainSelectors() {
+	for _, chain := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 		require.NotNil(t, state.Chains[chain].StaticLinkToken)
 	}
 }

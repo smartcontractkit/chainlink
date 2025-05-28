@@ -3,7 +3,10 @@ package changeset_test
 import (
 	"testing"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/stretchr/testify/require"
 
@@ -24,7 +27,7 @@ func TestDeployFeedsConsumer(t *testing.T) {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	registrySel := env.AllChainSelectors()[0]
+	registrySel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	resp, err := changeset.DeployFeedsConsumerV2(env, &changeset.DeployRequestV2{
 		ChainSel:  registrySel,
 		Qualifier: "my-test-feeds-consumer",
@@ -38,7 +41,7 @@ func TestDeployFeedsConsumer(t *testing.T) {
 	require.Len(t, resp.DataStore.Addresses().Filter(datastore.AddressRefByQualifier("my-test-feeds-consumer")), 1, "expected to find 'my-test-feeds-consumer' qualifier")
 
 	// no feeds consumer registry on chain 1
-	require.NotEqual(t, registrySel, env.AllChainSelectors()[1])
-	oaddrs, _ := resp.AddressBook.AddressesForChain(env.AllChainSelectors()[1])
+	require.NotEqual(t, registrySel, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1])
+	oaddrs, _ := resp.AddressBook.AddressesForChain(env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1])
 	require.Empty(t, oaddrs)
 }

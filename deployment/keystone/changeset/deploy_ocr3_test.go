@@ -6,9 +6,12 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -31,7 +34,7 @@ func TestDeployOCR3(t *testing.T) {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	registrySel := env.AllChainSelectors()[0]
+	registrySel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
 	resp, err := changeset.DeployOCR3(env, registrySel)
 	require.NoError(t, err)
@@ -42,8 +45,8 @@ func TestDeployOCR3(t *testing.T) {
 	require.Len(t, addrs, 1)
 
 	// nothing on chain 1
-	require.NotEqual(t, registrySel, env.AllChainSelectors()[1])
-	oaddrs, _ := resp.AddressBook.AddressesForChain(env.AllChainSelectors()[1])
+	require.NotEqual(t, registrySel, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1])
+	oaddrs, _ := resp.AddressBook.AddressesForChain(env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1])
 	assert.Empty(t, oaddrs)
 }
 
@@ -93,7 +96,7 @@ func TestConfigureOCR3(t *testing.T) {
 			NumChains:       1,
 		})
 
-		registrySel := te.Env.AllChainSelectors()[0]
+		registrySel := te.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
 		existingContracts, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
 		require.NoError(t, err)
@@ -158,7 +161,7 @@ func TestConfigureOCR3(t *testing.T) {
 			NumChains:       1,
 		})
 
-		registrySel := te.Env.AllChainSelectors()[0]
+		registrySel := te.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
 		existingContracts, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
 		require.NoError(t, err)
@@ -198,7 +201,7 @@ func TestConfigureOCR3(t *testing.T) {
 			NumChains:       1,
 		})
 
-		registrySel := te.Env.AllChainSelectors()[0]
+		registrySel := te.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
 		existingContracts, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
 		require.NoError(t, err)
@@ -247,7 +250,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 		wfNodes := te.GetP2PIDs("wfDon").Strings()
 
-		registrySel := te.Env.AllChainSelectors()[0]
+		registrySel := te.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 		// Verify after merge there are three original contracts plus one new one
 		addrs, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
 		require.NoError(t, err)

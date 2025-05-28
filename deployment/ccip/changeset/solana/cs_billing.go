@@ -6,6 +6,7 @@ import (
 
 	solBinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -47,7 +48,7 @@ func (cfg *BillingTokenConfig) Validate(e cldf.Environment) error {
 		return err
 	}
 
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
@@ -74,7 +75,7 @@ func (cfg *BillingTokenConfig) Validate(e cldf.Environment) error {
 
 func AddBillingToken(
 	e cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	chainState solanastateview.CCIPChainState,
 	billingTokenConfig solFeeQuoter.BillingTokenConfig,
 	mcms *proposalutils.TimelockConfig,
@@ -152,7 +153,7 @@ func AddBillingTokenChangeset(e cldf.Environment, cfg BillingTokenConfig) (cldf.
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
@@ -203,7 +204,7 @@ func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e cldf.Environment) err
 	}
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
 		return fmt.Errorf("fee quoter validation failed: %w", err)
 	}
@@ -226,7 +227,7 @@ func AddTokenTransferFeeForRemoteChain(e cldf.Environment, cfg TokenTransferFeeF
 		return cldf.ChangesetOutput{}, err
 	}
 
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
@@ -304,7 +305,7 @@ func (cfg UpdatePricesConfig) Validate(e cldf.Environment) error {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
 		return err
 	}
@@ -345,7 +346,7 @@ func UpdatePrices(e cldf.Environment, cfg UpdatePricesConfig) (cldf.ChangesetOut
 	}
 
 	chainSel := cfg.ChainSelector
-	chain := e.SolChains[chainSel]
+	chain := e.BlockChains.SolanaChains()[chainSel]
 	chainState := s.SolChains[chainSel]
 	feeQuoterID := s.SolChains[chainSel].FeeQuoter
 	feeQuoterUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
@@ -430,7 +431,7 @@ func (cfg ModifyPriceUpdaterConfig) Validate(e cldf.Environment) error {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
 		return err
 	}
@@ -454,7 +455,7 @@ func ModifyPriceUpdater(e cldf.Environment, cfg ModifyPriceUpdaterConfig) (cldf.
 	}
 
 	chainSel := cfg.ChainSelector
-	chain := e.SolChains[chainSel]
+	chain := e.BlockChains.SolanaChains()[chainSel]
 	chainState := s.SolChains[chainSel]
 	feeQuoterID := s.SolChains[chainSel].FeeQuoter
 	feeQuoterUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
@@ -540,7 +541,7 @@ func (cfg WithdrawBilledFundsConfig) Validate(e cldf.Environment) error {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
@@ -561,7 +562,7 @@ func WithdrawBilledFunds(e cldf.Environment, cfg WithdrawBilledFundsConfig) (cld
 	}
 
 	chainSel := cfg.ChainSelector
-	chain := e.SolChains[chainSel]
+	chain := e.BlockChains.SolanaChains()[chainSel]
 	chainState := s.SolChains[cfg.ChainSelector]
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	billingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(chainState.Router)
@@ -641,7 +642,7 @@ func (cfg SetMaxFeeJuelsPerMsgConfig) Validate(e cldf.Environment) error {
 	if !chainExists {
 		return fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
 	}
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
 		return err
@@ -657,7 +658,7 @@ func SetMaxFeeJuelsPerMsg(e cldf.Environment, cfg SetMaxFeeJuelsPerMsgConfig) (c
 
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 
 	fqConfig, _, _ := solState.FindConfigPDA(chainState.FeeQuoter)
 	fqUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(

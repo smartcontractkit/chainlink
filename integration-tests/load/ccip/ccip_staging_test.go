@@ -11,6 +11,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -43,17 +47,20 @@ func TestStaging_CCIP_Load(t *testing.T) {
 	require.NoError(t, err)
 
 	// initialize additional accounts on other chains
-	transmitKeys, err := fundAdditionalKeys(lggr, *env, env.AllChainSelectors()[:*userOverrides.NumDestinationChains])
+	transmitKeys, err := fundAdditionalKeys(lggr, *env, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[:*userOverrides.NumDestinationChains])
 	require.NoError(t, err)
 
 	// gunMap holds a destinationGun for every enabled destination chain
 	gunMap := make(map[uint64]*DestinationGun)
 	p := wasp.NewProfile()
 	for ind := range *userOverrides.NumDestinationChains {
-		cs := env.AllChainSelectors()[ind]
+		cs := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[ind]
 
 		messageKeys := make(map[uint64]*bind.TransactOpts)
-		other := env.AllChainSelectorsExcluding([]uint64{cs})
+		other := env.BlockChains.ListChainSelectors(
+			cldf_chain.WithFamily(chain_selectors.FamilyEVM),
+			cldf_chain.WithChainSelectorsExclusion([]uint64{cs}),
+		)
 		var mu sync.Mutex
 		var wg2 sync.WaitGroup
 		wg2.Add(len(other))

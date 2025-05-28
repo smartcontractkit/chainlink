@@ -19,6 +19,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
@@ -224,7 +226,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRangeSol(
 					t,
 					srcChain,
-					e.SolChains[dstChain],
+					e.BlockChains.SolanaChains()[dstChain],
 					state.SolChains[dstChain].OffRamp,
 					startSlot,
 					ccipocr3.SeqNumRange{
@@ -334,7 +336,7 @@ func ConfirmMultipleCommits(
 				_, err := ConfirmCommitWithExpectedSeqNumRangeSol(
 					t,
 					srcChain,
-					env.SolChains[destChain],
+					env.BlockChains.SolanaChains()[destChain],
 					state.SolChains[destChain].OffRamp,
 					startSlot,
 					seqRange,
@@ -541,7 +543,7 @@ func SolEventEmitter[T any](
 func ConfirmCommitWithExpectedSeqNumRangeSol(
 	t *testing.T,
 	srcSelector uint64,
-	dest cldf.SolChain,
+	dest cldf_solana.Chain,
 	offrampAddress solana.PublicKey,
 	startSlot uint64,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
@@ -645,7 +647,7 @@ func ConfirmExecWithSeqNrsForAll(
 				innerExecutionStates, err = ConfirmExecWithSeqNrsSol(
 					t,
 					srcChain,
-					e.SolChains[dstChain],
+					e.BlockChains.SolanaChains()[dstChain],
 					state.SolChains[dstChain].OffRamp,
 					startSlot,
 					seqRange,
@@ -751,7 +753,7 @@ func ConfirmExecWithSeqNrs(
 func ConfirmExecWithSeqNrsSol(
 	t *testing.T,
 	srcSelector uint64,
-	dest cldf.SolChain,
+	dest cldf_solana.Chain,
 	offrampAddress solana.PublicKey,
 	startSlot uint64,
 	expectedSeqNrs []uint64,

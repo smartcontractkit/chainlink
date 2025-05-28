@@ -9,10 +9,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -23,7 +26,7 @@ import (
 func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewV2(t *testing.T) {
 	envConfig := memory.MemoryEnvironmentConfig{Chains: 1}
 	env := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, envConfig)
-	chain := env.Chains[env.AllChainSelectors()[0]]
+	chain := env.Chains[env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]]
 
 	proposerMcm := deployMCMEvm(t, chain, &mcmstypes.Config{Quorum: 1, Signers: []common.Address{
 		common.HexToAddress("0x0000000000000000000000000000000000000001"),

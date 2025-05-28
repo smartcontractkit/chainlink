@@ -58,7 +58,7 @@ func (cfg RegisterTokenAdminRegistryConfig) Validate(e cldf.Environment) error {
 	}
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	tokenPubKey := cfg.TokenPubKey
@@ -204,7 +204,7 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment
 	}
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
@@ -249,7 +249,7 @@ func TransferAdminRoleTokenAdminRegistry(e cldf.Environment, cfg TransferAdminRo
 	}
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
 	solRouter.SetProgramID(routerProgramAddress)
@@ -318,7 +318,7 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment) 
 	}
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
@@ -362,7 +362,7 @@ func AcceptAdminRoleTokenAdminRegistry(e cldf.Environment, cfg AcceptAdminRoleTo
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	tokenPubKey := cfg.TokenPubKey

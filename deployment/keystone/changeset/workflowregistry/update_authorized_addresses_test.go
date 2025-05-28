@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -39,6 +40,10 @@ func TestUpdateAuthorizedAddresses(t *testing.T) {
 			chainSel: resp.Chain,
 		},
 		ExistingAddresses: resp.AddressBook,
+		BlockChains: cldf_chain.NewBlockChains(
+			map[uint64]cldf_chain.BlockChain{
+				chainSel: resp.Chain,
+			}),
 	}
 
 	addr := "0xc0ffee254729296a45a3885639AC7E10F9d54979"

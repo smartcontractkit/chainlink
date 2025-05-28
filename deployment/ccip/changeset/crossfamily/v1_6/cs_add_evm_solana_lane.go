@@ -470,7 +470,7 @@ func addEVMSolanaPreconditions(env cldf.Environment, input AddMultiEVMSolanaLane
 			return fmt.Errorf("failed to validate EVM chain %d: %w", cfg.EVMChainSelector, err)
 		}
 	}
-	if _, ok := env.SolChains[input.SolanaChainSelector]; !ok {
+	if _, ok := env.BlockChains.SolanaChains()[input.SolanaChainSelector]; !ok {
 		return fmt.Errorf("failed to find Solana chain in env %d", input.SolanaChainSelector)
 	}
 	solanaState, err := stateview.LoadOnchainStateSolana(env)
@@ -492,7 +492,7 @@ func addEVMAndSolanaLaneLogic(env cldf.Environment, input AddMultiEVMSolanaLaneC
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get addresses for Solana chain: %w", err)
 	}
-	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(env.SolChains[input.SolanaChainSelector], addresses)
+	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(env.BlockChains.SolanaChains()[input.SolanaChainSelector], addresses)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load Solana MCMS state: %w", err)
 	}

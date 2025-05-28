@@ -12,6 +12,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -63,7 +66,7 @@ func TestDistributeStreamJobSpecs(t *testing.T) {
 	}
 
 	// pick the first EVM chain selector
-	chainSelector := env.AllChainSelectors()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
 	// insert a Configurator address for the given DON
 	configuratorAddr := "0x4170ed0880ac9a755fd29b2688956bd959f923f4"

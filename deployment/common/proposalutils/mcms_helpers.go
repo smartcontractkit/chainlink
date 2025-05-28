@@ -190,9 +190,11 @@ func McmsTimelockConverterForChain(chain uint64) (mcmssdk.TimelockConverter, err
 }
 
 func McmsTimelockConverters(env cldf.Environment) (map[uint64]mcmssdk.TimelockConverter, error) {
-	converters := make(map[uint64]mcmssdk.TimelockConverter, len(env.Chains)+len(env.SolChains))
+	evmChains := env.BlockChains.EVMChains()
+	solanaChains := env.BlockChains.SolanaChains()
+	converters := make(map[uint64]mcmssdk.TimelockConverter, len(evmChains)+len(solanaChains))
 
-	for _, chain := range env.Chains {
+	for _, chain := range evmChains {
 		var err error
 		converters[chain.Selector], err = McmsTimelockConverterForChain(chain.Selector)
 		if err != nil {
@@ -200,7 +202,7 @@ func McmsTimelockConverters(env cldf.Environment) (map[uint64]mcmssdk.TimelockCo
 		}
 	}
 
-	for _, chain := range env.SolChains {
+	for _, chain := range solanaChains {
 		var err error
 		converters[chain.Selector], err = McmsTimelockConverterForChain(chain.Selector)
 		if err != nil {
@@ -219,18 +221,20 @@ func McmsInspectorForChain(env cldf.Environment, chain uint64) (mcmssdk.Inspecto
 
 	switch chainFamily {
 	case chain_selectors.FamilyEVM:
-		return mcmsevmsdk.NewInspector(env.Chains[chain].Client), nil
+		return mcmsevmsdk.NewInspector(env.BlockChains.EVMChains()[chain].Client), nil
 	case chain_selectors.FamilySolana:
-		return mcmssolanasdk.NewInspector(env.SolChains[chain].Client), nil
+		return mcmssolanasdk.NewInspector(env.BlockChains.SolanaChains()[chain].Client), nil
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", chainFamily)
 	}
 }
 
 func McmsInspectors(env cldf.Environment) (map[uint64]mcmssdk.Inspector, error) {
-	inspectors := make(map[uint64]mcmssdk.Inspector, len(env.Chains)+len(env.SolChains))
+	evmChains := env.BlockChains.EVMChains()
+	solanaChains := env.BlockChains.SolanaChains()
+	inspectors := make(map[uint64]mcmssdk.Inspector, len(evmChains)+len(solanaChains))
 
-	for _, chain := range env.Chains {
+	for _, chain := range evmChains {
 		var err error
 		inspectors[chain.Selector], err = McmsInspectorForChain(env, chain.Selector)
 		if err != nil {
@@ -238,7 +242,7 @@ func McmsInspectors(env cldf.Environment) (map[uint64]mcmssdk.Inspector, error) 
 		}
 	}
 
-	for _, chain := range env.SolChains {
+	for _, chain := range solanaChains {
 		var err error
 		inspectors[chain.Selector], err = McmsInspectorForChain(env, chain.Selector)
 		if err != nil {

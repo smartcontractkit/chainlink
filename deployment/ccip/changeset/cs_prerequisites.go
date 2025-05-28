@@ -407,6 +407,15 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 			return fmt.Errorf("failed to check if registry module is added on token admin registry: %w", err)
 		}
 		if !isRegistryAdded {
+			owner, err := tokenAdminReg.Owner(nil)
+			if err != nil {
+				e.Logger.Errorw("Failed to get owner of token admin registry", "chain", chain.String(), "err", err)
+				return fmt.Errorf("failed to get owner of token admin registry: %w", err)
+			}
+			if owner != chain.DeployerKey.From {
+				e.Logger.Errorw("Owner is not deployer key, cannot add registry module", "chain", chain.String(), "owner", owner)
+				return fmt.Errorf("owner %s is not deployer key, cannot add registry module", owner)
+			}
 			tx, err := tokenAdminReg.AddRegistryModule(chain.DeployerKey, reg)
 			if err != nil {
 				e.Logger.Errorw("Failed to assign registry module on token admin registry", "chain", chain.String(), "err", err)

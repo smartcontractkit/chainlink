@@ -66,7 +66,7 @@ func DeployMCMSWithTimelockV2(
 			if s != nil {
 				chainstate = s[chainSel]
 			}
-			_, err = evminternal.DeployMCMSWithTimelockContractsEVM(env.GetContext(), env.Logger, env.Chains[chainSel], newAddresses, cfg, chainstate)
+			_, err = evminternal.DeployMCMSWithTimelockContractsEVM(env.GetContext(), env.Logger, env.BlockChains.EVMChains()[chainSel], newAddresses, cfg, chainstate)
 			if err != nil {
 				return cldf.ChangesetOutput{AddressBook: newAddresses}, err
 			}
@@ -75,7 +75,7 @@ func DeployMCMSWithTimelockV2(
 			// this is not used in CLD as we need to dynamically resolve the artifacts to deploy these contracts
 			// we did not want to add the artifact resolution logic here, so we instead deploy using ccip/changeset/solana/cs_deploy_chain.go
 			// for in memory tests, programs and state are pre-loaded, so we use this function via testhelpers.TransferOwnershipSolana
-			_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.SolChains[chainSel], newAddresses, cfg)
+			_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.BlockChains.SolanaChains()[chainSel], newAddresses, cfg)
 			if err != nil {
 				return cldf.ChangesetOutput{AddressBook: newAddresses}, err
 			}

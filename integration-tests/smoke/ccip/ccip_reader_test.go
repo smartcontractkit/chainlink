@@ -23,6 +23,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	readermocks "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/contractreader"
 	typepkgmock "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
@@ -33,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -827,7 +830,7 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 	state, err := stateview.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
-	selectors := env.Env.AllChainSelectors()
+	var selectors = env.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	destChain, srcChain := selectors[0], selectors[1]
 
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, destChain, srcChain, false)
@@ -1191,7 +1194,7 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 	state, err := stateview.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
-	selectors := env.Env.AllChainSelectors()
+	selectors := env.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	dest, source1, source2 := selectors[0], selectors[1], selectors[2]
 
 	// Setup: Add lanes and default configs (This sets default prices)
@@ -1296,7 +1299,7 @@ func Test_LinkPriceUSD(t *testing.T) {
 	state, err := stateview.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
-	selectors := env.Env.AllChainSelectors()
+	selectors := env.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	chain1, chain2 := selectors[0], selectors[1]
 
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain1, chain2, false)
@@ -1331,7 +1334,7 @@ func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
 	state, err := stateview.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
-	selectors := env.Env.AllChainSelectors()
+	selectors := env.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	chain1, chain2 := selectors[0], selectors[1]
 
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain1, chain2, false)

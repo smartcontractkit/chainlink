@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -11,6 +12,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -25,12 +29,11 @@ func TestRemoveFeed(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
 		Chains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	chainSelector := env.AllChainSelectors()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
 	newEnv, err := commonChangesets.Apply(t, env, nil,
 		commonChangesets.Configure(
@@ -62,7 +65,7 @@ func TestRemoveFeed(t *testing.T) {
 			types.SetFeedAdminConfig{
 				ChainSelector: chainSelector,
 				CacheAddress:  common.HexToAddress(cacheAddress),
-				AdminAddress:  common.HexToAddress(env.Chains[chainSelector].DeployerKey.From.Hex()),
+				AdminAddress:  common.HexToAddress(env.BlockChains.EVMChains()[chainSelector].DeployerKey.From.Hex()),
 				IsAdmin:       true,
 			},
 		),
@@ -75,7 +78,7 @@ func TestRemoveFeed(t *testing.T) {
 				DataIDs:       []string{dataid},
 				Descriptions:  []string{"test"},
 				WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
-					cache.DataFeedsCacheWorkflowMetadata{
+					{
 						AllowedSender:        common.HexToAddress("0x22"),
 						AllowedWorkflowOwner: common.HexToAddress("0x33"),
 						AllowedWorkflowName:  changeset.HashedWorkflowName("test"),
@@ -134,7 +137,7 @@ func TestRemoveFeed(t *testing.T) {
 				DataIDs:       []string{dataid},
 				Descriptions:  []string{"test2"},
 				WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
-					cache.DataFeedsCacheWorkflowMetadata{
+					{
 						AllowedSender:        common.HexToAddress("0x22"),
 						AllowedWorkflowOwner: common.HexToAddress("0x33"),
 						AllowedWorkflowName:  changeset.HashedWorkflowName("test"),
