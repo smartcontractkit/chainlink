@@ -76,20 +76,38 @@ jobs:
           image = "injected-at-runtime"
           
           [[nodesets]]
+          nodes = 6
+          override_mode = "all"
+          http_port_range_start = 10100
+          name = "workflow"
+          [nodesets.db]
+          image = "postgres:12.0"
+          port = 13000
+          volume_name = "workflow_volume"
           [[nodesets.node_specs]]
           [nodesets.node_specs.node]
           image = "injected-at-runtime"
           
           [[nodesets]]
+          nodes = 3
+          override_mode = "each"          
+          http_port_range_start = 10200  
+          name = "capabilities"
+          [nodesets.db]
+          image = "postgres:12.0"
+          port = 13200
           [[nodesets.node_specs]]
           [nodesets.node_specs.node]
           image = "injected-at-runtime"
+          custom_ports = ["13401:7777"]
           [[nodesets.node_specs]]
           [nodesets.node_specs.node]
           image = "injected-at-runtime"
+          custom_ports = ["13402:7777"]
           [[nodesets.node_specs]]
           [nodesets.node_specs.node]
           image = "injected-at-runtime"
+          custom_ports = ["13403:7777"]
           EOF
 
       - name: Start the test
