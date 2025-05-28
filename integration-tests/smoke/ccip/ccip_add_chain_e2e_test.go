@@ -37,7 +37,7 @@ import (
 // - Home and feed chains are already deployed and connected to each other.
 // - Third chain is connected to home and feed chains using consolidated changesets.
 // - Fourth chain is connected to the third chain using consolidated changesets.
-// - Messages are sent between all chains to verify the setup.
+// - Messages are sent between all valid lanes to verify the setup.
 func Test_AddChainE2E(t *testing.T) {
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(
 		t,
