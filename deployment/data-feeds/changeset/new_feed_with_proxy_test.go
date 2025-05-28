@@ -31,7 +31,6 @@ func TestNewFeedWithProxy(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
 		Chains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
@@ -97,7 +96,7 @@ func TestNewFeedWithProxy(t *testing.T) {
 				DataIDs:          []string{dataid, dataid2},
 				Descriptions:     []string{"feed1", "feed2"},
 				WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
-					cache.DataFeedsCacheWorkflowMetadata{
+					{
 						AllowedSender:        common.HexToAddress("0x22"),
 						AllowedWorkflowOwner: common.HexToAddress("0x33"),
 						AllowedWorkflowName:  changeset.HashedWorkflowName("test"),
