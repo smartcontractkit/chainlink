@@ -26,6 +26,7 @@ func TestTransferToMCMSWithTimelockV2(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, 0, memory.MemoryEnvironmentConfig{
 		Chains: 1,
+		Nodes:  1,
 	})
 	chain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	evmChains := e.BlockChains.EVMChains()
@@ -169,6 +170,7 @@ func TestRenounceTimelockDeployer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, 0, memory.MemoryEnvironmentConfig{
 		Chains: 1,
+		Nodes:  1,
 	})
 	chain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	e, err := Apply(t, e, nil,
