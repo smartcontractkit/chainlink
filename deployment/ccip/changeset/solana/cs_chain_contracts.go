@@ -7,6 +7,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
@@ -82,7 +83,7 @@ func commonValidation(e cldf.Environment, selector uint64, tokenPubKey solana.Pu
 	return nil
 }
 
-func validateRouterConfig(chain cldf.SolChain, chainState solanastateview.CCIPChainState) error {
+func validateRouterConfig(chain cldf_solana.Chain, chainState solanastateview.CCIPChainState) error {
 	_, routerConfigPDA, err := chainState.GetRouterInfo()
 	if err != nil {
 		return err
@@ -95,14 +96,14 @@ func validateRouterConfig(chain cldf.SolChain, chainState solanastateview.CCIPCh
 	return nil
 }
 
-func validateFeeAggregatorConfig(chain cldf.SolChain, chainState solanastateview.CCIPChainState) error {
+func validateFeeAggregatorConfig(chain cldf_solana.Chain, chainState solanastateview.CCIPChainState) error {
 	if chainState.GetFeeAggregator(chain).IsZero() {
 		return fmt.Errorf("fee aggregator not found in existing state, set the fee aggregator first for chain %d", chain.Selector)
 	}
 	return nil
 }
 
-func validateFeeQuoterConfig(chain cldf.SolChain, chainState solanastateview.CCIPChainState) error {
+func validateFeeQuoterConfig(chain cldf_solana.Chain, chainState solanastateview.CCIPChainState) error {
 	if chainState.FeeQuoter.IsZero() {
 		return fmt.Errorf("fee quoter not found in existing state, deploy the fee quoter first for chain %d", chain.Selector)
 	}
@@ -115,7 +116,7 @@ func validateFeeQuoterConfig(chain cldf.SolChain, chainState solanastateview.CCI
 	return nil
 }
 
-func validateOffRampConfig(chain cldf.SolChain, chainState solanastateview.CCIPChainState) error {
+func validateOffRampConfig(chain cldf_solana.Chain, chainState solanastateview.CCIPChainState) error {
 	if chainState.OffRamp.IsZero() {
 		return fmt.Errorf("offramp not found in existing state, deploy the offramp first for chain %d", chain.Selector)
 	}
@@ -343,7 +344,7 @@ func SetUpgradeAuthorityChangeset(
 // setUpgradeAuthority creates a transaction to set the upgrade authority for a program
 func setUpgradeAuthority(
 	e *cldf.Environment,
-	chain *cldf.SolChain,
+	chain *cldf_solana.Chain,
 	programID solana.PublicKey,
 	currentUpgradeAuthority solana.PublicKey,
 	newUpgradeAuthority solana.PublicKey,

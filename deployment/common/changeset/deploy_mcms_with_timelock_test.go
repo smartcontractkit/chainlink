@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
@@ -555,7 +557,7 @@ func timelockSignerPDA(programID solana.PublicKey, seed mcmschangesetstate.PDASe
 }
 
 func solanaTimelockConfig(
-	ctx context.Context, t *testing.T, chain cldf.SolChain, programID solana.PublicKey, seed mcmschangesetstate.PDASeed,
+	ctx context.Context, t *testing.T, chain cldf_solana.Chain, programID solana.PublicKey, seed mcmschangesetstate.PDASeed,
 ) timelockBindings.Config {
 	t.Helper()
 

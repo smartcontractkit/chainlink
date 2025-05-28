@@ -15,6 +15,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	solanago "github.com/gagliardetto/solana-go"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -340,7 +341,7 @@ type MemoryEnvironment struct {
 	nodes       map[string]memory.Node
 	TestConfig  *TestConfigs
 	Chains      map[uint64]cldf.Chain
-	SolChains   map[uint64]cldf.SolChain
+	SolChains   map[uint64]cldf_solana.Chain
 	AptosChains map[uint64]cldf_aptos.Chain
 }
 

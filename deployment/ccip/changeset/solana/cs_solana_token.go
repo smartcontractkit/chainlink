@@ -7,6 +7,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -31,7 +32,7 @@ var _ cldf.ChangeSet[CreateSolanaTokenATAConfig] = CreateSolanaTokenATA
 // use this changeset to set the authority of a token
 var _ cldf.ChangeSet[SetTokenAuthorityConfig] = SetTokenAuthority
 
-func getMintIxs(e cldf.Environment, chain cldf.SolChain, tokenprogramID, mint solana.PublicKey, amountToAddress map[string]uint64) error {
+func getMintIxs(e cldf.Environment, chain cldf_solana.Chain, tokenprogramID, mint solana.PublicKey, amountToAddress map[string]uint64) error {
 	for toAddress, amount := range amountToAddress {
 		e.Logger.Infof("Minting %d to %s", amount, toAddress)
 		toAddressBase58 := solana.MustPublicKeyFromBase58(toAddress)
@@ -49,7 +50,7 @@ func getMintIxs(e cldf.Environment, chain cldf.SolChain, tokenprogramID, mint so
 	return nil
 }
 
-func createATAIx(e cldf.Environment, chain cldf.SolChain, tokenprogramID, mint solana.PublicKey, ataList []string) error {
+func createATAIx(e cldf.Environment, chain cldf_solana.Chain, tokenprogramID, mint solana.PublicKey, ataList []string) error {
 	for _, ata := range ataList {
 		e.Logger.Infof("Creating ATA for account %s for token %s", ata, mint.String())
 		createATAIx, _, err := solTokenUtil.CreateAssociatedTokenAccount(
@@ -81,7 +82,7 @@ type DeploySolanaTokenConfig struct {
 	MintAmountToAddress map[string]uint64 // address -> amount
 }
 
-func NewTokenInstruction(chain cldf.SolChain, cfg DeploySolanaTokenConfig) ([]solana.Instruction, solana.PrivateKey, error) {
+func NewTokenInstruction(chain cldf_solana.Chain, cfg DeploySolanaTokenConfig) ([]solana.Instruction, solana.PrivateKey, error) {
 	tokenprogramID, err := GetTokenProgramID(cfg.TokenProgramName)
 	if err != nil {
 		return nil, nil, err

@@ -11,6 +11,8 @@ import (
 	mcmsSolanaSdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	mcmBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/mcm"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -25,7 +27,7 @@ import (
 
 func deployMCMProgram(
 	env cldf.Environment, chainState *state.MCMSWithTimelockStateSolana,
-	chain cldf.SolChain, addressBook cldf.AddressBook,
+	chain cldf_solana.Chain, addressBook cldf.AddressBook,
 ) error {
 	typeAndVersion := cldf.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
 	log := logger.With(env.Logger, "chain", chain.String(), "contract", typeAndVersion.String())
@@ -69,7 +71,7 @@ func deployMCMProgram(
 
 func initMCM(
 	env cldf.Environment, chainState *state.MCMSWithTimelockStateSolana, contractType cldf.ContractType,
-	chain cldf.SolChain, addressBook cldf.AddressBook, mcmConfig *mcmsTypes.Config,
+	chain cldf_solana.Chain, addressBook cldf.AddressBook, mcmConfig *mcmsTypes.Config,
 ) error {
 	if chainState.McmProgram.IsZero() {
 		return errors.New("mcm program is not deployed")
@@ -127,7 +129,7 @@ func initMCM(
 	return nil
 }
 
-func initializeMCM(e cldf.Environment, chain cldf.SolChain, mcmProgram solana.PublicKey, multisigID state.PDASeed) error {
+func initializeMCM(e cldf.Environment, chain cldf_solana.Chain, mcmProgram solana.PublicKey, multisigID state.PDASeed) error {
 	var mcmConfig mcmBindings.MultisigConfig
 	err := chain.GetAccountDataBorshInto(e.GetContext(), state.GetMCMConfigPDA(mcmProgram, multisigID), &mcmConfig)
 	if err == nil {
