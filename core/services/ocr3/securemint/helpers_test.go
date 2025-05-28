@@ -573,6 +573,7 @@ func getSecureMintJobSpec(ocrContractAddress, keyBundleID, transmitterAddress, b
 	// TODO(gg): allowNoBootstrappers set to true to make it start up - not sure if we want to set this to false later
 
 	// TODO(gg): pluginType = securemint
+	// TODO(gg): update the observation ds1_parse step to use the correct path for the secure mint EA response
 
 	return fmt.Sprintf(`
 type               = "offchainreporting2"
@@ -642,7 +643,7 @@ func createSecureMintBridge(t *testing.T, name string, i int, p decimal.Decimal,
 
 		res.WriteHeader(http.StatusOK)
 		val := p.String()
-		resp := fmt.Sprintf(`{"result": %s}`, val)
+		resp := fmt.Sprintf(`{"data": %s}`, val)
 		_, err = res.Write([]byte(resp))
 		require.NoError(t, err)
 	}))
