@@ -10,8 +10,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
@@ -287,27 +290,27 @@ func TestValidateConfigureTokenPoolContractsConfig(t *testing.T) {
 			Input: v1_5_1.ConfigureTokenPoolContractsConfig{
 				TokenSymbol: testhelpers.TestTokenSymbol,
 				PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
-					e.AllChainSelectors()[0]: v1_5_1.TokenPoolConfig{
+					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: v1_5_1.TokenPoolConfig{
 						ChainUpdates: v1_5_1.RateLimiterPerChain{
-							e.AllChainSelectors()[1]: v1_5_1.RateLimiterConfig{},
+							e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]: v1_5_1.RateLimiterConfig{},
 						},
 					},
 				},
 			},
 			ErrStr: "is expecting a pool update to be defined for chain with selector",
 		},
-		/* This test condition is flakey, as we will see "missing tokenAdminRegistry" if e.AllChainSelectors()[1] is checked first
+		/* This test condition is flakey, as we will see "missing tokenAdminRegistry" if e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1] is checked first
 		{
 			Msg: "Corresponding pool update missing a chain update",
 			Input: changeset.ConfigureTokenPoolContractsConfig{
 				TokenSymbol: testhelpers.TestTokenSymbol,
 				PoolUpdates: map[uint64]changeset.TokenPoolConfig{
-					e.AllChainSelectors()[0]: changeset.TokenPoolConfig{
+					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: changeset.TokenPoolConfig{
 						ChainUpdates: changeset.RateLimiterPerChain{
-							e.AllChainSelectors()[1]: changeset.RateLimiterConfig{},
+							e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]: changeset.RateLimiterConfig{},
 						},
 					},
-					e.AllChainSelectors()[1]: changeset.TokenPoolConfig{},
+					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]: changeset.TokenPoolConfig{},
 				},
 			},
 			ErrStr: "to define a chain config pointing back to it",
@@ -318,14 +321,14 @@ func TestValidateConfigureTokenPoolContractsConfig(t *testing.T) {
 			Input: v1_5_1.ConfigureTokenPoolContractsConfig{
 				TokenSymbol: testhelpers.TestTokenSymbol,
 				PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
-					e.AllChainSelectors()[0]: v1_5_1.TokenPoolConfig{
+					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: v1_5_1.TokenPoolConfig{
 						ChainUpdates: v1_5_1.RateLimiterPerChain{
-							e.AllChainSelectors()[1]: v1_5_1.RateLimiterConfig{},
+							e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]: v1_5_1.RateLimiterConfig{},
 						},
 					},
-					e.AllChainSelectors()[1]: v1_5_1.TokenPoolConfig{
+					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]: v1_5_1.TokenPoolConfig{
 						ChainUpdates: v1_5_1.RateLimiterPerChain{
-							e.AllChainSelectors()[0]: v1_5_1.RateLimiterConfig{},
+							e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: v1_5_1.RateLimiterConfig{},
 						},
 					},
 				},
@@ -614,7 +617,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 					)
 					require.NoError(t, err)
 
-					for _, selector := range e.AllChainSelectors() {
+					for _, selector := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 						var remoteChainSelector uint64
 						var rateLimiterConfig v1_5_1.RateLimiterConfig
 						switch selector {
@@ -677,7 +680,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 					)
 					require.NoError(t, err)
 
-					for _, selector := range e.AllChainSelectors() {
+					for _, selector := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 						var updatePool bool
 						var updateRemotePool bool
 						var remoteChainSelector uint64
@@ -731,8 +734,8 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 	})
 	e := deployedEnvironment.Env
 
-	evmSelectors := []uint64{e.AllChainSelectors()[0]}
-	solanaSelectors := e.AllChainSelectorsSolana()
+	evmSelectors := []uint64{e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]}
+	solanaSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 
 	addressBook := cldf.NewMemoryAddressBook()
 

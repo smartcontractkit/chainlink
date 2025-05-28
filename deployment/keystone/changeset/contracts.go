@@ -18,7 +18,7 @@ import (
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
-	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper"
+	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 )
 
 // Ownable is an interface for contracts that have an owner.
@@ -77,27 +77,15 @@ func NewOwnable[T Ownable](contract T, ab cldf.AddressBook, chain cldf.Chain) (*
 func NewOwnableV2[T Ownable](contract T, ab datastore.AddressRefStore, chain cldf.Chain) (*OwnedContract[T], error) {
 	var timelockTV = cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
 
-	// Look for MCMS contracts that might be owned by the contract
-	addresses := ab.Filter(datastore.AddressRefByChainSelector(chain.Selector))
-
 	ownerTV, err := GetOwnerTypeAndVersionV2[T](contract, ab, chain)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get owner type and version: %w", err)
 	}
 
-	// convert addresses to map[string]deployment.TypeAndVersion
-	addressesMap := make(map[string]cldf.TypeAndVersion)
-	for _, addr := range addresses {
-		addressesMap[addr.Address] = cldf.TypeAndVersion{
-			Type:    cldf.ContractType(addr.Type),
-			Version: *addr.Version,
-			Labels:  cldf.NewLabelSet(addr.Labels.List()...),
-		}
-	}
 	// Check if the owner is a timelock contract (owned by MCMS)
 	// If the owner is not in the address book (ownerTV = nil and err = nil), we assume it's not owned by MCMS
 	if ownerTV != nil && ownerTV.Type == timelockTV.Type && ownerTV.Version.String() == timelockTV.Version.String() {
-		// Load MCMS state
+		addressesMap := matchLabels(ab, *ownerTV, chain.Selector)
 		stateMCMS, mcmsErr := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addressesMap)
 		if mcmsErr != nil {
 			return nil, fmt.Errorf("failed to load MCMS state: %w", mcmsErr)
@@ -113,6 +101,22 @@ func NewOwnableV2[T Ownable](contract T, ab datastore.AddressRefStore, chain cld
 		McmsContracts: nil,
 		Contract:      contract,
 	}, nil
+}
+
+func matchLabels(ab datastore.AddressRefStore, tv cldf.TypeAndVersion, chainSelector uint64) map[string]cldf.TypeAndVersion {
+	addresses := ab.Filter(datastore.AddressRefByChainSelector(chainSelector))
+	addressesMap := make(map[string]cldf.TypeAndVersion)
+	for _, addr := range addresses {
+		if !tv.Labels.Equal(cldf.NewLabelSet(addr.Labels.List()...)) {
+			continue
+		}
+		addressesMap[addr.Address] = cldf.TypeAndVersion{
+			Type:    cldf.ContractType(addr.Type),
+			Version: *addr.Version,
+			Labels:  cldf.NewLabelSet(addr.Labels.List()...),
+		}
+	}
+	return addressesMap
 }
 
 // GetOwnerTypeAndVersion retrieves the owner type and version of a contract.

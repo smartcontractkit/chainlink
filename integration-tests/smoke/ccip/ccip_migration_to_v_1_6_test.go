@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -74,7 +75,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 	)
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	allChains := e.Env.AllChainSelectors()
+	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	src1, dest := allChains[0], allChains[1]
 	pairs := []testhelpers.SourceDestPair{
 		{SourceChainSelector: src1, DestChainSelector: dest},
@@ -148,7 +149,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 
 	_, err = cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset).Apply(e.Env,
 		v1_6.SetRMNRemoteOnRMNProxyConfig{
-			ChainSelectors: e.Env.AllChainSelectors(),
+			ChainSelectors: e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)),
 		})
 	require.NoError(t, err)
 
@@ -159,7 +160,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 		testhelpers.WithDestChain(dest),
 		testhelpers.WithTestRouter(false),
 		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(oldState.Chains[dest].Receiver.Address().Bytes(), 32),
+			Receiver:     common.LeftPadBytes(oldState.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
@@ -170,7 +171,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 	require.NotNil(t, sentEvent)
 	destChain := e.Env.Chains[dest]
 	require.NoError(t, err)
-	v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, oldState.Chains[dest].CommitStore[src1],
+	v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
 		sentEvent.Message.SequenceNumber)
 }
 
@@ -200,7 +201,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	)
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	allChains := e.Env.AllChainSelectors()
+	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	src1, dest := allChains[0], allChains[1]
 	pairs := []testhelpers.SourceDestPair{
 		{SourceChainSelector: src1, DestChainSelector: dest},
@@ -276,7 +277,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 
 	_, err = cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset).Apply(e.Env,
 		v1_6.SetRMNRemoteOnRMNProxyConfig{
-			ChainSelectors: e.Env.AllChainSelectors(),
+			ChainSelectors: e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)),
 		})
 	require.NoError(t, err)
 
@@ -287,7 +288,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 		testhelpers.WithDestChain(dest),
 		testhelpers.WithTestRouter(false),
 		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(oldState.Chains[dest].Receiver.Address().Bytes(), 32),
+			Receiver:     common.LeftPadBytes(oldState.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
@@ -297,7 +298,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset).Apply(e.Env, v1_6.RMNCurseConfig{
-		CurseActions: []v1_6.CurseAction{v1_6.CurseChain(e.Env.AllChainSelectors()[0])},
+		CurseActions: []v1_6.CurseAction{v1_6.CurseChain(e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0])},
 		Reason:       "Curse test",
 	})
 	require.NoError(t, err)
@@ -305,7 +306,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	require.NotNil(t, sentEvent)
 	destChain := e.Env.Chains[dest]
 	require.NoError(t, err)
-	v1_5testhelpers.WaitForNoCommit(t, e.Env.Chains[src1], destChain, oldState.Chains[dest].CommitStore[src1],
+	v1_5testhelpers.WaitForNoCommit(t, e.Env.Chains[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
 		sentEvent.Message.SequenceNumber)
 }
 
@@ -336,7 +337,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	)
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	allChains := e.Env.AllChainSelectors()
+	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	src1, dest := allChains[0], allChains[1]
 	pairs := []testhelpers.SourceDestPair{
 		{SourceChainSelector: src1, DestChainSelector: dest},
@@ -413,7 +414,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 
 	_, err = cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset).Apply(e.Env,
 		v1_6.SetRMNRemoteOnRMNProxyConfig{
-			ChainSelectors: e.Env.AllChainSelectors(),
+			ChainSelectors: e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)),
 		})
 	require.NoError(t, err)
 
@@ -424,7 +425,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 		testhelpers.WithDestChain(dest),
 		testhelpers.WithTestRouter(false),
 		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(oldState.Chains[dest].Receiver.Address().Bytes(), 32),
+			Receiver:     common.LeftPadBytes(oldState.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
@@ -434,31 +435,31 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset).Apply(e.Env, v1_6.RMNCurseConfig{
-		CurseActions: []v1_6.CurseAction{v1_6.CurseChain(e.Env.AllChainSelectors()[0])},
+		CurseActions: []v1_6.CurseAction{v1_6.CurseChain(e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0])},
 		Reason:       "Curse test",
 	})
 	require.NoError(t, err)
 
 	require.NotNil(t, sentEvent)
 	destChain := e.Env.Chains[dest]
-	v1_5testhelpers.WaitForNoCommit(t, e.Env.Chains[src1], destChain, oldState.Chains[dest].CommitStore[src1],
+	v1_5testhelpers.WaitForNoCommit(t, e.Env.Chains[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
 		sentEvent.Message.SequenceNumber)
 
 	commitFound := make(chan struct{})
 	go func() {
-		v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, oldState.Chains[dest].CommitStore[src1],
+		v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
 			sentEvent.Message.SequenceNumber)
 		commitFound <- struct{}{}
 	}()
 
 	_, err = cldf.CreateLegacyChangeSet(v1_6.RMNUncurseChangeset).Apply(e.Env, v1_6.RMNCurseConfig{
-		CurseActions: []v1_6.CurseAction{v1_6.CurseChain(e.Env.AllChainSelectors()[0])},
+		CurseActions: []v1_6.CurseAction{v1_6.CurseChain(e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0])},
 		Reason:       "Uncurse test",
 	})
 	require.NoError(t, err)
 
-	for _, chainSel := range e.Env.AllChainSelectors() {
-		subjects, err := state.Chains[chainSel].RMNRemote.GetCursedSubjects(nil)
+	for _, chainSel := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)) {
+		subjects, err := state.MustGetEVMChainState(chainSel).RMNRemote.GetCursedSubjects(nil)
 		require.NoError(t, err)
 		require.Empty(t, subjects)
 	}
@@ -521,8 +522,11 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	)
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	allChainsExcept1337 := e.Env.AllChainSelectorsExcluding([]uint64{chainselectors.GETH_TESTNET.Selector})
-	require.Contains(t, e.Env.AllChainSelectors(), chainselectors.GETH_TESTNET.Selector)
+	allChainsExcept1337 := e.Env.BlockChains.ListChainSelectors(
+		cldf_chain.WithFamily(chainselectors.FamilyEVM),
+		cldf_chain.WithChainSelectorsExclusion([]uint64{chainselectors.GETH_TESTNET.Selector}),
+	)
+	require.Contains(t, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)), chainselectors.GETH_TESTNET.Selector)
 	require.Len(t, allChainsExcept1337, 2)
 	src1, src2, dest := allChainsExcept1337[0], allChainsExcept1337[1], chainselectors.GETH_TESTNET.Selector
 	pairs := []testhelpers.SourceDestPair{
@@ -582,7 +586,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		testhelpers.WithDestChain(dest),
 		testhelpers.WithTestRouter(false),
 		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+			Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
@@ -594,28 +598,28 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	destChain := e.Env.Chains[dest]
 	destStartBlock, err := destChain.Client.HeaderByNumber(context.Background(), nil)
 	require.NoError(t, err)
-	v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src2], destChain, state.Chains[dest].CommitStore[src2],
+	v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src2], destChain, state.MustGetEVMChainState(dest).CommitStore[src2],
 		sentEvent.Message.SequenceNumber)
-	v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src2], destChain, state.Chains[dest].EVM2EVMOffRamp[src2],
+	v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src2], destChain, state.MustGetEVMChainState(dest).EVM2EVMOffRamp[src2],
 		[]uint64{sentEvent.Message.SequenceNumber}, destStartBlock.Number.Uint64())
 
 	// now that all 1.5 lanes work transfer ownership of the contracts to MCMS
 	contractsByChain := make(map[uint64][]common.Address)
-	for _, chain := range e.Env.AllChainSelectors() {
+	for _, chain := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)) {
 		contractsByChain[chain] = []common.Address{
-			state.Chains[chain].Router.Address(),
-			state.Chains[chain].RMNProxy.Address(),
-			state.Chains[chain].PriceRegistry.Address(),
-			state.Chains[chain].TokenAdminRegistry.Address(),
-			state.Chains[chain].RMN.Address(),
+			state.MustGetEVMChainState(chain).Router.Address(),
+			state.MustGetEVMChainState(chain).RMNProxy.Address(),
+			state.MustGetEVMChainState(chain).PriceRegistry.Address(),
+			state.MustGetEVMChainState(chain).TokenAdminRegistry.Address(),
+			state.MustGetEVMChainState(chain).RMN.Address(),
 		}
-		if state.Chains[chain].EVM2EVMOnRamp != nil {
-			for _, onRamp := range state.Chains[chain].EVM2EVMOnRamp {
+		if state.MustGetEVMChainState(chain).EVM2EVMOnRamp != nil {
+			for _, onRamp := range state.MustGetEVMChainState(chain).EVM2EVMOnRamp {
 				contractsByChain[chain] = append(contractsByChain[chain], onRamp.Address())
 			}
 		}
-		if state.Chains[chain].EVM2EVMOffRamp != nil {
-			for _, offRamp := range state.Chains[chain].EVM2EVMOffRamp {
+		if state.MustGetEVMChainState(chain).EVM2EVMOffRamp != nil {
+			for _, offRamp := range state.MustGetEVMChainState(chain).EVM2EVMOffRamp {
 				contractsByChain[chain] = append(contractsByChain[chain], offRamp.Address())
 			}
 		}
@@ -636,7 +640,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	// add 1.6 contracts to the environment and send 1.6 jobs
 	// First we need to deploy Homechain contracts and restart the nodes with updated cap registry
 	// in this test we have already deployed home chain contracts and the nodes are already running with the deployed cap registry.
-	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv, false)
+	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)), tEnv, false)
 	// Set RMNProxy to point to RMNRemote.
 	// nonce manager should point to 1.5 ramps
 	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
@@ -644,7 +648,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 			// as we have already transferred ownership for RMNProxy to MCMS, it needs to be done via MCMS proposal
 			cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
 			v1_6.SetRMNRemoteOnRMNProxyConfig{
-				ChainSelectors: e.Env.AllChainSelectors(),
+				ChainSelectors: e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)),
 				MCMSConfig: &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				},
@@ -711,7 +715,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		// from test router to ensure 1.6 is working.
 		testhelpers.WithSender(e.Users[src1][1]),
 		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+			Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
@@ -799,7 +803,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		testhelpers.WithDestChain(dest),
 		testhelpers.WithTestRouter(false),
 		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+			Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
@@ -809,7 +813,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, sentEvent)
 
-	v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src2], e.Env.Chains[dest], state.Chains[dest].EVM2EVMOffRamp[src2],
+	v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src2], e.Env.Chains[dest], state.MustGetEVMChainState(dest).EVM2EVMOffRamp[src2],
 		[]uint64{sentEventOnOtherLane.Message.SequenceNumber}, destStartBlock.Number.Uint64())
 
 	// stop the continuous messages in real router
@@ -817,9 +821,9 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	wg.Wait()
 	// start validating the messages sent in 1.5 and 1.6
 	for _, msg := range v1_5Msgs {
-		v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, state.Chains[dest].CommitStore[src1],
+		v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, state.MustGetEVMChainState(dest).CommitStore[src1],
 			msg.Message.SequenceNumber)
-		v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src1], destChain, state.Chains[dest].EVM2EVMOffRamp[src1],
+		v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src1], destChain, state.MustGetEVMChainState(dest).EVM2EVMOffRamp[src1],
 			[]uint64{msg.Message.SequenceNumber}, initialBlock)
 		lastNonce = msg.Message.Nonce
 	}
@@ -899,7 +903,7 @@ func sendMessageInRealRouter(
 		Sender:       e.Env.Chains[src].DeployerKey,
 		IsTestRouter: false,
 		Message: router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+			Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),

@@ -27,7 +27,7 @@ func PrivateKeyToAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
 	return crypto.PubkeyToAddress(*publicKeyECDSA), nil
 }
 
-func SendFunds(logger zerolog.Logger, client *seth.Client, payload libtypes.FundsToSend) (*types.Receipt, error) {
+func SendFunds(ctx context.Context, logger zerolog.Logger, client *seth.Client, payload libtypes.FundsToSend) (*types.Receipt, error) {
 	fromAddress, err := PrivateKeyToAddress(payload.PrivateKey)
 	if err != nil {
 		return nil, err
@@ -35,8 +35,8 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload libtypes.Fund
 
 	var nonce uint64
 	if payload.Nonce == nil {
-		ctx, cancel := context.WithTimeout(context.Background(), client.Cfg.Network.TxnTimeout.Duration())
-		nonce, err = client.Client.PendingNonceAt(ctx, fromAddress)
+		nonceCtx, cancel := context.WithTimeout(ctx, client.Cfg.Network.TxnTimeout.Duration())
+		nonce, err = client.Client.PendingNonceAt(nonceCtx, fromAddress)
 		defer cancel()
 		if err != nil {
 			return nil, err
@@ -135,9 +135,9 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload libtypes.Fund
 		Bool("Dynamic fees", client.Cfg.Network.EIP1559DynamicFees).
 		Msg("About to send funds")
 
-	ctx, cancel := context.WithTimeout(context.Background(), txTimeout)
+	sendCtx, cancel := context.WithTimeout(ctx, txTimeout)
 	defer cancel()
-	err = client.Client.SendTransaction(ctx, signedTx)
+	err = client.Client.SendTransaction(sendCtx, signedTx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to send transaction")
 	}
@@ -155,7 +155,9 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload libtypes.Fund
 		Bool("Dynamic fees", client.Cfg.Network.EIP1559DynamicFees).
 		Msg("Sent funds")
 
-	receipt, receiptErr := client.WaitMined(ctx, logger, client.Client, signedTx)
+	minedCtx, mineCancel := context.WithTimeout(ctx, txTimeout)
+	defer mineCancel()
+	receipt, receiptErr := client.WaitMined(minedCtx, logger, client.Client, signedTx)
 	if receiptErr != nil {
 		return nil, errors.Wrap(receiptErr, "failed to wait for transaction to be mined")
 	}
@@ -164,7 +166,9 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload libtypes.Fund
 		return receipt, nil
 	}
 
-	tx, _, err := client.Client.TransactionByHash(ctx, signedTx.Hash())
+	txCtx, txCancel := context.WithTimeout(ctx, txTimeout)
+	defer txCancel()
+	tx, _, err := client.Client.TransactionByHash(txCtx, signedTx.Hash())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get transaction by hash ")
 	}

@@ -29,10 +29,10 @@ func ConfigureUSDCTokenPools(
 	src, dst uint64,
 	state stateview.CCIPOnChainState,
 ) (*burn_mint_erc677.BurnMintERC677, *burn_mint_erc677.BurnMintERC677, error) {
-	srcToken := state.Chains[src].BurnMintTokens677[shared.USDCSymbol]
-	dstToken := state.Chains[dst].BurnMintTokens677[shared.USDCSymbol]
-	srcPool := state.Chains[src].USDCTokenPools[deployment.Version1_5_1]
-	dstPool := state.Chains[dst].USDCTokenPools[deployment.Version1_5_1]
+	srcToken := state.MustGetEVMChainState(src).BurnMintTokens677[shared.USDCSymbol]
+	dstToken := state.MustGetEVMChainState(dst).BurnMintTokens677[shared.USDCSymbol]
+	srcPool := state.MustGetEVMChainState(src).USDCTokenPools[deployment.Version1_5_1]
+	dstPool := state.MustGetEVMChainState(dst).USDCTokenPools[deployment.Version1_5_1]
 
 	args := []struct {
 		sourceChain cldf.Chain
@@ -46,7 +46,7 @@ func ConfigureUSDCTokenPools(
 		{
 			chains[src],
 			dst,
-			state.Chains[src],
+			state.MustGetEVMChainState(src),
 			srcToken,
 			srcPool,
 			dstToken,
@@ -55,7 +55,7 @@ func ConfigureUSDCTokenPools(
 		{
 			chains[dst],
 			src,
-			state.Chains[dst],
+			state.MustGetEVMChainState(dst),
 			dstToken,
 			dstPool,
 			srcToken,

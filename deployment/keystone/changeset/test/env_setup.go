@@ -193,6 +193,11 @@ func (te EnvWrapper) GetP2PIDs(donName string) P2PIDs {
 func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env cldf.Environment) {
 	chains, _ := memory.NewMemoryChains(t, nChains, 1)
 	registryChainSel = registryChain(t, chains)
+	blockChains := map[uint64]chain.BlockChain{}
+	for selector, ch := range chains {
+		blockChains[selector] = ch
+	}
+
 	// note that all the nodes require TOML configuration of the cap registry address
 	// and writers need forwarder address as TOML config
 	// we choose to use changesets to deploy the initial contracts because that's how it's done in the real world
@@ -203,6 +208,7 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env cldf.Envir
 		Chains:            chains,
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
 		DataStore:         datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]().Seal(),
+		BlockChains:       chain.NewBlockChains(blockChains),
 	}
 
 	forwarderChangesets := make([]commonchangeset.ConfiguredChangeSet, nChains)

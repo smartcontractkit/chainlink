@@ -28,6 +28,7 @@ import (
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -129,7 +130,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 
 // MustSourceChain will return a chain selector to send a message from
 func (m *DestinationGun) MustSourceChain() (uint64, error) {
-	otherCS := m.env.AllChainSelectorsExcluding([]uint64{m.chainSelector})
+	otherCS := m.env.BlockChains.ListChainSelectors(cldf_chain.WithChainSelectorsExclusion([]uint64{m.chainSelector}))
 	// todo: uncomment to enable solana as a source chain
 	// otherCS := m.env.AllChainSelectorsAllFamilliesExcluding([]uint64{m.chainSelector})
 	if len(otherCS) == 0 {
@@ -140,7 +141,7 @@ func (m *DestinationGun) MustSourceChain() (uint64, error) {
 }
 func (m *DestinationGun) sendEVMMessage(src uint64) error {
 	acc := m.evmSourceKeys[src]
-	r := m.state.Chains[src].Router
+	r := m.state.MustGetEVMChainState(src).Router
 
 	msg, gasLimit, err := m.GetEVMMessage(src)
 	if err != nil {
@@ -257,7 +258,7 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 	if selectedMsgDetails.IsTokenTransfer() {
 		message.TokenAmounts = []router.ClientEVMTokenAmount{
 			{
-				Token:  m.state.Chains[src].LinkToken.Address(),
+				Token:  m.state.MustGetEVMChainState(src).LinkToken.Address(),
 				Amount: big.NewInt(1),
 			},
 		}
@@ -370,7 +371,7 @@ func (m *DestinationGun) sendSolanaMessage(src uint64) error {
 
 	result, err := solcommon.SendAndConfirm(
 		m.env.GetContext(),
-		m.env.SolChains[src].Client,
+		m.env.BlockChains.SolanaChains()[src].Client,
 		[]solana.Instruction{instruction},
 		*sourceKey,
 		rpc.CommitmentConfirmed)

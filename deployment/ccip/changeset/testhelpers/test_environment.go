@@ -14,12 +14,18 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	solanago "github.com/gagliardetto/solana-go"
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -313,7 +319,8 @@ func (d *DeployedEnv) TimelockContracts(t *testing.T) map[uint64]*proposalutils.
 	timelocks := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 	state, err := stateview.LoadOnchainState(d.Env)
 	require.NoError(t, err)
-	for chain, chainState := range state.Chains {
+	for _, chain := range state.EVMChains() {
+		chainState := state.MustGetEVMChainState(chain)
 		timelocks[chain] = &proposalutils.TimelockExecutionContracts{
 			Timelock:  chainState.Timelock,
 			CallProxy: chainState.CallProxy,
@@ -334,8 +341,8 @@ type MemoryEnvironment struct {
 	nodes       map[string]memory.Node
 	TestConfig  *TestConfigs
 	Chains      map[uint64]cldf.Chain
-	SolChains   map[uint64]cldf.SolChain
-	AptosChains map[uint64]cldf.AptosChain
+	SolChains   map[uint64]cldf_solana.Chain
+	AptosChains map[uint64]cldf_aptos.Chain
 }
 
 func (m *MemoryEnvironment) TestConfigs() *TestConfigs {
@@ -373,10 +380,21 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	m.Chains = chains
 	m.SolChains = memory.NewMemoryChainsSol(t, tc.SolChains)
 	m.AptosChains = memory.NewMemoryChainsAptos(t, tc.AptosChains)
+
+	blockChains := map[uint64]cldf_chain.BlockChain{}
+	for selector, ch := range m.Chains {
+		blockChains[selector] = ch
+	}
+	for selector, ch := range m.SolChains {
+		blockChains[selector] = ch
+	}
+	for selector, ch := range m.AptosChains {
+		blockChains[selector] = ch
+	}
+
 	env := cldf.Environment{
 		Chains:      m.Chains,
-		SolChains:   m.SolChains,
-		AptosChains: m.AptosChains,
+		BlockChains: cldf_chain.NewBlockChains(blockChains),
 	}
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
 	replayBlocks, err := LatestBlocksByChain(ctx, env)
@@ -510,11 +528,11 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	var err error
 	tc := tEnv.TestConfigs()
 	e := NewEnvironment(t, tEnv)
-	evmChains := e.Env.AllChainSelectors()
-	solChains := e.Env.AllChainSelectorsSolana()
+	evmChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+	solChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	//nolint:gocritic // we need to segregate EVM and Solana chains
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
-	for _, c := range e.Env.AllChainSelectors() {
+	for _, c := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfigV2(t)
 	}
 	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
@@ -602,15 +620,15 @@ func NewEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	var err error
 	e := NewEnvironmentWithPrerequisitesContracts(t, tEnv)
-	evmChains := e.Env.AllChainSelectors()
-	solChains := e.Env.AllChainSelectorsSolana()
-	aptosChains := e.Env.AllChainSelectorsAptos()
+	evmChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+	solChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
+	aptosChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyAptos))
 	//nolint:gocritic // we need to segregate EVM and Solana chains
 	allChains := append(evmChains, solChains...)
 	allChains = append(allChains, aptosChains...)
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 
-	for _, c := range e.Env.AllChainSelectors() {
+	for _, c := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
 	}
 
@@ -706,7 +724,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	solChains := []uint64{}
 	for _, chain := range allChains {
-		if _, ok := e.Env.SolChains[chain]; ok {
+		if _, ok := e.Env.BlockChains.SolanaChains()[chain]; ok {
 			solChains = append(solChains, chain)
 		}
 	}
@@ -751,24 +769,24 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	require.NoError(t, err)
 	// Assert link present
 	if tc.IsStaticLink {
-		require.NotNil(t, state.Chains[e.FeedChainSel].StaticLinkToken)
+		require.NotNil(t, state.MustGetEVMChainState(e.FeedChainSel).StaticLinkToken)
 	} else {
-		require.NotNil(t, state.Chains[e.FeedChainSel].LinkToken)
+		require.NotNil(t, state.MustGetEVMChainState(e.FeedChainSel).LinkToken)
 	}
-	require.NotNil(t, state.Chains[e.FeedChainSel].Weth9)
+	require.NotNil(t, state.MustGetEVMChainState(e.FeedChainSel).Weth9)
 
-	tokenConfig := shared.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
+	tokenConfig := shared.NewTestTokenConfig(state.MustGetEVMChainState(e.FeedChainSel).USDFeeds)
 	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
 	if tc.IsUSDC {
 		endpoint := tEnv.MockUSDCAttestationServer(t, tc.IsUSDCAttestationMissing)
 		cctpContracts := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
 		for _, usdcChain := range evmChains {
-			require.NotNil(t, state.Chains[usdcChain].MockUSDCTokenMessenger)
-			require.NotNil(t, state.Chains[usdcChain].MockUSDCTransmitter)
-			require.NotNil(t, state.Chains[usdcChain].USDCTokenPools[deployment.Version1_5_1])
+			require.NotNil(t, state.MustGetEVMChainState(usdcChain).MockUSDCTokenMessenger)
+			require.NotNil(t, state.MustGetEVMChainState(usdcChain).MockUSDCTransmitter)
+			require.NotNil(t, state.MustGetEVMChainState(usdcChain).USDCTokenPools[deployment.Version1_5_1])
 			cctpContracts[cciptypes.ChainSelector(usdcChain)] = pluginconfig.USDCCCTPTokenConfig{
-				SourcePoolAddress:            state.Chains[usdcChain].USDCTokenPools[deployment.Version1_5_1].Address().String(),
-				SourceMessageTransmitterAddr: state.Chains[usdcChain].MockUSDCTransmitter.Address().String(),
+				SourcePoolAddress:            state.MustGetEVMChainState(usdcChain).USDCTokenPools[deployment.Version1_5_1].Address().String(),
+				SourceMessageTransmitterAddr: state.MustGetEVMChainState(usdcChain).MockUSDCTransmitter.Address().String(),
 			}
 		}
 		tokenDataProviders = append(tokenDataProviders, pluginconfig.TokenDataObserverConfig{
@@ -786,8 +804,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	timelockContractsPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 	timelockContractsPerChain[e.HomeChainSel] = &proposalutils.TimelockExecutionContracts{
-		Timelock:  state.Chains[e.HomeChainSel].Timelock,
-		CallProxy: state.Chains[e.HomeChainSel].CallProxy,
+		Timelock:  state.MustGetEVMChainState(e.HomeChainSel).Timelock,
+		CallProxy: state.MustGetEVMChainState(e.HomeChainSel).CallProxy,
 	}
 	nodeInfo, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
@@ -797,14 +815,14 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	execOCRConfigs := make(map[uint64]v1_6.CCIPOCRParams)
 	for _, chain := range evmChains {
 		timelockContractsPerChain[chain] = &proposalutils.TimelockExecutionContracts{
-			Timelock:  state.Chains[chain].Timelock,
-			CallProxy: state.Chains[chain].CallProxy,
+			Timelock:  state.MustGetEVMChainState(chain).Timelock,
+			CallProxy: state.MustGetEVMChainState(chain).CallProxy,
 		}
 		var linkTokenAddr common.Address
 		if tc.IsStaticLink {
-			linkTokenAddr = state.Chains[chain].StaticLinkToken.Address()
+			linkTokenAddr = state.MustGetEVMChainState(chain).StaticLinkToken.Address()
 		} else {
-			linkTokenAddr = state.Chains[chain].LinkToken.Address()
+			linkTokenAddr = state.MustGetEVMChainState(chain).LinkToken.Address()
 		}
 		ocrOverride := func(ocrParams v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 			if tc.OCRConfigOverride != nil {
@@ -821,7 +839,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			}
 			return ocrParams
 		}
-		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenConfig.GetTokenInfo(e.Env.Logger, linkTokenAddr, state.Chains[chain].Weth9.Address()), ocrOverride)
+		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenConfig.GetTokenInfo(e.Env.Logger, linkTokenAddr, state.MustGetEVMChainState(chain).Weth9.Address()), ocrOverride)
 		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
 		chainConfigs[chain] = v1_6.ChainConfig{
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
@@ -957,25 +975,25 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	require.NotNil(t, state.Chains[e.HomeChainSel].CapabilityRegistry)
-	require.NotNil(t, state.Chains[e.HomeChainSel].CCIPHome)
-	require.NotNil(t, state.Chains[e.HomeChainSel].RMNHome)
+	require.NotNil(t, state.MustGetEVMChainState(e.HomeChainSel).CapabilityRegistry)
+	require.NotNil(t, state.MustGetEVMChainState(e.HomeChainSel).CCIPHome)
+	require.NotNil(t, state.MustGetEVMChainState(e.HomeChainSel).RMNHome)
 	for _, chain := range evmChains {
 		if tc.IsStaticLink {
-			require.NotNil(t, state.Chains[chain].StaticLinkToken)
+			require.NotNil(t, state.MustGetEVMChainState(chain).StaticLinkToken)
 		} else {
-			require.NotNil(t, state.Chains[chain].LinkToken)
+			require.NotNil(t, state.MustGetEVMChainState(chain).LinkToken)
 		}
-		require.NotNil(t, state.Chains[chain].Weth9)
-		require.NotNil(t, state.Chains[chain].TokenAdminRegistry)
-		require.NotEmpty(t, state.Chains[chain].RegistryModules1_6)
-		require.NotNil(t, state.Chains[chain].Router)
-		require.NotNil(t, state.Chains[chain].RMNRemote)
-		require.NotNil(t, state.Chains[chain].TestRouter)
-		require.NotNil(t, state.Chains[chain].NonceManager)
-		require.NotNil(t, state.Chains[chain].FeeQuoter)
-		require.NotNil(t, state.Chains[chain].OffRamp)
-		require.NotNil(t, state.Chains[chain].OnRamp)
+		require.NotNil(t, state.MustGetEVMChainState(chain).Weth9)
+		require.NotNil(t, state.MustGetEVMChainState(chain).TokenAdminRegistry)
+		require.NotEmpty(t, state.MustGetEVMChainState(chain).RegistryModules1_6)
+		require.NotNil(t, state.MustGetEVMChainState(chain).Router)
+		require.NotNil(t, state.MustGetEVMChainState(chain).RMNRemote)
+		require.NotNil(t, state.MustGetEVMChainState(chain).TestRouter)
+		require.NotNil(t, state.MustGetEVMChainState(chain).NonceManager)
+		require.NotNil(t, state.MustGetEVMChainState(chain).FeeQuoter)
+		require.NotNil(t, state.MustGetEVMChainState(chain).OffRamp)
+		require.NotNil(t, state.MustGetEVMChainState(chain).OnRamp)
 	}
 	ValidateSolanaState(t, e.Env, solChains)
 	tEnv.UpdateDeployedEnvironment(e)

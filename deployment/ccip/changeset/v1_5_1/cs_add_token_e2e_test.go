@@ -6,8 +6,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -98,20 +101,20 @@ func TestAddTokenE2E(t *testing.T) {
 				e = tenv.Env
 				state, err := stateview.LoadOnchainState(e)
 				require.NoError(t, err)
-				selectors := e.AllChainSelectors()
+				selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 				selectorA = selectors[0]
 				selectorB = selectors[1]
 				// We only need the token admin registry to be owned by the timelock in these tests
 				timelockOwnedContractsByChain := make(map[uint64][]common.Address)
 				for _, selector := range selectors {
-					timelockOwnedContractsByChain[selector] = []common.Address{state.Chains[selector].TokenAdminRegistry.Address()}
+					timelockOwnedContractsByChain[selector] = []common.Address{state.MustGetEVMChainState(selector).TokenAdminRegistry.Address()}
 				}
 
 				// Assemble map of addresses required for Timelock scheduling & execution
 				for _, selector := range selectors {
 					timelockContracts[selector] = &proposalutils.TimelockExecutionContracts{
-						Timelock:  state.Chains[selector].Timelock,
-						CallProxy: state.Chains[selector].CallProxy,
+						Timelock:  state.MustGetEVMChainState(selector).Timelock,
+						CallProxy: state.MustGetEVMChainState(selector).CallProxy,
 					}
 				}
 				if test.withMCMS {
@@ -141,7 +144,7 @@ func TestAddTokenE2E(t *testing.T) {
 			recipientAddress := utils.RandomAddress()
 			topupAmount := big.NewInt(1000)
 			// form the changeset input config
-			for _, chain := range e.AllChainSelectors() {
+			for _, chain := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 				if addTokenE2EConfig.Tokens == nil {
 					addTokenE2EConfig.Tokens = make(map[shared.TokenSymbol]v1_5_1.AddTokenE2EConfig)
 				}

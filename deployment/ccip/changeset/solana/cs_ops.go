@@ -49,7 +49,7 @@ func (cfg SetDefaultCodeVersionConfig) Validate(e cldf.Environment) error {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func SetDefaultCodeVersion(e cldf.Environment, cfg SetDefaultCodeVersionConfig) 
 		return cldf.ChangesetOutput{}, err
 	}
 
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
@@ -212,7 +212,7 @@ func (cfg UpdateSvmChainSelectorConfig) Validate(e cldf.Environment) error {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	chainState := state.SolChains[cfg.OldChainSelector]
-	chain := e.SolChains[cfg.OldChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.OldChainSelector]
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
@@ -228,7 +228,7 @@ func UpdateSvmChainSelector(e cldf.Environment, cfg UpdateSvmChainSelectorConfig
 		return cldf.ChangesetOutput{}, err
 	}
 
-	chain := e.SolChains[cfg.OldChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.OldChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.OldChainSelector]
 	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
@@ -338,7 +338,7 @@ func (cfg UpdateEnableManualExecutionAfterConfig) Validate(e cldf.Environment) e
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if err := validateOffRampConfig(chain, chainState); err != nil {
 		return err
 	}
@@ -351,7 +351,7 @@ func UpdateEnableManualExecutionAfter(e cldf.Environment, cfg UpdateEnableManual
 		return cldf.ChangesetOutput{}, err
 	}
 
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
@@ -432,7 +432,7 @@ func (cfg ConfigureCCIPVersionConfig) Validate(e cldf.Environment) error {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
@@ -453,7 +453,7 @@ func ConfigureCCIPVersion(e cldf.Environment, cfg ConfigureCCIPVersionConfig) (c
 		return cldf.ChangesetOutput{}, err
 	}
 
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	destChainStatePDA, _ := solState.FindDestChainStatePDA(cfg.DestChainSelector, chainState.Router)
@@ -542,7 +542,7 @@ func (cfg RemoveOffRampConfig) Validate(e cldf.Environment) error {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
@@ -554,7 +554,7 @@ func RemoveOffRamp(e cldf.Environment, cfg RemoveOffRampConfig) (cldf.ChangesetO
 		return cldf.ChangesetOutput{}, err
 	}
 
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 

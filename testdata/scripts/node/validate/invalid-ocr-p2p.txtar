@@ -198,6 +198,7 @@ SimulateTransactions = false
 TransmitterAddress = ''
 CaptureEATelemetry = false
 TraceLogging = false
+ConfigLogValidation = false
 
 [P2P]
 IncomingMessageBufferSize = 10
@@ -361,6 +362,9 @@ PerOwner = 200
 [CRE.Streams]
 WsURL = ''
 RestURL = ''
+
+[Billing]
+URL = 'localhost:4319'
 
 Invalid configuration: invalid configuration: P2P.V2.Enabled: invalid value (false): P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2.
 

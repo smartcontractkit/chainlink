@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
@@ -22,7 +23,7 @@ import (
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
-func PrintTestDebug(testName string, l zerolog.Logger, input types.DebugInput) {
+func PrintTestDebug(ctx context.Context, testName string, l zerolog.Logger, input types.DebugInput) {
 	l.Info().Msg("🔍 Debug information from Chainlink Node logs:")
 
 	if err := input.Validate(); err != nil {
@@ -95,7 +96,7 @@ func PrintTestDebug(testName string, l zerolog.Logger, input types.DebugInput) {
 			l.Info().Msg("✅ Reports were sent")
 
 			// debug report transmissions
-			ReportTransmissions(logFiles, l, input.BlockchainOutput.Nodes[0].ExternalWSUrl)
+			ReportTransmissions(ctx, logFiles, l, input.BlockchainOutput.Nodes[0].ExternalWSUrl)
 		}
 
 		// Add support for new capabilities here as needed, if there is some specific debug information to be printed
@@ -104,7 +105,7 @@ func PrintTestDebug(testName string, l zerolog.Logger, input types.DebugInput) {
 
 // This function is used to go through Chainlink Node logs and look for entries related to report transmissions.
 // Once such a log entry is found, it looks for transaction hash and then it tries to decode the transaction and print the result.
-func ReportTransmissions(logFiles []*os.File, l zerolog.Logger, wsRPCURL string) {
+func ReportTransmissions(ctx context.Context, logFiles []*os.File, l zerolog.Logger, wsRPCURL string) {
 	/*
 	 Example log entry:
 	 2025-01-28T14:44:48.080Z [DEBUG] Node sent transaction                              multinode@v0.0.0-20250121205514-f73e2f86c23b/transaction_sender.go:180 chainID=1337 logger=EVM.1337.TransactionSender tx={"type":"0x0","chainId":"0x539","nonce":"0x0","to":"0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9","gas":"0x61a80","gasPrice":"0x3b9aca00","maxPriorityFeePerGas":null,"maxFeePerGas":null,"value":"0x0","input":"0x11289565000000000000000000000000a513e6e4b8f2a923d98304ec87f64353c4d5c853000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000001c00000000000000000000000000000000000000000000000000000000000000240000000000000000000000000000000000000000000000000000000000000010d010f715db03509d388f706e16137722000e26aa650a64ac826ae8e5679cdf57fd96798ed50000000010000000100000a9c593aaed2f5371a5bc0779d1b8ea6f9c7d37bfcbb876a0a9444dbd36f64306466323239353031f39fd6e51aad88f6f4ce6ab8827279cfffb92266000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001018bfe88407000400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb5c162c8000000000000000000000000000000000000000000000000000000006798ed37000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000060000e700d4c57250eac9dc925c951154c90c1b6017944322fb2075055d8bdbe19000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000041561c171b7465e8efef35572ef82adedb49ea71b8344a34a54ce5e853f80ca1ad7d644ebe710728f21ebfc3e2407bd90173244f744faa011c3a57213c8c585de90000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004165e6f3623acc43f163a58761655841bfebf3f6b4ea5f8d34c64188036b0ac23037ebbd3854b204ca26d828675395c4b9079ca068d9798326eb8c93f26570a1080100000000000000000000000000000000000000000000000000000000000000","v":"0xa96","r":"0x168547e96e7088c212f85a4e8dddce044bbb2abfd5ccc8a5451fdfcb812c94e5","s":"0x2a735a3df046632c2aaa7e583fe161113f3345002e6c9137bbfa6800a63f28a4","hash":"0x3fc5508310f8deef09a46ad594dcc5dc9ba415319ef1dfa3136335eb9e87ff4d"} version=2.19.0@05c05a9
@@ -171,11 +172,14 @@ func ReportTransmissions(logFiles []*os.File, l zerolog.Logger, wsRPCURL string)
 		l.Info().Msgf("🔍 Tracing report transmission transaction %s", txHash)
 		// set tracing level to all to trace also successful transactions
 		sc.Cfg.TracingLevel = seth.TracingLevel_All
-		tx, _, err := sc.Client.TransactionByHash(context.Background(), common.HexToHash(txHash))
-		if err != nil {
-			l.Warn().Err(err).Msgf("Failed to get transaction by hash %s", txHash)
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, 30*time.Second)
+		tx, _, txErr := sc.Client.TransactionByHash(ctxWithTimeout, common.HexToHash(txHash))
+		if txErr != nil {
+			cancel()
+			l.Warn().Err(txErr).Msgf("Failed to get transaction by hash %s", txHash)
 			continue
 		}
+		cancel()
 		_, decodedErr := sc.DecodeTx(tx)
 
 		if decodedErr != nil {

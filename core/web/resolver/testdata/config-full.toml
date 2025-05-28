@@ -163,6 +163,7 @@ SimulateTransactions = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 CaptureEATelemetry = false
 TraceLogging = false
+ConfigLogValidation = false
 
 [P2P]
 IncomingMessageBufferSize = 13
@@ -334,6 +335,9 @@ PerOwner = 200
 [CRE.Streams]
 WsURL = 'streams.url'
 RestURL = 'streams.url'
+
+[Billing]
+URL = 'localhost:4319'
 
 [[EVM]]
 ChainID = '1'

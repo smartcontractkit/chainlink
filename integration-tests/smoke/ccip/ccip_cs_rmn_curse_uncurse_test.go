@@ -11,6 +11,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms/types"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -495,7 +496,7 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state s
 		contractsByChain[chainSelector] = []common.Address{rmnRemoteAddress}
 	}
 
-	contractsByChain[e.HomeChainSel] = append(contractsByChain[e.HomeChainSel], state.Chains[e.HomeChainSel].RMNHome.Address())
+	contractsByChain[e.HomeChainSel] = append(contractsByChain[e.HomeChainSel], state.MustGetEVMChainState(e.HomeChainSel).RMNHome.Address())
 	timelocksPerChain := deployergroup.BuildTimelockPerChain(e.Env, state)
 	// This is required because RMN Contracts is initially owned by the deployer
 	_, err := commonchangeset.Apply(t, e.Env, timelocksPerChain,
@@ -511,7 +512,8 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state s
 	)
 	require.NoError(t, err)
 
-	for _, solChain := range e.Env.AllChainSelectorsSolana() {
+	chainSelectorSolana := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
+	for _, solChain := range chainSelectorSolana {
 		_, _ = testhelpers.TransferOwnershipSolana(t, &e.Env, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
 				Router:    true,
@@ -528,7 +530,7 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state s
 		Timelock:     83 * solana.LAMPORTS_PER_SOL,
 	}
 	amountsPerChain := make(map[uint64]commonSolana.AmountsToTransfer)
-	for chainSelector := range e.Env.SolChains {
+	for _, chainSelector := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana)) {
 		amountsPerChain[chainSelector] = cfgAmounts
 	}
 	config := commonSolana.FundMCMSignerConfig{

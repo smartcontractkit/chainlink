@@ -501,6 +501,53 @@ func (_c *Master_StarkNet_Call) RunAndReturn(run func() keystore.StarkNet) *Mast
 	return _c
 }
 
+// TON provides a mock function with no fields
+func (_m *Master) TON() keystore.TON {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for TON")
+	}
+
+	var r0 keystore.TON
+	if rf, ok := ret.Get(0).(func() keystore.TON); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(keystore.TON)
+		}
+	}
+
+	return r0
+}
+
+// Master_TON_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TON'
+type Master_TON_Call struct {
+	*mock.Call
+}
+
+// TON is a helper method to define mock.On call
+func (_e *Master_Expecter) TON() *Master_TON_Call {
+	return &Master_TON_Call{Call: _e.mock.On("TON")}
+}
+
+func (_c *Master_TON_Call) Run(run func()) *Master_TON_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Master_TON_Call) Return(_a0 keystore.TON) *Master_TON_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Master_TON_Call) RunAndReturn(run func() keystore.TON) *Master_TON_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Tron provides a mock function with no fields
 func (_m *Master) Tron() keystore.Tron {
 	ret := _m.Called()

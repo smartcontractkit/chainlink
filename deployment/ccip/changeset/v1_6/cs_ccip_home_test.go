@@ -7,8 +7,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/maps"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -37,7 +40,7 @@ import (
 func TestInvalidOCR3Params(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithPrerequisiteDeploymentOnly(nil))
-	chain1 := e.Env.AllChainSelectors()[0]
+	chain1 := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 	// Need to deploy prerequisites first so that we can form the USDC config

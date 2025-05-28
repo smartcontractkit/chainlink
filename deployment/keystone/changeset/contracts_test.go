@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -122,7 +123,7 @@ func TestGetOwnerTypeAndVersion(t *testing.T) {
 		t.Parallel()
 
 		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		chain := env.Chains[env.AllChainSelectors()[0]]
+		chain := env.Chains[env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))[0]]
 		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -160,7 +161,7 @@ func TestGetOwnerTypeAndVersion(t *testing.T) {
 		t.Parallel()
 
 		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		chain := env.Chains[env.AllChainSelectors()[0]]
+		chain := env.Chains[env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))[0]]
 		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -199,7 +200,7 @@ func TestNewOwnable(t *testing.T) {
 		t.Parallel()
 
 		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		chain := env.Chains[env.AllChainSelectors()[0]]
+		chain := env.Chains[env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))[0]]
 		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -243,7 +244,7 @@ func TestNewOwnable(t *testing.T) {
 		t.Parallel()
 
 		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		chain := env.Chains[env.AllChainSelectors()[0]]
+		chain := env.Chains[env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))[0]]
 		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -286,7 +287,7 @@ func TestNewOwnable(t *testing.T) {
 		t.Parallel()
 
 		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		chain := env.Chains[env.AllChainSelectors()[0]]
+		chain := env.Chains[env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))[0]]
 		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
 		require.NoError(t, err)
 		require.NotNil(t, resp)

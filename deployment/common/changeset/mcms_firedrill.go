@@ -10,6 +10,7 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -75,8 +76,8 @@ func buildNoOPSolana() (mcmstypes.Transaction, error) {
 func MCMSSignFireDrillChangeset(e cldf.Environment, cfg FireDrillConfig) (cldf.ChangesetOutput, error) {
 	allSelectors := cfg.Selectors
 	if len(allSelectors) == 0 {
-		solSelectors := e.AllChainSelectorsSolana()
-		evmSelectors := e.AllChainSelectors()
+		solSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilySolana))
+		evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))
 		allSelectors = append(allSelectors, solSelectors...)
 		allSelectors = append(allSelectors, evmSelectors...)
 	}
@@ -123,7 +124,7 @@ func MCMSSignFireDrillChangeset(e cldf.Environment, cfg FireDrillConfig) (cldf.C
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
-			state, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[selector], addresses)
+			state, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[selector], addresses)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}

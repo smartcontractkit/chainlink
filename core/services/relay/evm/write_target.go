@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
 	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/monitor"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	ocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
@@ -108,11 +109,11 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, fmt.Errorf("failed to create EVM platform processors: %w", err)
 	}
 
-	beholder, err := writetarget.NewMonitor(lggr, evmProcessors, map[string]monitor.ProtoProcessor{
+	beholder, err := writetarget.NewMonitor(writetarget.MonitorOpts{lggr, evmProcessors, map[string]beholder.ProtoProcessor{
 		"evm-data-feeds":      dfProcessor,
 		"evm-data-feeds-ccip": ccipDfProcessor,
 		"evm-por-feeds":       porProcessor,
-	}, emitter)
+	}, emitter})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Aptos WT monitor client: %+w", err)
 	}

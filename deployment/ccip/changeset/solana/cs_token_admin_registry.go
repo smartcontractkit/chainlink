@@ -58,7 +58,7 @@ func (cfg RegisterTokenAdminRegistryConfig) Validate(e cldf.Environment) error {
 	}
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	tokenPubKey := cfg.TokenPubKey
@@ -204,7 +204,7 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment
 	}
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
@@ -249,7 +249,7 @@ func TransferAdminRoleTokenAdminRegistry(e cldf.Environment, cfg TransferAdminRo
 	}
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
 	solRouter.SetProgramID(routerProgramAddress)
@@ -305,9 +305,10 @@ func TransferAdminRoleTokenAdminRegistry(e cldf.Environment, cfg TransferAdminRo
 
 // ACCEPT TOKEN ADMIN REGISTRY
 type AcceptAdminRoleTokenAdminRegistryConfig struct {
-	ChainSelector uint64
-	TokenPubKey   solana.PublicKey
-	MCMS          *proposalutils.TimelockConfig
+	ChainSelector     uint64
+	TokenPubKey       solana.PublicKey
+	MCMS              *proposalutils.TimelockConfig
+	SkipRegistryCheck bool // set to true when you want to register and accept in the same proposal
 }
 
 func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment) error {
@@ -317,7 +318,7 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment) 
 	}
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
@@ -335,21 +336,23 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment) 
 		"",
 	)
 
-	routerProgramAddress, _, _ := chainState.GetRouterInfo()
-	tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
-	if err != nil {
-		return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), routerProgramAddress.String(), err)
-	}
-	var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
-	if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
-		return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot accept admin role", tokenPubKey.String(), routerProgramAddress.String())
-	}
-	if !tokenAdminRegistryAccount.PendingAdministrator.Equals(newAdmin) {
-		return fmt.Errorf("new admin public key (%s) does not match pending registry admin role (%s) for token %s",
-			newAdmin.String(),
-			tokenAdminRegistryAccount.PendingAdministrator.String(),
-			tokenPubKey.String(),
-		)
+	if !cfg.SkipRegistryCheck {
+		routerProgramAddress, _, _ := chainState.GetRouterInfo()
+		tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
+		if err != nil {
+			return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), routerProgramAddress.String(), err)
+		}
+		var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
+		if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
+			return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot accept admin role", tokenPubKey.String(), routerProgramAddress.String())
+		}
+		if !tokenAdminRegistryAccount.PendingAdministrator.Equals(newAdmin) {
+			return fmt.Errorf("new admin public key (%s) does not match pending registry admin role (%s) for token %s",
+				newAdmin.String(),
+				tokenAdminRegistryAccount.PendingAdministrator.String(),
+				tokenPubKey.String(),
+			)
+		}
 	}
 	return nil
 }
@@ -359,7 +362,7 @@ func AcceptAdminRoleTokenAdminRegistry(e cldf.Environment, cfg AcceptAdminRoleTo
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	tokenPubKey := cfg.TokenPubKey

@@ -9,8 +9,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/google/go-cmp/cmp"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
@@ -41,7 +46,7 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 		Chains:             2,
 		NumOfUsersPerChain: 2,
 	})
-	evmSelectors := env.AllChainSelectors()
+	evmSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	changesetConfig := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, chain := range evmSelectors {
 		changesetConfig[chain] = proposalutils.SingleGroupTimelockConfigV2(t)
@@ -102,7 +107,7 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 	ctx := testutils.Context(t)
 	env := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{Chains: 2})
-	evmSelectors := env.AllChainSelectors()
+	evmSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	changesetConfig := map[uint64]commontypes.MCMSWithTimelockConfigV2{
 		evmSelectors[0]: {
 			Proposer: mcmstypes.Config{
@@ -215,8 +220,8 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 	log := logger.TestLogger(t)
 	envConfig := memory.MemoryEnvironmentConfig{Chains: 2, SolChains: 1}
 	env := memory.NewMemoryEnvironment(t, log, zapcore.InfoLevel, envConfig)
-	evmSelectors := env.AllChainSelectors()
-	solanaSelectors := env.AllChainSelectorsSolana()
+	evmSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+	solanaSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	changesetConfig := map[uint64]commontypes.MCMSWithTimelockConfigV2{
 		evmSelectors[0]: {
 			Proposer: mcmstypes.Config{
@@ -405,7 +410,7 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 
 	// solana chain 0
 	solanaState0 := solanaState[solanaSelectors[0]]
-	solanaChain0 := updatedEnv.SolChains[solanaSelectors[0]]
+	solanaChain0 := updatedEnv.BlockChains.SolanaChains()[solanaSelectors[0]]
 	solanaInspector := mcmssolanasdk.NewInspector(solanaChain0.Client)
 	solanaTimelockInspector := mcmssolanasdk.NewTimelockInspector(solanaChain0.Client)
 
@@ -459,7 +464,7 @@ func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
 	log := logger.TestLogger(t)
 	envConfig := memory.MemoryEnvironmentConfig{Chains: 0, SolChains: 1}
 	env := memory.NewMemoryEnvironment(t, log, zapcore.InfoLevel, envConfig)
-	solanaSelectors := env.AllChainSelectorsSolana()
+	solanaSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	changesetConfig := map[uint64]commontypes.MCMSWithTimelockConfigV2{
 		solanaSelectors[0]: {
 			Proposer: mcmstypes.Config{
@@ -552,7 +557,7 @@ func timelockSignerPDA(programID solana.PublicKey, seed mcmschangesetstate.PDASe
 }
 
 func solanaTimelockConfig(
-	ctx context.Context, t *testing.T, chain cldf.SolChain, programID solana.PublicKey, seed mcmschangesetstate.PDASeed,
+	ctx context.Context, t *testing.T, chain cldf_solana.Chain, programID solana.PublicKey, seed mcmschangesetstate.PDASeed,
 ) timelockBindings.Config {
 	t.Helper()
 
