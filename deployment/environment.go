@@ -182,9 +182,6 @@ func (n Node) OCRConfigForChainSelector(chainSel uint64) (OCRConfig, bool) {
 	if want.ChainName == "" {
 		want.ChainName = strconv.FormatUint(want.ChainSelector, 10)
 	}
-
-	fmt.Printf("want: %+v, selToOCRConfig: %+v\n\n", want, n.SelToOCRConfig)
-
 	c, ok := n.SelToOCRConfig[want]
 	return c, ok
 }

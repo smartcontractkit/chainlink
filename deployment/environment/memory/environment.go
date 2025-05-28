@@ -258,6 +258,20 @@ func NewNodes(
 }
 
 func createNewNodeConfigsWithChainTopology(t *testing.T, cfg NewNodesConfig, ports []int) []NewNodeConfig {
+	homeChain, allChains, chainIdxToFChain := prepareChainDataForTopology(t, cfg)
+
+	// Assign chains to nodes based on the fChain values.
+	nodeIdxToChainIdxs := mapChainsToNodes(t, chainIdxToFChain, cfg.NumNodes, cfg.ChainTopology.Seed)
+
+	t.Logf("nodeIdxToChainIdxs: %v", nodeIdxToChainIdxs)
+
+	// create the new node configs.
+	return buildNodeConfigs(t, cfg, ports, homeChain, allChains, nodeIdxToChainIdxs)
+}
+
+// prepareChainDataForTopology extracts and validates chain information needed for topology-based node configuration.
+// It returns the home chain, a slice of all other chains, and a map from the allChains index to its fChain value.
+func prepareChainDataForTopology(t *testing.T, cfg NewNodesConfig) (cldf.Chain, []any, map[int]int) {
 	homeChain, ok := cfg.Chains[cfg.HomeChainSel]
 	require.Truef(t, ok, "home chain %d not found in chains, %+v", cfg.HomeChainSel, cfg.Chains)
 
@@ -265,12 +279,9 @@ func createNewNodeConfigsWithChainTopology(t *testing.T, cfg NewNodesConfig, por
 	allSolChains := maps.Values(cfg.SolChains)
 	allAptosChains := maps.Values(cfg.AptosChains)
 
-	// combine all the chains into a single slice.
-	allChains := make([]any, 0, len(allEVMChains)+len(allSolChains)+len(allAptosChains))
+	// combine all the chains into a single slice, excluding the home chain.
+	allChains := make([]any, 0, len(allEVMChains)-1+len(allSolChains)+len(allAptosChains))
 	for _, chain := range allEVMChains {
-		// Home chain is always EVM, so we can only check here.
-		// We don't include it in allChains because it must be supported by all nodes,
-		// so its a special case.
 		if chain.ChainSelector() == cfg.HomeChainSel {
 			continue
 		}
@@ -284,47 +295,51 @@ func createNewNodeConfigsWithChainTopology(t *testing.T, cfg NewNodesConfig, por
 	}
 
 	// Validate that the chain topology is valid.
-	// This should've been done already but we do it again for safety.
-	totalChains := 0
+	totalChainsInTopology := 0
 	for _, numChains := range cfg.ChainTopology.FChainToNumChains {
-		totalChains += numChains
+		totalChainsInTopology += numChains
 	}
-	require.Equalf(
+	require.Lenf(
 		t,
-		totalChains,
-		len(allChains),
-		"chain topology is invalid, totalChains: %d, expected: %d (total num chains minus home chain, which must be supported by all nodes)",
-		totalChains,
+		allChains,
+		totalChainsInTopology,
+		"chain topology is invalid, totalChainsInTopology: %d, expected (len(allChains)): %d. allChains are non-home chains.",
+		totalChainsInTopology,
 		len(allChains),
 	)
 
-	var chainIdxToFChain = make(map[int]int) // index into allChains -> fChain value
-	var chainIdx int
-	for fChain, numChains := range cfg.ChainTopology.FChainToNumChains {
-		for range numChains {
-			chainIdxToFChain[chainIdx] = fChain
-			chainIdx++
+	chainIdxToFChain := make(map[int]int) // index into allChains -> fChain value
+	var currentChainIdx int
+	for fChain, numChainsInF := range cfg.ChainTopology.FChainToNumChains {
+		for range numChainsInF {
+			require.Lessf(t, currentChainIdx, len(allChains), "ran out of chains in allChains while building chainIdxToFChain. currentChainIdx: %d, len(allChains): %d", currentChainIdx, len(allChains))
+			chainIdxToFChain[currentChainIdx] = fChain
+			currentChainIdx++
 		}
 	}
+	return homeChain, allChains, chainIdxToFChain
+}
 
-	// pseudocode:
-	// for each chain:
-	//   get the fChain value
-	//   use the fChain value to "draw" the nodes that will support this chain.
-	//   assign the chains to the nodes.
+// mapChainsToNodes determines which nodes support which chains based on fChain values.
+// It returns a map where keys are node indices and values are slices of chain indices (from allChains).
+func mapChainsToNodes(t *testing.T, chainIdxToFChain map[int]int, numNodes int, seed int64) map[int][]int {
+	require.GreaterOrEqualf(t, numNodes, 4, "numNodes must be at least 4 (i.e fRoleDON == 1), got %d", numNodes)
+	require.NotEmptyf(t, chainIdxToFChain, "chainIdxToFChain must not be empty, got %v", chainIdxToFChain)
+
 	nodeIdxToChainIdxs := make(map[int][]int)
 	for chainIdx, fChain := range chainIdxToFChain {
 		// "draw" the nodes that will support this chain.
-		nodeIdxs := drawNodesForChain(t, fChain, cfg.NumNodes, cfg.ChainTopology.Seed)
+		nodeIdxs := drawNodesForChain(t, fChain, numNodes, seed)
 		// assign the chains to the nodes.
 		for _, nodeIdx := range nodeIdxs {
 			nodeIdxToChainIdxs[nodeIdx] = append(nodeIdxToChainIdxs[nodeIdx], chainIdx)
 		}
 	}
+	return nodeIdxToChainIdxs
+}
 
-	t.Logf("nodeIdxToChainIdxs: %v", nodeIdxToChainIdxs)
-
-	// create the new node configs.
+// buildNodeConfigs creates the actual NewNodeConfig structures for each node.
+func buildNodeConfigs(t *testing.T, cfg NewNodesConfig, ports []int, homeChain cldf.Chain, allChains []any, nodeIdxToChainIdxs map[int][]int) []NewNodeConfig {
 	var cfgs []NewNodeConfig
 	for i := range cfg.NumNodes {
 		nodeCfg := NewNodeConfig{
@@ -337,20 +352,27 @@ func createNewNodeConfigsWithChainTopology(t *testing.T, cfg NewNodesConfig, por
 			CustomDBSetup:  cfg.CustomDBSetup,
 		}
 		chainsSupported, ok := nodeIdxToChainIdxs[i]
-		require.Truef(t, ok, "node %d is not assigned to any chains", i)
+		require.Truef(t, ok, "node %d is not assigned to any chains, this should not happen if validation and mapChainsToNodes work correctly", i)
+
 		for _, chainIdx := range chainsSupported {
 			chain := allChains[chainIdx]
 			switch theChain := chain.(type) {
 			case cldf.Chain:
 				nodeCfg.Chains[theChain.ChainSelector()] = theChain
 			case cldf.SolChain:
+				if nodeCfg.Solchains == nil {
+					nodeCfg.Solchains = make(map[uint64]cldf.SolChain)
+				}
 				nodeCfg.Solchains[theChain.ChainSelector()] = theChain
 			case cldf_aptos.Chain:
+				if nodeCfg.Aptoschains == nil {
+					nodeCfg.Aptoschains = make(map[uint64]cldf_aptos.Chain)
+				}
 				nodeCfg.Aptoschains[theChain.ChainSelector()] = theChain
 			default:
-				require.Failf(
+				require.FailNowf(
 					t,
-					"unsupported chain type",
+					"unsupported chain type in buildNodeConfigs",
 					"unsupported chain type: %T, forgot to add it to the switch statement?",
 					theChain,
 				)
@@ -358,7 +380,6 @@ func createNewNodeConfigsWithChainTopology(t *testing.T, cfg NewNodesConfig, por
 		}
 		cfgs = append(cfgs, nodeCfg)
 	}
-
 	return cfgs
 }
 

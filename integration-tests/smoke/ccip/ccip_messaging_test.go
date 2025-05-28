@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	soltesthelpers "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/solana"
@@ -127,8 +128,16 @@ func Test_CCIPMessaging_EVM2EVM_RoleDON_AllSupportSource(t *testing.T) {
 
 	t.Logf("home chain: %d, source chain: %d, dest chain: %d", e.HomeChainSel, sourceChain, destChain)
 
+	nodeInfo, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
+
+	nonBootstraps := nodeInfo.NonBootstraps().PeerIDs()
+
 	// Log the chain support of the memory nodes.
 	for _, node := range e.MemoryNodes {
+		if !slices.Contains(nonBootstraps, [32]byte(node.Keys.PeerID)) {
+			continue
+		}
 		t.Logf("node %s supports chains: %v", node.Keys.PeerID.String(), node.Chains)
 	}
 
@@ -136,6 +145,9 @@ func Test_CCIPMessaging_EVM2EVM_RoleDON_AllSupportSource(t *testing.T) {
 	for _, chain := range allChainSelectors {
 		count := 0
 		for _, node := range e.MemoryNodes {
+			if !slices.Contains(nonBootstraps, [32]byte(node.Keys.PeerID)) {
+				continue
+			}
 			if slices.Contains(node.Chains, chain) {
 				count++
 			}

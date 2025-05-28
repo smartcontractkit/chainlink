@@ -212,19 +212,21 @@ func validateOCR3Config(chainSel uint64, configForOCR3 ccip_home.CCIPHomeOCR3Con
 		if bytes.IsEmpty(node.SignerKey) {
 			return fmt.Errorf("zero address found in signer key, chain %d", chainSel)
 		}
-		// This check is not needed because the node can have a zero transmitter address if it does not support the destination chain.
-		// if bytes.IsEmpty(node.TransmitterKey) {
-		// 	return fmt.Errorf("zero address found in transmitter key,  chain %d", chainSel)
-		// }
+
+		// NOTE: We don't check for empty/zero transmitter address because the node can have a zero transmitter address if it does not support the destination chain.
+
 		if bytes.IsEmpty(node.P2pId[:]) {
 			return fmt.Errorf("empty p2p id, chain %d", chainSel)
 		}
+
 		// Signer and non-zero transmitter duplication must be checked
 		if _, ok := mapSignerKey[hexutil.Encode(node.SignerKey)]; ok {
 			return fmt.Errorf("duplicate signer key found, chain %d", chainSel)
 		}
+
 		// If len(node.TransmitterKey) == 0, the node does not support the destination chain, and we can definitely
-		// have more than one node not supporting the destination chain.
+		// have more than one node not supporting the destination chain, so the duplicate check doesn't make sense
+		// for those.
 		if _, ok := mapTransmitterKey[hexutil.Encode(node.TransmitterKey)]; ok && len(node.TransmitterKey) != 0 {
 			return fmt.Errorf("duplicate transmitter key found, chain %d", chainSel)
 		}
@@ -486,6 +488,9 @@ func BuildOCR3ConfigForCCIPHome(
 		})
 		// we can ignore the duplicate transmitter error because its possible that more than
 		// one node in the DON doesn't support transmitting to the destination chain.
+		// TODO: this is not great though, because it short-circuits the validation of the OCR3 config.
+		// Maybe we need our own validation function that just doesn't include this, or we pass in
+		// nonzero transmitter addresses and re-zero them after.
 		if err != nil && !strings.Contains(err.Error(), "duplicate transmitter ''") {
 			return nil, fmt.Errorf("failed to validate ocr3 params: %w", err)
 		}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
@@ -54,6 +55,7 @@ import (
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	corechains "github.com/smartcontractkit/chainlink/v2/core/chains"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -92,12 +94,19 @@ func (n Node) MultiAddr() string {
 }
 
 func (n Node) ReplayLogs(ctx context.Context, chains map[uint64]uint64) error {
+	var errs []error
 	for sel, block := range chains {
 		family, _ := chainsel.GetSelectorFamily(sel)
 		chainID, _ := chainsel.GetChainIDFromSelector(sel)
-		if err := n.App.ReplayFromBlock(ctx, family, chainID, block, false); err != nil {
-			return err
+
+		// NOTE: we don't want to fail if the chain id does not exist, because it means that the chain is not supported by the node.
+		// For simplicity in the tests we usually just replay every chain on every node.
+		if err := n.App.ReplayFromBlock(ctx, family, chainID, block, false); err != nil && !strings.Contains(err.Error(), corechains.ErrNoSuchChainID.Error()) {
+			errs = append(errs, err)
 		}
+	}
+	if len(errs) > 0 {
+		return errors.Join(errs...)
 	}
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDrawNodesForChain(t *testing.T) {
@@ -66,23 +67,98 @@ func TestDrawNodesForChain(t *testing.T) {
 			sort.Ints(nodeIdxs) // Sort for consistent comparison as order isn't guaranteed beyond seed determinism
 			sort.Ints(nodeIdxs2)
 			assert.Equal(t, nodeIdxs, nodeIdxs2, "Drawing with the same seed should produce the same set of nodes")
+		})
+	}
+}
 
-			// 4. Different seed behavior
-			nodeIdxs3 := drawNodesForChain(t, tc.fChain, tc.numNodes, tc.seed+1)
-			sort.Ints(nodeIdxs3)
+func TestMapChainsToNodes(t *testing.T) {
+	tests := []struct {
+		name             string
+		chainIdxToFChain map[int]int // map[chainGlobalIndex]fChainValue
+		numNodes         int
+		seed             int64
+	}{
+		{
+			name:             "one chain, all nodes selected",
+			chainIdxToFChain: map[int]int{0: 1}, // f=1, 3f+1=4
+			numNodes:         4,                 // numNodes == 3f+1
+			seed:             123,
+		},
+		{
+			name:             "two chains, same f-value, subset of nodes",
+			chainIdxToFChain: map[int]int{0: 1, 1: 1}, // f=1, 3f+1=4
+			numNodes:         10,                      // numNodes > 3f+1
+			seed:             456,
+		},
+		{
+			name: "multiple chains, different f-values",
+			chainIdxToFChain: map[int]int{
+				0: 1, // chainIdx 0, f=1 (draws 4 nodes)
+				1: 2, // chainIdx 1, f=2 (draws 7 nodes)
+			},
+			numNodes: 10, // For f=1 (3*1+1=4) valid; For f=2 (3*2+1=7) valid.
+			seed:     789,
+		},
+		{
+			name: "complex case with overlapping node assignments",
+			chainIdxToFChain: map[int]int{
+				0: 1, // chain 0, f=1 -> 4 nodes
+				1: 1, // chain 1, f=1 -> 4 nodes (same as for chain 0)
+				2: 2, // chain 2, f=2 -> 7 nodes
+			},
+			numNodes: 8, // f=1: numNodes(8) >= 4. f=2: numNodes(8) >= 7. Valid.
+			seed:     101,
+		},
+	}
 
-			if tc.expectedN < tc.numNodes {
-				// If we are selecting a SUBSET of available nodes, different seeds should produce different subsets.
-				assert.NotEqual(t, nodeIdxs, nodeIdxs3,
-					"Drawing with a different seed (%d vs %d) should produce different nodes when drawing a subset. fChain:%d, numNodes:%d, expectedN:%d. Got %v vs %v",
-					tc.seed, tc.seed+1, tc.fChain, tc.numNodes, tc.expectedN, nodeIdxs, nodeIdxs3)
-			} else {
-				// If tc.expectedN == tc.numNodes (i.e., all available nodes are selected),
-				// then different seeds will still result in all nodes being selected.
-				assert.Equal(t, nodeIdxs, nodeIdxs3,
-					"Drawing with a different seed (%d vs %d) but selecting all nodes should result in the same set of all nodes. fChain:%d, numNodes:%d, expectedN:%d. Got %v vs %v",
-					tc.seed, tc.seed+1, tc.fChain, tc.numNodes, tc.expectedN, nodeIdxs, nodeIdxs3)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Pre-calculate what drawNodesForChain would return for each unique fChain value
+			// using the test case's t, numNodes, and seed. This ensures consistency because
+			// mapChainsToNodes internally calls drawNodesForChain with the same seed for each fChain lookup.
+			drawnNodesPerFChain := make(map[int][]int) // fChainValue -> sorted list of node indices
+			uniqueFChainsInTest := make(map[int]struct{})
+			for _, fChainVal := range tc.chainIdxToFChain {
+				uniqueFChainsInTest[fChainVal] = struct{}{}
 			}
+
+			for fChainVal := range uniqueFChainsInTest {
+				nodes := drawNodesForChain(t, fChainVal, tc.numNodes, tc.seed)
+				sort.Ints(nodes)
+				drawnNodesPerFChain[fChainVal] = nodes
+			}
+
+			actualResult := mapChainsToNodes(t, tc.chainIdxToFChain, tc.numNodes, tc.seed)
+
+			// Construct expected result based on pre-calculated drawnNodesPerFChain
+			expectedResult := make(map[int][]int)
+			for chainIdx, fChainVal := range tc.chainIdxToFChain {
+				nodesForThisFChain, ok := drawnNodesPerFChain[fChainVal]
+				require.True(t, ok, "fChainVal %d was not pre-calculated, something is wrong in test setup", fChainVal)
+				for _, nodeIdx := range nodesForThisFChain {
+					expectedResult[nodeIdx] = append(expectedResult[nodeIdx], chainIdx)
+				}
+			}
+
+			// Sort lists in both actual and expected results for consistent comparison
+			for nodeIdx := range actualResult {
+				sort.Ints(actualResult[nodeIdx])
+				// Also assert that node indices are valid
+				assert.GreaterOrEqual(t, nodeIdx, 0, "Node index in result map key should be non-negative")
+				assert.Less(t, nodeIdx, tc.numNodes, "Node index in result map key should be less than numNodes")
+			}
+			for nodeIdx := range expectedResult {
+				sort.Ints(expectedResult[nodeIdx])
+			}
+
+			assert.Equal(t, expectedResult, actualResult, "mapChainsToNodes result mismatch")
+
+			// Idempotency Check: Calling again with same params should yield same result
+			actualResult2 := mapChainsToNodes(t, tc.chainIdxToFChain, tc.numNodes, tc.seed)
+			for nodeIdx := range actualResult2 {
+				sort.Ints(actualResult2[nodeIdx])
+			}
+			assert.Equal(t, expectedResult, actualResult2, "mapChainsToNodes is not idempotent")
 		})
 	}
 }
