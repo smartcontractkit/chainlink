@@ -157,6 +157,58 @@ func Test_CCIPMessaging_EVM2EVM_RoleDON_AllSupportSource(t *testing.T) {
 
 	// now we can set up the lane.
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+
+	var (
+		replayed bool
+		nonce    uint64
+		sender   = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
+		out      mt.TestCaseOutput
+		setup    = mt.NewTestSetupWithDeployedEnv(
+			t,
+			e,
+			state,
+			sourceChain,
+			destChain,
+			sender,
+			false, // testRouter
+		)
+	)
+
+	monitorCtx, monitorCancel := context.WithCancel(ctx)
+	ms := &monitorState{}
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		monitorReExecutions(monitorCtx, t, state, destChain, ms)
+	}()
+
+	t.Run("data message to eoa", func(t *testing.T) {
+		out = mt.Run(
+			t,
+			mt.TestCase{
+				ValidationType:         mt.ValidationTypeExec,
+				TestSetup:              setup,
+				Replayed:               replayed,
+				Nonce:                  &nonce,
+				Receiver:               common.HexToAddress("0xdead").Bytes(),
+				MsgData:                []byte("hello eoa"),
+				ExtraArgs:              nil,                                 // default extraArgs
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) {
+					},
+				},
+			},
+		)
+	})
+
+	_ = out
+
+	monitorCancel()
+	wg.Wait()
+	// there should be no re-executions.
+	require.Equal(t, int32(0), ms.reExecutionsObserved.Load())
 }
 
 func Test_CCIPMessaging_EVM2EVM(t *testing.T) {

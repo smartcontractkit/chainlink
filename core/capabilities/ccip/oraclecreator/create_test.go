@@ -63,7 +63,7 @@ func TestPluginOracleCreatorCreate_InvalidSelector(t *testing.T) {
 		/* bootstrapperLocators */ nil,
 		/* homeChainReader */ nil,
 		/* homeChainSelector */ 0,
-		/* addressCodec */ nil,
+		/* addressCodec */ ccipcommon.NewAddressCodec(nil),
 		p2pk,
 	).(*pluginOracleCreator)
 

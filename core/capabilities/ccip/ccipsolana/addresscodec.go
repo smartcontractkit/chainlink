@@ -1,6 +1,7 @@
 package ccipsolana
 
 import (
+	"crypto/rand"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
@@ -21,4 +22,14 @@ func (a AddressCodec) AddressStringToBytes(addr string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to decode SVM address '%s': %w", addr, err)
 	}
 	return pk.Bytes(), nil
+}
+
+func (a AddressCodec) RandomAddressBytes() ([]byte, error) {
+	addr := make([]byte, solana.PublicKeyLength)
+	_, err := rand.Read(addr)
+	if err != nil {
+		return nil, err
+	}
+	// TODO: is it alright if the pub key is off the curve?
+	return solana.PublicKeyFromBytes(addr).Bytes(), nil
 }

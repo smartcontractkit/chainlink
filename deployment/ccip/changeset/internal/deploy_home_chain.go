@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
@@ -30,6 +30,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
@@ -324,6 +327,11 @@ func BuildOCR3ConfigForCCIPHome(
 	execOffchainCfg *pluginconfig.ExecuteOffchainConfig,
 	skipChainConfigValidation bool,
 ) (map[types.PluginType]ccip_home.CCIPHomeOCR3Config, error) {
+	addressCodec := ccipcommon.NewAddressCodec(map[string]ccipcommon.ChainSpecificAddressCodec{
+		chain_selectors.FamilyEVM:    ccipevm.AddressCodec{},
+		chain_selectors.FamilySolana: ccipsolana.AddressCodec{},
+	})
+
 	// check if we have info from this node for another chain in the same destFamily
 	destFamily, err := chain_selectors.GetSelectorFamily(destSelector)
 	if err != nil {
@@ -374,7 +382,10 @@ func BuildOCR3ConfigForCCIPHome(
 
 		var transmitAccount ocrtypes.Account
 		if !exists {
-			transmitAccount = ocrtypes.Account("") // empty account means that the node cannot transmit for this chain
+			// empty account means that the node cannot transmit for this chain
+			// we replace this with a random address when doing the ocr config validation below, but it should remain empty
+			// in the CCIPHome OCR config and it should not be included in the destination chain transmitters whitelist.
+			transmitAccount = ocrtypes.Account("")
 		} else {
 			transmitAccount = cfg.TransmitAccount
 		}
@@ -475,10 +486,18 @@ func BuildOCR3ConfigForCCIPHome(
 				}
 				parsed = pk.Bytes()
 			}
+
 			transmittersBytes[i] = parsed
 		}
+
 		// validate ocr3 params correctness
-		_, err := ocr3confighelper.PublicConfigFromContractConfig(false, ocrtypes.ContractConfig{
+		// TODO: this is super hacky, should not have to do this.
+		transmitters, err := replaceEmptyTransmitters(transmitters, addressCodec, destSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to replace empty transmitters in transmitters list before validating ocr3 params: %w", err)
+		}
+
+		_, err = ocr3confighelper.PublicConfigFromContractConfig(false, ocrtypes.ContractConfig{
 			Signers:               signers,
 			Transmitters:          transmitters,
 			F:                     configF,
@@ -486,12 +505,7 @@ func BuildOCR3ConfigForCCIPHome(
 			OffchainConfigVersion: offchainConfigVersion,
 			OffchainConfig:        offchainConfig,
 		})
-		// we can ignore the duplicate transmitter error because its possible that more than
-		// one node in the DON doesn't support transmitting to the destination chain.
-		// TODO: this is not great though, because it short-circuits the validation of the OCR3 config.
-		// Maybe we need our own validation function that just doesn't include this, or we pass in
-		// nonzero transmitter addresses and re-zero them after.
-		if err != nil && !strings.Contains(err.Error(), "duplicate transmitter ''") {
+		if err != nil {
 			return nil, fmt.Errorf("failed to validate ocr3 params: %w", err)
 		}
 
@@ -532,6 +546,30 @@ func BuildOCR3ConfigForCCIPHome(
 	}
 
 	return ocr3Configs, nil
+}
+
+// replaceEmptyTransmitters replaces empty transmitters with a random address in order to pass OCR config validation.
+// TODO: this is super hacky, should not have to do this.
+func replaceEmptyTransmitters(transmitters []ocrtypes.Account, addressCodec ccipcommon.AddressCodec, destSelector uint64) ([]ocrtypes.Account, error) {
+	var ret []ocrtypes.Account
+	for _, transmitter := range transmitters {
+		acct := transmitter
+		if len(acct) == 0 {
+			randomAddress, err := addressCodec.RandomAddressBytes(ccipocr3.ChainSelector(destSelector))
+			if err != nil {
+				return nil, err
+			}
+			acctString, err := addressCodec.AddressBytesToString(randomAddress, ccipocr3.ChainSelector(destSelector))
+			if err != nil {
+				return nil, err
+			}
+
+			acct = ocrtypes.Account(acctString)
+		}
+		ret = append(ret, acct)
+	}
+
+	return ret, nil
 }
 
 func DONIdExists(cr *capabilities_registry.CapabilitiesRegistry, donIDs []uint32) error {

@@ -1,6 +1,7 @@
 package ccipevm
 
 import (
+	"crypto/rand"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,4 +18,14 @@ func (a AddressCodec) AddressStringToBytes(addr string) ([]byte, error) {
 		return nil, fmt.Errorf("invalid EVM address: %s", addr)
 	}
 	return common.HexToAddress(addr).Bytes(), nil
+}
+
+func (a AddressCodec) RandomAddressBytes() ([]byte, error) {
+	addr := make([]byte, 20)
+	_, err := rand.Read(addr)
+	if err != nil {
+		panic(err)
+	}
+
+	return common.BytesToAddress(addr).Bytes(), nil
 }

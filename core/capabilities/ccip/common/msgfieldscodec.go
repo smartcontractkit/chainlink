@@ -8,6 +8,8 @@ type ChainSpecificAddressCodec interface {
 	AddressBytesToString([]byte) (string, error)
 	// AddressStringToBytes converts an address from string to bytes
 	AddressStringToBytes(string) ([]byte, error)
+	// RandomAddressBytes returns a valid random address bytes for this chain family.
+	RandomAddressBytes() ([]byte, error)
 }
 
 // SourceChainExtraDataCodec is an interface for decoding source chain specific extra args and dest exec data into a map[string]any representation for a specific chain
