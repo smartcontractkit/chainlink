@@ -13,9 +13,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes"
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
@@ -56,7 +56,7 @@ func Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest(t *tes
 		t,
 		testhelpers.WithNumOfChains(numChains),
 		testhelpers.WithNumOfNodes(nRoleDON),
-		testhelpers.WithChainTopology(memory.ChainTopology{
+		testhelpers.WithRoleDONTopology(cciptesthelpertypes.RoleDONTopology{
 			FChainToNumChains: map[int]int{
 				fChainSource: 1, // 1 chain with fChain fChainSource
 				fChainDest:   1, // 1 chain with fChain fChainDest

@@ -33,6 +33,7 @@ import (
 
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes"
 )
 
 const (
@@ -78,8 +79,8 @@ type NewNodesConfig struct {
 	RegistryConfig deployment.CapabilityRegistryConfig
 	// SQL queries to run after DB creation, typically used for setting up testing state. Optional.
 	CustomDBSetup []string
-	// ChainTopology is the chain-node topology of the role DON.
-	ChainTopology ChainTopology
+	// RoleDONTopology is the chain-node topology of the role DON.
+	RoleDONTopology cciptesthelpertypes.RoleDONTopology
 	// HomeChainSel is the chain selector of the home chain.
 	HomeChainSel uint64
 }
@@ -230,8 +231,8 @@ func NewNodes(
 	}
 
 	var newNodeConfigs []NewNodeConfig
-	if cfg.ChainTopology.FChainToNumChains != nil {
-		newNodeConfigs = createNewNodeConfigsWithChainTopology(t, cfg, ports)
+	if cfg.RoleDONTopology.FChainToNumChains != nil {
+		newNodeConfigs = createNewNodeConfigsWithRoleDONTopology(t, cfg, ports)
 	}
 	for i := range cfg.NumNodes {
 		c := NewNodeConfig{
@@ -247,7 +248,7 @@ func NewNodes(
 		}
 		// if chain topology is set, use the new node config from the chain topology,
 		// which may include a different set of chains to support.
-		if cfg.ChainTopology.FChainToNumChains != nil {
+		if cfg.RoleDONTopology.FChainToNumChains != nil {
 			c = newNodeConfigs[i]
 		}
 		node := NewNode(t, c, configOpts...)
@@ -257,11 +258,11 @@ func NewNodes(
 	return nodesByPeerID
 }
 
-func createNewNodeConfigsWithChainTopology(t *testing.T, cfg NewNodesConfig, ports []int) []NewNodeConfig {
+func createNewNodeConfigsWithRoleDONTopology(t *testing.T, cfg NewNodesConfig, ports []int) []NewNodeConfig {
 	homeChain, allChains, chainIdxToFChain := prepareChainDataForTopology(t, cfg)
 
 	// Assign chains to nodes based on the fChain values.
-	nodeIdxToChainIdxs := mapChainsToNodes(t, chainIdxToFChain, cfg.NumNodes, cfg.ChainTopology.Seed)
+	nodeIdxToChainIdxs := mapChainsToNodes(t, chainIdxToFChain, cfg.NumNodes, cfg.RoleDONTopology.Seed)
 
 	t.Logf("nodeIdxToChainIdxs: %v", nodeIdxToChainIdxs)
 
@@ -296,7 +297,7 @@ func prepareChainDataForTopology(t *testing.T, cfg NewNodesConfig) (cldf.Chain, 
 
 	// Validate that the chain topology is valid.
 	totalChainsInTopology := 0
-	for _, numChains := range cfg.ChainTopology.FChainToNumChains {
+	for _, numChains := range cfg.RoleDONTopology.FChainToNumChains {
 		totalChainsInTopology += numChains
 	}
 	require.Lenf(
@@ -310,7 +311,7 @@ func prepareChainDataForTopology(t *testing.T, cfg NewNodesConfig) (cldf.Chain, 
 
 	chainIdxToFChain := make(map[int]int) // index into allChains -> fChain value
 	var currentChainIdx int
-	for fChain, numChainsInF := range cfg.ChainTopology.FChainToNumChains {
+	for fChain, numChainsInF := range cfg.RoleDONTopology.FChainToNumChains {
 		for range numChainsInF {
 			require.Lessf(t, currentChainIdx, len(allChains), "ran out of chains in allChains while building chainIdxToFChain. currentChainIdx: %d, len(allChains): %d", currentChainIdx, len(allChains))
 			chainIdxToFChain[currentChainIdx] = fChain
