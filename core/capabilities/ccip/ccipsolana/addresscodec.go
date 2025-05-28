@@ -27,8 +27,8 @@ func (a AddressCodec) AddressStringToBytes(addr string) ([]byte, error) {
 func (a AddressCodec) OracleIDAsAddressBytes(oracleID uint8) ([]byte, error) {
 	addr := make([]byte, solana.PublicKeyLength)
 
-	// write oracleID into addr in big endian
-	binary.BigEndian.PutUint32(addr, uint32(oracleID))
+	// write oracleID into addr in little endian, since solana is little endian
+	binary.LittleEndian.PutUint32(addr, uint32(oracleID))
 
 	// TODO: is it alright if the pub key is off the curve?
 	return solana.PublicKeyFromBytes(addr).Bytes(), nil

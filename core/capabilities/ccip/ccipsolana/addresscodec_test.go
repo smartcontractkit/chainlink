@@ -109,7 +109,7 @@ func TestAddressCodec_OracleIDAsAddressBytes(t *testing.T) {
 			oracleID: 0,
 			expected: func() []byte {
 				b := make([]byte, solana.PublicKeyLength)
-				binary.BigEndian.PutUint32(b, uint32(0))
+				binary.LittleEndian.PutUint32(b, uint32(0))
 				return b
 			}(),
 		},
@@ -118,7 +118,7 @@ func TestAddressCodec_OracleIDAsAddressBytes(t *testing.T) {
 			oracleID: 1,
 			expected: func() []byte {
 				b := make([]byte, solana.PublicKeyLength)
-				binary.BigEndian.PutUint32(b, uint32(1))
+				binary.LittleEndian.PutUint32(b, uint32(1))
 				return b
 			}(),
 		},
@@ -127,7 +127,7 @@ func TestAddressCodec_OracleIDAsAddressBytes(t *testing.T) {
 			oracleID: 255,
 			expected: func() []byte {
 				b := make([]byte, solana.PublicKeyLength)
-				binary.BigEndian.PutUint32(b, uint32(255))
+				binary.LittleEndian.PutUint32(b, uint32(255))
 				return b
 			}(),
 		},
