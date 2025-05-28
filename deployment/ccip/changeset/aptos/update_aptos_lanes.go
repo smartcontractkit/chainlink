@@ -3,6 +3,7 @@ package aptos
 import (
 	"fmt"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	config "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
@@ -21,13 +22,48 @@ var _ cldf.ChangeSetV2[config.UpdateAptosLanesConfig] = AddAptosLanes{}
 type AddAptosLanes struct{}
 
 func (cs AddAptosLanes) VerifyPreconditions(env cldf.Environment, cfg config.UpdateAptosLanesConfig) error {
-	// TODO: Implement verification logic - check chain selector validity, MCMS configuration, etc.
-	// Placeholder implementation to show expected structure
+	state, err := stateview.LoadOnchainState(env)
+	if err != nil {
+		return fmt.Errorf("failed to load existing Aptos onchain state: %w", err)
+	}
+	supportedChains := state.SupportedChains()
+	if cfg.AptosMCMSConfig == nil {
+		return fmt.Errorf("Aptos MCMS config is required for AddAptosLanes changeset")
+	}
+	// For every configured lane validate Aptos source or destination chain definitions
+	for _, laneCfg := range cfg.Lanes {
+		// Source cannot be an unknown.
+		if _, ok := supportedChains[laneCfg.Source.GetSelector()]; !ok {
+			return fmt.Errorf("source chain %d is not a supported", laneCfg.Source.GetSelector())
+		}
+		// Destination cannot be an unknown.
+		if _, ok := supportedChains[laneCfg.Dest.GetSelector()]; !ok {
+			return fmt.Errorf("destination chain %d is not a supported", laneCfg.Dest.GetSelector())
+		}
+		if laneCfg.Source.GetChainFamily() == chainsel.FamilyAptos {
+			err := laneCfg.Source.(config.AptosChainDefinition).Validate(
+				env.AptosChains[laneCfg.Source.GetSelector()].Client,
+				state.AptosChains[laneCfg.Source.GetSelector()],
+			)
+			if err != nil {
+				return fmt.Errorf("failed to validate Aptos source chain %d: %w", laneCfg.Source.GetSelector(), err)
+			}
+		}
+		if laneCfg.Dest.GetChainFamily() == chainsel.FamilyAptos {
+			err := laneCfg.Dest.(config.AptosChainDefinition).Validate(
+				env.AptosChains[laneCfg.Dest.GetSelector()].Client,
+				state.AptosChains[laneCfg.Dest.GetSelector()],
+			)
+			if err != nil {
+				return fmt.Errorf("failed to validate Aptos destination chain %d: %w", laneCfg.Dest.GetSelector(), err)
+			}
+		}
+	}
 
 	// This EVM specific changeset will be called from within this Aptos changeset, hence, we're verifying it here
 	// TODO: this is an anti-pattern, change this once EVM changesets are refactored as Operations
 	evmUpdateCfg := config.ToEVMUpdateLanesConfig(cfg)
-	err := v1_6.UpdateLanesPrecondition(env, evmUpdateCfg)
+	err = v1_6.UpdateLanesPrecondition(env, evmUpdateCfg)
 	if err != nil {
 		return err
 	}
@@ -55,7 +91,7 @@ func (cs AddAptosLanes) Apply(env cldf.Environment, cfg config.UpdateAptosLanesC
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
 
-	updateInputsByAptosChain := seq.ConvertToUpdateAptosLanesSeqInput(state.AptosChains, cfg)
+	updateInputsByAptosChain := seq.ToAptosUpdateLanesConfig(state.AptosChains, cfg)
 	for aptosChainSel, sequenceInput := range updateInputsByAptosChain {
 		deps := operation.AptosDeps{
 			AptosChain:       env.AptosChains[aptosChainSel],

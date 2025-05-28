@@ -1,18 +1,23 @@
 package config
 
 import (
+	"fmt"
 	"math/big"
 
+	"github.com/aptos-labs/aptos-go-sdk"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	evm_fee_quoter "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 )
 
 // ChainDefinition is an interface that defines a chain config for lane deployment
 // It is used to convert between Aptos and EVM fee quoter configs.
 type ChainDefinition interface {
 	GetChainFamily() string
+	GetSelector() uint64
 }
 
 type EVMChainDefinition struct {
@@ -22,6 +27,10 @@ type EVMChainDefinition struct {
 
 func (c EVMChainDefinition) GetChainFamily() string {
 	return chainsel.FamilyEVM
+}
+
+func (c EVMChainDefinition) GetSelector() uint64 {
+	return c.ChainDefinition.Selector
 }
 
 func (c EVMChainDefinition) GetConvertedAptosFeeQuoterConfig() aptos_fee_quoter.DestChainConfig {
@@ -69,6 +78,10 @@ func (c AptosChainDefinition) GetChainFamily() string {
 	return chainsel.FamilyAptos
 }
 
+func (c AptosChainDefinition) GetSelector() uint64 {
+	return c.Selector
+}
+
 func (c AptosChainDefinition) GetConvertedEVMFeeQuoterConfig() evm_fee_quoter.FeeQuoterDestChainConfig {
 	afqc := c.FeeQuoterDestChainConfig
 	// Handle the byte slice to fixed-size array conversion
@@ -97,4 +110,28 @@ func (c AptosChainDefinition) GetConvertedEVMFeeQuoterConfig() evm_fee_quoter.Fe
 		GasPriceStalenessThreshold:        afqc.GasPriceStalenessThreshold,
 		NetworkFeeUSDCents:                afqc.NetworkFeeUsdCents,
 	}
+}
+
+func (c AptosChainDefinition) Validate(client aptos.AptosRpcClient, state aptosstate.CCIPChainState) error {
+	// Check CCIP Package
+	if state.CCIPAddress == (aptos.AccountAddress{}) {
+		return fmt.Errorf("CCIP is not deployed on Aptos chain %d", c.Selector)
+	}
+	// Check OnRamp module
+	hasOnramp, err := utils.IsModuleDeployed(client, state.CCIPAddress, "onramp")
+	if err != nil || !hasOnramp {
+		return fmt.Errorf("OnRamp module is not deployed on Aptos chain %d: %w", c.Selector, err)
+	}
+	// Check OffRamp module
+	hasOfframp, err := utils.IsModuleDeployed(client, state.CCIPAddress, "offramp")
+	if err != nil || !hasOfframp {
+		return fmt.Errorf("OffRamp module is not deployed on Aptos chain %d: %w", c.Selector, err)
+	}
+	// Check Router module
+	hasRouter, err := utils.IsModuleDeployed(client, state.CCIPAddress, "router")
+	if err != nil || !hasRouter {
+		return fmt.Errorf("Router module is not deployed on Aptos chain %d: %w", c.Selector, err)
+	}
+
+	return nil
 }

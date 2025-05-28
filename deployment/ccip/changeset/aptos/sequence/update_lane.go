@@ -17,12 +17,11 @@ import (
 )
 
 type UpdateAptosLanesSeqInput struct {
-	UpdateFeeQuoterDestsConfig   operation.UpdateFeeQuoterDestsInput
-	UpdateFeeQuoterPricesConfig  operation.UpdateFeeQuoterPricesInput
-	UpdateOnRampDestsConfig      operation.UpdateOnRampDestsInput
-	UpdateOffRampSourcesConfig   operation.UpdateOffRampSourcesInput
-	UpdateRouterDestConfig       operation.UpdateRouterDestInput
-	UpdateTokenTransferFeeConfig operation.UpdateTokenTransferFeeConfigsInput
+	UpdateFeeQuoterDestsConfig  operation.UpdateFeeQuoterDestsInput
+	UpdateFeeQuoterPricesConfig operation.UpdateFeeQuoterPricesInput
+	UpdateOnRampDestsConfig     operation.UpdateOnRampDestsInput
+	UpdateOffRampSourcesConfig  operation.UpdateOffRampSourcesInput
+	UpdateRouterDestConfig      operation.UpdateRouterDestInput
 }
 
 // UpdateAptosLanesSequence orchestrates operations to update Aptos lanes
@@ -76,22 +75,14 @@ func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	}
 	mcmsTxs = append(mcmsTxs, routerReport.Output...)
 
-	// 6. Update FeeQuoter with TokenTransferFeeConfig
-	b.Logger.Info("Updating Router")
-	feeQuoterTTFReport, err := operations.ExecuteOperation(b, operation.UpdateTokenTransferCfgOp, deps, in.UpdateTokenTransferFeeConfig)
-	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to update Router: %w", err)
-	}
-	mcmsTxs = append(mcmsTxs, feeQuoterTTFReport.Output...)
-
 	return types.BatchOperation{
 		ChainSelector: types.ChainSelector(deps.AptosChain.Selector),
 		Transactions:  mcmsTxs,
 	}, nil
 }
 
-// Convert config.UpdateAptosLanesConfig into a map[uint64]UpdateAptosLanesSeqInput
-func ConvertToUpdateAptosLanesSeqInput(aptosChains map[uint64]aptosstate.CCIPChainState, cfg config.UpdateAptosLanesConfig) map[uint64]UpdateAptosLanesSeqInput {
+// ToAptosUpdateLanesConfig converts UpdateAptosLanesConfig into Aptos specific update inputs
+func ToAptosUpdateLanesConfig(aptosChains map[uint64]aptosstate.CCIPChainState, cfg config.UpdateAptosLanesConfig) map[uint64]UpdateAptosLanesSeqInput {
 	updateInputsByAptosChain := make(map[uint64]UpdateAptosLanesSeqInput)
 
 	// Group the operations by Aptos chain
@@ -164,11 +155,6 @@ func setAptosSourceUpdates(lane config.LaneConfig, updateInputsByAptosChain map[
 		DestChainSelector: dest.Selector,
 		OnRampVersion:     onRampVersion,
 	})
-
-	// Setting token transfer fee updates
-	input.UpdateTokenTransferFeeConfig.MCMSAddress = mcmsAddress
-	input.UpdateTokenTransferFeeConfig.AddTokenConfigs = source.AddTokenTransferFeeConfigs
-	input.UpdateTokenTransferFeeConfig.RemoveTokenConfigs = source.RemoveTokenTransferFeeConfigs
 
 	updateInputsByAptosChain[source.Selector] = input
 }
