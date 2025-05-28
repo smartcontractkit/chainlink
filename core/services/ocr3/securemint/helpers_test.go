@@ -407,7 +407,6 @@ func addLLOJob(i int,
 		pluginConfig,
 		relayConfig,
 	)
-	t.Logf("node %d llo spec: %s", i, spec)
 	node.AddLLOJob(t, spec)
 }
 
@@ -558,7 +557,6 @@ func addSecureMintJob(i int,
 
 	c := node.App.GetConfig()
 
-	t.Logf("node %d sm spec: %s", i, spec)
 	job, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), spec, nil)
 	require.NoError(t, err)
 
@@ -591,7 +589,6 @@ observationSource  = """
     ds1          [type=bridge name="%s"];
     ds1_parse    [type=jsonparse path="data"];
     ds1_multiply [type=multiply times=1];
-
 
     ds1 -> ds1_parse -> ds1_multiply -> answer1;
 
@@ -637,7 +634,6 @@ func createSecureMintBridge(t *testing.T, name string, i int, p decimal.Decimal,
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		b, err := io.ReadAll(req.Body)
 		require.NoError(t, err)
-		t.Logf("request body: %s", string(b))
 		// TODO(gg): assert on the EA request format here
 		// require.JSONEq(t, `{"meta":{"latestAnswer":"", "updatedAt": ""}}`, string(b))
 

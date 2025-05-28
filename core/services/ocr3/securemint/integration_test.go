@@ -514,11 +514,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			assert.Subset(t, signerAddresses, reportSigners)
 		}
 
-		t.Logf("oracle %x reported for 0x%x", req.pk[:], feedID[:])
-
 		seen[feedID][req.pk] = struct{}{}
 		if len(seen[feedID]) == nNodes {
-			t.Logf("all oracles reported for 0x%x", feedID[:])
 			delete(seen, feedID)
 			if len(seen) == 0 {
 				break // saw all oracles; success!
@@ -584,9 +581,8 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []Node, jobIDs map[int]
 			if !assert.NoError(t, err) {
 				t.Logf("assert error finding pipeline runs for job %d: %v", jobIDs[i], err)
 				return
-			} else {
-				t.Logf("found pipeline runs for job %d on node %d: %v", jobIDs[i], i, completedRuns)
 			}
+			t.Logf("found pipeline runs for job %d on node %d: %v", jobIDs[i], i, completedRuns)
 
 			// Want at least 2 runs so we see all the metadata.
 			pr := cltest.WaitForPipelineComplete(t, i, jobIDs[i], len(completedRuns)+2, 7, node.App.JobORM(), 30*time.Second, 5*time.Second)
@@ -605,7 +601,11 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []Node, jobIDs map[int]
 	for i, node := range nodes {
 		jobs, _, err := node.App.JobORM().FindJobs(testutils.Context(t), 0, 1000)
 		require.NoErrorf(t, err, "assert error finding jobs for node %d", i)
-		t.Logf("found jobs for node %d (%d): %v", i, len(jobs), jobs)
+		t.Logf("%d jobs found for node %d", len(jobs), i)
+		for _, j := range jobs {
+			t.Logf("job %d on node %d: %v", j.ID, i, j.OCR2OracleSpec)
+			t.Logf("job %d on node %d: %v", j.ID, i, j.PipelineSpecID)
+		}
 		// No spec errors
 		for _, j := range jobs {
 			ignore := 0
