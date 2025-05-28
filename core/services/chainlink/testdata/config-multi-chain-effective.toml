@@ -430,6 +430,9 @@ GasLimit = 10500000
 
 [EVM.Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 3
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 
 [[EVM.Nodes]]
 Name = 'primary'
@@ -545,6 +548,9 @@ GasLimit = 5400000
 
 [EVM.Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 3
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 
 [[EVM.Nodes]]
 Name = 'foo'
@@ -654,6 +660,9 @@ GasLimit = 5400000
 
 [EVM.Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 3
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 
 [[EVM.Nodes]]
 Name = 'bar'
