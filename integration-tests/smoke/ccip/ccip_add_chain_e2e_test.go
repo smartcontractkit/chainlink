@@ -114,7 +114,7 @@ func Test_AddChainE2E(t *testing.T) {
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	testhelpers.SleepAndReplay(t, e.Env, 30*time.Second, e.Env.AllChainSelectors()...)
-	SendMessages(t,
+	SendMsgs(t,
 		e.Env,
 		[]testhelpers.SourceDestPair{
 			{
@@ -272,7 +272,7 @@ func SetupNewChain(
 	return env
 }
 
-func SendMessages(
+func SendMsgs(
 	t *testing.T,
 	env cldf.Environment,
 	sourceDestPairs []testhelpers.SourceDestPair,
