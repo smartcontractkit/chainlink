@@ -65,6 +65,8 @@ func (r *ServerAdapter) NewPluginProvider(ctx context.Context, rargs types.Relay
 		return r.Relayer.NewPluginProvider(ctx, rargs, pargs)
 	case types.LLO:
 		return nil, fmt.Errorf("provider type not supported: %s", rargs.ProviderType)
+	case types.SecureMint:
+		return r.NewMedianProvider(ctx, rargs, pargs) // TODO(gg): update to use a secure mint provider
 	}
 	return nil, fmt.Errorf("provider type not recognized: %s", rargs.ProviderType)
 }

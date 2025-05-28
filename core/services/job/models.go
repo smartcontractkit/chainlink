@@ -49,7 +49,6 @@ const (
 	LegacyGasStationSidecar Type = (Type)(pipeline.LegacyGasStationSidecarJobType)
 	OffchainReporting       Type = (Type)(pipeline.OffchainReportingJobType)
 	OffchainReporting2      Type = (Type)(pipeline.OffchainReporting2JobType)
-	SecureMint              Type = (Type)(pipeline.SecureMintJobType) // TODO(gg): assume we need this?
 	Stream                  Type = (Type)(pipeline.StreamJobType)
 	VRF                     Type = (Type)(pipeline.VRFJobType)
 	Webhook                 Type = (Type)(pipeline.WebhookJobType)

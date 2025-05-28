@@ -9,8 +9,16 @@ make setup-testdb
 
 ### Run test:
 ```bash
- time CL_DATABASE_URL=postgresql://chainlink_dev:insecurepassword@localhost:5432/chainlink_development_test?sslmode=disable go test -timeout 15m -run ^TestIntegration_LLO_evm_premium_legacy$ github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint -v 2>&1 | tee all.log | awk '/DEBUG|INFO|WARN|ERROR/ { print > "node_logs.log"; next }; { print > "other.log" }'
+ time CL_DATABASE_URL=postgresql://chainlink_dev:insecurepassword@localhost:5432/chainlink_development_test?sslmode=disable go test -timeout 15m -run ^TestIntegration_LLO_evm_premium_legacy$ github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint -v 2>&1 | tee all.log | awk '/DEBUG|INFO|WARN|ERROR/ { print > "node_logs.log"; next }; { print > "other.log" }; tail all.log'
 ```
+
+### If you change any dependencies:
+```bash
+go mod tidy && go mod vendor
+modvendor -copy="**/*.a **/*.h" -v
+```
+
+(modvendor step might not be necessary, for me it was, see also https://github.com/marcboeker/go-duckdb/issues/174#issuecomment-1979097864)
 
 ### Logs
 

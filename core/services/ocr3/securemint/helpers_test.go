@@ -574,14 +574,13 @@ func getSecureMintJobSpec(ocrContractAddress, keyBundleID, transmitterAddress, b
 
 	// TODO(gg): allowNoBootstrappers set to true to make it start up - not sure if we want to set this to false later
 
-	// TODO(gg): pluginType = securemint
 	// TODO(gg): update the observation ds1_parse step to use the correct path for the secure mint EA response
 
 	return fmt.Sprintf(`
 type               = "offchainreporting2"
 relay              = "evm"
 schemaVersion      = 1
-pluginType         = "median"
+pluginType         = "securemint"
 name               = "secure mint spec"
 contractID         = "%s"
 ocrKeyBundleID     = "%s"

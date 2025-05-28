@@ -570,6 +570,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 
 	case types.DonTimePlugin:
 		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
+	case types.SecureMint:
+		// TODO(gg): update to use separate services for securemint
+		return d.newServicesMedian(ctx, lggr, jb, bootstrapPeers, kb, kvStore, ocrDB, lc)
 
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
