@@ -94,7 +94,7 @@ func TestDeployHomeChainIdempotent(t *testing.T) {
 	// apply the changeset once again to ensure idempotency
 	output, err := v1_6.DeployHomeChainChangeset(e.Env, homeChainCfg)
 	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
+	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook)) //nolint:staticcheck // will be addressed when we migrate to data store
 	_, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 }

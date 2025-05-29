@@ -36,7 +36,7 @@ func (r *UpdateAuthorizedAddressesRequest) Validate() error {
 
 func getWorkflowRegistry(env cldf.Environment, chainSel uint64) (*workflow_registry.WorkflowRegistry, error) {
 	resp, err := changeset.GetContractSets(env.Logger, &changeset.GetContractSetsRequest{
-		Chains:      env.Chains,
+		Chains:      env.BlockChains.EVMChains(),
 		AddressBook: env.ExistingAddresses,
 	})
 	if err != nil {
@@ -57,8 +57,9 @@ func UpdateAuthorizedAddresses(env cldf.Environment, req *UpdateAuthorizedAddres
 		return cldf.ChangesetOutput{}, err
 	}
 
+	evmChains := env.BlockChains.EVMChains()
 	resp, err := changeset.GetContractSets(env.Logger, &changeset.GetContractSetsRequest{
-		Chains:      env.Chains,
+		Chains:      evmChains,
 		AddressBook: env.ExistingAddresses,
 	})
 	if err != nil {
@@ -71,7 +72,7 @@ func UpdateAuthorizedAddresses(env cldf.Environment, req *UpdateAuthorizedAddres
 	}
 	registry := cs.WorkflowRegistry
 
-	chain, ok := env.Chains[req.RegistryChainSel]
+	chain, ok := evmChains[req.RegistryChainSel]
 	if !ok {
 		return cldf.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}

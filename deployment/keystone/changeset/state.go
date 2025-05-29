@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -21,7 +22,7 @@ import (
 )
 
 type GetContractSetsRequest struct {
-	Chains      map[uint64]cldf.Chain
+	Chains      map[uint64]cldf_evm.Chain
 	AddressBook cldf.AddressBook
 
 	// Labels indicates the label set that a contract must include to be considered as a member
@@ -115,7 +116,7 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 	return resp, nil
 }
 
-func loadContractSet(lggr logger.Logger, chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (*ContractSet, error) {
+func loadContractSet(lggr logger.Logger, chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (*ContractSet, error) {
 	var out ContractSet
 	mcmsWithTimelock, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {

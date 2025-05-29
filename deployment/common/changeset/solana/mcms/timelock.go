@@ -8,6 +8,7 @@ import (
 	binary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -20,7 +21,7 @@ import (
 )
 
 func deployTimelockProgram(
-	e cldf.Environment, chainState *state.MCMSWithTimelockStateSolana, chain cldf.SolChain,
+	e cldf.Environment, chainState *state.MCMSWithTimelockStateSolana, chain cldf_solana.Chain,
 	addressBook cldf.AddressBook,
 ) error {
 	typeAndVersion := cldf.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
@@ -64,7 +65,7 @@ func deployTimelockProgram(
 }
 
 func initTimelock(
-	e cldf.Environment, chainState *state.MCMSWithTimelockStateSolana, chain cldf.SolChain,
+	e cldf.Environment, chainState *state.MCMSWithTimelockStateSolana, chain cldf_solana.Chain,
 	addressBook cldf.AddressBook, minDelay *big.Int,
 ) error {
 	if chainState.TimelockProgram.IsZero() {
@@ -117,7 +118,7 @@ func initTimelock(
 }
 
 func initializeTimelock(
-	e cldf.Environment, chain cldf.SolChain, timelockProgram solana.PublicKey, timelockID state.PDASeed,
+	e cldf.Environment, chain cldf_solana.Chain, timelockProgram solana.PublicKey, timelockID state.PDASeed,
 	chainState *state.MCMSWithTimelockStateSolana, minDelay *big.Int,
 ) error {
 	if minDelay == nil {

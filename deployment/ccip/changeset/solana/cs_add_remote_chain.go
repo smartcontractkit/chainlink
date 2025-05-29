@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/gagliardetto/solana-go"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
@@ -641,7 +642,7 @@ func getSourceChainConfig(s stateview.CCIPOnChainState, remoteChainSel uint64, e
 	return validSourceChainConfig, nil
 }
 
-func extendLookupTable(e cldf.Environment, chain cldf.SolChain, offRampID solana.PublicKey, lookUpTableEntries []solana.PublicKey) error {
+func extendLookupTable(e cldf.Environment, chain cldf_solana.Chain, offRampID solana.PublicKey, lookUpTableEntries []solana.PublicKey) error {
 	addressLookupTable, err := solanastateview.FetchOfframpLookupTable(e.GetContext(), chain, offRampID)
 	if err != nil {
 		return fmt.Errorf("failed to get offramp reference addresses: %w", err)

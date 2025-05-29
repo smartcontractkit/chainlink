@@ -14,6 +14,8 @@ import (
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -234,7 +236,7 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 // if it is not an upgrade. It returns the program ID of the deployed program.
 func DeployAndMaybeSaveToAddressBook(
 	e cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	ab cldf.AddressBook,
 	contractType cldf.ContractType,
 	version semver.Version,
@@ -273,7 +275,7 @@ func DeployAndMaybeSaveToAddressBook(
 
 func deployChainContractsSolana(
 	e cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	ab cldf.AddressBook,
 	config DeployChainContractsConfig,
 ) ([]mcmsTypes.BatchOperation, error) {
@@ -685,7 +687,7 @@ func deployChainContractsSolana(
 // INITIALIZE FUNCTIONS
 func initializeRouter(
 	e cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	ccipRouterProgram solana.PublicKey,
 	linkTokenAddress solana.PublicKey,
 	feeQuoterAddress solana.PublicKey,
@@ -725,7 +727,7 @@ func initializeRouter(
 
 func initializeFeeQuoter(
 	e cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	ccipRouterProgram solana.PublicKey,
 	linkTokenAddress solana.PublicKey,
 	feeQuoterAddress solana.PublicKey,
@@ -776,7 +778,7 @@ func initializeFeeQuoter(
 
 func initializeOffRamp(
 	e cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	ccipRouterProgram solana.PublicKey,
 	feeQuoterAddress solana.PublicKey,
 	rmnRemoteAddress solana.PublicKey,
@@ -832,7 +834,7 @@ func initializeOffRamp(
 
 func initializeRMNRemote(
 	e cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	rmnRemoteProgram solana.PublicKey,
 ) error {
 	e.Logger.Debugw("Initializing rmn remote", "chain", chain.String(), "rmnRemoteProgram", rmnRemoteProgram.String())
@@ -863,7 +865,7 @@ func initializeRMNRemote(
 // UPGRADE FUNCTIONS
 func generateUpgradeTxns(
 	e cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	ab cldf.AddressBook,
 	config DeployChainContractsConfig,
 	newVersion *semver.Version,
@@ -977,7 +979,7 @@ func generateUpgradeIxn(
 
 func generateExtendIxn(
 	e *cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	programID solana.PublicKey,
 	bufferAddress solana.PublicKey,
 	payer solana.PublicKey,
@@ -1048,7 +1050,7 @@ func generateCloseBufferIxn(
 }
 
 // HELPER FUNCTIONS
-func GetSolProgramSize(e *cldf.Environment, chain cldf.SolChain, programID solana.PublicKey) (int, error) {
+func GetSolProgramSize(e *cldf.Environment, chain cldf_solana.Chain, programID solana.PublicKey) (int, error) {
 	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &rpc.GetAccountInfoOpts{
 		Commitment: cldf.SolDefaultCommitment,
 	})
@@ -1062,7 +1064,7 @@ func GetSolProgramSize(e *cldf.Environment, chain cldf.SolChain, programID solan
 	return programBytes, nil
 }
 
-func getSolProgramData(e cldf.Environment, chain cldf.SolChain, programID solana.PublicKey) (struct {
+func getSolProgramData(e cldf.Environment, chain cldf_solana.Chain, programID solana.PublicKey) (struct {
 	DataType uint32
 	Address  solana.PublicKey
 }, error) {

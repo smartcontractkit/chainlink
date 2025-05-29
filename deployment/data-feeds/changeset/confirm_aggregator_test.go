@@ -28,7 +28,6 @@ func TestConfirmAggregator(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
 		Chains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)

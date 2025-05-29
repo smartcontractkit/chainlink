@@ -14,6 +14,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -136,9 +138,9 @@ func (c *ChainConfig) ToRPCs() []cldf.RPC {
 	return rpcs
 }
 
-func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf.Chain, map[uint64]cldf.SolChain, error) {
+func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf.Chain, map[uint64]cldf_solana.Chain, error) {
 	evmChains := make(map[uint64]cldf.Chain)
-	solChains := make(map[uint64]cldf.SolChain)
+	solChains := make(map[uint64]cldf_solana.Chain)
 	var evmSyncMap sync.Map
 	var solSyncMap sync.Map
 
@@ -221,7 +223,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf.Cha
 				}
 
 				sc := solRpc.New(chainCfg.HTTPRPCs[0].External)
-				solSyncMap.Store(chainDetails.ChainSelector, cldf.SolChain{
+				solSyncMap.Store(chainDetails.ChainSelector, cldf_solana.Chain{
 					Selector:    chainDetails.ChainSelector,
 					Client:      sc,
 					DeployerKey: &chainCfg.SolDeployerKey,
@@ -254,7 +256,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf.Cha
 	})
 
 	solSyncMap.Range(func(sel, value interface{}) bool {
-		solChains[sel.(uint64)] = value.(cldf.SolChain)
+		solChains[sel.(uint64)] = value.(cldf_solana.Chain)
 		return true
 	})
 

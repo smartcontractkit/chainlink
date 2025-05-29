@@ -31,7 +31,6 @@ func TestDeployForwarder(t *testing.T) {
 
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1, // nodes unused but required in config
 		Chains: 2,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
@@ -87,7 +86,7 @@ func TestConfigureForwarders(t *testing.T) {
 
 		var chainToExclude uint64
 		filteredChains := make(map[uint64]struct{})
-		for chainID := range env.Chains {
+		for chainID := range env.BlockChains.EVMChains() {
 			// we do not really care which chain to exclude, so pick the first one
 			if chainToExclude == 0 {
 				chainToExclude = chainID
@@ -157,7 +156,7 @@ func TestConfigureForwarders(t *testing.T) {
 				// check that forwarder
 				// TODO set up a listener to check that the forwarder is configured
 				forwardersByChain := te.OwnedForwarders()
-				for selector := range te.Env.Chains {
+				for selector := range te.Env.BlockChains.EVMChains() {
 					forwarders, ok := forwardersByChain[selector]
 					require.True(t, ok)
 					require.NotNil(t, forwarders)
