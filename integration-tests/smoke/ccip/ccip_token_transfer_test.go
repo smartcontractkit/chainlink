@@ -53,12 +53,13 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 	e := tenv.Env
 	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(e.Chains), 2)
+	evmChains := e.BlockChains.EVMChains()
+	require.GreaterOrEqual(t, len(evmChains), 2)
 
-	allChainSelectors := maps.Keys(e.Chains)
+	allChainSelectors := maps.Keys(evmChains)
 	sourceChain, destChain := allChainSelectors[0], allChainSelectors[1]
-	ownerSourceChain := e.Chains[sourceChain].DeployerKey
-	ownerDestChain := e.Chains[destChain].DeployerKey
+	ownerSourceChain := evmChains[sourceChain].DeployerKey
+	ownerDestChain := evmChains[destChain].DeployerKey
 
 	require.GreaterOrEqual(t, len(tenv.Users[sourceChain]), 2)
 	require.GreaterOrEqual(t, len(tenv.Users[destChain]), 2)
@@ -66,12 +67,11 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 	selfServeDestTokenPoolDeployer := tenv.Users[destChain][1]
 
 	oneE18 := new(big.Int).SetUint64(1e18)
-	evmChains := tenv.Env.BlockChains.EVMChains()
 
 	// Deploy tokens and pool by CCIP Owner
 	srcToken, _, destToken, _, err := testhelpers.DeployTransferableToken(
 		lggr,
-		evmChains,
+		tenv.Env.BlockChains.EVMChains(),
 		sourceChain,
 		destChain,
 		ownerSourceChain,
@@ -85,7 +85,7 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 	// Deploy Self Serve tokens and pool
 	selfServeSrcToken, _, selfServeDestToken, _, err := testhelpers.DeployTransferableToken(
 		lggr,
-		evmChains,
+		tenv.Env.BlockChains.EVMChains(),
 		sourceChain,
 		destChain,
 		selfServeSrcTokenPoolDeployer,
@@ -255,12 +255,13 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 	e := tenv.Env
 	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(e.Chains), 2)
+	evmChains := e.BlockChains.EVMChains()
+	require.GreaterOrEqual(t, len(evmChains), 2)
 
 	allChainSelectors := e.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	allSolChainSelectors := e.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySolana))
 	sourceChain, destChain := allChainSelectors[0], allSolChainSelectors[0]
-	ownerSourceChain := e.Chains[sourceChain].DeployerKey
+	ownerSourceChain := evmChains[sourceChain].DeployerKey
 	// ownerDestChain := e.BlockChains.SolanaChains()[destChain].DeployerKey
 
 	require.GreaterOrEqual(t, len(tenv.Users[sourceChain]), 2) // TODO: ???
@@ -389,7 +390,7 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 	e := tenv.Env
 	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(e.Chains), 2)
+	require.GreaterOrEqual(t, len(e.BlockChains.EVMChains()), 2)
 
 	allChainSelectors := e.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	allSolChainSelectors := e.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySolana))
