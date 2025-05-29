@@ -221,3 +221,13 @@ jobs:
     secrets:
       inherit
 
+  call-cre-workflow-load-test:
+    if: ${{ github.event_name == 'schedule' }}
+    needs: [ docker-core-plugins ]
+    uses: smartcontractkit/chainlink/.github/workflows/cre-workflow-load-tests.yamll@CAPPL-885-workflow-load-test-ci
+    with:
+      chainlink_image_tag: ${{ needs.docker-core-plugins.outputs.docker-manifest-tag }}
+      chainlink_version: develop
+    secrets:
+      inherit
+

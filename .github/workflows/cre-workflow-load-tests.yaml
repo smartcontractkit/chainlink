@@ -127,9 +127,9 @@ jobs:
           DASHBOARD_NAME: "Wasp"
           DATA_SOURCE_NAME: "Loki"
 #          GRAFANA_URL: "http://localhost:3000"
-          LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
-          LOKI_URL: ${{ secrets.LOKI_URL }}
-          LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+#          LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+#          LOKI_URL: ${{ secrets.LOKI_URL }}
+#          LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
           LOAD_TEST: "true"
         run: |
           cd system-tests/tests/load/cre
