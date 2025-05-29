@@ -258,12 +258,14 @@ func TestRandomTopology_getNodesForChain(t *testing.T) {
 }
 
 func TestRandomTopology_validate(t *testing.T) {
+	const homeChainSelector = 1
 	type fields struct {
 		FChainToNumChains map[int]int
 		Seed              int64 // Not used by validate, but part of the struct
 	}
 	type args struct {
-		chainSelectors []cciptypes.ChainSelector
+		chainSelectors    []cciptypes.ChainSelector
+		homeChainSelector cciptypes.ChainSelector
 	}
 	tests := []struct {
 		name       string
@@ -278,7 +280,8 @@ func TestRandomTopology_validate(t *testing.T) {
 				FChainToNumChains: map[int]int{1: 2, 2: 1}, // Total 3 chains
 			},
 			args: args{
-				chainSelectors: []cciptypes.ChainSelector{100, 200, 300}, // 3 selectors
+				chainSelectors:    []cciptypes.ChainSelector{100, 200, 300}, // 3 selectors
+				homeChainSelector: homeChainSelector,
 			},
 			wantErr: false,
 		},
@@ -288,7 +291,8 @@ func TestRandomTopology_validate(t *testing.T) {
 				FChainToNumChains: map[int]int{1: 3, 2: 1}, // Total 4 chains
 			},
 			args: args{
-				chainSelectors: []cciptypes.ChainSelector{100, 200, 300}, // 3 selectors
+				chainSelectors:    []cciptypes.ChainSelector{100, 200, 300}, // 3 selectors
+				homeChainSelector: homeChainSelector,
 			},
 			wantErr:    true,
 			wantErrMsg: fmt.Sprintf("the sum of the number of chains in the chain topology must be equal to the number of chains provided in the config, got %d, expected %d", 4, 3),
@@ -299,7 +303,8 @@ func TestRandomTopology_validate(t *testing.T) {
 				FChainToNumChains: map[int]int{1: 1, 2: 1}, // Total 2 chains
 			},
 			args: args{
-				chainSelectors: []cciptypes.ChainSelector{100, 200, 300}, // 3 selectors
+				chainSelectors:    []cciptypes.ChainSelector{100, 200, 300}, // 3 selectors
+				homeChainSelector: homeChainSelector,
 			},
 			wantErr:    true,
 			wantErrMsg: fmt.Sprintf("the sum of the number of chains in the chain topology must be equal to the number of chains provided in the config, got %d, expected %d", 2, 3),
@@ -310,7 +315,8 @@ func TestRandomTopology_validate(t *testing.T) {
 				FChainToNumChains: map[int]int{},
 			},
 			args: args{
-				chainSelectors: []cciptypes.ChainSelector{},
+				chainSelectors:    []cciptypes.ChainSelector{},
+				homeChainSelector: homeChainSelector,
 			},
 			wantErr: false,
 		},
@@ -320,7 +326,8 @@ func TestRandomTopology_validate(t *testing.T) {
 				FChainToNumChains: map[int]int{1: 1}, // Total 1 chain
 			},
 			args: args{
-				chainSelectors: []cciptypes.ChainSelector{}, // 0 selectors
+				chainSelectors:    []cciptypes.ChainSelector{}, // 0 selectors
+				homeChainSelector: homeChainSelector,
 			},
 			wantErr:    true,
 			wantErrMsg: fmt.Sprintf("the sum of the number of chains in the chain topology must be equal to the number of chains provided in the config, got %d, expected %d", 1, 0),
@@ -331,7 +338,8 @@ func TestRandomTopology_validate(t *testing.T) {
 				FChainToNumChains: map[int]int{},
 			},
 			args: args{
-				chainSelectors: []cciptypes.ChainSelector{100}, // 1 selector
+				chainSelectors:    []cciptypes.ChainSelector{100}, // 1 selector
+				homeChainSelector: homeChainSelector,
 			},
 			wantErr:    true,
 			wantErrMsg: fmt.Sprintf("the sum of the number of chains in the chain topology must be equal to the number of chains provided in the config, got %d, expected %d", 0, 1),
@@ -342,9 +350,22 @@ func TestRandomTopology_validate(t *testing.T) {
 				FChainToNumChains: map[int]int{1: 2, 2: 0, 3: 1}, // Total 3 chains (0 is ignored in sum)
 			},
 			args: args{
-				chainSelectors: []cciptypes.ChainSelector{100, 200, 300}, // 3 selectors
+				chainSelectors:    []cciptypes.ChainSelector{100, 200, 300}, // 3 selectors
+				homeChainSelector: homeChainSelector,
 			},
 			wantErr: false, // The method sums values, so 0 doesn't change the sum, this is valid.
+		},
+		{
+			name: "invalid: home chain selector included in chainSelectors",
+			fields: fields{
+				FChainToNumChains: map[int]int{1: 1, 2: 1},
+			},
+			args: args{
+				chainSelectors:    []cciptypes.ChainSelector{100, homeChainSelector},
+				homeChainSelector: homeChainSelector,
+			},
+			wantErr:    true,
+			wantErrMsg: fmt.Sprintf("the home chain selector %d is included in the chainSelectors, please remove it from the chainSelectors", homeChainSelector),
 		},
 	}
 
@@ -354,7 +375,7 @@ func TestRandomTopology_validate(t *testing.T) {
 				FChainToNumChains: tt.fields.FChainToNumChains,
 				Seed:              tt.fields.Seed,
 			}
-			err := r.validate(tt.args.chainSelectors)
+			err := r.validate(tt.args.chainSelectors, tt.args.homeChainSelector)
 			if tt.wantErr {
 				require.Error(t, err)
 				require.EqualError(t, err, tt.wantErrMsg)
@@ -366,6 +387,7 @@ func TestRandomTopology_validate(t *testing.T) {
 }
 
 func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
+	const homeChainSelector = 1
 	type fields struct {
 		FChainToNumChains map[int]int
 		Seed              int64
@@ -373,6 +395,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 	type args struct {
 		nonBootstrapP2pIDs [][32]byte
 		chainSelectors     []cciptypes.ChainSelector
+		homeChainSelector  cciptypes.ChainSelector
 	}
 	tests := []struct {
 		name    string
@@ -393,6 +416,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 			args: args{
 				nonBootstrapP2pIDs: generateTestP2PIDs(10), // Needs max 7 nodes for one chain, plus others
 				chainSelectors:     []cciptypes.ChainSelector{100, 200},
+				homeChainSelector:  homeChainSelector,
 			},
 			wantErr:         false,
 			checkNodeCounts: true,
@@ -406,6 +430,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 			args: args{
 				nonBootstrapP2pIDs: generateTestP2PIDs(MinRoleDONSize - 1), // e.g., 3 nodes
 				chainSelectors:     []cciptypes.ChainSelector{100},
+				homeChainSelector:  homeChainSelector,
 			},
 			wantErr:             true,
 			wantErrMsgSubstring: fmt.Sprintf("number of non-bootstrap ccip nodes must be at least %d", MinRoleDONSize),
@@ -419,6 +444,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 			args: args{
 				nonBootstrapP2pIDs: generateTestP2PIDs(5),
 				chainSelectors:     []cciptypes.ChainSelector{100}, // only 1 provided
+				homeChainSelector:  homeChainSelector,
 			},
 			wantErr:             true,
 			wantErrMsgSubstring: "the sum of the number of chains in the chain topology must be equal",
@@ -432,6 +458,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 			args: args{
 				nonBootstrapP2pIDs: generateTestP2PIDs(6), // only 6 nodes, MinRoleDONSize is met (4)
 				chainSelectors:     []cciptypes.ChainSelector{100},
+				homeChainSelector:  homeChainSelector,
 			},
 			wantErr:             true,
 			wantErrMsgSubstring: fmt.Sprintf("failed to get nodes for chain %s: the number of non-bootstrap ccip nodes must be at least %d, got %d", cciptypes.ChainSelector(100), NChain(2), 6),
@@ -445,6 +472,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 			args: args{
 				nonBootstrapP2pIDs: generateTestP2PIDs(5),
 				chainSelectors:     []cciptypes.ChainSelector{},
+				homeChainSelector:  homeChainSelector,
 			},
 			wantErr:         false,
 			checkNodeCounts: true, // Expected distribution will be empty
@@ -458,6 +486,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 			args: args{
 				nonBootstrapP2pIDs: generateTestP2PIDs(8),
 				chainSelectors:     []cciptypes.ChainSelector{100, 200},
+				homeChainSelector:  homeChainSelector,
 			},
 			wantErr:         false,
 			checkNodeCounts: true,
@@ -471,7 +500,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 				Seed:              tt.fields.Seed,
 			}
 
-			gotMapping, err := r.ChainToNodeMapping(tt.args.nonBootstrapP2pIDs, tt.args.chainSelectors)
+			gotMapping, err := r.ChainToNodeMapping(tt.args.nonBootstrapP2pIDs, tt.args.chainSelectors, tt.args.homeChainSelector)
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -488,6 +517,9 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 			for _, cs := range tt.args.chainSelectors {
 				require.Contains(t, gotMapping, cs)
 			}
+
+			require.Contains(t, gotMapping, tt.args.homeChainSelector)
+			require.Equal(t, tt.args.nonBootstrapP2pIDs, gotMapping[tt.args.homeChainSelector])
 
 			if tt.checkNodeCounts {
 				// Calculate expected distribution of node counts
@@ -527,7 +559,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 					FChainToNumChains: tt.fields.FChainToNumChains,
 					Seed:              tt.fields.Seed, // Same seed
 				}
-				gotMappingDeterministic, detErr := rDeterministic.ChainToNodeMapping(tt.args.nonBootstrapP2pIDs, tt.args.chainSelectors)
+				gotMappingDeterministic, detErr := rDeterministic.ChainToNodeMapping(tt.args.nonBootstrapP2pIDs, tt.args.chainSelectors, tt.args.homeChainSelector)
 				require.NoError(t, detErr, "Determinism check failed on second run")
 				require.Equal(t, len(gotMapping), len(gotMappingDeterministic), "Determinism check: map lengths differ")
 

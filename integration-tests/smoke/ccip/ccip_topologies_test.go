@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes"
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
@@ -97,42 +98,22 @@ func Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest(t *tes
 	require.NotEqual(t, chainConfig0.FChain, chainConfig1.FChain)
 
 	var sourceChain, destChain uint64
+	var sourceChainConfig, destChainConfig ccip_home.CCIPHomeChainConfig
 	if chainConfig0.FChain == fChainSource {
 		sourceChain = nonHomeChains[0]
 		destChain = nonHomeChains[1]
+		sourceChainConfig = chainConfig0
+		destChainConfig = chainConfig1
 	} else {
 		sourceChain = nonHomeChains[1]
 		destChain = nonHomeChains[0]
+		sourceChainConfig = chainConfig1
+		destChainConfig = chainConfig0
 	}
 
 	t.Logf("home chain: %d, source chain: %d, dest chain: %d", e.HomeChainSel, sourceChain, destChain)
-
-	// nodeInfo, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
-	// require.NoError(t, err)
-
-	// nonBootstraps := nodeInfo.NonBootstraps().PeerIDs()
-
-	// Log the chain support of the memory nodes.
-	// for _, node := range e.MemoryNodes {
-	// 	if !slices.Contains(nonBootstraps, [32]byte(node.Keys.PeerID)) {
-	// 		continue
-	// 	}
-	// 	t.Logf("node %s supports chains: %v", node.Keys.PeerID.String(), node.Chains)
-	// }
-
-	// // Log how many times each chain is supported by the memory nodes.
-	// for _, chain := range allChainSelectors {
-	// 	count := 0
-	// 	for _, node := range e.MemoryNodes {
-	// 		if !slices.Contains(nonBootstraps, [32]byte(node.Keys.PeerID)) {
-	// 			continue
-	// 		}
-	// 		if slices.Contains(node.Chains, chain) {
-	// 			count++
-	// 		}
-	// 	}
-	// 	t.Logf("chain %d is supported by %d nodes", chain, count)
-	// }
+	t.Logf("source chain is supported by %d readers", len(sourceChainConfig.Readers))
+	t.Logf("dest chain is supported by %d readers", len(destChainConfig.Readers))
 
 	// now we can set up the lane.
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)

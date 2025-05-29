@@ -29,7 +29,8 @@ func NChain[T constraints.Integer](fChain T) T {
 // of chain selectors.
 //
 // Note that this does NOT affect the chain support of the home chain,
-// which all nodes must always support.
+// which all nodes must always support. This should be ensured by all implementations
+// of RoleDONTopology, otherwise fundamental assumptions about the role don will be violated.
 //
 // Examples of different implementations:
 // * randomized topology, where the nodes are randomly assigned to chains, while honoring the fChain value of each chain.
@@ -42,7 +43,15 @@ type RoleDONTopology interface {
 	// ChainToNodeMapping returns a mapping of chain selectors to the set of nodes that support that chain.
 	// This can be plugged in directly into the CCIPHome ChainConfig.readers value for the chain.
 	// the nonBootstrapP2pIDs array is the set of all non-bootstrap ccip nodes in the role don.
-	ChainToNodeMapping(nonBootstrapP2pIDs [][32]byte, chainSelectors []cciptypes.ChainSelector) (map[cciptypes.ChainSelector][][32]byte, error)
+	// nonHomeChainSelectors is the set of all non-home chain selectors.
+	// homeChainSelector is the home chain selector.
+	// All implementations of RoleDONTopology must ensure that the home chain is supported by all nodes,
+	// i.e mapping[homeChainSelector] = all non-bootstrap ccip nodes.
+	ChainToNodeMapping(
+		nonBootstrapP2pIDs [][32]byte,
+		nonHomeChainSelectors []cciptypes.ChainSelector,
+		homeChainSelector cciptypes.ChainSelector,
+	) (map[cciptypes.ChainSelector][][32]byte, error)
 }
 
 var _ RoleDONTopology = &RandomTopology{}
@@ -68,7 +77,8 @@ type RandomTopology struct {
 }
 
 // Validate implements RoleDONTopology.
-func (r *RandomTopology) validate(chainSelectors []cciptypes.ChainSelector) error {
+// The chainSelectors must not include the home chain, as it is supported by all nodes.
+func (r *RandomTopology) validate(chainSelectors []cciptypes.ChainSelector, homeChainSelector cciptypes.ChainSelector) error {
 	totalChains := 0
 	for _, numChains := range r.FChainToNumChains {
 		totalChains += numChains
@@ -81,12 +91,22 @@ func (r *RandomTopology) validate(chainSelectors []cciptypes.ChainSelector) erro
 		)
 	}
 
+	// ensure the home chain is not in the chainSelectors.
+	if slices.Contains(chainSelectors, homeChainSelector) {
+		return fmt.Errorf("the home chain selector %d is included in the chainSelectors, please remove it from the chainSelectors", homeChainSelector)
+	}
+
 	return nil
 }
 
 // ChainToNodeMapping implements RoleDONTopology by randomly sampling the set of
 // nodes that support each chain, while honoring the fChain value of each chain.
-func (r *RandomTopology) ChainToNodeMapping(nonBootstrapP2pIDs [][32]byte, chainSelectors []cciptypes.ChainSelector) (map[cciptypes.ChainSelector][][32]byte, error) {
+// The chainSelectors must not include the home chain, as it is supported by all nodes.
+func (r *RandomTopology) ChainToNodeMapping(
+	nonBootstrapP2pIDs [][32]byte,
+	chainSelectors []cciptypes.ChainSelector,
+	homeChainSelector cciptypes.ChainSelector,
+) (map[cciptypes.ChainSelector][][32]byte, error) {
 	if len(nonBootstrapP2pIDs) < MinRoleDONSize {
 		return nil, fmt.Errorf("the number of non-bootstrap ccip nodes must be at least %d, got %d",
 			MinRoleDONSize,
@@ -94,7 +114,7 @@ func (r *RandomTopology) ChainToNodeMapping(nonBootstrapP2pIDs [][32]byte, chain
 		)
 	}
 
-	if err := r.validate(chainSelectors); err != nil {
+	if err := r.validate(chainSelectors, homeChainSelector); err != nil {
 		return nil, err
 	}
 
@@ -114,6 +134,9 @@ func (r *RandomTopology) ChainToNodeMapping(nonBootstrapP2pIDs [][32]byte, chain
 
 		chainToNodeMapping[chainSelector] = nodes
 	}
+
+	// the home chain is supported by all nodes.
+	chainToNodeMapping[homeChainSelector] = nonBootstrapP2pIDs
 
 	return chainToNodeMapping, nil
 }

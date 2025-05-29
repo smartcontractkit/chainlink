@@ -840,6 +840,10 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	if tc.Type == Memory && tc.RoleDONTopology != nil {
 		allSelectors := make([]cciptypes.ChainSelector, 0, len(evmChains)+len(solChains))
 		for _, chain := range evmChains {
+			// don't include the home chain, its supported by all nodes.
+			if chain == e.HomeChainSel {
+				continue
+			}
 			allSelectors = append(allSelectors, cciptypes.ChainSelector(chain))
 		}
 		for _, chain := range solChains {
@@ -849,6 +853,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		chainToNodeMapping, err = tc.RoleDONTopology.ChainToNodeMapping(
 			nodeInfo.NonBootstraps().PeerIDs(),
 			allSelectors,
+			cciptypes.ChainSelector(e.HomeChainSel),
 		)
 		require.NoError(t, err)
 	}
