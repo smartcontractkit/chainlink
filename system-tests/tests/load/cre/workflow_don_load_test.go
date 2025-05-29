@@ -426,7 +426,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 			RateLimitUnitDuration: time.Minute,
 		})).
 		Run(false)
-	require.NoError(t, err, "wasp load test did not finish successfully")
+	require.NoError(t, err, "workflow load test did not finish successfully")
 
 	g.Wait()
 }
