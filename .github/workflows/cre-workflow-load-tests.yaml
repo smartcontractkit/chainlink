@@ -128,12 +128,13 @@ jobs:
           cd system-tests/tests/load/cre
           go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 10m
 
-      - name: Upload cl node coverage data as artifact
-        uses: actions/upload-artifact@v4.4.3
+      - name: Upload cl node logs as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
         timeout-minutes: 2
         continue-on-error: true
         with:
-          name: amazing logs
+          name: node logs
           path: ./system-tests/tests/load/cre/logs/
           retention-days: 1
 
