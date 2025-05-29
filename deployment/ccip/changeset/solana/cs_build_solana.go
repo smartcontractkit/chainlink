@@ -17,17 +17,22 @@ import (
 
 // Configuration
 const (
-	repoURL   = "https://github.com/smartcontractkit/chainlink-ccip.git"
-	cloneDir  = "./temp-repo"
-	anchorDir = "chains/solana/contracts" // Path to the Anchor project within the repo
-	deployDir = "chains/solana/contracts/target/deploy"
+	repoURL        = "https://github.com/smartcontractkit/chainlink-ccip.git"
+	cloneDir       = "./temp-repo"
+	anchorDir      = "chains/solana/contracts" // Path to the Anchor project within the repo
+	deployDir      = "chains/solana/contracts/target/deploy"
+	buildCmd       = "docker-build-contracts"
+	replaceKeysCmd = "docker-update-contracts"
 )
 
 var ccipBuildParams = helpers.DomainParams{
-	RepoURL:          repoURL,
-	CloneDir:         cloneDir,
-	AnchorDir:        anchorDir,
-	DeployDir:        deployDir,
+	RepoURL:        repoURL,
+	CloneDir:       cloneDir,
+	AnchorDir:      anchorDir,
+	DeployDir:      deployDir,
+	BuildCmd:       buildCmd,
+	ReplaceKeysCmd: replaceKeysCmd,
+
 	Syncers:          []func() error{syncRouterAndCommon},
 	ProgramFilesView: programToFileMap,
 }

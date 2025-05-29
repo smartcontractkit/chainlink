@@ -35,6 +35,9 @@ func TransferOwnershipForwarder(env cldf.Environment, req *TransferOwnershipForw
 	addresses, _ := env.ExistingAddresses.AddressesForChain(req.ChainSel)
 
 	mcmState, _ := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
+	if mcmState.TimelockProgram.IsZero() {
+		return cldf.ChangesetOutput{}, fmt.Errorf("timelock is not found")
+	}
 
 	currentOwner := solChain.DeployerKey.PublicKey()
 	if !req.CurrentOwner.IsZero() {

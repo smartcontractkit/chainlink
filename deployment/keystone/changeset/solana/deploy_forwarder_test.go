@@ -41,7 +41,7 @@ func TestDeployForwarder(t *testing.T) {
 func shouldDeployForwarder(t *testing.T, env cldf.Environment, registrySel uint64, ab cldf.AddressBook) cldf.Environment {
 	cfg := helpers.BuildSolanaConfig{
 		GitCommitSha:   "d047073ea230f965626716029f8d902729ddffed",
-		DestinationDir: "./contracts",
+		DestinationDir: "./solana_contracts",
 		LocalBuild: helpers.LocalBuildConfig{
 			BuildLocally:         true,
 			CleanDestinationDir:  true,
@@ -56,7 +56,6 @@ func shouldDeployForwarder(t *testing.T, env cldf.Environment, registrySel uint6
 	chain.ProgramsPath = getProgramsPath()
 	env.SolChains[registrySel] = chain
 	// deploy forwarder
-	env.ExistingAddresses = ab
 	resp, err := DeployForwarder(env, &DeployRequest{
 		ChainSel:    registrySel,
 		BuildConfig: nil,
@@ -67,7 +66,7 @@ func shouldDeployForwarder(t *testing.T, env cldf.Environment, registrySel uint6
 	addrs, err := resp.AddressBook.AddressesForChain(registrySel)
 	require.NoError(t, err)
 	require.Len(t, addrs, 2) // forwarder programID, forwarder state
-	env.ExistingAddresses = resp.AddressBook
+	env.ExistingAddresses.Merge(resp.AddressBook)
 	return env
 }
 
@@ -77,5 +76,5 @@ func getProgramsPath() string {
 	// Go up to the root of the deployment package
 	rootDir := filepath.Dir(filepath.Dir(filepath.Dir(currentFile)))
 	// Construct the absolute path
-	return filepath.Join(rootDir, "changeset/solana", "contracts")
+	return filepath.Join(rootDir, "changeset/solana", "solana_contracts")
 }
