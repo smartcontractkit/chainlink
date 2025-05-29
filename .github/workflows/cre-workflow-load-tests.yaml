@@ -135,7 +135,7 @@ jobs:
         continue-on-error: true
         with:
           name: node logs
-          path: ./system-tests/tests/load/cre/logs/docker-TestLoad_Workflow_Streams_MockCapabilities/*.log
+          path: ./system-tests/tests/load/cre/logs/*.log
           retention-days: 1
 
 #  notify-test-failure:
