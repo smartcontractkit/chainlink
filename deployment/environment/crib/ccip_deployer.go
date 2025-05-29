@@ -385,7 +385,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64, f
 
 		buildConfig := ccipChangesetSolana.BuildSolanaConfig{
 			GitCommitSha:   "1c5342edf3b4",
-			DestinationDir: deployedEnv.Env.SolChains[solChainSelectors[0]].ProgramsPath,
+			DestinationDir: deployedEnv.Env.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
 			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 				BuildLocally: true,
 			},
@@ -418,7 +418,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64, f
 	}
 
 	lggr.Infow("setup Link pools")
-	if len(env.SolChains) > 0 {
+	if len(e.SolChains) > 0 {
 		env, err = setupSolLinkPools(&env)
 		if err != nil {
 			return *e, fmt.Errorf("failed to setup solana link pools: %w", err)
