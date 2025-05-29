@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -462,7 +463,7 @@ func sendMessagesAsync(
 func sendMessages(
 	ctx context.Context,
 	t *testing.T,
-	sourceChain cldf.Chain,
+	sourceChain cldf_evm.Chain,
 	sourceTransactOpts *bind.TransactOpts,
 	sourceOnRamp onramp.OnRampInterface,
 	sourceRouter *router.Router,
