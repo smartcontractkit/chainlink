@@ -12,6 +12,7 @@ import (
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
@@ -82,7 +83,6 @@ type TestSetup struct {
 type TestCase struct {
 	TestSetup
 	ValidationType         ValidationType
-	Replayed               bool
 	Nonce                  *uint64
 	Receiver               []byte
 	MsgData                []byte
@@ -175,6 +175,14 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	default:
 		tc.T.Errorf("unsupported source chain: %v", family)
 	}
+
+	// Ensure CCIPMessageSent event filter is registered
+	// Sending message too early could result in LogPoller missing the send event 
+	err = testhelpers.WaitForEventFilterRegistration(t, tc.Env.Offchain, tc.SourceChain, consts.EventNameCCIPMessageSent)
+	require.NoError(t, err)
+
+	t.Logf("%s filter registered", consts.EventNameCCIPMessageSent)
+
 	msgSentEvent := testhelpers.TestSendRequest(
 		tc.T,
 		tc.Env,
@@ -194,14 +202,6 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		sourceDest: {msgSentEvent.SequenceNumber},
 	}
 	out.MsgSentEvent = msgSentEvent
-
-	// HACK: if the node booted or the logpoller filters got registered after ccipSend,
-	// we need to replay missed logs
-	if !tc.Replayed {
-		require.NotNil(tc.T, tc.DeployedEnv)
-		testhelpers.SleepAndReplay(tc.T, tc.DeployedEnv.Env, 30*time.Second, tc.SourceChain, tc.DestChain)
-		out.Replayed = true
-	}
 
 	// Perform validation based on ValidationType
 	switch tc.ValidationType {

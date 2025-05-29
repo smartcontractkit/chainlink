@@ -16,6 +16,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	solrpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -25,18 +26,16 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
-
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
-	solrpc "github.com/gagliardetto/solana-go/rpc"
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
+
+	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
@@ -44,14 +43,13 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	v2toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
-	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -65,6 +63,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
@@ -100,6 +99,36 @@ func (n Node) ReplayLogs(ctx context.Context, chains map[uint64]uint64) error {
 		}
 	}
 	return nil
+}
+
+func (n Node) IsLogFilterRegistered(ctx context.Context, chainSel uint64, eventName string) (bool, error) {
+	family, err := chainsel.GetSelectorFamily(chainSel)
+	if err != nil {
+		return false, err
+	}
+	chainID, err := chainsel.GetChainIDFromSelector(chainSel)
+	if err != nil {
+		return false, err
+	}
+
+	var query string
+	var exists int
+	switch family {
+	case chainsel.FamilyEVM:
+		query = `SELECT COUNT(1) FROM evm.log_poller_filters WHERE evm_chain_id = $1 AND event = $2 LIMIT 1`
+		eventSig := common.HexToHash(eventName) // event name is really common.Hash event sig so need to convert back
+		err = n.App.GetDB().GetContext(ctx, &exists, query, chainID, eventSig.Bytes())
+	case chainsel.FamilySolana:
+		query = `SELECT COUNT(1) FROM solana.log_poller_filters WHERE is_deleted = false AND chain_id = $1 AND event_name = $2 LIMIT 1`
+		err = n.App.GetDB().GetContext(ctx, &exists, query, chainID, eventName)
+	default:
+		return false, fmt.Errorf("unsupported chain family; %v", family)
+	}
+
+	if err != nil || exists == 0 {
+		return false, err
+	}
+	return true, nil
 }
 
 // DeploymentNode is an adapter for deployment.Node

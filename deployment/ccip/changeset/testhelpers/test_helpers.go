@@ -22,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
@@ -52,6 +53,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
@@ -65,7 +67,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/base_token_pool"
 	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_common"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
@@ -182,6 +183,55 @@ func ReplayLogs(t *testing.T, oc cldf.OffchainClient, replayBlocks map[uint64]ui
 			t.Logf("failed to replay logs: %v", err)
 		}
 	}
+}
+
+func WaitForEventFilterRegistration(t *testing.T, oc cldf.OffchainClient, chainSel uint64, eventName string) error {
+	family, err := chainsel.GetSelectorFamily(chainSel)
+	if err != nil {
+		return err
+	}
+
+	var eventID string
+	switch family {
+	case chainsel.FamilyEVM:
+		evmOnRampABI, err := onramp.OnRampMetaData.GetAbi()
+		require.NoError(t, err)
+		if event, ok := evmOnRampABI.Events[eventName]; ok {
+			eventID = event.ID.String()
+			break
+		}
+		evmOffRampABI, err := offramp.OffRampMetaData.GetAbi()
+		require.NoError(t, err)
+		if event, ok := evmOffRampABI.Events[eventName]; ok {
+			eventID = event.ID.String()
+			break
+		}
+		return fmt.Errorf("failed to find event with name %s in onramp or offramp ABIs", eventName)
+	case chainsel.FamilySolana:
+		eventID = eventName
+	default:
+		return fmt.Errorf("unsupported chain family; %v", family)
+	}
+
+	require.Eventually(t, func() bool {
+		registered, err := isLogFilterRegistered(t, oc, chainSel, eventID)
+		require.NoError(t, err)
+		return registered
+	}, 10*time.Minute, 5*time.Second)
+	
+	return nil
+}
+
+func isLogFilterRegistered(t *testing.T, oc cldf.OffchainClient, chainSel uint64, eventName string) (bool, error) {
+	var registered bool
+	var err error
+	switch oc := oc.(type) {
+	case *memory.JobClient:
+		registered, err = oc.IsLogFilterRegistered(t.Context(), chainSel, eventName)
+	default:
+		return false, fmt.Errorf("unsupported offchain client type %T", oc)
+	}
+	return registered, err
 }
 
 func DeployTestContracts(t *testing.T,
@@ -552,7 +602,7 @@ func SendRequestSol(
 	c := e.BlockChains.SolanaChains()[cfg.SourceChain]
 
 	destinationChainSelector := cfg.DestChain
-	message := cfg.Message.(ccip_router.SVM2AnyMessage)
+	message := cfg.Message.(solRouter.SVM2AnyMessage)
 	feeToken := message.FeeToken
 	client := c.Client
 
@@ -628,7 +678,7 @@ func SendRequestSol(
 		return nil, err
 	}
 
-	base := ccip_router.NewCcipSendInstruction(
+	base := solRouter.NewCcipSendInstruction(
 		destinationChainSelector,
 		message,
 		[]byte{}, // starting indices for accounts, calculated later
@@ -814,7 +864,7 @@ func SendRequestSol(
 	}, nil
 }
 
-func ConvertSolanaCrossChainAmountToBigInt(amount ccip_router.CrossChainAmount) *big.Int {
+func ConvertSolanaCrossChainAmountToBigInt(amount solRouter.CrossChainAmount) *big.Int {
 	bytes := amount.LeBytes[:]
 	slices.Reverse(bytes) // convert to big-endian
 	return big.NewInt(0).SetBytes(bytes)
@@ -1825,10 +1875,10 @@ func Transfer(
 			require.NoError(t, err)
 		}
 
-		msg = ccip_router.SVM2AnyMessage{
+		msg = solRouter.SVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(receiver, 32),
 			Data:         data,
-			TokenAmounts: tokens.([]ccip_router.SVMTokenAmount),
+			TokenAmounts: tokens.([]solRouter.SVMTokenAmount),
 			FeeToken:     feeTokenAddr,
 			ExtraArgs:    extraArgs,
 		}
@@ -1836,6 +1886,13 @@ func Transfer(
 	default:
 		t.Errorf("unsupported source chain: %v", family)
 	}
+
+	// Ensure CCIPMessageSent event filter is registered
+	// Sending message too early could result in LogPoller missing the send event 
+	err = WaitForEventFilterRegistration(t, env.Offchain, sourceChain, consts.EventNameCCIPMessageSent)
+	require.NoError(t, err)
+
+	t.Logf("%s filter registered", consts.EventNameCCIPMessageSent)
 
 	msgSentEvent := TestSendRequest(t, env, state, sourceChain, destChain, useTestRouter, msg)
 	return msgSentEvent, startBlocks
@@ -1849,7 +1906,7 @@ type TestTransferRequest struct {
 	ExpectedStatus         int
 	// optional
 	Tokens                []router.ClientEVMTokenAmount
-	SolTokens             []ccip_router.SVMTokenAmount
+	SolTokens             []solRouter.SVMTokenAmount
 	Data                  []byte
 	ExtraArgs             []byte
 	ExpectedTokenBalances []ExpectedBalance
