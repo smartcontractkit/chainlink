@@ -5,7 +5,6 @@ package securemint
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
@@ -58,7 +57,7 @@ func NewSecureMintServices(ctx context.Context,
 	kvStore job.KVStore,
 	pipelineRunner pipeline.Runner,
 	lggr logger.Logger,
-	argsNoPlugin libocr.OCR3OracleArgs[sm_plugin.ChainSelector],
+	argsNoPlugin libocr.OCR3OracleArgs[[]byte],
 	cfg SecureMintConfig,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryData,
 	errorLog loop.ErrorLog,
@@ -98,11 +97,12 @@ func NewSecureMintServices(ctx context.Context,
 		return
 	}
 
-	secureMintProvider, ok := provider.(types.SecureMintProvider)
-	if !ok {
-		return nil, errors.New("could not coerce PluginProvider to SecureMintProvider")
-	}
-	fmt.Printf("secureMintProvider: %+v\n", secureMintProvider) // TODO(gg): remove debug print
+	// TODO(gg): to be implemented when needed
+	// secureMintProvider, ok := provider.(types.SecureMintProvider)
+	// if !ok {
+	// 	return nil, errors.New("could not coerce PluginProvider to SecureMintProvider")
+	// }
+	// fmt.Printf("secureMintProvider: %+v\n", secureMintProvider) // TODO(gg): remove debug print
 
 	srvs = append(srvs, provider)
 	// argsNoPlugin.ContractTransmitter = secureMintProvider.OCR3ContractTransmitter() // TODO(gg): seems like OCR3OracleArgs expects a ContractTransmitter[[]byte] but SecureMintProvider only has OCR3ContractTransmitter[ChainSelector]?
@@ -178,7 +178,7 @@ func NewSecureMintServices(ctx context.Context,
 		// srvs = append(srvs, median)
 	} else {
 		// TODO(gg): fill in params for the factory
-		argsNoPlugin.ReportingPluginFactory = &sm_plugin.PorReportingPluginFactory{}
+		// argsNoPlugin.ReportingPluginFactory = &sm_plugin.PorReportingPluginFactory{}
 		if err != nil {
 			err = fmt.Errorf("failed to create secure mint factory: %w", err)
 			abort()

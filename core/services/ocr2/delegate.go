@@ -74,6 +74,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/autotelemetry21"
 	ocr2keeper21core "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/securemint"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -1497,14 +1498,14 @@ func (d *Delegate) newServicesSecureMint(
 
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "median"}
+		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "securemint"}
 	}
 
 	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
 	})
 
-	oracleArgsNoPlugin := libocr2.OCR2OracleArgs{
+	oracleArgsNoPlugin := libocr2.OCR3OracleArgs[[]byte]{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
 		Database:                     ocrDB,
@@ -1512,12 +1513,12 @@ func (d *Delegate) newServicesSecureMint(
 		Logger:                       ocrLogger,
 		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.OCR2Median),
 		OffchainKeyring:              kb,
-		OnchainKeyring:               kb,
+		OnchainKeyring:               ocrcommon.NewOCR3OnchainKeyringAdapter(kb),
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 	errorLog := &errorLog{jobID: jb.ID, recordError: d.jobORM.RecordError}
 	enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
-	mConfig := median.NewMedianConfig(
+	smConfig := securemint.NewSecureMintConfig(
 		d.cfg.JobPipeline().MaxSuccessfulRuns(),
 		d.cfg.JobPipeline().ResultWriteQueueDepth(),
 		d.cfg,
@@ -1525,21 +1526,21 @@ func (d *Delegate) newServicesSecureMint(
 
 	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
-		return nil, ErrRelayNotEnabled{Err: err, PluginName: "median", Relay: spec.Relay}
+		return nil, ErrRelayNotEnabled{Err: err, PluginName: "securemint", Relay: spec.Relay}
 	}
 
-	medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, kvStore, d.pipelineRunner, lggr, oracleArgsNoPlugin, mConfig, enhancedTelemChan, errorLog)
+	secureMintServices, err2 := securemint.NewSecureMintServices(ctx, jb, d.isNewlyCreatedJob, relayer, kvStore, d.pipelineRunner, lggr, oracleArgsNoPlugin, smConfig, enhancedTelemChan, errorLog)
 
 	if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
 		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.EnhancedEA), lggr.Named("EnhancedTelemetry"))
-		medianServices = append(medianServices, enhancedTelemService)
+		secureMintServices = append(secureMintServices, enhancedTelemService)
 	} else {
 		lggr.Infow("Enhanced telemetry is disabled for job", "job", jb.Name)
 	}
 
-	medianServices = append(medianServices, ocrLogger)
+	secureMintServices = append(secureMintServices, ocrLogger)
 
-	return medianServices, err2
+	return secureMintServices, err2
 }
 
 func (d *Delegate) newServicesOCR2Keepers(
