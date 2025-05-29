@@ -431,7 +431,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 	}
 }
 
-func TestAddTokenPoolE2EWithoutMcms(t *testing.T) {
+func TestAddTokenPoolE2EWitMcms(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
@@ -443,6 +443,19 @@ func TestAddTokenPoolE2EWithoutMcms(t *testing.T) {
 	// evm deployment
 	e, _, err = deployEVMTokenPool(t, e, evmChain)
 	require.NoError(t, err)
+	_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+		ccipChangesetSolana.CCIPContractsToTransfer{
+			Router:    true,
+			FeeQuoter: true,
+			OffRamp:   true,
+		})
+	mcmsConfig := &proposalutils.TimelockConfig{
+		MinDelay: 1 * time.Second,
+	}
+	timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
+	require.NoError(t, err)
+	newAdmin := timelockSignerPDA
+
 	_, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.E2ETokenPool),
@@ -459,23 +472,28 @@ func TestAddTokenPoolE2EWithoutMcms(t *testing.T) {
 					{
 						ChainSelector:           solChain,
 						TokenPubKey:             newTokenAddress,
-						TokenAdminRegistryAdmin: deployerKey.String(),
+						TokenAdminRegistryAdmin: newAdmin.String(),
 						RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
+						MCMS:                    mcmsConfig,
 					},
 				},
 				AcceptAdminRoleTokenAdminRegistry: []ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
 					{
-						ChainSelector: solChain,
-						TokenPubKey:   newTokenAddress,
+						ChainSelector:     solChain,
+						TokenPubKey:       newTokenAddress,
+						MCMS:              mcmsConfig,
+						SkipRegistryCheck: true,
 					},
 				},
 				SetPool: []ccipChangesetSolana.SetPoolConfig{
 					{
-						ChainSelector:   solChain,
-						TokenPubKey:     newTokenAddress,
-						PoolType:        &poolType,
-						Metadata:        shared.CLLMetadata,
-						WritableIndexes: []uint8{3, 4, 7},
+						ChainSelector:     solChain,
+						TokenPubKey:       newTokenAddress,
+						PoolType:          &poolType,
+						Metadata:          shared.CLLMetadata,
+						WritableIndexes:   []uint8{3, 4, 7},
+						MCMS:              mcmsConfig,
+						SkipRegistryCheck: true,
 					},
 				},
 				RemoteChainTokenPool: []ccipChangesetSolana.RemoteChainTokenPoolConfig{
@@ -535,6 +553,7 @@ func TestAddTokenPoolE2EWithoutMcms(t *testing.T) {
 						},
 					},
 				},
+				MCMS: mcmsConfig,
 			},
 		),
 	})
