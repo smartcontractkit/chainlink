@@ -77,7 +77,6 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
 	var (
-		replayed bool
 		nonce    uint64
 		sender   = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
 		out      mt.TestCaseOutput
@@ -107,7 +106,6 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 			mt.TestCase{
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
-				Replayed:               replayed,
 				Nonce:                  &nonce,
 				Receiver:               common.HexToAddress("0xdead").Bytes(),
 				MsgData:                []byte("hello eoa"),
@@ -127,7 +125,6 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 			mt.TestCase{
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
-				Replayed:               out.Replayed,
 				Nonce:                  &out.Nonce,
 				Receiver:               state.MustGetEVMChainState(destChain).FeeQuoter.Address().Bytes(),
 				MsgData:                []byte("hello FeeQuoter"),
@@ -145,7 +142,6 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 			mt.TestCase{
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
-				Replayed:               out.Replayed,
 				Nonce:                  &out.Nonce,
 				Receiver:               state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver"),
@@ -172,7 +168,6 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 			mt.TestCase{
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
-				Replayed:               out.Replayed,
 				Nonce:                  &out.Nonce,
 				Receiver:               state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver with low exec gas"),
@@ -243,7 +238,6 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
 	var (
-		replayed bool
 		// nonce    uint64 // Nonce not used as Solana check is skipped
 		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
 		out    mt.TestCaseOutput
@@ -297,7 +291,6 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 			mt.TestCase{
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
-				Replayed:               replayed,
 				Nonce:                  nil, // Solana nonce check is skipped
 				Receiver:               receiver,
 				MsgData:                []byte("hello CCIPReceiver"),
@@ -345,7 +338,6 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 			mt.TestCase{
 				ValidationType: mt.ValidationTypeCommit,
 				TestSetup:      setup,
-				Replayed:       out.Replayed,
 				Nonce:          nil, // Nonce check skipped for Commit validation and Solana
 				Receiver:       receiver,
 				MsgData:        []byte("hello with too many accounts"),
@@ -375,7 +367,6 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 			mt.TestCase{
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
-				Replayed:               out.Replayed,
 				Nonce:                  nil, // Solana nonce check is skipped
 				Receiver:               receiver,
 				MsgData:                []byte("hello CCIPReceiver that should succeed"),
@@ -421,7 +412,6 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
 	var (
-		replayed bool
 		nonce    uint64
 		sender   = common.LeftPadBytes(e.Env.BlockChains.SolanaChains()[sourceChain].DeployerKey.PublicKey().Bytes(), 32)
 		out      mt.TestCaseOutput
@@ -447,7 +437,6 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 			mt.TestCase{
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
-				Replayed:               replayed,
 				Nonce:                  &nonce,
 				Receiver:               state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver"),

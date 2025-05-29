@@ -177,7 +177,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	}
 
 	// Ensure CCIPMessageSent event filter is registered
-	// Sending message too early could result in LogPoller missing the send event 
+	// Sending message too early could result in LogPoller missing the send event
 	err = testhelpers.WaitForEventFilterRegistration(t, tc.Env.Offchain, tc.SourceChain, consts.EventNameCCIPMessageSent)
 	require.NoError(t, err)
 

@@ -218,7 +218,7 @@ func WaitForEventFilterRegistration(t *testing.T, oc cldf.OffchainClient, chainS
 		require.NoError(t, err)
 		return registered
 	}, 10*time.Minute, 5*time.Second)
-	
+
 	return nil
 }
 
@@ -1373,7 +1373,7 @@ func DeployTransferableTokenSolana(
 		return nil, nil, solana.PublicKey{}, err
 	}
 
-	addresses := e.ExistingAddresses //nolint:staticcheck // addressbook still valid
+	addresses := e.ExistingAddresses
 	// deploy evm token and pool
 	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.BlockChains.EVMChains()[evmChainSel], evmDeployer, addresses, evmTokenName)
 	if err != nil {
@@ -1888,7 +1888,7 @@ func Transfer(
 	}
 
 	// Ensure CCIPMessageSent event filter is registered
-	// Sending message too early could result in LogPoller missing the send event 
+	// Sending message too early could result in LogPoller missing the send event
 	err = WaitForEventFilterRegistration(t, env.Offchain, sourceChain, consts.EventNameCCIPMessageSent)
 	require.NoError(t, err)
 
