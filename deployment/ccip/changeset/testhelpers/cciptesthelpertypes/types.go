@@ -15,7 +15,7 @@ import (
 // MinRoleDONSize represents the size of the smallest possible CCIP role DON.
 const MinRoleDONSize = 4
 
-// NChain returns the number of chains that a given fChain value will support.
+// NChain returns the number of readers for a chain based on a given fChain value.
 // The general formula is: NChain = 3 * fChain + 1
 func NChain[T constraints.Integer](fChain T) T {
 	return 3*fChain + 1
