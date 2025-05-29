@@ -656,6 +656,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 }
 
 func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *ccipChangeSetSolana.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
+	var mcmsCfg *commontypes.MCMSWithTimelockConfigV2
 	state, err := stateview.LoadOnchainState(e.Env)
 	if err != nil {
 		return nil, err
@@ -697,7 +698,8 @@ func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, pr
 						EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
 					},
 				},
-				BuildConfig: buildSolConfig,
+				BuildConfig:            buildSolConfig,
+				MCMSWithTimelockConfig: mcmsCfg,
 			},
 		)}, nil
 }
