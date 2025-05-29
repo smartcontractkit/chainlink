@@ -77,10 +77,10 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
 	var (
-		nonce    uint64
-		sender   = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
-		out      mt.TestCaseOutput
-		setup    = mt.NewTestSetupWithDeployedEnv(
+		nonce  uint64
+		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
+		out    mt.TestCaseOutput
+		setup  = mt.NewTestSetupWithDeployedEnv(
 			t,
 			e,
 			state,
@@ -412,10 +412,10 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
 	var (
-		nonce    uint64
-		sender   = common.LeftPadBytes(e.Env.BlockChains.SolanaChains()[sourceChain].DeployerKey.PublicKey().Bytes(), 32)
-		out      mt.TestCaseOutput
-		setup    = mt.NewTestSetupWithDeployedEnv(
+		nonce  uint64
+		sender = common.LeftPadBytes(e.Env.BlockChains.SolanaChains()[sourceChain].DeployerKey.PublicKey().Bytes(), 32)
+		out    mt.TestCaseOutput
+		setup  = mt.NewTestSetupWithDeployedEnv(
 			t,
 			e,
 			state,
