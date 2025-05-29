@@ -75,7 +75,7 @@ func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	if err != nil {
 		return types.BatchOperation{}, fmt.Errorf("failed to update Router: %w", err)
 	}
-	mcmsTxs = append(mcmsTxs, routerReport.Output...)
+	mcmsTxs = append(mcmsTxs, routerReport.Output)
 
 	return types.BatchOperation{
 		ChainSelector: types.ChainSelector(deps.AptosChain.Selector),

@@ -1,7 +1,6 @@
 package operation
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/big"
 
@@ -10,7 +9,7 @@ import (
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/mcms/types"
 )
 
@@ -64,21 +63,12 @@ func updateFeeQuoterDests(b operations.Bundle, deps AptosDeps, in UpdateFeeQuote
 			return []types.Transaction{}, fmt.Errorf("failed to encode ApplyDestChainConfigUpdates for chain %d: %w", destChainSelector, err)
 		}
 
-		additionalFields := aptosmcms.AdditionalFields{
-			PackageName: moduleInfo.PackageName,
-			ModuleName:  moduleInfo.ModuleName,
-			Function:    function,
-		}
-		afBytes, err := json.Marshal(additionalFields)
+		tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
 		if err != nil {
-			return []types.Transaction{}, fmt.Errorf("failed to marshal additional fields: %w", err)
+			return []types.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 
-		txs = append(txs, types.Transaction{
-			To:               ccipAddress.StringLong(),
-			Data:             aptosmcms.ArgsToData(args),
-			AdditionalFields: afBytes,
-		})
+		txs = append(txs, tx)
 
 		b.Logger.Infow("Adding FeeQuoter destination config update operation",
 			"destChainSelector", destChainSelector,
@@ -127,21 +117,11 @@ func updateFeeQuoterPrices(b operations.Bundle, deps AptosDeps, in UpdateFeeQuot
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode ApplyAllowedOfframpUpdates: %w", err)
 	}
-	additionalFields := aptosmcms.AdditionalFields{
-		PackageName: moduleInfo.PackageName,
-		ModuleName:  moduleInfo.ModuleName,
-		Function:    function,
-	}
-	afBytes, err := json.Marshal(additionalFields)
+	tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal additional fields: %w", err)
+		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
-
-	txs = append(txs, types.Transaction{
-		To:               ccipAddress.StringLong(),
-		Data:             aptosmcms.ArgsToData(args),
-		AdditionalFields: afBytes,
-	})
+	txs = append(txs, tx)
 
 	// Convert token prices and gas prices to format expected by Aptos contract
 	var sourceTokens []aptos.AccountAddress
@@ -182,22 +162,11 @@ func updateFeeQuoterPrices(b operations.Bundle, deps AptosDeps, in UpdateFeeQuot
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode UpdatePrices: %w", err)
 	}
-
-	additionalFields = aptosmcms.AdditionalFields{
-		PackageName: moduleInfo.PackageName,
-		ModuleName:  moduleInfo.ModuleName,
-		Function:    function,
-	}
-	afBytes, err = json.Marshal(additionalFields)
+	tx, err = utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal additional fields: %w", err)
+		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
-
-	txs = append(txs, types.Transaction{
-		To:               ccipAddress.StringLong(),
-		Data:             aptosmcms.ArgsToData(args),
-		AdditionalFields: afBytes,
-	})
+	txs = append(txs, tx)
 
 	b.Logger.Infow("Adding FeeQuoter price update operation",
 		"tokenPriceCount", len(sourceTokens),

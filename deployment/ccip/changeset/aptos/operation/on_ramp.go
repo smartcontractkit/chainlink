@@ -1,15 +1,14 @@
 package operation
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	"github.com/smartcontractkit/mcms/types"
 )
 
@@ -87,24 +86,13 @@ func updateOnRampDests(b operations.Bundle, deps AptosDeps, in UpdateOnRampDests
 	if err != nil {
 		return types.Transaction{}, fmt.Errorf("failed to encode ApplyDestChainConfigUpdates for OnRamp: %w", err)
 	}
-
-	// Create MCMS operation
-	additionalFields := aptosmcms.AdditionalFields{
-		PackageName: moduleInfo.PackageName,
-		ModuleName:  moduleInfo.ModuleName,
-		Function:    function,
-	}
-	afBytes, err := json.Marshal(additionalFields)
+	tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
 	if err != nil {
-		return types.Transaction{}, fmt.Errorf("failed to marshal additional fields: %w", err)
+		return types.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
 	}
 
 	b.Logger.Infow("Adding OnRamp destination config update operation",
 		"chainCount", len(destChainSelectors))
 
-	return types.Transaction{
-		To:               ccipAddress.StringLong(),
-		Data:             aptosmcms.ArgsToData(args),
-		AdditionalFields: afBytes,
-	}, nil
+	return tx, nil
 }

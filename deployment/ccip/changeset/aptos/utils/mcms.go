@@ -181,22 +181,15 @@ func CreateChunksAndStage(
 		if err != nil {
 			return operations, fmt.Errorf("failed to encode chunk %d: %w", i, err)
 		}
-		additionalFields := aptosmcms.AdditionalFields{
-			PackageName: moduleInfo.PackageName,
-			ModuleName:  moduleInfo.ModuleName,
-			Function:    function,
-		}
-		afBytes, err := json.Marshal(additionalFields)
+
+		tx, err := GenerateMCMSTx(mcmsAddress, moduleInfo, function, args)
 		if err != nil {
-			return operations, fmt.Errorf("failed to marshal additional fields: %w", err)
+			return operations, fmt.Errorf("failed to create transaction: %w", err)
 		}
+
 		operations = append(operations, types.Operation{
 			ChainSelector: types.ChainSelector(chainSel),
-			Transaction: types.Transaction{
-				To:               mcmsAddress.StringLong(),
-				Data:             aptosmcms.ArgsToData(args),
-				AdditionalFields: afBytes,
-			},
+			Transaction:   tx,
 		})
 	}
 
@@ -205,18 +198,13 @@ func CreateChunksAndStage(
 
 // GenerateMCMSTx is a helper function that generates a MCMS txs for the given parameters
 func GenerateMCMSTx(toAddress aptos.AccountAddress, moduleInfo bind.ModuleInformation, function string, args [][]byte) (types.Transaction, error) {
-	additionalFields := aptosmcms.AdditionalFields{
-		PackageName: moduleInfo.PackageName,
-		ModuleName:  moduleInfo.ModuleName,
-		Function:    function,
-	}
-	afBytes, err := json.Marshal(additionalFields)
-	if err != nil {
-		return types.Transaction{}, fmt.Errorf("failed to marshal additional fields: %w", err)
-	}
-	return types.Transaction{
-		To:               toAddress.StringLong(),
-		Data:             aptosmcms.ArgsToData(args),
-		AdditionalFields: afBytes,
-	}, nil
+	return aptosmcms.NewTransaction(
+		moduleInfo.PackageName,
+		moduleInfo.ModuleName,
+		function,
+		toAddress,
+		aptosmcms.ArgsToData(args),
+		"",
+		nil,
+	)
 }
