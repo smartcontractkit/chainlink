@@ -2188,7 +2188,7 @@ func ValidateSolanaState(e cldf.Environment, solChainSelectors []uint64) error {
 
 		// Get offramp config
 		var offRampConfigAccount solOffRamp.Config
-		err = e.SolChains[sel].GetAccountDataBorshInto(
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(
 			e.GetContext(),
 			chainState.OffRampConfigPDA,
 			&offRampConfigAccount,
