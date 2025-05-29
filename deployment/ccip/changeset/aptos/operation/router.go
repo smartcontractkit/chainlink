@@ -28,7 +28,7 @@ var UpdateRouterOp = operations.NewOperation(
 
 func updateRouter(b operations.Bundle, deps AptosDeps, in UpdateRouterDestInput) ([]types.Transaction, error) {
 	// Bind CCIP Package
-	ccipAddress := deps.OnChainState.CCIPAddress
+	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	routerBind := ccip_router.Bind(ccipAddress, deps.AptosChain.Client)
 
 	// Process each destination chain config update
@@ -42,7 +42,7 @@ func updateRouter(b operations.Bundle, deps AptosDeps, in UpdateRouterDestInput)
 	}
 	moduleInfo, function, _, args, err := routerBind.Router().Encoder().SetOnRampVersions(destChainSelectors, onRampVersions)
 	if err != nil {
-		return []types.Transaction{}, fmt.Errorf("failed to encode ApplyDestChainConfigUpdates for chains %d: %w", uint64(14767482510784806043), err)
+		return []types.Transaction{}, fmt.Errorf("failed to encode ApplyDestChainConfigUpdates for chains %d: %w", deps.AptosChain.Selector, err)
 	}
 
 	additionalFields := aptosmcms.AdditionalFields{

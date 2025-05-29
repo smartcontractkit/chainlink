@@ -27,9 +27,10 @@ var UpdateOnRampDestsOp = operations.NewOperation(
 	updateOnRampDests,
 )
 
-func updateOnRampDests(b operations.Bundle, deps AptosDeps, in UpdateOnRampDestsInput) ([]types.Transaction, error) {
+func updateOnRampDests(b operations.Bundle, deps AptosDeps, in UpdateOnRampDestsInput) (types.Transaction, error) {
+	aptosState := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector]
 	// Bind CCIP Package
-	ccipAddress := deps.OnChainState.CCIPAddress
+	ccipAddress := aptosState.CCIPAddress
 	onrampBind := ccip_onramp.Bind(ccipAddress, deps.AptosChain.Client)
 
 	// Transform the updates into the format expected by the Aptos contract
@@ -40,18 +41,18 @@ func updateOnRampDests(b operations.Bundle, deps AptosDeps, in UpdateOnRampDests
 	// Get routers state addresses
 	var testRouterStateAddress aptos.AccountAddress
 	var routerStateAddress aptos.AccountAddress
-	if deps.OnChainState.TestRouterAddress != (aptos.AccountAddress{}) {
-		testRouter := ccip_router.Bind(deps.OnChainState.TestRouterAddress, deps.AptosChain.Client)
+	if aptosState.TestRouterAddress != (aptos.AccountAddress{}) {
+		testRouter := ccip_router.Bind(aptosState.TestRouterAddress, deps.AptosChain.Client)
 		stateAddress, err := testRouter.Router().GetStateAddress(nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get test router state address: %w", err)
+			return types.Transaction{}, fmt.Errorf("failed to get test router state address: %w", err)
 		}
 		testRouterStateAddress = stateAddress
 	}
-	router := ccip_router.Bind(deps.OnChainState.CCIPAddress, deps.AptosChain.Client)
+	router := ccip_router.Bind(ccipAddress, deps.AptosChain.Client)
 	routerStateAddress, err := router.Router().GetStateAddress(nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get router state address: %w", err)
+		return types.Transaction{}, fmt.Errorf("failed to get router state address: %w", err)
 	}
 
 	// Process each destination chain config update
@@ -74,7 +75,7 @@ func updateOnRampDests(b operations.Bundle, deps AptosDeps, in UpdateOnRampDests
 
 	if len(destChainSelectors) == 0 {
 		b.Logger.Infow("No OnRamp destination updates to apply")
-		return nil, nil
+		return types.Transaction{}, nil
 	}
 
 	// Encode the update operation
@@ -84,7 +85,7 @@ func updateOnRampDests(b operations.Bundle, deps AptosDeps, in UpdateOnRampDests
 		destChainAllowlistEnabled,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode ApplyDestChainConfigUpdates for OnRamp: %w", err)
+		return types.Transaction{}, fmt.Errorf("failed to encode ApplyDestChainConfigUpdates for OnRamp: %w", err)
 	}
 
 	// Create MCMS operation
@@ -95,15 +96,15 @@ func updateOnRampDests(b operations.Bundle, deps AptosDeps, in UpdateOnRampDests
 	}
 	afBytes, err := json.Marshal(additionalFields)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal additional fields: %w", err)
+		return types.Transaction{}, fmt.Errorf("failed to marshal additional fields: %w", err)
 	}
 
 	b.Logger.Infow("Adding OnRamp destination config update operation",
 		"chainCount", len(destChainSelectors))
 
-	return []types.Transaction{{
+	return types.Transaction{
 		To:               ccipAddress.StringLong(),
 		Data:             aptosmcms.ArgsToData(args),
 		AdditionalFields: afBytes,
-	}}, nil
+	}, nil
 }

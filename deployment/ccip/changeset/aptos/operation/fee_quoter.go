@@ -30,7 +30,7 @@ var UpdateFeeQuoterDestsOp = operations.NewOperation(
 
 func updateFeeQuoterDests(b operations.Bundle, deps AptosDeps, in UpdateFeeQuoterDestsInput) ([]types.Transaction, error) {
 	// Bind CCIP Package
-	ccipAddress := deps.OnChainState.CCIPAddress
+	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
 
 	// Process each destination chain config update
@@ -111,11 +111,11 @@ func updateFeeQuoterPrices(b operations.Bundle, deps AptosDeps, in UpdateFeeQuot
 	var txs []types.Transaction
 
 	// Bind CCIP Package
-	ccipAddress := deps.OnChainState.CCIPAddress
+	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
 
 	// Bind MCMS Package
-	mcmsAddress := deps.OnChainState.MCMSAddress
+	mcmsAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].MCMSAddress
 	mcmsBind := mcms.Bind(mcmsAddress, deps.AptosChain.Client)
 
 	// Add CCIP Owner address to update token prices allow list

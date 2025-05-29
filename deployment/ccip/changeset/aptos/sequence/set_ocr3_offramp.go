@@ -30,9 +30,10 @@ var SetOCR3OfframpSequence = operations.NewSequence(
 )
 
 func setOCR3OfframpSequence(b operations.Bundle, deps operation.AptosDeps, in SetOCR3OfframpSeqInput) (mcmstypes.BatchOperation, error) {
+	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	var txs []mcmstypes.Transaction
 
-	offRampBind := ccip_offramp.Bind(deps.OnChainState.CCIPAddress, deps.AptosChain.Client)
+	offRampBind := ccip_offramp.Bind(ccipAddress, deps.AptosChain.Client)
 
 	donID, err := internal.DonIDForChain(
 		deps.CCIPOnChainState.Chains[in.HomeChainSelector].CapabilityRegistry,
@@ -53,22 +54,21 @@ func setOCR3OfframpSequence(b operations.Bundle, deps operation.AptosDeps, in Se
 		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to build OCR3 config args: %w", err)
 	}
 
-	var commitArgs *internal.MultiOCR3BaseOCRConfigArgsAptos = nil
-	var execArgs *internal.MultiOCR3BaseOCRConfigArgsAptos = nil
+	var commitArgs *internal.MultiOCR3BaseOCRConfigArgsAptos
+	var execArgs *internal.MultiOCR3BaseOCRConfigArgsAptos
 	for _, ocr3Arg := range ocr3Args {
-		if ocr3Arg.OcrPluginType == uint8(types.PluginTypeCCIPCommit) {
+		switch ocr3Arg.OcrPluginType {
+		case uint8(types.PluginTypeCCIPCommit):
 			commitArgs = &ocr3Arg
-		} else if ocr3Arg.OcrPluginType == uint8(types.PluginTypeCCIPExec) {
+		case uint8(types.PluginTypeCCIPExec):
 			execArgs = &ocr3Arg
-		} else {
+		default:
 			return mcmstypes.BatchOperation{}, fmt.Errorf("unknown plugin type %d", ocr3Arg.OcrPluginType)
 		}
 	}
 
 	commitSigners := [][]byte{}
-	for _, signer := range commitArgs.Signers {
-		commitSigners = append(commitSigners, signer)
-	}
+	commitSigners = append(commitSigners, commitArgs.Signers...)
 	commitTransmitters := []aptos.AccountAddress{}
 	for _, transmitter := range commitArgs.Transmitters {
 		address, err := aptosutils.PublicKeyBytesToAddress(transmitter)
@@ -88,16 +88,14 @@ func setOCR3OfframpSequence(b operations.Bundle, deps operation.AptosDeps, in Se
 	if err != nil {
 		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to encode SetOcr3Config for commit: %w", err)
 	}
-	mcmsTx, err := utils.GenerateMCMSTx(deps.OnChainState.CCIPAddress, moduleInfo, function, args)
+	mcmsTx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
 	if err != nil {
 		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to generate MCMS operations for OffRamp Initialize: %w", err)
 	}
 	txs = append(txs, mcmsTx)
 
 	execSigners := [][]byte{}
-	for _, signer := range execArgs.Signers {
-		execSigners = append(execSigners, signer)
-	}
+	execSigners = append(execSigners, execArgs.Signers...)
 	execTransmitters := []aptos.AccountAddress{}
 	for _, transmitter := range execArgs.Transmitters {
 		address, err := aptosutils.PublicKeyBytesToAddress(transmitter)
@@ -117,7 +115,7 @@ func setOCR3OfframpSequence(b operations.Bundle, deps operation.AptosDeps, in Se
 	if err != nil {
 		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to encode SetOcr3Config for exec: %w", err)
 	}
-	mcmsTx, err = utils.GenerateMCMSTx(deps.OnChainState.CCIPAddress, moduleInfo, function, args)
+	mcmsTx, err = utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
 	if err != nil {
 		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to generate MCMS operations for OffRamp Initialize: %w", err)
 	}

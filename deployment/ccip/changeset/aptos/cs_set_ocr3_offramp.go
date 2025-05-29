@@ -42,7 +42,6 @@ func (cs SetOCR3Offramp) Apply(env cldf.Environment, config v1_6.SetOCR3OffRampC
 	for _, remoteSelector := range config.RemoteChainSels {
 		deps := operation.AptosDeps{
 			AptosChain:       env.AptosChains[remoteSelector],
-			OnChainState:     state.AptosChains[remoteSelector],
 			CCIPOnChainState: state,
 		}
 		in := seq.SetOCR3OfframpSeqInput{

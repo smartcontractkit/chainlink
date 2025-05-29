@@ -16,6 +16,8 @@ import (
 	"github.com/smartcontractkit/mcms/types"
 )
 
+var defaultOnRampVersion = []byte{1, 6, 0}
+
 type UpdateAptosLanesSeqInput struct {
 	UpdateFeeQuoterDestsConfig  operation.UpdateFeeQuoterDestsInput
 	UpdateFeeQuoterPricesConfig operation.UpdateFeeQuoterPricesInput
@@ -49,7 +51,7 @@ func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	if err != nil {
 		return types.BatchOperation{}, fmt.Errorf("failed to update OnRamp destinations: %w", err)
 	}
-	mcmsTxs = append(mcmsTxs, onRampReport.Output...)
+	mcmsTxs = append(mcmsTxs, onRampReport.Output)
 
 	// 3. Configure sources on OffRamps
 	b.Logger.Info("Updating source configs on OffRamps")
@@ -57,7 +59,7 @@ func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	if err != nil {
 		return types.BatchOperation{}, fmt.Errorf("failed to update OffRamp sources: %w", err)
 	}
-	mcmsTxs = append(mcmsTxs, offRampReport.Output...)
+	mcmsTxs = append(mcmsTxs, offRampReport.Output)
 
 	// 4. Update FeeQuoters with gas prices
 	b.Logger.Info("Updating gas prices on FeeQuoters")
@@ -149,7 +151,7 @@ func setAptosSourceUpdates(lane config.LaneConfig, updateInputsByAptosChain map[
 	}
 	onRampVersion := dest.OnRampVersion
 	if onRampVersion == nil {
-		onRampVersion = []byte{1, 6, 0}
+		onRampVersion = defaultOnRampVersion
 	}
 	input.UpdateRouterDestConfig.Updates = append(input.UpdateRouterDestConfig.Updates, aptos_router.OnRampSet{
 		DestChainSelector: dest.Selector,
