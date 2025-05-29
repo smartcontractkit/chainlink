@@ -131,29 +131,29 @@ func (_c *ChainSpecificAddressCodec_AddressStringToBytes_Call) RunAndReturn(run 
 	return _c
 }
 
-// RandomAddressBytes provides a mock function with no fields
-func (_m *ChainSpecificAddressCodec) RandomAddressBytes() ([]byte, error) {
-	ret := _m.Called()
+// OracleIDAsAddressBytes provides a mock function with given fields: oracleID
+func (_m *ChainSpecificAddressCodec) OracleIDAsAddressBytes(oracleID uint8) ([]byte, error) {
+	ret := _m.Called(oracleID)
 
 	if len(ret) == 0 {
-		panic("no return value specified for RandomAddressBytes")
+		panic("no return value specified for OracleIDAsAddressBytes")
 	}
 
 	var r0 []byte
 	var r1 error
-	if rf, ok := ret.Get(0).(func() ([]byte, error)); ok {
-		return rf()
+	if rf, ok := ret.Get(0).(func(uint8) ([]byte, error)); ok {
+		return rf(oracleID)
 	}
-	if rf, ok := ret.Get(0).(func() []byte); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(uint8) []byte); ok {
+		r0 = rf(oracleID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]byte)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(uint8) error); ok {
+		r1 = rf(oracleID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -161,29 +161,30 @@ func (_m *ChainSpecificAddressCodec) RandomAddressBytes() ([]byte, error) {
 	return r0, r1
 }
 
-// ChainSpecificAddressCodec_RandomAddressBytes_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RandomAddressBytes'
-type ChainSpecificAddressCodec_RandomAddressBytes_Call struct {
+// ChainSpecificAddressCodec_OracleIDAsAddressBytes_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OracleIDAsAddressBytes'
+type ChainSpecificAddressCodec_OracleIDAsAddressBytes_Call struct {
 	*mock.Call
 }
 
-// RandomAddressBytes is a helper method to define mock.On call
-func (_e *ChainSpecificAddressCodec_Expecter) RandomAddressBytes() *ChainSpecificAddressCodec_RandomAddressBytes_Call {
-	return &ChainSpecificAddressCodec_RandomAddressBytes_Call{Call: _e.mock.On("RandomAddressBytes")}
+// OracleIDAsAddressBytes is a helper method to define mock.On call
+//   - oracleID uint8
+func (_e *ChainSpecificAddressCodec_Expecter) OracleIDAsAddressBytes(oracleID interface{}) *ChainSpecificAddressCodec_OracleIDAsAddressBytes_Call {
+	return &ChainSpecificAddressCodec_OracleIDAsAddressBytes_Call{Call: _e.mock.On("OracleIDAsAddressBytes", oracleID)}
 }
 
-func (_c *ChainSpecificAddressCodec_RandomAddressBytes_Call) Run(run func()) *ChainSpecificAddressCodec_RandomAddressBytes_Call {
+func (_c *ChainSpecificAddressCodec_OracleIDAsAddressBytes_Call) Run(run func(oracleID uint8)) *ChainSpecificAddressCodec_OracleIDAsAddressBytes_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(uint8))
 	})
 	return _c
 }
 
-func (_c *ChainSpecificAddressCodec_RandomAddressBytes_Call) Return(_a0 []byte, _a1 error) *ChainSpecificAddressCodec_RandomAddressBytes_Call {
+func (_c *ChainSpecificAddressCodec_OracleIDAsAddressBytes_Call) Return(_a0 []byte, _a1 error) *ChainSpecificAddressCodec_OracleIDAsAddressBytes_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ChainSpecificAddressCodec_RandomAddressBytes_Call) RunAndReturn(run func() ([]byte, error)) *ChainSpecificAddressCodec_RandomAddressBytes_Call {
+func (_c *ChainSpecificAddressCodec_OracleIDAsAddressBytes_Call) RunAndReturn(run func(uint8) ([]byte, error)) *ChainSpecificAddressCodec_OracleIDAsAddressBytes_Call {
 	_c.Call.Return(run)
 	return _c
 }

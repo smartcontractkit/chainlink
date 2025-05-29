@@ -513,7 +513,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 
 			require.NoError(t, err)
 			require.NotNil(t, gotMapping)
-			require.Len(t, gotMapping, len(tt.args.chainSelectors))
+			require.Len(t, gotMapping, len(tt.args.chainSelectors)+1)
 
 			for _, cs := range tt.args.chainSelectors {
 				require.Contains(t, gotMapping, cs)
@@ -531,7 +531,10 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 
 				// Calculate actual distribution of node counts
 				actualNodeCountsDistribution := make(map[int]int)
-				for _, assignedNodes := range gotMapping {
+				for chainSel, assignedNodes := range gotMapping {
+					if chainSel == tt.args.homeChainSelector {
+						continue // Skip the home chain for this specific distribution check
+					}
 					actualNodeCountsDistribution[len(assignedNodes)]++
 				}
 				require.Equal(t, expectedNodeCountsDistribution, actualNodeCountsDistribution, "Node count distribution mismatch")

@@ -16,8 +16,6 @@ const errMsg = "no-op transmitter %s called, it shouldn't be! Check the CCIPHome
 
 // NewNoOpTransmitter creates a new no-op transmitter. It is intended to be used in
 // role DONs where the node that is participating cannot transmit to the destination chain.
-// TODO: We need to pass in the fake transmit account because the OCR setup will fail if the transmitters
-// are empty and don't match the transmitters returned in configTracker.PublicConfig().
 func NewNoOpTransmitter(lggr logger.Logger, myP2PID string, fakeTransmitAccount types.Account) *noOpTransmitter {
 	return &noOpTransmitter{
 		lggr:                lggr,
