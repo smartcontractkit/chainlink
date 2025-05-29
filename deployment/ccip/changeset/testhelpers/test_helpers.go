@@ -2174,14 +2174,14 @@ func ValidateSolanaState(e cldf.Environment, solChainSelectors []uint64) error {
 
 		// Get router config
 		var routerConfigAccount solRouter.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(e.GetContext(), chainState.RouterConfigPDA, &routerConfigAccount)
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(context.Background(), chainState.RouterConfigPDA, &routerConfigAccount)
 		if err != nil {
 			return fmt.Errorf("failed to deserialize router config for chain %d: %w", sel, err)
 		}
 
 		// Get fee quoter config
 		var feeQuoterConfigAccount solFeeQuoter.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(e.GetContext(), chainState.FeeQuoterConfigPDA, &feeQuoterConfigAccount)
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(context.Background(), chainState.FeeQuoterConfigPDA, &feeQuoterConfigAccount)
 		if err != nil {
 			return fmt.Errorf("failed to deserialize fee quoter config for chain %d: %w", sel, err)
 		}
@@ -2189,7 +2189,7 @@ func ValidateSolanaState(e cldf.Environment, solChainSelectors []uint64) error {
 		// Get offramp config
 		var offRampConfigAccount solOffRamp.Config
 		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(
-			e.GetContext(),
+			context.Background(),
 			chainState.OffRampConfigPDA,
 			&offRampConfigAccount,
 		)
@@ -2202,7 +2202,7 @@ func ValidateSolanaState(e cldf.Environment, solChainSelectors []uint64) error {
 
 		// Get rmn remote config
 		var rmnRemoteConfigAccount solRmnRemote.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(e.GetContext(), chainState.RMNRemoteConfigPDA, &rmnRemoteConfigAccount)
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(context.Background(), chainState.RMNRemoteConfigPDA, &rmnRemoteConfigAccount)
 		if err != nil {
 			return fmt.Errorf("failed to deserialize rmn remote config for chain %d: %w", sel, err)
 		}
