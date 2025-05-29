@@ -41,11 +41,12 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 	}(e)
 	// if mcms config is not provided, use the mcms config from one of the other configs
 	if cfg.MCMS == nil {
-		if len(cfg.RegisterTokenAdminRegistry) > 0 && cfg.RegisterTokenAdminRegistry[0].MCMS != nil {
+		switch {
+		case len(cfg.RegisterTokenAdminRegistry) > 0 && cfg.RegisterTokenAdminRegistry[0].MCMS != nil:
 			cfg.MCMS = cfg.RegisterTokenAdminRegistry[0].MCMS
-		} else if len(cfg.AcceptAdminRoleTokenAdminRegistry) > 0 && cfg.AcceptAdminRoleTokenAdminRegistry[0].MCMS != nil {
+		case len(cfg.AcceptAdminRoleTokenAdminRegistry) > 0 && cfg.AcceptAdminRoleTokenAdminRegistry[0].MCMS != nil:
 			cfg.MCMS = cfg.AcceptAdminRoleTokenAdminRegistry[0].MCMS
-		} else if len(cfg.SetPool) > 0 && cfg.SetPool[0].MCMS != nil {
+		case len(cfg.SetPool) > 0 && cfg.SetPool[0].MCMS != nil:
 			cfg.MCMS = cfg.SetPool[0].MCMS
 		}
 	}
