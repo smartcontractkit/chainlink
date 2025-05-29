@@ -1310,7 +1310,7 @@ func DeployTransferableTokenSolana(
 		return nil, nil, solana.PublicKey{}, err
 	}
 
-	addresses := e.ExistingAddresses //nolint:staticcheck // addressbook still valid
+	addresses := e.ExistingAddresses
 	// deploy evm token and pool
 	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.Chains[evmChainSel], evmDeployer, addresses, evmTokenName)
 	if err != nil {
