@@ -553,7 +553,7 @@ func TestAddTokenPoolE2EWitMcms(t *testing.T) {
 						},
 					},
 				},
-				MCMS: mcmsConfig,
+				// MCMS: mcmsConfig, // test mcms config inference
 			},
 		),
 	})

@@ -28,7 +28,7 @@ type E2ETokenPoolConfig struct {
 	SetPool                               []SetPoolConfig
 	RemoteChainTokenPool                  []RemoteChainTokenPoolConfig
 	ConfigureTokenPoolContractsChangesets []v1_5_1.ConfigureTokenPoolContractsConfig
-	MCMS                                  *proposalutils.TimelockConfig
+	MCMS                                  *proposalutils.TimelockConfig // set it to aggregate all the proposals
 }
 
 func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOutput, error) {
@@ -39,7 +39,7 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 		e.Logger.Info("SolanaE2ETokenPool changeset completed")
 		e.Logger.Info("Final output: ", finalOutput.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	}(e)
-	// if mcms config is not provided, use the mcms config from the register token admin registry, accept admin role token admin registry, or set pool
+	// if mcms config is not provided, use the mcms config from one of the other configs
 	if cfg.MCMS == nil {
 		if len(cfg.RegisterTokenAdminRegistry) > 0 && cfg.RegisterTokenAdminRegistry[0].MCMS != nil {
 			cfg.MCMS = cfg.RegisterTokenAdminRegistry[0].MCMS
