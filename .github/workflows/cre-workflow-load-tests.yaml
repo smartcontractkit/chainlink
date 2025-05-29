@@ -123,11 +123,10 @@ jobs:
           # Anvil developer key, not a secret
           PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
           CTF_CONFIGS: "workflow-don-load-test-streams-kind.toml,ci-override.toml"
-          DASHBOARD_FOLDER: "LoadTests"
+          DASHBOARD_FOLDER: "Workflow Nightly Load Tests"
           DASHBOARD_NAME: "Wasp"
           DATA_SOURCE_NAME: "Loki"
-          GRAFANA_URL: "http://localhost:3000"
-          LOKI_URL: "http://localhost:3030/loki/api/v1/push"
+          LOKI_URL: ${{ secrets.LOKI_URL }}
           LOAD_TEST: "true"
         run: |
           cd system-tests/tests/load/cre
