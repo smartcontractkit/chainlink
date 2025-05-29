@@ -62,6 +62,8 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 		return deployment.CapabilityRegistryConfig{}, nil, errors.New("environment is nil")
 	}
 
+	evmChains := e.BlockChains.EVMChains()
+
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
 		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to get node info from env: %w", err)
@@ -69,7 +71,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, chain := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)) {
-		mcmsConfig, err := mcmstypes.NewConfig(1, []common.Address{e.BlockChains.EVMChains()[chain].DeployerKey.From}, []mcmstypes.Config{})
+		mcmsConfig, err := mcmstypes.NewConfig(1, []common.Address{evmChains[chain].DeployerKey.From}, []mcmstypes.Config{})
 		if err != nil {
 			return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to create mcms config: %w", err)
 		}
@@ -91,7 +93,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 				HomeChainSel:             homeChainSel,
 				RMNStaticConfig:          testhelpers.NewTestRMNStaticConfig(),
 				RMNDynamicConfig:         testhelpers.NewTestRMNDynamicConfig(),
-				NodeOperators:            testhelpers.NewTestNodeOperator(e.BlockChains.EVMChains()[homeChainSel].DeployerKey.From),
+				NodeOperators:            testhelpers.NewTestNodeOperator(evmChains[homeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{"NodeOperator": p2pIds},
 			},
 		),
@@ -356,14 +358,15 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64) (
 }
 
 func setupLinkPools(e *cldf.Environment) (cldf.Environment, error) {
-	state, err := stateview.LoadOnchainState(*e)
 	evmChains := e.BlockChains.EVMChains()
+	state, err := stateview.LoadOnchainState(*e)
 	if err != nil {
 		return *e, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	chainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	poolInput := make(map[uint64]v1_5_1.DeployTokenPoolInput)
 	pools := make(map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo)
+
 	for _, chain := range chainSelectors {
 		poolInput[chain] = v1_5_1.DeployTokenPoolInput{
 			Type:               shared.BurnMintTokenPool,
