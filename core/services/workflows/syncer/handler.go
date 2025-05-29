@@ -532,6 +532,9 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		LocalLimits:          v2.EngineLimits{}, // all defaults
 		GlobalLimits:         h.workflowLimits,
 		ExecutionRateLimiter: h.ratelimiter,
+
+		BeholderEmitter: h.emitter,
+		BillingClient:   h.billingClient,
 	}
 	return v2.NewEngine(cfg)
 }
