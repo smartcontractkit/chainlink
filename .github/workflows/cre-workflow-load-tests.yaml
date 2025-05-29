@@ -123,17 +123,19 @@ jobs:
           # Anvil developer key, not a secret
           PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
           CTF_CONFIGS: "workflow-don-load-test-streams-kind.toml,ci-override.toml"
-          DASHBOARD_FOLDER: "Workflow Nightly Load Tests"
-          DASHBOARD_NAME: "Wasp"
-          DATA_SOURCE_NAME: "Loki"
-#          GRAFANA_URL: "http://localhost:3000"
-          LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
-          LOKI_URL: ${{ secrets.LOKI_URL }}
-          LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
           LOAD_TEST: "true"
         run: |
           cd system-tests/tests/load/cre
           go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 10m
+
+      - name: Upload cl node coverage data as artifact
+        uses: actions/upload-artifact@v4.4.3
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: amazing logs
+          path: ./system-tests/tests/load/cre/logs/
+          retention-days: 1
 
 #  notify-test-failure:
 #    name: Notify about local env startup failure
