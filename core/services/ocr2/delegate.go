@@ -571,8 +571,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	case types.DonTimePlugin:
 		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 	case types.SecureMint:
-		// TODO(gg): update to use separate services for securemint
-		return d.newServicesMedian(ctx, lggr, jb, bootstrapPeers, kb, kvStore, ocrDB, lc)
+		return d.newServicesSecureMint(ctx, lggr, jb, bootstrapPeers, kb, kvStore, ocrDB, lc)
 
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
@@ -1445,6 +1444,66 @@ func (d *Delegate) newServicesMedian(
 	})
 
 	lc.EnableTransmissionTelemetry = true
+	oracleArgsNoPlugin := libocr2.OCR2OracleArgs{
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+		V2Bootstrappers:              bootstrapPeers,
+		Database:                     ocrDB,
+		LocalConfig:                  lc,
+		Logger:                       ocrLogger,
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.OCR2Median),
+		OffchainKeyring:              kb,
+		OnchainKeyring:               kb,
+		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
+	}
+	errorLog := &errorLog{jobID: jb.ID, recordError: d.jobORM.RecordError}
+	enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
+	mConfig := median.NewMedianConfig(
+		d.cfg.JobPipeline().MaxSuccessfulRuns(),
+		d.cfg.JobPipeline().ResultWriteQueueDepth(),
+		d.cfg,
+	)
+
+	relayer, err := d.RelayGetter.Get(rid)
+	if err != nil {
+		return nil, ErrRelayNotEnabled{Err: err, PluginName: "median", Relay: spec.Relay}
+	}
+
+	medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, kvStore, d.pipelineRunner, lggr, oracleArgsNoPlugin, mConfig, enhancedTelemChan, errorLog)
+
+	if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
+		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.EnhancedEA), lggr.Named("EnhancedTelemetry"))
+		medianServices = append(medianServices, enhancedTelemService)
+	} else {
+		lggr.Infow("Enhanced telemetry is disabled for job", "job", jb.Name)
+	}
+
+	medianServices = append(medianServices, ocrLogger)
+
+	return medianServices, err2
+}
+
+// TODO(gg): update to use separate services for securemint
+func (d *Delegate) newServicesSecureMint(
+	ctx context.Context,
+	lggr logger.SugaredLogger,
+	jb job.Job,
+	bootstrapPeers []commontypes.BootstrapperLocator,
+	kb ocr2key.KeyBundle,
+	kvStore job.KVStore,
+	ocrDB *db,
+	lc ocrtypes.LocalConfig,
+) ([]job.ServiceCtx, error) {
+	spec := jb.OCR2OracleSpec
+
+	rid, err := spec.RelayID()
+	if err != nil {
+		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "median"}
+	}
+
+	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	})
+
 	oracleArgsNoPlugin := libocr2.OCR2OracleArgs{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,

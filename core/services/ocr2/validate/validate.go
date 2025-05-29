@@ -23,13 +23,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
-	securemintconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/securemint/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
+	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
 )
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
@@ -399,10 +399,14 @@ func validateSecureMintSpec(jsonConfig job.JSONConfig) error {
 	if jsonConfig == nil {
 		return errors.New("pluginConfig is empty")
 	}
-	var pluginConfig securemintconfig.PluginConfig
+	var pluginConfig por.PorOffchainConfig
 	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
 	if err != nil {
 		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
 	}
-	return pkgerrors.Wrap(pluginConfig.Validate(), "SecureMint PluginConfig is invalid")
+
+	// TODO(gg):
+	// return pkgerrors.Wrap(pluginConfig.Validate(), "SecureMint PluginConfig is invalid")
+	return nil
+
 }

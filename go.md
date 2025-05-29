@@ -98,8 +98,8 @@ flowchart LR
 	chainlink/v2 --> chainlink-feeds
 	chainlink/v2 --> chainlink-protos/orchestrator
 	chainlink/v2 --> chainlink-solana
-	chainlink/v2 --> cre-sdk-go/capabilities/networking/http
-	chainlink/v2 --> cre-sdk-go/capabilities/scheduler/cron
+	chainlink/v2 --> chainlink-tron/relayer
+	chainlink/v2 --> por_mock_ocr3plugin
 	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
 	click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
 	cre-sdk-go --> chainlink-common/pkg/workflows/sdk/v2/pb
@@ -114,6 +114,8 @@ flowchart LR
 	click grpc-proxy href "https://github.com/smartcontractkit/grpc-proxy"
 	libocr
 	click libocr href "https://github.com/smartcontractkit/libocr"
+	por_mock_ocr3plugin --> libocr
+	click por_mock_ocr3plugin href "https://github.com/smartcontractkit/por_mock_ocr3plugin"
 	tdh2/go/ocr2/decryptionplugin --> libocr
 	tdh2/go/ocr2/decryptionplugin --> tdh2/go/tdh2
 	click tdh2/go/ocr2/decryptionplugin href "https://github.com/smartcontractkit/tdh2"
@@ -338,8 +340,15 @@ flowchart LR
 	chainlink/v2 --> chainlink-feeds
 	chainlink/v2 --> chainlink-protos/orchestrator
 	chainlink/v2 --> chainlink-solana
+<<<<<<< HEAD
 	chainlink/v2 --> cre-sdk-go/capabilities/networking/http
 	chainlink/v2 --> cre-sdk-go/capabilities/scheduler/cron
+||||||| parent of d0c9106f89 (Use plugin config from new plugin repo repo)
+	chainlink/v2 --> chainlink-tron/relayer
+=======
+	chainlink/v2 --> chainlink-tron/relayer
+	chainlink/v2 --> por_mock_ocr3plugin
+>>>>>>> d0c9106f89 (Use plugin config from new plugin repo repo)
 	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
 	click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
 	cre-sdk-go --> chainlink-common/pkg/workflows/sdk/v2/pb
@@ -360,6 +369,8 @@ flowchart LR
 	mcms --> chainlink-ccip/chains/solana
 	mcms --> chainlink-testing-framework/framework
 	click mcms href "https://github.com/smartcontractkit/mcms"
+	por_mock_ocr3plugin --> libocr
+	click por_mock_ocr3plugin href "https://github.com/smartcontractkit/por_mock_ocr3plugin"
 	tdh2/go/ocr2/decryptionplugin --> libocr
 	tdh2/go/ocr2/decryptionplugin --> tdh2/go/tdh2
 	click tdh2/go/ocr2/decryptionplugin href "https://github.com/smartcontractkit/tdh2"
