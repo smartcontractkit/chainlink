@@ -564,8 +564,7 @@ func TestPartnerTokenPools(t *testing.T) {
 		},
 	)})
 	require.NoError(t, err)
-	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
-	require.NoError(t, err)
+	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
 	doTestTokenPool(t, e, false, metadata)
 	doTestPoolLookupTable(t, e, false, metadata)
 	doTestTokenPool(t, e, true, metadata)

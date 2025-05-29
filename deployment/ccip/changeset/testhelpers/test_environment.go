@@ -658,30 +658,6 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 }
 
 func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *ccipChangeSetSolana.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
-	var mcmsCfg *commontypes.MCMSWithTimelockConfigV2
-	if preload {
-		// Pre load default programs
-		err := SavePreloadedSolAddresses(e.Env, solChainSelector)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		mcmsCfg = &commontypes.MCMSWithTimelockConfigV2{
-			Proposer: mcmstypes.Config{
-				Quorum:  1,
-				Signers: []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000001")},
-			},
-			Canceller: mcmstypes.Config{
-				Quorum:  1,
-				Signers: []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000002")},
-			},
-			Bypasser: mcmstypes.Config{
-				Quorum:  1,
-				Signers: []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000002")},
-			},
-			TimelockMinDelay: big.NewInt(1),
-		}
-	}
 	state, err := stateview.LoadOnchainState(e.Env)
 	if err != nil {
 		return nil, err
@@ -1020,8 +996,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		require.NotNil(t, state.MustGetEVMChainState(chain).OffRamp)
 		require.NotNil(t, state.MustGetEVMChainState(chain).OnRamp)
 	}
-	err = ValidateSolanaState(e.Env, solChains)
-	require.NoError(t, err)
+	ValidateSolanaState(t, e.Env, solChains)
 	tEnv.UpdateDeployedEnvironment(e)
 	return e
 }

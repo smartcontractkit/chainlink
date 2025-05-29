@@ -413,10 +413,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64, f
 			return *e, err
 		}
 
-		err = testhelpers.ValidateSolanaState(deployedEnv.Env, solChainSelectors)
-		if err != nil {
-			return *e, err
-		}
+		testhelpers.ValidateSolanaState(nil, deployedEnv.Env, solChainSelectors)
 		env = deployedEnv.Env
 	}
 
