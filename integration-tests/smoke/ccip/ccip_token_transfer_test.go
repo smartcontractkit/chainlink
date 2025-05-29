@@ -66,11 +66,12 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 	selfServeDestTokenPoolDeployer := tenv.Users[destChain][1]
 
 	oneE18 := new(big.Int).SetUint64(1e18)
+	evmChains := tenv.Env.BlockChains.EVMChains()
 
 	// Deploy tokens and pool by CCIP Owner
 	srcToken, _, destToken, _, err := testhelpers.DeployTransferableToken(
 		lggr,
-		tenv.Env.Chains,
+		evmChains,
 		sourceChain,
 		destChain,
 		ownerSourceChain,
@@ -84,7 +85,7 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 	// Deploy Self Serve tokens and pool
 	selfServeSrcToken, _, selfServeDestToken, _, err := testhelpers.DeployTransferableToken(
 		lggr,
-		tenv.Env.Chains,
+		evmChains,
 		sourceChain,
 		destChain,
 		selfServeSrcTokenPoolDeployer,

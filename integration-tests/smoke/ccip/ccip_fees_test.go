@@ -37,7 +37,7 @@ func setupNewFeeToken(
 	tokenDecimals uint8,
 ) (feeToken *burn_mint_erc677.BurnMintERC677) {
 	lggr := logger.TestLogger(t)
-	chain := tenv.Env.Chains[chainSelector]
+	chain := tenv.Env.BlockChains.EVMChains()[chainSelector]
 	tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 		deployer,
 		chain.Client,
@@ -105,15 +105,15 @@ func setupTokens(
 ) {
 	lggr := logger.TestLogger(t)
 	e := tenv.Env
-
+	evmChains := e.BlockChains.EVMChains()
 	// Deploy the token to test transferring
 	srcToken, _, dstToken, _, err := testhelpers.DeployTransferableToken(
 		lggr,
-		tenv.Env.Chains,
+		evmChains,
 		src,
 		dest,
-		tenv.Env.Chains[src].DeployerKey,
-		tenv.Env.Chains[dest].DeployerKey,
+		evmChains[src].DeployerKey,
+		evmChains[dest].DeployerKey,
 		state,
 		tenv.Env.ExistingAddresses,
 		"MY_TOKEN",

@@ -61,7 +61,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 
 	aChainToken, _, cChainToken, _, err := testhelpers.DeployTransferableToken(
 		lggr,
-		tenv.Env.Chains,
+		tenv.Env.BlockChains.EVMChains(),
 		chainA,
 		chainC,
 		ownerChainA,

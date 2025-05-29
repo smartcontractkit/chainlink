@@ -58,7 +58,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 
 	srcToken, _, destToken, _, err := testhelpers.DeployTransferableToken(
 		lggr,
-		tenv.Env.Chains,
+		tenv.Env.BlockChains.EVMChains(),
 		sourceChain,
 		destChain,
 		ownerSourceChain,
