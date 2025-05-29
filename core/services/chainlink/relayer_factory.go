@@ -201,7 +201,8 @@ func (r *RelayerFactory) NewTON(ks coretypes.Keystore, chainCfgs RawConfigs) (ma
 	return r.NewLOOPRelayer("TON", relay.NetworkTON, env.TONPlugin, ks, chainCfgs)
 }
 
-//func (r *RelayerFactory) NewTON(ks coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
+// TODO uncomment and replace above when chainlink-ton is public and import here
+// func (r *RelayerFactory) NewTON(ks coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
 //	tonaRelayers := make(map[types.RelayID]loop.Relayer)
 //	var tonLggr = r.Logger.Named("TON")
 //
@@ -241,8 +242,7 @@ func (r *RelayerFactory) NewTON(ks coretypes.Keystore, chainCfgs RawConfigs) (ma
 //
 //			tonaRelayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, tonCmdFn, "", ks, r.CapabilitiesRegistry)
 //		} else {
-//			// TODO uncomment when TON relayer is implemented
-//			tonaRelayers[relayID] = relay.NewServerAdapter(solana.NewRelayer(lggr, , r.CapabilitiesRegistry))
+//			tonaRelayers[relayID] = relay.NewServerAdapter(ton.NewRelayer(lggr, chains, r.CapabilitiesRegistry))
 //			fmt.Printf("Skipping disabled TON command for relayer %s\n", relayID.Name())
 //		}
 //	}
