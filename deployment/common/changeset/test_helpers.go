@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -142,7 +143,7 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, timelockContractsPerChain
 			Logger:            e.Logger,
 			ExistingAddresses: addresses,
 			DataStore:         ds,
-			Chains:            e.Chains,
+			Chains:            e.BlockChains.EVMChains(),
 			NodeIDs:           e.NodeIDs,
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
@@ -208,7 +209,7 @@ func ApplyChangesetsV2(t *testing.T, e cldf.Environment, changesetApplications [
 			Logger:            e.Logger,
 			ExistingAddresses: addresses,
 			DataStore:         ds,
-			Chains:            e.Chains,
+			Chains:            e.BlockChains.EVMChains(),
 			NodeIDs:           e.NodeIDs,
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
@@ -272,7 +273,7 @@ func DeployLinkTokenTest(t *testing.T, memoryConfig memory.MemoryEnvironmentConf
 	require.NoError(t, err)
 	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
 	require.NoError(t, err)
-	state, err := commonState.MaybeLoadLinkTokenChainState(e.Chains[chain1], addrs)
+	state, err := commonState.MaybeLoadLinkTokenChainState(e.BlockChains.EVMChains()[chain1], addrs)
 	require.NoError(t, err)
 	// View itself already unit tested
 	_, err = state.GenerateLinkView()
@@ -311,7 +312,7 @@ func SetPreloadedSolanaAddresses(t *testing.T, env cldf.Environment, selector ui
 	require.NoError(t, err)
 }
 
-func MustFundAddressWithLink(t *testing.T, e cldf.Environment, chain cldf.Chain, to common.Address, amount int64) {
+func MustFundAddressWithLink(t *testing.T, e cldf.Environment, chain cldf_evm.Chain, to common.Address, amount int64) {
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	require.NoError(t, err)
 
@@ -341,7 +342,7 @@ func MustFundAddressWithLink(t *testing.T, e cldf.Environment, chain cldf.Chain,
 }
 
 // MaybeGetLinkBalance returns the LINK balance of the given address on the given chain.
-func MaybeGetLinkBalance(t *testing.T, e cldf.Environment, chain cldf.Chain, linkAddr common.Address) *big.Int {
+func MaybeGetLinkBalance(t *testing.T, e cldf.Environment, chain cldf_evm.Chain, linkAddr common.Address) *big.Int {
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	require.NoError(t, err)
 	linkState, err := commonState.MaybeLoadLinkTokenChainState(chain, addresses)

@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -25,7 +26,7 @@ var (
 			ab := deps.AddressBook
 			chain := deps.Chain
 			offRamp, err := cldf.DeployContract(b.Logger, chain, ab,
-				func(chain cldf.Chain) cldf.ContractDeploy[*offramp.OffRamp] {
+				func(chain cldf_evm.Chain) cldf.ContractDeploy[*offramp.OffRamp] {
 					offRampAddr, tx2, offRamp, err2 := offramp.DeployOffRamp(
 						chain.DeployerKey,
 						chain.Client,

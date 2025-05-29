@@ -5,6 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -22,7 +23,7 @@ var (
 			ab := deps.AddressBook
 			chain := deps.Chain
 			onRamp, err := cldf.DeployContract(b.Logger, chain, ab,
-				func(chain cldf.Chain) cldf.ContractDeploy[*onramp.OnRamp] {
+				func(chain cldf_evm.Chain) cldf.ContractDeploy[*onramp.OnRamp] {
 					onRampAddr, tx2, onRamp, err2 := onramp.DeployOnRamp(
 						chain.DeployerKey,
 						chain.Client,

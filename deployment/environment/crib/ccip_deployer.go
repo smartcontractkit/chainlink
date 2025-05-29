@@ -69,7 +69,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, chain := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)) {
-		mcmsConfig, err := mcmstypes.NewConfig(1, []common.Address{e.Chains[chain].DeployerKey.From}, []mcmstypes.Config{})
+		mcmsConfig, err := mcmstypes.NewConfig(1, []common.Address{e.BlockChains.EVMChains()[chain].DeployerKey.From}, []mcmstypes.Config{})
 		if err != nil {
 			return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to create mcms config: %w", err)
 		}
@@ -91,7 +91,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 				HomeChainSel:             homeChainSel,
 				RMNStaticConfig:          testhelpers.NewTestRMNStaticConfig(),
 				RMNDynamicConfig:         testhelpers.NewTestRMNDynamicConfig(),
-				NodeOperators:            testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				NodeOperators:            testhelpers.NewTestNodeOperator(e.BlockChains.EVMChains()[homeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{"NodeOperator": p2pIds},
 			},
 		),
@@ -357,6 +357,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64) (
 
 func setupLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 	state, err := stateview.LoadOnchainState(*e)
+	evmChains := e.BlockChains.EVMChains()
 	if err != nil {
 		return *e, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -374,7 +375,7 @@ func setupLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 			shared.LinkSymbol: {
 				Type:          shared.BurnMintTokenPool,
 				Version:       deployment.Version1_5_1,
-				ExternalAdmin: e.Chains[chain].DeployerKey.From,
+				ExternalAdmin: evmChains[chain].DeployerKey.From,
 			},
 		}
 	}
@@ -418,8 +419,8 @@ func setupLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 	for _, chain := range chainSelectors {
 		linkPool := state.Chains[chain].BurnMintTokenPools[shared.LinkSymbol][deployment.Version1_5_1]
 		linkToken := state.Chains[chain].LinkToken
-		tx, err := linkToken.GrantMintAndBurnRoles(e.Chains[chain].DeployerKey, linkPool.Address())
-		_, err = cldf.ConfirmIfNoError(e.Chains[chain], tx, err)
+		tx, err := linkToken.GrantMintAndBurnRoles(evmChains[chain].DeployerKey, linkPool.Address())
+		_, err = cldf.ConfirmIfNoError(evmChains[chain], tx, err)
 		if err != nil {
 			return *e, fmt.Errorf("failed to grant mint and burn roles for link pool: %w", err)
 		}
@@ -432,7 +433,8 @@ func setupLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (cldf.Env
 	poolUpdates := make(map[uint64]v1_5_1.TokenPoolConfig)
 	rateLimitPerChain := make(v1_5_1.RateLimiterPerChain)
 	mu := sync.Mutex{}
-	for src := range e.Chains {
+	evmChains := e.BlockChains.EVMChains()
+	for src := range evmChains {
 		src := src
 		eg.Go(func() error {
 			onRampUpdatesByChain := make(map[uint64]map[uint64]v1_6.OnRampDestinationUpdate)
@@ -455,7 +457,7 @@ func setupLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (cldf.Env
 				OnRampUpdates:  make(map[uint64]bool),
 			}
 
-			for dst := range e.Chains {
+			for dst := range evmChains {
 				if src != dst {
 					onRampUpdatesByChain[src][dst] = v1_6.OnRampDestinationUpdate{
 						IsEnabled:        true,
@@ -562,7 +564,7 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 		}
 	}
 
-	for selector := range e.Chains {
+	for selector := range e.BlockChains.EVMChains() {
 		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, nil, overrides)
 		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, nil, nil)
 	}

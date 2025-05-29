@@ -43,8 +43,8 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 

@@ -21,6 +21,7 @@ import (
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -33,7 +34,7 @@ func Test_UpdateNodesRequest_validate(t *testing.T) {
 	type fields struct {
 		p2pToUpdates         map[p2pkey.PeerID]internal.NodeUpdate
 		nopToNodes           map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc
-		chain                cldf.Chain
+		chain                cldf_evm.Chain
 		capabilitiesRegistry *kcr.CapabilitiesRegistry
 	}
 	tests := []struct {
@@ -46,7 +47,7 @@ func Test_UpdateNodesRequest_validate(t *testing.T) {
 			fields: fields{
 				p2pToUpdates:         map[p2pkey.PeerID]internal.NodeUpdate{},
 				nopToNodes:           nil,
-				chain:                cldf.Chain{},
+				chain:                cldf_evm.Chain{},
 				capabilitiesRegistry: nil,
 			},
 			wantErr: true,
@@ -60,7 +61,7 @@ func Test_UpdateNodesRequest_validate(t *testing.T) {
 					},
 				},
 				nopToNodes:           nil,
-				chain:                cldf.Chain{},
+				chain:                cldf_evm.Chain{},
 				capabilitiesRegistry: nil,
 			},
 			wantErr: true,
@@ -74,7 +75,7 @@ func Test_UpdateNodesRequest_validate(t *testing.T) {
 					},
 				},
 				nopToNodes:           nil,
-				chain:                cldf.Chain{},
+				chain:                cldf_evm.Chain{},
 				capabilitiesRegistry: nil,
 			},
 			wantErr: true,
@@ -692,9 +693,9 @@ func testPeerID(t *testing.T, s string) p2pkey.PeerID {
 	return p2pkey.PeerID(out)
 }
 
-func testChain(t *testing.T) cldf.Chain {
+func testChain(t *testing.T) cldf_evm.Chain {
 	chains, _ := memory.NewMemoryChains(t, 1, 5)
-	var chain cldf.Chain
+	var chain cldf_evm.Chain
 	for _, c := range chains {
 		chain = c
 		break

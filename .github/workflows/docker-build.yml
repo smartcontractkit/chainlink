@@ -1,5 +1,4 @@
 name: Docker Build
-description: Docker build and publish non-releases to AWS ECR.
 
 on:
   schedule:
@@ -32,29 +31,9 @@ jobs:
           github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch'
         }}
-      build-type: ${{ steps.build-type.outputs.build-type }}
       runner-arm64: ${{ steps.runner-labels.outputs.runner-arm64 }}
       runner-amd64: ${{ steps.runner-labels.outputs.runner-amd64 }}
     steps:
-      - name: Set Build Type
-        id: build-type
-        shell: bash
-        env:
-          BUILD_TRIGGER: ${{ github.event_name }}
-        run: |
-          if [[ "${BUILD_TRIGGER}" == "schedule" ]]; then
-            echo "build-type=nightly" | tee -a "$GITHUB_OUTPUT"
-          elif [[ "${BUILD_TRIGGER}" == 'push' ]]; then
-            echo "build-type=branch" | tee -a "$GITHUB_OUTPUT"
-          elif [[ "${BUILD_TRIGGER}" == 'pull_request' ]]; then
-            echo "build-type=pr" | tee -a "$GITHUB_OUTPUT"
-          elif [[ "${BUILD_TRIGGER}" == 'workflow_dispatch' ]]; then
-            echo "build-type=manual" | tee -a "$GITHUB_OUTPUT"
-          else
-            echo "::error::Unsupported build trigger: ${BUILD_TRIGGER}"
-            exit 1
-          fi
-
       - name: Get PR Labels
         id: pr-labels
         uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
@@ -86,7 +65,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@b37583d758e3992e0d5bfdb5a36ca243ce53ff59 # 2025-04-22
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@4962346cc5ffc9f3840f48639e7b5fa179bcc2cc # 2025-05-28
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -98,11 +77,11 @@ jobs:
         COMMIT_SHA=${{ github.sha }}
         CL_SOLANA_CMD=chainlink-solana
       docker-build-cache-disabled: "true"
-      docker-image-type: ${{ needs.init.outputs.build-type }}
       docker-manifest-sign: true
       git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
+      github-ref-type: ${{ github.ref_type}}
       github-workflow-repository: ${{ github.repository }}
       github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
       github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
@@ -116,7 +95,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@b37583d758e3992e0d5bfdb5a36ca243ce53ff59 # 2025-04-22
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@4962346cc5ffc9f3840f48639e7b5fa179bcc2cc # 2025-05-28
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -130,12 +109,12 @@ jobs:
         CL_APTOS_CMD=chainlink-aptos
         CL_SOLANA_CMD=chainlink-solana
       docker-build-cache-disabled: "true"
-      docker-image-type: ${{ needs.init.outputs.build-type }}
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
       git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
+      github-ref-type: ${{ github.ref_type}}
       github-workflow-repository: ${{ github.repository }}
       github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
       github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
@@ -151,7 +130,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@b37583d758e3992e0d5bfdb5a36ca243ce53ff59 # 2025-04-22
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@4962346cc5ffc9f3840f48639e7b5fa179bcc2cc # 2025-05-28
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -164,11 +143,11 @@ jobs:
         CL_SOLANA_CMD=
         COMMIT_SHA=${{ github.sha }}
       docker-build-cache-disabled: "true"
-      docker-image-type: ${{ needs.init.outputs.build-type }}
       docker-manifest-sign: true
       git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
+      github-ref-type: ${{ github.ref_type}}
       github-workflow-repository: ${{ github.repository }}
       github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
       github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
@@ -182,7 +161,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@b37583d758e3992e0d5bfdb5a36ca243ce53ff59 # 2025-04-22
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@4962346cc5ffc9f3840f48639e7b5fa179bcc2cc # 2025-05-28
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -196,12 +175,12 @@ jobs:
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_APTOS_CMD=chainlink-aptos
       docker-build-cache-disabled: "true"
-      docker-image-type: ${{ needs.init.outputs.build-type }}
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
       git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
+      github-ref-type: ${{ github.ref_type}}
       github-workflow-repository: ${{ github.repository }}
       github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
       github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
@@ -218,6 +197,4 @@ jobs:
     with:
       chainlink_image_tag: ${{ needs.docker-core-plugins.outputs.docker-manifest-tag }}
       chainlink_version: develop
-    secrets:
-      inherit
-
+    secrets: inherit

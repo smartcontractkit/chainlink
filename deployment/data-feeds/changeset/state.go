@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -66,7 +67,7 @@ func LoadOnchainState(e cldf.Environment) (DataFeedsOnChainState, error) {
 }
 
 // LoadChainState Loads all state for a chain into state
-func LoadChainState(logger logger.Logger, chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (*DataFeedsChainState, error) {
+func LoadChainState(logger logger.Logger, chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (*DataFeedsChainState, error) {
 	var state DataFeedsChainState
 
 	mcmsWithTimelock, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)

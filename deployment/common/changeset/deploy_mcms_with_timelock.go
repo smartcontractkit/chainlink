@@ -106,7 +106,7 @@ func grantRolePreconditions(e cldf.Environment, cfg GrantRoleInput) error {
 		if proposer == (common.Address{}) {
 			return fmt.Errorf("proposer address not found for chain %d", selector)
 		}
-		chain, ok := e.Chains[selector]
+		chain, ok := e.BlockChains.EVMChains()[selector]
 		if !ok {
 			return fmt.Errorf("chain not found for chain %d", selector)
 		}
@@ -144,9 +144,10 @@ func grantRoleLogic(e cldf.Environment, cfg GrantRoleInput) (cldf.ChangesetOutpu
 	batches := make([]mcmstypes.BatchOperation, 0)
 	for chain, existingProposer := range cfg.ExistingProposerByChain {
 		stateForChain := mcmsState[chain]
+		evmChains := e.BlockChains.EVMChains()
 		mcmsTxs, err := evminternal.GrantRolesForTimelock(
 			e.GetContext(),
-			e.Logger, e.Chains[chain], &proposalutils.MCMSWithTimelockContracts{
+			e.Logger, evmChains[chain], &proposalutils.MCMSWithTimelockContracts{
 				CancellerMcm: stateForChain.CancellerMcm,
 				BypasserMcm:  stateForChain.BypasserMcm,
 				ProposerMcm:  stateForChain.ProposerMcm,
@@ -161,7 +162,7 @@ func grantRoleLogic(e cldf.Environment, cfg GrantRoleInput) (cldf.ChangesetOutpu
 		}
 		timelocks[chain] = mcmsState[chain].Timelock.Address().Hex()
 		proposers[chain] = existingProposer.Hex()
-		inspectors[chain] = mcmsevmsdk.NewInspector(e.Chains[chain].Client)
+		inspectors[chain] = mcmsevmsdk.NewInspector(evmChains[chain].Client)
 		batches = append(batches, mcmstypes.BatchOperation{
 			ChainSelector: mcmstypes.ChainSelector(chain),
 			Transactions:  mcmsTxs,

@@ -636,6 +636,19 @@ func (r *Resolver) TronKeys(ctx context.Context) (*TronKeysPayloadResolver, erro
 	return NewTronKeysPayload(keys), nil
 }
 
+func (r *Resolver) TONKeys(ctx context.Context) (*TONKeysPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	keys, err := r.App.GetKeyStore().TON().GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewTONKeysPayload(keys), nil
+}
+
 func (r *Resolver) SQLLogging(ctx context.Context) (*GetSQLLoggingPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
