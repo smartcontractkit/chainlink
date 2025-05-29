@@ -2148,8 +2148,6 @@ func ValidateSolanaState(e cldf.Environment, solChainSelectors []uint64) error {
 		return fmt.Errorf("Failed to load Solana state: %w", err)
 	}
 
-	ctx := e.GetContext()
-
 	for _, sel := range solChainSelectors {
 		// Validate chain exists in state
 		chainState, exists := state.SolChains[sel]
@@ -2176,14 +2174,14 @@ func ValidateSolanaState(e cldf.Environment, solChainSelectors []uint64) error {
 
 		// Get router config
 		var routerConfigAccount solRouter.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(ctx, chainState.RouterConfigPDA, &routerConfigAccount)
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(e.GetContext(), chainState.RouterConfigPDA, &routerConfigAccount)
 		if err != nil {
 			return fmt.Errorf("failed to deserialize router config for chain %d: %w", sel, err)
 		}
 
 		// Get fee quoter config
 		var feeQuoterConfigAccount solFeeQuoter.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(ctx, chainState.FeeQuoterConfigPDA, &feeQuoterConfigAccount)
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(e.GetContext(), chainState.FeeQuoterConfigPDA, &feeQuoterConfigAccount)
 		if err != nil {
 			return fmt.Errorf("failed to deserialize fee quoter config for chain %d: %w", sel, err)
 		}
@@ -2191,7 +2189,7 @@ func ValidateSolanaState(e cldf.Environment, solChainSelectors []uint64) error {
 		// Get offramp config
 		var offRampConfigAccount solOffRamp.Config
 		err = e.SolChains[sel].GetAccountDataBorshInto(
-			ctx,
+			e.GetContext(),
 			chainState.OffRampConfigPDA,
 			&offRampConfigAccount,
 		)
@@ -2204,18 +2202,18 @@ func ValidateSolanaState(e cldf.Environment, solChainSelectors []uint64) error {
 
 		// Get rmn remote config
 		var rmnRemoteConfigAccount solRmnRemote.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(ctx, chainState.RMNRemoteConfigPDA, &rmnRemoteConfigAccount)
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(e.GetContext(), chainState.RMNRemoteConfigPDA, &rmnRemoteConfigAccount)
 		if err != nil {
 			return fmt.Errorf("failed to deserialize rmn remote config for chain %d: %w", sel, err)
 		}
 
-		addressLookupTable, err := solanastateview.FetchOfframpLookupTable(ctx, e.BlockChains.SolanaChains()[sel], chainState.OffRamp)
+		addressLookupTable, err := solanastateview.FetchOfframpLookupTable(e.GetContext(), e.BlockChains.SolanaChains()[sel], chainState.OffRamp)
 		if err != nil {
 			return fmt.Errorf("failed to get offramp lookup table for chain %d: %w", sel, err)
 		}
 
 		addresses, err := solcommon.GetAddressLookupTable(
-			ctx,
+			e.GetContext(),
 			e.BlockChains.SolanaChains()[sel].Client,
 			addressLookupTable,
 		)

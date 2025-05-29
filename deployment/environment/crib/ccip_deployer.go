@@ -376,7 +376,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64, f
 		return *e, fmt.Errorf("failed to apply EVM changesets: %w", err)
 	}
 
-	if len(env.SolChains) > 0 {
+	if len(e.SolChains) > 0 {
 		deployedEnv := testhelpers.DeployedEnv{
 			Env:          env,
 			HomeChainSel: homeChainSel,
