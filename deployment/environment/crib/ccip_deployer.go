@@ -279,7 +279,6 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64, f
 	prereqCfgs := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	contractParams := make(map[uint64]ccipseq.ChainContractParams)
 
-	lggr.Info("Starting changeset deployment, this will take long on first run due to anchor build for solana programs")
 	for _, chain := range chainSelectors {
 		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
@@ -301,39 +300,43 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64, f
 		}
 	}
 
-	var solLinkChangesets []commonchangeset.ConfiguredChangeSet
-	// TODO - Find a way to combine this into one loop with AllChainSelectors
-	// Currently it seems to throw a nil pointer when run with both solana and evm and needs to be investigated
-	for _, chain := range solChainSelectors {
-		chainConfigs[chain] = v1_6.ChainConfig{
-			Readers: nodeInfo.NonBootstraps().PeerIDs(),
-			// #nosec G115 - Overflow is not a concern in this test scenario
-			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
-			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
-				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
-				OptimisticConfirmations: globals.OptimisticConfirmations,
-			},
+	env := *e
+	if len(env.SolChains) > 0 {
+		lggr.Info("Starting changeset deployment, this will take long on first run due to anchor build for solana programs")
+		var solLinkChangesets []commonchangeset.ConfiguredChangeSet
+		// TODO - Find a way to combine this into one loop with AllChainSelectors
+		// Currently it seems to throw a nil pointer when run with both solana and evm and needs to be investigated
+		for _, chain := range solChainSelectors {
+			chainConfigs[chain] = v1_6.ChainConfig{
+				Readers: nodeInfo.NonBootstraps().PeerIDs(),
+				// #nosec G115 - Overflow is not a concern in this test scenario
+				FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+				EncodableChainConfig: chainconfig.ChainConfig{
+					GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
+					DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
+					OptimisticConfirmations: globals.OptimisticConfirmations,
+				},
+			}
+
+			privKey, err := solana.NewRandomPrivateKey()
+			if err != nil {
+				return *e, fmt.Errorf("failed to create the link token priv key: %w", err)
+			}
+			solLinkChangeset := commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken),
+				commonchangeset.DeploySolanaLinkTokenConfig{
+					ChainSelector: chain,
+					TokenPrivKey:  privKey,
+					TokenDecimals: 9,
+				},
+			)
+			solLinkChangesets = append(solLinkChangesets, solLinkChangeset)
 		}
 
-		privKey, err := solana.NewRandomPrivateKey()
+		env, err = commonchangeset.Apply(nil, *e, nil, solLinkChangesets[0], solLinkChangesets[1:]...)
 		if err != nil {
-			return *e, fmt.Errorf("failed to create the link token priv key: %w", err)
+			return *e, fmt.Errorf("failed to apply Solana Link token changesets: %w", err)
 		}
-		solLinkChangeset := commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken),
-			commonchangeset.DeploySolanaLinkTokenConfig{
-				ChainSelector: chain,
-				TokenPrivKey:  privKey,
-				TokenDecimals: 9,
-			},
-		)
-		solLinkChangesets = append(solLinkChangesets, solLinkChangeset)
-	}
-
-	env, err := commonchangeset.Apply(nil, *e, nil, solLinkChangesets[0], solLinkChangesets[1:]...)
-	if err != nil {
-		return *e, fmt.Errorf("failed to apply Solana Link token changesets: %w", err)
 	}
 
 	env, err = commonchangeset.Apply(nil, env, nil,
