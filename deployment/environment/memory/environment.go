@@ -15,6 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 
 	"github.com/smartcontractkit/freeport"
@@ -68,7 +70,7 @@ type NewNodesConfig struct {
 	// EVM chains to be configured. Optional.
 	Chains map[uint64]cldf.Chain
 	// Solana chains to be configured. Optional.
-	SolChains map[uint64]cldf.SolChain
+	SolChains map[uint64]cldf_solana.Chain
 	// Aptos chains to be configured. Optional.
 	AptosChains    map[uint64]cldf_aptos.Chain
 	NumNodes       int
@@ -103,7 +105,7 @@ func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]cldf
 	return generateMemoryChain(t, mchains), users
 }
 
-func NewMemoryChainsSol(t *testing.T, numChains int) map[uint64]cldf.SolChain {
+func NewMemoryChainsSol(t *testing.T, numChains int) map[uint64]cldf_solana.Chain {
 	mchains := GenerateChainsSol(t, numChains)
 	return generateMemoryChainSol(mchains)
 }
@@ -168,11 +170,11 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]cl
 	return chains
 }
 
-func generateMemoryChainSol(inputs map[uint64]SolanaChain) map[uint64]cldf.SolChain {
-	chains := make(map[uint64]cldf.SolChain)
+func generateMemoryChainSol(inputs map[uint64]SolanaChain) map[uint64]cldf_solana.Chain {
+	chains := make(map[uint64]cldf_solana.Chain)
 	for cid, chain := range inputs {
 		chain := chain
-		chains[cid] = cldf.SolChain{
+		chains[cid] = cldf_solana.Chain{
 			Selector:     cid,
 			Client:       chain.Client,
 			DeployerKey:  &chain.DeployerKey,
@@ -242,7 +244,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 	ctx func() context.Context,
 	lggr logger.Logger,
 	chains map[uint64]cldf.Chain,
-	solChains map[uint64]cldf.SolChain,
+	solChains map[uint64]cldf_solana.Chain,
 	aptosChains map[uint64]cldf_aptos.Chain,
 	nodes map[string]Node,
 ) cldf.Environment {

@@ -15,6 +15,8 @@ import (
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -87,7 +89,7 @@ func writeAnchorToml(e cldf.Environment, filename, anchorVersion, cluster, walle
 }
 
 // resolve artifacts based on sha and write anchor.toml file to simulate anchor workspace
-func repoSetup(e cldf.Environment, chain cldf.SolChain, gitCommitSha string) error {
+func repoSetup(e cldf.Environment, chain cldf_solana.Chain, gitCommitSha string) error {
 	e.Logger.Debug("Downloading Solana CCIP program artifacts...")
 	err := memory.DownloadSolanaCCIPProgramArtifacts(e.GetContext(), chain.ProgramsPath, e.Logger, gitCommitSha)
 	if err != nil {

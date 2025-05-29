@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -30,7 +31,7 @@ type VerifyBuildConfig struct {
 	MCMS                         *proposalutils.TimelockConfig
 }
 
-func runSolanaVerify(chain cldf.SolChain, programID, libraryName, commitHash, mountPath string, remote bool) error {
+func runSolanaVerify(chain cldf_solana.Chain, programID, libraryName, commitHash, mountPath string, remote bool) error {
 	params := map[string]string{
 		"Keypair Path": chain.KeypairPath,
 		"Network URL":  chain.URL,

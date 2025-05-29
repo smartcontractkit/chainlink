@@ -6,6 +6,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
@@ -265,7 +266,7 @@ func SetUpgradeAuthorityChangeset(
 // setUpgradeAuthority creates a transaction to set the upgrade authority for a program
 func setUpgradeAuthority(
 	e *cldf.Environment,
-	chain *cldf.SolChain,
+	chain *cldf_solana.Chain,
 	programID solana.PublicKey,
 	currentUpgradeAuthority solana.PublicKey,
 	newUpgradeAuthority solana.PublicKey,

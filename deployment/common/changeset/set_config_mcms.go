@@ -15,6 +15,8 @@ import (
 	"github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -289,7 +291,7 @@ func setConfigSolana(
 	return batches, nil
 }
 
-func setConfigForRole(e cldf.Environment, chain cldf.SolChain, cfg mcmstypes.Config, mcmAddress string, contractType string, useMCMS bool, timelockSignerPDA solanasdk.PublicKey) (mcmstypes.BatchOperation, error) {
+func setConfigForRole(e cldf.Environment, chain cldf_solana.Chain, cfg mcmstypes.Config, mcmAddress string, contractType string, useMCMS bool, timelockSignerPDA solanasdk.PublicKey) (mcmstypes.BatchOperation, error) {
 	var configurer *solana.Configurer
 
 	if useMCMS {

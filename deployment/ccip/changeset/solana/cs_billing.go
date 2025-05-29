@@ -6,6 +6,7 @@ import (
 
 	solBinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -72,7 +73,7 @@ func (cfg *BillingTokenConfig) Validate(e cldf.Environment, state stateview.CCIP
 
 func AddBillingToken(
 	e cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	chainState solanastateview.CCIPChainState,
 	billingTokenConfig solFeeQuoter.BillingTokenConfig,
 	mcms *proposalutils.TimelockConfig,
