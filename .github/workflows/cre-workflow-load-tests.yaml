@@ -73,6 +73,7 @@ jobs:
         run: |
           cat > system-tests/tests/load/cre/ci-override.toml<< EOF
           [binaries_config]
+          mock_capability_binary_path=""
           [jd]
           image = "injected-at-runtime"
           
