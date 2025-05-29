@@ -555,6 +555,7 @@ func replaceEmptyTransmitters(transmitters []ocrtypes.Account, addressCodec ccip
 	for oracleID, transmitter := range transmitters {
 		acct := transmitter
 		if len(acct) == 0 {
+			// #nosec G115 - Overflow is not a concern in this test scenario
 			canonicalAddress, err := addressCodec.OracleIDAsAddressBytes(uint8(oracleID), ccipocr3.ChainSelector(destSelector))
 			if err != nil {
 				return nil, err

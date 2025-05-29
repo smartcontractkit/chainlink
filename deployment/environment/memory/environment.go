@@ -78,8 +78,6 @@ type NewNodesConfig struct {
 	RegistryConfig deployment.CapabilityRegistryConfig
 	// SQL queries to run after DB creation, typically used for setting up testing state. Optional.
 	CustomDBSetup []string
-	// HomeChainSel is the chain selector of the home chain.
-	HomeChainSel uint64
 }
 
 // For placeholders like aptos

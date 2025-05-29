@@ -7,8 +7,9 @@ import (
 	"slices"
 	"sort"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"golang.org/x/exp/constraints"
+
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
 // MinRoleDONSize represents the size of the smallest possible CCIP role DON.

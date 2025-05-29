@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -139,12 +138,6 @@ func (tc *TestConfigs) Validate() error {
 		return errors.New("cannot run RMN tests in memory mode")
 	}
 	return nil
-}
-
-// NumMemoryChains returns the total number of in-memory chains, across all families, set in this config.
-// TODO: how can we fetch the # of non-memory (i.e docker) chains just from the config?
-func (tc *TestConfigs) NumMemoryChains() int {
-	return tc.Chains + tc.AptosChains + tc.SolChains
 }
 
 func (tc *TestConfigs) MustSetEnvTypeOrDefault(t *testing.T) {
@@ -443,7 +436,6 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 		NumBootstraps:  tc.Bootstraps,
 		RegistryConfig: crConfig,
 		CustomDBSetup:  nil,
-		HomeChainSel:   m.HomeChainSel,
 	}
 	nodes := memory.NewNodes(t, c, tc.CLNodeConfigOpts...)
 	ctx := testcontext.Get(t)
@@ -849,7 +841,6 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		for _, chain := range solChains {
 			allSelectors = append(allSelectors, cciptypes.ChainSelector(chain))
 		}
-		slices.Sort(allSelectors)
 		chainToNodeMapping, err = tc.RoleDONTopology.ChainToNodeMapping(
 			nodeInfo.NonBootstraps().PeerIDs(),
 			allSelectors,
@@ -890,9 +881,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		}
 		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenConfig.GetTokenInfo(e.Env.Logger, linkTokenAddr, state.MustGetEVMChainState(chain).Weth9.Address()), ocrOverride)
 		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
-		// if we're in memory mode, we need to set the readers to the memory nodes.
+
 		var readers [][32]byte
-		if tc.Type == Memory && tc.RoleDONTopology != nil {
+		if chainToNodeMapping != nil {
 			_, ok := chainToNodeMapping[cciptypes.ChainSelector(chain)]
 			require.True(t, ok, "chain %d not found in chainToNodeMapping", chain)
 			readers = chainToNodeMapping[cciptypes.ChainSelector(chain)]
@@ -924,8 +915,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		ocrOverride := tc.OCRConfigOverride
 		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenInfo, ocrOverride)
 		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
+
 		var readers [][32]byte
-		if tc.Type == Memory && tc.RoleDONTopology != nil {
+		if chainToNodeMapping != nil {
 			_, ok := chainToNodeMapping[cciptypes.ChainSelector(chain)]
 			require.True(t, ok, "chain %d not found in chainToNodeMapping", chain)
 			readers = chainToNodeMapping[cciptypes.ChainSelector(chain)]

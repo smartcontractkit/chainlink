@@ -59,6 +59,7 @@ func contractConfigFromOCRConfig(cfg cctypes.OCR3ConfigWithMeta, addressCodec cc
 		// this canonical address is defined like so to make it clear that this particular oracle is not able to transmit to the destination chain.
 		transmitter := node.TransmitterKey
 		if len(transmitter) == 0 {
+			// #nosec G115 - Overflow is not a concern in this test scenario
 			transmitter, _ = addressCodec.OracleIDAsAddressBytes(uint8(oracleID), cfg.Config.ChainSelector)
 		}
 		transmitters = append(transmitters, transmitter)
