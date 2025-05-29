@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 
 	"github.com/pkg/errors"
@@ -16,28 +15,10 @@ type CompilationResult struct {
 	ConfigURL   string
 }
 
-func CompileWorkflow(creCLICommandPath, workflowFolder, workflowFileName string, configFile *string, workflowSettingsFile, settingsFile *os.File) (CompilationResult, error) {
+func CompileWorkflow(creCLICommandPath, workflowPath, workflowFileName string, configFile *string, workflowSettingsFile *os.File) (CompilationResult, error) {
 	var outputBuffer bytes.Buffer
 
-	// the CLI expects the workflow code to be located in the same directory as its `go.mod`` file. That's why we assume that the file, which
-	// the CLI also expects `cre.yaml` settings file to be present either in the present directory or any of its parent tree directories.
-
-	cliFile, err := os.Create(filepath.Join(workflowFolder, CRECLISettingsFileName))
-	if err != nil {
-		return CompilationResult{}, err
-	}
-
-	settingsFileBytes, err := os.ReadFile(settingsFile.Name())
-	if err != nil {
-		return CompilationResult{}, err
-	}
-
-	_, err = cliFile.Write(settingsFileBytes)
-	if err != nil {
-		return CompilationResult{}, err
-	}
-
-	compileArgs := []string{"workflow", "compile", "-S", workflowSettingsFile.Name()}
+	compileArgs := []string{"workflow", "compile", workflowPath, "-S", workflowSettingsFile.Name()}
 	if configFile != nil {
 		compileArgs = append(compileArgs, "-c", *configFile)
 	}
@@ -45,9 +26,8 @@ func CompileWorkflow(creCLICommandPath, workflowFolder, workflowFileName string,
 	compileCmd := exec.Command(creCLICommandPath, compileArgs...) // #nosec G204
 	compileCmd.Stdout = &outputBuffer
 	compileCmd.Stderr = &outputBuffer
-	// the CLI expects the workflow code to be located in the same directory as its `go.mod` file
-	compileCmd.Dir = workflowFolder
-	err = compileCmd.Start()
+
+	err := compileCmd.Start()
 	if err != nil {
 		return CompilationResult{}, errors.Wrap(err, "failed to start compile command")
 	}

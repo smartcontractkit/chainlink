@@ -15,9 +15,10 @@ import (
 )
 
 const (
-	CRECLISettingsFileName     = "cre.yaml"
-	CRECLIWorkflowSettingsFile = "workflow.yaml"
-	CRECLIProfile              = "test"
+	CRECLISettingsFileName        = "cre.yaml"
+	CRECLIProjectSettingsFileName = "project.yaml"
+	CRECLIWorkflowSettingsFile    = "workflow.yaml"
+	CRECLIProfile                 = "test"
 )
 
 type Profiles struct {
@@ -111,6 +112,11 @@ func PrepareCRECLISettingsFile(profile string, workflowOwner common.Address, add
 	settingsFile, err := os.Create(CRECLISettingsFileName)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create CRE CLI settings file")
+	}
+
+	err = os.Symlink(settingsFile.Name(), CRECLIProjectSettingsFileName)
+	if err != nil && !os.IsExist(err) {
+		return nil, errors.Wrap(err, "failed to create CRE CLI project settings file")
 	}
 
 	capRegAddr, capRegErr := contracts.FindAddressesForChain(addressBook, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String())

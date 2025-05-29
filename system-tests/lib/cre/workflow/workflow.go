@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -37,7 +38,8 @@ func RegisterWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
 
 	// compile and upload the workflow, if we are not using an existing one
 	if input.ShouldCompileNewWorkflow {
-		compilationResult, compileErr := libcrecli.CompileWorkflow(input.CRECLIAbsPath, input.NewWorkflow.FolderLocation, input.NewWorkflow.WorkflowFileName, input.NewWorkflow.ConfigFilePath, creCLIWorkflowSettingsFile, input.CRESettingsFile)
+		workflowPath := input.NewWorkflow.FolderLocation + string(filepath.Separator) + input.NewWorkflow.WorkflowFileName
+		compilationResult, compileErr := libcrecli.CompileWorkflow(input.CRECLIAbsPath, workflowPath, input.NewWorkflow.WorkflowFileName, input.NewWorkflow.ConfigFilePath, creCLIWorkflowSettingsFile)
 		if compileErr != nil {
 			return errors.Wrap(compileErr, "failed to compile workflow")
 		}
