@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	solanago "github.com/gagliardetto/solana-go"
-	"golang.org/x/exp/maps"
 
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
@@ -139,21 +138,12 @@ func (tc *TestConfigs) Validate() error {
 	if tc.Type == Memory && tc.RMNEnabled {
 		return errors.New("cannot run RMN tests in memory mode")
 	}
-	if tc.Type == Memory && tc.RoleDONTopology.FChainToNumChains != nil {
-		totalChains := 0
-		for _, numChains := range tc.RoleDONTopology.FChainToNumChains {
-			totalChains += numChains
-		}
-		// minus 1 for the home chain.
-		if totalChains != tc.NumChains()-1 {
-			return fmt.Errorf("the sum of the number of chains in the chain topology must be equal to the number of chains set up in the test MINUS the home chain, got %d, expected %d", totalChains, tc.Chains-1)
-		}
-	}
 	return nil
 }
 
-// NumChains returns the total number of chains, across all families, set in this config.
-func (tc *TestConfigs) NumChains() int {
+// NumMemoryChains returns the total number of in-memory chains, across all families, set in this config.
+// TODO: how can we fetch the # of non-memory (i.e docker) chains just from the config?
+func (tc *TestConfigs) NumMemoryChains() int {
 	return tc.Chains + tc.AptosChains + tc.SolChains
 }
 
@@ -345,9 +335,6 @@ type DeployedEnv struct {
 	ReplayBlocks           map[uint64]uint64
 	Users                  map[uint64][]*bind.TransactOpts
 	RmnEnabledSourceChains map[uint64]bool
-
-	// MemoryNodes is only ever set in memory mode.
-	MemoryNodes []memory.Node
 }
 
 func (d *DeployedEnv) TimelockContracts(t *testing.T) map[uint64]*proposalutils.TimelockExecutionContracts {
@@ -368,7 +355,7 @@ func (d *DeployedEnv) SetupJobs(t *testing.T) {
 	_, err := commonchangeset.Apply(t, d.Env, nil,
 		commonchangeset.Configure(cldf.CreateLegacyChangeSet(v1_6.CCIPCapabilityJobspecChangeset), nil))
 	require.NoError(t, err)
-	ReplayLogs(t, d.Env.Offchain, d.ReplayBlocks, WithAssertOnError(false))
+	ReplayLogs(t, d.Env.Offchain, d.ReplayBlocks)
 }
 
 type MemoryEnvironment struct {
@@ -448,16 +435,15 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 	require.NotNil(t, m.DeployedEnv, "start chains and initiate deployed env first before starting nodes")
 	tc := m.TestConfig
 	c := memory.NewNodesConfig{
-		LogLevel:        zapcore.InfoLevel,
-		Chains:          m.Chains,
-		SolChains:       m.SolChains,
-		AptosChains:     m.AptosChains,
-		NumNodes:        tc.Nodes,
-		NumBootstraps:   tc.Bootstraps,
-		RegistryConfig:  crConfig,
-		CustomDBSetup:   nil,
-		RoleDONTopology: tc.RoleDONTopology,
-		HomeChainSel:    m.HomeChainSel,
+		LogLevel:       zapcore.InfoLevel,
+		Chains:         m.Chains,
+		SolChains:      m.SolChains,
+		AptosChains:    m.AptosChains,
+		NumNodes:       tc.Nodes,
+		NumBootstraps:  tc.Bootstraps,
+		RegistryConfig: crConfig,
+		CustomDBSetup:  nil,
+		HomeChainSel:   m.HomeChainSel,
 	}
 	nodes := memory.NewNodes(t, c, tc.CLNodeConfigOpts...)
 	ctx := testcontext.Get(t)
@@ -470,7 +456,6 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 	}
 	m.nodes = nodes
 	m.DeployedEnv.Env = memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, m.Chains, m.SolChains, m.AptosChains, nodes)
-	m.DeployedEnv.MemoryNodes = maps.Values(nodes)
 }
 
 func (m *MemoryEnvironment) DeleteJobs(ctx context.Context, jobIDs map[string][]string) error {
@@ -846,8 +831,27 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		Timelock:  state.MustGetEVMChainState(e.HomeChainSel).Timelock,
 		CallProxy: state.MustGetEVMChainState(e.HomeChainSel).CallProxy,
 	}
+
 	nodeInfo, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
+
+	// generate the chainToNodeMapping if we have a topology provided.
+	var chainToNodeMapping map[cciptypes.ChainSelector][][32]byte
+	if tc.Type == Memory && tc.RoleDONTopology != nil {
+		allSelectors := make([]cciptypes.ChainSelector, 0, len(evmChains)+len(solChains))
+		for _, chain := range evmChains {
+			allSelectors = append(allSelectors, cciptypes.ChainSelector(chain))
+		}
+		for _, chain := range solChains {
+			allSelectors = append(allSelectors, cciptypes.ChainSelector(chain))
+		}
+		slices.Sort(allSelectors)
+		chainToNodeMapping, err = tc.RoleDONTopology.ChainToNodeMapping(
+			nodeInfo.NonBootstraps().PeerIDs(),
+			allSelectors,
+		)
+		require.NoError(t, err)
+	}
 
 	// Build the CCIPHome chain configs.
 	chainConfigs := make(map[uint64]v1_6.ChainConfig)
@@ -883,16 +887,11 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
 		// if we're in memory mode, we need to set the readers to the memory nodes.
 		var readers [][32]byte
-		if tc.Type == Memory && tc.RoleDONTopology.FChainToNumChains != nil {
-			nonBootstraps := nodeInfo.NonBootstraps().PeerIDs()
-			for _, node := range e.MemoryNodes {
-				// Bootstrap nodes are not included in the readers since they don't participate in the OCR plugin protocol,
-				// only (initially) peer discovery.
-				if slices.Contains(node.Chains, chain) && slices.Contains(nonBootstraps, [32]byte(node.Keys.PeerID)) {
-					readers = append(readers, node.Keys.PeerID)
-				}
-			}
-			t.Logf("setting readers for chain %d to %v due to topology %v", chain, readers, tc.RoleDONTopology.FChainToNumChains)
+		if tc.Type == Memory && tc.RoleDONTopology != nil {
+			_, ok := chainToNodeMapping[cciptypes.ChainSelector(chain)]
+			require.True(t, ok, "chain %d not found in chainToNodeMapping", chain)
+			readers = chainToNodeMapping[cciptypes.ChainSelector(chain)]
+			t.Logf("setting readers for chain %d to %v due to topology %v", chain, readers, chainToNodeMapping)
 		} else {
 			t.Logf("setting readers for chain %d to %v due to no topology", chain, nodeInfo.NonBootstraps().PeerIDs())
 			readers = nodeInfo.NonBootstraps().PeerIDs()
@@ -921,13 +920,11 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenInfo, ocrOverride)
 		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
 		var readers [][32]byte
-		if tc.Type == Memory && tc.RoleDONTopology.FChainToNumChains != nil {
-			for _, node := range e.MemoryNodes {
-				if slices.Contains(node.Chains, chain) {
-					readers = append(readers, node.Keys.PeerID)
-				}
-			}
-			t.Logf("setting readers for chain %d to %v due to topology %v", chain, readers, tc.RoleDONTopology.FChainToNumChains)
+		if tc.Type == Memory && tc.RoleDONTopology != nil {
+			_, ok := chainToNodeMapping[cciptypes.ChainSelector(chain)]
+			require.True(t, ok, "chain %d not found in chainToNodeMapping", chain)
+			readers = chainToNodeMapping[cciptypes.ChainSelector(chain)]
+			t.Logf("setting readers for chain %d to %v due to topology %v", chain, readers, chainToNodeMapping)
 		} else {
 			readers = nodeInfo.NonBootstraps().PeerIDs()
 		}

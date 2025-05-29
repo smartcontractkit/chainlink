@@ -2,7 +2,6 @@ package ccip
 
 import (
 	"context"
-	"slices"
 	"sync"
 	"testing"
 
@@ -11,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes"
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
@@ -56,7 +54,7 @@ func Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest(t *tes
 		t,
 		testhelpers.WithNumOfChains(numChains),
 		testhelpers.WithNumOfNodes(nRoleDON),
-		testhelpers.WithRoleDONTopology(cciptesthelpertypes.RoleDONTopology{
+		testhelpers.WithRoleDONTopology(&cciptesthelpertypes.RandomTopology{
 			FChainToNumChains: map[int]int{
 				fChainSource: 1, // 1 chain with fChain fChainSource
 				fChainDest:   1, // 1 chain with fChain fChainDest
@@ -109,32 +107,32 @@ func Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest(t *tes
 
 	t.Logf("home chain: %d, source chain: %d, dest chain: %d", e.HomeChainSel, sourceChain, destChain)
 
-	nodeInfo, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
-	require.NoError(t, err)
+	// nodeInfo, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	// require.NoError(t, err)
 
-	nonBootstraps := nodeInfo.NonBootstraps().PeerIDs()
+	// nonBootstraps := nodeInfo.NonBootstraps().PeerIDs()
 
 	// Log the chain support of the memory nodes.
-	for _, node := range e.MemoryNodes {
-		if !slices.Contains(nonBootstraps, [32]byte(node.Keys.PeerID)) {
-			continue
-		}
-		t.Logf("node %s supports chains: %v", node.Keys.PeerID.String(), node.Chains)
-	}
+	// for _, node := range e.MemoryNodes {
+	// 	if !slices.Contains(nonBootstraps, [32]byte(node.Keys.PeerID)) {
+	// 		continue
+	// 	}
+	// 	t.Logf("node %s supports chains: %v", node.Keys.PeerID.String(), node.Chains)
+	// }
 
-	// Log how many times each chain is supported by the memory nodes.
-	for _, chain := range allChainSelectors {
-		count := 0
-		for _, node := range e.MemoryNodes {
-			if !slices.Contains(nonBootstraps, [32]byte(node.Keys.PeerID)) {
-				continue
-			}
-			if slices.Contains(node.Chains, chain) {
-				count++
-			}
-		}
-		t.Logf("chain %d is supported by %d nodes", chain, count)
-	}
+	// // Log how many times each chain is supported by the memory nodes.
+	// for _, chain := range allChainSelectors {
+	// 	count := 0
+	// 	for _, node := range e.MemoryNodes {
+	// 		if !slices.Contains(nonBootstraps, [32]byte(node.Keys.PeerID)) {
+	// 			continue
+	// 		}
+	// 		if slices.Contains(node.Chains, chain) {
+	// 			count++
+	// 		}
+	// 	}
+	// 	t.Logf("chain %d is supported by %d nodes", chain, count)
+	// }
 
 	// now we can set up the lane.
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
