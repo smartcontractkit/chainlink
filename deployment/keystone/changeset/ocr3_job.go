@@ -108,7 +108,7 @@ func BuildOCR3JobConfigSpecs(
 		return nil, fmt.Errorf("failed to get chain ID from selector: %w", err)
 	}
 
-	extJobID, err := externalJobID(donName, evmChainSel)
+	extJobID, err := ExternalJobID(donName, evmChainSel)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get external job ID: %w", err)
 	}
@@ -164,7 +164,7 @@ func BuildOCR3JobConfigSpecs(
 }
 
 // NOTE: consider adding contract address to the hash
-func externalJobID(donName string, evmChainSel uint64) (string, error) {
+func ExternalJobID(donName string, evmChainSel uint64) (string, error) {
 	in := []byte(donName + "-ocr3-capability-job-spec")
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, evmChainSel)
