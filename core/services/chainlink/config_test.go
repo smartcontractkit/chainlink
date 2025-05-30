@@ -1220,7 +1220,7 @@ GasLimit = 540
 
 [EVM.Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 

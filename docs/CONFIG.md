@@ -2292,7 +2292,7 @@ GasLimit = 10500000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -2404,7 +2404,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -2516,7 +2516,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -2628,7 +2628,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -2745,7 +2745,7 @@ GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -2858,7 +2858,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -2970,7 +2970,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -3081,7 +3081,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -3192,7 +3192,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -3304,7 +3304,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -3416,7 +3416,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -3529,7 +3529,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -3641,7 +3641,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -3753,7 +3753,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -3870,7 +3870,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -3982,7 +3982,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -4094,7 +4094,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -4206,7 +4206,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -4323,7 +4323,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -4437,7 +4437,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -4551,7 +4551,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -4668,7 +4668,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -4783,7 +4783,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -4899,7 +4899,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -5011,7 +5011,7 @@ GasLimit = 3800000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -5122,7 +5122,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -5239,7 +5239,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -5355,7 +5355,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -5468,7 +5468,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -5581,7 +5581,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -5697,7 +5697,7 @@ GasLimit = 11000000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -5813,7 +5813,7 @@ GasLimit = 11000000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -5930,7 +5930,7 @@ GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -6047,7 +6047,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -6159,7 +6159,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -6272,7 +6272,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -6389,7 +6389,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -6500,7 +6500,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -6617,7 +6617,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -6731,7 +6731,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -6844,7 +6844,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -6957,7 +6957,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -7069,7 +7069,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -7180,7 +7180,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -7297,7 +7297,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -7414,7 +7414,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -7525,7 +7525,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -7642,7 +7642,7 @@ GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -7759,7 +7759,7 @@ GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -7871,7 +7871,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -7983,7 +7983,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -8100,7 +8100,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -8214,7 +8214,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -8325,7 +8325,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -8437,7 +8437,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -8549,7 +8549,7 @@ GasLimit = 3800000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -8662,7 +8662,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -8779,7 +8779,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -8897,7 +8897,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -9015,7 +9015,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -9126,7 +9126,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -9243,7 +9243,7 @@ GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -9354,7 +9354,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -9467,7 +9467,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -9583,7 +9583,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -9699,7 +9699,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -9811,7 +9811,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -9928,7 +9928,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -10047,7 +10047,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -10163,7 +10163,7 @@ GasLimit = 14500000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -10276,7 +10276,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -10392,7 +10392,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -10504,7 +10504,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -10616,7 +10616,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -10729,7 +10729,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -10848,7 +10848,7 @@ GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -10967,7 +10967,7 @@ GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -11079,7 +11079,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -11196,7 +11196,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -11307,7 +11307,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -11421,7 +11421,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -11535,7 +11535,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -11652,7 +11652,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -11769,7 +11769,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -11884,7 +11884,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -11996,7 +11996,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -12108,7 +12108,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -12220,7 +12220,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -12332,7 +12332,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -12449,7 +12449,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -12565,7 +12565,7 @@ GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -12682,7 +12682,7 @@ GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -12793,7 +12793,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -12904,7 +12904,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -13015,7 +13015,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -13126,7 +13126,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -13242,7 +13242,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -13354,7 +13354,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -13466,7 +13466,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -13582,7 +13582,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -13698,7 +13698,7 @@ GasLimit = 14500000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -13814,7 +13814,7 @@ GasLimit = 14500000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -13932,7 +13932,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -14050,7 +14050,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -14163,7 +14163,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -14279,7 +14279,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -14396,7 +14396,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -14513,7 +14513,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -14628,7 +14628,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -14740,7 +14740,7 @@ GasLimit = 10500000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -14857,7 +14857,7 @@ GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -14973,7 +14973,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -15089,7 +15089,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -15206,7 +15206,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -15318,7 +15318,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -15430,7 +15430,7 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
-TxAcceptanceState = 3
+TxAcceptanceState = 2
 PollPeriod = '2s'
 AcceptanceTimeout = '30s'
 ```
@@ -16592,7 +16592,7 @@ GasLimit controls the gas limit for transmit transactions from ocr2automation jo
 FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 GasLimitDefault = 400_000 # Default
-TxAcceptanceState = 3 # Default
+TxAcceptanceState = 2 # Default
 PollPeriod = '2s' # Default
 AcceptanceTimeout = '30s' # Default
 ```
@@ -16618,7 +16618,7 @@ GasLimitDefault is the default gas limit for workflow transactions.
 
 ### TxAcceptanceState
 ```toml
-TxAcceptanceState = 3 # Default
+TxAcceptanceState = 2 # Default
 ```
 TxAcceptanceState is the default acceptance state for writer DON tranmissions.
 
