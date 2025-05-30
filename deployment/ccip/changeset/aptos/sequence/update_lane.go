@@ -61,15 +61,23 @@ func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	}
 	mcmsTxs = append(mcmsTxs, offRampReport.Output)
 
-	// 4. Update FeeQuoters with gas prices
+	// 4. Adds CCIP owner to OffRamp allow list
+	b.Logger.Info("Adding CCIP owner to OffRamp allow list")
+	allowedOfframpReport, err := operations.ExecuteOperation(b, operation.ApplyAllowedOfframpUpdatesOp, deps, operations.EmptyInput{})
+	if err != nil {
+		return types.BatchOperation{}, fmt.Errorf("failed to apply allowed OffRamp updates: %w", err)
+	}
+	mcmsTxs = append(mcmsTxs, allowedOfframpReport.Output)
+
+	// 5. Update FeeQuoters with gas prices
 	b.Logger.Info("Updating gas prices on FeeQuoters")
 	feeQuoterPricesReport, err := operations.ExecuteOperation(b, operation.UpdateFeeQuoterPricesOp, deps, in.UpdateFeeQuoterPricesConfig)
 	if err != nil {
 		return types.BatchOperation{}, fmt.Errorf("failed to update FeeQuoter prices: %w", err)
 	}
-	mcmsTxs = append(mcmsTxs, feeQuoterPricesReport.Output...)
+	mcmsTxs = append(mcmsTxs, feeQuoterPricesReport.Output)
 
-	// 5. Update Router with destination OnRamp versions
+	// 6. Update Router with destination OnRamp versions
 	b.Logger.Info("Updating Router")
 	routerReport, err := operations.ExecuteOperation(b, operation.UpdateRouterOp, deps, in.UpdateRouterDestConfig)
 	if err != nil {

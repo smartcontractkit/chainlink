@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	aptoscfg "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
@@ -261,4 +262,38 @@ func initializeCCIP(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput)
 		ChainSelector: types.ChainSelector(deps.AptosChain.Selector),
 		Transactions:  txs,
 	}, nil
+}
+
+// OP: ApplyAllowedOfframpUpdates Operation
+var ApplyAllowedOfframpUpdatesOp = operations.NewOperation(
+	"apply-allowed-offramp-updates-op",
+	Version1_0_0,
+	"Adds CCIP owner address to OffRamp allow list",
+	applyAllowedOfframpUpdates,
+)
+
+func applyAllowedOfframpUpdates(b operations.Bundle, deps AptosDeps, _ operations.EmptyInput) (types.Transaction, error) {
+	// Bind CCIP Package
+	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
+	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
+
+	// Bind MCMS Package
+	mcmsAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].MCMSAddress
+	mcmsBind := mcms.Bind(mcmsAddress, deps.AptosChain.Client)
+
+	// Add CCIP Owner address to update token prices allow list
+	ccipOwnerAddress, err := mcmsBind.MCMSRegistry().GetRegisteredOwnerAddress(nil, ccipAddress)
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("failed to get CCIP owner address: %w", err)
+	}
+	moduleInfo, function, _, args, err := ccipBind.Auth().Encoder().ApplyAllowedOfframpUpdates(nil, []aptos.AccountAddress{ccipOwnerAddress})
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("failed to encode ApplyAllowedOfframpUpdates: %w", err)
+	}
+	tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
+	}
+
+	return tx, nil
 }

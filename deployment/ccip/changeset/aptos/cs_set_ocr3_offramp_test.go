@@ -35,6 +35,7 @@ func TestSetOCR3Offramp_Apply(t *testing.T) {
 		},
 		CCIPHomeConfigType: globals.ConfigTypeActive, // TODO: investigate why this is not being used, might be a bug
 	}
+
 	env, _, err := commonchangeset.ApplyChangesetsV2(t, env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(aptoscs.SetOCR3Offramp{}, cfg),
 	})
@@ -50,7 +51,9 @@ func TestSetOCR3Offramp_Apply(t *testing.T) {
 	ocr3Commit, err := aptosOffRamp.Offramp().LatestConfigDetails(nil, uint8(types.PluginTypeCCIPCommit))
 	require.NoError(t, err)
 	require.Len(t, ocr3Commit.Signers, 4)
+	require.NotEmpty(t, ocr3Commit.ConfigInfo.ConfigDigest)
 	ocr3Exec, err := aptosOffRamp.Offramp().LatestConfigDetails(nil, uint8(types.PluginTypeCCIPExec))
 	require.NoError(t, err)
 	require.Len(t, ocr3Exec.Transmitters, 4)
+	require.NotEmpty(t, ocr3Exec.ConfigInfo.ConfigDigest)
 }

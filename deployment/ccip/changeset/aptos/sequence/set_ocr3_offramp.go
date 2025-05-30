@@ -3,13 +3,8 @@ package sequence
 import (
 	"fmt"
 
-	"github.com/aptos-labs/aptos-go-sdk"
-
-	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
-	aptosutils "github.com/smartcontractkit/chainlink-aptos/relayer/utils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -30,10 +25,7 @@ var SetOCR3OfframpSequence = operations.NewSequence(
 )
 
 func setOCR3OfframpSequence(b operations.Bundle, deps operation.AptosDeps, in SetOCR3OfframpSeqInput) (mcmstypes.BatchOperation, error) {
-	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	var txs []mcmstypes.Transaction
-
-	offRampBind := ccip_offramp.Bind(ccipAddress, deps.AptosChain.Client)
 
 	donID, err := internal.DonIDForChain(
 		deps.CCIPOnChainState.Chains[in.HomeChainSelector].CapabilityRegistry,
@@ -67,59 +59,35 @@ func setOCR3OfframpSequence(b operations.Bundle, deps operation.AptosDeps, in Se
 		}
 	}
 
-	commitSigners := [][]byte{}
-	commitSigners = append(commitSigners, commitArgs.Signers...)
-	commitTransmitters := []aptos.AccountAddress{}
-	for _, transmitter := range commitArgs.Transmitters {
-		address, err := aptosutils.PublicKeyBytesToAddress(transmitter)
-		if err != nil {
-			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to convert transmitter to address: %w", err)
-		}
-		commitTransmitters = append(commitTransmitters, address)
-	}
-	moduleInfo, function, _, args, err := offRampBind.Offramp().Encoder().SetOcr3Config(
-		commitArgs.ConfigDigest[:],
-		uint8(types.PluginTypeCCIPCommit),
-		commitArgs.F,
-		commitArgs.IsSignatureVerificationEnabled,
-		commitSigners,
-		commitTransmitters,
+	// Set commit OCR3 Config
+	commitReport, err := operations.ExecuteOperation(
+		b,
+		operation.SetOcr3ConfigOp,
+		deps,
+		operation.SetOcr3ConfigInput{
+			OcrPluginType: types.PluginTypeCCIPCommit,
+			OCRConfigArgs: *commitArgs,
+		},
 	)
 	if err != nil {
-		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to encode SetOcr3Config for commit: %w", err)
+		return mcmstypes.BatchOperation{}, err
 	}
-	mcmsTx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
-	if err != nil {
-		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to generate MCMS operations for OffRamp Initialize: %w", err)
-	}
-	txs = append(txs, mcmsTx)
+	txs = append(txs, commitReport.Output)
 
-	execSigners := [][]byte{}
-	execSigners = append(execSigners, execArgs.Signers...)
-	execTransmitters := []aptos.AccountAddress{}
-	for _, transmitter := range execArgs.Transmitters {
-		address, err := aptosutils.PublicKeyBytesToAddress(transmitter)
-		if err != nil {
-			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to convert transmitter to address: %w", err)
-		}
-		execTransmitters = append(execTransmitters, address)
-	}
-	moduleInfo, function, _, args, err = offRampBind.Offramp().Encoder().SetOcr3Config(
-		execArgs.ConfigDigest[:],
-		uint8(types.PluginTypeCCIPExec),
-		execArgs.F,
-		execArgs.IsSignatureVerificationEnabled,
-		execSigners,
-		execTransmitters,
+	// Set exec OCR3 Config
+	execReport, err := operations.ExecuteOperation(
+		b,
+		operation.SetOcr3ConfigOp,
+		deps,
+		operation.SetOcr3ConfigInput{
+			OcrPluginType: types.PluginTypeCCIPExec,
+			OCRConfigArgs: *execArgs,
+		},
 	)
 	if err != nil {
-		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to encode SetOcr3Config for exec: %w", err)
+		return mcmstypes.BatchOperation{}, err
 	}
-	mcmsTx, err = utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
-	if err != nil {
-		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to generate MCMS operations for OffRamp Initialize: %w", err)
-	}
-	txs = append(txs, mcmsTx)
+	txs = append(txs, execReport.Output)
 
 	return mcmstypes.BatchOperation{
 		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
