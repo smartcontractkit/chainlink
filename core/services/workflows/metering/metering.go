@@ -96,10 +96,9 @@ func NewReport(lggr logger.Logger) *Report {
 	logger := logger.Named(lggr, "Metering")
 	balanceStore := NewBalanceStore(0, map[string]decimal.Decimal{}, logger)
 	return &Report{
-		balance:  balanceStore,
-		steps:    make(map[ReportStepRef]ReportStep),
-		lggr:     logger,
-		refCount: make(map[ReportStepRef]uint64),
+		balance: balanceStore,
+		steps:   make(map[ReportStepRef]ReportStep),
+		lggr:    logger,
 	}
 }
 
