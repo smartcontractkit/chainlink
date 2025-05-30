@@ -2,12 +2,14 @@ package cciptesthelpertypes
 
 import (
 	"fmt"
+	"maps"
 	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes/mocks"
 )
 
 func chainSelectorSlice(n int) []cciptypes.ChainSelector {
@@ -19,16 +21,12 @@ func chainSelectorSlice(n int) []cciptypes.ChainSelector {
 }
 
 func TestRandomTopology_getChainToFChainMapping(t *testing.T) {
-	type fields struct {
-		FChainToNumChains map[int]int
-		Seed              int64
-	}
 	type args struct {
 		chainSelectors []cciptypes.ChainSelector
 	}
 	tests := []struct {
 		name                   string
-		fields                 fields
+		fields                 RandomTopologyArgs
 		args                   args
 		wantFChainDistribution map[int]int
 		wantErr                bool
@@ -36,7 +34,7 @@ func TestRandomTopology_getChainToFChainMapping(t *testing.T) {
 	}{
 		{
 			name: "basic case with mixed fChain values",
-			fields: fields{
+			fields: RandomTopologyArgs{
 				FChainToNumChains: map[int]int{1: 2, 2: 1}, // 2 chains with fChain 1, 1 chain with fChain 2
 				Seed:              12345,
 			},
@@ -48,7 +46,7 @@ func TestRandomTopology_getChainToFChainMapping(t *testing.T) {
 		},
 		{
 			name: "empty chain selectors",
-			fields: fields{
+			fields: RandomTopologyArgs{
 				FChainToNumChains: map[int]int{1: 1}, // This FChainToNumChains is for a scenario with chains, but test provides none.
 				Seed:              1,
 			},
@@ -61,7 +59,7 @@ func TestRandomTopology_getChainToFChainMapping(t *testing.T) {
 		},
 		{
 			name: "all chains with same fChain value",
-			fields: fields{
+			fields: RandomTopologyArgs{
 				FChainToNumChains: map[int]int{1: 3},
 				Seed:              42,
 			},
@@ -73,7 +71,7 @@ func TestRandomTopology_getChainToFChainMapping(t *testing.T) {
 		},
 		{
 			name: "more complex fChain distribution",
-			fields: fields{
+			fields: RandomTopologyArgs{
 				FChainToNumChains: map[int]int{1: 1, 2: 2, 3: 1}, // 1 f1, 2 f2, 1 f3 = 4 chains
 				Seed:              987,
 			},
@@ -85,7 +83,7 @@ func TestRandomTopology_getChainToFChainMapping(t *testing.T) {
 		},
 		{
 			name: "more skewed fChain distribution",
-			fields: fields{
+			fields: RandomTopologyArgs{
 				FChainToNumChains: map[int]int{3: 1, 4: 100}, // 1 chain with fChain 3, 100 chains with fChain 4
 				Seed:              987,
 			},
@@ -97,7 +95,7 @@ func TestRandomTopology_getChainToFChainMapping(t *testing.T) {
 		},
 		{
 			name: "error - not enough fChain assignments for chain selectors",
-			fields: fields{
+			fields: RandomTopologyArgs{
 				FChainToNumChains: map[int]int{1: 1}, // Only 1 fChain assignment available
 				Seed:              777,
 			},
@@ -111,9 +109,8 @@ func TestRandomTopology_getChainToFChainMapping(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := &RandomTopology{
-				FChainToNumChains: tt.fields.FChainToNumChains,
-				Seed:              tt.fields.Seed,
+			r := &randomTopology{
+				RandomTopologyArgs: tt.fields,
 			}
 			gen := rand.New(rand.NewSource(tt.fields.Seed))
 			got, err := r.getChainToFChainMapping(gen, tt.args.chainSelectors)
@@ -157,16 +154,13 @@ func generateTestP2PIDs(count int) [][32]byte {
 }
 
 func TestRandomTopology_getNodesForChain(t *testing.T) {
-	type fields struct {
-		Seed int64 // Seed for the random generator
-	}
 	type args struct {
 		fChain             int
 		nonBootstrapP2pIDs [][32]byte
 	}
 	tests := []struct {
 		name          string
-		fields        fields
+		fields        RandomTopologyArgs
 		args          args
 		wantNodeCount int
 		wantErr       bool
@@ -174,7 +168,7 @@ func TestRandomTopology_getNodesForChain(t *testing.T) {
 	}{
 		{
 			name:   "happy path, fChain 1, enough nodes",
-			fields: fields{Seed: 1},
+			fields: RandomTopologyArgs{Seed: 1},
 			args: args{
 				fChain:             1,
 				nonBootstrapP2pIDs: generateTestP2PIDs(10),
@@ -184,7 +178,7 @@ func TestRandomTopology_getNodesForChain(t *testing.T) {
 		},
 		{
 			name:   "fChain 0, enough nodes",
-			fields: fields{Seed: 2},
+			fields: RandomTopologyArgs{Seed: 2},
 			args: args{
 				fChain:             0,
 				nonBootstrapP2pIDs: generateTestP2PIDs(5),
@@ -194,7 +188,7 @@ func TestRandomTopology_getNodesForChain(t *testing.T) {
 		},
 		{
 			name:   "fChain 2, exact number of nodes",
-			fields: fields{Seed: 3},
+			fields: RandomTopologyArgs{Seed: 3},
 			args: args{
 				fChain:             2,
 				nonBootstrapP2pIDs: generateTestP2PIDs(NChain(2)), // 3*2 + 1 = 7 nodes
@@ -204,7 +198,7 @@ func TestRandomTopology_getNodesForChain(t *testing.T) {
 		},
 		{
 			name:   "insufficient nodes",
-			fields: fields{Seed: 4},
+			fields: RandomTopologyArgs{Seed: 4},
 			args: args{
 				fChain:             1,                     // needs 4 nodes
 				nonBootstrapP2pIDs: generateTestP2PIDs(3), // only 3 available
@@ -214,7 +208,7 @@ func TestRandomTopology_getNodesForChain(t *testing.T) {
 		},
 		{
 			name:   "no nodes available, fChain 0", // needs 1 node
-			fields: fields{Seed: 5},
+			fields: RandomTopologyArgs{Seed: 5},
 			args: args{
 				fChain:             0,
 				nonBootstrapP2pIDs: generateTestP2PIDs(0),
@@ -224,7 +218,7 @@ func TestRandomTopology_getNodesForChain(t *testing.T) {
 		},
 		{
 			name:   "fChain 3, more nodes than default MinRoleDONSize",
-			fields: fields{Seed: 6},
+			fields: RandomTopologyArgs{Seed: 6},
 			args: args{
 				fChain:             3, // needs 3*3 + 1 = 10 nodes
 				nonBootstrapP2pIDs: generateTestP2PIDs(15),
@@ -236,7 +230,9 @@ func TestRandomTopology_getNodesForChain(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := &RandomTopology{} // getNodesForChain doesn't use fields from RandomTopology directly
+			r := &randomTopology{
+				RandomTopologyArgs: tt.fields,
+			}
 			gen := rand.New(rand.NewSource(tt.fields.Seed))
 
 			gotNodes, err := r.getNodesForChain(gen, tt.args.fChain, tt.args.nonBootstrapP2pIDs)
@@ -281,24 +277,20 @@ func TestRandomTopology_getNodesForChain(t *testing.T) {
 
 func TestRandomTopology_validate(t *testing.T) {
 	const homeChainSelector = 1
-	type fields struct {
-		FChainToNumChains map[int]int
-		Seed              int64 // Not used by validate, but part of the struct
-	}
 	type args struct {
 		chainSelectors    []cciptypes.ChainSelector
 		homeChainSelector cciptypes.ChainSelector
 	}
 	tests := []struct {
 		name       string
-		fields     fields
+		fields     RandomTopologyArgs
 		args       args
 		wantErr    bool
 		wantErrMsg string
 	}{
 		{
 			name: "valid: sum of FChainToNumChains equals len(chainSelectors)",
-			fields: fields{
+			fields: RandomTopologyArgs{
 				FChainToNumChains: map[int]int{1: 2, 2: 1}, // Total 3 chains
 			},
 			args: args{
@@ -309,7 +301,7 @@ func TestRandomTopology_validate(t *testing.T) {
 		},
 		{
 			name: "invalid: sum of FChainToNumChains greater than len(chainSelectors)",
-			fields: fields{
+			fields: RandomTopologyArgs{
 				FChainToNumChains: map[int]int{1: 3, 2: 1}, // Total 4 chains
 			},
 			args: args{
@@ -321,7 +313,7 @@ func TestRandomTopology_validate(t *testing.T) {
 		},
 		{
 			name: "invalid: sum of FChainToNumChains less than len(chainSelectors)",
-			fields: fields{
+			fields: RandomTopologyArgs{
 				FChainToNumChains: map[int]int{1: 1, 2: 1}, // Total 2 chains
 			},
 			args: args{
@@ -333,7 +325,7 @@ func TestRandomTopology_validate(t *testing.T) {
 		},
 		{
 			name: "valid: FChainToNumChains empty, chainSelectors empty",
-			fields: fields{
+			fields: RandomTopologyArgs{
 				FChainToNumChains: map[int]int{},
 			},
 			args: args{
@@ -344,7 +336,7 @@ func TestRandomTopology_validate(t *testing.T) {
 		},
 		{
 			name: "invalid: FChainToNumChains not empty, chainSelectors empty",
-			fields: fields{
+			fields: RandomTopologyArgs{
 				FChainToNumChains: map[int]int{1: 1}, // Total 1 chain
 			},
 			args: args{
@@ -356,7 +348,7 @@ func TestRandomTopology_validate(t *testing.T) {
 		},
 		{
 			name: "invalid: FChainToNumChains empty, chainSelectors not empty",
-			fields: fields{
+			fields: RandomTopologyArgs{
 				FChainToNumChains: map[int]int{},
 			},
 			args: args{
@@ -368,7 +360,7 @@ func TestRandomTopology_validate(t *testing.T) {
 		},
 		{
 			name: "valid: FChainToNumChains contains zero counts",
-			fields: fields{
+			fields: RandomTopologyArgs{
 				FChainToNumChains: map[int]int{1: 2, 2: 0, 3: 1}, // Total 3 chains (0 is ignored in sum)
 			},
 			args: args{
@@ -379,7 +371,7 @@ func TestRandomTopology_validate(t *testing.T) {
 		},
 		{
 			name: "invalid: home chain selector included in chainSelectors",
-			fields: fields{
+			fields: RandomTopologyArgs{
 				FChainToNumChains: map[int]int{1: 1, 2: 1},
 			},
 			args: args{
@@ -393,9 +385,8 @@ func TestRandomTopology_validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := &RandomTopology{
-				FChainToNumChains: tt.fields.FChainToNumChains,
-				Seed:              tt.fields.Seed,
+			r := &randomTopology{
+				RandomTopologyArgs: tt.fields,
 			}
 			err := r.validate(tt.args.chainSelectors, tt.args.homeChainSelector)
 			if tt.wantErr {
@@ -410,10 +401,6 @@ func TestRandomTopology_validate(t *testing.T) {
 
 func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 	const homeChainSelector = 1
-	type fields struct {
-		FChainToNumChains map[int]int
-		Seed              int64
-	}
 	type args struct {
 		nonBootstrapP2pIDs [][32]byte
 		chainSelectors     []cciptypes.ChainSelector
@@ -421,7 +408,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		fields  fields
+		fields  RandomTopologyArgs
 		args    args
 		wantErr bool
 		// wantErrMsg is a substring if specific, otherwise general error check
@@ -431,7 +418,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 	}{
 		{
 			name: "happy path - mixed fChains, sufficient nodes",
-			fields: fields{
+			fields: RandomTopologyArgs{
 				FChainToNumChains: map[int]int{1: 1, 2: 1}, // one chain f=1 (4 nodes), one chain f=2 (7 nodes)
 				Seed:              101,
 			},
@@ -445,7 +432,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 		},
 		{
 			name: "error - insufficient total nodes (MinRoleDONSize)",
-			fields: fields{
+			fields: RandomTopologyArgs{
 				FChainToNumChains: map[int]int{0: 1}, // f=0 needs 1 node
 				Seed:              102,
 			},
@@ -459,7 +446,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 		},
 		{
 			name: "error - validation failure (chain count mismatch)",
-			fields: fields{
+			fields: RandomTopologyArgs{
 				FChainToNumChains: map[int]int{1: 2}, // expects 2 chains configured
 				Seed:              103,
 			},
@@ -473,7 +460,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 		},
 		{
 			name: "error - insufficient nodes for a specific fChain",
-			fields: fields{
+			fields: RandomTopologyArgs{
 				FChainToNumChains: map[int]int{2: 1}, // f=2 needs 7 nodes
 				Seed:              104,
 			},
@@ -487,7 +474,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 		},
 		{
 			name: "empty chain selectors, valid FChainToNumChains (empty)",
-			fields: fields{
+			fields: RandomTopologyArgs{
 				FChainToNumChains: map[int]int{},
 				Seed:              105,
 			},
@@ -501,7 +488,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 		},
 		{
 			name: "multiple chains, same fChain, sufficient nodes",
-			fields: fields{
+			fields: RandomTopologyArgs{
 				FChainToNumChains: map[int]int{1: 2}, // two chains, f=1 (4 nodes each)
 				Seed:              106,
 			},
@@ -517,9 +504,8 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := &RandomTopology{
-				FChainToNumChains: tt.fields.FChainToNumChains,
-				Seed:              tt.fields.Seed,
+			r := &randomTopology{
+				RandomTopologyArgs: tt.fields,
 			}
 
 			gotMapping, err := r.ChainToNodeMapping(tt.args.nonBootstrapP2pIDs, tt.args.chainSelectors, tt.args.homeChainSelector)
@@ -580,9 +566,8 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 
 			// Determinism check for successful cases
 			if len(tt.args.chainSelectors) > 0 { // Only if there's something to compare
-				rDeterministic := &RandomTopology{
-					FChainToNumChains: tt.fields.FChainToNumChains,
-					Seed:              tt.fields.Seed, // Same seed
+				rDeterministic := &randomTopology{
+					RandomTopologyArgs: tt.fields,
 				}
 				gotMappingDeterministic, detErr := rDeterministic.ChainToNodeMapping(tt.args.nonBootstrapP2pIDs, tt.args.chainSelectors, tt.args.homeChainSelector)
 				require.NoError(t, detErr, "Determinism check failed on second run")
@@ -594,6 +579,113 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 					// The order of nodes within the slice from getNodesForChain should be deterministic due to rand.Seed
 					require.Equal(t, nodes1, nodes2, "Determinism check: node assignments for chain %d differ", cs)
 				}
+			}
+		})
+	}
+}
+
+func TestTopology_ChainToNodeMapping(t *testing.T) {
+	type args struct {
+		nonBootstrapP2pIDs    [][32]byte
+		nonHomeChainSelectors []cciptypes.ChainSelector
+		homeChainSelector     cciptypes.ChainSelector
+	}
+	tests := []struct {
+		name                string
+		args                args
+		mockSetup           func(m *mocks.RoleDONTopology, args args) map[cciptypes.ChainSelector][][32]byte
+		wantErr             bool
+		wantErrMsgSubstring string
+		wantMapping         map[cciptypes.ChainSelector][][32]byte
+	}{
+		{
+			name: "happy path - mock returns valid mapping",
+			args: args{
+				nonBootstrapP2pIDs:    generateTestP2PIDs(5),
+				nonHomeChainSelectors: []cciptypes.ChainSelector{100, 200},
+				homeChainSelector:     300,
+			},
+			mockSetup: func(m *mocks.RoleDONTopology, args args) map[cciptypes.ChainSelector][][32]byte {
+				mockReturnMapping := map[cciptypes.ChainSelector][][32]byte{
+					100: {args.nonBootstrapP2pIDs[0], args.nonBootstrapP2pIDs[1]},
+					200: {args.nonBootstrapP2pIDs[2], args.nonBootstrapP2pIDs[3]},
+					// Home chain not included in mock's direct return, as topology wrapper handles it.
+				}
+				m.On("ChainToNodeMapping", args.nonBootstrapP2pIDs, args.nonHomeChainSelectors, args.homeChainSelector).
+					Return(mockReturnMapping, nil)
+
+				// Construct the expected final mapping for assertion
+				expectedMapping := make(map[cciptypes.ChainSelector][][32]byte)
+				maps.Copy(expectedMapping, mockReturnMapping)
+				expectedMapping[args.homeChainSelector] = args.nonBootstrapP2pIDs
+				return expectedMapping
+			},
+			wantErr: false,
+		},
+		{
+			name: "error path - mock returns error",
+			args: args{
+				nonBootstrapP2pIDs:    generateTestP2PIDs(4),
+				nonHomeChainSelectors: []cciptypes.ChainSelector{100},
+				homeChainSelector:     200,
+			},
+			mockSetup: func(m *mocks.RoleDONTopology, args args) map[cciptypes.ChainSelector][][32]byte {
+				m.On("ChainToNodeMapping", args.nonBootstrapP2pIDs, args.nonHomeChainSelectors, args.homeChainSelector).
+					Return(nil, fmt.Errorf("mock error"))
+				return nil
+			},
+			wantErr:             true,
+			wantErrMsgSubstring: "mock error",
+		},
+		{
+			name: "happy path - empty nonHomeChainSelectors",
+			args: args{
+				nonBootstrapP2pIDs:    generateTestP2PIDs(MinRoleDONSize),
+				nonHomeChainSelectors: []cciptypes.ChainSelector{},
+				homeChainSelector:     500,
+			},
+			mockSetup: func(m *mocks.RoleDONTopology, args args) map[cciptypes.ChainSelector][][32]byte {
+				mockReturnMapping := map[cciptypes.ChainSelector][][32]byte{
+					// No non-home chains in mock's direct return
+				}
+				m.On("ChainToNodeMapping", args.nonBootstrapP2pIDs, args.nonHomeChainSelectors, args.homeChainSelector).
+					Return(mockReturnMapping, nil)
+
+				expectedMapping := make(map[cciptypes.ChainSelector][][32]byte)
+				expectedMapping[args.homeChainSelector] = args.nonBootstrapP2pIDs
+				return expectedMapping
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockTopology := mocks.NewRoleDONTopology(t)
+
+			// Set up expectations and get the final expected mapping
+			tt.wantMapping = tt.mockSetup(mockTopology, tt.args)
+
+			top := &topology{
+				impl: mockTopology,
+			}
+
+			gotMapping, err := top.ChainToNodeMapping(tt.args.nonBootstrapP2pIDs, tt.args.nonHomeChainSelectors, tt.args.homeChainSelector)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.wantErrMsgSubstring != "" {
+					require.Contains(t, err.Error(), tt.wantErrMsgSubstring)
+				}
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tt.wantMapping, gotMapping)
+
+			// Explicitly check that home chain is mapped to all nonBootstrapP2pIDs
+			if !tt.wantErr {
+				require.Contains(t, gotMapping, tt.args.homeChainSelector)
+				require.ElementsMatch(t, tt.args.nonBootstrapP2pIDs, gotMapping[tt.args.homeChainSelector])
 			}
 		})
 	}

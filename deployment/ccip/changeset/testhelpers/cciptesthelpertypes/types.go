@@ -12,6 +12,34 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
+// NewRandomTopology creates a new random topology with the given arguments.
+func NewRandomTopology(args RandomTopologyArgs) RoleDONTopology {
+	return &topology{
+		impl: &randomTopology{RandomTopologyArgs: args},
+	}
+}
+
+var _ RoleDONTopology = &topology{}
+
+// topology wraps a RoleDONTopology implementation and ensures that the home chain is supported by all nodes.
+// See the RoleDONTopology interface for more details.
+type topology struct {
+	impl RoleDONTopology
+}
+
+// ChainToNodeMapping implements RoleDONTopology.
+func (t *topology) ChainToNodeMapping(nonBootstrapP2pIDs [][32]byte, nonHomeChainSelectors []cciptypes.ChainSelector, homeChainSelector cciptypes.ChainSelector) (map[cciptypes.ChainSelector][][32]byte, error) {
+	chainToNodeMapping, err := t.impl.ChainToNodeMapping(nonBootstrapP2pIDs, nonHomeChainSelectors, homeChainSelector)
+	if err != nil {
+		return nil, err
+	}
+
+	// ensure that the home chain is supported by all nodes.
+	chainToNodeMapping[homeChainSelector] = nonBootstrapP2pIDs
+
+	return chainToNodeMapping, nil
+}
+
 // MinRoleDONSize represents the size of the smallest possible CCIP role DON.
 const MinRoleDONSize = 4
 
@@ -55,15 +83,10 @@ type RoleDONTopology interface {
 	) (map[cciptypes.ChainSelector][][32]byte, error)
 }
 
-var _ RoleDONTopology = &RandomTopology{}
+var _ RoleDONTopology = &randomTopology{}
 
-// RandomTopology generates a random chain->node mapping, while honoring the fChain value of each chain.
-// This object is currently intended to be used primarily for tests, where
-// we don't really care what specific node is assigned which specific chain,
-// but rather that the overall network topology is honored.
-// It can also be used in live ccip test environments to generate a random topology,
-// such as staging and production-testnet.
-type RandomTopology struct {
+// RandomTopologyArgs are the arguments for the random topology.
+type RandomTopologyArgs struct {
 	// FChainToNumChains maps (the fChain value) to the number of chains that have that fChain value.
 	// Note that the sum of all of the number of chains (i.e the values in the map) must be equal exactly to the number
 	// of chains set up in the test MINUS the home chain.
@@ -71,15 +94,24 @@ type RandomTopology struct {
 	// and an fChain value of 1 for the second chain, we would set the map to:
 	// {2: 1, 1: 1}
 	FChainToNumChains map[int]int
-
 	// Seed is a value used to seed the PRNG that will assign nodes to chains.
-	// It is used to ensure that the same topology is generated across multiple runs of the test.
+	// It is used to ensure that the same topology is generated across multiple runs of the topology.
 	Seed int64
+}
+
+// randomTopology generates a random chain->node mapping, while honoring the fChain value of each chain.
+// This object is currently intended to be used primarily for tests, where
+// we don't really care what specific node is assigned which specific chain,
+// but rather that the overall network topology is honored.
+// It can also be used in live ccip test environments to generate a random topology,
+// such as staging and production-testnet.
+type randomTopology struct {
+	RandomTopologyArgs
 }
 
 // Validate implements RoleDONTopology.
 // The chainSelectors must not include the home chain, as it is supported by all nodes.
-func (r *RandomTopology) validate(chainSelectors []cciptypes.ChainSelector, homeChainSelector cciptypes.ChainSelector) error {
+func (r *randomTopology) validate(chainSelectors []cciptypes.ChainSelector, homeChainSelector cciptypes.ChainSelector) error {
 	totalChains := 0
 	for _, numChains := range r.FChainToNumChains {
 		totalChains += numChains
@@ -103,7 +135,7 @@ func (r *RandomTopology) validate(chainSelectors []cciptypes.ChainSelector, home
 // ChainToNodeMapping implements RoleDONTopology by randomly sampling the set of
 // nodes that support each chain, while honoring the fChain value of each chain.
 // The chainSelectors must not include the home chain, as it is supported by all nodes.
-func (r *RandomTopology) ChainToNodeMapping(
+func (r *randomTopology) ChainToNodeMapping(
 	nonBootstrapP2pIDs [][32]byte,
 	chainSelectors []cciptypes.ChainSelector,
 	homeChainSelector cciptypes.ChainSelector,
@@ -145,7 +177,7 @@ func (r *RandomTopology) ChainToNodeMapping(
 // getNodesForChain draws a set of nodes that will support a given fChain value.
 // Due to the randomness involved in the setup, a node might end up supporting multiple chains.
 // However, this setup ensures that at most 3 * fChain + 1 nodes will support a given chain.
-func (r *RandomTopology) getNodesForChain(gen *rand.Rand, fChain int, nonBootstrapP2pIDs [][32]byte) ([][32]byte, error) {
+func (r *randomTopology) getNodesForChain(gen *rand.Rand, fChain int, nonBootstrapP2pIDs [][32]byte) ([][32]byte, error) {
 	numNodesToDraw := NChain(fChain)
 
 	// should never happen but a good sanity check.
@@ -171,7 +203,7 @@ func (r *RandomTopology) getNodesForChain(gen *rand.Rand, fChain int, nonBootstr
 	return nodes, nil
 }
 
-func (r *RandomTopology) getChainToFChainMapping(gen *rand.Rand, chainSelectors []cciptypes.ChainSelector) (map[cciptypes.ChainSelector]int, error) {
+func (r *randomTopology) getChainToFChainMapping(gen *rand.Rand, chainSelectors []cciptypes.ChainSelector) (map[cciptypes.ChainSelector]int, error) {
 	chainToFChain := make(map[cciptypes.ChainSelector]int)
 
 	// for deterministic looping over the fChainToNumChains map.

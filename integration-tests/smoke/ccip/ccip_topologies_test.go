@@ -55,13 +55,15 @@ func Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest(t *tes
 		t,
 		testhelpers.WithNumOfChains(numChains),
 		testhelpers.WithNumOfNodes(nRoleDON),
-		testhelpers.WithRoleDONTopology(&cciptesthelpertypes.RandomTopology{
-			FChainToNumChains: map[int]int{
-				fChainSource: 1, // 1 chain with fChain fChainSource
-				fChainDest:   1, // 1 chain with fChain fChainDest
+		testhelpers.WithRoleDONTopology(cciptesthelpertypes.NewRandomTopology(
+			cciptesthelpertypes.RandomTopologyArgs{
+				FChainToNumChains: map[int]int{
+					fChainSource: 1, // 1 chain with fChain fChainSource
+					fChainDest:   1, // 1 chain with fChain fChainDest
+				},
+				Seed: 42, // for reproducible setups.
 			},
-			Seed: 42, // for reproducible setups.
-		}),
+		)),
 	)
 
 	state, err := stateview.LoadOnchainState(e.Env)
