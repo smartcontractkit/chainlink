@@ -294,9 +294,9 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 	for _, nop := range tc.nops {
 		signers = append(signers, nop.ToRMNRemoteSigner())
 	}
-
-	remoteConfigs := make(map[uint64]ccipops.RMNRemoteConfig, len(e.Env.Chains))
-	for _, chain := range e.Env.Chains {
+	evmChains := e.Env.BlockChains.EVMChains()
+	remoteConfigs := make(map[uint64]ccipops.RMNRemoteConfig, len(evmChains))
+	for _, chain := range evmChains {
 		remoteConfig := ccipops.RMNRemoteConfig{
 			Signers: signers,
 			F:       0,
@@ -414,7 +414,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
-				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					"NodeOperator": envNodes.NonBootstraps().PeerIDs(),
 				},

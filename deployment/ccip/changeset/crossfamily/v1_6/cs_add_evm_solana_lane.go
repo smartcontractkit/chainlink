@@ -429,13 +429,13 @@ func (multiCfg *AddMultiEVMSolanaLaneConfig) populateAndValidateIndividualCSConf
 	if err := input.evmOffRampInput.Validate(env, evmState); err != nil {
 		return input, fmt.Errorf("failed to validate evm off ramp input: %w", err)
 	}
-	if err := input.solanaRouterInput.Validate(env); err != nil {
+	if err := input.solanaRouterInput.Validate(env, evmState); err != nil {
 		return input, fmt.Errorf("failed to validate solana router input: %w", err)
 	}
-	if err := input.solanaOffRampInput.Validate(env); err != nil {
+	if err := input.solanaOffRampInput.Validate(env, evmState); err != nil {
 		return input, fmt.Errorf("failed to validate solana off ramp input: %w", err)
 	}
-	if err := input.solanaFeeQuoterInput.Validate(env); err != nil {
+	if err := input.solanaFeeQuoterInput.Validate(env, evmState); err != nil {
 		return input, fmt.Errorf("failed to validate solana fee quoter input: %w", err)
 	}
 	return input, nil

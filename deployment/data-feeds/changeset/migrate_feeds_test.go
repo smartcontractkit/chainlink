@@ -27,7 +27,6 @@ func TestMigrateFeeds(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
 		Chains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
@@ -54,7 +53,7 @@ func TestMigrateFeeds(t *testing.T) {
 			types.SetFeedAdminConfig{
 				ChainSelector: chainSelector,
 				CacheAddress:  common.HexToAddress(cacheAddress),
-				AdminAddress:  common.HexToAddress(env.Chains[chainSelector].DeployerKey.From.Hex()),
+				AdminAddress:  common.HexToAddress(env.BlockChains.EVMChains()[chainSelector].DeployerKey.From.Hex()),
 				IsAdmin:       true,
 			},
 		),
@@ -66,7 +65,7 @@ func TestMigrateFeeds(t *testing.T) {
 				InputFileName: "testdata/migrate_feeds.json",
 				InputFS:       testFS,
 				WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
-					cache.DataFeedsCacheWorkflowMetadata{
+					{
 						AllowedSender:        common.HexToAddress("0x22"),
 						AllowedWorkflowOwner: common.HexToAddress("0x33"),
 						AllowedWorkflowName:  changeset.HashedWorkflowName("test"),

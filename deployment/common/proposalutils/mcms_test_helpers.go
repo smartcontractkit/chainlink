@@ -223,7 +223,7 @@ func ExecuteMCMSProposalV2(t *testing.T, env cldf.Environment, proposal *mcmslib
 
 		// no need to confirm transaction on solana as the MCMS sdk confirms it internally
 		if family == chainsel.FamilyEVM {
-			chain := env.Chains[uint64(chainSelector)]
+			chain := evmChains[uint64(chainSelector)]
 			evmTransaction := root.RawData.(*gethtypes.Transaction)
 			t.Logf("[ExecuteMCMSProposalV2] SetRoot EVM tx hash: %s", evmTransaction.Hash().String())
 			_, err = chain.Confirm(evmTransaction)
@@ -254,7 +254,7 @@ func ExecuteMCMSProposalV2(t *testing.T, env cldf.Environment, proposal *mcmslib
 		require.NoError(t, err)
 
 		if family == chainsel.FamilyEVM {
-			chain := env.Chains[uint64(op.ChainSelector)]
+			chain := evmChains[uint64(op.ChainSelector)]
 			evmTransaction := result.RawData.(*gethtypes.Transaction)
 			t.Logf("[ExecuteMCMSProposalV2] Operation %d EVM tx hash: %s", i, evmTransaction.Hash().String())
 			_, err = chain.Confirm(evmTransaction)

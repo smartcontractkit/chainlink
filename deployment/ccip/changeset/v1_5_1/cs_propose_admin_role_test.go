@@ -221,7 +221,7 @@ func TestProposeAdminRoleChangeset_ExecutionWithoutExternalAdmin(t *testing.T) {
 			if mcmsConfig != nil {
 				require.Equal(t, state.Chains[selectorA].Timelock.Address(), configOnA.PendingAdministrator)
 			} else {
-				require.Equal(t, e.Chains[selectorA].DeployerKey.From, configOnA.PendingAdministrator)
+				require.Equal(t, e.BlockChains.EVMChains()[selectorA].DeployerKey.From, configOnA.PendingAdministrator)
 			}
 
 			configOnB, err := registryOnB.GetTokenConfig(nil, tokens[selectorB].Address)
@@ -229,7 +229,7 @@ func TestProposeAdminRoleChangeset_ExecutionWithoutExternalAdmin(t *testing.T) {
 			if mcmsConfig != nil {
 				require.Equal(t, state.Chains[selectorB].Timelock.Address(), configOnB.PendingAdministrator)
 			} else {
-				require.Equal(t, e.Chains[selectorB].DeployerKey.From, configOnB.PendingAdministrator)
+				require.Equal(t, e.BlockChains.EVMChains()[selectorB].DeployerKey.From, configOnB.PendingAdministrator)
 			}
 		})
 	}

@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	tronkeystore "github.com/smartcontractkit/chainlink-tron/relayer/keystore"
@@ -12,7 +11,7 @@ import (
 	trontxm "github.com/smartcontractkit/chainlink-tron/relayer/txm"
 )
 
-func ConstructTronTxm(logger logger.Logger, cfg *config.ChainScoped, nodes []*toml.Node, keystore keys.Store) (*trontxm.TronTxm, error) {
+func ConstructTxm(logger logger.Logger, nodes []*toml.Node, keystore keys.Store) (*trontxm.TronTxm, error) {
 	if len(nodes) == 0 {
 		return nil, fmt.Errorf("Tron chain requires at least one node")
 	}

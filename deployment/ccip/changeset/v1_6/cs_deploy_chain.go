@@ -69,7 +69,7 @@ func ValidateHomeChainState(e cldf.Environment, homeChainSel uint64, existingSta
 		e.Logger.Errorw("Failed to get capability", "err", err)
 		return err
 	}
-	ccipHome, err := ccip_home.NewCCIPHome(capability.ConfigurationContract, e.Chains[homeChainSel].Client)
+	ccipHome, err := ccip_home.NewCCIPHome(capability.ConfigurationContract, e.BlockChains.EVMChains()[homeChainSel].Client)
 	if err != nil {
 		e.Logger.Errorw("Failed to get ccip config", "err", err)
 		return err
