@@ -165,11 +165,9 @@ runs:
         path: |
           ${{ steps.go-cache-dir.outputs.gobuildcache }}
         key: ${{ steps.build-cache-keys.outputs.primary-key }}
-        # Include `secondary-key` twice due to a bug in runs-on S3 cache solution. Will remove once patched.
         restore-keys: |
           ${{ steps.build-cache-keys.outputs.secondary-key }}
           ${{ steps.build-cache-keys.outputs.develop-key }}
-          ${{ steps.build-cache-keys.outputs.secondary-key }}
 
     # 4. Upsert/Create the build cache
     # ---
@@ -183,8 +181,6 @@ runs:
         path: |
           ${{ steps.go-cache-dir.outputs.gobuildcache }}
         key: ${{ steps.build-cache-keys.outputs.primary-key }}
-        # Include `secondary-key` twice due to a bug in runs-on S3 cache solution. Will remove once patched.
         restore-keys: |
           ${{ steps.build-cache-keys.outputs.secondary-key }}
           ${{ steps.build-cache-keys.outputs.develop-key }}
-          ${{ steps.build-cache-keys.outputs.secondary-key }}

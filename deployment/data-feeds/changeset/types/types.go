@@ -124,7 +124,7 @@ type RemoveFeedProxyConfig struct {
 	McmsConfig     *MCMSConfig
 }
 
-type ImportToAddressbookConfig struct {
+type ImportAddressesConfig struct {
 	InputFileName string
 	ChainSelector uint64
 	InputFS       embed.FS
@@ -195,4 +195,18 @@ type ProposeBtJobsConfig struct {
 type DeleteJobsConfig struct {
 	JobIDs       []string
 	WorkflowName string
+}
+
+type SetRegistryWorkflowConfig struct {
+	ChainSelector         uint64
+	AllowedWorkflowOwners []string
+	AllowedWorkflowNames  []string
+	CacheAddress          string
+}
+
+type SetRegistryFeedConfig struct {
+	ChainSelector uint64
+	DataIDs       []string
+	Descriptions  []string
+	CacheAddress  string
 }

@@ -19,7 +19,7 @@ var _ cldf.ChangeSet[*AddMintersBurnersLinkConfig] = AddMintersBurnersLink
 
 // AddMintersBurnersLink grants the minter / burner role to the provided addresses.
 func AddMintersBurnersLink(e cldf.Environment, cfg *AddMintersBurnersLinkConfig) (cldf.ChangesetOutput, error) {
-	chain := e.Chains[cfg.ChainSelector]
+	chain := e.BlockChains.EVMChains()[cfg.ChainSelector]
 	addresses, err := e.ExistingAddresses.AddressesForChain(cfg.ChainSelector)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err

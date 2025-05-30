@@ -76,7 +76,7 @@ func TestSolanaTokenOps(t *testing.T) {
 		addresses,
 	)
 
-	deployerKey := e.SolChains[solChain1].DeployerKey.PublicKey()
+	deployerKey := e.BlockChains.SolanaChains()[solChain1].DeployerKey.PublicKey()
 
 	testUser, _ := solana.NewRandomPrivateKey()
 	testUserPubKey := testUser.PublicKey()
@@ -111,17 +111,17 @@ func TestSolanaTokenOps(t *testing.T) {
 	deployerATA, _, err := solTokenUtil.FindAssociatedTokenAddress(
 		solana.Token2022ProgramID,
 		tokenAddress,
-		e.SolChains[solChain1].DeployerKey.PublicKey(),
+		e.BlockChains.SolanaChains()[solChain1].DeployerKey.PublicKey(),
 	)
 	require.NoError(t, err)
 
 	// test if minting was done correctly
-	outDec, outVal, err := solTokenUtil.TokenBalance(context.Background(), e.SolChains[solChain1].Client, deployerATA, solRpc.CommitmentConfirmed)
+	outDec, outVal, err := solTokenUtil.TokenBalance(context.Background(), e.BlockChains.SolanaChains()[solChain1].Client, deployerATA, solRpc.CommitmentConfirmed)
 	require.NoError(t, err)
 	require.Equal(t, int(1000), outVal)
 	require.Equal(t, 9, int(outDec))
 
-	outDec, outVal, err = solTokenUtil.TokenBalance(context.Background(), e.SolChains[solChain1].Client, testUserATA, solRpc.CommitmentConfirmed)
+	outDec, outVal, err = solTokenUtil.TokenBalance(context.Background(), e.BlockChains.SolanaChains()[solChain1].Client, testUserATA, solRpc.CommitmentConfirmed)
 	require.NoError(t, err)
 	require.Equal(t, int(1000), outVal)
 	require.Equal(t, 9, int(outDec))
@@ -160,16 +160,16 @@ func TestSolanaTokenOps(t *testing.T) {
 	deployerATA2, _, err := solTokenUtil.FindAssociatedTokenAddress(
 		solana.TokenProgramID,
 		tokenAddress2,
-		e.SolChains[solChain1].DeployerKey.PublicKey(),
+		e.BlockChains.SolanaChains()[solChain1].DeployerKey.PublicKey(),
 	)
 	require.NoError(t, err)
 	// test if minting was done correctly
-	outDec, outVal, err = solTokenUtil.TokenBalance(context.Background(), e.SolChains[solChain1].Client, deployerATA2, solRpc.CommitmentConfirmed)
+	outDec, outVal, err = solTokenUtil.TokenBalance(context.Background(), e.BlockChains.SolanaChains()[solChain1].Client, deployerATA2, solRpc.CommitmentConfirmed)
 	require.NoError(t, err)
 	require.Equal(t, int(1000), outVal)
 	require.Equal(t, 9, int(outDec))
 
-	outDec, outVal, err = solTokenUtil.TokenBalance(context.Background(), e.SolChains[solChain1].Client, testUserATA2, solRpc.CommitmentConfirmed)
+	outDec, outVal, err = solTokenUtil.TokenBalance(context.Background(), e.BlockChains.SolanaChains()[solChain1].Client, testUserATA2, solRpc.CommitmentConfirmed)
 	require.NoError(t, err)
 	require.Equal(t, int(1000), outVal)
 	require.Equal(t, 9, int(outDec))

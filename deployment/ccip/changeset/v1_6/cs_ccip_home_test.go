@@ -52,7 +52,7 @@ func TestInvalidOCR3Params(t *testing.T) {
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
-				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					testhelpers.TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
 				},
@@ -124,7 +124,7 @@ func Test_PromoteCandidate(t *testing.T) {
 			require.NoError(t, err)
 
 			// Deploy to all chains.
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
 
@@ -222,7 +222,7 @@ func Test_SetCandidate(t *testing.T) {
 			require.NoError(t, err)
 
 			// Deploy to all chains.
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
 
@@ -362,7 +362,7 @@ func Test_RevokeCandidate(t *testing.T) {
 			require.NoError(t, err)
 
 			// Deploy to all chains.
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
 
@@ -512,7 +512,7 @@ func Test_UpdateChainConfigs(t *testing.T) {
 			state, err := stateview.LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
 			otherChain := allChains[2]

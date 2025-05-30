@@ -15,6 +15,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	solanago "github.com/gagliardetto/solana-go"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 
 	"github.com/stretchr/testify/require"
@@ -26,6 +27,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -347,8 +349,8 @@ type MemoryEnvironment struct {
 	DeployedEnv
 	nodes       map[string]memory.Node
 	TestConfig  *TestConfigs
-	Chains      map[uint64]cldf.Chain
-	SolChains   map[uint64]cldf.SolChain
+	Chains      map[uint64]cldf_evm.Chain
+	SolChains   map[uint64]cldf_solana.Chain
 	AptosChains map[uint64]cldf_aptos.Chain
 	TonChains   map[uint64]cldf_ton.Chain
 }
@@ -368,7 +370,7 @@ func (m *MemoryEnvironment) UpdateDeployedEnvironment(env DeployedEnv) {
 func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	ctx := testcontext.Get(t)
 	tc := m.TestConfig
-	var chains map[uint64]cldf.Chain
+	var chains map[uint64]cldf_evm.Chain
 	var users map[uint64][]*bind.TransactOpts
 	if len(tc.ChainIDs) > 0 {
 		chains, users = memory.NewMemoryChainsWithChainIDs(t, tc.ChainIDs, tc.NumOfUsersPerChain)
@@ -405,8 +407,6 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	}
 
 	env := cldf.Environment{
-		Chains:      m.Chains,
-		SolChains:   m.SolChains,
 		BlockChains: cldf_chain.NewBlockChains(blockChains),
 	}
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
@@ -632,9 +632,9 @@ func NewEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	dEnv := tEnv.DeployedEnvironment()
 	require.NotEmpty(t, dEnv.FeedChainSel)
 	require.NotEmpty(t, dEnv.HomeChainSel)
-	require.NotEmpty(t, dEnv.Env.Chains)
+	require.NotEmpty(t, dEnv.Env.BlockChains.EVMChains())
 	ab := cldf.NewMemoryAddressBook()
-	crConfig := DeployTestContracts(t, lggr, ab, dEnv.HomeChainSel, dEnv.FeedChainSel, dEnv.Env.Chains, tc.LinkPrice, tc.WethPrice)
+	crConfig := DeployTestContracts(t, lggr, ab, dEnv.HomeChainSel, dEnv.FeedChainSel, dEnv.Env.BlockChains.EVMChains(), tc.LinkPrice, tc.WethPrice)
 	tEnv.StartNodes(t, crConfig)
 	dEnv = tEnv.DeployedEnvironment()
 	dEnv.Env.ExistingAddresses = ab
@@ -743,14 +743,14 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	evmChains := []uint64{}
 	for _, chain := range allChains {
-		if _, ok := e.Env.Chains[chain]; ok {
+		if _, ok := e.Env.BlockChains.EVMChains()[chain]; ok {
 			evmChains = append(evmChains, chain)
 		}
 	}
 
 	solChains := []uint64{}
 	for _, chain := range allChains {
-		if _, ok := e.Env.SolChains[chain]; ok {
+		if _, ok := e.Env.BlockChains.SolanaChains()[chain]; ok {
 			solChains = append(solChains, chain)
 		}
 	}
@@ -769,7 +769,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  NewTestRMNStaticConfig(),
-				NodeOperators:    NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeOperators:    NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
 				},
@@ -1047,7 +1047,7 @@ func NewEnvironmentWithJobs(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  NewTestRMNStaticConfig(),
-				NodeOperators:    NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeOperators:    NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
 				},

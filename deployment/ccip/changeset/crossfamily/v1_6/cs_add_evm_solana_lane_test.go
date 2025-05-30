@@ -43,12 +43,6 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			/*if t.Name() == "TestAddEVMSolanaLaneBidirectional/MCMS_enabled" {
-				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-758")
-			}
-			if t.Name() == "TestAddEVMSolanaLaneBidirectional/MCMS_disabled" {
-				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-759")
-			}*/
 			t.Parallel()
 			ctx := testcontext.Get(t)
 			tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
@@ -109,7 +103,7 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 						SolanaRouterConfig: ccipChangesetSolana.RouterConfig{
 							RouterDestinationConfig: solRouter.DestChainConfig{
 								AllowListEnabled: true,
-								AllowedSenders:   []solana.PublicKey{e.SolChains[solChain].DeployerKey.PublicKey()},
+								AllowedSenders:   []solana.PublicKey{e.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()},
 							},
 						},
 						SolanaOffRampConfig: ccipChangesetSolana.OffRampConfig{
@@ -133,7 +127,7 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 						SolanaRouterConfig: ccipChangesetSolana.RouterConfig{
 							RouterDestinationConfig: solRouter.DestChainConfig{
 								AllowListEnabled: true,
-								AllowedSenders:   []solana.PublicKey{e.SolChains[solChain].DeployerKey.PublicKey()},
+								AllowedSenders:   []solana.PublicKey{e.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()},
 							},
 						},
 						SolanaOffRampConfig: ccipChangesetSolana.OffRampConfig{
@@ -200,19 +194,19 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 			var fqEvmDestChainPDA solana.PublicKey
 			for _, evmChain := range evmChains {
 				offRampEvmSourceChainPDA, _, _ = solState.FindOfframpSourceChainPDA(evmChain, solanaState.SolChains[solChain].OffRamp)
-				err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), offRampEvmSourceChainPDA, &offRampSourceChain)
+				err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(e.GetContext(), offRampEvmSourceChainPDA, &offRampSourceChain)
 				require.NoError(t, err)
 				require.True(t, offRampSourceChain.Config.IsEnabled)
 
 				fqEvmDestChainPDA, _, _ = solState.FindFqDestChainPDA(evmChain, solanaState.SolChains[solChain].FeeQuoter)
-				err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), fqEvmDestChainPDA, &destChainFqAccount)
+				err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(e.GetContext(), fqEvmDestChainPDA, &destChainFqAccount)
 				require.NoError(t, err, "failed to get account info")
 				require.Equal(t, solFeeQuoter.TimestampedPackedU224{}, destChainFqAccount.State.UsdPerUnitGas)
 				require.True(t, destChainFqAccount.Config.IsEnabled)
 				require.Equal(t, feeQCfgSolana, destChainFqAccount.Config)
 
 				evmDestChainStatePDA, _ = solState.FindDestChainStatePDA(evmChain, solanaState.SolChains[solChain].Router)
-				err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), evmDestChainStatePDA, &destChainStateAccount)
+				err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(e.GetContext(), evmDestChainStatePDA, &destChainStateAccount)
 				require.NoError(t, err)
 				require.NotEmpty(t, destChainStateAccount.Config.AllowedSenders)
 				require.True(t, destChainStateAccount.Config.AllowListEnabled)

@@ -220,14 +220,14 @@ func TestConnectNewChain(t *testing.T) {
 						// Admin role for deployer key should be revoked
 						adminRole, err := state.Chains[selector].Timelock.ADMINROLE(nil)
 						require.NoError(t, err, "must get admin role")
-						hasRole, err := state.Chains[selector].Timelock.HasRole(nil, adminRole, e.Chains[selector].DeployerKey.From)
+						hasRole, err := state.Chains[selector].Timelock.HasRole(nil, adminRole, e.BlockChains.EVMChains()[selector].DeployerKey.From)
 						require.NoError(t, err, "must get admin role")
 						require.False(t, hasRole, "deployer key must not have admin role")
 					} else {
 						// onRamp, offRamp, and router should still be owned by deployer key
-						mustHaveOwner(t, state.Chains[selector].OnRamp, e.Chains[selector].DeployerKey.From.Hex())
-						mustHaveOwner(t, state.Chains[selector].OffRamp, e.Chains[selector].DeployerKey.From.Hex())
-						mustHaveOwner(t, state.Chains[selector].Router, e.Chains[selector].DeployerKey.From.Hex())
+						mustHaveOwner(t, state.Chains[selector].OnRamp, e.BlockChains.EVMChains()[selector].DeployerKey.From.Hex())
+						mustHaveOwner(t, state.Chains[selector].OffRamp, e.BlockChains.EVMChains()[selector].DeployerKey.From.Hex())
+						mustHaveOwner(t, state.Chains[selector].Router, e.BlockChains.EVMChains()[selector].DeployerKey.From.Hex())
 					}
 				}
 
@@ -320,21 +320,21 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			)
 			require.NoError(t, err, "must get DON ID for chain")
 			tx, err := state.Chains[deployedEnvironment.HomeChainSel].CapabilityRegistry.RemoveDONs(
-				e.Chains[deployedEnvironment.HomeChainSel].DeployerKey,
+				e.BlockChains.EVMChains()[deployedEnvironment.HomeChainSel].DeployerKey,
 				[]uint32{donID},
 			)
 			require.NoError(t, err, "must remove DON ID")
-			_, err = e.Chains[deployedEnvironment.HomeChainSel].Confirm(tx)
+			_, err = e.BlockChains.EVMChains()[deployedEnvironment.HomeChainSel].Confirm(tx)
 			require.NoError(t, err, "must confirm DON ID removal")
 
 			// Remove chain config on CCIPHome
 			tx, err = state.Chains[deployedEnvironment.HomeChainSel].CCIPHome.ApplyChainConfigUpdates(
-				e.Chains[deployedEnvironment.HomeChainSel].DeployerKey,
+				e.BlockChains.EVMChains()[deployedEnvironment.HomeChainSel].DeployerKey,
 				[]uint64{newChainSelector},
 				[]ccip_home.CCIPHomeChainConfigArgs{},
 			)
 			require.NoError(t, err, "must remove chain config from CCIPHome")
-			_, err = e.Chains[deployedEnvironment.HomeChainSel].Confirm(tx)
+			_, err = e.BlockChains.EVMChains()[deployedEnvironment.HomeChainSel].Confirm(tx)
 			require.NoError(t, err, "must confirm chain config removal")
 
 			// Assemble map of addresses required for Timelock scheduling & execution
@@ -452,10 +452,10 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			require.NoError(t, err, "must load onchain state")
 
 			if test.DonIDOffSet != nil {
-				tx, err := state.Chains[deployedEnvironment.HomeChainSel].DonIDClaimer.ClaimNextDONId(e.Chains[deployedEnvironment.HomeChainSel].DeployerKey)
+				tx, err := state.Chains[deployedEnvironment.HomeChainSel].DonIDClaimer.ClaimNextDONId(e.BlockChains.EVMChains()[deployedEnvironment.HomeChainSel].DeployerKey)
 				require.NoError(t, err)
 
-				_, err = cldf.ConfirmIfNoErrorWithABI(e.Chains[deployedEnvironment.HomeChainSel], tx, don_id_claimer.DonIDClaimerABI, err)
+				_, err = cldf.ConfirmIfNoErrorWithABI(e.BlockChains.EVMChains()[deployedEnvironment.HomeChainSel], tx, don_id_claimer.DonIDClaimerABI, err)
 				require.NoError(t, err)
 			}
 
