@@ -120,7 +120,7 @@ func (cfg UpgradeConfig) Validate(e cldf.Environment, chainSelector uint64) erro
 	return nil
 }
 
-func (c DeployChainContractsConfig) Validate(e cldf.Environment, existingState stateview.CCIPOnChainState) error {
+func (c DeployChainContractsConfig) Validate(e cldf.Environment) error {
 	if err := cldf.IsValidChainSelector(c.HomeChainSelector); err != nil {
 		return fmt.Errorf("invalid home chain selector: %d - %w", c.HomeChainSelector, err)
 	}
@@ -134,6 +134,10 @@ func (c DeployChainContractsConfig) Validate(e cldf.Environment, existingState s
 	if err := c.UpgradeConfig.Validate(e, c.ChainSelector); err != nil {
 		return fmt.Errorf("invalid UpgradeConfig: %w", err)
 	}
+	existingState, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load existing onchain state: %w", err)
+	}
 	if _, exists := existingState.SupportedChains()[c.ChainSelector]; !exists {
 		return fmt.Errorf("chain %d not supported", c.ChainSelector)
 	}
@@ -144,7 +148,7 @@ func (c DeployChainContractsConfig) Validate(e cldf.Environment, existingState s
 
 	// In memory tests:
 	// programs and state are pre-loaded, so we pass nil mcms config as router will be present in state
-	// take a look at test_helpers.go/deployChainContractsToSolChainCS
+	// take a look at test_helpers.go/DeployChainContractsToSolChainCS
 	// initialisation of the mcms contracts then happens via testhelpers.TransferOwnershipSolana
 	if chainState.Router.IsZero() {
 		if c.MCMSWithTimelockConfig == nil {
@@ -155,15 +159,12 @@ func (c DeployChainContractsConfig) Validate(e cldf.Environment, existingState s
 }
 
 func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsConfig) (cldf.ChangesetOutput, error) {
-	existingState, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load existing onchain state: %w", err)
-	}
-	if err := c.Validate(e, existingState); err != nil {
+	if err := c.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
 	newAddresses := cldf.NewMemoryAddressBook()
-	err = v1_6.ValidateHomeChainState(e, c.HomeChainSelector, existingState)
+	existingState, _ := stateview.LoadOnchainState(e)
+	err := v1_6.ValidateHomeChainState(e, c.HomeChainSelector, existingState)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -248,7 +249,7 @@ func DeployAndMaybeSaveToAddressBook(
 	if metadata != "" && metadata != shared.CLLMetadata {
 		overallocate = false
 	}
-	programID, err := chain.DeployProgram(e.Logger, cldf_solana.ProgramInfo{
+	programID, err := chain.DeployProgram(e.Logger, cldf.SolProgramInfo{
 		Name:  programName,
 		Bytes: deployment.SolanaProgramBytes[programName],
 	}, isUpgrade, overallocate)
@@ -1051,7 +1052,7 @@ func generateCloseBufferIxn(
 // HELPER FUNCTIONS
 func GetSolProgramSize(e *cldf.Environment, chain cldf_solana.Chain, programID solana.PublicKey) (int, error) {
 	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &rpc.GetAccountInfoOpts{
-		Commitment: cldf_solana.SolDefaultCommitment,
+		Commitment: cldf.SolDefaultCommitment,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get account info: %w", err)
