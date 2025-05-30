@@ -77,18 +77,18 @@ require (
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250527111814-1c5342edf3b4
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250520123946-6aaf88e0848a
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250528165710-630467fa4124
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250530143634-9084a34834f0
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250417193446-eeb0a7d1e049
-	github.com/smartcontractkit/chainlink-evm v0.0.0-20250528181215-a91625a9d664
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250530143914-af9ef3b70281
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
-	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250528174017-ad6abb94e1e4
+	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250530143823-a12bea775a1f
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250522110034-65c54665034a
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250522110034-65c54665034a
 	github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20250516160234-c2e27f791437
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.6.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250501150903-3e93089d9ad5
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250527212035-5d0564786d15
-	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250422175525-b7575d96bd4d
+	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250528121202-292529af39df
 	github.com/smartcontractkit/freeport v0.1.0
 	github.com/smartcontractkit/libocr v0.0.0-20250513175559-61c382d6cee4
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de
@@ -387,4 +387,4 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20250422175525-b7575d96bd4d
+replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20250528121202-292529af39df

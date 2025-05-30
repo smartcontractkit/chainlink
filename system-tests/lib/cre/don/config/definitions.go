@@ -87,6 +87,9 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 	[[EVM]]
 	ChainID = '%s'
 	AutoCreateKey = false
+	# reduce workflow registry sync time to minimum to speed up tests & local environment
+	FinalityDepth = 1
+	LogPollInterval = '5s'
 
 	[[EVM.Nodes]]
 	Name = '%s'

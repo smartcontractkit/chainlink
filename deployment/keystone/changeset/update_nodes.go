@@ -45,7 +45,7 @@ func (r *UpdateNodesRequest) Validate(e cldf.Environment) error {
 		return fmt.Errorf("invalid registry chain selector %d: selector does not exist", r.RegistryChainSel)
 	}
 
-	_, exists = e.Chains[r.RegistryChainSel]
+	_, exists = e.BlockChains.EVMChains()[r.RegistryChainSel]
 	if !exists {
 		return fmt.Errorf("invalid registry chain selector %d: chain does not exist in environment", r.RegistryChainSel)
 	}
@@ -69,7 +69,7 @@ func UpdateNodes(env cldf.Environment, req *UpdateNodesRequest) (cldf.ChangesetO
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid request: %w", err)
 	}
 	// extract the registry contract and chain from the environment
-	registryChain, ok := env.Chains[req.RegistryChainSel]
+	registryChain, ok := env.BlockChains.EVMChains()[req.RegistryChainSel]
 	if !ok {
 		return cldf.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}

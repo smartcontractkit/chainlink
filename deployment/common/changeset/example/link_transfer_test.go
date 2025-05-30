@@ -61,7 +61,7 @@ func setupLinkTransferTestEnv(t *testing.T) cldf.Environment {
 func TestValidate(t *testing.T) {
 	env := setupLinkTransferTestEnv(t)
 	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-	chain := env.Chains[chainSelector]
+	chain := env.BlockChains.EVMChains()[chainSelector]
 	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 	require.NoError(t, err)
 	require.Len(t, addrs, 6)
@@ -232,7 +232,7 @@ func TestLinkTransferMCMSV2(t *testing.T) {
 
 	env := setupLinkTransferTestEnv(t)
 	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-	chain := env.Chains[chainSelector]
+	chain := env.BlockChains.EVMChains()[chainSelector]
 	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 	require.NoError(t, err)
 	require.Len(t, addrs, 6)

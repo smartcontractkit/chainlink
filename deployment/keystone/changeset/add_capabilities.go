@@ -71,7 +71,7 @@ func AddCapabilities(env cldf.Environment, req *AddCapabilitiesRequest) (cldf.Ch
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate request: %w", err)
 	}
-	registryChain, ok := env.Chains[req.RegistryChainSel]
+	registryChain, ok := env.BlockChains.EVMChains()[req.RegistryChainSel]
 	if !ok {
 		return cldf.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
@@ -81,7 +81,7 @@ func AddCapabilities(env cldf.Environment, req *AddCapabilitiesRequest) (cldf.Ch
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: %w", err)
 	}
 	useMCMS := req.MCMSConfig != nil
-	ops, err := internal.AddCapabilities(env.Logger, cr.Contract, env.Chains[req.RegistryChainSel], req.Capabilities, useMCMS)
+	ops, err := internal.AddCapabilities(env.Logger, cr.Contract, env.BlockChains.EVMChains()[req.RegistryChainSel], req.Capabilities, useMCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to add capabilities: %w", err)
 	}

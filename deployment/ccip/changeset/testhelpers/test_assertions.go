@@ -33,6 +33,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -50,8 +51,9 @@ func ConfirmGasPriceUpdatedForAll(
 	gasPrice *big.Int,
 ) {
 	var wg errgroup.Group
-	for src, srcChain := range e.Chains {
-		for dest, dstChain := range e.Chains {
+	evmChains := e.BlockChains.EVMChains()
+	for src, srcChain := range evmChains {
+		for dest, dstChain := range evmChains {
 			if src == dest {
 				continue
 			}
@@ -77,7 +79,7 @@ func ConfirmGasPriceUpdatedForAll(
 
 func ConfirmGasPriceUpdated(
 	t *testing.T,
-	dest cldf.Chain,
+	dest cldf_evm.Chain,
 	srcFeeQuoter *fee_quoter.FeeQuoter,
 	startBlock uint64,
 	gasPrice *big.Int,
@@ -104,7 +106,7 @@ func ConfirmTokenPriceUpdatedForAll(
 	wethPrice *big.Int,
 ) {
 	var wg errgroup.Group
-	for _, chain := range e.Chains {
+	for _, chain := range e.BlockChains.EVMChains() {
 		chain := chain
 		wg.Go(func() error {
 			var startBlock *uint64
@@ -130,7 +132,7 @@ func ConfirmTokenPriceUpdatedForAll(
 
 func ConfirmTokenPriceUpdated(
 	t *testing.T,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	feeQuoter *fee_quoter.FeeQuoter,
 	startBlock uint64,
 	tokenToInitialPrice map[common.Address]*big.Int,
@@ -209,7 +211,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(
 					t,
 					srcChain,
-					e.Chains[dstChain],
+					e.BlockChains.EVMChains()[dstChain],
 					state.MustGetEVMChainState(dstChain).OffRamp,
 					startBlock,
 					ccipocr3.SeqNumRange{
@@ -321,7 +323,7 @@ func ConfirmMultipleCommits(
 				_, err := ConfirmCommitWithExpectedSeqNumRange(
 					t,
 					srcChain,
-					env.Chains[destChain],
+					env.BlockChains.EVMChains()[destChain],
 					state.MustGetEVMChainState(destChain).OffRamp,
 					startBlocks[destChain],
 					seqRange,
@@ -358,7 +360,7 @@ func ConfirmMultipleCommits(
 func ConfirmCommitWithExpectedSeqNumRange(
 	t *testing.T,
 	srcSelector uint64,
-	dest cldf.Chain,
+	dest cldf_evm.Chain,
 	offRamp offramp.OffRampInterface,
 	startBlock *uint64,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
@@ -631,7 +633,7 @@ func ConfirmExecWithSeqNrsForAll(
 				innerExecutionStates, err = ConfirmExecWithSeqNrs(
 					t,
 					srcChain,
-					e.Chains[dstChain],
+					e.BlockChains.EVMChains()[dstChain],
 					state.MustGetEVMChainState(dstChain).OffRamp,
 					startBlock,
 					seqRange,
@@ -678,7 +680,7 @@ func ConfirmExecWithSeqNrsForAll(
 func ConfirmExecWithSeqNrs(
 	t *testing.T,
 	sourceSelector uint64,
-	dest cldf.Chain,
+	dest cldf_evm.Chain,
 	offRamp offramp.OffRampInterface,
 	startBlock *uint64,
 	expectedSeqNrs []uint64,
@@ -804,7 +806,7 @@ func ConfirmExecWithSeqNrsSol(
 func ConfirmNoExecConsistentlyWithSeqNr(
 	t *testing.T,
 	sourceSelector uint64,
-	dest cldf.Chain,
+	dest cldf_evm.Chain,
 	offRamp offramp.OffRampInterface,
 	expectedSeqNr uint64,
 	timeout time.Duration,
@@ -928,7 +930,7 @@ func AssertTimelockOwnership(
 			allContracts = append(allContracts, state.MustGetEVMChainState(chain).TestRouter.Address())
 		}
 		for _, contract := range allContracts {
-			owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.Chains[chain].Client)
+			owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.BlockChains.EVMChains()[chain].Client)
 			require.NoError(t, err)
 			require.Equal(t, state.MustGetEVMChainState(chain).Timelock.Address(), owner)
 		}
@@ -941,7 +943,7 @@ func AssertTimelockOwnership(
 		state.MustGetEVMChainState(e.HomeChainSel).CCIPHome.Address(),
 		state.MustGetEVMChainState(e.HomeChainSel).RMNHome.Address(),
 	} {
-		owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.Chains[e.HomeChainSel].Client)
+		owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.BlockChains.EVMChains()[e.HomeChainSel].Client)
 		require.NoError(t, err)
 		require.Equal(t, homeChainTimelockAddress, owner)
 	}

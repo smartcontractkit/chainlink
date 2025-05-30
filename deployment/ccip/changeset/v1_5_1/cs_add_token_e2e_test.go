@@ -233,7 +233,7 @@ func TestAddTokenE2E(t *testing.T) {
 				tokenpools, ok := state.Chains[chain].BurnMintTokenPools[testhelpers.TestTokenSymbol]
 				require.True(t, ok)
 				require.Len(t, tokenpools, 1)
-				tokenPoolC, err := token_pool.NewTokenPool(tokenpools[deployment.Version1_5_1].Address(), e.Chains[chain].Client)
+				tokenPoolC, err := token_pool.NewTokenPool(tokenpools[deployment.Version1_5_1].Address(), e.BlockChains.EVMChains()[chain].Client)
 				require.NoError(t, err)
 				var rateLimiterConfig v1_5_1.RateLimiterConfig
 				var remotePoolAddr common.Address
@@ -253,7 +253,7 @@ func TestAddTokenE2E(t *testing.T) {
 				if test.withMCMS {
 					poolOwner = state.Chains[chain].Timelock.Address()
 				} else {
-					poolOwner = e.Chains[chain].DeployerKey.From
+					poolOwner = e.BlockChains.EVMChains()[chain].DeployerKey.From
 				}
 
 				// check token pool is configured
@@ -296,7 +296,7 @@ func TestAddTokenE2E(t *testing.T) {
 					if test.withMCMS {
 						require.Equal(t, state.Chains[chain].Timelock.Address(), regConfig.Administrator)
 					} else {
-						require.Equal(t, e.Chains[chain].DeployerKey.From, regConfig.Administrator)
+						require.Equal(t, e.BlockChains.EVMChains()[chain].DeployerKey.From, regConfig.Administrator)
 					}
 				} else {
 					// if external admin then PendingAdministrator should be external admin

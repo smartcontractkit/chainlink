@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -41,13 +42,14 @@ func NewTimelockExecutionContracts(env cldf.Environment, chainSelector uint64) (
 	}
 	var timelock *owner_helpers.RBACTimelock
 	var callProxy *owner_helpers.CallProxy
+	evmChains := env.BlockChains.EVMChains()
 	for addr, tv := range addrTypeVer {
 		if tv.Type == types.RBACTimelock {
 			if timelock != nil {
 				return nil, fmt.Errorf("multiple timelocks found on chain %d", chainSelector)
 			}
 			var err error
-			timelock, err = owner_helpers.NewRBACTimelock(common.HexToAddress(addr), env.Chains[chainSelector].Client)
+			timelock, err = owner_helpers.NewRBACTimelock(common.HexToAddress(addr), evmChains[chainSelector].Client)
 			if err != nil {
 				return nil, fmt.Errorf("error creating timelock: %w", err)
 			}
@@ -57,7 +59,7 @@ func NewTimelockExecutionContracts(env cldf.Environment, chainSelector uint64) (
 				return nil, fmt.Errorf("multiple call proxies found on chain %d", chainSelector)
 			}
 			var err error
-			callProxy, err = owner_helpers.NewCallProxy(common.HexToAddress(addr), env.Chains[chainSelector].Client)
+			callProxy, err = owner_helpers.NewCallProxy(common.HexToAddress(addr), evmChains[chainSelector].Client)
 			if err != nil {
 				return nil, fmt.Errorf("error creating call proxy: %w", err)
 			}
@@ -120,7 +122,7 @@ func (state MCMSWithTimelockContracts) Validate() error {
 // - Found but was unable to load a contract
 // - It only found part of the bundle of contracts
 // - If found more than one instance of a contract (we expect one bundle in the given addresses)
-func MaybeLoadMCMSWithTimelockContracts(chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (*MCMSWithTimelockContracts, error) {
+func MaybeLoadMCMSWithTimelockContracts(chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (*MCMSWithTimelockContracts, error) {
 	state := MCMSWithTimelockContracts{}
 	// We expect one of each contract on the chain.
 	timelock := cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)

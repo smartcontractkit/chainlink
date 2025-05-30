@@ -21,7 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/monitoring/pb/data-feeds/on-chain/registry"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
-	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/monitor"
+	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -30,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	relayevmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 

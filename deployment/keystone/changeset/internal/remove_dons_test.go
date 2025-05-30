@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
@@ -26,7 +26,7 @@ import (
 func Test_RemoveDONsRequest_validate(t *testing.T) {
 	type fields struct {
 		DONs                 []uint32
-		chain                cldf.Chain
+		chain                cldf_evm.Chain
 		capabilitiesRegistry *kcr.CapabilitiesRegistry
 	}
 	tests := []struct {
@@ -38,7 +38,7 @@ func Test_RemoveDONsRequest_validate(t *testing.T) {
 			name: "missing capabilities registry",
 			fields: fields{
 				DONs:                 []uint32{1},
-				chain:                cldf.Chain{},
+				chain:                cldf_evm.Chain{},
 				capabilitiesRegistry: nil,
 			},
 			wantErr: true,
@@ -47,7 +47,7 @@ func Test_RemoveDONsRequest_validate(t *testing.T) {
 			name: "empty DONs list",
 			fields: fields{
 				DONs:                 []uint32{},
-				chain:                cldf.Chain{},
+				chain:                cldf_evm.Chain{},
 				capabilitiesRegistry: &kcr.CapabilitiesRegistry{},
 			},
 			wantErr: true,
@@ -56,7 +56,7 @@ func Test_RemoveDONsRequest_validate(t *testing.T) {
 			name: "success",
 			fields: fields{
 				DONs:                 []uint32{1},
-				chain:                cldf.Chain{},
+				chain:                cldf_evm.Chain{},
 				capabilitiesRegistry: &kcr.CapabilitiesRegistry{},
 			},
 			wantErr: false,
@@ -143,7 +143,7 @@ func TestRemoveDONs(t *testing.T) {
 		initialCapCfg = kstest.GetDefaultCapConfig(t, initialCap)
 	)
 
-	setupEnv := func(t *testing.T) (cldf.Chain, *kcr.CapabilitiesRegistry, []kcr.CapabilitiesRegistryDONInfo) {
+	setupEnv := func(t *testing.T) (cldf_evm.Chain, *kcr.CapabilitiesRegistry, []kcr.CapabilitiesRegistryDONInfo) {
 		// 1) Set up chain + registry
 		cfg := setupUpdateDonTestConfig{
 			dons: []internal.DonInfo{

@@ -35,9 +35,9 @@ require (
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250502091650-484cfa7ccddf
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250527111814-1c5342edf3b4
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250520123946-6aaf88e0848a
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250528165710-630467fa4124
-	github.com/smartcontractkit/chainlink-deployments-framework v0.6.0
-	github.com/smartcontractkit/chainlink-evm v0.0.0-20250528181215-a91625a9d664
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250530143634-9084a34834f0
+	github.com/smartcontractkit/chainlink-deployments-framework v0.7.0
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250530143914-af9ef3b70281
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250522110034-65c54665034a
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.10.0
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.6.0
@@ -374,14 +374,14 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shirou/gopsutil/v3 v3.24.3 // indirect
-	github.com/shirou/gopsutil/v4 v4.25.1 // indirect
+	github.com/shirou/gopsutil/v4 v4.25.2 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sigurn/crc16 v0.0.0-20211026045750-20ab5afb07e3 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250417193446-eeb0a7d1e049 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
-	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250528174017-ad6abb94e1e4 // indirect
+	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250530143823-a12bea775a1f // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250522110034-65c54665034a // indirect
 	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20250522110034-65c54665034a // indirect
 	github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20250516160234-c2e27f791437 // indirect
@@ -390,7 +390,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250501150903-3e93089d9ad5 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.10 // indirect
-	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250422175525-b7575d96bd4d // indirect
+	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250528121202-292529af39df // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de // indirect

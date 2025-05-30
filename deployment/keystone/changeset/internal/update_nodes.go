@@ -15,6 +15,7 @@ import (
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -30,7 +31,7 @@ type NodeUpdate struct {
 }
 
 type UpdateNodesRequest struct {
-	Chain                cldf.Chain
+	Chain                cldf_evm.Chain
 	CapabilitiesRegistry *kcr.CapabilitiesRegistry
 
 	P2pToUpdates map[p2pkey.PeerID]NodeUpdate
@@ -146,7 +147,7 @@ func UpdateNodes(lggr logger.Logger, req *UpdateNodesRequest) (*UpdateNodesRespo
 }
 
 // AppendCapabilities appends the capabilities to the existing capabilities of the nodes listed in p2pIds in the registry
-func AppendCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, chain cldf.Chain, p2pIds []p2pkey.PeerID, capabilities []kcr.CapabilitiesRegistryCapability) (map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability, error) {
+func AppendCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, chain cldf_evm.Chain, p2pIDs []p2pkey.PeerID, capabilities []kcr.CapabilitiesRegistryCapability) (map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability, error) {
 	out := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
 	allCapabilities, err := registry.GetCapabilities(&bind.CallOpts{})
 	if err != nil {
@@ -163,7 +164,7 @@ func AppendCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, 
 		}
 	}
 
-	for _, p2pID := range p2pIds {
+	for _, p2pID := range p2pIDs {
 		// read the existing capabilities for the node
 		info, err := registry.GetNode(&bind.CallOpts{}, p2pID)
 		if err != nil {
