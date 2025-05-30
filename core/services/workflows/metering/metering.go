@@ -9,8 +9,8 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type ReportStepRef string
@@ -94,7 +94,7 @@ type Report struct {
 }
 
 func NewReport(lggr logger.Logger) *Report {
-	logger := lggr.Named("Metering")
+	logger := logger.Named(lggr, "Metering")
 	balanceStore := NewBalanceStore(0, map[string]decimal.Decimal{}, logger)
 	return &Report{
 		balance:  balanceStore,
