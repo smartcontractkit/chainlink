@@ -181,11 +181,6 @@ linters:
           - gosec
         path: test
         text: "^G404:"
-    paths:
-      - evm/ # need to move files here for evm extraction that have outstanding issues
-      - third_party$
-      - builtin$
-      - examples$
 issues:
   max-same-issues: 0
 formatters:
