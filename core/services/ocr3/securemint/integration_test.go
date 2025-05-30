@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -51,6 +52,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
@@ -455,6 +457,14 @@ lloConfigMode = "mercury"
 
 	setSecureMintOnchainConfig(t, steve, backend, nodes, oracles, ocrContractAddress, ocrContract)
 
+	configDetails, err := ocrContract.LatestConfigDetails(&bind.CallOpts{})
+	require.NoError(t, err)
+	t.Logf("configDetails: %+v", configDetails)
+
+	latestConfigDigestAndEpoch, err := ocrContract.LatestConfigDigestAndEpoch(&bind.CallOpts{})
+	require.NoError(t, err)
+	t.Logf("latestConfigDigestAndEpoch: %+v", latestConfigDigestAndEpoch)
+
 	jobIDs := addSecureMintOCRJobs(t, nodes, ocrContractAddress)
 
 	t.Logf("jobIDs: %v", jobIDs)
@@ -655,6 +665,15 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []Node, jobIDs map[int]
 
 func setSecureMintOnchainConfig(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend, nodes []Node, oracles []confighelper.OracleIdentityExtra, ocrContractAddress common.Address, ocrContract *ocr2aggregator.OCR2Aggregator) [32]byte {
 
+	minAnswer, maxAnswer := new(big.Int), new(big.Int)
+	minAnswer.Exp(big.NewInt(-2), big.NewInt(191), nil)
+	maxAnswer.Exp(big.NewInt(2), big.NewInt(191), nil)
+	maxAnswer.Sub(maxAnswer, big.NewInt(1))
+
+	// TODO(gg): this uses the median codec, not sure if this is correct
+	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(minAnswer, maxAnswer)
+	require.NoError(t, err)
+
 	signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTests(
 		2*time.Second,        // deltaProgress,
 		20*time.Second,       // deltaResend,
@@ -673,7 +692,7 @@ func setSecureMintOnchainConfig(t *testing.T, steve *bind.TransactOpts, backend 
 		0,                    // maxDurationShouldAcceptAttestedReport,
 		0,                    // maxDurationShouldTransmitAcceptedReport,
 		int(fNodes),          // f,
-		nil,                  // onchainConfig (binary blob containing configuration passed through to the ReportingPlugin and also available to the contract. Unlike ReportingPluginConfig which is only available offchain.)
+		onchainConfig,        // onchainConfig (binary blob containing configuration passed through to the ReportingPlugin and also available to the contract. Unlike ReportingPluginConfig which is only available offchain.)
 	)
 	require.NoError(t, err)
 
@@ -689,7 +708,13 @@ func setSecureMintOnchainConfig(t *testing.T, steve *bind.TransactOpts, backend 
 	// 	offchainTransmitters[i] = nodes[i].ClientPubKey
 	// }
 
-	ocrContract.SetConfig(steve, signerAddresses, transmitterAddresses, f, outOnchainConfig, offchainConfigVersion, offchainConfig)
+	_, err = ocrContract.SetConfig(steve, signerAddresses, transmitterAddresses, f, outOnchainConfig, offchainConfigVersion, offchainConfig)
+	if err != nil {
+		errString, err := RPCErrorFromError(err)
+		require.NoError(t, err)
+
+		t.Fatalf("Failed to configure contract: %s", errString)
+	}
 
 	// donIDPadded := llo.DonIDToBytes32(donID)
 	// _, err = legacyVerifier.SetConfig(steve, donIDPadded, signerAddresses, offchainTransmitters, fNodes, onchainConfig, offchainConfigVersion, offchainConfig, nil)
@@ -709,3 +734,74 @@ func setSecureMintOnchainConfig(t *testing.T, steve *bind.TransactOpts, backend 
 
 	return l.ConfigDigest
 }
+
+func RPCErrorFromError(txError error) (string, error) {
+	errBytes, err := json.Marshal(txError)
+	if err != nil {
+		return "", err
+	}
+	var callErr struct {
+		Code    int
+		Data    string `json:"data"`
+		Message string `json:"message"`
+	}
+	err = json.Unmarshal(errBytes, &callErr)
+	if err != nil {
+		return "", err
+	}
+	// If the error data is blank
+	if len(callErr.Data) == 0 {
+		return callErr.Data, nil
+	}
+	// Some nodes prepend "Reverted " and we also remove the 0x
+	trimmed := strings.TrimPrefix(callErr.Data, "Reverted ")[2:]
+	data, err := hex.DecodeString(trimmed)
+	if err != nil {
+		return "", err
+	}
+	revert, err := abi.UnpackRevert(data)
+	// If we can't decode the revert reason, return the raw data
+	if err != nil {
+		return callErr.Data, nil
+	}
+	return revert, nil
+}
+
+/**
+blockBeforeConfig, err = b.Client().BlockByNumber(testutils.Context(t), nil)
+require.NoError(t, err)
+signers, effectiveTransmitters, threshold, _, encodedConfigVersion, encodedConfig, err := confighelper2.ContractSetConfigArgsForEthereumIntegrationTest(
+	oracles,
+	1,
+	1000000000/100, // threshold PPB
+)
+require.NoError(t, err)
+
+minAnswer, maxAnswer := new(big.Int), new(big.Int)
+minAnswer.Exp(big.NewInt(-2), big.NewInt(191), nil)
+maxAnswer.Exp(big.NewInt(2), big.NewInt(191), nil)
+maxAnswer.Sub(maxAnswer, big.NewInt(1))
+
+onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(minAnswer, maxAnswer)
+require.NoError(t, err)
+
+lggr.Debugw("Setting Config on Oracle Contract",
+	"signers", signers,
+	"transmitters", transmitters,
+	"effectiveTransmitters", effectiveTransmitters,
+	"threshold", threshold,
+	"onchainConfig", onchainConfig,
+	"encodedConfigVersion", encodedConfigVersion,
+)
+_, err = ocrContract.SetConfig(
+	owner,
+	signers,
+	effectiveTransmitters,
+	threshold,
+	onchainConfig,
+	encodedConfigVersion,
+	encodedConfig,
+)
+require.NoError(t, err)
+b.Commit()
+*/
