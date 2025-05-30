@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"go.uber.org/zap/zapcore"
 
@@ -70,7 +69,6 @@ func run(
 	billingClientAddr string,
 ) {
 	lggr.Infof("executing engine in process: %d", os.Getpid())
-	<-time.After(15 * time.Second)
 
 	// Create the registry and fake capabilities
 	registry := capabilities.NewRegistry(lggr)
@@ -89,9 +87,6 @@ func run(
 
 		// await the capability to be initialized if using a loop plugin
 		if standardcap, ok := cap.(*loopWrapper); ok {
-			/* ctxwt, cancel := context.WithTimeout(ctx, 5*time.Second)
-			defer cancel()
-			_ = ctxwt */
 			if err := standardcap.Await(ctx); err != nil {
 				fmt.Printf("Failed to await capability: %v\n", err)
 				os.Exit(1)
@@ -113,7 +108,7 @@ func run(
 
 	<-ctx.Done()
 
-	fmt.Println("Shutting down the Engine")
+	lggr.Info("Shutting down the Engine")
 	_ = engine.Close()
 	for _, cap := range capabilities {
 		lggr.Infow("Shutting down capability", "id", cap.Name())

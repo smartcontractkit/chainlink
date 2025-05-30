@@ -76,9 +76,14 @@ type EngineLimits struct {
 	ShutdownTimeoutMs uint32
 }
 
+type SubscribedToTriggers struct {
+	TriggerIDs []string
+	Err        error
+}
+
 type LifecycleHooks struct {
 	OnInitialized          func(err error)
-	OnSubscribedToTriggers func(triggerIDs []string)
+	OnSubscribedToTriggers func(SubscribedToTriggers)
 	OnExecutionFinished    func(executionID string)
 
 	// TODO(CAPPL-736): handle execution result.
@@ -171,7 +176,7 @@ func (h *LifecycleHooks) setDefaultHooks() {
 		h.OnInitialized = func(err error) {}
 	}
 	if h.OnSubscribedToTriggers == nil {
-		h.OnSubscribedToTriggers = func(triggerIDs []string) {}
+		h.OnSubscribedToTriggers = func(_ SubscribedToTriggers) {}
 	}
 	if h.OnResultReceived == nil {
 		h.OnResultReceived = func(res *wasmpb.ExecutionResult) {}
