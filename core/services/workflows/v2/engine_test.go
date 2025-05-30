@@ -140,7 +140,7 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(capabilities.Node{}, nil)
 
 	initDoneCh := make(chan error)
-	subscribedToTriggersCh := make(chan []string, 1)
+	subscribedToTriggersCh := make(chan v2.SubscribedToTriggers)
 
 	cfg := defaultTestConfig(t)
 	cfg.Module = module
@@ -149,8 +149,8 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 		OnInitialized: func(err error) {
 			initDoneCh <- err
 		},
-		OnSubscribedToTriggers: func(triggerIDs []string) {
-			subscribedToTriggersCh <- triggerIDs
+		OnSubscribedToTriggers: func(res v2.SubscribedToTriggers) {
+			subscribedToTriggersCh <- res
 		},
 	}
 
@@ -171,7 +171,9 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(2), nil).Once()
 		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(nil, errors.New("not found")).Once()
 		require.NoError(t, engine.Start(t.Context()))
-		require.ErrorContains(t, <-initDoneCh, "trigger capability not found")
+		require.NoError(t, <-initDoneCh)
+		gotRes := <-subscribedToTriggersCh
+		require.ErrorContains(t, gotRes.Err, "trigger capability not found")
 		require.NoError(t, engine.Close())
 	})
 
@@ -189,7 +191,8 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 		trigger1.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
 		require.NoError(t, engine.Start(t.Context()))
 		require.NoError(t, <-initDoneCh)
-		require.Equal(t, []string{"id_0", "id_1"}, <-subscribedToTriggersCh)
+		gotRes := <-subscribedToTriggersCh
+		require.Equal(t, []string{"id_0", "id_1"}, gotRes.TriggerIDs)
 		require.NoError(t, engine.Close())
 	})
 
@@ -205,7 +208,9 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 		trigger1.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(nil, errors.New("failure ABC")).Once()
 		trigger0.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
 		require.NoError(t, engine.Start(t.Context()))
-		require.ErrorContains(t, <-initDoneCh, "failed to register trigger: failure ABC")
+		require.NoError(t, <-initDoneCh)
+		gotRes := <-subscribedToTriggersCh
+		require.ErrorContains(t, gotRes.Err, "failed to register trigger: failure ABC")
 		require.NoError(t, engine.Close())
 	})
 }
@@ -237,7 +242,7 @@ func TestEngine_Execution(t *testing.T) {
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(capabilities.Node{}, nil)
 
 	initDoneCh := make(chan error)
-	subscribedToTriggersCh := make(chan []string, 1)
+	subscribedToTriggersCh := make(chan v2.SubscribedToTriggers, 1)
 	executionFinishedCh := make(chan string)
 
 	cfg := defaultTestConfig(t)
@@ -247,8 +252,8 @@ func TestEngine_Execution(t *testing.T) {
 		OnInitialized: func(err error) {
 			initDoneCh <- err
 		},
-		OnSubscribedToTriggers: func(triggerIDs []string) {
-			subscribedToTriggersCh <- triggerIDs
+		OnSubscribedToTriggers: func(res v2.SubscribedToTriggers) {
+			subscribedToTriggersCh <- res
 		},
 		OnExecutionFinished: func(executionID string) {
 			executionFinishedCh <- executionID
@@ -268,7 +273,8 @@ func TestEngine_Execution(t *testing.T) {
 		require.NoError(t, engine.Start(t.Context()))
 
 		require.NoError(t, <-initDoneCh) // successful trigger registration
-		require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
+		gotRes := <-subscribedToTriggersCh
+		require.Equal(t, []string{"id_0"}, gotRes.TriggerIDs)
 
 		mockTriggerEvent := capabilities.TriggerEvent{
 			TriggerType: "basic-trigger@1.0.0",
@@ -317,15 +323,15 @@ func TestEngine_MockCapabilityRegistry_NoDAGBinary(t *testing.T) {
 	cfg.BillingClient = new(mockBillingClient)
 
 	initDoneCh := make(chan error, 1)
-	subscribedToTriggersCh := make(chan []string, 1)
+	subscribedToTriggersCh := make(chan v2.SubscribedToTriggers, 1)
 	resultReceivedCh := make(chan *wasmpb.ExecutionResult, 1)
 	executionFinishedCh := make(chan string, 1)
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			initDoneCh <- err
 		},
-		OnSubscribedToTriggers: func(triggerIDs []string) {
-			subscribedToTriggersCh <- triggerIDs
+		OnSubscribedToTriggers: func(res v2.SubscribedToTriggers) {
+			subscribedToTriggersCh <- res
 		},
 		OnExecutionFinished: func(executionID string) {
 			executionFinishedCh <- executionID
@@ -365,7 +371,8 @@ func TestEngine_MockCapabilityRegistry_NoDAGBinary(t *testing.T) {
 
 		require.NoError(t, engine.Start(t.Context()))
 		require.NoError(t, <-initDoneCh)
-		require.Equal(t, []string{wrappedTriggerMock.ID()}, <-subscribedToTriggersCh)
+		gotRes := <-subscribedToTriggersCh
+		require.Equal(t, []string{wrappedTriggerMock.ID()}, gotRes.TriggerIDs)
 
 		// Read the result from the hook and assert that the wanted response was
 		// received.

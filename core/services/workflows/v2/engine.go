@@ -161,12 +161,25 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		return fmt.Errorf("too many trigger subscriptions: %d", len(subs.Subscriptions))
 	}
 
+	e.srvcEng.Go(func(srvcCtx context.Context) {
+		e.listenOnSubscribedTriggers(srvcCtx, subs)
+		// Block until engine is shutdown
+		<-srvcCtx.Done()
+	})
+
+	return nil
+}
+
+func (e *Engine) listenOnSubscribedTriggers(ctx context.Context, subs *sdkpb.TriggerSubscriptionRequest) {
 	// check if all requested triggers exist in the registry
 	triggers := make([]capabilities.TriggerCapability, 0, len(subs.Subscriptions))
 	for _, sub := range subs.Subscriptions {
 		triggerCap, err := e.cfg.CapRegistry.GetTrigger(ctx, sub.Id)
 		if err != nil {
-			return fmt.Errorf("trigger capability not found: %w", err)
+			e.cfg.Hooks.OnSubscribedToTriggers(SubscribedToTriggers{
+				Err: fmt.Errorf("trigger capability not found: %w", err),
+			})
+			return
 		}
 		triggers = append(triggers, triggerCap)
 	}
@@ -174,12 +187,12 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	// register to all triggers
 	e.triggersRegMu.Lock()
 	defer e.triggersRegMu.Unlock()
+
 	eventChans := make([]<-chan capabilities.TriggerResponse, len(subs.Subscriptions))
 	triggerCapIDs := make([]string, len(subs.Subscriptions))
 	for i, sub := range subs.Subscriptions {
 		triggerCap := triggers[i]
 		registrationID := fmt.Sprintf("trigger_reg_%s_%d", e.cfg.WorkflowID, i)
-		// TODO(CAPPL-737): run with a timeout
 		e.cfg.Lggr.Debugw("Registering trigger", "triggerID", sub.Id, "method", sub.Method)
 		triggerEventCh, err := triggerCap.RegisterTrigger(ctx, capabilities.TriggerRegistrationRequest{
 			TriggerID: registrationID,
@@ -200,7 +213,10 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		if err != nil {
 			e.cfg.Lggr.Errorw("One of trigger registrations failed - reverting all", "triggerID", sub.Id, "err", err)
 			e.unregisterAllTriggers(ctx)
-			return fmt.Errorf("failed to register trigger: %w", err)
+			e.cfg.Hooks.OnSubscribedToTriggers(SubscribedToTriggers{
+				Err: fmt.Errorf("failed to register trigger: %w", err),
+			})
+			return
 		}
 		e.triggers[registrationID] = &triggerCapability{
 			TriggerCapability: triggerCap,
@@ -235,8 +251,12 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 			}
 		})
 	}
-	e.cfg.Hooks.OnSubscribedToTriggers(triggerCapIDs)
-	return nil
+
+	e.cfg.Hooks.OnSubscribedToTriggers(SubscribedToTriggers{
+		TriggerIDs: triggerCapIDs,
+	})
+
+	return
 }
 
 func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
