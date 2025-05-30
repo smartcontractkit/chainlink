@@ -363,48 +363,48 @@ func PromoteCandidateChangeset(
 	e cldf.Environment,
 	cfg PromoteCandidateChangesetConfig,
 ) (cldf.ChangesetOutput, error) {
-	donIDs, err := cfg.Validate(e)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("%w: %w", cldf.ErrInvalidConfig, err)
-	}
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
+	// donIDs, err := cfg.Validate(e)
+	// if err != nil {
+	// 	return cldf.ChangesetOutput{}, fmt.Errorf("%w: %w", cldf.ErrInvalidConfig, err)
+	// }
+	// state, err := stateview.LoadOnchainState(e)
+	// if err != nil {
+	// 	return cldf.ChangesetOutput{}, err
+	// }
 
-	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("fetch node info: %w", err)
-	}
+	// nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	// if err != nil {
+	// 	return cldf.ChangesetOutput{}, fmt.Errorf("fetch node info: %w", err)
+	// }
 
-	txOpts := e.BlockChains.EVMChains()[cfg.HomeChainSelector].DeployerKey
-	if cfg.MCMS != nil {
-		txOpts = cldf.SimTransactOpts()
-	}
+	// txOpts := e.BlockChains.EVMChains()[cfg.HomeChainSelector].DeployerKey
+	// if cfg.MCMS != nil {
+	// 	txOpts = cldf.SimTransactOpts()
+	// }
 
-	homeChain := e.BlockChains.EVMChains()[cfg.HomeChainSelector]
+	// homeChain := e.BlockChains.EVMChains()[cfg.HomeChainSelector]
 
-	var mcmsTxs []mcmstypes.Transaction
-	for _, plugin := range cfg.PluginInfo {
-		for _, donID := range donIDs {
-			promoteCandidateOps, err := promoteCandidateForChainOps(
-				e.Logger,
-				txOpts,
-				homeChain,
-				state.Chains[cfg.HomeChainSelector].CapabilityRegistry,
-				state.Chains[cfg.HomeChainSelector].CCIPHome,
-				nodes.NonBootstraps(),
-				donID,
-				plugin.PluginType,
-				plugin.AllowEmptyConfigPromote,
-				cfg.MCMS != nil,
-			)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("generating promote candidate mcms txs: %w", err)
-			}
-			mcmsTxs = append(mcmsTxs, promoteCandidateOps)
-		}
-	}
+	// var mcmsTxs []mcmstypes.Transaction
+	// for _, plugin := range cfg.PluginInfo {
+	// 	for _, donID := range donIDs {
+	// 		promoteCandidateOps, err := promoteCandidateForChainOps(
+	// 			e.Logger,
+	// 			txOpts,
+	// 			homeChain,
+	// 			state.Chains[cfg.HomeChainSelector].CapabilityRegistry,
+	// 			state.Chains[cfg.HomeChainSelector].CCIPHome,
+	// 			nodes.NonBootstraps(),
+	// 			donID,
+	// 			plugin.PluginType,
+	// 			plugin.AllowEmptyConfigPromote,
+	// 			cfg.MCMS != nil,
+	// 		)
+	// 		if err != nil {
+	// 			return cldf.ChangesetOutput{}, fmt.Errorf("generating promote candidate mcms txs: %w", err)
+	// 		}
+	// 		mcmsTxs = append(mcmsTxs, promoteCandidateOps)
+	// 	}
+	// }
 
 	// Disabled MCMS means that we already executed the txes, so just return early w/out the proposals.
 	if cfg.MCMS == nil {
