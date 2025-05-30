@@ -696,17 +696,31 @@ func setSecureMintOnchainConfig(t *testing.T, steve *bind.TransactOpts, backend 
 	)
 	require.NoError(t, err)
 
+	for _, tr := range transmitters {
+		t.Logf("transmitter: %s", tr)
+	}
+
 	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
 	require.NoError(t, err)
 
 	transmitterAddresses := make([]common.Address, len(transmitters))
-	for i, transmitter := range transmitters {
-		transmitterAddresses[i] = common.HexToAddress(string(transmitter))
+	for i := range transmitters {
+		keys, err := nodes[i].App.GetKeyStore().Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
+		require.NoError(t, err)
+		transmitterAddresses[i] = keys[0].Address // assuming the first key is the transmitter
 	}
-	// offchainTransmitters := make([][32]byte, nNodes)
-	// for i := 0; i < nNodes; i++ {
-	// 	offchainTransmitters[i] = nodes[i].ClientPubKey
-	// }
+
+	for _, tr := range transmitterAddresses {
+		t.Logf("transmitterAddress: %s", tr.Hex())
+	}
+
+	for i, n := range nodes {
+		t.Logf("pub key node %d: %s", i, n.ClientPubKey)
+	}
+
+	for i, signer := range signerAddresses {
+		t.Logf("signer %d: %s", i, signer.Hex())
+	}
 
 	_, err = ocrContract.SetConfig(steve, signerAddresses, transmitterAddresses, f, outOnchainConfig, offchainConfigVersion, offchainConfig)
 	if err != nil {

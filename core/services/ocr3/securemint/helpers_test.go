@@ -517,6 +517,11 @@ func addSecureMintOCRJobs(
 	for i, node := range nodes {
 		name := "securemint-ea"
 		bmBridge := createSecureMintBridge(t, name, i, decimal.NewFromFloat32(1000), node.App.BridgeORM())
+
+		addresses, err := node.App.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), testutils.SimulatedChainID)
+		require.NoError(t, err)
+		t.Logf("Using transmitter address %s for node %d", addresses[0].String(), i)
+
 		jobID := addSecureMintJob(i,
 			t,
 			node,

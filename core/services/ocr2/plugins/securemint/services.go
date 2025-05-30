@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	ocr2plus_types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
 	sm_plugin "github.com/smartcontractkit/por_mock_ocr3plugin/por"
 
@@ -105,11 +106,11 @@ func NewSecureMintServices(ctx context.Context,
 	// if !ok {
 	// 	return nil, errors.New("could not coerce PluginProvider to SecureMintProvider")
 	// }
-	// fmt.Printf("secureMintProvider: %+v\n", secureMintProvider) // TODO(gg): remove debug print
+	// srvs = append(srvs, provider)
 
-	srvs = append(srvs, provider)
-	// argsNoPlugin.ContractTransmitter = secureMintProvider.OCR3ContractTransmitter() // TODO(gg): seems like OCR3OracleArgs expects a ContractTransmitter[[]byte] but SecureMintProvider only has OCR3ContractTransmitter[ChainSelector]?
+	lggr.Infof("TRACE transmitter id in spec is %s", spec.TransmitterID.String)
 
+	argsNoPlugin.ContractTransmitter = newStubContractTransmitter(lggr, ocr2plus_types.Account(spec.TransmitterID.String)) // TODO(gg): implement chain writing here
 	argsNoPlugin.ContractConfigTracker = provider.ContractConfigTracker()
 	argsNoPlugin.OffchainConfigDigester = provider.OffchainConfigDigester()
 
