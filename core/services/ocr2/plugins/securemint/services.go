@@ -108,8 +108,6 @@ func NewSecureMintServices(ctx context.Context,
 	// }
 	// srvs = append(srvs, provider)
 
-	lggr.Infof("TRACE transmitter id in spec is %s", spec.TransmitterID.String)
-
 	argsNoPlugin.ContractTransmitter = newStubContractTransmitter(lggr, ocr2plus_types.Account(spec.TransmitterID.String)) // TODO(gg): implement chain writing here
 	argsNoPlugin.ContractConfigTracker = provider.ContractConfigTracker()
 	argsNoPlugin.OffchainConfigDigester = provider.OffchainConfigDigester()

@@ -23,6 +23,7 @@ import (
 	"golang.org/x/crypto/sha3"
 
 	"github.com/smartcontractkit/freeport"
+	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -52,7 +53,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
@@ -671,7 +671,11 @@ func setSecureMintOnchainConfig(t *testing.T, steve *bind.TransactOpts, backend 
 	maxAnswer.Sub(maxAnswer, big.NewInt(1))
 
 	// TODO(gg): this uses the median codec, not sure if this is correct
-	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(minAnswer, maxAnswer)
+	// onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(minAnswer, maxAnswer)
+	// require.NoError(t, err)
+
+	onchainConfig := por.PorOffchainConfig{} // TODO(gg): set config values
+	onchainConfigBytes, err := onchainConfig.Serialize()
 	require.NoError(t, err)
 
 	signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTests(
@@ -692,13 +696,11 @@ func setSecureMintOnchainConfig(t *testing.T, steve *bind.TransactOpts, backend 
 		0,                    // maxDurationShouldAcceptAttestedReport,
 		0,                    // maxDurationShouldTransmitAcceptedReport,
 		int(fNodes),          // f,
-		onchainConfig,        // onchainConfig (binary blob containing configuration passed through to the ReportingPlugin and also available to the contract. Unlike ReportingPluginConfig which is only available offchain.)
+		onchainConfigBytes,   // onchainConfig (binary blob containing configuration passed through to the ReportingPlugin and also available to the contract. Unlike ReportingPluginConfig which is only available offchain.)
 	)
 	require.NoError(t, err)
 
-	for _, tr := range transmitters {
-		t.Logf("transmitter: %s", tr)
-	}
+	t.Logf("offchainConfig: %s", hex.EncodeToString(offchainConfig))
 
 	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
 	require.NoError(t, err)
@@ -708,18 +710,6 @@ func setSecureMintOnchainConfig(t *testing.T, steve *bind.TransactOpts, backend 
 		keys, err := nodes[i].App.GetKeyStore().Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
 		require.NoError(t, err)
 		transmitterAddresses[i] = keys[0].Address // assuming the first key is the transmitter
-	}
-
-	for _, tr := range transmitterAddresses {
-		t.Logf("transmitterAddress: %s", tr.Hex())
-	}
-
-	for i, n := range nodes {
-		t.Logf("pub key node %d: %s", i, n.ClientPubKey)
-	}
-
-	for i, signer := range signerAddresses {
-		t.Logf("signer %d: %s", i, signer.Hex())
 	}
 
 	_, err = ocrContract.SetConfig(steve, signerAddresses, transmitterAddresses, f, outOnchainConfig, offchainConfigVersion, offchainConfig)
