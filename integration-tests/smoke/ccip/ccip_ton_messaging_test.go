@@ -44,7 +44,7 @@ func Test_CCIPMessaging_EVM2Ton(t *testing.T) {
 
 	var (
 		nonce  uint64
-		sender = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
+		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
 		out    mt.TestCaseOutput
 		setup  = mt.NewTestSetupWithDeployedEnv(
 			t,
