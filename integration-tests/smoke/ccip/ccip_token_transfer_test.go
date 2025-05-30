@@ -27,17 +27,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-)
 
-// duplicated from messagingtest
-func sleepAndReplay(t *testing.T, e testhelpers.DeployedEnv, chainSelectors ...uint64) {
-	time.Sleep(30 * time.Second)
-	replayBlocks := make(map[uint64]uint64)
-	for _, selector := range chainSelectors {
-		replayBlocks[selector] = 1
-	}
-	testhelpers.ReplayLogs(t, e.Env.Offchain, replayBlocks)
-}
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+)
 
 func TestTokenTransfer_EVM2EVM(t *testing.T) {
 	lggr := logger.TestLogger(t)
@@ -49,12 +43,13 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 	e := tenv.Env
 	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(e.Chains), 2)
+	evmChains := e.BlockChains.EVMChains()
+	require.GreaterOrEqual(t, len(evmChains), 2)
 
-	allChainSelectors := maps.Keys(e.Chains)
+	allChainSelectors := maps.Keys(evmChains)
 	sourceChain, destChain := allChainSelectors[0], allChainSelectors[1]
-	ownerSourceChain := e.Chains[sourceChain].DeployerKey
-	ownerDestChain := e.Chains[destChain].DeployerKey
+	ownerSourceChain := evmChains[sourceChain].DeployerKey
+	ownerDestChain := evmChains[destChain].DeployerKey
 
 	require.GreaterOrEqual(t, len(tenv.Users[sourceChain]), 2)
 	require.GreaterOrEqual(t, len(tenv.Users[destChain]), 2)
@@ -66,7 +61,7 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 	// Deploy tokens and pool by CCIP Owner
 	srcToken, _, destToken, _, err := testhelpers.DeployTransferableToken(
 		lggr,
-		tenv.Env.Chains,
+		tenv.Env.BlockChains.EVMChains(),
 		sourceChain,
 		destChain,
 		ownerSourceChain,
@@ -80,7 +75,7 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 	// Deploy Self Serve tokens and pool
 	selfServeSrcToken, _, selfServeDestToken, _, err := testhelpers.DeployTransferableToken(
 		lggr,
-		tenv.Env.Chains,
+		tenv.Env.BlockChains.EVMChains(),
 		sourceChain,
 		destChain,
 		selfServeSrcTokenPoolDeployer,
@@ -250,13 +245,14 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 	e := tenv.Env
 	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(e.Chains), 2)
+	evmChains := e.BlockChains.EVMChains()
+	require.GreaterOrEqual(t, len(evmChains), 2)
 
-	allChainSelectors := maps.Keys(e.Chains)
-	allSolChainSelectors := maps.Keys(e.SolChains)
+	allChainSelectors := e.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
+	allSolChainSelectors := e.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySolana))
 	sourceChain, destChain := allChainSelectors[0], allSolChainSelectors[0]
-	ownerSourceChain := e.Chains[sourceChain].DeployerKey
-	// ownerDestChain := e.SolChains[destChain].DeployerKey
+	ownerSourceChain := evmChains[sourceChain].DeployerKey
+	// ownerDestChain := e.BlockChains.SolanaChains()[destChain].DeployerKey
 
 	require.GreaterOrEqual(t, len(tenv.Users[sourceChain]), 2) // TODO: ???
 
@@ -384,14 +380,14 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 	e := tenv.Env
 	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(e.Chains), 2)
+	require.GreaterOrEqual(t, len(e.BlockChains.EVMChains()), 2)
 
-	allChainSelectors := maps.Keys(e.Chains)
-	allSolChainSelectors := maps.Keys(e.SolChains)
+	allChainSelectors := e.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
+	allSolChainSelectors := e.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySolana))
 	sourceChain, destChain := allSolChainSelectors[0], allChainSelectors[0]
-	sender := e.SolChains[sourceChain].DeployerKey
+	sender := e.BlockChains.SolanaChains()[sourceChain].DeployerKey
 	ownerSourceChain := sender.PublicKey()
-	ownerDestChain := e.Chains[destChain].DeployerKey
+	ownerDestChain := e.BlockChains.EVMChains()[destChain].DeployerKey
 
 	require.GreaterOrEqual(t, len(tenv.Users[destChain]), 2) // TODO: ???
 
@@ -411,8 +407,9 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, sourceChain, destChain, false)
 
 	// TODO: handle in setup
-	deployer := e.SolChains[sourceChain].DeployerKey
-	rpcClient := e.SolChains[sourceChain].Client
+	solChains := e.BlockChains.SolanaChains()
+	deployer := solChains[sourceChain].DeployerKey
+	rpcClient := solChains[sourceChain].Client
 
 	// create ATA for user
 	tokenProgram := solana.TokenProgramID
@@ -524,7 +521,7 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 		testhelpers.TransferMultiple(ctx, t, e, state, tcs)
 
 	// HACK: we need to replay blocks only after the CCIP plugin has already properly booted
-	sleepAndReplay(t, tenv, sourceChain, destChain)
+	testhelpers.SleepAndReplay(t, e, 30*time.Second, sourceChain, destChain)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,

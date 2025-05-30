@@ -27,7 +27,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 	callOpts := &bind.CallOpts{Context: ctx}
 
 	testEnv, _, _ := testsetups.NewIntegrationEnvironment(t)
-	chains := maps.Keys(testEnv.Env.Chains)
+	chains := maps.Keys(testEnv.Env.BlockChains.EVMChains())
 
 	onChainState, err := stateview.LoadOnchainState(testEnv.Env)
 	require.NoError(t, err)

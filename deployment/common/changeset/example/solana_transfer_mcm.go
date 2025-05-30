@@ -35,9 +35,10 @@ type TransferFromTimelock struct{}
 
 // VerifyPreconditions checks if the deployer has enough SOL to fund the MCMS signers on each chain.
 func (f TransferFromTimelock) VerifyPreconditions(e cldf.Environment, config TransferFromTimelockConfig) error {
+	solChains := e.BlockChains.SolanaChains()
 	// the number of accounts to fund per chain (bypasser, canceller, proposer, timelock)
 	for chainSelector, amountCfg := range config.AmountsPerChain {
-		solChain, ok := e.SolChains[chainSelector]
+		solChain, ok := solChains[chainSelector]
 		if !ok {
 			return fmt.Errorf("solana chain not found for selector %d", chainSelector)
 		}
@@ -80,8 +81,10 @@ func (f TransferFromTimelock) Apply(e cldf.Environment, config TransferFromTimel
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS inspectors: %w", err)
 	}
+
+	solChains := e.BlockChains.SolanaChains()
 	for chainSelector, cfgAmounts := range config.AmountsPerChain {
-		solChain := e.SolChains[chainSelector]
+		solChain := solChains[chainSelector]
 		addreses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)

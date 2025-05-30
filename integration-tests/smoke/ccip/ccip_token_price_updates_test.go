@@ -43,7 +43,7 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 	require.NoError(t, err)
 	testhelpers.AddLanesForAll(t, &e, state)
 
-	allChainSelectors := maps.Keys(e.Env.Chains)
+	allChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
 	assert.GreaterOrEqual(t, len(allChainSelectors), 2, "test requires at least 2 chains")
 
 	sourceChain1 := allChainSelectors[0]
@@ -84,7 +84,7 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 
 	assert.Eventually(t, func() bool {
 		// manually update token prices by setting values to maxUint64 and 0
-		tx, err := feeQuoter1.UpdatePrices(e.Env.Chains[sourceChain1].DeployerKey, fee_quoter.InternalPriceUpdates{
+		tx, err := feeQuoter1.UpdatePrices(e.Env.BlockChains.EVMChains()[sourceChain1].DeployerKey, fee_quoter.InternalPriceUpdates{
 			TokenPriceUpdates: []fee_quoter.InternalTokenPriceUpdate{
 				{SourceToken: feeTokensChain1[0], UsdPerToken: big.NewInt(0).SetUint64(math.MaxUint64)},
 				{SourceToken: feeTokensChain1[1], UsdPerToken: big.NewInt(0)},
@@ -92,7 +92,7 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = cldf.ConfirmIfNoError(e.Env.Chains[sourceChain1], tx, err)
+		_, err = cldf.ConfirmIfNoError(e.Env.BlockChains.EVMChains()[sourceChain1], tx, err)
 		require.NoError(t, err)
 		t.Logf("manually editing token prices")
 

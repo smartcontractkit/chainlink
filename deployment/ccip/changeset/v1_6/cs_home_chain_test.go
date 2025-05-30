@@ -5,8 +5,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
@@ -37,7 +40,7 @@ func TestDeployHomeChain(t *testing.T) {
 		Chains:     2,
 		Nodes:      4,
 	})
-	homeChainSel := e.AllChainSelectors()[0]
+	homeChainSel := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
@@ -45,7 +48,7 @@ func TestDeployHomeChain(t *testing.T) {
 		HomeChainSel:     homeChainSel,
 		RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
 		RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
-		NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+		NodeOperators:    testhelpers.NewTestNodeOperator(e.BlockChains.EVMChains()[homeChainSel].DeployerKey.From),
 		NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 			"NodeOperator": p2pIds,
 		},
@@ -60,7 +63,7 @@ func TestDeployHomeChain(t *testing.T) {
 	require.NotNil(t, state.Chains[homeChainSel].RMNHome)
 	snap, _, err := state.View(&e, []uint64{homeChainSel})
 	require.NoError(t, err)
-	chainName := e.Chains[homeChainSel].Name()
+	chainName := e.BlockChains.EVMChains()[homeChainSel].Name()
 	_, ok := snap[chainName]
 	require.True(t, ok)
 	capRegSnap, ok := snap[chainName].CapabilityRegistry[state.Chains[homeChainSel].CapabilityRegistry.Address().String()]
@@ -68,7 +71,7 @@ func TestDeployHomeChain(t *testing.T) {
 	require.NotNil(t, capRegSnap)
 	require.Equal(t, []v1_0.NopView{
 		{
-			Admin: e.Chains[homeChainSel].DeployerKey.From,
+			Admin: e.BlockChains.EVMChains()[homeChainSel].DeployerKey.From,
 			Name:  "NodeOperator",
 		},
 	}, capRegSnap.Nops)
@@ -83,7 +86,7 @@ func TestDeployHomeChainIdempotent(t *testing.T) {
 		HomeChainSel:     e.HomeChainSel,
 		RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
 		RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
-		NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+		NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 		NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 			"NodeOperator": nodes.NonBootstraps().PeerIDs(),
 		},
@@ -91,7 +94,7 @@ func TestDeployHomeChainIdempotent(t *testing.T) {
 	// apply the changeset once again to ensure idempotency
 	output, err := v1_6.DeployHomeChainChangeset(e.Env, homeChainCfg)
 	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
+	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook)) //nolint:staticcheck // will be addressed when we migrate to data store
 	_, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 }
@@ -109,7 +112,7 @@ func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
 		HomeChainSel:     deployedEnvironment.HomeChainSel,
 		RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
 		RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
-		NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[deployedEnvironment.HomeChainSel].DeployerKey.From),
+		NodeOperators:    testhelpers.NewTestNodeOperator(e.BlockChains.EVMChains()[deployedEnvironment.HomeChainSel].DeployerKey.From),
 		NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 			"NodeOperator": nodes.NonBootstraps().PeerIDs(),
 		},
@@ -278,7 +281,7 @@ func TestAddDonAfterRemoveDons(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	s, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	allChains := e.Env.AllChainSelectors()
+	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	homeChain := s.Chains[e.HomeChainSel]
 	ocrConfigs := make(map[uint64]v1_6.CCIPOCRParams)
 	// Remove a don
@@ -371,7 +374,7 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 						HomeChainSel:     e.HomeChainSel,
 						RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 						RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
-						NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+						NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 						NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 							testhelpers.TestNodeOperator: nodes.NonBootstraps().PeerIDs(),
 						},
@@ -528,7 +531,7 @@ func TestRemoveNodes(t *testing.T) {
 						HomeChainSel:     e.HomeChainSel,
 						RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 						RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
-						NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+						NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 						NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 							testhelpers.TestNodeOperator: nodes.NonBootstraps().PeerIDs(),
 						},
@@ -542,7 +545,7 @@ func TestRemoveNodes(t *testing.T) {
 			state, err := stateview.LoadOnchainState(e.Env)
 			require.NoError(t, err)
 			homeChain := s.Chains[e.HomeChainSel]
-			allChains := e.Env.AllChainSelectors()
+			allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 
 			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {

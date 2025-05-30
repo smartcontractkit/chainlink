@@ -6,8 +6,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -98,7 +101,7 @@ func TestAddTokenE2E(t *testing.T) {
 				e = tenv.Env
 				state, err := stateview.LoadOnchainState(e)
 				require.NoError(t, err)
-				selectors := e.AllChainSelectors()
+				selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 				selectorA = selectors[0]
 				selectorB = selectors[1]
 				// We only need the token admin registry to be owned by the timelock in these tests
@@ -141,7 +144,7 @@ func TestAddTokenE2E(t *testing.T) {
 			recipientAddress := utils.RandomAddress()
 			topupAmount := big.NewInt(1000)
 			// form the changeset input config
-			for _, chain := range e.AllChainSelectors() {
+			for _, chain := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 				if addTokenE2EConfig.Tokens == nil {
 					addTokenE2EConfig.Tokens = make(map[shared.TokenSymbol]v1_5_1.AddTokenE2EConfig)
 				}
@@ -230,7 +233,7 @@ func TestAddTokenE2E(t *testing.T) {
 				tokenpools, ok := state.Chains[chain].BurnMintTokenPools[testhelpers.TestTokenSymbol]
 				require.True(t, ok)
 				require.Len(t, tokenpools, 1)
-				tokenPoolC, err := token_pool.NewTokenPool(tokenpools[deployment.Version1_5_1].Address(), e.Chains[chain].Client)
+				tokenPoolC, err := token_pool.NewTokenPool(tokenpools[deployment.Version1_5_1].Address(), e.BlockChains.EVMChains()[chain].Client)
 				require.NoError(t, err)
 				var rateLimiterConfig v1_5_1.RateLimiterConfig
 				var remotePoolAddr common.Address
@@ -250,7 +253,7 @@ func TestAddTokenE2E(t *testing.T) {
 				if test.withMCMS {
 					poolOwner = state.Chains[chain].Timelock.Address()
 				} else {
-					poolOwner = e.Chains[chain].DeployerKey.From
+					poolOwner = e.BlockChains.EVMChains()[chain].DeployerKey.From
 				}
 
 				// check token pool is configured
@@ -293,7 +296,7 @@ func TestAddTokenE2E(t *testing.T) {
 					if test.withMCMS {
 						require.Equal(t, state.Chains[chain].Timelock.Address(), regConfig.Administrator)
 					} else {
-						require.Equal(t, e.Chains[chain].DeployerKey.From, regConfig.Administrator)
+						require.Equal(t, e.BlockChains.EVMChains()[chain].DeployerKey.From, regConfig.Administrator)
 					}
 				} else {
 					// if external admin then PendingAdministrator should be external admin

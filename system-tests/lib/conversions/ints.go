@@ -2,6 +2,7 @@ package conversions
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 	"strconv"
 )
@@ -18,18 +19,22 @@ func MustSafeUint64(input int64) uint64 {
 	if input < 0 {
 		panic(fmt.Errorf("int64 %d is below uint64 min value", input))
 	}
-	if input > int64(^uint64(0)>>1) {
-		panic(fmt.Errorf("int64 %d exceeds uint64 max value", input))
-	}
+	// No need for max value check since int64's max value is always less than uint64's max value
 	return uint64(input)
+}
+
+func MustSafeInt64(input uint64) int64 {
+	if input > math.MaxInt64 {
+		panic(fmt.Errorf("uint64 %d exceeds int64 max value", input))
+	}
+	return int64(input)
 }
 
 func MustSafeUint32(input int) uint32 {
 	if input < 0 {
 		panic(fmt.Errorf("int %d is below uint32 min value", input))
 	}
-	maxUint32 := (1 << 32) - 1
-	if input > maxUint32 {
+	if input > math.MaxUint32 {
 		panic(fmt.Errorf("int %d exceeds uint32 max value", input))
 	}
 	return uint32(input)
@@ -39,8 +44,7 @@ func MustSafeUint8(input int) uint8 {
 	if input < 0 {
 		panic(fmt.Errorf("int %d is below uint8 min value", input))
 	}
-	maxUint8 := (1 << 8) - 1
-	if input > maxUint8 {
+	if input > math.MaxUint8 {
 		panic(fmt.Errorf("int %d exceeds uint8 max value", input))
 	}
 	return uint8(input)

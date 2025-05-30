@@ -10,6 +10,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -44,9 +47,12 @@ func Test_AddChain(t *testing.T) {
 		testhelpers.WithNoJobsAndContracts(),
 	)
 
-	allChains := maps.Keys(e.Env.Chains)
+	allChains := maps.Keys(e.Env.BlockChains.EVMChains())
 	slices.Sort(allChains)
-	toDeploy := e.Env.AllChainSelectorsExcluding([]uint64{allChains[0]})
+	toDeploy := e.Env.BlockChains.ListChainSelectors(
+		cldf_chain.WithFamily(chain_selectors.FamilyEVM),
+		cldf_chain.WithChainSelectorsExclusion([]uint64{allChains[0]}),
+	)
 	require.Len(t, toDeploy, numChains-1)
 	remainingChain := allChains[0]
 	t.Log("initially deploying chains:", toDeploy, "and afterwards adding chain", remainingChain)
@@ -115,7 +121,7 @@ func Test_AddChain(t *testing.T) {
 					DestChainSelector:   dest,
 				}] = gp.Value
 
-				latesthdr, err := e.Env.Chains[dest].Client.HeaderByNumber(testcontext.Get(t), nil)
+				latesthdr, err := e.Env.BlockChains.EVMChains()[dest].Client.HeaderByNumber(testcontext.Get(t), nil)
 				require.NoError(t, err)
 				block := latesthdr.Number.Uint64()
 				msgSentEvent := testhelpers.TestSendRequest(t, e.Env, state, source, dest, testRouter, router.ClientEVM2AnyMessage{
@@ -160,7 +166,7 @@ func Test_AddChain(t *testing.T) {
 	// 	// for all dests.
 	// 	err := ConfirmGasPriceUpdated(
 	// 		t,
-	// 		e.Env.Chains[sourceDestPair.DestChainSelector],
+	// 		e.Env.BlockChains.EVMChains()[sourceDestPair.DestChainSelector],
 	// 		state.Chains[sourceDestPair.SourceChainSelector].FeeQuoter,
 	// 		*startBlocks[sourceDestPair.DestChainSelector],
 	// 		preUpdateGp,

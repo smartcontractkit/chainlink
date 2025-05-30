@@ -11,6 +11,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -291,9 +294,9 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 	for _, nop := range tc.nops {
 		signers = append(signers, nop.ToRMNRemoteSigner())
 	}
-
-	remoteConfigs := make(map[uint64]ccipops.RMNRemoteConfig, len(e.Env.Chains))
-	for _, chain := range e.Env.Chains {
+	evmChains := e.Env.BlockChains.EVMChains()
+	remoteConfigs := make(map[uint64]ccipops.RMNRemoteConfig, len(evmChains))
+	for _, chain := range evmChains {
 		remoteConfig := ccipops.RMNRemoteConfig{
 			Signers: signers,
 			F:       0,
@@ -343,11 +346,11 @@ func buildRMNRemoteAddressPerChain(e cldf.Environment, state stateview.CCIPOnCha
 func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNoJobsAndContracts())
-	allChains := e.Env.AllChainSelectors()
+	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	var err error
 	prereqCfgs := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
-	for _, c := range e.Env.AllChainSelectors() {
+	for _, c := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)) {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfigV2(t)
 		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: c,
@@ -411,7 +414,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
-				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					"NodeOperator": envNodes.NonBootstraps().PeerIDs(),
 				},

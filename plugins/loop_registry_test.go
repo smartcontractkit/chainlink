@@ -7,16 +7,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestPluginPortManager(t *testing.T) {
 	// register one
-	m := NewTestLoopRegistry(logger.TestLogger(t))
+	m := NewTestLoopRegistry(logger.Test(t))
 	pFoo, err := m.Register("foo")
 	require.NoError(t, err)
 	require.Equal(t, "foo", pFoo.Name)
@@ -102,7 +101,7 @@ func TestLoopRegistry_Register(t *testing.T) {
 
 	// Create a LoopRegistry instance with mockCfgTracing
 	loopRegistry := &LoopRegistry{
-		lggr:         logger.TestLogger(t),
+		lggr:         logger.Test(t),
 		registry:     registry,
 		cfgDatabase:  mockCfgDatabase,
 		cfgTracing:   mockCfgTracing,
@@ -134,7 +133,7 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.True(t, envCfg.TelemetryInsecureConnection)
 	require.Equal(t, "path/to/cert.pem", envCfg.TelemetryCACertFile)
 	require.Equal(t, "http://localhost:9001", envCfg.TelemetryEndpoint)
-	require.Equal(t, loop.OtelAttributes{"foo": "bar"}, envCfg.TelemetryAttributes)
+	require.Equal(t, beholder.OtelAttributes{"foo": "bar"}, envCfg.TelemetryAttributes)
 	require.Equal(t, 0.42, envCfg.TelemetryTraceSampleRatio)
 	require.True(t, envCfg.TelemetryEmitterBatchProcessor)
 	require.Equal(t, 1*time.Second, envCfg.TelemetryEmitterExportTimeout)

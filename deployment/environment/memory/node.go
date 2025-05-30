@@ -21,6 +21,10 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -36,11 +40,9 @@ import (
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 
@@ -231,11 +233,11 @@ type NewNodeConfig struct {
 	// Port for the P2P V2 listener.
 	Port int
 	// EVM chains to be configured. Optional.
-	Chains map[uint64]cldf.Chain
+	Chains map[uint64]cldf_evm.Chain
 	// Solana chains to be configured. Optional.
-	Solchains map[uint64]cldf.SolChain
+	Solchains map[uint64]cldf_solana.Chain
 	// Aptos chains to be configured. Optional.
-	Aptoschains    map[uint64]cldf.AptosChain
+	Aptoschains    map[uint64]cldf_aptos.Chain
 	LogLevel       zapcore.Level
 	Bootstrap      bool
 	RegistryConfig deployment.CapabilityRegistryConfig
@@ -434,9 +436,9 @@ type Keys struct {
 
 func CreateKeys(t *testing.T,
 	app chainlink.Application,
-	chains map[uint64]cldf.Chain,
-	solchains map[uint64]cldf.SolChain,
-	aptoschains map[uint64]cldf.AptosChain,
+	chains map[uint64]cldf_evm.Chain,
+	solchains map[uint64]cldf_solana.Chain,
+	aptoschains map[uint64]cldf_aptos.Chain,
 ) Keys {
 	ctx := t.Context()
 	_, err := app.GetKeyStore().P2P().Create(ctx)
@@ -618,7 +620,7 @@ func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
 	}
 }
 
-func createSolanaChainConfig(chainID string, chain cldf.SolChain) *solcfg.TOMLConfig {
+func createSolanaChainConfig(chainID string, chain cldf_solana.Chain) *solcfg.TOMLConfig {
 	chainConfig := solcfg.Chain{}
 	chainConfig.SetDefaults()
 

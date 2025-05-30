@@ -9,11 +9,11 @@ import (
 	"time"
 )
 
-func Download(url string) ([]byte, error) {
-	ctx, cancelFn := context.WithTimeout(context.Background(), 120*time.Second)
+func Download(ctx context.Context, url string) ([]byte, error) {
+	requestCtx, cancelFn := context.WithTimeout(ctx, 120*time.Second)
 	defer cancelFn()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(requestCtx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -36,8 +36,8 @@ func Download(url string) ([]byte, error) {
 	return data, nil
 }
 
-func DownloadAndDecodeBase64(url string) ([]byte, error) {
-	data, err := Download(url)
+func DownloadAndDecodeBase64(ctx context.Context, url string) ([]byte, error) {
+	data, err := Download(ctx, url)
 	if err != nil {
 		return nil, err
 	}

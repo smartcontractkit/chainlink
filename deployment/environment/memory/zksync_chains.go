@@ -20,13 +20,13 @@ import (
 
 	cs "github.com/smartcontractkit/chain-selectors"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 )
 
-func GenerateChainsZk(t *testing.T, numChains int) map[uint64]cldf.Chain {
-	chains := make(map[uint64]cldf.Chain)
+func GenerateChainsZk(t *testing.T, numChains int) map[uint64]cldf_evm.Chain {
+	chains := make(map[uint64]cldf_evm.Chain)
 
 	for i := 0; i < numChains; i++ {
 		chainID := cs.TEST_90000051.EvmChainID + uint64(i) //nolint:gosec // it shouldn't overflow
@@ -67,7 +67,7 @@ func GenerateChainsZk(t *testing.T, numChains int) map[uint64]cldf.Chain {
 		deployerZk, err := accounts.NewWallet(common.Hex2Bytes(blockchain.AnvilZKSyncRichAccountPks[0]), clientZk, nil)
 		require.NoError(t, err)
 
-		chain := cldf.Chain{
+		chain := cldf_evm.Chain{
 			Selector:    sel,
 			Client:      client,
 			DeployerKey: keyedTransactors[0], // to use to interact with contracts

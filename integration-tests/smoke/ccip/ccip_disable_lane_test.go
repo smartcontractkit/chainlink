@@ -6,8 +6,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/stretchr/testify/require"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -37,8 +40,9 @@ func TestDisableLane(t *testing.T) {
 	testhelpers.AddLanesForAll(t, &tenv, state)
 
 	var (
-		chains                 = e.AllChainSelectors()
+		chains                 = e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 		chainA, chainB, chainC = chains[0], chains[1], chains[2]
+		evmChains              = e.BlockChains.EVMChains()
 		expectedSeqNumExec     = make(map[testhelpers.SourceDestPair][]uint64)
 		startBlocks            = make(map[uint64]*uint64)
 		pairs                  []testhelpers.SourceDestPair
@@ -69,10 +73,10 @@ func TestDisableLane(t *testing.T) {
 		}
 
 		assertRequestSent = func(src, dest uint64, deployer *bind.TransactOpts) {
-			latestHeader, err := e.Chains[dest].Client.HeaderByNumber(testcontext.Get(t), nil)
+			latestHeader, err := evmChains[dest].Client.HeaderByNumber(testcontext.Get(t), nil)
 			require.NoError(t, err)
 			block := latestHeader.Number.Uint64()
-			messageSentEvent, err := sendmessage(src, dest, e.Chains[src].DeployerKey)
+			messageSentEvent, err := sendmessage(src, dest, evmChains[src].DeployerKey)
 			require.NoError(t, err)
 			expectedSeqNumExec[testhelpers.SourceDestPair{
 				SourceChainSelector: src,
@@ -89,16 +93,16 @@ func TestDisableLane(t *testing.T) {
 	})
 	testhelpers.RemoveLane(t, &tenv, chainA, chainB, false)
 	// send a message to confirm it is reverted between A -> B
-	assertSendRequestReverted(chainA, chainB, e.Chains[chainA].Users[0])
+	assertSendRequestReverted(chainA, chainB, evmChains[chainA].Users[0])
 
 	// send a message in other direction B -> A to confirm it is delivered
-	assertRequestSent(chainB, chainA, e.Chains[chainB].Users[0])
+	assertRequestSent(chainB, chainA, evmChains[chainB].Users[0])
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)
 
 	// send a multiple message between A -> C and disable the lane while the requests are in-flight
 	expectedSeqNumExec = make(map[testhelpers.SourceDestPair][]uint64)
 	for range noOfRequests {
-		assertRequestSent(chainA, chainC, e.Chains[chainA].Users[1])
+		assertRequestSent(chainA, chainC, evmChains[chainA].Users[1])
 	}
 	// disable lane A -> C while requests are getting sent in that lane
 	pairs = append(pairs, testhelpers.SourceDestPair{
@@ -111,7 +115,7 @@ func TestDisableLane(t *testing.T) {
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)
 
 	// now, as the lane is disabled, confirm that message sent in A -> C is reverted
-	assertSendRequestReverted(chainA, chainC, e.Chains[chainA].Users[0])
+	assertSendRequestReverted(chainA, chainC, evmChains[chainA].Users[0])
 
 	// check getting token and gas price form fee quoter returns error when A -> C lane is disabled
 	gp, err := state.MustGetEVMChainState(chainA).FeeQuoter.GetTokenAndGasPrices(&bind.CallOpts{
@@ -136,7 +140,7 @@ func TestDisableLane(t *testing.T) {
 	}
 	// send a message in all the lane including re-enabled lanes
 	for _, pair := range pairs {
-		assertRequestSent(pair.SourceChainSelector, pair.DestChainSelector, e.Chains[pair.SourceChainSelector].Users[0])
+		assertRequestSent(pair.SourceChainSelector, pair.DestChainSelector, evmChains[pair.SourceChainSelector].Users[0])
 	}
 	// confirm all messages are delivered
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)

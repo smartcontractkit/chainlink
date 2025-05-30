@@ -46,10 +46,11 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	allChainSelectors := maps.Keys(e.Chains)
+	evmChains := e.BlockChains.EVMChains()
+	allChainSelectors := maps.Keys(evmChains)
 	sourceChain, destChain := allChainSelectors[0], allChainSelectors[1]
-	ownerSourceChain := e.Chains[sourceChain].DeployerKey
-	ownerDestChain := e.Chains[destChain].DeployerKey
+	ownerSourceChain := evmChains[sourceChain].DeployerKey
+	ownerDestChain := evmChains[destChain].DeployerKey
 
 	anotherSender, err := pickFirstAvailableUser(tenv, sourceChain, e)
 	require.NoError(t, err)
@@ -58,7 +59,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 
 	srcToken, _, destToken, _, err := testhelpers.DeployTransferableToken(
 		lggr,
-		tenv.Env.Chains,
+		tenv.Env.BlockChains.EVMChains(),
 		sourceChain,
 		destChain,
 		ownerSourceChain,
@@ -69,12 +70,12 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	srcUSDC, destUSDC, err := testhelpers.ConfigureUSDCTokenPools(lggr, e.Chains, sourceChain, destChain, state)
+	srcUSDC, destUSDC, err := testhelpers.ConfigureUSDCTokenPools(lggr, evmChains, sourceChain, destChain, state)
 	require.NoError(t, err)
 
-	err = testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, e.Chains[sourceChain], destChain)
+	err = testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, evmChains[sourceChain], destChain)
 	require.NoError(t, err)
-	err = testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, e.Chains[destChain], sourceChain)
+	err = testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, evmChains[destChain], sourceChain)
 	require.NoError(t, err)
 
 	testhelpers.MintAndAllow(
@@ -111,7 +112,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	startBlocks := make(map[uint64]*uint64)
 	expectedStatuses := make(map[uint64]int)
 
-	latesthdr, err := e.Chains[destChain].Client.HeaderByNumber(ctx, nil)
+	latesthdr, err := evmChains[destChain].Client.HeaderByNumber(ctx, nil)
 	require.NoError(t, err)
 	block := latesthdr.Number.Uint64()
 	startBlocks[destChain] = &block
@@ -221,7 +222,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	_, err = testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		sourceChain,
-		e.Chains[destChain],
+		evmChains[destChain],
 		state.MustGetEVMChainState(destChain).OffRamp,
 		startBlocks[destChain],
 		ccipocr3.NewSeqNumRange(
@@ -256,11 +257,11 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint8(testhelpers.EXECUTION_STATE_UNTOUCHED), thirdMsgState)
 
-	testhelpers.WaitForTheTokenBalance(ctx, t, destToken.Address(), firstReceiver, e.Chains[destChain], oneE18)
-	testhelpers.WaitForTheTokenBalance(ctx, t, destUSDC.Address(), secondReceiver, e.Chains[destChain], big.NewInt(0))
-	testhelpers.WaitForTheTokenBalance(ctx, t, destToken.Address(), thirdReceiver, e.Chains[destChain], big.NewInt(0))
-	testhelpers.WaitForTheTokenBalance(ctx, t, destToken.Address(), fourthReceiver, e.Chains[destChain], oneE18)
-	testhelpers.WaitForTheTokenBalance(ctx, t, destToken.Address(), fifthReceiver, e.Chains[destChain], oneE18)
+	testhelpers.WaitForTheTokenBalance(ctx, t, destToken.Address(), firstReceiver, evmChains[destChain], oneE18)
+	testhelpers.WaitForTheTokenBalance(ctx, t, destUSDC.Address(), secondReceiver, evmChains[destChain], big.NewInt(0))
+	testhelpers.WaitForTheTokenBalance(ctx, t, destToken.Address(), thirdReceiver, evmChains[destChain], big.NewInt(0))
+	testhelpers.WaitForTheTokenBalance(ctx, t, destToken.Address(), fourthReceiver, evmChains[destChain], oneE18)
+	testhelpers.WaitForTheTokenBalance(ctx, t, destToken.Address(), fifthReceiver, evmChains[destChain], oneE18)
 }
 
 func pickFirstAvailableUser(
@@ -272,7 +273,7 @@ func pickFirstAvailableUser(
 		if user == nil {
 			continue
 		}
-		if user.From != e.Chains[sourceChain].DeployerKey.From {
+		if user.From != e.BlockChains.EVMChains()[sourceChain].DeployerKey.From {
 			return user, nil
 		}
 	}

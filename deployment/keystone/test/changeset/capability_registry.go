@@ -26,7 +26,8 @@ func HydrateCapabilityRegistry(t *testing.T, v v1_0.CapabilityRegistryView, env 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain selector from chain id: %w", err)
 	}
-	chain, ok := env.Chains[chainSelector]
+	evmChains := env.BlockChains.EVMChains()
+	chain, ok := evmChains[chainSelector]
 	if !ok {
 		return nil, fmt.Errorf("chain with id %d not found", cfg.ChainID)
 	}
@@ -36,7 +37,7 @@ func HydrateCapabilityRegistry(t *testing.T, v v1_0.CapabilityRegistryView, env 
 	}
 
 	resp, err := changeset.GetContractSets(env.Logger, &changeset.GetContractSetsRequest{
-		Chains:      env.Chains,
+		Chains:      evmChains,
 		AddressBook: changesetOutput.AddressBook,
 	})
 	if err != nil {

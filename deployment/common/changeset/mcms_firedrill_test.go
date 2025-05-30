@@ -8,6 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -26,9 +29,9 @@ func setupFiredrillTestEnv(t *testing.T) cldf.Environment {
 		SolChains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-	chainSelector := env.AllChainSelectors()[0]
-	chainSelector2 := env.AllChainSelectors()[1]
-	chainSelectorSolana := env.AllChainSelectorsSolana()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	chainSelector2 := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]
+	chainSelectorSolana := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 
 	commonchangeset.SetPreloadedSolanaAddresses(t, env, chainSelectorSolana)
 	config := proposalutils.SingleGroupTimelockConfigV2(t)
@@ -47,12 +50,13 @@ func setupFiredrillTestEnv(t *testing.T) cldf.Environment {
 	//nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	addresses, err := env.ExistingAddresses.AddressesForChain(chainSelectorSolana)
 	require.NoError(t, err)
-	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(env.SolChains[env.AllChainSelectorsSolana()[0]], addresses)
+	chainSelectorSolana = env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(env.BlockChains.SolanaChains()[chainSelectorSolana], addresses)
 	require.NoError(t, err)
 	timelockSigner := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	mcmSigner := state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
 	mcmSignerBypasser := state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed)
-	solChain := env.SolChains[chainSelectorSolana]
+	solChain := env.BlockChains.SolanaChains()[chainSelectorSolana]
 	err = memory.FundSolanaAccounts(env.GetContext(), []solana.PublicKey{timelockSigner, mcmSigner, mcmSignerBypasser, solChain.DeployerKey.PublicKey()}, 150, solChain.Client)
 	require.NoError(t, err)
 	return env
@@ -61,9 +65,9 @@ func setupFiredrillTestEnv(t *testing.T) cldf.Environment {
 func TestMCMSSignFireDrillChangeset(t *testing.T) {
 	t.Parallel()
 	env := setupFiredrillTestEnv(t)
-	chainSelector := env.AllChainSelectors()[0]
-	chainSelector2 := env.AllChainSelectors()[1]
-	chainSelectorSolana := env.AllChainSelectorsSolana()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	chainSelector2 := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]
+	chainSelectorSolana := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 	// Add the timelock as a signer to check state changes
 	for _, tc := range []struct {
 		name       string

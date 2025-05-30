@@ -8,6 +8,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -19,12 +22,11 @@ func TestDeployBalanceReader(t *testing.T) {
 
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1, // nodes unused but required in config
 		Chains: 2,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	registrySel := env.AllChainSelectors()[0]
+	registrySel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
 	t.Run("should deploy balancereader", func(t *testing.T) {
 		ab := cldf.NewMemoryAddressBook()
@@ -40,8 +42,8 @@ func TestDeployBalanceReader(t *testing.T) {
 		require.Len(t, addrs, 1)
 
 		// only balancereader on chain 1
-		require.NotEqual(t, registrySel, env.AllChainSelectors()[1])
-		oaddrs, err := resp.AddressBook.AddressesForChain(env.AllChainSelectors()[1])
+		require.NotEqual(t, registrySel, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1])
+		oaddrs, err := resp.AddressBook.AddressesForChain(env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1])
 		require.NoError(t, err)
 		require.Len(t, oaddrs, 1)
 	})

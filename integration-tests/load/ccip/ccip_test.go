@@ -11,6 +11,9 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -68,14 +71,15 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	// initialize the block time for each chain
 	blockTimes := make(map[uint64]uint64)
-	for _, cs := range env.AllChainSelectors() {
+	evmChains := env.BlockChains.EVMChains()
+	for _, cs := range env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 		// Get the first block
-		block1, err := env.Chains[cs].Client.HeaderByNumber(context.Background(), big.NewInt(1))
+		block1, err := evmChains[cs].Client.HeaderByNumber(context.Background(), big.NewInt(1))
 		require.NoError(t, err)
 		time1 := time.Unix(int64(block1.Time), 0) //nolint:gosec // G115
 
 		// Get the second block
-		block2, err := env.Chains[cs].Client.HeaderByNumber(context.Background(), big.NewInt(2))
+		block2, err := evmChains[cs].Client.HeaderByNumber(context.Background(), big.NewInt(2))
 		require.NoError(t, err)
 		time2 := time.Unix(int64(block2.Time), 0) //nolint:gosec // G115
 
@@ -87,7 +91,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	}
 
 	// initialize additional accounts on other chains
-	transmitKeys, err := fundAdditionalKeys(lggr, *env, env.AllChainSelectors()[:*userOverrides.NumDestinationChains])
+	transmitKeys, err := fundAdditionalKeys(lggr, *env, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[:*userOverrides.NumDestinationChains])
 	// todo: fund keys on solana
 	require.NoError(t, err)
 	// todo: defer returning funds
@@ -109,12 +113,16 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	p := wasp.NewProfile()
 
 	// potential source chains need a subscription
-	for _, cs := range env.AllChainSelectors() {
-		latesthdr, err := env.Chains[cs].Client.HeaderByNumber(ctx, nil)
+	for _, cs := range env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
+		latesthdr, err := evmChains[cs].Client.HeaderByNumber(ctx, nil)
 		require.NoError(t, err)
 		block := latesthdr.Number.Uint64()
 		startBlocks[cs] = &block
-		other := env.AllChainSelectorsExcluding([]uint64{cs})
+		other := env.BlockChains.ListChainSelectors(
+			cldf_chain.WithFamily(chain_selectors.FamilyEVM),
+			cldf_chain.WithChainSelectorsExclusion([]uint64{cs}),
+		)
+
 		wg.Add(1)
 		go subscribeTransmitEvents(
 			ctx,
@@ -124,7 +132,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			startBlocks[cs],
 			cs,
 			loadFinished,
-			env.Chains[cs].Client,
+			evmChains[cs].Client,
 			&wg,
 			mm.InputChan,
 			finalSeqNrCommitChannels,
@@ -134,8 +142,11 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	evmSourceKeys := make(map[uint64]*bind.TransactOpts)
 	solanaSourceKeys := make(map[uint64]*solana.PrivateKey)
 	for ind := range *userOverrides.NumDestinationChains {
-		cs := env.AllChainSelectors()[ind]
-		other := env.AllChainSelectorsExcluding([]uint64{cs})
+		cs := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[ind]
+		other := env.BlockChains.ListChainSelectors(
+			cldf_chain.WithFamily(chain_selectors.FamilyEVM),
+			cldf_chain.WithChainSelectorsExclusion([]uint64{cs}),
+		)
 		for _, src := range other {
 			//todo: handle solana source keys
 			evmSourceKeys[src] = transmitKeys[src][ind]
@@ -144,9 +155,12 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	// confirmed dest chains need a subscription
 	for ind := range *userOverrides.NumDestinationChains {
-		cs := env.AllChainSelectors()[ind]
+		cs := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[ind]
 
-		other := env.AllChainSelectorsExcluding([]uint64{cs})
+		other := env.BlockChains.ListChainSelectors(
+			cldf_chain.WithFamily(chain_selectors.FamilyEVM),
+			cldf_chain.WithChainSelectorsExclusion([]uint64{cs}),
+		)
 		g := new(errgroup.Group)
 
 		for _, src := range other {
@@ -191,7 +205,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			other,
 			startBlocks[cs],
 			cs,
-			env.Chains[cs].Client,
+			evmChains[cs].Client,
 			finalSeqNrCommitChannels[cs],
 			&wg,
 			mm.InputChan)
@@ -202,7 +216,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			other,
 			startBlocks[cs],
 			cs,
-			env.Chains[cs].Client,
+			evmChains[cs].Client,
 			finalSeqNrExecChannels[cs],
 			&wg,
 			mm.InputChan)
@@ -287,13 +301,14 @@ func prepareAccountToSendLink(
 	src uint64,
 	srcAccount *bind.TransactOpts) error {
 	lggr := logger.Test(t)
-	srcDeployer := e.Chains[src].DeployerKey
+	evmChains := e.BlockChains.EVMChains()
+	srcDeployer := evmChains[src].DeployerKey
 	lggr.Infow("Setting up link token", "src", src)
 	srcLink := state.MustGetEVMChainState(src).LinkToken
 
 	lggr.Infow("Granting mint and burn roles")
 	tx, err := srcLink.GrantMintAndBurnRoles(srcDeployer, srcAccount.From)
-	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
+	_, err = cldf.ConfirmIfNoError(evmChains[src], tx, err)
 	if err != nil {
 		return err
 	}
@@ -305,7 +320,7 @@ func prepareAccountToSendLink(
 		srcAccount.From,
 		big.NewInt(20_000),
 	)
-	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
+	_, err = cldf.ConfirmIfNoError(evmChains[src], tx, err)
 	if err != nil {
 		return err
 	}
@@ -315,6 +330,6 @@ func prepareAccountToSendLink(
 	// Approve the router to spend the tokens and confirm the tx's
 	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount
 	tx, err = srcLink.Approve(srcAccount, state.MustGetEVMChainState(src).Router.Address(), math.MaxBig256)
-	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
+	_, err = cldf.ConfirmIfNoError(evmChains[src], tx, err)
 	return err
 }

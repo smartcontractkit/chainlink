@@ -73,9 +73,9 @@ func NewNoopEnvironment(t *testing.T) cldf.Environment {
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,
 		]().Seal(),
-		map[uint64]cldf.Chain{},
-		map[uint64]cldf.SolChain{},
-		map[uint64]cldf.AptosChain{},
+		nil, // todo remove once fully migrated to CLDF new chain package
+		nil, // todo remove once fully migrated to CLDF new chain package
+		nil, // todo remove once fully migrated to CLDF new chain package
 		[]string{},
 		nil,
 		t.Context,

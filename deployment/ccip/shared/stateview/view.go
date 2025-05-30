@@ -3,6 +3,9 @@ package stateview
 import (
 	"encoding/json"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	ccipview "github.com/smartcontractkit/chainlink/deployment/ccip/view"
@@ -16,7 +19,8 @@ func ViewCCIP(e deployment.Environment) (json.Marshaler, error) {
 	if err != nil {
 		return nil, err
 	}
-	allChains := append(e.AllChainSelectors(), e.AllChainSelectorsSolana()...)
+	solSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
+	allChains := append(e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)), solSelectors...)
 	chainView, solanaView, err := state.View(&e, allChains)
 	if err != nil {
 		return nil, err

@@ -7,8 +7,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/maps"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -37,7 +40,7 @@ import (
 func TestInvalidOCR3Params(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithPrerequisiteDeploymentOnly(nil))
-	chain1 := e.Env.AllChainSelectors()[0]
+	chain1 := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 	// Need to deploy prerequisites first so that we can form the USDC config
@@ -49,7 +52,7 @@ func TestInvalidOCR3Params(t *testing.T) {
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
-				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					testhelpers.TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
 				},
@@ -121,7 +124,7 @@ func Test_PromoteCandidate(t *testing.T) {
 			require.NoError(t, err)
 
 			// Deploy to all chains.
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
 
@@ -219,7 +222,7 @@ func Test_SetCandidate(t *testing.T) {
 			require.NoError(t, err)
 
 			// Deploy to all chains.
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
 
@@ -359,7 +362,7 @@ func Test_RevokeCandidate(t *testing.T) {
 			require.NoError(t, err)
 
 			// Deploy to all chains.
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
 
@@ -509,7 +512,7 @@ func Test_UpdateChainConfigs(t *testing.T) {
 			state, err := stateview.LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
 			otherChain := allChains[2]

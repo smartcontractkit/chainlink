@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -31,7 +33,7 @@ func TestSaveExistingCCIP(t *testing.T) {
 		SolChains:  1,
 		Nodes:      4,
 	})
-	solChain := e.AllChainSelectorsSolana()[0]
+	solChain := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilySolana))[0]
 	solAddr1 := solana.NewWallet().PublicKey().String()
 	solAddr2 := solana.NewWallet().PublicKey().String()
 	cfg := commonchangeset.ExistingContractsConfig{
@@ -65,9 +67,6 @@ func TestSaveExisting(t *testing.T) {
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		SolChains: map[uint64]cldf.SolChain{
-			chainsel.SOLANA_DEVNET.Selector: {},
-		},
 		BlockChains: chain.NewBlockChains(
 			map[uint64]chain.BlockChain{
 				chainsel.SOLANA_DEVNET.Selector: cldf_solana.Chain{},
