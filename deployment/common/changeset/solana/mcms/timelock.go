@@ -33,7 +33,7 @@ func deployTimelockProgram(
 	}
 
 	if programID.IsZero() {
-		deployedProgramID, err := chain.DeployProgram(log, cldf.SolProgramInfo{
+		deployedProgramID, err := chain.DeployProgram(log, cldf_solana.ProgramInfo{
 			Name:  deployment.TimelockProgramName,
 			Bytes: deployment.SolanaProgramBytes[deployment.TimelockProgramName],
 		}, false, true)

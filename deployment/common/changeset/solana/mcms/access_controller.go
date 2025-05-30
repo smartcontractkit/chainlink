@@ -34,7 +34,7 @@ func deployAccessControllerProgram(
 	}
 
 	if programID.IsZero() {
-		deployedProgramID, err := chain.DeployProgram(e.Logger, cldf.SolProgramInfo{
+		deployedProgramID, err := chain.DeployProgram(e.Logger, cldf_solana.ProgramInfo{
 			Name:  deployment.AccessControllerProgramName,
 			Bytes: deployment.SolanaProgramBytes[deployment.AccessControllerProgramName],
 		}, false, true)

@@ -7,11 +7,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/stretchr/testify/require"
 
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-
-	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -78,9 +73,9 @@ func NewNoopEnvironment(t *testing.T) cldf.Environment {
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,
 		]().Seal(),
-		map[uint64]cldf_evm.Chain{},
-		map[uint64]cldf_solana.Chain{},
-		map[uint64]cldf_aptos.Chain{},
+		nil, // todo remove once fully migrated to CLDF new chain package
+		nil, // todo remove once fully migrated to CLDF new chain package
+		nil, // todo remove once fully migrated to CLDF new chain package
 		[]string{},
 		nil,
 		t.Context,

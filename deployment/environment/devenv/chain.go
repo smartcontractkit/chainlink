@@ -20,11 +20,14 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/sync/errgroup"
 
+	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
+
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -160,7 +163,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf_evm
 					return fmt.Errorf("failed to create multi client: %w", err)
 				}
 
-				chainInfo, err := cldf.ChainInfo(chainDetails.ChainSelector)
+				chainInfo, err := cldf_chain_utils.ChainInfo(chainDetails.ChainSelector)
 				if err != nil {
 					return fmt.Errorf("failed to get chain info for chain %s: %w", chainCfg.ChainName, err)
 				}

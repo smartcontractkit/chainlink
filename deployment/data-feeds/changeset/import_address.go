@@ -56,11 +56,7 @@ func importAddressToDatastoreLogic(env cldf.Environment, c types.ImportAddresses
 }
 
 func importAddressToDatastorePrecondition(env cldf.Environment, c types.ImportAddressesConfig) error {
-	_, evmOK := env.Chains[c.ChainSelector]
-	_, aptosOK := env.AptosChains[c.ChainSelector]
-	_, solOK := env.SolChains[c.ChainSelector]
-
-	if !evmOK && !aptosOK && !solOK {
+	if !env.BlockChains.Exists(c.ChainSelector) {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}
 

@@ -9,6 +9,8 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"golang.org/x/sync/errgroup"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -158,7 +160,7 @@ func DeploySolanaLinkToken(e cldf.Environment, cfg DeploySolanaLinkTokenConfig) 
 		chain.DeployerKey.PublicKey(),
 		cfg.TokenDecimals,
 		chain.Client,
-		cldf.SolDefaultCommitment,
+		cldf_solana.SolDefaultCommitment,
 	)
 	if err != nil {
 		e.Logger.Errorw("Failed to generate instructions for link token deployment", "chain", chain.String(), "err", err)

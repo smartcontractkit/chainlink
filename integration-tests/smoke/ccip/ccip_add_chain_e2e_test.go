@@ -10,11 +10,15 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -45,7 +49,7 @@ func Test_AddChainE2E(t *testing.T) {
 		testhelpers.WithPrerequisiteDeploymentOnly(nil),
 	)
 	initialSetToDeploy := []uint64{e.HomeChainSel, e.FeedChainSel}
-	remainingChains := e.Env.AllChainSelectorsExcluding(initialSetToDeploy)
+	remainingChains := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM), chain.WithChainSelectorsExclusion(initialSetToDeploy))
 	thirdChain := remainingChains[0]
 	fourthChain := remainingChains[1]
 
@@ -113,7 +117,7 @@ func Test_AddChainE2E(t *testing.T) {
 
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	testhelpers.SleepAndReplay(t, e.Env, 30*time.Second, e.Env.AllChainSelectors()...)
+	testhelpers.SleepAndReplay(t, e.Env, 30*time.Second, e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))...)
 	SendMsgs(t,
 		e.Env,
 		[]testhelpers.SourceDestPair{
@@ -286,8 +290,9 @@ func SendMsgs(
 		expectedSeqNum     = make(map[testhelpers.SourceDestPair]uint64)
 		expectedSeqNumExec = make(map[testhelpers.SourceDestPair][]uint64)
 	)
+	evmChains := env.BlockChains.EVMChains()
 	for _, pair := range sourceDestPairs {
-		latesthdr, err := env.Chains[pair.DestChainSelector].Client.HeaderByNumber(testcontext.Get(t), nil)
+		latesthdr, err := evmChains[pair.DestChainSelector].Client.HeaderByNumber(testcontext.Get(t), nil)
 		require.NoError(t, err)
 		block := latesthdr.Number.Uint64()
 		msgSentEvent := testhelpers.TestSendRequest(
@@ -311,7 +316,7 @@ func SendMsgs(
 		expectedSeqNum[pair] = msgSentEvent.SequenceNumber
 		expectedSeqNumExec[pair] = append(expectedSeqNumExec[pair], msgSentEvent.SequenceNumber)
 	}
-	testhelpers.SleepAndReplay(t, env, 10*time.Second, env.AllChainSelectors()...)
+	testhelpers.SleepAndReplay(t, env, 10*time.Second, env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))...)
 	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, env, state, expectedSeqNum, startBlocks)
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, env, state, expectedSeqNumExec, startBlocks)
 }
