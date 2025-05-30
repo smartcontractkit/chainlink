@@ -560,12 +560,9 @@ func addSecureMintJob(i int,
 	job, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), spec, nil)
 	require.NoError(t, err)
 
-	t.Logf("Secure mint job spec id is %d", job.ID)
-
 	err = node.App.AddJobV2(testutils.Context(t), &job)
 	require.NoError(t, err)
-
-	t.Logf("After creation, Secure mint job spec id is %d", job.ID)
+	t.Logf("Added secure mint job spec %s", job.ExternalJobID)
 
 	return job.ID
 }

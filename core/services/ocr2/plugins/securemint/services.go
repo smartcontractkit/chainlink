@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
 	sm_plugin "github.com/smartcontractkit/por_mock_ocr3plugin/por"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -57,7 +58,7 @@ func NewSecureMintServices(ctx context.Context,
 	kvStore job.KVStore,
 	pipelineRunner pipeline.Runner,
 	lggr logger.Logger,
-	argsNoPlugin libocr.OCR3OracleArgs[[]byte],
+	argsNoPlugin libocr.OCR3OracleArgs[por.ChainSelector],
 	cfg SecureMintConfig,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryData,
 	errorLog loop.ErrorLog,
@@ -178,7 +179,7 @@ func NewSecureMintServices(ctx context.Context,
 		// srvs = append(srvs, median)
 	} else {
 		// TODO(gg): fill in params for the factory
-		// argsNoPlugin.ReportingPluginFactory = &sm_plugin.PorReportingPluginFactory{}
+		argsNoPlugin.ReportingPluginFactory = &sm_plugin.PorReportingPluginFactory{}
 		if err != nil {
 			err = fmt.Errorf("failed to create secure mint factory: %w", err)
 			abort()
