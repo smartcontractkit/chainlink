@@ -292,7 +292,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 }
 
 func assertAptosMessageReceivedMatchesSource(t *testing.T, e testhelpers.DeployedEnv, destChain uint64, dummyReceiver aptos.AccountAddress, message []byte, sequenceNumber uint64) {
-	events, err := getLatestDummyReceiverEvent(t, e.Env.AptosChains[destChain].Client, dummyReceiver, sequenceNumber)
+	events, err := getLatestDummyReceiverEvent(t, e.Env.BlockChains.AptosChains()[destChain].Client, dummyReceiver, sequenceNumber)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(events))
 
