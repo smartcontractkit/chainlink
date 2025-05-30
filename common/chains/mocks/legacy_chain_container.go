@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	legacyevm "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	legacyevm "github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	mock "github.com/stretchr/testify/mock"
 
 	types "github.com/smartcontractkit/chainlink-evm/pkg/types"
