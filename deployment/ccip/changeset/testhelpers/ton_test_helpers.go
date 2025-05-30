@@ -52,7 +52,7 @@ func (c TonTestDeployPrerequisitesChangeSet) Apply(e cldf.Environment) (cldf.Cha
 	for _, chainSelector := range c.TonChainSelectors {
 		tonChainState := tonChains[chainSelector]
 
-		// TODO: replace with actual TON addresses after contracts are supported
+		// TODO: replace with actual TON addresses after contracts are supported, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
 		address, _ := tonaddress.ParseAddr("EQDtFpEwcFAEcRe5mLVh2N6C0x-_hJEM7W61_JLnSF74p4q2")
 		tonChainState.OffRamp = *address
 
@@ -137,9 +137,11 @@ func (c TonTestDeployContractsChangeSet) deployTonContracts(t *testing.T, e depl
 		return
 	}
 
-	// TODO(ton): Deploy TON MCMS
+	// TODO(ton): once all contracts are deployed, we can remove the hardcoded addresses from the TonTestDeployPrerequisitesChangeSet
 
-	// TODO(ton): Deploy TON CCIP
+	// TODO(ton): Deploy TON MCMS, https://smartcontract-it.atlassian.net/browse/NONEVM-1939
+
+	// TODO(ton): Deploy TON CCIP, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
 
 	// TODO(ton): Deploy TON CCIP Offramp
 
@@ -160,8 +162,6 @@ func (c TonTestDeployContractsChangeSet) deployTonContracts(t *testing.T, e depl
 	// TODO(ton): Initialize RMNRemote
 
 	logger.Infow("All TON contracts deployed")
-
-	// TODO(ton): once all contracts are deployed, we can remove the hardcoded addresses from the TonTestDeployPrerequisitesChangeSet
 	err = tonstate.SaveOnchainStateTon(chainSelector, tonChainState, e)
 	require.NoError(t, err)
 }

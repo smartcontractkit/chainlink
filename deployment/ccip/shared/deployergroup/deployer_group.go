@@ -337,7 +337,7 @@ func ValidateMCMS(env cldf.Environment, selector uint64, mcmConfig *proposalutil
 			return fmt.Errorf("mcm config is invalid for chain %d: %w", selector, err)
 		}
 	case chain_selectors.FamilyTon:
-		// TODO : Implement validation for TON
+		// TODO : Implement validation for TON, https://smartcontract-it.atlassian.net/browse/NONEVM-1939
 		return nil
 	default:
 		return fmt.Errorf("unsupported chain family: %s", family)

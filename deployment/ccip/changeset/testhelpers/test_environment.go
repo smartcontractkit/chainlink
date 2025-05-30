@@ -730,8 +730,8 @@ func deployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([
 		)}, nil
 }
 
+// TODO(ton): Implement this function to deploy chain contracts to Ton chain, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
 func deployChainContractsToTonChainCS(e DeployedEnv, tonChainSelector uint64) ([]commonchangeset.ConfiguredChangeSet, error) {
-	// TODO(ton): Implement this function to deploy chain contracts to Ton chain
 	return nil, nil
 }
 
@@ -921,7 +921,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		}
 	}
 
-	// TODO(ton): Set Ton chains plugin configs
+	// TODO(ton): Set Ton chains plugin configs and update token addr once available, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
 	for _, chain := range tonChains {
 		t.Logf("[TON-E2E] AddCCIPContractsToEnvironment: Setting up Ton chain %d", chain)
 		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
@@ -1033,7 +1033,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			},
 		),
 
-		// TODO(ton): We need OCR3OffRamp Changeset for Ton
+		// TODO(ton): We need OCR3OffRamp Changeset for Ton, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
 		// commonchangeset.Configure(
 		// 	// Enable the OCR config on the remote chains.
 		// 	cldf.CreateLegacyChangeSet(v1_6.SetOCR3OffRampChangeset),

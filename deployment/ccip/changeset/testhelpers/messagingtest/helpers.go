@@ -214,7 +214,6 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNum, time.Since(commitStart).String())
 		// Explicitly log that only commit was validated if only Commit was requested
 		tc.T.Logf("only commit validation was performed")
-
 	case ValidationTypeExec: // will validate both commit and exec
 		// First, validate commit
 		commitStart := time.Now()

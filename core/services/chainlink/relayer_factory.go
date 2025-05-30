@@ -201,7 +201,7 @@ func (r *RelayerFactory) NewTON(ks coretypes.Keystore, chainCfgs RawConfigs) (ma
 	return r.NewLOOPRelayer("TON", relay.NetworkTON, env.TONPlugin, ks, chainCfgs)
 }
 
-// TODO uncomment and replace above when chainlink-ton is public and import here
+// TODO uncomment and replace above when chainlink-ton is public, https://smartcontract-it.atlassian.net/browse/NONEVM-1852
 // func (r *RelayerFactory) NewTON(ks coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
 //	tonaRelayers := make(map[types.RelayID]loop.Relayer)
 //	var tonLggr = r.Logger.Named("TON")
