@@ -5,6 +5,7 @@ package securemint
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
@@ -51,6 +52,7 @@ func (m *secureMintConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return m.jobPipelineResultWriteQueueDepth
 }
 
+// Create all securemint plugin Oracles and all extra services needed to run a SecureMint job.
 func NewSecureMintServices(ctx context.Context,
 	jb job.Job,
 	isNewlyCreatedJob bool,
@@ -153,7 +155,7 @@ func NewSecureMintServices(ctx context.Context,
 	// }
 
 	if cmdName := env.SecureMintPlugin.Cmd.Get(); cmdName != "" {
-		err = fmt.Errorf("loop for securemint plugin not implemented yet")
+		err = errors.New("loop for securemint plugin not implemented yet")
 		abort()
 		return
 		// // use unique logger names so we can use it to register a loop
@@ -179,7 +181,12 @@ func NewSecureMintServices(ctx context.Context,
 		// srvs = append(srvs, median)
 	} else {
 		// TODO(gg): fill in params for the factory
-		argsNoPlugin.ReportingPluginFactory = &sm_plugin.PorReportingPluginFactory{}
+		argsNoPlugin.ReportingPluginFactory = &sm_plugin.PorReportingPluginFactory{
+			Logger: argsNoPlugin.Logger,
+			// ExternalAdapter: provider.ExternalAdapter(),
+			// ContractReader:  provider.ContractReader(),
+			// ReportMarshaler: provider.ReportMarshaler(),
+		}
 		if err != nil {
 			err = fmt.Errorf("failed to create secure mint factory: %w", err)
 			abort()

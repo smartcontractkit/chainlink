@@ -23,6 +23,7 @@ import (
 
 	"github.com/smartcontractkit/freeport"
 
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -73,6 +74,8 @@ func setupBlockchain(t *testing.T) (
 	common.Address,
 	*verifier.Verifier,
 	common.Address,
+	*ocr2aggregator.OCR2Aggregator,
+	common.Address,
 ) {
 	steve := evmtestutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := gethtypes.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
@@ -107,7 +110,28 @@ func setupBlockchain(t *testing.T) (
 
 	backend.Commit()
 
-	return steve, backend, destinationVerifier, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr
+	minAnswer, maxAnswer := new(big.Int), new(big.Int)
+	minAnswer.Exp(big.NewInt(-2), big.NewInt(191), nil)
+	maxAnswer.Exp(big.NewInt(2), big.NewInt(191), nil)
+	maxAnswer.Sub(maxAnswer, big.NewInt(1))
+
+	ocrContractAddress, _, ocrContract, err := ocr2aggregator.DeployOCR2Aggregator(
+		steve,
+		backend.Client(),
+		common.Address{}, // _link common.Address,
+		minAnswer,        // -2**191
+		maxAnswer,        // 2**191 - 1
+		common.Address{}, // accessAddress
+		common.Address{}, // accessAddress
+		9,                // decimals
+		"secure mint test",
+	)
+	// Ensure we have finality depth worth of blocks to start.
+	for i := 0; i < 20; i++ {
+		backend.Commit()
+	}
+
+	return steve, backend, destinationVerifier, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr, ocrContract, ocrContractAddress
 }
 
 func setupLegacyMercuryVerifier(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend) (*verifier.Verifier, common.Address, *verifier_proxy.VerifierProxy, common.Address) {
@@ -330,21 +354,26 @@ func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 		clientPubKeys[i] = key.PublicKey
 	}
 
-	steve, backend, verifier, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr := setupBlockchain(t)
-	fromBlock := 1
+	steve, backend, verifier, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr, ocrContract, ocrContractAddress := setupBlockchain(t)
+	t.Logf("configStoreAddress: %s", configStoreAddress.Hex())
+	fromBlock, err := backend.Client().BlockNumber(testutils.Context(t))
+	require.NoError(t, err)
 
 	// Setup bootstrap
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
 	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
+	t.Logf("bootstrapPeerID: %s", bootstrapPeerID)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	reqs := make(chan wsrpcRequest, 100000)
 	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 	serverPubKey := serverKey.PublicKey
+	t.Logf("serverPubKey: %s", hex.EncodeToString(serverPubKey[:]))
 	srv := NewWSRPCMercuryServer(t, serverKey, reqs)
 
 	serverURL := startWSRPCMercuryServer(t, srv, clientPubKeys)
+	t.Logf("serverURL: %s", serverURL)
 
 	donID := uint32(995544)
 	streams := []Stream{ethStream, linkStream, quoteStream1, quoteStream2}
@@ -414,17 +443,19 @@ lloConfigMode = "mercury"
 	url, sha := newChannelDefinitionsServer(t, channelDefinitions)
 
 	// Set channel definitions
-	_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
+	_, err = configStore.SetChannelDefinitions(steve, donID, url, sha)
 	require.NoError(t, err)
 	backend.Commit()
 
-	pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
-donID = %d
-channelDefinitionsContractAddress = "0x%x"
-channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
-	addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, legacyVerifierAddr, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
+	// 	pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
+	// donID = %d
+	// channelDefinitionsContractAddress = "0x%x"
+	// channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+	// addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, legacyVerifierAddr, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
 
-	jobIDs := addSecureMintOCRJobs(t, nodes)
+	setSecureMintOnchainConfig(t, steve, backend, nodes, oracles, ocrContractAddress, ocrContract)
+
+	jobIDs := addSecureMintOCRJobs(t, nodes, ocrContractAddress)
 
 	t.Logf("jobIDs: %v", jobIDs)
 	validateJobsRunningSuccessfully(t, nodes, jobIDs)
@@ -620,4 +651,61 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []Node, jobIDs map[int]
 	// }
 	// t.Logf("waiting for pipeline runs to complete")
 	// wg.Wait()
+}
+
+func setSecureMintOnchainConfig(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend, nodes []Node, oracles []confighelper.OracleIdentityExtra, ocrContractAddress common.Address, ocrContract *ocr2aggregator.OCR2Aggregator) [32]byte {
+
+	signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTests(
+		2*time.Second,        // deltaProgress,
+		20*time.Second,       // deltaResend,
+		400*time.Millisecond, // deltaInitial,
+		500*time.Millisecond, // deltaRound,
+		250*time.Millisecond, // deltaGrace,
+		300*time.Millisecond, // deltaCertifiedCommitRequest,
+		1*time.Minute,        // deltaStage,
+		100,                  // rMax,
+		[]int{len(oracles)},  // s,
+		oracles,              // oracles,
+		[]byte{},             // reportingPluginConfig, // TODO(gg): put something here?
+		nil,                  // maxDurationInitialization,
+		0,                    // maxDurationQuery,
+		250*time.Millisecond, // maxDurationObservation,
+		0,                    // maxDurationShouldAcceptAttestedReport,
+		0,                    // maxDurationShouldTransmitAcceptedReport,
+		int(fNodes),          // f,
+		nil,                  // onchainConfig (binary blob containing configuration passed through to the ReportingPlugin and also available to the contract. Unlike ReportingPluginConfig which is only available offchain.)
+	)
+	require.NoError(t, err)
+
+	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
+	require.NoError(t, err)
+
+	transmitterAddresses := make([]common.Address, len(transmitters))
+	for i, transmitter := range transmitters {
+		transmitterAddresses[i] = common.HexToAddress(string(transmitter))
+	}
+	// offchainTransmitters := make([][32]byte, nNodes)
+	// for i := 0; i < nNodes; i++ {
+	// 	offchainTransmitters[i] = nodes[i].ClientPubKey
+	// }
+
+	ocrContract.SetConfig(steve, signerAddresses, transmitterAddresses, f, outOnchainConfig, offchainConfigVersion, offchainConfig)
+
+	// donIDPadded := llo.DonIDToBytes32(donID)
+	// _, err = legacyVerifier.SetConfig(steve, donIDPadded, signerAddresses, offchainTransmitters, fNodes, onchainConfig, offchainConfigVersion, offchainConfig, nil)
+	// require.NoError(t, err)
+
+	// libocr requires a few confirmations to accept the config
+	backend.Commit()
+	backend.Commit()
+	backend.Commit()
+	backend.Commit()
+
+	// l, err := legacyVerifier.LatestConfigDigestAndEpoch(&bind.CallOpts{}, donIDPadded)
+	// require.NoError(t, err)
+
+	l, err := ocrContract.LatestConfigDigestAndEpoch(&bind.CallOpts{})
+	require.NoError(t, err)
+
+	return l.ConfigDigest
 }

@@ -177,6 +177,7 @@ func (ds *inMemoryDataSource) currentAnswer() (*big.Int, *big.Int) {
 // The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
 func (ds *inMemoryDataSource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.TaskRunResults, error) {
+	ds.lggr.Infof("TRACE Executing run for spec ID %v", ds.spec.ID)
 	md, err := bridges.MarshalBridgeMetaData(ds.currentAnswer())
 	if err != nil {
 		ds.lggr.Warnf("unable to attach metadata for run, err: %v", err)

@@ -507,6 +507,7 @@ func addOCRJobsEVMPremiumLegacy(
 func addSecureMintOCRJobs(
 	t *testing.T,
 	nodes []Node,
+	configuratorAddress common.Address,
 ) (jobIDs map[int]int32) {
 
 	// node idx => job id
@@ -519,6 +520,7 @@ func addSecureMintOCRJobs(
 		jobID := addSecureMintJob(i,
 			t,
 			node,
+			configuratorAddress,
 			bmBridge,
 		)
 		jobIDs[i] = jobID
@@ -544,6 +546,7 @@ func addSecureMintOCRJobs(
 func addSecureMintJob(i int,
 	t *testing.T,
 	node Node,
+	configuratorAddress common.Address,
 	bridgeName string,
 ) (id int32) {
 
@@ -553,7 +556,7 @@ func addSecureMintJob(i int,
 
 	addresses, err := node.App.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
-	spec := getSecureMintJobSpec("0x0000000000000000000000000000000000000001", node.KeyBundle.ID(), addresses[0].String(), bridgeName)
+	spec := getSecureMintJobSpec(configuratorAddress.Hex(), node.KeyBundle.ID(), addresses[0].String(), bridgeName)
 
 	c := node.App.GetConfig()
 
