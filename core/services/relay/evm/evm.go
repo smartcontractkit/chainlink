@@ -883,7 +883,6 @@ type Keystore interface {
 	keys.AddressChecker
 	keys.RoundRobin
 	keys.Locker
-	keys.RawUnhashedSigner
 }
 
 func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, ethKeystore Keystore, configWatcher *configWatcher, opts configTransmitterOpts) (Transmitter, error) {

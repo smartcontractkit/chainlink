@@ -29,7 +29,7 @@ func DeployBalanceReader(env cldf.Environment, cfg DeployBalanceReaderRequest) (
 
 	selectors := cfg.ChainSelectors
 	if len(selectors) == 0 {
-		selectors = slices.Collect(maps.Keys(env.Chains))
+		selectors = slices.Collect(maps.Keys(env.BlockChains.EVMChains()))
 	}
 	for _, sel := range selectors {
 		req := &DeployRequestV2{

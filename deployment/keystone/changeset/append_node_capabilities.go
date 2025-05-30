@@ -76,7 +76,7 @@ func (req *AppendNodeCapabilitiesRequest) convert(e cldf.Environment, ref datast
 	if err := req.Validate(e); err != nil {
 		return nil, nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
 	}
-	registryChain := e.Chains[req.RegistryChainSel] // exists because of the validation above
+	registryChain := e.BlockChains.EVMChains()[req.RegistryChainSel] // exists because of the validation above
 	cr, err := loadCapabilityRegistry(registryChain, e, ref)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to load capability registry: %w", err)

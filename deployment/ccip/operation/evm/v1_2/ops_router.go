@@ -5,6 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -28,9 +29,9 @@ var (
 			ab := deps.AddressBook
 			chain := deps.Chain
 
-			deployFn := func(chain cldf.Chain, tv cldf.TypeAndVersion) (cldf.ContractDeploy[*router.Router], error) {
+			deployFn := func(chain cldf_evm.Chain, tv cldf.TypeAndVersion) (cldf.ContractDeploy[*router.Router], error) {
 				r, err := cldf.DeployContract(b.Logger, chain, ab,
-					func(chain cldf.Chain) cldf.ContractDeploy[*router.Router] {
+					func(chain cldf_evm.Chain) cldf.ContractDeploy[*router.Router] {
 						routerAddr, tx2, routerC, err2 := router.DeployRouter(
 							chain.DeployerKey,
 							chain.Client,

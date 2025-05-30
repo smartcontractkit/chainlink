@@ -10,6 +10,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/avast/retry-go/v4"
+
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -39,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -131,8 +131,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	}
 	registrySyncer, err := registrysyncer.New(
 		d.lggr,
-		func() (p2ptypes.PeerID, error) {
-			return p2ptypes.PeerID(p2pID.PeerID()), nil
+		func() (ragep2ptypes.PeerID, error) {
+			return ragep2ptypes.PeerID(p2pID.PeerID()), nil
 		},
 		homeChainRelayer,
 		cfg.ExternalRegistry().Address(),

@@ -15,11 +15,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+
 	"github.com/smartcontractkit/freeport"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -66,9 +71,9 @@ type MemoryEnvironmentConfig struct {
 type NewNodesConfig struct {
 	LogLevel zapcore.Level
 	// EVM chains to be configured. Optional.
-	Chains map[uint64]cldf.Chain
+	Chains map[uint64]cldf_evm.Chain
 	// Solana chains to be configured. Optional.
-	SolChains map[uint64]cldf.SolChain
+	SolChains map[uint64]cldf_solana.Chain
 	// Aptos chains to be configured. Optional.
 	AptosChains map[uint64]cldf.AptosChain
 	// TON chains to be configured. Optional.
@@ -81,8 +86,8 @@ type NewNodesConfig struct {
 }
 
 // For placeholders like aptos
-func NewMemoryChain(t *testing.T, selector uint64) cldf.Chain {
-	return cldf.Chain{
+func NewMemoryChain(t *testing.T, selector uint64) cldf_evm.Chain {
+	return cldf_evm.Chain{
 		Selector:    selector,
 		Client:      nil,
 		DeployerKey: &bind.TransactOpts{},
@@ -94,7 +99,7 @@ func NewMemoryChain(t *testing.T, selector uint64) cldf.Chain {
 
 // Needed for environment variables on the node which point to prexisitng addresses.
 // i.e. CapReg.
-func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]cldf.Chain, map[uint64][]*bind.TransactOpts) {
+func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]cldf_evm.Chain, map[uint64][]*bind.TransactOpts) {
 	mchains := GenerateChains(t, numChains, numUsers)
 	users := make(map[uint64][]*bind.TransactOpts)
 	for id, chain := range mchains {
@@ -105,7 +110,7 @@ func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]cldf
 	return generateMemoryChain(t, mchains), users
 }
 
-func NewMemoryChainsSol(t *testing.T, numChains int) map[uint64]cldf.SolChain {
+func NewMemoryChainsSol(t *testing.T, numChains int) map[uint64]cldf_solana.Chain {
 	mchains := GenerateChainsSol(t, numChains)
 	return generateMemoryChainSol(mchains)
 }
@@ -114,7 +119,7 @@ func NewMemoryChainsAptos(t *testing.T, numChains int) map[uint64]cldf.AptosChai
 	return GenerateChainsAptos(t, numChains)
 }
 
-func NewMemoryChainsZk(t *testing.T, numChains int) map[uint64]cldf.Chain {
+func NewMemoryChainsZk(t *testing.T, numChains int) map[uint64]cldf_evm.Chain {
 	return GenerateChainsZk(t, numChains)
 }
 
@@ -122,7 +127,7 @@ func NewMemoryChainsTon(t *testing.T, numChains int) map[uint64]cldf_ton.Chain {
 	return GenerateChainsTon(t, numChains)
 }
 
-func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) (map[uint64]cldf.Chain, map[uint64][]*bind.TransactOpts) {
+func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) (map[uint64]cldf_evm.Chain, map[uint64][]*bind.TransactOpts) {
 	mchains := GenerateChainsWithIds(t, chainIDs, numUsers)
 	users := make(map[uint64][]*bind.TransactOpts)
 	for id, chain := range mchains {
@@ -133,14 +138,14 @@ func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) 
 	return generateMemoryChain(t, mchains), users
 }
 
-func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]cldf.Chain {
-	chains := make(map[uint64]cldf.Chain)
+func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]cldf_evm.Chain {
+	chains := make(map[uint64]cldf_evm.Chain)
 	for cid, chain := range inputs {
 		chain := chain
 		chainInfo, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(cid, 10), chainsel.FamilyEVM)
 		require.NoError(t, err)
 		backend := NewBackend(chain.Backend)
-		chains[chainInfo.ChainSelector] = cldf.Chain{
+		chains[chainInfo.ChainSelector] = cldf_evm.Chain{
 			Selector:    chainInfo.ChainSelector,
 			Client:      backend,
 			DeployerKey: chain.DeployerKey,
@@ -174,11 +179,11 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]cl
 	return chains
 }
 
-func generateMemoryChainSol(inputs map[uint64]SolanaChain) map[uint64]cldf.SolChain {
-	chains := make(map[uint64]cldf.SolChain)
+func generateMemoryChainSol(inputs map[uint64]SolanaChain) map[uint64]cldf_solana.Chain {
+	chains := make(map[uint64]cldf_solana.Chain)
 	for cid, chain := range inputs {
 		chain := chain
-		chains[cid] = cldf.SolChain{
+		chains[cid] = cldf_solana.Chain{
 			Selector:     cid,
 			Client:       chain.Client,
 			DeployerKey:  &chain.DeployerKey,
@@ -249,9 +254,9 @@ func NewNodes(
 func NewMemoryEnvironmentFromChainsNodes(
 	ctx func() context.Context,
 	lggr logger.Logger,
-	chains map[uint64]cldf.Chain,
-	solChains map[uint64]cldf.SolChain,
-	aptosChains map[uint64]cldf.AptosChain,
+	chains map[uint64]cldf_evm.Chain,
+	solChains map[uint64]cldf_solana.Chain,
+	aptosChains map[uint64]cldf_aptos.Chain,
 	tonChains map[uint64]cldf_ton.Chain,
 	nodes map[string]Node,
 ) cldf.Environment {
@@ -282,9 +287,9 @@ func NewMemoryEnvironmentFromChainsNodes(
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,
 		]().Seal(),
-		chains,
-		solChains,
-		aptosChains,
+		nil,
+		nil,
+		nil,
 		nodeIDs, // Note these have the p2p_ prefix.
 		NewMemoryJobClient(nodes),
 		ctx,
@@ -342,9 +347,9 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,
 		]().Seal(),
-		chains,
-		solChains,
-		aptosChains,
+		nil, // this field will be deleted in future since env.BlockChains will now contain all the chains.
+		nil, // this field will be deleted in future since env.BlockChains will now contain all the chains.
+		nil, // this field will be deleted in future since env.BlockChains will now contain all the chains.
 		nodeIDs,
 		NewMemoryJobClient(nodes),
 		t.Context,

@@ -11,6 +11,7 @@ import (
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	mcmslib "github.com/smartcontractkit/mcms"
@@ -38,7 +39,7 @@ type LinkTransferConfig struct {
 
 func getDeployer(e cldf.Environment, chain uint64, mcmConfig *proposalutils.TimelockConfig) *bind.TransactOpts {
 	if mcmConfig == nil {
-		return e.Chains[chain].DeployerKey
+		return e.BlockChains.EVMChains()[chain].DeployerKey
 	}
 
 	return cldf.SimTransactOpts()
@@ -61,7 +62,7 @@ func (cfg LinkTransferConfig) Validate(e cldf.Environment) error {
 		if selector != chain_selectors.FamilyEVM {
 			return fmt.Errorf("chain selector %d is not an EVM chain", chainSel)
 		}
-		chain, ok := e.Chains[chainSel]
+		chain, ok := e.BlockChains.EVMChains()[chainSel]
 		if !ok {
 			return fmt.Errorf("chain with selector %d not found", chainSel)
 		}
@@ -143,7 +144,7 @@ func transferOrBuildTx(
 	linkState *changeset.LinkTokenState,
 	transfer TransferConfig,
 	opts *bind.TransactOpts,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	mcmsConfig *proposalutils.TimelockConfig) (*ethTypes.Transaction, error) {
 	tx, err := linkState.LinkToken.Transfer(opts, transfer.To, transfer.Value)
 	if err != nil {
@@ -176,7 +177,7 @@ func LinkTransferV2(e cldf.Environment, cfg *LinkTransferConfig) (cldf.Changeset
 
 	allBatches := []mcmstypes.BatchOperation{}
 	for chainSelector := range cfg.Transfers {
-		chain := e.Chains[chainSelector]
+		chain := e.BlockChains.EVMChains()[chainSelector]
 		linkAddress := linkStatePerChain[chainSelector].LinkToken.Address()
 		mcmsState := mcmsStatePerChain[chainSelector]
 		linkState := linkStatePerChain[chainSelector]

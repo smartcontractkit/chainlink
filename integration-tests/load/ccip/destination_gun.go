@@ -185,7 +185,7 @@ func (m *DestinationGun) sendEVMMessage(src uint64) error {
 		return err
 	}
 
-	_, err = m.env.Chains[src].Confirm(tx)
+	_, err = m.env.BlockChains.EVMChains()[src].Confirm(tx)
 	if err != nil {
 		m.l.Errorw("could not confirm tx on source", "tx", tx, "err", cldf.MaybeDataErr(err))
 		return err
@@ -371,7 +371,7 @@ func (m *DestinationGun) sendSolanaMessage(src uint64) error {
 
 	result, err := solcommon.SendAndConfirm(
 		m.env.GetContext(),
-		m.env.SolChains[src].Client,
+		m.env.BlockChains.SolanaChains()[src].Client,
 		[]solana.Instruction{instruction},
 		*sourceKey,
 		rpc.CommitmentConfirmed)

@@ -123,7 +123,7 @@ func TestSetConfigMCMSV2EVM(t *testing.T) {
 
 			env := setupSetConfigTestEnv(t)
 			chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-			chain := env.Chains[chainSelector]
+			chain := env.BlockChains.EVMChains()[chainSelector]
 			addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 			require.NoError(t, err)
 			require.Len(t, addrs, 6)
@@ -216,7 +216,7 @@ func TestSetConfigMCMSV2Solana(t *testing.T) {
 
 			env := setupSetConfigTestEnv(t)
 			chainSelectorSolana := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
-			solChain := env.SolChains[chainSelectorSolana]
+			solChain := env.BlockChains.SolanaChains()[chainSelectorSolana]
 
 			addrs, err := env.ExistingAddresses.AddressesForChain(chainSelectorSolana)
 			require.NoError(t, err)
@@ -431,7 +431,7 @@ func fundSignerPDAs(
 	t *testing.T, env cldf.Environment, chainSelector uint64, chainState *state.MCMSWithTimelockStateSolana,
 ) {
 	t.Helper()
-	solChain := env.SolChains[chainSelector]
+	solChain := env.BlockChains.SolanaChains()[chainSelector]
 	timelockSignerPDA := state.GetTimelockSignerPDA(chainState.TimelockProgram, chainState.TimelockSeed)
 	mcmSignerPDA := state.GetMCMSignerPDA(chainState.McmProgram, chainState.ProposerMcmSeed)
 	signerPDAs := []solanasdk.PublicKey{timelockSignerPDA, mcmSignerPDA}
