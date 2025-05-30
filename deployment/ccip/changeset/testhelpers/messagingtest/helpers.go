@@ -141,7 +141,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 
 	family, err := chain_selectors.GetSelectorFamily(tc.SourceChain)
 	require.NoError(tc.T, err)
-	
+
 	receiver := common.LeftPadBytes(tc.Receiver, 32)
 	var msg any
 	switch family {
