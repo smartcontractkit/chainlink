@@ -15,7 +15,7 @@ var _ cldf.ChangeSet[uint64] = Deploy
 
 func Deploy(env cldf.Environment, registrySelector uint64) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
-	chain, ok := env.Chains[registrySelector]
+	chain, ok := env.BlockChains.EVMChains()[registrySelector]
 	if !ok {
 		return cldf.ChangesetOutput{}, errors.New("chain not found in environment")
 	}
@@ -31,7 +31,7 @@ func Deploy(env cldf.Environment, registrySelector uint64) (cldf.ChangesetOutput
 
 func DeployV2(env cldf.Environment, req *changeset.DeployRequestV2) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
-	chain, ok := env.Chains[req.ChainSel]
+	chain, ok := env.BlockChains.EVMChains()[req.ChainSel]
 	if !ok {
 		return cldf.ChangesetOutput{}, errors.New("chain not found in environment")
 	}

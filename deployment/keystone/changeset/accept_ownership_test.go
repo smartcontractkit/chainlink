@@ -21,12 +21,11 @@ import (
 )
 
 func TestAcceptAllOwnership(t *testing.T) {
-
 	t.Parallel()
+
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
-		Chains: 2,
+		Chains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
@@ -58,7 +57,9 @@ func TestAcceptAllOwnership(t *testing.T) {
 	require.NoError(t, err)
 	addrs, err := env.ExistingAddresses.AddressesForChain(registrySel)
 	require.NoError(t, err)
-	timelock, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(env.Chains[registrySel], addrs)
+	timelock, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(
+		env.BlockChains.EVMChains()[registrySel], addrs,
+	)
 	require.NoError(t, err)
 
 	_, err = commonchangeset.Apply(t, env,

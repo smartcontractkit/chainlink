@@ -53,17 +53,21 @@ Optionally:
      Once that is done reference them in your TOML like:
        ```toml
        [extra_capabilities]
-       cron_capability_binary_path = "../cron" # remember to adjust binary name and path
+       cron_capability_binary_path = "./cron" # remember to adjust binary name and path
        # log even trigger and read-contract binaries go here
+       # they are all commented out by default
        ```
-   - If the capability is already baked into your CL image (check the Dockerfile), comment out the TOML path line to skip copying.
+     Do make sure that the path to the binary is either relative to the `environment` folder or absolute. Then the binary will be copied to the Docker image.
+   - If the capability is already baked into your CL image (check the Dockerfile), comment out the TOML path line to skip copying. (they will be commented out by default)
 3.  **Decide whether to build or reuse Chainlink Docker Image**
-   - By default, the configs builds the Docker image from your local branch. To use an existing image change to:
+     - By default, the config builds the Docker image from your local branch. To use an existing image change to:
      ```toml
      [nodesets.node_specs.node]
      image = "<your-Docker-image>:<your-tag>"
      ```
-  Make these changes for **all** nodes in the nodeset in the TOML config.
+      - Make these changes for **all** nodes in the nodeset in the TOML config. 
+      - If you decide to reuse a Chainlink Docker Image using the `--with-plugins-docker-image` flag, please notice that this will not copy any capability binaries to the image. 
+        You will need to make sure that all the capabilities you need are baked in the image you are using.
 
 4. **Decide whether to use Docker or k8s**
     - Read [Docker vs Kubernetes in guidelines.md](../../../../system-tests/tests/smoke/cre/guidelines.md) to learn how to switch between Docker and Kubernetes
@@ -91,7 +95,7 @@ When starting the environment in AWS-managed Kubernetes make sure to source `.en
 # while in core/scripts/cre/environment
 go run main.go env start
 
-# to start environment with an example workflow
+# to start environment with an example workflow (this requires the `cron` capability binary to be setup in the `extra_capabilities` section of the TOML config)
 go run main.go env start --with-example
 
 # to start environment using image with all supported capabilities

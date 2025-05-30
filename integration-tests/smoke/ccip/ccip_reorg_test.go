@@ -113,7 +113,7 @@ func Test_CCIPReorg_BelowFinality_OnSource(t *testing.T) {
 	_, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		sourceSelector,
-		e.Env.Chains[destSelector],
+		e.Env.BlockChains.EVMChains()[destSelector],
 		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),
@@ -126,6 +126,7 @@ func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {
 	e, l, dockerEnv, _, state, _ := setupReorgTest(t,
 		testhelpers.WithExtraConfigTomls([]string{t.Name() + ".toml"}),
 	)
+	evmChains := e.Env.BlockChains.EVMChains()
 
 	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))
 	require.GreaterOrEqual(t, len(allChains), 2)
@@ -145,7 +146,7 @@ func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {
 	_, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		sourceSelector,
-		e.Env.Chains[destSelector],
+		evmChains[destSelector],
 		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),
@@ -162,7 +163,7 @@ func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {
 	_, err = testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		sourceSelector,
-		e.Env.Chains[destSelector],
+		evmChains[destSelector],
 		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),
@@ -197,7 +198,7 @@ func Test_CCIPReorg_GreaterThanFinality_OnDest(t *testing.T) {
 	_, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		sourceSelector,
-		e.Env.Chains[destSelector],
+		e.Env.BlockChains.EVMChains()[destSelector],
 		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),
@@ -279,7 +280,7 @@ func Test_CCIPReorg_GreaterThanFinality_OnSource(t *testing.T) {
 	_, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		nonReorgSource,
-		e.Env.Chains[destSelector],
+		e.Env.BlockChains.EVMChains()[destSelector],
 		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),

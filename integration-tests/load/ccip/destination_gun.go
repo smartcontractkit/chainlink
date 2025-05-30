@@ -185,7 +185,7 @@ func (m *DestinationGun) sendEVMMessage(src uint64) error {
 		return err
 	}
 
-	_, err = m.env.Chains[src].Confirm(tx)
+	_, err = m.env.BlockChains.EVMChains()[src].Confirm(tx)
 	if err != nil {
 		m.l.Errorw("could not confirm tx on source", "tx", tx, "err", cldf.MaybeDataErr(err))
 		return err

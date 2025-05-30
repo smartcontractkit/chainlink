@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -66,7 +67,7 @@ func TestUpdateOnRampsDests(t *testing.T) {
 			state, err := stateview.LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
 
@@ -142,7 +143,7 @@ func TestUpdateOnRampDynamicConfig(t *testing.T) {
 			state, err := stateview.LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
 
@@ -210,7 +211,7 @@ func TestUpdateOnRampAllowList(t *testing.T) {
 			state, err := stateview.LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
 
@@ -286,7 +287,7 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 			state, err := stateview.LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
 
@@ -316,28 +317,28 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 			config, err := onRamp.GetDynamicConfig(&bind.CallOpts{Context: ctx})
 			require.NoError(t, err)
 			feeAgggregator := config.FeeAggregator
-			deployer := tenv.Env.Chains[source].DeployerKey
+			deployer := tenv.Env.BlockChains.EVMChains()[source].DeployerKey
 
 			// LINK
 			tx, err := linkToken.GrantMintRole(deployer, feeAgggregator)
 			require.NoError(t, err)
-			_, err = tenv.Env.Chains[source].Confirm(tx)
+			_, err = tenv.Env.BlockChains.EVMChains()[source].Confirm(tx)
 			require.NoError(t, err)
 			tx, err = linkToken.Mint(deployer, onRamp.Address(), tokenAmount)
 			require.NoError(t, err)
-			_, err = tenv.Env.Chains[source].Confirm(tx)
+			_, err = tenv.Env.BlockChains.EVMChains()[source].Confirm(tx)
 			require.NoError(t, err)
 
 			// WETH9
-			txOpts := *tenv.Env.Chains[source].DeployerKey
+			txOpts := *tenv.Env.BlockChains.EVMChains()[source].DeployerKey
 			txOpts.Value = tokenAmount
 			tx, err = weth9.Deposit(&txOpts)
 			require.NoError(t, err)
-			_, err = tenv.Env.Chains[source].Confirm(tx)
+			_, err = tenv.Env.BlockChains.EVMChains()[source].Confirm(tx)
 			require.NoError(t, err)
 			tx, err = weth9.Transfer(deployer, onRamp.Address(), tokenAmount)
 			require.NoError(t, err)
-			_, err = tenv.Env.Chains[source].Confirm(tx)
+			_, err = tenv.Env.BlockChains.EVMChains()[source].Confirm(tx)
 			require.NoError(t, err)
 
 			// check init balances
@@ -400,7 +401,7 @@ func TestUpdateOffRampsSources(t *testing.T) {
 			state, err := stateview.LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
 
@@ -476,7 +477,7 @@ func TestUpdateFQDests(t *testing.T) {
 			state, err := stateview.LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
 
@@ -565,7 +566,7 @@ func TestUpdateRouterRamps(t *testing.T) {
 			state, err := stateview.LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
 
@@ -648,7 +649,7 @@ func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
 			state, err := stateview.LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
 
@@ -708,7 +709,7 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 			state, err := stateview.LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
 
@@ -778,8 +779,8 @@ func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
 	require.Contains(t, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)), chainselectors.GETH_TESTNET.Selector)
 	require.Len(t, allChains, 2)
 	src, dest := allChains[1], chainselectors.GETH_TESTNET.Selector
-	srcChain := e.Env.Chains[src]
-	destChain := e.Env.Chains[dest]
+	srcChain := e.Env.BlockChains.EVMChains()[src]
+	destChain := e.Env.BlockChains.EVMChains()[dest]
 	pairs := []testhelpers.SourceDestPair{
 		{SourceChainSelector: src, DestChainSelector: dest},
 	}
@@ -869,7 +870,7 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
-				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					testhelpers.TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
 				},
@@ -964,15 +965,15 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			// deploy a new token
 			ab := cldf.NewMemoryAddressBook()
 			for _, selector := range allChains {
-				_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.Chains[selector], ab,
-					func(chain cldf.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+				_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.BlockChains.EVMChains()[selector], ab,
+					func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 						tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
-							tenv.Env.Chains[selector].DeployerKey,
-							tenv.Env.Chains[selector].Client,
+							tenv.Env.BlockChains.EVMChains()[selector].DeployerKey,
+							tenv.Env.BlockChains.EVMChains()[selector].Client,
 							string(testhelpers.TestTokenSymbol),
 							string(testhelpers.TestTokenSymbol),
 							testhelpers.LocalTokenDecimals,
@@ -1049,7 +1050,7 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
 			state, err := stateview.LoadOnchainState(tenv.Env)
@@ -1087,11 +1088,11 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 			// deploy test new token
 			ab := cldf.NewMemoryAddressBook()
 			for _, selector := range allChains {
-				_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.Chains[selector], ab,
-					func(chain cldf.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+				_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.BlockChains.EVMChains()[selector], ab,
+					func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 						tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
-							tenv.Env.Chains[selector].DeployerKey,
-							tenv.Env.Chains[selector].Client,
+							tenv.Env.BlockChains.EVMChains()[selector].DeployerKey,
+							tenv.Env.BlockChains.EVMChains()[selector].Client,
 							string(testhelpers.TestTokenSymbol),
 							string(testhelpers.TestTokenSymbol),
 							testhelpers.LocalTokenDecimals,
@@ -1161,16 +1162,16 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
 			// deploy a new token
 			ab := cldf.NewMemoryAddressBook()
-			_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.Chains[source], ab,
-				func(chain cldf.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+			_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.BlockChains.EVMChains()[source], ab,
+				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 					tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
-						tenv.Env.Chains[source].DeployerKey,
-						tenv.Env.Chains[source].Client,
+						tenv.Env.BlockChains.EVMChains()[source].DeployerKey,
+						tenv.Env.BlockChains.EVMChains()[source].Client,
 						string(testhelpers.TestTokenSymbol),
 						string(testhelpers.TestTokenSymbol),
 						testhelpers.LocalTokenDecimals,
@@ -1278,7 +1279,7 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			allChains := maps.Keys(tenv.Env.Chains)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
 			state, err := stateview.LoadOnchainState(tenv.Env)

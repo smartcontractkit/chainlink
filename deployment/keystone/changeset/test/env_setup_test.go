@@ -31,7 +31,7 @@ func TestSetupEnv(t *testing.T) {
 					wantAddrCnt += 5 // time lock, call proxy, canceller, bypass, proposer
 				}
 				require.Len(t, addrs, wantAddrCnt)
-				require.Len(t, te.Env.Chains, 3)
+				require.Len(t, te.Env.BlockChains.EVMChains(), 3)
 				require.NotEmpty(t, te.RegistrySelector)
 				require.NotNil(t, te.Env.Offchain)
 				// one forwarder on each chain
@@ -63,7 +63,7 @@ func TestSetupEnv(t *testing.T) {
 			})
 			t.Run(fmt.Sprintf("set up test env using MCMS: %t", useMCMS), func(t *testing.T) {
 				require.NotNil(t, te.Env.ExistingAddresses)
-				require.Len(t, te.Env.Chains, 3)
+				require.Len(t, te.Env.BlockChains.EVMChains(), 3)
 				require.NotEmpty(t, te.RegistrySelector)
 				require.NotNil(t, te.Env.Offchain)
 				r, err := te.Env.Offchain.ListNodes(t.Context(), &node.ListNodesRequest{})

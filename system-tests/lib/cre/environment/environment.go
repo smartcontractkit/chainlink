@@ -171,7 +171,6 @@ func SetupTestEnvironment(
 
 	allChainsCLDEnvironment := &cldf.Environment{
 		Logger:            singeFileLogger,
-		Chains:            allChains,
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
 		GetContext: func() context.Context {
 			return ctx

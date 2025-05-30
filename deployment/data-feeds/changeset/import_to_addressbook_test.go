@@ -35,7 +35,7 @@ func TestImportToAddressbook(t *testing.T) {
 	resp, err := commonChangesets.Apply(t, env, nil,
 		commonChangesets.Configure(
 			changeset.ImportToAddressbookChangeset,
-			types.ImportToAddressbookConfig{
+			types.ImportAddressesConfig{
 				ChainSelector: chainSelector,
 				InputFileName: "testdata/import_addresses.json",
 				InputFS:       testFS,

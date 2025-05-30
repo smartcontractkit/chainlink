@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -63,7 +64,7 @@ func (state MCMSWithTimelockState) GenerateMCMSWithTimelockView() (view.MCMSWith
 func MaybeLoadMCMSWithTimelockState(env cldf.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockState, error) {
 	result := map[uint64]*MCMSWithTimelockState{}
 	for _, chainSelector := range chainSelectors {
-		chain, ok := env.Chains[chainSelector]
+		chain, ok := env.BlockChains.EVMChains()[chainSelector]
 		if !ok {
 			return nil, fmt.Errorf("chain %d not found", chainSelector)
 		}
@@ -84,7 +85,7 @@ func MaybeLoadMCMSWithTimelockState(env cldf.Environment, chainSelectors []uint6
 func MaybeLoadMCMSWithTimelockStateDataStore(env cldf.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockState, error) {
 	result := map[uint64]*MCMSWithTimelockState{}
 	for _, chainSelector := range chainSelectors {
-		chain, ok := env.Chains[chainSelector]
+		chain, ok := env.BlockChains.EVMChains()[chainSelector]
 		if !ok {
 			return nil, fmt.Errorf("chain %d not found", chainSelector)
 		}
@@ -127,7 +128,7 @@ func loadAddressesFromDataStore(ds datastore.DataStore[datastore.DefaultMetadata
 // - Found but was unable to load a contract
 // - It only found part of the bundle of contracts
 // - If found more than one instance of a contract (we expect one bundle in the given addresses)
-func MaybeLoadMCMSWithTimelockChainState(chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (*MCMSWithTimelockState, error) {
+func MaybeLoadMCMSWithTimelockChainState(chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (*MCMSWithTimelockState, error) {
 	state := MCMSWithTimelockState{}
 	var (
 		// We expect one of each contract on the chain.
@@ -227,7 +228,7 @@ func (s LinkTokenState) GenerateLinkView() (view.LinkTokenView, error) {
 func MaybeLoadLinkTokenState(env cldf.Environment, chainSelectors []uint64) (map[uint64]*LinkTokenState, error) {
 	result := map[uint64]*LinkTokenState{}
 	for _, chainSelector := range chainSelectors {
-		chain, ok := env.Chains[chainSelector]
+		chain, ok := env.BlockChains.EVMChains()[chainSelector]
 		if !ok {
 			return nil, fmt.Errorf("chain %d not found", chainSelector)
 		}
@@ -244,7 +245,7 @@ func MaybeLoadLinkTokenState(env cldf.Environment, chainSelectors []uint64) (map
 	return result, nil
 }
 
-func MaybeLoadLinkTokenChainState(chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (*LinkTokenState, error) {
+func MaybeLoadLinkTokenChainState(chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (*LinkTokenState, error) {
 	state := LinkTokenState{}
 	linkToken := cldf.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0)
 
@@ -280,7 +281,7 @@ func (s StaticLinkTokenState) GenerateStaticLinkView() (view.StaticLinkTokenView
 	return view.GenerateStaticLinkTokenView(s.StaticLinkToken)
 }
 
-func MaybeLoadStaticLinkTokenState(chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (*StaticLinkTokenState, error) {
+func MaybeLoadStaticLinkTokenState(chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (*StaticLinkTokenState, error) {
 	state := StaticLinkTokenState{}
 	staticLinkToken := cldf.NewTypeAndVersion(types.StaticLinkToken, deployment.Version1_0_0)
 

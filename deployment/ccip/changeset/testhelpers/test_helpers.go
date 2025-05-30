@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -142,6 +143,16 @@ func WithAssertOnError(assert bool) ReplayLogsOption {
 	}
 }
 
+// SleepAndReplay sleeps for the specified duration and then replays logs for the given chain selectors.
+func SleepAndReplay(t *testing.T, env cldf.Environment, duration time.Duration, chainSelectors ...uint64) {
+	time.Sleep(duration)
+	replayBlocks := make(map[uint64]uint64)
+	for _, selector := range chainSelectors {
+		replayBlocks[selector] = 1
+	}
+	ReplayLogs(t, env.Offchain, replayBlocks)
+}
+
 // ReplayLogs replays logs for the given blocks using the provided offchain client.
 // By default, it will assert on errors. Use WithAssertOnError(false) to change this behavior.
 func ReplayLogs(t *testing.T, oc cldf.OffchainClient, replayBlocks map[uint64]uint64, opts ...ReplayLogsOption) {
@@ -178,12 +189,12 @@ func DeployTestContracts(t *testing.T,
 	ab cldf.AddressBook,
 	homeChainSel,
 	feedChainSel uint64,
-	chains map[uint64]cldf.Chain,
+	chains map[uint64]cldf_evm.Chain,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
 ) deployment.CapabilityRegistryConfig {
 	capReg, err := cldf.DeployContract(lggr, chains[homeChainSel], ab,
-		func(chain cldf.Chain) cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
+		func(chain cldf_evm.Chain) cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
 				chain.DeployerKey,
 				chain.Client,
@@ -215,7 +226,7 @@ func LatestBlock(ctx context.Context, env cldf.Environment, chainSelector uint64
 
 	switch family {
 	case chainsel.FamilyEVM:
-		latesthdr, err := env.Chains[chainSelector].Client.HeaderByNumber(ctx, nil)
+		latesthdr, err := env.BlockChains.EVMChains()[chainSelector].Client.HeaderByNumber(ctx, nil)
 		if err != nil {
 			return 0, errors.Wrapf(err, "failed to get latest header for chain %d", chainSelector)
 		}
@@ -232,7 +243,7 @@ func LatestBlocksByChain(ctx context.Context, env cldf.Environment) (map[uint64]
 	latestBlocks := make(map[uint64]uint64)
 
 	chains := []uint64{}
-	chains = slices.AppendSeq(chains, maps.Keys(env.Chains))
+	chains = slices.AppendSeq(chains, maps.Keys(env.BlockChains.EVMChains()))
 	chains = slices.AppendSeq(chains, maps.Keys(env.BlockChains.SolanaChains()))
 	for _, selector := range chains {
 		block, err := LatestBlock(ctx, env, selector)
@@ -244,7 +255,7 @@ func LatestBlocksByChain(ctx context.Context, env cldf.Environment) (map[uint64]
 	return latestBlocks, nil
 }
 
-func allocateCCIPChainSelectors(chains map[uint64]cldf.Chain) (homeChainSel uint64, feeChainSel uint64) {
+func allocateCCIPChainSelectors(chains map[uint64]cldf_evm.Chain) (homeChainSel uint64, feeChainSel uint64) {
 	// Lower chainSel is home chain.
 	var chainSels []uint64
 	// Say first chain is home chain.
@@ -298,7 +309,7 @@ func CCIPSendRequest(
 	}
 
 	tx, err := r.CcipSend(cfg.Sender, cfg.DestChain, msg)
-	blockNum, err := cldf.ConfirmIfNoErrorWithABI(e.Chains[cfg.SourceChain], tx, router.RouterABI, err)
+	blockNum, err := cldf.ConfirmIfNoErrorWithABI(e.BlockChains.EVMChains()[cfg.SourceChain], tx, router.RouterABI, err)
 	if err != nil {
 		return tx, 0, errors.Wrap(err, "failed to confirm CCIP message")
 	}
@@ -335,7 +346,7 @@ func retryCcipSendUntilNativeFeeIsSufficient(
 			return nil, 0, fmt.Errorf("failed to send CCIP message: %w", err)
 		}
 
-		blockNum, err := e.Chains[cfg.SourceChain].Confirm(tx)
+		blockNum, err := e.BlockChains.EVMChains()[cfg.SourceChain].Confirm(tx)
 		if err != nil {
 			if strings.Contains(err.Error(), errCodeInsufficientFee) {
 				// Don't count insufficient fee as part of the retry count
@@ -493,7 +504,7 @@ func SendRequestEVM(
 ) (*onramp.OnRampCCIPMessageSent, error) {
 	// Set default sender if not provided
 	if cfg.Sender == nil {
-		cfg.Sender = e.Chains[cfg.SourceChain].DeployerKey
+		cfg.Sender = e.BlockChains.EVMChains()[cfg.SourceChain].DeployerKey
 	}
 
 	e.Logger.Infof("Sending CCIP request from chain selector %d to chain selector %d from sender %s",
@@ -1138,7 +1149,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 // is connected to every other chain except itself.
 func AddLanesForAll(t *testing.T, e *DeployedEnv, state stateview.CCIPOnChainState) {
 	chains := []uint64{}
-	allEvmChainSelectors := maps.Keys(e.Env.Chains)
+	allEvmChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
 	allSolChainSelectors := maps.Keys(e.Env.BlockChains.SolanaChains())
 	chains = slices.AppendSeq(chains, allEvmChainSelectors)
 	chains = slices.AppendSeq(chains, allSolChainSelectors)
@@ -1160,12 +1171,12 @@ func ToPackedFee(execFee, daFee *big.Int) *big.Int {
 func DeployFeeds(
 	lggr logger.Logger,
 	ab cldf.AddressBook,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
 ) (map[string]common.Address, error) {
 	linkTV := cldf.NewTypeAndVersion(shared.PriceFeed, deployment.Version1_0_0)
-	mockLinkFeed := func(chain cldf.Chain) cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
+	mockLinkFeed := func(chain cldf_evm.Chain) cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
 		linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3Aggregator(
 			chain.DeployerKey,
 			chain.Client,
@@ -1179,7 +1190,7 @@ func DeployFeeds(
 		}
 	}
 
-	mockWethFeed := func(chain cldf.Chain) cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
+	mockWethFeed := func(chain cldf_evm.Chain) cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
 		wethFeed, tx, _, err1 := mock_ethusd_aggregator_wrapper.DeployMockETHUSDAggregator(
 			chain.DeployerKey,
 			chain.Client,
@@ -1213,8 +1224,8 @@ func DeployFeeds(
 func deploySingleFeed(
 	lggr logger.Logger,
 	ab cldf.AddressBook,
-	chain cldf.Chain,
-	deployFunc func(cldf.Chain) cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface],
+	chain cldf_evm.Chain,
+	deployFunc func(cldf_evm.Chain) cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface],
 	symbol shared.TokenSymbol,
 ) (common.Address, string, error) {
 	// tokenTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
@@ -1242,7 +1253,7 @@ func deploySingleFeed(
 
 func DeployTransferableToken(
 	lggr logger.Logger,
-	chains map[uint64]cldf.Chain,
+	chains map[uint64]cldf_evm.Chain,
 	src, dst uint64,
 	srcActor, dstActor *bind.TransactOpts,
 	state stateview.CCIPOnChainState,
@@ -1314,12 +1325,12 @@ func DeployTransferableTokenSolana(
 
 	addresses := e.ExistingAddresses //nolint:staticcheck // addressbook still valid
 	// deploy evm token and pool
-	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.Chains[evmChainSel], evmDeployer, addresses, evmTokenName)
+	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.BlockChains.EVMChains()[evmChainSel], evmDeployer, addresses, evmTokenName)
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
 	// attach token and pool to the registry
-	if err := attachTokenToTheRegistry(e.Chains[evmChainSel], state.MustGetEVMChainState(evmChainSel), evmDeployer, evmToken.Address(), evmPool.Address()); err != nil {
+	if err := attachTokenToTheRegistry(e.BlockChains.EVMChains()[evmChainSel], state.MustGetEVMChainState(evmChainSel), evmDeployer, evmToken.Address(), evmPool.Address()); err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
 	solDeployerKey := e.BlockChains.SolanaChains()[solChainSel].DeployerKey.PublicKey()
@@ -1436,12 +1447,12 @@ func DeployTransferableTokenSolana(
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
-	err = setTokenPoolCounterPart(e.Chains[evmChainSel], evmPool, evmDeployer, solChainSel, solTokenAddress.Bytes(), poolConfigPDA.Bytes())
+	err = setTokenPoolCounterPart(e.BlockChains.EVMChains()[evmChainSel], evmPool, evmDeployer, solChainSel, solTokenAddress.Bytes(), poolConfigPDA.Bytes())
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
 
-	err = grantMintBurnPermissions(lggr, e.Chains[evmChainSel], evmToken, evmDeployer, evmPool.Address())
+	err = grantMintBurnPermissions(lggr, e.BlockChains.EVMChains()[evmChainSel], evmToken, evmDeployer, evmPool.Address())
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
@@ -1451,7 +1462,7 @@ func DeployTransferableTokenSolana(
 
 func deployTokenPoolsInParallel(
 	lggr logger.Logger,
-	chains map[uint64]cldf.Chain,
+	chains map[uint64]cldf_evm.Chain,
 	src, dst uint64,
 	srcActor, dstActor *bind.TransactOpts,
 	state stateview.CCIPOnChainState,
@@ -1498,7 +1509,7 @@ func deployTokenPoolsInParallel(
 	return srcToken, srcPool, dstToken, dstPool, nil
 }
 
-func grantMintBurnPermissions(lggr logger.Logger, chain cldf.Chain, token *burn_mint_erc677.BurnMintERC677, actor *bind.TransactOpts, address common.Address) error {
+func grantMintBurnPermissions(lggr logger.Logger, chain cldf_evm.Chain, token *burn_mint_erc677.BurnMintERC677, actor *bind.TransactOpts, address common.Address) error {
 	lggr.Infow("Granting burn/mint permissions", "token", token.Address(), "address", address)
 	tx, err := token.GrantMintAndBurnRoles(actor, address)
 	if err != nil {
@@ -1509,7 +1520,7 @@ func grantMintBurnPermissions(lggr logger.Logger, chain cldf.Chain, token *burn_
 }
 
 func setUSDCTokenPoolCounterPart(
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	tokenPool *usdc_token_pool.USDCTokenPool,
 	destChainSelector uint64,
 	actor *bind.TransactOpts,
@@ -1549,7 +1560,7 @@ func setUSDCTokenPoolCounterPart(
 }
 
 func setTokenPoolCounterPart(
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	tokenPool *burn_mint_token_pool.BurnMintTokenPool,
 	actor *bind.TransactOpts,
 	destChainSelector uint64,
@@ -1586,7 +1597,7 @@ func setTokenPoolCounterPart(
 }
 
 func attachTokenToTheRegistry(
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	state evm.CCIPChainState,
 	owner *bind.TransactOpts,
 	token common.Address,
@@ -1634,7 +1645,7 @@ func attachTokenToTheRegistry(
 
 func deployTransferTokenOneEnd(
 	lggr logger.Logger,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	deployer *bind.TransactOpts,
 	addressBook cldf.AddressBook,
 	tokenSymbol string,
@@ -1659,7 +1670,7 @@ func deployTransferTokenOneEnd(
 	tokenDecimals := uint8(18)
 
 	tokenContract, err := cldf.DeployContract(lggr, chain, addressBook,
-		func(chain cldf.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+		func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			tokenAddress, tx, token, err2 := burn_mint_erc677.DeployBurnMintERC677(
 				deployer,
 				chain.Client,
@@ -1687,7 +1698,7 @@ func deployTransferTokenOneEnd(
 	}
 
 	tokenPool, err := cldf.DeployContract(lggr, chain, addressBook,
-		func(chain cldf.Chain) cldf.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool] {
+		func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool] {
 			tokenPoolAddress, tx, tokenPoolContract, err2 := burn_mint_token_pool.DeployBurnMintTokenPool(
 				deployer,
 				chain.Client,
@@ -1746,7 +1757,7 @@ func MintAndAllow(
 			for _, mintTokenInfo := range mintTokenInfos {
 				sender := mintTokenInfo.sender
 				if sender == nil {
-					sender = e.Chains[chain].DeployerKey
+					sender = e.BlockChains.EVMChains()[chain].DeployerKey
 				}
 
 				for _, token := range mintTokenInfo.tokens {
@@ -1756,12 +1767,12 @@ func MintAndAllow(
 						new(big.Int).Mul(tenCoins, big.NewInt(10)),
 					)
 					require.NoError(t, err)
-					_, err = e.Chains[chain].Confirm(tx)
+					_, err = e.BlockChains.EVMChains()[chain].Confirm(tx)
 					require.NoError(t, err)
 
 					tx, err = token.Approve(sender, state.MustGetEVMChainState(chain).Router.Address(), tenCoins)
 					require.NoError(t, err)
-					_, err = e.Chains[chain].Confirm(tx)
+					_, err = e.BlockChains.EVMChains()[chain].Confirm(tx)
 					require.NoError(t, err)
 				}
 			}
@@ -2008,7 +2019,7 @@ func WaitForTokenBalances(
 				case chainsel.FamilyEVM:
 					token := common.BytesToAddress(id.token)
 					receiver := common.BytesToAddress(id.receiver)
-					WaitForTheTokenBalance(ctx, t, token, receiver, env.Chains[chainSelector], balance)
+					WaitForTheTokenBalance(ctx, t, token, receiver, env.BlockChains.EVMChains()[chainSelector], balance)
 				case chainsel.FamilySolana:
 					expectedBalance := balance.Uint64()
 					// TODO: need to pass env rather than chains
@@ -2035,7 +2046,7 @@ func WaitForTheTokenBalance(
 	t *testing.T,
 	token common.Address,
 	receiver common.Address,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	expected *big.Int,
 ) {
 	tokenContract, err := burn_mint_erc677.NewBurnMintERC677(token, chain.Client)

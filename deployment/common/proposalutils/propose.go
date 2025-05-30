@@ -13,6 +13,7 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -88,7 +89,7 @@ func (tc *TimelockConfig) validateCommon() error {
 	return nil
 }
 
-func (tc *TimelockConfig) Validate(chain cldf.Chain, s state.MCMSWithTimelockState) error {
+func (tc *TimelockConfig) Validate(chain cldf_evm.Chain, s state.MCMSWithTimelockState) error {
 	err := tc.validateCommon()
 	if err != nil {
 		return err

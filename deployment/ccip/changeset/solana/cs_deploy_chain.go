@@ -120,7 +120,7 @@ func (cfg UpgradeConfig) Validate(e cldf.Environment, chainSelector uint64) erro
 	return nil
 }
 
-func (c DeployChainContractsConfig) Validate(e cldf.Environment) error {
+func (c DeployChainContractsConfig) Validate(e cldf.Environment, existingState stateview.CCIPOnChainState) error {
 	if err := cldf.IsValidChainSelector(c.HomeChainSelector); err != nil {
 		return fmt.Errorf("invalid home chain selector: %d - %w", c.HomeChainSelector, err)
 	}
@@ -133,10 +133,6 @@ func (c DeployChainContractsConfig) Validate(e cldf.Environment) error {
 	}
 	if err := c.UpgradeConfig.Validate(e, c.ChainSelector); err != nil {
 		return fmt.Errorf("invalid UpgradeConfig: %w", err)
-	}
-	existingState, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load existing onchain state: %w", err)
 	}
 	if _, exists := existingState.SupportedChains()[c.ChainSelector]; !exists {
 		return fmt.Errorf("chain %d not supported", c.ChainSelector)
@@ -159,12 +155,15 @@ func (c DeployChainContractsConfig) Validate(e cldf.Environment) error {
 }
 
 func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsConfig) (cldf.ChangesetOutput, error) {
-	if err := c.Validate(e); err != nil {
+	existingState, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load existing onchain state: %w", err)
+	}
+	if err := c.Validate(e, existingState); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
 	newAddresses := cldf.NewMemoryAddressBook()
-	existingState, _ := stateview.LoadOnchainState(e)
-	err := v1_6.ValidateHomeChainState(e, c.HomeChainSelector, existingState)
+	err = v1_6.ValidateHomeChainState(e, c.HomeChainSelector, existingState)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -249,7 +248,7 @@ func DeployAndMaybeSaveToAddressBook(
 	if metadata != "" && metadata != shared.CLLMetadata {
 		overallocate = false
 	}
-	programID, err := chain.DeployProgram(e.Logger, cldf.SolProgramInfo{
+	programID, err := chain.DeployProgram(e.Logger, cldf_solana.ProgramInfo{
 		Name:  programName,
 		Bytes: deployment.SolanaProgramBytes[programName],
 	}, isUpgrade, overallocate)
@@ -1052,7 +1051,7 @@ func generateCloseBufferIxn(
 // HELPER FUNCTIONS
 func GetSolProgramSize(e *cldf.Environment, chain cldf_solana.Chain, programID solana.PublicKey) (int, error) {
 	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &rpc.GetAccountInfoOpts{
-		Commitment: cldf.SolDefaultCommitment,
+		Commitment: cldf_solana.SolDefaultCommitment,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get account info: %w", err)

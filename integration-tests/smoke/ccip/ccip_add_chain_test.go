@@ -47,7 +47,7 @@ func Test_AddChain(t *testing.T) {
 		testhelpers.WithNoJobsAndContracts(),
 	)
 
-	allChains := maps.Keys(e.Env.Chains)
+	allChains := maps.Keys(e.Env.BlockChains.EVMChains())
 	slices.Sort(allChains)
 	toDeploy := e.Env.BlockChains.ListChainSelectors(
 		cldf_chain.WithFamily(chain_selectors.FamilyEVM),
@@ -121,7 +121,7 @@ func Test_AddChain(t *testing.T) {
 					DestChainSelector:   dest,
 				}] = gp.Value
 
-				latesthdr, err := e.Env.Chains[dest].Client.HeaderByNumber(testcontext.Get(t), nil)
+				latesthdr, err := e.Env.BlockChains.EVMChains()[dest].Client.HeaderByNumber(testcontext.Get(t), nil)
 				require.NoError(t, err)
 				block := latesthdr.Number.Uint64()
 				msgSentEvent := testhelpers.TestSendRequest(t, e.Env, state, source, dest, testRouter, router.ClientEVM2AnyMessage{
@@ -166,7 +166,7 @@ func Test_AddChain(t *testing.T) {
 	// 	// for all dests.
 	// 	err := ConfirmGasPriceUpdated(
 	// 		t,
-	// 		e.Env.Chains[sourceDestPair.DestChainSelector],
+	// 		e.Env.BlockChains.EVMChains()[sourceDestPair.DestChainSelector],
 	// 		state.Chains[sourceDestPair.SourceChainSelector].FeeQuoter,
 	// 		*startBlocks[sourceDestPair.DestChainSelector],
 	// 		preUpdateGp,

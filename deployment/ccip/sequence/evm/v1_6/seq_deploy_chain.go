@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	ccipopsv1_2 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_2"
@@ -77,7 +78,7 @@ var (
 				chainSelector := chainSelector
 				contractParams := contractParams
 				grp.Go(func() error {
-					chain, ok := e.Chains[chainSelector]
+					chain, ok := e.BlockChains.EVMChains()[chainSelector]
 					if !ok {
 						return fmt.Errorf("chain %d not found in env", chainSelector)
 					}
@@ -384,7 +385,7 @@ var (
 		})
 )
 
-func isRMNRemoteInitialSetUpCompleted(e cldf.Environment, rmnHome *rmn_home.RMNHome, rmnRemoteContract *rmn_remote.RMNRemote, chain cldf.Chain) (bool, error) {
+func isRMNRemoteInitialSetUpCompleted(e cldf.Environment, rmnHome *rmn_home.RMNHome, rmnRemoteContract *rmn_remote.RMNRemote, chain cldf_evm.Chain) (bool, error) {
 	activeDigest, err := rmnHome.GetActiveDigest(&bind.CallOpts{})
 	if err != nil {
 		e.Logger.Errorw("Failed to get active digest", "chain", chain.String(), "err", err)
