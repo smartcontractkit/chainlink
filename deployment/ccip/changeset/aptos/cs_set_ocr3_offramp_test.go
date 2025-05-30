@@ -4,7 +4,13 @@ import (
 	"testing"
 	"time"
 
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"github.com/stretchr/testify/require"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -13,8 +19,6 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSetOCR3Offramp_Apply(t *testing.T) {
@@ -26,8 +30,8 @@ func TestSetOCR3Offramp_Apply(t *testing.T) {
 	env := deployedEnvironment.Env
 
 	cfg := v1_6.SetOCR3OffRampConfig{
-		HomeChainSel:    env.AllChainSelectors()[0],
-		RemoteChainSels: env.AllChainSelectorsAptos(),
+		HomeChainSel:    env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0],
+		RemoteChainSels: env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyAptos)),
 		MCMS: &proposalutils.TimelockConfig{
 			MinDelay:     time.Duration(1) * time.Second,
 			MCMSAction:   mcmstypes.TimelockActionSchedule,
@@ -46,8 +50,8 @@ func TestSetOCR3Offramp_Apply(t *testing.T) {
 	require.NoError(t, err, "must load onchain state")
 
 	// bind ccip aptos
-	aptosCCIPAddr := state.AptosChains[env.AllChainSelectorsAptos()[0]].CCIPAddress
-	aptosOffRamp := ccip_offramp.Bind(aptosCCIPAddr, env.AptosChains[env.AllChainSelectorsAptos()[0]].Client)
+	aptosCCIPAddr := state.AptosChains[env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyAptos))[0]].CCIPAddress
+	aptosOffRamp := ccip_offramp.Bind(aptosCCIPAddr, env.BlockChains.AptosChains()[env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyAptos))[0]].Client)
 	ocr3Commit, err := aptosOffRamp.Offramp().LatestConfigDetails(nil, uint8(types.PluginTypeCCIPCommit))
 	require.NoError(t, err)
 	require.Len(t, ocr3Commit.Signers, 4)

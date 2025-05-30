@@ -5,11 +5,12 @@ import (
 	"math/big"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+	"github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
-	"github.com/smartcontractkit/mcms/types"
 )
 
 // UpdateFeeQuoterDestsInput contains configuration for updating FeeQuoter destination configs

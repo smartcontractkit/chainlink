@@ -1,9 +1,13 @@
 package aptos
 
 import (
+	"errors"
 	"fmt"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/types"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	config "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
@@ -12,8 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/mcms"
-	"github.com/smartcontractkit/mcms/types"
 )
 
 var _ cldf.ChangeSetV2[config.UpdateAptosLanesConfig] = AddAptosLanes{}
@@ -28,7 +30,7 @@ func (cs AddAptosLanes) VerifyPreconditions(env cldf.Environment, cfg config.Upd
 	}
 	supportedChains := state.SupportedChains()
 	if cfg.AptosMCMSConfig == nil {
-		return fmt.Errorf("Aptos MCMS config is required for AddAptosLanes changeset")
+		return errors.New("Aptos MCMS config is required for AddAptosLanes changeset")
 	}
 	// For every configured lane validate Aptos source or destination chain definitions
 	for _, laneCfg := range cfg.Lanes {
@@ -41,8 +43,12 @@ func (cs AddAptosLanes) VerifyPreconditions(env cldf.Environment, cfg config.Upd
 			return fmt.Errorf("destination chain %d is not a supported", laneCfg.Dest.GetSelector())
 		}
 		if laneCfg.Source.GetChainFamily() == chainsel.FamilyAptos {
+			aptosChain, exists := env.BlockChains.AptosChains()[laneCfg.Source.GetSelector()]
+			if !exists {
+				return fmt.Errorf("Aptos source chain %d is not in env", laneCfg.Source.GetSelector())
+			}
 			err := laneCfg.Source.(config.AptosChainDefinition).Validate(
-				env.AptosChains[laneCfg.Source.GetSelector()].Client,
+				aptosChain.Client,
 				state.AptosChains[laneCfg.Source.GetSelector()],
 			)
 			if err != nil {
@@ -50,8 +56,12 @@ func (cs AddAptosLanes) VerifyPreconditions(env cldf.Environment, cfg config.Upd
 			}
 		}
 		if laneCfg.Dest.GetChainFamily() == chainsel.FamilyAptos {
+			aptosChain, exists := env.BlockChains.AptosChains()[laneCfg.Dest.GetSelector()]
+			if !exists {
+				return fmt.Errorf("Aptos destination chain %d is not in env", laneCfg.Dest.GetSelector())
+			}
 			err := laneCfg.Dest.(config.AptosChainDefinition).Validate(
-				env.AptosChains[laneCfg.Dest.GetSelector()].Client,
+				aptosChain.Client,
 				state.AptosChains[laneCfg.Dest.GetSelector()],
 			)
 			if err != nil {
@@ -94,7 +104,7 @@ func (cs AddAptosLanes) Apply(env cldf.Environment, cfg config.UpdateAptosLanesC
 	updateInputsByAptosChain := seq.ToAptosUpdateLanesConfig(state.AptosChains, cfg)
 	for aptosChainSel, sequenceInput := range updateInputsByAptosChain {
 		deps := operation.AptosDeps{
-			AptosChain:       env.AptosChains[aptosChainSel],
+			AptosChain:       env.BlockChains.AptosChains()[aptosChainSel],
 			CCIPOnChainState: state,
 		}
 		// Execute the sequence

@@ -3,12 +3,13 @@ package sequence
 import (
 	"fmt"
 
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 // Set OCR3 Offramp Sequence Input

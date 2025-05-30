@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	aptosutils "github.com/smartcontractkit/chainlink-aptos/relayer/utils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -11,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 // UpdateOffRampSourcesInput contains configuration for updating OffRamp sources

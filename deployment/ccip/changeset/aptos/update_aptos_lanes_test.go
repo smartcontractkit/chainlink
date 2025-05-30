@@ -10,11 +10,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	aptosfeequoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
@@ -35,15 +39,15 @@ func TestAddAptosLanes_Apply(t *testing.T) {
 	)
 	env := deployedEnvironment.Env
 
-	emvSelector := env.AllChainSelectors()[0]
-	emvSelector2 := env.AllChainSelectors()[1]
+	emvSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	emvSelector2 := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]
 	aptosSelector := uint64(4457093679053095497)
 
 	// Get chain selectors
-	aptosChainSelectors := env.AllChainSelectorsAptos()
-	require.Equal(t, 1, len(aptosChainSelectors), "Expected exactly 1 Aptos chain ")
+	aptosChainSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyAptos))
+	require.Len(t, aptosChainSelectors, 1, "Expected exactly 1 Aptos chain ")
 	chainSelector := aptosChainSelectors[0]
-	t.Log("Deployer: ", env.AptosChains[chainSelector].DeployerSigner)
+	t.Log("Deployer: ", env.BlockChains.AptosChains()[chainSelector].DeployerSigner)
 
 	// Deploy Lane
 	cfg := getMockUpdateConfig(t, emvSelector, emvSelector2, aptosSelector)
@@ -59,13 +63,13 @@ func TestAddAptosLanes_Apply(t *testing.T) {
 
 	// bind ccip aptos
 	aptosCCIPAddr := state.AptosChains[aptosSelector].CCIPAddress
-	aptosOnRamp := ccip_onramp.Bind(aptosCCIPAddr, env.AptosChains[aptosSelector].Client)
-	aptosOffRamp := ccip_offramp.Bind(aptosCCIPAddr, env.AptosChains[aptosSelector].Client)
-	aptosRouter := ccip_router.Bind(aptosCCIPAddr, env.AptosChains[aptosSelector].Client)
+	aptosOnRamp := ccip_onramp.Bind(aptosCCIPAddr, env.BlockChains.AptosChains()[aptosSelector].Client)
+	aptosOffRamp := ccip_offramp.Bind(aptosCCIPAddr, env.BlockChains.AptosChains()[aptosSelector].Client)
+	aptosRouter := ccip_router.Bind(aptosCCIPAddr, env.BlockChains.AptosChains()[aptosSelector].Client)
 
 	dynCfg, err := aptosOffRamp.Offramp().GetDynamicConfig(&bind.CallOpts{})
 	require.NoError(t, err)
-	require.True(t, dynCfg.PermissionlessExecutionThresholdSeconds > 0)
+	require.Positive(t, dynCfg.PermissionlessExecutionThresholdSeconds)
 
 	isSupported, err := aptosOnRamp.Onramp().IsChainSupported(&bind.CallOpts{}, emvSelector)
 	require.NoError(t, err)
@@ -73,11 +77,11 @@ func TestAddAptosLanes_Apply(t *testing.T) {
 
 	_, _, router, err := aptosOnRamp.Onramp().GetDestChainConfig(&bind.CallOpts{}, emvSelector)
 	require.NoError(t, err)
-	require.NotEqual(t, router, aptos.AccountAddress{})
+	require.NotEqual(t, aptos.AccountAddress{}, router)
 
 	_, _, router2, err := aptosOnRamp.Onramp().GetDestChainConfig(&bind.CallOpts{}, emvSelector2)
 	require.NoError(t, err)
-	require.NotEqual(t, router2, aptos.AccountAddress{})
+	require.NotEqual(t, aptos.AccountAddress{}, router2)
 
 	versions, err := aptosRouter.Router().GetOnRampVersions(&bind.CallOpts{}, []uint64{emvSelector, emvSelector2})
 	require.NoError(t, err)

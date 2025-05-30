@@ -4,6 +4,9 @@ import (
 	"fmt"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/types"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
@@ -11,8 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/mcms"
-	"github.com/smartcontractkit/mcms/types"
 )
 
 var _ cldf.ChangeSetV2[v1_6.SetOCR3OffRampConfig] = SetOCR3Offramp{}
@@ -25,6 +26,10 @@ func (cs SetOCR3Offramp) VerifyPreconditions(env cldf.Environment, config v1_6.S
 		chainFamily, _ := chain_selectors.GetSelectorFamily(remoteSel)
 		if chainFamily != chain_selectors.FamilyAptos {
 			return fmt.Errorf("chain %d is not an Aptos chain", remoteSel)
+		}
+		_, exists := env.BlockChains.AptosChains()[remoteSel]
+		if !exists {
+			return fmt.Errorf("Aptos chain %d is not in env", remoteSel)
 		}
 	}
 	return nil
@@ -41,7 +46,7 @@ func (cs SetOCR3Offramp) Apply(env cldf.Environment, config v1_6.SetOCR3OffRampC
 
 	for _, remoteSelector := range config.RemoteChainSels {
 		deps := operation.AptosDeps{
-			AptosChain:       env.AptosChains[remoteSelector],
+			AptosChain:       env.BlockChains.AptosChains()[remoteSelector],
 			CCIPOnChainState: state,
 		}
 		in := seq.SetOCR3OfframpSeqInput{
