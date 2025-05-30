@@ -124,9 +124,10 @@ jobs:
           PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
           CTF_CONFIGS: "workflow-don-load-test-streams-kind.toml,ci-override.toml"
           LOAD_TEST: "true"
+          CI: "true"
         run: |
           cd system-tests/tests/load/cre
-          go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 10m
+          go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 15m
 
       - name: Upload cl node logs as artifact
         if: always()

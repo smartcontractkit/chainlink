@@ -335,8 +335,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		}
 	})
 
-	require.NoError(t, saveFeedAddresses(feedsAddresses), "could not save feeds")
-
 	// Get OCR2 keys needed to sign the reports
 	kb := make([]ocr2key.KeyBundle, 0)
 	for _, don := range setupOutput.donTopology.DonsWithMetadata {
@@ -360,9 +358,15 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		}
 	}
 
-	// Export key bundles so we can import them later in another test, used when crib cluster is already setup and we just want to connect to mocks for a different test
-	require.NoError(t, saveKeyBundles(kb), "could not save OCR2 Keys")
+	// If were not running in CI then save the feeds and OCR2 keys to a file so we can reuse them later
+	cacheClients := false
+	if os.Getenv("CI") == "" || os.Getenv("CI") == "false" {
+		cacheClients = true
+		require.NoError(t, saveFeedAddresses(feedsAddresses), "could not save feeds")
 
+		// Export key bundles so we can import them later in another test, used when crib cluster is already setup and we just want to connect to mocks for a different test
+		require.NoError(t, saveKeyBundles(kb), "could not save OCR2 Keys")
+	}
 	testLogger.Info().Msg("Connecting to mock capabilities...")
 
 	mocksClient := mock_capability.NewMockCapabilityController(testLogger)
@@ -399,7 +403,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		useInsecure = true
 	}
 
-	require.NoError(t, mocksClient.ConnectAll(mockClientsAddress, useInsecure, true), "could not connect to mock capabilities")
+	require.NoError(t, mocksClient.ConnectAll(mockClientsAddress, useInsecure, cacheClients), "could not connect to mock capabilities")
 
 	testLogger.Info().Msg("Hooking into mock executable capabilities")
 
