@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/load-tests
 
-go 1.24.2
+go 1.24.3
 
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../../
