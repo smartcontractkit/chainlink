@@ -981,7 +981,7 @@ type UpdateFeeQuoterDestsConfig struct {
 }
 
 func (cfg UpdateFeeQuoterDestsConfig) Validate(e cldf.Environment) error {
-	state, err := stateview.LoadOnchainState(e) // TODO: Operationalize this
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
@@ -1000,7 +1000,7 @@ func (cfg UpdateFeeQuoterDestsConfig) Validate(e cldf.Environment) error {
 		if chainState.OnRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
-		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.FeeQuoter); err != nil { // TODO: Operationalize this
+		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.FeeQuoter); err != nil {
 			return err
 		}
 
@@ -1009,7 +1009,7 @@ func (cfg UpdateFeeQuoterDestsConfig) Validate(e cldf.Environment) error {
 			if _, ok := supportedChains[destination]; !ok {
 				return fmt.Errorf("destination chain %d is not a supported %s", destination, chainState.OnRamp.Address())
 			}
-			sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: e.GetContext()}) // TODO: Operationalize this
+			sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: e.GetContext()})
 			if err != nil {
 				return fmt.Errorf("failed to get onramp static config %s: %w", chainState.OnRamp.Address(), err)
 			}
@@ -1027,7 +1027,7 @@ func UpdateFeeQuoterDestsChangeset(e cldf.Environment, cfg UpdateFeeQuoterDestsC
 	if err := cfg.Validate(e); err != nil {
 		return output, err
 	}
-	s, err := stateview.LoadOnchainState(e) // TODO: Operationalize this
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return output, err
 	}
