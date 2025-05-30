@@ -14,6 +14,7 @@ import (
 
 	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_common"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -414,5 +415,124 @@ func AcceptAdminRoleTokenAdminRegistry(e cldf.Environment, cfg AcceptAdminRoleTo
 	if err := chain.Confirm([]solana.Instruction{ix1}); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
+	return cldf.ChangesetOutput{}, nil
+}
+
+// SET POOL
+type SetPoolConfig struct {
+	ChainSelector     uint64
+	TokenPubKey       solana.PublicKey
+	PoolType          *solTestTokenPool.PoolType
+	Metadata          string
+	WritableIndexes   []uint8
+	MCMS              *proposalutils.TimelockConfig
+	SkipRegistryCheck bool
+}
+
+func (cfg SetPoolConfig) Validate(e cldf.Environment) error {
+	tokenPubKey := cfg.TokenPubKey
+	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
+		return err
+	}
+	if cfg.PoolType == nil {
+		return errors.New("pool type must be defined")
+	}
+	state, _ := stateview.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
+	if err := validateRouterConfig(chain, chainState); err != nil {
+		return err
+	}
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, tokenPubKey, cfg.Metadata, map[cldf.ContractType]bool{shared.Router: true}); err != nil {
+		return err
+	}
+	if cfg.Metadata == "" {
+		return errors.New("metadata must be defined")
+	}
+	if lut, ok := chainState.TokenPoolLookupTable[tokenPubKey][*cfg.PoolType][cfg.Metadata]; !ok || lut.IsZero() {
+		return fmt.Errorf("token pool lookup table not found for (mint: %s)", tokenPubKey.String())
+	}
+	if !cfg.SkipRegistryCheck {
+		routerProgramAddress, _, _ := chainState.GetRouterInfo()
+		tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
+		if err != nil {
+			return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), routerProgramAddress.String(), err)
+		}
+		var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
+		if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
+			return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot set pool", tokenPubKey.String(), routerProgramAddress.String())
+		}
+	}
+
+	return nil
+}
+
+// this sets the writable indexes of the token pool lookup table
+func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error) {
+	e.Logger.Infow("Setting pool config", "cfg", cfg)
+	if err := cfg.Validate(e); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
+	state, _ := stateview.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
+	tokenPubKey := cfg.TokenPubKey
+	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
+	solRouter.SetProgramID(routerProgramAddress)
+	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
+
+	lookupTablePubKey := chainState.TokenPoolLookupTable[tokenPubKey][*cfg.PoolType][cfg.Metadata]
+	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
+		&e,
+		chain,
+		chainState,
+		shared.Router,
+		solana.PublicKey{},
+		"",
+	)
+	authority := GetAuthorityForIxn(
+		&e,
+		chain,
+		chainState,
+		cfg.MCMS,
+		shared.Router,
+		tokenPubKey,
+		cfg.Metadata,
+	)
+	base := solRouter.NewSetPoolInstruction(
+		cfg.WritableIndexes,
+		routerConfigPDA,
+		tokenAdminRegistryPDA,
+		tokenPubKey,
+		lookupTablePubKey,
+		authority,
+	)
+
+	base.AccountMetaSlice = append(base.AccountMetaSlice, solana.Meta(lookupTablePubKey))
+	instruction, err := base.ValidateAndBuild()
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
+	if routerUsingMCMS {
+		tx, err := BuildMCMSTxn(instruction, routerProgramAddress.String(), shared.Router)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+		}
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.ChainSelector, "proposal to RegisterTokenAdminRegistry in Solana", cfg.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	}
+
+	if err = chain.Confirm([]solana.Instruction{instruction}); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	e.Logger.Infow("Set pool config", "token_pubkey", tokenPubKey.String())
 	return cldf.ChangesetOutput{}, nil
 }

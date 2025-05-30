@@ -28,13 +28,25 @@ import (
 // use this changeset to add a billing token to solana
 var _ cldf.ChangeSet[BillingTokenConfig] = AddBillingTokenChangeset
 
-// use this changeset to add a token transfer fee for a remote chain to solana
+// use this changeset to add a token transfer fee for a remote chain to solana (used for very specific cases)
 var _ cldf.ChangeSet[TokenTransferFeeForRemoteChainConfig] = AddTokenTransferFeeForRemoteChain
+
+// use this changeset to update prices for token and gas price updates on solana (emergency use only)
+var _ cldf.ChangeSet[UpdatePricesConfig] = UpdatePrices
+
+// use this changeset to set max fee juels per msg on solana (emergency use only)
+var _ cldf.ChangeSet[SetMaxFeeJuelsPerMsgConfig] = SetMaxFeeJuelsPerMsg
+
+// use this changeset to update price updaters on solana (emergency use only)
+var _ cldf.ChangeSet[ModifyPriceUpdaterConfig] = ModifyPriceUpdater
+
+// use this changeset to withdraw billed funds on solana
+var _ cldf.ChangeSet[WithdrawBilledFundsConfig] = WithdrawBilledFunds
 
 // ADD BILLING TOKEN
 type BillingTokenConfig struct {
 	ChainSelector uint64
-	TokenPubKey   string
+	TokenPubKey   string // billing token mint address
 	Config        solFeeQuoter.BillingTokenConfig
 	// We have different instructions for add vs update, so we need to know which one to use
 	IsUpdate bool
@@ -220,7 +232,6 @@ func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e cldf.Environment) err
 	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.FeeQuoter: true})
 }
 
-// TODO: rename this, i dont think this is for billing, this is more for token transfer config/fees
 func AddTokenTransferFeeForRemoteChain(e cldf.Environment, cfg TokenTransferFeeForRemoteChainConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -412,8 +423,8 @@ func UpdatePrices(e cldf.Environment, cfg UpdatePricesConfig) (cldf.ChangesetOut
 
 type ModifyPriceUpdaterConfig struct {
 	ChainSelector      uint64
-	PriceUpdater       solana.PublicKey
-	PriceUpdaterAction PriceUpdaterAction
+	PriceUpdater       solana.PublicKey   // price updater to add or remove
+	PriceUpdaterAction PriceUpdaterAction // add or remove price updater
 	MCMS               *proposalutils.TimelockConfig
 }
 
@@ -524,10 +535,10 @@ func ModifyPriceUpdater(e cldf.Environment, cfg ModifyPriceUpdaterConfig) (cldf.
 
 type WithdrawBilledFundsConfig struct {
 	ChainSelector uint64
-	TransferAll   bool
-	Amount        uint64
-	TokenPubKey   string
-	MCMS          *proposalutils.TimelockConfig
+	TransferAll   bool                          // transfer all or specific amount
+	Amount        uint64                        // amount to transfer
+	TokenPubKey   string                        // billing token to transfer
+	MCMS          *proposalutils.TimelockConfig // timelock config for mcms
 }
 
 func (cfg WithdrawBilledFundsConfig) Validate(e cldf.Environment) error {
