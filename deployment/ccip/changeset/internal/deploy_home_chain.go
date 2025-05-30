@@ -334,18 +334,20 @@ func BuildSetOCR3ConfigArgsAptos(
 
 		configForOCR3 := ocrConfig.ActiveConfig
 		// we expect only an active config
-		if configType == globals.ConfigTypeActive {
+		switch configType {
+		case globals.ConfigTypeActive:
 			if ocrConfig.ActiveConfig.ConfigDigest == [32]byte{} {
 				return nil, fmt.Errorf("invalid OCR3 config state, expected active config, donID: %d, activeConfig: %v, candidateConfig: %v",
 					donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
 			}
-		} else if configType == globals.ConfigTypeCandidate {
+		case globals.ConfigTypeCandidate:
 			if ocrConfig.CandidateConfig.ConfigDigest == [32]byte{} {
 				return nil, fmt.Errorf("invalid OCR3 config state, expected candidate config, donID: %d, activeConfig: %v, candidateConfig: %v",
 					donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
 			}
 			configForOCR3 = ocrConfig.CandidateConfig
 		}
+
 		if err := validateOCR3Config(destSelector, configForOCR3.Config, &chainCfg); err != nil {
 			return nil, err
 		}

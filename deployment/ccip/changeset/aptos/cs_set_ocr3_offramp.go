@@ -29,7 +29,7 @@ func (cs SetOCR3Offramp) VerifyPreconditions(env cldf.Environment, config v1_6.S
 		}
 		_, exists := env.BlockChains.AptosChains()[remoteSel]
 		if !exists {
-			return fmt.Errorf("Aptos chain %d is not in env", remoteSel)
+			return fmt.Errorf("chain %d is not in Aptos env", remoteSel)
 		}
 	}
 	return nil

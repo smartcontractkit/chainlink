@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
-	"github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	aptoscfg "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
@@ -279,7 +278,7 @@ func applyAllowedOfframpUpdates(b operations.Bundle, deps AptosDeps, _ operation
 
 	// Bind MCMS Package
 	mcmsAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].MCMSAddress
-	mcmsBind := mcms.Bind(mcmsAddress, deps.AptosChain.Client)
+	mcmsBind := mcmsbind.Bind(mcmsAddress, deps.AptosChain.Client)
 
 	// Add CCIP Owner address to update token prices allow list
 	ccipOwnerAddress, err := mcmsBind.MCMSRegistry().GetRegisteredOwnerAddress(nil, ccipAddress)

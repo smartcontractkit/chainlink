@@ -31,7 +31,7 @@ func (c EVMChainDefinition) GetChainFamily() string {
 }
 
 func (c EVMChainDefinition) GetSelector() uint64 {
-	return c.ChainDefinition.Selector
+	return c.Selector
 }
 
 func (c EVMChainDefinition) GetConvertedAptosFeeQuoterConfig() aptos_fee_quoter.DestChainConfig {
@@ -116,22 +116,22 @@ func (c AptosChainDefinition) GetConvertedEVMFeeQuoterConfig() evm_fee_quoter.Fe
 func (c AptosChainDefinition) Validate(client aptos.AptosRpcClient, state aptosstate.CCIPChainState) error {
 	// Check CCIP Package
 	if state.CCIPAddress == (aptos.AccountAddress{}) {
-		return fmt.Errorf("CCIP is not deployed on Aptos chain %d", c.Selector)
+		return fmt.Errorf("package CCIP is not deployed on Aptos chain %d", c.Selector)
 	}
 	// Check OnRamp module
 	hasOnramp, err := utils.IsModuleDeployed(client, state.CCIPAddress, "onramp")
 	if err != nil || !hasOnramp {
-		return fmt.Errorf("OnRamp module is not deployed on Aptos chain %d: %w", c.Selector, err)
+		return fmt.Errorf("onRamp module is not deployed on Aptos chain %d: %w", c.Selector, err)
 	}
 	// Check OffRamp module
 	hasOfframp, err := utils.IsModuleDeployed(client, state.CCIPAddress, "offramp")
 	if err != nil || !hasOfframp {
-		return fmt.Errorf("OffRamp module is not deployed on Aptos chain %d: %w", c.Selector, err)
+		return fmt.Errorf("offRamp module is not deployed on Aptos chain %d: %w", c.Selector, err)
 	}
 	// Check Router module
 	hasRouter, err := utils.IsModuleDeployed(client, state.CCIPAddress, "router")
 	if err != nil || !hasRouter {
-		return fmt.Errorf("Router module is not deployed on Aptos chain %d: %w", c.Selector, err)
+		return fmt.Errorf("router module is not deployed on Aptos chain %d: %w", c.Selector, err)
 	}
 
 	return nil
