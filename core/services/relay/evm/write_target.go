@@ -109,18 +109,18 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, fmt.Errorf("failed to create EVM platform processors: %w", err)
 	}
 
-	beholder, err := writetarget.NewMonitor(writetarget.MonitorOpts{lggr, evmProcessors, map[string]beholder.ProtoProcessor{
-		"evm-data-feeds":      dfProcessor,
-		"evm-data-feeds-ccip": ccipDfProcessor,
-		"evm-por-feeds":       porProcessor,
-	}, emitter})
+	beholder, err := writetarget.NewMonitor(writetarget.MonitorOpts{
+		Lggr:                      lggr,
+		ProductAgnosticProcessors: evmProcessors,
+		ProductSpecificProcessors: map[string]beholder.ProtoProcessor{
+			"evm-data-feeds":      dfProcessor,
+			"evm-data-feeds-ccip": ccipDfProcessor,
+			"evm-por-feeds":       porProcessor,
+		},
+		Emitter: emitter,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Aptos WT monitor client: %+w", err)
-	}
-
-	evm, err := relayer.EVM()
-	if err != nil {
-		return nil, fmt.Errorf("failed to upgrade to evm relayer: %w", err)
 	}
 
 	opts := writetarget.WriteTargetOpts{
@@ -133,8 +133,6 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		ChainInfo:            chainInfo,
 		Beholder:             beholder,
 		ChainService:         chain,
-		ContractReader:       cr,
-		EVMService:           evm,
 		ConfigValidateFn:     evaluate,
 		NodeAddress:          config.FromAddress().String(),
 		ForwarderAddress:     config.ForwarderAddress().String(),
