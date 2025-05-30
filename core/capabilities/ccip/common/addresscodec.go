@@ -51,7 +51,7 @@ func (ac AddressCodec) AddressStringToBytes(addr string, chainSelector cciptypes
 	return codec.AddressStringToBytes(addr)
 }
 
-// OracleIDAsAddressBytes returns valid random address bytes for a given chain selector.
+// OracleIDAsAddressBytes returns valid address bytes for a given chain selector and oracle ID.
 func (ac AddressCodec) OracleIDAsAddressBytes(oracleID uint8, chainSelector cciptypes.ChainSelector) ([]byte, error) {
 	family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
 	if err != nil {

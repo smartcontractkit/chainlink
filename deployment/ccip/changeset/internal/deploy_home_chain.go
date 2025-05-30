@@ -193,11 +193,20 @@ func validateOCR3Config(chainSel uint64, configForOCR3 ccip_home.CCIPHomeOCR3Con
 		if len(configForOCR3.Nodes) < 3*int(chainConfig.FChain)+1 {
 			return fmt.Errorf("number of nodes %d is less than 3 * fChain + 1 %d", len(configForOCR3.Nodes), 3*int(chainConfig.FChain)+1)
 		}
-		//  transmitters.length should be validated such that it meets the 3 * fChain + 1 requirement
+
+		// check that we have enough transmitters for the destination chain.
+		// note that this is done onchain, but we'll do it here for good measure to avoid reverts.
+		// see https://github.com/smartcontractkit/chainlink-ccip/blob/8529b8c89093d0cd117b73645ea64b2d2a8092f4/chains/evm/contracts/capability/CCIPHome.sol#L511-L514.
 		minTransmitterReq := 3*int(chainConfig.FChain) + 1
-		if len(configForOCR3.Nodes) < minTransmitterReq {
-			return fmt.Errorf("no of transmitters %d is less than 3 * fChain + 1 %d, chain %d",
-				len(configForOCR3.Nodes), minTransmitterReq, chainSel)
+		var numNonzeroTransmitters int
+		for _, node := range configForOCR3.Nodes {
+			if len(node.TransmitterKey) > 0 {
+				numNonzeroTransmitters++
+			}
+		}
+		if numNonzeroTransmitters < minTransmitterReq {
+			return fmt.Errorf("number of transmitters (%d) is less than 3 * fChain + 1 (%d), chain selector %d",
+				numNonzeroTransmitters, minTransmitterReq, chainSel)
 		}
 	}
 

@@ -2,12 +2,12 @@ package cciptesthelpertypes
 
 import (
 	"fmt"
-	"maps"
 	"math/rand"
 	"slices"
 	"sort"
 
 	"golang.org/x/exp/constraints"
+	"golang.org/x/exp/maps"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
@@ -173,46 +173,30 @@ func (r *RandomTopology) getNodesForChain(gen *rand.Rand, fChain int, nonBootstr
 
 func (r *RandomTopology) getChainToFChainMapping(gen *rand.Rand, chainSelectors []cciptypes.ChainSelector) (map[cciptypes.ChainSelector]int, error) {
 	chainToFChain := make(map[cciptypes.ChainSelector]int)
-	fChainToNumChainsCopy := make(map[int]int)
-	maps.Copy(fChainToNumChainsCopy, r.FChainToNumChains)
 
-	// The chainSelectors are processed in a fixed order.
-	for _, chainSelector := range chainSelectors {
-		// Collect current available fChain keys from the map.
-		fChainToNumChainsKeys := slices.Collect(maps.Keys(fChainToNumChainsCopy))
+	// for deterministic looping over the fChainToNumChains map.
+	keys := maps.Keys(r.FChainToNumChains)
+	sort.Ints(keys)
 
-		// Sort the keys to ensure deterministic selection given a random number.
-		// This is crucial because map iteration order is not guaranteed.
-		sort.Ints(fChainToNumChainsKeys)
-
-		// This check ensures we don't proceed if validate() failed to ensure enough fChains are available.
-		// Or if the map FChainToNumChains was empty to begin with for non-empty chainSelectors.
-		if len(fChainToNumChainsKeys) == 0 {
-			// This implies a mismatch between len(chainSelectors) and the sum of counts in FChainToNumChains,
-			// which should have been caught by r.validate(). If r.validate() passed and we still hit this,
-			// it indicates an issue with how FChainToNumChains was constructed relative to chainSelectors.
-			// For an empty chainSelectors slice, this loop won't run, which is correct.
-			return nil, fmt.Errorf(
-				"getChainToFChainMapping: ran out of fChain values to assign for selector %v. Available keys empty. FChainToNumChainsCopy: %v",
-				chainSelector, fChainToNumChainsCopy,
-			)
+	var fChains []int
+	for _, fChain := range keys {
+		numChains := r.FChainToNumChains[fChain]
+		for range numChains {
+			fChains = append(fChains, fChain)
 		}
+	}
 
-		// Select a random fChain value from the now-sorted keys.
-		idx := gen.Intn(len(fChainToNumChainsKeys))
-		fChain := fChainToNumChainsKeys[idx]
+	// this is checked in the validate function, but we'll check it again here for good measure.
+	if len(fChains) != len(chainSelectors) {
+		return nil, fmt.Errorf("the number of fChains must be equal to the number of chainSelectors, len(fChains) = %d, len(chainSelectors) = %d", len(fChains), len(chainSelectors))
+	}
 
-		// Assign the fChain value to the chain selector.
-		chainToFChain[chainSelector] = fChain
+	// shuffle the fChains to ensure that the order is random.
+	gen.Shuffle(len(fChains), func(i, j int) { fChains[i], fChains[j] = fChains[j], fChains[i] })
 
-		// Decrement the number of chains that can be assigned this fChain value.
-		fChainToNumChainsCopy[fChain]--
-
-		// If this fChain value has no more chains to be assigned to, remove it from the copy map.
-		// It will naturally be absent from fChainToNumChainsKeys in the next iteration's Collect.
-		if fChainToNumChainsCopy[fChain] == 0 {
-			delete(fChainToNumChainsCopy, fChain)
-		}
+	// assign the fChains to the chainSelectors to get a randomized assignment.
+	for i, chainSelector := range chainSelectors {
+		chainToFChain[chainSelector] = fChains[i]
 	}
 
 	return chainToFChain, nil

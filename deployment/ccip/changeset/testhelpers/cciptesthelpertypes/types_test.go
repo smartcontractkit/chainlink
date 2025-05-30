@@ -10,6 +10,14 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
+func chainSelectorSlice(n int) []cciptypes.ChainSelector {
+	selectors := make([]cciptypes.ChainSelector, n)
+	for i := range selectors {
+		selectors[i] = cciptypes.ChainSelector(i + 1000)
+	}
+	return selectors
+}
+
 func TestRandomTopology_getChainToFChainMapping(t *testing.T) {
 	type fields struct {
 		FChainToNumChains map[int]int
@@ -33,7 +41,7 @@ func TestRandomTopology_getChainToFChainMapping(t *testing.T) {
 				Seed:              12345,
 			},
 			args: args{
-				chainSelectors: []cciptypes.ChainSelector{100, 200, 300},
+				chainSelectors: chainSelectorSlice(3),
 			},
 			wantFChainDistribution: map[int]int{1: 2, 2: 1},
 			wantErr:                false,
@@ -48,7 +56,8 @@ func TestRandomTopology_getChainToFChainMapping(t *testing.T) {
 				chainSelectors: []cciptypes.ChainSelector{},
 			},
 			wantFChainDistribution: map[int]int{},
-			wantErr:                false,
+			wantErr:                true,
+			wantErrMsgSubstring:    "the number of fChains must be equal to the number of chainSelectors, len(fChains) = 1, len(chainSelectors) = 0",
 		},
 		{
 			name: "all chains with same fChain value",
@@ -57,7 +66,7 @@ func TestRandomTopology_getChainToFChainMapping(t *testing.T) {
 				Seed:              42,
 			},
 			args: args{
-				chainSelectors: []cciptypes.ChainSelector{10, 20, 30},
+				chainSelectors: chainSelectorSlice(3),
 			},
 			wantFChainDistribution: map[int]int{1: 3},
 			wantErr:                false,
@@ -69,9 +78,21 @@ func TestRandomTopology_getChainToFChainMapping(t *testing.T) {
 				Seed:              987,
 			},
 			args: args{
-				chainSelectors: []cciptypes.ChainSelector{1000, 2000, 3000, 4000},
+				chainSelectors: chainSelectorSlice(4),
 			},
 			wantFChainDistribution: map[int]int{1: 1, 2: 2, 3: 1},
+			wantErr:                false,
+		},
+		{
+			name: "more skewed fChain distribution",
+			fields: fields{
+				FChainToNumChains: map[int]int{3: 1, 4: 100}, // 1 chain with fChain 3, 100 chains with fChain 4
+				Seed:              987,
+			},
+			args: args{
+				chainSelectors: chainSelectorSlice(101), // 101 chains in total
+			},
+			wantFChainDistribution: map[int]int{3: 1, 4: 100},
 			wantErr:                false,
 		},
 		{
@@ -82,10 +103,10 @@ func TestRandomTopology_getChainToFChainMapping(t *testing.T) {
 			},
 			args: args{
 				// 2 chain selectors, but only 1 assignment configured above
-				chainSelectors: []cciptypes.ChainSelector{500, 600},
+				chainSelectors: chainSelectorSlice(2),
 			},
 			wantErr:             true,
-			wantErrMsgSubstring: "ran out of fChain values to assign for selector",
+			wantErrMsgSubstring: "the number of fChains must be equal to the number of chainSelectors, len(fChains) = 1, len(chainSelectors) = 2",
 		},
 	}
 	for _, tt := range tests {
@@ -416,7 +437,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 			},
 			args: args{
 				nonBootstrapP2pIDs: generateTestP2PIDs(10), // Needs max 7 nodes for one chain, plus others
-				chainSelectors:     []cciptypes.ChainSelector{100, 200},
+				chainSelectors:     chainSelectorSlice(2),
 				homeChainSelector:  homeChainSelector,
 			},
 			wantErr:         false,
@@ -430,7 +451,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 			},
 			args: args{
 				nonBootstrapP2pIDs: generateTestP2PIDs(MinRoleDONSize - 1), // e.g., 3 nodes
-				chainSelectors:     []cciptypes.ChainSelector{100},
+				chainSelectors:     chainSelectorSlice(1),
 				homeChainSelector:  homeChainSelector,
 			},
 			wantErr:             true,
@@ -444,7 +465,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 			},
 			args: args{
 				nonBootstrapP2pIDs: generateTestP2PIDs(5),
-				chainSelectors:     []cciptypes.ChainSelector{100}, // only 1 provided
+				chainSelectors:     chainSelectorSlice(1), // only 1 provided
 				homeChainSelector:  homeChainSelector,
 			},
 			wantErr:             true,
@@ -458,11 +479,11 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 			},
 			args: args{
 				nonBootstrapP2pIDs: generateTestP2PIDs(6), // only 6 nodes, MinRoleDONSize is met (4)
-				chainSelectors:     []cciptypes.ChainSelector{100},
+				chainSelectors:     chainSelectorSlice(1),
 				homeChainSelector:  homeChainSelector,
 			},
 			wantErr:             true,
-			wantErrMsgSubstring: fmt.Sprintf("failed to get nodes for chain %s: the number of non-bootstrap ccip nodes must be at least %d, got %d", cciptypes.ChainSelector(100), NChain(2), 6),
+			wantErrMsgSubstring: fmt.Sprintf("failed to get nodes for chain %s: the number of non-bootstrap ccip nodes must be at least %d, got %d", cciptypes.ChainSelector(1000), NChain(2), 6),
 		},
 		{
 			name: "empty chain selectors, valid FChainToNumChains (empty)",
@@ -486,7 +507,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 			},
 			args: args{
 				nonBootstrapP2pIDs: generateTestP2PIDs(8),
-				chainSelectors:     []cciptypes.ChainSelector{100, 200},
+				chainSelectors:     chainSelectorSlice(2),
 				homeChainSelector:  homeChainSelector,
 			},
 			wantErr:         false,
