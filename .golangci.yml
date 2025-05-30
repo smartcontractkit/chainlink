@@ -192,8 +192,3 @@ formatters:
         - github.com/smartcontractkit/chainlink
   exclusions:
     generated: lax
-    paths:
-      - evm/
-      - third_party$
-      - builtin$
-      - examples$

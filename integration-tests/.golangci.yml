@@ -167,14 +167,10 @@ linters:
     rules:
       - linters:
           - gosec
-        text: '^G404: Use of weak random number generator'
+        text: "^G404: Use of weak random number generator"
       - linters:
           - govet
         text: declaration of "err" shadows
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
 formatters:
   enable:
     - goimports
@@ -182,9 +178,3 @@ formatters:
     goimports:
       local-prefixes:
         - github.com/smartcontractkit/chainlink
-  exclusions:
-    generated: lax
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
