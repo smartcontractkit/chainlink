@@ -176,9 +176,11 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		tc.T.Errorf("unsupported source chain: %v", family)
 	}
 
+	onRampAddr, err := tc.OnchainState.GetOnRampAddressBytes(tc.SourceChain)
+	require.NoError(t, err)
 	// Ensure CCIPMessageSent event filter is registered
 	// Sending message too early could result in LogPoller missing the send event
-	err = testhelpers.WaitForEventFilterRegistration(t, tc.Env.Offchain, tc.SourceChain, consts.EventNameCCIPMessageSent)
+	err = testhelpers.WaitForEventFilterRegistration(t, tc.Env.Offchain, tc.SourceChain, consts.EventNameCCIPMessageSent, onRampAddr)
 	require.NoError(t, err)
 
 	t.Logf("%s filter registered", consts.EventNameCCIPMessageSent)

@@ -38,6 +38,7 @@ import (
 	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	sollptesting "github.com/smartcontractkit/chainlink-solana/pkg/solana/logpoller/testing"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -48,6 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	v2toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	evmlptesting "github.com/smartcontractkit/chainlink-evm/pkg/logpoller/testing"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
@@ -101,7 +103,7 @@ func (n Node) ReplayLogs(ctx context.Context, chains map[uint64]uint64) error {
 	return nil
 }
 
-func (n Node) IsLogFilterRegistered(ctx context.Context, chainSel uint64, eventName string) (bool, error) {
+func (n Node) IsLogFilterRegistered(ctx context.Context, chainSel uint64, eventName string, address []byte) (bool, error) {
 	family, err := chainsel.GetSelectorFamily(chainSel)
 	if err != nil {
 		return false, err
@@ -111,21 +113,19 @@ func (n Node) IsLogFilterRegistered(ctx context.Context, chainSel uint64, eventN
 		return false, err
 	}
 
-	var query string
-	var exists int
+	var exists bool
 	switch family {
 	case chainsel.FamilyEVM:
-		query = `SELECT COUNT(1) FROM evm.log_poller_filters WHERE evm_chain_id = $1 AND event = $2 LIMIT 1`
-		eventSig := common.HexToHash(eventName) // event name is really common.Hash event sig so need to convert back
-		err = n.App.GetDB().GetContext(ctx, &exists, query, chainID, eventSig.Bytes())
+		orm := evmlptesting.NewTestORM(n.App.GetDB())
+		exists, err = orm.HasFilterByEventSig(ctx, chainID, common.HexToHash(eventName), address)
 	case chainsel.FamilySolana:
-		query = `SELECT COUNT(1) FROM solana.log_poller_filters WHERE is_deleted = false AND chain_id = $1 AND event_name = $2 LIMIT 1`
-		err = n.App.GetDB().GetContext(ctx, &exists, query, chainID, eventName)
+		orm := sollptesting.NewTestORM(n.App.GetDB())
+		exists, err = orm.HasFilterByEventName(ctx, chainID, eventName, address)
 	default:
 		return false, fmt.Errorf("unsupported chain family; %v", family)
 	}
 
-	if err != nil || exists == 0 {
+	if err != nil || !exists {
 		return false, err
 	}
 	return true, nil

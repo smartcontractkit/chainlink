@@ -185,7 +185,7 @@ func ReplayLogs(t *testing.T, oc cldf.OffchainClient, replayBlocks map[uint64]ui
 	}
 }
 
-func WaitForEventFilterRegistration(t *testing.T, oc cldf.OffchainClient, chainSel uint64, eventName string) error {
+func WaitForEventFilterRegistration(t *testing.T, oc cldf.OffchainClient, chainSel uint64, eventName string, onRampAddr []byte) error {
 	family, err := chainsel.GetSelectorFamily(chainSel)
 	if err != nil {
 		return err
@@ -214,7 +214,7 @@ func WaitForEventFilterRegistration(t *testing.T, oc cldf.OffchainClient, chainS
 	}
 
 	require.Eventually(t, func() bool {
-		registered, err := isLogFilterRegistered(t, oc, chainSel, eventID)
+		registered, err := isLogFilterRegistered(t, oc, chainSel, eventID, onRampAddr)
 		require.NoError(t, err)
 		return registered
 	}, 10*time.Minute, 5*time.Second)
@@ -222,12 +222,12 @@ func WaitForEventFilterRegistration(t *testing.T, oc cldf.OffchainClient, chainS
 	return nil
 }
 
-func isLogFilterRegistered(t *testing.T, oc cldf.OffchainClient, chainSel uint64, eventName string) (bool, error) {
+func isLogFilterRegistered(t *testing.T, oc cldf.OffchainClient, chainSel uint64, eventName string, address []byte) (bool, error) {
 	var registered bool
 	var err error
 	switch oc := oc.(type) {
 	case *memory.JobClient:
-		registered, err = oc.IsLogFilterRegistered(t.Context(), chainSel, eventName)
+		registered, err = oc.IsLogFilterRegistered(t.Context(), chainSel, eventName, address)
 	default:
 		return false, fmt.Errorf("unsupported offchain client type %T", oc)
 	}
@@ -1887,9 +1887,11 @@ func Transfer(
 		t.Errorf("unsupported source chain: %v", family)
 	}
 
+	onRampAddr, err := state.GetOnRampAddressBytes(sourceChain)
+	require.NoError(t, err)
 	// Ensure CCIPMessageSent event filter is registered
 	// Sending message too early could result in LogPoller missing the send event
-	err = WaitForEventFilterRegistration(t, env.Offchain, sourceChain, consts.EventNameCCIPMessageSent)
+	err = WaitForEventFilterRegistration(t, env.Offchain, sourceChain, consts.EventNameCCIPMessageSent, onRampAddr)
 	require.NoError(t, err)
 
 	t.Logf("%s filter registered", consts.EventNameCCIPMessageSent)
