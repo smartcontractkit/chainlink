@@ -273,9 +273,9 @@ func NewMemoryEnvironmentFromChainsNodes(
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,
 		]().Seal(),
-		chains,
-		solChains,
-		aptosChains,
+		nil,
+		nil,
+		nil,
 		nodeIDs, // Note these have the p2p_ prefix.
 		NewMemoryJobClient(nodes),
 		ctx,
@@ -331,8 +331,8 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,
 		]().Seal(),
-		chains,
-		solChains,
+		nil, // this field will be deleted in future since env.BlockChains will now contain all the chains.
+		nil, // this field will be deleted in future since env.BlockChains will now contain all the chains.
 		nil, // this field will be deleted in future since env.BlockChains will now contain all the chains.
 		nodeIDs,
 		NewMemoryJobClient(nodes),

@@ -17,7 +17,7 @@ func ValidateCacheForChain(env cldf.Environment, chainSelector uint64, cacheAddr
 	if err != nil {
 		return fmt.Errorf("failed to load on chain state %w", err)
 	}
-	_, ok := env.Chains[chainSelector]
+	_, ok := env.BlockChains.EVMChains()[chainSelector]
 	if !ok {
 		return errors.New("chain not found in environment")
 	}
@@ -50,7 +50,7 @@ func ValidateCacheForAptosChain(env cldf.Environment, chainSelector uint64, cach
 	if err != nil {
 		return fmt.Errorf("failed to load on chain state %w", err)
 	}
-	_, ok := env.AptosChains[chainSelector]
+	_, ok := env.BlockChains.AptosChains()[chainSelector]
 	if !ok {
 		return errors.New("chain not found in environment")
 	}

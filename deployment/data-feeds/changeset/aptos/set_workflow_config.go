@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
@@ -17,7 +18,7 @@ var SetWorkflowConfigChangeset = cldf.CreateChangeSet(setWorkflowConfigLogic, se
 
 func setWorkflowConfigLogic(env cldf.Environment, c types.SetRegistryWorkflowConfig) (cldf.ChangesetOutput, error) {
 	state, _ := changeset.LoadAptosOnchainState(env)
-	chain := env.AptosChains[c.ChainSelector]
+	chain := env.BlockChains.AptosChains()[c.ChainSelector]
 	chainState := state.AptosChains[c.ChainSelector]
 	cacheAccountAddress := aptos.AccountAddress{}
 	_ = cacheAccountAddress.ParseStringRelaxed(c.CacheAddress)

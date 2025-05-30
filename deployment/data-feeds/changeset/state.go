@@ -12,6 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
@@ -59,7 +61,7 @@ func LoadAptosOnchainState(e cldf.Environment) (DataFeedsOnChainState, error) {
 		AptosChains: make(map[uint64]DataFeedsAptosChainState),
 	}
 
-	for chainSelector, chain := range e.AptosChains {
+	for chainSelector, chain := range e.BlockChains.AptosChains() {
 		records := e.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chainSelector))
 		chainState, err := LoadAptosChainState(e.Logger, chain, records)
 		if err != nil {
@@ -74,7 +76,7 @@ func LoadOnchainState(e cldf.Environment) (DataFeedsOnChainState, error) {
 	state := DataFeedsOnChainState{
 		Chains: make(map[uint64]DataFeedsChainState),
 	}
-	for chainSelector, chain := range e.Chains {
+	for chainSelector, chain := range e.BlockChains.EVMChains() {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			// Chain not found in address book, initialize empty
@@ -142,7 +144,7 @@ func LoadChainState(logger logger.Logger, chain cldf_evm.Chain, addresses map[st
 }
 
 // LoadAptosChainState Loads all state for aptos chain into state
-func LoadAptosChainState(logger logger.Logger, chain cldf.AptosChain, addresses []datastore.AddressRef) (*DataFeedsAptosChainState, error) {
+func LoadAptosChainState(logger logger.Logger, chain cldf_aptos.Chain, addresses []datastore.AddressRef) (*DataFeedsAptosChainState, error) {
 	var state DataFeedsAptosChainState
 
 	state.DataFeeds = make(map[aptos.AccountAddress]*modulefeeds.DataFeeds)
@@ -165,7 +167,7 @@ func LoadAptosChainState(logger logger.Logger, chain cldf.AptosChain, addresses 
 func (s DataFeedsOnChainState) View(chains []uint64, e cldf.Environment) (map[string]view.ChainView, error) {
 	m := make(map[string]view.ChainView)
 	for _, chainSelector := range chains {
-		chainInfo, err := cldf.ChainInfo(chainSelector)
+		chainInfo, err := cldf_chain_utils.ChainInfo(chainSelector)
 		if err != nil {
 			return m, err
 		}

@@ -1339,7 +1339,7 @@ func LockReleaseLiquidityOps(e cldf.Environment, cfg LockReleaseLiquidityOpsConf
 				e.GetContext(),
 				chain.Client,
 				cfg.LiquidityCfg.RemoteTokenAccount,
-				cldf.SolDefaultCommitment)
+				cldf_solana.SolDefaultCommitment)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token balance: %w", err)
 			}

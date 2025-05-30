@@ -110,7 +110,7 @@ func NewTokenInstruction(chain cldf_solana.Chain, cfg DeploySolanaTokenConfig) (
 		tokenAdminPubKey,
 		cfg.TokenDecimals,
 		chain.Client,
-		cldf.SolDefaultCommitment,
+		cldf_solana.SolDefaultCommitment,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -189,7 +189,7 @@ func (cfg MintSolanaTokenConfig) Validate(e cldf.Environment) error {
 	}
 
 	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), tokenAddress, &rpc.GetAccountInfoOpts{
-		Commitment: cldf.SolDefaultCommitment,
+		Commitment: cldf_solana.SolDefaultCommitment,
 	})
 	if err != nil {
 		fmt.Println("error getting account info", err)
