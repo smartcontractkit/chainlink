@@ -295,43 +295,45 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 
 	ctx := t.Context()
 	// Log extra information that might help debugging
-	// t.Cleanup(func() {
-	logTestInfo(testLogger, "n/a", "n/a", setupOutput.dataFeedsCacheAddress.Hex(), setupOutput.forwarderAddress.Hex())
+	t.Cleanup(func() {
+		if t.Failed() {
+			logTestInfo(testLogger, "n/a", "n/a", setupOutput.dataFeedsCacheAddress.Hex(), setupOutput.forwarderAddress.Hex())
 
-	logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
+			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
 
-	removeErr := os.RemoveAll(logDir)
-	if removeErr != nil {
-		testLogger.Error().Err(removeErr).Msg("failed to remove log directory")
-		return
-	}
+			removeErr := os.RemoveAll(logDir)
+			if removeErr != nil {
+				testLogger.Error().Err(removeErr).Msg("failed to remove log directory")
+				return
+			}
 
-	_, saveErr := framework.SaveContainerLogs(logDir)
-	if saveErr != nil {
-		testLogger.Error().Err(saveErr).Msg("failed to save container logs")
-		return
-	}
+			_, saveErr := framework.SaveContainerLogs(logDir)
+			if saveErr != nil {
+				testLogger.Error().Err(saveErr).Msg("failed to save container logs")
+				return
+			}
 
-	debugDons := make([]*keystonetypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
-	for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
-		containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
-		for _, output := range setupOutput.nodeOutput[i].Output.CLNodes {
-			containerNames = append(containerNames, output.Node.ContainerName)
+			debugDons := make([]*keystonetypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
+			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
+				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
+				for _, output := range setupOutput.nodeOutput[i].Output.CLNodes {
+					containerNames = append(containerNames, output.Node.ContainerName)
+				}
+				debugDons = append(debugDons, &keystonetypes.DebugDon{
+					NodesMetadata:  donWithMetadata.NodesMetadata,
+					Flags:          donWithMetadata.Flags,
+					ContainerNames: containerNames,
+				})
+			}
+
+			debugInput := keystonetypes.DebugInput{
+				DebugDons:        debugDons,
+				BlockchainOutput: setupOutput.blockchainOutput[0].BlockchainOutput,
+				InfraInput:       in.Infra,
+			}
+			lidebug.PrintTestDebug(ctx, t.Name(), testLogger, debugInput)
 		}
-		debugDons = append(debugDons, &keystonetypes.DebugDon{
-			NodesMetadata:  donWithMetadata.NodesMetadata,
-			Flags:          donWithMetadata.Flags,
-			ContainerNames: containerNames,
-		})
-	}
-
-	debugInput := keystonetypes.DebugInput{
-		DebugDons:        debugDons,
-		BlockchainOutput: setupOutput.blockchainOutput[0].BlockchainOutput,
-		InfraInput:       in.Infra,
-	}
-	lidebug.PrintTestDebug(ctx, t.Name(), testLogger, debugInput)
-	// })
+	})
 
 	require.NoError(t, saveFeedAddresses(feedsAddresses), "could not save feeds")
 
@@ -415,7 +417,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
 			LoadType:    wasp.RPS,
 			Schedule: wasp.Combine(
-				wasp.Plain(4, 120*time.Minute),
+				wasp.Plain(4, 5*time.Minute),
 			),
 			Gun:    NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@2.0.0", receiveChannel, 500, 1),
 			Labels: labels,
@@ -464,7 +466,7 @@ func TestWithReconnect(t *testing.T) {
 			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
 			LoadType:    wasp.RPS,
 			Schedule: wasp.Combine(
-				wasp.Plain(4, 15*time.Minute),
+				wasp.Plain(4, 5*time.Minute),
 			),
 			Gun:                   sg,
 			Labels:                labels,

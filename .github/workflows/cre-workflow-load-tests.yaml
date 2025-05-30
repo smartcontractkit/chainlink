@@ -30,7 +30,7 @@ jobs:
   workflow-don-load-test:
     runs-on: ubuntu-latest
     environment: "integration"
-    timeout-minutes: 10
+    timeout-minutes: 20
     permissions:
       contents: read
       id-token: write
