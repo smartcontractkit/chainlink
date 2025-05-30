@@ -9,6 +9,8 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	solToken "github.com/gagliardetto/solana-go/programs/token"
@@ -547,11 +549,11 @@ func doTestBilling(t *testing.T, mcms bool) {
 	)
 	require.NoError(t, err)
 	// check that the billing account has the right amount
-	_, billingResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, billingSignerATA, cldf.SolDefaultCommitment)
+	_, billingResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, billingSignerATA, cldf_solana.SolDefaultCommitment)
 	require.NoError(t, err)
 	require.Equal(t, 1000, billingResult)
 	feeAggregatorATA, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.TokenProgramID, tokenAddress, feeAggregator)
-	_, feeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, feeAggregatorATA, cldf.SolDefaultCommitment)
+	_, feeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, feeAggregatorATA, cldf_solana.SolDefaultCommitment)
 	require.NoError(t, err)
 	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
@@ -566,10 +568,10 @@ func doTestBilling(t *testing.T, mcms bool) {
 	},
 	)
 	require.NoError(t, err)
-	_, newBillingResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, billingSignerATA, cldf.SolDefaultCommitment)
+	_, newBillingResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, billingSignerATA, cldf_solana.SolDefaultCommitment)
 	require.NoError(t, err)
 	require.Equal(t, billingResult-1000, newBillingResult)
-	_, newFeeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, feeAggregatorATA, cldf.SolDefaultCommitment)
+	_, newFeeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, feeAggregatorATA, cldf_solana.SolDefaultCommitment)
 	require.NoError(t, err)
 	require.Equal(t, feeAggResult+1000, newFeeAggResult)
 }

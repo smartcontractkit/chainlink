@@ -37,8 +37,9 @@ func UpdateAllowedDons(env cldf.Environment, req *UpdateAllowedDonsRequest) (cld
 		return cldf.ChangesetOutput{}, err
 	}
 
+	evmChains := env.BlockChains.EVMChains()
 	resp, err := changeset.GetContractSets(env.Logger, &changeset.GetContractSetsRequest{
-		Chains:      env.Chains,
+		Chains:      evmChains,
 		AddressBook: env.ExistingAddresses,
 	})
 	if err != nil {
@@ -51,7 +52,7 @@ func UpdateAllowedDons(env cldf.Environment, req *UpdateAllowedDonsRequest) (cld
 	}
 	registry := cs.WorkflowRegistry
 
-	chain, ok := env.Chains[req.RegistryChainSel]
+	chain, ok := evmChains[req.RegistryChainSel]
 	if !ok {
 		return cldf.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}

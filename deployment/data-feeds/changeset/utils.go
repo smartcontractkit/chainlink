@@ -30,6 +30,22 @@ func FeedIDsToBytes16(feedIDs []string) ([][16]byte, error) {
 	return dataIDs, nil
 }
 
+func FeedIDsToBytes(feedIDs []string) ([][]byte, error) {
+	dataIDs16, err := FeedIDsToBytes16(feedIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	dataSlices := make([][]byte, len(dataIDs16))
+	for i, v := range dataIDs16 {
+		b := make([]byte, 16)
+		copy(b, v[:])
+		dataSlices[i] = b
+	}
+
+	return dataSlices, nil
+}
+
 func ConvertHexToBytes16(hexStr string) ([16]byte, error) {
 	if hexStr[:2] == "0x" {
 		hexStr = hexStr[2:] // Remove "0x" prefix

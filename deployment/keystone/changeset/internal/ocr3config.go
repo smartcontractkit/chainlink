@@ -25,6 +25,7 @@ import (
 
 	kocr3 "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -351,7 +352,7 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets cldf.OCRSecret
 
 type configureOCR3Request struct {
 	cfg        *OracleConfig
-	chain      cldf.Chain
+	chain      cldf_evm.Chain
 	contract   *kocr3.OCR3Capability
 	nodes      []deployment.Node
 	dryRun     bool

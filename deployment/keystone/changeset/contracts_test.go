@@ -1,6 +1,8 @@
 package changeset_test
 
 import (
+	"maps"
+	"slices"
 	"testing"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -11,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -115,15 +116,16 @@ func TestGetOwnerTypeAndVersion(t *testing.T) {
 
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1, // nodes unused but required in config
-		Chains: 3,
+		Chains: 1,
 	}
 
 	t.Run("finds owner in address book", func(t *testing.T) {
 		t.Parallel()
 
 		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		chain := env.Chains[env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))[0]]
+		evmChains := env.BlockChains.EVMChains()
+		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
+
 		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -161,7 +163,9 @@ func TestGetOwnerTypeAndVersion(t *testing.T) {
 		t.Parallel()
 
 		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		chain := env.Chains[env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))[0]]
+		evmChains := env.BlockChains.EVMChains()
+		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
+
 		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -192,15 +196,16 @@ func TestNewOwnable(t *testing.T) {
 
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
-		Chains: 3,
+		Chains: 1,
 	}
 
 	t.Run("creates OwnedContract for non-MCMS owner", func(t *testing.T) {
 		t.Parallel()
 
 		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		chain := env.Chains[env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))[0]]
+		evmChains := env.BlockChains.EVMChains()
+		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
+
 		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -244,7 +249,9 @@ func TestNewOwnable(t *testing.T) {
 		t.Parallel()
 
 		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		chain := env.Chains[env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))[0]]
+		evmChains := env.BlockChains.EVMChains()
+		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
+
 		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -287,7 +294,9 @@ func TestNewOwnable(t *testing.T) {
 		t.Parallel()
 
 		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		chain := env.Chains[env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))[0]]
+		evmChains := env.BlockChains.EVMChains()
+		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
+
 		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
 		require.NoError(t, err)
 		require.NotNil(t, resp)

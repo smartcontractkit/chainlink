@@ -328,9 +328,9 @@ func (c CCIPChainState) ValidateOnRamp(
 				c.OnRamp.Address().Hex(), c.FeeAggregator.Hex(), dynamicCfg.FeeAggregator.Hex())
 		}
 	} else {
-		if dynamicCfg.FeeAggregator != e.Chains[selector].DeployerKey.From {
+		if dynamicCfg.FeeAggregator != e.BlockChains.EVMChains()[selector].DeployerKey.From {
 			return fmt.Errorf("onRamp %s feeAggregator mismatch in dynamic config: expected deployer key %s, got %s",
-				c.OnRamp.Address().Hex(), e.Chains[selector].DeployerKey.From.Hex(), dynamicCfg.FeeAggregator.Hex())
+				c.OnRamp.Address().Hex(), e.BlockChains.EVMChains()[selector].DeployerKey.From.Hex(), dynamicCfg.FeeAggregator.Hex())
 		}
 	}
 

@@ -17,7 +17,7 @@ var RemoveFeedChangeset = cldf.CreateChangeSet(removeFeedLogic, removeFeedPrecon
 
 func removeFeedLogic(env cldf.Environment, c types.RemoveFeedConfig) (cldf.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)
-	chain := env.Chains[c.ChainSelector]
+	chain := env.BlockChains.EVMChains()[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
 	contract := chainState.DataFeedsCache[c.CacheAddress]
 
@@ -73,7 +73,7 @@ func removeFeedLogic(env cldf.Environment, c types.RemoveFeedConfig) (cldf.Chang
 }
 
 func removeFeedPrecondition(env cldf.Environment, c types.RemoveFeedConfig) error {
-	_, ok := env.Chains[c.ChainSelector]
+	_, ok := env.BlockChains.EVMChains()[c.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}

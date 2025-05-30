@@ -110,7 +110,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 	evmChains := []uint64{}
 	for _, chain := range allChains {
-		if _, ok := e.Env.Chains[chain]; ok {
+		if _, ok := e.Env.BlockChains.EVMChains()[chain]; ok {
 			evmChains = append(evmChains, chain)
 		}
 	}
@@ -128,7 +128,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
-				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					testhelpers.TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
 				},
@@ -169,9 +169,9 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, sentEvent)
-	destChain := e.Env.Chains[dest]
+	destChain := e.Env.BlockChains.EVMChains()[dest]
 	require.NoError(t, err)
-	v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
+	v1_5testhelpers.WaitForCommit(t, e.Env.BlockChains.EVMChains()[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
 		sentEvent.Message.SequenceNumber)
 }
 
@@ -236,7 +236,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 	evmChains := []uint64{}
 	for _, chain := range allChains {
-		if _, ok := e.Env.Chains[chain]; ok {
+		if _, ok := e.Env.BlockChains.EVMChains()[chain]; ok {
 			evmChains = append(evmChains, chain)
 		}
 	}
@@ -254,7 +254,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
-				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					testhelpers.TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
 				},
@@ -304,9 +304,9 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NotNil(t, sentEvent)
-	destChain := e.Env.Chains[dest]
+	destChain := e.Env.BlockChains.EVMChains()[dest]
 	require.NoError(t, err)
-	v1_5testhelpers.WaitForNoCommit(t, e.Env.Chains[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
+	v1_5testhelpers.WaitForNoCommit(t, e.Env.BlockChains.EVMChains()[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
 		sentEvent.Message.SequenceNumber)
 }
 
@@ -372,7 +372,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 	evmChains := []uint64{}
 	for _, chain := range allChains {
-		if _, ok := e.Env.Chains[chain]; ok {
+		if _, ok := e.Env.BlockChains.EVMChains()[chain]; ok {
 			evmChains = append(evmChains, chain)
 		}
 	}
@@ -390,7 +390,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
-				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					testhelpers.TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
 				},
@@ -441,13 +441,13 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NotNil(t, sentEvent)
-	destChain := e.Env.Chains[dest]
-	v1_5testhelpers.WaitForNoCommit(t, e.Env.Chains[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
+	destChain := e.Env.BlockChains.EVMChains()[dest]
+	v1_5testhelpers.WaitForNoCommit(t, e.Env.BlockChains.EVMChains()[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
 		sentEvent.Message.SequenceNumber)
 
 	commitFound := make(chan struct{})
 	go func() {
-		v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
+		v1_5testhelpers.WaitForCommit(t, e.Env.BlockChains.EVMChains()[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
 			sentEvent.Message.SequenceNumber)
 		commitFound <- struct{}{}
 	}()
@@ -595,12 +595,13 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, sentEvent)
-	destChain := e.Env.Chains[dest]
+	evmChains := e.Env.BlockChains.EVMChains()
+	destChain := evmChains[dest]
 	destStartBlock, err := destChain.Client.HeaderByNumber(context.Background(), nil)
 	require.NoError(t, err)
-	v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src2], destChain, state.MustGetEVMChainState(dest).CommitStore[src2],
+	v1_5testhelpers.WaitForCommit(t, evmChains[src2], destChain, state.MustGetEVMChainState(dest).CommitStore[src2],
 		sentEvent.Message.SequenceNumber)
-	v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src2], destChain, state.MustGetEVMChainState(dest).EVM2EVMOffRamp[src2],
+	v1_5testhelpers.WaitForExecute(t, evmChains[src2], destChain, state.MustGetEVMChainState(dest).EVM2EVMOffRamp[src2],
 		[]uint64{sentEvent.Message.SequenceNumber}, destStartBlock.Number.Uint64())
 
 	// now that all 1.5 lanes work transfer ownership of the contracts to MCMS
@@ -700,7 +701,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	require.GreaterOrEqual(t, len(e.Users[src1]), 2)
 	testhelpers.ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
 	startBlocks := make(map[uint64]*uint64)
-	latesthdr, err := e.Env.Chains[dest].Client.HeaderByNumber(testcontext.Get(t), nil)
+	latesthdr, err := e.Env.BlockChains.EVMChains()[dest].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	block := latesthdr.Number.Uint64()
 	startBlocks[dest] = &block
@@ -813,7 +814,8 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, sentEvent)
 
-	v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src2], e.Env.Chains[dest], state.MustGetEVMChainState(dest).EVM2EVMOffRamp[src2],
+	evmChains = e.Env.BlockChains.EVMChains()
+	v1_5testhelpers.WaitForExecute(t, evmChains[src2], evmChains[dest], state.MustGetEVMChainState(dest).EVM2EVMOffRamp[src2],
 		[]uint64{sentEventOnOtherLane.Message.SequenceNumber}, destStartBlock.Number.Uint64())
 
 	// stop the continuous messages in real router
@@ -821,9 +823,9 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	wg.Wait()
 	// start validating the messages sent in 1.5 and 1.6
 	for _, msg := range v1_5Msgs {
-		v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, state.MustGetEVMChainState(dest).CommitStore[src1],
+		v1_5testhelpers.WaitForCommit(t, evmChains[src1], destChain, state.MustGetEVMChainState(dest).CommitStore[src1],
 			msg.Message.SequenceNumber)
-		v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src1], destChain, state.MustGetEVMChainState(dest).EVM2EVMOffRamp[src1],
+		v1_5testhelpers.WaitForExecute(t, evmChains[src1], destChain, state.MustGetEVMChainState(dest).EVM2EVMOffRamp[src1],
 			[]uint64{msg.Message.SequenceNumber}, initialBlock)
 		lastNonce = msg.Message.Nonce
 	}
@@ -874,7 +876,7 @@ func sendContinuousMessages(
 			case *evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested:
 				v1_5Msgs = append(v1_5Msgs, msg)
 				if initialDestBlock == 0 {
-					destChain := e.Env.Chains[dest]
+					destChain := e.Env.BlockChains.EVMChains()[dest]
 					destStartBlock, err := destChain.Client.HeaderByNumber(context.Background(), nil)
 					if err != nil {
 						t.Errorf("failed to get block header")
@@ -900,7 +902,7 @@ func sendMessageInRealRouter(
 	cfg := &testhelpers.CCIPSendReqConfig{
 		SourceChain:  src,
 		DestChain:    dest,
-		Sender:       e.Env.Chains[src].DeployerKey,
+		Sender:       e.Env.BlockChains.EVMChains()[src].DeployerKey,
 		IsTestRouter: false,
 		Message: router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
@@ -917,7 +919,7 @@ func sendMessageInRealRouter(
 	if err != nil {
 		t.Errorf("failed to send message: %v", err)
 	}
-	receipt, err := e.Env.Chains[src].Client.TransactionReceipt(context.Background(), tx.Hash())
+	receipt, err := e.Env.BlockChains.EVMChains()[src].Client.TransactionReceipt(context.Background(), tx.Hash())
 	if err != nil {
 		t.Errorf("failed to get transaction receipt: %v", err)
 	}

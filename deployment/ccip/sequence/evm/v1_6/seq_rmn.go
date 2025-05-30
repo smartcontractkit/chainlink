@@ -73,7 +73,7 @@ func (c SetRMNRemoteConfig) Validate(env cldf.Environment, state stateview.CCIPO
 		if err != nil {
 			return err
 		}
-		chain := env.Chains[chainSelector]
+		chain := env.BlockChains.EVMChains()[chainSelector]
 		if state.MustGetEVMChainState(chainSelector).RMNRemote == nil {
 			return fmt.Errorf("RMNRemote not found for chain %s", chain.String())
 		}

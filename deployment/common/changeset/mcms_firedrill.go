@@ -24,7 +24,7 @@ type FireDrillConfig struct {
 
 // buildNoOPEVM builds a dummy tx that transfers 0 to the RBACTimelock
 func buildNoOPEVM(e cldf.Environment, selector uint64) (mcmstypes.Transaction, error) {
-	chain, ok := e.Chains[selector]
+	chain, ok := e.BlockChains.EVMChains()[selector]
 	if !ok {
 		return mcmstypes.Transaction{}, nil
 	}
@@ -100,7 +100,7 @@ func MCMSSignFireDrillChangeset(e cldf.Environment, cfg FireDrillConfig) (cldf.C
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
-			state, err := state.MaybeLoadMCMSWithTimelockChainState(e.Chains[selector], addresses)
+			state, err := state.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.EVMChains()[selector], addresses)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}

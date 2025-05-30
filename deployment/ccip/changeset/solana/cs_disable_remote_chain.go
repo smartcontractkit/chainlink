@@ -38,13 +38,13 @@ func (cfg DisableRemoteChainConfig) Validate(e cldf.Environment) error {
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateRouterConfig(chain); err != nil {
 		return err
 	}
-	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateFeeQuoterConfig(chain); err != nil {
 		return err
 	}
-	if err := validateOffRampConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateOffRampConfig(chain); err != nil {
 		return err
 	}
 	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.FeeQuoter: true, shared.OffRamp: true}); err != nil {

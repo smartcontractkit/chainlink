@@ -13,6 +13,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/mcms"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -173,7 +174,7 @@ type TokenPoolConfig struct {
 	SkipOwnershipValidation bool `json:"skipOwnershipValidation,omitempty"`
 }
 
-func (c TokenPoolConfig) Validate(ctx context.Context, chain cldf.Chain, ccipState stateview.CCIPOnChainState, useMcms bool, tokenSymbol shared.TokenSymbol) error {
+func (c TokenPoolConfig) Validate(ctx context.Context, chain cldf_evm.Chain, ccipState stateview.CCIPOnChainState, useMcms bool, tokenSymbol shared.TokenSymbol) error {
 	chainState := ccipState.Chains[chain.Selector]
 	// Ensure that the inputted type is known
 	if _, ok := shared.TokenPoolTypes[c.Type]; !ok {
@@ -249,7 +250,7 @@ func (c ConfigureTokenPoolContractsConfig) Validate(env cldf.Environment) error 
 		if err != nil {
 			return fmt.Errorf("failed to validate chain selector %d: %w", chainSelector, err)
 		}
-		chain, ok := env.Chains[chainSelector]
+		chain, ok := env.BlockChains.EVMChains()[chainSelector]
 		if !ok {
 			return fmt.Errorf("chain with selector %d does not exist in environment", chainSelector)
 		}
@@ -304,13 +305,13 @@ func ConfigureTokenPoolContractsChangeset(env cldf.Environment, c ConfigureToken
 	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext(fmt.Sprintf("configure %s token pools", c.TokenSymbol))
 
 	for chainSelector := range c.PoolUpdates {
-		chain := env.Chains[chainSelector]
+		chain := env.BlockChains.EVMChains()[chainSelector]
 
 		opts, err := deployerGroup.GetDeployer(chainSelector)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get deployer for %s", chain)
 		}
-		err = configureTokenPool(env.GetContext(), opts, env.Chains, state, c, chainSelector)
+		err = configureTokenPool(env.GetContext(), opts, env.BlockChains.EVMChains(), state, c, chainSelector)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to make operations to configure %s token pool on %s: %w", c.TokenSymbol, chain.String(), err)
 		}
@@ -333,7 +334,7 @@ func ConfigureTokenPoolContractsChangeset(env cldf.Environment, c ConfigureToken
 func configureTokenPool(
 	ctx context.Context,
 	opts *bind.TransactOpts,
-	chains map[uint64]cldf.Chain,
+	chains map[uint64]cldf_evm.Chain,
 	state stateview.CCIPOnChainState,
 	config ConfigureTokenPoolContractsConfig,
 	chainSelector uint64,
@@ -500,7 +501,7 @@ func GetTokenStateFromPoolEVM(
 	symbol shared.TokenSymbol,
 	poolType cldf.ContractType,
 	version semver.Version,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	state evm.CCIPChainState,
 ) (*token_pool.TokenPool, common.Address, token_admin_registry.TokenAdminRegistryTokenConfig, error) {
 	tokenPoolAddress, ok := GetTokenPoolAddressFromSymbolTypeAndVersion(state, chain, symbol, poolType, version)

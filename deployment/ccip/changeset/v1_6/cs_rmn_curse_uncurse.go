@@ -113,7 +113,7 @@ func (c RMNCurseConfig) Validate(e cldf.Environment) error {
 					return fmt.Errorf("invalid subject %x", action.SubjectToCurse)
 				}
 
-				targetChain := e.Chains[action.ChainSelector]
+				targetChain := e.BlockChains.EVMChains()[action.ChainSelector]
 				targetChainState, ok := state.Chains[action.ChainSelector]
 				if !ok {
 					return fmt.Errorf("chain %s not found in onchain state", targetChain.String())
@@ -663,7 +663,7 @@ type EvmCursableChain struct {
 }
 
 func (c EvmCursableChain) Name() string {
-	return c.env.Chains[c.selector].Name()
+	return c.env.BlockChains.EVMChains()[c.selector].Name()
 }
 
 func (c EvmCursableChain) IsConnectedToSourceChain(sourceSelector uint64) (bool, error) {

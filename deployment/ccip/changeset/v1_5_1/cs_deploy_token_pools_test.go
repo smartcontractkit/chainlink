@@ -205,7 +205,7 @@ func TestValidateDeployTokenPoolInput(t *testing.T) {
 			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
-			err = test.Input.Validate(context.Background(), e.Chains[selectorA], state.Chains[selectorA], test.Symbol)
+			err = test.Input.Validate(context.Background(), e.BlockChains.EVMChains()[selectorA], state.Chains[selectorA], test.Symbol)
 			require.Contains(t, err.Error(), test.ErrStr)
 		})
 	}
@@ -309,7 +309,7 @@ func TestDeployTokenPoolContracts(t *testing.T) {
 			pool := test.GetPool(state.Chains[selectorA])
 			owner, err := pool.Owner(nil)
 			require.NoError(t, err)
-			require.Equal(t, e.Chains[selectorA].DeployerKey.From, owner)
+			require.Equal(t, e.BlockChains.EVMChains()[selectorA].DeployerKey.From, owner)
 		})
 	}
 }

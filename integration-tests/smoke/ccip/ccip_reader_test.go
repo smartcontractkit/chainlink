@@ -1206,7 +1206,7 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 	source1GasPrice := big.NewInt(987654321) // Use a distinct value for source1
 	source2GasPrice := big.NewInt(123456789) // Use a distinct value for source2
 	_, err = feeQuoterDest.UpdatePrices(
-		env.Env.Chains[dest].DeployerKey, fee_quoter.InternalPriceUpdates{
+		env.Env.BlockChains.EVMChains()[dest].DeployerKey, fee_quoter.InternalPriceUpdates{
 			GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{
 				{
 					DestChainSelector: source1, // Corresponds to sending message *to* source1
@@ -1220,7 +1220,7 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
-	be := env.Env.Chains[dest].Client.(*memory.Backend)
+	be := env.Env.BlockChains.EVMChains()[dest].Client.(*memory.Backend)
 	be.Commit()
 
 	// Verify the updates took effect on-chain (optional sanity check)
@@ -1839,7 +1839,7 @@ func testSetupRealContracts(
 
 	var crs = make(map[cciptypes.ChainSelector]contractreader.Extended)
 	for chain, bindings := range toBindContracts {
-		be := env.Env.Chains[uint64(chain)].Client.(*memory.Backend)
+		be := env.Env.BlockChains.EVMChains()[uint64(chain)].Client.(*memory.Backend)
 		cl := client.NewSimulatedBackendClient(t, be.Sim, big.NewInt(0).SetUint64(uint64(chain)))
 		headTracker := headstest.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 		lp := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chain)), db, lggr),

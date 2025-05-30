@@ -41,7 +41,7 @@ func Test_ActiveCandidate(t *testing.T) {
 	require.NoError(t, err)
 
 	// Deploy to all chains.
-	allChains := maps.Keys(tenv.Env.Chains)
+	allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 	source := allChains[0]
 	dest := allChains[1]
 

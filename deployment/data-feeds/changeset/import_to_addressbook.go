@@ -19,7 +19,7 @@ type AddressesSchema struct {
 	Label          string              `json:"label"`
 }
 
-func importToAddressbookLogic(env cldf.Environment, c types.ImportToAddressbookConfig) (cldf.ChangesetOutput, error) {
+func importToAddressbookLogic(env cldf.Environment, c types.ImportAddressesConfig) (cldf.ChangesetOutput, error) {
 	ab := cldf.NewMemoryAddressBook()
 
 	addresses, _ := LoadJSON[[]*AddressesSchema](c.InputFileName, c.InputFS)
@@ -39,7 +39,7 @@ func importToAddressbookLogic(env cldf.Environment, c types.ImportToAddressbookC
 	return cldf.ChangesetOutput{AddressBook: ab}, nil
 }
 
-func importToAddressbookPrecondition(env cldf.Environment, c types.ImportToAddressbookConfig) error {
+func importToAddressbookPrecondition(env cldf.Environment, c types.ImportAddressesConfig) error {
 	if !env.BlockChains.Exists(c.ChainSelector) {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}
