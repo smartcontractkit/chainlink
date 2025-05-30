@@ -28,11 +28,11 @@ func Test_CCIPMessaging_EVM2Ton(t *testing.T) {
 	// t.Logf("Loaded state: %v", state)
 	_ = state
 
-	allChainSelectors := maps.Keys(e.Env.Chains)
+	evmChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
 	allTonChainSelectors := maps.Keys(e.Env.BlockChains.TonChains())
-	sourceChain := allChainSelectors[0]
+	sourceChain := evmChainSelectors[0]
 	destChain := allTonChainSelectors[0]
-	t.Log("All chain selectors:", allChainSelectors,
+	t.Log("EVM chain selectors:", evmChainSelectors,
 		", TON chain selectors:", allTonChainSelectors,
 		", home chain selector:", e.HomeChainSel,
 		", feed chain selector:", e.FeedChainSel,
