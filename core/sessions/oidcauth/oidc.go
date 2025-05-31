@@ -240,7 +240,7 @@ func (oi *oidcAuthenticator) handleOIDCCallback(c *gin.Context) {
 	if err != nil {
 		fmt.Printf("%#v\n", err)
 	}
-	c.Redirect(http.StatusFound, "/")
+	// c.Redirect(http.StatusFound, "/")
 }
 
 // FindUser in the context of the OIDC driver only supports local admin users
@@ -621,10 +621,9 @@ func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
 }
 
 // TODO: add context
-func (oidc *oidcAuthenticator) ExtendRouter(r *gin.RouterGroup) error {
-	auth := r.Group("/auth")
-	auth.GET("/oidc-login", ginHandlerFromHTTP(oidc.handleLoginProviderRedirect))
-	auth.GET(oidc.config.OIDCCallbackURLSuffix(), oidc.handleOIDCCallback)
+func (oidc *oidcAuthenticator) ExtendRouter(api *gin.RouterGroup) error {
+	api.GET("/oidc-login", ginHandlerFromHTTP(oidc.handleLoginProviderRedirect))
+	api.GET(oidc.config.OIDCCallbackURLSuffix(), oidc.handleOIDCCallback)
 	oidc.lggr.Infof("OIDC suffix", oidc.config.OIDCCallbackURLSuffix())
 	oidc.lggr.Infof("OIDC Authenticator added HTTP routes")
 
