@@ -670,7 +670,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	return e
 }
 
-func deployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([]commonchangeset.ConfiguredChangeSet, error) {
+func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([]commonchangeset.ConfiguredChangeSet, error) {
 	err := SavePreloadedSolAddresses(e.Env, solChainSelector)
 	if err != nil {
 		return nil, err
@@ -774,7 +774,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		),
 	}...)
 	if len(solChains) != 0 {
-		solCs, err := deployChainContractsToSolChainCS(e, solChains[0])
+		solCs, err := DeployChainContractsToSolChainCS(e, solChains[0])
 		require.NoError(t, err)
 		apps = append(apps, solCs...)
 	}
