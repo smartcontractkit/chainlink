@@ -1,6 +1,7 @@
 package cciptesthelpertypes
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"math/rand"
@@ -15,7 +16,8 @@ import (
 func chainSelectorSlice(n int) []cciptypes.ChainSelector {
 	selectors := make([]cciptypes.ChainSelector, n)
 	for i := range selectors {
-		selectors[i] = cciptypes.ChainSelector(i + 1000)
+		//nolint:gosec // no overflow risk here
+		selectors[i] = cciptypes.ChainSelector(uint64(i) + 1000)
 	}
 	return selectors
 }
@@ -571,7 +573,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 				}
 				gotMappingDeterministic, detErr := rDeterministic.ChainToNodeMapping(tt.args.nonBootstrapP2pIDs, tt.args.chainSelectors, tt.args.homeChainSelector)
 				require.NoError(t, detErr, "Determinism check failed on second run")
-				require.Equal(t, len(gotMapping), len(gotMappingDeterministic), "Determinism check: map lengths differ")
+				require.Len(t, gotMapping, len(gotMappingDeterministic), "Determinism check: map lengths differ")
 
 				for cs, nodes1 := range gotMapping {
 					nodes2, ok := gotMappingDeterministic[cs]
@@ -631,7 +633,7 @@ func TestTopology_ChainToNodeMapping(t *testing.T) {
 			},
 			mockSetup: func(m *mocks.RoleDONTopology, args args) map[cciptypes.ChainSelector][][32]byte {
 				m.On("ChainToNodeMapping", args.nonBootstrapP2pIDs, args.nonHomeChainSelectors, args.homeChainSelector).
-					Return(nil, fmt.Errorf("mock error"))
+					Return(nil, errors.New("mock error"))
 				return nil
 			},
 			wantErr:             true,
