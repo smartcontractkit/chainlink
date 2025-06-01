@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -33,7 +34,9 @@ type DeployFeeQInput struct {
 }
 
 type FeeQuoterApplyDestChainConfigUpdatesOpInput struct {
-	Updates []fee_quoter.FeeQuoterDestChainConfigArgs
+	Address       common.Address
+	ChainSelector uint64
+	Updates       []fee_quoter.FeeQuoterDestChainConfigArgs
 }
 
 type EVMContract interface {
@@ -136,6 +139,12 @@ var (
 		semver.MustParse("1.0.0"),
 		"Apply updates to destination chain configs on the FeeQuoter 1.6.0 contract",
 		func(b operations.Bundle, deps EVMCallDeps[*fee_quoter.FeeQuoter], input FeeQuoterApplyDestChainConfigUpdatesOpInput) (EVMCallOutput, error) {
+			if input.Address != deps.Contract.Address() {
+				return EVMCallOutput{}, fmt.Errorf("mismatch between inputted address and address connected to bindings: %s != %s", input.Address, deps.Contract.Address())
+			}
+			if input.ChainSelector != deps.Chain.Selector {
+				return EVMCallOutput{}, fmt.Errorf("mismatch between inputted chain selector and actual chain selector: %d != %d", input.ChainSelector, deps.Chain.Selector)
+			}
 			tx, err := deps.Contract.ApplyDestChainConfigUpdates(deps.Opts, input.Updates)
 			if !deps.Opts.NoSend {
 				_, err = cldf.ConfirmIfNoErrorWithABI(deps.Chain, tx, fee_quoter.FeeQuoterABI, err)

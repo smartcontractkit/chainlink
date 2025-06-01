@@ -1045,7 +1045,9 @@ func UpdateFeeQuoterDestsChangeset(e cldf.Environment, cfg UpdateFeeQuoterDestsC
 			i++
 		}
 		updates[chainSel] = ccipops.FeeQuoterApplyDestChainConfigUpdatesOpInput{
-			Updates: args,
+			Address:       s.Chains[chainSel].FeeQuoter.Address(),
+			ChainSelector: chainSel,
+			Updates:       args,
 		}
 	}
 
