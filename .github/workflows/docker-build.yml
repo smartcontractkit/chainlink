@@ -83,6 +83,7 @@ jobs:
       github-ref-name: ${{ github.ref_name }}
       github-ref-type: ${{ github.ref_type}}
       github-workflow-repository: ${{ github.repository }}
+      github-trunk-branch: develop
       github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
       github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
     secrets:
@@ -116,6 +117,7 @@ jobs:
       github-ref-name: ${{ github.ref_name }}
       github-ref-type: ${{ github.ref_type}}
       github-workflow-repository: ${{ github.repository }}
+      github-trunk-branch: develop
       github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
       github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
     secrets:
@@ -149,6 +151,7 @@ jobs:
       github-ref-name: ${{ github.ref_name }}
       github-ref-type: ${{ github.ref_type}}
       github-workflow-repository: ${{ github.repository }}
+      github-trunk-branch: develop
       github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
       github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
     secrets:
@@ -182,6 +185,7 @@ jobs:
       github-ref-name: ${{ github.ref_name }}
       github-ref-type: ${{ github.ref_type}}
       github-workflow-repository: ${{ github.repository }}
+      github-trunk-branch: develop
       github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
       github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
     secrets:
