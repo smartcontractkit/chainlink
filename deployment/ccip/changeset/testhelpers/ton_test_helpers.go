@@ -6,7 +6,6 @@ import (
 	"log"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -387,15 +386,8 @@ func ConfirmCommitWithExpectedSeqNumRangeTon(
 	enforceSingleCommit bool,
 ) (any, error) {
 	fmt.Printf("DEBUG: ConfirmCommitWithExpectedSeqNumRangeTon srcSelector: %d, startBlock: %+v, expectedSeqNumRange: %+v, enforceSingleCommit: %+v\n", srcSelector, startBlock, expectedSeqNumRange, enforceSingleCommit)
-	// TODO mock the contract event before offramp contracts are supported
+	// TODO once offramp contracts are supported, we can add the logic to confirm commit with expected sequence number range
 	return true, nil
-}
-
-// TODO: what is the usage of this function? can we remove this?
-func waitForTx(t *testing.T, client *ton.APIClient, txHash string, duration time.Duration) {
-	// userTx, err := client.WaitForTransaction(txHash, ton.PollTimeout(duration))
-	// require.NoError(t, err)
-	// require.True(t, userTx.Success, "transaction failed: %s", userTx.VmStatus)
 }
 
 func ConfirmExecWithSeqNrsTon(
@@ -407,7 +399,7 @@ func ConfirmExecWithSeqNrsTon(
 	expectedSeqNrs []uint64,
 ) (executionStates map[uint64]int, err error) {
 	fmt.Printf("DEBUG: ConfirmExecWithSeqNrsTon srcSelector: %d, dest: %s, startBlock: %+v, expectedSeqNrs: %+v\n", sourceChain, startBlock, expectedSeqNrs)
-	// TODO mock the contract event before offramp contracts are supported
+	// TODO once offramp contracts are supported, we can add the logic to confirm execution with sequence numbers
 	fmt.Printf("DEBUG: TODO(ton): ConfirmExecWithSeqNrsTon\n")
 	seqNrsToWatch := make(map[uint64]int)
 	for _, seqNr := range expectedSeqNrs {
