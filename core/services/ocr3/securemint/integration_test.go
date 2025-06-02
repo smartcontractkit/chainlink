@@ -64,8 +64,8 @@ var (
 	nNodes = 4 // number of nodes (not including bootstrap)
 )
 
-// TODO(gg) notes:
-// offchainreporting2plus.NewOracle() or use OracleFactory.NewOracle()
+// TODO(gg) see also:
+// https://github.com/smartcontractkit/mercury-pipeline/blob/9f0bc5d457d57d5807122446cb936306ecf1b263/e2e_tests/mercuryhelpers/helpers.go#L308 for example of onchain config
 
 func setupBlockchain(t *testing.T) (
 	*bind.TransactOpts,
