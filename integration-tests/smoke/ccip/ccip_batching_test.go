@@ -206,6 +206,14 @@ func Test_CCIPBatching_SingleSource_OOO(t *testing.T) {
 	ccipBatchingSingleSource(t, true) // OOO enabled
 }
 
+func Test_CCIPBatching_SingleSource_MultiExecReports(t *testing.T) {
+	ccipBatchingSingleSource(t, false, multiRootReportOverride, multiExecReportOverride) // OOO disabled
+}
+
+func Test_CCIPBatching_SingleSource_MultiExecReports_OOO(t *testing.T) {
+	ccipBatchingSingleSource(t, true, multiRootReportOverride, multiExecReportOverride) // OOO enabled
+}
+
 func Test_CCIPBatching_SingleSource_MultiRoot(t *testing.T) {
 	ccipBatchingSingleSource(t, false, multiRootReportOverride) // OOO disabled
 }
