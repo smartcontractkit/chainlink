@@ -31,6 +31,7 @@ var (
 	SolanaPlugin   = NewPlugin("solana")
 	StarknetPlugin = NewPlugin("starknet")
 	TronPlugin     = NewPlugin("tron")
+	TONPlugin      = NewPlugin("ton")
 	// PrometheusDiscoveryHostName is the externally accessible hostname
 	// published by the node in the `/discovery` endpoint. Generally, it is expected to match
 	// the public hostname of node.

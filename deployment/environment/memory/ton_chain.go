@@ -18,6 +18,7 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/xssnick/tonutils-go/liteclient"
@@ -55,16 +56,20 @@ func GenerateChainsTon(t *testing.T, numChains int) map[uint64]cldf_ton.Chain {
 		chainID := testTonChainSelectors[i]
 
 		nodeClient := tonChain(t, chainID)
+		t.Logf("[TON-E2E] NodeClient %+v", nodeClient)
 		// todo: configurable wallet version, we might need to use Highload wallet for some tests
 		// todo: configurable wallet options
 		wallet := createTonWallet(t, nodeClient, wallet.V3R2, wallet.WithWorkchain(0))
-		chains[chainID] = cldf_ton.Chain{
+		ton := cldf_ton.Chain{
+			ChainMetadata: cldf_ton.ChainMetadata{Selector: chainID},
 			Client:        nodeClient,
 			Wallet:        wallet,
 			WalletAddress: wallet.Address(),
 		}
+		t.Log(ton)
+		chains[chainID] = ton
+
 	}
-	t.Logf("Created %d TON chains: %+v", len(chains), chains)
 	return chains
 }
 
@@ -72,7 +77,6 @@ func tonChain(t *testing.T, chainID uint64) *ton.APIClient {
 	t.Helper()
 	ctx := context.Background()
 
-	// TODO(ton): integrate TON into CTF (https://smartcontract-it.atlassian.net/browse/NONEVM-1685)
 	// initialize the docker network used by CTF
 	err := framework.DefaultNetwork(once)
 	require.NoError(t, err)
@@ -80,25 +84,38 @@ func tonChain(t *testing.T, chainID uint64) *ton.APIClient {
 	maxRetries := 10
 	var networkConfigUrl string
 	var containerName string
+
+	// TODO: SKIP for now, taking too much time, remove when we get enough understanding in test environment
+	// wget https://raw.githubusercontent.com/neodix42/mylocalton-docker/refs/heads/main/docker-compose.yaml
+	// docker-compose up
+	// if existing network error happens, run `docker network rm ton`
+	useExistingTonlocalnet := false
+
 	for i := 0; i < maxRetries; i++ {
 		bcInput := &blockchain.Input{
 			Image:   "ghcr.io/neodix42/mylocalton-docker:latest", // filled out by defaultTon function
 			Type:    "ton",
 			ChainID: strconv.FormatUint(chainID, 10),
 		}
-		output, err := blockchain.NewBlockchainNetwork(bcInput)
-		if err != nil {
-			t.Logf("Error creating TON network: %v", err)
-			time.Sleep(time.Second)
-			maxRetries -= 1
-			continue
-		}
-		require.NoError(t, err)
-		containerName = output.ContainerName
 
-		// todo: ctf-configured clean up?
-		testcontainers.CleanupContainer(t, output.Container)
-		networkConfigUrl = fmt.Sprintf("http://%s/localhost.global.config.json", output.Nodes[0].ExternalHTTPUrl)
+		// TODO: SKIP for now, taking too much time
+		if !useExistingTonlocalnet {
+			output, err := blockchain.NewBlockchainNetwork(bcInput)
+			if err != nil {
+				t.Logf("Error creating TON network: %v", err)
+				time.Sleep(time.Second)
+				maxRetries -= 1
+				continue
+			}
+			require.NoError(t, err)
+			containerName = output.ContainerName
+
+			// todo: ctf-configured clean up?
+			testcontainers.CleanupContainer(t, output.Container)
+			networkConfigUrl = fmt.Sprintf("http://%s/localhost.global.config.json", output.Nodes[0].ExternalHTTPUrl)
+		} else {
+			networkConfigUrl = fmt.Sprintf("http://%s/localhost.global.config.json", "localhost:8000")
+		}
 		break
 	}
 	_ = containerName

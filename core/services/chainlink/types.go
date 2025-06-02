@@ -16,6 +16,7 @@ type GeneralConfig interface {
 	StarknetConfigs() RawConfigs
 	AptosConfigs() RawConfigs
 	TronConfigs() RawConfigs
+	TONConfigs() RawConfigs
 	// ConfigTOML returns both the user provided and effective configuration as TOML.
 	ConfigTOML() (user, effective string)
 	ImportedSecretConfig

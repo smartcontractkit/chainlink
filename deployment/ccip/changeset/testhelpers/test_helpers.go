@@ -22,8 +22,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/fee_quoter"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -424,6 +424,7 @@ type CCIPSendReqConfig struct {
 	Sender       *bind.TransactOpts
 	Message      any
 	MaxRetries   int // Number of retries for errors (excluding insufficient fee errors)
+	AssertError  bool
 }
 
 type SendReqOpts func(*CCIPSendReqConfig)
@@ -922,9 +923,9 @@ func AddLane(
 		changesets = append(changesets, AddLaneSolanaChangesets(t, e, to, from, fromFamily)...)
 	}
 	if fromFamily == chainsel.FamilyTon || toFamily == chainsel.FamilyTon {
+		fmt.Printf("Adding lane from %d to %d, fromFamily %s, toFamily %s\n", from, to, fromFamily, toFamily)
 		changesets = append(changesets, addLaneTonChangesets(t, e, from, to, fromFamily, toFamily)...)
 	}
-
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), changesets)
 	require.NoError(t, err)
 }

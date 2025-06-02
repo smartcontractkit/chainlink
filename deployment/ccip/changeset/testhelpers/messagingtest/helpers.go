@@ -142,6 +142,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	family, err := chain_selectors.GetSelectorFamily(tc.SourceChain)
 	require.NoError(tc.T, err)
 
+	receiver := common.LeftPadBytes(tc.Receiver, 32)
 	var msg any
 	switch family {
 	case chain_selectors.FamilyEVM:
@@ -151,7 +152,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		}
 
 		msg = router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
+			Receiver:     receiver,
 			Data:         tc.MsgData,
 			TokenAmounts: nil,
 			FeeToken:     feeToken,
@@ -165,7 +166,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		}
 
 		msg = ccip_router.SVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
+			Receiver:     receiver,
 			TokenAmounts: nil,
 			Data:         tc.MsgData,
 			FeeToken:     feeToken,
@@ -182,7 +183,9 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		tc.SourceChain,
 		tc.DestChain,
 		tc.TestRouter,
-		msg)
+		msg,
+	)
+
 	sourceDest := testhelpers.SourceDestPair{
 		SourceChainSelector: tc.SourceChain,
 		DestChainSelector:   tc.DestChain,
@@ -211,7 +214,6 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNum, time.Since(commitStart).String())
 		// Explicitly log that only commit was validated if only Commit was requested
 		tc.T.Logf("only commit validation was performed")
-
 	case ValidationTypeExec: // will validate both commit and exec
 		// First, validate commit
 		commitStart := time.Now()

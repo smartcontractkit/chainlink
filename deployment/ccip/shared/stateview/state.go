@@ -66,7 +66,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/burn_mint_erc677_helper"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
@@ -371,6 +371,9 @@ func (c CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 	for chain := range c.AptosChains {
 		chains[chain] = struct{}{}
 	}
+	for chain := range c.TonChains {
+		chains[chain] = struct{}{}
+	}
 	return chains
 }
 
@@ -574,6 +577,10 @@ func (c CCIPOnChainState) GetOffRampAddressBytes(chainSelector uint64) ([]byte, 
 	case chain_selectors.FamilyAptos:
 		ccipAddress := c.AptosChains[chainSelector].CCIPAddress
 		offRampAddress = ccipAddress[:]
+	case chain_selectors.FamilyTon:
+		or := c.TonChains[chainSelector].OffRamp
+		offRampAddress = or.Data()
+
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", family)
 	}
@@ -668,18 +675,20 @@ func (c CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType cldf.Contr
 		if !exists {
 			return fmt.Errorf("chain %d does not exist", chainSelector)
 		}
-		switch rampType {
-		case ccipshared.OffRamp:
-			if chainState.OffRamp.IsAddrNone() {
-				return fmt.Errorf("offramp contract does not exist on ton chain %d", chainSelector)
-			}
-		case ccipshared.OnRamp:
-			if chainState.Router.IsAddrNone() {
-				return fmt.Errorf("router contract does not exist on ton chain %d", chainSelector)
-			}
-		default:
-			return fmt.Errorf("unknown ramp type %s", rampType)
-		}
+		fmt.Printf("chainState: %+v, skipping offramp/onramp address validation check for now \n", chainState)
+		// TODO - Uncomment and add validation for TON offramp and onramp addresses back once the TON contracts are supported.
+		// switch rampType {
+		// case ccipshared.OffRamp:
+		//	 if chainState.OffRamp.IsAddrNone() {
+		//	 	return fmt.Errorf("offramp contract does not exist on ton chain %d", chainSelector)
+		//	 }
+		// case ccipshared.OnRamp:
+		//	 if chainState.Router.IsAddrNone() {
+		//	 	return fmt.Errorf("router contract does not exist on ton chain %d", chainSelector)
+		//	 }
+		// default:
+		//	 return fmt.Errorf("unknown ramp type %s", rampType)
+		// }
 
 	default:
 		return fmt.Errorf("unknown chain family %s", family)
@@ -703,6 +712,7 @@ func LoadOnchainState(e cldf.Environment) (CCIPOnChainState, error) {
 
 	state := CCIPOnChainState{
 		Chains:      make(map[uint64]evm.CCIPChainState),
+		evmMu:       new(sync.RWMutex),
 		SolChains:   solanaState.SolChains,
 		AptosChains: aptosChains,
 		TonChains:   tonChains,

@@ -349,6 +349,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if cfg.TronEnabled() {
 		initOps = append(initOps, InitTron(relayerFactory, keyStore.Tron(), cfg.TronConfigs()))
 	}
+	if cfg.TONEnabled() {
+		initOps = append(initOps, InitTON(relayerFactory, keyStore.TON(), cfg.TONConfigs()))
+	}
 
 	relayChainInterops, err := NewCoreRelayerChainInteroperators(initOps...)
 	if err != nil {

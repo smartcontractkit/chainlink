@@ -51,8 +51,22 @@ func (c TonTestDeployPrerequisitesChangeSet) Apply(e cldf.Environment) (cldf.Cha
 	fmt.Printf("DEBUG: TonTestDeployPrerequisitesChangeSet: chain selectors: %+v\n", c.TonChainSelectors)
 	for _, chainSelector := range c.TonChainSelectors {
 		tonChainState := tonChains[chainSelector]
-		// TODO: replace with a real token address instead of none
-		tonChainState.LinkTokenAddress = *tonaddress.NewAddressNone()
+
+		// TODO: replace with actual TON addresses after contracts are supported, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
+		address, _ := tonaddress.ParseAddr("EQDtFpEwcFAEcRe5mLVh2N6C0x-_hJEM7W61_JLnSF74p4q2")
+		tonChainState.OffRamp = *address
+
+		address, _ = tonaddress.ParseAddr("UQCfQRaJr2vxgZr5NHc0CTx6tAb0jverj9QQFirNfoCkGcUy")
+		tonChainState.Router = *address
+
+		address, _ = tonaddress.ParseAddr("EQADa3W6G0nSiTV4a6euRA42fU9QxSEnb-WeDpcrtWzA2jM8")
+		tonChainState.LinkTokenAddress = *address
+
+		address, _ = tonaddress.ParseAddr("UQDgFwiokL1ojVwXa3Ac7xCLfGB0Ti0foSw5NZ48Aj_vhs_6")
+		tonChainState.CCIPAddress = *address
+
+		address, _ = tonaddress.ParseAddr("UQCk4967vNM_V46Dn8I0x-gB_QE2KkdW1GQ7mWz1DtYGLEd8")
+		tonChainState.ReceiverAddress = *address
 		err = tonstate.SaveOnchainStateTon(chainSelector, tonChainState, e)
 		require.NoError(t, err)
 	}
@@ -123,32 +137,31 @@ func (c TonTestDeployContractsChangeSet) deployTonContracts(t *testing.T, e depl
 		return
 	}
 
-	//TODO(ton): Deploy TON MCMS
+	// TODO(ton): once all contracts are deployed, we can remove the hardcoded addresses from the TonTestDeployPrerequisitesChangeSet
 
-	//TODO(ton): Deploy TON CCIP
+	// TODO(ton): Deploy TON MCMS, https://smartcontract-it.atlassian.net/browse/NONEVM-1939
 
-	//TODO(ton): Deploy TON CCIP Offramp
+	// TODO(ton): Deploy TON CCIP, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
 
-	//TODO(ton): Deploy TON CCIP Onramp
+	// TODO(ton): Deploy TON CCIP Offramp
 
-	//TODO(ton): Deploy TON CCIP Router
+	// TODO(ton): Deploy TON CCIP Onramp
 
-	//TODO(ton): Deploy TON CCIP Dummy Receiver and set the contract address
-	ccipDummyReceiverAddress := tonaddress.NewAddressNone()
+	// TODO(ton): Deploy TON CCIP Router
 
-	tonChainState.ReceiverAddress = *ccipDummyReceiverAddress
-	//tonChainState.ReceiverAddress = ton.AccountOne
+	// TODO(ton): Deploy Ton CCIP Dummy Receiver and set the contract address
 
-	//TODO(ton): Initialize Onramp
+	// tonChainState.ReceiverAddress = ton.AccountOne
 
-	//TODO(ton): Initialize Offramp
+	// TODO(ton): Initialize Onramp
 
-	//TODO(ton): Initialize FeeQuoter
+	// TODO(ton): Initialize Offramp
 
-	//TODO(ton): Initialize RMNRemote
+	// TODO(ton): Initialize FeeQuoter
+
+	// TODO(ton): Initialize RMNRemote
 
 	logger.Infow("All TON contracts deployed")
-
 	err = tonstate.SaveOnchainStateTon(chainSelector, tonChainState, e)
 	require.NoError(t, err)
 }
@@ -277,7 +290,7 @@ func (c TonTestConfigureContractsChangeSet) configureTonContracts(t *testing.T, 
 }
 
 func addLaneTonChangesets(t *testing.T, e *DeployedEnv, from, to uint64, fromFamily, toFamily string) []commoncs.ConfiguredChangeSet {
-	fmt.Printf("DEBUG: addLaneTonChangesets %d to %d / %s to %s", from, to, fromFamily, toFamily)
+	fmt.Printf("DEBUG: addLaneTonChangesets %d to %d / %s to %s\n", from, to, fromFamily, toFamily)
 	return []commoncs.ConfiguredChangeSet{TonTestAddLaneChangeSet{
 		T:                 t,
 		fromChainSelector: from,

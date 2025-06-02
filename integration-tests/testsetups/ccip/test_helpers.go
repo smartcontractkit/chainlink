@@ -192,6 +192,7 @@ func NewIntegrationEnvironment(t *testing.T, opts ...testhelpers.TestOps) (testh
 	for _, opt := range opts {
 		opt(testCfg)
 	}
+
 	// check for EnvType env var
 	testCfg.MustSetEnvTypeOrDefault(t)
 	require.NoError(t, testCfg.Validate(), "invalid test config")

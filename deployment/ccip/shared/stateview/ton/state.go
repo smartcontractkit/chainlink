@@ -30,20 +30,40 @@ type CCIPChainState struct {
 func SaveOnchainStateTon(chainSelector uint64, tonState CCIPChainState, e cldf.Environment) error {
 	ab := e.ExistingAddresses
 	if !tonState.LinkTokenAddress.IsAddrNone() {
-		ab.Save(chainSelector, tonState.LinkTokenAddress.String(), cldf.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_6_0))
+		err := ab.Save(chainSelector, tonState.LinkTokenAddress.String(), cldf.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_6_0))
+		if err != nil {
+			return err
+		}
 	}
 	if !tonState.CCIPAddress.IsAddrNone() {
-		ab.Save(chainSelector, tonState.CCIPAddress.String(), cldf.NewTypeAndVersion(shared.TonCCIP, deployment.Version1_6_0))
+		err := ab.Save(chainSelector, tonState.CCIPAddress.String(), cldf.NewTypeAndVersion(shared.TonCCIP, deployment.Version1_6_0))
+		if err != nil {
+			return err
+		}
 	}
 	if !tonState.ReceiverAddress.IsAddrNone() {
-		ab.Save(chainSelector, tonState.ReceiverAddress.String(), cldf.NewTypeAndVersion(shared.TonReceiver, deployment.Version1_6_0))
+		err := ab.Save(chainSelector, tonState.ReceiverAddress.String(), cldf.NewTypeAndVersion(shared.TonReceiver, deployment.Version1_6_0))
+		if err != nil {
+			return err
+		}
+	}
+	if !tonState.OffRamp.IsAddrNone() {
+		err := ab.Save(chainSelector, tonState.OffRamp.String(), cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_6_0))
+		if err != nil {
+			return err
+		}
+	}
+	if !tonState.Router.IsAddrNone() {
+		err := ab.Save(chainSelector, tonState.Router.String(), cldf.NewTypeAndVersion(shared.Router, deployment.Version1_6_0))
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 func LoadOnchainStateTon(e cldf.Environment) (map[uint64]CCIPChainState, error) {
 	tonChains := make(map[uint64]CCIPChainState)
-
 	for chainSelector, chain := range e.BlockChains.TonChains() {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {

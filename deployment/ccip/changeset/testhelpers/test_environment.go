@@ -427,6 +427,7 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
 	replayBlocks, err := LatestBlocksByChain(ctx, env)
 	require.NoError(t, err)
+
 	m.DeployedEnv = DeployedEnv{
 		Env:          env,
 		HomeChainSel: homeChainSel,
@@ -675,7 +676,6 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	}
 
 	tEnv.UpdateDeployedEnvironment(e)
-
 	e = AddCCIPContractsToEnvironment(t, allChains, tEnv, false)
 	// now we update RMNProxy to point to RMNRemote
 	e.Env, err = commonchangeset.Apply(t, e.Env, nil,
@@ -746,6 +746,11 @@ func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([
 		)}, nil
 }
 
+// TODO(ton): Implement this function to deploy chain contracts to Ton chain, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
+func deployChainContractsToTonChainCS(e DeployedEnv, tonChainSelector uint64) ([]commonchangeset.ConfiguredChangeSet, error) {
+	return nil, nil
+}
+
 func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEnvironment, mcmsEnabled bool) DeployedEnv {
 	tc := tEnv.TestConfigs()
 	e := tEnv.DeployedEnvironment()
@@ -757,17 +762,24 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	var apps []commonchangeset.ConfiguredChangeSet
 	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 
-	evmChains := []uint64{}
+	var evmChains []uint64
 	for _, chain := range allChains {
 		if _, ok := e.Env.BlockChains.EVMChains()[chain]; ok {
 			evmChains = append(evmChains, chain)
 		}
 	}
 
-	solChains := []uint64{}
+	var solChains []uint64
 	for _, chain := range allChains {
 		if _, ok := e.Env.BlockChains.SolanaChains()[chain]; ok {
 			solChains = append(solChains, chain)
+		}
+	}
+
+	var tonChains []uint64
+	for _, chain := range allChains {
+		if _, ok := e.Env.BlockChains.TonChains()[chain]; ok {
+			tonChains = append(tonChains, chain)
 		}
 	}
 
@@ -805,7 +817,11 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		apps = append(apps, solCs...)
 	}
 
-	// TODO(ton): If environment has tonChains, append TON DeployHomeChainConfig and DeployChainContractsConfig changesets
+	if len(tonChains) != 0 {
+		tonCs, err := deployChainContractsToTonChainCS(e, tonChains[0])
+		require.NoError(t, err)
+		apps = append(apps, tonCs...)
+	}
 
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, apps)
 	require.NoError(t, err)
@@ -967,7 +983,29 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		}
 	}
 
-	// TODO(ton): Set TON chains plugin configs
+	// TODO(ton): Set Ton chains plugin configs and update token addr once available, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
+	for _, chain := range tonChains {
+		t.Logf("[TON-E2E] AddCCIPContractsToEnvironment: Setting up Ton chain %d", chain)
+		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
+		address := state.TonChains[chain].LinkTokenAddress
+		tokenInfo[cciptypes.UnknownEncodedAddress(address.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
+		// TODO check if TON WETH is needed for TokenSymbolInfo?
+		// tokenInfo[cciptypes.UnknownEncodedAddress()] = tokenConfig.TokenSymbolToInfo[shared.WethSymbol]
+		ocrOverride := tc.OCRConfigOverride
+		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenInfo, ocrOverride)
+		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
+		chainConfigs[chain] = v1_6.ChainConfig{
+			Readers: nodeInfo.NonBootstraps().PeerIDs(),
+			// #nosec G115 - Overflow is not a concern in this test scenario
+			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			EncodableChainConfig: chainconfig.ChainConfig{
+				GasPriceDeviationPPB:      cciptypes.BigInt{Int: big.NewInt(DefaultGasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(DefaultDAGasPriceDeviationPPB)},
+				OptimisticConfirmations:   globals.OptimisticConfirmations,
+				ChainFeeDeviationDisabled: true,
+			},
+		}
+	}
 
 	// Apply second set of changesets to configure the CCIP contracts.
 	var mcmsConfig *proposalutils.TimelockConfig
@@ -1056,6 +1094,17 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				CCIPHomeConfigType: globals.ConfigTypeActive,
 			},
 		),
+
+		// TODO(ton): We need OCR3OffRamp Changeset for Ton, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
+		// commonchangeset.Configure(
+		// 	// Enable the OCR config on the remote chains.
+		// 	cldf.CreateLegacyChangeSet(v1_6.SetOCR3OffRampChangeset),
+		// 	v1_6.SetOCR3OffRampConfig{
+		// 		HomeChainSel:       e.HomeChainSel,
+		// 		RemoteChainSels:    tonChains,
+		// 		CCIPHomeConfigType: globals.ConfigTypeActive,
+		// 	},
+		// ),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.CCIPCapabilityJobspecChangeset),
 			nil, // Changeset ignores any config
