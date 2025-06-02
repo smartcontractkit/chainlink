@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/gagliardetto/solana-go"
+	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"math/big"
 	"os"
 	"sync"
@@ -68,6 +71,18 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 	if err != nil {
 		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to get node info from env: %w", err)
 	}
+
+	// Fund the deployer
+	solChainSelectors := e.AllChainSelectorsSolana()
+
+	for _, selector := range solChainSelectors {
+		lggr.Infof("Funding solana deployer account %v", e.SolChains[selector].DeployerKey.PublicKey())
+		err = memory.FundSolanaAccounts(e.GetContext(), []solana.PublicKey{e.SolChains[selector].DeployerKey.PublicKey()}, 10000, e.SolChains[selector].Client)
+		if err != nil {
+			return deployment.CapabilityRegistryConfig{}, nil, err
+		}
+	}
+
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, chain := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)) {
@@ -128,9 +143,9 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	// ------ Part 1 -----
 	// Setup because we only need to deploy the contracts and distribute job specs
 	lggr.Infow("setting up chains...")
-	*e, err = setupChains(lggr, e, homeChainSel)
+	*e, err = setupChains(lggr, e, homeChainSel, feedChainSel)
 	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up chain: %w", err)
+		return DeployCCIPOutput{}, fmt.Errorf("failed to apply setting up chain changesets: %w", err)
 	}
 
 	state, err := stateview.LoadOnchainState(*e)
@@ -142,7 +157,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	// Add all lanes
 	*e, err = setupLanes(e, state)
 	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
+		return DeployCCIPOutput{}, fmt.Errorf("failed to apply connecting lanes changesets: %w", err)
 	}
 	// ------ Part 1 -----
 
@@ -150,7 +165,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	lggr.Infow("setting up ocr...")
 	*e, err = mustOCR(e, homeChainSel, feedChainSel, true, rmnEnabled)
 	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
+		return DeployCCIPOutput{}, fmt.Errorf("failed to apply OCR changesets: %w", err)
 	}
 
 	// distribute funds to transmitters
@@ -159,68 +174,12 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	lggr.Infow("distributing funds...")
 	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
 	if err != nil {
-		return DeployCCIPOutput{}, err
+		return DeployCCIPOutput{}, fmt.Errorf("failed to distribute funds to node transmitters: %w", err)
 	}
 
 	addresses, err := e.ExistingAddresses.Addresses()
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to convert address book to address book map: %w", err)
-	}
-	return DeployCCIPOutput{
-		AddressBook: *cldf.NewMemoryAddressBookFromMap(addresses),
-		NodeIDs:     e.NodeIDs,
-	}, nil
-}
-
-// DeployCCIPChains is a group of changesets used from CRIB to set up new chains
-// It sets up CCIP contracts on all chains. We expect that MCMS has already been deployed and set up
-func DeployCCIPChains(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab cldf.AddressBook) (DeployCCIPOutput, error) {
-	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
-	}
-	e.ExistingAddresses = ab
-
-	// Setup because we only need to deploy the contracts and distribute job specs
-	lggr.Infow("setting up chains...")
-	*e, err = setupChains(lggr, e, homeChainSel)
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up chain: %w", err)
-	}
-	addresses, err := e.ExistingAddresses.Addresses()
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
-	}
-	return DeployCCIPOutput{
-		AddressBook: *cldf.NewMemoryAddressBookFromMap(addresses),
-		NodeIDs:     e.NodeIDs,
-	}, nil
-}
-
-// ConnectCCIPLanes is a group of changesets used from CRIB to set up new lanes
-// It creates a fully connected mesh where all chains are connected to all chains
-func ConnectCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab cldf.AddressBook) (DeployCCIPOutput, error) {
-	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
-	}
-	e.ExistingAddresses = ab
-
-	state, err := stateview.LoadOnchainState(*e)
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
-	}
-
-	lggr.Infow("setting up lanes...")
-	// Add all lanes
-	*e, err = setupLanes(e, state)
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
-	}
-
-	addresses, err := e.ExistingAddresses.Addresses()
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
 	}
 	return DeployCCIPOutput{
 		AddressBook: *cldf.NewMemoryAddressBookFromMap(addresses),
@@ -284,8 +243,10 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 	}, nil
 }
 
-func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64) (cldf.Environment, error) {
-	chainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
+func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChainSel uint64) (cldf.Environment, error) {
+	evmChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
+	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
+	allChainSelectors := e.BlockChains.ListChainSelectors()
 	chainConfigs := make(map[uint64]v1_6.ChainConfig)
 	nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
@@ -294,7 +255,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64) (
 	prereqCfgs := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	contractParams := make(map[uint64]ccipseq.ChainContractParams)
 
-	for _, chain := range chainSelectors {
+	for _, chain := range evmChainSelectors {
 		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 		})
@@ -314,6 +275,22 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64) (
 			OffRampParams:   ccipops.DefaultOffRampParams(),
 		}
 	}
+
+	// TODO - Find a way to combine this into one loop with AllChainSelectors
+	// Currently it seems to throw a nil pointer when run with both solana and evm and needs to be investigated
+	for _, chain := range solChainSelectors {
+		chainConfigs[chain] = v1_6.ChainConfig{
+			Readers: nodeInfo.NonBootstraps().PeerIDs(),
+			// #nosec G115 - Overflow is not a concern in this test scenario
+			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			EncodableChainConfig: chainconfig.ChainConfig{
+				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(1000)},
+				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(1_000_000)},
+				OptimisticConfirmations: globals.OptimisticConfirmations,
+			},
+		}
+	}
+
 	env, err := commonchangeset.Apply(nil, *e, nil,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
@@ -324,7 +301,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64) (
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
-			chainSelectors,
+			allChainSelectors,
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
@@ -342,7 +319,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64) (
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
 			v1_6.SetRMNRemoteOnRMNProxyConfig{
-				ChainSelectors: chainSelectors,
+				ChainSelectors: evmChainSelectors,
 			},
 		),
 		commonchangeset.Configure(
@@ -351,9 +328,53 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64) (
 		),
 	)
 	if err != nil {
-		return *e, fmt.Errorf("failed to apply changesets: %w", err)
+		return *e, fmt.Errorf("failed to apply EVM chain changesets: %w", err)
+	}
+
+	if len(solChainSelectors) > 0 {
+		deployedEnv := testhelpers.DeployedEnv{
+			Env:          env,
+			HomeChainSel: homeChainSel,
+			FeedChainSel: feedChainSel,
+		}
+
+		buildConfig := ccipChangesetSolana.BuildSolanaConfig{
+			GitCommitSha:   "16aa375",
+			DestinationDir: deployedEnv.Env.SolChains[solChainSelectors[0]].ProgramsPath,
+			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
+				BuildLocally: true,
+			},
+		}
+
+		solTestRouter := commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeployReceiverForTest),
+			ccipChangesetSolana.DeployForTestConfig{
+				ChainSelector: solChainSelectors[0],
+			},
+		)
+
+		solCs, err := testhelpers.DeployChainContractsToSolChainCS(deployedEnv, solChainSelectors[0], false, &buildConfig)
+		if err != nil {
+			return *e, err
+		}
+
+		solCs = append(solCs, solTestRouter)
+
+		deployedEnv.Env, err = commonchangeset.Apply(nil, deployedEnv.Env, nil, solCs[0], solCs[1:]...)
+		if err != nil {
+			return *e, err
+		}
+
+		err = testhelpers.ValidateSolanaState(deployedEnv.Env, solChainSelectors)
+		if err != nil {
+			return *e, err
+		}
+		env = deployedEnv.Env
 	}
 	lggr.Infow("setup Link pools")
+	if len(solChainSelectors) > 0 {
+		// todo: setup solana link tokenpools
+	}
 	return setupLinkPools(&env)
 }
 
