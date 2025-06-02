@@ -9,3 +9,7 @@ func (n NoopAddressCodec) AddressBytesToString(addr []byte) (string, error) {
 func (n NoopAddressCodec) AddressStringToBytes(addr string) ([]byte, error) {
 	return []byte(addr), nil
 }
+
+func (n NoopAddressCodec) OracleIDAsAddressBytes(oracleID uint8) ([]byte, error) {
+	return []byte{oracleID}, nil
+}
