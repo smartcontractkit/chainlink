@@ -158,6 +158,11 @@ func (c UpdateBidirectionalLanesConfig) BuildConfigs() UpdateBidirectionalLanesC
 
 func updateBidirectionalLanesPrecondition(e cldf.Environment, c UpdateBidirectionalLanesConfig) error {
 	configs := c.BuildConfigs()
+
+	return UpdateLanesPrecondition(e, configs)
+}
+
+func UpdateLanesPrecondition(e cldf.Environment, configs UpdateBidirectionalLanesChangesetConfigs) error {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -192,8 +197,16 @@ func updateBidirectionalLanesPrecondition(e cldf.Environment, c UpdateBidirectio
 }
 
 func updateBidirectionalLanesLogic(e cldf.Environment, c UpdateBidirectionalLanesConfig) (cldf.ChangesetOutput, error) {
-	proposals := make([]mcms.TimelockProposal, 0)
 	configs := c.BuildConfigs()
+
+	return UpdateLanesLogic(e, c.MCMSConfig, configs)
+}
+
+// UpdateLanesLogic is the main logic for updating lanes. Configs provided can be unidirectional
+// TODO: this should be refactored as a sequence once EVM changesets move to Operations API
+// TODO: UpdateBidirectionalLanesChangesetConfigs name is misleading, it also accepts unidirectional lane updates
+func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConfig, configs UpdateBidirectionalLanesChangesetConfigs) (cldf.ChangesetOutput, error) {
+	proposals := make([]mcms.TimelockProposal, 0)
 
 	out, err := UpdateFeeQuoterDestsChangeset(e, configs.UpdateFeeQuoterDestsConfig)
 	if err != nil {
@@ -234,7 +247,7 @@ func updateBidirectionalLanesLogic(e cldf.Environment, c UpdateBidirectionalLane
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	proposal, err := proposalutils.AggregateProposals(e, state.EVMMCMSStateByChain(), nil, proposals, "Update multiple bidirectional lanes", c.MCMSConfig)
+	proposal, err := proposalutils.AggregateProposals(e, state.EVMMCMSStateByChain(), nil, proposals, "Update multiple bidirectional lanes", mcmsConfig)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
 	}
