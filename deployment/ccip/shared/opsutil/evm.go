@@ -21,28 +21,34 @@ import (
 )
 
 // EVMCallInput is the input structure for an EVM call operation.
-// It contains the address of the contract, the chain selector, and the input data required for the call.
-// Why not pull the chain selector from the chain? Because addresses might be the same across chains, and we need to differentiate them.
-// This ensures no hash conflicts with operation runs with the same call input and address, but a different target chain.
+// Why not pull the chain selector from the chain dependency? Because addresses might be the same across chains and we need to differentiate them.
+// This ensures no false report matches between operation runs that have the same call input and address but a different target chain.
 type EVMCallInput[IN any] struct {
 	// Address is the address of the contract to call.
 	Address common.Address
 	// ChainSelector is the selector for the chain on which the contract resides.
 	ChainSelector uint64
+	// CallInput is the input data for the call.
+	CallInput IN
 	// NoSend indicates whether or not the transaction should be sent.
 	// If true, the transaction data be prepared and returned but not sent.
 	NoSend bool
-	// CallInput is the input data for the call.
-	CallInput IN
 }
 
 // EVMCallOutput is the output structure for an EVM call operation.
-// It contains the transaction that was sent and the type of contract that was called.
+// It contains the transaction and the type of contract that is being called.
 type EVMCallOutput struct {
 	// Tx is the transaction formed by the call.
 	Tx *types.Transaction
-	// ContractType is the type of contract that was called.
+	// ContractType is the type of contract that is being called.
 	ContractType cldf.ContractType
+}
+
+// EVMCallOutputWithError includes the EVMCallOutput and any error that occurred during the call.
+type EVMCallOutputWithError struct {
+	EVMCallOutput
+	// CallErr is the error that occurred during the call, if any.
+	CallErr error
 }
 
 // NewEVMCallOperation creates a new operation that performs an EVM call.
@@ -52,7 +58,7 @@ func NewEVMCallOperation[IN any](
 	version *semver.Version,
 	description string,
 	abi string,
-	call func(address common.Address, backend bind.ContractBackend, opts *bind.TransactOpts, input IN) (EVMCallOutput, error),
+	call func(address common.Address, backend bind.ContractBackend, opts *bind.TransactOpts, input IN) (EVMCallOutputWithError, error),
 ) *operations.Operation[EVMCallInput[IN], EVMCallOutput, cldf.Chain] {
 	return operations.NewOperation(
 		name,
@@ -66,17 +72,20 @@ func NewEVMCallOperation[IN any](
 			if input.NoSend {
 				opts = cldf.SimTransactOpts()
 			}
+			// The standard error must be handled separately, as it could be caused by reasons other than the call itself failing.
+			// e.g. failing to connect with gethwrappers for some reason.
 			out, err := call(input.Address, chain.Client, opts, input.CallInput)
 			if err != nil {
 				return EVMCallOutput{}, fmt.Errorf("failed to call %s against %s on %s: %w", name, input.Address, chain, err)
 			}
 			if !input.NoSend {
-				_, err = cldf.ConfirmIfNoErrorWithABI(chain, out.Tx, abi, err)
+				// If the call has actually been sent, we need check the call error and confirm the transaction.
+				_, err := cldf.ConfirmIfNoErrorWithABI(chain, out.Tx, abi, out.CallErr)
 				if err != nil {
 					return EVMCallOutput{}, fmt.Errorf("failed to confirm %s tx against %s on %s: %w", name, input.Address, chain, err)
 				}
 			}
-			return out, err
+			return out.EVMCallOutput, out.CallErr
 		},
 	)
 }
@@ -136,7 +145,7 @@ func AddEVMCallSequenceToCSOutput[IN any](
 		*mcmsCfg,
 	)
 	if err != nil {
-		return csOutput, fmt.Errorf("failed to build MCMS proposal: %w", err)
+		return csOutput, fmt.Errorf("failed to build mcms proposal: %w", err)
 	}
 
 	csOutput.MCMSTimelockProposals = []mcmslib.TimelockProposal{*proposal}

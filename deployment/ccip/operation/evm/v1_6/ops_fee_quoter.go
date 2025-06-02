@@ -118,18 +118,18 @@ var (
 		semver.MustParse("1.0.0"),
 		"Apply updates to destination chain configs on the FeeQuoter 1.6.0 contract",
 		fee_quoter.FeeQuoterABI,
-		func(address common.Address, backend bind.ContractBackend, opts *bind.TransactOpts, input []fee_quoter.FeeQuoterDestChainConfigArgs) (opsutil.EVMCallOutput, error) {
+		func(address common.Address, backend bind.ContractBackend, opts *bind.TransactOpts, input []fee_quoter.FeeQuoterDestChainConfigArgs) (opsutil.EVMCallOutputWithError, error) {
 			fq, err := fee_quoter.NewFeeQuoter(address, backend)
 			if err != nil {
-				return opsutil.EVMCallOutput{}, fmt.Errorf("failed to create FeeQuoter contract instance: %w", err)
+				return opsutil.EVMCallOutputWithError{}, fmt.Errorf("failed to create FeeQuoter contract instance: %w", err)
 			}
-			tx, err := fq.ApplyDestChainConfigUpdates(opts, input)
-			if err != nil {
-				return opsutil.EVMCallOutput{}, fmt.Errorf("failed to call ApplyDestChainConfigUpdates: %w", err)
-			}
-			return opsutil.EVMCallOutput{
-				Tx:           tx,
-				ContractType: shared.FeeQuoter,
+			tx, callErr := fq.ApplyDestChainConfigUpdates(opts, input)
+			return opsutil.EVMCallOutputWithError{
+				CallErr: callErr,
+				EVMCallOutput: opsutil.EVMCallOutput{
+					Tx:           tx,
+					ContractType: shared.FeeQuoter,
+				},
 			}, nil
 		},
 	)
