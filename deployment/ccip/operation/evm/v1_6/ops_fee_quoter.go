@@ -7,6 +7,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
@@ -118,19 +119,10 @@ var (
 		semver.MustParse("1.0.0"),
 		"Apply updates to destination chain configs on the FeeQuoter 1.6.0 contract",
 		fee_quoter.FeeQuoterABI,
-		func(address common.Address, backend bind.ContractBackend, opts *bind.TransactOpts, input []fee_quoter.FeeQuoterDestChainConfigArgs) (opsutil.EVMCallOutputWithError, error) {
-			fq, err := fee_quoter.NewFeeQuoter(address, backend)
-			if err != nil {
-				return opsutil.EVMCallOutputWithError{}, fmt.Errorf("failed to create FeeQuoter contract instance: %w", err)
-			}
-			tx, callErr := fq.ApplyDestChainConfigUpdates(opts, input)
-			return opsutil.EVMCallOutputWithError{
-				CallErr: callErr,
-				EVMCallOutput: opsutil.EVMCallOutput{
-					Tx:           tx,
-					ContractType: shared.FeeQuoter,
-				},
-			}, nil
+		shared.FeeQuoter,
+		fee_quoter.NewFeeQuoter,
+		func(feeQuoter *fee_quoter.FeeQuoter, opts *bind.TransactOpts, input []fee_quoter.FeeQuoterDestChainConfigArgs) (*types.Transaction, error) {
+			return feeQuoter.ApplyDestChainConfigUpdates(opts, input)
 		},
 	)
 
@@ -139,19 +131,10 @@ var (
 		semver.MustParse("1.0.0"),
 		"Update token and gas prices on the FeeQuoter 1.6.0 contract",
 		fee_quoter.FeeQuoterABI,
-		func(address common.Address, backend bind.ContractBackend, opts *bind.TransactOpts, input fee_quoter.InternalPriceUpdates) (opsutil.EVMCallOutputWithError, error) {
-			fq, err := fee_quoter.NewFeeQuoter(address, backend)
-			if err != nil {
-				return opsutil.EVMCallOutputWithError{}, fmt.Errorf("failed to create FeeQuoter contract instance: %w", err)
-			}
-			tx, callErr := fq.UpdatePrices(opts, input)
-			return opsutil.EVMCallOutputWithError{
-				CallErr: callErr,
-				EVMCallOutput: opsutil.EVMCallOutput{
-					Tx:           tx,
-					ContractType: shared.FeeQuoter,
-				},
-			}, nil
+		shared.FeeQuoter,
+		fee_quoter.NewFeeQuoter,
+		func(feeQuoter *fee_quoter.FeeQuoter, opts *bind.TransactOpts, input fee_quoter.InternalPriceUpdates) (*types.Transaction, error) {
+			return feeQuoter.UpdatePrices(opts, input)
 		},
 	)
 )
