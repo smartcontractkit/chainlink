@@ -139,6 +139,7 @@ jobs:
       - name: Golang Lint (${{ matrix.modules }})
         id: golang-lint
         uses: ./.github/actions/golangci-lint
+        timeout-minutes: 20
         with:
           go-directory: ${{ matrix.modules }}
 
@@ -180,7 +181,7 @@ jobs:
             os: ${{ needs.runner-config.outputs.core-tests-runner }}
             is-self-hosted: ${{ needs.runner-config.outputs.core-tests-is-self-hosted }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
-            use-flakeguard: 'true'
+            use-flakeguard: "true"
 
           - cmd: go_core_tests_integration
             os: ${{ needs.runner-config.outputs.core-tests-integration-runner }}
@@ -204,7 +205,7 @@ jobs:
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
             setup-solana: "true"
             setup-aptos: "true"
-            use-flakeguard: 'true'
+            use-flakeguard: "true"
 
     name: Core Tests (${{ matrix.type.cmd }})
     # We don't directly merge dependabot PRs, so let's not waste the resources

@@ -208,6 +208,9 @@ func NewNodes(
 	// since we won't run a bootstrapper and a plugin oracle on the same
 	// chainlink node in production.
 	for i := 0; i < cfg.NumBootstraps; i++ {
+		// TODO: bootstrap nodes don't have to support anything other than the home chain.
+		// We should remove all non-home chains from the config below and make sure things
+		// run smoothly.
 		c := NewNodeConfig{
 			Port:           ports[i],
 			Chains:         cfg.Chains,
