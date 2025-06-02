@@ -113,10 +113,10 @@ func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint32, extraAllow
 		uuid,
 		types.GatewayJobName,
 		gatewayDons,
-		gatewayConnectorData.OutgoingGatewayConnectorOutput.Path,
-		gatewayConnectorData.OutgoingGatewayConnectorOutput.Port,
-		gatewayConnectorData.IncomingGatewayConnectorOutput.Path,
-		gatewayConnectorData.IncomingGatewayConnectorOutput.InternalPort,
+		gatewayConnectorData.Outgoing.Path,
+		gatewayConnectorData.Outgoing.Port,
+		gatewayConnectorData.Incoming.Path,
+		gatewayConnectorData.Incoming.InternalPort,
 	)
 
 	if len(extraAllowedPorts) != 0 {

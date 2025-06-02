@@ -14,11 +14,11 @@ import (
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 )
 
-func ProofOfReserve(rpcUrl, consumerContractAddress, feedID string, untilSuccessful bool, waitTime time.Duration) error {
+func ProofOfReserve(rpcURL, consumerContractAddress, feedID string, untilSuccessful bool, waitTime time.Duration) error {
 	fmt.Print(libformat.DarkYellowText("🕵️‍♂️🔎 Verifying workflow execution...\n\n"))
 
 	sethClient, sethErr := seth.NewClientBuilder().
-		WithRpcUrl(rpcUrl).
+		WithRpcUrl(rpcURL).
 		WithReadOnlyMode().
 		// do not check if there's a pending nonce nor check node's health
 		WithProtections(false, false, seth.MustMakeDuration(time.Second)).
@@ -71,8 +71,8 @@ func ProofOfReserve(rpcUrl, consumerContractAddress, feedID string, untilSuccess
 				fmt.Printf("🔍 Value not updated yet, retrying in %d seconds...\n", tickerSeconds)
 			}
 		case <-done:
-			fmt.Print(libformat.DarkYellowText("\n❌ Workflow did not execute successfuly within %s \n", waitTime.String()))
-			return errors.New("workflow did not finish successfuly")
+			fmt.Print(libformat.DarkYellowText("\n❌ Workflow did not execute successfully within %s \n", waitTime.String()))
+			return errors.New("workflow did not finish successfully")
 		}
 	}
 }

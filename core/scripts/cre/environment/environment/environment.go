@@ -288,7 +288,7 @@ var startCmd = &cobra.Command{
 				return errors.Wrapf(timeoutErr, "failed to parse %s to time.Duration", exampleWorkflowTimeoutFlag)
 			}
 
-			gatewayURL := fmt.Sprintf("%s://%s:%d%s", output.DonTopology.GatewayConnectorOutput.IncomingGatewayConnectorOutput.Protocol, output.DonTopology.GatewayConnectorOutput.IncomingGatewayConnectorOutput.Host, output.DonTopology.GatewayConnectorOutput.IncomingGatewayConnectorOutput.ExternalPort, output.DonTopology.GatewayConnectorOutput.IncomingGatewayConnectorOutput.Path)
+			gatewayURL := fmt.Sprintf("%s://%s:%d%s", output.DonTopology.GatewayConnectorOutput.Incoming.Protocol, output.DonTopology.GatewayConnectorOutput.Incoming.Host, output.DonTopology.GatewayConnectorOutput.Incoming.ExternalPort, output.DonTopology.GatewayConnectorOutput.Incoming.Path)
 
 			fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
 			deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, gatewayURL, homeChainOut.ChainID, timeout, exampleWorkflowTriggerFlag)
@@ -429,18 +429,18 @@ func startCLIEnvironment(cmdContext context.Context, topologyFlag string, workfl
 	// unset DockerFilePath and DockerContext as we cannot use them with existing images
 	if withPluginsDockerImageFlag != "" {
 		for setIdx := range capabilitiesAwareNodeSets {
-			for nodeIdx := range capabilitiesAwareNodeSets[setIdx].Input.NodeSpecs {
-				capabilitiesAwareNodeSets[setIdx].Input.NodeSpecs[nodeIdx].Node.Image = withPluginsDockerImageFlag
-				capabilitiesAwareNodeSets[setIdx].Input.NodeSpecs[nodeIdx].Node.DockerContext = ""
-				capabilitiesAwareNodeSets[setIdx].Input.NodeSpecs[nodeIdx].Node.DockerFilePath = ""
+			for nodeIdx := range capabilitiesAwareNodeSets[setIdx].NodeSpecs {
+				capabilitiesAwareNodeSets[setIdx].NodeSpecs[nodeIdx].Node.Image = withPluginsDockerImageFlag
+				capabilitiesAwareNodeSets[setIdx].NodeSpecs[nodeIdx].Node.DockerContext = ""
+				capabilitiesAwareNodeSets[setIdx].NodeSpecs[nodeIdx].Node.DockerFilePath = ""
 			}
 		}
 	}
 
 	fmt.Print(libformat.PurpleText("DON topology:\n"))
 	for _, nodeSet := range capabilitiesAwareNodeSets {
-		fmt.Print(libformat.PurpleText("%s\n", strings.ToUpper(nodeSet.Input.Name)))
-		fmt.Print(libformat.PurpleText("\tNode count: %d\n", len(nodeSet.Input.NodeSpecs)))
+		fmt.Print(libformat.PurpleText("%s\n", strings.ToUpper(nodeSet.Name)))
+		fmt.Print(libformat.PurpleText("\tNode count: %d\n", len(nodeSet.NodeSpecs)))
 		capabilitiesDesc := "none"
 		if len(nodeSet.Capabilities) > 0 {
 			capabilitiesDesc = strings.Join(nodeSet.Capabilities, ", ")
@@ -606,7 +606,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 	}
 
 	fmt.Print(libformat.PurpleText("[Stage 1/3] Deploying Permissionless Feeds Consumer\n\n"))
-	consumerContractAddress, consumerErr := deploy.DeployPermissionlessFeedsConsumer(rpcURL)
+	consumerContractAddress, consumerErr := deploy.PermissionlessFeedsConsumer(rpcURL)
 	if consumerErr != nil {
 		return errors.Wrap(consumerErr, "failed to deploy Permissionless Feeds Consumer contract")
 	}

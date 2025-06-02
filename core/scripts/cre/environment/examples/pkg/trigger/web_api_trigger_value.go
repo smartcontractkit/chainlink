@@ -51,7 +51,7 @@ func WebAPITriggerValue(gatewayURL, sender, receiver, privateKey string, timeout
 		TriggerEventId: uuid.New().String(),
 	}
 
-	payloadJson, err := json.Marshal(payload)
+	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
 		return errors.Wrap(err, "error marshalling json payload")
 	}
@@ -68,7 +68,7 @@ func WebAPITriggerValue(gatewayURL, sender, receiver, privateKey string, timeout
 			MessageId: uuid.New().String(),
 			Method:    Method,
 			DonId:     "1",
-			Payload:   json.RawMessage(payloadJson),
+			Payload:   json.RawMessage(payloadJSON),
 			Sender:    publicAddress.String(),
 		},
 	}
@@ -118,13 +118,11 @@ func WebAPITriggerValue(gatewayURL, sender, receiver, privateKey string, timeout
 			return errors.Wrap(unmarshalErr, "error unmarshalling response body")
 		}
 
-		bodyParsed := false
 		if result, ok := payloadMap["result"]; ok {
 			if resultMap, ok := result.(map[string]any); ok {
 				if bodyMap, ok := resultMap["body"].(map[string]any); ok {
 					if payloadMap, ok := bodyMap["payload"].(map[string]any); ok {
 						if status, ok := payloadMap["status"].(string); ok {
-							bodyParsed = true
 							if strings.EqualFold(status, "error") {
 								return fmt.Errorf("error sending request to gateway: %v", payloadMap["error_message"])
 							}
@@ -136,11 +134,7 @@ func WebAPITriggerValue(gatewayURL, sender, receiver, privateKey string, timeout
 			}
 		}
 
-		if !bodyParsed {
-			return fmt.Errorf("unexpected response body: %v", string(body))
-		}
-
-		return nil
+		return fmt.Errorf("unexpected response body: %v", string(body))
 	}
 
 	ticker := 10 * time.Second

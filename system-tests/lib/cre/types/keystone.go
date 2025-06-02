@@ -229,18 +229,18 @@ type GatewayConnectorDons struct {
 }
 
 type GatewayConnectorOutput struct {
-	Dons []GatewayConnectorDons // do not set, it will be set dynamically
-	OutgoingGatewayConnectorOutput
-	IncomingGatewayConnectorOutput
+	Dons     []GatewayConnectorDons // do not set, it will be set dynamically
+	Outgoing Outgoing
+	Incoming Incoming
 }
 
-type OutgoingGatewayConnectorOutput struct {
+type Outgoing struct {
 	Host string // do not set, it will be set dynamically
 	Path string
 	Port int
 }
 
-type IncomingGatewayConnectorOutput struct {
+type Incoming struct {
 	Protocol     string // do not set, it will be set dynamically
 	Host         string // do not set, it will be set dynamically
 	Path         string

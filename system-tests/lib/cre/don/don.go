@@ -122,12 +122,12 @@ func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraInput
 					gatewayInternalHost := infra.InternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput)
 
 					topology.GatewayConnectorOutput = &cretypes.GatewayConnectorOutput{
-						OutgoingGatewayConnectorOutput: cretypes.OutgoingGatewayConnectorOutput{
+						Outgoing: cretypes.Outgoing{
 							Path: "/node",
 							Port: 5003,
 							Host: gatewayInternalHost,
 						},
-						IncomingGatewayConnectorOutput: cretypes.IncomingGatewayConnectorOutput{
+						Incoming: cretypes.Incoming{
 							Protocol:     "http",
 							Path:         "/",
 							InternalPort: 5002,
