@@ -65,7 +65,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@4962346cc5ffc9f3840f48639e7b5fa179bcc2cc # 2025-05-28
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@chore/bump-build-push-docker
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -76,7 +76,7 @@ jobs:
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
         CL_SOLANA_CMD=chainlink-solana
-      docker-build-cache-disabled: "true"
+      docker-cache-behaviour: "write-on-trunk"
       docker-manifest-sign: true
       git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
@@ -95,7 +95,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@4962346cc5ffc9f3840f48639e7b5fa179bcc2cc # 2025-05-28
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@chore/bump-build-push-docker
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -108,7 +108,7 @@ jobs:
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_APTOS_CMD=chainlink-aptos
         CL_SOLANA_CMD=chainlink-solana
-      docker-build-cache-disabled: "true"
+      docker-cache-behaviour: "write-on-trunk"
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
       git-sha: ${{ inputs.git-ref || github.sha }}
@@ -130,7 +130,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@4962346cc5ffc9f3840f48639e7b5fa179bcc2cc # 2025-05-28
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@chore/bump-build-push-docker
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -142,7 +142,7 @@ jobs:
         CL_CHAIN_DEFAULTS=/ccip-config
         CL_SOLANA_CMD=
         COMMIT_SHA=${{ github.sha }}
-      docker-build-cache-disabled: "true"
+      docker-cache-behaviour: "write-on-trunk"
       docker-manifest-sign: true
       git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
@@ -161,7 +161,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@4962346cc5ffc9f3840f48639e7b5fa179bcc2cc # 2025-05-28
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@chore/bump-build-push-docker
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -174,7 +174,7 @@ jobs:
         COMMIT_SHA=${{ github.sha }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_APTOS_CMD=chainlink-aptos
-      docker-build-cache-disabled: "true"
+      docker-cache-behaviour: "write-on-trunk"
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
       git-sha: ${{ inputs.git-ref || github.sha }}
