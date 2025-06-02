@@ -230,9 +230,22 @@ type GatewayConnectorDons struct {
 
 type GatewayConnectorOutput struct {
 	Dons []GatewayConnectorDons // do not set, it will be set dynamically
-	Host string                 // do not set, it will be set dynamically
+	OutgoingGatewayConnectorOutput
+	IncomingGatewayConnectorOutput
+}
+
+type OutgoingGatewayConnectorOutput struct {
+	Host string // do not set, it will be set dynamically
 	Path string
 	Port int
+}
+
+type IncomingGatewayConnectorOutput struct {
+	Protocol     string // do not set, it will be set dynamically
+	Host         string // do not set, it will be set dynamically
+	Path         string
+	InternalPort int
+	ExternalPort int
 }
 
 type ConfigFactoryFn = func(input GenerateConfigsInput) (NodeIndexToConfigOverride, error)

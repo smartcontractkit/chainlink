@@ -100,8 +100,8 @@ func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint32, extraAllow
 	[gatewayConfig.UserServerConfig]
 	ContentTypeHeader = "application/jsonrpc"
 	MaxRequestBytes = 100_000
-	Path = "/"
-	Port = 5_002
+	Path = "%s"
+	Port = %d
 	ReadTimeoutMillis = 1_000
 	RequestTimeoutMillis = 10_000
 	WriteTimeoutMillis = 1_000
@@ -113,8 +113,10 @@ func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint32, extraAllow
 		uuid,
 		types.GatewayJobName,
 		gatewayDons,
-		gatewayConnectorData.Path,
-		gatewayConnectorData.Port,
+		gatewayConnectorData.OutgoingGatewayConnectorOutput.Path,
+		gatewayConnectorData.OutgoingGatewayConnectorOutput.Port,
+		gatewayConnectorData.IncomingGatewayConnectorOutput.Path,
+		gatewayConnectorData.IncomingGatewayConnectorOutput.InternalPort,
 	)
 
 	if len(extraAllowedPorts) != 0 {

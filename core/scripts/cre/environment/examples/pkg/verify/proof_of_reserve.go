@@ -10,9 +10,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/contracts/permissionless_feeds_consumer"
+
+	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 )
 
 func ProofOfReserve(rpcUrl, consumerContractAddress, feedID string, untilSuccessful bool, waitTime time.Duration) error {
+	fmt.Print(libformat.DarkYellowText("🕵️‍♂️🔎 Verifying workflow execution...\n\n"))
+
 	sethClient, sethErr := seth.NewClientBuilder().
 		WithRpcUrl(rpcUrl).
 		WithReadOnlyMode().
@@ -36,9 +40,9 @@ func ProofOfReserve(rpcUrl, consumerContractAddress, feedID string, untilSuccess
 		feedID = padRight(feedID, 64, '0')
 	}
 
-	fmt.Printf("Keysone Consumer contract address: %s\n", consumerContractAddress)
+	fmt.Printf("Keystone Consumer contract address: %s\n", consumerContractAddress)
 	fmt.Printf("Feed ID: %s\n", feedID)
-	fmt.Printf("\nChecking if workflow has uplodad the value of TrueUSD asset\n")
+	fmt.Printf("\nChecking if workflow has uploaded the value of TrueUSD asset\n")
 
 	tickerSeconds := 10
 	ticker := time.NewTicker(time.Duration(tickerSeconds) * time.Second)
@@ -58,16 +62,16 @@ func ProofOfReserve(rpcUrl, consumerContractAddress, feedID string, untilSuccess
 				return nil
 			} else {
 				if price.String() != "0" {
-					fmt.Printf("\n✅ All good! Workflow executed successfully!\n")
 					fmt.Printf("Value: %s\n", price.String())
 					fmt.Printf("Timestamp: %d\n", timestamp)
+					fmt.Print(libformat.DarkYellowText("\n✅ All good! Workflow executed successfully!\n"))
 
 					return nil
 				}
 				fmt.Printf("🔍 Value not updated yet, retrying in %d seconds...\n", tickerSeconds)
 			}
 		case <-done:
-			fmt.Printf("\n❌ Workflow did not execute successfuly within %s \n", waitTime.String())
+			fmt.Print(libformat.DarkYellowText("\n❌ Workflow did not execute successfuly within %s \n", waitTime.String()))
 			return errors.New("workflow did not finish successfuly")
 		}
 	}
