@@ -674,6 +674,7 @@ func setSecureMintOnchainConfig(t *testing.T, steve *bind.TransactOpts, backend 
 	// onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(minAnswer, maxAnswer)
 	// require.NoError(t, err)
 
+	// TODO(gg): use DF Cache onchain conifg
 	onchainConfig := por.PorOffchainConfig{} // TODO(gg): set config values
 	onchainConfigBytes, err := onchainConfig.Serialize()
 	require.NoError(t, err)

@@ -181,7 +181,14 @@ func NewSecureMintServices(ctx context.Context,
 	} else {
 		// TODO(gg): fill in params for the factory
 		argsNoPlugin.ReportingPluginFactory = &sm_plugin.PorReportingPluginFactory{
-			Logger: argsNoPlugin.Logger,
+			Logger:          argsNoPlugin.Logger,
+			ExternalAdapter: sm_plugin.NewMockExternalAdapterImpl(),
+			ContractReader: sm_plugin.NewMockContractReader(func() [32]byte { // TODO(gg): replace with real contract reader
+				var b [32]byte
+				copy(b[:], "CONFIGDIGEST")
+				return b
+			}()),
+			ReportMarshaler: sm_plugin.NewMockReportMarshaler(),
 			// ExternalAdapter: provider.ExternalAdapter(),
 			// ContractReader:  provider.ContractReader(),
 			// ReportMarshaler: provider.ReportMarshaler(),
