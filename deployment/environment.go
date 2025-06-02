@@ -159,6 +159,10 @@ func (n Node) OCRConfigForChainDetails(details chain_selectors.ChainDetails) (OC
 	return c, ok
 }
 
+func (n Node) AllOCRConfigs() map[chain_selectors.ChainDetails]OCRConfig {
+	return n.SelToOCRConfig
+}
+
 func (n Node) OCRConfigForChainSelector(chainSel uint64) (OCRConfig, bool) {
 	fam, err := chain_selectors.GetSelectorFamily(chainSel)
 	if err != nil {

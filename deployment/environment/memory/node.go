@@ -72,11 +72,11 @@ import (
 )
 
 type Node struct {
-	ID   string
-	Name string
-	App  chainlink.Application
+	ID     string
+	Name   string
+	App    chainlink.Application
+	Chains []uint64 // chain selectors
 	// Transmitter key/OCR keys for this node
-	Chains     []uint64 // chain selectors
 	Keys       Keys
 	Addr       net.TCPAddr
 	IsBoostrap bool
@@ -95,6 +95,7 @@ func (n Node) ReplayLogs(ctx context.Context, chains map[uint64]uint64) error {
 	for sel, block := range chains {
 		family, _ := chainsel.GetSelectorFamily(sel)
 		chainID, _ := chainsel.GetChainIDFromSelector(sel)
+
 		if err := n.App.ReplayFromBlock(ctx, family, chainID, block, false); err != nil {
 			return err
 		}
@@ -362,6 +363,7 @@ func NewNode(
 	require.NoError(t, master.Unlock(ctx, "password"))
 	require.NoError(t, master.CSA().EnsureKey(ctx))
 	require.NoError(t, master.Workflow().EnsureKey(ctx))
+	require.NoError(t, master.OCR2().EnsureKeys(ctx, chaintype.EVM, chaintype.Solana, chaintype.Aptos))
 
 	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
 		CREOpts: chainlink.CREOpts{
