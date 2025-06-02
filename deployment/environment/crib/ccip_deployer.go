@@ -70,11 +70,11 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 	}
 
 	// Fund the deployer
-	solChainSelectors := e.AllChainSelectorsSolana()
+	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
 
 	for _, selector := range solChainSelectors {
-		lggr.Infof("Funding solana deployer account %v", e.SolChains[selector].DeployerKey.PublicKey())
-		err = memory.FundSolanaAccounts(e.GetContext(), []solana.PublicKey{e.SolChains[selector].DeployerKey.PublicKey()}, 10000, e.SolChains[selector].Client)
+		lggr.Infof("Funding solana deployer account %v", e.BlockChains.SolanaChains()[selector].DeployerKey.PublicKey())
+		err = memory.FundSolanaAccounts(e.GetContext(), []solana.PublicKey{e.BlockChains.SolanaChains()[selector].DeployerKey.PublicKey()}, 10000, e.BlockChains.SolanaChains()[selector].Client)
 		if err != nil {
 			return deployment.CapabilityRegistryConfig{}, nil, err
 		}
@@ -337,7 +337,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 
 		buildConfig := ccipChangesetSolana.BuildSolanaConfig{
 			GitCommitSha:   "16aa375",
-			DestinationDir: deployedEnv.Env.SolChains[solChainSelectors[0]].ProgramsPath,
+			DestinationDir: deployedEnv.Env.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
 			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 				BuildLocally: true,
 			},

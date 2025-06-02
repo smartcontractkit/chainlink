@@ -65,7 +65,7 @@ func TestChangeSetLegacyFunction_ErrorCase(t *testing.T) {
 }
 
 func NewNoopEnvironment(t *testing.T) cldf.Environment {
-	return *cldf.NewCLDFEnvironment(
+	return *cldf.NewEnvironment(
 		"noop",
 		logger.TestLogger(t),
 		cldf.NewMemoryAddressBook(),
@@ -73,9 +73,6 @@ func NewNoopEnvironment(t *testing.T) cldf.Environment {
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,
 		]().Seal(),
-		nil, // todo remove once fully migrated to CLDF new chain package
-		nil, // todo remove once fully migrated to CLDF new chain package
-		nil, // todo remove once fully migrated to CLDF new chain package
 		[]string{},
 		nil,
 		t.Context,

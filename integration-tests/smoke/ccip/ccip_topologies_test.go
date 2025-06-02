@@ -8,9 +8,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/maps"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes"
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
@@ -69,7 +72,7 @@ func Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest(t *tes
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	allChainSelectors := maps.Keys(e.Env.Chains)
+	allChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	require.Len(t, allChainSelectors, 3)
 	// filter out the home chain
 	var nonHomeChains []uint64
@@ -123,7 +126,7 @@ func Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest(t *tes
 	var (
 		replayed bool
 		nonce    uint64
-		sender   = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
+		sender   = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
 		out      mt.TestCaseOutput
 		setup    = mt.NewTestSetupWithDeployedEnv(
 			t,
