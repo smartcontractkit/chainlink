@@ -14,15 +14,17 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/freeport"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -120,6 +122,13 @@ func TestShell_ReplayBlocks(t *testing.T) {
 		c.EVM[0].NonceAutoSync = ptr(false)
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+
+		solCfg := &config.TOMLConfig{
+			ChainID: ptr("devnet"),
+			Enabled: ptr(true),
+		}
+		solCfg.SetDefaults()
+		c.Solana = config.TOMLConfigs{solCfg}
 	})
 	client, _ := app.NewShellAndRenderer()
 
@@ -127,12 +136,17 @@ func TestShell_ReplayBlocks(t *testing.T) {
 	flagSetApplyFromAction(client.ReplayFromBlock, set, "")
 
 	require.NoError(t, set.Set("block-number", "42"))
-	require.NoError(t, set.Set("evm-chain-id", "12345678"))
+	require.NoError(t, set.Set("chain-id", "12345678"))
+	require.NoError(t, set.Set("family", "evm"))
 	c := cli.NewContext(nil, set, nil)
 	assert.ErrorContains(t, client.ReplayFromBlock(c), "chain id does not match any local chains")
 
-	require.NoError(t, set.Set("evm-chain-id", "0"))
+	require.NoError(t, set.Set("chain-id", "0"))
 	c = cli.NewContext(nil, set, nil)
+	assert.NoError(t, client.ReplayFromBlock(c))
+
+	require.NoError(t, set.Set("chain-id", "devnet"))
+	require.NoError(t, set.Set("family", "solana"))
 	assert.NoError(t, client.ReplayFromBlock(c))
 }
 
@@ -494,7 +508,7 @@ func TestShell_Profile(t *testing.T) {
 
 	ents, err := os.ReadDir(tDir)
 	require.NoError(t, err)
-	require.Greater(t, len(ents), 0, "ents %+v", ents)
+	require.NotEmpty(t, ents, "ents %+v", ents)
 }
 
 func TestShell_Profile_Unauthenticated(t *testing.T) {

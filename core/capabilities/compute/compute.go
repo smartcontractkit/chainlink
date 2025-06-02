@@ -3,6 +3,7 @@ package compute
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,6 +22,7 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/metering"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -75,7 +77,7 @@ var (
 
 var _ capabilities.ActionCapability = (*Compute)(nil)
 
-type FetcherFn func(ctx context.Context, req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error)
+type FetcherFn func(ctx context.Context, req *host.FetchRequest) (*host.FetchResponse, error)
 
 type FetcherFactory interface {
 	NewFetcher(log logger.Logger, emitter custmsg.MessageEmitter) FetcherFn
@@ -96,9 +98,10 @@ type Compute struct {
 
 	fetcherFactory FetcherFactory
 
-	numWorkers int
-	queue      chan request
-	wg         sync.WaitGroup
+	numWorkers           int
+	maxResponseSizeBytes uint64
+	queue                chan request
+	wg                   sync.WaitGroup
 }
 
 func (c *Compute) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
@@ -111,7 +114,7 @@ func (c *Compute) UnregisterFromWorkflow(ctx context.Context, request capabiliti
 
 func generateID(binary []byte) string {
 	id := sha256.Sum256(binary)
-	return fmt.Sprintf("%x", id)
+	return hex.EncodeToString(id[:])
 }
 
 func (c *Compute) Execute(ctx context.Context, request capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
@@ -191,6 +194,7 @@ func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, r
 
 	cfg.Fetch = c.fetcherFactory.NewFetcher(c.log, c.emitter)
 
+	cfg.MaxResponseSizeBytes = c.maxResponseSizeBytes
 	mod, err := host.NewModule(cfg, binary)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate WASM module: %w", err)
@@ -209,7 +213,7 @@ func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, r
 	return m, nil
 }
 
-func (c *Compute) executeWithModule(ctx context.Context, module *host.Module, config []byte, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+func (c *Compute) executeWithModule(ctx context.Context, module host.ModuleV1, config []byte, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 	executeStart := time.Now()
 	capReq := capabilitiespb.CapabilityRequestToProto(req)
 
@@ -237,10 +241,17 @@ func (c *Compute) executeWithModule(ctx context.Context, module *host.Module, co
 		return capabilities.CapabilityResponse{}, fmt.Errorf("could not convert response proto into response: %w", err)
 	}
 
+	executionTime := time.Since(executeStart)
 	computeWASMExec.WithLabelValues(
 		req.Metadata.WorkflowID,
 		req.Metadata.ReferenceID,
-	).Observe(float64(time.Since(executeStart)))
+	).Observe(float64(executionTime))
+
+	// Add execution time to response metadata
+	cresp.Metadata.Metering = append(cresp.Metadata.Metering, capabilities.MeteringNodeDetail{
+		SpendUnit:  metering.ComputeUnit.Name,
+		SpendValue: strconv.FormatInt(int64(executionTime.Round(time.Second)/(1_000_000_000)), 10),
+	})
 
 	return cresp, nil
 }
@@ -322,47 +333,42 @@ func NewOutgoingConnectorFetcherFactory(
 }
 
 func (f *outgoingConnectorFetcherFactory) NewFetcher(log logger.Logger, emitter custmsg.MessageEmitter) FetcherFn {
-	return func(ctx context.Context, req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
-		if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowId); err != nil {
-			return nil, fmt.Errorf("workflow ID %q is invalid: %w", req.Metadata.WorkflowId, err)
+	return func(ctx context.Context, req *host.FetchRequest) (*host.FetchResponse, error) {
+		if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowID); err != nil {
+			return nil, fmt.Errorf("workflow ID %q is invalid: %w", req.Metadata.WorkflowID, err)
 		}
-		if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowExecutionId); err != nil {
-			return nil, fmt.Errorf("workflow execution ID %q is invalid: %w", req.Metadata.WorkflowExecutionId, err)
+		if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowExecutionID); err != nil {
+			return nil, fmt.Errorf("workflow execution ID %q is invalid: %w", req.Metadata.WorkflowExecutionID, err)
 		}
 
 		cma := emitter.With(
-			platform.KeyWorkflowID, req.Metadata.WorkflowId,
+			platform.KeyWorkflowID, req.Metadata.WorkflowID,
 			platform.KeyWorkflowName, req.Metadata.DecodedWorkflowName,
 			platform.KeyWorkflowOwner, req.Metadata.WorkflowOwner,
-			platform.KeyWorkflowExecutionID, req.Metadata.WorkflowExecutionId,
+			platform.KeyWorkflowExecutionID, req.Metadata.WorkflowExecutionID,
 			timestampKey, time.Now().UTC().Format(time.RFC3339Nano),
 		)
 
 		messageID := strings.Join([]string{
-			req.Metadata.WorkflowExecutionId,
+			req.Metadata.WorkflowExecutionID,
 			ghcapabilities.MethodComputeAction,
 			f.idGenerator(),
 		}, "/")
 
-		fields := req.Headers.GetFields()
-		headersReq := make(map[string]string, len(fields))
-		for k, v := range fields {
-			headersReq[k] = v.String()
-		}
-
 		resp, err := f.outgoingConnectorHandler.HandleSingleNodeRequest(ctx, messageID, ghcapabilities.Request{
-			URL:       req.Url,
-			Method:    req.Method,
-			Headers:   headersReq,
-			Body:      req.Body,
-			TimeoutMs: req.TimeoutMs,
+			URL:        req.URL,
+			Method:     req.Method,
+			Headers:    req.Headers,
+			Body:       req.Body,
+			TimeoutMs:  req.TimeoutMs,
+			WorkflowID: req.Metadata.WorkflowID,
 		})
 		if err != nil {
 			return nil, err
 		}
 
-		log.Debugw("received gateway response", "resp", resp)
-		var response wasmpb.FetchResponse
+		log.Debugw("received gateway response", "donID", resp.Body.DonId, "msgID", resp.Body.MessageId, "receiver", resp.Body.Receiver, "sender", resp.Body.Sender)
+		var response host.FetchResponse
 		err = json.Unmarshal(resp.Body.Payload, &response)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal fetch response: %w", err)
@@ -370,7 +376,7 @@ func (f *outgoingConnectorFetcherFactory) NewFetcher(log logger.Logger, emitter 
 
 		f.metrics.with(
 			"status", strconv.FormatUint(uint64(response.StatusCode), 10),
-			platform.KeyWorkflowID, req.Metadata.WorkflowId,
+			platform.KeyWorkflowID, req.Metadata.WorkflowID,
 			platform.KeyWorkflowName, req.Metadata.WorkflowName,
 			platform.KeyWorkflowOwner, req.Metadata.WorkflowOwner,
 		).incrementHTTPRequestCounter(ctx)
@@ -392,19 +398,24 @@ const (
 	defaultNumWorkers                = 3
 	defaultMaxMemoryMBs              = 128
 	defaultMaxTickInterval           = 100 * time.Millisecond
-	defaultMaxTimeout                = 10 * time.Second
+	defaultMaxTimeout                = 120 * time.Second // 2 minutes
 	defaultMaxCompressedBinarySize   = 20 * 1024 * 1024  // 20 MB
 	defaultMaxDecompressedBinarySize = 100 * 1024 * 1024 // 100 MB
+	defaultMaxResponseSizeBytes      = 5 * 1024 * 1024   // 5 MB
 )
 
 type Config struct {
 	webapi.ServiceConfig
-	NumWorkers                int
-	MaxMemoryMBs              uint64
+	NumWorkers   int
+	MaxMemoryMBs uint64
+
+	// MaxTimeout is the maximum time that the WASM module may run to complete
+	// a custom compute step.
 	MaxTimeout                time.Duration
 	MaxTickInterval           time.Duration
 	MaxCompressedBinarySize   uint64
 	MaxDecompressedBinarySize uint64
+	MaxResponseSizeBytes      uint64
 }
 
 func (c *Config) ApplyDefaults() {
@@ -426,6 +437,9 @@ func (c *Config) ApplyDefaults() {
 	if c.MaxDecompressedBinarySize == 0 {
 		c.MaxDecompressedBinarySize = uint64(defaultMaxDecompressedBinarySize)
 	}
+	if c.MaxResponseSizeBytes == 0 {
+		c.MaxResponseSizeBytes = uint64(defaultMaxResponseSizeBytes)
+	}
 }
 
 func NewAction(
@@ -441,15 +455,16 @@ func NewAction(
 		lggr    = logger.Named(log, "CustomCompute")
 		labeler = custmsg.NewLabeler()
 		compute = &Compute{
-			stopCh:         make(services.StopChan),
-			log:            lggr,
-			emitter:        labeler,
-			registry:       registry,
-			modules:        newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
-			transformer:    NewTransformer(lggr, labeler, config),
-			fetcherFactory: fetcherFactory,
-			queue:          make(chan request),
-			numWorkers:     config.NumWorkers,
+			stopCh:               make(services.StopChan),
+			log:                  lggr,
+			emitter:              labeler,
+			registry:             registry,
+			modules:              newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
+			transformer:          NewTransformer(lggr, labeler, config),
+			fetcherFactory:       fetcherFactory,
+			queue:                make(chan request),
+			numWorkers:           config.NumWorkers,
+			maxResponseSizeBytes: config.MaxResponseSizeBytes,
 		}
 	)
 

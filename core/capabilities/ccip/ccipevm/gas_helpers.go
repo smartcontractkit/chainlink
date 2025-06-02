@@ -6,6 +6,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
@@ -33,16 +35,19 @@ const (
 	DestGasOverhead = 300_000 // Commit and Exec costs
 )
 
-func NewGasEstimateProvider() EstimateProvider {
-	return EstimateProvider{}
+func NewGasEstimateProvider(codec ccipcommon.ExtraDataCodec) EstimateProvider {
+	return EstimateProvider{
+		extraDataCodec: codec,
+	}
 }
 
 type EstimateProvider struct {
+	extraDataCodec ccipcommon.ExtraDataCodec
 }
 
 // CalculateMerkleTreeGas estimates the merkle tree gas based on number of requests
 func (gp EstimateProvider) CalculateMerkleTreeGas(numRequests int) uint64 {
-	if numRequests == 0 {
+	if numRequests <= 0 {
 		return 0
 	}
 	merkleProofBytes := (math.Ceil(math.Log2(float64(numRequests))))*32 + (1+2)*32 // only ever one outer root hash
@@ -70,16 +75,26 @@ func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message
 	var data []byte = msg.Data
 	dataLength := len(data)
 
-	messageGasLimit, err := decodeExtraArgsV1V2(msg.ExtraArgs)
+	decodedMap, err := gp.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, msg.Header.SourceChainSelector)
 	if err != nil {
-		return 0, fmt.Errorf("failed to decode extra args: %w", err)
+		return 0, fmt.Errorf("error decoding extra args: %w", err)
+	}
+
+	messageGasLimit, err := parseExtraArgsMap(decodedMap)
+	if err != nil {
+		return 0, fmt.Errorf("error parsing extra args map: %w", err)
 	}
 
 	var totalTokenDestGasOverhead uint64
 	for _, rampTokenAmount := range msg.TokenAmounts {
-		tokenDestGasOverhead, err := decodeTokenDestGasOverhead(rampTokenAmount.DestExecData)
+		decodedMap, err = gp.extraDataCodec.DecodeTokenAmountDestExecData(rampTokenAmount.DestExecData, msg.Header.SourceChainSelector)
 		if err != nil {
 			return 0, fmt.Errorf("failed to decode token dest gas overhead: %w", err)
+		}
+
+		tokenDestGasOverhead, err := extractDestGasAmountFromMap(decodedMap)
+		if err != nil {
+			return 0, fmt.Errorf("failed to extract dest gas amount from map: %w", err)
 		}
 		totalTokenDestGasOverhead += uint64(tokenDestGasOverhead)
 	}
@@ -110,6 +125,6 @@ func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message
 		SupportsInterfaceCheck +
 		adminRegistryOverhead +
 		rateLimiterOverhead +
-		PerTokenOverheadGas*uint64(numTokens) +
+		PerTokenOverheadGas*uint64(numTokens) + // TODO: remove
 		totalTokenDestGasOverhead, nil
 }

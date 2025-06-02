@@ -8,20 +8,27 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
-	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
-	ocr3_capability "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
-	workflow_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
+	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
+	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
+	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 )
 
 type GetContractSetsRequest struct {
-	Chains      map[uint64]deployment.Chain
-	AddressBook deployment.AddressBook
+	Chains      map[uint64]cldf_evm.Chain
+	AddressBook cldf.AddressBook
+
+	// Labels indicates the label set that a contract must include to be considered as a member
+	// of the returned contract set.  By default, an empty label set implies that only contracts without
+	// labels will be considered.  Otherwise, all labels must be on the contract (e.g., "label1" AND "label2").
+	Labels []string
 }
 
 type GetContractSetsResponse struct {
@@ -67,51 +74,6 @@ func (cs ContractSet) TransferableContracts() []common.Address {
 	return out
 }
 
-// View is a view of the keystone chain
-// It is best effort and logs errors
-func (cs ContractSet) View(lggr logger.Logger) (KeystoneChainView, error) {
-	out := NewKeystoneChainView()
-	var allErrs error
-	if cs.CapabilitiesRegistry != nil {
-		capRegView, err := common_v1_0.GenerateCapabilityRegistryView(cs.CapabilitiesRegistry)
-		if err != nil {
-			allErrs = errors.Join(allErrs, err)
-			lggr.Warn("failed to generate capability registry view: %w", err)
-		}
-		out.CapabilityRegistry[cs.CapabilitiesRegistry.Address().String()] = capRegView
-	}
-
-	if cs.OCR3 != nil {
-		for addr, ocr3Cap := range cs.OCR3 {
-			oc := *ocr3Cap
-			addrCopy := addr
-			ocrView, err := GenerateOCR3ConfigView(oc)
-			if err != nil {
-				allErrs = errors.Join(allErrs, err)
-				// don't block view on single OCR3 not being configured
-				if errors.Is(err, ErrOCR3NotConfigured) {
-					lggr.Warnf("ocr3 not configured for address %s", addr)
-				} else {
-					lggr.Errorf("failed to generate OCR3 config view: %v", err)
-				}
-			}
-			out.OCRContracts[addrCopy.String()] = ocrView
-		}
-	}
-
-	// Process the workflow registry and print if WorkflowRegistryError errors.
-	if cs.WorkflowRegistry != nil {
-		wrView, wrErrs := common_v1_0.GenerateWorkflowRegistryView(cs.WorkflowRegistry)
-		for _, err := range wrErrs {
-			allErrs = errors.Join(allErrs, err)
-			lggr.Errorf("WorkflowRegistry error: %v", err)
-		}
-		out.WorkflowRegistry[cs.WorkflowRegistry.Address().String()] = wrView
-	}
-
-	return out, allErrs
-}
-
 func (cs ContractSet) GetOCR3Contract(addr *common.Address) (*ocr3_capability.OCR3Capability, error) {
 	return getOCR3Contract(cs.OCR3, addr)
 }
@@ -125,7 +87,27 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 		if err != nil {
 			return nil, fmt.Errorf("failed to get addresses for chain %d: %w", id, err)
 		}
-		cs, err := loadContractSet(lggr, chain, addrs)
+
+		// Forwarder addresses now have informative labels, but we don't want them to be ignored if no labels are provided for filtering.
+		// If labels are provided, just filter by those.
+		forwarderAddrs := make(map[string]cldf.TypeAndVersion)
+		if len(req.Labels) == 0 {
+			for addr, tv := range addrs {
+				if tv.Type == KeystoneForwarder {
+					forwarderAddrs[addr] = tv
+				}
+			}
+		}
+
+		// TODO: we need to expand/refactor the way labeled addresses are filtered
+		// see: https://smartcontract-it.atlassian.net/browse/CRE-363
+		filtered := deployment.LabeledAddresses(addrs).And(req.Labels...)
+
+		for addr, tv := range forwarderAddrs {
+			filtered[addr] = tv
+		}
+
+		cs, err := loadContractSet(lggr, chain, filtered)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load contract set for chain %d: %w", id, err)
 		}
@@ -134,7 +116,7 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 	return resp, nil
 }
 
-func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*ContractSet, error) {
+func loadContractSet(lggr logger.Logger, chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (*ContractSet, error) {
 	var out ContractSet
 	mcmsWithTimelock, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {

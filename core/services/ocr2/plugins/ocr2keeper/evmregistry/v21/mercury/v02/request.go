@@ -207,7 +207,7 @@ func (c *client) singleFeedRequest(ctx context.Context, ch chan<- mercury.Mercur
 				return nil
 			}
 
-			prommetrics.AutomationStreamsResponses.WithLabelValues(prommetrics.StreamsVersion02, fmt.Sprintf("%d", httpResponse.StatusCode)).Inc()
+			prommetrics.AutomationStreamsResponses.WithLabelValues(prommetrics.StreamsVersion02, strconv.Itoa(httpResponse.StatusCode)).Inc()
 			switch httpResponse.StatusCode {
 			case http.StatusNotFound, http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
 				// Considered as pipeline error, but if retry attempts go over threshold, is changed upstream to ErrCode
@@ -267,7 +267,7 @@ func (c *client) singleFeedRequest(ctx context.Context, ch chan<- mercury.Mercur
 		},
 		// only retry when the error is 404 Not Found, 500 Internal Server Error, 502 Bad Gateway, 503 Service Unavailable, 504 Gateway Timeout
 		retry.RetryIf(func(err error) bool {
-			return err.Error() == fmt.Sprintf("%d", http.StatusNotFound) || err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError) || err.Error() == fmt.Sprintf("%d", http.StatusBadGateway) || err.Error() == fmt.Sprintf("%d", http.StatusServiceUnavailable) || err.Error() == fmt.Sprintf("%d", http.StatusGatewayTimeout)
+			return err.Error() == strconv.Itoa(http.StatusNotFound) || err.Error() == strconv.Itoa(http.StatusInternalServerError) || err.Error() == strconv.Itoa(http.StatusBadGateway) || err.Error() == strconv.Itoa(http.StatusServiceUnavailable) || err.Error() == strconv.Itoa(http.StatusGatewayTimeout)
 		}),
 		retry.Context(ctx),
 		retry.Delay(retryDelay),

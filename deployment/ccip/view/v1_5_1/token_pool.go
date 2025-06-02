@@ -7,14 +7,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_from_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_with_from_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_mint_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_with_from_mint_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/lock_release_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/usdc_token_pool"
 )
 
 type TokenPoolContract interface {
@@ -75,38 +76,44 @@ func GetCurrentOutboundRateLimiterState(t TokenPoolContract, remoteChainSelector
 
 type RemoteChainConfig struct {
 	// RemoteTokenAddress is the raw representation of the token address on the remote chain.
-	RemoteTokenAddress []byte
+	RemoteTokenAddress string
 	// RemotePoolAddresses are raw addresses of valid token pools on the remote chain.
-	RemotePoolAddresses [][]byte
+	RemotePoolAddresses []string
 	// InboundRateLimiterConfig is the rate limiter config for inbound transfers from the remote chain.
 	InboundRateLimterConfig token_pool.RateLimiterConfig
 	// OutboundRateLimiterConfig is the rate limiter config for outbound transfers to the remote chain.
 	OutboundRateLimiterConfig token_pool.RateLimiterConfig
 }
 
+type PoolView struct {
+	TokenPoolView
+	LockReleaseTokenPoolView
+	USDCTokenPoolView
+}
+
 type TokenPoolView struct {
 	types.ContractMetaData
 	Token              common.Address               `json:"token"`
+	TokenPriceFeed     common.Address               `json:"tokenPriceFeed"`
 	RemoteChainConfigs map[uint64]RemoteChainConfig `json:"remoteChainConfigs"`
 	AllowList          []common.Address             `json:"allowList"`
 	AllowListEnabled   bool                         `json:"allowListEnable"`
 }
 
 type USDCTokenPoolView struct {
-	TokenPoolView
-	TokenMessenger     common.Address
-	MessageTransmitter common.Address
-	LocalDomain        uint32
-	ChainToDomain      map[uint64]usdc_token_pool.USDCTokenPoolDomain
+	TokenMessenger     common.Address                                 `json:"tokenMessenger,omitempty"`
+	MessageTransmitter common.Address                                 `json:"messageTransmitter,omitempty"`
+	LocalDomain        uint32                                         `json:"localDomain,omitempty"`
+	ChainToDomain      map[uint64]usdc_token_pool.USDCTokenPoolDomain `json:"chainToDomain,omitempty"`
 }
 
 type LockReleaseTokenPoolView struct {
 	TokenPoolView
-	AcceptLiquidity bool
-	Rebalancer      common.Address
+	AcceptLiquidity bool           `json:"acceptLiquidity,omitempty"`
+	Rebalancer      common.Address `json:"rebalancer,omitempty"`
 }
 
-func GenerateTokenPoolView(pool TokenPoolContract) (TokenPoolView, error) {
+func GenerateTokenPoolView(pool TokenPoolContract, priceFeed common.Address) (TokenPoolView, error) {
 	owner, err := pool.Owner(nil)
 	if err != nil {
 		return TokenPoolView{}, err
@@ -150,8 +157,8 @@ func GenerateTokenPoolView(pool TokenPoolContract) (TokenPoolView, error) {
 			return TokenPoolView{}, err
 		}
 		remoteChainConfigs[remoteChain] = RemoteChainConfig{
-			RemoteTokenAddress:  remoteToken,
-			RemotePoolAddresses: remotePools,
+			RemoteTokenAddress:  shared.GetAddressFromBytes(remoteChain, remoteToken),
+			RemotePoolAddresses: make([]string, len(remotePools)),
 			InboundRateLimterConfig: token_pool.RateLimiterConfig{
 				IsEnabled: inboundState.IsEnabled,
 				Capacity:  inboundState.Capacity,
@@ -163,6 +170,9 @@ func GenerateTokenPoolView(pool TokenPoolContract) (TokenPoolView, error) {
 				Rate:      outboundState.Rate,
 			},
 		}
+		for i, remotePool := range remotePools {
+			remoteChainConfigs[remoteChain].RemotePoolAddresses[i] = shared.GetAddressFromBytes(remoteChain, remotePool)
+		}
 	}
 
 	return TokenPoolView{
@@ -172,63 +182,71 @@ func GenerateTokenPoolView(pool TokenPoolContract) (TokenPoolView, error) {
 			Owner:          owner,
 		},
 		Token:              token,
+		TokenPriceFeed:     priceFeed,
 		RemoteChainConfigs: remoteChainConfigs,
 		AllowList:          allowList,
 		AllowListEnabled:   allowListEnabled,
 	}, nil
 }
 
-func GenerateLockReleaseTokenPoolView(pool *lock_release_token_pool.LockReleaseTokenPool) (LockReleaseTokenPoolView, error) {
-	basePoolView, err := GenerateTokenPoolView(pool)
+func GenerateLockReleaseTokenPoolView(pool *lock_release_token_pool.LockReleaseTokenPool, priceFeed common.Address) (PoolView, error) {
+	basePoolView, err := GenerateTokenPoolView(pool, priceFeed)
 	if err != nil {
-		return LockReleaseTokenPoolView{}, err
+		return PoolView{}, err
+	}
+	poolView := PoolView{
+		TokenPoolView: basePoolView,
 	}
 	acceptLiquidity, err := pool.CanAcceptLiquidity(nil)
 	if err != nil {
-		return LockReleaseTokenPoolView{}, err
+		return poolView, err
 	}
 	rebalancer, err := pool.GetRebalancer(nil)
 	if err != nil {
-		return LockReleaseTokenPoolView{}, err
+		return poolView, err
 	}
-	return LockReleaseTokenPoolView{
+	poolView.LockReleaseTokenPoolView = LockReleaseTokenPoolView{
 		TokenPoolView:   basePoolView,
 		AcceptLiquidity: acceptLiquidity,
 		Rebalancer:      rebalancer,
-	}, nil
+	}
+	return poolView, nil
 }
 
-func GenerateUSDCTokenPoolView(pool *usdc_token_pool.USDCTokenPool) (USDCTokenPoolView, error) {
-	basePoolView, err := GenerateTokenPoolView(pool)
+func GenerateUSDCTokenPoolView(pool *usdc_token_pool.USDCTokenPool) (PoolView, error) {
+	basePoolView, err := GenerateTokenPoolView(pool, common.Address{})
 	if err != nil {
-		return USDCTokenPoolView{}, err
+		return PoolView{}, err
+	}
+	poolView := PoolView{
+		TokenPoolView: basePoolView,
 	}
 	tokenMessenger, err := pool.ITokenMessenger(nil)
 	if err != nil {
-		return USDCTokenPoolView{}, err
+		return poolView, err
 	}
 	messageTransmitter, err := pool.IMessageTransmitter(nil)
 	if err != nil {
-		return USDCTokenPoolView{}, err
+		return poolView, err
 	}
 	localDomain, err := pool.ILocalDomainIdentifier(nil)
 	if err != nil {
-		return USDCTokenPoolView{}, err
+		return poolView, err
 	}
 	chainToDomain := make(map[uint64]usdc_token_pool.USDCTokenPoolDomain)
 	remoteChains := maps.Keys(basePoolView.RemoteChainConfigs)
 	for _, chainSel := range remoteChains {
 		domain, err := pool.GetDomain(nil, chainSel)
 		if err != nil {
-			return USDCTokenPoolView{}, err
+			return poolView, err
 		}
 		chainToDomain[chainSel] = domain
 	}
-	return USDCTokenPoolView{
-		TokenPoolView:      basePoolView,
+	poolView.USDCTokenPoolView = USDCTokenPoolView{
 		TokenMessenger:     tokenMessenger,
 		MessageTransmitter: messageTransmitter,
 		LocalDomain:        localDomain,
 		ChainToDomain:      chainToDomain,
-	}, nil
+	}
+	return poolView, nil
 }

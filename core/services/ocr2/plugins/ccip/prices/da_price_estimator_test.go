@@ -11,9 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/gas/rollups/mocks"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas/rollups/mocks"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 )
 
@@ -183,14 +182,14 @@ func TestDAPriceEstimator_DenoteInUSD(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			g := DAGasPriceEstimator{
 				priceEncodingLength: daGasPriceEncodingLength,
 			}
 
 			gasPrice, err := g.DenoteInUSD(ctx, tc.gasPrice, tc.nativePrice)
 			assert.NoError(t, err)
-			assert.True(t, tc.expPrice.Cmp(gasPrice) == 0)
+			assert.Equal(t, tc.expPrice.Cmp(gasPrice), 0)
 		})
 	}
 }
@@ -269,14 +268,14 @@ func TestDAPriceEstimator_Median(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			g := DAGasPriceEstimator{
 				priceEncodingLength: daGasPriceEncodingLength,
 			}
 
 			gasPrice, err := g.Median(ctx, tc.gasPrices)
 			assert.NoError(t, err)
-			assert.True(t, tc.expMedian.Cmp(gasPrice) == 0)
+			assert.Equal(t, tc.expMedian.Cmp(gasPrice), 0)
 		})
 	}
 }
@@ -350,7 +349,7 @@ func TestDAPriceEstimator_Deviates(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			g := DAGasPriceEstimator{
 				execEstimator: ExecGasPriceEstimator{
 					deviationPPB: tc.execDeviationPPB,
@@ -487,7 +486,7 @@ func TestDAPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 
 			execEstimator := NewMockGasPriceEstimator(t)
 			execEstimator.On("EstimateMsgCostUSD", mock.Anything, mock.Anything, tc.wrappedNativePrice, tc.msg).

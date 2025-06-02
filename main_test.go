@@ -10,9 +10,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/rogpeppe/go-internal/testscript"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/chainlink/v2/core"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -44,6 +45,14 @@ func TestMain(m *testing.M) {
 	}))
 }
 
+var (
+	// Temporary workaround for skipping flaky tests as we improve our tracking process
+	skipFlakyTests = map[string]string{ // test name: issue number
+		// "TestScripts/nodes/evm/list/list":       "https://smartcontract-it.atlassian.net/browse/DX-107",
+		// "TestScripts/keys/eth/list/unavailable": "https://smartcontract-it.atlassian.net/browse/DX-110",
+	}
+)
+
 // TestScripts walks through the testdata/scripts directory and runs all tests that end in
 // .txt or .txtar with the testscripts library. To run an individual test, specify it in the
 // -run param of go test without the txtar or txt suffix, like so:
@@ -57,6 +66,9 @@ func TestScripts(t *testing.T) {
 	visitor := txtar.NewDirVisitor("testdata/scripts", txtar.Recurse, func(path string) error {
 		t.Run(strings.TrimPrefix(path, "testdata/scripts/"), func(t *testing.T) {
 			t.Parallel()
+			if message, shouldSkip := skipFlakyTests[t.Name()]; shouldSkip {
+				t.Skipf("Flaky Test: %s", message)
+			}
 
 			testscript.Run(t, testscript.Params{
 				Dir:             path,

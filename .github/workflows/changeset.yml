@@ -51,7 +51,6 @@ jobs:
               - '!core/**/*_test.go'
               - '!core/**/*.md'
               - '!core/**/*.json'
-              - '!core/chainlink.goreleaser.Dockerfile'
               - '!core/chainlink.Dockerfile'
               - '!core/gethwrappers/**'
             core-changeset:
@@ -67,7 +66,7 @@ jobs:
         uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
         if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
         with:
-          version: ^9.0.0
+          version: ^10.0.0
 
       - name: Setup node
         uses: actions/setup-node@v4
@@ -98,7 +97,7 @@ jobs:
         with:
           persist-credentials: false
           repository: smartcontractkit/.github
-          ref: 9aed33e5298471f20a3d630d711b96ae5538728c # jira-tracing@0.2.0
+          ref: a104d316e1d8bf08f7283b90356450c72157e149 # 2025-04-03
           path: ./dot_github
 
       - name: Update Jira ticket for core
@@ -209,4 +208,3 @@ jobs:
           message: |
             It appears that the changeset file you've added or modified in `contracts/.changeset` is not valid.
             Please delete the file and run `pnpm changeset` in the contracts directory.
-

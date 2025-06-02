@@ -6,14 +6,14 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 // ExecutePluginCodecV1 is a codec for encoding and decoding execute plugin reports.
@@ -30,6 +30,13 @@ func NewExecutePluginCodecV1(extraDataCodec common.ExtraDataCodec) *ExecutePlugi
 }
 
 func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.ExecutePluginReport) ([]byte, error) {
+	if len(report.ChainReports) == 0 {
+		// OCR3 runs in a constant loop and will produce empty reports, so we need to handle this case
+		// return an empty report, CCIP will discard it on ShouldAcceptAttestedReport/ShouldTransmitAcceptedReport
+		// via validateReport before attempting to decode
+		return nil, nil
+	}
+
 	if len(report.ChainReports) != 1 {
 		return nil, fmt.Errorf("unexpected chain report length: %d", len(report.ChainReports))
 	}
@@ -48,6 +55,10 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		for _, tokenAmount := range msg.TokenAmounts {
 			if tokenAmount.Amount.IsEmpty() {
 				return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
+			}
+
+			if tokenAmount.Amount.Int.Sign() < 0 {
+				return nil, fmt.Errorf("negative amount for token: %s", tokenAmount.DestTokenAddress)
 			}
 
 			if len(tokenAmount.DestTokenAddress) != solana.PublicKeyLength {
@@ -73,13 +84,12 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			})
 		}
 
-		extraDataDecodecMap, err := e.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, chainReport.SourceChainSelector)
+		extraDataDecodedMap, err := e.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, chainReport.SourceChainSelector)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode extra args: %w", err)
 		}
 
-		var extraArgs ccip_offramp.Any2SVMRampExtraArgs
-		extraArgs, _, err = parseExtraArgsMapWithAccounts(extraDataDecodecMap)
+		ed, err := parseExtraDataMap(extraDataDecodedMap)
 		if err != nil {
 			return nil, fmt.Errorf("invalid extra args map: %w", err)
 		}
@@ -98,9 +108,9 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			},
 			Sender:        msg.Sender,
 			Data:          msg.Data,
-			TokenReceiver: solana.PublicKeyFromBytes(msg.Receiver),
+			TokenReceiver: ed.tokenReceiver,
 			TokenAmounts:  tokenAmounts,
-			ExtraArgs:     extraArgs,
+			ExtraArgs:     ed.extraArgs,
 		}
 
 		// should only have an offchain token data if there are tokens as part of the message
@@ -223,6 +233,40 @@ func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
 	}
 
 	return 0, errors.New("invalid token message, dest gas amount not found in the DestExecDataDecoded map")
+}
+
+func encodeBigIntToFixedLengthLE(bi *big.Int, length int) []byte {
+	// Create a fixed-length byte array
+	paddedBytes := make([]byte, length)
+
+	// Use FillBytes to fill the array with big-endian data, zero-padded
+	bi.FillBytes(paddedBytes)
+
+	// Reverse the array for little-endian encoding
+	for i, j := 0, len(paddedBytes)-1; i < j; i, j = i+1, j-1 {
+		paddedBytes[i], paddedBytes[j] = paddedBytes[j], paddedBytes[i]
+	}
+
+	return paddedBytes
+}
+
+func decodeLEToBigInt(data []byte) cciptypes.BigInt {
+	// Avoid modifying original data
+	buf := make([]byte, len(data))
+	copy(buf, data)
+
+	// Reverse the byte array to convert it from little-endian to big-endian
+	for i, j := 0, len(buf)-1; i < j; i, j = i+1, j-1 {
+		buf[i], buf[j] = buf[j], buf[i]
+	}
+
+	// Use big.Int.SetBytes to construct the big.Int
+	bi := new(big.Int).SetBytes(buf)
+	if bi.Cmp(big.NewInt(0)) == 0 {
+		return cciptypes.NewBigInt(big.NewInt(0))
+	}
+
+	return cciptypes.NewBigInt(bi)
 }
 
 // Ensure ExecutePluginCodec implements the ExecutePluginCodec interface

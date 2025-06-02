@@ -1,0 +1,97 @@
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+
+[custom_anvil_miner]
+  block_speed_seconds = 5
+
+[jd]
+  image = "injected-at-runtime"
+
+[infra]
+  # either "docker" or "crib"
+  type = "docker"
+
+[[workflow_configs]]
+  workflow_name = "abcdefgasd"
+  # 0x01 8e16c39e 0000 20 0000000000000000 = ETH/USD Benchmark Price with 0 decimals
+  feed_id = "018e16c39e000320000000000000000000000000000000000000000000000000"
+
+  use_cre_cli = true
+  should_compile_new_workflow = false
+
+  [workflow_configs.compiled_config]
+    binary_url = "https://gist.githubusercontent.com/Tofel/e0b01e434eea52c619fc1b75c36704b4/raw/1bd684d59647c5b66e94b6cfa4766e5453781182/binary.wasm.br.b64"
+    # Every time that consumer address changes (e.g. due code sequence changes) we need to update the config used in CI. That config is identical to the one used, when executing local machine
+    # unless test uses fake data provider. In that case the IP of the fake data provider will be different in the CI, because it uses linux not macOS operating system and that changes the IP
+    # of 'host.docker.internal'. TL;DR is that when updating this config you can use config created during local execution, but you need to use data provider URL copied from the previous CI config.
+    config_url = "https://gist.githubusercontent.com/Tofel/03d25021292bd4895e45b42ca2c5afb3/raw/ba7dc07f76c7d332d9463b67864ea597b2354984/three-dons-config.json_16_05_2025"
+
+[dependencies]
+  cron_capability_binary_path = "./cron"
+  cre_cli_binary_path = "./cre_v0.2.0_linux_amd64" # must be linux/amd64 to match our CI runner
+
+[[nodesets]]
+  nodes = 5
+  override_mode = "all"
+  http_port_range_start = 10100
+  name = "workflow"
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+    volume_name = "workflow_volume"
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "injected-at-runtime"
+      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """
+
+[[nodesets]]
+  nodes = 2
+  override_mode = "all"
+  http_port_range_start = 10200
+  name = "capabilities"
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13100
+    volume_name = "capabilities_volume"
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "injected-at-runtime"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """
+
+[[nodesets]]
+  nodes = 1
+  override_mode = "all"
+  http_port_range_start = 10300
+  name = "gateway"
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13200
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "injected-at-runtime"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """

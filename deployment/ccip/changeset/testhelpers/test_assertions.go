@@ -5,39 +5,55 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
+	solrpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
+	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
+	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
+	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 )
 
 func ConfirmGasPriceUpdatedForAll(
 	t *testing.T,
-	e deployment.Environment,
-	state changeset.CCIPOnChainState,
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
 	startBlocks map[uint64]*uint64,
 	gasPrice *big.Int,
 ) {
 	var wg errgroup.Group
-	for src, srcChain := range e.Chains {
-		for dest, dstChain := range e.Chains {
+	evmChains := e.BlockChains.EVMChains()
+	for src, srcChain := range evmChains {
+		for dest, dstChain := range evmChains {
 			if src == dest {
 				continue
 			}
@@ -51,7 +67,7 @@ func ConfirmGasPriceUpdatedForAll(
 				return ConfirmGasPriceUpdated(
 					t,
 					dstChain,
-					state.Chains[srcChain.Selector].FeeQuoter,
+					state.MustGetEVMChainState(srcChain.Selector).FeeQuoter,
 					*startBlock,
 					gasPrice,
 				)
@@ -63,7 +79,7 @@ func ConfirmGasPriceUpdatedForAll(
 
 func ConfirmGasPriceUpdated(
 	t *testing.T,
-	dest deployment.Chain,
+	dest cldf_evm.Chain,
 	srcFeeQuoter *fee_quoter.FeeQuoter,
 	startBlock uint64,
 	gasPrice *big.Int,
@@ -83,29 +99,29 @@ func ConfirmGasPriceUpdated(
 
 func ConfirmTokenPriceUpdatedForAll(
 	t *testing.T,
-	e deployment.Environment,
-	state changeset.CCIPOnChainState,
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
 	startBlocks map[uint64]*uint64,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
 ) {
 	var wg errgroup.Group
-	for _, chain := range e.Chains {
+	for _, chain := range e.BlockChains.EVMChains() {
 		chain := chain
 		wg.Go(func() error {
 			var startBlock *uint64
 			if startBlocks != nil {
 				startBlock = startBlocks[chain.Selector]
 			}
-			linkAddress := state.Chains[chain.Selector].LinkToken.Address()
-			wethAddress := state.Chains[chain.Selector].Weth9.Address()
+			linkAddress := state.MustGetEVMChainState(chain.Selector).LinkToken.Address()
+			wethAddress := state.MustGetEVMChainState(chain.Selector).Weth9.Address()
 			tokenToPrice := make(map[common.Address]*big.Int)
 			tokenToPrice[linkAddress] = linkPrice
 			tokenToPrice[wethAddress] = wethPrice
 			return ConfirmTokenPriceUpdated(
 				t,
 				chain,
-				state.Chains[chain.Selector].FeeQuoter,
+				state.MustGetEVMChainState(chain.Selector).FeeQuoter,
 				*startBlock,
 				tokenToPrice,
 			)
@@ -116,7 +132,7 @@ func ConfirmTokenPriceUpdatedForAll(
 
 func ConfirmTokenPriceUpdated(
 	t *testing.T,
-	chain deployment.Chain,
+	chain cldf_evm.Chain,
 	feeQuoter *fee_quoter.FeeQuoter,
 	startBlock uint64,
 	tokenToInitialPrice map[common.Address]*big.Int,
@@ -168,8 +184,8 @@ type SourceDestPair struct {
 // If startBlocks is nil, it will start watching from the latest block.
 func ConfirmCommitForAllWithExpectedSeqNums(
 	t *testing.T,
-	e deployment.Environment,
-	state changeset.CCIPOnChainState,
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
 	expectedSeqNums map[SourceDestPair]uint64,
 	startBlocks map[uint64]*uint64,
 ) {
@@ -186,18 +202,44 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 				startBlock = startBlocks[dstChain]
 			}
 
-			return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(
-				t,
-				srcChain,
-				e.Chains[dstChain],
-				state.Chains[dstChain].OffRamp,
-				startBlock,
-				ccipocr3.SeqNumRange{
-					ccipocr3.SeqNum(expectedSeqNum),
-					ccipocr3.SeqNum(expectedSeqNum),
-				},
-				true,
-			))
+			family, err := chainsel.GetSelectorFamily(dstChain)
+			if err != nil {
+				return err
+			}
+			switch family {
+			case chainsel.FamilyEVM:
+				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(
+					t,
+					srcChain,
+					e.BlockChains.EVMChains()[dstChain],
+					state.MustGetEVMChainState(dstChain).OffRamp,
+					startBlock,
+					ccipocr3.SeqNumRange{
+						ccipocr3.SeqNum(expectedSeqNum),
+						ccipocr3.SeqNum(expectedSeqNum),
+					},
+					true,
+				))
+			case chainsel.FamilySolana:
+				var startSlot uint64
+				if startBlock != nil {
+					startSlot = *startBlock
+				}
+				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRangeSol(
+					t,
+					srcChain,
+					e.BlockChains.SolanaChains()[dstChain],
+					state.SolChains[dstChain].OffRamp,
+					startSlot,
+					ccipocr3.SeqNumRange{
+						ccipocr3.SeqNum(expectedSeqNum),
+						ccipocr3.SeqNum(expectedSeqNum),
+					},
+					true,
+				))
+			default:
+				return fmt.Errorf("unsupported chain family; %v", family)
+			}
 		})
 	}
 
@@ -258,8 +300,8 @@ func (c *CommitReportTracker) allCommited(sourceChainSelector uint64) bool {
 // Waiting is done in parallel per every sourceChain/destChain (lane) passed as argument.
 func ConfirmMultipleCommits(
 	t *testing.T,
-	chains map[uint64]deployment.Chain,
-	state map[uint64]changeset.CCIPChainState,
+	env cldf.Environment,
+	state stateview.CCIPOnChainState,
 	startBlocks map[uint64]*uint64,
 	enforceSingleCommit bool,
 	expectedSeqNums map[SourceDestPair]ccipocr3.SeqNumRange,
@@ -272,16 +314,40 @@ func ConfirmMultipleCommits(
 		destChain := sourceDest.DestChainSelector
 
 		errGrp.Go(func() error {
-			_, err := ConfirmCommitWithExpectedSeqNumRange(
-				t,
-				srcChain,
-				chains[destChain],
-				state[destChain].OffRamp,
-				startBlocks[destChain],
-				seqRange,
-				enforceSingleCommit,
-			)
-			return err
+			family, err := chainsel.GetSelectorFamily(destChain)
+			if err != nil {
+				return err
+			}
+			switch family {
+			case chainsel.FamilyEVM:
+				_, err := ConfirmCommitWithExpectedSeqNumRange(
+					t,
+					srcChain,
+					env.BlockChains.EVMChains()[destChain],
+					state.MustGetEVMChainState(destChain).OffRamp,
+					startBlocks[destChain],
+					seqRange,
+					enforceSingleCommit,
+				)
+				return err
+			case chainsel.FamilySolana:
+				var startSlot uint64
+				if startBlocks[destChain] != nil {
+					startSlot = *startBlocks[destChain]
+				}
+				_, err := ConfirmCommitWithExpectedSeqNumRangeSol(
+					t,
+					srcChain,
+					env.BlockChains.SolanaChains()[destChain],
+					state.SolChains[destChain].OffRamp,
+					startSlot,
+					seqRange,
+					enforceSingleCommit,
+				)
+				return err
+			default:
+				return fmt.Errorf("unsupported chain family; %v", family)
+			}
 		})
 	}
 
@@ -294,7 +360,7 @@ func ConfirmMultipleCommits(
 func ConfirmCommitWithExpectedSeqNumRange(
 	t *testing.T,
 	srcSelector uint64,
-	dest deployment.Chain,
+	dest cldf_evm.Chain,
 	offRamp offramp.OffRampInterface,
 	startBlock *uint64,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
@@ -345,29 +411,26 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	}
 
 	defer subscription.Unsubscribe()
-	var duration time.Duration
-	deadline, ok := t.Deadline()
-	if ok {
-		// make this timer end a minute before so that we don't hit the deadline
-		duration = deadline.Sub(time.Now().Add(-1 * time.Minute))
-	} else {
-		duration = 5 * time.Minute
-	}
-	timer := time.NewTimer(duration)
-	defer timer.Stop()
+	timeout := time.NewTimer(tests.WaitTimeout(t))
+	defer timeout.Stop()
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
+		case <-t.Context().Done():
+			return nil, nil
 		case <-ticker.C:
 			t.Logf("Waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
 				dest.Selector, srcSelector, expectedSeqNumRange.String())
 
 			// Need to do this because the subscription sometimes fails to get the event.
 			iter, err := offRamp.FilterCommitReportAccepted(&bind.FilterOpts{
-				Context: tests.Context(t),
+				Context: t.Context(),
 			})
-			require.NoError(t, err)
+			// In some test case the test ends while the filter is still running resulting in a context.Canceled error.
+			if err != nil && !errors.Is(err, context.Canceled) {
+				require.NoError(t, err)
+			}
 			for iter.Next() {
 				event := iter.Event
 				verified := verifyCommitReport(event)
@@ -377,14 +440,155 @@ func ConfirmCommitWithExpectedSeqNumRange(
 			}
 		case subErr := <-subscription.Err():
 			return nil, fmt.Errorf("subscription error: %w", subErr)
-		case <-timer.C:
-			return nil, fmt.Errorf("timed out after waiting %s duration for commit report on chain selector %d from source selector %d expected seq nr range %s",
-				duration.String(), dest.Selector, srcSelector, expectedSeqNumRange.String())
+		case <-timeout.C:
+			return nil, fmt.Errorf("timed out after waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
+				dest.Selector, srcSelector, expectedSeqNumRange.String())
 		case report := <-sink:
 			verified := verifyCommitReport(report)
 			if verified {
 				return report, nil
 			}
+		}
+	}
+}
+
+// Scan for events referencing address
+func SolEventEmitter[T any](
+	t *testing.T,
+	client *solrpc.Client,
+	address solana.PublicKey,
+	eventType string,
+	startSlot uint64,
+	done chan any,
+) (<-chan T, <-chan error) {
+	ch := make(chan T)
+	errorCh := make(chan error)
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+		var until solana.Signature
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				// Scan for transactions referencing the address
+				ctx := context.Background()
+				txSigs, err := client.GetSignaturesForAddressWithOpts(
+					ctx,
+					address,
+					&solrpc.GetSignaturesForAddressOpts{
+						Commitment: solrpc.CommitmentConfirmed,
+						Until:      until,
+					},
+				)
+				if err != nil {
+					errorCh <- err
+					return
+				}
+
+				if len(txSigs) == 0 {
+					continue
+				}
+
+				// values are returned ordered newest to oldest, so we replay them backwards
+				for _, txSig := range slices.Backward(txSigs) {
+					if txSig.Err != nil {
+						// We're not interested in failed transactions.
+						continue
+					}
+					if txSig.Slot < startSlot {
+						// Skip any signatures that are before the starting slot
+						continue
+					}
+					v := uint64(0) // v0 = latest, supports address table lookups
+					tx, err := client.GetTransaction(
+						ctx,
+						txSig.Signature,
+						&solrpc.GetTransactionOpts{
+							Commitment:                     solrpc.CommitmentConfirmed,
+							Encoding:                       solana.EncodingBase64,
+							MaxSupportedTransactionVersion: &v,
+						},
+					)
+					if err != nil {
+						errorCh <- err
+						return
+					}
+
+					events, err := solcommon.ParseMultipleEvents[T](tx.Meta.LogMessages, eventType, solconfig.PrintEvents)
+					if err != nil && strings.Contains(err.Error(), "event not found") {
+						continue
+					}
+					if err != nil {
+						errorCh <- err
+						return
+					}
+
+					for _, event := range events {
+						select {
+						case ch <- event:
+						case <-done:
+							return
+						}
+					}
+				}
+				// next scan should stop at the newest signature we've received
+				until = txSigs[0].Signature
+			}
+		}
+	}()
+
+	return ch, errorCh
+}
+
+func ConfirmCommitWithExpectedSeqNumRangeSol(
+	t *testing.T,
+	srcSelector uint64,
+	dest cldf_solana.Chain,
+	offrampAddress solana.PublicKey,
+	startSlot uint64,
+	expectedSeqNumRange ccipocr3.SeqNumRange,
+	enforceSingleCommit bool,
+) (bool, error) {
+	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
+
+	done := make(chan any)
+	defer close(done)
+	sink, errCh := SolEventEmitter[solccip.EventCommitReportAccepted](t, dest.Client, offrampAddress, "CommitReportAccepted", startSlot, done)
+
+	timeout := time.NewTimer(tests.WaitTimeout(t))
+	defer timeout.Stop()
+
+	for {
+		select {
+		case commitEvent := <-sink:
+			// if merkle root is zero, it only contains price updates
+			if commitEvent.Report == nil {
+				t.Logf("Skipping CommitReportAccepted with only price updates")
+				continue
+			}
+			require.Equal(t, srcSelector, commitEvent.Report.SourceChainSelector)
+
+			// TODO: this logic is duplicated with verifyCommitReport, share
+			mr := commitEvent.Report
+			seenMessages.visitCommitReport(mr.SourceChainSelector, mr.MinSeqNr, mr.MaxSeqNr)
+			if mr.SourceChainSelector == srcSelector &&
+				uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
+				uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
+				t.Logf("All sequence numbers committed in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+				return true, nil
+			}
+
+			if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
+				t.Logf("All sequence numbers already committed from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+				return true, nil
+			}
+		case err := <-errCh:
+			require.NoError(t, err)
+		case <-timeout.C:
+			return false, fmt.Errorf("timed out after waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
+				dest.Selector, srcSelector, expectedSeqNumRange.String())
 		}
 	}
 }
@@ -397,8 +601,8 @@ func ConfirmCommitWithExpectedSeqNumRange(
 // If startBlocks is nil, it will start watching from the latest block.
 func ConfirmExecWithSeqNrsForAll(
 	t *testing.T,
-	e deployment.Environment,
-	state changeset.CCIPOnChainState,
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
 	expectedSeqNums map[SourceDestPair][]uint64,
 	startBlocks map[uint64]*uint64,
 ) (executionStates map[SourceDestPair]map[uint64]int) {
@@ -418,16 +622,43 @@ func ConfirmExecWithSeqNrsForAll(
 		}
 
 		wg.Go(func() error {
-			innerExecutionStates, err := ConfirmExecWithSeqNrs(
-				t,
-				srcChain,
-				e.Chains[dstChain],
-				state.Chains[dstChain].OffRamp,
-				startBlock,
-				seqRange,
-			)
+			family, err := chainsel.GetSelectorFamily(dstChain)
 			if err != nil {
 				return err
+			}
+
+			var innerExecutionStates map[uint64]int
+			switch family {
+			case chainsel.FamilyEVM:
+				innerExecutionStates, err = ConfirmExecWithSeqNrs(
+					t,
+					srcChain,
+					e.BlockChains.EVMChains()[dstChain],
+					state.MustGetEVMChainState(dstChain).OffRamp,
+					startBlock,
+					seqRange,
+				)
+				if err != nil {
+					return err
+				}
+			case chainsel.FamilySolana:
+				var startSlot uint64
+				if startBlock != nil {
+					startSlot = *startBlock
+				}
+				innerExecutionStates, err = ConfirmExecWithSeqNrsSol(
+					t,
+					srcChain,
+					e.BlockChains.SolanaChains()[dstChain],
+					state.SolChains[dstChain].OffRamp,
+					startSlot,
+					seqRange,
+				)
+				if err != nil {
+					return err
+				}
+			default:
+				return fmt.Errorf("unsupported chain family; %v", family)
 			}
 
 			mx.Lock()
@@ -449,7 +680,7 @@ func ConfirmExecWithSeqNrsForAll(
 func ConfirmExecWithSeqNrs(
 	t *testing.T,
 	sourceSelector uint64,
-	dest deployment.Chain,
+	dest cldf_evm.Chain,
 	offRamp offramp.OffRampInterface,
 	startBlock *uint64,
 	expectedSeqNrs []uint64,
@@ -458,8 +689,8 @@ func ConfirmExecWithSeqNrs(
 		return nil, errors.New("no expected sequence numbers provided")
 	}
 
-	timer := time.NewTimer(tests.WaitTimeout(t))
-	defer timer.Stop()
+	timeout := time.NewTimer(tests.WaitTimeout(t))
+	defer timeout.Stop()
 	tick := time.NewTicker(3 * time.Second)
 	defer tick.Stop()
 	sink := make(chan *offramp.OffRampExecutionStateChanged)
@@ -512,7 +743,7 @@ func ConfirmExecWithSeqNrs(
 					return executionStates, nil
 				}
 			}
-		case <-timer.C:
+		case <-timeout.C:
 			return nil, fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
 				dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNrs)
 		case subErr := <-subscription.Err():
@@ -521,10 +752,61 @@ func ConfirmExecWithSeqNrs(
 	}
 }
 
+func ConfirmExecWithSeqNrsSol(
+	t *testing.T,
+	srcSelector uint64,
+	dest cldf_solana.Chain,
+	offrampAddress solana.PublicKey,
+	startSlot uint64,
+	expectedSeqNrs []uint64,
+) (executionStates map[uint64]int, err error) {
+	// TODO: share with EVM
+	// some state to efficiently track the execution states
+	// of all the expected sequence numbers.
+	executionStates = make(map[uint64]int)
+	seqNrsToWatch := make(map[uint64]struct{})
+	for _, seqNr := range expectedSeqNrs {
+		seqNrsToWatch[seqNr] = struct{}{}
+	}
+
+	done := make(chan any)
+	defer close(done)
+	sink, errCh := SolEventEmitter[solccip.EventExecutionStateChanged](t, dest.Client, offrampAddress, "ExecutionStateChanged", startSlot, done)
+
+	timeout := time.NewTimer(tests.WaitTimeout(t))
+	defer timeout.Stop()
+
+	for {
+		select {
+		case execEvent := <-sink:
+			// TODO: share with EVM
+			_, found := seqNrsToWatch[execEvent.SequenceNumber]
+			if found && execEvent.SourceChainSelector == srcSelector {
+				t.Logf("Received ExecutionStateChanged (state %s) on chain %d (offramp %s) from chain %d with expected sequence number %d",
+					execEvent.State.String(), dest.Selector, offrampAddress.String(), srcSelector, execEvent.SequenceNumber)
+				if execEvent.State == ccip_offramp.InProgress_MessageExecutionState {
+					// skip the in progress state, executed event should follow
+					continue
+				}
+				executionStates[execEvent.SequenceNumber] = int(execEvent.State)
+				delete(seqNrsToWatch, execEvent.SequenceNumber)
+				if len(seqNrsToWatch) == 0 {
+					return executionStates, nil
+				}
+			}
+		case err := <-errCh:
+			require.NoError(t, err)
+		case <-timeout.C:
+			return nil, fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
+				dest.Selector, offrampAddress.String(), srcSelector, expectedSeqNrs)
+		}
+	}
+}
+
 func ConfirmNoExecConsistentlyWithSeqNr(
 	t *testing.T,
 	sourceSelector uint64,
-	dest deployment.Chain,
+	dest cldf_evm.Chain,
 	offRamp offramp.OffRampInterface,
 	expectedSeqNr uint64,
 	timeout time.Duration,
@@ -629,31 +911,39 @@ func AssertTimelockOwnership(
 	t *testing.T,
 	e DeployedEnv,
 	chains []uint64,
-	state changeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
+	withTestRouterTransfer bool,
 ) {
 	// check that the ownership has been transferred correctly
 	for _, chain := range chains {
-		for _, contract := range []common.Address{
-			state.Chains[chain].OnRamp.Address(),
-			state.Chains[chain].OffRamp.Address(),
-			state.Chains[chain].FeeQuoter.Address(),
-			state.Chains[chain].NonceManager.Address(),
-			state.Chains[chain].RMNRemote.Address(),
-		} {
-			owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.Chains[chain].Client)
+		allContracts := []common.Address{
+			state.MustGetEVMChainState(chain).OnRamp.Address(),
+			state.MustGetEVMChainState(chain).OffRamp.Address(),
+			state.MustGetEVMChainState(chain).FeeQuoter.Address(),
+			state.MustGetEVMChainState(chain).NonceManager.Address(),
+			state.MustGetEVMChainState(chain).RMNRemote.Address(),
+			state.MustGetEVMChainState(chain).Router.Address(),
+			state.MustGetEVMChainState(chain).TokenAdminRegistry.Address(),
+			state.MustGetEVMChainState(chain).RMNProxy.Address(),
+		}
+		if withTestRouterTransfer {
+			allContracts = append(allContracts, state.MustGetEVMChainState(chain).TestRouter.Address())
+		}
+		for _, contract := range allContracts {
+			owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.BlockChains.EVMChains()[chain].Client)
 			require.NoError(t, err)
-			require.Equal(t, state.Chains[chain].Timelock.Address(), owner)
+			require.Equal(t, state.MustGetEVMChainState(chain).Timelock.Address(), owner)
 		}
 	}
 
 	// check home chain contracts ownership
-	homeChainTimelockAddress := state.Chains[e.HomeChainSel].Timelock.Address()
+	homeChainTimelockAddress := state.MustGetEVMChainState(e.HomeChainSel).Timelock.Address()
 	for _, contract := range []common.Address{
-		state.Chains[e.HomeChainSel].CapabilityRegistry.Address(),
-		state.Chains[e.HomeChainSel].CCIPHome.Address(),
-		state.Chains[e.HomeChainSel].RMNHome.Address(),
+		state.MustGetEVMChainState(e.HomeChainSel).CapabilityRegistry.Address(),
+		state.MustGetEVMChainState(e.HomeChainSel).CCIPHome.Address(),
+		state.MustGetEVMChainState(e.HomeChainSel).RMNHome.Address(),
 	} {
-		owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.Chains[e.HomeChainSel].Client)
+		owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.BlockChains.EVMChains()[e.HomeChainSel].Client)
 		require.NoError(t, err)
 		require.Equal(t, homeChainTimelockAddress, owner)
 	}

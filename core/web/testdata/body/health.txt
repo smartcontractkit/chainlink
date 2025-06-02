@@ -3,7 +3,7 @@ ok EVM.0.BalanceMonitor
 ok EVM.0.HeadBroadcaster
 ok EVM.0.HeadTracker
 !  EVM.0.HeadTracker.HeadListener
-	Listener is not connected
+	Listener connected = false, receiving heads = false
 ok EVM.0.LogBroadcaster
 ok EVM.0.Relayer
 ok EVM.0.Txm
@@ -28,4 +28,4 @@ ok Solana.Bar.Chain.BalanceMonitor
 ok Solana.Bar.Chain.Txm
 ok Solana.Bar.Relayer
 ok TelemetryManager
-ok WorkflowDBStore
+ok WorkflowStore

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"sync"
 	"time"
 
 	gethkeystore "github.com/ethereum/go-ethereum/accounts/keystore"
@@ -12,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
@@ -161,6 +162,7 @@ type keyRing struct {
 	StarkNet   map[string]starkkey.Key
 	Aptos      map[string]aptoskey.Key
 	Tron       map[string]tronkey.Key
+	TON        map[string]tonkey.Key
 	VRF        map[string]vrfkey.KeyV2
 	Workflow   map[string]workflowkey.Key
 	LegacyKeys LegacyKeyStorage
@@ -178,6 +180,7 @@ func newKeyRing() *keyRing {
 		StarkNet: make(map[string]starkkey.Key),
 		Aptos:    make(map[string]aptoskey.Key),
 		Tron:     make(map[string]tronkey.Key),
+		TON:      make(map[string]tonkey.Key),
 		VRF:      make(map[string]vrfkey.KeyV2),
 		Workflow: make(map[string]workflowkey.Key),
 	}
@@ -214,40 +217,43 @@ func (kr *keyRing) Encrypt(password string, scryptParams utils.ScryptParams) (ek
 
 func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	for _, csaKey := range kr.CSA {
-		rawKeys.CSA = append(rawKeys.CSA, csaKey.Raw())
+		rawKeys.CSA = append(rawKeys.CSA, internal.RawBytes(csaKey))
 	}
 	for _, ethKey := range kr.Eth {
-		rawKeys.Eth = append(rawKeys.Eth, ethKey.Raw())
+		rawKeys.Eth = append(rawKeys.Eth, internal.RawBytes(ethKey))
 	}
 	for _, ocrKey := range kr.OCR {
-		rawKeys.OCR = append(rawKeys.OCR, ocrKey.Raw())
+		rawKeys.OCR = append(rawKeys.OCR, internal.RawBytes(ocrKey))
 	}
 	for _, ocr2key := range kr.OCR2 {
-		rawKeys.OCR2 = append(rawKeys.OCR2, ocr2key.Raw())
+		rawKeys.OCR2 = append(rawKeys.OCR2, internal.RawBytes(ocr2key))
 	}
 	for _, p2pKey := range kr.P2P {
-		rawKeys.P2P = append(rawKeys.P2P, p2pKey.Raw())
+		rawKeys.P2P = append(rawKeys.P2P, internal.RawBytes(p2pKey))
 	}
 	for _, cosmoskey := range kr.Cosmos {
-		rawKeys.Cosmos = append(rawKeys.Cosmos, cosmoskey.Raw())
+		rawKeys.Cosmos = append(rawKeys.Cosmos, internal.RawBytes(cosmoskey))
 	}
 	for _, solkey := range kr.Solana {
-		rawKeys.Solana = append(rawKeys.Solana, solkey.Raw())
+		rawKeys.Solana = append(rawKeys.Solana, internal.RawBytes(solkey))
 	}
 	for _, starkkey := range kr.StarkNet {
-		rawKeys.StarkNet = append(rawKeys.StarkNet, starkkey.Raw())
+		rawKeys.StarkNet = append(rawKeys.StarkNet, internal.RawBytes(starkkey))
 	}
 	for _, aptoskey := range kr.Aptos {
-		rawKeys.Aptos = append(rawKeys.Aptos, aptoskey.Raw())
+		rawKeys.Aptos = append(rawKeys.Aptos, internal.RawBytes(aptoskey))
 	}
 	for _, tronkey := range kr.Tron {
-		rawKeys.Tron = append(rawKeys.Tron, tronkey.Raw())
+		rawKeys.Tron = append(rawKeys.Tron, internal.RawBytes(tronkey))
+	}
+	for _, tonkey := range kr.TON {
+		rawKeys.TON = append(rawKeys.TON, internal.RawBytes(tonkey))
 	}
 	for _, vrfKey := range kr.VRF {
-		rawKeys.VRF = append(rawKeys.VRF, vrfKey.Raw())
+		rawKeys.VRF = append(rawKeys.VRF, internal.RawBytes(vrfKey))
 	}
 	for _, workflowKey := range kr.Workflow {
-		rawKeys.Workflow = append(rawKeys.Workflow, workflowKey.Raw())
+		rawKeys.Workflow = append(rawKeys.Workflow, internal.RawBytes(workflowKey))
 	}
 	return rawKeys
 }
@@ -294,6 +300,10 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	for _, tronKey := range kr.Tron {
 		tronIDs = append(tronIDs, tronKey.ID())
 	}
+	tonIDs := []string{}
+	for _, tonKey := range kr.TON {
+		tonIDs = append(tonIDs, tonKey.ID())
+	}
 	var vrfIDs []string
 	for _, VRFKey := range kr.VRF {
 		vrfIDs = append(vrfIDs, VRFKey.ID())
@@ -334,6 +344,9 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	if len(tronIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d Tron keys", len(tronIDs)), "keys", tronIDs)
 	}
+	if len(tonIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d TON keys", len(tonIDs)), "keys", tonIDs)
+	}
 	if len(vrfIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d VRF keys", len(vrfIDs)), "keys", vrfIDs)
 	}
@@ -349,70 +362,75 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 // it holds only the essential key information to avoid adding unnecessary data
 // (like public keys) to the database
 type rawKeyRing struct {
-	Eth        []ethkey.Raw
-	CSA        []csakey.Raw
-	OCR        []ocrkey.Raw
-	OCR2       []ocr2key.Raw
-	P2P        []p2pkey.Raw
-	Cosmos     []cosmoskey.Raw
-	Solana     []solkey.Raw
-	StarkNet   []starkkey.Raw
-	Aptos      []aptoskey.Raw
-	Tron       []tronkey.Raw
-	VRF        []vrfkey.Raw
-	Workflow   []workflowkey.Raw
+	Eth        [][]byte
+	CSA        [][]byte
+	OCR        [][]byte
+	OCR2       [][]byte
+	P2P        [][]byte
+	Cosmos     [][]byte
+	Solana     [][]byte
+	StarkNet   [][]byte
+	Aptos      [][]byte
+	Tron       [][]byte
+	TON        [][]byte
+	VRF        [][]byte
+	Workflow   [][]byte
 	LegacyKeys LegacyKeyStorage `json:"-"`
 }
 
 func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 	keyRing := newKeyRing()
 	for _, rawCSAKey := range rawKeys.CSA {
-		csaKey := rawCSAKey.Key()
+		csaKey := csakey.KeyFor(internal.NewRaw(rawCSAKey))
 		keyRing.CSA[csaKey.ID()] = csaKey
 	}
 	for _, rawETHKey := range rawKeys.Eth {
-		ethKey := rawETHKey.Key()
+		ethKey := ethkey.KeyFor(internal.NewRaw(rawETHKey))
 		keyRing.Eth[ethKey.ID()] = ethKey
 	}
 	for _, rawOCRKey := range rawKeys.OCR {
-		ocrKey := rawOCRKey.Key()
+		ocrKey := ocrkey.KeyFor(internal.NewRaw(rawOCRKey))
 		keyRing.OCR[ocrKey.ID()] = ocrKey
 	}
 	for _, rawOCR2Key := range rawKeys.OCR2 {
-		if ocr2Key := rawOCR2Key.Key(); ocr2Key != nil {
+		if ocr2Key := ocr2key.KeyFor(internal.NewRaw(rawOCR2Key)); ocr2Key != nil {
 			keyRing.OCR2[ocr2Key.ID()] = ocr2Key
 		}
 	}
 	for _, rawP2PKey := range rawKeys.P2P {
-		p2pKey := rawP2PKey.Key()
+		p2pKey := p2pkey.KeyFor(internal.NewRaw(rawP2PKey))
 		keyRing.P2P[p2pKey.ID()] = p2pKey
 	}
 	for _, rawCosmosKey := range rawKeys.Cosmos {
-		cosmosKey := rawCosmosKey.Key()
+		cosmosKey := cosmoskey.KeyFor(internal.NewRaw(rawCosmosKey))
 		keyRing.Cosmos[cosmosKey.ID()] = cosmosKey
 	}
 	for _, rawSolKey := range rawKeys.Solana {
-		solKey := rawSolKey.Key()
+		solKey := solkey.KeyFor(internal.NewRaw(rawSolKey))
 		keyRing.Solana[solKey.ID()] = solKey
 	}
 	for _, rawStarkNetKey := range rawKeys.StarkNet {
-		starkKey := rawStarkNetKey.Key()
+		starkKey := starkkey.KeyFor(internal.NewRaw(rawStarkNetKey))
 		keyRing.StarkNet[starkKey.ID()] = starkKey
 	}
 	for _, rawAptosKey := range rawKeys.Aptos {
-		aptosKey := rawAptosKey.Key()
+		aptosKey := aptoskey.KeyFor(internal.NewRaw(rawAptosKey))
 		keyRing.Aptos[aptosKey.ID()] = aptosKey
 	}
 	for _, rawTronKey := range rawKeys.Tron {
-		tronKey := rawTronKey.Key()
+		tronKey := tronkey.KeyFor(internal.NewRaw(rawTronKey))
 		keyRing.Tron[tronKey.ID()] = tronKey
 	}
+	for _, rawTONKey := range rawKeys.TON {
+		tonKey := tonkey.KeyFor(internal.NewRaw(rawTONKey))
+		keyRing.TON[tonKey.ID()] = tonKey
+	}
 	for _, rawVRFKey := range rawKeys.VRF {
-		vrfKey := rawVRFKey.Key()
+		vrfKey := vrfkey.KeyFor(internal.NewRaw(rawVRFKey))
 		keyRing.VRF[vrfKey.ID()] = vrfKey
 	}
 	for _, rawWorkflowKey := range rawKeys.Workflow {
-		workflowKey := rawWorkflowKey.Key()
+		workflowKey := workflowkey.KeyFor(internal.NewRaw(rawWorkflowKey))
 		keyRing.Workflow[workflowKey.ID()] = workflowKey
 	}
 
@@ -423,71 +441,4 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 // adulteration prevents the password from getting used in the wrong place
 func adulteratedPassword(password string) string {
 	return "master-password-" + password
-}
-
-type ResourceMutex struct {
-	mu          sync.Mutex
-	serviceType ServiceType
-	count       int // Tracks active users per service type
-}
-type ServiceType int
-
-const (
-	TXMv1 ServiceType = iota
-	TXMv2
-)
-
-// TryLock attempts to lock the resource for the specified service type.
-// It returns an error if the resource is locked by a different service type.
-func (rm *ResourceMutex) TryLock(serviceType ServiceType) error {
-	rm.mu.Lock()
-	defer rm.mu.Unlock()
-
-	if rm.count == 0 {
-		rm.serviceType = serviceType
-	}
-
-	// Check if other service types are using the resource
-	if rm.serviceType != serviceType && rm.count > 0 {
-		return errors.New("resource is locked by another service type")
-	}
-
-	// Increment active count for the current service type
-	rm.count++
-	return nil
-}
-
-// Unlock releases the lock for the service type
-func (rm *ResourceMutex) Unlock(serviceType ServiceType) error {
-	rm.mu.Lock()
-	defer rm.mu.Unlock()
-
-	// Check if the service type has an active lock
-	if rm.count == 0 {
-		return errors.New("no active lock")
-	}
-
-	if rm.serviceType != serviceType {
-		return errors.New("no active lock for this service type")
-	}
-
-	// Decrement active count for the service type
-	rm.count--
-	return nil
-}
-
-// IsLocked checks if the resource is locked by a specific service type.
-func (rm *ResourceMutex) IsLocked(serviceType ServiceType) (bool, error) {
-	rm.mu.Lock()
-	defer rm.mu.Unlock()
-
-	if rm.count == 0 || rm.serviceType != serviceType {
-		return false, nil
-	}
-
-	return true, nil
-}
-
-func NewResourceMutex() *ResourceMutex {
-	return &ResourceMutex{}
 }

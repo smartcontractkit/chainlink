@@ -3,18 +3,21 @@ package ocr2key
 import (
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io"
 
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type OCR3SignerVerifier interface {
+	SignBlob(b []byte) (sig []byte, err error)
+	VerifyBlob(publicKey ocrtypes.OnchainPublicKey, b []byte, sig []byte) bool
 	Sign3(digest ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error)
 	Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool
 }
@@ -22,7 +25,7 @@ type OCR3SignerVerifier interface {
 type KeyBundle interface {
 	// OnchainKeyring is used for signing reports (groups of observations, verified onchain)
 	ocrtypes.OnchainKeyring
-	// OffchainKeyring is used for signing observations
+	// offchainKeyring is used for signing observations
 	ocrtypes.OffchainKeyring
 
 	OCR3SignerVerifier
@@ -31,9 +34,9 @@ type KeyBundle interface {
 	ChainType() chaintype.ChainType
 	Marshal() ([]byte, error)
 	Unmarshal(b []byte) (err error)
-	Raw() Raw
+	Raw() internal.Raw
 	OnChainPublicKey() string
-	// Decrypts ciphertext using the encryptionKey from an OCR2 OffchainKeyring
+	// Decrypts ciphertext using the encryptionKey from an OCR2 offchainKeyring
 	NaclBoxOpenAnonymous(ciphertext []byte) (plaintext []byte, err error)
 }
 
@@ -43,6 +46,7 @@ var _ KeyBundle = &keyBundle[*cosmosKeyring]{}
 var _ KeyBundle = &keyBundle[*solanaKeyring]{}
 var _ KeyBundle = &keyBundle[*starkkey.OCR2Key]{}
 var _ KeyBundle = &keyBundle[*aptosKeyring]{}
+var _ KeyBundle = &keyBundle[*tonKeyring]{}
 
 var curve = secp256k1.S256()
 
@@ -61,6 +65,8 @@ func New(chainType chaintype.ChainType) (KeyBundle, error) {
 		return newKeyBundleRand(chaintype.Aptos, newAptosKeyring)
 	case chaintype.Tron:
 		return newKeyBundleRand(chaintype.Tron, newEVMKeyring)
+	case chaintype.TON:
+		return newKeyBundleRand(chaintype.TON, newTONKeyring)
 	}
 	return nil, chaintype.NewErrInvalidChainType(chainType)
 }
@@ -80,14 +86,14 @@ func MustNewInsecure(reader io.Reader, chainType chaintype.ChainType) KeyBundle 
 		return mustNewKeyBundleInsecure(chaintype.Aptos, newAptosKeyring, reader)
 	case chaintype.Tron:
 		return mustNewKeyBundleInsecure(chaintype.Tron, newEVMKeyring, reader)
+	case chaintype.TON:
+		return mustNewKeyBundleInsecure(chaintype.TON, newTONKeyring, reader)
 	}
 	panic(chaintype.NewErrInvalidChainType(chainType))
 }
 
-var _ fmt.GoStringer = &keyBundleBase{}
-
 type keyBundleBase struct {
-	OffchainKeyring
+	offchainKeyring
 	id        models.Sha256Hash
 	chainType chaintype.ChainType
 }
@@ -101,21 +107,9 @@ func (kb keyBundleBase) ChainType() chaintype.ChainType {
 	return kb.chainType
 }
 
-// String reduces the risk of accidentally logging the private key
-func (kb keyBundleBase) String() string {
-	return fmt.Sprintf("KeyBundle{chainType: %s, id: %s}", kb.ChainType(), kb.ID())
-}
-
-// GoString reduces the risk of accidentally logging the private key
-func (kb keyBundleBase) GoString() string {
-	return kb.String()
-}
-
-type Raw []byte
-
-func (raw Raw) Key() (kb KeyBundle) {
+func KeyFor(raw internal.Raw) (kb KeyBundle) {
 	var temp struct{ ChainType chaintype.ChainType }
-	err := json.Unmarshal(raw, &temp)
+	err := json.Unmarshal(internal.Bytes(raw), &temp)
 	if err != nil {
 		panic(err)
 	}
@@ -132,10 +126,12 @@ func (raw Raw) Key() (kb KeyBundle) {
 		kb = newKeyBundle(new(aptosKeyring))
 	case chaintype.Tron:
 		kb = newKeyBundle(new(evmKeyring))
+	case chaintype.TON:
+		kb = newKeyBundle(new(tonKeyring))
 	default:
 		return nil
 	}
-	if err := kb.Unmarshal(raw); err != nil {
+	if err := kb.Unmarshal(internal.Bytes(raw)); err != nil {
 		panic(err)
 	}
 	return

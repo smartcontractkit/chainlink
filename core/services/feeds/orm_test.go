@@ -94,14 +94,14 @@ func Test_ORM_CreateManager(t *testing.T) {
 
 	exists, err := orm.ManagerExists(ctx, publicKey)
 	require.NoError(t, err)
-	require.Equal(t, false, exists)
+	require.False(t, exists)
 
 	id, err := orm.CreateManager(ctx, mgr)
 	require.NoError(t, err)
 
 	exists, err = orm.ManagerExists(ctx, publicKey)
 	require.NoError(t, err)
-	require.Equal(t, true, exists)
+	require.True(t, exists)
 
 	assert.NotZero(t, id)
 }
@@ -181,7 +181,7 @@ func Test_ORM_ListManagersByIDs(t *testing.T) {
 
 	mgrs, err := orm.ListManagersByIDs(ctx, []int64{id})
 	require.NoError(t, err)
-	require.Equal(t, 1, len(mgrs))
+	require.Len(t, mgrs, 1)
 
 	actual := mgrs[0]
 	assert.Equal(t, id, actual.ID)
@@ -674,7 +674,7 @@ func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 				// Assert that the upserted job proposal is now pending update.
 				jp, err := orm.GetJobProposal(ctx, jpID)
 				require.NoError(t, err)
-				assert.Equal(t, true, jp.PendingUpdate)
+				assert.True(t, jp.PendingUpdate)
 
 				counts, err := orm.CountJobProposalsByStatus(ctx)
 				require.NoError(t, err)

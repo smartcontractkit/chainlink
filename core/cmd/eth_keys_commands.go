@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -141,7 +142,7 @@ func (p *EthKeyPresenter) ToRow() []string {
 		p.EVMChainID.String(),
 		eth,
 		link,
-		fmt.Sprintf("%v", p.Disabled),
+		strconv.FormatBool(p.Disabled),
 		p.CreatedAt.String(),
 		p.UpdatedAt.String(),
 		gas,

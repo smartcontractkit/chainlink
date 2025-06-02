@@ -60,8 +60,8 @@ contract FeeQuoterHelper is FeeQuoter {
   function parseEVMExtraArgsFromBytes(
     bytes calldata extraArgs,
     uint64 destChainSelector
-  ) external view returns (Client.EVMExtraArgsV2 memory) {
-    return _parseEVMExtraArgsFromBytes(
+  ) external view returns (Client.GenericExtraArgsV2 memory) {
+    return _parseGenericExtraArgsFromBytes(
       extraArgs,
       s_destChainConfigs[destChainSelector].defaultTxGasLimit,
       s_destChainConfigs[destChainSelector].maxPerMsgGasLimit,
@@ -73,8 +73,8 @@ contract FeeQuoterHelper is FeeQuoter {
     bytes calldata extraArgs,
     uint64 destChainSelector,
     bool enforceOutOfOrder
-  ) external view returns (Client.EVMExtraArgsV2 memory) {
-    return _parseEVMExtraArgsFromBytes(
+  ) external view returns (Client.GenericExtraArgsV2 memory) {
+    return _parseGenericExtraArgsFromBytes(
       extraArgs,
       s_destChainConfigs[destChainSelector].defaultTxGasLimit,
       s_destChainConfigs[destChainSelector].maxPerMsgGasLimit,

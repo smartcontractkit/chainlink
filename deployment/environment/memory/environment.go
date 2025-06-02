@@ -12,13 +12,21 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gagliardetto/solana-go"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+
+	"github.com/smartcontractkit/freeport"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
@@ -49,15 +57,33 @@ func GetProgramsPath() string {
 type MemoryEnvironmentConfig struct {
 	Chains             int
 	SolChains          int
+	AptosChains        int
+	ZkChains           int
 	NumOfUsersPerChain int
 	Nodes              int
 	Bootstraps         int
 	RegistryConfig     deployment.CapabilityRegistryConfig
+	CustomDBSetup      []string // SQL queries to run after DB creation
+}
+
+type NewNodesConfig struct {
+	LogLevel zapcore.Level
+	// EVM chains to be configured. Optional.
+	Chains map[uint64]cldf_evm.Chain
+	// Solana chains to be configured. Optional.
+	SolChains map[uint64]cldf_solana.Chain
+	// Aptos chains to be configured. Optional.
+	AptosChains    map[uint64]cldf_aptos.Chain
+	NumNodes       int
+	NumBootstraps  int
+	RegistryConfig deployment.CapabilityRegistryConfig
+	// SQL queries to run after DB creation, typically used for setting up testing state. Optional.
+	CustomDBSetup []string
 }
 
 // For placeholders like aptos
-func NewMemoryChain(t *testing.T, selector uint64) deployment.Chain {
-	return deployment.Chain{
+func NewMemoryChain(t *testing.T, selector uint64) cldf_evm.Chain {
+	return cldf_evm.Chain{
 		Selector:    selector,
 		Client:      nil,
 		DeployerKey: &bind.TransactOpts{},
@@ -69,7 +95,7 @@ func NewMemoryChain(t *testing.T, selector uint64) deployment.Chain {
 
 // Needed for environment variables on the node which point to prexisitng addresses.
 // i.e. CapReg.
-func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]deployment.Chain, map[uint64][]*bind.TransactOpts) {
+func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]cldf_evm.Chain, map[uint64][]*bind.TransactOpts) {
 	mchains := GenerateChains(t, numChains, numUsers)
 	users := make(map[uint64][]*bind.TransactOpts)
 	for id, chain := range mchains {
@@ -80,12 +106,20 @@ func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]depl
 	return generateMemoryChain(t, mchains), users
 }
 
-func NewMemoryChainsSol(t *testing.T, numChains int) map[uint64]deployment.SolChain {
+func NewMemoryChainsSol(t *testing.T, numChains int) map[uint64]cldf_solana.Chain {
 	mchains := GenerateChainsSol(t, numChains)
 	return generateMemoryChainSol(mchains)
 }
 
-func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) (map[uint64]deployment.Chain, map[uint64][]*bind.TransactOpts) {
+func NewMemoryChainsAptos(t *testing.T, numChains int) map[uint64]cldf_aptos.Chain {
+	return GenerateChainsAptos(t, numChains)
+}
+
+func NewMemoryChainsZk(t *testing.T, numChains int) map[uint64]cldf_evm.Chain {
+	return GenerateChainsZk(t, numChains)
+}
+
+func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) (map[uint64]cldf_evm.Chain, map[uint64][]*bind.TransactOpts) {
 	mchains := GenerateChainsWithIds(t, chainIDs, numUsers)
 	users := make(map[uint64][]*bind.TransactOpts)
 	for id, chain := range mchains {
@@ -96,14 +130,14 @@ func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) 
 	return generateMemoryChain(t, mchains), users
 }
 
-func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]deployment.Chain {
-	chains := make(map[uint64]deployment.Chain)
+func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]cldf_evm.Chain {
+	chains := make(map[uint64]cldf_evm.Chain)
 	for cid, chain := range inputs {
 		chain := chain
 		chainInfo, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(cid, 10), chainsel.FamilyEVM)
 		require.NoError(t, err)
 		backend := NewBackend(chain.Backend)
-		chains[chainInfo.ChainSelector] = deployment.Chain{
+		chains[chainInfo.ChainSelector] = cldf_evm.Chain{
 			Selector:    chainInfo.ChainSelector,
 			Client:      backend,
 			DeployerKey: chain.DeployerKey,
@@ -137,11 +171,11 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 	return chains
 }
 
-func generateMemoryChainSol(inputs map[uint64]SolanaChain) map[uint64]deployment.SolChain {
-	chains := make(map[uint64]deployment.SolChain)
+func generateMemoryChainSol(inputs map[uint64]SolanaChain) map[uint64]cldf_solana.Chain {
+	chains := make(map[uint64]cldf_solana.Chain)
 	for cid, chain := range inputs {
 		chain := chain
-		chains[cid] = deployment.SolChain{
+		chains[cid] = cldf_solana.Chain{
 			Selector:     cid,
 			Client:       chain.Client,
 			DeployerKey:  &chain.DeployerKey,
@@ -162,30 +196,45 @@ func generateMemoryChainSol(inputs map[uint64]SolanaChain) map[uint64]deployment
 
 func NewNodes(
 	t *testing.T,
-	logLevel zapcore.Level,
-	chains map[uint64]deployment.Chain,
-	solChains map[uint64]deployment.SolChain,
-	numNodes,
-	numBootstraps int,
-	registryConfig deployment.CapabilityRegistryConfig,
+	cfg NewNodesConfig,
 	configOpts ...ConfigOpt,
 ) map[string]Node {
 	nodesByPeerID := make(map[string]Node)
-	if numNodes+numBootstraps == 0 {
+	if cfg.NumNodes+cfg.NumBootstraps == 0 {
 		return nodesByPeerID
 	}
-	ports := freeport.GetN(t, numBootstraps+numNodes)
+	ports := freeport.GetN(t, cfg.NumNodes+cfg.NumBootstraps)
 	// bootstrap nodes must be separate nodes from plugin nodes,
 	// since we won't run a bootstrapper and a plugin oracle on the same
 	// chainlink node in production.
-	for i := 0; i < numBootstraps; i++ {
-		node := NewNode(t, ports[i], chains, solChains, logLevel, true /* bootstrap */, registryConfig, configOpts...)
+	for i := 0; i < cfg.NumBootstraps; i++ {
+		c := NewNodeConfig{
+			Port:           ports[i],
+			Chains:         cfg.Chains,
+			Solchains:      cfg.SolChains,
+			Aptoschains:    cfg.AptosChains,
+			LogLevel:       cfg.LogLevel,
+			Bootstrap:      true,
+			RegistryConfig: cfg.RegistryConfig,
+			CustomDBSetup:  cfg.CustomDBSetup,
+		}
+		node := NewNode(t, c, configOpts...)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
-	for i := 0; i < numNodes; i++ {
+	for i := 0; i < cfg.NumNodes; i++ {
+		c := NewNodeConfig{
+			Port:           ports[cfg.NumBootstraps+i],
+			Chains:         cfg.Chains,
+			Solchains:      cfg.SolChains,
+			Aptoschains:    cfg.AptosChains,
+			LogLevel:       cfg.LogLevel,
+			Bootstrap:      false,
+			RegistryConfig: cfg.RegistryConfig,
+			CustomDBSetup:  cfg.CustomDBSetup,
+		}
 		// grab port offset by numBootstraps, since above loop also takes some ports.
-		node := NewNode(t, ports[numBootstraps+i], chains, solChains, logLevel, false /* bootstrap */, registryConfig, configOpts...)
+		node := NewNode(t, c, configOpts...)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
@@ -195,45 +244,100 @@ func NewNodes(
 func NewMemoryEnvironmentFromChainsNodes(
 	ctx func() context.Context,
 	lggr logger.Logger,
-	chains map[uint64]deployment.Chain,
-	solChains map[uint64]deployment.SolChain,
+	chains map[uint64]cldf_evm.Chain,
+	solChains map[uint64]cldf_solana.Chain,
+	aptosChains map[uint64]cldf_aptos.Chain,
 	nodes map[string]Node,
-) deployment.Environment {
+) cldf.Environment {
 	var nodeIDs []string
 	for id := range nodes {
 		nodeIDs = append(nodeIDs, id)
 	}
-	return *deployment.NewEnvironment(
+
+	blockChains := map[uint64]chain.BlockChain{}
+	for _, c := range chains {
+		blockChains[c.Selector] = c
+	}
+	for _, c := range solChains {
+		blockChains[c.Selector] = c
+	}
+	for _, c := range aptosChains {
+		blockChains[c.Selector] = c
+	}
+
+	return *cldf.NewCLDFEnvironment(
 		Memory,
 		lggr,
-		deployment.NewMemoryAddressBook(),
-		chains,
-		solChains,
+		cldf.NewMemoryAddressBook(),
+		datastore.NewMemoryDataStore[
+			datastore.DefaultMetadata,
+			datastore.DefaultMetadata,
+		]().Seal(),
+		nil,
+		nil,
+		nil,
 		nodeIDs, // Note these have the p2p_ prefix.
 		NewMemoryJobClient(nodes),
 		ctx,
-		deployment.XXXGenerateTestOCRSecrets(),
+		cldf.XXXGenerateTestOCRSecrets(),
+		chain.NewBlockChains(blockChains),
 	)
 }
 
 // To be used by tests and any kind of deployment logic.
-func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Level, config MemoryEnvironmentConfig) deployment.Environment {
+func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Level, config MemoryEnvironmentConfig) cldf.Environment {
 	chains, _ := NewMemoryChains(t, config.Chains, config.NumOfUsersPerChain)
 	solChains := NewMemoryChainsSol(t, config.SolChains)
-	nodes := NewNodes(t, logLevel, chains, solChains, config.Nodes, config.Bootstraps, config.RegistryConfig)
+	aptosChains := NewMemoryChainsAptos(t, config.AptosChains)
+	zkChains := NewMemoryChainsZk(t, config.ZkChains)
+	for chainSel, chain := range zkChains {
+		chains[chainSel] = chain
+	}
+	c := NewNodesConfig{
+		LogLevel:       logLevel,
+		Chains:         chains,
+		SolChains:      solChains,
+		AptosChains:    aptosChains,
+		NumNodes:       config.Nodes,
+		NumBootstraps:  config.Bootstraps,
+		RegistryConfig: config.RegistryConfig,
+		CustomDBSetup:  config.CustomDBSetup,
+	}
+	nodes := NewNodes(t, c)
 	var nodeIDs []string
-	for id := range nodes {
+	for id, node := range nodes {
+		require.NoError(t, node.App.Start(t.Context()))
+		t.Cleanup(func() {
+			require.NoError(t, node.App.Stop())
+		})
 		nodeIDs = append(nodeIDs, id)
 	}
-	return *deployment.NewEnvironment(
+
+	blockChains := map[uint64]chain.BlockChain{}
+	for _, c := range chains {
+		blockChains[c.Selector] = c
+	}
+	for _, c := range solChains {
+		blockChains[c.Selector] = c
+	}
+	for _, c := range aptosChains {
+		blockChains[c.Selector] = c
+	}
+	return *cldf.NewCLDFEnvironment(
 		Memory,
 		lggr,
-		deployment.NewMemoryAddressBook(),
-		chains,
-		solChains,
+		cldf.NewMemoryAddressBook(),
+		datastore.NewMemoryDataStore[
+			datastore.DefaultMetadata,
+			datastore.DefaultMetadata,
+		]().Seal(),
+		nil, // this field will be deleted in future since env.BlockChains will now contain all the chains.
+		nil, // this field will be deleted in future since env.BlockChains will now contain all the chains.
+		nil, // this field will be deleted in future since env.BlockChains will now contain all the chains.
 		nodeIDs,
 		NewMemoryJobClient(nodes),
-		func() context.Context { return tests.Context(t) },
-		deployment.XXXGenerateTestOCRSecrets(),
+		t.Context,
+		cldf.XXXGenerateTestOCRSecrets(),
+		chain.NewBlockChains(blockChains),
 	)
 }

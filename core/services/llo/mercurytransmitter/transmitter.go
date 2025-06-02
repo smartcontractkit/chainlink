@@ -2,13 +2,13 @@ package mercurytransmitter
 
 import (
 	"context"
-	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -18,18 +18,22 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
-
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/observation"
 )
 
 const (
 	// Mercury server error codes
-	DuplicateReport = 2
+	DuplicateReport  = 2
+	commitInterval   = time.Millisecond * 25
+	commitBufferSize = 1000
 )
 
 var (
@@ -115,26 +119,27 @@ type transmitter struct {
 	verboseLogging bool
 	cfg            Config
 
-	orm        ORM
-	servers    map[string]*server
-	registerer prometheus.Registerer
+	orm     ORM
+	servers map[string]*server
 
 	donID       uint32
 	fromAccount string
 
 	stopCh services.StopChan
 	wg     *sync.WaitGroup
+
+	commitCh chan *Transmission
 }
 
 type Opts struct {
-	Lggr           logger.Logger
-	Registerer     prometheus.Registerer
-	VerboseLogging bool
-	Cfg            Config
-	Clients        map[string]grpc.Client
-	FromAccount    ed25519.PublicKey
-	DonID          uint32
-	ORM            ORM
+	Lggr                 logger.Logger
+	VerboseLogging       bool
+	Cfg                  Config
+	Clients              map[string]grpc.Client
+	FromAccount          string
+	DonID                uint32
+	ORM                  ORM
+	CapabilitiesRegistry coretypes.CapabilitiesRegistry
 }
 
 func New(opts Opts) Transmitter {
@@ -155,11 +160,11 @@ func newTransmitter(opts Opts) *transmitter {
 		opts.Cfg,
 		opts.ORM,
 		servers,
-		opts.Registerer,
 		opts.DonID,
-		fmt.Sprintf("%x", opts.FromAccount),
+		opts.FromAccount,
 		make(services.StopChan),
 		&sync.WaitGroup{},
+		make(chan *Transmission, 1000*len(servers)),
 	}
 }
 
@@ -202,6 +207,7 @@ func (mt *transmitter) Start(ctx context.Context) (err error) {
 			})
 		}
 
+		mt.spawnCommitLoops()
 		return g.Wait()
 	})
 }
@@ -250,37 +256,37 @@ func (mt *transmitter) Transmit(
 	sigs []types.AttributedOnchainSignature,
 ) (err error) {
 	ok := mt.IfStarted(func() {
-		err = mt.transmit(ctx, digest, seqNr, report, sigs)
+		for serverURL := range mt.servers {
+			t := &Transmission{
+				ServerURL:    serverURL,
+				ConfigDigest: digest,
+				SeqNr:        seqNr,
+				Report:       report,
+				Sigs:         sigs,
+			}
+			select {
+			case mt.commitCh <- t:
+			case <-ctx.Done():
+				err = fmt.Errorf("failed to add transmission to commit channel: %w", ctx.Err())
+			}
+		}
+		observation.GetCache(digest).SetLastTransmissionSeqNr(seqNr)
 	})
+
 	if !ok {
 		return errors.New("transmitter is not started")
 	}
-	return
+
+	return err
 }
 
-func (mt *transmitter) transmit(
-	ctx context.Context,
-	digest types.ConfigDigest,
-	seqNr uint64,
-	report ocr3types.ReportWithInfo[llotypes.ReportInfo],
-	sigs []types.AttributedOnchainSignature,
-) error {
+func (mt *transmitter) transmit(ctx context.Context, transmissions []*Transmission) error {
 	// On shutdown appears that libocr can pass us a pre-canceled context;
 	// don't even bother trying to insert/transmit in this case
 	if ctx.Err() != nil {
 		return fmt.Errorf("cannot transmit; context already canceled: %w", ctx.Err())
 	}
 
-	transmissions := make([]*Transmission, 0, len(mt.servers))
-	for serverURL := range mt.servers {
-		transmissions = append(transmissions, &Transmission{
-			ServerURL:    serverURL,
-			ConfigDigest: digest,
-			SeqNr:        seqNr,
-			Report:       report,
-			Sigs:         sigs,
-		})
-	}
 	// NOTE: This insert on its own can leave orphaned records in the case of
 	// shutdown, because:
 	// 1. Transmitter is shut down after oracle
@@ -314,11 +320,15 @@ func (mt *transmitter) transmit(
 	for i := range transmissions {
 		t := transmissions[i]
 		if mt.verboseLogging {
-			mt.lggr.Debugw("Transmit report", "digest", digest.Hex(), "seqNr", seqNr, "reportFormat", report.Info.ReportFormat, "reportLifeCycleStage", report.Info.LifeCycleStage, "transmissionHash", fmt.Sprintf("%x", t.Hash()))
+			mt.lggr.Debugw("Transmit report",
+				"digest", t.ConfigDigest.Hex(), "seqNr", t.SeqNr, "reportFormat", t.Report.Info.ReportFormat,
+				"reportLifeCycleStage", t.Report.Info.LifeCycleStage,
+				"transmissionHash", fmt.Sprintf("%x", t.Hash()))
 		}
-		s := mt.servers[t.ServerURL]
+
 		// OK to do this synchronously since pushing to queue is just a mutex
 		// lock and array append and ought to be extremely fast
+		s := mt.servers[t.ServerURL]
 		if ok := s.q.Push(t); !ok {
 			s.transmitQueuePushErrorCount.Inc()
 			// This shouldn't be possible since transmitter is always shut down
@@ -333,4 +343,54 @@ func (mt *transmitter) transmit(
 // FromAccount returns the stringified (hex) CSA public key
 func (mt *transmitter) FromAccount(ctx context.Context) (ocrtypes.Account, error) {
 	return ocrtypes.Account(mt.fromAccount), nil
+}
+
+func (mt *transmitter) spawnCommitLoops() {
+	for x := 0; x < len(mt.servers); x++ {
+		mt.wg.Add(1)
+
+		go func() {
+			defer mt.wg.Done()
+
+			var err error
+			ctx, cancel := mt.stopCh.NewCtx()
+			defer cancel()
+
+			buff := cap(mt.commitCh) / 10
+			transmissions := make([]*Transmission, 0, buff)
+			ticker := time.NewTicker(commitInterval)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ctx.Done():
+					if len(transmissions) >= buff {
+						closeCtx, closeCancel := context.WithTimeout(context.Background(), time.Second)
+						defer closeCancel()
+						if err = mt.transmit(closeCtx, transmissions); err != nil {
+							mt.lggr.Error("Error transmitting records when stopping", "error", err)
+						}
+					}
+					return
+
+				case <-ticker.C:
+					if len(transmissions) > 0 {
+						err = mt.transmit(ctx, transmissions)
+						transmissions = make([]*Transmission, 0, buff)
+					}
+
+				case t := <-mt.commitCh:
+					transmissions = append(transmissions, t)
+					if len(transmissions) >= buff {
+						err = mt.transmit(ctx, transmissions)
+						transmissions = make([]*Transmission, 0, buff)
+					}
+				}
+
+				if err != nil {
+					mt.lggr.Error("Error transmitting records", "error", err)
+				}
+			}
+		}()
+	}
 }

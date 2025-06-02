@@ -2,10 +2,10 @@ package rpclib_test
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"strconv"
 	"testing"
 
-	"github.com/cometbft/cometbft/libs/rand"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
@@ -202,7 +202,7 @@ func TestParseOutput(t *testing.T) {
 		},
 		{
 			name:       "has err",
-			dataAndErr: rpclib.DataAndErr{Outputs: []any{"abc"}, Err: fmt.Errorf("some err")},
+			dataAndErr: rpclib.DataAndErr{Outputs: []any{"abc"}, Err: errors.New("some err")},
 			outputIdx:  0,
 			expErr:     true,
 		},

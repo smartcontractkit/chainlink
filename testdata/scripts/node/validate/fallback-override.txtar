@@ -93,6 +93,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [OCR]
 ContractConfirmations = 4
@@ -149,6 +150,7 @@ HTTPURL = 'https://foo.bar'
 
 # Effective Configuration, with defaults applied:
 InsecureFastScrypt = false
+InsecurePPROFHeap = false
 RootDir = '~/.chainlink'
 ShutdownGracePeriod = '5s'
 
@@ -306,6 +308,7 @@ SimulateTransactions = false
 TransmitterAddress = ''
 CaptureEATelemetry = false
 TraceLogging = false
+ConfigLogValidation = false
 
 [P2P]
 IncomingMessageBufferSize = 10
@@ -397,8 +400,8 @@ ReaperMaxAge = '48h0m0s'
 [Capabilities.RateLimit]
 GlobalRPS = 200.0
 GlobalBurst = 200
-PerSenderRPS = 100.0
-PerSenderBurst = 100
+PerSenderRPS = 200.0
+PerSenderBurst = 200
 
 [Capabilities.Peering]
 IncomingMessageBufferSize = 10
@@ -436,6 +439,7 @@ ChainID = '1'
 MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
+SyncStrategy = 'event'
 
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''
@@ -457,6 +461,20 @@ InsecureConnection = false
 TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
+ChipIngressEndpoint = ''
+
+[Workflows]
+[Workflows.Limits]
+Global = 200
+PerOwner = 200
+
+[CRE]
+[CRE.Streams]
+WsURL = ''
+RestURL = ''
+
+[Billing]
+URL = 'localhost:4319'
 
 [[EVM]]
 ChainID = '1'
@@ -547,6 +565,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [EVM.OCR]
 ContractConfirmations = 4

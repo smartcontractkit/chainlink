@@ -7,8 +7,11 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/evm"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -22,28 +25,28 @@ func TestDeployMCMSWithConfig(t *testing.T) {
 	chains, _ := memory.NewMemoryChainsWithChainIDs(t, []uint64{
 		chainsel.TEST_90000001.EvmChainID,
 	}, 1)
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 
 	// 1) Test WITHOUT a label
-	mcmNoLabel, err := internal.DeployMCMSWithConfig(
+	mcmNoLabel, err := evminternal.DeployMCMSWithConfigEVM(
 		types.ProposerManyChainMultisig,
 		lggr,
 		chains[chainsel.TEST_90000001.Selector],
 		ab,
-		proposalutils.SingleGroupMCMS(t),
+		proposalutils.SingleGroupMCMSV2(t),
 	)
 	require.NoError(t, err)
 	require.Empty(t, mcmNoLabel.Tv.Labels, "expected no label to be set")
 
 	// 2) Test WITH a label
 	label := "SA"
-	mcmWithLabel, err := internal.DeployMCMSWithConfig(
+	mcmWithLabel, err := evminternal.DeployMCMSWithConfigEVM(
 		types.ProposerManyChainMultisig,
 		lggr,
 		chains[chainsel.TEST_90000001.Selector],
 		ab,
-		proposalutils.SingleGroupMCMS(t),
-		internal.WithLabel(label),
+		proposalutils.SingleGroupMCMSV2(t),
+		evminternal.WithLabel(label),
 	)
 	require.NoError(t, err)
 	require.NotNil(t, mcmWithLabel.Tv.Labels, "expected labels to be set")
@@ -55,10 +58,11 @@ func TestDeployMCMSWithTimelockContracts(t *testing.T) {
 	chains, _ := memory.NewMemoryChainsWithChainIDs(t, []uint64{
 		chainsel.TEST_90000001.EvmChainID,
 	}, 1)
-	ab := deployment.NewMemoryAddressBook()
-	_, err := internal.DeployMCMSWithTimelockContracts(lggr,
+	ctx := testutils.Context(t)
+	ab := cldf.NewMemoryAddressBook()
+	_, err := evminternal.DeployMCMSWithTimelockContractsEVM(ctx, lggr,
 		chains[chainsel.TEST_90000001.Selector],
-		ab, proposalutils.SingleGroupTimelockConfig(t))
+		ab, proposalutils.SingleGroupTimelockConfigV2(t), nil)
 	require.NoError(t, err)
 	addresses, err := ab.AddressesForChain(chainsel.TEST_90000001.Selector)
 	require.NoError(t, err)

@@ -9,30 +9,36 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/usdc_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 )
 
 func ConfigureUSDCTokenPools(
 	lggr logger.Logger,
-	chains map[uint64]deployment.Chain,
+	chains map[uint64]cldf_evm.Chain,
 	src, dst uint64,
-	state changeset.CCIPOnChainState,
+	state stateview.CCIPOnChainState,
 ) (*burn_mint_erc677.BurnMintERC677, *burn_mint_erc677.BurnMintERC677, error) {
-	srcToken := state.Chains[src].BurnMintTokens677[changeset.USDCSymbol]
-	dstToken := state.Chains[dst].BurnMintTokens677[changeset.USDCSymbol]
-	srcPool := state.Chains[src].USDCTokenPools[deployment.Version1_5_1]
-	dstPool := state.Chains[dst].USDCTokenPools[deployment.Version1_5_1]
+	srcToken := state.MustGetEVMChainState(src).BurnMintTokens677[shared.USDCSymbol]
+	dstToken := state.MustGetEVMChainState(dst).BurnMintTokens677[shared.USDCSymbol]
+	srcPool := state.MustGetEVMChainState(src).USDCTokenPools[deployment.Version1_5_1]
+	dstPool := state.MustGetEVMChainState(dst).USDCTokenPools[deployment.Version1_5_1]
 
 	args := []struct {
-		sourceChain deployment.Chain
+		sourceChain cldf_evm.Chain
 		dstChainSel uint64
-		state       changeset.CCIPChainState
+		state       evm.CCIPChainState
 		srcToken    *burn_mint_erc677.BurnMintERC677
 		srcPool     *usdc_token_pool.USDCTokenPool
 		dstToken    *burn_mint_erc677.BurnMintERC677
@@ -41,7 +47,7 @@ func ConfigureUSDCTokenPools(
 		{
 			chains[src],
 			dst,
-			state.Chains[src],
+			state.MustGetEVMChainState(src),
 			srcToken,
 			srcPool,
 			dstToken,
@@ -50,7 +56,7 @@ func ConfigureUSDCTokenPools(
 		{
 			chains[dst],
 			src,
-			state.Chains[dst],
+			state.MustGetEVMChainState(dst),
 			dstToken,
 			dstPool,
 			srcToken,
@@ -70,9 +76,9 @@ func ConfigureUSDCTokenPools(
 
 func configureSingleChain(
 	lggr logger.Logger,
-	sourceChain deployment.Chain,
+	sourceChain cldf_evm.Chain,
 	dstChainSel uint64,
-	state changeset.CCIPChainState,
+	state evm.CCIPChainState,
 	srcToken *burn_mint_erc677.BurnMintERC677,
 	srcPool *usdc_token_pool.USDCTokenPool,
 	dstToken *burn_mint_erc677.BurnMintERC677,
@@ -105,9 +111,9 @@ func configureSingleChain(
 
 func UpdateFeeQuoterForUSDC(
 	t *testing.T,
-	e deployment.Environment,
+	e cldf.Environment,
 	lggr logger.Logger,
-	chain deployment.Chain,
+	chain cldf_evm.Chain,
 	dstChain uint64,
 ) error {
 	config := fee_quoter.FeeQuoterTokenTransferFeeConfig{
@@ -120,15 +126,15 @@ func UpdateFeeQuoterForUSDC(
 	}
 	_, err := commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset),
 			v1_6.ApplyTokenTransferFeeConfigUpdatesConfig{
 				UpdatesByChain: map[uint64]v1_6.ApplyTokenTransferFeeConfigUpdatesConfigPerChain{
 					chain.Selector: {
 						TokenTransferFeeConfigArgs: []v1_6.TokenTransferFeeConfigArg{
 							{
 								DestChain: dstChain,
-								TokenTransferFeeConfigPerToken: map[changeset.TokenSymbol]fee_quoter.FeeQuoterTokenTransferFeeConfig{
-									changeset.USDCSymbol: config,
+								TokenTransferFeeConfigPerToken: map[shared.TokenSymbol]fee_quoter.FeeQuoterTokenTransferFeeConfig{
+									shared.USDCSymbol: config,
 								},
 							},
 						},

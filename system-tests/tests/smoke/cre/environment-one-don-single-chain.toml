@@ -1,0 +1,170 @@
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+
+[custom_anvil_miner]
+  block_speed_seconds = 5
+
+[jd]
+  # change to your version
+  image = "job-distributor:0.9.0"
+
+# fake data provider used as a mocked price source
+[fake]
+  port = 8171
+
+[infra]
+  # either "docker" or "crib"
+  type = "docker"
+
+[[workflow_configs]]
+  workflow_name = "abcdefgasd"
+  # 0x01 8e16c39e 0000 20 0000000000000000 = ETH/USD Benchmark Price with 0 decimals
+  feed_id = "018e16c39e000320000000000000000000000000000000000000000000000000"
+
+  use_cre_cli = true
+  should_compile_new_workflow = true
+  # PoR test workflow is stored in smartcontractkit/proof-of-reserves-workflow-e2e-test repository
+  # config below assumes that you have it cloned next to chainlink repository
+  workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test"
+
+[dependencies]
+  cron_capability_binary_path = "./cron"
+  cre_cli_binary_path = "./cre_v0.2.0_darwin_arm64"
+
+[[nodesets]]
+  nodes = 5
+  override_mode = "each"
+  http_port_range_start = 10100
+  name = "workflow"
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+    volume_name = "workflow_volume"
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
+      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """
+      # These secrets are specifically generated for testing purposes and should not be used in any real-world environments.
+      test_secrets_overrides = """
+      [EVM]
+      [[EVM.Keys]]
+      JSON = '{"address":"e753ac0b6e175ce3a939c55433a0109c5a6f8777","crypto":{"cipher":"aes-128-ctr","ciphertext":"7cb5b24d6ca43f336c72cfc078d66274258fd84dfe829a3988cf15071663ddbd","cipherparams":{"iv":"325023239e462819c1e5c731b1357f12"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"19192a3fa856a8885978b5022889597c6581ac96ee2c0c6f8828cb2e2b12c22c"},"mac":"e3dae1bfe1e17a043166b40ca3764991afc3720105faa75783ded1f49b4eec23"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+      Password = ''
+      ID = 1337
+
+      [P2PKey]
+      JSON = '{"keyType":"P2P","publicKey":"f3c458c9064bdde449a3904ba8d3f8f5ebf79623077430325252c3368f920199","peerID":"p2p_12D3KooWSDvtYVF3FoyGeMrmDxYeJZMzbEyMHRwmf5GUSqgJhST2","crypto":{"cipher":"aes-128-ctr","ciphertext":"1cf0dea9dcc4128dff71858a9468d300b4cca5dcaf8ee174ea9c9560b82448319a802b10555a657f63ceb22c767469fa3ba23a2adf44a50ec820a11e97a094978fb46079","cipherparams":{"iv":"10cfc04dc727e6a191f4c35bb9ed95c3"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"ffac75023ee95d224dfe7fb6d51d99dc25dc6138ef075793eeac6bb9fa9f1ba5"},"mac":"971799aed2b8ff340d5ba391929fa495201c769571559c7338f79f91eb69e316"}}'
+      Password = ''
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
+      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """
+      # These secrets are specifically generated for testing purposes and should not be used in any real-world environments.
+      test_secrets_overrides = """
+      [EVM]
+      [[EVM.Keys]]
+      JSON = '{"address":"1182eb0d2e630a0aed4c8abdb3bbd2a6b2888b70","crypto":{"cipher":"aes-128-ctr","ciphertext":"6a8ef95c5c4397d938e1602c77614fc1aed49675b0a285a45bbb553244b6621b","cipherparams":{"iv":"a6395c614613d0ec5a03b5a8d2eaecee"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"4a41489463e67bf94731abd1a334386438c84ab702dacbb31d187172a2396f5e"},"mac":"b83631c2d1c85aa03bd8b861b786ac3d4c71119c708bcdd3640e0d69688a950b"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+      Password = ''
+      ID = 1337
+
+      [P2PKey]
+      JSON = '{"keyType":"P2P","publicKey":"1c08ad1c4b816e593d5410b0a6a75091a083f234d94a114219a9cde1e535f66b","peerID":"p2p_12D3KooWBhoFtwDy6qHkFJwFkW319WVwjKtVgMMwn6EAMFjgDQKC","crypto":{"cipher":"aes-128-ctr","ciphertext":"ae90f378087b852277c974e8a8664051ff0974bf029063ab1d768da85b67da3827e5a6802a5161e3987ececa7973000a1cb1116c0144ba662236a271279c9dc746bac50a","cipherparams":{"iv":"261f3889e07625a8f770301e8baaf5e0"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"5a31f257a8372dacf45cd6cd4825e157e613f966dfd41e7182fed6767bb61c01"},"mac":"de525d288fed4d30a6883350226dd8767b00116f66e146b7b1b4969c22572a83"}}'
+      Password = ''
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
+      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """
+      # These secrets are specifically generated for testing purposes and should not be used in any real-world environments.
+      test_secrets_overrides = """
+      [EVM]
+      [[EVM.Keys]]
+      JSON = '{"address":"cdc1fd34b97e0d40ec2971cd309c0fefb876d949","crypto":{"cipher":"aes-128-ctr","ciphertext":"9c82d4c65d7cd98ca62f747a7fa2cc894c032760054d4f5c944470fe5549b70b","cipherparams":{"iv":"79757c3eba920387999d5dcfa97efa8b"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"7b075e36e518144fbbdf6e14000144a462537e363160a479d21d75ba7aa2111f"},"mac":"fe4c52baf38f4505d6070a95c1a5fdea88ac796c6f1abe10d9761993f8ae8b21"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+      Password = ''
+      ID = 1337
+
+      [P2PKey]
+      JSON = '{"keyType":"P2P","publicKey":"d94d7910e3078563000cdf00f746565816fc88fd5cc1644c98b99112fcd43be8","peerID":"p2p_12D3KooWQSdA3GMxafG6iCtTfvRPWX7HDquTShVQf2Fyhc3beyU3","crypto":{"cipher":"aes-128-ctr","ciphertext":"f28ce315b5a9347c0d062b2f8ad80ce1f227f3f6d94e948634d98727d705fd371b922eac07e9a767c2d04cabd709a4b4d8aad137551f42018c11eefca4306020bcb098d2","cipherparams":{"iv":"d544e4713a984f5c1a0eb177316b50b1"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"093dacbde30c0eb82f8d6e687f560e6c5aa439d9c7d7e4f973e2b117d7e9eb10"},"mac":"d05d8d9d5310ab61914aeb52103ba4abbbfb29d28913419377323aae6d1633a9"}}'
+      Password = ''
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
+      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """
+      # These secrets are specifically generated for testing purposes and should not be used in any real-world environments.
+      test_secrets_overrides = """
+      [EVM]
+      [[EVM.Keys]]
+      JSON = '{"address":"39d1efdce7b881ddec8dc2ce2b06b0535293871d","crypto":{"cipher":"aes-128-ctr","ciphertext":"0a8cc419e4ce98c8712c61c2f122ca7048f7ec7cf3f2da275419f0c4dab7b724","cipherparams":{"iv":"634729746ad2dc16d35e0e55a7e00985"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"2508ef1411dcefb37b3fa753e8206b0cf2daa12f9691116b9e5a919d7be3c82b"},"mac":"ba82f503acb888234d8beb3ee46b8e75c4f15a90c76d8f5f515d8286939ae6ba"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+      Password = ''
+      ID = 1337
+
+      [P2PKey]
+      JSON = '{"keyType":"P2P","publicKey":"ed67d615aa7d688faaed5551bfc696f4f9b5df54d71226d5012a5ae4f8f09157","peerID":"p2p_12D3KooWRo6dHoeYUsk8HVjguwsTwEGRMzanp6V4TuQFK45Viv38","crypto":{"cipher":"aes-128-ctr","ciphertext":"cb1c2b4346c60b558ea6061225c516c68fd7491f62ac9acbe64f9f353cc847ed761e27afe717dd8c60356562d9332d60ead2e9150b38f348b4b019978e8f794bb0a5d78f","cipherparams":{"iv":"17e851402614fbb9348ecfc4f79421c0"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"cdc10293a7e1095b46e21fcf2ba922c828320ea49c5e8cd20a3989b1333ee0cf"},"mac":"ab886ce23961f29bacd6dc6c2a34cf062a249d429d47e7b8f88cc587562126fb"}}'
+      Password = ''
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
+      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """
+      # These secrets are specifically generated for testing purposes and should not be used in any real-world environments.
+      test_secrets_overrides = """
+      [EVM]
+      [[EVM.Keys]]
+      JSON = '{"address":"d8ba70ca6b3b770efd6785c2ffc8b31049fc3509","crypto":{"cipher":"aes-128-ctr","ciphertext":"984fb80b297fb23892ba26b8c9fb6f9f8817a898d9f629d51b6285bef35b56a9","cipherparams":{"iv":"269e03446dd076d49cd85f5ccd99b2aa"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"0aa619b4da3391d99eceb68f55903914a25038c12f34965bd9edcf19856c17c0"},"mac":"b6e7ef7ff7f2d744d8e905bc978cf1bd98af4c0c76db20507988bef6e9f7aeae"},"id":"00000000-0000-0000-0000-000000000000","version":3}'
+      Password = ''
+      ID = 1337
+
+      [P2PKey]
+      JSON = '{"keyType":"P2P","publicKey":"8dce211c69b3880febaec8e7978a4ed2f23bb9eeb0d5d68103c2bb454f4a493d","peerID":"p2p_12D3KooWKMuxQL9GU1GGZ67CzFtyR6kDNGebF26Km4L9RaJdrk2p","crypto":{"cipher":"aes-128-ctr","ciphertext":"70cdd1e9e7e406991f042cd97b04045e99cfe8e3dde407faa423109961d748c380929cef76f3525c69f7d78d21c84d4a4bb25598ce2ecccdd147ec75dd83338fb2e590c4","cipherparams":{"iv":"f80a909dc393522e0245e9a4a82f66f4"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"a885f06ff90eee4b227414c66b96c4f346dfe9488b8dc613b48623ba877465dc"},"mac":"047008b680a36a937264988437e40190e91e976eb6eaebacc8fea036751371ce"}}'
+      Password = ''
+      """

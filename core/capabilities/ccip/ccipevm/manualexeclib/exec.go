@@ -7,14 +7,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
 )
 
 func GetMessageHashes(
@@ -22,13 +22,11 @@ func GetMessageHashes(
 	lggr logger.Logger,
 	onrampAddress common.Address,
 	ccipMessageSentEvents []onramp.OnRampCCIPMessageSent,
+	extraDataCodec ccipcommon.ExtraDataCodec,
 ) ([][32]byte, error) {
 	msgHasher := ccipevm.NewMessageHasherV1(
 		lggr,
-		ccipcommon.NewExtraDataCodec(ccipcommon.NewExtraDataCodecParams(
-			ccipevm.ExtraDataDecoder{},
-			ccipsolana.ExtraDataDecoder{},
-		)),
+		extraDataCodec,
 	)
 	var ret [][32]byte
 	for _, event := range ccipMessageSentEvents {
@@ -109,11 +107,12 @@ func CreateExecutionReport(
 	ccipMessageSentEvents []onramp.OnRampCCIPMessageSent,
 	hashes [][32]byte,
 	flags *big.Int,
+	extraDataCodec ccipcommon.ExtraDataCodec,
 ) (offramp.InternalExecutionReport, error) {
 	var any2EVMs []offramp.InternalAny2EVMRampMessage
 	for _, event := range ccipMessageSentEvents {
 		ccipMsg := ccipevm.EVM2AnyToCCIPMsg(onrampAddress, event.Message)
-		any2EVM, err := ccipevm.CCIPMsgToAny2EVMMessage(ccipMsg)
+		any2EVM, err := ccipevm.CCIPMsgToAny2EVMMessage(ccipMsg, extraDataCodec)
 		if err != nil {
 			return offramp.InternalExecutionReport{}, fmt.Errorf("failed to convert ccip message to any2evm message: %w", err)
 		}

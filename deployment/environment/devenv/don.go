@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -23,11 +22,33 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 )
 
+// All label keys:
+// * must be non-empty,
+// * must be 63 characters or less,
+// * must begin and end with an alphanumeric character ([a-z0-9A-Z]),
+// * could contain dashes (-), underscores (_), dots (.), and alphanumerics between.
+//
+// All label values:
+// * must be 63 characters or less (can be empty),
+// * unless empty, must begin and end with an alphanumeric character ([a-z0-9A-Z]),
+// * could contain dashes (-), underscores (_), dots (.), and alphanumerics between.
+//
+// Source: https://github.com/smartcontractkit/job-distributor/blob/main/pkg/entities/labels.go
 const (
-	NodeLabelKeyType        = "type"
-	NodeLabelP2PIDType      = "p2p_id"
-	NodeLabelValueBootstrap = "bootstrap"
-	NodeLabelValuePlugin    = "plugin"
+	LabelNodeTypeKey            = "type"
+	LabelNodeTypeValueBootstrap = "bootstrap"
+	LabelNodeTypeValuePlugin    = "plugin"
+
+	LabelNodeP2PIDKey = "p2p_id"
+
+	LabelJobTypeKey         = "jobType"
+	LabelJobTypeValueLLO    = "llo"
+	LabelJobTypeValueStream = "stream"
+
+	LabelEnvironmentKey = "environment"
+	LabelStreamIDKey    = "streamID"
+
+	LabelProductKey = "product"
 )
 
 // NodeInfo holds the information required to create a node
@@ -50,7 +71,7 @@ func (don *DON) PluginNodes() []Node {
 	var pluginNodes []Node
 	for _, node := range don.Nodes {
 		for _, label := range node.labels {
-			if label.Key == NodeLabelKeyType && value(label.Value) == NodeLabelValuePlugin {
+			if label.Key == LabelNodeTypeKey && value(label.Value) == LabelNodeTypeValuePlugin {
 				pluginNodes = append(pluginNodes, node)
 			}
 		}
@@ -123,8 +144,8 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 			// no need to set admin address for bootstrap nodes, as there will be no payment
 			node.adminAddr = ""
 			node.labels = append(node.labels, &ptypes.Label{
-				Key:   NodeLabelKeyType,
-				Value: ptr(NodeLabelValueBootstrap),
+				Key:   LabelNodeTypeKey,
+				Value: ptr(LabelNodeTypeValueBootstrap),
 			})
 		} else {
 			// multi address is not applicable for non-bootstrap nodes
@@ -140,8 +161,8 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 			}
 
 			node.labels = append(node.labels, &ptypes.Label{
-				Key:   NodeLabelKeyType,
-				Value: ptr(NodeLabelValuePlugin),
+				Key:   LabelNodeTypeKey,
+				Value: ptr(LabelNodeTypeValuePlugin),
 			})
 		}
 		// Set up Job distributor in node and register node with the job distributor
@@ -189,7 +210,7 @@ type Node struct {
 	NodeID          string                    // node id returned by job distributor after node is registered with it
 	JDId            string                    // job distributor id returned by node after Job distributor is created in node
 	Name            string                    // name of the node
-	AccountAddr     map[uint64]string         // chain id to node's account address mapping for supported chains
+	AccountAddr     map[string]string         // chain id to node's account address mapping for supported chains
 	Ocr2KeyBundleID string                    // OCR2 key bundle id of the node
 	gqlClient       client.Client             // graphql client to interact with the node
 	restClient      *clclient.ChainlinkClient // rest client to interact with the node
@@ -199,7 +220,7 @@ type Node struct {
 }
 
 type JDChainConfigInput struct {
-	ChainID   uint64
+	ChainID   string
 	ChainType string
 }
 
@@ -217,11 +238,10 @@ func (n *Node) AddLabel(label *ptypes.Label) {
 // It fetches the account address, peer id, and OCR2 key bundle id and creates the JobDistributorChainConfig.
 func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChainConfigInput, jd JobDistributor) error {
 	for _, chain := range chains {
-		chainId := strconv.FormatUint(chain.ChainID, 10)
 		var account string
 		switch chain.ChainType {
 		case "EVM":
-			accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
+			accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chain.ChainID)
 			if err != nil {
 				return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
 			}
@@ -229,19 +249,21 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 				return fmt.Errorf("no account address found for node %s", n.Name)
 			}
 			if n.AccountAddr == nil {
-				n.AccountAddr = make(map[uint64]string)
+				n.AccountAddr = make(map[string]string)
 			}
 			n.AccountAddr[chain.ChainID] = *accountAddr
 			account = *accountAddr
 		case "APTOS", "SOLANA":
 			accounts, err := n.gqlClient.FetchKeys(ctx, chain.ChainType)
 			if err != nil {
-				return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
+				return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainType, err)
 			}
 			if len(accounts) == 0 {
-				return fmt.Errorf("no account address found for node %s", n.Name)
+				return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainType, err)
 			}
 
+			n.AccountAddr[chain.ChainID] = accounts[0]
+			n.AccountAddr[chain.ChainID] = accounts[0]
 			account = accounts[0]
 		default:
 			return fmt.Errorf("unsupported chainType %v", chain.ChainType)
@@ -263,11 +285,12 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			return fmt.Errorf("no OCR2 key bundle id found for node %s", n.Name)
 		}
 		n.Ocr2KeyBundleID = ocr2BundleId
+
 		// fetch node labels to know if the node is bootstrap or plugin
 		// if multi address is set, then it's a bootstrap node
 		isBootstrap := n.multiAddr != ""
 		for _, label := range n.labels {
-			if label.Key == NodeLabelKeyType && value(label.Value) == NodeLabelValueBootstrap {
+			if label.Key == LabelNodeTypeKey && value(label.Value) == LabelNodeTypeValueBootstrap {
 				isBootstrap = true
 				break
 			}
@@ -285,7 +308,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			}
 			if nodeChainConfigs != nil {
 				for _, chainConfig := range nodeChainConfigs.ChainConfigs {
-					if chainConfig.Chain.Id == chainId {
+					if chainConfig.Chain.Id == chain.ChainID {
 						return nil
 					}
 				}
@@ -295,7 +318,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			// if it's not updated , throw an error
 			_, err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
 				JobDistributorID: n.JDId,
-				ChainID:          chainId,
+				ChainID:          chain.ChainID,
 				ChainType:        chain.ChainType,
 				AccountAddr:      account,
 				AdminAddr:        n.adminAddr,
@@ -352,6 +375,29 @@ func (n *Node) AcceptJob(ctx context.Context, spec string) error {
 	return nil
 }
 
+func (n *Node) DeleteJob(ctx context.Context, jobID string) error {
+	jobs, err := n.gqlClient.ListJobs(ctx, 0, 1000)
+	if err != nil {
+		return err
+	}
+	if jobs == nil || len(jobs.Jobs.Results) == 0 {
+		return fmt.Errorf("no jobs found for node %s", n.Name)
+	}
+	for _, job := range jobs.Jobs.Results {
+		if job.ExternalJobID == jobID {
+			spec, err := n.gqlClient.CancelJobProposalSpec(ctx, job.Id)
+			if err != nil {
+				return err
+			}
+			if spec == nil {
+				return fmt.Errorf("on deletion response no job proposal spec found for job id %s", jobID)
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("no job found for job id %s", jobID)
+}
+
 // RegisterNodeToJobDistributor fetches the CSA public key of the node and registers the node with the job distributor
 // it sets the node id returned by JobDistributor as a result of registration in the node struct
 func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, jd JobDistributor) error {
@@ -374,7 +420,7 @@ func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, jd JobDistribut
 		return fmt.Errorf("no peer id found for node %s", n.Name)
 	}
 	n.labels = append(n.labels, &ptypes.Label{
-		Key:   NodeLabelP2PIDType,
+		Key:   LabelNodeP2PIDKey,
 		Value: peerID,
 	})
 
@@ -390,7 +436,7 @@ func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, jd JobDistribut
 			Filter: &nodev1.ListNodesRequest_Filter{
 				Selectors: []*ptypes.Selector{
 					{
-						Key:   NodeLabelP2PIDType,
+						Key:   LabelNodeP2PIDKey,
 						Op:    ptypes.SelectorOp_EQ,
 						Value: peerID,
 					},
@@ -454,7 +500,7 @@ func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, jd JobDistributor
 	// now create the job distributor in the node
 	id, err := n.CreateJobDistributor(ctx, jd)
 	if err != nil &&
-		(!strings.Contains(err.Error(), "only a single feeds manager is supported") || !strings.Contains(err.Error(), "DuplicateFeedsManagerError")) {
+		!strings.Contains(err.Error(), "DuplicateFeedsManagerError") {
 		return fmt.Errorf("failed to create job distributor in node %s: %w", n.Name, err)
 	}
 	// wait for the node to connect to the job distributor
@@ -500,6 +546,14 @@ func (n *Node) ReplayLogs(blockByChain map[uint64]uint64) error {
 		}
 	}
 	return nil
+}
+
+func (n *Node) ExportOCR2Keys(id string) (*clclient.OCR2ExportKey, error) {
+	keys, _, err := n.restClient.ExportOCR2Key(id)
+	if err != nil {
+		return nil, err
+	}
+	return keys, nil
 }
 
 func ptr[T any](v T) *T {

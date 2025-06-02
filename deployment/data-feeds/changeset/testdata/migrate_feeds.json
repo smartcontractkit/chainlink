@@ -1,0 +1,20 @@
+[
+  {
+    "address": "0x33442400910b7B03316fe47eF8fC7bEd54Bca407",
+    "feedId": "0x01bb0467f50003040000000000000000",
+    "description": "TEST / USD",
+    "typeAndVersion": {
+      "type": "AggregatorProxy",
+      "version": "1.0.0"
+    }
+  },
+  {
+    "address": "0x43442400910b7B03316fe47eF8fC7bEd54Bca407",
+    "feedId": "0x01b40467f50003040000000000000000",
+    "description": "LINK / USD",
+    "typeAndVersion": {
+      "type": "AggregatorProxy",
+      "version": "1.0.0"
+    }
+  }
+]

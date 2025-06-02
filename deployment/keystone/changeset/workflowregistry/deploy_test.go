@@ -3,12 +3,16 @@ package workflowregistry
 import (
 	"testing"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
@@ -21,7 +25,7 @@ func Test_Deploy(t *testing.T) {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	registrySel := env.AllChainSelectors()[0]
+	registrySel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
 	resp, err := Deploy(env, registrySel)
 	require.NoError(t, err)
@@ -32,7 +36,7 @@ func Test_Deploy(t *testing.T) {
 	require.Len(t, addrs, 1)
 
 	// assert nothing on chain 1
-	require.NotEqual(t, registrySel, env.AllChainSelectors()[1])
-	oaddrs, _ := resp.AddressBook.AddressesForChain(env.AllChainSelectors()[1])
+	require.NotEqual(t, registrySel, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1])
+	oaddrs, _ := resp.AddressBook.AddressesForChain(env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1])
 	assert.Empty(t, oaddrs)
 }

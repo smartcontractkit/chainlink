@@ -24,7 +24,6 @@ tools/clroot/db.sqlite3-wal
 .envrc
 .env*
 .dbenv
-!crib/.env.example
 !.github/actions/setup-postgres/.env
 .direnv
 .idea
@@ -81,11 +80,6 @@ secrets.toml
 tmp_laneconfig/
 solana_contracts
 
-# goreleaser builds
-cosign.*
-dist/
-MacOSX*
-
 # Test & linter reports
 *report.xml
 *report.json
@@ -101,9 +95,6 @@ go.work*
 # This sometimes shows up for some reason
 tools/flakeytests/coverage.txt
 
-# Fuzz tests can create these files
-**/testdata/fuzz/*
-
 # Runtime test configuration that might contain secrets
 override*.toml
 
@@ -116,4 +107,16 @@ vendor/*
 
 *.wasm
 contracts/lcov.info
+contracts/out/
 /cache
+
+# Used by plugins/chainlink.prebuilt.Dockerfile
+/bin/
+/lib/
+/build/bin/
+/build/lib/
+
+# artifacts of CRE environment creation or CRE CLI usage
+core/scripts/cre/environment/*.yaml
+core/scripts/cre/environment/*.yml
+core/scripts/cre/environment/logs/

@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
@@ -207,8 +207,8 @@ func Test_DecodingCommitReport(t *testing.T) {
 		require.NoError(t, err)
 
 		tokenSource := solanago.MustPublicKeyFromBase58("C8WSPj3yyus1YN3yNB6YA5zStYtbjQWtpmKadmvyUXq8")
-		tokenPrice := encodeBigIntToFixedLengthLE(big.NewInt(rand.Int63()), 28)
-		gasPrice := encodeBigIntToFixedLengthLE(big.NewInt(rand.Int63()), 28)
+		tokenPrice := encodeBigIntToFixedLengthBE(big.NewInt(rand.Int63()), 28)
+		gasPrice := encodeBigIntToFixedLengthBE(big.NewInt(rand.Int63()), 28)
 		merkleRoot := utils.RandomBytes32()
 
 		tpu := []ccip_offramp.TokenPriceUpdate{
@@ -256,12 +256,62 @@ func Test_DecodingCommitReport(t *testing.T) {
 
 		// check decoded ocr report token price update matches with on-chain report
 		pu := decode.PriceUpdates.TokenPriceUpdates[0]
-		require.Equal(t, decodeLEToBigInt(tokenPrice), pu.Price)
+		require.Equal(t, decodeBEToBigInt(tokenPrice), pu.Price)
 		require.Equal(t, cciptypes.UnknownEncodedAddress(tokenSource.String()), pu.TokenID)
 
 		// check decoded ocr report gas price update matches with on-chain report
 		gu := decode.PriceUpdates.GasPriceUpdates[0]
-		require.Equal(t, decodeLEToBigInt(gasPrice), gu.GasPrice)
+		require.Equal(t, decodeBEToBigInt(gasPrice), gu.GasPrice)
+		require.Equal(t, chainSel, gu.ChainSel)
+	})
+
+	t.Run("decode on-chain commit report with no MerkleRoot", func(t *testing.T) {
+		chainSel := cciptypes.ChainSelector(rand.Uint64())
+
+		tokenSource := solanago.MustPublicKeyFromBase58("C8WSPj3yyus1YN3yNB6YA5zStYtbjQWtpmKadmvyUXq8")
+		tokenPrice := encodeBigIntToFixedLengthBE(big.NewInt(rand.Int63()), 28)
+		gasPrice := encodeBigIntToFixedLengthBE(big.NewInt(rand.Int63()), 28)
+
+		tpu := []ccip_offramp.TokenPriceUpdate{
+			{
+				SourceToken: tokenSource,
+				UsdPerToken: [28]uint8(tokenPrice),
+			},
+		}
+
+		gpu := []ccip_offramp.GasPriceUpdate{
+			{UsdPerUnitGas: [28]uint8(gasPrice), DestChainSelector: uint64(chainSel)},
+			{UsdPerUnitGas: [28]uint8(gasPrice), DestChainSelector: uint64(chainSel)},
+			{UsdPerUnitGas: [28]uint8(gasPrice), DestChainSelector: uint64(chainSel)},
+		}
+
+		onChainReport := ccip_offramp.CommitInput{
+			MerkleRoot: nil,
+			PriceUpdates: ccip_offramp.PriceUpdates{
+				TokenPriceUpdates: tpu,
+				GasPriceUpdates:   gpu,
+			},
+		}
+
+		var buf bytes.Buffer
+		encoder := agbinary.NewBorshEncoder(&buf)
+		err := onChainReport.MarshalWithEncoder(encoder)
+		require.NoError(t, err)
+
+		commitCodec := NewCommitPluginCodecV1()
+		decode, err := commitCodec.Decode(testutils.Context(t), buf.Bytes())
+		require.NoError(t, err)
+		require.Nilf(t, decode.UnblessedMerkleRoots, "UnblessedMerkleRoots should be nil")
+		require.Nilf(t, decode.BlessedMerkleRoots, "BlessedMerkleRoots should be nil")
+
+		// check decoded ocr report token price update matches with on-chain report
+		pu := decode.PriceUpdates.TokenPriceUpdates[0]
+		require.Equal(t, decodeBEToBigInt(tokenPrice), pu.Price)
+		require.Equal(t, cciptypes.UnknownEncodedAddress(tokenSource.String()), pu.TokenID)
+
+		// check decoded ocr report gas price update matches with on-chain report
+		gu := decode.PriceUpdates.GasPriceUpdates[0]
+		require.Equal(t, decodeBEToBigInt(gasPrice), gu.GasPrice)
 		require.Equal(t, chainSel, gu.ChainSel)
 	})
 
@@ -281,10 +331,10 @@ func Test_DecodingCommitReport(t *testing.T) {
 
 		tu := rep.PriceUpdates.TokenPriceUpdates[0]
 		require.Equal(t, tu.TokenID, cciptypes.UnknownEncodedAddress(decodedReport.PriceUpdates.TokenPriceUpdates[0].SourceToken.String()))
-		require.Equal(t, tu.Price, decodeLEToBigInt(decodedReport.PriceUpdates.TokenPriceUpdates[0].UsdPerToken[:]))
+		require.Equal(t, tu.Price, decodeBEToBigInt(decodedReport.PriceUpdates.TokenPriceUpdates[0].UsdPerToken[:]))
 
 		gu := rep.PriceUpdates.GasPriceUpdates[0]
 		require.Equal(t, gu.ChainSel, cciptypes.ChainSelector(decodedReport.PriceUpdates.GasPriceUpdates[0].DestChainSelector))
-		require.Equal(t, gu.GasPrice, decodeLEToBigInt(decodedReport.PriceUpdates.GasPriceUpdates[0].UsdPerUnitGas[:]))
+		require.Equal(t, gu.GasPrice, decodeBEToBigInt(decodedReport.PriceUpdates.GasPriceUpdates[0].UsdPerUnitGas[:]))
 	})
 }

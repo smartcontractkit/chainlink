@@ -7,19 +7,19 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestPluginPortManager(t *testing.T) {
 	// register one
-	m := NewTestLoopRegistry(logger.TestLogger(t))
+	m := NewTestLoopRegistry(logger.Test(t))
 	pFoo, err := m.Register("foo")
 	require.NoError(t, err)
 	require.Equal(t, "foo", pFoo.Name)
-	require.Greater(t, pFoo.EnvCfg.PrometheusPort, 0)
+	require.Positive(t, pFoo.EnvCfg.PrometheusPort)
 	// test duplicate
 	pNil, err := m.Register("foo")
 	require.ErrorIs(t, err, ErrExists)
@@ -63,6 +63,8 @@ func (m mockCfgTelemetry) EmitterBatchProcessor() bool { return true }
 
 func (m mockCfgTelemetry) EmitterExportTimeout() time.Duration { return 1 * time.Second }
 
+func (m mockCfgTelemetry) ChipIngressEndpoint() string { return "example.com/chip-ingress" }
+
 type mockCfgDatabase struct{}
 
 func (m mockCfgDatabase) Backup() config.Backup { panic("unimplemented") }
@@ -99,7 +101,7 @@ func TestLoopRegistry_Register(t *testing.T) {
 
 	// Create a LoopRegistry instance with mockCfgTracing
 	loopRegistry := &LoopRegistry{
-		lggr:         logger.TestLogger(t),
+		lggr:         logger.Test(t),
 		registry:     registry,
 		cfgDatabase:  mockCfgDatabase,
 		cfgTracing:   mockCfgTracing,
@@ -108,12 +110,12 @@ func TestLoopRegistry_Register(t *testing.T) {
 
 	// Test case 1: Register new loop
 	registeredLoop, err := loopRegistry.Register("testID")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, "testID", registeredLoop.Name)
 
 	envCfg := registeredLoop.EnvCfg
 
-	require.Equal(t, &url.URL{Scheme: "fake", Host: "database.url"}, envCfg.DatabaseURL)
+	require.Equal(t, (*commonconfig.SecretURL)(&url.URL{Scheme: "fake", Host: "database.url"}), envCfg.DatabaseURL)
 	require.Equal(t, time.Hour, envCfg.DatabaseIdleInTxSessionTimeout)
 	require.Equal(t, time.Minute, envCfg.DatabaseLockTimeout)
 	require.Equal(t, time.Second, envCfg.DatabaseQueryTimeout)
@@ -131,8 +133,10 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.True(t, envCfg.TelemetryInsecureConnection)
 	require.Equal(t, "path/to/cert.pem", envCfg.TelemetryCACertFile)
 	require.Equal(t, "http://localhost:9001", envCfg.TelemetryEndpoint)
-	require.Equal(t, loop.OtelAttributes{"foo": "bar"}, envCfg.TelemetryAttributes)
+	require.Equal(t, beholder.OtelAttributes{"foo": "bar"}, envCfg.TelemetryAttributes)
 	require.Equal(t, 0.42, envCfg.TelemetryTraceSampleRatio)
 	require.True(t, envCfg.TelemetryEmitterBatchProcessor)
 	require.Equal(t, 1*time.Second, envCfg.TelemetryEmitterExportTimeout)
+
+	require.Equal(t, "example.com/chip-ingress", envCfg.ChipIngressEndpoint)
 }

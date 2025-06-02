@@ -42,7 +42,7 @@
       "attributes": {
         "name": "EVM.0.HeadTracker.HeadListener",
         "status": "failing",
-        "output": "Listener is not connected"
+        "output": "Listener connected = false, receiving heads = false"
       }
     },
     {
@@ -263,9 +263,9 @@
     },
     {
       "type": "checks",
-      "id": "WorkflowDBStore",
+      "id": "WorkflowStore",
       "attributes": {
-        "name": "WorkflowDBStore",
+        "name": "WorkflowStore",
         "status": "passing",
         "output": ""
       }

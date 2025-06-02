@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
@@ -21,8 +22,12 @@ import (
 
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/observation"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
+	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 )
 
 var _ job.ServiceCtx = &delegate{}
@@ -39,28 +44,31 @@ type delegate struct {
 
 	src   datastreamsllo.ShouldRetireCache
 	ds    datastreamsllo.DataSource
-	telem services.Service
+	telem telem.TelemeterService
 
 	oracles []Closer
 }
 
 type DelegateConfig struct {
-	Logger             logger.Logger
-	DataSource         sqlutil.DataSource
-	Runner             streams.Runner
-	Registry           Registry
-	JobName            null.String
-	CaptureEATelemetry bool
+	Logger                      logger.Logger
+	DataSource                  sqlutil.DataSource
+	Runner                      streams.Runner
+	Registry                    observation.Registry
+	JobName                     null.String
+	CaptureEATelemetry          bool
+	CaptureObservationTelemetry bool
+	CaptureOutcomeTelemetry     bool
+	CaptureReportTelemetry      bool
 
 	// LLO
-	ChannelDefinitionCache llotypes.ChannelDefinitionCache
-	ReportingPluginConfig  datastreamsllo.Config
-	RetirementReportCache  RetirementReportCache
-	RetirementReportCodec  datastreamsllo.RetirementReportCodec
-	ShouldRetireCache      datastreamsllo.ShouldRetireCache
-	EAMonitoringEndpoint   ocrcommontypes.MonitoringEndpoint
-	DonID                  uint32
-	ChainID                string
+	ChannelDefinitionCache   llotypes.ChannelDefinitionCache
+	ReportingPluginConfig    datastreamsllo.Config
+	RetirementReportCache    retirement.RetirementReportCache
+	RetirementReportCodec    datastreamsllo.RetirementReportCodec
+	ShouldRetireCache        datastreamsllo.ShouldRetireCache
+	PluginMonitoringEndpoint telemetry.MultitypeMonitoringEndpoint
+	DonID                    uint32
+	ChainID                  string
 
 	// OCR3
 	TraceLogging                 bool
@@ -102,13 +110,16 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 	}
 	reportCodecs := NewReportCodecs(codecLggr, cfg.DonID)
 
-	var t TelemeterService
-	if cfg.CaptureEATelemetry {
-		t = NewTelemeterService(lggr, cfg.EAMonitoringEndpoint, cfg.DonID)
-	} else {
-		t = NullTelemeter
-	}
-	ds := newDataSource(logger.Named(lggr, "DataSource"), cfg.Registry, t)
+	t := telem.NewTelemeterService(telem.TelemeterParams{
+		Logger:                      lggr,
+		MonitoringEndpoint:          cfg.PluginMonitoringEndpoint,
+		DonID:                       cfg.DonID,
+		CaptureEATelemetry:          cfg.CaptureEATelemetry,
+		CaptureObservationTelemetry: cfg.CaptureObservationTelemetry,
+		CaptureOutcomeTelemetry:     cfg.CaptureOutcomeTelemetry,
+		CaptureReportTelemetry:      cfg.CaptureReportTelemetry,
+	})
+	ds := observation.NewDataSource(logger.Named(lggr, "DataSource"), cfg.Registry, t)
 
 	return &delegate{services.StateMachine{}, cfg, reportCodecs, cfg.ShouldRetireCache, ds, t, []Closer{}}, nil
 }
@@ -126,9 +137,9 @@ func (d *delegate) Start(ctx context.Context) error {
 
 		merr = errors.Join(merr, d.telem.Start(ctx))
 
-		psrrc := NewPluginScopedRetirementReportCache(d.cfg.RetirementReportCache, d.cfg.OnchainKeyring, d.cfg.RetirementReportCodec)
+		psrrc := retirement.NewPluginScopedRetirementReportCache(d.cfg.RetirementReportCache, d.cfg.OnchainKeyring, d.cfg.RetirementReportCodec)
 		for i, configTracker := range d.cfg.ContractConfigTrackers {
-			lggr := logger.Named(d.cfg.Logger, fmt.Sprintf("%d", i))
+			lggr := logger.Named(d.cfg.Logger, strconv.Itoa(i))
 			switch i {
 			case 0:
 				lggr = logger.With(lggr, "instanceType", "Blue")
@@ -155,15 +166,20 @@ func (d *delegate) Start(ctx context.Context) error {
 				OnchainKeyring:               d.cfg.OnchainKeyring,
 				ReportingPluginFactory: promwrapper.NewReportingPluginFactory(
 					datastreamsllo.NewPluginFactory(
-						d.cfg.ReportingPluginConfig,
-						psrrc,
-						d.src,
-						d.cfg.RetirementReportCodec,
-						d.cfg.ChannelDefinitionCache,
-						d.ds,
-						logger.Named(lggr, "ReportingPlugin"),
-						llo.EVMOnchainConfigCodec{},
-						d.reportCodecs,
+						datastreamsllo.PluginFactoryParams{
+							Config:                           d.cfg.ReportingPluginConfig,
+							PredecessorRetirementReportCache: psrrc,
+							ShouldRetireCache:                d.src,
+							RetirementReportCodec:            d.cfg.RetirementReportCodec,
+							ChannelDefinitionCache:           d.cfg.ChannelDefinitionCache,
+							DataSource:                       d.ds,
+							Logger:                           logger.Named(lggr, "ReportingPlugin"),
+							OnchainConfigCodec:               llo.EVMOnchainConfigCodec{},
+							ReportCodecs:                     d.reportCodecs,
+							OutcomeTelemetryCh:               d.telem.GetOutcomeTelemetryCh(),
+							ReportTelemetryCh:                d.telem.GetReportTelemetryCh(),
+							DonID:                            d.cfg.DonID,
+						},
 					),
 					lggr,
 					d.cfg.ChainID,

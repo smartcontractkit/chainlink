@@ -1,10 +1,16 @@
 package changeset
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -14,11 +20,16 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	capocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	ocr3_capability "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
+	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
+	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
 type KeystoneChainView struct {
@@ -26,6 +37,7 @@ type KeystoneChainView struct {
 	// OCRContracts is a map of OCR3 contract addresses to their configuration view
 	OCRContracts     map[string]OCR3ConfigView                   `json:"ocrContracts,omitempty"`
 	WorkflowRegistry map[string]common_v1_0.WorkflowRegistryView `json:"workflowRegistry,omitempty"`
+	Forwarders       map[string][]ForwarderView                  `json:"forwarders,omitempty"`
 }
 
 type OCR3ConfigView struct {
@@ -37,9 +49,185 @@ type OCR3ConfigView struct {
 	OffchainConfig        OracleConfig        `json:"offchainConfig"`
 }
 
-var ErrOCR3NotConfigured = errors.New("OCR3 not configured")
+type ForwarderView struct {
+	DonID         uint32   `json:"donId"`
+	ConfigVersion uint32   `json:"configVersion"`
+	F             uint8    `json:"f"`
+	Signers       []string `json:"signers"`
+	TxHash        string   `json:"txHash,omitempty"`
+	BlockNumber   uint64   `json:"blockNumber,omitempty"`
+}
 
-func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigView, error) {
+var (
+	ErrOCR3NotConfigured      = errors.New("OCR3 not configured")
+	ErrForwarderNotConfigured = errors.New("forwarder not configured")
+)
+
+// GenerateKeystoneChainView is a view of the keystone chain
+// It is best-effort, logs errors and generates the views in parallel.
+func GenerateKeystoneChainView(
+	ctx context.Context,
+	lggr logger.Logger,
+	prevView KeystoneChainView,
+	contracts viewContracts,
+) (KeystoneChainView, error) {
+	out := NewKeystoneChainView()
+	var outMu sync.Mutex
+	var allErrs error
+	var wg sync.WaitGroup
+	errCh := make(chan error, 4) // We are generating 4 views concurrently
+
+	// Check if context is already done before starting work
+	select {
+	case <-ctx.Done():
+		return out, ctx.Err()
+	default:
+		// Continue processing
+	}
+
+	if contracts.CapabilitiesRegistry != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for addr, capabilitiesRegistry := range contracts.CapabilitiesRegistry {
+				select {
+				case <-ctx.Done():
+					errCh <- ctx.Err()
+					return
+				default:
+					cr := capabilitiesRegistry
+					addrCopy := addr
+					capRegView, err := common_v1_0.GenerateCapabilityRegistryView(cr)
+					if err != nil {
+						lggr.Warnf("failed to generate capability registry view for address %s: %v", addrCopy, err)
+						errCh <- err
+					}
+					outMu.Lock()
+					out.CapabilityRegistry[addrCopy.String()] = capRegView
+					outMu.Unlock()
+				}
+			}
+		}()
+	}
+
+	if contracts.OCR3 != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for addr, ocr3Cap := range contracts.OCR3 {
+				select {
+				case <-ctx.Done():
+					errCh <- ctx.Err()
+					return
+				default:
+					oc := *ocr3Cap
+					addrCopy := addr
+					ocrView, err := GenerateOCR3ConfigView(ctx, oc)
+					if err != nil {
+						// don't block view on single OCR3 not being configured
+						if errors.Is(err, ErrOCR3NotConfigured) {
+							lggr.Warnf("ocr3 not configured for address %s", addrCopy)
+						} else {
+							lggr.Errorf("failed to generate OCR3 config view for address %s: %v", addrCopy, err)
+							errCh <- err
+						}
+						continue
+					}
+					outMu.Lock()
+					out.OCRContracts[addrCopy.String()] = ocrView
+					outMu.Unlock()
+				}
+			}
+		}()
+	}
+
+	// Process the workflow registry and print if WorkflowRegistryError errors.
+	if contracts.WorkflowRegistry != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for addr, workflowRegistry := range contracts.WorkflowRegistry {
+				select {
+				case <-ctx.Done():
+					errCh <- ctx.Err()
+					return
+				default:
+					wr := workflowRegistry
+					addrCopy := addr
+					wrView, wrErrs := common_v1_0.GenerateWorkflowRegistryView(wr)
+					for _, err := range wrErrs {
+						lggr.Errorf("WorkflowRegistry error for address %s: %v", addrCopy, err)
+						errCh <- err
+					}
+					outMu.Lock()
+					out.WorkflowRegistry[addrCopy.String()] = wrView
+					outMu.Unlock()
+				}
+			}
+		}()
+	}
+
+	if contracts.Forwarder != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for _, fwr := range contracts.Forwarder {
+				fwrCopy := fwr
+				fwrAddr := fwrCopy.Address().String()
+				var prevViews []ForwarderView
+				if prevView.Forwarders != nil {
+					pv, ok := prevView.Forwarders[fwrAddr]
+					if !ok {
+						prevViews = []ForwarderView{}
+					} else {
+						prevViews = pv
+					}
+				} else {
+					prevViews = []ForwarderView{}
+				}
+
+				select {
+				case <-ctx.Done():
+					errCh <- ctx.Err()
+					return
+				default:
+					fwrView, fwrErr := GenerateForwarderView(ctx, fwrCopy, prevViews)
+					if fwrErr != nil {
+						// don't block view on single forwarder not being configured
+						switch {
+						case errors.Is(fwrErr, ErrForwarderNotConfigured):
+							lggr.Warnf("forwarder not configured for address %s", fwrCopy.Address())
+						case errors.Is(fwrErr, context.Canceled), errors.Is(fwrErr, context.DeadlineExceeded):
+							lggr.Warnf("forwarder view generation cancelled for address %s", fwrCopy.Address())
+							errCh <- fwrErr
+						default:
+							lggr.Errorf("failed to generate forwarder view for address %s: %v", fwrCopy.Address(), fwrErr)
+							errCh <- fwrErr
+						}
+					} else {
+						outMu.Lock()
+						out.Forwarders[fwrAddr] = fwrView
+						outMu.Unlock()
+					}
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	var errList []error
+	// Collect all errors
+	for err := range errCh {
+		errList = append(errList, err)
+	}
+	allErrs = errors.Join(errList...)
+
+	return out, allErrs
+}
+
+func GenerateOCR3ConfigView(ctx context.Context, ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigView, error) {
 	details, err := ocr3Cap.LatestConfigDetails(nil)
 	if err != nil {
 		return OCR3ConfigView{}, err
@@ -49,7 +237,7 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 	configIterator, err := ocr3Cap.FilterConfigSet(&bind.FilterOpts{
 		Start:   blockNumber,
 		End:     &blockNumber,
-		Context: nil,
+		Context: ctx,
 	})
 	if err != nil {
 		return OCR3ConfigView{}, err
@@ -135,6 +323,99 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 	}, nil
 }
 
+func GenerateForwarderView(ctx context.Context, f *forwarder.KeystoneForwarder, prevViews []ForwarderView) ([]ForwarderView, error) {
+	startBlock := uint64(0)
+
+	if len(prevViews) > 0 {
+		// Sort `prevViews` by block number in ascending order, we make sure the last item has the highest block number
+		sort.Slice(prevViews, func(i, j int) bool {
+			return prevViews[i].BlockNumber < prevViews[j].BlockNumber
+		})
+
+		// If we have previous views, we will start from the last block number +1 of the previous views
+		startBlock = prevViews[len(prevViews)-1].BlockNumber + 1
+	} else {
+		// If we don't have previous views, we will start from the deployment block number
+		// which is stored in the forwarder's type and version labels.
+		var deploymentBlock uint64
+		lblPrefix := internal.DeploymentBlockLabel + ": "
+		tvStr, err := f.TypeAndVersion(nil)
+		if err != nil {
+			return nil, fmt.Errorf("error getting TypeAndVersion for forwarder: %w", err)
+		}
+		tv, err := cldf.TypeAndVersionFromString(tvStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
+		}
+		for lbl := range tv.Labels {
+			if strings.HasPrefix(lbl, lblPrefix) {
+				// Extract the block number part after the prefix
+				blockStr := strings.TrimPrefix(lbl, lblPrefix)
+				blockNum, err := strconv.ParseUint(blockStr, 10, 64)
+				if err == nil {
+					deploymentBlock = blockNum
+					break
+				}
+			}
+		}
+
+		if deploymentBlock > 0 {
+			startBlock = deploymentBlock
+		}
+	}
+
+	// Let's fetch the `SetConfig` events since the deployment block, since we don't have specific block numbers
+	// for the `SetConfig` events.
+	// If no deployment block is available, it will start from 0.
+	configIterator, err := f.FilterConfigSet(&bind.FilterOpts{
+		Start:   startBlock,
+		End:     nil,
+		Context: ctx,
+	}, nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error filtering ConfigSet events: %w", err)
+	}
+
+	configSets := make([]*forwarder.KeystoneForwarderConfigSet, 0)
+	for configIterator.Next() {
+		// We wait for the iterator to receive an event
+		if configIterator.Event == nil {
+			// We cannot return an error, since we are capturing all `SetConfig` events, so if there's a nil event,
+			// we ignore it.
+			continue
+		}
+		configSets = append(configSets, configIterator.Event)
+	}
+	if len(configSets) == 0 {
+		// Forwarder is not configured only if we don't have any previous configuration events.
+		if len(prevViews) == 0 {
+			return nil, ErrForwarderNotConfigured
+		}
+
+		// If we don't have any new config sets, we return the previous views as is.
+		return prevViews, nil
+	}
+
+	// We now create a slice with all previous views and the new views, so they get all added to the final view.
+	forwarderViews := append([]ForwarderView{}, prevViews...)
+	for _, configSet := range configSets {
+		var readableSigners []string
+		for _, s := range configSet.Signers {
+			readableSigners = append(readableSigners, s.String())
+		}
+		forwarderViews = append(forwarderViews, ForwarderView{
+			DonID:         configSet.DonId,
+			ConfigVersion: configSet.ConfigVersion,
+			F:             configSet.F,
+			Signers:       readableSigners,
+			TxHash:        configSet.Raw.TxHash.String(),
+			BlockNumber:   configSet.Raw.BlockNumber,
+		})
+	}
+
+	return forwarderViews, nil
+}
+
 func millisecondsToUint32(dur time.Duration) uint32 {
 	ms := dur.Milliseconds()
 	if ms > int64(math.MaxUint32) {
@@ -149,6 +430,7 @@ func NewKeystoneChainView() KeystoneChainView {
 		CapabilityRegistry: make(map[string]common_v1_0.CapabilityRegistryView),
 		OCRContracts:       make(map[string]OCR3ConfigView),
 		WorkflowRegistry:   make(map[string]common_v1_0.WorkflowRegistryView),
+		Forwarders:         make(map[string][]ForwarderView),
 	}
 }
 

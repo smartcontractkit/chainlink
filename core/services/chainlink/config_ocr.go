@@ -5,7 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
@@ -66,4 +66,8 @@ func (o *ocrConfig) DefaultTransactionQueueDepth() uint32 {
 
 func (o *ocrConfig) CaptureEATelemetry() bool {
 	return *o.c.CaptureEATelemetry
+}
+
+func (o *ocrConfig) ConfigLogValidation() bool {
+	return *o.c.ConfigLogValidation
 }

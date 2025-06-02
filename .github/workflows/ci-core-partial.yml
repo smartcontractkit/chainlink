@@ -65,14 +65,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
-        with:
-          prod: "true"
-
-      - name: Install Foundry
-        uses: ./.github/actions/install-solidity-foundry
-
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:
@@ -81,11 +73,6 @@ jobs:
 
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
-
-      - name: Build Solana artifacts
-        uses: ./.github/actions/setup-solana/build-contracts
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup wasmd
         uses: ./.github/actions/setup-wasmd
@@ -218,11 +205,6 @@ jobs:
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
 
-      - name: Build Solana artifacts
-        uses: ./.github/actions/setup-solana/build-contracts
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Setup wasmd
         uses: ./.github/actions/setup-wasmd
 
@@ -269,11 +251,6 @@ jobs:
 
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
-
-      - name: Build Solana artifacts
-        uses: ./.github/actions/setup-solana/build-contracts
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup wasmd
         uses: ./.github/actions/setup-wasmd

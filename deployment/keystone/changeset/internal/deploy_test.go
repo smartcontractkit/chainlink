@@ -2,19 +2,26 @@ package internal_test
 
 import (
 	"context"
+	"encoding/hex"
 	"maps"
+	"strconv"
 	"testing"
 
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -32,19 +39,20 @@ func Test_RegisterNOPS(t *testing.T) {
 			Name: "test-nop",
 		})
 		useMCMS = true
-		env := &deployment.Environment{
+		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]deployment.Chain{
-				chain.Selector: chain,
-			},
-			ExistingAddresses: deployment.NewMemoryAddressBookFromMap(map[uint64]map[string]deployment.TypeAndVersion{
+			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 				chain.Selector: {
-					registry.Address().String(): deployment.TypeAndVersion{
+					registry.Address().String(): cldf.TypeAndVersion{
 						Type:    internal.CapabilitiesRegistry,
 						Version: deployment.Version1_0_0,
 					},
 				},
 			}),
+			BlockChains: cldf_chain.NewBlockChains(
+				map[uint64]cldf_chain.BlockChain{
+					chain.Selector: chain,
+				}),
 		}
 		resp, err := internal.RegisterNOPS(context.TODO(), lggr, internal.RegisterNOPSRequest{
 			Env:                   env,
@@ -54,7 +62,7 @@ func Test_RegisterNOPS(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, resp.Ops)
-		require.Len(t, resp.Ops.Batch, 1)
+		require.Len(t, resp.Ops.Transactions, 1)
 	})
 }
 
@@ -213,7 +221,6 @@ func Test_RegisterNodes(t *testing.T) {
 				want:    expected{nOps: 1},
 				input:   testInput,
 			},
-
 			{
 				name:    "no mcms",
 				useMCMS: false,
@@ -236,19 +243,20 @@ func Test_RegisterNodes(t *testing.T) {
 			rc, _ := kstest.MustAddCapabilities(t, lggr, caps2Add, chain, registry)
 
 			t.Run(tc.name, func(t *testing.T) {
-				env := &deployment.Environment{
+				env := &cldf.Environment{
 					Logger: lggr,
-					Chains: map[uint64]deployment.Chain{
-						chain.Selector: chain,
-					},
-					ExistingAddresses: deployment.NewMemoryAddressBookFromMap(map[uint64]map[string]deployment.TypeAndVersion{
+					ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 						chain.Selector: {
-							registry.Address().String(): deployment.TypeAndVersion{
+							registry.Address().String(): cldf.TypeAndVersion{
 								Type:    internal.CapabilitiesRegistry,
 								Version: deployment.Version1_0_0,
 							},
 						},
 					}),
+					BlockChains: cldf_chain.NewBlockChains(
+						map[uint64]cldf_chain.BlockChain{
+							chain.Selector: chain,
+						}),
 				}
 				resp, err := internal.RegisterNodes(lggr, &internal.RegisterNodesRequest{
 					Env:                   env,
@@ -268,11 +276,13 @@ func Test_RegisterNodes(t *testing.T) {
 								SelToOCRConfig: map[chain_selectors.ChainDetails]deployment.OCRConfig{
 									{
 										ChainSelector: chain.Selector,
+										ChainName:     strconv.FormatUint(chain.Selector, 10),
 									}: {
 										OnchainPublicKey:          tc.input.Signer[:],
 										ConfigEncryptionPublicKey: tc.input.EncryptionPublicKey,
 									},
 								},
+								WorkflowKey: hex.EncodeToString(tc.input.EncryptionPublicKey[:]),
 							},
 						},
 					},
@@ -295,19 +305,20 @@ func Test_RegisterNodes(t *testing.T) {
 
 	t.Run("no ops in proposal if node already exists", func(t *testing.T) {
 		useMCMS = true
-		env := &deployment.Environment{
+		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]deployment.Chain{
-				chain.Selector: chain,
-			},
-			ExistingAddresses: deployment.NewMemoryAddressBookFromMap(map[uint64]map[string]deployment.TypeAndVersion{
+			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 				chain.Selector: {
-					registry.Address().String(): deployment.TypeAndVersion{
+					registry.Address().String(): cldf.TypeAndVersion{
 						Type:    internal.CapabilitiesRegistry,
 						Version: deployment.Version1_0_0,
 					},
 				},
 			}),
+			BlockChains: cldf_chain.NewBlockChains(
+				map[uint64]cldf_chain.BlockChain{
+					chain.Selector: chain,
+				}),
 		}
 		resp, err := internal.RegisterNodes(lggr, &internal.RegisterNodesRequest{
 			Env:                   env,
@@ -327,8 +338,10 @@ func Test_RegisterNodes(t *testing.T) {
 						SelToOCRConfig: map[chain_selectors.ChainDetails]deployment.OCRConfig{
 							{
 								ChainSelector: chain.Selector,
+								ChainName:     strconv.FormatUint(chain.Selector, 10),
 							}: {},
 						},
+						WorkflowKey: hex.EncodeToString(registeredNodeParams[0].EncryptionPublicKey[:]),
 					},
 				},
 			},
@@ -344,19 +357,20 @@ func Test_RegisterNodes(t *testing.T) {
 
 	t.Run("no new nodes to add results in no mcms ops", func(t *testing.T) {
 		useMCMS = true
-		env := &deployment.Environment{
+		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]deployment.Chain{
-				chain.Selector: chain,
-			},
-			ExistingAddresses: deployment.NewMemoryAddressBookFromMap(map[uint64]map[string]deployment.TypeAndVersion{
+			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 				chain.Selector: {
-					registry.Address().String(): deployment.TypeAndVersion{
+					registry.Address().String(): cldf.TypeAndVersion{
 						Type:    internal.CapabilitiesRegistry,
 						Version: deployment.Version1_0_0,
 					},
 				},
 			}),
+			BlockChains: cldf_chain.NewBlockChains(
+				map[uint64]cldf_chain.BlockChain{
+					chain.Selector: chain,
+				}),
 		}
 		resp, err := internal.RegisterNodes(lggr, &internal.RegisterNodesRequest{
 			Env:                   env,
@@ -390,19 +404,20 @@ func Test_RegisterDons(t *testing.T) {
 	)
 	t.Run("success create add DONs mcms proposal", func(t *testing.T) {
 		useMCMS = true
-		env := &deployment.Environment{
+		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]deployment.Chain{
-				chain.Selector: chain,
-			},
-			ExistingAddresses: deployment.NewMemoryAddressBookFromMap(map[uint64]map[string]deployment.TypeAndVersion{
+			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 				chain.Selector: {
-					registry.Address().String(): deployment.TypeAndVersion{
+					registry.Address().String(): cldf.TypeAndVersion{
 						Type:    internal.CapabilitiesRegistry,
 						Version: deployment.Version1_0_0,
 					},
 				},
 			}),
+			BlockChains: cldf_chain.NewBlockChains(
+				map[uint64]cldf_chain.BlockChain{
+					chain.Selector: chain,
+				}),
 		}
 		resp, err := internal.RegisterDons(lggr, internal.RegisterDonsRequest{
 			Env:                   env,
@@ -415,6 +430,9 @@ func Test_RegisterDons(t *testing.T) {
 					Name: "test-don",
 					F:    2,
 				},
+			},
+			NodeIDToP2PID: map[string][32]byte{
+				"test-node-id": testPeerID(t, "0x1"),
 			},
 			UseMCMS: useMCMS,
 		})
@@ -483,19 +501,20 @@ func Test_RegisterDons(t *testing.T) {
 			regContract = setupResp.CapabilitiesRegistry
 		)
 
-		env := &deployment.Environment{
+		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]deployment.Chain{
-				setupResp.Chain.Selector: setupResp.Chain,
-			},
-			ExistingAddresses: deployment.NewMemoryAddressBookFromMap(map[uint64]map[string]deployment.TypeAndVersion{
+			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 				setupResp.Chain.Selector: {
-					regContract.Address().String(): deployment.TypeAndVersion{
+					regContract.Address().String(): cldf.TypeAndVersion{
 						Type:    internal.CapabilitiesRegistry,
 						Version: deployment.Version1_0_0,
 					},
 				},
 			}),
+			BlockChains: cldf_chain.NewBlockChains(
+				map[uint64]cldf_chain.BlockChain{
+					setupResp.Chain.Selector: setupResp.Chain,
+				}),
 		}
 		resp, err := internal.RegisterDons(lggr, internal.RegisterDonsRequest{
 			Env:                   env,
@@ -509,6 +528,9 @@ func Test_RegisterDons(t *testing.T) {
 					F:    1,
 				},
 			},
+			NodeIDToP2PID: map[string][32]byte{
+				"test-node-id": testPeerID(t, "0x1"),
+			},
 			UseMCMS: true,
 		})
 		require.NoError(t, err)
@@ -517,19 +539,20 @@ func Test_RegisterDons(t *testing.T) {
 
 	t.Run("success create add DONs mcms proposal with multiple DONs", func(t *testing.T) {
 		useMCMS = true
-		env := &deployment.Environment{
+		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]deployment.Chain{
-				chain.Selector: chain,
-			},
-			ExistingAddresses: deployment.NewMemoryAddressBookFromMap(map[uint64]map[string]deployment.TypeAndVersion{
+			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 				chain.Selector: {
-					registry.Address().String(): deployment.TypeAndVersion{
+					registry.Address().String(): cldf.TypeAndVersion{
 						Type:    internal.CapabilitiesRegistry,
 						Version: deployment.Version1_0_0,
 					},
 				},
 			}),
+			BlockChains: cldf_chain.NewBlockChains(
+				map[uint64]cldf_chain.BlockChain{
+					chain.Selector: chain,
+				}),
 		}
 		resp, err := internal.RegisterDons(lggr, internal.RegisterDonsRequest{
 			Env:                   env,
@@ -547,6 +570,9 @@ func Test_RegisterDons(t *testing.T) {
 					Name: "test-don-2",
 					F:    2,
 				},
+			},
+			NodeIDToP2PID: map[string][32]byte{
+				"test-node-id": testPeerID(t, "0x1"),
 			},
 			UseMCMS: useMCMS,
 		})

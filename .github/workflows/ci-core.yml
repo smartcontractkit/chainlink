@@ -2,7 +2,7 @@ name: CI Core
 run-name: CI Core ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.distinct_run_name }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 # Run on key branches to make sure integration is good, otherwise run on all PR's
@@ -15,6 +15,7 @@ on:
   pull_request:
   schedule:
     - cron: "0 0,6,12,18 * * *"
+  workflow_dispatch:
 
 jobs:
   filter:
@@ -23,18 +24,22 @@ jobs:
       pull-requests: read
     outputs:
       affected-modules: ${{ steps.resolved-modules.outputs.module_names }}
-      deployment-changes: ${{ steps.match-some.outputs.deployment == 'true' }}
-      should-run-ci-core: >-
+      # Runs on workflow changes, any deployment change, or any (non-ignored) core change
+      should-run-deployment-tests: >-
         ${{
-          steps.match-some.outputs.core-ci == 'true' ||
-          steps.match-every.outputs.non-ignored == 'true' ||
+          steps.match-some.outputs.workflow == 'true' ||
+          steps.match-some.outputs.deployment == 'true' ||
+          steps.match-every.outputs.core-non-ignored == 'true' ||
           github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch'
         }}
-      should-run-golangci: >-
+      # Runs on workflow changes, and any (non-ignored) core changes
+      should-run-core-tests: >-
         ${{
-          steps.match-some.outputs.golang-ci == 'true' ||
-          steps.match-every.outputs.non-ignored == 'true'
+          steps.match-some.outputs.workflow == 'true' ||
+          steps.match-every.outputs.core-non-ignored == 'true' ||
+          github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch'
         }}
     runs-on: ubuntu-latest
     steps:
@@ -48,48 +53,39 @@ jobs:
         with:
           # "if any changed file matches one or more of the conditions" (https://github.com/dorny/paths-filter/issues/225)
           predicate-quantifier: some
-          # deployment - any changes to files in the `deployments/`
-          # core-ci - any changes that could affect this workflow definition
-          # golang-ci - any changes that could affect the linting result
+          # deployment - any changes in the deployment module
+          # workflow - any changes that could affect this workflow definition
+          #  - Assume any repository action changes affect this workflow
           filters: |
             deployment:
               - 'deployment/**'
-            core-ci:
-              - '.github/workflows/ci-core.yml'
-              - '.github/actions/**'
-            golang-ci:
-              - '.golangci.yml'
+            workflow:
               - '.github/workflows/ci-core.yml'
               - '.github/actions/**'
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: match-every
         with:
           # "if any changed file match all of the conditions" (https://github.com/dorny/paths-filter/issues/225)
+          #   - Enables listing of files matching each filter.
+          #   - Paths to files will be available in `${FILTER_NAME}_files` output variable.
+          #   - Paths will be formatted as JSON array
           predicate-quantifier: every
-          # non-integration-tests - only changes made outside of the `integration-tests` directory
-          # non-ignored - only changes except for the negated ones
+          # core-non-ignored - all changes except for paths which do not affect core module
+          #  - This is opt-in on purpose. To be safe, new files are assumed to have an affect on core unless listed here specifically.
+          #  - For example: core module does not depend on deployment or integration-tests module.
           # all - changes in any directory
-          #  - This is opt-in on purpose. To be safe, new files are assumed to have an affect on CI Core unless listed here specifically.
-          # Enable listing of files matching each filter.
-          # Paths to files will be available in `${FILTER_NAME}_files` output variable.
-          # Paths will be formatted as JSON array
+          #  - This is used resolve all affected modules based on changed files
           list-files: json
           filters: |
-            non-integration-tests:
+            core-non-ignored:
               - '**'
-              - '!integration-tests/**'
-            non-ignored:
-              - '**'
+              - '!deployment/**'
               - '!integration-tests/**'
               - '!tools/secrets/**'
-              - '!tools/goreleaser-config/**'
               - '!tools/docker/**'
               - '!tools/benchmark/**'
               - '!**/README.md'
               - '!**/CHANGELOG.md'
-              - '!.goreleaser.develop.yaml'
-              - '!.goreleaser.devspace.yaml'
-              - '!.goreleaser.production.yaml'
               - '!*.nix'
               - '!sonar-project.properties'
               - '!nix.conf'
@@ -106,7 +102,7 @@ jobs:
           GH_EVENT_NAME: ${{ github.event_name }}
         run: |
           # if scheduled, run for all modules. Otherwise, run for only affected modules.
-          if [[ "$GH_EVENT_NAME" == "schedule" ]]; then
+          if [[ "$GH_EVENT_NAME" == "schedule" || "$GH_EVENT_NAME" == "workflow_dispatch" ]]; then
             json_array=$(find . -name 'go.mod' -exec dirname {} \; | sed 's|^./||' | uniq |  jq -R -s -c 'split("\n") | map(select(length > 0))')
             echo "module_names=$json_array" >> "$GITHUB_OUTPUT"
           else
@@ -116,7 +112,7 @@ jobs:
 
   golangci:
     name: GolangCI Lint
-    needs: [filter, run-frequency]
+    needs: [filter, run-frequency, runner-config]
     # We don't directly merge dependabot PRs to not waste the resources.
     if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
     permissions:
@@ -125,21 +121,28 @@ jobs:
       contents: read
       # For golangci-lint-action's `only-new-issues` option.
       pull-requests: read
-    runs-on: ubuntu-24.04-8cores-32GB-ARM
+    runs-on: ${{ needs.runner-config.outputs.lint-runner }}
     strategy:
       fail-fast: false
       matrix:
         modules: ${{ fromJson(needs.filter.outputs.affected-modules) }}
     steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        if: ${{ needs.runner-config.outputs.lint-is-self-hosted == 'true' }}
+        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+
       - name: Golang Lint (${{ matrix.modules }})
         id: golang-lint
         uses: ./.github/actions/golangci-lint
+        timeout-minutes: 20
         with:
           go-directory: ${{ matrix.modules }}
+
       - name: Notify Slack
         if: ${{ failure() && needs.run-frequency.outputs.one-per-day-frequency == 'true' }}
         uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
@@ -175,116 +178,198 @@ jobs:
       matrix:
         type:
           - cmd: go_core_tests
-            os: ubuntu22.04-32cores-128GB
-            build-solana-artifacts: 'false'
+            os: ${{ needs.runner-config.outputs.core-tests-runner }}
+            is-self-hosted: ${{ needs.runner-config.outputs.core-tests-is-self-hosted }}
+            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+            use-flakeguard: "true"
+
           - cmd: go_core_tests_integration
-            os: ubuntu22.04-32cores-128GB
-            build-solana-artifacts: 'false'
-          - cmd: go_core_ccip_deployment_tests
-            os: ubuntu22.04-32cores-128GB
+            os: ${{ needs.runner-config.outputs.core-tests-integration-runner }}
+            is-self-hosted: ${{ needs.runner-config.outputs.core-tests-is-self-hosted }}
+            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+            setup-solana: "true"
+
           - cmd: go_core_fuzz
-            os: ubuntu22.04-8cores-32GB
-            build-solana-artifacts: 'false'
+            os: ${{ needs.runner-config.outputs.core-fuzz-tests-runner }}
+            is-self-hosted: ${{ needs.runner-config.outputs.core-tests-is-self-hosted }}
+            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+
           - cmd: go_core_race_tests
-            # use 64cores for certain scheduled runs only
-            os: ${{ needs.run-frequency.outputs.two-per-day-frequency == 'true' && 'ubuntu-latest-64cores-256GB' || 'ubuntu-latest-32cores-128GB' }}
-            build-solana-artifacts: 'false'
+            os: ${{ needs.runner-config.outputs.core-race-tests-runner }}
+            is-self-hosted: ${{ needs.runner-config.outputs.core-tests-is-self-hosted }}
+            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+
+          - cmd: go_core_ccip_deployment_tests
+            os: ${{ needs.runner-config.outputs.deployment-tests-runner }}
+            is-self-hosted: ${{ needs.runner-config.outputs.deployment-tests-is-self-hosted }}
+            should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
+            setup-solana: "true"
+            setup-aptos: "true"
+            use-flakeguard: "true"
+
     name: Core Tests (${{ matrix.type.cmd }})
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
-    needs: [filter, run-frequency]
+    needs: [filter, run-frequency, runner-config]
+    timeout-minutes: ${{ github.event_name == 'schedule' && 40 || 25 }} # 40 minute timeout for scheduled events (race tests)
     runs-on: ${{ matrix.type.os }}
     permissions:
       id-token: write
       contents: read
       actions: read
     steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        if: ${{ matrix.type.is-self-hosted == 'true' }}
+        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+
       - name: Checkout the repo
+        if: ${{ matrix.type.should-run == 'true' }}
         uses: actions/checkout@v4
         with:
           persist-credentials: false
 
       - name: Change Modtime of Files (cache optimization)
+        if: ${{ matrix.type.should-run == 'true' }}
         shell: bash
         run: |
           find . -type f,d -exec touch -r {} -d '1970-01-01T00:00:01' {} \; || true
 
-      - name: Setup NodeJS
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
-        uses: ./.github/actions/setup-nodejs
-        with:
-          prod: "true"
-
-      - name: Install Foundry
-        uses: ./.github/actions/install-solidity-foundry
-
       - name: Setup Go
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ matrix.type.should-run == 'true' }}
         uses: ./.github/actions/setup-go
         with:
           # race/fuzz tests don't benefit repeated caching, so restore from develop's build cache
-          restore-build-cache-only: ${{ matrix.type.cmd == 'go_core_fuzz' }}
+          restore-build-cache-only: ${{ matrix.type.cmd == 'go_core_fuzz' || matrix.type.cmd == 'go_core_race_tests' }}
           build-cache-version: ${{ matrix.type.cmd }}
 
       - name: Setup Solana
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-solana == 'true' }}
         uses: ./.github/actions/setup-solana
 
-      - name: Build Solana artifacts
-        # do not build for core tests, core 'integration' tests, or fuzz tests
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' && matrix.type.build-solana-artifacts != 'false' }}
-        uses: ./.github/actions/setup-solana/build-contracts
+      - name: Setup Aptos
+        if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-aptos == 'true' }}
+        uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          CLI_VERSION: 7.2.0
 
       - name: Setup wasmd
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ matrix.type.should-run == 'true' }}
         uses: ./.github/actions/setup-wasmd
 
       - name: Setup Postgres
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
-        uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
+        if: ${{ matrix.type.should-run == 'true' }}
+        uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/0.2.0
+        with:
+          tmpfs: "true"
 
       - name: Touching core/web/assets/index.html
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ matrix.type.should-run == 'true' }}
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
 
       - name: Download Go vendor packages
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ matrix.type.should-run == 'true' }}
         run: go mod download
 
       - name: Setup DB
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ matrix.type.should-run == 'true' }}
         run: go run ./core/store/cmd/preparetest
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
       - name: Install LOOP Plugins
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
-        run: make install-plugins
+        if: ${{ matrix.type.should-run == 'true' }}
+        run: |
+          make install-loopinstall
+          make install-plugins-public
 
       - name: Increase Timeouts for Fuzz/Race
         # Increase timeouts for scheduled runs only
-        if: ${{ github.event.schedule != '' && needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ github.event.schedule != '' && matrix.type.should-run == 'true' }}
         run: |
           echo "TIMEOUT=10m" >> $GITHUB_ENV
           echo "COUNT=50" >> $GITHUB_ENV
           echo "FUZZ_TIMEOUT_MINUTES=10">> $GITHUB_ENV
 
       - name: Run tests
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ matrix.type.should-run == 'true' }}
+        timeout-minutes: ${{ github.event_name == 'schedule' && 37 || 22 }} # leave  minute for remaining steps
         id: run-tests
+        shell: bash
         env:
           OUTPUT_FILE: ./output.txt
           CL_DATABASE_URL: ${{ env.DB_URL }}
+          USE_FLAKEGUARD: ${{ matrix.type.use-flakeguard == 'true' && 'true' || '' }}
         run: |
           # See: https://github.com/golang/go/issues/69179
-          GODEBUG=goindex=0
-          ./tools/bin/${{ matrix.type.cmd }} ./...
+          GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./...
+
+      - name: Generate Flakeguard Test Reports
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && matrix.type.use-flakeguard == 'true' }}
+        env:
+          MATRIX_TYPE_CMD: ${{ matrix.type.cmd }}
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: ./.github/scripts/flakeguard-generate-reports.sh
+
+      - name: Upload Flakeguard Main Test Report as Artifact (All Tests)
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && matrix.type.use-flakeguard == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.type.cmd }}_flakeguard_report_main_all_tests.json
+          path: ${{ matrix.type.cmd }}_flakeguard_report/main/all-test-report.json
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload Flakeguard Rerun Test Report as Artifact (All Tests)
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && matrix.type.use-flakeguard == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.type.cmd }}_flakeguard_report_rerun_all_tests.json
+          path: ${{ matrix.type.cmd }}_flakeguard_report/rerun/all-test-report.json
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload Flakeguard Main Test Report as Artifact (Failed Tests)
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && matrix.type.use-flakeguard == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.type.cmd }}_flakeguard_report_main_failed_tests.json
+          path: ${{ matrix.type.cmd }}_flakeguard_report/main/failed-test-report-with-logs.json
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload Flakeguard Rerun Test Report as Artifact (Failed Tests)
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && matrix.type.use-flakeguard == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.type.cmd }}_flakeguard_report_rerun_failed_tests.json
+          path: ${{ matrix.type.cmd }}_flakeguard_report/rerun/failed-test-report-with-logs.json
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Send Flakeguard Reports to Splunk
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && github.event_name == 'merge_group' && matrix.type.use-flakeguard == 'true' }}
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MATRIX_TYPE_CMD: ${{ matrix.type.cmd }}
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+          FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+        run: ./.github/scripts/flakeguard-send-report-to-splunk.sh
 
       - name: Print Races
         id: print-races
-        if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && matrix.type.should-run == 'true' }}
         env:
           GH_REPO: ${{ github.repository }}
           GH_RUN_ID: ${{ github.run_id }}
@@ -304,13 +389,13 @@ jobs:
           echo "github.ref: ${{ github.ref }}"
 
       - name: Print postgres logs
-        if: ${{ always() &&  needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ always() &&  matrix.type.should-run == 'true' }}
         uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
         with:
-          print-logs: 'true'
+          print-logs: "true"
 
       - name: Store logs artifacts
-        if: ${{ always() && needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ always() && matrix.type.should-run == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.type.cmd }}_logs
@@ -328,7 +413,7 @@ jobs:
           matrix.type.cmd == 'go_core_race_tests' &&
           steps.print-races.outputs.post_to_slack == 'true'  &&
           (github.event_name == 'merge_group' || github.ref == 'refs/heads/develop') &&
-          needs.filter.outputs.should-run-ci-core == 'true'
+          matrix.type.should-run == 'true'
         uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
         with:
           method: chat.postMessage
@@ -341,7 +426,7 @@ jobs:
     name: test-scripts
     needs: [filter]
     runs-on: ubuntu-latest
-    if: ${{  needs.filter.outputs.should-run-ci-core == 'true' }}
+    if: ${{  needs.filter.outputs.should-run-core-tests == 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -370,7 +455,8 @@ jobs:
   scan:
     name: SonarQube Scan
     needs: [golangci, core, core-scripts-tests]
-    if: ${{ always() && github.actor != 'dependabot[bot]' }}
+    # If core is cancelled, skip this to not delay the cancellation of the workflow.
+    if: ${{ always() && github.actor != 'dependabot[bot]' && needs.core.result != 'cancelled' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -487,10 +573,6 @@ jobs:
           only-modules: "true"
       - name: Install protoc-gen-go-wsrpc
         run: curl https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc --output $HOME/go/bin/protoc-gen-go-wsrpc && chmod +x $HOME/go/bin/protoc-gen-go-wsrpc
-      - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
-      - name: Install Foundry
-        uses: ./.github/actions/install-solidity-foundry
       - name: make generate
         run: |
           make rm-mocked
@@ -506,12 +588,9 @@ jobs:
           git diff --minimal --cached --exit-code
 
   run-frequency:
-    name: Scheduled Run Frequency
+    name: Run frequency
     outputs:
       one-per-day-frequency: ${{ steps.check-time.outputs.one-per-day-frequency || 'false' }}
-      two-per-day-frequency: ${{ steps.check-time.outputs.two-per-day-frequency || 'false' }}
-      four-per-day-frequency: ${{ steps.check-time.outputs.four-per-day-frequency || 'false' }}
-      six-per-day-frequency: ${{ steps.check-time.outputs.six-per-day-frequency || 'false' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check time and set frequencies
@@ -519,32 +598,164 @@ jobs:
         shell: bash
         run: |
           if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then
-            # Not a scheduled event, set all frequencies to false
-            echo "one-per-day-frequency=false" >> $GITHUB_OUTPUT
-            echo "two-per-day-frequency=false" >> $GITHUB_OUTPUT
-            echo "four-per-day-frequency=false" >> $GITHUB_OUTPUT
-            echo "six-per-day-frequency=false" >> $GITHUB_OUTPUT
-          else
-            # Scheduled event, check current time for frequencies
-            current_hour=$(date +"%H")
-
-            # Check if the current hour is 00 (one per day)
-            if [ "$current_hour" -eq "00" ]; then
-              echo "one-per-day-frequency=true" >> $GITHUB_OUTPUT
-            fi
-
-            # Check if the current hour is 00 or 12 (twice per day)
-            if [ "$current_hour" -eq "00" ] || [ "$current_hour" -eq "12" ]; then
-              echo "two-per-day-frequency=true" >> $GITHUB_OUTPUT
-            fi
-
-            # Check if the current hour is 00, 06, 12, or 18 (four times per day)
-            if [ "$current_hour" -eq "00" ] || [ "$current_hour" -eq "06" ] || [ "$current_hour" -eq "12" ] || [ "$current_hour" -eq "18" ]; then
-              echo "four-per-day-frequency=true" >> $GITHUB_OUTPUT
-            fi
-
-            # Check if the current hour is one of 00, 04, 08, 12, 16, or 20 (six times per day)
-            if [ "$current_hour" -eq "00" ] || [ "$current_hour" -eq "04" ] || [ "$current_hour" -eq "08" ] || [ "$current_hour" -eq "12" ] || [ "$current_hour" -eq "16" ] || [ "$current_hour" -eq "20" ]; then
-              echo "six-per-day-frequency=true" >> $GITHUB_OUTPUT
-            fi
+            # Not a scheduled event - no frequencies to set. They default to false.
+            exit 0
           fi
+
+          # Scheduled event, check current time for frequencies
+          current_hour=$(date +"%H")
+
+          # Check if the current hour is 00 (one per day)
+          if [ "$current_hour" -eq "00" ]; then
+            echo "one-per-day-frequency=true" | tee -a $GITHUB_OUTPUT
+          fi
+
+  # This chooses which runner labels we pass for the matrix jobs above.
+  # General Criteria:
+  # 1. If we are going to 'skip' a test suite, we use the base Github-hosted runner.
+  #   - This is based off `should-run-core-tests`, and `should-run-deployment-tests`
+  # 2. If we are not skipping, we check if the PR has the "runs-on-opt-out" label.
+  #   - If the PR has the label, we use the larger Github-hosted runners.
+  #   - If the PR does not have the label, we use the self-hosted runners.
+  runner-config:
+    name: Runner Config
+    needs: [filter]
+    runs-on: ubuntu-latest
+    env:
+      SH_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+128/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
+      SH_DEPLOYMENT_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6id/spot=false/extras=s3-cache
+      SH_FUZZ_RUNNER: runs-on=${{ github.run_id}}/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
+      SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/extras=s3-cache
+      SH_LINT_RUNNER: runs-on=${{ github.run_id }}/cpu=16/ram=32/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
+      GH_TEST_RUNNER: ubuntu22.04-32cores-128GB
+      GH_FUZZ_RUNNER: ubuntu22.04-8cores-32GB
+      GH_BASE_RUNNER: ubuntu-latest
+      GH_LINT_RUNNER: ubuntu-24.04-8cores-32GB-ARM
+    outputs:
+      # go_core_tests / go_core_race_tests / go_core_tests_integration
+      core-tests-is-self-hosted: ${{ steps.core-tests.outputs.core-tests-is-self-hosted }}
+      core-tests-runner: ${{ steps.core-tests.outputs.core-tests-runner }}
+      core-tests-integration-runner: ${{ steps.core-tests.outputs.core-tests-integration-runner }}
+      core-fuzz-tests-runner: ${{ steps.core-tests.outputs.core-fuzz-tests-runner }}
+      core-race-tests-runner: ${{ steps.core-tests.outputs.core-race-tests-runner }}
+      # go_core_ccip_deployment_tests
+      deployment-tests-is-self-hosted: ${{ steps.deployment-tests.outputs.deployment-tests-is-self-hosted }}
+      deployment-tests-runner: ${{ steps.deployment-tests.outputs.deployment-tests-runner }}
+      # linting
+      lint-is-self-hosted: ${{ steps.linting.outputs.lint-is-self-hosted }}
+      lint-runner: ${{ steps.linting.outputs.lint-runner }}
+    steps:
+      - name: Get PR Labels
+        id: pr-labels
+        uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
+        with:
+          check-label: "runs-on-opt-out"
+
+      - name: Select runners for deployment tests
+        id: deployment-tests
+        shell: bash
+        env:
+          OPT_OUT: ${{ steps.pr-labels.outputs.check-label-found || 'false' }}
+          SHOULD_RUN_DEPLOYMENT_TESTS: ${{ needs.filter.outputs.should-run-deployment-tests }}
+        run: |
+          if [[ "${SHOULD_RUN_DEPLOYMENT_TESTS}" == "false" ]]; then
+            echo "Deployment tests will be skipped, using base Github-hosted runner."
+            echo "deployment-tests-is-self-hosted=false" | tee -a $GITHUB_OUTPUT
+            echo "deployment-tests-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if [[ "$OPT_OUT" == "true" ]]; then
+            echo "Opt-out is true for current run. Using gh-hosted runner for deployment tests."
+            echo "deployment-tests-is-self-hosted=false" | tee -a $GITHUB_OUTPUT
+            echo "deployment-tests-runner=${GH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Opt-out is false for current run. Using self-hosted runner for deployment tests."
+          echo "deployment-tests-is-self-hosted=true" | tee -a $GITHUB_OUTPUT
+          echo "deployment-tests-runner=${SH_DEPLOYMENT_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
+
+      - name: Select runners for core tests
+        id: core-tests
+        shell: bash
+        env:
+          OPT_OUT: ${{ steps.pr-labels.outputs.check-label-found || 'false' }}
+          SHOULD_RUN_CORE_TESTS: ${{ needs.filter.outputs.should-run-core-tests }}
+        run: |
+          if [[ "${SHOULD_RUN_CORE_TESTS}" == "false" ]]; then
+            echo "Core tests will be skipped, using base Github-hosted runner."
+            echo "core-tests-is-self-hosted=false" | tee -a $GITHUB_OUTPUT
+
+            echo "core-tests-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
+            echo "core-tests-integration-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
+            echo "core-fuzz-tests-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
+            echo "core-race-tests-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if [[ "$OPT_OUT" == "true" ]]; then
+            echo "Opt-out is true for current run. Using gh-hosted runner for core tests."
+            echo "core-tests-is-self-hosted=false" | tee -a $GITHUB_OUTPUT
+
+            echo "core-tests-runner=${GH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
+            echo "core-tests-integration-runner=${GH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
+            echo "core-fuzz-tests-runner=${GH_FUZZ_RUNNER}" | tee -a $GITHUB_OUTPUT
+            echo "core-race-tests-runner=${GH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Opt-out is false for current run. Using self-hosted runner for core tests."
+          echo "core-tests-is-self-hosted=true" | tee -a $GITHUB_OUTPUT
+
+          echo "core-tests-runner=${SH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
+          echo "core-tests-integration-runner=${SH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
+          echo "core-fuzz-tests-runner=${SH_FUZZ_RUNNER}" | tee -a $GITHUB_OUTPUT
+          echo "core-race-tests-runner=${SH_RACE_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
+
+      - name: Select runners for linting
+        id: linting
+        shell: bash
+        env:
+          OPT_OUT: ${{ steps.pr-labels.outputs.check-label-found || 'false' }}
+        run: |
+          if [[ "$OPT_OUT" == "true" ]]; then
+            echo "Opt-out is true for current run. Using gh-hosted runner for linting."
+            echo "lint-runner=${GH_LINT_RUNNER}" | tee -a $GITHUB_OUTPUT
+            echo "lint-is-self-hosted=false" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Opt-out is false for current run. Using self-hosted runner for linting."
+          echo "lint-runner=${SH_LINT_RUNNER}" | tee -a $GITHUB_OUTPUT
+          echo "lint-is-self-hosted=true" | tee -a $GITHUB_OUTPUT
+
+  misc:
+    # Catchall job for miscellaneous steps.
+    name: Misc
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-go
+      ##
+      # Plugins (LOOPPs) are defined in ./plugins/plugins.*.yaml files.
+      # Some plugins such as chainlink-data-streams, chainlink-feeds, and
+      # chainlink-solana are also dependent modules in the go.mod file.
+      # This job is to ensure that the versions defined in the go.mod file are
+      # in sync with the gitRef field in the plugins YAML files.
+      #
+      # If you update the version of a module in the go.mod file, you must
+      # update the gitRef for the corresponding module in the plugins YAML file
+      # to match.
+      ##
+      - name: Plugins Sync Check (Plugout)
+        run: |
+          echo "Check for out of sync plugins"
+          go run ./tools/plugout/ \
+            --go-mod ./go.mod \
+            --plugin-file ./plugins/plugins.public.yaml \
+            --module github.com/smartcontractkit/chainlink-data-streams \
+            --module github.com/smartcontractkit/chainlink-feeds \
+            --module github.com/smartcontractkit/chainlink-solana

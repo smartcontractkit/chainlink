@@ -4,7 +4,7 @@ with pkgs; let
   postgresql = postgresql_15;
   nodejs = nodejs-18_x;
   nodePackages = pkgs.nodePackages.override {inherit nodejs;};
-  pnpm = pnpm_9;
+  pnpm = pnpm_10;
 
   version = "v2.0.18";
   getBinDerivation =
@@ -97,7 +97,6 @@ in
         libusb1
         solanaBinaries.x86_64-linux
       ] ++ lib.optionals isCrib [
-        nur.repos.goreleaser.goreleaser-pro
         patchelf
       ] ++ pkgs.lib.optionals (pkgs.stdenv.isDarwin && pkgs.stdenv.hostPlatform.isAarch64 && !isCrib) [
         solanaBinaries.aarch64-apple-darwin
@@ -105,10 +104,6 @@ in
 
     shellHook = ''
       ${if !isCrib then "" else ''
-        if [ -z $GORELEASER_KEY ]; then
-          echo "GORELEASER_KEY must be set in CRIB environments. You can find it in our 1p vault under 'goreleaser-pro-license'."
-          exit 1
-        fi
         ${if stdenv.isDarwin then "source $(git rev-parse --show-toplevel)/nix-darwin-shell-hook.sh" else ""}
       ''}
     '';

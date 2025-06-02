@@ -3,6 +3,7 @@ package ccipexec
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -20,7 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
@@ -58,7 +59,7 @@ var defaultNewReportingPluginRetryConfig = ccipdata.RetryConfig{
 
 func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcProvider types.CCIPExecProvider, dstProvider types.CCIPExecProvider, srcChainID int64, dstChainID int64, new bool, argsNoPlugin libocr2.OCR2OracleArgs, logError func(string)) ([]job.ServiceCtx, error) {
 	if jb.OCR2OracleSpec == nil {
-		return nil, fmt.Errorf("spec is nil")
+		return nil, errors.New("spec is nil")
 	}
 	spec := jb.OCR2OracleSpec
 	var pluginConfig ccipconfig.ExecPluginJobSpecConfig

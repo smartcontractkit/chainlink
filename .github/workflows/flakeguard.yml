@@ -6,40 +6,40 @@ on:
       repoUrl:
         required: true
         type: string
-        default: 'https://github.com/smartcontractkit/chainlink'
-        description: 'The URL of the repository to compare changes for detecting flaky tests.'
+        default: "https://github.com/smartcontractkit/chainlink"
+        description: "The URL of the repository to compare changes for detecting flaky tests."
       projectPath:
         required: true
         type: string
-        description: 'The path to the project to run the flaky test detection.'
-        default: '.'
+        description: "The path to the project to run the flaky test detection."
+        default: "."
       baseRef:
         required: false
         type: string
-        description: 'The base reference or branch to compare changes for detecting flaky tests. Set only when running diffs between branches. E.g. (develop)'
+        description: "The base reference or branch to compare changes for detecting flaky tests. Set only when running diffs between branches. E.g. (develop)"
       headRef:
         required: false
         type: string
-        description: 'The head reference or branch to compare changes for detecting flaky tests. Default is the current branch. E.g. (develop)'
+        description: "The head reference or branch to compare changes for detecting flaky tests. Default is the current branch. E.g. (develop)"
       runAllTests:
         required: false
         type: boolean
-        description: 'Run all tests in the project.'
+        description: "Run all tests in the project."
         default: false
       maxPassRatio:
         required: false
         type: string
-        description: 'The maximum (non-inclusive) pass ratio threshold for a test to be considered a failure. Any tests below this pass rate will be considered flaky.'
-        default: '1.0'
+        description: "The maximum (non-inclusive) pass ratio threshold for a test to be considered a failure. Any tests below this pass rate will be considered flaky."
+        default: "1.0"
       findByTestFilesDiff:
         required: false
         type: boolean
-        description: 'Find new or updated test packages by comparing test files diff.'
+        description: "Find new or updated test packages by comparing test files diff."
         default: true
       findByAffectedPackages:
         required: false
         type: boolean
-        description: 'Find new or updated test packages by comparing affected packages.'
+        description: "Find new or updated test packages by comparing affected packages."
         default: true
       slackNotificationAfterTestsChannelId:
         description: "Slack channel ID to send the notification to for failed tests."
@@ -48,8 +48,8 @@ on:
       extraArgs:
         required: false
         type: string
-        default: '{}'
-        description: 'JSON of extra arguments for the workflow.'
+        default: "{}"
+        description: "JSON of extra arguments for the workflow."
     secrets:
       SLACK_BOT_TOKEN:
         required: false
@@ -61,6 +61,9 @@ on:
       FLAKEGUARD_SPLUNK_HEC:
         description: "The Splunk HTTP Event Collector (HEC) token."
         required: false
+      OPENAI_API_KEY:
+        description: "API Key for OpenAI"
+        required: true
 
 env:
   GIT_BASE_REF: ${{ inputs.baseRef }}
@@ -76,7 +79,6 @@ env:
   ALL_TESTS_RUNNER: ${{ fromJSON(inputs.extraArgs)['all_tests_runner'] || 'ubuntu22.04-32cores-128GB' }} # The runner to use for running all tests.
   DEFAULT_RUNNER: ${{ fromJSON(inputs.extraArgs)['default_tests_runner'] || 'ubuntu-latest' }} # The runner to use for running custom tests (e.g. in PRs).
   UPLOAD_ALL_TEST_RESULTS: ${{ fromJSON(inputs.extraArgs)['upload_all_test_results'] || 'false' }} # Whether to upload all test results as artifacts.
-  OMIT_TEST_OUTPUTS_ON_SUCCESS: ${{ fromJSON(inputs.extraArgs)['omit_test_outputs_on_success'] || 'true' }}
 
 jobs:
   get-tests:
@@ -133,7 +135,7 @@ jobs:
       - name: Install flakeguard
         if: ${{ inputs.runAllTests == false }}
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@49bbad97ccd743e7b704e4a17f92c475f2ee044d # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@bc66d27e3325a1fecedc0fc932d13d3e54ff6f25 # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false && env.RUN_CUSTOM_TEST_PACKAGES == '' }}
@@ -278,14 +280,6 @@ jobs:
           persist-credentials: false
           ref: ${{ env.GIT_HEAD_REF }}
 
-      - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
-        with:
-          prod: "true"
-
-      - name: Install Foundry
-        uses: ./.github/actions/install-solidity-foundry
-
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:
@@ -294,12 +288,10 @@ jobs:
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
 
-      - name: Build Solana artifacts
-        # Only required for the deployment project
-        if: ${{ inputs.projectPath == 'deployment' }}
-        uses: ./.github/actions/setup-solana/build-contracts
+      - name: Setup Aptos
+        uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
         with:
-          github-token: ${{ secrets.GH_TOKEN }}
+          CLI_VERSION: 7.2.0
 
       - name: Setup wasmd
         uses: ./.github/actions/setup-wasmd
@@ -319,7 +311,9 @@ jobs:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
       - name: Install LOOP Plugins
-        run: make install-plugins
+        run: |
+          make install-loopinstall
+          make install-plugins-public
 
       - name: Go mod tidy
         shell: bash
@@ -333,9 +327,11 @@ jobs:
         id: gen_id
         run: echo "id=$(uuidgen)" >> "$GITHUB_OUTPUT"
 
-      - name: Install flakeguard
+      - name: Install flakeguard and gotestsum
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@49bbad97ccd743e7b704e4a17f92c475f2ee044d # flakguard@0.1.0
+        run: |
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@bc66d27e3325a1fecedc0fc932d13d3e54ff6f25 # flakguard@0.1.0
+          go install gotest.tools/gotestsum@v1.12.2 # needed for flakeguard output formatting
 
       - name: Run tests with flakeguard
         shell: bash
@@ -345,7 +341,23 @@ jobs:
           GH_INPUTS_MAX_PASS_RATIO: ${{ inputs.maxPassRatio }}
           CL_DATABASE_URL: ${{ env.DB_URL }}
         run: |
-          flakeguard run --project-path=$GH_INPUTS_PROJECT_PATH --test-packages=${{ matrix.testPackages }} --run-count=${{ env.TEST_REPEAT_COUNT }} --max-pass-ratio=$GH_INPUTS_MAX_PASS_RATIO --race=${{ env.RUN_WITH_RACE }} --shuffle=${{ env.RUN_WITH_SHUFFLE }} --shuffle-seed=${{ env.SHUFFLE_SEED }} --skip-tests=${{ env.SKIPPED_TESTS }} --output-json=test-result.json --omit-test-outputs-on-success=${{ env.OMIT_TEST_OUTPUTS_ON_SUCCESS }}
+          # Ensure that any failure in a pipeline is detected.
+          set -o pipefail
+          # Do not exit immediately on command failure so we can capture the exit code.
+          set +e
+
+          flakeguard run \
+            --ignore-parent-failures-on-subtests=true \
+            --project-path=$GH_INPUTS_PROJECT_PATH \
+            --test-packages=${{ matrix.testPackages }} \
+            --run-count=${{ env.TEST_REPEAT_COUNT }} \
+            --max-pass-ratio=$GH_INPUTS_MAX_PASS_RATIO \
+            --race=${{ env.RUN_WITH_RACE }} \
+            --shuffle=${{ env.RUN_WITH_SHUFFLE }} \
+            --shuffle-seed=${{ env.SHUFFLE_SEED }} \
+            --skip-tests=${{ env.SKIPPED_TESTS }} \
+            --main-results-path=test-result.json \
+
           # Output the status of the flakeguard run to files so that the next step can aggregate them and act accordingly
           EXIT_CODE=$?
           echo "$EXIT_CODE" > status_${GITHUB_JOB}.txt
@@ -364,6 +376,24 @@ jobs:
           name: test-result-${{ needs.get-tests.outputs.workflow_id }}-${{ steps.gen_id.outputs.id }}
           path: test-result.json
           retention-days: 1
+
+      - name: Upload raw test logs as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-output-${{ needs.get-tests.outputs.workflow_id }}-${{ steps.gen_id.outputs.id }}
+          path: flakeguard_raw_output
+          retention-days: 7
+          compression-level: 9
+
+      - name: Upload raw test logs as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-transformed-output-${{ needs.get-tests.outputs.workflow_id }}-${{ steps.gen_id.outputs.id }}
+          path: flakeguard_raw_output_transformed
+          retention-days: 7
+          compression-level: 9
 
   report:
     needs: [get-tests, run-tests]
@@ -407,12 +437,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: ci_test_results
-          pattern:
-            test-result-${{ needs.get-tests.outputs.workflow_id }}-*
+          pattern: test-result-${{ needs.get-tests.outputs.workflow_id }}-*
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@49bbad97ccd743e7b704e4a17f92c475f2ee044d # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@bc66d27e3325a1fecedc0fc932d13d3e54ff6f25 # flakguard@0.1.0
 
       - name: Aggregate Flakeguard Results
         id: results
@@ -428,24 +457,21 @@ jobs:
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
 
-          current_branch_name="${{ github.head_ref || github.ref_name }} "
-
-          # Aggregate Flakeguard test results
-          flakeguard aggregate-results \
-            --results-path ./ci_test_results \
+          # Aggregate all Flakeguard test results into a single report
+          flakeguard generate-test-report \
+            --test-results-dir ./ci_test_results \
             --output-path ./flakeguard-report \
             --repo-path "${{ github.workspace }}" \
             --codeowners-path "${{ github.workspace }}/.github/CODEOWNERS" \
             --max-pass-ratio "$GH_INPUTS_MAX_PASS_RATIO" \
             --repo-url "$GH_INPUTS_REPO_URL" \
-            --branch-name "$current_branch_name" \
+            --branch-name "${{ github.head_ref || github.ref_name }}" \
             --base-sha "${{ needs.get-tests.outputs.git_base_sha }}" \
             --head-sha "${{ needs.get-tests.outputs.git_head_sha }}" \
             --github-workflow-name "${{ github.workflow }}" \
             --github-workflow-run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-            --splunk-url "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
-            --splunk-token "${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
-            --splunk-event "${{ github.event_name }}"
+            --gen-report-id \
+
           EXIT_CODE=$?
           if [ $EXIT_CODE -eq 2 ]; then
             echo "ERROR: Flakeguard encountered an error while aggregating results"
@@ -455,37 +481,76 @@ jobs:
 
           # Print out the summary file
           echo -e "\nFlakeguard Summary:"
-          jq .summary_data ./flakeguard-report/all-test-results.json
+          jq .summary_data ./flakeguard-report/all-test-report.json
 
           # Read the summary from the generated report
-          summary=$(jq -c '.summary_data' ./flakeguard-report/all-test-results.json)
+          summary=$(jq -c '.summary_data' ./flakeguard-report/all-test-report.json)
+          unable_to_attribute_test=$(jq 'any(.results.[]; .test_name | startswith("UnableToAttribute"))')
           echo "summary=$summary" >> $GITHUB_OUTPUT
+          echo "unable_to_attribute_test=$unable_to_attribute_test" >> $GITHUB_OUTPUT
 
-      - name: Upload All Test Results as Artifact
-        if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).total_tests > 0 }}
+      - name: Upload All Test Report as Artifact
+        if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).total_runs > 0 }}
         uses: actions/upload-artifact@v4
         with:
-          path: ./flakeguard-report/all-test-results.json
-          name: all-test-results.json
+          path: ./flakeguard-report/all-test-report.json
+          name: all-test-report-${{ needs.get-tests.outputs.workflow_id }}.json
           retention-days: 90
 
-      - name: Upload Failed Test Results as Artifact
+      - name: Upload Failed Test Report as Artifact
         if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
         uses: actions/upload-artifact@v4
         with:
-          path: ./flakeguard-report/failed-test-results.json
-          name: failed-test-results.json
+          path: ./flakeguard-report/failed-test-report.json
+          name: failed-test-report-${{ needs.get-tests.outputs.workflow_id }}.json
           retention-days: 90
 
-      - name: Upload Failed Test Results With Logs as Artifact
+      - name: Upload Failed Test Report With Logs as Artifact
         if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
         uses: actions/upload-artifact@v4
         with:
-          path: ./flakeguard-report/failed-test-results-with-logs.json
-          name: failed-test-results-with-logs.json
+          path: ./flakeguard-report/failed-test-report-with-logs.json
+          name: failed-test-report-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json
           retention-days: 90
 
-      - name: Generate Flakeguard Reports
+      - name: Get GitHub Failed Test Report Artifact Link
+        id: get-failed-logs-url
+        if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
+        shell: bash
+        run: |
+          # Run the flakeguard get-gh-artifact command; it now outputs only the link.
+          ARTIFACT_LINK=$(flakeguard get-gh-artifact \
+            --github-repository "${{ github.repository }}" \
+            --github-run-id "${{ github.run_id }}" \
+            --failed-tests-artifact-name "failed-test-report-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json")
+
+          echo "Artifact link is: $ARTIFACT_LINK"
+          echo "url=$ARTIFACT_LINK" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Send Test Report to Splunk
+        if: success() || failure()
+        shell: bash
+        run: |
+          # Fix flakeguard binary path
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
+
+          # Send the aggregated test report to Splunk
+          flakeguard send-to-splunk \
+            --report-path ./flakeguard-report/all-test-report.json \
+            --failed-logs-url "${{ steps.get-failed-logs-url.outputs.url }}" \
+            --splunk-url "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
+            --splunk-token "${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
+            --splunk-event "${{ github.event_name }}"
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "ERROR: Flakeguard encountered an error while sending report to Splunk"
+            exit $EXIT_CODE
+          fi
+
+      - name: Generate Flakeguard Github Reports
         shell: bash
         if: success() || failure()
         id: generate-report
@@ -502,13 +567,13 @@ jobs:
 
           # Check if the event is a pull request
           if [ "$GH_EVENT_NAME" = "pull_request" ]; then
-            flakeguard generate-report \
-              --aggregated-results-path ./flakeguard-report/all-test-results.json \
-              --output-path ./flakeguard-report \
+            flakeguard generate-github-report \
+              --flakeguard-report ./flakeguard-report/all-test-report.json \
+              --summary-report-md-path ./flakeguard-report/all-test-summary.md \
               --github-repository "${{ github.repository }}" \
               --github-run-id "${{ github.run_id }}" \
-              --failed-tests-artifact-name "failed-test-results-with-logs.json" \
-              --generate-pr-comment \
+              --failed-logs-url "${{ steps.get-failed-logs-url.outputs.url }}" \
+              --pr-comment-md-path ./flakeguard-report/all-test-pr-comment.md \
               --base-branch "$GH_EVENT_PULL_REQUEST_BASE_REF" \
               --current-branch "${{ github.head_ref }}" \
               --current-commit-sha "$GH_EVENT_PULL_REQUEST_HEAD_SHA" \
@@ -516,12 +581,12 @@ jobs:
               --action-run-id "${{ github.run_id }}" \
               --max-pass-ratio "$GH_INPUTS_MAX_PASS_RATIO"
           else
-            flakeguard generate-report \
-              --aggregated-results-path ./flakeguard-report/all-test-results.json \
-              --output-path ./flakeguard-report \
+            flakeguard generate-github-report \
+              --flakeguard-report ./flakeguard-report/all-test-report.json \
+              --summary-report-md-path ./flakeguard-report/all-test-summary.md \
               --github-repository "${{ github.repository }}" \
               --github-run-id "${{ github.run_id }}" \
-              --failed-tests-artifact-name "failed-test-results-with-logs.json" \
+              --failed-logs-url "${{ steps.get-failed-logs-url.outputs.url }}" \
               --base-branch "$GH_EVENT_PULL_REQUEST_BASE_REF" \
               --current-branch "${{ github.head_ref }}" \
               --current-commit-sha "$GH_EVENT_PULL_REQUEST_HEAD_SHA" \
@@ -620,45 +685,46 @@ jobs:
               ]
             }
 
-      - name: Send general Slack message
-        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
-        if: ${{ (success() || failure()) && inputs.slackNotificationAfterTestsChannelId != '' && fromJSON(steps.results.outputs.summary).flaky_tests == 0 && fromJSON(steps.results.outputs.summary).total_tests > 0 }}
-        id: slack
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        with:
-          channel-id: ${{ inputs.slackNotificationAfterTestsChannelId }}
-          payload: |
-            {
-              "attachments": [
-                {
-                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || contains(join(needs.*.result, ','), 'cancelled') && '#FFA000' || '2E7D32' }}",
-                  "blocks": [
-                    {
-                      "type": "section",
-                      "text": {
-                        "type": "mrkdwn",
-                        "text": "Flaky Test Detector for `${{ steps.set_project_path_pretty.outputs.path }}` project - ${{ contains(join(needs.*.result, ','), 'failure') && 'Failed :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Was cancelled :warning:' || 'Passed :white_check_mark:' }}"
-                      }
-                    },
-                    {
-                      "type": "section",
-                      "text": {
-                        "type": "mrkdwn",
-                        "text": "${{ inputs.runAllTests == true && format('Ran all tests for `{0}` branch.', env.GIT_HEAD_REF) || format('Ran changed tests between `{0}` and `{1}` (`{2}`).', env.GIT_BASE_REF, needs.get-tests.outputs.git_head_short_sha, env.GIT_HEAD_REF) }}"
-                      }
-                    },
-                    {
-                      "type": "section",
-                      "text": {
-                        "type": "mrkdwn",
-                        "text": "${{ inputs.runAllTests == true && format('<{0}/{1}/actions/runs/{2}|View Flaky Detector Details>', github.server_url, github.repository, github.run_id) || format('<{0}/{1}/actions/runs/{2}|View Flaky Detector Details> | <{3}/compare/{4}...{5}#files_bucket|Compare Changes>{6}', github.server_url, github.repository, github.run_id, inputs.repoUrl, inputs.baseRef, needs.get-tests.outputs.git_head_sha, github.event_name == 'pull_request' && format(' | <{0}|View PR>', github.event.pull_request.html_url) || '') }}"
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
+      # This has mostly been noise. We can re-enable it if we find it necessary
+      # - name: Send general Slack message
+      #   uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+      #   if: ${{ (success() || failure()) && inputs.slackNotificationAfterTestsChannelId != '' && fromJSON(steps.results.outputs.summary).flaky_tests == 0 && fromJSON(steps.results.outputs.summary).total_tests > 0 }}
+      #   id: slack
+      #   env:
+      #     SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      #   with:
+      #     channel-id: ${{ inputs.slackNotificationAfterTestsChannelId }}
+      #     payload: |
+      #       {
+      #         "attachments": [
+      #           {
+      #             "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || contains(join(needs.*.result, ','), 'cancelled') && '#FFA000' || '2E7D32' }}",
+      #             "blocks": [
+      #               {
+      #                 "type": "section",
+      #                 "text": {
+      #                   "type": "mrkdwn",
+      #                   "text": "Flaky Test Detector for `${{ steps.set_project_path_pretty.outputs.path }}` project - ${{ contains(join(needs.*.result, ','), 'failure') && 'Failed :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Was cancelled :warning:' || 'Passed :white_check_mark:' }}"
+      #                 }
+      #               },
+      #               {
+      #                 "type": "section",
+      #                 "text": {
+      #                   "type": "mrkdwn",
+      #                   "text": "${{ inputs.runAllTests == true && format('Ran all tests for `{0}` branch.', env.GIT_HEAD_REF) || format('Ran changed tests between `{0}` and `{1}` (`{2}`).', env.GIT_BASE_REF, needs.get-tests.outputs.git_head_short_sha, env.GIT_HEAD_REF) }}"
+      #                 }
+      #               },
+      #               {
+      #                 "type": "section",
+      #                 "text": {
+      #                   "type": "mrkdwn",
+      #                   "text": "${{ inputs.runAllTests == true && format('<{0}/{1}/actions/runs/{2}|View Flaky Detector Details>', github.server_url, github.repository, github.run_id) || format('<{0}/{1}/actions/runs/{2}|View Flaky Detector Details> | <{3}/compare/{4}...{5}#files_bucket|Compare Changes>{6}', github.server_url, github.repository, github.run_id, inputs.repoUrl, inputs.baseRef, needs.get-tests.outputs.git_head_sha, github.event_name == 'pull_request' && format(' | <{0}|View PR>', github.event.pull_request.html_url) || '') }}"
+      #                 }
+      #               }
+      #             ]
+      #           }
+      #         ]
+      #       }
 
       - name: Send Slack message for Flakeguard Errors
         if: ${{ (success() || failure()) && inputs.slackNotificationAfterTestsChannelId != '' && (steps.check-errors.conclusion == 'failure' || steps.results.conclusion == 'failure' || steps.generate-report.conclusion == 'failure') }}
@@ -691,3 +757,57 @@ jobs:
                 }
               ]
             }
+
+      - name: Send Slack message for UnableToAttribute tests
+        if: ${{ (success() || failure()) && inputs.slackNotificationAfterTestsChannelId != '' && steps.results.outputs.summary == 'true' }}
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        with:
+          channel-id: ${{ inputs.slackNotificationAfterTestsChannelId }}
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "#C62828",
+                  "blocks": [
+                    {
+                      "type": "header",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "Flakeguard Unable to Attribute a Test Due to Panic or Race :warning:"
+                      }
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "<@U01Q4N37KFG> <@U04DYU1KLGJ> ${{ format('<{0}/{1}/actions/runs/{2}|See details>', github.server_url, github.repository, github.run_id) }} and add to panic detection scenarios."
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+
+  llm-analysis:
+    name: LLM Analysis
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [report, get-tests]
+    steps:
+      - name: Download all test result artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: context
+          pattern: failed-test-report-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json
+      - name: Analyze
+        uses: smartcontractkit/.github/actions/flakeguard-ai-analysis@flakeguard-ai-analysis/1.2.0
+        with:
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          failed_test_results: "context/failed-test-report-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json"
+      - name: Upload Analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-analysis-${{ needs.get-tests.outputs.workflow_id }}.jsonl
+          path: ${{ github.workspace }}/analysis.jsonl

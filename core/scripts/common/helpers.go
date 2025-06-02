@@ -25,8 +25,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/shopspring/decimal"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_v3_aggregator_contract"
 )
 
 type Environment struct {
@@ -111,7 +111,7 @@ func SetupEnv(overrideNonce bool) Environment {
 	if set {
 		parsedGasLimit, err := strconv.ParseUint(gasLimit, 10, 64)
 		if err != nil {
-			panic(fmt.Sprintf("Failure while parsing GAS_LIMIT: %s", gasLimit))
+			panic("Failure while parsing GAS_LIMIT: " + gasLimit)
 		}
 		owner.GasLimit = parsedGasLimit
 	}
@@ -293,7 +293,7 @@ func ContractExplorerLink(chainID int64, contractAddress common.Address) string 
 }
 
 func TenderlySimLink(simID string) string {
-	return fmt.Sprintf("https://dashboard.tenderly.co/simulator/%s", simID)
+	return "https://dashboard.tenderly.co/simulator/" + simID
 }
 
 // ConfirmTXMined confirms that the given transaction is mined and prints useful execution information.
@@ -493,13 +493,13 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 			nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, offset)
 			err2 := env.Jc.CallContext(context.Background(), &h, "eth_getBlockByNumber", hexutil.EncodeBig(nextBlockNum), false)
 			if err2 != nil {
-				return nil, hashes, fmt.Errorf("failed to get header: %+v", err2)
+				return nil, hashes, fmt.Errorf("failed to get header: %+w", err2)
 			}
 			// We can still use vanilla go-ethereum rlp.EncodeToBytes, see e.g
 			// https://github.com/ava-labs/coreth/blob/e3ca41bf5295a9a7ca1aeaf29d541fcbb94f79b1/core/types/hashing.go#L49-L57.
 			rlpHeader, err2 = rlp.EncodeToBytes(h)
 			if err2 != nil {
-				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err2)
+				return nil, hashes, fmt.Errorf("failed to encode rlp: %+w", err2)
 			}
 
 			hashes = append(hashes, h.Hash().String())
@@ -507,7 +507,7 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 			// Sanity check - can be un-commented if storeVerifyHeader is failing due to unexpected
 			// blockhash.
 			// bh := crypto.Keccak256Hash(rlpHeader)
-			//fmt.Println("Calculated BH:", bh.String(),
+			// fmt.Println("Calculated BH:", bh.String(),
 			//	"fetched BH:", h.Hash(),
 			//	"block number:", new(big.Int).Set(blockNum).Add(blockNum, offset).String())
 		} else if IsAvaxSubnet(env.ChainID) {
@@ -516,11 +516,11 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 			nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, offset)
 			err2 := env.Jc.CallContext(context.Background(), &h, "eth_getBlockByNumber", hexutil.EncodeBig(nextBlockNum), false)
 			if err2 != nil {
-				return nil, hashes, fmt.Errorf("failed to get header: %+v", err2)
+				return nil, hashes, fmt.Errorf("failed to get header: %w", err2)
 			}
 			rlpHeader, err2 = rlp.EncodeToBytes(h)
 			if err2 != nil {
-				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err2)
+				return nil, hashes, fmt.Errorf("failed to encode rlp: %w", err2)
 			}
 
 			hashes = append(hashes, h.Hash().String())
@@ -530,10 +530,24 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 			var hash string
 			rlpHeader, hash, err = GetPolygonEdgeRLPHeader(env.Jc, nextBlockNum)
 			if err != nil {
-				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err)
+				return nil, hashes, fmt.Errorf("failed to encode rlp: %w", err)
 			}
 
 			hashes = append(hashes, hash)
+		} else if IsRoninChain(env.ChainID) {
+			var h RoninHeader
+			// Get child block since it's the one that has the parent hash in its header.
+			nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, offset)
+			err2 := env.Jc.CallContext(context.Background(), &h, "eth_getBlockByNumber", hexutil.EncodeBig(nextBlockNum), false)
+			if err2 != nil {
+				return nil, hashes, fmt.Errorf("failed to get header: %w", err2)
+			}
+			rlpHeader, err2 = rlp.EncodeToBytes(h)
+			if err2 != nil {
+				return nil, hashes, fmt.Errorf("failed to encode rlp: %w", err2)
+			}
+
+			hashes = append(hashes, h.Hash().String())
 		} else {
 			// Get child block since it's the one that has the parent hash in its header.
 			h, err2 := env.Ec.HeaderByNumber(
@@ -541,11 +555,11 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 				new(big.Int).Set(blockNum).Add(blockNum, offset),
 			)
 			if err2 != nil {
-				return nil, hashes, fmt.Errorf("failed to get header: %+v", err2)
+				return nil, hashes, fmt.Errorf("failed to get header: %w", err2)
 			}
 			rlpHeader, err2 = rlp.EncodeToBytes(h)
 			if err2 != nil {
-				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err2)
+				return nil, hashes, fmt.Errorf("failed to encode rlp: %w", err2)
 			}
 
 			hashes = append(hashes, h.Hash().String())
@@ -567,7 +581,7 @@ func CalculateLatestBlockHeader(env Environment, blockNumberInput int) (err erro
 	if blockNumberInput == -1 {
 		blockNumber, err = env.Ec.BlockNumber(context.Background())
 		if err != nil {
-			return fmt.Errorf("failed to fetch latest block: %+v", err)
+			return fmt.Errorf("failed to fetch latest block: %w", err)
 		}
 	}
 
@@ -607,7 +621,13 @@ func IsAvaxSubnet(chainID int64) bool {
 		chainID == 595581 || // Nexon Test
 		chainID == 807424 || // Nexon QA
 		chainID == 847799 || // Nexon Stage
-		chainID == 60118 // Nexon Mainnet
+		chainID == 60118 || // Nexon Mainnet (Actually a testnet)
+		chainID == 68414 // Nexon Henesys Mainnet
+}
+
+func IsRoninChain(chainID int64) bool {
+	return chainID == 2020 || // Ronin Mainnet
+		chainID == 2021 // Ronin Saigon testnet
 }
 
 func UpkeepLink(chainID int64, upkeepID *big.Int) string {

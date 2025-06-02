@@ -31,37 +31,38 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	evmlogger "github.com/smartcontractkit/chainlink-evm/pkg/log"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
-	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
-	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
-	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
-	evmlogger "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_malicious_consumer_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_single_consumer_example"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_proxy_admin"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_reverting_example"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper_consumer_example"
+
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_consumer_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_external_sub_owner_example"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_malicious_consumer_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_owner"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_single_consumer_example"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_proxy_admin"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_reverting_example"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_wrapper_consumer_example"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -137,10 +138,11 @@ type coordinatorV2Universe struct {
 	batchCoordinatorContractAddress    common.Address
 }
 
-func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.Master, ec *clienttest.Client) txmgrcommon.TxManager[*big.Int, *types.Head, common.Address, common.Hash, common.Hash, types.Nonce, gas.EvmFee] {
+func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.Eth, ec *clienttest.Client) txmgrcommon.TxManager[*big.Int, *types.Head, common.Address, common.Hash, common.Hash, types.Nonce, gas.EvmFee] {
 	_, _, evmConfig := txmgr.MakeTestConfigs(t)
 	txmConfig := txmgr.NewEvmTxmConfig(evmConfig)
-	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), keyStore.Eth(), logger.TestLogger(t), nil, nil,
+	ks := keys.NewStore(keystore.NewEthSigner(keyStore, ec.ConfiguredChainID()))
+	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), ks, logger.TestLogger(t), nil, nil,
 		nil, txStore, nil, nil, nil, nil, nil, nil)
 
 	return txm
@@ -148,8 +150,10 @@ func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.M
 
 func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers int) coordinatorV2Universe {
 	tests.SkipShort(t, "VRFCoordinatorV2Universe")
-	oracleTransactor, err := bind.NewKeyedTransactorWithChainID(key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
-	require.NoError(t, err)
+	oracleTransactor := &bind.TransactOpts{
+		From:   key.Address,
+		Signer: key.SignerFn(testutils.SimulatedChainID),
+	}
 	var (
 		sergey       = evmtestutils.MustNewSimTransactor(t)
 		neil         = evmtestutils.MustNewSimTransactor(t)
@@ -493,7 +497,7 @@ func sendEth(t *testing.T, key ethkey.KeyV2, b types.Backend, to common.Address,
 	})
 	balBefore, err := b.Client().BalanceAt(ctx, to, nil)
 	require.NoError(t, err)
-	signedTx, err := gethtypes.SignTx(tx, gethtypes.NewLondonSigner(testutils.SimulatedChainID), key.ToEcdsaPrivKey())
+	signedTx, err := key.SignerFn(testutils.SimulatedChainID)(key.Address, tx)
 	require.NoError(t, err)
 	err = b.Client().SendTransaction(ctx, signedTx)
 	require.NoError(t, err)
@@ -1126,8 +1130,8 @@ func testEoa(
 
 	// Ensure there is only one log broadcast (our EOA request), and that
 	// it hasn't been marked as consumed yet.
-	require.Equal(t, 1, len(broadcastsBeforeFinality))
-	require.Equal(t, false, broadcastsBeforeFinality[0].Consumed)
+	require.Len(t, broadcastsBeforeFinality, 1)
+	require.False(t, broadcastsBeforeFinality[0].Consumed)
 
 	// Create new blocks until the finality depth has elapsed.
 	for i := 0; i < int(finalityDepth); i++ {
@@ -1148,8 +1152,8 @@ func testEoa(
 
 	// Ensure that there is still only one log broadcast (our EOA request), but that
 	// it has been marked as "consumed," such that it won't be retried.
-	require.Equal(t, 1, len(broadcastsAfterFinality))
-	require.Equal(t, true, broadcastsAfterFinality[0].Consumed)
+	require.Len(t, broadcastsAfterFinality, 1)
+	require.True(t, broadcastsAfterFinality[0].Consumed)
 
 	t.Log("Done!")
 }
@@ -2103,7 +2107,7 @@ func TestStartingCountsV1(t *testing.T) {
 	ec := clienttest.NewClient(t)
 	ec.On("ConfiguredChainID").Return(testutils.SimulatedChainID)
 	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(2), nil).Maybe()
-	txm := makeTestTxm(t, txStore, ks, ec)
+	txm := makeTestTxm(t, txStore, ks.Eth(), ec)
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 		KeyStore:       ks.Eth(),
 		Client:         ec,
@@ -2123,7 +2127,7 @@ func TestStartingCountsV1(t *testing.T) {
 	var counts map[[32]byte]uint64
 	counts, err = listenerV1.GetStartingResponseCountsV1(testutils.Context(t))
 	require.NoError(t, err)
-	assert.Equal(t, 0, len(counts))
+	assert.Empty(t, counts)
 	err = ks.Unlock(ctx, testutils.Password)
 	require.NoError(t, err)
 	k, err := ks.Eth().Create(testutils.Context(t), testutils.SimulatedChainID)
@@ -2276,7 +2280,7 @@ func TestStartingCountsV1(t *testing.T) {
 
 	counts, err = listenerV1.GetStartingResponseCountsV1(testutils.Context(t))
 	require.NoError(t, err)
-	assert.Equal(t, 3, len(counts))
+	assert.Len(t, counts, 3)
 	assert.Equal(t, uint64(1), counts[evmutils.PadByteToHash(0x10)])
 	assert.Equal(t, uint64(2), counts[evmutils.PadByteToHash(0x11)])
 	assert.Equal(t, uint64(2), counts[evmutils.PadByteToHash(0x12)])
@@ -2284,7 +2288,7 @@ func TestStartingCountsV1(t *testing.T) {
 	countsV2, err := listenerV2.GetStartingResponseCountsV2(testutils.Context(t))
 	require.NoError(t, err)
 	t.Log(countsV2)
-	assert.Equal(t, 3, len(countsV2))
+	assert.Len(t, countsV2, 3)
 	assert.Equal(t, uint64(1), countsV2[big.NewInt(0x10).String()])
 	assert.Equal(t, uint64(2), countsV2[big.NewInt(0x11).String()])
 	assert.Equal(t, uint64(2), countsV2[big.NewInt(0x12).String()])

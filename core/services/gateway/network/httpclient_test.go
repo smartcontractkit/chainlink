@@ -26,6 +26,7 @@ func TestHTTPClient_Send(t *testing.T) {
 	tests := []struct {
 		name             string
 		setupServer      func() *httptest.Server
+		configOption     func(*HTTPClientConfig)
 		request          HTTPRequest
 		giveMaxRespBytes uint32
 		expectedError    error
@@ -55,7 +56,33 @@ func TestHTTPClient_Send(t *testing.T) {
 			},
 		},
 		{
-			name: "request timeout",
+			name: "transmits headers",
+			setupServer: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					assert.Equal(t, "bar", r.Header.Get("foo"))
+					w.WriteHeader(http.StatusOK)
+					_, err2 := w.Write([]byte("success"))
+					assert.NoError(t, err2)
+				}))
+			},
+			request: HTTPRequest{
+				Method: "GET",
+				URL:    "/",
+				Headers: map[string]string{
+					"foo": "bar",
+				},
+				Body:    nil,
+				Timeout: 2 * time.Second,
+			},
+			expectedError: nil,
+			expectedResp: &HTTPResponse{
+				StatusCode: http.StatusOK,
+				Headers:    map[string]string{"Content-Length": "7"},
+				Body:       []byte("success"),
+			},
+		},
+		{
+			name: "context canceled due to timeout passed in request",
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					time.Sleep(10 * time.Second)
@@ -73,6 +100,69 @@ func TestHTTPClient_Send(t *testing.T) {
 			},
 			expectedError: context.DeadlineExceeded,
 			expectedResp:  nil,
+		},
+		{
+			name: "context canceled due to default timeout",
+			setupServer: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					time.Sleep(10 * time.Second)
+					w.WriteHeader(http.StatusOK)
+					_, err2 := w.Write([]byte("success"))
+					assert.NoError(t, err2)
+				}))
+			},
+			request: HTTPRequest{
+				Method:  "GET",
+				URL:     "/",
+				Headers: map[string]string{},
+				Body:    nil,
+			},
+			expectedError: context.DeadlineExceeded,
+		},
+		{
+			name: "success with long timeout passed in request",
+			setupServer: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					time.Sleep(1 * time.Second)
+					w.WriteHeader(http.StatusOK)
+					_, err2 := w.Write([]byte("success"))
+					assert.NoError(t, err2)
+				}))
+			},
+			request: HTTPRequest{
+				Method:  "GET",
+				URL:     "/",
+				Headers: map[string]string{},
+				Body:    nil,
+				Timeout: 2 * time.Second,
+			},
+			expectedResp: &HTTPResponse{
+				StatusCode: http.StatusOK,
+				Headers:    map[string]string{"Content-Length": "7"},
+				Body:       []byte("success"),
+			},
+		},
+		{
+			name: "fails with long timeout capped by default",
+			setupServer: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					time.Sleep(1 * time.Second)
+					w.WriteHeader(http.StatusOK)
+					_, err2 := w.Write([]byte("success"))
+					assert.NoError(t, err2)
+				}))
+			},
+			request: HTTPRequest{
+				Method:  "GET",
+				URL:     "/",
+				Headers: map[string]string{},
+				Body:    nil,
+				Timeout: 5 * time.Second,
+			},
+			configOption: func(hc *HTTPClientConfig) {
+				hc.maxRequestDuration = 100 * time.Millisecond
+			},
+			expectedError: context.DeadlineExceeded,
 		},
 		{
 			name: "server error",
@@ -177,15 +267,20 @@ func TestHTTPClient_Send(t *testing.T) {
 			portInt, err := strconv.ParseInt(port, 10, 32)
 			require.NoError(t, err)
 
-			config := HTTPClientConfig{
+			config := &HTTPClientConfig{
 				MaxResponseBytes: tt.giveMaxRespBytes,
-				DefaultTimeout:   5 * time.Second,
 				AllowedIPs:       []string{hostname},
 				AllowedPorts:     []int{int(portInt)},
 			}
 
-			client, err := NewHTTPClient(config, lggr)
+			client, err := NewHTTPClient(*config, lggr)
 			require.NoError(t, err)
+
+			if tt.configOption != nil {
+				hc, ok := client.(*httpClient)
+				require.True(t, ok)
+				tt.configOption(&hc.config)
+			}
 
 			tt.request.URL = server.URL + tt.request.URL
 
@@ -412,6 +507,75 @@ func TestHTTPClient_BlocksUnallowed(t *testing.T) {
 			})
 			require.Error(t, err)
 			require.ErrorContains(t, err, tt.expectedError)
+		})
+	}
+}
+
+func TestHTTPClient_AllowedIPsCIDR(t *testing.T) {
+	t.Parallel()
+
+	// Setup the test environment
+	lggr := logger.Test(t)
+
+	// Start a test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	u, err := url.Parse(server.URL)
+	require.NoError(t, err)
+
+	hostname, port := u.Hostname(), u.Port()
+	t.Logf("hostname: %s, port: %s", hostname, port)
+	portInt, err := strconv.ParseInt(port, 10, 32)
+	require.NoError(t, err)
+
+	// Define test cases
+	tests := []struct {
+		name          string
+		allowedCIDRs  []string
+		expectedError string
+	}{
+		{
+			name:          "allowed CIDR block",
+			allowedCIDRs:  []string{"127.0.0.1/32"},
+			expectedError: "",
+		},
+		{
+			name:          "blocked CIDR block",
+			allowedCIDRs:  []string{"192.168.1.0/24"},
+			expectedError: "ip: 127.0.0.1 not found in allowlist",
+		},
+	}
+
+	// Execute test cases
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := HTTPClientConfig{
+				MaxResponseBytes: 1024,
+				DefaultTimeout:   5 * time.Second,
+				AllowedPorts:     []int{int(portInt)},
+				AllowedIPsCIDR:   tt.allowedCIDRs,
+			}
+
+			client, err := NewHTTPClient(config, lggr)
+			require.NoError(t, err)
+
+			_, err = client.Send(context.Background(), HTTPRequest{
+				Method:  "GET",
+				URL:     server.URL,
+				Headers: map[string]string{},
+				Body:    nil,
+				Timeout: 1 * time.Second,
+			})
+
+			if tt.expectedError != "" {
+				require.Error(t, err)
+				require.ErrorContains(t, err, tt.expectedError)
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }

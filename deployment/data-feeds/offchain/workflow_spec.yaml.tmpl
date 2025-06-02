@@ -1,0 +1,61 @@
+name: "{{ .WorkflowName }}"
+owner: "{{ .WorkflowOwner }}"
+
+triggers:
+  - id: "{{ if eq .ConsensusAggregationMethod "llo_streams" }}streams-trigger:don_asset-1@2.0.0{{ else }}streams-trigger@1.1.0{{ end }}"
+    config:
+      maxFrequencyMs: {{ .TriggersMaxFrequencyMs }}
+      feedIds:
+       {{- range .Feeds }}
+        - "{{ .StreamsID }}" # {{ .Description }}
+       {{- end }}
+
+consensus:
+  - id: "offchain_reporting@1.0.0"
+    ref: "{{ .ConsensusRef }}"
+    inputs:
+      observations:
+        - $(trigger.outputs)
+    config:
+      report_id: "{{ .ConsensusReportID }}"
+      key_id: "{{ .ConsensusConfigKeyID }}"
+      aggregation_method: "{{.ConsensusAggregationMethod}}"
+      aggregation_config:
+        {{- if .ConsensusAllowedPartialStaleness -}}
+        {{""}}
+        allowedPartialStaleness: '{{ .ConsensusAllowedPartialStaleness }}'
+        {{- end }}
+        {{- if eq .ConsensusAggregationMethod "llo_streams" }}
+        streams:
+        {{- else }}
+        feeds:
+        {{- end }}
+        {{- range $index, $feed := .Feeds }}
+          "{{ $feed.StreamsID }}": # {{ $feed.Description }}
+            {{- if $feed.FeedID }}
+            remappedID: "{{ $feed.FeedID }}"
+            {{- end }}
+            deviation: "{{ $feed.Deviation }}"
+            heartbeat: {{ $feed.Heartbeat }}
+        {{- end }}
+
+      encoder: "EVM"
+      encoder_config:
+        abi: {{ .ConsensusEncoderABI }}
+
+targets:
+  - id: "{{ .WriteTargetTrigger }}"
+    inputs:
+      signed_report: $({{ .ConsensusRef }}.outputs)
+    config:
+      address: "{{ .DataFeedsCacheAddress }}"
+      deltaStage: "{{ .DeltaStageSec }}s"
+      schedule: "{{ .TargetsSchedule }}"
+      {{- if .CREStepTimeout -}}
+      {{""}}
+      cre_step_timeout: {{ .CREStepTimeout }}
+      {{- end }}
+      {{- if .TargetProcessor -}}
+      {{""}}
+      processor: {{ .TargetProcessor }}
+      {{- end }}

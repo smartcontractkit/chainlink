@@ -1,7 +1,6 @@
 package web_test
 
 import (
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -99,13 +98,13 @@ func TestP2PKeysController_Delete_HappyPath(t *testing.T) {
 	initialLength := len(keys)
 	key, _ := keyStore.P2P().Create(ctx)
 
-	response, cleanup := client.Delete(fmt.Sprintf("/v2/keys/p2p/%s", key.ID()))
+	response, cleanup := client.Delete("/v2/keys/p2p/" + key.ID())
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	assert.Error(t, utils.JustError(keyStore.P2P().Get(key.PeerID())))
 
 	keys, _ = keyStore.P2P().GetAll()
-	assert.Equal(t, initialLength, len(keys))
+	assert.Len(t, keys, initialLength)
 }
 
 func setupP2PKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {

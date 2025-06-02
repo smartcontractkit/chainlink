@@ -47,7 +47,7 @@ func TestUtils_BytesSignAndValidate(t *testing.T) {
 
 	signature, err := common.SignData(privateKey, data)
 	require.NoError(t, err)
-	require.Equal(t, 65, len(signature))
+	require.Len(t, signature, 65)
 
 	// valid
 	signer, err := common.ExtractSigner(signature, data)

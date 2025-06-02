@@ -3,6 +3,7 @@ package toml
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/url"
 	"reflect"
@@ -13,10 +14,11 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
@@ -34,6 +36,7 @@ type Core struct {
 	// General/misc
 	AppID               uuid.UUID `toml:"-"` // random or test
 	InsecureFastScrypt  *bool
+	InsecurePPROFHeap   *bool
 	RootDir             *string
 	ShutdownGracePeriod *commonconfig.Duration
 
@@ -57,12 +60,18 @@ type Core struct {
 	Mercury          Mercury          `toml:",omitempty"`
 	Capabilities     Capabilities     `toml:",omitempty"`
 	Telemetry        Telemetry        `toml:",omitempty"`
+	Workflows        Workflows        `toml:",omitempty"`
+	CRE              CreConfig        `toml:",omitempty"`
+	Billing          Billing          `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
 func (c *Core) SetFrom(f *Core) {
 	if v := f.InsecureFastScrypt; v != nil {
 		c.InsecureFastScrypt = v
+	}
+	if v := f.InsecurePPROFHeap; v != nil {
+		c.InsecurePPROFHeap = v
 	}
 	if v := f.RootDir; v != nil {
 		c.RootDir = v
@@ -87,6 +96,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.Keeper.setFrom(&f.Keeper)
 	c.Mercury.setFrom(&f.Mercury)
 	c.Capabilities.setFrom(&f.Capabilities)
+	c.Workflows.setFrom(&f.Workflows)
 
 	c.AutoPprof.setFrom(&f.AutoPprof)
 	c.Pyroscope.setFrom(&f.Pyroscope)
@@ -94,6 +104,8 @@ func (c *Core) SetFrom(f *Core) {
 	c.Insecure.setFrom(&f.Insecure)
 	c.Tracing.setFrom(&f.Tracing)
 	c.Telemetry.setFrom(&f.Telemetry)
+	c.CRE.setFrom(&f.CRE)
+	c.Billing.setFrom(&f.Billing)
 }
 
 func (c *Core) ValidateConfig() (err error) {
@@ -123,6 +135,50 @@ type Secrets struct {
 	Prometheus PrometheusSecrets        `toml:",omitempty"`
 	Mercury    MercurySecrets           `toml:",omitempty"`
 	Threshold  ThresholdKeyShareSecrets `toml:",omitempty"`
+	EVM        EthKeys                  `toml:",omitempty"` // choose EVM as the TOML field name to align with relayer config convention
+	P2PKey     P2PKey                   `toml:",omitempty"`
+	CRE        CreSecrets               `toml:",omitempty"`
+}
+
+type EthKeys struct {
+	Keys []*EthKey
+}
+
+func (e *EthKeys) SetFrom(f *EthKeys) error {
+	err := e.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if f == nil || len(f.Keys) == 0 {
+		return nil
+	}
+	e.Keys = make([]*EthKey, len(f.Keys))
+	copy(e.Keys, f.Keys)
+	return nil
+}
+
+func (e *EthKeys) validateMerge(f *EthKeys) (err error) {
+	have := make(map[int]struct{})
+	if e != nil && f != nil {
+		for _, ethKey := range e.Keys {
+			have[*ethKey.ID] = struct{}{}
+		}
+		for _, ethKey := range f.Keys {
+			if _, ok := have[*ethKey.ID]; ok {
+				err = multierr.Append(err, configutils.ErrOverride{Name: fmt.Sprintf("EthKeys: %d", *ethKey.ID)})
+			}
+		}
+	}
+	return err
+}
+
+func (e *EthKeys) ValidateConfig() (err error) {
+	for i, ethKey := range e.Keys {
+		if err2 := ethKey.ValidateConfig(); err2 != nil {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: fmt.Sprintf("EthKeys[%d]", i), Value: ethKey, Msg: "invalid EthKey"})
+		}
+	}
+	return err
 }
 
 func dbURLPasswordComplexity(err error) string {
@@ -148,12 +204,12 @@ func validateDBURL(dbURI url.URL) error {
 		// fallback to user info
 		userInfo := dbURI.User
 		if userInfo == nil {
-			return fmt.Errorf("DB URL must be authenticated; plaintext URLs are not allowed")
+			return errors.New("DB URL must be authenticated; plaintext URLs are not allowed")
 		}
 		var pwSet bool
 		pw, pwSet = userInfo.Password()
 		if !pwSet {
-			return fmt.Errorf("DB URL must be authenticated; password is required")
+			return errors.New("DB URL must be authenticated; password is required")
 		}
 	}
 
@@ -213,6 +269,91 @@ func (d *DatabaseSecrets) validateMerge(f *DatabaseSecrets) (err error) {
 		err = multierr.Append(err, configutils.ErrOverride{Name: "URL"})
 	}
 
+	return err
+}
+
+type EthKey struct {
+	JSON     *models.Secret
+	ID       *int // TODO: consider using a chain selector instead. tried using chain_selectors.ChainDetails but toml lib barfed on the embedded uint64
+	Password *models.Secret
+}
+
+func (e *EthKey) SetFrom(f *EthKey) (err error) {
+	err = e.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if v := f.JSON; v != nil {
+		e.JSON = v
+	}
+	if v := f.Password; v != nil {
+		e.Password = v
+	}
+	if v := f.ID; v != nil {
+		e.ID = v
+	}
+	return nil
+}
+
+func (e *EthKey) validateMerge(f *EthKey) (err error) {
+	if e.JSON != nil && f.JSON != nil {
+		err = multierr.Append(err, configutils.ErrOverride{Name: "PrivateKey"})
+	}
+	if e.ID != nil && f.ID != nil {
+		err = multierr.Append(err, configutils.ErrOverride{Name: "Selector"})
+	}
+	if e.Password != nil && f.Password != nil {
+		err = multierr.Append(err, configutils.ErrOverride{Name: "Password"})
+	}
+	return err
+}
+
+func (e *EthKey) ValidateConfig() (err error) {
+	if (e.JSON != nil) != (e.Password != nil) && (e.Password != nil) != (e.ID != nil) {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "EthKey", Value: e.JSON, Msg: "all fields must be nil or non-nil"})
+	}
+	// require valid id
+	if e.ID != nil {
+		_, ok := chain_selectors.ChainByEvmChainID(uint64(*e.ID)) //nolint:gosec // disable G115
+		if !ok {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "ChainSelector", Value: e.ID, Msg: "invalid chain selector"})
+		}
+	}
+	return err
+}
+
+type P2PKey struct {
+	JSON     *models.Secret
+	Password *models.Secret
+}
+
+func (p *P2PKey) SetFrom(f *P2PKey) (err error) {
+	err = p.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if v := f.JSON; v != nil {
+		p.JSON = v
+	}
+	if v := f.Password; v != nil {
+		p.Password = v
+	}
+	return nil
+}
+func (p *P2PKey) validateMerge(f *P2PKey) (err error) {
+	if p.JSON != nil && f.JSON != nil {
+		err = multierr.Append(err, configutils.ErrOverride{Name: "JSON"})
+	}
+	if p.Password != nil && f.Password != nil {
+		err = multierr.Append(err, configutils.ErrOverride{Name: "Password"})
+	}
+	return err
+}
+
+func (p *P2PKey) ValidateConfig() (err error) {
+	if (p.JSON != nil) != (p.Password != nil) {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "P2PKey", Value: p.JSON, Msg: "all fields must be nil or non-nil"})
+	}
 	return err
 }
 
@@ -1117,6 +1258,7 @@ type OCR struct {
 	TransmitterAddress   *types.EIP55Address
 	CaptureEATelemetry   *bool
 	TraceLogging         *bool
+	ConfigLogValidation  *bool
 }
 
 func (o *OCR) setFrom(f *OCR) {
@@ -1152,6 +1294,9 @@ func (o *OCR) setFrom(f *OCR) {
 	}
 	if v := f.TraceLogging; v != nil {
 		o.TraceLogging = v
+	}
+	if v := f.ConfigLogValidation; v != nil {
+		o.ConfigLogValidation = v
 	}
 }
 
@@ -1561,6 +1706,73 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 	return err
 }
 
+// StreamsConfig holds the WsURL and RestURL for configuring the
+// Streams SDK for use in the workflow engine
+type StreamsConfig struct {
+	WsURL   *string `toml:",omitempty"`
+	RestURL *string `toml:",omitempty"`
+}
+
+type CreConfig struct {
+	Streams *StreamsConfig `toml:",omitempty"`
+}
+
+func (c *CreConfig) setFrom(f *CreConfig) {
+	if f.Streams != nil {
+		if c.Streams == nil {
+			c.Streams = &StreamsConfig{}
+		}
+		if v := f.Streams.WsURL; v != nil {
+			c.Streams.WsURL = v
+		}
+		if v := f.Streams.RestURL; v != nil {
+			c.Streams.RestURL = v
+		}
+	}
+}
+
+type StreamsSecretConfig struct {
+	APIKey    *commonconfig.SecretString `toml:",omitempty"`
+	APISecret *commonconfig.SecretString `toml:",omitempty"`
+}
+
+type CreSecrets struct {
+	Streams *StreamsSecretConfig `toml:",omitempty"`
+}
+
+func (c *CreSecrets) SetFrom(f *CreSecrets) (err error) {
+	err = c.validateMerge(f)
+	if err != nil {
+		return err
+	}
+
+	if f.Streams != nil {
+		if c.Streams == nil {
+			c.Streams = &StreamsSecretConfig{}
+		}
+		if v := f.Streams.APIKey; v != nil {
+			c.Streams.APIKey = v
+		}
+		if v := f.Streams.APISecret; v != nil {
+			c.Streams.APISecret = v
+		}
+	}
+
+	return nil
+}
+
+func (c *CreSecrets) validateMerge(f *CreSecrets) (err error) {
+	if c.Streams != nil && f.Streams != nil {
+		if c.Streams.APIKey != nil && f.Streams.APIKey != nil {
+			err = multierr.Append(err, configutils.ErrOverride{Name: "Streams.APIKey"})
+		}
+		if c.Streams.APISecret != nil && f.Streams.APISecret != nil {
+			err = multierr.Append(err, configutils.ErrOverride{Name: "Streams.APISecret"})
+		}
+	}
+	return err
+}
+
 type EngineExecutionRateLimit struct {
 	GlobalRPS      *float64
 	GlobalBurst    *int
@@ -1603,6 +1815,35 @@ func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
 	}
 }
 
+type Workflows struct {
+	Limits Limits
+}
+
+type Limits struct {
+	Global    *int32
+	PerOwner  *int32
+	Overrides map[string]int32
+}
+
+func (r *Workflows) setFrom(f *Workflows) {
+	r.Limits.setFrom(&f.Limits)
+}
+
+func (r *Limits) setFrom(f *Limits) {
+	if f.Global != nil {
+		r.Global = f.Global
+	}
+
+	if f.PerOwner != nil {
+		r.PerOwner = f.PerOwner
+	}
+
+	if f.Overrides != nil {
+		r.Overrides = make(map[string]int32)
+		maps.Copy(r.Overrides, f.Overrides)
+	}
+}
+
 type WorkflowRegistry struct {
 	Address                 *string
 	NetworkID               *string
@@ -1610,6 +1851,7 @@ type WorkflowRegistry struct {
 	MaxBinarySize           *utils.FileSize
 	MaxEncryptedSecretsSize *utils.FileSize
 	MaxConfigSize           *utils.FileSize
+	SyncStrategy            *string
 }
 
 func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
@@ -1635,6 +1877,10 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 
 	if f.MaxConfigSize != nil {
 		r.MaxConfigSize = f.MaxConfigSize
+	}
+
+	if f.SyncStrategy != nil {
+		r.SyncStrategy = f.SyncStrategy
 	}
 }
 
@@ -1859,6 +2105,7 @@ type Telemetry struct {
 	TraceSampleRatio      *float64
 	EmitterBatchProcessor *bool
 	EmitterExportTimeout  *commonconfig.Duration
+	ChipIngressEndpoint   *string
 }
 
 func (b *Telemetry) setFrom(f *Telemetry) {
@@ -1886,6 +2133,9 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	if v := f.EmitterExportTimeout; v != nil {
 		b.EmitterExportTimeout = v
 	}
+	if v := f.ChipIngressEndpoint; v != nil {
+		b.ChipIngressEndpoint = v
+	}
 }
 
 func (b *Telemetry) ValidateConfig() (err error) {
@@ -1904,7 +2154,6 @@ func (b *Telemetry) ValidateConfig() (err error) {
 	if ratio := b.TraceSampleRatio; ratio != nil && (*ratio < 0 || *ratio > 1) {
 		err = multierr.Append(err, configutils.ErrInvalid{Name: "TraceSampleRatio", Value: *ratio, Msg: "must be between 0 and 1"})
 	}
-
 	return err
 }
 
@@ -1948,4 +2197,22 @@ func isValidHostname(hostname string) bool {
 
 func isValidFilePath(path string) bool {
 	return len(path) > 0 && len(path) < 4096
+}
+
+type Billing struct {
+	URL *string
+}
+
+func (b *Billing) setFrom(f *Billing) {
+	if f.URL != nil {
+		b.URL = f.URL
+	}
+}
+
+func (b *Billing) ValidateConfig() error {
+	if b.URL == nil || *b.URL == "" {
+		return configutils.ErrInvalid{Name: "URL", Value: "", Msg: "billing service url must be set"}
+	}
+
+	return nil
 }

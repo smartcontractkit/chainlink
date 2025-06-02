@@ -9,21 +9,23 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/weth9"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/weth9"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
 // NewFeeTokenTestCase creates a new FeeTokenTestCase to test fee token usage scenarios.
 func NewFeeTokenTestCase(
 	t *testing.T,
-	env deployment.Environment,
+	env cldf.Environment,
 	src, dst uint64,
 	feeToken common.Address,
 	tokenAmounts []router.ClientEVMTokenAmount,
@@ -51,7 +53,7 @@ func NewFeeTokenTestCase(
 type FeeTokenTestCase struct {
 	t                  *testing.T
 	src, dst           uint64
-	env                deployment.Environment
+	env                cldf.Environment
 	srcToken, dstToken *burn_mint_erc677.BurnMintERC677
 	tokenAmounts       []router.ClientEVMTokenAmount
 	feeToken           common.Address
@@ -62,16 +64,17 @@ type FeeTokenTestCase struct {
 }
 
 func RunFeeTokenTestCase(tc FeeTokenTestCase) {
-	ctx := tests.Context(tc.t)
+	ctx := tc.t.Context()
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	expectedSeqNum := make(map[testhelpers.SourceDestPair]uint64)
 	expectedSeqNumExec := make(map[testhelpers.SourceDestPair][]uint64)
+	evmChains := tc.env.BlockChains.EVMChains()
 
-	srcChain := tc.env.Chains[tc.src]
-	dstChain := tc.env.Chains[tc.dst]
+	srcChain := evmChains[tc.src]
+	dstChain := evmChains[tc.dst]
 
-	state, err := changeset.LoadOnchainState(tc.env)
+	state, err := stateview.LoadOnchainState(tc.env)
 	require.NoError(tc.t, err)
 
 	var dstTokBalanceBefore *big.Int
@@ -99,7 +102,7 @@ func RunFeeTokenTestCase(tc FeeTokenTestCase) {
 
 			srcChain.DeployerKey.Value = assets.Ether(100).ToInt()
 			tx, err := weth9.Deposit(srcChain.DeployerKey)
-			_, err = deployment.ConfirmIfNoError(srcChain, tx, err)
+			_, err = cldf.ConfirmIfNoError(srcChain, tx, err)
 			require.NoError(tc.t, err)
 			srcChain.DeployerKey.Value = big.NewInt(0)
 		}
@@ -118,7 +121,7 @@ func RunFeeTokenTestCase(tc FeeTokenTestCase) {
 		// Approve the router to spend fee token
 		tx, err := feeTokenWrapper.Approve(srcChain.DeployerKey, state.Chains[tc.src].Router.Address(), math.MaxBig256)
 
-		_, err = deployment.ConfirmIfNoError(srcChain, tx, err)
+		_, err = cldf.ConfirmIfNoError(srcChain, tx, err)
 		require.NoError(tc.t, err)
 	}
 
@@ -205,7 +208,7 @@ func RunFeeTokenTestCase(tc FeeTokenTestCase) {
 			Context: ctx,
 		}, linkAddress)
 		require.NoError(tc.t, err)
-		require.Equal(tc.t, changeset.MockLinkPrice, timestampedPrice.Value)
+		require.Equal(tc.t, shared.MockLinkPrice, timestampedPrice.Value)
 
 		// Wait for all exec reports to land
 		testhelpers.ConfirmExecWithSeqNrsForAll(tc.t, tc.env, state, expectedSeqNumExec, startBlocks)

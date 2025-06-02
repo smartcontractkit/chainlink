@@ -11,15 +11,15 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -34,7 +34,7 @@ import (
 // Messages 2 and 3 are untouched, because ordering is enforced.
 func Test_OutOfOrderExecution(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithUSDC(),
@@ -43,13 +43,14 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	)
 
 	e := tenv.Env
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	allChainSelectors := maps.Keys(e.Chains)
+	evmChains := e.BlockChains.EVMChains()
+	allChainSelectors := maps.Keys(evmChains)
 	sourceChain, destChain := allChainSelectors[0], allChainSelectors[1]
-	ownerSourceChain := e.Chains[sourceChain].DeployerKey
-	ownerDestChain := e.Chains[destChain].DeployerKey
+	ownerSourceChain := evmChains[sourceChain].DeployerKey
+	ownerDestChain := evmChains[destChain].DeployerKey
 
 	anotherSender, err := pickFirstAvailableUser(tenv, sourceChain, e)
 	require.NoError(t, err)
@@ -58,7 +59,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 
 	srcToken, _, destToken, _, err := testhelpers.DeployTransferableToken(
 		lggr,
-		tenv.Env.Chains,
+		tenv.Env.BlockChains.EVMChains(),
 		sourceChain,
 		destChain,
 		ownerSourceChain,
@@ -69,12 +70,12 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	srcUSDC, destUSDC, err := testhelpers.ConfigureUSDCTokenPools(lggr, e.Chains, sourceChain, destChain, state)
+	srcUSDC, destUSDC, err := testhelpers.ConfigureUSDCTokenPools(lggr, evmChains, sourceChain, destChain, state)
 	require.NoError(t, err)
 
-	err = testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, e.Chains[sourceChain], destChain)
+	err = testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, evmChains[sourceChain], destChain)
 	require.NoError(t, err)
-	err = testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, e.Chains[destChain], sourceChain)
+	err = testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, evmChains[destChain], sourceChain)
 	require.NoError(t, err)
 
 	testhelpers.MintAndAllow(
@@ -111,7 +112,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	startBlocks := make(map[uint64]*uint64)
 	expectedStatuses := make(map[uint64]int)
 
-	latesthdr, err := e.Chains[destChain].Client.HeaderByNumber(ctx, nil)
+	latesthdr, err := evmChains[destChain].Client.HeaderByNumber(ctx, nil)
 	require.NoError(t, err)
 	block := latesthdr.Number.Uint64()
 	startBlocks[destChain] = &block
@@ -126,9 +127,11 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		sourceChain,
 		destChain,
 		tokenTransfer,
-		firstReceiver,
+		firstReceiver.Bytes(),
+		false,
 		nil,
 		testhelpers.MakeEVMExtraArgsV2(0, true),
+		"",
 	)
 	expectedStatuses[firstMessage.SequenceNumber] = testhelpers.EXECUTION_STATE_SUCCESS
 	t.Logf("Out of order messages sent from chain %d to chain %d with sequence number %d",
@@ -145,9 +148,11 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		sourceChain,
 		destChain,
 		usdcTransfer,
-		secondReceiver,
+		secondReceiver.Bytes(),
+		false,
 		nil,
 		nil,
+		"",
 	)
 	t.Logf("Ordered USDC transfer sent from chain %d to chain %d with sequence number %d",
 		sourceChain, destChain, secondMsg.SequenceNumber,
@@ -163,16 +168,18 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		sourceChain,
 		destChain,
 		tokenTransfer,
-		thirdReceiver,
+		thirdReceiver.Bytes(),
+		false,
 		nil,
 		testhelpers.MakeEVMExtraArgsV2(0, false),
+		"",
 	)
 	t.Logf("Ordered token transfer from chain %d to chain %d with sequence number %d",
 		sourceChain, destChain, thirdMessage.SequenceNumber,
 	)
 
 	// Out of order programmable token transfer should be executed
-	fourthReceiver := state.Chains[destChain].Receiver.Address()
+	fourthReceiver := state.MustGetEVMChainState(destChain).Receiver.Address()
 	fourthMessage, _ := testhelpers.Transfer(
 		ctx,
 		t,
@@ -181,9 +188,11 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		sourceChain,
 		destChain,
 		tokenTransfer,
-		fourthReceiver,
+		fourthReceiver.Bytes(),
+		false,
 		[]byte("this message has enough gas to execute"),
 		testhelpers.MakeEVMExtraArgsV2(300_000, true),
+		"",
 	)
 	expectedStatuses[fourthMessage.SequenceNumber] = testhelpers.EXECUTION_STATE_SUCCESS
 	t.Logf("Out of order programmable token transfer from chain %d to chain %d with sequence number %d",
@@ -192,7 +201,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 
 	// Ordered token transfer, but using different sender, should be executed
 	fifthReceiver := utils.RandomAddress()
-	fifthMessage, err := testhelpers.DoSendRequest(t, e, state,
+	fifthMessage, err := testhelpers.SendRequest(e, state,
 		testhelpers.WithSender(anotherSender),
 		testhelpers.WithSourceChain(sourceChain),
 		testhelpers.WithDestChain(destChain),
@@ -213,8 +222,8 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	_, err = testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		sourceChain,
-		e.Chains[destChain],
-		state.Chains[destChain].OffRamp,
+		evmChains[destChain],
+		state.MustGetEVMChainState(destChain).OffRamp,
 		startBlocks[destChain],
 		ccipocr3.NewSeqNumRange(
 			ccipocr3.SeqNum(firstMessage.SequenceNumber),
@@ -240,31 +249,31 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	)
 	require.Equal(t, expectedStatuses, execStates[identifier])
 
-	secondMsgState, err := state.Chains[destChain].OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, secondMsg.SequenceNumber)
+	secondMsgState, err := state.MustGetEVMChainState(destChain).OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, secondMsg.SequenceNumber)
 	require.NoError(t, err)
 	require.Equal(t, uint8(testhelpers.EXECUTION_STATE_UNTOUCHED), secondMsgState)
 
-	thirdMsgState, err := state.Chains[destChain].OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, thirdMessage.SequenceNumber)
+	thirdMsgState, err := state.MustGetEVMChainState(destChain).OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, thirdMessage.SequenceNumber)
 	require.NoError(t, err)
 	require.Equal(t, uint8(testhelpers.EXECUTION_STATE_UNTOUCHED), thirdMsgState)
 
-	testhelpers.WaitForTheTokenBalance(ctx, t, destToken.Address(), firstReceiver, e.Chains[destChain], oneE18)
-	testhelpers.WaitForTheTokenBalance(ctx, t, destUSDC.Address(), secondReceiver, e.Chains[destChain], big.NewInt(0))
-	testhelpers.WaitForTheTokenBalance(ctx, t, destToken.Address(), thirdReceiver, e.Chains[destChain], big.NewInt(0))
-	testhelpers.WaitForTheTokenBalance(ctx, t, destToken.Address(), fourthReceiver, e.Chains[destChain], oneE18)
-	testhelpers.WaitForTheTokenBalance(ctx, t, destToken.Address(), fifthReceiver, e.Chains[destChain], oneE18)
+	testhelpers.WaitForTheTokenBalance(ctx, t, destToken.Address(), firstReceiver, evmChains[destChain], oneE18)
+	testhelpers.WaitForTheTokenBalance(ctx, t, destUSDC.Address(), secondReceiver, evmChains[destChain], big.NewInt(0))
+	testhelpers.WaitForTheTokenBalance(ctx, t, destToken.Address(), thirdReceiver, evmChains[destChain], big.NewInt(0))
+	testhelpers.WaitForTheTokenBalance(ctx, t, destToken.Address(), fourthReceiver, evmChains[destChain], oneE18)
+	testhelpers.WaitForTheTokenBalance(ctx, t, destToken.Address(), fifthReceiver, evmChains[destChain], oneE18)
 }
 
 func pickFirstAvailableUser(
 	tenv testhelpers.DeployedEnv,
 	sourceChain uint64,
-	e deployment.Environment,
+	e cldf.Environment,
 ) (*bind.TransactOpts, error) {
 	for _, user := range tenv.Users[sourceChain] {
 		if user == nil {
 			continue
 		}
-		if user.From != e.Chains[sourceChain].DeployerKey.From {
+		if user.From != e.BlockChains.EVMChains()[sourceChain].DeployerKey.From {
 			return user, nil
 		}
 	}

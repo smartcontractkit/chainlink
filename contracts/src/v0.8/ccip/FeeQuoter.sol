@@ -78,7 +78,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   }
 
   /// @dev Struct that contains the static configuration.
-  /// RMN depends on this struct, if changing, please notify the RMN maintainers.
   // solhint-disable-next-line gas-struct-packing
   struct StaticConfig {
     uint96 maxFeeJuelsPerMsg; // ─╮ Maximum fee that can be charged for a message.
@@ -169,7 +168,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @dev The decimals that Keystone reports prices in.
   uint256 public constant KEYSTONE_PRICE_DECIMALS = 18;
 
-  string public constant override typeAndVersion = "FeeQuoter 1.6.0";
+  string public constant override typeAndVersion = "FeeQuoter 1.6.1-dev";
 
   /// @dev The gas price per unit of gas for a given destination chain, in USD with 18 decimals. Multiple gas prices can
   /// be encoded into the same value. Each price takes {Internal.GAS_PRICE_BITS} bits. For example, if Optimism is the
@@ -888,7 +887,10 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       return Internal._validateEVMAddress(destAddress);
     }
     if (chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
-      return Internal._validateSVMAddress(destAddress, gasLimit > 0);
+      return Internal._validate32ByteAddress(destAddress, gasLimit > 0);
+    }
+    if (chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_APTOS) {
+      return Internal._validate32ByteAddress(destAddress, true);
     }
     revert InvalidChainFamilySelector(chainFamilySelector);
   }
@@ -923,25 +925,29 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @dev Convert the extra args bytes into a struct with validations against the dest chain config.
   /// @param extraArgs The extra args bytes.
-  /// @return evmExtraArgs The EVMExtraArgs struct (latest version).
-  function _parseEVMExtraArgsFromBytes(
+  /// @return genericExtraArgs The GenericExtraArgs struct.
+  function _parseGenericExtraArgsFromBytes(
     bytes calldata extraArgs,
     uint32 defaultTxGasLimit,
     uint256 maxPerMsgGasLimit,
     bool enforceOutOfOrder
-  ) internal pure returns (Client.EVMExtraArgsV2 memory) {
-    Client.EVMExtraArgsV2 memory evmExtraArgs = _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, defaultTxGasLimit);
+  ) internal pure returns (Client.GenericExtraArgsV2 memory) {
+    // Since GenericExtraArgs are simply a superset of EVMExtraArgsV1, we can parse them as such. For Aptos, this
+    // technically means EVMExtraArgsV1 are processed like they would be valid, but they will always fail on the
+    // allowedOutOfOrderExecution check below.
+    Client.GenericExtraArgsV2 memory parsedExtraArgs =
+      _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, defaultTxGasLimit);
 
-    if (evmExtraArgs.gasLimit > maxPerMsgGasLimit) revert MessageGasLimitTooHigh();
+    if (parsedExtraArgs.gasLimit > maxPerMsgGasLimit) revert MessageGasLimitTooHigh();
 
     // If the chain enforces out of order execution, the extra args must allow it, otherwise revert. We cannot assume
     // the user intended to use OOO on any chain that requires it as it may lead to unexpected behavior. Therefore we
     // revert instead of assuming the user intended to use OOO.
-    if (enforceOutOfOrder && !evmExtraArgs.allowOutOfOrderExecution) {
+    if (enforceOutOfOrder && !parsedExtraArgs.allowOutOfOrderExecution) {
       revert ExtraArgOutOfOrderExecutionMustBeTrue();
     }
 
-    return evmExtraArgs;
+    return parsedExtraArgs;
   }
 
   /// @dev Convert the extra args bytes into a struct.
@@ -951,21 +957,21 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   function _parseUnvalidatedEVMExtraArgsFromBytes(
     bytes calldata extraArgs,
     uint64 defaultTxGasLimit
-  ) private pure returns (Client.EVMExtraArgsV2 memory) {
+  ) private pure returns (Client.GenericExtraArgsV2 memory) {
     if (extraArgs.length == 0) {
       // If extra args are empty, generate default values.
-      return Client.EVMExtraArgsV2({gasLimit: defaultTxGasLimit, allowOutOfOrderExecution: false});
+      return Client.GenericExtraArgsV2({gasLimit: defaultTxGasLimit, allowOutOfOrderExecution: false});
     }
 
     bytes4 extraArgsTag = bytes4(extraArgs);
     bytes memory argsData = extraArgs[4:];
 
-    if (extraArgsTag == Client.EVM_EXTRA_ARGS_V2_TAG) {
-      return abi.decode(argsData, (Client.EVMExtraArgsV2));
+    if (extraArgsTag == Client.GENERIC_EXTRA_ARGS_V2_TAG) {
+      return abi.decode(argsData, (Client.GenericExtraArgsV2));
     } else if (extraArgsTag == Client.EVM_EXTRA_ARGS_V1_TAG) {
       // EVMExtraArgsV1 originally included a second boolean (strict) field which has been deprecated.
       // Clients may still include it but it will be ignored.
-      return Client.EVMExtraArgsV2({gasLimit: abi.decode(argsData, (uint256)), allowOutOfOrderExecution: false});
+      return Client.GenericExtraArgsV2({gasLimit: abi.decode(argsData, (uint256)), allowOutOfOrderExecution: false});
     }
     revert InvalidExtraArgsTag();
   }
@@ -993,8 +999,11 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     }
 
     // resolve gas limit and validate chainFamilySelector
-    if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
-      gasLimit = _parseEVMExtraArgsFromBytes(
+    if (
+      destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM
+        || destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_APTOS
+    ) {
+      gasLimit = _parseGenericExtraArgsFromBytes(
         extraArgs,
         destChainConfig.defaultTxGasLimit,
         destChainConfig.maxPerMsgGasLimit,
@@ -1065,8 +1074,13 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   ) internal view returns (bytes memory validatedExtraArgs, bool allowOutOfOrderExecution, bytes memory tokenReceiver) {
     // Since this function is called after getFee, which already validates the params, no validation is necessary.
     DestChainConfig memory destChainConfig = s_destChainConfigs[destChainSelector];
-    if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
-      Client.EVMExtraArgsV2 memory parsedExtraArgs =
+    // EVM and Aptos both use the same GenericExtraArgs, with EVM also supporting EVMExtraArgsV1 which is handled inside
+    // the generic function.
+    if (
+      destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM
+        || destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_APTOS
+    ) {
+      Client.GenericExtraArgsV2 memory parsedExtraArgs =
         _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit);
 
       return (Client._argsToBytes(parsedExtraArgs), parsedExtraArgs.allowOutOfOrderExecution, messageReceiver);
@@ -1157,13 +1171,13 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       DestChainConfig memory destChainConfig = destChainConfigArg.destChainConfig;
 
       // destChainSelector must be non-zero, defaultTxGasLimit must be set, must be less than maxPerMsgGasLimit
-      // supported chain family is EVM and SVM
       if (
         destChainSelector == 0 || destChainConfig.defaultTxGasLimit == 0
           || destChainConfig.defaultTxGasLimit > destChainConfig.maxPerMsgGasLimit
           || (
             destChainConfig.chainFamilySelector != Internal.CHAIN_FAMILY_SELECTOR_EVM
               && destChainConfig.chainFamilySelector != Internal.CHAIN_FAMILY_SELECTOR_SVM
+              && destChainConfig.chainFamilySelector != Internal.CHAIN_FAMILY_SELECTOR_APTOS
           )
       ) {
         revert InvalidDestChainConfig(destChainSelector);
@@ -1182,7 +1196,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   }
 
   /// @notice Returns the static FeeQuoter config.
-  /// @dev RMN depends on this function, if updated, please notify the RMN maintainers.
   /// @return staticConfig The static configuration.
   function getStaticConfig() external view returns (StaticConfig memory) {
     return StaticConfig({

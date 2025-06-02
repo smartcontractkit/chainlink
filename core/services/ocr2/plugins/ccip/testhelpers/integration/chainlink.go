@@ -18,11 +18,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	types3 "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/jmoiron/sqlx"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"k8s.io/utils/ptr"
+
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -33,25 +34,20 @@ import (
 	types4 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/client"
-	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	evmUtils "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	evmUtils "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
-	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	price_registry_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/price_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -75,7 +71,6 @@ import (
 	clutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 const (
@@ -342,7 +337,7 @@ func (node *Node) AddJob(t *testing.T, spec *OCR2TaskJobSpec) {
 		nil,
 	)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(tests.Context(t), &ccipJob)
+	err = node.App.AddJobV2(t.Context(), &ccipJob)
 	require.NoError(t, err)
 }
 
@@ -351,7 +346,7 @@ func (node *Node) AddBootstrapJob(t *testing.T, spec *OCR2TaskJobSpec) {
 	require.NoError(t, err)
 	ccipJob, err := ocrbootstrap.ValidatedBootstrapSpecToml(specString)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(tests.Context(t), &ccipJob)
+	err = node.App.AddJobV2(t.Context(), &ccipJob)
 	require.NoError(t, err)
 }
 
@@ -435,21 +430,16 @@ func setupNodeCCIP(
 
 	key, err := csakey.NewV2()
 	require.NoError(t, err)
+	csaKeyStore.On("EnsureKey", mock.Anything).Return(nil)
 	csaKeyStore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	keyStore := NewKsa(db, lggr, csaKeyStore)
 
-	simEthKeyStore := testhelpers.EthKeyStoreSim{
-		ETHKS: keyStore.Eth(),
-		CSAKS: keyStore.CSA(),
-	}
-	mailMon := mailbox.NewMonitor("CCIP", lggr.Named("Mailbox"))
-	evmOpts := chainlink.EVMFactoryConfig{
-		ChainOpts: legacyevm.ChainOpts{
-			ChainConfigs:   config.EVMConfigs(),
-			DatabaseConfig: config.Database(),
-			ListenerConfig: config.Database().Listener(),
-			FeatureConfig:  config.Feature(),
-			GenEthClient: func(chainID *big.Int) client.Client {
+	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
+		Config:   config,
+		DS:       db,
+		KeyStore: keyStore,
+		EVMFactoryConfigFn: func(fc *chainlink.EVMFactoryConfig) {
+			fc.GenEthClient = func(chainID *big.Int) client.Client {
 				if chainID.String() == sourceChainID.String() {
 					return sourceClient
 				} else if chainID.String() == destChainID.String() {
@@ -457,46 +447,14 @@ func setupNodeCCIP(
 				}
 				t.Fatalf("invalid chain ID %v", chainID.String())
 				return nil
-			},
-			MailMon: mailMon,
-			DS:      db,
+			}
 		},
-		CSAETHKeystore: simEthKeyStore,
-	}
-	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(keyStore)
-	require.NoError(t, err)
-
-	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), config.Database(), config.Tracing(), config.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
-	relayerFactory := chainlink.RelayerFactory{
-		Logger:               lggr,
-		LoopRegistry:         loopRegistry,
-		GRPCOpts:             loop.GRPCOpts{},
-		CapabilitiesRegistry: evmcapabilities.NewRegistry(logger.TestLogger(t)),
-	}
-	testCtx := testutils.Context(t)
-	// evm alway enabled for backward compatibility
-	initOps := []chainlink.CoreRelayerChainInitFunc{
-		chainlink.InitEVM(testCtx, relayerFactory, evmOpts),
-	}
-
-	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	app, err := chainlink.NewApplication(chainlink.ApplicationOpts{
-		Config:                     config,
-		DS:                         db,
-		KeyStore:                   keyStore,
-		RelayerChainInteroperators: relayChainInterops,
-		Logger:                     lggr,
-		ExternalInitiatorManager:   nil,
-		CloseLogger:                lggr.Sync,
-		UnrestrictedHTTPClient:     &http.Client{},
-		RestrictedHTTPClient:       &http.Client{},
-		AuditLogger:                audit.NoopLogger,
-		MailMon:                    mailMon,
-		LoopRegistry:               plugins.NewLoopRegistry(lggr, config.Database(), config.Tracing(), config.Telemetry(), beholderAuthHeaders, csaPubKeyHex),
+		Logger:                   lggr,
+		ExternalInitiatorManager: nil,
+		CloseLogger:              lggr.Sync,
+		UnrestrictedHTTPClient:   &http.Client{},
+		RestrictedHTTPClient:     &http.Client{},
+		AuditLogger:              audit.NoopLogger,
 	})
 	require.NoError(t, err)
 	require.NoError(t, app.GetKeyStore().Unlock(ctx, "password"))
@@ -508,6 +466,7 @@ func setupNodeCCIP(
 	require.Len(t, p2pIDs, 1)
 	peerID := p2pIDs[0].PeerID()
 
+	testCtx := testutils.Context(t)
 	_, err = app.GetKeyStore().Eth().Create(testCtx, destChainID)
 	require.NoError(t, err)
 	sendingKeys, err := app.GetKeyStore().Eth().EnabledKeysForChain(testCtx, destChainID)
@@ -519,13 +478,13 @@ func setupNodeCCIP(
 	lggr.Debug(fmt.Sprintf("Transmitter address %s chainID %s", transmitter, s.EVMChainID.String()))
 
 	// Fund the commitTransmitter address with some ETH
-	n, err := destChain.Client().NonceAt(tests.Context(t), owner.From, nil)
+	n, err := destChain.Client().NonceAt(t.Context(), owner.From, nil)
 	require.NoError(t, err)
 
 	tx := types3.NewTransaction(n, transmitter, big.NewInt(1000000000000000000), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
-	err = destChain.Client().SendTransaction(tests.Context(t), signedTx)
+	err = destChain.Client().SendTransaction(t.Context(), signedTx)
 	require.NoError(t, err)
 	destChain.Commit()
 
@@ -1004,11 +963,10 @@ func (c *CCIPIntegrationTestHarness) SetupAndStartNodes(ctx context.Context, t *
 	return bootstrapNode, nodes, uint64(configBlock)
 }
 
+// setup Jobs
 func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeline string, priceGetterConfig string, usdcAttestationAPI string) CCIPJobSpecParams {
-	// setup Jobs
-	ctx := tests.Context(t)
 	// Starts nodes and configures them in the OCR contracts.
-	bootstrapNode, _, configBlock := c.SetupAndStartNodes(ctx, t, int64(freeport.GetOne(t)))
+	bootstrapNode, _, configBlock := c.SetupAndStartNodes(t.Context(), t, int64(freeport.GetOne(t)))
 
 	jobParams := c.NewCCIPJobSpecParams(pricePipeline, priceGetterConfig, configBlock, usdcAttestationAPI)
 
@@ -1020,7 +978,7 @@ func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeli
 	bc, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(c.Dest.ChainID, 10))
 	require.NoError(t, err)
 	require.LessOrEqual(t, configBlock, uint64(math.MaxInt64))
-	require.NoError(t, bc.LogPoller().Replay(ctx, int64(configBlock))) //nolint:gosec // G115 false positive
+	require.NoError(t, bc.LogPoller().Replay(t.Context(), int64(configBlock))) //nolint:gosec // G115 false positive
 	c.Dest.Chain.Commit()
 
 	return jobParams

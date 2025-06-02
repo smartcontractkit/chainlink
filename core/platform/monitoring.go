@@ -1,8 +1,9 @@
 package platform
 
 import (
-	"iter"
 	"slices"
+
+	"iter"
 )
 
 // Observability keys
@@ -12,9 +13,16 @@ const (
 	KeyWorkflowID          = "workflowID"
 	KeyWorkflowExecutionID = "workflowExecutionID"
 	KeyWorkflowName        = "workflowName"
+	KeyWorkflowVersion     = "workflowVersion"
 	KeyWorkflowOwner       = "workflowOwner"
 	KeyStepID              = "stepID"
 	KeyStepRef             = "stepRef"
+	KeyDonID               = "DonID"
+	KeyDonF                = "F"
+	KeyDonN                = "N"
+	KeyDonQ                = "Q"
+	KeyP2PID               = "p2pID"
+	ValueWorkflowVersion   = "1.0.0"
 )
 
 func LabelKeysSorted() iter.Seq[string] {

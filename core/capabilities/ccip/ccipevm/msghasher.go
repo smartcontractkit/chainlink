@@ -10,15 +10,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-
+	ag_binary "github.com/gagliardetto/binary"
+	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/logutil"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/message_hasher"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 var (
@@ -81,36 +81,35 @@ func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipcommon.ExtraDataC
     );
 */
 func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (cciptypes.Bytes32, error) {
+	sourceChainFamily, err := chainsel.GetSelectorFamily(uint64(msg.Header.SourceChainSelector))
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("get source chain family: %w", err)
+	}
+
 	lggr := logutil.WithContextValues(ctx, h.lggr)
 	lggr = logger.With(
 		lggr,
 		"msgID", msg.Header.MessageID.String(),
 		"ANY_2_EVM_MESSAGE_HASH", hexutil.Encode(ANY_2_EVM_MESSAGE_HASH[:]),
 		"onrampAddress", msg.Header.OnRamp,
+		"sourceChainFamily", sourceChainFamily,
 	)
 	lggr.Debugw("hashing message", "msg", msg)
 
 	var rampTokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
 	for _, rta := range msg.TokenAmounts {
-		destGasAmount, err := abiDecodeUint32(rta.DestExecData)
+		destExecDataDecodedMap, err := h.extraDataCodec.DecodeTokenAmountDestExecData(rta.DestExecData, msg.Header.SourceChainSelector)
 		if err != nil {
-			return [32]byte{}, fmt.Errorf("decode dest gas amount: %w", err)
+			return [32]byte{}, fmt.Errorf("failed to decode dest exec data: %w", err)
+		}
+
+		destGasAmount, err := extractDestGasAmountFromMap(destExecDataDecodedMap)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("failed extract dest gas amount from decoded extradata map: %w", err)
 		}
 
 		lggr.Debugw("decoded dest gas amount",
 			"destGasAmount", destGasAmount)
-
-		// from https://github.com/smartcontractkit/chainlink/blob/e036012d5b562f5c30c5a87898239ba59aeb2f7b/contracts/src/v0.8/ccip/pools/TokenPool.sol#L84
-		// remote pool addresses are abi-encoded addresses if the remote chain is EVM.
-		// its unclear as of writing how we will handle non-EVM chains and their addresses.
-		// e.g, will we encode them as bytes or bytes32?
-		sourcePoolAddressABIEncodedAsAddress, err := abiEncodeAddress(common.BytesToAddress(rta.SourcePoolAddress))
-		if err != nil {
-			return [32]byte{}, fmt.Errorf("abi encode source pool address: %w", err)
-		}
-
-		lggr.Debugw("abi encoded source pool address as solidity address",
-			"sourcePoolAddressABIEncodedAsAddress", hexutil.Encode(sourcePoolAddressABIEncodedAsAddress))
 
 		destTokenAddress, err := abiDecodeAddress(rta.DestTokenAddress)
 		if err != nil {
@@ -120,8 +119,21 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 		lggr.Debugw("abi decoded dest token address",
 			"destTokenAddress", destTokenAddress)
 
+		var sourcePoolAddr []byte
+		if sourceChainFamily == chainsel.FamilyEVM {
+			// from https://github.com/smartcontractkit/chainlink/blob/e036012d5b562f5c30c5a87898239ba59aeb2f7b/contracts/src/v0.8/ccip/pools/TokenPool.sol#L84
+			// remote pool addresses are abi-encoded addresses if the remote chain is EVM.
+			sourcePoolAddr, err = abiEncodeAddress(common.BytesToAddress(rta.SourcePoolAddress))
+			if err != nil {
+				return [32]byte{}, fmt.Errorf("abi encode source pool address: %w", err)
+			}
+		} else {
+			sourcePoolAddr = rta.SourcePoolAddress
+		}
+
+		lggr.Debugw("resolved token amount fields", "sourcePoolAddress", sourcePoolAddr, "destTokenAddress", destTokenAddress, "destGasAmount", destGasAmount)
 		rampTokenAmounts = append(rampTokenAmounts, message_hasher.InternalAny2EVMTokenTransfer{
-			SourcePoolAddress: sourcePoolAddressABIEncodedAsAddress,
+			SourcePoolAddress: sourcePoolAddr,
 			DestTokenAddress:  destTokenAddress,
 			DestGasAmount:     destGasAmount,
 			ExtraData:         rta.ExtraData,
@@ -166,7 +178,7 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 		return [32]byte{}, err
 	}
 
-	gasLimit, err := parseExtraDataMap(decodedExtraArgsMap)
+	gasLimit, err := parseExtraArgsMap(decodedExtraArgsMap)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("decode extra args to get gas limit: %w", err)
 	}
@@ -211,7 +223,7 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 	return msgHash, nil
 }
 
-func (h *MessageHasherV1) abiEncode(method string, values ...interface{}) ([]byte, error) {
+func (h *MessageHasherV1) abiEncode(method string, values ...any) ([]byte, error) {
 	res, err := messageHasherABI.Pack(method, values...)
 	if err != nil {
 		return nil, err
@@ -220,19 +232,28 @@ func (h *MessageHasherV1) abiEncode(method string, values ...interface{}) ([]byt
 	return res[4:], nil
 }
 
-func abiDecodeUint32(data []byte) (uint32, error) {
-	raw, err := utils.ABIDecode(`[{ "type": "uint32" }]`, data)
+func abiDecodeType[T any](argsABI abi.Arguments, data []byte) (T, error) {
+	raw, err := argsABI.UnpackValues(data)
 	if err != nil {
-		return 0, fmt.Errorf("abi decode uint32: %w", err)
+		val := *new(T)
+		return val, fmt.Errorf("abi decode %T: %w", val, err)
 	}
 
-	val := *abi.ConvertType(raw[0], new(uint32)).(*uint32)
+	val := *abi.ConvertType(raw[0], new(T)).(*T)
 	return val, nil
 }
 
+var uint32ABI abi.Arguments = abi.Arguments{{Type: utils.MustAbiType("uint32", nil)}}
+
 func abiEncodeUint32(data uint32) ([]byte, error) {
-	return utils.ABIEncode(`[{ "type": "uint32" }]`, data)
+	return uint32ABI.Pack(data)
 }
+
+func abiDecodeUint32(data []byte) (uint32, error) {
+	return abiDecodeType[uint32](uint32ABI, data)
+}
+
+var addressABI abi.Arguments = abi.Arguments{{Type: utils.MustAbiType("address", nil)}}
 
 // abiEncodeAddress encodes the given address as a solidity address.
 // TODO: this is potentially incorrect for nonEVM sources.
@@ -241,30 +262,28 @@ func abiEncodeUint32(data uint32) ([]byte, error) {
 // encoding 20 bytes as a solidity bytes is not the same as encoding a 20 byte address
 // or a bytes32.
 func abiEncodeAddress(data common.Address) ([]byte, error) {
-	return utils.ABIEncode(`[{ "type": "address" }]`, data)
+	return addressABI.Pack(data)
 }
 
 func abiDecodeAddress(data []byte) (common.Address, error) {
-	raw, err := utils.ABIDecode(`[{ "type": "address" }]`, data)
-	if err != nil {
-		return common.Address{}, fmt.Errorf("abi decode address: %w", err)
-	}
-
-	val := *abi.ConvertType(raw[0], new(common.Address)).(*common.Address)
-	return val, nil
+	return abiDecodeType[common.Address](addressABI, data)
 }
 
-func parseExtraDataMap(input map[string]any) (*big.Int, error) {
+func parseExtraArgsMap(input map[string]any) (*big.Int, error) {
 	var outputGas *big.Int
 	for fieldName, fieldValue := range input {
 		lowercase := strings.ToLower(fieldName)
 		switch lowercase {
 		case "gaslimit":
-			// Expect [][32]byte
 			if val, ok := fieldValue.(*big.Int); ok {
 				outputGas = val
 				return outputGas, nil
 			} else {
+				// when source chain is svm, the gas limit is an ag_binary.Uint128 struct instead of *big.Int
+				if val, ok := fieldValue.(ag_binary.Uint128); ok {
+					outputGas = val.BigInt()
+					return outputGas, nil
+				}
 				return nil, fmt.Errorf("unexpected type for gas limit: %T", fieldValue)
 			}
 		default:
@@ -291,6 +310,23 @@ func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
 	}
 
 	return 0, errors.New("invalid token message, dest gas amount not found in the DestExecDataDecoded map")
+}
+
+func SerializeExtraArgs(tag []byte, method string, inputs ...any) ([]byte, error) {
+	v, err := messageHasherABI.Methods[method].Inputs.Pack(inputs...)
+	return append(tag, v...), err
+}
+
+func SerializeEVMExtraArgsV1(data message_hasher.ClientEVMExtraArgsV1) ([]byte, error) {
+	return SerializeExtraArgs(evmExtraArgsV1Tag, "encodeEVMExtraArgsV1", data)
+}
+
+func SerializeClientGenericExtraArgsV2(data message_hasher.ClientGenericExtraArgsV2) ([]byte, error) {
+	return SerializeExtraArgs(evmExtraArgsV2Tag, "encodeGenericExtraArgsV2", data)
+}
+
+func SerializeClientSVMExtraArgsV1(data message_hasher.ClientSVMExtraArgsV1) ([]byte, error) {
+	return SerializeExtraArgs(svmExtraArgsV1Tag, "encodeSVMExtraArgsV1", data)
 }
 
 // Interface compliance check

@@ -2,7 +2,6 @@ package threshold
 
 import (
 	"context"
-	"errors"
 	"reflect"
 	"testing"
 	"time"
@@ -52,7 +51,7 @@ func Test_decryptionQueue_Decrypt_CiphertextIdTooLarge(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	_, err := dq.Decrypt(ctx, []byte("largeCiphertextId"), []byte("ciphertext"))
-	assert.Equal(t, err.Error(), "ciphertextId too large")
+	assert.Equal(t, "ciphertextId too large", err.Error())
 }
 
 func Test_decryptionQueue_Decrypt_EmptyCiphertextId(t *testing.T) {
@@ -62,7 +61,7 @@ func Test_decryptionQueue_Decrypt_EmptyCiphertextId(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	_, err := dq.Decrypt(ctx, []byte(""), []byte("ciphertext"))
-	assert.Equal(t, err.Error(), "ciphertextId is empty")
+	assert.Equal(t, "ciphertextId is empty", err.Error())
 }
 
 func Test_decryptionQueue_Decrypt_CiphertextTooLarge(t *testing.T) {
@@ -72,7 +71,7 @@ func Test_decryptionQueue_Decrypt_CiphertextTooLarge(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	_, err := dq.Decrypt(ctx, []byte("1"), []byte("largeciphertext"))
-	assert.Equal(t, err.Error(), "ciphertext too large")
+	assert.Equal(t, "ciphertext too large", err.Error())
 }
 
 func Test_decryptionQueue_Decrypt_EmptyCiphertext(t *testing.T) {
@@ -82,7 +81,7 @@ func Test_decryptionQueue_Decrypt_EmptyCiphertext(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	_, err := dq.Decrypt(ctx, []byte("1"), []byte(""))
-	assert.Equal(t, err.Error(), "ciphertext is empty")
+	assert.Equal(t, "ciphertext is empty", err.Error())
 }
 
 func Test_decryptionQueue_Decrypt_DuplicateCiphertextId(t *testing.T) {
@@ -93,13 +92,13 @@ func Test_decryptionQueue_Decrypt_DuplicateCiphertextId(t *testing.T) {
 
 	go func() {
 		_, err := dq.Decrypt(ctx, []byte("1"), []byte("encrypted"))
-		require.Equal(t, err.Error(), "context provided by caller was cancelled")
+		require.Equal(t, "context provided by caller was cancelled", err.Error())
 	}()
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("1"))
 
 	_, err := dq.Decrypt(ctx, []byte("1"), []byte("encrypted"))
-	assert.Equal(t, err.Error(), "ciphertextId must be unique")
+	assert.Equal(t, "ciphertextId must be unique", err.Error())
 }
 
 func Test_decryptionQueue_Decrypt_ContextCancelled(t *testing.T) {
@@ -110,7 +109,7 @@ func Test_decryptionQueue_Decrypt_ContextCancelled(t *testing.T) {
 	defer cancel()
 
 	_, err := dq.Decrypt(ctx, []byte("2"), []byte("encrypted"))
-	assert.Equal(t, err.Error(), "context provided by caller was cancelled")
+	assert.Equal(t, "context provided by caller was cancelled", err.Error())
 }
 
 func Test_decryptionQueue_Decrypt_QueueFull(t *testing.T) {
@@ -122,7 +121,7 @@ func Test_decryptionQueue_Decrypt_QueueFull(t *testing.T) {
 
 	go func() {
 		_, err := dq.Decrypt(ctx1, []byte("4"), []byte("encrypted"))
-		require.Equal(t, err.Error(), "context provided by caller was cancelled")
+		require.Equal(t, "context provided by caller was cancelled", err.Error())
 	}()
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("4"))
@@ -131,7 +130,7 @@ func Test_decryptionQueue_Decrypt_QueueFull(t *testing.T) {
 	defer cancel2()
 
 	_, err := dq.Decrypt(ctx2, []byte("3"), []byte("encrypted"))
-	assert.Equal(t, err.Error(), "queue is full")
+	assert.Equal(t, "queue is full", err.Error())
 }
 
 func Test_decryptionQueue_GetRequests(t *testing.T) {
@@ -143,7 +142,7 @@ func Test_decryptionQueue_GetRequests(t *testing.T) {
 
 	go func() {
 		_, err := dq.Decrypt(ctx1, []byte("5"), []byte("encrypted"))
-		require.Equal(t, err.Error(), "context provided by caller was cancelled")
+		require.Equal(t, "context provided by caller was cancelled", err.Error())
 	}()
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("5"))
@@ -153,7 +152,7 @@ func Test_decryptionQueue_GetRequests(t *testing.T) {
 
 	go func() {
 		_, err := dq.Decrypt(ctx2, []byte("6"), []byte("encrypted"))
-		require.Equal(t, err.Error(), "context provided by caller was cancelled")
+		require.Equal(t, "context provided by caller was cancelled", err.Error())
 	}()
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("6"))
@@ -177,7 +176,7 @@ func Test_decryptionQueue_GetCiphertext(t *testing.T) {
 
 	go func() {
 		_, err := dq.Decrypt(ctx, []byte("7"), []byte("encrypted"))
-		require.Equal(t, err.Error(), "context provided by caller was cancelled")
+		require.Equal(t, "context provided by caller was cancelled", err.Error())
 	}()
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("7"))
@@ -194,7 +193,7 @@ func Test_decryptionQueue_GetCiphertext_CiphertextNotFound(t *testing.T) {
 	dq := NewDecryptionQueue(3, 1000, 64, testutils.WaitTimeout(t), lggr)
 
 	_, err := dq.GetCiphertext([]byte{0xa5})
-	assert.True(t, errors.Is(err, decryptionPlugin.ErrNotFound))
+	assert.ErrorIs(t, err, decryptionPlugin.ErrNotFound)
 }
 
 func Test_decryptionQueue_Decrypt_DecryptCalledAfterReadyResult(t *testing.T) {
@@ -224,7 +223,7 @@ func Test_decryptionQueue_ReadyResult_ExpireRequest(t *testing.T) {
 	defer cancel()
 
 	_, err := dq.Decrypt(ctx, []byte("9"), []byte("encrypted"))
-	assert.Equal(t, err.Error(), "context provided by caller was cancelled")
+	assert.Equal(t, "context provided by caller was cancelled", err.Error())
 }
 
 func Test_decryptionQueue_Decrypt_CleanupSuccessfulRequest(t *testing.T) {
@@ -243,7 +242,7 @@ func Test_decryptionQueue_Decrypt_CleanupSuccessfulRequest(t *testing.T) {
 	defer cancel2()
 
 	_, err2 := dq.Decrypt(ctx2, []byte("10"), []byte("encrypted"))
-	assert.Equal(t, err2.Error(), "context provided by caller was cancelled")
+	assert.Equal(t, "context provided by caller was cancelled", err2.Error())
 }
 
 func Test_decryptionQueue_Decrypt_UserErrorDuringDecryption(t *testing.T) {
@@ -259,7 +258,7 @@ func Test_decryptionQueue_Decrypt_UserErrorDuringDecryption(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	_, err := dq.Decrypt(ctx, ciphertextId, []byte("encrypted"))
-	assert.Equal(t, err.Error(), "pending decryption request for ciphertextId 0x120f was closed without a response")
+	assert.Equal(t, "pending decryption request for ciphertextId 0x120f was closed without a response", err.Error())
 }
 
 func Test_decryptionQueue_Decrypt_HandleClosedChannelWithoutPlaintextResponse(t *testing.T) {
@@ -275,7 +274,7 @@ func Test_decryptionQueue_Decrypt_HandleClosedChannelWithoutPlaintextResponse(t 
 	ctx := testutils.Context(t)
 
 	_, err := dq.Decrypt(ctx, ciphertextId, []byte("encrypted"))
-	assert.Equal(t, err.Error(), "pending decryption request for ciphertextId 0x00ff was closed without a response")
+	assert.Equal(t, "pending decryption request for ciphertextId 0x00ff was closed without a response", err.Error())
 }
 
 func Test_decryptionQueue_GetRequests_RequestsCountLimit(t *testing.T) {
@@ -287,7 +286,7 @@ func Test_decryptionQueue_GetRequests_RequestsCountLimit(t *testing.T) {
 
 	go func() {
 		_, err := dq.Decrypt(ctx1, []byte("11"), []byte("encrypted"))
-		require.Equal(t, err.Error(), "context provided by caller was cancelled")
+		require.Equal(t, "context provided by caller was cancelled", err.Error())
 	}()
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("11"))
@@ -297,7 +296,7 @@ func Test_decryptionQueue_GetRequests_RequestsCountLimit(t *testing.T) {
 
 	go func() {
 		_, err := dq.Decrypt(ctx2, []byte("12"), []byte("encrypted"))
-		require.Equal(t, err.Error(), "context provided by caller was cancelled")
+		require.Equal(t, "context provided by caller was cancelled", err.Error())
 	}()
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("12"))
@@ -307,7 +306,7 @@ func Test_decryptionQueue_GetRequests_RequestsCountLimit(t *testing.T) {
 
 	go func() {
 		_, err := dq.Decrypt(ctx3, []byte("13"), []byte("encrypted"))
-		require.Equal(t, err.Error(), "context provided by caller was cancelled")
+		require.Equal(t, "context provided by caller was cancelled", err.Error())
 	}()
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("13"))
@@ -331,7 +330,7 @@ func Test_decryptionQueue_GetRequests_TotalBytesLimit(t *testing.T) {
 
 	go func() {
 		_, err := dq.Decrypt(ctx1, []byte("11"), []byte("encrypted"))
-		require.Equal(t, err.Error(), "context provided by caller was cancelled")
+		require.Equal(t, "context provided by caller was cancelled", err.Error())
 	}()
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("11"))
@@ -341,7 +340,7 @@ func Test_decryptionQueue_GetRequests_TotalBytesLimit(t *testing.T) {
 
 	go func() {
 		_, err := dq.Decrypt(ctx2, []byte("12"), []byte("encrypted"))
-		require.Equal(t, err.Error(), "context provided by caller was cancelled")
+		require.Equal(t, "context provided by caller was cancelled", err.Error())
 	}()
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("12"))
@@ -351,7 +350,7 @@ func Test_decryptionQueue_GetRequests_TotalBytesLimit(t *testing.T) {
 
 	go func() {
 		_, err := dq.Decrypt(ctx3, []byte("13"), []byte("encrypted"))
-		require.Equal(t, err.Error(), "context provided by caller was cancelled")
+		require.Equal(t, "context provided by caller was cancelled", err.Error())
 	}()
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("13"))
@@ -374,7 +373,7 @@ func Test_decryptionQueue_GetRequests_PendingRequestQueueShorterThanRequestCount
 
 	go func() {
 		_, err := dq.Decrypt(ctx, []byte("11"), []byte("encrypted"))
-		require.Equal(t, err.Error(), "context provided by caller was cancelled")
+		require.Equal(t, "context provided by caller was cancelled", err.Error())
 	}()
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("11"))
@@ -396,7 +395,7 @@ func Test_decryptionQueue_GetRequests_ExpiredRequest(t *testing.T) {
 
 	go func() {
 		_, err := dq.Decrypt(ctx, []byte("11"), []byte("encrypted"))
-		require.Equal(t, err.Error(), "context provided by caller was cancelled")
+		require.Equal(t, "context provided by caller was cancelled", err.Error())
 	}()
 
 	waitForPendingRequestToBeAdded(t, dq, []byte("11"))

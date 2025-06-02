@@ -12,7 +12,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -32,12 +34,13 @@ func TestUpdateAuthorizedAddresses(t *testing.T) {
 
 	assert.Empty(t, authorizedAddresses)
 
-	env := deployment.Environment{
-		Logger: lggr,
-		Chains: map[uint64]deployment.Chain{
-			chainSel: resp.Chain,
-		},
+	env := cldf.Environment{
+		Logger:            lggr,
 		ExistingAddresses: resp.AddressBook,
+		BlockChains: cldf_chain.NewBlockChains(
+			map[uint64]cldf_chain.BlockChain{
+				chainSel: resp.Chain,
+			}),
 	}
 
 	addr := "0xc0ffee254729296a45a3885639AC7E10F9d54979"
@@ -95,17 +98,17 @@ func Test_UpdateAuthorizedAddresses_WithMCMS(t *testing.T) {
 	require.Len(t, out.MCMSTimelockProposals, 1)
 	require.Nil(t, out.AddressBook)
 
-	contracts := te.ContractSets()[te.RegistrySelector]
+	capReg := te.OwnedCapabilityRegistry()
 	timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{
 		te.RegistrySelector: {
-			Timelock:  contracts.Timelock,
-			CallProxy: contracts.CallProxy,
+			Timelock:  capReg.McmsContracts.Timelock,
+			CallProxy: capReg.McmsContracts.CallProxy,
 		},
 	}
 
 	_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(workflowregistry.UpdateAuthorizedAddresses),
+			cldf.CreateLegacyChangeSet(workflowregistry.UpdateAuthorizedAddresses),
 			req,
 		),
 	)

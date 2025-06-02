@@ -4,23 +4,22 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -34,7 +33,7 @@ import (
  */
 func TestUSDCTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithNumOfUsersPerChain(3),
 		testhelpers.WithNumOfChains(3),
@@ -42,27 +41,28 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	)
 
 	e := tenv.Env
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	allChainSelectors := maps.Keys(e.Chains)
+	evmChains := e.BlockChains.EVMChains()
+	allChainSelectors := maps.Keys(evmChains)
 	chainA := allChainSelectors[0]
 	chainC := allChainSelectors[1]
 	chainB := allChainSelectors[2]
 
-	ownerChainA := e.Chains[chainA].DeployerKey
-	ownerChainC := e.Chains[chainC].DeployerKey
-	ownerChainB := e.Chains[chainB].DeployerKey
+	ownerChainA := evmChains[chainA].DeployerKey
+	ownerChainC := evmChains[chainC].DeployerKey
+	ownerChainB := evmChains[chainB].DeployerKey
 
-	aChainUSDC, cChainUSDC, err := testhelpers.ConfigureUSDCTokenPools(lggr, e.Chains, chainA, chainC, state)
+	aChainUSDC, cChainUSDC, err := testhelpers.ConfigureUSDCTokenPools(lggr, evmChains, chainA, chainC, state)
 	require.NoError(t, err)
 
-	bChainUSDC, _, err := testhelpers.ConfigureUSDCTokenPools(lggr, e.Chains, chainB, chainC, state)
+	bChainUSDC, _, err := testhelpers.ConfigureUSDCTokenPools(lggr, evmChains, chainB, chainC, state)
 	require.NoError(t, err)
 
 	aChainToken, _, cChainToken, _, err := testhelpers.DeployTransferableToken(
 		lggr,
-		tenv.Env.Chains,
+		tenv.Env.BlockChains.EVMChains(),
 		chainA,
 		chainC,
 		ownerChainA,
@@ -102,7 +102,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	tcs := []testhelpers.TestTransferRequest{
 		{
 			Name:        "single USDC token transfer to EOA",
-			Receiver:    utils.RandomAddress(),
+			Receiver:    utils.RandomAddress().Bytes(),
 			SourceChain: chainC,
 			DestChain:   chainA,
 			Tokens: []router.ClientEVMTokenAmount{
@@ -110,14 +110,14 @@ func TestUSDCTokenTransfer(t *testing.T) {
 					Token:  cChainUSDC.Address(),
 					Amount: tinyOneCoin,
 				}},
-			ExpectedTokenBalances: map[common.Address]*big.Int{
-				aChainUSDC.Address(): tinyOneCoin,
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{Token: aChainUSDC.Address().Bytes(), Amount: tinyOneCoin},
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			Name:        "multiple USDC tokens within the same message",
-			Receiver:    utils.RandomAddress(),
+			Receiver:    utils.RandomAddress().Bytes(),
 			SourceChain: chainC,
 			DestChain:   chainA,
 			Tokens: []router.ClientEVMTokenAmount{
@@ -130,15 +130,15 @@ func TestUSDCTokenTransfer(t *testing.T) {
 					Amount: tinyOneCoin,
 				},
 			},
-			ExpectedTokenBalances: map[common.Address]*big.Int{
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				// 2 coins because of the same Receiver
-				aChainUSDC.Address(): new(big.Int).Add(tinyOneCoin, tinyOneCoin),
+				{Token: aChainUSDC.Address().Bytes(), Amount: new(big.Int).Add(tinyOneCoin, tinyOneCoin)},
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			Name:        "USDC token together with another token transferred to EOA",
-			Receiver:    utils.RandomAddress(),
+			Receiver:    utils.RandomAddress().Bytes(),
 			SourceChain: chainA,
 			DestChain:   chainC,
 			Tokens: []router.ClientEVMTokenAmount{
@@ -151,15 +151,15 @@ func TestUSDCTokenTransfer(t *testing.T) {
 					Amount: new(big.Int).Mul(tinyOneCoin, big.NewInt(10)),
 				},
 			},
-			ExpectedTokenBalances: map[common.Address]*big.Int{
-				cChainUSDC.Address():  tinyOneCoin,
-				cChainToken.Address(): new(big.Int).Mul(tinyOneCoin, big.NewInt(10)),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{Token: cChainUSDC.Address().Bytes(), Amount: tinyOneCoin},
+				{Token: cChainToken.Address().Bytes(), Amount: new(big.Int).Mul(tinyOneCoin, big.NewInt(10))},
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			Name:        "USDC programmable token transfer to valid contract receiver",
-			Receiver:    state.Chains[chainC].Receiver.Address(),
+			Receiver:    state.MustGetEVMChainState(chainC).Receiver.Address().Bytes(),
 			SourceChain: chainA,
 			DestChain:   chainC,
 			Tokens: []router.ClientEVMTokenAmount{
@@ -169,14 +169,14 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				},
 			},
 			Data: []byte("hello world"),
-			ExpectedTokenBalances: map[common.Address]*big.Int{
-				cChainUSDC.Address(): tinyOneCoin,
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{Token: cChainUSDC.Address().Bytes(), Amount: tinyOneCoin},
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			Name:        "USDC programmable token transfer with too little gas",
-			Receiver:    state.Chains[chainB].Receiver.Address(),
+			Receiver:    state.MustGetEVMChainState(chainB).Receiver.Address().Bytes(),
 			SourceChain: chainC,
 			DestChain:   chainB,
 			Tokens: []router.ClientEVMTokenAmount{
@@ -186,15 +186,15 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				},
 			},
 			Data: []byte("gimme more gas to execute that!"),
-			ExpectedTokenBalances: map[common.Address]*big.Int{
-				bChainUSDC.Address(): new(big.Int).SetUint64(0),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{Token: bChainUSDC.Address().Bytes(), Amount: new(big.Int).SetUint64(0)},
 			},
 			ExtraArgs:      testhelpers.MakeEVMExtraArgsV2(1, false),
 			ExpectedStatus: testhelpers.EXECUTION_STATE_FAILURE,
 		},
 		{
 			Name:        "USDC token transfer from a different source chain",
-			Receiver:    utils.RandomAddress(),
+			Receiver:    utils.RandomAddress().Bytes(),
 			SourceChain: chainB,
 			DestChain:   chainC,
 			Tokens: []router.ClientEVMTokenAmount{
@@ -204,8 +204,8 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				},
 			},
 			Data: nil,
-			ExpectedTokenBalances: map[common.Address]*big.Int{
-				cChainUSDC.Address(): tinyOneCoin,
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{Token: cChainUSDC.Address().Bytes(), Amount: tinyOneCoin},
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
@@ -216,8 +216,8 @@ func TestUSDCTokenTransfer(t *testing.T) {
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
-		e.Chains,
-		state.Chains,
+		e,
+		state,
 		startBlocks,
 		false,
 		expectedSeqNums,
@@ -233,30 +233,31 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	)
 	require.Equal(t, expectedExecutionStates, execStates)
 
-	testhelpers.WaitForTokenBalances(ctx, t, e.Chains, expectedTokenBalances)
+	testhelpers.WaitForTokenBalances(ctx, t, e, expectedTokenBalances)
 }
 
 func updateFeeQuoters(
 	t *testing.T,
 	lggr logger.Logger,
-	e deployment.Environment,
-	state changeset.CCIPOnChainState,
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
 	chainA, chainB, chainC uint64,
 	aChainUSDC, bChainUSDC, cChainUSDC *burn_mint_erc677.BurnMintERC677,
 ) error {
+	evmChains := e.BlockChains.EVMChains()
 	updateFeeQtrGrp := errgroup.Group{}
 	updateFeeQtrGrp.Go(func() error {
-		return testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, e.Chains[chainA], chainC)
+		return testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, evmChains[chainA], chainC)
 	})
 	updateFeeQtrGrp.Go(func() error {
-		return testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, e.Chains[chainB], chainC)
+		return testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, evmChains[chainB], chainC)
 	})
 	updateFeeQtrGrp.Go(func() error {
-		err1 := testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, e.Chains[chainC], chainA)
+		err1 := testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, evmChains[chainC], chainA)
 		if err1 != nil {
 			return err1
 		}
-		return testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, e.Chains[chainC], chainB)
+		return testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, evmChains[chainC], chainB)
 	})
 	return updateFeeQtrGrp.Wait()
 }

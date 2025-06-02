@@ -209,7 +209,8 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
   function test_ForwardFromRouterExtraArgsV2() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.extraArgs = abi.encodeWithSelector(
-      Client.EVM_EXTRA_ARGS_V2_TAG, Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: false})
+      Client.GENERIC_EXTRA_ARGS_V2_TAG,
+      Client.GenericExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: false})
     );
     uint256 feeAmount = 1234567890;
     IERC20(s_sourceFeeToken).transferFrom(OWNER, address(s_onRamp), feeAmount);
@@ -223,7 +224,8 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
   function test_ForwardFromRouterExtraArgsV2AllowOutOfOrderTrue() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.extraArgs = abi.encodeWithSelector(
-      Client.EVM_EXTRA_ARGS_V2_TAG, Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: true})
+      Client.GENERIC_EXTRA_ARGS_V2_TAG,
+      Client.GenericExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: true})
     );
     uint256 feeAmount = 1234567890;
     IERC20(s_sourceFeeToken).transferFrom(OWNER, address(s_onRamp), feeAmount);
@@ -256,7 +258,8 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
   function test_ShouldIncrementNonceOnlyOnOrdered() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.extraArgs = abi.encodeWithSelector(
-      Client.EVM_EXTRA_ARGS_V2_TAG, Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: true})
+      Client.GENERIC_EXTRA_ARGS_V2_TAG,
+      Client.GenericExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: true})
     );
 
     for (uint64 i = 1; i < 4; ++i) {

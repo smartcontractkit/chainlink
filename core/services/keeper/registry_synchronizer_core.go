@@ -2,7 +2,7 @@ package keeper
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink-evm/pkg/log"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -95,7 +95,7 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 			<-rs.chStop
 		}()
 
-		rs.mailMon.Monitor(rs.mbLogs, "RegistrySynchronizer", "Logs", fmt.Sprint(rs.job.ID))
+		rs.mailMon.Monitor(rs.mbLogs, "RegistrySynchronizer", "Logs", strconv.Itoa(int(rs.job.ID)))
 
 		return nil
 	})

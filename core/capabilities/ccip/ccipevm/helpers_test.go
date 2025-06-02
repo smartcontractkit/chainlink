@@ -7,38 +7,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/message_hasher"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 )
 
 func Test_decodeExtraArgs(t *testing.T) {
 	d := testSetup(t)
 	gasLimit := big.NewInt(rand.Int63())
 	extraDataDecoder := &ExtraDataDecoder{}
-
-	t.Run("v1", func(t *testing.T) {
-		encoded, err := d.contract.EncodeEVMExtraArgsV1(nil, message_hasher.ClientEVMExtraArgsV1{
-			GasLimit: gasLimit,
-		})
-		require.NoError(t, err)
-
-		decodedGasLimit, err := decodeExtraArgsV1V2(encoded)
-		require.NoError(t, err)
-
-		require.Equal(t, gasLimit, decodedGasLimit)
-	})
-
-	t.Run("v2", func(t *testing.T) {
-		encoded, err := d.contract.EncodeEVMExtraArgsV2(nil, message_hasher.ClientEVMExtraArgsV2{
-			GasLimit:                 gasLimit,
-			AllowOutOfOrderExecution: true,
-		})
-		require.NoError(t, err)
-
-		decodedGasLimit, err := decodeExtraArgsV1V2(encoded)
-		require.NoError(t, err)
-
-		require.Equal(t, gasLimit, decodedGasLimit)
-	})
 
 	t.Run("decode extra args into map evm v1", func(t *testing.T) {
 		encoded, err := d.contract.EncodeEVMExtraArgsV1(nil, message_hasher.ClientEVMExtraArgsV1{
@@ -56,7 +31,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 	})
 
 	t.Run("decode extra args into map evm v2", func(t *testing.T) {
-		encoded, err := d.contract.EncodeEVMExtraArgsV2(nil, message_hasher.ClientEVMExtraArgsV2{
+		encoded, err := d.contract.EncodeEVMExtraArgsV2(nil, message_hasher.ClientGenericExtraArgsV2{
 			GasLimit:                 gasLimit,
 			AllowOutOfOrderExecution: true,
 		})

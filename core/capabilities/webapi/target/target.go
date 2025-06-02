@@ -93,7 +93,11 @@ func defaultIfNil[T any](value *T, defaultValue T) T {
 	return defaultValue
 }
 
-func getPayload(input webapicap.TargetPayload, cfg webapicap.TargetConfig) (ghcapabilities.Request, error) {
+func getPayload(input webapicap.TargetPayload, cfg webapicap.TargetConfig, req capabilities.CapabilityRequest) (ghcapabilities.Request, error) {
+	if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowID); err != nil {
+		return ghcapabilities.Request{}, fmt.Errorf("workflow ID is invalid: %w", err)
+	}
+
 	method := defaultIfNil(input.Method, DefaultHTTPMethod)
 	body := defaultIfNil(input.Body, "")
 	timeoutMs := defaultIfNil(cfg.TimeoutMs, DefaultTimeoutMs)
@@ -102,11 +106,12 @@ func getPayload(input webapicap.TargetPayload, cfg webapicap.TargetConfig) (ghca
 	}
 
 	return ghcapabilities.Request{
-		URL:       input.Url,
-		Method:    method,
-		Headers:   input.Headers,
-		Body:      []byte(body),
-		TimeoutMs: timeoutMs,
+		URL:        input.Url,
+		Method:     method,
+		Headers:    input.Headers,
+		Body:       []byte(body),
+		TimeoutMs:  timeoutMs,
+		WorkflowID: req.Metadata.WorkflowID,
 	}, nil
 }
 
@@ -130,7 +135,7 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 		return capabilities.CapabilityResponse{}, err
 	}
 
-	payload, err := getPayload(input, workflowCfg)
+	payload, err := getPayload(input, workflowCfg, req)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, err
 	}
@@ -145,7 +150,7 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 		if err != nil {
 			return capabilities.CapabilityResponse{}, err
 		}
-		c.lggr.Debugw("received gateway response", "resp", resp)
+		c.lggr.Debugw("received gateway response", "donID", resp.Body.DonId, "msgID", resp.Body.MessageId, "receiver", resp.Body.Receiver, "sender", resp.Body.Sender)
 		var payload ghcapabilities.Response
 		err = json.Unmarshal(resp.Body.Payload, &payload)
 		if err != nil {

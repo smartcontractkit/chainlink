@@ -26,7 +26,7 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
     s_feeQuoter.applyDestChainConfigUpdates(destChainConfigs);
   }
 
-  function test_SVMExtraArgsV1TagSelector() public view {
+  function test_SVMExtraArgsV1TagSelector() public pure {
     assertEq(Client.SVM_EXTRA_ARGS_V1_TAG, bytes4(keccak256("CCIP SVMExtraArgsV1")));
   }
 

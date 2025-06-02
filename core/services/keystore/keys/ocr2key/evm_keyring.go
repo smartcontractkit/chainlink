@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -16,7 +17,7 @@ import (
 var _ ocrtypes.OnchainKeyring = &evmKeyring{}
 
 type evmKeyring struct {
-	privateKey ecdsa.PrivateKey
+	privateKey func() *ecdsa.PrivateKey
 }
 
 func newEVMKeyring(material io.Reader) (*evmKeyring, error) {
@@ -24,7 +25,7 @@ func newEVMKeyring(material io.Reader) (*evmKeyring, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &evmKeyring{privateKey: *ecdsaKey}, nil
+	return &evmKeyring{privateKey: func() *ecdsa.PrivateKey { return ecdsaKey }}, nil
 }
 
 // XXX: PublicKey returns the address of the public key not the public key itself
@@ -34,7 +35,7 @@ func (ekr *evmKeyring) PublicKey() ocrtypes.OnchainPublicKey {
 }
 
 func (ekr *evmKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
-	return ekr.signBlob(ekr.reportToSigData(reportCtx, report))
+	return ekr.SignBlob(ekr.reportToSigData(reportCtx, report))
 }
 
 func (ekr *evmKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) []byte {
@@ -47,10 +48,10 @@ func (ekr *evmKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report 
 }
 
 func (ekr *evmKeyring) Sign3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error) {
-	return ekr.signBlob(ekr.reportToSigData3(digest, seqNr, r))
+	return ekr.SignBlob(ReportToSigData3(digest, seqNr, r))
 }
 
-func (ekr *evmKeyring) reportToSigData3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) []byte {
+func ReportToSigData3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) []byte {
 	rawReportContext := RawReportContext3(digest, seqNr)
 	sigData := crypto.Keccak256(r)
 	sigData = append(sigData, rawReportContext[0][:]...)
@@ -67,21 +68,21 @@ func RawReportContext3(digest types.ConfigDigest, seqNr uint64) [2][32]byte {
 	}
 }
 
-func (ekr *evmKeyring) signBlob(b []byte) (sig []byte, err error) {
-	return crypto.Sign(b, &ekr.privateKey)
+func (ekr *evmKeyring) SignBlob(b []byte) (sig []byte, err error) {
+	return crypto.Sign(b, ekr.privateKey())
 }
 
 func (ekr *evmKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
 	hash := ekr.reportToSigData(reportCtx, report)
-	return ekr.verifyBlob(publicKey, hash, signature)
+	return ekr.VerifyBlob(publicKey, hash, signature)
 }
 
 func (ekr *evmKeyring) Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
-	hash := ekr.reportToSigData3(cd, seqNr, r)
-	return ekr.verifyBlob(publicKey, hash, signature)
+	hash := ReportToSigData3(cd, seqNr, r)
+	return ekr.VerifyBlob(publicKey, hash, signature)
 }
 
-func (ekr *evmKeyring) verifyBlob(pubkey types.OnchainPublicKey, b, sig []byte) bool {
+func (ekr *evmKeyring) VerifyBlob(pubkey types.OnchainPublicKey, b, sig []byte) bool {
 	authorPubkey, err := crypto.SigToPub(b, sig)
 	if err != nil {
 		return false
@@ -96,11 +97,11 @@ func (ekr *evmKeyring) MaxSignatureLength() int {
 }
 
 func (ekr *evmKeyring) signingAddress() common.Address {
-	return crypto.PubkeyToAddress(*(&ekr.privateKey).Public().(*ecdsa.PublicKey))
+	return crypto.PubkeyToAddress(ekr.privateKey().PublicKey)
 }
 
 func (ekr *evmKeyring) Marshal() ([]byte, error) {
-	return crypto.FromECDSA(&ekr.privateKey), nil
+	return crypto.FromECDSA(ekr.privateKey()), nil
 }
 
 func (ekr *evmKeyring) Unmarshal(in []byte) error {
@@ -108,6 +109,6 @@ func (ekr *evmKeyring) Unmarshal(in []byte) error {
 	if err != nil {
 		return err
 	}
-	ekr.privateKey = *privateKey
+	ekr.privateKey = func() *ecdsa.PrivateKey { return privateKey }
 	return nil
 }

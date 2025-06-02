@@ -2,70 +2,56 @@ package jobs
 
 import (
 	"context"
-	"sync"
+	"fmt"
+	"strings"
+	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/ratelimit"
+	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-
-	keystoneflags "github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	types "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-var SupportedJobs = []types.JobDescription{
-	{Flag: types.OCR3Capability, NodeType: types.BootstrapNode},
-	{Flag: types.WorkflowDON, NodeType: types.BootstrapNode},
-	{Flag: types.CustomComputeCapability, NodeType: types.BootstrapNode},
-	{Flag: types.CronCapability, NodeType: types.WorkerNode},
-	{Flag: types.CustomComputeCapability, NodeType: types.WorkerNode},
-	{Flag: types.OCR3Capability, NodeType: types.WorkerNode},
-}
+func Create(ctx context.Context, offChainClient deployment.OffchainClient, don *devenv.DON, flags []string, jobSpecs types.DonJobs) error {
+	if len(jobSpecs) == 0 {
+		return nil
+	}
 
-func Create(offChainClient deployment.OffchainClient, don *devenv.DON, flags []string, jobSpecs types.DonJobs) error {
-	errCh := make(chan error, calculateJobCount(jobSpecs))
+	eg := &errgroup.Group{}
+	jobRateLimit := ratelimit.New(5)
 
-	var wg sync.WaitGroup
-
-	for _, jobDesc := range SupportedJobs {
-		if keystoneflags.HasFlag(flags, jobDesc.Flag) {
-			if jobReqs, ok := jobSpecs[jobDesc]; ok {
-				for _, jobReq := range jobReqs {
-					wg.Add(1)
-					go func(jobReq *jobv1.ProposeJobRequest) {
-						defer wg.Done()
-						_, err := offChainClient.ProposeJob(context.Background(), jobReq)
-						if err != nil {
-							errCh <- errors.Wrapf(err, "failed to propose job for node %s", jobReq.NodeId)
-						}
-					}(jobReq)
+	for _, jobReq := range jobSpecs {
+		eg.Go(func() error {
+			jobRateLimit.Take()
+			timeout := time.Second * 60
+			ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
+			defer cancel()
+			_, err := offChainClient.ProposeJob(ctxWithTimeout, jobReq)
+			if err != nil {
+				// Workflow specs get auto approved
+				// TODO: Narrow down scope by checking type == workflow
+				if strings.Contains(err.Error(), "cannot approve an approved spec") {
+					return nil
 				}
+				fmt.Println("Failed jobspec proposal:")
+				fmt.Println(jobReq)
+				return errors.Wrapf(err, "failed to propose job for node %s", jobReq.NodeId)
 			}
-		}
+			if ctx.Err() != nil {
+				return errors.Wrapf(err, "timed out after %s proposing job for node %s", timeout.String(), jobReq.NodeId)
+			}
+
+			return nil
+		})
 	}
 
-	wg.Wait()
-	close(errCh)
-
-	var finalErr error
-	for err := range errCh {
-		finalErr = errors.Wrap(finalErr, err.Error())
-	}
-
-	if finalErr != nil {
-		return errors.Wrap(finalErr, "failed to create at least one job for DON")
+	if err := eg.Wait(); err != nil {
+		return errors.Wrap(err, "failed to create at least one job for DON")
 	}
 
 	return nil
-}
-
-func calculateJobCount(jobSpecs types.DonJobs) int {
-	count := 0
-	for _, jobSpec := range jobSpecs {
-		count += len(jobSpec)
-	}
-
-	return count
 }

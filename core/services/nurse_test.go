@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -103,7 +102,7 @@ func TestNurse(t *testing.T) {
 	nrse := NewNurse(newMockConfig(t), l)
 	nrse.AddCheck("test", func() (bool, Meta) { return true, Meta{} })
 
-	require.NoError(t, nrse.Start(tests.Context(t)))
+	require.NoError(t, nrse.Start(t.Context()))
 	defer func() { require.NoError(t, nrse.Close()) }()
 
 	require.NoError(t, nrse.appendLog(time.Now(), "test", Meta{}))
@@ -112,7 +111,7 @@ func TestNurse(t *testing.T) {
 	require.NoError(t, err)
 	n, err := wc.Write([]byte("junk"))
 	require.NoError(t, err)
-	require.Greater(t, n, 0)
+	require.Positive(t, n)
 	require.NoError(t, wc.Close())
 
 	wc, err = nrse.createFile(time.Now(), "testgz", false)
@@ -127,12 +126,12 @@ func TestNurse(t *testing.T) {
 	testutils.AssertEventually(t, func() bool { return profileExists(t, nrse, traceProfName) })
 	n2, err := nrse.totalProfileBytes()
 	require.NoError(t, err)
-	require.Greater(t, n2, uint64(0))
+	require.Positive(t, n2)
 }
 
 func profileExists(t *testing.T, nrse *Nurse, typ string) bool {
 	profiles, err := nrse.listProfiles()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	for _, p := range profiles {
 		if strings.Contains(p.Name(), typ) {
 			return true

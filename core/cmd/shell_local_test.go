@@ -1,8 +1,8 @@
 package cmd_test
 
 import (
+	"errors"
 	"flag"
-	"fmt"
 	"math/big"
 	"os"
 	"strconv"
@@ -19,12 +19,14 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/v2/core/cmd/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -37,7 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
-	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -45,7 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-func genTestEVMRelayers(t *testing.T, cfg chainlink.GeneralConfig, ds sqlutil.DataSource, ks evmrelayer.CSAETHKeystore) *chainlink.CoreRelayerChainInteroperators {
+func genTestEVMRelayers(t *testing.T, cfg chainlink.GeneralConfig, ds sqlutil.DataSource, ethKeystore keystore.Eth, csaKeystore core.Keystore) *chainlink.CoreRelayerChainInteroperators {
 	lggr := logger.TestLogger(t)
 	f := chainlink.RelayerFactory{
 		Logger:               lggr,
@@ -53,7 +55,7 @@ func genTestEVMRelayers(t *testing.T, cfg chainlink.GeneralConfig, ds sqlutil.Da
 		CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 	}
 
-	relayers, err := chainlink.NewCoreRelayerChainInteroperators(chainlink.InitEVM(testutils.Context(t), f, chainlink.EVMFactoryConfig{
+	relayers, err := chainlink.NewCoreRelayerChainInteroperators(chainlink.InitEVM(f, chainlink.EVMFactoryConfig{
 		ChainOpts: legacyevm.ChainOpts{
 			ChainConfigs:   cfg.EVMConfigs(),
 			DatabaseConfig: cfg.Database(),
@@ -62,7 +64,8 @@ func genTestEVMRelayers(t *testing.T, cfg chainlink.GeneralConfig, ds sqlutil.Da
 			MailMon:        &mailbox.Monitor{},
 			DS:             ds,
 		},
-		CSAETHKeystore: ks,
+		EthKeystore: ethKeystore,
+		CSAKeystore: csaKeystore,
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -95,7 +98,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			keyStore := cltest.NewKeyStore(t, db)
 			authProviderORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), audit.NoopLogger)
 
-			testRelayers := genTestEVMRelayers(t, cfg, db, keyStore)
+			testRelayers := genTestEVMRelayers(t, cfg, db, keyStore.Eth(), &keystore.CSASigner{CSA: keyStore.CSA()})
 
 			// Purge the fixture users to test assumption of single admin
 			// initialUser user created above
@@ -189,7 +192,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			ethClient.On("Dial", mock.Anything).Return(nil).Maybe()
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil).Maybe()
 
-			testRelayers := genTestEVMRelayers(t, cfg, db, keyStore)
+			testRelayers := genTestEVMRelayers(t, cfg, db, keyStore.Eth(), &keystore.CSASigner{CSA: keyStore.CSA()})
 			app := mocks.NewApplication(t)
 			app.On("BasicAdminUsersORM").Return(authProviderORM)
 			app.On("GetKeyStore").Return(keyStore)
@@ -282,8 +285,8 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, sqlxDB)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
-	txStore := cltest.NewTestTxStore(t, sqlxDB)
-	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 7, 42, fromAddress)
+	txStore := txmgrtest.NewTestTxStore(t, sqlxDB)
+	txmgrtest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 7, 42, fromAddress)
 
 	lggr := logger.TestLogger(t)
 
@@ -364,8 +367,8 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
-			txStore := cltest.NewTestTxStore(t, sqlxDB)
-			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(test.nonce), 42, fromAddress)
+			txStore := txmgrtest.NewTestTxStore(t, sqlxDB)
+			txmgrtest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(test.nonce), 42, fromAddress)
 
 			lggr := logger.TestLogger(t)
 
@@ -542,7 +545,7 @@ func TestShell_RemoveBlocks(t *testing.T) {
 		flagSetApplyFromAction(shell.RemoveBlocks, set, "")
 		require.NoError(t, set.Set("start", "10000"))
 		require.NoError(t, set.Set("evm-chain-id", "12"))
-		expectedError := fmt.Errorf("failed to delete log poller's data")
+		expectedError := errors.New("failed to delete log poller's data")
 		app.On("DeleteLogPollerDataAfter", mock.Anything, big.NewInt(12), int64(10000)).Return(expectedError).Once()
 		c := cli.NewContext(nil, set, nil)
 		err := shell.RemoveBlocks(c)

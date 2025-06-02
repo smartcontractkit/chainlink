@@ -12,7 +12,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -62,7 +61,7 @@ func TestDataSource(t *testing.T) {
 		spec:           spec,
 		lggr:           lggr,
 	}
-	res, err := ds.Observe(tests.Context(t), ocrtypes.ReportTimestamp{})
+	res, err := ds.Observe(t.Context(), ocrtypes.ReportTimestamp{})
 	require.NoError(t, err)
 	expectBN := big.NewInt(expect.Val.(int64))
 	assert.Equal(t, expectBN, res)
@@ -89,7 +88,7 @@ func TestDataSource_ResultErrors(t *testing.T) {
 		spec:           spec,
 		lggr:           lggr,
 	}
-	_, err := ds.Observe(tests.Context(t), ocrtypes.ReportTimestamp{})
+	_, err := ds.Observe(t.Context(), ocrtypes.ReportTimestamp{})
 	assert.ErrorContains(t, err, "something went wrong")
 }
 
@@ -114,6 +113,6 @@ func TestDataSource_ResultNotAnInt(t *testing.T) {
 		spec:           spec,
 		lggr:           lggr,
 	}
-	_, err := ds.Observe(tests.Context(t), ocrtypes.ReportTimestamp{})
+	_, err := ds.Observe(t.Context(), ocrtypes.ReportTimestamp{})
 	assert.ErrorContains(t, err, "cannot convert observation to decimal")
 }

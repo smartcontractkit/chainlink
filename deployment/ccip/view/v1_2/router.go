@@ -5,19 +5,20 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
 )
 
 type RouterView struct {
 	types.ContractMetaData
+	IsTestRouter  bool                      `json:"isTestRouter"`
 	WrappedNative common.Address            `json:"wrappedNative,omitempty"`
 	ARMProxy      common.Address            `json:"armProxy,omitempty"`
 	OnRamps       map[uint64]common.Address `json:"onRamps,omitempty"`  // Map of DestinationChainSelectors to OnRamp Addresses
 	OffRamps      map[uint64]common.Address `json:"offRamps,omitempty"` // Map of SourceChainSelectors to a list of OffRamp Addresses
 }
 
-func GenerateRouterView(r *router.Router) (RouterView, error) {
+func GenerateRouterView(r *router.Router, isTestRouter bool) (RouterView, error) {
 	meta, err := types.NewContractMetaData(r, r.Address())
 	if err != nil {
 		return RouterView{}, fmt.Errorf("view error to get router metadata: %w", err)
@@ -48,6 +49,7 @@ func GenerateRouterView(r *router.Router) (RouterView, error) {
 	}
 	return RouterView{
 		ContractMetaData: meta,
+		IsTestRouter:     isTestRouter,
 		WrappedNative:    wrappedNative,
 		ARMProxy:         armProxy,
 		OnRamps:          onRamps,

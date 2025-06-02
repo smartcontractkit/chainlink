@@ -16,14 +16,23 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 )
+
+func WithBillingClient(client BillingClient) func(*Delegate) {
+	return func(e *Delegate) {
+		e.billingClient = client
+	}
+}
 
 type Delegate struct {
 	registry       core.CapabilitiesRegistry
-	secretsFetcher secretsFetcher
+	secretsFetcher SecretsFor
 	logger         logger.Logger
 	store          store.Store
 	ratelimiter    *ratelimiter.RateLimiter
+	workflowLimits *syncerlimiter.Limits
+	billingClient  BillingClient
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -62,19 +71,18 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 
 	cfg := Config{
-		Lggr:          d.logger,
-		Workflow:      sdkSpec,
-		WorkflowID:    spec.WorkflowSpec.WorkflowID,
-		WorkflowOwner: spec.WorkflowSpec.WorkflowOwner,
-		WorkflowName: defaultName{
-			name: spec.WorkflowSpec.WorkflowName,
-		},
+		Lggr:           d.logger,
+		Workflow:       sdkSpec,
+		WorkflowID:     spec.WorkflowSpec.WorkflowID,
+		WorkflowOwner:  spec.WorkflowSpec.WorkflowOwner,
+		WorkflowName:   NewLegacyWorkflowName(spec.WorkflowSpec.WorkflowName),
 		Registry:       d.registry,
 		Store:          d.store,
 		Config:         config,
 		Binary:         binary,
 		SecretsFetcher: d.secretsFetcher,
 		RateLimiter:    d.ratelimiter,
+		WorkflowLimits: d.workflowLimits,
 	}
 	engine, err := NewEngine(ctx, cfg)
 	if err != nil {
@@ -84,28 +92,23 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	return []job.ServiceCtx{engine}, nil
 }
 
-type noopSecretsFetcher struct{}
-
-func (n *noopSecretsFetcher) SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error) {
-	return map[string]string{}, nil
-}
-
-func newNoopSecretsFetcher() *noopSecretsFetcher {
-	return &noopSecretsFetcher{}
-}
-
 func NewDelegate(
 	logger logger.Logger,
 	registry core.CapabilitiesRegistry,
 	store store.Store,
 	ratelimiter *ratelimiter.RateLimiter,
+	workflowLimits *syncerlimiter.Limits,
+	opts ...func(*Delegate),
 ) *Delegate {
 	return &Delegate{
-		logger:         logger,
-		registry:       registry,
-		secretsFetcher: newNoopSecretsFetcher(),
+		logger:   logger,
+		registry: registry,
+		secretsFetcher: func(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error) {
+			return map[string]string{}, nil
+		},
 		store:          store,
 		ratelimiter:    ratelimiter,
+		workflowLimits: workflowLimits,
 	}
 }
 

@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -42,13 +41,13 @@ func Test_ExternalInitiatorManager_Load(t *testing.T) {
 
 	eiWebhookSpecs, jobID, err := eim.Load(ctx, webhookSpecNoEIs.ID)
 	require.NoError(t, err)
-	assert.Len(t, eiWebhookSpecs, 0)
+	assert.Empty(t, eiWebhookSpecs)
 	assert.Equal(t, jb3.ExternalJobID, jobID)
 
 	eiWebhookSpecs, jobID, err = eim.Load(ctx, webhookSpecOneEI.ID)
 	require.NoError(t, err)
 	assert.Len(t, eiWebhookSpecs, 1)
-	assert.Equal(t, `{"ei": "foo", "name": "webhookSpecOneEI"}`, eiWebhookSpecs[0].Spec.Raw)
+	assert.JSONEq(t, `{"ei": "foo", "name": "webhookSpecOneEI"}`, eiWebhookSpecs[0].Spec.Raw)
 	assert.Equal(t, eiFoo.ID, eiWebhookSpecs[0].ExternalInitiator.ID)
 	assert.Equal(t, jb1.ExternalJobID, jobID)
 
@@ -59,7 +58,7 @@ func Test_ExternalInitiatorManager_Load(t *testing.T) {
 }
 
 func Test_ExternalInitiatorManager_Notify(t *testing.T) {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 	borm := bridges.NewORM(db)
 
@@ -90,7 +89,7 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 
 		assert.Equal(t, jb.ExternalJobID.String(), gjson.GetBytes(b, "jobId").Str)
 		assert.Equal(t, eiWithURL.Name, gjson.GetBytes(b, "type").Str)
-		assert.Equal(t, `{"ei":"foo","name":"webhookSpecTwoEIs"}`, gjson.GetBytes(b, "params").Raw)
+		assert.JSONEq(t, `{"ei":"foo","name":"webhookSpecTwoEIs"}`, gjson.GetBytes(b, "params").Raw)
 
 		return r.Method == "POST" && r.URL.String() == eiWithURL.URL.String() && r.Header["Content-Type"][0] == "application/json" && r.Header["X-Chainlink-Ea-Accesskey"][0] == "token" && r.Header["X-Chainlink-Ea-Secret"][0] == "secret"
 	})).Once().Return(&http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(""))}, nil)

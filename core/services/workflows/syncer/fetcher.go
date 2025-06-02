@@ -2,12 +2,9 @@ package syncer
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"net/http"
-	"strings"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
@@ -19,19 +16,21 @@ import (
 
 type FetcherService struct {
 	services.StateMachine
-	lggr    logger.Logger
-	och     *webapi.OutgoingConnectorHandler
-	wrapper gatewayConnector
+	lggr         logger.Logger
+	och          *webapi.OutgoingConnectorHandler
+	wrapper      gatewayConnector
+	selectorOpts []func(*webapi.RoundRobinSelector)
 }
 
 type gatewayConnector interface {
 	GetGatewayConnector() connector.GatewayConnector
 }
 
-func NewFetcherService(lggr logger.Logger, wrapper gatewayConnector) *FetcherService {
+func NewFetcherService(lggr logger.Logger, wrapper gatewayConnector, selectorOpts ...func(*webapi.RoundRobinSelector)) *FetcherService {
 	return &FetcherService{
-		lggr:    lggr.Named("FetcherService"),
-		wrapper: wrapper,
+		lggr:         lggr.Named("FetcherService"),
+		wrapper:      wrapper,
+		selectorOpts: selectorOpts,
 	}
 }
 
@@ -42,6 +41,12 @@ func (s *FetcherService) Start(ctx context.Context) error {
 		outgoingConnectorLggr := s.lggr.Named("OutgoingConnectorHandler")
 
 		webAPIConfig := webapi.ServiceConfig{
+			OutgoingRateLimiter: common.RateLimiterConfig{
+				GlobalRPS:      webapi.DefaultGlobalRPS,
+				GlobalBurst:    webapi.DefaultGlobalBurst,
+				PerSenderRPS:   webapi.DefaultWorkflowRPS,
+				PerSenderBurst: webapi.DefaultWorkflowBurst,
+			},
 			RateLimiter: common.RateLimiterConfig{
 				GlobalRPS:      100.0,
 				GlobalBurst:    100,
@@ -52,7 +57,7 @@ func (s *FetcherService) Start(ctx context.Context) error {
 
 		och, err := webapi.NewOutgoingConnectorHandler(connector,
 			webAPIConfig,
-			ghcapabilities.MethodWorkflowSyncer, outgoingConnectorLggr)
+			ghcapabilities.MethodWorkflowSyncer, outgoingConnectorLggr, s.selectorOpts...)
 		if err != nil {
 			return fmt.Errorf("could not create outgoing connector handler: %w", err)
 		}
@@ -76,22 +81,15 @@ func (s *FetcherService) Name() string {
 	return s.lggr.Name()
 }
 
-func hash(url string) string {
-	h := sha256.New()
-	h.Write([]byte(url))
-	return hex.EncodeToString(h.Sum(nil))
-}
-
 // Fetch fetches the given URL and returns the response body.  n is the maximum number of bytes to
 // read from the response body.  Set n to zero to use the default size limit specified by the
 // configured gateway's http client, if any.
-func (s *FetcherService) Fetch(ctx context.Context, url string, n uint32) ([]byte, error) {
-	messageID := strings.Join([]string{ghcapabilities.MethodWorkflowSyncer, hash(url)}, "/")
-	resp, err := s.och.HandleSingleNodeRequest(ctx, messageID, ghcapabilities.Request{
-		URL:              url,
-		Method:           http.MethodGet,
-		MaxResponseBytes: n,
-	})
+func (s *FetcherService) Fetch(ctx context.Context, messageID string, req ghcapabilities.Request) ([]byte, error) {
+	if req.WorkflowID == "" {
+		return nil, errors.New("invalid call to fetch, must provide workflow ID")
+	}
+
+	resp, err := s.och.HandleSingleNodeRequest(ctx, messageID, req)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +98,7 @@ func (s *FetcherService) Fetch(ctx context.Context, url string, n uint32) ([]byt
 		return nil, fmt.Errorf("invalid response from gateway: %w", err)
 	}
 
-	s.lggr.Debugw("received gateway response", "donID", resp.Body.DonId, "msgID", resp.Body.MessageId)
+	s.lggr.Debugw("received gateway response", "donID", resp.Body.DonId, "msgID", resp.Body.MessageId, "receiver", resp.Body.Receiver, "sender", resp.Body.Sender)
 
 	var payload ghcapabilities.Response
 	if err = json.Unmarshal(resp.Body.Payload, &payload); err != nil {
@@ -113,6 +111,11 @@ func (s *FetcherService) Fetch(ctx context.Context, url string, n uint32) ([]byt
 
 	if payload.ExecutionError {
 		return nil, fmt.Errorf("execution error from gateway: %s", payload.ErrorMessage)
+	}
+
+	if payload.StatusCode < 200 || payload.StatusCode >= 300 {
+		// NOTE: redirects are currently not supported
+		return payload.Body, fmt.Errorf("request failed with status code: %d", payload.StatusCode)
 	}
 
 	return payload.Body, nil

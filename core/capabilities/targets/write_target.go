@@ -25,8 +25,8 @@ import (
 )
 
 var (
-	_           capabilities.TargetCapability = &WriteTarget{}
-	ErrTxFailed                               = errors.New("submitted transaction failed")
+	_           capabilities.ExecutableCapability = &WriteTarget{}
+	ErrTxFailed                                   = errors.New("submitted transaction failed")
 )
 
 const transactionStatusCheckInterval = 2 * time.Second
@@ -58,7 +58,7 @@ type TransmissionInfo struct {
 	InvalidReceiver bool
 	State           uint8
 	Success         bool
-	TransmissionId  [32]byte
+	TransmissionID  [32]byte
 	Transmitter     common.Address
 }
 
@@ -160,7 +160,7 @@ func evaluate(rawRequest capabilities.CapabilityRequest) (r Request, err error) 
 	r.Metadata = rawRequest.Metadata
 
 	if rawRequest.Config == nil {
-		return r, fmt.Errorf("missing config field")
+		return r, errors.New("missing config field")
 	}
 
 	if err = rawRequest.Config.UnwrapTo(&r.Config); err != nil {
@@ -172,7 +172,7 @@ func evaluate(rawRequest capabilities.CapabilityRequest) (r Request, err error) 
 	}
 
 	if rawRequest.Inputs == nil {
-		return r, fmt.Errorf("missing inputs field")
+		return r, errors.New("missing inputs field")
 	}
 
 	// required field of target's config in the workflow spec
@@ -274,9 +274,9 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 		if transmissionInfo.GasLimit.Uint64() > receiverGasMinimum {
 			cap.lggr.Infow("returning without a transmission attempt - transmission already attempted and failed, sufficient gas was provided", "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
 			return capabilities.CapabilityResponse{}, ErrTxFailed
-		} else {
-			cap.lggr.Infow("non-empty report - retrying a failed transmission - attempting to push to txmgr", "request", request, "reportLen", len(request.Inputs.SignedReport.Report), "reportContextLen", len(request.Inputs.SignedReport.Context), "nSignatures", len(request.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
 		}
+		cap.lggr.Infow("non-empty report - retrying a failed transmission - attempting to push to txmgr", "request", request, "reportLen", len(request.Inputs.SignedReport.Report), "reportContextLen", len(request.Inputs.SignedReport.Context), "nSignatures", len(request.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
+
 	default:
 		return capabilities.CapabilityResponse{}, fmt.Errorf("unexpected transmission state: %v", transmissionInfo.State)
 	}
@@ -352,10 +352,11 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 				// This is counterintuitive, but the tx manager is currently returning unconfirmed whenever the tx is confirmed
 				// current implementation here: https://github.com/smartcontractkit/chainlink-framework/blob/main/chains/txmgr/txmgr.go#L697
 				// so we need to check if we were able to write to the consumer contract to determine if the transaction was successful
-				if transmissionInfo.State == TransmissionStateSucceeded {
+				switch transmissionInfo.State {
+				case TransmissionStateSucceeded:
 					cap.lggr.Debugw("Transaction confirmed", "request", request, "transaction", txID)
 					return capabilities.CapabilityResponse{}, nil
-				} else if transmissionInfo.State == TransmissionStateFailed || transmissionInfo.State == TransmissionStateInvalidReceiver {
+				case TransmissionStateFailed, TransmissionStateInvalidReceiver:
 					cap.lggr.Errorw("Transaction written to the forwarder, but failed to be written to the consumer contract", "request", request, "transaction", txID, "transmissionState", transmissionInfo.State)
 					msg := "transaction written to the forwarder, but failed to be written to the consumer contract, transaction ID: " + txID.String()
 					err = cap.emitter.With(
@@ -368,11 +369,11 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 						cap.lggr.Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
 					}
 					return capabilities.CapabilityResponse{}, ErrTxFailed
-				} else {
-					// TransmissionStateNotAttempted is not expected here, but we'll log it just in case
-					cap.lggr.Debugw("Transaction confirmed but transmission not attempted, this should never happen", "request", request, "transaction", txID)
-					return capabilities.CapabilityResponse{}, errors.New("transmission not attempted")
 				}
+				// TransmissionStateNotAttempted is not expected here, but we'll log it just in case
+				cap.lggr.Debugw("Transaction confirmed but transmission not attempted, this should never happen", "request", request, "transaction", txID)
+				return capabilities.CapabilityResponse{}, errors.New("transmission not attempted")
+
 			case commontypes.Finalized:
 				cap.lggr.Debugw("Transaction finalized", "request", request, "transaction", txID)
 				return capabilities.CapabilityResponse{}, nil

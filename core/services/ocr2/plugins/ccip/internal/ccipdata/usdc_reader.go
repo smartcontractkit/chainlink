@@ -12,8 +12,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
@@ -85,7 +85,7 @@ func (u *USDCReaderImpl) GetUSDCMessagePriorToLogIndexInTx(ctx context.Context, 
 	var lpLogs []logpoller.Log
 
 	// fetch all the usdc logs for the provided tx hash
-	k := fmt.Sprintf("usdc-%s", txHash) // custom prefix to avoid key collision if someone re-uses the cache
+	k := "usdc-" + txHash // custom prefix to avoid key collision if someone re-uses the cache
 	if rawLogs, foundInMem := u.shortLivedInMemLogs.Get(k); foundInMem {
 		inMemLogs, ok := rawLogs.([]logpoller.Log)
 		if !ok {

@@ -27,7 +27,7 @@ func init() {
 	} {
 		_, block, err := net.ParseCIDR(cidr)
 		if err != nil {
-			panic(fmt.Errorf("parse error on %q: %v", cidr, err))
+			panic(fmt.Errorf("parse error on %q: %w", cidr, err))
 		}
 		privateIPBlocks = append(privateIPBlocks, block)
 	}

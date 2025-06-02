@@ -59,7 +59,7 @@ ok EVM.1.BalanceMonitor
 ok EVM.1.HeadBroadcaster
 ok EVM.1.HeadTracker
 !  EVM.1.HeadTracker.HeadListener
-	Listener is not connected
+	Listener connected = false, receiving heads = false
 ok EVM.1.LogBroadcaster
 ok EVM.1.Relayer
 ok EVM.1.Txm
@@ -84,11 +84,11 @@ ok Solana.Bar.Chain.BalanceMonitor
 ok Solana.Bar.Chain.Txm
 ok Solana.Bar.Relayer
 ok TelemetryManager
-ok WorkflowDBStore
+ok WorkflowStore
 
 -- out-unhealthy.txt --
 !  EVM.1.HeadTracker.HeadListener
-	Listener is not connected
+	Listener connected = false, receiving heads = false
 
 -- out.json --
 {
@@ -135,7 +135,7 @@ ok WorkflowDBStore
       "attributes": {
         "name": "EVM.1.HeadTracker.HeadListener",
         "status": "failing",
-        "output": "Listener is not connected"
+        "output": "Listener connected = false, receiving heads = false"
       }
     },
     {
@@ -356,9 +356,9 @@ ok WorkflowDBStore
     },
     {
       "type": "checks",
-      "id": "WorkflowDBStore",
+      "id": "WorkflowStore",
       "attributes": {
-        "name": "WorkflowDBStore",
+        "name": "WorkflowStore",
         "status": "passing",
         "output": ""
       }
@@ -374,7 +374,7 @@ ok WorkflowDBStore
       "attributes": {
         "name": "EVM.1.HeadTracker.HeadListener",
         "status": "failing",
-        "output": "Listener is not connected"
+        "output": "Listener connected = false, receiving heads = false"
       }
     }
   ]

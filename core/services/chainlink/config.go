@@ -13,7 +13,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
-	configtoml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	configtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -45,6 +45,8 @@ type Config struct {
 	Aptos RawConfigs `toml:",omitempty"`
 
 	Tron RawConfigs `toml:",omitempty"`
+
+	TON RawConfigs `toml:",omitempty"`
 }
 
 // RawConfigs is a list of RawConfig.
@@ -261,6 +263,10 @@ func (c RawConfig) NodeNames() []string {
 }
 
 func (c RawConfig) SetDefaults() {
+	if e, ok := c["Enabled"].(bool); ok && e {
+		// already enabled by default so drop it
+		delete(c, "Enabled")
+	}
 }
 
 // TOMLString returns a TOML encoded string.
@@ -337,37 +343,28 @@ func (c *Config) setDefaults() {
 	c.Starknet.SetDefaults()
 
 	c.Tron.SetDefaults()
+
+	c.TON.SetDefaults()
 }
 
 func (c *Config) SetFrom(f *Config) (err error) {
 	c.Core.SetFrom(&f.Core)
 
-	if err1 := c.EVM.SetFrom(&f.EVM); err1 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err1, "EVM"))
+	appendErr := func(e error, name string) {
+		if e != nil {
+			err = multierr.Append(err, commonconfig.NamedMultiErrorList(e, name))
+		}
 	}
 
-	if err2 := c.Cosmos.SetFrom(f.Cosmos); err2 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "Cosmos"))
-	}
-
-	if err3 := c.Solana.SetFrom(&f.Solana); err3 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err3, "Solana"))
-	}
-
-	if err4 := c.Starknet.SetFrom(f.Starknet); err4 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err4, "Starknet"))
-	}
-
-	if err5 := c.Aptos.SetFrom(f.Aptos); err5 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err5, "Aptos"))
-	}
-
-	if err6 := c.Tron.SetFrom(f.Tron); err6 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err6, "Tron"))
-	}
+	appendErr(c.EVM.SetFrom(&f.EVM), "EVM")
+	appendErr(c.Cosmos.SetFrom(f.Cosmos), "Cosmos")
+	appendErr(c.Solana.SetFrom(&f.Solana), "Solana")
+	appendErr(c.Starknet.SetFrom(f.Starknet), "Starknet")
+	appendErr(c.Aptos.SetFrom(f.Aptos), "Aptos")
+	appendErr(c.Tron.SetFrom(f.Tron), "Tron")
+	appendErr(c.TON.SetFrom(f.TON), "TON")
 
 	_, err = commonconfig.MultiErrorList(err)
-
 	return err
 }
 
@@ -404,6 +401,18 @@ func (s *Secrets) SetFrom(f *Secrets) (err error) {
 		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "Threshold"))
 	}
 
+	if err2 := s.EVM.SetFrom(&f.EVM); err2 != nil {
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "EthKeys"))
+	}
+
+	if err2 := s.P2PKey.SetFrom(&f.P2PKey); err2 != nil {
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "P2PKey"))
+	}
+
+	if err2 := s.CRE.SetFrom(&f.CRE); err2 != nil {
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "CRE"))
+	}
+
 	_, err = commonconfig.MultiErrorList(err)
 
 	return err
@@ -424,12 +433,27 @@ func (s *Secrets) TOMLString() (string, error) {
 	return string(b), nil
 }
 
-var ErrInvalidSecrets = errors.New("invalid secrets")
+type InvalidSecretsError struct {
+	err error
+}
+
+func (e InvalidSecretsError) Error() string {
+	return fmt.Sprintf("invalid secrets: %v", e.err)
+}
+
+func (e InvalidSecretsError) Unwrap() error {
+	return e.err
+}
+
+func (e InvalidSecretsError) Is(err error) bool {
+	_, ok := err.(InvalidSecretsError) //nolint:errcheck // implementing errors.Is
+	return ok
+}
 
 // Validate validates every consitutent secret and return an accumulated error
 func (s *Secrets) Validate() error {
 	if err := commonconfig.Validate(s); err != nil {
-		return fmt.Errorf("%w: %s", ErrInvalidSecrets, err)
+		return InvalidSecretsError{err: err}
 	}
 	return nil
 }
@@ -451,7 +475,7 @@ func (s *Secrets) ValidateDB() error {
 	s.setDefaults()
 	v := &dbValidationType{s.Database}
 	if err := commonconfig.Validate(v); err != nil {
-		return fmt.Errorf("%w: %s", ErrInvalidSecrets, err)
+		return InvalidSecretsError{err: err}
 	}
 	return nil
 }

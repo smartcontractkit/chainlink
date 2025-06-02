@@ -2,6 +2,7 @@ package llo
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -10,10 +11,13 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 )
 
@@ -49,16 +53,44 @@ type transmitter struct {
 
 type TransmitterOpts struct {
 	Lggr                   logger.Logger
+	DonID                  uint32
 	VerboseLogging         bool
 	FromAccount            string
-	MercuryTransmitterOpts mercurytransmitter.Opts
+	MercuryTransmitterOpts *mercurytransmitter.Opts
+	Subtransmitters        []config.TransmitterConfig
 	RetirementReportCache  TransmitterRetirementReportCacheWriter
+	CapabilitiesRegistry   coretypes.CapabilitiesRegistry
 }
 
 // The transmitter will handle starting and stopping the subtransmitters
-func NewTransmitter(opts TransmitterOpts) Transmitter {
-	subTransmitters := []Transmitter{
-		mercurytransmitter.New(opts.MercuryTransmitterOpts),
+func NewTransmitter(opts TransmitterOpts) (Transmitter, error) {
+	subTransmitters := []Transmitter{}
+
+	if opts.MercuryTransmitterOpts != nil {
+		subTransmitters = append(
+			subTransmitters,
+			mercurytransmitter.New(*opts.MercuryTransmitterOpts),
+		)
+	}
+	for _, cfg := range opts.Subtransmitters {
+		switch cfg.Type {
+		case config.TransmitterTypeCRE:
+			var creTransmitterCfg cre.TransmitterConfig
+			err := json.Unmarshal(cfg.Opts, &creTransmitterCfg)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal CRE transmitter config: %w", err)
+			}
+			creTransmitterCfg.Logger = opts.Lggr
+			creTransmitterCfg.CapabilitiesRegistry = opts.CapabilitiesRegistry
+			creTransmitterCfg.DonID = opts.DonID
+			creTransmitter, err := creTransmitterCfg.NewTransmitter()
+			if err != nil {
+				return nil, fmt.Errorf("failed to create CRE transmitter: %w", err)
+			}
+			subTransmitters = append(subTransmitters, creTransmitter)
+		default:
+			return nil, fmt.Errorf("unknown transmitter type: %s", cfg.Type)
+		}
 	}
 	return &transmitter{
 		services.StateMachine{},
@@ -67,7 +99,7 @@ func NewTransmitter(opts TransmitterOpts) Transmitter {
 		opts.FromAccount,
 		subTransmitters,
 		opts.RetirementReportCache,
-	}
+	}, nil
 }
 
 func (t *transmitter) Start(ctx context.Context) error {
@@ -124,7 +156,6 @@ func (t *transmitter) Transmit(
 	}
 	g := new(errgroup.Group)
 	for _, st := range t.subTransmitters {
-		st := st
 		g.Go(func() error {
 			return st.Transmit(ctx, digest, seqNr, report, sigs)
 		})

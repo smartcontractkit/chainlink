@@ -1,4 +1,5 @@
 InsecureFastScrypt = true
+InsecurePPROFHeap = true
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
 
@@ -162,6 +163,7 @@ SimulateTransactions = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 CaptureEATelemetry = false
 TraceLogging = false
+ConfigLogValidation = false
 
 [P2P]
 IncomingMessageBufferSize = 13
@@ -257,8 +259,8 @@ ReaperMaxAge = '678h0m0s'
 [Capabilities.RateLimit]
 GlobalRPS = 200.0
 GlobalBurst = 200
-PerSenderRPS = 100.0
-PerSenderBurst = 100
+PerSenderRPS = 200.0
+PerSenderBurst = 200
 
 [Capabilities.Peering]
 IncomingMessageBufferSize = 13
@@ -296,6 +298,7 @@ ChainID = '1'
 MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
+SyncStrategy = 'event'
 
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = '11155111'
@@ -317,10 +320,24 @@ InsecureConnection = true
 TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
+ChipIngressEndpoint = 'example.com/chip-ingress'
 
 [Telemetry.ResourceAttributes]
 Baz = 'test'
 Foo = 'bar'
+
+[Workflows]
+[Workflows.Limits]
+Global = 200
+PerOwner = 200
+
+[CRE]
+[CRE.Streams]
+WsURL = 'streams.url'
+RestURL = 'streams.url'
+
+[Billing]
+URL = 'localhost:4319'
 
 [[EVM]]
 ChainID = '1'
@@ -430,6 +447,7 @@ FinalizedBlockPollInterval = '1s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [EVM.NodePool.Errors]
 NonceTooLow = '(: |^)nonce too low'
@@ -467,6 +485,7 @@ GasLimitDefault = 400000
 Name = 'foo'
 WSURL = 'wss://web.socket/test/foo'
 HTTPURL = 'https://foo.web'
+HTTPURLExtraWrite = 'https://foo.web/extra'
 
 [[EVM.Nodes]]
 Name = 'bar'
@@ -481,6 +500,7 @@ SendOnly = true
 [[Solana]]
 ChainID = 'mainnet'
 Enabled = false
+BlockTime = '500ms'
 BalancePollPeriod = '1m0s'
 ConfirmPollPeriod = '1s'
 OCR2CachePollPeriod = '1m0s'
@@ -500,8 +520,10 @@ ComputeUnitPriceDefault = 100
 FeeBumpPeriod = '1m0s'
 BlockHistoryPollPeriod = '1m0s'
 BlockHistorySize = 1
+BlockHistoryBatchLoadSize = 20
 ComputeUnitLimitDefault = 100000
 EstimateComputeUnitLimit = false
+LogPollerStartingLookback = '24h0m0s'
 
 [Solana.MultiNode]
 Enabled = false
@@ -515,6 +537,7 @@ NewHeadsPollInterval = '1s'
 FinalizedBlockPollInterval = '1s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
+VerifyChainID = true
 NodeNoNewHeadsThreshold = '1m0s'
 NoNewFinalizedHeadsThreshold = '1m0s'
 FinalityDepth = 0
@@ -525,13 +548,16 @@ FinalizedBlockOffset = 0
 Name = 'primary'
 URL = 'http://solana.web'
 SendOnly = false
+Order = 1
 
 [[Solana.Nodes]]
 Name = 'foo'
 URL = 'http://solana.foo'
 SendOnly = true
+Order = 2
 
 [[Solana.Nodes]]
 Name = 'bar'
 URL = 'http://solana.bar'
 SendOnly = true
+Order = 3

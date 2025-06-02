@@ -11,9 +11,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
-	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+
+	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -54,7 +55,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		KeyStore:       keyStore.Eth(),
 		TxManager:      txManager,
 	})
-	require.True(t, legacyChains.Len() > 0)
+	require.Positive(t, legacyChains.Len())
 
 	type testCase struct {
 		name                  string

@@ -9,9 +9,11 @@ import (
 	"io"
 
 	"github.com/pkg/errors"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -69,7 +71,7 @@ func newKeyBundleFrom[K keyring](chain chaintype.ChainType, newKeyring func(mate
 	k := keyBundle[K]{
 		keyBundleBase: keyBundleBase{
 			chainType:       chain,
-			OffchainKeyring: *offchainKeyring,
+			offchainKeyring: *offchainKeyring,
 		},
 		keyring: kr,
 	}
@@ -97,12 +99,19 @@ func (kb *keyBundle[K]) Sign3(digest ocrtypes.ConfigDigest, seqNr uint64, r ocrt
 	return kb.keyring.Sign3(digest, seqNr, r)
 }
 
+func (kb *keyBundle[K]) SignBlob(b []byte) (sig []byte, err error) {
+	return kb.keyring.SignBlob(b)
+}
+
 func (kb *keyBundle[K]) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
 	return kb.keyring.Verify(publicKey, reportCtx, report, signature)
 }
 
 func (kb *keyBundle[K]) Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
 	return kb.keyring.Verify3(publicKey, cd, seqNr, r, signature)
+}
+func (kb *keyBundle[K]) VerifyBlob(pubkey ocrtypes.OnchainPublicKey, b, sig []byte) bool {
+	return kb.keyring.VerifyBlob(pubkey, b, sig)
 }
 
 // OnChainPublicKey returns public component of the keypair used on chain
@@ -111,7 +120,7 @@ func (kb *keyBundle[K]) OnChainPublicKey() string {
 }
 
 func (kb *keyBundle[K]) Marshal() ([]byte, error) {
-	offchainKeyringBytes, err := kb.OffchainKeyring.marshal()
+	offchainKeyringBytes, err := kb.offchainKeyring.marshal()
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +147,7 @@ func (kb *keyBundle[K]) Unmarshal(b []byte) (err error) {
 		return err
 	}
 
-	err = kb.OffchainKeyring.unmarshal(rawKeyData.OffchainKeyring)
+	err = kb.offchainKeyring.unmarshal(rawKeyData.OffchainKeyring)
 	if err != nil {
 		return err
 	}
@@ -152,12 +161,12 @@ func (kb *keyBundle[K]) Unmarshal(b []byte) (err error) {
 	return nil
 }
 
-func (kb *keyBundle[K]) Raw() Raw {
+func (kb *keyBundle[K]) Raw() internal.Raw {
 	b, err := kb.Marshal()
 	if err != nil {
 		panic(err)
 	}
-	return b
+	return internal.NewRaw(b)
 }
 
 // migration code

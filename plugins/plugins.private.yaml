@@ -1,0 +1,29 @@
+# This file defines private plugins to be installed via `loopinstall`.
+
+# Common plugin configuration
+defaults:
+  # The `-s` flag is added to strip debug information from the binary to reduce
+  # the binary size for releases.
+  # See: `go tool link -help`
+  goflags: "-ldflags=-s"
+
+plugins:
+  cron:
+    - moduleURI: "github.com/smartcontractkit/capabilities/cron"
+      gitRef: "1b414f8954d071345255fa0ffb3c374b13f18a0d"
+      installPath: "github.com/smartcontractkit/capabilities/cron"
+  kvstore:
+    - enabled: false
+      moduleURI: "github.com/smartcontractkit/capabilities/kvstore"
+      gitRef: "1b414f8954d071345255fa0ffb3c374b13f18a0d"
+      installPath: "github.com/smartcontractkit/capabilities/kvstore"
+  readcontract:
+    - moduleURI: "github.com/smartcontractkit/capabilities/readcontract"
+      gitRef: "1b414f8954d071345255fa0ffb3c374b13f18a0d"
+      installPath: "github.com/smartcontractkit/capabilities/readcontract"
+  workflowevent:
+    - enabled: false
+      moduleURI: "github.com/smartcontractkit/capabilities/workflowevent"
+      gitRef: "1b414f8954d071345255fa0ffb3c374b13f18a0d"
+      installPath: "github.com/smartcontractkit/capabilities/workflowevent"
+

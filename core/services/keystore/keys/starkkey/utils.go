@@ -2,16 +2,13 @@ package starkkey
 
 import (
 	"crypto/rand"
-	"fmt"
+	"errors"
 	"io"
 	"math/big"
 
 	"github.com/NethermindEth/starknet.go/curve"
-)
 
-// constants
-var (
-	byteLen = 32
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 // reimplements parts of
@@ -21,27 +18,31 @@ var (
 func GenerateKey(material io.Reader) (k Key, err error) {
 	max := new(big.Int).Sub(curve.Curve.N, big.NewInt(1))
 
-	k.priv, err = rand.Int(material, max)
+	priv, err := rand.Int(material, max)
 	if err != nil {
 		return k, err
 	}
+	k.signFn = func(hash *big.Int) (x, y *big.Int, err error) {
+		return curve.Curve.Sign(hash, priv)
+	}
 
-	k.pub.X, k.pub.Y, err = curve.Curve.PrivateToPoint(k.priv)
+	k.pub.X, k.pub.Y, err = curve.Curve.PrivateToPoint(priv)
 	if err != nil {
 		return k, err
 	}
 
 	if !curve.Curve.IsOnCurve(k.pub.X, k.pub.Y) {
-		return k, fmt.Errorf("key gen is not on stark curve")
+		return k, errors.New("key gen is not on stark curve")
 	}
+	k.raw = internal.NewRaw(padBytes(priv.Bytes()))
 
 	return k, nil
 }
 
-// pad bytes to specific length
-func padBytes(a []byte, length int) []byte {
-	if len(a) < length {
-		pad := make([]byte, length-len(a))
+// pad bytes to privateKeyLen
+func padBytes(a []byte) []byte {
+	if len(a) < privateKeyLen {
+		pad := make([]byte, privateKeyLen-len(a))
 		return append(pad, a...)
 	}
 

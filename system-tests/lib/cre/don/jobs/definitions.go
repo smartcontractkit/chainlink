@@ -2,22 +2,17 @@ package jobs
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
 var (
-	NoExtraAllowedPorts = []int{}
-	NoExtraAllowedIPs   = []string{}
-
 	DefaultAllowedPorts = []int{80, 443}
 )
 
@@ -30,7 +25,7 @@ func BootstrapOCR3(nodeID string, ocr3CapabilityAddress common.Address, chainID 
 	type = "bootstrap"
 	schemaVersion = 1
 	externalJobID = "%s"
-	name = "Botostrap-%s"
+	name = "%s"
 	contractID = "%s"
 	contractConfigTrackerPollInterval = "1s"
 	contractConfigConfirmations = 1
@@ -40,22 +35,42 @@ func BootstrapOCR3(nodeID string, ocr3CapabilityAddress common.Address, chainID 
 	providerType = "ocr3-capability"
 `,
 			uuid,
-			uuid[0:8],
+			types.OCR3Capability,
 			ocr3CapabilityAddress.Hex(),
 			chainID),
 	}
 }
 
-func BootstrapGateway(don *devenv.DON, chainID uint64, donID uint32, extraAllowedPorts []int, extraAllowedIps []string, gatewayConnectorData types.GatewayConnectorOutput) *jobv1.ProposeJobRequest {
-	var gatewayMembers string
-	for i := 1; i < len(don.Nodes); i++ {
-		gatewayMembers += fmt.Sprintf(`
+func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint32, extraAllowedPorts []int, extraAllowedIps, extrAallowedIPsCIDR []string, gatewayConnectorData types.GatewayConnectorOutput) *jobv1.ProposeJobRequest {
+	var gatewayDons string
+
+	for _, don := range gatewayConnectorData.Dons {
+		var gatewayMembers string
+
+		for i := 0; i < len(don.MembersEthAddresses); i++ {
+			gatewayMembers += fmt.Sprintf(`
 	[[gatewayConfig.Dons.Members]]
 	Address = "%s"
 	Name = "Node %d"`,
-			don.Nodes[i].AccountAddr[chainID],
-			i,
-		)
+				don.MembersEthAddresses[i],
+				i+1,
+			)
+		}
+
+		gatewayDons += fmt.Sprintf(`
+		[[gatewayConfig.Dons]]
+		DonId = "%d"
+		F = 1
+		HandlerName = "web-api-capabilities"
+			[gatewayConfig.Dons.HandlerConfig]
+			MaxAllowedMessageAgeSec = 1_000
+				[gatewayConfig.Dons.HandlerConfig.NodeRateLimiter]
+				GlobalBurst = 10
+				GlobalRPS = 50
+				PerSenderBurst = 10
+				PerSenderRPS = 10
+			%s
+		`, don.ID, gatewayMembers)
 	}
 
 	uuid := uuid.NewString()
@@ -64,25 +79,14 @@ func BootstrapGateway(don *devenv.DON, chainID uint64, donID uint32, extraAllowe
 	type = "gateway"
 	schemaVersion = 1
 	externalJobID = "%s"
-	name = "Gateway-%s"
+	name = "%s"
 	forwardingAllowed = false
 	[gatewayConfig.ConnectionManagerConfig]
 	AuthChallengeLen = 10
 	AuthGatewayId = "por_gateway"
 	AuthTimestampToleranceSec = 5
 	HeartbeatIntervalSec = 20
-	[[gatewayConfig.Dons]]
-	DonId = "%s"
-	F = 1
-	HandlerName = "web-api-capabilities"
-		[gatewayConfig.Dons.HandlerConfig]
-		MaxAllowedMessageAgeSec = 1_000
-			[gatewayConfig.Dons.HandlerConfig.NodeRateLimiter]
-			GlobalBurst = 10
-			GlobalRPS = 50
-			PerSenderBurst = 10
-			PerSenderRPS = 10
-		%s
+	%s
 	[gatewayConfig.NodeServerConfig]
 	HandshakeTimeoutMillis = 1_000
 	MaxRequestBytes = 100_000
@@ -101,13 +105,14 @@ func BootstrapGateway(don *devenv.DON, chainID uint64, donID uint32, extraAllowe
 	ReadTimeoutMillis = 1_000
 	RequestTimeoutMillis = 10_000
 	WriteTimeoutMillis = 1_000
+	CORSEnabled = false
+	CORSAllowedOrigins = []
 	[gatewayConfig.HTTPClientConfig]
 	MaxResponseBytes = 100_000_000
 `,
 		uuid,
-		uuid[0:8],
-		strconv.FormatUint(uint64(donID), 10),
-		gatewayMembers,
+		types.GatewayJobName,
+		gatewayDons,
 		gatewayConnectorData.Path,
 		gatewayConnectorData.Port,
 	)
@@ -139,8 +144,18 @@ func BootstrapGateway(don *devenv.DON, chainID uint64, donID uint32, extraAllowe
 		)
 	}
 
+	if len(extrAallowedIPsCIDR) != 0 {
+		allowedIPsCIDR := strings.Join(extrAallowedIPsCIDR, `", "`)
+
+		gatewayJobSpec += fmt.Sprintf(`
+	AllowedIPsCIDR = ["%s"]
+`,
+			allowedIPsCIDR,
+		)
+	}
+
 	return &jobv1.ProposeJobRequest{
-		NodeId: don.Nodes[0].NodeID,
+		NodeId: bootstrapNodeID,
 		Spec:   gatewayJobSpec,
 	}
 }
@@ -148,10 +163,6 @@ func BootstrapGateway(don *devenv.DON, chainID uint64, donID uint32, extraAllowe
 const (
 	EmptyStdCapConfig = "\"\""
 )
-
-func ExternalCapabilityPath(binaryName string) string {
-	return "/home/capabilities/" + binaryName
-}
 
 func WorkerStandardCapability(nodeID, name, command, config string) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
@@ -168,13 +179,13 @@ func WorkerStandardCapability(nodeID, name, command, config string) *jobv1.Propo
 	config = %s
 `,
 			uuid,
-			name+"-"+uuid[0:8],
+			name,
 			command,
 			config),
 	}
 }
 
-func WorkerOCR3(nodeID string, ocr3CapabilityAddress, nodeEthAddress common.Address, ocr2KeyBundleID string, ocrPeeringData types.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
+func WorkerOCR3(nodeID string, ocr3CapabilityAddress common.Address, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData types.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
 	return &jobv1.ProposeJobRequest{
@@ -183,7 +194,7 @@ func WorkerOCR3(nodeID string, ocr3CapabilityAddress, nodeEthAddress common.Addr
 	type = "offchainreporting2"
 	schemaVersion = 1
 	externalJobID = "%s"
-	name = "ocr3-consensus-%s"
+	name = "%s"
 	contractID = "%s"
 	ocrKeyBundleID = "%s"
 	p2pv2Bootstrappers = [
@@ -206,7 +217,7 @@ func WorkerOCR3(nodeID string, ocr3CapabilityAddress, nodeEthAddress common.Addr
 	evm = "%s"
 `,
 			uuid,
-			uuid[0:8],
+			types.OCR3Capability,
 			ocr3CapabilityAddress,
 			ocr2KeyBundleID,
 			ocrPeeringData.OCRBootstraperPeerID,

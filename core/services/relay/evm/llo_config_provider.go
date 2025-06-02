@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -39,7 +39,7 @@ func (l *lloConfigProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDige
 func (l *lloConfigProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 	// FIXME: Only return Blue for now. This is a hack to make the bootstrap
 	// job work, needs to support multiple config trackers here
-	// MERC-5954
+	// MERC-6839
 	return l.cps[0]
 }
 

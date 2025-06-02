@@ -7,11 +7,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-
+	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
@@ -43,6 +42,11 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 	evmReport := make([]offramp.InternalExecutionReport, 0, len(report.ChainReports))
 
 	for _, chainReport := range report.ChainReports {
+		sourceChainFamily, err := chainsel.GetSelectorFamily(uint64(chainReport.SourceChainSelector))
+		if err != nil {
+			return nil, fmt.Errorf("get source chain family: %w", err)
+		}
+
 		if chainReport.ProofFlagBits.IsEmpty() {
 			return nil, fmt.Errorf("proof flag bits are empty")
 		}
@@ -55,11 +59,14 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		evmMessages := make([]offramp.InternalAny2EVMRampMessage, 0, len(chainReport.Messages))
 		for _, message := range chainReport.Messages {
 			receiver := common.BytesToAddress(message.Receiver)
-
 			tokenAmounts := make([]offramp.InternalAny2EVMTokenTransfer, 0, len(message.TokenAmounts))
 			for _, tokenAmount := range message.TokenAmounts {
 				if tokenAmount.Amount.IsEmpty() {
 					return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
+				}
+
+				if tokenAmount.Amount.Int.Sign() < 0 {
+					return nil, fmt.Errorf("negative amount for token: %s", tokenAmount.DestTokenAddress)
 				}
 
 				destExecDataDecodedMap, err := e.extraDataCodec.DecodeTokenAmountDestExecData(tokenAmount.DestExecData, chainReport.SourceChainSelector)
@@ -72,17 +79,20 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 					return nil, fmt.Errorf("decode dest gas amount: %w", err)
 				}
 
-				// from https://github.com/smartcontractkit/chainlink/blob/e036012d5b562f5c30c5a87898239ba59aeb2f7b/contracts/src/v0.8/ccip/pools/TokenPool.sol#L84
-				// remote pool addresses are abi-encoded addresses if the remote chain is EVM.
-				// its unclear as of writing how we will handle non-EVM chains and their addresses.
-				// e.g, will we encode them as bytes or bytes32?
-				sourcePoolAddressABIEncodedAsAddress, err := abiEncodeAddress(common.BytesToAddress(tokenAmount.SourcePoolAddress))
-				if err != nil {
-					return nil, fmt.Errorf("abi encode source pool address: %w", err)
+				var sourcePoolAddr []byte
+				if sourceChainFamily == chainsel.FamilyEVM {
+					// from https://github.com/smartcontractkit/chainlink/blob/e036012d5b562f5c30c5a87898239ba59aeb2f7b/contracts/src/v0.8/ccip/pools/TokenPool.sol#L84
+					// remote pool addresses are abi-encoded addresses if the remote chain is EVM.
+					sourcePoolAddr, err = abiEncodeAddress(common.BytesToAddress(tokenAmount.SourcePoolAddress))
+					if err != nil {
+						return nil, fmt.Errorf("abi encode source pool address: %w", err)
+					}
+				} else {
+					sourcePoolAddr = tokenAmount.SourcePoolAddress
 				}
 
 				tokenAmounts = append(tokenAmounts, offramp.InternalAny2EVMTokenTransfer{
-					SourcePoolAddress: sourcePoolAddressABIEncodedAsAddress,
+					SourcePoolAddress: sourcePoolAddr,
 					DestTokenAddress:  common.BytesToAddress(tokenAmount.DestTokenAddress),
 					ExtraData:         tokenAmount.ExtraData,
 					Amount:            tokenAmount.Amount.Int,
@@ -95,7 +105,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, err
 			}
 
-			gasLimit, err := parseExtraDataMap(decodedExtraArgsMap)
+			gasLimit, err := parseExtraArgsMap(decodedExtraArgsMap)
 			if err != nil {
 				return nil, fmt.Errorf("decode extra args to get gas limit: %w", err)
 			}
