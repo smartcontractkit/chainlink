@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -31,26 +30,6 @@ type DeployFeeQInput struct {
 	LinkAddr      common.Address
 	WethAddr      common.Address
 	PriceUpdaters []common.Address
-}
-
-type FeeQuoterApplyDestChainConfigUpdatesOpInput struct {
-	Address       common.Address
-	ChainSelector uint64
-	Updates       []fee_quoter.FeeQuoterDestChainConfigArgs
-}
-
-type EVMContract interface {
-	Address() common.Address
-}
-
-type EVMCallDeps[C EVMContract] struct {
-	Contract C
-	Chain    cldf.Chain
-	Opts     *bind.TransactOpts
-}
-
-type EVMCallOutput struct {
-	Tx *types.Transaction
 }
 
 var (
@@ -134,27 +113,20 @@ var (
 			}, nil
 		})
 
-	FeeQuoterApplyDestChainConfigUpdatesOp = operations.NewOperation(
+	FeeQuoterApplyDestChainConfigUpdatesOp = opsutil.NewEVMCallOperation(
 		"FeeQuoterApplyDestChainConfigUpdatesOp",
 		semver.MustParse("1.0.0"),
 		"Apply updates to destination chain configs on the FeeQuoter 1.6.0 contract",
-		func(b operations.Bundle, deps EVMCallDeps[*fee_quoter.FeeQuoter], input FeeQuoterApplyDestChainConfigUpdatesOpInput) (EVMCallOutput, error) {
-			if input.Address != deps.Contract.Address() {
-				return EVMCallOutput{}, fmt.Errorf("mismatch between inputted address and address connected to bindings: %s != %s", input.Address, deps.Contract.Address())
+		fee_quoter.FeeQuoterABI,
+		func(contract *fee_quoter.FeeQuoter, opts *bind.TransactOpts, input []fee_quoter.FeeQuoterDestChainConfigArgs) (opsutil.EVMCallOutput, error) {
+			tx, err := contract.ApplyDestChainConfigUpdates(opts, input)
+			if err != nil {
+				return opsutil.EVMCallOutput{}, fmt.Errorf("failed to call ApplyDestChainConfigUpdates: %w", err)
 			}
-			if input.ChainSelector != deps.Chain.Selector {
-				return EVMCallOutput{}, fmt.Errorf("mismatch between inputted chain selector and actual chain selector: %d != %d", input.ChainSelector, deps.Chain.Selector)
-			}
-			tx, err := deps.Contract.ApplyDestChainConfigUpdates(deps.Opts, input.Updates)
-			if !deps.Opts.NoSend {
-				_, err = cldf.ConfirmIfNoErrorWithABI(deps.Chain, tx, fee_quoter.FeeQuoterABI, err)
-				if err != nil {
-					return EVMCallOutput{}, fmt.Errorf("failed to confirm ApplyDestChainConfigUpdates tx: %w", err)
-				}
-			}
-			return EVMCallOutput{
-				Tx: tx,
-			}, err
+			return opsutil.EVMCallOutput{
+				Tx:           tx,
+				ContractType: shared.FeeQuoter,
+			}, nil
 		},
 	)
 )

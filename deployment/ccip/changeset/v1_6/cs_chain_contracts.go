@@ -29,6 +29,7 @@ import (
 	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -1033,7 +1034,7 @@ func UpdateFeeQuoterDestsChangeset(e cldf.Environment, cfg UpdateFeeQuoterDestsC
 	}
 
 	// Build sequence input
-	updates := make(map[uint64]ccipops.FeeQuoterApplyDestChainConfigUpdatesOpInput, len(cfg.UpdatesByChain))
+	updates := make(map[uint64]opsutil.EVMCallInput[[]fee_quoter.FeeQuoterDestChainConfigArgs], len(cfg.UpdatesByChain))
 	for chainSel, destChainUpdates := range cfg.UpdatesByChain {
 		args := make([]fee_quoter.FeeQuoterDestChainConfigArgs, len(destChainUpdates))
 		i := 0
@@ -1044,23 +1045,23 @@ func UpdateFeeQuoterDestsChangeset(e cldf.Environment, cfg UpdateFeeQuoterDestsC
 			}
 			i++
 		}
-		updates[chainSel] = ccipops.FeeQuoterApplyDestChainConfigUpdatesOpInput{
+		updates[chainSel] = opsutil.EVMCallInput[[]fee_quoter.FeeQuoterDestChainConfigArgs]{
 			Address:       s.Chains[chainSel].FeeQuoter.Address(),
 			ChainSelector: chainSel,
-			Updates:       args,
+			CallInput:     args,
 		}
 	}
 
 	// Build sequence dependencies
-	// TODO: Standardize this
-	deps := make(map[uint64]ccipops.EVMCallDeps[*fee_quoter.FeeQuoter])
+	// TODO: Standardize this?
+	deps := make(map[uint64]opsutil.EVMCallDeps[*fee_quoter.FeeQuoter])
 	for chainSel := range cfg.UpdatesByChain {
 		txOpts := e.BlockChains.EVMChains()[chainSel].DeployerKey
 		txOpts.Context = e.GetContext()
 		if cfg.MCMS != nil {
 			txOpts = cldf.SimTransactOpts()
 		}
-		deps[chainSel] = ccipops.EVMCallDeps[*fee_quoter.FeeQuoter]{
+		deps[chainSel] = opsutil.EVMCallDeps[*fee_quoter.FeeQuoter]{
 			Contract: s.Chains[chainSel].FeeQuoter,
 			Opts:     txOpts,
 			Chain:    e.BlockChains.EVMChains()[chainSel],
@@ -1075,53 +1076,7 @@ func UpdateFeeQuoterDestsChangeset(e cldf.Environment, cfg UpdateFeeQuoterDestsC
 			UpdatesByChain: updates,
 		},
 	)
-	defer func() { output.Reports = append(output.Reports, report.ExecutionReports...) }()
-	if err != nil {
-		return output, fmt.Errorf("failed to execute FeeQuoterApplyDestChainConfigUpdatesSequence: %w", err)
-	}
-
-	// Return early if MCMS is not being used
-	if cfg.MCMS == nil {
-		return output, nil
-	}
-
-	// TODO: Standardize this
-	batches := []mcmstypes.BatchOperation{}
-	timelocks := make(map[uint64]string)
-	inspectors := make(map[uint64]mcmssdk.Inspector)
-	for chainSel, callOutput := range report.Output {
-		batchOperation, err := proposalutils.BatchOperationForChain(chainSel, deps[chainSel].Contract.Address().Hex(), callOutput.Tx.Data(),
-			big.NewInt(0), string(shared.FeeQuoter), []string{})
-		if err != nil {
-			return output, fmt.Errorf("failed to create batch operation for chain %d: %w", chainSel, err)
-		}
-		batches = append(batches, batchOperation)
-
-		timelocks[chainSel] = s.Chains[chainSel].Timelock.Address().Hex()
-		inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
-		if err != nil {
-			return output, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
-		}
-	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
-	if err != nil {
-		return output, fmt.Errorf("failed to get mcms contracts by chain: %w", err)
-	}
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e,
-		timelocks,
-		mcmsContractByChain,
-		inspectors,
-		batches,
-		"Update fq destinations",
-		*cfg.MCMS,
-	)
-	if err != nil {
-		return output, fmt.Errorf("failed to build MCMS proposal: %w", err)
-	}
-
-	output.MCMSTimelockProposals = []mcmslib.TimelockProposal{*proposal}
-	return output, nil
+	return opsutil.UpdateCSOutputViaEVMCallSequence(e, s, output, report, err, cfg.MCMS, "Call ApplyDestChainConfigUpdates on FeeQuoters")
 }
 
 type OffRampSourceUpdate struct {
