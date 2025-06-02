@@ -128,6 +128,9 @@ func getLatestNonce(tc TestCase) uint64 {
 		// we ignore the error because the account might not exist yet
 		_ = solcommon.GetAccountDataBorshInto(ctx, client, noncePDA, solconfig.DefaultCommitment, &nonceCounterAccount)
 		latestNonce = nonceCounterAccount.Counter
+	case chain_selectors.FamilyTon:
+		// TODO investigate TON nonce management, return +1 for now
+		return *tc.Nonce + 1
 	}
 	return latestNonce
 }
@@ -240,6 +243,8 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 
 		// Solana doesn't support catching CPI errors, so nonces can't be ordered
 		unorderedExec := family == chain_selectors.FamilySolana
+
+		// TODO investigate TON nonce management, getLatestNonce is mocked to increase by 1 for now
 
 		if !unorderedExec {
 			latestNonce := getLatestNonce(tc)

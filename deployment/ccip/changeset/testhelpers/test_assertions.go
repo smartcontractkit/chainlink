@@ -237,6 +237,22 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					},
 					true,
 				))
+			case chainsel.FamilyTon:
+				var startSlot uint64
+				if startBlock != nil {
+					startSlot = *startBlock
+				}
+				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRangeTon(
+					t,
+					srcChain,
+					e.BlockChains.TonChains()[dstChain],
+					state.TonChains[dstChain].OffRamp,
+					startSlot,
+					ccipocr3.SeqNumRange{
+						ccipocr3.SeqNum(expectedSeqNum),
+						ccipocr3.SeqNum(expectedSeqNum),
+					},
+					true))
 			default:
 				return fmt.Errorf("unsupported chain family; %v", family)
 			}
@@ -657,6 +673,15 @@ func ConfirmExecWithSeqNrsForAll(
 				if err != nil {
 					return err
 				}
+			case chainsel.FamilyTon:
+				innerExecutionStates, err = ConfirmExecWithSeqNrsTon(
+					t,
+					srcChain,
+					e.BlockChains.TonChains()[dstChain],
+					state.TonChains[dstChain].OffRamp,
+					startBlock,
+					seqRange,
+				)
 			default:
 				return fmt.Errorf("unsupported chain family; %v", family)
 			}

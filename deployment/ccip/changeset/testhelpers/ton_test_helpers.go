@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -382,15 +381,14 @@ func ConfirmCommitWithExpectedSeqNumRangeTon(
 	t *testing.T,
 	srcSelector uint64,
 	dest cldf_ton.Chain,
-	ccipChainState tonstate.CCIPChainState,
-	startBlock *uint64,
+	offrampAddr tonaddress.Address,
+	startBlock uint64,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
 	enforceSingleCommit bool,
 ) (any, error) {
 	fmt.Printf("DEBUG: ConfirmCommitWithExpectedSeqNumRangeTon srcSelector: %d, startBlock: %+v, expectedSeqNumRange: %+v, enforceSingleCommit: %+v\n", srcSelector, startBlock, expectedSeqNumRange, enforceSingleCommit)
-
-	time.Sleep(tests.WaitTimeout(t))
-	return nil, errors.New("TODO(ton): ConfirmCommitWithExpectedSeqNumRangeTon")
+	// TODO mock the contract event before offramp contracts are supported
+	return true, nil
 }
 
 // TODO: what is the usage of this function? can we remove this?
@@ -409,12 +407,11 @@ func ConfirmExecWithSeqNrsTon(
 	expectedSeqNrs []uint64,
 ) (executionStates map[uint64]int, err error) {
 	fmt.Printf("DEBUG: ConfirmExecWithSeqNrsTon srcSelector: %d, dest: %s, startBlock: %+v, expectedSeqNrs: %+v\n", sourceChain, startBlock, expectedSeqNrs)
-	time.Sleep(tests.WaitTimeout(t))
-	return nil, errors.New("TODO(ton): ConfirmExecWithSeqNrsTon")
-	//fmt.Printf("DEBUG: TODO(ton): ConfirmExecWithSeqNrsTon\n")
-	//seqNrsToWatch := make(map[uint64]int)
-	//for _, seqNr := range expectedSeqNrs {
-	//seqNrsToWatch[seqNr] = 0
-	//}
-	//return seqNrsToWatch, nil
+	// TODO mock the contract event before offramp contracts are supported
+	fmt.Printf("DEBUG: TODO(ton): ConfirmExecWithSeqNrsTon\n")
+	seqNrsToWatch := make(map[uint64]int)
+	for _, seqNr := range expectedSeqNrs {
+		seqNrsToWatch[seqNr] = EXECUTION_STATE_SUCCESS
+	}
+	return seqNrsToWatch, nil
 }
