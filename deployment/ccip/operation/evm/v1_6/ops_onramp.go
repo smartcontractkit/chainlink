@@ -1,7 +1,10 @@
 package v1_6
 
 import (
+	"fmt"
+
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
@@ -49,6 +52,27 @@ var (
 			}
 			return onRamp.Address, nil
 		})
+
+	OnRampApplyDestChainConfigUpdatesOp = opsutil.NewEVMCallOperation(
+		"OnRampApplyDestChainConfigUpdatesOp",
+		semver.MustParse("1.0.0"),
+		"Applies updates to destination chain configurations stored on the OnRamp contract",
+		onramp.OnRampABI,
+		func(address common.Address, backend bind.ContractBackend, opts *bind.TransactOpts, input []onramp.OnRampDestChainConfigArgs) (opsutil.EVMCallOutputWithError, error) {
+			ramp, err := onramp.NewOnRamp(address, backend)
+			if err != nil {
+				return opsutil.EVMCallOutputWithError{}, fmt.Errorf("failed to create OnRamp contract instance: %w", err)
+			}
+			tx, callErr := ramp.ApplyDestChainConfigUpdates(opts, input)
+			return opsutil.EVMCallOutputWithError{
+				CallErr: callErr,
+				EVMCallOutput: opsutil.EVMCallOutput{
+					Tx:           tx,
+					ContractType: shared.OnRamp,
+				},
+			}, nil
+		},
+	)
 )
 
 type DeployOnRampInput struct {
