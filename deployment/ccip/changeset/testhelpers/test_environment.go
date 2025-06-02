@@ -15,6 +15,8 @@ import (
 	"github.com/gagliardetto/solana-go"
 	solanago "github.com/gagliardetto/solana-go"
 
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -447,7 +449,7 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 		})
 	}
 	m.nodes = nodes
-	m.DeployedEnv.Env = memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, m.Chains, m.SolChains, m.AptosChains, nodes)
+	m.Env = memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, m.Chains, m.SolChains, m.AptosChains, nodes)
 }
 
 func (m *MemoryEnvironment) DeleteJobs(ctx context.Context, jobIDs map[string][]string) error {
@@ -546,7 +548,7 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	e := NewEnvironment(t, tEnv)
 	evmChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	solChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
-	//nolint:gocritic // we need to segregate EVM and Solana chains
+
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, c := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfigV2(t)
@@ -669,11 +671,30 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	require.NoError(t, err)
 	return e
 }
-
-func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([]commonchangeset.ConfiguredChangeSet, error) {
-	err := SavePreloadedSolAddresses(e.Env, solChainSelector)
-	if err != nil {
-		return nil, err
+func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *ccipChangeSetSolana.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
+	var mcmsCfg *commontypes.MCMSWithTimelockConfigV2
+	if preload {
+		// Pre load default programs
+		err := SavePreloadedSolAddresses(e.Env, solChainSelector)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		mcmsCfg = &commontypes.MCMSWithTimelockConfigV2{
+			Proposer: mcmstypes.Config{
+				Quorum:  1,
+				Signers: []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000001")},
+			},
+			Canceller: mcmstypes.Config{
+				Quorum:  1,
+				Signers: []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000002")},
+			},
+			Bypasser: mcmstypes.Config{
+				Quorum:  1,
+				Signers: []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000002")},
+			},
+			TimelockMinDelay: big.NewInt(1),
+		}
 	}
 	state, err := stateview.LoadOnchainState(e.Env)
 	if err != nil {
@@ -716,6 +737,8 @@ func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([
 						EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
 					},
 				},
+				BuildConfig:            buildSolConfig,
+				MCMSWithTimelockConfig: mcmsCfg,
 			},
 		)}, nil
 }
@@ -781,7 +804,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		),
 	}...)
 	if len(solChains) != 0 {
-		solCs, err := DeployChainContractsToSolChainCS(e, solChains[0])
+		solCs, err := DeployChainContractsToSolChainCS(e, solChains[0], true, nil)
 		require.NoError(t, err)
 		apps = append(apps, solCs...)
 	}
