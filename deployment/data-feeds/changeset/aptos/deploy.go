@@ -42,8 +42,8 @@ func DeployPlatform(chain cldf.AptosChain, owner aptos.AccountAddress, labels []
 	return resp, nil
 }
 
-func DeployDataFeeds(chain cldf.AptosChain, owner aptos.AccountAddress, platform aptos.AccountAddress, labels []string) (*types.DeployDataFeedsResponse, error) {
-	address, pendingTX, feedsModule, err := modulefeeds.DeployToObject(chain.DeployerSigner, chain.Client, owner, platform)
+func DeployDataFeeds(chain cldf.AptosChain, owner aptos.AccountAddress, platform aptos.AccountAddress, secondaryPlatform aptos.AccountAddress, labels []string) (*types.DeployDataFeedsResponse, error) {
+	address, pendingTX, feedsModule, err := modulefeeds.DeployToObject(chain.DeployerSigner, chain.Client, owner, platform, owner, secondaryPlatform)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy ChainlinkDataFeeds: %w", err)
 	}

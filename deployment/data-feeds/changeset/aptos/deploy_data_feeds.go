@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-// DeployDataFeedsChangeset deploys the ChainlinkDataFeeds package to Aptos chain. Uses platform package address from existing datastore.
+// DeployDataFeedsChangeset deploys the ChainlinkDataFeeds package to Aptos chain.
 // Returns a new addressbook and datastore with deployed router/registry contracts addresses.
 var DeployDataFeedsChangeset = cldf.CreateChangeSet(deployDataFeedsLogic, deployDataFeedsPrecondition)
 
@@ -26,26 +26,21 @@ func deployDataFeedsLogic(env cldf.Environment, c types.DeployAptosConfig) (cldf
 
 		// Use the owner address if provided, otherwise use the deployer signer address
 		ownerAddress := chain.DeployerSigner.AccountAddress()
-		if c.Owner != "" {
+		if c.OwnerAddress != "" {
 			ownerAddress = aptos.AccountAddress{}
-			err := ownerAddress.ParseStringRelaxed(c.Owner)
+			err := ownerAddress.ParseStringRelaxed(c.OwnerAddress)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
 		}
 
-		// Get the platform address from the datastore
-		record, _ := env.DataStore.Addresses().Get(
-			datastore.NewAddressRefKey(chainSelector, "ChainlinkPlatform", semver.MustParse("1.0.0"), "aptos"),
-		)
-
 		platformAccountAddress := aptos.AccountAddress{}
-		err := platformAccountAddress.ParseStringRelaxed(record.Address)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
+		_ = platformAccountAddress.ParseStringRelaxed(c.PlatformAddress)
 
-		dataFeedsResponse, err := DeployDataFeeds(chain, ownerAddress, platformAccountAddress, c.Labels)
+		secondaryPlatformAccountAddress := aptos.AccountAddress{}
+		_ = secondaryPlatformAccountAddress.ParseStringRelaxed(c.SecondaryPlatformAddress)
+
+		dataFeedsResponse, err := DeployDataFeeds(chain, ownerAddress, platformAccountAddress, secondaryPlatformAccountAddress, c.Labels)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy ChainlinkDataFeeds: %w", err)
 		}
@@ -62,7 +57,7 @@ func deployDataFeedsLogic(env cldf.Environment, c types.DeployAptosConfig) (cldf
 				Address:       dataFeedsResponse.Address.String(),
 				Type:          "ChainlinkDataFeeds",
 				Version:       semver.MustParse("1.0.0"),
-				Qualifier:     "aptos",
+				Qualifier:     c.Qualifier,
 				Labels:        datastore.NewLabelSet(c.Labels...),
 			},
 		); err != nil {
@@ -80,11 +75,16 @@ func deployDataFeedsPrecondition(env cldf.Environment, c types.DeployAptosConfig
 			return errors.New("chain not found in environment")
 		}
 
-		_, err := env.DataStore.Addresses().Get(
-			datastore.NewAddressRefKey(chainSelector, "ChainlinkPlatform", semver.MustParse("1.0.0"), "aptos"),
-		)
+		platformAccountAddress := aptos.AccountAddress{}
+		err := platformAccountAddress.ParseStringRelaxed(c.PlatformAddress)
 		if err != nil {
-			return errors.New("ChainlinkPlatform not found in data store")
+			return err
+		}
+
+		secondaryPlatformAccountAddress := aptos.AccountAddress{}
+		err = secondaryPlatformAccountAddress.ParseStringRelaxed(c.SecondaryPlatformAddress)
+		if err != nil {
+			return err
 		}
 	}
 

@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
 
 	modulefeeds "github.com/smartcontractkit/chainlink-aptos/bindings/data_feeds"
-	moduleplatform "github.com/smartcontractkit/chainlink-aptos/bindings/platform"
 	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
 	bundleproxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/bundle_aggregator_proxy"
 	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
@@ -215,16 +214,18 @@ type SetRegistryFeedConfig struct {
 	CacheAddress  string
 }
 
-type DeployPlatformResponse struct {
-	Address  aptos.AccountAddress
-	Tx       api.Hash
-	Tv       cldf.TypeAndVersion
-	Contract *moduleplatform.Platform
-}
-
 type DeployDataFeedsResponse struct {
 	Address  aptos.AccountAddress
 	Tx       api.Hash
 	Tv       cldf.TypeAndVersion
 	Contract *modulefeeds.DataFeeds
+}
+
+type DeployAptosConfig struct {
+	ChainsToDeploy           []uint64 // Chain Selectors
+	Labels                   []string // Data Store labels for the deployed contracts, applies to all chains
+	Qualifier                string   // Data Store qualifier for the deployed contracts, applies to all chains
+	OwnerAddress             string   // Owner of the deployed contracts
+	PlatformAddress          string   // Address of the ChainLinkPlatform package
+	SecondaryPlatformAddress string   // Secondary address of the ChainLinkPlatform package
 }
