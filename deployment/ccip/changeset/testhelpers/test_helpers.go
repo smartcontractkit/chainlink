@@ -50,7 +50,6 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"go.uber.org/multierr"
 
-
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
@@ -2157,7 +2156,7 @@ func SavePreloadedSolAddresses(e cldf.Environment, solChainSelector uint64) erro
 func ValidateSolanaState(e cldf.Environment, solChainSelectors []uint64) error {
 	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
-		return fmt.Errorf("Failed to load Solana state: %w", err)
+		return fmt.Errorf("failed to load Solana state: %w", err)
 	}
 
 	for _, sel := range solChainSelectors {
