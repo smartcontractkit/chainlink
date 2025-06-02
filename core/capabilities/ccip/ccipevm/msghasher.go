@@ -94,7 +94,6 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 		"onrampAddress", msg.Header.OnRamp,
 		"sourceChainFamily", sourceChainFamily,
 	)
-	lggr.Debugw("hashing message", "msg", msg)
 
 	var rampTokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
 	for _, rta := range msg.TokenAmounts {

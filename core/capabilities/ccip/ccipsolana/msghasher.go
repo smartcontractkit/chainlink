@@ -39,8 +39,6 @@ func NewMessageHasherV1(lggr logger.Logger, extraDataCodec common.ExtraDataCodec
 
 // Hash implements the MessageHasher interface.
 func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (cciptypes.Bytes32, error) {
-	h.lggr.Debugw("hashing message", "msg", msg)
-
 	anyToSolanaMessage := ccip_offramp.Any2SVMRampMessage{}
 	anyToSolanaMessage.Header = ccip_offramp.RampMessageHeader{
 		SourceChainSelector: uint64(msg.Header.SourceChainSelector),
