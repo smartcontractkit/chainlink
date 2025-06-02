@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
@@ -29,6 +30,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
@@ -149,7 +153,13 @@ func BuildSetOCR3ConfigArgs(
 		var transmitterAddresses []common.Address
 		for _, node := range configForOCR3.Config.Nodes {
 			signerAddresses = append(signerAddresses, common.BytesToAddress(node.SignerKey))
-			transmitterAddresses = append(transmitterAddresses, common.BytesToAddress(node.TransmitterKey))
+
+			// Not all nodes support the destination chain, if the transmitter key is empty in the CCIPHome OCR3 config,
+			// it means that we can omit it from the transmitter whitelist on the OCR3 contract
+			// on the destination chain.
+			if len(node.TransmitterKey) > 0 {
+				transmitterAddresses = append(transmitterAddresses, common.BytesToAddress(node.TransmitterKey))
+			}
 		}
 
 		offrampOCR3Configs = append(offrampOCR3Configs, offramp.MultiOCR3BaseOCRConfigArgs{
@@ -183,11 +193,20 @@ func validateOCR3Config(chainSel uint64, configForOCR3 ccip_home.CCIPHomeOCR3Con
 		if len(configForOCR3.Nodes) < 3*int(chainConfig.FChain)+1 {
 			return fmt.Errorf("number of nodes %d is less than 3 * fChain + 1 %d", len(configForOCR3.Nodes), 3*int(chainConfig.FChain)+1)
 		}
-		//  transmitters.length should be validated such that it meets the 3 * fChain + 1 requirement
+
+		// check that we have enough transmitters for the destination chain.
+		// note that this is done onchain, but we'll do it here for good measure to avoid reverts.
+		// see https://github.com/smartcontractkit/chainlink-ccip/blob/8529b8c89093d0cd117b73645ea64b2d2a8092f4/chains/evm/contracts/capability/CCIPHome.sol#L511-L514.
 		minTransmitterReq := 3*int(chainConfig.FChain) + 1
-		if len(configForOCR3.Nodes) < minTransmitterReq {
-			return fmt.Errorf("no of transmitters %d is less than 3 * fChain + 1 %d, chain %d",
-				len(configForOCR3.Nodes), minTransmitterReq, chainSel)
+		var numNonzeroTransmitters int
+		for _, node := range configForOCR3.Nodes {
+			if len(node.TransmitterKey) > 0 {
+				numNonzeroTransmitters++
+			}
+		}
+		if numNonzeroTransmitters < minTransmitterReq {
+			return fmt.Errorf("number of transmitters (%d) is less than 3 * fChain + 1 (%d), chain selector %d",
+				numNonzeroTransmitters, minTransmitterReq, chainSel)
 		}
 	}
 
@@ -205,17 +224,22 @@ func validateOCR3Config(chainSel uint64, configForOCR3 ccip_home.CCIPHomeOCR3Con
 		if bytes.IsEmpty(node.SignerKey) {
 			return fmt.Errorf("zero address found in signer key, chain %d", chainSel)
 		}
-		if bytes.IsEmpty(node.TransmitterKey) {
-			return fmt.Errorf("zero address found in transmitter key,  chain %d", chainSel)
-		}
+
+		// NOTE: We don't check for empty/zero transmitter address because the node can have a zero transmitter address if it does not support the destination chain.
+
 		if bytes.IsEmpty(node.P2pId[:]) {
 			return fmt.Errorf("empty p2p id, chain %d", chainSel)
 		}
-		// Signer and transmitter duplication must be checked
+
+		// Signer and non-zero transmitter duplication must be checked
 		if _, ok := mapSignerKey[hexutil.Encode(node.SignerKey)]; ok {
 			return fmt.Errorf("duplicate signer key found, chain %d", chainSel)
 		}
-		if _, ok := mapTransmitterKey[hexutil.Encode(node.TransmitterKey)]; ok {
+
+		// If len(node.TransmitterKey) == 0, the node does not support the destination chain, and we can definitely
+		// have more than one node not supporting the destination chain, so the duplicate check doesn't make sense
+		// for those.
+		if _, ok := mapTransmitterKey[hexutil.Encode(node.TransmitterKey)]; ok && len(node.TransmitterKey) != 0 {
 			return fmt.Errorf("duplicate transmitter key found, chain %d", chainSel)
 		}
 		mapSignerKey[hexutil.Encode(node.SignerKey)] = struct{}{}
@@ -312,24 +336,77 @@ func BuildOCR3ConfigForCCIPHome(
 	execOffchainCfg *pluginconfig.ExecuteOffchainConfig,
 	skipChainConfigValidation bool,
 ) (map[types.PluginType]ccip_home.CCIPHomeOCR3Config, error) {
+	addressCodec := ccipcommon.NewAddressCodec(map[string]ccipcommon.ChainSpecificAddressCodec{
+		chain_selectors.FamilyEVM:    ccipevm.AddressCodec{},
+		chain_selectors.FamilySolana: ccipsolana.AddressCodec{},
+	})
+
+	// check if we have info from this node for another chain in the same destFamily
+	destFamily, err := chain_selectors.GetSelectorFamily(destSelector)
+	if err != nil {
+		return nil, err
+	}
+
 	var p2pIDs [][32]byte
 	// Get OCR3 Config from helper
 	var schedule []int
 	var oracles []confighelper.OracleIdentityExtra
 	for _, node := range nodes {
 		schedule = append(schedule, 1)
+
+		// TODO: not every node supports the destination chain, but nodes must have an OCR identity for the
+		// destination chain, in order to be able to participate in the OCR protocol, sign reports, etc.
+		// However, JD currently only returns the "OCRConfig" for chains that are explicitly supported by the node,
+		// presumably in the TOML config.
+		// JD should instead give us the OCR identity for the destination chain, and, if the node does NOT
+		// actually support the chain (in terms of TOML config), then return an empty transmitter address,
+		// which is what we're supposed to set anyway if that particular node doesn't support the destination chain.
+		// The current workaround is to check if we have the OCR identity for the destination chain based off of
+		// the node's OCR identity for another chain in the same family.
+		// This is a HACK, because it is entirely possible that the destination chain is a unique family,
+		// and no other supported chain by the node has the same family, e.g. Solana.
 		cfg, exists := node.OCRConfigForChainSelector(destSelector)
 		if !exists {
-			return nil, fmt.Errorf("no OCR config for chain %d", destSelector)
+			// check if we have an oracle identity for another chain in the same family as destFamily.
+			allOCRConfigs := node.AllOCRConfigs()
+			for chainDetails, ocrConfig := range allOCRConfigs {
+				chainFamily, err := chain_selectors.GetSelectorFamily(chainDetails.ChainSelector)
+				if err != nil {
+					return nil, err
+				}
+
+				if chainFamily == destFamily {
+					cfg = ocrConfig
+					break
+				}
+			}
+
+			if cfg.OffchainPublicKey == [32]byte{} {
+				return nil, fmt.Errorf(
+					"no OCR config for chain %d (family %s) from node %s (peer id %s) and no other OCR config for another chain in the same family",
+					destSelector, destFamily, node.Name, node.PeerID.String(),
+				)
+			}
+		}
+
+		var transmitAccount ocrtypes.Account
+		if !exists {
+			// empty account means that the node cannot transmit for this chain
+			// we replace this with a canonical address with the oracle ID as the address when doing the ocr config validation below, but it should remain empty
+			// in the CCIPHome OCR config and it should not be included in the destination chain transmitters whitelist.
+			transmitAccount = ocrtypes.Account("")
+		} else {
+			transmitAccount = cfg.TransmitAccount
 		}
 		p2pIDs = append(p2pIDs, node.PeerID)
 		oracles = append(oracles, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{
-				OnchainPublicKey:  cfg.OnchainPublicKey,
-				TransmitAccount:   cfg.TransmitAccount,
-				OffchainPublicKey: cfg.OffchainPublicKey,
-				PeerID:            cfg.PeerID.String()[4:],
-			}, ConfigEncryptionPublicKey: cfg.ConfigEncryptionPublicKey,
+				OnchainPublicKey:  cfg.OnchainPublicKey,    // should be the same for all chains within the same family
+				TransmitAccount:   transmitAccount,         // different per chain (!) can be empty if the node does not support the destination chain
+				OffchainPublicKey: cfg.OffchainPublicKey,   // should be the same for all chains within the same family
+				PeerID:            cfg.PeerID.String()[4:], // should be the same for all oracle identities
+			},
+			ConfigEncryptionPublicKey: cfg.ConfigEncryptionPublicKey, // should be the same for all chains within the same family
 		})
 	}
 
@@ -398,6 +475,13 @@ func BuildOCR3ConfigForCCIPHome(
 				return nil, err
 			}
 			var parsed []byte
+
+			// if the node does not support the destination chain, the transmitter address is empty.
+			if len(transmitter) == 0 {
+				transmittersBytes[i] = []byte{}
+				continue
+			}
+
 			switch family {
 			case chain_selectors.FamilyEVM:
 				parsed, err2 = common.ParseHexOrString(string(transmitter))
@@ -411,10 +495,18 @@ func BuildOCR3ConfigForCCIPHome(
 				}
 				parsed = pk.Bytes()
 			}
+
 			transmittersBytes[i] = parsed
 		}
+
 		// validate ocr3 params correctness
-		_, err := ocr3confighelper.PublicConfigFromContractConfig(false, ocrtypes.ContractConfig{
+		// TODO: this is super hacky, should not have to do this.
+		transmitters, err := replaceEmptyTransmitters(transmitters, addressCodec, destSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to replace empty transmitters in transmitters list before validating ocr3 params: %w", err)
+		}
+
+		_, err = ocr3confighelper.PublicConfigFromContractConfig(false, ocrtypes.ContractConfig{
 			Signers:               signers,
 			Transmitters:          transmitters,
 			F:                     configF,
@@ -425,6 +517,7 @@ func BuildOCR3ConfigForCCIPHome(
 		if err != nil {
 			return nil, fmt.Errorf("failed to validate ocr3 params: %w", err)
 		}
+
 		var ocrNodes []ccip_home.CCIPHomeOCR3Node
 		for i := range nodes {
 			ocrNodes = append(ocrNodes, ccip_home.CCIPHomeOCR3Node{
@@ -462,6 +555,32 @@ func BuildOCR3ConfigForCCIPHome(
 	}
 
 	return ocr3Configs, nil
+}
+
+// replaceEmptyTransmitters replaces empty transmitters with a canonical address, using the oracle ID as the address in order to pass OCR config validation.
+// TODO: this is super hacky, should not have to do this.
+func replaceEmptyTransmitters(transmitters []ocrtypes.Account, addressCodec ccipcommon.AddressCodec, destSelector uint64) ([]ocrtypes.Account, error) {
+	var ret []ocrtypes.Account
+	for oracleID, transmitter := range transmitters {
+		acct := transmitter
+		if len(acct) == 0 {
+			// #nosec G115 - Overflow is not a concern in this test scenario
+			canonicalAddress, err := addressCodec.OracleIDAsAddressBytes(uint8(oracleID), ccipocr3.ChainSelector(destSelector))
+			if err != nil {
+				return nil, err
+			}
+
+			acctString, err := addressCodec.AddressBytesToString(canonicalAddress, ccipocr3.ChainSelector(destSelector))
+			if err != nil {
+				return nil, err
+			}
+
+			acct = ocrtypes.Account(acctString)
+		}
+		ret = append(ret, acct)
+	}
+
+	return ret, nil
 }
 
 func DONIdExists(cr *capabilities_registry.CapabilitiesRegistry, donIDs []uint32) error {

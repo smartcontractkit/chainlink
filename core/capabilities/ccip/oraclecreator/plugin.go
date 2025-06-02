@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -65,7 +66,7 @@ type pluginOracleCreator struct {
 	homeChainReader       ccipreaderpkg.HomeChain
 	homeChainSelector     cciptypes.ChainSelector
 	relayers              map[types.RelayID]loop.Relayer
-	addressCodec          cciptypes.AddressCodec
+	addressCodec          ccipcommon.AddressCodec
 	p2pID                 p2pkey.KeyV2
 }
 
@@ -84,7 +85,7 @@ func NewPluginOracleCreator(
 	bootstrapperLocators []commontypes.BootstrapperLocator,
 	homeChainReader ccipreaderpkg.HomeChain,
 	homeChainSelector cciptypes.ChainSelector,
-	addressCodec cciptypes.AddressCodec,
+	addressCodec ccipcommon.AddressCodec,
 	p2pID p2pkey.KeyV2,
 ) cctypes.OracleCreator {
 	return &pluginOracleCreator{
@@ -309,12 +310,19 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			i.lggr.Infow("no chain writer found for dest chain, creating nil transmitter",
 				"destChainID", destChainID,
 				"destChainSelector", config.Config.ChainSelector)
+			transmitAccount, err := i.getTransmitterFromPublicConfig(publicConfig)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to get transmitter from public config: %w", err)
+			}
+			i.lggr.Infow("using (fake) transmitter from public config in the commit no-op transmitter", "transmitAccount", transmitAccount)
 			transmitter = ocrimpls.NewNoOpTransmitter(
 				i.lggr.
 					Named("CCIPCommitNoOpTransmitter").
 					Named(destRelayID.String()).
 					Named(fmt.Sprintf("%d", config.Config.ChainSelector)),
-				i.p2pID.PeerID().String())
+				i.p2pID.PeerID().String(),
+				transmitAccount,
+			)
 		} else {
 			transmitter = pluginConfig.ContractTransmitterFactory.NewCommitTransmitter(
 				i.lggr.
@@ -353,12 +361,20 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			i.lggr.Infow("no chain writer found for dest chain, creating nil transmitter",
 				"destChainID", destChainID,
 				"destChainSelector", config.Config.ChainSelector)
+
+			transmitAccount, err := i.getTransmitterFromPublicConfig(publicConfig)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to get transmitter from public config: %w", err)
+			}
+			i.lggr.Infow("using (fake) transmitter from public config in the exec no-op transmitter", "transmitAccount", transmitAccount)
 			transmitter = ocrimpls.NewNoOpTransmitter(
 				i.lggr.
 					Named("CCIPExecNoOpTransmitter").
 					Named(destRelayID.String()).
 					Named(fmt.Sprintf("%d", config.Config.ChainSelector)),
-				i.p2pID.PeerID().String())
+				i.p2pID.PeerID().String(),
+				transmitAccount,
+			)
 		} else {
 			transmitter = pluginConfig.ContractTransmitterFactory.NewExecTransmitter(
 				i.lggr.
@@ -374,6 +390,22 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 		return nil, nil, fmt.Errorf("unsupported Plugin type %d", config.Config.PluginType)
 	}
 	return factory, transmitter, nil
+}
+
+func (i *pluginOracleCreator) getTransmitterFromPublicConfig(publicConfig ocr3confighelper.PublicConfig) (ocrtypes.Account, error) {
+	var myIndex = -1
+	for idx, identity := range publicConfig.OracleIdentities {
+		if identity.PeerID == strings.TrimPrefix(i.p2pID.PeerID().String(), "p2p_") {
+			myIndex = idx
+			break
+		}
+	}
+
+	if myIndex == -1 {
+		return ocrtypes.Account(""), fmt.Errorf("no transmitter found for my peer id %s in public config", i.p2pID.PeerID().String())
+	}
+
+	return publicConfig.OracleIdentities[myIndex].TransmitAccount, nil
 }
 
 // createReadersAndWriters creates the contract readers and writers for the relayers

@@ -216,7 +216,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	if err != nil {
 		return nil, err
 	}
-	addressCodec := pluginServices.AddrCodec
 
 	// if bootstrappers are provided we assume that the node is a plugin oracle.
 	// the reason for this is that bootstrap oracles do not need to be aware
@@ -239,7 +238,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			bootstrapperLocators,
 			hcr,
 			cciptypes.ChainSelector(homeChainChainSelector),
-			addressCodec,
+			pluginServices.AddrCodec,
 			p2pID,
 		)
 	} else {
@@ -250,7 +249,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			d.monitoringEndpointGen,
 			d.lggr,
 			homeChainContractReader,
-			addressCodec,
+			pluginServices.AddrCodec,
 		)
 	}
 

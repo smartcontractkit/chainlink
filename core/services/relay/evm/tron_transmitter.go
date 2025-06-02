@@ -9,9 +9,9 @@ import (
 
 	tronsdk "github.com/fbsobreira/gotron-sdk/pkg/address"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	tron "github.com/smartcontractkit/chainlink-tron/relayer/ocr2"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
