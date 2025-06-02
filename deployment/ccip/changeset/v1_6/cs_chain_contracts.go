@@ -1049,34 +1049,19 @@ func UpdateFeeQuoterDestsChangeset(e cldf.Environment, cfg UpdateFeeQuoterDestsC
 			Address:       s.Chains[chainSel].FeeQuoter.Address(),
 			ChainSelector: chainSel,
 			CallInput:     args,
-		}
-	}
-
-	// Build sequence dependencies
-	// TODO: Standardize this?
-	deps := make(map[uint64]opsutil.EVMCallDeps[*fee_quoter.FeeQuoter])
-	for chainSel := range cfg.UpdatesByChain {
-		txOpts := e.BlockChains.EVMChains()[chainSel].DeployerKey
-		txOpts.Context = e.GetContext()
-		if cfg.MCMS != nil {
-			txOpts = cldf.SimTransactOpts()
-		}
-		deps[chainSel] = opsutil.EVMCallDeps[*fee_quoter.FeeQuoter]{
-			Contract: s.Chains[chainSel].FeeQuoter,
-			Opts:     txOpts,
-			Chain:    e.BlockChains.EVMChains()[chainSel],
+			NoSend:        cfg.MCMS != nil, // If MCMS exists, we do not want to send the transaction.
 		}
 	}
 
 	report, err := operations.ExecuteSequence(
 		e.OperationsBundle,
 		ccipseqs.FeeQuoterApplyDestChainConfigUpdatesSequence,
-		deps,
+		e.BlockChains.EVMChains(),
 		ccipseqs.FeeQuoterApplyDestChainConfigUpdatesSequenceInput{
 			UpdatesByChain: updates,
 		},
 	)
-	return opsutil.UpdateCSOutputViaEVMCallSequence(e, s, output, report, err, cfg.MCMS, "Call ApplyDestChainConfigUpdates on FeeQuoters")
+	return opsutil.AddEVMCallSequenceToCSOutput(e, s, output, report, err, cfg.MCMS, "Call ApplyDestChainConfigUpdates on FeeQuoters")
 }
 
 type OffRampSourceUpdate struct {

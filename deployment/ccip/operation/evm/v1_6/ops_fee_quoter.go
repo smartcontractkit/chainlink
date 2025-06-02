@@ -118,8 +118,12 @@ var (
 		semver.MustParse("1.0.0"),
 		"Apply updates to destination chain configs on the FeeQuoter 1.6.0 contract",
 		fee_quoter.FeeQuoterABI,
-		func(contract *fee_quoter.FeeQuoter, opts *bind.TransactOpts, input []fee_quoter.FeeQuoterDestChainConfigArgs) (opsutil.EVMCallOutput, error) {
-			tx, err := contract.ApplyDestChainConfigUpdates(opts, input)
+		func(address common.Address, backend bind.ContractBackend, opts *bind.TransactOpts, input []fee_quoter.FeeQuoterDestChainConfigArgs) (opsutil.EVMCallOutput, error) {
+			fq, err := fee_quoter.NewFeeQuoter(address, backend)
+			if err != nil {
+				return opsutil.EVMCallOutput{}, fmt.Errorf("failed to create FeeQuoter contract instance: %w", err)
+			}
+			tx, err := fq.ApplyDestChainConfigUpdates(opts, input)
 			if err != nil {
 				return opsutil.EVMCallOutput{}, fmt.Errorf("failed to call ApplyDestChainConfigUpdates: %w", err)
 			}

@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
@@ -19,63 +20,60 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
-// Addressable is an interface that provides a method to get the address of a contract.
-type Addressable interface {
-	Address() common.Address
-}
-
-// EVMCallDeps contains the dependencies required for an EVM call operation.
-// It includes the contract bindings, the chain on which the operation is performed, and transaction options.
-type EVMCallDeps[C Addressable] struct {
-	Contract C
-	Chain    cldf.Chain
-	Opts     *bind.TransactOpts
-}
-
 // EVMCallInput is the input structure for an EVM call operation.
 // It contains the address of the contract, the chain selector, and the input data required for the call.
-// Why not pull the address from contract bindings and the chain selector from the chain? Because we need both to be included in the report.
-// This ensures we don't conflict with other operations that have the same call input but a different target address / target chain.
+// Why not pull the chain selector from the chain? Because addresses might be the same across chains, and we need to differentiate them.
+// This ensures no hash conflicts with operation runs with the same call input and address, but a different target chain.
 type EVMCallInput[IN any] struct {
-	Address       common.Address
+	// Address is the address of the contract to call.
+	Address common.Address
+	// ChainSelector is the selector for the chain on which the contract resides.
 	ChainSelector uint64
-	CallInput     IN
+	// NoSend indicates whether or not the transaction should be sent.
+	// If true, the transaction data be prepared and returned but not sent.
+	NoSend bool
+	// CallInput is the input data for the call.
+	CallInput IN
 }
 
 // EVMCallOutput is the output structure for an EVM call operation.
 // It contains the transaction that was sent and the type of contract that was called.
 type EVMCallOutput struct {
-	Tx           *types.Transaction
+	// Tx is the transaction formed by the call.
+	Tx *types.Transaction
+	// ContractType is the type of contract that was called.
 	ContractType cldf.ContractType
 }
 
 // NewEVMCallOperation creates a new operation that performs an EVM call.
-func NewEVMCallOperation[C Addressable, IN any](
+// Any interfacing with gethwrappers should happen in the call function.
+func NewEVMCallOperation[IN any](
 	name string,
 	version *semver.Version,
 	description string,
 	abi string,
-	call func(contract C, opts *bind.TransactOpts, input IN) (EVMCallOutput, error),
-) *operations.Operation[EVMCallInput[IN], EVMCallOutput, EVMCallDeps[C]] {
+	call func(address common.Address, backend bind.ContractBackend, opts *bind.TransactOpts, input IN) (EVMCallOutput, error),
+) *operations.Operation[EVMCallInput[IN], EVMCallOutput, cldf.Chain] {
 	return operations.NewOperation(
 		name,
 		version,
 		description,
-		func(b operations.Bundle, deps EVMCallDeps[C], input EVMCallInput[IN]) (EVMCallOutput, error) {
-			if input.Address != deps.Contract.Address() {
-				return EVMCallOutput{}, fmt.Errorf("mismatch between inputted address and address connected to bindings: %s != %s", input.Address, deps.Contract.Address())
+		func(b operations.Bundle, chain cldf.Chain, input EVMCallInput[IN]) (EVMCallOutput, error) {
+			if input.ChainSelector != chain.Selector {
+				return EVMCallOutput{}, fmt.Errorf("mismatch between inputted chain selector and selector defined within dependencies: %d != %d", input.ChainSelector, chain.Selector)
 			}
-			if input.ChainSelector != deps.Chain.Selector {
-				return EVMCallOutput{}, fmt.Errorf("mismatch between inputted chain selector and actual chain selector: %d != %d", input.ChainSelector, deps.Chain.Selector)
+			opts := chain.DeployerKey
+			if input.NoSend {
+				opts = cldf.SimTransactOpts()
 			}
-			out, err := call(deps.Contract, deps.Opts, input.CallInput)
+			out, err := call(input.Address, chain.Client, opts, input.CallInput)
 			if err != nil {
-				return EVMCallOutput{}, fmt.Errorf("failed to call %s on %s: %w", name, deps.Contract.Address(), err)
+				return EVMCallOutput{}, fmt.Errorf("failed to call %s against %s on %s: %w", name, input.Address, chain, err)
 			}
-			if !deps.Opts.NoSend {
-				_, err = cldf.ConfirmIfNoErrorWithABI(deps.Chain, out.Tx, abi, err)
+			if !input.NoSend {
+				_, err = cldf.ConfirmIfNoErrorWithABI(chain, out.Tx, abi, err)
 				if err != nil {
-					return EVMCallOutput{}, fmt.Errorf("failed to confirm %s tx: %w", name, err)
+					return EVMCallOutput{}, fmt.Errorf("failed to confirm %s tx against %s on %s: %w", name, input.Address, chain, err)
 				}
 			}
 			return out, err
@@ -83,10 +81,10 @@ func NewEVMCallOperation[C Addressable, IN any](
 	)
 }
 
-// UpdateCSOutputViaEVMCallSequence updates the ChangesetOutput with the results of an EVM call sequence.
+// AddEVMCallSequenceToCSOutput updates the ChangesetOutput with the results of an EVM call sequence.
 // It appends the execution reports from the sequence report to the ChangesetOutput's reports.
-// If the sequence execution was successful and MCMS configuration is provided, it builds a proposal.
-func UpdateCSOutputViaEVMCallSequence[IN any](
+// If the sequence execution was successful and MCMS configuration is provided, it adds a proposal to the output.
+func AddEVMCallSequenceToCSOutput[IN any](
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
 	csOutput cldf.ChangesetOutput,
