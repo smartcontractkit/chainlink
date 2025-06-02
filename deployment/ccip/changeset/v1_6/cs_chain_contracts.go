@@ -899,78 +899,47 @@ func UpdateFeeQuoterPricesChangeset(e cldf.Environment, cfg UpdateFeeQuoterPrice
 		return cldf.ChangesetOutput{}, err
 	}
 
-	batches := []mcmstypes.BatchOperation{}
-	timelocks := make(map[uint64]string)
-	inspectors := make(map[uint64]mcmssdk.Inspector)
-
-	for chainSel, initialPrice := range cfg.PricesByChain {
-		txOpts := e.BlockChains.EVMChains()[chainSel].DeployerKey
-		if cfg.MCMS != nil {
-			txOpts = cldf.SimTransactOpts()
-		}
-		fq := s.Chains[chainSel].FeeQuoter
-		var tokenPricesArgs []fee_quoter.InternalTokenPriceUpdate
-		for token, price := range initialPrice.TokenPrices {
-			tokenPricesArgs = append(tokenPricesArgs, fee_quoter.InternalTokenPriceUpdate{
-				SourceToken: token,
+	// Build sequence input
+	updates := make(map[uint64]opsutil.EVMCallInput[fee_quoter.InternalPriceUpdates], len(cfg.PricesByChain))
+	for chainSel, prices := range cfg.PricesByChain {
+		tokenPriceUpdates := make([]fee_quoter.InternalTokenPriceUpdate, len(prices.TokenPrices))
+		i := 0
+		for tokenAddress, price := range prices.TokenPrices {
+			tokenPriceUpdates[i] = fee_quoter.InternalTokenPriceUpdate{
+				SourceToken: tokenAddress,
 				UsdPerToken: price,
-			})
+			}
+			i++
 		}
-		var gasPricesArgs []fee_quoter.InternalGasPriceUpdate
-		for dest, price := range initialPrice.GasPrices {
-			gasPricesArgs = append(gasPricesArgs, fee_quoter.InternalGasPriceUpdate{
-				DestChainSelector: dest,
+		gasPriceUpdates := make([]fee_quoter.InternalGasPriceUpdate, len(prices.GasPrices))
+		i = 0
+		for destChainSelector, price := range prices.GasPrices {
+			gasPriceUpdates[i] = fee_quoter.InternalGasPriceUpdate{
+				DestChainSelector: destChainSelector,
 				UsdPerUnitGas:     price,
-			})
+			}
+			i++
 		}
-		tx, err := fq.UpdatePrices(txOpts, fee_quoter.InternalPriceUpdates{
-			TokenPriceUpdates: tokenPricesArgs,
-			GasPriceUpdates:   gasPricesArgs,
-		})
-		if cfg.MCMS == nil {
-			if _, err := cldf.ConfirmIfNoErrorWithABI(e.BlockChains.EVMChains()[chainSel], tx, fee_quoter.FeeQuoterABI, err); err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("error confirming transaction for chain %s: %w", e.BlockChains.EVMChains()[chainSel].String(), err)
-			}
-		} else {
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("error updating prices for chain %s: %w", e.BlockChains.EVMChains()[chainSel].String(), err)
-			}
-
-			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, fq.Address().Hex(), tx.Data(),
-				big.NewInt(0), string(shared.FeeQuoter), []string{})
-			if err != nil {
-				return cldf.ChangesetOutput{}, err
-			}
-			batches = append(batches, batchOperation)
-
-			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address().Hex()
-			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
-			}
+		updates[chainSel] = opsutil.EVMCallInput[fee_quoter.InternalPriceUpdates]{
+			ChainSelector: chainSel,
+			Address:       s.Chains[chainSel].FeeQuoter.Address(),
+			CallInput: fee_quoter.InternalPriceUpdates{
+				TokenPriceUpdates: tokenPriceUpdates,
+				GasPriceUpdates:   gasPriceUpdates,
+			},
+			NoSend: cfg.MCMS != nil, // If MCMS exists, we do not want to send the transaction.
 		}
 	}
-	if cfg.MCMS == nil {
-		return cldf.ChangesetOutput{}, nil
-	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
-	}
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e,
-		timelocks,
-		mcmsContractByChain,
-		inspectors,
-		batches,
-		"Update fq prices",
-		*cfg.MCMS,
+
+	report, err := operations.ExecuteSequence(
+		e.OperationsBundle,
+		ccipseqs.FeeQuoterUpdatePricesSequence,
+		e.BlockChains.EVMChains(),
+		ccipseqs.FeeQuoterUpdatePricesSequenceInput{
+			UpdatesByChain: updates,
+		},
 	)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-
-	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+	return opsutil.AddEVMCallSequenceToCSOutput(e, s, cldf.ChangesetOutput{}, report, err, cfg.MCMS, "Call UpdatePrices on FeeQuoters")
 }
 
 type UpdateFeeQuoterDestsConfig struct {
