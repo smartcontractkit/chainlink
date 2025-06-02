@@ -41,7 +41,7 @@ func Test_ActiveCandidate(t *testing.T) {
 	require.NoError(t, err)
 
 	// Deploy to all chains.
-	allChains := maps.Keys(tenv.Env.Chains)
+	allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 	source := allChains[0]
 	dest := allChains[1]
 
@@ -133,7 +133,7 @@ func Test_ActiveCandidate(t *testing.T) {
 	// and set new config digest on the offramp.
 	_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 			testhelpers.GenTestTransferOwnershipConfig(tenv, allChains, state, true),
 		),
 	)

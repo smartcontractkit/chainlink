@@ -23,6 +23,8 @@ on:
         type: string
         description: "The version of Chainlink repository to use for the tests."
         default: "develop"
+  pull_request:
+    types: [labeled, synchronize]
 
 jobs:
   test-cli:
@@ -32,16 +34,17 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-local-cre-env-tests'))
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.chainlink_version }}
+          ref: ${{ github.event_name == 'pull_request' && github.sha || inputs.chainlink_version }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: system-tests/tests/go.mod
+          go-version-file: core/scripts/go.mod
 
       # We need to login to ECR to allow the test to pull the Job Distributor and Chainlink images
       - name: Configure AWS Credentials
@@ -60,10 +63,15 @@ jobs:
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 
+      - name: Set date variable
+        id: set-date
+        if:  ${{ github.event_name == 'pull_request' }}
+        run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+
       - name: Overwrite chainlink version in TOML config
         shell: bash
         run: |
-          cat > system-tests/tests/smoke/cre/cmd/configs/ci-override.toml<< EOF
+          cat > core/scripts/cre/environment/configs/ci-override.toml<< EOF
           [jd]
             image = "injected-at-runtime"
 
@@ -89,14 +97,14 @@ jobs:
           E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
           E2E_JD_VERSION: "0.9.0"
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
-          E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag }}
+          E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}
         run: |
-          cd system-tests/tests/smoke/cre/cmd
+          cd core/scripts/cre/environment
           go run main.go env start
 
   notify-test-failure:
     name: Notify about local env startup failure
-    if: failure()
+    if: failure() && github.event_name != 'pull_request'
     needs: [test-cli]
     runs-on: ubuntu-latest
     steps:

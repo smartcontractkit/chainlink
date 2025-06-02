@@ -10,6 +10,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -140,7 +143,7 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 				testCfg.IsUSDC = test.DeployUSDC
 			})
 			e := deployedEnvironment.Env
-			selectors := deployedEnvironment.Env.AllChainSelectors()
+			selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 
 			if test.DeployUSDC {
 				var err error
@@ -199,7 +202,7 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 				testCfg.IsUSDC = true
 			})
 			e := deployedEnvironment.Env
-			selectors := e.AllChainSelectors()
+			selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 
 			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err)
@@ -312,7 +315,7 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 				},
 			})
 			require.NoError(t, err)
-			require.Empty(t, output.Proposals) //nolint:staticcheck //SA1019 ignoring deprecated field for compatibility; we don't have tools to generate the new field
+			require.Empty(t, output.MCMSTimelockProposals)
 		})
 	}
 }

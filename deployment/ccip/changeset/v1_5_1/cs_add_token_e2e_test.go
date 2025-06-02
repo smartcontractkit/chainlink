@@ -6,8 +6,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -32,11 +35,10 @@ func TestAddTokenE2E(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name             string
-		externalAdmin    bool
-		withMCMS         bool
-		withNewToken     bool
-		withExistingPool bool
+		name          string
+		externalAdmin bool
+		withMCMS      bool
+		withNewToken  bool
 	}{
 		{
 			name:          "e2e token configuration with external admin",
@@ -57,18 +59,6 @@ func TestAddTokenE2E(t *testing.T) {
 			name:          "e2e token configuration with external token admin registry without MCMS",
 			externalAdmin: false,
 			withMCMS:      false,
-		},
-		{
-			name:             "e2e token configuration with admin as token admin registry with MCMS with existing token pool",
-			externalAdmin:    false,
-			withMCMS:         true,
-			withExistingPool: true,
-		},
-		{
-			name:             "e2e token configuration with external token admin registry without MCMS with existing token pool",
-			externalAdmin:    false,
-			withMCMS:         false,
-			withExistingPool: true,
 		},
 		{
 			name:          "e2e token configuration with admin as token admin registry with MCMS with new token",
@@ -105,43 +95,26 @@ func TestAddTokenE2E(t *testing.T) {
 			// we deploy the token separately as part of env set up
 			if !test.withNewToken {
 				e, selectorA, selectorB, tokens, timelockContracts = testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), test.withMCMS)
-				if test.withExistingPool {
-					e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
-						selectorA: {
-							Type:               shared.BurnMintTokenPool,
-							TokenAddress:       tokens[selectorA].Address,
-							LocalTokenDecimals: testhelpers.LocalTokenDecimals,
-						},
-						selectorB: {
-							Type:               shared.BurnMintTokenPool,
-							TokenAddress:       tokens[selectorB].Address,
-							LocalTokenDecimals: testhelpers.LocalTokenDecimals,
-						},
-					}, test.withMCMS)
-				}
 			} else {
-				if test.withExistingPool {
-					t.Fatalf("New token cannot be deployed with existing pool")
-				}
 				// we deploy the token as part of AddTokenE2E changeset
 				tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithPrerequisiteDeploymentOnly(nil))
 				e = tenv.Env
 				state, err := stateview.LoadOnchainState(e)
 				require.NoError(t, err)
-				selectors := e.AllChainSelectors()
+				selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 				selectorA = selectors[0]
 				selectorB = selectors[1]
 				// We only need the token admin registry to be owned by the timelock in these tests
 				timelockOwnedContractsByChain := make(map[uint64][]common.Address)
 				for _, selector := range selectors {
-					timelockOwnedContractsByChain[selector] = []common.Address{state.Chains[selector].TokenAdminRegistry.Address()}
+					timelockOwnedContractsByChain[selector] = []common.Address{state.MustGetEVMChainState(selector).TokenAdminRegistry.Address()}
 				}
 
 				// Assemble map of addresses required for Timelock scheduling & execution
 				for _, selector := range selectors {
 					timelockContracts[selector] = &proposalutils.TimelockExecutionContracts{
-						Timelock:  state.Chains[selector].Timelock,
-						CallProxy: state.Chains[selector].CallProxy,
+						Timelock:  state.MustGetEVMChainState(selector).Timelock,
+						CallProxy: state.MustGetEVMChainState(selector).CallProxy,
 					}
 				}
 				if test.withMCMS {
@@ -171,7 +144,7 @@ func TestAddTokenE2E(t *testing.T) {
 			recipientAddress := utils.RandomAddress()
 			topupAmount := big.NewInt(1000)
 			// form the changeset input config
-			for _, chain := range e.AllChainSelectors() {
+			for _, chain := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 				if addTokenE2EConfig.Tokens == nil {
 					addTokenE2EConfig.Tokens = make(map[shared.TokenSymbol]v1_5_1.AddTokenE2EConfig)
 				}
@@ -192,7 +165,7 @@ func TestAddTokenE2E(t *testing.T) {
 				poolConfig := addTokenE2EConfig.Tokens[testhelpers.TestTokenSymbol].PoolConfig
 				var deployPoolConfig *v1_5_1.DeployTokenPoolInput
 				var deployTokenConfig *v1_5_1.DeployTokenConfig
-				var existingPoolType *cldf.ContractType
+				var _ *cldf.ContractType
 				if test.withNewToken {
 					deployTokenConfig = &v1_5_1.DeployTokenConfig{
 						TokenName:     string(testhelpers.TestTokenSymbol),
@@ -205,26 +178,22 @@ func TestAddTokenE2E(t *testing.T) {
 							recipientAddress: topupAmount,
 						},
 					}
-				} else if !test.withExistingPool {
+				} else {
 					token := tokens[chain]
 					deployPoolConfig = &v1_5_1.DeployTokenPoolInput{
 						Type:               shared.BurnMintTokenPool,
 						TokenAddress:       token.Address,
 						LocalTokenDecimals: testhelpers.LocalTokenDecimals,
 					}
-				} else {
-					tv := shared.BurnMintTokenPool
-					existingPoolType = &tv
 				}
 				poolConfig[chain] = v1_5_1.E2ETokenAndPoolConfig{
 					TokenDeploymentConfig: deployTokenConfig,
 					DeployPoolConfig:      deployPoolConfig,
 					PoolVersion:           deployment.Version1_5_1,
 					ExternalAdmin:         externalAdmin,
-					RateLimiterConfig:     rateLimiterPerChain,
-					ExistingPoolType:      existingPoolType,
 				}
 			}
+
 			// apply the changeset
 			e, err = commonchangeset.Apply(t, e, timelockContracts,
 				commonchangeset.Configure(v1_5_1.AddTokensE2E, addTokenE2EConfig))
@@ -264,7 +233,7 @@ func TestAddTokenE2E(t *testing.T) {
 				tokenpools, ok := state.Chains[chain].BurnMintTokenPools[testhelpers.TestTokenSymbol]
 				require.True(t, ok)
 				require.Len(t, tokenpools, 1)
-				tokenPoolC, err := token_pool.NewTokenPool(tokenpools[deployment.Version1_5_1].Address(), e.Chains[chain].Client)
+				tokenPoolC, err := token_pool.NewTokenPool(tokenpools[deployment.Version1_5_1].Address(), e.BlockChains.EVMChains()[chain].Client)
 				require.NoError(t, err)
 				var rateLimiterConfig v1_5_1.RateLimiterConfig
 				var remotePoolAddr common.Address
@@ -279,35 +248,27 @@ func TestAddTokenE2E(t *testing.T) {
 					remotePoolAddr = poolOnSelectorA.Address()
 					registry = registryOnB
 				}
-				if test.withExistingPool && test.withMCMS {
-					// check token pool is configured
-					validateMemberOfTokenPoolPair(
-						t,
-						state,
-						tokenPoolC,
-						[]common.Address{remotePoolAddr},
-						tokens,
-						testhelpers.TestTokenSymbol,
-						chain,
-						rateLimiterConfig.Inbound.Rate, // inbound & outbound are the same in this test
-						rateLimiterConfig.Inbound.Capacity,
-						state.Chains[chain].Timelock.Address(), // the pools are owned by the timelock
-					)
+
+				var poolOwner common.Address
+				if test.withMCMS {
+					poolOwner = state.Chains[chain].Timelock.Address()
 				} else {
-					// check token pool is configured
-					validateMemberOfTokenPoolPair(
-						t,
-						state,
-						tokenPoolC,
-						[]common.Address{remotePoolAddr},
-						tokens,
-						testhelpers.TestTokenSymbol,
-						chain,
-						rateLimiterConfig.Inbound.Rate, // inbound & outbound are the same in this test
-						rateLimiterConfig.Inbound.Capacity,
-						e.Chains[chain].DeployerKey.From, // the pools are still owned by the deployer
-					)
+					poolOwner = e.BlockChains.EVMChains()[chain].DeployerKey.From
 				}
+
+				// check token pool is configured
+				validateMemberOfTokenPoolPair(
+					t,
+					state,
+					tokenPoolC,
+					[]common.Address{remotePoolAddr},
+					tokens,
+					testhelpers.TestTokenSymbol,
+					chain,
+					rateLimiterConfig.Inbound.Rate, // inbound & outbound are the same in this test
+					rateLimiterConfig.Inbound.Capacity,
+					poolOwner, // the pools are owned by timelock now if mcms is enabled
+				)
 
 				/*
 					This behavior is not currently enabled
@@ -335,7 +296,7 @@ func TestAddTokenE2E(t *testing.T) {
 					if test.withMCMS {
 						require.Equal(t, state.Chains[chain].Timelock.Address(), regConfig.Administrator)
 					} else {
-						require.Equal(t, e.Chains[chain].DeployerKey.From, regConfig.Administrator)
+						require.Equal(t, e.BlockChains.EVMChains()[chain].DeployerKey.From, regConfig.Administrator)
 					}
 				} else {
 					// if external admin then PendingAdministrator should be external admin

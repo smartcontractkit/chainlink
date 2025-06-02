@@ -6,12 +6,18 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
+	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
@@ -30,7 +36,8 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		Chains:     2,
 		Nodes:      4,
 	})
-	homeChainSel := e.AllChainSelectors()[0]
+	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+	homeChainSel := evmSelectors[0]
 	testDeployChainContractsChangesetWithEnv(t, e, homeChainSel)
 }
 
@@ -43,8 +50,10 @@ func TestDeployChainContractsChangesetZk(t *testing.T) {
 		ZkChains:   1,
 		Nodes:      4,
 	})
+	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	var homeChainSel uint64
-	for _, chain := range e.Chains {
+	for _, selector := range evmSelectors {
+		chain := e.BlockChains.EVMChains()[selector]
 		if !chain.IsZkSyncVM {
 			homeChainSel = chain.Selector
 			break
@@ -54,21 +63,21 @@ func TestDeployChainContractsChangesetZk(t *testing.T) {
 }
 
 func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, homeChainSel uint64) {
-	evmSelectors := e.AllChainSelectors()
+	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
-	contractParams := make(map[uint64]v1_6.ChainContractParams)
-	for _, chain := range e.AllChainSelectors() {
+	contractParams := make(map[uint64]ccipseq.ChainContractParams)
+	for _, chain := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 		cfg[chain] = proposalutils.SingleGroupTimelockConfigV2(t)
-		contractParams[chain] = v1_6.ChainContractParams{
-			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
-			OffRampParams:   v1_6.DefaultOffRampParams(),
+		contractParams[chain] = ccipseq.ChainContractParams{
+			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
+			OffRampParams:   ccipops.DefaultOffRampParams(),
 		}
 	}
 	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
-	for _, chain := range e.AllChainSelectors() {
+	for _, chain := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 		prereqCfg = append(prereqCfg, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 		})
@@ -81,7 +90,7 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 				HomeChainSel:     homeChainSel,
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
-				NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.BlockChains.EVMChains()[homeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					"NodeOperator": p2pIds,
 				},
@@ -103,7 +112,7 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
-			v1_6.DeployChainContractsConfig{
+			ccipseq.DeployChainContractsConfig{
 				HomeChainSelector:      homeChainSel,
 				ContractParamsPerChain: contractParams,
 			},
@@ -146,7 +155,7 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 	// but should not error
 	e, err = commonchangeset.Apply(t, e, nil, commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
-		v1_6.DeployChainContractsConfig{
+		ccipseq.DeployChainContractsConfig{
 			HomeChainSelector:      homeChainSel,
 			ContractParamsPerChain: contractParams,
 		},
@@ -178,7 +187,7 @@ func TestDeployStaticLinkToken(t *testing.T) {
 	// load onchain state
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	for _, chain := range e.Env.AllChainSelectors() {
+	for _, chain := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 		require.NotNil(t, state.Chains[chain].StaticLinkToken)
 	}
 }

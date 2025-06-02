@@ -6,8 +6,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -18,16 +21,15 @@ import (
 )
 
 func TestAcceptAllOwnership(t *testing.T) {
-
 	t.Parallel()
+
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
-		Chains: 2,
+		Chains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	registrySel := env.AllChainSelectors()[0]
+	registrySel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	env, err := commonchangeset.Apply(t, env, nil,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(changeset.DeployCapabilityRegistry),
@@ -55,7 +57,9 @@ func TestAcceptAllOwnership(t *testing.T) {
 	require.NoError(t, err)
 	addrs, err := env.ExistingAddresses.AddressesForChain(registrySel)
 	require.NoError(t, err)
-	timelock, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(env.Chains[registrySel], addrs)
+	timelock, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(
+		env.BlockChains.EVMChains()[registrySel], addrs,
+	)
 	require.NoError(t, err)
 
 	_, err = commonchangeset.Apply(t, env,

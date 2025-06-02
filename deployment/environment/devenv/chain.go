@@ -12,21 +12,21 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"golang.org/x/sync/errgroup"
+
+	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
 
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 )
@@ -51,7 +51,8 @@ type ChainConfig struct {
 	HTTPRPCs           []CribRPCs               // http rpcs to connect to the chain
 	DeployerKey        *bind.TransactOpts       // key to deploy and configure contracts on the chain
 	SolDeployerKey     solana.PrivateKey
-	Users              []*bind.TransactOpts // map of addresses to their transact opts to interact with the chain as users
+	Users              []*bind.TransactOpts        // map of addresses to their transact opts to interact with the chain as users
+	MultiClientOpts    []func(c *cldf.MultiClient) // options to configure the multi client
 }
 
 func (c *ChainConfig) SetUsers(pvtkeys []string) error {
@@ -135,9 +136,9 @@ func (c *ChainConfig) ToRPCs() []cldf.RPC {
 	return rpcs
 }
 
-func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf.Chain, map[uint64]cldf.SolChain, error) {
-	evmChains := make(map[uint64]cldf.Chain)
-	solChains := make(map[uint64]cldf.SolChain)
+func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf_evm.Chain, map[uint64]cldf_solana.Chain, error) {
+	evmChains := make(map[uint64]cldf_evm.Chain)
+	solChains := make(map[uint64]cldf_solana.Chain)
 	var evmSyncMap sync.Map
 	var solSyncMap sync.Map
 
@@ -157,12 +158,12 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf.Cha
 
 			switch chainCfg.ChainType {
 			case EVMChainType:
-				ec, err := cldf.NewMultiClient(logger, rpcConf)
+				ec, err := cldf.NewMultiClient(logger, rpcConf, chainCfg.MultiClientOpts...)
 				if err != nil {
 					return fmt.Errorf("failed to create multi client: %w", err)
 				}
 
-				chainInfo, err := cldf.ChainInfo(chainDetails.ChainSelector)
+				chainInfo, err := cldf_chain_utils.ChainInfo(chainDetails.ChainSelector)
 				if err != nil {
 					return fmt.Errorf("failed to get chain info for chain %s: %w", chainCfg.ChainName, err)
 				}
@@ -192,7 +193,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf.Cha
 					return blockNumber, nil
 				}
 
-				evmSyncMap.Store(chainDetails.ChainSelector, cldf.Chain{
+				evmSyncMap.Store(chainDetails.ChainSelector, cldf_evm.Chain{
 					Selector:    chainDetails.ChainSelector,
 					Client:      ec,
 					DeployerKey: chainCfg.DeployerKey,
@@ -220,7 +221,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf.Cha
 				}
 
 				sc := solRpc.New(chainCfg.HTTPRPCs[0].External)
-				solSyncMap.Store(chainDetails.ChainSelector, cldf.SolChain{
+				solSyncMap.Store(chainDetails.ChainSelector, cldf_solana.Chain{
 					Selector:    chainDetails.ChainSelector,
 					Client:      sc,
 					DeployerKey: &chainCfg.SolDeployerKey,
@@ -248,12 +249,12 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf.Cha
 	}
 
 	evmSyncMap.Range(func(sel, value interface{}) bool {
-		evmChains[sel.(uint64)] = value.(cldf.Chain)
+		evmChains[sel.(uint64)] = value.(cldf_evm.Chain)
 		return true
 	})
 
 	solSyncMap.Range(func(sel, value interface{}) bool {
-		solChains[sel.(uint64)] = value.(cldf.SolChain)
+		solChains[sel.(uint64)] = value.(cldf_solana.Chain)
 		return true
 	})
 

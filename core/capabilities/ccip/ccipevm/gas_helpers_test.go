@@ -80,7 +80,7 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 			}
 			// Set the source chain selector to be EVM for now
 			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector)
-			ep := EstimateProvider{extraDataCodec: extraDataCodec}
+			ep := EstimateProvider{extraDataCodec}
 			got := ep.CalculateMessageMaxGas(msg)
 			t.Log(got)
 			assert.Equalf(t, tt.want, got, "calculateMessageMaxGas(%v, %v)", tt.args.dataLen, tt.args.numTokens)

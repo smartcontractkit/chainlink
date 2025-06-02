@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/report_codec"
@@ -179,10 +180,15 @@ func TestExecutePluginCodecV1(t *testing.T) {
 	simulatedBackend.Commit()
 	contract, err := report_codec.NewReportCodec(address, simulatedBackend)
 	require.NoError(t, err)
+	registeredMockExtraDataCodecMap := map[string]ccipcommon.SourceChainExtraDataCodec{
+		chainsel.FamilyEVM:    mockExtraDataCodec,
+		chainsel.FamilySolana: mockExtraDataCodec,
+	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			codec := NewExecutePluginCodecV1(ccipcommon.NewExtraDataCodec(mockExtraDataCodec, mockExtraDataCodec))
+			edc := ccipcommon.ExtraDataCodec(registeredMockExtraDataCodecMap)
+			codec := NewExecutePluginCodecV1(edc)
 			report := tc.report(randomExecuteReport(t, d, tc.chainSelector, tc.gasLimit, tc.destGasAmount))
 			bytes, err := codec.Encode(ctx, report)
 			if tc.expErr {

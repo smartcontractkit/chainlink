@@ -5,8 +5,11 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -28,12 +31,11 @@ func TestDeployForwarder(t *testing.T) {
 
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1, // nodes unused but required in config
 		Chains: 2,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	registrySel := env.AllChainSelectors()[0]
+	registrySel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
 	t.Run("should deploy forwarder", func(t *testing.T) {
 		ab := cldf.NewMemoryAddressBook()
@@ -84,7 +86,7 @@ func TestConfigureForwarders(t *testing.T) {
 
 		var chainToExclude uint64
 		filteredChains := make(map[uint64]struct{})
-		for chainID := range env.Chains {
+		for chainID := range env.BlockChains.EVMChains() {
 			// we do not really care which chain to exclude, so pick the first one
 			if chainToExclude == 0 {
 				chainToExclude = chainID
@@ -150,11 +152,11 @@ func TestConfigureForwarders(t *testing.T) {
 				csOut, err := changeset.ConfigureForwardContracts(te.Env, cfg)
 				require.NoError(t, err)
 				require.Nil(t, csOut.AddressBook)
-				require.Empty(t, csOut.Proposals)
+				require.Empty(t, csOut.MCMSTimelockProposals)
 				// check that forwarder
 				// TODO set up a listener to check that the forwarder is configured
 				forwardersByChain := te.OwnedForwarders()
-				for selector := range te.Env.Chains {
+				for selector := range te.Env.BlockChains.EVMChains() {
 					forwarders, ok := forwardersByChain[selector]
 					require.True(t, ok)
 					require.NotNil(t, forwarders)

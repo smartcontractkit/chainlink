@@ -12,19 +12,19 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-	defaults "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/default"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm/manualexeclib"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 const (
@@ -126,7 +126,7 @@ func getCommitRootAcceptedEvent(
 	stepDuration time.Duration,
 	cachedBlockNumber uint64,
 ) (offramp.InternalMerkleRoot, uint64, error) {
-	hdr, err := env.Chains[destChainSel].Client.HeaderByNumber(ctx, nil)
+	hdr, err := env.BlockChains.EVMChains()[destChainSel].Client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return offramp.InternalMerkleRoot{}, 0, fmt.Errorf("failed to get header: %w", err)
 	}
@@ -220,7 +220,7 @@ func getCCIPMessageSentEvents(
 	stepDuration time.Duration,
 	cachedBlockNumber uint64,
 ) ([]onramp.OnRampCCIPMessageSent, []uint64, error) {
-	hdr, err := env.Chains[srcChainSel].Client.HeaderByNumber(ctx, nil)
+	hdr, err := env.BlockChains.EVMChains()[srcChainSel].Client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get header: %w", err)
 	}
@@ -504,11 +504,12 @@ func manuallyExecuteSingle(
 	if err != nil {
 		return fmt.Errorf("failed to create execution report: %w", err)
 	}
+	evmChains := env.BlockChains.EVMChains()
 
 	txOpts := &bind.TransactOpts{
-		From:   env.Chains[destChainSel].DeployerKey.From,
+		From:   evmChains[destChainSel].DeployerKey.From,
 		Nonce:  nil,
-		Signer: env.Chains[destChainSel].DeployerKey.Signer,
+		Signer: evmChains[destChainSel].DeployerKey.Signer,
 		Value:  big.NewInt(0),
 		// We manually set the gas limit here because estimateGas doesn't take into account
 		// internal reverts (such as those that could happen on ERC165 interface checks).
@@ -527,7 +528,7 @@ func manuallyExecuteSingle(
 			},
 		},
 	)
-	_, err = cldf.ConfirmIfNoErrorWithABI(env.Chains[destChainSel], tx, offramp.OffRampABI, err)
+	_, err = cldf.ConfirmIfNoErrorWithABI(evmChains[destChainSel], tx, offramp.OffRampABI, err)
 	if err != nil {
 		return fmt.Errorf("failed to execute message: %w", err)
 	}
@@ -553,7 +554,10 @@ func ManuallyExecuteAll(
 	stepDuration time.Duration,
 	reExecuteIfFailed bool,
 ) error {
-	extraDataCodec := defaults.DefaultExtraDataCodec
+	extraDataCodec := ccipcommon.ExtraDataCodec(map[string]ccipcommon.SourceChainExtraDataCodec{
+		chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
+		chainsel.FamilySolana: ccipsolana.ExtraDataDecoder{},
+	})
 	// the chain multiple times for the same root/messages.
 	messageSentCache := NewMessageSentCache()
 	commitRootCache := NewRootCache()

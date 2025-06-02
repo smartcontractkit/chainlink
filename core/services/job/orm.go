@@ -686,6 +686,11 @@ func validateKeyStoreMatchForRelay(ctx context.Context, network string, keyStore
 		if err != nil {
 			return errors.Errorf("no Tron key matching: %q", key)
 		}
+	case relay.NetworkTON:
+		_, err := keyStore.TON().Get(key)
+		if err != nil {
+			return errors.Errorf("no TON key matching: %q", key)
+		}
 	}
 	return nil
 }

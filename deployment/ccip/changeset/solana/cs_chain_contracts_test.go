@@ -6,7 +6,12 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
+
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	solToken "github.com/gagliardetto/solana-go/programs/token"
 
@@ -56,6 +61,9 @@ func deployTokenAndMint(t *testing.T, tenv cldf.Environment, solChain uint64, wa
 			},
 		),
 	)
+	if err != nil {
+		return cldf.Environment{}, solana.PublicKey{}, err
+	}
 	addresses, err := e.ExistingAddresses.AddressesForChain(solChain) //nolint:staticcheck // addressbook still valid
 	require.NoError(t, err)
 	tokenAddress := solanastateview.FindSolanaAddress(
@@ -85,8 +93,8 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 	e := tenv.Env
 	_, err := stateview.LoadOnchainStateSolana(tenv.Env)
 	require.NoError(t, err)
-	evmChains := tenv.Env.AllChainSelectors()
-	solChain := tenv.Env.AllChainSelectorsSolana()[0]
+	evmChains := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 	var mcmsConfig *proposalutils.TimelockConfig
 	if mcms {
 		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
@@ -182,17 +190,17 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 	var fqEvmDestChainPDA solana.PublicKey
 	for _, evmChain := range evmChains {
 		offRampEvmSourceChainPDA, _, _ = solState.FindOfframpSourceChainPDA(evmChain, state.SolChains[solChain].OffRamp)
-		err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), offRampEvmSourceChainPDA, &offRampSourceChain)
+		err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(e.GetContext(), offRampEvmSourceChainPDA, &offRampSourceChain)
 		require.NoError(t, err)
 		require.True(t, offRampSourceChain.Config.IsEnabled)
 
 		evmDestChainStatePDA = state.SolChains[solChain].DestChainStatePDAs[evmChain]
-		err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), evmDestChainStatePDA, &destChainStateAccount)
+		err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(e.GetContext(), evmDestChainStatePDA, &destChainStateAccount)
 		require.True(t, destChainStateAccount.Config.AllowListEnabled)
 		require.NoError(t, err)
 
 		fqEvmDestChainPDA, _, _ = solState.FindFqDestChainPDA(evmChain, state.SolChains[solChain].FeeQuoter)
-		err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), fqEvmDestChainPDA, &destChainFqAccount)
+		err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(e.GetContext(), fqEvmDestChainPDA, &destChainFqAccount)
 		require.NoError(t, err, "failed to get account info")
 		require.Equal(t, solFeeQuoter.TimestampedPackedU224{}, destChainFqAccount.State.UsdPerUnitGas)
 		require.True(t, destChainFqAccount.Config.IsEnabled)
@@ -217,15 +225,15 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 	state, err = stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 
-	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), offRampEvmSourceChainPDA, &offRampSourceChain)
+	err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(e.GetContext(), offRampEvmSourceChainPDA, &offRampSourceChain)
 	require.NoError(t, err)
 	require.False(t, offRampSourceChain.Config.IsEnabled)
 
-	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), evmDestChainStatePDA, &destChainStateAccount)
+	err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(e.GetContext(), evmDestChainStatePDA, &destChainStateAccount)
 	require.NoError(t, err)
 	require.True(t, destChainStateAccount.Config.AllowListEnabled)
 
-	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), fqEvmDestChainPDA, &destChainFqAccount)
+	err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(e.GetContext(), fqEvmDestChainPDA, &destChainFqAccount)
 	require.NoError(t, err, "failed to get account info")
 	require.False(t, destChainFqAccount.Config.IsEnabled)
 
@@ -293,15 +301,15 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 	state, err = stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 
-	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), offRampEvmSourceChainPDA, &offRampSourceChain)
+	err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(e.GetContext(), offRampEvmSourceChainPDA, &offRampSourceChain)
 	require.NoError(t, err)
 	require.True(t, offRampSourceChain.Config.IsEnabled)
 
-	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), evmDestChainStatePDA, &destChainStateAccount)
+	err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(e.GetContext(), evmDestChainStatePDA, &destChainStateAccount)
 	require.NoError(t, err)
 	require.False(t, destChainStateAccount.Config.AllowListEnabled)
 
-	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), fqEvmDestChainPDA, &destChainFqAccount)
+	err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(e.GetContext(), fqEvmDestChainPDA, &destChainFqAccount)
 	require.NoError(t, err, "failed to get account info")
 	require.True(t, destChainFqAccount.Config.IsEnabled)
 }
@@ -310,8 +318,8 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 func doTestBilling(t *testing.T, mcms bool) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 
-	evmChain := tenv.Env.AllChainSelectors()[0]
-	solChain := tenv.Env.AllChainSelectorsSolana()[0]
+	evmChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 
 	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{})
 	require.NoError(t, err)
@@ -323,7 +331,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 	require.True(t, ok)
 	bigNum.FillBytes(value[:])
 	var mcmsConfig *proposalutils.TimelockConfig
-	testPriceUpdater := e.SolChains[solChain].DeployerKey.PublicKey()
+	testPriceUpdater := e.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()
 	if mcms {
 		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
@@ -378,7 +386,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 
 	billingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenAddress, state.SolChains[solChain].FeeQuoter)
 	var token0ConfigAccount solFeeQuoter.BillingTokenConfigWrapper
-	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), billingConfigPDA, &token0ConfigAccount)
+	err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(e.GetContext(), billingConfigPDA, &token0ConfigAccount)
 	require.NoError(t, err)
 	require.True(t, token0ConfigAccount.Config.Enabled)
 	require.Equal(t, tokenAddress, token0ConfigAccount.Config.Mint)
@@ -386,7 +394,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 
 	remoteBillingPDA, _, _ := solState.FindFqPerChainPerTokenConfigPDA(evmChain, tokenAddress, state.SolChains[solChain].FeeQuoter)
 	var remoteBillingAccount solFeeQuoter.PerChainPerTokenConfig
-	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), remoteBillingPDA, &remoteBillingAccount)
+	err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(e.GetContext(), remoteBillingPDA, &remoteBillingAccount)
 	require.NoError(t, err)
 	require.Equal(t, tokenAddress, remoteBillingAccount.Mint)
 	require.Equal(t, uint32(800), remoteBillingAccount.TokenTransferConfig.MinFeeUsdcents)
@@ -412,7 +420,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 		),
 	})
 	require.NoError(t, err)
-	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), billingConfigPDA, &token0ConfigAccount)
+	err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(e.GetContext(), billingConfigPDA, &token0ConfigAccount)
 	require.NoError(t, err)
 	require.Equal(t, uint64(200), token0ConfigAccount.Config.PremiumMultiplierWeiPerEth)
 	feeAggregatorPriv, _ := solana.NewRandomPrivateKey()
@@ -541,11 +549,11 @@ func doTestBilling(t *testing.T, mcms bool) {
 	)
 	require.NoError(t, err)
 	// check that the billing account has the right amount
-	_, billingResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, billingSignerATA, cldf.SolDefaultCommitment)
+	_, billingResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, billingSignerATA, cldf_solana.SolDefaultCommitment)
 	require.NoError(t, err)
 	require.Equal(t, 1000, billingResult)
 	feeAggregatorATA, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.TokenProgramID, tokenAddress, feeAggregator)
-	_, feeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, feeAggregatorATA, cldf.SolDefaultCommitment)
+	_, feeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, feeAggregatorATA, cldf_solana.SolDefaultCommitment)
 	require.NoError(t, err)
 	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
@@ -560,10 +568,10 @@ func doTestBilling(t *testing.T, mcms bool) {
 	},
 	)
 	require.NoError(t, err)
-	_, newBillingResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, billingSignerATA, cldf.SolDefaultCommitment)
+	_, newBillingResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, billingSignerATA, cldf_solana.SolDefaultCommitment)
 	require.NoError(t, err)
 	require.Equal(t, billingResult-1000, newBillingResult)
-	_, newFeeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, feeAggregatorATA, cldf.SolDefaultCommitment)
+	_, newFeeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, feeAggregatorATA, cldf_solana.SolDefaultCommitment)
 	require.NoError(t, err)
 	require.Equal(t, feeAggResult+1000, newFeeAggResult)
 }
@@ -582,7 +590,7 @@ func TestBillingWithoutMcms(t *testing.T) {
 func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 	ctx := testcontext.Get(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
-	solChain := tenv.Env.AllChainSelectorsSolana()[0]
+	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{})
 	require.NoError(t, err)
 	state, err := stateview.LoadOnchainStateSolana(e)
@@ -590,7 +598,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 	linkTokenAddress := state.SolChains[solChain].LinkToken
 	newAdminNonTimelock, _ := solana.NewRandomPrivateKey()
 	newAdmin := newAdminNonTimelock.PublicKey()
-	newTokenAdmin := e.SolChains[solChain].DeployerKey.PublicKey()
+	newTokenAdmin := e.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()
 
 	var mcmsConfig *proposalutils.TimelockConfig
 	if mcms {
@@ -658,7 +666,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenAddress, state.SolChains[solChain].Router)
 	var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
-	err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
+	err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
 	require.NoError(t, err)
 	require.Equal(t, solana.PublicKey{}, tokenAdminRegistryAccount.Administrator)
 	// pending administrator should be the proposed admin key
@@ -666,7 +674,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 
 	linkTokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(linkTokenAddress, state.SolChains[solChain].Router)
 	var linkTokenAdminRegistryAccount solCommon.TokenAdminRegistry
-	err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, linkTokenAdminRegistryPDA, &linkTokenAdminRegistryAccount)
+	err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(ctx, linkTokenAdminRegistryPDA, &linkTokenAdminRegistryAccount)
 	require.NoError(t, err)
 	require.Equal(t, newAdmin, linkTokenAdminRegistryAccount.PendingAdministrator)
 
@@ -684,7 +692,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 			),
 		)
 		require.NoError(t, err)
-		err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
+		err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
 		require.NoError(t, err)
 		// confirm that the administrator is the deployer key
 		require.Equal(t, timelockSignerPDA, tokenAdminRegistryAccount.Administrator)
@@ -704,7 +712,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 		},
 		)
 		require.NoError(t, err)
-		err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
+		err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
 		require.NoError(t, err)
 		require.Equal(t, newAdminNonTimelock.PublicKey(), tokenAdminRegistryAccount.PendingAdministrator)
 	}
@@ -724,10 +732,10 @@ func TestTokenAdminRegistryWithoutMcms(t *testing.T) {
 func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata string) {
 	ctx := testcontext.Get(t)
 
-	solChain := e.AllChainSelectorsSolana()[0]
+	solChain := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 
 	var mcmsConfig *proposalutils.TimelockConfig
-	newAdmin := e.SolChains[solChain].DeployerKey.PublicKey()
+	newAdmin := e.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()
 	if mcms {
 		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
@@ -763,7 +771,7 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 	require.NoError(t, err)
 	lookupTablePubKey := state.SolChains[solChain].TokenPoolLookupTable[tokenAddress][pool][tokenMetadata]
 
-	lookupTableEntries0, err := solCommonUtil.GetAddressLookupTable(ctx, e.SolChains[solChain].Client, lookupTablePubKey)
+	lookupTableEntries0, err := solCommonUtil.GetAddressLookupTable(ctx, e.BlockChains.SolanaChains()[solChain].Client, lookupTablePubKey)
 	require.NoError(t, err)
 	require.Equal(t, lookupTablePubKey, lookupTableEntries0[0])
 	require.Equal(t, tokenAddress, lookupTableEntries0[7])
@@ -806,7 +814,7 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 	tokenAdminRegistry := solCommon.TokenAdminRegistry{}
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenAddress, state.SolChains[solChain].Router)
 
-	err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistry)
+	err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistry)
 	require.NoError(t, err)
 	require.Equal(t, newAdmin, tokenAdminRegistry.Administrator)
 	require.Equal(t, lookupTablePubKey, tokenAdminRegistry.LookupTable)
@@ -837,9 +845,9 @@ func TestSetOcr3Active(t *testing.T) {
 		testhelpers.WithNumOfBootstrapNodes(3),
 		testhelpers.WithSolChains(1))
 	var err error
-	evmSelectors := tenv.Env.AllChainSelectors()
+	evmSelectors := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	homeChainSel := evmSelectors[0]
-	solChainSelectors := tenv.Env.AllChainSelectorsSolana()
+	solChainSelectors := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChainSelectors[0], true,
 		ccipChangesetSolana.CCIPContractsToTransfer{
 			Router:    true,
@@ -866,9 +874,9 @@ func TestSetOcr3Candidate(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithSolChains(1))
 	var err error
-	evmSelectors := tenv.Env.AllChainSelectors()
+	evmSelectors := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	homeChainSel := evmSelectors[0]
-	solChainSelectors := tenv.Env.AllChainSelectorsSolana()
+	solChainSelectors := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChainSelectors[0], true,
 		ccipChangesetSolana.CCIPContractsToTransfer{
 			Router:    true,

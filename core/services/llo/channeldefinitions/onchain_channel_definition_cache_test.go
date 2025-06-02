@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -130,13 +129,13 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		cdc := &channelDefinitionCache{donID: donID, lp: lp, lggr: logger.TestSugared(t), newLogCh: newLogCh}
 
 		t.Run("skips if logpoller has no blocks", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			err := cdc.readLogs(ctx)
 			assert.NoError(t, err)
 			assert.Nil(t, cdc.newLog)
 		})
 		t.Run("returns error on LatestBlock failure", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			lp.latestBlockErr = errors.New("test error")
 
 			err := cdc.readLogs(ctx)
@@ -144,7 +143,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			assert.Nil(t, cdc.newLog)
 		})
 		t.Run("does nothing if LatestBlock older or the same as current channel definitions block", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			lp.latestBlockErr = nil
 			lp.latestBlock = logpoller.Block{BlockNumber: 42}
 			cdc.definitionsBlockNum = 43
@@ -154,7 +153,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			assert.Nil(t, cdc.newLog)
 		})
 		t.Run("returns error if FilteredLogs fails", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			cdc.definitionsBlockNum = 0
 			lp.filteredLogsErr = errors.New("test error 2")
 
@@ -163,7 +162,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			assert.Nil(t, cdc.newLog)
 		})
 		t.Run("ignores logs with different topic", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			lp.filteredLogsErr = nil
 			lp.filteredLogs = []logpoller.Log{{EventSig: common.Hash{1, 2, 3, 4}}}
 
@@ -172,7 +171,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			assert.Nil(t, cdc.newLog)
 		})
 		t.Run("returns error if log is malformed", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			lp.filteredLogsErr = nil
 			lp.filteredLogs = []logpoller.Log{{EventSig: NewChannelDefinition}}
 
@@ -181,7 +180,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			assert.Nil(t, cdc.newLog)
 		})
 		t.Run("sets definitions and sends on channel if FilteredLogs returns new event with a later version", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			lp.filteredLogsErr = nil
 			lp.filteredLogs = []logpoller.Log{makeLog(t, donID, uint32(43), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4})}
 
@@ -205,7 +204,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			}()
 		})
 		t.Run("does nothing if version older or the same as the one currently set", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			lp.filteredLogsErr = nil
 			lp.filteredLogs = []logpoller.Log{
 				makeLog(t, donID, uint32(42), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4}),
@@ -217,7 +216,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			assert.Equal(t, uint32(43), cdc.newLog.Version)
 		})
 		t.Run("in case of multiple logs, takes the latest", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			lp.filteredLogsErr = nil
 			lp.filteredLogs = []logpoller.Log{
 				makeLog(t, donID, uint32(42), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4}),
@@ -245,7 +244,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			}()
 		})
 		t.Run("ignores logs with incorrect don ID", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			lp.filteredLogsErr = nil
 			lp.filteredLogs = []logpoller.Log{
 				makeLog(t, donID+1, uint32(42), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4}),
@@ -267,7 +266,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			}()
 		})
 		t.Run("ignores logs with wrong number of topics", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			lp.filteredLogsErr = nil
 			lg := makeLog(t, donID, uint32(42), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4})
 			lg.Topics = lg.Topics[:1]
@@ -304,7 +303,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		})
 
 		t.Run("networking error while making request returns error", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			c.resp = nil
 			c.err = errors.New("http request failed")
 
@@ -313,7 +312,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		})
 
 		t.Run("server returns 500 returns error", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			c.err = nil
 			c.resp = &http.Response{StatusCode: 500, Body: io.NopCloser(bytes.NewReader([]byte{1, 2, 3}))}
 
@@ -327,7 +326,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		}
 
 		t.Run("server returns 404 returns error (and does not log entirety of huge response body)", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			c.err = nil
 			c.resp = &http.Response{StatusCode: 404, Body: io.NopCloser(bytes.NewReader(largeBody))}
 
@@ -339,7 +338,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		c.resp.Body = io.NopCloser(bytes.NewReader(hugeBody))
 
 		t.Run("server returns body that is too large", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			c.err = nil
 			c.resp = &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader(hugeBody))}
 
@@ -348,7 +347,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		})
 
 		t.Run("server returns invalid JSON returns error", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			c.err = nil
 			c.resp = &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader([]byte{1, 2, 3}))}
 
@@ -357,7 +356,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		})
 
 		t.Run("SHA mismatch returns error", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			c.err = nil
 			c.resp = &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader([]byte(`{"foo":"bar"}`)))}
 
@@ -366,7 +365,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		})
 
 		t.Run("valid JSON matching SHA returns channel definitions", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			chainSelector := 4949039107694359620 // arbitrum mainnet
 			feedID := [32]byte{00, 03, 107, 74, 167, 229, 124, 167, 182, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114}
 			expirationWindow := 3600
@@ -413,7 +412,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		}
 
 		t.Run("does nothing if persisted version is up-to-date", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			cdc.definitionsVersion = 42
 			cdc.persistedVersion = 42
 
@@ -428,7 +427,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		cdc.orm = orm
 
 		t.Run("returns error on db failure and does not update persisted version", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			cdc.persistedVersion = 42
 			cdc.definitionsVersion = 43
 			orm.err = errors.New("test error")
@@ -441,7 +440,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		})
 
 		t.Run("updates persisted version on success", func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			cdc.definitionsVersion = 43
 			orm.err = nil
 

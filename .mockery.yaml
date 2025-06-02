@@ -25,6 +25,7 @@ packages:
     interfaces:
       CCIPOracle:
       OracleCreator:
+      ContractTransmitterFactory:
   github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common:
     interfaces:
       SourceChainExtraDataCodec:
@@ -33,11 +34,12 @@ packages:
     interfaces:
       Dispatcher:
       Receiver:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/log:
+  github.com/smartcontractkit/chainlink-evm/pkg/log:
+    config:
+      dir: common/log/mocks
     interfaces:
       Broadcaster:
       Broadcast:
-      AbigenContract:
   github.com/smartcontractkit/chainlink-evm/pkg/logpoller:
     config:
       dir: common/logpoller/mocks
@@ -48,7 +50,9 @@ packages:
       dir: common/txmgr/mocks
     interfaces:
       EvmTxStore:
-  github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm:
+  github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm:
+    config:
+      dir: common/chains/mocks
     interfaces:
       Chain:
       LegacyChainContainer:
@@ -170,6 +174,7 @@ packages:
         config:
           filename: starknet.go
       Tron:
+      TON:
       VRF:
       Workflow:
   github.com/smartcontractkit/chainlink/v2/core/services/ocr:

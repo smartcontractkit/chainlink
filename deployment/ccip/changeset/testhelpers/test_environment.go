@@ -14,16 +14,26 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	solanago "github.com/gagliardetto/solana-go"
+
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
+	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
@@ -40,6 +50,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -104,7 +115,14 @@ type TestConfigs struct {
 	// ExtraConfigTomls contains the filenames of additional toml files to be loaded
 	// to potentially override default configs.
 	ExtraConfigTomls []string
+
+	// CLNodeConfigOpts are the config options to be passed to the chainlink node.
+	// Only used in memory mode.
 	CLNodeConfigOpts []memory.ConfigOpt
+
+	// RoleDONTopology is the chain-node topology of the role DON.
+	// Only used in memory mode.
+	RoleDONTopology cciptesthelpertypes.RoleDONTopology
 }
 
 func (tc *TestConfigs) Validate() error {
@@ -287,6 +305,12 @@ func WithNumOfBootstrapNodes(numBootstraps int) TestOps {
 	}
 }
 
+func WithRoleDONTopology(topology cciptesthelpertypes.RoleDONTopology) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.RoleDONTopology = topology
+	}
+}
+
 type TestEnvironment interface {
 	SetupJobs(t *testing.T)
 	DeleteJobs(ctx context.Context, jobIDs map[string][]string) error
@@ -311,7 +335,8 @@ func (d *DeployedEnv) TimelockContracts(t *testing.T) map[uint64]*proposalutils.
 	timelocks := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 	state, err := stateview.LoadOnchainState(d.Env)
 	require.NoError(t, err)
-	for chain, chainState := range state.Chains {
+	for _, chain := range state.EVMChains() {
+		chainState := state.MustGetEVMChainState(chain)
 		timelocks[chain] = &proposalutils.TimelockExecutionContracts{
 			Timelock:  chainState.Timelock,
 			CallProxy: chainState.CallProxy,
@@ -331,9 +356,9 @@ type MemoryEnvironment struct {
 	DeployedEnv
 	nodes       map[string]memory.Node
 	TestConfig  *TestConfigs
-	Chains      map[uint64]cldf.Chain
-	SolChains   map[uint64]cldf.SolChain
-	AptosChains map[uint64]cldf.AptosChain
+	Chains      map[uint64]cldf_evm.Chain
+	SolChains   map[uint64]cldf_solana.Chain
+	AptosChains map[uint64]cldf_aptos.Chain
 }
 
 func (m *MemoryEnvironment) TestConfigs() *TestConfigs {
@@ -351,7 +376,7 @@ func (m *MemoryEnvironment) UpdateDeployedEnvironment(env DeployedEnv) {
 func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	ctx := testcontext.Get(t)
 	tc := m.TestConfig
-	var chains map[uint64]cldf.Chain
+	var chains map[uint64]cldf_evm.Chain
 	var users map[uint64][]*bind.TransactOpts
 	if len(tc.ChainIDs) > 0 {
 		chains, users = memory.NewMemoryChainsWithChainIDs(t, tc.ChainIDs, tc.NumOfUsersPerChain)
@@ -371,10 +396,20 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	m.Chains = chains
 	m.SolChains = memory.NewMemoryChainsSol(t, tc.SolChains)
 	m.AptosChains = memory.NewMemoryChainsAptos(t, tc.AptosChains)
+
+	blockChains := map[uint64]cldf_chain.BlockChain{}
+	for selector, ch := range m.Chains {
+		blockChains[selector] = ch
+	}
+	for selector, ch := range m.SolChains {
+		blockChains[selector] = ch
+	}
+	for selector, ch := range m.AptosChains {
+		blockChains[selector] = ch
+	}
+
 	env := cldf.Environment{
-		Chains:      m.Chains,
-		SolChains:   m.SolChains,
-		AptosChains: m.AptosChains,
+		BlockChains: cldf_chain.NewBlockChains(blockChains),
 	}
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
 	replayBlocks, err := LatestBlocksByChain(ctx, env)
@@ -482,6 +517,7 @@ func NewMemoryEnvironment(t *testing.T, opts ...TestOps) (DeployedEnv, TestEnvir
 	for _, opt := range opts {
 		opt(testCfg)
 	}
+	testCfg.MustSetEnvTypeOrDefault(t)
 	require.NoError(t, testCfg.Validate(), "invalid test config")
 	env := &MemoryEnvironment{
 		TestConfig: testCfg,
@@ -508,11 +544,11 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	var err error
 	tc := tEnv.TestConfigs()
 	e := NewEnvironment(t, tEnv)
-	evmChains := e.Env.AllChainSelectors()
-	solChains := e.Env.AllChainSelectorsSolana()
+	evmChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+	solChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	//nolint:gocritic // we need to segregate EVM and Solana chains
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
-	for _, c := range e.Env.AllChainSelectors() {
+	for _, c := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfigV2(t)
 	}
 	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
@@ -588,9 +624,9 @@ func NewEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	dEnv := tEnv.DeployedEnvironment()
 	require.NotEmpty(t, dEnv.FeedChainSel)
 	require.NotEmpty(t, dEnv.HomeChainSel)
-	require.NotEmpty(t, dEnv.Env.Chains)
+	require.NotEmpty(t, dEnv.Env.BlockChains.EVMChains())
 	ab := cldf.NewMemoryAddressBook()
-	crConfig := DeployTestContracts(t, lggr, ab, dEnv.HomeChainSel, dEnv.FeedChainSel, dEnv.Env.Chains, tc.LinkPrice, tc.WethPrice)
+	crConfig := DeployTestContracts(t, lggr, ab, dEnv.HomeChainSel, dEnv.FeedChainSel, dEnv.Env.BlockChains.EVMChains(), tc.LinkPrice, tc.WethPrice)
 	tEnv.StartNodes(t, crConfig)
 	dEnv = tEnv.DeployedEnvironment()
 	dEnv.Env.ExistingAddresses = ab
@@ -600,15 +636,15 @@ func NewEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	var err error
 	e := NewEnvironmentWithPrerequisitesContracts(t, tEnv)
-	evmChains := e.Env.AllChainSelectors()
-	solChains := e.Env.AllChainSelectorsSolana()
-	aptosChains := e.Env.AllChainSelectorsAptos()
+	evmChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+	solChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
+	aptosChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyAptos))
 	//nolint:gocritic // we need to segregate EVM and Solana chains
 	allChains := append(evmChains, solChains...)
 	allChains = append(allChains, aptosChains...)
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 
-	for _, c := range e.Env.AllChainSelectors() {
+	for _, c := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
 	}
 
@@ -634,7 +670,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	return e
 }
 
-func deployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([]commonchangeset.ConfiguredChangeSet, error) {
+func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([]commonchangeset.ConfiguredChangeSet, error) {
 	err := SavePreloadedSolAddresses(e.Env, solChainSelector)
 	if err != nil {
 		return nil, err
@@ -693,26 +729,33 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
 	var apps []commonchangeset.ConfiguredChangeSet
-	evmContractParams := make(map[uint64]v1_6.ChainContractParams)
+	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 
 	evmChains := []uint64{}
 	for _, chain := range allChains {
-		if _, ok := e.Env.Chains[chain]; ok {
+		if _, ok := e.Env.BlockChains.EVMChains()[chain]; ok {
 			evmChains = append(evmChains, chain)
 		}
 	}
 
 	solChains := []uint64{}
 	for _, chain := range allChains {
-		if _, ok := e.Env.SolChains[chain]; ok {
+		if _, ok := e.Env.BlockChains.SolanaChains()[chain]; ok {
 			solChains = append(solChains, chain)
 		}
 	}
 
+	aptosChains := []uint64{}
+	for _, chain := range allChains {
+		if _, ok := e.Env.BlockChains.AptosChains()[chain]; ok {
+			aptosChains = append(aptosChains, chain)
+		}
+	}
+
 	for _, chain := range evmChains {
-		evmContractParams[chain] = v1_6.ChainContractParams{
-			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
-			OffRampParams:   v1_6.DefaultOffRampParams(),
+		evmContractParams[chain] = ccipseq.ChainContractParams{
+			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
+			OffRampParams:   ccipops.DefaultOffRampParams(),
 		}
 	}
 
@@ -723,7 +766,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  NewTestRMNStaticConfig(),
-				NodeOperators:    NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeOperators:    NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
 				},
@@ -731,42 +774,49 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
-			v1_6.DeployChainContractsConfig{
+			ccipseq.DeployChainContractsConfig{
 				HomeChainSelector:      e.HomeChainSel,
 				ContractParamsPerChain: evmContractParams,
 			},
 		),
 	}...)
 	if len(solChains) != 0 {
-		solCs, err := deployChainContractsToSolChainCS(e, solChains[0])
+		solCs, err := DeployChainContractsToSolChainCS(e, solChains[0])
 		require.NoError(t, err)
 		apps = append(apps, solCs...)
 	}
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, apps)
 	require.NoError(t, err)
 
+	if len(aptosChains) != 0 {
+		// Currently only one aptos chain is supported in test environment
+		aptosCs := DeployChainContractsToAptosCS(t, e, aptosChains[0])
+		e.Env, _, err = commonchangeset.ApplyChangesetsV2(t, e.Env, []commonchangeset.ConfiguredChangeSet{aptosCs})
+		require.NoError(t, err)
+	}
+
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	// Assert link present
 	if tc.IsStaticLink {
-		require.NotNil(t, state.Chains[e.FeedChainSel].StaticLinkToken)
+		require.NotNil(t, state.MustGetEVMChainState(e.FeedChainSel).StaticLinkToken)
 	} else {
-		require.NotNil(t, state.Chains[e.FeedChainSel].LinkToken)
+		require.NotNil(t, state.MustGetEVMChainState(e.FeedChainSel).LinkToken)
 	}
-	require.NotNil(t, state.Chains[e.FeedChainSel].Weth9)
+	require.NotNil(t, state.MustGetEVMChainState(e.FeedChainSel).Weth9)
 
-	tokenConfig := shared.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
+	tokenConfig := shared.NewTestTokenConfig(state.MustGetEVMChainState(e.FeedChainSel).USDFeeds)
 	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
 	if tc.IsUSDC {
 		endpoint := tEnv.MockUSDCAttestationServer(t, tc.IsUSDCAttestationMissing)
 		cctpContracts := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
 		for _, usdcChain := range evmChains {
-			require.NotNil(t, state.Chains[usdcChain].MockUSDCTokenMessenger)
-			require.NotNil(t, state.Chains[usdcChain].MockUSDCTransmitter)
-			require.NotNil(t, state.Chains[usdcChain].USDCTokenPools[deployment.Version1_5_1])
+			require.NotNil(t, state.MustGetEVMChainState(usdcChain).MockUSDCTokenMessenger)
+			require.NotNil(t, state.MustGetEVMChainState(usdcChain).MockUSDCTransmitter)
+			require.NotNil(t, state.MustGetEVMChainState(usdcChain).USDCTokenPools[deployment.Version1_5_1])
 			cctpContracts[cciptypes.ChainSelector(usdcChain)] = pluginconfig.USDCCCTPTokenConfig{
-				SourcePoolAddress:            state.Chains[usdcChain].USDCTokenPools[deployment.Version1_5_1].Address().String(),
-				SourceMessageTransmitterAddr: state.Chains[usdcChain].MockUSDCTransmitter.Address().String(),
+				SourcePoolAddress:            state.MustGetEVMChainState(usdcChain).USDCTokenPools[deployment.Version1_5_1].Address().String(),
+				SourceMessageTransmitterAddr: state.MustGetEVMChainState(usdcChain).MockUSDCTransmitter.Address().String(),
 			}
 		}
 		tokenDataProviders = append(tokenDataProviders, pluginconfig.TokenDataObserverConfig{
@@ -784,25 +834,49 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	timelockContractsPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 	timelockContractsPerChain[e.HomeChainSel] = &proposalutils.TimelockExecutionContracts{
-		Timelock:  state.Chains[e.HomeChainSel].Timelock,
-		CallProxy: state.Chains[e.HomeChainSel].CallProxy,
+		Timelock:  state.MustGetEVMChainState(e.HomeChainSel).Timelock,
+		CallProxy: state.MustGetEVMChainState(e.HomeChainSel).CallProxy,
 	}
+
 	nodeInfo, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
-	// Build the per chain config.
+
+	// generate the chainToNodeMapping if we have a topology provided.
+	var chainToNodeMapping map[cciptypes.ChainSelector][][32]byte
+	if tc.Type == Memory && tc.RoleDONTopology != nil {
+		allSelectors := make([]cciptypes.ChainSelector, 0, len(evmChains)+len(solChains))
+		for _, chain := range evmChains {
+			// don't include the home chain, its supported by all nodes.
+			if chain == e.HomeChainSel {
+				continue
+			}
+			allSelectors = append(allSelectors, cciptypes.ChainSelector(chain))
+		}
+		for _, chain := range solChains {
+			allSelectors = append(allSelectors, cciptypes.ChainSelector(chain))
+		}
+		chainToNodeMapping, err = tc.RoleDONTopology.ChainToNodeMapping(
+			nodeInfo.NonBootstraps().PeerIDs(),
+			allSelectors,
+			cciptypes.ChainSelector(e.HomeChainSel),
+		)
+		require.NoError(t, err)
+	}
+
+	// Build the CCIPHome chain configs.
 	chainConfigs := make(map[uint64]v1_6.ChainConfig)
 	commitOCRConfigs := make(map[uint64]v1_6.CCIPOCRParams)
 	execOCRConfigs := make(map[uint64]v1_6.CCIPOCRParams)
 	for _, chain := range evmChains {
 		timelockContractsPerChain[chain] = &proposalutils.TimelockExecutionContracts{
-			Timelock:  state.Chains[chain].Timelock,
-			CallProxy: state.Chains[chain].CallProxy,
+			Timelock:  state.MustGetEVMChainState(chain).Timelock,
+			CallProxy: state.MustGetEVMChainState(chain).CallProxy,
 		}
 		var linkTokenAddr common.Address
 		if tc.IsStaticLink {
-			linkTokenAddr = state.Chains[chain].StaticLinkToken.Address()
+			linkTokenAddr = state.MustGetEVMChainState(chain).StaticLinkToken.Address()
 		} else {
-			linkTokenAddr = state.Chains[chain].LinkToken.Address()
+			linkTokenAddr = state.MustGetEVMChainState(chain).LinkToken.Address()
 		}
 		ocrOverride := func(ocrParams v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 			if tc.OCRConfigOverride != nil {
@@ -819,11 +893,23 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			}
 			return ocrParams
 		}
-		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenConfig.GetTokenInfo(e.Env.Logger, linkTokenAddr, state.Chains[chain].Weth9.Address()), ocrOverride)
+		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenConfig.GetTokenInfo(e.Env.Logger, linkTokenAddr, state.MustGetEVMChainState(chain).Weth9.Address()), ocrOverride)
 		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
+
+		var readers [][32]byte
+		if chainToNodeMapping != nil {
+			_, ok := chainToNodeMapping[cciptypes.ChainSelector(chain)]
+			require.True(t, ok, "chain %d not found in chainToNodeMapping", chain)
+			readers = chainToNodeMapping[cciptypes.ChainSelector(chain)]
+			t.Logf("setting readers for chain %d to %v due to topology %v", chain, readers, chainToNodeMapping)
+		} else {
+			t.Logf("setting readers for chain %d to %v due to no topology", chain, nodeInfo.NonBootstraps().PeerIDs())
+			readers = nodeInfo.NonBootstraps().PeerIDs()
+		}
 		chainConfigs[chain] = v1_6.ChainConfig{
-			Readers: nodeInfo.NonBootstraps().PeerIDs(),
-			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			Readers: readers,
+			// #nosec G115 - Overflow is not a concern in this test scenario
+			FChain: uint8(len(readers) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:      cciptypes.BigInt{Int: big.NewInt(DefaultGasPriceDeviationPPB)},
 				DAGasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(DefaultDAGasPriceDeviationPPB)},
@@ -843,15 +929,46 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		ocrOverride := tc.OCRConfigOverride
 		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenInfo, ocrOverride)
 		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
+
+		var readers [][32]byte
+		if chainToNodeMapping != nil {
+			_, ok := chainToNodeMapping[cciptypes.ChainSelector(chain)]
+			require.True(t, ok, "chain %d not found in chainToNodeMapping", chain)
+			readers = chainToNodeMapping[cciptypes.ChainSelector(chain)]
+			t.Logf("setting readers for chain %d to %v due to topology %v", chain, readers, chainToNodeMapping)
+		} else {
+			readers = nodeInfo.NonBootstraps().PeerIDs()
+		}
 		chainConfigs[chain] = v1_6.ChainConfig{
-			Readers: nodeInfo.NonBootstraps().PeerIDs(),
+			Readers: readers,
 			// #nosec G115 - Overflow is not a concern in this test scenario
-			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			FChain: uint8(len(readers) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:      cciptypes.BigInt{Int: big.NewInt(DefaultGasPriceDeviationPPB)},
 				DAGasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(DefaultDAGasPriceDeviationPPB)},
 				OptimisticConfirmations:   globals.OptimisticConfirmations,
 				ChainFeeDeviationDisabled: true,
+			},
+		}
+	}
+
+	for _, chain := range aptosChains {
+		// TODO(aptos): update this for token transfers
+		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
+		linkTokenAddress := state.AptosChains[chain].LinkTokenAddress
+		tokenInfo[cciptypes.UnknownEncodedAddress(linkTokenAddress.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
+
+		ocrOverride := tc.OCRConfigOverride
+		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenInfo, ocrOverride)
+		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
+		chainConfigs[chain] = v1_6.ChainConfig{
+			Readers: nodeInfo.NonBootstraps().PeerIDs(),
+			// #nosec G115 - Overflow is not a concern in this test scenario
+			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			EncodableChainConfig: chainconfig.ChainConfig{
+				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(DefaultGasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(DefaultDAGasPriceDeviationPPB)},
+				OptimisticConfirmations: globals.OptimisticConfirmations,
 			},
 		}
 	}
@@ -955,27 +1072,29 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	require.NotNil(t, state.Chains[e.HomeChainSel].CapabilityRegistry)
-	require.NotNil(t, state.Chains[e.HomeChainSel].CCIPHome)
-	require.NotNil(t, state.Chains[e.HomeChainSel].RMNHome)
+	require.NotNil(t, state.MustGetEVMChainState(e.HomeChainSel).CapabilityRegistry)
+	require.NotNil(t, state.MustGetEVMChainState(e.HomeChainSel).CCIPHome)
+	require.NotNil(t, state.MustGetEVMChainState(e.HomeChainSel).RMNHome)
 	for _, chain := range evmChains {
 		if tc.IsStaticLink {
-			require.NotNil(t, state.Chains[chain].StaticLinkToken)
+			require.NotNil(t, state.MustGetEVMChainState(chain).StaticLinkToken)
 		} else {
-			require.NotNil(t, state.Chains[chain].LinkToken)
+			require.NotNil(t, state.MustGetEVMChainState(chain).LinkToken)
 		}
-		require.NotNil(t, state.Chains[chain].Weth9)
-		require.NotNil(t, state.Chains[chain].TokenAdminRegistry)
-		require.NotEmpty(t, state.Chains[chain].RegistryModules1_6)
-		require.NotNil(t, state.Chains[chain].Router)
-		require.NotNil(t, state.Chains[chain].RMNRemote)
-		require.NotNil(t, state.Chains[chain].TestRouter)
-		require.NotNil(t, state.Chains[chain].NonceManager)
-		require.NotNil(t, state.Chains[chain].FeeQuoter)
-		require.NotNil(t, state.Chains[chain].OffRamp)
-		require.NotNil(t, state.Chains[chain].OnRamp)
+		require.NotNil(t, state.MustGetEVMChainState(chain).Weth9)
+		require.NotNil(t, state.MustGetEVMChainState(chain).TokenAdminRegistry)
+		require.NotEmpty(t, state.MustGetEVMChainState(chain).RegistryModules1_6)
+		require.NotNil(t, state.MustGetEVMChainState(chain).Router)
+		require.NotNil(t, state.MustGetEVMChainState(chain).RMNRemote)
+		require.NotNil(t, state.MustGetEVMChainState(chain).TestRouter)
+		require.NotNil(t, state.MustGetEVMChainState(chain).NonceManager)
+		require.NotNil(t, state.MustGetEVMChainState(chain).FeeQuoter)
+		require.NotNil(t, state.MustGetEVMChainState(chain).OffRamp)
+		require.NotNil(t, state.MustGetEVMChainState(chain).OnRamp)
 	}
-	ValidateSolanaState(t, e.Env, solChains)
+	err = ValidateSolanaState(e.Env, solChains)
+	require.NoError(t, err)
+
 	tEnv.UpdateDeployedEnvironment(e)
 	return e
 }
@@ -993,7 +1112,7 @@ func NewEnvironmentWithJobs(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  NewTestRMNStaticConfig(),
-				NodeOperators:    NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeOperators:    NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
 				},

@@ -29,12 +29,12 @@ import (
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -144,7 +144,7 @@ type DON struct {
 
 func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig DonConfiguration,
 	dependentDONs []commoncap.DON, donContext DonContext, supportsOCR bool, protocolRoundInterval time.Duration) *DON {
-	don := &DON{t: t, lggr: lggr.Named(donConfig.name), config: donConfig, capabilitiesRegistry: donContext.capabilityRegistry,
+	don := &DON{t: t, lggr: logger.Named(lggr, donConfig.name), config: donConfig, capabilitiesRegistry: donContext.capabilityRegistry,
 		workflowRegistry: donContext.workflowRegistry}
 
 	var newOracleFactoryFn standardcapabilities.NewOracleFactoryFn
@@ -179,7 +179,7 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 		}
 
 		cn.start = func() {
-			node := startNewNode(ctx, t, lggr.Named(donConfig.name+"-"+strconv.Itoa(i)), nodeInfo, donContext.EthBlockchain,
+			node := startNewNode(ctx, t, logger.Named(lggr, donConfig.name+"-"+strconv.Itoa(i)), nodeInfo, donContext.EthBlockchain,
 				donContext.capabilityRegistry.getAddress(), dispatcher,
 				peerWrapper{peer: p2pPeer{member}}, capabilityRegistry, newOracleFactoryFn,
 				donConfig.keys[i], func(c *chainlink.Config) {

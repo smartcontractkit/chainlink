@@ -1,14 +1,13 @@
 package changeset
 
 import (
-	"context"
 	"errors"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -66,7 +65,7 @@ func TestChangeSetLegacyFunction_ErrorCase(t *testing.T) {
 }
 
 func NewNoopEnvironment(t *testing.T) cldf.Environment {
-	return *cldf.NewEnvironment(
+	return *cldf.NewCLDFEnvironment(
 		"noop",
 		logger.TestLogger(t),
 		cldf.NewMemoryAddressBook(),
@@ -74,13 +73,14 @@ func NewNoopEnvironment(t *testing.T) cldf.Environment {
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,
 		]().Seal(),
-		map[uint64]cldf.Chain{},
-		map[uint64]cldf.SolChain{},
-		map[uint64]cldf.AptosChain{},
+		nil, // todo remove once fully migrated to CLDF new chain package
+		nil, // todo remove once fully migrated to CLDF new chain package
+		nil, // todo remove once fully migrated to CLDF new chain package
 		[]string{},
 		nil,
-		func() context.Context { return tests.Context(t) },
+		t.Context,
 		cldf.XXXGenerateTestOCRSecrets(),
+		chain.NewBlockChains(map[uint64]chain.BlockChain{}),
 	)
 }
 

@@ -11,12 +11,17 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
+	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -78,7 +83,7 @@ func TestSetDynamicConfig(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	rmnHome := state.Chains[e.HomeChainSel].RMNHome
+	rmnHome := state.MustGetEVMChainState(e.HomeChainSel).RMNHome
 
 	nops := []v1_6.RMNNopConfig{rmnStaging1, rmnStaging2, rmnStaging3}
 	nodes := make([]rmn_home.RMNHomeNode, 0, len(nops))
@@ -143,7 +148,7 @@ func TestRevokeConfig(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	rmnHome := state.Chains[e.HomeChainSel].RMNHome
+	rmnHome := state.MustGetEVMChainState(e.HomeChainSel).RMNHome
 
 	nops := []v1_6.RMNNopConfig{rmnStaging1, rmnStaging2, rmnStaging3}
 	nodes := make([]rmn_home.RMNHomeNode, 0, len(nops))
@@ -194,14 +199,14 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 		contractsByChain[chainSelector] = []common.Address{rmnRemoteAddress}
 	}
 
-	contractsByChain[e.HomeChainSel] = append(contractsByChain[e.HomeChainSel], state.Chains[e.HomeChainSel].RMNHome.Address())
+	contractsByChain[e.HomeChainSel] = append(contractsByChain[e.HomeChainSel], state.MustGetEVMChainState(e.HomeChainSel).RMNHome.Address())
 
 	timelocksPerChain := deployergroup.BuildTimelockPerChain(e.Env, state)
 	if tc.useMCMS {
 		// This is required because RMNHome is initially owned by the deployer
 		_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+				cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 				commonchangeset.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: contractsByChain,
 					MCMSConfig: proposalutils.TimelockConfig{
@@ -213,7 +218,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 		require.NoError(t, err)
 	}
 
-	rmnHome := state.Chains[e.HomeChainSel].RMNHome
+	rmnHome := state.MustGetEVMChainState(e.HomeChainSel).RMNHome
 
 	previousCandidateDigest, err := rmnHome.GetCandidateDigest(nil)
 	require.NoError(t, err)
@@ -289,10 +294,10 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 	for _, nop := range tc.nops {
 		signers = append(signers, nop.ToRMNRemoteSigner())
 	}
-
-	remoteConfigs := make(map[uint64]v1_6.RMNRemoteConfig, len(e.Env.Chains))
-	for _, chain := range e.Env.Chains {
-		remoteConfig := v1_6.RMNRemoteConfig{
+	evmChains := e.Env.BlockChains.EVMChains()
+	remoteConfigs := make(map[uint64]ccipops.RMNRemoteConfig, len(evmChains))
+	for _, chain := range evmChains {
+		remoteConfig := ccipops.RMNRemoteConfig{
 			Signers: signers,
 			F:       0,
 		}
@@ -300,10 +305,9 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 		remoteConfigs[chain.Selector] = remoteConfig
 	}
 
-	setRemoteConfig := v1_6.SetRMNRemoteConfig{
-		HomeChainSelector: e.HomeChainSel,
-		RMNRemoteConfigs:  remoteConfigs,
-		MCMSConfig:        mcmsConfig,
+	setRemoteConfig := ccipseq.SetRMNRemoteConfig{
+		RMNRemoteConfigs: remoteConfigs,
+		MCMSConfig:       mcmsConfig,
 	}
 
 	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
@@ -342,11 +346,11 @@ func buildRMNRemoteAddressPerChain(e cldf.Environment, state stateview.CCIPOnCha
 func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNoJobsAndContracts())
-	allChains := e.Env.AllChainSelectors()
+	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	var err error
 	prereqCfgs := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
-	for _, c := range e.Env.AllChainSelectors() {
+	for _, c := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)) {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfigV2(t)
 		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: c,
@@ -375,20 +379,20 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	for _, chain := range allChains {
-		rmnProxy := state.Chains[chain].RMNProxy
+		rmnProxy := state.MustGetEVMChainState(chain).RMNProxy
 		require.NotNil(t, rmnProxy)
 		contractsByChain[chain] = []common.Address{rmnProxy.Address()}
 	}
 	timelockContractsPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
-	allContractParams := make(map[uint64]v1_6.ChainContractParams)
+	allContractParams := make(map[uint64]ccipseq.ChainContractParams)
 	for _, chain := range allChains {
 		timelockContractsPerChain[chain] = &proposalutils.TimelockExecutionContracts{
-			Timelock:  state.Chains[chain].Timelock,
-			CallProxy: state.Chains[chain].CallProxy,
+			Timelock:  state.MustGetEVMChainState(chain).Timelock,
+			CallProxy: state.MustGetEVMChainState(chain).CallProxy,
 		}
-		allContractParams[chain] = v1_6.ChainContractParams{
-			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
-			OffRampParams:   v1_6.DefaultOffRampParams(),
+		allContractParams[chain] = ccipseq.ChainContractParams{
+			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
+			OffRampParams:   ccipops.DefaultOffRampParams(),
 		}
 	}
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
@@ -396,7 +400,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	e.Env, err = commonchangeset.Apply(t, e.Env, timelockContractsPerChain,
 		// transfer ownership of RMNProxy to timelock
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MCMSConfig: proposalutils.TimelockConfig{
@@ -410,7 +414,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
-				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					"NodeOperator": envNodes.NonBootstraps().PeerIDs(),
 				},
@@ -418,7 +422,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
-			v1_6.DeployChainContractsConfig{
+			ccipseq.DeployChainContractsConfig{
 				HomeChainSelector:      e.HomeChainSel,
 				ContractParamsPerChain: allContractParams,
 			},
@@ -437,12 +441,12 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	for _, chain := range allChains {
-		rmnProxy := state.Chains[chain].RMNProxy
+		rmnProxy := state.MustGetEVMChainState(chain).RMNProxy
 		proxyOwner, err := rmnProxy.Owner(nil)
 		require.NoError(t, err)
-		require.Equal(t, state.Chains[chain].Timelock.Address(), proxyOwner)
+		require.Equal(t, state.MustGetEVMChainState(chain).Timelock.Address(), proxyOwner)
 		rmnAddr, err := rmnProxy.GetARM(nil)
 		require.NoError(t, err)
-		require.Equal(t, rmnAddr, state.Chains[chain].RMNRemote.Address())
+		require.Equal(t, rmnAddr, state.MustGetEVMChainState(chain).RMNRemote.Address())
 	}
 }

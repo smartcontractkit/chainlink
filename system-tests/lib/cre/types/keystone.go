@@ -229,10 +229,23 @@ type GatewayConnectorDons struct {
 }
 
 type GatewayConnectorOutput struct {
-	Dons []GatewayConnectorDons // do not set, it will be set dynamically
-	Host string                 // do not set, it will be set dynamically
+	Dons     []GatewayConnectorDons // do not set, it will be set dynamically
+	Outgoing Outgoing
+	Incoming Incoming
+}
+
+type Outgoing struct {
+	Host string // do not set, it will be set dynamically
 	Path string
 	Port int
+}
+
+type Incoming struct {
+	Protocol     string // do not set, it will be set dynamically
+	Host         string // do not set, it will be set dynamically
+	Path         string
+	InternalPort int
+	ExternalPort int
 }
 
 type ConfigFactoryFn = func(input GenerateConfigsInput) (NodeIndexToConfigOverride, error)
@@ -559,7 +572,6 @@ type ManageWorkflowWithCRECLIInput struct {
 	ChainSelector            uint64
 	WorkflowName             string
 	WorkflowDonID            uint32
-	WorkflowRegistryAddress  common.Address
 	WorkflowOwnerAddress     common.Address
 	CRECLIPrivateKey         string
 	CRECLIAbsPath            string

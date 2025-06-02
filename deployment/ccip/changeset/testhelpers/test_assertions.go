@@ -19,6 +19,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
@@ -31,6 +33,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -48,8 +51,9 @@ func ConfirmGasPriceUpdatedForAll(
 	gasPrice *big.Int,
 ) {
 	var wg errgroup.Group
-	for src, srcChain := range e.Chains {
-		for dest, dstChain := range e.Chains {
+	evmChains := e.BlockChains.EVMChains()
+	for src, srcChain := range evmChains {
+		for dest, dstChain := range evmChains {
 			if src == dest {
 				continue
 			}
@@ -63,7 +67,7 @@ func ConfirmGasPriceUpdatedForAll(
 				return ConfirmGasPriceUpdated(
 					t,
 					dstChain,
-					state.Chains[srcChain.Selector].FeeQuoter,
+					state.MustGetEVMChainState(srcChain.Selector).FeeQuoter,
 					*startBlock,
 					gasPrice,
 				)
@@ -75,7 +79,7 @@ func ConfirmGasPriceUpdatedForAll(
 
 func ConfirmGasPriceUpdated(
 	t *testing.T,
-	dest cldf.Chain,
+	dest cldf_evm.Chain,
 	srcFeeQuoter *fee_quoter.FeeQuoter,
 	startBlock uint64,
 	gasPrice *big.Int,
@@ -102,22 +106,22 @@ func ConfirmTokenPriceUpdatedForAll(
 	wethPrice *big.Int,
 ) {
 	var wg errgroup.Group
-	for _, chain := range e.Chains {
+	for _, chain := range e.BlockChains.EVMChains() {
 		chain := chain
 		wg.Go(func() error {
 			var startBlock *uint64
 			if startBlocks != nil {
 				startBlock = startBlocks[chain.Selector]
 			}
-			linkAddress := state.Chains[chain.Selector].LinkToken.Address()
-			wethAddress := state.Chains[chain.Selector].Weth9.Address()
+			linkAddress := state.MustGetEVMChainState(chain.Selector).LinkToken.Address()
+			wethAddress := state.MustGetEVMChainState(chain.Selector).Weth9.Address()
 			tokenToPrice := make(map[common.Address]*big.Int)
 			tokenToPrice[linkAddress] = linkPrice
 			tokenToPrice[wethAddress] = wethPrice
 			return ConfirmTokenPriceUpdated(
 				t,
 				chain,
-				state.Chains[chain.Selector].FeeQuoter,
+				state.MustGetEVMChainState(chain.Selector).FeeQuoter,
 				*startBlock,
 				tokenToPrice,
 			)
@@ -128,7 +132,7 @@ func ConfirmTokenPriceUpdatedForAll(
 
 func ConfirmTokenPriceUpdated(
 	t *testing.T,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	feeQuoter *fee_quoter.FeeQuoter,
 	startBlock uint64,
 	tokenToInitialPrice map[common.Address]*big.Int,
@@ -207,8 +211,8 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(
 					t,
 					srcChain,
-					e.Chains[dstChain],
-					state.Chains[dstChain].OffRamp,
+					e.BlockChains.EVMChains()[dstChain],
+					state.MustGetEVMChainState(dstChain).OffRamp,
 					startBlock,
 					ccipocr3.SeqNumRange{
 						ccipocr3.SeqNum(expectedSeqNum),
@@ -224,7 +228,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRangeSol(
 					t,
 					srcChain,
-					e.SolChains[dstChain],
+					e.BlockChains.SolanaChains()[dstChain],
 					state.SolChains[dstChain].OffRamp,
 					startSlot,
 					ccipocr3.SeqNumRange{
@@ -319,8 +323,8 @@ func ConfirmMultipleCommits(
 				_, err := ConfirmCommitWithExpectedSeqNumRange(
 					t,
 					srcChain,
-					env.Chains[destChain],
-					state.Chains[destChain].OffRamp,
+					env.BlockChains.EVMChains()[destChain],
+					state.MustGetEVMChainState(destChain).OffRamp,
 					startBlocks[destChain],
 					seqRange,
 					enforceSingleCommit,
@@ -334,7 +338,7 @@ func ConfirmMultipleCommits(
 				_, err := ConfirmCommitWithExpectedSeqNumRangeSol(
 					t,
 					srcChain,
-					env.SolChains[destChain],
+					env.BlockChains.SolanaChains()[destChain],
 					state.SolChains[destChain].OffRamp,
 					startSlot,
 					seqRange,
@@ -356,7 +360,7 @@ func ConfirmMultipleCommits(
 func ConfirmCommitWithExpectedSeqNumRange(
 	t *testing.T,
 	srcSelector uint64,
-	dest cldf.Chain,
+	dest cldf_evm.Chain,
 	offRamp offramp.OffRampInterface,
 	startBlock *uint64,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
@@ -541,7 +545,7 @@ func SolEventEmitter[T any](
 func ConfirmCommitWithExpectedSeqNumRangeSol(
 	t *testing.T,
 	srcSelector uint64,
-	dest cldf.SolChain,
+	dest cldf_solana.Chain,
 	offrampAddress solana.PublicKey,
 	startSlot uint64,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
@@ -629,8 +633,8 @@ func ConfirmExecWithSeqNrsForAll(
 				innerExecutionStates, err = ConfirmExecWithSeqNrs(
 					t,
 					srcChain,
-					e.Chains[dstChain],
-					state.Chains[dstChain].OffRamp,
+					e.BlockChains.EVMChains()[dstChain],
+					state.MustGetEVMChainState(dstChain).OffRamp,
 					startBlock,
 					seqRange,
 				)
@@ -645,7 +649,7 @@ func ConfirmExecWithSeqNrsForAll(
 				innerExecutionStates, err = ConfirmExecWithSeqNrsSol(
 					t,
 					srcChain,
-					e.SolChains[dstChain],
+					e.BlockChains.SolanaChains()[dstChain],
 					state.SolChains[dstChain].OffRamp,
 					startSlot,
 					seqRange,
@@ -676,7 +680,7 @@ func ConfirmExecWithSeqNrsForAll(
 func ConfirmExecWithSeqNrs(
 	t *testing.T,
 	sourceSelector uint64,
-	dest cldf.Chain,
+	dest cldf_evm.Chain,
 	offRamp offramp.OffRampInterface,
 	startBlock *uint64,
 	expectedSeqNrs []uint64,
@@ -751,7 +755,7 @@ func ConfirmExecWithSeqNrs(
 func ConfirmExecWithSeqNrsSol(
 	t *testing.T,
 	srcSelector uint64,
-	dest cldf.SolChain,
+	dest cldf_solana.Chain,
 	offrampAddress solana.PublicKey,
 	startSlot uint64,
 	expectedSeqNrs []uint64,
@@ -802,7 +806,7 @@ func ConfirmExecWithSeqNrsSol(
 func ConfirmNoExecConsistentlyWithSeqNr(
 	t *testing.T,
 	sourceSelector uint64,
-	dest cldf.Chain,
+	dest cldf_evm.Chain,
 	offRamp offramp.OffRampInterface,
 	expectedSeqNr uint64,
 	timeout time.Duration,
@@ -913,33 +917,33 @@ func AssertTimelockOwnership(
 	// check that the ownership has been transferred correctly
 	for _, chain := range chains {
 		allContracts := []common.Address{
-			state.Chains[chain].OnRamp.Address(),
-			state.Chains[chain].OffRamp.Address(),
-			state.Chains[chain].FeeQuoter.Address(),
-			state.Chains[chain].NonceManager.Address(),
-			state.Chains[chain].RMNRemote.Address(),
-			state.Chains[chain].Router.Address(),
-			state.Chains[chain].TokenAdminRegistry.Address(),
-			state.Chains[chain].RMNProxy.Address(),
+			state.MustGetEVMChainState(chain).OnRamp.Address(),
+			state.MustGetEVMChainState(chain).OffRamp.Address(),
+			state.MustGetEVMChainState(chain).FeeQuoter.Address(),
+			state.MustGetEVMChainState(chain).NonceManager.Address(),
+			state.MustGetEVMChainState(chain).RMNRemote.Address(),
+			state.MustGetEVMChainState(chain).Router.Address(),
+			state.MustGetEVMChainState(chain).TokenAdminRegistry.Address(),
+			state.MustGetEVMChainState(chain).RMNProxy.Address(),
 		}
 		if withTestRouterTransfer {
-			allContracts = append(allContracts, state.Chains[chain].TestRouter.Address())
+			allContracts = append(allContracts, state.MustGetEVMChainState(chain).TestRouter.Address())
 		}
 		for _, contract := range allContracts {
-			owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.Chains[chain].Client)
+			owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.BlockChains.EVMChains()[chain].Client)
 			require.NoError(t, err)
-			require.Equal(t, state.Chains[chain].Timelock.Address(), owner)
+			require.Equal(t, state.MustGetEVMChainState(chain).Timelock.Address(), owner)
 		}
 	}
 
 	// check home chain contracts ownership
-	homeChainTimelockAddress := state.Chains[e.HomeChainSel].Timelock.Address()
+	homeChainTimelockAddress := state.MustGetEVMChainState(e.HomeChainSel).Timelock.Address()
 	for _, contract := range []common.Address{
-		state.Chains[e.HomeChainSel].CapabilityRegistry.Address(),
-		state.Chains[e.HomeChainSel].CCIPHome.Address(),
-		state.Chains[e.HomeChainSel].RMNHome.Address(),
+		state.MustGetEVMChainState(e.HomeChainSel).CapabilityRegistry.Address(),
+		state.MustGetEVMChainState(e.HomeChainSel).CCIPHome.Address(),
+		state.MustGetEVMChainState(e.HomeChainSel).RMNHome.Address(),
 	} {
-		owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.Chains[e.HomeChainSel].Client)
+		owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.BlockChains.EVMChains()[e.HomeChainSel].Client)
 		require.NoError(t, err)
 		require.Equal(t, homeChainTimelockAddress, owner)
 	}

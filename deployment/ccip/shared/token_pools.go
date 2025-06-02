@@ -7,6 +7,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 
@@ -19,9 +20,10 @@ import (
 var CurrentTokenPoolVersion = deployment.Version1_5_1
 
 var TokenTypes = map[cldf.ContractType]struct{}{
-	BurnMintToken: {},
-	ERC20Token:    {},
-	ERC677Token:   {},
+	BurnMintToken:     {},
+	ERC20Token:        {},
+	ERC677Token:       {},
+	ERC677TokenHelper: {},
 }
 
 var TokenPoolTypes = map[cldf.ContractType]struct{}{
@@ -54,7 +56,7 @@ func NewTokenPoolWithMetadata[P tokenPool](
 	ctx context.Context,
 	newTokenPool func(address common.Address, backend bind.ContractBackend) (P, error),
 	poolAddress common.Address,
-	chainClient cldf.OnchainClient,
+	chainClient cldf_evm.OnchainClient,
 ) (P, TokenPoolMetadata, error) {
 	pool, err := newTokenPool(poolAddress, chainClient)
 	if err != nil {

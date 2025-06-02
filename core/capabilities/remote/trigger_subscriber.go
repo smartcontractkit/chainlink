@@ -219,12 +219,8 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			creationTs := s.messageCache.Insert(key, sender, nowMs, msg.Payload)
 			ready, payloads := s.messageCache.Ready(key, s.config.MinResponsesToAggregate, nowMs-s.config.MessageExpiry.Milliseconds(), true)
 			s.mu.Unlock()
-			if nowMs-creationTs > s.config.RegistrationExpiry.Milliseconds() {
-				s.lggr.Warnw("received trigger event for an expired ID", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowID, "sender", sender)
-				continue
-			}
+			s.lggr.Debugw("trigger event received", "triggerEventId", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowID, "sender", sender, "ready", ready, "nowTs", nowMs, "creationTs", creationTs, "minResponsesToAggregate", s.config.MinResponsesToAggregate)
 			if ready {
-				s.lggr.Debugw("trigger event ready to aggregate", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowID)
 				aggregatedResponse, err := s.aggregator.Aggregate(meta.TriggerEventId, payloads)
 				if err != nil {
 					s.lggr.Errorw("failed to aggregate responses", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowID, "err", err)

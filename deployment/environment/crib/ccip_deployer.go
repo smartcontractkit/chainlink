@@ -11,11 +11,16 @@ import (
 	"github.com/rs/zerolog"
 	xerrgroup "golang.org/x/sync/errgroup"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
+	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
@@ -57,14 +62,16 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 		return deployment.CapabilityRegistryConfig{}, nil, errors.New("environment is nil")
 	}
 
+	evmChains := e.BlockChains.EVMChains()
+
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
 		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to get node info from env: %w", err)
 	}
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
-	for _, chain := range e.AllChainSelectors() {
-		mcmsConfig, err := mcmstypes.NewConfig(1, []common.Address{e.Chains[chain].DeployerKey.From}, []mcmstypes.Config{})
+	for _, chain := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)) {
+		mcmsConfig, err := mcmstypes.NewConfig(1, []common.Address{evmChains[chain].DeployerKey.From}, []mcmstypes.Config{})
 		if err != nil {
 			return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to create mcms config: %w", err)
 		}
@@ -86,7 +93,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 				HomeChainSel:             homeChainSel,
 				RMNStaticConfig:          testhelpers.NewTestRMNStaticConfig(),
 				RMNDynamicConfig:         testhelpers.NewTestRMNDynamicConfig(),
-				NodeOperators:            testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				NodeOperators:            testhelpers.NewTestNodeOperator(evmChains[homeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{"NodeOperator": p2pIds},
 			},
 		),
@@ -278,14 +285,14 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 }
 
 func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64) (cldf.Environment, error) {
-	chainSelectors := e.AllChainSelectors()
+	chainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	chainConfigs := make(map[uint64]v1_6.ChainConfig)
 	nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
 		return *e, fmt.Errorf("failed to get node info from env: %w", err)
 	}
 	prereqCfgs := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
-	contractParams := make(map[uint64]v1_6.ChainContractParams)
+	contractParams := make(map[uint64]ccipseq.ChainContractParams)
 
 	for _, chain := range chainSelectors {
 		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
@@ -302,9 +309,9 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64) (
 				OptimisticConfirmations: 1,
 			},
 		}
-		contractParams[chain] = v1_6.ChainContractParams{
-			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
-			OffRampParams:   v1_6.DefaultOffRampParams(),
+		contractParams[chain] = ccipseq.ChainContractParams{
+			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
+			OffRampParams:   ccipops.DefaultOffRampParams(),
 		}
 	}
 	env, err := commonchangeset.Apply(nil, *e, nil,
@@ -327,7 +334,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64) (
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
-			v1_6.DeployChainContractsConfig{
+			ccipseq.DeployChainContractsConfig{
 				HomeChainSelector:      homeChainSel,
 				ContractParamsPerChain: contractParams,
 			},
@@ -351,13 +358,15 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel uint64) (
 }
 
 func setupLinkPools(e *cldf.Environment) (cldf.Environment, error) {
+	evmChains := e.BlockChains.EVMChains()
 	state, err := stateview.LoadOnchainState(*e)
 	if err != nil {
 		return *e, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	chainSelectors := e.AllChainSelectors()
+	chainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	poolInput := make(map[uint64]v1_5_1.DeployTokenPoolInput)
 	pools := make(map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo)
+
 	for _, chain := range chainSelectors {
 		poolInput[chain] = v1_5_1.DeployTokenPoolInput{
 			Type:               shared.BurnMintTokenPool,
@@ -369,7 +378,7 @@ func setupLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 			shared.LinkSymbol: {
 				Type:          shared.BurnMintTokenPool,
 				Version:       deployment.Version1_5_1,
-				ExternalAdmin: e.Chains[chain].DeployerKey.From,
+				ExternalAdmin: evmChains[chain].DeployerKey.From,
 			},
 		}
 	}
@@ -413,8 +422,8 @@ func setupLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 	for _, chain := range chainSelectors {
 		linkPool := state.Chains[chain].BurnMintTokenPools[shared.LinkSymbol][deployment.Version1_5_1]
 		linkToken := state.Chains[chain].LinkToken
-		tx, err := linkToken.GrantMintAndBurnRoles(e.Chains[chain].DeployerKey, linkPool.Address())
-		_, err = cldf.ConfirmIfNoError(e.Chains[chain], tx, err)
+		tx, err := linkToken.GrantMintAndBurnRoles(evmChains[chain].DeployerKey, linkPool.Address())
+		_, err = cldf.ConfirmIfNoError(evmChains[chain], tx, err)
 		if err != nil {
 			return *e, fmt.Errorf("failed to grant mint and burn roles for link pool: %w", err)
 		}
@@ -427,7 +436,8 @@ func setupLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (cldf.Env
 	poolUpdates := make(map[uint64]v1_5_1.TokenPoolConfig)
 	rateLimitPerChain := make(v1_5_1.RateLimiterPerChain)
 	mu := sync.Mutex{}
-	for src := range e.Chains {
+	evmChains := e.BlockChains.EVMChains()
+	for src := range evmChains {
 		src := src
 		eg.Go(func() error {
 			onRampUpdatesByChain := make(map[uint64]map[uint64]v1_6.OnRampDestinationUpdate)
@@ -450,7 +460,7 @@ func setupLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (cldf.Env
 				OnRampUpdates:  make(map[uint64]bool),
 			}
 
-			for dst := range e.Chains {
+			for dst := range evmChains {
 				if src != dst {
 					onRampUpdatesByChain[src][dst] = v1_6.OnRampDestinationUpdate{
 						IsEnabled:        true,
@@ -543,7 +553,7 @@ func setupLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (cldf.Env
 }
 
 func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool, rmnEnabled bool) (cldf.Environment, error) {
-	chainSelectors := e.AllChainSelectors()
+	chainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	var commitOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	var execOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	// Should be configured in the future based on the load test scenario
@@ -557,7 +567,7 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 		}
 	}
 
-	for selector := range e.Chains {
+	for selector := range e.BlockChains.EVMChains() {
 		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, nil, overrides)
 		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, nil, nil)
 	}
@@ -659,7 +669,7 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 
 	e.ExistingAddresses = ab
 
-	allChains := e.AllChainSelectors()
+	allChains := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	allUpdates := make(map[uint64]map[uint64]v1_6.OffRampSourceUpdate)
 	for _, chainIdx := range allChains {
 		updates := make(map[uint64]v1_6.OffRampSourceUpdate)
@@ -757,16 +767,15 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 	g, ctx := xerrgroup.WithContext(context.Background())
 	for _, chain := range allChains {
 		g.Go(func() error {
-			rmnRemoteConfig := map[uint64]v1_6.RMNRemoteConfig{
+			rmnRemoteConfig := map[uint64]ccipops.RMNRemoteConfig{
 				chain: {
 					Signers: signers,
 					F:       1,
 				},
 			}
 
-			_, err := v1_6.SetRMNRemoteConfigChangeset(*e, v1_6.SetRMNRemoteConfig{
-				HomeChainSelector: homeChainSel,
-				RMNRemoteConfigs:  rmnRemoteConfig,
+			_, err := v1_6.SetRMNRemoteConfigChangeset(*e, ccipseq.SetRMNRemoteConfig{
+				RMNRemoteConfigs: rmnRemoteConfig,
 			})
 			return err
 		})

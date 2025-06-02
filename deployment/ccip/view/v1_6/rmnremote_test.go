@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
@@ -22,8 +24,8 @@ func Test_RMNRemote_Curse_View(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains: 1,
 	})
-	chain := e.Chains[e.AllChainSelectors()[0]]
-	_, tx, remote, err := rmn_remote.DeployRMNRemote(chain.DeployerKey, chain.Client, e.AllChainSelectors()[0], common.Address{})
+	chain := e.BlockChains.EVMChains()[e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))[0]]
+	_, tx, remote, err := rmn_remote.DeployRMNRemote(chain.DeployerKey, chain.Client, e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))[0], common.Address{})
 	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
@@ -31,10 +33,10 @@ func Test_RMNRemote_Curse_View(t *testing.T) {
 	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
-	family, err := chainsel.GetSelectorFamily(e.AllChainSelectors()[0])
+	family, err := chainsel.GetSelectorFamily(e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))[0])
 	require.NoError(t, err)
 
-	tx, err = remote.Curse(chain.DeployerKey, globals.FamilyAwareSelectorToSubject(e.AllChainSelectors()[0], family))
+	tx, err = remote.Curse(chain.DeployerKey, globals.FamilyAwareSelectorToSubject(e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))[0], family))
 	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
@@ -45,7 +47,7 @@ func Test_RMNRemote_Curse_View(t *testing.T) {
 	require.Len(t, view.CursedSubjectEntries, 2)
 	require.Equal(t, "01000000000000000000000000000001", view.CursedSubjectEntries[0].Subject)
 	require.Equal(t, uint64(0), view.CursedSubjectEntries[0].Selector)
-	require.Equal(t, e.AllChainSelectors()[0], view.CursedSubjectEntries[1].Selector)
+	require.Equal(t, e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))[0], view.CursedSubjectEntries[1].Selector)
 }
 
 func Test_RMN_Selector_To_Solana_Subject(t *testing.T) {

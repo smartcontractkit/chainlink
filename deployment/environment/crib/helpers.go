@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -31,9 +32,9 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 	g := new(errgroup.Group)
 
 	// Handle EVM funding
-	if len(env.Chains) > 0 {
-		for sel, chain := range env.Chains {
-			sel, chain := sel, chain
+	evmChains := env.BlockChains.EVMChains()
+	if len(evmChains) > 0 {
+		for sel, chain := range evmChains {
 			g.Go(func() error {
 				var evmAccounts []common.Address
 				for _, n := range nodeInfo {
@@ -57,10 +58,10 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 	}
 
 	// Handle Solana funding
-	if len(env.SolChains) > 0 {
+	solChains := env.BlockChains.SolanaChains()
+	if len(solChains) > 0 {
 		lggr.Info("Funding solana transmitters")
-		for sel, chain := range env.SolChains {
-			sel, chain := sel, chain
+		for sel, chain := range solChains {
 			g.Go(func() error {
 				var solanaAddrs []solana.PublicKey
 				for _, n := range nodeInfo {
@@ -93,7 +94,7 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 	return g.Wait()
 }
 
-func SendFundsToAccounts(ctx context.Context, lggr logger.Logger, chain cldf.Chain, accounts []common.Address, fundingAmount *big.Int, sel uint64) error {
+func SendFundsToAccounts(ctx context.Context, lggr logger.Logger, chain cldf_evm.Chain, accounts []common.Address, fundingAmount *big.Int, sel uint64) error {
 	latesthdr, err := chain.Client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		lggr.Errorw("could not get header, skipping chain", "chain", sel, "err", err)

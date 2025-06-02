@@ -24,6 +24,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -34,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
@@ -48,7 +50,6 @@ import (
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -354,7 +355,12 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, err
 	}
 
-	creServices, err := newCREServices(ctx, globalLogger, opts.DS, keyStore, cfg.Capabilities(), cfg.Workflows(), relayChainInterops, opts.CREOpts)
+	billingClient, err := billing.NewWorkflowClient(opts.Config.Billing().URL())
+	if err != nil {
+		globalLogger.Infof("NewApplication: failed to create billing client; %s", err)
+	}
+
+	creServices, err := newCREServices(ctx, globalLogger, opts.DS, keyStore, cfg.Capabilities(), cfg.Workflows(), relayChainInterops, opts.CREOpts, billingClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
 	}
@@ -552,6 +558,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		workflowORM,
 		creServices.workflowRateLimiter,
 		creServices.workflowLimits,
+		workflows.WithBillingClient(billingClient),
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
@@ -804,6 +811,7 @@ func newCREServices(
 	wCfg config.Workflows,
 	relayerChainInterops *CoreRelayerChainInteroperators,
 	opts CREOpts,
+	billingClient workflows.BillingClient,
 ) (*CREServices, error) {
 	var srvcs []services.ServiceCtx
 	workflowRateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
@@ -941,6 +949,7 @@ func newCREServices(
 					workflowRateLimiter,
 					workflowLimits,
 					artifactsStore,
+					syncer.WithBillingClient(billingClient),
 				)
 				if err != nil {
 					return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)

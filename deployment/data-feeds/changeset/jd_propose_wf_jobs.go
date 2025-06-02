@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
@@ -27,7 +28,7 @@ func proposeWFJobsToJDLogic(env cldf.Environment, c types.ProposeWFJobsConfig) (
 	ctx, cancel := context.WithTimeout(env.GetContext(), timeout)
 	defer cancel()
 
-	chainInfo, _ := cldf.ChainInfo(c.ChainSelector)
+	chainInfo, _ := cldf_chain_utils.ChainInfo(c.ChainSelector)
 
 	feedStatePath := filepath.Join("feeds", chainInfo.ChainName+".json")
 	feedState, _ := LoadJSON[*v1_0.FeedState](feedStatePath, c.InputFS)
@@ -92,6 +93,7 @@ func proposeWFJobsToJDLogic(env cldf.Environment, c types.ProposeWFJobsConfig) (
 		workflowSpecConfig.WriteTargetTrigger,
 		targetSchedule,
 		workflowSpecConfig.CREStepTimeout,
+		workflowSpecConfig.TargetProcessor,
 		cacheAddress,
 	)
 	if err != nil {
@@ -164,7 +166,7 @@ func proposeWFJobsToJDPrecondition(env cldf.Environment, c types.ProposeWFJobsCo
 		return fmt.Errorf("failed to get consensus encoder abi: %w", err)
 	}
 
-	chainInfo, err := cldf.ChainInfo(c.ChainSelector)
+	chainInfo, err := cldf_chain_utils.ChainInfo(c.ChainSelector)
 	if err != nil {
 		return fmt.Errorf("failed to get chain info for chain %d: %w", c.ChainSelector, err)
 	}
@@ -189,6 +191,10 @@ func proposeWFJobsToJDPrecondition(env cldf.Environment, c types.ProposeWFJobsCo
 	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, &c.CacheLabel)
 	if cacheAddress == "" {
 		return errors.New("failed to get data feeds cache address")
+	}
+
+	if c.NodeFilter == nil {
+		return errors.New("missing node filter")
 	}
 
 	return nil

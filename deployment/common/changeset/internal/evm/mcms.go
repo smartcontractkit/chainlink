@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -53,7 +54,7 @@ type MCMSWithTimelockEVMDeploy struct {
 func DeployMCMSWithConfigEVM(
 	contractType cldf.ContractType,
 	lggr logger.Logger,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	ab cldf.AddressBook,
 	mcmConfig mcmsTypes.Config,
 	options ...DeployMCMSOption,
@@ -64,7 +65,7 @@ func DeployMCMSWithConfigEVM(
 		return nil, err
 	}
 	mcm, err := cldf.DeployContract(lggr, chain, ab,
-		func(chain cldf.Chain) cldf.ContractDeploy[*bindings.ManyChainMultiSig] {
+		func(chain cldf_evm.Chain) cldf.ContractDeploy[*bindings.ManyChainMultiSig] {
 			var (
 				mcmAddr common.Address
 				tx      *types.Transaction
@@ -121,7 +122,7 @@ func DeployMCMSWithConfigEVM(
 func DeployMCMSWithTimelockContractsEVM(
 	ctx context.Context,
 	lggr logger.Logger,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	ab cldf.AddressBook,
 	config commontypes.MCMSWithTimelockConfigV2,
 	state *state.MCMSWithTimelockState,
@@ -175,7 +176,7 @@ func DeployMCMSWithTimelockContractsEVM(
 
 	if timelock == nil {
 		timelockC, err := cldf.DeployContract(lggr, chain, ab,
-			func(chain cldf.Chain) cldf.ContractDeploy[*bindings.RBACTimelock] {
+			func(chain cldf_evm.Chain) cldf.ContractDeploy[*bindings.RBACTimelock] {
 				var (
 					timelock common.Address
 					tx2      *types.Transaction
@@ -234,7 +235,7 @@ func DeployMCMSWithTimelockContractsEVM(
 
 	if callProxy == nil {
 		callProxyC, err := cldf.DeployContract(lggr, chain, ab,
-			func(chain cldf.Chain) cldf.ContractDeploy[*bindings.CallProxy] {
+			func(chain cldf_evm.Chain) cldf.ContractDeploy[*bindings.CallProxy] {
 				var (
 					callProxy common.Address
 					tx2       *types.Transaction
@@ -324,7 +325,7 @@ func getAdminAddresses(ctx context.Context, timelock *bindings.RBACTimelock) ([]
 func GrantRolesForTimelock(
 	ctx context.Context,
 	lggr logger.Logger,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	timelockContracts *proposalutils.MCMSWithTimelockContracts,
 	skipIfDeployerKeyNotAdmin bool, // If true, skip role grants if the deployer key is not an admin.
 ) ([]mcmsTypes.Transaction, error) {
@@ -444,7 +445,7 @@ func GrantRolesForTimelock(
 func grantRoleTx(
 	lggr logger.Logger,
 	timelock *bindings.RBACTimelock,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	isDeployerKeyAdmin bool,
 	roleID [32]byte,
 	address common.Address,

@@ -6,16 +6,18 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -23,6 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
+	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -121,7 +125,7 @@ func TestConnectNewChain(t *testing.T) {
 			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err, "must load onchain state")
 
-			selectors := e.AllChainSelectors()
+			selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 			var newSelector uint64
 			remoteChainSelectors := make([]uint64, 0, len(selectors)-1)
 			for _, selector := range selectors {
@@ -153,7 +157,7 @@ func TestConnectNewChain(t *testing.T) {
 				}
 				e, err = commonchangeset.Apply(t, e, timelockContracts,
 					commonchangeset.Configure(
-						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: contractsToTransfer,
 							MCMSConfig: proposalutils.TimelockConfig{
@@ -216,14 +220,14 @@ func TestConnectNewChain(t *testing.T) {
 						// Admin role for deployer key should be revoked
 						adminRole, err := state.Chains[selector].Timelock.ADMINROLE(nil)
 						require.NoError(t, err, "must get admin role")
-						hasRole, err := state.Chains[selector].Timelock.HasRole(nil, adminRole, e.Chains[selector].DeployerKey.From)
+						hasRole, err := state.Chains[selector].Timelock.HasRole(nil, adminRole, e.BlockChains.EVMChains()[selector].DeployerKey.From)
 						require.NoError(t, err, "must get admin role")
 						require.False(t, hasRole, "deployer key must not have admin role")
 					} else {
 						// onRamp, offRamp, and router should still be owned by deployer key
-						mustHaveOwner(t, state.Chains[selector].OnRamp, e.Chains[selector].DeployerKey.From.Hex())
-						mustHaveOwner(t, state.Chains[selector].OffRamp, e.Chains[selector].DeployerKey.From.Hex())
-						mustHaveOwner(t, state.Chains[selector].Router, e.Chains[selector].DeployerKey.From.Hex())
+						mustHaveOwner(t, state.Chains[selector].OnRamp, e.BlockChains.EVMChains()[selector].DeployerKey.From.Hex())
+						mustHaveOwner(t, state.Chains[selector].OffRamp, e.BlockChains.EVMChains()[selector].DeployerKey.From.Hex())
+						mustHaveOwner(t, state.Chains[selector].Router, e.BlockChains.EVMChains()[selector].DeployerKey.From.Hex())
 					}
 				}
 
@@ -293,7 +297,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			var linkAddress common.Address
 			remoteChainSelectors := make([]uint64, 0, len(chainIDs)-1)
 			addressesByChain := make(map[uint64]map[string]cldf.TypeAndVersion, len(chainIDs)-1)
-			for _, selector := range e.AllChainSelectors() {
+			for _, selector := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 				if selector != deployedEnvironment.HomeChainSel && newChainSelector == 0 {
 					newChainSelector = selector
 					linkAddress = state.Chains[selector].LinkToken.Address()
@@ -316,21 +320,21 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			)
 			require.NoError(t, err, "must get DON ID for chain")
 			tx, err := state.Chains[deployedEnvironment.HomeChainSel].CapabilityRegistry.RemoveDONs(
-				e.Chains[deployedEnvironment.HomeChainSel].DeployerKey,
+				e.BlockChains.EVMChains()[deployedEnvironment.HomeChainSel].DeployerKey,
 				[]uint32{donID},
 			)
 			require.NoError(t, err, "must remove DON ID")
-			_, err = e.Chains[deployedEnvironment.HomeChainSel].Confirm(tx)
+			_, err = e.BlockChains.EVMChains()[deployedEnvironment.HomeChainSel].Confirm(tx)
 			require.NoError(t, err, "must confirm DON ID removal")
 
 			// Remove chain config on CCIPHome
 			tx, err = state.Chains[deployedEnvironment.HomeChainSel].CCIPHome.ApplyChainConfigUpdates(
-				e.Chains[deployedEnvironment.HomeChainSel].DeployerKey,
+				e.BlockChains.EVMChains()[deployedEnvironment.HomeChainSel].DeployerKey,
 				[]uint64{newChainSelector},
 				[]ccip_home.CCIPHomeChainConfigArgs{},
 			)
 			require.NoError(t, err, "must remove chain config from CCIPHome")
-			_, err = e.Chains[deployedEnvironment.HomeChainSel].Confirm(tx)
+			_, err = e.BlockChains.EVMChains()[deployedEnvironment.HomeChainSel].Confirm(tx)
 			require.NoError(t, err, "must confirm chain config removal")
 
 			// Assemble map of addresses required for Timelock scheduling & execution
@@ -367,7 +371,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				)
 				e, err = commonchangeset.Apply(t, e, timelockContracts,
 					commonchangeset.Configure(
-						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: contractsToTransfer,
 							MCMSConfig: proposalutils.TimelockConfig{
@@ -409,9 +413,9 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 					TokenPrices:              map[common.Address]*big.Int{},
 					FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
 				},
-				ChainContractParams: v1_6.ChainContractParams{
-					FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
-					OffRampParams:   v1_6.DefaultOffRampParams(),
+				ChainContractParams: ccipseq.ChainContractParams{
+					FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
+					OffRampParams:   ccipops.DefaultOffRampParams(),
 				},
 				ExistingContracts: commoncs.ExistingContractsConfig{
 					ExistingContracts: []commoncs.Contract{
@@ -448,10 +452,10 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			require.NoError(t, err, "must load onchain state")
 
 			if test.DonIDOffSet != nil {
-				tx, err := state.Chains[deployedEnvironment.HomeChainSel].DonIDClaimer.ClaimNextDONId(e.Chains[deployedEnvironment.HomeChainSel].DeployerKey)
+				tx, err := state.Chains[deployedEnvironment.HomeChainSel].DonIDClaimer.ClaimNextDONId(e.BlockChains.EVMChains()[deployedEnvironment.HomeChainSel].DeployerKey)
 				require.NoError(t, err)
 
-				_, err = cldf.ConfirmIfNoErrorWithABI(e.Chains[deployedEnvironment.HomeChainSel], tx, don_id_claimer.DonIDClaimerABI, err)
+				_, err = cldf.ConfirmIfNoErrorWithABI(e.BlockChains.EVMChains()[deployedEnvironment.HomeChainSel], tx, don_id_claimer.DonIDClaimerABI, err)
 				require.NoError(t, err)
 			}
 

@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
@@ -103,8 +104,14 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	require.NoError(t, err)
 	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, l.DeployedEnv.Env)
 	require.NoError(t, err)
+
+	blockChains := make(map[uint64]chain.BlockChain)
+	for sel, c := range chains {
+		blockChains[sel] = c
+	}
+
 	l.DeployedEnv.Users = users
-	l.DeployedEnv.Env.Chains = chains
+	l.DeployedEnv.Env.BlockChains = chain.NewBlockChains(blockChains)
 	l.DeployedEnv.FeedChainSel = feedSel
 	l.DeployedEnv.HomeChainSel = homeChainSel
 	l.DeployedEnv.ReplayBlocks = replayBlocks
@@ -285,7 +292,8 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.Deploye
 	var remoteChains []devenv.RemoteChains
 
 	var rpcs []devenv.Chain
-	for chainSel, chain := range state.Chains {
+	for _, chainSel := range state.EVMChains() {
+		chain := state.MustGetEVMChainState(chainSel)
 		c, _ := chainsel.ChainBySelector(chainSel)
 		rmnName := MustCCIPNameToRMNName(c.Name)
 		chainParams = append(chainParams, devenv.ChainParam{
@@ -315,9 +323,9 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.Deploye
 		},
 		HomeChain: devenv.HomeChain{
 			Name:                 MustCCIPNameToRMNName(hc.Name),
-			CapabilitiesRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address().String(),
-			CCIPHome:             state.Chains[tenv.HomeChainSel].CCIPHome.Address().String(),
-			RMNHome:              state.Chains[tenv.HomeChainSel].RMNHome.Address().String(),
+			CapabilitiesRegistry: state.MustGetEVMChainState(tenv.HomeChainSel).CapabilityRegistry.Address().String(),
+			CCIPHome:             state.MustGetEVMChainState(tenv.HomeChainSel).CCIPHome.Address().String(),
+			RMNHome:              state.MustGetEVMChainState(tenv.HomeChainSel).RMNHome.Address().String(),
 		},
 		RemoteChains: remoteChains,
 		ChainParams:  chainParams,
