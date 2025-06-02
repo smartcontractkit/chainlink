@@ -15,10 +15,13 @@ package oidcauth
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/subtle"
 	"database/sql"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -138,8 +141,18 @@ func NewOIDCAuthenticator(
 	return &oidcAuth, nil
 }
 
+func (oi *oidcAuthenticator) generateSecureState() string {
+	b := make([]byte, 32) // 256 bits of entropy
+	_, err := io.ReadFull(rand.Reader, b)
+	if err != nil {
+		oi.lggr.Fatalf("failed to generate random bytes: %w", err)
+	}
+	return base64.URLEncoding.EncodeToString(b)[:43]
+}
+
 func (oi *oidcAuthenticator) handleLoginProviderRedirect(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, oi.oauth2Config.AuthCodeURL("state", oauth2.AccessTypeOffline), http.StatusFound)
+	state := oi.generateSecureState()
+	http.Redirect(w, r, oi.oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline), http.StatusFound)
 }
 
 // TODO: add gin context?
