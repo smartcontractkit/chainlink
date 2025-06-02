@@ -16,10 +16,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 )
 
 // Return types:

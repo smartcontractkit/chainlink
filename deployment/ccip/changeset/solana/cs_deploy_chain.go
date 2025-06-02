@@ -144,7 +144,7 @@ func (c DeployChainContractsConfig) Validate(e cldf.Environment, existingState s
 
 	// In memory tests:
 	// programs and state are pre-loaded, so we pass nil mcms config as router will be present in state
-	// take a look at test_helpers.go/deployChainContractsToSolChainCS
+	// take a look at test_helpers.go/DeployChainContractsToSolChainCS
 	// initialisation of the mcms contracts then happens via testhelpers.TransferOwnershipSolana
 	if chainState.Router.IsZero() {
 		if c.MCMSWithTimelockConfig == nil {

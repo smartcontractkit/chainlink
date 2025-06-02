@@ -629,7 +629,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(keystoneErr, "failed to configure keystone contracts")
 	}
 
-	fmt.Print(libformat.PurpleText("\n[Stage 10/10] OCR3 and Keystone contracts configured in %.2f seconds\n\n", time.Since(startTime).Seconds()))
+	fmt.Print(libformat.PurpleText("\n[Stage 10/10] OCR3 and Keystone contracts configured in %.2f seconds\n", time.Since(startTime).Seconds()))
 
 	if input.InfraInput.InfraType != libtypes.CRIB {
 		hasGateway := false
@@ -644,7 +644,7 @@ func SetupTestEnvironment(
 			startTime = time.Now()
 			fmt.Print(libformat.PurpleText("[POST-SETUP] Waiting for all nodes to have expected Log Poller filters registered\n\n"))
 
-			testLogger.Info().Msg("Waiting for all nodes to have expected log pollerfilters registered...")
+			testLogger.Info().Msg("Waiting for all nodes to have expected log poller filters registered...")
 			lpErr := waitForAllNodesToHaveExpectedFiltersRegistered(singeFileLogger, testLogger, homeChainOutput.ChainID, *fullCldOutput.DonTopology, input.CapabilitiesAwareNodeSets)
 			if lpErr != nil {
 				return nil, pkgerrors.Wrap(lpErr, "failed to wait for all nodes to have expected filters registered")

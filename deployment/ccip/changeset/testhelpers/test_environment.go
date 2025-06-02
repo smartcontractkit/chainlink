@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	solanago "github.com/gagliardetto/solana-go"
+
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
@@ -50,6 +51,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -115,7 +117,14 @@ type TestConfigs struct {
 	// ExtraConfigTomls contains the filenames of additional toml files to be loaded
 	// to potentially override default configs.
 	ExtraConfigTomls []string
+
+	// CLNodeConfigOpts are the config options to be passed to the chainlink node.
+	// Only used in memory mode.
 	CLNodeConfigOpts []memory.ConfigOpt
+
+	// RoleDONTopology is the chain-node topology of the role DON.
+	// Only used in memory mode.
+	RoleDONTopology cciptesthelpertypes.RoleDONTopology
 }
 
 func (tc *TestConfigs) Validate() error {
@@ -301,6 +310,12 @@ func WithNumOfNodes(numNodes int) TestOps {
 func WithNumOfBootstrapNodes(numBootstraps int) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.Bootstraps = numBootstraps
+	}
+}
+
+func WithRoleDONTopology(topology cciptesthelpertypes.RoleDONTopology) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.RoleDONTopology = topology
 	}
 }
 
@@ -517,6 +532,7 @@ func NewMemoryEnvironment(t *testing.T, opts ...TestOps) (DeployedEnv, TestEnvir
 	for _, opt := range opts {
 		opt(testCfg)
 	}
+	testCfg.MustSetEnvTypeOrDefault(t)
 	require.NoError(t, testCfg.Validate(), "invalid test config")
 	env := &MemoryEnvironment{
 		TestConfig: testCfg,
@@ -680,7 +696,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	return e
 }
 
-func deployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([]commonchangeset.ConfiguredChangeSet, error) {
+func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([]commonchangeset.ConfiguredChangeSet, error) {
 	err := SavePreloadedSolAddresses(e.Env, solChainSelector)
 	if err != nil {
 		return nil, err
@@ -796,7 +812,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		),
 	}...)
 	if len(solChains) != 0 {
-		solCs, err := deployChainContractsToSolChainCS(e, solChains[0])
+		solCs, err := DeployChainContractsToSolChainCS(e, solChains[0])
 		require.NoError(t, err)
 		apps = append(apps, solCs...)
 	}
@@ -852,9 +868,33 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		Timelock:  state.MustGetEVMChainState(e.HomeChainSel).Timelock,
 		CallProxy: state.MustGetEVMChainState(e.HomeChainSel).CallProxy,
 	}
+
 	nodeInfo, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
-	// Build the per chain config.
+
+	// generate the chainToNodeMapping if we have a topology provided.
+	var chainToNodeMapping map[cciptypes.ChainSelector][][32]byte
+	if tc.Type == Memory && tc.RoleDONTopology != nil {
+		allSelectors := make([]cciptypes.ChainSelector, 0, len(evmChains)+len(solChains))
+		for _, chain := range evmChains {
+			// don't include the home chain, its supported by all nodes.
+			if chain == e.HomeChainSel {
+				continue
+			}
+			allSelectors = append(allSelectors, cciptypes.ChainSelector(chain))
+		}
+		for _, chain := range solChains {
+			allSelectors = append(allSelectors, cciptypes.ChainSelector(chain))
+		}
+		chainToNodeMapping, err = tc.RoleDONTopology.ChainToNodeMapping(
+			nodeInfo.NonBootstraps().PeerIDs(),
+			allSelectors,
+			cciptypes.ChainSelector(e.HomeChainSel),
+		)
+		require.NoError(t, err)
+	}
+
+	// Build the CCIPHome chain configs.
 	chainConfigs := make(map[uint64]v1_6.ChainConfig)
 	commitOCRConfigs := make(map[uint64]v1_6.CCIPOCRParams)
 	execOCRConfigs := make(map[uint64]v1_6.CCIPOCRParams)
@@ -886,9 +926,21 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		}
 		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenConfig.GetTokenInfo(e.Env.Logger, linkTokenAddr, state.MustGetEVMChainState(chain).Weth9.Address()), ocrOverride)
 		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
+
+		var readers [][32]byte
+		if chainToNodeMapping != nil {
+			_, ok := chainToNodeMapping[cciptypes.ChainSelector(chain)]
+			require.True(t, ok, "chain %d not found in chainToNodeMapping", chain)
+			readers = chainToNodeMapping[cciptypes.ChainSelector(chain)]
+			t.Logf("setting readers for chain %d to %v due to topology %v", chain, readers, chainToNodeMapping)
+		} else {
+			t.Logf("setting readers for chain %d to %v due to no topology", chain, nodeInfo.NonBootstraps().PeerIDs())
+			readers = nodeInfo.NonBootstraps().PeerIDs()
+		}
 		chainConfigs[chain] = v1_6.ChainConfig{
-			Readers: nodeInfo.NonBootstraps().PeerIDs(),
-			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			Readers: readers,
+			// #nosec G115 - Overflow is not a concern in this test scenario
+			FChain: uint8(len(readers) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:      cciptypes.BigInt{Int: big.NewInt(DefaultGasPriceDeviationPPB)},
 				DAGasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(DefaultDAGasPriceDeviationPPB)},
@@ -908,10 +960,20 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		ocrOverride := tc.OCRConfigOverride
 		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenInfo, ocrOverride)
 		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
+
+		var readers [][32]byte
+		if chainToNodeMapping != nil {
+			_, ok := chainToNodeMapping[cciptypes.ChainSelector(chain)]
+			require.True(t, ok, "chain %d not found in chainToNodeMapping", chain)
+			readers = chainToNodeMapping[cciptypes.ChainSelector(chain)]
+			t.Logf("setting readers for chain %d to %v due to topology %v", chain, readers, chainToNodeMapping)
+		} else {
+			readers = nodeInfo.NonBootstraps().PeerIDs()
+		}
 		chainConfigs[chain] = v1_6.ChainConfig{
-			Readers: nodeInfo.NonBootstraps().PeerIDs(),
+			Readers: readers,
 			// #nosec G115 - Overflow is not a concern in this test scenario
-			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			FChain: uint8(len(readers) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:      cciptypes.BigInt{Int: big.NewInt(DefaultGasPriceDeviationPPB)},
 				DAGasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(DefaultDAGasPriceDeviationPPB)},

@@ -32,6 +32,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/peergroup"
 
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -120,7 +121,7 @@ type bootstrapOracleCreator struct {
 	monitoringEndpointGen   telemetry.MonitoringEndpointGenerator
 	lggr                    logger.Logger
 	homeChainContractReader types.ContractReader
-	addressCodec            cciptypes.AddressCodec
+	addressCodec            ccipcommon.AddressCodec
 }
 
 func NewBootstrapOracleCreator(
@@ -130,7 +131,7 @@ func NewBootstrapOracleCreator(
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	lggr logger.Logger,
 	homeChainContractReader types.ContractReader,
-	addressCodec cciptypes.AddressCodec,
+	addressCodec ccipcommon.AddressCodec,
 ) cctypes.OracleCreator {
 	return &bootstrapOracleCreator{
 		peerWrapper:             peerWrapper,
