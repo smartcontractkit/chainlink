@@ -124,6 +124,9 @@ func AddEVMCallSequenceToCSOutput[IN any](
 			}
 			batches = append(batches, batchOperation)
 
+			if state.Chains[chainSel].Timelock == nil {
+				return csOutput, fmt.Errorf("timelock not found for chain with selector %d", chainSel)
+			}
 			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
 			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
