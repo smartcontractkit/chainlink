@@ -44,21 +44,16 @@ type EVMCallOutput struct {
 	ContractType cldf.ContractType
 }
 
-// EVMCallOutputWithError includes the EVMCallOutput and any error that occurred during the call.
-type EVMCallOutputWithError struct {
-	EVMCallOutput
-	// CallErr is the error that occurred during the call, if any.
-	CallErr error
-}
-
 // NewEVMCallOperation creates a new operation that performs an EVM call.
 // Any interfacing with gethwrappers should happen in the call function.
-func NewEVMCallOperation[IN any](
+func NewEVMCallOperation[IN any, C any](
 	name string,
 	version *semver.Version,
 	description string,
 	abi string,
-	call func(address common.Address, backend bind.ContractBackend, opts *bind.TransactOpts, input IN) (EVMCallOutputWithError, error),
+	contractType cldf.ContractType,
+	constructor func(address common.Address, backend bind.ContractBackend) (C, error),
+	call func(contract C, opts *bind.TransactOpts, input IN) (*types.Transaction, error),
 ) *operations.Operation[EVMCallInput[IN], EVMCallOutput, cldf.Chain] {
 	return operations.NewOperation(
 		name,
@@ -72,20 +67,22 @@ func NewEVMCallOperation[IN any](
 			if input.NoSend {
 				opts = cldf.SimTransactOpts()
 			}
-			// The standard error must be handled separately, as it could be caused by reasons other than the call itself failing.
-			// e.g. failing to connect with gethwrappers for some reason.
-			out, err := call(input.Address, chain.Client, opts, input.CallInput)
+			contract, err := constructor(input.Address, chain.Client)
 			if err != nil {
-				return EVMCallOutput{}, fmt.Errorf("failed to call %s against %s on %s: %w", name, input.Address, chain, err)
+				return EVMCallOutput{}, fmt.Errorf("failed to create contract instance for %s at %s on %s: %w", name, input.Address, chain, err)
 			}
+			tx, err := call(contract, opts, input.CallInput)
 			if !input.NoSend {
 				// If the call has actually been sent, we need check the call error and confirm the transaction.
-				_, err := cldf.ConfirmIfNoErrorWithABI(chain, out.Tx, abi, out.CallErr)
+				_, err := cldf.ConfirmIfNoErrorWithABI(chain, tx, abi, err)
 				if err != nil {
 					return EVMCallOutput{}, fmt.Errorf("failed to confirm %s tx against %s on %s: %w", name, input.Address, chain, err)
 				}
 			}
-			return out.EVMCallOutput, out.CallErr
+			return EVMCallOutput{
+				Tx:           tx,
+				ContractType: contractType,
+			}, err
 		},
 	)
 }
