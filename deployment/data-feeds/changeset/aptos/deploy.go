@@ -6,11 +6,12 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk"
 
 	modulefeeds "github.com/smartcontractkit/chainlink-aptos/bindings/data_feeds"
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-func DeployDataFeeds(chain cldf.AptosChain, owner aptos.AccountAddress, platform aptos.AccountAddress, secondaryPlatform aptos.AccountAddress, labels []string) (*types.DeployDataFeedsResponse, error) {
+func DeployDataFeeds(chain cldf_aptos.Chain, owner aptos.AccountAddress, platform aptos.AccountAddress, secondaryPlatform aptos.AccountAddress, labels []string) (*types.DeployDataFeedsResponse, error) {
 	address, pendingTX, feedsModule, err := modulefeeds.DeployToObject(chain.DeployerSigner, chain.Client, owner, platform, owner, secondaryPlatform)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy ChainlinkDataFeeds: %w", err)
