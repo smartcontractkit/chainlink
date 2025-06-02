@@ -797,7 +797,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		),
 	}...)
 	if len(solChains) != 0 {
-		solCs, err := DeployChainContractsToSolChainCS(e, solChains[0], false, nil)
+		solCs, err := DeployChainContractsToSolChainCS(e, solChains[0], true, nil)
 		require.NoError(t, err)
 		apps = append(apps, solCs...)
 	}
