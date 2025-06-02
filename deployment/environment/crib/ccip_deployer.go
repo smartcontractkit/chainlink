@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gagliardetto/solana-go"
-	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"math/big"
 	"os"
 	"sync"
+
+	"github.com/gagliardetto/solana-go"
+	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/rs/zerolog"
 	xerrgroup "golang.org/x/sync/errgroup"
@@ -346,7 +347,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 			},
 		}
 
-		solTestRouter := commonchangeset.Configure(
+		solTestReceiver := commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeployReceiverForTest),
 			ccipChangesetSolana.DeployForTestConfig{
 				ChainSelector: solChainSelectors[0],
@@ -358,7 +359,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 			return *e, err
 		}
 
-		solCs = append(solCs, solTestRouter)
+		solCs = append(solCs, solTestReceiver)
 
 		deployedEnv.Env, err = commonchangeset.Apply(nil, deployedEnv.Env, nil, solCs[0], solCs[1:]...)
 		if err != nil {
