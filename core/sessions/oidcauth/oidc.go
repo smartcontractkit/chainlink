@@ -159,7 +159,9 @@ func (oi *oidcAuthenticator) handleLoginProviderRedirect(w http.ResponseWriter, 
 func (oi *oidcAuthenticator) handleOIDCCallback(c *gin.Context) {
 	// Verify initial error or required query params
 	if errMsg := c.Query("error"); errMsg != "" {
-		oi.lggr.Warnf("Received error in OIDC response: %s", errMsg)
+		sanitizedErrMsg := strings.ReplaceAll(errMsg, "\n", "")
+		sanitizedErrMsg = strings.ReplaceAll(sanitizedErrMsg, "\r", "")
+		oi.lggr.Warnf("Received error in OIDC response: %s", sanitizedErrMsg)
 		c.String(http.StatusBadRequest, "Error in OIDC response")
 		return
 	}
@@ -401,7 +403,9 @@ func (oi *oidcAuthenticator) CreateSession(ctx context.Context, sr clsessions.Se
 		return "", err
 	}
 
-	oi.lggr.Infof("Successful local admin login request for user %s - %s", sr.Email, foundUser.Role)
+	sanitizedEmail := strings.ReplaceAll(sr.Email, "\n", "")
+	sanitizedEmail = strings.ReplaceAll(sanitizedEmail, "\r", "")
+	oi.lggr.Infof("Successful local admin login request for user %s - %s", sanitizedEmail, foundUser.Role)
 
 	// Save local admin session, user, and role to sessions table
 	// Sessions are set to expire after the duration + creation date elapsed
@@ -637,8 +641,6 @@ func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
 func (oidc *oidcAuthenticator) ExtendRouter(api *gin.RouterGroup) error {
 	api.GET("/oidc-login", ginHandlerFromHTTP(oidc.handleLoginProviderRedirect))
 	api.GET(oidc.config.OIDCCallbackURLSuffix(), oidc.handleOIDCCallback)
-	oidc.lggr.Infof("OIDC suffix", oidc.config.OIDCCallbackURLSuffix())
-	oidc.lggr.Infof("OIDC Authenticator added HTTP routes")
 
 	return nil
 }
