@@ -158,6 +158,14 @@ var multiPriceReportOverride = testhelpers.WithOCRConfigOverride(func(params v1_
 	return params
 })
 
+var multiExecReportOverride = testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+	// Exec
+	params.ExecuteOffChainConfig.MultipleReportsEnabled = true
+	params.ExecuteOffChainConfig.MaxReportMessages = 1
+	params.ExecuteOffChainConfig.MaxSingleChainReports = 1
+	return params
+})
+
 func Test_CCIPBatching_MultiSource(t *testing.T) {
 	ccipBatchingMultiSource(t, false) // OOO disabled
 }
@@ -172,6 +180,14 @@ func Test_CCIPBatching_MultiSource_MultiRoot(t *testing.T) {
 
 func Test_CCIPBatching_MultiSource_MultiRoot_OOO(t *testing.T) {
 	ccipBatchingMultiSource(t, true, multiRootReportOverride) // OOO enabled
+}
+
+func Test_CCIPBatching_MultiSource_MultiExecReports(t *testing.T) {
+	ccipBatchingMultiSource(t, false, multiRootReportOverride, multiExecReportOverride) // OOO disabled
+}
+
+func Test_CCIPBatching_MultiSource_MultiExecReports_OOO(t *testing.T) {
+	ccipBatchingMultiSource(t, true, multiRootReportOverride, multiExecReportOverride) // OOO disabled
 }
 
 func Test_CCIPBatching_MultiSource_MultiPrice(t *testing.T) {
