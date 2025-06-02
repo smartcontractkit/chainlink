@@ -44,6 +44,7 @@ const (
 	WebhookJobType                 string = "webhook"
 	WorkflowJobType                string = "workflow"
 	StandardCapabilitiesJobType    string = "standardcapabilities"
+	PORJobType                     string = "por"
 )
 
 type (

@@ -74,6 +74,7 @@ import (
 	externalp2p "github.com/smartcontractkit/chainlink/v2/core/services/p2p/wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/por"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
@@ -547,6 +548,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				streamRegistry,
 				pipelineRunner,
 				cfg.JobPipeline(),
+			),
+			job.POR: por.NewDelegate(
+				globalLogger,
 			),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()

@@ -533,6 +533,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return d.newServicesCCIPCommit(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, transmitterID)
 	case types.CCIPExecution:
 		return d.newServicesCCIPExecution(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, transmitterID)
+	case types.POR:
+		return d.newServicesPOR(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}

@@ -30,6 +30,7 @@ const (
 	PluginTypeMedian     PluginType = "MEDIAN"
 	PluginTypeMercury    PluginType = "MERCURY"
 	PluginTypeRebalancer PluginType = "REBALANCER"
+	PluginTypePOR        PluginType = "POR"
 	PluginTypeUnknown    PluginType = "UNKNOWN"
 )
 
@@ -49,6 +50,8 @@ func ToPluginType(s string) (PluginType, error) {
 		return PluginTypeMercury, nil
 	case "rebalancer":
 		return PluginTypeRebalancer, nil
+	case "por":
+		return PluginTypePOR, nil
 	default:
 		return PluginTypeUnknown, errors.New("unknown plugin type")
 	}
@@ -60,6 +63,7 @@ type Plugins struct {
 	Median     bool `json:"median"`
 	Mercury    bool `json:"mercury"`
 	Rebalancer bool `json:"rebalancer"`
+	POR        bool `json:"por"`
 }
 
 func (p Plugins) Value() (driver.Value, error) {

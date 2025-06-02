@@ -14,7 +14,8 @@ union JobSpec =
     WorkflowSpec |
     StandardCapabilitiesSpec |
     StreamSpec |
-    CCIPSpec
+    CCIPSpec |
+    PORSpec
 
 type CronSpec {
     schedule: String!
@@ -195,4 +196,10 @@ type CCIPSpec {
     capabilityLabelledName: String!
     ocrKeyBundleIDs: Map!
     p2pKeyID: String!
+}
+
+type PORSpec {
+    id: ID!
+    createdAt: Time!
+    updatedAt: Time!
 }

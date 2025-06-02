@@ -503,6 +503,15 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 				return errors.Wrap(err, "failed to create CCIPSpec for jobSpec")
 			}
 			jb.CCIPSpecID = &specID
+		case POR:
+			sql := `INSERT INTO por_specs (contract_address, config_digest, created_at, updated_at)
+			VALUES (:contract_address, :config_digest, NOW(), NOW())
+			RETURNING id;`
+			specID, err := tx.prepareQuerySpecID(ctx, sql, jb.PORSpec)
+			if err != nil {
+				return errors.Wrap(err, "failed to create PORSpec for jobSpec")
+			}
+			jb.PORSpecID = &specID
 		default:
 			o.lggr.Panicf("Unsupported jb.Type: %v", jb.Type)
 		}
@@ -1508,6 +1517,7 @@ func (o *orm) loadAllJobTypes(ctx context.Context, job *Job) error {
 		o.loadJobType(ctx, job, "WorkflowSpec", "workflow_specs", job.WorkflowSpecID),
 		o.loadJobType(ctx, job, "StandardCapabilitiesSpec", "standardcapabilities_specs", job.StandardCapabilitiesSpecID),
 		o.loadJobType(ctx, job, "CCIPSpec", "ccip_specs", job.CCIPSpecID),
+		o.loadJobType(ctx, job, "PORSpec", "por_specs", job.PORSpecID),
 	)
 }
 

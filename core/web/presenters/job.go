@@ -42,6 +42,7 @@ const (
 	WorkflowJobSpec             JobSpecType = "workflow"
 	StandardCapabilitiesJobSpec JobSpecType = "standardcapabilities"
 	CCIPSJobSpec                JobSpecType = "ccip"
+	PORJobSpec                  JobSpecType = "por"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
@@ -249,6 +250,20 @@ type WebhookSpec struct {
 // NewWebhookSpec generates a new WebhookSpec from a job.WebhookSpec
 func NewWebhookSpec(spec *job.WebhookSpec) *WebhookSpec {
 	return &WebhookSpec{
+		CreatedAt: spec.CreatedAt,
+		UpdatedAt: spec.UpdatedAt,
+	}
+}
+
+// PORSpec defines the spec details of a POR Job
+type PORSpec struct {
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// NewPORSpec generates a new PORSpec from a job.PORSpec
+func NewPORSpec(spec *job.PORSpec) *PORSpec {
+	return &PORSpec{
 		CreatedAt: spec.CreatedAt,
 		UpdatedAt: spec.UpdatedAt,
 	}
@@ -537,6 +552,7 @@ type JobResource struct {
 	WorkflowSpec             *WorkflowSpec             `json:"workflowSpec"`
 	StandardCapabilitiesSpec *StandardCapabilitiesSpec `json:"standardCapabilitiesSpec"`
 	CCIPSpec                 *CCIPSpec                 `json:"ccipSpec"`
+	PORSpec                  *PORSpec                  `json:"porSpec"`
 	PipelineSpec             PipelineSpec              `json:"pipelineSpec"`
 	Errors                   []JobError                `json:"errors"`
 }
@@ -589,6 +605,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.StandardCapabilitiesSpec = NewStandardCapabilitiesSpec(j.StandardCapabilitiesSpec)
 	case job.CCIP:
 		resource.CCIPSpec = NewCCIPSpec(j.CCIPSpec)
+	case job.POR:
+		resource.PORSpec = NewPORSpec(j.PORSpec)
 	case job.LegacyGasStationServer, job.LegacyGasStationSidecar:
 		// unsupported
 	}
