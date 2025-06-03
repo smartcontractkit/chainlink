@@ -733,7 +733,7 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 				Workflow: evmcfg.Workflow{
 					GasLimitDefault:   ptr[uint64](400000),
-					TxAcceptanceState: ptr(commontypes.Finalized),
+					TxAcceptanceState: ptr(commontypes.Unconfirmed),
 					PollPeriod:        commoncfg.MustNewDuration(time.Second * 2),
 					AcceptanceTimeout: commoncfg.MustNewDuration(time.Second * 30),
 				},

@@ -11,10 +11,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
 )
 
@@ -32,7 +34,7 @@ type evmTargetStrategy struct {
 
 	receiverGasMinimum uint64
 	binding            commontypes.BoundContract
-	bound              atomic.Bool
+	bound              *atomic.Bool
 }
 
 type TransmissionInfo struct {
@@ -75,7 +77,7 @@ func NewEVMTargetStrategy(cr commontypes.ContractReader, cw commontypes.Contract
 			Address: forwarder,
 			Name:    "forwarder",
 		},
-		bound: bound,
+		bound: &bound,
 	}
 }
 
@@ -90,7 +92,7 @@ func (t *evmTargetStrategy) QueryTransmissionState(ctx context.Context, reportID
 
 	if !t.bound.Load() {
 		t.lggr.Debugw("Binding to forwarder address")
-		err := t.cr.Bind(ctx, []commontypes.BoundContract{t.binding})
+		err = t.cr.Bind(ctx, []commontypes.BoundContract{t.binding})
 		if err != nil {
 			return nil, err
 		}
@@ -153,14 +155,13 @@ func (t *evmTargetStrategy) QueryTransmissionState(ctx context.Context, reportID
 				Transmitter: transmissionInfo.Transmitter.String(),
 				Err:         ErrTxFailed,
 			}, nil
-		} else {
-			t.lggr.Infow("non-empty report - transmission should be retried", "request", request, "reportLen", len(r.Inputs.SignedReport.Report), "reportContextLen", len(r.Inputs.SignedReport.Context), "nSignatures", len(r.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
-			return &writetarget.TransmissionState{
-				Status:      writetarget.TransmissionStateFailed,
-				Transmitter: transmissionInfo.Transmitter.String(),
-				Err:         ErrTxFailed,
-			}, nil
 		}
+		t.lggr.Infow("non-empty report - transmission should be retried", "request", request, "reportLen", len(r.Inputs.SignedReport.Report), "reportContextLen", len(r.Inputs.SignedReport.Context), "nSignatures", len(r.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
+		return &writetarget.TransmissionState{
+			Status:      writetarget.TransmissionStateFailed,
+			Transmitter: transmissionInfo.Transmitter.String(),
+			Err:         ErrTxFailed,
+		}, nil
 	}
 
 	return &writetarget.TransmissionState{

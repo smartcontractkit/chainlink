@@ -1,3 +1,4 @@
+//nolint:gosec // disable G115
 package evm
 
 import (
@@ -25,7 +26,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	ocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -88,7 +88,8 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, err
 	}
 
-	chainInfo, err := getChainInfo(chain.ID().Uint64())
+	var chainInfo monitor.ChainInfo
+	chainInfo, err = getChainInfo(chain.ID().Uint64())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain info: %w", err)
 	}
@@ -144,7 +145,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 }
 
 type Inputs struct {
-	SignedReport types.SignedReport
+	SignedReport ocr3types.SignedReport
 }
 
 type Request struct {

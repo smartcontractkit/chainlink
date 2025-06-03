@@ -50,7 +50,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	relayevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 var forwardABI = evmtypes.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
@@ -82,7 +81,7 @@ func newMockedEncodeTransmissionInfo(state uint8) ([]byte, error) {
 	buffer.Write(txBytes)
 
 	// 4. Encode InvalidReceiver as bool (32 bytes: 31 zeros then byte(0) or byte(1))
-	var invReceiverByte byte = 0
+	var invReceiverByte byte
 	if info.InvalidReceiver {
 		invReceiverByte = 1
 	}
@@ -91,7 +90,7 @@ func newMockedEncodeTransmissionInfo(state uint8) ([]byte, error) {
 	buffer.Write(invalidReceiverSlot)
 
 	// 5. Encode Success as bool (32 bytes)
-	var successByte byte = 0
+	var successByte byte
 	if info.Success {
 		successByte = 1
 	}
@@ -150,7 +149,7 @@ func TestEvmWrite(t *testing.T) {
 
 	lggr := logger.TestLogger(t, zapcore.DebugLevel)
 	cRegistry := evmcapabilities.NewRegistry(lggr)
-	relayer, err := relayevm.NewRelayer(lggr, chain, relayevm.RelayerOpts{
+	relayer, err := evm.NewRelayer(lggr, chain, evm.RelayerOpts{
 		DS:                   db,
 		EVMKeystore:          keys.NewChainStore(keystore.NewEthSigner(keyStore.Eth(), chain.ID()), chain.ID()),
 		CSAKeystore:          &keystore.CSASigner{CSA: keyStore.CSA()},
@@ -213,8 +212,8 @@ func TestEvmWrite(t *testing.T) {
 			Data:     feedReportsEncoded,
 		}
 
-		reportEncoded, err := report.Encode()
-		require.NoError(t, err)
+		reportEncoded, encodeErr := report.Encode()
+		require.NoError(t, encodeErr)
 
 		return reportEncoded
 	}
@@ -224,16 +223,16 @@ func TestEvmWrite(t *testing.T) {
 	mockSuccessfulTransmission := func(reportType string) {
 		// This is a very error-prone way to mock an on-chain response to a GetLatestValue("getTransmissionInfo") call
 		// It's a bit of a hack, but it's the best way to do it without a lot of refactoring
-		mockNotStarted, err := newMockedEncodeTransmissionInfo(0)
-		require.NoError(t, err)
+		mockNotStarted, mockErr := newMockedEncodeTransmissionInfo(0)
+		require.NoError(t, mockErr)
 
 		evmClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(mockNotStarted, nil).Once()
 		evmClient.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return([]byte("test"), nil)
 
 		txManager.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(commontypes.Finalized, nil).Maybe()
 
-		mockSucceeded, err := newMockedEncodeTransmissionInfo(1)
-		require.NoError(t, err)
+		mockSucceeded, mockErr2 := newMockedEncodeTransmissionInfo(1)
+		require.NoError(t, mockErr2)
 		evmClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(mockSucceeded, nil).Maybe().Once()
 
 		txManager.On("CreateTransaction", mock.Anything, mock.Anything).Return(txmgr.Tx{}, nil).Run(func(args mock.Arguments) {
@@ -248,7 +247,7 @@ func TestEvmWrite(t *testing.T) {
 	}
 
 	generateValidInputs := func(reportType string) *values.Map {
-		validInputs, err := values.NewMap(map[string]any{
+		validInputs, inputErr := values.NewMap(map[string]any{
 			"signed_report": map[string]any{
 				"report":     generateReportEncoded(reportType),
 				"signatures": signatures,
@@ -256,7 +255,7 @@ func TestEvmWrite(t *testing.T) {
 				"id":         reportID[:],
 			},
 		})
-		require.NoError(t, err)
+		require.NoError(t, inputErr)
 		return validInputs
 	}
 
@@ -454,7 +453,7 @@ func TestEvmWrite(t *testing.T) {
 		testChain.On("Config").Return(evmtest.NewChainScopedConfig(t, testCfg))
 		capabilityRegistry := evmcapabilities.NewRegistry(lggr)
 
-		relayer, err := relayevm.NewRelayer(lggr, testChain, relayevm.RelayerOpts{
+		relayer, err := evm.NewRelayer(lggr, testChain, evm.RelayerOpts{
 			DS:                   db,
 			EVMKeystore:          keys.NewChainStore(keystore.NewEthSigner(keyStore.Eth(), chain.ID()), chain.ID()),
 			CSAKeystore:          &keystore.CSASigner{CSA: keyStore.CSA()},
