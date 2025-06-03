@@ -30,7 +30,7 @@ type SeqDeployMCMSWithConfigOutput struct {
 	Address common.Address `json:"address"`
 }
 
-var SeqDeployEVMTokens = operations.NewSequence(
+var SeqEVMDeployMCMSWithConfig = operations.NewSequence(
 	"seq-deploy-mcms-with-config",
 	semver.MustParse("1.0.0"),
 	"Deploys MCMS contract & sets config",

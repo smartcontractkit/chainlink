@@ -77,20 +77,7 @@ var OpEVMDeployMCMS = operations.NewOperation(
 			)
 			return out, err
 		}
-		/* addr, tx, _, err := ccip_owner.DeployManyChainMultiSig(
-			deps.Chain.DeployerKey,
-			deps.Backend,
-		)
-		if err != nil {
-			b.Logger.Errorw("Failed to deploy MCMS token",
-				"chainSelector", deps.Chain.ChainSelector(),
-				"chainName", deps.Chain.Name(),
-				"err", err,
-			)
-
-			return out, err
-		}*/
-
+		
 		// Confirm the transaction
 		if _, err = deps.Chain.Confirm(mcm.Tx); err != nil {
 			b.Logger.Errorw("Failed to confirm deployment",

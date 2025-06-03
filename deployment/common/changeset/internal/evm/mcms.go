@@ -141,7 +141,7 @@ func DeployMCMSWithTimelockContractsEVM(
 
 		report, err := operations.ExecuteSequence(
 			env.OperationsBundle,
-			seqs.SeqDeployEVMTokens,
+			seqs.SeqEVMDeployMCMSWithConfig,
 			seqDeps,
 			seqInput,
 		)
@@ -169,7 +169,7 @@ func DeployMCMSWithTimelockContractsEVM(
 
 		report, err := operations.ExecuteSequence(
 			env.OperationsBundle,
-			seqs.SeqDeployEVMTokens,
+			seqs.SeqEVMDeployMCMSWithConfig,
 			seqDeps,
 			seqInput,
 		)
@@ -197,7 +197,7 @@ func DeployMCMSWithTimelockContractsEVM(
 
 		report, err := operations.ExecuteSequence(
 			env.OperationsBundle,
-			seqs.SeqDeployEVMTokens,
+			seqs.SeqEVMDeployMCMSWithConfig,
 			seqDeps,
 			seqInput,
 		)
