@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	aptosapi "github.com/aptos-labs/aptos-go-sdk/api"
@@ -288,6 +289,10 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 			},
 			ExpRevert: true,
 		})
+	})
+
+	t.Cleanup(func() {
+		time.Sleep(10 * time.Second)
 	})
 }
 
