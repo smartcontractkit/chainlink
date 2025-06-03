@@ -167,20 +167,6 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		return fmt.Errorf("too many trigger subscriptions: %d", len(subs.Subscriptions))
 	}
 
-	if err := e.listenOnSubscribedTriggers(ctx, subs); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// listenOnSubscribedTriggers verifies that all subscriptions exist on the
-// capability registry, registers each trigger and fans all trigger respones
-// in to a single event channel.
-func (e *Engine) listenOnSubscribedTriggers(
-	ctx context.Context,
-	subs *sdkpb.TriggerSubscriptionRequest,
-) error {
 	// check if all requested triggers exist in the registry
 	triggers := make([]capabilities.TriggerCapability, 0, len(subs.Subscriptions))
 	for _, sub := range subs.Subscriptions {
