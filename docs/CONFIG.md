@@ -15450,6 +15450,7 @@ LimitMax = 500_000 # Default
 LimitMultiplier = '1.0' # Default
 LimitTransfer = 21_000 # Default
 EstimateLimit = false # Default
+SenderAddress = '0x00c11c11c11C11c11C11c11c11C11C11c11C11c1' # Example
 BumpMin = '5 gwei' # Default
 BumpPercent = 20 # Default
 BumpThreshold = 3 # Default
@@ -15549,6 +15550,12 @@ LimitTransfer is the gas limit used for an ordinary ETH transfer.
 EstimateLimit = false # Default
 ```
 EstimateLimit enables estimating gas limits for transactions. This feature respects the gas limit provided during transaction creation as an upper bound.
+
+### SenderAddress
+```toml
+SenderAddress = '0x00c11c11c11C11c11C11c11c11C11C11c11C11c1' # Example
+```
+SenderAddress is optional and can be set to a specific sender address for dynamic gas estimation. If it is not set, the actual "from" address for the transaction is used if available.
 
 ### BumpMin
 ```toml
