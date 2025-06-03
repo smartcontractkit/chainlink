@@ -45,10 +45,10 @@ func NewDeployEnvironmentFromCribOutput(lggr logger.Logger, output DeployOutput)
 		CRIB_ENV_NAME,
 		lggr,
 		output.AddressBook,
-		datastore.NewMemoryDataStore[
-			datastore.DefaultMetadata,
-			datastore.DefaultMetadata,
-		]().Seal(),
+		datastore.NewMemoryDataStore().Seal(),
+		chains,
+		solChains, // nil for solana chains, can use memory solana chain example when required
+		nil,       // nil for aptos chains, can use memory solana chain example when required
 		output.NodeIDs,
 		nil, // todo: populate the offchain client using output.DON
 		//nolint:gocritic // intentionally use a lambda to allow dynamic context replacement in Environment Commit 90ee880

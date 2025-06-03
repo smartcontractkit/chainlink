@@ -69,10 +69,7 @@ func NewNoopEnvironment(t *testing.T) cldf.Environment {
 		"noop",
 		logger.TestLogger(t),
 		cldf.NewMemoryAddressBook(),
-		datastore.NewMemoryDataStore[
-			datastore.DefaultMetadata,
-			datastore.DefaultMetadata,
-		]().Seal(),
+		datastore.NewMemoryDataStore().Seal(),
 		[]string{},
 		nil,
 		t.Context,
@@ -87,10 +84,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 	changesets := []ConfiguredChangeSet{
 		Configure(cldf.CreateChangeSet(
 			func(e cldf.Environment, config uint32) (cldf.ChangesetOutput, error) {
-				ds := datastore.NewMemoryDataStore[
-					datastore.DefaultMetadata,
-					datastore.DefaultMetadata,
-				]()
+				ds := datastore.NewMemoryDataStore()
 
 				// Store Address
 				if err := ds.Addresses().Add(
@@ -106,10 +100,10 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 				}
 
 				// Add ContractMetadata
-				err := ds.ContractMetadataStore.Upsert(datastore.ContractMetadata[datastore.DefaultMetadata]{
+				err := ds.ContractMetadataStore.Upsert(datastore.ContractMetadata{
 					ChainSelector: 1,
 					Address:       "0x1234567890abcdef",
-					Metadata:      datastore.DefaultMetadata{Data: "test"},
+					//	Metadata:      datastore.DefaultMetadata{Data: "test"},
 				})
 				if err != nil {
 					return cldf.ChangesetOutput{}, err
@@ -155,7 +149,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 					datastore.NewContractMetadataKey(1, "0x1234567890abcdef"),
 				)
 				require.NoError(t, err)
-				require.Equal(t, "test", metadata.Metadata.Data)
+				require.Equal(t, "test", metadata.Metadata)
 			},
 			wantError: false,
 		},
@@ -181,7 +175,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 					datastore.NewContractMetadataKey(1, "0x1234567890abcdef"),
 				)
 				require.NoError(t, err)
-				require.Equal(t, "test", metadata.Metadata.Data)
+				require.Equal(t, "test", metadata.Metadata)
 			},
 			wantError: false,
 		},
