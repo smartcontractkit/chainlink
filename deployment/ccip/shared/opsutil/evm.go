@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
@@ -54,12 +55,12 @@ func NewEVMCallOperation[IN any, C any](
 	contractType cldf.ContractType,
 	constructor func(address common.Address, backend bind.ContractBackend) (C, error),
 	call func(contract C, opts *bind.TransactOpts, input IN) (*types.Transaction, error),
-) *operations.Operation[EVMCallInput[IN], EVMCallOutput, cldf.Chain] {
+) *operations.Operation[EVMCallInput[IN], EVMCallOutput, cldf_evm.Chain] {
 	return operations.NewOperation(
 		name,
 		version,
 		description,
-		func(b operations.Bundle, chain cldf.Chain, input EVMCallInput[IN]) (EVMCallOutput, error) {
+		func(b operations.Bundle, chain cldf_evm.Chain, input EVMCallInput[IN]) (EVMCallOutput, error) {
 			if input.ChainSelector != chain.Selector {
 				return EVMCallOutput{}, fmt.Errorf("mismatch between inputted chain selector and selector defined within dependencies: %d != %d", input.ChainSelector, chain.Selector)
 			}
