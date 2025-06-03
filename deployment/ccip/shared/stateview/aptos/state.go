@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -20,6 +21,9 @@ type CCIPChainState struct {
 	MCMSAddress      aptos.AccountAddress
 	CCIPAddress      aptos.AccountAddress
 	LinkTokenAddress aptos.AccountAddress
+
+	BurnMintTokenPools    map[aptos.AccountAddress]aptos.AccountAddress // TokenAddress -> TokenPoolAddress
+	LockReleaseTokenPools map[aptos.AccountAddress]aptos.AccountAddress // TokenAddress -> TokenPoolAddress
 
 	// Test contracts
 	TestRouterAddress aptos.AccountAddress
@@ -38,7 +42,7 @@ func LoadOnchainStateAptos(env cldf.Environment) (map[uint64]CCIPChainState, err
 			}
 			addresses = make(map[string]cldf.TypeAndVersion)
 		}
-		chainState, err := loadAptosChainStateFromAddresses(addresses)
+		chainState, err := loadAptosChainStateFromAddresses(addresses, env.BlockChains.AptosChains()[chainSelector].Client)
 		if err != nil {
 			return aptosChains, err
 		}
@@ -47,7 +51,7 @@ func LoadOnchainStateAptos(env cldf.Environment) (map[uint64]CCIPChainState, err
 	return aptosChains, nil
 }
 
-func loadAptosChainStateFromAddresses(addresses map[string]cldf.TypeAndVersion) (CCIPChainState, error) {
+func loadAptosChainStateFromAddresses(addresses map[string]cldf.TypeAndVersion, client aptos.AptosRpcClient) (CCIPChainState, error) {
 	chainState := CCIPChainState{}
 	for addrStr, typeAndVersion := range addresses {
 		// Parse address
@@ -66,6 +70,23 @@ func loadAptosChainStateFromAddresses(addresses map[string]cldf.TypeAndVersion) 
 			chainState.LinkTokenAddress = *address
 		case shared.AptosReceiverType:
 			chainState.ReceiverAddress = *address
+		case shared.BurnMintTokenPool:
+			pool := managed_token_pool.Bind(*address, client)
+			token, err := pool.ManagedTokenPool().GetToken(nil)
+			if err != nil {
+				return chainState, fmt.Errorf("failed to get token for BurnMintTokenPool %s: %w", addrStr, err)
+			}
+			chainState.BurnMintTokenPools = make(map[aptos.AccountAddress]aptos.AccountAddress)
+			chainState.BurnMintTokenPools[token] = *address
+
+		case shared.LockReleaseTokenPool:
+			pool := managed_token_pool.Bind(*address, client)
+			token, err := pool.ManagedTokenPool().GetToken(nil)
+			if err != nil {
+				return chainState, fmt.Errorf("failed to get token for LockReleaseTokenPool %s: %w", addrStr, err)
+			}
+			chainState.LockReleaseTokenPools = make(map[aptos.AccountAddress]aptos.AccountAddress)
+			chainState.LockReleaseTokenPools[token] = *address
 		}
 	}
 	return chainState, nil

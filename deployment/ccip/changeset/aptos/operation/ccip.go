@@ -2,6 +2,7 @@ package operation
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/smartcontractkit/mcms/types"
@@ -232,8 +233,9 @@ func initializeCCIP(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput)
 	// Config FeeQuoter and RMNRemote
 	ccipBind := ccip.Bind(in.CCIPAddress, deps.AptosChain.Client)
 
+	maxJuels := new(big.Int).SetUint64(in.CCIPConfig.FeeQuoterParams.MaxFeeJuelsPerMsg)
 	moduleInfo, function, _, args, err = ccipBind.FeeQuoter().Encoder().Initialize(
-		deps.AptosChain.Selector,
+		maxJuels,
 		in.CCIPConfig.FeeQuoterParams.LinkToken,
 		in.CCIPConfig.FeeQuoterParams.TokenPriceStalenessThreshold,
 		in.CCIPConfig.FeeQuoterParams.FeeTokens,
