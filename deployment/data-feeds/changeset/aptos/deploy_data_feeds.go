@@ -22,7 +22,7 @@ func deployDataFeedsLogic(env cldf.Environment, c types.DeployAptosConfig) (cldf
 	dataStore := datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]()
 
 	for _, chainSelector := range c.ChainsToDeploy {
-		chain := env.AptosChains[chainSelector]
+		chain := env.BlockChains.AptosChains()[chainSelector]
 
 		// Use the owner address if provided, otherwise use the deployer signer address
 		ownerAddress := chain.DeployerSigner.AccountAddress()
@@ -70,7 +70,7 @@ func deployDataFeedsLogic(env cldf.Environment, c types.DeployAptosConfig) (cldf
 
 func deployDataFeedsPrecondition(env cldf.Environment, c types.DeployAptosConfig) error {
 	for _, chainSelector := range c.ChainsToDeploy {
-		_, ok := env.AptosChains[chainSelector]
+		_, ok := env.BlockChains.AptosChains()[chainSelector]
 		if !ok {
 			return errors.New("chain not found in environment")
 		}
