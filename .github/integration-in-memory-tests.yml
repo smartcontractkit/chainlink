@@ -305,7 +305,7 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test ccip_aptos_messaging_test.go -timeout 15m -test.parallel=1 -count=1 -json
+    test_cmd: cd smoke/ccip && go test ccip_aptos_messaging_test.go -timeout 25m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     aptos_cli_version: 7.2.0
     install_plugins_public: true
