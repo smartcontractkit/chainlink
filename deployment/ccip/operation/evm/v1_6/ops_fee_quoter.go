@@ -7,6 +7,9 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -110,6 +113,18 @@ var (
 				DescribedTimelockProposals: csOutput.DescribedTimelockProposals,
 			}, nil
 		})
+
+	FeeQuoterApplyDestChainConfigUpdatesOp = opsutil.NewEVMCallOperation(
+		"FeeQuoterApplyDestChainConfigUpdatesOp",
+		semver.MustParse("1.0.0"),
+		"Apply updates to destination chain configs on the FeeQuoter 1.6.0 contract",
+		fee_quoter.FeeQuoterABI,
+		shared.FeeQuoter,
+		fee_quoter.NewFeeQuoter,
+		func(feeQuoter *fee_quoter.FeeQuoter, opts *bind.TransactOpts, input []fee_quoter.FeeQuoterDestChainConfigArgs) (*types.Transaction, error) {
+			return feeQuoter.ApplyDestChainConfigUpdates(opts, input)
+		},
+	)
 )
 
 type FeeQApplyAuthorizedCallerOpInput struct {
