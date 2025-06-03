@@ -815,7 +815,6 @@ func (g *TestGasEstimatorConfig) PriceMaxKey(addr common.Address) *assets.Wei {
 	return assets.GWei(1)
 }
 func (g *TestGasEstimatorConfig) EstimateLimit() bool { return false }
-
 func (g *TestGasEstimatorConfig) SenderAddress() bool { return nil }
 
 func (e *TestEvmConfig) GasEstimator() evmconfig.GasEstimator {
