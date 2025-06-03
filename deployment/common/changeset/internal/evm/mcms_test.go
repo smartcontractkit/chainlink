@@ -58,7 +58,7 @@ func TestDeployMCMSWithTimelockContracts(t *testing.T) {
 		chainsel.TEST_90000001.EvmChainID,
 	}, 1)
 	ab := cldf.NewMemoryAddressBook()
-	tenv := memory.NewMemoryEnvironment(t,lggr, zapcore.InfoLevel,  memory.MemoryEnvironmentConfig{
+	tenv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains: 1,
 	})
 	_, err := evminternal.DeployMCMSWithTimelockContractsEVM(tenv,
