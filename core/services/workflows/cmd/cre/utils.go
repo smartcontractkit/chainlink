@@ -58,7 +58,7 @@ func NewStandaloneEngine(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	rl, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
 		GlobalRPS:      defaultRPS,
 		GlobalBurst:    defaultBurst,
