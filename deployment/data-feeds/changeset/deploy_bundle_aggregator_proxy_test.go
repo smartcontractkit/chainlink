@@ -26,24 +26,21 @@ func TestBundleAggregatorProxy(t *testing.T) {
 
 	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
-	resp, err := commonChangesets.Apply(t, env, nil,
-		commonChangesets.Configure(
-			DeployCacheChangeset,
-			types.DeployConfig{
-				ChainsToDeploy: []uint64{chainSelector},
-				Labels:         []string{"data-feeds"},
-			},
-		),
-		commonChangesets.Configure(
-			DeployBundleAggregatorProxyChangeset,
-			types.DeployBundleAggregatorProxyConfig{
-				ChainsToDeploy: []uint64{chainSelector},
-				Owners:         map[uint64]common.Address{chainSelector: common.HexToAddress("0x1234")},
-				Labels:         []string{"data-feeds"},
-				CacheLabel:     "data-feeds",
-			},
-		),
-	)
+	resp, err := commonChangesets.Apply(t, env, commonChangesets.Configure(
+		DeployCacheChangeset,
+		types.DeployConfig{
+			ChainsToDeploy: []uint64{chainSelector},
+			Labels:         []string{"data-feeds"},
+		},
+	), commonChangesets.Configure(
+		DeployBundleAggregatorProxyChangeset,
+		types.DeployBundleAggregatorProxyConfig{
+			ChainsToDeploy: []uint64{chainSelector},
+			Owners:         map[uint64]common.Address{chainSelector: common.HexToAddress("0x1234")},
+			Labels:         []string{"data-feeds"},
+			CacheLabel:     "data-feeds",
+		},
+	))
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)

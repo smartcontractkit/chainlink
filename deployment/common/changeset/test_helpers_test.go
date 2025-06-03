@@ -33,7 +33,7 @@ func TestChangeSetLegacyFunction_PassingCase(t *testing.T) {
 	)
 	require.False(t, executedCs, "Not expected to have executed the changeset yet")
 	require.False(t, executedValidator, "Not expected to have executed the validator yet")
-	_, err := Apply(t, e, nil, Configure(csv2, 1))
+	_, err := Apply(t, e, Configure(csv2, 1))
 	require.True(t, executedCs, "Validator should have returned nil, allowing changeset execution")
 	require.True(t, executedValidator, "Not expected to have executed the validator yet")
 	require.NoError(t, err)
@@ -58,14 +58,14 @@ func TestChangeSetLegacyFunction_ErrorCase(t *testing.T) {
 	)
 	require.False(t, executedCs, "Not expected to have executed the changeset yet")
 	require.False(t, executedValidator, "Not expected to have executed the validator yet")
-	_, err := Apply(t, e, nil, Configure(csv2, 1))
+	_, err := Apply(t, e, Configure(csv2, 1))
 	require.False(t, executedCs, "Validator should have fired, preventing changeset execution")
 	require.True(t, executedValidator, "Not expected to have executed the validator yet")
 	require.Equal(t, "failed to apply changeset at index 0: you shall not pass", err.Error())
 }
 
 func NewNoopEnvironment(t *testing.T) cldf.Environment {
-	return *cldf.NewCLDFEnvironment(
+	return *cldf.NewEnvironment(
 		"noop",
 		logger.TestLogger(t),
 		cldf.NewMemoryAddressBook(),
@@ -73,9 +73,6 @@ func NewNoopEnvironment(t *testing.T) cldf.Environment {
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,
 		]().Seal(),
-		nil, // todo remove once fully migrated to CLDF new chain package
-		nil, // todo remove once fully migrated to CLDF new chain package
-		nil, // todo remove once fully migrated to CLDF new chain package
 		[]string{},
 		nil,
 		t.Context,
@@ -163,7 +160,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 			wantError: false,
 		},
 		{
-			name:                   "ApplyChangesetsV2 validates datastore is merged after apply",
+			name:                   "ApplyChangesets validates datastore is merged after apply",
 			changesets:             changesets,
 			changesetApplyFunction: "V1",
 			validate: func(t *testing.T, e cldf.Environment) {
@@ -195,7 +192,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 			switch tt.changesetApplyFunction {
 			case "V2":
 				e := NewNoopEnvironment(t)
-				e, _, err := ApplyChangesetsV2(t, e, tt.changesets)
+				e, _, err := ApplyChangesets(t, e, tt.changesets)
 				if tt.wantError {
 					require.Error(t, err)
 					return
@@ -204,7 +201,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 				tt.validate(t, e)
 			case "V1":
 				e := NewNoopEnvironment(t)
-				e, err := ApplyChangesets(t, e, nil, tt.changesets)
+				e, _, err := ApplyChangesets(t, e, tt.changesets)
 				if tt.wantError {
 					require.Error(t, err)
 					return

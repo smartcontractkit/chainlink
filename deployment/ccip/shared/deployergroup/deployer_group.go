@@ -482,17 +482,6 @@ func (d *DeployerGroup) enactDeployer() (cldf.ChangesetOutput, error) {
 	return cldf.ChangesetOutput{}, nil
 }
 
-func BuildTimelockPerChain(e cldf.Environment, state stateview.CCIPOnChainState) map[uint64]*proposalutils.TimelockExecutionContracts {
-	timelocksPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
-	for _, chain := range e.BlockChains.EVMChains() {
-		timelocksPerChain[chain.Selector] = &proposalutils.TimelockExecutionContracts{
-			Timelock:  state.MustGetEVMChainState(chain.Selector).Timelock,
-			CallProxy: state.MustGetEVMChainState(chain.Selector).CallProxy,
-		}
-	}
-	return timelocksPerChain
-}
-
 func BuildTimelockAddressPerChain(e cldf.Environment, onchainState stateview.CCIPOnChainState) map[uint64]string {
 	addressPerChain := make(map[uint64]string)
 	for _, chain := range e.BlockChains.EVMChains() {

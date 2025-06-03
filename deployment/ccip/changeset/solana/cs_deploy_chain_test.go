@@ -146,7 +146,7 @@ func TestDeployChainContractsChangesetPreload(t *testing.T) {
 	require.NoError(t, err)
 	// empty build config means, if artifacts are not present, resolve the artifact from github based on go.mod version
 	// for a simple local in memory test, they will always be present, because we need them to spin up the in memory chain
-	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, initialDeployCS(t, e, nil))
+	e, _, err = commonchangeset.ApplyChangesets(t, e, initialDeployCS(t, e, nil))
 	require.NoError(t, err)
 	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
 	require.NoError(t, err)
@@ -178,7 +178,7 @@ func TestUpgrade(t *testing.T) {
 	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	homeChainSel := evmSelectors[0]
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
-	e, _, err := commonchangeset.ApplyChangesetsV2(t, e, initialDeployCS(t, e,
+	e, _, err := commonchangeset.ApplyChangesets(t, e, initialDeployCS(t, e,
 		&ccipChangesetSolana.BuildSolanaConfig{
 			GitCommitSha:   OldSha,
 			DestinationDir: e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
@@ -222,7 +222,7 @@ func TestUpgrade(t *testing.T) {
 	require.NoError(t, err)
 
 	// deploy the contracts
-	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		// upgrade authority
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetUpgradeAuthorityChangeset),
@@ -299,7 +299,7 @@ func TestUpgrade(t *testing.T) {
 	require.NoError(t, err)
 	oldOffRampAddress := state.SolChains[solChainSelectors[0]].OffRamp
 	// add a second offramp address
-	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
 			ccipChangesetSolana.DeployChainContractsConfig{
@@ -362,7 +362,7 @@ func TestIDL(t *testing.T) {
 	skipInCI(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
-	e, _, err := commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
+	e, _, err := commonchangeset.ApplyChangesets(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.UploadIDL),
 			ccipChangesetSolana.IDLConfig{
@@ -393,7 +393,7 @@ func TestIDL(t *testing.T) {
 			FeeQuoter: true,
 		})
 
-	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetAuthorityIDL),
 			ccipChangesetSolana.IDLConfig{
@@ -417,7 +417,7 @@ func TestIDL(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.UpgradeIDL),
 			ccipChangesetSolana.IDLConfig{
