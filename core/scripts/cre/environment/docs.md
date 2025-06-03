@@ -1,5 +1,8 @@
 # Local CRE environment
 
+## Contact Us
+Slack: #topic-local-dev-environments
+
 ## Table of content
 
 1. [Using the CLI](#using-the-cli)
@@ -15,31 +18,32 @@
 
 The CLI manages CRE test environments. It is located in `core/scripts/cre/environment`.
 
+
+
 ## Prerequisites (for Docker) ###
 1. **Docker installed and running**
     - with usage of default Docker socket **enabled**
     - with Apple Virtualization framework **enabled**
     - with VirtioFS **enabled**
     - with use of containerd for pulling and storing images **disabled**
-2. **Job Distributor Docker image available**
-    - Either build it locally as described in [this section](#job-distributor-image)
-    - or download it from the PROD ECR (if you have access) and tag as `job-distributor:0.9.0`
+2. **AWS SSO access to SDLC**
+  - REQUIRED: `sdlc` profile
+
+
+   [See more for configuring AWS in CLL](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI)
 
 If you want to run an example workflow you also need to either:
 
-1. **Download CRE CLI v0.2.0**
-    - download it either from [smartcontract/dev-platform](https://github.com/smartcontractkit/dev-platform/releases/tag/v0.2.0)
-    - or using GH CLI by running: `gh release download v0.2.0 --repo smartcontractkit/dev-platform --pattern 'cre_v0.2.0_darwin_arm64.tar.gz'`
-    - once you have the archive downloaded run:
-      ```bash
-      tar -xf cre_v0.2.0_darwin_arm64.tar.gz
-      rm cre_v0.2.0_darwin_arm64.tar.gz
-      # do not worry about potential 'No such xattr: com.apple.quarantine' error
-      xattr -d com.apple.quarantine cre_v0.2.0_darwin_arm64
-      export "PATH=$(pwd):$PATH"
-      ```
+# QUICKSTART
+`./setup.sh`
 
-Optionally:
+The script will ensure all pre-requisites are configured and installed.
+If you are missing requirements, you may need to fix the errors and re-run.
+Use `#topic-local-dev-environments` for help
+
+
+
+Advanced Usage:
 1. **Choose the Right Topology**
    - For a single DON with all capabilities: `configs/single-don.toml` (default)
    - For a full topology (workflow DON + capabilities DON + gateway DON): `configs/workflow-capabilities-don.toml`
