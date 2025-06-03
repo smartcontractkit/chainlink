@@ -209,6 +209,8 @@ LimitMultiplier = '1.0' # Default
 LimitTransfer = 21_000 # Default
 # EstimateLimit enables estimating gas limits for transactions. This feature respects the gas limit provided during transaction creation as an upper bound.
 EstimateLimit = false # Default
+# SenderAddress is optional and can be set to a specific sender address for dynamic gas estimation. If it is not set, the actual "from" address for the transaction is used if available.
+SenderAddress = '0x00c11c11c11C11c11C11c11c11C11C11c11C11c1' # Example
 # BumpMin is the minimum fixed amount of wei by which gas is bumped on each transaction attempt.
 BumpMin = '5 gwei' # Default
 # BumpPercent is the percentage by which to bump gas on a transaction that has exceeded `BumpThreshold`. The larger of `BumpPercent` and `BumpMin` is taken for gas bumps.
