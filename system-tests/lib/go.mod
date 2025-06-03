@@ -21,8 +21,8 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/smartcontractkit/chain-selectors v1.0.59
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250528133621-89eb1ce3d76f
-	github.com/smartcontractkit/chainlink-deployments-framework v0.7.0
-	github.com/smartcontractkit/chainlink-evm v0.0.0-20250602025034-8c2185e683df
+	github.com/smartcontractkit/chainlink-deployments-framework v0.8.2
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250602121001-1a3c233e4019
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.11.0
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.8.5
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4
@@ -361,7 +361,7 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250502091650-484cfa7ccddf // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250527111814-1c5342edf3b4 // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250602150832-c6cd4a526da4 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250520123946-6aaf88e0848a // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250417193446-eeb0a7d1e049 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect

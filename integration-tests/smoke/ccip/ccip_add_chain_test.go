@@ -440,23 +440,20 @@ func setupInboundWiring(
 	}
 
 	var err error
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
-			v1_6.UpdateOffRampSourcesConfig{
-				UpdatesByChain: offRampSourceUpdates(t, newChains, sources, testRouterEnabled),
-				MCMS:           mcmsConfig,
-			},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
-			v1_6.UpdateRouterRampsConfig{
-				TestRouter:     testRouterEnabled,
-				UpdatesByChain: routerOffRampUpdates(t, newChains, sources),
-				MCMS:           mcmsConfig,
-			},
-		),
-	)
+	e.Env, err = commonchangeset.Apply(t, e.Env, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
+		v1_6.UpdateOffRampSourcesConfig{
+			UpdatesByChain: offRampSourceUpdates(t, newChains, sources, testRouterEnabled),
+			MCMS:           mcmsConfig,
+		},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+		v1_6.UpdateRouterRampsConfig{
+			TestRouter:     testRouterEnabled,
+			UpdatesByChain: routerOffRampUpdates(t, newChains, sources),
+			MCMS:           mcmsConfig,
+		},
+	))
 	require.NoError(t, err)
 
 	return e
@@ -481,37 +478,32 @@ func setupOutboundWiring(
 	}
 
 	var err error
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
-			v1_6.UpdateOnRampDestsConfig{
-				UpdatesByChain: onRampDestUpdates(t, newChains, sources, testRouterEnabled),
-				MCMS:           mcmsConfig,
-			},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
-			v1_6.UpdateFeeQuoterPricesConfig{
-				PricesByChain: feeQuoterPricesByChain(t, newChains, sources),
-				MCMS:          mcmsConfig,
-			},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
-			v1_6.UpdateFeeQuoterDestsConfig{
-				UpdatesByChain: feeQuoterDestUpdates(t, newChains, sources),
-				MCMS:           mcmsConfig,
-			},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
-			v1_6.UpdateRouterRampsConfig{
-				TestRouter:     testRouterEnabled,
-				UpdatesByChain: routerOnRampUpdates(t, newChains, sources),
-				MCMS:           mcmsConfig,
-			},
-		),
-	)
+	e.Env, err = commonchangeset.Apply(t, e.Env, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+		v1_6.UpdateOnRampDestsConfig{
+			UpdatesByChain: onRampDestUpdates(t, newChains, sources, testRouterEnabled),
+			MCMS:           mcmsConfig,
+		},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
+		v1_6.UpdateFeeQuoterPricesConfig{
+			PricesByChain: feeQuoterPricesByChain(t, newChains, sources),
+			MCMS:          mcmsConfig,
+		},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
+		v1_6.UpdateFeeQuoterDestsConfig{
+			UpdatesByChain: feeQuoterDestUpdates(t, newChains, sources),
+			MCMS:           mcmsConfig,
+		},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+		v1_6.UpdateRouterRampsConfig{
+			TestRouter:     testRouterEnabled,
+			UpdatesByChain: routerOnRampUpdates(t, newChains, sources),
+			MCMS:           mcmsConfig,
+		},
+	))
 	require.NoError(t, err)
 
 	return e
@@ -525,7 +517,7 @@ func setupChain(t *testing.T, e testhelpers.DeployedEnv, tEnv testhelpers.TestEn
 
 	// Need to update what the RMNProxy is pointing to, otherwise plugin will not work.
 	var err error
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
 			v1_6.SetRMNRemoteOnRMNProxyConfig{
@@ -796,6 +788,6 @@ func transferToMCMSAndRenounceTimelockDeployer(
 		))
 	}
 	var err error
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), apps)
+	e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, apps)
 	require.NoError(t, err)
 }
