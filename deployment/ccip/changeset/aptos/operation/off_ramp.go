@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	aptosutils "github.com/smartcontractkit/chainlink-aptos/relayer/utils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"

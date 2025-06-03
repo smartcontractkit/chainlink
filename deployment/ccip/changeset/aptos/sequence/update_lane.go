@@ -6,11 +6,11 @@ import (
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	aptos_router "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router/router"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"

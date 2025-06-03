@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
-	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
-	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
+	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
 
