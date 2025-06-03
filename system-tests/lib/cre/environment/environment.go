@@ -720,29 +720,6 @@ func SetupTestEnvironment(
 			fmt.Print(result.successMessage)
 		}
 	}
-	// we cannot start registering workflows until the workflow registry is configured
-	// workflowRegistryConfigResult := <-workflowRegistryConfigCh
-	// defer close(workflowRegistryConfigCh)
-	// if workflowRegistryConfigResult.err != nil {
-	// 	return nil, pkgerrors.Wrap(workflowRegistryConfigResult.err, "failed to configure workflow registry")
-	// }
-	// fmt.Print(libformat.PurpleText("\n<--- [BACKGROUND 1/3] Workflow Registry configured in %.2f seconds\n", workflowRegistryConfigResult.duration.Seconds()))
-
-	// // nodes need to be funded before we can continue to execute workflows
-	// nodeFundingResult := <-fundingErrCh
-	// defer close(fundingErrCh)
-	// if nodeFundingResult.err != nil {
-	// 	return nil, pkgerrors.Wrap(nodeFundingResult.err, "failed to fund nodes")
-	// }
-	// fmt.Print(libformat.PurpleText("\n<--- [BACKGROUND 2/3] Chainlink nodes funded in %.2f seconds\033[0m\n", nodeFundingResult.duration.Seconds()))
-
-	// // wait for log poller filters to be registered, we cannot proceed with workflow registration until this is done
-	// logPollerFiltersResult := <-logPollerFiltersCh
-	// defer close(logPollerFiltersCh)
-	// if logPollerFiltersResult.err != nil {
-	// 	return nil, pkgerrors.Wrap(logPollerFiltersResult.err, "failed to wait for LogPoller filters")
-	// }
-	// fmt.Print(libformat.PurpleText("\n<--- [BACKGROUND 3/3] Waiting for LogPoller filters to be registered finished in %.2f seconds\n\n", logPollerFiltersResult.duration.Seconds()))
 
 	return &SetupOutput{
 		WorkflowRegistryConfigurationOutput: workflowRegistryInput.Out, // pass to caller, so that it can be optionally attached to TestConfig and saved to disk
