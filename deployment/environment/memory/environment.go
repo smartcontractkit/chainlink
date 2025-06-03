@@ -268,7 +268,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 		blockChains[c.Selector] = c
 	}
 
-	return *cldf.NewCLDFEnvironment(
+	return *cldf.NewEnvironment(
 		Memory,
 		lggr,
 		cldf.NewMemoryAddressBook(),
@@ -276,9 +276,6 @@ func NewMemoryEnvironmentFromChainsNodes(
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,
 		]().Seal(),
-		nil,
-		nil,
-		nil,
 		nodeIDs, // Note these have the p2p_ prefix.
 		NewMemoryJobClient(nodes),
 		ctx,
@@ -326,7 +323,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 	for _, c := range aptosChains {
 		blockChains[c.Selector] = c
 	}
-	return *cldf.NewCLDFEnvironment(
+	return *cldf.NewEnvironment(
 		Memory,
 		lggr,
 		cldf.NewMemoryAddressBook(),
@@ -334,9 +331,6 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,
 		]().Seal(),
-		nil, // this field will be deleted in future since env.BlockChains will now contain all the chains.
-		nil, // this field will be deleted in future since env.BlockChains will now contain all the chains.
-		nil, // this field will be deleted in future since env.BlockChains will now contain all the chains.
 		nodeIDs,
 		NewMemoryJobClient(nodes),
 		t.Context,

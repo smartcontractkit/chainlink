@@ -9,7 +9,8 @@
    - [Restart Environment](#restarting-the-environment)
 
 2. [Job Distributor Image](#job-distributor-image)
-3. [Troubleshooting](#troubleshooting)
+3. [Example Workflows](#example-workflows)
+4. [Troubleshooting](#troubleshooting)
 
 # Using the CLI
 
@@ -25,7 +26,7 @@ The CLI manages CRE test environments. It is located in `core/scripts/cre/enviro
     - Either build it locally as described in [this section](#job-distributor-image)
     - or download it from the PROD ECR (if you have access) and tag as `job-distributor:0.9.0`
 
-If you want to run an example workflow you also need to either:
+If you want to run an example workflow you also need to:
 
 1. **Download CRE CLI v0.2.0**
     - download it either from [smartcontract/dev-platform](https://github.com/smartcontractkit/dev-platform/releases/tag/v0.2.0)
@@ -65,8 +66,8 @@ Optionally:
      [nodesets.node_specs.node]
      image = "<your-Docker-image>:<your-tag>"
      ```
-      - Make these changes for **all** nodes in the nodeset in the TOML config. 
-      - If you decide to reuse a Chainlink Docker Image using the `--with-plugins-docker-image` flag, please notice that this will not copy any capability binaries to the image. 
+      - Make these changes for **all** nodes in the nodeset in the TOML config.
+      - If you decide to reuse a Chainlink Docker Image using the `--with-plugins-docker-image` flag, please notice that this will not copy any capability binaries to the image.
         You will need to make sure that all the capabilities you need are baked in the image you are using.
 
 4. **Decide whether to use Docker or k8s**
@@ -95,8 +96,11 @@ When starting the environment in AWS-managed Kubernetes make sure to source `.en
 # while in core/scripts/cre/environment
 go run main.go env start
 
-# to start environment with an example workflow (this requires the `cron` capability binary to be setup in the `extra_capabilities` section of the TOML config)
+# to start environment with an example workflow web API-based workflow
 go run main.go env start --with-example
+
+ # to start environment with an example workflow cron-based workflow (this requires the `cron` capability binary to be setup in the `extra_capabilities` section of the TOML config)
+go run main.go env start --with-example --example-workflow-trigger cron
 
 # to start environment using image with all supported capabilities
 go run main.go env start --with-plugins-docker-image <SDLC_ACCOUNT_ID>dkr.ecr.<SDLC_ACCOUNT_REGION>.amazonaws.com/chainlink:nightly-<YYYMMDD>-plugins
@@ -111,7 +115,7 @@ Optional parameters:
 - `-x`: Registers an example PoR workflow using CRE CLI and verifies it executed successfuly
 - `-s`: Time to wait for example workflow to execute successfuly (defaults to `5m`)
 - `-p`: Docker `plugins` image to use (must contain all of the following capabilities: `ocr3`, `cron`, `readcontract` and `logevent`)
-
+- `-y`: Trigger for example workflow to deploy (web-trigger or cron). Default: `web-trigger`. **Important!** `cron` trigger requires user to either provide the capbility binary path in TOML config or Docker image that has it baked in.
 
 ### Using existing Docker Plugins image
 
@@ -161,6 +165,31 @@ docker build -t job-distributor:0.9.0 -f e2e/Dockerfile.e2e .
 ```
 
 If you pull the image from the PRO ECR remember to either update the image name in [TOML config](./configs/) for your chosed topology or to tag that image as `job-distributor:0.9.0`.
+
+## Example workflows
+
+Two example workflows are available. Both execute a proof-of-reserve-like scenario with following steps:
+- call external HTTP API and fetch value of test asset
+- reach consensus on that value
+- write that value in the consumer contract on chain
+
+The only difference between is the trigger.
+
+### cron-based workflow
+This workflow is triggered every 30s, on a schedule. It will keep executing until it is paused or deleted. It requires an external `cron` capability binary, which you have to either manually compile or download **and** a manual TOML config change to indicate its location.
+
+Source code can be found in [proof-of-reserves-workflow-e2e-test](https://github.com/smartcontractkit/proof-of-reserves-workflow-e2e-test/main/dx-891-web-api-trigger-workflow/cron-based/main.go) repository.
+
+### web API trigger-based workflow
+This workflow is triggered only, when a precisely crafed and cryptographically signed request is made to the gateway node. It will only trigger the workflow **once** and only if:
+* sender is whitelisted in the workflow
+* topic is whitelisted in the workflow
+
+Source code can be found in [proof-of-reserves-workflow-e2e-test](https://github.com/smartcontractkit/proof-of-reserves-workflow-e2e-test/blob/dx-891-web-api-trigger-workflow/web-api-trigger-based/main.go) repository.
+
+You might see multiple attempts to trigger and verify that workflow, when running the example. This is expected and could be happening, because:
+- topic hasn't been registered yet (nodes haven't downloaded the workflow yet)
+- consensus wasn't reached in time
 
 ## Troubleshooting
 

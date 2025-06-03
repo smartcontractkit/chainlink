@@ -16032,6 +16032,7 @@ TransactionAlreadyMined = '(: |^)transaction already mined' # Example
 Fatal = '(: |^)fatal' # Example
 ServiceUnavailable = '(: |^)service unavailable' # Example
 TooManyResults = '(: |^)too many results' # Example
+MissingBlocks = '(: |^)missing blocks' # Example
 ```
 Errors enable the node to provide custom regex patterns to match against error messages from RPCs.
 
@@ -16124,6 +16125,12 @@ ServiceUnavailable is a regex pattern to match against service unavailable error
 TooManyResults = '(: |^)too many results' # Example
 ```
 TooManyResults is a regex pattern to match an eth_getLogs error indicating the result set is too large to return
+
+### MissingBlocks
+```toml
+MissingBlocks = '(: |^)missing blocks' # Example
+```
+MissingBlocks is a regex pattern to match an eth_getLogs error indicating the rpc server is permanently missing some blocks in the requested block range
 
 ## EVM.OCR
 ```toml

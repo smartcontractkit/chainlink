@@ -251,9 +251,7 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env cldf.Envir
 		),
 	}
 	changes = append(changes, forwarderChangesets...)
-	env, err := commonchangeset.ApplyChangesets(t, env, nil,
-		changes,
-	)
+	env, _, err := commonchangeset.ApplyChangesets(t, env, changes)
 	require.NoError(t, err)
 	require.NotNil(t, env)
 	require.Len(t, env.BlockChains.EVMChains(), nChains)
@@ -381,7 +379,7 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 			t.Logf("Enabling MCMS on chain %d", sel)
 			timelockCfgs[sel] = proposalutils.SingleGroupTimelockConfigV2(t)
 		}
-		env, err = commonchangeset.Apply(t, env, nil,
+		env, err = commonchangeset.Apply(t, env,
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 				timelockCfgs,
@@ -402,9 +400,6 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 
 			// transfer ownership of all contracts to the MCMS
 			env, err = commonchangeset.Apply(t, env,
-				map[uint64]*proposalutils.TimelockExecutionContracts{
-					sel: {Timelock: mcms.Timelock, CallProxy: mcms.CallProxy},
-				},
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(changeset.AcceptAllOwnershipsProposal),
 					&changeset.AcceptAllOwnershipRequest{
@@ -456,7 +451,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 		blockChains[sel] = c
 	}
 
-	env := cldf.NewCLDFEnvironment(
+	env := cldf.NewEnvironment(
 		"view only nodes",
 		logger.Test(t),
 		cldf.NewMemoryAddressBook(),
@@ -464,9 +459,6 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,
 		]().Seal(),
-		nil,
-		nil,
-		nil,
 		dons.NodeList().IDs(),
 		envtest.NewJDService(dons.NodeList()),
 		t.Context,

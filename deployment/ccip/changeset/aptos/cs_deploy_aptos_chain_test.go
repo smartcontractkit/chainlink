@@ -243,7 +243,7 @@ func TestDeployAptosChain_Apply(t *testing.T) {
 			},
 		},
 	}
-	env, _, err := commonchangeset.ApplyChangesetsV2(t, env, []commonchangeset.ConfiguredChangeSet{
+	env, _, err := commonchangeset.ApplyChangesets(t, env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(DeployAptosChain{}, ccipConfig),
 	})
 	require.NoError(t, err)
