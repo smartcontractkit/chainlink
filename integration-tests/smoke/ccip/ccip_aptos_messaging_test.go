@@ -376,7 +376,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 						})
 						require.NoError(t, err)
 						require.True(t, iter.Next())
-						// MessageReceived doesn't emit the data unfortunately, so can't check that.
+						// Todo: MessageReceived doesn't emit the data unfortunately, so can't check that.
 					},
 				},
 			},
