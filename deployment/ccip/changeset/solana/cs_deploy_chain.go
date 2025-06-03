@@ -65,6 +65,7 @@ type DeployChainContractsConfig struct {
 	ChainSelector          uint64
 	ContractParamsPerChain ChainContractParams
 	// include the version of the contracts you want to upgrade here
+	// the cs will use this config to determine what contracts to upgrade
 	UpgradeConfig UpgradeConfig
 	// this will be used to build the solana programs
 	BuildConfig *BuildSolanaConfig
@@ -82,7 +83,8 @@ type ChainContractParams struct {
 
 type FeeQuoterParams struct {
 	DefaultMaxFeeJuelsPerMsg solBinary.Uint128
-	BillingConfig            []solFeeQuoter.BillingTokenConfig
+	// use this to setup billing tokens during initial deploy
+	BillingConfig []solFeeQuoter.BillingTokenConfig
 }
 
 type OffRampParams struct {
@@ -189,9 +191,6 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 		e.Logger.Debugw("Skipping solana build as no build config provided")
 	}
 
-	if err := c.UpgradeConfig.Validate(e, chainSel); err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("invalid UpgradeConfig: %w", err)
-	}
 	addresses, _ := e.ExistingAddresses.AddressesForChain(chainSel)
 	mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
 	timelocks := map[uint64]string{}

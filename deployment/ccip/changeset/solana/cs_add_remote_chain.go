@@ -47,8 +47,8 @@ type RouterConfig struct {
 	// and tooling does not handle upserts
 	// so you have to clone what is in state, edit the list, and then pass into this changeset
 	RouterDestinationConfig solRouter.DestChainConfig
-	// We have different instructions for add vs update, so we need to know which one to use
-	IsUpdate bool
+	// inferred from onchain state
+	isUpdate bool
 }
 
 func (cfg *AddRemoteChainToRouterConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -88,7 +88,7 @@ func (cfg *AddRemoteChainToRouterConfig) Validate(e cldf.Environment, state stat
 		err = chain.GetAccountDataBorshInto(context.Background(), routerDestChainPDA, &destChainStateAccount)
 		if err == nil {
 			e.Logger.Infow("remote chain already configured. setting as update", "remoteChainSel", remote)
-			remoteConfig.IsUpdate = true
+			remoteConfig.isUpdate = true
 		}
 	}
 	return nil
@@ -153,7 +153,6 @@ func doAddRemoteChainToRouter(
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		shared.Router,
 		solana.PublicKey{},
 		"",
@@ -164,7 +163,7 @@ func doAddRemoteChainToRouter(
 		routerRemoteStatePDA, _ := solState.FindDestChainStatePDA(remoteChainSel, ccipRouterID)
 		allowedOffRampRemotePDA, _ := solState.FindAllowedOfframpPDA(remoteChainSel, offRampID, ccipRouterID)
 
-		if update.IsUpdate {
+		if update.isUpdate {
 			routerIx, err := solRouter.NewUpdateDestChainConfigInstruction(
 				remoteChainSel,
 				// TODO: this needs to be merged with what the user is sending in and whats their onchain.
@@ -269,8 +268,8 @@ type AddRemoteChainToFeeQuoterConfig struct {
 
 type FeeQuoterConfig struct {
 	FeeQuoterDestinationConfig solFeeQuoter.DestChainConfig
-	// We have different instructions for add vs update, so we need to know which one to use
-	IsUpdate bool
+	// inferred from onchain state
+	isUpdate bool
 }
 
 func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -302,7 +301,7 @@ func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e cldf.Environment, state s
 		err = chain.GetAccountDataBorshInto(context.Background(), fqRemoteChainPDA, &destChainStateAccount)
 		if err == nil {
 			e.Logger.Infow("remote chain already configured. setting as update", "remoteChainSel", remote)
-			remoteConfig.IsUpdate = true
+			remoteConfig.isUpdate = true
 		}
 	}
 	return nil
@@ -366,7 +365,6 @@ func doAddRemoteChainToFeeQuoter(
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		shared.FeeQuoter,
 		solana.PublicKey{},
 		"",
@@ -376,7 +374,7 @@ func doAddRemoteChainToFeeQuoter(
 		fqRemoteChainPDA, _, _ := solState.FindFqDestChainPDA(remoteChainSel, feeQuoterID)
 		var feeQuoterIx solana.Instruction
 		var err error
-		if update.IsUpdate {
+		if update.isUpdate {
 			feeQuoterIx, err = solFeeQuoter.NewUpdateDestChainConfigInstruction(
 				remoteChainSel,
 				// TODO: this needs to be merged with what the user is sending in and whats their onchain.
@@ -440,8 +438,8 @@ type AddRemoteChainToOffRampConfig struct {
 type OffRampConfig struct {
 	// source
 	EnabledAsSource bool
-	// We have different instructions for add vs update, so we need to know which one to use
-	IsUpdate bool
+	// inferred from onchain state
+	isUpdate bool
 }
 
 func (cfg *AddRemoteChainToOffRampConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -474,7 +472,7 @@ func (cfg *AddRemoteChainToOffRampConfig) Validate(e cldf.Environment, state sta
 		err = chain.GetAccountDataBorshInto(context.Background(), offRampRemoteStatePDA, &destChainStateAccount)
 		if err == nil {
 			e.Logger.Infow("remote chain already configured. setting as update", "remoteChainSel", remote)
-			remoteConfig.IsUpdate = true
+			remoteConfig.isUpdate = true
 		}
 	}
 	return nil
@@ -536,7 +534,6 @@ func doAddRemoteChainToOffRamp(
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		shared.OffRamp,
 		solana.PublicKey{},
 		"",
@@ -552,7 +549,7 @@ func doAddRemoteChainToOffRamp(
 		}
 
 		var offRampIx solana.Instruction
-		if update.IsUpdate {
+		if update.isUpdate {
 			offRampIx, err = solOffRamp.NewUpdateSourceChainConfigInstruction(
 				remoteChainSel,
 				validSourceChainConfig,

@@ -28,6 +28,9 @@ var _ cldf.ChangeSet[RegisterTokenAdminRegistryConfig] = RegisterTokenAdminRegis
 var _ cldf.ChangeSet[TransferAdminRoleTokenAdminRegistryConfig] = TransferAdminRoleTokenAdminRegistry
 var _ cldf.ChangeSet[AcceptAdminRoleTokenAdminRegistryConfig] = AcceptAdminRoleTokenAdminRegistry
 
+// use this changeset to set pool on token admin registry
+var _ cldf.ChangeSet[SetPoolConfig] = SetPool
+
 type RegisterTokenAdminRegistryType int
 
 const (
@@ -107,7 +110,6 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		shared.Router,
 		solana.PublicKey{},
 		"")
@@ -211,7 +213,6 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		shared.Router,
 		solana.PublicKey{},
 		"",
@@ -270,7 +271,6 @@ func TransferAdminRoleTokenAdminRegistry(e cldf.Environment, cfg TransferAdminRo
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		shared.Router,
 		solana.PublicKey{},
 		"")
@@ -330,7 +330,6 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment, 
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		shared.Router,
 		solana.PublicKey{},
 		"",
@@ -385,7 +384,6 @@ func AcceptAdminRoleTokenAdminRegistry(e cldf.Environment, cfg AcceptAdminRoleTo
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		shared.Router,
 		solana.PublicKey{},
 		"")
@@ -427,7 +425,7 @@ type SetPoolConfig struct {
 	Metadata          string
 	WritableIndexes   []uint8
 	MCMS              *proposalutils.TimelockConfig
-	SkipRegistryCheck bool
+	SkipRegistryCheck bool // set to true when you want to register and set pool in the same proposal
 }
 
 func (cfg SetPoolConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -496,7 +494,6 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		shared.Router,
 		tokenPubKey,
 		cfg.Metadata,

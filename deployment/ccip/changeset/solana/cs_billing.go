@@ -32,6 +32,9 @@ var _ cldf.ChangeSet[BillingTokenConfig] = AddBillingTokenChangeset
 // use this changeset to add a token transfer fee for a remote chain to solana (used for very specific cases)
 var _ cldf.ChangeSet[TokenTransferFeeForRemoteChainConfig] = AddTokenTransferFeeForRemoteChain
 
+// use this changeset to withdraw billed funds on solana
+var _ cldf.ChangeSet[WithdrawBilledFundsConfig] = WithdrawBilledFunds
+
 // use this changeset to update prices for token and gas price updates on solana (emergency use only)
 var _ cldf.ChangeSet[UpdatePricesConfig] = UpdatePrices
 
@@ -40,9 +43,6 @@ var _ cldf.ChangeSet[SetMaxFeeJuelsPerMsgConfig] = SetMaxFeeJuelsPerMsg
 
 // use this changeset to update price updaters on solana (emergency use only)
 var _ cldf.ChangeSet[ModifyPriceUpdaterConfig] = ModifyPriceUpdater
-
-// use this changeset to withdraw billed funds on solana
-var _ cldf.ChangeSet[WithdrawBilledFundsConfig] = WithdrawBilledFunds
 
 // ADD BILLING TOKEN
 type BillingTokenConfig struct {
@@ -113,7 +113,6 @@ func AddBillingToken(
 		&e,
 		chain,
 		chainState,
-		mcms,
 		shared.FeeQuoter,
 		solana.PublicKey{},
 		"",
@@ -258,7 +257,6 @@ func AddTokenTransferFeeForRemoteChain(e cldf.Environment, cfg TokenTransferFeeF
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		shared.FeeQuoter,
 		solana.PublicKey{},
 		"")
@@ -376,7 +374,6 @@ func UpdatePrices(e cldf.Environment, cfg UpdatePricesConfig) (cldf.ChangesetOut
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		shared.FeeQuoter,
 		solana.PublicKey{},
 		"")
@@ -480,7 +477,6 @@ func ModifyPriceUpdater(e cldf.Environment, cfg ModifyPriceUpdaterConfig) (cldf.
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		shared.FeeQuoter,
 		solana.PublicKey{},
 		"",
@@ -583,7 +579,6 @@ func WithdrawBilledFunds(e cldf.Environment, cfg WithdrawBilledFundsConfig) (cld
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		shared.Router,
 		solana.PublicKey{},
 		"",
@@ -673,7 +668,6 @@ func SetMaxFeeJuelsPerMsg(e cldf.Environment, cfg SetMaxFeeJuelsPerMsgConfig) (c
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		shared.FeeQuoter,
 		solana.PublicKey{},
 		"")

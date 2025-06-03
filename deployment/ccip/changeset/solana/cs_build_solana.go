@@ -53,10 +53,10 @@ type LocalBuildConfig struct {
 	CleanDestinationDir  bool
 	CreateDestinationDir bool
 	// Forces re-clone of git directory. Useful for forcing regeneration of keys
-	CleanGitDir bool
-	// When building locally, this will be used to replace the keys in the Rust files
+	CleanGitDir        bool
 	GenerateVanityKeys bool
-	UpgradeKeys        map[cldf.ContractType]string
+	// When building locally, this will be used to replace the keys in the Rust files for upgrade
+	UpgradeKeys map[cldf.ContractType]string
 }
 
 type BuildSolanaConfig struct {

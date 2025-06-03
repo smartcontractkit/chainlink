@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
+// use this to transfer ccip to mcms with timelock
 var _ cldf.ChangeSet[TransferCCIPToMCMSWithTimelockSolanaConfig] = TransferCCIPToMCMSWithTimelockSolana
 
 // CCIPContractsToTransfer is a struct that represents the contracts we want to transfer. Each contract set to true will be transferred.

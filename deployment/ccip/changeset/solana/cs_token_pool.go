@@ -43,6 +43,15 @@ var _ cldf.ChangeSet[RemoteChainTokenPoolConfig] = SetupTokenPoolForRemoteChain
 // lock / release ops on LnR token pool
 var _ cldf.ChangeSet[LockReleaseLiquidityOpsConfig] = LockReleaseLiquidityOps
 
+// configure token pool allow list
+var _ cldf.ChangeSet[ConfigureTokenPoolAllowListConfig] = ConfigureTokenPoolAllowList
+
+// remove from token pool allow list
+var _ cldf.ChangeSet[RemoveFromAllowListConfig] = RemoveFromTokenPoolAllowList
+
+// token pool ops
+var _ cldf.ChangeSet[TokenPoolOpsCfg] = TokenPoolOps
+
 // append mcms txns generated from solanainstructions
 func appendTxs(instructions []solana.Instruction, tokenPool solana.PublicKey, poolType cldf.ContractType, txns *[]mcmsTypes.Transaction) error {
 	for _, ixn := range instructions {
@@ -88,9 +97,10 @@ func getPoolPDAs(
 
 type TokenPoolConfig struct {
 	ChainSelector uint64
-	PoolType      *solTestTokenPool.PoolType
-	TokenPubKey   solana.PublicKey
-	Metadata      string // tag to identify which client/cll token pool executable to use
+	// a pool pda is uniquely identified by (solTokenPubKey, poolType, metadata)
+	PoolType    *solTestTokenPool.PoolType
+	TokenPubKey solana.PublicKey
+	Metadata    string // tag to identify which client/cll token pool executable to use
 }
 
 func (cfg TokenPoolConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -288,11 +298,12 @@ func (cfg EVMRemoteConfig) Validate(e cldf.Environment, state stateview.CCIPOnCh
 
 type RemoteChainTokenPoolConfig struct {
 	SolChainSelector uint64
+	// a pool pda is uniquely identified by (solTokenPubKey, poolType, metadata)
 	SolTokenPubKey   solana.PublicKey
 	SolPoolType      *solTestTokenPool.PoolType
+	Metadata         string // tag to identify which client/cll token pool executable to use
 	EVMRemoteConfigs map[uint64]EVMRemoteConfig
 	MCMS             *proposalutils.TimelockConfig
-	Metadata         string // tag to identify which client/cll token pool executable to use
 }
 
 func (cfg RemoteChainTokenPoolConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -470,7 +481,6 @@ func getNewSetuptInstructionsForBurnMint(
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		contractType,
 		tokenPubKey,
 		cfg.Metadata,
@@ -572,7 +582,6 @@ func getInstructionsForBurnMint(
 		&e,
 		chain,
 		solChainState,
-		cfg.MCMS,
 		contractType,
 		tokenPubKey,
 		cfg.Metadata,
@@ -669,7 +678,6 @@ func getNewSetuptInstructionsForLockRelease(
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		contractType,
 		tokenPubKey,
 		cfg.Metadata,
@@ -767,7 +775,6 @@ func getInstructionsForLockRelease(
 		&e,
 		chain,
 		solChainState,
-		cfg.MCMS,
 		contractType,
 		tokenPubKey,
 		cfg.Metadata,
@@ -932,14 +939,17 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 	}, nil
 }
 
+// CONFIGURE TOKEN POOL ALLOW LIST
 type ConfigureTokenPoolAllowListConfig struct {
 	SolChainSelector uint64
-	SolTokenPubKey   string
-	PoolType         *solTestTokenPool.PoolType
-	Accounts         []solana.PublicKey
-	Enabled          bool // enable or disable the allow list
-	MCMS             *proposalutils.TimelockConfig
-	Metadata         string // tag to identify which client/cll token pool executable to use
+	// a pool pda is uniquely identified by (solTokenPubKey, poolType, metadata)
+	SolTokenPubKey string
+	PoolType       *solTestTokenPool.PoolType
+	Metadata       string // tag to identify which client/cll token pool executable to use
+	// input only the ones you want to add, onchain throws error when we pass already configured accounts
+	Accounts []solana.PublicKey
+	Enabled  bool // enable or disable the allow list
+	MCMS     *proposalutils.TimelockConfig
 }
 
 func (cfg ConfigureTokenPoolAllowListConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -958,8 +968,6 @@ func (cfg ConfigureTokenPoolAllowListConfig) Validate(e cldf.Environment, chainS
 	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, tokenPubKey, cfg.Metadata, map[cldf.ContractType]bool{})
 }
 
-// input only the ones you want to add
-// onchain throws error when we pass already configured accounts
 func ConfigureTokenPoolAllowList(e cldf.Environment, cfg ConfigureTokenPoolAllowListConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infof("Configuring token pool allowlist for token %s", cfg.SolTokenPubKey)
 	state, err := stateview.LoadOnchainState(e)
@@ -992,7 +1000,6 @@ func ConfigureTokenPoolAllowList(e cldf.Environment, cfg ConfigureTokenPoolAllow
 			&e,
 			chain,
 			chainState,
-			cfg.MCMS,
 			contractType,
 			tokenPubKey,
 			cfg.Metadata,
@@ -1015,7 +1022,6 @@ func ConfigureTokenPoolAllowList(e cldf.Environment, cfg ConfigureTokenPoolAllow
 			&e,
 			chain,
 			chainState,
-			cfg.MCMS,
 			contractType,
 			tokenPubKey,
 			cfg.Metadata,
@@ -1056,13 +1062,15 @@ func ConfigureTokenPoolAllowList(e cldf.Environment, cfg ConfigureTokenPoolAllow
 	return cldf.ChangesetOutput{}, nil
 }
 
+// REMOVE FROM TOKEN POOL ALLOW LIST
 type RemoveFromAllowListConfig struct {
 	SolChainSelector uint64
-	SolTokenPubKey   string
-	PoolType         *solTestTokenPool.PoolType
-	Accounts         []solana.PublicKey
-	MCMS             *proposalutils.TimelockConfig
-	Metadata         string // tag to identify which client/cll token pool executable to use
+	// a pool pda is uniquely identified by (solTokenPubKey, poolType, metadata)
+	SolTokenPubKey string
+	PoolType       *solTestTokenPool.PoolType
+	Metadata       string             // tag to identify which client/cll token pool executable to use
+	Accounts       []solana.PublicKey // accounts to remove from allow list
+	MCMS           *proposalutils.TimelockConfig
 }
 
 func (cfg RemoveFromAllowListConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -1111,7 +1119,6 @@ func RemoveFromTokenPoolAllowList(e cldf.Environment, cfg RemoveFromAllowListCon
 			&e,
 			chain,
 			chainState,
-			cfg.MCMS,
 			contractType,
 			tokenPubKey,
 			cfg.Metadata)
@@ -1132,7 +1139,6 @@ func RemoveFromTokenPoolAllowList(e cldf.Environment, cfg RemoveFromAllowListCon
 			&e,
 			chain,
 			chainState,
-			cfg.MCMS,
 			contractType,
 			tokenPubKey,
 			cfg.Metadata,
@@ -1172,14 +1178,17 @@ func RemoveFromTokenPoolAllowList(e cldf.Environment, cfg RemoveFromAllowListCon
 	return cldf.ChangesetOutput{}, nil
 }
 
+// LOCK/UNLOCK LIQUIDITY
 type LockReleaseLiquidityOpsConfig struct {
 	SolChainSelector uint64
-	SolTokenPubKey   string
-	SetCfg           *SetLiquidityConfig
-	LiquidityCfg     *LiquidityConfig
-	RebalancerCfg    *RebalancerConfig
-	MCMS             *proposalutils.TimelockConfig
-	Metadata         string
+	// a pool pda is uniquely identified by (solTokenPubKey, poolType, metadata)
+	// poolType is only LockAndRelease_PoolType for this migration
+	SolTokenPubKey string
+	SetCfg         *SetLiquidityConfig
+	LiquidityCfg   *LiquidityConfig
+	RebalancerCfg  *RebalancerConfig
+	MCMS           *proposalutils.TimelockConfig
+	Metadata       string
 }
 
 type SetLiquidityConfig struct {
@@ -1241,7 +1250,6 @@ func LockReleaseLiquidityOps(e cldf.Environment, cfg LockReleaseLiquidityOpsConf
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		contractType,
 		tokenPubKey,
 		cfg.Metadata,
@@ -1365,14 +1373,16 @@ func LockReleaseLiquidityOps(e cldf.Environment, cfg LockReleaseLiquidityOpsConf
 	return cldf.ChangesetOutput{}, nil
 }
 
+// TOKEN POOL OPS
 type TokenPoolOpsCfg struct {
 	SolChainSelector uint64
-	SolTokenPubKey   string
-	PoolType         *solTestTokenPool.PoolType
-	Metadata         string          // tag to identify which client/cll token pool executable to use
-	DeleteChainCfg   *DeleteChainCfg // remove remote pool config corresponding to the set (solTokenPubKey, poolType, metadata, remoteChainSelector)
-	SetRouterCfg     *SetRouterCfg
-	MCMS             *proposalutils.TimelockConfig
+	// a pool pda is uniquely identified by (solTokenPubKey, poolType, metadata)
+	SolTokenPubKey string
+	PoolType       *solTestTokenPool.PoolType
+	Metadata       string          // tag to identify which client/cll token pool executable to use
+	DeleteChainCfg *DeleteChainCfg // remove remote pool config corresponding to the set (solTokenPubKey, poolType, metadata, remoteChainSelector)
+	SetRouterCfg   *SetRouterCfg   // set router address on token pool config pda
+	MCMS           *proposalutils.TimelockConfig
 }
 
 type DeleteChainCfg struct {
@@ -1461,7 +1471,6 @@ func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput
 			&e,
 			chain,
 			chainState,
-			cfg.MCMS,
 			contractType,
 			tokenPubKey,
 			cfg.Metadata,
@@ -1499,7 +1508,6 @@ func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput
 			&e,
 			chain,
 			chainState,
-			cfg.MCMS,
 			contractType,
 			tokenPubKey,
 			cfg.Metadata,

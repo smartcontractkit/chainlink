@@ -27,7 +27,7 @@ var _ cldf.ChangeSet[DisableRemoteChainConfig] = DisableRemoteChain
 
 type DisableRemoteChainConfig struct {
 	ChainSelector uint64
-	RemoteChains  []uint64
+	RemoteChains  []uint64 // the remote chain selectors to disable
 	MCMS          *proposalutils.TimelockConfig
 }
 
@@ -143,7 +143,6 @@ func doDisableRemoteChain(
 			&e,
 			chain,
 			chainState,
-			cfg.MCMS,
 			shared.FeeQuoter,
 			solana.PublicKey{},
 			"",
@@ -172,7 +171,6 @@ func doDisableRemoteChain(
 			&e,
 			chain,
 			chainState,
-			cfg.MCMS,
 			shared.OffRamp,
 			solana.PublicKey{},
 			"")

@@ -145,11 +145,11 @@ func FetchTimelockSigner(e cldf.Environment, chainSelector uint64) (solana.Publi
 	return timelockSignerPDA, nil
 }
 
+// returns the authority for the given ixn based on program ownership
 func GetAuthorityForIxn(
 	e *cldf.Environment,
 	chain cldf_solana.Chain,
 	chainState solanastateview.CCIPChainState,
-	mcms *proposalutils.TimelockConfig,
 	contractType cldf.ContractType,
 	tokenAddress solana.PublicKey, // used for burnmint and lockrelease
 	tokenMetadata string, // used for burnmint and lockrelease
@@ -162,4 +162,18 @@ func GetAuthorityForIxn(
 		return timelockSigner
 	}
 	return chain.DeployerKey.PublicKey()
+}
+
+// GetTokenProgramID returns the program ID for the given token program name
+func GetTokenProgramID(programName cldf.ContractType) (solana.PublicKey, error) {
+	tokenPrograms := map[cldf.ContractType]solana.PublicKey{
+		shared.SPLTokens:     solana.TokenProgramID,
+		shared.SPL2022Tokens: solana.Token2022ProgramID,
+	}
+
+	programID, ok := tokenPrograms[programName]
+	if !ok {
+		return solana.PublicKey{}, fmt.Errorf("invalid token program: %s. Must be one of: %s, %s", programName, shared.SPLTokens, shared.SPL2022Tokens)
+	}
+	return programID, nil
 }
