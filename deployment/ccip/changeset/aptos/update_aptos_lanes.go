@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/mcms"
-	"github.com/smartcontractkit/mcms/types"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	config "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
@@ -81,8 +81,11 @@ func (cs AddAptosLanes) VerifyPreconditions(env cldf.Environment, cfg config.Upd
 }
 
 func (cs AddAptosLanes) Apply(env cldf.Environment, cfg config.UpdateAptosLanesConfig) (cldf.ChangesetOutput, error) {
-	timeLockProposals := []mcms.TimelockProposal{}
-	mcmsOperations := []types.BatchOperation{}
+	var (
+		timeLockProposals []mcms.TimelockProposal
+		mcmsOperations    []mcmstypes.BatchOperation
+	)
+
 	seqReports := make([]operations.Report[any, any], 0)
 
 	// Add lane on EVM chains

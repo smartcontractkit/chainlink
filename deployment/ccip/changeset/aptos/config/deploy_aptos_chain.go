@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
