@@ -36,6 +36,14 @@ var _ cldf.ChangeSet[OffRampRefAddressesConfig] = UpdateOffRampRefAddresses
 // use this to set the upgrade authority of a contract
 var _ cldf.ChangeSet[SetUpgradeAuthorityConfig] = SetUpgradeAuthorityChangeset
 
+// use this to deploy a receiver for test
+var _ cldf.ChangeSet[DeployForTestConfig] = DeployReceiverForTest
+
+// use this to set the link token on the router and feeQuoter
+// link token is a static field, so this should not be called anymore
+// we needed this cause we redeployed the link as SPL instead of SPL-2022
+var _ cldf.ChangeSet[SetLinkTokenConfig] = SetLinkToken
+
 // HELPER FUNCTIONS
 // GetTokenProgramID returns the program ID for the given token program name
 func GetTokenProgramID(programName cldf.ContractType) (solana.PublicKey, error) {

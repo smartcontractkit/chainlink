@@ -61,15 +61,17 @@ func getTypeToProgramDeployName() map[cldf.ContractType]string {
 }
 
 type DeployChainContractsConfig struct {
-	HomeChainSelector      uint64
+	HomeChainSelector      uint64 // eth mainnet/testnet
 	ChainSelector          uint64
 	ContractParamsPerChain ChainContractParams
-	UpgradeConfig          UpgradeConfig
-	BuildConfig            *BuildSolanaConfig
+	// include the version of the contracts you want to upgrade here
+	UpgradeConfig UpgradeConfig
+	// this will be used to build the solana programs
+	BuildConfig *BuildSolanaConfig
 	// identifier for which token pool to deploy (i.e. partner identifier). defaults to CLL
 	BurnMintTokenPoolMetadata    string
 	LockReleaseTokenPoolMetadata string
-	// TODO: add validation for this
+	// this will be used to deploy the mcms contracts
 	MCMSWithTimelockConfig *types.MCMSWithTimelockConfigV2
 }
 
