@@ -15,9 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 )

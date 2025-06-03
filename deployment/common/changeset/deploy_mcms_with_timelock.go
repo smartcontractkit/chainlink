@@ -66,7 +66,7 @@ func DeployMCMSWithTimelockV2(
 			if s != nil {
 				chainstate = s[chainSel]
 			}
-			_, err = evminternal.DeployMCMSWithTimelockContractsEVM(env.GetContext(), env.Logger, env.Chains[chainSel], newAddresses, cfg, chainstate)
+			_, err = evminternal.DeployMCMSWithTimelockContractsEVM(env.GetContext(), env.Logger, env.BlockChains.EVMChains()[chainSel], newAddresses, cfg, chainstate)
 			if err != nil {
 				return cldf.ChangesetOutput{AddressBook: newAddresses}, err
 			}
@@ -75,7 +75,7 @@ func DeployMCMSWithTimelockV2(
 			// this is not used in CLD as we need to dynamically resolve the artifacts to deploy these contracts
 			// we did not want to add the artifact resolution logic here, so we instead deploy using ccip/changeset/solana/cs_deploy_chain.go
 			// for in memory tests, programs and state are pre-loaded, so we use this function via testhelpers.TransferOwnershipSolana
-			_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.SolChains[chainSel], newAddresses, cfg)
+			_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.BlockChains.SolanaChains()[chainSel], newAddresses, cfg)
 			if err != nil {
 				return cldf.ChangesetOutput{AddressBook: newAddresses}, err
 			}
@@ -106,7 +106,7 @@ func grantRolePreconditions(e cldf.Environment, cfg GrantRoleInput) error {
 		if proposer == (common.Address{}) {
 			return fmt.Errorf("proposer address not found for chain %d", selector)
 		}
-		chain, ok := e.Chains[selector]
+		chain, ok := e.BlockChains.EVMChains()[selector]
 		if !ok {
 			return fmt.Errorf("chain not found for chain %d", selector)
 		}
@@ -144,9 +144,10 @@ func grantRoleLogic(e cldf.Environment, cfg GrantRoleInput) (cldf.ChangesetOutpu
 	batches := make([]mcmstypes.BatchOperation, 0)
 	for chain, existingProposer := range cfg.ExistingProposerByChain {
 		stateForChain := mcmsState[chain]
+		evmChains := e.BlockChains.EVMChains()
 		mcmsTxs, err := evminternal.GrantRolesForTimelock(
 			e.GetContext(),
-			e.Logger, e.Chains[chain], &proposalutils.MCMSWithTimelockContracts{
+			e.Logger, evmChains[chain], &proposalutils.MCMSWithTimelockContracts{
 				CancellerMcm: stateForChain.CancellerMcm,
 				BypasserMcm:  stateForChain.BypasserMcm,
 				ProposerMcm:  stateForChain.ProposerMcm,
@@ -161,7 +162,7 @@ func grantRoleLogic(e cldf.Environment, cfg GrantRoleInput) (cldf.ChangesetOutpu
 		}
 		timelocks[chain] = mcmsState[chain].Timelock.Address().Hex()
 		proposers[chain] = existingProposer.Hex()
-		inspectors[chain] = mcmsevmsdk.NewInspector(e.Chains[chain].Client)
+		inspectors[chain] = mcmsevmsdk.NewInspector(evmChains[chain].Client)
 		batches = append(batches, mcmstypes.BatchOperation{
 			ChainSelector: mcmstypes.ChainSelector(chain),
 			Transactions:  mcmsTxs,

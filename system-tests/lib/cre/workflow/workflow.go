@@ -10,7 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper"
+	workflow_registry_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"

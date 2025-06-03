@@ -29,6 +29,7 @@ func TestTransferToMCMSWithTimelockV2(t *testing.T) {
 		Nodes:  1,
 	})
 	chain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	evmChains := e.BlockChains.EVMChains()
 	e, err := Apply(t, e, nil,
 		Configure(
 			cldf.CreateLegacyChangeSet(DeployLinkToken),
@@ -44,9 +45,9 @@ func TestTransferToMCMSWithTimelockV2(t *testing.T) {
 	require.NoError(t, err)
 	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
 	require.NoError(t, err)
-	state, err := MaybeLoadMCMSWithTimelockChainState(e.Chains[chain1], addrs)
+	state, err := MaybeLoadMCMSWithTimelockChainState(evmChains[chain1], addrs)
 	require.NoError(t, err)
-	link, err := MaybeLoadLinkTokenChainState(e.Chains[chain1], addrs)
+	link, err := MaybeLoadLinkTokenChainState(evmChains[chain1], addrs)
 	require.NoError(t, err)
 	e, err = Apply(t, e,
 		map[uint64]*proposalutils.TimelockExecutionContracts{
@@ -66,7 +67,7 @@ func TestTransferToMCMSWithTimelockV2(t *testing.T) {
 	)
 	require.NoError(t, err)
 	// We expect now that the link token is owned by the MCMS timelock.
-	link, err = MaybeLoadLinkTokenChainState(e.Chains[chain1], addrs)
+	link, err = MaybeLoadLinkTokenChainState(evmChains[chain1], addrs)
 	require.NoError(t, err)
 	o, err := link.LinkToken.Owner(nil)
 	require.NoError(t, err)
@@ -86,7 +87,7 @@ func TestTransferToMCMSWithTimelockV2(t *testing.T) {
 
 	o, err = link.LinkToken.Owner(nil)
 	require.NoError(t, err)
-	require.Equal(t, e.Chains[chain1].DeployerKey.From, o)
+	require.Equal(t, evmChains[chain1].DeployerKey.From, o)
 }
 
 func TestRenounceTimelockDeployerConfigValidate(t *testing.T) {
@@ -184,7 +185,7 @@ func TestRenounceTimelockDeployer(t *testing.T) {
 	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
 	require.NoError(t, err)
 
-	state, err := MaybeLoadMCMSWithTimelockChainState(e.Chains[chain1], addrs)
+	state, err := MaybeLoadMCMSWithTimelockChainState(e.BlockChains.EVMChains()[chain1], addrs)
 	require.NoError(t, err)
 
 	tl := state.Timelock

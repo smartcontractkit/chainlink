@@ -15,6 +15,9 @@ import (
 	"github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -65,7 +68,7 @@ func (cfg MCMSConfigV2) Validate(e cldf.Environment, selectors []uint64) error {
 				return fmt.Errorf("chain selector: %d not found for MCMS state", chainSelector)
 			}
 			if cfg.ProposalConfig != nil {
-				err := cfg.ProposalConfig.Validate(e.Chains[chainSelector], *chainState)
+				err := cfg.ProposalConfig.Validate(e.BlockChains.EVMChains()[chainSelector], *chainState)
 				if err != nil {
 					return err
 				}
@@ -95,7 +98,7 @@ func (cfg MCMSConfigV2) Validate(e cldf.Environment, selectors []uint64) error {
 }
 
 // setConfigOrTxDataV2 executes set config tx or gets the tx data for the MCMS proposal
-func setConfigOrTxDataV2(ctx context.Context, lggr logger.Logger, chain cldf.Chain, cfg mcmstypes.Config, contract *gethwrappers.ManyChainMultiSig, useMCMS bool) (*types.Transaction, error) {
+func setConfigOrTxDataV2(ctx context.Context, lggr logger.Logger, chain cldf_evm.Chain, cfg mcmstypes.Config, contract *gethwrappers.ManyChainMultiSig, useMCMS bool) (*types.Transaction, error) {
 	opts := cldf.SimTransactOpts()
 	if !useMCMS {
 		opts = chain.DeployerKey
@@ -126,7 +129,7 @@ type setConfigTxs struct {
 }
 
 // setConfigPerRoleV2 sets the configuration for each of the MCMS contract roles on the mcmsState.
-func setConfigPerRoleV2(ctx context.Context, lggr logger.Logger, chain cldf.Chain, cfg ConfigPerRoleV2, mcmsState *commonState.MCMSWithTimelockState, useMCMS bool) (setConfigTxs, error) {
+func setConfigPerRoleV2(ctx context.Context, lggr logger.Logger, chain cldf_evm.Chain, cfg ConfigPerRoleV2, mcmsState *commonState.MCMSWithTimelockState, useMCMS bool) (setConfigTxs, error) {
 	// Proposer set config
 	proposerTx, err := setConfigOrTxDataV2(ctx, lggr, chain, cfg.Proposer, mcmsState.ProposerMcm, useMCMS)
 	if err != nil {
@@ -180,7 +183,7 @@ func SetConfigMCMSV2(e cldf.Environment, cfg MCMSConfigV2) (cldf.ChangesetOutput
 
 		switch family {
 		case chain_selectors.FamilyEVM:
-			chain := e.Chains[chainSelector]
+			chain := e.BlockChains.EVMChains()[chainSelector]
 			mcmsStatePerChain, err := commonState.MaybeLoadMCMSWithTimelockState(e, []uint64{chainSelector})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
@@ -250,7 +253,7 @@ func setConfigSolana(
 	e cldf.Environment, chainSelector uint64, cfg ConfigPerRoleV2,
 	timelockAddressesPerChain, proposerMcmsPerChain map[uint64]string, useMCMS bool,
 ) ([]mcmstypes.BatchOperation, error) {
-	chain := e.SolChains[chainSelector]
+	chain := e.BlockChains.SolanaChains()[chainSelector]
 	mcmsStatePerChain, err := commonState.MaybeLoadMCMSWithTimelockStateSolana(e, []uint64{chainSelector})
 	if err != nil {
 		return nil, err
@@ -289,7 +292,7 @@ func setConfigSolana(
 	return batches, nil
 }
 
-func setConfigForRole(e cldf.Environment, chain cldf.SolChain, cfg mcmstypes.Config, mcmAddress string, contractType string, useMCMS bool, timelockSignerPDA solanasdk.PublicKey) (mcmstypes.BatchOperation, error) {
+func setConfigForRole(e cldf.Environment, chain cldf_solana.Chain, cfg mcmstypes.Config, mcmAddress string, contractType string, useMCMS bool, timelockSignerPDA solanasdk.PublicKey) (mcmstypes.BatchOperation, error) {
 	var configurer *solana.Configurer
 
 	if useMCMS {

@@ -194,7 +194,10 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e cldf.Environment
 		return errors.New("active config digest is empty")
 	}
 	chainSel := homeCfg.Config.ChainSelector
-	if _, exists := e.SolChains[chainSel]; exists {
+	if _, exists := e.BlockChains.SolanaChains()[chainSel]; exists {
+		return nil
+	}
+	if _, exists := e.BlockChains.AptosChains()[chainSel]; exists {
 		return nil
 	}
 	offRamp, ok := offRampsByChain[chainSel]
@@ -328,9 +331,9 @@ func (c CCIPChainState) ValidateOnRamp(
 				c.OnRamp.Address().Hex(), c.FeeAggregator.Hex(), dynamicCfg.FeeAggregator.Hex())
 		}
 	} else {
-		if dynamicCfg.FeeAggregator != e.Chains[selector].DeployerKey.From {
+		if dynamicCfg.FeeAggregator != e.BlockChains.EVMChains()[selector].DeployerKey.From {
 			return fmt.Errorf("onRamp %s feeAggregator mismatch in dynamic config: expected deployer key %s, got %s",
-				c.OnRamp.Address().Hex(), e.Chains[selector].DeployerKey.From.Hex(), dynamicCfg.FeeAggregator.Hex())
+				c.OnRamp.Address().Hex(), e.BlockChains.EVMChains()[selector].DeployerKey.From.Hex(), dynamicCfg.FeeAggregator.Hex())
 		}
 	}
 
@@ -416,7 +419,7 @@ func (c CCIPChainState) ValidateRouter(e cldf.Environment, isTestRouter bool) ([
 	}
 	for _, d := range offRampDetails {
 		// skip if solana - solana state is maintained in solana
-		if _, exists := e.SolChains[d.SourceChainSelector]; exists {
+		if _, exists := e.BlockChains.SolanaChains()[d.SourceChainSelector]; exists {
 			continue
 		}
 		allConnectedChains = append(allConnectedChains, d.SourceChainSelector)

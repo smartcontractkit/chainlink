@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
@@ -60,7 +61,7 @@ type enqueuedTriggerEvent struct {
 	event        capabilities.TriggerResponse
 }
 
-func NewEngine(ctx context.Context, cfg *EngineConfig) (*Engine, error) {
+func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	err := cfg.Validate()
 	if err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
@@ -77,7 +78,7 @@ func NewEngine(ctx context.Context, cfg *EngineConfig) (*Engine, error) {
 		Name:  "WorkflowEngineV2",
 		Start: engine.start,
 		Close: engine.close,
-	}.NewServiceEngine(cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID))
+	}.NewServiceEngine(logger.Sugared(cfg.Lggr).Named("WorkflowEngine").With("workflowID", cfg.WorkflowID))
 	return engine, nil
 }
 

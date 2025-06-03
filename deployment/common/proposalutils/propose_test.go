@@ -61,7 +61,7 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	chain := env.Chains[chainSelector]
+	chain := env.BlockChains.EVMChains()[chainSelector]
 	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 	require.NoError(t, err)
 	mcmsState, err := changeset.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
@@ -69,7 +69,7 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 	timelockAddress := mcmsState.Timelock.Address()
 	require.NoError(t, err)
 
-	solChain := env.SolChains[chainSelectorSolana]
+	solChain := env.BlockChains.SolanaChains()[chainSelectorSolana]
 	addrs, err = env.ExistingAddresses.AddressesForChain(chainSelectorSolana)
 	require.NoError(t, err)
 	solState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addrs)

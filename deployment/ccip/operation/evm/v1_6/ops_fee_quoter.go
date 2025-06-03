@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -39,7 +40,7 @@ var (
 			ab := deps.AddressBook
 			contractParams := input.Params
 			feeQ, err := cldf.DeployContract(b.Logger, chain, ab,
-				func(chain cldf.Chain) cldf.ContractDeploy[*fee_quoter.FeeQuoter] {
+				func(chain cldf_evm.Chain) cldf.ContractDeploy[*fee_quoter.FeeQuoter] {
 					prAddr, tx2, pr, err2 := fee_quoter.DeployFeeQuoter(
 						chain.DeployerKey,
 						chain.Client,
@@ -86,7 +87,7 @@ var (
 			if err != nil {
 				return opsutil.OpOutput{}, err
 			}
-			chain := deps.Env.Chains[input.ChainSelector]
+			chain := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
 			chainState := state.MustGetEVMChainState(input.ChainSelector)
 			deployerGroup := deployergroup.NewDeployerGroup(e, state, input.MCMS).
 				WithDeploymentContext("set FeeQuoter authorized caller on %s" + chain.String())
@@ -122,7 +123,7 @@ func (i FeeQApplyAuthorizedCallerOpInput) Validate(env cldf.Environment, state s
 	if err != nil {
 		return err
 	}
-	chain := env.Chains[i.ChainSelector]
+	chain := env.BlockChains.EVMChains()[i.ChainSelector]
 	if state.MustGetEVMChainState(i.ChainSelector).FeeQuoter == nil {
 		return fmt.Errorf("FeeQuoter not found for chain %s", chain.String())
 	}

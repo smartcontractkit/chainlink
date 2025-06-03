@@ -25,15 +25,15 @@ import (
 
 func TestAcceptOwnership(t *testing.T) {
 	t.Parallel()
+
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
 		Chains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
 	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0]
-	chain := env.Chains[chainSelector]
+	chain := env.BlockChains.EVMChains()[chainSelector]
 
 	newEnv, err := commonChangesets.Apply(t, env, nil,
 		commonChangesets.Configure(

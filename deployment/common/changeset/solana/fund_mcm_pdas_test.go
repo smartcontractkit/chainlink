@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -63,7 +65,6 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	validEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{SolChains: 1})
-	validEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = cldf.SolChain{}
 	validSolChainSelector := validEnv.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 
 	timelockID := mcmsSolana.ContractAddress(
@@ -112,12 +113,10 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 
 	// Create an environment that simulates a chain where the MCMS contracts have not been deployed,
 	// e.g. missing the required addresses so that the state loader returns empty seeds.
-	noMCMSEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains:    0,
-		SolChains: 1,
-		Nodes:     1,
+	noMCMSEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{})
+	noMCMSEnv.BlockChains = cldf_chain.NewBlockChains(map[uint64]cldf_chain.BlockChain{
+		chainselectors.SOLANA_DEVNET.Selector: cldf_solana.Chain{},
 	})
-	noMCMSEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = cldf.SolChain{}
 	err = noMCMSEnv.ExistingAddresses.Save(chainselectors.SOLANA_DEVNET.Selector, mcmsProposerIDEmpty, cldf.TypeAndVersion{
 		Type:    types.BypasserManyChainMultisig,
 		Version: deployment.Version1_0_0,
@@ -125,12 +124,10 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create an environment with a Solana chain that has an invalid (zero) underlying chain.
-	invalidSolChainEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains:    0,
-		SolChains: 0,
-		Nodes:     1,
+	invalidSolChainEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{})
+	invalidSolChainEnv.BlockChains = cldf_chain.NewBlockChains(map[uint64]cldf_chain.BlockChain{
+		validSolChainSelector: cldf_solana.Chain{},
 	})
-	invalidSolChainEnv.SolChains[validSolChainSelector] = cldf.SolChain{}
 
 	tests := []struct {
 		name          string
@@ -246,8 +243,9 @@ func TestFundMCMSignersChangeset_Apply(t *testing.T) {
 		BypasserMCM:  75 * solana.LAMPORTS_PER_SOL,
 		Timelock:     83 * solana.LAMPORTS_PER_SOL,
 	}
+	solChains := env.BlockChains.SolanaChains()
 	amountsPerChain := make(map[uint64]commonSolana.AmountsToTransfer)
-	for chainSelector := range env.SolChains {
+	for chainSelector := range solChains {
 		amountsPerChain[chainSelector] = cfgAmounts
 	}
 	config := commonSolana.FundMCMSignerConfig{
@@ -262,7 +260,7 @@ func TestFundMCMSignersChangeset_Apply(t *testing.T) {
 	require.NoError(t, err)
 
 	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
-	solChain := env.SolChains[chainSelector]
+	solChain := solChains[chainSelector]
 	addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 	require.NoError(t, err)
 

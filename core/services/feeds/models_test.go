@@ -34,6 +34,11 @@ func Test_NewChainType(t *testing.T) {
 			want: ChainTypeTron,
 		},
 		{
+			name: "TON Chain Type",
+			give: "TON",
+			want: ChainTypeTON,
+		},
+		{
 			name:    "Invalid Chain Type",
 			give:    "",
 			want:    ChainTypeUnknown,

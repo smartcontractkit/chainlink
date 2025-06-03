@@ -25,6 +25,7 @@ import (
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	kf "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -72,7 +73,7 @@ func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureCo
 	}
 
 	contractSetsResp, err := GetContractSets(lggr, &GetContractSetsRequest{
-		Chains:      req.Env.Chains,
+		Chains:      req.Env.BlockChains.EVMChains(),
 		AddressBook: req.Env.ExistingAddresses,
 	})
 	if err != nil {
@@ -145,14 +146,14 @@ func DonInfos(dons []DonCapabilities, jd cldf.OffchainClient) ([]DonInfo, error)
 	return donInfos, nil
 }
 
-func getRegistryContract(e *cldf.Environment, registryChainSel uint64) (*capabilities_registry.CapabilitiesRegistry, *cldf.Chain, error) {
-	registryChain, ok := e.Chains[registryChainSel]
+func getRegistryContract(e *cldf.Environment, registryChainSel uint64) (*capabilities_registry.CapabilitiesRegistry, *cldf_evm.Chain, error) {
+	registryChain, ok := e.BlockChains.EVMChains()[registryChainSel]
 	if !ok {
 		return nil, nil, fmt.Errorf("chain %d not found in environment", registryChainSel)
 	}
 
 	contractSetsResp, err := GetContractSets(e.Logger, &GetContractSetsRequest{
-		Chains:      e.Chains,
+		Chains:      e.BlockChains.EVMChains(),
 		AddressBook: e.ExistingAddresses,
 	})
 	if err != nil {
@@ -216,7 +217,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req *ConfigureRe
 			capabilities = append(capabilities, cap.CapabilitiesRegistryCapability)
 		}
 	}
-	_, err = AddCapabilities(lggr, req.CapabilitiesRegistry, req.Env.Chains[req.RegistryChainSel], capabilities, false)
+	_, err = AddCapabilities(lggr, req.CapabilitiesRegistry, req.Env.BlockChains.EVMChains()[req.RegistryChainSel], capabilities, false)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to add capabilities to registry: %w", err)
@@ -295,13 +296,14 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req *ConfigureRe
 // Depreciated: use changeset.ConfigureOCR3Contract instead
 // ocr3 contract on the registry chain for the wf dons
 func ConfigureOCR3Contract(env *cldf.Environment, chainSel uint64, dons []RegisteredDon, cfg *OracleConfig) error {
-	registryChain, ok := env.Chains[chainSel]
+	evmChains := env.BlockChains.EVMChains()
+	registryChain, ok := evmChains[chainSel]
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", chainSel)
 	}
 
 	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
-		Chains:      env.Chains,
+		Chains:      evmChains,
 		AddressBook: env.ExistingAddresses,
 	})
 	if err != nil {
@@ -360,12 +362,14 @@ func ConfigureOCR3ContractFromJD(env *cldf.Environment, cfg ConfigureOCR3Config)
 		prefix = "DRY RUN: "
 	}
 	env.Logger.Infof("%sconfiguring OCR3 contract for chain %d", prefix, cfg.ChainSel)
-	registryChain, ok := env.Chains[cfg.ChainSel]
+
+	evmChains := env.BlockChains.EVMChains()
+	registryChain, ok := evmChains[cfg.ChainSel]
 	if !ok {
 		return nil, fmt.Errorf("chain %d not found in environment", cfg.ChainSel)
 	}
 	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
-		Chains:      env.Chains,
+		Chains:      evmChains,
 		AddressBook: env.ExistingAddresses,
 	})
 	if err != nil {
@@ -522,7 +526,7 @@ func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSReque
 	return resp, nil
 }
 
-func addNOPsMCMSProposal(registry *capabilities_registry.CapabilitiesRegistry, nops []capabilities_registry.CapabilitiesRegistryNodeOperator, regChain cldf.Chain) (*mcmstypes.BatchOperation, error) {
+func addNOPsMCMSProposal(registry *capabilities_registry.CapabilitiesRegistry, nops []capabilities_registry.CapabilitiesRegistryNodeOperator, regChain cldf_evm.Chain) (*mcmstypes.BatchOperation, error) {
 	tx, err := registry.AddNodeOperators(cldf.SimTransactOpts(), nops)
 	if err != nil {
 		err = cldf.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
@@ -683,7 +687,7 @@ type AddNodesResponse struct {
 }
 
 type AddNodesRequest struct {
-	RegistryChain        cldf.Chain
+	RegistryChain        cldf_evm.Chain
 	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
 	NodeParams           map[string]capabilities_registry.CapabilitiesRegistryNodeParams // the node id to the node params may be any node-unique identifier such as p2p, csa, etc
 
@@ -801,7 +805,7 @@ type RegisterDonsRequest struct {
 	RegistryChainSelector uint64
 
 	Registry      *capabilities_registry.CapabilitiesRegistry
-	RegistryChain *cldf.Chain
+	RegistryChain *cldf_evm.Chain
 
 	NodeIDToP2PID     map[string][32]byte
 	DonToCapabilities map[string][]RegisteredCapability
@@ -1018,7 +1022,7 @@ func containsAllDONs(donInfos []capabilities_registry.CapabilitiesRegistryDONInf
 
 // configureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows
 // dons that don't accept workflows are not registered with the forwarder
-func configureForwarder(lggr logger.Logger, chain cldf.Chain, fwdr *kf.KeystoneForwarder, dons []RegisteredDon, useMCMS bool) (map[uint64]mcmstypes.BatchOperation, error) {
+func configureForwarder(lggr logger.Logger, chain cldf_evm.Chain, fwdr *kf.KeystoneForwarder, dons []RegisteredDon, useMCMS bool) (map[uint64]mcmstypes.BatchOperation, error) {
 	if fwdr == nil {
 		return nil, errors.New("nil forwarder contract")
 	}

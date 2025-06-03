@@ -41,7 +41,7 @@ func NewDeployEnvironmentFromCribOutput(lggr logger.Logger, output DeployOutput)
 		blockChains[c.Selector] = c
 	}
 
-	return cldf.NewCLDFEnvironment(
+	return cldf.NewEnvironment(
 		CRIB_ENV_NAME,
 		lggr,
 		output.AddressBook,
@@ -49,9 +49,6 @@ func NewDeployEnvironmentFromCribOutput(lggr logger.Logger, output DeployOutput)
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,
 		]().Seal(),
-		chains,
-		solChains, // nil for solana chains, can use memory solana chain example when required
-		nil,       // nil for aptos chains, can use memory solana chain example when required
 		output.NodeIDs,
 		nil, // todo: populate the offchain client using output.DON
 		//nolint:gocritic // intentionally use a lambda to allow dynamic context replacement in Environment Commit 90ee880
