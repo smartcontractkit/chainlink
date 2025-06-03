@@ -46,7 +46,7 @@ var (
 		"FeeQuoterUpdatePricesSequence",
 		semver.MustParse("1.0.0"),
 		"Update token and gas prices on FeeQuoter 1.6.0 contracts on multiple EVM chains",
-		func(b operations.Bundle, chains map[uint64]cldf.Chain, input FeeQuoterUpdatePricesSequenceInput) (map[uint64][]opsutil.EVMCallOutput, error) {
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input FeeQuoterUpdatePricesSequenceInput) (map[uint64][]opsutil.EVMCallOutput, error) {
 			opOutputs := make(map[uint64][]opsutil.EVMCallOutput, len(input.UpdatesByChain))
 			for chainSel, update := range input.UpdatesByChain {
 				chain, ok := chains[chainSel]
