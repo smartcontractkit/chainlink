@@ -150,12 +150,17 @@ func (oi *oidcAuthenticator) generateSecureState() string {
 	return base64.URLEncoding.EncodeToString(b)[:43]
 }
 
+func (oi *oidcAuthenticator) handleCheckEnabled(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"enabled": true})
+	return
+}
+
 func (oi *oidcAuthenticator) handleLoginProviderRedirect(w http.ResponseWriter, r *http.Request) {
 	state := oi.generateSecureState()
 	http.Redirect(w, r, oi.oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline), http.StatusFound)
 }
 
-func (oi *oidcAuthenticator) handleOIDCCallback(c *gin.Context) {
+func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 	// Parse and validate the incoming JSON request
 	var req ExchangeTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -235,11 +240,10 @@ func (oi *oidcAuthenticator) handleOIDCCallback(c *gin.Context) {
 		c.String(http.StatusInternalServerError, "Error creating session")
 	}
 
-	oi.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]interface{}{"email": claims.Email})
+	oi.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]any{"email": claims.Email})
 
 	// save session
 	sesh := sessions.Default(c)
-	fmt.Printf("%#v %#v %#v", sesh, webauth.SessionIDKey, session.ID)
 	sesh.Set(webauth.SessionIDKey, session.ID)
 	err = sesh.Save()
 	if err != nil {
@@ -633,8 +637,9 @@ func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
 
 // TODO: add context
 func (oidc *oidcAuthenticator) ExtendRouter(api *gin.RouterGroup) error {
+	api.GET("/oidc-enabled", oidc.handleCheckEnabled)
 	api.GET("/oidc-login", ginHandlerFromHTTP(oidc.handleLoginProviderRedirect))
-	api.POST("/oidc-exchange", oidc.handleOIDCCallback)
+	api.POST("/oidc-exchange", oidc.handleTokenExchange)
 
 	return nil
 }
