@@ -200,9 +200,6 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e cldf.Environment
 	if _, exists := e.BlockChains.AptosChains()[chainSel]; exists {
 		return nil
 	}
-	if _, exists := e.BlockChains.AptosChains()[chainSel]; exists {
-		return nil
-	}
 	offRamp, ok := offRampsByChain[chainSel]
 	if !ok {
 		return fmt.Errorf("offRamp for chain %d not found in the state", chainSel)
