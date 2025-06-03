@@ -64,7 +64,7 @@ func TestE2ELegacy(t *testing.T) {
 	}
 	e.Env = v1_5.AddLanes(t, e.Env, state, pairs)
 	// permabless the commit stores
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_5changeset.PermaBlessCommitStoreChangeset),
 			v1_5changeset.PermaBlessCommitStoreConfig{
