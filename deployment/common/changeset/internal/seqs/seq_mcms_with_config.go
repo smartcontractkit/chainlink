@@ -21,8 +21,8 @@ type SeqDeployMCMSWithConfigDeps struct {
 }
 
 type SeqDeployMCMSWithConfigInput struct {
-	ContractType cldf.ContractType
-	MCMConfig    mcmsTypes.Config
+	ContractType  cldf.ContractType
+	MCMConfig     mcmsTypes.Config
 	ChainSelector uint64
 }
 
@@ -39,13 +39,13 @@ var SeqEVMDeployMCMSWithConfig = operations.NewSequence(
 		// Deploy MCMS contract
 		deployReport, err := operations.ExecuteOperation(b, ops.OpEVMDeployMCMS,
 			ops.OpEVMMCMSDeps{
-				Chain:   deps.Chain,
-				Backend: deps.Backend,
-				Options: deps.Options,
+				Chain:    deps.Chain,
+				Backend:  deps.Backend,
+				Options:  deps.Options,
 				AddrBook: deps.AddrBook,
 			},
 			ops.OpEVMDeployMCMSInput{
-				ContractType: in.ContractType,
+				ContractType:  in.ContractType,
 				ChainSelector: in.ChainSelector,
 			},
 		)

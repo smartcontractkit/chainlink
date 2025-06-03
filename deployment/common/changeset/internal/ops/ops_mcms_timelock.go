@@ -26,7 +26,7 @@ type OpEVMMCMSDeps struct {
 }
 
 type OpEVMDeployMCMSInput struct {
-	ContractType cldf.ContractType
+	ContractType  cldf.ContractType
 	ChainSelector uint64 // Needed to distinguish different input for Operations API
 }
 
@@ -38,7 +38,7 @@ type OpEVMSetConfigMCMSInput struct {
 
 type OpEVMDeployMCMSOutput struct {
 	Address common.Address `json:"address"`
-	Tx      common.Hash    `json:"tx"`	
+	Tx      common.Hash    `json:"tx"`
 }
 
 type OpEVMSetConfigMCMSOutput struct {
@@ -77,7 +77,7 @@ var OpEVMDeployMCMS = operations.NewOperation(
 			)
 			return out, err
 		}
-		
+
 		// Confirm the transaction
 		if _, err = deps.Chain.Confirm(mcm.Tx); err != nil {
 			b.Logger.Errorw("Failed to confirm deployment",
@@ -97,7 +97,7 @@ var OpEVMDeployMCMS = operations.NewOperation(
 
 		return OpEVMDeployMCMSOutput{
 			Address: mcm.Address,
-			Tx: 	mcm.Tx.Hash(),			
+			Tx:      mcm.Tx.Hash(),
 		}, nil
 	})
 

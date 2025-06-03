@@ -134,8 +134,8 @@ func DeployMCMSWithTimelockContractsEVM(
 	}
 	if bypasser == nil {
 		seqInput := seqs.SeqDeployMCMSWithConfigInput{
-			ContractType: commontypes.BypasserManyChainMultisig,
-			MCMConfig:    config.Bypasser,
+			ContractType:  commontypes.BypasserManyChainMultisig,
+			MCMConfig:     config.Bypasser,
 			ChainSelector: chain.Selector,
 		}
 
@@ -162,8 +162,8 @@ func DeployMCMSWithTimelockContractsEVM(
 
 	if canceller == nil {
 		seqInput := seqs.SeqDeployMCMSWithConfigInput{
-			ContractType: commontypes.CancellerManyChainMultisig,
-			MCMConfig:    config.Canceller,
+			ContractType:  commontypes.CancellerManyChainMultisig,
+			MCMConfig:     config.Canceller,
 			ChainSelector: chain.Selector,
 		}
 
@@ -190,8 +190,8 @@ func DeployMCMSWithTimelockContractsEVM(
 
 	if proposer == nil {
 		seqInput := seqs.SeqDeployMCMSWithConfigInput{
-			ContractType: commontypes.ProposerManyChainMultisig,
-			MCMConfig:    config.Proposer,
+			ContractType:  commontypes.ProposerManyChainMultisig,
+			MCMConfig:     config.Proposer,
 			ChainSelector: chain.Selector,
 		}
 
