@@ -208,6 +208,170 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	require.Equal(t, int32(0), ms.reExecutionsObserved.Load())
 }
 
+func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
+	// Setup 2 chains (EVM and Solana) and a single lane.
+	ctx := testhelpers.Context(t)
+	e, _, _ := testsetups.NewIntegrationEnvironment(t,
+		testhelpers.WithSolChains(1),
+		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+			//if params.ExecuteOffChainConfig != nil {
+			params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(1 * time.Hour)
+			params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(1 * time.Hour)
+			params.ExecuteOffChainConfig.MultipleReportsEnabled = true
+			params.ExecuteOffChainConfig.MaxReportMessages = 1
+			params.ExecuteOffChainConfig.MaxSingleChainReports = 1
+			//}
+			return params
+		}),
+	)
+
+	testhelpers.DeploySolanaCcipReceiver(t, e.Env)
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	allChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chainsel.FamilyEVM))
+	allSolChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chainsel.FamilySolana))
+	sourceChain := allChainSelectors[0]
+	destChain := allSolChainSelectors[0]
+	t.Log("All chain selectors:", allChainSelectors,
+		", sol chain selectors:", allSolChainSelectors,
+		", home chain selector:", e.HomeChainSel,
+		", feed chain selector:", e.FeedChainSel,
+		", source chain selector:", sourceChain,
+		", dest chain selector:", destChain,
+	)
+	// connect a single lane, source to dest
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+
+	var (
+		replayed bool
+		// nonce    uint64 // Nonce not used as Solana check is skipped
+		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
+		setup  = mt.NewTestSetupWithDeployedEnv(
+			t,
+			e,
+			state,
+			sourceChain,
+			destChain,
+			sender,
+			false, // testRouter
+		)
+	)
+
+	receiverProgram := state.SolChains[destChain].Receiver
+	receiver := receiverProgram.Bytes()
+	receiverTargetAccountPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverProgram)
+	receiverExternalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverProgram)
+
+	solChains := e.Env.BlockChains.SolanaChains()
+
+	accounts := [][32]byte{
+		receiverExternalExecutionConfigPDA,
+		receiverTargetAccountPDA,
+		solana.SystemProgramID,
+	}
+
+	extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
+		AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
+		Accounts:                 accounts,
+		ComputeUnits:             80_000,
+		AllowOutOfOrderExecution: true,
+	})
+	require.NoError(t, err)
+
+	// check that counter is 0
+	var receiverCounterAccount soltesthelpers.ReceiverCounter
+	err = solcommon.GetAccountDataBorshInto(ctx, solChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccount)
+	require.NoError(t, err, "failed to get account info")
+	// Already sent a message earlier
+	require.Equal(t, uint8(0), receiverCounterAccount.Value)
+
+	//var wg sync.WaitGroup
+	iterations := 5
+	results := make([]struct {
+		output mt.TestCaseOutput
+		err    error
+	}, iterations)
+
+	for i := 0; i < iterations; i++ {
+		//wg.Add(1)
+		//go func(idx int) {
+		//	defer wg.Done()
+		//	t.Logf("Starting parallel test iteration %d", idx+1)
+
+		// Each test run needs its own error variable
+		var localErr error
+		results[i].output = mt.Run(
+			t,
+			mt.TestCase{
+				ValidationType:         mt.ValidationTypeExec,
+				TestSetup:              setup,
+				Replayed:               replayed,
+				Nonce:                  nil, // Solana nonce check is skipped
+				Receiver:               receiver,
+				MsgData:                []byte(fmt.Sprintf("hello CCIPReceiver iteration %d", i+1)),
+				ExtraArgs:              extraArgs,
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				NumberOfMessages:       iterations,
+			},
+		)
+		results[i].err = localErr
+		t.Logf("Completed parallel test iteration %d", i+1)
+		//}(i)
+	}
+
+	// Wait for all test iterations to complete
+	//wg.Wait()
+	//t.Logf("All %d parallel test iterations completed", iterations)
+
+	t.Logf("Checking TransmittedEvents")
+
+	//done := make(chan any)
+	//defer close(done)
+	//offrampAddress := state.SolChains[destChain].OffRamp
+	//sink, errCh := testhelpers.SolEventEmitter[solccip.EventTransmitted](
+	//	t,
+	//	solChains[destChain].Client,
+	//	offrampAddress, "Transmitted", 0, done)
+	//timeout := time.NewTimer(tests.WaitTimeout(t) - 5*time.Second) // 5 seconds buffer for cleanup
+	//defer timeout.Stop()
+	//
+	//successful := false
+	//// create a map/set to keep track of transmittedEvent.SequenceNumber
+	//sequenceNumbers := make(map[uint64]int)
+	//
+	//for {
+	//	select {
+	//	case transmittedEvent := <-sink:
+	//		if transmittedEvent.OcrPluginType == uint8(cctypes.PluginTypeCCIPExec) {
+	//			ocrSeqNr := transmittedEvent.SequenceNumber
+	//			_, exists := sequenceNumbers[ocrSeqNr]
+	//			if !exists {
+	//				sequenceNumbers[ocrSeqNr] = 0
+	//			}
+	//			sequenceNumbers[ocrSeqNr] = sequenceNumbers[ocrSeqNr] + 1
+	//			// All exec reports should have the same sequence number
+	//			if len(sequenceNumbers) > 1 {
+	//				break
+	//			}
+	//
+	//			if sequenceNumbers[ocrSeqNr] >= iterations {
+	//				successful = true
+	//				break
+	//			}
+	//		}
+	//	case err := <-errCh:
+	//		require.NoError(t, err)
+	//	case <-timeout.C:
+	//		require.Fail(t, "Timed out waiting for all parallel test iterations to complete")
+	//	}
+	//}
+	//
+	//require.True(t, successful)
+	//t.Log("All parallel test iterations completed")
+
+}
 func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
@@ -317,71 +481,6 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 				},
 			},
 		)
-	})
-
-	t.Run("multiple messages to contract implementing CCIPReceiver", func(t *testing.T) {
-		accounts := [][32]byte{
-			receiverExternalExecutionConfigPDA,
-			receiverTargetAccountPDA,
-			solana.SystemProgramID,
-		}
-
-		extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
-			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
-			Accounts:                 accounts,
-			ComputeUnits:             80_000,
-			AllowOutOfOrderExecution: true,
-		})
-		require.NoError(t, err)
-
-		// check that counter is 0
-		var receiverCounterAccount soltesthelpers.ReceiverCounter
-		err = solcommon.GetAccountDataBorshInto(ctx, solChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccount)
-		require.NoError(t, err, "failed to get account info")
-		// Already sent a message earlier
-		require.Equal(t, uint8(1), receiverCounterAccount.Value)
-
-		var wg sync.WaitGroup
-		iterations := 5
-		results := make([]struct {
-			output mt.TestCaseOutput
-			err    error
-		}, iterations)
-
-		for i := 0; i < iterations; i++ {
-			wg.Add(1)
-			go func(idx int) {
-				defer wg.Done()
-				t.Logf("Starting parallel test iteration %d", idx+1)
-
-				// Each test run needs its own error variable
-				var localErr error
-				results[idx].output = mt.Run(
-					t,
-					mt.TestCase{
-						ValidationType:         mt.ValidationTypeExec,
-						TestSetup:              setup,
-						Replayed:               replayed,
-						Nonce:                  nil, // Solana nonce check is skipped
-						Receiver:               receiver,
-						MsgData:                []byte(fmt.Sprintf("hello CCIPReceiver iteration %d", idx+1)),
-						ExtraArgs:              extraArgs,
-						ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-						//ExtraAssertions: []func(t *testing.T){
-						//	func(t *testing.T) {
-						//
-						//	},
-						//},
-					},
-				)
-				results[idx].err = localErr
-				t.Logf("Completed parallel test iteration %d", idx+1)
-			}(i)
-		}
-
-		// Wait for all test iterations to complete
-		wg.Wait()
-		t.Log("All parallel test iterations completed")
 	})
 
 	t.Run("message sequence: failure (too many accounts) -> success", func(t *testing.T) {

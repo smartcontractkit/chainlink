@@ -90,6 +90,7 @@ type TestCase struct {
 	FeeToken               string
 	ExpectedExecutionState int
 	ExtraAssertions        []func(t *testing.T)
+	NumberOfMessages       int // number of messages to send, use same data and extraArgs
 }
 
 type ValidationType int
@@ -175,25 +176,40 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	default:
 		tc.T.Errorf("unsupported source chain: %v", family)
 	}
-	msgSentEvent := testhelpers.TestSendRequest(
-		tc.T,
-		tc.Env,
-		tc.OnchainState,
-		tc.SourceChain,
-		tc.DestChain,
-		tc.TestRouter,
-		msg)
+
+	if tc.NumberOfMessages == 0 {
+		tc.NumberOfMessages = 1 // default to sending one message if not specified
+	}
+
+	expectedSeqNum := map[int]map[testhelpers.SourceDestPair]uint64{}
+	expectedSeqNumExec := map[int]map[testhelpers.SourceDestPair][]uint64{}
+	msgSentEvent := make([]*onramp.OnRampCCIPMessageSent, tc.NumberOfMessages)
 	sourceDest := testhelpers.SourceDestPair{
 		SourceChainSelector: tc.SourceChain,
 		DestChainSelector:   tc.DestChain,
 	}
-	expectedSeqNum := map[testhelpers.SourceDestPair]uint64{
-		sourceDest: msgSentEvent.SequenceNumber,
+
+	// send all messages first, then validate them
+	for i := 0; i < tc.NumberOfMessages; i++ {
+		msgSentEventLocal := testhelpers.TestSendRequest(
+			tc.T,
+			tc.Env,
+			tc.OnchainState,
+			tc.SourceChain,
+			tc.DestChain,
+			tc.TestRouter,
+			msg)
+		expectedSeqNum[i] = map[testhelpers.SourceDestPair]uint64{
+			sourceDest: msgSentEventLocal.SequenceNumber,
+		}
+		expectedSeqNumExec[i] = map[testhelpers.SourceDestPair][]uint64{
+			sourceDest: {msgSentEventLocal.SequenceNumber},
+		}
+		// TODO: If this feature is needed more we can refactor the function to return a slice of events
+		// return only last msg event
+		out.MsgSentEvent = msgSentEventLocal
+		msgSentEvent[i] = msgSentEventLocal
 	}
-	expectedSeqNumExec := map[testhelpers.SourceDestPair][]uint64{
-		sourceDest: {msgSentEvent.SequenceNumber},
-	}
-	out.MsgSentEvent = msgSentEvent
 
 	// HACK: if the node booted or the logpoller filters got registered after ccipSend,
 	// we need to replay missed logs
@@ -203,60 +219,62 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		out.Replayed = true
 	}
 
-	// Perform validation based on ValidationType
-	switch tc.ValidationType {
-	case ValidationTypeCommit:
-		commitStart := time.Now()
-		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNum, startBlocks)
-		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNum, time.Since(commitStart).String())
-		// Explicitly log that only commit was validated if only Commit was requested
-		tc.T.Logf("only commit validation was performed")
+	for i := 0; i < tc.NumberOfMessages; i++ {
+		// Perform validation based on ValidationType
+		switch tc.ValidationType {
+		case ValidationTypeCommit:
+			commitStart := time.Now()
+			testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNum[i], startBlocks)
+			tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNum, time.Since(commitStart).String())
+			// Explicitly log that only commit was validated if only Commit was requested
+			tc.T.Logf("only commit validation was performed")
 
-	case ValidationTypeExec: // will validate both commit and exec
-		// First, validate commit
-		commitStart := time.Now()
-		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNum, startBlocks)
-		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNum, time.Since(commitStart).String())
+		case ValidationTypeExec: // will validate both commit and exec
+			// First, validate commit
+			commitStart := time.Now()
+			testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNum[i], startBlocks)
+			tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNum, time.Since(commitStart).String())
 
-		// Then, validate execution
-		execStart := time.Now()
-		execStates := testhelpers.ConfirmExecWithSeqNrsForAll(tc.T, tc.Env, tc.OnchainState, expectedSeqNumExec, startBlocks)
-		tc.T.Logf("confirmed exec of seq nums %+v in %s", expectedSeqNumExec, time.Since(execStart).String())
+			// Then, validate execution
+			execStart := time.Now()
+			execStates := testhelpers.ConfirmExecWithSeqNrsForAll(tc.T, tc.Env, tc.OnchainState, expectedSeqNumExec[i], startBlocks)
+			tc.T.Logf("confirmed exec of seq nums %+v in %s", expectedSeqNumExec, time.Since(execStart).String())
 
-		require.Equalf(
-			tc.T,
-			tc.ExpectedExecutionState,
-			execStates[sourceDest][msgSentEvent.SequenceNumber],
-			"wrong execution state for seq nr %d, expected %d, got %d",
-			msgSentEvent.SequenceNumber,
-			tc.ExpectedExecutionState,
-			execStates[sourceDest][msgSentEvent.SequenceNumber],
-		)
+			require.Equalf(
+				tc.T,
+				tc.ExpectedExecutionState,
+				execStates[sourceDest][msgSentEvent[i].SequenceNumber],
+				"wrong execution state for seq nr %d, expected %d, got %d",
+				msgSentEvent[i].SequenceNumber,
+				tc.ExpectedExecutionState,
+				execStates[sourceDest][msgSentEvent[i].SequenceNumber],
+			)
 
-		family, err := chain_selectors.GetSelectorFamily(tc.DestChain)
-		require.NoError(tc.T, err)
+			family, err := chain_selectors.GetSelectorFamily(tc.DestChain)
+			require.NoError(tc.T, err)
 
-		// Solana doesn't support catching CPI errors, so nonces can't be ordered
-		unorderedExec := family == chain_selectors.FamilySolana
+			// Solana doesn't support catching CPI errors, so nonces can't be ordered
+			unorderedExec := family == chain_selectors.FamilySolana
 
-		if !unorderedExec {
-			latestNonce := getLatestNonce(tc)
-			// Check if Nonce is non-nil before comparing. Nonce check only makes sense if it was explicitly provided.
-			if tc.Nonce != nil {
-				require.Equal(tc.T, *tc.Nonce+1, latestNonce)
-				out.Nonce = latestNonce
-				tc.T.Logf("confirmed nonce bump for sender %x, expected %d, got latestNonce %d", tc.Sender, *tc.Nonce+1, latestNonce)
-			} else {
-				tc.T.Logf("skipping nonce bump check for sender %x as initial nonce was nil, latestNonce %d", tc.Sender, latestNonce)
+			if !unorderedExec {
+				latestNonce := getLatestNonce(tc)
+				// Check if Nonce is non-nil before comparing. Nonce check only makes sense if it was explicitly provided.
+				if tc.Nonce != nil {
+					require.Equal(tc.T, *tc.Nonce+1, latestNonce)
+					out.Nonce = latestNonce
+					tc.T.Logf("confirmed nonce bump for sender %x, expected %d, got latestNonce %d", tc.Sender, *tc.Nonce+1, latestNonce)
+				} else {
+					tc.T.Logf("skipping nonce bump check for sender %x as initial nonce was nil, latestNonce %d", tc.Sender, latestNonce)
+				}
 			}
-		}
 
-		for _, assertion := range tc.ExtraAssertions {
-			assertion(tc.T)
-		}
+			for _, assertion := range tc.ExtraAssertions {
+				assertion(tc.T)
+			}
 
-	case ValidationTypeNone:
-		tc.T.Logf("skipping validation of sent message")
+		case ValidationTypeNone:
+			tc.T.Logf("skipping validation of sent message")
+		}
 	}
 
 	return
