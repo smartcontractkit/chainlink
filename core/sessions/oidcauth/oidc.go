@@ -64,6 +64,18 @@ type oidcAuthenticator struct {
 	auditLogger  audit.AuditLogger
 }
 
+// ExchangeTokenRequest represents the expected JSON payload from the frontend
+type ExchangeTokenRequest struct {
+	Code  string `json:"code" binding:"required"`
+	State string `json:"state"`
+}
+
+// ExchangeTokenResponse represents the response sent to the frontend
+type ExchangeTokenResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+}
+
 // oidcAuthenticator implements sessions.AuthenticationProvider interface
 var _ clsessions.AuthenticationProvider = (*oidcAuthenticator)(nil)
 
@@ -126,18 +138,6 @@ func NewOIDCAuthenticator(
 		auditLogger:  auditLogger,
 	}
 
-	// Create a new, separate gin engine to register and listen for the OIDC callback request containing
-	// the user claims and groups, set up ratelimitter
-	// go func() {
-	// oidcCallbackEngine := gin.New()
-	// api := oidcCallbackEngine.Group("/", rateLimiter(RouterRateLimitterPeriod, RouterRateLimitterLimit))
-	// api.GET("/auth/oidc-login", ginHandlerFromHTTP(oidcAuth.handleLoginProviderRedirect))
-	// api.GET(oidcCfg.OIDCCallbackURLSuffix(), ginHandlerFromHTTP(oidcAuth.handleOIDCCallback))
-	//
-	// lggr.Infof("Initialized OIDC HTTP router and routes on %d", fmt.Sprintf("%d", oidcCfg.HTTPPort()))
-	// oidcCallbackEngine.Run(":" + fmt.Sprintf("%d", oidcCfg.HTTPPort()))
-	// }()
-
 	return &oidcAuth, nil
 }
 
@@ -155,26 +155,20 @@ func (oi *oidcAuthenticator) handleLoginProviderRedirect(w http.ResponseWriter, 
 	http.Redirect(w, r, oi.oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline), http.StatusFound)
 }
 
-// TODO: add gin context?
 func (oi *oidcAuthenticator) handleOIDCCallback(c *gin.Context) {
-	// Verify initial error or required query params
-	if errMsg := c.Query("error"); errMsg != "" {
-		sanitizedErrMsg := strings.ReplaceAll(errMsg, "\n", "")
-		sanitizedErrMsg = strings.ReplaceAll(sanitizedErrMsg, "\r", "")
-		oi.lggr.Warnf("Received error in OIDC response: %s", sanitizedErrMsg)
-		c.String(http.StatusBadRequest, "Error in OIDC response")
-		return
-	}
-
-	code := c.Query("code")
-	if code == "" {
-		c.String(http.StatusBadRequest, "No code in request")
+	// Parse and validate the incoming JSON request
+	var req ExchangeTokenRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ExchangeTokenResponse{
+			Success: false,
+			Message: "Invalid request: " + err.Error(),
+		})
 		return
 	}
 
 	ctx := context.Background()
 	// Begin token exchange to retrieve attested claims of authenticated user
-	oauth2Token, err := oi.oauth2Config.Exchange(ctx, code)
+	oauth2Token, err := oi.oauth2Config.Exchange(ctx, req.Code)
 	if err != nil {
 		oi.lggr.Errorf("Failed to exchange token: %v", err)
 		c.String(http.StatusInternalServerError, "OIDC exchange failed")
@@ -243,11 +237,7 @@ func (oi *oidcAuthenticator) handleOIDCCallback(c *gin.Context) {
 
 	oi.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]interface{}{"email": claims.Email})
 
-	// Redirect to operator UI
-	// Set authenticated response and session cookie
-	// w.Header().Set("Content-Type", "application/json")
-	// w.WriteHeader(http.StatusOK)
-
+	// save session
 	sesh := sessions.Default(c)
 	fmt.Printf("%#v %#v %#v", sesh, webauth.SessionIDKey, session.ID)
 	sesh.Set(webauth.SessionIDKey, session.ID)
@@ -255,7 +245,11 @@ func (oi *oidcAuthenticator) handleOIDCCallback(c *gin.Context) {
 	if err != nil {
 		fmt.Printf("%#v\n", err)
 	}
-	// c.Redirect(http.StatusFound, "/")
+
+	// Respond to the frontend
+	c.JSON(http.StatusOK, ExchangeTokenResponse{
+		Success: true,
+	})
 }
 
 // FindUser in the context of the OIDC driver only supports local admin users
@@ -640,7 +634,7 @@ func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
 // TODO: add context
 func (oidc *oidcAuthenticator) ExtendRouter(api *gin.RouterGroup) error {
 	api.GET("/oidc-login", ginHandlerFromHTTP(oidc.handleLoginProviderRedirect))
-	api.GET(oidc.config.OIDCCallbackURLSuffix(), oidc.handleOIDCCallback)
+	api.POST("/oidc-exchange", oidc.handleOIDCCallback)
 
 	return nil
 }
