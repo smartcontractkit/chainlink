@@ -56,41 +56,35 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		})
 	}
 
-	e, err = commonchangeset.Apply(t, e, nil,
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
-			v1_6.DeployHomeChainConfig{
-				HomeChainSel:     homeChainSel,
-				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
-				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
-				NodeOperators:    testhelpers.NewTestNodeOperator(e.BlockChains.EVMChains()[homeChainSel].DeployerKey.From),
-				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
-					"NodeOperator": p2pIds,
-				},
+	e, err = commonchangeset.Apply(t, e, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+		v1_6.DeployHomeChainConfig{
+			HomeChainSel:     homeChainSel,
+			RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+			RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+			NodeOperators:    testhelpers.NewTestNodeOperator(e.BlockChains.EVMChains()[homeChainSel].DeployerKey.From),
+			NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+				"NodeOperator": p2pIds,
 			},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
-			evmSelectors,
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
-			cfg,
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
-			changeset.DeployPrerequisiteConfig{
-				Configs: prereqCfg,
-			},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
-			ccipseq.DeployChainContractsConfig{
-				HomeChainSelector:      homeChainSel,
-				ContractParamsPerChain: contractParams,
-			},
-		),
-	)
+		},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+		evmSelectors,
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		cfg,
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+		changeset.DeployPrerequisiteConfig{
+			Configs: prereqCfg,
+		},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
+		ccipseq.DeployChainContractsConfig{
+			HomeChainSelector:      homeChainSel,
+			ContractParamsPerChain: contractParams,
+		},
+	))
 	require.NoError(t, err)
 
 	// load onchain state
@@ -126,7 +120,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 
 	// try to deploy chain contracts again and it should not deploy any new contracts except feequoter
 	// but should not error
-	e, err = commonchangeset.Apply(t, e, nil, commonchangeset.Configure(
+	e, err = commonchangeset.Apply(t, e, commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
 		ccipseq.DeployChainContractsConfig{
 			HomeChainSelector:      homeChainSel,

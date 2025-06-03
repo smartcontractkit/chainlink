@@ -56,7 +56,7 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 		changesetConfig,
 	)
-	updatedEnv, err := commonchangeset.Apply(t, env, nil, configuredChangeset)
+	updatedEnv, err := commonchangeset.Apply(t, env, configuredChangeset)
 	require.NoError(t, err)
 	mcmsState, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, evmSelectors)
 	require.NoError(t, err)
@@ -77,13 +77,13 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 	chain.DeployerKey = evmChains[evmSelectors[0]].Users[0]
 
 	// now deploy MCMS again so that only the proposer is new
-	updatedEnv, err = commonchangeset.Apply(t, updatedEnv, nil, configuredChangeset)
+	updatedEnv, err = commonchangeset.Apply(t, updatedEnv, configuredChangeset)
 	require.NoError(t, err)
 	mcmsState, err = mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, evmSelectors)
 	require.NoError(t, err)
 
 	require.NotEqual(t, existingProposer.Address(), mcmsState[evmSelectors[0]].ProposerMcm.Address())
-	updatedEnv, err = commonchangeset.Apply(t, updatedEnv, nil, commonchangeset.Configure(
+	updatedEnv, err = commonchangeset.Apply(t, updatedEnv, commonchangeset.Configure(
 		commonchangeset.GrantRoleInTimeLock,
 		commonchangeset.GrantRoleInput{
 			ExistingProposerByChain: map[uint64]common.Address{
@@ -178,7 +178,7 @@ func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 	)
 
 	// --- act ---
-	updatedEnv, err := commonchangeset.Apply(t, env, nil, configuredChangeset)
+	updatedEnv, err := commonchangeset.Apply(t, env, configuredChangeset)
 	require.NoError(t, err)
 
 	state, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, evmSelectors)
@@ -321,7 +321,7 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 	commonchangeset.SetPreloadedSolanaAddresses(t, env, solanaSelectors[0])
 
 	// --- act ---
-	updatedEnv, err := commonchangeset.Apply(t, env, nil, configuredChangeset)
+	updatedEnv, err := commonchangeset.Apply(t, env, configuredChangeset)
 	require.NoError(t, err)
 
 	evmState, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, evmSelectors)
@@ -518,14 +518,14 @@ func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
 	)
 	commonchangeset.SetPreloadedSolanaAddresses(t, env, solanaSelectors[0])
 	// --- act ---
-	updatedEnv, err := commonchangeset.Apply(t, env, nil, configuredChangeset)
+	updatedEnv, err := commonchangeset.Apply(t, env, configuredChangeset)
 	require.NoError(t, err)
 
 	solanaState, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockStateSolana(updatedEnv, solanaSelectors)
 	require.NoError(t, err)
 
 	// Call deploy again, seeds and addresses from original state should not change
-	updatedEnvReTriggered, err := commonchangeset.Apply(t, updatedEnv, nil, configuredChangeset)
+	updatedEnvReTriggered, err := commonchangeset.Apply(t, updatedEnv, configuredChangeset)
 	require.NoError(t, err)
 	solanaStateNew, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockStateSolana(updatedEnvReTriggered, solanaSelectors)
 	require.NoError(t, err)
