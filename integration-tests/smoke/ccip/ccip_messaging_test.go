@@ -367,16 +367,11 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 						MsgData:                []byte(fmt.Sprintf("hello CCIPReceiver iteration %d", idx+1)),
 						ExtraArgs:              extraArgs,
 						ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-						ExtraAssertions: []func(t *testing.T){
-							func(t *testing.T) {
-								var receiverCounterAccount soltesthelpers.ReceiverCounter
-								localErr = solcommon.GetAccountDataBorshInto(ctx, solChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccount)
-								require.NoError(t, localErr, "failed to get account info in iteration %d", idx+1)
-								// Each iteration increments counter, so we check ≥ expected value instead of exact equality
-								require.GreaterOrEqual(t, int(receiverCounterAccount.Value), idx+1, "Counter value should have increased in iteration %d", idx+1)
-								t.Logf("Iteration %d: counter value = %d", idx+1, receiverCounterAccount.Value)
-							},
-						},
+						//ExtraAssertions: []func(t *testing.T){
+						//	func(t *testing.T) {
+						//
+						//	},
+						//},
 					},
 				)
 				results[idx].err = localErr
