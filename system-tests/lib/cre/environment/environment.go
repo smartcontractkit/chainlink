@@ -492,7 +492,7 @@ func SetupTestEnvironment(
 	nodeSetOutput := make([]*cretypes.WrappedNodeOutput, 0, len(input.CapabilitiesAwareNodeSets))
 
 	jdAndDonsErrGroup.Go(func() error {
-		//TODO we could parallelise this as well in the future, but for single DON env this doesn't matter
+		// TODO we could parallelise this as well in the future, but for single DON env this doesn't matter
 		for _, nodeSetInput := range input.CapabilitiesAwareNodeSets {
 			nodeset, nodesetErr := ns.NewSharedDBNodeSet(nodeSetInput.Input, homeChainOutput.BlockchainOutput)
 			if nodesetErr != nil {
@@ -716,9 +716,8 @@ func SetupTestEnvironment(
 	for result := range backgroundStagesCh {
 		if result.err != nil {
 			return nil, pkgerrors.Wrap(result.err, "background stage failed")
-		} else {
-			fmt.Print(result.successMessage)
 		}
+		fmt.Print(result.successMessage)
 	}
 
 	return &SetupOutput{
