@@ -100,13 +100,13 @@ func NewSecureMintServices(ctx context.Context,
 	if err != nil {
 		return
 	}
+	srvs = append(srvs, provider)
 
 	// TODO(gg): to be implemented when needed
 	// secureMintProvider, ok := provider.(types.SecureMintProvider)
 	// if !ok {
 	// 	return nil, errors.New("could not coerce PluginProvider to SecureMintProvider")
 	// }
-	// srvs = append(srvs, provider)
 
 	argsNoPlugin.ContractTransmitter = newStubContractTransmitter(lggr, ocr2plus_types.Account(spec.TransmitterID.String)) // TODO(gg): implement chain writing here
 	argsNoPlugin.ContractConfigTracker = provider.ContractConfigTracker()
