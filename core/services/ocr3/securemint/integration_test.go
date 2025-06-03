@@ -24,6 +24,7 @@ import (
 
 	"github.com/smartcontractkit/freeport"
 
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocrconfigurationstoreevmsimple"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -57,6 +58,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	mercuryverifier "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/verifier"
+	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
 )
 
 var (
@@ -459,15 +461,22 @@ lloConfigMode = "mercury"
 		allowedSenders[i] = keys[0].Address // assuming the first key is the transmitter
 	}
 
-	// TODO(gg): deduplicate
-	feedIDBytes := [16]byte{}
-	copy(feedIDBytes[:], common.FromHex("0xA1B2C3D4E5F600010203040506070809"))
-
-	dfCacheAddress, dfCacheContract := setupDataFeedsCacheContract(t, steve, backend, allowedSenders, steve.From.Hex(), "securemint")
-	t.Logf("Deployed and configured DataFeedsCache contract at: %s", dfCacheAddress.Hex())
-	desc, err := dfCacheContract.GetDescription(&bind.CallOpts{}, feedIDBytes)
+	ocrConfigStoreAddress, ocrConfigStore := setSecureMintOnchainConfigUsingEvmSimpleConfig(t, steve, backend, nodes, oracles)
+	t.Logf("Deployed and configured OCRConfigStore contract at: %s", ocrConfigStoreAddress.Hex())
+	ds, err := ocrConfigStore.TypeAndVersion(&bind.CallOpts{})
 	require.NoError(t, err)
-	t.Logf("DataFeedsCache description: %s", desc)
+	t.Logf("OCRConfigStore description: %s", ds)
+
+	// TODO(gg): enable this for writing step
+	// TODO(gg): deduplicate
+	// feedIDBytes := [16]byte{}
+	// copy(feedIDBytes[:], common.FromHex("0xA1B2C3D4E5F600010203040506070809"))
+
+	// dfCacheAddress, dfCacheContract := setupDataFeedsCacheContract(t, steve, backend, allowedSenders, steve.From.Hex(), "securemint")
+	// t.Logf("Deployed and configured DataFeedsCache contract at: %s", dfCacheAddress.Hex())
+	// desc, err := dfCacheContract.GetDescription(&bind.CallOpts{}, feedIDBytes)
+	// require.NoError(t, err)
+	// t.Logf("DataFeedsCache description: %s", desc)
 
 	// setSecureMintOnchainConfig(t, steve, backend, nodes, oracles, dfCacheAddress, dfCache)
 
@@ -479,7 +488,7 @@ lloConfigMode = "mercury"
 	// require.NoError(t, err)
 	// t.Logf("latestConfigDigestAndEpoch: %+v", latestConfigDigestAndEpoch)
 
-	jobIDs := addSecureMintOCRJobs(t, nodes, dfCacheAddress)
+	jobIDs := addSecureMintOCRJobs(t, nodes, ocrConfigStoreAddress)
 
 	t.Logf("jobIDs: %v", jobIDs)
 	validateJobsRunningSuccessfully(t, nodes, jobIDs)
@@ -753,6 +762,90 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []Node, jobIDs map[int]
 
 // 	return l.ConfigDigest
 // }
+
+// setSecureMintOnchainConfigUsingEvmSimpleConfig deploys the OCRConfigurationStoreEVMSimple contract and sets the configuration for Secure Mint using it.
+// Normal data feeds use the Aggregator contract to set onchain configuration for startup, but for Secure Mint we want to write to the DF Cache, so it would be weird/confusing to deploy an Aggregator
+// contract just to set the configuration. Instead, we use the OCRConfigurationStoreEVMSimple contract for this purpose.
+func setSecureMintOnchainConfigUsingEvmSimpleConfig(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend, nodes []Node, oracles []confighelper.OracleIdentityExtra) (common.Address, *ocrconfigurationstoreevmsimple.OCRConfigurationStoreEVMSimple) {
+
+	ocrConfigStoreAddress, _, ocrConfigStore, err := ocrconfigurationstoreevmsimple.DeployOCRConfigurationStoreEVMSimple(steve, backend.Client())
+	if err != nil {
+		rPCError, err := rPCErrorFromError(err)
+		require.NoError(t, err)
+		t.Fatalf("Failed to deploy OCRConfigurationStoreEVMSimple contract: %s", rPCError)
+	}
+	backend.Commit()
+
+	onchainConfig := por.PorOffchainConfig{} // TODO(gg): set config values
+	onchainConfigBytes, err := onchainConfig.Serialize()
+	require.NoError(t, err)
+
+	signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTests(
+		2*time.Second,        // deltaProgress,
+		20*time.Second,       // deltaResend,
+		400*time.Millisecond, // deltaInitial,
+		500*time.Millisecond, // deltaRound,
+		250*time.Millisecond, // deltaGrace,
+		300*time.Millisecond, // deltaCertifiedCommitRequest,
+		1*time.Minute,        // deltaStage,
+		100,                  // rMax,
+		[]int{len(oracles)},  // s,
+		oracles,              // oracles,
+		[]byte{},             // reportingPluginConfig, // TODO(gg): put something here?
+		nil,                  // maxDurationInitialization,
+		0,                    // maxDurationQuery,
+		250*time.Millisecond, // maxDurationObservation,
+		0,                    // maxDurationShouldAcceptAttestedReport,
+		0,                    // maxDurationShouldTransmitAcceptedReport,
+		int(fNodes),          // f,
+		onchainConfigBytes,   // onchainConfig (binary blob containing configuration passed through to the ReportingPlugin and also available to the contract. Unlike ReportingPluginConfig which is only available offchain.)
+	)
+	require.NoError(t, err)
+
+	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
+	require.NoError(t, err)
+
+	transmitterAddresses := make([]common.Address, len(transmitters))
+	for i := range transmitters {
+		keys, err := nodes[i].App.GetKeyStore().Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
+		require.NoError(t, err)
+		transmitterAddresses[i] = keys[0].Address // assuming the first key is the transmitter
+	}
+
+	ocrConfig := ocrconfigurationstoreevmsimple.OCRConfigurationStoreEVMSimpleConfigurationEVMSimple{
+		Signers:               signerAddresses,
+		Transmitters:          transmitterAddresses,
+		F:                     f,
+		OnchainConfig:         outOnchainConfig,
+		OffchainConfigVersion: offchainConfigVersion,
+		OffchainConfig:        offchainConfig,
+	}
+	_, err = ocrConfigStore.AddConfig(steve, ocrConfig)
+	if err != nil {
+		errString, err := rPCErrorFromError(err)
+		require.NoError(t, err)
+
+		t.Fatalf("Failed to configure contract: %s", errString)
+	}
+
+	// donIDPadded := llo.DonIDToBytes32(donID)
+	// _, err = legacyVerifier.SetConfig(steve, donIDPadded, signerAddresses, offchainTransmitters, fNodes, onchainConfig, offchainConfigVersion, offchainConfig, nil)
+	// require.NoError(t, err)
+
+	// libocr requires a few confirmations to accept the config
+	backend.Commit()
+	backend.Commit()
+	backend.Commit()
+	backend.Commit()
+
+	// l, err := legacyVerifier.LatestConfigDigestAndEpoch(&bind.CallOpts{}, donIDPadded)
+	// require.NoError(t, err)
+
+	// l, err := dfCacheContract.LatestConfigDigestAndEpoch(&bind.CallOpts{})
+	// require.NoError(t, err)
+
+	return ocrConfigStoreAddress, ocrConfigStore
+}
 
 func rPCErrorFromError(txError error) (string, error) {
 	errBytes, err := json.Marshal(txError)
