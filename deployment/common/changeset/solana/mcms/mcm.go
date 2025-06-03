@@ -38,7 +38,7 @@ func deployMCMProgram(
 	}
 
 	if programID.IsZero() {
-		deployedProgramID, err := chain.DeployProgram(log, cldf.SolProgramInfo{
+		deployedProgramID, err := chain.DeployProgram(log, cldf_solana.ProgramInfo{
 			Name:  deployment.McmProgramName,
 			Bytes: deployment.SolanaProgramBytes[deployment.McmProgramName],
 		}, false, true)

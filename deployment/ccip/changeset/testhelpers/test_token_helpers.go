@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -81,11 +82,11 @@ func SetupTwoChainEnvironmentWithTokens(
 	// Deploy one burn-mint token per chain to use in the tests
 	tokens := make(map[uint64]*cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677])
 	for _, selector := range selectors {
-		token, err := cldf.DeployContract(e.Logger, e.Chains[selector], addressBook,
-			func(chain cldf.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+		token, err := cldf.DeployContract(e.Logger, e.BlockChains.EVMChains()[selector], addressBook,
+			func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 				tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
-					e.Chains[selector].DeployerKey,
-					e.Chains[selector].Client,
+					e.BlockChains.EVMChains()[selector].DeployerKey,
+					e.BlockChains.EVMChains()[selector].Client,
 					string(TestTokenSymbol),
 					string(TestTokenSymbol),
 					LocalTokenDecimals,
@@ -155,7 +156,7 @@ func SetupTwoChainEnvironmentWithTokens(
 }
 
 // getPoolsOwnedByDeployer returns any pools that need to be transferred to timelock.
-func getPoolsOwnedByDeployer[T commonchangeset.Ownable](t *testing.T, contracts map[semver.Version]T, chain cldf.Chain) []common.Address {
+func getPoolsOwnedByDeployer[T commonchangeset.Ownable](t *testing.T, contracts map[semver.Version]T, chain cldf_evm.Chain) []common.Address {
 	var addresses []common.Address
 	for _, contract := range contracts {
 		owner, err := contract.Owner(nil)
@@ -205,13 +206,13 @@ func DeployTestTokenPools(
 			if newPool, ok := newPools[selector]; ok {
 				switch newPool.Type {
 				case shared.BurnFromMintTokenPool:
-					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).BurnFromMintTokenPools[TestTokenSymbol], e.Chains[selector])
+					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).BurnFromMintTokenPools[TestTokenSymbol], e.BlockChains.EVMChains()[selector])
 				case shared.BurnWithFromMintTokenPool:
-					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).BurnWithFromMintTokenPools[TestTokenSymbol], e.Chains[selector])
+					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).BurnWithFromMintTokenPools[TestTokenSymbol], e.BlockChains.EVMChains()[selector])
 				case shared.BurnMintTokenPool:
-					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).BurnMintTokenPools[TestTokenSymbol], e.Chains[selector])
+					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).BurnMintTokenPools[TestTokenSymbol], e.BlockChains.EVMChains()[selector])
 				case shared.LockReleaseTokenPool:
-					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).LockReleaseTokenPools[TestTokenSymbol], e.Chains[selector])
+					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).LockReleaseTokenPools[TestTokenSymbol], e.BlockChains.EVMChains()[selector])
 				}
 			}
 		}

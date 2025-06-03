@@ -43,20 +43,16 @@ type SetDefaultCodeVersionConfig struct {
 	MCMS          *proposalutils.TimelockConfig
 }
 
-func (cfg SetDefaultCodeVersionConfig) Validate(e cldf.Environment) error {
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
+func (cfg SetDefaultCodeVersionConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateRouterConfig(chain); err != nil {
 		return err
 	}
-	if err := validateOffRampConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateOffRampConfig(chain); err != nil {
 		return err
 	}
-	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateFeeQuoterConfig(chain); err != nil {
 		return err
 	}
 	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.FeeQuoter: true, shared.OffRamp: true, shared.Router: true})
@@ -64,14 +60,15 @@ func (cfg SetDefaultCodeVersionConfig) Validate(e cldf.Environment) error {
 
 func SetDefaultCodeVersion(e cldf.Environment, cfg SetDefaultCodeVersionConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Setting default code version", "chain_selector", cfg.ChainSelector, "new_code_version", cfg.VersionEnum)
-	if err := cfg.Validate(e); err != nil {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	if err := cfg.Validate(e, state); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-
 	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
@@ -206,17 +203,13 @@ type UpdateSvmChainSelectorConfig struct {
 	MCMS             *proposalutils.TimelockConfig
 }
 
-func (cfg UpdateSvmChainSelectorConfig) Validate(e cldf.Environment) error {
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
+func (cfg UpdateSvmChainSelectorConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	chainState := state.SolChains[cfg.OldChainSelector]
 	chain := e.BlockChains.SolanaChains()[cfg.OldChainSelector]
-	if err := validateRouterConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateRouterConfig(chain); err != nil {
 		return err
 	}
-	if err := validateOffRampConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateOffRampConfig(chain); err != nil {
 		return err
 	}
 	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.Router: true, shared.OffRamp: true})
@@ -224,12 +217,15 @@ func (cfg UpdateSvmChainSelectorConfig) Validate(e cldf.Environment) error {
 
 func UpdateSvmChainSelector(e cldf.Environment, cfg UpdateSvmChainSelectorConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Updating SVM chain selector", "old_chain_selector", cfg.OldChainSelector, "new_chain_selector", cfg.NewChainSelector)
-	if err := cfg.Validate(e); err != nil {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	if err := cfg.Validate(e, state); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
 	chain := e.BlockChains.SolanaChains()[cfg.OldChainSelector]
-	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.OldChainSelector]
 	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 
@@ -332,14 +328,10 @@ type UpdateEnableManualExecutionAfterConfig struct {
 	MCMS                  *proposalutils.TimelockConfig
 }
 
-func (cfg UpdateEnableManualExecutionAfterConfig) Validate(e cldf.Environment) error {
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
+func (cfg UpdateEnableManualExecutionAfterConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	if err := validateOffRampConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateOffRampConfig(chain); err != nil {
 		return err
 	}
 	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.OffRamp: true})
@@ -347,14 +339,15 @@ func (cfg UpdateEnableManualExecutionAfterConfig) Validate(e cldf.Environment) e
 
 func UpdateEnableManualExecutionAfter(e cldf.Environment, cfg UpdateEnableManualExecutionAfterConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Updating enable manual execution after", "chain_selector", cfg.ChainSelector, "enable_manual_execution_after", cfg.EnableManualExecution)
-	if err := cfg.Validate(e); err != nil {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	if err := cfg.Validate(e, state); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-
 	offRampUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
@@ -426,14 +419,10 @@ type ConfigureCCIPVersionConfig struct {
 	MCMS              *proposalutils.TimelockConfig
 }
 
-func (cfg ConfigureCCIPVersionConfig) Validate(e cldf.Environment) error {
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
+func (cfg ConfigureCCIPVersionConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateRouterConfig(chain); err != nil {
 		return err
 	}
 	routerDestChainPDA, err := solState.FindDestChainStatePDA(cfg.DestChainSelector, chainState.Router)
@@ -449,12 +438,14 @@ func (cfg ConfigureCCIPVersionConfig) Validate(e cldf.Environment) error {
 }
 
 func ConfigureCCIPVersion(e cldf.Environment, cfg ConfigureCCIPVersionConfig) (cldf.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	if err := cfg.Validate(e, state); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	destChainStatePDA, _ := solState.FindDestChainStatePDA(cfg.DestChainSelector, chainState.Router)
 
@@ -477,7 +468,6 @@ func ConfigureCCIPVersion(e cldf.Environment, cfg ConfigureCCIPVersionConfig) (c
 		"")
 	solRouter.SetProgramID(chainState.Router)
 	var ixn solana.Instruction
-	var err error
 	if cfg.Operation == Bump {
 		ixn, err = solRouter.NewBumpCcipVersionForDestChainInstruction(
 			cfg.DestChainSelector,
@@ -536,28 +526,25 @@ type RemoveOffRampConfig struct {
 	MCMS          *proposalutils.TimelockConfig
 }
 
-func (cfg RemoveOffRampConfig) Validate(e cldf.Environment) error {
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
+func (cfg RemoveOffRampConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateRouterConfig(chain); err != nil {
 		return err
 	}
 	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.Router: true})
 }
 
 func RemoveOffRamp(e cldf.Environment, cfg RemoveOffRampConfig) (cldf.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	if err := cfg.Validate(e, state); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-
 	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,

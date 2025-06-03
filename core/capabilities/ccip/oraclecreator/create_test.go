@@ -2,6 +2,7 @@ package oraclecreator
 
 import (
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -21,6 +22,7 @@ import (
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
 	"github.com/stretchr/testify/require"
@@ -63,7 +65,7 @@ func TestPluginOracleCreatorCreate_InvalidSelector(t *testing.T) {
 		/* bootstrapperLocators */ nil,
 		/* homeChainReader */ nil,
 		/* homeChainSelector */ 0,
-		/* addressCodec */ nil,
+		/* addressCodec */ ccipcommon.NewAddressCodec(nil),
 		p2pk,
 	).(*pluginOracleCreator)
 
@@ -135,7 +137,15 @@ func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
 	relayID := types.NewRelayID(chainsel.FamilyEVM, "1")
 	contractReaders := map[cciptypes.ChainSelector]types.ContractReader{}
 	chainWriters := map[cciptypes.ChainSelector]types.ContractWriter{}
-	publicCfg := ocr3confighelper.PublicConfig{}
+	fakeTransmitAccount := ocrtypes.Account("blahblah")
+	publicCfg := ocr3confighelper.PublicConfig{
+		OracleIdentities: []confighelper.OracleIdentity{
+			{
+				PeerID:          strings.TrimPrefix(p2pk.PeerID().String(), "p2p_"),
+				TransmitAccount: fakeTransmitAccount,
+			},
+		},
+	}
 	destChainID := "1"
 	pluginCfg := ccipcommon.PluginConfig{
 		// Provide a dummy factory that creates identifiable (or nil) transmitters
@@ -189,7 +199,7 @@ func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
 			// Assert that the transmitter is a NoOpTransmitter
 			account, err := transmitter.FromAccount(t.Context())
 			require.NoError(t, err)
-			require.Equal(t, account, ocrtypes.Account(""))
+			require.Equal(t, account, fakeTransmitAccount)
 		})
 	}
 }

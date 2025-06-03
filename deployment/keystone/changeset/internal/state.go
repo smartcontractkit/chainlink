@@ -113,7 +113,7 @@ func loadContractSet(
 func setContracts(
 	lggr logger.Logger,
 	addresses map[string]cldf.TypeAndVersion,
-	client cldf.OnchainClient,
+	client cldf_evm.OnchainClient,
 	set *ContractSet,
 ) error {
 	for addr, tv := range addresses {

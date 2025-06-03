@@ -17,6 +17,7 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
@@ -495,7 +496,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (map[string
 			if err != nil {
 				return err
 			}
-			chainInfo, err := cldf.ChainInfo(chainSelector)
+			chainInfo, err := cldf_chain_utils.ChainInfo(chainSelector)
 			if err != nil {
 				return err
 			}

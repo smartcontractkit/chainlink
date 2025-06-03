@@ -197,7 +197,7 @@ func TestAcceptAdminRoleChangeset_Execution(t *testing.T) {
 			if mcmsConfig != nil {
 				require.Equal(t, state.MustGetEVMChainState(selectorA).Timelock.Address(), configOnA.Administrator)
 			} else {
-				require.Equal(t, e.Chains[selectorA].DeployerKey.From, configOnA.Administrator)
+				require.Equal(t, e.BlockChains.EVMChains()[selectorA].DeployerKey.From, configOnA.Administrator)
 			}
 
 			configOnB, err := registryOnB.GetTokenConfig(nil, tokens[selectorB].Address)
@@ -205,7 +205,7 @@ func TestAcceptAdminRoleChangeset_Execution(t *testing.T) {
 			if mcmsConfig != nil {
 				require.Equal(t, state.MustGetEVMChainState(selectorB).Timelock.Address(), configOnB.Administrator)
 			} else {
-				require.Equal(t, e.Chains[selectorB].DeployerKey.From, configOnB.Administrator)
+				require.Equal(t, e.BlockChains.EVMChains()[selectorB].DeployerKey.From, configOnB.Administrator)
 			}
 		})
 	}

@@ -72,9 +72,9 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 	// change the deployer key, so that we can deploy proposer with a new key
 	// the new deployer key will not be admin of the timelock
 	// we can test granting roles through proposal
-	chain := updatedEnv.Chains[evmSelectors[0]]
-	chain.DeployerKey = updatedEnv.Chains[evmSelectors[0]].Users[0]
-	updatedEnv.Chains[evmSelectors[0]] = chain
+	evmChains := updatedEnv.BlockChains.EVMChains()
+	chain := evmChains[evmSelectors[0]]
+	chain.DeployerKey = evmChains[evmSelectors[0]].Users[0]
 
 	// now deploy MCMS again so that only the proposer is new
 	updatedEnv, err = commonchangeset.Apply(t, updatedEnv, nil, configuredChangeset)
@@ -96,7 +96,7 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 	mcmsState, err = mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, evmSelectors)
 	require.NoError(t, err)
 
-	evmTimelockInspector := mcmsevmsdk.NewTimelockInspector(updatedEnv.Chains[evmSelectors[0]].Client)
+	evmTimelockInspector := mcmsevmsdk.NewTimelockInspector(updatedEnv.BlockChains.EVMChains()[evmSelectors[0]].Client)
 
 	proposers, err := evmTimelockInspector.GetProposers(ctx, mcmsState[evmSelectors[0]].Timelock.Address().Hex())
 	require.NoError(t, err)
@@ -192,7 +192,7 @@ func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 	// proposer should be newly deployed
 	require.NotEqual(t, mcmsAddress, evmState0.ProposerMcm.Address())
 
-	evmTimelockInspector := mcmsevmsdk.NewTimelockInspector(updatedEnv.Chains[evmSelectors[0]].Client)
+	evmTimelockInspector := mcmsevmsdk.NewTimelockInspector(updatedEnv.BlockChains.EVMChains()[evmSelectors[0]].Client)
 
 	proposers, err := evmTimelockInspector.GetProposers(ctx, evmState0.Timelock.Address().Hex())
 	require.NoError(t, err)
@@ -336,8 +336,9 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 
 	// evm chain 0
 	evmState0 := evmState[evmSelectors[0]]
-	evmInspector := mcmsevmsdk.NewInspector(updatedEnv.Chains[evmSelectors[0]].Client)
-	evmTimelockInspector := mcmsevmsdk.NewTimelockInspector(updatedEnv.Chains[evmSelectors[0]].Client)
+	evmChains := updatedEnv.BlockChains.EVMChains()
+	evmInspector := mcmsevmsdk.NewInspector(evmChains[evmSelectors[0]].Client)
+	evmTimelockInspector := mcmsevmsdk.NewTimelockInspector(evmChains[evmSelectors[0]].Client)
 
 	config, err := evmInspector.GetConfig(ctx, evmState0.ProposerMcm.Address().Hex())
 	require.NoError(t, err)
@@ -373,8 +374,8 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 
 	// evm chain 1
 	evmState1 := evmState[evmSelectors[1]]
-	evmInspector = mcmsevmsdk.NewInspector(updatedEnv.Chains[evmSelectors[1]].Client)
-	evmTimelockInspector = mcmsevmsdk.NewTimelockInspector(updatedEnv.Chains[evmSelectors[1]].Client)
+	evmInspector = mcmsevmsdk.NewInspector(evmChains[evmSelectors[1]].Client)
+	evmTimelockInspector = mcmsevmsdk.NewTimelockInspector(evmChains[evmSelectors[1]].Client)
 
 	config, err = evmInspector.GetConfig(ctx, evmState1.ProposerMcm.Address().Hex())
 	require.NoError(t, err)

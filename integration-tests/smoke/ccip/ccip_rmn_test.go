@@ -609,8 +609,8 @@ func (tc *rmnTestCase) alterSigners(t *testing.T, signers []rmn_remote.RMNRemote
 }
 
 func (tc *rmnTestCase) populateFields(t *testing.T, envWithRMN testhelpers.DeployedEnv, rmnCluster devenv.RMNCluster) {
-	require.GreaterOrEqual(t, len(envWithRMN.Env.Chains), 2, "test assumes at least two chains")
-	for _, chain := range envWithRMN.Env.Chains {
+	require.GreaterOrEqual(t, len(envWithRMN.Env.BlockChains.EVMChains()), 2, "test assumes at least two chains")
+	for _, chain := range envWithRMN.Env.BlockChains.EVMChains() {
 		tc.pf.chainSelectors = append(tc.pf.chainSelectors, chain.Selector)
 	}
 
@@ -788,7 +788,7 @@ func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing
 		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
 		chState, ok := onChainState.EVMChainState(remoteSel)
 		require.True(t, ok)
-		_, ok = envWithRMN.Env.Chains[remoteSel]
+		_, ok = envWithRMN.Env.BlockChains.EVMChains()[remoteSel]
 		require.True(t, ok)
 
 		cursedSubjects, ok := tc.cursedSubjectsPerChain[remoteCfg.chainIdx]
@@ -823,7 +823,7 @@ func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, eg
 		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
 		chState, ok := onChainState.EVMChainState(remoteSel)
 		require.True(t, ok)
-		_, ok = envWithRMN.Env.Chains[remoteSel]
+		_, ok = envWithRMN.Env.BlockChains.EVMChains()[remoteSel]
 		require.True(t, ok)
 
 		cursedSubjects := tc.revokedCursedSubjectsPerChain[remoteCfg.chainIdx]
@@ -1039,7 +1039,7 @@ func Test_CCIPReorg_BelowFinality_OnSource_WithRMN(t *testing.T) {
 	_, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		sourceSelector,
-		e.Env.Chains[destSelector],
+		e.Env.BlockChains.EVMChains()[destSelector],
 		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),
@@ -1087,7 +1087,7 @@ func Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Recover(t *testing.T) {
 	_, err = testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		sourceSelector,
-		e.Env.Chains[destSelector],
+		e.Env.BlockChains.EVMChains()[destSelector],
 		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),
@@ -1136,7 +1136,7 @@ func Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Block(t *testing.T) {
 		_, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 			t,
 			sourceSelector,
-			e.Env.Chains[destSelector],
+			e.Env.BlockChains.EVMChains()[destSelector],
 			state.MustGetEVMChainState(destSelector).OffRamp,
 			nil, // startBlock
 			ccipocr3.NewSeqNumRange(1, 1),

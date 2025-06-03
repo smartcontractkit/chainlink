@@ -106,15 +106,6 @@ type TestCaseOutput struct {
 	MsgSentEvent *onramp.OnRampCCIPMessageSent
 }
 
-func sleepAndReplay(t *testing.T, e testhelpers.DeployedEnv, chainSelectors ...uint64) {
-	time.Sleep(30 * time.Second)
-	replayBlocks := make(map[uint64]uint64)
-	for _, selector := range chainSelectors {
-		replayBlocks[selector] = 1
-	}
-	testhelpers.ReplayLogs(t, e.Env.Offchain, replayBlocks)
-}
-
 func getLatestNonce(tc TestCase) uint64 {
 	family, err := chain_selectors.GetSelectorFamily(tc.DestChain)
 	require.NoError(tc.T, err)
@@ -208,7 +199,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	// we need to replay missed logs
 	if !tc.Replayed {
 		require.NotNil(tc.T, tc.DeployedEnv)
-		sleepAndReplay(tc.T, tc.DeployedEnv, tc.SourceChain, tc.DestChain)
+		testhelpers.SleepAndReplay(tc.T, tc.DeployedEnv.Env, 30*time.Second, tc.SourceChain, tc.DestChain)
 		out.Replayed = true
 	}
 

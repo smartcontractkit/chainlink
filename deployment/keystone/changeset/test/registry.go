@@ -228,9 +228,6 @@ func deployCapReg(t *testing.T, chain cldf_evm.Chain) *capabilities_registry.Cap
 func addNops(t *testing.T, lggr logger.Logger, chain cldf_evm.Chain, registry *capabilities_registry.CapabilitiesRegistry, nops []capabilities_registry.CapabilitiesRegistryNodeOperator) *internal.RegisterNOPSResponse {
 	env := &cldf.Environment{
 		Logger: lggr,
-		Chains: map[uint64]cldf_evm.Chain{
-			chain.Selector: chain,
-		},
 		ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 			chain.Selector: {
 				registry.Address().String(): cldf.TypeAndVersion{

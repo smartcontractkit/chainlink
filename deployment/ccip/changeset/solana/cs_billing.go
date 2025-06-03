@@ -42,16 +42,14 @@ type BillingTokenConfig struct {
 	MCMS     *proposalutils.TimelockConfig
 }
 
-func (cfg *BillingTokenConfig) Validate(e cldf.Environment) error {
+func (cfg *BillingTokenConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
+	chainState := state.SolChains[cfg.ChainSelector]
+	if err := chainState.CommonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
-
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	state, _ := stateview.LoadOnchainState(e)
-	chainState := state.SolChains[cfg.ChainSelector]
-	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateFeeQuoterConfig(chain); err != nil {
 		return err
 	}
 	if _, err := chainState.TokenToTokenProgram(tokenPubKey); err != nil {
@@ -150,11 +148,14 @@ func AddBillingToken(
 }
 
 func AddBillingTokenChangeset(e cldf.Environment, cfg BillingTokenConfig) (cldf.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	if err := cfg.Validate(e, state); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
 	solFeeQuoter.SetProgramID(chainState.FeeQuoter)
@@ -197,15 +198,14 @@ type TokenTransferFeeForRemoteChainConfig struct {
 
 const MinDestBytesOverhead = 32
 
-func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e cldf.Environment) error {
+func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
+	chainState := state.SolChains[cfg.ChainSelector]
+	if err := chainState.CommonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
-	state, _ := stateview.LoadOnchainState(e)
-	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateFeeQuoterConfig(chain); err != nil {
 		return fmt.Errorf("fee quoter validation failed: %w", err)
 	}
 	if cfg.Config.DestBytesOverhead < 32 {
@@ -223,12 +223,15 @@ func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e cldf.Environment) err
 
 // TODO: rename this, i dont think this is for billing, this is more for token transfer config/fees
 func AddTokenTransferFeeForRemoteChain(e cldf.Environment, cfg TokenTransferFeeForRemoteChainConfig) (cldf.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	if err := cfg.Validate(e, state); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	remoteBillingPDA, _, _ := solState.FindFqPerChainPerTokenConfigPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.FeeQuoter)
@@ -299,14 +302,10 @@ type UpdatePricesConfig struct {
 	MCMS              *proposalutils.TimelockConfig
 }
 
-func (cfg UpdatePricesConfig) Validate(e cldf.Environment) error {
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
+func (cfg UpdatePricesConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateFeeQuoterConfig(chain); err != nil {
 		return err
 	}
 	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.FeeQuoter: true}); err != nil {
@@ -315,6 +314,7 @@ func (cfg UpdatePricesConfig) Validate(e cldf.Environment) error {
 	if cfg.PriceUpdater.IsZero() {
 		return fmt.Errorf("price updater is zero for chain %d", cfg.ChainSelector)
 	}
+	var err error
 	for _, update := range cfg.TokenPriceUpdates {
 		billingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(update.SourceToken, chainState.FeeQuoter)
 		var token0ConfigAccount solFeeQuoter.BillingTokenConfigWrapper
@@ -336,12 +336,11 @@ func (cfg UpdatePricesConfig) Validate(e cldf.Environment) error {
 }
 
 func UpdatePrices(e cldf.Environment, cfg UpdatePricesConfig) (cldf.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-
 	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	if err := cfg.Validate(e, s); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
@@ -425,14 +424,10 @@ const (
 	RemoveUpdater
 )
 
-func (cfg ModifyPriceUpdaterConfig) Validate(e cldf.Environment) error {
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
+func (cfg ModifyPriceUpdaterConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateFeeQuoterConfig(chain); err != nil {
 		return err
 	}
 	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.FeeQuoter: true}); err != nil {
@@ -445,12 +440,11 @@ func (cfg ModifyPriceUpdaterConfig) Validate(e cldf.Environment) error {
 }
 
 func ModifyPriceUpdater(e cldf.Environment, cfg ModifyPriceUpdaterConfig) (cldf.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-
 	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	if err := cfg.Validate(e, s); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
@@ -531,33 +525,28 @@ type WithdrawBilledFundsConfig struct {
 	MCMS          *proposalutils.TimelockConfig
 }
 
-func (cfg WithdrawBilledFundsConfig) Validate(e cldf.Environment) error {
+func (cfg WithdrawBilledFundsConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
-		return err
-	}
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState); err != nil {
+	if err := chainState.CommonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
-	if err := validateFeeAggregatorConfig(chain, chainState); err != nil {
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
+	if err := chainState.ValidateRouterConfig(chain); err != nil {
+		return err
+	}
+	if err := chainState.ValidateFeeAggregatorConfig(chain); err != nil {
 		return err
 	}
 	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.Router: true})
 }
 
 func WithdrawBilledFunds(e cldf.Environment, cfg WithdrawBilledFundsConfig) (cldf.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-
 	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	if err := cfg.Validate(e, s); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
@@ -633,18 +622,14 @@ type SetMaxFeeJuelsPerMsgConfig struct {
 	MCMS              *proposalutils.TimelockConfig
 }
 
-func (cfg SetMaxFeeJuelsPerMsgConfig) Validate(e cldf.Environment) error {
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
+func (cfg SetMaxFeeJuelsPerMsgConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
 	chainState, chainExists := state.SolChains[cfg.ChainSelector]
 	if !chainExists {
 		return fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 
-	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateFeeQuoterConfig(chain); err != nil {
 		return err
 	}
 
@@ -652,11 +637,14 @@ func (cfg SetMaxFeeJuelsPerMsgConfig) Validate(e cldf.Environment) error {
 }
 
 func SetMaxFeeJuelsPerMsg(e cldf.Environment, cfg SetMaxFeeJuelsPerMsgConfig) (cldf.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	if err := cfg.Validate(e, state); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
-	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 

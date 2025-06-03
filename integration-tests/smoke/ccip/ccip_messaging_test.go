@@ -61,7 +61,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	allChainSelectors := maps.Keys(e.Env.Chains)
+	allChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
 	require.Len(t, allChainSelectors, 2)
 	sourceChain := chains[0].Selector
 	destChain := chains[1].Selector
@@ -79,7 +79,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	var (
 		replayed bool
 		nonce    uint64
-		sender   = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
+		sender   = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
 		out      mt.TestCaseOutput
 		setup    = mt.NewTestSetupWithDeployedEnv(
 			t,
@@ -245,7 +245,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 	var (
 		replayed bool
 		// nonce    uint64 // Nonce not used as Solana check is skipped
-		sender = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
+		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
 		out    mt.TestCaseOutput
 		setup  = mt.NewTestSetupWithDeployedEnv(
 			t,

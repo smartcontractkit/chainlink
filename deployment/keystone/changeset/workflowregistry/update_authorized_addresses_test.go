@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -36,10 +35,7 @@ func TestUpdateAuthorizedAddresses(t *testing.T) {
 	assert.Empty(t, authorizedAddresses)
 
 	env := cldf.Environment{
-		Logger: lggr,
-		Chains: map[uint64]cldf_evm.Chain{
-			chainSel: resp.Chain,
-		},
+		Logger:            lggr,
 		ExistingAddresses: resp.AddressBook,
 		BlockChains: cldf_chain.NewBlockChains(
 			map[uint64]cldf_chain.BlockChain{
