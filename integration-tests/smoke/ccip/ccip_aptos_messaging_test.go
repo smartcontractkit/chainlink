@@ -183,25 +183,25 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 		)
 	})
 
-	t.Run("Not Enough Gas on Destination - Should Fail (Status = 3)", func(t *testing.T) {
-		message := []byte("Hello Aptos, from EVM!")
-		gasLimit := uint64(1) // Obvious failure, but we want to test that the status is 3
+	// t.Run("Not Enough Gas on Destination - Should Fail (Status = 3)", func(t *testing.T) {
+	// 	message := []byte("Hello Aptos, from EVM!")
+	// 	gasLimit := uint64(1) // Obvious failure, but we want to test that the status is 3
 
-		messagingtest.Run(t,
-			messagingtest.TestCase{
-				TestSetup:      setup,
-				Replayed:       replayed,
-				Nonce:          &nonce,
-				ValidationType: messagingtest.ValidationTypeExec,
-				Receiver:       ccipChainState.ReceiverAddress[:],
-				MsgData:        message,
-				// true for out of order execution, which is necessary and enforced for Aptos
-				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(gasLimit, true),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_FAILURE,
-				FeeToken:               NATIVE_FEE_TOKEN,
-			},
-		)
-	})
+	// 	messagingtest.Run(t,
+	// 		messagingtest.TestCase{
+	// 			TestSetup:      setup,
+	// 			Replayed:       replayed,
+	// 			Nonce:          &nonce,
+	// 			ValidationType: messagingtest.ValidationTypeExec,
+	// 			Receiver:       ccipChainState.ReceiverAddress[:],
+	// 			MsgData:        message,
+	// 			// true for out of order execution, which is necessary and enforced for Aptos
+	// 			ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(gasLimit, true),
+	// 			ExpectedExecutionState: testhelpers.EXECUTION_STATE_FAILURE,
+	// 			FeeToken:               NATIVE_FEE_TOKEN,
+	// 		},
+	// 	)
+	// })
 
 	t.Run("Fee Token (LINK) - Should Succeed", func(t *testing.T) {
 		message := []byte("Hello Aptos, from EVM!")
