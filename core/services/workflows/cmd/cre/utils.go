@@ -49,18 +49,16 @@ func NewStandaloneEngine(
 		IsUncompressed:          true,
 	}
 
-	name, err := types.NewWorkflowName(defaultName)
-	if err != nil {
-		return nil, err
-	}
-
-	lggr.Debugf("Creating module for workflow %s", name)
 	module, err := host.NewModule(moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
 		return nil, fmt.Errorf("unable to create module from config: %w", err)
 	}
-	lggr.Debugf("Finished creating module for workflow %s", name)
 
+	name, err := types.NewWorkflowName(defaultName)
+	if err != nil {
+		return nil, err
+	}
+	
 	rl, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
 		GlobalRPS:      defaultRPS,
 		GlobalBurst:    defaultBurst,
