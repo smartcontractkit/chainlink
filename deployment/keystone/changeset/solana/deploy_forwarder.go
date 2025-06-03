@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
@@ -272,12 +273,13 @@ func configureForwarder(req ConfigureForwarderRequest, state *state, ch cldf.Sol
 
 	// 3. build init/update instructions
 	var instructions *ks_forwarder.Instruction
+	signers := toSolSigners(wfdon.Signers(chainsel.FamilySolana))
 	if !oracleExists {
 		instructions, err = ks_forwarder.NewInitOraclesConfigInstruction(
 			wfdon.Info.Id,
 			wfdon.Info.ConfigCount,
 			wfdon.Info.F,
-			toSolSigners(wfdon.Signers(chainsel.FamilySolana)),
+			signers,
 			state.forwarderState,
 			configPDA,
 			owner,
@@ -291,7 +293,7 @@ func configureForwarder(req ConfigureForwarderRequest, state *state, ch cldf.Sol
 			wfdon.Info.Id,
 			wfdon.Info.ConfigCount,
 			wfdon.Info.F,
-			toSolSigners(wfdon.Signers(chainsel.FamilySolana)),
+			signers,
 			state.forwarderState,
 			configPDA,
 			owner,
@@ -339,7 +341,10 @@ func getConfigPDA(statePubkey solana.PublicKey, donID uint32, configVersion uint
 }
 
 func toSolSigners(ss []common.Address) [][20]uint8 {
-	ret := make([][20]uint8, len(ss))
+	ret := make([][20]uint8, 0, len(ss))
+	slices.SortFunc(ss, func(a, b common.Address) int {
+		return slices.Compare(a.Bytes(), b.Bytes())
+	})
 	for _, s := range ss {
 		ret = append(ret, s)
 	}
