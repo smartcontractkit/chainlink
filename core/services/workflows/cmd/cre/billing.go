@@ -8,15 +8,33 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type BillingService struct {
-	billing.UnimplementedWorkflowServiceServer
+	services.Service
+	eng *services.Engine
 
-	lggr logger.Logger
+	lggr   logger.Logger
+	server *grpc.Server
+
+	billing.UnimplementedWorkflowServiceServer
+}
+
+var _ services.Service = (*BillingService)(nil)
+
+func NewBillingService(lggr logger.Logger) *BillingService {
+	b := &BillingService{
+		lggr: lggr,
+	}
+	b.Service, b.eng = services.Config{
+		Name:  "fakeBillingService",
+		Start: b.start,
+		Close: b.close,
+	}.NewServiceEngine(lggr)
+	return b
 }
 
 func (s *BillingService) ReserveCredits(
@@ -37,22 +55,31 @@ func (s *BillingService) WorkflowReceipt(
 	return &billing.SubmitWorkflowReceiptResponse{Success: true}, nil
 }
 
-func RunBillingListener(ctx context.Context, lggr logger.Logger) {
+func (s *BillingService) start(ctx context.Context) error {
 	lis, err := net.Listen("tcp", "localhost:4319")
 	if err != nil {
 		log.Fatalf("billing failed to listen: %v", err)
+		return err
 	}
 
-	s := grpc.NewServer()
+	server := grpc.NewServer()
 
-	billing.RegisterWorkflowServiceServer(s, &BillingService{lggr: lggr})
-	context.AfterFunc(ctx, s.Stop)
+	billing.RegisterWorkflowServiceServer(server, &BillingService{lggr: s.lggr})
 
-	go func() {
-		if err := s.Serve(lis); err != nil {
-			log.Fatalf("billing failed to serve: %v", err)
-		}
-	}()
+	err = server.Serve(lis)
+	if err != nil {
+		log.Fatalf("billing failed to serve: %v", err)
+		return err
+	}
+
+	s.server = server
+
+	return nil
+}
+
+func (s *BillingService) close() error {
+	s.server.Stop()
+	return nil
 }
 
 func setupBeholder(lggr logger.Logger) error {

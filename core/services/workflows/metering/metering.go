@@ -23,13 +23,15 @@ const (
 )
 
 var (
-	ErrNoBillingClient     = errors.New("no billing client configured")
-	ErrInsufficientFunding = errors.New("insufficient balance funding")
+	ErrNoBillingClient     = errors.New("no billing client has been configured")
+	ErrNoOwner             = errors.New("no workflow owner has been configured")
+	ErrNoWorkflowID        = errors.New("no workflow ID has been configured")
+	ErrInsufficientFunding = errors.New("insufficient funding")
 	ErrReceiptFailed       = errors.New("failed to submit workflow receipt")
 	ErrUninitializedReport = errors.New("metering report has not been initialized")
-	ErrStepReserveExists   = errors.New("step reserve already exists")
+	ErrStepDeductExists    = errors.New("step deduct already exists")
 	ErrNoOpenCalls         = errors.New("openConcurrentCallSlots must be greater than 0")
-	ErrNoReserve           = errors.New("must call Report.ReserveStep first")
+	ErrNoDeduct            = errors.New("must call Report.DeductByLimits or Report.DeductByAvailability first")
 	ErrStepSpendExists     = errors.New("step spend already exists")
 )
 
@@ -101,7 +103,7 @@ type ProtoDetail struct {
 
 type ReportStep struct {
 	// The maximum amount of universal credits that should be used in this step
-	Reserve int64
+	Deduction int64
 	// The actual spend of this step
 	Spend map[SpendUnit][]ReportStepDetail
 }
@@ -113,7 +115,7 @@ type ReportStepDetail struct {
 
 type Report struct {
 	// descriptive properties
-	accountID           string
+	owner               string
 	workflowID          string
 	workflowExecutionID string
 
@@ -128,56 +130,67 @@ type Report struct {
 	steps map[string]ReportStep
 }
 
-func NewReport(accountID, workflowID, workflowExecutionID string, lggr logger.SugaredLogger) *Report {
+func NewReport(workflowExecutionID string, lggr logger.SugaredLogger) *Report {
 	sugaredLggr := lggr.Named("Metering").With("workflowExecutionID", workflowExecutionID)
 	return &Report{
-		accountID:           accountID,
-		workflowID:          workflowID,
 		workflowExecutionID: workflowExecutionID,
 
-		balance: NewBalanceStore(0, map[string]decimal.Decimal{}, sugaredLggr),
-		lggr:    sugaredLggr,
+		lggr: sugaredLggr,
 
 		ready: false,
 		steps: make(map[string]ReportStep),
 	}
 }
 
+// Initialize prepares the metering report for usage by retrieving information from the billing client
 func (r *Report) Initialize(ctx context.Context) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if r.client == nil {
-		// TODO: more robust check of billing service health
+		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-427 more robust check of billing service health
 		return ErrNoBillingClient
 	}
+	if r.owner == "" {
+		return ErrNoOwner
+	}
+	if r.workflowID == "" {
+		return ErrNoWorkflowID
+	}
 
-	// TODO: get rate card from billing service
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-460 get rate card from billing service
 	rateCard := map[string]decimal.Decimal{}
 
 	balanceStore := NewBalanceStore(0, rateCard, r.lggr)
 
 	// If there is no credit limit defined in the workflow, then open an empty reservation
-	// TODO: consume user defined workflow execution limit
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-284 consume user defined workflow execution limit
 	req := billing.ReserveCreditsRequest{
-		AccountId:           r.accountID,
+		AccountId:           r.owner,
 		WorkflowId:          r.workflowID,
 		WorkflowExecutionId: r.workflowExecutionID,
-		Credits:             []*billing.AccountCreditsInput{}, // TODO: send the credit balance, not resource types
+		Credits:             []*billing.AccountCreditsInput{}, // TODO: https://smartcontract-it.atlassian.net/browse/CRE-290 send the credit balance, not resource types
 	}
 
 	resp, err := r.client.ReserveCredits(ctx, &req)
-	// If there is an error communicating with the billing service, fail openly
+	// If there is an error communicating with the billing service, fail open
 	if err != nil {
-		// TODO: track failure
+		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-453 track causes of metering mode
 		balanceStore.AllowNegative()
 		r.lggr.Warnf("failed to reserve credits: %s", err)
 	} else {
-		success := resp.GetSuccess()
-		// TODO: once response contains balance set using balanceStore.Add
-		if !success {
+		if success := resp.GetSuccess(); !success {
 			return ErrInsufficientFunding
+		}
+		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-290 once billing client response contains balance set using balanceStore.Add
+		dummyInitialBalance := int64(10000)
+		if addErr := balanceStore.Add(dummyInitialBalance); addErr != nil {
+			return addErr
 		}
 	}
 
 	r.ready = true
+	r.balance = balanceStore
 	return nil
 }
 
@@ -230,10 +243,8 @@ func (r *Report) DeductByLimits(ref string, capInfo capabilities.CapabilityInfo,
 	}
 
 	if _, ok := r.steps[ref]; ok {
-		return 0, ErrStepReserveExists
+		return 0, ErrStepDeductExists
 	}
-
-	// TODO: consume CapabilityInfo resource types
 
 	amount := int64(0)
 	for _, spendTuple := range limits {
@@ -245,9 +256,12 @@ func (r *Report) DeductByLimits(ref string, capInfo capabilities.CapabilityInfo,
 	}
 
 	r.steps[ref] = ReportStep{
-		Reserve: amount,
-		Spend:   nil,
+		Deduction: amount,
+		Spend:     nil,
 	}
+
+	// convert balance to CapabilityInfo resource types for use in Capability call
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461
 
 	return amount, nil
 }
@@ -255,7 +269,7 @@ func (r *Report) DeductByLimits(ref string, capInfo capabilities.CapabilityInfo,
 // DeductByAvailability earmarks an amount of local universal credit balance and then returns that amount
 // The amount reserved is determined splitting the total open balance by how many remaining concurrent calls can be made
 // We expect to only set this value once - an error is returned if a step would be overwritten
-func (r *Report) DeductByAvailability(ref string, capInfo capabilities.CapabilityInfo, openConcurrentCallSlots int) (int64, error) {
+func (r *Report) DeductByAvailability(ref string, capInfo capabilities.CapabilityInfo, openConcurrentCallSlots int, maxSpend int) (int64, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -264,21 +278,20 @@ func (r *Report) DeductByAvailability(ref string, capInfo capabilities.Capabilit
 	}
 
 	if _, ok := r.steps[ref]; ok {
-		return 0, ErrStepReserveExists
+		return 0, ErrStepDeductExists
 	}
 
 	if openConcurrentCallSlots == 0 {
 		return 0, ErrNoOpenCalls
 	}
 
-	// TODO: consume CapabilityInfo resource types
-
 	// Split the available local balance between the number of concurrent calls that can still be made
 	available := r.balance.Get()
 	share := decimal.NewFromInt(available).Div(decimal.NewFromInt(int64(openConcurrentCallSlots)))
 	roundedShare := share.RoundDown(0).IntPart()
 
-	// TODO: take minimum of available concurrent balance versus step defined max spend
+	// take minimum of available concurrent balance versus step defined max spend
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-285
 
 	err := r.balance.Minus(roundedShare)
 	if err != nil {
@@ -287,15 +300,18 @@ func (r *Report) DeductByAvailability(ref string, capInfo capabilities.Capabilit
 	}
 
 	r.steps[ref] = ReportStep{
-		Reserve: roundedShare,
-		Spend:   nil,
+		Deduction: roundedShare,
+		Spend:     nil,
 	}
+
+	// convert balance to CapabilityInfo resource types for use in Capability call
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461
 
 	return roundedShare, nil
 }
 
 // SetStep records the actual spend for a given capability invocation in the engine.
-// ReserveStep must be called before SetStep
+// A Deduct method must be called before SetStep
 // We expect to only set this value once - an error is returned if a step would be overwritten
 func (r *Report) SetStep(ref string, steps []capabilities.MeteringNodeDetail) error {
 	r.mu.Lock()
@@ -307,7 +323,7 @@ func (r *Report) SetStep(ref string, steps []capabilities.MeteringNodeDetail) er
 
 	step, ok := r.steps[ref]
 	if !ok {
-		return ErrNoReserve
+		return ErrNoDeduct
 	}
 
 	if step.Spend != nil {
@@ -333,8 +349,8 @@ func (r *Report) SetStep(ref string, steps []capabilities.MeteringNodeDetail) er
 	step.Spend = spends
 	r.steps[ref] = step
 
-	// Refund unused local reserve
-	err := r.balance.Add(step.Reserve - spent)
+	// Refund the difference between what local balance what earmarked and the actual spend
+	err := r.balance.Add(step.Deduction - spent)
 	if err != nil {
 		// invariant: capability should not let spend exceed reserve
 		r.lggr.Error("invariant: spend exceeded reserve")
@@ -376,7 +392,7 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 	}
 
 	req := billing.SubmitWorkflowReceiptRequest{
-		AccountId:           r.accountID,
+		AccountId:           r.owner,
 		WorkflowId:          r.workflowID,
 		WorkflowExecutionId: r.workflowExecutionID,
 		Metering:            r.Message(),
@@ -399,13 +415,20 @@ type Reports struct {
 	mu      sync.RWMutex
 	reports map[string]*Report
 	client  BillingClient
+
+	// descriptive properties
+	owner      string
+	workflowID string
 }
 
 // NewReports initializes and returns a new Reports.
-func NewReports(client BillingClient) *Reports {
+func NewReports(client BillingClient, owner, workflowID string) *Reports {
 	return &Reports{
 		reports: make(map[string]*Report),
 		client:  client,
+
+		owner:      owner,
+		workflowID: workflowID,
 	}
 }
 
@@ -424,6 +447,8 @@ func (s *Reports) Add(key string, report *Report) {
 	defer s.mu.Unlock()
 
 	report.client = s.client
+	report.owner = s.owner
+	report.workflowID = s.workflowID
 	s.reports[key] = report
 }
 

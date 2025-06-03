@@ -489,7 +489,7 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, triggerID string, event *values.Map) error {
-	meteringReport := metering.NewReport(e.workflow.owner, e.workflow.id, executionID, clggr.Sugared(e.logger))
+	meteringReport := metering.NewReport(executionID, clggr.Sugared(e.logger))
 	e.meterReports.Add(executionID, meteringReport)
 	err := meteringReport.Initialize(ctx)
 	if err != nil {
@@ -585,7 +585,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 
 		// this case is only for resuming executions and should be updated when metering is added to save execution state
 		if _, ok := e.meterReports.Get(stepUpdate.ExecutionID); !ok {
-			e.meterReports.Add(stepUpdate.ExecutionID, metering.NewReport(e.workflow.owner, e.workflow.id, state.ExecutionID, clggr.Sugared(e.logger)))
+			e.meterReports.Add(stepUpdate.ExecutionID, metering.NewReport(state.ExecutionID, clggr.Sugared(e.logger)))
 		}
 
 		return e.finishExecution(ctx, cma, state.ExecutionID, status)
@@ -785,7 +785,8 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		if err != nil {
 			l.Error(fmt.Sprintf("failed to get capability info for %s: %s", stepState.Ref, err))
 		}
-		_, err = meteringReport.DeductByAvailability(stepState.Ref, capInfo, e.maxWorkerLimit)
+		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-285 get max spend per step
+		_, err = meteringReport.DeductByAvailability(stepState.Ref, capInfo, e.maxWorkerLimit, 0)
 		if err != nil {
 			l.Error(fmt.Sprintf("failed to reserve on metering report for %s: %s", stepState.Ref, err))
 		}
@@ -798,6 +799,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	logCustMsg(ctx, cma, "executing step", l)
 
 	stepExecutionStartTime := time.Now()
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461 pass deducted amount as max spend to capability.Execute
 	inputs, response, sErr := e.executeStep(ctx, l, msg)
 	stepExecutionDuration := time.Since(stepExecutionStartTime).Seconds()
 
@@ -1461,7 +1463,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
 		workflowLimits:       cfg.WorkflowLimits,
-		meterReports:         metering.NewReports(cfg.BillingClient),
+		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id),
 	}
 
 	return engine, nil

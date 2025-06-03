@@ -2,6 +2,7 @@ package metering
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"sync"
 	"testing"
@@ -22,16 +23,42 @@ const (
 	testWorkflowExecutionID = "workflowExecutionId"
 )
 
-type mockBillingClient struct{}
+type mockBillingClient struct {
+	submitWorkflowReceiptResponse *billing.SubmitWorkflowReceiptResponse
+	submitWorkflowReceiptError    error
+	reserveCreditResponse         *billing.ReserveCreditsResponse
+	reserveCreditError            error
+}
+
+type MockBillingClient interface {
+	SubmitWorkflowReceipt(context.Context, *billing.SubmitWorkflowReceiptRequest) (*billing.SubmitWorkflowReceiptResponse, error)
+	SetSubmitWorkflowReceipt(*billing.SubmitWorkflowReceiptResponse, error)
+	ReserveCredits(context.Context, *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error)
+	SetReserveCredits(*billing.ReserveCreditsResponse, error)
+}
 
 func (m *mockBillingClient) SubmitWorkflowReceipt(context.Context, *billing.SubmitWorkflowReceiptRequest) (*billing.SubmitWorkflowReceiptResponse, error) {
-	return &billing.SubmitWorkflowReceiptResponse{Success: true}, nil
+	return m.submitWorkflowReceiptResponse, m.submitWorkflowReceiptError
+}
+func (m *mockBillingClient) SetSubmitWorkflowReceipt(response *billing.SubmitWorkflowReceiptResponse, err error) {
+	m.submitWorkflowReceiptResponse = response
+	m.submitWorkflowReceiptError = err
 }
 func (m *mockBillingClient) ReserveCredits(context.Context, *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error) {
-	return &billing.ReserveCreditsResponse{Success: true}, nil
+	return m.reserveCreditResponse, m.reserveCreditError
 }
-func newMockBillingClient() BillingClient {
-	return &mockBillingClient{}
+func (m *mockBillingClient) SetReserveCredits(response *billing.ReserveCreditsResponse, err error) {
+	m.reserveCreditResponse = response
+	m.reserveCreditError = err
+}
+
+func newMockBillingClient() MockBillingClient {
+	return &mockBillingClient{
+		submitWorkflowReceiptResponse: &billing.SubmitWorkflowReceiptResponse{Success: true},
+		submitWorkflowReceiptError:    nil,
+		reserveCreditResponse:         &billing.ReserveCreditsResponse{Success: true},
+		reserveCreditError:            nil,
+	}
 }
 
 func TestReport(t *testing.T) {
@@ -46,8 +73,10 @@ func TestReport(t *testing.T) {
 		t.Parallel()
 
 		billingClient := newMockBillingClient()
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t))
+		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
 		report.client = billingClient
+		report.owner = testAccountID
+		report.workflowID = testWorkflowID
 		err := report.Initialize(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
@@ -87,8 +116,10 @@ func TestReport(t *testing.T) {
 		t.Parallel()
 
 		billingClient := newMockBillingClient()
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t))
+		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
 		report.client = billingClient
+		report.owner = testAccountID
+		report.workflowID = testWorkflowID
 		err := report.Initialize(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
@@ -120,8 +151,10 @@ func TestReport(t *testing.T) {
 		t.Parallel()
 
 		billingClient := newMockBillingClient()
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t))
+		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
 		report.client = billingClient
+		report.owner = testAccountID
+		report.workflowID = testWorkflowID
 		err := report.Initialize(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
@@ -155,8 +188,10 @@ func TestReport(t *testing.T) {
 		t.Parallel()
 
 		billingClient := newMockBillingClient()
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t))
+		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
 		report.client = billingClient
+		report.owner = testAccountID
+		report.workflowID = testWorkflowID
 		err := report.Initialize(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
@@ -187,11 +222,76 @@ func TestReport(t *testing.T) {
 		assert.Equal(t, expected[testUnitA].String(), median[testUnitA].String())
 	})
 
-	t.Run("ReserveStep returns error if step already exists", func(t *testing.T) {
+	t.Run("Initialize returns an error if no billing client is given", func(t *testing.T) {
+		t.Parallel()
+		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
+		require.ErrorIs(t, report.Initialize(t.Context()), ErrNoBillingClient)
+	})
+
+	t.Run("Initialize returns an error if no owner is given", func(t *testing.T) {
+		t.Parallel()
+		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
+		billingClient := newMockBillingClient()
+		report.client = billingClient
+		require.ErrorIs(t, report.Initialize(t.Context()), ErrNoOwner)
+	})
+
+	t.Run("Initialize returns an error if no workflow ID is given", func(t *testing.T) {
+		t.Parallel()
+		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
+		billingClient := newMockBillingClient()
+		report.client = billingClient
+		report.owner = testAccountID
+		require.ErrorIs(t, report.Initialize(t.Context()), ErrNoWorkflowID)
+	})
+
+	t.Run("Initialize allows negative balances if the billing client cannot be communicated with", func(t *testing.T) {
 		t.Parallel()
 		billingClient := newMockBillingClient()
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t))
+		billingClient.SetReserveCredits(nil, errors.New("some err"))
+		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
 		report.client = billingClient
+		report.owner = testAccountID
+		report.workflowID = testWorkflowID
+		err := report.Initialize(t.Context())
+		require.True(t, report.balance.allowNegative)
+		require.NoError(t, err)
+		_, err = report.DeductByLimits("ref1", capabilities.CapabilityInfo{}, []SpendTuple{{Value: 1, Unit: "SomeUnit"}})
+		require.NoError(t, err)
+		require.Negative(t, report.balance.balance)
+	})
+
+	t.Run("Initialize returns an error if insufficient funding", func(t *testing.T) {
+		t.Parallel()
+		billingClient := newMockBillingClient()
+		billingClient.SetReserveCredits(&billing.ReserveCreditsResponse{Success: false}, nil)
+		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
+		report.client = billingClient
+		report.owner = testAccountID
+		report.workflowID = testWorkflowID
+		err := report.Initialize(t.Context())
+		require.ErrorIs(t, err, ErrInsufficientFunding)
+	})
+
+	t.Run("DeductByLimits returns an error if not initialized", func(t *testing.T) {
+		t.Parallel()
+		billingClient := newMockBillingClient()
+		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
+		report.client = billingClient
+		report.owner = testAccountID
+		report.workflowID = testWorkflowID
+
+		_, err := report.DeductByLimits("ref1", capabilities.CapabilityInfo{}, []SpendTuple{{Value: 1, Unit: "SomeUnit"}})
+		require.ErrorIs(t, err, ErrUninitializedReport)
+	})
+
+	t.Run("DeductByLimits returns an error if step already exists", func(t *testing.T) {
+		t.Parallel()
+		billingClient := newMockBillingClient()
+		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
+		report.client = billingClient
+		report.owner = testAccountID
+		report.workflowID = testWorkflowID
 		err := report.Initialize(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
@@ -199,14 +299,62 @@ func TestReport(t *testing.T) {
 		_, err = report.DeductByLimits("ref1", capabilities.CapabilityInfo{}, []SpendTuple{{Value: 1, Unit: "SomeUnit"}})
 		require.NoError(t, err)
 		_, err = report.DeductByLimits("ref1", capabilities.CapabilityInfo{}, []SpendTuple{{Value: 1, Unit: "SomeUnit"}})
-		require.Error(t, err)
+		require.ErrorIs(t, err, ErrStepDeductExists)
 	})
 
-	t.Run("SetStep returns error if reserve is not called first", func(t *testing.T) {
+	t.Run("DeductByAvailability returns an error if not initialized", func(t *testing.T) {
 		t.Parallel()
 		billingClient := newMockBillingClient()
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t))
+		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
 		report.client = billingClient
+		report.owner = testAccountID
+		report.workflowID = testWorkflowID
+
+		_, err := report.DeductByAvailability("ref1", capabilities.CapabilityInfo{}, 2, 0)
+		require.ErrorIs(t, err, ErrUninitializedReport)
+	})
+
+	t.Run("DeductByAvailability returns an error if step already exists", func(t *testing.T) {
+		t.Parallel()
+		billingClient := newMockBillingClient()
+		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
+		report.client = billingClient
+		report.owner = testAccountID
+		report.workflowID = testWorkflowID
+		err := report.Initialize(t.Context())
+		require.NoError(t, err)
+		err = report.balance.Add(100)
+		require.NoError(t, err)
+		_, err = report.DeductByAvailability("ref1", capabilities.CapabilityInfo{}, 2, 0)
+		require.NoError(t, err)
+		_, err = report.DeductByAvailability("ref1", capabilities.CapabilityInfo{}, 1, 0)
+		require.ErrorIs(t, err, ErrStepDeductExists)
+	})
+
+	t.Run("SetStep returns an error if not initialized", func(t *testing.T) {
+		t.Parallel()
+		billingClient := newMockBillingClient()
+		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
+		report.client = billingClient
+		report.owner = testAccountID
+		report.workflowID = testWorkflowID
+
+		steps := []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "xyz", SpendUnit: testA, SpendValue: "42"},
+			{Peer2PeerID: "abc", SpendUnit: testA, SpendValue: "1"},
+		}
+
+		err := report.SetStep("ref1", steps)
+		require.ErrorIs(t, err, ErrUninitializedReport)
+	})
+
+	t.Run("SetStep returns an error if Deduct is not called first", func(t *testing.T) {
+		t.Parallel()
+		billingClient := newMockBillingClient()
+		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
+		report.client = billingClient
+		report.owner = testAccountID
+		report.workflowID = testWorkflowID
 		err := report.Initialize(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
@@ -217,14 +365,16 @@ func TestReport(t *testing.T) {
 			{Peer2PeerID: "abc", SpendUnit: testA, SpendValue: "1"},
 		}
 
-		require.Error(t, report.SetStep("ref1", steps))
+		require.ErrorIs(t, report.SetStep("ref1", steps), ErrNoDeduct)
 	})
 
-	t.Run("SetStep returns error if step already exists", func(t *testing.T) {
+	t.Run("SetStep returns an error if step already exists", func(t *testing.T) {
 		t.Parallel()
 		billingClient := newMockBillingClient()
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t))
+		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
 		report.client = billingClient
+		report.owner = testAccountID
+		report.workflowID = testWorkflowID
 		err := report.Initialize(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
@@ -238,20 +388,37 @@ func TestReport(t *testing.T) {
 		_, err = report.DeductByLimits("ref1", capabilities.CapabilityInfo{}, []SpendTuple{{Value: 1, Unit: "SomeUnit"}})
 		require.NoError(t, err)
 		require.NoError(t, report.SetStep("ref1", steps))
-		require.Error(t, report.SetStep("ref1", steps))
+		require.ErrorIs(t, report.SetStep("ref1", steps), ErrStepSpendExists)
+	})
+
+	t.Run("SendReceipt returns an error if not initialized", func(t *testing.T) {
+		t.Parallel()
+		billingClient := newMockBillingClient()
+		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
+		report.client = billingClient
+		report.owner = testAccountID
+		report.workflowID = testWorkflowID
+
+		err := report.SendReceipt(t.Context())
+		require.ErrorIs(t, err, ErrUninitializedReport)
 	})
 }
 
 // Test_MeterReports tests the Add, Get, Delete, and Len methods of a MeterReports.
 // It also tests concurrent safe access.
 func Test_MeterReports(t *testing.T) {
-	mr := NewReports(nil)
+	mr := NewReports(nil, "", "")
+	billingClient := newMockBillingClient()
 	assert.Equal(t, 0, mr.Len())
 	wg := sync.WaitGroup{}
 	wg.Add(3)
 	go func() {
 		defer wg.Done()
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t))
+		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
+		report.client = billingClient
+		report.owner = testAccountID
+		report.workflowID = testWorkflowID
+		report.Initialize(t.Context())
 		mr.Add("exec1", report)
 		r, ok := mr.Get("exec1")
 		assert.True(t, ok)
@@ -263,7 +430,13 @@ func Test_MeterReports(t *testing.T) {
 	}()
 	go func() {
 		defer wg.Done()
-		mr.Add("exec2", NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t)))
+		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
+		report.client = billingClient
+		report.owner = testAccountID
+		report.workflowID = testWorkflowID
+		report.Initialize(t.Context())
+		report.balance.Add(10)
+		mr.Add("exec2", report)
 		r, ok := mr.Get("exec2")
 		assert.True(t, ok)
 		_, err := r.DeductByLimits("ref1", capabilities.CapabilityInfo{}, []SpendTuple{{Value: 1, Unit: "SomeUnit"}})
@@ -274,7 +447,12 @@ func Test_MeterReports(t *testing.T) {
 	}()
 	go func() {
 		defer wg.Done()
-		mr.Add("exec1", NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t)))
+		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
+		report.client = billingClient
+		report.owner = testAccountID
+		report.workflowID = testWorkflowID
+		report.Initialize(t.Context())
+		mr.Add("exec1", report)
 		r, ok := mr.Get("exec1")
 		assert.True(t, ok)
 		//nolint:errcheck // depending on the concurrent timing, this may or may not err
@@ -289,11 +467,11 @@ func Test_MeterReports(t *testing.T) {
 }
 
 func Test_MeterReportsLength(t *testing.T) {
-	mr := NewReports(nil)
+	mr := NewReports(nil, "", "")
 
-	mr.Add("exec1", NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t)))
-	mr.Add("exec2", NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t)))
-	mr.Add("exec3", NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t)))
+	mr.Add("exec1", NewReport(testWorkflowExecutionID, logger.TestSugared(t)))
+	mr.Add("exec2", NewReport(testWorkflowExecutionID, logger.TestSugared(t)))
+	mr.Add("exec3", NewReport(testWorkflowExecutionID, logger.TestSugared(t)))
 	assert.Equal(t, 3, mr.Len())
 
 	mr.Delete("exec2")

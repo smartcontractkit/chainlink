@@ -73,7 +73,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		allTriggerEventsQueueCh: make(chan enqueuedTriggerEvent, cfg.LocalLimits.TriggerEventQueueSize),
 		executionsSemaphore:     make(chan struct{}, cfg.LocalLimits.MaxConcurrentWorkflowExecutions),
 		capCallsSemaphore:       make(chan struct{}, cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow),
-		meterReports:            metering.NewReports(cfg.BillingClient),
+		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID),
 	}
 	engine.Service, engine.srvcEng = services.Config{
 		Name:  "WorkflowEngineV2",
@@ -282,7 +282,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 
-	meteringReport := metering.NewReport(e.cfg.WorkflowOwner, e.cfg.WorkflowID, executionID, e.srvcEng.SugaredLogger)
+	meteringReport := metering.NewReport(executionID, e.srvcEng.SugaredLogger)
 	err = meteringReport.Initialize(ctx)
 	if err != nil {
 		e.cfg.Lggr.Errorw("Workflow execution could not be started", "err", err)
@@ -319,15 +319,11 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	endTime := time.Now()
 
 	executionMS := strconv.Itoa(int(endTime.Sub(startTime).Milliseconds()))
-	mrErr := meteringReport.SetStep(metering.ComputeCreditType, []capabilities.MeteringNodeDetail{{Peer2PeerID: e.localNode.PeerID.String(), SpendUnit: metering.ComputeCreditType, SpendValue: executionMS}})
-	if mrErr != nil {
+	if mrErr := meteringReport.SetStep(metering.ComputeCreditType, []capabilities.MeteringNodeDetail{{Peer2PeerID: e.localNode.PeerID.String(), SpendUnit: metering.ComputeCreditType, SpendValue: executionMS}}); mrErr != nil {
 		e.cfg.Lggr.Errorw("could not set metering for compute", "err", err)
-		return
 	}
-	mrErr = meteringReport.SendReceipt(ctx)
-	if mrErr != nil {
+	if mrErr := meteringReport.SendReceipt(ctx); mrErr != nil {
 		e.cfg.Lggr.Errorw("could not send metering report", "err", err)
-		return
 	}
 	e.meterReports.Delete(executionID)
 

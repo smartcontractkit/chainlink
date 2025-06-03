@@ -87,13 +87,17 @@ func run(
 	enableBeholder bool,
 ) {
 	if enableBeholder {
-		_ = setupBeholder(lggr.Named("Fake_Beholder"))
+		_ = setupBeholder(lggr.Named("Fake_Stdlog_Beholder"))
 	}
 
 	if billingClientAddr == "" {
 		billingClientAddr = "localhost:4319"
-
-		RunBillingListener(ctx, lggr.Named("Fake_Billing_Service"))
+	}
+	bs := NewBillingService(lggr.Named("Fake_Billing_Client"))
+	err := bs.Start(ctx)
+	if err != nil {
+		fmt.Printf("Failed to start billing service: %v\n", err)
+		os.Exit(1)
 	}
 
 	engine, err := NewStandaloneEngine(ctx, lggr, registry, binary, config, billingClientAddr)
@@ -122,4 +126,5 @@ func run(
 		lggr.Infow("Shutting down capability", "id", cap.Name())
 		_ = cap.Close()
 	}
+	_ = bs.Close()
 }
