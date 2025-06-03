@@ -84,7 +84,12 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 
 func (e *Engine) start(_ context.Context) error {
 	e.cfg.Module.Start()
-	e.srvcEng.Go(e.init)
+	e.srvcEng.Go(func(ctx context.Context) {
+		e.init(ctx)
+
+		// Block until service is stopped to keep trigger response streams open.
+		<-ctx.Done()
+	})
 	e.srvcEng.Go(e.handleAllTriggerEvents)
 	return nil
 }
@@ -162,6 +167,20 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		return fmt.Errorf("too many trigger subscriptions: %d", len(subs.Subscriptions))
 	}
 
+	if err := e.listenOnSubscribedTriggers(ctx, subs); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// listenOnSubscribedTriggers verifies that all subscriptions exist on the
+// capability registry, registers each trigger and fans all trigger respones
+// in to a single event channel.
+func (e *Engine) listenOnSubscribedTriggers(
+	ctx context.Context,
+	subs *sdkpb.TriggerSubscriptionRequest,
+) error {
 	// check if all requested triggers exist in the registry
 	triggers := make([]capabilities.TriggerCapability, 0, len(subs.Subscriptions))
 	for _, sub := range subs.Subscriptions {
@@ -175,12 +194,13 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	// register to all triggers
 	e.triggersRegMu.Lock()
 	defer e.triggersRegMu.Unlock()
+
 	eventChans := make([]<-chan capabilities.TriggerResponse, len(subs.Subscriptions))
 	triggerCapIDs := make([]string, len(subs.Subscriptions))
 	for i, sub := range subs.Subscriptions {
 		triggerCap := triggers[i]
 		registrationID := fmt.Sprintf("trigger_reg_%s_%d", e.cfg.WorkflowID, i)
-		// TODO(CAPPL-737): run with a timeout
+
 		e.cfg.Lggr.Debugw("Registering trigger", "triggerID", sub.Id, "method", sub.Method)
 		triggerEventCh, err := triggerCap.RegisterTrigger(ctx, capabilities.TriggerRegistrationRequest{
 			TriggerID: registrationID,
