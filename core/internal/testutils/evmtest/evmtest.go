@@ -86,7 +86,6 @@ func NewChainOpts(t testing.TB, testopts TestChainOpts) (logger.Logger, keystore
 		ListenerConfig: testopts.ListenerConfig,
 		FeatureConfig:  testopts.FeatureConfig,
 		MailMon:        testopts.MailMon,
-		GasEstimator:   testopts.GasEstimator,
 		DS:             testopts.DB,
 	}
 	opts.GenEthClient = func(*big.Int) evmclient.Client {
