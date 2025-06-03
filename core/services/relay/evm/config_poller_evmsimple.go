@@ -134,7 +134,7 @@ func (cp *configPollerEVMSimple) LatestConfig(ctx context.Context, changedInBloc
 		cp.lggr.Errorf("Failed to compute config digest: %v", err)
 		return ocrtypes.ContractConfig{}, fmt.Errorf("failed to compute config digest: %w", err)
 	}
-	cp.lggr.Infof("TRACE configPollerEVMSimple LatestConfig found config: %s", dgst.Hex())
+	cp.lggr.Infof("TRACE configPollerEVMSimple LatestConfig found config: %s, latest config digest reported is %s", dgst.Hex(), cp.latestConfigDigest.Hex())
 
 	return ocrConfig, nil
 }
