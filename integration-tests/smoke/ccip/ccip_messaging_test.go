@@ -214,13 +214,13 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithSolChains(1),
 		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-			if params.ExecuteOffChainConfig != nil {
-				params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(1 * time.Hour)
-				params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(1 * time.Hour)
-				params.ExecuteOffChainConfig.MultipleReportsEnabled = true
-				params.ExecuteOffChainConfig.MaxReportMessages = 1
-				params.ExecuteOffChainConfig.MaxSingleChainReports = 1
-			}
+			//if params.ExecuteOffChainConfig != nil {
+			params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(1 * time.Hour)
+			params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(1 * time.Hour)
+			params.ExecuteOffChainConfig.MultipleReportsEnabled = true
+			params.ExecuteOffChainConfig.MaxReportMessages = 1
+			params.ExecuteOffChainConfig.MaxSingleChainReports = 1
+			//}
 			return params
 		}),
 	)
@@ -317,6 +317,75 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 				},
 			},
 		)
+	})
+
+	t.Run("multiple messages to contract implementing CCIPReceiver", func(t *testing.T) {
+		accounts := [][32]byte{
+			receiverExternalExecutionConfigPDA,
+			receiverTargetAccountPDA,
+			solana.SystemProgramID,
+		}
+
+		extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
+			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
+			Accounts:                 accounts,
+			ComputeUnits:             80_000,
+			AllowOutOfOrderExecution: true,
+		})
+		require.NoError(t, err)
+
+		// check that counter is 0
+		var receiverCounterAccount soltesthelpers.ReceiverCounter
+		err = solcommon.GetAccountDataBorshInto(ctx, solChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccount)
+		require.NoError(t, err, "failed to get account info")
+		require.Equal(t, uint8(0), receiverCounterAccount.Value)
+
+		var wg sync.WaitGroup
+		iterations := 5
+		results := make([]struct {
+			output mt.TestCaseOutput
+			err    error
+		}, iterations)
+
+		for i := 0; i < iterations; i++ {
+			wg.Add(1)
+			go func(idx int) {
+				defer wg.Done()
+				t.Logf("Starting parallel test iteration %d", idx+1)
+
+				// Each test run needs its own error variable
+				var localErr error
+				results[idx].output = mt.Run(
+					t,
+					mt.TestCase{
+						ValidationType:         mt.ValidationTypeExec,
+						TestSetup:              setup,
+						Replayed:               replayed,
+						Nonce:                  nil, // Solana nonce check is skipped
+						Receiver:               receiver,
+						MsgData:                []byte(fmt.Sprintf("hello CCIPReceiver iteration %d", idx+1)),
+						ExtraArgs:              extraArgs,
+						ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+						ExtraAssertions: []func(t *testing.T){
+							func(t *testing.T) {
+								var receiverCounterAccount soltesthelpers.ReceiverCounter
+								localErr = solcommon.GetAccountDataBorshInto(ctx, solChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccount)
+								require.NoError(t, localErr, "failed to get account info in iteration %d", idx+1)
+								// Each iteration increments counter, so we check ≥ expected value instead of exact equality
+								require.GreaterOrEqual(t, int(receiverCounterAccount.Value), idx+1, "Counter value should have increased in iteration %d", idx+1)
+								t.Logf("Iteration %d: counter value = %d", idx+1, receiverCounterAccount.Value)
+							},
+						},
+					},
+				)
+				results[idx].err = localErr
+				t.Logf("Completed parallel test iteration %d", idx+1)
+			}(i)
+		}
+
+		// Wait for all test iterations to complete
+		wg.Wait()
+		t.Log("All parallel test iterations completed")
 	})
 
 	t.Run("message sequence: failure (too many accounts) -> success", func(t *testing.T) {
