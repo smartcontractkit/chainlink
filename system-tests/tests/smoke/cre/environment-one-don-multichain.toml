@@ -28,7 +28,7 @@
   should_compile_new_workflow = true
   use_cre_cli = true
 
-  workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test"
+  workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test/cron-based"
   workflow_name = "porfeedone"
 
 [[workflow_configs]]
@@ -37,7 +37,7 @@
   should_compile_new_workflow = true
   use_cre_cli = true
 
-  workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test"
+  workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test/cron-based"
   workflow_name = "porfeedtwo"
 
 [dependencies]

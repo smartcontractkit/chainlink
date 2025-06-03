@@ -7,8 +7,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/stretchr/testify/require"
 
-	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -67,7 +65,7 @@ func TestChangeSetLegacyFunction_ErrorCase(t *testing.T) {
 }
 
 func NewNoopEnvironment(t *testing.T) cldf.Environment {
-	return *cldf.NewCLDFEnvironment(
+	return *cldf.NewEnvironment(
 		"noop",
 		logger.TestLogger(t),
 		cldf.NewMemoryAddressBook(),
@@ -75,9 +73,6 @@ func NewNoopEnvironment(t *testing.T) cldf.Environment {
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,
 		]().Seal(),
-		map[uint64]cldf.Chain{},
-		map[uint64]cldf.SolChain{},
-		map[uint64]cldf_aptos.Chain{},
 		[]string{},
 		nil,
 		t.Context,

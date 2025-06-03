@@ -1,17 +1,16 @@
 package operation
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/big"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+	"github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
-	"github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
-	"github.com/smartcontractkit/mcms/types"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
 
 // UpdateFeeQuoterDestsInput contains configuration for updating FeeQuoter destination configs
@@ -30,7 +29,7 @@ var UpdateFeeQuoterDestsOp = operations.NewOperation(
 
 func updateFeeQuoterDests(b operations.Bundle, deps AptosDeps, in UpdateFeeQuoterDestsInput) ([]types.Transaction, error) {
 	// Bind CCIP Package
-	ccipAddress := deps.OnChainState.CCIPAddress
+	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
 
 	// Process each destination chain config update
@@ -64,21 +63,12 @@ func updateFeeQuoterDests(b operations.Bundle, deps AptosDeps, in UpdateFeeQuote
 			return []types.Transaction{}, fmt.Errorf("failed to encode ApplyDestChainConfigUpdates for chain %d: %w", destChainSelector, err)
 		}
 
-		additionalFields := aptosmcms.AdditionalFields{
-			PackageName: moduleInfo.PackageName,
-			ModuleName:  moduleInfo.ModuleName,
-			Function:    function,
-		}
-		afBytes, err := json.Marshal(additionalFields)
+		tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
 		if err != nil {
-			return []types.Transaction{}, fmt.Errorf("failed to marshal additional fields: %w", err)
+			return []types.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 
-		txs = append(txs, types.Transaction{
-			To:               ccipAddress.StringLong(),
-			Data:             aptosmcms.ArgsToData(args),
-			AdditionalFields: afBytes,
-		})
+		txs = append(txs, tx)
 
 		b.Logger.Infow("Adding FeeQuoter destination config update operation",
 			"destChainSelector", destChainSelector,
@@ -107,41 +97,10 @@ var UpdateFeeQuoterPricesOp = operations.NewOperation(
 	updateFeeQuoterPrices,
 )
 
-func updateFeeQuoterPrices(b operations.Bundle, deps AptosDeps, in UpdateFeeQuoterPricesInput) ([]types.Transaction, error) {
-	var txs []types.Transaction
-
+func updateFeeQuoterPrices(b operations.Bundle, deps AptosDeps, in UpdateFeeQuoterPricesInput) (types.Transaction, error) {
 	// Bind CCIP Package
-	ccipAddress := deps.OnChainState.CCIPAddress
+	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
-
-	// Bind MCMS Package
-	mcmsAddress := deps.OnChainState.MCMSAddress
-	mcmsBind := mcms.Bind(mcmsAddress, deps.AptosChain.Client)
-
-	// Add CCIP Owner address to update token prices allow list
-	ccipOwnerAddress, err := mcmsBind.MCMSRegistry().GetRegisteredOwnerAddress(nil, ccipAddress)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get CCIP owner address: %w", err)
-	}
-	moduleInfo, function, _, args, err := ccipBind.Auth().Encoder().ApplyAllowedOfframpUpdates(nil, []aptos.AccountAddress{ccipOwnerAddress})
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode ApplyAllowedOfframpUpdates: %w", err)
-	}
-	additionalFields := aptosmcms.AdditionalFields{
-		PackageName: moduleInfo.PackageName,
-		ModuleName:  moduleInfo.ModuleName,
-		Function:    function,
-	}
-	afBytes, err := json.Marshal(additionalFields)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal additional fields: %w", err)
-	}
-
-	txs = append(txs, types.Transaction{
-		To:               ccipAddress.StringLong(),
-		Data:             aptosmcms.ArgsToData(args),
-		AdditionalFields: afBytes,
-	})
 
 	// Convert token prices and gas prices to format expected by Aptos contract
 	var sourceTokens []aptos.AccountAddress
@@ -154,7 +113,7 @@ func updateFeeQuoterPrices(b operations.Bundle, deps AptosDeps, in UpdateFeeQuot
 		address := aptos.AccountAddress{}
 		err := address.ParseStringRelaxed(tokenAddr)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse Aptos token address %s: %w", tokenAddr, err)
+			return types.Transaction{}, fmt.Errorf("failed to parse Aptos token address %s: %w", tokenAddr, err)
 		}
 		sourceTokens = append(sourceTokens, address)
 		sourceUsdPerToken = append(sourceUsdPerToken, price)
@@ -169,171 +128,28 @@ func updateFeeQuoterPrices(b operations.Bundle, deps AptosDeps, in UpdateFeeQuot
 	// Generate MCMS tx to update prices
 	if len(sourceTokens) == 0 && len(gasDestChainSelectors) == 0 {
 		b.Logger.Infow("No price updates to apply")
-		return txs, nil
+		return types.Transaction{}, nil
 	}
 
 	// Encode the update tx
-	moduleInfo, function, _, args, err = ccipBind.FeeQuoter().Encoder().UpdatePrices(
+	moduleInfo, function, _, args, err := ccipBind.FeeQuoter().Encoder().UpdatePrices(
 		sourceTokens,
 		sourceUsdPerToken,
 		gasDestChainSelectors,
 		gasUsdPerUnitGas,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode UpdatePrices: %w", err)
+		return types.Transaction{}, fmt.Errorf("failed to encode UpdatePrices: %w", err)
 	}
-
-	additionalFields = aptosmcms.AdditionalFields{
-		PackageName: moduleInfo.PackageName,
-		ModuleName:  moduleInfo.ModuleName,
-		Function:    function,
-	}
-	afBytes, err = json.Marshal(additionalFields)
+	tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal additional fields: %w", err)
+		return types.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
 	}
-
-	txs = append(txs, types.Transaction{
-		To:               ccipAddress.StringLong(),
-		Data:             aptosmcms.ArgsToData(args),
-		AdditionalFields: afBytes,
-	})
 
 	b.Logger.Infow("Adding FeeQuoter price update operation",
 		"tokenPriceCount", len(sourceTokens),
 		"gasPriceCount", len(gasDestChainSelectors),
 	)
 
-	// TODO
-	multipliers := make([]uint64, len(sourceTokens))
-	for i := range multipliers {
-		multipliers[i] = uint64(1)
-	}
-	moduleInfo, function, _, args, err = ccipBind.FeeQuoter().Encoder().ApplyPremiumMultiplierWeiPerEthUpdates(sourceTokens, multipliers)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode ApplyPremiumMultiplierWeiPerEth: %w", err)
-	}
-	tx, err := aptosmcms.NewTransaction(
-		moduleInfo.PackageName,
-		moduleInfo.ModuleName,
-		function,
-		ccipAddress,
-		aptosmcms.ArgsToData(args),
-		"FeeQuoter",
-		nil,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate transaction: %w", err)
-	}
-	txs = append(txs, tx)
-
-	return txs, nil
-}
-
-// UpdateTokenTransferFeeConfigsInput ...
-type UpdateTokenTransferFeeConfigsInput struct {
-	MCMSAddress        aptos.AccountAddress
-	AddTokenConfigs    []aptos_fee_quoter.TokenTransferFeeConfigAdded
-	RemoveTokenConfigs []aptos_fee_quoter.TokenTransferFeeConfigRemoved
-}
-
-// UpdateTokenTransferCfgOp operation to update FeeQuoter prices
-var UpdateTokenTransferCfgOp = operations.NewOperation(
-	"update-token-transfer-config-op",
-	Version1_0_0,
-	"Updates Token Transfer Fee Configs",
-	updateTokenTransferCfg,
-)
-
-func updateTokenTransferCfg(b operations.Bundle, deps AptosDeps, in UpdateTokenTransferFeeConfigsInput) ([]types.Transaction, error) {
-	var txs []types.Transaction
-
-	// Bind CCIP Package
-	ccipAddress := deps.OnChainState.CCIPAddress
-	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
-
-	// Encode the update tx
-	argsByDestChain := toApplyTokenTransferFeeConfigUpdatesArgs(in.AddTokenConfigs, in.RemoveTokenConfigs)
-	for destChainSelector, args := range argsByDestChain {
-		moduleInfo, function, _, args, err := ccipBind.FeeQuoter().Encoder().ApplyTokenTransferFeeConfigUpdates(
-			destChainSelector,
-			args.addTokens,
-			args.addMinFeeUsdCents,
-			args.addMaxFeeUsdCents,
-			args.addDeciBps,
-			args.addDestGasOverhead,
-			args.addDestBytesOverhead,
-			args.addIsEnabled,
-			args.removeTokens,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to encode UpdatePrices: %w", err)
-		}
-
-		additionalFields := aptosmcms.AdditionalFields{
-			PackageName: moduleInfo.PackageName,
-			ModuleName:  moduleInfo.ModuleName,
-			Function:    function,
-		}
-		afBytes, err := json.Marshal(additionalFields)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal additional fields: %w", err)
-		}
-
-		txs = append(txs, types.Transaction{
-			To:               ccipAddress.StringLong(),
-			Data:             aptosmcms.ArgsToData(args),
-			AdditionalFields: afBytes,
-		})
-		b.Logger.Infow("Adding TokenTransferFeeConfig update transaction", "destChainSelector", destChainSelector)
-	}
-
-	return txs, nil
-}
-
-type applyTokenTransferFeeConfigUpdatesArgs struct {
-	destChainSelector    uint64
-	addTokens            []aptos.AccountAddress
-	addMinFeeUsdCents    []uint32
-	addMaxFeeUsdCents    []uint32
-	addDeciBps           []uint16
-	addDestGasOverhead   []uint32
-	addDestBytesOverhead []uint32
-	addIsEnabled         []bool
-	removeTokens         []aptos.AccountAddress
-}
-
-func toApplyTokenTransferFeeConfigUpdatesArgs(
-	AddTokenConfigs []aptos_fee_quoter.TokenTransferFeeConfigAdded,
-	RemovTokenConfigs []aptos_fee_quoter.TokenTransferFeeConfigRemoved,
-) map[uint64]applyTokenTransferFeeConfigUpdatesArgs {
-	argsByDestChain := make(map[uint64]applyTokenTransferFeeConfigUpdatesArgs)
-
-	// Process added token configs
-	for _, config := range AddTokenConfigs {
-		args := argsByDestChain[config.DestChainSelector]
-
-		args.destChainSelector = config.DestChainSelector
-		args.addTokens = append(args.addTokens, config.Token)
-		args.addMinFeeUsdCents = append(args.addMinFeeUsdCents, config.TokenTransferFeeConfig.MinFeeUsdCents)
-		args.addMaxFeeUsdCents = append(args.addMaxFeeUsdCents, config.TokenTransferFeeConfig.MaxFeeUsdCents)
-		args.addDeciBps = append(args.addDeciBps, config.TokenTransferFeeConfig.DeciBps)
-		args.addDestGasOverhead = append(args.addDestGasOverhead, config.TokenTransferFeeConfig.DestGasOverhead)
-		args.addDestBytesOverhead = append(args.addDestBytesOverhead, config.TokenTransferFeeConfig.DestBytesOverhead)
-		args.addIsEnabled = append(args.addIsEnabled, config.TokenTransferFeeConfig.IsEnabled)
-
-		argsByDestChain[config.DestChainSelector] = args
-	}
-
-	// Process removed token configs
-	for _, config := range RemovTokenConfigs {
-		args := argsByDestChain[config.DestChainSelector]
-
-		args.destChainSelector = config.DestChainSelector
-		args.removeTokens = append(args.removeTokens, config.Token)
-
-		argsByDestChain[config.DestChainSelector] = args
-	}
-
-	return argsByDestChain
+	return tx, nil
 }

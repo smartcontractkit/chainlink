@@ -45,7 +45,7 @@ func verifyProgramSizes(t *testing.T, e cldf.Environment) {
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	addresses, err := e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
 	require.NoError(t, err)
-	chainState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[solChainSelectors[0]], addresses)
+	chainState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[solChainSelectors[0]], addresses)
 	require.NoError(t, err)
 	programsToState := map[string]solana.PublicKey{
 		deployment.RouterProgramName:               state.SolChains[solChainSelectors[0]].Router,
@@ -61,7 +61,7 @@ func verifyProgramSizes(t *testing.T, e cldf.Environment) {
 	for program, sizeBytes := range deployment.SolanaProgramBytes {
 		t.Logf("Verifying program %s size is at least %d bytes", program, sizeBytes)
 		programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programsToState[program].Bytes()}, solana.BPFLoaderUpgradeableProgramID)
-		programDataSize, err := ccipChangesetSolana.GetSolProgramSize(&e, e.SolChains[solChainSelectors[0]], programDataAccount)
+		programDataSize, err := ccipChangesetSolana.GetSolProgramSize(&e, e.BlockChains.SolanaChains()[solChainSelectors[0]], programDataAccount)
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, programDataSize, sizeBytes)
 	}
@@ -84,7 +84,7 @@ func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangese
 				HomeChainSel:     homeChainSel,
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
-				NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.BlockChains.EVMChains()[homeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					testhelpers.TestNodeOperator: nodes.NonBootstraps().PeerIDs(),
 				},
@@ -148,7 +148,8 @@ func TestDeployChainContractsChangesetPreload(t *testing.T) {
 	// for a simple local in memory test, they will always be present, because we need them to spin up the in memory chain
 	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, initialDeployCS(t, e, nil))
 	require.NoError(t, err)
-	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
+	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
+	require.NoError(t, err)
 }
 
 func skipInCI(t *testing.T) {
@@ -180,7 +181,7 @@ func TestUpgrade(t *testing.T) {
 	e, _, err := commonchangeset.ApplyChangesetsV2(t, e, initialDeployCS(t, e,
 		&ccipChangesetSolana.BuildSolanaConfig{
 			GitCommitSha:   OldSha,
-			DestinationDir: e.SolChains[solChainSelectors[0]].ProgramsPath,
+			DestinationDir: e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
 			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 				BuildLocally:        true,
 				CleanDestinationDir: true,
@@ -189,7 +190,8 @@ func TestUpgrade(t *testing.T) {
 		},
 	))
 	require.NoError(t, err)
-	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
+	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
+	require.NoError(t, err)
 
 	feeAggregatorPrivKey2, _ := solana.NewRandomPrivateKey()
 	feeAggregatorPubKey2 := feeAggregatorPrivKey2.PublicKey()
@@ -210,13 +212,13 @@ func TestUpgrade(t *testing.T) {
 			OffRamp:   true,
 		})
 	upgradeAuthority := timelockSignerPDA
-	// upgradeAuthority := e.SolChains[solChainSelectors[0]].DeployerKey.PublicKey()
+	// upgradeAuthority := e.BlockChains.SolanaChains()[solChainSelectors[0]].DeployerKey.PublicKey()
 	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	verifyProgramSizes(t, e)
 	addresses, err := e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
 	require.NoError(t, err)
-	chainState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[solChainSelectors[0]], addresses)
+	chainState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[solChainSelectors[0]], addresses)
 	require.NoError(t, err)
 
 	// deploy the contracts
@@ -259,7 +261,7 @@ func TestUpgrade(t *testing.T) {
 				// build the contracts for upgrades
 				BuildConfig: &ccipChangesetSolana.BuildSolanaConfig{
 					GitCommitSha:   NewSha,
-					DestinationDir: e.SolChains[solChainSelectors[0]].ProgramsPath,
+					DestinationDir: e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
 					LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 						BuildLocally:        true,
 						CleanDestinationDir: true,
@@ -291,7 +293,8 @@ func TestUpgrade(t *testing.T) {
 		),
 	})
 	require.NoError(t, err)
-	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
+	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
+	require.NoError(t, err)
 	state, err = stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	oldOffRampAddress := state.SolChains[solChainSelectors[0]].OffRamp
@@ -313,7 +316,7 @@ func TestUpgrade(t *testing.T) {
 				},
 				BuildConfig: &ccipChangesetSolana.BuildSolanaConfig{
 					GitCommitSha:   NewSha,
-					DestinationDir: e.SolChains[solChainSelectors[0]].ProgramsPath,
+					DestinationDir: e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
 					LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 						BuildLocally: true,
 					},
@@ -351,7 +354,8 @@ func TestUpgrade(t *testing.T) {
 	require.Equal(t, 2, numOffRamps)
 	require.NoError(t, err)
 	// solana verification
-	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
+	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
+	require.NoError(t, err)
 }
 
 func TestIDL(t *testing.T) {

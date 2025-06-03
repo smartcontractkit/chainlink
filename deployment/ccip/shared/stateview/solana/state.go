@@ -9,13 +9,23 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
 	"github.com/rs/zerolog/log"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
+	solBurnMintTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/burnmint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	solLockReleaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/lockrelease_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+
+	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -87,6 +97,127 @@ func (s CCIPChainState) GetRouterInfo() (router, routerConfigPDA solana.PublicKe
 	return s.Router, routerConfigPDA, nil
 }
 
+func (s CCIPChainState) GetActiveTokenPool(
+	poolType solTestTokenPool.PoolType,
+	metadata string,
+) (solana.PublicKey, cldf.ContractType) {
+	switch poolType {
+	case solTestTokenPool.BurnAndMint_PoolType:
+		if metadata == "" {
+			return s.BurnMintTokenPools[shared.CLLMetadata], shared.BurnMintTokenPool
+		}
+		return s.BurnMintTokenPools[metadata], shared.BurnMintTokenPool
+	case solTestTokenPool.LockAndRelease_PoolType:
+		if metadata == "" {
+			return s.LockReleaseTokenPools[shared.CLLMetadata], shared.LockReleaseTokenPool
+		}
+		return s.LockReleaseTokenPools[metadata], shared.LockReleaseTokenPool
+	default:
+		return solana.PublicKey{}, ""
+	}
+}
+
+func (s CCIPChainState) ValidatePoolDeployment(
+	e *cldf.Environment,
+	poolType solTestTokenPool.PoolType,
+	selector uint64,
+	tokenPubKey solana.PublicKey,
+	validatePoolConfig bool,
+	metadata string,
+) error {
+	chain := e.BlockChains.SolanaChains()[selector]
+
+	var tokenPool solana.PublicKey
+	var poolConfigAccount interface{}
+
+	if _, err := s.TokenToTokenProgram(tokenPubKey); err != nil {
+		return fmt.Errorf("token %s not found in existing state, deploy the token first", tokenPubKey.String())
+	}
+	tokenPool, _ = s.GetActiveTokenPool(poolType, metadata)
+	if tokenPool.IsZero() {
+		return fmt.Errorf("token pool of type %s not found in existing state, deploy the token pool first for chain %d", poolType, chain.Selector)
+	}
+	switch poolType {
+	case solTestTokenPool.BurnAndMint_PoolType:
+		poolConfigAccount = solBurnMintTokenPool.State{}
+	case solTestTokenPool.LockAndRelease_PoolType:
+		poolConfigAccount = solLockReleaseTokenPool.State{}
+	default:
+		return fmt.Errorf("invalid pool type: %s", poolType)
+	}
+
+	if validatePoolConfig {
+		poolConfigPDA, err := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
+		if err != nil {
+			return fmt.Errorf("failed to get token pool config address (mint: %s, pool: %s): %w", tokenPubKey.String(), tokenPool.String(), err)
+		}
+		if err := chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &poolConfigAccount); err != nil {
+			return fmt.Errorf("token pool config not found (mint: %s, pool: %s, type: %s): %w", tokenPubKey.String(), tokenPool.String(), poolType, err)
+		}
+	}
+	return nil
+}
+
+func (s CCIPChainState) CommonValidation(e cldf.Environment, selector uint64, tokenPubKey solana.PublicKey) error {
+	_, ok := e.BlockChains.SolanaChains()[selector]
+	if !ok {
+		return fmt.Errorf("chain selector %d not found in environment", selector)
+	}
+	if tokenPubKey.Equals(s.LinkToken) || tokenPubKey.Equals(s.WSOL) {
+		return nil
+	}
+	if _, err := s.TokenToTokenProgram(tokenPubKey); err != nil {
+		return fmt.Errorf("token %s not found in existing state, deploy the token first", tokenPubKey.String())
+	}
+	return nil
+}
+
+func (s CCIPChainState) ValidateRouterConfig(chain cldf_solana.Chain) error {
+	_, routerConfigPDA, err := s.GetRouterInfo()
+	if err != nil {
+		return err
+	}
+	var routerConfigAccount solRouter.Config
+	err = chain.GetAccountDataBorshInto(context.Background(), routerConfigPDA, &routerConfigAccount)
+	if err != nil {
+		return fmt.Errorf("router config not found in existing state, initialize the router first %d", chain.Selector)
+	}
+	return nil
+}
+
+func (s CCIPChainState) ValidateFeeAggregatorConfig(chain cldf_solana.Chain) error {
+	if s.GetFeeAggregator(chain).IsZero() {
+		return fmt.Errorf("fee aggregator not found in existing state, set the fee aggregator first for chain %d", chain.Selector)
+	}
+	return nil
+}
+
+func (s CCIPChainState) ValidateFeeQuoterConfig(chain cldf_solana.Chain) error {
+	if s.FeeQuoter.IsZero() {
+		return fmt.Errorf("fee quoter not found in existing state, deploy the fee quoter first for chain %d", chain.Selector)
+	}
+	var fqConfig solFeeQuoter.Config
+	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(s.FeeQuoter)
+	err := chain.GetAccountDataBorshInto(context.Background(), feeQuoterConfigPDA, &fqConfig)
+	if err != nil {
+		return fmt.Errorf("fee quoter config not found in existing state, initialize the fee quoter first %d", chain.Selector)
+	}
+	return nil
+}
+
+func (s CCIPChainState) ValidateOffRampConfig(chain cldf_solana.Chain) error {
+	if s.OffRamp.IsZero() {
+		return fmt.Errorf("offramp not found in existing state, deploy the offramp first for chain %d", chain.Selector)
+	}
+	var offRampConfig solOffRamp.Config
+	offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(s.OffRamp)
+	err := chain.GetAccountDataBorshInto(context.Background(), offRampConfigPDA, &offRampConfig)
+	if err != nil {
+		return fmt.Errorf("offramp config not found in existing state, initialize the offramp first %d", chain.Selector)
+	}
+	return nil
+}
+
 func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64) (view.SolChainView, error) {
 	chainView := view.NewSolChain()
 	var remoteChains []uint64
@@ -104,7 +235,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64) (view
 			if err != nil {
 				return chainView, fmt.Errorf("failed to find token program for token %s: %w", token, err)
 			}
-			tokenView, err := solanaview.GenerateTokenView(e.SolChains[selector], token, program.String())
+			tokenView, err := solanaview.GenerateTokenView(e.BlockChains.SolanaChains()[selector], token, program.String())
 			if err != nil {
 				return chainView, fmt.Errorf("failed to generate token view for token %s: %w", token, err)
 			}
@@ -116,28 +247,28 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64) (view
 		}
 	}
 	if !s.FeeQuoter.IsZero() {
-		fqView, err := solanaview.GenerateFeeQuoterView(e.SolChains[selector], s.FeeQuoter, remoteChains, allTokens)
+		fqView, err := solanaview.GenerateFeeQuoterView(e.BlockChains.SolanaChains()[selector], s.FeeQuoter, remoteChains, allTokens)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate fee quoter view %s: %w", s.FeeQuoter, err)
 		}
 		chainView.FeeQuoter[s.FeeQuoter.String()] = fqView
 	}
 	if !s.Router.IsZero() {
-		routerView, err := solanaview.GenerateRouterView(e.SolChains[selector], s.Router, remoteChains, allTokens)
+		routerView, err := solanaview.GenerateRouterView(e.BlockChains.SolanaChains()[selector], s.Router, remoteChains, allTokens)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate router view %s: %w", s.Router, err)
 		}
 		chainView.Router[s.Router.String()] = routerView
 	}
 	if !s.OffRamp.IsZero() {
-		offRampView, err := solanaview.GenerateOffRampView(e.SolChains[selector], s.OffRamp, remoteChains, allTokens)
+		offRampView, err := solanaview.GenerateOffRampView(e.BlockChains.SolanaChains()[selector], s.OffRamp, remoteChains, allTokens)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate offramp view %s: %w", s.OffRamp, err)
 		}
 		chainView.OffRamp[s.OffRamp.String()] = offRampView
 	}
 	if !s.RMNRemote.IsZero() {
-		rmnRemoteView, err := solanaview.GenerateRMNRemoteView(e.SolChains[selector], s.RMNRemote, remoteChains, allTokens)
+		rmnRemoteView, err := solanaview.GenerateRMNRemoteView(e.BlockChains.SolanaChains()[selector], s.RMNRemote, remoteChains, allTokens)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate rmn remote view %s: %w", s.RMNRemote, err)
 		}
@@ -147,7 +278,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64) (view
 		if tokenPool.IsZero() {
 			continue
 		}
-		tokenPoolView, err := solanaview.GenerateTokenPoolView(e.SolChains[selector], tokenPool, remoteChains, allTokens, test_token_pool.BurnAndMint_PoolType.String(), metadata)
+		tokenPoolView, err := solanaview.GenerateTokenPoolView(e.BlockChains.SolanaChains()[selector], tokenPool, remoteChains, allTokens, test_token_pool.BurnAndMint_PoolType.String(), metadata)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate burn mint token pool view %s: %w", tokenPool, err)
 		}
@@ -157,7 +288,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64) (view
 		if tokenPool.IsZero() {
 			continue
 		}
-		tokenPoolView, err := solanaview.GenerateTokenPoolView(e.SolChains[selector], tokenPool, remoteChains, allTokens, test_token_pool.LockAndRelease_PoolType.String(), metadata)
+		tokenPoolView, err := solanaview.GenerateTokenPoolView(e.BlockChains.SolanaChains()[selector], tokenPool, remoteChains, allTokens, test_token_pool.LockAndRelease_PoolType.String(), metadata)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate lock release token pool view %s: %w", tokenPool, err)
 		}
@@ -167,7 +298,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64) (view
 	if err != nil {
 		return chainView, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
-	chainView.MCMSWithTimelock, err = solanaview.GenerateMCMSWithTimelockView(e.SolChains[selector], addresses)
+	chainView.MCMSWithTimelock, err = solanaview.GenerateMCMSWithTimelockView(e.BlockChains.SolanaChains()[selector], addresses)
 	if err != nil {
 		e.Logger.Error("failed to generate MCMS with timelock view: %w", err)
 		return chainView, nil
@@ -175,7 +306,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64) (view
 	return chainView, nil
 }
 
-func (s CCIPChainState) GetFeeAggregator(chain cldf.SolChain) solana.PublicKey {
+func (s CCIPChainState) GetFeeAggregator(chain cldf_solana.Chain) solana.PublicKey {
 	var config ccip_router.Config
 	configPDA, _, _ := state.FindConfigPDA(s.Router)
 	err := chain.GetAccountDataBorshInto(context.Background(), configPDA, &config)
@@ -185,7 +316,7 @@ func (s CCIPChainState) GetFeeAggregator(chain cldf.SolChain) solana.PublicKey {
 	return config.FeeAggregator
 }
 
-func FetchOfframpLookupTable(ctx context.Context, chain cldf.SolChain, offRampAddress solana.PublicKey) (solana.PublicKey, error) {
+func FetchOfframpLookupTable(ctx context.Context, chain cldf_solana.Chain, offRampAddress solana.PublicKey) (solana.PublicKey, error) {
 	var referenceAddressesAccount ccip_offramp.ReferenceAddresses
 	offRampReferenceAddressesPDA, _, _ := state.FindOfframpReferenceAddressesPDA(offRampAddress)
 	err := chain.GetAccountDataBorshInto(ctx, offRampReferenceAddressesPDA, &referenceAddressesAccount)
@@ -196,7 +327,7 @@ func FetchOfframpLookupTable(ctx context.Context, chain cldf.SolChain, offRampAd
 }
 
 // LoadChainStateSolana Loads all state for a SolChain into state
-func LoadChainStateSolana(chain cldf.SolChain, addresses map[string]cldf.TypeAndVersion) (CCIPChainState, error) {
+func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.TypeAndVersion) (CCIPChainState, error) {
 	solState := CCIPChainState{
 		SourceChainStatePDAs:  make(map[uint64]solana.PublicKey),
 		DestChainStatePDAs:    make(map[uint64]solana.PublicKey),
@@ -378,7 +509,7 @@ func FindSolanaAddress(tv cldf.TypeAndVersion, addresses map[string]cldf.TypeAnd
 
 func ValidateOwnershipSolana(
 	e *cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	mcms bool,
 	programID solana.PublicKey,
 	contractType cldf.ContractType,
@@ -462,7 +593,7 @@ func ValidateOwnershipSolana(
 
 func IsSolanaProgramOwnedByTimelock(
 	e *cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	chainState CCIPChainState,
 	contractType cldf.ContractType,
 	tokenAddress solana.PublicKey, // for token pools only

@@ -17,7 +17,7 @@ var RemoveFeedConfigChangeset = cldf.CreateChangeSet(removeFeedConfigLogic, remo
 
 func removeFeedConfigLogic(env cldf.Environment, c types.RemoveFeedConfigCSConfig) (cldf.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)
-	chain := env.Chains[c.ChainSelector]
+	chain := env.BlockChains.EVMChains()[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
 	contract := chainState.DataFeedsCache[c.CacheAddress]
 

@@ -13,11 +13,10 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 )
 
 type (

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"

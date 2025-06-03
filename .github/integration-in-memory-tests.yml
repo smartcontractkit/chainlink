@@ -107,6 +107,16 @@ runner-test-matrix:
     test_cmd: cd smoke/ccip && go test ccip_add_chain_test.go -timeout 15m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
 
+  - id: smoke/ccip/ccip_add_chain_e2e_test.go:*
+    path: integration-tests/smoke/ccip/ccip_add_chain_e2e_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: cd smoke/ccip && go test ccip_add_chain_e2e_test.go -timeout 18m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+
   - id: smoke/ccip/ccip_reader_test.go:*
     path: integration-tests/smoke/ccip/ccip_reader_test.go
     test_env_type: in-memory

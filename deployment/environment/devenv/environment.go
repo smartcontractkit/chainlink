@@ -60,7 +60,7 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 		blockChains[c.Selector] = c
 	}
 
-	return cldf.NewCLDFEnvironment(
+	return cldf.NewEnvironment(
 		DevEnv,
 		lggr,
 		cldf.NewMemoryAddressBook(),
@@ -68,9 +68,6 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,
 		]().Seal(),
-		chains,
-		solChains,
-		nil, // sending nil for aptos chains right now, we can build this when we need it
 		nodeIDs,
 		offChain,
 		ctx,

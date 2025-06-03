@@ -65,10 +65,7 @@ func parseError(txError error) (string, error) {
 
 func ValidateSelectorsInEnvironment(e cldf.Environment, chains []uint64) error {
 	for _, chain := range chains {
-		_, evmOk := e.Chains[chain]
-		_, solOk := e.SolChains[chain]
-		_, aptosOk := e.BlockChains.AptosChains()[chain]
-		if !evmOk && !solOk && !aptosOk {
+		if !e.BlockChains.Exists(chain) {
 			return fmt.Errorf("chain %d not found in environment", chain)
 		}
 	}

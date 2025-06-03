@@ -67,3 +67,7 @@ func (o *ocrConfig) DefaultTransactionQueueDepth() uint32 {
 func (o *ocrConfig) CaptureEATelemetry() bool {
 	return *o.c.CaptureEATelemetry
 }
+
+func (o *ocrConfig) ConfigLogValidation() bool {
+	return *o.c.ConfigLogValidation
+}

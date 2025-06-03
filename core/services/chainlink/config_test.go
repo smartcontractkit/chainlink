@@ -433,6 +433,7 @@ func TestConfig_Marshal(t *testing.T) {
 		TransmitterAddress:           ptr(types.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
 		CaptureEATelemetry:           ptr(false),
 		TraceLogging:                 ptr(false),
+		ConfigLogValidation:          ptr(false),
 	}
 	full.P2P = toml.P2P{
 		IncomingMessageBufferSize: ptr[int64](13),
@@ -713,6 +714,7 @@ func TestConfig_Marshal(t *testing.T) {
 						Fatal:                             ptr[string]("(: |^)fatal"),
 						ServiceUnavailable:                ptr[string]("(: |^)service unavailable"),
 						TooManyResults:                    ptr[string]("(: |^)too many results"),
+						MissingBlocks:                     ptr[string]("(: |^)missing blocks"),
 					},
 				},
 				OCR: evmcfg.OCR{
@@ -1003,6 +1005,7 @@ SimulateTransactions = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 CaptureEATelemetry = false
 TraceLogging = false
+ConfigLogValidation = false
 `},
 		{"OCR2", Config{Core: toml.Core{OCR2: full.OCR2}}, `[OCR2]
 Enabled = true
@@ -1199,6 +1202,7 @@ TransactionAlreadyMined = '(: |^)transaction already mined'
 Fatal = '(: |^)fatal'
 ServiceUnavailable = '(: |^)service unavailable'
 TooManyResults = '(: |^)too many results'
+MissingBlocks = '(: |^)missing blocks'
 
 [EVM.OCR]
 ContractConfirmations = 11

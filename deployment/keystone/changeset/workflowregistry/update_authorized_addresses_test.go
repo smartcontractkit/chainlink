@@ -35,10 +35,7 @@ func TestUpdateAuthorizedAddresses(t *testing.T) {
 	assert.Empty(t, authorizedAddresses)
 
 	env := cldf.Environment{
-		Logger: lggr,
-		Chains: map[uint64]cldf.Chain{
-			chainSel: resp.Chain,
-		},
+		Logger:            lggr,
 		ExistingAddresses: resp.AddressBook,
 		BlockChains: cldf_chain.NewBlockChains(
 			map[uint64]cldf_chain.BlockChain{

@@ -6,25 +6,25 @@ import (
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/mcms/types"
+
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	aptos_router "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router/router"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+	config "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
-
-	"github.com/smartcontractkit/mcms/types"
 )
 
+var defaultOnRampVersion = []byte{1, 6, 0}
+
 type UpdateAptosLanesSeqInput struct {
-	UpdateFeeQuoterDestsConfig   operation.UpdateFeeQuoterDestsInput
-	UpdateFeeQuoterPricesConfig  operation.UpdateFeeQuoterPricesInput
-	UpdateOnRampDestsConfig      operation.UpdateOnRampDestsInput
-	UpdateOffRampSourcesConfig   operation.UpdateOffRampSourcesInput
-	UpdateRouterDestConfig       operation.UpdateRouterDestInput
-	UpdateTokenTransferFeeConfig operation.UpdateTokenTransferFeeConfigsInput
+	UpdateFeeQuoterDestsConfig  operation.UpdateFeeQuoterDestsInput
+	UpdateFeeQuoterPricesConfig operation.UpdateFeeQuoterPricesInput
+	UpdateOnRampDestsConfig     operation.UpdateOnRampDestsInput
+	UpdateOffRampSourcesConfig  operation.UpdateOffRampSourcesInput
+	UpdateRouterDestConfig      operation.UpdateRouterDestInput
 }
 
 // UpdateAptosLanesSequence orchestrates operations to update Aptos lanes
@@ -52,7 +52,7 @@ func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	if err != nil {
 		return types.BatchOperation{}, fmt.Errorf("failed to update OnRamp destinations: %w", err)
 	}
-	mcmsTxs = append(mcmsTxs, onRampReport.Output...)
+	mcmsTxs = append(mcmsTxs, onRampReport.Output)
 
 	// 3. Configure sources on OffRamps
 	b.Logger.Info("Updating source configs on OffRamps")
@@ -60,31 +60,31 @@ func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	if err != nil {
 		return types.BatchOperation{}, fmt.Errorf("failed to update OffRamp sources: %w", err)
 	}
-	mcmsTxs = append(mcmsTxs, offRampReport.Output...)
+	mcmsTxs = append(mcmsTxs, offRampReport.Output)
 
-	// 4. Update FeeQuoters with gas prices
+	// 4. Adds CCIP owner to OffRamp allow list
+	b.Logger.Info("Adding CCIP owner to OffRamp allow list")
+	allowedOfframpReport, err := operations.ExecuteOperation(b, operation.ApplyAllowedOfframpUpdatesOp, deps, operations.EmptyInput{})
+	if err != nil {
+		return types.BatchOperation{}, fmt.Errorf("failed to apply allowed OffRamp updates: %w", err)
+	}
+	mcmsTxs = append(mcmsTxs, allowedOfframpReport.Output)
+
+	// 5. Update FeeQuoters with gas prices
 	b.Logger.Info("Updating gas prices on FeeQuoters")
 	feeQuoterPricesReport, err := operations.ExecuteOperation(b, operation.UpdateFeeQuoterPricesOp, deps, in.UpdateFeeQuoterPricesConfig)
 	if err != nil {
 		return types.BatchOperation{}, fmt.Errorf("failed to update FeeQuoter prices: %w", err)
 	}
-	mcmsTxs = append(mcmsTxs, feeQuoterPricesReport.Output...)
+	mcmsTxs = append(mcmsTxs, feeQuoterPricesReport.Output)
 
-	// 5. Update Router with destination OnRamp versions
+	// 6. Update Router with destination OnRamp versions
 	b.Logger.Info("Updating Router")
 	routerReport, err := operations.ExecuteOperation(b, operation.UpdateRouterOp, deps, in.UpdateRouterDestConfig)
 	if err != nil {
 		return types.BatchOperation{}, fmt.Errorf("failed to update Router: %w", err)
 	}
-	mcmsTxs = append(mcmsTxs, routerReport.Output...)
-
-	// 6. Update FeeQuoter with TokenTransferFeeConfig
-	b.Logger.Info("Updating Router")
-	feeQuoterTTFReport, err := operations.ExecuteOperation(b, operation.UpdateTokenTransferCfgOp, deps, in.UpdateTokenTransferFeeConfig)
-	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to update Router: %w", err)
-	}
-	mcmsTxs = append(mcmsTxs, feeQuoterTTFReport.Output...)
+	mcmsTxs = append(mcmsTxs, routerReport.Output)
 
 	return types.BatchOperation{
 		ChainSelector: types.ChainSelector(deps.AptosChain.Selector),
@@ -92,8 +92,8 @@ func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	}, nil
 }
 
-// Convert config.UpdateAptosLanesConfig into a map[uint64]UpdateAptosLanesSeqInput
-func ConvertToUpdateAptosLanesSeqInput(aptosChains map[uint64]aptosstate.CCIPChainState, cfg config.UpdateAptosLanesConfig) map[uint64]UpdateAptosLanesSeqInput {
+// ToAptosUpdateLanesConfig converts UpdateAptosLanesConfig into Aptos specific update inputs
+func ToAptosUpdateLanesConfig(aptosChains map[uint64]aptosstate.CCIPChainState, cfg config.UpdateAptosLanesConfig) map[uint64]UpdateAptosLanesSeqInput {
 	updateInputsByAptosChain := make(map[uint64]UpdateAptosLanesSeqInput)
 
 	// Group the operations by Aptos chain
@@ -167,17 +167,12 @@ func setAptosSourceUpdates(lane config.LaneConfig, updateInputsByAptosChain map[
 	}
 	onRampVersion := dest.OnRampVersion
 	if onRampVersion == nil {
-		onRampVersion = []byte{1, 6, 0}
+		onRampVersion = defaultOnRampVersion
 	}
 	input.UpdateRouterDestConfig.Updates = append(input.UpdateRouterDestConfig.Updates, aptos_router.OnRampSet{
 		DestChainSelector: dest.Selector,
 		OnRampVersion:     onRampVersion,
 	})
-
-	// Setting token transfer fee updates
-	input.UpdateTokenTransferFeeConfig.MCMSAddress = mcmsAddress
-	input.UpdateTokenTransferFeeConfig.AddTokenConfigs = source.AddTokenTransferFeeConfigs
-	input.UpdateTokenTransferFeeConfig.RemoveTokenConfigs = source.RemoveTokenTransferFeeConfigs
 
 	updateInputsByAptosChain[source.Selector] = input
 }

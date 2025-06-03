@@ -200,7 +200,7 @@ func SetOCR2ConfigForTestChangeset(env cldf.Environment, c OCR2Config) (cldf.Cha
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to derive OCR2 config for commit: %w", err)
 		}
 		commitStore := state.MustGetEVMChainState(commit.DestinationChainSelector).CommitStore[commit.SourceChainSelector]
-		chain := env.Chains[commit.DestinationChainSelector]
+		chain := env.BlockChains.EVMChains()[commit.DestinationChainSelector]
 		tx, err := commitStore.SetOCR2Config(
 			chain.DeployerKey,
 			finalCfg.Signers,
@@ -231,7 +231,7 @@ func SetOCR2ConfigForTestChangeset(env cldf.Environment, c OCR2Config) (cldf.Cha
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to derive OCR2 config for offramp: %w", err)
 		}
 		offRamp := state.MustGetEVMChainState(exec.DestinationChainSelector).EVM2EVMOffRamp[exec.SourceChainSelector]
-		chain := env.Chains[exec.DestinationChainSelector]
+		chain := env.BlockChains.EVMChains()[exec.DestinationChainSelector]
 		tx, err := offRamp.SetOCR2Config(
 			chain.DeployerKey,
 			finalCfg.Signers,
