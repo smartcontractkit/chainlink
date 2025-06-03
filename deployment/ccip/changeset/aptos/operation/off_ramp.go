@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	aptosutils "github.com/smartcontractkit/chainlink-aptos/relayer/utils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -29,7 +30,7 @@ var UpdateOffRampSourcesOp = operations.NewOperation(
 	updateOffRampSources,
 )
 
-func updateOffRampSources(b operations.Bundle, deps AptosDeps, in UpdateOffRampSourcesInput) (mcmstypes.Transaction, error) {
+func updateOffRampSources(b operations.Bundle, deps AptosDeps, in UpdateOffRampSourcesInput) ([]mcmstypes.Transaction, error) {
 	// Bind CCIP Package
 	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	offRampBind := ccip_offramp.Bind(ccipAddress, deps.AptosChain.Client)
@@ -47,14 +48,14 @@ func updateOffRampSources(b operations.Bundle, deps AptosDeps, in UpdateOffRampS
 
 		onRampBytes, err := deps.CCIPOnChainState.GetOnRampAddressBytes(sourceChainSelector)
 		if err != nil {
-			return mcmstypes.Transaction{}, fmt.Errorf("failed to get onRamp address for source chain %d: %w", sourceChainSelector, err)
+			return nil, fmt.Errorf("failed to get onRamp address for source chain %d: %w", sourceChainSelector, err)
 		}
 		sourceChainOnRamp = append(sourceChainOnRamp, onRampBytes)
 	}
 
 	if len(sourceChainSelectors) == 0 {
 		b.Logger.Infow("No OffRamp source updates to apply")
-		return mcmstypes.Transaction{}, nil
+		return nil, nil
 	}
 
 	// Encode the update operation
@@ -65,14 +66,16 @@ func updateOffRampSources(b operations.Bundle, deps AptosDeps, in UpdateOffRampS
 		sourceChainOnRamp,
 	)
 	if err != nil {
-		return mcmstypes.Transaction{}, fmt.Errorf("failed to encode ApplySourceChainConfigUpdates for OffRamp: %w", err)
+		return nil, fmt.Errorf("failed to encode ApplySourceChainConfigUpdates for OffRamp: %w", err)
 	}
 	tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
 	if err != nil {
-		return mcmstypes.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
+		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
 
-	return tx, nil
+	return []mcmstypes.Transaction{
+		tx,
+	}, nil
 }
 
 // UpdateOffRampSourcesInput contains configuration for updating OffRamp sources

@@ -218,5 +218,5 @@ func fundAptosAccount(t *testing.T, signer aptos.TransactionSigner, to aptos.Acc
 	require.NoError(t, err)
 	require.True(t, res.Success, res.VmStatus)
 	sender := signer.AccountAddress()
-	t.Logf("Funded account %s from %s with %f", to.StringLong(), sender.StringLong(), float64(amount)/1e8)
+	t.Logf("Funded account %s from %s with %f APT", to.StringLong(), sender.StringLong(), float64(amount)/1e8)
 }

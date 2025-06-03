@@ -11,7 +11,8 @@ import (
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	aptos_router "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router/router"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	config "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
@@ -52,7 +53,7 @@ func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	if err != nil {
 		return types.BatchOperation{}, fmt.Errorf("failed to update OnRamp destinations: %w", err)
 	}
-	mcmsTxs = append(mcmsTxs, onRampReport.Output)
+	mcmsTxs = append(mcmsTxs, onRampReport.Output...)
 
 	// 3. Configure sources on OffRamps
 	b.Logger.Info("Updating source configs on OffRamps")
@@ -60,7 +61,7 @@ func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	if err != nil {
 		return types.BatchOperation{}, fmt.Errorf("failed to update OffRamp sources: %w", err)
 	}
-	mcmsTxs = append(mcmsTxs, offRampReport.Output)
+	mcmsTxs = append(mcmsTxs, offRampReport.Output...)
 
 	// 4. Adds CCIP owner to OffRamp allow list
 	b.Logger.Info("Adding CCIP owner to OffRamp allow list")
@@ -76,7 +77,7 @@ func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	if err != nil {
 		return types.BatchOperation{}, fmt.Errorf("failed to update FeeQuoter prices: %w", err)
 	}
-	mcmsTxs = append(mcmsTxs, feeQuoterPricesReport.Output)
+	mcmsTxs = append(mcmsTxs, feeQuoterPricesReport.Output...)
 
 	// 6. Update Router with destination OnRamp versions
 	b.Logger.Info("Updating Router")
@@ -146,6 +147,7 @@ func setAptosSourceUpdates(lane config.LaneConfig, updateInputsByAptosChain map[
 	}
 	input.UpdateFeeQuoterPricesConfig.Prices.GasPrices[dest.Selector] = dest.GasPrice
 
+	// TODO Remove
 	if input.UpdateFeeQuoterPricesConfig.Prices.TokenPrices == nil {
 		input.UpdateFeeQuoterPricesConfig.Prices.TokenPrices = make(map[string]*big.Int)
 	}

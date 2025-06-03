@@ -6,8 +6,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
@@ -22,8 +23,8 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 		testhelpers.WithAptosChains(1),
 	)
 
-	evmChainSelectors := e.Env.AllChainSelectors()
-	aptosChainSelectors := maps.Keys(e.Env.BlockChains.AptosChains())
+	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
+	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
 
 	fmt.Println("EVM: ", evmChainSelectors)
 	fmt.Println("Aptos: ", aptosChainSelectors)
@@ -45,7 +46,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 	var (
 		replayed bool
 		nonce    uint64
-		sender   = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
+		sender   = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
 		out      messagingtest.TestCaseOutput
 		setup    = messagingtest.NewTestSetupWithDeployedEnv(
 			t,
@@ -99,8 +100,8 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 		testhelpers.WithNumOfChains(2),
 		testhelpers.WithAptosChains(1),
 	)
-	evmChainSelectors := e.Env.AllChainSelectors()
-	aptosChainSelectors := maps.Keys(e.Env.BlockChains.AptosChains())
+	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
+	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
 
 	fmt.Println("EVM: ", evmChainSelectors)
 	fmt.Println("Aptos: ", aptosChainSelectors)
