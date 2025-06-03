@@ -66,7 +66,7 @@ func DeployMCMSWithTimelockV2(
 			if s != nil {
 				chainstate = s[chainSel]
 			}
-			_, err = evminternal.DeployMCMSWithTimelockContractsEVM(env.GetContext(), env.Logger, env.BlockChains.EVMChains()[chainSel], newAddresses, cfg, chainstate)
+			_, err = evminternal.DeployMCMSWithTimelockContractsEVM(env, env.BlockChains.EVMChains()[chainSel], newAddresses, cfg, chainstate)
 			if err != nil {
 				return cldf.ChangesetOutput{AddressBook: newAddresses}, err
 			}

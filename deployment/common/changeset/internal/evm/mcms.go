@@ -20,9 +20,11 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/seqs"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -102,14 +104,15 @@ func DeployMCMSWithConfigEVM(
 // as well as the timelock. It's not necessarily the only way to use
 // the timelock and MCMS, but its reasonable pattern.
 func DeployMCMSWithTimelockContractsEVM(
-	ctx context.Context,
-	lggr logger.Logger,
+	env cldf.Environment,
 	chain cldf_evm.Chain,
 	ab cldf.AddressBook,
 	config commontypes.MCMSWithTimelockConfigV2,
 	state *state.MCMSWithTimelockState,
 ) (*proposalutils.MCMSWithTimelockContracts, error) {
-	opts := []DeployMCMSOption{}
+	ctx := env.GetContext()
+	lggr := env.Logger
+	opts := []func(*cldf.TypeAndVersion){}
 	if config.Label != nil {
 		opts = append(opts, WithLabel(*config.Label))
 	}
@@ -123,34 +126,91 @@ func DeployMCMSWithTimelockContractsEVM(
 		timelock = state.Timelock
 		callProxy = state.CallProxy
 	}
+	seqDeps := seqs.SeqDeployMCMSWithConfigDeps{
+		Chain:    chain,
+		AddrBook: ab,
+		Backend:  chain.Client,
+		Options:  opts,
+	}
 	if bypasser == nil {
-		bypasserC, err := DeployMCMSWithConfigEVM(commontypes.BypasserManyChainMultisig, lggr, chain, ab, config.Bypasser, opts...)
+		seqInput := seqs.SeqDeployMCMSWithConfigInput{
+			ContractType: commontypes.BypasserManyChainMultisig,
+			MCMConfig:    config.Bypasser,
+			ChainSelector: chain.Selector,
+		}
+
+		report, err := operations.ExecuteSequence(
+			env.OperationsBundle,
+			seqs.SeqDeployEVMTokens,
+			seqDeps,
+			seqInput,
+		)
 		if err != nil {
+			lggr.Errorw("Failed to deploy bypasser MCMS", "chain", chain.String(), "err", err)
 			return nil, err
 		}
-		bypasser = bypasserC.Contract
+
+		bypasser, err = bindings.NewManyChainMultiSig(report.Output.Address, chain.Client)
+		if err != nil {
+			lggr.Errorw("Failed to create bypasser MCMS binding", "chain", chain.String(), "err", err)
+			return nil, err
+		}
 		lggr.Infow("Bypasser MCMS deployed", "chain", chain.String(), "address", bypasser.Address)
 	} else {
 		lggr.Infow("Bypasser MCMS already deployed", "chain", chain.String(), "address", bypasser.Address)
 	}
 
 	if canceller == nil {
-		cancellerC, err := DeployMCMSWithConfigEVM(commontypes.CancellerManyChainMultisig, lggr, chain, ab, config.Canceller, opts...)
+		seqInput := seqs.SeqDeployMCMSWithConfigInput{
+			ContractType: commontypes.CancellerManyChainMultisig,
+			MCMConfig:    config.Canceller,
+			ChainSelector: chain.Selector,
+		}
+
+		report, err := operations.ExecuteSequence(
+			env.OperationsBundle,
+			seqs.SeqDeployEVMTokens,
+			seqDeps,
+			seqInput,
+		)
 		if err != nil {
+			lggr.Errorw("Failed to deploy Canceller MCMS", "chain", chain.String(), "err", err)
 			return nil, err
 		}
-		canceller = cancellerC.Contract
+
+		canceller, err = bindings.NewManyChainMultiSig(report.Output.Address, chain.Client)
+		if err != nil {
+			lggr.Errorw("Failed to create Canceller MCMS binding", "chain", chain.String(), "err", err)
+			return nil, err
+		}
 		lggr.Infow("Canceller MCMS deployed", "chain", chain.String(), "address", canceller.Address)
 	} else {
 		lggr.Infow("Canceller MCMS already deployed", "chain", chain.String(), "address", canceller.Address)
 	}
 
 	if proposer == nil {
-		proposerC, err := DeployMCMSWithConfigEVM(commontypes.ProposerManyChainMultisig, lggr, chain, ab, config.Proposer, opts...)
+		seqInput := seqs.SeqDeployMCMSWithConfigInput{
+			ContractType: commontypes.ProposerManyChainMultisig,
+			MCMConfig:    config.Proposer,
+			ChainSelector: chain.Selector,
+		}
+
+		report, err := operations.ExecuteSequence(
+			env.OperationsBundle,
+			seqs.SeqDeployEVMTokens,
+			seqDeps,
+			seqInput,
+		)
 		if err != nil {
+			lggr.Errorw("Failed to deploy Proposer MCMS", "chain", chain.String(), "err", err)
 			return nil, err
 		}
-		proposer = proposerC.Contract
+
+		proposer, err = bindings.NewManyChainMultiSig(report.Output.Address, chain.Client)
+		if err != nil {
+			lggr.Errorw("Failed to create Proposer MCMS binding", "chain", chain.String(), "err", err)
+			return nil, err
+		}
 		lggr.Infow("Proposer MCMS deployed", "chain", chain.String(), "address", proposer.Address)
 	} else {
 		lggr.Infow("Proposer MCMS already deployed", "chain", chain.String(), "address", proposer.Address)
