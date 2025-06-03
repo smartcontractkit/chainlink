@@ -56,7 +56,7 @@ func Test_AddChainE2E(t *testing.T) {
 	e = testhelpers.AddCCIPContractsToEnvironment(t, initialSetToDeploy, tEnv, false)
 	// Need to update what the RMNProxy is pointing to, otherwise plugin will not work.
 	var err error
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
 			v1_6.SetRMNRemoteOnRMNProxyConfig{
@@ -88,32 +88,23 @@ func Test_AddChainE2E(t *testing.T) {
 	testhelpers.SleepAndReplay(t, e.Env, 10*time.Second, initialSetToDeploy...)
 
 	// need donIDClaimer contract to be deployed before we can deploy the new chain
-	e.Env, err = commonchangeset.Apply(t, e.Env, nil,
+	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			v1_6.DeployDonIDClaimerChangeset,
 			v1_6.DeployDonIDClaimerConfig{},
 		))
 	require.NoError(t, err, "must deploy donIDClaimer contract")
 
-	// Fetch the timelock and call proxy contracts for the initial set of chains
-	timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts, len(initialSetToDeploy))
-	for _, selector := range initialSetToDeploy {
-		timelockContracts[selector] = &proposalutils.TimelockExecutionContracts{
-			Timelock:  state.Chains[selector].Timelock,
-			CallProxy: state.Chains[selector].CallProxy,
-		}
-	}
-
 	// Transfer ownership of the home and feed chain contracts to the timelock
-	e.Env, err = TransferOwnership(t, e.Env, timelockContracts, e.HomeChainSel, initialSetToDeploy, state)
+	e.Env, err = TransferOwnership(t, e.Env, e.HomeChainSel, initialSetToDeploy, state)
 	require.NoError(t, err, "must transfer ownership of home %d and feed "+
 		"chain %d contracts to the timelock", e.HomeChainSel, e.FeedChainSel)
 
 	// setup the third chain with home and feed chain
-	e.Env = SetupNewChain(t, e.HomeChainSel, e.FeedChainSel, thirdChain, initialSetToDeploy, e.Env, state, timelockContracts)
+	e.Env = SetupNewChain(t, e.HomeChainSel, e.FeedChainSel, thirdChain, initialSetToDeploy, e.Env, state)
 
 	// setup the fourth chain with third chain alone
-	e.Env = SetupNewChain(t, e.HomeChainSel, e.FeedChainSel, fourthChain, []uint64{thirdChain}, e.Env, state, timelockContracts)
+	e.Env = SetupNewChain(t, e.HomeChainSel, e.FeedChainSel, fourthChain, []uint64{thirdChain}, e.Env, state)
 
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -165,7 +156,6 @@ func SetupNewChain(
 	remoteChains []uint64,
 	env cldf.Environment,
 	state stateview.CCIPOnChainState,
-	timelockContracts map[uint64]*proposalutils.TimelockExecutionContracts,
 ) cldf.Environment {
 	nodeInfo, err := deployment.NodeInfo(env.NodeIDs, env.Offchain)
 	require.NoError(t, err, "must get node info")
@@ -234,7 +224,7 @@ func SetupNewChain(
 	}
 
 	// Add candidate for new chain using AddCandidatesForNewChainChangeset
-	env, err = commonchangeset.Apply(t, env, timelockContracts,
+	env, err = commonchangeset.Apply(t, env,
 		commonchangeset.Configure(
 			v1_6.AddCandidatesForNewChainChangeset,
 			v1_6.AddCandidatesForNewChainConfig{
@@ -255,7 +245,7 @@ func SetupNewChain(
 		"new chain: %d, remote chains: %v", chainToDeploy, remoteChains)
 
 	// Apply PromoteNewChainForConfigChangeset
-	env, err = commonchangeset.Apply(t, env, timelockContracts,
+	env, err = commonchangeset.Apply(t, env,
 		commonchangeset.Configure(
 			v1_6.PromoteNewChainForConfigChangeset,
 			v1_6.PromoteNewChainForConfig{
@@ -324,7 +314,6 @@ func SendMsgs(
 func TransferOwnership(
 	t *testing.T,
 	env cldf.Environment,
-	timelockContracts map[uint64]*proposalutils.TimelockExecutionContracts,
 	homeChainSelector uint64,
 	initialSetToDeploy []uint64,
 	state stateview.CCIPOnChainState,
@@ -351,7 +340,7 @@ func TransferOwnership(
 		state.Chains[homeChainSelector].CapabilityRegistry.Address(),
 	)
 
-	return commonchangeset.Apply(t, env, timelockContracts,
+	return commonchangeset.Apply(t, env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 			commonchangeset.TransferToMCMSWithTimelockConfig{

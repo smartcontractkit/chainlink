@@ -333,22 +333,8 @@ type DeployedEnv struct {
 	RmnEnabledSourceChains map[uint64]bool
 }
 
-func (d *DeployedEnv) TimelockContracts(t *testing.T) map[uint64]*proposalutils.TimelockExecutionContracts {
-	timelocks := make(map[uint64]*proposalutils.TimelockExecutionContracts)
-	state, err := stateview.LoadOnchainState(d.Env)
-	require.NoError(t, err)
-	for _, chain := range state.EVMChains() {
-		chainState := state.MustGetEVMChainState(chain)
-		timelocks[chain] = &proposalutils.TimelockExecutionContracts{
-			Timelock:  chainState.Timelock,
-			CallProxy: chainState.CallProxy,
-		}
-	}
-	return timelocks
-}
-
 func (d *DeployedEnv) SetupJobs(t *testing.T) {
-	_, err := commonchangeset.Apply(t, d.Env, nil,
+	_, err := commonchangeset.Apply(t, d.Env,
 		commonchangeset.Configure(cldf.CreateLegacyChangeSet(v1_6.CCIPCapabilityJobspecChangeset), nil))
 	require.NoError(t, err)
 	ReplayLogs(t, d.Env.Offchain, d.ReplayBlocks)
@@ -586,19 +572,15 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 			evmChains,
 		)
 	}
-	e.Env, err = commonchangeset.Apply(t, e.Env, nil,
-		deployLinkApp,
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
-			changeset.DeployPrerequisiteConfig{
-				Configs: prereqCfg,
-			},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
-			mcmsCfg,
-		),
-	)
+	e.Env, err = commonchangeset.Apply(t, e.Env, deployLinkApp, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+		changeset.DeployPrerequisiteConfig{
+			Configs: prereqCfg,
+		},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		mcmsCfg,
+	))
 	require.NoError(t, err)
 	if len(solChains) > 0 {
 		solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
@@ -610,7 +592,7 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 				TokenDecimals: 9,
 			},
 		)
-		e.Env, err = commonchangeset.Apply(t, e.Env, nil,
+		e.Env, err = commonchangeset.Apply(t, e.Env,
 			deploySolanaLinkApp,
 		)
 		require.NoError(t, err)
@@ -654,7 +636,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 
 	e = AddCCIPContractsToEnvironment(t, allChains, tEnv, false)
 	// now we update RMNProxy to point to RMNRemote
-	e.Env, err = commonchangeset.Apply(t, e.Env, nil,
+	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
 			v1_6.SetRMNRemoteOnRMNProxyConfig{
@@ -808,13 +790,13 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		require.NoError(t, err)
 		apps = append(apps, solCs...)
 	}
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, apps)
+	e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, apps)
 	require.NoError(t, err)
 
 	if len(aptosChains) != 0 {
 		// Currently only one aptos chain is supported in test environment
 		aptosCs := DeployChainContractsToAptosCS(t, e, aptosChains[0])
-		e.Env, _, err = commonchangeset.ApplyChangesetsV2(t, e.Env, []commonchangeset.ConfiguredChangeSet{aptosCs})
+		e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{aptosCs})
 		require.NoError(t, err)
 	}
 
@@ -855,12 +837,6 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			}})
 	}
 
-	timelockContractsPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
-	timelockContractsPerChain[e.HomeChainSel] = &proposalutils.TimelockExecutionContracts{
-		Timelock:  state.MustGetEVMChainState(e.HomeChainSel).Timelock,
-		CallProxy: state.MustGetEVMChainState(e.HomeChainSel).CallProxy,
-	}
-
 	nodeInfo, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 
@@ -891,10 +867,6 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	commitOCRConfigs := make(map[uint64]v1_6.CCIPOCRParams)
 	execOCRConfigs := make(map[uint64]v1_6.CCIPOCRParams)
 	for _, chain := range evmChains {
-		timelockContractsPerChain[chain] = &proposalutils.TimelockExecutionContracts{
-			Timelock:  state.MustGetEVMChainState(chain).Timelock,
-			CallProxy: state.MustGetEVMChainState(chain).CallProxy,
-		}
 		var linkTokenAddr common.Address
 		if tc.IsStaticLink {
 			linkTokenAddr = state.MustGetEVMChainState(chain).StaticLinkToken.Address()
@@ -1088,7 +1060,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			nil, // Changeset ignores any config
 		),
 	}
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelockContractsPerChain, apps)
+	e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, apps)
 	require.NoError(t, err)
 
 	ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
@@ -1129,7 +1101,7 @@ func NewEnvironmentWithJobs(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 	// add home chain contracts, otherwise the job approval logic in chainlink fails silently
-	_, err = commonchangeset.Apply(t, e.Env, nil,
+	_, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
 			v1_6.DeployHomeChainConfig{
 				HomeChainSel:     e.HomeChainSel,
