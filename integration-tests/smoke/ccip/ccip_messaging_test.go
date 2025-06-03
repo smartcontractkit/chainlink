@@ -217,6 +217,9 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 			if params.ExecuteOffChainConfig != nil {
 				params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(1 * time.Hour)
 				params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(1 * time.Hour)
+				params.ExecuteOffChainConfig.MultipleReportsEnabled = true
+				params.ExecuteOffChainConfig.MaxReportMessages = 1
+				params.ExecuteOffChainConfig.MaxSingleChainReports = 1
 			}
 			return params
 		}),
@@ -280,9 +283,10 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		}
 
 		extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
-			AccountIsWritableBitmap: solccip.GenerateBitMapForIndexes([]int{0, 1}),
-			Accounts:                accounts,
-			ComputeUnits:            80_000,
+			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
+			Accounts:                 accounts,
+			ComputeUnits:             80_000,
+			AllowOutOfOrderExecution: true,
 		})
 		require.NoError(t, err)
 
