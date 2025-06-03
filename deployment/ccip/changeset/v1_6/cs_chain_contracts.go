@@ -23,10 +23,13 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
+	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -1020,76 +1023,45 @@ func (cfg UpdateFeeQuoterDestsConfig) Validate(e cldf.Environment) error {
 }
 
 func UpdateFeeQuoterDestsChangeset(e cldf.Environment, cfg UpdateFeeQuoterDestsConfig) (cldf.ChangesetOutput, error) {
+	output := cldf.ChangesetOutput{}
+
 	if err := cfg.Validate(e); err != nil {
-		return cldf.ChangesetOutput{}, err
+		return output, err
 	}
 	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
-		return cldf.ChangesetOutput{}, err
+		return output, err
 	}
 
-	batches := []mcmstypes.BatchOperation{}
-	timelocks := make(map[uint64]string)
-	inspectors := make(map[uint64]mcmssdk.Inspector)
+	// Build sequence input
+	updates := make(map[uint64]opsutil.EVMCallInput[[]fee_quoter.FeeQuoterDestChainConfigArgs], len(cfg.UpdatesByChain))
+	for chainSel, destChainUpdates := range cfg.UpdatesByChain {
+		args := make([]fee_quoter.FeeQuoterDestChainConfigArgs, len(destChainUpdates))
+		i := 0
+		for destChainSel, destChainUpdate := range destChainUpdates {
+			args[i] = fee_quoter.FeeQuoterDestChainConfigArgs{
+				DestChainSelector: destChainSel,
+				DestChainConfig:   destChainUpdate,
+			}
+			i++
+		}
+		updates[chainSel] = opsutil.EVMCallInput[[]fee_quoter.FeeQuoterDestChainConfigArgs]{
+			Address:       s.Chains[chainSel].FeeQuoter.Address(),
+			ChainSelector: chainSel,
+			CallInput:     args,
+			NoSend:        cfg.MCMS != nil, // If MCMS exists, we do not want to send the transaction.
+		}
+	}
 
-	for chainSel, updates := range cfg.UpdatesByChain {
-		txOpts := e.BlockChains.EVMChains()[chainSel].DeployerKey
-		txOpts.Context = e.GetContext()
-		if cfg.MCMS != nil {
-			txOpts = cldf.SimTransactOpts()
-		}
-		fq := s.Chains[chainSel].FeeQuoter
-		var args []fee_quoter.FeeQuoterDestChainConfigArgs
-		for destination, dc := range updates {
-			args = append(args, fee_quoter.FeeQuoterDestChainConfigArgs{
-				DestChainSelector: destination,
-				DestChainConfig:   dc,
-			})
-		}
-		tx, err := fq.ApplyDestChainConfigUpdates(txOpts, args)
-		if cfg.MCMS == nil {
-			if _, err := cldf.ConfirmIfNoErrorWithABI(e.BlockChains.EVMChains()[chainSel], tx, fee_quoter.FeeQuoterABI, err); err != nil {
-				return cldf.ChangesetOutput{}, err
-			}
-		} else {
-			if err != nil {
-				return cldf.ChangesetOutput{}, err
-			}
-			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, fq.Address().Hex(), tx.Data(),
-				big.NewInt(0), string(shared.FeeQuoter), []string{})
-			if err != nil {
-				return cldf.ChangesetOutput{}, err
-			}
-			batches = append(batches, batchOperation)
-
-			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address().Hex()
-			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
-			}
-		}
-	}
-	if cfg.MCMS == nil {
-		return cldf.ChangesetOutput{}, nil
-	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
-	}
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e,
-		timelocks,
-		mcmsContractByChain,
-		inspectors,
-		batches,
-		"Update fq destinations",
-		*cfg.MCMS,
+	report, err := operations.ExecuteSequence(
+		e.OperationsBundle,
+		ccipseqs.FeeQuoterApplyDestChainConfigUpdatesSequence,
+		e.BlockChains.EVMChains(),
+		ccipseqs.FeeQuoterApplyDestChainConfigUpdatesSequenceInput{
+			UpdatesByChain: updates,
+		},
 	)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-
-	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+	return opsutil.AddEVMCallSequenceToCSOutput(e, s, output, report, err, cfg.MCMS, "Call ApplyDestChainConfigUpdates on FeeQuoters")
 }
 
 type OffRampSourceUpdate struct {

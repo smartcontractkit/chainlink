@@ -259,7 +259,7 @@ func TestDeployUSDCTokenPoolContracts(t *testing.T) {
 				}
 			}
 
-			e, err := commoncs.Apply(t, e, nil,
+			e, err := commoncs.Apply(t, e,
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
 					changeset.DeployPrerequisiteConfig{
@@ -280,7 +280,7 @@ func TestDeployUSDCTokenPoolContracts(t *testing.T) {
 			}
 
 			for i := range numRuns {
-				e, err = commoncs.Apply(t, e, nil,
+				e, err = commoncs.Apply(t, e,
 					commonchangeset.Configure(
 						cldf.CreateLegacyChangeSet(v1_5_1.DeployUSDCTokenPoolContractsChangeset),
 						v1_5_1.DeployUSDCTokenPoolContractsConfig{

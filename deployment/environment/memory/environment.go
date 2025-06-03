@@ -208,6 +208,9 @@ func NewNodes(
 	// since we won't run a bootstrapper and a plugin oracle on the same
 	// chainlink node in production.
 	for i := 0; i < cfg.NumBootstraps; i++ {
+		// TODO: bootstrap nodes don't have to support anything other than the home chain.
+		// We should remove all non-home chains from the config below and make sure things
+		// run smoothly.
 		c := NewNodeConfig{
 			Port:           ports[i],
 			Chains:         cfg.Chains,
@@ -265,7 +268,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 		blockChains[c.Selector] = c
 	}
 
-	return *cldf.NewCLDFEnvironment(
+	return *cldf.NewEnvironment(
 		Memory,
 		lggr,
 		cldf.NewMemoryAddressBook(),
@@ -273,9 +276,6 @@ func NewMemoryEnvironmentFromChainsNodes(
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,
 		]().Seal(),
-		nil,
-		nil,
-		nil,
 		nodeIDs, // Note these have the p2p_ prefix.
 		NewMemoryJobClient(nodes),
 		ctx,
@@ -323,7 +323,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 	for _, c := range aptosChains {
 		blockChains[c.Selector] = c
 	}
-	return *cldf.NewCLDFEnvironment(
+	return *cldf.NewEnvironment(
 		Memory,
 		lggr,
 		cldf.NewMemoryAddressBook(),
@@ -331,9 +331,6 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 			datastore.DefaultMetadata,
 			datastore.DefaultMetadata,
 		]().Seal(),
-		nil, // this field will be deleted in future since env.BlockChains will now contain all the chains.
-		nil, // this field will be deleted in future since env.BlockChains will now contain all the chains.
-		nil, // this field will be deleted in future since env.BlockChains will now contain all the chains.
 		nodeIDs,
 		NewMemoryJobClient(nodes),
 		t.Context,

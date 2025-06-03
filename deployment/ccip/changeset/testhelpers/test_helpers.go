@@ -51,8 +51,6 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -958,25 +956,25 @@ func AddLane(
 	toFamily, _ := chainsel.GetSelectorFamily(to)
 	changesets := []commoncs.ConfiguredChangeSet{}
 	if fromFamily == chainsel.FamilyEVM {
-		evmSrcChangesets := addEVMSrcChangesets(from, to, isTestRouter, gasprice, tokenPrices, fqCfg)
+		evmSrcChangesets := AddEVMSrcChangesets(from, to, isTestRouter, gasprice, tokenPrices, fqCfg)
 		changesets = append(changesets, evmSrcChangesets...)
 	}
 	if toFamily == chainsel.FamilyEVM {
-		evmDstChangesets := addEVMDestChangesets(e, to, from, isTestRouter)
+		evmDstChangesets := AddEVMDestChangesets(e, to, from, isTestRouter)
 		changesets = append(changesets, evmDstChangesets...)
 	}
 	if fromFamily == chainsel.FamilySolana {
-		changesets = append(changesets, addLaneSolanaChangesets(t, e, from, to, toFamily)...)
+		changesets = append(changesets, AddLaneSolanaChangesets(t, e, from, to, toFamily)...)
 	}
 	if toFamily == chainsel.FamilySolana {
-		changesets = append(changesets, addLaneSolanaChangesets(t, e, to, from, fromFamily)...)
+		changesets = append(changesets, AddLaneSolanaChangesets(t, e, to, from, fromFamily)...)
 	}
 
-	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), changesets)
+	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
 	require.NoError(t, err)
 }
 
-func addLaneSolanaChangesets(t *testing.T, e *DeployedEnv, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
+func AddLaneSolanaChangesets(t *testing.T, e *DeployedEnv, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
 	chainFamilySelector := [4]uint8{}
 	if remoteFamily == chainsel.FamilyEVM {
 		// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
@@ -1035,7 +1033,7 @@ func addLaneSolanaChangesets(t *testing.T, e *DeployedEnv, solChainSelector, rem
 	return solanaChangesets
 }
 
-func addEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64]*big.Int, tokenPrices map[common.Address]*big.Int, fqCfg fee_quoter.FeeQuoterDestChainConfig) []commoncs.ConfiguredChangeSet {
+func AddEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64]*big.Int, tokenPrices map[common.Address]*big.Int, fqCfg fee_quoter.FeeQuoterDestChainConfig) []commoncs.ConfiguredChangeSet {
 	evmSrcChangesets := []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
@@ -1090,7 +1088,7 @@ func addEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64
 	return evmSrcChangesets
 }
 
-func addEVMDestChangesets(e *DeployedEnv, to, from uint64, isTestRouter bool) []commoncs.ConfiguredChangeSet {
+func AddEVMDestChangesets(e *DeployedEnv, to, from uint64, isTestRouter bool) []commoncs.ConfiguredChangeSet {
 	evmDstChangesets := []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
@@ -1166,7 +1164,7 @@ func RemoveLane(t *testing.T, e *DeployedEnv, src, dest uint64, isTestRouter boo
 			},
 		),
 	}
-	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), apps)
+	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, apps)
 	require.NoError(t, err)
 }
 
@@ -1387,7 +1385,7 @@ func DeployTransferableTokenSolana(
 
 	// deploy solana token
 	solTokenName := evmTokenName
-	e, err = commoncs.Apply(nil, e, nil,
+	e, err = commoncs.Apply(nil, e,
 		commoncs.Configure(
 			// this makes the deployer the mint authority by default
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.DeploySolanaToken),
@@ -1422,7 +1420,7 @@ func DeployTransferableTokenSolana(
 	bnm := solTestTokenPool.BurnAndMint_PoolType
 
 	// deploy and configure solana token pool
-	e, err = commoncs.Apply(nil, e, nil,
+	e, err = commoncs.Apply(nil, e,
 		commoncs.Configure(
 			// deploy token pool and set the burn/mint authority to the tokenPool
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.E2ETokenPool),
@@ -2214,52 +2212,89 @@ func SavePreloadedSolAddresses(e cldf.Environment, solChainSelector uint64) erro
 	return nil
 }
 
-func ValidateSolanaState(t *testing.T, e cldf.Environment, solChainSelectors []uint64) {
+func ValidateSolanaState(e cldf.Environment, solChainSelectors []uint64) error {
 	state, err := stateview.LoadOnchainStateSolana(e)
-	require.NoError(t, err, "Failed to load Solana state")
+	if err != nil {
+		return fmt.Errorf("failed to load Solana state: %w", err)
+	}
 
 	for _, sel := range solChainSelectors {
 		// Validate chain exists in state
 		chainState, exists := state.SolChains[sel]
-		require.True(t, exists, "Chain selector %d not found in Solana state", sel)
+		if !exists {
+			return fmt.Errorf("chain selector %d not found in Solana state", sel)
+		}
 
 		// Validate addresses
-		require.False(t, chainState.Router.IsZero(), "Router address is zero for chain %d", sel)
-		require.False(t, chainState.OffRamp.IsZero(), "OffRamp address is zero for chain %d", sel)
-		require.False(t, chainState.FeeQuoter.IsZero(), "FeeQuoter address is zero for chain %d", sel)
-		require.False(t, chainState.LinkToken.IsZero(), "Link token address is zero for chain %d", sel)
-		require.False(t, chainState.RMNRemote.IsZero(), "RMNRemote address is zero for chain %d", sel)
+		if chainState.Router.IsZero() {
+			return fmt.Errorf("router address is zero for chain %d", sel)
+		}
+		if chainState.OffRamp.IsZero() {
+			return fmt.Errorf("offRamp address is zero for chain %d", sel)
+		}
+		if chainState.FeeQuoter.IsZero() {
+			return fmt.Errorf("feeQuoter address is zero for chain %d", sel)
+		}
+		if chainState.LinkToken.IsZero() {
+			return fmt.Errorf("link token address is zero for chain %d", sel)
+		}
+		if chainState.RMNRemote.IsZero() {
+			return fmt.Errorf("RMNRemote address is zero for chain %d", sel)
+		}
 
 		// Get router config
 		var routerConfigAccount solRouter.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.RouterConfigPDA, &routerConfigAccount)
-		require.NoError(t, err, "Failed to deserialize router config for chain %d", sel)
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(context.Background(), chainState.RouterConfigPDA, &routerConfigAccount)
+		if err != nil {
+			return fmt.Errorf("failed to deserialize router config for chain %d: %w", sel, err)
+		}
 
 		// Get fee quoter config
 		var feeQuoterConfigAccount solFeeQuoter.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.FeeQuoterConfigPDA, &feeQuoterConfigAccount)
-		require.NoError(t, err, "Failed to deserialize fee quoter config for chain %d", sel)
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(context.Background(), chainState.FeeQuoterConfigPDA, &feeQuoterConfigAccount)
+		if err != nil {
+			return fmt.Errorf("failed to deserialize fee quoter config for chain %d: %w", sel, err)
+		}
 
 		// Get offramp config
 		var offRampConfigAccount solOffRamp.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.OffRampConfigPDA, &offRampConfigAccount)
-		require.NoError(t, err, "Failed to deserialize offramp config for chain %d", sel)
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(
+			context.Background(),
+			chainState.OffRampConfigPDA,
+			&offRampConfigAccount,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to deserialize off-ramp config for chain %d: %w", sel, err)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to deserialize offramp config for chain %d: %w", sel, err)
+		}
 
 		// Get rmn remote config
 		var rmnRemoteConfigAccount solRmnRemote.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.RMNRemoteConfigPDA, &rmnRemoteConfigAccount)
-		require.NoError(t, err, "Failed to deserialize rmn remote config for chain %d", sel)
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(context.Background(), chainState.RMNRemoteConfigPDA, &rmnRemoteConfigAccount)
+		if err != nil {
+			return fmt.Errorf("failed to deserialize rmn remote config for chain %d: %w", sel, err)
+		}
 
 		addressLookupTable, err := solanastateview.FetchOfframpLookupTable(e.GetContext(), e.BlockChains.SolanaChains()[sel], chainState.OffRamp)
-		require.NoError(t, err, "Failed to get offramp lookup table for chain %d", sel)
+		if err != nil {
+			return fmt.Errorf("failed to get offramp lookup table for chain %d: %w", sel, err)
+		}
 
 		addresses, err := solcommon.GetAddressLookupTable(
 			e.GetContext(),
 			e.BlockChains.SolanaChains()[sel].Client,
-			addressLookupTable)
-		require.NoError(t, err, "Failed to get address lookup table for chain %d", sel)
-		require.GreaterOrEqual(t, len(addresses), 22, "Not enough addresses found in lookup table for chain %d", sel)
+			addressLookupTable,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get address lookup table for chain %d: %w", sel, err)
+		}
+		if len(addresses) < 22 {
+			return fmt.Errorf("not enough addresses found in lookup table for chain %d: got %d, expected at least 22", sel, len(addresses))
+		}
 	}
+	return nil
 }
 
 func DeploySolanaCcipReceiver(t *testing.T, e cldf.Environment) {
@@ -2290,7 +2325,7 @@ func TransferOwnershipSolana(
 ) (timelockSignerPDA solana.PublicKey, mcmSignerPDA solana.PublicKey) {
 	var err error
 	if needTimelockDeployed {
-		*e, _, err = commoncs.ApplyChangesetsV2(t, *e, []commoncs.ConfiguredChangeSet{
+		*e, _, err = commoncs.ApplyChangesets(t, *e, []commoncs.ConfiguredChangeSet{
 			commoncs.Configure(
 				cldf.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelockV2),
 				map[uint64]commontypes.MCMSWithTimelockConfigV2{
@@ -2321,7 +2356,7 @@ func TransferOwnershipSolana(
 	t.Logf("funded timelock signer PDA: %s", timelockSignerPDA.String())
 	t.Logf("funded mcm signer PDA: %s", mcmSignerPDA.String())
 	// Apply transfer ownership changeset
-	*e, _, err = commoncs.ApplyChangesetsV2(t, *e, []commoncs.ConfiguredChangeSet{
+	*e, _, err = commoncs.ApplyChangesets(t, *e, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.TransferCCIPToMCMSWithTimelockSolana),
 			ccipChangeSetSolana.TransferCCIPToMCMSWithTimelockSolanaConfig{
@@ -2343,13 +2378,11 @@ func GenTestTransferOwnershipConfig(
 	withTestRouterTransfer bool,
 ) commoncs.TransferToMCMSWithTimelockConfig {
 	var (
-		timelocksPerChain = make(map[uint64]common.Address)
-		contracts         = make(map[uint64][]common.Address)
+		contracts = make(map[uint64][]common.Address)
 	)
 
 	// chain contracts
 	for _, chain := range chains {
-		timelocksPerChain[chain] = state.MustGetEVMChainState(chain).Timelock.Address()
 		contracts[chain] = []common.Address{
 			state.MustGetEVMChainState(chain).OnRamp.Address(),
 			state.MustGetEVMChainState(chain).OffRamp.Address(),
@@ -2366,8 +2399,6 @@ func GenTestTransferOwnershipConfig(
 	}
 
 	// home chain
-	homeChainTimelockAddress := state.MustGetEVMChainState(e.HomeChainSel).Timelock.Address()
-	timelocksPerChain[e.HomeChainSel] = homeChainTimelockAddress
 	contracts[e.HomeChainSel] = append(contracts[e.HomeChainSel],
 		state.MustGetEVMChainState(e.HomeChainSel).CapabilityRegistry.Address(),
 		state.MustGetEVMChainState(e.HomeChainSel).CCIPHome.Address(),
@@ -2412,21 +2443,8 @@ func TransferToTimelock(
 	chains []uint64,
 	withTestRouterTransfer bool,
 ) {
-	timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts, len(chains)+1)
-	for _, chain := range chains {
-		timelockContracts[chain] = &proposalutils.TimelockExecutionContracts{
-			Timelock:  state.MustGetEVMChainState(chain).Timelock,
-			CallProxy: state.MustGetEVMChainState(chain).CallProxy,
-		}
-	}
-	// Add the home chain to the timelock contracts.
-	timelockContracts[tenv.HomeChainSel] = &proposalutils.TimelockExecutionContracts{
-		Timelock:  state.MustGetEVMChainState(tenv.HomeChainSel).Timelock,
-		CallProxy: state.MustGetEVMChainState(tenv.HomeChainSel).CallProxy,
-	}
 	// Transfer ownership to timelock so that we can promote the zero digest later down the line.
 	_, err := commoncs.Apply(t, tenv.Env,
-		timelockContracts,
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 			GenTestTransferOwnershipConfig(tenv, chains, state, withTestRouterTransfer),
