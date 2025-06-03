@@ -85,7 +85,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 	e.Env = v1_5testhelpers.AddLanes(t, e.Env, state, pairs)
 
 	// permabless the commit stores
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_5.PermaBlessCommitStoreChangeset),
 			v1_5.PermaBlessCommitStoreConfig{
@@ -143,7 +143,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 		),
 	}...)
 	// reload state after adding lanes
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, apps)
+	e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, apps)
 	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
 
@@ -211,7 +211,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	e.Env = v1_5testhelpers.AddLanes(t, e.Env, state, pairs)
 
 	// permabless the commit stores
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_5.PermaBlessCommitStoreChangeset),
 			v1_5.PermaBlessCommitStoreConfig{
@@ -269,7 +269,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 		),
 	}...)
 	// reload state after adding lanes
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, apps)
+	e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, apps)
 	require.NoError(t, err)
 
 	// reload state after adding lanes
@@ -347,7 +347,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	e.Env = v1_5testhelpers.AddLanes(t, e.Env, state, pairs)
 
 	// permabless the commit stores
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_5.PermaBlessCommitStoreChangeset),
 			v1_5.PermaBlessCommitStoreConfig{
@@ -404,7 +404,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 			},
 		),
 	}...)
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, apps)
+	e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, apps)
 	require.NoError(t, err)
 	// reload state after adding lanes
 
@@ -539,7 +539,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	e.Env = v1_5testhelpers.AddLanes(t, e.Env, state, pairs)
 
 	// permabless the commit stores
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_5.PermaBlessCommitStoreChangeset),
 			v1_5.PermaBlessCommitStoreConfig{
@@ -626,7 +626,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		}
 	}
 
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
@@ -644,54 +644,51 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)), tEnv, false)
 	// Set RMNProxy to point to RMNRemote.
 	// nonce manager should point to 1.5 ramps
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
-		commonchangeset.Configure(
-			// as we have already transferred ownership for RMNProxy to MCMS, it needs to be done via MCMS proposal
-			cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
-			v1_6.SetRMNRemoteOnRMNProxyConfig{
-				ChainSelectors: e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)),
-				MCMSConfig: &proposalutils.TimelockConfig{
-					MinDelay: 0,
-				},
+	e.Env, err = commonchangeset.Apply(t, e.Env, commonchangeset.Configure(
+		// as we have already transferred ownership for RMNProxy to MCMS, it needs to be done via MCMS proposal
+		cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
+		v1_6.SetRMNRemoteOnRMNProxyConfig{
+			ChainSelectors: e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)),
+			MCMSConfig: &proposalutils.TimelockConfig{
+				MinDelay: 0,
 			},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.UpdateNonceManagersChangeset),
-			v1_6.UpdateNonceManagerConfig{
-				// we only have lanes between src1 --> dest
-				UpdatesByChain: map[uint64]v1_6.NonceManagerUpdate{
-					src1: {
-						PreviousRampsArgs: []v1_6.PreviousRampCfg{
-							{
-								RemoteChainSelector: dest,
-								AllowEmptyOffRamp:   true,
-							},
+		},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.UpdateNonceManagersChangeset),
+		v1_6.UpdateNonceManagerConfig{
+			// we only have lanes between src1 --> dest
+			UpdatesByChain: map[uint64]v1_6.NonceManagerUpdate{
+				src1: {
+					PreviousRampsArgs: []v1_6.PreviousRampCfg{
+						{
+							RemoteChainSelector: dest,
+							AllowEmptyOffRamp:   true,
 						},
 					},
-					src2: {
-						PreviousRampsArgs: []v1_6.PreviousRampCfg{
-							{
-								RemoteChainSelector: dest,
-								AllowEmptyOffRamp:   true,
-							},
+				},
+				src2: {
+					PreviousRampsArgs: []v1_6.PreviousRampCfg{
+						{
+							RemoteChainSelector: dest,
+							AllowEmptyOffRamp:   true,
 						},
 					},
-					dest: {
-						PreviousRampsArgs: []v1_6.PreviousRampCfg{
-							{
-								RemoteChainSelector: src1,
-								AllowEmptyOnRamp:    true,
-							},
-							{
-								RemoteChainSelector: src2,
-								AllowEmptyOnRamp:    true,
-							},
+				},
+				dest: {
+					PreviousRampsArgs: []v1_6.PreviousRampCfg{
+						{
+							RemoteChainSelector: src1,
+							AllowEmptyOnRamp:    true,
+						},
+						{
+							RemoteChainSelector: src2,
+							AllowEmptyOnRamp:    true,
 						},
 					},
 				},
 			},
-		),
-	)
+		},
+	))
 	require.NoError(t, err)
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -743,60 +740,56 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
 
 	// now that the 1.6 lane is working, we can enable the real router
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
-			v1_6.UpdateOnRampDestsConfig{
-				UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
-					src1: {
-						dest: {
-							IsEnabled:        true,
-							TestRouter:       false,
-							AllowListEnabled: false,
-						},
-					},
-				},
-			},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
-			v1_6.UpdateOffRampSourcesConfig{
-				UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
+	e.Env, err = commonchangeset.Apply(t, e.Env, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+		v1_6.UpdateOnRampDestsConfig{
+			UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
+				src1: {
 					dest: {
-						src1: {
-							IsEnabled:                 true,
-							TestRouter:                false,
-							IsRMNVerificationDisabled: true,
-						},
+						IsEnabled:        true,
+						TestRouter:       false,
+						AllowListEnabled: false,
 					},
 				},
 			},
-		),
-		commonchangeset.Configure(
-			// this needs to be MCMS proposal as the router contract is owned by MCMS
-			cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
-			v1_6.UpdateRouterRampsConfig{
-				TestRouter: false,
-				MCMS: &proposalutils.TimelockConfig{
-					MinDelay: 0,
-				},
-				UpdatesByChain: map[uint64]v1_6.RouterUpdates{
-					// onRamp update on source chain
+		},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
+		v1_6.UpdateOffRampSourcesConfig{
+			UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
+				dest: {
 					src1: {
-						OnRampUpdates: map[uint64]bool{
-							dest: true,
-						},
-					},
-					// offramp update on dest chain
-					dest: {
-						OffRampUpdates: map[uint64]bool{
-							src1: true,
-						},
+						IsEnabled:                 true,
+						TestRouter:                false,
+						IsRMNVerificationDisabled: true,
 					},
 				},
 			},
-		),
-	)
+		},
+	), commonchangeset.Configure(
+		// this needs to be MCMS proposal as the router contract is owned by MCMS
+		cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+		v1_6.UpdateRouterRampsConfig{
+			TestRouter: false,
+			MCMS: &proposalutils.TimelockConfig{
+				MinDelay: 0,
+			},
+			UpdatesByChain: map[uint64]v1_6.RouterUpdates{
+				// onRamp update on source chain
+				src1: {
+					OnRampUpdates: map[uint64]bool{
+						dest: true,
+					},
+				},
+				// offramp update on dest chain
+				dest: {
+					OffRampUpdates: map[uint64]bool{
+						src1: true,
+					},
+				},
+			},
+		},
+	))
 	require.NoError(t, err)
 	// confirm that the other lane src2->dest is still working with v1.5
 	sentEventOnOtherLane, err := v1_5testhelpers.SendRequest(t, e.Env, state,

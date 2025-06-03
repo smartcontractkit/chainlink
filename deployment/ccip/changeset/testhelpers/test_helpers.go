@@ -920,7 +920,7 @@ func AddLane(
 		changesets = append(changesets, AddLaneSolanaChangesets(t, e, to, from, fromFamily)...)
 	}
 
-	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), changesets)
+	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
 	require.NoError(t, err)
 }
 
@@ -1114,7 +1114,7 @@ func RemoveLane(t *testing.T, e *DeployedEnv, src, dest uint64, isTestRouter boo
 			},
 		),
 	}
-	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), apps)
+	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, apps)
 	require.NoError(t, err)
 }
 
@@ -1335,7 +1335,7 @@ func DeployTransferableTokenSolana(
 
 	// deploy solana token
 	solTokenName := evmTokenName
-	e, err = commoncs.Apply(nil, e, nil,
+	e, err = commoncs.Apply(nil, e,
 		commoncs.Configure(
 			// this makes the deployer the mint authority by default
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.DeploySolanaToken),
@@ -1370,7 +1370,7 @@ func DeployTransferableTokenSolana(
 	bnm := solTestTokenPool.BurnAndMint_PoolType
 
 	// deploy and configure solana token pool
-	e, err = commoncs.Apply(nil, e, nil,
+	e, err = commoncs.Apply(nil, e,
 		commoncs.Configure(
 			// deploy token pool and set the burn/mint authority to the tokenPool
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.E2ETokenPool),
@@ -2266,7 +2266,7 @@ func TransferOwnershipSolana(
 ) (timelockSignerPDA solana.PublicKey, mcmSignerPDA solana.PublicKey) {
 	var err error
 	if needTimelockDeployed {
-		*e, _, err = commoncs.ApplyChangesetsV2(t, *e, []commoncs.ConfiguredChangeSet{
+		*e, _, err = commoncs.ApplyChangesets(t, *e, []commoncs.ConfiguredChangeSet{
 			commoncs.Configure(
 				cldf.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelockV2),
 				map[uint64]commontypes.MCMSWithTimelockConfigV2{
@@ -2297,7 +2297,7 @@ func TransferOwnershipSolana(
 	t.Logf("funded timelock signer PDA: %s", timelockSignerPDA.String())
 	t.Logf("funded mcm signer PDA: %s", mcmSignerPDA.String())
 	// Apply transfer ownership changeset
-	*e, _, err = commoncs.ApplyChangesetsV2(t, *e, []commoncs.ConfiguredChangeSet{
+	*e, _, err = commoncs.ApplyChangesets(t, *e, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.TransferCCIPToMCMSWithTimelockSolana),
 			ccipChangeSetSolana.TransferCCIPToMCMSWithTimelockSolanaConfig{
@@ -2319,13 +2319,11 @@ func GenTestTransferOwnershipConfig(
 	withTestRouterTransfer bool,
 ) commoncs.TransferToMCMSWithTimelockConfig {
 	var (
-		timelocksPerChain = make(map[uint64]common.Address)
-		contracts         = make(map[uint64][]common.Address)
+		contracts = make(map[uint64][]common.Address)
 	)
 
 	// chain contracts
 	for _, chain := range chains {
-		timelocksPerChain[chain] = state.MustGetEVMChainState(chain).Timelock.Address()
 		contracts[chain] = []common.Address{
 			state.MustGetEVMChainState(chain).OnRamp.Address(),
 			state.MustGetEVMChainState(chain).OffRamp.Address(),
@@ -2342,8 +2340,6 @@ func GenTestTransferOwnershipConfig(
 	}
 
 	// home chain
-	homeChainTimelockAddress := state.MustGetEVMChainState(e.HomeChainSel).Timelock.Address()
-	timelocksPerChain[e.HomeChainSel] = homeChainTimelockAddress
 	contracts[e.HomeChainSel] = append(contracts[e.HomeChainSel],
 		state.MustGetEVMChainState(e.HomeChainSel).CapabilityRegistry.Address(),
 		state.MustGetEVMChainState(e.HomeChainSel).CCIPHome.Address(),
@@ -2388,21 +2384,8 @@ func TransferToTimelock(
 	chains []uint64,
 	withTestRouterTransfer bool,
 ) {
-	timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts, len(chains)+1)
-	for _, chain := range chains {
-		timelockContracts[chain] = &proposalutils.TimelockExecutionContracts{
-			Timelock:  state.MustGetEVMChainState(chain).Timelock,
-			CallProxy: state.MustGetEVMChainState(chain).CallProxy,
-		}
-	}
-	// Add the home chain to the timelock contracts.
-	timelockContracts[tenv.HomeChainSel] = &proposalutils.TimelockExecutionContracts{
-		Timelock:  state.MustGetEVMChainState(tenv.HomeChainSel).Timelock,
-		CallProxy: state.MustGetEVMChainState(tenv.HomeChainSel).CallProxy,
-	}
 	// Transfer ownership to timelock so that we can promote the zero digest later down the line.
 	_, err := commoncs.Apply(t, tenv.Env,
-		timelockContracts,
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 			GenTestTransferOwnershipConfig(tenv, chains, state, withTestRouterTransfer),

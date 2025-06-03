@@ -36,7 +36,7 @@ func setupFiredrillTestEnv(t *testing.T) cldf.Environment {
 	commonchangeset.SetPreloadedSolanaAddresses(t, env, chainSelectorSolana)
 	config := proposalutils.SingleGroupTimelockConfigV2(t)
 	// Deploy MCMS and Timelock
-	env, err := commonchangeset.Apply(t, env, nil,
+	env, err := commonchangeset.Apply(t, env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 			map[uint64]commontypes.MCMSWithTimelockConfigV2{
@@ -92,7 +92,7 @@ func TestMCMSSignFireDrillChangeset(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			changesetsToApply := tc.changeSets()
-			_, _, err := commonchangeset.ApplyChangesetsV2(t, env, changesetsToApply)
+			_, _, err := commonchangeset.ApplyChangesets(t, env, changesetsToApply)
 			require.NoError(t, err)
 		})
 	}

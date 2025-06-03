@@ -44,19 +44,16 @@ func setupSetConfigTestEnv(t *testing.T) cldf.Environment {
 	commonchangeset.SetPreloadedSolanaAddresses(t, env, chainSelectorSolana)
 	config := proposalutils.SingleGroupTimelockConfigV2(t)
 	// Deploy MCMS and Timelock
-	env, err := commonchangeset.Apply(t, env, nil,
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
-			[]uint64{chainSelector},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
-			map[uint64]commontypes.MCMSWithTimelockConfigV2{
-				chainSelector:       config,
-				chainSelectorSolana: config,
-			},
-		),
-	)
+	env, err := commonchangeset.Apply(t, env, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+		[]uint64{chainSelector},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		map[uint64]commontypes.MCMSWithTimelockConfigV2{
+			chainSelector:       config,
+			chainSelectorSolana: config,
+		},
+	))
 	require.NoError(t, err)
 	return env
 }
@@ -134,12 +131,6 @@ func TestSetConfigMCMSV2EVM(t *testing.T) {
 			cfgProposer := proposalutils.SingleGroupMCMSV2(t)
 			cfgProposer.Signers = append(cfgProposer.Signers, timelockAddress)
 			cfgProposer.Quorum = 2 // quorum should change to 2 out of 2 signers
-			timelockMap := map[uint64]*proposalutils.TimelockExecutionContracts{
-				chainSelector: {
-					Timelock:  mcmsState.Timelock,
-					CallProxy: mcmsState.CallProxy,
-				},
-			}
 			cfgCanceller := proposalutils.SingleGroupMCMSV2(t)
 			cfgBypasser := proposalutils.SingleGroupMCMSV2(t)
 			cfgBypasser.Signers = append(cfgBypasser.Signers, timelockAddress)
@@ -148,7 +139,7 @@ func TestSetConfigMCMSV2EVM(t *testing.T) {
 
 			// Set config on all 3 MCMS contracts
 			changesetsToApply := tc.changeSets(mcmsState, chainSelector, cfgProposer, cfgCanceller, cfgBypasser)
-			_, err = commonchangeset.ApplyChangesets(t, env, timelockMap, changesetsToApply)
+			_, _, err = commonchangeset.ApplyChangesets(t, env, changesetsToApply)
 			require.NoError(t, err)
 
 			// Check new State
@@ -249,7 +240,7 @@ func TestSetConfigMCMSV2Solana(t *testing.T) {
 						Bypasser:  newCfgBypasser,
 					},
 				})
-			_, _, err = commonchangeset.ApplyChangesetsV2(t, env, changesetsToApply)
+			_, _, err = commonchangeset.ApplyChangesets(t, env, changesetsToApply)
 			require.NoError(t, err)
 
 			// assert

@@ -94,22 +94,19 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 			TimelockMinDelay: big.NewInt(0),
 		}
 	}
-	*e, err = commonchangeset.Apply(nil, *e, nil,
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
-			cfg,
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
-			v1_6.DeployHomeChainConfig{
-				HomeChainSel:             homeChainSel,
-				RMNStaticConfig:          testhelpers.NewTestRMNStaticConfig(),
-				RMNDynamicConfig:         testhelpers.NewTestRMNDynamicConfig(),
-				NodeOperators:            testhelpers.NewTestNodeOperator(evmChains[homeChainSel].DeployerKey.From),
-				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{"NodeOperator": p2pIds},
-			},
-		),
-	)
+	*e, err = commonchangeset.Apply(nil, *e, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		cfg,
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+		v1_6.DeployHomeChainConfig{
+			HomeChainSel:             homeChainSel,
+			RMNStaticConfig:          testhelpers.NewTestRMNStaticConfig(),
+			RMNDynamicConfig:         testhelpers.NewTestRMNDynamicConfig(),
+			NodeOperators:            testhelpers.NewTestNodeOperator(evmChains[homeChainSel].DeployerKey.From),
+			NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{"NodeOperator": p2pIds},
+		},
+	))
 	if err != nil {
 		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("changeset sequence execution failed with error: %w", err)
 	}
@@ -288,7 +285,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 		}
 	}
 
-	env, err := commonchangeset.Apply(nil, *e, nil,
+	env, err := commonchangeset.Apply(nil, *e,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
 			v1_6.UpdateChainConfigConfig{
@@ -357,7 +354,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 
 		solCs = append(solCs, solTestReceiver)
 
-		deployedEnv.Env, err = commonchangeset.Apply(nil, deployedEnv.Env, nil, solCs[0], solCs[1:]...)
+		deployedEnv.Env, err = commonchangeset.Apply(nil, deployedEnv.Env, solCs[0], solCs[1:]...)
 		if err != nil {
 			return *e, err
 		}
@@ -397,33 +394,28 @@ func setupLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 			},
 		}
 	}
-	env, err := commonchangeset.Apply(nil, *e, nil,
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_5_1.DeployTokenPoolContractsChangeset),
-			v1_5_1.DeployTokenPoolContractsConfig{
-				TokenSymbol: shared.LinkSymbol,
-				NewPools:    poolInput,
-			},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
-			v1_5_1.TokenAdminRegistryChangesetConfig{
-				Pools: pools,
-			},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_5_1.AcceptAdminRoleChangeset),
-			v1_5_1.TokenAdminRegistryChangesetConfig{
-				Pools: pools,
-			},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_5_1.SetPoolChangeset),
-			v1_5_1.TokenAdminRegistryChangesetConfig{
-				Pools: pools,
-			},
-		),
-	)
+	env, err := commonchangeset.Apply(nil, *e, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5_1.DeployTokenPoolContractsChangeset),
+		v1_5_1.DeployTokenPoolContractsConfig{
+			TokenSymbol: shared.LinkSymbol,
+			NewPools:    poolInput,
+		},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
+		v1_5_1.TokenAdminRegistryChangesetConfig{
+			Pools: pools,
+		},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5_1.AcceptAdminRoleChangeset),
+		v1_5_1.TokenAdminRegistryChangesetConfig{
+			Pools: pools,
+		},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5_1.SetPoolChangeset),
+		v1_5_1.TokenAdminRegistryChangesetConfig{
+			Pools: pools,
+		},
+	))
 
 	if err != nil {
 		return *e, fmt.Errorf("failed to apply changesets: %w", err)
@@ -515,38 +507,32 @@ func setupLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (cldf.Env
 			}
 			mu.Unlock()
 
-			_, err := commonchangeset.Apply(nil, *e, nil,
-				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
-					v1_6.UpdateOnRampDestsConfig{
-						UpdatesByChain: onRampUpdatesByChain,
-					},
-				),
-				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
-					v1_6.UpdateFeeQuoterPricesConfig{
-						PricesByChain: pricesByChain,
-					},
-				),
-				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
-					v1_6.UpdateFeeQuoterDestsConfig{
-						UpdatesByChain: feeQuoterDestsUpdatesByChain,
-					},
-				),
-				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
-					v1_6.UpdateOffRampSourcesConfig{
-						UpdatesByChain: updateOffRampSources,
-					},
-				),
-				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
-					v1_6.UpdateRouterRampsConfig{
-						UpdatesByChain: updateRouterChanges,
-					},
-				),
-			)
+			_, err := commonchangeset.Apply(nil, *e, commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+				v1_6.UpdateOnRampDestsConfig{
+					UpdatesByChain: onRampUpdatesByChain,
+				},
+			), commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
+				v1_6.UpdateFeeQuoterPricesConfig{
+					PricesByChain: pricesByChain,
+				},
+			), commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
+				v1_6.UpdateFeeQuoterDestsConfig{
+					UpdatesByChain: feeQuoterDestsUpdatesByChain,
+				},
+			), commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
+				v1_6.UpdateOffRampSourcesConfig{
+					UpdatesByChain: updateOffRampSources,
+				},
+			), commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+				v1_6.UpdateRouterRampsConfig{
+					UpdatesByChain: updateRouterChanges,
+				},
+			))
 			return err
 		})
 	}
@@ -556,7 +542,7 @@ func setupLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (cldf.Env
 		return *e, err
 	}
 
-	_, err = commonchangeset.Apply(nil, *e, nil, commonchangeset.Configure(
+	_, err = commonchangeset.Apply(nil, *e, commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 		v1_5_1.ConfigureTokenPoolContractsConfig{
 			TokenSymbol: shared.LinkSymbol,
@@ -622,51 +608,46 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 		)
 	}
 
-	return commonchangeset.Apply(nil, *e, nil,
-		commitChangeset,
-		commonchangeset.Configure(
-			// Add the exec OCR instances for the new chains
-			cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
-			v1_6.SetCandidateChangesetConfig{
-				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
-					HomeChainSelector: homeChainSel,
-					FeedChainSelector: feedChainSel,
-				},
-				PluginInfo: []v1_6.SetCandidatePluginInfo{
-					{
-						OCRConfigPerRemoteChainSelector: execOCRConfigPerSelector,
-						PluginType:                      types.PluginTypeCCIPExec,
-					},
-				},
-			},
-		),
-		commonchangeset.Configure(
-			// Promote everything
-			cldf.CreateLegacyChangeSet(v1_6.PromoteCandidateChangeset),
-			v1_6.PromoteCandidateChangesetConfig{
+	return commonchangeset.Apply(nil, *e, commitChangeset, commonchangeset.Configure(
+		// Add the exec OCR instances for the new chains
+		cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
+		v1_6.SetCandidateChangesetConfig{
+			SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
 				HomeChainSelector: homeChainSel,
-				PluginInfo: []v1_6.PromoteCandidatePluginInfo{
-					{
-						RemoteChainSelectors: chainSelectors,
-						PluginType:           types.PluginTypeCCIPCommit,
-					},
-					{
-						RemoteChainSelectors: chainSelectors,
-						PluginType:           types.PluginTypeCCIPExec,
-					},
+				FeedChainSelector: feedChainSel,
+			},
+			PluginInfo: []v1_6.SetCandidatePluginInfo{
+				{
+					OCRConfigPerRemoteChainSelector: execOCRConfigPerSelector,
+					PluginType:                      types.PluginTypeCCIPExec,
 				},
 			},
-		),
-		commonchangeset.Configure(
-			// Enable the OCR config on the remote chains
-			cldf.CreateLegacyChangeSet(v1_6.SetOCR3OffRampChangeset),
-			v1_6.SetOCR3OffRampConfig{
-				HomeChainSel:       homeChainSel,
-				RemoteChainSels:    chainSelectors,
-				CCIPHomeConfigType: globals.ConfigTypeActive,
+		},
+	), commonchangeset.Configure(
+		// Promote everything
+		cldf.CreateLegacyChangeSet(v1_6.PromoteCandidateChangeset),
+		v1_6.PromoteCandidateChangesetConfig{
+			HomeChainSelector: homeChainSel,
+			PluginInfo: []v1_6.PromoteCandidatePluginInfo{
+				{
+					RemoteChainSelectors: chainSelectors,
+					PluginType:           types.PluginTypeCCIPCommit,
+				},
+				{
+					RemoteChainSelectors: chainSelectors,
+					PluginType:           types.PluginTypeCCIPExec,
+				},
 			},
-		),
-	)
+		},
+	), commonchangeset.Configure(
+		// Enable the OCR config on the remote chains
+		cldf.CreateLegacyChangeSet(v1_6.SetOCR3OffRampChangeset),
+		v1_6.SetOCR3OffRampConfig{
+			HomeChainSel:       homeChainSel,
+			RemoteChainSels:    chainSelectors,
+			CCIPHomeConfigType: globals.ConfigTypeActive,
+		},
+	))
 }
 
 type RMNNodeConfig struct {
@@ -729,7 +710,7 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 		}
 	}
 
-	env, err := commonchangeset.Apply(nil, *e, nil,
+	env, err := commonchangeset.Apply(nil, *e,
 		commonchangeset.Configure(
 			// Enable the OCR config on the remote chains
 			cldf.CreateLegacyChangeSet(v1_6.SetRMNHomeCandidateConfigChangeset),
@@ -761,7 +742,7 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 		return DeployCCIPOutput{}, fmt.Errorf("failed to get rmn home candidate digest: %w", err)
 	}
 
-	env, err = commonchangeset.Apply(nil, *e, nil,
+	env, err = commonchangeset.Apply(nil, *e,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.PromoteRMNHomeCandidateConfigChangeset),
 			v1_6.PromoteRMNHomeCandidateConfig{
