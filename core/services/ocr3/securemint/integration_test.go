@@ -490,6 +490,10 @@ lloConfigMode = "mercury"
 
 	jobIDs := addSecureMintOCRJobs(t, nodes, ocrConfigStoreAddress)
 
+	t.Logf("Configuring contract again")
+	configureIt(t, ocrConfigStore, steve, backend, nodes, oracles)
+	t.Logf("Configured contract again")
+
 	t.Logf("jobIDs: %v", jobIDs)
 	validateJobsRunningSuccessfully(t, nodes, jobIDs)
 
@@ -776,6 +780,21 @@ func setSecureMintOnchainConfigUsingEvmSimpleConfig(t *testing.T, steve *bind.Tr
 	}
 	backend.Commit()
 
+	configCh := make(chan *ocrconfigurationstoreevmsimple.OCRConfigurationStoreEVMSimpleNewConfiguration)
+	ocrConfigStore.WatchNewConfiguration(&bind.WatchOpts{}, configCh, nil)
+	go func() {
+		for config := range configCh {
+			t.Logf("TRACE New configuration added to OCRConfigurationStoreEVMSimple: %s", fmt.Sprintf("0x%x", config.ConfigDigest))
+		}
+	}()
+
+	configureIt(t, ocrConfigStore, steve, backend, nodes, oracles)
+
+	return ocrConfigStoreAddress, ocrConfigStore
+}
+
+func configureIt(t *testing.T, ocrConfigStore *ocrconfigurationstoreevmsimple.OCRConfigurationStoreEVMSimple, steve *bind.TransactOpts, backend evmtypes.Backend, nodes []Node, oracles []confighelper.OracleIdentityExtra) {
+
 	onchainConfig := por.PorOffchainConfig{} // TODO(gg): set config values
 	onchainConfigBytes, err := onchainConfig.Serialize()
 	require.NoError(t, err)
@@ -813,6 +832,8 @@ func setSecureMintOnchainConfigUsingEvmSimpleConfig(t *testing.T, steve *bind.Tr
 	}
 
 	ocrConfig := ocrconfigurationstoreevmsimple.OCRConfigurationStoreEVMSimpleConfigurationEVMSimple{
+		ContractAddress:       common.Address{},
+		ConfigCount:           1,
 		Signers:               signerAddresses,
 		Transmitters:          transmitterAddresses,
 		F:                     f,
@@ -843,8 +864,6 @@ func setSecureMintOnchainConfigUsingEvmSimpleConfig(t *testing.T, steve *bind.Tr
 
 	// l, err := dfCacheContract.LatestConfigDigestAndEpoch(&bind.CallOpts{})
 	// require.NoError(t, err)
-
-	return ocrConfigStoreAddress, ocrConfigStore
 }
 
 func rPCErrorFromError(txError error) (string, error) {

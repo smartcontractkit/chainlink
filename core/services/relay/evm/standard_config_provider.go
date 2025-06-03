@@ -53,3 +53,40 @@ func newContractConfigProvider(ctx context.Context, lggr logger.Logger, chain le
 
 	return newConfigWatcher(lggr, aggregatorAddress, digester, cp, chain, relayConfig.FromBlock, opts.New), nil
 }
+
+func newSecureMintConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, opts *types.RelayOpts) (*configWatcher, error) {
+	if !common.IsHexAddress(opts.ContractID) {
+		return nil, errors.New("invalid contractID, expected hex address")
+	}
+
+	configStoreAddress := common.HexToAddress(opts.ContractID)
+	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{
+		ChainID:         chain.Config().EVM().ChainID().Uint64(),
+		ContractAddress: configStoreAddress,
+	}
+	lggr.Infof("TRACE - Creating SecureMintConfigProvider with contract address: %s", configStoreAddress.Hex())
+
+	// Create a log decoder for OCRConfigurationStoreEVMSimple contract
+	logDecoder, err := newOCRConfigurationStoreEVMSimpleLogDecoder(chain, configStoreAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create log decoder: %w", err)
+	}
+
+	// Use the new ConfigPollerEVMSimple implementation with logpoller
+	cp, err := NewConfigPollerEVMSimple(ctx, lggr, ConfigPollerEVMSimpleConfig{
+		LogPoller:  chain.LogPoller(),
+		Address:    configStoreAddress,
+		LogDecoder: logDecoder,
+		Client:     chain.Client(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ConfigPollerEVMSimple: %w", err)
+	}
+
+	relayConfig, err := opts.RelayConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get relay config: %w", err)
+	}
+
+	return newConfigWatcher(lggr, configStoreAddress, offchainConfigDigester, cp, chain, relayConfig.FromBlock, opts.New), nil
+}

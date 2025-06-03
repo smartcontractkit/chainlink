@@ -386,7 +386,16 @@ func (r *Relayer) NewPluginProvider(ctx context.Context, rargs commontypes.Relay
 		return nil, fmt.Errorf("failed to get relay config: %w", err)
 	}
 
-	configWatcher, err := newStandardConfigProvider(ctx, r.lggr, r.chain, relayOpts)
+	r.lggr.Infof("TRACE NewPluginProvider: relayConfig: %+v and provuder typeABI", relayConfig, rargs.ProviderType)
+
+	var configWatcher *configWatcher
+	switch rargs.ProviderType {
+	case string(commontypes.SecureMint):
+		r.lggr.Infof("TRACE NewPluginProvider: using SecureMint provider type")
+		configWatcher, err = newSecureMintConfigProvider(ctx, r.lggr, r.chain, relayOpts)
+	default:
+		configWatcher, err = newStandardConfigProvider(ctx, r.lggr, r.chain, relayOpts)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -727,6 +736,9 @@ func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayA
 		configProvider, err = newLLOConfigProvider(ctx, lggr, r.chain, &retirement.NullRetirementReportCache{}, relayOpts)
 	case "ocr3-capability":
 		configProvider, err = NewOCR3CapabilityConfigProvider(ctx, lggr, r.chain, relayOpts)
+	// TODO(gg): for when bootstrap jobs are used for SecureMint
+	case "securemint":
+		configProvider, err = newSecureMintConfigProvider(ctx, lggr, r.chain, relayOpts)
 	default:
 		return nil, fmt.Errorf("unrecognized provider type: %q", args.ProviderType)
 	}
@@ -951,7 +963,6 @@ func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, e
 	var transmitter Transmitter
 	var err error
 
-	// TODO(gg): here's where the Transmitter is created based on the OCR2PluginType
 	switch commontypes.OCR2PluginType(rargs.ProviderType) {
 	case commontypes.Median:
 		transmitter, err = ocrcommon.NewOCR2FeedsTransmitter(
@@ -974,6 +985,17 @@ func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, e
 			strategy,
 			checker,
 			configWatcher.chain.ID(),
+			ethKeystore,
+		)
+	case commontypes.SecureMint:
+		// TODO(gg): here's where the Transmitter is created based on the OCR2PluginType, update this when writing path is clear
+		transmitter, err = ocrcommon.NewTransmitter(
+			configWatcher.chain.TxManager(),
+			fromAddresses,
+			gasLimit,
+			effectiveTransmitterAddress,
+			strategy,
+			checker,
 			ethKeystore,
 		)
 	default:
