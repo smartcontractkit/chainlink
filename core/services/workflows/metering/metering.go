@@ -86,21 +86,19 @@ type ReportStepDetail struct {
 }
 
 type Report struct {
-	balance  *balanceStore
-	mu       sync.RWMutex
-	steps    map[ReportStepRef]ReportStep
-	lggr     logger.Logger
-	refCount map[ReportStepRef]uint64
+	balance *balanceStore
+	mu      sync.RWMutex
+	steps   map[ReportStepRef]ReportStep
+	lggr    logger.Logger
 }
 
 func NewReport(lggr logger.Logger) *Report {
 	logger := logger.Named(lggr, "Metering")
 	balanceStore := NewBalanceStore(0, map[string]decimal.Decimal{}, logger)
 	return &Report{
-		balance:  balanceStore,
-		steps:    make(map[ReportStepRef]ReportStep),
-		lggr:     logger,
-		refCount: make(map[ReportStepRef]uint64),
+		balance: balanceStore,
+		steps:   make(map[ReportStepRef]ReportStep),
+		lggr:    logger,
 	}
 }
 
@@ -222,18 +220,6 @@ func (r *Report) Message() *events.MeteringReport {
 	}
 
 	return protoReport
-}
-
-// IncrementRefCount returns a count of the time the ref has been seen.
-// Used to build unique refs in EngineV2 until there are deterministic capability call IDs available
-// TODO: Remove with CAPPL-881
-func (r *Report) IncrementRefCount(ref ReportStepRef) uint64 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	count := r.refCount[ref]
-	r.refCount[ref]++
-	return count
 }
 
 // Reports is a concurrency-safe wrapper around map[string]*Report.

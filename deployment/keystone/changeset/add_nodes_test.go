@@ -10,8 +10,8 @@ import (
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -314,15 +314,7 @@ func assertNodesExist(t *testing.T, registry *kcr.CapabilitiesRegistry, nodes ..
 }
 
 func applyProposal(t *testing.T, te test.EnvWrapper, applicable ...commonchangeset.ConfiguredChangeSet) error {
-	// now apply the changeset such that the proposal is signed and execed
-	capReg := te.OwnedCapabilityRegistry()
-	timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{
-		te.RegistrySelector: {
-			Timelock:  capReg.McmsContracts.Timelock,
-			CallProxy: capReg.McmsContracts.CallProxy,
-		},
-	}
-	_, err := commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, applicable)
+	_, _, err := commonchangeset.ApplyChangesets(t, te.Env, applicable)
 	return err
 }
 

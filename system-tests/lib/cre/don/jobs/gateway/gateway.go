@@ -56,7 +56,7 @@ func GenerateJobSpecs(donTopology *types.DonTopology, extraAllowedPorts []int, e
 			}
 			gatewayConnectorOutput.Dons = append(gatewayConnectorOutput.Dons, types.GatewayConnectorDons{
 				MembersEthAddresses: ethAddresses,
-				ID:                  donWithMetadata.DonMetadata.ID,
+				ID:                  donWithMetadata.ID,
 			})
 		}
 	}

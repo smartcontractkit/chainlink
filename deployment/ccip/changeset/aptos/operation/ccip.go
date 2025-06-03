@@ -262,3 +262,37 @@ func initializeCCIP(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput)
 		Transactions:  txs,
 	}, nil
 }
+
+// OP: ApplyAllowedOfframpUpdates Operation
+var ApplyAllowedOfframpUpdatesOp = operations.NewOperation(
+	"apply-allowed-offramp-updates-op",
+	Version1_0_0,
+	"Adds CCIP owner address to OffRamp allow list",
+	applyAllowedOfframpUpdates,
+)
+
+func applyAllowedOfframpUpdates(b operations.Bundle, deps AptosDeps, _ operations.EmptyInput) (types.Transaction, error) {
+	// Bind CCIP Package
+	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
+	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
+
+	// Bind MCMS Package
+	mcmsAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].MCMSAddress
+	mcmsBind := mcmsbind.Bind(mcmsAddress, deps.AptosChain.Client)
+
+	// Add CCIP Owner address to update token prices allow list
+	ccipOwnerAddress, err := mcmsBind.MCMSRegistry().GetRegisteredOwnerAddress(nil, ccipAddress)
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("failed to get CCIP owner address: %w", err)
+	}
+	moduleInfo, function, _, args, err := ccipBind.Auth().Encoder().ApplyAllowedOfframpUpdates(nil, []aptos.AccountAddress{ccipOwnerAddress})
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("failed to encode ApplyAllowedOfframpUpdates: %w", err)
+	}
+	tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
+	}
+
+	return tx, nil
+}
