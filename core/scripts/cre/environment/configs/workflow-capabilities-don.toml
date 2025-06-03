@@ -19,6 +19,11 @@
   # either "docker" or "crib"
   type = "docker"
 
+#[infra.crib]
+#  namespace = "crib-local"
+#  folder_location = "/absolute/path/to/crib/deployments/cre"
+#  provider = "kind"  # or "aws"
+
 [extra_capabilities]
 # these default paths assume that binaries are placed in core/scripts/cre/environment/ folder
 # cron_capability_binary_path = "./cron"

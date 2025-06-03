@@ -50,8 +50,6 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
@@ -2155,52 +2153,89 @@ func SavePreloadedSolAddresses(e cldf.Environment, solChainSelector uint64) erro
 	return nil
 }
 
-func ValidateSolanaState(t *testing.T, e cldf.Environment, solChainSelectors []uint64) {
+func ValidateSolanaState(e cldf.Environment, solChainSelectors []uint64) error {
 	state, err := stateview.LoadOnchainStateSolana(e)
-	require.NoError(t, err, "Failed to load Solana state")
+	if err != nil {
+		return fmt.Errorf("failed to load Solana state: %w", err)
+	}
 
 	for _, sel := range solChainSelectors {
 		// Validate chain exists in state
 		chainState, exists := state.SolChains[sel]
-		require.True(t, exists, "Chain selector %d not found in Solana state", sel)
+		if !exists {
+			return fmt.Errorf("chain selector %d not found in Solana state", sel)
+		}
 
 		// Validate addresses
-		require.False(t, chainState.Router.IsZero(), "Router address is zero for chain %d", sel)
-		require.False(t, chainState.OffRamp.IsZero(), "OffRamp address is zero for chain %d", sel)
-		require.False(t, chainState.FeeQuoter.IsZero(), "FeeQuoter address is zero for chain %d", sel)
-		require.False(t, chainState.LinkToken.IsZero(), "Link token address is zero for chain %d", sel)
-		require.False(t, chainState.RMNRemote.IsZero(), "RMNRemote address is zero for chain %d", sel)
+		if chainState.Router.IsZero() {
+			return fmt.Errorf("router address is zero for chain %d", sel)
+		}
+		if chainState.OffRamp.IsZero() {
+			return fmt.Errorf("offRamp address is zero for chain %d", sel)
+		}
+		if chainState.FeeQuoter.IsZero() {
+			return fmt.Errorf("feeQuoter address is zero for chain %d", sel)
+		}
+		if chainState.LinkToken.IsZero() {
+			return fmt.Errorf("link token address is zero for chain %d", sel)
+		}
+		if chainState.RMNRemote.IsZero() {
+			return fmt.Errorf("RMNRemote address is zero for chain %d", sel)
+		}
 
 		// Get router config
 		var routerConfigAccount solRouter.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.RouterConfigPDA, &routerConfigAccount)
-		require.NoError(t, err, "Failed to deserialize router config for chain %d", sel)
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(context.Background(), chainState.RouterConfigPDA, &routerConfigAccount)
+		if err != nil {
+			return fmt.Errorf("failed to deserialize router config for chain %d: %w", sel, err)
+		}
 
 		// Get fee quoter config
 		var feeQuoterConfigAccount solFeeQuoter.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.FeeQuoterConfigPDA, &feeQuoterConfigAccount)
-		require.NoError(t, err, "Failed to deserialize fee quoter config for chain %d", sel)
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(context.Background(), chainState.FeeQuoterConfigPDA, &feeQuoterConfigAccount)
+		if err != nil {
+			return fmt.Errorf("failed to deserialize fee quoter config for chain %d: %w", sel, err)
+		}
 
 		// Get offramp config
 		var offRampConfigAccount solOffRamp.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.OffRampConfigPDA, &offRampConfigAccount)
-		require.NoError(t, err, "Failed to deserialize offramp config for chain %d", sel)
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(
+			context.Background(),
+			chainState.OffRampConfigPDA,
+			&offRampConfigAccount,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to deserialize off-ramp config for chain %d: %w", sel, err)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to deserialize offramp config for chain %d: %w", sel, err)
+		}
 
 		// Get rmn remote config
 		var rmnRemoteConfigAccount solRmnRemote.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.RMNRemoteConfigPDA, &rmnRemoteConfigAccount)
-		require.NoError(t, err, "Failed to deserialize rmn remote config for chain %d", sel)
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(context.Background(), chainState.RMNRemoteConfigPDA, &rmnRemoteConfigAccount)
+		if err != nil {
+			return fmt.Errorf("failed to deserialize rmn remote config for chain %d: %w", sel, err)
+		}
 
 		addressLookupTable, err := solanastateview.FetchOfframpLookupTable(e.GetContext(), e.BlockChains.SolanaChains()[sel], chainState.OffRamp)
-		require.NoError(t, err, "Failed to get offramp lookup table for chain %d", sel)
+		if err != nil {
+			return fmt.Errorf("failed to get offramp lookup table for chain %d: %w", sel, err)
+		}
 
 		addresses, err := solcommon.GetAddressLookupTable(
 			e.GetContext(),
 			e.BlockChains.SolanaChains()[sel].Client,
-			addressLookupTable)
-		require.NoError(t, err, "Failed to get address lookup table for chain %d", sel)
-		require.GreaterOrEqual(t, len(addresses), 22, "Not enough addresses found in lookup table for chain %d", sel)
+			addressLookupTable,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get address lookup table for chain %d: %w", sel, err)
+		}
+		if len(addresses) < 22 {
+			return fmt.Errorf("not enough addresses found in lookup table for chain %d: got %d, expected at least 22", sel, len(addresses))
+		}
 	}
+	return nil
 }
 
 func DeploySolanaCcipReceiver(t *testing.T, e cldf.Environment) {
