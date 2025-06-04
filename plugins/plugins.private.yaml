@@ -26,9 +26,4 @@ plugins:
       moduleURI: "github.com/smartcontractkit/capabilities/workflowevent"
       gitRef: "1b414f8954d071345255fa0ffb3c374b13f18a0d"
       installPath: "github.com/smartcontractkit/capabilities/workflowevent"
-  mock:
-    - enabled: true
-      moduleURI: "github.com/smartcontractkit/capabilities/mock"
-      gitRef: "86191e815fb879118fb303bfd974a120c1945daa"
-      installPath: "github.com/smartcontractkit/capabilities/mock"
 
