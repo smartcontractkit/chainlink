@@ -64,10 +64,7 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 		DevEnv,
 		lggr,
 		cldf.NewMemoryAddressBook(),
-		datastore.NewMemoryDataStore[
-			datastore.DefaultMetadata,
-			datastore.DefaultMetadata,
-		]().Seal(),
+		datastore.NewMemoryDataStore().Seal(),
 		nodeIDs,
 		offChain,
 		ctx,

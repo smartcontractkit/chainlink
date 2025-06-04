@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 )
@@ -29,6 +28,8 @@ var UpdateOnRampDestsOp = operations.NewOperation(
 )
 
 func updateOnRampDests(b operations.Bundle, deps AptosDeps, in UpdateOnRampDestsInput) ([]mcmstypes.Transaction, error) {
+	var txs []mcmstypes.Transaction
+
 	aptosState := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector]
 	// Bind CCIP Package
 	ccipAddress := aptosState.CCIPAddress
@@ -92,11 +93,10 @@ func updateOnRampDests(b operations.Bundle, deps AptosDeps, in UpdateOnRampDests
 	if err != nil {
 		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
+	txs = append(txs, tx)
 
 	b.Logger.Infow("Adding OnRamp destination config update operation",
 		"chainCount", len(destChainSelectors))
 
-	return []mcmstypes.Transaction{
-		tx,
-	}, nil
+	return txs, nil
 }

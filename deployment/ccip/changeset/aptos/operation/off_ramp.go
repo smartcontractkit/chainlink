@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	aptosutils "github.com/smartcontractkit/chainlink-aptos/relayer/utils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -31,6 +30,8 @@ var UpdateOffRampSourcesOp = operations.NewOperation(
 )
 
 func updateOffRampSources(b operations.Bundle, deps AptosDeps, in UpdateOffRampSourcesInput) ([]mcmstypes.Transaction, error) {
+	var txs []mcmstypes.Transaction
+
 	// Bind CCIP Package
 	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	offRampBind := ccip_offramp.Bind(ccipAddress, deps.AptosChain.Client)
@@ -72,13 +73,12 @@ func updateOffRampSources(b operations.Bundle, deps AptosDeps, in UpdateOffRampS
 	if err != nil {
 		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
+	txs = append(txs, tx)
 
-	return []mcmstypes.Transaction{
-		tx,
-	}, nil
+	return txs, nil
 }
 
-// UpdateOffRampSourcesInput contains configuration for updating OffRamp sources
+// SetOcr3ConfigInput contains configuration for setting the OCR3 config on the OffRamp
 type SetOcr3ConfigInput struct {
 	OcrPluginType types.PluginType
 	OCRConfigArgs internal.MultiOCR3BaseOCRConfigArgsAptos
@@ -97,7 +97,7 @@ func setOcr3Config(b operations.Bundle, deps AptosDeps, in SetOcr3ConfigInput) (
 	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	offRampBind := ccip_offramp.Bind(ccipAddress, deps.AptosChain.Client)
 
-	transmitters := []aptos.AccountAddress{}
+	var transmitters []aptos.AccountAddress
 	for _, transmitter := range in.OCRConfigArgs.Transmitters {
 		address, err := aptosutils.PublicKeyBytesToAddress(transmitter)
 		if err != nil {

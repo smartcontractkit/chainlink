@@ -34,6 +34,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
+type testMetadata struct {
+	Data string `json:"data"`
+}
+
 type ConfiguredChangeSet interface {
 	Apply(e cldf.Environment) (cldf.ChangesetOutput, error)
 }
@@ -91,12 +95,9 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, changesetApplications []C
 		}
 
 		// Collect expected DataStore state after changeset is applied
-		var ds datastore.DataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]
+		var ds datastore.DataStore
 		if out.DataStore != nil {
-			ds1 := datastore.NewMemoryDataStore[
-				datastore.DefaultMetadata,
-				datastore.DefaultMetadata,
-			]()
+			ds1 := datastore.NewMemoryDataStore()
 			// New Addresses
 			err := ds1.Merge(out.DataStore.Seal())
 			if err != nil {
