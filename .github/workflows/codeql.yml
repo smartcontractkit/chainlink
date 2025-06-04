@@ -7,46 +7,9 @@ on:
     - cron: "22 22 * * 2"
 
 jobs:
-  filter:
-    name: Detect Changes
-    permissions:
-      pull-requests: read
-    outputs:
-      should-run-go: ${{ steps.changes.outputs.go-changes == 'true' || steps.changes.outputs.self-changes == 'true' || github.event == 'schedule' }}
-      should-run-js: ${{ steps.changes.outputs.js-changes == 'true' || steps.changes.outputs.self-changes == 'true' || github.event == 'schedule' }}
-      should-run-python: ${{ steps.changes.outputs.python-changes == 'true' || steps.changes.outputs.self-changes == 'true' || github.event == 'schedule' }}
-      should-run-workflow: ${{ steps.changes.outputs.workflow-changes == 'true' || github.event == 'schedule' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          repository: smartcontractkit/chainlink
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: changes
-        with:
-          filters: |
-            go-changes:
-              - '**/*.go'
-              - '**/go.mod'
-              - '**/go.sum'
-            js-changes:
-              - '**/package.json'
-              - '**/pnpm-lock.yaml'
-              - '**/*.js'
-              - '**/*.ts'
-            workflow-changes:
-              - '.github/**'
-            python-changes:
-              - '**/requirements.txt'
-              - '**/*.py'
-            self-changes:
-              - '.github/workflows/codeql.yml'
-
   analyze:
     name: Analyze (${{ matrix.language }})
-    needs: [ filter, runner-config ]
+    needs: [ runner-config ]
     runs-on: ${{ matrix.runs-on || 'ubuntu-latest' }}
     permissions:
       # required for all workflows
@@ -60,43 +23,38 @@ jobs:
         include:
           - language: actions
             build-mode: none
-            should-run: ${{ needs.filter.outputs.should-run-workflow }}
 
           - language: go
             build-mode: manual
-            should-run: ${{ needs.filter.outputs.should-run-go }}
             runs-on: ${{ needs.runner-config.outputs.go-runner }}
             is-self-hosted: ${{ needs.runner-config.outputs.go-is-self-hosted }}
 
           - language: javascript-typescript
             build-mode: none
-            should-run: ${{ needs.filter.outputs.should-run-js }}
 
           - language: python
             build-mode: none
-            should-run: ${{ needs.filter.outputs.should-run-python }}
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        if: matrix.should-run && matrix.is-self-hosted == 'true'
+        if: matrix.is-self-hosted == 'true'
         uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
 
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Go
-        if: matrix.language == 'go' && matrix.should-run == 'true'
+        if: matrix.language == 'go'
         uses: ./.github/actions/setup-go
         with:
           restore-build-cache-only: "false"
           build-cache-version: "codeql"
 
       - name: Touching core/web/assets/index.html
-        if: matrix.language == 'go' && matrix.should-run == 'true'
+        if: matrix.language == 'go'
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
 
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
-        if: matrix.should-run
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
@@ -109,26 +67,19 @@ jobs:
           # queries: security-extended,security-and-quality
 
       - name: Build go code manually
-        if: matrix.should-run && matrix.language == 'go'
+        if: matrix.language == 'go'
         run: |
+          echo "::group::Builing all go code (go build ./...)"
           go build ./...
+          echo "::endgroup::"
 
       - name: Perform CodeQL Analysis
-        if: matrix.should-run
         uses: github/codeql-action/analyze@v3
         with:
           category: "/language:${{matrix.language}}"
 
-  # This chooses which runner labels we pass for the matrix jobs above.
-  # General Criteria:
-  # 1. If we are going to 'skip' a test suite, we use the base Github-hosted runner.
-  #   - This is based off `should-run-core-tests`, and `should-run-deployment-tests`
-  # 2. If we are not skipping, we check if the PR has the "runs-on-opt-out" label.
-  #   - If the PR has the label, we use the larger Github-hosted runners.
-  #   - If the PR does not have the label, we use the self-hosted runners.
   runner-config:
     name: Runner Config
-    needs: [filter]
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
@@ -136,7 +87,6 @@ jobs:
     env:
       SH_GO_RUNNER: runs-on=${{ github.run_id }}/cpu=32/ram=64/family=c6i/spot=false/extras=s3-cache+tmpfs
       GH_GO_RUNNER: ubuntu24.04-8cores-32GB
-      GH_BASE_RUNNER: ubuntu-latest
     outputs:
       # go codeql runner
       go-is-self-hosted: ${{ steps.go-codeql.outputs.go-is-self-hosted }}
@@ -153,15 +103,7 @@ jobs:
         shell: bash
         env:
           OPT_OUT: ${{ steps.pr-labels.outputs.check-label-found || 'false' }}
-          SHOULD_RUN_GO_CODEQL: ${{ needs.filter.outputs.should-run-go }}
         run: |
-          if [[ "${SHOULD_RUN_GO_CODEQL}" == "false" ]]; then
-            echo "Go CodeQL will be skipped, using base Github-hosted runner."
-            echo "go-is-self-hosted=false" | tee -a $GITHUB_OUTPUT
-            echo "go-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
-            exit 0
-          fi
-
           if [[ "$OPT_OUT" == "true" ]]; then
             echo "Opt-out is true for current run. Using gh-hosted runner for Go codeql."
             echo "go-is-self-hosted=false" | tee -a $GITHUB_OUTPUT
