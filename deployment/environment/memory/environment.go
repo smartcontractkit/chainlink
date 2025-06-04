@@ -273,9 +273,6 @@ func NewMemoryEnvironmentFromChainsNodes(
 		lggr,
 		cldf.NewMemoryAddressBook(),
 		datastore.NewMemoryDataStore().Seal(),
-		nil,
-		nil,
-		nil,
 		nodeIDs, // Note these have the p2p_ prefix.
 		NewMemoryJobClient(nodes),
 		ctx,

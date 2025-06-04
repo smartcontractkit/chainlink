@@ -103,7 +103,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 				err := ds.ContractMetadataStore.Upsert(datastore.ContractMetadata{
 					ChainSelector: 1,
 					Address:       "0x1234567890abcdef",
-					//	Metadata:      datastore.DefaultMetadata{Data: "test"},
+					Metadata:      testMetadata{Data: "test"},
 				})
 				if err != nil {
 					return cldf.ChangesetOutput{}, err

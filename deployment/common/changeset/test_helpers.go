@@ -34,6 +34,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
+type testMetadata struct {
+	Data string `json:"data"`
+}
+
 type ConfiguredChangeSet interface {
 	Apply(e cldf.Environment) (cldf.ChangesetOutput, error)
 }
