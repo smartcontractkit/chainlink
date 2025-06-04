@@ -11,14 +11,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
 	xerrgroup "golang.org/x/sync/errgroup"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -29,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -40,6 +40,22 @@ import (
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
+
+	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -142,8 +158,8 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	lggr.Infow("setting up lanes...")
-	// Add all lanes
+	// Set up EVM lanes
+	lggr.Infow("setting up EVM lanes...")
 	*e, err = setupLanes(e, state)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply connecting lanes changesets: %w", err)
@@ -235,7 +251,6 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChainSel uint64) (cldf.Environment, error) {
 	evmChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
-	allChainSelectors := e.BlockChains.ListChainSelectors()
 	chainConfigs := make(map[uint64]v1_6.ChainConfig)
 	nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
@@ -265,22 +280,44 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 		}
 	}
 
-	// TODO - Find a way to combine this into one loop with AllChainSelectors
-	// Currently it seems to throw a nil pointer when run with both solana and evm and needs to be investigated
-	for _, chain := range solChainSelectors {
-		chainConfigs[chain] = v1_6.ChainConfig{
-			Readers: nodeInfo.NonBootstraps().PeerIDs(),
-			// #nosec G115 - Overflow is not a concern in this test scenario
-			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
-			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(1000)},
-				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(1_000_000)},
-				OptimisticConfirmations: globals.OptimisticConfirmations,
-			},
+	if len(solChainSelectors) > 0 {
+		var solLinkChangesets []commonchangeset.ConfiguredChangeSet
+		// TODO - Find a way to combine this into one loop with AllChainSelectors
+		// Currently it seems to throw a nil pointer when run with both solana and evm and needs to be investigated
+		for _, chain := range solChainSelectors {
+			chainConfigs[chain] = v1_6.ChainConfig{
+				Readers: nodeInfo.NonBootstraps().PeerIDs(),
+				// #nosec G115 - Overflow is not a concern in this test scenario
+				FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+				EncodableChainConfig: chainconfig.ChainConfig{
+					GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
+					DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
+					OptimisticConfirmations: globals.OptimisticConfirmations,
+				},
+			}
+
+			privKey, err := solana.NewRandomPrivateKey()
+			if err != nil {
+				return *e, fmt.Errorf("failed to create the link token priv key: %w", err)
+			}
+			solLinkChangeset := commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken),
+				commonchangeset.DeploySolanaLinkTokenConfig{
+					ChainSelector: chain,
+					TokenPrivKey:  privKey,
+					TokenDecimals: 9,
+				},
+			)
+			solLinkChangesets = append(solLinkChangesets, solLinkChangeset)
+		}
+
+		*e, err = commonchangeset.Apply(nil, *e, solLinkChangesets[0], solLinkChangesets[1:]...)
+		if err != nil {
+			return *e, fmt.Errorf("failed to apply Solana Link token changesets: %w", err)
 		}
 	}
 
-	env, err := commonchangeset.Apply(nil, *e,
+	*e, err = commonchangeset.Apply(nil, *e,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
 			v1_6.UpdateChainConfigConfig{
@@ -290,7 +327,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
-			allChainSelectors,
+			evmChainSelectors,
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
@@ -322,13 +359,13 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 
 	if len(solChainSelectors) > 0 {
 		deployedEnv := testhelpers.DeployedEnv{
-			Env:          env,
+			Env:          *e,
 			HomeChainSel: homeChainSel,
 			FeedChainSel: feedChainSel,
 		}
 
 		buildConfig := ccipChangesetSolana.BuildSolanaConfig{
-			GitCommitSha:   "16aa375",
+			GitCommitSha:   "c6cd4a526da4",
 			DestinationDir: deployedEnv.Env.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
 			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 				BuildLocally: true,
@@ -342,6 +379,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 			},
 		)
 
+		lggr.Info("Starting changeset deployment, this will take long on first run due to anchor build for solana programs")
 		solCs, err := testhelpers.DeployChainContractsToSolChainCS(deployedEnv, solChainSelectors[0], false, &buildConfig)
 		if err != nil {
 			return *e, err
@@ -358,10 +396,9 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 		if err != nil {
 			return *e, err
 		}
-		env = deployedEnv.Env
 	}
 	lggr.Infow("setup Link pools")
-	return setupLinkPools(&env)
+	return setupLinkPools(e)
 }
 
 func setupLinkPools(e *cldf.Environment) (cldf.Environment, error) {
@@ -433,119 +470,95 @@ func setupLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 	return env, err
 }
 
-func setupLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (cldf.Environment, error) {
-	eg := xerrgroup.Group{}
-	poolUpdates := make(map[uint64]v1_5_1.TokenPoolConfig)
-	rateLimitPerChain := make(v1_5_1.RateLimiterPerChain)
+func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.CCIPOnChainState, homeCS, feedCS uint64) (cldf.Environment, error) {
+	var err error
+	evmSelectors := e.BlockChains.EVMChains()
+	solSelectors := e.BlockChains.SolanaChains()
+	g := new(errgroup.Group)
 	mu := sync.Mutex{}
-	evmChains := e.BlockChains.EVMChains()
-	for src := range evmChains {
-		src := src
-		eg.Go(func() error {
-			onRampUpdatesByChain := make(map[uint64]map[uint64]v1_6.OnRampDestinationUpdate)
-			pricesByChain := make(map[uint64]v1_6.FeeQuoterPriceUpdatePerSource)
-			feeQuoterDestsUpdatesByChain := make(map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig)
-			updateOffRampSources := make(map[uint64]map[uint64]v1_6.OffRampSourceUpdate)
-			updateRouterChanges := make(map[uint64]v1_6.RouterUpdates)
-			onRampUpdatesByChain[src] = make(map[uint64]v1_6.OnRampDestinationUpdate)
-			pricesByChain[src] = v1_6.FeeQuoterPriceUpdatePerSource{
-				TokenPrices: map[common.Address]*big.Int{
-					state.Chains[src].LinkToken.Address(): testhelpers.DefaultLinkPrice,
-					state.Chains[src].Weth9.Address():     testhelpers.DefaultWethPrice,
-				},
-				GasPrices: make(map[uint64]*big.Int),
-			}
-			feeQuoterDestsUpdatesByChain[src] = make(map[uint64]fee_quoter.FeeQuoterDestChainConfig)
-			updateOffRampSources[src] = make(map[uint64]v1_6.OffRampSourceUpdate)
-			updateRouterChanges[src] = v1_6.RouterUpdates{
-				OffRampUpdates: make(map[uint64]bool),
-				OnRampUpdates:  make(map[uint64]bool),
-			}
 
-			for dst := range evmChains {
-				if src != dst {
-					onRampUpdatesByChain[src][dst] = v1_6.OnRampDestinationUpdate{
-						IsEnabled:        true,
-						AllowListEnabled: false,
-					}
-					pricesByChain[src].GasPrices[dst] = testhelpers.DefaultGasPrice
-					feeQuoterDestsUpdatesByChain[src][dst] = v1_6.DefaultFeeQuoterDestChainConfig(true)
+	for _, solSelector := range solSelectors {
+		solSelector := solSelector // capture range variable
+		solChainState := state.SolChains[solSelector.ChainSelector()]
+		poolUpdates := make(map[uint64]ccipChangesetSolana.EVMRemoteConfig)
+		for _, evmSelector := range evmSelectors {
+			lggr.Infow("running against evm chain", "evm", evmSelector)
+			evmSelector := evmSelector // capture range variables
+			g.Go(func() error {
+				lggr.Infow("Setting up sol evm lanes for chains", "evmSelector", evmSelector, "solSelector", solSelector)
+				laneChangesets := make([]commonchangeset.ConfiguredChangeSet, 0)
+				evmChainState := state.Chains[evmSelector.ChainSelector()]
 
-					updateOffRampSources[src][dst] = v1_6.OffRampSourceUpdate{
-						IsEnabled:                 true,
-						IsRMNVerificationDisabled: true,
-					}
-
-					updateRouterChanges[src].OffRampUpdates[dst] = true
-					updateRouterChanges[src].OnRampUpdates[dst] = true
-					mu.Lock()
-					rateLimitPerChain[dst] = v1_5_1.RateLimiterConfig{
-						Inbound: token_pool.RateLimiterConfig{
-							IsEnabled: false,
-							Capacity:  big.NewInt(0),
-							Rate:      big.NewInt(0),
-						},
-						Outbound: token_pool.RateLimiterConfig{
-							IsEnabled: false,
-							Capacity:  big.NewInt(0),
-							Rate:      big.NewInt(0),
-						},
-					}
-					mu.Unlock()
+				deployedEnv := testhelpers.DeployedEnv{
+					Env:          *e,
+					HomeChainSel: homeCS,
+					FeedChainSel: feedCS,
 				}
-			}
-			mu.Lock()
-			poolUpdates[src] = v1_5_1.TokenPoolConfig{
-				Type:         shared.BurnMintTokenPool,
-				Version:      deployment.Version1_5_1,
-				ChainUpdates: rateLimitPerChain,
-			}
-			mu.Unlock()
+				gasPrices := map[uint64]*big.Int{
+					solSelector.ChainSelector(): testhelpers.DefaultGasPrice,
+				}
+				stateChainFrom := evmChainState
+				tokenPrices := map[common.Address]*big.Int{
+					stateChainFrom.LinkToken.Address(): testhelpers.DefaultLinkPrice,
+					stateChainFrom.Weth9.Address():     testhelpers.DefaultWethPrice,
+				}
+				fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, solSelector.ChainSelector())
 
-			_, err := commonchangeset.Apply(nil, *e, commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
-				v1_6.UpdateOnRampDestsConfig{
-					UpdatesByChain: onRampUpdatesByChain,
-				},
-			), commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
-				v1_6.UpdateFeeQuoterPricesConfig{
-					PricesByChain: pricesByChain,
-				},
-			), commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
-				v1_6.UpdateFeeQuoterDestsConfig{
-					UpdatesByChain: feeQuoterDestsUpdatesByChain,
-				},
-			), commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
-				v1_6.UpdateOffRampSourcesConfig{
-					UpdatesByChain: updateOffRampSources,
-				},
-			), commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
-				v1_6.UpdateRouterRampsConfig{
-					UpdatesByChain: updateRouterChanges,
-				},
-			))
-			return err
-		})
+				mu.Lock()
+				poolUpdates[evmSelector.ChainSelector()] = ccipChangesetSolana.EVMRemoteConfig{
+					TokenSymbol: shared.LinkSymbol,
+					PoolType:    shared.BurnMintTokenPool,
+					PoolVersion: shared.CurrentTokenPoolVersion,
+					RateLimiterConfig: ccipChangesetSolana.RateLimiterConfig{
+						Inbound:  solTestTokenPool.RateLimitConfig{},
+						Outbound: solTestTokenPool.RateLimitConfig{},
+					},
+				}
+				mu.Unlock()
+
+				// EVM -> SOL
+				cs := testhelpers.AddEVMSrcChangesets(evmSelector.ChainSelector(), solSelector.ChainSelector(), false, gasPrices, tokenPrices, fqCfg)
+				laneChangesets = append(laneChangesets, cs...)
+				cs = testhelpers.AddLaneSolanaChangesets(&deployedEnv, solSelector, evmSelector, chainsel.FamilyEVM)
+				laneChangesets = append(laneChangesets, cs...)
+
+				// SOL -> EVM
+				cs = testhelpers.AddEVMDestChangesets(&deployedEnv, evmSelector, solSelector, false)
+				laneChangesets = append(laneChangesets, cs...)
+
+				bnm := test_token_pool.BurnAndMint_PoolType
+				laneChangesets = append(laneChangesets,
+					commonchangeset.Configure(
+						cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
+						ccipChangesetSolana.RemoteChainTokenPoolConfig{
+							SolChainSelector: solSelector,
+							SolTokenPubKey:   solChainState.LinkToken,
+							SolPoolType:      &bnm,
+							EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
+								evmSelector: {
+									TokenSymbol: shared.LinkSymbol,
+									PoolType:    shared.BurnMintTokenPool,
+									PoolVersion: shared.CurrentTokenPoolVersion,
+									RateLimiterConfig: ccipChangesetSolana.RateLimiterConfig{
+										Inbound:  solTestTokenPool.RateLimitConfig{},
+										Outbound: solTestTokenPool.RateLimitConfig{},
+									},
+								},
+							},
+						},
+					),
+				)
+				lggr.Infow("Applying evm <> svm lane changesets", "len", len(laneChangesets), "evmSel", evmSelector, "svmSel", solSelector)
+				_, err = commonchangeset.Apply(nil, *e, nil, laneChangesets[0], laneChangesets[1:]...)
+				return err
+			})
+		}
+		err = g.Wait()
+		if err != nil {
+			return *e, fmt.Errorf("failed to apply sol evm lane changesets: %w", err)
+		}
 	}
-
-	err := eg.Wait()
-	if err != nil {
-		return *e, err
-	}
-
-	_, err = commonchangeset.Apply(nil, *e, commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
-		v1_5_1.ConfigureTokenPoolContractsConfig{
-			TokenSymbol: shared.LinkSymbol,
-			PoolUpdates: poolUpdates,
-		},
-	))
-
-	return *e, err
+	return *e, nil
 }
 
 func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool, rmnEnabled bool) (cldf.Environment, error) {
