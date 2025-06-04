@@ -351,39 +351,39 @@ func (l *oidcConfig) RedirectURL() string {
 	return *l.c.RedirectURL
 }
 
-func (l *oidcConfig) IdClaimKey() string {
-	if l.c.IdClaimKey == nil {
+func (l *oidcConfig) ClaimKey() string {
+	if l.c.ClaimKey == nil {
 		return ""
 	}
-	return *l.c.IdClaimKey
+	return *l.c.ClaimKey
 }
 
-func (l *oidcConfig) AdminIdClaim() string {
-	if l.c.AdminIdClaim == nil {
+func (l *oidcConfig) AdminClaim() string {
+	if l.c.AdminClaim == nil {
 		return ""
 	}
-	return *l.c.AdminIdClaim
+	return *l.c.AdminClaim
 }
 
-func (l *oidcConfig) EditIdClaim() string {
-	if l.c.EditIdClaim == nil {
+func (l *oidcConfig) EditClaim() string {
+	if l.c.EditClaim == nil {
 		return ""
 	}
-	return *l.c.EditIdClaim
+	return *l.c.EditClaim
 }
 
-func (l *oidcConfig) RunIdClaim() string {
-	if l.c.RunIdClaim == nil {
+func (l *oidcConfig) RunClaim() string {
+	if l.c.RunClaim == nil {
 		return ""
 	}
-	return *l.c.RunIdClaim
+	return *l.c.RunClaim
 }
 
-func (l *oidcConfig) ReadIdClaim() string {
-	if l.c.ReadIdClaim == nil {
+func (l *oidcConfig) ReadClaim() string {
+	if l.c.ReadClaim == nil {
 		return ""
 	}
-	return *l.c.ReadIdClaim
+	return *l.c.ReadClaim
 }
 
 func (l *oidcConfig) SessionTimeout() commonconfig.Duration {

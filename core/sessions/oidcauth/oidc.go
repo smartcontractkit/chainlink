@@ -84,9 +84,9 @@ func NewOIDCAuthenticator(
 ) (*oidcAuthenticator, error) {
 	// Ensure all RBAC role mappings to OIDC Id claims are defined, and required fields populated, or error on startup
 	lggr.Infof("%#v\n", oidcCfg)
-	if oidcCfg.AdminIdClaim() == "" || oidcCfg.EditIdClaim() == "" ||
-		oidcCfg.RunIdClaim() == "" || oidcCfg.ReadIdClaim() == "" {
-		return nil, errors.New("OIDC Group name mapping for callback group claims for all local RBAC role required. Set group names for `_IdClaim` fields")
+	if oidcCfg.AdminClaim() == "" || oidcCfg.EditClaim() == "" ||
+		oidcCfg.RunClaim() == "" || oidcCfg.ReadClaim() == "" {
+		return nil, errors.New("OIDC Group name mapping for callback group claims for all local RBAC role required. Set group names for `_Claim` fields")
 	}
 	if oidcCfg.ClientID() == "" {
 		return nil, errors.New("OIDC ClientID config required")
@@ -100,8 +100,8 @@ func NewOIDCAuthenticator(
 	if oidcCfg.RedirectURL() == "" {
 		return nil, errors.New("OIDC RedirectURL config required")
 	}
-	if oidcCfg.IdClaimKey() == "" {
-		return nil, errors.New("OIDC IdClaimKey config required")
+	if oidcCfg.ClaimKey() == "" {
+		return nil, errors.New("OIDC ClaimKey config required")
 	}
 
 	var provider *oidc.Provider
@@ -124,7 +124,7 @@ func NewOIDCAuthenticator(
 		ClientSecret: oidcCfg.ClientSecret(),
 		Endpoint:     provider.Endpoint(),
 		RedirectURL:  oidcCfg.RedirectURL(),
-		Scopes:       []string{oidc.ScopeOpenID, "profile", "email", oidcCfg.IdClaimKey()},
+		Scopes:       []string{oidc.ScopeOpenID, "profile", "email", oidcCfg.ClaimKey()},
 	}
 
 	// Create Authenticator struct, with internal HTTP handlers
@@ -228,9 +228,9 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 		c.String(http.StatusInternalServerError, "Failed to parse OIDC return claims")
 		return
 	}
-	idClaims, err := extractIDClaimValues(claims, oi.config.IdClaimKey())
+	idClaims, err := extractIDClaimValues(claims, oi.config.ClaimKey())
 	if err != nil {
-		oi.lggr.Errorf("Failed to extract ID claims from ID token. ClaimKey: '%s': error %v", oi.config.IdClaimKey(), err)
+		oi.lggr.Errorf("Failed to extract ID claims from ID token. ClaimKey: '%s': error %v", oi.config.ClaimKey(), err)
 		c.String(http.StatusInternalServerError, "Failed to extract ID claims from claims")
 		return
 	}
@@ -244,10 +244,10 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 	// Map the groups and insert a newly created session paired with role mapping for user
 	role, err := idClaimsToUserRole(
 		idClaims,
-		oi.config.AdminIdClaim(),
-		oi.config.EditIdClaim(),
-		oi.config.RunIdClaim(),
-		oi.config.ReadIdClaim(),
+		oi.config.AdminClaim(),
+		oi.config.EditClaim(),
+		oi.config.RunClaim(),
+		oi.config.ReadClaim(),
 	)
 	if err != nil {
 		oi.lggr.Errorf("Failed to map configured RBAC role name against recieved list of group claims: %v", err)
@@ -610,28 +610,28 @@ func (oi *oidcAuthenticator) localLoginFallback(ctx context.Context, sr clsessio
 	return user, nil
 }
 
-func idClaimsToUserRole(idClaims []string, adminIdClaim string, editIdClaim string, runIdClaim string, readIdClaim string) (clsessions.UserRole, error) {
+func idClaimsToUserRole(idClaims []string, adminClaim string, editClaim string, runClaim string, readClaim string) (clsessions.UserRole, error) {
 	// If defined Admin group name is present in id claims, return UserRoleAdmin
 	for _, group := range idClaims {
-		if group == adminIdClaim {
+		if group == adminClaim {
 			return clsessions.UserRoleAdmin, nil
 		}
 	}
 	// Check edit role
 	for _, group := range idClaims {
-		if group == editIdClaim {
+		if group == editClaim {
 			return clsessions.UserRoleEdit, nil
 		}
 	}
 	// Check run role
 	for _, group := range idClaims {
-		if group == runIdClaim {
+		if group == runClaim {
 			return clsessions.UserRoleRun, nil
 		}
 	}
 	// Check view role
 	for _, group := range idClaims {
-		if group == readIdClaim {
+		if group == readClaim {
 			return clsessions.UserRoleView, nil
 		}
 	}

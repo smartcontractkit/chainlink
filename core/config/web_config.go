@@ -60,11 +60,11 @@ type OIDC interface {
 	ClientSecret() string
 	ProviderURL() string
 	RedirectURL() string
-	IdClaimKey() string
-	AdminIdClaim() string
-	EditIdClaim() string
-	RunIdClaim() string
-	ReadIdClaim() string
+	ClaimKey() string
+	AdminClaim() string
+	EditClaim() string
+	RunClaim() string
+	ReadClaim() string
 	SessionTimeout() commonconfig.Duration
 	UserApiTokenEnabled() bool
 	UserAPITokenDuration() commonconfig.Duration

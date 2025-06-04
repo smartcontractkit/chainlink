@@ -205,16 +205,16 @@ ClientID = ""
 ProviderURL = 'https://id[.]example[.]com/oauth2/default'
 # RedirectURL will always be <NODE_BASE_URL>/signin. This needs to match the configuration on the provider side.
 RedirectURL = 'http://localhost:8080/signin'
-# IdClaimKey the key in decrypted id_token where to find the user's ID claims.
-IdClaimKey = 'groups'
-# AdminIdClaim is string label of the id claim that maps the core node's 'Admin' role
-AdminIdClaim = 'NodeAdmins' # Default
-# EditIdClaim is string label of the id claim that maps the core node's 'Edit' role
-EditIdClaim = 'NodeEditors' # Default
-# RunIdClaim is string label of the id claim that maps the core node's 'Run' role
-RunIdClaim = 'NodeRunners' # Default
-# ReadIdClaim is string label of the id claim that maps the core node's 'Read' role
-ReadIdClaim = 'NodeReadOnly' # Default
+# ClaimKey the key in decrypted id_token where to find the user's ID claims.
+ClaimKey = 'groups'
+# AdminClaim is string label of the id claim that maps the core node's 'Admin' role
+AdminClaim = 'NodeAdmins' # Default
+# EditClaim is string label of the id claim that maps the core node's 'Edit' role
+EditClaim = 'NodeEditors' # Default
+# RunClaim is string label of the id claim that maps the core node's 'Run' role
+RunClaim = 'NodeRunners' # Default
+# ReadClaim is string label of the id claim that maps the core node's 'Read' role
+ReadClaim = 'NodeReadOnly' # Default
 # SessionTimeout determines the amount of idle time to elapse before session cookies expire. This signs out GUI users from their sessions.
 SessionTimeout = '15m0s' # Default
 # UserApiTokenEnabled enables the users to issue API tokens with the same access of their role
