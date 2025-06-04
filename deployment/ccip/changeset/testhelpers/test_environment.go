@@ -784,14 +784,17 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		}
 	}
 
-	var tonChains []uint64
 	aptosChains := []uint64{}
+	for _, chain := range allChains {
+		if _, ok := e.Env.BlockChains.AptosChains()[chain]; ok {
+			aptosChains = append(aptosChains, chain)
+		}
+	}
+
+	var tonChains []uint64
 	for _, chain := range allChains {
 		if _, ok := e.Env.BlockChains.TonChains()[chain]; ok {
 			tonChains = append(tonChains, chain)
-		}
-		if _, ok := e.Env.BlockChains.AptosChains()[chain]; ok {
-			aptosChains = append(aptosChains, chain)
 		}
 	}
 
