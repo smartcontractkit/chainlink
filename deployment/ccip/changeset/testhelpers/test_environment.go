@@ -770,14 +770,14 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	var apps []commonchangeset.ConfiguredChangeSet
 	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 
-	var evmChains []uint64
+	evmChains := []uint64{}
 	for _, chain := range allChains {
 		if _, ok := e.Env.BlockChains.EVMChains()[chain]; ok {
 			evmChains = append(evmChains, chain)
 		}
 	}
 
-	var solChains []uint64
+	solChains := []uint64{}
 	for _, chain := range allChains {
 		if _, ok := e.Env.BlockChains.SolanaChains()[chain]; ok {
 			solChains = append(solChains, chain)
@@ -791,7 +791,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		}
 	}
 
-	var tonChains []uint64
+	tonChains := []uint64{}
 	for _, chain := range allChains {
 		if _, ok := e.Env.BlockChains.TonChains()[chain]; ok {
 			tonChains = append(tonChains, chain)
