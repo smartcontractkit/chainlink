@@ -135,6 +135,8 @@ func NewStandaloneEngine(
 		GlobalLimits:         workflowLimits,
 		ExecutionRateLimiter: rl,
 
+		BeholderEmitter: custmsg.NewLabeler(),
+
 		BillingClient: billingClient,
 	}
 

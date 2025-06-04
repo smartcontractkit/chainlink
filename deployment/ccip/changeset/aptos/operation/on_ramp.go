@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
-	"github.com/smartcontractkit/mcms/types"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
@@ -27,7 +27,9 @@ var UpdateOnRampDestsOp = operations.NewOperation(
 	updateOnRampDests,
 )
 
-func updateOnRampDests(b operations.Bundle, deps AptosDeps, in UpdateOnRampDestsInput) (types.Transaction, error) {
+func updateOnRampDests(b operations.Bundle, deps AptosDeps, in UpdateOnRampDestsInput) ([]mcmstypes.Transaction, error) {
+	var txs []mcmstypes.Transaction
+
 	aptosState := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector]
 	// Bind CCIP Package
 	ccipAddress := aptosState.CCIPAddress
@@ -45,14 +47,14 @@ func updateOnRampDests(b operations.Bundle, deps AptosDeps, in UpdateOnRampDests
 		testRouter := ccip_router.Bind(aptosState.TestRouterAddress, deps.AptosChain.Client)
 		stateAddress, err := testRouter.Router().GetStateAddress(nil)
 		if err != nil {
-			return types.Transaction{}, fmt.Errorf("failed to get test router state address: %w", err)
+			return nil, fmt.Errorf("failed to get test router state address: %w", err)
 		}
 		testRouterStateAddress = stateAddress
 	}
 	router := ccip_router.Bind(ccipAddress, deps.AptosChain.Client)
 	routerStateAddress, err := router.Router().GetStateAddress(nil)
 	if err != nil {
-		return types.Transaction{}, fmt.Errorf("failed to get router state address: %w", err)
+		return nil, fmt.Errorf("failed to get router state address: %w", err)
 	}
 
 	// Process each destination chain config update
@@ -75,7 +77,7 @@ func updateOnRampDests(b operations.Bundle, deps AptosDeps, in UpdateOnRampDests
 
 	if len(destChainSelectors) == 0 {
 		b.Logger.Infow("No OnRamp destination updates to apply")
-		return types.Transaction{}, nil
+		return nil, nil
 	}
 
 	// Encode the update operation
@@ -85,15 +87,16 @@ func updateOnRampDests(b operations.Bundle, deps AptosDeps, in UpdateOnRampDests
 		destChainAllowlistEnabled,
 	)
 	if err != nil {
-		return types.Transaction{}, fmt.Errorf("failed to encode ApplyDestChainConfigUpdates for OnRamp: %w", err)
+		return nil, fmt.Errorf("failed to encode ApplyDestChainConfigUpdates for OnRamp: %w", err)
 	}
 	tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
 	if err != nil {
-		return types.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
+		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
+	txs = append(txs, tx)
 
 	b.Logger.Infow("Adding OnRamp destination config update operation",
 		"chainCount", len(destChainSelectors))
 
-	return tx, nil
+	return txs, nil
 }
