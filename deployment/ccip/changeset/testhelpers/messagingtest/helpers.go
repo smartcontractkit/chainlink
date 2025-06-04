@@ -1,7 +1,6 @@
 package messagingtest
 
 import (
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"testing"
 	"time"
 
@@ -18,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 

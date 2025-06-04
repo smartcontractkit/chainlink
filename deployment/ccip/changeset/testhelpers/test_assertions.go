@@ -185,7 +185,6 @@ func ToSeqRangeMap(seqNrs map[SourceDestPair]uint64) map[SourceDestPair]ccipocr3
 		}
 	}
 	return seqRangeMap
-
 }
 
 // ConfirmCommitForAllWithExpectedSeqNums waits for all chains in the environment to commit the given expectedSeqNums.
