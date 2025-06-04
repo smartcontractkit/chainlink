@@ -253,10 +253,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					e.BlockChains.AptosChains()[dstChain],
 					state.AptosChains[dstChain].CCIPAddress,
 					startBlock,
-					ccipocr3.SeqNumRange{
-						ccipocr3.SeqNum(expectedSeqNum),
-						ccipocr3.SeqNum(expectedSeqNum),
-					},
+					expectedSeqNum,
 					true,
 				))
 			default:
