@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -137,6 +138,12 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, changesetApplications []C
 				for _, op := range prop.Operations {
 					chains.Add(uint64(op.ChainSelector))
 				}
+
+				// We need to supply a salt override, otherwise the validUntil timestamp will be used to generate the salt.
+				// In tests, validUntil is not always guaranteed to produce a unique operation ID because proposals often get generated within the same second.
+				// This has been a cause of flakiness in the past (caused an AlreadyScheduled error).
+				saltOverride := utils.RandomHash()
+				prop.SaltOverride = &saltOverride
 
 				p := proposalutils.SignMCMSTimelockProposal(t, currentEnv, &prop)
 				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)

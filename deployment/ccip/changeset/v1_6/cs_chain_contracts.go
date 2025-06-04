@@ -340,6 +340,39 @@ func (cfg UpdateOnRampDestsConfig) Validate(e cldf.Environment) error {
 	return nil
 }
 
+func (cfg UpdateOnRampDestsConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.OnRampApplyDestChainConfigUpdatesSequenceInput {
+	updatesByChain := make(map[uint64]opsutil.EVMCallInput[[]onramp.OnRampDestChainConfigArgs], len(cfg.UpdatesByChain))
+	for chainSel, updates := range cfg.UpdatesByChain {
+		var args []onramp.OnRampDestChainConfigArgs
+		for destination, update := range updates {
+			router := common.HexToAddress("0x0")
+			// If not enabled, set router to 0x0.
+			if update.IsEnabled {
+				if update.TestRouter {
+					router = state.Chains[chainSel].TestRouter.Address()
+				} else {
+					router = state.Chains[chainSel].Router.Address()
+				}
+			}
+			args = append(args, onramp.OnRampDestChainConfigArgs{
+				DestChainSelector: destination,
+				Router:            router,
+				AllowlistEnabled:  update.AllowListEnabled,
+			})
+		}
+		updatesByChain[chainSel] = opsutil.EVMCallInput[[]onramp.OnRampDestChainConfigArgs]{
+			Address:       state.Chains[chainSel].OnRamp.Address(),
+			ChainSelector: chainSel,
+			CallInput:     args,
+			NoSend:        cfg.MCMS != nil,
+		}
+	}
+
+	return ccipseqs.OnRampApplyDestChainConfigUpdatesSequenceInput{
+		UpdatesByChain: updatesByChain,
+	}
+}
+
 // UpdateOnRampsDestsChangeset updates the onramp destinations for each onramp
 // in the chains specified. Multichain support is important - consider when we add a new chain
 // and need to update the onramp destinations for all chains to support the new chain.
@@ -352,40 +385,11 @@ func UpdateOnRampsDestsChangeset(e cldf.Environment, cfg UpdateOnRampDestsConfig
 		return cldf.ChangesetOutput{}, err
 	}
 
-	updatesByChain := make(map[uint64]opsutil.EVMCallInput[[]onramp.OnRampDestChainConfigArgs], len(cfg.UpdatesByChain))
-	for chainSel, updates := range cfg.UpdatesByChain {
-		var args []onramp.OnRampDestChainConfigArgs
-		for destination, update := range updates {
-			router := common.HexToAddress("0x0")
-			// If not enabled, set router to 0x0.
-			if update.IsEnabled {
-				if update.TestRouter {
-					router = s.Chains[chainSel].TestRouter.Address()
-				} else {
-					router = s.Chains[chainSel].Router.Address()
-				}
-			}
-			args = append(args, onramp.OnRampDestChainConfigArgs{
-				DestChainSelector: destination,
-				Router:            router,
-				AllowlistEnabled:  update.AllowListEnabled,
-			})
-		}
-		updatesByChain[chainSel] = opsutil.EVMCallInput[[]onramp.OnRampDestChainConfigArgs]{
-			Address:       s.Chains[chainSel].OnRamp.Address(),
-			ChainSelector: chainSel,
-			CallInput:     args,
-			NoSend:        cfg.MCMS != nil,
-		}
-	}
-
 	report, err := operations.ExecuteSequence(
 		e.OperationsBundle,
 		ccipseqs.OnRampApplyDestChainConfigUpdatesSequence,
 		e.BlockChains.EVMChains(),
-		ccipseqs.OnRampApplyDestChainConfigUpdatesSequenceInput{
-			UpdatesByChain: updatesByChain,
-		},
+		cfg.ToSequenceInput(s),
 	)
 	return opsutil.AddEVMCallSequenceToCSOutput(e, s, cldf.ChangesetOutput{}, report, err, cfg.MCMS, "Call ApplyDestChainConfigUpdates on OnRamps")
 }
@@ -853,16 +857,7 @@ func (cfg UpdateFeeQuoterPricesConfig) Validate(e cldf.Environment) error {
 	return nil
 }
 
-func UpdateFeeQuoterPricesChangeset(e cldf.Environment, cfg UpdateFeeQuoterPricesConfig) (cldf.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-	s, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-
-	// Build sequence input
+func (cfg UpdateFeeQuoterPricesConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.FeeQuoterUpdatePricesSequenceInput {
 	updates := make(map[uint64]opsutil.EVMCallInput[fee_quoter.InternalPriceUpdates], len(cfg.PricesByChain))
 	for chainSel, prices := range cfg.PricesByChain {
 		tokenPriceUpdates := make([]fee_quoter.InternalTokenPriceUpdate, len(prices.TokenPrices))
@@ -885,7 +880,7 @@ func UpdateFeeQuoterPricesChangeset(e cldf.Environment, cfg UpdateFeeQuoterPrice
 		}
 		updates[chainSel] = opsutil.EVMCallInput[fee_quoter.InternalPriceUpdates]{
 			ChainSelector: chainSel,
-			Address:       s.Chains[chainSel].FeeQuoter.Address(),
+			Address:       state.Chains[chainSel].FeeQuoter.Address(),
 			CallInput: fee_quoter.InternalPriceUpdates{
 				TokenPriceUpdates: tokenPriceUpdates,
 				GasPriceUpdates:   gasPriceUpdates,
@@ -894,13 +889,25 @@ func UpdateFeeQuoterPricesChangeset(e cldf.Environment, cfg UpdateFeeQuoterPrice
 		}
 	}
 
+	return ccipseqs.FeeQuoterUpdatePricesSequenceInput{
+		UpdatesByChain: updates,
+	}
+}
+
+func UpdateFeeQuoterPricesChangeset(e cldf.Environment, cfg UpdateFeeQuoterPricesConfig) (cldf.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	s, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
 	report, err := operations.ExecuteSequence(
 		e.OperationsBundle,
 		ccipseqs.FeeQuoterUpdatePricesSequence,
 		e.BlockChains.EVMChains(),
-		ccipseqs.FeeQuoterUpdatePricesSequenceInput{
-			UpdatesByChain: updates,
-		},
+		cfg.ToSequenceInput(s),
 	)
 	return opsutil.AddEVMCallSequenceToCSOutput(e, s, cldf.ChangesetOutput{}, report, err, cfg.MCMS, "Call UpdatePrices on FeeQuoters")
 }
@@ -954,18 +961,7 @@ func (cfg UpdateFeeQuoterDestsConfig) Validate(e cldf.Environment) error {
 	return nil
 }
 
-func UpdateFeeQuoterDestsChangeset(e cldf.Environment, cfg UpdateFeeQuoterDestsConfig) (cldf.ChangesetOutput, error) {
-	output := cldf.ChangesetOutput{}
-
-	if err := cfg.Validate(e); err != nil {
-		return output, err
-	}
-	s, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return output, err
-	}
-
-	// Build sequence input
+func (cfg UpdateFeeQuoterDestsConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.FeeQuoterApplyDestChainConfigUpdatesSequenceInput {
 	updates := make(map[uint64]opsutil.EVMCallInput[[]fee_quoter.FeeQuoterDestChainConfigArgs], len(cfg.UpdatesByChain))
 	for chainSel, destChainUpdates := range cfg.UpdatesByChain {
 		args := make([]fee_quoter.FeeQuoterDestChainConfigArgs, len(destChainUpdates))
@@ -978,20 +974,34 @@ func UpdateFeeQuoterDestsChangeset(e cldf.Environment, cfg UpdateFeeQuoterDestsC
 			i++
 		}
 		updates[chainSel] = opsutil.EVMCallInput[[]fee_quoter.FeeQuoterDestChainConfigArgs]{
-			Address:       s.Chains[chainSel].FeeQuoter.Address(),
+			Address:       state.Chains[chainSel].FeeQuoter.Address(),
 			ChainSelector: chainSel,
 			CallInput:     args,
 			NoSend:        cfg.MCMS != nil, // If MCMS exists, we do not want to send the transaction.
 		}
 	}
 
+	return ccipseqs.FeeQuoterApplyDestChainConfigUpdatesSequenceInput{
+		UpdatesByChain: updates,
+	}
+}
+
+func UpdateFeeQuoterDestsChangeset(e cldf.Environment, cfg UpdateFeeQuoterDestsConfig) (cldf.ChangesetOutput, error) {
+	output := cldf.ChangesetOutput{}
+
+	if err := cfg.Validate(e); err != nil {
+		return output, err
+	}
+	s, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return output, err
+	}
+
 	report, err := operations.ExecuteSequence(
 		e.OperationsBundle,
 		ccipseqs.FeeQuoterApplyDestChainConfigUpdatesSequence,
 		e.BlockChains.EVMChains(),
-		ccipseqs.FeeQuoterApplyDestChainConfigUpdatesSequenceInput{
-			UpdatesByChain: updates,
-		},
+		cfg.ToSequenceInput(s),
 	)
 	return opsutil.AddEVMCallSequenceToCSOutput(e, s, output, report, err, cfg.MCMS, "Call ApplyDestChainConfigUpdates on FeeQuoters")
 }
@@ -1054,16 +1064,7 @@ func (cfg UpdateOffRampSourcesConfig) Validate(e cldf.Environment, state statevi
 	return nil
 }
 
-// UpdateOffRampSourcesChangeset updates the offramp sources for each offramp.
-func UpdateOffRampSourcesChangeset(e cldf.Environment, cfg UpdateOffRampSourcesConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-	if err := cfg.Validate(e, state); err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-
+func (cfg UpdateOffRampSourcesConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.OffRampApplySourceChainConfigUpdatesSequenceInput {
 	updatesByChain := make(map[uint64]opsutil.EVMCallInput[[]offramp.OffRampSourceChainConfigArgs], len(cfg.UpdatesByChain))
 	for chainSel, updates := range cfg.UpdatesByChain {
 		var args []offramp.OffRampSourceChainConfigArgs
@@ -1094,13 +1095,26 @@ func UpdateOffRampSourcesChangeset(e cldf.Environment, cfg UpdateOffRampSourcesC
 		}
 	}
 
+	return ccipseqs.OffRampApplySourceChainConfigUpdatesSequenceInput{
+		UpdatesByChain: updatesByChain,
+	}
+}
+
+// UpdateOffRampSourcesChangeset updates the offramp sources for each offramp.
+func UpdateOffRampSourcesChangeset(e cldf.Environment, cfg UpdateOffRampSourcesConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	if err := cfg.Validate(e, state); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
 	report, err := operations.ExecuteSequence(
 		e.OperationsBundle,
 		ccipseqs.OffRampApplySourceChainConfigUpdatesSequence,
 		e.BlockChains.EVMChains(),
-		ccipseqs.OffRampApplySourceChainConfigUpdatesSequenceInput{
-			UpdatesByChain: updatesByChain,
-		},
+		cfg.ToSequenceInput(state),
 	)
 
 	return opsutil.AddEVMCallSequenceToCSOutput(e, state, cldf.ChangesetOutput{}, report, err, cfg.MCMS, "Call ApplySourceChainConfigUpdates on OffRamps")
@@ -1203,23 +1217,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e cldf.Environment, state stateview.
 	return nil
 }
 
-// UpdateRouterRampsChangeset updates the on/offramps
-// in either the router or test router for a series of chains. Use cases include:
-// - Ramp upgrade. After deploying new ramps you can enable them on the test router and
-// ensure it works e2e. Then enable the ramps on the real router.
-// - New chain support. When adding a new chain, you can enable the new destination
-// on all chains to support the new chain through the test router first. Once tested,
-// Enable the new destination on the real router.
-func UpdateRouterRampsChangeset(e cldf.Environment, cfg UpdateRouterRampsConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-	if err := cfg.Validate(e, state); err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-
-	// Build sequence input
+func (cfg UpdateRouterRampsConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.RouterApplyRampUpdatesSequenceInput {
 	input := make(map[uint64]opsutil.EVMCallInput[ccipops.RouterApplyRampUpdatesOpInput], len(cfg.UpdatesByChain))
 	for chainSel, update := range cfg.UpdatesByChain {
 		routerC := state.Chains[chainSel].Router
@@ -1272,13 +1270,32 @@ func UpdateRouterRampsChangeset(e cldf.Environment, cfg UpdateRouterRampsConfig)
 		}
 	}
 
+	return ccipseqs.RouterApplyRampUpdatesSequenceInput{
+		UpdatesByChain: input,
+	}
+}
+
+// UpdateRouterRampsChangeset updates the on/offramps
+// in either the router or test router for a series of chains. Use cases include:
+// - Ramp upgrade. After deploying new ramps you can enable them on the test router and
+// ensure it works e2e. Then enable the ramps on the real router.
+// - New chain support. When adding a new chain, you can enable the new destination
+// on all chains to support the new chain through the test router first. Once tested,
+// Enable the new destination on the real router.
+func UpdateRouterRampsChangeset(e cldf.Environment, cfg UpdateRouterRampsConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	if err := cfg.Validate(e, state); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
 	report, err := operations.ExecuteSequence(
 		e.OperationsBundle,
 		ccipseqs.RouterApplyRampUpdatesSequence,
 		e.BlockChains.EVMChains(),
-		ccipseqs.RouterApplyRampUpdatesSequenceInput{
-			UpdatesByChain: input,
-		},
+		cfg.ToSequenceInput(state),
 	)
 	return opsutil.AddEVMCallSequenceToCSOutput(e, state, cldf.ChangesetOutput{}, report, err, cfg.MCMS, "Call ApplyRampUpdates on Routers")
 }
