@@ -7,6 +7,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
@@ -29,7 +30,7 @@ func TestDeleteCCIPJobs(t *testing.T) {
 		}
 	}
 	// run delete JobChangeset
-	_, err = commonChangesets.Apply(t, e.Env, nil,
+	_, err = commonChangesets.Apply(t, e.Env,
 		commonChangesets.Configure(
 			commonChangesets.DeleteJobChangeset,
 			jobIDs,
@@ -65,7 +66,7 @@ func TestRevokeJobs(t *testing.T) {
 		}
 	}
 	// run RevokeJobChangeset
-	_, err = commonChangesets.Apply(t, e.Env, nil,
+	_, err = commonChangesets.Apply(t, e.Env,
 		commonChangesets.Configure(
 			commonChangesets.RevokeJobsChangeset,
 			jobIDs,

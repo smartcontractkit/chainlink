@@ -6,6 +6,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -31,11 +32,27 @@ var (
 			chain := deps.Chain
 			nonceManager, err := cldf.DeployContract(b.Logger, chain, ab,
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*nonce_manager.NonceManager] {
-					nonceManagerAddr, tx2, nonceManager, err2 := nonce_manager.DeployNonceManager(
-						chain.DeployerKey,
-						chain.Client,
-						[]common.Address{}, // Need to add onRamp after
+					var (
+						nonceManagerAddr common.Address
+						tx2              *types.Transaction
+						nonceManager     *nonce_manager.NonceManager
+						err2             error
 					)
+					if chain.IsZkSyncVM {
+						nonceManagerAddr, _, nonceManager, err2 = nonce_manager.DeployNonceManagerZk(
+							nil,
+							chain.ClientZkSyncVM,
+							chain.DeployerKeyZkSyncVM,
+							chain.Client,
+							[]common.Address{},
+						)
+					} else {
+						nonceManagerAddr, tx2, nonceManager, err2 = nonce_manager.DeployNonceManager(
+							chain.DeployerKey,
+							chain.Client,
+							[]common.Address{}, // Need to add onRamp after
+						)
+					}
 					return cldf.ContractDeploy[*nonce_manager.NonceManager]{
 						Address: nonceManagerAddr, Contract: nonceManager, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.NonceManager, deployment.Version1_6_0), Err: err2,
 					}
