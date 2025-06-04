@@ -82,7 +82,9 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, changesetApplications []C
 	fmt.Println(len(changesetApplications))
 	outputs := make([]cldf.ChangesetOutput, 0, len(changesetApplications))
 	for i, csa := range changesetApplications {
+		fmt.Printf("Applying changeset at index %d...\n", i)
 		out, err := csa.Apply(currentEnv)
+		fmt.Println(out, "output")
 		if err != nil {
 			return e, nil, fmt.Errorf("failed to apply changeset at index %d: %w", i, err)
 		}
