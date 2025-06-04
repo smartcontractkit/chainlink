@@ -23,7 +23,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// Tests require downloading and building artifcats
+// Tests require downloading and building artifacts
 // from chainlink-solana and chainlink-ccip
 // so we disable them in CI since it will take too long to run
 func TestDeployForwarder(t *testing.T) {
@@ -202,7 +202,8 @@ func shouldDeployForwarder(t *testing.T, env cldf.Environment, solSel uint64, _ 
 	addrs, err := resp.AddressBook.AddressesForChain(solSel)
 	require.NoError(t, err)
 	require.Len(t, addrs, 2) // forwarder programID, forwarder state
-	env.ExistingAddresses.Merge(resp.AddressBook)
+	err = env.ExistingAddresses.Merge(resp.AddressBook)
+	require.NoError(t, err)
 	return env
 }
 
