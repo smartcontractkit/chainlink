@@ -16,14 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	// "github.com/smartcontractkit/chainlink-ton/bindings/bind"
-	// "github.com/smartcontractkit/chainlink-ton/bindings/ccip"
-	// "github.com/smartcontractkit/chainlink-ton/bindings/ccip_dummy_receiver"
-	// "github.com/smartcontractkit/chainlink-ton/bindings/ccip_offramp"
-	// "github.com/smartcontractkit/chainlink-ton/bindings/ccip_onramp"
-	// "github.com/smartcontractkit/chainlink-ton/bindings/ccip_router"
-	// "github.com/smartcontractkit/chainlink-ton/bindings/mcms"
-	// "github.com/smartcontractkit/chainlink-ton/relayer/utils"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	tonstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/ton"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -32,6 +24,15 @@ import (
 	"github.com/xssnick/tonutils-go/ton"
 	"github.com/xssnick/tonutils-go/ton/wallet"
 )
+
+// "github.com/smartcontractkit/chainlink-ton/bindings/bind"
+// "github.com/smartcontractkit/chainlink-ton/bindings/ccip"
+// "github.com/smartcontractkit/chainlink-ton/bindings/ccip_dummy_receiver"
+// "github.com/smartcontractkit/chainlink-ton/bindings/ccip_offramp"
+// "github.com/smartcontractkit/chainlink-ton/bindings/ccip_onramp"
+// "github.com/smartcontractkit/chainlink-ton/bindings/ccip_router"
+// "github.com/smartcontractkit/chainlink-ton/bindings/mcms"
+// "github.com/smartcontractkit/chainlink-ton/relayer/utils"
 
 type TonTestDeployPrerequisitesChangeSet struct {
 	T                 *testing.T
@@ -173,7 +174,6 @@ type TonTestConfigureContractsChangeSet struct {
 var _ commoncs.ConfiguredChangeSet = TonTestConfigureContractsChangeSet{}
 
 func (c TonTestConfigureContractsChangeSet) Apply(e deployment.Environment) (deployment.ChangesetOutput, error) {
-
 	t := c.T
 
 	tonChains, err := tonstate.LoadOnchainStateTon(e)
@@ -369,9 +369,9 @@ func SendRequestTon(
 	state tonstate.CCIPChainState,
 	cfg *CCIPSendReqConfig,
 ) (*onramp.OnRampCCIPMessageSent, error) { // TODO: chain independent return vailue
-	//sourceSelector := cfg.SourceChain
-	//destSelector := cfg.DestChain
-	//msg := cfg.Message.(Ton2AnyMessage)
+	// sourceSelector := cfg.SourceChain
+	// destSelector := cfg.DestChain
+	// msg := cfg.Message.(Ton2AnyMessage)
 	return nil, errors.New("TODO(ton): SendRequestTon")
 }
 

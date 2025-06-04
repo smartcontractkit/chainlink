@@ -712,10 +712,10 @@ func LoadOnchainState(e cldf.Environment) (CCIPOnChainState, error) {
 
 	state := CCIPOnChainState{
 		Chains:      make(map[uint64]evm.CCIPChainState),
-		evmMu:       new(sync.RWMutex),
 		SolChains:   solanaState.SolChains,
 		AptosChains: aptosChains,
 		TonChains:   tonChains,
+		evmMu:       new(sync.RWMutex),
 	}
 	for chainSelector, chain := range e.BlockChains.EVMChains() {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
