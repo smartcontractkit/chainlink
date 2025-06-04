@@ -148,7 +148,8 @@ func Test_AddChain(t *testing.T) {
 		}
 
 		// Confirm execution of the message
-		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNum, startBlocks)
+		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state,
+			testhelpers.ToSeqRangeMap(expectedSeqNum), startBlocks)
 		testhelpers.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
 		return gasPricePreUpdate, startBlocks
 	}
