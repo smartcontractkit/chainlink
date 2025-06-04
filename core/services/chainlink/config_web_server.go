@@ -358,32 +358,32 @@ func (l *oidcConfig) IdClaimKey() string {
 	return *l.c.IdClaimKey
 }
 
-func (l *oidcConfig) AdminUserGroupClaim() string {
-	if l.c.AdminUserGroupClaim == nil {
+func (l *oidcConfig) AdminIdClaim() string {
+	if l.c.AdminIdClaim == nil {
 		return ""
 	}
-	return *l.c.AdminUserGroupClaim
+	return *l.c.AdminIdClaim
 }
 
-func (l *oidcConfig) EditUserGroupClaim() string {
-	if l.c.EditUserGroupClaim == nil {
+func (l *oidcConfig) EditIdClaim() string {
+	if l.c.EditIdClaim == nil {
 		return ""
 	}
-	return *l.c.EditUserGroupClaim
+	return *l.c.EditIdClaim
 }
 
-func (l *oidcConfig) RunUserGroupClaim() string {
-	if l.c.RunUserGroupClaim == nil {
+func (l *oidcConfig) RunIdClaim() string {
+	if l.c.RunIdClaim == nil {
 		return ""
 	}
-	return *l.c.RunUserGroupClaim
+	return *l.c.RunIdClaim
 }
 
-func (l *oidcConfig) ReadUserGroupClaim() string {
-	if l.c.ReadUserGroupClaim == nil {
+func (l *oidcConfig) ReadIdClaim() string {
+	if l.c.ReadIdClaim == nil {
 		return ""
 	}
-	return *l.c.ReadUserGroupClaim
+	return *l.c.ReadIdClaim
 }
 
 func (l *oidcConfig) SessionTimeout() commonconfig.Duration {

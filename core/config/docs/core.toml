@@ -207,14 +207,14 @@ ProviderURL = 'https://id[.]example[.]com/oauth2/default'
 RedirectURL = 'http://localhost:8080/signin'
 # IdClaimKey the key in decrypted id_token where to find the user's ID claims.
 IdClaimKey = 'groups'
-# AdminUserGroupClaim is string label of the group returned by the OIDC claim that maps the core node's 'Admin' role
-AdminUserGroupClaim = 'NodeAdmins' # Default
-# EditUserGroupClaim is string label of the group returned by the OIDC claim that maps the core node's 'Edit' role
-EditUserGroupClaim = 'NodeEditors' # Default
-# RunUserGroupClaim is string label of the group returned by the OIDC claim that maps the core node's 'Run' role
-RunUserGroupClaim = 'NodeRunners' # Default
-# ReadUserGroupClaim is string label of the group returned by the OIDC claim that maps the core node's 'Read' role
-ReadUserGroupClaim = 'NodeReadOnly' # Default
+# AdminIdClaim is string label of the id claim that maps the core node's 'Admin' role
+AdminIdClaim = 'NodeAdmins' # Default
+# EditIdClaim is string label of the id claim that maps the core node's 'Edit' role
+EditIdClaim = 'NodeEditors' # Default
+# RunIdClaim is string label of the id claim that maps the core node's 'Run' role
+RunIdClaim = 'NodeRunners' # Default
+# ReadIdClaim is string label of the id claim that maps the core node's 'Read' role
+ReadIdClaim = 'NodeReadOnly' # Default
 # SessionTimeout determines the amount of idle time to elapse before session cookies expire. This signs out GUI users from their sessions.
 SessionTimeout = '15m0s' # Default
 # UserApiTokenEnabled enables the users to issue API tokens with the same access of their role

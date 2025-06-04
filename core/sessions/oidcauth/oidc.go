@@ -84,9 +84,9 @@ func NewOIDCAuthenticator(
 ) (*oidcAuthenticator, error) {
 	// Ensure all RBAC role mappings to OIDC Id claims are defined, and required fields populated, or error on startup
 	lggr.Infof("%#v\n", oidcCfg)
-	if oidcCfg.AdminUserGroupClaim() == "" || oidcCfg.EditUserGroupClaim() == "" ||
-		oidcCfg.RunUserGroupClaim() == "" || oidcCfg.ReadUserGroupClaim() == "" {
-		return nil, errors.New("OIDC Group name mapping for callback group claims for all local RBAC role required. Set group names for `_UserGroupClaim` fields")
+	if oidcCfg.AdminIdClaim() == "" || oidcCfg.EditIdClaim() == "" ||
+		oidcCfg.RunIdClaim() == "" || oidcCfg.ReadIdClaim() == "" {
+		return nil, errors.New("OIDC Group name mapping for callback group claims for all local RBAC role required. Set group names for `_IdClaim` fields")
 	}
 	if oidcCfg.ClientID() == "" {
 		return nil, errors.New("OIDC ClientID config required")
@@ -223,7 +223,6 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 	}
 
 	var claims map[string]interface{}
-	fmt.Printf("%v", claims)
 	if err := idToken.Claims(&claims); err != nil {
 		oi.lggr.Errorf("Failed to parse OIDC return claims: %v", err)
 		c.String(http.StatusInternalServerError, "Failed to parse OIDC return claims")
@@ -245,10 +244,10 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 	// Map the groups and insert a newly created session paired with role mapping for user
 	role, err := idClaimsToUserRole(
 		idClaims,
-		oi.config.AdminUserGroupClaim(),
-		oi.config.EditUserGroupClaim(),
-		oi.config.RunUserGroupClaim(),
-		oi.config.ReadUserGroupClaim(),
+		oi.config.AdminIdClaim(),
+		oi.config.EditIdClaim(),
+		oi.config.RunIdClaim(),
+		oi.config.ReadIdClaim(),
 	)
 	if err != nil {
 		oi.lggr.Errorf("Failed to map configured RBAC role name against recieved list of group claims: %v", err)

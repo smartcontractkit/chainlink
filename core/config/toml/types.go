@@ -843,17 +843,17 @@ func (w *WebServer) ValidateConfig() (err error) {
 		if *w.OIDC.IdClaimKey == "" {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.IdClaimKey", Msg: "OIDC IDClaimKey can not be empty"})
 		}
-		if *w.OIDC.AdminUserGroupClaim == "" {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.AdminUserGroupClaim", Msg: "OIDC AdminUserGroupClaim can not be empty"})
+		if *w.OIDC.AdminIdClaim == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.AdminIdClaim", Msg: "OIDC AdminIdClaim can not be empty"})
 		}
-		if *w.OIDC.EditUserGroupClaim == "" {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.EditUserGroupClaim", Msg: "OIDC EditUserGroupClaim can not be empty"})
+		if *w.OIDC.EditIdClaim == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.EditIdClaim", Msg: "OIDC EditIdClaim can not be empty"})
 		}
-		if *w.OIDC.RunUserGroupClaim == "" {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.RunUserGroupClaim", Msg: "OIDC RunUserGroupClaim can not be empty"})
+		if *w.OIDC.RunIdClaim == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.RunIdClaim", Msg: "OIDC RunIdClaim can not be empty"})
 		}
-		if *w.OIDC.ReadUserGroupClaim == "" {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.ReadUserGroupClaim", Msg: "OIDC ReadUserGroupClaim can not be empty"})
+		if *w.OIDC.ReadIdClaim == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.ReadIdClaim", Msg: "OIDC ReadIdClaim can not be empty"})
 		}
 		if w.OIDC.SessionTimeout == commonconfig.MustNewDuration(0) {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.SessionTimeout", Msg: "OIDC SessionTimeout can not be empty"})
@@ -1036,10 +1036,10 @@ type WebServerOIDC struct {
 	ProviderURL          *string
 	RedirectURL          *string
 	IdClaimKey           *string
-	AdminUserGroupClaim  *string
-	EditUserGroupClaim   *string
-	RunUserGroupClaim    *string
-	ReadUserGroupClaim   *string
+	AdminIdClaim         *string
+	EditIdClaim          *string
+	RunIdClaim           *string
+	ReadIdClaim          *string
 	SessionTimeout       *commonconfig.Duration
 	UserApiTokenEnabled  *bool
 	UserAPITokenDuration *commonconfig.Duration
@@ -1058,17 +1058,17 @@ func (w *WebServerOIDC) setFrom(f *WebServerOIDC) {
 	if v := f.IdClaimKey; v != nil {
 		w.IdClaimKey = v
 	}
-	if v := f.AdminUserGroupClaim; v != nil {
-		w.AdminUserGroupClaim = v
+	if v := f.AdminIdClaim; v != nil {
+		w.AdminIdClaim = v
 	}
-	if v := f.EditUserGroupClaim; v != nil {
-		w.EditUserGroupClaim = v
+	if v := f.EditIdClaim; v != nil {
+		w.EditIdClaim = v
 	}
-	if v := f.RunUserGroupClaim; v != nil {
-		w.RunUserGroupClaim = v
+	if v := f.RunIdClaim; v != nil {
+		w.RunIdClaim = v
 	}
-	if v := f.ReadUserGroupClaim; v != nil {
-		w.ReadUserGroupClaim = v
+	if v := f.ReadIdClaim; v != nil {
+		w.ReadIdClaim = v
 	}
 	if v := f.SessionTimeout; v != nil {
 		w.SessionTimeout = v

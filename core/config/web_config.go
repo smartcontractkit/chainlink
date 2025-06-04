@@ -61,10 +61,10 @@ type OIDC interface {
 	ProviderURL() string
 	RedirectURL() string
 	IdClaimKey() string
-	AdminUserGroupClaim() string
-	EditUserGroupClaim() string
-	RunUserGroupClaim() string
-	ReadUserGroupClaim() string
+	AdminIdClaim() string
+	EditIdClaim() string
+	RunIdClaim() string
+	ReadIdClaim() string
 	SessionTimeout() commonconfig.Duration
 	UserApiTokenEnabled() bool
 	UserAPITokenDuration() commonconfig.Duration
