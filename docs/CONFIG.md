@@ -15558,7 +15558,7 @@ SenderAddress = '0x00c11c11c11C11c11C11c11c11C11C11c11C11c1' # Example
 SenderAddress is optional and can be set to a specific sender address for gas limit estimation (i.e. `EstimateLimit = true`). If gas limit estimation is not enabled, this parameter is ignored.
 
 If you are using gas limit estimation:
-- Setting SenderAddress is optional for most products. If it is set, the from address for the transaction for gas estimation will be set to the inputted SenderAddress. If it is not set, the actual "from" address for the transaction is used if available.
+- Setting SenderAddress is optional for most products. If it is set, the from address for the transaction for gas estimation will be set to the inputted SenderAddress. If it is not set, the actual address the transaction is sent from is used if available.
 - Setting SenderAddress is neccessary for gas limit estimation to function correctly for CCIP. Gas limit estimation works only in CCIP 1.6 and above if SenderAddress is set to the given example value (0x00c11c11c11C11c11C11c11c11C11C11c11C11c1). This value is hardcoded in the CCIP 1.6 contracts and is not needed for other products.
 
 
