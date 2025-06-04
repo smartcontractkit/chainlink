@@ -5,7 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 
-	"github.com/smartcontractkit/chainlink-aptos/relayer/chainreader"
+	"github.com/smartcontractkit/chainlink-aptos/relayer/chainreader/config"
 	"github.com/smartcontractkit/chainlink-aptos/relayer/chainwriter"
 	"github.com/smartcontractkit/chainlink-aptos/relayer/utils"
 )
@@ -28,7 +28,7 @@ func GetChainWriterConfig(publicKeyStr string) (chainwriter.ChainWriterConfig, e
 						Name:        "commit",
 						PublicKey:   publicKeyStr,
 						FromAddress: fromAddress.String(),
-						Params: []chainreader.AptosFunctionParam{
+						Params: []config.AptosFunctionParam{
 							{
 								Name:     "ReportContext",
 								Type:     "vector<vector<u8>>",
@@ -50,7 +50,7 @@ func GetChainWriterConfig(publicKeyStr string) (chainwriter.ChainWriterConfig, e
 						Name:        "execute",
 						PublicKey:   publicKeyStr,
 						FromAddress: fromAddress.String(),
-						Params: []chainreader.AptosFunctionParam{
+						Params: []config.AptosFunctionParam{
 							{
 								Name:     "ReportContext",
 								Type:     "vector<vector<u8>>",
