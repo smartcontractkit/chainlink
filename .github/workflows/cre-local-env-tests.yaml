@@ -133,7 +133,8 @@ jobs:
           echo "execution_time=$total_seconds" >> $GITHUB_OUTPUT
 
       - name: Track local env startup success rate
-        if: always()
+        # track only scheduled runs to exclude failures in PRs or manual runs
+        if: always() && github.event_name == 'workflow_call'
         shell: bash
         run: |
             success=false
@@ -145,6 +146,8 @@ jobs:
             curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${{ secrets.GETDX_SECRET_KEY }}" -d "$data" https://api.getdx.com/events.track
 
       - name: Track local env startup duration
+        # track only scheduled runs to exclude failures in PRs or manual runs
+        if: github.event_name == 'workflow_call'
         shell: bash
         run: |
             echo "::debug::execution_time: ${{ steps.start-cli.outputs.execution_time }}"
