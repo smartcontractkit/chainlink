@@ -15555,7 +15555,8 @@ EstimateLimit enables estimating gas limits for transactions. This feature respe
 ```toml
 SenderAddress = '0x00c11c11c11C11c11C11c11c11C11C11c11C11c1' # Example
 ```
-SenderAddress is optional and can be set to a specific sender address for dynamic gas estimation. If it is not set, the actual "from" address for the transaction is used if available.
+SenderAddress is optional and can be set to a specific sender address for dynamic gas limit estimation. If it is not set, the actual "from" address for the transaction is used if available.
+SenderAddress must be set to the example value (0x00c11c11c11C11c11C11c11c11C11C11c11C11c1) for dynamic gas limit estimation to work correctly for CCIP. Additionally, this value is hardcoded in CCIP 1.6 contracts, so dynamic gas estimation can only work in CCIP 1.6 and above.
 
 ### BumpMin
 ```toml
