@@ -111,7 +111,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@chore/bump-build-push-docker
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@c8bc2e3e0b0ba91253d4cfcba830e31302dd1e4c # June 4, 2025
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-east-1
