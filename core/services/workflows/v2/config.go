@@ -56,7 +56,8 @@ const (
 	defaultWorkflowExecutionTimeoutMs              = 1000 * 60 * 10 // 10 minutes
 	defaultCapabilityCallTimeoutMs                 = 1000 * 60 * 8  // 8 minutes
 
-	defaultShutdownTimeoutMs = 5000
+	defaultHeartbeatFrequencyMs = 1000 * 60 // 1 minute
+	defaultShutdownTimeoutMs    = 5000
 )
 
 type EngineLimits struct {
@@ -70,7 +71,8 @@ type EngineLimits struct {
 	WorkflowExecutionTimeoutMs              uint32
 	CapabilityCallTimeoutMs                 uint32
 
-	ShutdownTimeoutMs uint32
+	HeartbeatFrequencyMs uint32
+	ShutdownTimeoutMs    uint32
 }
 
 type LifecycleHooks struct {
@@ -157,6 +159,9 @@ func (l *EngineLimits) setDefaultLimits() {
 	}
 	if l.CapabilityCallTimeoutMs == 0 {
 		l.CapabilityCallTimeoutMs = defaultCapabilityCallTimeoutMs
+	}
+	if l.HeartbeatFrequencyMs == 0 {
+		l.HeartbeatFrequencyMs = defaultHeartbeatFrequencyMs
 	}
 	if l.ShutdownTimeoutMs == 0 {
 		l.ShutdownTimeoutMs = defaultShutdownTimeoutMs

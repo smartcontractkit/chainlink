@@ -251,7 +251,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
-		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter, string(event.EventType)); err != nil {
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.EventType)); err != nil {
 			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
@@ -276,7 +276,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
-		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter, string(event.EventType)); err != nil {
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.EventType)); err != nil {
 			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
@@ -301,7 +301,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
-		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter, string(event.EventType)); err != nil {
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.EventType)); err != nil {
 			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
@@ -325,7 +325,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
-		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter, string(event.EventType)); err != nil {
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.EventType)); err != nil {
 			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
@@ -351,7 +351,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
-		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter, string(event.EventType)); err != nil {
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.EventType)); err != nil {
 			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
