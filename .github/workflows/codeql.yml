@@ -14,6 +14,7 @@ jobs:
     outputs:
       should-run-go: ${{ steps.changes.outputs.go-changes == 'true' || steps.changes.outputs.self-changes == 'true' || github.event == 'schedule' }}
       should-run-js: ${{ steps.changes.outputs.js-changes == 'true' || steps.changes.outputs.self-changes == 'true' || github.event == 'schedule' }}
+      should-run-python: ${{ steps.changes.outputs.python-changes == 'true' || steps.changes.outputs.self-changes == 'true' || github.event == 'schedule' }}
       should-run-workflow: ${{ steps.changes.outputs.workflow-changes == 'true' || github.event == 'schedule' }}
     runs-on: ubuntu-latest
     steps:
@@ -37,11 +38,15 @@ jobs:
               - '**/*.ts'
             workflow-changes:
               - '.github/**'
+            python-changes:
+              - '**/requirements.txt'
+              - '**/*.py'
             self-changes:
               - '.github/workflows/codeql.yml'
 
   analyze:
     name: Analyze (${{ matrix.language }})
+    needs: filter
     runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
     permissions:
       # required for all workflows
@@ -62,6 +67,9 @@ jobs:
           - language: javascript-typescript
             build-mode: none
             should-run: ${{ needs.filter.outputs.should-run-js }}
+          - language: python
+            build-mode: none
+            should-run: ${{ needs.filter.outputs.should-run-python }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
