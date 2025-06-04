@@ -3,6 +3,8 @@ package ccip
 import (
 	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -289,37 +291,38 @@ func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
 
 	//var wg sync.WaitGroup
 	iterations := 5
-	results := make([]struct {
-		output mt.TestCaseOutput
-		err    error
-	}, iterations)
+	//results := make([]struct {
+	//	output mt.TestCaseOutput
+	//	err    error
+	//}, iterations)
 
-	for i := 0; i < iterations; i++ {
-		//wg.Add(1)
-		//go func(idx int) {
-		//	defer wg.Done()
-		//	t.Logf("Starting parallel test iteration %d", idx+1)
+	//for i := 0; i < iterations; i++ {
+	//wg.Add(1)
+	//go func(idx int) {
+	//	defer wg.Done()
+	//	t.Logf("Starting parallel test iteration %d", idx+1)
 
-		// Each test run needs its own error variable
-		var localErr error
-		results[i].output = mt.Run(
-			t,
-			mt.TestCase{
-				ValidationType:         mt.ValidationTypeExec,
-				TestSetup:              setup,
-				Replayed:               replayed,
-				Nonce:                  nil, // Solana nonce check is skipped
-				Receiver:               receiver,
-				MsgData:                []byte(fmt.Sprintf("hello CCIPReceiver iteration %d", i+1)),
-				ExtraArgs:              extraArgs,
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-				NumberOfMessages:       iterations,
-			},
-		)
-		results[i].err = localErr
-		t.Logf("Completed parallel test iteration %d", i+1)
-		//}(i)
-	}
+	// Each test run needs its own error variable
+	//var localErr error
+	//results[i].output = mt.Run(
+	_ = mt.Run(
+		t,
+		mt.TestCase{
+			ValidationType:         mt.ValidationTypeExec,
+			TestSetup:              setup,
+			Replayed:               replayed,
+			Nonce:                  nil, // Solana nonce check is skipped
+			Receiver:               receiver,
+			MsgData:                []byte(fmt.Sprintf("hello CCIPReceiver")),
+			ExtraArgs:              extraArgs,
+			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+			NumberOfMessages:       iterations,
+		},
+	)
+	//results[i].err = localErr
+	//t.Logf("Completed parallel test iteration %d", i+1)
+	//}(i)
+	//}
 
 	// Wait for all test iterations to complete
 	//wg.Wait()
@@ -327,49 +330,49 @@ func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
 
 	t.Logf("Checking TransmittedEvents")
 
-	//done := make(chan any)
-	//defer close(done)
-	//offrampAddress := state.SolChains[destChain].OffRamp
-	//sink, errCh := testhelpers.SolEventEmitter[solccip.EventTransmitted](
-	//	t,
-	//	solChains[destChain].Client,
-	//	offrampAddress, "Transmitted", 0, done)
-	//timeout := time.NewTimer(tests.WaitTimeout(t) - 5*time.Second) // 5 seconds buffer for cleanup
-	//defer timeout.Stop()
-	//
-	//successful := false
-	//// create a map/set to keep track of transmittedEvent.SequenceNumber
-	//sequenceNumbers := make(map[uint64]int)
-	//
-	//for {
-	//	select {
-	//	case transmittedEvent := <-sink:
-	//		if transmittedEvent.OcrPluginType == uint8(cctypes.PluginTypeCCIPExec) {
-	//			ocrSeqNr := transmittedEvent.SequenceNumber
-	//			_, exists := sequenceNumbers[ocrSeqNr]
-	//			if !exists {
-	//				sequenceNumbers[ocrSeqNr] = 0
-	//			}
-	//			sequenceNumbers[ocrSeqNr] = sequenceNumbers[ocrSeqNr] + 1
-	//			// All exec reports should have the same sequence number
-	//			if len(sequenceNumbers) > 1 {
-	//				break
-	//			}
-	//
-	//			if sequenceNumbers[ocrSeqNr] >= iterations {
-	//				successful = true
-	//				break
-	//			}
-	//		}
-	//	case err := <-errCh:
-	//		require.NoError(t, err)
-	//	case <-timeout.C:
-	//		require.Fail(t, "Timed out waiting for all parallel test iterations to complete")
-	//	}
-	//}
-	//
-	//require.True(t, successful)
-	//t.Log("All parallel test iterations completed")
+	done := make(chan any)
+	defer close(done)
+	offrampAddress := state.SolChains[destChain].OffRamp
+	sink, errCh := testhelpers.SolEventEmitter[solccip.EventTransmitted](
+		t,
+		solChains[destChain].Client,
+		offrampAddress, "Transmitted", 0, done)
+	timeout := time.NewTimer(tests.WaitTimeout(t) - 5*time.Second) // 5 seconds buffer for cleanup
+	defer timeout.Stop()
+
+	successful := false
+	// create a map/set to keep track of transmittedEvent.SequenceNumber
+	sequenceNumbers := make(map[uint64]int)
+
+	for {
+		select {
+		case transmittedEvent := <-sink:
+			if transmittedEvent.OcrPluginType == uint8(cctypes.PluginTypeCCIPExec) {
+				ocrSeqNr := transmittedEvent.SequenceNumber
+				_, exists := sequenceNumbers[ocrSeqNr]
+				if !exists {
+					sequenceNumbers[ocrSeqNr] = 0
+				}
+				sequenceNumbers[ocrSeqNr] = sequenceNumbers[ocrSeqNr] + 1
+				// All exec reports should have the same sequence number
+				if len(sequenceNumbers) > 1 {
+					break
+				}
+
+				if sequenceNumbers[ocrSeqNr] >= iterations {
+					successful = true
+					break
+				}
+			}
+		case err := <-errCh:
+			require.NoError(t, err)
+		case <-timeout.C:
+			require.Fail(t, "Timed out waiting for all parallel test iterations to complete")
+		}
+	}
+
+	require.True(t, successful)
+	t.Log("All parallel test iterations completed")
 
 }
 func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
