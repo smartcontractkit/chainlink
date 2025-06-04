@@ -391,8 +391,8 @@ func (r *Relayer) NewPluginProvider(ctx context.Context, rargs commontypes.Relay
 	var configWatcher *configWatcher
 	switch rargs.ProviderType {
 	case string(commontypes.SecureMint):
-		r.lggr.Infof("TRACE NewPluginProvider: using SecureMint provider type")
-		configWatcher, err = newSecureMintConfigProvider(ctx, r.lggr, r.chain, relayOpts)
+		r.lggr.Infof("TRACE NewPluginProvider: using standard config provider type")
+		configWatcher, err = newStandardConfigProvider(ctx, r.lggr, r.chain, relayOpts)
 	default:
 		configWatcher, err = newStandardConfigProvider(ctx, r.lggr, r.chain, relayOpts)
 	}
