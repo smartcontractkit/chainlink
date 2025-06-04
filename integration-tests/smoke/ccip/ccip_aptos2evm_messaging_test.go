@@ -7,8 +7,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/maps"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -22,8 +23,8 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 		testhelpers.WithNumOfChains(2),
 		testhelpers.WithAptosChains(1),
 	)
-	evmChainSelectors := e.Env.AllChainSelectors()
-	aptosChainSelectors := maps.Keys(e.Env.BlockChains.AptosChains())
+	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
+	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
 
 	fmt.Println("EVM: ", evmChainSelectors)
 	fmt.Println("Aptos: ", aptosChainSelectors)
@@ -78,7 +79,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 						})
 						require.NoError(t, err)
 						require.True(t, iter.Next())
-						// Todo: MessageReceived doesn't emit the data unfortunately, so can't check that.
+						// MessageReceived doesn't emit the data unfortunately, so can't check that.
 					},
 				},
 			},
