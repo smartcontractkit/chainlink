@@ -252,10 +252,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					e.BlockChains.TonChains()[dstChain],
 					state.TonChains[dstChain].OffRamp,
 					startSlot,
-					ccipocr3.SeqNumRange{
-						ccipocr3.SeqNum(expectedSeqNum),
-						ccipocr3.SeqNum(expectedSeqNum),
-					},
+					expectedSeqNum,
 					true))
 			default:
 				return fmt.Errorf("unsupported chain family; %v", family)

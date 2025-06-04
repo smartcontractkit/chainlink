@@ -618,7 +618,7 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	}
 
 	if len(tonChains) > 0 {
-		e.Env, err = commonchangeset.Apply(t, e.Env, nil,
+		e.Env, err = commonchangeset.Apply(t, e.Env,
 			TonTestDeployPrerequisitesChangeSet{
 				T:                 t,
 				TonChainSelectors: tonChains,
@@ -754,9 +754,9 @@ func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, pr
 		)}, nil
 }
 
-// TODO(ton): Implement this function to deploy chain contracts to Ton chain, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
-func deployChainContractsToTonChainCS(e DeployedEnv, tonChainSelector uint64) ([]commonchangeset.ConfiguredChangeSet, error) {
-	return nil, nil
+func deployChainContractsToTonChainCS(e DeployedEnv, tonChainSelector uint64) commonchangeset.ConfiguredChangeSet {
+	// TODO(ton): Implement this function to deploy chain contracts to Ton chain, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
+	return nil
 }
 
 func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEnvironment, mcmsEnabled bool) DeployedEnv {
@@ -828,20 +828,20 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		require.NoError(t, err)
 		apps = append(apps, solCs...)
 	}
-
-	if len(tonChains) != 0 {
-		tonCs, err := deployChainContractsToTonChainCS(e, tonChains[0])
-		require.NoError(t, err)
-		apps = append(apps, tonCs...)
-	}
-
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, apps)
+	e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, apps)
 	require.NoError(t, err)
 
 	if len(aptosChains) != 0 {
 		// Currently only one aptos chain is supported in test environment
 		aptosCs := DeployChainContractsToAptosCS(t, e, aptosChains[0])
 		e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{aptosCs})
+		require.NoError(t, err)
+	}
+
+	if len(tonChains) != 0 {
+		// Currently only one ton chain is supported in test environment
+		tonCs := deployChainContractsToTonChainCS(e, tonChains[0])
+		e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{tonCs})
 		require.NoError(t, err)
 	}
 

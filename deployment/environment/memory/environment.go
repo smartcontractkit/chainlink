@@ -68,7 +68,7 @@ type NewNodesConfig struct {
 	// Solana chains to be configured. Optional.
 	SolChains map[uint64]cldf_solana.Chain
 	// Aptos chains to be configured. Optional.
-	AptosChains map[uint64]cldf.AptosChain
+	AptosChains map[uint64]cldf_aptos.Chain
 	// TON chains to be configured. Optional.
 	TonChains      map[uint64]cldf_ton.Chain
 	NumNodes       int

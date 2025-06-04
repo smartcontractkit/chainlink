@@ -81,7 +81,6 @@ type TonTestDeployContractsChangeSet struct {
 var _ commoncs.ConfiguredChangeSet = TonTestDeployContractsChangeSet{}
 
 func (c TonTestDeployContractsChangeSet) Apply(e deployment.Environment) (deployment.ChangesetOutput, error) {
-
 	t := c.T
 
 	tonChains, err := tonstate.LoadOnchainStateTon(e)

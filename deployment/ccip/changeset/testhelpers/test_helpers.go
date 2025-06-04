@@ -920,11 +920,13 @@ func AddLane(
 	if toFamily == chainsel.FamilySolana {
 		changesets = append(changesets, AddLaneSolanaChangesets(t, e, to, from, fromFamily)...)
 	}
-	if fromFamily == chainsel.FamilyTon || toFamily == chainsel.FamilyTon {
-		fmt.Printf("Adding lane from %d to %d, fromFamily %s, toFamily %s\n", from, to, fromFamily, toFamily)
+	if fromFamily == chainsel.FamilyTon {
 		changesets = append(changesets, addLaneTonChangesets(t, e, from, to, fromFamily, toFamily)...)
 	}
-	e.Env, err = commoncs.ApplyChangesets(t, e.Env, changesets)
+	if toFamily == chainsel.FamilyTon {
+		changesets = append(changesets, addLaneTonChangesets(t, e, to, from, toFamily, fromFamily)...)
+	}
+	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
 	require.NoError(t, err)
 }
 
