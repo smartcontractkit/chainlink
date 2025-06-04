@@ -51,9 +51,5 @@ func (o *OracleFactoryMock) NewOracle(ctx context.Context, args core.OracleArgs)
 
 type OracleMock struct{}
 
-func (o *OracleMock) Start(ctx context.Context) error {
-	return nil
-}
-func (o *OracleMock) Close(ctx context.Context) error {
-	return nil
-}
+func (o *OracleMock) Start(ctx context.Context) error { return nil }
+func (o *OracleMock) Close(ctx context.Context) error { return nil }

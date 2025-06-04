@@ -87,7 +87,7 @@ func run(
 
 		// await the capability to be initialized if using a loop plugin
 		if standardcap, ok := cap.(*standaloneLoopWrapper); ok {
-			if err := standardcap.Await(ctx); err != nil {
+			if err = standardcap.Await(ctx); err != nil {
 				fmt.Printf("Failed to await capability: %v\n", err)
 				os.Exit(1)
 			}
