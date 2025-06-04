@@ -28,7 +28,10 @@ on:
 
 jobs:
   test-cli:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runner: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.runner }}
     environment: "integration"
     timeout-minutes: 30
     permissions:
@@ -91,6 +94,7 @@ jobs:
           EOF
 
       - name: Start the CLI
+        id: start-cli
         shell: bash
         env:
           CTF_CONFIGS: "./configs/single-don.toml,./configs/ci-override.toml"
@@ -98,9 +102,32 @@ jobs:
           E2E_JD_VERSION: "0.9.0"
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
           E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}
+          GETDX_SECRET_KEY: ${{ secrets.DX_SECRET_KEY }}
         run: |
           cd core/scripts/cre/environment
-          go run main.go env start
+          { time go run main.go env start; } 2> >(tee /tmp/time_output >&2)
+          echo "execution_time=$(cat /tmp/time_output | grep real | awk '{print $2}')" >> $GITHUB_OUTPUT
+
+      - name: Track local env startup success rate
+        if: always()
+        shell: bash
+        run: |
+            success=false
+            if [ "${{ steps.start-cli.outcome }}" == "success" ]; then success=true; fi
+
+            echo "::debug::success: $success"
+
+            printf -v data '{"name": "cre.local.startup.result", "github_username": "%s", "timestamp": "%s", "metadata": {"success": "%s", "is_ci": true, "error": "N/A", "panicked": "N/A", "runner": "%s"}}' "$GITHUB_ACTOR" "$EPOCHSECONDS" "$success" "$GITHUB_RUNNER"
+            curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $GETDX_SECRET_KEY" -d "$data" https://api.getdx.com/events.track
+
+      - name: Track local env startup duration
+        shell: bash
+        run: |
+            echo "::debug::execution_time: ${{ steps.start-cli.outputs.execution_time }}"
+
+            printf -v data '{"name": "cre.local.startup.time", "github_username": "%s", "timestamp": "%s", "metadata": {"duration_seconds": "%s", "runner": "%s"}}' "$GITHUB_ACTOR" "$EPOCHSECONDS" "${{ steps.start-cli.outputs.execution_time }}" "$GITHUB_RUNNER"
+            curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $GETDX_SECRET_KEY" -d "$data" https://api.getdx.com/events.track
+
 
   notify-test-failure:
     name: Notify about local env startup failure
