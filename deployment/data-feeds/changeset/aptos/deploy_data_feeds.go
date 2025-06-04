@@ -19,7 +19,7 @@ var DeployDataFeedsChangeset = cldf.CreateChangeSet(deployDataFeedsLogic, deploy
 func deployDataFeedsLogic(env cldf.Environment, c types.DeployAptosConfig) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
 	ab := cldf.NewMemoryAddressBook()
-	dataStore := datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]()
+	dataStore := datastore.NewMemoryDataStore()
 
 	for _, chainSelector := range c.ChainsToDeploy {
 		chain := env.BlockChains.AptosChains()[chainSelector]
