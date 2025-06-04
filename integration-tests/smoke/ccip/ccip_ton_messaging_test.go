@@ -4,6 +4,8 @@ import (
 	"encoding/base64"
 	"testing"
 
+	"github.com/xssnick/tonutils-go/tlb"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
@@ -25,7 +27,7 @@ func Test_CCIPMessaging_EVM2Ton(t *testing.T) {
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	// t.Logf("Loaded state: %v", state)
+	t.Logf("Loaded state: %v", state)
 	_ = state
 
 	evmChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
@@ -39,6 +41,24 @@ func Test_CCIPMessaging_EVM2Ton(t *testing.T) {
 		", source chain selector:", sourceChain,
 		", dest chain selector:", destChain,
 	)
+
+	tonChain := e.Env.BlockChains.TonChains()[destChain]
+	tonClient := tonChain.Client
+	deployerWallet := tonChain.Wallet
+
+	masterInfo, err := tonClient.GetMasterchainInfo(t.Context())
+	require.NoError(t, err, "Failed to get masterchain info")
+	acc, err := tonClient.GetAccount(t.Context(), masterInfo, deployerWallet.Address())
+	if err != nil || acc == nil || acc.State == nil || !acc.IsActive {
+		t.Fatalf("Account not ready yet: %v\n", err)
+	}
+
+	balance := acc.State.Balance
+	expected := tlb.MustFromTON("1000")
+	if balance.Compare(&expected) >= 0 {
+		t.Logf("Success: Balance for %s reached: %s TON\n", deployerWallet.Address().String(), balance.String())
+	}
+
 	// connect a single lane, source to dest
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 

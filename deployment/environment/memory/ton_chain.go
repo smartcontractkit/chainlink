@@ -4,13 +4,15 @@ import (
 	//"crypto/secp256k1"
 	//"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	//"github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa"
-	"context"
+
 	"fmt"
-	"log"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/xssnick/tonutils-go/address"
+	"github.com/xssnick/tonutils-go/tlb"
 	"github.com/xssnick/tonutils-go/ton/wallet"
 
 	"github.com/stretchr/testify/require"
@@ -46,20 +48,48 @@ func createTonWallet(t *testing.T, client ton.APIClientWrapped, version wallet.V
 	return pw
 }
 
+func fundTonWallets(t *testing.T, client ton.APIClientWrapped, recipients []*address.Address, amounts []tlb.Coins) {
+	rawHlWallet, err := wallet.FromSeed(client, strings.Fields(blockchain.DefaultTonHlWalletMnemonic), wallet.HighloadV2Verified)
+	require.NoError(t, err, "failed to create highload wallet")
+	mcFunderWallet, err := wallet.FromPrivateKeyWithOptions(client, rawHlWallet.PrivateKey(), wallet.HighloadV2Verified, wallet.WithWorkchain(-1))
+	require.NoError(t, err, "failed to create highload wallet")
+	subWalletID := uint32(42)
+	funder, err := mcFunderWallet.GetSubwallet(subWalletID)
+	require.NoError(t, err, "failed to get highload subwallet")
+	// double check funder address
+	require.Equal(t, funder.Address().StringRaw(), blockchain.DefaultTonHlWalletAddress, "funder address mismatch")
+
+	if len(recipients) != len(amounts) {
+		t.Fatalf("number of recipients (%d) does not match number of amounts (%d)", len(recipients), len(amounts))
+	}
+
+	messages := make([]*wallet.Message, len(recipients))
+	for i, addr := range recipients {
+		transfer, terr := funder.BuildTransfer(addr, amounts[i], false, "")
+		require.NoError(t, terr, fmt.Sprintf("failed to build transfer for %s", addr.String()))
+		messages[i] = transfer
+	}
+	_, _, txerr := funder.SendManyWaitTransaction(t.Context(), messages)
+	require.NoError(t, txerr, "airdrop transaction failed")
+	// we don't wait for the transaction to be confirmed here, as it may take some time
+}
+
 func GenerateChainsTon(t *testing.T, numChains int) map[uint64]cldf_ton.Chain {
 	testTonChainSelectors := getTestTonChainSelectors()
+	if numChains > 1 {
+		t.Fatalf("only one ton chain is supported for now, got %d", numChains)
+	}
 	if len(testTonChainSelectors) < numChains {
 		t.Fatalf("not enough test ton chain selectors available")
 	}
+
 	chains := make(map[uint64]cldf_ton.Chain)
 	for i := 0; i < numChains; i++ {
 		chainID := testTonChainSelectors[i]
-
 		nodeClient := tonChain(t, chainID)
-		t.Logf("[TON-E2E] NodeClient %+v", nodeClient)
-		// todo: configurable wallet version, we might need to use Highload wallet for some tests
-		// todo: configurable wallet options
 		wallet := createTonWallet(t, nodeClient, wallet.V3R2, wallet.WithWorkchain(0))
+		// airdrop the deployer wallet
+		fundTonWallets(t, nodeClient, []*address.Address{wallet.Address()}, []tlb.Coins{tlb.MustFromTON("1000")})
 		ton := cldf_ton.Chain{
 			ChainMetadata: cldf_ton.ChainMetadata{Selector: chainID},
 			Client:        nodeClient,
@@ -68,37 +98,28 @@ func GenerateChainsTon(t *testing.T, numChains int) map[uint64]cldf_ton.Chain {
 		}
 		t.Log(ton)
 		chains[chainID] = ton
-
 	}
 	return chains
 }
 
 func tonChain(t *testing.T, chainID uint64) *ton.APIClient {
 	t.Helper()
-	ctx := context.Background()
-
-	// initialize the docker network used by CTF
 	err := framework.DefaultNetwork(once)
 	require.NoError(t, err)
 
-	maxRetries := 10
+	bcInput := &blockchain.Input{
+		Image:   "ghcr.io/neodix42/mylocalton-docker:latest", // filled out by defaultTon function
+		Type:    "ton",
+		ChainID: strconv.FormatUint(chainID, 10),
+	}
+
 	var networkConfigUrl string
 	var containerName string
 
-	// TODO: SKIP for now, taking too much time, remove when we get enough understanding in test environment
-	// wget https://raw.githubusercontent.com/neodix42/mylocalton-docker/refs/heads/main/docker-compose.yaml
-	// docker-compose up
-	// if existing network error happens, run `docker network rm ton`
+	maxRetries := 10
 	useExistingTonlocalnet := false
 
 	for i := 0; i < maxRetries; i++ {
-		bcInput := &blockchain.Input{
-			Image:   "ghcr.io/neodix42/mylocalton-docker:latest", // filled out by defaultTon function
-			Type:    "ton",
-			ChainID: strconv.FormatUint(chainID, 10),
-		}
-
-		// TODO: SKIP for now, taking too much time
 		if !useExistingTonlocalnet {
 			output, err := blockchain.NewBlockchainNetwork(bcInput)
 			if err != nil {
@@ -120,29 +141,20 @@ func tonChain(t *testing.T, chainID uint64) *ton.APIClient {
 	}
 	_ = containerName
 
-	fmt.Printf("DEBUG: Mylocalton config url: %s\n", networkConfigUrl)
+	cfg, err := liteclient.GetConfigFromUrl(t.Context(), networkConfigUrl)
+	require.NoError(t, err, "Failed to get config from URL: %s", networkConfigUrl)
 
 	connectionPool := liteclient.NewConnectionPool()
-
-	// get config
-	cfg, err := liteclient.GetConfigFromUrl(context.Background(), networkConfigUrl)
-	if err != nil {
-		log.Fatalln("get config err: ", err.Error())
-		return nil
-	}
-
-	// connect to lite servers
-	err = connectionPool.AddConnectionsFromConfig(context.Background(), cfg)
+	err = connectionPool.AddConnectionsFromConfig(t.Context(), cfg)
 	require.NoError(t, err)
 
-	// api client with full proof checks
 	client := ton.NewAPIClient(connectionPool, ton.ProofCheckPolicyFast)
 	client.SetTrustedBlockFromConfig(cfg)
 
 	var ready bool
 	for i := 0; i < 30; i++ {
 		time.Sleep(time.Second)
-		_, err := client.GetMasterchainInfo(ctx)
+		_, err := client.GetMasterchainInfo(t.Context())
 		require.NoError(t, err)
 		if err != nil {
 			t.Logf("API server not ready yet (attempt %d): %+v\n", i+1, err)
@@ -152,11 +164,6 @@ func tonChain(t *testing.T, chainID uint64) *ton.APIClient {
 		break
 	}
 	require.True(t, ready, "TON network not ready")
-	time.Sleep(15 * time.Second) // we have slot errors that force retries if the chain is not given enough time to boot
-
-	// TODO(ton): fund transmitter and default wallets
-	//_, err = framework.ExecContainer(containerName, []string{"ton", "account", "fund-with-faucet", "--account", adminAddress.String(), "--amount", "100000000000"})
-	// require.NoError(t, err)
 
 	return client
 }
@@ -166,13 +173,12 @@ func createTonChainConfig(chainID string, chain cldf_ton.Chain) chainlink.RawCon
 
 	chainConfig["Enabled"] = true
 	chainConfig["ChainID"] = chainID
-	chainConfig["NetworkName"] = "localnet"
-	chainConfig["NetworkNameFull"] = "ton-localnet"
+	chainConfig["NetworkName"] = "ton-local"
+	chainConfig["NetworkNameFull"] = "ton-local"
 	chainConfig["Nodes"] = []any{
 		map[string]any{
 			"Name": "primary",
-			// TODO(ton): fill out URL correctly
-			"URL": "http://localhost:8000/localhost.global.config.json",
+			"URL":  chain.URL,
 		},
 	}
 
