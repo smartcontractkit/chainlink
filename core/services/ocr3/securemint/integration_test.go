@@ -428,11 +428,11 @@ lloConfigMode = "mercury"
 	require.NoError(t, err)
 	backend.Commit()
 
-	// 	pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
-	// donID = %d
-	// channelDefinitionsContractAddress = "0x%x"
-	// channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
-	// addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, legacyVerifierAddr, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
+	pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
+	donID = %d
+	channelDefinitionsContractAddress = "0x%x"
+	channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+	addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, legacyVerifierAddr, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
 
 	allowedSenders := make([]common.Address, len(nodes))
 	for i, node := range nodes {
@@ -642,6 +642,8 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []Node, jobIDs map[int]
 			require.Lenf(t, j.JobSpecErrors, ignore, "assert error: job spec errors on node %d", i)
 		}
 	}
+
+	t.Logf("No job spec errors identified for any node")
 
 	// 2. Assert that all the Secure Mint jobs get a run with valid values eventually
 	// var wg sync.WaitGroup

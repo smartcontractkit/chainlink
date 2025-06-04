@@ -1090,20 +1090,8 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 
 	var pr []pipeline.Run
 	gomega.NewWithT(t).Eventually(func() bool {
-
-		jobs, count, err := jo.FindJobs(testutils.Context(t), 0, 10)
-		require.NoError(t, err)
-		t.Logf("Found %d jobs, count %d", len(jobs), count)
-		for _, j := range jobs {
-			t.Logf("Job ID %d, name %s, pipeline spec ID %d", j.ID, j.Name, j.PipelineSpecID)
-		}
-
 		prs, _, err := jo.PipelineRuns(testutils.Context(t), &jobID, 0, 1000)
 		require.NoError(t, err)
-		t.Logf("Found %d pipeline runs for job %d", len(prs), jobID)
-		for _, pr := range prs {
-			t.Logf("Run ID %d, state %s, nodeID %d, task runs %d", pr.ID, pr.State, nodeID, len(pr.PipelineTaskRuns))
-		}
 
 		var matched []pipeline.Run
 		for _, pr := range prs {
