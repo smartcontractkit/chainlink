@@ -106,7 +106,13 @@ jobs:
         run: |
           cd core/scripts/cre/environment
           { time go run main.go env start; } 2> >(tee /tmp/time_output >&2)
-          echo "execution_time=$(cat /tmp/time_output | grep real | awk '{print $2}')" >> $GITHUB_OUTPUT
+
+          # Convert time to total seconds
+          time_str=$(cat /tmp/time_output | grep real | awk '{print $2}')
+          minutes=$(echo $time_str | awk -F'm' '{print $1}')
+          seconds=$(echo $time_str | awk -F'm' '{print $2}' | sed 's/s//')
+          total_seconds=$(echo "$minutes * 60 + $seconds" | bc)
+          echo "execution_time=$total_seconds" >> $GITHUB_OUTPUT
 
       - name: Track local env startup success rate
         if: always()
