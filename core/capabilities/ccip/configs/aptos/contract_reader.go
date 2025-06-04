@@ -1,6 +1,8 @@
 package aptosconfig
 
 import (
+	"time"
+
 	"github.com/smartcontractkit/chainlink-aptos/relayer/chainreader/config"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 )
@@ -232,6 +234,48 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 							},
 						},
 					},
+					"OCRConfigSet": {
+						EventHandleStructName: "OffRampState",
+						EventHandleFieldName:  "ocr3_base_state.config_set_events",
+						EventAccountAddress:   "offramp::get_state_address",
+						EventFieldRenames: map[string]config.RenamedField{
+							"ocr_plugin_type": {
+								NewName: "OcrPluginType",
+							},
+							"config_digest": {
+								NewName: "ConfigDigest",
+							},
+							"signers": {
+								NewName: "Signers",
+							},
+							"transmitters": {
+								NewName: "Transmitters",
+							},
+							"big_f": {
+								NewName: "BigF",
+							},
+						},
+					},
+					"SourceChainConfigSet": {
+						EventHandleStructName: "OffRampState",
+						EventHandleFieldName:  "source_chain_config_set_events",
+						EventAccountAddress:   "offramp::get_state_address",
+						EventFieldRenames: map[string]config.RenamedField{
+							"source_chain_selector": {
+								NewName: "SourceChainSelector",
+							},
+							"source_chain_config": {
+								NewName: "SourceChainConfig",
+								SubFieldRenames: map[string]config.RenamedField{
+									"router":                       {NewName: "Router"},
+									"is_enabled":                   {NewName: "IsEnabled"},
+									"min_seq_nr":                   {NewName: "MinSeqNr"},
+									"is_rmn_verification_disabled": {NewName: "IsRMNVerificationDisabled"},
+									"on_ramp":                      {NewName: "OnRamp"},
+								},
+							},
+						},
+					},
 				},
 			},
 			consts.ContractNameOnRamp: {
@@ -280,10 +324,10 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 								SubFieldRenames: nil,
 							},
 							"message": {
-								NewName:         "Message",
+								NewName: "Message",
 								SubFieldRenames: map[string]config.RenamedField{
 									"header": {
-										NewName:         "Header",
+										NewName: "Header",
 										SubFieldRenames: map[string]config.RenamedField{
 											"source_chain_selector": {
 												NewName: "SourceChainSelector",
@@ -303,28 +347,28 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 										},
 									},
 									"sender": {
-										NewName:         "Sender",
+										NewName: "Sender",
 									},
 									"data": {
-										NewName:         "Data",
+										NewName: "Data",
 									},
 									"receiver": {
-										NewName:         "Receiver",
+										NewName: "Receiver",
 									},
 									"extra_args": {
-										NewName:         "ExtraArgs",
+										NewName: "ExtraArgs",
 									},
 									"fee_token": {
-										NewName:         "FeeToken",
+										NewName: "FeeToken",
 									},
 									"fee_token_amount": {
-										NewName:         "FeeTokenAmount",
+										NewName: "FeeTokenAmount",
 									},
 									"fee_value_juels": {
-										NewName:         "FeeValueJuels",
+										NewName: "FeeValueJuels",
 									},
 									"token_amounts": {
-										NewName:         "TokenAmounts",
+										NewName: "TokenAmounts",
 										SubFieldRenames: map[string]config.RenamedField{
 											"source_pool_address": {
 												NewName: "SourcePoolAddress",
@@ -347,11 +391,16 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 							},
 						},
 						EventFilterRenames: map[string]string{
-							"DestChain": "DestChainSelector",
+							"DestChain":   "DestChainSelector",
+							"SourceChain": "Message.Header.SourceChainSelector",
 						},
 					},
 				},
 			},
 		},
+		EventSyncInterval: 12 * time.Second,
+		EventSyncTimeout: 10 * time.Second,
+		TxSyncInterval: 12 * time.Second,
+		TxSyncTimeout: 10 * time.Second,
 	}, nil
 }
