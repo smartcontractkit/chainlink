@@ -3,6 +3,8 @@ package ccip
 import (
 	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -303,49 +305,48 @@ func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
 		},
 	)
 
-	//t.Logf("Checking TransmittedEvents")
-	//done := make(chan any)
-	//defer close(done)
-	//offrampAddress := state.SolChains[destChain].OffRamp
-	//sink, errCh := testhelpers.SolEventEmitter[solccip.EventTransmitted](
-	//	t,
-	//	solChains[destChain].Client,
-	//	offrampAddress, "Transmitted", 0, done)
-	//timeout := time.NewTimer(tests.WaitTimeout(t) - 5*time.Second) // 5 seconds buffer for cleanup
-	//defer timeout.Stop()
-	//
-	//successful := false
-	//// create a map/set to keep track of transmittedEvent.SequenceNumber
-	//sequenceNumbers := make(map[uint64]int)
-	//
-	//for {
-	//	select {
-	//	case transmittedEvent := <-sink:
-	//		if transmittedEvent.OcrPluginType == uint8(cctypes.PluginTypeCCIPExec) {
-	//			ocrSeqNr := transmittedEvent.SequenceNumber
-	//			_, exists := sequenceNumbers[ocrSeqNr]
-	//			if !exists {
-	//				sequenceNumbers[ocrSeqNr] = 0
-	//			}
-	//			sequenceNumbers[ocrSeqNr] = sequenceNumbers[ocrSeqNr] + 1
-	//			// All exec reports should have the same sequence number
-	//			if len(sequenceNumbers) > 1 {
-	//				break
-	//			}
-	//
-	//			if sequenceNumbers[ocrSeqNr] >= numMessages {
-	//				successful = true
-	//				break
-	//			}
-	//		}
-	//	case err := <-errCh:
-	//		require.NoError(t, err)
-	//	case <-timeout.C:
-	//		require.Fail(t, "Timed out waiting for all messages to complete")
-	//	}
-	//}
-	//
-	//require.True(t, successful, "reports were not submitted at same OCR seq number")
+	t.Logf("Checking TransmittedEvents")
+	done := make(chan any)
+	defer close(done)
+	offrampAddress := state.SolChains[destChain].OffRamp
+	sink, errCh := testhelpers.SolEventEmitter[solccip.EventTransmitted](
+		t,
+		solChains[destChain].Client,
+		offrampAddress, "Transmitted", 0, done)
+	timeout := time.NewTimer(tests.WaitTimeout(t) - 5*time.Second) // 5 seconds buffer for cleanup
+	defer timeout.Stop()
+
+	// create a map/set to keep track of transmittedEvent.SequenceNumber
+	sequenceNumbers := make(map[uint64]int)
+
+	for {
+		select {
+		case transmittedEvent := <-sink:
+			if transmittedEvent.OcrPluginType == uint8(cctypes.PluginTypeCCIPExec) {
+				ocrSeqNr := transmittedEvent.SequenceNumber
+				_, exists := sequenceNumbers[ocrSeqNr]
+				if !exists {
+					sequenceNumbers[ocrSeqNr] = 0
+				}
+				sequenceNumbers[ocrSeqNr] = sequenceNumbers[ocrSeqNr] + 1
+				t.Logf("Current sequence numbers: %+v", sequenceNumbers)
+				// All exec reports should have the same sequence number
+				if len(sequenceNumbers) > 1 {
+					t.Errorf("More than one sequence number: %+v", sequenceNumbers)
+					break
+				}
+
+				// All messages were reported with different reports but same sequence number
+				if sequenceNumbers[ocrSeqNr] >= numMessages {
+					return
+				}
+			}
+		case err := <-errCh:
+			require.NoError(t, err)
+		case <-timeout.C:
+			require.Fail(t, "Timed out waiting for all messages to complete")
+		}
+	}
 }
 
 func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
