@@ -2,7 +2,7 @@
 The OIDC module handles implementation of the initial auth flow redirects by requiring
 conustruction with a reference to the HTTP router, verifying the attestation against
 the config's Provider service, and then creating a sesion based on the OIDC response
-'groups' claim, with roles mapped within the config.
+id claim e.g 'groups' with roles mapped within the config.
 
 This module configures and spins up its own gin http api router to handle the single callback endpoint.
 
@@ -397,7 +397,7 @@ func (oi *oidcAuthenticator) AuthorizedUserWithSession(ctx context.Context, sess
 	})
 	if err != nil {
 		if errors.Is(err, clsessions.ErrUserSessionExpired) {
-			if _, execErr := oi.ds.ExecContext(ctx, "DELETE FROM oidc_sessions WHERE id = $1", sessionID); err != nil {
+			if _, execErr := oi.ds.ExecContext(ctx, "DELETE FROM oidc_sessions WHERE id = $1", sessionID); execErr != nil {
 				oi.lggr.Errorf("error purging stale OIDC session: %v", execErr)
 			}
 		}
