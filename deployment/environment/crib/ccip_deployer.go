@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/rs/zerolog"
-	"golang.org/x/sync/errgroup"
 	xerrgroup "golang.org/x/sync/errgroup"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -30,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -45,7 +43,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
@@ -398,17 +395,16 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 
 		solCs = append(solCs, solTestReceiver)
 
-		deployedEnv.Env, err = commonchangeset.Apply(nil, deployedEnv.Env, solCs[0], solCs[1:]...)
+		*e, err = commonchangeset.Apply(nil, deployedEnv.Env, solCs[0], solCs[1:]...)
 		if err != nil {
 			return *e, err
 		}
 
-		err = testhelpers.ValidateSolanaState(deployedEnv.Env, solChainSelectors)
+		err = testhelpers.ValidateSolanaState(*e, solChainSelectors)
 		if err != nil {
 			return *e, err
 		}
 
-		*e = deployedEnv.Env
 		lggr.Infow("setup SOL Link pools")
 		*e, err = setupSolLinkPools(e)
 		if err != nil {
@@ -489,32 +485,32 @@ func setupLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 }
 
 func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
-	sels := e.BlockChains.All()
+	sels := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
 	state, err := stateview.LoadOnchainState(*e)
 	if err != nil {
 		return *e, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	for _, solChainSel := range sels {
-		solTokenAddress := state.SolChains[solChainSel.ChainSelector()].LinkToken
-		bnm := test_token_pool.BurnAndMint_PoolType
+		solTokenAddress := state.SolChains[solChainSel].LinkToken
+		bnm := solTestTokenPool.BurnAndMint_PoolType
 
 		*e, err = commonchangeset.Apply(nil, *e, nil,
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.CreateSolanaTokenATA),
 				ccipChangesetSolana.CreateSolanaTokenATAConfig{
-					ChainSelector: solChainSel.ChainSelector(),
+					ChainSelector: solChainSel,
 					TokenPubkey:   solTokenAddress,
 					// TODO - Seems to be nil, deployer not set properly
-					ATAList: []string{e.BlockChains.SolanaChains()[solChainSel.ChainSelector()].DeployerKey.PublicKey().String()},
+					ATAList: []string{e.BlockChains.SolanaChains()[solChainSel].DeployerKey.PublicKey().String()},
 				},
 			),
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.MintSolanaToken),
 				ccipChangesetSolana.MintSolanaTokenConfig{
-					ChainSelector: solChainSel.ChainSelector(),
+					ChainSelector: solChainSel,
 					TokenPubkey:   solTokenAddress.String(),
 					AmountToAddress: map[string]uint64{
-						e.BlockChains.SolanaChains()[solChainSel.ChainSelector()].DeployerKey.PublicKey().String(): math.MaxUint64,
+						e.BlockChains.SolanaChains()[solChainSel].DeployerKey.PublicKey().String(): math.MaxUint64,
 					},
 				},
 			),
@@ -525,7 +521,7 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 				ccipChangesetSolana.E2ETokenPoolConfig{
 					AddTokenPoolAndLookupTable: []ccipChangesetSolana.TokenPoolConfig{
 						{
-							ChainSelector: solChainSel.ChainSelector(),
+							ChainSelector: solChainSel,
 							TokenPubKey:   solTokenAddress,
 							PoolType:      &bnm,
 							Metadata:      shared.CLLMetadata,
@@ -533,21 +529,21 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 					},
 					RegisterTokenAdminRegistry: []ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
 						{
-							ChainSelector:           solChainSel.ChainSelector(),
+							ChainSelector:           solChainSel,
 							TokenPubKey:             solTokenAddress,
-							TokenAdminRegistryAdmin: e.BlockChains.SolanaChains()[solChainSel.ChainSelector()].DeployerKey.PublicKey().String(),
+							TokenAdminRegistryAdmin: e.BlockChains.SolanaChains()[solChainSel].DeployerKey.PublicKey().String(),
 							RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
 						},
 					},
 					AcceptAdminRoleTokenAdminRegistry: []ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
 						{
-							ChainSelector: solChainSel.ChainSelector(),
+							ChainSelector: solChainSel,
 							TokenPubKey:   solTokenAddress,
 						},
 					},
 					SetPool: []ccipChangesetSolana.SetPoolConfig{
 						{
-							ChainSelector:   solChainSel.ChainSelector(),
+							ChainSelector:   solChainSel,
 							TokenPubKey:     solTokenAddress,
 							PoolType:        &bnm,
 							Metadata:        shared.CLLMetadata,
@@ -561,9 +557,9 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 			return *e, fmt.Errorf("failed to apply solana setup link pool changesets: %w", err)
 		}
 
-		sourceAccount := *e.BlockChains.SolanaChains()[solChainSel.ChainSelector()].DeployerKey
-		rpcClient := e.BlockChains.SolanaChains()[solChainSel.ChainSelector()].Client
-		router := state.SolChains[solChainSel.ChainSelector()].Router
+		sourceAccount := *e.BlockChains.SolanaChains()[solChainSel].DeployerKey
+		rpcClient := e.BlockChains.SolanaChains()[solChainSel].Client
+		router := state.SolChains[solChainSel].Router
 		tokenProgram := solana.TokenProgramID
 		wSOL := solana.SolMint
 		// token transfer enablement changesets
@@ -589,8 +585,8 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 		}
 
 		// Approve CCIP to transfer the user's Link token for token transfers
-		link := state.SolChains[solChainSel.ChainSelector()].LinkToken
-		tokenProgramID, _ := state.SolChains[solChainSel.ChainSelector()].TokenToTokenProgram(link)
+		link := state.SolChains[solChainSel].LinkToken
+		tokenProgramID, _ := state.SolChains[solChainSel].TokenToTokenProgram(link)
 		deployerATA, _, err := soltokens.FindAssociatedTokenAddress(tokenProgramID, link, sourceAccount.PublicKey())
 		if err != nil {
 			return *e, fmt.Errorf("failed to find associated token address: %w", err)
@@ -619,7 +615,7 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 	var err error
 	evmSelectors := e.BlockChains.EVMChains()
 	solSelectors := e.BlockChains.SolanaChains()
-	g := new(errgroup.Group)
+	g := new(xerrgroup.Group)
 	mu := sync.Mutex{}
 
 	for _, solSelector := range solSelectors {
@@ -671,7 +667,7 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 				cs = testhelpers.AddEVMDestChangesets(&deployedEnv, evmSelector.Selector, solSelector.Selector, false)
 				laneChangesets = append(laneChangesets, cs...)
 
-				bnm := test_token_pool.BurnAndMint_PoolType
+				bnm := solTestTokenPool.BurnAndMint_PoolType
 				laneChangesets = append(laneChangesets,
 					commonchangeset.Configure(
 						cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
