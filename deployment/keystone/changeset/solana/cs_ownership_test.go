@@ -1,14 +1,12 @@
 package solana
 
 import (
-	"log"
 	"math/big"
 	"testing"
 	"time"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
-	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -18,6 +16,7 @@ import (
 )
 
 func Test_TransferOwnershipForwarder(t *testing.T) {
+	skipInCI(t)
 	// deploy forwarder
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
@@ -28,7 +27,6 @@ func Test_TransferOwnershipForwarder(t *testing.T) {
 	registrySel := env.AllChainSelectorsSolana()[0]
 	ab := cldf.NewMemoryAddressBook()
 
-	chain := env.SolChains[registrySel]
 	mcfg := map[uint64]commontypes.MCMSWithTimelockConfigV2{
 		registrySel: {
 			Canceller:        proposalutils.SingleGroupMCMSV2(t),
@@ -43,12 +41,6 @@ func Test_TransferOwnershipForwarder(t *testing.T) {
 	_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.SolChains[registrySel], env.ExistingAddresses, mcfg[registrySel])
 	require.NoError(t, err)
 
-	addresses, _ := env.ExistingAddresses.AddressesForChain(registrySel)
-
-	mcmState, _ := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
-	if mcmState.TimelockProgram.IsZero() {
-		log.Fatal("timelock was lost??")
-	}
 	result, err := TransferOwnershipForwarder(env, &TransferOwnershipForwarderRequest{
 		ChainSel: registrySel,
 		MCMSCfg:  proposalutils.TimelockConfig{MinDelay: 1 * time.Second},

@@ -298,7 +298,7 @@ func buildLocally(e cldf.Environment, config BuildSolanaConfig, params DomainPar
 }
 
 func BuildSolana(e cldf.Environment, config BuildSolanaConfig, params DomainParams) error {
-	// TODO move Local Build to CCIP changesets
+	// TODO move non Local Build to CCIP changesets
 	if !config.LocalBuild.BuildLocally {
 		e.Logger.Debug("Downloading Solana CCIP program artifacts...")
 		err := memory.DownloadSolanaCCIPProgramArtifacts(e.GetContext(), config.DestinationDir, e.Logger, config.GitCommitSha)

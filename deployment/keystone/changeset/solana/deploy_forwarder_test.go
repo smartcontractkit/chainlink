@@ -3,6 +3,7 @@ package solana
 import (
 	"fmt"
 	"math/big"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -20,7 +21,11 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// Tests require downloading and building artifcats
+// from chainlink-solana and chainlink-ccip
+// so we disable them in CI since it will take too long to run
 func TestDeployForwarder(t *testing.T) {
+	skipInCI(t)
 	t.Parallel()
 
 	lggr := logger.Test(t)
@@ -46,6 +51,7 @@ func TestDeployForwarder(t *testing.T) {
 }
 
 func TestConfigureForwarder(t *testing.T) {
+	skipInCI(t)
 	t.Parallel()
 	testCases := []struct {
 		nChains      int
@@ -161,9 +167,7 @@ func shouldDeployForwarder(t *testing.T, env cldf.Environment, registrySel uint6
 		DestinationDir: "./solana_contracts",
 		LocalBuild: helpers.LocalBuildConfig{
 			BuildLocally:         true,
-			CleanDestinationDir:  true,
 			CreateDestinationDir: true,
-			CleanGitDir:          true,
 		},
 	}
 	// defult
@@ -187,13 +191,6 @@ func shouldDeployForwarder(t *testing.T, env cldf.Environment, registrySel uint6
 	return env
 }
 
-// prepare tests
-// 1. clone chainlink-solana, chainlink-ccip
-// 2. move mcp + timelock from ccip to chainlink-solana
-func prepareTests() {
-
-}
-
 func getProgramsPath() string {
 	// Get the directory of the current file (environment.go)
 	_, currentFile, _, _ := runtime.Caller(0)
@@ -201,4 +198,11 @@ func getProgramsPath() string {
 	rootDir := filepath.Dir(filepath.Dir(filepath.Dir(currentFile)))
 	// Construct the absolute path
 	return filepath.Join(rootDir, "changeset/solana", "solana_contracts")
+}
+
+func skipInCI(t *testing.T) {
+	ci := os.Getenv("CI") == "true"
+	if ci {
+		t.Skip("Skipping in CI")
+	}
 }
