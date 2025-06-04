@@ -111,7 +111,7 @@ jobs:
       - name: Build go code manually
         if: matrix.should-run && matrix.language == 'go'
         run: |
-          go build -o ./...
+          go build ./...
 
       - name: Perform CodeQL Analysis
         if: matrix.should-run
@@ -130,6 +130,9 @@ jobs:
     name: Runner Config
     needs: [filter]
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+      contents: read
     env:
       SH_GO_RUNNER: runs-on=${{ github.run_id }}/cpu=32/ram=64/family=c6i/spot=false/extras=s3-cache+tmpfs
       GH_GO_RUNNER: ubuntu24.04-8cores-32GB
