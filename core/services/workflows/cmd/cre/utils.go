@@ -38,17 +38,6 @@ const (
 	defaultName                      = "myworkflow"
 )
 
-// loopWrapper wraps a StandardCapabilities to implement services.Service
-type loopWrapper struct {
-	*standardcapabilities.StandardCapabilities
-}
-
-func (l *loopWrapper) Ready() error { return nil }
-
-func (l *loopWrapper) HealthReport() map[string]error { return make(map[string]error) }
-
-func (l *loopWrapper) Name() string { return "wrapped" }
-
 func NewStandaloneEngine(
 	ctx context.Context,
 	lggr logger.Logger,
@@ -148,6 +137,17 @@ func SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWork
 	return map[string]string{}, nil
 }
 
+// standaloneLoopWrapper wraps a StandardCapabilities to implement services.Service
+type standaloneLoopWrapper struct {
+	*standardcapabilities.StandardCapabilities
+}
+
+func (l *standaloneLoopWrapper) Ready() error { return l.StandardCapabilities.Ready() }
+
+func (l *standaloneLoopWrapper) HealthReport() map[string]error { return make(map[string]error) }
+
+func (l *standaloneLoopWrapper) Name() string { return "wrapped" }
+
 func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
 	caps := make([]services.Service, 0)
 
@@ -172,7 +172,7 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 		registry, &fakes.ErrorLogMock{}, &fakes.PipelineRunnerServiceMock{},
 		&fakes.RelayerSetMock{}, &fakes.OracleFactoryMock{})
 
-	caps = append(caps, &loopWrapper{
+	caps = append(caps, &standaloneLoopWrapper{
 		StandardCapabilities: cronLoop,
 	})
 
