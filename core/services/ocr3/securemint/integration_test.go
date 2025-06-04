@@ -22,8 +22,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/sha3"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/freeport"
-
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocrconfigurationstoreevmsimple"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -110,27 +111,6 @@ func setupBlockchain(t *testing.T) (
 	require.NoError(t, err)
 
 	backend.Commit()
-
-	minAnswer, maxAnswer := new(big.Int), new(big.Int)
-	minAnswer.Exp(big.NewInt(-2), big.NewInt(191), nil)
-	maxAnswer.Exp(big.NewInt(2), big.NewInt(191), nil)
-	maxAnswer.Sub(maxAnswer, big.NewInt(1))
-
-	// ocrContractAddress, _, ocrContract, err := ocr2aggregator.DeployOCR2Aggregator(
-	// 	steve,
-	// 	backend.Client(),
-	// 	common.Address{}, // _link common.Address,
-	// 	minAnswer,        // -2**191
-	// 	maxAnswer,        // 2**191 - 1
-	// 	common.Address{}, // accessAddress
-	// 	common.Address{}, // accessAddress
-	// 	9,                // decimals
-	// 	"secure mint test",
-	// )
-	// // Ensure we have finality depth worth of blocks to start.
-	// for i := 0; i < 20; i++ {
-	// 	backend.Commit()
-	// }
 
 	return steve, backend, destinationVerifier, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr
 }
@@ -461,6 +441,8 @@ lloConfigMode = "mercury"
 		allowedSenders[i] = keys[0].Address // assuming the first key is the transmitter
 	}
 
+	aggregatorAddress := setSecureMintOnchainConfigUsingAggregator(t, steve, backend, nodes, oracles)
+
 	ocrConfigStoreAddress, ocrConfigStore := setSecureMintOnchainConfigUsingEvmSimpleConfig(t, steve, backend, nodes, oracles)
 	t.Logf("Deployed and configured OCRConfigStore contract at: %s", ocrConfigStoreAddress.Hex())
 	ds, err := ocrConfigStore.TypeAndVersion(&bind.CallOpts{})
@@ -488,7 +470,7 @@ lloConfigMode = "mercury"
 	// require.NoError(t, err)
 	// t.Logf("latestConfigDigestAndEpoch: %+v", latestConfigDigestAndEpoch)
 
-	jobIDs := addSecureMintOCRJobs(t, nodes, ocrConfigStoreAddress)
+	jobIDs := addSecureMintOCRJobs(t, nodes, aggregatorAddress)
 
 	t.Logf("Configuring contract again")
 	configureIt(t, ocrConfigStore, steve, backend, nodes, oracles)
@@ -865,6 +847,114 @@ func configureIt(t *testing.T, ocrConfigStore *ocrconfigurationstoreevmsimple.OC
 	// l, err := dfCacheContract.LatestConfigDigestAndEpoch(&bind.CallOpts{})
 	// require.NoError(t, err)
 }
+
+func setSecureMintOnchainConfigUsingAggregator(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend, nodes []Node, oracles []confighelper.OracleIdentityExtra) common.Address {
+
+	// 1. Deploy aggregator contract
+
+	// these min and max answers are not used by the secure mint oracle but they're needed for validation in aggregator.setConfig()
+	// TODO(gg): maybe these could be 0 and max int?
+	minAnswer, maxAnswer := new(big.Int), new(big.Int)
+	minAnswer.Exp(big.NewInt(-2), big.NewInt(191), nil)
+	maxAnswer.Exp(big.NewInt(2), big.NewInt(191), nil)
+	maxAnswer.Sub(maxAnswer, big.NewInt(1))
+
+	aggregatorAddress, _, aggregatorContract, err := ocr2aggregator.DeployOCR2Aggregator(
+		steve,
+		backend.Client(),
+		common.Address{},   // _link common.Address,
+		minAnswer,          // -2**191
+		maxAnswer,          // 2**191 - 1
+		common.Address{},   // accessAddress
+		common.Address{},   // accessAddress
+		9,                  // decimals
+		"secure mint test", // description
+	)
+	if err != nil {
+		rPCError, err := rPCErrorFromError(err)
+		require.NoError(t, err)
+		t.Fatalf("Failed to deploy OCR2Aggregator contract: %s", rPCError)
+	}
+	// Ensure we have finality depth worth of blocks to start.
+	for i := 0; i < 20; i++ {
+		backend.Commit()
+	}
+	t.Logf("Deployed OCR2Aggregator contract at: %s", aggregatorAddress.Hex())
+
+	// 2. Create config
+	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(minAnswer, maxAnswer) // TODO(gg): this uses the median codec, not sure if this is correct
+	require.NoError(t, err)
+
+	smPluginConfig := por.PorOffchainConfig{MaxChains: 5} // TODO(gg): set config values
+	smPluginConfigBytes, err := smPluginConfig.Serialize()
+	require.NoError(t, err)
+
+	signers, _, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTests(
+		2*time.Second,        // deltaProgress,
+		20*time.Second,       // deltaResend,
+		400*time.Millisecond, // deltaInitial,
+		500*time.Millisecond, // deltaRound,
+		250*time.Millisecond, // deltaGrace,
+		300*time.Millisecond, // deltaCertifiedCommitRequest,
+		1*time.Minute,        // deltaStage,
+		100,                  // rMax,
+		[]int{len(oracles)},  // s,
+		oracles,              // oracles,
+		smPluginConfigBytes,  // reportingPluginConfig,
+		nil,                  // maxDurationInitialization,
+		0,                    // maxDurationQuery,
+		250*time.Millisecond, // maxDurationObservation,
+		0,                    // maxDurationShouldAcceptAttestedReport,
+		0,                    // maxDurationShouldTransmitAcceptedReport,
+		int(fNodes),          // f,
+		onchainConfig,        // onchainConfig (binary blob containing configuration passed through to the ReportingPlugin and also available to the contract. Unlike ReportingPluginConfig which is only available offchain.)
+	)
+	require.NoError(t, err)
+
+	// 3. Set config on the contract
+	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
+	require.NoError(t, err)
+
+	transmitterAddresses := make([]common.Address, len(nodes))
+	for i := range nodes {
+		keys, err := nodes[i].App.GetKeyStore().Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
+		require.NoError(t, err)
+		transmitterAddresses[i] = keys[0].Address // assuming the first key is the transmitter
+	}
+
+	_, err = aggregatorContract.SetConfig(steve, signerAddresses, transmitterAddresses, f, outOnchainConfig, offchainConfigVersion, offchainConfig)
+	if err != nil {
+		errString, err := rPCErrorFromError(err)
+		require.NoError(t, err)
+		t.Fatalf("Failed to configure contract: %s", errString)
+	}
+
+	// libocr requires a few confirmations to accept the config
+	backend.Commit()
+	backend.Commit()
+	backend.Commit()
+	backend.Commit()
+
+	aggregatorConfigDigest, err := aggregatorContract.LatestConfigDigestAndEpoch(&bind.CallOpts{})
+	if err != nil {
+		rPCError, err := rPCErrorFromError(err)
+		require.NoError(t, err)
+		t.Fatalf("Failed to get latest config digest: %s", rPCError)
+	}
+	t.Logf("Aggregator config digest: 0x%x", aggregatorConfigDigest.ConfigDigest)
+
+	return aggregatorAddress
+}
+
+// func generateSmConfig(t *testing.T, opts ...OCRConfigOption) (signers []types.OnchainPublicKey, transmitters []types.Account, f uint8, outOnchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte) {
+
+// 	return
+// }
+
+// func setSmConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, legacyVerifier *verifier.Verifier, legacyVerifierAddr common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra, inOffchainConfig datastreamsllo.OffchainConfig) ocr2types.ConfigDigest {
+
+// 	return l.ConfigDigest
+// }
 
 func rPCErrorFromError(txError error) (string, error) {
 	errBytes, err := json.Marshal(txError)
