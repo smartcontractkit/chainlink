@@ -289,22 +289,7 @@ func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
 	// Already sent a message earlier
 	require.Equal(t, uint8(0), receiverCounterAccount.Value)
 
-	//var wg sync.WaitGroup
-	iterations := 5
-	//results := make([]struct {
-	//	output mt.TestCaseOutput
-	//	err    error
-	//}, iterations)
-
-	//for i := 0; i < iterations; i++ {
-	//wg.Add(1)
-	//go func(idx int) {
-	//	defer wg.Done()
-	//	t.Logf("Starting parallel test iteration %d", idx+1)
-
-	// Each test run needs its own error variable
-	//var localErr error
-	//results[i].output = mt.Run(
+	numMessages := 5
 	_ = mt.Run(
 		t,
 		mt.TestCase{
@@ -316,17 +301,9 @@ func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
 			MsgData:                []byte(fmt.Sprintf("hello CCIPReceiver")),
 			ExtraArgs:              extraArgs,
 			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-			NumberOfMessages:       iterations,
+			NumberOfMessages:       numMessages,
 		},
 	)
-	//results[i].err = localErr
-	//t.Logf("Completed parallel test iteration %d", i+1)
-	//}(i)
-	//}
-
-	// Wait for all test iterations to complete
-	//wg.Wait()
-	//t.Logf("All %d parallel test iterations completed", iterations)
 
 	t.Logf("Checking TransmittedEvents")
 
@@ -359,7 +336,7 @@ func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
 					break
 				}
 
-				if sequenceNumbers[ocrSeqNr] >= iterations {
+				if sequenceNumbers[ocrSeqNr] >= numMessages {
 					successful = true
 					break
 				}
@@ -367,14 +344,13 @@ func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
 		case err := <-errCh:
 			require.NoError(t, err)
 		case <-timeout.C:
-			require.Fail(t, "Timed out waiting for all parallel test iterations to complete")
+			require.Fail(t, "Timed out waiting for all messages to complete")
 		}
 	}
 
-	require.True(t, successful)
-	t.Log("All parallel test iterations completed")
-
+	require.True(t, successful, "reports were not submitted at same OCR seq number")
 }
+
 func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
