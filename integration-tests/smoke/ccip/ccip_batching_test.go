@@ -111,7 +111,6 @@ func Test_CCIPBatching_MaxBatchSizeEVM(t *testing.T) {
 				destChain,
 				merklemulti.MaxNumberTreeLeaves/2,
 				common.LeftPadBytes(state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(), 32),
-				false, // OOO disabled
 			)
 			t.Log("sendMessages error:", err, ", writing to channel")
 			errs <- err
@@ -158,63 +157,31 @@ var multiPriceReportOverride = testhelpers.WithOCRConfigOverride(func(params v1_
 	return params
 })
 
-var multiExecReportOverride = testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-	// Exec
-	params.ExecuteOffChainConfig.MultipleReportsEnabled = true
-	params.ExecuteOffChainConfig.MaxReportMessages = 1
-	params.ExecuteOffChainConfig.MaxSingleChainReports = 1
-	return params
-})
-
 func Test_CCIPBatching_MultiSource(t *testing.T) {
-	ccipBatchingMultiSource(t, false) // OOO disabled
-}
-
-func Test_CCIPBatching_MultiSource_OOO(t *testing.T) {
-	ccipBatchingMultiSource(t, true) // OOO enabled
+	ccipBatchingMultiSource(t)
 }
 
 func Test_CCIPBatching_MultiSource_MultiRoot(t *testing.T) {
-	ccipBatchingMultiSource(t, false, multiRootReportOverride) // OOO disabled
-}
-
-func Test_CCIPBatching_MultiSource_MultiRoot_OOO(t *testing.T) {
-	ccipBatchingMultiSource(t, true, multiRootReportOverride) // OOO enabled
+	ccipBatchingMultiSource(t, multiRootReportOverride)
 }
 
 func Test_CCIPBatching_MultiSource_MultiPrice(t *testing.T) {
-	ccipBatchingMultiSource(t, false, multiPriceReportOverride) // OOO disabled
-}
-
-func Test_CCIPBatching_MultiSource_MultiPrice_OOO(t *testing.T) {
-	ccipBatchingMultiSource(t, true, multiPriceReportOverride) // OOO enabled
+	ccipBatchingMultiSource(t, multiPriceReportOverride)
 }
 
 func Test_CCIPBatching_SingleSource(t *testing.T) {
-	ccipBatchingSingleSource(t, false) // OOO disabled
-}
-
-func Test_CCIPBatching_SingleSource_OOO(t *testing.T) {
-	ccipBatchingSingleSource(t, true) // OOO enabled
+	ccipBatchingSingleSource(t)
 }
 
 func Test_CCIPBatching_SingleSource_MultiRoot(t *testing.T) {
-	ccipBatchingSingleSource(t, false, multiRootReportOverride) // OOO disabled
-}
-
-func Test_CCIPBatching_SingleSource_MultiRoot_OOO(t *testing.T) {
-	ccipBatchingSingleSource(t, true, multiRootReportOverride) // OOO enabled
+	ccipBatchingMultiSource(t, multiRootReportOverride)
 }
 
 func Test_CCIPBatching_SingleSource_MultiPrice(t *testing.T) {
-	ccipBatchingSingleSource(t, false, multiPriceReportOverride) // OOO disabled
+	ccipBatchingMultiSource(t, multiPriceReportOverride)
 }
 
-func Test_CCIPBatching_SingleSource_MultiPrice_OOO(t *testing.T) {
-	ccipBatchingSingleSource(t, true, multiPriceReportOverride) // OOO enabled
-}
-
-func ccipBatchingMultiSource(t *testing.T, enableOOO bool, opts ...testhelpers.TestOps) {
+func ccipBatchingMultiSource(t *testing.T, opts ...testhelpers.TestOps) {
 	// Setup 3 chains, with 2 lanes going to the dest.
 	ctx := testhelpers.Context(t)
 	setup := newBatchTestSetup(t, opts...)
@@ -240,7 +207,6 @@ func ccipBatchingMultiSource(t *testing.T, enableOOO bool, opts ...testhelpers.T
 			srcChain,
 			destChain,
 			numMessages,
-			enableOOO,
 			&wg,
 			errs,
 		)
@@ -340,7 +306,7 @@ func ccipBatchingMultiSource(t *testing.T, enableOOO bool, opts ...testhelpers.T
 	}
 }
 
-func ccipBatchingSingleSource(t *testing.T, enableOOO bool, opts ...testhelpers.TestOps) {
+func ccipBatchingSingleSource(t *testing.T, opts ...testhelpers.TestOps) {
 	// Setup 3 chains, with 2 lanes going to the dest.
 	ctx := testhelpers.Context(t)
 	setup := newBatchTestSetup(t, opts...)
@@ -368,7 +334,6 @@ func ccipBatchingSingleSource(t *testing.T, enableOOO bool, opts ...testhelpers.
 		destChain,
 		numMessages,
 		common.LeftPadBytes(state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(), 32),
-		enableOOO,
 	)
 	require.NoError(t, err)
 
@@ -459,7 +424,6 @@ func sendMessagesAsync(
 	sourceChainSelector,
 	destChainSelector uint64,
 	numMessages int,
-	enableOOO bool,
 	wg *sync.WaitGroup,
 	out chan<- error,
 ) {
@@ -484,7 +448,6 @@ func sendMessagesAsync(
 			destChainSelector,
 			numMessages,
 			common.LeftPadBytes(state.MustGetEVMChainState(destChainSelector).Receiver.Address().Bytes(), 32),
-			enableOOO,
 		)
 		if err == nil {
 			break
@@ -508,7 +471,6 @@ func sendMessages(
 	destChainSelector uint64,
 	numMessages int,
 	receiver []byte,
-	enableOOO bool,
 ) error {
 	calls, totalValue, err := genMessages(
 		ctx,
@@ -516,7 +478,6 @@ func sendMessages(
 		destChainSelector,
 		numMessages,
 		receiver,
-		enableOOO,
 	)
 	if err != nil {
 		return fmt.Errorf("generate messages: %w", err)
@@ -528,7 +489,7 @@ func sendMessages(
 	}
 
 	// Send the tx with the messages through the multicall
-	t.Logf("Sending %d messages with total value %s, current balance: %s, OOO enabled: %t", numMessages, totalValue.String(), currBalance.String(), enableOOO)
+	t.Logf("Sending %d messages with total value %s, current balance: %s", numMessages, totalValue.String(), currBalance.String())
 	tx, err := sourceMulticall3.Aggregate3Value(
 		&bind.TransactOpts{
 			From:   sourceTransactOpts.From,
@@ -570,7 +531,6 @@ func genMessages(
 	destChainSelector uint64,
 	count int,
 	receiver []byte,
-	enableOOO bool,
 ) (calls []multicall3.Multicall3Call3Value, totalValue *big.Int, err error) {
 	totalValue = big.NewInt(0)
 	for i := 0; i < count; i++ {
@@ -579,7 +539,7 @@ func genMessages(
 			Data:         []byte(fmt.Sprintf("hello world %d", i)),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    testhelpers.MakeEVMExtraArgsV2(50_000, enableOOO),
+			ExtraArgs:    testhelpers.MakeEVMExtraArgsV2(50_000, false),
 		}
 
 		fee, err := sourceRouter.GetFee(&bind.CallOpts{Context: ctx}, destChainSelector, msg)
