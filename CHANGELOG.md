@@ -1,5 +1,60 @@
 # Changelog Chainlink Core
 
+## ## 2.25.0 - UNRELEASED
+
+### Minor Changes
+
+- [#17666](https://github.com/smartcontractkit/chainlink/pull/17666) [`670e38a`](https://github.com/smartcontractkit/chainlink/commit/670e38a7722be7b4d61c45f657fdac442de67509) - Add TON Keystore to Core with ED25519-based TONKey and tests
+
+- [#17946](https://github.com/smartcontractkit/chainlink/pull/17946) [`8118036`](https://github.com/smartcontractkit/chainlink/commit/811803624d8b9d307fe6433fbad18eb4c4c08242) - Bump operator-ui to add support for TON
+
+- [#17997](https://github.com/smartcontractkit/chainlink/pull/17997) [`102736a`](https://github.com/smartcontractkit/chainlink/commit/102736ad5a4cfe650610420ffca617187940d385) - #added "SenderAddress" GasEstimator config parameter
+
+- [#17893](https://github.com/smartcontractkit/chainlink/pull/17893) [`c1afa5b`](https://github.com/smartcontractkit/chainlink/commit/c1afa5bef6356626edb53c0269c6099c47a1aca9) - Add tonKey graphql query to support TON in Operator UI
+
+- [#17836](https://github.com/smartcontractkit/chainlink/pull/17836) [`7faae9a`](https://github.com/smartcontractkit/chainlink/commit/7faae9a597685da79aad25b13d3c854fc05befdf) - Release 2.24.0 - Next Version
+
+- [#17962](https://github.com/smartcontractkit/chainlink/pull/17962) [`267c764`](https://github.com/smartcontractkit/chainlink/commit/267c76422781e68b42f06d5effadddb9b640c87b) - Bump chainlink-protos and add support for TON Proto Chain Type
+
+- [#16363](https://github.com/smartcontractkit/chainlink/pull/16363) [`48f070f`](https://github.com/smartcontractkit/chainlink/commit/48f070f76443ba755296bdab07469de85e669cc0) - Cleanup and refactoring several functions to use the plugin map #added
+
+- [#17759](https://github.com/smartcontractkit/chainlink/pull/17759) [`08f46db`](https://github.com/smartcontractkit/chainlink/commit/08f46dbd3f2f32c48e83c7100b2ad3383c250e06) - #updated chain selectors
+
+### Patch Changes
+
+- [#17645](https://github.com/smartcontractkit/chainlink/pull/17645) [`c584eac`](https://github.com/smartcontractkit/chainlink/commit/c584eacc4ddf6a818a3497d893b4ae3192f8f7ff) - #internal add env var CL_SKIP_APP_VERSION_CHECK to enable booting prior app versions
+
+- [#17726](https://github.com/smartcontractkit/chainlink/pull/17726) [`3f8c4a3`](https://github.com/smartcontractkit/chainlink/commit/3f8c4a34bb35c2f200350eaf324eb689b9b6f5e0) - #updated Bump chainlink-solana
+
+- [#17684](https://github.com/smartcontractkit/chainlink/pull/17684) [`0b2803f`](https://github.com/smartcontractkit/chainlink/commit/0b2803f7f70c8822f170f1e71d05059565d90bb2) - #updated Bump chainlink-solana
+
+- [#17297](https://github.com/smartcontractkit/chainlink/pull/17297) [`7204402`](https://github.com/smartcontractkit/chainlink/commit/7204402275f6dad111202db4a978721c946c5b5f) - Combine the NewNode parameters into a param struct. #added #internal
+
+- [#18000](https://github.com/smartcontractkit/chainlink/pull/18000) [`f3ee64e`](https://github.com/smartcontractkit/chainlink/commit/f3ee64ef990f5da12cc5a33f8af8c75fa1f75051) - #bugfix Do not filter out any don2don peers on bootstrap nodes
+
+- [#17724](https://github.com/smartcontractkit/chainlink/pull/17724) [`a2d0dfc`](https://github.com/smartcontractkit/chainlink/commit/a2d0dfcca5c560508b8005fe22c03f383c57dba8) - #added p2p bundles to job distributor
+
+- [#17697](https://github.com/smartcontractkit/chainlink/pull/17697) [`ee935a4`](https://github.com/smartcontractkit/chainlink/commit/ee935a4481a18ad93df94f64a0799d0b9df898c5) - #nops Added validation to ensure the RPC node used can fetch the required config logs for OCR1 jobs. 
+  NOTE: This behavior can be toggled on/off by using the new `OCR.ConfigLogValidation` setting
+
+- [#17628](https://github.com/smartcontractkit/chainlink/pull/17628) [`b6cf9d5`](https://github.com/smartcontractkit/chainlink/commit/b6cf9d5c3ae06af3223bacc3ea6517522ea66002) - #bugfix Fixed canceled context inside of PriceService
+
+- [#17830](https://github.com/smartcontractkit/chainlink/pull/17830) [`a31414e`](https://github.com/smartcontractkit/chainlink/commit/a31414e1cbeacca885ce55824fa8e08e71aea1e8) - #updated chain selectors
+
+- [#17868](https://github.com/smartcontractkit/chainlink/pull/17868) [`1b954d7`](https://github.com/smartcontractkit/chainlink/commit/1b954d7eb5cb5e507836be05dd8a006c12a6ced4) - #updated chain selectors
+
+- [#17855](https://github.com/smartcontractkit/chainlink/pull/17855) [`397f9e4`](https://github.com/smartcontractkit/chainlink/commit/397f9e4fbe02dcaa4b541013c57148ba52575f72) - fix(gateway/network): uses single timeout for request with default and max values #bugfix
+
+- [#17711](https://github.com/smartcontractkit/chainlink/pull/17711) [`e81644e`](https://github.com/smartcontractkit/chainlink/commit/e81644effbb8e10b128d26ec66ffb4f734684436) - moves cre/engine scripts to main module adds cron example #internal
+
+- [#17797](https://github.com/smartcontractkit/chainlink/pull/17797) [`5356b8e`](https://github.com/smartcontractkit/chainlink/commit/5356b8eca7d5bff554baf420fd4c7850a5909f85) - #bugfix for high CPU usage on TRON
+
+- [#17807](https://github.com/smartcontractkit/chainlink/pull/17807) [`7720bb7`](https://github.com/smartcontractkit/chainlink/commit/7720bb7af57b6ec9841204b9de3a2867eacd5e65) - Reorganized test helpers and mocks to exclude test dependencies from build path #internal
+
+- [#17849](https://github.com/smartcontractkit/chainlink/pull/17849) [`572dce3`](https://github.com/smartcontractkit/chainlink/commit/572dce32718b4c3033e4f5c2d60ba5452dc49c42) - Fee boosting removed from CCIP 1.5 Execution plugin #removed
+
+- [#17775](https://github.com/smartcontractkit/chainlink/pull/17775) [`5256f32`](https://github.com/smartcontractkit/chainlink/commit/5256f32781ffbc7f754e2f3ab65b3d1c060775bf) - #bugfix #internal Fix remote trigger event expiry logic
+
 ## 2.24.0 - 2025-05-21
 
 ### Minor Changes

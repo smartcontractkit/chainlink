@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-#updated chain selectors
+2.25.0
