@@ -2,7 +2,6 @@ package sequence
 
 import (
 	"github.com/aptos-labs/aptos-go-sdk"
-
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"

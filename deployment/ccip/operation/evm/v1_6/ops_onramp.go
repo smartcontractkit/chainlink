@@ -26,21 +26,47 @@ var (
 			chain := deps.Chain
 			onRamp, err := cldf.DeployContract(b.Logger, chain, ab,
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*onramp.OnRamp] {
-					onRampAddr, tx2, onRamp, err2 := onramp.DeployOnRamp(
-						chain.DeployerKey,
-						chain.Client,
-						onramp.OnRampStaticConfig{
-							ChainSelector:      chain.Selector,
-							RmnRemote:          input.RmnRemote,
-							NonceManager:       input.NonceManager,
-							TokenAdminRegistry: input.TokenAdminRegistry,
-						},
-						onramp.OnRampDynamicConfig{
-							FeeQuoter:     input.FeeQuoter,
-							FeeAggregator: input.FeeAggregator,
-						},
-						[]onramp.OnRampDestChainConfigArgs{},
+					var (
+						onRampAddr common.Address
+						tx2        *types.Transaction
+						onRamp     *onramp.OnRamp
+						err2       error
 					)
+					if chain.IsZkSyncVM {
+						onRampAddr, _, onRamp, err2 = onramp.DeployOnRampZk(
+							nil,
+							chain.ClientZkSyncVM,
+							chain.DeployerKeyZkSyncVM,
+							chain.Client,
+							onramp.OnRampStaticConfig{
+								ChainSelector:      chain.Selector,
+								RmnRemote:          input.RmnRemote,
+								NonceManager:       input.NonceManager,
+								TokenAdminRegistry: input.TokenAdminRegistry,
+							},
+							onramp.OnRampDynamicConfig{
+								FeeQuoter:     input.FeeQuoter,
+								FeeAggregator: input.FeeAggregator,
+							},
+							[]onramp.OnRampDestChainConfigArgs{},
+						)
+					} else {
+						onRampAddr, tx2, onRamp, err2 = onramp.DeployOnRamp(
+							chain.DeployerKey,
+							chain.Client,
+							onramp.OnRampStaticConfig{
+								ChainSelector:      chain.Selector,
+								RmnRemote:          input.RmnRemote,
+								NonceManager:       input.NonceManager,
+								TokenAdminRegistry: input.TokenAdminRegistry,
+							},
+							onramp.OnRampDynamicConfig{
+								FeeQuoter:     input.FeeQuoter,
+								FeeAggregator: input.FeeAggregator,
+							},
+							[]onramp.OnRampDestChainConfigArgs{},
+						)
+					}
 					return cldf.ContractDeploy[*onramp.OnRamp]{
 						Address: onRampAddr, Contract: onRamp, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.OnRamp, deployment.Version1_6_0), Err: err2,
 					}

@@ -168,6 +168,7 @@ func filterDon2Don(
 func (w *launcher) peers(
 	belongsToACapabilityDON bool,
 	belongsToAWorkflowDON bool,
+	isBootstrap bool,
 	localRegistry *registrysyncer.LocalRegistry,
 ) map[ragetypes.PeerID]p2ptypes.StreamConfig {
 	allPeers := make(map[ragetypes.PeerID]p2ptypes.StreamConfig)
@@ -176,7 +177,7 @@ func (w *launcher) peers(
 		if !candidatePeerDON.DON.IsPublic {
 			continue
 		}
-		if filterDon2Don(w.lggr, belongsToACapabilityDON, belongsToAWorkflowDON, candidatePeerDON) {
+		if !isBootstrap && filterDon2Don(w.lggr, belongsToACapabilityDON, belongsToAWorkflowDON, candidatePeerDON) {
 			continue
 		}
 		for _, nid := range candidatePeerDON.DON.Members {
@@ -317,8 +318,9 @@ func (w *launcher) Launch(ctx context.Context, localRegistry *registrysyncer.Loc
 	}
 
 	// Lastly, we identify peers to connect to, based on their DONs functions
-	myPeers := w.peers(belongsToACapabilityDON, belongsToAWorkflowDON, localRegistry)
-	err := w.peerWrapper.GetPeer().UpdateConnections(myPeers)
+	peer := w.peerWrapper.GetPeer()
+	myPeers := w.peers(belongsToACapabilityDON, belongsToAWorkflowDON, peer.IsBootstrap(), localRegistry)
+	err := peer.UpdateConnections(myPeers)
 	if err != nil {
 		return fmt.Errorf("failed to update peer connections: %w", err)
 	}

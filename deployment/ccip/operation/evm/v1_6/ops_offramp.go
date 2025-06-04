@@ -29,23 +29,51 @@ var (
 			chain := deps.Chain
 			offRamp, err := cldf.DeployContract(b.Logger, chain, ab,
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*offramp.OffRamp] {
-					offRampAddr, tx2, offRamp, err2 := offramp.DeployOffRamp(
-						chain.DeployerKey,
-						chain.Client,
-						offramp.OffRampStaticConfig{
-							ChainSelector:        chain.Selector,
-							GasForCallExactCheck: input.Params.GasForCallExactCheck,
-							RmnRemote:            input.RmnRemote,
-							NonceManager:         input.NonceManager,
-							TokenAdminRegistry:   input.TokenAdminRegistry,
-						},
-						offramp.OffRampDynamicConfig{
-							FeeQuoter:                               input.FeeQuoter,
-							PermissionLessExecutionThresholdSeconds: input.Params.PermissionLessExecutionThresholdSeconds,
-							MessageInterceptor:                      input.Params.MessageInterceptor,
-						},
-						[]offramp.OffRampSourceChainConfigArgs{},
+					var (
+						offRampAddr common.Address
+						tx2         *types.Transaction
+						offRamp     *offramp.OffRamp
+						err2        error
 					)
+					if chain.IsZkSyncVM {
+						offRampAddr, _, offRamp, err2 = offramp.DeployOffRampZk(
+							nil,
+							chain.ClientZkSyncVM,
+							chain.DeployerKeyZkSyncVM,
+							chain.Client,
+							offramp.OffRampStaticConfig{
+								ChainSelector:        chain.Selector,
+								GasForCallExactCheck: input.Params.GasForCallExactCheck,
+								RmnRemote:            input.RmnRemote,
+								NonceManager:         input.NonceManager,
+								TokenAdminRegistry:   input.TokenAdminRegistry,
+							},
+							offramp.OffRampDynamicConfig{
+								FeeQuoter:                               input.FeeQuoter,
+								PermissionLessExecutionThresholdSeconds: input.Params.PermissionLessExecutionThresholdSeconds,
+								MessageInterceptor:                      input.Params.MessageInterceptor,
+							},
+							[]offramp.OffRampSourceChainConfigArgs{},
+						)
+					} else {
+						offRampAddr, tx2, offRamp, err2 = offramp.DeployOffRamp(
+							chain.DeployerKey,
+							chain.Client,
+							offramp.OffRampStaticConfig{
+								ChainSelector:        chain.Selector,
+								GasForCallExactCheck: input.Params.GasForCallExactCheck,
+								RmnRemote:            input.RmnRemote,
+								NonceManager:         input.NonceManager,
+								TokenAdminRegistry:   input.TokenAdminRegistry,
+							},
+							offramp.OffRampDynamicConfig{
+								FeeQuoter:                               input.FeeQuoter,
+								PermissionLessExecutionThresholdSeconds: input.Params.PermissionLessExecutionThresholdSeconds,
+								MessageInterceptor:                      input.Params.MessageInterceptor,
+							},
+							[]offramp.OffRampSourceChainConfigArgs{},
+						)
+					}
 					return cldf.ContractDeploy[*offramp.OffRamp]{
 						Address: offRampAddr, Contract: offRamp, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_6_0), Err: err2,
 					}
