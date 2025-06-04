@@ -102,7 +102,6 @@ jobs:
           E2E_JD_VERSION: "0.9.0"
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
           E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}
-          GETDX_SECRET_KEY: ${{ secrets.GETDX_SECRET_KEY }}
         run: |
           cd core/scripts/cre/environment
           { time go run main.go env start; } 2> >(tee /tmp/time_output >&2)
@@ -119,12 +118,13 @@ jobs:
         shell: bash
         run: |
             success=false
+            echo "::debug::outcome: ${{ steps.start-cli.outcome }}"
             if [ "${{ steps.start-cli.outcome }}" == "success" ]; then success=true; fi
 
             echo "::debug::success: $success"
 
             printf -v data '{"name": "cre.local.startup.result", "github_username": "%s", "timestamp": "%s", "metadata": {"success": "%s", "is_ci": true, "error": "N/A", "panicked": "N/A", "runner": "%s"}}' "$GITHUB_ACTOR" "$EPOCHSECONDS" "$success" "$GITHUB_RUNNER"
-            curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $GETDX_SECRET_KEY" -d "$data" https://api.getdx.com/events.track
+            curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${{ secrets.GETDX_SECRET_KEY }}" -d "$data" https://api.getdx.com/events.track
 
       - name: Track local env startup duration
         shell: bash
@@ -132,7 +132,7 @@ jobs:
             echo "::debug::execution_time: ${{ steps.start-cli.outputs.execution_time }}"
 
             printf -v data '{"name": "cre.local.startup.time", "github_username": "%s", "timestamp": "%s", "metadata": {"duration_seconds": "%s", "runner": "%s"}}' "$GITHUB_ACTOR" "$EPOCHSECONDS" "${{ steps.start-cli.outputs.execution_time }}" "$GITHUB_RUNNER"
-            curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $GETDX_SECRET_KEY" -d "$data" https://api.getdx.com/events.track
+            curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${{ secrets.GETDX_SECRET_KEY }}" -d "$data" https://api.getdx.com/events.track
 
 
   notify-test-failure:
