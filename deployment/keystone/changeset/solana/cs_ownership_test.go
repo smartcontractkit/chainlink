@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	cldfchain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -24,11 +26,11 @@ func Test_TransferOwnershipForwarder(t *testing.T) {
 		SolChains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-	registrySel := env.AllChainSelectorsSolana()[0]
+	solSel := env.BlockChains.ListChainSelectors(cldfchain.WithFamily(chain_selectors.FamilySolana))[0]
 	ab := cldf.NewMemoryAddressBook()
 
 	mcfg := map[uint64]commontypes.MCMSWithTimelockConfigV2{
-		registrySel: {
+		solSel: {
 			Canceller:        proposalutils.SingleGroupMCMSV2(t),
 			Proposer:         proposalutils.SingleGroupMCMSV2(t),
 			Bypasser:         proposalutils.SingleGroupMCMSV2(t),
@@ -36,13 +38,13 @@ func Test_TransferOwnershipForwarder(t *testing.T) {
 		},
 	}
 
-	env = shouldDeployForwarder(t, env, registrySel, ab)
+	env = shouldDeployForwarder(t, env, solSel, ab)
 
-	_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.SolChains[registrySel], env.ExistingAddresses, mcfg[registrySel])
+	_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.BlockChains.SolanaChains()[solSel], env.ExistingAddresses, mcfg[solSel])
 	require.NoError(t, err)
 
 	result, err := TransferOwnershipForwarder(env, &TransferOwnershipForwarderRequest{
-		ChainSel: registrySel,
+		ChainSel: solSel,
 		MCMSCfg:  proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 	})
 

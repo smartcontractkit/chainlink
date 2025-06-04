@@ -12,6 +12,7 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	solanaUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	cldfsol "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	ks_forwarder "github.com/smartcontractkit/chainlink-solana/contracts/generated/keystone_forwarder"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -41,7 +42,7 @@ func DeployForwarder(env cldf.Environment, req *DeployRequest) (cldf.ChangesetOu
 			return cldf.ChangesetOutput{}, err
 		}
 	}
-	chain := env.SolChains[req.ChainSel]
+	chain := env.BlockChains.SolanaChains()[req.ChainSel]
 	ab := cldf.NewMemoryAddressBook()
 
 	address, err := helpers.DeployAndMaybeSaveToAddressBook(env, chain, ab, shared.Forwarder, cdeployment.Version1_0_0, false, "")
@@ -87,7 +88,7 @@ type SetForwarderUpgradeAuthorityRequest = struct {
 var _ cldf.ChangeSet[*SetForwarderUpgradeAuthorityRequest] = SetForwarderUpgradeAuthority
 
 func SetForwarderUpgradeAuthority(env cldf.Environment, req *SetForwarderUpgradeAuthorityRequest) (cldf.ChangesetOutput, error) {
-	chain, ok := env.SolChains[req.ChainSel]
+	chain, ok := env.BlockChains.SolanaChains()[req.ChainSel]
 	if !ok {
 		return cldf.ChangesetOutput{}, fmt.Errorf("can't get chain for chain selector %d", req.ChainSel)
 	}
@@ -175,7 +176,7 @@ func ConfigureForwarders(env cldf.Environment, req ConfigureForwarderRequest) (c
 	var proposals []mcms.TimelockProposal
 	for chainSel, batch := range mcmsBatches {
 		// get timelocks, proposers, inspectors per chain
-		solChain := env.SolChains[chainSel]
+		solChain := env.BlockChains.SolanaChains()[chainSel]
 
 		addresses, _ := env.ExistingAddresses.AddressesForChain(chainSel)
 		mcmState, _ := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
@@ -216,7 +217,7 @@ func ConfigureForwarders(env cldf.Environment, req ConfigureForwarderRequest) (c
 func configureForwarders(env cldf.Environment, req ConfigureForwarderRequest,
 	wfdon *internal.RegisteredDon) (map[uint64]mcmsTypes.BatchOperation, error) {
 	ops := make(map[uint64]mcmsTypes.BatchOperation)
-	for _, chain := range env.SolChains {
+	for _, chain := range env.BlockChains.SolanaChains() {
 		if _, shouldInclude := req.Chains[chain.Selector]; len(req.Chains) > 0 && !shouldInclude {
 			continue
 		}
@@ -245,7 +246,7 @@ func configureForwarders(env cldf.Environment, req ConfigureForwarderRequest,
 	return ops, nil
 }
 
-func configureForwarder(req ConfigureForwarderRequest, state *state, ch cldf.SolChain, wfdon *internal.RegisteredDon, owner solana.PublicKey) (mcmsTypes.BatchOperation, error) {
+func configureForwarder(req ConfigureForwarderRequest, state *state, ch cldfsol.Chain, wfdon *internal.RegisteredDon, owner solana.PublicKey) (mcmsTypes.BatchOperation, error) {
 	// 1. derive config pda
 	forwarderState := state.forwarderState
 	if forwarderState.IsZero() {

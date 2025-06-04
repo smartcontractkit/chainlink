@@ -27,7 +27,7 @@ type TransferOwnershipForwarderRequest struct {
 var _ cldf.ChangeSet[*TransferOwnershipForwarderRequest] = TransferOwnershipForwarder
 
 func TransferOwnershipForwarder(env cldf.Environment, req *TransferOwnershipForwarderRequest) (cldf.ChangesetOutput, error) {
-	solChain, ok := env.SolChains[req.ChainSel]
+	solChain, ok := env.BlockChains.SolanaChains()[req.ChainSel]
 	if !ok {
 		return cldf.ChangesetOutput{}, fmt.Errorf("chain not found for selector %d", req.ChainSel)
 	}

@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	cldfchain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -35,16 +37,16 @@ func TestDeployForwarder(t *testing.T) {
 	}
 
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-	registrySel := env.AllChainSelectorsSolana()[0]
+	solSel := env.BlockChains.ListChainSelectors(cldfchain.WithFamily(chain_selectors.FamilySolana))[0]
 	ab := cldf.NewMemoryAddressBook()
 
 	t.Run("should deploy forwarder", func(t *testing.T) {
-		env = shouldDeployForwarder(t, env, registrySel, ab)
+		env = shouldDeployForwarder(t, env, solSel, ab)
 	})
 	t.Run("should pass upgrade authority", func(t *testing.T) {
 		_, err := SetForwarderUpgradeAuthority(env, &SetForwarderUpgradeAuthorityRequest{
-			ChainSel:            registrySel,
-			NewUpgradeAuthority: env.SolChains[registrySel].DeployerKey.PublicKey(),
+			ChainSel:            solSel,
+			NewUpgradeAuthority: env.BlockChains.SolanaChains()[solSel].DeployerKey.PublicKey(),
 		})
 		require.NoError(t, err)
 	})
@@ -78,16 +80,21 @@ func TestConfigureForwarder(t *testing.T) {
 					SolChains: 1,
 				})
 
-				solSel := env.AllChainSelectorsSolana()[0]
+				solSel := env.BlockChains.ListChainSelectors(cldfchain.WithFamily(chain_selectors.FamilySolana))[0]
 				te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
 					WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4, ChainSelectors: []uint64{solSel}},
 					AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
 					WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 					NumChains:       nChains,
 				})
+				solChain := env.BlockChains.SolanaChains()[solSel]
+				blockchains := make(map[uint64]cldfchain.BlockChain)
+				blockchains[solSel] = solChain
+				for _, ch := range te.Env.BlockChains.All() {
+					blockchains[ch.ChainSelector()] = ch
+				}
 
-				te.Env.SolChains = env.SolChains
-
+				te.Env.BlockChains = cldfchain.NewBlockChains(blockchains)
 				env = shouldDeployForwarder(t, te.Env, solSel, te.Env.ExistingAddresses)
 
 				var wfNodes []string
@@ -118,7 +125,7 @@ func TestConfigureForwarder(t *testing.T) {
 					SolChains: 1,
 				})
 
-				solSel := env.AllChainSelectorsSolana()[0]
+				solSel := env.BlockChains.ListChainSelectors(cldfchain.WithFamily(chain_selectors.FamilySolana))[0]
 				te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
 					WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4, ChainSelectors: []uint64{solSel}},
 					AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
@@ -126,10 +133,17 @@ func TestConfigureForwarder(t *testing.T) {
 					NumChains:       nChains,
 				})
 
-				te.Env.SolChains = env.SolChains
+				solChain := env.BlockChains.SolanaChains()[solSel]
+				blockchains := make(map[uint64]cldfchain.BlockChain)
+				blockchains[solSel] = solChain
+				for _, ch := range te.Env.BlockChains.All() {
+					blockchains[ch.ChainSelector()] = ch
+				}
+
+				te.Env.BlockChains = cldfchain.NewBlockChains(blockchains)
 
 				env = shouldDeployForwarder(t, te.Env, solSel, te.Env.ExistingAddresses)
-				_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.SolChains[solSel], env.ExistingAddresses,
+				_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.BlockChains.SolanaChains()[solSel], env.ExistingAddresses,
 					commontypes.MCMSWithTimelockConfigV2{
 						Canceller:        proposalutils.SingleGroupMCMSV2(t),
 						Proposer:         proposalutils.SingleGroupMCMSV2(t),
@@ -161,7 +175,7 @@ func TestConfigureForwarder(t *testing.T) {
 	})
 }
 
-func shouldDeployForwarder(t *testing.T, env cldf.Environment, registrySel uint64, _ cldf.AddressBook) cldf.Environment {
+func shouldDeployForwarder(t *testing.T, env cldf.Environment, solSel uint64, _ cldf.AddressBook) cldf.Environment {
 	cfg := helpers.BuildSolanaConfig{
 		GitCommitSha:   "d047073ea230f965626716029f8d902729ddffed",
 		DestinationDir: "./solana_contracts",
@@ -173,18 +187,19 @@ func shouldDeployForwarder(t *testing.T, env cldf.Environment, registrySel uint6
 	// defult
 	fmt.Println(cfg.GitCommitSha)
 	// default solChain looking for contracts in ccip directory
-	chain := env.SolChains[registrySel]
+	chain := env.BlockChains.SolanaChains()[solSel]
 	chain.ProgramsPath = getProgramsPath()
-	env.SolChains[registrySel] = chain
+	env.BlockChains = cldfchain.NewBlockChains(map[uint64]cldfchain.BlockChain{solSel: chain})
+
 	// deploy forwarder
 	resp, err := DeployForwarder(env, &DeployRequest{
-		ChainSel:    registrySel,
+		ChainSel:    solSel,
 		BuildConfig: nil,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	// forwarder should be deployed on registry chain
-	addrs, err := resp.AddressBook.AddressesForChain(registrySel)
+	addrs, err := resp.AddressBook.AddressesForChain(solSel)
 	require.NoError(t, err)
 	require.Len(t, addrs, 2) // forwarder programID, forwarder state
 	env.ExistingAddresses.Merge(resp.AddressBook)
