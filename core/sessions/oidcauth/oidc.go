@@ -30,9 +30,6 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/ulule/limiter/v3"
-	mgin "github.com/ulule/limiter/v3/drivers/middleware/gin"
-	"github.com/ulule/limiter/v3/drivers/store/memory"
 	"golang.org/x/oauth2"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -141,7 +138,7 @@ func NewOIDCAuthenticator(
 	return &oidcAuth, nil
 }
 
-func (oi *oidcAuthenticator) generateSecureState() string {
+func (oi *oidcAuthenticator) generateState() string {
 	b := make([]byte, 32) // 256 bits of entropy
 	_, err := io.ReadFull(rand.Reader, b)
 	if err != nil {
@@ -155,9 +152,20 @@ func (oi *oidcAuthenticator) handleCheckEnabled(c *gin.Context) {
 	return
 }
 
-func (oi *oidcAuthenticator) handleLoginProviderRedirect(w http.ResponseWriter, r *http.Request) {
-	state := oi.generateSecureState()
-	http.Redirect(w, r, oi.oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline), http.StatusFound)
+func (oi *oidcAuthenticator) handleLoginProviderRedirect(c *gin.Context) {
+	// generate state and store on session
+	state := oi.generateState()
+	session := sessions.Default(c)
+	session.Set("state", state)
+	err := session.Save()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save session"})
+		return
+	}
+
+	// redirect to provider
+	url := oi.oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline)
+	c.Redirect(http.StatusFound, url)
 }
 
 func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
@@ -167,6 +175,17 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, ExchangeTokenResponse{
 			Success: false,
 			Message: "Invalid request: " + err.Error(),
+		})
+		return
+	}
+
+	// check state matches stored value
+	ginSession := sessions.Default(c)
+	storedState := ginSession.Get("state")
+	if storedState == nil || req.State != storedState.(string) {
+		c.JSON(http.StatusBadRequest, ExchangeTokenResponse{
+			Success: false,
+			Message: "Invalid state parameter",
 		})
 		return
 	}
@@ -225,13 +244,13 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 		return
 	}
 
-	// Save new user authenticated session and role to oidc_sessions table
+	// Save new user authenticated clSession and role to oidc_sessions table
 	// Sessions are set to expire after the duration + creation date elapsed
-	session := clsessions.NewSession()
+	clSession := clsessions.NewSession()
 	_, err = oi.ds.ExecContext(
 		ctx,
 		"INSERT INTO oidc_sessions (id, user_email, user_role, created_at) VALUES ($1, $2, $3, now())",
-		session.ID,
+		clSession.ID,
 		strings.ToLower(claims.Email),
 		role,
 	)
@@ -243,14 +262,12 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 	oi.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]any{"email": claims.Email})
 
 	// save session
-	sesh := sessions.Default(c)
-	sesh.Set(webauth.SessionIDKey, session.ID)
-	err = sesh.Save()
+	ginSession.Set(webauth.SessionIDKey, clSession.ID)
+	err = ginSession.Save()
 	if err != nil {
 		fmt.Printf("%#v\n", err)
 	}
 
-	// Respond to the frontend
 	c.JSON(http.StatusOK, ExchangeTokenResponse{
 		Success: true,
 	})
@@ -620,25 +637,9 @@ func constantTimeEmailCompare(left, right string) bool {
 	return subtle.ConstantTimeCompare(leftBytes, rightBytes) == 1
 }
 
-func ginHandlerFromHTTP(h http.HandlerFunc) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		h.ServeHTTP(c.Writer, c.Request)
-	}
-}
-
-func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
-	store := memory.NewStore()
-	rate := limiter.Rate{
-		Period: period,
-		Limit:  limit,
-	}
-	return mgin.NewMiddleware(limiter.New(store, rate))
-}
-
-// TODO: add context
 func (oidc *oidcAuthenticator) ExtendRouter(api *gin.RouterGroup) error {
 	api.GET("/oidc-enabled", oidc.handleCheckEnabled)
-	api.GET("/oidc-login", ginHandlerFromHTTP(oidc.handleLoginProviderRedirect))
+	api.GET("/oidc-login", oidc.handleLoginProviderRedirect)
 	api.POST("/oidc-exchange", oidc.handleTokenExchange)
 
 	return nil
