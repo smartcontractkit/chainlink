@@ -846,9 +846,6 @@ func (w *WebServer) ValidateConfig() (err error) {
 		if *w.OIDC.OIDCCallbackURLSuffix == "" {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.OIDCCallbackURLSuffix", Msg: "OIDC OIDCCallbackURLSuffix can not be empty"})
 		}
-		if w.OIDC.HTTPPort == 0 {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.HTTPPort", Msg: "OIDC HTTPPort can not be empty"})
-		}
 		if *w.OIDC.AdminUserGroupClaim == "" {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.AdminUserGroupClaim", Msg: "OIDC AdminUserGroupClaim can not be empty"})
 		}
@@ -1038,19 +1035,18 @@ func (w *WebServerLDAPSecrets) setFrom(f *WebServerLDAPSecrets) {
 }
 
 type WebServerOIDC struct {
-	ClientID *string
-	ProviderDomain *string
+	ClientID                  *string
+	ProviderDomain            *string
 	OAuth2ProviderRouteSuffix *string
-	OIDCCallbackURL *string
-	OIDCCallbackURLSuffix *string
-	HTTPPort uint16
-	AdminUserGroupClaim *string
-	EditUserGroupClaim *string
-	RunUserGroupClaim *string
-	ReadUserGroupClaim *string
-	SessionTimeout *commonconfig.Duration
-	UserApiTokenEnabled *bool
-	UserAPITokenDuration *commonconfig.Duration
+	OIDCCallbackURL           *string
+	OIDCCallbackURLSuffix     *string
+	AdminUserGroupClaim       *string
+	EditUserGroupClaim        *string
+	RunUserGroupClaim         *string
+	ReadUserGroupClaim        *string
+	SessionTimeout            *commonconfig.Duration
+	UserApiTokenEnabled       *bool
+	UserAPITokenDuration      *commonconfig.Duration
 }
 
 func (w *WebServerOIDC) setFrom(f *WebServerOIDC) {
@@ -1068,9 +1064,6 @@ func (w *WebServerOIDC) setFrom(f *WebServerOIDC) {
 	}
 	if v := f.OIDCCallbackURLSuffix; v != nil {
 		w.OIDCCallbackURLSuffix = v
-	}
-	if v := f.HTTPPort; v != 0 {
-		w.HTTPPort = v
 	}
 	if v := f.AdminUserGroupClaim; v != nil {
 		w.AdminUserGroupClaim = v
@@ -1101,7 +1094,7 @@ type WebServerOIDCSecrets struct {
 
 func (w *WebServerOIDCSecrets) setFrom(f *WebServerOIDCSecrets) {
 	if v := f.ClientSecret; v != nil {
-			w.ClientSecret = v
+		w.ClientSecret = v
 	}
 }
 

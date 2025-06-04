@@ -44,6 +44,7 @@ func (sr *sessionReaper) Work(ctx context.Context) {
 }
 
 // DeleteStaleSessions deletes all sessions before the passed time.
+// TODO: error here, oidc_sessions has no column 'last_used'
 func (sr *sessionReaper) deleteStaleSessions(ctx context.Context, before time.Time) error {
 	_, err := sr.ds.ExecContext(ctx, "DELETE FROM oidc_sessions WHERE last_used < $1", before)
 	return err

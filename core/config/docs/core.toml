@@ -211,8 +211,6 @@ OAuth2ProviderRouteSuffix = '/oauth2/default' # Default
 OIDCCallbackURL = 'http://localhost:8080/'
 # OIDCCallbackURLSuffix is the API route name suffix used when registering the router endpoint
 OIDCCallbackURLSuffix = '/auth/oidc-callback' # Default
-# HTTPPort of the OIDC self contained HTTP router used to listen for the provider callback request
-HTTPPort = 6689 # Default
 # AdminUserGroupClaim is string label of the group returned by the OIDC claim that maps the core node's 'Admin' role
 AdminUserGroupClaim = 'NodeAdmins' # Default
 # EditUserGroupClaim is string label of the group returned by the OIDC claim that maps the core node's 'Edit' role

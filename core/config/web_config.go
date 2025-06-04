@@ -62,7 +62,6 @@ type OIDC interface {
 	OAuth2ProviderRouteSuffix() string
 	OIDCCallbackURL() string
 	OIDCCallbackURLSuffix() string
-	HTTPPort() uint16
 	AdminUserGroupClaim() string
 	EditUserGroupClaim() string
 	RunUserGroupClaim() string

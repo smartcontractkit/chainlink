@@ -97,9 +97,6 @@ func NewOIDCAuthenticator(
 	if oidcCfg.ProviderDomain() == "" {
 		return nil, errors.New("OIDC ProviderDomain config required")
 	}
-	if oidcCfg.HTTPPort() == 0 {
-		return nil, errors.New("OIDC HTTPPort config required")
-	}
 
 	var provider *oidc.Provider
 	var oidcConfig *oidc.Config
@@ -152,7 +149,7 @@ func (oi *oidcAuthenticator) handleCheckEnabled(c *gin.Context) {
 	return
 }
 
-func (oi *oidcAuthenticator) handleLoginProviderRedirect(c *gin.Context) {
+func (oi *oidcAuthenticator) handleSignIn(c *gin.Context) {
 	// generate state and store on session
 	state := oi.generateState()
 	session := sessions.Default(c)
@@ -189,6 +186,7 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 		})
 		return
 	}
+	ginSession.Delete("state")
 
 	ctx := context.Background()
 	// Begin token exchange to retrieve attested claims of authenticated user
@@ -639,7 +637,7 @@ func constantTimeEmailCompare(left, right string) bool {
 
 func (oidc *oidcAuthenticator) ExtendRouter(api *gin.RouterGroup) error {
 	api.GET("/oidc-enabled", oidc.handleCheckEnabled)
-	api.GET("/oidc-login", oidc.handleLoginProviderRedirect)
+	api.GET("/oidc-login", oidc.handleSignIn)
 	api.POST("/oidc-exchange", oidc.handleTokenExchange)
 
 	return nil

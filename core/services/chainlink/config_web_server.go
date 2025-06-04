@@ -365,10 +365,6 @@ func (l *oidcConfig) OIDCCallbackURLSuffix() string {
 	return *l.c.OIDCCallbackURLSuffix
 }
 
-func (l *oidcConfig) HTTPPort() uint16 {
-	return l.c.HTTPPort
-}
-
 func (l *oidcConfig) AdminUserGroupClaim() string {
 	if l.c.AdminUserGroupClaim == nil {
 		return ""
@@ -410,7 +406,6 @@ func (l *oidcConfig) UserApiTokenEnabled() bool {
 	}
 	return *l.c.UserApiTokenEnabled
 }
-
 
 func (l *oidcConfig) UserAPITokenDuration() commonconfig.Duration {
 	if l.c.UserAPITokenDuration == nil {
