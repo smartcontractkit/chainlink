@@ -45,9 +45,28 @@ jobs:
           ref: ${{ github.event_name == 'pull_request' && github.sha || inputs.chainlink_version }}
 
       - name: Set up Go
+        id: setup-go
         uses: actions/setup-go@v5
         with:
           go-version-file: core/scripts/go.mod
+          cache: true
+
+      - name: Download Go dependencies
+        id: go-deps
+        run: |
+          cd core/scripts/cre/environment
+          if [ "${{ steps.setup-go.outputs.cache-hit }}" == "true" ]; then
+            echo "::debug::Cache hit - skipping dependency download"
+            echo "deps_download_seconds=0" >> $GITHUB_OUTPUT
+          else
+            echo "::debug::Cache miss - downloading dependencies"
+            { time go mod tidy && go mod download; } 2> >(tee /tmp/go_deps_time >&2)
+            deps_time=$(cat /tmp/go_deps_time | grep real | awk '{print $2}')
+            minutes=$(echo $deps_time | awk -F'm' '{print $1}')
+            seconds=$(echo $deps_time | awk -F'm' '{print $2}' | sed 's/s//')
+            total_seconds=$(echo "$minutes * 60 + $seconds" | bc)
+            echo "deps_download_seconds=$total_seconds" >> $GITHUB_OUTPUT
+          fi
 
       # We need to login to ECR to allow the test to pull the Job Distributor and Chainlink images
       - name: Configure AWS Credentials
@@ -129,8 +148,10 @@ jobs:
         shell: bash
         run: |
             echo "::debug::execution_time: ${{ steps.start-cli.outputs.execution_time }}"
+            echo "::debug::cache_hit: ${{ steps.setup-go.outputs.cache-hit }}"
+            echo "::debug::deps_download_seconds: ${{ steps.go-deps.outputs.deps_download_seconds }}"
 
-            printf -v data '{"name": "cre.local.startup.time", "github_username": "%s", "timestamp": "%s", "metadata": {"duration_seconds": %s, "is_ci": true, "runner": "%s", "infra": "docker"}}' "$GITHUB_ACTOR" "$EPOCHSECONDS" "${{ steps.start-cli.outputs.execution_time }}" "${{ matrix.runner }}"
+            printf -v data '{"name": "cre.local.startup.time", "github_username": "%s", "timestamp": "%s", "metadata": {"startup_seconds": %s, "is_ci": true, "runner": "%s", "infra": "docker", "go_cache_hit": %s, "deps_download_seconds": %s}}' "$GITHUB_ACTOR" "$EPOCHSECONDS" "${{ steps.start-cli.outputs.execution_time }}" "${{ matrix.runner }}" "${{ steps.setup-go.outputs.cache-hit }}" "${{ steps.go-deps.outputs.deps_download_seconds }}"
             curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${{ secrets.GETDX_SECRET_KEY }}" -d "$data" https://api.getdx.com/events.track
 
 
