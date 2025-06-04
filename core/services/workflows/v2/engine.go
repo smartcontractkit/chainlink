@@ -180,25 +180,12 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		return fmt.Errorf("too many trigger subscriptions: %d", len(subs.Subscriptions))
 	}
 
-	e.srvcEng.Go(func(srvcCtx context.Context) {
-		e.listenOnSubscribedTriggers(srvcCtx, subs)
-		// Block until engine is shutdown
-		<-srvcCtx.Done()
-	})
-
-	return nil
-}
-
-func (e *Engine) listenOnSubscribedTriggers(ctx context.Context, subs *sdkpb.TriggerSubscriptionRequest) {
 	// check if all requested triggers exist in the registry
 	triggers := make([]capabilities.TriggerCapability, 0, len(subs.Subscriptions))
 	for _, sub := range subs.Subscriptions {
 		triggerCap, err := e.cfg.CapRegistry.GetTrigger(ctx, sub.Id)
 		if err != nil {
-			e.cfg.Hooks.OnSubscribedToTriggers(SubscribedToTriggers{
-				Err: fmt.Errorf("trigger capability not found: %w", err),
-			})
-			return
+			return fmt.Errorf("trigger capability not found: %w", err)
 		}
 		triggers = append(triggers, triggerCap)
 	}
@@ -206,7 +193,6 @@ func (e *Engine) listenOnSubscribedTriggers(ctx context.Context, subs *sdkpb.Tri
 	// register to all triggers
 	e.triggersRegMu.Lock()
 	defer e.triggersRegMu.Unlock()
-
 	eventChans := make([]<-chan capabilities.TriggerResponse, len(subs.Subscriptions))
 	triggerCapIDs := make([]string, len(subs.Subscriptions))
 	for i, sub := range subs.Subscriptions {
@@ -234,10 +220,7 @@ func (e *Engine) listenOnSubscribedTriggers(ctx context.Context, subs *sdkpb.Tri
 			e.lggr.Errorw("One of trigger registrations failed - reverting all", "triggerID", sub.Id, "err", err)
 			e.metrics.With(platform.KeyTriggerID, sub.Id).IncrementRegisterTriggerFailureCounter(ctx)
 			e.unregisterAllTriggers(ctx)
-			e.cfg.Hooks.OnSubscribedToTriggers(SubscribedToTriggers{
-				Err: fmt.Errorf("failed to register trigger: %w", err),
-			})
-			return
+			return fmt.Errorf("failed to register trigger: %w", err)
 		}
 		e.triggers[registrationID] = &triggerCapability{
 			TriggerCapability: triggerCap,
