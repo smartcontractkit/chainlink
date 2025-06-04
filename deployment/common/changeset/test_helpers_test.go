@@ -149,7 +149,9 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 					datastore.NewContractMetadataKey(1, "0x1234567890abcdef"),
 				)
 				require.NoError(t, err)
-				require.Equal(t, "test", metadata.Metadata)
+				concrete, err := datastore.As[testMetadata](metadata.Metadata)
+				require.NoError(t, err)
+				require.Equal(t, "test", concrete.Data)
 			},
 			wantError: false,
 		},
@@ -175,7 +177,9 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 					datastore.NewContractMetadataKey(1, "0x1234567890abcdef"),
 				)
 				require.NoError(t, err)
-				require.Equal(t, "test", metadata.Metadata)
+				concrete, err := datastore.As[testMetadata](metadata.Metadata)
+				require.NoError(t, err)
+				require.Equal(t, "test", concrete.Data)
 			},
 			wantError: false,
 		},
