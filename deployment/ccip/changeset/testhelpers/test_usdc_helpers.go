@@ -124,7 +124,7 @@ func UpdateFeeQuoterForUSDC(
 		DestBytesOverhead: 640,
 		IsEnabled:         true,
 	}
-	_, err := commonchangeset.Apply(t, e, nil,
+	_, err := commonchangeset.Apply(t, e,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset),
 			v1_6.ApplyTokenTransferFeeConfigUpdatesConfig{

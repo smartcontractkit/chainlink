@@ -25,6 +25,11 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	readermocks "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/contractreader"
 	typepkgmock "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
@@ -32,10 +37,6 @@ import (
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/plugintypes"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -265,9 +266,13 @@ func TestCCIPReader_GetRMNRemoteConfig(t *testing.T) {
 		RPCBatchSize:             10,
 		KeepFinalizedBlocksDepth: 100000,
 	}
-	cl := client.NewSimulatedBackendClient(t, sb, big.NewInt(1337))
+	chainID := big.NewInt(1337)
+	ch, err := chain_selectors.GetChainDetailsByChainIDAndFamily(chainID.String(), chain_selectors.FamilyEVM)
+	require.NoError(t, err)
+
+	cl := client.NewSimulatedBackendClient(t, sb, chainID)
 	headTracker := headstest.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
-	orm := logpoller.NewORM(big.NewInt(1337), db, lggr)
+	orm := logpoller.NewORM(chainID, db, lggr)
 	lp := logpoller.NewLogPoller(
 		orm,
 		cl,
@@ -285,26 +290,24 @@ func TestCCIPReader_GetRMNRemoteConfig(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, cr.Close()) })
 
 	extendedCr := contractreader.NewExtendedContractReader(cr)
-	err = extendedCr.Bind(ctx, []types.BoundContract{
-		{
-			Address: proxyAddr.String(),
-			Name:    consts.ContractNameRMNRemote,
-		},
-	})
-	require.NoError(t, err)
 
 	mockAddrCodec := newMockAddressCodec(t)
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(
 		ctx,
 		lggr,
 		map[cciptypes.ChainSelector]contractreader.Extended{
-			chainD: extendedCr,
+			cciptypes.ChainSelector(ch.ChainSelector): extendedCr,
 		},
 		nil,
-		chainD,
+		cciptypes.ChainSelector(ch.ChainSelector),
 		rmnRemoteAddr.Bytes(),
 		mockAddrCodec,
 	)
+
+	err = reader.Sync(ctx, map[string]map[cciptypes.ChainSelector]cciptypes.UnknownAddress{
+		consts.ContractNameRMNRemote: {cciptypes.ChainSelector(ch.ChainSelector): proxyAddr.Bytes()},
+	})
+	require.NoError(t, err)
 
 	exp, err := rmnRemote.GetVersionedConfig(&bind.CallOpts{
 		Context: ctx,
@@ -935,81 +938,6 @@ func TestCCIPReader_Nonces(t *testing.T) {
 			assert.Equal(t, nonce, results[chain][address.String()])
 		}
 	}
-}
-
-func TestCCIPReader_GetContractAddress(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
-	sb, auth := setupSimulatedBackendAndAuth(t)
-
-	s := testSetup(ctx, t, testSetupParams{
-		ReaderChain:        chainS1,
-		DestChain:          chainD,
-		OnChainSeqNums:     nil,
-		Cfg:                evmconfig.DestReaderConfig,
-		BindTester:         true,
-		ContractNameToBind: consts.ContractNameOffRamp,
-		SimulatedBackend:   sb,
-		Auth:               auth,
-		UseHeavyDB:         false,
-	})
-
-	t.Run("success - single bound address", func(t *testing.T) {
-		myContractName := consts.ContractNameOffRamp
-		myAddress := s.contractAddr
-
-		err := s.extendedCR.Bind(ctx, []types.BoundContract{
-			{
-				Address: myAddress.String(),
-				Name:    myContractName,
-			},
-		})
-		require.NoError(t, err)
-
-		gotBytes, err := s.reader.GetContractAddress(myContractName, chainS1)
-		require.NoError(t, err)
-
-		require.Equal(t, myAddress.Bytes(), gotBytes, "expected the bound contract address to match")
-	})
-
-	t.Run("error - no bindings found", func(t *testing.T) {
-		_, err := s.reader.GetContractAddress("UnboundContract", chainS1)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "expected one binding for the UnboundContract contract, got 0")
-	})
-
-	t.Run("success - multiple bindings, return override binding", func(t *testing.T) {
-		myContractName := consts.ContractNameOffRamp
-		addr1 := s.contractAddr
-		addr2, _, _, err := ccip_reader_tester.DeployCCIPReaderTester(auth, sb.Client())
-		require.NoError(t, err)
-		sb.Commit()
-
-		err = s.extendedCR.Bind(ctx, []types.BoundContract{
-			{
-				Address: addr1.String(),
-				Name:    myContractName,
-			},
-			{
-				Address: addr2.String(),
-				Name:    myContractName,
-			},
-		})
-		require.NoError(t, err)
-
-		gotBytes, err := s.reader.GetContractAddress(myContractName, chainS1)
-		require.NoError(t, err)
-
-		require.Equal(t, addr2.Bytes(), gotBytes, "expected the bound contract override address to match")
-	})
-
-	t.Run("error - chain not supported", func(t *testing.T) {
-		// Suppose chainS2 is not set up in this test environment (no contract reader).
-		// The call should fail with "contract reader not found for chain".
-		_, err := s.reader.GetContractAddress("TestContract", chainS2)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "contract reader not found for chain 2")
-	})
 }
 
 func TestCCIPReader_DiscoverContracts(t *testing.T) {

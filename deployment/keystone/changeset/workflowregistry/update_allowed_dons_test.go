@@ -15,7 +15,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
@@ -95,15 +94,7 @@ func Test_UpdateAllowedDons_WithMCMS(t *testing.T) {
 	require.Len(t, out.MCMSTimelockProposals, 1)
 	require.Nil(t, out.AddressBook)
 
-	capReg := te.OwnedCapabilityRegistry()
-	timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{
-		te.RegistrySelector: {
-			Timelock:  capReg.McmsContracts.Timelock,
-			CallProxy: capReg.McmsContracts.CallProxy,
-		},
-	}
-
-	_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
+	_, err = commonchangeset.Apply(t, te.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(workflowregistry.UpdateAllowedDons),
 			req,
