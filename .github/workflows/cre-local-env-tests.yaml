@@ -130,7 +130,7 @@ jobs:
         run: |
             echo "::debug::execution_time: ${{ steps.start-cli.outputs.execution_time }}"
 
-            printf -v data '{"name": "cre.local.startup.time", "github_username": "%s", "timestamp": "%s", "metadata": {"duration_seconds": %s, "runner": "%s", "infra": "docker"}}' "$GITHUB_ACTOR" "$EPOCHSECONDS" "${{ steps.start-cli.outputs.execution_time }}" "${{ matrix.runner }}"
+            printf -v data '{"name": "cre.local.startup.time", "github_username": "%s", "timestamp": "%s", "metadata": {"duration_seconds": %s, "is_ci": true, "runner": "%s", "infra": "docker"}}' "$GITHUB_ACTOR" "$EPOCHSECONDS" "${{ steps.start-cli.outputs.execution_time }}" "${{ matrix.runner }}"
             curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${{ secrets.GETDX_SECRET_KEY }}" -d "$data" https://api.getdx.com/events.track
 
 
