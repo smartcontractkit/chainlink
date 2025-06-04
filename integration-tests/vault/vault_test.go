@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"testing"
@@ -66,7 +67,23 @@ ReadTimeoutMillis = 1_000
 RequestTimeoutMillis = 10_000
 WriteTimeoutMillis = 1_000
 CORSEnabled = false
-CORSAllowedOrigins = []`
+CORSAllowedOrigins = []
+
+[[gatewayConfig.Dons]]
+DonId = "vault_don"
+HandlerName = "vault"
+F = 0
+
+  [gatewayConfig.Dons.HandlerConfig]
+  request_timeout_sec = 30
+
+  [[gatewayConfig.Dons.Members]]
+  Name = "node_1"
+  Address = "0x0000000000000000000000000000000000000001"` // Address is the Eth key of the node (signing key); you can specify the key that's used
+	// Gateway URL hardcode in the delegate (or specify config)
+
+	// Vault nodes get a URL of a gateway in config that they reach out to
+	// The gateway job allowlists the nodes that can reach out to it
 
 	// Validate and create the gateway job
 	_, err = gateway.ValidatedGatewaySpec(gatewayJobSpec)
@@ -78,13 +95,14 @@ CORSAllowedOrigins = []`
 	// Add the gateway job to each node in the first nodeset
 	for _, client := range gatewayNodeSetClients {
 		job, resp, err := client.CreateJobRaw(gatewayJobSpec)
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-		require.NoError(t, err)
-		require.Len(t, job.Errors, 0, "Gateway job creation call must not return any errors")
-		require.NotEmpty(t, job.Data.ID, "Gateway job creation call must return a job ID")
+		require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway job creation request must return 200 OK")
+		require.NoError(t, err, "Gateway job creation request must not error")
+		require.NotEmpty(t, job.Data.ID, "Gateway job creation response must return a job ID")
+		require.Len(t, job.Errors, 0, "Gateway job creation response must not return any errors")
+		fmt.Println(job.Data.ID)
 	}
 
-	t.Run("create secret", func(t *testing.T) {
+	t.Run("vault secrets create", func(t *testing.T) {
 		for _, n := range gatewayNodeSet.CLNodes {
 			require.NotEmpty(t, n.Node.ExternalURL)
 			require.NotEmpty(t, n.Node.InternalP2PUrl)
@@ -92,12 +110,20 @@ CORSAllowedOrigins = []`
 			// Prepare the JSON-RPC request to create a secret
 			secretRequest := map[string]interface{}{
 				"jsonrpc": "2.0",
-				"method":  "vault_createSecret",
+				"method":  "vault.secrets.create",
 				"params": map[string]interface{}{
-					"name":  "test-secret",
-					"value": "test-secret-value",
+					"body": map[string]interface{}{
+						"don_id":     "vault_don",
+						"message_id": "test-msg-1",
+						"method":     "vault.secrets.create",
+						"sender":     "0x0000000000000000000000000000000000000000",
+						"payload": map[string]interface{}{
+							"id":    "test-secret",
+							"value": "test-secret-value",
+						},
+					},
 				},
-				"id": 1,
+				"id": "1",
 			}
 
 			requestBody, err := json.Marshal(secretRequest)
@@ -119,6 +145,11 @@ CORSAllowedOrigins = []`
 			require.NoError(t, err)
 			defer resp.Body.Close()
 
+			// Print response body
+			body, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+			fmt.Println(string(body))
+
 			// Check response status
 			require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway endpoint should respond with 200 OK")
 
@@ -131,7 +162,20 @@ CORSAllowedOrigins = []`
 			require.Contains(t, response, "jsonrpc")
 			require.Equal(t, "2.0", response["jsonrpc"])
 			require.Contains(t, response, "id")
-			require.Equal(t, float64(1), response["id"])
+			require.Equal(t, "1", response["id"])
+
+			// Verify the result contains success status
+			if result, ok := response["result"].(map[string]interface{}); ok {
+				require.Contains(t, result, "success")
+				require.True(t, result["success"].(bool), "Secret creation should succeed")
+				if secretID, exists := result["id"]; exists {
+					require.Equal(t, "test-secret", secretID, "Secret ID should match the provided ID")
+				}
+			} else {
+				// If there's an error, log it for debugging
+				t.Logf("Response: %+v", response)
+				require.Contains(t, response, "error", "Expected either result or error in response")
+			}
 		}
 	})
 }

@@ -27,6 +27,7 @@ type HttpServer interface {
 
 type HTTPRequestHandler interface {
 	ProcessRequest(ctx context.Context, rawRequest []byte) (rawResponse []byte, httpStatusCode int)
+	ProcessAuthenticatedRequest(ctx context.Context, rawRequest []byte, authHeader string) (rawResponse []byte, httpStatusCode int)
 }
 
 type HTTPServerConfig struct {
@@ -179,7 +180,17 @@ func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 		requestCtx, cancel = context.WithTimeout(requestCtx, time.Duration(s.config.RequestTimeoutMillis)*time.Millisecond)
 		defer cancel()
 	}
-	rawResponse, httpStatusCode := s.handler.ProcessRequest(requestCtx, rawMessage)
+
+	// Read authorization header
+	authHeader := r.Header.Get("Authorization")
+	var rawResponse []byte
+	var httpStatusCode int
+
+	if authHeader == "" {
+		rawResponse, httpStatusCode = s.handler.ProcessRequest(requestCtx, rawMessage)
+	} else {
+		rawResponse, httpStatusCode = s.handler.ProcessAuthenticatedRequest(requestCtx, rawMessage, authHeader)
+	}
 
 	w.Header().Set("Content-Type", s.config.ContentTypeHeader)
 	w.WriteHeader(httpStatusCode)

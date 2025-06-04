@@ -5,7 +5,7 @@
 [[nodesets]]
   name = "gateway_set"
   nodes = 1
-  override_mode = "all"
+  override_mode = "each"
   
   [nodesets.db]
     image = "postgres:12.0"
@@ -15,3 +15,6 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../"
       docker_file = "./core/chainlink.Dockerfile"
+
+      # A port opened for the gateway job
+      custom_ports = ["5002:5002"]
