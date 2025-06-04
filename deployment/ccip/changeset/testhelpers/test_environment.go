@@ -844,8 +844,12 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	if len(tonChains) != 0 {
 		// Currently only one ton chain is supported in test environment
 		tonCs := deployChainContractsToTonChainCS(e, tonChains[0])
-		e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{tonCs})
-		require.NoError(t, err)
+		if tonCs != nil {
+			e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{tonCs})
+			require.NoError(t, err)
+		} else {
+			t.Log("Ton chain contracts deployment is not implemented yet")
+		}
 	}
 
 	state, err := stateview.LoadOnchainState(e.Env)
