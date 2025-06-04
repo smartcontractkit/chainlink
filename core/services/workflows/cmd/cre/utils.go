@@ -163,11 +163,11 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 		func(loopId string) {})
 
 	goBinPath := os.Getenv("GOBIN")
-	spec := &job.StandardCapabilitiesSpec{
+	cronSpec := &job.StandardCapabilitiesSpec{
 		Command: path.Join(goBinPath, "cron"),
 	}
 
-	cronLoop := standardcapabilities.NewStandardCapabilities(lggr, spec,
+	cronLoop := standardcapabilities.NewStandardCapabilities(lggr, cronSpec,
 		pluginRegistrar, &fakes.TelemetryServiceMock{}, &fakes.KVStoreMock{},
 		registry, &fakes.ErrorLogMock{}, &fakes.PipelineRunnerServiceMock{},
 		&fakes.RelayerSetMock{}, &fakes.OracleFactoryMock{})
