@@ -25,6 +25,7 @@ import (
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
@@ -332,10 +333,10 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 			FeedChainSel: feedChainSel,
 		}
 
-		buildConfig := ccipChangesetSolana.BuildSolanaConfig{
+		buildConfig := helpers.BuildSolanaConfig{
 			GitCommitSha:   "16aa375",
 			DestinationDir: deployedEnv.Env.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
-			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
+			LocalBuild: helpers.LocalBuildConfig{
 				BuildLocally: true,
 			},
 		}
