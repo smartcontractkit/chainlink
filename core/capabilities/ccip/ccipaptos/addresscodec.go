@@ -16,6 +16,11 @@ func (a AddressCodec) AddressStringToBytes(addr string) ([]byte, error) {
 	return addressStringToBytes(addr)
 }
 
+func (a AddressCodec) OracleIDAsAddressBytes(oracleID uint8) ([]byte, error) {
+	// todo
+	return nil, fmt.Errorf("not implemented: OracleIDAsAddressBytes for Aptos")
+}
+
 func addressBytesToString(addr []byte) (string, error) {
 	if len(addr) < 1 || len(addr) > 32 {
 		return "", fmt.Errorf("invalid Aptos address length (%d)", len(addr))
