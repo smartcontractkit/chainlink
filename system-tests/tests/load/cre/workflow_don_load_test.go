@@ -2,6 +2,7 @@ package cre
 
 import (
 	"bytes"
+	"context"
 	crand "crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -32,6 +33,7 @@ import (
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp/benchspy"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
@@ -170,7 +172,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 				Input:              input[1],
 				Capabilities:       []string{keystonetypes.MockCapability},
 				DONTypes:           []string{keystonetypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex: 0,
+				BootstrapNodeIndex: -1,
 			},
 		}
 	}
@@ -339,11 +341,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	kb := make([]ocr2key.KeyBundle, 0)
 	for _, don := range setupOutput.donTopology.DonsWithMetadata {
 		if flags.HasFlag(don.Flags, keystonetypes.MockCapability) {
-			for i, n := range don.DON.Nodes {
-				if i == 0 {
-					continue // Skip bootstrap nodes
-				}
-
+			for _, n := range don.DON.Nodes {
 				key, err2 := n.ExportOCR2Keys(n.Ocr2KeyBundleID)
 				if err2 == nil {
 					b, err3 := json.Marshal(key)
@@ -373,11 +371,8 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	mockClientsAddress := make([]string, 0)
 	if in.Infra.InfraType == "docker" {
 		for _, nodeSet := range in.NodeSets {
-			if nodeSet.Name == "writer" {
-				for i, n := range nodeSet.NodeSpecs {
-					if i == 0 {
-						continue
-					}
+			if nodeSet.Name == "capabilities" {
+				for _, n := range nodeSet.NodeSpecs {
 					if len(n.Node.CustomPorts) == 0 {
 						panic("no custom port specified, mock capability running in kind must have a custom port in order to connect")
 					}
@@ -388,13 +383,11 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		}
 	} else {
 		for i := range setupOutput.nodeOutput[1].CLNodes {
-			// TODO: This is brittle, switch to checking the node label
-			if i == 0 { // Skip bootstrap node
-				continue
-			}
 			mockClientsAddress = append(mockClientsAddress, fmt.Sprintf("%s-%s-%d-mock.main.stage.cldev.sh:443", in.Infra.CRIB.Namespace, setupOutput.nodeOutput[1].NodeSetName, i-1))
 		}
 	}
+
+	require.NotZero(t, len(mockClientsAddress), "Could not create mock capability client addresses")
 
 	// Use insecure gRPC connection for local Docker containers. For AWS, use TLS credentials
 	// due to ingress requirements, as grpc.insecure.NewCredentials() doesn't work properly with AWS ingress
@@ -416,22 +409,41 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		"commit":       "profile-check",
 	}
 
-	g, err := wasp.NewProfile().
-		Add(wasp.NewGenerator(&wasp.Config{
-			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
-			LoadType:    wasp.RPS,
-			Schedule: wasp.Combine(
-				wasp.Plain(4, 5*time.Minute),
-			),
-			Gun:    NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@2.0.0", receiveChannel, 500, 1),
-			Labels: labels,
-			// LokiConfig:            wasp.NewEnvLokiConfig(),
-			RateLimitUnitDuration: time.Minute,
-		})).
-		Run(false)
+	generator, err := wasp.NewGenerator(&wasp.Config{
+		CallTimeout: time.Minute * 10, // Give enough time for the workflow to execute
+		LoadType:    wasp.RPS,
+		Schedule: wasp.Combine(
+			wasp.Plain(4, 10*time.Minute),
+		),
+		Gun:    NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@2.0.0", receiveChannel, 500, 1),
+		Labels: labels,
+		// LokiConfig:            wasp.NewEnvLokiConfig(),
+		RateLimitUnitDuration: time.Minute,
+	})
+	require.NoError(t, err, "could not create generator")
+	// run the load
+	generator.Run(true)
+
+	baseLineReport, err := benchspy.NewStandardReport(
+		// random hash, this should be the commit or hash of the Application Under Test (AUT)
+		"v1.0.0",
+		// use built-in queries for an executor that fetches data directly from the WASP generator
+		benchspy.WithStandardQueries(benchspy.StandardQueryExecutor_Direct),
+		// WASP generators
+		benchspy.WithGenerators(generator),
+	)
+	require.NoError(t, err, "failed to create baseline report")
+
+	fetchCtx, cancelFn := context.WithTimeout(ctx, 60*time.Second)
+	defer cancelFn()
+
+	fetchErr := baseLineReport.FetchData(fetchCtx)
+	require.NoError(t, fetchErr, "failed to fetch data for baseline report")
+
+	path, storeErr := baseLineReport.Store()
+	require.NoError(t, storeErr, "failed to store baseline report", path)
 	require.NoError(t, err, "workflow load test did not finish successfully")
 
-	g.Wait()
 }
 
 // TestWithReconnect Re-runs the load test against an existing DON deployment. It expects feeds, OCR2 keys, and
@@ -633,7 +645,7 @@ func (s *StreamsGun) precomputeReports() {
 	s.eventID = eventID
 	s.timestamp = timestamp
 
-	framework.L.Info().Msgf("precomputeReports took %s", time.Since(start))
+	framework.L.Info().Msgf("create %d reports in %s", len(feeds), time.Since(start))
 }
 
 func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint64,
