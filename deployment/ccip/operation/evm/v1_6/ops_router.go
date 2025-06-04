@@ -5,6 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	"github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"

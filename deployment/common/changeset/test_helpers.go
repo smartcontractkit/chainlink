@@ -10,9 +10,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"

@@ -5,6 +5,7 @@ import (
 
 	"dario.cat/mergo"
 	"github.com/Masterminds/semver/v3"
+
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
