@@ -1,4 +1,4 @@
-package workflows
+package monitoring
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 
 // em AKA "engine metrics" is to locally scope these instruments to avoid
 // data races in testing
-type engineMetrics struct {
+type EngineMetrics struct {
 	registerTriggerFailureCounter            metric.Int64Counter
 	triggerWorkflowStarterErrorCounter       metric.Int64Counter
 	workflowsRunningGauge                    metric.Int64Gauge
@@ -43,8 +43,8 @@ type engineMetrics struct {
 	workflowMissingMeteringReport    metric.Int64Counter
 }
 
-func initMonitoringResources() (em *engineMetrics, err error) {
-	em = &engineMetrics{}
+func InitMonitoringResources() (em *EngineMetrics, err error) {
+	em = &EngineMetrics{}
 
 	em.workflowExecutionRateLimitGlobalCounter, err = beholder.GetMeter().Int64Counter("platform_engine_execution_ratelimit_global")
 	if err != nil {
@@ -209,123 +209,127 @@ func MetricViews() []sdkmetric.View {
 	}
 }
 
-// workflowsMetricLabeler wraps monitoring.MetricsLabeler to provide workflow specific utilities
+// WorkflowsMetricLabeler wraps monitoring.MetricsLabeler to provide workflow specific utilities
 // for monitoring resources
-type workflowsMetricLabeler struct {
+type WorkflowsMetricLabeler struct {
 	metrics.Labeler
-	em engineMetrics
+	em *EngineMetrics
 }
 
-func (c workflowsMetricLabeler) with(keyValues ...string) workflowsMetricLabeler {
-	return workflowsMetricLabeler{c.With(keyValues...), c.em}
+func NewWorkflowsMetricLabeler(labeler metrics.Labeler, em *EngineMetrics) *WorkflowsMetricLabeler {
+	return &WorkflowsMetricLabeler{labeler, em}
 }
 
-func (c workflowsMetricLabeler) incrementWorkflowExecutionRateLimitGlobalCounter(ctx context.Context) {
+func (c WorkflowsMetricLabeler) With(keyValues ...string) *WorkflowsMetricLabeler {
+	return &WorkflowsMetricLabeler{c.Labeler.With(keyValues...), c.em}
+}
+
+func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionRateLimitGlobalCounter(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowExecutionRateLimitGlobalCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) incrementWorkflowExecutionRateLimitPerUserCounter(ctx context.Context) {
+func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionRateLimitPerUserCounter(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowExecutionRateLimitPerUserCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) incrementWorkflowLimitGlobalCounter(ctx context.Context) {
+func (c WorkflowsMetricLabeler) IncrementWorkflowLimitGlobalCounter(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowLimitGlobalCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) incrementWorkflowLimitPerOwnerCounter(ctx context.Context) {
+func (c WorkflowsMetricLabeler) IncrementWorkflowLimitPerOwnerCounter(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowLimitPerOwnerCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) incrementRegisterTriggerFailureCounter(ctx context.Context) {
+func (c WorkflowsMetricLabeler) IncrementRegisterTriggerFailureCounter(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.registerTriggerFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) incrementTriggerWorkflowStarterErrorCounter(ctx context.Context) {
+func (c WorkflowsMetricLabeler) IncrementTriggerWorkflowStarterErrorCounter(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.triggerWorkflowStarterErrorCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) incrementCapabilityInvocationCounter(ctx context.Context) {
+func (c WorkflowsMetricLabeler) IncrementCapabilityInvocationCounter(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.capabilityInvocationCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) updateWorkflowExecutionLatencyGauge(ctx context.Context, val int64) {
+func (c WorkflowsMetricLabeler) UpdateWorkflowExecutionLatencyGauge(ctx context.Context, val int64) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowExecutionLatencyGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) incrementTotalWorkflowStepErrorsCounter(ctx context.Context) {
+func (c WorkflowsMetricLabeler) IncrementTotalWorkflowStepErrorsCounter(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowStepErrorCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) updateTotalWorkflowsGauge(ctx context.Context, val int64) {
+func (c WorkflowsMetricLabeler) UpdateTotalWorkflowsGauge(ctx context.Context, val int64) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowsRunningGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) incrementEngineHeartbeatCounter(ctx context.Context) {
+func (c WorkflowsMetricLabeler) IncrementEngineHeartbeatCounter(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.engineHeartbeatCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) engineHeartbeatGauge(ctx context.Context, val int64) {
+func (c WorkflowsMetricLabeler) EngineHeartbeatGauge(ctx context.Context, val int64) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.engineHeartbeatGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) incrementCapabilityFailureCounter(ctx context.Context) {
+func (c WorkflowsMetricLabeler) IncrementCapabilityFailureCounter(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.capabilityFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) incrementWorkflowRegisteredCounter(ctx context.Context) {
+func (c WorkflowsMetricLabeler) IncrementWorkflowRegisteredCounter(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowRegisteredCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) incrementWorkflowUnregisteredCounter(ctx context.Context) {
+func (c WorkflowsMetricLabeler) IncrementWorkflowUnregisteredCounter(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowUnregisteredCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) incrementWorkflowInitializationCounter(ctx context.Context) {
+func (c WorkflowsMetricLabeler) IncrementWorkflowInitializationCounter(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowInitializationCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) updateWorkflowCompletedDurationHistogram(ctx context.Context, duration int64) {
+func (c WorkflowsMetricLabeler) UpdateWorkflowCompletedDurationHistogram(ctx context.Context, duration int64) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowCompletedDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) updateWorkflowEarlyExitDurationHistogram(ctx context.Context, duration int64) {
+func (c WorkflowsMetricLabeler) UpdateWorkflowEarlyExitDurationHistogram(ctx context.Context, duration int64) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowEarlyExitDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) updateWorkflowErrorDurationHistogram(ctx context.Context, duration int64) {
+func (c WorkflowsMetricLabeler) UpdateWorkflowErrorDurationHistogram(ctx context.Context, duration int64) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowErrorDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) updateWorkflowTimeoutDurationHistogram(ctx context.Context, duration int64) {
+func (c WorkflowsMetricLabeler) UpdateWorkflowTimeoutDurationHistogram(ctx context.Context, duration int64) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowTimeoutDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) updateWorkflowStepDurationHistogram(ctx context.Context, duration int64) {
+func (c WorkflowsMetricLabeler) UpdateWorkflowStepDurationHistogram(ctx context.Context, duration int64) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowStepDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) incrementWorkflowMissingMeteringReport(ctx context.Context) {
+func (c WorkflowsMetricLabeler) IncrementWorkflowMissingMeteringReport(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowMissingMeteringReport.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }

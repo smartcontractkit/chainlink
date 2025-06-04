@@ -105,7 +105,7 @@ func MaybeLoadMCMSWithTimelockStateDataStore(env cldf.Environment, chainSelector
 }
 
 // TODO there should be some common utility/adapter for this
-func loadAddressesFromDataStore(ds datastore.DataStore[datastore.DefaultMetadata, datastore.DefaultMetadata], chainSelector uint64) (map[string]cldf.TypeAndVersion, error) {
+func loadAddressesFromDataStore(ds datastore.DataStore, chainSelector uint64) (map[string]cldf.TypeAndVersion, error) {
 	addressesChain := make(map[string]cldf.TypeAndVersion)
 	addresses := ds.Addresses().Filter(datastore.AddressRefByChainSelector(chainSelector))
 	if len(addresses) == 0 {

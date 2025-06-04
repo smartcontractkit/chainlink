@@ -40,7 +40,7 @@ func TestSetOCR3Offramp_Apply(t *testing.T) {
 		CCIPHomeConfigType: globals.ConfigTypeActive, // TODO: investigate why this is not being used, might be a bug
 	}
 
-	env, _, err := commonchangeset.ApplyChangesetsV2(t, env, []commonchangeset.ConfiguredChangeSet{
+	env, _, err := commonchangeset.ApplyChangesets(t, env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(aptoscs.SetOCR3Offramp{}, cfg),
 	})
 	require.NoError(t, err)
