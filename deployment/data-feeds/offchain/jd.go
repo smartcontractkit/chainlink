@@ -12,16 +12,17 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 type NodesFilter struct {
-	DONID        uint64
+	DONID        uint64 // Required
 	EnvLabel     string
 	ProductLabel string
 	Size         int
 	IsBootstrap  bool
+	NodeIDs      []string // Optional, if other filters are provided
 }
 
 func (f *NodesFilter) filter() *nodeapiv1.ListNodesRequest_Filter {
@@ -76,15 +77,40 @@ func fetchNodesFromJD(ctx context.Context, env cldf.Environment, nodeFilters *No
 	return resp.Nodes, nil
 }
 
+func getNodes(ctx context.Context, env cldf.Environment, nodeIDs []string) ([]*nodeapiv1.Node, error) {
+	nodes := make([]*nodeapiv1.Node, 0, len(nodeIDs))
+	for _, nodeID := range nodeIDs {
+		resp, err := env.Offchain.GetNode(ctx, &nodeapiv1.GetNodeRequest{Id: nodeID})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get node %s: %w", nodeID, err)
+		}
+		nodes = append(nodes, resp.Node)
+	}
+	return nodes, nil
+}
+
 func ProposeJobs(ctx context.Context, env cldf.Environment, workflowJobSpec string, workflowName *string, nodeFilters *NodesFilter) (cldf.ChangesetOutput, error) {
 	out := cldf.ChangesetOutput{
 		Jobs: []cldf.ProposedJob{},
 	}
-	// Fetch nodes
-	nodes, err := fetchNodesFromJD(ctx, env, nodeFilters)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get nodes: %w", err)
+	var nodes []*nodeapiv1.Node
+	var err error
+
+	// Use node IDs if provided
+	if len(nodeFilters.NodeIDs) > 0 {
+		env.Logger.Debugf("nodeIDs provided. Fetching nodes for node IDs %s", nodeFilters.NodeIDs)
+		nodes, err = getNodes(ctx, env, nodeFilters.NodeIDs)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get nodes for ndoe Ids %s: %w", nodeFilters.NodeIDs, err)
+		}
+	} else {
+		// Fetch nodes based on filter
+		nodes, err = fetchNodesFromJD(ctx, env, nodeFilters)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to filter nodes: %w", err)
+		}
 	}
+
 	// Propose jobs
 	jobLabels := []*ptypes.Label{
 		&ptypes.Label{

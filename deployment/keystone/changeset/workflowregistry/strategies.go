@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -21,7 +22,7 @@ type strategy interface {
 }
 
 type simpleTransaction struct {
-	chain cldf.Chain
+	chain cldf_evm.Chain
 }
 
 func (s *simpleTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (cldf.ChangesetOutput, error) {

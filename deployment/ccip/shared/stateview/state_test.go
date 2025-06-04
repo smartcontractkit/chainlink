@@ -5,11 +5,14 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
@@ -30,12 +33,11 @@ func TestSmokeState(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 	state, err := stateview.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
-	_, _, err = state.View(&tenv.Env, tenv.Env.AllChainSelectors())
+	_, _, err = state.View(&tenv.Env, tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)))
 	require.NoError(t, err)
 }
 
 func TestMCMSState(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-106")
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNoJobsAndContracts())
 	addressbook := cldf.NewMemoryAddressBook()
 	newTv := cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
@@ -164,11 +166,11 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 			e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 				Chains: 1,
 			})
-			homeChainSelector := e.AllChainSelectors()[0]
-
+			homeChainSelector := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+			evmChains := e.BlockChains.EVMChains()
 			if test.DeployCCIPHome {
-				_, err = cldf.DeployContract(e.Logger, e.Chains[homeChainSelector], e.ExistingAddresses,
-					func(chain cldf.Chain) cldf.ContractDeploy[*ccip_home.CCIPHome] {
+				_, err = cldf.DeployContract(e.Logger, evmChains[homeChainSelector], e.ExistingAddresses,
+					func(chain cldf_evm.Chain) cldf.ContractDeploy[*ccip_home.CCIPHome] {
 						address, tx2, contract, err2 := ccip_home.DeployCCIPHome(
 							chain.DeployerKey,
 							chain.Client,
@@ -182,8 +184,8 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 			}
 
 			if test.DeployCapReg {
-				_, err = cldf.DeployContract(e.Logger, e.Chains[homeChainSelector], e.ExistingAddresses,
-					func(chain cldf.Chain) cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
+				_, err = cldf.DeployContract(e.Logger, evmChains[homeChainSelector], e.ExistingAddresses,
+					func(chain cldf_evm.Chain) cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 						address, tx2, contract, err2 := capabilities_registry.DeployCapabilitiesRegistry(
 							chain.DeployerKey,
 							chain.Client,
@@ -196,7 +198,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 			}
 
 			if test.DeployMCMS {
-				e, err = commonchangeset.Apply(t, e, nil,
+				e, err = commonchangeset.Apply(t, e,
 					commonchangeset.Configure(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]types.MCMSWithTimelockConfigV2{
 						homeChainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
 					}),
@@ -214,12 +216,6 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 				}
 				if len(addrs) > 0 {
 					e, err = commonchangeset.Apply(t, e,
-						map[uint64]*proposalutils.TimelockExecutionContracts{
-							homeChainSelector: &proposalutils.TimelockExecutionContracts{
-								Timelock:  state.Chains[homeChainSelector].Timelock,
-								CallProxy: state.Chains[homeChainSelector].CallProxy,
-							},
-						},
 						commonchangeset.Configure(
 							cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 							commonchangeset.TransferToMCMSWithTimelockConfig{

@@ -9,13 +9,14 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+
+	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -85,7 +86,7 @@ func New(
 		metrics:    metricLabeler,
 		stopCh:     make(services.StopChan),
 		updateChan: make(chan *LocalRegistry),
-		lggr:       lggr.Named("RegistrySyncer"),
+		lggr:       logger.Named(lggr, "RegistrySyncer"),
 		relayer:    relayer,
 		capabilitiesContract: types.BoundContract{
 			Address: registryAddress,

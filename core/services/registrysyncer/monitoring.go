@@ -8,8 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
-
-	localMonitoring "github.com/smartcontractkit/chainlink/v2/core/monitoring"
 )
 
 // syncerMetricLabeler wraps monitoring.MetricsLabeler to provide workflow specific utilities
@@ -39,11 +37,11 @@ func (c *syncerMetricLabeler) with(keyValues ...string) syncerMetricLabeler {
 }
 
 func (c *syncerMetricLabeler) incrementRemoteRegistryFailureCounter(ctx context.Context) {
-	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.remoteRegistrySyncFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c *syncerMetricLabeler) incrementLauncherFailureCounter(ctx context.Context) {
-	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.launcherFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }

@@ -1,20 +1,28 @@
 package v2
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	"github.com/jonboulle/clockwork"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
+
+type BillingClient interface {
+	SubmitWorkflowReceipt(context.Context, *billing.SubmitWorkflowReceiptRequest) (*billing.SubmitWorkflowReceiptResponse, error)
+}
 
 type EngineConfig struct {
 	Lggr            logger.Logger
@@ -31,7 +39,10 @@ type EngineConfig struct {
 	GlobalLimits         *syncerlimiter.Limits    // global to all workflows
 	ExecutionRateLimiter *ratelimiter.RateLimiter // global + per owner
 
-	Hooks LifecycleHooks
+	BeholderEmitter custmsg.MessageEmitter
+
+	Hooks         LifecycleHooks
+	BillingClient BillingClient
 }
 
 const (
@@ -115,6 +126,13 @@ func (c *EngineConfig) Validate() error {
 	}
 	if c.ExecutionRateLimiter == nil {
 		return errors.New("execution rate limiter not set")
+	}
+
+	if c.BeholderEmitter == nil {
+		return errors.New("beholder emitter not set")
+	}
+	if c.BillingClient == nil {
+		return errors.New("billing client not set")
 	}
 
 	c.Hooks.setDefaultHooks()

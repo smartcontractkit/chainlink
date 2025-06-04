@@ -1,0 +1,5 @@
+# ctf binary artifacts
+compose/
+blockscout/
+
+*.yaml

@@ -13,6 +13,8 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	cldfsol "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -27,7 +29,7 @@ import (
 // if it is not an upgrade. It returns the program ID of the deployed program.
 func DeployAndMaybeSaveToAddressBook(
 	e cldf.Environment,
-	chain cldf.SolChain,
+	chain cldfsol.Chain,
 	ab cldf.AddressBook,
 	contractType cldf.ContractType,
 	version semver.Version,
@@ -40,7 +42,7 @@ func DeployAndMaybeSaveToAddressBook(
 	if metadata != "" && metadata != shared.CLLMetadata {
 		overallocate = false
 	}
-	programID, err := chain.DeployProgram(e.Logger, cldf.SolProgramInfo{
+	programID, err := chain.DeployProgram(e.Logger, cldfsol.ProgramInfo{
 		Name:  programName,
 		Bytes: deployment.SolanaProgramBytes[programName],
 	}, isUpgrade, overallocate)
@@ -67,7 +69,7 @@ func DeployAndMaybeSaveToAddressBook(
 // UPGRADE FUNCTIONS
 func GenerateUpgradeTxns(
 	e cldf.Environment,
-	chain cldf.SolChain,
+	chain cldfsol.Chain,
 	ab cldf.AddressBook,
 	spillAddress solana.PublicKey,
 	upgradeAuthority solana.PublicKey,
@@ -237,7 +239,7 @@ func generateUpgradeIxn(
 
 func generateExtendIxn(
 	e *cldf.Environment,
-	chain cldf.SolChain,
+	chain cldfsol.Chain,
 	programID solana.PublicKey,
 	bufferAddress solana.PublicKey,
 	payer solana.PublicKey,
@@ -307,9 +309,9 @@ func generateCloseBufferIxn(
 }
 
 // HELPER FUNCTIONS
-func GetSolProgramSize(e *cldf.Environment, chain cldf.SolChain, programID solana.PublicKey) (int, error) {
+func GetSolProgramSize(e *cldf.Environment, chain cldfsol.Chain, programID solana.PublicKey) (int, error) {
 	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &rpc.GetAccountInfoOpts{
-		Commitment: cldf.SolDefaultCommitment,
+		Commitment: solRpc.CommitmentConfirmed,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get account info: %w", err)
@@ -321,7 +323,7 @@ func GetSolProgramSize(e *cldf.Environment, chain cldf.SolChain, programID solan
 	return programBytes, nil
 }
 
-func GetSolProgramData(e cldf.Environment, chain cldf.SolChain, programID solana.PublicKey) (struct {
+func GetSolProgramData(e cldf.Environment, chain cldfsol.Chain, programID solana.PublicKey) (struct {
 	DataType uint32
 	Address  solana.PublicKey
 }, error) {
@@ -353,7 +355,7 @@ func BuildProposalsForTxns(
 	proposers := map[uint64]string{}
 	inspectors := map[uint64]sdk.Inspector{}
 	batches := make([]mcmsTypes.BatchOperation, 0)
-	chain := e.SolChains[chainSelector]
+	chain := e.BlockChains.SolanaChains()[chainSelector]
 	addresses, _ := e.ExistingAddresses.AddressesForChain(chainSelector)
 	mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
 
@@ -386,7 +388,7 @@ func FetchTimelockSigner(e cldf.Environment, chainSelector uint64) (solana.Publi
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to load addresses for chain %d: %w", chainSelector, err)
 	}
-	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[chainSelector], addresses)
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[chainSelector], addresses)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to load mcm state: %w", err)
 	}
@@ -401,7 +403,7 @@ type CloseBuffersConfig struct {
 
 func CloseBuffersChangeset(e cldf.Environment, cfg CloseBuffersConfig) (cldf.ChangesetOutput, error) {
 	for _, buffer := range cfg.Buffers {
-		if err := e.SolChains[cfg.ChainSelector].CloseBuffers(e.Logger, buffer); err != nil {
+		if err := e.BlockChains.SolanaChains()[cfg.ChainSelector].CloseBuffers(e.Logger, buffer); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to close buffer: %w", err)
 		}
 	}

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -23,10 +23,8 @@ type VerifyBuildConfig struct {
 	VerifyRouter                 bool
 	VerifyOffRamp                bool
 	VerifyRMNRemote              bool
-	VerifyBurnMintTokenPool      bool
-	BurnMintTokenPoolMetadata    string
-	LockReleaseTokenPoolMetadata string
-	VerifyLockReleaseTokenPool   bool
+	BurnMintTokenPoolMetadata    []string
+	LockReleaseTokenPoolMetadata []string
 	VerifyAccessController       bool
 	VerifyMCM                    bool
 	VerifyTimelock               bool
@@ -34,7 +32,7 @@ type VerifyBuildConfig struct {
 	MCMS                         *proposalutils.TimelockConfig
 }
 
-func runSolanaVerify(chain cldf.SolChain, programID, libraryName, commitHash, mountPath string, remote bool) error {
+func runSolanaVerify(chain cldf_solana.Chain, programID, libraryName, commitHash, mountPath string, remote bool) error {
 	params := map[string]string{
 		"Keypair Path": chain.KeypairPath,
 		"Network URL":  chain.URL,
@@ -97,7 +95,7 @@ func runSolanaVerify(chain cldf.SolChain, programID, libraryName, commitHash, mo
 }
 
 func VerifyBuild(e cldf.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutput, error) {
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
@@ -108,14 +106,6 @@ func VerifyBuild(e cldf.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutpu
 	mcmState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
-	}
-	bnmMetadata := shared.CLLMetadata
-	lnrMetadata := shared.CLLMetadata
-	if cfg.BurnMintTokenPoolMetadata != "" {
-		bnmMetadata = cfg.BurnMintTokenPoolMetadata
-	}
-	if cfg.LockReleaseTokenPoolMetadata != "" {
-		lnrMetadata = cfg.LockReleaseTokenPoolMetadata
 	}
 
 	verifications := []struct {
@@ -128,11 +118,36 @@ func VerifyBuild(e cldf.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutpu
 		{"Router", chainState.Router.String(), deployment.RouterProgramName, cfg.VerifyRouter},
 		{"OffRamp", chainState.OffRamp.String(), deployment.OffRampProgramName, cfg.VerifyOffRamp},
 		{"RMN Remote", chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, cfg.VerifyRMNRemote},
-		{"Burn Mint Token Pool", chainState.BurnMintTokenPools[bnmMetadata].String(), deployment.BurnMintTokenPoolProgramName, cfg.VerifyBurnMintTokenPool},
-		{"Lock Release Token Pool", chainState.LockReleaseTokenPools[lnrMetadata].String(), deployment.LockReleaseTokenPoolProgramName, cfg.VerifyLockReleaseTokenPool},
 		{"Access Controller", mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName, cfg.VerifyAccessController},
 		{"MCM", mcmState.McmProgram.String(), deployment.McmProgramName, cfg.VerifyMCM},
 		{"Timelock", mcmState.TimelockProgram.String(), deployment.TimelockProgramName, cfg.VerifyTimelock},
+	}
+	for _, bnmMetadata := range cfg.BurnMintTokenPoolMetadata {
+		verifications = append(verifications, struct {
+			name       string
+			programID  string
+			programLib string
+			enabled    bool
+		}{
+			name:       "Burn Mint Token Pool",
+			programID:  chainState.BurnMintTokenPools[bnmMetadata].String(),
+			programLib: deployment.BurnMintTokenPoolProgramName,
+			enabled:    true,
+		})
+	}
+
+	for _, lnrMetadata := range cfg.LockReleaseTokenPoolMetadata {
+		verifications = append(verifications, struct {
+			name       string
+			programID  string
+			programLib string
+			enabled    bool
+		}{
+			name:       "Lock Release Token Pool",
+			programID:  chainState.LockReleaseTokenPools[lnrMetadata].String(),
+			programLib: deployment.LockReleaseTokenPoolProgramName,
+			enabled:    true,
+		})
 	}
 
 	for _, v := range verifications {

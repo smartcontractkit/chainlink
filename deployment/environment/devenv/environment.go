@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -21,7 +22,7 @@ type EnvironmentConfig struct {
 }
 
 func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config EnvironmentConfig) (*cldf.Environment, *DON, error) {
-	chains, err := NewChains(lggr, config.Chains)
+	chains, solChains, err := NewChains(lggr, config.Chains)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create chains: %w", err)
 	}
@@ -51,20 +52,23 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 		nodeIDs = jd.don.NodeIds()
 	}
 
+	blockChains := map[uint64]chain.BlockChain{}
+	for _, c := range chains {
+		blockChains[c.Selector] = c
+	}
+	for _, c := range solChains {
+		blockChains[c.Selector] = c
+	}
+
 	return cldf.NewEnvironment(
 		DevEnv,
 		lggr,
 		cldf.NewMemoryAddressBook(),
-		datastore.NewMemoryDataStore[
-			datastore.DefaultMetadata,
-			datastore.DefaultMetadata,
-		]().Seal(),
-		chains,
-		nil, // sending nil for solana chains right now, we can build this when we need it
-		nil, // sending nil for aptos chains right now, we can build this when we need it
+		datastore.NewMemoryDataStore().Seal(),
 		nodeIDs,
 		offChain,
 		ctx,
 		cldf.XXXGenerateTestOCRSecrets(),
+		chain.NewBlockChains(blockChains),
 	), jd.don, nil
 }

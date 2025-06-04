@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -32,12 +33,12 @@ type DeployRequestV2 = struct {
 	Qualifier string
 	Labels    *datastore.LabelSet
 
-	deployFn func(ctx context.Context, chain cldf.Chain, ab cldf.AddressBook) (*kslib.DeployResponse, error)
+	deployFn func(ctx context.Context, chain cldf_evm.Chain, ab cldf.AddressBook) (*kslib.DeployResponse, error)
 }
 
 func deploy(env cldf.Environment, req *DeployRequestV2) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
-	chain, ok := env.Chains[req.ChainSel]
+	chain, ok := env.BlockChains.EVMChains()[req.ChainSel]
 	if !ok {
 		return cldf.ChangesetOutput{}, errors.New("chain not found in environment")
 	}
@@ -48,10 +49,7 @@ func deploy(env cldf.Environment, req *DeployRequestV2) (cldf.ChangesetOutput, e
 	}
 	lggr.Infof("Deployed %s chain selector %d addr %s", resp.Tv.String(), chain.Selector, resp.Address.String())
 
-	ds := datastore.NewMemoryDataStore[
-		datastore.DefaultMetadata,
-		datastore.DefaultMetadata,
-	]()
+	ds := datastore.NewMemoryDataStore()
 	r := datastore.AddressRef{
 		ChainSelector: req.ChainSel,
 		Address:       resp.Address.String(),

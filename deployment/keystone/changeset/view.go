@@ -7,12 +7,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
-	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper"
+	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 	commonview "github.com/smartcontractkit/chainlink/deployment/common/view"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
@@ -124,9 +125,10 @@ func getContractsPerChain(e deployment.Environment) (contractsPerChain, error) {
 	}
 
 	for _, contractAddress := range contractAddresses {
-		chain, ok := e.Chains[contractAddress.ChainSelector]
+		chain, ok := e.BlockChains.EVMChains()[contractAddress.ChainSelector]
 		if !ok {
-			errs = errors.Join(errs, fmt.Errorf("chain with selector %d not found", contractAddress.ChainSelector))
+			// the chain might not be present in the environment if it was removed due to RPC instability
+			e.Logger.Warnf("chain with selector %d not found, skipping contract address %s", contractAddress.ChainSelector, contractAddress.Address)
 			continue
 		}
 

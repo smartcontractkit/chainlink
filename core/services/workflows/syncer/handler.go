@@ -2,9 +2,8 @@ package syncer
 
 import (
 	"context"
-	"errors"
-
 	"encoding/hex"
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -121,6 +120,7 @@ type eventHandler struct {
 	ratelimiter            *ratelimiter.RateLimiter
 	workflowLimits         *syncerlimiter.Limits
 	workflowArtifactsStore WorkflowArtifactsStore
+	billingClient          workflows.BillingClient
 }
 
 type Event struct {
@@ -145,6 +145,12 @@ func WithStaticEngine(engine services.Service) func(*eventHandler) {
 		e.engineFactory = func(_ context.Context, _ string, _ string, _ types.WorkflowName, _ []byte, _ []byte) (services.Service, error) {
 			return engine, nil
 		}
+	}
+}
+
+func WithBillingClient(client workflows.BillingClient) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.billingClient = client
 	}
 }
 
@@ -483,10 +489,13 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 
 func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, config []byte, binary []byte) (services.Service, error) {
 	moduleConfig := &host.ModuleConfig{Logger: h.lggr, Labeler: h.emitter}
+
+	h.lggr.Debugf("Creating module for workflowID %s", workflowID)
 	module, err := host.NewModule(moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate module: %w", err)
 	}
+	h.lggr.Debugf("Finished creating module for workflowID %s", workflowID)
 
 	if module.IsLegacyDAG() { // V1 aka "DAG"
 		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
@@ -507,6 +516,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 			SecretsFetcher: h.workflowArtifactsStore.SecretsFor,
 			RateLimiter:    h.ratelimiter,
 			WorkflowLimits: h.workflowLimits,
+			BillingClient:  h.billingClient,
 		}
 		return workflows.NewEngine(ctx, cfg)
 	}
@@ -525,8 +535,11 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		LocalLimits:          v2.EngineLimits{}, // all defaults
 		GlobalLimits:         h.workflowLimits,
 		ExecutionRateLimiter: h.ratelimiter,
+
+		BeholderEmitter: h.emitter,
+		BillingClient:   h.billingClient,
 	}
-	return v2.NewEngine(ctx, cfg)
+	return v2.NewEngine(cfg)
 }
 
 // workflowUpdatedEvent handles the WorkflowUpdatedEvent event type by first finding the

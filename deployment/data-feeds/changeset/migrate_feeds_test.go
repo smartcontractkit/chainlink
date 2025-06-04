@@ -7,6 +7,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -24,14 +27,13 @@ func TestMigrateFeeds(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
 		Chains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	chainSelector := env.AllChainSelectors()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
-	newEnv, err := commonChangesets.Apply(t, env, nil,
+	newEnv, err := commonChangesets.Apply(t, env,
 		commonChangesets.Configure(
 			changeset.DeployCacheChangeset,
 			types.DeployConfig{
@@ -45,33 +47,30 @@ func TestMigrateFeeds(t *testing.T) {
 	cacheAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
 	require.NoError(t, err)
 
-	resp, err := commonChangesets.Apply(t, newEnv, nil,
-		commonChangesets.Configure(
-			changeset.SetFeedAdminChangeset,
-			types.SetFeedAdminConfig{
-				ChainSelector: chainSelector,
-				CacheAddress:  common.HexToAddress(cacheAddress),
-				AdminAddress:  common.HexToAddress(env.Chains[chainSelector].DeployerKey.From.Hex()),
-				IsAdmin:       true,
-			},
-		),
-		commonChangesets.Configure(
-			changeset.MigrateFeedsChangeset,
-			types.MigrationConfig{
-				ChainSelector: chainSelector,
-				CacheAddress:  common.HexToAddress(cacheAddress),
-				InputFileName: "testdata/migrate_feeds.json",
-				InputFS:       testFS,
-				WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
-					cache.DataFeedsCacheWorkflowMetadata{
-						AllowedSender:        common.HexToAddress("0x22"),
-						AllowedWorkflowOwner: common.HexToAddress("0x33"),
-						AllowedWorkflowName:  changeset.HashedWorkflowName("test"),
-					},
+	resp, err := commonChangesets.Apply(t, newEnv, commonChangesets.Configure(
+		changeset.SetFeedAdminChangeset,
+		types.SetFeedAdminConfig{
+			ChainSelector: chainSelector,
+			CacheAddress:  common.HexToAddress(cacheAddress),
+			AdminAddress:  common.HexToAddress(env.BlockChains.EVMChains()[chainSelector].DeployerKey.From.Hex()),
+			IsAdmin:       true,
+		},
+	), commonChangesets.Configure(
+		changeset.MigrateFeedsChangeset,
+		types.MigrationConfig{
+			ChainSelector: chainSelector,
+			CacheAddress:  common.HexToAddress(cacheAddress),
+			InputFileName: "testdata/migrate_feeds.json",
+			InputFS:       testFS,
+			WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
+				{
+					AllowedSender:        common.HexToAddress("0x22"),
+					AllowedWorkflowOwner: common.HexToAddress("0x33"),
+					AllowedWorkflowName:  changeset.HashedWorkflowName("test"),
 				},
 			},
-		),
-	)
+		},
+	))
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	addresses, err := resp.ExistingAddresses.AddressesForChain(chainSelector)

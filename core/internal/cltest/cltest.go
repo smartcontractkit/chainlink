@@ -46,9 +46,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
-	evmheads "github.com/smartcontractkit/chainlink-evm/pkg/heads"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -58,7 +58,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -79,6 +78,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -134,6 +134,7 @@ var (
 	DefaultStarkNetKey = starkkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultAptosKey    = aptoskey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultTronKey     = tronkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
+	DefaultTONKey      = tonkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultVRFKey      = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
 )
 
@@ -1269,163 +1270,6 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *clie
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 	ethClient.On("Close").Return().Maybe()
-}
-
-// SimulateIncomingHeads spawns a goroutine which sends a stream of heads and closes the returned channel when finished.
-func SimulateIncomingHeads(t *testing.T, heads []*evmtypes.Head, headTrackables ...evmheads.Trackable) (done chan struct{}) {
-	// Build the full chain of heads
-	ctx := testutils.Context(t)
-	done = make(chan struct{})
-	go func(t *testing.T) {
-		defer close(done)
-		ticker := time.NewTicker(250 * time.Millisecond)
-		defer ticker.Stop()
-
-		for _, h := range heads {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				t.Logf("Sending head: %d", h.Number)
-				for _, ht := range headTrackables {
-					ht.OnNewLongestChain(ctx, h)
-				}
-			}
-		}
-	}(t)
-	return done
-}
-
-// Blocks - a helper logic to construct a range of linked heads
-// and an ability to fork and create logs from them
-type Blocks struct {
-	t       *testing.T
-	Hashes  []common.Hash
-	mHashes map[int64]common.Hash
-	Heads   map[int64]*evmtypes.Head
-}
-
-func (b *Blocks) LogOnBlockNum(i uint64, addr common.Address) types.Log {
-	return RawNewRoundLog(b.t, addr, b.Hashes[i], i, 0, false)
-}
-
-func (b *Blocks) LogOnBlockNumRemoved(i uint64, addr common.Address) types.Log {
-	return RawNewRoundLog(b.t, addr, b.Hashes[i], i, 0, true)
-}
-
-func (b *Blocks) LogOnBlockNumWithIndex(i uint64, logIndex uint, addr common.Address) types.Log {
-	return RawNewRoundLog(b.t, addr, b.Hashes[i], i, logIndex, false)
-}
-
-func (b *Blocks) LogOnBlockNumWithIndexRemoved(i uint64, logIndex uint, addr common.Address) types.Log {
-	return RawNewRoundLog(b.t, addr, b.Hashes[i], i, logIndex, true)
-}
-
-func (b *Blocks) LogOnBlockNumWithTopics(i uint64, logIndex uint, addr common.Address, topics []common.Hash) types.Log {
-	return RawNewRoundLogWithTopics(b.t, addr, b.Hashes[i], i, logIndex, false, topics)
-}
-
-func (b *Blocks) Head(number uint64) *evmtypes.Head {
-	return b.Heads[int64(number)]
-}
-
-func (b *Blocks) ForkAt(t *testing.T, blockNum int64, numHashes int) *Blocks {
-	forked := NewBlocks(t, len(b.Heads)+numHashes)
-	if _, exists := forked.Heads[blockNum]; !exists {
-		t.Fatalf("Not enough length for block num: %v", blockNum)
-	}
-
-	for i := int64(0); i < blockNum; i++ {
-		forked.Heads[i] = b.Heads[i]
-	}
-
-	forked.Heads[blockNum].ParentHash = b.Heads[blockNum].ParentHash
-	forked.Heads[blockNum].Parent.Store(b.Heads[blockNum].Parent.Load())
-	return forked
-}
-
-func (b *Blocks) NewHead(number uint64) *evmtypes.Head {
-	parentNumber := number - 1
-	parent, ok := b.Heads[int64(parentNumber)]
-	if !ok {
-		b.t.Fatalf("Can't find parent block at index: %v", parentNumber)
-	}
-	head := &evmtypes.Head{
-		Number:     parent.Number + 1,
-		Hash:       evmutils.NewHash(),
-		ParentHash: parent.Hash,
-		Timestamp:  time.Unix(parent.Number+1, 0),
-		EVMChainID: ubig.New(&FixtureChainID),
-	}
-	head.Parent.Store(parent)
-	return head
-}
-
-// Slice returns a slice of heads from number i to j. Set j < 0 for all remaining.
-func (b *Blocks) Slice(i, j int) []*evmtypes.Head {
-	b.t.Logf("Slicing heads from %v to %v...", i, j)
-
-	if j > 0 && j-i > len(b.Heads) {
-		b.t.Fatalf("invalid configuration: too few blocks %d for range length %d", len(b.Heads), j-i)
-	}
-	return b.slice(i, j)
-}
-
-func (b *Blocks) slice(i, j int) (heads []*evmtypes.Head) {
-	if j > 0 {
-		heads = make([]*evmtypes.Head, 0, j-i)
-	}
-	for n := i; j < 0 || n < j; n++ {
-		h, ok := b.Heads[int64(n)]
-		if !ok {
-			if j < 0 {
-				break // done
-			}
-			b.t.Fatalf("invalid configuration: block %d not found", n)
-		}
-		heads = append(heads, h)
-	}
-	return
-}
-
-func NewBlocks(t *testing.T, numHashes int) *Blocks {
-	hashes := make([]common.Hash, 0)
-	heads := make(map[int64]*evmtypes.Head)
-	now := time.Now()
-	for i := int64(0); i < int64(numHashes); i++ {
-		hash := evmutils.NewHash()
-		hashes = append(hashes, hash)
-
-		heads[i] = &evmtypes.Head{
-			Hash:       hash,
-			Number:     i,
-			Timestamp:  now.Add(time.Duration(i) * time.Second),
-			EVMChainID: ubig.New(&FixtureChainID),
-		}
-		if i > 0 {
-			parent := heads[i-1]
-			heads[i].Parent.Store(parent)
-			heads[i].ParentHash = parent.Hash
-		}
-	}
-
-	hashesMap := make(map[int64]common.Hash)
-	for i := 0; i < len(hashes); i++ {
-		hashesMap[int64(i)] = hashes[i]
-	}
-
-	return &Blocks{
-		t:       t,
-		Hashes:  hashes,
-		mHashes: hashesMap,
-		Heads:   heads,
-	}
-}
-
-type HeadTrackableFunc func(context.Context, *evmtypes.Head)
-
-func (fn HeadTrackableFunc) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
-	fn(ctx, head)
 }
 
 func AssertCount(t testing.TB, ds sqlutil.DataSource, tableName string, expected int64) {

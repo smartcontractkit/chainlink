@@ -4,10 +4,10 @@ import (
 	"context"
 
 	"github.com/gagliardetto/solana-go"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 )
@@ -20,7 +20,7 @@ type TokenPoolView struct {
 }
 
 type TokenPoolState struct {
-	PoolType              string   `json:"poolType,omitempty"`
+	PDA                   string   `json:"pda,omitempty"`
 	TokenProgram          string   `json:"tokenProgram,omitempty"`
 	Mint                  string   `json:"mint,omitempty"`
 	Decimals              uint8    `json:"decimals,omitempty"`
@@ -39,6 +39,7 @@ type TokenPoolState struct {
 }
 
 type TokenPoolChainConfig struct {
+	PDA               string                        `json:"pda,omitempty"`
 	PoolAddresses     []string                      `json:"poolAddresses,omitempty"`
 	TokenAddress      string                        `json:"tokenAddress,omitempty"`
 	Decimals          uint8                         `json:"decimals,omitempty"`
@@ -54,9 +55,48 @@ type TokenPoolRateLimitTokenBucket struct {
 	Rate        uint64 `json:"rate"`
 }
 
-func GenerateTokenPoolView(chain cldf.SolChain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey, poolType string, poolMetadata string) (TokenPoolView, error) {
+func GenerateTokenPoolView(chain cldf_solana.Chain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey, poolType string, poolMetadata string) (TokenPoolView, error) {
 	view := TokenPoolView{}
 	view.PoolType = poolType
+	// skip this to avoid incurring fees on every state generation
+	// switch poolType {
+	// case solTestTokenPool.BurnAndMint_PoolType.String():
+	// 	solBurnMintTokenPool.SetProgramID(program)
+	// 	ixn, err := solBurnMintTokenPool.NewTypeVersionInstruction(solana.SysVarClockPubkey).ValidateAndBuild()
+	// 	if err != nil {
+	// 		return view, fmt.Errorf("failed to build instruction: %w", err)
+	// 	}
+	// 	result, err := solCommonUtil.SendAndConfirmWithLookupTables(context.Background(), chain.Client, []solana.Instruction{ixn}, *chain.DeployerKey, rpc.CommitmentConfirmed, nil)
+	// 	if err != nil {
+	// 		return view, fmt.Errorf("failed to confirm instruction: %w", err)
+	// 	}
+	// 	output, err := solCommonUtil.ExtractTypedReturnValue(context.Background(), result.Meta.LogMessages, program.String(), func(b []byte) string {
+	// 		return string(b[4:])
+	// 	})
+	// 	if err != nil {
+	// 		return view, fmt.Errorf("failed to extract typed return value: %w", err)
+	// 	}
+	// 	view.TypeAndVersion = output
+	// case solTestTokenPool.LockAndRelease_PoolType.String():
+	// 	solLockReleaseTokenPool.SetProgramID(program)
+	// 	ixn, err := solLockReleaseTokenPool.NewTypeVersionInstruction(solana.SysVarClockPubkey).ValidateAndBuild()
+	// 	if err != nil {
+	// 		return view, fmt.Errorf("failed to build instruction: %w", err)
+	// 	}
+	// 	result, err := solCommonUtil.SendAndConfirmWithLookupTables(context.Background(), chain.Client, []solana.Instruction{ixn}, *chain.DeployerKey, rpc.CommitmentConfirmed, nil)
+	// 	if err != nil {
+	// 		return view, fmt.Errorf("failed to confirm instruction: %w", err)
+	// 	}
+	// 	output, err := solCommonUtil.ExtractTypedReturnValue(context.Background(), result.Meta.LogMessages, program.String(), func(b []byte) string {
+	// 		return string(b[4:])
+	// 	})
+	// 	if err != nil {
+	// 		return view, fmt.Errorf("failed to extract typed return value: %w", err)
+	// 	}
+	// 	view.TypeAndVersion = output
+	// default:
+	// 	return view, fmt.Errorf("unknown pool type %s", poolType)
+	// }
 	view.PoolMetadata = poolMetadata
 	view.TokenPoolState = make(map[string]TokenPoolState)
 	view.TokenPoolChainConfig = make(map[uint64]map[string]TokenPoolChainConfig)
@@ -68,6 +108,7 @@ func GenerateTokenPoolView(chain cldf.SolChain, program solana.PublicKey, remote
 			var remoteChainConfigAccount solTestTokenPool.ChainConfig
 			if err := chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount); err == nil {
 				view.TokenPoolChainConfig[remote][token.String()] = TokenPoolChainConfig{
+					PDA:           remoteChainConfigPDA.String(),
 					PoolAddresses: make([]string, len(remoteChainConfigAccount.Base.Remote.PoolAddresses)),
 					TokenAddress:  shared.GetAddressFromBytes(remote, remoteChainConfigAccount.Base.Remote.TokenAddress.Address),
 					Decimals:      remoteChainConfigAccount.Base.Remote.Decimals,
@@ -96,7 +137,7 @@ func GenerateTokenPoolView(chain cldf.SolChain, program solana.PublicKey, remote
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(token, program)
 		if err := chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &programData); err == nil {
 			view.TokenPoolState[token.String()] = TokenPoolState{
-				PoolType:              programData.PoolType.String(),
+				PDA:                   poolConfigPDA.String(),
 				TokenProgram:          programData.Config.TokenProgram.String(),
 				Mint:                  programData.Config.Mint.String(),
 				Decimals:              programData.Config.Decimals,

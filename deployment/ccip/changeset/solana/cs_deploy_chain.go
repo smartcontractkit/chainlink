@@ -1,8 +1,10 @@
 package solana
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
@@ -11,6 +13,8 @@ import (
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
+
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -26,6 +30,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	solBinary "github.com/gagliardetto/binary"
+	"github.com/gagliardetto/solana-go/rpc"
+	solRpc "github.com/gagliardetto/solana-go/rpc"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
@@ -40,13 +46,27 @@ import (
 // use this changeset to deploy the CCIP contracts on solana
 var _ cldf.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
 
+func getTypeToProgramDeployName() map[cldf.ContractType]string {
+	return map[cldf.ContractType]string{
+		shared.Router:                  deployment.RouterProgramName,
+		shared.OffRamp:                 deployment.OffRampProgramName,
+		shared.FeeQuoter:               deployment.FeeQuoterProgramName,
+		shared.BurnMintTokenPool:       deployment.BurnMintTokenPoolProgramName,
+		shared.LockReleaseTokenPool:    deployment.LockReleaseTokenPoolProgramName,
+		shared.RMNRemote:               deployment.RMNRemoteProgramName,
+		types.AccessControllerProgram:  deployment.AccessControllerProgramName,
+		types.ManyChainMultisigProgram: deployment.McmProgramName,
+		types.RBACTimelockProgram:      deployment.TimelockProgramName,
+		shared.Receiver:                deployment.ReceiverProgramName,
+	}
+}
+
 type DeployChainContractsConfig struct {
 	HomeChainSelector      uint64
 	ChainSelector          uint64
 	ContractParamsPerChain ChainContractParams
 	UpgradeConfig          UpgradeConfig
-
-	BuildConfig *helpers.BuildSolanaConfig
+	BuildConfig            *helpers.BuildSolanaConfig
 	// identifier for which token pool to deploy (i.e. partner identifier). defaults to CLL
 	BurnMintTokenPoolMetadata    string
 	LockReleaseTokenPoolMetadata string
@@ -101,7 +121,7 @@ func (cfg UpgradeConfig) Validate(e cldf.Environment, chainSelector uint64) erro
 	return nil
 }
 
-func (c DeployChainContractsConfig) Validate(e cldf.Environment) error {
+func (c DeployChainContractsConfig) Validate(e cldf.Environment, existingState stateview.CCIPOnChainState) error {
 	if err := cldf.IsValidChainSelector(c.HomeChainSelector); err != nil {
 		return fmt.Errorf("invalid home chain selector: %d - %w", c.HomeChainSelector, err)
 	}
@@ -115,10 +135,6 @@ func (c DeployChainContractsConfig) Validate(e cldf.Environment) error {
 	if err := c.UpgradeConfig.Validate(e, c.ChainSelector); err != nil {
 		return fmt.Errorf("invalid UpgradeConfig: %w", err)
 	}
-	existingState, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return fmt.Errorf("failed to load existing onchain state: %w", err)
-	}
 	if _, exists := existingState.SupportedChains()[c.ChainSelector]; !exists {
 		return fmt.Errorf("chain %d not supported", c.ChainSelector)
 	}
@@ -129,7 +145,7 @@ func (c DeployChainContractsConfig) Validate(e cldf.Environment) error {
 
 	// In memory tests:
 	// programs and state are pre-loaded, so we pass nil mcms config as router will be present in state
-	// take a look at test_helpers.go/deployChainContractsToSolChainCS
+	// take a look at test_helpers.go/DeployChainContractsToSolChainCS
 	// initialisation of the mcms contracts then happens via testhelpers.TransferOwnershipSolana
 	if chainState.Router.IsZero() {
 		if c.MCMSWithTimelockConfig == nil {
@@ -140,18 +156,21 @@ func (c DeployChainContractsConfig) Validate(e cldf.Environment) error {
 }
 
 func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsConfig) (cldf.ChangesetOutput, error) {
-	if err := c.Validate(e); err != nil {
+	existingState, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load existing onchain state: %w", err)
+	}
+	if err := c.Validate(e, existingState); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
 	newAddresses := cldf.NewMemoryAddressBook()
-	existingState, _ := stateview.LoadOnchainState(e)
-	err := v1_6.ValidateHomeChainState(e, c.HomeChainSelector, existingState)
+	err = v1_6.ValidateHomeChainState(e, c.HomeChainSelector, existingState)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
 	chainSel := c.ChainSelector
-	chain := e.SolChains[chainSel]
+	chain := e.BlockChains.SolanaChains()[chainSel]
 	if existingState.SolChains[chainSel].LinkToken.IsZero() {
 		return cldf.ChangesetOutput{}, fmt.Errorf("fee tokens not found for chain %d", chainSel)
 	}
@@ -213,9 +232,50 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 	}, nil
 }
 
+// DeployAndMaybeSaveToAddressBook deploys a program to the Solana chain and saves it to the address book
+// if it is not an upgrade. It returns the program ID of the deployed program.
+func DeployAndMaybeSaveToAddressBook(
+	e cldf.Environment,
+	chain cldf_solana.Chain,
+	ab cldf.AddressBook,
+	contractType cldf.ContractType,
+	version semver.Version,
+	isUpgrade bool,
+	metadata string) (solana.PublicKey, error) {
+	programName := getTypeToProgramDeployName()[contractType]
+	overallocate := true
+	// by default we want to overallocate buffers, but if metadata is set (i.e. we're managing partner programs)
+	// we want to set the overallocate flag to false
+	if metadata != "" && metadata != shared.CLLMetadata {
+		overallocate = false
+	}
+	programID, err := chain.DeployProgram(e.Logger, cldf_solana.ProgramInfo{
+		Name:  programName,
+		Bytes: deployment.SolanaProgramBytes[programName],
+	}, isUpgrade, overallocate)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("failed to deploy program: %w", err)
+	}
+	address := solana.MustPublicKeyFromBase58(programID)
+
+	e.Logger.Infow("Deployed program", "Program", contractType, "addr", programID, "chain", chain.String(), "isUpgrade", isUpgrade)
+
+	if !isUpgrade {
+		tv := cldf.NewTypeAndVersion(contractType, version)
+		if metadata != "" {
+			tv.AddLabel(metadata)
+		}
+		err = ab.Save(chain.Selector, programID, tv)
+		if err != nil {
+			return solana.PublicKey{}, fmt.Errorf("failed to save address: %w", err)
+		}
+	}
+	return address, nil
+}
+
 func deployChainContractsSolana(
 	e cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	ab cldf.AddressBook,
 	config DeployChainContractsConfig,
 ) ([]mcmsTypes.BatchOperation, error) {
@@ -240,15 +300,14 @@ func deployChainContractsSolana(
 	var feeQuoterAddress solana.PublicKey
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.FeeQuoter.IsZero() {
-		feeQuoterAddress, err = helpers.DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.FeeQuoter, deployment.Version1_0_0, false, "")
+		feeQuoterAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.FeeQuoter, deployment.Version1_0_0, false, "")
 		if err != nil {
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewFeeQuoterVersion != nil {
 		// fee quoter updated in place
 		feeQuoterAddress = chainState.FeeQuoter
-		newTxns, err := helpers.GenerateUpgradeTxns(e, chain, ab, config.UpgradeConfig.SpillAddress, config.UpgradeConfig.UpgradeAuthority,
-			config.UpgradeConfig.NewFeeQuoterVersion, chainState.FeeQuoter, shared.FeeQuoter)
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewFeeQuoterVersion, chainState.FeeQuoter, shared.FeeQuoter)
 		if err != nil {
 			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
@@ -270,14 +329,14 @@ func deployChainContractsSolana(
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.Router.IsZero() {
 		// deploy router
-		ccipRouterProgram, err = helpers.DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.Router, deployment.Version1_0_0, false, "")
+		ccipRouterProgram, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.Router, deployment.Version1_0_0, false, "")
 		if err != nil {
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewRouterVersion != nil {
 		// router updated in place
 		ccipRouterProgram = chainState.Router
-		newTxns, err := helpers.GenerateUpgradeTxns(e, chain, ab, config.UpgradeConfig.SpillAddress, config.UpgradeConfig.UpgradeAuthority, config.UpgradeConfig.NewRouterVersion, chainState.Router, shared.Router)
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewRouterVersion, chainState.Router, shared.Router)
 		if err != nil {
 			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
@@ -299,7 +358,7 @@ func deployChainContractsSolana(
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.OffRamp.IsZero() {
 		// deploy offramp
-		offRampAddress, err = helpers.DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.OffRamp, deployment.Version1_0_0, false, "")
+		offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.OffRamp, deployment.Version1_0_0, false, "")
 		if err != nil {
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
@@ -312,7 +371,7 @@ func deployChainContractsSolana(
 		offRampAddress = solanastateview.FindSolanaAddress(tv, existingAddresses)
 		if offRampAddress.IsZero() {
 			// deploy offramp, not upgraded in place so upgrade is false
-			offRampAddress, err = helpers.DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.OffRamp, *config.UpgradeConfig.NewOffRampVersion, false, "")
+			offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.OffRamp, *config.UpgradeConfig.NewOffRampVersion, false, "")
 			if err != nil {
 				return batches, fmt.Errorf("failed to deploy program: %w", err)
 			}
@@ -345,7 +404,7 @@ func deployChainContractsSolana(
 				}
 			}
 		} else {
-			newTxns, err := helpers.GenerateUpgradeTxns(e, chain, ab, config.UpgradeConfig.SpillAddress, config.UpgradeConfig.UpgradeAuthority, config.UpgradeConfig.NewOffRampVersion, chainState.OffRamp, shared.OffRamp)
+			newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewOffRampVersion, chainState.OffRamp, shared.OffRamp)
 			if err != nil {
 				return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 			}
@@ -366,13 +425,13 @@ func deployChainContractsSolana(
 	// RMN REMOTE DEPLOY
 	var rmnRemoteAddress solana.PublicKey
 	if chainState.RMNRemote.IsZero() {
-		rmnRemoteAddress, err = helpers.DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.RMNRemote, deployment.Version1_0_0, false, "")
+		rmnRemoteAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.RMNRemote, deployment.Version1_0_0, false, "")
 		if err != nil {
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewRMNRemoteVersion != nil {
 		rmnRemoteAddress = chainState.RMNRemote
-		newTxns, err := helpers.GenerateUpgradeTxns(e, chain, ab, config.UpgradeConfig.SpillAddress, config.UpgradeConfig.UpgradeAuthority, config.UpgradeConfig.NewRMNRemoteVersion, chainState.RMNRemote, shared.RMNRemote)
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewRMNRemoteVersion, chainState.RMNRemote, shared.RMNRemote)
 		if err != nil {
 			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
@@ -463,13 +522,13 @@ func deployChainContractsSolana(
 	}
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.BurnMintTokenPools[metadata].IsZero() {
-		burnMintTokenPool, err = helpers.DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.BurnMintTokenPool, deployment.Version1_0_0, false, metadata)
+		burnMintTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.BurnMintTokenPool, deployment.Version1_0_0, false, metadata)
 		if err != nil {
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewBurnMintTokenPoolVersion != nil {
 		burnMintTokenPool = chainState.BurnMintTokenPools[metadata]
-		newTxns, err := helpers.GenerateUpgradeTxns(e, chain, ab, config.UpgradeConfig.SpillAddress, config.UpgradeConfig.UpgradeAuthority, config.UpgradeConfig.NewBurnMintTokenPoolVersion, chainState.BurnMintTokenPools[metadata], shared.BurnMintTokenPool)
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewBurnMintTokenPoolVersion, chainState.BurnMintTokenPools[metadata], shared.BurnMintTokenPool)
 		if err != nil {
 			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
@@ -492,13 +551,13 @@ func deployChainContractsSolana(
 	}
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.LockReleaseTokenPools[metadata].IsZero() {
-		lockReleaseTokenPool, err = helpers.DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.LockReleaseTokenPool, deployment.Version1_0_0, false, metadata)
+		lockReleaseTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.LockReleaseTokenPool, deployment.Version1_0_0, false, metadata)
 		if err != nil {
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewLockReleaseTokenPoolVersion != nil {
 		lockReleaseTokenPool = chainState.LockReleaseTokenPools[metadata]
-		newTxns, err := helpers.GenerateUpgradeTxns(e, chain, ab, config.UpgradeConfig.SpillAddress, config.UpgradeConfig.UpgradeAuthority, config.UpgradeConfig.NewLockReleaseTokenPoolVersion, chainState.LockReleaseTokenPools[metadata], shared.LockReleaseTokenPool)
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewLockReleaseTokenPoolVersion, chainState.LockReleaseTokenPools[metadata], shared.LockReleaseTokenPool)
 		if err != nil {
 			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
@@ -533,7 +592,7 @@ func deployChainContractsSolana(
 	}
 	if config.UpgradeConfig.NewMCMVersion != nil {
 		e.Logger.Infow("Generate instruction for upgrading mcms", "chain", chain.String())
-		newTxns, err := helpers.GenerateUpgradeTxns(e, chain, ab, config.UpgradeConfig.SpillAddress, config.UpgradeConfig.UpgradeAuthority, config.UpgradeConfig.NewMCMVersion, mcmState.McmProgram, types.ManyChainMultisigProgram)
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewMCMVersion, mcmState.McmProgram, types.ManyChainMultisigProgram)
 		if err != nil {
 			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
@@ -547,7 +606,7 @@ func deployChainContractsSolana(
 	}
 	if config.UpgradeConfig.NewAccessControllerVersion != nil {
 		e.Logger.Infow("Generating instruction for upgrading access controller", "chain", chain.String())
-		newTxns, err := helpers.GenerateUpgradeTxns(e, chain, ab, config.UpgradeConfig.SpillAddress, config.UpgradeConfig.UpgradeAuthority, config.UpgradeConfig.NewAccessControllerVersion, mcmState.AccessControllerProgram, types.AccessControllerProgram)
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewAccessControllerVersion, mcmState.AccessControllerProgram, types.AccessControllerProgram)
 		if err != nil {
 			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
@@ -561,7 +620,7 @@ func deployChainContractsSolana(
 	}
 	if config.UpgradeConfig.NewTimelockVersion != nil {
 		e.Logger.Infow("Generate instruction for upgrading timelock", "chain", chain.String())
-		newTxns, err := helpers.GenerateUpgradeTxns(e, chain, ab, config.UpgradeConfig.SpillAddress, config.UpgradeConfig.UpgradeAuthority, config.UpgradeConfig.NewTimelockVersion, mcmState.TimelockProgram, types.RBACTimelockProgram)
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewTimelockVersion, mcmState.TimelockProgram, types.RBACTimelockProgram)
 		if err != nil {
 			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
@@ -628,14 +687,14 @@ func deployChainContractsSolana(
 // INITIALIZE FUNCTIONS
 func initializeRouter(
 	e cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	ccipRouterProgram solana.PublicKey,
 	linkTokenAddress solana.PublicKey,
 	feeQuoterAddress solana.PublicKey,
 	rmnRemoteAddress solana.PublicKey,
 ) error {
 	e.Logger.Debugw("Initializing router", "chain", chain.String(), "ccipRouterProgram", ccipRouterProgram.String())
-	programData, err := helpers.GetSolProgramData(e, chain, ccipRouterProgram)
+	programData, err := getSolProgramData(e, chain, ccipRouterProgram)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
 	}
@@ -668,7 +727,7 @@ func initializeRouter(
 
 func initializeFeeQuoter(
 	e cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	ccipRouterProgram solana.PublicKey,
 	linkTokenAddress solana.PublicKey,
 	feeQuoterAddress solana.PublicKey,
@@ -676,7 +735,7 @@ func initializeFeeQuoter(
 	params FeeQuoterParams,
 ) error {
 	e.Logger.Debugw("Initializing fee quoter", "chain", chain.String(), "feeQuoterAddress", feeQuoterAddress.String())
-	programData, err := helpers.GetSolProgramData(e, chain, feeQuoterAddress)
+	programData, err := getSolProgramData(e, chain, feeQuoterAddress)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
 	}
@@ -719,7 +778,7 @@ func initializeFeeQuoter(
 
 func initializeOffRamp(
 	e cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	ccipRouterProgram solana.PublicKey,
 	feeQuoterAddress solana.PublicKey,
 	rmnRemoteAddress solana.PublicKey,
@@ -728,7 +787,7 @@ func initializeOffRamp(
 	params OffRampParams,
 ) error {
 	e.Logger.Debugw("Initializing offRamp", "chain", chain.String(), "offRampAddress", offRampAddress.String())
-	programData, err := helpers.GetSolProgramData(e, chain, offRampAddress)
+	programData, err := getSolProgramData(e, chain, offRampAddress)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
 	}
@@ -775,11 +834,11 @@ func initializeOffRamp(
 
 func initializeRMNRemote(
 	e cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	rmnRemoteProgram solana.PublicKey,
 ) error {
 	e.Logger.Debugw("Initializing rmn remote", "chain", chain.String(), "rmnRemoteProgram", rmnRemoteProgram.String())
-	programData, err := helpers.GetSolProgramData(e, chain, rmnRemoteProgram)
+	programData, err := getSolProgramData(e, chain, rmnRemoteProgram)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
 	}
@@ -801,4 +860,242 @@ func initializeRMNRemote(
 	}
 	e.Logger.Infow("Initialized rmn remote", "chain", chain.String())
 	return nil
+}
+
+// UPGRADE FUNCTIONS
+func generateUpgradeTxns(
+	e cldf.Environment,
+	chain cldf_solana.Chain,
+	ab cldf.AddressBook,
+	config DeployChainContractsConfig,
+	newVersion *semver.Version,
+	programID solana.PublicKey,
+	contractType cldf.ContractType,
+) ([]mcmsTypes.Transaction, error) {
+	e.Logger.Infow("Generating instruction for upgrading contract", "contractType", contractType)
+	txns := make([]mcmsTypes.Transaction, 0)
+	bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, contractType, *newVersion, true, "")
+	if err != nil {
+		return txns, fmt.Errorf("failed to deploy program: %w", err)
+	}
+	ixn := setUpgradeAuthority(&e, &chain, bufferProgram, chain.DeployerKey.PublicKey(), config.UpgradeConfig.UpgradeAuthority, true)
+	if err := chain.Confirm([]solana.Instruction{ixn}); err != nil {
+		return txns, fmt.Errorf("failed to confirm setUpgradeAuthority: %w", err)
+	}
+	upgradeIxn, err := generateUpgradeIxn(
+		&e,
+		programID,
+		bufferProgram,
+		config.UpgradeConfig.SpillAddress,
+		config.UpgradeConfig.UpgradeAuthority,
+	)
+	if err != nil {
+		return txns, fmt.Errorf("failed to generate upgrade instruction: %w", err)
+	}
+	closeIxn, err := generateCloseBufferIxn(
+		&e,
+		bufferProgram,
+		config.UpgradeConfig.SpillAddress,
+		config.UpgradeConfig.UpgradeAuthority,
+	)
+	if err != nil {
+		return txns, fmt.Errorf("failed to generate close buffer instruction: %w", err)
+	}
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+	if err != nil {
+		return txns, fmt.Errorf("failed to get existing addresses: %w", err)
+	}
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	if err != nil {
+		return txns, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
+	}
+	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	// if we're not upgrading via timelock, execute the raw ixns
+	if config.UpgradeConfig.UpgradeAuthority != timelockSignerPDA {
+		ixns := []solana.Instruction{upgradeIxn}
+		extendIxn, err := generateExtendIxn(
+			&e,
+			chain,
+			programID,
+			bufferProgram,
+			config.UpgradeConfig.UpgradeAuthority,
+		)
+		if err != nil {
+			return txns, fmt.Errorf("failed to generate extend buffer instruction: %w", err)
+		}
+		if extendIxn != nil {
+			ixns = append(ixns, extendIxn)
+		}
+		ixns = append(ixns, closeIxn)
+		if err := chain.Confirm(ixns); err != nil {
+			return txns, fmt.Errorf("failed to confirm instructions: %w", err)
+		}
+		return []mcmsTypes.Transaction{}, nil
+	}
+	upgradeTx, err := helpers.BuildMCMSTxn(upgradeIxn, solana.BPFLoaderUpgradeableProgramID.String(), contractType)
+	if err != nil {
+		return txns, fmt.Errorf("failed to create upgrade transaction: %w", err)
+	}
+	closeTx, err := helpers.BuildMCMSTxn(closeIxn, solana.BPFLoaderUpgradeableProgramID.String(), contractType)
+	if err != nil {
+		return txns, fmt.Errorf("failed to create close transaction: %w", err)
+	}
+	// We do not support extend as part of upgrades due to MCMS limitations
+	// https://docs.google.com/document/d/1Fk76lOeyS2z2X6MokaNX_QTMFAn5wvSZvNXJluuNV1E/edit?tab=t.0#heading=h.uij286zaarkz
+	txns = append(txns, *upgradeTx, *closeTx)
+	return txns, nil
+}
+
+func generateUpgradeIxn(
+	e *cldf.Environment,
+	programID solana.PublicKey,
+	bufferAddress solana.PublicKey,
+	spillAddress solana.PublicKey,
+	upgradeAuthority solana.PublicKey,
+) (solana.Instruction, error) {
+	// Derive the program data address
+	programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programID.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
+
+	// Accounts involved in the transaction
+	keys := solana.AccountMetaSlice{
+		solana.NewAccountMeta(programDataAccount, true, false), // Program account (writable)
+		solana.NewAccountMeta(programID, true, false),
+		solana.NewAccountMeta(bufferAddress, true, false),             // Buffer account (writable)
+		solana.NewAccountMeta(spillAddress, true, false),              // Spill account (writable)
+		solana.NewAccountMeta(solana.SysVarRentPubkey, false, false),  // System program
+		solana.NewAccountMeta(solana.SysVarClockPubkey, false, false), // System program
+		solana.NewAccountMeta(upgradeAuthority, false, true),          // Current upgrade authority (signer)
+	}
+
+	instruction := solana.NewInstruction(
+		solana.BPFLoaderUpgradeableProgramID,
+		keys,
+		// https://github.com/solana-playground/solana-playground/blob/2998d4cf381aa319d26477c5d4e6d15059670a75/vscode/src/commands/deploy/bpf-upgradeable/bpf-upgradeable.ts#L66
+		[]byte{3, 0, 0, 0}, // 4-byte Upgrade instruction identifier
+	)
+
+	return instruction, nil
+}
+
+func generateExtendIxn(
+	e *cldf.Environment,
+	chain cldf_solana.Chain,
+	programID solana.PublicKey,
+	bufferAddress solana.PublicKey,
+	payer solana.PublicKey,
+) (*solana.GenericInstruction, error) {
+	// Derive the program data address
+	programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programID.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
+
+	programDataSize, err := GetSolProgramSize(e, chain, programDataAccount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get program size: %w", err)
+	}
+	e.Logger.Debugw("Program data size", "programDataSize", programDataSize)
+
+	bufferSize, err := GetSolProgramSize(e, chain, bufferAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get buffer size: %w", err)
+	}
+	e.Logger.Debugw("Buffer account size", "bufferSize", bufferSize)
+	if bufferSize <= programDataSize {
+		e.Logger.Debugf("Buffer account size %d is less than program account size %d", bufferSize, programDataSize)
+		return nil, nil
+	}
+	extraBytes := bufferSize - programDataSize
+	if extraBytes > math.MaxUint32 {
+		return nil, fmt.Errorf("extra bytes %d exceeds maximum value %d", extraBytes, math.MaxUint32)
+	}
+	// https://github.com/solana-labs/solana/blob/7700cb3128c1f19820de67b81aa45d18f73d2ac0/sdk/program/src/loader_upgradeable_instruction.rs#L146
+	data := binary.LittleEndian.AppendUint32([]byte{}, 6) // 4-byte Extend instruction identifier
+	//nolint:gosec // G115 we check for overflow above
+	data = binary.LittleEndian.AppendUint32(data, uint32(extraBytes+1024)) // add some padding
+
+	keys := solana.AccountMetaSlice{
+		solana.NewAccountMeta(programDataAccount, true, false),      // Program data account (writable)
+		solana.NewAccountMeta(programID, true, false),               // Program account (writable)
+		solana.NewAccountMeta(solana.SystemProgramID, false, false), // System program
+		solana.NewAccountMeta(payer, true, true),                    // Payer for rent
+	}
+
+	ixn := solana.NewInstruction(
+		solana.BPFLoaderUpgradeableProgramID,
+		keys,
+		data,
+	)
+
+	return ixn, nil
+}
+
+func generateCloseBufferIxn(
+	e *cldf.Environment,
+	bufferAddress solana.PublicKey,
+	recipient solana.PublicKey,
+	upgradeAuthority solana.PublicKey,
+) (solana.Instruction, error) {
+	keys := solana.AccountMetaSlice{
+		solana.NewAccountMeta(bufferAddress, true, false),
+		solana.NewAccountMeta(recipient, true, false),
+		solana.NewAccountMeta(upgradeAuthority, false, true),
+	}
+
+	instruction := solana.NewInstruction(
+		solana.BPFLoaderUpgradeableProgramID,
+		keys,
+		// https://github.com/solana-playground/solana-playground/blob/2998d4cf381aa319d26477c5d4e6d15059670a75/vscode/src/commands/deploy/bpf-upgradeable/bpf-upgradeable.ts#L78
+		[]byte{5, 0, 0, 0}, // 4-byte Close instruction identifier
+	)
+
+	return instruction, nil
+}
+
+// HELPER FUNCTIONS
+func GetSolProgramSize(e *cldf.Environment, chain cldf_solana.Chain, programID solana.PublicKey) (int, error) {
+	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &rpc.GetAccountInfoOpts{
+		Commitment: cldf_solana.SolDefaultCommitment,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to get account info: %w", err)
+	}
+	if accountInfo == nil {
+		return 0, fmt.Errorf("program account not found: %w", err)
+	}
+	programBytes := len(accountInfo.Value.Data.GetBinary())
+	return programBytes, nil
+}
+
+func getSolProgramData(e cldf.Environment, chain cldf_solana.Chain, programID solana.PublicKey) (struct {
+	DataType uint32
+	Address  solana.PublicKey
+}, error) {
+	var programData struct {
+		DataType uint32
+		Address  solana.PublicKey
+	}
+	data, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &solRpc.GetAccountInfoOpts{
+		Commitment: solRpc.CommitmentConfirmed,
+	})
+	if err != nil {
+		return programData, fmt.Errorf("failed to deploy program: %w", err)
+	}
+
+	err = solBinary.UnmarshalBorsh(&programData, data.Bytes())
+	if err != nil {
+		return programData, fmt.Errorf("failed to unmarshal program data: %w", err)
+	}
+	return programData, nil
+}
+
+type CloseBuffersConfig struct {
+	ChainSelector uint64
+	Buffers       []string
+}
+
+func CloseBuffersChangeset(e cldf.Environment, cfg CloseBuffersConfig) (cldf.ChangesetOutput, error) {
+	for _, buffer := range cfg.Buffers {
+		if err := e.BlockChains.SolanaChains()[cfg.ChainSelector].CloseBuffers(e.Logger, buffer); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to close buffer: %w", err)
+		}
+	}
+	return cldf.ChangesetOutput{}, nil
 }

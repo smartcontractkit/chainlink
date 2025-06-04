@@ -48,7 +48,7 @@ func AddNops(env cldf.Environment, req *AddNopsRequest) (cldf.ChangesetOutput, e
 	for _, nop := range req.Nops {
 		env.Logger.Infow("input NOP", "address", nop.Admin, "name", nop.Name)
 	}
-	registryChain, ok := env.Chains[req.RegistryChainSel]
+	registryChain, ok := env.BlockChains.EVMChains()[req.RegistryChainSel]
 	if !ok {
 		return cldf.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
@@ -74,6 +74,9 @@ func AddNops(env cldf.Environment, req *AddNopsRequest) (cldf.ChangesetOutput, e
 	if useMCMS {
 		if resp.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
+		}
+		if capReg.McmsContracts == nil {
+			return out, fmt.Errorf("expected capabiity registry contract %s to be owned by MCMS", capReg.Contract.Address().String())
 		}
 		timelocksPerChain := map[uint64]string{
 			registryChain.Selector: capReg.McmsContracts.Timelock.Address().Hex(),

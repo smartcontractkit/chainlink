@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -80,15 +81,19 @@ type ConfigureForwarderContractsRequest struct {
 	UseMCMS bool
 }
 type ConfigureForwarderContractsResponse struct {
-	OpsPerChain map[uint64]mcmstypes.BatchOperation
+	// ForwarderAddresses is a map of chain selector to forwarder contract address that has been configured (non-MCMS),
+	// or will be configured (MCMS).
+	ForwarderAddresses map[uint64]common.Address
+	OpsPerChain        map[uint64]mcmstypes.BatchOperation
 }
 
 // Depreciated: use [changeset.ConfigureForwardContracts] instead
 // ConfigureForwardContracts configures the forwarder contracts on all chains for the given DONS
 // the address book is required to contain the an address of the deployed forwarder contract for every chain in the environment
 func ConfigureForwardContracts(env *cldf.Environment, req ConfigureForwarderContractsRequest) (*ConfigureForwarderContractsResponse, error) {
+	evmChains := env.BlockChains.EVMChains()
 	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
-		Chains:      env.Chains,
+		Chains:      evmChains,
 		AddressBook: env.ExistingAddresses,
 	})
 	if err != nil {
@@ -96,8 +101,9 @@ func ConfigureForwardContracts(env *cldf.Environment, req ConfigureForwarderCont
 	}
 
 	opPerChain := make(map[uint64]mcmstypes.BatchOperation)
+	forwarderAddresses := make(map[uint64]common.Address)
 	// configure forwarders on all chains
-	for _, chain := range env.Chains {
+	for _, chain := range evmChains {
 		if _, shouldInclude := req.Chains[chain.Selector]; len(req.Chains) > 0 && !shouldInclude {
 			continue
 		}
@@ -113,8 +119,10 @@ func ConfigureForwardContracts(env *cldf.Environment, req ConfigureForwarderCont
 		for k, op := range ops {
 			opPerChain[k] = op
 		}
+		forwarderAddresses[chain.Selector] = contracts.Forwarder.Address()
 	}
 	return &ConfigureForwarderContractsResponse{
-		OpsPerChain: opPerChain,
+		ForwarderAddresses: forwarderAddresses,
+		OpsPerChain:        opPerChain,
 	}, nil
 }

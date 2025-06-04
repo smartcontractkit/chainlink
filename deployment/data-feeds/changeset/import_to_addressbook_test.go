@@ -4,8 +4,11 @@ import (
 	"embed"
 	"testing"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
@@ -23,17 +26,16 @@ func TestImportToAddressbook(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
 		Chains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	chainSelector := env.AllChainSelectors()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
-	resp, err := commonChangesets.Apply(t, env, nil,
+	resp, err := commonChangesets.Apply(t, env,
 		commonChangesets.Configure(
 			changeset.ImportToAddressbookChangeset,
-			types.ImportToAddressbookConfig{
+			types.ImportAddressesConfig{
 				ChainSelector: chainSelector,
 				InputFileName: "testdata/import_addresses.json",
 				InputFS:       testFS,

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	cldfsol "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 )
@@ -32,7 +33,7 @@ func TransferAndWrapAcceptOwnership(
 	proposedOwner solana.PublicKey, // e.g. usually, the timelock signer PDA
 	configPDA solana.PublicKey, // e.g. for routerConfigPDA or a token-pool config
 	currentOwner solana.PublicKey, // the “from” authority
-	solChain cldf.SolChain, // used for solChain.Confirm
+	solChain cldfsol.Chain, // used for solChain.Confirm
 	label cldf.ContractType, // e.g. "Router" or "TokenPool"
 	timelockSigner solana.PublicKey, // the timelock signer PDA
 ) (mcmsTypes.Transaction, error) {

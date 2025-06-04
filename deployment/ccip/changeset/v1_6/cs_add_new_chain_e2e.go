@@ -14,6 +14,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
+	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -42,7 +44,7 @@ var (
 	// PromoteNewChainForConfigChangeset promotes exec and commit plugin candidates for the new chain on the home chain.
 	// It also connects the new chain to various destination chains through the test router.
 	// This changeset should be run after AddCandidatesForNewChainChangeset.
-	// This changeset is not idempotent because the underlying PromoteCandidateChangeset is not idepotent.
+	// This changeset is not idempotent because the underlying PromoteCandidateChangeset is not idempotent.
 	// Provide an MCMS config if the contracts on the existing chains are owned by MCMS (omit this config otherwise).
 	PromoteNewChainForConfigChangeset = cldf.CreateChangeSet(promoteNewChainForConfigLogic, promoteNewChainForConfigPrecondition)
 	// ConnectNewChainChangeset activates connects a new chain with other chains by updating onRamp, offRamp, and router contracts.
@@ -74,7 +76,7 @@ type NewChainDefinition struct {
 	// ChainDefinition holds basic chain info.
 	ChainDefinition `json:"chainDefinition"`
 	// ChainContractParams defines contract parameters for the chain.
-	ChainContractParams `json:"chainContractParams"`
+	ccipseq.ChainContractParams `json:"chainContractParams"`
 	// ExistingContracts defines any contracts that are already deployed on this chain.
 	ExistingContracts commoncs.ExistingContractsConfig `json:"existingContracts"`
 	// ConfigOnHome defines how this chain should be configured on the CCIPHome contract.
@@ -84,7 +86,7 @@ type NewChainDefinition struct {
 	// ExecOCRParams defines the OCR parameters for this chain's exec plugin.
 	ExecOCRParams CCIPOCRParams `json:"execOcrParams"`
 	// RMNRemoteConfig is the config for the RMNRemote contract.
-	RMNRemoteConfig *RMNRemoteConfig `json:"rmnRemoteConfig,omitempty"`
+	RMNRemoteConfig *ccipops.RMNRemoteConfig `json:"rmnRemoteConfig,omitempty"`
 }
 
 // AddCandidatesForNewChainConfig is a configuration struct for AddCandidatesForNewChainChangeset.
@@ -117,22 +119,21 @@ func (c AddCandidatesForNewChainConfig) prerequisiteConfigForNewChain() changese
 	}
 }
 
-func (c AddCandidatesForNewChainConfig) deploymentConfigForNewChain() DeployChainContractsConfig {
-	return DeployChainContractsConfig{
+func (c AddCandidatesForNewChainConfig) deploymentConfigForNewChain() ccipseq.DeployChainContractsConfig {
+	return ccipseq.DeployChainContractsConfig{
 		HomeChainSelector: c.HomeChainSelector,
-		ContractParamsPerChain: map[uint64]ChainContractParams{
+		ContractParamsPerChain: map[uint64]ccipseq.ChainContractParams{
 			c.NewChain.Selector: c.NewChain.ChainContractParams,
 		},
 	}
 }
 
-func (c AddCandidatesForNewChainConfig) rmnRemoteConfigForNewChain() SetRMNRemoteConfig {
+func (c AddCandidatesForNewChainConfig) rmnRemoteConfigForNewChain() ccipseq.SetRMNRemoteConfig {
 	if c.NewChain.RMNRemoteConfig == nil {
-		return SetRMNRemoteConfig{}
+		return ccipseq.SetRMNRemoteConfig{}
 	}
-	return SetRMNRemoteConfig{
-		HomeChainSelector: c.HomeChainSelector,
-		RMNRemoteConfigs: map[uint64]RMNRemoteConfig{
+	return ccipseq.SetRMNRemoteConfig{
+		RMNRemoteConfigs: map[uint64]ccipops.RMNRemoteConfig{
 			c.NewChain.Selector: *c.NewChain.RMNRemoteConfig,
 		},
 	}
@@ -182,7 +183,7 @@ func addCandidatesForNewChainPrecondition(e cldf.Environment, c AddCandidatesFor
 		return fmt.Errorf("failed to validate deployment config for new chain: %w", err)
 	}
 	if c.NewChain.RMNRemoteConfig != nil {
-		if err := c.rmnRemoteConfigForNewChain().Validate(); err != nil {
+		if err := c.rmnRemoteConfigForNewChain().Validate(e, state); err != nil {
 			return fmt.Errorf("failed to validate RMN remote config for new chain: %w", err)
 		}
 	}
@@ -190,7 +191,7 @@ func addCandidatesForNewChainPrecondition(e cldf.Environment, c AddCandidatesFor
 		return fmt.Errorf("failed to validate update chain config: %w", err)
 	}
 
-	txOpts := e.Chains[c.HomeChainSelector].DeployerKey
+	txOpts := e.BlockChains.EVMChains()[c.HomeChainSelector].DeployerKey
 	// ensure deployer key is authorized as precondition
 	isAuthorizedDeployer, err := state.Chains[c.HomeChainSelector].DonIDClaimer.IsAuthorizedDeployer(&bind.CallOpts{
 		Context: e.GetContext(),
@@ -386,10 +387,10 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 	}
 
 	// Claim donID using donIDClaimer at the end of the changeset run
-	txOpts := e.Chains[c.HomeChainSelector].DeployerKey
+	txOpts := e.BlockChains.EVMChains()[c.HomeChainSelector].DeployerKey
 
 	tx, err := state.Chains[c.HomeChainSelector].DonIDClaimer.ClaimNextDONId(txOpts)
-	if _, err := cldf.ConfirmIfNoErrorWithABI(e.Chains[c.HomeChainSelector], tx, don_id_claimer.DonIDClaimerABI, err); err != nil {
+	if _, err := cldf.ConfirmIfNoErrorWithABI(e.BlockChains.EVMChains()[c.HomeChainSelector], tx, don_id_claimer.DonIDClaimerABI, err); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
@@ -660,7 +661,7 @@ func (c ConnectNewChainConfig) validateChain(e cldf.Environment, state stateview
 		return fmt.Errorf("failed to validate chain with selector %d: %w", chainSelector, err)
 	}
 	chainState := state.Chains[chainSelector]
-	deployerKey := e.Chains[chainSelector].DeployerKey.From
+	deployerKey := e.BlockChains.EVMChains()[chainSelector].DeployerKey.From
 
 	if chainState.OnRamp == nil {
 		return errors.New("onRamp contract not found")
@@ -749,7 +750,7 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get owner of contract %s: %w", contract.Address().Hex(), err)
 			}
-			if owner == env.Chains[c.NewChainSelector].DeployerKey.From {
+			if owner == env.BlockChains.EVMChains()[c.NewChainSelector].DeployerKey.From {
 				addressesToTransfer = append(addressesToTransfer, contract.Address())
 			}
 		}
@@ -769,7 +770,7 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get admin role of timelock on chain with selector %d: %w", c.NewChainSelector, err)
 		}
-		hasRole, err := state.Chains[c.NewChainSelector].Timelock.HasRole(readOpts, adminRole, env.Chains[c.NewChainSelector].DeployerKey.From)
+		hasRole, err := state.Chains[c.NewChainSelector].Timelock.HasRole(readOpts, adminRole, env.BlockChains.EVMChains()[c.NewChainSelector].DeployerKey.From)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to check if deployer key has admin role on timelock on chain with selector %d: %w", c.NewChainSelector, err)
 		}

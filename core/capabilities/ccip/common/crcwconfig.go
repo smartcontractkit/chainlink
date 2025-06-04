@@ -44,8 +44,8 @@ type MultiChainRW struct {
 }
 
 // NewCRCW is a constructor for MultiChainRW.
-func NewCRCW(cwProviderMap map[string]ChainRWProvider) *MultiChainRW {
-	return &MultiChainRW{
+func NewCRCW(cwProviderMap map[string]ChainRWProvider) MultiChainRW {
+	return MultiChainRW{
 		cwProviderMap: cwProviderMap,
 	}
 }

@@ -26,12 +26,13 @@ func (t UpdateTimelockDelaySolana) VerifyPreconditions(
 	if len(config.DelayPerChain) == 0 {
 		return errors.New("no delay configs provided")
 	}
-	if len(env.SolChains) == 0 {
+	solanaChains := env.BlockChains.SolanaChains()
+	if len(solanaChains) == 0 {
 		return errors.New("no solana chains provided")
 	}
 	// check the timelock program is deployed
 	for chainSelector := range config.DelayPerChain {
-		solChain, ok := env.SolChains[chainSelector]
+		solChain, ok := solanaChains[chainSelector]
 		if !ok {
 			return fmt.Errorf("solana chain not found for selector %d", chainSelector)
 		}
@@ -58,8 +59,9 @@ func (t UpdateTimelockDelaySolana) VerifyPreconditions(
 func (t UpdateTimelockDelaySolana) Apply(
 	env cldf.Environment, cfg UpdateTimelockDelaySolanaCfg,
 ) (cldf.ChangesetOutput, error) {
+	solanaChains := env.BlockChains.SolanaChains()
 	for chainSelector, delay := range cfg.DelayPerChain {
-		solChain := env.SolChains[chainSelector]
+		solChain := solanaChains[chainSelector]
 		//nolint:staticcheck // will wait till we can migrate from address book before using data store
 		addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {

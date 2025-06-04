@@ -17,7 +17,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 

@@ -10,6 +10,8 @@ import (
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -21,7 +23,7 @@ import (
 func ValidateMCMSConfigSolana(
 	e cldf.Environment,
 	mcms *proposalutils.TimelockConfig,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	chainState solanastateview.CCIPChainState,
 	tokenAddress solana.PublicKey,
 	tokenPoolMetadata string,
@@ -77,7 +79,7 @@ func BuildProposalsForTxns(
 	proposers := map[uint64]string{}
 	inspectors := map[uint64]sdk.Inspector{}
 	batches := make([]mcmsTypes.BatchOperation, 0)
-	chain := e.SolChains[chainSelector]
+	chain := e.BlockChains.SolanaChains()[chainSelector]
 	addresses, _ := e.ExistingAddresses.AddressesForChain(chainSelector)
 	mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
 
@@ -110,7 +112,7 @@ func FetchTimelockSigner(e cldf.Environment, chainSelector uint64) (solana.Publi
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to load addresses for chain %d: %w", chainSelector, err)
 	}
-	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[chainSelector], addresses)
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[chainSelector], addresses)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to load mcm state: %w", err)
 	}
@@ -120,7 +122,7 @@ func FetchTimelockSigner(e cldf.Environment, chainSelector uint64) (solana.Publi
 
 func GetAuthorityForIxn(
 	e *cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	chainState solanastateview.CCIPChainState,
 	mcms *proposalutils.TimelockConfig,
 	contractType cldf.ContractType,

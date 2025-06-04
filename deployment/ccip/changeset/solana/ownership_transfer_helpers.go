@@ -6,6 +6,8 @@ import (
 	"github.com/gagliardetto/solana-go"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	burnmint "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/burnmint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
@@ -31,11 +33,71 @@ type AcceptOwnershipFn func(
 	authority solana.PublicKey,
 ) (solana.Instruction, error)
 
+// transferAndWrapAcceptOwnership abstracts logic of:
+//   - building a “transfer ownership” instruction
+//   - confirming on-chain
+//   - building an “accept ownership” instruction
+//   - wrapping it in an MCMS transaction
+//   - returning the mcms transaction for the accept ownership
+func transferAndWrapAcceptOwnership(
+	buildTransfer TransferOwnershipFn,
+	buildAccept AcceptOwnershipFn,
+	programID solana.PublicKey, // e.g. token_pool program or router program
+	proposedOwner solana.PublicKey, // e.g. usually, the timelock signer PDA
+	configPDA solana.PublicKey, // e.g. for routerConfigPDA or a token-pool config
+	currentOwner solana.PublicKey, // the “from” authority
+	solChain cldf_solana.Chain, // used for solChain.Confirm
+	label cldf.ContractType, // e.g. "Router" or "TokenPool"
+	timelockSigner solana.PublicKey, // the timelock signer PDA
+) (mcmsTypes.Transaction, error) {
+	// 1. Build the instruction that transfers ownership to the timelock
+	ixTransfer, err := buildTransfer(proposedOwner, configPDA, currentOwner)
+	if err != nil {
+		return mcmsTypes.Transaction{}, fmt.Errorf("%s: failed to create transfer ownership instruction: %w", label, err)
+	}
+
+	// if the old owner is the timelock signer, we can skip the on-chain confirmation
+	// We can't perform the accept ownership step here because the timelock signer is not a signer of the transaction
+	// 2. Wrap in MCMS transaction or confirm on-chain
+	if currentOwner.Equals(timelockSigner) {
+		mcmsTx, err := helpers.BuildMCMSTxn(ixTransfer, programID.String(), label)
+		if err != nil {
+			return mcmsTypes.Transaction{}, fmt.Errorf("%s: failed to create MCMS transaction: %w", label, err)
+		}
+		return *mcmsTx, nil
+	}
+
+	if err := solChain.Confirm([]solana.Instruction{ixTransfer}); err != nil {
+		return mcmsTypes.Transaction{}, fmt.Errorf("%s: failed to confirm transfer on-chain: %w", label, err)
+	}
+
+	// 3. Build the “accept ownership” instruction
+	ixAccept, err := buildAccept(configPDA, proposedOwner)
+	if err != nil {
+		return mcmsTypes.Transaction{}, fmt.Errorf("%s: failed to create accept ownership instruction: %w", label, err)
+	}
+
+	// 4. Wrap in MCMS transaction or confirm on-chain
+	if proposedOwner.Equals(timelockSigner) {
+		mcmsTx, err := helpers.BuildMCMSTxn(ixAccept, programID.String(), label)
+		if err != nil {
+			return mcmsTypes.Transaction{}, fmt.Errorf("%s: failed to create MCMS transaction: %w", label, err)
+		}
+
+		return *mcmsTx, nil
+	}
+
+	if err := solChain.Confirm([]solana.Instruction{ixAccept}); err != nil {
+		return mcmsTypes.Transaction{}, fmt.Errorf("%s: failed to confirm transfer on-chain: %w", label, err)
+	}
+	return mcmsTypes.Transaction{}, nil
+}
+
 // transferOwnershipRouter transfers ownership of the router to the timelock.
 func transferOwnershipRouter(
 	ccipState stateview.CCIPOnChainState,
 	chainSelector uint64,
-	solChain cldf.SolChain,
+	solChain cldf_solana.Chain,
 	currentOwner solana.PublicKey,
 	proposedOwner solana.PublicKey,
 	timelockSigner solana.PublicKey,
@@ -81,7 +143,7 @@ func transferOwnershipRouter(
 		return ix, nil
 	}
 
-	tx, err := helpers.TransferAndWrapAcceptOwnership(
+	tx, err := transferAndWrapAcceptOwnership(
 		buildTransfer,
 		buildAccept,
 		routerProgramID,
@@ -105,7 +167,7 @@ func transferOwnershipRouter(
 func transferOwnershipFeeQuoter(
 	ccipState stateview.CCIPOnChainState,
 	chainSelector uint64,
-	solChain cldf.SolChain,
+	solChain cldf_solana.Chain,
 	currentOwner solana.PublicKey,
 	proposedOwner solana.PublicKey,
 	timelockSigner solana.PublicKey,
@@ -151,7 +213,7 @@ func transferOwnershipFeeQuoter(
 		return ix, nil
 	}
 
-	tx, err := helpers.TransferAndWrapAcceptOwnership(
+	tx, err := transferAndWrapAcceptOwnership(
 		buildTransfer,
 		buildAccept,
 		feeQuoterProgramID,
@@ -175,7 +237,7 @@ func transferOwnershipFeeQuoter(
 func transferOwnershipOffRamp(
 	ccipState stateview.CCIPOnChainState,
 	chainSelector uint64,
-	solChain cldf.SolChain,
+	solChain cldf_solana.Chain,
 	currentOwner solana.PublicKey,
 	proposedOwner solana.PublicKey,
 	timelockSigner solana.PublicKey,
@@ -221,7 +283,7 @@ func transferOwnershipOffRamp(
 		return ix, nil
 	}
 
-	tx, err := helpers.TransferAndWrapAcceptOwnership(
+	tx, err := transferAndWrapAcceptOwnership(
 		buildTransfer,
 		buildAccept,
 		offRampProgramID,
@@ -247,7 +309,7 @@ func transferOwnershipBurnMintTokenPools(
 	tokenPoolConfigPDA solana.PublicKey,
 	tokenMint solana.PublicKey,
 	chainSelector uint64,
-	solChain cldf.SolChain,
+	solChain cldf_solana.Chain,
 	tokenPoolMetadata string,
 	currentOwner solana.PublicKey,
 	proposedOwner solana.PublicKey,
@@ -290,7 +352,7 @@ func transferOwnershipBurnMintTokenPools(
 		return ix, nil
 	}
 
-	tx, err := helpers.TransferAndWrapAcceptOwnership(
+	tx, err := transferAndWrapAcceptOwnership(
 		buildTransfer,
 		buildAccept,
 		state.BurnMintTokenPools[tokenPoolMetadata],
@@ -316,7 +378,7 @@ func transferOwnershipLockReleaseTokenPools(
 	tokenPoolConfigPDA solana.PublicKey,
 	tokenMint solana.PublicKey,
 	chainSelector uint64,
-	solChain cldf.SolChain,
+	solChain cldf_solana.Chain,
 	tokenPoolMetadata string,
 	currentOwner solana.PublicKey,
 	proposedOwner solana.PublicKey,
@@ -359,7 +421,7 @@ func transferOwnershipLockReleaseTokenPools(
 		return ix, nil
 	}
 
-	tx, err := helpers.TransferAndWrapAcceptOwnership(
+	tx, err := transferAndWrapAcceptOwnership(
 		buildTransfer,
 		buildAccept,
 		state.LockReleaseTokenPools[tokenPoolMetadata],
@@ -383,7 +445,7 @@ func transferOwnershipLockReleaseTokenPools(
 func transferOwnershipRMNRemote(
 	ccipState stateview.CCIPOnChainState,
 	chainSelector uint64,
-	solChain cldf.SolChain,
+	solChain cldf_solana.Chain,
 	currentOwner solana.PublicKey,
 	proposedOwner solana.PublicKey,
 	timelockSigner solana.PublicKey,
@@ -434,7 +496,7 @@ func transferOwnershipRMNRemote(
 	configPDA := rmnRemoteConfigPDA
 	label := shared.RMNRemote
 
-	// We can't reuse the generic helpers.TransferAndWrapAcceptOwnership function here
+	// We can't reuse the generic transferAndWrapAcceptOwnership function here
 	// because the RMNRemote has an additional cursesConfig account that needs to be transferred.
 
 	// 1. Build the instruction that transfers ownership to the timelock
