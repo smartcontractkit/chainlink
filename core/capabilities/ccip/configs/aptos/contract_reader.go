@@ -1,18 +1,18 @@
 package aptosconfig
 
 import (
-	"github.com/smartcontractkit/chainlink-aptos/relayer/chainreader/config"
+	"github.com/smartcontractkit/chainlink-aptos/relayer/chainreader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 )
 
-func GetChainReaderConfig() (config.ChainReaderConfig, error) {
-	return config.ChainReaderConfig{
+func GetChainReaderConfig() (chainreader.ChainReaderConfig, error) {
+	return chainreader.ChainReaderConfig{
 		IsLoopPlugin: true,
-		Modules: map[string]*config.ChainReaderModule{
+		Modules: map[string]*chainreader.ChainReaderModule{
 			// TODO: more offramp config and other modules
 			consts.ContractNameRMNRemote: {
 				Name: "rmn_remote",
-				Functions: map[string]*config.ChainReaderFunction{
+				Functions: map[string]*chainreader.ChainReaderFunction{
 					consts.MethodNameGetReportDigestHeader: {
 						Name: "get_report_digest_header",
 					},
@@ -28,7 +28,7 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 			},
 			consts.ContractNameRMNProxy: {
 				Name: "rmn_remote",
-				Functions: map[string]*config.ChainReaderFunction{
+				Functions: map[string]*chainreader.ChainReaderFunction{
 					consts.MethodNameGetARM: {
 						Name: "get_arm",
 					},
@@ -36,10 +36,10 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 			},
 			consts.ContractNameFeeQuoter: {
 				Name: "fee_quoter",
-				Functions: map[string]*config.ChainReaderFunction{
+				Functions: map[string]*chainreader.ChainReaderFunction{
 					consts.MethodNameFeeQuoterGetTokenPrice: {
 						Name: "get_token_price",
-						Params: []config.AptosFunctionParam{
+						Params: []chainreader.AptosFunctionParam{
 							{
 								Name:     "token",
 								Type:     "address",
@@ -49,7 +49,7 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 					},
 					consts.MethodNameFeeQuoterGetTokenPrices: {
 						Name: "get_token_prices",
-						Params: []config.AptosFunctionParam{
+						Params: []chainreader.AptosFunctionParam{
 							{
 								Name:     "tokens",
 								Type:     "vector<address>",
@@ -62,7 +62,7 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 					},
 					consts.MethodNameGetFeePriceUpdate: {
 						Name: "get_dest_chain_gas_price",
-						Params: []config.AptosFunctionParam{
+						Params: []chainreader.AptosFunctionParam{
 							{
 								Name:     "destChainSelector",
 								Type:     "u64",
@@ -74,10 +74,10 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 			},
 			consts.ContractNameOffRamp: {
 				Name: "offramp",
-				Functions: map[string]*config.ChainReaderFunction{
+				Functions: map[string]*chainreader.ChainReaderFunction{
 					consts.MethodNameGetExecutionState: {
 						Name: "get_execution_state",
-						Params: []config.AptosFunctionParam{
+						Params: []chainreader.AptosFunctionParam{
 							{
 								Name:     "sourceChainSelector",
 								Type:     "u64",
@@ -92,7 +92,7 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 					},
 					consts.MethodNameGetMerkleRoot: {
 						Name: "get_merkle_root",
-						Params: []config.AptosFunctionParam{
+						Params: []chainreader.AptosFunctionParam{
 							{
 								Name:     "root",
 								Type:     "vector<u8>",
@@ -102,7 +102,7 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 					},
 					consts.MethodNameOffRampLatestConfigDetails: {
 						Name: "latest_config_details",
-						Params: []config.AptosFunctionParam{
+						Params: []chainreader.AptosFunctionParam{
 							{
 								Name:     "ocrPluginType",
 								Type:     "u8",
@@ -126,7 +126,7 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 					},
 					consts.MethodNameGetSourceChainConfig: {
 						Name: "get_source_chain_config",
-						Params: []config.AptosFunctionParam{
+						Params: []chainreader.AptosFunctionParam{
 							{
 								Name:     "sourceChainSelector",
 								Type:     "u64",
@@ -135,12 +135,12 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 						},
 					},
 				},
-				Events: map[string]*config.ChainReaderEvent{
+				Events: map[string]*chainreader.ChainReaderEvent{
 					consts.EventNameExecutionStateChanged: {
 						EventHandleStructName: "OffRampState",
 						EventHandleFieldName:  "execution_state_changed_events",
 						EventAccountAddress:   "offramp::get_state_address",
-						EventFieldRenames: map[string]config.RenamedField{
+						EventFieldRenames: map[string]chainreader.RenamedField{
 							"source_chain_selector": {
 								NewName: "SourceChainSelector",
 							},
@@ -162,10 +162,10 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 						EventHandleStructName: "OffRampState",
 						EventHandleFieldName:  "commit_report_accepted_events",
 						EventAccountAddress:   "offramp::get_state_address",
-						EventFieldRenames: map[string]config.RenamedField{
+						EventFieldRenames: map[string]chainreader.RenamedField{
 							"blessed_merkle_roots": {
 								NewName: "BlessedMerkleRoots",
-								SubFieldRenames: map[string]config.RenamedField{
+								SubFieldRenames: map[string]chainreader.RenamedField{
 									"source_chain_selector": {
 										NewName: "SourceChainSelector",
 									},
@@ -185,7 +185,7 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 							},
 							"unblessed_merkle_roots": {
 								NewName: "UnblessedMerkleRoots",
-								SubFieldRenames: map[string]config.RenamedField{
+								SubFieldRenames: map[string]chainreader.RenamedField{
 									"source_chain_selector": {
 										NewName: "SourceChainSelector",
 									},
@@ -205,10 +205,10 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 							},
 							"price_updates": {
 								NewName: "PriceUpdates",
-								SubFieldRenames: map[string]config.RenamedField{
+								SubFieldRenames: map[string]chainreader.RenamedField{
 									"token_price_updates": {
 										NewName: "TokenPriceUpdates",
-										SubFieldRenames: map[string]config.RenamedField{
+										SubFieldRenames: map[string]chainreader.RenamedField{
 											"source_token": {
 												NewName: "SourceToken",
 											},
@@ -219,7 +219,7 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 									},
 									"gas_price_updates": {
 										NewName: "GasPriceUpdates",
-										SubFieldRenames: map[string]config.RenamedField{
+										SubFieldRenames: map[string]chainreader.RenamedField{
 											"dest_chain_selector": {
 												NewName: "DestChainSelector",
 											},
@@ -236,7 +236,7 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 			},
 			consts.ContractNameOnRamp: {
 				Name: "onramp",
-				Functions: map[string]*config.ChainReaderFunction{
+				Functions: map[string]*chainreader.ChainReaderFunction{
 					consts.MethodNameOnRampGetDynamicConfig: {
 						Name: "get_dynamic_config",
 					},
@@ -245,7 +245,7 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 					},
 					consts.MethodNameOnRampGetDestChainConfig: {
 						Name: "get_dest_chain_config",
-						Params: []config.AptosFunctionParam{
+						Params: []chainreader.AptosFunctionParam{
 							{
 								Name:     "destChainSelector",
 								Type:     "u64",
@@ -256,7 +256,7 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 					},
 					consts.MethodNameGetExpectedNextSequenceNumber: {
 						Name: "get_expected_next_sequence_number",
-						Params: []config.AptosFunctionParam{
+						Params: []chainreader.AptosFunctionParam{
 							{
 								Name:     "destChainSelector",
 								Type:     "u64",
@@ -265,12 +265,12 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 						},
 					},
 				},
-				Events: map[string]*config.ChainReaderEvent{
+				Events: map[string]*chainreader.ChainReaderEvent{
 					consts.EventNameCCIPMessageSent: {
 						EventHandleStructName: "OnRampState",
 						EventHandleFieldName:  "ccip_message_sent_events",
 						EventAccountAddress:   "onramp::get_state_address",
-						EventFieldRenames: map[string]config.RenamedField{
+						EventFieldRenames: map[string]chainreader.RenamedField{
 							"dest_chain_selector": {
 								NewName:         "DestChainSelector",
 								SubFieldRenames: nil,
@@ -281,10 +281,10 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 							},
 							"message": {
 								NewName: "Message",
-								SubFieldRenames: map[string]config.RenamedField{
+								SubFieldRenames: map[string]chainreader.RenamedField{
 									"header": {
 										NewName: "Header",
-										SubFieldRenames: map[string]config.RenamedField{
+										SubFieldRenames: map[string]chainreader.RenamedField{
 											"source_chain_selector": {
 												NewName: "SourceChainSelector",
 											},
@@ -325,7 +325,7 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 									},
 									"token_amounts": {
 										NewName: "TokenAmounts",
-										SubFieldRenames: map[string]config.RenamedField{
+										SubFieldRenames: map[string]chainreader.RenamedField{
 											"source_pool_address": {
 												NewName: "SourcePoolAddress",
 											},
