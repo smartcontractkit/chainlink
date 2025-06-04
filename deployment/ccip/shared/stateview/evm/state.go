@@ -197,7 +197,7 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e cldf.Environment
 	if _, exists := e.BlockChains.SolanaChains()[chainSel]; exists {
 		return nil
 	}
-	if _, exist := e.BlockChains.TonChains()[chainSel]; exist {
+	if _, exists := e.BlockChains.TonChains()[chainSel]; exists {
 		return nil
 	}
 	if _, exists := e.BlockChains.AptosChains()[chainSel]; exists {

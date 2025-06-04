@@ -171,6 +171,7 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 		bundle := n.Keys.OCRKeyBundles[ocrtype]
 		offpk := bundle.OffchainPublicKey()
 		cpk := bundle.ConfigEncryptionPublicKey()
+
 		keyBundle = &nodev1.OCR2Config_OCRKeyBundle{
 			BundleId:              bundle.ID(),
 			ConfigPublicKey:       common.Bytes2Hex(cpk[:]),
@@ -565,7 +566,6 @@ func CreateKeys(t *testing.T,
 
 			transmitter := keys[0]
 			transmitters[chain.Selector] = transmitter.ID()
-
 		default:
 			// TODO: other transmission keys unsupported for now
 		}
