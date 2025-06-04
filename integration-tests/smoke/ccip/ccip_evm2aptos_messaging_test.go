@@ -12,9 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/maps"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -32,8 +33,8 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 		testhelpers.WithAptosChains(1),
 	)
 
-	evmChainSelectors := e.Env.AllChainSelectors()
-	aptosChainSelectors := maps.Keys(e.Env.BlockChains.AptosChains())
+	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
+	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
 
 	fmt.Println("EVM: ", evmChainSelectors)
 	fmt.Println("Aptos: ", aptosChainSelectors)
@@ -55,7 +56,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 	var (
 		replayed bool
 		nonce    uint64
-		sender   = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
+		sender   = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
 		setup    = messagingtest.NewTestSetupWithDeployedEnv(
 			t,
 			e,
@@ -83,28 +84,28 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 	require.NoError(t, err, "Failed to get destination chain config")
 
 	// grant mint role
-	tx, err := EVM_LINK_TOKEN.GrantMintRole(e.Env.Chains[sourceChain].DeployerKey, common.BytesToAddress(sender))
-	_, err = cldf.ConfirmIfNoError(e.Env.Chains[sourceChain], tx, err)
+	tx, err := EVM_LINK_TOKEN.GrantMintRole(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey, common.BytesToAddress(sender))
+	_, err = cldf.ConfirmIfNoError(e.Env.BlockChains.EVMChains()[sourceChain], tx, err)
 	require.NoError(t, err)
 
 	// mint token and approve to router
-	tx, err = EVM_LINK_TOKEN.Mint(e.Env.Chains[sourceChain].DeployerKey, common.BytesToAddress(sender), deployment.E18Mult(10_000))
-	_, err = cldf.ConfirmIfNoError(e.Env.Chains[sourceChain], tx, err)
+	tx, err = EVM_LINK_TOKEN.Mint(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey, common.BytesToAddress(sender), deployment.E18Mult(10_000))
+	_, err = cldf.ConfirmIfNoError(e.Env.BlockChains.EVMChains()[sourceChain], tx, err)
 	require.NoError(t, err)
 
-	tx, err = EVM_LINK_TOKEN.Approve(e.Env.Chains[sourceChain].DeployerKey, state.Chains[sourceChain].Router.Address(), math.MaxBig256)
-	_, err = cldf.ConfirmIfNoError(e.Env.Chains[sourceChain], tx, err)
+	tx, err = EVM_LINK_TOKEN.Approve(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey, state.Chains[sourceChain].Router.Address(), math.MaxBig256)
+	_, err = cldf.ConfirmIfNoError(e.Env.BlockChains.EVMChains()[sourceChain], tx, err)
 	require.NoError(t, err)
 
 	// Deposit 1 ETH to get WETH
-	wethTransactOpts := *e.Env.Chains[sourceChain].DeployerKey
+	wethTransactOpts := *e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey
 	wethTransactOpts.Value = deployment.E18Mult(1)
 	tx, err = WETH_TOKEN.Deposit(&wethTransactOpts)
-	_, err = cldf.ConfirmIfNoError(e.Env.Chains[sourceChain], tx, err)
+	_, err = cldf.ConfirmIfNoError(e.Env.BlockChains.EVMChains()[sourceChain], tx, err)
 	require.NoError(t, err)
 
-	tx, err = WETH_TOKEN.Approve(e.Env.Chains[sourceChain].DeployerKey, state.Chains[sourceChain].Router.Address(), math.MaxBig256)
-	_, err = cldf.ConfirmIfNoError(e.Env.Chains[sourceChain], tx, err)
+	tx, err = WETH_TOKEN.Approve(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey, state.Chains[sourceChain].Router.Address(), math.MaxBig256)
+	_, err = cldf.ConfirmIfNoError(e.Env.BlockChains.EVMChains()[sourceChain], tx, err)
 	require.NoError(t, err)
 
 	// For testing messages that revert on source
