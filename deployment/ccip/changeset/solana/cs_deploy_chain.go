@@ -193,6 +193,9 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 
 	addresses, _ := e.ExistingAddresses.AddressesForChain(chainSel)
 	mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+
+	// TODO: this seems like duplicate code from BuildProposalsForTxns
+	// is there some specific reason why we are doing this here ? something to do with state loading ?
 	timelocks := map[uint64]string{}
 	proposers := map[uint64]string{}
 	inspectors := map[uint64]sdk.Inspector{}
