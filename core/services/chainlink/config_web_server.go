@@ -337,32 +337,25 @@ func (l *oidcConfig) ClientSecret() string {
 	return *l.s.ClientSecret
 }
 
-func (l *oidcConfig) ProviderDomain() string {
-	if l.c.ProviderDomain == nil {
+func (l *oidcConfig) ProviderURL() string {
+	if l.c.ProviderURL == nil {
 		return ""
 	}
-	return *l.c.ProviderDomain
+	return *l.c.ProviderURL
 }
 
-func (l *oidcConfig) OAuth2ProviderRouteSuffix() string {
-	if l.c.OAuth2ProviderRouteSuffix == nil {
+func (l *oidcConfig) RedirectURL() string {
+	if l.c.RedirectURL == nil {
 		return ""
 	}
-	return *l.c.OAuth2ProviderRouteSuffix
+	return *l.c.RedirectURL
 }
 
-func (l *oidcConfig) OIDCCallbackURL() string {
-	if l.c.OIDCCallbackURL == nil {
+func (l *oidcConfig) IdClaimKey() string {
+	if l.c.IdClaimKey == nil {
 		return ""
 	}
-	return *l.c.OIDCCallbackURL
-}
-
-func (l *oidcConfig) OIDCCallbackURLSuffix() string {
-	if l.c.OIDCCallbackURLSuffix == nil {
-		return ""
-	}
-	return *l.c.OIDCCallbackURLSuffix
+	return *l.c.IdClaimKey
 }
 
 func (l *oidcConfig) AdminUserGroupClaim() string {

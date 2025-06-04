@@ -201,16 +201,12 @@ ListenIP = '0.0.0.0' # Default
 # Expected audience of the token, usually expected to be the ID of the client 
 # that initialized the login flow/the auth client application ID 
 ClientID = ""
-# ProviderDomain is the URL identifier for the provider service. 
-ProviderDomain = 'accounts[.]example[.]com'
-# OAuth2ProviderRouteSuffix is route suffix appended to the ProviderDomain, varies per provider
-OAuth2ProviderRouteSuffix = '/oauth2/default' # Default
-# OIDCCallbackURL is the URL (FQDN) that this running instance of the chainlink application listens on 
-# for the OIDC provider callback containing the authenticated user's claims. This should be the domain
-# that the user accesses the operator UI from. OIDCCallbackURLSuffix is appended to the end
-OIDCCallbackURL = 'http://localhost:8080/'
-# OIDCCallbackURLSuffix is the API route name suffix used when registering the router endpoint
-OIDCCallbackURLSuffix = '/auth/oidc-callback' # Default
+# ProviderURL is the base URL for your OIDC Identity provider. 
+ProviderURL = 'https://id[.]example[.]com/oauth2/default'
+# RedirectURL will always be <NODE_BASE_URL>/signin. This needs to match the configuration on the provider side.
+RedirectURL = 'http://localhost:8080/signin'
+# IdClaimKey the key in decrypted id_token where to find the user's ID claims.
+IdClaimKey = 'groups'
 # AdminUserGroupClaim is string label of the group returned by the OIDC claim that maps the core node's 'Admin' role
 AdminUserGroupClaim = 'NodeAdmins' # Default
 # EditUserGroupClaim is string label of the group returned by the OIDC claim that maps the core node's 'Edit' role

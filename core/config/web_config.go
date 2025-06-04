@@ -58,10 +58,9 @@ type LDAP interface {
 type OIDC interface {
 	ClientID() string
 	ClientSecret() string
-	ProviderDomain() string
-	OAuth2ProviderRouteSuffix() string
-	OIDCCallbackURL() string
-	OIDCCallbackURLSuffix() string
+	ProviderURL() string
+	RedirectURL() string
+	IdClaimKey() string
 	AdminUserGroupClaim() string
 	EditUserGroupClaim() string
 	RunUserGroupClaim() string

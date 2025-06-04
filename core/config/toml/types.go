@@ -834,17 +834,14 @@ func (w *WebServer) ValidateConfig() (err error) {
 		if *w.OIDC.ClientID == "" {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.ClientID", Msg: "OIDC ClientID can not be empty"})
 		}
-		if *w.OIDC.ProviderDomain == "" {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.ProviderDomain", Msg: "OIDC ProviderDomain can not be empty"})
+		if *w.OIDC.ProviderURL == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.ProviderURL", Msg: "OIDC ProviderDomain can not be empty"})
 		}
-		if *w.OIDC.OAuth2ProviderRouteSuffix == "" {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.OAuth2ProviderRouteSuffix", Msg: "OIDC OAuth2ProviderRouteSuffix can not be empty"})
-		}
-		if *w.OIDC.OIDCCallbackURL == "" {
+		if *w.OIDC.RedirectURL == "" {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.OIDCCallbackURL", Msg: "OIDC OIDCCallbackURL can not be empty"})
 		}
-		if *w.OIDC.OIDCCallbackURLSuffix == "" {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.OIDCCallbackURLSuffix", Msg: "OIDC OIDCCallbackURLSuffix can not be empty"})
+		if *w.OIDC.IdClaimKey == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.IdClaimKey", Msg: "OIDC IDClaimKey can not be empty"})
 		}
 		if *w.OIDC.AdminUserGroupClaim == "" {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.AdminUserGroupClaim", Msg: "OIDC AdminUserGroupClaim can not be empty"})
@@ -1035,35 +1032,31 @@ func (w *WebServerLDAPSecrets) setFrom(f *WebServerLDAPSecrets) {
 }
 
 type WebServerOIDC struct {
-	ClientID                  *string
-	ProviderDomain            *string
-	OAuth2ProviderRouteSuffix *string
-	OIDCCallbackURL           *string
-	OIDCCallbackURLSuffix     *string
-	AdminUserGroupClaim       *string
-	EditUserGroupClaim        *string
-	RunUserGroupClaim         *string
-	ReadUserGroupClaim        *string
-	SessionTimeout            *commonconfig.Duration
-	UserApiTokenEnabled       *bool
-	UserAPITokenDuration      *commonconfig.Duration
+	ClientID             *string
+	ProviderURL          *string
+	RedirectURL          *string
+	IdClaimKey           *string
+	AdminUserGroupClaim  *string
+	EditUserGroupClaim   *string
+	RunUserGroupClaim    *string
+	ReadUserGroupClaim   *string
+	SessionTimeout       *commonconfig.Duration
+	UserApiTokenEnabled  *bool
+	UserAPITokenDuration *commonconfig.Duration
 }
 
 func (w *WebServerOIDC) setFrom(f *WebServerOIDC) {
 	if v := f.ClientID; v != nil {
 		w.ClientID = v
 	}
-	if v := f.ProviderDomain; v != nil {
-		w.ProviderDomain = v
+	if v := f.ProviderURL; v != nil {
+		w.ProviderURL = v
 	}
-	if v := f.OAuth2ProviderRouteSuffix; v != nil {
-		w.OAuth2ProviderRouteSuffix = v
+	if v := f.RedirectURL; v != nil {
+		w.RedirectURL = v
 	}
-	if v := f.OIDCCallbackURL; v != nil {
-		w.OIDCCallbackURL = v
-	}
-	if v := f.OIDCCallbackURLSuffix; v != nil {
-		w.OIDCCallbackURLSuffix = v
+	if v := f.IdClaimKey; v != nil {
+		w.IdClaimKey = v
 	}
 	if v := f.AdminUserGroupClaim; v != nil {
 		w.AdminUserGroupClaim = v

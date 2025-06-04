@@ -82,8 +82,8 @@ func NewOIDCAuthenticator(
 	lggr logger.Logger,
 	auditLogger audit.AuditLogger,
 ) (*oidcAuthenticator, error) {
-	// Ensure all RBAC role mappings to OIDC Groups are defined, and required fields populated, or error on startup
-	fmt.Printf("%#v\n", oidcCfg)
+	// Ensure all RBAC role mappings to OIDC Id claims are defined, and required fields populated, or error on startup
+	lggr.Infof("%#v\n", oidcCfg)
 	if oidcCfg.AdminUserGroupClaim() == "" || oidcCfg.EditUserGroupClaim() == "" ||
 		oidcCfg.RunUserGroupClaim() == "" || oidcCfg.ReadUserGroupClaim() == "" {
 		return nil, errors.New("OIDC Group name mapping for callback group claims for all local RBAC role required. Set group names for `_UserGroupClaim` fields")
@@ -94,8 +94,14 @@ func NewOIDCAuthenticator(
 	if oidcCfg.ClientSecret() == "" {
 		return nil, errors.New("OIDC ClientSecret config required")
 	}
-	if oidcCfg.ProviderDomain() == "" {
-		return nil, errors.New("OIDC ProviderDomain config required")
+	if oidcCfg.ProviderURL() == "" {
+		return nil, errors.New("OIDC ProviderURL config required")
+	}
+	if oidcCfg.RedirectURL() == "" {
+		return nil, errors.New("OIDC RedirectURL config required")
+	}
+	if oidcCfg.IdClaimKey() == "" {
+		return nil, errors.New("OIDC IdClaimKey config required")
 	}
 
 	var provider *oidc.Provider
@@ -104,7 +110,7 @@ func NewOIDCAuthenticator(
 
 	ctx := context.Background()
 	// Initialize provider based on config domain, this contains a blocking call to as part of the OpenID Connect discovery process
-	provider, err := oidc.NewProvider(ctx, oidcCfg.ProviderDomain()+oidcCfg.OAuth2ProviderRouteSuffix())
+	provider, err := oidc.NewProvider(ctx, oidcCfg.ProviderURL())
 	if err != nil {
 		log.Fatalf("Failed to get provider: %v", err)
 	}
@@ -117,8 +123,8 @@ func NewOIDCAuthenticator(
 		ClientID:     oidcCfg.ClientID(),
 		ClientSecret: oidcCfg.ClientSecret(),
 		Endpoint:     provider.Endpoint(),
-		RedirectURL:  oidcCfg.OIDCCallbackURL() + oidcCfg.OIDCCallbackURLSuffix(),
-		Scopes:       []string{oidc.ScopeOpenID, "profile", "email", "groups"},
+		RedirectURL:  oidcCfg.RedirectURL(),
+		Scopes:       []string{oidc.ScopeOpenID, "profile", "email", oidcCfg.IdClaimKey()},
 	}
 
 	// Create Authenticator struct, with internal HTTP handlers
@@ -166,7 +172,7 @@ func (oi *oidcAuthenticator) handleSignIn(c *gin.Context) {
 }
 
 func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
-	// Parse and validate the incoming JSON request
+	// parse and validate the incoming JSON request
 	var req ExchangeTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ExchangeTokenResponse{
@@ -176,7 +182,7 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 		return
 	}
 
-	// check state matches stored value
+	// check state matches stored value on the session
 	ginSession := sessions.Default(c)
 	storedState := ginSession.Get("state")
 	if storedState == nil || req.State != storedState.(string) {
@@ -188,12 +194,15 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 	}
 	ginSession.Delete("state")
 
-	ctx := context.Background()
 	// Begin token exchange to retrieve attested claims of authenticated user
+	ctx := context.Background()
 	oauth2Token, err := oi.oauth2Config.Exchange(ctx, req.Code)
 	if err != nil {
 		oi.lggr.Errorf("Failed to exchange token: %v", err)
-		c.String(http.StatusInternalServerError, "OIDC exchange failed")
+		c.JSON(http.StatusInternalServerError, ExchangeTokenResponse{
+			Success: false,
+			Message: "OIDC exchange failed",
+		})
 		return
 	}
 
@@ -205,7 +214,7 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 		return
 	}
 
-	// Verify claim and retrieve attested user groups
+	// Verify claim and retrieve attested user id claims
 	idToken, err := oi.provider.Verifier(oi.oidcConfig).Verify(ctx, rawIDToken)
 	if err != nil {
 		oi.lggr.Errorf("Failed to verify ID token: %v", err)
@@ -213,24 +222,29 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 		return
 	}
 
-	// TODO: parameterize the Key of json for the claim
-	var claims struct {
-		Email      string   `json:"email"`
-		Groups     []string `json:"groups"`
-		UserGroups []string `json:"userGroups"`
-		exp        []string `json:"exp"`
-	}
+	var claims map[string]interface{}
+	fmt.Printf("%v", claims)
 	if err := idToken.Claims(&claims); err != nil {
 		oi.lggr.Errorf("Failed to parse OIDC return claims: %v", err)
 		c.String(http.StatusInternalServerError, "Failed to parse OIDC return claims")
 		return
 	}
-
-	oi.lggr.Infof("Recieved and validated OIDC claims: %v\n", claims)
+	idClaims, err := extractIDClaimValues(claims, oi.config.IdClaimKey())
+	if err != nil {
+		oi.lggr.Errorf("Failed to extract ID claims from ID token. ClaimKey: '%s': error %v", oi.config.IdClaimKey(), err)
+		c.String(http.StatusInternalServerError, "Failed to extract ID claims from claims")
+		return
+	}
+	email, ok := claims["email"].(string)
+	if !ok {
+		oi.lggr.Errorf("Failed to get email from claims", err)
+		c.String(http.StatusInternalServerError, "Failed to get email from claims")
+	}
+	oi.lggr.Tracef("Recieved and validated ID claims: %v\n", idClaims)
 
 	// Map the groups and insert a newly created session paired with role mapping for user
-	role, err := groupClaimsToUserRole(
-		claims.Groups,
+	role, err := idClaimsToUserRole(
+		idClaims,
 		oi.config.AdminUserGroupClaim(),
 		oi.config.EditUserGroupClaim(),
 		oi.config.RunUserGroupClaim(),
@@ -249,7 +263,7 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 		ctx,
 		"INSERT INTO oidc_sessions (id, user_email, user_role, created_at) VALUES ($1, $2, $3, now())",
 		clSession.ID,
-		strings.ToLower(claims.Email),
+		strings.ToLower(email),
 		role,
 	)
 	if err != nil {
@@ -257,13 +271,15 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 		c.String(http.StatusInternalServerError, "Error creating session")
 	}
 
-	oi.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]any{"email": claims.Email})
+	oi.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]any{"email": email})
 
 	// save session
 	ginSession.Set(webauth.SessionIDKey, clSession.ID)
 	err = ginSession.Save()
 	if err != nil {
-		fmt.Printf("%#v\n", err)
+		oi.lggr.Errorf("failed to saved session", err)
+		c.String(http.StatusInternalServerError, "Authentication failed")
+		return
 	}
 
 	c.JSON(http.StatusOK, ExchangeTokenResponse{
@@ -358,7 +374,7 @@ func (oi *oidcAuthenticator) AuthorizedUserWithSession(ctx context.Context, sess
 	}
 	var foundUser clsessions.User
 	err := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
-		// Query the oidc_sessions table for given session ID, user role and email are saved after the SAML groups claim is provided and validated
+		// Query the oidc_sessions table for given session ID, user role and email are saved after the id claims is provided and validated
 		var foundSession struct {
 			UserEmail string
 			UserRole  clsessions.UserRole
@@ -595,33 +611,61 @@ func (oi *oidcAuthenticator) localLoginFallback(ctx context.Context, sr clsessio
 	return user, nil
 }
 
-func groupClaimsToUserRole(oidcGroupClaims []string, adminGroupName string, editGroupName string, runGroupName string, readGroupName string) (clsessions.UserRole, error) {
-	// If defined Admin group name is present in groups claim, return UserRoleAdmin
-	for _, group := range oidcGroupClaims {
-		if group == adminGroupName {
+func idClaimsToUserRole(idClaims []string, adminIdClaim string, editIdClaim string, runIdClaim string, readIdClaim string) (clsessions.UserRole, error) {
+	// If defined Admin group name is present in id claims, return UserRoleAdmin
+	for _, group := range idClaims {
+		if group == adminIdClaim {
 			return clsessions.UserRoleAdmin, nil
 		}
 	}
 	// Check edit role
-	for _, group := range oidcGroupClaims {
-		if group == editGroupName {
+	for _, group := range idClaims {
+		if group == editIdClaim {
 			return clsessions.UserRoleEdit, nil
 		}
 	}
 	// Check run role
-	for _, group := range oidcGroupClaims {
-		if group == runGroupName {
+	for _, group := range idClaims {
+		if group == runIdClaim {
 			return clsessions.UserRoleRun, nil
 		}
 	}
 	// Check view role
-	for _, group := range oidcGroupClaims {
-		if group == readGroupName {
+	for _, group := range idClaims {
+		if group == readIdClaim {
 			return clsessions.UserRoleView, nil
 		}
 	}
 	// No role group found, error
 	return clsessions.UserRoleView, ErrUserNoOIDCGroups
+}
+
+// extractIDClaimValues extracts groups from the claims using the specified key
+func extractIDClaimValues(claims map[string]interface{}, key string) ([]string, error) {
+	claimValues, ok := claims[key]
+	if !ok {
+		return nil, fmt.Errorf("claim '%s' not found in ID token", key)
+	}
+
+	// Handle different types of claim values
+	switch v := claimValues.(type) {
+	case []interface{}:
+		val := make([]string, 0, len(v))
+		for _, item := range v {
+			str, ok := item.(string)
+			if !ok {
+				return nil, fmt.Errorf("invalid type for item in '%s': expected string, got %T", key, item)
+			}
+			val = append(val, str)
+		}
+		return val, nil
+	case []string:
+		return v, nil
+	case string:
+		return []string{v}, nil
+	default:
+		return nil, fmt.Errorf("claim '%s' is not a string or array: got %T", key, v)
+	}
 }
 
 const constantTimeEmailLength = 256
