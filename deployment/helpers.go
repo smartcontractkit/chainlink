@@ -92,17 +92,13 @@ func AddressListContainsEmptyAddress(addresses []common.Address) bool {
 	return false
 }
 
-func MigrateAddressBook(addrBook deployment.AddressBook) (datastore.MutableDataStore[datastore.DefaultMetadata,
-	datastore.DefaultMetadata], error) {
+func MigrateAddressBook(addrBook deployment.AddressBook) (datastore.MutableDataStore, error) {
 	addrs, err := addrBook.Addresses()
 	if err != nil {
 		return nil, err
 	}
 
-	ds := datastore.NewMemoryDataStore[
-		datastore.DefaultMetadata,
-		datastore.DefaultMetadata,
-	]()
+	ds := datastore.NewMemoryDataStore()
 
 	for chainSelector, chainAddresses := range addrs {
 		for addr, typever := range chainAddresses {
