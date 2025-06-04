@@ -71,7 +71,6 @@ func (ca configuredChangeSetImpl[C]) Apply(e cldf.Environment) (cldf.ChangesetOu
 // variadic function equivalent of ApplyChangesets, but allowing you to simply pass in one or more changesets as
 // parameters at the end of the function. e.g. `changeset.Apply(t, e, nil, configuredCS1, configuredCS2)` etc.
 func Apply(t *testing.T, e cldf.Environment, first ConfiguredChangeSet, rest ...ConfiguredChangeSet) (cldf.Environment, error) {
-	fmt.Println("Applying changesets to environment...")
 	env, _, err := ApplyChangesets(t, e, append([]ConfiguredChangeSet{first}, rest...))
 	return env, err
 }
@@ -79,12 +78,9 @@ func Apply(t *testing.T, e cldf.Environment, first ConfiguredChangeSet, rest ...
 // ApplyChangesets applies the changeset applications to the environment and returns the updated environment.
 func ApplyChangesets(t *testing.T, e cldf.Environment, changesetApplications []ConfiguredChangeSet) (cldf.Environment, []cldf.ChangesetOutput, error) {
 	currentEnv := e
-	fmt.Println(len(changesetApplications))
 	outputs := make([]cldf.ChangesetOutput, 0, len(changesetApplications))
 	for i, csa := range changesetApplications {
-		fmt.Printf("Applying changeset at index %d...\n", i)
 		out, err := csa.Apply(currentEnv)
-		fmt.Println(out, "output")
 		if err != nil {
 			return e, nil, fmt.Errorf("failed to apply changeset at index %d: %w", i, err)
 		}

@@ -31,17 +31,16 @@ func TestDeployAptosCache(t *testing.T) {
 
 	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyAptos))[0]
 
-	resp, err := commonChangesets.Apply(t, env, nil,
-		commonChangesets.Configure(
-			aptos.DeployDataFeedsChangeset,
-			types.DeployAptosConfig{
-				ChainsToDeploy:           []uint64{chainSelector},
-				OwnerAddress:             "0x0000000000000000000000000000000000000000",
-				PlatformAddress:          "0x0000000000000000000000000000000000000001",
-				SecondaryPlatformAddress: "0x0000000000000000000000000000000000000002",
-				Qualifier:                "aptos",
-			},
-		),
+	resp, err := commonChangesets.Apply(t, env, commonChangesets.Configure(
+		aptos.DeployDataFeedsChangeset,
+		types.DeployAptosConfig{
+			ChainsToDeploy:           []uint64{chainSelector},
+			OwnerAddress:             "0x0000000000000000000000000000000000000000",
+			PlatformAddress:          "0x0000000000000000000000000000000000000001",
+			SecondaryPlatformAddress: "0x0000000000000000000000000000000000000002",
+			Qualifier:                "aptos",
+		},
+	),
 	)
 	require.NoError(t, err)
 	require.NotNil(t, resp)

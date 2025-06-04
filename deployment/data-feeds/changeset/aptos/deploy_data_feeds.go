@@ -17,7 +17,6 @@ import (
 var DeployDataFeedsChangeset = cldf.CreateChangeSet(deployDataFeedsLogic, deployDataFeedsPrecondition)
 
 func deployDataFeedsLogic(env cldf.Environment, c types.DeployAptosConfig) (cldf.ChangesetOutput, error) {
-	fmt.Println("Deploying ChainlinkDataFeeds to Aptos...")
 	lggr := env.Logger
 	ab := cldf.NewMemoryAddressBook()
 	dataStore := datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]()
@@ -37,13 +36,11 @@ func deployDataFeedsLogic(env cldf.Environment, c types.DeployAptosConfig) (cldf
 
 		platformAccountAddress := aptos.AccountAddress{}
 		_ = platformAccountAddress.ParseStringRelaxed(c.PlatformAddress)
-		fmt.Println("Platform Address:", platformAccountAddress.String())
 
 		secondaryPlatformAccountAddress := aptos.AccountAddress{}
 		_ = secondaryPlatformAccountAddress.ParseStringRelaxed(c.SecondaryPlatformAddress)
 
 		dataFeedsResponse, err := DeployDataFeeds(chain, ownerAddress, platformAccountAddress, secondaryPlatformAccountAddress, c.Labels)
-		fmt.Println("Deployed ChainlinkDataFeeds:", dataFeedsResponse.Address.String(), "on chain selector", chain.Selector, "with TV", dataFeedsResponse.Tv.String())
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy ChainlinkDataFeeds: %w", err)
 		}
