@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -58,7 +59,7 @@ func newBatchTestSetup(t *testing.T, opts ...testhelpers.TestOps) batchTestSetup
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	allChainSelectors := maps.Keys(e.Env.Chains)
+	allChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
 	require.Len(t, allChainSelectors, 3, "this test expects 3 chains")
 	sourceChain1 := allChainSelectors[0]
 	sourceChain2 := allChainSelectors[1]
@@ -82,6 +83,7 @@ func Test_CCIPBatching_MaxBatchSizeEVM(t *testing.T) {
 	ctx := testhelpers.Context(t)
 	setup := newBatchTestSetup(t)
 	sourceChain1, sourceChain2, destChain, e, state := setup.sourceChain1, setup.sourceChain2, setup.destChain, setup.e, setup.state
+	evmChains := e.Env.BlockChains.EVMChains()
 
 	var (
 		startSeqNum = map[uint64]ccipocr3.SeqNum{
@@ -90,8 +92,8 @@ func Test_CCIPBatching_MaxBatchSizeEVM(t *testing.T) {
 		}
 		sourceChain = sourceChain1
 		transactors = []*bind.TransactOpts{
-			e.Env.Chains[sourceChain].DeployerKey,
-			e.Env.Chains[sourceChain].Users[0],
+			evmChains[sourceChain].DeployerKey,
+			evmChains[sourceChain].Users[0],
 		}
 		errs = make(chan error, len(transactors))
 	)
@@ -101,7 +103,7 @@ func Test_CCIPBatching_MaxBatchSizeEVM(t *testing.T) {
 			err := sendMessages(
 				ctx,
 				t,
-				e.Env.Chains[sourceChain],
+				evmChains[sourceChain],
 				transactor,
 				state.MustGetEVMChainState(sourceChain).OnRamp,
 				state.MustGetEVMChainState(sourceChain).Router,
@@ -130,7 +132,7 @@ func Test_CCIPBatching_MaxBatchSizeEVM(t *testing.T) {
 	_, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		sourceChain,
-		e.Env.Chains[destChain],
+		evmChains[destChain],
 		state.MustGetEVMChainState(destChain).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(
@@ -309,6 +311,7 @@ func ccipBatchingSingleSource(t *testing.T, opts ...testhelpers.TestOps) {
 	ctx := testhelpers.Context(t)
 	setup := newBatchTestSetup(t, opts...)
 	sourceChain1, sourceChain2, destChain, e, state := setup.sourceChain1, setup.sourceChain2, setup.destChain, setup.e, setup.state
+	evmChains := e.Env.BlockChains.EVMChains()
 
 	var (
 		startSeqNum = map[uint64]ccipocr3.SeqNum{
@@ -323,8 +326,8 @@ func ccipBatchingSingleSource(t *testing.T, opts ...testhelpers.TestOps) {
 	err := sendMessages(
 		ctx,
 		t,
-		e.Env.Chains[sourceChain],
-		e.Env.Chains[sourceChain].DeployerKey,
+		evmChains[sourceChain],
+		evmChains[sourceChain].DeployerKey,
 		state.MustGetEVMChainState(sourceChain).OnRamp,
 		state.MustGetEVMChainState(sourceChain).Router,
 		state.MustGetEVMChainState(sourceChain).Multicall3,
@@ -337,7 +340,7 @@ func ccipBatchingSingleSource(t *testing.T, opts ...testhelpers.TestOps) {
 	_, err = testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		sourceChain,
-		e.Env.Chains[destChain],
+		evmChains[destChain],
 		state.MustGetEVMChainState(destChain).OffRamp,
 		nil,
 		ccipocr3.NewSeqNumRange(startSeqNum[sourceChain], startSeqNum[sourceChain]+numMessages-1),
@@ -348,7 +351,7 @@ func ccipBatchingSingleSource(t *testing.T, opts ...testhelpers.TestOps) {
 	states, err := testhelpers.ConfirmExecWithSeqNrs(
 		t,
 		sourceChain,
-		e.Env.Chains[destChain],
+		evmChains[destChain],
 		state.MustGetEVMChainState(destChain).OffRamp,
 		nil,
 		genSeqNrRange(startSeqNum[sourceChain], startSeqNum[sourceChain]+numMessages-1),
@@ -379,7 +382,7 @@ func assertExecAsync(
 	states, err := testhelpers.ConfirmExecWithSeqNrs(
 		t,
 		sourceChainSelector,
-		e.Env.Chains[destChainSelector],
+		e.Env.BlockChains.EVMChains()[destChainSelector],
 		state.MustGetEVMChainState(destChainSelector).OffRamp,
 		nil,
 		seqNums,
@@ -403,7 +406,7 @@ func assertCommitReportsAsync(
 	commitReport, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		sourceChainSelector,
-		e.Env.Chains[destChainSelector],
+		e.Env.BlockChains.EVMChains()[destChainSelector],
 		state.MustGetEVMChainState(destChainSelector).OffRamp,
 		nil,
 		ccipocr3.NewSeqNumRange(startSeqNum, endSeqNum),
@@ -437,8 +440,8 @@ func sendMessagesAsync(
 		err = sendMessages(
 			ctx,
 			t,
-			e.Env.Chains[sourceChainSelector],
-			e.Env.Chains[sourceChainSelector].DeployerKey,
+			e.Env.BlockChains.EVMChains()[sourceChainSelector],
+			e.Env.BlockChains.EVMChains()[sourceChainSelector].DeployerKey,
 			state.MustGetEVMChainState(sourceChainSelector).OnRamp,
 			state.MustGetEVMChainState(sourceChainSelector).Router,
 			state.MustGetEVMChainState(sourceChainSelector).Multicall3,
@@ -460,7 +463,7 @@ func sendMessagesAsync(
 func sendMessages(
 	ctx context.Context,
 	t *testing.T,
-	sourceChain cldf.Chain,
+	sourceChain cldf_evm.Chain,
 	sourceTransactOpts *bind.TransactOpts,
 	sourceOnRamp onramp.OnRampInterface,
 	sourceRouter *router.Router,

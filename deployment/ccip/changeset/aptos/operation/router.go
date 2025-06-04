@@ -1,15 +1,15 @@
 package operation
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
 	aptos_router "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router/router"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
-	"github.com/smartcontractkit/mcms/types"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
 
 // UpdateRouterDestInput contains configuration for updating FeeQuoter destination configs
@@ -26,14 +26,12 @@ var UpdateRouterOp = operations.NewOperation(
 	updateRouter,
 )
 
-func updateRouter(b operations.Bundle, deps AptosDeps, in UpdateRouterDestInput) ([]types.Transaction, error) {
+func updateRouter(b operations.Bundle, deps AptosDeps, in UpdateRouterDestInput) (mcmstypes.Transaction, error) {
 	// Bind CCIP Package
-	ccipAddress := deps.OnChainState.CCIPAddress
+	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	routerBind := ccip_router.Bind(ccipAddress, deps.AptosChain.Client)
 
 	// Process each destination chain config update
-	var txs []types.Transaction
-
 	var destChainSelectors []uint64
 	var onRampVersions [][]byte
 	for _, update := range in.Updates {
@@ -42,26 +40,14 @@ func updateRouter(b operations.Bundle, deps AptosDeps, in UpdateRouterDestInput)
 	}
 	moduleInfo, function, _, args, err := routerBind.Router().Encoder().SetOnRampVersions(destChainSelectors, onRampVersions)
 	if err != nil {
-		return []types.Transaction{}, fmt.Errorf("failed to encode ApplyDestChainConfigUpdates for chains %d: %w", uint64(14767482510784806043), err)
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to encode ApplyDestChainConfigUpdates for chains %d: %w", deps.AptosChain.Selector, err)
 	}
 
-	additionalFields := aptosmcms.AdditionalFields{
-		PackageName: moduleInfo.PackageName,
-		ModuleName:  moduleInfo.ModuleName,
-		Function:    function,
-	}
-	afBytes, err := json.Marshal(additionalFields)
+	tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
 	if err != nil {
-		return []types.Transaction{}, fmt.Errorf("failed to marshal additional fields: %w", err)
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
 	}
-
-	txs = append(txs, types.Transaction{
-		To:               ccipAddress.StringLong(),
-		Data:             aptosmcms.ArgsToData(args),
-		AdditionalFields: afBytes,
-	})
-
 	b.Logger.Infow("Adding Router destination config update operation")
 
-	return txs, nil
+	return tx, nil
 }

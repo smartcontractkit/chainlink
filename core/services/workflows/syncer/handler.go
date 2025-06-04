@@ -2,9 +2,8 @@ package syncer
 
 import (
 	"context"
-	"errors"
-
 	"encoding/hex"
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -534,7 +533,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		GlobalLimits:         h.workflowLimits,
 		ExecutionRateLimiter: h.ratelimiter,
 	}
-	return v2.NewEngine(ctx, cfg)
+	return v2.NewEngine(cfg)
 }
 
 // workflowUpdatedEvent handles the WorkflowUpdatedEvent event type by first finding the

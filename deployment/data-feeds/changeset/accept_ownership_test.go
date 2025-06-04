@@ -25,17 +25,17 @@ import (
 
 func TestAcceptOwnership(t *testing.T) {
 	t.Parallel()
+
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
 		Chains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
 	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0]
-	chain := env.Chains[chainSelector]
+	chain := env.BlockChains.EVMChains()[chainSelector]
 
-	newEnv, err := commonChangesets.Apply(t, env, nil,
+	newEnv, err := commonChangesets.Apply(t, env,
 		commonChangesets.Configure(
 			cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
 			map[uint64]commonTypes.MCMSWithTimelockConfigV2{
@@ -53,7 +53,7 @@ func TestAcceptOwnership(t *testing.T) {
 	_, err = chain.Confirm(tx)
 	require.NoError(t, err)
 
-	_, err = commonChangesets.Apply(t, newEnv, nil,
+	_, err = commonChangesets.Apply(t, newEnv,
 		commonChangesets.Configure(
 			AcceptOwnershipChangeset,
 			types.AcceptOwnershipConfig{

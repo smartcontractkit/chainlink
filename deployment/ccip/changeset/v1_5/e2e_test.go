@@ -57,14 +57,14 @@ func TestE2ELegacy(t *testing.T) {
 	require.Contains(t, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)), chainselectors.GETH_TESTNET.Selector)
 	require.Len(t, allChains, 2)
 	src, dest := allChains[1], chainselectors.GETH_TESTNET.Selector
-	srcChain := e.Env.Chains[src]
-	destChain := e.Env.Chains[dest]
+	srcChain := e.Env.BlockChains.EVMChains()[src]
+	destChain := e.Env.BlockChains.EVMChains()[dest]
 	pairs := []testhelpers.SourceDestPair{
 		{SourceChainSelector: src, DestChainSelector: dest},
 	}
 	e.Env = v1_5.AddLanes(t, e.Env, state, pairs)
 	// permabless the commit stores
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_5changeset.PermaBlessCommitStoreChangeset),
 			v1_5changeset.PermaBlessCommitStoreConfig{

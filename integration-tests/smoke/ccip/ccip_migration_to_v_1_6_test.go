@@ -85,7 +85,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 	e.Env = v1_5testhelpers.AddLanes(t, e.Env, state, pairs)
 
 	// permabless the commit stores
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_5.PermaBlessCommitStoreChangeset),
 			v1_5.PermaBlessCommitStoreConfig{
@@ -110,7 +110,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 	evmChains := []uint64{}
 	for _, chain := range allChains {
-		if _, ok := e.Env.Chains[chain]; ok {
+		if _, ok := e.Env.BlockChains.EVMChains()[chain]; ok {
 			evmChains = append(evmChains, chain)
 		}
 	}
@@ -128,7 +128,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
-				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					testhelpers.TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
 				},
@@ -143,7 +143,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 		),
 	}...)
 	// reload state after adding lanes
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, apps)
+	e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, apps)
 	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
 
@@ -169,9 +169,9 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, sentEvent)
-	destChain := e.Env.Chains[dest]
+	destChain := e.Env.BlockChains.EVMChains()[dest]
 	require.NoError(t, err)
-	v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
+	v1_5testhelpers.WaitForCommit(t, e.Env.BlockChains.EVMChains()[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
 		sentEvent.Message.SequenceNumber)
 }
 
@@ -211,7 +211,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	e.Env = v1_5testhelpers.AddLanes(t, e.Env, state, pairs)
 
 	// permabless the commit stores
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_5.PermaBlessCommitStoreChangeset),
 			v1_5.PermaBlessCommitStoreConfig{
@@ -236,7 +236,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 	evmChains := []uint64{}
 	for _, chain := range allChains {
-		if _, ok := e.Env.Chains[chain]; ok {
+		if _, ok := e.Env.BlockChains.EVMChains()[chain]; ok {
 			evmChains = append(evmChains, chain)
 		}
 	}
@@ -254,7 +254,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
-				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					testhelpers.TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
 				},
@@ -269,7 +269,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 		),
 	}...)
 	// reload state after adding lanes
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, apps)
+	e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, apps)
 	require.NoError(t, err)
 
 	// reload state after adding lanes
@@ -304,9 +304,9 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NotNil(t, sentEvent)
-	destChain := e.Env.Chains[dest]
+	destChain := e.Env.BlockChains.EVMChains()[dest]
 	require.NoError(t, err)
-	v1_5testhelpers.WaitForNoCommit(t, e.Env.Chains[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
+	v1_5testhelpers.WaitForNoCommit(t, e.Env.BlockChains.EVMChains()[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
 		sentEvent.Message.SequenceNumber)
 }
 
@@ -347,7 +347,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	e.Env = v1_5testhelpers.AddLanes(t, e.Env, state, pairs)
 
 	// permabless the commit stores
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_5.PermaBlessCommitStoreChangeset),
 			v1_5.PermaBlessCommitStoreConfig{
@@ -372,7 +372,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 	evmChains := []uint64{}
 	for _, chain := range allChains {
-		if _, ok := e.Env.Chains[chain]; ok {
+		if _, ok := e.Env.BlockChains.EVMChains()[chain]; ok {
 			evmChains = append(evmChains, chain)
 		}
 	}
@@ -390,7 +390,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
-				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					testhelpers.TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
 				},
@@ -404,7 +404,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 			},
 		),
 	}...)
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, apps)
+	e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, apps)
 	require.NoError(t, err)
 	// reload state after adding lanes
 
@@ -441,13 +441,13 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NotNil(t, sentEvent)
-	destChain := e.Env.Chains[dest]
-	v1_5testhelpers.WaitForNoCommit(t, e.Env.Chains[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
+	destChain := e.Env.BlockChains.EVMChains()[dest]
+	v1_5testhelpers.WaitForNoCommit(t, e.Env.BlockChains.EVMChains()[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
 		sentEvent.Message.SequenceNumber)
 
 	commitFound := make(chan struct{})
 	go func() {
-		v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
+		v1_5testhelpers.WaitForCommit(t, e.Env.BlockChains.EVMChains()[src1], destChain, oldState.MustGetEVMChainState(dest).CommitStore[src1],
 			sentEvent.Message.SequenceNumber)
 		commitFound <- struct{}{}
 	}()
@@ -539,7 +539,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	e.Env = v1_5testhelpers.AddLanes(t, e.Env, state, pairs)
 
 	// permabless the commit stores
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_5.PermaBlessCommitStoreChangeset),
 			v1_5.PermaBlessCommitStoreConfig{
@@ -595,12 +595,13 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, sentEvent)
-	destChain := e.Env.Chains[dest]
+	evmChains := e.Env.BlockChains.EVMChains()
+	destChain := evmChains[dest]
 	destStartBlock, err := destChain.Client.HeaderByNumber(context.Background(), nil)
 	require.NoError(t, err)
-	v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src2], destChain, state.MustGetEVMChainState(dest).CommitStore[src2],
+	v1_5testhelpers.WaitForCommit(t, evmChains[src2], destChain, state.MustGetEVMChainState(dest).CommitStore[src2],
 		sentEvent.Message.SequenceNumber)
-	v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src2], destChain, state.MustGetEVMChainState(dest).EVM2EVMOffRamp[src2],
+	v1_5testhelpers.WaitForExecute(t, evmChains[src2], destChain, state.MustGetEVMChainState(dest).EVM2EVMOffRamp[src2],
 		[]uint64{sentEvent.Message.SequenceNumber}, destStartBlock.Number.Uint64())
 
 	// now that all 1.5 lanes work transfer ownership of the contracts to MCMS
@@ -625,7 +626,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		}
 	}
 
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
@@ -643,54 +644,51 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)), tEnv, false)
 	// Set RMNProxy to point to RMNRemote.
 	// nonce manager should point to 1.5 ramps
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
-		commonchangeset.Configure(
-			// as we have already transferred ownership for RMNProxy to MCMS, it needs to be done via MCMS proposal
-			cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
-			v1_6.SetRMNRemoteOnRMNProxyConfig{
-				ChainSelectors: e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)),
-				MCMSConfig: &proposalutils.TimelockConfig{
-					MinDelay: 0,
-				},
+	e.Env, err = commonchangeset.Apply(t, e.Env, commonchangeset.Configure(
+		// as we have already transferred ownership for RMNProxy to MCMS, it needs to be done via MCMS proposal
+		cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
+		v1_6.SetRMNRemoteOnRMNProxyConfig{
+			ChainSelectors: e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)),
+			MCMSConfig: &proposalutils.TimelockConfig{
+				MinDelay: 0,
 			},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.UpdateNonceManagersChangeset),
-			v1_6.UpdateNonceManagerConfig{
-				// we only have lanes between src1 --> dest
-				UpdatesByChain: map[uint64]v1_6.NonceManagerUpdate{
-					src1: {
-						PreviousRampsArgs: []v1_6.PreviousRampCfg{
-							{
-								RemoteChainSelector: dest,
-								AllowEmptyOffRamp:   true,
-							},
+		},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.UpdateNonceManagersChangeset),
+		v1_6.UpdateNonceManagerConfig{
+			// we only have lanes between src1 --> dest
+			UpdatesByChain: map[uint64]v1_6.NonceManagerUpdate{
+				src1: {
+					PreviousRampsArgs: []v1_6.PreviousRampCfg{
+						{
+							RemoteChainSelector: dest,
+							AllowEmptyOffRamp:   true,
 						},
 					},
-					src2: {
-						PreviousRampsArgs: []v1_6.PreviousRampCfg{
-							{
-								RemoteChainSelector: dest,
-								AllowEmptyOffRamp:   true,
-							},
+				},
+				src2: {
+					PreviousRampsArgs: []v1_6.PreviousRampCfg{
+						{
+							RemoteChainSelector: dest,
+							AllowEmptyOffRamp:   true,
 						},
 					},
-					dest: {
-						PreviousRampsArgs: []v1_6.PreviousRampCfg{
-							{
-								RemoteChainSelector: src1,
-								AllowEmptyOnRamp:    true,
-							},
-							{
-								RemoteChainSelector: src2,
-								AllowEmptyOnRamp:    true,
-							},
+				},
+				dest: {
+					PreviousRampsArgs: []v1_6.PreviousRampCfg{
+						{
+							RemoteChainSelector: src1,
+							AllowEmptyOnRamp:    true,
+						},
+						{
+							RemoteChainSelector: src2,
+							AllowEmptyOnRamp:    true,
 						},
 					},
 				},
 			},
-		),
-	)
+		},
+	))
 	require.NoError(t, err)
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -700,7 +698,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	require.GreaterOrEqual(t, len(e.Users[src1]), 2)
 	testhelpers.ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
 	startBlocks := make(map[uint64]*uint64)
-	latesthdr, err := e.Env.Chains[dest].Client.HeaderByNumber(testcontext.Get(t), nil)
+	latesthdr, err := e.Env.BlockChains.EVMChains()[dest].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	block := latesthdr.Number.Uint64()
 	startBlocks[dest] = &block
@@ -744,60 +742,56 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
 
 	// now that the 1.6 lane is working, we can enable the real router
-	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
-			v1_6.UpdateOnRampDestsConfig{
-				UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
-					src1: {
-						dest: {
-							IsEnabled:        true,
-							TestRouter:       false,
-							AllowListEnabled: false,
-						},
-					},
-				},
-			},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
-			v1_6.UpdateOffRampSourcesConfig{
-				UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
+	e.Env, err = commonchangeset.Apply(t, e.Env, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+		v1_6.UpdateOnRampDestsConfig{
+			UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
+				src1: {
 					dest: {
-						src1: {
-							IsEnabled:                 true,
-							TestRouter:                false,
-							IsRMNVerificationDisabled: true,
-						},
+						IsEnabled:        true,
+						TestRouter:       false,
+						AllowListEnabled: false,
 					},
 				},
 			},
-		),
-		commonchangeset.Configure(
-			// this needs to be MCMS proposal as the router contract is owned by MCMS
-			cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
-			v1_6.UpdateRouterRampsConfig{
-				TestRouter: false,
-				MCMS: &proposalutils.TimelockConfig{
-					MinDelay: 0,
-				},
-				UpdatesByChain: map[uint64]v1_6.RouterUpdates{
-					// onRamp update on source chain
+		},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
+		v1_6.UpdateOffRampSourcesConfig{
+			UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
+				dest: {
 					src1: {
-						OnRampUpdates: map[uint64]bool{
-							dest: true,
-						},
-					},
-					// offramp update on dest chain
-					dest: {
-						OffRampUpdates: map[uint64]bool{
-							src1: true,
-						},
+						IsEnabled:                 true,
+						TestRouter:                false,
+						IsRMNVerificationDisabled: true,
 					},
 				},
 			},
-		),
-	)
+		},
+	), commonchangeset.Configure(
+		// this needs to be MCMS proposal as the router contract is owned by MCMS
+		cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+		v1_6.UpdateRouterRampsConfig{
+			TestRouter: false,
+			MCMS: &proposalutils.TimelockConfig{
+				MinDelay: 0,
+			},
+			UpdatesByChain: map[uint64]v1_6.RouterUpdates{
+				// onRamp update on source chain
+				src1: {
+					OnRampUpdates: map[uint64]bool{
+						dest: true,
+					},
+				},
+				// offramp update on dest chain
+				dest: {
+					OffRampUpdates: map[uint64]bool{
+						src1: true,
+					},
+				},
+			},
+		},
+	))
 	require.NoError(t, err)
 	// confirm that the other lane src2->dest is still working with v1.5
 	sentEventOnOtherLane, err := v1_5testhelpers.SendRequest(t, e.Env, state,
@@ -815,7 +809,8 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, sentEvent)
 
-	v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src2], e.Env.Chains[dest], state.MustGetEVMChainState(dest).EVM2EVMOffRamp[src2],
+	evmChains = e.Env.BlockChains.EVMChains()
+	v1_5testhelpers.WaitForExecute(t, evmChains[src2], evmChains[dest], state.MustGetEVMChainState(dest).EVM2EVMOffRamp[src2],
 		[]uint64{sentEventOnOtherLane.Message.SequenceNumber}, destStartBlock.Number.Uint64())
 
 	// stop the continuous messages in real router
@@ -823,9 +818,9 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	wg.Wait()
 	// start validating the messages sent in 1.5 and 1.6
 	for _, msg := range v1_5Msgs {
-		v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, state.MustGetEVMChainState(dest).CommitStore[src1],
+		v1_5testhelpers.WaitForCommit(t, evmChains[src1], destChain, state.MustGetEVMChainState(dest).CommitStore[src1],
 			msg.Message.SequenceNumber)
-		v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src1], destChain, state.MustGetEVMChainState(dest).EVM2EVMOffRamp[src1],
+		v1_5testhelpers.WaitForExecute(t, evmChains[src1], destChain, state.MustGetEVMChainState(dest).EVM2EVMOffRamp[src1],
 			[]uint64{msg.Message.SequenceNumber}, initialBlock)
 		lastNonce = msg.Message.Nonce
 	}
@@ -876,7 +871,7 @@ func sendContinuousMessages(
 			case *evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested:
 				v1_5Msgs = append(v1_5Msgs, msg)
 				if initialDestBlock == 0 {
-					destChain := e.Env.Chains[dest]
+					destChain := e.Env.BlockChains.EVMChains()[dest]
 					destStartBlock, err := destChain.Client.HeaderByNumber(context.Background(), nil)
 					if err != nil {
 						t.Errorf("failed to get block header")
@@ -902,7 +897,7 @@ func sendMessageInRealRouter(
 	cfg := &testhelpers.CCIPSendReqConfig{
 		SourceChain:  src,
 		DestChain:    dest,
-		Sender:       e.Env.Chains[src].DeployerKey,
+		Sender:       e.Env.BlockChains.EVMChains()[src].DeployerKey,
 		IsTestRouter: false,
 		Message: router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
@@ -919,7 +914,7 @@ func sendMessageInRealRouter(
 	if err != nil {
 		t.Errorf("failed to send message: %v", err)
 	}
-	receipt, err := e.Env.Chains[src].Client.TransactionReceipt(context.Background(), tx.Hash())
+	receipt, err := e.Env.BlockChains.EVMChains()[src].Client.TransactionReceipt(context.Background(), tx.Hash())
 	if err != nil {
 		t.Errorf("failed to get transaction receipt: %v", err)
 	}

@@ -18,59 +18,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
-
-// TimelockExecutionContracts is a helper struct for executing timelock proposals. it contains
-// the timelock and call proxy contracts.
-type TimelockExecutionContracts struct {
-	Timelock  *owner_helpers.RBACTimelock
-	CallProxy *owner_helpers.CallProxy
-}
-
-// NewTimelockExecutionContracts creates a new TimelockExecutionContracts struct.
-// If there are multiple timelocks or call proxy on the chain, an error is returned.
-// Used by CLD'S cli
-func NewTimelockExecutionContracts(env cldf.Environment, chainSelector uint64) (*TimelockExecutionContracts, error) {
-	addrTypeVer, err := env.ExistingAddresses.AddressesForChain(chainSelector)
-	if err != nil {
-		return nil, fmt.Errorf("error getting addresses for chain: %w", err)
-	}
-	var timelock *owner_helpers.RBACTimelock
-	var callProxy *owner_helpers.CallProxy
-	for addr, tv := range addrTypeVer {
-		if tv.Type == types.RBACTimelock {
-			if timelock != nil {
-				return nil, fmt.Errorf("multiple timelocks found on chain %d", chainSelector)
-			}
-			var err error
-			timelock, err = owner_helpers.NewRBACTimelock(common.HexToAddress(addr), env.Chains[chainSelector].Client)
-			if err != nil {
-				return nil, fmt.Errorf("error creating timelock: %w", err)
-			}
-		}
-		if tv.Type == types.CallProxy {
-			if callProxy != nil {
-				return nil, fmt.Errorf("multiple call proxies found on chain %d", chainSelector)
-			}
-			var err error
-			callProxy, err = owner_helpers.NewCallProxy(common.HexToAddress(addr), env.Chains[chainSelector].Client)
-			if err != nil {
-				return nil, fmt.Errorf("error creating call proxy: %w", err)
-			}
-		}
-	}
-	if timelock == nil || callProxy == nil {
-		return nil, fmt.Errorf("missing timelock (%T) or call proxy(%T) on chain %d", timelock == nil, callProxy == nil, chainSelector)
-	}
-	return &TimelockExecutionContracts{
-		Timelock:  timelock,
-		CallProxy: callProxy,
-	}, nil
-}
 
 func verboseDebug(lggr logger.Logger, event *owner_helpers.RBACTimelockCallScheduled) {
 	b, err := json.Marshal(event)
@@ -120,7 +73,7 @@ func (state MCMSWithTimelockContracts) Validate() error {
 // - Found but was unable to load a contract
 // - It only found part of the bundle of contracts
 // - If found more than one instance of a contract (we expect one bundle in the given addresses)
-func MaybeLoadMCMSWithTimelockContracts(chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (*MCMSWithTimelockContracts, error) {
+func MaybeLoadMCMSWithTimelockContracts(chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (*MCMSWithTimelockContracts, error) {
 	state := MCMSWithTimelockContracts{}
 	// We expect one of each contract on the chain.
 	timelock := cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
@@ -190,9 +143,11 @@ func McmsTimelockConverterForChain(chain uint64) (mcmssdk.TimelockConverter, err
 }
 
 func McmsTimelockConverters(env cldf.Environment) (map[uint64]mcmssdk.TimelockConverter, error) {
-	converters := make(map[uint64]mcmssdk.TimelockConverter, len(env.Chains)+len(env.SolChains))
+	evmChains := env.BlockChains.EVMChains()
+	solanaChains := env.BlockChains.SolanaChains()
+	converters := make(map[uint64]mcmssdk.TimelockConverter, len(evmChains)+len(solanaChains))
 
-	for _, chain := range env.Chains {
+	for _, chain := range evmChains {
 		var err error
 		converters[chain.Selector], err = McmsTimelockConverterForChain(chain.Selector)
 		if err != nil {
@@ -200,7 +155,7 @@ func McmsTimelockConverters(env cldf.Environment) (map[uint64]mcmssdk.TimelockCo
 		}
 	}
 
-	for _, chain := range env.SolChains {
+	for _, chain := range solanaChains {
 		var err error
 		converters[chain.Selector], err = McmsTimelockConverterForChain(chain.Selector)
 		if err != nil {
@@ -219,18 +174,20 @@ func McmsInspectorForChain(env cldf.Environment, chain uint64) (mcmssdk.Inspecto
 
 	switch chainFamily {
 	case chain_selectors.FamilyEVM:
-		return mcmsevmsdk.NewInspector(env.Chains[chain].Client), nil
+		return mcmsevmsdk.NewInspector(env.BlockChains.EVMChains()[chain].Client), nil
 	case chain_selectors.FamilySolana:
-		return mcmssolanasdk.NewInspector(env.SolChains[chain].Client), nil
+		return mcmssolanasdk.NewInspector(env.BlockChains.SolanaChains()[chain].Client), nil
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", chainFamily)
 	}
 }
 
 func McmsInspectors(env cldf.Environment) (map[uint64]mcmssdk.Inspector, error) {
-	inspectors := make(map[uint64]mcmssdk.Inspector, len(env.Chains)+len(env.SolChains))
+	evmChains := env.BlockChains.EVMChains()
+	solanaChains := env.BlockChains.SolanaChains()
+	inspectors := make(map[uint64]mcmssdk.Inspector, len(evmChains)+len(solanaChains))
 
-	for _, chain := range env.Chains {
+	for _, chain := range evmChains {
 		var err error
 		inspectors[chain.Selector], err = McmsInspectorForChain(env, chain.Selector)
 		if err != nil {
@@ -238,7 +195,7 @@ func McmsInspectors(env cldf.Environment) (map[uint64]mcmssdk.Inspector, error) 
 		}
 	}
 
-	for _, chain := range env.SolChains {
+	for _, chain := range solanaChains {
 		var err error
 		inspectors[chain.Selector], err = McmsInspectorForChain(env, chain.Selector)
 		if err != nil {

@@ -24,7 +24,7 @@ func TestMintLink(t *testing.T) {
 	env := setupLinkTransferTestEnv(t)
 	ctx := env.GetContext()
 	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-	chain := env.Chains[chainSelector]
+	chain := env.BlockChains.EVMChains()[chainSelector]
 
 	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 	require.NoError(t, err)
@@ -35,7 +35,7 @@ func TestMintLink(t *testing.T) {
 	linkState, err := changeset.MaybeLoadLinkTokenChainState(chain, addrs)
 	require.NoError(t, err)
 
-	_, err = changeset.Apply(t, env, nil,
+	_, err = changeset.Apply(t, env,
 		changeset.Configure(
 			cldf.CreateLegacyChangeSet(example.AddMintersBurnersLink),
 			&example.AddMintersBurnersLinkConfig{

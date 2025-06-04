@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -25,7 +26,7 @@ import (
 
 func ConfigureUSDCTokenPools(
 	lggr logger.Logger,
-	chains map[uint64]cldf.Chain,
+	chains map[uint64]cldf_evm.Chain,
 	src, dst uint64,
 	state stateview.CCIPOnChainState,
 ) (*burn_mint_erc677.BurnMintERC677, *burn_mint_erc677.BurnMintERC677, error) {
@@ -35,7 +36,7 @@ func ConfigureUSDCTokenPools(
 	dstPool := state.MustGetEVMChainState(dst).USDCTokenPools[deployment.Version1_5_1]
 
 	args := []struct {
-		sourceChain cldf.Chain
+		sourceChain cldf_evm.Chain
 		dstChainSel uint64
 		state       evm.CCIPChainState
 		srcToken    *burn_mint_erc677.BurnMintERC677
@@ -75,7 +76,7 @@ func ConfigureUSDCTokenPools(
 
 func configureSingleChain(
 	lggr logger.Logger,
-	sourceChain cldf.Chain,
+	sourceChain cldf_evm.Chain,
 	dstChainSel uint64,
 	state evm.CCIPChainState,
 	srcToken *burn_mint_erc677.BurnMintERC677,
@@ -112,7 +113,7 @@ func UpdateFeeQuoterForUSDC(
 	t *testing.T,
 	e cldf.Environment,
 	lggr logger.Logger,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	dstChain uint64,
 ) error {
 	config := fee_quoter.FeeQuoterTokenTransferFeeConfig{
@@ -123,7 +124,7 @@ func UpdateFeeQuoterForUSDC(
 		DestBytesOverhead: 640,
 		IsEnabled:         true,
 	}
-	_, err := commonchangeset.Apply(t, e, nil,
+	_, err := commonchangeset.Apply(t, e,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset),
 			v1_6.ApplyTokenTransferFeeConfigUpdatesConfig{

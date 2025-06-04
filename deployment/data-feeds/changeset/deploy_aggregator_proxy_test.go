@@ -22,29 +22,25 @@ func TestAggregatorProxy(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
-		Chains: 2,
+		Chains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
 	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
-	resp, err := commonChangesets.Apply(t, env, nil,
-		commonChangesets.Configure(
-			DeployCacheChangeset,
-			types.DeployConfig{
-				ChainsToDeploy: []uint64{chainSelector},
-				Labels:         []string{"data-feeds"},
-			},
-		),
-		commonChangesets.Configure(
-			DeployAggregatorProxyChangeset,
-			types.DeployAggregatorProxyConfig{
-				ChainsToDeploy:   []uint64{chainSelector},
-				AccessController: []common.Address{common.HexToAddress("0x")},
-			},
-		),
-	)
+	resp, err := commonChangesets.Apply(t, env, commonChangesets.Configure(
+		DeployCacheChangeset,
+		types.DeployConfig{
+			ChainsToDeploy: []uint64{chainSelector},
+			Labels:         []string{"data-feeds"},
+		},
+	), commonChangesets.Configure(
+		DeployAggregatorProxyChangeset,
+		types.DeployAggregatorProxyConfig{
+			ChainsToDeploy:   []uint64{chainSelector},
+			AccessController: []common.Address{common.HexToAddress("0x")},
+		},
+	))
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)

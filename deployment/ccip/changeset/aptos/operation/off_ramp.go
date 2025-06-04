@@ -1,15 +1,19 @@
 package operation
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
+	aptosutils "github.com/smartcontractkit/chainlink-aptos/relayer/utils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
-	"github.com/smartcontractkit/mcms/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
 // UpdateOffRampSourcesInput contains configuration for updating OffRamp sources
@@ -26,10 +30,10 @@ var UpdateOffRampSourcesOp = operations.NewOperation(
 	updateOffRampSources,
 )
 
-func updateOffRampSources(b operations.Bundle, deps AptosDeps, in UpdateOffRampSourcesInput) ([]types.Transaction, error) {
+func updateOffRampSources(b operations.Bundle, deps AptosDeps, in UpdateOffRampSourcesInput) ([]mcmstypes.Transaction, error) {
 	// Bind CCIP Package
-	ccipAddress := deps.OnChainState.CCIPAddress
-	offrampBind := ccip_offramp.Bind(ccipAddress, deps.AptosChain.Client)
+	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
+	offRampBind := ccip_offramp.Bind(ccipAddress, deps.AptosChain.Client)
 
 	// Transform the updates into the format expected by the Aptos contract
 	var sourceChainSelectors []uint64
@@ -55,7 +59,7 @@ func updateOffRampSources(b operations.Bundle, deps AptosDeps, in UpdateOffRampS
 	}
 
 	// Encode the update operation
-	moduleInfo, function, _, args, err := offrampBind.Offramp().Encoder().ApplySourceChainConfigUpdates(
+	moduleInfo, function, _, args, err := offRampBind.Offramp().Encoder().ApplySourceChainConfigUpdates(
 		sourceChainSelectors,
 		sourceChainEnabled,
 		sourceChainRMNVerificationDisabled,
@@ -64,24 +68,59 @@ func updateOffRampSources(b operations.Bundle, deps AptosDeps, in UpdateOffRampS
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode ApplySourceChainConfigUpdates for OffRamp: %w", err)
 	}
-
-	// Create MCMS operation
-	additionalFields := aptosmcms.AdditionalFields{
-		PackageName: moduleInfo.PackageName,
-		ModuleName:  moduleInfo.ModuleName,
-		Function:    function,
-	}
-	afBytes, err := json.Marshal(additionalFields)
+	tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal additional fields: %w", err)
+		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
 
-	b.Logger.Infow("Adding OffRamp source config update operation",
-		"chainCount", len(sourceChainSelectors))
+	return []mcmstypes.Transaction{
+		tx,
+	}, nil
+}
 
-	return []types.Transaction{{
-		To:               ccipAddress.StringLong(),
-		Data:             aptosmcms.ArgsToData(args),
-		AdditionalFields: afBytes,
-	}}, nil
+// UpdateOffRampSourcesInput contains configuration for updating OffRamp sources
+type SetOcr3ConfigInput struct {
+	OcrPluginType types.PluginType
+	OCRConfigArgs internal.MultiOCR3BaseOCRConfigArgsAptos
+}
+
+// SetOcr3ConfigOp operation sets commit or exec OCR3 configuration for OffRamp
+var SetOcr3ConfigOp = operations.NewOperation(
+	"set-ocr3-config-op",
+	Version1_0_0,
+	"Sets OCR3 configuration for OffRamp",
+	setOcr3Config,
+)
+
+func setOcr3Config(b operations.Bundle, deps AptosDeps, in SetOcr3ConfigInput) (mcmstypes.Transaction, error) {
+	// Bind CCIP Package
+	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
+	offRampBind := ccip_offramp.Bind(ccipAddress, deps.AptosChain.Client)
+
+	transmitters := []aptos.AccountAddress{}
+	for _, transmitter := range in.OCRConfigArgs.Transmitters {
+		address, err := aptosutils.PublicKeyBytesToAddress(transmitter)
+		if err != nil {
+			return mcmstypes.Transaction{}, fmt.Errorf("failed to convert transmitter to address: %w", err)
+		}
+		transmitters = append(transmitters, address)
+	}
+
+	moduleInfo, function, _, args, err := offRampBind.Offramp().Encoder().SetOcr3Config(
+		in.OCRConfigArgs.ConfigDigest[:],
+		uint8(in.OcrPluginType),
+		in.OCRConfigArgs.F,
+		in.OCRConfigArgs.IsSignatureVerificationEnabled,
+		in.OCRConfigArgs.Signers,
+		transmitters,
+	)
+	if err != nil {
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to encode SetOcr3Config for commit: %w", err)
+	}
+	tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
+	if err != nil {
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to generate MCMS operations for OffRamp Initialize: %w", err)
+	}
+
+	return tx, nil
 }
