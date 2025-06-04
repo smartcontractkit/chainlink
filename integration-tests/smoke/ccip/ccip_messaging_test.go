@@ -119,7 +119,6 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 					func(t *testing.T) {
 					},
 				},
-				NumberOfMessages: 2,
 			},
 		)
 	})
