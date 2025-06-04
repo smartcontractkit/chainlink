@@ -272,10 +272,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 		Memory,
 		lggr,
 		cldf.NewMemoryAddressBook(),
-		datastore.NewMemoryDataStore[
-			datastore.DefaultMetadata,
-			datastore.DefaultMetadata,
-		]().Seal(),
+		datastore.NewMemoryDataStore().Seal(),
 		nodeIDs, // Note these have the p2p_ prefix.
 		NewMemoryJobClient(nodes),
 		ctx,
@@ -327,10 +324,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 		Memory,
 		lggr,
 		cldf.NewMemoryAddressBook(),
-		datastore.NewMemoryDataStore[
-			datastore.DefaultMetadata,
-			datastore.DefaultMetadata,
-		]().Seal(),
+		datastore.NewMemoryDataStore().Seal(),
 		nodeIDs,
 		NewMemoryJobClient(nodes),
 		t.Context,
