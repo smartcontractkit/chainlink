@@ -11,7 +11,6 @@ import (
 	solBinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	solRpc "github.com/gagliardetto/solana-go/rpc"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	cldfsol "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
@@ -36,12 +35,9 @@ func DeployAndMaybeSaveToAddressBook(
 	isUpgrade bool,
 	metadata string) (solana.PublicKey, error) {
 	programName := getTypeToProgramDeployName()[contractType]
-	overallocate := true
-	// by default we want to overallocate buffers, but if metadata is set (i.e. we're managing partner programs)
-	// we want to set the overallocate flag to false
-	if metadata != "" && metadata != shared.CLLMetadata {
-		overallocate = false
-	}
+
+	overallocate := !(metadata != "" && metadata != shared.CLLMetadata)
+
 	programID, err := chain.DeployProgram(e.Logger, cldfsol.ProgramInfo{
 		Name:  programName,
 		Bytes: deployment.SolanaProgramBytes[programName],
@@ -311,7 +307,7 @@ func generateCloseBufferIxn(
 // HELPER FUNCTIONS
 func GetSolProgramSize(e *cldf.Environment, chain cldfsol.Chain, programID solana.PublicKey) (int, error) {
 	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &rpc.GetAccountInfoOpts{
-		Commitment: solRpc.CommitmentConfirmed,
+		Commitment: rpc.CommitmentConfirmed,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get account info: %w", err)
@@ -331,8 +327,8 @@ func GetSolProgramData(e cldf.Environment, chain cldfsol.Chain, programID solana
 		DataType uint32
 		Address  solana.PublicKey
 	}
-	data, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &solRpc.GetAccountInfoOpts{
-		Commitment: solRpc.CommitmentConfirmed,
+	data, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &rpc.GetAccountInfoOpts{
+		Commitment: rpc.CommitmentConfirmed,
 	})
 	if err != nil {
 		return programData, fmt.Errorf("failed to deploy program: %w", err)

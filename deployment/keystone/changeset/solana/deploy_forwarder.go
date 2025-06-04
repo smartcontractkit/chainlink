@@ -16,7 +16,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	ks_forwarder "github.com/smartcontractkit/chainlink-solana/contracts/generated/keystone_forwarder"
 	"github.com/smartcontractkit/chainlink/deployment"
-	cdeployment "github.com/smartcontractkit/chainlink/deployment"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
@@ -45,7 +44,7 @@ func DeployForwarder(env cldf.Environment, req *DeployRequest) (cldf.ChangesetOu
 	chain := env.BlockChains.SolanaChains()[req.ChainSel]
 	ab := cldf.NewMemoryAddressBook()
 
-	address, err := helpers.DeployAndMaybeSaveToAddressBook(env, chain, ab, shared.Forwarder, cdeployment.Version1_0_0, false, "")
+	address, err := helpers.DeployAndMaybeSaveToAddressBook(env, chain, ab, shared.Forwarder, deployment.Version1_0_0, false, "")
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -65,7 +64,7 @@ func DeployForwarder(env cldf.Environment, req *DeployRequest) (cldf.ChangesetOu
 
 	instructions := []solana.Instruction{instruction}
 	if err = chain.Confirm(instructions, solanaUtils.AddSigners(stateKey)); err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm ")
+		return cldf.ChangesetOutput{}, errors.New("failed to confirm ")
 	}
 
 	tv := cldf.NewTypeAndVersion(shared.ForwarderState, deployment.Version1_0_0)
@@ -181,7 +180,7 @@ func ConfigureForwarders(env cldf.Environment, req ConfigureForwarderRequest) (c
 		addresses, _ := env.ExistingAddresses.AddressesForChain(chainSel)
 		mcmState, _ := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
 		if mcmState.TimelockProgram.IsZero() {
-			return cldf.ChangesetOutput{}, fmt.Errorf("timelock is not found")
+			return cldf.ChangesetOutput{}, errors.New("timelock is not found")
 		}
 
 		timelocks := map[uint64]string{}
@@ -263,11 +262,10 @@ func configureForwarder(req ConfigureForwarderRequest, state *state, ch cldfsol.
 	var oracleExists bool
 	_, err := ch.Client.GetAccountInfo(context.Background(), configPDA)
 	if err != nil {
-		if errors.Is(err, rpc.ErrNotFound) {
-			oracleExists = false
-		} else {
+		if !errors.Is(err, rpc.ErrNotFound) {
 			return mcmsTypes.BatchOperation{}, fmt.Errorf("can't confirm oracle existence: %w", err)
 		}
+		oracleExists = false
 	} else {
 		oracleExists = true
 	}

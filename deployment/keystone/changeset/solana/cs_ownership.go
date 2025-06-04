@@ -1,6 +1,7 @@
 package solana
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
@@ -36,7 +37,7 @@ func TransferOwnershipForwarder(env cldf.Environment, req *TransferOwnershipForw
 
 	mcmState, _ := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
 	if mcmState.TimelockProgram.IsZero() {
-		return cldf.ChangesetOutput{}, fmt.Errorf("timelock is not found")
+		return cldf.ChangesetOutput{}, errors.New("timelock is not found")
 	}
 
 	currentOwner := solChain.DeployerKey.PublicKey()
@@ -109,6 +110,9 @@ func TransferOwnershipForwarder(env cldf.Environment, req *TransferOwnershipForw
 		shared.Router,
 		timelockSigner, // the timelock signer PDA
 	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
 
 	batch := mcmsTypes.BatchOperation{
 		ChainSelector: mcmsTypes.ChainSelector(req.ChainSel),
