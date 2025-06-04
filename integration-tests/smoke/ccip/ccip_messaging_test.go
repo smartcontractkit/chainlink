@@ -3,12 +3,13 @@ package ccip
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -216,13 +217,11 @@ func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithSolChains(1),
 		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-			//if params.ExecuteOffChainConfig != nil {
 			params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(1 * time.Hour)
 			params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(1 * time.Hour)
 			params.ExecuteOffChainConfig.MultipleReportsEnabled = true
 			params.ExecuteOffChainConfig.MaxReportMessages = 1
 			params.ExecuteOffChainConfig.MaxSingleChainReports = 1
-			//}
 			return params
 		}),
 	)
@@ -298,7 +297,7 @@ func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
 			Replayed:               replayed,
 			Nonce:                  nil, // Solana nonce check is skipped
 			Receiver:               receiver,
-			MsgData:                []byte(fmt.Sprintf("hello CCIPReceiver")),
+			MsgData:                []byte("hello CCIPReceiver"),
 			ExtraArgs:              extraArgs,
 			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 			NumberOfMessages:       numMessages,
@@ -328,7 +327,7 @@ func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
 				if !exists {
 					sequenceNumbers[ocrSeqNr] = 0
 				}
-				sequenceNumbers[ocrSeqNr] = sequenceNumbers[ocrSeqNr] + 1
+				sequenceNumbers[ocrSeqNr]++
 				t.Logf("Current sequence numbers: %+v", sequenceNumbers)
 				// All exec reports should have the same sequence number
 				if len(sequenceNumbers) > 1 {
@@ -355,13 +354,11 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithSolChains(1),
 		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-			//if params.ExecuteOffChainConfig != nil {
 			params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(1 * time.Hour)
 			params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(1 * time.Hour)
 			params.ExecuteOffChainConfig.MultipleReportsEnabled = true
 			params.ExecuteOffChainConfig.MaxReportMessages = 1
 			params.ExecuteOffChainConfig.MaxSingleChainReports = 1
-			//}
 			return params
 		}),
 	)
