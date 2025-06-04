@@ -98,11 +98,53 @@ var (
 				DescribedTimelockProposals: csOutput.DescribedTimelockProposals,
 			}, nil
 		})
+
+	NonceManagerPreviousRampsUpdatesOp = operations.NewOperation(
+		"NonceManagerPreviousRampsUpdates",
+		semver.MustParse("1.0.0"),
+		"Applies previous ramps updates in NonceManager 1.6 contract on the specified evm chain",
+		func(b operations.Bundle, deps opsutil.ConfigureDependencies, input NonceManagerApplyPreviousRampsUpdatesInput) (opsutil.OpOutput, error) {
+			state := deps.CurrentState
+			e := deps.Env
+			err := input.Validate(e, state)
+			if err != nil {
+				return opsutil.OpOutput{}, err
+			}
+
+			chain := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
+			chainState := state.MustGetEVMChainState(input.ChainSelector)
+			deployerGroup := deployergroup.NewDeployerGroup(e, state, input.MCMS).
+				WithDeploymentContext("apply previous NonceManager ramps updates on " + chain.String())
+			opts, err := deployerGroup.GetDeployer(input.ChainSelector)
+			if err != nil {
+				return opsutil.OpOutput{}, fmt.Errorf("failed to get deployer for %s", chain)
+			}
+			nonceManager := chainState.NonceManager
+			_, err = nonceManager.ApplyPreviousRampsUpdates(opts, input.Callers)
+			if err != nil {
+				b.Logger.Errorw("Failed to apply previous ramps updates on NonceManager", "chain", chain.String(), "err", err)
+				return opsutil.OpOutput{}, fmt.Errorf("failed to to apply previous ramps updates on NonceManager: %w", err)
+			}
+			csOutput, err := deployerGroup.Enact()
+			if err != nil {
+				return opsutil.OpOutput{}, fmt.Errorf("failed to to apply previous ramps updates on NonceManager: %w", err)
+			}
+			return opsutil.OpOutput{
+				Proposals:                  csOutput.MCMSTimelockProposals,
+				DescribedTimelockProposals: csOutput.DescribedTimelockProposals,
+			}, nil
+		})
 )
 
 type NonceManagerUpdateAuthorizedCallerInput struct {
 	ChainSelector uint64
 	Callers       nonce_manager.AuthorizedCallersAuthorizedCallerArgs
+	MCMS          *proposalutils.TimelockConfig
+}
+
+type NonceManagerApplyPreviousRampsUpdatesInput struct {
+	ChainSelector uint64
+	Callers       []nonce_manager.NonceManagerPreviousRampsArgs
 	MCMS          *proposalutils.TimelockConfig
 }
 
@@ -126,5 +168,26 @@ func (n NonceManagerUpdateAuthorizedCallerInput) Validate(env cldf.Environment, 
 	if len(n.Callers.AddedCallers) == 0 && len(n.Callers.RemovedCallers) == 0 {
 		return errors.New("at least one caller is required")
 	}
+	return nil
+}
+
+func (n NonceManagerApplyPreviousRampsUpdatesInput) Validate(env cldf.Environment, state stateview.CCIPOnChainState) error {
+	err := stateview.ValidateChain(env, state, n.ChainSelector, n.MCMS)
+	if err != nil {
+		return err
+	}
+	chain := env.BlockChains.EVMChains()[n.ChainSelector]
+	if state.MustGetEVMChainState(n.ChainSelector).NonceManager == nil {
+		return fmt.Errorf("NonceManager not found for chain %s", chain.String())
+	}
+	err = commoncs.ValidateOwnership(
+		env.GetContext(), n.MCMS != nil,
+		chain.DeployerKey.From, state.MustGetEVMChainState(n.ChainSelector).Timelock.Address(),
+		state.MustGetEVMChainState(n.ChainSelector).NonceManager,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to validate ownership: %w", err)
+	}
+	// TODO add validation
 	return nil
 }

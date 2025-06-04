@@ -152,13 +152,26 @@ func (cfg UpdateNonceManagerConfig) Validate(e cldf.Environment) error {
 }
 
 func UpdateNonceManagersChangeset(e cldf.Environment, cfg UpdateNonceManagerConfig) (cldf.ChangesetOutput, error) {
+	output := cldf.ChangesetOutput{}
+
 	if err := cfg.Validate(e); err != nil {
-		return cldf.ChangesetOutput{}, err
+		return output, err
 	}
 	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
-		return cldf.ChangesetOutput{}, err
+		return output, err
 	}
+
+	// build sequence input
+	/*updates := make(map[uint64]opsutil.EVMCallInput[[]nonce_manager.AuthorizedCallersAuthorizedCallerArgs], len(cfg.UpdatesByChain))
+
+	for chainSel, destChainUpdates := range cfg.UpdatesByChain {
+		args := nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
+			AddedCallers:   destChainUpdates.AddedAuthCallers,
+			RemovedCallers: destChainUpdates.RemovedAuthCallers,
+		}
+
+	}*/
 
 	batches := []mcmstypes.BatchOperation{}
 	timelocks := make(map[uint64]string)
