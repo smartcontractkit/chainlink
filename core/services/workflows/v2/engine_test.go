@@ -10,13 +10,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
+	beholderpb "github.com/smartcontractkit/chainlink-common/pkg/beholder/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/protoc/pkg/test_capabilities/basicaction"
 	basicactionmock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/protoc/pkg/test_capabilities/basicaction/basic_actionmock"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/protoc/pkg/test_capabilities/basictrigger"
 	basictriggermock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/protoc/pkg/test_capabilities/basictrigger/basic_triggermock"
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/testutils/registry"
@@ -228,8 +232,6 @@ func newTriggerSubs(n int) *wasmpb.ExecutionResult {
 }
 
 func TestEngine_Execution(t *testing.T) {
-	t.Parallel()
-
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
 	module.EXPECT().Close()
@@ -254,6 +256,8 @@ func TestEngine_Execution(t *testing.T) {
 			executionFinishedCh <- executionID
 		},
 	}
+	beholderTester := tests.Beholder(t)
+	cfg.BeholderEmitter = custmsg.NewLabeler()
 
 	t.Run("successful execution with no capability calls", func(t *testing.T) {
 		engine, err := v2.NewEngine(cfg)
@@ -296,6 +300,19 @@ func TestEngine_Execution(t *testing.T) {
 		<-executionFinishedCh
 
 		require.NoError(t, engine.Close())
+
+		requireEventsLabels(t, &beholderTester, map[string]string{
+			"workflowID":    cfg.WorkflowID,
+			"workflowOwner": cfg.WorkflowOwner,
+			"workflowName":  cfg.WorkflowName.String(),
+		})
+		requireEventsMessages(t, &beholderTester, []string{
+			"Started",
+			"Registering trigger",
+			"All triggers registered successfully",
+			"Workflow Engine initialized",
+			"Workflow execution finished successfully",
+		})
 	})
 }
 
@@ -420,4 +437,38 @@ func setupExpectedCalls(t *testing.T) (
 		return &basicaction.Outputs{AdaptedThing: "world"}, nil
 	}
 	return triggerMock, basicAction
+}
+
+func requireEventsLabels(t *testing.T, beholderTester *tests.BeholderTester, want map[string]string) {
+	msgs := beholderTester.Messages(t)
+	for _, msg := range msgs {
+		if msg.Attrs["beholder_entity"] == "BaseMessage" {
+			var payload beholderpb.BaseMessage
+			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
+			for k, v := range want {
+				require.Equal(t, v, payload.Labels[k], "label %s does not match", k)
+			}
+		}
+	}
+}
+
+func requireEventsMessages(t *testing.T, beholderTester *tests.BeholderTester, expected []string) {
+	msgs := beholderTester.Messages(t)
+	nextToFind := 0
+	for _, msg := range msgs {
+		if msg.Attrs["beholder_entity"] == "BaseMessage" {
+			var payload beholderpb.BaseMessage
+			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
+			if nextToFind >= len(expected) {
+				return
+			}
+			if payload.Msg == expected[nextToFind] {
+				nextToFind++
+			}
+		}
+	}
+
+	if nextToFind < len(expected) {
+		t.Errorf("log message not found: %s", expected[nextToFind])
+	}
 }

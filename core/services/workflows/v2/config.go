@@ -7,6 +7,7 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
@@ -37,6 +38,8 @@ type EngineConfig struct {
 	LocalLimits          EngineLimits             // local to a single workflow
 	GlobalLimits         *syncerlimiter.Limits    // global to all workflows
 	ExecutionRateLimiter *ratelimiter.RateLimiter // global + per owner
+
+	BeholderEmitter custmsg.MessageEmitter
 
 	Hooks         LifecycleHooks
 	BillingClient BillingClient
@@ -123,6 +126,13 @@ func (c *EngineConfig) Validate() error {
 	}
 	if c.ExecutionRateLimiter == nil {
 		return errors.New("execution rate limiter not set")
+	}
+
+	if c.BeholderEmitter == nil {
+		return errors.New("beholder emitter not set")
+	}
+	if c.BillingClient == nil {
+		return errors.New("billing client not set")
 	}
 
 	c.Hooks.setDefaultHooks()

@@ -10,40 +10,31 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/safe"
 )
-
-type TriggerCapability interface {
-	Payload() *anypb.Any
-	capabilities.TriggerCapability
-}
-
-type triggerCapability struct {
-	capabilities.TriggerCapability
-	payload *anypb.Any
-}
-
-func (tc *triggerCapability) Payload() *anypb.Any {
-	return tc.payload
-}
 
 type Engine struct {
 	services.Service
 	srvcEng *services.Engine
 
 	cfg       *EngineConfig
+	lggr      logger.Logger
 	localNode capabilities.Node
 
 	// registration ID -> trigger capability
-	triggers map[string]TriggerCapability
+	triggers map[string]*triggerCapability
 	// used to separate registration and unregistration phases
 	triggersRegMu sync.Mutex
 
@@ -52,6 +43,13 @@ type Engine struct {
 	capCallsSemaphore       chan struct{}
 
 	meterReports *metering.Reports
+
+	metrics *monitoring.WorkflowsMetricLabeler
+}
+
+type triggerCapability struct {
+	capabilities.TriggerCapability
+	payload *anypb.Any
 }
 
 type enqueuedTriggerEvent struct {
@@ -66,19 +64,37 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
+	em, err := monitoring.InitMonitoringResources()
+	if err != nil {
+		return nil, fmt.Errorf("could not initialize monitoring resources: %w", err)
+	}
+
+	// TODO(CAPPL-910): add more labels once node info from registry is available here
+	beholderLogger := custmsg.NewBeholderLogger(cfg.Lggr, cfg.BeholderEmitter).Named("WorkflowEngine").With(
+		platform.KeyWorkflowID, cfg.WorkflowID,
+		platform.KeyWorkflowOwner, cfg.WorkflowOwner,
+		platform.KeyWorkflowName, cfg.WorkflowName.String(),
+		platform.KeyWorkflowVersion, platform.ValueWorkflowVersionV2)
+	metricsLabeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em).With(
+		platform.KeyWorkflowID, cfg.WorkflowID,
+		platform.KeyWorkflowOwner, cfg.WorkflowOwner,
+		platform.KeyWorkflowName, cfg.WorkflowName.String())
+
 	engine := &Engine{
 		cfg:                     cfg,
-		triggers:                make(map[string]TriggerCapability),
+		lggr:                    beholderLogger,
+		triggers:                make(map[string]*triggerCapability),
 		allTriggerEventsQueueCh: make(chan enqueuedTriggerEvent, cfg.LocalLimits.TriggerEventQueueSize),
 		executionsSemaphore:     make(chan struct{}, cfg.LocalLimits.MaxConcurrentWorkflowExecutions),
 		capCallsSemaphore:       make(chan struct{}, cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow),
 		meterReports:            metering.NewReports(),
+		metrics:                 metricsLabeler,
 	}
 	engine.Service, engine.srvcEng = services.Config{
 		Name:  "WorkflowEngineV2",
 		Start: engine.start,
 		Close: engine.close,
-	}.NewServiceEngine(logger.Sugared(cfg.Lggr).Named("WorkflowEngine").With("workflowID", cfg.WorkflowID))
+	}.NewServiceEngine(beholderLogger)
 	return engine, nil
 }
 
@@ -86,6 +102,7 @@ func (e *Engine) start(_ context.Context) error {
 	e.cfg.Module.Start()
 	e.srvcEng.Go(e.init)
 	e.srvcEng.Go(e.handleAllTriggerEvents)
+	// TODO(CAPPL-736): add heartbeat metrics
 	return nil
 }
 
@@ -94,12 +111,14 @@ func (e *Engine) init(ctx context.Context) {
 	// TODO(CAPPL-794): consider moving this outside of the engine, into the Syncer
 	ownerAllow, globalAllow := e.cfg.GlobalLimits.Allow(e.cfg.WorkflowOwner)
 	if !globalAllow {
-		// TODO(CAPPL-736): observability
+		e.lggr.Info("Global workflow count limit reached")
+		e.metrics.IncrementWorkflowLimitGlobalCounter(ctx)
 		e.cfg.Hooks.OnInitialized(types.ErrGlobalWorkflowCountLimitReached)
 		return
 	}
 	if !ownerAllow {
-		// TODO(CAPPL-736): observability
+		e.lggr.Info("Per owner workflow count limit reached")
+		e.metrics.IncrementWorkflowLimitPerOwnerCounter(ctx)
 		e.cfg.Hooks.OnInitialized(types.ErrPerOwnerWorkflowCountLimitReached)
 		return
 	}
@@ -107,7 +126,7 @@ func (e *Engine) init(ctx context.Context) {
 	// retrieve info about the current node we are running on
 	retryErr := internal.RunWithRetries(
 		ctx,
-		e.cfg.Lggr,
+		e.lggr,
 		time.Millisecond*time.Duration(e.cfg.LocalLimits.CapRegistryAccessRetryIntervalMs),
 		int(e.cfg.LocalLimits.MaxCapRegistryAccessRetries),
 		func() error {
@@ -121,21 +140,20 @@ func (e *Engine) init(ctx context.Context) {
 		})
 
 	if retryErr != nil {
-		e.cfg.Lggr.Errorw("Workflow Engine initialization failed", "err", retryErr)
-		// TODO(CAPPL-736): observability
+		e.lggr.Errorw("Workflow Engine initialization failed", "err", retryErr)
 		e.cfg.Hooks.OnInitialized(retryErr)
 		return
 	}
 
 	err := e.runTriggerSubscriptionPhase(ctx)
 	if err != nil {
-		e.cfg.Lggr.Errorw("Workflow Engine initialization failed", "err", err)
-		// TODO(CAPPL-736): observability
+		e.lggr.Errorw("Workflow Engine initialization failed", "err", err)
 		e.cfg.Hooks.OnInitialized(err)
 		return
 	}
 
-	e.cfg.Lggr.Info("Workflow Engine initialized")
+	e.lggr.Info("Workflow Engine initialized")
+	e.metrics.IncrementWorkflowInitializationCounter(ctx)
 	e.cfg.Hooks.OnInitialized(nil)
 }
 
@@ -181,7 +199,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		triggerCap := triggers[i]
 		registrationID := fmt.Sprintf("trigger_reg_%s_%d", e.cfg.WorkflowID, i)
 		// TODO(CAPPL-737): run with a timeout
-		e.cfg.Lggr.Debugw("Registering trigger", "triggerID", sub.Id, "method", sub.Method)
+		e.lggr.Debugw("Registering trigger", "triggerID", sub.Id, "method", sub.Method)
 		triggerEventCh, err := triggerCap.RegisterTrigger(ctx, capabilities.TriggerRegistrationRequest{
 			TriggerID: registrationID,
 			Metadata: capabilities.RequestMetadata{
@@ -199,7 +217,8 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 			// no Config needed - NoDAG uses Payload
 		})
 		if err != nil {
-			e.cfg.Lggr.Errorw("One of trigger registrations failed - reverting all", "triggerID", sub.Id, "err", err)
+			e.lggr.Errorw("One of trigger registrations failed - reverting all", "triggerID", sub.Id, "err", err)
+			e.metrics.With(platform.KeyTriggerID, sub.Id).IncrementRegisterTriggerFailureCounter(ctx)
 			e.unregisterAllTriggers(ctx)
 			return fmt.Errorf("failed to register trigger: %w", err)
 		}
@@ -230,12 +249,14 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 						event:        event,
 					}:
 					default: // queue full, drop the event
-						// TODO(CAPPL-736): observability
+						e.lggr.Errorw("Trigger event queue is full, dropping event", "triggerID", subs.Subscriptions[idx].Id, "triggerIndex", idx)
 					}
 				}
 			}
 		})
 	}
+	e.lggr.Infow("All triggers registered successfully", "numTriggers", len(subs.Subscriptions), "triggerIDs", triggerCapIDs)
+	e.metrics.IncrementWorkflowRegisteredCounter(ctx)
 	e.cfg.Hooks.OnSubscribedToTriggers(triggerCapIDs)
 	return nil
 }
@@ -268,16 +289,19 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	triggerEvent := wrappedTriggerEvent.event.Event
 	executionID, err := types.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
 	if err != nil {
-		// TODO(CAPPL-736): observability
+		e.lggr.Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
 		return
 	}
 
+	// TODO(CAPPL-911): add rate-limiting
+
 	subCtx, cancel := context.WithTimeout(ctx, time.Millisecond*time.Duration(e.cfg.LocalLimits.WorkflowExecutionTimeoutMs))
 	defer cancel()
+	executionLogger := logger.With(e.lggr, "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID, "triggerIndex", wrappedTriggerEvent.triggerIndex)
 
 	tid, err := safe.IntToUint64(wrappedTriggerEvent.triggerIndex)
 	if err != nil {
-		// TODO(CAPPL-736): observability
+		executionLogger.Errorw("Failed to convert trigger index to uint64", "err", err)
 		return
 	}
 
@@ -294,17 +318,17 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		// TODO(CAPPL-729): pass workflow config
 	}, &CapabilityExecutor{Engine: e, ID: executionID})
 	if err != nil {
-		e.cfg.Lggr.Errorw("Workflow execution failed", "err", err)
-		// TODO(CAPPL-736): observability
+		executionLogger.Errorw("Workflow execution failed", "err", err)
 		e.meterReports.Delete(executionID)
 		return
 	}
 
 	// TODO(CAPPL-736): handle execution result
+	// TODO(CAPPL-737): measure and report execution time
 
 	e.meterReports.Delete(executionID)
 
-	e.cfg.Lggr.Infow("Workflow execution finished", "executionID", executionID, "result", result)
+	executionLogger.Infow("Workflow execution finished successfully", "executionID", executionID, "result", result)
 	e.cfg.Hooks.OnResultReceived(result)
 	e.cfg.Hooks.OnExecutionFinished(executionID)
 }
@@ -330,11 +354,13 @@ func (e *Engine) unregisterAllTriggers(ctx context.Context) {
 				WorkflowID:    e.cfg.WorkflowID,
 				WorkflowDonID: e.localNode.WorkflowDON.ID,
 			},
-			Payload: trigger.Payload(),
+			Payload: trigger.payload,
 		})
 		if err != nil {
 			e.cfg.Lggr.Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", err)
 		}
 	}
-	e.triggers = make(map[string]TriggerCapability)
+	e.triggers = make(map[string]*triggerCapability)
+	e.lggr.Infow("All triggers unregistered", "numTriggers", len(e.triggers))
+	e.metrics.IncrementWorkflowUnregisteredCounter(ctx)
 }
