@@ -915,21 +915,76 @@ func AddLane(
 		changesets = append(changesets, evmDstChangesets...)
 	}
 	if fromFamily == chainsel.FamilySolana {
-		changesets = append(changesets, addLaneSolanaChangesets(t, e, from, to, toFamily)...)
+		changesets = append(changesets, AddLaneSolanaChangesets(t, e, from, to, toFamily)...)
 	}
 	if toFamily == chainsel.FamilySolana {
-		changesets = append(changesets, addLaneSolanaChangesets(t, e, to, from, fromFamily)...)
+		changesets = append(changesets, AddLaneSolanaChangesets(t, e, to, from, fromFamily)...)
 	}
-	if fromFamily == chainsel.FamilyTon {
+	if fromFamily == chainsel.FamilyTon || toFamily == chainsel.FamilyTon {
 		fmt.Printf("Adding lane from %d to %d, fromFamily %s, toFamily %s\n", from, to, fromFamily, toFamily)
 		changesets = append(changesets, addLaneTonChangesets(t, e, from, to, fromFamily, toFamily)...)
 	}
-	if toFamily == chainsel.FamilyTon {
-		fmt.Printf("Adding lane from %d to %d, fromFamily %s, toFamily %s\n", to, from, toFamily, fromFamily)
-		changesets = append(changesets, addLaneTonChangesets(t, e, to, from, toFamily, fromFamily)...)
-	}
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), changesets)
 	require.NoError(t, err)
+}
+
+func AddLaneSolanaChangesets(t *testing.T, e *DeployedEnv, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
+	chainFamilySelector := [4]uint8{}
+	if remoteFamily == chainsel.FamilyEVM {
+		// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
+		chainFamilySelector = [4]uint8{40, 18, 213, 44}
+	} else if remoteFamily == chainsel.FamilySolana {
+		// bytes4(keccak256("CCIP ChainFamilySelector SVM"));
+		chainFamilySelector = [4]uint8{30, 16, 189, 196}
+	}
+	solanaChangesets := []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.AddRemoteChainToRouter),
+			ccipChangeSetSolana.AddRemoteChainToRouterConfig{
+				ChainSelector: solChainSelector,
+				UpdatesByChain: map[uint64]*ccipChangeSetSolana.RouterConfig{
+					remoteChainSelector: {
+						RouterDestinationConfig: solRouter.DestChainConfig{
+							AllowListEnabled: true,
+							AllowedSenders:   []solana.PublicKey{e.Env.BlockChains.SolanaChains()[solChainSelector].DeployerKey.PublicKey()},
+						},
+					},
+				},
+			},
+		),
+		commoncs.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.AddRemoteChainToFeeQuoter),
+			ccipChangeSetSolana.AddRemoteChainToFeeQuoterConfig{
+				ChainSelector: solChainSelector,
+				UpdatesByChain: map[uint64]*ccipChangeSetSolana.FeeQuoterConfig{
+					remoteChainSelector: {
+						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
+							IsEnabled:                   true,
+							DefaultTxGasLimit:           200000,
+							MaxPerMsgGasLimit:           3000000,
+							MaxDataBytes:                30000,
+							MaxNumberOfTokensPerMsg:     5,
+							DefaultTokenDestGasOverhead: 90000,
+							DestGasOverhead:             90000,
+							ChainFamilySelector:         chainFamilySelector,
+						},
+					},
+				},
+			},
+		),
+		commoncs.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.AddRemoteChainToOffRamp),
+			ccipChangeSetSolana.AddRemoteChainToOffRampConfig{
+				ChainSelector: solChainSelector,
+				UpdatesByChain: map[uint64]*ccipChangeSetSolana.OffRampConfig{
+					remoteChainSelector: {
+						EnabledAsSource: true,
+					},
+				},
+			},
+		),
+	}
+	return solanaChangesets
 }
 
 func AddEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64]*big.Int, tokenPrices map[common.Address]*big.Int, fqCfg fee_quoter.FeeQuoterDestChainConfig) []commoncs.ConfiguredChangeSet {
