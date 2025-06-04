@@ -5,7 +5,7 @@ import (
 	"math/big"
 
 	"github.com/aptos-labs/aptos-go-sdk"
-	"github.com/smartcontractkit/mcms/types"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
@@ -27,13 +27,13 @@ var UpdateFeeQuoterDestsOp = operations.NewOperation(
 	updateFeeQuoterDests,
 )
 
-func updateFeeQuoterDests(b operations.Bundle, deps AptosDeps, in UpdateFeeQuoterDestsInput) ([]types.Transaction, error) {
+func updateFeeQuoterDests(b operations.Bundle, deps AptosDeps, in UpdateFeeQuoterDestsInput) ([]mcmstypes.Transaction, error) {
 	// Bind CCIP Package
 	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
 
 	// Process each destination chain config update
-	var txs []types.Transaction
+	var txs []mcmstypes.Transaction
 
 	for destChainSelector, destConfig := range in.Updates {
 		// Encode the update operation
@@ -60,12 +60,12 @@ func updateFeeQuoterDests(b operations.Bundle, deps AptosDeps, in UpdateFeeQuote
 			destConfig.NetworkFeeUsdCents,
 		)
 		if err != nil {
-			return []types.Transaction{}, fmt.Errorf("failed to encode ApplyDestChainConfigUpdates for chain %d: %w", destChainSelector, err)
+			return nil, fmt.Errorf("failed to encode ApplyDestChainConfigUpdates for chain %d: %w", destChainSelector, err)
 		}
 
 		tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
 		if err != nil {
-			return []types.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
+			return nil, fmt.Errorf("failed to create transaction: %w", err)
 		}
 
 		txs = append(txs, tx)
@@ -97,7 +97,9 @@ var UpdateFeeQuoterPricesOp = operations.NewOperation(
 	updateFeeQuoterPrices,
 )
 
-func updateFeeQuoterPrices(b operations.Bundle, deps AptosDeps, in UpdateFeeQuoterPricesInput) (types.Transaction, error) {
+func updateFeeQuoterPrices(b operations.Bundle, deps AptosDeps, in UpdateFeeQuoterPricesInput) ([]mcmstypes.Transaction, error) {
+	var txs []mcmstypes.Transaction
+
 	// Bind CCIP Package
 	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
@@ -113,7 +115,7 @@ func updateFeeQuoterPrices(b operations.Bundle, deps AptosDeps, in UpdateFeeQuot
 		address := aptos.AccountAddress{}
 		err := address.ParseStringRelaxed(tokenAddr)
 		if err != nil {
-			return types.Transaction{}, fmt.Errorf("failed to parse Aptos token address %s: %w", tokenAddr, err)
+			return nil, fmt.Errorf("failed to parse Aptos token address %s: %w", tokenAddr, err)
 		}
 		sourceTokens = append(sourceTokens, address)
 		sourceUsdPerToken = append(sourceUsdPerToken, price)
@@ -128,7 +130,7 @@ func updateFeeQuoterPrices(b operations.Bundle, deps AptosDeps, in UpdateFeeQuot
 	// Generate MCMS tx to update prices
 	if len(sourceTokens) == 0 && len(gasDestChainSelectors) == 0 {
 		b.Logger.Infow("No price updates to apply")
-		return types.Transaction{}, nil
+		return nil, nil
 	}
 
 	// Encode the update tx
@@ -139,17 +141,18 @@ func updateFeeQuoterPrices(b operations.Bundle, deps AptosDeps, in UpdateFeeQuot
 		gasUsdPerUnitGas,
 	)
 	if err != nil {
-		return types.Transaction{}, fmt.Errorf("failed to encode UpdatePrices: %w", err)
+		return nil, fmt.Errorf("failed to encode UpdatePrices: %w", err)
 	}
 	tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
 	if err != nil {
-		return types.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
+		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
+	txs = append(txs, tx)
 
 	b.Logger.Infow("Adding FeeQuoter price update operation",
 		"tokenPriceCount", len(sourceTokens),
 		"gasPriceCount", len(gasDestChainSelectors),
 	)
 
-	return tx, nil
+	return txs, nil
 }
