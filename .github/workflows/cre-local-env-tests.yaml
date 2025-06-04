@@ -30,7 +30,7 @@ jobs:
   test-cli:
     strategy:
       matrix:
-        runner: [ubuntu-latest, macos-latest]
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
     runs-on: ${{ matrix.runner }}
     environment: "integration"
     timeout-minutes: 30
