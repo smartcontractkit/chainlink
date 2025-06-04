@@ -47,7 +47,7 @@ jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
     needs: [ filter, runner-config ]
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runs-on || 'ubuntu-latest' }}
     permissions:
       # required for all workflows
       security-events: write
