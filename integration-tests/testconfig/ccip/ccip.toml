@@ -427,11 +427,11 @@ MessageDetails = [
     {Ratio = 5,  MsgType = "Messaging", DataLengthBytes = 10_000, DestGasLimit=2_500_000},
 ]
 # each destination chain will receive 1 incoming request per RequestFrequency for the duration of LoadDuration
-RequestFrequency = "1s"
-LoadDuration = "1h"
-TestLabel = "asoliman-local"
+RequestFrequency = "20s"
+LoadDuration = "10m"
+TestLabel = "crib-aw-remote"
 # destination chain selectors to send messages to
-NumDestinationChains = 6
+NumDestinationChains = 5
 # Directory where we receive environment configuration from crib
 CribEnvDirectory = "../../../../crib/deployments/ccip-v2/.tmp"
 TimeoutDuration = "30m"

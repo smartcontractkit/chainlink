@@ -53,10 +53,14 @@ func prepareChaos(t *testing.T) (*ccip.Config, *havoc.NamespaceScopedChaosRunner
 	return cfg, cr, gc
 }
 
-func runRealisticRPCLatencySuite(t *testing.T, testDuration, latency, jitter time.Duration) {
+func runRealisticRPCLatencySuite(t *testing.T, testDuration, latency, jitter time.Duration, numChains int) {
 	config, cr, _ := prepareChaos(t)
 	cfg := config.Chaos
 
+	labelValues := []string{"geth-1337", "geth-2337"}
+	for i := range numChains - 2 {
+		labelValues = append(labelValues, fmt.Sprintf("geth-%d", 90000001+i))
+	}
 	testCases := []struct {
 		name string
 		run  func(t *testing.T)
@@ -68,7 +72,7 @@ func runRealisticRPCLatencySuite(t *testing.T, testDuration, latency, jitter tim
 					havoc.PodDelayCfg{
 						Namespace:         cfg.Namespace,
 						LabelKey:          "app.kubernetes.io/instance",
-						LabelValues:       []string{"geth-1337", "geth-2337", "geth-90000001", "geth-90000002", "geth-90000003", "geth-90000004"},
+						LabelValues:       labelValues,
 						Latency:           latency,
 						Jitter:            jitter,
 						Correlation:       "0",
