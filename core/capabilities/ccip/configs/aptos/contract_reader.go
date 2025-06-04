@@ -399,8 +399,8 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 			},
 		},
 		EventSyncInterval: 12 * time.Second,
-		EventSyncTimeout: 10 * time.Second,
-		TxSyncInterval: 12 * time.Second,
-		TxSyncTimeout: 10 * time.Second,
+		EventSyncTimeout:  10 * time.Second,
+		TxSyncInterval:    12 * time.Second,
+		TxSyncTimeout:     10 * time.Second,
 	}, nil
 }
