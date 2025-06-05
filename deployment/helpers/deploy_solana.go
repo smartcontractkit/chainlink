@@ -36,7 +36,7 @@ func DeployAndMaybeSaveToAddressBook(
 	metadata string) (solana.PublicKey, error) {
 	programName := getTypeToProgramDeployName()[contractType]
 
-	overallocate := !(metadata != "" && metadata != shared.CLLMetadata)
+	overallocate := metadata == "" || metadata == shared.CLLMetadata
 
 	programID, err := chain.DeployProgram(e.Logger, cldfsol.ProgramInfo{
 		Name:  programName,
