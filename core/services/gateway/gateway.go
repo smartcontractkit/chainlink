@@ -148,8 +148,6 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, header 
 		return g.ProcessRequestV2(ctx, request)
 	}
 
-	g.lggr.Info("incoming request", "request", request)
-
 	return g.ProcessRequestV1(ctx, rawRequest)
 }
 
