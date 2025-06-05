@@ -89,7 +89,7 @@ func TestAddTokenPool_Apply(t *testing.T) {
 	}
 
 	// Apply the AddTokenPool changeset
-	env, output, err := commonchangeset.ApplyChangesetsV2(t, env, []commonchangeset.ConfiguredChangeSet{
+	env, output, err := commonchangeset.ApplyChangesets(t, env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(aptoscs.AddTokenPool{}, cfg),
 	})
 	require.NoError(t, err)
