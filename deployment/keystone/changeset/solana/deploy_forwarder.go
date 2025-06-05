@@ -110,7 +110,7 @@ func SetForwarderUpgradeAuthority(env cldf.Environment, req *SetForwarderUpgrade
 		currentAuthority = timelockSignerPDA
 	}
 
-	env.Logger.Infow("Setting upgrade authority for", state.forwarderProgramID.String(), "newUpgradeAuthority", req.NewUpgradeAuthority.String())
+	env.Logger.Infof("Setting upgrade authority for %q. New upgrade authority %q.", state.forwarderProgramID.String(), req.NewUpgradeAuthority.String())
 	mcmsTxns := make([]mcmsTypes.Transaction, 0)
 	ixn := helpers.SetUpgradeAuthority(&env, state.forwarderProgramID, currentAuthority, req.NewUpgradeAuthority, false)
 	if req.MCMS == nil {
@@ -321,7 +321,6 @@ func configureForwarder(req ConfigureForwarderRequest, state *state, ch cldfsol.
 		ChainSelector: mcmsTypes.ChainSelector(ch.Selector),
 		Transactions:  []mcmsTypes.Transaction{*tx},
 	}, nil
-
 }
 
 func getConfigPDA(statePubkey solana.PublicKey, donID uint32, configVersion uint32, programID solana.PublicKey) solana.PublicKey {

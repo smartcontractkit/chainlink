@@ -169,7 +169,7 @@ func TestConfigureForwarder(t *testing.T) {
 
 				out, err := ConfigureForwarders(te.Env, cfg)
 				require.NoError(t, err)
-				require.Equal(t, 1, len(out.MCMSTimelockProposals))
+				require.Len(t, out.MCMSTimelockProposals, 1)
 			})
 		}
 	})
@@ -199,10 +199,11 @@ func shouldDeployForwarder(t *testing.T, env cldf.Environment, solSel uint64, _ 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	// forwarder should be deployed on registry chain
-	addrs, err := resp.AddressBook.AddressesForChain(solSel)
+	addrs, err := resp.AddressBook.AddressesForChain(solSel) //nolint:staticcheck
 	require.NoError(t, err)
-	require.Len(t, addrs, 2) // forwarder programID, forwarder state
-	err = env.ExistingAddresses.Merge(resp.AddressBook)
+	require.Len(t, addrs, 2)                            // forwarder programID, forwarder state
+	err = env.ExistingAddresses.Merge(resp.AddressBook) //nolint:staticcheck
+
 	require.NoError(t, err)
 	return env
 }
