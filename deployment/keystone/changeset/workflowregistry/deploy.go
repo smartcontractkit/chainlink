@@ -42,10 +42,7 @@ func DeployV2(env cldf.Environment, req *changeset.DeployRequestV2) (cldf.Change
 	}
 	lggr.Infof("Deployed %s chain selector %d addr %s", wrResp.Tv.String(), chain.Selector, wrResp.Address.String())
 
-	ds := datastore.NewMemoryDataStore[
-		datastore.DefaultMetadata,
-		datastore.DefaultMetadata,
-	]()
+	ds := datastore.NewMemoryDataStore()
 	r := datastore.AddressRef{
 		ChainSelector: req.ChainSel,
 		Address:       wrResp.Address.String(),

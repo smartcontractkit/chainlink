@@ -348,7 +348,6 @@ func NewNode(
 
 	// Set logging.
 	lggr := logger.NewSingleFileLogger(t)
-	lggr.SetLogLevel(nodecfg.LogLevel)
 
 	// Create clients for the core node backed by sim.
 	clients := make(map[uint64]client.Client)

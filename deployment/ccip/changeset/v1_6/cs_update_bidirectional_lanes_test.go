@@ -319,15 +319,6 @@ func TestUpdateBidirectiConalLanesChangeset(t *testing.T) {
 
 			selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 
-			timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts, len(selectors))
-			for _, selector := range selectors {
-				// Assemble map of addresses required for Timelock scheduling & execution
-				timelockContracts[selector] = &proposalutils.TimelockExecutionContracts{
-					Timelock:  state.Chains[selector].Timelock,
-					CallProxy: state.Chains[selector].CallProxy,
-				}
-			}
-
 			if test.MCMS != nil {
 				contractsToTransfer := make(map[uint64][]common.Address, len(selectors))
 				for _, selector := range selectors {
@@ -342,7 +333,7 @@ func TestUpdateBidirectiConalLanesChangeset(t *testing.T) {
 						state.Chains[selector].NonceManager.Address(),
 					}
 				}
-				e, err = commonchangeset.Apply(t, e, timelockContracts,
+				e, err = commonchangeset.Apply(t, e,
 					commonchangeset.Configure(
 						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
@@ -370,7 +361,7 @@ func TestUpdateBidirectiConalLanesChangeset(t *testing.T) {
 				}
 			}
 
-			e, err = commonchangeset.Apply(t, e, timelockContracts,
+			e, err = commonchangeset.Apply(t, e,
 				commonchangeset.Configure(
 					v1_6.UpdateBidirectionalLanesChangeset,
 					v1_6.UpdateBidirectionalLanesConfig{
@@ -390,7 +381,7 @@ func TestUpdateBidirectiConalLanesChangeset(t *testing.T) {
 			}
 
 			if test.Disable {
-				e, err = commonchangeset.Apply(t, e, timelockContracts,
+				e, err = commonchangeset.Apply(t, e,
 					commonchangeset.Configure(
 						v1_6.UpdateBidirectionalLanesChangeset,
 						v1_6.UpdateBidirectionalLanesConfig{

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -18,14 +18,15 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
@@ -109,7 +110,7 @@ func NewLauncher(
 	workflowDonNotifier donNotifier,
 ) *launcher {
 	return &launcher{
-		lggr:                lggr.Named("CapabilitiesLauncher"),
+		lggr:                logger.Named(lggr, "CapabilitiesLauncher"),
 		peerWrapper:         peerWrapper,
 		dispatcher:          dispatcher,
 		registry:            registry,
@@ -168,6 +169,7 @@ func filterDon2Don(
 func (w *launcher) peers(
 	belongsToACapabilityDON bool,
 	belongsToAWorkflowDON bool,
+	isBootstrap bool,
 	localRegistry *registrysyncer.LocalRegistry,
 ) map[ragetypes.PeerID]p2ptypes.StreamConfig {
 	allPeers := make(map[ragetypes.PeerID]p2ptypes.StreamConfig)
@@ -176,7 +178,7 @@ func (w *launcher) peers(
 		if !candidatePeerDON.DON.IsPublic {
 			continue
 		}
-		if filterDon2Don(w.lggr, belongsToACapabilityDON, belongsToAWorkflowDON, candidatePeerDON) {
+		if !isBootstrap && filterDon2Don(w.lggr, belongsToACapabilityDON, belongsToAWorkflowDON, candidatePeerDON) {
 			continue
 		}
 		for _, nid := range candidatePeerDON.DON.Members {
@@ -317,8 +319,9 @@ func (w *launcher) Launch(ctx context.Context, localRegistry *registrysyncer.Loc
 	}
 
 	// Lastly, we identify peers to connect to, based on their DONs functions
-	myPeers := w.peers(belongsToACapabilityDON, belongsToAWorkflowDON, localRegistry)
-	err := w.peerWrapper.GetPeer().UpdateConnections(myPeers)
+	peer := w.peerWrapper.GetPeer()
+	myPeers := w.peers(belongsToACapabilityDON, belongsToAWorkflowDON, peer.IsBootstrap(), localRegistry)
+	err := peer.UpdateConnections(myPeers)
 	if err != nil {
 		return fmt.Errorf("failed to update peer connections: %w", err)
 	}

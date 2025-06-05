@@ -30,18 +30,15 @@ func TestTransferToMCMSWithTimelockV2(t *testing.T) {
 	})
 	chain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	evmChains := e.BlockChains.EVMChains()
-	e, err := Apply(t, e, nil,
-		Configure(
-			cldf.CreateLegacyChangeSet(DeployLinkToken),
-			[]uint64{chain1},
-		),
-		Configure(
-			cldf.CreateLegacyChangeSet(DeployMCMSWithTimelockV2),
-			map[uint64]types.MCMSWithTimelockConfigV2{
-				chain1: proposalutils.SingleGroupTimelockConfigV2(t),
-			},
-		),
-	)
+	e, err := Apply(t, e, Configure(
+		cldf.CreateLegacyChangeSet(DeployLinkToken),
+		[]uint64{chain1},
+	), Configure(
+		cldf.CreateLegacyChangeSet(DeployMCMSWithTimelockV2),
+		map[uint64]types.MCMSWithTimelockConfigV2{
+			chain1: proposalutils.SingleGroupTimelockConfigV2(t),
+		},
+	))
 	require.NoError(t, err)
 	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
 	require.NoError(t, err)
@@ -50,9 +47,6 @@ func TestTransferToMCMSWithTimelockV2(t *testing.T) {
 	link, err := MaybeLoadLinkTokenChainState(evmChains[chain1], addrs)
 	require.NoError(t, err)
 	e, err = Apply(t, e,
-		map[uint64]*proposalutils.TimelockExecutionContracts{
-			chain1: {Timelock: state.Timelock, CallProxy: state.CallProxy},
-		},
 		Configure(
 			cldf.CreateLegacyChangeSet(TransferToMCMSWithTimelockV2),
 			TransferToMCMSWithTimelockConfig{
@@ -74,7 +68,7 @@ func TestTransferToMCMSWithTimelockV2(t *testing.T) {
 	require.Equal(t, state.Timelock.Address(), o)
 
 	// Try a rollback to the deployer.
-	e, err = Apply(t, e, nil,
+	e, err = Apply(t, e,
 		Configure(
 			cldf.CreateLegacyChangeSet(TransferToDeployer),
 			TransferToDeployerConfig{
@@ -99,7 +93,7 @@ func TestRenounceTimelockDeployerConfigValidate(t *testing.T) {
 		Nodes:  1,
 	})
 	chain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-	e, err := Apply(t, e, nil,
+	e, err := Apply(t, e,
 		Configure(
 			cldf.CreateLegacyChangeSet(DeployMCMSWithTimelockV2),
 			map[uint64]types.MCMSWithTimelockConfigV2{
@@ -173,7 +167,7 @@ func TestRenounceTimelockDeployer(t *testing.T) {
 		Nodes:  1,
 	})
 	chain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-	e, err := Apply(t, e, nil,
+	e, err := Apply(t, e,
 		Configure(
 			cldf.CreateLegacyChangeSet(DeployMCMSWithTimelockV2),
 			map[uint64]types.MCMSWithTimelockConfigV2{
@@ -199,7 +193,7 @@ func TestRenounceTimelockDeployer(t *testing.T) {
 	require.Equal(t, int64(2), r.Int64())
 
 	// Revoke Deployer
-	e, err = Apply(t, e, nil,
+	e, err = Apply(t, e,
 		Configure(
 			cldf.CreateLegacyChangeSet(RenounceTimelockDeployer),
 			RenounceTimelockDeployerConfig{

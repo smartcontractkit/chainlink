@@ -7,6 +7,7 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
@@ -38,14 +39,13 @@ type EngineConfig struct {
 	GlobalLimits         *syncerlimiter.Limits    // global to all workflows
 	ExecutionRateLimiter *ratelimiter.RateLimiter // global + per owner
 
+	BeholderEmitter custmsg.MessageEmitter
+
 	Hooks         LifecycleHooks
 	BillingClient BillingClient
 }
 
 const (
-	defaultMaxCapRegistryAccessRetries      = 0 // infinity
-	defaultCapRegistryAccessRetryIntervalMs = 5000
-
 	defaultModuleExecuteMaxResponseSizeBytes   = 100000
 	defaultTriggerSubscriptionRequestTimeoutMs = 500
 	defaultMaxTriggerSubscriptions             = 10
@@ -60,9 +60,6 @@ const (
 )
 
 type EngineLimits struct {
-	MaxCapRegistryAccessRetries      uint16
-	CapRegistryAccessRetryIntervalMs uint32
-
 	ModuleExecuteMaxResponseSizeBytes   uint32
 	TriggerSubscriptionRequestTimeoutMs uint32
 	MaxTriggerSubscriptions             uint16
@@ -125,17 +122,18 @@ func (c *EngineConfig) Validate() error {
 		return errors.New("execution rate limiter not set")
 	}
 
+	if c.BeholderEmitter == nil {
+		return errors.New("beholder emitter not set")
+	}
+	if c.BillingClient == nil {
+		return errors.New("billing client not set")
+	}
+
 	c.Hooks.setDefaultHooks()
 	return nil
 }
 
 func (l *EngineLimits) setDefaultLimits() {
-	if l.MaxCapRegistryAccessRetries == 0 {
-		l.MaxCapRegistryAccessRetries = defaultMaxCapRegistryAccessRetries
-	}
-	if l.CapRegistryAccessRetryIntervalMs == 0 {
-		l.CapRegistryAccessRetryIntervalMs = defaultCapRegistryAccessRetryIntervalMs
-	}
 	if l.ModuleExecuteMaxResponseSizeBytes == 0 {
 		l.ModuleExecuteMaxResponseSizeBytes = defaultModuleExecuteMaxResponseSizeBytes
 	}

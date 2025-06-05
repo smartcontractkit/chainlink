@@ -7,42 +7,10 @@ on:
     - cron: "22 22 * * 2"
 
 jobs:
-  filter:
-    name: Detect Changes
-    permissions:
-      pull-requests: read
-    outputs:
-      should-run-go: ${{ steps.changes.outputs.go-changes == 'true' || steps.changes.outputs.self-changes == 'true' || github.event == 'schedule' }}
-      should-run-js: ${{ steps.changes.outputs.js-changes == 'true' || steps.changes.outputs.self-changes == 'true' || github.event == 'schedule' }}
-      should-run-workflow: ${{ steps.changes.outputs.workflow-changes == 'true' || github.event == 'schedule' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          repository: smartcontractkit/chainlink
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: changes
-        with:
-          filters: |
-            go-changes:
-              - '**/*.go'
-              - '**/go.mod'
-              - '**/go.sum'
-            js-changes:
-              - '**/package.json'
-              - '**/pnpm-lock.yaml'
-              - '**/*.js'
-              - '**/*.ts'
-            workflow-changes:
-              - '.github/**'
-            self-changes:
-              - '.github/workflows/codeql.yml'
-
   analyze:
     name: Analyze (${{ matrix.language }})
-    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+    needs: [ runner-config ]
+    runs-on: ${{ matrix.runs-on || 'ubuntu-latest' }}
     permissions:
       # required for all workflows
       security-events: write
@@ -55,32 +23,39 @@ jobs:
         include:
           - language: actions
             build-mode: none
-            should-run: ${{ needs.filter.outputs.should-run-workflow }}
+
           - language: go
-            build-mode: autobuild
-            should-run: ${{ needs.filter.outputs.should-run-go }}
+            build-mode: manual
+            runs-on: ${{ needs.runner-config.outputs.go-runner }}
+            is-self-hosted: ${{ needs.runner-config.outputs.go-is-self-hosted }}
+
           - language: javascript-typescript
             build-mode: none
-            should-run: ${{ needs.filter.outputs.should-run-js }}
+
+          - language: python
+            build-mode: none
     steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        if: matrix.is-self-hosted == 'true'
+        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Go
-        if: matrix.language == 'go' && matrix.should-run == 'true'
+        if: matrix.language == 'go'
         uses: ./.github/actions/setup-go
         with:
-          go-version-file: "go.mod"
-          only-modules: "true"
+          restore-build-cache-only: "false"
+          build-cache-version: "codeql"
 
       - name: Touching core/web/assets/index.html
-        if: matrix.language == 'go' && matrix.should-run == 'true'
+        if: matrix.language == 'go'
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
 
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
-        if: matrix.should-run
-        uses: github/codeql-action/init@1b549b9259bda1cb5ddde3b41741a82a2d15a841 # v3.28.13
+        uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -91,8 +66,51 @@ jobs:
           # For more details on CodeQL's query packs, refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
           # queries: security-extended,security-and-quality
 
+      - name: Build go code manually
+        if: matrix.language == 'go'
+        run: |
+          echo "::group::Builing all go code (go build ./...)"
+          go build ./...
+          echo "::endgroup::"
+
       - name: Perform CodeQL Analysis
-        if: matrix.should-run
-        uses: github/codeql-action/analyze@1b549b9259bda1cb5ddde3b41741a82a2d15a841 # v3.28.13
+        uses: github/codeql-action/analyze@v3
         with:
           category: "/language:${{matrix.language}}"
+
+  runner-config:
+    name: Runner Config
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+      contents: read
+    env:
+      SH_GO_RUNNER: runs-on=${{ github.run_id }}/cpu=32/ram=64/family=c6i/spot=false/extras=s3-cache+tmpfs
+      GH_GO_RUNNER: ubuntu24.04-8cores-32GB
+    outputs:
+      # go codeql runner
+      go-is-self-hosted: ${{ steps.go-codeql.outputs.go-is-self-hosted }}
+      go-runner: ${{ steps.go-codeql.outputs.go-runner }}
+    steps:
+      - name: Get PR Labels
+        id: pr-labels
+        uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
+        with:
+          check-label: "runs-on-opt-out"
+
+      - name: Select runners for go codeql
+        id: go-codeql
+        shell: bash
+        env:
+          OPT_OUT: ${{ steps.pr-labels.outputs.check-label-found || 'false' }}
+        run: |
+          if [[ "$OPT_OUT" == "true" ]]; then
+            echo "Opt-out is true for current run. Using gh-hosted runner for Go codeql."
+            echo "go-is-self-hosted=false" | tee -a $GITHUB_OUTPUT
+            echo "go-runner=${GH_GO_RUNNER}" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Opt-out is false for current run. Using self-hosted runner for Go codeql."
+          echo "go-is-self-hosted=true" | tee -a $GITHUB_OUTPUT
+          echo "go-runner=${SH_GO_RUNNER}" | tee -a $GITHUB_OUTPUT
