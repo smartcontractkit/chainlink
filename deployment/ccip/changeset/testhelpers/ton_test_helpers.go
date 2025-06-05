@@ -1,17 +1,13 @@
 package testhelpers
 
 import (
-	"context"
 	"fmt"
-	"log"
-	"strings"
 	"testing"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -20,9 +16,6 @@ import (
 	tonstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/ton"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	tonaddress "github.com/xssnick/tonutils-go/address"
-	"github.com/xssnick/tonutils-go/liteclient"
-	"github.com/xssnick/tonutils-go/ton"
-	"github.com/xssnick/tonutils-go/ton/wallet"
 )
 
 // "github.com/smartcontractkit/chainlink-ton/bindings/bind"
@@ -98,42 +91,8 @@ func (c TonTestDeployContractsChangeSet) Apply(e deployment.Environment) (deploy
 }
 
 func (c TonTestDeployContractsChangeSet) deployTonContracts(t *testing.T, e deployment.Environment, chainSelector uint64, tonChain cldf_ton.Chain, tonChainState tonstate.CCIPChainState, onchainState map[uint64]tonstate.CCIPChainState) {
-	logger := logger.Test(t)
-
-	connectionPool := liteclient.NewConnectionPool()
-
-	// move this to a ton config module
-	var (
-		NetworkConfigFile = "http://127.0.0.1:8000/localhost.global.config.json"
-		// FaucetWalletSeed  = "viable model canvas decade neck soap turtle asthma bench crouch bicycle grief history envelope valid intact invest like offer urban adjust popular draft coral"
-		// FaucetSubWalletID = 42
-		// FaucetWalletVer   = wallet.V3R2
-	)
-
-	// get config
-	cfg, err := liteclient.GetConfigFromUrl(context.Background(), NetworkConfigFile)
-	if err != nil {
-		log.Fatalln("get config err: ", err.Error())
-		return
-	}
-
-	// connect to lite servers
-	err = connectionPool.AddConnectionsFromConfig(context.Background(), cfg)
-	if err != nil {
-		log.Fatalln("connection err: ", err.Error())
-		return
-	}
-
-	// api client with full proof checks
-	api := ton.NewAPIClient(connectionPool, ton.ProofCheckPolicyFast).WithRetry()
-	api.SetTrustedBlockFromConfig(cfg)
-
-	_, err = wallet.FromSeed(api, strings.Fields(tonChain.DeployerSeed), wallet.V3R2)
-
-	if err != nil {
-		log.Fatalln("connection err: ", err.Error())
-		return
-	}
+	deployer := tonChain.Wallet
+	_ = deployer // TODO: use deployer in the rest of the code, pre-funded
 
 	// TODO(ton): once all contracts are deployed, we can remove the hardcoded addresses from the TonTestDeployPrerequisitesChangeSet
 
@@ -159,8 +118,7 @@ func (c TonTestDeployContractsChangeSet) deployTonContracts(t *testing.T, e depl
 
 	// TODO(ton): Initialize RMNRemote
 
-	logger.Infow("All TON contracts deployed")
-	err = tonstate.SaveOnchainStateTon(chainSelector, tonChainState, e)
+	err := tonstate.SaveOnchainStateTon(chainSelector, tonChainState, e)
 	require.NoError(t, err)
 }
 
