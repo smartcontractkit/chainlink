@@ -146,7 +146,7 @@ func (r *RelayerFactory) NewSolana(ks coretypes.Keystore, config SolanaFactoryCo
 				return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
 			}
 
-			solanaRelayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, solCmdFn, string(cfgTOML), ks, r.CapabilitiesRegistry)
+			solanaRelayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, solCmdFn, string(cfgTOML), ks, ks, r.CapabilitiesRegistry)
 		} else {
 			// fallback to embedded chain
 			opts := solana.ChainOpts{
@@ -238,7 +238,7 @@ func (r *RelayerFactory) NewLOOPRelayer(name string, network string, plugin env.
 		}
 		// the relayer service has a delicate keystore dependency. the value that is passed to NewRelayerService must
 		// be compatible with instantiating a starknet transaction manager KeystoreAdapter within the LOOPp executable.
-		relayers[relayID] = loop.NewRelayerService(logger.Named(lggr, relayID.ChainID), r.GRPCOpts, cmdFn, string(cfgTOML), ks, r.CapabilitiesRegistry)
+		relayers[relayID] = loop.NewRelayerService(logger.Named(lggr, relayID.ChainID), r.GRPCOpts, cmdFn, string(cfgTOML), ks, ks, r.CapabilitiesRegistry)
 	}
 	return relayers, nil
 }
