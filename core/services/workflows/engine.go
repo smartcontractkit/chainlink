@@ -773,14 +773,18 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		if err != nil {
 			l.Error(fmt.Sprintf("failed to get current step %s for metering report: %s", stepState.Ref, err))
 		}
-		capInfo, err := curStep.capability.Info(ctx)
+		_, err = curStep.capability.Info(ctx)
 		if err != nil {
 			l.Error(fmt.Sprintf("failed to get capability info for %s: %s", stepState.Ref, err))
 		}
-		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-285 get max spend per step
-		_, err = meteringReport.DeductByAvailability(stepState.Ref, capInfo, e.maxWorkerLimit, 0)
+		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-285 get max spend per step. Compare to availability and limits.
+		availableForCall, err := meteringReport.GetAvailablity(e.maxWorkerLimit)
 		if err != nil {
-			l.Error(fmt.Sprintf("failed to reserve on metering report for %s: %s", stepState.Ref, err))
+			l.Error(fmt.Sprintf("could get available balance for %s: %s", stepState.Ref, err))
+		}
+		err = meteringReport.Deduct(stepState.Ref, availableForCall)
+		if err != nil {
+			l.Error(fmt.Sprintf("could not deduct balance for capability request for %s: %s", stepState.Ref, err))
 		}
 	} else {
 		e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, msg.state.ExecutionID).incrementWorkflowMissingMeteringReport(ctx)
@@ -791,7 +795,9 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	logCustMsg(ctx, cma, "executing step", l)
 
 	stepExecutionStartTime := time.Now()
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461 pass deducted amount as max spend to capability.Execute
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461
+	// convert balance to CapabilityInfo resource types for use in Capability call
+	// pass deducted amount as max spend to capability.Execute
 	inputs, response, sErr := e.executeStep(ctx, l, msg)
 	stepExecutionDuration := time.Since(stepExecutionStartTime).Seconds()
 
@@ -825,7 +831,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	}
 
 	if mrOK {
-		err := meteringReport.SetStep(stepState.Ref, response.Metadata.Metering)
+		err := meteringReport.Settle(stepState.Ref, response.Metadata.Metering)
 		if err != nil {
 			l.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", stepState.Ref, err))
 		}

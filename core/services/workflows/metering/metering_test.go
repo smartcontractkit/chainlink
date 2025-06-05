@@ -74,7 +74,7 @@ func TestReport(t *testing.T) {
 
 		billingClient := newMockBillingClient()
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.StartAndReserve(t.Context())
+		err := report.Reserve(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
 		require.NoError(t, err)
@@ -89,9 +89,9 @@ func TestReport(t *testing.T) {
 		}
 
 		for idx := range steps {
-			_, err := report.DeductByLimits(strconv.Itoa(idx), capabilities.CapabilityInfo{}, []SpendTuple{{Value: 1, Unit: "SomeUnit"}})
+			err := report.Deduct(strconv.Itoa(idx), 1)
 			require.NoError(t, err)
-			require.NoError(t, report.SetStep(strconv.Itoa(idx), steps))
+			require.NoError(t, report.Settle(strconv.Itoa(idx), steps))
 		}
 
 		expected := map[SpendUnit]SpendValue{
@@ -114,7 +114,7 @@ func TestReport(t *testing.T) {
 
 		billingClient := newMockBillingClient()
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.StartAndReserve(t.Context())
+		err := report.Reserve(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
 		require.NoError(t, err)
@@ -124,9 +124,9 @@ func TestReport(t *testing.T) {
 		}
 
 		for idx := range steps {
-			_, err := report.DeductByLimits(strconv.Itoa(idx), capabilities.CapabilityInfo{}, []SpendTuple{{Value: 1, Unit: "SomeUnit"}})
+			err := report.Deduct(strconv.Itoa(idx), 1)
 			require.NoError(t, err)
-			require.NoError(t, report.SetStep(strconv.Itoa(idx), steps))
+			require.NoError(t, report.Settle(strconv.Itoa(idx), steps))
 		}
 
 		expected := map[SpendUnit]SpendValue{
@@ -146,7 +146,7 @@ func TestReport(t *testing.T) {
 
 		billingClient := newMockBillingClient()
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.StartAndReserve(t.Context())
+		err := report.Reserve(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
 		require.NoError(t, err)
@@ -158,9 +158,9 @@ func TestReport(t *testing.T) {
 		}
 
 		for idx := range steps {
-			_, err := report.DeductByLimits(strconv.Itoa(idx), capabilities.CapabilityInfo{}, []SpendTuple{{Value: 1, Unit: "SomeUnit"}})
+			err := report.Deduct(strconv.Itoa(idx), 1)
 			require.NoError(t, err)
-			require.NoError(t, report.SetStep(strconv.Itoa(idx), steps))
+			require.NoError(t, report.Settle(strconv.Itoa(idx), steps))
 		}
 
 		expected := map[SpendUnit]SpendValue{
@@ -180,7 +180,7 @@ func TestReport(t *testing.T) {
 
 		billingClient := newMockBillingClient()
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.StartAndReserve(t.Context())
+		err := report.Reserve(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
 		require.NoError(t, err)
@@ -193,9 +193,9 @@ func TestReport(t *testing.T) {
 		}
 
 		for idx := range steps {
-			_, err := report.DeductByLimits(strconv.Itoa(idx), capabilities.CapabilityInfo{}, []SpendTuple{{Value: 1, Unit: "SomeUnit"}})
+			err := report.Deduct(strconv.Itoa(idx), 1)
 			require.NoError(t, err)
-			require.NoError(t, report.SetStep(strconv.Itoa(idx), steps))
+			require.NoError(t, report.Settle(strconv.Itoa(idx), steps))
 		}
 
 		expected := map[SpendUnit]SpendValue{
@@ -213,7 +213,7 @@ func TestReport(t *testing.T) {
 	t.Run("Initialize returns an error if no billing client is given", func(t *testing.T) {
 		t.Parallel()
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), nil)
-		report.StartAndReserve(t.Context())
+		report.Reserve(t.Context())
 	})
 
 	t.Run("Initialize allows negative balances if the billing client cannot be communicated with", func(t *testing.T) {
@@ -221,10 +221,10 @@ func TestReport(t *testing.T) {
 		billingClient := newMockBillingClient()
 		billingClient.SetReserveCredits(nil, errors.New("some err"))
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.StartAndReserve(t.Context())
+		err := report.Reserve(t.Context())
 		require.True(t, report.balance.allowNegative)
 		require.NoError(t, err)
-		_, err = report.DeductByLimits("ref1", capabilities.CapabilityInfo{}, []SpendTuple{{Value: 1, Unit: "SomeUnit"}})
+		err = report.Deduct("ref1", 1)
 		require.NoError(t, err)
 		require.Negative(t, report.balance.balance)
 	})
@@ -234,57 +234,34 @@ func TestReport(t *testing.T) {
 		billingClient := newMockBillingClient()
 		billingClient.SetReserveCredits(&billing.ReserveCreditsResponse{Success: false}, nil)
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.StartAndReserve(t.Context())
+		err := report.Reserve(t.Context())
 		require.ErrorIs(t, err, ErrInsufficientFunding)
 	})
 
-	t.Run("DeductByLimits returns an error if not initialized", func(t *testing.T) {
+	t.Run("Deduct returns an error if not initialized", func(t *testing.T) {
 		t.Parallel()
 		billingClient := newMockBillingClient()
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 
-		_, err := report.DeductByLimits("ref1", capabilities.CapabilityInfo{}, []SpendTuple{{Value: 1, Unit: "SomeUnit"}})
-		require.ErrorIs(t, err, ErrUninitializedReport)
+		err := report.Deduct("ref1", 1)
+		require.ErrorIs(t, err, ErrNoReserve)
 	})
 
-	t.Run("DeductByLimits returns an error if step already exists", func(t *testing.T) {
+	t.Run("Deduct returns an error if step already exists", func(t *testing.T) {
 		t.Parallel()
 		billingClient := newMockBillingClient()
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.StartAndReserve(t.Context())
+		err := report.Reserve(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
 		require.NoError(t, err)
-		_, err = report.DeductByLimits("ref1", capabilities.CapabilityInfo{}, []SpendTuple{{Value: 1, Unit: "SomeUnit"}})
+		err = report.Deduct("ref1", 2)
 		require.NoError(t, err)
-		_, err = report.DeductByLimits("ref1", capabilities.CapabilityInfo{}, []SpendTuple{{Value: 1, Unit: "SomeUnit"}})
+		err = report.Deduct("ref1", 1)
 		require.ErrorIs(t, err, ErrStepDeductExists)
 	})
 
-	t.Run("DeductByAvailability returns an error if not initialized", func(t *testing.T) {
-		t.Parallel()
-		billingClient := newMockBillingClient()
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-
-		_, err := report.DeductByAvailability("ref1", capabilities.CapabilityInfo{}, 2, 0)
-		require.ErrorIs(t, err, ErrUninitializedReport)
-	})
-
-	t.Run("DeductByAvailability returns an error if step already exists", func(t *testing.T) {
-		t.Parallel()
-		billingClient := newMockBillingClient()
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.StartAndReserve(t.Context())
-		require.NoError(t, err)
-		err = report.balance.Add(100)
-		require.NoError(t, err)
-		_, err = report.DeductByAvailability("ref1", capabilities.CapabilityInfo{}, 2, 0)
-		require.NoError(t, err)
-		_, err = report.DeductByAvailability("ref1", capabilities.CapabilityInfo{}, 1, 0)
-		require.ErrorIs(t, err, ErrStepDeductExists)
-	})
-
-	t.Run("SetStep returns an error if not initialized", func(t *testing.T) {
+	t.Run("Settle returns an error if not initialized", func(t *testing.T) {
 		t.Parallel()
 		billingClient := newMockBillingClient()
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
@@ -294,15 +271,15 @@ func TestReport(t *testing.T) {
 			{Peer2PeerID: "abc", SpendUnit: testA, SpendValue: "1"},
 		}
 
-		err := report.SetStep("ref1", steps)
-		require.ErrorIs(t, err, ErrUninitializedReport)
+		err := report.Settle("ref1", steps)
+		require.ErrorIs(t, err, ErrNoReserve)
 	})
 
-	t.Run("SetStep returns an error if Deduct is not called first", func(t *testing.T) {
+	t.Run("Settle returns an error if Deduct is not called first", func(t *testing.T) {
 		t.Parallel()
 		billingClient := newMockBillingClient()
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.StartAndReserve(t.Context())
+		err := report.Reserve(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
 		require.NoError(t, err)
@@ -312,14 +289,14 @@ func TestReport(t *testing.T) {
 			{Peer2PeerID: "abc", SpendUnit: testA, SpendValue: "1"},
 		}
 
-		require.ErrorIs(t, report.SetStep("ref1", steps), ErrNoDeduct)
+		require.ErrorIs(t, report.Settle("ref1", steps), ErrNoDeduct)
 	})
 
-	t.Run("SetStep returns an error if step already exists", func(t *testing.T) {
+	t.Run("Settle returns an error if step already exists", func(t *testing.T) {
 		t.Parallel()
 		billingClient := newMockBillingClient()
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.StartAndReserve(t.Context())
+		err := report.Reserve(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
 		require.NoError(t, err)
@@ -329,10 +306,10 @@ func TestReport(t *testing.T) {
 			{Peer2PeerID: "abc", SpendUnit: testA, SpendValue: "1"},
 		}
 
-		_, err = report.DeductByLimits("ref1", capabilities.CapabilityInfo{}, []SpendTuple{{Value: 1, Unit: "SomeUnit"}})
+		err = report.Deduct("ref1", 1)
 		require.NoError(t, err)
-		require.NoError(t, report.SetStep("ref1", steps))
-		require.ErrorIs(t, report.SetStep("ref1", steps), ErrStepSpendExists)
+		require.NoError(t, report.Settle("ref1", steps))
+		require.ErrorIs(t, report.Settle("ref1", steps), ErrStepSpendExists)
 	})
 
 	t.Run("SendReceipt returns an error if not initialized", func(t *testing.T) {
@@ -340,7 +317,7 @@ func TestReport(t *testing.T) {
 		billingClient := newMockBillingClient()
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 		err := report.SendReceipt(t.Context())
-		require.ErrorIs(t, err, ErrUninitializedReport)
+		require.ErrorIs(t, err, ErrNoReserve)
 	})
 }
 
@@ -359,9 +336,9 @@ func Test_MeterReports(t *testing.T) {
 		r, ok := mrs.Get("exec1")
 		assert.True(t, ok)
 		//nolint:errcheck // depending on the concurrent timing, this may or may not err
-		r.DeductByLimits("ref1", capabilities.CapabilityInfo{}, []SpendTuple{{Value: 1, Unit: "SomeUnit"}})
+		r.Deduct("ref1", 1)
 		//nolint:errcheck // depending on the concurrent timing, this may or may not err
-		r.SetStep("ref1", []capabilities.MeteringNodeDetail{})
+		r.Settle("ref1", []capabilities.MeteringNodeDetail{})
 		mrs.End(t.Context(), "exec1")
 	}()
 	go func() {
@@ -370,9 +347,9 @@ func Test_MeterReports(t *testing.T) {
 		require.NoError(t, err)
 		r, ok := mrs.Get("exec2")
 		assert.True(t, ok)
-		_, err = report.DeductByLimits("ref1", capabilities.CapabilityInfo{}, []SpendTuple{{Value: 1, Unit: "SomeUnit"}})
+		err = report.Deduct("ref1", 1)
 		require.NoError(t, err)
-		err = r.SetStep("ref1", []capabilities.MeteringNodeDetail{})
+		err = r.Settle("ref1", []capabilities.MeteringNodeDetail{})
 		require.NoError(t, err)
 		mrs.End(t.Context(), "exec2")
 	}()
@@ -383,9 +360,9 @@ func Test_MeterReports(t *testing.T) {
 		r, ok := mrs.Get("exec1")
 		assert.True(t, ok)
 		//nolint:errcheck // depending on the concurrent timing, this may or may not err
-		r.DeductByLimits("ref1", capabilities.CapabilityInfo{}, []SpendTuple{{Value: 1, Unit: "SomeUnit"}})
+		r.Deduct("ref1", 1)
 		//nolint:errcheck // depending on the concurrent timing, this may or may not err
-		r.SetStep("ref1", []capabilities.MeteringNodeDetail{})
+		r.Settle("ref1", []capabilities.MeteringNodeDetail{})
 		mrs.End(t.Context(), "exec1")
 	}()
 

@@ -31,7 +31,7 @@ func (c *CapabilityExecutor) CallCapability(ctx context.Context, request *sdkpb.
 	if err != nil {
 		return nil, fmt.Errorf("trigger capability not found: %w", err)
 	}
-	capInfo, err := capability.Info(ctx)
+	_, err = capability.Info(ctx)
 	if err != nil {
 		c.cfg.Lggr.Error("could not get capability info for %v", request.Id)
 	}
@@ -51,12 +51,21 @@ func (c *CapabilityExecutor) CallCapability(ctx context.Context, request *sdkpb.
 	}
 	meteringRef := strconv.Itoa(int(request.CallbackId))
 
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-285 get max spend per step
-	_, err = meterReport.DeductByAvailability(meteringRef, capInfo, len(c.capCallsSemaphore), 0)
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461 pass deducted amount as max spend to capability.Execute
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-285 get max spend per step. Compare to availability and limits.
+
+	availableForCall, err := meterReport.GetAvailablity(len(c.capCallsSemaphore))
 	if err != nil {
-		c.cfg.Lggr.Errorw("could not reserve for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+		c.cfg.Lggr.Errorw("could get available balance", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 	}
+
+	err = meterReport.Deduct(meteringRef, availableForCall)
+	if err != nil {
+		c.cfg.Lggr.Errorw("could not deduct balance for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+	}
+
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461
+	// convert balance to CapabilityInfo resource types for use in Capability call
+	// pass deducted amount as max spend to capability.Execute
 
 	// TODO(CAPPL-737): run with a timeout
 	capResp, err := capability.Execute(ctx, capReq)
@@ -64,7 +73,7 @@ func (c *CapabilityExecutor) CallCapability(ctx context.Context, request *sdkpb.
 		return nil, fmt.Errorf("failed to execute capability: %w", err)
 	}
 
-	err = meterReport.SetStep(meteringRef, capResp.Metadata.Metering)
+	err = meterReport.Settle(meteringRef, capResp.Metadata.Metering)
 	if err != nil {
 		c.cfg.Lggr.Errorw("failed to set metering for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 	}

@@ -23,10 +23,10 @@ var (
 	ErrNoBillingClient     = errors.New("no billing client has been configured")
 	ErrInsufficientFunding = errors.New("insufficient funding")
 	ErrReceiptFailed       = errors.New("failed to submit workflow receipt")
-	ErrUninitializedReport = errors.New("metering report has not been initialized")
+	ErrNoReserve           = errors.New("must call Reserve first")
 	ErrStepDeductExists    = errors.New("step deduct already exists")
 	ErrNoOpenCalls         = errors.New("openConcurrentCallSlots must be greater than 0")
-	ErrNoDeduct            = errors.New("must call Report.DeductByLimits or Report.DeductByAvailability first")
+	ErrNoDeduct            = errors.New("must call Deduct first")
 	ErrStepSpendExists     = errors.New("step spend already exists")
 )
 
@@ -139,8 +139,9 @@ func NewReport(owner, workflowID, workflowExecutionID string, lggr logger.Logger
 	}
 }
 
-// StartAndReserve prepares the metering report for usage by retrieving information from the billing client
-func (r *Report) StartAndReserve(ctx context.Context) error {
+// Reserve calls the billing service for the initial credit balance that can be used in an execution
+// This method must be called before Deduct or Settle
+func (r *Report) Reserve(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -222,28 +223,33 @@ func (r *Report) MedianSpend() map[SpendUnit]SpendValue {
 	return medians
 }
 
-// DeductByLimits earmarks an amount of local universal credit balance and then returns that amount
-// The amount reserved is determined by the upper limit of resource credits that can be used
+// ConvertFromBalance converts a credit amount to a resource dimensions amount
+func (r *Report) ConvertFromBalance(toUnit string, amount int64) (resources int64) {
+	return r.balance.ConvertFromBalance(toUnit, amount)
+}
+
+// ConvertToBalance converts a resource dimensions amount to a credit amount
+func (r *Report) ConvertToBalance(fromUnit string, amount int64) (credits int64) {
+	return r.balance.ConvertToBalance(fromUnit, amount)
+}
+
+// Deduct earmarks an amount of local universal credit balance
 // We expect to only set this value once - an error is returned if a step would be overwritten
-func (r *Report) DeductByLimits(ref string, capInfo capabilities.CapabilityInfo, limits []SpendTuple) (int64, error) {
+func (r *Report) Deduct(ref string, amount int64) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if !r.ready {
-		return 0, ErrUninitializedReport
+		return ErrNoReserve
 	}
 
 	if _, ok := r.steps[ref]; ok {
-		return 0, ErrStepDeductExists
+		return ErrStepDeductExists
 	}
 
-	amount := int64(0)
-	for _, spendTuple := range limits {
-		amount += r.balance.ConvertToBalance(spendTuple.Unit, spendTuple.Value)
-	}
 	err := r.balance.Minus(amount)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	r.steps[ref] = ReportStep{
@@ -251,26 +257,13 @@ func (r *Report) DeductByLimits(ref string, capInfo capabilities.CapabilityInfo,
 		Spend:     nil,
 	}
 
-	// convert balance to CapabilityInfo resource types for use in Capability call
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461
-
-	return amount, nil
+	return nil
 }
 
-// DeductByAvailability earmarks an amount of local universal credit balance and then returns that amount
-// The amount reserved is determined splitting the total open balance by how many remaining concurrent calls can be made
-// We expect to only set this value once - an error is returned if a step would be overwritten
-func (r *Report) DeductByAvailability(ref string, capInfo capabilities.CapabilityInfo, openConcurrentCallSlots int, maxSpend int) (int64, error) {
+// GetAvailablity returns the amount of balance that is available to be used when split among a number of potential concurrent calls
+func (r *Report) GetAvailablity(openConcurrentCallSlots int) (int64, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
-	if !r.ready {
-		return 0, ErrUninitializedReport
-	}
-
-	if _, ok := r.steps[ref]; ok {
-		return 0, ErrStepDeductExists
-	}
 
 	if openConcurrentCallSlots == 0 {
 		return 0, ErrNoOpenCalls
@@ -281,35 +274,18 @@ func (r *Report) DeductByAvailability(ref string, capInfo capabilities.Capabilit
 	share := decimal.NewFromInt(available).Div(decimal.NewFromInt(int64(openConcurrentCallSlots)))
 	roundedShare := share.RoundDown(0).IntPart()
 
-	// take minimum of available concurrent balance versus step defined max spend
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-285
-
-	err := r.balance.Minus(roundedShare)
-	if err != nil {
-		// invariant: engine manages concurrent calls
-		return 0, ErrInsufficientBalance
-	}
-
-	r.steps[ref] = ReportStep{
-		Deduction: roundedShare,
-		Spend:     nil,
-	}
-
-	// convert balance to CapabilityInfo resource types for use in Capability call
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461
-
 	return roundedShare, nil
 }
 
-// SetStep records the actual spend for a given capability invocation in the engine.
-// A Deduct method must be called before SetStep
+// Settle records the actual spend for a given capability invocation in the engine.
+// The Deduct method must be called before Settle
 // We expect to only set this value once - an error is returned if a step would be overwritten
-func (r *Report) SetStep(ref string, steps []capabilities.MeteringNodeDetail) error {
+func (r *Report) Settle(ref string, steps []capabilities.MeteringNodeDetail) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if !r.ready {
-		return ErrUninitializedReport
+		return ErrNoReserve
 	}
 
 	step, ok := r.steps[ref]
@@ -379,7 +355,7 @@ func (r *Report) Message() *events.MeteringReport {
 
 func (r *Report) SendReceipt(ctx context.Context) error {
 	if !r.ready {
-		return ErrUninitializedReport
+		return ErrNoReserve
 	}
 
 	req := billing.SubmitWorkflowReceiptRequest{
@@ -449,7 +425,7 @@ func (s *Reports) Start(ctx context.Context, key string) (*Report, error) {
 
 	report := NewReport(s.owner, s.workflowID, key, s.lggr, s.client)
 
-	err := report.StartAndReserve(ctx)
+	err := report.Reserve(ctx)
 	if err != nil {
 		return nil, err
 	}

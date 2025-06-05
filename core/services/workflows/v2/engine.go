@@ -285,23 +285,17 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	meteringReport, err := e.meterReports.Start(ctx, executionID)
 	if err != nil {
-		e.cfg.Lggr.Errorw("Could not meter workflow execution", "err", err)
+		e.cfg.Lggr.Errorw("could not meter workflow execution", "err", err)
 		return
 	}
 
 	// V2Engine runs the entirety of a module's execution as compute. Ensure that the max execution time can run.
-	_, err = meteringReport.DeductByLimits(
+	err = meteringReport.Deduct(
 		metering.ComputeResourceDimension,
-		capabilities.CapabilityInfo{ID: "compute@1.0.0"},
-		[]metering.SpendTuple{
-			{
-				Unit:  metering.ComputeResourceDimension,
-				Value: int64(e.cfg.LocalLimits.WorkflowExecutionTimeoutMs),
-			},
-		},
+		meteringReport.ConvertToBalance(metering.ComputeResourceDimension, int64(e.cfg.LocalLimits.WorkflowExecutionTimeoutMs)),
 	)
 	if err != nil {
-		e.cfg.Lggr.Errorw("Workflow execution could not be started", "err", err)
+		e.cfg.Lggr.Errorw("could not meter compute", "err", err)
 		return
 	}
 
@@ -319,7 +313,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	endTime := time.Now()
 
 	executionMS := strconv.Itoa(int(endTime.Sub(startTime).Milliseconds()))
-	if mrErr := meteringReport.SetStep(metering.ComputeResourceDimension, []capabilities.MeteringNodeDetail{{Peer2PeerID: e.localNode.PeerID.String(), SpendUnit: metering.ComputeResourceDimension, SpendValue: executionMS}}); mrErr != nil {
+	if mrErr := meteringReport.Settle(metering.ComputeResourceDimension, []capabilities.MeteringNodeDetail{{Peer2PeerID: e.localNode.PeerID.String(), SpendUnit: metering.ComputeResourceDimension, SpendValue: executionMS}}); mrErr != nil {
 		e.cfg.Lggr.Errorw("could not set metering for compute", "err", err)
 	}
 	if mrErr := e.meterReports.End(ctx, executionID); mrErr != nil {
