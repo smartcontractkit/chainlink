@@ -28,6 +28,8 @@ var (
 	ErrNoOpenCalls         = errors.New("openConcurrentCallSlots must be greater than 0")
 	ErrNoDeduct            = errors.New("must call Deduct first")
 	ErrStepSpendExists     = errors.New("step spend already exists")
+	ErrReportNotFound      = errors.New("report not found")
+	ErrReportExists        = errors.New("report already exists")
 )
 
 type BillingClient interface {
@@ -420,7 +422,7 @@ func (s *Reports) Start(ctx context.Context, key string) (*Report, error) {
 
 	_, ok := s.reports[key]
 	if ok {
-		return nil, errors.New("report already exists")
+		return nil, ErrReportExists
 	}
 
 	report := NewReport(s.owner, s.workflowID, key, s.lggr, s.client)
@@ -442,7 +444,7 @@ func (s *Reports) End(ctx context.Context, key string) error {
 
 	report, ok := s.reports[key]
 	if !ok {
-		return errors.New("report not found")
+		return ErrReportNotFound
 	}
 
 	if err := report.SendReceipt(ctx); err != nil {

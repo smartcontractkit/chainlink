@@ -322,60 +322,76 @@ func TestReport(t *testing.T) {
 	})
 }
 
+type LabeledError struct {
+	err   error
+	label string
+}
+
 // Test_MeterReports tests the Add, Get, Delete, and Len methods of a MeterReports.
 // It also tests concurrent safe access.
 func Test_MeterReports(t *testing.T) {
 	billingClient := newMockBillingClient()
 	mrs := NewReports(billingClient, "", "", logger.Test(t))
 	assert.Equal(t, 0, mrs.Len())
+
+	key1 := "exec1"
+	key2 := "exec2"
+
+	goRoutines := 3
+	actions := 4
+	possibleErrs := goRoutines * actions
+	errs := make(chan LabeledError, possibleErrs)
 	wg := sync.WaitGroup{}
 	wg.Add(3)
+
 	go func() {
-		defer wg.Done()
-		//nolint:errcheck // depending on the concurrent timing, this may or may not err
-		mrs.Start(t.Context(), "exec1")
-		r, ok := mrs.Get("exec1")
-		assert.True(t, ok)
-		//nolint:errcheck // depending on the concurrent timing, this may or may not err
-		r.Deduct("ref1", 1)
-		//nolint:errcheck // depending on the concurrent timing, this may or may not err
-		r.Settle("ref1", []capabilities.MeteringNodeDetail{})
-		//nolint:errcheck // depending on the concurrent timing, this may or may not err
-		mrs.End(t.Context(), "exec1")
-	}()
-	go func() {
-		defer wg.Done()
-		report, err := mrs.Start(t.Context(), "exec2")
-		require.NoError(t, err)
-		r, ok := mrs.Get("exec2")
-		assert.True(t, ok)
-		err = report.Deduct("ref1", 1)
-		require.NoError(t, err)
+		r, err := mrs.Start(t.Context(), key1)
+		errs <- LabeledError{err: err, label: key1}
+		err = r.Deduct("ref1", 1)
+		errs <- LabeledError{err: err, label: key1}
 		err = r.Settle("ref1", []capabilities.MeteringNodeDetail{})
-		require.NoError(t, err)
-		err = mrs.End(t.Context(), "exec2")
-		require.NoError(t, err)
+		errs <- LabeledError{err: err, label: key1}
+		err = mrs.End(t.Context(), key1)
+		errs <- LabeledError{err: err, label: key1}
+		wg.Done()
 	}()
+
 	go func() {
-		defer wg.Done()
-		//nolint:errcheck // depending on the concurrent timing, this may or may not err
-		mrs.Start(t.Context(), "exec1")
-		r, ok := mrs.Get("exec1")
-		assert.True(t, ok)
-		//nolint:errcheck // depending on the concurrent timing, this may or may not err
-		r.Deduct("ref1", 1)
-		//nolint:errcheck // depending on the concurrent timing, this may or may not err
-		r.Settle("ref1", []capabilities.MeteringNodeDetail{})
-		//nolint:errcheck // depending on the concurrent timing, this may or may not err
-		mrs.End(t.Context(), "exec1")
+		r, err := mrs.Start(t.Context(), key2)
+		errs <- LabeledError{err: err, label: key2}
+		err = r.Deduct("ref1", 1)
+		errs <- LabeledError{err: err, label: key2}
+		err = r.Settle("ref1", []capabilities.MeteringNodeDetail{})
+		errs <- LabeledError{err: err, label: key2}
+		err = mrs.End(t.Context(), key2)
+		errs <- LabeledError{err: err, label: key2}
+		wg.Done()
+	}()
+
+	go func() {
+		r, err := mrs.Start(t.Context(), key1)
+		errs <- LabeledError{err: err, label: key1}
+		err = r.Deduct("ref1", 1)
+		errs <- LabeledError{err: err, label: key1}
+		err = r.Settle("ref1", []capabilities.MeteringNodeDetail{})
+		errs <- LabeledError{err: err, label: key1}
+		err = mrs.End(t.Context(), key1)
+		errs <- LabeledError{err: err, label: key1}
+		wg.Done()
 	}()
 
 	wg.Wait()
-	assert.Equal(t, 0, mrs.Len())
+
+	// // wait for all to finish
+	for i := 0; i < possibleErrs; i++ {
+		lErr := <-errs
+		require.NoError(t, lErr.err)
+	}
 }
 
-func Test_MeterReportsLength(t *testing.T) {
-	mrs := NewReports(nil, "", "", logger.Test(t))
+func Test_MeterReports_Length(t *testing.T) {
+	billingClient := newMockBillingClient()
+	mrs := NewReports(billingClient, "", "", logger.Test(t))
 
 	_, err := mrs.Start(t.Context(), "exec1")
 	require.NoError(t, err)
@@ -388,4 +404,28 @@ func Test_MeterReportsLength(t *testing.T) {
 	err = mrs.End(t.Context(), "exec2")
 	require.NoError(t, err)
 	assert.Equal(t, 2, mrs.Len())
+}
+
+func Test_MeterReports_Start(t *testing.T) {
+	t.Run("can only start report once", func(t *testing.T) {
+		billingClient := newMockBillingClient()
+		mrs := NewReports(billingClient, "", "", logger.Test(t))
+		_, err := mrs.Start(t.Context(), "exec1")
+		require.NoError(t, err)
+		_, err = mrs.Start(t.Context(), "exec1")
+		require.ErrorIs(t, err, ErrReportExists)
+	})
+}
+
+func Test_MeterReports_End(t *testing.T) {
+	t.Run("can only end existing report", func(t *testing.T) {
+		billingClient := newMockBillingClient()
+		mrs := NewReports(billingClient, "", "", logger.Test(t))
+		_, err := mrs.Start(t.Context(), "exec1")
+		require.NoError(t, err)
+		err = mrs.End(t.Context(), "exec1")
+		require.NoError(t, err)
+		err = mrs.End(t.Context(), "exec1")
+		require.ErrorIs(t, err, ErrReportNotFound)
+	})
 }
