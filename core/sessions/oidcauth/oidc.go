@@ -49,7 +49,7 @@ const (
 	RouterRateLimitterLimit  = 1000
 )
 
-var ErrUserNoOIDCGroups = errors.New("user claims response from identity server recieved, but no matching role group names in claim")
+var ErrUserNoOIDCGroups = errors.New("user claims response from identity server received, but no matching role group names in claim")
 
 type oidcAuthenticator struct {
 	ds           sqlutil.DataSource
@@ -83,7 +83,7 @@ func NewOIDCAuthenticator(
 	auditLogger audit.AuditLogger,
 ) (*oidcAuthenticator, error) {
 	// Ensure all RBAC role mappings to OIDC Id claims are defined, and required fields populated, or error on startup
-	lggr.Infof("%#v\n", oidcCfg)
+	lggr.Debugf("OIDC CFG:\n %#v\n", oidcCfg)
 	if oidcCfg.AdminClaim() == "" || oidcCfg.EditClaim() == "" ||
 		oidcCfg.RunClaim() == "" || oidcCfg.ReadClaim() == "" {
 		return nil, errors.New("OIDC Group name mapping for callback group claims for all local RBAC role required. Set group names for `_Claim` fields")
@@ -152,7 +152,6 @@ func (oi *oidcAuthenticator) generateState() string {
 
 func (oi *oidcAuthenticator) handleCheckEnabled(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"enabled": true})
-	return
 }
 
 func (oi *oidcAuthenticator) handleSignIn(c *gin.Context) {
@@ -289,7 +288,6 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 // FindUser in the context of the OIDC driver only supports local admin users
 func (oi *oidcAuthenticator) FindUser(ctx context.Context, email string) (clsessions.User, error) {
 	email = strings.ToLower(email)
-	fmt.Printf("%#v\n", email)
 	foundUser := clsessions.User{}
 
 	var foundLocalAdminUser clsessions.User
