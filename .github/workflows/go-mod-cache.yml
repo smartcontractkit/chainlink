@@ -27,6 +27,8 @@ on:
 
 jobs:
   go-cache:
+    name: Go Cache ${{ matrix.suffix }}
+
     strategy:
       fail-fast: false
       matrix:
@@ -37,8 +39,10 @@ jobs:
           - runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c6id/spot=false/extras=s3-cache
             suffix: "(Self-hosted)"
 
-    name: Go Cache ${{ matrix.suffix }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runs-on }}
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4
