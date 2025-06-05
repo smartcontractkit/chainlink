@@ -394,12 +394,12 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 		}
 
 		solCs = append(solCs, solTestReceiver)
+		*e = deployedEnv.Env
 
-		*e, err = commonchangeset.Apply(nil, deployedEnv.Env, solCs[0], solCs[1:]...)
+		*e, err = commonchangeset.Apply(nil, *e, solCs[0], solCs[1:]...)
 		if err != nil {
 			return *e, err
 		}
-
 		err = testhelpers.ValidateSolanaState(*e, solChainSelectors)
 		if err != nil {
 			return *e, err
@@ -494,7 +494,7 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 		solTokenAddress := state.SolChains[solChainSel].LinkToken
 		bnm := solTestTokenPool.BurnAndMint_PoolType
 
-		*e, err = commonchangeset.Apply(nil, *e, nil,
+		*e, err = commonchangeset.Apply(nil, *e,
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.CreateSolanaTokenATA),
 				ccipChangesetSolana.CreateSolanaTokenATAConfig{
