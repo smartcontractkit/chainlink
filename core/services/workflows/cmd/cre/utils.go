@@ -38,9 +38,21 @@ const (
 	defaultName                      = "myworkflow"
 )
 
+type standardCapConfig struct {
+	Config string
+
+	// Set enabled to true to run the loop plugin.  Requires the plugin be installed.
+	// Config will be passed to Initialise method of plugin.
+	Enabled bool
+}
+
 var (
-	standardCapabilities = []string{
-		"cron", "kvstore", "readcontract", "workflowevent",
+	goBinPath            = os.Getenv("GOBIN")
+	standardCapabilities = map[string]standardCapConfig{
+		"cron":          {Enabled: true},
+		"readcontract":  {}, // TODO(PRODCRE-438): allow running a readcontract capability
+		"kvstore":       {},
+		"workflowevent": {},
 	}
 )
 
@@ -187,22 +199,25 @@ func (l *standaloneLoopWrapper) HealthReport() map[string]error { return make(ma
 func (l *standaloneLoopWrapper) Name() string { return "wrapped" }
 
 func newStandardCapabilities(
-	standardCapabilities []string,
+	standardCapabilities map[string]standardCapConfig,
 	lggr logger.Logger,
 	registry *capabilities.Registry,
 ) []services.Service {
 	caps := make([]services.Service, 0)
-
-	goBinPath := os.Getenv("GOBIN")
 
 	pluginRegistrar := plugins.NewRegistrarConfig(
 		loop.GRPCOpts{},
 		func(name string) (*plugins.RegisteredLoop, error) { return &plugins.RegisteredLoop{}, nil },
 		func(loopId string) {})
 
-	for _, name := range standardCapabilities {
+	for name, config := range standardCapabilities {
+		if !config.Enabled {
+			continue
+		}
+
 		spec := &job.StandardCapabilitiesSpec{
 			Command: path.Join(goBinPath, name),
+			Config:  config.Config,
 		}
 
 		loop := standardcapabilities.NewStandardCapabilities(lggr, spec,

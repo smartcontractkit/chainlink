@@ -11,33 +11,9 @@ Install the capability binaries you need in a workflow via the core node make fi
 
 ```bash
 make install-loopinstall
-make install-plugins-public
 make install-plugins-private
 ```
 
-### Adding a new capability 
-You need to create a new standard capability in `NewFakeCapabilities` function for standard capabilities other than `cron`.  To do this, create a standard capabilities spec:
-
-```go
-    // replace <standard-capability-name> with the installed capability (e.g., readcontract)
-	spec := &job.StandardCapabilitiesSpec{
-		Command: path.Join(goBinPath, "<standard-capability-name>"),
-	}
-```
-
-Then you can instatitate the new standard capability and wrap it in the standalone loop wrapper:
-
-```go
-	loop := standardcapabilities.NewStandardCapabilities(lggr, 
-        spec, // spec created previously
-		pluginRegistrar, &fakes.TelemetryServiceMock{}, &fakes.KVStoreMock{},
-		registry, &fakes.ErrorLogMock{}, &fakes.PipelineRunnerServiceMock{},
-		&fakes.RelayerSetMock{}, &fakes.OracleFactoryMock{})
-
-	caps = append(caps, &standaloneLoopWrapper{
-		StandardCapabilities: loop,
-	})
-```
 
 ### Legacy `data_feeds` Example
 
@@ -55,7 +31,7 @@ go run . --wasm data_feeds.wasm --config ./examples/legacy/data_feeds/config_10_
 ```
 
 ### V2 `cron` Example ("No DAG")
-Requires that the `cron` capability be installed on the `$GOBIN` path.
+Requires that the `cron` capability be installed on the `$GOBIN` path.  See [here](#installing-capability-binaries).
 
 1. Build the workflow:
 
