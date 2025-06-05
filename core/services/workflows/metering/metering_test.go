@@ -213,7 +213,8 @@ func TestReport(t *testing.T) {
 	t.Run("Initialize returns an error if no billing client is given", func(t *testing.T) {
 		t.Parallel()
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), nil)
-		report.Reserve(t.Context())
+		err := report.Reserve(t.Context())
+		require.ErrorIs(t, err, ErrNoBillingClient)
 	})
 
 	t.Run("Initialize allows negative balances if the billing client cannot be communicated with", func(t *testing.T) {
@@ -339,6 +340,7 @@ func Test_MeterReports(t *testing.T) {
 		r.Deduct("ref1", 1)
 		//nolint:errcheck // depending on the concurrent timing, this may or may not err
 		r.Settle("ref1", []capabilities.MeteringNodeDetail{})
+		//nolint:errcheck // depending on the concurrent timing, this may or may not err
 		mrs.End(t.Context(), "exec1")
 	}()
 	go func() {
@@ -351,7 +353,8 @@ func Test_MeterReports(t *testing.T) {
 		require.NoError(t, err)
 		err = r.Settle("ref1", []capabilities.MeteringNodeDetail{})
 		require.NoError(t, err)
-		mrs.End(t.Context(), "exec2")
+		err = mrs.End(t.Context(), "exec2")
+		require.NoError(t, err)
 	}()
 	go func() {
 		defer wg.Done()
@@ -363,6 +366,7 @@ func Test_MeterReports(t *testing.T) {
 		r.Deduct("ref1", 1)
 		//nolint:errcheck // depending on the concurrent timing, this may or may not err
 		r.Settle("ref1", []capabilities.MeteringNodeDetail{})
+		//nolint:errcheck // depending on the concurrent timing, this may or may not err
 		mrs.End(t.Context(), "exec1")
 	}()
 
@@ -373,11 +377,15 @@ func Test_MeterReports(t *testing.T) {
 func Test_MeterReportsLength(t *testing.T) {
 	mrs := NewReports(nil, "", "", logger.Test(t))
 
-	mrs.Start(t.Context(), "exec1")
-	mrs.Start(t.Context(), "exec2")
-	mrs.Start(t.Context(), "exec3")
+	_, err := mrs.Start(t.Context(), "exec1")
+	require.NoError(t, err)
+	_, err = mrs.Start(t.Context(), "exec2")
+	require.NoError(t, err)
+	_, err = mrs.Start(t.Context(), "exec3")
+	require.NoError(t, err)
 	assert.Equal(t, 3, mrs.Len())
 
-	mrs.End(t.Context(), "exec2")
+	err = mrs.End(t.Context(), "exec2")
+	require.NoError(t, err)
 	assert.Equal(t, 2, mrs.Len())
 }
