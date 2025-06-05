@@ -54,6 +54,7 @@ type MCMSWithTimelockEVMDeploy struct {
 	CallProxy *cldf.ContractDeploy[*bindings.CallProxy]
 }
 
+// TODO: Remove this function once the tests are implemented for the new sequence.
 func DeployMCMSWithConfigEVM(
 	contractType cldf.ContractType,
 	lggr logger.Logger,
@@ -174,9 +175,9 @@ func DeployMCMSWithTimelockContractsEVM(
 			lggr.Errorw("Failed to create bypasser MCMS binding", "chain", chain.String(), "err", err)
 			return nil, err
 		}
-		lggr.Infow("Bypasser MCMS deployed", "chain", chain.String(), "address", bypasser.Address)
+		lggr.Infow("Bypasser MCMS deployed", "chain", chain.String(), "address", bypasser.Address().String())
 	} else {
-		lggr.Infow("Bypasser MCMS already deployed", "chain", chain.String(), "address", bypasser.Address)
+		lggr.Infow("Bypasser MCMS already deployed", "chain", chain.String(), "address", bypasser.Address().String())
 	}
 
 	if canceller == nil {
@@ -202,9 +203,9 @@ func DeployMCMSWithTimelockContractsEVM(
 			lggr.Errorw("Failed to create Canceller MCMS binding", "chain", chain.String(), "err", err)
 			return nil, err
 		}
-		lggr.Infow("Canceller MCMS deployed", "chain", chain.String(), "address", canceller.Address)
+		lggr.Infow("Canceller MCMS deployed", "chain", chain.String(), "address", canceller.Address().String())
 	} else {
-		lggr.Infow("Canceller MCMS already deployed", "chain", chain.String(), "address", canceller.Address)
+		lggr.Infow("Canceller MCMS already deployed", "chain", chain.String(), "address", canceller.Address().String())
 	}
 
 	if proposer == nil {
@@ -230,9 +231,9 @@ func DeployMCMSWithTimelockContractsEVM(
 			lggr.Errorw("Failed to create Proposer MCMS binding", "chain", chain.String(), "err", err)
 			return nil, err
 		}
-		lggr.Infow("Proposer MCMS deployed", "chain", chain.String(), "address", proposer.Address)
+		lggr.Infow("Proposer MCMS deployed", "chain", chain.String(), "address", proposer.Address().String())
 	} else {
-		lggr.Infow("Proposer MCMS already deployed", "chain", chain.String(), "address", proposer.Address)
+		lggr.Infow("Proposer MCMS already deployed", "chain", chain.String(), "address", proposer.Address().String())
 	}
 
 	if timelock == nil {
@@ -274,53 +275,42 @@ func DeployMCMSWithTimelockContractsEVM(
 			return nil, err
 		}
 
-		lggr.Infow("Timelock deployed", "chain", chain.String(), "address", timelock.Address)
+		lggr.Infow("Timelock deployed", "chain", chain.String(), "address", timelock.Address().String())
 	} else {
-		lggr.Infow("Timelock already deployed", "chain", chain.String(), "address", timelock.Address)
+		lggr.Infow("Timelock already deployed", "chain", chain.String(), "address", timelock.Address().String())
 	}
 
 	if callProxy == nil {
-		callProxyC, err := cldf.DeployContract(lggr, chain, ab,
-			func(chain cldf_evm.Chain) cldf.ContractDeploy[*bindings.CallProxy] {
-				var (
-					callProxy common.Address
-					tx2       *types.Transaction
-					cc        *bindings.CallProxy
-					err2      error
-				)
-				if chain.IsZkSyncVM {
-					callProxy, _, cc, err2 = mcmsnew_zksync.DeployCallProxyZk(
-						nil,
-						chain.ClientZkSyncVM,
-						chain.DeployerKeyZkSyncVM,
-						chain.Client,
-						timelock.Address(),
-					)
-				} else {
-					callProxy, tx2, cc, err2 = bindings.DeployCallProxy(
-						chain.DeployerKey,
-						chain.Client,
-						timelock.Address(),
-					)
-				}
+		opDeps := ops.OpEVMMCMSDeps{
+			Chain:    chain,
+			AddrBook: ab,
+			Backend:  chain.Client,
+			Options:  opts,
+		}
+		opInput := ops.OpEVMDeployCallProxyInput{
+			ContractType: commontypes.CallProxy, // bypassers
+			Timelock:     timelock.Address(),
+		}
 
-				tv := cldf.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0)
-				if config.Label != nil {
-					tv.AddLabel(*config.Label)
-				}
-
-				return cldf.ContractDeploy[*bindings.CallProxy]{
-					Address: callProxy, Contract: cc, Tx: tx2, Tv: tv, Err: err2,
-				}
-			})
+		report, err := operations.ExecuteOperation(
+			env.OperationsBundle,
+			ops.OpEVMDeployCallProxy,
+			opDeps,
+			opInput,
+		)
 		if err != nil {
-			lggr.Errorw("Failed to deploy call proxy", "chain", chain.String(), "err", err)
+			lggr.Errorw("Failed to deploy CallProxy", "chain", chain.String(), "err", err)
 			return nil, err
 		}
-		callProxy = callProxyC.Contract
-		lggr.Infow("CallProxy deployed", "chain", chain.String(), "address", callProxy.Address)
+
+		callProxy, err = bindings.NewCallProxy(report.Output.Address, chain.Client)
+		if err != nil {
+			lggr.Errorw("Failed to create CallProxy binding", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+		lggr.Infow("CallProxy deployed", "chain", chain.String(), "address", callProxy.Address().String())
 	} else {
-		lggr.Infow("CallProxy already deployed", "chain", chain.String(), "address", callProxy.Address)
+		lggr.Infow("CallProxy already deployed", "chain", chain.String(), "address", callProxy.Address().String())
 	}
 	timelockContracts := &proposalutils.MCMSWithTimelockContracts{
 		BypasserMcm:  bypasser,
