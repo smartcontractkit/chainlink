@@ -105,8 +105,8 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 		tokenPoolStateAddress := tokenPoolObjectAddress.ResourceAccount([]byte("CcipManagedTokenPool"))
 		txs := []mcmstypes.Transaction{}
 		gmReport, err := operations.ExecuteOperation(b, operation.GrantMinterPermissionsOp, deps, operation.GrantRolePermissionsInput{
-			TokenObjAddress:              in.TokenObjAddress,
-			ManagedTokenPoolStateAddress: tokenPoolStateAddress,
+			TokenObjAddress:       in.TokenObjAddress,
+			TokenPoolStateAddress: tokenPoolStateAddress,
 		})
 		if err != nil {
 			return DeployTokenPoolSeqOutput{}, err
@@ -114,8 +114,8 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 		txs = append(txs, gmReport.Output)
 
 		gbReport, err := operations.ExecuteOperation(b, operation.GrantBurnerPermissionsOp, deps, operation.GrantRolePermissionsInput{
-			TokenObjAddress:              in.TokenObjAddress,
-			ManagedTokenPoolStateAddress: tokenPoolStateAddress,
+			TokenObjAddress:       in.TokenObjAddress,
+			TokenPoolStateAddress: tokenPoolStateAddress,
 		})
 		if err != nil {
 			return DeployTokenPoolSeqOutput{}, err
