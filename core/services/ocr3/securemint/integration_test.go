@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/freeport"
+	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -77,14 +78,20 @@ func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
 	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_securemint", backend, bootstrapCSAKey, nil)
-	t.Logf("bootstrapPeerID: %s", bootstrapPeerID)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
-	t.Logf("Bootstrap node id: %s", bootstrapNode.App.ID())
+
+	p2pV2Bootstrappers := []commontypes.BootstrapperLocator{
+		// Supply the bootstrap IP and port as a V2 peer address
+		{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
+	}
 
 	// Setup oracle nodes
 	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
 		// TODO(gg): something like this + extra config
 		// c.Feature.SecureMint.Enabled = true
+
+		// inform node about bootstrap node
+		c.P2P.V2.DefaultBootstrappers = &p2pV2Bootstrappers
 	})
 
 	// pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }

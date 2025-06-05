@@ -70,8 +70,11 @@ func setupNode(
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		// TODO(gg): potentially update node config here
 
+		// set finality depth to 1 so we don't have to wait for multiple blocks
+		c.EVM[0].FinalityDepth = ptr[uint32](1)
+
 		// [JobPipeline]
-		c.JobPipeline.MaxSuccessfulRuns = ptr(uint64(0))
+		c.JobPipeline.MaxSuccessfulRuns = ptr(uint64(1000))
 		c.JobPipeline.VerboseLogging = ptr(true)
 
 		// [Feature]
@@ -241,7 +244,7 @@ observationSource  = """
 	answer1 [type=median index=0];
 """
 
-allowNoBootstrappers = true
+allowNoBootstrappers = false
 
 [relayConfig]
 chainID = 1337
