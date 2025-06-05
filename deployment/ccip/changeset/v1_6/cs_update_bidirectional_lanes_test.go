@@ -13,7 +13,6 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -267,8 +266,7 @@ func TestBuildConfigs(t *testing.T) {
 	}, configs.UpdateRouterRampsConfig)
 }
 
-func TestUpdateBidirectiConalLanesChangeset(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-5756")
+func TestUpdateBidirectionalLanesChangeset(t *testing.T) {
 	t.Parallel()
 
 	type test struct {

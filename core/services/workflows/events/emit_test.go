@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	pb "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
@@ -23,13 +22,13 @@ func TestEmitTimestampNano(t *testing.T) {
 	capabilityID := "capability_" + uuid.NewString()
 	stepRef := "step"
 	beholder := tests.Beholder(t)
-	labeler := custmsg.NewLabeler()
+	labels := make(map[string]string)
 
 	// basic regex for RFC3339Nano using ISO 8601 or tz offset format
 	timeMatcher := regexp.MustCompile(`[0-9\-]{10}T[0-9:]{8}\.[0-9Z\-:\+]+`)
 
 	t.Run(events.WorkflowExecutionStarted, func(t *testing.T) {
-		require.NoError(t, events.EmitExecutionStartedEvent(t.Context(), labeler, triggerID, executionID))
+		require.NoError(t, events.EmitExecutionStartedEvent(t.Context(), labels, triggerID, executionID))
 
 		msgs := beholder.Messages(t, "beholder_entity", "workflows.v1."+events.WorkflowExecutionStarted)
 		require.Len(t, msgs, 1)
@@ -41,7 +40,7 @@ func TestEmitTimestampNano(t *testing.T) {
 	})
 
 	t.Run(events.WorkflowExecutionFinished, func(t *testing.T) {
-		require.NoError(t, events.EmitExecutionFinishedEvent(t.Context(), labeler, triggerID, executionID))
+		require.NoError(t, events.EmitExecutionFinishedEvent(t.Context(), labels, "status", executionID))
 
 		msgs := beholder.Messages(t, "beholder_entity", "workflows.v1."+events.WorkflowExecutionFinished)
 		require.Len(t, msgs, 1)
@@ -53,7 +52,7 @@ func TestEmitTimestampNano(t *testing.T) {
 	})
 
 	t.Run(events.CapabilityExecutionStarted, func(t *testing.T) {
-		require.NoError(t, events.EmitCapabilityStartedEvent(t.Context(), labeler, executionID, capabilityID, stepRef))
+		require.NoError(t, events.EmitCapabilityStartedEvent(t.Context(), labels, executionID, capabilityID, stepRef))
 
 		msgs := beholder.Messages(t, "beholder_entity", "workflows.v1."+events.CapabilityExecutionStarted)
 		require.Len(t, msgs, 1)
@@ -65,7 +64,7 @@ func TestEmitTimestampNano(t *testing.T) {
 	})
 
 	t.Run(events.CapabilityExecutionFinished, func(t *testing.T) {
-		require.NoError(t, events.EmitCapabilityFinishedEvent(t.Context(), labeler, executionID, capabilityID, stepRef, "status"))
+		require.NoError(t, events.EmitCapabilityFinishedEvent(t.Context(), labels, executionID, capabilityID, stepRef, "status"))
 
 		msgs := beholder.Messages(t, "beholder_entity", "workflows.v1."+events.CapabilityExecutionFinished)
 		require.Len(t, msgs, 1)
