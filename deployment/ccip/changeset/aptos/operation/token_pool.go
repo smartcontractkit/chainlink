@@ -4,9 +4,11 @@ import (
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/token_pool"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/compile"
 	managed_token "github.com/smartcontractkit/chainlink-aptos/bindings/managed_token"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -16,6 +18,11 @@ import (
 	"github.com/smartcontractkit/mcms/types"
 )
 
+type DeployTokenPoolPackageOutput struct {
+	TokenPoolObjectAddress aptos.AccountAddress
+	MCMSOps                []types.Operation
+}
+
 // DeployTokenPoolPackageOp deploys token pool package to Token Object Address
 var DeployTokenPoolPackageOp = operations.NewOperation(
 	"deploy-token-pool-package-op",
@@ -24,25 +31,36 @@ var DeployTokenPoolPackageOp = operations.NewOperation(
 	deployTokenPoolPackage,
 )
 
-func deployTokenPoolPackage(b operations.Bundle, deps AptosDeps, tokenObjAddress aptos.AccountAddress) ([]types.Operation, error) {
+func deployTokenPoolPackage(b operations.Bundle, deps AptosDeps, poolSeed string) (DeployTokenPoolPackageOutput, error) {
 	aptosState := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector]
 	mcmsContract := mcmsbind.Bind(aptosState.MCMSAddress, deps.AptosChain.Client)
 
-	payload, err := token_pool.Compile(tokenObjAddress, aptosState.CCIPAddress, aptosState.MCMSAddress)
+	// Calculate pool address
+	tokenPoolObjectAddress, err := mcmsContract.MCMSRegistry().GetNewCodeObjectAddress(nil, []byte(poolSeed))
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile token pool: %w", err)
-	}
-	ops, err := utils.CreateChunksAndStage(payload, mcmsContract, deps.AptosChain.Selector, "", &tokenObjAddress)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create chunks for token pool: %w", err)
+		return DeployTokenPoolPackageOutput{}, fmt.Errorf("failed to GetNewCodeObjectAddress for pool seed %s: %w", poolSeed, err)
 	}
 
-	return ops, nil
+	payload, err := token_pool.Compile(tokenPoolObjectAddress, aptosState.CCIPAddress, aptosState.MCMSAddress)
+	if err != nil {
+		return DeployTokenPoolPackageOutput{}, fmt.Errorf("failed to compile token pool: %w", err)
+	}
+	ops, err := utils.CreateChunksAndStage(payload, mcmsContract, deps.AptosChain.Selector, poolSeed, nil)
+	if err != nil {
+		return DeployTokenPoolPackageOutput{}, fmt.Errorf("failed to create chunks for token pool: %w", err)
+	}
+
+	return DeployTokenPoolPackageOutput{
+		TokenPoolObjectAddress: tokenPoolObjectAddress,
+		MCMSOps:                ops,
+	}, nil
 }
 
 type DeployTokenPoolModuleInput struct {
-	PoolType        cldf.ContractType
-	TokenObjAddress aptos.AccountAddress
+	PoolType            cldf.ContractType
+	TokenObjAddress     aptos.AccountAddress
+	TokenPoolObjAddress aptos.AccountAddress
+	TokenOwnerAddress   aptos.AccountAddress
 }
 
 // DeployTokenPoolModuleOp deploys token pool module to Token Object Address
@@ -57,50 +75,50 @@ func deployTokenPoolModule(b operations.Bundle, deps AptosDeps, in DeployTokenPo
 	aptosState := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector]
 	mcmsContract := mcmsbind.Bind(aptosState.MCMSAddress, deps.AptosChain.Client)
 
-	ccipOwnerAddr, err := mcmsContract.MCMSRegistry().GetRegisteredOwnerAddress(nil, aptosState.CCIPAddress)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get preexisting code object owner address: %w", err)
-	}
-
 	var ops []types.Operation
 
+	var payload compile.CompiledPackage
+	var err error
 	switch in.PoolType {
+	case shared.AptosManagedTokenPoolType:
+		payload, err = managed_token_pool.Compile(
+			in.TokenPoolObjAddress,
+			aptosState.CCIPAddress,
+			aptosState.MCMSAddress,
+			in.TokenPoolObjAddress,
+			in.TokenObjAddress,
+			in.TokenOwnerAddress,
+			true,
+		)
 	case shared.BurnMintTokenPool:
-		payload, err := managed_token_pool.Compile(
-			in.TokenObjAddress,
+		payload, err = burn_mint_token_pool.Compile(
+			in.TokenPoolObjAddress,
 			aptosState.CCIPAddress,
 			aptosState.MCMSAddress,
+			in.TokenPoolObjAddress,
 			in.TokenObjAddress,
-			in.TokenObjAddress,
-			ccipOwnerAddr,
+			in.TokenOwnerAddress,
 			true,
 		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to compile token pool: %w", err)
-		}
-		ops, err = utils.CreateChunksAndStage(payload, mcmsContract, deps.AptosChain.Selector, "", &in.TokenObjAddress)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create chunks for token pool: %w", err)
-		}
 	case shared.LockReleaseTokenPool:
-		payload, err := lock_release_token_pool.Compile(
-			in.TokenObjAddress,
+		payload, err = lock_release_token_pool.Compile(
+			in.TokenPoolObjAddress,
 			aptosState.CCIPAddress,
 			aptosState.MCMSAddress,
+			in.TokenPoolObjAddress,
 			in.TokenObjAddress,
-			in.TokenObjAddress,
-			ccipOwnerAddr,
+			in.TokenOwnerAddress,
 			true,
 		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to compile token pool: %w", err)
-		}
-		ops, err = utils.CreateChunksAndStage(payload, mcmsContract, deps.AptosChain.Selector, "", &in.TokenObjAddress)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create chunks for token pool: %w", err)
-		}
 	default:
 		return nil, fmt.Errorf("invalid token pool type: %s", in.PoolType)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile token pool: %w", err)
+	}
+	ops, err = utils.CreateChunksAndStage(payload, mcmsContract, deps.AptosChain.Selector, "", &in.TokenPoolObjAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create chunks for token pool: %w", err)
 	}
 
 	return ops, nil

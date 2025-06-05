@@ -8,10 +8,12 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -23,6 +25,61 @@ var _ cldf.ChangeSetV2[config.AddTokenPoolConfig] = AddTokenPool{}
 type AddTokenPool struct{}
 
 func (cs AddTokenPool) VerifyPreconditions(env cldf.Environment, cfg config.AddTokenPoolConfig) error {
+	state, err := stateview.LoadOnchainState(env)
+	if err != nil {
+		return fmt.Errorf("failed to load existing Aptos onchain state: %w", err)
+	}
+	// Validate supported chain
+	supportedChains := state.SupportedChains()
+	if _, ok := supportedChains[cfg.ChainSelector]; !ok {
+		return fmt.Errorf("chain is not a supported: %d", cfg.ChainSelector)
+	}
+	// Validate CCIP deployed
+	if state.AptosChains[cfg.ChainSelector].CCIPAddress == (aptos.AccountAddress{}) {
+		return fmt.Errorf("CCIP is not deployed on Aptos chain %d", cfg.ChainSelector)
+	}
+	// Validate MCMS config
+	if cfg.MCMSConfig == nil {
+		return fmt.Errorf("MCMS config is required for AddTokenPool changeset")
+	}
+	// Validate config.TokenParams
+	err = cfg.TokenParams.Validate()
+	if err != nil {
+		return fmt.Errorf("invalid token parameters: %w", err)
+	}
+	// Validate if token address is provided if pool address is specified
+	if cfg.TokenObjAddress == (aptos.AccountAddress{}) && cfg.TokenPoolAddress != (aptos.AccountAddress{}) {
+		return fmt.Errorf("token object address must be provided if token pool address is specified")
+	}
+	// No token pool address provided, so no need to validate token address
+	if cfg.TokenObjAddress == (aptos.AccountAddress{}) && cfg.TokenPoolAddress == (aptos.AccountAddress{}) {
+		return nil
+	}
+	// Validate if token already exists with different pool address
+	for token, pool := range state.AptosChains[cfg.ChainSelector].AptosManagedTokenPools {
+		if (token == cfg.TokenAddress) && (pool != cfg.TokenPoolAddress) {
+			return fmt.Errorf("token %s already exists with a different pool address %s", token, pool)
+		}
+		if (pool == cfg.TokenPoolAddress) && (token != cfg.TokenAddress) {
+			return fmt.Errorf("pool %s already exists with a different token address %s", pool, token)
+		}
+	}
+	for token, pool := range state.AptosChains[cfg.ChainSelector].BurnMintTokenPools {
+		if (token == cfg.TokenAddress) && (pool != cfg.TokenPoolAddress) {
+			return fmt.Errorf("token %s already exists with a different pool address %s", token, pool)
+		}
+		if (pool == cfg.TokenPoolAddress) && (token != cfg.TokenAddress) {
+			return fmt.Errorf("pool %s already exists with a different token address %s", pool, token)
+		}
+	}
+	for token, pool := range state.AptosChains[cfg.ChainSelector].LockReleaseTokenPools {
+		if (token == cfg.TokenAddress) && (pool != cfg.TokenPoolAddress) {
+			return fmt.Errorf("token %s already exists with a different pool address %s", token, pool)
+		}
+		if (pool == cfg.TokenPoolAddress) && (token != cfg.TokenAddress) {
+			return fmt.Errorf("pool %s already exists with a different token address %s", pool, token)
+		}
+	}
 	return nil
 }
 
@@ -32,7 +89,7 @@ func (cs AddTokenPool) Apply(env cldf.Environment, cfg config.AddTokenPoolConfig
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
 
-	aptosChain := env.AptosChains[cfg.ChainSelector]
+	aptosChain := env.BlockChains.AptosChains()[cfg.ChainSelector]
 	ab := cldf.NewMemoryAddressBook()
 	seqReports := make([]operations.Report[any, any], 0)
 	proposals := make([]mcms.TimelockProposal, 0)
@@ -46,32 +103,56 @@ func (cs AddTokenPool) Apply(env cldf.Environment, cfg config.AddTokenPoolConfig
 
 	// Deploy Aptos Token
 	tokenObjectAddress := cfg.TokenObjAddress
+	tokenAddress := cfg.TokenAddress
+	tokenOwnerAddress := aptos.AccountAddress{}
 	if cfg.TokenObjAddress == (aptos.AccountAddress{}) {
 		deploySeq, err := operations.ExecuteSequence(env.OperationsBundle, seq.DeployAptosTokenSequence, deps, cfg.TokenParams)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 		tokenObjectAddress = deploySeq.Output.TokenObjAddress
+		tokenAddress = deploySeq.Output.TokenAddress
+		tokenOwnerAddress = deploySeq.Output.TokenOwnerAddress
 		seqReports = append(seqReports, deploySeq.ExecutionReports...)
 		mcmsOperations = append(mcmsOperations, deploySeq.Output.MCMSOperations...)
-		// TODO: Save token address and object address to address book
-		// tokenAddress = deploySeq.Output.TokenAddress
+		// Save token object address in address book
+		typeAndVersion := cldf.NewTypeAndVersion(shared.AptosManagedTokenType, deployment.Version1_6_0)
+		typeAndVersion.AddLabel(string(cfg.TokenParams.Symbol))
+		err = deps.AB.Save(deps.AptosChain.Selector, deploySeq.Output.TokenObjAddress.String(), typeAndVersion)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save token object address %s: %w", deploySeq.Output.TokenObjAddress, err)
+		}
+		// Save token address in address book
+		typeAndVersion = cldf.NewTypeAndVersion(cldf.ContractType(cfg.TokenParams.Symbol), deployment.Version1_6_0)
+		err = deps.AB.Save(deps.AptosChain.Selector, deploySeq.Output.TokenAddress.String(), typeAndVersion)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save token address %s: %w", deploySeq.Output.TokenAddress, err)
+		}
 	}
 
 	// Deploy Aptos token pool
 	tokenPoolAddress := cfg.TokenPoolAddress
-	if cfg.TokenPoolAddress != (aptos.AccountAddress{}) {
+	if cfg.TokenPoolAddress == (aptos.AccountAddress{}) {
 		depInput := seq.DeployTokenPoolSeqInput{
-			TokenObjAddress: tokenObjectAddress,
-			PoolType:        cfg.PoolType,
+			TokenObjAddress:   tokenObjectAddress,
+			TokenAddress:      tokenAddress,
+			TokenOwnerAddress: tokenOwnerAddress,
+			PoolType:          cfg.PoolType,
 		}
 		deploySeq, err := operations.ExecuteSequence(env.OperationsBundle, seq.DeployAptosTokenPoolSequence, deps, depInput)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 		seqReports = append(seqReports, deploySeq.ExecutionReports...)
-		mcmsOperations = append(mcmsOperations, deploySeq.Output...)
-		tokenPoolAddress = tokenObjectAddress
+		mcmsOperations = append(mcmsOperations, deploySeq.Output.MCMSOps...)
+		tokenPoolAddress = deploySeq.Output.TokenPoolAddress
+		// Save token pool address in address book
+		typeAndVersion := cldf.NewTypeAndVersion(cfg.PoolType, deployment.Version1_6_0)
+		typeAndVersion.AddLabel(tokenAddress.String())
+		err = deps.AB.Save(deps.AptosChain.Selector, deploySeq.Output.TokenPoolAddress.String(), typeAndVersion)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save token pool address %s: %w", deploySeq.Output.TokenPoolAddress, err)
+		}
 	}
 
 	// Connect token pools EVM -> Aptos

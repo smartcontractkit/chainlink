@@ -13,7 +13,7 @@ require (
 	dario.cat/mergo v1.0.1
 	github.com/Khan/genqlient v0.7.0
 	github.com/Masterminds/semver/v3 v3.3.1
-	github.com/aptos-labs/aptos-go-sdk v1.6.3-0.20250331001805-0680b714db6d
+	github.com/aptos-labs/aptos-go-sdk v1.7.1-0.20250602153733-bb1facae1d43
 	github.com/aws/aws-sdk-go v1.55.6
 	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/ethereum/go-ethereum v1.15.7
@@ -32,7 +32,7 @@ require (
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
 	github.com/smartcontractkit/chain-selectors v1.0.59
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250530133205-4991a37c28ff
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250604171518-c6a8d7f44447
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250527111814-1c5342edf3b4
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250520123946-6aaf88e0848a
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250528133621-89eb1ce3d76f
@@ -49,6 +49,7 @@ require (
 	github.com/smartcontractkit/mcms v0.19.2
 	github.com/spf13/cast v1.7.1
 	github.com/stretchr/testify v1.10.0
+	github.com/test-go/testify v1.1.4
 	github.com/testcontainers/testcontainers-go v0.37.0
 	github.com/zksync-sdk/zksync2-go v1.0.0
 	go.uber.org/multierr v1.11.0

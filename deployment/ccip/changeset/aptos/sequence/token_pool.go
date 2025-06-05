@@ -1,19 +1,29 @@
 package sequence
 
 import (
+	"fmt"
+
 	"github.com/aptos-labs/aptos-go-sdk"
+	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 // Deploy Token Pool sequence input
 type DeployTokenPoolSeqInput struct {
-	TokenObjAddress aptos.AccountAddress
-	PoolType        cldf.ContractType
+	TokenObjAddress   aptos.AccountAddress
+	TokenAddress      aptos.AccountAddress
+	TokenOwnerAddress aptos.AccountAddress
+	PoolType          cldf.ContractType
+}
+type DeployTokenPoolSeqOutput struct {
+	TokenPoolAddress aptos.AccountAddress
+	MCMSOps          []mcmstypes.BatchOperation
 }
 
 // DeployAptosTokenPoolSequence deploys token pool to the same address as Token Object Address
@@ -24,53 +34,96 @@ var DeployAptosTokenPoolSequence = operations.NewSequence(
 	deployAptosTokenPoolSequence,
 )
 
-func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in DeployTokenPoolSeqInput) ([]mcmstypes.BatchOperation, error) {
+func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in DeployTokenPoolSeqInput) (DeployTokenPoolSeqOutput, error) {
 	mcmsOperations := []mcmstypes.BatchOperation{}
-	txs := []mcmstypes.Transaction{}
 
-	// Cleanup staging area
+	// 1 - Cleanup staging area
 	mcmsAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].MCMSAddress
 	cleanupReport, err := operations.ExecuteOperation(b, operation.CleanupStagingAreaOp, deps, mcmsAddress)
 	if err != nil {
-		return nil, err
+		return DeployTokenPoolSeqOutput{}, err
 	}
 	if len(cleanupReport.Output.Transactions) > 0 {
 		mcmsOperations = append(mcmsOperations, cleanupReport.Output)
 	}
 
-	// Deploy token pool package
-	deployTokenPoolPackageReport, err := operations.ExecuteOperation(b, operation.DeployTokenPoolPackageOp, deps, in.TokenObjAddress)
+	// 2 - Set token Registrar
+	// Get a deterministic seed using token address and pool type
+	tokenPoolSeed := fmt.Sprintf("%s::%s", in.TokenAddress.String(), in.PoolType.String())
+	// Calculate token pool owner address and set token registrar
+	mcmsContract := mcmsbind.Bind(mcmsAddress, deps.AptosChain.Client)
+	tokenPoolOwnerAddress, err := mcmsContract.MCMSRegistry().GetNewCodeObjectOwnerAddress(nil, []byte(tokenPoolSeed))
 	if err != nil {
-		return nil, err
+		return DeployTokenPoolSeqOutput{}, fmt.Errorf("failed to get new code object owner address: %w", err)
 	}
-	mcmsOperations = append(mcmsOperations, utils.ToBatchOperations(deployTokenPoolPackageReport.Output)...)
+	setTokenRegistrarInput := operation.SetTokenRegistrarInput{
+		TokenAddress:          in.TokenAddress,
+		TokenPoolOwnerAddress: tokenPoolOwnerAddress,
+	}
+	setRegReport, err := operations.ExecuteOperation(b, operation.SetTokenRegistrarOp, deps, setTokenRegistrarInput)
+	if err != nil {
+		return DeployTokenPoolSeqOutput{}, err
+	}
+	mcmsOperations = append(mcmsOperations, mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
+		Transactions:  []mcmstypes.Transaction{setRegReport.Output},
+	})
 
-	// Deploy token pool module
+	// 3 - Deploy token pool package
+	deployTokenPoolPackageReport, err := operations.ExecuteOperation(b, operation.DeployTokenPoolPackageOp, deps, tokenPoolSeed)
+	if err != nil {
+		return DeployTokenPoolSeqOutput{}, err
+	}
+	tokenPoolObjectAddress := deployTokenPoolPackageReport.Output.TokenPoolObjectAddress
+	mcmsOperations = append(mcmsOperations, utils.ToBatchOperations(deployTokenPoolPackageReport.Output.MCMSOps)...)
+
+	// 4 - Deploy token pool module
+	tokenOwnerAddress := in.TokenOwnerAddress
+	if tokenOwnerAddress == (aptos.AccountAddress{}) {
+		toa, err := mcmsContract.MCMSRegistry().GetRegisteredOwnerAddress(nil, in.TokenObjAddress)
+		if err != nil {
+			return DeployTokenPoolSeqOutput{}, fmt.Errorf("failed to get tokenOwnerAddress: %w", err)
+		}
+		tokenOwnerAddress = toa
+	}
 	deployTokenPoolModuleInput := operation.DeployTokenPoolModuleInput{
-		TokenObjAddress: in.TokenObjAddress,
-		PoolType:        in.PoolType,
+		TokenObjAddress:     in.TokenObjAddress,
+		TokenPoolObjAddress: tokenPoolObjectAddress,
+		TokenOwnerAddress:   tokenOwnerAddress,
+		PoolType:            in.PoolType,
 	}
 	deployTokenPoolModuleReport, err := operations.ExecuteOperation(b, operation.DeployTokenPoolModuleOp, deps, deployTokenPoolModuleInput)
 	if err != nil {
-		return nil, err
+		return DeployTokenPoolSeqOutput{}, err
 	}
 	mcmsOperations = append(mcmsOperations, utils.ToBatchOperations(deployTokenPoolModuleReport.Output)...)
 
-	// Grant minter permission to the token pool
-	gmReport, err := operations.ExecuteOperation(b, operation.GrantMinterPermissionsOp, deps, in.TokenObjAddress)
-	if err != nil {
-		return nil, err
-	}
-	txs = append(txs, gmReport.Output)
+	// 5 - Grant BnM permission to the token pool
+	// TODO: BnM Pool should also have this
+	if in.PoolType == shared.AptosManagedTokenPoolType {
+		txs := []mcmstypes.Transaction{}
+		gmReport, err := operations.ExecuteOperation(b, operation.GrantMinterPermissionsOp, deps, in.TokenObjAddress)
+		if err != nil {
+			return DeployTokenPoolSeqOutput{}, err
+		}
+		txs = append(txs, gmReport.Output)
 
-	// Grant burner permission to the token pool
-	gbReport, err := operations.ExecuteOperation(b, operation.GrantBurnerPermissionsOp, deps, in.TokenObjAddress)
-	if err != nil {
-		return nil, err
-	}
-	txs = append(txs, gbReport.Output)
+		gbReport, err := operations.ExecuteOperation(b, operation.GrantBurnerPermissionsOp, deps, in.TokenObjAddress)
+		if err != nil {
+			return DeployTokenPoolSeqOutput{}, err
+		}
+		txs = append(txs, gbReport.Output)
 
-	return mcmsOperations, nil
+		mcmsOperations = append(mcmsOperations, mcmstypes.BatchOperation{
+			ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
+			Transactions:  txs,
+		})
+	}
+
+	return DeployTokenPoolSeqOutput{
+		TokenPoolAddress: tokenPoolObjectAddress,
+		MCMSOps:          mcmsOperations,
+	}, nil
 }
 
 // Connect Token Pool sequence input

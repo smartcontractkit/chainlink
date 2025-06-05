@@ -80,6 +80,9 @@ func GenerateChainsAptos(t *testing.T, numChains int) map[uint64]cldf_aptos.Chai
 				if !userTx.Success {
 					return fmt.Errorf("transaction failed: %s", userTx.VmStatus)
 				}
+				if userTx.VmStatus != "Executed successfully" {
+					return fmt.Errorf("transaction not executed, vmstatus: %s", userTx.VmStatus)
+				}
 				return nil
 			},
 		}

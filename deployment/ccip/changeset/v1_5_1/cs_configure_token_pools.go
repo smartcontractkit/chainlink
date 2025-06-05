@@ -168,6 +168,8 @@ func (c AptosChainUpdate) GetAptosTokenAndTokenPool(state aptosstate.CCIPChainSt
 		return
 	}
 	switch c.Type {
+	case shared.AptosManagedTokenPoolType:
+		tokenPoolAddress = state.AptosManagedTokenPools[token]
 	case shared.BurnMintTokenPool:
 		tokenPoolAddress = state.BurnMintTokenPools[token]
 	case shared.LockReleaseTokenPool:

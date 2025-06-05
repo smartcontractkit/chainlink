@@ -20,9 +20,10 @@ type DeployTokenInput struct {
 }
 
 type DeployTokenOutput struct {
-	TokenObjAddress aptos.AccountAddress
-	TokenAddress    aptos.AccountAddress
-	MCMSOps         []types.Operation
+	TokenObjAddress   aptos.AccountAddress
+	TokenAddress      aptos.AccountAddress
+	TokenOwnerAddress aptos.AccountAddress
+	MCMSOps           []types.Operation
 }
 
 // DeployTokenOp generates proposal to deploy a token
@@ -42,6 +43,10 @@ func deployToken(b operations.Bundle, deps AptosDeps, in DeployTokenInput) (Depl
 	if err != nil {
 		return DeployTokenOutput{}, fmt.Errorf("failed to GetNewCodeObjectAddress: %w", err)
 	}
+	managedTokenOwnerAddress, err := mcmsContract.MCMSRegistry().GetNewCodeObjectOwnerAddress(nil, []byte(managedTokenSeed))
+	if err != nil {
+		return DeployTokenOutput{}, fmt.Errorf("failed to GetNewCodeObjectOwnerAddress: %w", err)
+	}
 
 	// Calculate token Metadata Address
 	managedTokenStateAddress := managedTokenObjectAddress.NamedObjectAddress([]byte(managedTokenStateSeed))
@@ -58,9 +63,10 @@ func deployToken(b operations.Bundle, deps AptosDeps, in DeployTokenInput) (Depl
 	}
 
 	return DeployTokenOutput{
-		TokenObjAddress: managedTokenObjectAddress,
-		TokenAddress:    managedTokenMetadataAddress,
-		MCMSOps:         ops,
+		TokenObjAddress:   managedTokenObjectAddress,
+		TokenAddress:      managedTokenMetadataAddress,
+		TokenOwnerAddress: managedTokenOwnerAddress,
+		MCMSOps:           ops,
 	}, nil
 }
 

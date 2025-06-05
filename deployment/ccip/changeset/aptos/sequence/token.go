@@ -11,9 +11,10 @@ import (
 )
 
 type DeployTokenSeqOutput struct {
-	TokenAddress    aptos.AccountAddress
-	TokenObjAddress aptos.AccountAddress
-	MCMSOperations  []mcmstypes.BatchOperation
+	TokenAddress      aptos.AccountAddress
+	TokenObjAddress   aptos.AccountAddress
+	TokenOwnerAddress aptos.AccountAddress
+	MCMSOperations    []mcmstypes.BatchOperation
 }
 
 var DeployAptosTokenSequence = operations.NewSequence(
@@ -38,7 +39,7 @@ func deployAptosTokenSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	// Deploy token
 	deployTInput := operation.DeployTokenInput{
 		Name:   in.Name,
-		Symbol: in.Symbol,
+		Symbol: string(in.Symbol),
 	}
 	deployTReport, err := operations.ExecuteOperation(b, operation.DeployTokenOp, deps, deployTInput)
 	if err != nil {
@@ -58,7 +59,7 @@ func deployAptosTokenSequence(b operations.Bundle, deps operation.AptosDeps, in 
 		TokenObjAddress: deployTReport.Output.TokenObjAddress,
 		MaxSupply:       in.MaxSupply,
 		Name:            in.Name,
-		Symbol:          in.Symbol,
+		Symbol:          string(in.Symbol),
 		Decimals:        in.Decimals,
 		Icon:            in.Icon,
 		Project:         in.Project,
@@ -73,8 +74,9 @@ func deployAptosTokenSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	})
 
 	return DeployTokenSeqOutput{
-		TokenAddress:    deployTReport.Output.TokenAddress,
-		TokenObjAddress: deployTReport.Output.TokenObjAddress,
-		MCMSOperations:  mcmsOperations,
+		TokenAddress:      deployTReport.Output.TokenAddress,
+		TokenObjAddress:   deployTReport.Output.TokenObjAddress,
+		TokenOwnerAddress: deployTReport.Output.TokenOwnerAddress,
+		MCMSOperations:    mcmsOperations,
 	}, nil
 }

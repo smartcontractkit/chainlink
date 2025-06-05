@@ -5,17 +5,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 type AddTokenPoolConfig struct {
 	// DeployAptosTokenConfig
 	ChainSelector                       uint64
-	TokenAddress                        aptos.AccountAddress
-	TokenObjAddress                     aptos.AccountAddress
-	TokenPoolAddress                    aptos.AccountAddress
-	TokenSymbol                         shared.TokenSymbol
+	TokenAddress                        aptos.AccountAddress // if empty, token will be deployed
+	TokenObjAddress                     aptos.AccountAddress // if empty, token will be deployed
+	TokenPoolAddress                    aptos.AccountAddress // if empty, token pool will be deployed
 	PoolType                            cldf.ContractType
 	TokenTransferFeeByRemoteChainConfig map[uint64]fee_quoter.TokenTransferFeeConfig
 	EVMRemoteConfigs                    map[uint64]EVMRemoteConfig
