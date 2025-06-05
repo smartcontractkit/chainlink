@@ -4,7 +4,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	ccip_owner "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
@@ -69,7 +68,7 @@ var OpEVMDeployMCMS = operations.NewOperation(
 						chain.Client,
 					)
 				} else {
-					mcmAddr, tx, mcm, err2 = ccip_owner.DeployManyChainMultiSig(
+					mcmAddr, tx, mcm, err2 = bindings.DeployManyChainMultiSig(
 						deps.Chain.DeployerKey,
 						deps.Backend,
 					)
@@ -117,7 +116,7 @@ var OpEVMSetConfig = operations.NewOperation(
 			return out, err
 		}
 
-		mcm, err := ccip_owner.NewManyChainMultiSig(input.Address, deps.Backend)
+		mcm, err := bindings.NewManyChainMultiSig(input.Address, deps.Backend)
 		if err != nil {
 			b.Logger.Errorw("Failed to create ManyChainMultiSig instance",
 				"chainSelector", deps.Chain.ChainSelector(),
