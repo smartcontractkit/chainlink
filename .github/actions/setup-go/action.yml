@@ -96,8 +96,6 @@ runs:
         # The lifetime of go modules is much higher than the build outputs, so we increase cache efficiency
         # here by not having the primary key contain the branch name
         key: ${{ runner.os }}-gomod-${{ inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}
-        restore-keys: |
-          ${{ runner.os }}-gomod-${{ inputs.cache-version }}-
 
     # BUILD CACHE LOGIC
     # ---
