@@ -100,8 +100,9 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 	mcmsOperations = append(mcmsOperations, utils.ToBatchOperations(deployTokenPoolModuleReport.Output)...)
 	// 5 - Grant BnM permission to the token pool
 	// TODO: BnM Pool should also have this
-	tokenPoolStateAddress := tokenPoolObjectAddress.ResourceAccount([]byte("CcipManagedTokenPool"))
 	if in.PoolType == shared.AptosManagedTokenPoolType {
+		// Get the token pool state address
+		tokenPoolStateAddress := tokenPoolObjectAddress.ResourceAccount([]byte("CcipManagedTokenPool"))
 		txs := []mcmstypes.Transaction{}
 		gmReport, err := operations.ExecuteOperation(b, operation.GrantMinterPermissionsOp, deps, operation.GrantRolePermissionsInput{
 			TokenObjAddress:              in.TokenObjAddress,
