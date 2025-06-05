@@ -25,6 +25,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/ops"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/seqs"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -235,59 +236,44 @@ func DeployMCMSWithTimelockContractsEVM(
 	}
 
 	if timelock == nil {
-		timelockC, err := cldf.DeployContract(lggr, chain, ab,
-			func(chain cldf_evm.Chain) cldf.ContractDeploy[*bindings.RBACTimelock] {
-				var (
-					timelock common.Address
-					tx2      *types.Transaction
-					cc       *bindings.RBACTimelock
-					err2     error
-				)
-				if chain.IsZkSyncVM {
-					timelock, _, cc, err2 = mcmsnew_zksync.DeployRBACTimelockZk(
-						nil,
-						chain.ClientZkSyncVM,
-						chain.DeployerKeyZkSyncVM,
-						chain.Client,
-						config.TimelockMinDelay,
-						chain.DeployerKey.From,
-						[]common.Address{proposer.Address()},
-						[]common.Address{},
-						[]common.Address{canceller.Address(), proposer.Address(), bypasser.Address()},
-						[]common.Address{bypasser.Address()},
-					)
-				} else {
-					timelock, tx2, cc, err2 = bindings.DeployRBACTimelock(
-						chain.DeployerKey,
-						chain.Client,
-						config.TimelockMinDelay,
-						// Deployer is the initial admin.
-						// TODO: Could expose this as config?
-						// Or keep this enforced to follow the same pattern?
-						chain.DeployerKey.From,
-						[]common.Address{proposer.Address()}, // proposers
-						// Executors field is empty here because we grant the executor role to the call proxy later
-						// and the call proxy cannot be deployed before the timelock.
-						[]common.Address{},
-						[]common.Address{canceller.Address(), proposer.Address(), bypasser.Address()}, // cancellers
-						[]common.Address{bypasser.Address()},                                          // bypassers
-					)
-				}
+		opDeps := ops.OpEVMMCMSDeps{
+			Chain:    chain,
+			AddrBook: ab,
+			Backend:  chain.Client,
+			Options:  opts,
+		}
+		opInput := ops.OpEVMDeployTimelockInput{
+			ContractType: commontypes.RBACTimelock,
+			// Deployer is the initial admin.
+			// TODO: Could expose this as config?
+			// Or keep this enforced to follow the same pattern?
+			Admin:     chain.DeployerKey.From,
+			Proposers: []common.Address{proposer.Address()},
+			// Executors field is empty here because we grant the executor role to the call proxy later
+			// and the call proxy cannot be deployed before the timelock.
+			Executors:        []common.Address{},
+			Cancellers:       []common.Address{canceller.Address(), proposer.Address(), bypasser.Address()}, // cancellers
+			Bypassers:        []common.Address{bypasser.Address()},                                          // bypassers
+			TimelockMinDelay: config.TimelockMinDelay,
+		}
 
-				tv := cldf.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0)
-				if config.Label != nil {
-					tv.AddLabel(*config.Label)
-				}
-
-				return cldf.ContractDeploy[*bindings.RBACTimelock]{
-					Address: timelock, Contract: cc, Tx: tx2, Tv: tv, Err: err2,
-				}
-			})
+		report, err := operations.ExecuteOperation(
+			env.OperationsBundle,
+			ops.OpEVMDeployTimelock,
+			opDeps,
+			opInput,
+		)
 		if err != nil {
 			lggr.Errorw("Failed to deploy timelock", "chain", chain.String(), "err", err)
 			return nil, err
 		}
-		timelock = timelockC.Contract
+
+		timelock, err = bindings.NewRBACTimelock(report.Output.Address, chain.Client)
+		if err != nil {
+			lggr.Errorw("Failed to create Timelock binding", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+
 		lggr.Infow("Timelock deployed", "chain", chain.String(), "address", timelock.Address)
 	} else {
 		lggr.Infow("Timelock already deployed", "chain", chain.String(), "address", timelock.Address)
