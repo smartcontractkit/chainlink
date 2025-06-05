@@ -61,12 +61,10 @@ func (r *ServerAdapter) NewPluginProvider(ctx context.Context, rargs types.Relay
 		return r.NewCCIPCommitProvider(ctx, rargs, pargs)
 	case types.CCIPExecution:
 		return r.NewCCIPExecProvider(ctx, rargs, pargs)
-	case types.DKG, types.OCR2VRF, types.GenericPlugin, types.VaultPlugin:
+	case types.DKG, types.OCR2VRF, types.GenericPlugin, types.VaultPlugin, types.SecureMint: // TODO(gg): update to use a separate SecureMintProvider if needed
 		return r.Relayer.NewPluginProvider(ctx, rargs, pargs)
 	case types.LLO:
 		return nil, fmt.Errorf("provider type not supported: %s", rargs.ProviderType)
-	case types.SecureMint:
-		return r.Relayer.NewPluginProvider(ctx, rargs, pargs) // TODO(gg): update to use SecureMintProvider if needed
 	}
 	return nil, fmt.Errorf("provider type not recognized: %s", rargs.ProviderType)
 }

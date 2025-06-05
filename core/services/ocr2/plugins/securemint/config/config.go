@@ -17,7 +17,7 @@ import (
 
 type DeviationFunctionDefinition map[string]any
 
-// TODO(gg): copied from median config and added transmitter config from llo config. Probably has to be updated at some point.
+// TODO(gg): copied from median config and added transmitter config from llo config. Probably has to be updated at some point. Not used atm.
 
 // The PluginConfig struct contains the custom arguments needed for the Median plugin.
 // To avoid a catastrophic libocr codec error, you must make sure that either all nodes in the same DON

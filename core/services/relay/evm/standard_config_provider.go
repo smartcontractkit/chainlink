@@ -53,28 +53,3 @@ func newContractConfigProvider(ctx context.Context, lggr logger.Logger, chain le
 
 	return newConfigWatcher(lggr, aggregatorAddress, digester, cp, chain, relayConfig.FromBlock, opts.New), nil
 }
-
-func newSecureMintConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, opts *types.RelayOpts) (*configWatcher, error) {
-	if !common.IsHexAddress(opts.ContractID) {
-		return nil, errors.New("invalid contractID, expected hex address")
-	}
-	lggr.Infof("TRACE - Creating SecureMintConfigProvider with contract address: %s", opts.ContractID)
-
-	configStoreAddress := common.HexToAddress(opts.ContractID)
-	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{
-		ChainID:         chain.Config().EVM().ChainID().Uint64(),
-		ContractAddress: configStoreAddress,
-	}
-
-	cp, err := newConfigPollerEVMSimple(ctx, lggr, configStoreAddress, chain.Client())
-	if err != nil {
-		return nil, fmt.Errorf("failed to create ConfigPollerEVMSimple: %w", err)
-	}
-
-	relayConfig, err := opts.RelayConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get relay config: %w", err)
-	}
-
-	return newConfigWatcher(lggr, configStoreAddress, offchainConfigDigester, cp, chain, relayConfig.FromBlock, opts.New), nil
-}

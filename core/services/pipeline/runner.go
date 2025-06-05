@@ -291,7 +291,7 @@ func overtimeContext(ctx context.Context) (context.Context, context.CancelFunc) 
 }
 
 func (r *runner) ExecuteRun(ctx context.Context, spec Spec, vars Vars) (*Run, TaskRunResults, error) {
-	//r.lggr.Infof("TRACE ExecuteRun Executing run for spec ID %v, job ID %v, job name %s", spec.ID, spec.JobID, spec.JobName)
+	r.lggr.Infof("TRACE ExecuteRun Executing run for spec ID %v, job ID %v, job name %s", spec.ID, spec.JobID, spec.JobName)
 	// Pipeline runs may return results after the context is cancelled, so we modify the
 	// deadline to give them time to return before the parent context deadline.
 	var cancel func()

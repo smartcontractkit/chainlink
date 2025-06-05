@@ -386,16 +386,7 @@ func (r *Relayer) NewPluginProvider(ctx context.Context, rargs commontypes.Relay
 		return nil, fmt.Errorf("failed to get relay config: %w", err)
 	}
 
-	r.lggr.Infof("TRACE NewPluginProvider: relayConfig: %+v and provuder typeABI", relayConfig, rargs.ProviderType)
-
-	var configWatcher *configWatcher
-	switch rargs.ProviderType {
-	case string(commontypes.SecureMint):
-		r.lggr.Infof("TRACE NewPluginProvider: using standard config provider type")
-		configWatcher, err = newStandardConfigProvider(ctx, r.lggr, r.chain, relayOpts)
-	default:
-		configWatcher, err = newStandardConfigProvider(ctx, r.lggr, r.chain, relayOpts)
-	}
+	configWatcher, err := newStandardConfigProvider(ctx, r.lggr, r.chain, relayOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -736,9 +727,9 @@ func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayA
 		configProvider, err = newLLOConfigProvider(ctx, lggr, r.chain, &retirement.NullRetirementReportCache{}, relayOpts)
 	case "ocr3-capability":
 		configProvider, err = NewOCR3CapabilityConfigProvider(ctx, lggr, r.chain, relayOpts)
-	// TODO(gg): for when bootstrap jobs are used for SecureMint
+	// TODO(gg): for when bootstrap jobs are used for SecureMint, does it need changing?
 	case "securemint":
-		configProvider, err = newSecureMintConfigProvider(ctx, lggr, r.chain, relayOpts)
+		configProvider, err = newStandardConfigProvider(ctx, lggr, r.chain, relayOpts)
 	default:
 		return nil, fmt.Errorf("unrecognized provider type: %q", args.ProviderType)
 	}
