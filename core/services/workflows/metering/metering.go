@@ -16,10 +16,7 @@ import (
 )
 
 const (
-	consensusCreditType = "CONSENSUS"
-	triggerCreditType   = "TRIGGER"
-	ComputeCreditType   = "COMPUTE"
-	gasCreditType       = "GAS"
+	ComputeResourceDimension = "COMPUTE"
 )
 
 var (
@@ -142,8 +139,8 @@ func NewReport(workflowExecutionID string, lggr logger.SugaredLogger) *Report {
 	}
 }
 
-// Initialize prepares the metering report for usage by retrieving information from the billing client
-func (r *Report) Initialize(ctx context.Context) error {
+// StartAndReserve prepares the metering report for usage by retrieving information from the billing client
+func (r *Report) StartAndReserve(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

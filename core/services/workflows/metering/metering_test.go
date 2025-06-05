@@ -77,7 +77,7 @@ func TestReport(t *testing.T) {
 		report.client = billingClient
 		report.owner = testAccountID
 		report.workflowID = testWorkflowID
-		err := report.Initialize(t.Context())
+		err := report.StartAndReserve(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
 		require.NoError(t, err)
@@ -120,7 +120,7 @@ func TestReport(t *testing.T) {
 		report.client = billingClient
 		report.owner = testAccountID
 		report.workflowID = testWorkflowID
-		err := report.Initialize(t.Context())
+		err := report.StartAndReserve(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
 		require.NoError(t, err)
@@ -155,7 +155,7 @@ func TestReport(t *testing.T) {
 		report.client = billingClient
 		report.owner = testAccountID
 		report.workflowID = testWorkflowID
-		err := report.Initialize(t.Context())
+		err := report.StartAndReserve(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
 		require.NoError(t, err)
@@ -192,7 +192,7 @@ func TestReport(t *testing.T) {
 		report.client = billingClient
 		report.owner = testAccountID
 		report.workflowID = testWorkflowID
-		err := report.Initialize(t.Context())
+		err := report.StartAndReserve(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
 		require.NoError(t, err)
@@ -225,7 +225,7 @@ func TestReport(t *testing.T) {
 	t.Run("Initialize returns an error if no billing client is given", func(t *testing.T) {
 		t.Parallel()
 		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
-		require.ErrorIs(t, report.Initialize(t.Context()), ErrNoBillingClient)
+		require.ErrorIs(t, report.StartAndReserve(t.Context()), ErrNoBillingClient)
 	})
 
 	t.Run("Initialize returns an error if no owner is given", func(t *testing.T) {
@@ -233,7 +233,7 @@ func TestReport(t *testing.T) {
 		report := NewReport(testWorkflowExecutionID, logger.TestSugared(t))
 		billingClient := newMockBillingClient()
 		report.client = billingClient
-		require.ErrorIs(t, report.Initialize(t.Context()), ErrNoOwner)
+		require.ErrorIs(t, report.StartAndReserve(t.Context()), ErrNoOwner)
 	})
 
 	t.Run("Initialize returns an error if no workflow ID is given", func(t *testing.T) {
@@ -242,7 +242,7 @@ func TestReport(t *testing.T) {
 		billingClient := newMockBillingClient()
 		report.client = billingClient
 		report.owner = testAccountID
-		require.ErrorIs(t, report.Initialize(t.Context()), ErrNoWorkflowID)
+		require.ErrorIs(t, report.StartAndReserve(t.Context()), ErrNoWorkflowID)
 	})
 
 	t.Run("Initialize allows negative balances if the billing client cannot be communicated with", func(t *testing.T) {
@@ -253,7 +253,7 @@ func TestReport(t *testing.T) {
 		report.client = billingClient
 		report.owner = testAccountID
 		report.workflowID = testWorkflowID
-		err := report.Initialize(t.Context())
+		err := report.StartAndReserve(t.Context())
 		require.True(t, report.balance.allowNegative)
 		require.NoError(t, err)
 		_, err = report.DeductByLimits("ref1", capabilities.CapabilityInfo{}, []SpendTuple{{Value: 1, Unit: "SomeUnit"}})
@@ -269,7 +269,7 @@ func TestReport(t *testing.T) {
 		report.client = billingClient
 		report.owner = testAccountID
 		report.workflowID = testWorkflowID
-		err := report.Initialize(t.Context())
+		err := report.StartAndReserve(t.Context())
 		require.ErrorIs(t, err, ErrInsufficientFunding)
 	})
 
@@ -292,7 +292,7 @@ func TestReport(t *testing.T) {
 		report.client = billingClient
 		report.owner = testAccountID
 		report.workflowID = testWorkflowID
-		err := report.Initialize(t.Context())
+		err := report.StartAndReserve(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
 		require.NoError(t, err)
@@ -321,7 +321,7 @@ func TestReport(t *testing.T) {
 		report.client = billingClient
 		report.owner = testAccountID
 		report.workflowID = testWorkflowID
-		err := report.Initialize(t.Context())
+		err := report.StartAndReserve(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
 		require.NoError(t, err)
@@ -355,7 +355,7 @@ func TestReport(t *testing.T) {
 		report.client = billingClient
 		report.owner = testAccountID
 		report.workflowID = testWorkflowID
-		err := report.Initialize(t.Context())
+		err := report.StartAndReserve(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
 		require.NoError(t, err)
@@ -375,7 +375,7 @@ func TestReport(t *testing.T) {
 		report.client = billingClient
 		report.owner = testAccountID
 		report.workflowID = testWorkflowID
-		err := report.Initialize(t.Context())
+		err := report.StartAndReserve(t.Context())
 		require.NoError(t, err)
 		err = report.balance.Add(100)
 		require.NoError(t, err)
@@ -418,7 +418,7 @@ func Test_MeterReports(t *testing.T) {
 		report.client = billingClient
 		report.owner = testAccountID
 		report.workflowID = testWorkflowID
-		report.Initialize(t.Context())
+		report.StartAndReserve(t.Context())
 		mr.Add("exec1", report)
 		r, ok := mr.Get("exec1")
 		assert.True(t, ok)
@@ -434,7 +434,7 @@ func Test_MeterReports(t *testing.T) {
 		report.client = billingClient
 		report.owner = testAccountID
 		report.workflowID = testWorkflowID
-		report.Initialize(t.Context())
+		report.StartAndReserve(t.Context())
 		report.balance.Add(10)
 		mr.Add("exec2", report)
 		r, ok := mr.Get("exec2")
@@ -451,7 +451,7 @@ func Test_MeterReports(t *testing.T) {
 		report.client = billingClient
 		report.owner = testAccountID
 		report.workflowID = testWorkflowID
-		report.Initialize(t.Context())
+		report.StartAndReserve(t.Context())
 		mr.Add("exec1", report)
 		r, ok := mr.Get("exec1")
 		assert.True(t, ok)

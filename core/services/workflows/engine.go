@@ -491,7 +491,7 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 func (e *Engine) startExecution(ctx context.Context, executionID string, triggerID string, event *values.Map) error {
 	meteringReport := metering.NewReport(executionID, clggr.Sugared(e.logger))
 	e.meterReports.Add(executionID, meteringReport)
-	err := meteringReport.Initialize(ctx)
+	err := meteringReport.StartAndReserve(ctx)
 	if err != nil {
 		e.logger.Errorf("failed to initialize: %+v", err)
 	}
