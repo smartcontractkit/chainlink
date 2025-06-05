@@ -144,7 +144,7 @@ func assertEqualCapabilities(t *testing.T, registry *kcr.CapabilitiesRegistry, w
 		require.NoError(t, err)
 		wantHashes[i] = h
 	}
-	assert.Equal(t, len(want), len(got.HashedCapabilityIds))
+	assert.Len(t, got.HashedCapabilityIds, len(want))
 	assert.ElementsMatch(t, wantHashes, got.HashedCapabilityIds)
 }
 

@@ -2,6 +2,7 @@ package solana
 
 import (
 	"github.com/gagliardetto/solana-go"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/shared"
 )

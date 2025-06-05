@@ -442,7 +442,6 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 			}
 			cfg.ChainSelectors = append(cfg.ChainSelectors, donCfg.ChainSelectors...)
 			ncfg = append(ncfg, cfg)
-
 		}
 		n := envtest.NewNodes(t, ncfg)
 		require.Len(t, n, donCfg.N)

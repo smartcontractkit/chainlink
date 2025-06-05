@@ -5,16 +5,17 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/sdk"
+	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	ks_forwarder "github.com/smartcontractkit/chainlink-solana/contracts/generated/keystone_forwarder"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
-	"github.com/smartcontractkit/mcms"
-	"github.com/smartcontractkit/mcms/sdk"
-	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
-	mcmsTypes "github.com/smartcontractkit/mcms/types"
 )
 
 type TransferOwnershipForwarderRequest struct {

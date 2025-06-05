@@ -18,7 +18,6 @@ import (
 )
 
 func TestDeployFeedsConsumer(t *testing.T) {
-
 	t.Parallel()
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
