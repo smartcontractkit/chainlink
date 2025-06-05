@@ -76,21 +76,18 @@ func (fv *FeedState) Validate() error {
 
 		if streamsIDMap[f.StreamsID] {
 			return fmt.Errorf("found duplicate StreamsID %s", f.StreamsID)
-		} else {
-			streamsIDMap[f.StreamsID] = true
 		}
+		streamsIDMap[f.StreamsID] = true
 
 		if feedIDMap[f.FeedID] {
 			return fmt.Errorf("found duplicate FeedID %s", f.FeedID)
-		} else {
-			feedIDMap[f.FeedID] = true
 		}
+		feedIDMap[f.FeedID] = true
 
 		if descriptionMap[f.Description] {
 			return fmt.Errorf("found duplicate Description %s", f.Description)
-		} else {
-			descriptionMap[f.Description] = true
 		}
+		descriptionMap[f.Description] = true
 	}
 
 	return nil
