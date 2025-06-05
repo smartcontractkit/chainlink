@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api/jsonrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	gw_net "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -84,19 +85,16 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 		handlerMap[donConfig.DonId] = handler
 		donConnMgr.SetHandler(handler)
 	}
-	return NewGateway(codec, httpServer, handlerMap, connMgr, lggr), nil
-}
 
-func NewGateway(codec api.Codec, httpServer gw_net.HttpServer, handlers map[string]handlers.Handler, connMgr ConnectionManager, lggr logger.Logger) Gateway {
 	gw := &gateway{
 		codec:      codec,
 		httpServer: httpServer,
-		handlers:   handlers,
+		handlers:   handlerMap,
 		connMgr:    connMgr,
 		lggr:       lggr.Named("Gateway"),
 	}
 	httpServer.SetHTTPRequestHandler(gw)
-	return gw
+	return gw, nil
 }
 
 func (g *gateway) Start(ctx context.Context) error {
@@ -128,6 +126,27 @@ func (g *gateway) Close() error {
 
 // Called by the server
 func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, jwtToken string) (rawResponse []byte, httpStatusCode int) {
+	jsonrpcHandler := &jsonrpc.Handler{}
+	request, err := jsonrpcHandler.DecodeRequest(rawRequest)
+	if err != nil {
+		rawResponse, err = request.EncodeErrorReponse(&jsonrpc.Error{
+			Code:    api.ToJsonRPCErrorCode(api.UserMessageParseError),
+			Message: err.Error(),
+		})
+		if err != nil {
+			promRequest.WithLabelValues(api.FatalError.String()).Inc()
+			return []byte("fatal error"), api.ToHttpErrorCode(api.FatalError)
+		}
+		promRequest.WithLabelValues(api.UserMessageParseError.String()).Inc()
+		return rawResponse, api.ToHttpErrorCode(api.UserMessageParseError)
+	}
+
+	g.lggr.Info("incoming request", "request", request)
+
+	return g.ProcessRequestV1(ctx, rawRequest)
+}
+
+func (g *gateway) ProcessRequestV1(ctx context.Context, rawRequest []byte) (rawResponse []byte, httpStatusCode int) {
 	// decode
 	msg, err := g.codec.DecodeRequest(rawRequest)
 	if err != nil {
