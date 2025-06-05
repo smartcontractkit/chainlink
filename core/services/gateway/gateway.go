@@ -127,7 +127,7 @@ func (g *gateway) Close() error {
 }
 
 // Called by the server
-func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte) (rawResponse []byte, httpStatusCode int) {
+func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, jwtToken string) (rawResponse []byte, httpStatusCode int) {
 	// decode
 	msg, err := g.codec.DecodeRequest(rawRequest)
 	if err != nil {

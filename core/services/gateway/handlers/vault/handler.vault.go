@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
+	gw_handlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
@@ -52,7 +52,7 @@ type vaultHandler struct {
 
 	handlerConfig VaultConfig
 	donConfig     *config.DONConfig
-	don           handlers.DON
+	don           gw_handlers.DON
 	lggr          logger.Logger
 
 	mu                sync.RWMutex
@@ -79,9 +79,9 @@ type VaultConfig struct {
 	RequestTimeoutSec     int                  `json:"request_timeout_sec"`
 }
 
-var _ handlers.Handler = (*vaultHandler)(nil)
+var _ gw_handlers.Handler = (*vaultHandler)(nil)
 
-func NewVaultHandlerFromConfig(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, lggr logger.Logger) (handlers.Handler, error) {
+func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don gw_handlers.DON, lggr logger.Logger) (gw_handlers.Handler, error) {
 	var cfg VaultConfig
 	if err := json.Unmarshal(handlerConfig, &cfg); err != nil {
 		return nil, err
@@ -117,7 +117,7 @@ func (h *vaultHandler) Close() error {
 	})
 }
 
-func (h *vaultHandler) HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
+func (h *vaultHandler) HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 	switch msg.Body.Method {
 	case MethodSecretsCreate:
 		return h.handleRequest(ctx, msg, callbackCh)
@@ -134,7 +134,7 @@ func (h *vaultHandler) HandleNodeMessage(ctx context.Context, msg *api.Message, 
 	return nil
 }
 
-func (h *vaultHandler) handleRequest(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
+func (h *vaultHandler) handleRequest(ctx context.Context, msg *api.Message, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 	h.lggr.Debugw("handling vault request", "method", msg.Body.Method, "sender", msg.Body.Sender)
 
 	// For demonstration, we'll handle vault.secrets.create directly in the gateway
@@ -174,7 +174,7 @@ func (h *vaultHandler) handleRequest(ctx context.Context, msg *api.Message, call
 				delete(h.pendingRequests, msg.Body.MessageId)
 				h.mu.Unlock()
 
-				callbackPayload := handlers.UserCallbackPayload{
+				callbackPayload := gw_handlers.UserCallbackPayload{
 					Msg:     msg,
 					ErrCode: api.RequestTimeoutError,
 					ErrMsg:  "request timeout",
@@ -191,7 +191,7 @@ func (h *vaultHandler) handleRequest(ctx context.Context, msg *api.Message, call
 	return nil
 }
 
-func (h *vaultHandler) handleSecretsCreateDirect(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
+func (h *vaultHandler) handleSecretsCreateDirect(ctx context.Context, msg *api.Message, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 	var request SecretsCreateRequest
 	if err := json.Unmarshal(msg.Body.Payload, &request); err != nil {
 		response := SecretsCreateResponse{
@@ -254,7 +254,7 @@ func (h *vaultHandler) handleSecretsCreateDirect(ctx context.Context, msg *api.M
 	return h.sendResponse(ctx, msg, response, callbackCh)
 }
 
-func (h *vaultHandler) sendResponse(ctx context.Context, originalMsg *api.Message, response interface{}, callbackCh chan<- handlers.UserCallbackPayload) error {
+func (h *vaultHandler) sendResponse(ctx context.Context, originalMsg *api.Message, response interface{}, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 	responsePayload, err := json.Marshal(response)
 	if err != nil {
 		promSecretsCreateFailure.WithLabelValues(h.donConfig.DonId).Inc()
@@ -265,7 +265,7 @@ func (h *vaultHandler) sendResponse(ctx context.Context, originalMsg *api.Messag
 	responseMsg.Body.Receiver = originalMsg.Body.Sender
 	responseMsg.Body.Payload = responsePayload
 
-	callbackPayload := handlers.UserCallbackPayload{
+	callbackPayload := gw_handlers.UserCallbackPayload{
 		Msg:     &responseMsg,
 		ErrCode: api.NoError,
 		ErrMsg:  "",

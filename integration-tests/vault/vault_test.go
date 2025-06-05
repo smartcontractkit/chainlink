@@ -95,10 +95,10 @@ F = 0
 	// Add the gateway job to each node in the first nodeset
 	for _, client := range gatewayNodeSetClients {
 		job, resp, err := client.CreateJobRaw(gatewayJobSpec)
-		require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway job creation request must return 200 OK")
 		require.NoError(t, err, "Gateway job creation request must not error")
-		require.NotEmpty(t, job.Data.ID, "Gateway job creation response must return a job ID")
 		require.Len(t, job.Errors, 0, "Gateway job creation response must not return any errors")
+		require.NotEmpty(t, job.Data.ID, fmt.Sprintf("Gateway job creation response must return a job ID: %v", job))
+		require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway job creation request must return 200 OK")
 		fmt.Println(job.Data.ID)
 	}
 
@@ -112,18 +112,11 @@ F = 0
 				"jsonrpc": "2.0",
 				"method":  "vault.secrets.create",
 				"params": map[string]interface{}{
-					"body": map[string]interface{}{
-						"don_id":     "vault_don",
-						"message_id": "test-msg-1",
-						"method":     "vault.secrets.create",
-						"sender":     "0x0000000000000000000000000000000000000000",
-						"payload": map[string]interface{}{
-							"id":    "test-secret",
-							"value": "test-secret-value",
-						},
-					},
+					"id":    "test-secret",
+					"value": "test-secret-value",
 				},
-				"id": "1",
+				"id":   "1",
+				"auth": "jwt-token",
 			}
 
 			requestBody, err := json.Marshal(secretRequest)
