@@ -13,6 +13,7 @@ import (
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -33,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/oraclecreator"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
@@ -196,7 +196,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 
 	hcr := ccipreaderpkg.NewObservedHomeChainReader(
 		homeChainContractReader,
-		d.lggr.Named("HomeChainReader"),
+		logger.Named(d.lggr, "HomeChainReader"),
 		ccipreaderpkg.HomeChainPollingInterval,
 		ccipConfigBinding,
 		d.capabilityConfig.ExternalRegistry().ChainID(),
@@ -216,7 +216,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	if err != nil {
 		return nil, err
 	}
-	addressCodec := pluginServices.AddrCodec
 
 	// if bootstrappers are provided we assume that the node is a plugin oracle.
 	// the reason for this is that bootstrap oracles do not need to be aware
@@ -239,7 +238,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			bootstrapperLocators,
 			hcr,
 			cciptypes.ChainSelector(homeChainChainSelector),
-			addressCodec,
+			pluginServices.AddrCodec,
 			p2pID,
 		)
 	} else {
@@ -250,7 +249,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			d.monitoringEndpointGen,
 			d.lggr,
 			homeChainContractReader,
-			addressCodec,
+			pluginServices.AddrCodec,
 		)
 	}
 

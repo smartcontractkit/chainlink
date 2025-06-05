@@ -19,6 +19,11 @@
   # either "docker" or "crib"
   type = "docker"
 
+#[infra.crib]
+#  namespace = "crib-local"
+#  folder_location = "/absolute/path/to/crib/deployments/cre"
+#  provider = "kind"  # or "aws"
+
 [extra_capabilities]
 # uncomment as needed and adjust paths to enable these capabilities and have them copied to containers/pods
 # these default paths assume that binaries are placed in core/scripts/cre/environment/ folder

@@ -9,14 +9,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/deploy"
 )
 
-var rpcUrl string
+var rpcURL string
 
 var DeployPermissionlessFeedsConsumerCmd = &cobra.Command{
 	Use:   "deploy-permissionless-feeds-consumer",
 	Short: "Deploy a Permissionless Feeds Consumer contract",
 	Long:  `Deploy a Permissionless Feeds Consumer contract to the specified blockchain network using the provided RPC URL.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		address, deployErr := deploy.DeployPermissionlessFeedsConsumer(rpcUrl)
+		address, deployErr := deploy.PermissionlessFeedsConsumer(rpcURL)
 		if deployErr != nil {
 			return errors.Wrap(deployErr, "failed to deploy Permissionless Feeds Consumer contract")
 		}
@@ -38,7 +38,7 @@ var ExamplesCmd = &cobra.Command{
 }
 
 func init() {
-	DeployPermissionlessFeedsConsumerCmd.Flags().StringVarP(&rpcUrl, "rpc-url", "r", "http://localhost:8545", "RPC URL")
+	DeployPermissionlessFeedsConsumerCmd.Flags().StringVarP(&rpcURL, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 
 	contractsCmd.AddCommand(DeployPermissionlessFeedsConsumerCmd)
 	ExamplesCmd.AddCommand(contractsCmd)
