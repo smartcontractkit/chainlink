@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	tonaddress "github.com/xssnick/tonutils-go/address"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
@@ -15,17 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	tonstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/ton"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	tonaddress "github.com/xssnick/tonutils-go/address"
 )
-
-// "github.com/smartcontractkit/chainlink-ton/bindings/bind"
-// "github.com/smartcontractkit/chainlink-ton/bindings/ccip"
-// "github.com/smartcontractkit/chainlink-ton/bindings/ccip_dummy_receiver"
-// "github.com/smartcontractkit/chainlink-ton/bindings/ccip_offramp"
-// "github.com/smartcontractkit/chainlink-ton/bindings/ccip_onramp"
-// "github.com/smartcontractkit/chainlink-ton/bindings/ccip_router"
-// "github.com/smartcontractkit/chainlink-ton/bindings/mcms"
-// "github.com/smartcontractkit/chainlink-ton/relayer/utils"
 
 type TonTestDeployPrerequisitesChangeSet struct {
 	T                 *testing.T
@@ -62,7 +53,7 @@ func (c TonTestDeployPrerequisitesChangeSet) Apply(e cldf.Environment) (cldf.Cha
 		err = tonstate.SaveOnchainStateTon(chainSelector, tonChainState, e)
 		require.NoError(t, err)
 	}
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
 type TonTestDeployContractsChangeSet struct {
@@ -74,7 +65,7 @@ type TonTestDeployContractsChangeSet struct {
 
 var _ commoncs.ConfiguredChangeSet = TonTestDeployContractsChangeSet{}
 
-func (c TonTestDeployContractsChangeSet) Apply(e deployment.Environment) (deployment.ChangesetOutput, error) {
+func (c TonTestDeployContractsChangeSet) Apply(e cldf.Environment) (cldf.ChangesetOutput, error) {
 	t := c.T
 
 	tonChains, err := tonstate.LoadOnchainStateTon(e)
@@ -87,10 +78,10 @@ func (c TonTestDeployContractsChangeSet) Apply(e deployment.Environment) (deploy
 		tonChainState := tonChains[chainSelector]
 		c.deployTonContracts(t, e, chainSelector, tonChain, tonChainState, tonChains)
 	}
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
-func (c TonTestDeployContractsChangeSet) deployTonContracts(t *testing.T, e deployment.Environment, chainSelector uint64, tonChain cldf_ton.Chain, tonChainState tonstate.CCIPChainState, onchainState map[uint64]tonstate.CCIPChainState) {
+func (c TonTestDeployContractsChangeSet) deployTonContracts(t *testing.T, e cldf.Environment, chainSelector uint64, tonChain cldf_ton.Chain, tonChainState tonstate.CCIPChainState, onchainState map[uint64]tonstate.CCIPChainState) {
 	deployer := tonChain.Wallet
 	_ = deployer // TODO: use deployer in the rest of the code, pre-funded
 
@@ -131,7 +122,7 @@ type TonTestConfigureContractsChangeSet struct {
 
 var _ commoncs.ConfiguredChangeSet = TonTestConfigureContractsChangeSet{}
 
-func (c TonTestConfigureContractsChangeSet) Apply(e deployment.Environment) (deployment.ChangesetOutput, error) {
+func (c TonTestConfigureContractsChangeSet) Apply(e cldf.Environment) (cldf.ChangesetOutput, error) {
 	t := c.T
 
 	tonChains, err := tonstate.LoadOnchainStateTon(e)
@@ -144,10 +135,10 @@ func (c TonTestConfigureContractsChangeSet) Apply(e deployment.Environment) (dep
 		tonChainState := tonChains[chainSelector]
 		c.configureTonContracts(t, e, chainSelector, tonChain, tonChainState, tonChains)
 	}
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
-func (c TonTestConfigureContractsChangeSet) configureTonContracts(t *testing.T, e deployment.Environment, chainSelector uint64, tonChain cldf_ton.Chain, tonChainState tonstate.CCIPChainState, onchainState map[uint64]tonstate.CCIPChainState) {
+func (c TonTestConfigureContractsChangeSet) configureTonContracts(t *testing.T, e cldf.Environment, chainSelector uint64, tonChain cldf_ton.Chain, tonChainState tonstate.CCIPChainState, onchainState map[uint64]tonstate.CCIPChainState) {
 	// logger := logger.Test(t)
 
 	// offrampBindings := ccip_offramp.Bind(tonChainState.CCIPAddress, tonChain.Client)
@@ -265,7 +256,7 @@ type TonTestAddLaneChangeSet struct {
 
 var _ commoncs.ConfiguredChangeSet = TonTestAddLaneChangeSet{}
 
-func (c TonTestAddLaneChangeSet) Apply(e deployment.Environment) (deployment.ChangesetOutput, error) {
+func (c TonTestAddLaneChangeSet) Apply(e cldf.Environment) (cldf.ChangesetOutput, error) {
 	// t := c.T
 	// TODO: support other paths
 	// require.Equal(t, c.fromFamily, chainsel.FamilyEVM, "must be from EVM")
@@ -303,22 +294,7 @@ func (c TonTestAddLaneChangeSet) Apply(e deployment.Environment) (deployment.Cha
 
 	// fmt.Printf("DEBUG: TonTestAddLaneChangeSet: Configured offramp\n")
 
-	return deployment.ChangesetOutput{}, nil
-}
-
-type Ton2AnyMessage struct {
-	Receiver      []byte
-	Data          []byte
-	TokenAmounts  []Ton2AnyTokenAmount
-	FeeToken      tonaddress.Address
-	FeeTokenStore tonaddress.Address
-	ExtraArgs     []byte
-}
-
-type Ton2AnyTokenAmount struct {
-	Token      tonaddress.Address
-	Amount     uint64
-	TokenStore tonaddress.Address
+	return cldf.ChangesetOutput{}, nil
 }
 
 func SendRequestTon(
