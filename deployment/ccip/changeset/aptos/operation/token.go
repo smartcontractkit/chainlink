@@ -15,8 +15,9 @@ import (
 const managedTokenStateSeed = "managed_token::managed_token::token_state"
 
 type DeployTokenInput struct {
-	Name   string
-	Symbol string
+	Name        string
+	Symbol      string
+	MCMSAddress aptos.AccountAddress
 }
 
 type DeployTokenOutput struct {
@@ -35,7 +36,7 @@ var DeployTokenOp = operations.NewOperation(
 )
 
 func deployToken(b operations.Bundle, deps AptosDeps, in DeployTokenInput) (DeployTokenOutput, error) {
-	mcmsContract := mcmsbind.Bind(deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].MCMSAddress, deps.AptosChain.Client)
+	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 
 	// Calculate token address
 	managedTokenSeed := fmt.Sprintf("%s::%s", in.Name, in.Symbol) // Use name and symbol as seed for uniqueness
@@ -70,6 +71,11 @@ func deployToken(b operations.Bundle, deps AptosDeps, in DeployTokenInput) (Depl
 	}, nil
 }
 
+type DeployTokenRegistrarInput struct {
+	TokenObjAddress aptos.AccountAddress
+	MCMSAddress     aptos.AccountAddress
+}
+
 // DeployTokenMCMSRegistrarOp generates proposal to deploy a MCMS registrar on a token package
 var DeployTokenMCMSRegistrarOp = operations.NewOperation(
 	"deploy-token-mcms-registrar-op",
@@ -78,16 +84,15 @@ var DeployTokenMCMSRegistrarOp = operations.NewOperation(
 	deployTokenMCMSRegistrar,
 )
 
-func deployTokenMCMSRegistrar(b operations.Bundle, deps AptosDeps, tokenObjAddress aptos.AccountAddress) ([]types.Operation, error) {
-	mcmsAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].MCMSAddress
-	mcmsContract := mcmsbind.Bind(mcmsAddress, deps.AptosChain.Client)
+func deployTokenMCMSRegistrar(b operations.Bundle, deps AptosDeps, in DeployTokenRegistrarInput) ([]types.Operation, error) {
+	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 
 	// Deploy MCMS Registrar
-	mcmsRegistrarPayload, err := managed_token.CompileMCMSRegistrar(tokenObjAddress, mcmsAddress, true)
+	mcmsRegistrarPayload, err := managed_token.CompileMCMSRegistrar(in.TokenObjAddress, in.MCMSAddress, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile MCMS registrar: %w", err)
 	}
-	ops, err := utils.CreateChunksAndStage(mcmsRegistrarPayload, mcmsContract, deps.AptosChain.Selector, "", &tokenObjAddress)
+	ops, err := utils.CreateChunksAndStage(mcmsRegistrarPayload, mcmsContract, deps.AptosChain.Selector, "", &in.TokenObjAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chunks for token pool: %w", err)
 	}

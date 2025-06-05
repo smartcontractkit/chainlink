@@ -12,8 +12,9 @@ import (
 )
 
 type DeployCCIPSeqInput struct {
-	MCMSAddress aptos.AccountAddress
-	CCIPConfig  config.ChainContractParams
+	MCMSAddress      aptos.AccountAddress
+	CCIPConfig       config.ChainContractParams
+	LinkTokenAddress aptos.AccountAddress
 }
 
 type DeployCCIPSeqOutput struct {
@@ -80,9 +81,10 @@ func deployCCIPSequence(b operations.Bundle, deps operation.AptosDeps, in Deploy
 
 	// Generate batch operations to initialize CCIP
 	initCCIPInput := operation.InitializeCCIPInput{
-		MCMSAddress: in.MCMSAddress,
-		CCIPAddress: ccipAddress,
-		CCIPConfig:  in.CCIPConfig,
+		MCMSAddress:      in.MCMSAddress,
+		CCIPAddress:      ccipAddress,
+		CCIPConfig:       in.CCIPConfig,
+		LinkTokenAddress: in.LinkTokenAddress,
 	}
 	initCCIPReport, err := operations.ExecuteOperation(b, operation.InitializeCCIPOp, deps, initCCIPInput)
 	if err != nil {

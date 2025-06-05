@@ -106,7 +106,11 @@ func (cs AddTokenPool) Apply(env cldf.Environment, cfg config.AddTokenPoolConfig
 	tokenAddress := cfg.TokenAddress
 	tokenOwnerAddress := aptos.AccountAddress{}
 	if cfg.TokenObjAddress == (aptos.AccountAddress{}) {
-		deploySeq, err := operations.ExecuteSequence(env.OperationsBundle, seq.DeployAptosTokenSequence, deps, cfg.TokenParams)
+		deployTokenIn := seq.DeployTokenSeqInput{
+			TokenParams: cfg.TokenParams,
+			MCMSAddress: state.AptosChains[cfg.ChainSelector].MCMSAddress,
+		}
+		deploySeq, err := operations.ExecuteSequence(env.OperationsBundle, seq.DeployAptosTokenSequence, deps, deployTokenIn)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}

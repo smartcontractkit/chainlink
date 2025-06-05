@@ -177,9 +177,10 @@ func deployOnRamp(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([
 
 // OP: InitializeCCIP Operation
 type InitializeCCIPInput struct {
-	MCMSAddress aptos.AccountAddress
-	CCIPAddress aptos.AccountAddress
-	CCIPConfig  aptoscfg.ChainContractParams
+	MCMSAddress      aptos.AccountAddress
+	CCIPAddress      aptos.AccountAddress
+	LinkTokenAddress aptos.AccountAddress
+	CCIPConfig       aptoscfg.ChainContractParams
 }
 
 var InitializeCCIPOp = operations.NewOperation(
@@ -236,7 +237,7 @@ func initializeCCIP(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput)
 	maxJuels := new(big.Int).SetUint64(in.CCIPConfig.FeeQuoterParams.MaxFeeJuelsPerMsg)
 	moduleInfo, function, _, args, err = ccipBind.FeeQuoter().Encoder().Initialize(
 		maxJuels,
-		in.CCIPConfig.FeeQuoterParams.LinkToken,
+		in.LinkTokenAddress,
 		in.CCIPConfig.FeeQuoterParams.TokenPriceStalenessThreshold,
 		in.CCIPConfig.FeeQuoterParams.FeeTokens,
 	)
