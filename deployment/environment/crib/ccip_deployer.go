@@ -26,8 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -650,7 +648,7 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 				// EVM -> SOL
 				cs := testhelpers.AddEVMSrcChangesets(evmSelector.ChainSelector(), solSelector.ChainSelector(), false, gasPrices, tokenPrices, fqCfg)
 				laneChangesets = append(laneChangesets, cs...)
-				cs = testhelpers.AddLaneSolanaChangesets(&deployedEnv, solSelector.Selector, evmSelector.Selector, chainsel.FamilyEVM)
+				cs = testhelpers.AddLaneSolanaChangesets(&deployedEnv, solSelector.Selector, evmSelector.Selector, chainselectors.FamilyEVM)
 				laneChangesets = append(laneChangesets, cs...)
 
 				// SOL -> EVM
