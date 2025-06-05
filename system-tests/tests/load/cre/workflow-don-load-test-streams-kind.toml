@@ -27,7 +27,7 @@ description="streams trigger mock"
 
 # Target capability that simulates writing data to Ethereum
 [[mock_capabilities]]
-name="write_ethereum"
+name="write_ethereum_mock"
 version= "1.0.0"
 type="target"
 description="write trigger mock"

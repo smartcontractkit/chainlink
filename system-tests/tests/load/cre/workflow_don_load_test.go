@@ -403,6 +403,9 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	receiveChannel := make(chan capabilities.CapabilityRequest, 1000)
 	require.NoError(t, mocksClient.HookExecutables(ctx, receiveChannel), "could not hook into mock executable")
 
+	// Wait for the remote capability to be exposed, we check if the ocr capability is exposed to the capability nodes
+	// mocksClient.WaitForCapability(ctx, "offchain_reporting@1.0.0", time.Minute*5)
+
 	labels := map[string]string{
 		"go_test_name": "test1",
 		"branch":       "profile-check",
@@ -410,10 +413,11 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	}
 
 	generator, err := wasp.NewGenerator(&wasp.Config{
-		CallTimeout: time.Minute * 10, // Give enough time for the workflow to execute
+		T:           t,
+		CallTimeout: time.Minute * 2, // Give enough time for the workflow to execute
 		LoadType:    wasp.RPS,
 		Schedule: wasp.Combine(
-			wasp.Plain(4, 10*time.Minute),
+			wasp.Plain(4, 5*time.Minute),
 		),
 		Gun:    NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@2.0.0", receiveChannel, 500, 1),
 		Labels: labels,
@@ -870,7 +874,7 @@ func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1
        encoder_config:
          abi: "(bytes32 RemappedID, uint224 Price, uint32 Timestamp)[] Reports"
  targets:
-   - id: write_ethereum@1.0.0
+   - id: write_ethereum_mock@1.0.0
      inputs:
        signed_report: "$(evm_median.outputs)"
      config:

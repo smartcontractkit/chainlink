@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
@@ -152,6 +153,7 @@ func (c *Controller) List(ctx context.Context) ([]CapInfos, error) {
 		framework.L.Info().Msgf("Fetching capabilityes for node %s", client.URL)
 		caps := make([]capabilities.CapabilityInfo, 0)
 		for _, d := range data.CapInfos {
+			framework.L.Info().Msgf("ID %s", d.ID)
 			caps = append(caps, capabilities.CapabilityInfo{
 				ID:             d.ID,
 				CapabilityType: capabilities.CapabilityType(d.CapabilityType),
@@ -224,6 +226,52 @@ func (c *Controller) HookExecutables(ctx context.Context, ch chan capabilities.C
 				}
 			}
 		}()
+	}
+	return nil
+}
+
+func (c *Controller) WaitForCapability(ctx context.Context, capability string, timeoutDuration time.Duration) error {
+	// Create a context with timeout if not already set
+	ctx, cancel := context.WithTimeout(ctx, timeoutDuration)
+	defer cancel()
+
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	c.lggr.Info().Msgf("Waiting for capability %s on all nodes...", capability)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timed out or context cancelled while waiting for capability %s: %w", capability, ctx.Err())
+		case <-ticker.C:
+			capInfos, err := c.List(ctx)
+			if err != nil {
+				c.lggr.Error().Err(err).Msgf("Failed to list capabilities while waiting for %s", capability)
+				continue
+			}
+
+			allNodesHaveCapability := true
+			for _, nodeInfo := range capInfos {
+				hasCapability := false
+				for _, singleCap := range nodeInfo.Capabilities {
+					if singleCap.ID == capability {
+						hasCapability = true
+						break
+					}
+				}
+				if !hasCapability {
+					c.lggr.Debug().Msgf("Node %s does not have capability %s yet", nodeInfo.Node, capability)
+					allNodesHaveCapability = false
+					break
+				}
+			}
+
+			if allNodesHaveCapability {
+				c.lggr.Info().Msgf("All nodes now have capability %s", capability)
+				return nil
+			}
+		}
 	}
 	return nil
 }
