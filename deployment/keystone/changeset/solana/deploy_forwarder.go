@@ -73,6 +73,7 @@ func DeployForwarder(env cldf.Environment, req *DeployRequest) (cldf.ChangesetOu
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to save forwarder state address: %w", err)
 	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: ab,
 	}, nil

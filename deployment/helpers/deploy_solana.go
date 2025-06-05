@@ -11,17 +11,19 @@ import (
 	solBinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/sdk"
+	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	cldfsol "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/mcms"
-	"github.com/smartcontractkit/mcms/sdk"
-	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
-	mcmsTypes "github.com/smartcontractkit/mcms/types"
 )
 
 // DeployAndMaybeSaveToAddressBook deploys a program to the Solana chain and saves it to the address book

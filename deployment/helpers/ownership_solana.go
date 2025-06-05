@@ -4,9 +4,10 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
+
 	cldfsol "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	mcmsTypes "github.com/smartcontractkit/mcms/types"
 )
 
 type TransferOwnershipFn func(

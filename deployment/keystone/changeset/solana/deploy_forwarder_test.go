@@ -199,10 +199,10 @@ func shouldDeployForwarder(t *testing.T, env cldf.Environment, solSel uint64, _ 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	// forwarder should be deployed on registry chain
-	addrs, err := resp.AddressBook.AddressesForChain(solSel) //nolint:staticcheck
+	addrs, err := resp.AddressBook.AddressesForChain(solSel) //nolint:staticcheck migrate to datastore
 	require.NoError(t, err)
 	require.Len(t, addrs, 2)                            // forwarder programID, forwarder state
-	err = env.ExistingAddresses.Merge(resp.AddressBook) //nolint:staticcheck
+	err = env.ExistingAddresses.Merge(resp.AddressBook) //nolint:staticcheck migrate to datastore
 
 	require.NoError(t, err)
 	return env
