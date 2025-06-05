@@ -10,13 +10,15 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/stretchr/testify/require"
 )
 
 func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector uint64) commonchangeset.ConfiguredChangeSet {
 	// Set mock link token address on Address book (to skip deploying)
-	e.Env.ExistingAddresses.Save(chainSelector, aptoscs.MockLinkAddress, cldf.NewTypeAndVersion(types.LinkToken, deployment.Version1_6_0))
+	err := e.Env.ExistingAddresses.Save(chainSelector, aptoscs.MockLinkAddress, cldf.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_6_0))
+	require.NoError(t, err)
+
 	//  Deploy contracts
 	mockCCIPParams := aptoscs.GetMockChainContractParams(t, chainSelector)
 	ccipConfig := config.DeployAptosChainConfig{

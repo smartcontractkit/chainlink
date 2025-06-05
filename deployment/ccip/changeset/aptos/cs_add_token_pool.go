@@ -1,6 +1,7 @@
 package aptos
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
@@ -40,7 +41,7 @@ func (cs AddTokenPool) VerifyPreconditions(env cldf.Environment, cfg config.AddT
 	}
 	// Validate MCMS config
 	if cfg.MCMSConfig == nil {
-		return fmt.Errorf("MCMS config is required for AddTokenPool changeset")
+		return errors.New("MCMS config is required for AddTokenPool changeset")
 	}
 	// Validate config.TokenParams
 	err = cfg.TokenParams.Validate()
@@ -49,7 +50,7 @@ func (cs AddTokenPool) VerifyPreconditions(env cldf.Environment, cfg config.AddT
 	}
 	// Validate if token address is provided if pool address is specified
 	if cfg.TokenObjAddress == (aptos.AccountAddress{}) && cfg.TokenPoolAddress != (aptos.AccountAddress{}) {
-		return fmt.Errorf("token object address must be provided if token pool address is specified")
+		return errors.New("token object address must be provided if token pool address is specified")
 	}
 	// No token pool address provided, so no need to validate token address
 	if cfg.TokenObjAddress == (aptos.AccountAddress{}) && cfg.TokenPoolAddress == (aptos.AccountAddress{}) {

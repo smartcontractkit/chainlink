@@ -6,7 +6,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
-	"github.com/smartcontractkit/mcms/types"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
@@ -80,7 +79,7 @@ func deployAptosTokenSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	}
 	mcmsOperations = append(mcmsOperations, mcmstypes.BatchOperation{
 		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
-		Transactions:  []types.Transaction{initTokenReport.Output},
+		Transactions:  []mcmstypes.Transaction{initTokenReport.Output},
 	})
 
 	return DeployTokenSeqOutput{

@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/mcms"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -158,7 +157,7 @@ func (c SolChainUpdate) Validate(state solanastateview.CCIPChainState) error {
 type AptosChainUpdate struct {
 	RateLimiterConfig RateLimiterConfig
 	TokenAddress      string
-	Type              deployment.ContractType
+	Type              cldf.ContractType
 }
 
 func (c AptosChainUpdate) GetAptosTokenAndTokenPool(state aptosstate.CCIPChainState) (token aptos.AccountAddress, tokenPoolAddress aptos.AccountAddress, err error) {

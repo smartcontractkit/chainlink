@@ -129,6 +129,10 @@ func initializeToken(b operations.Bundle, deps AptosDeps, in InitializeTokenInpu
 		in.Icon,
 		in.Project,
 	)
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("failed to encode initialize function: %w", err)
+	}
+
 	// Create MCMS tx
 	tx, err := utils.GenerateMCMSTx(in.TokenObjAddress, moduleInfo, function, args)
 	if err != nil {
