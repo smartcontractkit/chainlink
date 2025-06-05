@@ -16,9 +16,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -137,7 +138,7 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method strin
 	capabilityPeerID p2ptypes.PeerID,
 	callingDon capabilities.DON, requestID string,
 	dispatcher types.Dispatcher, requestTimeout time.Duration, lggr logger.Logger) (*ServerRequest, error) {
-	lggr = lggr.Named("ServerRequest").With("requestID", requestID, "capabilityID", capabilityID)
+	lggr = logger.Sugared(lggr).Named("ServerRequest").With("requestID", requestID, "capabilityID", capabilityID)
 
 	m, err := newSrMetrics(capabilityID, callingDon.ID)
 	if err != nil {
@@ -331,7 +332,7 @@ func executeCapabilityRequest(ctx context.Context, lggr logger.Logger, capabilit
 		return nil, errors.New("failed to unmarshal capability request")
 	}
 
-	lggr = lggr.With("metadata", capabilityRequest.Metadata)
+	lggr = logger.With(lggr, "metadata", capabilityRequest.Metadata)
 
 	lggr.Debugw("executing capability")
 	capResponse, err := capability.Execute(ctx, capabilityRequest)

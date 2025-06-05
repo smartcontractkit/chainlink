@@ -23,8 +23,8 @@ import (
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
@@ -38,7 +38,6 @@ import (
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -56,7 +55,7 @@ func NewReader(
 	address common.Address,
 	chainReaderConfig evmrelaytypes.ChainReaderConfig,
 ) types.ContractReader {
-	cr, err := evm.NewChainReaderService(testutils.Context(t), logger.TestLogger(t), logPoller, headTracker, client, chainReaderConfig)
+	cr, err := evm.NewChainReaderService(testutils.Context(t), logger.Test(t), logPoller, headTracker, client, chainReaderConfig)
 	require.NoError(t, err)
 	err = cr.Bind(testutils.Context(t), []types.BoundContract{
 		{
@@ -135,7 +134,7 @@ func NewTestUniverse(ctx context.Context, t *testing.T, lggr logger.Logger) Test
 	if lpOpts.PollPeriod == 0 {
 		lpOpts.PollPeriod = 1 * time.Hour
 	}
-	lp := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(chainID), db, lggr), cl, logger.NullLogger, headTracker, lpOpts)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(chainID), db, lggr), cl, logger.Nop(), headTracker, lpOpts)
 	require.NoError(t, lp.Start(ctx))
 	t.Cleanup(func() { require.NoError(t, lp.Close()) })
 
@@ -159,7 +158,7 @@ func (t TestUniverse) NewContractReader(ctx context.Context, cfg []byte) (types.
 	var config evmrelaytypes.ChainReaderConfig
 	err := json.Unmarshal(cfg, &config)
 	require.NoError(t.TestingT, err)
-	return evm.NewChainReaderService(ctx, logger.TestLogger(t.TestingT), t.LogPoller, t.HeadTracker, t.SimClient, config)
+	return evm.NewChainReaderService(ctx, logger.Test(t.TestingT), t.LogPoller, t.HeadTracker, t.SimClient, config)
 }
 
 func P2pIDsFromInts(ints []int64) [][32]byte {
@@ -248,7 +247,7 @@ func NewHomeChainReader(
 ) ccipreader.HomeChain {
 	hcr := ccipreader.NewObservedHomeChainReader(
 		cr,
-		logger.TestLogger(t),
+		logger.Test(t),
 		50*time.Millisecond,
 		types.BoundContract{
 			Address: ccAddress.String(),

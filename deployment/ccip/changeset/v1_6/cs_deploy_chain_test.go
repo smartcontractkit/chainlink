@@ -3,9 +3,10 @@ package v1_6_test
 import (
 	"testing"
 
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
@@ -37,6 +38,32 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	})
 	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	homeChainSel := evmSelectors[0]
+	testDeployChainContractsChangesetWithEnv(t, e, homeChainSel)
+}
+
+func TestDeployChainContractsChangesetZk(t *testing.T) {
+	t.Parallel()
+	lggr := logger.TestLogger(t)
+	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		Bootstraps: 1,
+		Chains:     1,
+		ZkChains:   1,
+		Nodes:      4,
+	})
+	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+	var homeChainSel uint64
+	for _, selector := range evmSelectors {
+		chain := e.BlockChains.EVMChains()[selector]
+		if !chain.IsZkSyncVM {
+			homeChainSel = chain.Selector
+			break
+		}
+	}
+	testDeployChainContractsChangesetWithEnv(t, e, homeChainSel)
+}
+
+func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, homeChainSel uint64) {
+	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()

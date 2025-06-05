@@ -120,10 +120,12 @@ func NewStandaloneEngine(
 		GlobalLimits:         workflowLimits,
 		ExecutionRateLimiter: rl,
 
+		BeholderEmitter: custmsg.NewLabeler(),
+
 		BillingClient: billingClient,
 	}
 
-	return v2.NewEngine(cfg)
+	return v2.NewEngine(ctx, cfg)
 }
 
 // TODO support fetching secrets (from a local file)

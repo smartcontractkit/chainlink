@@ -44,30 +44,65 @@ var (
 			contractParams := input.Params
 			feeQ, err := cldf.DeployContract(b.Logger, chain, ab,
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*fee_quoter.FeeQuoter] {
-					prAddr, tx2, pr, err2 := fee_quoter.DeployFeeQuoter(
-						chain.DeployerKey,
-						chain.Client,
-						fee_quoter.FeeQuoterStaticConfig{
-							MaxFeeJuelsPerMsg:            contractParams.MaxFeeJuelsPerMsg,
-							LinkToken:                    input.LinkAddr,
-							TokenPriceStalenessThreshold: contractParams.TokenPriceStalenessThreshold,
-						},
-						input.PriceUpdaters,
-						[]common.Address{input.WethAddr, input.LinkAddr}, // fee tokens
-						contractParams.TokenPriceFeedUpdates,
-						contractParams.TokenTransferFeeConfigArgs,
-						append([]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
-							{
-								PremiumMultiplierWeiPerEth: contractParams.LinkPremiumMultiplierWeiPerEth,
-								Token:                      input.LinkAddr,
-							},
-							{
-								PremiumMultiplierWeiPerEth: contractParams.WethPremiumMultiplierWeiPerEth,
-								Token:                      input.WethAddr,
-							},
-						}, contractParams.MorePremiumMultiplierWeiPerEth...),
-						contractParams.DestChainConfigArgs,
+					var (
+						prAddr common.Address
+						tx2    *types.Transaction
+						pr     *fee_quoter.FeeQuoter
+						err2   error
 					)
+					if chain.IsZkSyncVM {
+						prAddr, _, pr, err2 = fee_quoter.DeployFeeQuoterZk(
+							nil,
+							chain.ClientZkSyncVM,
+							chain.DeployerKeyZkSyncVM,
+							chain.Client,
+							fee_quoter.FeeQuoterStaticConfig{
+								MaxFeeJuelsPerMsg:            contractParams.MaxFeeJuelsPerMsg,
+								LinkToken:                    input.LinkAddr,
+								TokenPriceStalenessThreshold: contractParams.TokenPriceStalenessThreshold,
+							},
+							input.PriceUpdaters,
+							[]common.Address{input.WethAddr, input.LinkAddr}, // fee tokens
+							contractParams.TokenPriceFeedUpdates,
+							contractParams.TokenTransferFeeConfigArgs,
+							append([]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
+								{
+									PremiumMultiplierWeiPerEth: contractParams.LinkPremiumMultiplierWeiPerEth,
+									Token:                      input.LinkAddr,
+								},
+								{
+									PremiumMultiplierWeiPerEth: contractParams.WethPremiumMultiplierWeiPerEth,
+									Token:                      input.WethAddr,
+								},
+							}, contractParams.MorePremiumMultiplierWeiPerEth...),
+							contractParams.DestChainConfigArgs,
+						)
+					} else {
+						prAddr, tx2, pr, err2 = fee_quoter.DeployFeeQuoter(
+							chain.DeployerKey,
+							chain.Client,
+							fee_quoter.FeeQuoterStaticConfig{
+								MaxFeeJuelsPerMsg:            contractParams.MaxFeeJuelsPerMsg,
+								LinkToken:                    input.LinkAddr,
+								TokenPriceStalenessThreshold: contractParams.TokenPriceStalenessThreshold,
+							},
+							input.PriceUpdaters,
+							[]common.Address{input.WethAddr, input.LinkAddr}, // fee tokens
+							contractParams.TokenPriceFeedUpdates,
+							contractParams.TokenTransferFeeConfigArgs,
+							append([]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
+								{
+									PremiumMultiplierWeiPerEth: contractParams.LinkPremiumMultiplierWeiPerEth,
+									Token:                      input.LinkAddr,
+								},
+								{
+									PremiumMultiplierWeiPerEth: contractParams.WethPremiumMultiplierWeiPerEth,
+									Token:                      input.WethAddr,
+								},
+							}, contractParams.MorePremiumMultiplierWeiPerEth...),
+							contractParams.DestChainConfigArgs,
+						)
+					}
 					return cldf.ContractDeploy[*fee_quoter.FeeQuoter]{
 						Address: prAddr, Contract: pr, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_6_0), Err: err2,
 					}
@@ -123,6 +158,18 @@ var (
 		fee_quoter.NewFeeQuoter,
 		func(feeQuoter *fee_quoter.FeeQuoter, opts *bind.TransactOpts, input []fee_quoter.FeeQuoterDestChainConfigArgs) (*types.Transaction, error) {
 			return feeQuoter.ApplyDestChainConfigUpdates(opts, input)
+		},
+	)
+
+	FeeQuoterUpdatePricesOp = opsutil.NewEVMCallOperation(
+		"FeeQuoterUpdatePricesOp",
+		semver.MustParse("1.0.0"),
+		"Update token and gas prices on the FeeQuoter 1.6.0 contract",
+		fee_quoter.FeeQuoterABI,
+		shared.FeeQuoter,
+		fee_quoter.NewFeeQuoter,
+		func(feeQuoter *fee_quoter.FeeQuoter, opts *bind.TransactOpts, input fee_quoter.InternalPriceUpdates) (*types.Transaction, error) {
+			return feeQuoter.UpdatePrices(opts, input)
 		},
 	)
 )

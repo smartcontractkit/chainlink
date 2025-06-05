@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
@@ -33,6 +35,10 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
+
+type testMetadata struct {
+	Data string `json:"data"`
+}
 
 type ConfiguredChangeSet interface {
 	Apply(e cldf.Environment) (cldf.ChangesetOutput, error)
@@ -91,12 +97,9 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, changesetApplications []C
 		}
 
 		// Collect expected DataStore state after changeset is applied
-		var ds datastore.DataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]
+		var ds datastore.DataStore
 		if out.DataStore != nil {
-			ds1 := datastore.NewMemoryDataStore[
-				datastore.DefaultMetadata,
-				datastore.DefaultMetadata,
-			]()
+			ds1 := datastore.NewMemoryDataStore()
 			// New Addresses
 			err := ds1.Merge(out.DataStore.Seal())
 			if err != nil {
@@ -137,6 +140,12 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, changesetApplications []C
 				for _, op := range prop.Operations {
 					chains.Add(uint64(op.ChainSelector))
 				}
+
+				// We need to supply a salt override, otherwise the validUntil timestamp will be used to generate the salt.
+				// In tests, validUntil is not always guaranteed to produce a unique operation ID because proposals often get generated within the same second.
+				// This has been a cause of flakiness in the past (caused an AlreadyScheduled error).
+				saltOverride := utils.RandomHash()
+				prop.SaltOverride = &saltOverride
 
 				p := proposalutils.SignMCMSTimelockProposal(t, currentEnv, &prop)
 				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)

@@ -3,6 +3,7 @@ package v1_2
 import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -32,12 +33,29 @@ var (
 			deployFn := func(chain cldf_evm.Chain, tv cldf.TypeAndVersion) (cldf.ContractDeploy[*router.Router], error) {
 				r, err := cldf.DeployContract(b.Logger, chain, ab,
 					func(chain cldf_evm.Chain) cldf.ContractDeploy[*router.Router] {
-						routerAddr, tx2, routerC, err2 := router.DeployRouter(
-							chain.DeployerKey,
-							chain.Client,
-							input.WethAddress,
-							input.RMNProxy,
+						var (
+							routerAddr common.Address
+							tx2        *types.Transaction
+							routerC    *router.Router
+							err2       error
 						)
+						if chain.IsZkSyncVM {
+							routerAddr, _, routerC, err2 = router.DeployRouterZk(
+								nil,
+								chain.ClientZkSyncVM,
+								chain.DeployerKeyZkSyncVM,
+								chain.Client,
+								input.WethAddress,
+								input.RMNProxy,
+							)
+						} else {
+							routerAddr, tx2, routerC, err2 = router.DeployRouter(
+								chain.DeployerKey,
+								chain.Client,
+								input.WethAddress,
+								input.RMNProxy,
+							)
+						}
 						return cldf.ContractDeploy[*router.Router]{
 							Address: routerAddr, Contract: routerC, Tx: tx2, Tv: tv, Err: err2,
 						}
