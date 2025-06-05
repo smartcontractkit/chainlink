@@ -157,6 +157,7 @@ func addSecureMintOCRJobs(
 	for i, node := range nodes {
 		name := "securemint-ea"
 		bmBridge := createSecureMintBridge(t, name, i, decimal.NewFromFloat32(1000), node.App.BridgeORM())
+		t.Logf("Created secure mint bridge %s on node %d", bmBridge, i)
 
 		addresses, err := node.App.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), testutils.SimulatedChainID)
 		require.NoError(t, err)
@@ -169,21 +170,7 @@ func addSecureMintOCRJobs(
 			bmBridge,
 		)
 		jobIDs[i] = jobID
-
-		// TODO(gg): do we need this?
-		// TODO(gg): maybe add pluginConfig, depending on new plugin
-		// addLLOJob(
-		// 	t,
-		// 	node,
-		// 	configuratorAddress,
-		// 	bootstrapPeerID,
-		// 	bootstrapNodePort,
-		// 	clientPubKeys[i],
-		// 	"feed-1",
-		// 	pluginConfig,
-		// 	relayType,
-		// 	relayConfig,
-		// )
+		t.Logf("Added secure mint job with id %d on node %d", jobID, i)
 	}
 	return jobIDs
 }
@@ -220,6 +207,8 @@ func getSecureMintJobSpec(ocrContractAddress, keyBundleID, transmitterAddress, b
 	// TODO(gg): allowNoBootstrappers set to true to make it start up - not sure if we want to set this to false later
 
 	// TODO(gg): update the observation ds1_parse step to use the correct path for the secure mint EA response
+
+	// TODO(gg): add pluginConfig, depending on new plugin
 
 	return fmt.Sprintf(`
 type               = "offchainreporting2"
