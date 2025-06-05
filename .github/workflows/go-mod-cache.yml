@@ -50,12 +50,14 @@ jobs:
           persist-credentials: false
 
       - name: Setup Go
+        id: setup-go
         uses: ./.github/actions/setup-go
         with:
           only-modules: "true"
           restore-module-cache-only: "false"
 
       - name: Install Dependencies
+        if: ${{ steps.setup-go.outputs.primary-cache-hit-modules != 'true' }}
         shell: bash
         run: |
           echo "::group::go mod download"
