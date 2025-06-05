@@ -164,7 +164,8 @@ func Test_ActiveCandidate(t *testing.T) {
 		)
 
 		// Confirm execution of the message
-		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, tenv.Env, state, expectedSeqNum, startBlocks)
+		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, tenv.Env, state,
+			testhelpers.ToSeqRangeMap(expectedSeqNum), startBlocks)
 		testhelpers.ConfirmExecWithSeqNrsForAll(t, tenv.Env, state, expectedSeqNumExec, startBlocks)
 	}
 

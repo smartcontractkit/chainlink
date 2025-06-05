@@ -2,10 +2,12 @@ package ocrimpls
 
 import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
@@ -28,7 +30,7 @@ type ocr3Keyring[RI any] struct {
 func NewOnchainKeyring[RI any](keyring OCR3SignerVerifierExtra, lggr logger.Logger) *ocr3Keyring[RI] {
 	return &ocr3Keyring[RI]{
 		core: keyring,
-		lggr: lggr.Named("OCR3Keyring"),
+		lggr: logger.Named(lggr, "OCR3Keyring"),
 	}
 }
 

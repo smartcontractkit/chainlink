@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
 	"google.golang.org/protobuf/types/known/anypb"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -18,7 +20,6 @@ import (
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -59,7 +60,7 @@ type enqueuedTriggerEvent struct {
 	event        capabilities.TriggerResponse
 }
 
-func NewEngine(cfg *EngineConfig) (*Engine, error) {
+func NewEngine(ctx context.Context, cfg *EngineConfig) (*Engine, error) {
 	err := cfg.Validate()
 	if err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
@@ -68,13 +69,25 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize monitoring resources: %w", err)
 	}
+	localNode, err := cfg.CapRegistry.LocalNode(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not get local node state: %w", err)
+	}
 
-	// TODO(CAPPL-910): add more labels once node info from registry is available here
 	beholderLogger := custmsg.NewBeholderLogger(cfg.Lggr, cfg.BeholderEmitter).Named("WorkflowEngine").With(
 		platform.KeyWorkflowID, cfg.WorkflowID,
 		platform.KeyWorkflowOwner, cfg.WorkflowOwner,
 		platform.KeyWorkflowName, cfg.WorkflowName.String(),
-		platform.KeyWorkflowVersion, platform.ValueWorkflowVersionV2)
+		platform.KeyWorkflowVersion, platform.ValueWorkflowVersionV2,
+		platform.KeyDonID, strconv.Itoa(int(localNode.WorkflowDON.ID)),
+		platform.KeyDonF, strconv.Itoa(int(localNode.WorkflowDON.F)),
+		platform.KeyDonN, strconv.Itoa(len(localNode.WorkflowDON.Members)),
+		platform.KeyDonQ, strconv.Itoa(aggregation.ByzantineQuorum(
+			len(localNode.WorkflowDON.Members),
+			int(localNode.WorkflowDON.F),
+		)),
+		platform.KeyP2PID, localNode.PeerID.String())
+
 	metricsLabeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em).With(
 		platform.KeyWorkflowID, cfg.WorkflowID,
 		platform.KeyWorkflowOwner, cfg.WorkflowOwner,
@@ -83,6 +96,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	engine := &Engine{
 		cfg:                     cfg,
 		lggr:                    beholderLogger,
+		localNode:               localNode,
 		triggers:                make(map[string]*triggerCapability),
 		allTriggerEventsQueueCh: make(chan enqueuedTriggerEvent, cfg.LocalLimits.TriggerEventQueueSize),
 		executionsSemaphore:     make(chan struct{}, cfg.LocalLimits.MaxConcurrentWorkflowExecutions),
@@ -120,28 +134,6 @@ func (e *Engine) init(ctx context.Context) {
 		e.lggr.Info("Per owner workflow count limit reached")
 		e.metrics.IncrementWorkflowLimitPerOwnerCounter(ctx)
 		e.cfg.Hooks.OnInitialized(types.ErrPerOwnerWorkflowCountLimitReached)
-		return
-	}
-
-	// retrieve info about the current node we are running on
-	retryErr := internal.RunWithRetries(
-		ctx,
-		e.lggr,
-		time.Millisecond*time.Duration(e.cfg.LocalLimits.CapRegistryAccessRetryIntervalMs),
-		int(e.cfg.LocalLimits.MaxCapRegistryAccessRetries),
-		func() error {
-			// retry until the underlying peerWrapper service is ready
-			node, err := e.cfg.CapRegistry.LocalNode(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to get donInfo: %w", err)
-			}
-			e.localNode = node
-			return nil
-		})
-
-	if retryErr != nil {
-		e.lggr.Errorw("Workflow Engine initialization failed", "err", retryErr)
-		e.cfg.Hooks.OnInitialized(retryErr)
 		return
 	}
 
