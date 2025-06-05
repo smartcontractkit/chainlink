@@ -123,9 +123,13 @@ var InitializeTokenOp = operations.NewOperation(
 
 func initializeToken(b operations.Bundle, deps AptosDeps, in InitializeTokenInput) (types.Transaction, error) {
 	// Initialize managed token
+	var maxSupply **big.Int
+	if in.MaxSupply != nil {
+		maxSupply = &in.MaxSupply
+	}
 	boundManagedToken := managed_token.Bind(in.TokenObjAddress, deps.AptosChain.Client)
 	moduleInfo, function, _, args, err := boundManagedToken.ManagedToken().Encoder().Initialize(
-		&in.MaxSupply,
+		maxSupply,
 		in.Name,
 		in.Symbol,
 		in.Decimals,

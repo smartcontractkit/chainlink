@@ -104,7 +104,7 @@ func (cs DeployAptosChain) Apply(env cldf.Environment, cfg config.DeployAptosCha
 			deployTokenIn := seq.DeployTokenSeqInput{
 				TokenParams: config.TokenParams{
 					MaxSupply: nil,
-					Name:      "Chainlink Token",
+					Name:      "ChainLink Token",
 					Symbol:    "LINK",
 					Decimals:  8,
 					Icon:      "https://raw.githubusercontent.com/smartcontractkit/documentation/main/public/assets/icons/link.svg",
