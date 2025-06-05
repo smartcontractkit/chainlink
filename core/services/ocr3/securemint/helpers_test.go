@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
@@ -43,11 +44,12 @@ type Node struct {
 	ObservedLogs *observer.ObservedLogs
 }
 
-func (node *Node) AddBootstrapJob(t *testing.T, spec string) {
+func (node *Node) addBootstrapJob(t *testing.T, spec string) *job.Job {
 	job, err := ocrbootstrap.ValidatedBootstrapSpecToml(spec)
 	require.NoError(t, err)
 	err = node.App.AddJobV2(testutils.Context(t), &job)
 	require.NoError(t, err)
+	return &job
 }
 
 func setupNode(
@@ -130,18 +132,25 @@ func setupNode(
 
 func ptr[T any](t T) *T { return &t }
 
-func addBootstrapJob(t *testing.T, bootstrapNode Node, configuratorAddress common.Address, name string, relayType, relayConfig string) {
-	bootstrapNode.AddBootstrapJob(t, fmt.Sprintf(`
-type                              = "bootstrap"
-relay                             = "%s"
-schemaVersion                     = 1
-name                              = "boot-%s"
-contractID                        = "%s"
-contractConfigTrackerPollInterval = "1s"
+func createSecureMintBootstrapJob(t *testing.T, bootstrapNode Node, configuratorAddress common.Address, chainID, fromBlock string) *job.Job {
+	return bootstrapNode.addBootstrapJob(t, fmt.Sprintf(`
+		type                              = "bootstrap"
+		relay                             = "evm"
+		schemaVersion                     = 1
+		name                              = "bootstrap-secure-mint"
+		contractID                        = "%s"
+		contractConfigTrackerPollInterval = "1s"
+		contractConfigConfirmations = 1
 
-[relayConfig]
-%s
-providerType = "llo"`, relayType, name, configuratorAddress.Hex(), relayConfig))
+		[relayConfig]
+		chainID = %s
+		fromBlock = %s
+
+		providerType = "securemint"`,
+		configuratorAddress.Hex(),
+		chainID,
+		fromBlock),
+	)
 }
 
 func addSecureMintOCRJobs(

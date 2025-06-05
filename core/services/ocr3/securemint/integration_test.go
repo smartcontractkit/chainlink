@@ -87,17 +87,6 @@ func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 		// c.Feature.SecureMint.Enabled = true
 	})
 
-	// TODO(gg): for bootstrapping
-	// 	chainID := testutils.SimulatedChainID
-	// 	relayType := "evm"
-	// 	relayConfig := fmt.Sprintf(`
-	// chainID = "%s"
-	// fromBlock = %d
-	// lloDonID = %d
-	// lloConfigMode = "mercury"
-	// `, chainID, fromBlock, donID)
-	// 	addBootstrapJob(t, bootstrapNode, legacyVerifierAddr, "job-2", relayType, relayConfig)
-
 	// pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
 	// donID = %d
 	// channelDefinitionsContractAddress = "0x%x"
@@ -112,6 +101,10 @@ func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 	}
 
 	aggregatorAddress := setSecureMintOnchainConfigUsingAggregator(t, steve, backend, nodes, oracles)
+
+	t.Logf("Creating bootstrap job with aggregator address: %s", aggregatorAddress.Hex())
+	bootstrapJob := createSecureMintBootstrapJob(t, bootstrapNode, aggregatorAddress, testutils.SimulatedChainID.String(), fmt.Sprintf("%d", fromBlock))
+	t.Logf("Created bootstrap job: %s with id %d", bootstrapJob.Name.ValueOrZero(), bootstrapJob.ID)
 
 	// TODO(gg): enable this for writing step
 	// TODO(gg): deduplicate
@@ -271,7 +264,7 @@ func setSecureMintOnchainConfigUsingAggregator(t *testing.T, steve *bind.Transac
 		t.Fatalf("Failed to deploy OCR2Aggregator contract: %s", rPCError)
 	}
 	// Ensure we have finality depth worth of blocks to start.
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		backend.Commit()
 	}
 	t.Logf("Deployed OCR2Aggregator contract at: %s", aggregatorAddress.Hex())
@@ -324,11 +317,10 @@ func setSecureMintOnchainConfigUsingAggregator(t *testing.T, steve *bind.Transac
 		t.Fatalf("Failed to configure contract: %s", errString)
 	}
 
-	// libocr requires a few confirmations to accept the config
-	backend.Commit()
-	backend.Commit()
-	backend.Commit()
-	backend.Commit()
+	// make sure config is finalized
+	for range 20 {
+		backend.Commit()
+	}
 
 	aggregatorConfigDigest, err := aggregatorContract.LatestConfigDigestAndEpoch(&bind.CallOpts{})
 	if err != nil {
