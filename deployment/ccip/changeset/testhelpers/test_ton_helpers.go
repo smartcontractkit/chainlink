@@ -1,7 +1,6 @@
 package testhelpers
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -31,25 +30,22 @@ func (c TonTestDeployPrerequisitesChangeSet) Apply(e cldf.Environment) (cldf.Cha
 	tonChains, err := tonstate.LoadOnchainStateTon(e)
 	require.NoError(t, err)
 
-	fmt.Printf("DEBUG: TonTestDeployPrerequisitesChangeSet: chain selectors: %+v\n", c.TonChainSelectors)
+	t.Logf("DEBUG: TonTestDeployPrerequisitesChangeSet: chain selectors: %+v\n", c.TonChainSelectors)
 	for _, chainSelector := range c.TonChainSelectors {
 		tonChainState := tonChains[chainSelector]
 
 		// TODO: replace with actual TON addresses after contracts are supported, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
-		address, _ := tonaddress.ParseAddr("EQDtFpEwcFAEcRe5mLVh2N6C0x-_hJEM7W61_JLnSF74p4q2")
+		address := tonaddress.MustParseAddr("EQDtFpEwcFAEcRe5mLVh2N6C0x-_hJEM7W61_JLnSF74p4q2")
 		tonChainState.OffRamp = *address
-
-		address, _ = tonaddress.ParseAddr("UQCfQRaJr2vxgZr5NHc0CTx6tAb0jverj9QQFirNfoCkGcUy")
+		address = tonaddress.MustParseAddr("UQCfQRaJr2vxgZr5NHc0CTx6tAb0jverj9QQFirNfoCkGcUy")
 		tonChainState.Router = *address
-
-		address, _ = tonaddress.ParseAddr("EQADa3W6G0nSiTV4a6euRA42fU9QxSEnb-WeDpcrtWzA2jM8")
+		address = tonaddress.MustParseAddr("EQADa3W6G0nSiTV4a6euRA42fU9QxSEnb-WeDpcrtWzA2jM8")
 		tonChainState.LinkTokenAddress = *address
-
-		address, _ = tonaddress.ParseAddr("UQDgFwiokL1ojVwXa3Ac7xCLfGB0Ti0foSw5NZ48Aj_vhs_6")
+		address = tonaddress.MustParseAddr("UQDgFwiokL1ojVwXa3Ac7xCLfGB0Ti0foSw5NZ48Aj_vhs_6")
 		tonChainState.CCIPAddress = *address
-
-		address, _ = tonaddress.ParseAddr("UQCk4967vNM_V46Dn8I0x-gB_QE2KkdW1GQ7mWz1DtYGLEd8")
+		address = tonaddress.MustParseAddr("UQCk4967vNM_V46Dn8I0x-gB_QE2KkdW1GQ7mWz1DtYGLEd8")
 		tonChainState.ReceiverAddress = *address
+
 		err = tonstate.SaveOnchainStateTon(chainSelector, tonChainState, e)
 		require.NoError(t, err)
 	}
@@ -71,7 +67,7 @@ func (c TonTestDeployContractsChangeSet) Apply(e cldf.Environment) (cldf.Changes
 	tonChains, err := tonstate.LoadOnchainStateTon(e)
 	require.NoError(t, err)
 
-	fmt.Printf("DEBUG: TonTestDeployContractsChangeSet: chain selectors: %+v\n", c.TonChainSelectors)
+	t.Logf("DEBUG: TonTestDeployContractsChangeSet: chain selectors: %+v\n", c.TonChainSelectors)
 
 	for _, chainSelector := range c.TonChainSelectors {
 		tonChain := e.BlockChains.TonChains()[chainSelector]
@@ -84,30 +80,12 @@ func (c TonTestDeployContractsChangeSet) Apply(e cldf.Environment) (cldf.Changes
 func (c TonTestDeployContractsChangeSet) deployTonContracts(t *testing.T, e cldf.Environment, chainSelector uint64, tonChain cldf_ton.Chain, tonChainState tonstate.CCIPChainState, onchainState map[uint64]tonstate.CCIPChainState) {
 	deployer := tonChain.Wallet
 	_ = deployer // TODO: use deployer in the rest of the code, pre-funded
-
+	_ = onchainState
 	// TODO(ton): once all contracts are deployed, we can remove the hardcoded addresses from the TonTestDeployPrerequisitesChangeSet
-
 	// TODO(ton): Deploy TON MCMS, https://smartcontract-it.atlassian.net/browse/NONEVM-1939
-
 	// TODO(ton): Deploy TON CCIP, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
-
-	// TODO(ton): Deploy TON CCIP Offramp
-
-	// TODO(ton): Deploy TON CCIP Onramp
-
-	// TODO(ton): Deploy TON CCIP Router
-
-	// TODO(ton): Deploy Ton CCIP Dummy Receiver and set the contract address
-
-	// tonChainState.ReceiverAddress = ton.AccountOne
-
-	// TODO(ton): Initialize Onramp
-
-	// TODO(ton): Initialize Offramp
-
-	// TODO(ton): Initialize FeeQuoter
-
-	// TODO(ton): Initialize RMNRemote
+	// TODO(ton): Deploy TON CCIP Offramp, Router, Onramp, Dummy Receiver and set the contract address
+	// TODO(ton): Initialize Onramp, Offramp, FeeQuoter, RMNRemote
 
 	err := tonstate.SaveOnchainStateTon(chainSelector, tonChainState, e)
 	require.NoError(t, err)
@@ -128,7 +106,7 @@ func (c TonTestConfigureContractsChangeSet) Apply(e cldf.Environment) (cldf.Chan
 	tonChains, err := tonstate.LoadOnchainStateTon(e)
 	require.NoError(t, err)
 
-	fmt.Printf("DEBUG: TonTestConfigureContractsChangeSet: chain selectors: %+v\n", c.TonChainSelectors)
+	t.Logf("DEBUG: TonTestConfigureContractsChangeSet: chain selectors: %+v\n", c.TonChainSelectors)
 
 	for _, chainSelector := range c.TonChainSelectors {
 		tonChain := e.BlockChains.TonChains()[chainSelector]
@@ -139,6 +117,7 @@ func (c TonTestConfigureContractsChangeSet) Apply(e cldf.Environment) (cldf.Chan
 }
 
 func (c TonTestConfigureContractsChangeSet) configureTonContracts(t *testing.T, e cldf.Environment, chainSelector uint64, tonChain cldf_ton.Chain, tonChainState tonstate.CCIPChainState, onchainState map[uint64]tonstate.CCIPChainState) {
+	t.Logf("DEBUG: TonTestConfigureContractsChangeSet: chain selector: %d", chainSelector)
 	// logger := logger.Test(t)
 
 	// offrampBindings := ccip_offramp.Bind(tonChainState.CCIPAddress, tonChain.Client)
@@ -153,7 +132,7 @@ func (c TonTestConfigureContractsChangeSet) configureTonContracts(t *testing.T, 
 	// 	chainSelector,
 	// )
 	// require.NoError(t, err)
-	// fmt.Printf("TON DON ID: %+v\n", donID)
+	// t.Logf("TON DON ID: %+v\n", donID)
 
 	// allCommitConfigs, err := onchainState.Chains[c.HomeChainSelector].CCIPHome.GetAllConfigs(&ethbind.CallOpts{
 	// 	Context: context.Background(),
@@ -163,8 +142,8 @@ func (c TonTestConfigureContractsChangeSet) configureTonContracts(t *testing.T, 
 	// 	Context: context.Background(),
 	// }, donID, 1)
 
-	// fmt.Printf("DEBUG HOME CHAIN CCIPHome: commit configs: %+v\n", allCommitConfigs)
-	// fmt.Printf("DEBUG HOME CHAIN CCIPHome: exec configs: %+v\n", allExecConfigs)
+	// t.Logf("DEBUG HOME CHAIN CCIPHome: commit configs: %+v\n", allCommitConfigs)
+	// t.Logf("DEBUG HOME CHAIN CCIPHome: exec configs: %+v\n", allExecConfigs)
 
 	// ocr3Args, err := internal.BuildSetOCR3ConfigArgsTon(
 	// 	donID, onchainState.Chains[c.HomeChainSelector].CCIPHome, chainSelector, globals.ConfigTypeActive)
@@ -187,7 +166,7 @@ func (c TonTestConfigureContractsChangeSet) configureTonContracts(t *testing.T, 
 	// commitSigners := [][]byte{}
 	// for _, signer := range commitArgs.Signers {
 	// 	commitSigners = append(commitSigners, signer)
-	// 	fmt.Printf("DEBUG: configureTonContracts commit signer %x\n", signer)
+	// 	t.Logf("DEBUG: configureTonContracts commit signer %x\n", signer)
 	// }
 	// commitTransmitters := []tonaddress.Address{}
 	// for _, transmitter := range commitArgs.Transmitters {
@@ -231,12 +210,12 @@ func (c TonTestConfigureContractsChangeSet) configureTonContracts(t *testing.T, 
 
 	// 	waitForTx(t, tonChain.Client, submitResult.Hash, time.Minute*1)
 
-	// 	fmt.Printf("Sent 10 TON to transmitter %s\n", transmitter.String())
+	// 	t.Logf("Sent 10 TON to transmitter %s\n", transmitter.String())
 	// }
 }
 
 func addLaneTonChangesets(t *testing.T, e *DeployedEnv, from, to uint64, fromFamily, toFamily string) []commoncs.ConfiguredChangeSet {
-	fmt.Printf("DEBUG: addLaneTonChangesets %d to %d / %s to %s\n", from, to, fromFamily, toFamily)
+	t.Logf("DEBUG: addLaneTonChangesets %d to %d / %s to %s\n", from, to, fromFamily, toFamily)
 	return []commoncs.ConfiguredChangeSet{TonTestAddLaneChangeSet{
 		T:                 t,
 		fromChainSelector: from,
@@ -269,7 +248,7 @@ func (c TonTestAddLaneChangeSet) Apply(e cldf.Environment) (cldf.ChangesetOutput
 	// require.NoError(t, err)
 	// tonChainState := onchainState.TonChains[tonSelector]
 
-	// fmt.Printf("DEBUG: TonTestAddLaneChangeSet: LINK token: %s CCIP: %s Receiver: %s\n", tonChainState.LinkTokenAddress.String(), tonChainState.CCIPAddress.String(), tonChainState.ReceiverAddress.String())
+	// t.Logf("DEBUG: TonTestAddLaneChangeSet: LINK token: %s CCIP: %s Receiver: %s\n", tonChainState.LinkTokenAddress.String(), tonChainState.CCIPAddress.String(), tonChainState.ReceiverAddress.String())
 
 	// require.False(t, tonChainState.LinkTokenAddress.IsAddrNone(), "LINK token address must be set")
 	// require.False(t, tonChainState.CCIPAddress.IsAddrNone(), "CCIP address must be set")
@@ -282,7 +261,7 @@ func (c TonTestAddLaneChangeSet) Apply(e cldf.Environment) (cldf.ChangesetOutput
 
 	// evmChainState := onchainState.Chains[c.fromChainSelector]
 	// evmOnrampAddress := evmChainState.OnRamp.Address().Bytes()
-	// fmt.Printf("DEBUG: TonTestAddLaneChangeSet: EVM chain selector: %d - EVM onramp address: %s\n", c.fromChainSelector, hex.EncodeToString(evmOnrampAddress))
+	// t.Logf("DEBUG: TonTestAddLaneChangeSet: EVM chain selector: %d - EVM onramp address: %s\n", c.fromChainSelector, hex.EncodeToString(evmOnrampAddress))
 
 	// sourceChainSelectors := []uint64{c.fromChainSelector}
 	// sourceChainsIsEnabled := []bool{true}
@@ -292,7 +271,7 @@ func (c TonTestAddLaneChangeSet) Apply(e cldf.Environment) (cldf.ChangesetOutput
 	// require.NoError(t, err)
 	// waitForTx(t, tonChain.Client, pendingTx.TxnHash(), time.Minute*1)
 
-	// fmt.Printf("DEBUG: TonTestAddLaneChangeSet: Configured offramp\n")
+	// t.Logf("DEBUG: TonTestAddLaneChangeSet: Configured offramp\n")
 
 	return cldf.ChangesetOutput{}, nil
 }
@@ -318,7 +297,7 @@ func ConfirmCommitWithExpectedSeqNumRangeTon(
 	expectedSeqNumRange ccipocr3.SeqNumRange,
 	enforceSingleCommit bool,
 ) (any, error) {
-	fmt.Printf("DEBUG: ConfirmCommitWithExpectedSeqNumRangeTon srcSelector: %d, startBlock: %+v, expectedSeqNumRange: %+v, enforceSingleCommit: %+v\n", srcSelector, startBlock, expectedSeqNumRange, enforceSingleCommit)
+	t.Logf("DEBUG: ConfirmCommitWithExpectedSeqNumRangeTon srcSelector: %d, startBlock: %+v, expectedSeqNumRange: %+v, enforceSingleCommit: %+v\n", srcSelector, startBlock, expectedSeqNumRange, enforceSingleCommit)
 	// TODO once offramp contracts are supported, we can add the logic to confirm commit with expected sequence number range
 	return true, nil
 }
@@ -331,9 +310,9 @@ func ConfirmExecWithSeqNrsTon(
 	startBlock *uint64,
 	expectedSeqNrs []uint64,
 ) (executionStates map[uint64]int, err error) {
-	fmt.Printf("DEBUG: ConfirmExecWithSeqNrsTon srcSelector: %d, dest: %s, startBlock: %+v, expectedSeqNrs: %+v\n", sourceChain, startBlock, expectedSeqNrs)
+	t.Logf("DEBUG: ConfirmExecWithSeqNrsTon srcSelector: %d, dest: %s, startBlock: %+v, expectedSeqNrs: %+v\n", sourceChain, startBlock, expectedSeqNrs)
 	// TODO once offramp contracts are supported, we can add the logic to confirm execution with sequence numbers
-	fmt.Printf("DEBUG: TODO(ton): ConfirmExecWithSeqNrsTon\n")
+	t.Logf("DEBUG: TODO(ton): ConfirmExecWithSeqNrsTon\n")
 	seqNrsToWatch := make(map[uint64]int)
 	for _, seqNr := range expectedSeqNrs {
 		seqNrsToWatch[seqNr] = EXECUTION_STATE_SUCCESS
