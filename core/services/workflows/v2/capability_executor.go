@@ -53,7 +53,7 @@ func (c *CapabilityExecutor) CallCapability(ctx context.Context, request *sdkpb.
 
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-285 get max spend per step. Compare to availability and limits.
 
-	availableForCall, err := meterReport.GetAvailablity(len(c.capCallsSemaphore))
+	availableForCall, err := meterReport.GetAvailablity(int(c.cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow) - len(c.capCallsSemaphore))
 	if err != nil {
 		c.cfg.Lggr.Errorw("could get available balance", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 	}
