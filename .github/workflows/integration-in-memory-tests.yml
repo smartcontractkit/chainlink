@@ -33,7 +33,7 @@ jobs:
       github_ci_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.github_ci_changes }}
       core_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.core_changes }}
       ccip_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.ccip_changes }}
-      should_use_self_hosted_runner: ${{ steps.label-runs-on-opt-out.outputs.check-label-found || 'false' }}
+      should_use_self_hosted_runner: ${{ steps.label-runs-on-opt-out.outputs.check-label-found == 'true' || 'false' }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4
@@ -89,7 +89,7 @@ jobs:
       chainlink_version: ${{ inputs.cl_ref || github.sha }}
       test_path: .github/integration-in-memory-tests.yml
       test_trigger: PR Integration CCIP Tests
-      use-self-hosted-runners: ${{ needs.changes.outputs.should_use_self_hosted_runner == 'true' }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should_use_self_hosted_runner }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -121,7 +121,7 @@ jobs:
       slack_notification_after_tests: on_failure
       slack_notification_after_tests_channel_id: "#ccip-testing"
       slack_notification_after_tests_name: CCIP Integration Tests In Merge Queue
-      use-self-hosted-runners: ${{ needs.changes.outputs.should_use_self_hosted_runner == 'true' }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should_use_self_hosted_runner }}
       extraArgs: ${{ '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
