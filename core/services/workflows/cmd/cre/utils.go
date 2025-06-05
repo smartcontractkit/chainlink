@@ -51,8 +51,9 @@ var (
 	standardCapabilities = map[string]standardCapConfig{
 		"cron": {
 			Config:  `{"fastestScheduleIntervalSeconds": 1}`,
-			Enabled: true},
-		"readcontract":  {}, // TODO(PRODCRE-438): allow running a readcontract capability
+			Enabled: true,
+		},
+		"readcontract":  {},
 		"kvstore":       {},
 		"workflowevent": {},
 	}
