@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
@@ -28,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -1065,7 +1065,7 @@ func (lsn *listenerV2) runPipelines(
 		wg.Add(1)
 		go func(i int, req pendingRequest) {
 			defer wg.Done()
-			ll := l.With("reqID", req.req.RequestID().String())
+			ll := logger.With(l, "reqID", req.req.RequestID().String())
 			results[i] = lsn.simulateFulfillment(ctx, maxGasPriceWei, req, ll)
 		}(i, req)
 	}
@@ -1167,7 +1167,7 @@ func (lsn *listenerV2) simulateFulfillment(
 						// canceled sub and active requests.
 						// since this would be an extraordinary situation,
 						// we can log loudly here.
-						lg.Criticalw("failed to generate VRF proof", "err", trr.Result.Error)
+						logger.Sugared(lg).Criticalw("failed to generate VRF proof", "err", trr.Result.Error)
 						break
 					}
 

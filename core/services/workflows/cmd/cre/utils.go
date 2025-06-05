@@ -125,7 +125,7 @@ func NewStandaloneEngine(
 		BillingClient: billingClient,
 	}
 
-	return v2.NewEngine(cfg)
+	return v2.NewEngine(ctx, cfg)
 }
 
 // TODO support fetching secrets (from a local file)

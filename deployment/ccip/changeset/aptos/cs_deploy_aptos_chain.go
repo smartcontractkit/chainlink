@@ -5,13 +5,11 @@ import (
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
-
 	"github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
@@ -74,7 +72,7 @@ func (cs DeployAptosChain) Apply(env cldf.Environment, config config.DeployAptos
 	aptosChains := env.BlockChains.AptosChains()
 	// Deploy CCIP on each Aptos chain in config
 	for chainSel := range config.ContractParamsPerChain {
-		mcmsOperations := []mcmstypes.BatchOperation{}
+		var mcmsOperations []mcmstypes.BatchOperation
 		aptosChain := aptosChains[chainSel]
 
 		deps := operation.AptosDeps{

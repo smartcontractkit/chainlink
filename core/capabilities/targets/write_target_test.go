@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type testHarness struct {
@@ -36,7 +36,7 @@ type testHarness struct {
 }
 
 func setup(t *testing.T) testHarness {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	cw := mocks.NewContractWriter(t)
 	cr := mocks.NewContractValueGetter(t)

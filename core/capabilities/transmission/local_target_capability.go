@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 // LocalTargetCapability handles the transmission protocol required for a target capability that exists in the same don as

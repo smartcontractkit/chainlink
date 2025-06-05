@@ -307,7 +307,8 @@ func SendMsgs(
 		expectedSeqNumExec[pair] = append(expectedSeqNumExec[pair], msgSentEvent.SequenceNumber)
 	}
 	testhelpers.SleepAndReplay(t, env, 10*time.Second, env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))...)
-	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, env, state, expectedSeqNum, startBlocks)
+	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, env, state,
+		testhelpers.ToSeqRangeMap(expectedSeqNum), startBlocks)
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, env, state, expectedSeqNumExec, startBlocks)
 }
 

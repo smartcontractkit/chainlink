@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	logger "github.com/smartcontractkit/chainlink/v2/core/logger"
+	logger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	mock "github.com/stretchr/testify/mock"
 
 	ocr3types "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"

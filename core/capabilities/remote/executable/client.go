@@ -9,11 +9,12 @@ import (
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // client is a shim for remote executable capabilities.
@@ -51,7 +52,7 @@ var (
 func NewClient(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
 	requestTimeout time.Duration, lggr logger.Logger) *client {
 	return &client{
-		lggr:                     lggr.Named("ExecutableCapabilityClient"),
+		lggr:                     logger.Named(lggr, "ExecutableCapabilityClient"),
 		remoteCapabilityInfo:     remoteCapabilityInfo,
 		localDONInfo:             localDonInfo,
 		dispatcher:               dispatcher,

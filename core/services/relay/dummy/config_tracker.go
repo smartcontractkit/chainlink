@@ -5,7 +5,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 type configTracker struct {
@@ -21,7 +21,7 @@ func NewContractConfigTracker(lggr logger.Logger, cfg ConfigTrackerCfg) (ocrtype
 	if err != nil {
 		return nil, err
 	}
-	return &configTracker{lggr.Named("DummyConfigTracker"), contractConfig, cfg.ChangedInBlock, cfg.BlockHeight}, nil
+	return &configTracker{logger.Named(lggr, "DummyConfigTracker"), contractConfig, cfg.ChangedInBlock, cfg.BlockHeight}, nil
 }
 
 // Notify may optionally emit notification events when the contract's

@@ -6,12 +6,12 @@ import (
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/mcms/types"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	aptos_router "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router/router"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	config "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
@@ -35,14 +35,14 @@ var UpdateAptosLanesSequence = operations.NewSequence(
 	updateAptosLanesSequence,
 )
 
-func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in UpdateAptosLanesSeqInput) (types.BatchOperation, error) {
-	var mcmsTxs []types.Transaction
+func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in UpdateAptosLanesSeqInput) (mcmstypes.BatchOperation, error) {
+	var mcmsTxs []mcmstypes.Transaction
 
 	// 1. Update FeeQuoters with destination configs
 	b.Logger.Info("Updating destination configs on FeeQuoters")
 	feeQuoterDestReport, err := operations.ExecuteOperation(b, operation.UpdateFeeQuoterDestsOp, deps, in.UpdateFeeQuoterDestsConfig)
 	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to update FeeQuoter destinations: %w", err)
+		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to update FeeQuoter destinations: %w", err)
 	}
 	mcmsTxs = append(mcmsTxs, feeQuoterDestReport.Output...)
 
@@ -50,23 +50,23 @@ func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	b.Logger.Info("Updating destination configs on OnRamps")
 	onRampReport, err := operations.ExecuteOperation(b, operation.UpdateOnRampDestsOp, deps, in.UpdateOnRampDestsConfig)
 	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to update OnRamp destinations: %w", err)
+		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to update OnRamp destinations: %w", err)
 	}
-	mcmsTxs = append(mcmsTxs, onRampReport.Output)
+	mcmsTxs = append(mcmsTxs, onRampReport.Output...)
 
 	// 3. Configure sources on OffRamps
 	b.Logger.Info("Updating source configs on OffRamps")
 	offRampReport, err := operations.ExecuteOperation(b, operation.UpdateOffRampSourcesOp, deps, in.UpdateOffRampSourcesConfig)
 	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to update OffRamp sources: %w", err)
+		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to update OffRamp sources: %w", err)
 	}
-	mcmsTxs = append(mcmsTxs, offRampReport.Output)
+	mcmsTxs = append(mcmsTxs, offRampReport.Output...)
 
 	// 4. Adds CCIP owner to OffRamp allow list
 	b.Logger.Info("Adding CCIP owner to OffRamp allow list")
 	allowedOfframpReport, err := operations.ExecuteOperation(b, operation.ApplyAllowedOfframpUpdatesOp, deps, operations.EmptyInput{})
 	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to apply allowed OffRamp updates: %w", err)
+		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to apply allowed OffRamp updates: %w", err)
 	}
 	mcmsTxs = append(mcmsTxs, allowedOfframpReport.Output)
 
@@ -74,20 +74,20 @@ func updateAptosLanesSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	b.Logger.Info("Updating gas prices on FeeQuoters")
 	feeQuoterPricesReport, err := operations.ExecuteOperation(b, operation.UpdateFeeQuoterPricesOp, deps, in.UpdateFeeQuoterPricesConfig)
 	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to update FeeQuoter prices: %w", err)
+		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to update FeeQuoter prices: %w", err)
 	}
-	mcmsTxs = append(mcmsTxs, feeQuoterPricesReport.Output)
+	mcmsTxs = append(mcmsTxs, feeQuoterPricesReport.Output...)
 
 	// 6. Update Router with destination OnRamp versions
 	b.Logger.Info("Updating Router")
 	routerReport, err := operations.ExecuteOperation(b, operation.UpdateRouterOp, deps, in.UpdateRouterDestConfig)
 	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to update Router: %w", err)
+		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to update Router: %w", err)
 	}
 	mcmsTxs = append(mcmsTxs, routerReport.Output)
 
-	return types.BatchOperation{
-		ChainSelector: types.ChainSelector(deps.AptosChain.Selector),
+	return mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
 		Transactions:  mcmsTxs,
 	}, nil
 }

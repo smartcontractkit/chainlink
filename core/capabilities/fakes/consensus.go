@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/jonboulle/clockwork"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/jonboulle/clockwork"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -15,9 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/requests"
 	pbtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // This capability simulates consensus by running the OCR plugin on a single node, without libOCR.

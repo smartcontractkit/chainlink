@@ -46,9 +46,6 @@ type EngineConfig struct {
 }
 
 const (
-	defaultMaxCapRegistryAccessRetries      = 0 // infinity
-	defaultCapRegistryAccessRetryIntervalMs = 5000
-
 	defaultModuleExecuteMaxResponseSizeBytes   = 100000
 	defaultTriggerSubscriptionRequestTimeoutMs = 500
 	defaultMaxTriggerSubscriptions             = 10
@@ -63,9 +60,6 @@ const (
 )
 
 type EngineLimits struct {
-	MaxCapRegistryAccessRetries      uint16
-	CapRegistryAccessRetryIntervalMs uint32
-
 	ModuleExecuteMaxResponseSizeBytes   uint32
 	TriggerSubscriptionRequestTimeoutMs uint32
 	MaxTriggerSubscriptions             uint16
@@ -140,12 +134,6 @@ func (c *EngineConfig) Validate() error {
 }
 
 func (l *EngineLimits) setDefaultLimits() {
-	if l.MaxCapRegistryAccessRetries == 0 {
-		l.MaxCapRegistryAccessRetries = defaultMaxCapRegistryAccessRetries
-	}
-	if l.CapRegistryAccessRetryIntervalMs == 0 {
-		l.CapRegistryAccessRetryIntervalMs = defaultCapRegistryAccessRetryIntervalMs
-	}
 	if l.ModuleExecuteMaxResponseSizeBytes == 0 {
 		l.ModuleExecuteMaxResponseSizeBytes = defaultModuleExecuteMaxResponseSizeBytes
 	}
