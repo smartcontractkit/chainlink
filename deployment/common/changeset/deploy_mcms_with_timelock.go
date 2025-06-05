@@ -146,8 +146,7 @@ func grantRoleLogic(e cldf.Environment, cfg GrantRoleInput) (cldf.ChangesetOutpu
 		stateForChain := mcmsState[chain]
 		evmChains := e.BlockChains.EVMChains()
 		mcmsTxs, err := evminternal.GrantRolesForTimelock(
-			e.GetContext(),
-			e.Logger, evmChains[chain], &proposalutils.MCMSWithTimelockContracts{
+			e, evmChains[chain], &proposalutils.MCMSWithTimelockContracts{
 				CancellerMcm: stateForChain.CancellerMcm,
 				BypasserMcm:  stateForChain.BypasserMcm,
 				ProposerMcm:  stateForChain.ProposerMcm,
