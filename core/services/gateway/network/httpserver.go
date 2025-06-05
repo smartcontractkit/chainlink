@@ -26,7 +26,7 @@ type HttpServer interface {
 }
 
 type HTTPRequestHandler interface {
-	ProcessRequest(ctx context.Context, rawRequest []byte, authHeader string) (rawResponse []byte, httpStatusCode int)
+	ProcessRequest(ctx context.Context, rawRequest []byte, header http.Header) (rawResponse []byte, httpStatusCode int)
 }
 
 type HTTPServerConfig struct {
@@ -180,9 +180,7 @@ func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 		defer cancel()
 	}
 
-	// Extract jwt token from authorization header
-	jwtToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	rawResponse, httpStatusCode := s.handler.ProcessRequest(requestCtx, rawMessage, jwtToken)
+	rawResponse, httpStatusCode := s.handler.ProcessRequest(requestCtx, rawMessage, r.Header)
 
 	w.Header().Set("Content-Type", s.config.ContentTypeHeader)
 	w.WriteHeader(httpStatusCode)

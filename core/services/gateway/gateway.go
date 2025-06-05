@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"go.uber.org/multierr"
@@ -136,7 +137,8 @@ func (g *gateway) Close() error {
 }
 
 // Called by the server
-func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, jwtToken string) (rawResponse []byte, httpStatusCode int) {
+func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, header http.Header) (rawResponse []byte, httpStatusCode int) {
+	jwtToken := strings.TrimPrefix(header.Get("Authorization"), "Bearer ")
 	request, err := g.jsonrpcHandler.DecodeRequest(rawRequest, jwtToken)
 	if err != nil {
 		return errorResponse(&request, api.UserMessageParseError, err.Error())
