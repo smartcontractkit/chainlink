@@ -2,7 +2,6 @@ package sequence
 
 import (
 	"github.com/aptos-labs/aptos-go-sdk"
-
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 

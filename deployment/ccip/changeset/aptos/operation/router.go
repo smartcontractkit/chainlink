@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
-	"github.com/smartcontractkit/mcms/types"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
 	aptos_router "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router/router"
@@ -26,7 +26,7 @@ var UpdateRouterOp = operations.NewOperation(
 	updateRouter,
 )
 
-func updateRouter(b operations.Bundle, deps AptosDeps, in UpdateRouterDestInput) (types.Transaction, error) {
+func updateRouter(b operations.Bundle, deps AptosDeps, in UpdateRouterDestInput) (mcmstypes.Transaction, error) {
 	// Bind CCIP Package
 	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
 	routerBind := ccip_router.Bind(ccipAddress, deps.AptosChain.Client)
@@ -40,12 +40,12 @@ func updateRouter(b operations.Bundle, deps AptosDeps, in UpdateRouterDestInput)
 	}
 	moduleInfo, function, _, args, err := routerBind.Router().Encoder().SetOnRampVersions(destChainSelectors, onRampVersions)
 	if err != nil {
-		return types.Transaction{}, fmt.Errorf("failed to encode ApplyDestChainConfigUpdates for chains %d: %w", deps.AptosChain.Selector, err)
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to encode ApplyDestChainConfigUpdates for chains %d: %w", deps.AptosChain.Selector, err)
 	}
 
 	tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
 	if err != nil {
-		return types.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
 	}
 	b.Logger.Infow("Adding Router destination config update operation")
 

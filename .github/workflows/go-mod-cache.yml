@@ -27,8 +27,22 @@ on:
 
 jobs:
   go-cache:
-    name: Go Cache
-    runs-on: ubuntu-latest
+    name: Go Cache ${{ matrix.suffix }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: ubuntu-latest
+            suffix: "(Github-hosted)"
+
+          - runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c6id/spot=false/extras=s3-cache
+            suffix: "(Self-hosted)"
+
+    runs-on: ${{ matrix.runs-on }}
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4
@@ -36,33 +50,26 @@ jobs:
           persist-credentials: false
 
       - name: Setup Go
+        id: setup-go
         uses: ./.github/actions/setup-go
         with:
           only-modules: "true"
           restore-module-cache-only: "false"
 
       - name: Install Dependencies
+        if: ${{ steps.setup-go.outputs.primary-cache-hit-modules != 'true' }}
         shell: bash
-        run:  go mod download
+        run: |
+          echo "::group::go mod download"
+          go mod download
+          echo "::endgroup::"
 
-  go-cache-self-hosted:
-    name: Go Cache
-    runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c6id/spot=false/extras=s3-cache
-    steps:
-      # enable runs-on magic cache
-      - uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+          echo "::group::Install LOOP plugins"
+          make install-loopinstall
+          make install-plugins-public
+          echo "::endgroup::"
 
-      - name: Checkout the repo
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - name: Setup Go
-        uses: ./.github/actions/setup-go
-        with:
-          only-modules: "true"
-          restore-module-cache-only: "false"
-
-      - name: Install Dependencies
-        shell: bash
-        run:  go mod download
+          echo "::group::Install testing tools"
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@bc66d27e3325a1fecedc0fc932d13d3e54ff6f25
+          go install gotest.tools/gotestsum@v1.12.2
+          echo "::endgroup::"

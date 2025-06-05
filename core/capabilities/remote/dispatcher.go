@@ -12,12 +12,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -67,7 +67,7 @@ func NewDispatcher(cfg config.Dispatcher, peerWrapper p2ptypes.PeerWrapper, sign
 		rateLimiter: rl,
 		receivers:   make(map[key]*receiver),
 		stopCh:      make(services.StopChan),
-		lggr:        lggr.Named("Dispatcher"),
+		lggr:        logger.Named(lggr, "Dispatcher"),
 	}, nil
 }
 
