@@ -38,6 +38,12 @@ const (
 	defaultName                      = "myworkflow"
 )
 
+var (
+	standardCapabilities = []string{
+		"cron", "kvstore", "readcontract", "workflowevent",
+	}
+)
+
 func NewStandaloneEngine(
 	ctx context.Context,
 	lggr logger.Logger,
@@ -137,17 +143,6 @@ func SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWork
 	return map[string]string{}, nil
 }
 
-// standaloneLoopWrapper wraps a StandardCapabilities to implement services.Service
-type standaloneLoopWrapper struct {
-	*standardcapabilities.StandardCapabilities
-}
-
-func (l *standaloneLoopWrapper) Ready() error { return l.StandardCapabilities.Ready() }
-
-func (l *standaloneLoopWrapper) HealthReport() map[string]error { return make(map[string]error) }
-
-func (l *standaloneLoopWrapper) Name() string { return "wrapped" }
-
 func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
 	caps := make([]services.Service, 0)
 
@@ -157,24 +152,7 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 	}
 	caps = append(caps, streamsTrigger)
 
-	pluginRegistrar := plugins.NewRegistrarConfig(
-		loop.GRPCOpts{},
-		func(name string) (*plugins.RegisteredLoop, error) { return &plugins.RegisteredLoop{}, nil },
-		func(loopId string) {})
-
-	goBinPath := os.Getenv("GOBIN")
-
-	cronSpec := &job.StandardCapabilitiesSpec{
-		Command: path.Join(goBinPath, "cron"),
-	}
-	cronLoop := standardcapabilities.NewStandardCapabilities(lggr, cronSpec,
-		pluginRegistrar, &fakes.TelemetryServiceMock{}, &fakes.KVStoreMock{},
-		registry, &fakes.ErrorLogMock{}, &fakes.PipelineRunnerServiceMock{},
-		&fakes.RelayerSetMock{}, &fakes.OracleFactoryMock{})
-
-	caps = append(caps, &standaloneLoopWrapper{
-		StandardCapabilities: cronLoop,
-	})
+	caps = append(caps, newStandardCapabilities(standardCapabilities, lggr, registry)...)
 
 	fakeConsensus, err := fakes.NewFakeConsensus(lggr, fakes.DefaultFakeConsensusConfig())
 	if err != nil {
@@ -195,4 +173,48 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 	}
 
 	return caps, nil
+}
+
+// standaloneLoopWrapper wraps a StandardCapabilities to implement services.Service
+type standaloneLoopWrapper struct {
+	*standardcapabilities.StandardCapabilities
+}
+
+func (l *standaloneLoopWrapper) Ready() error { return l.StandardCapabilities.Ready() }
+
+func (l *standaloneLoopWrapper) HealthReport() map[string]error { return make(map[string]error) }
+
+func (l *standaloneLoopWrapper) Name() string { return "wrapped" }
+
+func newStandardCapabilities(
+	standardCapabilities []string,
+	lggr logger.Logger,
+	registry *capabilities.Registry,
+) []services.Service {
+	caps := make([]services.Service, 0)
+
+	goBinPath := os.Getenv("GOBIN")
+
+	pluginRegistrar := plugins.NewRegistrarConfig(
+		loop.GRPCOpts{},
+		func(name string) (*plugins.RegisteredLoop, error) { return &plugins.RegisteredLoop{}, nil },
+		func(loopId string) {})
+
+	for _, name := range standardCapabilities {
+		spec := &job.StandardCapabilitiesSpec{
+			Command: path.Join(goBinPath, name),
+		}
+
+		loop := standardcapabilities.NewStandardCapabilities(lggr, spec,
+			pluginRegistrar, &fakes.TelemetryServiceMock{}, &fakes.KVStoreMock{},
+			registry, &fakes.ErrorLogMock{}, &fakes.PipelineRunnerServiceMock{},
+			&fakes.RelayerSetMock{}, &fakes.OracleFactoryMock{})
+
+		service := &standaloneLoopWrapper{
+			StandardCapabilities: loop,
+		}
+		caps = append(caps, service)
+	}
+
+	return caps
 }
