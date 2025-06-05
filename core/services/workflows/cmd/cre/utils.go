@@ -49,7 +49,9 @@ type standardCapConfig struct {
 var (
 	goBinPath            = os.Getenv("GOBIN")
 	standardCapabilities = map[string]standardCapConfig{
-		"cron":          {Enabled: true},
+		"cron": {
+			Config:  `{"fastestScheduleIntervalSeconds": 1}`,
+			Enabled: true},
 		"readcontract":  {}, // TODO(PRODCRE-438): allow running a readcontract capability
 		"kvstore":       {},
 		"workflowevent": {},
