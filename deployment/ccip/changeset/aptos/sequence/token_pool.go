@@ -36,7 +36,7 @@ var DeployAptosTokenPoolSequence = operations.NewSequence(
 )
 
 func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in DeployTokenPoolSeqInput) (DeployTokenPoolSeqOutput, error) {
-	mcmsOperations := []mcmstypes.BatchOperation{}
+	var mcmsOperations []mcmstypes.BatchOperation
 
 	// 1 - Cleanup staging area
 	mcmsAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].MCMSAddress
@@ -79,19 +79,17 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 	mcmsOperations = append(mcmsOperations, utils.ToBatchOperations(deployTokenPoolPackageReport.Output.MCMSOps)...)
 
 	// 4 - Deploy token pool module
-	tokenOwnerAddress := in.TokenOwnerAddress
-	if tokenOwnerAddress == (aptos.AccountAddress{}) {
-		toa, err := mcmsContract.MCMSRegistry().GetRegisteredOwnerAddress(nil, in.TokenObjAddress)
-		if err != nil {
-			return DeployTokenPoolSeqOutput{}, fmt.Errorf("failed to get tokenOwnerAddress: %w", err)
-		}
-		tokenOwnerAddress = toa
+	// The initial administrator of the token pool will be set to the MCMS resource account owning CCIP - 
+	// when calling admin function on the TAR, this signer will be used.
+	initialAdministrator, err := mcmsContract.MCMSRegistry().GetRegisteredOwnerAddress(nil, deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress)
+	if err != nil {
+		return DeployTokenPoolSeqOutput{}, fmt.Errorf("failed to get CCIP owner address to be set as an initial administrator: %w", err)
 	}
 	deployTokenPoolModuleInput := operation.DeployTokenPoolModuleInput{
-		TokenObjAddress:     in.TokenObjAddress,
-		TokenPoolObjAddress: tokenPoolObjectAddress,
-		TokenOwnerAddress:   tokenOwnerAddress,
-		PoolType:            in.PoolType,
+		TokenObjAddress:      in.TokenObjAddress,
+		TokenPoolObjAddress:  tokenPoolObjectAddress,
+		InitialAdministrator: initialAdministrator,
+		PoolType:             in.PoolType,
 	}
 	deployTokenPoolModuleReport, err := operations.ExecuteOperation(b, operation.DeployTokenPoolModuleOp, deps, deployTokenPoolModuleInput)
 	if err != nil {
@@ -103,7 +101,7 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 	if in.PoolType == shared.AptosManagedTokenPoolType {
 		// Get the token pool state address
 		tokenPoolStateAddress := tokenPoolObjectAddress.ResourceAccount([]byte("CcipManagedTokenPool"))
-		txs := []mcmstypes.Transaction{}
+		var txs []mcmstypes.Transaction
 		gmReport, err := operations.ExecuteOperation(b, operation.GrantMinterPermissionsOp, deps, operation.GrantRolePermissionsInput{
 			TokenObjAddress:       in.TokenObjAddress,
 			TokenPoolStateAddress: tokenPoolStateAddress,
@@ -138,7 +136,7 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 type ConnectTokenPoolSeqInput struct {
 	TokenPoolAddress    aptos.AccountAddress
 	RemotePools         map[uint64]RemotePool
-	RemotePoolsToRemove []uint64 // To re-set a pool also add it's address on the removing list
+	RemotePoolsToRemove []uint64 // To re-set a pool also add its address on the removing list
 }
 
 type RemotePool struct {

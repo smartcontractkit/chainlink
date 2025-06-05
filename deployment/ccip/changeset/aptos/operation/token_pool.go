@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/compile"
-	managed_token "github.com/smartcontractkit/chainlink-aptos/bindings/managed_token"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/managed_token"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -58,10 +58,10 @@ func deployTokenPoolPackage(b operations.Bundle, deps AptosDeps, poolSeed string
 }
 
 type DeployTokenPoolModuleInput struct {
-	PoolType            cldf.ContractType
-	TokenObjAddress     aptos.AccountAddress
-	TokenPoolObjAddress aptos.AccountAddress
-	TokenOwnerAddress   aptos.AccountAddress
+	PoolType             cldf.ContractType
+	TokenObjAddress      aptos.AccountAddress // TODO change this to metadata address, and determine object if needed
+	TokenPoolObjAddress  aptos.AccountAddress
+	InitialAdministrator aptos.AccountAddress
 }
 
 // DeployTokenPoolModuleOp deploys token pool module to Token Object Address
@@ -78,8 +78,10 @@ func deployTokenPoolModule(b operations.Bundle, deps AptosDeps, in DeployTokenPo
 
 	var ops []types.Operation
 
-	var payload compile.CompiledPackage
-	var err error
+	var (
+		payload compile.CompiledPackage
+		err     error
+	)
 	switch in.PoolType {
 	case shared.AptosManagedTokenPoolType:
 		payload, err = managed_token_pool.Compile(
@@ -88,7 +90,7 @@ func deployTokenPoolModule(b operations.Bundle, deps AptosDeps, in DeployTokenPo
 			aptosState.MCMSAddress,
 			in.TokenPoolObjAddress,
 			in.TokenObjAddress,
-			in.TokenOwnerAddress,
+			in.InitialAdministrator,
 			true,
 		)
 	case shared.BurnMintTokenPool:
@@ -97,8 +99,8 @@ func deployTokenPoolModule(b operations.Bundle, deps AptosDeps, in DeployTokenPo
 			aptosState.CCIPAddress,
 			aptosState.MCMSAddress,
 			in.TokenPoolObjAddress,
-			in.TokenObjAddress,
-			in.TokenOwnerAddress,
+			in.TokenObjAddress, // TODO this should be the metadata address
+			in.InitialAdministrator,
 			true,
 		)
 	case shared.LockReleaseTokenPool:
@@ -107,8 +109,8 @@ func deployTokenPoolModule(b operations.Bundle, deps AptosDeps, in DeployTokenPo
 			aptosState.CCIPAddress,
 			aptosState.MCMSAddress,
 			in.TokenPoolObjAddress,
-			in.TokenObjAddress,
-			in.TokenOwnerAddress,
+			in.TokenObjAddress, // TODO this should be the metadata address
+			in.InitialAdministrator,
 			true,
 		)
 	default:
