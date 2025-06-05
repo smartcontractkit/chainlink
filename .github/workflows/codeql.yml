@@ -1,6 +1,10 @@
 name: "CodeQL Advanced"
 
 on:
+  push:
+    branches:
+      - develop
+      - release/*
   merge_group:
   pull_request:
   schedule:
