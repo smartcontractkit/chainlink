@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
@@ -83,6 +84,18 @@ var (
 			}
 			return offRamp.Address, nil
 		})
+
+	OffRampApplySourceChainConfigUpdatesOp = opsutil.NewEVMCallOperation(
+		"OffRampApplySourceChainConfigUpdatesOp",
+		semver.MustParse("1.0.0"),
+		"Applies updates to source chain configurations stored on the OffRamp contract",
+		offramp.OffRampABI,
+		shared.OffRamp,
+		offramp.NewOffRamp,
+		func(offRamp *offramp.OffRamp, opts *bind.TransactOpts, input []offramp.OffRampSourceChainConfigArgs) (*types.Transaction, error) {
+			return offRamp.ApplySourceChainConfigUpdates(opts, input)
+		},
+	)
 )
 
 type DeployOffRampInput struct {

@@ -42,7 +42,7 @@ func TestEngineConfig_Validate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		cfg.Module = modulemocks.NewModuleV2(t)
 		require.NoError(t, cfg.Validate())
-		require.NotEqual(t, 0, cfg.LocalLimits.CapRegistryAccessRetryIntervalMs)
+		require.NotEqual(t, 0, cfg.LocalLimits.TriggerEventQueueSize)
 		require.NotNil(t, cfg.Hooks.OnInitialized)
 	})
 }

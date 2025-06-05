@@ -113,6 +113,10 @@ func (m *mockOpts) ObservationTimestamp() time.Time {
 	return m.observationTimestamp
 }
 
+func (m *mockOpts) OutcomeCodec() llo.OutcomeCodec {
+	return nil
+}
+
 type mockTelemeter struct {
 	mu                     sync.Mutex
 	v3PremiumLegacyPackets []v3PremiumLegacyPacket
