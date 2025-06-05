@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -11,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 // Deploy Token Pool sequence input
