@@ -21,8 +21,6 @@ const (
 
 var (
 	ErrNoBillingClient     = errors.New("no billing client has been configured")
-	ErrNoOwner             = errors.New("no workflow owner has been configured")
-	ErrNoWorkflowID        = errors.New("no workflow ID has been configured")
 	ErrInsufficientFunding = errors.New("insufficient funding")
 	ErrReceiptFailed       = errors.New("failed to submit workflow receipt")
 	ErrUninitializedReport = errors.New("metering report has not been initialized")
@@ -127,12 +125,14 @@ type Report struct {
 	steps map[string]ReportStep
 }
 
-func NewReport(workflowExecutionID string, lggr logger.SugaredLogger) *Report {
-	sugaredLggr := lggr.Named("Metering").With("workflowExecutionID", workflowExecutionID)
+func NewReport(owner, workflowID, workflowExecutionID string, lggr logger.Logger, client BillingClient) *Report {
 	return &Report{
+		owner:               owner,
+		workflowID:          workflowID,
 		workflowExecutionID: workflowExecutionID,
 
-		lggr: sugaredLggr,
+		client: client,
+		lggr:   logger.Sugared(lggr).Named("Metering").With("workflowExecutionID", workflowExecutionID),
 
 		ready: false,
 		steps: make(map[string]ReportStep),
@@ -147,12 +147,6 @@ func (r *Report) StartAndReserve(ctx context.Context) error {
 	if r.client == nil {
 		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-427 more robust check of billing service health
 		return ErrNoBillingClient
-	}
-	if r.owner == "" {
-		return ErrNoOwner
-	}
-	if r.workflowID == "" {
-		return ErrNoWorkflowID
 	}
 
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-460 get rate card from billing service
@@ -412,6 +406,7 @@ type Reports struct {
 	mu      sync.RWMutex
 	reports map[string]*Report
 	client  BillingClient
+	lggr    logger.Logger
 
 	// descriptive properties
 	owner      string
@@ -419,10 +414,14 @@ type Reports struct {
 }
 
 // NewReports initializes and returns a new Reports.
-func NewReports(client BillingClient, owner, workflowID string) *Reports {
+func NewReports(client BillingClient, owner, workflowID string, lggr logger.Logger) *Reports {
+	// sugaredLggr := lggr.Named("Metering").With("workflowExecutionID", workflowExecutionID)
+
 	return &Reports{
 		reports: make(map[string]*Report),
 		client:  client,
+
+		lggr: lggr,
 
 		owner:      owner,
 		workflowID: workflowID,
@@ -438,23 +437,45 @@ func (s *Reports) Get(key string) (*Report, bool) {
 	return val, ok
 }
 
-// Add inserts or updates a Report under the specified key.
-func (s *Reports) Add(key string, report *Report) {
+// Start creates a new report and inserts it under the specified key.
+func (s *Reports) Start(ctx context.Context, key string) (*Report, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	report.client = s.client
-	report.owner = s.owner
-	report.workflowID = s.workflowID
+	_, ok := s.reports[key]
+	if ok {
+		return nil, errors.New("report already exists")
+	}
+
+	report := NewReport(s.owner, s.workflowID, key, s.lggr, s.client)
+
+	err := report.StartAndReserve(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	s.reports[key] = report
+
+	return report, nil
 }
 
-// Delete removes the Report with the specified key.
-func (s *Reports) Delete(key string) {
+// End removes the Report with the specified key.
+func (s *Reports) End(ctx context.Context, key string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	report, ok := s.reports[key]
+	if !ok {
+		return errors.New("report not found")
+	}
+
+	if err := report.SendReceipt(ctx); err != nil {
+		return err
+	}
+
 	delete(s.reports, key)
+
+	return nil
 }
 
 func (s *Reports) Len() int {

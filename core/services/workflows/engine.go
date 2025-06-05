@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
-	clggr "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -489,11 +488,9 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, triggerID string, event *values.Map) error {
-	meteringReport := metering.NewReport(executionID, clggr.Sugared(e.logger))
-	e.meterReports.Add(executionID, meteringReport)
-	err := meteringReport.StartAndReserve(ctx)
+	_, err := e.meterReports.Start(ctx, executionID)
 	if err != nil {
-		e.logger.Errorf("failed to initialize: %+v", err)
+		e.logger.Errorw("could not meter workflow execution", "err", err)
 	}
 
 	err = events.EmitExecutionStartedEvent(ctx, e.cma, triggerID, executionID)
@@ -583,11 +580,6 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 
 		logCustMsg(ctx, cma, "execution status: "+status, l)
 
-		// this case is only for resuming executions and should be updated when metering is added to save execution state
-		if _, ok := e.meterReports.Get(stepUpdate.ExecutionID); !ok {
-			e.meterReports.Add(stepUpdate.ExecutionID, metering.NewReport(state.ExecutionID, clggr.Sugared(e.logger)))
-		}
-
 		return e.finishExecution(ctx, cma, state.ExecutionID, status)
 	}
 
@@ -662,7 +654,7 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 
 	// clean all per execution state trackers
 	e.stepUpdatesChMap.remove(executionID)
-	e.meterReports.Delete(executionID)
+	e.meterReports.End(ctx, executionID)
 
 	executionDuration := int64(execState.FinishedAt.Sub(*execState.CreatedAt).Seconds())
 	switch status {
@@ -1463,7 +1455,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
 		workflowLimits:       cfg.WorkflowLimits,
-		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id),
+		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr),
 	}
 
 	return engine, nil

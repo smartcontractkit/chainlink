@@ -67,19 +67,20 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
+	lggr := logger.Sugared(cfg.Lggr).Named("WorkflowEngine").With("workflowID", cfg.WorkflowID)
 	engine := &Engine{
 		cfg:                     cfg,
 		triggers:                make(map[string]TriggerCapability),
 		allTriggerEventsQueueCh: make(chan enqueuedTriggerEvent, cfg.LocalLimits.TriggerEventQueueSize),
 		executionsSemaphore:     make(chan struct{}, cfg.LocalLimits.MaxConcurrentWorkflowExecutions),
 		capCallsSemaphore:       make(chan struct{}, cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow),
-		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID),
+		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, lggr),
 	}
 	engine.Service, engine.srvcEng = services.Config{
 		Name:  "WorkflowEngineV2",
 		Start: engine.start,
 		Close: engine.close,
-	}.NewServiceEngine(logger.Sugared(cfg.Lggr).Named("WorkflowEngine").With("workflowID", cfg.WorkflowID))
+	}.NewServiceEngine(lggr)
 	return engine, nil
 }
 
@@ -282,13 +283,12 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 
-	meteringReport := metering.NewReport(executionID, e.srvcEng.SugaredLogger)
-	err = meteringReport.StartAndReserve(ctx)
+	meteringReport, err := e.meterReports.Start(ctx, executionID)
 	if err != nil {
-		e.cfg.Lggr.Errorw("Workflow execution could not be started", "err", err)
+		e.cfg.Lggr.Errorw("Could not meter workflow execution", "err", err)
 		return
 	}
-	e.meterReports.Add(executionID, meteringReport)
+
 	// V2Engine runs the entirety of a module's execution as compute. Ensure that the max execution time can run.
 	_, err = meteringReport.DeductByLimits(
 		metering.ComputeResourceDimension,
@@ -322,10 +322,9 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	if mrErr := meteringReport.SetStep(metering.ComputeResourceDimension, []capabilities.MeteringNodeDetail{{Peer2PeerID: e.localNode.PeerID.String(), SpendUnit: metering.ComputeResourceDimension, SpendValue: executionMS}}); mrErr != nil {
 		e.cfg.Lggr.Errorw("could not set metering for compute", "err", err)
 	}
-	if mrErr := meteringReport.SendReceipt(ctx); mrErr != nil {
+	if mrErr := e.meterReports.End(ctx, executionID); mrErr != nil {
 		e.cfg.Lggr.Errorw("could not send metering report", "err", err)
 	}
-	e.meterReports.Delete(executionID)
 
 	if err != nil {
 		e.cfg.Lggr.Errorw("Workflow execution failed", "err", err)

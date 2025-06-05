@@ -19,7 +19,7 @@ type balanceStore struct {
 	allowNegative bool
 	// A balance of credits
 	balance int64
-	// Conversion rates of resource type to number of units per credit
+	// Conversion rates of resource dimensions to number of units per credit
 	conversions map[string]decimal.Decimal // TODO flip this
 	lggr        logger.Logger
 	mu          sync.RWMutex
@@ -55,7 +55,7 @@ func NewBalanceStore(startingBalance int64, conversions map[string]decimal.Decim
 	}
 }
 
-// convertToBalance converts a resource type amount to a credit amount
+// convertToBalance converts a resource dimension amount to a credit amount
 // This method should only be used under a read lock
 func (bs *balanceStore) convertToBalance(fromUnit string, amount int64) (credits int64) {
 	rate, ok := bs.conversions[fromUnit]
@@ -67,14 +67,14 @@ func (bs *balanceStore) convertToBalance(fromUnit string, amount int64) (credits
 	return decimal.NewFromInt(amount).Mul(rate).RoundUp(0).IntPart()
 }
 
-// ConvertToBalance converts a resource type amount to a credit amount
+// ConvertToBalance converts a resource dimensions amount to a credit amount
 func (bs *balanceStore) ConvertToBalance(fromUnit string, amount int64) (credits int64) {
 	bs.mu.RLock()
 	defer bs.mu.RUnlock()
 	return bs.convertToBalance(fromUnit, amount)
 }
 
-// convertFromBalance converts a credit amount to a resource type amount
+// convertFromBalance converts a credit amount to a resource dimensions amount
 // This method should only be used under a read lock
 func (bs *balanceStore) convertFromBalance(toUnit string, amount int64) (resources int64) {
 	rate, ok := bs.conversions[toUnit]
@@ -86,7 +86,7 @@ func (bs *balanceStore) convertFromBalance(toUnit string, amount int64) (resourc
 	return decimal.NewFromInt(amount).Div(rate).RoundUp(0).IntPart()
 }
 
-// ConvertFromBalance converts a credit amount to a resource type amount
+// ConvertFromBalance converts a credit amount to a resource dimensions amount
 func (bs *balanceStore) ConvertFromBalance(toUnit string, amount int64) (resources int64) {
 	bs.mu.RLock()
 	defer bs.mu.RUnlock()
@@ -100,7 +100,7 @@ func (bs *balanceStore) Get() (balance int64) {
 	return bs.balance
 }
 
-// GetAs returns the current universal credit balance expressed as a resource
+// GetAs returns the current universal credit balance expressed as a resource dimensions
 func (bs *balanceStore) GetAs(unit string) (balance int64) {
 	bs.mu.RLock()
 	defer bs.mu.RUnlock()
@@ -124,7 +124,7 @@ func (bs *balanceStore) Minus(amount int64) error {
 	return nil
 }
 
-// MinusAs lowers the current credit balance based on an amount of a type of resource
+// MinusAs lowers the current credit balance based on an amount of resource dimensions
 func (bs *balanceStore) MinusAs(unit string, amount int64) error {
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
@@ -150,7 +150,7 @@ func (bs *balanceStore) Add(amount int64) error {
 	return nil
 }
 
-// AddAs increases the current credit balance based on an amount of a type of resource
+// AddAs increases the current credit balance based on an amount of resource dimensions
 func (bs *balanceStore) AddAs(unit string, amount int64) error {
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
