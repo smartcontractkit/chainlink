@@ -2,6 +2,8 @@
 
 ## ## 2.25.0 - UNRELEASED
 
+For DONs running OCR3, make sure that release 2.23.0 or newer has been deployed before upgrading to 2.25.0 or beyond.
+
 ### Minor Changes
 
 - [#17666](https://github.com/smartcontractkit/chainlink/pull/17666) [`670e38a`](https://github.com/smartcontractkit/chainlink/commit/670e38a7722be7b4d61c45f657fdac442de67509) - Add TON Keystore to Core with ED25519-based TONKey and tests
