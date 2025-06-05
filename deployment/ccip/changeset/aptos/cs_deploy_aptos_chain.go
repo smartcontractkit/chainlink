@@ -3,7 +3,6 @@ package aptos
 import (
 	"errors"
 	"fmt"
-	"math/big"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/smartcontractkit/mcms"
@@ -102,15 +101,14 @@ func (cs DeployAptosChain) Apply(env cldf.Environment, cfg config.DeployAptosCha
 		linkTokenAddress := state.AptosChains[chainSel].LinkTokenAddress
 		if linkTokenAddress == (aptos.AccountAddress{}) {
 			// Deploy Link token
-			// TODO: get correct parameters for Link Token deployment
 			deployTokenIn := seq.DeployTokenSeqInput{
 				TokenParams: config.TokenParams{
-					MaxSupply: big.NewInt(100_000_000),
-					Name:      "Link",
+					MaxSupply: nil,
+					Name:      "Chainlink Token",
 					Symbol:    "LINK",
 					Decimals:  8,
-					Icon:      "",
-					Project:   "",
+					Icon:      "https://raw.githubusercontent.com/smartcontractkit/documentation/main/public/assets/icons/link.svg",
+					Project:   "https://chain.link",
 				},
 				MCMSAddress: mcmsSeqReport.Output.MCMSAddress,
 			}
