@@ -290,9 +290,10 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}
 
 	// V2Engine runs the entirety of a module's execution as compute. Ensure that the max execution time can run.
+	// Add an extra second of metering padding for context cancel propogation
 	err = meteringReport.Deduct(
 		metering.ComputeResourceDimension,
-		meteringReport.ConvertToBalance(metering.ComputeResourceDimension, int64(e.cfg.LocalLimits.WorkflowExecutionTimeoutMs)),
+		meteringReport.ConvertToBalance(metering.ComputeResourceDimension, int64(e.cfg.LocalLimits.WorkflowExecutionTimeoutMs+1000)),
 	)
 	if err != nil {
 		e.cfg.Lggr.Errorw("could not meter compute", "err", err)
