@@ -79,7 +79,7 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 	mcmsOperations = append(mcmsOperations, utils.ToBatchOperations(deployTokenPoolPackageReport.Output.MCMSOps)...)
 
 	// 4 - Deploy token pool module
-	// The initial administrator of the token pool will be set to the MCMS resource account owning CCIP - 
+	// The initial administrator of the token pool will be set to the MCMS resource account owning CCIP -
 	// when calling admin function on the TAR, this signer will be used.
 	initialAdministrator, err := mcmsContract.MCMSRegistry().GetRegisteredOwnerAddress(nil, deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress)
 	if err != nil {
