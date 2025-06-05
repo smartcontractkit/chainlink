@@ -133,16 +133,20 @@ var GrantMinterPermissionsOp = operations.NewOperation(
 	grantMinterPermissions,
 )
 
-func grantMinterPermissions(b operations.Bundle, deps AptosDeps, tokenObjAddress aptos.AccountAddress) (types.Transaction, error) {
-	managedTokenPoolStateAddress := tokenObjAddress.ResourceAccount([]byte("CcipManagedTokenPool"))
-	tokenContract := managed_token.Bind(tokenObjAddress, deps.AptosChain.Client)
+type GrantRolePermissionsInput struct {
+	TokenObjAddress              aptos.AccountAddress
+	ManagedTokenPoolStateAddress aptos.AccountAddress
+}
 
-	moduleInfo, function, _, args, err := tokenContract.ManagedToken().Encoder().ApplyAllowedMinterUpdates([]aptos.AccountAddress{}, []aptos.AccountAddress{managedTokenPoolStateAddress})
+func grantMinterPermissions(b operations.Bundle, deps AptosDeps, in GrantRolePermissionsInput) (types.Transaction, error) {
+	tokenContract := managed_token.Bind(in.TokenObjAddress, deps.AptosChain.Client)
+
+	moduleInfo, function, _, args, err := tokenContract.ManagedToken().Encoder().ApplyAllowedMinterUpdates([]aptos.AccountAddress{}, []aptos.AccountAddress{in.ManagedTokenPoolStateAddress})
 	if err != nil {
 		return types.Transaction{}, fmt.Errorf("failed to encode ApplyAllowedMinterUpdates: %w", err)
 	}
 
-	return utils.GenerateMCMSTx(tokenObjAddress, moduleInfo, function, args)
+	return utils.GenerateMCMSTx(in.TokenObjAddress, moduleInfo, function, args)
 }
 
 // GrantBurnerPermissionsOp operation to grant burner permissions
@@ -153,16 +157,15 @@ var GrantBurnerPermissionsOp = operations.NewOperation(
 	grantBurnerPermissions,
 )
 
-func grantBurnerPermissions(b operations.Bundle, deps AptosDeps, tokenObjAddress aptos.AccountAddress) (types.Transaction, error) {
-	managedTokenPoolStateAddress := tokenObjAddress.ResourceAccount([]byte("CcipManagedTokenPool"))
-	tokenContract := managed_token.Bind(tokenObjAddress, deps.AptosChain.Client)
+func grantBurnerPermissions(b operations.Bundle, deps AptosDeps, in GrantRolePermissionsInput) (types.Transaction, error) {
+	tokenContract := managed_token.Bind(in.TokenObjAddress, deps.AptosChain.Client)
 
-	moduleInfo, function, _, args, err := tokenContract.ManagedToken().Encoder().ApplyAllowedBurnerUpdates([]aptos.AccountAddress{}, []aptos.AccountAddress{managedTokenPoolStateAddress})
+	moduleInfo, function, _, args, err := tokenContract.ManagedToken().Encoder().ApplyAllowedBurnerUpdates([]aptos.AccountAddress{}, []aptos.AccountAddress{in.ManagedTokenPoolStateAddress})
 	if err != nil {
 		return types.Transaction{}, fmt.Errorf("failed to encode ApplyAllowedBurnerUpdates: %w", err)
 	}
 
-	return utils.GenerateMCMSTx(tokenObjAddress, moduleInfo, function, args)
+	return utils.GenerateMCMSTx(in.TokenObjAddress, moduleInfo, function, args)
 }
 
 type ApplyChainUpdatesInput struct {
