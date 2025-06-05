@@ -5,9 +5,13 @@ import (
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
@@ -16,8 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/mcms"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 var _ cldf.ChangeSetV2[config.AddTokenPoolConfig] = AddTokenPool{}

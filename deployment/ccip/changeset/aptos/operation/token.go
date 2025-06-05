@@ -6,9 +6,10 @@ import (
 
 	"github.com/aptos-labs/aptos-go-sdk"
 
+	"github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
-	"github.com/smartcontractkit/mcms/types"
 
 	managed_token "github.com/smartcontractkit/chainlink-aptos/bindings/managed_token"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
