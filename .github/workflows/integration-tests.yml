@@ -171,7 +171,7 @@ jobs:
             tag-suffix: -plugins
 
     name: Build Chainlink Image ${{ matrix.image.name }}
-    runs-on: ubuntu22.04-8cores-32GB
+    runs-on: ${{ needs.changes.outputs.builder-runner-label || 'ubuntu22.04-8cores-32GB' }}
     needs: [changes, enforce-ctf-version]
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
