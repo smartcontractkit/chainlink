@@ -141,14 +141,13 @@ F = 0
 			// Print response body
 			body, err := io.ReadAll(resp.Body)
 			require.NoError(t, err)
-			fmt.Println(string(body))
 
 			// Check response status
 			require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway endpoint should respond with 200 OK")
 
 			// Parse response
 			var response map[string]interface{}
-			err = json.NewDecoder(resp.Body).Decode(&response)
+			err = json.Unmarshal(body, &response)
 			require.NoError(t, err)
 
 			// Verify JSON-RPC response structure

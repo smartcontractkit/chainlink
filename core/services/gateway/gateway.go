@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api/jsonrpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api/jsonrpc/services/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	gw_net "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -46,11 +47,13 @@ type HandlerFactory interface {
 type gateway struct {
 	services.StateMachine
 
-	codec      api.Codec
-	httpServer gw_net.HttpServer
-	handlers   map[string]handlers.Handler
-	connMgr    ConnectionManager
-	lggr       logger.Logger
+	codec          api.Codec
+	httpServer     gw_net.HttpServer
+	handlers       map[string]handlers.Handler
+	connMgr        ConnectionManager
+	lggr           logger.Logger
+	jsonrpcHandler *jsonrpc.Handler
+	services       map[string]jsonrpc.Service
 }
 
 func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger) (Gateway, error) {
@@ -62,6 +65,8 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 	}
 
 	handlerMap := make(map[string]handlers.Handler)
+	serviceMap := make(map[string]jsonrpc.Service)
+
 	for _, donConfig := range config.Dons {
 		donConfig := donConfig
 		_, ok := handlerMap[donConfig.DonId]
@@ -78,20 +83,26 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 				return nil, fmt.Errorf("invalid node address %s", nodeConfig.Address)
 			}
 		}
-		handler, err := handlerFactory.NewHandler(donConfig.HandlerName, donConfig.HandlerConfig, &donConfig, donConnMgr)
-		if err != nil {
-			return nil, err
+		if donConfig.HandlerName == "vault" {
+			serviceMap[donConfig.HandlerName] = vault.New(donConfig.HandlerConfig, &donConfig, donConnMgr, lggr)
+		} else {
+			handler, err := handlerFactory.NewHandler(donConfig.HandlerName, donConfig.HandlerConfig, &donConfig, donConnMgr)
+			if err != nil {
+				return nil, err
+			}
+			handlerMap[donConfig.DonId] = handler
+			donConnMgr.SetHandler(handler)
 		}
-		handlerMap[donConfig.DonId] = handler
-		donConnMgr.SetHandler(handler)
 	}
 
 	gw := &gateway{
-		codec:      codec,
-		httpServer: httpServer,
-		handlers:   handlerMap,
-		connMgr:    connMgr,
-		lggr:       lggr.Named("Gateway"),
+		codec:          codec,
+		jsonrpcHandler: &jsonrpc.Handler{},
+		httpServer:     httpServer,
+		handlers:       handlerMap,
+		services:       serviceMap,
+		connMgr:        connMgr,
+		lggr:           lggr.Named("Gateway"),
 	}
 	httpServer.SetHTTPRequestHandler(gw)
 	return gw, nil
@@ -126,19 +137,13 @@ func (g *gateway) Close() error {
 
 // Called by the server
 func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, jwtToken string) (rawResponse []byte, httpStatusCode int) {
-	jsonrpcHandler := &jsonrpc.Handler{}
-	request, err := jsonrpcHandler.DecodeRequest(rawRequest)
+	request, err := g.jsonrpcHandler.DecodeRequest(rawRequest, jwtToken)
 	if err != nil {
-		rawResponse, err = request.EncodeErrorReponse(&jsonrpc.Error{
-			Code:    api.ToJsonRPCErrorCode(api.UserMessageParseError),
-			Message: err.Error(),
-		})
-		if err != nil {
-			promRequest.WithLabelValues(api.FatalError.String()).Inc()
-			return []byte("fatal error"), api.ToHttpErrorCode(api.FatalError)
-		}
-		promRequest.WithLabelValues(api.UserMessageParseError.String()).Inc()
-		return rawResponse, api.ToHttpErrorCode(api.UserMessageParseError)
+		return errorResponse(&request, api.UserMessageParseError, err.Error())
+	}
+
+	if request.ServiceName() == "vault" {
+		return g.ProcessRequestV2(ctx, request)
 	}
 
 	g.lggr.Info("incoming request", "request", request)
@@ -189,10 +194,47 @@ func (g *gateway) ProcessRequestV1(ctx context.Context, rawRequest []byte) (rawR
 	return rawResponse, api.ToHttpErrorCode(api.NoError)
 }
 
+func (g *gateway) ProcessRequestV2(ctx context.Context, request jsonrpc.Request) (rawResponse []byte, httpStatusCode int) {
+	method, ok := g.services[request.ServiceName()]
+	if !ok {
+		return errorResponse(&request, api.UnsupportedDONIdError, "unsupported request method")
+	}
+	responseCh := make(chan *jsonrpc.Response, 1)
+	err := method.HandleUserRequest(ctx, &request, responseCh)
+	if err != nil {
+		return errorResponse(&request, api.HandlerError, err.Error())
+	}
+
+	response, ok := <-responseCh
+	if !ok {
+		return errorResponse(&request, api.HandlerError, "handler timeout")
+	}
+
+	rawResponse, err = g.jsonrpcHandler.EncodeResponse(response)
+	if err != nil {
+		return errorResponse(&request, api.NodeReponseEncodingError, "")
+	}
+	promRequest.WithLabelValues(api.NoError.String()).Inc()
+	return rawResponse, api.ToHttpErrorCode(api.NoError)
+}
+
 func newError(codec api.Codec, id string, errCode api.ErrorCode, errMsg string) ([]byte, int) {
 	rawResponse, err := codec.EncodeNewErrorResponse(id, api.ToJsonRPCErrorCode(errCode), errMsg, nil)
 	if err != nil {
 		// we're not even able to encode a valid JSON response
+		promRequest.WithLabelValues(api.FatalError.String()).Inc()
+		return []byte("fatal error"), api.ToHttpErrorCode(api.FatalError)
+	}
+	promRequest.WithLabelValues(errCode.String()).Inc()
+	return rawResponse, api.ToHttpErrorCode(errCode)
+}
+
+func errorResponse(request *jsonrpc.Request, errCode api.ErrorCode, errMsg string) (rawResponse []byte, httpStatusCode int) {
+	rawResponse, err := request.EncodeErrorReponse(&jsonrpc.Error{
+		Code:    api.ToJsonRPCErrorCode(errCode),
+		Message: errMsg,
+	})
+	if err != nil {
 		promRequest.WithLabelValues(api.FatalError.String()).Inc()
 		return []byte("fatal error"), api.ToHttpErrorCode(api.FatalError)
 	}

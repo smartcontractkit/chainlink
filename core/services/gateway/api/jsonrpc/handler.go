@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // Wrapping/unwrapping Message objects into JSON RPC ones folllowing https://www.jsonrpc.org/specification
@@ -12,7 +13,9 @@ type Request struct {
 	ID      string          `json:"id"`
 	Method  string          `json:"method"`
 	Params  json.RawMessage `json:"params,omitempty"`
-	Auth    string          `json:"auth,omitempty"`
+	// Auth is used to store the JWT token for the request. It is not part of the JSON RPC specification.
+	// JWT token can be part of the request payload or attached to the request header.
+	Auth string `json:"auth,omitempty"`
 }
 
 type Response struct {
@@ -32,7 +35,7 @@ type Error struct {
 type Handler struct {
 }
 
-func (*Handler) DecodeRequest(requestBytes []byte) (Request, error) {
+func (*Handler) DecodeRequest(requestBytes []byte, jwtTokenFromHeader string) (Request, error) {
 	var request Request
 	err := json.Unmarshal(requestBytes, &request)
 	if err != nil {
@@ -47,6 +50,16 @@ func (*Handler) DecodeRequest(requestBytes []byte) (Request, error) {
 	if request.Params == nil {
 		return Request{}, errors.New("missing params attribute")
 	}
+	if request.Auth != "" {
+		return request, nil
+	}
+
+	if jwtTokenFromHeader == "" {
+		return request, errors.New("missing auth token")
+	}
+
+	request.Auth = jwtTokenFromHeader
+
 	return request, nil
 }
 
@@ -76,4 +89,8 @@ func (r *Request) EncodeErrorReponse(err *Error) ([]byte, error) {
 		ID:      r.ID,
 		Error:   err,
 	})
+}
+
+func (r *Request) ServiceName() string {
+	return strings.Split(r.Method, ".")[0]
 }
