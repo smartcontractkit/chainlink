@@ -223,6 +223,7 @@ func (ds *inMemoryDataSource) parse(finalResult pipeline.FinalResult) (*big.Int,
 
 // Observe without saving to DB
 func (ds *inMemoryDataSource) Observe(ctx context.Context, timestamp ocr2types.ReportTimestamp) (*big.Int, error) {
+	ds.lggr.Infof("TRACE Observe called for spec ID %v at round %d, epoch %d, config digest %s", ds.spec.ID, timestamp.Round, timestamp.Epoch, timestamp.ConfigDigest.Hex())
 	_, trrs, err := ds.executeRun(ctx)
 	if err != nil {
 		return nil, err
@@ -257,6 +258,7 @@ type inMemoryDataSourceCache struct {
 }
 
 func (ds *inMemoryDataSourceCache) Start(context.Context) error {
+	ds.lggr.Infof("TRACE Starting inMemoryDataSourceCache for spec ID %v with update interval %v and staleness alert threshold %v", ds.spec.ID, ds.updateInterval, ds.stalenessAlertThreshold)
 	go func() { ds.updater() }()
 	return nil
 }
@@ -296,6 +298,7 @@ type ResultTimePair struct {
 }
 
 func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
+	ds.lggr.Infof("TRACE updating cache for spec ID %v", ds.spec.ID)
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
 
@@ -354,6 +357,7 @@ func (ds *inMemoryDataSourceCache) get(ctx context.Context) (pipeline.FinalResul
 }
 
 func (ds *inMemoryDataSourceCache) Observe(ctx context.Context, timestamp ocr2types.ReportTimestamp) (*big.Int, error) {
+	ds.lggr.Infof("TRACE inMemoryDataSourceCache.Observe called for spec ID %v at round %d, epoch %d, config digest %s", ds.spec.ID, timestamp.Round, timestamp.Epoch, timestamp.ConfigDigest.Hex())
 	var resTime ResultTimePair
 	latestResult, latestTrrs := ds.get(ctx)
 	if latestTrrs == nil {
@@ -390,6 +394,7 @@ func (ds *inMemoryDataSourceCache) Observe(ctx context.Context, timestamp ocr2ty
 }
 
 func (ds *dataSourceBase) observe(ctx context.Context, timestamp ObservationTimestamp) (*big.Int, error) {
+	ds.lggr.Infof("TRACE observe called for spec ID %v at round %d, epoch %d, config digest %s", ds.spec.ID, timestamp.Round, timestamp.Epoch, timestamp.ConfigDigest)
 	run, trrs, err := ds.inMemoryDataSource.executeRun(ctx)
 	if err != nil {
 		return nil, err
@@ -420,6 +425,7 @@ func (ds *dataSource) Observe(ctx context.Context, timestamp ocr1types.ReportTim
 
 // Observe with saving to DB, satisfies ocr2 interface
 func (ds *dataSourceV2) Observe(ctx context.Context, timestamp ocr2types.ReportTimestamp) (*big.Int, error) {
+	ds.lggr.Infof("TRACE dataSourceV2.Observe called for spec ID %v at round %d, epoch %d, config digest %s", ds.spec.ID, timestamp.Round, timestamp.Epoch, timestamp.ConfigDigest.Hex())
 	return ds.observe(ctx, ObservationTimestamp{
 		Round:        timestamp.Round,
 		Epoch:        timestamp.Epoch,

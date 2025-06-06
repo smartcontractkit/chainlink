@@ -57,7 +57,7 @@ func setupBlockchain(t *testing.T) (
 	return steve, backend
 }
 
-func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
+func TestIntegration_SecureMint_happy_path(t *testing.T) {
 	const salt = 100
 
 	clientCSAKeys := make([]csakey.KeyV2, nNodes)

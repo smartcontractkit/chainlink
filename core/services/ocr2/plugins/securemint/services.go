@@ -118,13 +118,13 @@ func NewSecureMintServices(ctx context.Context,
 		}
 	}
 
-	// TODO(gg): probably needed
-	// dataSource := ocrcommon.NewDataSourceV2(pipelineRunner,
-	// 	jb,
-	// 	*jb.PipelineSpec,
-	// 	lggr,
-	// 	runSaver,
-	// 	chEnhancedTelem)
+	dataSource := ocrcommon.NewDataSourceV2(pipelineRunner,
+		jb,
+		*jb.PipelineSpec,
+		lggr,
+		runSaver,
+		chEnhancedTelem)
+	lggr.Infof("Created data source %#v", dataSource)
 
 	// juelsPerFeeCoinSource := ocrcommon.NewInMemoryDataSource(pipelineRunner, jb, pipeline.Spec{
 	// 	ID:           jb.ID,
@@ -182,7 +182,7 @@ func NewSecureMintServices(ctx context.Context,
 		// TODO(gg): fill in params for the factory
 		argsNoPlugin.ReportingPluginFactory = &sm_plugin.PorReportingPluginFactory{
 			Logger:          argsNoPlugin.Logger,
-			ExternalAdapter: sm_plugin.NewMockExternalAdapterImpl(),
+			ExternalAdapter: sm_plugin.NewMockExternalAdapterImpl(), // TODO(gg): use real external adapter here that uses the data source
 			ContractReader: sm_plugin.NewMockContractReader(func() [32]byte { // TODO(gg): replace with real contract reader
 				var b [32]byte
 				copy(b[:], "CONFIGDIGEST")
