@@ -241,7 +241,6 @@ func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
 	var (
-		replayed bool
 		// nonce    uint64 // Nonce not used as Solana check is skipped
 		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
 		setup  = mt.NewTestSetupWithDeployedEnv(
@@ -289,7 +288,6 @@ func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
 		mt.TestCase{
 			ValidationType:         mt.ValidationTypeExec,
 			TestSetup:              setup,
-			Replayed:               replayed,
 			Nonce:                  nil, // Solana nonce check is skipped
 			Receiver:               receiver,
 			MsgData:                []byte("hello CCIPReceiver"),

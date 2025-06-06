@@ -124,10 +124,10 @@ func Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest(t *tes
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
 	var (
-		nonce    uint64
-		sender   = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
-		out      mt.TestCaseOutput
-		setup    = mt.NewTestSetupWithDeployedEnv(
+		nonce  uint64
+		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
+		out    mt.TestCaseOutput
+		setup  = mt.NewTestSetupWithDeployedEnv(
 			t,
 			e,
 			state,

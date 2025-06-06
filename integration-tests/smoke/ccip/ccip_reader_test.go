@@ -317,7 +317,7 @@ func TestCCIPReader_GetRMNRemoteConfig(t *testing.T) {
 	rmnRemoteConfig, err := reader.GetRMNRemoteConfig(ctx)
 	require.NoError(t, err)
 	require.Equal(t, exp.Config.RmnHomeContractConfigDigest[:], rmnRemoteConfig.ConfigDigest[:])
-	require.Equal(t, len(exp.Config.Signers), len(rmnRemoteConfig.Signers))
+	require.Len(t, rmnRemoteConfig.Signers, len(exp.Config.Signers))
 	for i, signer := range exp.Config.Signers {
 		require.Equal(t, signer.OnchainPublicKey.Bytes(), []byte(rmnRemoteConfig.Signers[i].OnchainPublicKey))
 		require.Equal(t, signer.NodeIndex, rmnRemoteConfig.Signers[i].NodeIndex)
@@ -507,7 +507,7 @@ func requireEqualPriceUpdates(
 	ccipReaderPriceUpdates cciptypes.PriceUpdates,
 ) {
 	// token price update equality
-	require.Equal(t, len(onchainPriceUpdates.TokenPriceUpdates), len(ccipReaderPriceUpdates.TokenPriceUpdates))
+	require.Len(t, ccipReaderPriceUpdates.TokenPriceUpdates, len(onchainPriceUpdates.TokenPriceUpdates))
 	for i := range onchainPriceUpdates.TokenPriceUpdates {
 		require.Equal(t,
 			onchainPriceUpdates.TokenPriceUpdates[i].SourceToken.Bytes(),
@@ -518,7 +518,7 @@ func requireEqualPriceUpdates(
 	}
 
 	// gas price update equality
-	require.Equal(t, len(onchainPriceUpdates.GasPriceUpdates), len(ccipReaderPriceUpdates.GasPriceUpdates))
+	require.Len(t, ccipReaderPriceUpdates.GasPriceUpdates, len(onchainPriceUpdates.GasPriceUpdates))
 	for i := range onchainPriceUpdates.GasPriceUpdates {
 		require.Equal(t,
 			onchainPriceUpdates.GasPriceUpdates[i].DestChainSelector,
@@ -534,7 +534,7 @@ func requireEqualRoots(
 	onchainRoots []ccip_reader_tester.InternalMerkleRoot,
 	ccipReaderRoots []cciptypes.MerkleRootChain,
 ) {
-	require.Equal(t, len(onchainRoots), len(ccipReaderRoots))
+	require.Len(t, ccipReaderRoots, len(onchainRoots))
 	for i := 0; i < len(onchainRoots); i++ {
 		require.Equal(t,
 			onchainRoots[i].SourceChainSelector,
