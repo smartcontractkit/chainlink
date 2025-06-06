@@ -12,49 +12,49 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	tonaddress "github.com/xssnick/tonutils-go/address"
+	"github.com/xssnick/tonutils-go/address"
 )
 
 // TonCCIPChainState holds a Go binding for all the currently deployed CCIP contracts
 // on a chain. If a binding is nil, it means here is no such contract on the chain.
 type CCIPChainState struct {
-	LinkTokenAddress tonaddress.Address
-	CCIPAddress      tonaddress.Address
-	OffRamp          tonaddress.Address
-	Router           tonaddress.Address
+	LinkTokenAddress address.Address
+	CCIPAddress      address.Address
+	OffRamp          address.Address
+	Router           address.Address
 
 	// dummy receiver address
-	ReceiverAddress tonaddress.Address
+	ReceiverAddress address.Address
 }
 
-func SaveOnchainStateTon(chainSelector uint64, tonState CCIPChainState, e cldf.Environment) error {
+func SaveOnchainState(chainSelector uint64, state CCIPChainState, e cldf.Environment) error {
 	ab := e.ExistingAddresses
-	if !tonState.LinkTokenAddress.IsAddrNone() {
-		err := ab.Save(chainSelector, tonState.LinkTokenAddress.String(), cldf.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_6_0))
+	if !state.LinkTokenAddress.IsAddrNone() {
+		err := ab.Save(chainSelector, state.LinkTokenAddress.String(), cldf.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_6_0))
 		if err != nil {
 			return err
 		}
 	}
-	if !tonState.CCIPAddress.IsAddrNone() {
-		err := ab.Save(chainSelector, tonState.CCIPAddress.String(), cldf.NewTypeAndVersion(shared.TonCCIP, deployment.Version1_6_0))
+	if !state.CCIPAddress.IsAddrNone() {
+		err := ab.Save(chainSelector, state.CCIPAddress.String(), cldf.NewTypeAndVersion(shared.TonCCIP, deployment.Version1_6_0))
 		if err != nil {
 			return err
 		}
 	}
-	if !tonState.ReceiverAddress.IsAddrNone() {
-		err := ab.Save(chainSelector, tonState.ReceiverAddress.String(), cldf.NewTypeAndVersion(shared.TonReceiver, deployment.Version1_6_0))
+	if !state.ReceiverAddress.IsAddrNone() {
+		err := ab.Save(chainSelector, state.ReceiverAddress.String(), cldf.NewTypeAndVersion(shared.TonReceiver, deployment.Version1_6_0))
 		if err != nil {
 			return err
 		}
 	}
-	if !tonState.OffRamp.IsAddrNone() {
-		err := ab.Save(chainSelector, tonState.OffRamp.String(), cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_6_0))
+	if !state.OffRamp.IsAddrNone() {
+		err := ab.Save(chainSelector, state.OffRamp.String(), cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_6_0))
 		if err != nil {
 			return err
 		}
 	}
-	if !tonState.Router.IsAddrNone() {
-		err := ab.Save(chainSelector, tonState.Router.String(), cldf.NewTypeAndVersion(shared.Router, deployment.Version1_6_0))
+	if !state.Router.IsAddrNone() {
+		err := ab.Save(chainSelector, state.Router.String(), cldf.NewTypeAndVersion(shared.Router, deployment.Version1_6_0))
 		if err != nil {
 			return err
 		}
@@ -62,35 +62,36 @@ func SaveOnchainStateTon(chainSelector uint64, tonState CCIPChainState, e cldf.E
 	return nil
 }
 
-func LoadOnchainStateTon(e cldf.Environment) (map[uint64]CCIPChainState, error) {
-	tonChains := make(map[uint64]CCIPChainState)
+func LoadOnchainState(e cldf.Environment) (map[uint64]CCIPChainState, error) {
+	chains := make(map[uint64]CCIPChainState)
 	for chainSelector, chain := range e.BlockChains.TonChains() {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			// Chain not found in address book, initialize empty
 			if !errors.Is(err, cldf.ErrChainNotFound) {
-				return tonChains, err
+				return chains, err
 			}
 			addresses = make(map[string]cldf.TypeAndVersion)
 		}
-		chainState, err := LoadChainStateTon(chain, addresses)
+		chainState, err := loadChainState(chain, addresses)
 		if err != nil {
-			return tonChains, err
+			return chains, err
 		}
-		tonChains[chainSelector] = chainState
+		chains[chainSelector] = chainState
 	}
-	return tonChains, nil
+	return chains, nil
 }
 
-// LoadChainStateTon Loads all state for a TonChain into state
-func LoadChainStateTon(chain cldf_ton.Chain, addresses map[string]cldf.TypeAndVersion) (CCIPChainState, error) {
+// loadChainState Loads all state for a TonChain into state
+func loadChainState(chain cldf_ton.Chain, addressTypes map[string]cldf.TypeAndVersion) (CCIPChainState, error) {
+	_ = chain // TODO: Use chain to access the client if needed
 	state := CCIPChainState{}
 
 	// Most programs upgraded in place, but some are not so we always want to
 	// load the latest version
 	versions := make(map[cldf.ContractType]semver.Version)
-	for addressStr, tvStr := range addresses {
-		address, err := tonaddress.ParseAddr(addressStr)
+	for addressStr, tvStr := range addressTypes {
+		address, err := address.ParseAddr(addressStr)
 		if err != nil {
 			return state, err
 		}

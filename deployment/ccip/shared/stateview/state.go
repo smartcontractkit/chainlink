@@ -705,7 +705,7 @@ func LoadOnchainState(e cldf.Environment) (CCIPOnChainState, error) {
 	if err != nil {
 		return CCIPOnChainState{}, err
 	}
-	tonChains, err := tonstate.LoadOnchainStateTon(e)
+	tonChains, err := tonstate.LoadOnchainState(e)
 	if err != nil {
 		return CCIPOnChainState{}, err
 	}

@@ -1,4 +1,4 @@
-package testhelpers
+package ton
 
 import (
 	"testing"
@@ -27,7 +27,7 @@ var _ commoncs.ConfiguredChangeSet = TonTestDeployPrerequisitesChangeSet{}
 func (c TonTestDeployPrerequisitesChangeSet) Apply(e cldf.Environment) (cldf.ChangesetOutput, error) {
 	t := c.T
 
-	tonChains, err := tonstate.LoadOnchainStateTon(e)
+	tonChains, err := tonstate.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	t.Logf("DEBUG: TonTestDeployPrerequisitesChangeSet: chain selectors: %+v\n", c.TonChainSelectors)
@@ -46,7 +46,7 @@ func (c TonTestDeployPrerequisitesChangeSet) Apply(e cldf.Environment) (cldf.Cha
 		address = tonaddress.MustParseAddr("UQCk4967vNM_V46Dn8I0x-gB_QE2KkdW1GQ7mWz1DtYGLEd8")
 		tonChainState.ReceiverAddress = *address
 
-		err = tonstate.SaveOnchainStateTon(chainSelector, tonChainState, e)
+		err = tonstate.SaveOnchainState(chainSelector, tonChainState, e)
 		require.NoError(t, err)
 	}
 	return cldf.ChangesetOutput{}, nil
@@ -64,7 +64,7 @@ var _ commoncs.ConfiguredChangeSet = TonTestDeployContractsChangeSet{}
 func (c TonTestDeployContractsChangeSet) Apply(e cldf.Environment) (cldf.ChangesetOutput, error) {
 	t := c.T
 
-	tonChains, err := tonstate.LoadOnchainStateTon(e)
+	tonChains, err := tonstate.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	t.Logf("DEBUG: TonTestDeployContractsChangeSet: chain selectors: %+v\n", c.TonChainSelectors)
@@ -87,7 +87,7 @@ func (c TonTestDeployContractsChangeSet) deployTonContracts(t *testing.T, e cldf
 	// TODO(ton): Deploy TON CCIP Offramp, Router, Onramp, Dummy Receiver and set the contract address
 	// TODO(ton): Initialize Onramp, Offramp, FeeQuoter, RMNRemote
 
-	err := tonstate.SaveOnchainStateTon(chainSelector, tonChainState, e)
+	err := tonstate.SaveOnchainState(chainSelector, tonChainState, e)
 	require.NoError(t, err)
 }
 
@@ -103,7 +103,7 @@ var _ commoncs.ConfiguredChangeSet = TonTestConfigureContractsChangeSet{}
 func (c TonTestConfigureContractsChangeSet) Apply(e cldf.Environment) (cldf.ChangesetOutput, error) {
 	t := c.T
 
-	tonChains, err := tonstate.LoadOnchainStateTon(e)
+	tonChains, err := tonstate.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	t.Logf("DEBUG: TonTestConfigureContractsChangeSet: chain selectors: %+v\n", c.TonChainSelectors)

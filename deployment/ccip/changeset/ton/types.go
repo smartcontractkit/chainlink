@@ -1,18 +1,18 @@
 package ton
 
-import tonaddress "github.com/xssnick/tonutils-go/address"
+import "github.com/xssnick/tonutils-go/address"
 
 type Ton2AnyMessage struct {
 	Receiver      []byte
 	Data          []byte
 	TokenAmounts  []Ton2AnyTokenAmount
-	FeeToken      tonaddress.Address
-	FeeTokenStore tonaddress.Address
+	FeeToken      address.Address
+	FeeTokenStore address.Address
 	ExtraArgs     []byte
 }
 
 type Ton2AnyTokenAmount struct {
-	Token      tonaddress.Address
+	Token      address.Address
 	Amount     uint64
-	TokenStore tonaddress.Address
+	TokenStore address.Address
 }

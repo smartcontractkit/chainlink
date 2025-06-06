@@ -567,7 +567,6 @@ func BuildOCR3ConfigForCCIPHome(
 				}
 				parsed = pk.Bytes()
 			case chain_selectors.FamilyTon:
-				fmt.Println(string(transmitter))
 				pk := address.MustParseAddr(string(transmitter))
 				if pk == nil || pk.IsAddrNone() {
 					return nil, fmt.Errorf("failed to parse TON address '%s'", transmitter)
