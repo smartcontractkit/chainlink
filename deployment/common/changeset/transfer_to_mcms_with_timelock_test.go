@@ -266,22 +266,8 @@ func TestGrantRolesForTimelockWhenDeployerisNotAdmin(t *testing.T) {
 
 	state, err := MaybeLoadMCMSWithTimelockChainState(tenv.BlockChains.EVMChains()[chain1], addrs)
 	require.NoError(t, err)
-	// Transfer ownership
+
 	mcmsTimelockContracts := &state.MCMSWithTimelockContracts
-	tenv, err = Apply(t, tenv,
-		Configure(
-			cldf.CreateLegacyChangeSet(TransferToMCMSWithTimelockV2),
-			TransferToMCMSWithTimelockConfig{
-				ContractsByChain: map[uint64][]common.Address{
-					chain1: {(*mcmsTimelockContracts).Timelock.Address()},
-				},
-				MCMSConfig: proposalutils.TimelockConfig{
-					MinDelay: 0,
-				},
-			},
-		),
-	)
-	require.NoError(t, err)
 
 	// Revoke Deployer
 	tenv, err = Apply(t, tenv,

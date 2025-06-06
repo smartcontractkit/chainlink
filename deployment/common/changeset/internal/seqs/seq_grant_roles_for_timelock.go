@@ -100,7 +100,8 @@ var SeqGrantRolesTimelock = operations.NewSequence(
 					if !in.IsDeployerKeyAdmin {
 						mcmsTxs = append(mcmsTxs, opReport.Output.MCMSTx)
 					} else {
-						b.Logger.Info(roleAndAddress.Name, " Role granted",
+						b.Logger.Infow("Role granted",
+							"Role Name", roleAndAddress.Name,
 							"chainSelector", deps.Chain.ChainSelector(),
 							"chainName", deps.Chain.Name(),
 							"Timelock Address", in.Timelock.Hex(),
