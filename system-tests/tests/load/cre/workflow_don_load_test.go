@@ -400,7 +400,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	require.NoError(t, mocksClient.WaitForTriggerSubscribers(ctx, "streams-trigger@2.0.0", time.Minute*5), "error while waiting for trigger subscribers")
 
 	labels := map[string]string{
-		"go_test_name": "test1",
+		"go_test_name": "workflow-don-load-test",
 		"branch":       "profile-check",
 		"commit":       "profile-check",
 	}
@@ -422,11 +422,8 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	generator.Run(true)
 
 	baseLineReport, err := benchspy.NewStandardReport(
-		// random hash, this should be the commit or hash of the Application Under Test (AUT)
 		"v1.0.0",
-		// use built-in queries for an executor that fetches data directly from the WASP generator
 		benchspy.WithStandardQueries(benchspy.StandardQueryExecutor_Direct),
-		// WASP generators
 		benchspy.WithGenerators(generator),
 	)
 	require.NoError(t, err, "failed to create baseline report")
