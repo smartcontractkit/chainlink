@@ -8,6 +8,8 @@ import (
 
 	context "context"
 
+	gin "github.com/gin-gonic/gin"
+
 	mock "github.com/stretchr/testify/mock"
 
 	sessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -430,6 +432,52 @@ func (_c *AuthenticationProvider_DeleteUserSession_Call) Return(_a0 error) *Auth
 }
 
 func (_c *AuthenticationProvider_DeleteUserSession_Call) RunAndReturn(run func(context.Context, string) error) *AuthenticationProvider_DeleteUserSession_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ExtendRouter provides a mock function with given fields: r
+func (_m *AuthenticationProvider) ExtendRouter(r *gin.RouterGroup) error {
+	ret := _m.Called(r)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ExtendRouter")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*gin.RouterGroup) error); ok {
+		r0 = rf(r)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// AuthenticationProvider_ExtendRouter_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ExtendRouter'
+type AuthenticationProvider_ExtendRouter_Call struct {
+	*mock.Call
+}
+
+// ExtendRouter is a helper method to define mock.On call
+//   - r *gin.RouterGroup
+func (_e *AuthenticationProvider_Expecter) ExtendRouter(r interface{}) *AuthenticationProvider_ExtendRouter_Call {
+	return &AuthenticationProvider_ExtendRouter_Call{Call: _e.mock.On("ExtendRouter", r)}
+}
+
+func (_c *AuthenticationProvider_ExtendRouter_Call) Run(run func(r *gin.RouterGroup)) *AuthenticationProvider_ExtendRouter_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*gin.RouterGroup))
+	})
+	return _c
+}
+
+func (_c *AuthenticationProvider_ExtendRouter_Call) Return(_a0 error) *AuthenticationProvider_ExtendRouter_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *AuthenticationProvider_ExtendRouter_Call) RunAndReturn(run func(*gin.RouterGroup) error) *AuthenticationProvider_ExtendRouter_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -127,6 +127,7 @@ require (
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
+	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/utils v0.0.0-20241104163129-6fe5fd82f078
 )
 
@@ -139,7 +140,6 @@ require (
 	github.com/pion/transport/v3 v3.0.1 // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	golang.org/x/net v0.39.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
