@@ -26,7 +26,7 @@ type OpEVMSetConfigMCMOutput struct {
 var OpEVMSetConfigMCM = operations.NewOperation(
 	"evm-mcm-set-config",
 	semver.MustParse("1.0.0"),
-	"Sets Config on the deployed MCM contracts",
+	"Sets Config on the deployed MCM contract",
 	func(b operations.Bundle, deps OpEVMMCMSDeps, input OpEVMSetConfigMCMInput) (OpEVMSetConfigMCMOutput, error) {
 
 		groupQuorums, groupParents, signerAddresses, signerGroups, err := evmMcms.ExtractSetConfigInputs(&input.MCMConfig)
