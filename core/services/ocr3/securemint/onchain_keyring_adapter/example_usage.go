@@ -1,4 +1,4 @@
-package por
+package onchain_keyring_adapter
 
 import (
 	"fmt"

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
@@ -130,7 +132,7 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 	validateJobsRunningSuccessfully(t, nodes, jobIDs)
 
 	// wait for a minute for the jobs to run and collect data
-	time.Sleep(1 * time.Minute)
+	// time.Sleep(1 * time.Minute)
 }
 
 func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
@@ -187,40 +189,49 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []Node, jobIDs map[int]
 
 	t.Logf("No job spec errors identified for any node")
 
-	// runs, err := nodes[0].App.PipelineORM().GetAllRuns(testutils.Context(t))
-	// require.NoError(t, err, "assert error getting all runs")
-	// t.Logf("Found %d runs", len(runs))
-	// for _, run := range runs {
-	// 	t.Logf("Run ID: %d, Job ID: %d, Status: %s", run.ID, run.JobID, run.Status())
-	// }
+	// time.Sleep(30 * time.Second) // wait for jobs to run
+
+	runs, err := nodes[0].App.PipelineORM().GetAllRuns(testutils.Context(t))
+	require.NoError(t, err, "assert error getting all runs")
+	t.Logf("Found %d runs", len(runs))
+	for _, run := range runs {
+		t.Logf("Run ID: %d, Job ID: %d, Status: %s", run.ID, run.JobID, run.Status())
+	}
 
 	// 2. Assert that all the Secure Mint jobs get a run with valid values eventually
-	// var wg sync.WaitGroup
-	// for i, node := range nodes {
-	// 	wg.Add(1)
-	// 	go func() {
-	// 		defer wg.Done()
-	// 		// t.Logf("finding pipeline runs for job %d on node %d", jobIDs[i], i)
-	// 		// completedRuns, err := node.App.JobORM().FindPipelineRunIDsByJobID(testutils.Context(t), jobIDs[i], 0, 10)
-	// 		// if !assert.NoError(t, err) {
-	// 		// 	t.Logf("assert error finding pipeline runs for job %d: %v", jobIDs[i], err)
-	// 		// 	return
-	// 		// }
-	// 		// t.Logf("found pipeline runs for job %d on node %d: %v", jobIDs[i], i, completedRuns)
+	var wg sync.WaitGroup
+	for i, node := range nodes {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// t.Logf("finding pipeline runs for job %d on node %d", jobIDs[i], i)
+			// completedRuns, err := node.App.JobORM().FindPipelineRunIDsByJobID(testutils.Context(t), jobIDs[i], 0, 10)
+			// if !assert.NoError(t, err) {
+			// 	t.Logf("assert error finding pipeline runs for job %d: %v", jobIDs[i], err)
+			// 	return
+			// }
+			// t.Logf("found pipeline runs for job %d on node %d: %v", jobIDs[i], i, completedRuns)
 
-	// 		// Want at least 2 runs so we see all the metadata.
+			// Want at least 2 runs so we see all the metadata.
 
-	// 		pr := cltest.WaitForPipelineComplete(t, i, jobIDs[i], 1, 4, node.App.JobORM(), 30*time.Second, 1*time.Second)
-	// 		jb, err := pr[0].Outputs.MarshalJSON()
-	// 		if !assert.NoError(t, err) {
-	// 			t.Logf("assert error marshalling outputs for job %d: %v", jobIDs[i], err)
-	// 			return
-	// 		}
-	// 		assert.Equalf(t, []byte(fmt.Sprintf("[\"%d\"]", 1000*i)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1], "assert error: something unexpected happened")
-	// 	}()
-	// }
-	// t.Logf("waiting for pipeline runs to complete")
-	// wg.Wait()
+			// TODO(gg): fix this, the pipeline completes now
+			/**
+				cltest.go:969: Found pipeline run 9 with status completed on node 3 for job 1 with task runs: []pipeline.TaskRun(nil)
+			    cltest.go:969: Found pipeline run 8 with status completed on node 3 for job 1 with task runs: []pipeline.TaskRun(nil)
+			    cltest.go:969: Found pipeline run 7 with status completed on node 3 for job 1 with task runs: []pipeline.TaskRun(nil)
+			*/
+
+			pr := cltest.WaitForPipelineComplete(t, i, jobIDs[i], 1, 1, node.App.JobORM(), 30*time.Second, 1*time.Second)
+			jb, err := pr[0].Outputs.MarshalJSON()
+			if !assert.NoError(t, err) {
+				t.Logf("assert error marshalling outputs for job %d: %v", jobIDs[i], err)
+				return
+			}
+			assert.Equalf(t, []byte(fmt.Sprintf("[\"%d\"]", 1000*i)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1], "assert error: something unexpected happened")
+		}()
+	}
+	t.Logf("waiting for pipeline runs to complete")
+	wg.Wait()
 }
 
 // TODO(gg): to set config on DF Cache contract

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 
+	sm_ea "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/external_adapter"
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	ocr2plus_types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
@@ -118,13 +119,13 @@ func NewSecureMintServices(ctx context.Context,
 		}
 	}
 
-	dataSource := ocrcommon.NewDataSourceV2(pipelineRunner,
-		jb,
-		*jb.PipelineSpec,
-		lggr,
-		runSaver,
-		chEnhancedTelem)
-	lggr.Infof("Created data source %#v", dataSource)
+	// dataSource := ocrcommon.NewDataSourceV2(pipelineRunner,
+	// 	jb,
+	// 	*jb.PipelineSpec,
+	// 	lggr,
+	// 	runSaver,
+	// 	chEnhancedTelem)
+	// lggr.Infof("Created data source %#v", dataSource)
 
 	// juelsPerFeeCoinSource := ocrcommon.NewInMemoryDataSource(pipelineRunner, jb, pipeline.Spec{
 	// 	ID:           jb.ID,
@@ -182,7 +183,7 @@ func NewSecureMintServices(ctx context.Context,
 		// TODO(gg): fill in params for the factory
 		argsNoPlugin.ReportingPluginFactory = &sm_plugin.PorReportingPluginFactory{
 			Logger:          argsNoPlugin.Logger,
-			ExternalAdapter: sm_plugin.NewMockExternalAdapterImpl(), // TODO(gg): use real external adapter here that uses the data source
+			ExternalAdapter: sm_ea.NewExternalAdapter(pipelineRunner, jb, *jb.PipelineSpec, runSaver, lggr),
 			ContractReader: sm_plugin.NewMockContractReader(func() [32]byte { // TODO(gg): replace with real contract reader
 				var b [32]byte
 				copy(b[:], "CONFIGDIGEST")
