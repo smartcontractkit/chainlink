@@ -117,7 +117,6 @@ jobs:
           E2E_JD_VERSION: "0.9.0"
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
           E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins-testing', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}
-          ###
           # Anvil developer key, not a secret
           PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
           CTF_CONFIGS: "workflow-don-load-test-streams-kind.toml,ci-override.toml"
