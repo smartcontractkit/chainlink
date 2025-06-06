@@ -187,7 +187,6 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 
 	t.Logf("%s filter registered", consts.EventNameCCIPMessageSent)
 
-
 	if tc.NumberOfMessages == 0 {
 		tc.NumberOfMessages = 1 // default to sending one message if not specified
 	}
