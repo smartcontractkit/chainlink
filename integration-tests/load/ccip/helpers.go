@@ -3,10 +3,15 @@ package ccip
 import (
 	"context"
 	"fmt"
+	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 	"math"
 	"math/big"
+	mathrand "math/rand"
 	"slices"
 	"sync"
+	"testing"
 	"time"
 
 	"go.uber.org/atomic"
@@ -14,6 +19,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	gethMath "github.com/ethereum/go-ethereum/common/math"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/event"
@@ -46,7 +52,7 @@ const (
 )
 
 var (
-	fundingAmount = new(big.Int).Mul(deployment.UBigInt(100), deployment.UBigInt(1e18)) // 100 eth
+	fundingAmount = new(big.Int).Mul(deployment.UBigInt(1e6), deployment.UBigInt(1e18)) // 100 eth
 )
 
 type finalSeqNrReport struct {
@@ -593,4 +599,132 @@ func reclaimFunds(lggr logger.Logger, e cldf.Environment, addressesByChain map[u
 	}
 
 	return g.Wait()
+}
+
+func prepareAccountToSendLink(
+	t *testing.T,
+	state stateview.CCIPOnChainState,
+	e cldf.Environment,
+	src uint64,
+	srcAccount *bind.TransactOpts) error {
+	lggr := logger.Test(t)
+	evmChains := e.BlockChains.EVMChains()
+	srcDeployer := evmChains[src].DeployerKey
+	lggr.Infow("Setting up link token", "src", src)
+	srcLink := state.MustGetEVMChainState(src).LinkToken
+
+	lggr.Infow("Granting mint and burn roles")
+	tx, err := srcLink.GrantMintAndBurnRoles(srcDeployer, srcAccount.From)
+	_, err = cldf.ConfirmIfNoError(evmChains[src], tx, err)
+	if err != nil {
+		return err
+	}
+
+	lggr.Infow("Minting transfer amounts")
+	//--------------------------------------------------------------------------------------------
+	tx, err = srcLink.Mint(
+		srcAccount,
+		srcAccount.From,
+		big.NewInt(20_000),
+	)
+	_, err = cldf.ConfirmIfNoError(evmChains[src], tx, err)
+	if err != nil {
+		return err
+	}
+
+	//--------------------------------------------------------------------------------------------
+	lggr.Infow("Approving routers")
+	// Approve the router to spend the tokens and confirm the tx's
+	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount
+	tx, err = srcLink.Approve(srcAccount, state.MustGetEVMChainState(src).Router.Address(), gethMath.MaxBig256)
+	_, err = cldf.ConfirmIfNoError(evmChains[src], tx, err)
+	return err
+}
+
+func createLaneMap(nonHomeSelectors []uint64, homeChainSel uint64, numBidirectionalLanes *int, laneWeights *ccip.Ratios[*ccip.LaneWeights]) (map[uint64][]uint64, error) {
+	allChains := append(nonHomeSelectors, homeChainSel)
+	laneMap := make(map[uint64][]uint64)
+	laneMapSet := make(map[uint64]mapset.Set[uint64])
+	// in any2any scenarios we simply provide all other chains as potential sources
+	if numBidirectionalLanes == nil || *numBidirectionalLanes == len(allChains)*len(allChains) {
+		for _, dst := range allChains {
+			laneMapSet[dst] = mapset.NewSet[uint64](allChains...)
+			laneMapSet[dst].Remove(dst)
+		}
+
+		for src, set := range laneMapSet {
+			laneMap[src] = set.ToSlice()
+		}
+
+		return laneMap, nil
+	}
+
+	// when a number of lanes is specified, we first connect all chains to the home chain
+	// decrement the number of necessary lanes
+	// assign weights to each chain, based on the ratio and lane weights in the config
+	// for the remaining number of lanes needed,select two chains to be source and dest
+	// add them to the map
+	laneMapSet[homeChainSel] = mapset.NewSet[uint64](nonHomeSelectors...)
+	for _, cs := range nonHomeSelectors {
+		laneMapSet[cs] = mapset.NewSet[uint64](homeChainSel)
+	}
+	numRemainingLanes := *numBidirectionalLanes - len(laneMap[homeChainSel])
+
+	chainWeights := make(map[uint64]int)
+	totalWeights := 0
+	for _, cs := range nonHomeSelectors {
+		selectedWeight := *(*laneWeights.Select()).LaneSelectionBias
+		chainWeights[cs] = selectedWeight
+		totalWeights += selectedWeight
+	}
+
+	GetTwoSels := func() (srcCS, dstCS uint64, err error) {
+		srcInd := mathrand.Intn(totalWeights)
+		dstInd := mathrand.Intn(totalWeights)
+		accumulatedRatio := 0
+		for currCS, weight := range chainWeights {
+			accumulatedRatio += weight
+			if srcCS == 0 && srcInd <= accumulatedRatio {
+				srcCS = currCS
+			}
+			if dstCS == 0 && dstInd <= accumulatedRatio {
+				dstCS = currCS
+			}
+			if srcCS != 0 && dstCS != 0 {
+				return srcCS, dstCS, nil
+			}
+		}
+		// should never happen if totalWeights is calculated correctly
+		return 0, 0, fmt.Errorf("could not get valid selectors")
+	}
+
+	// create and use a mapset here to make duplicate checking easy
+	// we will use a map of sets to store the lanes
+	for numRemainingLanes > 0 {
+		srcCS, dstCS, err := GetTwoSels()
+		if err != nil {
+			return nil, fmt.Errorf("error getting two selectors: %w", err)
+		}
+		if srcCS == 0 || dstCS == 0 || srcCS == dstCS {
+			continue // skip if we couldn't find two different chains
+		}
+		if _, exists := laneMap[dstCS]; !exists {
+			laneMapSet[dstCS] = mapset.NewSet[uint64]()
+		}
+		if laneMapSet[dstCS].Contains(srcCS) {
+			continue // skip if this lane already exists
+		}
+		// support only bidirectional lanes for now, because that's the topology of 1.5
+		//
+		laneMapSet[dstCS].Add(srcCS)
+		laneMapSet[srcCS].Add(dstCS)
+		numRemainingLanes--
+	}
+
+	// convert mapset to slice
+	for cs, set := range laneMapSet {
+		laneMap[cs] = set.ToSlice()
+	}
+
+	return laneMap, nil
 }
