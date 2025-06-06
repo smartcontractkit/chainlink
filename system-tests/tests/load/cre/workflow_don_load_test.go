@@ -82,10 +82,6 @@ type TestConfigLoadTest struct {
 	Chaos                         *Chaos                               `toml:"chaos"`
 }
 
-type BinariesConfig struct {
-	MockCapabilityBinaryPath string `toml:"mock_capability_binary_path"`
-}
-
 type MockCapabilities struct {
 	Name        string `toml:"name"`
 	Version     string `toml:"version"`

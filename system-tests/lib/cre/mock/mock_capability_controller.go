@@ -273,7 +273,6 @@ func (c *Controller) WaitForCapability(ctx context.Context, capability string, t
 			}
 		}
 	}
-	return nil
 }
 
 // GetTriggerSubscribers retrieves all subscribers for a specific trigger ID from all nodes
