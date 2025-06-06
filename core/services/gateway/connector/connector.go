@@ -11,10 +11,10 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/jonboulle/clockwork"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commonhex "github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -122,7 +122,7 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork
 		signer:      signer,
 		handlers:    make(map[string]GatewayConnectorHandler),
 		shutdownCh:  make(chan struct{}),
-		lggr:        lggr.Named("GatewayConnector"),
+		lggr:        logger.Named(lggr, "GatewayConnector"),
 	}
 	gateways := make(map[string]*gatewayState)
 	urlToId := make(map[string]string)
@@ -138,7 +138,7 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork
 		if err != nil {
 			return nil, err
 		}
-		l := lggr.With("URL", parsedURL)
+		l := logger.With(lggr, "URL", parsedURL)
 		gateway := &gatewayState{
 			conn:     network.NewWSConnectionWrapper(l),
 			config:   gw,

@@ -53,20 +53,13 @@ func (c ChainContractParams) Validate() error {
 
 type FeeQuoterParams struct {
 	MaxFeeJuelsPerMsg            uint64
-	LinkToken                    aptos.AccountAddress
 	TokenPriceStalenessThreshold uint64
 	FeeTokens                    []aptos.AccountAddress
 }
 
 func (f FeeQuoterParams) Validate() error {
-	if f.LinkToken == (aptos.AccountAddress{}) {
-		return errors.New("LinkToken is required")
-	}
 	if f.TokenPriceStalenessThreshold == 0 {
 		return errors.New("TokenPriceStalenessThreshold can't be 0")
-	}
-	if len(f.FeeTokens) == 0 {
-		return errors.New("at least one FeeTokens is required")
 	}
 	return nil
 }

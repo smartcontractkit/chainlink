@@ -282,7 +282,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		return services, nil
 	}
 
-	standardCapability := newStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,
+	standardCapability := NewStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,
 		pr, relayerSet, oracleFactory)
 
 	return []job.ServiceCtx{standardCapability}, nil

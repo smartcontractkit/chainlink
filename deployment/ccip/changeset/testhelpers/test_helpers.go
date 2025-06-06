@@ -1036,7 +1036,7 @@ func AddLane(
 	case chainsel.FamilyEVM:
 		changesets = append(changesets, AddEVMSrcChangesets(from, to, isTestRouter, gasprice, tokenPrices, fqCfg)...)
 	case chainsel.FamilySolana:
-		changesets = append(changesets, AddLaneSolanaChangesets(t, e, from, to, toFamily)...)
+		changesets = append(changesets, AddLaneSolanaChangesets(e, from, to, toFamily)...)
 	case chainsel.FamilyAptos:
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to)...)
 	}
@@ -1045,7 +1045,7 @@ func AddLane(
 	case chainsel.FamilyEVM:
 		changesets = append(changesets, AddEVMDestChangesets(e, to, from, isTestRouter)...)
 	case chainsel.FamilySolana:
-		changesets = append(changesets, AddLaneSolanaChangesets(t, e, to, from, fromFamily)...)
+		changesets = append(changesets, AddLaneSolanaChangesets(e, to, from, fromFamily)...)
 	case chainsel.FamilyAptos:
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to)...)
 	}
@@ -1054,7 +1054,7 @@ func AddLane(
 	require.NoError(t, err)
 }
 
-func AddLaneSolanaChangesets(t *testing.T, e *DeployedEnv, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
+func AddLaneSolanaChangesets(e *DeployedEnv, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
 	chainFamilySelector := [4]uint8{}
 	switch remoteFamily {
 	case chainsel.FamilyEVM:

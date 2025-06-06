@@ -2,6 +2,7 @@ package operation
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -12,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	aptoscfg "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
@@ -133,7 +133,7 @@ func deployRouter(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([
 var DeployOffRampOp = operations.NewOperation(
 	"deploy-offramp-op",
 	Version1_0_0,
-	"Generates MCMS proposals that deploys OffRamp module on CCIP package",
+	"Generates MCMS proposals that deployes OffRamp module on CCIP package",
 	deployOffRamp,
 )
 
@@ -177,9 +177,10 @@ func deployOnRamp(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([
 
 // OP: InitializeCCIP Operation
 type InitializeCCIPInput struct {
-	MCMSAddress aptos.AccountAddress
-	CCIPAddress aptos.AccountAddress
-	CCIPConfig  aptoscfg.ChainContractParams
+	MCMSAddress      aptos.AccountAddress
+	CCIPAddress      aptos.AccountAddress
+	LinkTokenAddress aptos.AccountAddress
+	CCIPConfig       aptoscfg.ChainContractParams
 }
 
 var InitializeCCIPOp = operations.NewOperation(
@@ -233,9 +234,10 @@ func initializeCCIP(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput)
 	// Config FeeQuoter and RMNRemote
 	ccipBind := ccip.Bind(in.CCIPAddress, deps.AptosChain.Client)
 
+	maxJuels := new(big.Int).SetUint64(in.CCIPConfig.FeeQuoterParams.MaxFeeJuelsPerMsg)
 	moduleInfo, function, _, args, err = ccipBind.FeeQuoter().Encoder().Initialize(
-		in.CCIPConfig.FeeQuoterParams.MaxFeeJuelsPerMsg,
-		in.CCIPConfig.FeeQuoterParams.LinkToken,
+		maxJuels,
+		in.LinkTokenAddress,
 		in.CCIPConfig.FeeQuoterParams.TokenPriceStalenessThreshold,
 		in.CCIPConfig.FeeQuoterParams.FeeTokens,
 	)

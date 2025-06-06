@@ -43,6 +43,8 @@ type EVMCallOutput struct {
 	Tx *types.Transaction
 	// ContractType is the type of contract that is being called.
 	ContractType cldf.ContractType
+	// Confirmed indicates whether or not the transaction was confirmed.
+	Confirmed bool
 }
 
 // NewEVMCallOperation creates a new operation that performs an EVM call.
@@ -73,16 +75,19 @@ func NewEVMCallOperation[IN any, C any](
 				return EVMCallOutput{}, fmt.Errorf("failed to create contract instance for %s at %s on %s: %w", name, input.Address, chain, err)
 			}
 			tx, err := call(contract, opts, input.CallInput)
+			confirmed := false
 			if !input.NoSend {
 				// If the call has actually been sent, we need check the call error and confirm the transaction.
 				_, err := cldf.ConfirmIfNoErrorWithABI(chain, tx, abi, err)
 				if err != nil {
 					return EVMCallOutput{}, fmt.Errorf("failed to confirm %s tx against %s on %s: %w", name, input.Address, chain, err)
 				}
+				confirmed = true
 			}
 			return EVMCallOutput{
 				Tx:           tx,
 				ContractType: contractType,
+				Confirmed:    confirmed,
 			}, err
 		},
 	)
@@ -115,6 +120,11 @@ func AddEVMCallSequenceToCSOutput[IN any](
 	inspectors := make(map[uint64]mcmssdk.Inspector)
 	for chainSel, outs := range seqReport.Output {
 		for _, out := range outs {
+			// If a transaction has already been confirmed, we do not need an operation for it.
+			// TODO: Instead of creating 1 batch operation per call, can we batch calls together based on some strategy?
+			if out.Confirmed {
+				continue
+			}
 			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, out.Tx.To().Hex(), out.Tx.Data(),
 				big.NewInt(0), string(out.ContractType), []string{})
 			if err != nil {

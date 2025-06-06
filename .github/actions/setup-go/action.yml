@@ -26,6 +26,13 @@ inputs:
       Only restore the build cache, don't automatically update/upload it.
     default: "false"
 
+outputs:
+  primary-cache-hit-modules:
+    description: |
+      Set to 'true' if the primary cache for modules was hit.
+      This is useful for debugging cache misses.
+    value: ${{ steps.cache-modules.outputs.cache-hit == 'true' || steps.cache-modules-restore.outputs.cache-hit == 'true' }}
+
 runs:
   using: composite
   steps:
@@ -66,7 +73,8 @@ runs:
     # `go-mod-cache.yml` workflow handle the creation.
     - uses: actions/cache/restore@v4
       if: ${{ inputs.restore-module-cache-only == 'true' }}
-      name: Cache Go Modules
+      name: Cache Go Modules (Restore)
+      id: cache-modules-restore
       with:
         path: |
           ${{ steps.go-cache-dir.outputs.gomodcache }}
@@ -80,6 +88,7 @@ runs:
     # The cache is created after a cache miss, and after job completes successfully.
     - uses: actions/cache@v4
       if: ${{ inputs.restore-module-cache-only != 'true' }}
+      id: cache-modules
       name: Cache Go Modules
       with:
         path: |
@@ -87,8 +96,6 @@ runs:
         # The lifetime of go modules is much higher than the build outputs, so we increase cache efficiency
         # here by not having the primary key contain the branch name
         key: ${{ runner.os }}-gomod-${{ inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}
-        restore-keys: |
-          ${{ runner.os }}-gomod-${{ inputs.cache-version }}-
 
     # BUILD CACHE LOGIC
     # ---
@@ -159,7 +166,7 @@ runs:
     #   2. If inputs.restore-build-cache-only == 'true'
     - uses: actions/cache/restore@v4
       name: Cache Go Build Outputs (restore)
-
+      id: build-cache-restore
       if: ${{ inputs.only-modules == 'false' && (github.event_name == 'merge_group' || inputs.restore-build-cache-only == 'true') }}
       with:
         path: |
