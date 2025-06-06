@@ -17,7 +17,7 @@ func Test_ExemplarDeployLinkToken(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains: 1,
 	})
-	chain1 := e.AllChainSelectors()[0]
+	chain1 := e.BlockChains.ListChainSelectors()[0]
 
 	result, err := ExemplarDeployLinkToken{}.Apply(e, chain1)
 	require.NoError(t, err)
