@@ -30,7 +30,6 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 			chainSelector: {
 				FeeQuoterParams: config.FeeQuoterParams{
 					MaxFeeJuelsPerMsg:            1000000000,
-					LinkToken:                    linkTokenAddress,
 					TokenPriceStalenessThreshold: 24 * 60 * 60,
 					FeeTokens:                    []aptos.AccountAddress{linkTokenAddress},
 				},
@@ -54,7 +53,7 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 				Canceller:        proposalutils.SingleGroupMCMSV2(t),
 				Proposer:         proposalutils.SingleGroupMCMSV2(t),
 				Bypasser:         proposalutils.SingleGroupMCMSV2(t),
-				TimelockMinDelay: big.NewInt(0),
+				TimelockMinDelay: big.NewInt(1),
 			},
 		},
 	}
