@@ -347,7 +347,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 
 	// If were not running in CI then save the feeds and OCR2 keys to a file so we can reuse them later
 	cacheClients := false
-	if os.Getenv("CI") == "" || os.Getenv("CI") == "false" {
+	if os.Getenv("CI") != "true" {
 		cacheClients = true
 		require.NoError(t, saveFeedAddresses(feedsAddresses), "could not save feeds")
 
@@ -410,7 +410,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		),
 		Gun:    NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@2.0.0", receiveChannel, 500, 1),
 		Labels: labels,
-		// LokiConfig:            wasp.NewEnvLokiConfig(),
+		// LokiConfig:            wasp.NewEnvLokiConfig(), // TODO: Set up loki after we have the observability stack working
 		RateLimitUnitDuration: time.Minute,
 	})
 	require.NoError(t, err, "could not create generator")
