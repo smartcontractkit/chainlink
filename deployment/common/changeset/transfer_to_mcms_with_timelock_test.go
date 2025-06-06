@@ -294,7 +294,7 @@ func TestGrantRolesForTimelockWhenDeployerisNotAdmin(t *testing.T) {
 	)
 	require.NoError(t, err)
 	ab := cldf.NewMemoryAddressBook()
-	// Deploy new Proposer MCMS
+	// Deploy new Proposer MCM
 	report, err := operations.ExecuteSequence(
 		tenv.OperationsBundle,
 		seqs.SeqEVMDeployMCMWithConfig,
