@@ -242,7 +242,7 @@ func TestGrantRolesForTimelockWhenDeployerisAdmin(t *testing.T) {
 
 	mcmsTxs, err := evminternal.GrantRolesForTimelock(tenv, tenv.BlockChains.EVMChains()[chain1], mcmsTimelockContracts, false)
 	require.NoError(t, err)
-	require.Len(t, mcmsTxs, 0, "expected 0 transactions to be created for granting roles as Deployer is the admin still")
+	require.Empty(t, mcmsTxs, "expected 0 transactions to be created for granting roles as Deployer is the admin still")
 }
 
 func TestGrantRolesForTimelockWhenDeployerisNotAdmin(t *testing.T) {
@@ -283,6 +283,8 @@ func TestGrantRolesForTimelockWhenDeployerisNotAdmin(t *testing.T) {
 			},
 		),
 	)
+	require.NoError(t, err)
+
 	// Revoke Deployer
 	tenv, err = Apply(t, tenv,
 		Configure(
@@ -294,7 +296,7 @@ func TestGrantRolesForTimelockWhenDeployerisNotAdmin(t *testing.T) {
 	)
 	require.NoError(t, err)
 	ab := cldf.NewMemoryAddressBook()
-	// Deploy new Proposer MCM
+	// Deploy new Proposer MCMS
 	report, err := operations.ExecuteSequence(
 		tenv.OperationsBundle,
 		seqs.SeqEVMDeployMCMWithConfig,
@@ -310,7 +312,9 @@ func TestGrantRolesForTimelockWhenDeployerisNotAdmin(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotEmpty(t, report.Output.Address, "expected address to be set in output")
+
 	proposer, err := owner_helpers.NewManyChainMultiSig(report.Output.Address, tenv.BlockChains.EVMChains()[chain1].Client)
+	require.NoError(t, err)
 
 	// Check if the new proposer grant roles produces MCMS Output when the deployer is not the admin
 	(*mcmsTimelockContracts).ProposerMcm = proposer
