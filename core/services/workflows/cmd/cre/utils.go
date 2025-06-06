@@ -153,7 +153,7 @@ func NewStandaloneEngine(
 		Hooks:         lifecycleHooks,
 	}
 
-	return v2.NewEngine(ctx, cfg)
+	return v2.NewEngine(cfg)
 }
 
 // TODO support fetching secrets (from a local file)
