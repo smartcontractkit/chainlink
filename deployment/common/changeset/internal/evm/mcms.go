@@ -148,7 +148,6 @@ func DeployMCMSWithTimelockContractsEVM(
 	seqDeps := seqs.SeqDeployMCMSWithConfigDeps{
 		Chain:    chain,
 		AddrBook: ab,
-		Backend:  chain.Client,
 		Options:  opts,
 	}
 	if bypasser == nil {
@@ -239,7 +238,6 @@ func DeployMCMSWithTimelockContractsEVM(
 		opDeps := ops.OpEVMMCMSDeps{
 			Chain:    chain,
 			AddrBook: ab,
-			Backend:  chain.Client,
 			Options:  opts,
 		}
 		opInput := ops.OpEVMDeployTimelockInput{
@@ -283,7 +281,6 @@ func DeployMCMSWithTimelockContractsEVM(
 		opDeps := ops.OpEVMMCMSDeps{
 			Chain:    chain,
 			AddrBook: ab,
-			Backend:  chain.Client,
 			Options:  opts,
 		}
 		opInput := ops.OpEVMDeployCallProxyInput{
@@ -395,8 +392,7 @@ func GrantRolesForTimelock(
 	var mcmsTxs []mcmsTypes.Transaction
 
 	seqDeps := seqs.SeqGrantRolesTimelockDeps{
-		Chain:   chain,
-		Backend: chain.Client,
+		Chain: chain,
 	}
 
 	seqInput := seqs.SeqGrantRolesTimelockInput{
@@ -404,7 +400,6 @@ func GrantRolesForTimelock(
 		ChainSelector:      chain.Selector,
 		Timelock:           timelock.Address(),
 		IsDeployerKeyAdmin: isDeployerKeyAdmin,
-		IsTimelockAdmin:    isTimelockAdmin,
 		RolesAndAddresses: []seqs.RolesAndAddresses{
 			{
 				Role:      v1_0.PROPOSER_ROLE.ID,

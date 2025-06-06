@@ -4,7 +4,6 @@ import (
 	"math/big"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/mcms/sdk/evm/bindings"
@@ -21,8 +20,7 @@ import (
 )
 
 type OpEVMGrantRoleDeps struct {
-	Chain   cldf_evm.Chain
-	Backend bind.ContractBackend
+	Chain cldf_evm.Chain
 }
 
 type OpEVMGrantRoleInput struct {
@@ -33,7 +31,7 @@ type OpEVMGrantRoleInput struct {
 }
 
 type OpEVMGrantRoleOutput struct {
-	Tx mcmstypes.Transaction `json:"tx"`
+	MCMSTx mcmstypes.Transaction `json:"mcmsTx"`
 }
 
 var OpEVMGrantRole = operations.NewOperation(
@@ -41,14 +39,12 @@ var OpEVMGrantRole = operations.NewOperation(
 	semver.MustParse("1.0.0"),
 	"Grants specified role to the ManyChainMultiSig contract on the EVM Timelock contract",
 	func(b operations.Bundle, deps OpEVMGrantRoleDeps, input OpEVMGrantRoleInput) (OpEVMGrantRoleOutput, error) {
-		out := OpEVMGrantRoleOutput{}
-
 		txOpts := cldf.SimTransactOpts()
 		if input.IsDeployerKeyAdmin {
 			txOpts = deps.Chain.DeployerKey
 		}
 
-		timelock, err := bindings.NewRBACTimelock(input.TimelockAddress, deps.Backend)
+		timelock, err := bindings.NewRBACTimelock(input.TimelockAddress, deps.Chain.Client)
 		if err != nil {
 			b.Logger.Errorw("Failed to create Timelock instance",
 				"chainSelector", deps.Chain.ChainSelector(),
@@ -56,22 +52,23 @@ var OpEVMGrantRole = operations.NewOperation(
 				"contractAddr", input.Address.String(),
 				"err", err,
 			)
-			return out, err
+			return OpEVMGrantRoleOutput{}, err
 		}
 
 		grantRoleTx, err := timelock.GrantRole(
 			txOpts, input.RoleID, input.Address,
 		)
 		if input.IsDeployerKeyAdmin {
-			if _, err2 := cldf.ConfirmIfNoErrorWithABI(deps.Chain, grantRoleTx, bindings.RBACTimelockABI, err); err != nil {
+			if _, err2 := cldf.ConfirmIfNoErrorWithABI(deps.Chain, grantRoleTx, bindings.RBACTimelockABI, err); err2 != nil {
 				b.Logger.Errorw("Failed to grant timelock role",
 					"chain", deps.Chain.Name(),
 					"timelock", timelock.Address().Hex(),
 					"Address to grant role", input.Address.Hex(),
+					"TxHash", grantRoleTx.Hash().Hex(),
 					"err", err2)
-				return out, err2
+				return OpEVMGrantRoleOutput{}, err2
 			}
-			return out, err
+			return OpEVMGrantRoleOutput{}, err
 		}
 		if err != nil {
 			b.Logger.Errorw("Failed to grant timelock role",
@@ -79,11 +76,11 @@ var OpEVMGrantRole = operations.NewOperation(
 				"timelock", timelock.Address().Hex(),
 				"Address to grant role", input.Address.Hex(),
 				"err", err)
-			return out, err
+			return OpEVMGrantRoleOutput{}, err
 		}
 
-		// Confirm the transaction
-		tx, err := proposalutils.TransactionForChain(deps.Chain.Selector, timelock.Address().Hex(), grantRoleTx.Data(),
+		// Create MCMS Tx
+		mcmsTx, err := proposalutils.TransactionForChain(deps.Chain.Selector, timelock.Address().Hex(), grantRoleTx.Data(),
 			big.NewInt(0), commontypes.RBACTimelock.String(), []string{})
 		if err != nil {
 			b.Logger.Errorw("Failed to create transaction for chain",
@@ -91,10 +88,10 @@ var OpEVMGrantRole = operations.NewOperation(
 				"timelock", timelock.Address().Hex(),
 				"Address to grant role", input.Address.Hex(),
 				"err", err)
-			return out, err
+			return OpEVMGrantRoleOutput{}, err
 		}
 
 		return OpEVMGrantRoleOutput{
-			Tx: tx,
+			MCMSTx: mcmsTx,
 		}, nil
 	})

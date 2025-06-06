@@ -38,8 +38,6 @@ var OpEVMDeployTimelock = operations.NewOperation(
 	semver.MustParse("1.0.0"),
 	"Deploys Timelock contract on the specified EVM chains",
 	func(b operations.Bundle, deps OpEVMMCMSDeps, input OpEVMDeployTimelockInput) (OpEVMDeployTimelockOutput, error) {
-		out := OpEVMDeployTimelockOutput{}
-
 		timelock, err := cldf.DeployContract(b.Logger, deps.Chain, deps.AddrBook,
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*bindings.RBACTimelock] {
 				var (
@@ -90,7 +88,7 @@ var OpEVMDeployTimelock = operations.NewOperation(
 				"chainName", deps.Chain.Name(),
 				"err", err,
 			)
-			return out, err
+			return OpEVMDeployTimelockOutput{}, err
 		}
 
 		tv := cldf.NewTypeAndVersion(input.ContractType, deployment.Version1_0_0)

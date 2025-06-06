@@ -33,11 +33,14 @@ var OpEVMTransferOwnership = operations.NewOperation(
 	semver.MustParse("1.0.0"),
 	"Transfer ownership of an ownable contract to the specified address",
 	func(b operations.Bundle, deps OpEVMOwnershipDeps, in OpEVMTransferOwnershipInput) (OpEVMOwnershipOutput, error) {
-		out := OpEVMOwnershipOutput{}
 		tx, err := deps.OwnableC.TransferOwnership(deps.Chain.DeployerKey, common.HexToAddress(in.TimelockAddress.Hex()))
 		_, err = cldf.ConfirmIfNoError(deps.Chain, tx, err)
 		if err != nil {
-			return out, fmt.Errorf("failed to transfer ownership of contract %T: %w", in.Address.Hex(), err)
+			return OpEVMOwnershipOutput{Tx: tx}, fmt.Errorf(
+				"failed to transfer ownership of contract %T: %w",
+				in.Address.Hex(),
+				err,
+			)
 		}
 		return OpEVMOwnershipOutput{
 			Tx: tx,
@@ -47,12 +50,15 @@ var OpEVMTransferOwnership = operations.NewOperation(
 var OpEVMAcceptOwnership = operations.NewOperation(
 	"evm-accept-ownership",
 	semver.MustParse("1.0.0"),
-	"Accepts ownership of an ownable contract",
+	"Accepts ownership of an ownable contract Via the Timelock contract",
 	func(b operations.Bundle, deps OpEVMOwnershipDeps, in OpEVMTransferOwnershipInput) (OpEVMOwnershipOutput, error) {
-		out := OpEVMOwnershipOutput{}
 		tx, err := deps.OwnableC.AcceptOwnership(cldf.SimTransactOpts())
 		if err != nil {
-			return out, fmt.Errorf("failed to Accept ownership of contract %T: %w", in.Address.Hex(), err)
+			return OpEVMOwnershipOutput{Tx: tx}, fmt.Errorf(
+				"failed to Accept ownership of contract %T: %w",
+				in.Address.Hex(),
+				err,
+			)
 		}
 		return OpEVMOwnershipOutput{
 			Tx: tx,

@@ -17,8 +17,7 @@ import (
 )
 
 type SeqTransferToMCMSWithTimelockV2Deps struct {
-	Chain   evm.Chain
-	Backend bind.ContractBackend
+	Chain evm.Chain
 }
 
 type SeqTransferToMCMSWithTimelockV2Input struct {
@@ -39,7 +38,6 @@ var SeqTransferToMCMSWithTimelockV2 = operations.NewSequence(
 		var (
 			mcsmOps []mcmsTypes.Transaction
 		)
-		out := SeqTransferToMCMSWithTimelockV2Output{}
 
 		for _, contract := range in.Contracts {
 			// Just using the ownership interface.
@@ -47,7 +45,7 @@ var SeqTransferToMCMSWithTimelockV2 = operations.NewSequence(
 			owner, c, err := LoadOwnableContract(contract, deps.Chain.Client)
 			if err != nil {
 				b.Logger.Errorf("failed to load ownable contract %s: %v", contract.Hex(), err)
-				return out, fmt.Errorf("error loading ownable contract %s: %w", contract.Hex(), err)
+				return SeqTransferToMCMSWithTimelockV2Output{}, fmt.Errorf("error loading ownable contract %s: %w", contract.Hex(), err)
 			}
 
 			if owner.String() == in.Timelock.Hex() {
@@ -69,7 +67,7 @@ var SeqTransferToMCMSWithTimelockV2 = operations.NewSequence(
 			)
 
 			if err != nil {
-				return out, err
+				return SeqTransferToMCMSWithTimelockV2Output{}, err
 			}
 
 			// Accept Ownership
@@ -84,7 +82,7 @@ var SeqTransferToMCMSWithTimelockV2 = operations.NewSequence(
 				},
 			)
 			if err != nil {
-				return out, err
+				return SeqTransferToMCMSWithTimelockV2Output{}, err
 			}
 
 			mcsmOps = append(mcsmOps, mcmsTypes.Transaction{
@@ -94,9 +92,7 @@ var SeqTransferToMCMSWithTimelockV2 = operations.NewSequence(
 			})
 		}
 
-		out.OpsMcms = mcsmOps
-
-		return out, nil
+		return SeqTransferToMCMSWithTimelockV2Output{OpsMcms: mcsmOps}, nil
 	},
 )
 

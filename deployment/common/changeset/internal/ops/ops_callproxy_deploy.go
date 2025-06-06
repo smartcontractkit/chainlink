@@ -31,8 +31,6 @@ var OpEVMDeployCallProxy = operations.NewOperation(
 	semver.MustParse("1.0.0"),
 	"Deploys CallProxy contract on the specified EVM chains",
 	func(b operations.Bundle, deps OpEVMMCMSDeps, input OpEVMDeployCallProxyInput) (OpEVMDeployCallProxyOutput, error) {
-		out := OpEVMDeployCallProxyOutput{}
-
 		timelock, err := cldf.DeployContract(b.Logger, deps.Chain, deps.AddrBook,
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*bindings.CallProxy] {
 				var (
@@ -73,12 +71,7 @@ var OpEVMDeployCallProxy = operations.NewOperation(
 				"chainName", deps.Chain.Name(),
 				"err", err,
 			)
-			return out, err
-		}
-
-		tv := cldf.NewTypeAndVersion(input.ContractType, deployment.Version1_0_0)
-		for _, option := range deps.Options {
-			option(&tv)
+			return OpEVMDeployCallProxyOutput{}, err
 		}
 
 		return OpEVMDeployCallProxyOutput{

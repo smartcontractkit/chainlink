@@ -106,8 +106,7 @@ func TransferToMCMSWithTimelockV2(
 
 		seqReport, err := operations.ExecuteSequence(e.OperationsBundle, seqs.SeqTransferToMCMSWithTimelockV2,
 			seqs.SeqTransferToMCMSWithTimelockV2Deps{
-				Chain:   evmChains[chainSelector],
-				Backend: evmChains[chainSelector].Client,
+				Chain: evmChains[chainSelector],
 			},
 			seqs.SeqTransferToMCMSWithTimelockV2Input{
 				ChainSelector: chainSelector,

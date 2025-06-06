@@ -2,7 +2,6 @@ package seqs
 
 import (
 	"github.com/Masterminds/semver/v3"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
@@ -16,7 +15,6 @@ import (
 type SeqDeployMCMSWithConfigDeps struct {
 	Chain    cldf_evm.Chain
 	AddrBook cldf.AddressBook
-	Backend  bind.ContractBackend
 	Options  []func(*cldf.TypeAndVersion)
 }
 
@@ -35,12 +33,11 @@ var SeqEVMDeployMCMSWithConfig = operations.NewSequence(
 	semver.MustParse("1.0.0"),
 	"Deploys MCMS contract & sets config",
 	func(b operations.Bundle, deps SeqDeployMCMSWithConfigDeps, in SeqDeployMCMSWithConfigInput) (SeqDeployMCMSWithConfigOutput, error) {
-		out := SeqDeployMCMSWithConfigOutput{}
+		seqOp := SeqDeployMCMSWithConfigOutput{}
 		// Deploy MCMS contract
 		deployReport, err := operations.ExecuteOperation(b, ops.OpEVMDeployMCMS,
 			ops.OpEVMMCMSDeps{
 				Chain:    deps.Chain,
-				Backend:  deps.Backend,
 				Options:  deps.Options,
 				AddrBook: deps.AddrBook,
 			},
@@ -50,16 +47,15 @@ var SeqEVMDeployMCMSWithConfig = operations.NewSequence(
 			},
 		)
 		if err != nil {
-			return out, err
+			return seqOp, err
 		}
 
-		out.Address = deployReport.Output.Address
+		seqOp.Address = deployReport.Output.Address
 
 		// Set config
 		_, err = operations.ExecuteOperation(b, ops.OpEVMSetConfig,
 			ops.OpEVMMCMSDeps{
 				Chain:   deps.Chain,
-				Backend: deps.Backend,
 				Options: deps.Options,
 			},
 			ops.OpEVMSetConfigMCMSInput{
@@ -69,9 +65,9 @@ var SeqEVMDeployMCMSWithConfig = operations.NewSequence(
 			},
 		)
 		if err != nil {
-			return out, err
+			return seqOp, err
 		}
 
-		return out, nil
+		return seqOp, nil
 	},
 )

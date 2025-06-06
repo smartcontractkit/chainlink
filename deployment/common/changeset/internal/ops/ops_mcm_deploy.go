@@ -2,15 +2,12 @@ package ops
 
 import (
 	"github.com/Masterminds/semver/v3"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	evmMcms "github.com/smartcontractkit/mcms/sdk/evm"
-	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -21,7 +18,6 @@ import (
 
 type OpEVMMCMSDeps struct {
 	Chain    cldf_evm.Chain
-	Backend  bind.ContractBackend
 	Options  []func(*cldf.TypeAndVersion)
 	AddrBook cldf.AddressBook
 }
@@ -31,18 +27,8 @@ type OpEVMDeployMCMSInput struct {
 	ChainSelector uint64 // Needed to distinguish different input for Operations API
 }
 
-type OpEVMSetConfigMCMSInput struct {
-	Address      common.Address    `json:"address"`
-	ContractType cldf.ContractType `json:"contractType"`
-	MCMConfig    mcmsTypes.Config  `json:"mcmConfig"` // Config for the ManyChainMultiSig contract
-}
-
 type OpEVMDeployMCMSOutput struct {
 	Address common.Address `json:"address"`
-}
-
-type OpEVMSetConfigMCMSOutput struct {
-	Tx common.Hash `json:"tx"`
 }
 
 var OpEVMDeployMCMS = operations.NewOperation(
@@ -70,7 +56,7 @@ var OpEVMDeployMCMS = operations.NewOperation(
 				} else {
 					mcmAddr, tx, mcm, err2 = bindings.DeployManyChainMultiSig(
 						deps.Chain.DeployerKey,
-						deps.Backend,
+						deps.Chain.Client,
 					)
 				}
 
@@ -100,63 +86,5 @@ var OpEVMDeployMCMS = operations.NewOperation(
 
 		return OpEVMDeployMCMSOutput{
 			Address: mcm.Address,
-		}, nil
-	})
-
-var OpEVMSetConfig = operations.NewOperation(
-	"evm-mcms-set-config",
-	semver.MustParse("1.0.0"),
-	"Sets Config on the deployed MCMS contracts",
-	func(b operations.Bundle, deps OpEVMMCMSDeps, input OpEVMSetConfigMCMSInput) (OpEVMSetConfigMCMSOutput, error) {
-		out := OpEVMSetConfigMCMSOutput{}
-
-		groupQuorums, groupParents, signerAddresses, signerGroups, err := evmMcms.ExtractSetConfigInputs(&input.MCMConfig)
-		if err != nil {
-			b.Logger.Errorw("Failed to extract set config inputs", "chain", deps.Chain.Name(), "err", err)
-			return out, err
-		}
-
-		mcm, err := bindings.NewManyChainMultiSig(input.Address, deps.Backend)
-		if err != nil {
-			b.Logger.Errorw("Failed to create ManyChainMultiSig instance",
-				"chainSelector", deps.Chain.ChainSelector(),
-				"chainName", deps.Chain.Name(),
-				"contractAddr", input.Address.String(),
-				"err", err,
-			)
-			return out, err
-		}
-
-		tx, err := mcm.SetConfig(deps.Chain.DeployerKey,
-			signerAddresses,
-			// Signer 1 is int group 0 (root group) with quorum 1.
-			signerGroups,
-			groupQuorums,
-			groupParents,
-			false,
-		)
-		if err != nil {
-			b.Logger.Errorw("Failed to Set MCM config",
-				"chainSelector", deps.Chain.ChainSelector(),
-				"chainName", deps.Chain.Name(),
-				"err", err,
-			)
-			return out, err
-		}
-
-		// Confirm the transaction
-		if _, err = deps.Chain.Confirm(tx); err != nil {
-			b.Logger.Errorw("Failed to confirm deployment",
-				"chainSelector", deps.Chain.ChainSelector(),
-				"chainName", deps.Chain.Name(),
-				"contractAddr", input.Address.String(),
-				"err", err,
-			)
-
-			return out, err
-		}
-
-		return OpEVMSetConfigMCMSOutput{
-			Tx: tx.Hash(),
 		}, nil
 	})

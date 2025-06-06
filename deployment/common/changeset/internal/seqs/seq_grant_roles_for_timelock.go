@@ -4,7 +4,6 @@ import (
 	"slices"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	evmMcms "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
@@ -17,8 +16,7 @@ import (
 )
 
 type SeqGrantRolesTimelockDeps struct {
-	Chain   cldf_evm.Chain
-	Backend bind.ContractBackend
+	Chain cldf_evm.Chain
 }
 
 type RolesAndAddresses struct {
@@ -33,7 +31,6 @@ type SeqGrantRolesTimelockInput struct {
 	Timelock           common.Address      `json:"timelock"`
 	RolesAndAddresses  []RolesAndAddresses `json:"rolesAndAddresses"`
 	IsDeployerKeyAdmin bool                `json:"isDeployerKeyAdmin"`
-	IsTimelockAdmin    bool                `json:"isTimelockAdmin"`
 }
 
 type SeqGrantRolesTimelockOutput struct {
@@ -50,7 +47,6 @@ var SeqGrantRolesTimelock = operations.NewSequence(
 			addressesInInspector []string
 			err2                 error
 		)
-		out := SeqGrantRolesTimelockOutput{}
 
 		timelockInspector := evmMcms.NewTimelockInspector(deps.Chain.Client)
 
@@ -75,14 +71,13 @@ var SeqGrantRolesTimelock = operations.NewSequence(
 					"Role", roleAndAddress.Name,
 					"Error", err2,
 				)
-				return out, err2
+				return SeqGrantRolesTimelockOutput{}, err2
 			}
 			for _, addressToGrantRole := range roleAndAddress.Addresses {
 				if !slices.Contains(addressesInInspector, addressToGrantRole.Hex()) {
 					opReport, err := operations.ExecuteOperation(b, ops.OpEVMGrantRole,
 						ops.OpEVMGrantRoleDeps{
-							Chain:   deps.Chain,
-							Backend: deps.Backend,
+							Chain: deps.Chain,
 						},
 						ops.OpEVMGrantRoleInput{
 							TimelockAddress:    in.Timelock,
@@ -99,11 +94,11 @@ var SeqGrantRolesTimelock = operations.NewSequence(
 							"Role Name", roleAndAddress.Name,
 							"Address", addressToGrantRole.Hex(),
 						)
-						return out, err
+						return SeqGrantRolesTimelockOutput{}, err
 					}
 
 					if !in.IsDeployerKeyAdmin {
-						mcmsTxs = append(mcmsTxs, opReport.Output.Tx)
+						mcmsTxs = append(mcmsTxs, opReport.Output.MCMSTx)
 					} else {
 						b.Logger.Info(roleAndAddress.Name, " Role granted",
 							"chainSelector", deps.Chain.ChainSelector(),
@@ -115,9 +110,7 @@ var SeqGrantRolesTimelock = operations.NewSequence(
 				}
 			}
 		}
-		// TODO: tests did not cover this, needs tests
-		out.McmsTxs = mcmsTxs
 
-		return out, nil
+		return SeqGrantRolesTimelockOutput{McmsTxs: mcmsTxs}, nil
 	},
 )
