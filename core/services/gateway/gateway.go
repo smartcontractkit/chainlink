@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 
 	"go.uber.org/multierr"
@@ -66,7 +65,7 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 	}
 
 	handlerMap := make(map[string]handlers.Handler)
-	serviceMap := make(map[string]jsonrpc.Service)
+	services := make(map[string]jsonrpc.Service)
 
 	for _, donConfig := range config.Dons {
 		donConfig := donConfig
@@ -85,7 +84,7 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 			}
 		}
 		if donConfig.HandlerName == "vault" {
-			serviceMap[donConfig.HandlerName] = vault.New(donConfig.HandlerConfig, &donConfig, donConnMgr, lggr)
+			services[donConfig.HandlerName] = vault.New(donConfig.HandlerConfig, &donConfig, donConnMgr, lggr)
 		} else {
 			handler, err := handlerFactory.NewHandler(donConfig.HandlerName, donConfig.HandlerConfig, &donConfig, donConnMgr)
 			if err != nil {
@@ -96,17 +95,21 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 		}
 	}
 
+	return NewGateway(codec, httpServer, handlerMap, connMgr, lggr, services), nil
+}
+
+func NewGateway(codec api.Codec, httpServer gw_net.HttpServer, handlers map[string]handlers.Handler, connMgr ConnectionManager, lggr logger.Logger, services map[string]jsonrpc.Service) Gateway {
 	gw := &gateway{
 		codec:          codec,
-		jsonrpcHandler: &jsonrpc.Handler{},
 		httpServer:     httpServer,
-		handlers:       handlerMap,
-		services:       serviceMap,
+		handlers:       handlers,
 		connMgr:        connMgr,
+		jsonrpcHandler: &jsonrpc.Handler{},
+		services:       services,
 		lggr:           lggr.Named("Gateway"),
 	}
 	httpServer.SetHTTPRequestHandler(gw)
-	return gw, nil
+	return gw
 }
 
 func (g *gateway) Start(ctx context.Context) error {
@@ -137,21 +140,7 @@ func (g *gateway) Close() error {
 }
 
 // Called by the server
-func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, header http.Header) (rawResponse []byte, httpStatusCode int) {
-	jwtToken := strings.TrimPrefix(header.Get("Authorization"), "Bearer ")
-	request, err := g.jsonrpcHandler.DecodeRequest(rawRequest, jwtToken)
-	if err != nil {
-		return errorResponse(&request, api.UserMessageParseError, err.Error())
-	}
-
-	if request.ServiceName() == "vault" {
-		return g.ProcessRequestV2(ctx, request)
-	}
-
-	return g.ProcessRequestV1(ctx, rawRequest)
-}
-
-func (g *gateway) ProcessRequestV1(ctx context.Context, rawRequest []byte) (rawResponse []byte, httpStatusCode int) {
+func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte) (rawResponse []byte, httpStatusCode int) {
 	// decode
 	msg, err := g.codec.DecodeRequest(rawRequest)
 	if err != nil {
@@ -194,25 +183,25 @@ func (g *gateway) ProcessRequestV1(ctx context.Context, rawRequest []byte) (rawR
 	return rawResponse, api.ToHttpErrorCode(api.NoError)
 }
 
-func (g *gateway) ProcessRequestV2(ctx context.Context, request jsonrpc.Request) (rawResponse []byte, httpStatusCode int) {
-	method, ok := g.services[request.ServiceName()]
+func (g *gateway) ProcessServiceRequest(ctx context.Context, request *jsonrpc.Request) (rawResponse []byte, httpStatusCode int) {
+	service, ok := g.services[request.ServiceName()]
 	if !ok {
-		return errorResponse(&request, api.UnsupportedDONIdError, "unsupported request method")
+		return errorResponse(request, api.UnsupportedDONIdError, "request to unsupported service")
 	}
 	responseCh := make(chan *jsonrpc.Response, 1)
-	err := method.HandleUserRequest(ctx, &request, responseCh)
+	err := service.HandleUserRequest(ctx, request, responseCh)
 	if err != nil {
-		return errorResponse(&request, api.HandlerError, err.Error())
+		return errorResponse(request, api.HandlerError, err.Error())
 	}
 
 	response, ok := <-responseCh
 	if !ok {
-		return errorResponse(&request, api.HandlerError, "handler timeout")
+		return errorResponse(request, api.HandlerError, "handler timeout")
 	}
 
 	rawResponse, err = g.jsonrpcHandler.EncodeResponse(response)
 	if err != nil {
-		return errorResponse(&request, api.NodeReponseEncodingError, "")
+		return errorResponse(request, api.NodeReponseEncodingError, "")
 	}
 	promRequest.WithLabelValues(api.NoError.String()).Inc()
 	return rawResponse, api.ToHttpErrorCode(api.NoError)

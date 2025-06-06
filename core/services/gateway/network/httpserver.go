@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api/jsonrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -26,7 +27,8 @@ type HttpServer interface {
 }
 
 type HTTPRequestHandler interface {
-	ProcessRequest(ctx context.Context, rawRequest []byte, header http.Header) (rawResponse []byte, httpStatusCode int)
+	ProcessRequest(ctx context.Context, rawRequest []byte) (rawResponse []byte, httpStatusCode int)
+	ProcessServiceRequest(ctx context.Context, request *jsonrpc.Request) (rawResponse []byte, httpStatusCode int)
 }
 
 type HTTPServerConfig struct {
@@ -54,6 +56,7 @@ type httpServer struct {
 	doneCh            chan struct{}
 	cancelBaseContext context.CancelFunc
 	lggr              logger.Logger
+	jsonrpcHandler    *jsonrpc.Handler
 }
 
 const (
@@ -68,6 +71,7 @@ func NewHttpServer(config *HTTPServerConfig, lggr logger.Logger) HttpServer {
 		doneCh:            make(chan struct{}),
 		cancelBaseContext: cancelBaseCtx,
 		lggr:              lggr.Named("WebSocketServer"),
+		jsonrpcHandler:    &jsonrpc.Handler{},
 	}
 	mux := http.NewServeMux()
 	mux.Handle(config.Path, http.HandlerFunc(server.handleRequest))
@@ -180,7 +184,28 @@ func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 		defer cancel()
 	}
 
-	rawResponse, httpStatusCode := s.handler.ProcessRequest(requestCtx, rawMessage, r.Header)
+	// Optionally extract jwt token from authorization header
+	authHeader := r.Header.Get("Authorization")
+	jwtToken := ""
+	if authHeader != "" {
+		jwtToken = strings.TrimPrefix(authHeader, "Bearer ")
+	}
+
+	request, err := s.jsonrpcHandler.DecodeRequest(rawMessage, jwtToken)
+	if err != nil {
+		s.lggr.Error("error decoding JSON-RPC request", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var rawResponse []byte
+	var httpStatusCode int
+
+	if request.ServiceName() == "vault" {
+		rawResponse, httpStatusCode = s.handler.ProcessServiceRequest(requestCtx, &request)
+	} else {
+		rawResponse, httpStatusCode = s.handler.ProcessRequest(requestCtx, rawMessage)
+	}
 
 	w.Header().Set("Content-Type", s.config.ContentTypeHeader)
 	w.WriteHeader(httpStatusCode)
