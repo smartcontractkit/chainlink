@@ -291,7 +291,7 @@ func TestEngine_Execution(t *testing.T) {
 					require.NoError(t, err)
 					capExec, ok := executor.(*v2.CapabilityExecutor)
 					require.True(t, ok)
-					require.Equal(t, wantExecID, capExec.ID)
+					require.Equal(t, wantExecID, capExec.WorkflowExecutionID)
 					require.Equal(t, uint64(0), request.Request.(*wasmpb.ExecuteRequest_Trigger).Trigger.Id)
 				},
 			).

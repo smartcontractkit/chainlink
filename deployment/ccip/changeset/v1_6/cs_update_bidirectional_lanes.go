@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/smartcontractkit/mcms"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -203,59 +204,27 @@ func updateBidirectionalLanesLogic(e cldf.Environment, c UpdateBidirectionalLane
 }
 
 // UpdateLanesLogic is the main logic for updating lanes. Configs provided can be unidirectional
-// TODO: this should be refactored as a sequence once EVM changesets move to Operations API
 // TODO: UpdateBidirectionalLanesChangesetConfigs name is misleading, it also accepts unidirectional lane updates
 func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConfig, configs UpdateBidirectionalLanesChangesetConfigs) (cldf.ChangesetOutput, error) {
-	proposals := make([]mcms.TimelockProposal, 0)
-
-	out, err := UpdateFeeQuoterDestsChangeset(e, configs.UpdateFeeQuoterDestsConfig)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterDestsChangeset: %w", err)
-	}
-	proposals = append(proposals, out.MCMSTimelockProposals...)
-	e.Logger.Info("Destination configs updated on FeeQuoters")
-
-	out, err = UpdateFeeQuoterPricesChangeset(e, configs.UpdateFeeQuoterPricesConfig)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterPricesChangeset: %w", err)
-	}
-	proposals = append(proposals, out.MCMSTimelockProposals...)
-	e.Logger.Info("Gas prices updated on FeeQuoters")
-
-	out, err = UpdateOnRampsDestsChangeset(e, configs.UpdateOnRampDestsConfig)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run UpdateOnRampDestsChangeset: %w", err)
-	}
-	proposals = append(proposals, out.MCMSTimelockProposals...)
-	e.Logger.Info("Destination configs updated on OnRamps")
-
-	out, err = UpdateOffRampSourcesChangeset(e, configs.UpdateOffRampSourcesConfig)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run UpdateOffRampSourcesChangeset: %w", err)
-	}
-	proposals = append(proposals, out.MCMSTimelockProposals...)
-	e.Logger.Info("Source configs updated on OffRamps")
-
-	out, err = UpdateRouterRampsChangeset(e, configs.UpdateRouterRampsConfig)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run UpdateRouterRampsChangeset: %w", err)
-	}
-	proposals = append(proposals, out.MCMSTimelockProposals...)
-	e.Logger.Info("Ramps updated on Routers")
-
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	proposal, err := proposalutils.AggregateProposals(e, state.EVMMCMSStateByChain(), nil, proposals, "Update multiple bidirectional lanes", mcmsConfig)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
-	}
-	if proposal == nil {
-		return cldf.ChangesetOutput{}, nil
-	}
 
-	return cldf.ChangesetOutput{
-		MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-	}, nil
+	report, err := operations.ExecuteSequence(e.OperationsBundle, ccipseqs.UpdateLanesSequence, e.BlockChains.EVMChains(), ccipseqs.UpdateLanesSequenceInput{
+		FeeQuoterApplyDestChainConfigUpdatesSequenceInput: configs.UpdateFeeQuoterDestsConfig.ToSequenceInput(state),
+		FeeQuoterUpdatePricesSequenceInput:                configs.UpdateFeeQuoterPricesConfig.ToSequenceInput(state),
+		OffRampApplySourceChainConfigUpdatesSequenceInput: configs.UpdateOffRampSourcesConfig.ToSequenceInput(state),
+		OnRampApplyDestChainConfigUpdatesSequenceInput:    configs.UpdateOnRampDestsConfig.ToSequenceInput(state),
+		RouterApplyRampUpdatesSequenceInput:               configs.UpdateRouterRampsConfig.ToSequenceInput(state),
+	})
+	return opsutil.AddEVMCallSequenceToCSOutput(
+		e,
+		state,
+		cldf.ChangesetOutput{},
+		report,
+		err,
+		mcmsConfig,
+		"Update lanes on CCIP 1.6.0",
+	)
 }

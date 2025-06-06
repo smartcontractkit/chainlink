@@ -20,8 +20,10 @@ import (
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/safe"
 )
@@ -30,9 +32,10 @@ type Engine struct {
 	services.Service
 	srvcEng *services.Engine
 
-	cfg       *EngineConfig
-	lggr      logger.Logger
-	localNode capabilities.Node
+	cfg          *EngineConfig
+	lggr         logger.Logger
+	loggerLabels map[string]string
+	localNode    capabilities.Node
 
 	// registration ID -> trigger capability
 	triggers map[string]*triggerCapability
@@ -74,7 +77,7 @@ func NewEngine(ctx context.Context, cfg *EngineConfig) (*Engine, error) {
 		return nil, fmt.Errorf("could not get local node state: %w", err)
 	}
 
-	beholderLogger := custmsg.NewBeholderLogger(cfg.Lggr, cfg.BeholderEmitter).Named("WorkflowEngine").With(
+	labels := []any{
 		platform.KeyWorkflowID, cfg.WorkflowID,
 		platform.KeyWorkflowOwner, cfg.WorkflowOwner,
 		platform.KeyWorkflowName, cfg.WorkflowName.String(),
@@ -86,16 +89,23 @@ func NewEngine(ctx context.Context, cfg *EngineConfig) (*Engine, error) {
 			len(localNode.WorkflowDON.Members),
 			int(localNode.WorkflowDON.F),
 		)),
-		platform.KeyP2PID, localNode.PeerID.String())
+		platform.KeyP2PID, localNode.PeerID.String(),
+	}
 
+	beholderLogger := custmsg.NewBeholderLogger(cfg.Lggr, cfg.BeholderEmitter).Named("WorkflowEngine").With(labels...)
 	metricsLabeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em).With(
 		platform.KeyWorkflowID, cfg.WorkflowID,
 		platform.KeyWorkflowOwner, cfg.WorkflowOwner,
 		platform.KeyWorkflowName, cfg.WorkflowName.String())
+	labelsMap := make(map[string]string, len(labels)/2)
+	for i := 0; i < len(labels); i += 2 {
+		labelsMap[labels[i].(string)] = labels[i+1].(string)
+	}
 
 	engine := &Engine{
 		cfg:                     cfg,
 		lggr:                    beholderLogger,
+		loggerLabels:            labelsMap,
 		localNode:               localNode,
 		triggers:                make(map[string]*triggerCapability),
 		allTriggerEventsQueueCh: make(chan enqueuedTriggerEvent, cfg.LocalLimits.TriggerEventQueueSize),
@@ -114,9 +124,9 @@ func NewEngine(ctx context.Context, cfg *EngineConfig) (*Engine, error) {
 
 func (e *Engine) start(_ context.Context) error {
 	e.cfg.Module.Start()
+	e.srvcEng.Go(e.heartbeatLoop)
 	e.srvcEng.Go(e.init)
 	e.srvcEng.Go(e.handleAllTriggerEvents)
-	// TODO(CAPPL-736): add heartbeat metrics
 	return nil
 }
 
@@ -299,6 +309,9 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	e.meterReports.Add(executionID, metering.NewReport(e.cfg.Lggr))
 
+	executionLogger.Infow("Workflow execution starting ...")
+	_ = events.EmitExecutionStartedEvent(ctx, e.loggerLabels, triggerEvent.ID, executionID)
+
 	result, err := e.cfg.Module.Execute(subCtx, &wasmpb.ExecuteRequest{
 		Request: &wasmpb.ExecuteRequest_Trigger{
 			Trigger: &sdkpb.Trigger{
@@ -308,19 +321,23 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		// TODO(CAPPL-729): pass workflow config
-	}, &CapabilityExecutor{Engine: e, ID: executionID})
+	}, &CapabilityExecutor{Engine: e, WorkflowExecutionID: executionID})
 	if err != nil {
-		executionLogger.Errorw("Workflow execution failed", "err", err)
+		status := store.StatusErrored
+		if errors.Is(err, context.DeadlineExceeded) {
+			status = store.StatusTimeout
+		}
+		executionLogger.Errorw("Workflow execution failed", "err", err, "status", status)
+		_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, status, executionID)
 		e.meterReports.Delete(executionID)
 		return
 	}
-
-	// TODO(CAPPL-736): handle execution result
 	// TODO(CAPPL-737): measure and report execution time
 
+	executionLogger.Infow("Workflow execution finished successfully")
+	_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, store.StatusCompleted, executionID)
 	e.meterReports.Delete(executionID)
 
-	executionLogger.Infow("Workflow execution finished successfully", "executionID", executionID, "result", result)
 	e.cfg.Hooks.OnResultReceived(result)
 	e.cfg.Hooks.OnExecutionFinished(executionID)
 }
@@ -355,4 +372,23 @@ func (e *Engine) unregisterAllTriggers(ctx context.Context) {
 	e.triggers = make(map[string]*triggerCapability)
 	e.lggr.Infow("All triggers unregistered", "numTriggers", len(e.triggers))
 	e.metrics.IncrementWorkflowUnregisteredCounter(ctx)
+}
+
+func (e *Engine) heartbeatLoop(ctx context.Context) {
+	ticker := time.NewTicker(time.Duration(e.cfg.LocalLimits.HeartbeatFrequencyMs) * time.Millisecond)
+	defer ticker.Stop()
+	e.lggr.Info("Starting heartbeat loop")
+	e.metrics.EngineHeartbeatGauge(ctx, 1)
+
+	for {
+		select {
+		case <-ctx.Done():
+			e.metrics.EngineHeartbeatGauge(ctx, 0)
+			e.lggr.Info("Shutting down heartbeat")
+			return
+		case <-ticker.C:
+			e.lggr.Debugw("Engine heartbeat tick", "time", e.cfg.Clock.Now().Format(time.RFC3339))
+			e.metrics.IncrementEngineHeartbeatCounter(ctx)
+		}
+	}
 }
