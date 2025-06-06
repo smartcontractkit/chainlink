@@ -128,6 +128,9 @@ func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 
 	t.Logf("jobIDs: %v", jobIDs)
 	validateJobsRunningSuccessfully(t, nodes, jobIDs)
+
+	// wait for a minute for the jobs to run and collect data
+	time.Sleep(1 * time.Minute)
 }
 
 func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
