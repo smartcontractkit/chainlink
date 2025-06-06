@@ -27,8 +27,9 @@ import (
 	gasmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-	dftypes "github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds"
-	portypes "github.com/smartcontractkit/chainlink-evm/pkg/report/por"
+	"github.com/smartcontractkit/chainlink-evm/pkg/monitoring/pb/data-feeds/on-chain/registry"
+	df_processor "github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds/processor"
+	por_processor "github.com/smartcontractkit/chainlink-evm/pkg/report/por/processor"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
@@ -176,7 +177,7 @@ func TestEvmWrite(t *testing.T) {
 	}
 
 	generateReportEncoded := func(reportType string) []byte {
-		feedReports := dftypes.Reports{
+		feedReports := registry.Reports{
 			{
 				FeedID:    [32]byte{0x01},
 				Price:     big.NewInt(1234567890123456789),
@@ -184,7 +185,15 @@ func TestEvmWrite(t *testing.T) {
 			},
 		}
 
-		porFeedReports := portypes.Reports{
+		ccipFeedReports := registry.CCIPReports{
+			{
+				FeedID:    [32]byte{0x01},
+				Timestamp: 1620000000,
+				Price:     big.NewInt(1234567890123456789),
+			},
+		}
+
+		porFeedReports := registry.PORReports{
 			{
 				DataId:    [32]byte{0x01},
 				Timestamp: 1620000000,
@@ -196,14 +205,14 @@ func TestEvmWrite(t *testing.T) {
 
 		switch reportType {
 		case "ccip":
-			feedReportsEncoded, err = dftypes.GetSchema(true).Pack(feedReports)
+			feedReportsEncoded, err = df_processor.GetCCIPDataFeedsSchema().Pack(ccipFeedReports)
 			require.NoError(t, err)
 		case "por":
-			feedReportsEncoded, err = portypes.GetSchema().Pack(porFeedReports)
+			feedReportsEncoded, err = por_processor.GetPORSchema().Pack(porFeedReports)
 			require.NoError(t, err)
 		// normal non-ccip / POR report
 		default:
-			feedReportsEncoded, err = dftypes.GetSchema(false).Pack(feedReports)
+			feedReportsEncoded, err = df_processor.GetDataFeedsSchema().Pack(feedReports)
 			require.NoError(t, err)
 		}
 

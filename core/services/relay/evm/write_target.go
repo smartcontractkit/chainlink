@@ -101,9 +101,9 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 
 	emitter := writetarget.NewMonitorEmitter(lggr)
 
-	dfProcessor := dfprocessor.NewDataFeedsProcessor(registryMetrics, emitter, false)
-	ccipDfProcessor := dfprocessor.NewDataFeedsProcessor(registryMetrics, emitter, true)
-	porProcessor := porprocessor.NewPORFeedsProcessor(registryMetrics, emitter)
+	dfProcessor := dfprocessor.NewDataFeedsProcessor(registryMetrics, emitter)
+	ccipDfProcessor := dfprocessor.NewCCIPDataFeedsProcessor(registryMetrics, emitter)
+	porProcessor := porprocessor.NewPORProcessor(registryMetrics, emitter)
 
 	evmProcessors, err := processor.NewPlatformProcessors(emitter)
 	if err != nil {

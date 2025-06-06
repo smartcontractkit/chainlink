@@ -1448,8 +1448,8 @@ github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250604171706-a98fa
 github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250604171706-a98fa6515eae/go.mod h1:2MggrMtbhqr0u4U2pcYa21lvAtvaeSawjxdIy1ytHWE=
 github.com/smartcontractkit/chainlink-deployments-framework v0.9.1 h1:0N8HkEVGenOW993XMVTjP2sQiP22lLVdJQxHWJKMhaA=
 github.com/smartcontractkit/chainlink-deployments-framework v0.9.1/go.mod h1:pe1X7qw2h+bYH90OheAlZ/vYCq8SKOnFAXGWUmIIeSc=
-github.com/smartcontractkit/chainlink-evm v0.0.0-20250605162632-8b3653c3f259 h1:yq0fPaCT31byHHOglb4lUedp3EIPKe81iIhis43Kxdc=
-github.com/smartcontractkit/chainlink-evm v0.0.0-20250605162632-8b3653c3f259/go.mod h1:+bVH0414I1ibcmSFDw++hexe7gBk70VEq7wBXTBEfuI=
+github.com/smartcontractkit/chainlink-evm v0.0.0-20250606171241-744075cf446f h1:VFjN4oa4wm7BOIbEJ/OZczTQSoEDSn2vssER4m9qTBI=
+github.com/smartcontractkit/chainlink-evm v0.0.0-20250606171241-744075cf446f/go.mod h1:+bVH0414I1ibcmSFDw++hexe7gBk70VEq7wBXTBEfuI=
 github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 h1:8u9xUrC+yHrTDexOKDd+jrA6LCzFFHeX1G82oj2fsSI=
 github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135/go.mod h1:NkvE4iQgiT7dMCP6U3xPELHhWhN5Xr6rHC0axRebyMU=
 github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250605161945-e139f71c341e h1:qBWClUv/7kPYijr2Yj7CSzX8clpDHsgZ5PE+NGDy2Zc=
