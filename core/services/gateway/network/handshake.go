@@ -1,6 +1,7 @@
 package network
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -23,10 +24,10 @@ import (
 //	                                     FinalizeHandshake()
 type ConnectionInitiator interface {
 	// Generate authentication header value specific to node and gateway
-	NewAuthHeader(url *url.URL) ([]byte, error)
+	NewAuthHeader(ctx context.Context, url *url.URL) ([]byte, error)
 
 	// Sign challenge to prove identity.
-	ChallengeResponse(url *url.URL, challenge []byte) ([]byte, error)
+	ChallengeResponse(ctx context.Context, url *url.URL, challenge []byte) ([]byte, error)
 }
 
 type ConnectionAcceptor interface {
