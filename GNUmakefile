@@ -119,7 +119,7 @@ docker-plugins:
 		echo "Error: GITHUB_TOKEN environment variable is required when CL_INSTALL_PRIVATE_PLUGINS=true or CL_INSTALL_TESTING_PLUGINS=true"; \
 		exit 1; \
 	fi
-	$(eval PRIVATE_PLUGIN_ARGS := $(if $(and $(filter true,$(CL_INSTALL_PRIVATE_PLUGINS)),$(GITHUB_TOKEN)),--secret id=GIT_AUTH_TOKEN$(comma)env=GITHUB_TOKEN))
+	$(eval PRIVATE_PLUGIN_ARGS := $(if $(and $(or $(filter true,$(CL_INSTALL_PRIVATE_PLUGINS)),$(filter true,$(CL_INSTALL_TESTING_PLUGINS))),$(GITHUB_TOKEN)),--secret id=GIT_AUTH_TOKEN$(comma)env=GITHUB_TOKEN))
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	--build-arg CL_APTOS_CMD=chainlink-aptos \
