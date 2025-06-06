@@ -188,6 +188,6 @@ func (n NonceManagerApplyPreviousRampsUpdatesInput) Validate(env cldf.Environmen
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership: %w", err)
 	}
-	// TODO add validation
+	// TODO add caller validation
 	return nil
 }
