@@ -32,7 +32,7 @@ require (
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250603190644-0dcaa6d2cc86
 	github.com/smartcontractkit/chainlink-deployments-framework v0.9.1
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250602121001-1a3c233e4019
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.9.1-0.20250606085636-f38d4e4f8df3
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.9.2
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.0
