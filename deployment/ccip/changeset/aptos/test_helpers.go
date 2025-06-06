@@ -18,7 +18,7 @@ import (
 const (
 	mockMCMSAddress = "0x3f20aa841a0eb5c038775bdb868924770df1ce377cc0013b3ba4ac9fd69a4f90"
 	mockAddress     = "0x13a9f1a109368730f2e355d831ba8fbf5942fb82321863d55de54cb4ebe5d18f"
-	mockLinkAddress = "0xa"
+	MockLinkAddress = "0xa"
 
 	sepChainSelector     = 11155111
 	sepMockOnRampAddress = "0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59"
@@ -45,12 +45,11 @@ func mustParseAddress(t *testing.T, addr string) aptos.AccountAddress {
 
 func GetMockChainContractParams(t *testing.T, chainSelector uint64) config.ChainContractParams {
 	mockParsedAddress := mustParseAddress(t, mockAddress)
-	mockParsedLinkAddress := mustParseAddress(t, mockLinkAddress)
+	mockParsedLinkAddress := mustParseAddress(t, MockLinkAddress)
 
 	return config.ChainContractParams{
 		FeeQuoterParams: config.FeeQuoterParams{
 			MaxFeeJuelsPerMsg:            1000000,
-			LinkToken:                    mockParsedLinkAddress,
 			TokenPriceStalenessThreshold: 1000000,
 			FeeTokens:                    []aptos.AccountAddress{mockParsedLinkAddress},
 		},

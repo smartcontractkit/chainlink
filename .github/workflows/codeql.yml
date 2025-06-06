@@ -1,6 +1,10 @@
 name: "CodeQL Advanced"
 
 on:
+  push:
+    branches:
+      - develop
+      - release/*
   merge_group:
   pull_request:
   schedule:
@@ -46,7 +50,7 @@ jobs:
         if: matrix.language == 'go'
         uses: ./.github/actions/setup-go
         with:
-          restore-build-cache-only: "false"
+          restore-build-cache-only: ${{ github.event_name != 'push' }}
           build-cache-version: "codeql"
 
       - name: Touching core/web/assets/index.html
