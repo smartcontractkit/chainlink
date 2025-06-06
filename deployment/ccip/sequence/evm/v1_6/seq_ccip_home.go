@@ -228,3 +228,98 @@ var PromoteCandidateSequence = operations.NewSequence(
 
 		return opOutputs, nil
 	})
+
+type ApplyChainConfigUpdatesSequenceInput struct {
+	CCIPHome             common.Address
+	NoSend               bool
+	ChainConfigAdds      []ccip_home.CCIPHomeChainConfigArgs
+	ChainSelectorRemoves []uint64
+	BatchSize            int
+}
+
+var ApplyChainConfigUpdatesSequence = operations.NewSequence(
+	"ApplyChainConfigUpdatesSequence",
+	semver.MustParse("1.0.0"),
+	"Updates chain configurations on CCIPHome, using multiple ApplyChainConfigUpdates according to a batch size",
+	func(b operations.Bundle, deps DONSequenceDeps, input ApplyChainConfigUpdatesSequenceInput) (map[uint64][]opsutil.EVMCallOutput, error) {
+		opOutputs := make(map[uint64][]opsutil.EVMCallOutput, 1) // Only calls against the home chain will be made
+		opOutputs[deps.HomeChain.Selector] = make([]opsutil.EVMCallOutput, 0)
+
+		batches := make([]ccipops.ApplyChainConfigUpdatesOpInput, 0)
+		currentBatch := ccipops.ApplyChainConfigUpdatesOpInput{
+			ChainSelectorRemoves: make([]uint64, 0),
+			ChainConfigAdds:      make([]ccip_home.CCIPHomeChainConfigArgs, 0),
+		}
+
+		// Track removals and additions for quick lookups. These lookups are necessary because,
+		// although we generally process removals first, if an addition for the same chain exists we must batch it with the removal.
+		// This is to ensure that there isn't any downtime for the chain in question.
+		removals := make(map[uint64]struct{}, len(input.ChainSelectorRemoves))
+		for _, chainSel := range input.ChainSelectorRemoves {
+			removals[chainSel] = struct{}{}
+		}
+		adds := make(map[uint64]ccip_home.CCIPHomeChainConfigArgs)
+		for _, add := range input.ChainConfigAdds {
+			adds[add.ChainSelector] = add
+		}
+
+		processedAdds := make(map[uint64]struct{})
+		for _, removal := range input.ChainSelectorRemoves {
+			currentBatch.ChainSelectorRemoves = append(currentBatch.ChainSelectorRemoves, removal)
+			// If there's an addition for the same chain, add it to the same batch
+			if add, ok := adds[removal]; ok {
+				currentBatch.ChainConfigAdds = append(currentBatch.ChainConfigAdds, add)
+				processedAdds[removal] = struct{}{}
+			}
+			batches, currentBatch = maybeSaveCurrentBatch(batches, currentBatch, input.BatchSize)
+		}
+
+		// Now, process the remaining additions (those not already processed)
+		for _, add := range input.ChainConfigAdds {
+			if _, ok := processedAdds[add.ChainSelector]; ok {
+				continue
+			}
+			currentBatch.ChainConfigAdds = append(currentBatch.ChainConfigAdds, add)
+			batches, currentBatch = maybeSaveCurrentBatch(batches, currentBatch, input.BatchSize)
+		}
+
+		// If any remaining items in the current batch, save it
+		if len(currentBatch.ChainSelectorRemoves) > 0 || len(currentBatch.ChainConfigAdds) > 0 {
+			batches = append(batches, currentBatch)
+		}
+
+		for _, batch := range batches {
+			report, err := operations.ExecuteOperation(
+				b,
+				ccipops.ApplyChainConfigUpdatesOp,
+				deps.HomeChain,
+				opsutil.EVMCallInput[ccipops.ApplyChainConfigUpdatesOpInput]{
+					Address:       input.CCIPHome,
+					ChainSelector: deps.HomeChain.Selector,
+					CallInput:     batch,
+					NoSend:        input.NoSend,
+				},
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to execute ApplyChainConfigUpdatesOp: %w", err)
+			}
+			opOutputs[deps.HomeChain.Selector] = append(opOutputs[deps.HomeChain.Selector], report.Output)
+		}
+
+		return opOutputs, nil
+	})
+
+func maybeSaveCurrentBatch(
+	batches []ccipops.ApplyChainConfigUpdatesOpInput,
+	currentBatch ccipops.ApplyChainConfigUpdatesOpInput,
+	batchSize int,
+) ([]ccipops.ApplyChainConfigUpdatesOpInput, ccipops.ApplyChainConfigUpdatesOpInput) {
+	if len(currentBatch.ChainSelectorRemoves)+len(currentBatch.ChainConfigAdds) >= batchSize {
+		batches = append(batches, currentBatch)
+		currentBatch = ccipops.ApplyChainConfigUpdatesOpInput{
+			ChainSelectorRemoves: make([]uint64, 0),
+			ChainConfigAdds:      make([]ccip_home.CCIPHomeChainConfigArgs, 0),
+		}
+	}
+	return batches, currentBatch
+}

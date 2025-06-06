@@ -1070,11 +1070,13 @@ func UpdateChainConfigChangeset(e cldf.Environment, cfg UpdateChainConfigConfig)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	txOpts := e.BlockChains.EVMChains()[cfg.HomeChainSelector].DeployerKey
-	txOpts.Context = e.GetContext()
-	if cfg.MCMS != nil {
-		txOpts = cldf.SimTransactOpts()
+
+	// Create mapping of all removals to check if we are removing and re-adding chains
+	removes := make(map[uint64]struct{}, len(cfg.RemoteChainRemoves))
+	for _, chain := range cfg.RemoteChainRemoves {
+		removes[chain] = struct{}{}
 	}
+
 	var adds []ccip_home.CCIPHomeChainConfigArgs
 	for chain, ccfg := range cfg.RemoteChainAdds {
 		encodedChainConfig, err := chainconfig.EncodeChainConfig(ccfg.EncodableChainConfig)
@@ -1090,7 +1092,8 @@ func UpdateChainConfigChangeset(e cldf.Environment, cfg UpdateChainConfigConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("get chain config for selector %d: %w", chain, err)
 		}
-		if isChainConfigEqual(existingCfg, chainConfig) {
+		// Don't add chain configs again, unless we are removing and re-adding it.
+		if _, ok := removes[chain]; !ok && isChainConfigEqual(existingCfg, chainConfig) {
 			e.Logger.Infow("Chain config already exists, not applying again",
 				"addedChain", chain,
 				"chainConfig", chainConfig,
@@ -1103,43 +1106,22 @@ func UpdateChainConfigChangeset(e cldf.Environment, cfg UpdateChainConfigConfig)
 		})
 	}
 
-	tx, err := state.Chains[cfg.HomeChainSelector].CCIPHome.ApplyChainConfigUpdates(txOpts, cfg.RemoteChainRemoves, adds)
-	if cfg.MCMS == nil {
-		_, err = cldf.ConfirmIfNoErrorWithABI(e.BlockChains.EVMChains()[cfg.HomeChainSelector], tx, ccip_home.CCIPHomeABI, err)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-		e.Logger.Infow("Updated chain config", "chain", cfg.HomeChainSelector, "removes", cfg.RemoteChainRemoves, "adds", cfg.RemoteChainAdds)
-		return cldf.ChangesetOutput{}, nil
-	}
-
-	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
-	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.BlockChains.EVMChains()[cfg.HomeChainSelector].Client)}
-	batchOp, err := proposalutils.BatchOperationForChain(cfg.HomeChainSelector, state.Chains[cfg.HomeChainSelector].CCIPHome.Address().Hex(),
-		tx.Data(), big.NewInt(0), string(shared.CCIPHome), []string{})
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation: %w", err)
-	}
-
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
-	}
-	prop, err := proposalutils.BuildProposalFromBatchesV2(
-		e,
-		timelocks,
-		mcmsContractByChain,
-		inspectors,
-		[]mcmstypes.BatchOperation{batchOp},
-		"Update chain config",
-		*cfg.MCMS,
+	report, err := operations.ExecuteSequence(
+		e.OperationsBundle,
+		ccipseqs.ApplyChainConfigUpdatesSequence,
+		ccipseqs.DONSequenceDeps{
+			HomeChain: e.BlockChains.EVMChains()[cfg.HomeChainSelector],
+		},
+		ccipseqs.ApplyChainConfigUpdatesSequenceInput{
+			CCIPHome:             state.Chains[cfg.HomeChainSelector].CCIPHome.Address(),
+			NoSend:               cfg.MCMS != nil,
+			ChainConfigAdds:      adds,
+			ChainSelectorRemoves: cfg.RemoteChainRemoves,
+			BatchSize:            4, // Conservative batch size to avoid exceeding gas limits (TODO: Make this configurable)
+		},
 	)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-
 	e.Logger.Infof("Proposed chain config update on chain %d removes %v, adds %v", cfg.HomeChainSelector, cfg.RemoteChainRemoves, cfg.RemoteChainAdds)
-	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*prop}}, nil
+	return opsutil.AddEVMCallSequenceToCSOutput(e, state, cldf.ChangesetOutput{}, report, err, cfg.MCMS, "Update chain configs on CCIPHome")
 }
 
 func isChainConfigEqual(a, b ccip_home.CCIPHomeChainConfig) bool {
