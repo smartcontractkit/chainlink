@@ -4,17 +4,20 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/smartcontractkit/mcms"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // UpdateBidirectionalLanesChangeset enables or disables multiple bidirectional lanes on CCIP.
 // It batches all lane updates into a single MCMS proposal.
-var UpdateBidirectionalLanesChangeset = deployment.CreateChangeSet(updateBidirectionalLanesLogic, updateBidirectionalLanesPrecondition)
+var UpdateBidirectionalLanesChangeset = cldf.CreateChangeSet(updateBidirectionalLanesLogic, updateBidirectionalLanesPrecondition)
 
 // BidirectionalLaneDefinition indicates two chains that we want to connect.
 type BidirectionalLaneDefinition struct {
@@ -154,9 +157,14 @@ func (c UpdateBidirectionalLanesConfig) BuildConfigs() UpdateBidirectionalLanesC
 	}
 }
 
-func updateBidirectionalLanesPrecondition(e deployment.Environment, c UpdateBidirectionalLanesConfig) error {
+func updateBidirectionalLanesPrecondition(e cldf.Environment, c UpdateBidirectionalLanesConfig) error {
 	configs := c.BuildConfigs()
-	state, err := changeset.LoadOnchainState(e)
+
+	return UpdateLanesPrecondition(e, configs)
+}
+
+func UpdateLanesPrecondition(e cldf.Environment, configs UpdateBidirectionalLanesChangesetConfigs) error {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -189,58 +197,34 @@ func updateBidirectionalLanesPrecondition(e deployment.Environment, c UpdateBidi
 	return nil
 }
 
-func updateBidirectionalLanesLogic(e deployment.Environment, c UpdateBidirectionalLanesConfig) (deployment.ChangesetOutput, error) {
-	proposals := make([]mcms.TimelockProposal, 0)
+func updateBidirectionalLanesLogic(e cldf.Environment, c UpdateBidirectionalLanesConfig) (cldf.ChangesetOutput, error) {
 	configs := c.BuildConfigs()
 
-	out, err := UpdateFeeQuoterDestsChangeset(e, configs.UpdateFeeQuoterDestsConfig)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterDestsChangeset: %w", err)
-	}
-	proposals = append(proposals, out.MCMSTimelockProposals...)
-	e.Logger.Info("Destination configs updated on FeeQuoters")
+	return UpdateLanesLogic(e, c.MCMSConfig, configs)
+}
 
-	out, err = UpdateFeeQuoterPricesChangeset(e, configs.UpdateFeeQuoterPricesConfig)
+// UpdateLanesLogic is the main logic for updating lanes. Configs provided can be unidirectional
+// TODO: UpdateBidirectionalLanesChangesetConfigs name is misleading, it also accepts unidirectional lane updates
+func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConfig, configs UpdateBidirectionalLanesChangesetConfigs) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterPricesChangeset: %w", err)
-	}
-	proposals = append(proposals, out.MCMSTimelockProposals...)
-	e.Logger.Info("Gas prices updated on FeeQuoters")
-
-	out, err = UpdateOnRampsDestsChangeset(e, configs.UpdateOnRampDestsConfig)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateOnRampDestsChangeset: %w", err)
-	}
-	proposals = append(proposals, out.MCMSTimelockProposals...)
-	e.Logger.Info("Destination configs updated on OnRamps")
-
-	out, err = UpdateOffRampSourcesChangeset(e, configs.UpdateOffRampSourcesConfig)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateOffRampSourcesChangeset: %w", err)
-	}
-	proposals = append(proposals, out.MCMSTimelockProposals...)
-	e.Logger.Info("Source configs updated on OffRamps")
-
-	out, err = UpdateRouterRampsChangeset(e, configs.UpdateRouterRampsConfig)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateRouterRampsChangeset: %w", err)
-	}
-	proposals = append(proposals, out.MCMSTimelockProposals...)
-	e.Logger.Info("Ramps updated on Routers")
-
-	state, err := changeset.LoadOnchainState(e)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
-	}
-	proposal, err := proposalutils.AggregateProposals(e, state.EVMMCMSStateByChain(), proposals, nil, "Update multiple bidirectional lanes", c.MCMSConfig)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
-	}
-	if proposal == nil {
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	return deployment.ChangesetOutput{
-		MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-	}, nil
+	report, err := operations.ExecuteSequence(e.OperationsBundle, ccipseqs.UpdateLanesSequence, e.BlockChains.EVMChains(), ccipseqs.UpdateLanesSequenceInput{
+		FeeQuoterApplyDestChainConfigUpdatesSequenceInput: configs.UpdateFeeQuoterDestsConfig.ToSequenceInput(state),
+		FeeQuoterUpdatePricesSequenceInput:                configs.UpdateFeeQuoterPricesConfig.ToSequenceInput(state),
+		OffRampApplySourceChainConfigUpdatesSequenceInput: configs.UpdateOffRampSourcesConfig.ToSequenceInput(state),
+		OnRampApplyDestChainConfigUpdatesSequenceInput:    configs.UpdateOnRampDestsConfig.ToSequenceInput(state),
+		RouterApplyRampUpdatesSequenceInput:               configs.UpdateRouterRampsConfig.ToSequenceInput(state),
+	})
+	return opsutil.AddEVMCallSequenceToCSOutput(
+		e,
+		state,
+		cldf.ChangesetOutput{},
+		report,
+		err,
+		mcmsConfig,
+		"Update lanes on CCIP 1.6.0",
+	)
 }

@@ -21,7 +21,6 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -58,7 +57,7 @@ func makePipelineWithMultipleStreamResults(streamIDs []streams.StreamID, results
 }
 
 func TestObservationContext_Observe(t *testing.T) {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	r := &mockRegistry{}
 	telem := &mockTelemeter{}
 	lggr := logger.TestLogger(t)
@@ -143,7 +142,7 @@ func TestObservationContext_Observe(t *testing.T) {
 }
 
 func TestObservationContext_Observe_concurrencyStressTest(t *testing.T) {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	r := &mockRegistry{}
 	telem := &mockTelemeter{}
 	lggr := logger.TestLogger(t)
@@ -211,14 +210,14 @@ func createBridge(t testing.TB, name string, val string, borm bridges.ORM, maxCa
 	}))
 	t.Cleanup(bridge.Close)
 	u, _ := url.Parse(bridge.URL)
-	require.NoError(t, borm.CreateBridgeType(tests.Context(t), &bridges.BridgeType{
+	require.NoError(t, borm.CreateBridgeType(t.Context(), &bridges.BridgeType{
 		Name: bridges.BridgeName(name),
 		URL:  models.WebURL(*u),
 	}))
 }
 
 func TestObservationContext_Observe_integrationRealPipeline(t *testing.T) {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	bridgesORM := bridges.NewORM(db)
@@ -295,7 +294,7 @@ result3 -> result3_parse -> multiply3;
 }
 
 func BenchmarkObservationContext_Observe_integrationRealPipeline_concurrencyStressTest_manyStreams(b *testing.B) {
-	ctx := tests.Context(b)
+	ctx := b.Context()
 	lggr := logger.TestLogger(b)
 	db := pgtest.NewSqlxDB(b)
 	bridgesORM := bridges.NewORM(db)

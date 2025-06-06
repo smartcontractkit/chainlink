@@ -6,16 +6,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gagliardetto/solana-go"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 // MessageHasherV1 implements the MessageHasher interface.
@@ -156,6 +154,10 @@ func parseExtraDataMap(input map[string]any) (extraData, error) {
 	out.accounts = accounts
 	out.tokenReceiver = tokenReceiver
 	return out, nil
+}
+
+func SerializeExtraArgs(tag []byte, data any) ([]byte, error) {
+	return ccip.SerializeExtraArgs(data, strings.TrimPrefix(hexutil.Encode(tag), "0x"))
 }
 
 // Interface compliance check

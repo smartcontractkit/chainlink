@@ -10,13 +10,14 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	solanachangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
-var _ deployment.ChangeSetV2[TransferFromTimelockConfig] = TransferFromTimelock{}
+var _ cldf.ChangeSetV2[TransferFromTimelockConfig] = TransferFromTimelock{}
 
 type TransferData struct {
 	To     solana.PublicKey
@@ -33,10 +34,11 @@ type TransferFromTimelockConfig struct {
 type TransferFromTimelock struct{}
 
 // VerifyPreconditions checks if the deployer has enough SOL to fund the MCMS signers on each chain.
-func (f TransferFromTimelock) VerifyPreconditions(e deployment.Environment, config TransferFromTimelockConfig) error {
+func (f TransferFromTimelock) VerifyPreconditions(e cldf.Environment, config TransferFromTimelockConfig) error {
+	solChains := e.BlockChains.SolanaChains()
 	// the number of accounts to fund per chain (bypasser, canceller, proposer, timelock)
 	for chainSelector, amountCfg := range config.AmountsPerChain {
-		solChain, ok := e.SolChains[chainSelector]
+		solChain, ok := solChains[chainSelector]
 		if !ok {
 			return fmt.Errorf("solana chain not found for selector %d", chainSelector)
 		}
@@ -71,23 +73,25 @@ func (f TransferFromTimelock) VerifyPreconditions(e deployment.Environment, conf
 }
 
 // Apply funds the MCMS signers on each chain.
-func (f TransferFromTimelock) Apply(e deployment.Environment, config TransferFromTimelockConfig) (deployment.ChangesetOutput, error) {
+func (f TransferFromTimelock) Apply(e cldf.Environment, config TransferFromTimelockConfig) (cldf.ChangesetOutput, error) {
 	timelocks := map[uint64]string{}
 	proposers := map[uint64]string{}
 	var batches []types.BatchOperation
 	inspectors, err := proposalutils.McmsInspectors(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get MCMS inspectors: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS inspectors: %w", err)
 	}
+
+	solChains := e.BlockChains.SolanaChains()
 	for chainSelector, cfgAmounts := range config.AmountsPerChain {
-		solChain := e.SolChains[chainSelector]
+		solChain := solChains[chainSelector]
 		addreses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 		}
 		mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addreses)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to load MCMS state: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS state: %w", err)
 		}
 		timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 		timelockID := mcmssolanasdk.ContractAddress(mcmState.TimelockProgram, mcmssolanasdk.PDASeed(mcmState.TimelockSeed))
@@ -100,7 +104,7 @@ func (f TransferFromTimelock) Apply(e deployment.Environment, config TransferFro
 			[]solana.PublicKey{cfgAmounts.To},
 			cfgAmounts.Amount)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fund timelock signer on chain %d: %w", chainSelector, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fund timelock signer on chain %d: %w", chainSelector, err)
 		}
 
 		var transactions []types.Transaction
@@ -108,7 +112,7 @@ func (f TransferFromTimelock) Apply(e deployment.Environment, config TransferFro
 		for _, ix := range ixs {
 			solanaTx, err := mcmssolanasdk.NewTransactionFromInstruction(ix, "SystemProgram", []string{})
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 			}
 			transactions = append(transactions, solanaTx)
 		}
@@ -127,9 +131,9 @@ func (f TransferFromTimelock) Apply(e deployment.Environment, config TransferFro
 		config.TimelockCfg,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 	}
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 	}, nil
 }

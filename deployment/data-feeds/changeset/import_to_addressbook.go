@@ -4,22 +4,23 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
 // ImportToAddressbookChangeset is a changeset that reads already deployed contract addresses from input file
 // and saves them to the address book. Returns a new addressbook with the imported addresses.
-var ImportToAddressbookChangeset = deployment.CreateChangeSet(importToAddressbookLogic, importToAddressbookPrecondition)
+var ImportToAddressbookChangeset = cldf.CreateChangeSet(importToAddressbookLogic, importToAddressbookPrecondition)
 
 type AddressesSchema struct {
-	Address        string                    `json:"address"`
-	TypeAndVersion deployment.TypeAndVersion `json:"typeAndVersion"`
-	Label          string                    `json:"label"`
+	Address        string              `json:"address"`
+	TypeAndVersion cldf.TypeAndVersion `json:"typeAndVersion"`
+	Label          string              `json:"label"`
 }
 
-func importToAddressbookLogic(env deployment.Environment, c types.ImportToAddressbookConfig) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook()
+func importToAddressbookLogic(env cldf.Environment, c types.ImportAddressesConfig) (cldf.ChangesetOutput, error) {
+	ab := cldf.NewMemoryAddressBook()
 
 	addresses, _ := LoadJSON[[]*AddressesSchema](c.InputFileName, c.InputFS)
 
@@ -31,16 +32,15 @@ func importToAddressbookLogic(env deployment.Environment, c types.ImportToAddres
 			address.TypeAndVersion,
 		)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to save address %s: %w", address.Address, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save address %s: %w", address.Address, err)
 		}
 	}
 
-	return deployment.ChangesetOutput{AddressBook: ab}, nil
+	return cldf.ChangesetOutput{AddressBook: ab}, nil
 }
 
-func importToAddressbookPrecondition(env deployment.Environment, c types.ImportToAddressbookConfig) error {
-	_, ok := env.Chains[c.ChainSelector]
-	if !ok {
+func importToAddressbookPrecondition(env cldf.Environment, c types.ImportAddressesConfig) error {
+	if !env.BlockChains.Exists(c.ChainSelector) {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}
 

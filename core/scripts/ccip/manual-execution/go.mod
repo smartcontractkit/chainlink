@@ -1,13 +1,11 @@
 module manual-execution
 
-go 1.24.1
-
-toolchain go1.24.2
+go 1.24.2
 
 require (
 	github.com/ethereum/go-ethereum v1.15.3
 	github.com/pkg/errors v0.9.1
-	github.com/smartcontractkit/chain-selectors v1.0.49
+	github.com/smartcontractkit/chain-selectors v1.0.59
 	golang.org/x/crypto v0.37.0
 )
 

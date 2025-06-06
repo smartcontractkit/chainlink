@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
@@ -35,8 +36,8 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -89,7 +90,9 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	l.devEnvCfg = envConfig
 	users := make(map[uint64][]*bind.TransactOpts)
 	for _, chain := range envConfig.Chains {
-		details, found := chainsel.ChainByEvmChainID(chain.ChainID)
+		chainID, err := strconv.ParseUint(chain.ChainID, 10, 64)
+		require.NoError(t, err)
+		details, found := chainsel.ChainByEvmChainID(chainID)
 		require.Truef(t, found, "chain not found")
 		users[details.Selector] = chain.Users
 	}
@@ -97,12 +100,18 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
 	feedSel := l.devEnvTestCfg.CCIP.GetFeedChainSelector()
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
-	chains, err := devenv.NewChains(lggr, envConfig.Chains)
+	chains, _, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
 	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, l.DeployedEnv.Env)
 	require.NoError(t, err)
+
+	blockChains := make(map[uint64]chain.BlockChain)
+	for sel, c := range chains {
+		blockChains[sel] = c
+	}
+
 	l.DeployedEnv.Users = users
-	l.DeployedEnv.Env.Chains = chains
+	l.DeployedEnv.Env.BlockChains = chain.NewBlockChains(blockChains)
 	l.DeployedEnv.FeedChainSel = feedSel
 	l.DeployedEnv.HomeChainSel = homeChainSel
 	l.DeployedEnv.ReplayBlocks = replayBlocks
@@ -277,13 +286,14 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.Deploye
 	bootstrappers := nodes.BootstrapLocators()
 
 	// Just set all RMN nodes to support all chains.
-	state, err := changeset.LoadOnchainState(tenv.Env)
+	state, err := stateview.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 	var chainParams []devenv.ChainParam
 	var remoteChains []devenv.RemoteChains
 
 	var rpcs []devenv.Chain
-	for chainSel, chain := range state.Chains {
+	for _, chainSel := range state.EVMChains() {
+		chain := state.MustGetEVMChainState(chainSel)
 		c, _ := chainsel.ChainBySelector(chainSel)
 		rmnName := MustCCIPNameToRMNName(c.Name)
 		chainParams = append(chainParams, devenv.ChainParam{
@@ -313,9 +323,9 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.Deploye
 		},
 		HomeChain: devenv.HomeChain{
 			Name:                 MustCCIPNameToRMNName(hc.Name),
-			CapabilitiesRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address().String(),
-			CCIPHome:             state.Chains[tenv.HomeChainSel].CCIPHome.Address().String(),
-			RMNHome:              state.Chains[tenv.HomeChainSel].RMNHome.Address().String(),
+			CapabilitiesRegistry: state.MustGetEVMChainState(tenv.HomeChainSel).CapabilityRegistry.Address().String(),
+			CCIPHome:             state.MustGetEVMChainState(tenv.HomeChainSel).CCIPHome.Address().String(),
+			RMNHome:              state.MustGetEVMChainState(tenv.HomeChainSel).RMNHome.Address().String(),
 		},
 		RemoteChains: remoteChains,
 		ChainParams:  chainParams,
@@ -699,7 +709,7 @@ func CreateChainConfigFromNetworks(
 		chainName, err := chainsel.NameFromChainId(chainId)
 		require.NoError(t, err, "Error getting chain name")
 		chainCfg := devenv.ChainConfig{
-			ChainID:   chainId,
+			ChainID:   strconv.FormatUint(chainId, 10),
 			ChainName: chainName,
 			ChainType: "EVM",
 			WSRPCs: []devenv.CribRPCs{

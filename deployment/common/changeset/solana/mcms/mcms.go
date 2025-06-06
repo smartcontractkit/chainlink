@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -14,13 +16,13 @@ import (
 // as well as the timelock program. It's not necessarily the only way to use
 // the timelock and MCMS, but its reasonable pattern.
 func DeployMCMSWithTimelockProgramsSolana(
-	e deployment.Environment,
-	chain deployment.SolChain,
-	addressBook deployment.AddressBook,
+	e cldf.Environment,
+	chain cldf_solana.Chain,
+	addressBook cldf.AddressBook,
 	config commontypes.MCMSWithTimelockConfigV2,
 ) (*state.MCMSWithTimelockStateSolana, error) {
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
-	if err != nil && !errors.Is(err, deployment.ErrChainNotFound) {
+	if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
 		return nil, fmt.Errorf("failed to get addresses for chain %v from environment: %w", chain.Selector, err)
 	}
 
@@ -84,19 +86,5 @@ func DeployMCMSWithTimelockProgramsSolana(
 		return nil, fmt.Errorf("failed to setup roles and ownership: %w", err)
 	}
 
-	err = transferOwnership(chainState, chain)
-	if err != nil {
-		return nil, fmt.Errorf("failed to transfer ownership: %w", err)
-	}
-
 	return chainState, nil
-}
-
-func transferOwnership(chainState *state.MCMSWithTimelockStateSolana, chain deployment.SolChain) error {
-	err := transferOwnershipTimelock(chain, chainState.TimelockProgram, chainState.TimelockSeed)
-	if err != nil {
-		return fmt.Errorf("failed to transfer ownership of timelock: %w", err)
-	}
-
-	return nil
 }

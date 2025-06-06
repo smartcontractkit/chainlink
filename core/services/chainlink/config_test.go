@@ -179,7 +179,7 @@ var (
 					},
 				},
 				Nodes: []*solcfg.Node{
-					{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://mainnet.solana.com")},
+					{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://mainnet.solana.com"), Order: ptr(int32(1))},
 				},
 			},
 			{
@@ -209,7 +209,7 @@ var (
 					},
 				},
 				Nodes: []*solcfg.Node{
-					{Name: ptr("secondary"), URL: commoncfg.MustParseURL("http://testnet.solana.com")},
+					{Name: ptr("secondary"), URL: commoncfg.MustParseURL("http://testnet.solana.com"), Order: ptr(int32(2))},
 				},
 			},
 		},
@@ -433,6 +433,7 @@ func TestConfig_Marshal(t *testing.T) {
 		TransmitterAddress:           ptr(types.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
 		CaptureEATelemetry:           ptr(false),
 		TraceLogging:                 ptr(false),
+		ConfigLogValidation:          ptr(false),
 	}
 	full.P2P = toml.P2P{
 		IncomingMessageBufferSize: ptr[int64](13),
@@ -567,6 +568,15 @@ func TestConfig_Marshal(t *testing.T) {
 		EmitterBatchProcessor: ptr(true),
 		EmitterExportTimeout:  commoncfg.MustNewDuration(1 * time.Second),
 		ChipIngressEndpoint:   ptr("example.com/chip-ingress"),
+	}
+	full.CRE = toml.CreConfig{
+		Streams: &toml.StreamsConfig{
+			WsURL:   ptr("streams.url"),
+			RestURL: ptr("streams.url"),
+		},
+	}
+	full.Billing = toml.Billing{
+		URL: ptr("localhost:4319"),
 	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
@@ -704,6 +714,7 @@ func TestConfig_Marshal(t *testing.T) {
 						Fatal:                             ptr[string]("(: |^)fatal"),
 						ServiceUnavailable:                ptr[string]("(: |^)service unavailable"),
 						TooManyResults:                    ptr[string]("(: |^)too many results"),
+						MissingBlocks:                     ptr[string]("(: |^)missing blocks"),
 					},
 				},
 				OCR: evmcfg.OCR{
@@ -725,9 +736,9 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 			Nodes: []*evmcfg.Node{
 				{
-					Name:    ptr("foo"),
-					HTTPURL: mustURL("https://foo.web"),
-					WSURL:   mustURL("wss://web.socket/test/foo"),
+					Name:              ptr("foo"),
+					HTTPURL:           mustURL("https://foo.web"),
+					WSURL:             mustURL("wss://web.socket/test/foo"),
 					HTTPURLExtraWrite: mustURL("https://foo.web/extra"),
 				},
 				{
@@ -794,9 +805,9 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 			},
 			Nodes: []*solcfg.Node{
-				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://solana.web")},
-				{Name: ptr("foo"), URL: commoncfg.MustParseURL("http://solana.foo"), SendOnly: true},
-				{Name: ptr("bar"), URL: commoncfg.MustParseURL("http://solana.bar"), SendOnly: true},
+				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://solana.web"), Order: ptr(int32(1))},
+				{Name: ptr("foo"), URL: commoncfg.MustParseURL("http://solana.foo"), SendOnly: true, Order: ptr(int32(2))},
+				{Name: ptr("bar"), URL: commoncfg.MustParseURL("http://solana.bar"), SendOnly: true, Order: ptr(int32(3))},
 			},
 		},
 	}
@@ -994,6 +1005,7 @@ SimulateTransactions = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 CaptureEATelemetry = false
 TraceLogging = false
+ConfigLogValidation = false
 `},
 		{"OCR2", Config{Core: toml.Core{OCR2: full.OCR2}}, `[OCR2]
 Enabled = true
@@ -1190,6 +1202,7 @@ TransactionAlreadyMined = '(: |^)transaction already mined'
 Fatal = '(: |^)fatal'
 ServiceUnavailable = '(: |^)service unavailable'
 TooManyResults = '(: |^)too many results'
+MissingBlocks = '(: |^)missing blocks'
 
 [EVM.OCR]
 ContractConfirmations = 11
@@ -1273,16 +1286,19 @@ FinalizedBlockOffset = 0
 Name = 'primary'
 URL = 'http://solana.web'
 SendOnly = false
+Order = 1
 
 [[Solana.Nodes]]
 Name = 'foo'
 URL = 'http://solana.foo'
 SendOnly = true
+Order = 2
 
 [[Solana.Nodes]]
 Name = 'bar'
 URL = 'http://solana.bar'
 SendOnly = true
+Order = 3
 `},
 		{"Mercury", Config{Core: toml.Core{Mercury: full.Mercury}}, `[Mercury]
 VerboseLogging = true
@@ -1377,9 +1393,11 @@ func TestConfig_full(t *testing.T) {
 		if got.EVM[c].GasEstimator.DAOracle.OracleAddress == nil {
 			got.EVM[c].GasEstimator.DAOracle.OracleAddress = new(types.EIP55Address)
 		}
-
 		if got.EVM[c].GasEstimator.DAOracle.CustomGasPriceCalldata == nil {
 			got.EVM[c].GasEstimator.DAOracle.CustomGasPriceCalldata = new(string)
+		}
+		if got.EVM[c].GasEstimator.SenderAddress == nil {
+			got.EVM[c].GasEstimator.SenderAddress = new(types.EIP55Address)
 		}
 	}
 
@@ -1395,7 +1413,7 @@ func TestConfig_Validate(t *testing.T) {
 		toml string
 		exp  string
 	}{
-		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 9 errors:
+		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 10 errors:
 	- P2P.V2.Enabled: invalid value (false): P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2.
 	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
 	- WebServer: 8 errors:
@@ -1427,7 +1445,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 1: 10 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Foo): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, sei, scroll, wemix, xlayer, zkevm, zksync, zircuit, tron or omitted
+			- ChainType: invalid value (Foo): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, sei, scroll, wemix, xlayer, zkevm, zksync, zircuit, tron, rootstock or omitted
 			- HeadTracker.HistoryDepth: invalid value (30): must be greater than or equal to FinalizedBlockOffset
 			- GasEstimator.BumpThreshold: invalid value (0): cannot be 0 if auto-purge feature is enabled for Foo
 			- Transactions.AutoPurge.Threshold: missing: needs to be set if auto-purge feature is enabled for Foo
@@ -1440,7 +1458,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 2: 5 errors:
 			- ChainType: invalid value (Arbitrum): only "optimismBedrock" can be used with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Arbitrum): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, sei, scroll, wemix, xlayer, zkevm, zksync, zircuit, tron or omitted
+			- ChainType: invalid value (Arbitrum): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, sei, scroll, wemix, xlayer, zkevm, zksync, zircuit, tron, rootstock or omitted
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
 		- 3: 3 errors:
@@ -1494,6 +1512,11 @@ func TestConfig_Validate(t *testing.T) {
 			- ChainID: missing: required for all chains
 	- Tron: 2 errors:
 		- 0.Nodes.1.Name: invalid value (tron-test): duplicate - must be unique
+		- 0: 2 errors:
+			- Enabled: invalid value (1): expected bool
+			- ChainID: missing: required for all chains
+	- TON: 2 errors:
+		- 0.Nodes.1.Name: invalid value (ton-test): duplicate - must be unique
 		- 0: 2 errors:
 			- Enabled: invalid value (1): expected bool
 			- ChainID: missing: required for all chains`},

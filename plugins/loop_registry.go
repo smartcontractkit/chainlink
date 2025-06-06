@@ -6,7 +6,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/hashicorp/consul/sdk/freeport"
+	"github.com/smartcontractkit/freeport"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"

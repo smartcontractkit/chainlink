@@ -308,6 +308,7 @@ SimulateTransactions = false
 TransmitterAddress = ''
 CaptureEATelemetry = false
 TraceLogging = false
+ConfigLogValidation = false
 
 [P2P]
 IncomingMessageBufferSize = 10
@@ -466,6 +467,14 @@ ChipIngressEndpoint = ''
 [Workflows.Limits]
 Global = 200
 PerOwner = 200
+
+[CRE]
+[CRE.Streams]
+WsURL = ''
+RestURL = ''
+
+[Billing]
+URL = 'localhost:4319'
 
 [[EVM]]
 ChainID = '1'

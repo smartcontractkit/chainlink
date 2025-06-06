@@ -12,16 +12,13 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ag_binary "github.com/gagliardetto/binary"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/logutil"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 var (
@@ -114,7 +111,7 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 		lggr.Debugw("decoded dest gas amount",
 			"destGasAmount", destGasAmount)
 
-		destTokenAddress, err := abiDecodeAddress(common.LeftPadBytes(rta.DestTokenAddress, 32))
+		destTokenAddress, err := abiDecodeAddress(rta.DestTokenAddress)
 		if err != nil {
 			return [32]byte{}, fmt.Errorf("decode dest token address: %w", err)
 		}
@@ -226,7 +223,7 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 	return msgHash, nil
 }
 
-func (h *MessageHasherV1) abiEncode(method string, values ...interface{}) ([]byte, error) {
+func (h *MessageHasherV1) abiEncode(method string, values ...any) ([]byte, error) {
 	res, err := messageHasherABI.Pack(method, values...)
 	if err != nil {
 		return nil, err
@@ -235,19 +232,28 @@ func (h *MessageHasherV1) abiEncode(method string, values ...interface{}) ([]byt
 	return res[4:], nil
 }
 
-func abiDecodeUint32(data []byte) (uint32, error) {
-	raw, err := utils.ABIDecode(`[{ "type": "uint32" }]`, data)
+func abiDecodeType[T any](argsABI abi.Arguments, data []byte) (T, error) {
+	raw, err := argsABI.UnpackValues(data)
 	if err != nil {
-		return 0, fmt.Errorf("abi decode uint32: %w", err)
+		val := *new(T)
+		return val, fmt.Errorf("abi decode %T: %w", val, err)
 	}
 
-	val := *abi.ConvertType(raw[0], new(uint32)).(*uint32)
+	val := *abi.ConvertType(raw[0], new(T)).(*T)
 	return val, nil
 }
 
+var uint32ABI abi.Arguments = abi.Arguments{{Type: utils.MustAbiType("uint32", nil)}}
+
 func abiEncodeUint32(data uint32) ([]byte, error) {
-	return utils.ABIEncode(`[{ "type": "uint32" }]`, data)
+	return uint32ABI.Pack(data)
 }
+
+func abiDecodeUint32(data []byte) (uint32, error) {
+	return abiDecodeType[uint32](uint32ABI, data)
+}
+
+var addressABI abi.Arguments = abi.Arguments{{Type: utils.MustAbiType("address", nil)}}
 
 // abiEncodeAddress encodes the given address as a solidity address.
 // TODO: this is potentially incorrect for nonEVM sources.
@@ -256,17 +262,11 @@ func abiEncodeUint32(data uint32) ([]byte, error) {
 // encoding 20 bytes as a solidity bytes is not the same as encoding a 20 byte address
 // or a bytes32.
 func abiEncodeAddress(data common.Address) ([]byte, error) {
-	return utils.ABIEncode(`[{ "type": "address" }]`, data)
+	return addressABI.Pack(data)
 }
 
 func abiDecodeAddress(data []byte) (common.Address, error) {
-	raw, err := utils.ABIDecode(`[{ "type": "address" }]`, data)
-	if err != nil {
-		return common.Address{}, fmt.Errorf("abi decode address: %w", err)
-	}
-
-	val := *abi.ConvertType(raw[0], new(common.Address)).(*common.Address)
-	return val, nil
+	return abiDecodeType[common.Address](addressABI, data)
 }
 
 func parseExtraArgsMap(input map[string]any) (*big.Int, error) {
@@ -310,6 +310,23 @@ func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
 	}
 
 	return 0, errors.New("invalid token message, dest gas amount not found in the DestExecDataDecoded map")
+}
+
+func SerializeExtraArgs(tag []byte, method string, inputs ...any) ([]byte, error) {
+	v, err := messageHasherABI.Methods[method].Inputs.Pack(inputs...)
+	return append(tag, v...), err
+}
+
+func SerializeEVMExtraArgsV1(data message_hasher.ClientEVMExtraArgsV1) ([]byte, error) {
+	return SerializeExtraArgs(evmExtraArgsV1Tag, "encodeEVMExtraArgsV1", data)
+}
+
+func SerializeClientGenericExtraArgsV2(data message_hasher.ClientGenericExtraArgsV2) ([]byte, error) {
+	return SerializeExtraArgs(evmExtraArgsV2Tag, "encodeGenericExtraArgsV2", data)
+}
+
+func SerializeClientSVMExtraArgsV1(data message_hasher.ClientSVMExtraArgsV1) ([]byte, error) {
+	return SerializeExtraArgs(svmExtraArgsV1Tag, "encodeSVMExtraArgsV1", data)
 }
 
 // Interface compliance check

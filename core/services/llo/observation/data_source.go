@@ -14,6 +14,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/exp/maps"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
@@ -71,18 +73,23 @@ func (e *ErrObservationFailed) Unwrap() error {
 var _ llo.DataSource = &dataSource{}
 
 type dataSource struct {
-	lggr     logger.Logger
-	registry Registry
-
-	t Telemeter
+	lggr        logger.Logger
+	registry    Registry
+	t           Telemeter
+	shouldCache bool
 }
 
 func NewDataSource(lggr logger.Logger, registry Registry, t Telemeter) llo.DataSource {
-	return newDataSource(lggr, registry, t)
+	return newDataSource(lggr, registry, t, true)
 }
 
-func newDataSource(lggr logger.Logger, registry Registry, t Telemeter) *dataSource {
-	return &dataSource{logger.Named(lggr, "DataSource"), registry, t}
+func newDataSource(lggr logger.Logger, registry Registry, t Telemeter, shouldCache bool) *dataSource {
+	return &dataSource{
+		lggr:        logger.Named(lggr, "DataSource"),
+		registry:    registry,
+		t:           t,
+		shouldCache: shouldCache,
+	}
 }
 
 // Observe looks up all streams in the registry and populates a map of stream ID => value
@@ -133,17 +140,26 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 	for _, streamID := range maps.Keys(streamValues) {
 		go func(streamID llotypes.StreamID) {
 			defer wg.Done()
-			val, err := oc.Observe(ctx, streamID, opts)
-			if err != nil {
-				strmIDStr := strconv.FormatUint(uint64(streamID), 10)
-				if errors.As(err, &MissingStreamError{}) {
-					promMissingStreamCount.WithLabelValues(strmIDStr).Inc()
+			var val llo.StreamValue
+			var err error
+
+			// check for valid cached value before observing
+			if val = d.fromCache(opts.ConfigDigest(), streamID); val == nil {
+				// no valid cached value, observe the stream
+				if val, err = oc.Observe(ctx, streamID, opts); err != nil {
+					strmIDStr := strconv.FormatUint(uint64(streamID), 10)
+					if errors.As(err, &MissingStreamError{}) {
+						promMissingStreamCount.WithLabelValues(strmIDStr).Inc()
+					}
+					promObservationErrorCount.WithLabelValues(strmIDStr).Inc()
+					mu.Lock()
+					errs = append(errs, ErrObservationFailed{inner: err, streamID: streamID, reason: "failed to observe stream"})
+					mu.Unlock()
+					return
 				}
-				promObservationErrorCount.WithLabelValues(strmIDStr).Inc()
-				mu.Lock()
-				errs = append(errs, ErrObservationFailed{inner: err, streamID: streamID, reason: "failed to observe stream"})
-				mu.Unlock()
-				return
+
+				// cache the observed value
+				d.toCache(opts.ConfigDigest(), streamID, val, opts.OutCtx().SeqNr)
 			}
 
 			mu.Lock()
@@ -173,7 +189,8 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 			failedStreamIDs[i] = e.streamID
 		}
 
-		lggr = logger.With(lggr, "elapsed", elapsed, "nSuccessfulStreams", len(successfulStreamIDs), "nFailedStreams", len(failedStreamIDs), "successfulStreamIDs", successfulStreamIDs, "failedStreamIDs", failedStreamIDs, "errs", errStrs)
+		lggr = logger.With(lggr, "elapsed", elapsed, "nSuccessfulStreams",
+			len(successfulStreamIDs), "nFailedStreams", len(failedStreamIDs), "errs", errStrs)
 
 		if opts.VerboseLogging() {
 			lggr = logger.With(lggr, "streamValues", streamValues)
@@ -187,4 +204,20 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 	}
 
 	return nil
+}
+
+func (d *dataSource) fromCache(configDigest ocrtypes.ConfigDigest, streamID llotypes.StreamID) llo.StreamValue {
+	if d.shouldCache {
+		if streamValue, found := GetCache(configDigest).Get(streamID); found && streamValue != nil {
+			return streamValue
+		}
+	}
+	return nil
+}
+
+func (d *dataSource) toCache(configDigest ocrtypes.ConfigDigest, streamID llotypes.StreamID, val llo.StreamValue, seqNr uint64) {
+	if d.shouldCache && val != nil {
+		// Use the current sequence number as the cache key
+		GetCache(configDigest).Add(streamID, val, seqNr)
+	}
 }

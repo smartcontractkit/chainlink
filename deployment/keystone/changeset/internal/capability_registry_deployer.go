@@ -7,11 +7,13 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 type CapabilitiesRegistryDeployer struct {
@@ -54,7 +56,7 @@ func (c *CapabilitiesRegistryDeployer) Deploy(req DeployRequest) (*DeployRespons
 		return nil, fmt.Errorf("failed to get type and version: %w", err)
 	}
 
-	tv, err := deployment.TypeAndVersionFromString(tvStr)
+	tv, err := cldf.TypeAndVersionFromString(tvStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 	}
@@ -67,7 +69,7 @@ func (c *CapabilitiesRegistryDeployer) Deploy(req DeployRequest) (*DeployRespons
 	return resp, nil
 }
 
-func estimateDeploymentGas(client deployment.OnchainClient, bytecode string) (uint64, error) {
+func estimateDeploymentGas(client cldf_evm.OnchainClient, bytecode string) (uint64, error) {
 	// fake contract address required for gas estimation, otherwise it will fail
 	contractAddress := common.HexToAddress("0x0000000000000000000000000000000000000000")
 

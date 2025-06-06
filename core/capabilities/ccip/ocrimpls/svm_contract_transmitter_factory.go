@@ -8,9 +8,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
@@ -40,7 +39,16 @@ type SVMExecCallArgs struct {
 }
 
 // SVMContractTransmitterFactory implements the transmitter factory for SVM chains.
-type SVMContractTransmitterFactory struct{}
+type SVMContractTransmitterFactory struct {
+	extraDataCodec ccipcommon.ExtraDataCodec
+}
+
+// NewSVMContractTransmitterFactory returns a new SVMContractTransmitterFactory.
+func NewSVMContractTransmitterFactory(extraDataCodec ccipcommon.ExtraDataCodec) *SVMContractTransmitterFactory {
+	return &SVMContractTransmitterFactory{
+		extraDataCodec: extraDataCodec,
+	}
+}
 
 // SVMExecCalldataFunc builds the execute call data for SVM.
 var SVMExecCalldataFunc = func(
@@ -51,18 +59,17 @@ var SVMExecCalldataFunc = func(
 	extraDataCodec ccipcommon.ExtraDataCodec,
 ) (contract string, method string, args any, err error) {
 	var info ccipocr3.ExecuteReportInfo
+	var extraDataDecoded ccipcommon.ExtraDataDecoded
 	if len(report.Info) != 0 {
 		info, err = ccipocr3.DecodeExecuteReportInfo(report.Info)
 		if err != nil {
 			return "", "", nil, fmt.Errorf("failed to decode execute report info: %w", err)
 		}
-	}
-
-	var extraDataDecoded ccipcommon.ExtraDataDecoded
-	if extraDataCodec != nil {
-		extraDataDecoded, err = decodeExecData(info, extraDataCodec)
-		if err != nil {
-			return "", "", nil, fmt.Errorf("failed to decode extra data: %w", err)
+		if extraDataCodec != nil {
+			extraDataDecoded, err = decodeExecData(info, extraDataCodec)
+			if err != nil {
+				return "", "", nil, fmt.Errorf("failed to decode extra data: %w", err)
+			}
 		}
 	}
 
@@ -148,33 +155,35 @@ func decodeExecData(report ccipocr3.ExecuteReportInfo, codec ccipcommon.ExtraDat
 
 // NewCommitTransmitter constructs an SVM commit transmitter.
 func (f *SVMContractTransmitterFactory) NewCommitTransmitter(
+	lggr logger.Logger,
 	cw types.ContractWriter,
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
 	defaultMethod, priceOnlyMethod string,
 ) ocr3types.ContractTransmitter[[]byte] {
 	return &ccipTransmitter{
+		lggr:           lggr,
 		cw:             cw,
 		fromAccount:    fromAccount,
 		offrampAddress: offrampAddress,
 		toCalldataFn:   NewSVMCommitCalldataFunc(defaultMethod, priceOnlyMethod),
-		extraDataCodec: nil,
+		extraDataCodec: f.extraDataCodec,
 	}
 }
 
 // NewExecTransmitter constructs an SVM execute transmitter.
 func (f *SVMContractTransmitterFactory) NewExecTransmitter(
+	lggr logger.Logger,
 	cw types.ContractWriter,
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
 ) ocr3types.ContractTransmitter[[]byte] {
 	return &ccipTransmitter{
+		lggr:           lggr,
 		cw:             cw,
 		fromAccount:    fromAccount,
 		offrampAddress: offrampAddress,
 		toCalldataFn:   SVMExecCalldataFunc,
-		extraDataCodec: ccipcommon.NewExtraDataCodec(
-			ccipcommon.NewExtraDataCodecParams(ccipevm.ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{}),
-		),
+		extraDataCodec: f.extraDataCodec,
 	}
 }

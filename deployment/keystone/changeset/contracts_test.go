@@ -1,6 +1,8 @@
 package changeset_test
 
 import (
+	"maps"
+	"slices"
 	"testing"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -10,6 +12,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -28,10 +32,10 @@ func TestGetOwnableContract(t *testing.T) {
 	t.Run("finds contract when targetAddr is provided", func(t *testing.T) {
 		t.Parallel()
 
-		addrBook := deployment.NewMemoryAddressBook()
+		addrBook := cldf.NewMemoryAddressBook()
 		targetAddr := testutils.NewAddress()
 		targetAddrStr := targetAddr.String()
-		tv := deployment.TypeAndVersion{Type: changeset.CapabilitiesRegistry, Version: deployment.Version1_1_0}
+		tv := cldf.TypeAndVersion{Type: changeset.CapabilitiesRegistry, Version: deployment.Version1_1_0}
 		err := addrBook.Save(chainsel.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.Selector, targetAddrStr, tv)
 		require.NoError(t, err)
 
@@ -45,12 +49,12 @@ func TestGetOwnableContract(t *testing.T) {
 	t.Run("errors when multiple contracts found without targetAddr", func(t *testing.T) {
 		t.Parallel()
 
-		addrBook := deployment.NewMemoryAddressBook()
+		addrBook := cldf.NewMemoryAddressBook()
 		targetAddr1 := testutils.NewAddress()
 		targetAddrStr1 := targetAddr1.String()
 		targetAddr2 := testutils.NewAddress()
 		targetAddrStr2 := targetAddr2.String()
-		mockAddresses := map[string]deployment.TypeAndVersion{
+		mockAddresses := map[string]cldf.TypeAndVersion{
 			targetAddrStr2: {Type: changeset.KeystoneForwarder, Version: deployment.Version1_1_0},
 			targetAddrStr1: {Type: changeset.KeystoneForwarder, Version: deployment.Version1_1_0},
 		}
@@ -72,8 +76,8 @@ func TestGetOwnableContract(t *testing.T) {
 
 		targetAddr := testutils.NewAddress()
 		targetAddrStr := targetAddr.String()
-		addrBook := deployment.NewMemoryAddressBook()
-		mockAddresses := map[string]deployment.TypeAndVersion{
+		addrBook := cldf.NewMemoryAddressBook()
+		mockAddresses := map[string]cldf.TypeAndVersion{
 			targetAddrStr: {Type: "DifferentType", Version: deployment.Version1_0_0},
 		}
 		err := addrBook.Save(chainsel.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.Selector, targetAddrStr, mockAddresses[targetAddrStr])
@@ -93,8 +97,8 @@ func TestGetOwnableContract(t *testing.T) {
 		targetAddrStr := targetAddr.String()
 		nonExistentAddr := testutils.NewAddress()
 		nonExistentAddrStr := nonExistentAddr.String()
-		addrBook := deployment.NewMemoryAddressBook()
-		mockAddresses := map[string]deployment.TypeAndVersion{
+		addrBook := cldf.NewMemoryAddressBook()
+		mockAddresses := map[string]cldf.TypeAndVersion{
 			targetAddrStr: {Type: changeset.CapabilitiesRegistry, Version: deployment.Version1_1_0},
 		}
 		err := addrBook.Save(chainsel.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.Selector, targetAddrStr, mockAddresses[targetAddrStr])
@@ -112,15 +116,16 @@ func TestGetOwnerTypeAndVersion(t *testing.T) {
 
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1, // nodes unused but required in config
-		Chains: 3,
+		Chains: 1,
 	}
 
 	t.Run("finds owner in address book", func(t *testing.T) {
 		t.Parallel()
 
 		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		chain := env.Chains[env.AllChainSelectors()[0]]
+		evmChains := env.BlockChains.EVMChains()
+		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
+
 		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -142,7 +147,7 @@ func TestGetOwnerTypeAndVersion(t *testing.T) {
 		require.NoError(t, err)
 		owner, err := (*contract).Owner(nil)
 		require.NoError(t, err)
-		mockAddresses := map[string]deployment.TypeAndVersion{
+		mockAddresses := map[string]cldf.TypeAndVersion{
 			owner.Hex(): {Type: types.RBACTimelock, Version: deployment.Version1_0_0},
 		}
 		err = addrBook.Save(chain.Selector, owner.Hex(), mockAddresses[owner.Hex()])
@@ -158,7 +163,9 @@ func TestGetOwnerTypeAndVersion(t *testing.T) {
 		t.Parallel()
 
 		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		chain := env.Chains[env.AllChainSelectors()[0]]
+		evmChains := env.BlockChains.EVMChains()
+		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
+
 		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -189,15 +196,16 @@ func TestNewOwnable(t *testing.T) {
 
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
-		Chains: 3,
+		Chains: 1,
 	}
 
 	t.Run("creates OwnedContract for non-MCMS owner", func(t *testing.T) {
 		t.Parallel()
 
 		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		chain := env.Chains[env.AllChainSelectors()[0]]
+		evmChains := env.BlockChains.EVMChains()
+		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
+
 		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -223,7 +231,7 @@ func TestNewOwnable(t *testing.T) {
 		require.NoError(t, err)
 
 		// Setup owner as non-MCMS contract
-		mockAddresses := map[string]deployment.TypeAndVersion{
+		mockAddresses := map[string]cldf.TypeAndVersion{
 			owner.Hex(): {Type: changeset.CapabilitiesRegistry, Version: deployment.Version1_0_0},
 		}
 		err = addrBook.Save(chain.Selector, owner.Hex(), mockAddresses[owner.Hex()])
@@ -241,7 +249,9 @@ func TestNewOwnable(t *testing.T) {
 		t.Parallel()
 
 		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		chain := env.Chains[env.AllChainSelectors()[0]]
+		evmChains := env.BlockChains.EVMChains()
+		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
+
 		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -267,7 +277,7 @@ func TestNewOwnable(t *testing.T) {
 		require.NoError(t, err)
 
 		// Setup owner as timelock contract
-		mockAddresses := map[string]deployment.TypeAndVersion{
+		mockAddresses := map[string]cldf.TypeAndVersion{
 			owner.Hex(): {Type: types.RBACTimelock, Version: deployment.Version1_0_0},
 		}
 		err = addrBook.Save(chain.Selector, owner.Hex(), mockAddresses[owner.Hex()])
@@ -284,7 +294,9 @@ func TestNewOwnable(t *testing.T) {
 		t.Parallel()
 
 		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		chain := env.Chains[env.AllChainSelectors()[0]]
+		evmChains := env.BlockChains.EVMChains()
+		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
+
 		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
 		require.NoError(t, err)
 		require.NotNil(t, resp)

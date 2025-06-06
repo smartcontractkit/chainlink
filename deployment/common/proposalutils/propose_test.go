@@ -7,13 +7,18 @@ import (
 	"time"
 
 	solanasdk "github.com/gagliardetto/solana-go"
+
 	"github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -30,14 +35,14 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 		Chains:    2,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-	chainSelector := env.AllChainSelectors()[0]
-	chainSelectorSolana := env.AllChainSelectorsSolana()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	chainSelectorSolana := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 	config := proposalutils.SingleGroupMCMSV2(t)
 
 	changeset.SetPreloadedSolanaAddresses(t, env, chainSelectorSolana)
-	env, err := changeset.Apply(t, env, nil,
+	env, err := changeset.Apply(t, env,
 		changeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
 			map[uint64]commontypes.MCMSWithTimelockConfigV2{
 				chainSelector: {
 					Canceller:        config,
@@ -56,7 +61,7 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	chain := env.Chains[chainSelector]
+	chain := env.BlockChains.EVMChains()[chainSelector]
 	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 	require.NoError(t, err)
 	mcmsState, err := changeset.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
@@ -64,7 +69,7 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 	timelockAddress := mcmsState.Timelock.Address()
 	require.NoError(t, err)
 
-	solChain := env.SolChains[chainSelectorSolana]
+	solChain := env.BlockChains.SolanaChains()[chainSelectorSolana]
 	addrs, err = env.ExistingAddresses.AddressesForChain(chainSelectorSolana)
 	require.NoError(t, err)
 	solState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addrs)

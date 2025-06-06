@@ -6,12 +6,18 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -20,7 +26,7 @@ func TestOnRampView(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains: 1,
 	})
-	chain := e.Chains[e.AllChainSelectors()[0]]
+	chain := e.BlockChains.EVMChains()[e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]]
 	_, tx, c, err := evm_2_evm_onramp.DeployEVM2EVMOnRamp(
 		chain.DeployerKey, chain.Client,
 		evm_2_evm_onramp.EVM2EVMOnRampStaticConfig{
@@ -57,7 +63,7 @@ func TestOnRampView(t *testing.T) {
 		[]evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{},
 		[]evm_2_evm_onramp.EVM2EVMOnRampNopAndWeight{},
 	)
-	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 	v, err := GenerateOnRampView(c)
 	require.NoError(t, err)

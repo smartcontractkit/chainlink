@@ -6,12 +6,14 @@ import (
 
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
 // UpdatesNodesJDChangeset is a changeset that reads node info from a JSON file and updates node name and labels in Job Distributor
-var UpdatesNodesJDChangeset = deployment.CreateChangeSet(updatesNodesJDLogic, updatesNodesJDLogicPrecondition)
+var UpdatesNodesJDChangeset = cldf.CreateChangeSet(updatesNodesJDLogic, updatesNodesJDLogicPrecondition)
 
 type NodeConfigSchema struct {
 	ID           string          `json:"id"`            // node id
@@ -20,7 +22,7 @@ type NodeConfigSchema struct {
 	AppendLabels bool            `json:"append_labels"` // if true, append new labels to existing labels, otherwise replace
 }
 
-func updatesNodesJDLogic(env deployment.Environment, c types.NodeConfig) (deployment.ChangesetOutput, error) {
+func updatesNodesJDLogic(env cldf.Environment, c types.NodeConfig) (cldf.ChangesetOutput, error) {
 	nodes, _ := LoadJSON[[]*NodeConfigSchema](c.InputFileName, c.InputFS)
 
 	for _, node := range nodes {
@@ -53,10 +55,10 @@ func updatesNodesJDLogic(env deployment.Environment, c types.NodeConfig) (deploy
 		}
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
-func updatesNodesJDLogicPrecondition(env deployment.Environment, c types.NodeConfig) error {
+func updatesNodesJDLogicPrecondition(env cldf.Environment, c types.NodeConfig) error {
 	if c.InputFileName == "" {
 		return errors.New("input file name is required")
 	}

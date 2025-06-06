@@ -1398,6 +1398,130 @@ func main() {
 		_ = helpers.CalculateLatestBlockHeader(e, *blockNumber)
 	case "wrapper-universe-deploy":
 		v2plusscripts.DeployWrapperUniverse(e)
+	case "generate-vrf-job-spec":
+		cmd := flag.NewFlagSet("generate-job-specs", flag.ExitOnError)
+		gasLaneGwei := cmd.String("gas-lane-gwei", "", "Gas lane in Gwei")
+		coordinatorAddress := cmd.String("coordinator-address", "", "VRF Coordinator address")
+		batchCoordinatorAddress := cmd.String("batch-coordinator-address", "", "Batch Coordinator address")
+		compressedPublicKey := cmd.String("compressed-public-key", "", "Compressed public key for this gas lane")
+		minConfirmations := cmd.String("min-confirmations", "3", "Minimum incoming confirmations")
+		chainID := cmd.String("chain-id", "", "EVM chain ID")
+		nodeSendingKeys := cmd.String("node-sending-keys", "", "Space separated node sending keys")
+		pollPeriod := cmd.String("poll-period", "", "Poll period in seconds")
+		blockType := cmd.String("block-type", "", "Latest or pending blocks")
+		nodeType := cmd.String("node-type", "", "Node type can be primary or backup")
+
+		helpers.ParseArgs(cmd, os.Args[2:], "gas-lane-gwei", "coordinator-address", "batch-coordinator-address", "compressed-public-key", "chain-id", "node-sending-keys", "poll-period", "block-type")
+
+		addresses := strings.Fields(*nodeSendingKeys)
+		firstSendingKey := strings.TrimSpace(addresses[0])
+
+		for i := range addresses {
+			addresses[i] = fmt.Sprintf("  \"%s\"", strings.TrimSpace(addresses[i]))
+		}
+
+		addressesBlock := strings.Join(addresses, ",\n")
+
+		if *nodeType == "backup" {
+			*minConfirmations = "100"
+			fmt.Println("\nNode type is backup, setting min confirmations to 100")
+		}
+
+		jobSpec := fmt.Sprintf(`
+type = "vrf"
+name = "vrf_v2_plus_%s_gwei_lane_%s"
+schemaVersion = 1
+coordinatorAddress = "%s"
+batchCoordinatorAddress = "%s"
+batchFulfillmentEnabled = true
+batchFulfillmentGasMultiplier = 1.15
+publicKey = "%s"
+minIncomingConfirmations = %s
+evmChainID = "%s"
+chunkSize = 20
+fromAddresses = [
+%s
+]
+pollPeriod = "%ss"
+requestTimeout = "24h"
+observationSource = """
+decode_log             [type=ethabidecodelog
+						abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint256 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bytes extraArgs,address indexed sender)"
+						data="$(jobRun.logData)"
+						topics="$(jobRun.logTopics)"]
+generate_proof         [type=vrfv2plus
+						publicKey="$(jobSpec.publicKey)"
+						requestBlockHash="$(jobRun.logBlockHash)"
+						requestBlockNumber="$(jobRun.logBlockNumber)"
+						topics="$(jobRun.logTopics)"]
+estimate_gas            [type=estimategaslimit
+						to="%s"
+						multiplier="1.100000"
+						data="$(generate_proof.output)"
+						block="latest"]
+simulate_fulfillment   [type=ethcall
+						from="%s"
+						to="%s"
+						gas="$(estimate_gas)"
+						gasPrice="$(jobSpec.maxGasPrice)"
+						extractRevertReason=true
+						contract="%s"
+						data="$(generate_proof.output)"
+						block="%s"]
+decode_log->generate_proof->estimate_gas->simulate_fulfillment
+"""
+		`, *gasLaneGwei, *nodeType, *coordinatorAddress, *batchCoordinatorAddress, *compressedPublicKey, *minConfirmations, *chainID,
+			addressesBlock, *pollPeriod, *coordinatorAddress, firstSendingKey, *coordinatorAddress, *coordinatorAddress, *blockType)
+		fmt.Println("\nGenerated job spec:")
+		fmt.Println(jobSpec)
+	case "generate-bhs-job-spec":
+		cmd := flag.NewFlagSet("generate-bhs-job-spec", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "VRF Coordinator address")
+		blockhashStoreAddress := cmd.String("blockhash-store-address", "", "Blockhash Store address")
+		pollPeriod := cmd.String("poll-period", "", "Poll period in seconds")
+		chainID := cmd.String("chain-id", "", "EVM chain ID")
+		nodeSendingKeys := cmd.String("node-sending-keys", "", "Space separated node sending keys")
+		nodeType := cmd.String("node-type", "", "Node type can be primary or backup")
+
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "blockhash-store-address", "poll-period", "chain-id", "node-sending-keys")
+
+		addresses := strings.Fields(*nodeSendingKeys)
+
+		for i := range addresses {
+			addresses[i] = fmt.Sprintf("  \"%s\"", strings.TrimSpace(addresses[i]))
+		}
+
+		addressesBlock := strings.Join(addresses, ",\n")
+
+		var waitBlocks string
+		switch *nodeType {
+		case "primary":
+			waitBlocks = "30"
+		case "backup":
+			waitBlocks = "60"
+		default:
+			panic("node type must be either primary or backup")
+		}
+
+		jobSpec := fmt.Sprintf(`
+type = "blockhashstore"
+schemaVersion = 1
+name = "blockhashstore_%s"
+forwardingAllowed = false
+coordinatorV2Address = "%s"
+coordinatorV2PlusAddress = "%s"
+waitBlocks = %s
+lookbackBlocks = 200
+blockhashStoreAddress = "%s"
+pollPeriod = "%ss"
+runTimeout = "1m0s"
+evmChainID = "%s"
+fromAddresses = [
+%s
+]
+		`, *nodeType, *coordinatorAddress, *coordinatorAddress, waitBlocks, *blockhashStoreAddress, *pollPeriod, *chainID, addressesBlock)
+		fmt.Println("\nGenerated job spec:")
+		fmt.Println(jobSpec)
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}

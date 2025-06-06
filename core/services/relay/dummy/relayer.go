@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
@@ -40,7 +40,7 @@ func (r *relayer) NewContractReader(ctx context.Context, contractReaderConfig []
 	return nil, nil
 }
 
-func (r *relayer) AsEVMRelayer() (loop.EVMRelayer, error) {
+func (r *relayer) EVM() (types.EVMService, error) {
 	return nil, nil
 }
 

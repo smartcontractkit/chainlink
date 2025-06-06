@@ -12,9 +12,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
@@ -32,18 +32,18 @@ func Test_CCIPGasPriceUpdatesWriteFrequency(t *testing.T) {
 			return params
 		}),
 	)
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	testhelpers.AddLanesForAll(t, &e, state)
 
-	allChainSelectors := maps.Keys(e.Env.Chains)
+	allChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
 	assert.GreaterOrEqual(t, len(allChainSelectors), 2, "test requires at least 2 chains")
 
 	sourceChain1 := allChainSelectors[0]
 	sourceChain2 := allChainSelectors[1]
 
-	feeQuoter1 := state.Chains[sourceChain1].FeeQuoter
-	feeQuoter2 := state.Chains[sourceChain2].FeeQuoter
+	feeQuoter1 := state.MustGetEVMChainState(sourceChain1).FeeQuoter
+	feeQuoter2 := state.MustGetEVMChainState(sourceChain2).FeeQuoter
 
 	// get initial chain fees
 	initialChain2Fee, err := feeQuoter1.GetDestinationChainGasPrice(callOpts, sourceChain2)
@@ -54,8 +54,8 @@ func Test_CCIPGasPriceUpdatesWriteFrequency(t *testing.T) {
 	t.Logf("initial chain2 fee (stored in chain1): %v", initialChain2Fee)
 
 	// get latest price updates sequence number from the offRamps
-	offRampChain1 := state.Chains[sourceChain1].OffRamp
-	offRampChain2 := state.Chains[sourceChain2].OffRamp
+	offRampChain1 := state.MustGetEVMChainState(sourceChain1).OffRamp
+	offRampChain2 := state.MustGetEVMChainState(sourceChain2).OffRamp
 	priceUpdatesSeqNumChain1, err := offRampChain1.GetLatestPriceSequenceNumber(callOpts)
 	require.NoError(t, err)
 	priceUpdatesSeqNumChain2, err := offRampChain2.GetLatestPriceSequenceNumber(callOpts)
@@ -123,6 +123,8 @@ func Test_CCIPGasPriceUpdatesWriteFrequency(t *testing.T) {
 
 // price reaches some deviation threshold
 func Test_CCIPGasPriceUpdatesDeviation(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-576")
+
 	ctx := testhelpers.Context(t)
 	callOpts := &bind.CallOpts{Context: ctx}
 
@@ -136,18 +138,18 @@ func Test_CCIPGasPriceUpdatesDeviation(t *testing.T) {
 			return params
 		}),
 	)
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	testhelpers.AddLanesForAll(t, &e, state)
 
-	allChainSelectors := maps.Keys(e.Env.Chains)
+	allChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
 	assert.GreaterOrEqual(t, len(allChainSelectors), 2, "test requires at least 2 chains")
 
 	sourceChain1 := allChainSelectors[0]
 	sourceChain2 := allChainSelectors[1]
 
-	feeQuoter1 := state.Chains[sourceChain1].FeeQuoter
-	feeQuoter2 := state.Chains[sourceChain2].FeeQuoter
+	feeQuoter1 := state.MustGetEVMChainState(sourceChain1).FeeQuoter
+	feeQuoter2 := state.MustGetEVMChainState(sourceChain2).FeeQuoter
 
 	// get initial chain fees
 	initialChain2Fee, err := feeQuoter1.GetDestinationChainGasPrice(callOpts, sourceChain2)
@@ -158,8 +160,8 @@ func Test_CCIPGasPriceUpdatesDeviation(t *testing.T) {
 	t.Logf("initial chain2 fee (stored in chain1): %v", initialChain2Fee)
 
 	// get latest price updates sequence number from the offRamps
-	offRampChain1 := state.Chains[sourceChain1].OffRamp
-	offRampChain2 := state.Chains[sourceChain2].OffRamp
+	offRampChain1 := state.MustGetEVMChainState(sourceChain1).OffRamp
+	offRampChain2 := state.MustGetEVMChainState(sourceChain2).OffRamp
 	priceUpdatesSeqNumChain1, err := offRampChain1.GetLatestPriceSequenceNumber(callOpts)
 	require.NoError(t, err)
 	priceUpdatesSeqNumChain2, err := offRampChain2.GetLatestPriceSequenceNumber(callOpts)

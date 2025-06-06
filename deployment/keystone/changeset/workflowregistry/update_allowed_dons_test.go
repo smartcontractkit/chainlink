@@ -11,9 +11,10 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
@@ -31,12 +32,13 @@ func TestUpdateAllowedDons(t *testing.T) {
 
 	assert.Empty(t, dons)
 
-	env := deployment.Environment{
-		Logger: lggr,
-		Chains: map[uint64]deployment.Chain{
-			chainSel: resp.Chain,
-		},
+	env := cldf.Environment{
+		Logger:            lggr,
 		ExistingAddresses: resp.AddressBook,
+		BlockChains: cldf_chain.NewBlockChains(
+			map[uint64]cldf_chain.BlockChain{
+				chainSel: resp.Chain,
+			}),
 	}
 
 	_, err = workflowregistry.UpdateAllowedDons(
@@ -92,17 +94,9 @@ func Test_UpdateAllowedDons_WithMCMS(t *testing.T) {
 	require.Len(t, out.MCMSTimelockProposals, 1)
 	require.Nil(t, out.AddressBook)
 
-	contracts := te.ContractSets()[te.RegistrySelector]
-	timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{
-		te.RegistrySelector: {
-			Timelock:  contracts.Timelock,
-			CallProxy: contracts.CallProxy,
-		},
-	}
-
-	_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
+	_, err = commonchangeset.Apply(t, te.Env,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(workflowregistry.UpdateAllowedDons),
+			cldf.CreateLegacyChangeSet(workflowregistry.UpdateAllowedDons),
 			req,
 		),
 	)

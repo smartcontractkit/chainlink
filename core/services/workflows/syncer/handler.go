@@ -2,21 +2,24 @@ package syncer
 
 import (
 	"context"
-	"errors"
-
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -52,15 +55,15 @@ type ORM interface {
 	artifacts.WorkflowSpecsDS
 }
 
-// WorkflowRegistryForceUpdateSecretsRequestedV1 is a chain agnostic definition of the WorkflowRegistry
+// ForceUpdateSecretsRequestedV1 is a chain agnostic definition of the WorkflowRegistry
 // ForceUpdateSecretsRequested event.
-type WorkflowRegistryForceUpdateSecretsRequestedV1 struct {
+type ForceUpdateSecretsRequestedV1 struct {
 	SecretsURLHash []byte
 	Owner          []byte
 	WorkflowName   string
 }
 
-type WorkflowRegistryWorkflowRegisteredV1 struct {
+type WorkflowRegisteredV1 struct {
 	WorkflowID    types.WorkflowID
 	WorkflowOwner []byte
 	DonID         uint32
@@ -71,7 +74,7 @@ type WorkflowRegistryWorkflowRegisteredV1 struct {
 	SecretsURL    string
 }
 
-type WorkflowRegistryWorkflowUpdatedV1 struct {
+type WorkflowUpdatedV1 struct {
 	OldWorkflowID types.WorkflowID
 	WorkflowOwner []byte
 	DonID         uint32
@@ -83,21 +86,21 @@ type WorkflowRegistryWorkflowUpdatedV1 struct {
 	Status        uint8
 }
 
-type WorkflowRegistryWorkflowPausedV1 struct {
+type WorkflowPausedV1 struct {
 	WorkflowID    types.WorkflowID
 	WorkflowOwner []byte
 	DonID         uint32
 	WorkflowName  string
 }
 
-type WorkflowRegistryWorkflowActivatedV1 struct {
+type WorkflowActivatedV1 struct {
 	WorkflowID    types.WorkflowID
 	WorkflowOwner []byte
 	DonID         uint32
 	WorkflowName  string
 }
 
-type WorkflowRegistryWorkflowDeletedV1 struct {
+type WorkflowDeletedV1 struct {
 	WorkflowID    types.WorkflowID
 	WorkflowOwner []byte
 	DonID         uint32
@@ -119,11 +122,12 @@ type eventHandler struct {
 	ratelimiter            *ratelimiter.RateLimiter
 	workflowLimits         *syncerlimiter.Limits
 	workflowArtifactsStore WorkflowArtifactsStore
+	billingClient          workflows.BillingClient
 }
 
-type Event interface {
-	GetEventType() WorkflowRegistryEventType
-	GetData() any
+type Event struct {
+	EventType WorkflowRegistryEventType
+	Data      any
 }
 
 func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
@@ -146,6 +150,12 @@ func WithStaticEngine(engine services.Service) func(*eventHandler) {
 	}
 }
 
+func WithBillingClient(client workflows.BillingClient) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.billingClient = client
+	}
+}
+
 type WorkflowArtifactsStore interface {
 	FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string) ([]byte, []byte, error)
 	GetWorkflowSpec(ctx context.Context, workflowOwner string, workflowName string) (*job.WorkflowSpec, error)
@@ -155,6 +165,7 @@ type WorkflowArtifactsStore interface {
 
 	// Secrets methods
 	GetSecrets(ctx context.Context, secretsURL string, WorkflowID [32]byte, WorkflowOwner []byte) ([]byte, error)
+	ValidateSecrets(ctx context.Context, workflowID, workflowOwner string) error
 	SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error)
 	GetSecretsURLHash(workflowOwner []byte, secretsURL []byte) ([]byte, error)
 	GetSecretsURLByID(ctx context.Context, id int64) (string, error)
@@ -202,11 +213,11 @@ func (h *eventHandler) Close() error {
 }
 
 func (h *eventHandler) Handle(ctx context.Context, event Event) error {
-	switch event.GetEventType() {
+	switch event.EventType {
 	case ForceUpdateSecretsEvent:
-		payload, ok := event.GetData().(WorkflowRegistryForceUpdateSecretsRequestedV1)
+		payload, ok := event.Data.(ForceUpdateSecretsRequestedV1)
 		if !ok {
-			return newHandlerTypeError(event.GetData())
+			return newHandlerTypeError(event.Data)
 		}
 
 		cma := h.emitter.With(
@@ -222,9 +233,9 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		h.lggr.Debugw("handled event", "urlHash", payload.SecretsURLHash, "workflowOwner", hex.EncodeToString(payload.Owner), "type", ForceUpdateSecretsEvent)
 		return nil
 	case WorkflowRegisteredEvent:
-		payload, ok := event.GetData().(WorkflowRegistryWorkflowRegisteredV1)
+		payload, ok := event.Data.(WorkflowRegisteredV1)
 		if !ok {
-			return newHandlerTypeError(event.GetData())
+			return newHandlerTypeError(event.Data)
 		}
 
 		wfID := payload.WorkflowID.Hex()
@@ -240,12 +251,16 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.EventType)); err != nil {
+			h.lggr.Errorf("failed to emit status changed event: %+v", err)
+		}
+
 		h.lggr.Debugw("handled event", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner), "type", WorkflowRegisteredEvent)
 		return nil
 	case WorkflowUpdatedEvent:
-		payload, ok := event.GetData().(WorkflowRegistryWorkflowUpdatedV1)
+		payload, ok := event.Data.(WorkflowUpdatedV1)
 		if !ok {
-			return fmt.Errorf("invalid data type %T for event", event.GetData())
+			return fmt.Errorf("invalid data type %T for event", event.Data)
 		}
 
 		newWorkflowID := payload.NewWorkflowID.Hex()
@@ -261,12 +276,16 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.EventType)); err != nil {
+			h.lggr.Errorf("failed to emit status changed event: %+v", err)
+		}
+
 		h.lggr.Debugw("handled event", "newWorkflowID", newWorkflowID, "oldWorkflowID", oldWorkflowID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner), "type", WorkflowUpdatedEvent)
 		return nil
 	case WorkflowPausedEvent:
-		payload, ok := event.GetData().(WorkflowRegistryWorkflowPausedV1)
+		payload, ok := event.Data.(WorkflowPausedV1)
 		if !ok {
-			return fmt.Errorf("invalid data type %T for event", event.GetData())
+			return fmt.Errorf("invalid data type %T for event", event.Data)
 		}
 
 		wfID := payload.WorkflowID.Hex()
@@ -281,12 +300,17 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow paused event: %v", err), h.lggr)
 			return err
 		}
+
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.EventType)); err != nil {
+			h.lggr.Errorf("failed to emit status changed event: %+v", err)
+		}
+
 		h.lggr.Debugw("handled event", "workflowID", wfID, "type", WorkflowPausedEvent)
 		return nil
 	case WorkflowActivatedEvent:
-		payload, ok := event.GetData().(WorkflowRegistryWorkflowActivatedV1)
+		payload, ok := event.Data.(WorkflowActivatedV1)
 		if !ok {
-			return fmt.Errorf("invalid data type %T for event", event.GetData())
+			return fmt.Errorf("invalid data type %T for event", event.Data)
 		}
 
 		wfID := payload.WorkflowID.Hex()
@@ -301,12 +325,16 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.EventType)); err != nil {
+			h.lggr.Errorf("failed to emit status changed event: %+v", err)
+		}
+
 		h.lggr.Debugw("handled event", "workflowID", wfID, "type", WorkflowActivatedEvent, "workflowName", payload.WorkflowName, "workflowOwner", wfOwner)
 		return nil
 	case WorkflowDeletedEvent:
-		payload, ok := event.GetData().(WorkflowRegistryWorkflowDeletedV1)
+		payload, ok := event.Data.(WorkflowDeletedV1)
 		if !ok {
-			return fmt.Errorf("invalid data type %T for event", event.GetData())
+			return fmt.Errorf("invalid data type %T for event", event.Data)
 		}
 
 		wfID := payload.WorkflowID.Hex()
@@ -323,10 +351,14 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.EventType)); err != nil {
+			h.lggr.Errorf("failed to emit status changed event: %+v", err)
+		}
+
 		h.lggr.Debugw("handled event", "workflowID", wfID, "type", WorkflowDeletedEvent, "workflowName", payload.WorkflowName, "workflowOwner", wfOwner)
 		return nil
 	default:
-		return fmt.Errorf("event type unsupported: %v", event.GetEventType())
+		return fmt.Errorf("event type unsupported: %v", event.EventType)
 	}
 }
 
@@ -337,7 +369,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 // - phase 2 synchronizes the state of the engine registry.
 func (h *eventHandler) workflowRegisteredEvent(
 	ctx context.Context,
-	payload WorkflowRegistryWorkflowRegisteredV1,
+	payload WorkflowRegisteredV1,
 ) error {
 	wfID := payload.WorkflowID.Hex()
 	owner := hex.EncodeToString(payload.WorkflowOwner)
@@ -381,8 +413,8 @@ func (h *eventHandler) workflowRegisteredEvent(
 
 	// We know we need an engine, let's make sure it's the right one.
 	// We do this by fetching and comparing whether it's running and that the workflow ID matches
-	prevEngine, err := h.engineRegistry.Get(EngineRegistryKey{Owner: payload.WorkflowOwner, Name: payload.WorkflowName})
-	if err == nil && prevEngine.Ready() == nil && prevEngine.WorkflowID.Hex() == wfID {
+	prevEngine, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: payload.WorkflowOwner, Name: payload.WorkflowName})
+	if ok && prevEngine.Ready() == nil && prevEngine.WorkflowID.Hex() == wfID {
 		// This is the happy-path, we're done.
 		return nil
 	}
@@ -403,28 +435,22 @@ func (h *eventHandler) workflowRegisteredEvent(
 
 func toSpecStatus(s uint8) job.WorkflowSpecStatus {
 	switch s {
-	case 0:
+	case WorkflowStatusActive:
 		return job.WorkflowSpecStatusActive
-	case 1:
+	case WorkflowStatusPaused:
 		return job.WorkflowSpecStatusPaused
 	default:
 		return job.WorkflowSpecStatusDefault
 	}
 }
 
-func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowRegistryWorkflowRegisteredV1) (*job.WorkflowSpec, error) {
+func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowRegisteredV1) (*job.WorkflowSpec, error) {
 	wfID := payload.WorkflowID.Hex()
 	owner := hex.EncodeToString(payload.WorkflowOwner)
 
 	decodedBinary, config, err := h.workflowArtifactsStore.FetchWorkflowArtifacts(ctx, wfID, payload.BinaryURL, payload.ConfigURL)
 	if err != nil {
 		return nil, err
-	}
-
-	// Calculate the hash of the binary and config files
-	hash, err := pkgworkflows.GenerateWorkflowID(payload.WorkflowOwner, payload.WorkflowName, decodedBinary, config, payload.SecretsURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate workflow id: %w", err)
 	}
 
 	// Always fetch secrets from the SecretsURL
@@ -434,11 +460,6 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 		if err != nil {
 			return nil, fmt.Errorf("failed to get secrets: %w", err)
 		}
-	}
-
-	// Pre-check: verify that the workflowID matches; if it doesn't abort and log an error via Beholder.
-	if !types.WorkflowID(hash).Equal(payload.WorkflowID) {
-		return nil, fmt.Errorf("workflowID mismatch: %x != %x", hash, payload.WorkflowID)
 	}
 
 	status := toSpecStatus(payload.Status)
@@ -470,10 +491,13 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 
 func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, config []byte, binary []byte) (services.Service, error) {
 	moduleConfig := &host.ModuleConfig{Logger: h.lggr, Labeler: h.emitter}
+
+	h.lggr.Debugf("Creating module for workflowID %s", workflowID)
 	module, err := host.NewModule(moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate module: %w", err)
 	}
+	h.lggr.Debugf("Finished creating module for workflowID %s", workflowID)
 
 	if module.IsLegacyDAG() { // V1 aka "DAG"
 		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
@@ -494,12 +518,13 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 			SecretsFetcher: h.workflowArtifactsStore.SecretsFor,
 			RateLimiter:    h.ratelimiter,
 			WorkflowLimits: h.workflowLimits,
+			BillingClient:  h.billingClient,
 		}
 		return workflows.NewEngine(ctx, cfg)
 	}
 
 	// V2 aka "NoDAG"
-	cfg := v2.EngineConfig{
+	cfg := &v2.EngineConfig{
 		Lggr:            h.lggr,
 		Module:          module,
 		CapRegistry:     h.capRegistry,
@@ -509,7 +534,12 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		WorkflowOwner: owner,
 		WorkflowName:  name,
 
-		Limits: v2.EngineLimits{}, // all defaults
+		LocalLimits:          v2.EngineLimits{}, // all defaults
+		GlobalLimits:         h.workflowLimits,
+		ExecutionRateLimiter: h.ratelimiter,
+
+		BeholderEmitter: h.emitter,
+		BillingClient:   h.billingClient,
 	}
 	return v2.NewEngine(ctx, cfg)
 }
@@ -519,9 +549,14 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 // updated workflow spec.
 func (h *eventHandler) workflowUpdatedEvent(
 	ctx context.Context,
-	payload WorkflowRegistryWorkflowUpdatedV1,
+	payload WorkflowUpdatedV1,
 ) error {
-	registeredEvent := WorkflowRegistryWorkflowRegisteredV1{
+	// Remove the old workflow engine from the local registry if it exists
+	if err := h.tryEngineCleanup(payload.WorkflowOwner, payload.WorkflowName); err != nil {
+		return err
+	}
+
+	registeredEvent := WorkflowRegisteredV1{
 		WorkflowID:    payload.NewWorkflowID,
 		WorkflowOwner: payload.WorkflowOwner,
 		DonID:         payload.DonID,
@@ -538,7 +573,7 @@ func (h *eventHandler) workflowUpdatedEvent(
 // workflowPausedEvent handles the WorkflowPausedEvent event type.
 func (h *eventHandler) workflowPausedEvent(
 	ctx context.Context,
-	payload WorkflowRegistryWorkflowPausedV1,
+	payload WorkflowPausedV1,
 ) error {
 	// Remove the workflow engine from the local registry if it exists
 	if err := h.tryEngineCleanup(payload.WorkflowOwner, payload.WorkflowName); err != nil {
@@ -563,7 +598,7 @@ func (h *eventHandler) workflowPausedEvent(
 // workflowActivatedEvent handles the WorkflowActivatedEvent event type.
 func (h *eventHandler) workflowActivatedEvent(
 	ctx context.Context,
-	payload WorkflowRegistryWorkflowActivatedV1,
+	payload WorkflowActivatedV1,
 ) error {
 	// fetch the workflow spec from the DB
 	spec, err := h.workflowArtifactsStore.GetWorkflowSpec(ctx, hex.EncodeToString(payload.WorkflowOwner), payload.WorkflowName)
@@ -586,7 +621,7 @@ func (h *eventHandler) workflowActivatedEvent(
 	}
 
 	// start a new workflow engine
-	registeredEvent := WorkflowRegistryWorkflowRegisteredV1{
+	registeredEvent := WorkflowRegisteredV1{
 		WorkflowID:    payload.WorkflowID,
 		WorkflowOwner: payload.WorkflowOwner,
 		DonID:         payload.DonID,
@@ -603,7 +638,7 @@ func (h *eventHandler) workflowActivatedEvent(
 // workflowDeletedEvent handles the WorkflowDeletedEvent event type. This method must remain idempotent.
 func (h *eventHandler) workflowDeletedEvent(
 	ctx context.Context,
-	payload WorkflowRegistryWorkflowDeletedV1,
+	payload WorkflowDeletedV1,
 ) error {
 	// The order in the handler is slightly different to the order in `tryEngineCleanup`.
 	// This is because the engine requires its corresponding DB record to be present to be successfully
@@ -612,8 +647,8 @@ func (h *eventHandler) workflowDeletedEvent(
 	// prior steps fail.
 	key := EngineRegistryKey{Owner: payload.WorkflowOwner, Name: payload.WorkflowName}
 
-	e, err := h.engineRegistry.Get(key)
-	if err == nil {
+	e, ok := h.engineRegistry.Get(key)
+	if ok {
 		if innerErr := e.Close(); innerErr != nil {
 			return fmt.Errorf("failed to close workflow engine: %w", innerErr)
 		}
@@ -624,7 +659,7 @@ func (h *eventHandler) workflowDeletedEvent(
 		return fmt.Errorf("failed to delete workflow artifacts: %w", err)
 	}
 
-	_, err = h.engineRegistry.Pop(key)
+	_, err := h.engineRegistry.Pop(key)
 	if errors.Is(err, errNotFound) {
 		return nil
 	}
@@ -639,9 +674,9 @@ func (h *eventHandler) tryEngineCleanup(workflowOwner []byte, workflowName strin
 	}
 	if h.engineRegistry.Contains(key) {
 		// This shouldn't error since we just checked that the key existed above.
-		e, err := h.engineRegistry.Get(key)
-		if err != nil {
-			return fmt.Errorf("invariant violation: failed to get workflow engine: %w", err)
+		e, ok := h.engineRegistry.Get(key)
+		if !ok {
+			return errors.New("invariant violation: failed to get workflow engine")
 		}
 
 		// Stop the engine
@@ -650,7 +685,7 @@ func (h *eventHandler) tryEngineCleanup(workflowOwner []byte, workflowName strin
 		}
 
 		// Remove the engine from the registry
-		_, err = h.engineRegistry.Pop(key)
+		_, err := h.engineRegistry.Pop(key)
 		if err != nil {
 			return fmt.Errorf("failed to remove workflow engine: %w", err)
 		}
@@ -660,9 +695,47 @@ func (h *eventHandler) tryEngineCleanup(workflowOwner []byte, workflowName strin
 
 // tryEngineCreate attempts to create a new workflow engine, start it, and register it with the engine registry
 func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSpec) error {
+	// Ensure the capabilities registry is ready before creating any Engine instances.
+	// This should be guaranteed by the Workflow Registry Syncer.
+	if err := h.ensureCapRegistryReady(ctx); err != nil {
+		return fmt.Errorf("failed to ensure capabilities registry is ready: %w", err)
+	}
+
 	decodedBinary, err := hex.DecodeString(spec.Workflow)
 	if err != nil {
 		return fmt.Errorf("failed to decode workflow spec binary: %w", err)
+	}
+
+	secretsURL := ""
+	if spec.SecretsID.Valid {
+		secretsURL, err = h.workflowArtifactsStore.GetSecretsURLByID(ctx, spec.SecretsID.Int64)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Before running the engine, handle validations
+	// Workflow ID should match what is generated from the stored artifacts
+	ownerBytes, err := hex.DecodeString(spec.WorkflowOwner)
+	if err != nil {
+		return fmt.Errorf("failed to decode owner: %w", err)
+	}
+	hash, err := pkgworkflows.GenerateWorkflowID(ownerBytes, spec.WorkflowName, decodedBinary, []byte(spec.Config), secretsURL)
+	if err != nil {
+		return fmt.Errorf("failed to generate workflow id: %w", err)
+	}
+	wid, err := types.WorkflowIDFromHex(spec.WorkflowID)
+	if err != nil {
+		return fmt.Errorf("invalid workflow id: %w", err)
+	}
+	if !types.WorkflowID(hash).Equal(wid) {
+		return fmt.Errorf("workflowID mismatch: %x != %x", hash, wid)
+	}
+
+	// Secrets should be valid
+	err = h.workflowArtifactsStore.ValidateSecrets(ctx, spec.WorkflowID, spec.WorkflowOwner)
+	if err != nil {
+		return err
 	}
 
 	// Start a new WorkflowEngine instance, and add it to local engine registry
@@ -686,16 +759,6 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return fmt.Errorf("failed to start workflow engine: %w", err)
 	}
 
-	ownerBytes, err := hex.DecodeString(spec.WorkflowOwner)
-	if err != nil {
-		return err
-	}
-
-	wid, err := types.WorkflowIDFromHex(spec.WorkflowID)
-	if err != nil {
-		return err
-	}
-
 	if err := h.engineRegistry.Add(EngineRegistryKey{Owner: ownerBytes, Name: spec.WorkflowName}, engine, wid); err != nil {
 		if closeErr := engine.Close(); closeErr != nil {
 			return fmt.Errorf("failed to close workflow engine: %w during invariant violation: %w", closeErr, err)
@@ -713,6 +776,24 @@ func logCustMsg(ctx context.Context, cma custmsg.MessageEmitter, msg string, log
 	if err != nil {
 		log.Helper(1).Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
 	}
+}
+
+func (h *eventHandler) ensureCapRegistryReady(ctx context.Context) error {
+	// Check every 500ms until the capabilities registry is ready.
+	retryInterval := time.Millisecond * time.Duration(500)
+	return internal.RunWithRetries(
+		ctx,
+		h.lggr,
+		retryInterval,
+		0, // infinite retries, until context is done
+		func() error {
+			// Test that the registry is ready by attempting to get the local node
+			_, err := h.capRegistry.LocalNode(ctx)
+			if err != nil {
+				return fmt.Errorf("capabilities registry not ready: %w", err)
+			}
+			return nil
+		})
 }
 
 func newHandlerTypeError(data any) error {

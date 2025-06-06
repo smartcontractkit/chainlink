@@ -7,6 +7,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
@@ -43,7 +46,7 @@ func GenerateLinkTokenView(lt *link_token.LinkToken) (LinkTokenView, error) {
 	}
 	return LinkTokenView{
 		ContractMetaData: types.ContractMetaData{
-			TypeAndVersion: deployment.TypeAndVersion{
+			TypeAndVersion: cldf.TypeAndVersion{
 				Type:    commontypes.LinkToken,
 				Version: deployment.Version1_0_0,
 			}.String(),

@@ -7,7 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	mcmslib "github.com/smartcontractkit/mcms"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
@@ -19,22 +20,22 @@ import (
 // 3. Creates a proposal to set a feed configs on DataFeedsCache contract
 // 4. Creates a proposal to set a feed proxy mappings on DataFeedsCache contract
 // Returns a new addressbook with the new AggregatorProxy contracts address and MCMS proposal
-var NewFeedWithProxyChangeset = deployment.CreateChangeSet(newFeedWithProxyLogic, newFeedWithProxyPrecondition)
+var NewFeedWithProxyChangeset = cldf.CreateChangeSet(newFeedWithProxyLogic, newFeedWithProxyPrecondition)
 
-func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyConfig) (deployment.ChangesetOutput, error) {
-	chain := env.Chains[c.ChainSelector]
+func newFeedWithProxyLogic(env cldf.Environment, c types.NewFeedWithProxyConfig) (cldf.ChangesetOutput, error) {
+	chain := env.BlockChains.EVMChains()[c.ChainSelector]
 	state, _ := LoadOnchainState(env)
 	chainState := state.Chains[c.ChainSelector]
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 
 	dataFeedsCacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, nil)
 	if dataFeedsCacheAddress == "" {
-		return deployment.ChangesetOutput{}, fmt.Errorf("DataFeedsCache contract address not found in addressbook for chain %d", c.ChainSelector)
+		return cldf.ChangesetOutput{}, fmt.Errorf("DataFeedsCache contract address not found in addressbook for chain %d", c.ChainSelector)
 	}
 
 	dataFeedsCache := chainState.DataFeedsCache[common.HexToAddress(dataFeedsCacheAddress)]
 	if dataFeedsCache == nil {
-		return deployment.ChangesetOutput{}, errors.New("DataFeedsCache contract not found in onchain state")
+		return cldf.ChangesetOutput{}, errors.New("DataFeedsCache contract not found in onchain state")
 	}
 
 	var proxyAddresses []common.Address
@@ -49,39 +50,39 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 			AccessController: []common.Address{c.AccessController},
 			Labels:           append([]string{c.Descriptions[index]}, c.Labels...),
 		}
-		newEnv, err := RunChangeset(DeployAggregatorProxyChangeset, env, proxyConfig)
+		newEnv, err := changeset.RunChangeset(DeployAggregatorProxyChangeset, env, proxyConfig)
 
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to execute DeployAggregatorProxyChangeset: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute DeployAggregatorProxyChangeset: %w", err)
 		}
-		proxyAddress, err := deployment.SearchAddressBook(newEnv.AddressBook, c.ChainSelector, "AggregatorProxy")
+		proxyAddress, err := cldf.SearchAddressBook(newEnv.AddressBook, c.ChainSelector, "AggregatorProxy")
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("AggregatorProxy not present in addressbook: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("AggregatorProxy not present in addressbook: %w", err)
 		}
 
 		// Create an MCMS proposal to transfer the ownership of AggregatorProxy contract to timelock and set the feed configs
 		// We don't use the existing changesets so that we can batch the transactions into a single MCMS proposal
 
 		// transfer proxy ownership
-		timelockAddr, _ := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.RBACTimelock)
+		timelockAddr, _ := cldf.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.RBACTimelock)
 		_, proxyContract, err := changeset.LoadOwnableContract(common.HexToAddress(proxyAddress), chain.Client)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to load proxy contract %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load proxy contract %w", err)
 		}
 		tx, err := proxyContract.TransferOwnership(chain.DeployerKey, common.HexToAddress(timelockAddr))
-		if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
+		if _, err := cldf.ConfirmIfNoError(chain, tx, err); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 		}
 
 		err = ab.Merge(newEnv.AddressBook)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge addressbooks: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge addressbooks: %w", err)
 		}
 
 		// accept proxy ownership proposal
-		acceptProxyOwnerShipTx, err := proxyContract.AcceptOwnership(deployment.SimTransactOpts())
+		acceptProxyOwnerShipTx, err := proxyContract.AcceptOwnership(cldf.SimTransactOpts())
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create accept transfer ownership tx %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create accept transfer ownership tx %w", err)
 		}
 		acceptProxyOwnerShipProposals = append(acceptProxyOwnerShipProposals, ProposalData{
 			contract: proxyContract.Address().Hex(),
@@ -94,15 +95,15 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 	dataIDs, _ := FeedIDsToBytes16(c.DataIDs)
 
 	// set feed config proposal
-	setFeedConfigTx, err := dataFeedsCache.SetDecimalFeedConfigs(deployment.SimTransactOpts(), dataIDs, c.Descriptions, c.WorkflowMetadata)
+	setFeedConfigTx, err := dataFeedsCache.SetDecimalFeedConfigs(cldf.SimTransactOpts(), dataIDs, c.Descriptions, c.WorkflowMetadata)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to set feed config %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to set feed config %w", err)
 	}
 
 	// set feed proxy mapping proposal
-	setProxyMappingTx, err := dataFeedsCache.UpdateDataIdMappingsForProxies(deployment.SimTransactOpts(), proxyAddresses, dataIDs)
+	setProxyMappingTx, err := dataFeedsCache.UpdateDataIdMappingsForProxies(cldf.SimTransactOpts(), proxyAddresses, dataIDs)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to set proxy-dataId mapping %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to set proxy-dataId mapping %w", err)
 	}
 
 	proposalConfig := MultiChainProposalConfig{
@@ -121,13 +122,13 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 
 	proposals, err := BuildMultiChainProposals(env, "accept AggregatorProxies ownership to timelock. set feed config and proxy mapping on cache", proposalConfig, c.McmsConfig.MinDelay)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 	}
 
-	return deployment.ChangesetOutput{AddressBook: ab, MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposals}}, nil
+	return cldf.ChangesetOutput{AddressBook: ab, MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposals}}, nil
 }
 
-func newFeedWithProxyPrecondition(env deployment.Environment, c types.NewFeedWithProxyConfig) error {
+func newFeedWithProxyPrecondition(env cldf.Environment, c types.NewFeedWithProxyConfig) error {
 	if c.McmsConfig == nil {
 		return errors.New("mcms config is required")
 	}
@@ -139,7 +140,7 @@ func newFeedWithProxyPrecondition(env deployment.Environment, c types.NewFeedWit
 		return fmt.Errorf("failed to convert feed ids to bytes16: %w", err)
 	}
 
-	_, ok := env.Chains[c.ChainSelector]
+	_, ok := env.BlockChains.EVMChains()[c.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}

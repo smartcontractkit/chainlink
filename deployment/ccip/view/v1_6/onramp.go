@@ -9,16 +9,18 @@ import (
 
 	router1_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )
 
 type OnRampView struct {
 	types.ContractMetaData
-	DynamicConfig         onramp.OnRampDynamicConfig        `json:"dynamicConfig"`
-	StaticConfig          onramp.OnRampStaticConfig         `json:"staticConfig"`
-	SourceTokenToPool     map[common.Address]common.Address `json:"sourceTokenToPool"`
-	DestChainSpecificData map[uint64]DestChainSpecificData  `json:"destChainSpecificData"`
+	DynamicConfig                          onramp.OnRampDynamicConfig        `json:"dynamicConfig"`
+	StaticConfig                           onramp.OnRampStaticConfig         `json:"staticConfig"`
+	SourceTokenToPool                      map[common.Address]common.Address `json:"sourceTokenToPool"`
+	DestChainSpecificData                  map[uint64]DestChainSpecificData  `json:"destChainSpecificData"`
+	DestChainSpecificDataBasedOnTestRouter map[uint64]DestChainSpecificData  `json:"destChainSpecificDataBasedOnTestRouter"`
 }
 
 type DestChainSpecificData struct {
@@ -29,7 +31,7 @@ type DestChainSpecificData struct {
 
 func GenerateOnRampView(
 	onRampContract onramp.OnRampInterface,
-	routerContract *router1_2.Router,
+	routerContract, testRouterContract *router1_2.Router,
 	taContract *token_admin_registry.TokenAdminRegistry,
 ) (OnRampView, error) {
 	tv, err := types.NewContractMetaData(onRampContract, onRampContract.Address())
@@ -46,11 +48,6 @@ func GenerateOnRampView(
 		return OnRampView{}, fmt.Errorf("failed to get static config: %w", err)
 	}
 
-	// populate destChainSelectors from router
-	destChainSelectors, err := v1_2.GetRemoteChainSelectors(routerContract)
-	if err != nil {
-		return OnRampView{}, fmt.Errorf("failed to get destination selectors: %w", err)
-	}
 	// populate sourceTokens from token admin registry contract
 	sourceTokens, err := taContract.GetAllConfiguredTokens(nil, 0, 10)
 	if err != nil {
@@ -64,20 +61,46 @@ func GenerateOnRampView(
 		}
 		sourceTokenToPool[sourceToken] = pool
 	}
+	destChainSpecificData, err := generateDestChainSpecificData(onRampContract, routerContract)
+	if err != nil {
+		return OnRampView{}, fmt.Errorf("failed to generate destination chain specific data: %w", err)
+	}
+	var destChainSpecificDataBasedOnTestRouter map[uint64]DestChainSpecificData
+	if testRouterContract != nil {
+		destChainSpecificDataBasedOnTestRouter, err = generateDestChainSpecificData(onRampContract, testRouterContract)
+		if err != nil {
+			return OnRampView{}, fmt.Errorf("failed to generate destination chain specific data based on test router: %w", err)
+		}
+	}
+	return OnRampView{
+		ContractMetaData:                       tv,
+		DynamicConfig:                          dynamicConfig,
+		StaticConfig:                           staticConfig,
+		SourceTokenToPool:                      sourceTokenToPool,
+		DestChainSpecificData:                  destChainSpecificData,
+		DestChainSpecificDataBasedOnTestRouter: destChainSpecificDataBasedOnTestRouter,
+	}, nil
+}
 
+func generateDestChainSpecificData(onRampContract onramp.OnRampInterface, routerContract *router1_2.Router) (map[uint64]DestChainSpecificData, error) {
+	// populate destChainSelectors from router
+	destChainSelectors, err := v1_2.GetRemoteChainSelectors(routerContract)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get destination selectors: %w", err)
+	}
 	destChainSpecificData := make(map[uint64]DestChainSpecificData)
 	for _, destChainSelector := range destChainSelectors {
 		allowListInformation, err := onRampContract.GetAllowedSendersList(nil, destChainSelector)
 		if err != nil {
-			return OnRampView{}, fmt.Errorf("failed to get allowed senders list: %w", err)
+			return nil, fmt.Errorf("failed to get allowed senders list: %w", err)
 		}
 		destChainConfig, err := onRampContract.GetDestChainConfig(nil, destChainSelector)
 		if err != nil {
-			return OnRampView{}, fmt.Errorf("failed to get dest chain config: %w", err)
+			return nil, fmt.Errorf("failed to get dest chain config: %w", err)
 		}
 		expectedNextSeqNum, err := onRampContract.GetExpectedNextSequenceNumber(nil, destChainSelector)
 		if err != nil {
-			return OnRampView{}, fmt.Errorf("failed to get expected next sequence number: %w", err)
+			return nil, fmt.Errorf("failed to get expected next sequence number: %w", err)
 		}
 		destChainSpecificData[destChainSelector] = DestChainSpecificData{
 			AllowedSendersList: allowListInformation.ConfiguredAddresses,
@@ -85,12 +108,5 @@ func GenerateOnRampView(
 			ExpectedNextSeqNum: expectedNextSeqNum,
 		}
 	}
-
-	return OnRampView{
-		ContractMetaData:      tv,
-		DynamicConfig:         dynamicConfig,
-		StaticConfig:          staticConfig,
-		SourceTokenToPool:     sourceTokenToPool,
-		DestChainSpecificData: destChainSpecificData,
-	}, nil
+	return destChainSpecificData, nil
 }

@@ -16,42 +16,42 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	config2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	v1_5changeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	plugintesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 )
 
-func AddLanes(t *testing.T, e deployment.Environment, state changeset.CCIPOnChainState, pairs []testhelpers.SourceDestPair) deployment.Environment {
+func AddLanes(t *testing.T, e cldf.Environment, state stateview.CCIPOnChainState, pairs []testhelpers.SourceDestPair) cldf.Environment {
 	addLanesCfg, commitOCR2Configs, execOCR2Configs, jobspecs := LaneConfigsForChains(t, e, state, pairs)
 	var err error
-	e, err = commonchangeset.Apply(t, e, nil,
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_5changeset.DeployLanesChangeset),
-			v1_5changeset.DeployLanesConfig{Configs: addLanesCfg},
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_5changeset.SetOCR2ConfigForTestChangeset),
-			v1_5changeset.OCR2Config{CommitConfigs: commitOCR2Configs, ExecConfigs: execOCR2Configs},
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_5changeset.JobSpecsForLanesChangeset),
-			v1_5changeset.JobSpecsForLanesConfig{Configs: jobspecs},
-		),
-	)
+	e, err = commonchangeset.Apply(t, e, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5changeset.DeployLanesChangeset),
+		v1_5changeset.DeployLanesConfig{Configs: addLanesCfg},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5changeset.SetOCR2ConfigForTestChangeset),
+		v1_5changeset.OCR2Config{CommitConfigs: commitOCR2Configs, ExecConfigs: execOCR2Configs},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5changeset.JobSpecsForLanesChangeset),
+		v1_5changeset.JobSpecsForLanesConfig{Configs: jobspecs},
+	))
 	require.NoError(t, err)
 	return e
 }
 
-func LaneConfigsForChains(t *testing.T, env deployment.Environment, state changeset.CCIPOnChainState, pairs []testhelpers.SourceDestPair) (
+func LaneConfigsForChains(t *testing.T, env cldf.Environment, state stateview.CCIPOnChainState, pairs []testhelpers.SourceDestPair) (
 	[]v1_5changeset.DeployLaneConfig,
 	[]v1_5changeset.CommitOCR2ConfigParams,
 	[]v1_5changeset.ExecuteOCR2ConfigParams,
@@ -64,8 +64,8 @@ func LaneConfigsForChains(t *testing.T, env deployment.Environment, state change
 	for _, pair := range pairs {
 		dest := pair.DestChainSelector
 		src := pair.SourceChainSelector
-		sourceChainState := state.Chains[src]
-		destChainState := state.Chains[dest]
+		sourceChainState := state.MustGetEVMChainState(src)
+		destChainState := state.MustGetEVMChainState(dest)
 		_, err := sourceChainState.LinkTokenAddress()
 		require.NoError(t, err)
 		require.NotNil(t, sourceChainState.RMNProxy)
@@ -78,7 +78,7 @@ func LaneConfigsForChains(t *testing.T, env deployment.Environment, state change
 		require.NotNil(t, destChainState.RMNProxy)
 		require.NotNil(t, destChainState.TokenAdminRegistry)
 		priceGetterConfig := CreatePriceGetterConfig(t, state, src, dest)
-		block, err := env.Chains[dest].Client.HeaderByNumber(context.Background(), nil)
+		block, err := env.BlockChains.EVMChains()[dest].Client.HeaderByNumber(context.Background(), nil)
 		require.NoError(t, err)
 		destEVMChainIdStr, err := chain_selectors.GetChainIDFromSelector(dest)
 		require.NoError(t, err)
@@ -209,10 +209,10 @@ func LaneConfigsForChains(t *testing.T, env deployment.Environment, state change
 }
 
 // CreatePriceGetterConfig returns price getter config as json string.
-func CreatePriceGetterConfig(t *testing.T, state changeset.CCIPOnChainState, source, dest uint64) string {
-	sourceRouter := state.Chains[source].Router
-	destRouter := state.Chains[dest].Router
-	destLinkAddr, err := state.Chains[dest].LinkTokenAddress()
+func CreatePriceGetterConfig(t *testing.T, state stateview.CCIPOnChainState, source, dest uint64) string {
+	sourceRouter := state.MustGetEVMChainState(source).Router
+	destRouter := state.MustGetEVMChainState(dest).Router
+	destLinkAddr, err := state.MustGetEVMChainState(dest).LinkTokenAddress()
 	require.NoError(t, err)
 
 	linkPriceDest, ok := big.NewInt(0).SetString("8000000000000000000", 10)
@@ -272,8 +272,8 @@ func DefaultOCRParams() confighelper.PublicConfig {
 
 func SendRequest(
 	t *testing.T,
-	e deployment.Environment,
-	state changeset.CCIPOnChainState,
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
 	opts ...testhelpers.SendReqOpts,
 ) (*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested, error) {
 	cfg := &testhelpers.CCIPSendReqConfig{}
@@ -282,7 +282,7 @@ func SendRequest(
 	}
 	// Set default sender if not provided
 	if cfg.Sender == nil {
-		cfg.Sender = e.Chains[cfg.SourceChain].DeployerKey
+		cfg.Sender = e.BlockChains.EVMChains()[cfg.SourceChain].DeployerKey
 	}
 	t.Logf("Sending CCIP request from chain selector %d to chain selector %d from sender %s",
 		cfg.SourceChain, cfg.DestChain, cfg.Sender.From.String())
@@ -291,7 +291,7 @@ func SendRequest(
 		return nil, err
 	}
 
-	onRamp := state.Chains[cfg.SourceChain].EVM2EVMOnRamp[cfg.DestChain]
+	onRamp := state.MustGetEVMChainState(cfg.SourceChain).EVM2EVMOnRamp[cfg.DestChain]
 
 	it, err := onRamp.FilterCCIPSendRequested(&bind.FilterOpts{
 		Start:   blockNum,
@@ -316,8 +316,8 @@ func SendRequest(
 
 func WaitForCommit(
 	t *testing.T,
-	src deployment.Chain,
-	dest deployment.Chain,
+	src cldf_evm.Chain,
+	dest cldf_evm.Chain,
 	commitStore *commit_store.CommitStore,
 	seqNr uint64,
 ) {
@@ -344,8 +344,8 @@ func WaitForCommit(
 
 func WaitForNoCommit(
 	t *testing.T,
-	src deployment.Chain,
-	dest deployment.Chain,
+	src cldf_evm.Chain,
+	dest cldf_evm.Chain,
 	commitStore *commit_store.CommitStore,
 	seqNr uint64,
 ) {
@@ -372,8 +372,8 @@ func WaitForNoCommit(
 
 func WaitForExecute(
 	t *testing.T,
-	src deployment.Chain,
-	dest deployment.Chain,
+	src cldf_evm.Chain,
+	dest cldf_evm.Chain,
 	offRamp *evm_2_evm_offramp.EVM2EVMOffRamp,
 	seqNrs []uint64,
 	blockNum uint64,

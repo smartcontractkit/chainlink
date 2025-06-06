@@ -7,8 +7,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper"
-	"github.com/smartcontractkit/chainlink/deployment"
+	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
+
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
@@ -34,7 +37,7 @@ func (c *workflowRegistryDeployer) Deploy(req changeset.DeployRequest) (*changes
 		req.Chain.DeployerKey,
 		req.Chain.Client)
 	if err != nil {
-		return nil, deployment.DecodeErr(workflow_registry.WorkflowRegistryABI, err)
+		return nil, cldf.DecodeErr(workflow_registry.WorkflowRegistryABI, err)
 	}
 
 	_, err = req.Chain.Confirm(tx)
@@ -46,7 +49,7 @@ func (c *workflowRegistryDeployer) Deploy(req changeset.DeployRequest) (*changes
 		return nil, fmt.Errorf("failed to get type and version: %w", err)
 	}
 
-	tv, err := deployment.TypeAndVersionFromString(tvStr)
+	tv, err := cldf.TypeAndVersionFromString(tvStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 	}
@@ -61,7 +64,7 @@ func (c *workflowRegistryDeployer) Deploy(req changeset.DeployRequest) (*changes
 
 // deployWorkflowRegistry deploys the WorkflowRegistry contract to the chain
 // and saves the address in the address book. This mutates the address book.
-func deployWorkflowRegistry(chain deployment.Chain, ab deployment.AddressBook) (*changeset.DeployResponse, error) {
+func deployWorkflowRegistry(chain cldf_evm.Chain, ab cldf.AddressBook) (*changeset.DeployResponse, error) {
 	deployer, err := newWorkflowRegistryDeployer()
 	resp, err := deployer.Deploy(changeset.DeployRequest{Chain: chain})
 	if err != nil {

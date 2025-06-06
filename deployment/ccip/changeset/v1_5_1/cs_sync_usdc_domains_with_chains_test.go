@@ -10,10 +10,16 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -137,27 +143,27 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 				testCfg.IsUSDC = test.DeployUSDC
 			})
 			e := deployedEnvironment.Env
-			selectors := deployedEnvironment.Env.AllChainSelectors()
+			selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 
 			if test.DeployUSDC {
 				var err error
-				e, err = commoncs.Apply(t, e, nil,
+				e, err = commoncs.Apply(t, e,
 					commonchangeset.Configure(
-						deployment.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+						cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 						v1_5_1.ConfigureTokenPoolContractsConfig{
 							PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
 								selectors[0]: {
 									ChainUpdates: v1_5_1.RateLimiterPerChain{
 										selectors[1]: testhelpers.CreateSymmetricRateLimits(0, 0),
 									},
-									Type:    changeset.USDCTokenPool,
+									Type:    shared.USDCTokenPool,
 									Version: deployment.Version1_5_1,
 								},
 								selectors[1]: {
 									ChainUpdates: v1_5_1.RateLimiterPerChain{
 										selectors[0]: testhelpers.CreateSymmetricRateLimits(0, 0),
 									},
-									Type:    changeset.USDCTokenPool,
+									Type:    shared.USDCTokenPool,
 									Version: deployment.Version1_5_1,
 								},
 							},
@@ -168,7 +174,7 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			state, err := changeset.LoadOnchainState(e)
+			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
 			err = test.Input(selectors[0]).Validate(e, state)
@@ -196,28 +202,22 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 				testCfg.IsUSDC = true
 			})
 			e := deployedEnvironment.Env
-			selectors := e.AllChainSelectors()
+			selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 
-			state, err := changeset.LoadOnchainState(e)
+			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
-			timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts, len(selectors))
 			timelockOwnedContractsByChain := make(map[uint64][]common.Address, 1)
 			for _, selector := range selectors {
-				// Assemble map of addresses required for Timelock scheduling & execution
-				timelockContracts[selector] = &proposalutils.TimelockExecutionContracts{
-					Timelock:  state.Chains[selector].Timelock,
-					CallProxy: state.Chains[selector].CallProxy,
-				}
 				// We would only need the token pool owned by timelock in these tests (if mcms config is provided)
 				timelockOwnedContractsByChain[selector] = []common.Address{state.Chains[selector].USDCTokenPools[deployment.Version1_5_1].Address()}
 			}
 
 			if mcmsConfig != nil {
 				// Transfer ownership of token pools to timelock
-				e, err = commoncs.Apply(t, e, timelockContracts,
+				e, err = commoncs.Apply(t, e,
 					commonchangeset.Configure(
-						deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
+						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: timelockOwnedContractsByChain,
 							MCMSConfig:       *mcmsConfig,
@@ -227,9 +227,9 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			e, err = commoncs.Apply(t, e, timelockContracts,
+			e, err = commoncs.Apply(t, e,
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+					cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 					v1_5_1.ConfigureTokenPoolContractsConfig{
 						MCMS: mcmsConfig,
 						PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
@@ -237,14 +237,14 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 								ChainUpdates: v1_5_1.RateLimiterPerChain{
 									selectors[1]: testhelpers.CreateSymmetricRateLimits(0, 0),
 								},
-								Type:    changeset.USDCTokenPool,
+								Type:    shared.USDCTokenPool,
 								Version: deployment.Version1_5_1,
 							},
 							selectors[1]: {
 								ChainUpdates: v1_5_1.RateLimiterPerChain{
 									selectors[0]: testhelpers.CreateSymmetricRateLimits(0, 0),
 								},
-								Type:    changeset.USDCTokenPool,
+								Type:    shared.USDCTokenPool,
 								Version: deployment.Version1_5_1,
 							},
 						},
@@ -254,9 +254,9 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			e, err = commoncs.Apply(t, e, timelockContracts,
+			e, err = commoncs.Apply(t, e,
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_5_1.SyncUSDCDomainsWithChainsChangeset),
+					cldf.CreateLegacyChangeSet(v1_5_1.SyncUSDCDomainsWithChainsChangeset),
 					v1_5_1.SyncUSDCDomainsWithChainsConfig{
 						MCMS: mcmsConfig,
 						USDCVersionByChain: map[uint64]semver.Version{
@@ -272,7 +272,7 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			state, err = changeset.LoadOnchainState(e)
+			state, err = stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
 			for i, selector := range selectors {
@@ -309,7 +309,7 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 				},
 			})
 			require.NoError(t, err)
-			require.Empty(t, output.Proposals) //nolint:staticcheck //SA1019 ignoring deprecated field for compatibility; we don't have tools to generate the new field
+			require.Empty(t, output.MCMSTimelockProposals)
 		})
 	}
 }

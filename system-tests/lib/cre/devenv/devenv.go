@@ -2,21 +2,25 @@ package environment
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/credentials"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentInput, credentials credentials.TransportCredentials) (*types.FullCLDEnvironmentOutput, error) {
+func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *types.FullCLDEnvironmentInput, credentials credentials.TransportCredentials) (*types.FullCLDEnvironmentOutput, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
@@ -24,25 +28,36 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 		return nil, errors.Wrap(err, "input validation failed")
 	}
 
-	envs := make([]*deployment.Environment, len(input.NodeSetOutput))
+	envs := make([]*cldf.Environment, len(input.NodeSetOutput))
 	dons := make([]*devenv.DON, len(input.NodeSetOutput))
 
 	var allNodesInfo []devenv.NodeInfo
-	chains := []devenv.ChainConfig{
-		{
-			ChainID:   input.SethClient.Cfg.Network.ChainID,
-			ChainName: input.SethClient.Cfg.Network.Name,
-			ChainType: strings.ToUpper(input.BlockchainOutput.Family),
+	chains := make([]devenv.ChainConfig, 0)
+	for chainSelector, bcOut := range input.BlockchainOutputs {
+		cID, err := strconv.ParseUint(bcOut.ChainID, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse chain ID: %w", err)
+		}
+
+		sethClient, ok := input.SethClients[chainSelector]
+		if !ok {
+			return nil, fmt.Errorf("seth client not found for chain selector: %d", chainSelector)
+		}
+
+		chains = append(chains, devenv.ChainConfig{
+			ChainID:   strconv.FormatUint(cID, 10),
+			ChainName: sethClient.Cfg.Network.Name,
+			ChainType: strings.ToUpper(bcOut.Family),
 			WSRPCs: []devenv.CribRPCs{{
-				External: input.BlockchainOutput.Nodes[0].ExternalWSUrl,
-				Internal: input.BlockchainOutput.Nodes[0].InternalWSUrl,
+				External: bcOut.Nodes[0].ExternalWSUrl,
+				Internal: bcOut.Nodes[0].InternalWSUrl,
 			}},
 			HTTPRPCs: []devenv.CribRPCs{{
-				External: input.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-				Internal: input.BlockchainOutput.Nodes[0].InternalHTTPUrl,
+				External: bcOut.Nodes[0].ExternalHTTPUrl,
+				Internal: bcOut.Nodes[0].InternalHTTPUrl,
 			}},
-			DeployerKey: input.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
-		},
+			DeployerKey: sethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
+		})
 	}
 
 	for idx, nodeOutput := range input.NodeSetOutput {
@@ -76,10 +91,15 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 			Chains:   chains,
 		}
 
-		env, don, err := devenv.NewEnvironment(context.Background, lgr, devenvConfig)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to create environment")
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, 3*time.Minute)
+		env, don, envErr := devenv.NewEnvironment(func() context.Context {
+			return ctxWithTimeout
+		}, lgr, devenvConfig)
+		if envErr != nil {
+			cancel()
+			return nil, errors.Wrap(envErr, "failed to create environment")
 		}
+		cancel()
 
 		envs[idx] = env
 		dons[idx] = don
@@ -92,17 +112,13 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 
 	for i, don := range dons {
 		for j, node := range input.Topology.DonsMetadata[i].NodesMetadata {
-			// both are required for job creation
+			// required for job proposals, because they need to include the ID of the node in Job Distributor
 			node.Labels = append(node.Labels, &types.Label{
 				Key:   libnode.NodeIDKey,
 				Value: don.NodeIds()[j],
 			})
 
-			node.Labels = append(node.Labels, &types.Label{
-				Key:   libnode.NodeOCR2KeyBundleIDKey,
-				Value: don.Nodes[j].Ocr2KeyBundleID,
-			})
-
+			// required for OCR2/3 job specs
 			node.Labels = append(node.Labels, &types.Label{
 				Key:   libnode.NodeOCR2KeyBundleIDKey,
 				Value: don.Nodes[j].Ocr2KeyBundleID,
@@ -110,42 +126,46 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 		}
 	}
 
-	var jd deployment.OffchainClient
-	var err error
+	var jd cldf.OffchainClient
 
 	if len(input.NodeSetOutput) > 0 {
 		// We create a new instance of JD client using `allNodesInfo` instead of `nodeInfo` to ensure that it can interact with all nodes.
 		// Otherwise, JD would fail to accept job proposals for unknown nodes, even though it would still propose jobs to them. And that
 		// would be happening silently, without any error messages, and we wouldn't know about it until much later.
-		jd, err = devenv.NewJDClient(context.Background(), devenv.JDConfig{
+		var jdErr error
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		jd, jdErr = devenv.NewJDClient(ctxWithTimeout, devenv.JDConfig{
 			GRPC:     input.JdOutput.ExternalGRPCUrl,
 			WSRPC:    input.JdOutput.InternalWSRPCUrl,
 			Creds:    credentials,
 			NodeInfo: allNodesInfo,
 		})
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to create JD client")
+		if jdErr != nil {
+			cancel()
+			return nil, errors.Wrap(jdErr, "failed to create JD client")
 		}
+		cancel()
 	} else {
 		jd = envs[0].Offchain
 	}
 
 	// we assume that all DONs run on the same chain and that there's only one chain
 	output := &types.FullCLDEnvironmentOutput{
-		Environment: &deployment.Environment{
+		Environment: &cldf.Environment{
 			Name:              envs[0].Name,
 			Logger:            envs[0].Logger,
 			ExistingAddresses: input.ExistingAddresses,
-			Chains:            envs[0].Chains,
 			Offchain:          jd,
 			OCRSecrets:        envs[0].OCRSecrets,
 			GetContext:        envs[0].GetContext,
 			NodeIDs:           nodeIDs,
+			BlockChains:       envs[0].BlockChains,
 		},
 	}
 
 	donTopology := &types.DonTopology{}
 	donTopology.WorkflowDonID = input.Topology.WorkflowDONID
+	donTopology.HomeChainSelector = input.Topology.HomeChainSelector
 
 	for i, donMetadata := range input.Topology.DonsMetadata {
 		donTopology.DonsWithMetadata = append(donTopology.DonsWithMetadata, &types.DonWithMetadata{

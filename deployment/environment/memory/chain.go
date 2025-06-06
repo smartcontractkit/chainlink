@@ -26,7 +26,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
-	"github.com/hashicorp/consul/sdk/freeport"
+
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -128,14 +129,14 @@ func generateSolanaKeypair(t testing.TB) (solana.PrivateKey, string, error) {
 }
 
 func FundSolanaAccounts(
-	ctx context.Context, t *testing.T, accounts []solana.PublicKey, solAmount uint64, solanaGoClient *solRpc.Client,
-) {
-	t.Helper()
-
+	ctx context.Context, accounts []solana.PublicKey, solAmount uint64, solanaGoClient *solRpc.Client,
+) error {
 	var sigs = make([]solana.Signature, 0, len(accounts))
 	for _, account := range accounts {
 		sig, err := solanaGoClient.RequestAirdrop(ctx, account, solAmount*solana.LAMPORTS_PER_SOL, solRpc.CommitmentConfirmed)
-		require.NoError(t, err)
+		if err != nil {
+			return err
+		}
 		sigs = append(sigs, sig)
 	}
 
@@ -152,12 +153,18 @@ func FundSolanaAccounts(
 	for remaining > 0 {
 		select {
 		case <-timeoutCtx.Done():
-			require.NoError(t, errors.New("unable to find transaction within timeout"))
+			return errors.New("unable to find transaction within timeout")
 		case <-ticker.C:
 			statusRes, sigErr := solanaGoClient.GetSignatureStatuses(ctx, true, sigs...)
-			require.NoError(t, sigErr)
-			require.NotNil(t, statusRes)
-			require.NotNil(t, statusRes.Value)
+			if sigErr != nil {
+				return sigErr
+			}
+			if statusRes == nil {
+				return errors.New("Status response is nil")
+			}
+			if statusRes.Value == nil {
+				return errors.New("Status response value is nil")
+			}
 
 			unconfirmedTxCount := 0
 			for _, res := range statusRes.Value {
@@ -168,6 +175,7 @@ func FundSolanaAccounts(
 			remaining = unconfirmedTxCount
 		}
 	}
+	return nil
 }
 
 func GenerateChainsSol(t *testing.T, numChains int) map[uint64]SolanaChain {
@@ -265,7 +273,11 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 	maxRetries := 10
 	var url, wsURL string
 	for i := 0; i < maxRetries; i++ {
-		port := freeport.GetOne(t)
+		// solana requires 2 ports, one for http and one for ws, but only allows one to be specified
+		// the other is +1 of the first one
+		// must reserve 2 to avoid port conflicts in the freeport library with other tests
+		// https://github.com/smartcontractkit/chainlink-testing-framework/blob/e109695d311e6ed42ca3194907571ce6454fae8d/framework/components/blockchain/blockchain.go#L39
+		ports := freeport.GetN(t, 2)
 
 		image := ""
 		if runtime.GOOS == "linux" {
@@ -277,13 +289,14 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 			Type:           "solana",
 			ChainID:        strconv.FormatUint(chainID, 10),
 			PublicKey:      adminKey.PublicKey().String(),
-			Port:           strconv.Itoa(port),
+			Port:           strconv.Itoa(ports[0]),
 			ContractsDir:   ProgramsPath,
 			SolanaPrograms: SolanaProgramIDs,
 		}
 		output, err := blockchain.NewBlockchainNetwork(bcInput)
 		if err != nil {
 			t.Logf("Error creating solana network: %v", err)
+			freeport.Return(ports)
 			time.Sleep(time.Second)
 			maxRetries -= 1
 			continue

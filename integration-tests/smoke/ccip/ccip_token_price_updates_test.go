@@ -18,10 +18,12 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
@@ -37,16 +39,16 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 			}
 			return params
 		}))
-	state, err := changeset.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	testhelpers.AddLanesForAll(t, &e, state)
 
-	allChainSelectors := maps.Keys(e.Env.Chains)
+	allChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
 	assert.GreaterOrEqual(t, len(allChainSelectors), 2, "test requires at least 2 chains")
 
 	sourceChain1 := allChainSelectors[0]
 
-	feeQuoter1 := state.Chains[sourceChain1].FeeQuoter
+	feeQuoter1 := state.MustGetEVMChainState(sourceChain1).FeeQuoter
 
 	feeTokensChain1, err := feeQuoter1.GetFeeTokens(callOpts)
 	require.NoError(t, err)
@@ -82,7 +84,7 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 
 	assert.Eventually(t, func() bool {
 		// manually update token prices by setting values to maxUint64 and 0
-		tx, err := feeQuoter1.UpdatePrices(e.Env.Chains[sourceChain1].DeployerKey, fee_quoter.InternalPriceUpdates{
+		tx, err := feeQuoter1.UpdatePrices(e.Env.BlockChains.EVMChains()[sourceChain1].DeployerKey, fee_quoter.InternalPriceUpdates{
 			TokenPriceUpdates: []fee_quoter.InternalTokenPriceUpdate{
 				{SourceToken: feeTokensChain1[0], UsdPerToken: big.NewInt(0).SetUint64(math.MaxUint64)},
 				{SourceToken: feeTokensChain1[1], UsdPerToken: big.NewInt(0)},
@@ -90,7 +92,7 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = deployment.ConfirmIfNoError(e.Env.Chains[sourceChain1], tx, err)
+		_, err = cldf.ConfirmIfNoError(e.Env.BlockChains.EVMChains()[sourceChain1], tx, err)
 		require.NoError(t, err)
 		t.Logf("manually editing token prices")
 
@@ -127,7 +129,7 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 	}, tests.WaitTimeout(t), 500*time.Millisecond)
 }
 
-func disableOracles(ctx context.Context, t *testing.T, client deployment.OffchainClient) []string {
+func disableOracles(ctx context.Context, t *testing.T, client cldf.OffchainClient) []string {
 	var disabledOracleIDs []string
 	listNodesResp, err := client.ListNodes(ctx, &node.ListNodesRequest{})
 	require.NoError(t, err)
@@ -145,7 +147,7 @@ func disableOracles(ctx context.Context, t *testing.T, client deployment.Offchai
 	return disabledOracleIDs
 }
 
-func enableOracles(ctx context.Context, t *testing.T, client deployment.OffchainClient, oracleIDs []string) {
+func enableOracles(ctx context.Context, t *testing.T, client cldf.OffchainClient, oracleIDs []string) {
 	for _, n := range oracleIDs {
 		_, err := client.EnableNode(ctx, &node.EnableNodeRequest{Id: n})
 		require.NoError(t, err)

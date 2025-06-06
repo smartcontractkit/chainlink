@@ -21,27 +21,24 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
+
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
-	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
@@ -51,24 +48,39 @@ import (
 	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 )
 
+type Chaos struct {
+	Mode                        string   `toml:"mode"`
+	Latency                     string   `toml:"latency"`
+	Jitter                      string   `toml:"jitter"`
+	DashboardUIDs               []string `toml:"dashboard_uids"`
+	WaitBeforeStart             string   `toml:"wait_before_start"`
+	ExperimentFullInterval      string   `toml:"experiment_full_interval"`
+	ExperimentInjectionInterval string   `toml:"experiment_injection_interval"`
+}
+
 type TestConfigLoadTest struct {
-	BlockchainA                   *blockchain.Input                        `toml:"blockchain_a" validate:"required"`
-	NodeSets                      []*ns.Input                              `toml:"nodesets" validate:"required"`
-	JD                            *jd.Input                                `toml:"jd" validate:"required"`
-	KeystoneContracts             *keystonetypes.KeystoneContractsInput    `toml:"keystone_contracts"`
-	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput     `toml:"workflow_registry_configuration"`
-	DataFeedsCache                *keystonetypes.DeployDataFeedsCacheInput `toml:"feed_consumer"`
-	Infra                         *libtypes.InfraInput                     `toml:"infra" validate:"required"`
-	WorkflowDONLoad               *WorkflowLoad                            `toml:"workflow_load"`
-	MockCapabilities              []*MockCapabilities                      `toml:"mock_capabilities"`
-	BinariesConfig                *BinariesConfig                          `toml:"binaries_config"`
+	Duration                      string                               `toml:"duration"`
+	Blockchains                   []*blockchain.Input                  `toml:"blockchains" validate:"required"`
+	NodeSets                      []*ns.Input                          `toml:"nodesets" validate:"required"`
+	JD                            *jd.Input                            `toml:"jd" validate:"required"`
+	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
+	Infra                         *libtypes.InfraInput                 `toml:"infra" validate:"required"`
+	WorkflowDONLoad               *WorkflowLoad                        `toml:"workflow_load"`
+	MockCapabilities              []*MockCapabilities                  `toml:"mock_capabilities"`
+	BinariesConfig                *BinariesConfig                      `toml:"binaries_config"`
+	Chaos                         *Chaos                               `toml:"chaos"`
 }
 
 type BinariesConfig struct {
@@ -96,7 +108,7 @@ type FeedWithStreamID struct {
 type loadTestSetupOutput struct {
 	dataFeedsCacheAddress common.Address
 	forwarderAddress      common.Address
-	blockchainOutput      *blockchain.Output
+	blockchainOutput      []*creenv.BlockchainOutput
 	donTopology           *keystonetypes.DonTopology
 	nodeOutput            []*keystonetypes.WrappedNodeOutput
 }
@@ -115,25 +127,26 @@ func setupLoadTestEnvironment(
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
-		BlockchainsInput:                     *in.BlockchainA,
+		BlockchainsInput:                     in.Blockchains,
 		JdInput:                              *in.JD,
 		InfraInput:                           *in.Infra,
 		CustomBinariesPaths:                  map[string]string{keystonetypes.MockCapability: absMockCapabilityBinaryPath},
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 	}
 
-	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testcontext.Get(t), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
+	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
 	require.NoError(t, setupErr, "failed to setup test environment")
 
 	// Set inputs in the test config, so that they can be saved
-	in.KeystoneContracts = &keystonetypes.KeystoneContractsInput{}
-	in.KeystoneContracts.Out = universalSetupOutput.KeystoneContractsOutput
 	in.WorkflowRegistryConfiguration = &keystonetypes.WorkflowRegistryInput{}
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
+	forwarderAddress, forwarderErr := crecontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, universalSetupOutput.BlockchainOutput[0].ChainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck // won't migrate now
+	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
+
 	return &loadTestSetupOutput{
-		forwarderAddress: universalSetupOutput.KeystoneContractsOutput.ForwarderAddress,
-		blockchainOutput: universalSetupOutput.BlockchainOutput.BlockchainOutput,
+		forwarderAddress: forwarderAddress,
+		blockchainOutput: universalSetupOutput.BlockchainOutput,
 		donTopology:      universalSetupOutput.DonTopology,
 		nodeOutput:       universalSetupOutput.NodeOutput,
 	}
@@ -168,7 +181,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	for i := range in.WorkflowDONLoad.Jobs {
 		feedsAddresses[i] = make([]FeedWithStreamID, 0)
 		for streamID := range in.WorkflowDONLoad.Streams {
-			_, id := NewFeedID(t)
+			_, id := NewFeedIDDF2(t)
 			feedsAddresses[i] = append(feedsAddresses[i], FeedWithStreamID{
 				Feed:     id,
 				StreamID: (in.WorkflowDONLoad.Streams * i) + streamID + 1,
@@ -269,16 +282,17 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		return capabilities
 	}
 
-	chainIDUint64, chainErr := strconv.ParseUint(in.BlockchainA.ChainID, 10, 64)
-	require.NoError(t, chainErr, "failed to convert chain ID to int")
+	homeChain := in.Blockchains[0]
+	homeChainIDUint64, homeChainErr := strconv.ParseUint(homeChain.ChainID, 10, 64)
+	require.NoError(t, homeChainErr, "failed to convert chain ID to int")
 
 	setupOutput := setupLoadTestEnvironment(
 		t,
 		testLogger,
 		in,
 		mustSetCapabilitiesFn,
-		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WorkflowDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(chainIDUint64)},
-		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(chainIDUint64)},
+		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WorkflowDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(homeChainIDUint64)},
+		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(homeChainIDUint64)},
 	)
 
 	ctx := t.Context()
@@ -316,10 +330,10 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 
 			debugInput := keystonetypes.DebugInput{
 				DebugDons:        debugDons,
-				BlockchainOutput: setupOutput.blockchainOutput,
+				BlockchainOutput: setupOutput.blockchainOutput[0].BlockchainOutput,
 				InfraInput:       in.Infra,
 			}
-			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
+			lidebug.PrintTestDebug(ctx, t.Name(), testLogger, debugInput)
 		}
 	})
 
@@ -356,9 +370,20 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	mocksClient := mock_capability.NewMockCapabilityController(testLogger)
 	mockClientsAddress := make([]string, 0)
 	if in.Infra.InfraType == "docker" {
-		// TODO: For CTFv2 we should get the ports from the .toml
-		// Need to add addresses manually
-		mockClientsAddress = []string{"127.0.0.1:13401", "127.0.0.1:13402", "127.0.0.1:13403", "127.0.0.1:13404"}
+		for _, nodeSet := range in.NodeSets {
+			if nodeSet.Name == "writer" {
+				for i, n := range nodeSet.NodeSpecs {
+					if i == 0 {
+						continue
+					}
+					if len(n.Node.CustomPorts) == 0 {
+						panic("no custom port specified, mock capability running in kind must have a custom port in order to connect")
+					}
+					ports := strings.Split(n.Node.CustomPorts[0], ":")
+					mockClientsAddress = append(mockClientsAddress, "127.0.0.1:"+ports[0])
+				}
+			}
+		}
 	} else {
 		for i := range setupOutput.nodeOutput[1].CLNodes {
 			// TODO: This is brittle, switch to checking the node label
@@ -389,7 +414,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		"commit":       "profile-check",
 	}
 
-	_, err = wasp.NewProfile().
+	g, err := wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
 			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
 			LoadType:    wasp.RPS,
@@ -401,8 +426,10 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 			LokiConfig:            wasp.NewEnvLokiConfig(),
 			RateLimitUnitDuration: time.Minute,
 		})).
-		Run(true)
+		Run(false)
 	require.NoError(t, err, "wasp load test did not finish successfully")
+
+	g.Wait()
 }
 
 // TestWithReconnect Re-runs the load test against an existing DON deployment. It expects feeds, OCR2 keys, and
@@ -595,7 +622,7 @@ func (s *StreamsGun) precomputeReports() {
 		}
 	}
 
-	event, eventID, err := createFeedReport(logger.NullLogger, price, uint64(timestamp.UnixNano()), feeds, s.keyBundles) //nolint:gosec // G115 don't care in test code
+	event, eventID, err := createFeedReport(logger.Nop(), price, uint64(timestamp.UnixNano()), feeds, s.keyBundles) //nolint:gosec // G115 don't care in test code
 	if err != nil {
 		panic(err)
 	}
@@ -665,8 +692,8 @@ func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint6
 	return event, eventID, nil
 }
 
-func decodeTargetInput(inputs *values.Map) (evm.Request, error) {
-	var r evm.Request
+func decodeTargetInput(inputs *values.Map) (targets.Request, error) {
+	var r targets.Request
 	const signedReportField = "signed_report"
 	signedReport, ok := inputs.Underlying[signedReportField]
 	if !ok {
@@ -687,6 +714,7 @@ func saveKeyBundles(keyBundles []ocr2key.KeyBundle) error {
 	}
 
 	for i, kb := range keyBundles {
+		framework.L.Info().Msgf("Saving OCR2 Key ID: %s, OnChainPublicKey: %s", kb.ID(), kb.OnChainPublicKey())
 		bytes, err := kb.Marshal()
 		if err != nil {
 			return fmt.Errorf("failed to marshal key bundle %d: %w", i, err)
@@ -732,10 +760,20 @@ func loadKeyBundlesFromCache() ([]ocr2key.KeyBundle, error) {
 	return keyBundles, nil
 }
 
-func NewFeedID(t *testing.T) ([32]byte, string) {
+// NewFeedIDDF2 creates a random Data Feeds 2.0 format https://docs.google.com/document/d/13ciwTx8lSUfyz1IdETwpxlIVSn1lwYzGtzOBBTpl5Vg/edit?tab=t.0#heading=h.dxx2wwn1dmoz
+func NewFeedIDDF2(t *testing.T) ([32]byte, string) {
 	buf := [32]byte{}
 	_, err := crand.Read(buf[:])
 	require.NoError(t, err, "cannot create feedID")
+	buf[0] = 0x01 // format byte
+	buf[5] = 0x00 // attribute
+	buf[6] = 0x03 // attribute
+	buf[7] = 0x00 // data type byte
+
+	for i := 8; i < 16; i++ {
+		buf[i] = 0x00
+	}
+
 	return buf, "0x" + hex.EncodeToString(buf[:])
 }
 

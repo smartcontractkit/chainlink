@@ -5,8 +5,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
@@ -14,10 +17,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
@@ -34,7 +40,7 @@ func TestDeployHomeChain(t *testing.T) {
 		Chains:     2,
 		Nodes:      4,
 	})
-	homeChainSel := e.AllChainSelectors()[0]
+	homeChainSel := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
@@ -42,7 +48,7 @@ func TestDeployHomeChain(t *testing.T) {
 		HomeChainSel:     homeChainSel,
 		RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
 		RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
-		NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+		NodeOperators:    testhelpers.NewTestNodeOperator(e.BlockChains.EVMChains()[homeChainSel].DeployerKey.From),
 		NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 			"NodeOperator": p2pIds,
 		},
@@ -50,14 +56,14 @@ func TestDeployHomeChain(t *testing.T) {
 	output, err := v1_6.DeployHomeChainChangeset(e, homeChainCfg)
 	require.NoError(t, err)
 	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 	require.NotNil(t, state.Chains[homeChainSel].CapabilityRegistry)
 	require.NotNil(t, state.Chains[homeChainSel].CCIPHome)
 	require.NotNil(t, state.Chains[homeChainSel].RMNHome)
 	snap, _, err := state.View(&e, []uint64{homeChainSel})
 	require.NoError(t, err)
-	chainName := e.Chains[homeChainSel].Name()
+	chainName := e.BlockChains.EVMChains()[homeChainSel].Name()
 	_, ok := snap[chainName]
 	require.True(t, ok)
 	capRegSnap, ok := snap[chainName].CapabilityRegistry[state.Chains[homeChainSel].CapabilityRegistry.Address().String()]
@@ -65,7 +71,7 @@ func TestDeployHomeChain(t *testing.T) {
 	require.NotNil(t, capRegSnap)
 	require.Equal(t, []v1_0.NopView{
 		{
-			Admin: e.Chains[homeChainSel].DeployerKey.From,
+			Admin: e.BlockChains.EVMChains()[homeChainSel].DeployerKey.From,
 			Name:  "NodeOperator",
 		},
 	}, capRegSnap.Nops)
@@ -80,7 +86,7 @@ func TestDeployHomeChainIdempotent(t *testing.T) {
 		HomeChainSel:     e.HomeChainSel,
 		RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
 		RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
-		NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+		NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 		NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 			"NodeOperator": nodes.NonBootstraps().PeerIDs(),
 		},
@@ -88,14 +94,78 @@ func TestDeployHomeChainIdempotent(t *testing.T) {
 	// apply the changeset once again to ensure idempotency
 	output, err := v1_6.DeployHomeChainChangeset(e.Env, homeChainCfg)
 	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
-	_, err = changeset.LoadOnchainState(e.Env)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook)) //nolint:staticcheck // will be addressed when we migrate to data store
+	_, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
+}
+
+func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
+	ctx := testcontext.Get(t)
+	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t)
+	e := deployedEnvironment.Env
+
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	require.NoError(t, err)
+
+	// deploy home chain
+	homeChainCfg := v1_6.DeployHomeChainConfig{
+		HomeChainSel:     deployedEnvironment.HomeChainSel,
+		RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+		RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+		NodeOperators:    testhelpers.NewTestNodeOperator(e.BlockChains.EVMChains()[deployedEnvironment.HomeChainSel].DeployerKey.From),
+		NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+			"NodeOperator": nodes.NonBootstraps().PeerIDs(),
+		},
+	}
+
+	// apply the changeset once again to ensure idempotency
+	e, err = commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+			homeChainCfg,
+		))
+	require.NoError(t, err)
+
+	state, err := stateview.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	// capabilityRegistryDonID
+	nextDonID, err := state.Chains[deployedEnvironment.HomeChainSel].CapabilityRegistry.GetNextDONId(&bind.CallOpts{Context: ctx})
+	require.NoError(t, err)
+
+	// deploy donIDClaimer
+	e, err = commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			v1_6.DeployDonIDClaimerChangeset,
+			v1_6.DeployDonIDClaimerConfig{},
+		))
+
+	require.NoError(t, err)
+
+	state, err = stateview.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	e, err = commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			v1_6.DonIDClaimerOffSetChangeset,
+			v1_6.DonIDClaimerOffSetConfig{
+				OffSet: 1,
+			},
+		))
+
+	require.NoError(t, err)
+
+	// check if the offset was successfully applied
+	nextDonIDAfterOffset, err := state.Chains[deployedEnvironment.HomeChainSel].DonIDClaimer.GetNextDONId(&bind.CallOpts{Context: ctx})
+	require.NoError(t, err)
+
+	// offSets donID based on CapReg nextDonID
+	require.Equal(t, nextDonID+1, nextDonIDAfterOffset)
 }
 
 func TestRemoveDonsValidate(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
-	s, err := changeset.LoadOnchainState(e.Env)
+	s, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	homeChain := s.Chains[e.HomeChainSel]
 	var tt = []struct {
@@ -150,16 +220,16 @@ func TestRemoveDonsValidate(t *testing.T) {
 
 func TestRemoveDons(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
-	s, err := changeset.LoadOnchainState(e.Env)
+	s, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	homeChain := s.Chains[e.HomeChainSel]
 
 	// Remove a don w/o MCMS
 	donsBefore, err := homeChain.CapabilityRegistry.GetDONs(nil)
 	require.NoError(t, err)
-	e.Env, err = commoncs.Apply(t, e.Env, nil,
+	e.Env, err = commoncs.Apply(t, e.Env,
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.RemoveDONs),
+			cldf.CreateLegacyChangeSet(v1_6.RemoveDONs),
 			v1_6.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{donsBefore[0].Id},
@@ -174,33 +244,24 @@ func TestRemoveDons(t *testing.T) {
 	// Remove a don w/ MCMS
 	donsBefore, err = homeChain.CapabilityRegistry.GetDONs(nil)
 	require.NoError(t, err)
-	e.Env, err = commoncs.Apply(t, e.Env,
-		map[uint64]*proposalutils.TimelockExecutionContracts{
-			e.HomeChainSel: {
-				Timelock:  s.Chains[e.HomeChainSel].Timelock,
-				CallProxy: s.Chains[e.HomeChainSel].CallProxy,
+	e.Env, err = commoncs.Apply(t, e.Env, commoncs.Configure(
+		cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
+		commoncs.TransferToMCMSWithTimelockConfig{
+			ContractsByChain: map[uint64][]common.Address{
+				e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
+			},
+			MCMSConfig: proposalutils.TimelockConfig{
+				MinDelay: 0,
 			},
 		},
-		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
-			commoncs.TransferToMCMSWithTimelockConfig{
-				ContractsByChain: map[uint64][]common.Address{
-					e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
-				},
-				MCMSConfig: proposalutils.TimelockConfig{
-					MinDelay: 0,
-				},
-			},
-		),
-		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.RemoveDONs),
-			v1_6.RemoveDONsConfig{
-				HomeChainSel: e.HomeChainSel,
-				DonIDs:       []uint32{donsBefore[0].Id},
-				MCMS:         &proposalutils.TimelockConfig{MinDelay: 0},
-			},
-		),
-	)
+	), commoncs.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.RemoveDONs),
+		v1_6.RemoveDONsConfig{
+			HomeChainSel: e.HomeChainSel,
+			DonIDs:       []uint32{donsBefore[0].Id},
+			MCMS:         &proposalutils.TimelockConfig{MinDelay: 0},
+		},
+	))
 	require.NoError(t, err)
 	donsAfter, err = homeChain.CapabilityRegistry.GetDONs(nil)
 	require.NoError(t, err)
@@ -209,17 +270,17 @@ func TestRemoveDons(t *testing.T) {
 
 func TestAddDonAfterRemoveDons(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
-	s, err := changeset.LoadOnchainState(e.Env)
+	s, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	allChains := e.Env.AllChainSelectors()
+	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	homeChain := s.Chains[e.HomeChainSel]
 	ocrConfigs := make(map[uint64]v1_6.CCIPOCRParams)
 	// Remove a don
 	donsBefore, err := homeChain.CapabilityRegistry.GetDONs(nil)
 	require.NoError(t, err)
-	e.Env, err = commoncs.Apply(t, e.Env, nil,
+	e.Env, err = commoncs.Apply(t, e.Env,
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.RemoveDONs),
+			cldf.CreateLegacyChangeSet(v1_6.RemoveDONs),
 			v1_6.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{donsBefore[len(donsBefore)-1].Id},
@@ -259,9 +320,9 @@ func TestAddDonAfterRemoveDons(t *testing.T) {
 	}
 	ocrConfigs[donRemovedForChain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, nil, nil)
 	// try to add the another don
-	e.Env, err = commoncs.Apply(t, e.Env, nil,
+	e.Env, err = commoncs.Apply(t, e.Env,
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.AddDonAndSetCandidateChangeset),
+			cldf.CreateLegacyChangeSet(v1_6.AddDonAndSetCandidateChangeset),
 			v1_6.AddDonAndSetCandidateChangesetConfig{
 				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
 					HomeChainSelector: e.HomeChainSel,
@@ -297,14 +358,14 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 			nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 			require.NoError(t, err)
 			// apply the DeployHomeChain changeset, and timelock
-			e.Env, err = commoncs.ApplyChangesets(t, e.Env, nil, []commoncs.ConfiguredChangeSet{
+			e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 				commoncs.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
 					v1_6.DeployHomeChainConfig{
 						HomeChainSel:     e.HomeChainSel,
 						RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 						RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
-						NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+						NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 						NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 							testhelpers.TestNodeOperator: nodes.NonBootstraps().PeerIDs(),
 						},
@@ -313,9 +374,9 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			s, err := changeset.LoadOnchainState(e.Env)
+			s, err := stateview.LoadOnchainState(e.Env)
 			require.NoError(t, err)
-			state, err := changeset.LoadOnchainState(e.Env)
+			state, err := stateview.LoadOnchainState(e.Env)
 			require.NoError(t, err)
 			homeChain := s.Chains[e.HomeChainSel]
 
@@ -328,14 +389,8 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
 				_, err := commoncs.Apply(t, e.Env,
-					map[uint64]*proposalutils.TimelockExecutionContracts{
-						e.HomeChainSel: {
-							Timelock:  state.Chains[e.HomeChainSel].Timelock,
-							CallProxy: state.Chains[e.HomeChainSel].CallProxy,
-						},
-					},
 					commoncs.Configure(
-						deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: map[uint64][]common.Address{
 								e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
@@ -361,12 +416,6 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 				Admin: randomAddr,
 			}
 			e.Env, err = commoncs.Apply(t, e.Env,
-				map[uint64]*proposalutils.TimelockExecutionContracts{
-					e.HomeChainSel: {
-						Timelock:  state.Chains[e.HomeChainSel].Timelock,
-						CallProxy: state.Chains[e.HomeChainSel].CallProxy,
-					},
-				},
 				commoncs.Configure(v1_6.AddNopsToCapRegChangeset,
 					v1_6.AddOrUpdateNopsConfig{
 						NopUpdates: map[string]capabilities_registry.CapabilitiesRegistryNodeOperator{
@@ -386,12 +435,6 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 
 			// now update the node operator
 			e.Env, err = commoncs.Apply(t, e.Env,
-				map[uint64]*proposalutils.TimelockExecutionContracts{
-					e.HomeChainSel: {
-						Timelock:  state.Chains[e.HomeChainSel].Timelock,
-						CallProxy: state.Chains[e.HomeChainSel].CallProxy,
-					},
-				},
 				commoncs.Configure(v1_6.UpdateNopsInCapRegChangeset,
 					v1_6.AddOrUpdateNopsConfig{
 						ExistingNops: []capabilities_registry.CapabilitiesRegistryNodeOperator{nopToAdd},
@@ -412,12 +455,6 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 
 			// now remove the node operator
 			e.Env, err = commoncs.Apply(t, e.Env,
-				map[uint64]*proposalutils.TimelockExecutionContracts{
-					e.HomeChainSel: {
-						Timelock:  state.Chains[e.HomeChainSel].Timelock,
-						CallProxy: state.Chains[e.HomeChainSel].CallProxy,
-					},
-				},
 				commoncs.Configure(v1_6.RemoveNopsFromCapRegChangeset,
 					v1_6.AddOrUpdateNopsConfig{
 						ExistingNops: []capabilities_registry.CapabilitiesRegistryNodeOperator{nopAfterUpdate},
@@ -454,14 +491,14 @@ func TestRemoveNodes(t *testing.T) {
 			nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 			require.NoError(t, err)
 			// apply the DeployHomeChain changeset, and timelock
-			e.Env, err = commoncs.ApplyChangesets(t, e.Env, nil, []commoncs.ConfiguredChangeSet{
+			e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 				commoncs.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+					cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
 					v1_6.DeployHomeChainConfig{
 						HomeChainSel:     e.HomeChainSel,
 						RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 						RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
-						NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+						NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
 						NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 							testhelpers.TestNodeOperator: nodes.NonBootstraps().PeerIDs(),
 						},
@@ -470,12 +507,12 @@ func TestRemoveNodes(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			s, err := changeset.LoadOnchainState(e.Env)
+			s, err := stateview.LoadOnchainState(e.Env)
 			require.NoError(t, err)
-			state, err := changeset.LoadOnchainState(e.Env)
+			state, err := stateview.LoadOnchainState(e.Env)
 			require.NoError(t, err)
 			homeChain := s.Chains[e.HomeChainSel]
-			allChains := e.Env.AllChainSelectors()
+			allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 
 			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
@@ -486,14 +523,8 @@ func TestRemoveNodes(t *testing.T) {
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
 				_, err := commoncs.Apply(t, e.Env,
-					map[uint64]*proposalutils.TimelockExecutionContracts{
-						e.HomeChainSel: {
-							Timelock:  state.Chains[e.HomeChainSel].Timelock,
-							CallProxy: state.Chains[e.HomeChainSel].CallProxy,
-						},
-					},
 					commoncs.Configure(
-						deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: map[uint64][]common.Address{
 								e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
@@ -509,12 +540,6 @@ func TestRemoveNodes(t *testing.T) {
 				require.Equal(t, state.Chains[e.HomeChainSel].Timelock.Address(), owner)
 			}
 			e.Env, err = commoncs.Apply(t, e.Env,
-				map[uint64]*proposalutils.TimelockExecutionContracts{
-					e.HomeChainSel: {
-						Timelock:  state.Chains[e.HomeChainSel].Timelock,
-						CallProxy: state.Chains[e.HomeChainSel].CallProxy,
-					},
-				},
 				commoncs.Configure(v1_6.RemoveNodesFromCapRegChangeset,
 					v1_6.RemoveNodesConfig{
 						HomeChainSel:   e.HomeChainSel,

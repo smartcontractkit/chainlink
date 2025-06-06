@@ -6,9 +6,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
 )
@@ -18,8 +23,8 @@ func TestMintLink(t *testing.T) {
 	t.Parallel()
 	env := setupLinkTransferTestEnv(t)
 	ctx := env.GetContext()
-	chainSelector := env.AllChainSelectors()[0]
-	chain := env.Chains[chainSelector]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	chain := env.BlockChains.EVMChains()[chainSelector]
 
 	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 	require.NoError(t, err)
@@ -30,9 +35,9 @@ func TestMintLink(t *testing.T) {
 	linkState, err := changeset.MaybeLoadLinkTokenChainState(chain, addrs)
 	require.NoError(t, err)
 
-	_, err = changeset.Apply(t, env, nil,
+	_, err = changeset.Apply(t, env,
 		changeset.Configure(
-			deployment.CreateLegacyChangeSet(example.AddMintersBurnersLink),
+			cldf.CreateLegacyChangeSet(example.AddMintersBurnersLink),
 			&example.AddMintersBurnersLinkConfig{
 				ChainSelector: chainSelector,
 				Minters:       []common.Address{chain.DeployerKey.From},

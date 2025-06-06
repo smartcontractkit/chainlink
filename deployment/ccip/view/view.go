@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
@@ -27,6 +28,7 @@ type ChainView struct {
 	// v1.5
 	TokenAdminRegistry map[string]v1_5.TokenAdminRegistryView `json:"tokenAdminRegistry,omitempty"`
 	TokenPoolFactory   map[string]v1_5_1.TokenPoolFactoryView `json:"tokenPoolFactory,omitempty"`
+	RegistryModules    map[string]shared.RegistryModulesView  `json:"registryModules,omitempty"`
 	TokenPools         map[string]map[string]v1_5_1.PoolView  `json:"poolByTokens,omitempty"` // TokenSymbol => TokenPool Address => PoolView
 	CommitStore        map[string]v1_5.CommitStoreView        `json:"commitStore,omitempty"`
 	PriceRegistry      map[string]v1_2.PriceRegistryView      `json:"priceRegistry,omitempty"`
@@ -49,7 +51,7 @@ type ChainView struct {
 	LinkToken          common_v1_0.LinkTokenView                     `json:"linkToken,omitempty"`
 	StaticLinkToken    common_v1_0.StaticLinkTokenView               `json:"staticLinkToken,omitempty"`
 
-	UpdateMu *sync.Mutex
+	UpdateMu *sync.Mutex `json:"-"`
 }
 
 func NewChain() ChainView {
@@ -86,23 +88,25 @@ type SolChainView struct {
 	ChainSelector uint64 `json:"chainSelector,omitempty"`
 	ChainID       string `json:"chainID,omitempty"`
 	// v1.6
-	FeeQuoter map[string]solana.FeeQuoterView `json:"feeQuoter,omitempty"`
-	Router    map[string]solana.RouterView    `json:"router,omitempty"`
-	OffRamp   map[string]solana.OffRampView   `json:"offRamp,omitempty"`
-	RMNRemote map[string]solana.RMNRemoteView `json:"rmnRemote,omitempty"`
-	TokenPool map[string]solana.TokenPoolView `json:"tokenPool,omitempty"`
-	LinkToken solana.TokenView                `json:"linkToken,omitempty"`
-	Tokens    map[string]solana.TokenView     `json:"tokens,omitempty"`
+	FeeQuoter        map[string]solana.FeeQuoterView `json:"feeQuoter,omitempty"`
+	Router           map[string]solana.RouterView    `json:"router,omitempty"`
+	OffRamp          map[string]solana.OffRampView   `json:"offRamp,omitempty"`
+	RMNRemote        map[string]solana.RMNRemoteView `json:"rmnRemote,omitempty"`
+	TokenPool        map[string]solana.TokenPoolView `json:"tokenPool,omitempty"`
+	LinkToken        solana.TokenView                `json:"linkToken,omitempty"`
+	Tokens           map[string]solana.TokenView     `json:"tokens,omitempty"`
+	MCMSWithTimelock solana.MCMSWithTimelockView     `json:"mcmsWithTimelock,omitempty"`
 }
 
 func NewSolChain() SolChainView {
 	return SolChainView{
-		FeeQuoter: make(map[string]solana.FeeQuoterView),
-		Router:    make(map[string]solana.RouterView),
-		OffRamp:   make(map[string]solana.OffRampView),
-		RMNRemote: make(map[string]solana.RMNRemoteView),
-		TokenPool: make(map[string]solana.TokenPoolView),
-		Tokens:    make(map[string]solana.TokenView),
+		FeeQuoter:        make(map[string]solana.FeeQuoterView),
+		Router:           make(map[string]solana.RouterView),
+		OffRamp:          make(map[string]solana.OffRampView),
+		RMNRemote:        make(map[string]solana.RMNRemoteView),
+		TokenPool:        make(map[string]solana.TokenPoolView),
+		Tokens:           make(map[string]solana.TokenView),
+		MCMSWithTimelock: solana.MCMSWithTimelockView{},
 	}
 }
 
@@ -110,6 +114,15 @@ func (v *ChainView) UpdateTokenPool(tokenSymbol string, tokenPoolAddress string,
 	v.UpdateMu.Lock()
 	defer v.UpdateMu.Unlock()
 	v.TokenPools = helpers.AddValueToNestedMap(v.TokenPools, tokenSymbol, tokenPoolAddress, poolView)
+}
+
+func (v *ChainView) UpdateRegistryModuleView(registryModuleAddress string, registryModuleView shared.RegistryModulesView) {
+	v.UpdateMu.Lock()
+	defer v.UpdateMu.Unlock()
+	if v.RegistryModules == nil {
+		v.RegistryModules = make(map[string]shared.RegistryModulesView)
+	}
+	v.RegistryModules[registryModuleAddress] = registryModuleView
 }
 
 type CCIPView struct {

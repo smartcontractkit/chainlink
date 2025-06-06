@@ -4,14 +4,19 @@ import (
 	"testing"
 	"time"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	tutils "github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
@@ -37,10 +42,10 @@ func TestGenericOps(t *testing.T) {
 				tutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-437")
 			}
 			tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
-			solChain := tenv.Env.AllChainSelectorsSolana()[0]
+			solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 			e := tenv.Env
 
-			var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
+			var mcmsConfig *proposalutils.TimelockConfig
 			if test.Mcms {
 				_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
 					ccipChangesetSolana.CCIPContractsToTransfer{
@@ -48,39 +53,34 @@ func TestGenericOps(t *testing.T) {
 						FeeQuoter: true,
 						OffRamp:   true,
 					})
-				mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-					MCMS: &proposalutils.TimelockConfig{
-						MinDelay: 1 * time.Second,
-					},
-					RouterOwnedByTimelock:    true,
-					FeeQuoterOwnedByTimelock: true,
-					OffRampOwnedByTimelock:   true,
+				mcmsConfig = &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
 				}
 			}
 
-			e, _, err := commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+			e, _, err := commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetDefaultCodeVersion),
+					cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetDefaultCodeVersion),
 					ccipChangesetSolana.SetDefaultCodeVersionConfig{
 						ChainSelector: solChain,
 						VersionEnum:   1,
-						MCMSSolana:    mcmsConfig,
+						MCMS:          mcmsConfig,
 					},
 				),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(ccipChangesetSolana.UpdateEnableManualExecutionAfter),
+					cldf.CreateLegacyChangeSet(ccipChangesetSolana.UpdateEnableManualExecutionAfter),
 					ccipChangesetSolana.UpdateEnableManualExecutionAfterConfig{
 						ChainSelector:         solChain,
 						EnableManualExecution: 1,
-						MCMSSolana:            mcmsConfig,
+						MCMS:                  mcmsConfig,
 					},
 				),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(ccipChangesetSolana.UpdateSvmChainSelector),
+					cldf.CreateLegacyChangeSet(ccipChangesetSolana.UpdateSvmChainSelector),
 					ccipChangesetSolana.UpdateSvmChainSelectorConfig{
 						OldChainSelector: solChain,
 						NewChainSelector: solChain + 1,
-						MCMSSolana:       mcmsConfig,
+						MCMS:             mcmsConfig,
 					},
 				),
 			},

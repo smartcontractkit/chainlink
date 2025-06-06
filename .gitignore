@@ -80,11 +80,6 @@ secrets.toml
 tmp_laneconfig/
 solana_contracts
 
-# goreleaser builds
-cosign.*
-dist/
-MacOSX*
-
 # Test & linter reports
 *report.xml
 *report.json
@@ -114,3 +109,14 @@ vendor/*
 contracts/lcov.info
 contracts/out/
 /cache
+
+# Used by plugins/chainlink.prebuilt.Dockerfile
+/bin/
+/lib/
+/build/bin/
+/build/lib/
+
+# artifacts of CRE environment creation or CRE CLI usage
+core/scripts/cre/environment/*.yaml
+core/scripts/cre/environment/*.yml
+core/scripts/cre/environment/logs/

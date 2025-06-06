@@ -5,6 +5,8 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/stretchr/testify/require"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 func TestLabeledAddresses_And(t *testing.T) {
@@ -18,7 +20,7 @@ func TestLabeledAddresses_And(t *testing.T) {
 			name: "No labels returns unlabeled",
 			give: LabeledAddresses{
 				"addr1": {Type: "type1", Version: *semver.MustParse("1.0.0"), Labels: nil},
-				"addr2": {Type: "type2", Version: *semver.MustParse("2.0.0"), Labels: NewLabelSet("label1")},
+				"addr2": {Type: "type2", Version: *semver.MustParse("2.0.0"), Labels: cldf.NewLabelSet("label1")},
 			},
 			labels: nil,
 			want: LabeledAddresses{
@@ -28,26 +30,26 @@ func TestLabeledAddresses_And(t *testing.T) {
 		{
 			name: "One label",
 			give: LabeledAddresses{
-				"addr1": {Type: "type1", Version: *semver.MustParse("1.0.0"), Labels: NewLabelSet("label1")},
-				"addr2": {Type: "type2", Version: *semver.MustParse("2.0.0"), Labels: NewLabelSet("label2")},
-				"addr3": {Type: "type3", Version: *semver.MustParse("3.0.0"), Labels: NewLabelSet("label1", "label2")},
+				"addr1": {Type: "type1", Version: *semver.MustParse("1.0.0"), Labels: cldf.NewLabelSet("label1")},
+				"addr2": {Type: "type2", Version: *semver.MustParse("2.0.0"), Labels: cldf.NewLabelSet("label2")},
+				"addr3": {Type: "type3", Version: *semver.MustParse("3.0.0"), Labels: cldf.NewLabelSet("label1", "label2")},
 			},
 			labels: []string{"label1"},
 			want: LabeledAddresses{
-				"addr1": {Type: "type1", Version: *semver.MustParse("1.0.0"), Labels: NewLabelSet("label1")},
-				"addr3": {Type: "type3", Version: *semver.MustParse("3.0.0"), Labels: NewLabelSet("label1", "label2")},
+				"addr1": {Type: "type1", Version: *semver.MustParse("1.0.0"), Labels: cldf.NewLabelSet("label1")},
+				"addr3": {Type: "type3", Version: *semver.MustParse("3.0.0"), Labels: cldf.NewLabelSet("label1", "label2")},
 			},
 		},
 		{
 			name: "Multiple labels",
 			give: LabeledAddresses{
-				"addr1": {Type: "type1", Version: *semver.MustParse("1.0.0"), Labels: NewLabelSet("label1", "label2")},
-				"addr2": {Type: "type2", Version: *semver.MustParse("2.0.0"), Labels: NewLabelSet("label1")},
-				"addr3": {Type: "type3", Version: *semver.MustParse("3.0.0"), Labels: NewLabelSet("label2")},
+				"addr1": {Type: "type1", Version: *semver.MustParse("1.0.0"), Labels: cldf.NewLabelSet("label1", "label2")},
+				"addr2": {Type: "type2", Version: *semver.MustParse("2.0.0"), Labels: cldf.NewLabelSet("label1")},
+				"addr3": {Type: "type3", Version: *semver.MustParse("3.0.0"), Labels: cldf.NewLabelSet("label2")},
 			},
 			labels: []string{"label1", "label2"},
 			want: LabeledAddresses{
-				"addr1": {Type: "type1", Version: *semver.MustParse("1.0.0"), Labels: NewLabelSet("label1", "label2")},
+				"addr1": {Type: "type1", Version: *semver.MustParse("1.0.0"), Labels: cldf.NewLabelSet("label1", "label2")},
 			},
 		},
 		{
@@ -59,7 +61,7 @@ func TestLabeledAddresses_And(t *testing.T) {
 		{
 			name: "No matching labels",
 			give: LabeledAddresses{
-				"addr1": {Type: "type1", Version: *semver.MustParse("1.0.0"), Labels: NewLabelSet("label1")},
+				"addr1": {Type: "type1", Version: *semver.MustParse("1.0.0"), Labels: cldf.NewLabelSet("label1")},
 			},
 			labels: []string{"label2"},
 			want:   LabeledAddresses{},

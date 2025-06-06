@@ -6,49 +6,50 @@ import (
 
 	mcmslib "github.com/smartcontractkit/mcms"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
 // RemoveFeedChangeset is a changeset that removes a feed configuration and aggregator proxy mapping from DataFeedsCache contract.
 // This changeset may return a timelock proposal if the MCMS config is provided, otherwise it will execute the transactions with the deployer key.
-var RemoveFeedChangeset = deployment.CreateChangeSet(removeFeedLogic, removeFeedPrecondition)
+var RemoveFeedChangeset = cldf.CreateChangeSet(removeFeedLogic, removeFeedPrecondition)
 
-func removeFeedLogic(env deployment.Environment, c types.RemoveFeedConfig) (deployment.ChangesetOutput, error) {
+func removeFeedLogic(env cldf.Environment, c types.RemoveFeedConfig) (cldf.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)
-	chain := env.Chains[c.ChainSelector]
+	chain := env.BlockChains.EVMChains()[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
 	contract := chainState.DataFeedsCache[c.CacheAddress]
 
 	txOpt := chain.DeployerKey
 	if c.McmsConfig != nil {
-		txOpt = deployment.SimTransactOpts()
+		txOpt = cldf.SimTransactOpts()
 	}
 	dataIDs, _ := FeedIDsToBytes16(c.DataIDs)
 
 	// remove the feed config
 	removeConfigTx, err := contract.RemoveFeedConfigs(txOpt, dataIDs)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to remove feed config %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to remove feed config %w", err)
 	}
 
 	if c.McmsConfig == nil {
-		if _, err := deployment.ConfirmIfNoError(chain, removeConfigTx, err); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", removeConfigTx.Hash().String(), err)
+		if _, err := cldf.ConfirmIfNoError(chain, removeConfigTx, err); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", removeConfigTx.Hash().String(), err)
 		}
 	}
 
 	// remove from proxy mapping
 	removeProxyMappingTx, err := contract.RemoveDataIdMappingsForProxies(txOpt, c.ProxyAddresses)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to remove proxy mapping %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to remove proxy mapping %w", err)
 	}
 
 	if c.McmsConfig == nil {
-		if _, err := deployment.ConfirmIfNoError(chain, removeProxyMappingTx, err); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", removeProxyMappingTx.Hash().String(), err)
+		if _, err := cldf.ConfirmIfNoError(chain, removeProxyMappingTx, err); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", removeProxyMappingTx.Hash().String(), err)
 		}
-		return deployment.ChangesetOutput{}, nil
+		return cldf.ChangesetOutput{}, nil
 	}
 
 	proposalConfig := MultiChainProposalConfig{
@@ -66,13 +67,13 @@ func removeFeedLogic(env deployment.Environment, c types.RemoveFeedConfig) (depl
 
 	proposal, err := BuildMultiChainProposals(env, "proposal to remove a feed from cache", proposalConfig, c.McmsConfig.MinDelay)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 	}
-	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
-func removeFeedPrecondition(env deployment.Environment, c types.RemoveFeedConfig) error {
-	_, ok := env.Chains[c.ChainSelector]
+func removeFeedPrecondition(env cldf.Environment, c types.RemoveFeedConfig) error {
+	_, ok := env.BlockChains.EVMChains()[c.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}

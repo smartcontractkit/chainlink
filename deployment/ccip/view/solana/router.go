@@ -5,14 +5,15 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_common"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 type RouterView struct {
+	PDA                    string                              `json:"pda,omitempty"`
 	Version                uint8                               `json:"version,omitempty"`
 	DefaultCodeVersion     string                              `json:"defaultCodeVersion,omitempty"`
 	SvmChainSelector       uint64                              `json:"svmChainSelector,omitempty"`
@@ -27,12 +28,14 @@ type RouterView struct {
 }
 
 type RouterDestChainConfig struct {
+	PDA              string   `json:"pda,omitempty"`
 	LaneCodeVersion  string   `json:"laneCodeVersion,omitempty"`
 	AllowedSenders   []string `json:"allowedSenders,omitempty"`
 	AllowListEnabled bool     `json:"allowListEnabled,omitempty"`
 }
 
 type RouterTokenAdminRegistry struct {
+	PDA                  string   `json:"pda,omitempty"`
 	Version              uint8    `json:"version,omitempty"`
 	Administrator        string   `json:"administrator,omitempty"`
 	PendingAdministrator string   `json:"pendingAdministrator,omitempty"`
@@ -41,7 +44,7 @@ type RouterTokenAdminRegistry struct {
 	Mint                 string   `json:"mint,omitempty"`
 }
 
-func GenerateRouterView(chain deployment.SolChain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (RouterView, error) {
+func GenerateRouterView(chain cldf_solana.Chain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (RouterView, error) {
 	view := RouterView{}
 	var config solRouter.Config
 	configPDA, _, _ := solState.FindConfigPDA(program)
@@ -49,6 +52,7 @@ func GenerateRouterView(chain deployment.SolChain, program solana.PublicKey, rem
 	if err != nil {
 		return view, fmt.Errorf("config not found in existing state, initialize the router first %d", chain.Selector)
 	}
+	view.PDA = configPDA.String()
 	view.DefaultCodeVersion = config.DefaultCodeVersion.String()
 	view.SvmChainSelector = config.SvmChainSelector
 	view.Owner = config.Owner.String()
@@ -69,6 +73,7 @@ func GenerateRouterView(chain deployment.SolChain, program solana.PublicKey, rem
 			return view, fmt.Errorf("remote %d is not configured on solana chain %d", remote, chain.Selector)
 		}
 		view.DestinationChainConfig[remote] = RouterDestChainConfig{
+			PDA:              remoteChainPDA.String(),
 			LaneCodeVersion:  destChainStateAccount.Config.LaneCodeVersion.String(),
 			AllowedSenders:   make([]string, len(destChainStateAccount.Config.AllowedSenders)),
 			AllowListEnabled: destChainStateAccount.Config.AllowListEnabled,
@@ -86,6 +91,7 @@ func GenerateRouterView(chain deployment.SolChain, program solana.PublicKey, rem
 		var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
 		if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err == nil {
 			view.TokenAdminRegistry[token.String()] = RouterTokenAdminRegistry{
+				PDA:                  tokenAdminRegistryPDA.String(),
 				Version:              tokenAdminRegistryAccount.Version,
 				Administrator:        tokenAdminRegistryAccount.Administrator.String(),
 				PendingAdministrator: tokenAdminRegistryAccount.PendingAdministrator.String(),

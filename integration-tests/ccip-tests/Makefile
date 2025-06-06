@@ -27,11 +27,11 @@ test_load_ccip: set_config
 	source ./testconfig/override/.env && \
 	DATABASE_URL=postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable	\
     ENV_JOB_IMAGE=$(testimage)  \
-    TEST_SUITE=ccip-load \
+    TEST_SUITE=ccip-tests/load \
     TEST_ARGS="-test.timeout 900h" \
     DETACH_RUNNER=true \
-    RR_MEM=16Gi \
-    RR_CPU=4 \
+    RR_MEM=45Gi \
+    RR_CPU=6 \
 	go test -timeout 24h -count=1 -v -run ^$(testname)$$ ./load
 
 

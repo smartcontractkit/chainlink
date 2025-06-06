@@ -7,15 +7,17 @@ import (
 
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 // RegisterNodesToJDChangeset is a changeset that reads node info from a JSON file and registers them in Job Distributor
 // Register a node with a set of base labels and optionally with additional extra labels
-var RegisterNodesToJDChangeset = deployment.CreateChangeSet(registerNodesToJDLogic, registerNodesToJDLogicPrecondition)
+var RegisterNodesToJDChangeset = cldf.CreateChangeSet(registerNodesToJDLogic, registerNodesToJDLogicPrecondition)
 
 type MinimalNodeCfg struct {
 	Name        string          `json:"name"`
@@ -32,7 +34,7 @@ type DONConfigSchema struct {
 
 const productLabel = "data-feeds"
 
-func registerNodesToJDLogic(env deployment.Environment, c types.NodeConfig) (deployment.ChangesetOutput, error) {
+func registerNodesToJDLogic(env cldf.Environment, c types.NodeConfig) (cldf.ChangesetOutput, error) {
 	dons, _ := LoadJSON[[]*DONConfigSchema](c.InputFileName, c.InputFS)
 
 	for _, don := range dons {
@@ -66,13 +68,13 @@ func registerNodesToJDLogic(env deployment.Environment, c types.NodeConfig) (dep
 			}
 			if node.IsBootstrap {
 				labels = append(labels, &ptypes.Label{
-					Key:   devenv.NodeLabelKeyType,
-					Value: pointer.To(devenv.NodeLabelValueBootstrap),
+					Key:   devenv.LabelNodeTypeKey,
+					Value: pointer.To(devenv.LabelNodeTypeValueBootstrap),
 				})
 			} else {
 				labels = append(labels, &ptypes.Label{
-					Key:   devenv.NodeLabelKeyType,
-					Value: pointer.To(devenv.NodeLabelValuePlugin),
+					Key:   devenv.LabelNodeTypeKey,
+					Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
 				})
 			}
 			// extra labels
@@ -96,10 +98,10 @@ func registerNodesToJDLogic(env deployment.Environment, c types.NodeConfig) (dep
 		}
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
-func registerNodesToJDLogicPrecondition(env deployment.Environment, c types.NodeConfig) error {
+func registerNodesToJDLogicPrecondition(env cldf.Environment, c types.NodeConfig) error {
 	if c.InputFileName == "" {
 		return errors.New("input file name is required")
 	}

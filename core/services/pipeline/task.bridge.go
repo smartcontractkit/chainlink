@@ -90,8 +90,6 @@ var _ Task = (*BridgeTask)(nil)
 
 var zeroURL = new(url.URL)
 
-const stalenessCap = 30 * time.Minute
-
 func (t *BridgeTask) Type() TaskType {
 	return TaskTypeBridge
 }
@@ -177,13 +175,6 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	requestCtx, cancel := httpRequestCtx(ctx, t, t.config)
 	defer cancel()
 
-	// cacheTTL should not exceed stalenessCap.
-	cacheDuration := time.Duration(cacheTTL) * time.Second
-	if cacheDuration > stalenessCap {
-		lggr.Warnf("bridge task cacheTTL exceeds stalenessCap %s, overriding value to stalenessCap", stalenessCap)
-		cacheDuration = stalenessCap
-	}
-
 	var cachedResponse bool
 	responseBytes, statusCode, headers, start, finish, err := makeHTTPRequest(requestCtx, lggr, "POST", url, reqHeaders, requestData, t.httpClient, t.config.DefaultHTTPLimit())
 	elapsed := finish.Sub(start)
@@ -230,11 +221,17 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 
 		promBridgeErrors.WithLabelValues(t.Name).Inc()
 		if cacheTTL == 0 {
+			lggr.Debugw("Bridge task: request failed",
+				"response", string(responseBytes),
+				"url", url.String(),
+				"status_code", statusCode,
+				"error", err,
+			)
 			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
 		}
 
 		var cacheErr error
-		responseBytes, cacheErr = t.orm.GetCachedResponse(overtimeCtx, t.dotID, t.specId, cacheDuration)
+		responseBytes, cacheErr = t.orm.GetCachedResponse(overtimeCtx, t.dotID, t.specId, time.Duration(cacheTTL)*time.Second) //nolint:gosec // G115
 		if cacheErr != nil {
 			promBridgeCacheErrors.WithLabelValues(t.Name).Inc()
 			if !errors.Is(cacheErr, sql.ErrNoRows) {

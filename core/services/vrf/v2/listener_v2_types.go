@@ -8,10 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	heaps "github.com/theodesp/go-heaps"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 )
@@ -212,7 +212,7 @@ func (lsn *listenerV2) processBatch(
 		float64(lsn.job.VRFSpec.BatchFulfillmentGasMultiplier),
 	)
 
-	ll := l.With("numRequestsInBatch", len(batch.reqIDs),
+	ll := logger.With(l, "numRequestsInBatch", len(batch.reqIDs),
 		"requestIDs", batch.reqIDs,
 		"batchSumGasLimit", batch.totalGasLimit,
 		"fromAddress", fromAddress,
