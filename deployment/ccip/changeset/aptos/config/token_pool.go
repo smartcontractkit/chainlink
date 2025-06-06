@@ -30,7 +30,7 @@ type EVMRemoteConfig struct {
 }
 
 type RateLimiterConfig struct {
-	RemoteChainSelector uint64
+	RemoteChainSelector uint64 // TODO seems redundant, can we get from key of EVMRemoteConfigs?
 	OutboundIsEnabled   bool
 	OutboundCapacity    uint64
 	OutboundRate        uint64

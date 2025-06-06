@@ -15,14 +15,17 @@ import (
 	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"golang.org/x/sync/errgroup"
+
 	aptosBind "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_dummy_receiver"
 	module_onramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp/onramp"
 	aptos_router "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
-	"golang.org/x/sync/errgroup"
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -872,7 +875,7 @@ func SendRequestAptos(
 		// TODO - struct missing input data
 		tokenAddresses[i] = v.SourcePoolAddress
 		tokenAmounts[i] = v.Amount
-		tokenStoreAddresses[i] = v.SourcePoolAddress
+		tokenStoreAddresses[i] = aptos.AccountAddress{}
 	}
 
 	router := aptos_router.Bind(r, client)
@@ -1547,6 +1550,99 @@ func DeployTransferableToken(
 	return srcToken, srcPool, dstToken, dstPool, nil
 }
 
+func DeployTransferableTokenAptos(
+	t *testing.T,
+	lggr logger.Logger,
+	e cldf.Environment,
+	evmChainSel, aptosChainSel uint64,
+	tokenName string,
+) (
+	*burn_mint_erc677.BurnMintERC677,
+	*burn_mint_token_pool.BurnMintTokenPool,
+	aptos.AccountAddress,
+	managed_token_pool.ManagedTokenPool,
+	error,
+) {
+	// TODO check families - similar to Solana
+
+	// EVM
+	evmDeployerKey := e.BlockChains.EVMChains()[evmChainSel].DeployerKey
+	state, err := stateview.LoadOnchainState(e)
+	require.NoError(t, err)
+	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.BlockChains.EVMChains()[evmChainSel], evmDeployerKey, e.ExistingAddresses, tokenName)
+	require.NoError(t, err)
+	err = attachTokenToTheRegistry(e.BlockChains.EVMChains()[evmChainSel], state.MustGetEVMChainState(evmChainSel), evmDeployerKey, evmToken.Address(), evmPool.Address())
+	require.NoError(t, err)
+
+	// Aptos
+	e, err = commoncs.Apply(t, e,
+		commoncs.Configure(aptoscs.AddTokenPool{},
+			config.AddTokenPoolConfig{
+				ChainSelector:                       aptosChainSel,
+				TokenAddress:                        aptos.AccountAddress{}, // Will be deployed
+				TokenObjAddress:                     aptos.AccountAddress{}, // Will be deployed
+				TokenPoolAddress:                    aptos.AccountAddress{}, // Will be deployed
+				PoolType:                            shared.AptosManagedTokenPoolType,
+				TokenTransferFeeByRemoteChainConfig: nil, // TODO - not needed?
+				EVMRemoteConfigs: map[uint64]config.EVMRemoteConfig{
+					evmChainSel: {
+						TokenAddress:     evmToken.Address(),
+						TokenPoolAddress: evmPool.Address(),
+						RateLimiterConfig: config.RateLimiterConfig{
+							RemoteChainSelector: evmChainSel,
+							OutboundIsEnabled:   false,
+							OutboundCapacity:    0,
+							OutboundRate:        0,
+							InboundIsEnabled:    false,
+							InboundCapacity:     0,
+							InboundRate:         0,
+						},
+					},
+				},
+				TokenParams: config.TokenParams{
+					Name:     tokenName,
+					Symbol:   "TKN",
+					Decimals: 8,
+				},
+				MCMSConfig: &proposalutils.TimelockConfig{
+					MinDelay: time.Second, // TODO
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	aptosAddresses, err := e.ExistingAddresses.AddressesForChain(aptosChainSel)
+	require.NoError(t, err)
+	tokenMetadataAddress := aptosstate.FindAptosAddress(
+		cldf.TypeAndVersion{
+			Type:    "TKN",
+			Version: deployment.Version1_6_0,
+			Labels:  nil,
+		},
+		aptosAddresses,
+	)
+	lggr.Debugf("Deployed Token on Aptos: %v", tokenMetadataAddress.StringLong())
+	tokenPoolAddress := aptosstate.FindAptosAddress(
+		cldf.TypeAndVersion{
+			Type:    shared.AptosManagedTokenPoolType,
+			Version: deployment.Version1_6_0,
+			Labels:  cldf.NewLabelSet(tokenMetadataAddress.StringLong()),
+		},
+		aptosAddresses,
+	)
+	aptosTokenPool := managed_token_pool.Bind(tokenPoolAddress, e.BlockChains.AptosChains()[aptosChainSel].Client)
+	lggr.Debugf("Deployed Token Pool for %v to %v", tokenMetadataAddress.StringLong(), tokenPoolAddress.StringLong())
+
+	err = setTokenPoolCounterPart(e.BlockChains.EVMChains()[evmChainSel], evmPool, evmDeployerKey, aptosChainSel, tokenMetadataAddress[:], tokenPoolAddress[:])
+	require.NoError(t, err)
+
+	err = grantMintBurnPermissions(lggr, e.BlockChains.EVMChains()[evmChainSel], evmToken, evmDeployerKey, evmPool.Address())
+	require.NoError(t, err)
+
+	return evmToken, evmPool, tokenMetadataAddress, aptosTokenPool, nil
+}
+
 // assuming one out of the src and dst is solana and the other is evm
 func DeployTransferableTokenSolana(
 	lggr logger.Logger,
@@ -1554,8 +1650,7 @@ func DeployTransferableTokenSolana(
 	evmChainSel, solChainSel uint64,
 	evmDeployer *bind.TransactOpts,
 	evmTokenName string,
-) (*burn_mint_erc677.BurnMintERC677,
-	*burn_mint_token_pool.BurnMintTokenPool, solana.PublicKey, error) {
+) (*burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, solana.PublicKey, error) {
 	selectorFamily, err := chainsel.GetSelectorFamily(evmChainSel)
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
@@ -2284,6 +2379,13 @@ func WaitForTokenBalances(
 						return err
 					}
 					WaitForTheTokenBalanceSol(ctx, t, token, tokenReceiver, env.BlockChains.SolanaChains()[chainSelector], expectedBalance)
+				case chainsel.FamilyAptos:
+					expectedBalance := balance.Uint64()
+					fungibleAssetMetadata := aptos.AccountAddress{}
+					copy(fungibleAssetMetadata[32-len(id.token):], id.token)
+					receiver := aptos.AccountAddress{}
+					copy(receiver[32-len(id.receiver):], id.receiver)
+					WaitForTokenBalanceAptos(ctx, t, fungibleAssetMetadata, receiver, env.BlockChains.AptosChains()[chainSelector], expectedBalance)
 				default:
 				}
 				return nil
@@ -2340,6 +2442,29 @@ func WaitForTheTokenBalanceSol(
 		)
 		return uint64(balance) == expected //nolint:gosec // value is always unsigned
 	}, tests.WaitTimeout(t), 100*time.Millisecond)
+}
+
+func WaitForTokenBalanceAptos(
+	ctx context.Context,
+	t *testing.T,
+	fungibleAsset aptos.AccountAddress,
+	account aptos.AccountAddress,
+	chain cldf_aptos.Chain,
+	expected uint64,
+) {
+	require.Eventually(t, func() bool {
+		balance, err := GetFungibleAssetBalance(chain.Client, account, fungibleAsset)
+		require.NoError(t, err)
+
+		t.Log("(Aptos) Waiting for the token balance",
+			"expected", expected,
+			"actual", balance,
+			"fungibleAsset", fungibleAsset.StringLong(),
+			"receiver", account.StringLong(),
+		)
+
+		return balance == expected
+	}, tests.WaitTimeout(t), 500*time.Millisecond)
 }
 
 func DefaultRouterMessage(receiverAddress common.Address) router.ClientEVM2AnyMessage {

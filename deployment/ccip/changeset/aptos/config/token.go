@@ -17,7 +17,7 @@ type TokenParams struct {
 }
 
 func (tp TokenParams) Validate() error {
-	if tp.MaxSupply == nil || tp.MaxSupply.Sign() <= 0 {
+	if tp.MaxSupply != nil && tp.MaxSupply.Sign() < 0 {
 		return errors.New("maxSupply must be a positive integer")
 	}
 	if tp.Name == "" {
@@ -26,8 +26,8 @@ func (tp TokenParams) Validate() error {
 	if tp.Symbol == "" {
 		return errors.New("symbol cannot be empty")
 	}
-	if tp.Decimals < 1 || tp.Decimals > 8 {
-		return errors.New("decimals must be between 1 and 8")
+	if tp.Decimals < 0 || tp.Decimals > 18 {
+		return errors.New("decimals must be between 0 and 18")
 	}
 	return nil
 }
