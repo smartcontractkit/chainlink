@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -36,20 +37,16 @@ import (
 func AddLanes(t *testing.T, e cldf.Environment, state stateview.CCIPOnChainState, pairs []testhelpers.SourceDestPair) cldf.Environment {
 	addLanesCfg, commitOCR2Configs, execOCR2Configs, jobspecs := LaneConfigsForChains(t, e, state, pairs)
 	var err error
-	e, err = commonchangeset.Apply(t, e, nil,
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_5changeset.DeployLanesChangeset),
-			v1_5changeset.DeployLanesConfig{Configs: addLanesCfg},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_5changeset.SetOCR2ConfigForTestChangeset),
-			v1_5changeset.OCR2Config{CommitConfigs: commitOCR2Configs, ExecConfigs: execOCR2Configs},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_5changeset.JobSpecsForLanesChangeset),
-			v1_5changeset.JobSpecsForLanesConfig{Configs: jobspecs},
-		),
-	)
+	e, err = commonchangeset.Apply(t, e, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5changeset.DeployLanesChangeset),
+		v1_5changeset.DeployLanesConfig{Configs: addLanesCfg},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5changeset.SetOCR2ConfigForTestChangeset),
+		v1_5changeset.OCR2Config{CommitConfigs: commitOCR2Configs, ExecConfigs: execOCR2Configs},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5changeset.JobSpecsForLanesChangeset),
+		v1_5changeset.JobSpecsForLanesConfig{Configs: jobspecs},
+	))
 	require.NoError(t, err)
 	return e
 }
@@ -81,7 +78,7 @@ func LaneConfigsForChains(t *testing.T, env cldf.Environment, state stateview.CC
 		require.NotNil(t, destChainState.RMNProxy)
 		require.NotNil(t, destChainState.TokenAdminRegistry)
 		priceGetterConfig := CreatePriceGetterConfig(t, state, src, dest)
-		block, err := env.Chains[dest].Client.HeaderByNumber(context.Background(), nil)
+		block, err := env.BlockChains.EVMChains()[dest].Client.HeaderByNumber(context.Background(), nil)
 		require.NoError(t, err)
 		destEVMChainIdStr, err := chain_selectors.GetChainIDFromSelector(dest)
 		require.NoError(t, err)
@@ -285,7 +282,7 @@ func SendRequest(
 	}
 	// Set default sender if not provided
 	if cfg.Sender == nil {
-		cfg.Sender = e.Chains[cfg.SourceChain].DeployerKey
+		cfg.Sender = e.BlockChains.EVMChains()[cfg.SourceChain].DeployerKey
 	}
 	t.Logf("Sending CCIP request from chain selector %d to chain selector %d from sender %s",
 		cfg.SourceChain, cfg.DestChain, cfg.Sender.From.String())
@@ -319,8 +316,8 @@ func SendRequest(
 
 func WaitForCommit(
 	t *testing.T,
-	src cldf.Chain,
-	dest cldf.Chain,
+	src cldf_evm.Chain,
+	dest cldf_evm.Chain,
 	commitStore *commit_store.CommitStore,
 	seqNr uint64,
 ) {
@@ -347,8 +344,8 @@ func WaitForCommit(
 
 func WaitForNoCommit(
 	t *testing.T,
-	src cldf.Chain,
-	dest cldf.Chain,
+	src cldf_evm.Chain,
+	dest cldf_evm.Chain,
 	commitStore *commit_store.CommitStore,
 	seqNr uint64,
 ) {
@@ -375,8 +372,8 @@ func WaitForNoCommit(
 
 func WaitForExecute(
 	t *testing.T,
-	src cldf.Chain,
-	dest cldf.Chain,
+	src cldf_evm.Chain,
+	dest cldf_evm.Chain,
 	offRamp *evm_2_evm_offramp.EVM2EVMOffRamp,
 	seqNrs []uint64,
 	blockNum uint64,

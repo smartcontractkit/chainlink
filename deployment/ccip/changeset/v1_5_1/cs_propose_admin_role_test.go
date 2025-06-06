@@ -23,7 +23,7 @@ import (
 func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 	t.Parallel()
 
-	e, selectorA, _, tokens, timelockContracts := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
 		selectorA: {
@@ -38,36 +38,33 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 	}
 
 	// We want an administrator to exist to force failure in the last test
-	e, err := commonchangeset.Apply(t, e, timelockContracts,
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
-			v1_5_1.TokenAdminRegistryChangesetConfig{
-				MCMS: mcmsConfig,
-				Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
-					selectorA: {
-						testhelpers.TestTokenSymbol: {
-							Type:    shared.BurnMintTokenPool,
-							Version: deployment.Version1_5_1,
-						},
+	e, err := commonchangeset.Apply(t, e, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
+		v1_5_1.TokenAdminRegistryChangesetConfig{
+			MCMS: mcmsConfig,
+			Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+				selectorA: {
+					testhelpers.TestTokenSymbol: {
+						Type:    shared.BurnMintTokenPool,
+						Version: deployment.Version1_5_1,
 					},
 				},
 			},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_5_1.AcceptAdminRoleChangeset),
-			v1_5_1.TokenAdminRegistryChangesetConfig{
-				MCMS: mcmsConfig,
-				Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
-					selectorA: {
-						testhelpers.TestTokenSymbol: {
-							Type:    shared.BurnMintTokenPool,
-							Version: deployment.Version1_5_1,
-						},
+		},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5_1.AcceptAdminRoleChangeset),
+		v1_5_1.TokenAdminRegistryChangesetConfig{
+			MCMS: mcmsConfig,
+			Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+				selectorA: {
+					testhelpers.TestTokenSymbol: {
+						Type:    shared.BurnMintTokenPool,
+						Version: deployment.Version1_5_1,
 					},
 				},
 			},
-		),
-	)
+		},
+	))
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -151,7 +148,7 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			_, err = commonchangeset.Apply(t, e, timelockContracts,
+			_, err = commonchangeset.Apply(t, e,
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
 					test.Config,
@@ -171,7 +168,7 @@ func TestProposeAdminRoleChangeset_ExecutionWithoutExternalAdmin(t *testing.T) {
 		}
 
 		t.Run(msg, func(t *testing.T) {
-			e, selectorA, selectorB, tokens, timelockContracts := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), mcmsConfig != nil)
+			e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), mcmsConfig != nil)
 
 			e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
 				selectorA: {
@@ -192,7 +189,7 @@ func TestProposeAdminRoleChangeset_ExecutionWithoutExternalAdmin(t *testing.T) {
 			registryOnA := state.Chains[selectorA].TokenAdminRegistry
 			registryOnB := state.Chains[selectorB].TokenAdminRegistry
 
-			e, err = commonchangeset.Apply(t, e, timelockContracts,
+			e, err = commonchangeset.Apply(t, e,
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
 					v1_5_1.TokenAdminRegistryChangesetConfig{
@@ -221,7 +218,7 @@ func TestProposeAdminRoleChangeset_ExecutionWithoutExternalAdmin(t *testing.T) {
 			if mcmsConfig != nil {
 				require.Equal(t, state.Chains[selectorA].Timelock.Address(), configOnA.PendingAdministrator)
 			} else {
-				require.Equal(t, e.Chains[selectorA].DeployerKey.From, configOnA.PendingAdministrator)
+				require.Equal(t, e.BlockChains.EVMChains()[selectorA].DeployerKey.From, configOnA.PendingAdministrator)
 			}
 
 			configOnB, err := registryOnB.GetTokenConfig(nil, tokens[selectorB].Address)
@@ -229,7 +226,7 @@ func TestProposeAdminRoleChangeset_ExecutionWithoutExternalAdmin(t *testing.T) {
 			if mcmsConfig != nil {
 				require.Equal(t, state.Chains[selectorB].Timelock.Address(), configOnB.PendingAdministrator)
 			} else {
-				require.Equal(t, e.Chains[selectorB].DeployerKey.From, configOnB.PendingAdministrator)
+				require.Equal(t, e.BlockChains.EVMChains()[selectorB].DeployerKey.From, configOnB.PendingAdministrator)
 			}
 		})
 	}
@@ -243,7 +240,7 @@ func TestProposeAdminRoleChangeset_ExecutionWithExternalAdmin(t *testing.T) {
 		}
 
 		t.Run(msg, func(t *testing.T) {
-			e, selectorA, selectorB, tokens, timelockContracts := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), mcmsConfig != nil)
+			e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), mcmsConfig != nil)
 			externalAdminA := utils.RandomAddress()
 			externalAdminB := utils.RandomAddress()
 
@@ -266,7 +263,7 @@ func TestProposeAdminRoleChangeset_ExecutionWithExternalAdmin(t *testing.T) {
 			registryOnA := state.Chains[selectorA].TokenAdminRegistry
 			registryOnB := state.Chains[selectorB].TokenAdminRegistry
 
-			_, err = commonchangeset.Apply(t, e, timelockContracts,
+			_, err = commonchangeset.Apply(t, e,
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
 					v1_5_1.TokenAdminRegistryChangesetConfig{

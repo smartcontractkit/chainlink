@@ -5,23 +5,22 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/credentials"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentInput, credentials credentials.TransportCredentials) (*types.FullCLDEnvironmentOutput, error) {
+func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *types.FullCLDEnvironmentInput, credentials credentials.TransportCredentials) (*types.FullCLDEnvironmentOutput, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
@@ -92,10 +91,15 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 			Chains:   chains,
 		}
 
-		env, don, err := devenv.NewEnvironment(context.Background, lgr, devenvConfig)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to create environment")
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, 3*time.Minute)
+		env, don, envErr := devenv.NewEnvironment(func() context.Context {
+			return ctxWithTimeout
+		}, lgr, devenvConfig)
+		if envErr != nil {
+			cancel()
+			return nil, errors.Wrap(envErr, "failed to create environment")
 		}
+		cancel()
 
 		envs[idx] = env
 		dons[idx] = don
@@ -123,28 +127,26 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 	}
 
 	var jd cldf.OffchainClient
-	var err error
 
 	if len(input.NodeSetOutput) > 0 {
 		// We create a new instance of JD client using `allNodesInfo` instead of `nodeInfo` to ensure that it can interact with all nodes.
 		// Otherwise, JD would fail to accept job proposals for unknown nodes, even though it would still propose jobs to them. And that
 		// would be happening silently, without any error messages, and we wouldn't know about it until much later.
-		jd, err = devenv.NewJDClient(context.Background(), devenv.JDConfig{
+		var jdErr error
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		jd, jdErr = devenv.NewJDClient(ctxWithTimeout, devenv.JDConfig{
 			GRPC:     input.JdOutput.ExternalGRPCUrl,
 			WSRPC:    input.JdOutput.InternalWSRPCUrl,
 			Creds:    credentials,
 			NodeInfo: allNodesInfo,
 		})
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to create JD client")
+		if jdErr != nil {
+			cancel()
+			return nil, errors.Wrap(jdErr, "failed to create JD client")
 		}
+		cancel()
 	} else {
 		jd = envs[0].Offchain
-	}
-
-	blockChains := map[uint64]chain.BlockChain{}
-	for selector, ch := range envs[0].Chains {
-		blockChains[selector] = ch
 	}
 
 	// we assume that all DONs run on the same chain and that there's only one chain
@@ -153,12 +155,11 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 			Name:              envs[0].Name,
 			Logger:            envs[0].Logger,
 			ExistingAddresses: input.ExistingAddresses,
-			Chains:            envs[0].Chains,
 			Offchain:          jd,
 			OCRSecrets:        envs[0].OCRSecrets,
 			GetContext:        envs[0].GetContext,
 			NodeIDs:           nodeIDs,
-			BlockChains:       chain.NewBlockChains(blockChains),
+			BlockChains:       envs[0].BlockChains,
 		},
 	}
 

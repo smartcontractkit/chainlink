@@ -14,6 +14,12 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/onramp"
+	ccipconsts "github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
 	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
@@ -499,6 +505,11 @@ func (b *EventBinding) hashTopics(topicTypeID string, topics []any) ([]common.Ha
 }
 
 func (b *EventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into any) error {
+	if isTypeHardcoded(into) {
+		// handle hardcoded decoding
+		return decodeHardcodedType(into, log)
+
+	}
 	// decode non indexed topics and apply output modifiers
 	if err := b.codec.Decode(ctx, log.Data, into, codec.WrapItemType(b.contractName, b.eventName, false)); err != nil {
 		return fmt.Errorf("%w: failed to decode log data: %s", commontypes.ErrInvalidType, err.Error())
@@ -767,13 +778,6 @@ func wrapInternalErr(err error) error {
 	return fmt.Errorf("%w: %s", commontypes.ErrInternal, err.Error())
 }
 
-func (b *EventBinding) hasBindings() bool {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-
-	return len(b.bound) > 0
-}
-
 func (b *EventBinding) isBound(binding common.Address) bool {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -802,4 +806,184 @@ func (b *EventBinding) registered() bool {
 	defer b.mu.RUnlock()
 
 	return b.registerCalled
+}
+
+// dirty hack to handle cpu usage issue of dynamic type decoder CCIP-5348
+var offrampABI, _ = abi.JSON(strings.NewReader(offramp.OffRampABI))
+var onrampABI, _ = abi.JSON(strings.NewReader(onramp.OnRampABI))
+
+const commitReportAcceptedEvent = ccipconsts.EventNameCommitReportAccepted
+const ccipMessageSentEvent = ccipconsts.EventNameCCIPMessageSent
+const executionStateChangedEvent = ccipconsts.EventNameExecutionStateChanged
+
+func isTypeHardcoded(t any) bool {
+	switch t.(type) {
+	case *reader.CommitReportAcceptedEvent:
+		return true
+	case *reader.SendRequestedEvent:
+		return true
+	case *reader.ExecutionStateChangedEvent:
+		return true
+	}
+
+	return false
+}
+
+func decodeHardcodedType(out any, log *logpoller.Log) error {
+	switch out := out.(type) {
+	case *reader.CommitReportAcceptedEvent:
+		var internalEvent offramp.OffRampCommitReportAccepted
+		err := unpackLog(&internalEvent, commitReportAcceptedEvent, log, offrampABI)
+		if err != nil {
+			return err
+		}
+
+		populateCommitReportAcceptFromEvent(out, internalEvent)
+
+		return nil
+	case *reader.SendRequestedEvent:
+		var internalEvent onramp.OnRampCCIPMessageSent
+		err := unpackLog(&internalEvent, ccipMessageSentEvent, log, onrampABI)
+		if err != nil {
+			return err
+		}
+
+		populateSendRequestFromEvent(out, internalEvent)
+
+		return nil
+	case *reader.ExecutionStateChangedEvent:
+		var internalEvent offramp.OffRampExecutionStateChanged
+		err := unpackLog(&internalEvent, executionStateChangedEvent, log, offrampABI)
+		if err != nil {
+			return err
+		}
+
+		populateExecutionStateChangedFromEvent(out, internalEvent)
+
+		return nil
+	}
+
+	// return error here in case type is not supported
+	return fmt.Errorf("wrong type was passed for hardcode decoding %T", out)
+}
+
+func unpackLog(out any, event string, log *logpoller.Log, hcabi abi.ABI) error {
+	if len(log.Topics) == 0 {
+		return fmt.Errorf("log has no topics to decode")
+	}
+
+	logID := common.BytesToHash(log.Topics[0])
+	abiEventID := hcabi.Events[event].ID
+
+	if logID != abiEventID {
+		return fmt.Errorf("log ID %s doesnt match abi ID %s", logID, abiEventID)
+	}
+
+	if len(log.Data) > 0 {
+		if err := hcabi.UnpackIntoInterface(out, event, log.Data); err != nil {
+			return err
+		}
+	}
+
+	var indexed abi.Arguments
+	for _, arg := range hcabi.Events[event].Inputs {
+		if arg.Indexed {
+			indexed = append(indexed, arg)
+		}
+	}
+
+	if len(indexed) == 0 {
+		return nil
+	}
+
+	return abi.ParseTopics(out, indexed, log.GetTopics()[1:])
+}
+
+func populateExecutionStateChangedFromEvent(out *reader.ExecutionStateChangedEvent, internalEvent offramp.OffRampExecutionStateChanged) {
+	out.SourceChainSelector = ccipocr3.ChainSelector(internalEvent.SourceChainSelector)
+	out.SequenceNumber = ccipocr3.SeqNum(internalEvent.SequenceNumber)
+	out.MessageID = internalEvent.MessageId
+	out.MessageHash = internalEvent.MessageHash
+	out.State = internalEvent.State
+	out.ReturnData = internalEvent.ReturnData
+	out.GasUsed = *internalEvent.GasUsed
+}
+
+func populateSendRequestFromEvent(out *reader.SendRequestedEvent, internalEvent onramp.OnRampCCIPMessageSent) {
+	out.DestChainSelector = ccipocr3.ChainSelector(internalEvent.DestChainSelector)
+	out.SequenceNumber = ccipocr3.SeqNum(internalEvent.SequenceNumber)
+
+	out.Message = convertOnRampCCIPMessage(internalEvent.Message)
+}
+
+func convertOnRampCCIPMessage(m onramp.InternalEVM2AnyRampMessage) ccipocr3.Message {
+	var out ccipocr3.Message
+
+	// header population. NOTE OnRamp and MsgHash will be populater by the CR caller
+	out.Header.DestChainSelector = ccipocr3.ChainSelector(m.Header.DestChainSelector)
+	out.Header.SourceChainSelector = ccipocr3.ChainSelector(m.Header.SourceChainSelector)
+	out.Header.SequenceNumber = ccipocr3.SeqNum(m.Header.SequenceNumber)
+	out.Header.MessageID = m.Header.MessageId
+	out.Header.Nonce = m.Header.Nonce
+
+	out.Sender = m.Sender.Bytes()
+	out.Data = m.Data
+	out.Receiver = m.Receiver
+	out.ExtraArgs = m.ExtraArgs
+	out.FeeTokenAmount = ccipocr3.NewBigInt(m.FeeTokenAmount)
+	out.FeeValueJuels = ccipocr3.NewBigInt(m.FeeValueJuels)
+	out.FeeToken = m.FeeToken.Bytes()
+
+	out.TokenAmounts = make([]ccipocr3.RampTokenAmount, 0, len(m.TokenAmounts))
+	for _, amount := range m.TokenAmounts {
+		out.TokenAmounts = append(out.TokenAmounts, ccipocr3.RampTokenAmount{
+			SourcePoolAddress: amount.SourcePoolAddress.Bytes(),
+			ExtraData:         amount.ExtraData,
+			DestTokenAddress:  amount.DestTokenAddress,
+			Amount:            ccipocr3.NewBigInt(amount.Amount),
+			DestExecData:      amount.DestExecData,
+		})
+	}
+
+	return out
+}
+
+func populateCommitReportAcceptFromEvent(out *reader.CommitReportAcceptedEvent, internalEvent offramp.OffRampCommitReportAccepted) {
+	out.BlessedMerkleRoots = convertRoots(internalEvent.BlessedMerkleRoots)
+	out.UnblessedMerkleRoots = convertRoots(internalEvent.UnblessedMerkleRoots)
+
+	for _, update := range internalEvent.PriceUpdates.TokenPriceUpdates {
+		out.PriceUpdates.TokenPriceUpdates = append(out.PriceUpdates.TokenPriceUpdates,
+			reader.TokenPriceUpdate{
+				SourceToken: update.SourceToken.Bytes(),
+				UsdPerToken: update.UsdPerToken,
+			},
+		)
+	}
+
+	for _, update := range internalEvent.PriceUpdates.GasPriceUpdates {
+		out.PriceUpdates.GasPriceUpdates = append(out.PriceUpdates.GasPriceUpdates,
+			reader.GasPriceUpdate(update),
+		)
+	}
+
+}
+
+func convertRoots(r []offramp.InternalMerkleRoot) []reader.MerkleRoot {
+	res := make([]reader.MerkleRoot, 0, len(r))
+	for _, root := range r {
+		res = append(res, convertRoot(root))
+	}
+
+	return res
+}
+
+func convertRoot(r offramp.InternalMerkleRoot) reader.MerkleRoot {
+	return reader.MerkleRoot{
+		SourceChainSelector: r.SourceChainSelector,
+		OnRampAddress:       r.OnRampAddress,
+		MinSeqNr:            r.MinSeqNr,
+		MaxSeqNr:            r.MaxSeqNr,
+		MerkleRoot:          r.MerkleRoot,
+	}
 }

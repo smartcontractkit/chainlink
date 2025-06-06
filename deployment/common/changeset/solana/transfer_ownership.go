@@ -100,7 +100,8 @@ func (t *TransferToTimelockSolana) VerifyPreconditions(
 func (t *TransferToTimelockSolana) Apply(
 	env cldf.Environment, cfg TransferToTimelockSolanaConfig,
 ) (cldf.ChangesetOutput, error) {
-	mcmsState, err := state.MaybeLoadMCMSWithTimelockStateSolana(env, slices.Collect(maps.Keys(env.SolChains)))
+	solChains := env.BlockChains.SolanaChains()
+	mcmsState, err := state.MaybeLoadMCMSWithTimelockStateSolana(env, slices.Collect(maps.Keys(solChains)))
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -112,7 +113,7 @@ func (t *TransferToTimelockSolana) Apply(
 	instructions := map[uint64][]solana.Instruction{}
 
 	for chainSelector, contractsToTransfer := range cfg.ContractsByChain {
-		solChain, ok := env.SolChains[chainSelector]
+		solChain, ok := solChains[chainSelector]
 		if !ok {
 			return cldf.ChangesetOutput{}, fmt.Errorf("solana chain not found in environment (selector: %v)", chainSelector)
 		}
@@ -155,7 +156,7 @@ func (t *TransferToTimelockSolana) Apply(
 
 	// send & confim TransferOwnership instructions
 	for chainSelector, chainInstructions := range instructions {
-		solChain := env.SolChains[chainSelector]
+		solChain := solChains[chainSelector]
 		// REVIEW: are we limited by the 1232 byte limit? or can we confirm all instructions in one go?
 		for _, instruction := range chainInstructions {
 			env.Logger.Debugw("confirming solana transfer ownership instruction", "instruction", instruction.ProgramID())

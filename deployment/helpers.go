@@ -65,10 +65,7 @@ func parseError(txError error) (string, error) {
 
 func ValidateSelectorsInEnvironment(e cldf.Environment, chains []uint64) error {
 	for _, chain := range chains {
-		_, evmOk := e.Chains[chain]
-		_, solOk := e.SolChains[chain]
-		_, aptosOk := e.BlockChains.AptosChains()[chain]
-		if !evmOk && !solOk && !aptosOk {
+		if !e.BlockChains.Exists(chain) {
 			return fmt.Errorf("chain %d not found in environment", chain)
 		}
 	}
@@ -95,17 +92,13 @@ func AddressListContainsEmptyAddress(addresses []common.Address) bool {
 	return false
 }
 
-func MigrateAddressBook(addrBook deployment.AddressBook) (datastore.MutableDataStore[datastore.DefaultMetadata,
-	datastore.DefaultMetadata], error) {
+func MigrateAddressBook(addrBook deployment.AddressBook) (datastore.MutableDataStore, error) {
 	addrs, err := addrBook.Addresses()
 	if err != nil {
 		return nil, err
 	}
 
-	ds := datastore.NewMemoryDataStore[
-		datastore.DefaultMetadata,
-		datastore.DefaultMetadata,
-	]()
+	ds := datastore.NewMemoryDataStore()
 
 	for chainSelector, chainAddresses := range addrs {
 		for addr, typever := range chainAddresses {

@@ -8,7 +8,7 @@ require (
 	github.com/NethermindEth/juno v0.12.5
 	github.com/NethermindEth/starknet.go v0.8.0
 	github.com/andybalholm/brotli v1.1.1
-	github.com/aptos-labs/aptos-go-sdk v1.7.0
+	github.com/aptos-labs/aptos-go-sdk v1.8.0
 	github.com/avast/retry-go/v4 v4.6.1
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4
 	github.com/cosmos/cosmos-sdk v0.50.13
@@ -29,7 +29,6 @@ require (
 	github.com/gin-contrib/sessions v0.0.5
 	github.com/gin-contrib/size v0.0.0-20230212012657-e14a14094dc4
 	github.com/gin-gonic/gin v1.10.0
-	github.com/go-co-op/gocron/v2 v2.16.1
 	github.com/go-ldap/ldap/v3 v3.4.6
 	github.com/go-viper/mapstructure/v2 v2.2.1
 	github.com/go-webauthn/webauthn v0.9.4
@@ -74,24 +73,24 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.24.3
 	github.com/shopspring/decimal v1.4.0
-	github.com/smartcontractkit/chain-selectors v1.0.59
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250526145118-5fe6fab7c3b2
+	github.com/smartcontractkit/chain-selectors v1.0.60
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250605152726-d2cf1852ffdb
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250523142134-2057cda8d221
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250604161327-989d6ac39ddb
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250520123946-6aaf88e0848a
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250522183927-44d96a7ad0e5
-	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250417193446-eeb0a7d1e049
-	github.com/smartcontractkit/chainlink-evm v0.0.0-20250522161404-27a8f7e1cc6c
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250605141539-1c982c45a39b
+	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250604171706-a98fa6515eae
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250603180325-6ffed718392a
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250522110034-65c54665034a
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250522110034-65c54665034a
-	github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20250516160234-c2e27f791437
-	github.com/smartcontractkit/chainlink-protos/orchestrator v0.6.0
+	github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20250604191313-8f161cf29ad5
+	github.com/smartcontractkit/chainlink-protos/orchestrator v0.7.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250501150903-3e93089d9ad5
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250526153105-8fdccfe1181b
-	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250422175525-b7575d96bd4d
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250527212035-5d0564786d15
+	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250528121202-292529af39df
 	github.com/smartcontractkit/freeport v0.1.0
-	github.com/smartcontractkit/libocr v0.0.0-20250513175559-61c382d6cee4
+	github.com/smartcontractkit/libocr v0.0.0-20250604151357-2fe8c61bbf2e
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945
@@ -390,4 +389,4 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20250422175525-b7575d96bd4d
+replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20250528121202-292529af39df

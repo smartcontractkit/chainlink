@@ -36,7 +36,7 @@ func Test_CCIPGasPriceUpdatesWriteFrequency(t *testing.T) {
 	require.NoError(t, err)
 	testhelpers.AddLanesForAll(t, &e, state)
 
-	allChainSelectors := maps.Keys(e.Env.Chains)
+	allChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
 	assert.GreaterOrEqual(t, len(allChainSelectors), 2, "test requires at least 2 chains")
 
 	sourceChain1 := allChainSelectors[0]
@@ -142,7 +142,7 @@ func Test_CCIPGasPriceUpdatesDeviation(t *testing.T) {
 	require.NoError(t, err)
 	testhelpers.AddLanesForAll(t, &e, state)
 
-	allChainSelectors := maps.Keys(e.Env.Chains)
+	allChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
 	assert.GreaterOrEqual(t, len(allChainSelectors), 2, "test requires at least 2 chains")
 
 	sourceChain1 := allChainSelectors[0]

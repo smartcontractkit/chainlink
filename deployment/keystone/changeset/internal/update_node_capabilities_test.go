@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
@@ -55,7 +56,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 			args: args{
 				lggr: lggr,
 				req: &internal.UpdateNodeCapabilitiesImplRequest{
-					Chain: cldf.Chain{},
+					Chain: cldf_evm.Chain{},
 				},
 				initialState: &kstest.SetupTestRegistryRequest{},
 			},

@@ -6,8 +6,10 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -43,13 +45,30 @@ var (
 			ab := deps.AddressBook
 			chain := deps.Chain
 			contract, err := cldf.DeployContract(b.Logger, chain, ab,
-				func(chain cldf.Chain) cldf.ContractDeploy[*rmn_remote.RMNRemote] {
-					rmnRemoteAddr, tx, rmnRemote, err2 := rmn_remote.DeployRMNRemote(
-						chain.DeployerKey,
-						chain.Client,
-						chain.Selector,
-						input.RMNLegacyAddr,
+				func(chain cldf_evm.Chain) cldf.ContractDeploy[*rmn_remote.RMNRemote] {
+					var (
+						rmnRemoteAddr common.Address
+						tx            *types.Transaction
+						rmnRemote     *rmn_remote.RMNRemote
+						err2          error
 					)
+					if chain.IsZkSyncVM {
+						rmnRemoteAddr, _, rmnRemote, err2 = rmn_remote.DeployRMNRemoteZk(
+							nil,
+							chain.ClientZkSyncVM,
+							chain.DeployerKeyZkSyncVM,
+							chain.Client,
+							chain.Selector,
+							input.RMNLegacyAddr,
+						)
+					} else {
+						rmnRemoteAddr, tx, rmnRemote, err2 = rmn_remote.DeployRMNRemote(
+							chain.DeployerKey,
+							chain.Client,
+							chain.Selector,
+							input.RMNLegacyAddr,
+						)
+					}
 					return cldf.ContractDeploy[*rmn_remote.RMNRemote]{
 						Address: rmnRemoteAddr, Contract: rmnRemote, Tx: tx, Tv: cldf.NewTypeAndVersion(shared.RMNRemote, deployment.Version1_6_0), Err: err2,
 					}
@@ -69,7 +88,7 @@ var (
 			state := deps.CurrentState
 			b.Logger.Infow("Setting RMNRemoteConfig based on ActiveDigest from RMNHome", "chain", input.ChainSelector)
 			e := deps.Env
-			chain := deps.Env.Chains[input.ChainSelector]
+			chain := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
 			homeChainSel, err := state.HomeChainSelector()
 			if err != nil {
 				return opsutil.OpOutput{}, err

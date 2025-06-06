@@ -1,18 +1,30 @@
 package ocr_test
 
 import (
+	"encoding/hex"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	types2 "github.com/ethereum/go-ethereum/core/types"
 	"github.com/manyminds/api2go/jsonapi"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -425,10 +437,79 @@ answer1      [type=median index=0];
 				}
 			})
 
-			s, err := ocr.ValidatedOracleSpecTomlCfg(c, func(id *big.Int) (evmconfig.ChainScopedConfig, error) {
+			s, err := ocr.ValidatedOracleSpecTomlCfg(c, func(id *big.Int, contractAddress types.EIP55Address) (evmconfig.ChainScopedConfig, error) {
 				return evmtest.NewChainScopedConfig(t, c), nil
 			}, tc.toml)
 			tc.assertion(t, s, err)
 		})
 	}
+}
+
+func TestOnChainContractAvailability(t *testing.T) {
+	// Because some RPCs prune logs we have scenarios in which a job spec update will lead to outages because of the inability to get the logs. We need to safeguard against these outages by checking if the node can access the OCR configuration
+	// There are 4 possible scenarios:
+	// 1. Contract is not deployed
+	// 2. Contract is deployed but NOT configured
+	// 3. Contract is deployed but config log event is NOT accessible
+	// 4. Contract is deployed and config log event is accessible
+
+	// Mock chain
+	client := clienttest.NewClient(t)
+	contractBytes, err := hex.DecodeString(strings.TrimPrefix(testoffchainaggregator.OffchainAggregatorMetaData.Bin, "0x"))
+	require.NoError(t, err, "could not decode contract binary")
+
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.OCR.ConfigLogValidation = testutils.Ptr(true)
+	})
+	legacyChain := cltest.NewLegacyChainsWithMockChain(t, client, cfg)
+	jobSpec := `
+type               = "offchainreporting"
+schemaVersion      = 1
+evmChainID		   = 0
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+isBootstrapPeer    = false
+observationSource = """
+ds1          [type=bridge name=voter_turnout];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=0];
+"""
+`
+
+	// Contract is not deployed
+	client.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return([]byte{}, nil).Once()
+	_, err = ocr.ValidatedOracleSpecToml(cfg, legacyChain, jobSpec)
+	require.NoError(t, err)
+
+	abi, err := abi.JSON(strings.NewReader(offchainaggregator.OffchainAggregatorMetaData.ABI))
+	require.NoError(t, err, "could not parse ABI")
+
+	noConfigDetails, err := abi.Methods["latestConfigDetails"].Outputs.Pack(uint32(0), uint32(0), [16]byte{})
+	require.NoError(t, err, "could not pack outputs for latestConfigDetails")
+
+	// Contract is deployed but not configured
+	client.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return(contractBytes, nil).Once()
+	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(noConfigDetails, nil).Once()
+	_, err = ocr.ValidatedOracleSpecToml(cfg, legacyChain, jobSpec)
+	require.NoError(t, err)
+
+	// Contract is deployed but config log event is NOT accessible
+	goodConfigDetails, err := abi.Methods["latestConfigDetails"].Outputs.Pack(uint32(1), uint32(1), [16]byte{})
+	require.NoError(t, err, "could not pack outputs for latestConfigDetails")
+
+	client.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return(contractBytes, nil).Once()
+	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(goodConfigDetails, nil).Once()
+	client.On("FilterLogs", mock.Anything, mock.Anything, mock.Anything).Return([]types2.Log{}, nil).Once() // When the RPC has pruned the data the logs will come back empty
+	_, err = ocr.ValidatedOracleSpecToml(cfg, legacyChain, jobSpec)
+	require.ErrorContains(t, err, "could not fetch OCR contract config, try switching to an archive node")
+
+	// Contract is configured
+	client.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return(contractBytes, nil).Once()
+	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(goodConfigDetails, nil).Once()
+	client.On("FilterLogs", mock.Anything, mock.Anything, mock.Anything).Return([]types2.Log{{
+		Address: common.HexToAddress("0x613a38ac1659769640aae063c651f48e0250454c"),
+		Topics:  []common.Hash{common.HexToHash("0x25d719d88a4512dd76c7442b910a83360845505894eb444ef299409e180f8fb9")}}}, nil).Once()
+	_, err = ocr.ValidatedOracleSpecToml(cfg, legacyChain, jobSpec)
+	require.NoError(t, err)
 }

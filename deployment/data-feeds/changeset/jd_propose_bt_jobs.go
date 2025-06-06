@@ -36,7 +36,7 @@ func proposeBtJobsToJDPrecondition(env cldf.Environment, c types.ProposeBtJobsCo
 		return errors.New("node labels are required")
 	}
 
-	_, ok := env.Chains[c.ChainSelector]
+	_, ok := env.BlockChains.EVMChains()[c.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}

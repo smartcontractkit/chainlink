@@ -8,7 +8,7 @@ import (
 
 	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 

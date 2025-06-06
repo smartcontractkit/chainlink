@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -61,7 +62,7 @@ func subscribeTransmitEvents(
 	startBlock *uint64,
 	srcChainSel uint64,
 	loadFinished chan struct{},
-	client cldf.OnchainClient,
+	client cldf_evm.OnchainClient,
 	wg *sync.WaitGroup,
 	metricPipe chan messageData,
 	finalSeqNrCommitChannels map[uint64]chan finalSeqNrReport,
@@ -171,7 +172,7 @@ func subscribeCommitEvents(
 	srcChains []uint64,
 	startBlock *uint64,
 	chainSelector uint64,
-	client cldf.OnchainClient,
+	client cldf_evm.OnchainClient,
 	finalSeqNrs chan finalSeqNrReport,
 	wg *sync.WaitGroup,
 	metricPipe chan messageData,
@@ -300,7 +301,7 @@ func subscribeExecutionEvents(
 	srcChains []uint64,
 	startBlock *uint64,
 	chainSelector uint64,
-	client cldf.OnchainClient,
+	client cldf_evm.OnchainClient,
 	finalSeqNrs chan finalSeqNrReport,
 	wg *sync.WaitGroup,
 	metricPipe chan messageData,
@@ -486,7 +487,8 @@ func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uin
 	deployerMap := make(map[uint64][]*bind.TransactOpts)
 	addressMap := make(map[uint64][]common.Address)
 	numAccounts := len(destChains)
-	for chain := range e.Chains {
+	evmChains := e.BlockChains.EVMChains()
+	for chain := range evmChains {
 		deployerMap[chain] = make([]*bind.TransactOpts, 0, numAccounts)
 		addressMap[chain] = make([]common.Address, 0, numAccounts)
 		for range numAccounts {
@@ -516,7 +518,7 @@ func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uin
 	for sel, addresses := range addressMap {
 		sel, addresses := sel, addresses
 		g.Go(func() error {
-			return crib.SendFundsToAccounts(e.GetContext(), lggr, e.Chains[sel], addresses, fundingAmount, sel)
+			return crib.SendFundsToAccounts(e.GetContext(), lggr, evmChains[sel], addresses, fundingAmount, sel)
 		})
 	}
 
@@ -526,7 +528,7 @@ func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uin
 	return deployerMap, nil
 }
 func reclaimFunds(lggr logger.Logger, e cldf.Environment, addressesByChain map[uint64][]*bind.TransactOpts, returnAddress common.Address) error {
-	removeFundsFromAccounts := func(ctx context.Context, lggr logger.Logger, chain cldf.Chain, addresses []*bind.TransactOpts, returnAddress common.Address, sel uint64) error {
+	removeFundsFromAccounts := func(ctx context.Context, lggr logger.Logger, chain cldf_evm.Chain, addresses []*bind.TransactOpts, returnAddress common.Address, sel uint64) error {
 		for _, deployer := range addresses {
 			balance, err := chain.Client.BalanceAt(ctx, deployer.From, nil)
 			if err != nil {
@@ -586,7 +588,7 @@ func reclaimFunds(lggr logger.Logger, e cldf.Environment, addressesByChain map[u
 	for sel, addresses := range addressesByChain {
 		sel, addresses := sel, addresses
 		g.Go(func() error {
-			return removeFundsFromAccounts(e.GetContext(), lggr, e.Chains[sel], addresses, returnAddress, sel)
+			return removeFundsFromAccounts(e.GetContext(), lggr, e.BlockChains.EVMChains()[sel], addresses, returnAddress, sel)
 		})
 	}
 

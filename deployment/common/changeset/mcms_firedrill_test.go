@@ -36,7 +36,7 @@ func setupFiredrillTestEnv(t *testing.T) cldf.Environment {
 	commonchangeset.SetPreloadedSolanaAddresses(t, env, chainSelectorSolana)
 	config := proposalutils.SingleGroupTimelockConfigV2(t)
 	// Deploy MCMS and Timelock
-	env, err := commonchangeset.Apply(t, env, nil,
+	env, err := commonchangeset.Apply(t, env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 			map[uint64]commontypes.MCMSWithTimelockConfigV2{
@@ -51,12 +51,12 @@ func setupFiredrillTestEnv(t *testing.T) cldf.Environment {
 	addresses, err := env.ExistingAddresses.AddressesForChain(chainSelectorSolana)
 	require.NoError(t, err)
 	chainSelectorSolana = env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
-	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(env.SolChains[chainSelectorSolana], addresses)
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(env.BlockChains.SolanaChains()[chainSelectorSolana], addresses)
 	require.NoError(t, err)
 	timelockSigner := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	mcmSigner := state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
 	mcmSignerBypasser := state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed)
-	solChain := env.SolChains[chainSelectorSolana]
+	solChain := env.BlockChains.SolanaChains()[chainSelectorSolana]
 	err = memory.FundSolanaAccounts(env.GetContext(), []solana.PublicKey{timelockSigner, mcmSigner, mcmSignerBypasser, solChain.DeployerKey.PublicKey()}, 150, solChain.Client)
 	require.NoError(t, err)
 	return env
@@ -92,7 +92,7 @@ func TestMCMSSignFireDrillChangeset(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			changesetsToApply := tc.changeSets()
-			_, _, err := commonchangeset.ApplyChangesetsV2(t, env, changesetsToApply)
+			_, _, err := commonchangeset.ApplyChangesets(t, env, changesetsToApply)
 			require.NoError(t, err)
 		})
 	}

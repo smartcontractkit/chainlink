@@ -17,7 +17,7 @@ func deployCacheLogic(env cldf.Environment, c types.DeployConfig) (cldf.Changese
 	lggr := env.Logger
 	ab := cldf.NewMemoryAddressBook()
 	for _, chainSelector := range c.ChainsToDeploy {
-		chain := env.Chains[chainSelector]
+		chain := env.BlockChains.EVMChains()[chainSelector]
 		cacheResponse, err := DeployCache(chain, c.Labels)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy DataFeedsCache: %w", err)
@@ -35,7 +35,7 @@ func deployCacheLogic(env cldf.Environment, c types.DeployConfig) (cldf.Changese
 
 func deployCachePrecondition(env cldf.Environment, c types.DeployConfig) error {
 	for _, chainSelector := range c.ChainsToDeploy {
-		_, ok := env.Chains[chainSelector]
+		_, ok := env.BlockChains.EVMChains()[chainSelector]
 		if !ok {
 			return errors.New("chain not found in environment")
 		}

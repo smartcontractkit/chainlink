@@ -5,11 +5,10 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 type FeeQuoterView struct {
@@ -67,7 +66,7 @@ type FeeQuoterTokenTransferConfig struct {
 	IsEnabled         bool   `json:"isEnabled,omitempty"`
 }
 
-func GenerateFeeQuoterView(chain cldf.SolChain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (FeeQuoterView, error) {
+func GenerateFeeQuoterView(chain cldf_solana.Chain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (FeeQuoterView, error) {
 	fq := FeeQuoterView{}
 	var fqConfig solFeeQuoter.Config
 	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(program)

@@ -41,9 +41,6 @@ func Test_RegisterNOPS(t *testing.T) {
 		useMCMS = true
 		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]cldf.Chain{
-				chain.Selector: chain,
-			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 				chain.Selector: {
 					registry.Address().String(): cldf.TypeAndVersion{
@@ -248,9 +245,6 @@ func Test_RegisterNodes(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				env := &cldf.Environment{
 					Logger: lggr,
-					Chains: map[uint64]cldf.Chain{
-						chain.Selector: chain,
-					},
 					ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 						chain.Selector: {
 							registry.Address().String(): cldf.TypeAndVersion{
@@ -313,9 +307,6 @@ func Test_RegisterNodes(t *testing.T) {
 		useMCMS = true
 		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]cldf.Chain{
-				chain.Selector: chain,
-			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 				chain.Selector: {
 					registry.Address().String(): cldf.TypeAndVersion{
@@ -368,9 +359,6 @@ func Test_RegisterNodes(t *testing.T) {
 		useMCMS = true
 		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]cldf.Chain{
-				chain.Selector: chain,
-			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 				chain.Selector: {
 					registry.Address().String(): cldf.TypeAndVersion{
@@ -418,9 +406,6 @@ func Test_RegisterDons(t *testing.T) {
 		useMCMS = true
 		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]cldf.Chain{
-				chain.Selector: chain,
-			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 				chain.Selector: {
 					registry.Address().String(): cldf.TypeAndVersion{
@@ -518,9 +503,6 @@ func Test_RegisterDons(t *testing.T) {
 
 		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]cldf.Chain{
-				setupResp.Chain.Selector: setupResp.Chain,
-			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 				setupResp.Chain.Selector: {
 					regContract.Address().String(): cldf.TypeAndVersion{
@@ -559,9 +541,6 @@ func Test_RegisterDons(t *testing.T) {
 		useMCMS = true
 		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]cldf.Chain{
-				chain.Selector: chain,
-			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 				chain.Selector: {
 					registry.Address().String(): cldf.TypeAndVersion{

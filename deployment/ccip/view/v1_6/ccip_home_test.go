@@ -24,7 +24,7 @@ func TestCCIPHomeView(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains: 1,
 	})
-	chain := e.Chains[e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]]
+	chain := e.BlockChains.EVMChains()[e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]]
 	_, tx, cr, err := capabilities_registry.DeployCapabilitiesRegistry(
 		chain.DeployerKey, chain.Client)
 	require.NoError(t, err)

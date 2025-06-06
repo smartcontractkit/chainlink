@@ -7,6 +7,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -31,7 +32,7 @@ var _ cldf.ChangeSet[CreateSolanaTokenATAConfig] = CreateSolanaTokenATA
 // use this changeset to set the authority of a token
 var _ cldf.ChangeSet[SetTokenAuthorityConfig] = SetTokenAuthority
 
-func getMintIxs(e cldf.Environment, chain cldf.SolChain, tokenprogramID, mint solana.PublicKey, amountToAddress map[string]uint64) error {
+func getMintIxs(e cldf.Environment, chain cldf_solana.Chain, tokenprogramID, mint solana.PublicKey, amountToAddress map[string]uint64) error {
 	for toAddress, amount := range amountToAddress {
 		e.Logger.Infof("Minting %d to %s", amount, toAddress)
 		toAddressBase58 := solana.MustPublicKeyFromBase58(toAddress)
@@ -49,7 +50,7 @@ func getMintIxs(e cldf.Environment, chain cldf.SolChain, tokenprogramID, mint so
 	return nil
 }
 
-func createATAIx(e cldf.Environment, chain cldf.SolChain, tokenprogramID, mint solana.PublicKey, ataList []string) error {
+func createATAIx(e cldf.Environment, chain cldf_solana.Chain, tokenprogramID, mint solana.PublicKey, ataList []string) error {
 	for _, ata := range ataList {
 		e.Logger.Infof("Creating ATA for account %s for token %s", ata, mint.String())
 		createATAIx, _, err := solTokenUtil.CreateAssociatedTokenAccount(
@@ -81,7 +82,7 @@ type DeploySolanaTokenConfig struct {
 	MintAmountToAddress map[string]uint64 // address -> amount
 }
 
-func NewTokenInstruction(chain cldf.SolChain, cfg DeploySolanaTokenConfig) ([]solana.Instruction, solana.PrivateKey, error) {
+func NewTokenInstruction(chain cldf_solana.Chain, cfg DeploySolanaTokenConfig) ([]solana.Instruction, solana.PrivateKey, error) {
 	tokenprogramID, err := GetTokenProgramID(cfg.TokenProgramName)
 	if err != nil {
 		return nil, nil, err
@@ -109,7 +110,7 @@ func NewTokenInstruction(chain cldf.SolChain, cfg DeploySolanaTokenConfig) ([]so
 		tokenAdminPubKey,
 		cfg.TokenDecimals,
 		chain.Client,
-		cldf.SolDefaultCommitment,
+		cldf_solana.SolDefaultCommitment,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -118,7 +119,7 @@ func NewTokenInstruction(chain cldf.SolChain, cfg DeploySolanaTokenConfig) ([]so
 }
 
 func DeploySolanaToken(e cldf.Environment, cfg DeploySolanaTokenConfig) (cldf.ChangesetOutput, error) {
-	chain, ok := e.SolChains[cfg.ChainSelector]
+	chain, ok := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if !ok {
 		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
 	}
@@ -175,7 +176,7 @@ type MintSolanaTokenConfig struct {
 }
 
 func (cfg MintSolanaTokenConfig) Validate(e cldf.Environment) error {
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	tokenAddress := solana.MustPublicKeyFromBase58(cfg.TokenPubkey)
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
@@ -188,7 +189,7 @@ func (cfg MintSolanaTokenConfig) Validate(e cldf.Environment) error {
 	}
 
 	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), tokenAddress, &rpc.GetAccountInfoOpts{
-		Commitment: cldf.SolDefaultCommitment,
+		Commitment: cldf_solana.SolDefaultCommitment,
 	})
 	if err != nil {
 		fmt.Println("error getting account info", err)
@@ -209,7 +210,7 @@ func MintSolanaToken(e cldf.Environment, cfg MintSolanaTokenConfig) (cldf.Change
 		return cldf.ChangesetOutput{}, err
 	}
 	// get chain
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	// get addresses
@@ -235,7 +236,7 @@ type CreateSolanaTokenATAConfig struct {
 }
 
 func CreateSolanaTokenATA(e cldf.Environment, cfg CreateSolanaTokenATAConfig) (cldf.ChangesetOutput, error) {
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
@@ -262,7 +263,7 @@ type SetTokenAuthorityConfig struct {
 }
 
 func SetTokenAuthority(e cldf.Environment, cfg SetTokenAuthorityConfig) (cldf.ChangesetOutput, error) {
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
@@ -315,7 +316,7 @@ type UploadTokenMetadataConfig struct {
 }
 
 func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cldf.ChangesetOutput, error) {
-	chain := e.SolChains[cfg.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	_, _ = runCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
 	_, _ = runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
 	for _, metadata := range cfg.TokenMetadata {

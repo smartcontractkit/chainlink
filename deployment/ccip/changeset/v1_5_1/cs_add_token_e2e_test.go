@@ -85,7 +85,6 @@ func TestAddTokenE2E(t *testing.T) {
 			)
 
 			tokens := make(map[uint64]*cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677])
-			timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 			if test.withMCMS {
 				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay:   0,
@@ -94,7 +93,7 @@ func TestAddTokenE2E(t *testing.T) {
 			}
 			// we deploy the token separately as part of env set up
 			if !test.withNewToken {
-				e, selectorA, selectorB, tokens, timelockContracts = testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), test.withMCMS)
+				e, selectorA, selectorB, tokens = testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), test.withMCMS)
 			} else {
 				// we deploy the token as part of AddTokenE2E changeset
 				tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithPrerequisiteDeploymentOnly(nil))
@@ -110,15 +109,8 @@ func TestAddTokenE2E(t *testing.T) {
 					timelockOwnedContractsByChain[selector] = []common.Address{state.MustGetEVMChainState(selector).TokenAdminRegistry.Address()}
 				}
 
-				// Assemble map of addresses required for Timelock scheduling & execution
-				for _, selector := range selectors {
-					timelockContracts[selector] = &proposalutils.TimelockExecutionContracts{
-						Timelock:  state.MustGetEVMChainState(selector).Timelock,
-						CallProxy: state.MustGetEVMChainState(selector).CallProxy,
-					}
-				}
 				if test.withMCMS {
-					e, err = commonchangeset.Apply(t, e, timelockContracts,
+					e, err = commonchangeset.Apply(t, e,
 						commonchangeset.Configure(
 							cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 							commonchangeset.TransferToMCMSWithTimelockConfig{
@@ -195,7 +187,7 @@ func TestAddTokenE2E(t *testing.T) {
 			}
 
 			// apply the changeset
-			e, err = commonchangeset.Apply(t, e, timelockContracts,
+			e, err = commonchangeset.Apply(t, e,
 				commonchangeset.Configure(v1_5_1.AddTokensE2E, addTokenE2EConfig))
 			require.NoError(t, err)
 
@@ -233,7 +225,7 @@ func TestAddTokenE2E(t *testing.T) {
 				tokenpools, ok := state.Chains[chain].BurnMintTokenPools[testhelpers.TestTokenSymbol]
 				require.True(t, ok)
 				require.Len(t, tokenpools, 1)
-				tokenPoolC, err := token_pool.NewTokenPool(tokenpools[deployment.Version1_5_1].Address(), e.Chains[chain].Client)
+				tokenPoolC, err := token_pool.NewTokenPool(tokenpools[deployment.Version1_5_1].Address(), e.BlockChains.EVMChains()[chain].Client)
 				require.NoError(t, err)
 				var rateLimiterConfig v1_5_1.RateLimiterConfig
 				var remotePoolAddr common.Address
@@ -253,7 +245,7 @@ func TestAddTokenE2E(t *testing.T) {
 				if test.withMCMS {
 					poolOwner = state.Chains[chain].Timelock.Address()
 				} else {
-					poolOwner = e.Chains[chain].DeployerKey.From
+					poolOwner = e.BlockChains.EVMChains()[chain].DeployerKey.From
 				}
 
 				// check token pool is configured
@@ -296,7 +288,7 @@ func TestAddTokenE2E(t *testing.T) {
 					if test.withMCMS {
 						require.Equal(t, state.Chains[chain].Timelock.Address(), regConfig.Administrator)
 					} else {
-						require.Equal(t, e.Chains[chain].DeployerKey.From, regConfig.Administrator)
+						require.Equal(t, e.BlockChains.EVMChains()[chain].DeployerKey.From, regConfig.Administrator)
 					}
 				} else {
 					// if external admin then PendingAdministrator should be external admin

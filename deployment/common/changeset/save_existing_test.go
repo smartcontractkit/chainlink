@@ -22,10 +22,6 @@ func TestSaveExisting(t *testing.T) {
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		Chains: map[uint64]cldf.Chain{
-			chainsel.TEST_90000001.Selector: {},
-			chainsel.TEST_90000002.Selector: {},
-		},
 		BlockChains: cldf_chain.NewBlockChains(
 			map[uint64]cldf_chain.BlockChain{
 				chainsel.TEST_90000001.Selector: cldf_evm.Chain{},
@@ -69,10 +65,6 @@ func TestSaveExistingAddressWithLabels(t *testing.T) {
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		Chains: map[uint64]cldf.Chain{
-			chainsel.TEST_90000001.Selector: {},
-			chainsel.TEST_90000002.Selector: {},
-		},
 		BlockChains: cldf_chain.NewBlockChains(
 			map[uint64]cldf_chain.BlockChain{
 				chainsel.TEST_90000001.Selector: cldf_evm.Chain{},
@@ -112,10 +104,6 @@ func TestSaveExistingMCMSAddressWithLabels(t *testing.T) {
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		Chains: map[uint64]cldf.Chain{
-			chainsel.TEST_90000001.Selector: {},
-			chainsel.TEST_90000002.Selector: {},
-		},
 		BlockChains: cldf_chain.NewBlockChains(
 			map[uint64]cldf_chain.BlockChain{
 				chainsel.TEST_90000001.Selector: cldf_evm.Chain{},
@@ -149,7 +137,7 @@ func TestSaveExistingMCMSAddressWithLabels(t *testing.T) {
 	require.True(t, exists)
 	require.Len(t, addressForChain1, 1)
 	// load mcms state
-	mcmsState, err := MaybeLoadMCMSWithTimelockChainState(dummyEnv.Chains[chainsel.TEST_90000001.Selector], addressForChain1)
+	mcmsState, err := MaybeLoadMCMSWithTimelockChainState(dummyEnv.BlockChains.EVMChains()[chainsel.TEST_90000001.Selector], addressForChain1)
 	require.NoError(t, err)
 	require.NotNil(t, mcmsState)
 	require.NotNil(t, mcmsState.ProposerMcm)

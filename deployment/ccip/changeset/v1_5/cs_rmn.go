@@ -95,7 +95,7 @@ func (c PermaBlessCommitStoreConfig) Validate(env cldf.Environment) error {
 			}
 		}
 
-		if err := commoncs.ValidateOwnership(context.Background(), c.MCMSConfig != nil, env.Chains[destChain].DeployerKey.From, destState.Timelock.Address(), destState.RMN); err != nil {
+		if err := commoncs.ValidateOwnership(context.Background(), c.MCMSConfig != nil, env.BlockChains.EVMChains()[destChain].DeployerKey.From, destState.Timelock.Address(), destState.RMN); err != nil {
 			return fmt.Errorf("failed to validate ownership: %w", err)
 		}
 	}
@@ -133,7 +133,7 @@ func PermaBlessCommitStoreChangeset(env cldf.Environment, c PermaBlessCommitStor
 			}
 		}
 
-		txOpts := env.Chains[destChain].DeployerKey
+		txOpts := env.BlockChains.EVMChains()[destChain].DeployerKey
 		if c.MCMSConfig != nil {
 			txOpts = cldf.SimTransactOpts()
 		}
@@ -141,7 +141,7 @@ func PermaBlessCommitStoreChangeset(env cldf.Environment, c PermaBlessCommitStor
 
 		// note: error check is handled below
 		if c.MCMSConfig == nil {
-			_, err = cldf.ConfirmIfNoErrorWithABI(env.Chains[destChain], tx, rmn_contract.RMNContractABI, err)
+			_, err = cldf.ConfirmIfNoErrorWithABI(env.BlockChains.EVMChains()[destChain], tx, rmn_contract.RMNContractABI, err)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}

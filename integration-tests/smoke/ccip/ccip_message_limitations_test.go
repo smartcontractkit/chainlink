@@ -27,7 +27,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 	callOpts := &bind.CallOpts{Context: ctx}
 
 	testEnv, _, _ := testsetups.NewIntegrationEnvironment(t)
-	chains := maps.Keys(testEnv.Env.Chains)
+	chains := maps.Keys(testEnv.Env.BlockChains.EVMChains())
 
 	onChainState, err := stateview.LoadOnchainState(testEnv.Env)
 	require.NoError(t, err)
@@ -169,7 +169,8 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 	}
 
 	// Wait for all commit reports to land.
-	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, testEnv.Env, onChainState, expectedSeqNum, startBlocks)
+	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, testEnv.Env, onChainState,
+		testhelpers.ToSeqRangeMap(expectedSeqNum), startBlocks)
 	// Wait for all exec reports to land
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, testEnv.Env, onChainState, expectedSeqNumExec, startBlocks)
 }

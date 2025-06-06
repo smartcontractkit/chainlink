@@ -44,6 +44,12 @@ regarding Chainlink social accounts, news, and networking.
 
 For the latest information on setting up a development environment, see the [Development Setup Guide](https://github.com/smartcontractkit/chainlink/wiki/Development-Setup-Guide).
 
+### Build from PR
+
+To build an unofficial testing-only image from a feature branch or PR. You can do one of the following:
+1. Send a workflow dispatch event from our [`docker-build` workflow](https://github.com/smartcontractkit/chainlink/actions/workflows/docker-build.yml).
+2. Add the `build-publish` label to your PR and then either retry the `docker-build` workflow, or push a new commit.
+
 ### Build Plugins
 
 Plugins are defined in yaml files within the `plugins/` directory. Each plugin file is a yaml file and has a `plugins.` prefix name. Plugins are installed with [loopinstall](https://github.com/smartcontractkit/chainlink-common/tree/main/pkg/loop/cmd/loopinstall).

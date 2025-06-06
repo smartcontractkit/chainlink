@@ -1,0 +1,8 @@
+
+# profile name = test
+test:
+    user-workflow:
+        # default workflow owner PK used by the local env
+        workflow-owner-address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+        # unique workflow name
+        workflow-name: trueusdcronbased

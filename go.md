@@ -46,6 +46,7 @@ flowchart LR
 	chainlink-evm --> chainlink-framework/capabilities
 	chainlink-evm --> chainlink-framework/chains
 	chainlink-evm --> chainlink-protos/svr
+	chainlink-evm --> chainlink-tron/relayer
 	click chainlink-evm href "https://github.com/smartcontractkit/chainlink-evm"
 	chainlink-feeds --> chainlink-common
 	click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
@@ -71,15 +72,15 @@ flowchart LR
 	chainlink-solana --> chainlink-common/pkg/monitoring
 	chainlink-solana --> chainlink-framework/multinode
 	click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
-	chainlink-tron/relayer --> chainlink-evm
+	chainlink-tron/relayer --> chainlink-common
 	click chainlink-tron/relayer href "https://github.com/smartcontractkit/chainlink-tron"
 	chainlink/v2 --> chainlink-aptos
 	chainlink/v2 --> chainlink-automation
 	chainlink/v2 --> chainlink-data-streams
+	chainlink/v2 --> chainlink-evm
 	chainlink/v2 --> chainlink-feeds
 	chainlink/v2 --> chainlink-protos/orchestrator
 	chainlink/v2 --> chainlink-solana
-	chainlink/v2 --> chainlink-tron/relayer
 	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
 	click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
 	freeport
@@ -186,6 +187,7 @@ flowchart LR
 	chainlink-evm --> chainlink-framework/capabilities
 	chainlink-evm --> chainlink-framework/chains
 	chainlink-evm --> chainlink-protos/svr
+	chainlink-evm --> chainlink-tron/relayer
 	click chainlink-evm href "https://github.com/smartcontractkit/chainlink-evm"
 	chainlink-feeds --> chainlink-common
 	click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
@@ -231,7 +233,7 @@ flowchart LR
 	chainlink-testing-framework/wasp --> chainlink-testing-framework/lib
 	chainlink-testing-framework/wasp --> chainlink-testing-framework/lib/grafana
 	click chainlink-testing-framework/wasp href "https://github.com/smartcontractkit/chainlink-testing-framework"
-	chainlink-tron/relayer --> chainlink-evm
+	chainlink-tron/relayer --> chainlink-common
 	click chainlink-tron/relayer href "https://github.com/smartcontractkit/chainlink-tron"
 	chainlink/core/scripts --> chainlink/system-tests/lib
 	click chainlink/core/scripts href "https://github.com/smartcontractkit/chainlink"
@@ -256,10 +258,10 @@ flowchart LR
 	chainlink/v2 --> chainlink-aptos
 	chainlink/v2 --> chainlink-automation
 	chainlink/v2 --> chainlink-data-streams
+	chainlink/v2 --> chainlink-evm
 	chainlink/v2 --> chainlink-feeds
 	chainlink/v2 --> chainlink-protos/orchestrator
 	chainlink/v2 --> chainlink-solana
-	chainlink/v2 --> chainlink-tron/relayer
 	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
 	click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
 	freeport

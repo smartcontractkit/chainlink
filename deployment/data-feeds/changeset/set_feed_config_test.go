@@ -31,28 +31,24 @@ func TestSetFeedConfig(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
 		Chains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
 	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
-	newEnv, err := commonChangesets.Apply(t, env, nil,
-		commonChangesets.Configure(
-			changeset.DeployCacheChangeset,
-			types.DeployConfig{
-				ChainsToDeploy: []uint64{chainSelector},
-				Labels:         []string{"data-feeds"},
-			},
-		),
-		commonChangesets.Configure(
-			cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
-			map[uint64]commonTypes.MCMSWithTimelockConfigV2{
-				chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
-			},
-		),
-	)
+	newEnv, err := commonChangesets.Apply(t, env, commonChangesets.Configure(
+		changeset.DeployCacheChangeset,
+		types.DeployConfig{
+			ChainsToDeploy: []uint64{chainSelector},
+			Labels:         []string{"data-feeds"},
+		},
+	), commonChangesets.Configure(
+		cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
+		map[uint64]commonTypes.MCMSWithTimelockConfigV2{
+			chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
+		},
+	))
 	require.NoError(t, err)
 
 	cacheAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
@@ -61,65 +57,57 @@ func TestSetFeedConfig(t *testing.T) {
 	dataid := "0x01bb0467f50003040000000000000000"
 
 	// without MCMS
-	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
-		commonChangesets.Configure(
-			changeset.SetFeedAdminChangeset,
-			types.SetFeedAdminConfig{
-				ChainSelector: chainSelector,
-				CacheAddress:  common.HexToAddress(cacheAddress),
-				AdminAddress:  common.HexToAddress(env.Chains[chainSelector].DeployerKey.From.Hex()),
-				IsAdmin:       true,
-			},
-		),
-		commonChangesets.Configure(
-			changeset.SetFeedConfigChangeset,
-			types.SetFeedDecimalConfig{
-				ChainSelector: chainSelector,
-				CacheAddress:  common.HexToAddress(cacheAddress),
-				DataIDs:       []string{dataid},
-				Descriptions:  []string{"test"},
-				WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
-					cache.DataFeedsCacheWorkflowMetadata{
-						AllowedSender:        common.HexToAddress("0x22"),
-						AllowedWorkflowOwner: common.HexToAddress("0x33"),
-						AllowedWorkflowName:  changeset.HashedWorkflowName("test"),
-					},
+	newEnv, err = commonChangesets.Apply(t, newEnv, commonChangesets.Configure(
+		changeset.SetFeedAdminChangeset,
+		types.SetFeedAdminConfig{
+			ChainSelector: chainSelector,
+			CacheAddress:  common.HexToAddress(cacheAddress),
+			AdminAddress:  common.HexToAddress(env.BlockChains.EVMChains()[chainSelector].DeployerKey.From.Hex()),
+			IsAdmin:       true,
+		},
+	), commonChangesets.Configure(
+		changeset.SetFeedConfigChangeset,
+		types.SetFeedDecimalConfig{
+			ChainSelector: chainSelector,
+			CacheAddress:  common.HexToAddress(cacheAddress),
+			DataIDs:       []string{dataid},
+			Descriptions:  []string{"test"},
+			WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
+				{
+					AllowedSender:        common.HexToAddress("0x22"),
+					AllowedWorkflowOwner: common.HexToAddress("0x33"),
+					AllowedWorkflowName:  changeset.HashedWorkflowName("test"),
 				},
 			},
-		),
-	)
+		},
+	))
 	require.NoError(t, err)
 
 	// with MCMS
 	timeLockAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "RBACTimelock")
 	require.NoError(t, err)
 
-	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
-		// Set the admin to the timelock
-		commonChangesets.Configure(
-			changeset.SetFeedAdminChangeset,
-			types.SetFeedAdminConfig{
-				ChainSelector: chainSelector,
-				CacheAddress:  common.HexToAddress(cacheAddress),
-				AdminAddress:  common.HexToAddress(timeLockAddress),
-				IsAdmin:       true,
+	newEnv, err = commonChangesets.Apply(t, newEnv, commonChangesets.Configure(
+		changeset.SetFeedAdminChangeset,
+		types.SetFeedAdminConfig{
+			ChainSelector: chainSelector,
+			CacheAddress:  common.HexToAddress(cacheAddress),
+			AdminAddress:  common.HexToAddress(timeLockAddress),
+			IsAdmin:       true,
+		},
+	), commonChangesets.Configure(
+		cldf.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
+		commonChangesets.TransferToMCMSWithTimelockConfig{
+			ContractsByChain: map[uint64][]common.Address{
+				chainSelector: {common.HexToAddress(cacheAddress)},
 			},
-		),
-		// Transfer cache ownership to MCMS
-		commonChangesets.Configure(
-			cldf.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
-			commonChangesets.TransferToMCMSWithTimelockConfig{
-				ContractsByChain: map[uint64][]common.Address{
-					chainSelector: {common.HexToAddress(cacheAddress)},
-				},
-				MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0},
-			},
-		),
-	)
+			MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0},
+		},
+	))
 	require.NoError(t, err)
 
 	// Set the feed config with MCMS
-	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
+	newEnv, err = commonChangesets.Apply(t, newEnv,
 		commonChangesets.Configure(
 			changeset.SetFeedConfigChangeset,
 			types.SetFeedDecimalConfig{
@@ -128,7 +116,7 @@ func TestSetFeedConfig(t *testing.T) {
 				DataIDs:       []string{dataid},
 				Descriptions:  []string{"test2"},
 				WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
-					cache.DataFeedsCacheWorkflowMetadata{
+					{
 						AllowedSender:        common.HexToAddress("0x22"),
 						AllowedWorkflowOwner: common.HexToAddress("0x33"),
 						AllowedWorkflowName:  changeset.HashedWorkflowName("test"),

@@ -19,8 +19,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/log_emitter"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/vrf_log_emitter"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -28,13 +31,9 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/log_emitter"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/vrf_log_emitter"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
@@ -73,7 +72,7 @@ func setupVRFLogPollerListenerTH(t *testing.T) *vrfLogPollerListenerTH {
 
 	ctx := testutils.Context(t)
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	chainID := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
 
@@ -796,7 +795,7 @@ func TestUpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 
 func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *ubig.Big) {
 	chainID := ubig.New(big.NewInt(12345))
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,
 		EVMChainID:          chainID.String(),

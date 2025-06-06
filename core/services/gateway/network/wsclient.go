@@ -9,7 +9,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 type WebSocketClient interface {
@@ -33,7 +33,7 @@ func NewWebSocketClient(config WebSocketClientConfig, initiator ConnectionInitia
 	client := &webSocketClient{
 		initiator: initiator,
 		dialer:    dialer,
-		lggr:      lggr.Named("WebSocketClient"),
+		lggr:      logger.Named(lggr, "WebSocketClient"),
 	}
 	return client
 }

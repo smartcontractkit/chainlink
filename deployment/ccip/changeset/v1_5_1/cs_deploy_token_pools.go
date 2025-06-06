@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -46,7 +47,7 @@ type DeployTokenPoolInput struct {
 	AcceptLiquidity *bool
 }
 
-func (i DeployTokenPoolInput) Validate(ctx context.Context, chain cldf.Chain, state evm.CCIPChainState, tokenSymbol shared.TokenSymbol) error {
+func (i DeployTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.Chain, state evm.CCIPChainState, tokenSymbol shared.TokenSymbol) error {
 	// Ensure that required fields are populated
 	if i.TokenAddress == utils.ZeroAddress {
 		return errors.New("token address must be defined")
@@ -124,7 +125,7 @@ func (c DeployTokenPoolContractsConfig) Validate(env cldf.Environment) error {
 		if err != nil {
 			return fmt.Errorf("failed to validate chain selector %d: %w", chainSelector, err)
 		}
-		chain, ok := env.Chains[chainSelector]
+		chain, ok := env.BlockChains.EVMChains()[chainSelector]
 		if !ok {
 			return fmt.Errorf("chain with selector %d does not exist in environment", chainSelector)
 		}
@@ -169,7 +170,7 @@ func DeployTokenPoolContractsChangeset(env cldf.Environment, c DeployTokenPoolCo
 	for chainSelector, poolConfig := range c.NewPools {
 		chainSelector, poolConfig := chainSelector, poolConfig
 		deployGrp.Go(func() error {
-			chain := env.Chains[chainSelector]
+			chain := env.BlockChains.EVMChains()[chainSelector]
 			chainState := state.Chains[chainSelector]
 			_, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig, c.IsTestRouter)
 			if err != nil {
@@ -192,7 +193,7 @@ func DeployTokenPoolContractsChangeset(env cldf.Environment, c DeployTokenPoolCo
 // deployTokenPool deploys a token pool contract based on a given type & configuration.
 func deployTokenPool(
 	logger logger.Logger,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	chainState evm.CCIPChainState,
 	addressBook cldf.AddressBook,
 	poolConfig DeployTokenPoolInput,
@@ -205,7 +206,7 @@ func deployTokenPool(
 	rmnProxy := chainState.RMNProxy
 
 	return cldf.DeployContract(logger, chain, addressBook,
-		func(chain cldf.Chain) cldf.ContractDeploy[*token_pool.TokenPool] {
+		func(chain cldf_evm.Chain) cldf.ContractDeploy[*token_pool.TokenPool] {
 			var tpAddr common.Address
 			var tx *types.Transaction
 			var err error

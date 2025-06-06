@@ -6,7 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
@@ -14,7 +14,7 @@ import (
 )
 
 type AppendNodeCapabilitiesRequest struct {
-	Chain                cldf.Chain
+	Chain                cldf_evm.Chain
 	CapabilitiesRegistry *kcr.CapabilitiesRegistry
 
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -16,7 +17,7 @@ import (
 // the timelock and MCMS, but its reasonable pattern.
 func DeployMCMSWithTimelockProgramsSolana(
 	e cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	addressBook cldf.AddressBook,
 	config commontypes.MCMSWithTimelockConfigV2,
 ) (*state.MCMSWithTimelockStateSolana, error) {

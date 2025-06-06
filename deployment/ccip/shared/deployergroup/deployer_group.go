@@ -171,7 +171,7 @@ func (d *DeployerGroup) WithDeploymentContext(description string) *DeployerGroup
 }
 
 func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
-	txOpts := d.e.Chains[chain].DeployerKey
+	txOpts := d.e.BlockChains.EVMChains()[chain].DeployerKey
 	if d.mcmConfig != nil {
 		txOpts = cldf.SimTransactOpts()
 		txOpts = &bind.TransactOpts{
@@ -207,7 +207,7 @@ func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
 	if txOpts.Nonce != nil {
 		startingNonce = new(big.Int).Set(txOpts.Nonce)
 	} else {
-		nonce, err := d.e.Chains[chain].Client.PendingNonceAt(context.Background(), txOpts.From)
+		nonce, err := d.e.BlockChains.EVMChains()[chain].Client.PendingNonceAt(context.Background(), txOpts.From)
 		if err != nil {
 			return nil, fmt.Errorf("could not get nonce for deployer: %w", err)
 		}
@@ -251,14 +251,14 @@ func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
 type DeployerForSVM func(solana.PublicKey) (solana.Instruction, string, cldf.ContractType, error)
 
 func (d *DeployerGroup) GetDeployerForSVM(chain uint64) (func(DeployerForSVM) (solana.Instruction, error), error) {
-	var authority solana.PublicKey = d.e.SolChains[chain].DeployerKey.PublicKey()
+	var authority solana.PublicKey = d.e.BlockChains.SolanaChains()[chain].DeployerKey.PublicKey()
 
 	if d.mcmConfig != nil {
 		addresses, err := addressForChain(d.e, chain)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load addresses for chain %d: %w", chain, err)
 		}
-		mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(d.e.SolChains[chain], addresses)
+		mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(d.e.BlockChains.SolanaChains()[chain], addresses)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load mcm state: %w", err)
 		}
@@ -329,7 +329,7 @@ func ValidateMCMS(env cldf.Environment, selector uint64, mcmConfig *proposalutil
 		if !ok {
 			return fmt.Errorf("failed to get mcms state for chain %d", selector)
 		}
-		if err := mcmConfig.Validate(env.Chains[selector], mcmsState); err != nil {
+		if err := mcmConfig.Validate(env.BlockChains.EVMChains()[selector], mcmsState); err != nil {
 			return fmt.Errorf("mcm config is invalid for chain %d: %w", selector, err)
 		}
 	case chain_selectors.FamilySolana:
@@ -437,6 +437,7 @@ func getBatchCountForChain(chain mcmstypes.ChainSelector, timelockProposal *mcms
 
 func (d *DeployerGroup) enactDeployer() (cldf.ChangesetOutput, error) {
 	contexts := d.getContextChainInOrder()
+	evmChains := d.e.BlockChains.EVMChains()
 	for _, c := range contexts {
 		g := errgroup.Group{}
 		for selector, txs := range c.transactions {
@@ -444,18 +445,18 @@ func (d *DeployerGroup) enactDeployer() (cldf.ChangesetOutput, error) {
 			g.Go(func() error {
 				for _, tx := range txs {
 					if evmTx, ok := tx.(EvmDescribedTransaction); ok {
-						err := d.e.Chains[selector].Client.SendTransaction(context.Background(), evmTx.Tx)
+						err := evmChains[selector].Client.SendTransaction(context.Background(), evmTx.Tx)
 						if err != nil {
 							return fmt.Errorf("failed to send transaction: %w", err)
 						}
 						abiStr, ok := d.state.MustGetEVMChainState(selector).ABIByAddress[evmTx.Tx.To().Hex()]
 						if ok {
-							_, err = cldf.ConfirmIfNoErrorWithABI(d.e.Chains[selector], evmTx.Tx, abiStr, err)
+							_, err = cldf.ConfirmIfNoErrorWithABI(evmChains[selector], evmTx.Tx, abiStr, err)
 							if err != nil {
 								return fmt.Errorf("waiting for tx to be mined failed: %w", err)
 							}
 						} else {
-							_, err = cldf.ConfirmIfNoError(d.e.Chains[selector], evmTx.Tx, err)
+							_, err = cldf.ConfirmIfNoError(evmChains[selector], evmTx.Tx, err)
 							if err != nil {
 								return fmt.Errorf("waiting for tx to be mined failed: %w", err)
 							}
@@ -463,7 +464,7 @@ func (d *DeployerGroup) enactDeployer() (cldf.ChangesetOutput, error) {
 
 						d.e.Logger.Infow("Transaction sent", "chain", selector, "tx", evmTx.Tx.Hash().Hex(), "description", tx.Describe())
 					} else if solanaTx, ok := tx.(SolanaDescribedTransaction); ok {
-						err := d.e.SolChains[selector].Confirm([]solana.Instruction{solanaTx.Tx})
+						err := d.e.BlockChains.SolanaChains()[selector].Confirm([]solana.Instruction{solanaTx.Tx})
 						if err != nil {
 							return fmt.Errorf("waiting for tx to be mined failed: %w", err)
 						}
@@ -481,25 +482,14 @@ func (d *DeployerGroup) enactDeployer() (cldf.ChangesetOutput, error) {
 	return cldf.ChangesetOutput{}, nil
 }
 
-func BuildTimelockPerChain(e cldf.Environment, state stateview.CCIPOnChainState) map[uint64]*proposalutils.TimelockExecutionContracts {
-	timelocksPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
-	for _, chain := range e.Chains {
-		timelocksPerChain[chain.Selector] = &proposalutils.TimelockExecutionContracts{
-			Timelock:  state.MustGetEVMChainState(chain.Selector).Timelock,
-			CallProxy: state.MustGetEVMChainState(chain.Selector).CallProxy,
-		}
-	}
-	return timelocksPerChain
-}
-
 func BuildTimelockAddressPerChain(e cldf.Environment, onchainState stateview.CCIPOnChainState) map[uint64]string {
 	addressPerChain := make(map[uint64]string)
-	for _, chain := range e.Chains {
+	for _, chain := range e.BlockChains.EVMChains() {
 		addressPerChain[chain.Selector] = onchainState.MustGetEVMChainState(chain.Selector).Timelock.Address().Hex()
 	}
 
 	// TODO: This should come from the Solana chain state which should be enhanced to contain timlock and MCMS address
-	for selector, chain := range e.SolChains {
+	for selector, chain := range e.BlockChains.SolanaChains() {
 		addresses, _ := addressForChain(e, selector)
 		mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
 		addressPerChain[selector] = mcmsSolana.ContractAddress(mcmState.TimelockProgram, mcmsSolana.PDASeed(mcmState.TimelockSeed))
@@ -513,7 +503,7 @@ func BuildMcmAddressesPerChainByAction(e cldf.Environment, onchainState statevie
 		return nil, errors.New("mcm config is nil, cannot get mcms address")
 	}
 	addressPerChain := make(map[uint64]string)
-	for _, chain := range e.Chains {
+	for _, chain := range e.BlockChains.EVMChains() {
 		mcmContract, err := mcmCfg.MCMBasedOnAction(onchainState.EVMMCMSStateByChain()[chain.Selector])
 		if err != nil {
 			return nil, fmt.Errorf("failed to get mcms for action %s: %w", mcmCfg.MCMSAction, err)
@@ -522,7 +512,7 @@ func BuildMcmAddressesPerChainByAction(e cldf.Environment, onchainState statevie
 	}
 
 	// TODO: This should come from the Solana chain state which should be enhanced to contain timlock and MCMS address
-	for selector, chain := range e.SolChains {
+	for selector, chain := range e.BlockChains.SolanaChains() {
 		addresses, _ := addressForChain(e, selector)
 		mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
 		address, err := mcmCfg.MCMBasedOnActionSolana(*mcmState)

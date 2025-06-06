@@ -4,12 +4,15 @@ import (
 	"embed"
 	"time"
 
+	"github.com/aptos-labs/aptos-go-sdk"
+	"github.com/aptos-labs/aptos-go-sdk/api"
 	"github.com/ethereum/go-ethereum/common"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
 
+	modulefeeds "github.com/smartcontractkit/chainlink-aptos/bindings/data_feeds"
 	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
 	bundleproxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/bundle_aggregator_proxy"
 	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
@@ -124,7 +127,7 @@ type RemoveFeedProxyConfig struct {
 	McmsConfig     *MCMSConfig
 }
 
-type ImportToAddressbookConfig struct {
+type ImportAddressesConfig struct {
 	InputFileName string
 	ChainSelector uint64
 	InputFS       embed.FS
@@ -193,6 +196,36 @@ type ProposeBtJobsConfig struct {
 }
 
 type DeleteJobsConfig struct {
-	JobIDs       []string
-	WorkflowName string
+	JobIDs       []string `json:"jobIDs"`       // Optional. If provided, all jobs with these IDs will be deleted.
+	WorkflowName string   `json:"workflowName"` // Optional. If provided, all jobs with this workflow name will be deleted.
+}
+
+type SetRegistryWorkflowConfig struct {
+	ChainSelector         uint64
+	AllowedWorkflowOwners []string
+	AllowedWorkflowNames  []string
+	CacheAddress          string
+}
+
+type SetRegistryFeedConfig struct {
+	ChainSelector uint64
+	DataIDs       []string
+	Descriptions  []string
+	CacheAddress  string
+}
+
+type DeployDataFeedsResponse struct {
+	Address  aptos.AccountAddress
+	Tx       api.Hash
+	Tv       cldf.TypeAndVersion
+	Contract *modulefeeds.DataFeeds
+}
+
+type DeployAptosConfig struct {
+	ChainsToDeploy           []uint64 // Chain Selectors
+	Labels                   []string // Data Store labels for the deployed contracts, applies to all chains
+	Qualifier                string   // Data Store qualifier for the deployed contracts, applies to all chains
+	OwnerAddress             string   // Owner of the deployed contracts
+	PlatformAddress          string   // Address of the ChainLinkPlatform package
+	SecondaryPlatformAddress string   // Secondary address of the ChainLinkPlatform package
 }

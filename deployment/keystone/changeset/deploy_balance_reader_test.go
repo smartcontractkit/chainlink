@@ -22,7 +22,6 @@ func TestDeployBalanceReader(t *testing.T) {
 
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1, // nodes unused but required in config
 		Chains: 2,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)

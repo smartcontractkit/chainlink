@@ -24,7 +24,7 @@ func Test_RMNRemote_Curse_View(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains: 1,
 	})
-	chain := e.Chains[e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))[0]]
+	chain := e.BlockChains.EVMChains()[e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))[0]]
 	_, tx, remote, err := rmn_remote.DeployRMNRemote(chain.DeployerKey, chain.Client, e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))[0], common.Address{})
 	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)

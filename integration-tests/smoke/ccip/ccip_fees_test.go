@@ -37,7 +37,7 @@ func setupNewFeeToken(
 	tokenDecimals uint8,
 ) (feeToken *burn_mint_erc677.BurnMintERC677) {
 	lggr := logger.TestLogger(t)
-	chain := tenv.Env.Chains[chainSelector]
+	chain := tenv.Env.BlockChains.EVMChains()[chainSelector]
 	tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 		deployer,
 		chain.Client,
@@ -105,15 +105,14 @@ func setupTokens(
 ) {
 	lggr := logger.TestLogger(t)
 	e := tenv.Env
-
 	// Deploy the token to test transferring
 	srcToken, _, dstToken, _, err := testhelpers.DeployTransferableToken(
 		lggr,
-		tenv.Env.Chains,
+		tenv.Env.BlockChains.EVMChains(),
 		src,
 		dest,
-		tenv.Env.Chains[src].DeployerKey,
-		tenv.Env.Chains[dest].DeployerKey,
+		tenv.Env.BlockChains.EVMChains()[src].DeployerKey,
+		tenv.Env.BlockChains.EVMChains()[dest].DeployerKey,
 		state,
 		tenv.Env.ExistingAddresses,
 		"MY_TOKEN",
@@ -121,47 +120,48 @@ func setupTokens(
 	require.NoError(t, err)
 
 	linkToken := state.MustGetEVMChainState(src).LinkToken
+	evmChains := e.BlockChains.EVMChains()
 
 	tx, err := srcToken.Mint(
-		e.Chains[src].DeployerKey,
-		e.Chains[src].DeployerKey.From,
+		evmChains[src].DeployerKey,
+		evmChains[src].DeployerKey.From,
 		transferTokenMintAmount,
 	)
-	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
+	_, err = cldf.ConfirmIfNoError(evmChains[src], tx, err)
 	require.NoError(t, err)
 
 	// Mint a destination token
 	tx, err = dstToken.Mint(
-		e.Chains[dest].DeployerKey,
-		e.Chains[dest].DeployerKey.From,
+		evmChains[dest].DeployerKey,
+		evmChains[dest].DeployerKey.From,
 		transferTokenMintAmount,
 	)
-	_, err = cldf.ConfirmIfNoError(e.Chains[dest], tx, err)
+	_, err = cldf.ConfirmIfNoError(evmChains[dest], tx, err)
 	require.NoError(t, err)
 
 	// Approve the router to spend the tokens and confirm the tx's
 	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount
-	tx, err = srcToken.Approve(e.Chains[src].DeployerKey, state.MustGetEVMChainState(src).Router.Address(), math.MaxBig256)
-	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
+	tx, err = srcToken.Approve(evmChains[src].DeployerKey, state.MustGetEVMChainState(src).Router.Address(), math.MaxBig256)
+	_, err = cldf.ConfirmIfNoError(evmChains[src], tx, err)
 	require.NoError(t, err)
 
-	tx, err = dstToken.Approve(e.Chains[dest].DeployerKey, state.MustGetEVMChainState(dest).Router.Address(), math.MaxBig256)
-	_, err = cldf.ConfirmIfNoError(e.Chains[dest], tx, err)
+	tx, err = dstToken.Approve(evmChains[dest].DeployerKey, state.MustGetEVMChainState(dest).Router.Address(), math.MaxBig256)
+	_, err = cldf.ConfirmIfNoError(evmChains[dest], tx, err)
 	require.NoError(t, err)
 
 	// Grant mint and burn roles to the deployer key for the newly deployed linkToken
 	// Since those roles are not granted automatically
-	tx, err = linkToken.GrantMintAndBurnRoles(e.Chains[src].DeployerKey, e.Chains[src].DeployerKey.From)
-	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
+	tx, err = linkToken.GrantMintAndBurnRoles(evmChains[src].DeployerKey, evmChains[src].DeployerKey.From)
+	_, err = cldf.ConfirmIfNoError(evmChains[src], tx, err)
 	require.NoError(t, err)
 
 	// Mint link token and confirm the tx
 	tx, err = linkToken.Mint(
-		e.Chains[src].DeployerKey,
-		e.Chains[src].DeployerKey.From,
+		evmChains[src].DeployerKey,
+		evmChains[src].DeployerKey.From,
 		feeTokenMintAmount,
 	)
-	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
+	_, err = cldf.ConfirmIfNoError(evmChains[src], tx, err)
 	require.NoError(t, err)
 
 	return srcToken, dstToken
@@ -247,7 +247,7 @@ func Test_CCIPFees(t *testing.T) {
 	})
 
 	t.Run("Send programmable toke transfer pay with custom fee token", func(t *testing.T) {
-		feeToken := setupNewFeeToken(t, tenv, e.Chains[sourceChain].DeployerKey, sourceChain, state, "FEE", 18)
+		feeToken := setupNewFeeToken(t, tenv, e.BlockChains.EVMChains()[sourceChain].DeployerKey, sourceChain, state, "FEE", 18)
 		feestest.RunFeeTokenTestCase(feestest.NewFeeTokenTestCase(
 			t,
 			e,
@@ -317,7 +317,7 @@ func Test_CCIPFees(t *testing.T) {
 			e,
 			state,
 			&testhelpers.CCIPSendReqConfig{
-				Sender:       e.Chains[sourceChain].DeployerKey,
+				Sender:       e.BlockChains.EVMChains()[sourceChain].DeployerKey,
 				IsTestRouter: true,
 				SourceChain:  sourceChain,
 				DestChain:    destChain,
@@ -382,7 +382,7 @@ func Test_CCIPFees(t *testing.T) {
 	})
 
 	t.Run("Send message pay with custom fee token", func(t *testing.T) {
-		feeToken := setupNewFeeToken(t, tenv, e.Chains[sourceChain].DeployerKey, sourceChain, state, "FEE", 18)
+		feeToken := setupNewFeeToken(t, tenv, e.BlockChains.EVMChains()[sourceChain].DeployerKey, sourceChain, state, "FEE", 18)
 		feestest.RunFeeTokenTestCase(feestest.NewFeeTokenTestCase(
 			t,
 			e,

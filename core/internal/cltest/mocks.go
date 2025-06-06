@@ -22,8 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"

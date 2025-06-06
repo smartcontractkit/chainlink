@@ -71,14 +71,15 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	// initialize the block time for each chain
 	blockTimes := make(map[uint64]uint64)
+	evmChains := env.BlockChains.EVMChains()
 	for _, cs := range env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 		// Get the first block
-		block1, err := env.Chains[cs].Client.HeaderByNumber(context.Background(), big.NewInt(1))
+		block1, err := evmChains[cs].Client.HeaderByNumber(context.Background(), big.NewInt(1))
 		require.NoError(t, err)
 		time1 := time.Unix(int64(block1.Time), 0) //nolint:gosec // G115
 
 		// Get the second block
-		block2, err := env.Chains[cs].Client.HeaderByNumber(context.Background(), big.NewInt(2))
+		block2, err := evmChains[cs].Client.HeaderByNumber(context.Background(), big.NewInt(2))
 		require.NoError(t, err)
 		time2 := time.Unix(int64(block2.Time), 0) //nolint:gosec // G115
 
@@ -113,7 +114,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	// potential source chains need a subscription
 	for _, cs := range env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
-		latesthdr, err := env.Chains[cs].Client.HeaderByNumber(ctx, nil)
+		latesthdr, err := evmChains[cs].Client.HeaderByNumber(ctx, nil)
 		require.NoError(t, err)
 		block := latesthdr.Number.Uint64()
 		startBlocks[cs] = &block
@@ -131,7 +132,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			startBlocks[cs],
 			cs,
 			loadFinished,
-			env.Chains[cs].Client,
+			evmChains[cs].Client,
 			&wg,
 			mm.InputChan,
 			finalSeqNrCommitChannels,
@@ -204,7 +205,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			other,
 			startBlocks[cs],
 			cs,
-			env.Chains[cs].Client,
+			evmChains[cs].Client,
 			finalSeqNrCommitChannels[cs],
 			&wg,
 			mm.InputChan)
@@ -215,7 +216,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			other,
 			startBlocks[cs],
 			cs,
-			env.Chains[cs].Client,
+			evmChains[cs].Client,
 			finalSeqNrExecChannels[cs],
 			&wg,
 			mm.InputChan)
@@ -300,13 +301,14 @@ func prepareAccountToSendLink(
 	src uint64,
 	srcAccount *bind.TransactOpts) error {
 	lggr := logger.Test(t)
-	srcDeployer := e.Chains[src].DeployerKey
+	evmChains := e.BlockChains.EVMChains()
+	srcDeployer := evmChains[src].DeployerKey
 	lggr.Infow("Setting up link token", "src", src)
 	srcLink := state.MustGetEVMChainState(src).LinkToken
 
 	lggr.Infow("Granting mint and burn roles")
 	tx, err := srcLink.GrantMintAndBurnRoles(srcDeployer, srcAccount.From)
-	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
+	_, err = cldf.ConfirmIfNoError(evmChains[src], tx, err)
 	if err != nil {
 		return err
 	}
@@ -318,7 +320,7 @@ func prepareAccountToSendLink(
 		srcAccount.From,
 		big.NewInt(20_000),
 	)
-	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
+	_, err = cldf.ConfirmIfNoError(evmChains[src], tx, err)
 	if err != nil {
 		return err
 	}
@@ -328,6 +330,6 @@ func prepareAccountToSendLink(
 	// Approve the router to spend the tokens and confirm the tx's
 	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount
 	tx, err = srcLink.Approve(srcAccount, state.MustGetEVMChainState(src).Router.Address(), math.MaxBig256)
-	_, err = cldf.ConfirmIfNoError(e.Chains[src], tx, err)
+	_, err = cldf.ConfirmIfNoError(evmChains[src], tx, err)
 	return err
 }

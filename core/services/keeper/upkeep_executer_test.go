@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	gasmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
@@ -27,7 +28,6 @@ import (
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"

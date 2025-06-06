@@ -28,7 +28,7 @@ type E2ETokenPoolConfig struct {
 	SetPool                               []SetPoolConfig
 	RemoteChainTokenPool                  []RemoteChainTokenPoolConfig
 	ConfigureTokenPoolContractsChangesets []v1_5_1.ConfigureTokenPoolContractsConfig
-	MCMS                                  *proposalutils.TimelockConfig
+	MCMS                                  *proposalutils.TimelockConfig // set it to aggregate all the proposals
 }
 
 func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOutput, error) {
@@ -39,9 +39,24 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 		e.Logger.Info("SolanaE2ETokenPool changeset completed")
 		e.Logger.Info("Final output: ", finalOutput.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	}(e)
+	// if mcms config is not provided, use the mcms config from one of the other configs
+	if cfg.MCMS == nil {
+		switch {
+		case len(cfg.RegisterTokenAdminRegistry) > 0 && cfg.RegisterTokenAdminRegistry[0].MCMS != nil:
+			cfg.MCMS = cfg.RegisterTokenAdminRegistry[0].MCMS
+		case len(cfg.AcceptAdminRoleTokenAdminRegistry) > 0 && cfg.AcceptAdminRoleTokenAdminRegistry[0].MCMS != nil:
+			cfg.MCMS = cfg.AcceptAdminRoleTokenAdminRegistry[0].MCMS
+		case len(cfg.SetPool) > 0 && cfg.SetPool[0].MCMS != nil:
+			cfg.MCMS = cfg.SetPool[0].MCMS
+		}
+	}
 	err := ProcessConfig(&e, cfg.AddTokenPoolAndLookupTable, AddTokenPoolAndLookupTable, &finalOutput, addressBookToRemove)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to add token pool and lookup table: %w", err)
+	}
+	err = ProcessConfig(&e, cfg.RemoteChainTokenPool, SetupTokenPoolForRemoteChain, &finalOutput, addressBookToRemove)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure remote chain token pool: %w", err)
 	}
 	err = ProcessConfig(&e, cfg.RegisterTokenAdminRegistry, RegisterTokenAdminRegistry, &finalOutput, addressBookToRemove)
 	if err != nil {
@@ -54,10 +69,6 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 	err = ProcessConfig(&e, cfg.SetPool, SetPool, &finalOutput, addressBookToRemove)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to set pool: %w", err)
-	}
-	err = ProcessConfig(&e, cfg.RemoteChainTokenPool, SetupTokenPoolForRemoteChain, &finalOutput, addressBookToRemove)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure remote chain token pool: %w", err)
 	}
 	err = ProcessConfig(&e, cfg.ConfigureTokenPoolContractsChangesets, v1_5_1.ConfigureTokenPoolContractsChangeset, &finalOutput, addressBookToRemove)
 	if err != nil {

@@ -43,7 +43,7 @@ func (c SyncUSDCDomainsWithChainsConfig) Validate(env cldf.Environment, state st
 		if err != nil {
 			return fmt.Errorf("failed to validate chain selector %d: %w", chainSelector, err)
 		}
-		chain, ok := env.Chains[chainSelector]
+		chain, ok := env.BlockChains.EVMChains()[chainSelector]
 		if !ok {
 			return fmt.Errorf("chain with selector %d does not exist in environment", chainSelector)
 		}
@@ -86,7 +86,7 @@ func (c SyncUSDCDomainsWithChainsConfig) Validate(env cldf.Environment, state st
 	// Check that our input covers all chains that define USDC pools.
 	for chainSelector, chainState := range state.Chains {
 		if _, ok := c.USDCVersionByChain[chainSelector]; !ok && chainState.USDCTokenPools != nil {
-			return fmt.Errorf("no USDC chain config defined for %s, which does support USDC", env.Chains[chainSelector])
+			return fmt.Errorf("no USDC chain config defined for %s, which does support USDC", env.BlockChains.EVMChains()[chainSelector])
 		}
 	}
 	return nil
@@ -107,7 +107,7 @@ func SyncUSDCDomainsWithChainsChangeset(env cldf.Environment, c SyncUSDCDomainsW
 	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("sync domain support with chain support on USDC token pools")
 
 	for chainSelector, version := range c.USDCVersionByChain {
-		chain := env.Chains[chainSelector]
+		chain := env.BlockChains.EVMChains()[chainSelector]
 		chainState := state.Chains[chainSelector]
 		writeOpts, err := deployerGroup.GetDeployer(chainSelector)
 		if err != nil {

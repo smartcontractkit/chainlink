@@ -4,9 +4,12 @@ import (
 	"errors"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -25,24 +28,52 @@ var (
 			ab := deps.AddressBook
 			chain := deps.Chain
 			offRamp, err := cldf.DeployContract(b.Logger, chain, ab,
-				func(chain cldf.Chain) cldf.ContractDeploy[*offramp.OffRamp] {
-					offRampAddr, tx2, offRamp, err2 := offramp.DeployOffRamp(
-						chain.DeployerKey,
-						chain.Client,
-						offramp.OffRampStaticConfig{
-							ChainSelector:        chain.Selector,
-							GasForCallExactCheck: input.Params.GasForCallExactCheck,
-							RmnRemote:            input.RmnRemote,
-							NonceManager:         input.NonceManager,
-							TokenAdminRegistry:   input.TokenAdminRegistry,
-						},
-						offramp.OffRampDynamicConfig{
-							FeeQuoter:                               input.FeeQuoter,
-							PermissionLessExecutionThresholdSeconds: input.Params.PermissionLessExecutionThresholdSeconds,
-							MessageInterceptor:                      input.Params.MessageInterceptor,
-						},
-						[]offramp.OffRampSourceChainConfigArgs{},
+				func(chain cldf_evm.Chain) cldf.ContractDeploy[*offramp.OffRamp] {
+					var (
+						offRampAddr common.Address
+						tx2         *types.Transaction
+						offRamp     *offramp.OffRamp
+						err2        error
 					)
+					if chain.IsZkSyncVM {
+						offRampAddr, _, offRamp, err2 = offramp.DeployOffRampZk(
+							nil,
+							chain.ClientZkSyncVM,
+							chain.DeployerKeyZkSyncVM,
+							chain.Client,
+							offramp.OffRampStaticConfig{
+								ChainSelector:        chain.Selector,
+								GasForCallExactCheck: input.Params.GasForCallExactCheck,
+								RmnRemote:            input.RmnRemote,
+								NonceManager:         input.NonceManager,
+								TokenAdminRegistry:   input.TokenAdminRegistry,
+							},
+							offramp.OffRampDynamicConfig{
+								FeeQuoter:                               input.FeeQuoter,
+								PermissionLessExecutionThresholdSeconds: input.Params.PermissionLessExecutionThresholdSeconds,
+								MessageInterceptor:                      input.Params.MessageInterceptor,
+							},
+							[]offramp.OffRampSourceChainConfigArgs{},
+						)
+					} else {
+						offRampAddr, tx2, offRamp, err2 = offramp.DeployOffRamp(
+							chain.DeployerKey,
+							chain.Client,
+							offramp.OffRampStaticConfig{
+								ChainSelector:        chain.Selector,
+								GasForCallExactCheck: input.Params.GasForCallExactCheck,
+								RmnRemote:            input.RmnRemote,
+								NonceManager:         input.NonceManager,
+								TokenAdminRegistry:   input.TokenAdminRegistry,
+							},
+							offramp.OffRampDynamicConfig{
+								FeeQuoter:                               input.FeeQuoter,
+								PermissionLessExecutionThresholdSeconds: input.Params.PermissionLessExecutionThresholdSeconds,
+								MessageInterceptor:                      input.Params.MessageInterceptor,
+							},
+							[]offramp.OffRampSourceChainConfigArgs{},
+						)
+					}
 					return cldf.ContractDeploy[*offramp.OffRamp]{
 						Address: offRampAddr, Contract: offRamp, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_6_0), Err: err2,
 					}
@@ -53,6 +84,18 @@ var (
 			}
 			return offRamp.Address, nil
 		})
+
+	OffRampApplySourceChainConfigUpdatesOp = opsutil.NewEVMCallOperation(
+		"OffRampApplySourceChainConfigUpdatesOp",
+		semver.MustParse("1.0.0"),
+		"Applies updates to source chain configurations stored on the OffRamp contract",
+		offramp.OffRampABI,
+		shared.OffRamp,
+		offramp.NewOffRamp,
+		func(offRamp *offramp.OffRamp, opts *bind.TransactOpts, input []offramp.OffRampSourceChainConfigArgs) (*types.Transaction, error) {
+			return offRamp.ApplySourceChainConfigUpdates(opts, input)
+		},
+	)
 )
 
 type DeployOffRampInput struct {

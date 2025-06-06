@@ -6,6 +6,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -62,7 +63,7 @@ func SetOCR3ConfigSolana(e cldf.Environment, cfg v1_6.SetOCR3OffRampConfig) (cld
 		if chainFamily != chain_selectors.FamilySolana {
 			return cldf.ChangesetOutput{}, fmt.Errorf("chain %d is not a solana chain", remote)
 		}
-		chain := e.SolChains[remote]
+		chain := e.BlockChains.SolanaChains()[remote]
 		if err := solanastateview.ValidateOwnershipSolana(&e, chain, cfg.MCMS != nil, state.SolChains[remote].OffRamp, shared.OffRamp, solana.PublicKey{}); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate ownership: %w", err)
 		}
@@ -84,7 +85,7 @@ func SetOCR3ConfigSolana(e cldf.Environment, cfg v1_6.SetOCR3OffRampConfig) (cld
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build set ocr3 config args: %w", err)
 		}
-		set, err := isOCR3ConfigSetOnOffRampSolana(e, e.SolChains[remote], state.SolChains[remote], args)
+		set, err := isOCR3ConfigSetOnOffRampSolana(e, e.BlockChains.SolanaChains()[remote], state.SolChains[remote], args)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to check if ocr3 config is set on offramp: %w", err)
 		}
@@ -92,7 +93,7 @@ func SetOCR3ConfigSolana(e cldf.Environment, cfg v1_6.SetOCR3OffRampConfig) (cld
 			e.Logger.Infof("OCR3 config already set on offramp for chain %d", remote)
 			continue
 		}
-		chain := e.SolChains[remote]
+		chain := e.BlockChains.SolanaChains()[remote]
 		addresses, _ := e.ExistingAddresses.AddressesForChain(remote)
 		mcmState, _ := csState.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
 
@@ -113,7 +114,7 @@ func SetOCR3ConfigSolana(e cldf.Environment, cfg v1_6.SetOCR3OffRampConfig) (cld
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
 			}
 		} else {
-			authority = e.SolChains[remote].DeployerKey.PublicKey()
+			authority = e.BlockChains.SolanaChains()[remote].DeployerKey.PublicKey()
 		}
 		for _, arg := range args {
 			var ocrType solOffRamp.OcrPluginType
@@ -142,7 +143,7 @@ func SetOCR3ConfigSolana(e cldf.Environment, cfg v1_6.SetOCR3OffRampConfig) (cld
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 			}
 			if cfg.MCMS == nil {
-				if err := e.SolChains[remote].Confirm([]solana.Instruction{instruction}); err != nil {
+				if err := e.BlockChains.SolanaChains()[remote].Confirm([]solana.Instruction{instruction}); err != nil {
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 				}
 			} else {
@@ -179,7 +180,7 @@ func SetOCR3ConfigSolana(e cldf.Environment, cfg v1_6.SetOCR3OffRampConfig) (cld
 
 func isOCR3ConfigSetOnOffRampSolana(
 	e cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	chainState solanastateview.CCIPChainState,
 	args []internal.MultiOCR3BaseOCRConfigArgsSolana,
 ) (bool, error) {

@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -191,7 +192,7 @@ func validateLBTCConfig(e cldf.Environment, lbtcConfig *pluginconfig.LBTCObserve
 			return fmt.Errorf("chain %d does not exist in state but provided in LBTCObserverConfig", sel)
 		}
 		sourcePoolAddr := common.HexToAddress(sourcePool)
-		sourcePool, err := token_pool.NewTokenPool(sourcePoolAddr, e.Chains[uint64(sel)].Client)
+		sourcePool, err := token_pool.NewTokenPool(sourcePoolAddr, e.BlockChains.EVMChains()[uint64(sel)].Client)
 		if err != nil {
 			return fmt.Errorf("chain %d has an error while requesting LBTC source token pool %s: %w", sel, sourcePoolAddr, err)
 		}
@@ -288,7 +289,7 @@ func (p PromoteCandidateChangesetConfig) Validate(e cldf.Environment) (map[uint6
 		return nil, fmt.Errorf("home chain invalid: %w", err)
 	}
 	homeChainState := state.Chains[p.HomeChainSelector]
-	if err := commoncs.ValidateOwnership(e.GetContext(), p.MCMS != nil, e.Chains[p.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
+	if err := commoncs.ValidateOwnership(e.GetContext(), p.MCMS != nil, e.BlockChains.EVMChains()[p.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
 		return nil, err
 	}
 
@@ -376,12 +377,12 @@ func PromoteCandidateChangeset(
 		return cldf.ChangesetOutput{}, fmt.Errorf("fetch node info: %w", err)
 	}
 
-	txOpts := e.Chains[cfg.HomeChainSelector].DeployerKey
+	txOpts := e.BlockChains.EVMChains()[cfg.HomeChainSelector].DeployerKey
 	if cfg.MCMS != nil {
 		txOpts = cldf.SimTransactOpts()
 	}
 
-	homeChain := e.Chains[cfg.HomeChainSelector]
+	homeChain := e.BlockChains.EVMChains()[cfg.HomeChainSelector]
 
 	var mcmsTxs []mcmstypes.Transaction
 	for _, plugin := range cfg.PluginInfo {
@@ -411,7 +412,7 @@ func PromoteCandidateChangeset(
 	}
 
 	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
-	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
+	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.BlockChains.EVMChains()[cfg.HomeChainSelector].Client)}
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: mcmsTxs}}
 
 	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
@@ -525,7 +526,7 @@ func (s SetCandidateConfigBase) Validate(e cldf.Environment, state stateview.CCI
 	if !exists {
 		return fmt.Errorf("home chain %d does not exist", s.HomeChainSelector)
 	}
-	if err := commoncs.ValidateOwnership(e.GetContext(), s.MCMS != nil, e.Chains[s.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
+	if err := commoncs.ValidateOwnership(e.GetContext(), s.MCMS != nil, e.BlockChains.EVMChains()[s.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
 		return err
 	}
 
@@ -618,7 +619,7 @@ func AddDonAndSetCandidateChangeset(
 		return cldf.ChangesetOutput{}, fmt.Errorf("get node info: %w", err)
 	}
 
-	txOpts := e.Chains[cfg.HomeChainSelector].DeployerKey
+	txOpts := e.BlockChains.EVMChains()[cfg.HomeChainSelector].DeployerKey
 	if cfg.MCMS != nil {
 		txOpts = cldf.SimTransactOpts()
 	}
@@ -664,7 +665,7 @@ func AddDonAndSetCandidateChangeset(
 
 		addDonOp, err := newDonWithCandidateOp(
 			txOpts,
-			e.Chains[cfg.HomeChainSelector],
+			e.BlockChains.EVMChains()[cfg.HomeChainSelector],
 			expectedDonID,
 			pluginOCR3Config,
 			state.Chains[cfg.HomeChainSelector].CapabilityRegistry,
@@ -681,7 +682,7 @@ func AddDonAndSetCandidateChangeset(
 	}
 
 	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
-	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
+	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.BlockChains.EVMChains()[cfg.HomeChainSelector].Client)}
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: donMcmsTxs}}
 
 	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
@@ -709,7 +710,7 @@ func AddDonAndSetCandidateChangeset(
 // This proposes to set up OCR3 config for the commit plugin for the DON
 func newDonWithCandidateOp(
 	txOpts *bind.TransactOpts,
-	homeChain cldf.Chain,
+	homeChain cldf_evm.Chain,
 	donID uint32,
 	pluginConfig ccip_home.CCIPHomeOCR3Config,
 	capReg *capabilities_registry.CapabilitiesRegistry,
@@ -827,7 +828,7 @@ func SetCandidateChangeset(
 		return cldf.ChangesetOutput{}, fmt.Errorf("get node info: %w", err)
 	}
 
-	txOpts := e.Chains[cfg.HomeChainSelector].DeployerKey
+	txOpts := e.BlockChains.EVMChains()[cfg.HomeChainSelector].DeployerKey
 	if cfg.MCMS != nil {
 		txOpts = cldf.SimTransactOpts()
 	}
@@ -864,7 +865,7 @@ func SetCandidateChangeset(
 			setCandidateMCMSOps, err := setCandidateOnExistingDon(
 				e,
 				txOpts,
-				e.Chains[cfg.HomeChainSelector],
+				e.BlockChains.EVMChains()[cfg.HomeChainSelector],
 				state.Chains[cfg.HomeChainSelector].CapabilityRegistry,
 				state.Chains[cfg.HomeChainSelector].CCIPHome,
 				nodes.NonBootstraps(),
@@ -883,7 +884,7 @@ func SetCandidateChangeset(
 	}
 
 	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
-	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
+	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.BlockChains.EVMChains()[cfg.HomeChainSelector].Client)}
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: setCandidateMcmsTxs}}
 
 	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
@@ -911,7 +912,7 @@ func SetCandidateChangeset(
 func setCandidateOnExistingDon(
 	e cldf.Environment,
 	txOpts *bind.TransactOpts,
-	homeChain cldf.Chain,
+	homeChain cldf_evm.Chain,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
 	nodes deployment.Nodes,
@@ -983,7 +984,7 @@ func setCandidateOnExistingDon(
 // promoteCandidateOp will create the MCMS Operation for `promoteCandidateAndRevokeActive` directed towards the capabilityRegistry
 func promoteCandidateOp(
 	txOpts *bind.TransactOpts,
-	homeChain cldf.Chain,
+	homeChain cldf_evm.Chain,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
 	nodes deployment.Nodes,
@@ -1048,7 +1049,7 @@ func promoteCandidateOp(
 func promoteCandidateForChainOps(
 	lggr logger.Logger,
 	txOpts *bind.TransactOpts,
-	homeChain cldf.Chain,
+	homeChain cldf_evm.Chain,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
 	nodes deployment.Nodes,
@@ -1117,7 +1118,7 @@ func (r RevokeCandidateChangesetConfig) Validate(e cldf.Environment, state state
 	if !exists {
 		return 0, fmt.Errorf("home chain %d does not exist", r.HomeChainSelector)
 	}
-	if err := commoncs.ValidateOwnership(e.GetContext(), r.MCMS != nil, e.Chains[r.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
+	if err := commoncs.ValidateOwnership(e.GetContext(), r.MCMS != nil, e.BlockChains.EVMChains()[r.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
 		return 0, err
 	}
 
@@ -1162,12 +1163,12 @@ func RevokeCandidateChangeset(e cldf.Environment, cfg RevokeCandidateChangesetCo
 		return cldf.ChangesetOutput{}, fmt.Errorf("fetch nodes info: %w", err)
 	}
 
-	txOpts := e.Chains[cfg.HomeChainSelector].DeployerKey
+	txOpts := e.BlockChains.EVMChains()[cfg.HomeChainSelector].DeployerKey
 	if cfg.MCMS != nil {
 		txOpts = cldf.SimTransactOpts()
 	}
 
-	homeChain := e.Chains[cfg.HomeChainSelector]
+	homeChain := e.BlockChains.EVMChains()[cfg.HomeChainSelector]
 	ops, err := revokeCandidateOps(
 		txOpts,
 		homeChain,
@@ -1186,7 +1187,7 @@ func RevokeCandidateChangeset(e cldf.Environment, cfg RevokeCandidateChangesetCo
 	}
 
 	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
-	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
+	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.BlockChains.EVMChains()[cfg.HomeChainSelector].Client)}
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: ops}}
 
 	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
@@ -1211,7 +1212,7 @@ func RevokeCandidateChangeset(e cldf.Environment, cfg RevokeCandidateChangesetCo
 
 func revokeCandidateOps(
 	txOpts *bind.TransactOpts,
-	homeChain cldf.Chain,
+	homeChain cldf_evm.Chain,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
 	nodes deployment.Nodes,
@@ -1304,7 +1305,7 @@ func (c UpdateChainConfigConfig) Validate(e cldf.Environment) error {
 	if !exists {
 		return fmt.Errorf("home chain %d does not exist", c.HomeChainSelector)
 	}
-	if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.Chains[c.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CCIPHome); err != nil {
+	if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.BlockChains.EVMChains()[c.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CCIPHome); err != nil {
 		return err
 	}
 	for _, remove := range c.RemoteChainRemoves {
@@ -1343,7 +1344,7 @@ func UpdateChainConfigChangeset(e cldf.Environment, cfg UpdateChainConfigConfig)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	txOpts := e.Chains[cfg.HomeChainSelector].DeployerKey
+	txOpts := e.BlockChains.EVMChains()[cfg.HomeChainSelector].DeployerKey
 	txOpts.Context = e.GetContext()
 	if cfg.MCMS != nil {
 		txOpts = cldf.SimTransactOpts()
@@ -1378,7 +1379,7 @@ func UpdateChainConfigChangeset(e cldf.Environment, cfg UpdateChainConfigConfig)
 
 	tx, err := state.Chains[cfg.HomeChainSelector].CCIPHome.ApplyChainConfigUpdates(txOpts, cfg.RemoteChainRemoves, adds)
 	if cfg.MCMS == nil {
-		_, err = cldf.ConfirmIfNoErrorWithABI(e.Chains[cfg.HomeChainSelector], tx, ccip_home.CCIPHomeABI, err)
+		_, err = cldf.ConfirmIfNoErrorWithABI(e.BlockChains.EVMChains()[cfg.HomeChainSelector], tx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -1387,7 +1388,7 @@ func UpdateChainConfigChangeset(e cldf.Environment, cfg UpdateChainConfigConfig)
 	}
 
 	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
-	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
+	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.BlockChains.EVMChains()[cfg.HomeChainSelector].Client)}
 	batchOp, err := proposalutils.BatchOperationForChain(cfg.HomeChainSelector, state.Chains[cfg.HomeChainSelector].CCIPHome.Address().Hex(),
 		tx.Data(), big.NewInt(0), string(shared.CCIPHome), []string{})
 	if err != nil {
@@ -1506,7 +1507,7 @@ func deployDonIDClaimerChangesetLogic(e cldf.Environment, _ DeployDonIDClaimerCo
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get HomeChainSelector: %w", err)
 	}
 
-	chain := e.Chains[homeChainSel]
+	chain := e.BlockChains.EVMChains()[homeChainSel]
 	err = deployDonIDClaimerContract(e, ab, state, chain)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy donIDClaimer contract", "err", err, "addressBook", ab)
@@ -1519,7 +1520,7 @@ func deployDonIDClaimerChangesetLogic(e cldf.Environment, _ DeployDonIDClaimerCo
 	}, nil
 }
 
-func deployDonIDClaimerContract(e cldf.Environment, ab cldf.AddressBook, state stateview.CCIPOnChainState, chain cldf.Chain) error {
+func deployDonIDClaimerContract(e cldf.Environment, ab cldf.AddressBook, state stateview.CCIPOnChainState, chain cldf_evm.Chain) error {
 	chainState, chainExists := state.Chains[chain.Selector]
 	if !chainExists {
 		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
@@ -1527,7 +1528,7 @@ func deployDonIDClaimerContract(e cldf.Environment, ab cldf.AddressBook, state s
 
 	if state.Chains[chain.Selector].DonIDClaimer == nil {
 		_, err := cldf.DeployContract(e.Logger, chain, ab,
-			func(chain cldf.Chain) cldf.ContractDeploy[*don_id_claimer.DonIDClaimer] {
+			func(chain cldf_evm.Chain) cldf.ContractDeploy[*don_id_claimer.DonIDClaimer] {
 				donIDClaimerAddr, tx2, donIDClaimerC, err2 := don_id_claimer.DeployDonIDClaimer(
 					chain.DeployerKey,
 					chain.Client,
@@ -1581,11 +1582,11 @@ func donIDClaimerOffSetChangesetLogic(e cldf.Environment, cfg DonIDClaimerOffSet
 	// perform the offset operation
 	donIDClaimer := state.Chains[homeChainSel].DonIDClaimer
 
-	txOpts := e.Chains[homeChainSel].DeployerKey
+	txOpts := e.BlockChains.EVMChains()[homeChainSel].DeployerKey
 	txOpts.Context = e.GetContext()
 
 	tx, err := donIDClaimer.SyncNextDONIdWithOffset(txOpts, cfg.OffSet)
-	if _, err := cldf.ConfirmIfNoErrorWithABI(e.Chains[homeChainSel], tx, don_id_claimer.DonIDClaimerABI, err); err != nil {
+	if _, err := cldf.ConfirmIfNoErrorWithABI(e.BlockChains.EVMChains()[homeChainSel], tx, don_id_claimer.DonIDClaimerABI, err); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error apply offset to donIDClaimer for chain %d: %w", homeChainSel, err)
 	}
 
@@ -1614,7 +1615,7 @@ func donIDClaimerOffSetChangesetPrecondition(e cldf.Environment, c DonIDClaimerO
 		return err
 	}
 
-	txOpts := e.Chains[homeChainSel].DeployerKey
+	txOpts := e.BlockChains.EVMChains()[homeChainSel].DeployerKey
 	// ensure deployer key is authorized
 	isAuthorizedDeployer, err := state.Chains[homeChainSel].DonIDClaimer.IsAuthorizedDeployer(&bind.CallOpts{
 		Context: e.GetContext(),

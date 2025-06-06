@@ -27,7 +27,7 @@ func TestOffRampView(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains: 1,
 	})
-	chain := e.Chains[e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))[0]]
+	chain := e.BlockChains.EVMChains()[e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))[0]]
 	_, tx, c, err := commit_store.DeployCommitStore(
 		chain.DeployerKey, chain.Client, commit_store.CommitStoreStaticConfig{
 			ChainSelector:       chainsel.TEST_90000002.Selector,

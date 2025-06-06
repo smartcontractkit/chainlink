@@ -21,7 +21,7 @@ func deployBundleAggregatorProxyLogic(env cldf.Environment, c types.DeployBundle
 	ab := cldf.NewMemoryAddressBook()
 
 	for _, chainSelector := range c.ChainsToDeploy {
-		chain := env.Chains[chainSelector]
+		chain := env.BlockChains.EVMChains()[chainSelector]
 
 		dataFeedsCacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, chainSelector, &c.CacheLabel) //nolint:staticcheck // TODO: replace with DataStore when ready
 		if dataFeedsCacheAddress == "" {
@@ -45,7 +45,7 @@ func deployBundleAggregatorProxyLogic(env cldf.Environment, c types.DeployBundle
 
 func deployBundleAggregatorProxyPrecondition(env cldf.Environment, c types.DeployBundleAggregatorProxyConfig) error {
 	for _, chainSelector := range c.ChainsToDeploy {
-		_, ok := env.Chains[chainSelector]
+		_, ok := env.BlockChains.EVMChains()[chainSelector]
 		if !ok {
 			return errors.New("chain not found in environment")
 		}

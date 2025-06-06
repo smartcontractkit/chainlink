@@ -587,7 +587,7 @@ universalSetupInput := creenv.SetupInput{
   },
 }
 
-universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testcontext.Get(t), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
+universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
 if setupErr != nil {
   panic(setupErr)
 }

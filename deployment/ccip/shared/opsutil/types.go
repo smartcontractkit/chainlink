@@ -3,6 +3,7 @@ package opsutil
 import (
 	"github.com/smartcontractkit/mcms"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -18,7 +19,7 @@ type ConfigureDependencies struct {
 // DeployContractDependencies is used on operations which need to deploy contracts or operations which can be used without
 // the deployer group
 type DeployContractDependencies struct {
-	Chain       cldf.Chain
+	Chain       cldf_evm.Chain
 	AddressBook cldf.AddressBook
 }
 

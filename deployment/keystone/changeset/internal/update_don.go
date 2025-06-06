@@ -17,6 +17,7 @@ import (
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -30,7 +31,7 @@ type CapabilityConfig struct {
 }
 
 type UpdateDonRequest struct {
-	Chain                cldf.Chain
+	Chain                cldf_evm.Chain
 	CapabilitiesRegistry *kcr.CapabilitiesRegistry
 
 	P2PIDs            []p2pkey.PeerID    // this is the unique identifier for the don

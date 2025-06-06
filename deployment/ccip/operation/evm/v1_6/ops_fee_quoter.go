@@ -7,8 +7,12 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -39,31 +43,66 @@ var (
 			ab := deps.AddressBook
 			contractParams := input.Params
 			feeQ, err := cldf.DeployContract(b.Logger, chain, ab,
-				func(chain cldf.Chain) cldf.ContractDeploy[*fee_quoter.FeeQuoter] {
-					prAddr, tx2, pr, err2 := fee_quoter.DeployFeeQuoter(
-						chain.DeployerKey,
-						chain.Client,
-						fee_quoter.FeeQuoterStaticConfig{
-							MaxFeeJuelsPerMsg:            contractParams.MaxFeeJuelsPerMsg,
-							LinkToken:                    input.LinkAddr,
-							TokenPriceStalenessThreshold: contractParams.TokenPriceStalenessThreshold,
-						},
-						input.PriceUpdaters,
-						[]common.Address{input.WethAddr, input.LinkAddr}, // fee tokens
-						contractParams.TokenPriceFeedUpdates,
-						contractParams.TokenTransferFeeConfigArgs,
-						append([]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
-							{
-								PremiumMultiplierWeiPerEth: contractParams.LinkPremiumMultiplierWeiPerEth,
-								Token:                      input.LinkAddr,
-							},
-							{
-								PremiumMultiplierWeiPerEth: contractParams.WethPremiumMultiplierWeiPerEth,
-								Token:                      input.WethAddr,
-							},
-						}, contractParams.MorePremiumMultiplierWeiPerEth...),
-						contractParams.DestChainConfigArgs,
+				func(chain cldf_evm.Chain) cldf.ContractDeploy[*fee_quoter.FeeQuoter] {
+					var (
+						prAddr common.Address
+						tx2    *types.Transaction
+						pr     *fee_quoter.FeeQuoter
+						err2   error
 					)
+					if chain.IsZkSyncVM {
+						prAddr, _, pr, err2 = fee_quoter.DeployFeeQuoterZk(
+							nil,
+							chain.ClientZkSyncVM,
+							chain.DeployerKeyZkSyncVM,
+							chain.Client,
+							fee_quoter.FeeQuoterStaticConfig{
+								MaxFeeJuelsPerMsg:            contractParams.MaxFeeJuelsPerMsg,
+								LinkToken:                    input.LinkAddr,
+								TokenPriceStalenessThreshold: contractParams.TokenPriceStalenessThreshold,
+							},
+							input.PriceUpdaters,
+							[]common.Address{input.WethAddr, input.LinkAddr}, // fee tokens
+							contractParams.TokenPriceFeedUpdates,
+							contractParams.TokenTransferFeeConfigArgs,
+							append([]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
+								{
+									PremiumMultiplierWeiPerEth: contractParams.LinkPremiumMultiplierWeiPerEth,
+									Token:                      input.LinkAddr,
+								},
+								{
+									PremiumMultiplierWeiPerEth: contractParams.WethPremiumMultiplierWeiPerEth,
+									Token:                      input.WethAddr,
+								},
+							}, contractParams.MorePremiumMultiplierWeiPerEth...),
+							contractParams.DestChainConfigArgs,
+						)
+					} else {
+						prAddr, tx2, pr, err2 = fee_quoter.DeployFeeQuoter(
+							chain.DeployerKey,
+							chain.Client,
+							fee_quoter.FeeQuoterStaticConfig{
+								MaxFeeJuelsPerMsg:            contractParams.MaxFeeJuelsPerMsg,
+								LinkToken:                    input.LinkAddr,
+								TokenPriceStalenessThreshold: contractParams.TokenPriceStalenessThreshold,
+							},
+							input.PriceUpdaters,
+							[]common.Address{input.WethAddr, input.LinkAddr}, // fee tokens
+							contractParams.TokenPriceFeedUpdates,
+							contractParams.TokenTransferFeeConfigArgs,
+							append([]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
+								{
+									PremiumMultiplierWeiPerEth: contractParams.LinkPremiumMultiplierWeiPerEth,
+									Token:                      input.LinkAddr,
+								},
+								{
+									PremiumMultiplierWeiPerEth: contractParams.WethPremiumMultiplierWeiPerEth,
+									Token:                      input.WethAddr,
+								},
+							}, contractParams.MorePremiumMultiplierWeiPerEth...),
+							contractParams.DestChainConfigArgs,
+						)
+					}
 					return cldf.ContractDeploy[*fee_quoter.FeeQuoter]{
 						Address: prAddr, Contract: pr, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_6_0), Err: err2,
 					}
@@ -86,7 +125,7 @@ var (
 			if err != nil {
 				return opsutil.OpOutput{}, err
 			}
-			chain := deps.Env.Chains[input.ChainSelector]
+			chain := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
 			chainState := state.MustGetEVMChainState(input.ChainSelector)
 			deployerGroup := deployergroup.NewDeployerGroup(e, state, input.MCMS).
 				WithDeploymentContext("set FeeQuoter authorized caller on %s" + chain.String())
@@ -109,6 +148,30 @@ var (
 				DescribedTimelockProposals: csOutput.DescribedTimelockProposals,
 			}, nil
 		})
+
+	FeeQuoterApplyDestChainConfigUpdatesOp = opsutil.NewEVMCallOperation(
+		"FeeQuoterApplyDestChainConfigUpdatesOp",
+		semver.MustParse("1.0.0"),
+		"Apply updates to destination chain configs on the FeeQuoter 1.6.0 contract",
+		fee_quoter.FeeQuoterABI,
+		shared.FeeQuoter,
+		fee_quoter.NewFeeQuoter,
+		func(feeQuoter *fee_quoter.FeeQuoter, opts *bind.TransactOpts, input []fee_quoter.FeeQuoterDestChainConfigArgs) (*types.Transaction, error) {
+			return feeQuoter.ApplyDestChainConfigUpdates(opts, input)
+		},
+	)
+
+	FeeQuoterUpdatePricesOp = opsutil.NewEVMCallOperation(
+		"FeeQuoterUpdatePricesOp",
+		semver.MustParse("1.0.0"),
+		"Update token and gas prices on the FeeQuoter 1.6.0 contract",
+		fee_quoter.FeeQuoterABI,
+		shared.FeeQuoter,
+		fee_quoter.NewFeeQuoter,
+		func(feeQuoter *fee_quoter.FeeQuoter, opts *bind.TransactOpts, input fee_quoter.InternalPriceUpdates) (*types.Transaction, error) {
+			return feeQuoter.UpdatePrices(opts, input)
+		},
+	)
 )
 
 type FeeQApplyAuthorizedCallerOpInput struct {
@@ -122,7 +185,7 @@ func (i FeeQApplyAuthorizedCallerOpInput) Validate(env cldf.Environment, state s
 	if err != nil {
 		return err
 	}
-	chain := env.Chains[i.ChainSelector]
+	chain := env.BlockChains.EVMChains()[i.ChainSelector]
 	if state.MustGetEVMChainState(i.ChainSelector).FeeQuoter == nil {
 		return fmt.Errorf("FeeQuoter not found for chain %s", chain.String())
 	}

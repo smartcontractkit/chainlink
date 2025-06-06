@@ -25,7 +25,7 @@ func TestGeneratePriceRegistryView(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains: 1,
 	})
-	chain := e.Chains[e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]]
+	chain := e.BlockChains.EVMChains()[e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]]
 	f1, f2 := common.HexToAddress("0x1"), common.HexToAddress("0x2")
 	_, tx, c, err := price_registry_1_2_0.DeployPriceRegistry(
 		chain.DeployerKey, chain.Client, []common.Address{chain.DeployerKey.From}, []common.Address{f1, f2}, uint32(10))

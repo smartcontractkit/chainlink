@@ -36,7 +36,7 @@ var ViewExemplar deployment.ViewState = func(e deployment.Environment) (json.Mar
 
 	// Get chain information
 	for _, chainSel := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)) {
-		chain := e.Chains[chainSel]
+		chain := e.BlockChains.EVMChains()[chainSel]
 		chainName := fmt.Sprintf("%s (%d)", chain.Name(), chainSel)
 		view.Chains = append(view.Chains, chainName)
 

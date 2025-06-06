@@ -21,12 +21,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
+
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
@@ -47,7 +49,6 @@ import (
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
@@ -56,7 +57,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 )
 
@@ -134,7 +134,7 @@ func setupLoadTestEnvironment(
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 	}
 
-	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testcontext.Get(t), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
+	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
 	require.NoError(t, setupErr, "failed to setup test environment")
 
 	// Set inputs in the test config, so that they can be saved
@@ -333,7 +333,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 				BlockchainOutput: setupOutput.blockchainOutput[0].BlockchainOutput,
 				InfraInput:       in.Infra,
 			}
-			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
+			lidebug.PrintTestDebug(ctx, t.Name(), testLogger, debugInput)
 		}
 	})
 
@@ -622,7 +622,7 @@ func (s *StreamsGun) precomputeReports() {
 		}
 	}
 
-	event, eventID, err := createFeedReport(logger.NullLogger, price, uint64(timestamp.UnixNano()), feeds, s.keyBundles) //nolint:gosec // G115 don't care in test code
+	event, eventID, err := createFeedReport(logger.Nop(), price, uint64(timestamp.UnixNano()), feeds, s.keyBundles) //nolint:gosec // G115 don't care in test code
 	if err != nil {
 		panic(err)
 	}

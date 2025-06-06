@@ -1049,6 +1049,7 @@ SimulateTransactions = false # Default
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e' # Example
 CaptureEATelemetry = false # Default
 TraceLogging = false # Default
+ConfigLogValidation = false # Default
 ```
 This section applies only if you are running off-chain reporting jobs.
 
@@ -1126,6 +1127,12 @@ CaptureEATelemetry toggles collecting extra information from External Adaptares
 TraceLogging = false # Default
 ```
 TraceLogging enables trace level logging.
+
+### ConfigLogValidation
+```toml
+ConfigLogValidation = false # Default
+```
+ConfigLogValidation ensures contract configuration logs are accessible when validating OCR jobs. Enable this when using RPC providers that don't maintain complete historical logs.
 
 ## P2P
 ```toml
@@ -15443,6 +15450,7 @@ LimitMax = 500_000 # Default
 LimitMultiplier = '1.0' # Default
 LimitTransfer = 21_000 # Default
 EstimateLimit = false # Default
+SenderAddress = '0x00c11c11c11C11c11C11c11c11C11C11c11C11c1' # Example
 BumpMin = '5 gwei' # Default
 BumpPercent = 20 # Default
 BumpThreshold = 3 # Default
@@ -15542,6 +15550,17 @@ LimitTransfer is the gas limit used for an ordinary ETH transfer.
 EstimateLimit = false # Default
 ```
 EstimateLimit enables estimating gas limits for transactions. This feature respects the gas limit provided during transaction creation as an upper bound.
+
+### SenderAddress
+```toml
+SenderAddress = '0x00c11c11c11C11c11C11c11c11C11C11c11C11c1' # Example
+```
+SenderAddress is optional and can be set to a specific sender address for gas limit estimation (i.e. `EstimateLimit = true`). If gas limit estimation is not enabled, this parameter is ignored.
+
+If you are using gas limit estimation:
+- Setting SenderAddress is optional for most products. If it is set, the from address for the transaction for gas estimation will be set to the inputted SenderAddress. If it is not set, the actual address the transaction is sent from is used if available.
+- Setting SenderAddress is neccessary for gas limit estimation to function correctly for CCIP. Gas limit estimation works only in CCIP 1.6 and above if SenderAddress is set to the given example value (0x00c11c11c11C11c11C11c11c11C11C11c11C11c1). This value is hardcoded in the CCIP 1.6 contracts and is not needed for other products.
+
 
 ### BumpMin
 ```toml
@@ -16025,6 +16044,7 @@ TransactionAlreadyMined = '(: |^)transaction already mined' # Example
 Fatal = '(: |^)fatal' # Example
 ServiceUnavailable = '(: |^)service unavailable' # Example
 TooManyResults = '(: |^)too many results' # Example
+MissingBlocks = '(: |^)missing blocks' # Example
 ```
 Errors enable the node to provide custom regex patterns to match against error messages from RPCs.
 
@@ -16117,6 +16137,12 @@ ServiceUnavailable is a regex pattern to match against service unavailable error
 TooManyResults = '(: |^)too many results' # Example
 ```
 TooManyResults is a regex pattern to match an eth_getLogs error indicating the result set is too large to return
+
+### MissingBlocks
+```toml
+MissingBlocks = '(: |^)missing blocks' # Example
+```
+MissingBlocks is a regex pattern to match an eth_getLogs error indicating the rpc server is permanently missing some blocks in the requested block range
 
 ## EVM.OCR
 ```toml

@@ -58,7 +58,7 @@ func TestGenericOps(t *testing.T) {
 				}
 			}
 
-			e, _, err := commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+			e, _, err := commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetDefaultCodeVersion),
 					ccipChangesetSolana.SetDefaultCodeVersionConfig{

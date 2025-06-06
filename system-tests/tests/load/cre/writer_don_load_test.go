@@ -37,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	changeset2 "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -102,7 +101,7 @@ func setupLoadTestWriterEnvironment(
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 	}
 
-	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testcontext.Get(t), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
+	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
 	require.NoError(t, setupErr, "failed to setup test environment")
 	// Set inputs in the test config, so that they can be saved
 	in.WorkflowRegistryConfiguration = &keystonetypes.WorkflowRegistryInput{}
@@ -290,7 +289,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 				BlockchainOutput: setupOutput.blockchainOutput[0].BlockchainOutput,
 				InfraInput:       in.Infra,
 			}
-			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
+			lidebug.PrintTestDebug(ctx, t.Name(), testLogger, debugInput)
 		}
 	})
 
