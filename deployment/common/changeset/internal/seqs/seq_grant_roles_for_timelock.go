@@ -114,8 +114,10 @@ var SeqGrantRolesTimelock = operations.NewSequence(
 					}
 				}
 			}
-
 		}
+		// TODO: tests did not cover this, needs tests
+		out.McmsTxs = mcmsTxs
+
 		return out, nil
 	},
 )
