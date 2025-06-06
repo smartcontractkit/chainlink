@@ -36,6 +36,11 @@ type DeployRMNRemoteInput struct {
 	ChainSelector uint64         `json:"chainSelector"`
 }
 
+type SetRMNRemoteOnRMNProxyInput struct {
+	ChainSelector uint64
+	MCMSConfig    *proposalutils.TimelockConfig
+}
+
 var (
 	DeployRMNRemoteOp = operations.NewOperation(
 		"DeployRMNRemote",
@@ -131,6 +136,41 @@ var (
 			csOutput, err := deployerGroup.Enact()
 			if err != nil {
 				return opsutil.OpOutput{}, err
+			}
+			return opsutil.OpOutput{
+				Proposals:                  csOutput.MCMSTimelockProposals,
+				DescribedTimelockProposals: csOutput.DescribedTimelockProposals,
+			}, nil
+		})
+
+	SetRMNRemoteOnRMNProxyOp = operations.NewOperation(
+		"SetRMNRemoteOnRMNProxyOp",
+		semver.MustParse("1.0.0"),
+		"Setting SetRMNRemote on RMNProxy contract on the specified evm chain",
+		func(b operations.Bundle, deps opsutil.ConfigureDependencies, input SetRMNRemoteOnRMNProxyInput) (opsutil.OpOutput, error) {
+			state := deps.CurrentState
+			e := deps.Env
+			chain := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
+			chainState := state.MustGetEVMChainState(input.ChainSelector)
+			deployerGroup := deployergroup.NewDeployerGroup(e, state, input.MCMSConfig).
+				WithDeploymentContext("set RMNProxy authorized caller on " + chain.String())
+
+			opts, err := deployerGroup.GetDeployer(input.ChainSelector)
+			if err != nil {
+				return opsutil.OpOutput{}, fmt.Errorf("failed to get deployer for %s", chain)
+			}
+
+			rmnProxy := chainState.RMNProxy
+			rmnRemoteAddr := chainState.RMNRemote.Address()
+
+			_, err = rmnProxy.SetARM(opts, rmnRemoteAddr)
+			if err != nil {
+				b.Logger.Errorw("Failed to set RMNRemote on RMNProxy", "chain", chain.String(), "err", err)
+				return opsutil.OpOutput{}, fmt.Errorf("failed to set RMNRemote on RMNProxy: %w", err)
+			}
+			csOutput, err := deployerGroup.Enact()
+			if err != nil {
+				return opsutil.OpOutput{}, fmt.Errorf("failed to set RMNRemote on RMNProxy: %w", err)
 			}
 			return opsutil.OpOutput{
 				Proposals:                  csOutput.MCMSTimelockProposals,

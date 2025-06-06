@@ -60,7 +60,79 @@ var (
 			}
 			return *finalOutput, nil
 		})
+
+	SetRMNRemoteOnRMNProxySeq = operations.NewSequence(
+		"SetRMNRemoteOnRMNProxySeq",
+		semver.MustParse("1.0.0"),
+		"Setting SetRMNRemote on RMNProxy across multiple EVM chains",
+		func(b operations.Bundle, input SetRMNRemoteOnRMNProxyConfig, deps opsutil.ConfigureDependencies) (opsutil.OpOutput, error) {
+			finalOutput := &opsutil.OpOutput{}
+
+			// validate input
+			if err := input.Validate(deps.Env, deps.CurrentState); err != nil {
+				return opsutil.OpOutput{}, err
+			}
+
+			for _, sel := range input.ChainSelectors {
+				report, err := operations.ExecuteOperation(b, ccipops.SetRMNRemoteOnRMNProxyOp, deps, ccipops.SetRMNRemoteOnRMNProxyInput{
+					ChainSelector: sel,
+					MCMSConfig:    input.MCMSConfig,
+				})
+				if err != nil {
+					return opsutil.OpOutput{}, fmt.Errorf("failed to execute SetRMNRemoteOnRMNProxyOp on %d: %w", sel, err)
+				}
+				if err := finalOutput.Merge(report.Output); err != nil {
+					return opsutil.OpOutput{}, fmt.Errorf("failed to merge output for chain %d: %w", sel, err)
+				}
+			}
+			// if the MCMSConfig is not nil, we need to aggregate the proposals
+			if len(finalOutput.Proposals) > 0 {
+				report, err := operations.ExecuteOperation(b, ccipsharedops.PostOpsAggregateProposals, deps, ccipsharedops.PostOpsInput{
+					MCMSConfig: input.MCMSConfig,
+					Proposals:  finalOutput.Proposals,
+				})
+				if err != nil {
+					return opsutil.OpOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
+				}
+				b.Logger.Infow("Generated proposal to Update NonceManagers")
+				return opsutil.OpOutput{
+					Proposals:                  report.Output,
+					DescribedTimelockProposals: finalOutput.DescribedTimelockProposals,
+				}, err
+			}
+			return *finalOutput, nil
+		})
 )
+
+type SetRMNRemoteOnRMNProxyConfig struct {
+	ChainSelectors []uint64
+	MCMSConfig     *proposalutils.TimelockConfig
+}
+
+func (c SetRMNRemoteOnRMNProxyConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
+	for _, chain := range c.ChainSelectors {
+		err := cldf.IsValidChainSelector(chain)
+		if err != nil {
+			return err
+		}
+		chainState, exists := state.Chains[chain]
+		if !exists {
+			return fmt.Errorf("chain %d not found in state", chain)
+		}
+		if chainState.RMNRemote == nil {
+			return fmt.Errorf("RMNRemote not found for chain %d", chain)
+		}
+		if chainState.RMNProxy == nil {
+			return fmt.Errorf("RMNProxy not found for chain %d", chain)
+		}
+
+		chainEnv := e.BlockChains.EVMChains()[chain]
+		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMSConfig != nil, chainEnv.DeployerKey.From, chainState.Timelock.Address(), chainState.RMNProxy); err != nil {
+			return fmt.Errorf("failed to validate ownership of RMNProxy on %s: %w", chainEnv, err)
+		}
+	}
+	return nil
+}
 
 type SetRMNRemoteConfig struct {
 	RMNRemoteConfigs map[uint64]ccipops.RMNRemoteConfig `json:"rmnRemoteConfigs"`
