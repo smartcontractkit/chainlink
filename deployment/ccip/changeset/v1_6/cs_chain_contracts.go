@@ -10,7 +10,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmslib "github.com/smartcontractkit/mcms"
 
@@ -33,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 
@@ -71,222 +69,29 @@ var (
 	_ cldf.ChangeSet[SetOCR3OffRampConfig]                     = SetOCR3OffRampChangeset
 	_ cldf.ChangeSet[UpdateDynamicConfigOffRampConfig]         = UpdateDynamicConfigOffRampChangeset
 	_ cldf.ChangeSet[UpdateFeeQuoterPricesConfig]              = UpdateFeeQuoterPricesChangeset
-	_ cldf.ChangeSet[UpdateNonceManagerConfig]                 = UpdateNonceManagersChangeset
+	_ cldf.ChangeSet[ccipseqs.UpdateNonceManagerConfig]        = UpdateNonceManagersChangeset
 	_ cldf.ChangeSet[ApplyFeeTokensUpdatesConfig]              = ApplyFeeTokensUpdatesFeeQuoterChangeset
 	_ cldf.ChangeSet[UpdateTokenPriceFeedsConfig]              = UpdateTokenPriceFeedsFeeQuoterChangeset
 	_ cldf.ChangeSet[PremiumMultiplierWeiPerEthUpdatesConfig]  = ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset
 	_ cldf.ChangeSet[ApplyTokenTransferFeeConfigUpdatesConfig] = ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset
 )
 
-type UpdateNonceManagerConfig struct {
-	UpdatesByChain map[uint64]NonceManagerUpdate // source -> dest -> update
-	MCMS           *proposalutils.TimelockConfig
-}
-
-type NonceManagerUpdate struct {
-	AddedAuthCallers   []common.Address
-	RemovedAuthCallers []common.Address
-	PreviousRampsArgs  []PreviousRampCfg
-}
-
-type PreviousRampCfg struct {
-	RemoteChainSelector uint64
-	OverrideExisting    bool
-	// Set these only if the prevOnRamp or prevOffRamp addresses are not required to be in nonce manager.
-	// If one of the onRamp or OffRamp is set with non-zero address and other is set with zero address,
-	// it will not be possible to update the previous ramps later unless OverrideExisting is set to true.
-	AllowEmptyOnRamp  bool // If true, the prevOnRamp address can be 0x0.
-	AllowEmptyOffRamp bool // If true, the prevOffRamp address can be 0x0.
-}
-
-func (cfg UpdateNonceManagerConfig) Validate(e cldf.Environment) error {
+func UpdateNonceManagersChangeset(e cldf.Environment, cfg ccipseqs.UpdateNonceManagerConfig) (cldf.ChangesetOutput, error) {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
-		return err
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	for sourceSel, update := range cfg.UpdatesByChain {
-		sourceChainState, ok := state.Chains[sourceSel]
-		if !ok {
-			return fmt.Errorf("chain %d not found in onchain state", sourceSel)
-		}
-		if sourceChainState.NonceManager == nil {
-			return fmt.Errorf("missing nonce manager for chain %d", sourceSel)
-		}
-		sourceChain, ok := e.BlockChains.EVMChains()[sourceSel]
-		if !ok {
-			return fmt.Errorf("missing chain %d in environment", sourceSel)
-		}
-		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, sourceChain.DeployerKey.From, sourceChainState.Timelock.Address(), sourceChainState.OnRamp); err != nil {
-			return fmt.Errorf("chain %s: %w", sourceChain.String(), err)
-		}
-		for _, prevRamp := range update.PreviousRampsArgs {
-			if prevRamp.RemoteChainSelector == sourceSel {
-				return errors.New("source and dest chain cannot be the same")
-			}
-			if _, ok := state.Chains[prevRamp.RemoteChainSelector]; !ok {
-				return fmt.Errorf("dest chain %d not found in onchain state for chain %d", prevRamp.RemoteChainSelector, sourceSel)
-			}
-			// If one of the onRamp or OffRamp is set with non-zero address and other is set with zero address,
-			// it will not be possible to update the previous ramps later.
-			// Allow blank onRamp or offRamp only if AllowEmptyOnRamp or AllowEmptyOffRamp is set to true.
-			// see https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/ccip/NonceManager.sol#L139-L142
-			if !prevRamp.AllowEmptyOnRamp {
-				if prevOnRamp := state.Chains[sourceSel].EVM2EVMOnRamp; prevOnRamp == nil ||
-					prevOnRamp[prevRamp.RemoteChainSelector] == nil ||
-					prevOnRamp[prevRamp.RemoteChainSelector].Address() == (common.Address{}) {
-					return fmt.Errorf("no previous onramp for source chain %d and dest chain %d, "+
-						"If you want to set zero address for onRamp, set AllowEmptyOnRamp to true", sourceSel, prevRamp.RemoteChainSelector)
-				}
-			}
-			if !prevRamp.AllowEmptyOffRamp {
-				if prevOffRamp := state.Chains[sourceSel].EVM2EVMOffRamp; prevOffRamp == nil ||
-					prevOffRamp[prevRamp.RemoteChainSelector] == nil ||
-					prevOffRamp[prevRamp.RemoteChainSelector].Address() == (common.Address{}) {
-					return fmt.Errorf("no previous offramp for source chain %d and dest chain %d"+
-						"If you want to set zero address for offRamp, set AllowEmptyOffRamp to true", prevRamp.RemoteChainSelector, sourceSel)
-				}
-			}
-		}
+	deps := opsutil.ConfigureDependencies{
+		Env:          e,
+		CurrentState: state,
 	}
-	return nil
-}
 
-func UpdateNonceManagersChangeset(e cldf.Environment, cfg UpdateNonceManagerConfig) (cldf.ChangesetOutput, error) {
-	output := cldf.ChangesetOutput{}
-
-	if err := cfg.Validate(e); err != nil {
-		return output, err
-	}
-	s, err := stateview.LoadOnchainState(e)
+	seqReport, err := operations.ExecuteSequence(e.OperationsBundle, ccipseqs.UpdateNonceManagerSequence, cfg, deps)
 	if err != nil {
-		return output, err
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute UpdateNonceManager sequence: %w", err)
 	}
 
-	// build sequence input
-	/*updates := make(map[uint64]opsutil.EVMCallInput[[]nonce_manager.AuthorizedCallersAuthorizedCallerArgs], len(cfg.UpdatesByChain))
-
-	for chainSel, destChainUpdates := range cfg.UpdatesByChain {
-		args := nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
-			AddedCallers:   destChainUpdates.AddedAuthCallers,
-			RemovedCallers: destChainUpdates.RemovedAuthCallers,
-		}
-
-	}*/
-
-	batches := []mcmstypes.BatchOperation{}
-	timelocks := make(map[uint64]string)
-	inspectors := make(map[uint64]mcmssdk.Inspector)
-
-	for chainSel, updates := range cfg.UpdatesByChain {
-		txOpts := e.BlockChains.EVMChains()[chainSel].DeployerKey
-		if cfg.MCMS != nil {
-			txOpts = cldf.SimTransactOpts()
-		}
-		nm := s.Chains[chainSel].NonceManager
-		var authTx, prevRampsTx *types.Transaction
-		if len(updates.AddedAuthCallers) > 0 || len(updates.RemovedAuthCallers) > 0 {
-			authTx, err = nm.ApplyAuthorizedCallerUpdates(txOpts, nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
-				AddedCallers:   updates.AddedAuthCallers,
-				RemovedCallers: updates.RemovedAuthCallers,
-			})
-			if cfg.MCMS == nil {
-				if _, err := cldf.ConfirmIfNoErrorWithABI(e.BlockChains.EVMChains()[chainSel], authTx, nonce_manager.NonceManagerABI, err); err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("error updating authorized callers for chain %s: %w",
-						e.BlockChains.EVMChains()[chainSel].String(), err)
-				}
-			} else {
-				if err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("error updating previous ramps for chain %s: %w", e.BlockChains.EVMChains()[chainSel].String(), err)
-				}
-			}
-		}
-		if len(updates.PreviousRampsArgs) > 0 {
-			previousRampsArgs := make([]nonce_manager.NonceManagerPreviousRampsArgs, 0)
-			for _, prevRamp := range updates.PreviousRampsArgs {
-				var onRamp, offRamp common.Address
-				if !prevRamp.AllowEmptyOnRamp {
-					onRamp = s.Chains[chainSel].EVM2EVMOnRamp[prevRamp.RemoteChainSelector].Address()
-				}
-				if !prevRamp.AllowEmptyOffRamp {
-					offRamp = s.Chains[chainSel].EVM2EVMOffRamp[prevRamp.RemoteChainSelector].Address()
-				}
-				previousRampsArgs = append(previousRampsArgs, nonce_manager.NonceManagerPreviousRampsArgs{
-					RemoteChainSelector:   prevRamp.RemoteChainSelector,
-					OverrideExistingRamps: prevRamp.OverrideExisting,
-					PrevRamps: nonce_manager.NonceManagerPreviousRamps{
-						PrevOnRamp:  onRamp,
-						PrevOffRamp: offRamp,
-					},
-				})
-			}
-			prevRampsTx, err = nm.ApplyPreviousRampsUpdates(txOpts, previousRampsArgs)
-			if cfg.MCMS == nil {
-				if _, err := cldf.ConfirmIfNoErrorWithABI(e.BlockChains.EVMChains()[chainSel], prevRampsTx, nonce_manager.NonceManagerABI, err); err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("error updating previous ramps for chain %s: %w", e.BlockChains.EVMChains()[chainSel].String(), err)
-				}
-			} else {
-				if err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("error updating previous ramps for chain %s: %w", e.BlockChains.EVMChains()[chainSel].String(), err)
-				}
-			}
-		}
-		if cfg.MCMS != nil {
-			mcmsTransactions := make([]mcmstypes.Transaction, 0)
-			if authTx != nil {
-				mcmsTx, err := proposalutils.TransactionForChain(chainSel, nm.Address().Hex(), authTx.Data(), big.NewInt(0),
-					string(shared.NonceManager), []string{})
-				if err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction for chain %d: %w", chainSel, err)
-				}
-
-				mcmsTransactions = append(mcmsTransactions, mcmsTx)
-			}
-			if prevRampsTx != nil {
-				mcmsTx, err := proposalutils.TransactionForChain(chainSel, nm.Address().Hex(), prevRampsTx.Data(), big.NewInt(0),
-					string(shared.NonceManager), []string{})
-				if err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction for chain %d: %w", chainSel, err)
-				}
-
-				mcmsTransactions = append(mcmsTransactions, mcmsTx)
-			}
-			if len(mcmsTransactions) == 0 {
-				return cldf.ChangesetOutput{}, errors.New("no operations to batch")
-			}
-
-			batches = append(batches, mcmstypes.BatchOperation{
-				ChainSelector: mcmstypes.ChainSelector(chainSel),
-				Transactions:  mcmsTransactions,
-			})
-
-			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address().Hex()
-			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
-			}
-		}
-	}
-	if cfg.MCMS == nil {
-		return cldf.ChangesetOutput{}, nil
-	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
-	}
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e,
-		timelocks,
-		mcmsContractByChain,
-		inspectors,
-		batches,
-		"Update nonce manager for previous ramps and authorized callers",
-		*cfg.MCMS,
-	)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-
-	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+	return seqReport.Output.ToChangesetOutput(nil), nil
 }
 
 type OnRampDestinationUpdate struct {

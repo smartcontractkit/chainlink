@@ -120,7 +120,7 @@ var (
 				return opsutil.OpOutput{}, fmt.Errorf("failed to get deployer for %s", chain)
 			}
 			nonceManager := chainState.NonceManager
-			_, err = nonceManager.ApplyPreviousRampsUpdates(opts, input.Callers)
+			_, err = nonceManager.ApplyPreviousRampsUpdates(opts, input.PreviousRampsArgs)
 			if err != nil {
 				b.Logger.Errorw("Failed to apply previous ramps updates on NonceManager", "chain", chain.String(), "err", err)
 				return opsutil.OpOutput{}, fmt.Errorf("failed to to apply previous ramps updates on NonceManager: %w", err)
@@ -143,9 +143,9 @@ type NonceManagerUpdateAuthorizedCallerInput struct {
 }
 
 type NonceManagerApplyPreviousRampsUpdatesInput struct {
-	ChainSelector uint64
-	Callers       []nonce_manager.NonceManagerPreviousRampsArgs
-	MCMS          *proposalutils.TimelockConfig
+	ChainSelector     uint64
+	PreviousRampsArgs []nonce_manager.NonceManagerPreviousRampsArgs
+	MCMS              *proposalutils.TimelockConfig
 }
 
 func (n NonceManagerUpdateAuthorizedCallerInput) Validate(env cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -188,6 +188,9 @@ func (n NonceManagerApplyPreviousRampsUpdatesInput) Validate(env cldf.Environmen
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership: %w", err)
 	}
-	// TODO add caller validation
+
+	if len(n.PreviousRampsArgs) == 0 {
+		return errors.New("at least one PreviousRampsArg is required")
+	}
 	return nil
 }
