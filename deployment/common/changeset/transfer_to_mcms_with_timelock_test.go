@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
@@ -24,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/seqs"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -236,7 +234,7 @@ func TestGrantRolesForTimelockWhenDeployerisAdmin(t *testing.T) {
 		ab, proposalutils.SingleGroupTimelockConfigV2(t), nil)
 	require.NoError(t, err)
 
-	addresses, err := ab.AddressesForChain(chainsel.TEST_90000001.Selector)
+	addresses, err := ab.AddressesForChain(chain1)
 	require.NoError(t, err)
 	require.Len(t, addresses, 5)
 
@@ -305,7 +303,7 @@ func TestGrantRolesForTimelockWhenDeployerisNotAdmin(t *testing.T) {
 			AddrBook: ab,
 		},
 		seqs.SeqDeployMCMWithConfigInput{
-			ContractType:  commontypes.ProposerManyChainMultisig,
+			ContractType:  types.ProposerManyChainMultisig,
 			MCMConfig:     proposalutils.SingleGroupTimelockConfigV2(t).Proposer,
 			ChainSelector: chain1,
 		},
