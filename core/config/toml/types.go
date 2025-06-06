@@ -840,8 +840,8 @@ func (w *WebServer) ValidateConfig() (err error) {
 		if *w.OIDC.RedirectURL == "" {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.OIDCCallbackURL", Msg: "OIDC OIDCCallbackURL can not be empty"})
 		}
-		if *w.OIDC.ClaimKey == "" {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.ClaimKey", Msg: "OIDC IDClaimKey can not be empty"})
+		if *w.OIDC.ClaimName == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.ClaimName", Msg: "OIDC IDClaimKey can not be empty"})
 		}
 		if *w.OIDC.AdminClaim == "" {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.AdminClaim", Msg: "OIDC AdminClaim can not be empty"})
@@ -1035,7 +1035,7 @@ type WebServerOIDC struct {
 	ClientID             *string
 	ProviderURL          *string
 	RedirectURL          *string
-	ClaimKey             *string
+	ClaimName            *string
 	AdminClaim           *string
 	EditClaim            *string
 	RunClaim             *string
@@ -1055,8 +1055,8 @@ func (w *WebServerOIDC) setFrom(f *WebServerOIDC) {
 	if v := f.RedirectURL; v != nil {
 		w.RedirectURL = v
 	}
-	if v := f.ClaimKey; v != nil {
-		w.ClaimKey = v
+	if v := f.ClaimName; v != nil {
+		w.ClaimName = v
 	}
 	if v := f.AdminClaim; v != nil {
 		w.AdminClaim = v

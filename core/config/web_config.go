@@ -60,7 +60,7 @@ type OIDC interface {
 	ClientSecret() string
 	ProviderURL() string
 	RedirectURL() string
-	ClaimKey() string
+	ClaimName() string
 	AdminClaim() string
 	EditClaim() string
 	RunClaim() string

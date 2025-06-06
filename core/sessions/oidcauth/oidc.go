@@ -100,8 +100,8 @@ func NewOIDCAuthenticator(
 	if oidcCfg.RedirectURL() == "" {
 		return nil, errors.New("OIDC RedirectURL config required")
 	}
-	if oidcCfg.ClaimKey() == "" {
-		return nil, errors.New("OIDC ClaimKey config required")
+	if oidcCfg.ClaimName() == "" {
+		return nil, errors.New("OIDC ClaimName config required")
 	}
 
 	var provider *oidc.Provider
@@ -124,7 +124,7 @@ func NewOIDCAuthenticator(
 		ClientSecret: oidcCfg.ClientSecret(),
 		Endpoint:     provider.Endpoint(),
 		RedirectURL:  oidcCfg.RedirectURL(),
-		Scopes:       []string{oidc.ScopeOpenID, "profile", "email", oidcCfg.ClaimKey()},
+		Scopes:       []string{oidc.ScopeOpenID, "profile", "email", oidcCfg.ClaimName()},
 	}
 
 	// Create Authenticator struct, with internal HTTP handlers
@@ -227,9 +227,9 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 		c.String(http.StatusInternalServerError, "Failed to parse OIDC return claims")
 		return
 	}
-	idClaims, err := extractIDClaimValues(claims, oi.config.ClaimKey())
+	idClaims, err := extractIDClaimValues(claims, oi.config.ClaimName())
 	if err != nil {
-		oi.lggr.Errorf("Failed to extract ID claims from ID token. ClaimKey: '%s': error %v", oi.config.ClaimKey(), err)
+		oi.lggr.Errorf("Failed to extract ID claims from ID token. ClaimName: '%s': error %v", oi.config.ClaimName(), err)
 		c.String(http.StatusInternalServerError, "Failed to extract ID claims from claims")
 		return
 	}

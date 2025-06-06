@@ -351,11 +351,11 @@ func (l *oidcConfig) RedirectURL() string {
 	return *l.c.RedirectURL
 }
 
-func (l *oidcConfig) ClaimKey() string {
-	if l.c.ClaimKey == nil {
+func (l *oidcConfig) ClaimName() string {
+	if l.c.ClaimName == nil {
 		return ""
 	}
-	return *l.c.ClaimKey
+	return *l.c.ClaimName
 }
 
 func (l *oidcConfig) AdminClaim() string {

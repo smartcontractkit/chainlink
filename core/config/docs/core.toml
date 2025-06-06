@@ -205,8 +205,8 @@ ClientID = ""
 ProviderURL = 'https://id[.]example[.]com/oauth2/default'
 # RedirectURL will always be <NODE_BASE_URL>/signin. This needs to match the configuration on the provider side.
 RedirectURL = 'http://localhost:8080/signin'
-# ClaimKey the key in decrypted id_token where to find the user's ID claims.
-ClaimKey = 'groups'
+# ClaimName is the name of the field in the id_token where to find the user's ID claims.
+ClaimName = 'groups'
 # AdminClaim is string label of the id claim that maps the core node's 'Admin' role
 AdminClaim = 'NodeAdmins' # Default
 # EditClaim is string label of the id claim that maps the core node's 'Edit' role
