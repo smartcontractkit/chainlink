@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+
 	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 
@@ -141,4 +142,15 @@ func loadAptosChainStateFromAddresses(addresses map[string]cldf.TypeAndVersion, 
 func GetOfframpDynamicConfig(c cldf_aptos.Chain, ccipAddress aptos.AccountAddress) (module_offramp.DynamicConfig, error) {
 	offrampBind := ccip_offramp.Bind(ccipAddress, c.Client)
 	return offrampBind.Offramp().GetDynamicConfig(&bind.CallOpts{})
+}
+
+func FindAptosAddress(tv cldf.TypeAndVersion, addresses map[string]cldf.TypeAndVersion) aptos.AccountAddress {
+	for address, tvStr := range addresses {
+		if tv.String() == tvStr.String() {
+			addr := aptos.AccountAddress{}
+			_ = addr.ParseStringRelaxed(address)
+			return addr
+		}
+	}
+	return aptos.AccountAddress{}
 }
