@@ -32,9 +32,9 @@ type OpEVMDeployMCMSInput struct {
 }
 
 type OpEVMSetConfigMCMSInput struct {
-	Address      common.Address
-	ContractType cldf.ContractType
-	MCMConfig    mcmsTypes.Config
+	Address      common.Address    `json:"address"`
+	ContractType cldf.ContractType `json:"contractType"`
+	MCMConfig    mcmsTypes.Config  `json:"mcmConfig"` // Config for the ManyChainMultiSig contract
 }
 
 type OpEVMDeployMCMSOutput struct {

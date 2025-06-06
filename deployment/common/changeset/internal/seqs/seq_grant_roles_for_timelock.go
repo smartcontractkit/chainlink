@@ -28,8 +28,8 @@ type RolesAndAddresses struct {
 }
 
 type SeqGrantRolesTimelockInput struct {
-	ContractType       cldf.ContractType
-	ChainSelector      uint64
+	ContractType       cldf.ContractType   `json:"contractType"`
+	ChainSelector      uint64              `json:"chainSelector"`
 	Timelock           common.Address      `json:"timelock"`
 	RolesAndAddresses  []RolesAndAddresses `json:"rolesAndAddresses"`
 	IsDeployerKeyAdmin bool                `json:"isDeployerKeyAdmin"`

@@ -21,9 +21,9 @@ type SeqDeployMCMSWithConfigDeps struct {
 }
 
 type SeqDeployMCMSWithConfigInput struct {
-	ContractType  cldf.ContractType
-	MCMConfig     mcmsTypes.Config
-	ChainSelector uint64
+	ContractType  cldf.ContractType `json:"contractType"`
+	MCMConfig     mcmsTypes.Config  `json:"mcmConfig"`
+	ChainSelector uint64            `json:"chainSelector"`
 }
 
 type SeqDeployMCMSWithConfigOutput struct {
