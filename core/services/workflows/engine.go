@@ -495,10 +495,10 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 }
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
-func (e *Engine) startExecution(ctx context.Context, executionID string, triggerID string, event *values.Map) error {
+func (e *Engine) startExecution(ctx context.Context, executionID string, triggerEventID string, event *values.Map) error {
 	e.meterReports.Add(executionID, metering.NewReport(e.logger))
 
-	err := events.EmitExecutionStartedEvent(ctx, e.cma, triggerID, executionID)
+	err := events.EmitExecutionStartedEvent(ctx, e.cma.Labels(), triggerEventID, executionID)
 	if err != nil {
 		e.logger.Errorf("failed to emit execution started event: %+v", err)
 	}
@@ -650,7 +650,7 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 	report, exists := e.meterReports.Get(executionID)
 	if exists {
 		// send metering report to beholder
-		if err = events.EmitMeteringReport(ctx, cma, report.Message()); err != nil {
+		if err = events.EmitMeteringReport(ctx, cma.Labels(), report.Message()); err != nil {
 			e.metrics.IncrementWorkflowMissingMeteringReport(ctx)
 			l.Warn(fmt.Sprintf("metering report send to beholder error %s", err))
 		}
@@ -687,7 +687,7 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 
 	logCustMsg(ctx, cma, fmt.Sprintf("execution duration: %d (seconds)", executionDuration), l)
 	l.Infof("execution duration: %d (seconds)", executionDuration)
-	err = events.EmitExecutionFinishedEvent(ctx, cma, status, executionID)
+	err = events.EmitExecutionFinishedEvent(ctx, cma.Labels(), status, executionID)
 	if err != nil {
 		e.logger.Errorf("failed to emit execution finished event: %+v", err)
 	}
@@ -1019,7 +1019,7 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	defer cancel()
 
 	e.metrics.With(platform.KeyCapabilityID, curStep.ID).IncrementCapabilityInvocationCounter(ctx)
-	err = events.EmitCapabilityStartedEvent(ctx, e.cma, msg.state.ExecutionID, curStep.ID, msg.stepRef)
+	err = events.EmitCapabilityStartedEvent(ctx, e.cma.Labels(), msg.state.ExecutionID, curStep.ID, msg.stepRef)
 	if err != nil {
 		e.logger.Errorf("failed to emit capability event: %v", err)
 	}
@@ -1034,7 +1034,7 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	}
 
 	defer func() {
-		if err := events.EmitCapabilityFinishedEvent(ctx, e.cma, msg.state.ExecutionID, curStep.ID, msg.stepRef, status); err != nil {
+		if err := events.EmitCapabilityFinishedEvent(ctx, e.cma.Labels(), msg.state.ExecutionID, curStep.ID, msg.stepRef, status); err != nil {
 			e.logger.Errorf("failed to emit capability event: %v", err)
 		}
 	}()

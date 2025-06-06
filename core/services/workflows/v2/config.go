@@ -46,9 +46,6 @@ type EngineConfig struct {
 }
 
 const (
-	defaultMaxCapRegistryAccessRetries      = 0 // infinity
-	defaultCapRegistryAccessRetryIntervalMs = 5000
-
 	defaultModuleExecuteMaxResponseSizeBytes   = 100000
 	defaultTriggerSubscriptionRequestTimeoutMs = 500
 	defaultMaxTriggerSubscriptions             = 10
@@ -59,13 +56,11 @@ const (
 	defaultWorkflowExecutionTimeoutMs              = 1000 * 60 * 10 // 10 minutes
 	defaultCapabilityCallTimeoutMs                 = 1000 * 60 * 8  // 8 minutes
 
-	defaultShutdownTimeoutMs = 5000
+	defaultHeartbeatFrequencyMs = 1000 * 60 // 1 minute
+	defaultShutdownTimeoutMs    = 5000
 )
 
 type EngineLimits struct {
-	MaxCapRegistryAccessRetries      uint16
-	CapRegistryAccessRetryIntervalMs uint32
-
 	ModuleExecuteMaxResponseSizeBytes   uint32
 	TriggerSubscriptionRequestTimeoutMs uint32
 	MaxTriggerSubscriptions             uint16
@@ -76,7 +71,8 @@ type EngineLimits struct {
 	WorkflowExecutionTimeoutMs              uint32
 	CapabilityCallTimeoutMs                 uint32
 
-	ShutdownTimeoutMs uint32
+	HeartbeatFrequencyMs uint32
+	ShutdownTimeoutMs    uint32
 }
 
 type LifecycleHooks struct {
@@ -140,12 +136,6 @@ func (c *EngineConfig) Validate() error {
 }
 
 func (l *EngineLimits) setDefaultLimits() {
-	if l.MaxCapRegistryAccessRetries == 0 {
-		l.MaxCapRegistryAccessRetries = defaultMaxCapRegistryAccessRetries
-	}
-	if l.CapRegistryAccessRetryIntervalMs == 0 {
-		l.CapRegistryAccessRetryIntervalMs = defaultCapRegistryAccessRetryIntervalMs
-	}
 	if l.ModuleExecuteMaxResponseSizeBytes == 0 {
 		l.ModuleExecuteMaxResponseSizeBytes = defaultModuleExecuteMaxResponseSizeBytes
 	}
@@ -169,6 +159,9 @@ func (l *EngineLimits) setDefaultLimits() {
 	}
 	if l.CapabilityCallTimeoutMs == 0 {
 		l.CapabilityCallTimeoutMs = defaultCapabilityCallTimeoutMs
+	}
+	if l.HeartbeatFrequencyMs == 0 {
+		l.HeartbeatFrequencyMs = defaultHeartbeatFrequencyMs
 	}
 	if l.ShutdownTimeoutMs == 0 {
 		l.ShutdownTimeoutMs = defaultShutdownTimeoutMs
