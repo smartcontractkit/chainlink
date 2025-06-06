@@ -6,6 +6,14 @@ There are two step to executing the engine in stand alone mode:
 1. Compile the workflow from source
 2. Run the engine with the compiled workflow binary
 
+## Installing Capability Binaries
+Install the capability binaries you need in a workflow via the core node make file scripts:
+
+```bash
+make install-loopinstall
+make install-plugins-private
+```
+
 
 ### Legacy `data_feeds` Example
 
@@ -23,6 +31,8 @@ go run . --wasm data_feeds.wasm --config ./examples/legacy/data_feeds/config_10_
 ```
 
 ### V2 `cron` Example ("No DAG")
+Requires that the `cron` capability be installed on the `$GOBIN` path.  See [here](#installing-capability-binaries).
+
 1. Build the workflow:
 
 ```bash
