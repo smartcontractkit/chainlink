@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	ton "github.com/smartcontractkit/chainlink-ton/pkg/relay"
 
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -197,57 +198,66 @@ func (r *RelayerFactory) NewAptos(ks coretypes.Keystore, chainCfgs RawConfigs) (
 	return r.NewLOOPRelayer("Aptos", relay.NetworkAptos, env.AptosPlugin, ks, chainCfgs)
 }
 
-func (r *RelayerFactory) NewTON(ks coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
-	return r.NewLOOPRelayer("TON", relay.NetworkTON, env.TONPlugin, ks, chainCfgs)
-}
+// func (r *RelayerFactory) NewTON(ks coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
+// 	return r.NewLOOPRelayer("TON", relay.NetworkTON, env.TONPlugin, ks, chainCfgs)
+// }
 
 // TODO uncomment and replace above when chainlink-ton is public, https://smartcontract-it.atlassian.net/browse/NONEVM-1852
-// func (r *RelayerFactory) NewTON(ks coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
-//	tonaRelayers := make(map[types.RelayID]loop.Relayer)
-//	var tonLggr = r.Logger.Named("TON")
-//
-//	unique := make(map[string]struct{})
-//	// create one relayer per chain id
-//	for _, chainCfg := range chainCfgs {
-//		relayID := types.RelayID{Network: relay.NetworkTON, ChainID: chainCfg.ChainID()}
-//		_, alreadyExists := unique[relayID.Name()]
-//		if alreadyExists {
-//			return nil, fmt.Errorf("duplicate chain definitions for %s", relayID.Name())
-//		}
-//		unique[relayID.Name()] = struct{}{}
-//
-//		// skip disabled chains from further processing
-//		if !chainCfg.IsEnabled() {
-//			tonLggr.Warnw("Skipping disabled chain", "id", chainCfg.ChainID)
-//			continue
-//		}
-//
-//		lggr := tonLggr.Named(relayID.ChainID)
-//
-//		if cmdName := env.TONPlugin.Cmd.Get(); cmdName != "" {
-//			// setup the ton relayer to be a LOOP
-//
-//			envVars, err := plugins.ParseEnvFile(env.SolanaPlugin.Env.Get())
-//			if err != nil {
-//				return nil, fmt.Errorf("failed to parse TON env file: %w", err)
-//			}
-//			tonCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
-//				ID:  relayID.Name(),
-//				Cmd: cmdName,
-//				Env: envVars,
-//			})
-//			if err != nil {
-//				return nil, fmt.Errorf("failed to create TON LOOP command: %w", err)
-//			}
-//
-//			tonaRelayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, tonCmdFn, "", ks, r.CapabilitiesRegistry)
-//		} else {
-//			tonaRelayers[relayID] = relay.NewServerAdapter(ton.NewRelayer(lggr, chains, r.CapabilitiesRegistry))
-//			fmt.Printf("Skipping disabled TON command for relayer %s\n", relayID.Name())
-//		}
-//	}
-//	return tonaRelayers, nil
-//}
+func (r *RelayerFactory) NewTON(ks coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
+	tonRelayers := make(map[types.RelayID]loop.Relayer)
+	var tonLggr = r.Logger.Named("TON")
+
+	unique := make(map[string]struct{})
+	// create one relayer per chain id
+	for _, chainCfg := range chainCfgs {
+		relayID := types.RelayID{Network: relay.NetworkTON, ChainID: chainCfg.ChainID()}
+		_, alreadyExists := unique[relayID.Name()]
+		if alreadyExists {
+			return nil, fmt.Errorf("duplicate chain definitions for %s", relayID.Name())
+		}
+		unique[relayID.Name()] = struct{}{}
+
+		// skip disabled chains from further processing
+		if !chainCfg.IsEnabled() {
+			tonLggr.Warnw("Skipping disabled chain", "id", chainCfg.ChainID)
+			continue
+		}
+
+		lggr := tonLggr.Named(relayID.ChainID)
+
+		if cmdName := env.TONPlugin.Cmd.Get(); cmdName != "" {
+			// setup the ton relayer to be a LOOP
+
+			envVars, err := plugins.ParseEnvFile(env.SolanaPlugin.Env.Get())
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse TON env file: %w", err)
+			}
+			tonCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
+				ID:  relayID.Name(),
+				Cmd: cmdName,
+				Env: envVars,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to create TON LOOP command: %w", err)
+			}
+
+			tonRelayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, tonCmdFn, "", ks, r.CapabilitiesRegistry)
+		} else {
+			opts := ton.ChainOpts{
+				Logger:   lggr,
+				KeyStore: ks,
+				//DS:       ds, // TODO(NONEVM-1460): add ds
+			}
+			chain, err := ton.NewChain(nil, opts)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create TON chain: %w", err)
+			}
+			tonRelayers[relayID] = relay.NewServerAdapter(ton.NewRelayer(lggr, chain, r.CapabilitiesRegistry))
+			fmt.Printf("Skipping disabled TON command for relayer %s\n", relayID.Name())
+		}
+	}
+	return tonRelayers, nil
+}
 
 func (r *RelayerFactory) NewLOOPRelayer(name string, network string, plugin env.Plugin, ks coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
 	relayers := make(map[types.RelayID]loop.Relayer)

@@ -1,4 +1,4 @@
-package ton
+package testhelpers
 
 import (
 	"testing"
