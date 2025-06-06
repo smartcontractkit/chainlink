@@ -15,12 +15,3 @@ type SimpleContract struct {
 	// BlockNumber is the block number where the contract was deployed.
 	BlockNumber uint64 `json:"block_number"`
 }
-
-// Cloneable is an implementation of the Cloneable interface for ContractMetadata.
-func (cm SimpleContract) Clone() SimpleContract {
-	return SimpleContract{
-		DeployedAt:  cm.DeployedAt,
-		TxHash:      cm.TxHash,
-		BlockNumber: cm.BlockNumber,
-	}
-}
