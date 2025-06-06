@@ -297,12 +297,12 @@ func TestGrantRolesForTimelockWhenDeployerisNotAdmin(t *testing.T) {
 	// Deploy new Proposer MCMS
 	report, err := operations.ExecuteSequence(
 		tenv.OperationsBundle,
-		seqs.SeqEVMDeployMCMSWithConfig,
-		seqs.SeqDeployMCMSWithConfigDeps{
+		seqs.SeqEVMDeployMCMWithConfig,
+		seqs.SeqDeployMCMWithConfigDeps{
 			Chain:    tenv.BlockChains.EVMChains()[chain1],
 			AddrBook: ab,
 		},
-		seqs.SeqDeployMCMSWithConfigInput{
+		seqs.SeqDeployMCMWithConfigInput{
 			ContractType:  commontypes.ProposerManyChainMultisig,
 			MCMConfig:     proposalutils.SingleGroupTimelockConfigV2(t).Proposer,
 			ChainSelector: chain1,

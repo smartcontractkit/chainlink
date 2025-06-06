@@ -91,11 +91,6 @@ var OpEVMDeployTimelock = operations.NewOperation(
 			return OpEVMDeployTimelockOutput{}, err
 		}
 
-		tv := cldf.NewTypeAndVersion(input.ContractType, deployment.Version1_0_0)
-		for _, option := range deps.Options {
-			option(&tv)
-		}
-
 		return OpEVMDeployTimelockOutput{
 			Address: timelock.Address,
 		}, nil

@@ -12,36 +12,36 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/ops"
 )
 
-type SeqDeployMCMSWithConfigDeps struct {
+type SeqDeployMCMWithConfigDeps struct {
 	Chain    cldf_evm.Chain
 	AddrBook cldf.AddressBook
 	Options  []func(*cldf.TypeAndVersion)
 }
 
-type SeqDeployMCMSWithConfigInput struct {
+type SeqDeployMCMWithConfigInput struct {
 	ContractType  cldf.ContractType `json:"contractType"`
 	MCMConfig     mcmsTypes.Config  `json:"mcmConfig"`
 	ChainSelector uint64            `json:"chainSelector"`
 }
 
-type SeqDeployMCMSWithConfigOutput struct {
+type SeqDeployMCMWithConfigOutput struct {
 	Address common.Address `json:"address"`
 }
 
-var SeqEVMDeployMCMSWithConfig = operations.NewSequence(
-	"seq-deploy-mcms-with-config",
+var SeqEVMDeployMCMWithConfig = operations.NewSequence(
+	"seq-deploy-mcm-with-config",
 	semver.MustParse("1.0.0"),
-	"Deploys MCMS contract & sets config",
-	func(b operations.Bundle, deps SeqDeployMCMSWithConfigDeps, in SeqDeployMCMSWithConfigInput) (SeqDeployMCMSWithConfigOutput, error) {
-		seqOp := SeqDeployMCMSWithConfigOutput{}
-		// Deploy MCMS contract
-		deployReport, err := operations.ExecuteOperation(b, ops.OpEVMDeployMCMS,
+	"Deploys MCM contract & sets config",
+	func(b operations.Bundle, deps SeqDeployMCMWithConfigDeps, in SeqDeployMCMWithConfigInput) (SeqDeployMCMWithConfigOutput, error) {
+		seqOp := SeqDeployMCMWithConfigOutput{}
+		// Deploy MCM contract
+		deployReport, err := operations.ExecuteOperation(b, ops.OpEVMDeployMCM,
 			ops.OpEVMMCMSDeps{
 				Chain:    deps.Chain,
 				Options:  deps.Options,
 				AddrBook: deps.AddrBook,
 			},
-			ops.OpEVMDeployMCMSInput{
+			ops.OpEVMDeployMCMInput{
 				ContractType:  in.ContractType,
 				ChainSelector: in.ChainSelector,
 			},
@@ -53,12 +53,12 @@ var SeqEVMDeployMCMSWithConfig = operations.NewSequence(
 		seqOp.Address = deployReport.Output.Address
 
 		// Set config
-		_, err = operations.ExecuteOperation(b, ops.OpEVMSetConfig,
+		_, err = operations.ExecuteOperation(b, ops.OpEVMSetConfigMCM,
 			ops.OpEVMMCMSDeps{
 				Chain:   deps.Chain,
 				Options: deps.Options,
 			},
-			ops.OpEVMSetConfigMCMSInput{
+			ops.OpEVMSetConfigMCMInput{
 				Address:      deployReport.Output.Address,
 				ContractType: in.ContractType,
 				MCMConfig:    in.MCMConfig,

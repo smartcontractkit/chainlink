@@ -16,27 +16,28 @@ import (
 	mcmsnew_zksync "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/evm/zksync"
 )
 
+// common dependency for MCMS Ops
 type OpEVMMCMSDeps struct {
 	Chain    cldf_evm.Chain
 	Options  []func(*cldf.TypeAndVersion)
 	AddrBook cldf.AddressBook
 }
 
-type OpEVMDeployMCMSInput struct {
+type OpEVMDeployMCMInput struct {
 	ContractType  cldf.ContractType
 	ChainSelector uint64 // Needed to distinguish different input for Operations API
 }
 
-type OpEVMDeployMCMSOutput struct {
+type OpEVMDeployMCMOutput struct {
 	Address common.Address `json:"address"`
 }
 
-var OpEVMDeployMCMS = operations.NewOperation(
-	"evm-mcms-deploy",
+var OpEVMDeployMCM = operations.NewOperation(
+	"evm-mcm-deploy",
 	semver.MustParse("1.0.0"),
-	"Deploys MCMS contracts on the specified EVM chains",
-	func(b operations.Bundle, deps OpEVMMCMSDeps, input OpEVMDeployMCMSInput) (OpEVMDeployMCMSOutput, error) {
-		out := OpEVMDeployMCMSOutput{}
+	"Deploys MCM contracts on the specified EVM chains",
+	func(b operations.Bundle, deps OpEVMMCMSDeps, input OpEVMDeployMCMInput) (OpEVMDeployMCMOutput, error) {
+		out := OpEVMDeployMCMOutput{}
 
 		mcm, err := cldf.DeployContract(b.Logger, deps.Chain, deps.AddrBook,
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*bindings.ManyChainMultiSig] {
@@ -71,7 +72,7 @@ var OpEVMDeployMCMS = operations.NewOperation(
 			})
 
 		if err != nil {
-			b.Logger.Errorw("Failed to deploy MCMS",
+			b.Logger.Errorw("Failed to deploy MCM",
 				"chainSelector", deps.Chain.ChainSelector(),
 				"chainName", deps.Chain.Name(),
 				"err", err,
@@ -79,12 +80,7 @@ var OpEVMDeployMCMS = operations.NewOperation(
 			return out, err
 		}
 
-		tv := cldf.NewTypeAndVersion(input.ContractType, deployment.Version1_0_0)
-		for _, option := range deps.Options {
-			option(&tv)
-		}
-
-		return OpEVMDeployMCMSOutput{
+		return OpEVMDeployMCMOutput{
 			Address: mcm.Address,
 		}, nil
 	})

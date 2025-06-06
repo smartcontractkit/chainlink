@@ -13,26 +13,26 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 )
 
-type OpEVMSetConfigMCMSInput struct {
+type OpEVMSetConfigMCMInput struct {
 	Address      common.Address    `json:"address"`
 	ContractType cldf.ContractType `json:"contractType"`
 	MCMConfig    mcmsTypes.Config  `json:"mcmConfig"` // Config for the ManyChainMultiSig contract
 }
 
-type OpEVMSetConfigMCMSOutput struct {
+type OpEVMSetConfigMCMOutput struct {
 	Tx common.Hash `json:"tx"`
 }
 
-var OpEVMSetConfig = operations.NewOperation(
-	"evm-mcms-set-config",
+var OpEVMSetConfigMCM = operations.NewOperation(
+	"evm-mcm-set-config",
 	semver.MustParse("1.0.0"),
-	"Sets Config on the deployed MCMS contracts",
-	func(b operations.Bundle, deps OpEVMMCMSDeps, input OpEVMSetConfigMCMSInput) (OpEVMSetConfigMCMSOutput, error) {
+	"Sets Config on the deployed MCM contracts",
+	func(b operations.Bundle, deps OpEVMMCMSDeps, input OpEVMSetConfigMCMInput) (OpEVMSetConfigMCMOutput, error) {
 
 		groupQuorums, groupParents, signerAddresses, signerGroups, err := evmMcms.ExtractSetConfigInputs(&input.MCMConfig)
 		if err != nil {
 			b.Logger.Errorw("Failed to extract set config inputs", "chain", deps.Chain.Name(), "err", err)
-			return OpEVMSetConfigMCMSOutput{}, err
+			return OpEVMSetConfigMCMOutput{}, err
 		}
 
 		mcm, err := bindings.NewManyChainMultiSig(input.Address, deps.Chain.Client)
@@ -43,7 +43,7 @@ var OpEVMSetConfig = operations.NewOperation(
 				"contractAddr", input.Address.String(),
 				"err", err,
 			)
-			return OpEVMSetConfigMCMSOutput{}, err
+			return OpEVMSetConfigMCMOutput{}, err
 		}
 
 		tx, err := mcm.SetConfig(deps.Chain.DeployerKey,
@@ -60,7 +60,7 @@ var OpEVMSetConfig = operations.NewOperation(
 				"chainName", deps.Chain.Name(),
 				"err", err,
 			)
-			return OpEVMSetConfigMCMSOutput{}, err
+			return OpEVMSetConfigMCMOutput{}, err
 		}
 
 		// Confirm the transaction
@@ -72,10 +72,10 @@ var OpEVMSetConfig = operations.NewOperation(
 				"err", err,
 			)
 
-			return OpEVMSetConfigMCMSOutput{Tx: tx.Hash()}, err
+			return OpEVMSetConfigMCMOutput{Tx: tx.Hash()}, err
 		}
 
-		return OpEVMSetConfigMCMSOutput{
+		return OpEVMSetConfigMCMOutput{
 			Tx: tx.Hash(),
 		}, nil
 	})

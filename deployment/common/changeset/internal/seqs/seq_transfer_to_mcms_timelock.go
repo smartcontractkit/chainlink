@@ -27,7 +27,7 @@ type SeqTransferToMCMSWithTimelockV2Input struct {
 }
 
 type SeqTransferToMCMSWithTimelockV2Output struct {
-	OpsMcms []mcmsTypes.Transaction `json:"OpsMcms"`
+	OpsMcms []mcmsTypes.Transaction `json:"opsMcms"`
 }
 
 var SeqTransferToMCMSWithTimelockV2 = operations.NewSequence(

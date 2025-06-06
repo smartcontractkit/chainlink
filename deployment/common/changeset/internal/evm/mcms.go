@@ -145,13 +145,13 @@ func DeployMCMSWithTimelockContractsEVM(
 		timelock = state.Timelock
 		callProxy = state.CallProxy
 	}
-	seqDeps := seqs.SeqDeployMCMSWithConfigDeps{
+	seqDeps := seqs.SeqDeployMCMWithConfigDeps{
 		Chain:    chain,
 		AddrBook: ab,
 		Options:  opts,
 	}
 	if bypasser == nil {
-		seqInput := seqs.SeqDeployMCMSWithConfigInput{
+		seqInput := seqs.SeqDeployMCMWithConfigInput{
 			ContractType:  commontypes.BypasserManyChainMultisig,
 			MCMConfig:     config.Bypasser,
 			ChainSelector: chain.Selector,
@@ -159,7 +159,7 @@ func DeployMCMSWithTimelockContractsEVM(
 
 		report, err := operations.ExecuteSequence(
 			env.OperationsBundle,
-			seqs.SeqEVMDeployMCMSWithConfig,
+			seqs.SeqEVMDeployMCMWithConfig,
 			seqDeps,
 			seqInput,
 		)
@@ -179,7 +179,7 @@ func DeployMCMSWithTimelockContractsEVM(
 	}
 
 	if canceller == nil {
-		seqInput := seqs.SeqDeployMCMSWithConfigInput{
+		seqInput := seqs.SeqDeployMCMWithConfigInput{
 			ContractType:  commontypes.CancellerManyChainMultisig,
 			MCMConfig:     config.Canceller,
 			ChainSelector: chain.Selector,
@@ -187,7 +187,7 @@ func DeployMCMSWithTimelockContractsEVM(
 
 		report, err := operations.ExecuteSequence(
 			env.OperationsBundle,
-			seqs.SeqEVMDeployMCMSWithConfig,
+			seqs.SeqEVMDeployMCMWithConfig,
 			seqDeps,
 			seqInput,
 		)
@@ -207,7 +207,7 @@ func DeployMCMSWithTimelockContractsEVM(
 	}
 
 	if proposer == nil {
-		seqInput := seqs.SeqDeployMCMSWithConfigInput{
+		seqInput := seqs.SeqDeployMCMWithConfigInput{
 			ContractType:  commontypes.ProposerManyChainMultisig,
 			MCMConfig:     config.Proposer,
 			ChainSelector: chain.Selector,
@@ -215,7 +215,7 @@ func DeployMCMSWithTimelockContractsEVM(
 
 		report, err := operations.ExecuteSequence(
 			env.OperationsBundle,
-			seqs.SeqEVMDeployMCMSWithConfig,
+			seqs.SeqEVMDeployMCMWithConfig,
 			seqDeps,
 			seqInput,
 		)
