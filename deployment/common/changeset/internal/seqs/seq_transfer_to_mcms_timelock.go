@@ -49,13 +49,15 @@ var SeqTransferToMCMSWithTimelockV2 = operations.NewSequence(
 				b.Logger.Errorf("failed to load ownable contract %s: %v", contract.Hex(), err)
 				return out, fmt.Errorf("error loading ownable contract %s: %w", contract.Hex(), err)
 			}
+
 			if owner.String() == in.Timelock.Hex() {
 				// Already owned by timelock.
 				b.Logger.Infof("contract %s already owned by timelock", contract)
 				continue
 			}
+
 			// Transfer Ownership
-			_, err := operations.ExecuteOperation(b, ops.OpEVMTransferOwnership,
+			_, err = operations.ExecuteOperation(b, ops.OpEVMTransferOwnership,
 				ops.OpEVMOwnershipDeps{
 					Chain:    deps.Chain,
 					OwnableC: c,
