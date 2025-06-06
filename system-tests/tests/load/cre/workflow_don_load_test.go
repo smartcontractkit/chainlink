@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -80,7 +79,6 @@ type TestConfigLoadTest struct {
 	Infra                         *libtypes.InfraInput                 `toml:"infra" validate:"required"`
 	WorkflowDONLoad               *WorkflowLoad                        `toml:"workflow_load"`
 	MockCapabilities              []*MockCapabilities                  `toml:"mock_capabilities"`
-	BinariesConfig                *BinariesConfig                      `toml:"binaries_config"`
 	Chaos                         *Chaos                               `toml:"chaos"`
 }
 
@@ -122,8 +120,6 @@ func setupLoadTestEnvironment(
 	capabilityFactoryFns []func([]string) []keystone_changeset.DONCapabilityWithConfig,
 	jobSpecFactoryFns []keystonetypes.JobSpecFactoryFn,
 ) *loadTestSetupOutput {
-	absMockCapabilityBinaryPath, err := filepath.Abs(in.BinariesConfig.MockCapabilityBinaryPath)
-	require.NoError(t, err, "failed to get absolute path for mock capability binary")
 
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
@@ -131,7 +127,6 @@ func setupLoadTestEnvironment(
 		BlockchainsInput:                     in.Blockchains,
 		JdInput:                              *in.JD,
 		InfraInput:                           *in.Infra,
-		CustomBinariesPaths:                  map[string]string{keystonetypes.MockCapability: absMockCapabilityBinaryPath},
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 	}
 
@@ -189,9 +184,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 			})
 		}
 	}
-
-	// containerPath, pathErr := crecapabilities.DefaultContainerDirectory(in.Infra.InfraType)
-	// require.NoError(t, pathErr, "failed to get default container directory")
 
 	loadTestJobSpecsFactoryFn := func(input *keystonetypes.JobSpecFactoryInput) (keystonetypes.DonsToJobSpecs, error) {
 		donTojobSpecs := make(keystonetypes.DonsToJobSpecs, 0)
