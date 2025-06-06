@@ -376,7 +376,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		}
 	}
 
-	require.NotZero(t, len(mockClientsAddress), "Could not create mock capability client addresses")
+	require.NotEmpty(t, mockClientsAddress, "Could not create mock capability client addresses")
 
 	// Use insecure gRPC connection for local Docker containers. For AWS, use TLS credentials
 	// due to ingress requirements, as grpc.insecure.NewCredentials() doesn't work properly with AWS ingress
