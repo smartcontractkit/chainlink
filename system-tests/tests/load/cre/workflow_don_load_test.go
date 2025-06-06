@@ -404,8 +404,8 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	receiveChannel := make(chan capabilities.CapabilityRequest, 1000)
 	require.NoError(t, mocksClient.HookExecutables(ctx, receiveChannel), "could not hook into mock executable")
 
-	// Wait for the remote capability to be exposed, we check if the ocr capability is exposed to the capability nodes
-	// mocksClient.WaitForCapability(ctx, "offchain_reporting@1.0.0", time.Minute*5)
+	// Wait for the remote capability to be exposed, we check if the streams-trigger has subscribers
+	require.NoError(t, mocksClient.WaitForTriggerSubscribers(ctx, "streams-trigger@2.0.0", time.Minute*5), "error while waiting for trigger subscribers")
 
 	labels := map[string]string{
 		"go_test_name": "test1",
@@ -525,7 +525,7 @@ func NewStreamsGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.Ke
 		feedLimit:   feedLimit,
 		jobLimit:    jobLimit,
 	}
-	go sg.precomputeReports()
+	sg.precomputeReports()
 	go sg.waitHOOKloop()
 	return sg
 }

@@ -1,4 +1,5 @@
 # This file defines testing plugins to be installed via `loopinstall`.
+# This file should only include testing plugins that are not meant to be released to the public.
 
 # Common plugin configuration
 defaults:
@@ -11,6 +12,6 @@ plugins:
   mock:
     - enabled: true
       moduleURI: "github.com/smartcontractkit/capabilities/mock"
-      gitRef: "86191e815fb879118fb303bfd974a120c1945daa"
+      gitRef: "6eeb6eb0ca6751db8ceabcbe8461df8748f17361"
       installPath: "github.com/smartcontractkit/capabilities/mock"
 
