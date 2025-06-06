@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/xssnick/tonutils-go/address"
 	"github.com/xssnick/tonutils-go/tlb"
 	"github.com/xssnick/tonutils-go/ton/wallet"
 
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
@@ -92,7 +92,6 @@ func GenerateChainsTon(t *testing.T, numChains int) map[uint64]cldf_ton.Chain {
 			Wallet:        wallet,
 			WalletAddress: wallet.Address(),
 		}
-		t.Log(ton)
 		chains[chainID] = ton
 	}
 	return chains
@@ -104,41 +103,27 @@ func tonChain(t *testing.T, chainID uint64) *ton.APIClient {
 	require.NoError(t, err)
 
 	bcInput := &blockchain.Input{
-		Image:   "ghcr.io/neodix42/mylocalton-docker:latest", // filled out by defaultTon function
-		Type:    "ton",
 		ChainID: strconv.FormatUint(chainID, 10),
+		Type:    "ton",
+		Image:   "ghcr.io/neodix42/mylocalton-docker:latest",
+		Port:    strconv.Itoa(freeport.GetOne(t)),
 	}
+	var bcOut *blockchain.Output
 
-	var networkConfigUrl string
-	var containerName string
-
-	maxRetries := 10
-	useExistingTonlocalnet := false
-
+	const maxRetries = 10
 	for i := 0; i < maxRetries; i++ {
-		if !useExistingTonlocalnet {
-			output, err := blockchain.NewBlockchainNetwork(bcInput)
-			if err != nil {
-				t.Logf("Error creating TON network: %v", err)
-				time.Sleep(time.Second)
-				maxRetries -= 1
-				continue
-			}
-			require.NoError(t, err)
-			containerName = output.ContainerName
-
-			// todo: ctf-configured clean up?
-			testcontainers.CleanupContainer(t, output.Container)
-			networkConfigUrl = fmt.Sprintf("http://%s/localhost.global.config.json", output.Nodes[0].ExternalHTTPUrl)
-		} else {
-			networkConfigUrl = fmt.Sprintf("http://%s/localhost.global.config.json", "localhost:8000")
+		bcOut, err = blockchain.NewBlockchainNetwork(bcInput)
+		if err == nil {
+			break
 		}
-		break
+		t.Logf("Error creating TON network (attempt %d/%d): %v", i+1, maxRetries, err)
+		time.Sleep(time.Second)
 	}
-	_ = containerName
+	require.NoError(t, err, "Failed to create blockchain network after %d attempts", maxRetries)
+	networkCfg := fmt.Sprintf("http://%s/localhost.global.config.json", bcOut.Nodes[0].ExternalHTTPUrl)
 
-	cfg, err := liteclient.GetConfigFromUrl(t.Context(), networkConfigUrl)
-	require.NoError(t, err, "Failed to get config from URL: %s", networkConfigUrl)
+	cfg, err := liteclient.GetConfigFromUrl(t.Context(), networkCfg)
+	require.NoError(t, err, "Failed to get config from URL: %s", networkCfg)
 
 	connectionPool := liteclient.NewConnectionPool()
 	err = connectionPool.AddConnectionsFromConfig(t.Context(), cfg)
@@ -147,20 +132,17 @@ func tonChain(t *testing.T, chainID uint64) *ton.APIClient {
 	client := ton.NewAPIClient(connectionPool, ton.ProofCheckPolicyFast)
 	client.SetTrustedBlockFromConfig(cfg)
 
-	var ready bool
-	for i := 0; i < 30; i++ {
-		time.Sleep(time.Second)
-		_, err := client.GetMasterchainInfo(t.Context())
-		require.NoError(t, err)
-		if err != nil {
-			t.Logf("API server not ready yet (attempt %d): %+v\n", i+1, err)
-			continue
+	const readinessRetries = 30
+	var lastErr error
+	for i := 0; i < readinessRetries; i++ {
+		_, lastErr = client.GetMasterchainInfo(t.Context())
+		if lastErr == nil {
+			break
 		}
-		ready = true
-		break
+		t.Logf("API server not ready yet (attempt %d/%d): %v", i+1, readinessRetries, lastErr)
+		time.Sleep(time.Second)
 	}
-	require.True(t, ready, "TON network not ready")
-
+	require.NoError(t, lastErr, "TON network not ready after %d attempts", readinessRetries)
 	return client
 }
 

@@ -27,7 +27,7 @@ require (
 	github.com/smartcontractkit/chainlink-deployments-framework v0.9.1
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250602121001-1a3c233e4019
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.11.0
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.8.9
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.9.1-0.20250606085636-f38d4e4f8df3
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.7
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.0
