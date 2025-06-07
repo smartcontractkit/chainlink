@@ -12,28 +12,21 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gagliardetto/solana-go"
+	solRpc "github.com/gagliardetto/solana-go/rpc"
+	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/freeport"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-
-	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
-
-	"github.com/smartcontractkit/freeport"
-
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink/deployment"
-
-	solRpc "github.com/gagliardetto/solana-go/rpc"
-
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 const (
@@ -111,8 +104,8 @@ func NewMemoryChainsSol(t *testing.T, numChains int) map[uint64]cldf_solana.Chai
 	return generateMemoryChainSol(mchains)
 }
 
-func NewMemoryChainsAptos(t *testing.T, numChains int) map[uint64]cldf_aptos.Chain {
-	return GenerateChainsAptos(t, numChains)
+func NewMemoryChainsAptos(t *testing.T, numChains int) []cldf_chain.BlockChain {
+	return generateChainsAptos(t, numChains)
 }
 
 func NewMemoryChainsZk(t *testing.T, numChains int) map[uint64]cldf_evm.Chain {
@@ -257,7 +250,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 		nodeIDs = append(nodeIDs, id)
 	}
 
-	blockChains := map[uint64]chain.BlockChain{}
+	blockChains := map[uint64]cldf_chain.BlockChain{}
 	for _, c := range chains {
 		blockChains[c.Selector] = c
 	}
@@ -272,15 +265,12 @@ func NewMemoryEnvironmentFromChainsNodes(
 		Memory,
 		lggr,
 		cldf.NewMemoryAddressBook(),
-		datastore.NewMemoryDataStore[
-			datastore.DefaultMetadata,
-			datastore.DefaultMetadata,
-		]().Seal(),
+		datastore.NewMemoryDataStore().Seal(),
 		nodeIDs, // Note these have the p2p_ prefix.
 		NewMemoryJobClient(nodes),
 		ctx,
 		cldf.XXXGenerateTestOCRSecrets(),
-		chain.NewBlockChains(blockChains),
+		cldf_chain.NewBlockChains(blockChains),
 	)
 }
 
@@ -293,11 +283,17 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 	for chainSel, chain := range zkChains {
 		chains[chainSel] = chain
 	}
+
+	// Convert aptos chains to concrete type to pass to the NewNodesConfig.
+	// This is a temporary workaround until we have a better way to handle bringing up configuring
+	// the memory nodes.
+	concreteAptosChains := cldf_chain.NewBlockChainsFromSlice(aptosChains).AptosChains()
+
 	c := NewNodesConfig{
 		LogLevel:       logLevel,
 		Chains:         chains,
 		SolChains:      solChains,
-		AptosChains:    aptosChains,
+		AptosChains:    concreteAptosChains,
 		NumNodes:       config.Nodes,
 		NumBootstraps:  config.Bootstraps,
 		RegistryConfig: config.RegistryConfig,
@@ -313,7 +309,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 		nodeIDs = append(nodeIDs, id)
 	}
 
-	blockChains := map[uint64]chain.BlockChain{}
+	blockChains := map[uint64]cldf_chain.BlockChain{}
 	for _, c := range chains {
 		blockChains[c.Selector] = c
 	}
@@ -321,20 +317,17 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 		blockChains[c.Selector] = c
 	}
 	for _, c := range aptosChains {
-		blockChains[c.Selector] = c
+		blockChains[c.ChainSelector()] = c
 	}
 	return *cldf.NewEnvironment(
 		Memory,
 		lggr,
 		cldf.NewMemoryAddressBook(),
-		datastore.NewMemoryDataStore[
-			datastore.DefaultMetadata,
-			datastore.DefaultMetadata,
-		]().Seal(),
+		datastore.NewMemoryDataStore().Seal(),
 		nodeIDs,
 		NewMemoryJobClient(nodes),
 		t.Context,
 		cldf.XXXGenerateTestOCRSecrets(),
-		chain.NewBlockChains(blockChains),
+		cldf_chain.NewBlockChains(blockChains),
 	)
 }

@@ -177,6 +177,16 @@ type SourceDestPair struct {
 	DestChainSelector   uint64
 }
 
+func ToSeqRangeMap(seqNrs map[SourceDestPair]uint64) map[SourceDestPair]ccipocr3.SeqNumRange {
+	seqRangeMap := make(map[SourceDestPair]ccipocr3.SeqNumRange)
+	for sourceDest, seqNr := range seqNrs {
+		seqRangeMap[sourceDest] = ccipocr3.SeqNumRange{
+			ccipocr3.SeqNum(seqNr), ccipocr3.SeqNum(seqNr),
+		}
+	}
+	return seqRangeMap
+}
+
 // ConfirmCommitForAllWithExpectedSeqNums waits for all chains in the environment to commit the given expectedSeqNums.
 // expectedSeqNums is a map that maps a (source, dest) selector pair to the expected sequence number
 // to confirm the commit for.
@@ -186,14 +196,14 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 	t *testing.T,
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
-	expectedSeqNums map[SourceDestPair]uint64,
+	expectedSeqNums map[SourceDestPair]ccipocr3.SeqNumRange,
 	startBlocks map[uint64]*uint64,
 ) {
 	var wg errgroup.Group
 	for sourceDest, expectedSeqNum := range expectedSeqNums {
 		srcChain := sourceDest.SourceChainSelector
 		dstChain := sourceDest.DestChainSelector
-		if expectedSeqNum == 0 {
+		if expectedSeqNum.Start() == 0 {
 			continue
 		}
 		wg.Go(func() error {
@@ -214,10 +224,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					e.BlockChains.EVMChains()[dstChain],
 					state.MustGetEVMChainState(dstChain).OffRamp,
 					startBlock,
-					ccipocr3.SeqNumRange{
-						ccipocr3.SeqNum(expectedSeqNum),
-						ccipocr3.SeqNum(expectedSeqNum),
-					},
+					expectedSeqNum,
 					true,
 				))
 			case chainsel.FamilySolana:
@@ -231,10 +238,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					e.BlockChains.SolanaChains()[dstChain],
 					state.SolChains[dstChain].OffRamp,
 					startSlot,
-					ccipocr3.SeqNumRange{
-						ccipocr3.SeqNum(expectedSeqNum),
-						ccipocr3.SeqNum(expectedSeqNum),
-					},
+					expectedSeqNum,
 					true,
 				))
 			default:

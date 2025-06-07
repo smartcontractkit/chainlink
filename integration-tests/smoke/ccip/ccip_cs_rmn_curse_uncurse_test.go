@@ -178,6 +178,11 @@ func TestRMNCurse(t *testing.T) {
 		t.Run(tc.name+"_NO_MCMS", func(t *testing.T) {
 			runRmnCurseTest(t, tc)
 		})
+	}
+}
+
+func TestRMNCurseMCMS(t *testing.T) {
+	for _, tc := range testCases {
 		t.Run(tc.name+"_MCMS", func(t *testing.T) {
 			runRmnCurseMCMSTest(t, tc, types.TimelockActionSchedule)
 		})
@@ -213,6 +218,11 @@ func TestRMNUncurse(t *testing.T) {
 		t.Run(tc.name+"_UNCURSE", func(t *testing.T) {
 			runRmnUncurseTest(t, tc)
 		})
+	}
+}
+
+func TestRMNUncurseMCMS(t *testing.T) {
+	for _, tc := range testCases {
 		t.Run(tc.name+"_UNCURSE_MCMS", func(t *testing.T) {
 			runRmnUncurseMCMSTest(t, tc, types.TimelockActionSchedule)
 		})

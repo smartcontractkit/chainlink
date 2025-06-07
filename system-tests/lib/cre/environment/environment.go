@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -30,17 +31,15 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	workflow_registry_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
-	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	workflow_registry_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
 
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -99,7 +98,7 @@ type backgroundStageResult struct {
 func SetupTestEnvironment(
 	ctx context.Context,
 	testLogger zerolog.Logger,
-	singeFileLogger *cldlogger.SingleFileLogger,
+	singeFileLogger logger.Logger,
 	input SetupInput,
 ) (*SetupOutput, error) {
 	topologyErr := libdon.ValidateTopology(input.CapabilitiesAwareNodeSets, input.InfraInput)
@@ -881,7 +880,7 @@ func (c *ConcurrentNonceMap) Increment(chainID uint64) uint64 {
 const NumberOfTrackedWorkflowRegistryEvents = 6
 
 // waitForAllNodesToHaveExpectedFiltersRegistered manually checks if all WorkflowRegistry filters used by the LogPoller are registered for all nodes. We want to see if this will help with the flakiness.
-func waitForAllNodesToHaveExpectedFiltersRegistered(singeFileLogger *cldlogger.SingleFileLogger, testLogger zerolog.Logger, homeChainID uint64, donTopology cretypes.DonTopology, nodeSetInput []*cretypes.CapabilitiesAwareNodeSet) error {
+func waitForAllNodesToHaveExpectedFiltersRegistered(singeFileLogger logger.Logger, testLogger zerolog.Logger, homeChainID uint64, donTopology cretypes.DonTopology, nodeSetInput []*cretypes.CapabilitiesAwareNodeSet) error {
 	for donIdx, don := range donTopology.DonsWithMetadata {
 		if !flags.HasFlag(don.Flags, cretypes.WorkflowDON) {
 			continue
@@ -953,7 +952,7 @@ func waitForAllNodesToHaveExpectedFiltersRegistered(singeFileLogger *cldlogger.S
 	return nil
 }
 
-func NewORM(logger *cldlogger.SingleFileLogger, chainID *big.Int, nodeIndex, externalPort int) (logpoller.ORM, *sqlx.DB, error) {
+func NewORM(logger logger.Logger, chainID *big.Int, nodeIndex, externalPort int) (logpoller.ORM, *sqlx.DB, error) {
 	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", "127.0.0.1", externalPort, postgres.User, postgres.Password, fmt.Sprintf("db_%d", nodeIndex))
 	db, err := sqlx.Open("postgres", dsn)
 	if err != nil {
@@ -964,7 +963,7 @@ func NewORM(logger *cldlogger.SingleFileLogger, chainID *big.Int, nodeIndex, ext
 	return logpoller.NewORM(chainID, db, logger), db, nil
 }
 
-func getAllFilters(ctx context.Context, logger *cldlogger.SingleFileLogger, chainID *big.Int, nodeIndex, externalPort int) (map[string]logpoller.Filter, error) {
+func getAllFilters(ctx context.Context, logger logger.Logger, chainID *big.Int, nodeIndex, externalPort int) (map[string]logpoller.Filter, error) {
 	orm, db, err := NewORM(logger, chainID, nodeIndex, externalPort)
 	if err != nil {
 		return nil, err

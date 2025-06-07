@@ -163,6 +163,10 @@ func (t p2pPeer) Receive() <-chan p2ptypes.Message {
 	return nil
 }
 
+func (t p2pPeer) IsBootstrap() bool {
+	return false
+}
+
 func NewPeerID(donName string, nodeOrdinal int) string {
 	privKeyString := fmt.Sprintf("privatekey:%s:%d", donName, nodeOrdinal)
 	privKey := sha256.Sum256([]byte(privKeyString))
