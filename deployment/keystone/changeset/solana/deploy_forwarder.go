@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -18,7 +19,9 @@ import (
 
 	solanaUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	cldfsol "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	ks_forwarder "github.com/smartcontractkit/chainlink-solana/contracts/generated/keystone_forwarder"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -28,18 +31,65 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/shared"
 )
 
+var Version1_0_0 = semver.MustParse("1.0.0")
+
+var _ cldf.ChangeSetV2[*DeployRequest] = DeploySolanaChain{}
+
+type DeploySolanaChain struct{}
+
+// TODO
+func (cs DeploySolanaChain) VerifyPreconditions(env cldf.Environment, cfg *DeployRequest) error {
+	if _, ok := env.BlockChains.SolanaChains()[cfg.ChainSel]; !ok {
+		return fmt.Errorf("solana chain not found for chain selector %d", cfg.ChainSel)
+	}
+
+	return nil
+}
+
+// TODO
+func (cs DeploySolanaChain) Apply(env cldf.Environment, config *DeployRequest) (cldf.ChangesetOutput, error) {
+	return cldf.ChangesetOutput{}, nil
+}
+
+var DeployForwarderOp = operations.NewOperation(
+	"deploy-forwarder-op",
+	Version1_0_0,
+	"Deploys deploys forwarder for Solana Chain",
+	deployForwarderOp,
+)
+
+type DeployForwarderInput struct{}
+type DeployForwarderOutput struct{}
+type SolanaDeps struct{}
+
+// TODO
+func deployForwarderOp(b operations.Bundle, deps SolanaDeps, in DeployForwarderInput) (DeployForwarderOutput, error) {
+	return DeployForwarderOutput{}, nil
+}
+
 type DeployRequest = struct {
 	ChainSel    uint64
 	BuildConfig *helpers.BuildSolanaConfig
+	Qualifier   string
+	LabelSet    *datastore.LabelSet
+	Version     string
 }
 
 var _ cldf.ChangeSet[*DeployRequest] = DeployForwarder
 
 func DeployForwarder(env cldf.Environment, req *DeployRequest) (cldf.ChangesetOutput, error) {
+	var out cldf.ChangesetOutput
+	out.DataStore = datastore.NewMemoryDataStore()
+
+	tversion, err := cldf.TypeAndVersionFromString(req.Version)
+	if err != nil {
+		return out, fmt.Errorf("failed to parse version from request: %w", err)
+	}
+
 	if req.BuildConfig != nil {
 		err := helpers.BuildSolana(env, *req.BuildConfig, keystoneBuildParams)
 		if err != nil {
-			return cldf.ChangesetOutput{}, err
+			return out, err
 		}
 	}
 	chain := env.BlockChains.SolanaChains()[req.ChainSel]
@@ -47,7 +97,7 @@ func DeployForwarder(env cldf.Environment, req *DeployRequest) (cldf.ChangesetOu
 
 	address, err := helpers.DeployAndMaybeSaveToAddressBook(env, chain, ab, shared.Forwarder, deployment.Version1_0_0, false, "")
 	if err != nil {
-		return cldf.ChangesetOutput{}, err
+		return out, err
 	}
 
 	// initialize
@@ -55,29 +105,43 @@ func DeployForwarder(env cldf.Environment, req *DeployRequest) (cldf.ChangesetOu
 
 	stateKey, err := solana.NewRandomPrivateKey()
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create random keys: %w", err)
+		return out, fmt.Errorf("failed to create random keys: %w", err)
 	}
 
 	instruction, err := ks_forwarder.NewInitializeInstruction(stateKey.PublicKey(), chain.DeployerKey.PublicKey(), solana.SystemProgramID).ValidateAndBuild()
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build and validate initialize instruction %w", err)
+		return out, fmt.Errorf("failed to build and validate initialize instruction %w", err)
 	}
 
 	instructions := []solana.Instruction{instruction}
 	if err = chain.Confirm(instructions, solanaUtils.AddSigners(stateKey)); err != nil {
-		return cldf.ChangesetOutput{}, errors.New("failed to confirm ")
+		return out, errors.New("failed to confirm ")
 	}
 
 	tv := cldf.NewTypeAndVersion(shared.ForwarderState, deployment.Version1_0_0)
 	err = ab.Save(req.ChainSel, stateKey.PublicKey().String(), tv)
-
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to save forwarder state address: %w", err)
+		return out, fmt.Errorf("failed to save forwarder state address to address book: %w", err)
 	}
 
-	return cldf.ChangesetOutput{
-		AddressBook: ab,
-	}, nil
+	r := datastore.AddressRef{
+		Address:       stateKey.PublicKey().String(),
+		ChainSelector: req.ChainSel,
+		Qualifier:     req.Qualifier,
+		Type:          datastore.ContractType(shared.ForwarderState),
+		Version:       &tversion.Version,
+	}
+	if req.LabelSet != nil {
+		r.Labels = *req.LabelSet
+	}
+
+	err = out.DataStore.Addresses().Add(r)
+
+	if err != nil {
+		return out, fmt.Errorf("failed to save forwarder state address to datastore: %w", err)
+	}
+
+	return out, nil
 }
 
 type SetForwarderUpgradeAuthorityRequest = struct {

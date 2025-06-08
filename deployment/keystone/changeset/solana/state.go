@@ -12,7 +12,7 @@ type state struct {
 }
 
 func loadOnchainState(env cldf.Environment, chainSel uint64) (*state, error) {
-	addresses, err := env.ExistingAddresses.AddressesForChain(chainSel)
+	addresses, err := env.DataStore.Addresses().Fetch()
 	if err != nil {
 		return nil, err
 	}
