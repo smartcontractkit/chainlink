@@ -74,6 +74,6 @@ contract MockV3Aggregator is AggregatorV2V3Interface {
   }
 
   function description() external pure override returns (string memory) {
-    return "v0.8/tests/MockV3Aggregator.sol";
+    return "v8.0/shared/mocks/MockV3Aggregator.sol";
   }
 }
