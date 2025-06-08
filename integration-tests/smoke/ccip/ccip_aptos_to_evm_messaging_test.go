@@ -12,9 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/stretchr/testify/require"
 
-	aptosbind "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
-
-	aptosfeequoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
+	v1_6 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
@@ -45,6 +43,8 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
+	defaultDestinationChainConfig := v1_6.DefaultFeeQuoterDestChainConfig(true, destChain)
+
 	var (
 		replayed      bool
 		nonce         uint64
@@ -59,10 +59,8 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 			sender,
 			false, // testRouter
 		)
-		aptosRpcClient        = e.Env.BlockChains.AptosChains()[sourceChain].Client
-		aptosFeequoterAddress = state.AptosChains[sourceChain].FeeQuoter
-		aptosCallOpts         = &aptosbind.CallOpts{}
-		ccipReceiverAddress   = state.Chains[destChain].Receiver.Address().Bytes()
+
+		ccipReceiverAddress = state.Chains[destChain].Receiver.Address().Bytes()
 
 		STANDARD_MESSAGE = []byte("Hello EVM, from Aptos!")
 
@@ -70,7 +68,6 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 		NATIVE_FEE_TOKEN = "0xa"
 	)
 
-	destinationChainConfig, err := aptosfeequoter.NewFeeQuoter(aptosFeequoterAddress, aptosRpcClient).GetDestChainConfig(aptosCallOpts, destChain)
 	require.NoError(t, err)
 
 	t.Run("Message from Aptos to EVM", func(t *testing.T) {
@@ -98,7 +95,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 	t.Run("Max Data Bytes - Should Succeed", func(t *testing.T) {
 		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
 		require.NoError(t, err)
-		message := []byte(strings.Repeat("0", int(destinationChainConfig.MaxDataBytes)))
+		message := []byte(strings.Repeat("0", int(defaultDestinationChainConfig.MaxDataBytes)))
 		messagingtest.Run(t,
 			messagingtest.TestCase{
 				TestSetup:              setup,
@@ -130,7 +127,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 				FeeToken:               NATIVE_FEE_TOKEN,
 				Receiver:               ccipReceiverAddress,
 				MsgData:                message,
-				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(destinationChainConfig.MaxPerMsgGasLimit), false),
+				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(defaultDestinationChainConfig.MaxPerMsgGasLimit), false),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertEvmMessageReceived(t, ctx, state, destChain, latestHead, message) },
