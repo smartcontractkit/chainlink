@@ -32,6 +32,8 @@ type CCIPChainState struct {
 	// Test contracts
 	TestRouterAddress aptos.AccountAddress
 	ReceiverAddress   aptos.AccountAddress
+
+	FeeQuoter aptos.AccountAddress
 }
 
 // LoadOnchainStateAptos loads chain state for Aptos chains from env

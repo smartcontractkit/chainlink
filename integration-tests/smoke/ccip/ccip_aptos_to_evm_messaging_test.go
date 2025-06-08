@@ -1,7 +1,9 @@
 package ccip
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
@@ -9,6 +11,10 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/stretchr/testify/require"
+
+	aptosbind "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
+
+	aptosfeequoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
@@ -44,7 +50,6 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 		nonce         uint64
 		senderAddress = e.Env.BlockChains.AptosChains()[sourceChain].DeployerSigner.AccountAddress()
 		sender        = common.LeftPadBytes(senderAddress[:], 32)
-		out           messagingtest.TestCaseOutput
 		setup         = messagingtest.NewTestSetupWithDeployedEnv(
 			t,
 			e,
@@ -54,37 +59,92 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 			sender,
 			false, // testRouter
 		)
+		aptosRpcClient        = e.Env.BlockChains.AptosChains()[sourceChain].Client
+		aptosFeequoterAddress = state.AptosChains[sourceChain].FeeQuoter
+		aptosCallOpts         = &aptosbind.CallOpts{}
+		ccipReceiverAddress   = state.Chains[destChain].Receiver.Address().Bytes()
+
+		STANDARD_MESSAGE = []byte("Hello EVM, from Aptos!")
+
+		// Tokens
+		NATIVE_FEE_TOKEN = "0xa"
 	)
 
-	t.Run("Message to EVM", func(t *testing.T) {
+	destinationChainConfig, err := aptosfeequoter.NewFeeQuoter(aptosFeequoterAddress, aptosRpcClient).GetDestChainConfig(aptosCallOpts, destChain)
+	require.NoError(t, err)
+
+	t.Run("Message from Aptos to EVM", func(t *testing.T) {
 		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
 		require.NoError(t, err)
-		message := []byte("Hello EVM, from Aptos!")
-		out = messagingtest.Run(t,
+		message := STANDARD_MESSAGE
+		messagingtest.Run(t,
 			messagingtest.TestCase{
 				TestSetup:              setup,
 				Replayed:               replayed,
 				Nonce:                  &nonce,
 				ValidationType:         messagingtest.ValidationTypeExec,
-				FeeToken:               "0xa",
-				Receiver:               state.Chains[destChain].Receiver.Address().Bytes(),
+				FeeToken:               NATIVE_FEE_TOKEN,
+				Receiver:               ccipReceiverAddress,
 				MsgData:                message,
 				ExtraArgs:              nil,
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				ExtraAssertions: []func(t *testing.T){
-					func(t *testing.T) {
-						iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
-							Context: ctx,
-							Start:   latestHead,
-						})
-						require.NoError(t, err)
-						require.True(t, iter.Next())
-						require.Equal(t, message, iter.Event.Data, "Message data should match the sent message")
-					},
+					func(t *testing.T) { assertEvmMessageReceived(t, ctx, state, destChain, latestHead, message) },
 				},
 			},
 		)
 	})
 
-	fmt.Printf("out: %v\n", out)
+	t.Run("Max Data Bytes - Should Succeed", func(t *testing.T) {
+		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
+		require.NoError(t, err)
+		message := []byte(strings.Repeat("0", int(destinationChainConfig.MaxDataBytes)))
+		messagingtest.Run(t,
+			messagingtest.TestCase{
+				TestSetup:              setup,
+				Replayed:               replayed,
+				Nonce:                  &nonce,
+				ValidationType:         messagingtest.ValidationTypeExec,
+				FeeToken:               NATIVE_FEE_TOKEN,
+				Receiver:               ccipReceiverAddress,
+				MsgData:                message,
+				ExtraArgs:              nil,
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) { assertEvmMessageReceived(t, ctx, state, destChain, latestHead, message) },
+				},
+			},
+		)
+	})
+
+	t.Run("Max Gas Limit - Should Succeed", func(t *testing.T) {
+		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
+		require.NoError(t, err)
+		message := STANDARD_MESSAGE
+		messagingtest.Run(t,
+			messagingtest.TestCase{
+				TestSetup:              setup,
+				Replayed:               replayed,
+				Nonce:                  &nonce,
+				ValidationType:         messagingtest.ValidationTypeExec,
+				FeeToken:               NATIVE_FEE_TOKEN,
+				Receiver:               ccipReceiverAddress,
+				MsgData:                message,
+				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(destinationChainConfig.MaxPerMsgGasLimit), false),
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) { assertEvmMessageReceived(t, ctx, state, destChain, latestHead, message) },
+				},
+			},
+		)
+	})
+}
+
+func assertEvmMessageReceived(t *testing.T, ctx context.Context, state stateview.CCIPOnChainState, destChain uint64, latestHead uint64, message []byte) {
+	receivedMessage, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
+		Context: ctx,
+		Start:   latestHead,
+	})
+	require.NoError(t, err)
+	require.Equal(t, message, receivedMessage.Event.Data, "Message data should match the sent message")
 }
