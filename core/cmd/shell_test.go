@@ -475,7 +475,7 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	t.Run("plugin already registered", func(t *testing.T) {
 		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
 
-		_, err := rf.NewSolana(ks, cfg)
+		_, err := rf.NewSolana(ks, ksCSA, cfg)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create Solana LOOP command")
 	})
