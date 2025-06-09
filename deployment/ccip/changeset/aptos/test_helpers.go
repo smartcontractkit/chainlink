@@ -49,7 +49,7 @@ func GetMockChainContractParams(t *testing.T, chainSelector uint64) config.Chain
 
 	return config.ChainContractParams{
 		FeeQuoterParams: config.FeeQuoterParams{
-			MaxFeeJuelsPerMsg:            1000000,
+			MaxFeeJuelsPerMsg:            big.NewInt(1000000),
 			TokenPriceStalenessThreshold: 1000000,
 			FeeTokens:                    []aptos.AccountAddress{mockParsedLinkAddress},
 		},

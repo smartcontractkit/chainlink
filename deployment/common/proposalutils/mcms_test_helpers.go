@@ -342,7 +342,7 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 		if err != nil {
 			return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Execute failed: %w", err)
 		}
-		t.Logf("[ExecuteMCMSTimelockProposalV2] Executed timelock operation index=%d on chain %d", i, uint64(op.ChainSelector))
+		t.Logf("[ExecuteMCMSTimelockProposalV2] Executed timelock operation index=%d on chain %d (tx %v)", i, uint64(op.ChainSelector), tx.Hash)
 		family, err := chainsel.GetSelectorFamily(uint64(op.ChainSelector))
 		require.NoError(t, err)
 

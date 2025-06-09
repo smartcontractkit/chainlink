@@ -31,7 +31,7 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 		ContractParamsPerChain: map[uint64]config.ChainContractParams{
 			chainSelector: {
 				FeeQuoterParams: config.FeeQuoterParams{
-					MaxFeeJuelsPerMsg:            1000000000,
+					MaxFeeJuelsPerMsg:            new(big.Int).Mul(big.NewInt(100_000_000), big.NewInt(1e18)), // 100M LINK @ 18 decimals
 					TokenPriceStalenessThreshold: 24 * 60 * 60,
 					FeeTokens:                    []aptos.AccountAddress{linkTokenAddress},
 				},

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"math/big"
 
+	"github.com/aptos-labs/aptos-go-sdk"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
 
@@ -14,6 +16,13 @@ type TokenParams struct {
 	Decimals  byte
 	Icon      string
 	Project   string
+	// Optional initial mints
+	InitialMints []Mint
+}
+
+type Mint struct {
+	To     aptos.AccountAddress
+	Amount uint64
 }
 
 func (tp TokenParams) Validate() error {

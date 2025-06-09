@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -200,7 +201,7 @@ func toRemotePools(evmRemoteCfg map[uint64]config.EVMRemoteConfig) map[uint64]se
 	for chainSelector, remoteConfig := range evmRemoteCfg {
 		remotePools[chainSelector] = seq.RemotePool{
 			RemotePoolAddress:  remoteConfig.TokenPoolAddress.Bytes(),
-			RemoteTokenAddress: remoteConfig.TokenAddress.Bytes(),
+			RemoteTokenAddress: common.LeftPadBytes(remoteConfig.TokenAddress.Bytes(), 32),
 			RateLimiterConfig:  remoteConfig.RateLimiterConfig,
 		}
 	}
