@@ -107,7 +107,7 @@ type QueueConfig interface {
 }
 
 func newServer(lggr logger.Logger, verboseLogging bool, cfg QueueConfig, client grpc.Client, orm ORM, serverURL string) *server {
-	pm := NewPersistenceManager(lggr, orm, serverURL, int(cfg.TransmitQueueMaxSize()), FlushDeletesFrequency, PruneFrequency, cfg.ReaperMaxAge().Duration())
+	pm := NewPersistenceManager(lggr, orm, serverURL, int(cfg.TransmitQueueMaxSize()), FlushDeletesFrequency, PruneFrequency, cfg.ReaperMaxAge())
 	donIDStr := strconv.FormatUint(uint64(pm.DonID()), 10)
 	var codecLggr logger.Logger
 	if verboseLogging {
