@@ -52,22 +52,23 @@ func DeployCoordinator(
 ) (coordinatorAddress common.Address) {
 	var tx *types.Transaction
 	var err error
-	if coordinatorType == "layer1" {
+	switch coordinatorType {
+	case "layer1":
 		_, tx, _, err = vrf_coordinator_v2_5.DeployVRFCoordinatorV25(
 			e.Owner,
 			e.Ec,
 			common.HexToAddress(bhsAddress))
-	} else if coordinatorType == "arbitrum" {
+	case "arbitrum":
 		_, tx, _, err = vrf_coordinator_v2_5_arbitrum.DeployVRFCoordinatorV25Arbitrum(
 			e.Owner,
 			e.Ec,
 			common.HexToAddress(bhsAddress))
-	} else if coordinatorType == "optimism" {
+	case "optimism":
 		_, tx, _, err = vrf_coordinator_v2_5_optimism.DeployVRFCoordinatorV25Optimism(
 			e.Owner,
 			e.Ec,
 			common.HexToAddress(bhsAddress))
-	} else {
+	default:
 		panic(fmt.Sprintf("Coordinator type not supported '%s'", coordinatorType))
 	}
 	helpers.PanicErr(err)
@@ -298,25 +299,26 @@ func WrapperDeploy(
 	var address common.Address
 	var tx *types.Transaction
 	var err error
-	if wrapperType == "layer1" {
+	switch wrapperType {
+	case "layer1":
 		address, tx, _, err = vrfv2plus_wrapper.DeployVRFV2PlusWrapper(e.Owner, e.Ec,
 			link,
 			linkEthFeed,
 			coordinator,
 			subID)
-	} else if wrapperType == "arbitrum" {
+	case "arbitrum":
 		address, tx, _, err = vrfv2plus_wrapper_arbitrum.DeployVRFV2PlusWrapperArbitrum(e.Owner, e.Ec,
 			link,
 			linkEthFeed,
 			coordinator,
 			subID)
-	} else if wrapperType == "optimism" {
+	case "optimism":
 		address, tx, _, err = vrfv2plus_wrapper_optimism.DeployVRFV2PlusWrapperOptimism(e.Owner, e.Ec,
 			link,
 			linkEthFeed,
 			coordinator,
 			subID)
-	} else {
+	default:
 		panic(fmt.Sprintf("Wrapper type not supported '%s'", wrapperType))
 	}
 	helpers.PanicErr(err)

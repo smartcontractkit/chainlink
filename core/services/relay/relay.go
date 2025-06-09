@@ -15,6 +15,7 @@ const (
 	NetworkStarkNet = "starknet"
 	NetworkAptos    = "aptos"
 	NetworkTron     = "tron"
+	NetworkTON      = "ton"
 
 	NetworkDummy = "dummy"
 )
@@ -26,6 +27,7 @@ var SupportedNetworks = map[string]struct{}{
 	NetworkStarkNet: {},
 	NetworkAptos:    {},
 	NetworkTron:     {},
+	NetworkTON:      {},
 
 	NetworkDummy: {},
 }

@@ -20,6 +20,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
@@ -28,9 +32,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
+	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -331,10 +337,10 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	)
 	tc.populateFields(t, envWithRMN, rmnCluster)
 
-	onChainState, err := changeset.LoadOnchainState(envWithRMN.Env)
+	onChainState, err := stateview.LoadOnchainState(envWithRMN.Env)
 	require.NoError(t, err)
 
-	homeChainState, ok := onChainState.Chains[envWithRMN.HomeChainSel]
+	homeChainState, ok := onChainState.EVMChainState(envWithRMN.HomeChainSel)
 	require.True(t, ok)
 
 	allDigests, err := homeChainState.RMNHome.GetConfigDigests(&bind.CallOpts{Context: ctx})
@@ -378,21 +384,20 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		"active digest should be the same as the previously candidate digest after promotion, previous candidate: %x, active: %x",
 		candidateDigest[:], activeDigest[:])
 
-	rmnRemoteConfig := make(map[uint64]v1_6.RMNRemoteConfig)
+	rmnRemoteConfig := make(map[uint64]ccipops.RMNRemoteConfig)
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		selector := tc.pf.chainSelectors[remoteCfg.chainIdx]
 		if remoteCfg.f < 0 {
 			t.Fatalf("remoteCfg.f is negative: %d", remoteCfg.f)
 		}
-		rmnRemoteConfig[selector] = v1_6.RMNRemoteConfig{
+		rmnRemoteConfig[selector] = ccipops.RMNRemoteConfig{
 			F:       uint64(remoteCfg.f),
 			Signers: tc.alterSigners(t, tc.pf.rmnRemoteSigners),
 		}
 	}
 
-	_, err = v1_6.SetRMNRemoteConfigChangeset(envWithRMN.Env, v1_6.SetRMNRemoteConfig{
-		HomeChainSelector: envWithRMN.HomeChainSel,
-		RMNRemoteConfigs:  rmnRemoteConfig,
+	_, err = v1_6.SetRMNRemoteConfigChangeset(envWithRMN.Env, ccipseq.SetRMNRemoteConfig{
+		RMNRemoteConfigs: rmnRemoteConfig,
 	})
 	require.NoError(t, err)
 
@@ -467,13 +472,15 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	commitReportReceived := make(chan struct{})
 	go func() {
 		if len(expectedSeqNum) > 0 {
-			testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
+			testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState,
+				testhelpers.ToSeqRangeMap(expectedSeqNum), startBlocks)
 			commitReportReceived <- struct{}{}
 		}
 
 		if len(seqNumCommit) > 0 && len(seqNumCommit) > len(expectedSeqNum) {
 			// wait for a duration and assert that commit reports were not delivered for cursed source chains
-			testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, seqNumCommit, startBlocks)
+			testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState,
+				testhelpers.ToSeqRangeMap(seqNumCommit), startBlocks)
 			commitReportReceived <- struct{}{}
 		}
 	}()
@@ -604,8 +611,8 @@ func (tc *rmnTestCase) alterSigners(t *testing.T, signers []rmn_remote.RMNRemote
 }
 
 func (tc *rmnTestCase) populateFields(t *testing.T, envWithRMN testhelpers.DeployedEnv, rmnCluster devenv.RMNCluster) {
-	require.GreaterOrEqual(t, len(envWithRMN.Env.Chains), 2, "test assumes at least two chains")
-	for _, chain := range envWithRMN.Env.Chains {
+	require.GreaterOrEqual(t, len(envWithRMN.Env.BlockChains.EVMChains()), 2, "test assumes at least two chains")
+	for _, chain := range envWithRMN.Env.BlockChains.EVMChains() {
 		tc.pf.chainSelectors = append(tc.pf.chainSelectors, chain.Selector)
 	}
 
@@ -743,7 +750,7 @@ func (tc rmnTestCase) disableOraclesIfThisIsACursingTestCase(ctx context.Context
 	return disabledNodes
 }
 
-func (tc rmnTestCase) sendMessages(t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) (map[uint64]*uint64, map[testhelpers.SourceDestPair]uint64, map[testhelpers.SourceDestPair][]uint64) {
+func (tc rmnTestCase) sendMessages(t *testing.T, onChainState stateview.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) (map[uint64]*uint64, map[testhelpers.SourceDestPair]uint64, map[testhelpers.SourceDestPair][]uint64) {
 	startBlocks := make(map[uint64]*uint64)
 	seqNumCommit := make(map[testhelpers.SourceDestPair]uint64)
 	seqNumExec := make(map[testhelpers.SourceDestPair][]uint64)
@@ -754,7 +761,7 @@ func (tc rmnTestCase) sendMessages(t *testing.T, onChainState changeset.CCIPOnCh
 
 		for i := 0; i < msg.count; i++ {
 			msgSentEvent := testhelpers.TestSendRequest(t, envWithRMN.Env, onChainState, fromChain, toChain, false, router.ClientEVM2AnyMessage{
-				Receiver:     common.LeftPadBytes(onChainState.Chains[toChain].Receiver.Address().Bytes(), 32),
+				Receiver:     common.LeftPadBytes(onChainState.MustGetEVMChainState(toChain).Receiver.Address().Bytes(), 32),
 				Data:         []byte("hello world"),
 				TokenAmounts: nil,
 				FeeToken:     common.HexToAddress("0x0"),
@@ -778,12 +785,12 @@ func (tc rmnTestCase) sendMessages(t *testing.T, onChainState changeset.CCIPOnCh
 	return startBlocks, seqNumCommit, seqNumExec
 }
 
-func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) {
+func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing.T, onChainState stateview.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) {
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
-		chState, ok := onChainState.Chains[remoteSel]
+		chState, ok := onChainState.EVMChainState(remoteSel)
 		require.True(t, ok)
-		_, ok = envWithRMN.Env.Chains[remoteSel]
+		_, ok = envWithRMN.Env.BlockChains.EVMChains()[remoteSel]
 		require.True(t, ok)
 
 		cursedSubjects, ok := tc.cursedSubjectsPerChain[remoteCfg.chainIdx]
@@ -813,12 +820,12 @@ func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing
 	}
 }
 
-func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, eg *errgroup.Group, t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) {
+func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, eg *errgroup.Group, t *testing.T, onChainState stateview.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) {
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
-		chState, ok := onChainState.Chains[remoteSel]
+		chState, ok := onChainState.EVMChainState(remoteSel)
 		require.True(t, ok)
-		_, ok = envWithRMN.Env.Chains[remoteSel]
+		_, ok = envWithRMN.Env.BlockChains.EVMChains()[remoteSel]
 		require.True(t, ok)
 
 		cursedSubjects := tc.revokedCursedSubjectsPerChain[remoteCfg.chainIdx]
@@ -882,16 +889,16 @@ func configureAndPromoteRMNHome(
 	tc *rmnTestCase,
 	envWithRMN testhelpers.DeployedEnv,
 	rmnCluster devenv.RMNCluster,
-) changeset.CCIPOnChainState {
+) stateview.CCIPOnChainState {
 	ctx := testcontext.Get(t)
 	tc.populateFields(t, envWithRMN, rmnCluster)
 
 	// Load on-chain state
-	onChainState, err := changeset.LoadOnchainState(envWithRMN.Env)
+	onChainState, err := stateview.LoadOnchainState(envWithRMN.Env)
 	require.NoError(t, err)
 
 	// Get the home chain state and the candidate/active digests
-	homeChainState, ok := onChainState.Chains[envWithRMN.HomeChainSel]
+	homeChainState, ok := onChainState.EVMChainState(envWithRMN.HomeChainSel)
 	require.True(t, ok)
 
 	allDigests, err := homeChainState.RMNHome.GetConfigDigests(&bind.CallOpts{Context: ctx})
@@ -936,29 +943,28 @@ func configureAndPromoteRMNHome(
 		candidateDigest[:], activeDigest[:])
 
 	// Configure remote chain settings
-	rmnRemoteConfig := make(map[uint64]v1_6.RMNRemoteConfig)
+	rmnRemoteConfig := make(map[uint64]ccipops.RMNRemoteConfig)
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		selector := tc.pf.chainSelectors[remoteCfg.chainIdx]
 		if remoteCfg.f < 0 {
 			t.Fatalf("remoteCfg.f is negative: %d", remoteCfg.f)
 		}
-		rmnRemoteConfig[selector] = v1_6.RMNRemoteConfig{
+		rmnRemoteConfig[selector] = ccipops.RMNRemoteConfig{
 			F:       uint64(remoteCfg.f),
 			Signers: tc.pf.rmnRemoteSigners,
 		}
 	}
-	_, err = v1_6.SetRMNRemoteConfigChangeset(envWithRMN.Env, v1_6.SetRMNRemoteConfig{
-		HomeChainSelector: envWithRMN.HomeChainSel,
-		RMNRemoteConfigs:  rmnRemoteConfig,
+	_, err = v1_6.SetRMNRemoteConfigChangeset(envWithRMN.Env, ccipseq.SetRMNRemoteConfig{
+		RMNRemoteConfigs: rmnRemoteConfig,
 	})
 	require.NoError(t, err)
 
 	return onChainState
 }
 
-func performReorgTest(t *testing.T, e testhelpers.DeployedEnv, l logging.Logger, dockerEnv *testsetups.DeployedLocalDevEnvironment, state changeset.CCIPOnChainState, nonBootstrapP2PIDs []string) (sourceSelector uint64, destSelector uint64) {
+func performReorgTest(t *testing.T, e testhelpers.DeployedEnv, l logging.Logger, dockerEnv *testsetups.DeployedLocalDevEnvironment, state stateview.CCIPOnChainState, nonBootstrapP2PIDs []string) (sourceSelector uint64, destSelector uint64) {
 	// Chain setup
-	allChains := e.Env.AllChainSelectors()
+	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	require.GreaterOrEqual(t, len(allChains), 2)
 	sourceSelector = allChains[0]
 	destSelector = allChains[1]
@@ -1035,8 +1041,8 @@ func Test_CCIPReorg_BelowFinality_OnSource_WithRMN(t *testing.T) {
 	_, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		sourceSelector,
-		e.Env.Chains[destSelector],
-		state.Chains[destSelector].OffRamp,
+		e.Env.BlockChains.EVMChains()[destSelector],
+		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),
 		false, // enforceSingleCommit
@@ -1083,8 +1089,8 @@ func Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Recover(t *testing.T) {
 	_, err = testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		sourceSelector,
-		e.Env.Chains[destSelector],
-		state.Chains[destSelector].OffRamp,
+		e.Env.BlockChains.EVMChains()[destSelector],
+		state.MustGetEVMChainState(destSelector).OffRamp,
 		nil, // startBlock
 		ccipocr3.NewSeqNumRange(1, 1),
 		false, // enforceSingleCommit
@@ -1132,8 +1138,8 @@ func Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Block(t *testing.T) {
 		_, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 			t,
 			sourceSelector,
-			e.Env.Chains[destSelector],
-			state.Chains[destSelector].OffRamp,
+			e.Env.BlockChains.EVMChains()[destSelector],
+			state.MustGetEVMChainState(destSelector).OffRamp,
 			nil, // startBlock
 			ccipocr3.NewSeqNumRange(1, 1),
 			false, // enforceSingleCommit

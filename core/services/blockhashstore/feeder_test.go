@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	bhsmocks "github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore/mocks"
@@ -233,7 +233,7 @@ func TestStartHeartbeats(t *testing.T) {
 			mockLogger,
 			&TestCoordinator{}, // Not used for this test
 			mockBHS,
-			&mocklp.LogPoller{}, // Not used for this test
+			&lpmocks.LogPoller{}, // Not used for this test
 			0,
 			25,  // Not used for this test
 			100, // Not used for this test
@@ -278,7 +278,7 @@ func TestStartHeartbeats(t *testing.T) {
 			mockLogger,
 			&TestCoordinator{}, // Not used for this test
 			mockBHS,
-			&mocklp.LogPoller{}, // Not used for this test
+			&lpmocks.LogPoller{}, // Not used for this test
 			0,
 			25,  // Not used for this test
 			100, // Not used for this test
@@ -325,7 +325,7 @@ func TestStartHeartbeats(t *testing.T) {
 			mockLogger,
 			&TestCoordinator{}, // Not used for this test
 			mockBHS,
-			&mocklp.LogPoller{}, // Not used for this test
+			&lpmocks.LogPoller{}, // Not used for this test
 			0,
 			25,  // Not used for this test
 			100, // Not used for this test
@@ -372,7 +372,7 @@ func (test testCase) testFeeder(t *testing.T) {
 		FulfillmentEvents: test.fulfillments,
 	}
 
-	lp := &mocklp.LogPoller{}
+	lp := &lpmocks.LogPoller{}
 	feeder := NewFeeder(
 		logger.TestLogger(t),
 		coordinator,
@@ -407,7 +407,7 @@ func (test testCase) testFeederWithLogPollerVRFv1(t *testing.T) {
 	var coordinatorAddress = common.HexToAddress("0x514910771AF9Ca656af840dff83E8264EcF986CA")
 
 	// Instantiate log poller & coordinator.
-	lp := &mocklp.LogPoller{}
+	lp := &lpmocks.LogPoller{}
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	c, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(coordinatorAddress, nil)
 	require.NoError(t, err)
@@ -501,7 +501,7 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 	var coordinatorAddress = common.HexToAddress("0x514910771AF9Ca656af840dff83E8264EcF986CA")
 
 	// Instantiate log poller & coordinator.
-	lp := &mocklp.LogPoller{}
+	lp := &lpmocks.LogPoller{}
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	c, err := vrf_coordinator_v2.NewVRFCoordinatorV2(coordinatorAddress, nil)
 	require.NoError(t, err)
@@ -599,7 +599,7 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 	var coordinatorAddress = common.HexToAddress("0x514910771AF9Ca656af840dff83E8264EcF986CA")
 
 	// Instantiate log poller & coordinator.
-	lp := &mocklp.LogPoller{}
+	lp := &lpmocks.LogPoller{}
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	c, err := vrf_coordinator_v2plus_interface.NewIVRFCoordinatorV2PlusInternal(coordinatorAddress, nil)
 	require.NoError(t, err)
@@ -694,7 +694,7 @@ func TestFeeder_CachesStoredBlocks(t *testing.T) {
 
 	bhs := &TestBHS{}
 
-	lp := &mocklp.LogPoller{}
+	lp := &lpmocks.LogPoller{}
 	feeder := NewFeeder(
 		logger.TestLogger(t),
 		coordinator,

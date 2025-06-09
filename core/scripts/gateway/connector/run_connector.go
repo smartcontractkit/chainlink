@@ -12,7 +12,7 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/pelletier/go-toml/v2"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
@@ -67,7 +67,11 @@ func main() {
 	}
 
 	sampleKey, _ := crypto.HexToECDSA("cd47d3fafdbd652dd2b66c6104fa79b372c13cb01f4a4fbfc36107cce913ac1d")
-	lggr, _ := logger.NewLogger()
+	lggr, err := logger.New()
+	if err != nil {
+		fmt.Println("error creating logger:", err)
+		return
+	}
 	client := &client{privateKey: sampleKey, lggr: lggr}
 	// client acts as a signer here
 	connector, _ := connector.NewGatewayConnector(&cfg, client, clockwork.NewRealClock(), lggr)

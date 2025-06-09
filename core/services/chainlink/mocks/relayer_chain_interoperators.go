@@ -7,7 +7,7 @@ import (
 	services2 "github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 
@@ -47,8 +47,8 @@ func (f *FakeRelayerChainInteroperators) Get(id types.RelayID) (loop.Relayer, er
 	return r, nil
 }
 
-func (f *FakeRelayerChainInteroperators) GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error) {
-	return f.Relayers, nil
+func (f *FakeRelayerChainInteroperators) GetIDToRelayerMap() map[types.RelayID]loop.Relayer {
+	return f.Relayers
 }
 
 func (f *FakeRelayerChainInteroperators) Slice() []loop.Relayer {

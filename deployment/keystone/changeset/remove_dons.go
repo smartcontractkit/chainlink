@@ -10,13 +10,13 @@ import (
 	"github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
-var _ deployment.ChangeSet[*RemoveDONsRequest] = RemoveDONs
+var _ cldf.ChangeSet[*RemoveDONsRequest] = RemoveDONs
 
 type RemoveDONsRequest struct {
 	RegistryChainSel uint64
@@ -28,7 +28,7 @@ type RemoveDONsRequest struct {
 	RegistryRef datastore.AddressRefKey
 }
 
-func (r *RemoveDONsRequest) Validate(e deployment.Environment) error {
+func (r *RemoveDONsRequest) Validate(e cldf.Environment) error {
 	if len(r.DONs) == 0 {
 		return errors.New("dons is required")
 	}
@@ -38,7 +38,7 @@ func (r *RemoveDONsRequest) Validate(e deployment.Environment) error {
 		return fmt.Errorf("invalid registry chain selector %d: selector does not exist", r.RegistryChainSel)
 	}
 
-	_, exists = e.Chains[r.RegistryChainSel]
+	_, exists = e.BlockChains.EVMChains()[r.RegistryChainSel]
 	if !exists {
 		return fmt.Errorf("invalid registry chain selector %d: chain does not exist in environment", r.RegistryChainSel)
 	}
@@ -53,18 +53,18 @@ func (r RemoveDONsRequest) UseMCMS() bool {
 }
 
 // RemoveDONs removes a DON from the capabilities registry
-func RemoveDONs(env deployment.Environment, req *RemoveDONsRequest) (deployment.ChangesetOutput, error) {
+func RemoveDONs(env cldf.Environment, req *RemoveDONsRequest) (cldf.ChangesetOutput, error) {
 	if err := req.Validate(env); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	// extract the registry contract and chain from the environment
-	registryChain, ok := env.Chains[req.RegistryChainSel]
+	registryChain, ok := env.BlockChains.EVMChains()[req.RegistryChainSel]
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
+		return cldf.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
 	capReg, err := loadCapabilityRegistry(registryChain, env, req.RegistryRef)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: %w", err)
 	}
 
 	resp, err := internal.RemoveDONs(env.Logger, &internal.RemoveDONsRequest{
@@ -74,13 +74,17 @@ func RemoveDONs(env deployment.Environment, req *RemoveDONsRequest) (deployment.
 		UseMCMS:              req.UseMCMS(),
 	})
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to remove don: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to remove don: %w", err)
 	}
 
-	out := deployment.ChangesetOutput{}
+	out := cldf.ChangesetOutput{}
 	if req.UseMCMS() {
 		if resp.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
+		}
+
+		if capReg.McmsContracts == nil {
+			return out, fmt.Errorf("expected capabiity registry contract %s to be owned by MCMS", capReg.Contract.Address().String())
 		}
 
 		timelocksPerChain := map[uint64]string{
@@ -91,7 +95,7 @@ func RemoveDONs(env deployment.Environment, req *RemoveDONsRequest) (deployment.
 		}
 		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		inspectorPerChain := map[uint64]sdk.Inspector{
 			req.RegistryChainSel: inspector,

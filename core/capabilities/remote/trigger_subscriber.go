@@ -8,11 +8,12 @@ import (
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/messagecache"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -89,7 +90,7 @@ func NewTriggerSubscriber(config *commoncap.RemoteTriggerConfig, capInfo commonc
 		messageCache:        messagecache.NewMessageCache[triggerEventKey, p2ptypes.PeerID](),
 		registeredWorkflows: make(map[string]*subRegState),
 		stopCh:              make(services.StopChan),
-		lggr:                lggr.Named("TriggerSubscriber"),
+		lggr:                logger.Named(lggr, "TriggerSubscriber"),
 	}
 }
 
@@ -219,12 +220,8 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			creationTs := s.messageCache.Insert(key, sender, nowMs, msg.Payload)
 			ready, payloads := s.messageCache.Ready(key, s.config.MinResponsesToAggregate, nowMs-s.config.MessageExpiry.Milliseconds(), true)
 			s.mu.Unlock()
-			if nowMs-creationTs > s.config.RegistrationExpiry.Milliseconds() {
-				s.lggr.Warnw("received trigger event for an expired ID", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowID, "sender", sender)
-				continue
-			}
+			s.lggr.Debugw("trigger event received", "triggerEventId", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowID, "sender", sender, "ready", ready, "nowTs", nowMs, "creationTs", creationTs, "minResponsesToAggregate", s.config.MinResponsesToAggregate)
 			if ready {
-				s.lggr.Debugw("trigger event ready to aggregate", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowID)
 				aggregatedResponse, err := s.aggregator.Aggregate(meta.TriggerEventId, payloads)
 				if err != nil {
 					s.lggr.Errorw("failed to aggregate responses", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowID, "err", err)

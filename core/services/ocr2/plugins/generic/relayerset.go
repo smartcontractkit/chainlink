@@ -12,7 +12,7 @@ import (
 )
 
 type RelayGetter interface {
-	GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error)
+	GetIDToRelayerMap() map[types.RelayID]loop.Relayer
 }
 
 type RelayerSet struct {
@@ -22,10 +22,7 @@ type RelayerSet struct {
 func NewRelayerSet(relayGetter RelayGetter, externalJobID uuid.UUID, jobID int32, isNew bool) (*RelayerSet, error) {
 	wrappedRelayers := map[types.RelayID]core.Relayer{}
 
-	relayers, err := relayGetter.GetIDToRelayerMap()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get relayers: %w", err)
-	}
+	relayers := relayGetter.GetIDToRelayerMap()
 
 	for id, relayer := range relayers {
 		wrappedRelayers[id] = relayerWrapper{Relayer: relayer, ExternalJobID: externalJobID, JobID: jobID, New: isNew}

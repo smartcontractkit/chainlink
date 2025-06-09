@@ -25,7 +25,9 @@ import (
 
 	kocr3 "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -350,7 +352,7 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets cldf.OCRSecret
 
 type configureOCR3Request struct {
 	cfg        *OracleConfig
-	chain      deployment.Chain
+	chain      cldf_evm.Chain
 	contract   *kocr3.OCR3Capability
 	nodes      []deployment.Node
 	dryRun     bool
@@ -383,7 +385,7 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 
 	txOpt := req.chain.DeployerKey
 	if req.useMCMS {
-		txOpt = deployment.SimTransactOpts()
+		txOpt = cldf.SimTransactOpts()
 	}
 
 	tx, err := req.contract.SetConfig(txOpt,
@@ -395,7 +397,7 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 		ocrConfig.OffchainConfig,
 	)
 	if err != nil {
-		err = deployment.DecodeErr(kocr3.OCR3CapabilityABI, err)
+		err = cldf.DecodeErr(kocr3.OCR3CapabilityABI, err)
 		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s using mcms: %T: %w", req.contract.Address().String(), req.useMCMS, err)
 	}
 
@@ -403,7 +405,7 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 	if !req.useMCMS {
 		_, err = req.chain.Confirm(tx)
 		if err != nil {
-			err = deployment.DecodeErr(kocr3.OCR3CapabilityABI, err)
+			err = cldf.DecodeErr(kocr3.OCR3CapabilityABI, err)
 			return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
 		}
 	} else {

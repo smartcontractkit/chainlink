@@ -601,6 +601,15 @@ func TestSliceParam_FilterErrors(t *testing.T) {
 	require.Equal(t, pipeline.SliceParam{"foo", "baz"}, vals)
 }
 
+func TestSliceParam_FilterNils(t *testing.T) {
+	t.Parallel()
+	testErr := errors.New("bar")
+	s := pipeline.SliceParam{"foo", testErr, nil, "baz", nil}
+	vals, n := s.FilterNils()
+	require.Equal(t, 2, n)
+	require.Equal(t, pipeline.SliceParam{"foo", testErr, "baz"}, vals)
+}
+
 func TestDecimalSliceParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 

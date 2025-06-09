@@ -124,8 +124,8 @@ func (t TestRelayGetter) Get(id types.RelayID) (loop.Relayer, error) {
 	return nil, fmt.Errorf("relayer with id %s not found", id)
 }
 
-func (t TestRelayGetter) GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error) {
-	return t.relayers, nil
+func (t TestRelayGetter) GetIDToRelayerMap() map[types.RelayID]loop.Relayer {
+	return t.relayers
 }
 
 type TestRelayer struct {

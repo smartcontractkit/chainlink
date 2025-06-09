@@ -37,7 +37,7 @@ import (
 
 	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
-	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	txmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 
 	types "github.com/smartcontractkit/chainlink-evm/pkg/types"
 

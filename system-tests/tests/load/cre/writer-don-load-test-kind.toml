@@ -1,0 +1,150 @@
+# ----- BLOCKCHAIN CONFIGURATION -----
+# Sets up a local Anvil blockchain for testing with 5-second block time
+[[blockchains]]
+chain_id = "1337"
+type = "anvil"
+docker_cmd_params = ["-b", "5"]
+
+# ----- BINARY PATHS -----
+# Path to the mock capability binary
+[binaries_config]
+mock_capability_binary_path = "../../../../../capabilities/bin/amd64/mock"
+
+# ----- JOB DISTRIBUTOR -----
+# Docker image for the job distributor service
+[jd]
+image = "localhost:5000/job-distributor:sha-707362c-amd64"
+
+# ----- MOCK CAPABILITIES -----
+# Mock trigger capability required for connecting to the write target
+[[mock_capabilities]]
+name="mock"
+version= "1.0.0"
+type="trigger"
+description="mock"
+
+# ----- TEST CONFIGURATION -----
+# Parameters for the Writer DON load test
+[writer_test]
+nr_of_feeds = 30                # Number of price feeds to simulate
+workflow_name = "abcdef0123"    # Must be exactly 10 characters
+workflow_owner = "0x0100000000000000000000000000000000000001"
+workflow_id = "5dbe5f217ff07d6b1dddb43519fe7bf13ccb10b540578fafdbea86b508abbd71"
+
+# ----- INFRASTRUCTURE SETUP -----
+# Configures Docker-based test infrastructure
+[infra]
+type = "docker"
+
+# CRIB deployment configuration
+[infra.crib]
+namespace = "crib-writer-don-load-test-george"  # Unique namespace for this deployment
+folder_location = "../../../../../crib/deployments/cre"  # Path to CRIB deployment folder
+provider = "kind"  # Local Kubernetes in Docker
+
+# Team information for resource tracking
+[infra.crib.team_input]
+team="cre"
+product="writer-don"
+component="writer-don"
+cost_center="capabilities-df-migration-performance-tests"
+
+# ----- NODE CONFIGURATION -----
+# Setup for a 6-node Writer DON cluster (1 boostrap + 5 worker nodes)
+[[nodesets]]
+nodes = 6
+override_mode = "each"  # Apply configurations to each node individually
+http_port_range_start = 10100
+name = "writer"
+
+# PostgreSQL database for the nodes
+[nodesets.db]
+image = "postgres:12.0"
+port = 13000
+volume_name = "writer_volume"
+
+# ----- INDIVIDUAL NODE CONFIGURATIONS -----
+# Each of the following sections configures one node in the cluster
+# Node 1
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "localhost:5001/chainlink:develop"
+custom_ports = ["13401:7777"]  # External:internal port mapping
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+      """
+
+# Node 2 (configuration repeats for all 6 nodes with different port mappings)
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "localhost:5001/chainlink:develop"
+custom_ports = ["13402:7777"]
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+      """
+
+# Node 3
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "localhost:5001/chainlink:develop"
+custom_ports = ["13403:7777"]
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+      """
+
+# Node 4
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "localhost:5001/chainlink:develop"
+custom_ports = ["13404:7777"]
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+      """
+
+# Node 5
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "localhost:5001/chainlink:develop"
+custom_ports = ["13405:7777"]
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+      """
+
+# Node 6
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "localhost:5001/chainlink:develop"
+custom_ports = ["13406:7777"]
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+      """

@@ -16,46 +16,40 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-)
 
-// duplicated from messagingtest
-func sleepAndReplay(t *testing.T, e testhelpers.DeployedEnv, chainSelectors ...uint64) {
-	time.Sleep(30 * time.Second)
-	replayBlocks := make(map[uint64]uint64)
-	for _, selector := range chainSelectors {
-		replayBlocks[selector] = 1
-	}
-	testhelpers.ReplayLogs(t, e.Env.Offchain, replayBlocks)
-}
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+)
 
 func TestTokenTransfer_EVM2EVM(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := tests.Context(t)
+	ctx := t.Context()
 
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithNumOfUsersPerChain(3))
 
 	e := tenv.Env
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(e.Chains), 2)
+	evmChains := e.BlockChains.EVMChains()
+	require.GreaterOrEqual(t, len(evmChains), 2)
 
-	allChainSelectors := maps.Keys(e.Chains)
+	allChainSelectors := maps.Keys(evmChains)
 	sourceChain, destChain := allChainSelectors[0], allChainSelectors[1]
-	ownerSourceChain := e.Chains[sourceChain].DeployerKey
-	ownerDestChain := e.Chains[destChain].DeployerKey
+	ownerSourceChain := evmChains[sourceChain].DeployerKey
+	ownerDestChain := evmChains[destChain].DeployerKey
 
 	require.GreaterOrEqual(t, len(tenv.Users[sourceChain]), 2)
 	require.GreaterOrEqual(t, len(tenv.Users[destChain]), 2)
@@ -67,7 +61,7 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 	// Deploy tokens and pool by CCIP Owner
 	srcToken, _, destToken, _, err := testhelpers.DeployTransferableToken(
 		lggr,
-		tenv.Env.Chains,
+		tenv.Env.BlockChains.EVMChains(),
 		sourceChain,
 		destChain,
 		ownerSourceChain,
@@ -81,7 +75,7 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 	// Deploy Self Serve tokens and pool
 	selfServeSrcToken, _, selfServeDestToken, _, err := testhelpers.DeployTransferableToken(
 		lggr,
-		tenv.Env.Chains,
+		tenv.Env.BlockChains.EVMChains(),
 		sourceChain,
 		destChain,
 		selfServeSrcTokenPoolDeployer,
@@ -136,7 +130,7 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 					Amount: oneE18,
 				},
 			},
-			Receiver: state.Chains[destChain].Receiver.Address().Bytes(),
+			Receiver: state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{Token: destToken.Address().Bytes(), Amount: oneE18},
 			},
@@ -160,7 +154,7 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 					Amount: oneE18,
 				},
 			},
-			Receiver:  state.Chains[sourceChain].Receiver.Address().Bytes(),
+			Receiver:  state.MustGetEVMChainState(sourceChain).Receiver.Address().Bytes(),
 			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(300_000, false),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{Token: selfServeSrcToken.Address().Bytes(), Amount: new(big.Int).Add(oneE18, oneE18)},
@@ -204,7 +198,7 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 					Amount: oneE18,
 				},
 			},
-			Receiver:  state.Chains[sourceChain].Receiver.Address().Bytes(),
+			Receiver:  state.MustGetEVMChainState(sourceChain).Receiver.Address().Bytes(),
 			Data:      []byte("this should be reverted because gasLimit is too low, no tokens are transferred as well"),
 			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(1, false),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
@@ -249,15 +243,16 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 		testhelpers.WithSolChains(1))
 
 	e := tenv.Env
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(e.Chains), 2)
+	evmChains := e.BlockChains.EVMChains()
+	require.GreaterOrEqual(t, len(evmChains), 2)
 
-	allChainSelectors := maps.Keys(e.Chains)
-	allSolChainSelectors := maps.Keys(e.SolChains)
+	allChainSelectors := e.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
+	allSolChainSelectors := e.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySolana))
 	sourceChain, destChain := allChainSelectors[0], allSolChainSelectors[0]
-	ownerSourceChain := e.Chains[sourceChain].DeployerKey
-	// ownerDestChain := e.SolChains[destChain].DeployerKey
+	ownerSourceChain := evmChains[sourceChain].DeployerKey
+	// ownerDestChain := e.BlockChains.SolanaChains()[destChain].DeployerKey
 
 	require.GreaterOrEqual(t, len(tenv.Users[sourceChain]), 2) // TODO: ???
 
@@ -383,16 +378,16 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 		testhelpers.WithSolChains(1))
 
 	e := tenv.Env
-	state, err := changeset.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(e.Chains), 2)
+	require.GreaterOrEqual(t, len(e.BlockChains.EVMChains()), 2)
 
-	allChainSelectors := maps.Keys(e.Chains)
-	allSolChainSelectors := maps.Keys(e.SolChains)
+	allChainSelectors := e.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
+	allSolChainSelectors := e.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySolana))
 	sourceChain, destChain := allSolChainSelectors[0], allChainSelectors[0]
-	sender := e.SolChains[sourceChain].DeployerKey
+	sender := e.BlockChains.SolanaChains()[sourceChain].DeployerKey
 	ownerSourceChain := sender.PublicKey()
-	ownerDestChain := e.Chains[destChain].DeployerKey
+	ownerDestChain := e.BlockChains.EVMChains()[destChain].DeployerKey
 
 	require.GreaterOrEqual(t, len(tenv.Users[destChain]), 2) // TODO: ???
 
@@ -412,8 +407,9 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, sourceChain, destChain, false)
 
 	// TODO: handle in setup
-	deployer := e.SolChains[sourceChain].DeployerKey
-	rpcClient := e.SolChains[sourceChain].Client
+	solChains := e.BlockChains.SolanaChains()
+	deployer := solChains[sourceChain].DeployerKey
+	rpcClient := solChains[sourceChain].Client
 
 	// create ATA for user
 	tokenProgram := solana.TokenProgramID
@@ -478,13 +474,14 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 			Name:        "Send token to contract",
 			SourceChain: sourceChain,
 			DestChain:   destChain,
+			FeeToken:    wSOL.String(),
 			SolTokens: []ccip_router.SVMTokenAmount{
 				{
 					Token:  srcToken,
 					Amount: 1,
 				},
 			},
-			Receiver: state.Chains[destChain].Receiver.Address().Bytes(),
+			Receiver: state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				// due to the differences in decimals, 1 on SVM results to 1e9 on EVM
 				{Token: common.LeftPadBytes(destToken.Address().Bytes(), 32), Amount: new(big.Int).SetUint64(oneE9)},
@@ -524,7 +521,7 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 		testhelpers.TransferMultiple(ctx, t, e, state, tcs)
 
 	// HACK: we need to replay blocks only after the CCIP plugin has already properly booted
-	sleepAndReplay(t, tenv, sourceChain, destChain)
+	testhelpers.SleepAndReplay(t, e, 30*time.Second, sourceChain, destChain)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,

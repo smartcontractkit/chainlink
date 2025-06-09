@@ -5,7 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -15,32 +16,18 @@ type AcceptAllOwnershipRequest struct {
 	MinDelay      time.Duration
 }
 
-var _ deployment.ChangeSet[*AcceptAllOwnershipRequest] = AcceptAllOwnershipsProposal
+var _ cldf.ChangeSet[*AcceptAllOwnershipRequest] = AcceptAllOwnershipsProposal
 
 // AcceptAllOwnershipsProposal creates a MCMS proposal to call accept ownership on all the Keystone contracts in the address book.
-func AcceptAllOwnershipsProposal(e deployment.Environment, req *AcceptAllOwnershipRequest) (deployment.ChangesetOutput, error) {
+func AcceptAllOwnershipsProposal(e cldf.Environment, req *AcceptAllOwnershipRequest) (cldf.ChangesetOutput, error) {
 	chainSelector := req.ChainSelector
-	minDelay := req.MinDelay
-	chain := e.Chains[chainSelector]
-	addrBook := e.ExistingAddresses
-
-	r, err := getContractSetsV2(e.Logger, getContractSetsRequestV2{
-		Chains: map[uint64]deployment.Chain{
-			req.ChainSelector: chain,
-		},
-		AddressBook: addrBook,
-	})
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	contracts := r.ContractSets[chainSelector]
 
 	// Construct the configuration
 	cfg := changeset.TransferToMCMSWithTimelockConfig{
 		ContractsByChain: map[uint64][]common.Address{
-			chainSelector: contracts.transferableContracts(),
+			chainSelector: getTransferableContracts(e.DataStore.Addresses(), chainSelector),
 		},
-		MCMSConfig: proposalutils.TimelockConfig{MinDelay: minDelay},
+		MCMSConfig: proposalutils.TimelockConfig{MinDelay: req.MinDelay},
 	}
 
 	// Create and return the changeset

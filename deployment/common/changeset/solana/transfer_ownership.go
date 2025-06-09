@@ -15,7 +15,8 @@ import (
 	accessControllerBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/access_controller"
 	mcmBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/mcm"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -33,7 +34,7 @@ type OwnableContract struct {
 	ProgramID solana.PublicKey
 	Seed      [32]byte
 	OwnerPDA  solana.PublicKey
-	Type      deployment.ContractType
+	Type      cldf.ContractType
 }
 
 // TransferToTimelockSolana transfers a set of Solana "contracts" to the Timelock
@@ -44,7 +45,7 @@ type OwnableContract struct {
 type TransferToTimelockSolana struct{}
 
 func (t *TransferToTimelockSolana) VerifyPreconditions(
-	env deployment.Environment, config TransferToTimelockSolanaConfig,
+	env cldf.Environment, config TransferToTimelockSolanaConfig,
 ) error {
 	for chainSelector, contracts := range config.ContractsByChain {
 		err := addressBookContains(env.ExistingAddresses, chainSelector,
@@ -58,7 +59,7 @@ func (t *TransferToTimelockSolana) VerifyPreconditions(
 		}
 
 		for _, contract := range contracts {
-			exists, err := deployment.AddressBookContains(env.ExistingAddresses, chainSelector, contract.ProgramID.String())
+			exists, err := cldf.AddressBookContains(env.ExistingAddresses, chainSelector, contract.ProgramID.String())
 			if err != nil {
 				return fmt.Errorf("failed to search address book for program id: %w", err)
 			}
@@ -70,19 +71,19 @@ func (t *TransferToTimelockSolana) VerifyPreconditions(
 				continue
 			}
 
-			exists, err = deployment.AddressBookContains(env.ExistingAddresses, chainSelector, base58.Encode(contract.Seed[:]))
+			exists, err = cldf.AddressBookContains(env.ExistingAddresses, chainSelector, base58.Encode(contract.Seed[:]))
 			if err != nil {
 				return fmt.Errorf("failed to search address book for seed (%s): %w", base58.Encode(contract.Seed[:]), err)
 			}
 			if !exists {
 				address := solanaAddress(contract.ProgramID, contract.Seed)
-				exists, err = deployment.AddressBookContains(env.ExistingAddresses, chainSelector, address)
+				exists, err = cldf.AddressBookContains(env.ExistingAddresses, chainSelector, address)
 				if err != nil {
 					return fmt.Errorf("failed to search address book for seed (%s): %w", address, err)
 				}
 			}
 			if !exists {
-				exists, err = deployment.AddressBookContains(env.ExistingAddresses, chainSelector, string(contract.Seed[:]))
+				exists, err = cldf.AddressBookContains(env.ExistingAddresses, chainSelector, string(contract.Seed[:]))
 				if err != nil {
 					return fmt.Errorf("failed to search address book for seed (%s): %w", string(contract.Seed[:]), err)
 				}
@@ -97,11 +98,12 @@ func (t *TransferToTimelockSolana) VerifyPreconditions(
 }
 
 func (t *TransferToTimelockSolana) Apply(
-	env deployment.Environment, cfg TransferToTimelockSolanaConfig,
-) (deployment.ChangesetOutput, error) {
-	mcmsState, err := state.MaybeLoadMCMSWithTimelockStateSolana(env, slices.Collect(maps.Keys(env.SolChains)))
+	env cldf.Environment, cfg TransferToTimelockSolanaConfig,
+) (cldf.ChangesetOutput, error) {
+	solChains := env.BlockChains.SolanaChains()
+	mcmsState, err := state.MaybeLoadMCMSWithTimelockStateSolana(env, slices.Collect(maps.Keys(solChains)))
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	batches := []mcmstypes.BatchOperation{}
@@ -111,13 +113,13 @@ func (t *TransferToTimelockSolana) Apply(
 	instructions := map[uint64][]solana.Instruction{}
 
 	for chainSelector, contractsToTransfer := range cfg.ContractsByChain {
-		solChain, ok := env.SolChains[chainSelector]
+		solChain, ok := solChains[chainSelector]
 		if !ok {
-			return deployment.ChangesetOutput{}, fmt.Errorf("solana chain not found in environment (selector: %v)", chainSelector)
+			return cldf.ChangesetOutput{}, fmt.Errorf("solana chain not found in environment (selector: %v)", chainSelector)
 		}
 		chainState, ok := mcmsState[chainSelector]
 		if !ok {
-			return deployment.ChangesetOutput{}, fmt.Errorf("chain state not found for selector: %v", chainSelector)
+			return cldf.ChangesetOutput{}, fmt.Errorf("chain state not found for selector: %v", chainSelector)
 		}
 		timelocks[chainSelector] = solanaAddress(chainState.TimelockProgram, mcmssolanasdk.PDASeed(chainState.TimelockSeed))
 		proposers[chainSelector] = solanaAddress(chainState.McmProgram, mcmssolanasdk.PDASeed(chainState.ProposerMcmSeed))
@@ -130,13 +132,13 @@ func (t *TransferToTimelockSolana) Apply(
 			transferInstruction, err := transferOwnershipInstruction(contract.ProgramID, contract.Seed, timelockSignerPDA,
 				contract.OwnerPDA, solChain.DeployerKey.PublicKey())
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transfer ownership instruction: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transfer ownership instruction: %w", err)
 			}
 			instructions[chainSelector] = append(instructions[chainSelector], transferInstruction)
 
 			acceptMCMSTransaction, err := acceptMCMSTransaction(contract, timelockSignerPDA)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to create accept ownership mcms transaction: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create accept ownership mcms transaction: %w", err)
 			}
 			transactions = append(transactions, acceptMCMSTransaction)
 		}
@@ -154,13 +156,13 @@ func (t *TransferToTimelockSolana) Apply(
 
 	// send & confim TransferOwnership instructions
 	for chainSelector, chainInstructions := range instructions {
-		solChain := env.SolChains[chainSelector]
+		solChain := solChains[chainSelector]
 		// REVIEW: are we limited by the 1232 byte limit? or can we confirm all instructions in one go?
 		for _, instruction := range chainInstructions {
 			env.Logger.Debugw("confirming solana transfer ownership instruction", "instruction", instruction.ProgramID())
 			err = solChain.Confirm([]solana.Instruction{instruction})
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instruction: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instruction: %w", err)
 			}
 		}
 	}
@@ -169,11 +171,11 @@ func (t *TransferToTimelockSolana) Apply(
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(env, timelocks, proposers, inspectors,
 		batches, "proposal to transfer ownership of contracts to timelock", cfg.MCMSCfg)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 	}
 	env.Logger.Debugw("created timelock proposal", "# batches", len(batches))
 
-	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcms.TimelockProposal{*proposal}}, nil
+	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcms.TimelockProposal{*proposal}}, nil
 }
 
 type TransferMCMSToTimelockSolanaConfig struct {
@@ -188,7 +190,7 @@ type TransferMCMSToTimelockSolanaConfig struct {
 type TransferMCMSToTimelockSolana struct{}
 
 func (t TransferMCMSToTimelockSolana) VerifyPreconditions(
-	env deployment.Environment, config TransferMCMSToTimelockSolanaConfig,
+	env cldf.Environment, config TransferMCMSToTimelockSolanaConfig,
 ) error {
 	for _, chainSelector := range config.Chains {
 		err := addressBookContains(env.ExistingAddresses, chainSelector,
@@ -205,11 +207,11 @@ func (t TransferMCMSToTimelockSolana) VerifyPreconditions(
 }
 
 func (t TransferMCMSToTimelockSolana) Apply(
-	env deployment.Environment, cfg TransferMCMSToTimelockSolanaConfig,
-) (deployment.ChangesetOutput, error) {
+	env cldf.Environment, cfg TransferMCMSToTimelockSolanaConfig,
+) (cldf.ChangesetOutput, error) {
 	mcmsState, err := state.MaybeLoadMCMSWithTimelockStateSolana(env, cfg.Chains)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load mcms state: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load mcms state: %w", err)
 	}
 
 	contracts := map[uint64][]OwnableContract{}
@@ -350,9 +352,9 @@ func (s *seededInstruction) ProgramID() solana.PublicKey {
 	return s.programID
 }
 
-func addressBookContains(addressBook deployment.AddressBook, chainSelector uint64, ctypes ...deployment.ContractType) error {
+func addressBookContains(addressBook cldf.AddressBook, chainSelector uint64, ctypes ...cldf.ContractType) error {
 	for _, ctype := range ctypes {
-		_, err := deployment.SearchAddressBook(addressBook, chainSelector, ctype)
+		_, err := cldf.SearchAddressBook(addressBook, chainSelector, ctype)
 		if err != nil {
 			return fmt.Errorf("address book does not contain a %s contract for chain %d", ctype, chainSelector)
 		}

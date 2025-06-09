@@ -36,14 +36,14 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	txm "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 
-	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
@@ -883,7 +883,6 @@ type Keystore interface {
 	keys.AddressChecker
 	keys.RoundRobin
 	keys.Locker
-	keys.RawUnhashedSigner
 }
 
 func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, ethKeystore Keystore, configWatcher *configWatcher, opts configTransmitterOpts) (Transmitter, error) {
@@ -1000,10 +999,6 @@ func (r *Relayer) NewContractReader(ctx context.Context, chainReaderConfig []byt
 
 func (r *Relayer) EVM() (commontypes.EVMService, error) {
 	return r, nil
-}
-
-func (r *Relayer) GetTransactionFee(ctx context.Context, transactionID string) (*commontypes.TransactionFee, error) {
-	return r.chain.TxManager().GetTransactionFee(ctx, transactionID)
 }
 
 func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MedianProvider, error) {

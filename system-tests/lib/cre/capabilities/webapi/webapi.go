@@ -10,6 +10,7 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
+// Deprecated: use capabilities.webapi.WebAPITriggerCapabilityFactoryFn and capabilities.webapi.WebAPITargetCapabilityFactoryFn instead
 var WebAPICapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	var capabilities []keystone_changeset.DONCapabilityWithConfig
 

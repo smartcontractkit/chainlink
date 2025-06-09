@@ -6,13 +6,15 @@ import (
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
 )
 
-var _ deployment.ChangeSet[JobSpecsForLanesConfig] = JobSpecsForLanesChangeset
+var _ cldf.ChangeSet[JobSpecsForLanesConfig] = JobSpecsForLanesChangeset
 
 type JobSpecsForLanesConfig struct {
 	Configs []JobSpecInput
@@ -39,10 +41,10 @@ type JobSpecInput struct {
 }
 
 func (j JobSpecInput) Validate() error {
-	if err := deployment.IsValidChainSelector(j.SourceChainSelector); err != nil {
+	if err := cldf.IsValidChainSelector(j.SourceChainSelector); err != nil {
 		return fmt.Errorf("SourceChainSelector is invalid: %w", err)
 	}
-	if err := deployment.IsValidChainSelector(j.DestinationChainSelector); err != nil {
+	if err := cldf.IsValidChainSelector(j.DestinationChainSelector); err != nil {
 		return fmt.Errorf("DestinationChainSelector is invalid: %w", err)
 	}
 	if j.TokenPricesUSDPipeline == "" && j.PriceGetterConfigJson == "" {
@@ -59,23 +61,23 @@ func (j JobSpecInput) Validate() error {
 	return nil
 }
 
-func JobSpecsForLanesChangeset(env deployment.Environment, c JobSpecsForLanesConfig) (deployment.ChangesetOutput, error) {
+func JobSpecsForLanesChangeset(env cldf.Environment, c JobSpecsForLanesConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid JobSpecsForLanesConfig: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid JobSpecsForLanesConfig: %w", err)
 	}
-	state, err := changeset.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	nodesToJobSpecs, err := jobSpecsForLane(env, state, c)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	// Now we propose the job specs to the offchain system.
-	var Jobs []deployment.ProposedJob
+	var Jobs []cldf.ProposedJob
 	for nodeID, jobs := range nodesToJobSpecs {
 		for _, job := range jobs {
-			Jobs = append(Jobs, deployment.ProposedJob{
+			Jobs = append(Jobs, cldf.ProposedJob{
 				Node: nodeID,
 				Spec: job,
 			})
@@ -88,21 +90,21 @@ func JobSpecsForLanesChangeset(env deployment.Environment, c JobSpecsForLanesCon
 				// If we fail to propose a job, we should return an error and the jobs we've already proposed.
 				// This is so that we can retry the proposal with manual intervention.
 				// JOBID will be empty if the proposal failed.
-				return deployment.ChangesetOutput{
+				return cldf.ChangesetOutput{
 					Jobs: Jobs,
 				}, fmt.Errorf("failed to propose job %s: %w", job, err)
 			}
 			Jobs[len(Jobs)-1].JobID = res.Proposal.JobId
 		}
 	}
-	return deployment.ChangesetOutput{
+	return cldf.ChangesetOutput{
 		Jobs: Jobs,
 	}, nil
 }
 
 func jobSpecsForLane(
-	env deployment.Environment,
-	state changeset.CCIPOnChainState,
+	env cldf.Environment,
+	state stateview.CCIPOnChainState,
 	lanesCfg JobSpecsForLanesConfig,
 ) (map[string][]string, error) {
 	nodes, err := deployment.NodeInfo(env.NodeIDs, env.Offchain)
@@ -110,12 +112,13 @@ func jobSpecsForLane(
 		return nil, err
 	}
 	nodesToJobSpecs := make(map[string][]string)
+	evmChains := env.BlockChains.EVMChains()
 	for _, node := range nodes {
 		var specs []string
 		for _, cfg := range lanesCfg.Configs {
-			destChainState := state.Chains[cfg.DestinationChainSelector]
-			sourceChain := env.Chains[cfg.SourceChainSelector]
-			destChain := env.Chains[cfg.DestinationChainSelector]
+			destChainState := state.MustGetEVMChainState(cfg.DestinationChainSelector)
+			sourceChain := evmChains[cfg.SourceChainSelector]
+			destChain := evmChains[cfg.DestinationChainSelector]
 
 			ccipJobParam := integrationtesthelpers.CCIPJobSpecParams{
 				OffRamp:                destChainState.EVM2EVMOffRamp[cfg.SourceChainSelector].Address(),

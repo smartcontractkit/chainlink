@@ -12,9 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
-
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -115,8 +116,8 @@ func Test_EthKeyStore(t *testing.T) {
 		cltest.AssertCount(t, db, statesTableName, 1)
 
 		// add one eth_tx
-		txStore := cltest.NewTestTxStore(t, db)
-		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 42, key.Address)
+		txStore := txmgrtest.NewTestTxStore(t, db)
+		txmgrtest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 42, key.Address)
 
 		_, err = ethKeyStore.Delete(ctx, key.ID())
 		require.NoError(t, err)

@@ -13,24 +13,24 @@ import (
 )
 
 var (
-	capabilityVersion     string
-	capabilityName        string
+	capabilitiesVersion   string
+	capabilityNames       []string
 	creCliVersion         string
 	outputDir             string
 	ghReadTokenEnvVarName string
 )
 
-var downloadCapabilityCmd = &cobra.Command{
-	Use:   "capability",
-	Short: "Download a capability binary",
-	Long:  `Download a capability binary from GitHub releases`,
+var downloadCapabilitiesCmd = &cobra.Command{
+	Use:   "capabilities",
+	Short: "Download capability binaries",
+	Long:  `Download capability binaries from GitHub releases`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		githubToken, err := ghToken()
 		if err != nil {
 			return err
 		}
 
-		return downloadCapability(githubToken, capabilityName, capabilityVersion)
+		return downloadCapabilities(githubToken, capabilitiesVersion, capabilityNames)
 	},
 }
 
@@ -51,7 +51,7 @@ var downloadCreCliCmd = &cobra.Command{
 var downloadAllCmd = &cobra.Command{
 	Use:   "all",
 	Short: "Download all binaries",
-	Long:  `Download both the cron capability and CRE CLI binaries`,
+	Long:  `Download both capabilities and CRE CLI binaries`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		githubToken, err := ghToken()
 		if err != nil {
@@ -60,7 +60,7 @@ var downloadAllCmd = &cobra.Command{
 
 		fmt.Println("Downloading all binaries...")
 
-		if err := downloadCapability(githubToken, capabilityName, capabilityVersion); err != nil {
+		if err := downloadCapabilities(githubToken, capabilitiesVersion, capabilityNames); err != nil {
 			return err
 		}
 
@@ -78,14 +78,14 @@ func init() {
 	DownloadCmd.PersistentFlags().StringVar(&outputDir, "output-dir", ".", "Directory to save the binaries (defaults to current directory)")
 	DownloadCmd.PersistentFlags().StringVar(&ghReadTokenEnvVarName, "gh-token-env-var-name", "GITHUB_READ_TOKEN", "Name of the environment variable that contains the GitHub read token")
 
-	downloadCapabilityCmd.Flags().StringVar(&capabilityName, "name", "", "Name of the capability to download (requires GITHUB_READ_TOKEN)")
-	downloadCapabilityCmd.Flags().StringVar(&capabilityVersion, "version", "", "Version of the capability to download (requires GITHUB_READ_TOKEN)")
+	downloadCapabilitiesCmd.Flags().StringSliceVar(&capabilityNames, "names", []string{}, "Names of the capabilities to download (requires GITHUB_READ_TOKEN)")
+	downloadCapabilitiesCmd.Flags().StringVar(&capabilitiesVersion, "version", "", "Version of the capabilities to download (requires GITHUB_READ_TOKEN)")
 	downloadCreCliCmd.Flags().StringVar(&creCliVersion, "version", "", "Version of the CRE CLI to download (requires GITHUB_READ_TOKEN)")
-	downloadAllCmd.Flags().StringVar(&capabilityName, "capability-name", "", "Name of the capability to download (requires GITHUB_READ_TOKEN)")
-	downloadAllCmd.Flags().StringVar(&capabilityVersion, "capability-version", "", "Version of the capability to download (requires GITHUB_READ_TOKEN)")
+	downloadAllCmd.Flags().StringSliceVar(&capabilityNames, "capability-names", []string{}, "Names of the capabilities to download (requires GITHUB_READ_TOKEN)")
+	downloadAllCmd.Flags().StringVar(&capabilitiesVersion, "capability-version", "", "Version of the capabilities to download (requires GITHUB_READ_TOKEN)")
 	downloadAllCmd.Flags().StringVar(&creCliVersion, "cre-cli-version", "", "Version of the CRE CLI to download (requires GITHUB_READ_TOKEN)")
 
-	DownloadCmd.AddCommand(downloadCapabilityCmd)
+	DownloadCmd.AddCommand(downloadCapabilitiesCmd)
 	DownloadCmd.AddCommand(downloadCreCliCmd)
 	DownloadCmd.AddCommand(downloadAllCmd)
 }
@@ -130,27 +130,29 @@ func ghToken() (string, error) {
 	return githubToken, nil
 }
 
-func downloadCapability(githubToken, name, version string) error {
-	if name == "" {
-		return errors.New("name flag is required")
+func downloadCapabilities(githubToken, version string, names []string) error {
+	if len(names) == 0 {
+		return errors.New("names flag is required")
 	}
 	if version == "" {
 		return errors.New("version flag is required")
 	}
 
-	fmt.Printf("Downloading %s capability binary version %s...\n", name, version)
-	path, err := keystonecapabilities.DownloadCapabilityFromRelease(githubToken, version, name)
-	if err != nil {
-		return errors.Wrapf(err, "failed to download %s capability", name)
-	}
-
-	fmt.Printf("%s capability binary downloaded to: %s\n", name, path)
-
-	if outputDir != "" && outputDir != "." {
-		if err := moveFile(path, outputDir); err != nil {
-			return fmt.Errorf("failed to move binary to output path: %w", err)
+	for _, name := range names {
+		fmt.Printf("Downloading %s capability binary version %s...\n", name, version)
+		path, err := keystonecapabilities.DownloadCapabilityFromRelease(githubToken, version, name)
+		if err != nil {
+			return errors.Wrapf(err, "failed to download %s capability", name)
 		}
-		fmt.Printf("Moved binary to: %s\n", filepath.Join(outputDir, filepath.Base(path)))
+
+		fmt.Printf("%s capability binary downloaded to: %s\n", name, path)
+
+		if outputDir != "" && outputDir != "." {
+			if err := moveFile(path, outputDir); err != nil {
+				return fmt.Errorf("failed to move binary to output path: %w", err)
+			}
+			fmt.Printf("Moved binary to: %s\n", filepath.Join(outputDir, filepath.Base(path)))
+		}
 	}
 
 	return nil

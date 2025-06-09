@@ -6,7 +6,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	feeds_consumer "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 type KeystoneFeedsConsumerDeployer struct {
@@ -41,7 +42,7 @@ func (c *KeystoneFeedsConsumerDeployer) deploy(req DeployRequest) (*DeployRespon
 		return nil, fmt.Errorf("failed to confirm and save feeds consumer: %w", err)
 	}
 
-	tv := deployment.TypeAndVersion{
+	tv := cldf.TypeAndVersion{
 		Type: FeedConsumer,
 	}
 

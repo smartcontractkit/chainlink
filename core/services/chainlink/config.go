@@ -45,6 +45,8 @@ type Config struct {
 	Aptos RawConfigs `toml:",omitempty"`
 
 	Tron RawConfigs `toml:",omitempty"`
+
+	TON RawConfigs `toml:",omitempty"`
 }
 
 // RawConfigs is a list of RawConfig.
@@ -341,37 +343,28 @@ func (c *Config) setDefaults() {
 	c.Starknet.SetDefaults()
 
 	c.Tron.SetDefaults()
+
+	c.TON.SetDefaults()
 }
 
 func (c *Config) SetFrom(f *Config) (err error) {
 	c.Core.SetFrom(&f.Core)
 
-	if err1 := c.EVM.SetFrom(&f.EVM); err1 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err1, "EVM"))
+	appendErr := func(e error, name string) {
+		if e != nil {
+			err = multierr.Append(err, commonconfig.NamedMultiErrorList(e, name))
+		}
 	}
 
-	if err2 := c.Cosmos.SetFrom(f.Cosmos); err2 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "Cosmos"))
-	}
-
-	if err3 := c.Solana.SetFrom(&f.Solana); err3 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err3, "Solana"))
-	}
-
-	if err4 := c.Starknet.SetFrom(f.Starknet); err4 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err4, "Starknet"))
-	}
-
-	if err5 := c.Aptos.SetFrom(f.Aptos); err5 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err5, "Aptos"))
-	}
-
-	if err6 := c.Tron.SetFrom(f.Tron); err6 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err6, "Tron"))
-	}
+	appendErr(c.EVM.SetFrom(&f.EVM), "EVM")
+	appendErr(c.Cosmos.SetFrom(f.Cosmos), "Cosmos")
+	appendErr(c.Solana.SetFrom(&f.Solana), "Solana")
+	appendErr(c.Starknet.SetFrom(f.Starknet), "Starknet")
+	appendErr(c.Aptos.SetFrom(f.Aptos), "Aptos")
+	appendErr(c.Tron.SetFrom(f.Tron), "Tron")
+	appendErr(c.TON.SetFrom(f.TON), "TON")
 
 	_, err = commonconfig.MultiErrorList(err)
-
 	return err
 }
 
@@ -414,6 +407,10 @@ func (s *Secrets) SetFrom(f *Secrets) (err error) {
 
 	if err2 := s.P2PKey.SetFrom(&f.P2PKey); err2 != nil {
 		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "P2PKey"))
+	}
+
+	if err2 := s.CRE.SetFrom(&f.CRE); err2 != nil {
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "CRE"))
 	}
 
 	_, err = commonconfig.MultiErrorList(err)

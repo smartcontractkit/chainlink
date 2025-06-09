@@ -1,7 +1,10 @@
 package globals
 
 import (
+	"fmt"
 	"time"
+
+	"dario.cat/mergo"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -15,17 +18,16 @@ const (
 	ConfigTypeCandidate ConfigType = "candidate"
 	// ========= Changeset Defaults =========
 	PermissionLessExecutionThreshold  = 1 * time.Hour
-	RemoteGasPriceBatchWriteFrequency = 30 * time.Minute
-	TokenPriceBatchWriteFrequency     = 30 * time.Minute
+	RemoteGasPriceBatchWriteFrequency = 20 * time.Minute
+	TokenPriceBatchWriteFrequency     = 2 * time.Hour
 	// Building batches with 6.5m and transmit with 8m to account for overhead.
 	BatchGasLimit               = 6_500_000
 	InflightCacheExpiry         = 1 * time.Minute
 	RootSnoozeTime              = 5 * time.Minute
 	BatchingStrategyID          = 0
-	GasPriceDeviationPPB        = 1000
-	DAGasPriceDeviationPPB      = 0
 	OptimisticConfirmations     = 1
 	TransmissionDelayMultiplier = 15 * time.Second
+	MaxCommitReportsToFetch     = 250
 	// ======================================
 
 	// ========= Onchain consts =========
@@ -85,8 +87,24 @@ var (
 		TransmissionDelayMultiplier: TransmissionDelayMultiplier,
 		MaxReportMessages:           0,
 		MaxSingleChainReports:       0,
-
+		MaxCommitReportsToFetch:     MaxCommitReportsToFetch,
 		// Remaining fields cannot be statically set:
 		// TokenDataObservers: , // Must be configured in CLD
 	}
+
+	DefaultCommitOffChainCfgForEth = withCommitOffchainConfigOverrides(
+		DefaultCommitOffChainCfg,
+		pluginconfig.CommitOffchainConfig{
+			RemoteGasPriceBatchWriteFrequency: *config.MustNewDuration(2 * time.Hour),
+			TokenPriceBatchWriteFrequency:     *config.MustNewDuration(12 * time.Hour),
+		},
+	)
 )
+
+func withCommitOffchainConfigOverrides(base pluginconfig.CommitOffchainConfig, overrides pluginconfig.CommitOffchainConfig) pluginconfig.CommitOffchainConfig {
+	outcome := base
+	if err := mergo.Merge(&outcome, overrides, mergo.WithOverride); err != nil {
+		panic(fmt.Sprintf("error while building an OCR config %v", err))
+	}
+	return outcome
+}

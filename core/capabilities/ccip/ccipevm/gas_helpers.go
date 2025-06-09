@@ -47,7 +47,7 @@ type EstimateProvider struct {
 
 // CalculateMerkleTreeGas estimates the merkle tree gas based on number of requests
 func (gp EstimateProvider) CalculateMerkleTreeGas(numRequests int) uint64 {
-	if numRequests == 0 {
+	if numRequests <= 0 {
 		return 0
 	}
 	merkleProofBytes := (math.Ceil(math.Log2(float64(numRequests))))*32 + (1+2)*32 // only ever one outer root hash

@@ -3,18 +3,18 @@ package retirement
 import (
 	"testing"
 
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
 func Test_RetirementReportCache_ORM(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := &retirementReportCacheORM{db}
-	ctx := tests.Context(t)
+	ctx := t.Context()
 
 	cd := ocr2types.ConfigDigest{1}
 	attestedRetirementReport := []byte("report1")

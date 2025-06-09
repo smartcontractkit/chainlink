@@ -5,10 +5,10 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // EVMCommitCallArgs defines the calldata structure for an EVM commit transaction.
@@ -33,7 +33,16 @@ type EVMExecCallArgs struct {
 }
 
 // EVMContractTransmitterFactory implements the transmitter factory for EVM chains.
-type EVMContractTransmitterFactory struct{}
+type EVMContractTransmitterFactory struct {
+	extraDataCodec ccipcommon.ExtraDataCodec
+}
+
+// NewEVMContractTransmitterFactory returns a new EVMContractTransmitterFactory.
+func NewEVMContractTransmitterFactory(extraDataCodec ccipcommon.ExtraDataCodec) *EVMContractTransmitterFactory {
+	return &EVMContractTransmitterFactory{
+		extraDataCodec: extraDataCodec,
+	}
+}
 
 // EVMExecCallDataFunc builds the execute call data for EVM.
 var EVMExecCallDataFunc = func(
@@ -87,6 +96,7 @@ func (f *EVMContractTransmitterFactory) NewCommitTransmitter(
 		fromAccount:    fromAccount,
 		offrampAddress: offrampAddress,
 		toCalldataFn:   NewEVMCommitCalldataFunc(commitMethod),
+		extraDataCodec: f.extraDataCodec,
 	}
 }
 
@@ -103,5 +113,6 @@ func (f *EVMContractTransmitterFactory) NewExecTransmitter(
 		fromAccount:    fromAccount,
 		offrampAddress: offrampAddress,
 		toCalldataFn:   EVMExecCallDataFunc,
+		extraDataCodec: f.extraDataCodec,
 	}
 }

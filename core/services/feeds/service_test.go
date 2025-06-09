@@ -26,11 +26,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	proto "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -618,6 +618,10 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 				svc = setupTestService(t)
 			)
 
+			p2pKey, err := p2pkey.NewV2()
+			require.NoError(t, err)
+			svc.p2pKeystore.On("GetAll").Return([]p2pkey.KeyV2{p2pKey}, nil)
+
 			workflowKey, err := workflowkey.New()
 			require.NoError(t, err)
 			svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
@@ -644,7 +648,8 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 						Ocr2Config:              &proto.OCR2Config{Enabled: false},
 					},
 				},
-				WorkflowKey: &wkID,
+				WorkflowKey:   &wkID,
+				P2PKeyBundles: []*proto.P2PKeyBundle{{PeerId: p2pKey.PeerID().String(), PublicKey: p2pKey.PublicKeyHex()}},
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
 			actual, err := svc.CreateChainConfig(testutils.Context(t), cfg)
@@ -694,6 +699,7 @@ func Test_Service_DeleteChainConfig(t *testing.T) {
 	require.NoError(t, err)
 	svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 	svc.workflowKeystore.On("GetAll").Return([]workflowkey.Key{workflowKey}, nil)
+	svc.p2pKeystore.On("GetAll").Return([]p2pkey.KeyV2{}, nil)
 
 	svc.orm.On("GetChainConfig", mock.Anything, cfg.ID).Return(&cfg, nil)
 	svc.orm.On("DeleteChainConfig", mock.Anything, cfg.ID).Return(cfg.ID, nil)
@@ -702,9 +708,10 @@ func Test_Service_DeleteChainConfig(t *testing.T) {
 	svc.orm.On("ListChainConfigsByManagerIDs", mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{}, nil)
 	wkID := workflowKey.ID()
 	svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
-		Version:      nodeVersion.Version,
-		ChainConfigs: []*proto.ChainConfig{},
-		WorkflowKey:  &wkID,
+		Version:       nodeVersion.Version,
+		ChainConfigs:  []*proto.ChainConfig{},
+		WorkflowKey:   &wkID,
+		P2PKeyBundles: []*proto.P2PKeyBundle{},
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
 	actual, err := svc.DeleteChainConfig(testutils.Context(t), cfg.ID)
@@ -792,6 +799,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 			require.NoError(t, err)
 			svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 			svc.workflowKeystore.On("GetAll").Return([]workflowkey.Key{workflowKey}, nil)
+			svc.p2pKeystore.On("GetAll").Return([]p2pkey.KeyV2{}, nil)
 
 			svc.orm.On("UpdateChainConfig", mock.Anything, cfg).Return(int64(1), nil)
 			svc.orm.On("GetChainConfig", mock.Anything, cfg.ID).Return(&cfg, nil)
@@ -814,7 +822,8 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 						Ocr2Config:              &proto.OCR2Config{Enabled: false},
 					},
 				},
-				WorkflowKey: &wkID,
+				WorkflowKey:   &wkID,
+				P2PKeyBundles: []*proto.P2PKeyBundle{},
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
 			actual, err := svc.UpdateChainConfig(testutils.Context(t), cfg)
@@ -1742,7 +1751,9 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+			p2pKey1 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+			p2pKey2 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(2))
+			p2pKey3 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(3))
 
 			ocrKey, err := ocrkey.NewV2()
 			require.NoError(t, err)
@@ -1767,7 +1778,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 					OCR1Config: feeds.OCR1Config{
 						Enabled:     true,
 						IsBootstrap: false,
-						P2PPeerID:   null.StringFrom(p2pKey.PeerID().String()),
+						P2PPeerID:   null.StringFrom(p2pKey1.PeerID().String()),
 						KeyBundleID: null.StringFrom(ocrKey.GetID()),
 					},
 					OCR2Config: feeds.OCR2ConfigModel{
@@ -1794,11 +1805,12 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 			svc.orm.On("ListChainConfigsByManagerIDs", mock.Anything, []int64{mgr.ID}).Return(chainConfigs, nil)
 
 			// OCR1 key fetching
-			svc.p2pKeystore.On("Get", p2pKey.PeerID()).Return(p2pKey, nil)
+			svc.p2pKeystore.On("Get", p2pKey1.PeerID()).Return(p2pKey1, nil)
 			svc.ocr1Keystore.On("Get", ocrKey.GetID()).Return(ocrKey, nil)
 
 			svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 			svc.workflowKeystore.On("GetAll").Return([]workflowkey.Key{workflowKey}, nil)
+			svc.p2pKeystore.On("GetAll").Return([]p2pkey.KeyV2{p2pKey1, p2pKey2, p2pKey3}, nil)
 			wkID := workflowKey.ID()
 			svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
 				Version: nodeVersion.Version,
@@ -1815,8 +1827,8 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 							Enabled:     true,
 							IsBootstrap: ccfg.OCR1Config.IsBootstrap,
 							P2PKeyBundle: &proto.OCR1Config_P2PKeyBundle{
-								PeerId:    p2pKey.PeerID().String(),
-								PublicKey: p2pKey.PublicKeyHex(),
+								PeerId:    p2pKey1.PeerID().String(),
+								PublicKey: p2pKey1.PublicKeyHex(),
 							},
 							OcrKeyBundle: &proto.OCR1Config_OCRKeyBundle{
 								BundleId:              ocrKey.GetID(),
@@ -1841,6 +1853,11 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 					},
 				},
 				WorkflowKey: &wkID,
+				P2PKeyBundles: []*proto.P2PKeyBundle{
+					{PeerId: p2pKey1.PeerID().String(), PublicKey: p2pKey1.PublicKeyHex()},
+					{PeerId: p2pKey2.PeerID().String(), PublicKey: p2pKey2.PublicKeyHex()},
+					{PeerId: p2pKey3.PeerID().String(), PublicKey: p2pKey3.PublicKeyHex()},
+				},
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
 			err = svc.SyncNodeInfo(testutils.Context(t), mgr.ID)
@@ -1885,7 +1902,8 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 					Ocr2Config:              &proto.OCR2Config{Enabled: false},
 				},
 			},
-			WorkflowKey: func(s string) *string { return &s }(workflowKey.ID()),
+			WorkflowKey:   func(s string) *string { return &s }(workflowKey.ID()),
+			P2PKeyBundles: []*proto.P2PKeyBundle{},
 		}
 	}
 	successResponse := func() *proto.UpdateNodeResponse {
@@ -1908,6 +1926,7 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 			setup: func(t *testing.T, svc *TestService) {
 				svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.workflowKeystore.EXPECT().GetAll().Return([]workflowkey.Key{workflowKey}, nil)
+				svc.p2pKeystore.EXPECT().GetAll().Return([]p2pkey.KeyV2{}, nil)
 				svc.orm.EXPECT().CreateChainConfig(mock.Anything, cfg).Return(int64(1), nil)
 				svc.orm.EXPECT().GetManager(mock.Anything, mgr.ID).Return(&mgr, nil)
 				svc.orm.EXPECT().ListChainConfigsByManagerIDs(mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
@@ -1932,6 +1951,7 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 			setup: func(t *testing.T, svc *TestService) {
 				svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.workflowKeystore.EXPECT().GetAll().Return([]workflowkey.Key{workflowKey}, nil)
+				svc.p2pKeystore.EXPECT().GetAll().Return([]p2pkey.KeyV2{}, nil)
 				svc.orm.EXPECT().UpdateChainConfig(mock.Anything, cfg).Return(int64(1), nil)
 				svc.orm.EXPECT().GetChainConfig(mock.Anything, cfg.ID).Return(&cfg, nil)
 				svc.orm.EXPECT().ListChainConfigsByManagerIDs(mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
@@ -1956,6 +1976,7 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 			setup: func(t *testing.T, svc *TestService) {
 				svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.workflowKeystore.EXPECT().GetAll().Return([]workflowkey.Key{workflowKey}, nil)
+				svc.p2pKeystore.EXPECT().GetAll().Return([]p2pkey.KeyV2{}, nil)
 				svc.orm.EXPECT().GetChainConfig(mock.Anything, cfg.ID).Return(&cfg, nil)
 				svc.orm.EXPECT().DeleteChainConfig(mock.Anything, cfg.ID).Return(cfg.ID, nil)
 				svc.orm.EXPECT().GetManager(mock.Anything, mgr.ID).Return(&mgr, nil)
@@ -1981,6 +2002,7 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 			setup: func(t *testing.T, svc *TestService) {
 				svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.workflowKeystore.EXPECT().GetAll().Return([]workflowkey.Key{workflowKey}, nil)
+				svc.p2pKeystore.EXPECT().GetAll().Return([]p2pkey.KeyV2{}, nil)
 				svc.orm.EXPECT().CreateChainConfig(mock.Anything, cfg).Return(int64(1), nil)
 				svc.orm.EXPECT().GetManager(mock.Anything, mgr.ID).Return(&mgr, nil)
 				svc.orm.EXPECT().ListChainConfigsByManagerIDs(mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)

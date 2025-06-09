@@ -8,6 +8,8 @@ import (
 
 	chains "github.com/smartcontractkit/chainlink-framework/chains"
 
+	evm "github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
+
 	fees "github.com/smartcontractkit/chainlink-framework/chains/fees"
 
 	mock "github.com/stretchr/testify/mock"
@@ -670,23 +672,23 @@ func (_c *TxManager_GetForwarderForEOAOCR2Feeds_Call[CID, HEAD, ADDR, THASH, BHA
 }
 
 // GetTransactionFee provides a mock function with given fields: ctx, transactionID
-func (_m *TxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) GetTransactionFee(ctx context.Context, transactionID string) (*pkgtypes.TransactionFee, error) {
+func (_m *TxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) GetTransactionFee(ctx context.Context, transactionID string) (*evm.TransactionFee, error) {
 	ret := _m.Called(ctx, transactionID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetTransactionFee")
 	}
 
-	var r0 *pkgtypes.TransactionFee
+	var r0 *evm.TransactionFee
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (*pkgtypes.TransactionFee, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*evm.TransactionFee, error)); ok {
 		return rf(ctx, transactionID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) *pkgtypes.TransactionFee); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) *evm.TransactionFee); ok {
 		r0 = rf(ctx, transactionID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*pkgtypes.TransactionFee)
+			r0 = ret.Get(0).(*evm.TransactionFee)
 		}
 	}
 
@@ -718,12 +720,12 @@ func (_c *TxManager_GetTransactionFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, F
 	return _c
 }
 
-func (_c *TxManager_GetTransactionFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) Return(fee *pkgtypes.TransactionFee, err error) *TxManager_GetTransactionFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
+func (_c *TxManager_GetTransactionFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) Return(fee *evm.TransactionFee, err error) *TxManager_GetTransactionFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
 	_c.Call.Return(fee, err)
 	return _c
 }
 
-func (_c *TxManager_GetTransactionFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) RunAndReturn(run func(context.Context, string) (*pkgtypes.TransactionFee, error)) *TxManager_GetTransactionFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
+func (_c *TxManager_GetTransactionFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) RunAndReturn(run func(context.Context, string) (*evm.TransactionFee, error)) *TxManager_GetTransactionFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
 	_c.Call.Return(run)
 	return _c
 }

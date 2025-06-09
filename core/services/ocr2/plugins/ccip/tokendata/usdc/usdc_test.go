@@ -20,10 +20,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
@@ -37,8 +35,8 @@ var (
 )
 
 func TestUSDCReader_callAttestationApi(t *testing.T) {
-	ctx := tests.Context(t) //nolint:staticcheck // SA4006 - false positive "unused"
-	t.Skipf("Skipping test because it uses the real USDC attestation API")
+	t.Skip("uses the real USDC attestation API")
+	ctx := t.Context()
 	usdcMessageHash := "912f22a13e9ccb979b621500f6952b2afd6e75be7eadaed93fc2625fe11c52a2"
 	attestationURI, err := url.ParseRequestURI("https://iris-api-sandbox.circle.com")
 	require.NoError(t, err)
@@ -56,7 +54,7 @@ func TestUSDCReader_callAttestationApi(t *testing.T) {
 
 func TestUSDCReader_callAttestationApiMock(t *testing.T) {
 	t.Parallel()
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	response := attestationResponse{
 		Status:      attestationStatusSuccess,
 		Attestation: "720502893578a89a8a87982982ef781c18b193",
@@ -363,7 +361,7 @@ func TestUSDCReader_rateLimiting(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			ctx := tests.Context(t)
+			ctx := t.Context()
 
 			response := attestationResponse{
 				Status:      attestationStatusSuccess,

@@ -87,6 +87,9 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 	[[EVM]]
 	ChainID = '%s'
 	AutoCreateKey = false
+	# reduce workflow registry sync time to minimum to speed up tests & local environment
+	FinalityDepth = 1
+	LogPollInterval = '5s'
 
 	[[EVM.Nodes]]
 	Name = '%s'
@@ -97,6 +100,9 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 	FromAddress = '%s'
 	ForwarderAddress = '%s'
 	GasLimitDefault = 400_000
+
+	[EVM.Transactions]
+	ForwardersEnabled = true
 
 `,
 			chain.ChainID,
@@ -162,7 +168,7 @@ func WorkerWorkflowRegistry(workflowRegistryAddr common.Address, homeChainID uin
 }
 
 func WorkerGateway(nodeAddress common.Address, homeChainID uint64, donID uint32, gatewayConnectorData types.GatewayConnectorOutput) string {
-	gatewayURL := fmt.Sprintf("ws://%s:%d/%s", gatewayConnectorData.Host, 5003, "node")
+	gatewayURL := fmt.Sprintf("ws://%s:%d%s", gatewayConnectorData.Outgoing.Host, gatewayConnectorData.Outgoing.Port, gatewayConnectorData.Outgoing.Path)
 
 	return fmt.Sprintf(`
 	[Capabilities.GatewayConnector]

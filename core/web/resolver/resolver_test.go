@@ -13,9 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	evmConfigMocks "github.com/smartcontractkit/chainlink-evm/pkg/config/mocks"
 	evmMonMocks "github.com/smartcontractkit/chainlink-evm/pkg/monitor/mocks"
+	legacyEvmORMMocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
+	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	bridgeORMMocks "github.com/smartcontractkit/chainlink/v2/core/bridges/mocks"
-	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
-	legacyEvmORMMocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -55,6 +55,7 @@ type mocks struct {
 	cosmos               *keystoreMocks.Cosmos
 	starknet             *keystoreMocks.StarkNet
 	tron                 *keystoreMocks.Tron
+	ton                  *keystoreMocks.TON
 	chain                *legacyEvmORMMocks.Chain
 	legacyEVMChains      *legacyEvmORMMocks.LegacyChainContainer
 	relayerChainInterops *chainlinkMocks.FakeRelayerChainInteroperators
@@ -114,6 +115,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		cosmos:               keystoreMocks.NewCosmos(t),
 		starknet:             keystoreMocks.NewStarkNet(t),
 		tron:                 keystoreMocks.NewTron(t),
+		ton:                  keystoreMocks.NewTON(t),
 		chain:                legacyEvmORMMocks.NewChain(t),
 		legacyEVMChains:      legacyEvmORMMocks.NewLegacyChainContainer(t),
 		relayerChainInterops: &chainlinkMocks.FakeRelayerChainInteroperators{},

@@ -10,19 +10,20 @@ import (
 	"sync"
 	"time"
 
-	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"google.golang.org/protobuf/proto"
+
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -75,7 +76,7 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 		return nil, fmt.Errorf("failed to extract transmission config from request: %w", err)
 	}
 
-	lggr = lggr.With("requestId", requestID, "capabilityID", remoteCapabilityInfo.ID)
+	lggr = logger.With(lggr, "requestId", requestID, "capabilityID", remoteCapabilityInfo.ID)
 	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID)
 }
 
@@ -302,7 +303,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			return fmt.Errorf("failed to get message hash: %w", err)
 		}
 
-		lggr := c.lggr.With("responseID", hex.EncodeToString(responseID[:]), "requiredCount", c.requiredIdenticalResponses, "peer", sender)
+		lggr := logger.With(c.lggr, "responseID", hex.EncodeToString(responseID[:]), "requiredCount", c.requiredIdenticalResponses, "peer", sender)
 
 		nodeReports, exists := c.meteringResponses[responseID]
 		if !exists {

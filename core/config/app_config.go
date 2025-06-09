@@ -26,6 +26,7 @@ type AppConfig interface {
 	StarkNetEnabled() bool
 	AptosEnabled() bool
 	TronEnabled() bool
+	TONEnabled() bool
 
 	Validate() error
 	ValidateDB() error
@@ -58,6 +59,8 @@ type AppConfig interface {
 	WebServer() WebServer
 	Tracing() Tracing
 	Telemetry() Telemetry
+	CRE() CRE
+	Billing() Billing
 }
 
 type DatabaseBackupMode string

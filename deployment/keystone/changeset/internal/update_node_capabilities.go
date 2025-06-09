@@ -6,12 +6,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 type UpdateNodeCapabilitiesImplRequest struct {
-	Chain                deployment.Chain
+	Chain                cldf_evm.Chain
 	CapabilitiesRegistry *kcr.CapabilitiesRegistry
 	P2pToCapabilities    map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
 

@@ -13,14 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
@@ -35,7 +34,7 @@ func TestLogPollerClient_GetUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 	lggr := logger.Test(t)
 
 	t.Run("multiple found - selected last", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		lp := lpmocks.NewLogPoller(t)
 		u, _ := NewUSDCReader(ctx, lggr, "job_123", utils.RandomAddress(), lp, false)
 
@@ -57,7 +56,7 @@ func TestLogPollerClient_GetUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 	})
 
 	t.Run("multiple found - selected first", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		lp := lpmocks.NewLogPoller(t)
 		u, _ := NewUSDCReader(ctx, lggr, "job_123", utils.RandomAddress(), lp, false)
 
@@ -79,7 +78,7 @@ func TestLogPollerClient_GetUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 	})
 
 	t.Run("logs fetched from memory in subsequent calls", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		lp := lpmocks.NewLogPoller(t)
 		u, _ := NewUSDCReader(ctx, lggr, "job_123", utils.RandomAddress(), lp, false)
 
@@ -109,7 +108,7 @@ func TestLogPollerClient_GetUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 	})
 
 	t.Run("none found", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		lp := lpmocks.NewLogPoller(t)
 		u, _ := NewUSDCReader(ctx, lggr, "job_123", utils.RandomAddress(), lp, false)
 		lp.On("IndexedLogsByTxHash",
@@ -141,7 +140,7 @@ func TestParse(t *testing.T) {
 
 func TestFilters(t *testing.T) {
 	t.Run("filters of different jobs should be distinct", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		lggr := logger.Test(t)
 		chainID := testutils.NewRandomEVMChainID()
 		db := pgtest.NewSqlxDB(t)

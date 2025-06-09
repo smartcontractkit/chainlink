@@ -1,0 +1,160 @@
+duration = "2h" # specific to chaos test, ignore this value if you are performing a chaos test
+
+# ----- BLOCKCHAIN CONFIGURATION -----
+# Sets up a local Anvil blockchain for testing with 5-second block time
+[[blockchains]]
+chain_id = "1337"
+type = "anvil"
+docker_cmd_params = ["-b", "5"]
+
+# ----- BINARY PATHS -----
+# Path to the mock capability binary
+[binaries_config]
+mock_capability_binary_path = "../../../../../capabilities/bin/amd64/mock"
+
+# ----- JOB DISTRIBUTOR -----
+# Docker image for the job distributor service
+[jd]
+image = "localhost:5000/job-distributor:sha-707362c-amd64"
+
+# ----- MOCK CAPABILITIES -----
+# Trigger capability that simulates streams of data
+[[mock_capabilities]]
+name="streams-trigger"
+version= "2.0.0"
+type="trigger"
+description="streams trigger mock"
+
+# Target capability that simulates writing data to Ethereum
+[[mock_capabilities]]
+name="write_ethereum"
+version= "1.0.0"
+type="target"
+description="write trigger mock"
+
+# ----- TEST CONFIGURATION -----
+# Parameters for the Workflow DON load test
+[workflow_load]
+streams = 1000              # Number of streams to simulate
+jobs = 2                    # Number of jobs per stream
+
+# ----- INFRASTRUCTURE SETUP -----
+# Configures Docker-based test infrastructure
+[infra]
+type = "docker"
+
+# CRIB deployment configuration for local KIND cluster
+[infra.crib]
+namespace = "crib-workflow-don-load-test"
+folder_location = "../../../../../crib/deployments/cre"  # Path to CRIB deployment folder
+provider = "kind"           # Local Kubernetes in Docker
+
+# Team information for resource tracking
+[infra.crib.team_input]
+team="cre"
+product="workflow-don"
+component="workflow-don"
+cost_center="capabilities-df-migration-performance-tests"
+
+# ----- WORKFLOW NODES CONFIGURATION -----
+# Setup for a 6-node Workflow DON cluster (includes bootstrap node)
+[[nodesets]]
+nodes = 6
+override_mode = "all"           # Apply same configuration to all nodes
+http_port_range_start = 10100   # Starting port for HTTP endpoints
+name = "workflow"
+
+# Database configuration for the workflow nodes
+[nodesets.db]
+image = "postgres:12.0"
+port = 13000
+volume_name = "workflow_volume"
+
+# Chainlink node configuration for workflow nodes
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "localhost:5001/chainlink:develop"  # Local development image
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+      """
+
+# ----- CAPABILITIES NODES CONFIGURATION -----
+# Setup for a 3-node Capabilities cluster with individual configurations
+[[nodesets]]
+nodes = 3
+override_mode = "each"          # Apply different configuration to each node
+http_port_range_start = 10200   # Starting port for HTTP endpoints
+name = "capabilities"
+
+# Database configuration for the capabilities nodes
+[nodesets.db]
+image = "postgres:12.0"
+port = 13200
+
+# Capability node 1 configuration
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "localhost:5001/chainlink:develop"
+custom_ports = ["13401:7777"]   # External:internal port mapping
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+      """
+
+# Capability node 2 configuration
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "localhost:5001/chainlink:develop"
+custom_ports = ["13402:7777"]   # External:internal port mapping
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+      """
+
+# Capability node 3 configuration
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "localhost:5001/chainlink:develop"
+custom_ports = ["13403:7777"]   # External:internal port mapping
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+      """
+
+# ----- CHAOS TESTING CONFIGURATION -----
+#Settings for chaos engineering tests (optional), for simple load test you can ignore it
+[chaos]
+# chaos mode can be "rpc", "full" or "clean"
+# no experiments will be run in "clean" mode
+mode = "clean"
+# latency that we add to Aptos or EVM node to simulate realistic production scenario
+# latency works only with mode = "rpc"
+latency = "200ms"
+# latency jitter that we add to Aptos or EVM node to simulate realistic production scenario
+# jitter works only with mode = "rpc"
+jitter = "200ms"
+# dashboard to which add annotation when experiments start and end
+dashboard_uids = [""]
+# wait before starting chaos tests
+wait_before_start = "30s"
+# full chaos experiment interval, time from chaos start to end + recovery
+experiment_full_interval = "1m"
+# chaos experiment injection interval - time from chaos start to end
+experiment_injection_interval = "30s"

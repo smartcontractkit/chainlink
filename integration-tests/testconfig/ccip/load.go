@@ -3,13 +3,12 @@ package ccip
 import (
 	"errors"
 	"fmt"
-
 	"testing"
 	"time"
 
 	"github.com/AlekSi/pointer"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/stretchr/testify/require"
 )
@@ -41,7 +40,7 @@ const (
 	ChaosModeTypeFull
 )
 
-func (l *LoadConfig) Validate(t *testing.T, e *deployment.Environment) {
+func (l *LoadConfig) Validate(t *testing.T, e *cldf.Environment) {
 	_, err := time.ParseDuration(*l.LoadDuration)
 	require.NoError(t, err, "LoadDuration must be a valid duration")
 
@@ -56,7 +55,7 @@ func (l *LoadConfig) Validate(t *testing.T, e *deployment.Environment) {
 	require.Equal(t, 100, agg, "Sum of MessageDetails Ratios must be 100")
 
 	require.GreaterOrEqual(t, *l.NumDestinationChains, 1, "NumDestinationChains must be greater than or equal to 1")
-	require.GreaterOrEqual(t, len(e.Chains), *l.NumDestinationChains, "NumDestinationChains must be less than or equal to the number of chains in the environment")
+	require.GreaterOrEqual(t, len(e.BlockChains.EVMChains()), *l.NumDestinationChains, "NumDestinationChains must be less than or equal to the number of chains in the environment")
 }
 
 func (l *LoadConfig) GetLoadDuration() time.Duration {

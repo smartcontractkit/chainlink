@@ -9,7 +9,11 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -18,17 +22,17 @@ var DeployLinkOp = operations.NewOperation(
 	semver.MustParse("1.0.0"),
 	"Deploy LINK Contract Operation",
 	func(b operations.Bundle, deps EthereumDeps, input operations.EmptyInput) (common.Address, error) {
-		linkToken, err := deployment.DeployContract[*link_token.LinkToken](b.Logger, deps.Chain, deps.AB,
-			func(chain deployment.Chain) deployment.ContractDeploy[*link_token.LinkToken] {
+		linkToken, err := cldf.DeployContract[*link_token.LinkToken](b.Logger, deps.Chain, deps.AB,
+			func(chain cldf_evm.Chain) cldf.ContractDeploy[*link_token.LinkToken] {
 				linkTokenAddr, tx, linkToken, err2 := link_token.DeployLinkToken(
 					chain.DeployerKey,
 					chain.Client,
 				)
-				return deployment.ContractDeploy[*link_token.LinkToken]{
+				return cldf.ContractDeploy[*link_token.LinkToken]{
 					Address:  linkTokenAddr,
 					Contract: linkToken,
 					Tx:       tx,
-					Tv:       deployment.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0),
+					Tv:       cldf.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0),
 					Err:      err2,
 				}
 			})
@@ -54,7 +58,7 @@ var GrantMintOp = operations.NewOperation(
 			return nil, err
 		}
 		tx, err := contract.GrantMintRole(deps.Auth, input.To)
-		_, err = deployment.ConfirmIfNoError(deps.Chain, tx, err)
+		_, err = cldf.ConfirmIfNoError(deps.Chain, tx, err)
 		if err != nil {
 			return nil, err
 		}
@@ -78,7 +82,7 @@ var MintLinkOp = operations.NewOperation(
 			return nil, err
 		}
 		tx, err := contract.Mint(deps.Auth, input.To, input.Amount)
-		_, err = deployment.ConfirmIfNoError(deps.Chain, tx, err)
+		_, err = cldf.ConfirmIfNoError(deps.Chain, tx, err)
 		if err != nil {
 			return nil, err
 		}

@@ -24,8 +24,6 @@ import (
 	v2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	v4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	mercuryocr2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury"
 
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
@@ -317,7 +315,7 @@ func TestNewServices(t *testing.T) {
 				// hack to simulate a restart. we don't have enough boilerplate to start the oracle service
 				// only care about the subservices so we start all except the oracle, which happens to be the last one
 				for i := 0; i < len(got)-1; i++ {
-					require.NoError(t, got[i].Start(tests.Context(t)))
+					require.NoError(t, got[i].Start(t.Context()))
 				}
 				// if we don't close the services, we get conflicts with the loop registry
 				_, err = newServicesTestWrapper(t, tt.args.pluginConfig, tt.args.feedID, tt.args.cfg)

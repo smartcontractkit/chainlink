@@ -82,7 +82,7 @@ ok EVM.1.BalanceMonitor
 ok EVM.1.HeadBroadcaster
 ok EVM.1.HeadTracker
 !  EVM.1.HeadTracker.HeadListener
-	Listener is not connected
+	Listener connected = false, receiving heads = false
 ok EVM.1.LogBroadcaster
 ok EVM.1.Relayer
 ok EVM.1.Txm
@@ -120,7 +120,7 @@ ok WorkflowStore
 
 -- out-unhealthy.txt --
 !  EVM.1.HeadTracker.HeadListener
-	Listener is not connected
+	Listener connected = false, receiving heads = false
 
 -- out.json --
 {
@@ -221,7 +221,7 @@ ok WorkflowStore
       "attributes": {
         "name": "EVM.1.HeadTracker.HeadListener",
         "status": "failing",
-        "output": "Listener is not connected"
+        "output": "Listener connected = false, receiving heads = false"
       }
     },
     {
@@ -541,7 +541,7 @@ ok WorkflowStore
       "attributes": {
         "name": "EVM.1.HeadTracker.HeadListener",
         "status": "failing",
-        "output": "Listener is not connected"
+        "output": "Listener connected = false, receiving heads = false"
       }
     }
   ]

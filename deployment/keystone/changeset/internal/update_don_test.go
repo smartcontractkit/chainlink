@@ -18,6 +18,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	kscs "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -236,7 +239,7 @@ type setupUpdateDonTestConfig struct {
 
 type setupUpdateDonTestResult struct {
 	registry *kcr.CapabilitiesRegistry
-	chain    deployment.Chain
+	chain    cldf_evm.Chain
 }
 
 func registerTestDon(t *testing.T, lggr logger.Logger, cfg setupUpdateDonTestConfig) *kstest.SetupTestRegistryResponse {

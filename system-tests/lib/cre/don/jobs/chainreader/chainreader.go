@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
+// Deprecated: use capabilities.readcontract.ReadContractJobSpecFactoryFn and capabilities.logevent.LogEventTriggerJobSpecFactoryFn instead
 var ChainReaderJobSpecFactoryFn = func(chainID int, networkFamily, logEventTriggerBinaryPath, readContractBinaryPath string) types.JobSpecFactoryFn {
 	return func(input *types.JobSpecFactoryInput) (types.DonsToJobSpecs, error) {
 		return GenerateJobSpecs(input.DonTopology, chainID, networkFamily, logEventTriggerBinaryPath, readContractBinaryPath)

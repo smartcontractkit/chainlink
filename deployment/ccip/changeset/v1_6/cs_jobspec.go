@@ -5,32 +5,33 @@ import (
 	"fmt"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	corejob "github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-var _ deployment.ChangeSet[any] = CCIPCapabilityJobspecChangeset
+var _ cldf.ChangeSet[any] = CCIPCapabilityJobspecChangeset
 
 // CCIPCapabilityJobspecChangeset returns the job specs for the CCIP capability.
 // The caller needs to propose these job specs to the offchain system.
-func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployment.ChangesetOutput, error) {
+func CCIPCapabilityJobspecChangeset(env cldf.Environment, _ any) (cldf.ChangesetOutput, error) {
 	nodes, err := deployment.NodeInfo(env.NodeIDs, env.Offchain)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	// find existing jobs
 	existingSpecs, err := acceptedOrPendingAcceptedJobSpecs(env, nodes)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return cldf.ChangesetOutput{}, err
 	}
 	// We first generate the job specs for the CCIP capability. so that if
 	// there are any errors in the job specs, we can fail early.
@@ -52,7 +53,7 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 			_, exists := keyBundles[family]
 			if exists {
 				if keyBundles[family] != config.KeyBundleID {
-					return deployment.ChangesetOutput{}, fmt.Errorf("multiple different %v OCR keys found for node %v", family, node.PeerID)
+					return cldf.ChangesetOutput{}, fmt.Errorf("multiple different %v OCR keys found for node %v", family, node.PeerID)
 				}
 				continue
 			}
@@ -64,8 +65,8 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 		if !node.IsBootstrap {
 			spec, err = validate.NewCCIPSpecToml(validate.SpecArgs{
 				P2PV2Bootstrappers:     nodes.BootstrapLocators(),
-				CapabilityVersion:      ccip.CapabilityVersion,
-				CapabilityLabelledName: ccip.CapabilityLabelledName,
+				CapabilityVersion:      shared.CapabilityVersion,
+				CapabilityLabelledName: shared.CapabilityLabelledName,
 				OCRKeyBundleIDs:        keyBundles,
 				P2PKeyID:               node.PeerID.String(),
 				RelayConfigs:           nil,
@@ -74,8 +75,8 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 		} else {
 			spec, err = validate.NewCCIPSpecToml(validate.SpecArgs{
 				P2PV2Bootstrappers:     []string{}, // Intentionally empty for bootstraps.
-				CapabilityVersion:      ccip.CapabilityVersion,
-				CapabilityLabelledName: ccip.CapabilityLabelledName,
+				CapabilityVersion:      shared.CapabilityVersion,
+				CapabilityLabelledName: shared.CapabilityLabelledName,
 				OCRKeyBundleIDs:        map[string]string{},
 				P2PKeyID:               node.PeerID.String(),
 				RelayConfigs:           nil,
@@ -83,7 +84,7 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 			})
 		}
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return cldf.ChangesetOutput{}, err
 		}
 		// If the spec already exists, don't propose it again
 		specExists := false
@@ -91,7 +92,7 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 			for _, existingSpec := range existingSpecs[node.NodeID] {
 				specExists, err = areCCIPSpecsEqual(existingSpec, spec)
 				if err != nil {
-					return deployment.ChangesetOutput{}, err
+					return cldf.ChangesetOutput{}, err
 				}
 			}
 		}
@@ -100,11 +101,11 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 		}
 	}
 	// Now we propose the job specs to the offchain system.
-	var Jobs []deployment.ProposedJob
+	var Jobs []cldf.ProposedJob
 	for nodeID, jobs := range nodesToJobSpecs {
 		nodeID := nodeID
 		for _, job := range jobs {
-			Jobs = append(Jobs, deployment.ProposedJob{
+			Jobs = append(Jobs, cldf.ProposedJob{
 				Node: nodeID,
 				Spec: job,
 			})
@@ -123,16 +124,14 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 						Labels: labels,
 					})
 				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to propose job: %w", err)
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose job: %w", err)
 				}
 				Jobs[len(Jobs)-1].JobID = res.Proposal.JobId
 			}
 		}
 	}
-	return deployment.ChangesetOutput{
-		Proposals:   []timelock.MCMSWithTimelockProposal{},
-		AddressBook: nil,
-		Jobs:        Jobs,
+	return cldf.ChangesetOutput{
+		Jobs: Jobs,
 	}, nil
 }
 
@@ -191,7 +190,7 @@ func areCCIPSpecsEqual(existingSpecStr, newSpecStr string) (bool, error) {
 
 // acceptedOrPendingAcceptedJobSpecs returns a map of nodeID to job specs that are either accepted or pending review
 // or proposed
-func acceptedOrPendingAcceptedJobSpecs(env deployment.Environment, nodes deployment.Nodes) (map[string][]string, error) {
+func acceptedOrPendingAcceptedJobSpecs(env cldf.Environment, nodes deployment.Nodes) (map[string][]string, error) {
 	existingSpecs := make(map[string][]string)
 	for _, node := range nodes {
 		jobs, err := env.Offchain.ListJobs(env.GetContext(), &jobv1.ListJobsRequest{
@@ -233,7 +232,7 @@ func acceptedOrPendingAcceptedJobSpecs(env deployment.Environment, nodes deploym
 // so we return false TODO implement this check when it is available
 // there is no downside to proposing the same job spec to a node multiple times
 // It will only be accepted once by node
-func isJobProposed(env deployment.Environment, nodeID string, spec string) bool {
+func isJobProposed(env cldf.Environment, nodeID string, spec string) bool {
 	// implement this when it is available
 	return false
 }

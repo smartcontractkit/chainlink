@@ -9,8 +9,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/google/go-cmp/cmp"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
@@ -24,7 +29,9 @@ import (
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	mcmschangesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -39,7 +46,7 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 		Chains:             2,
 		NumOfUsersPerChain: 2,
 	})
-	evmSelectors := env.AllChainSelectors()
+	evmSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	changesetConfig := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, chain := range evmSelectors {
 		changesetConfig[chain] = proposalutils.SingleGroupTimelockConfigV2(t)
@@ -49,7 +56,7 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 		changesetConfig,
 	)
-	updatedEnv, err := commonchangeset.Apply(t, env, nil, configuredChangeset)
+	updatedEnv, err := commonchangeset.Apply(t, env, configuredChangeset)
 	require.NoError(t, err)
 	mcmsState, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, evmSelectors)
 	require.NoError(t, err)
@@ -57,26 +64,26 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 	// change the environment to remove proposer from the timelock, so that we can deploy new proposer
 	// and then grant the role to the new proposer
 	existingProposer := mcmsState[evmSelectors[0]].ProposerMcm
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 	require.NoError(t, ab.Save(evmSelectors[0], existingProposer.Address().String(),
-		deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0)))
+		cldf.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0)))
 	require.NoError(t, updatedEnv.ExistingAddresses.Remove(ab))
 
 	// change the deployer key, so that we can deploy proposer with a new key
 	// the new deployer key will not be admin of the timelock
 	// we can test granting roles through proposal
-	chain := updatedEnv.Chains[evmSelectors[0]]
-	chain.DeployerKey = updatedEnv.Chains[evmSelectors[0]].Users[0]
-	updatedEnv.Chains[evmSelectors[0]] = chain
+	evmChains := updatedEnv.BlockChains.EVMChains()
+	chain := evmChains[evmSelectors[0]]
+	chain.DeployerKey = evmChains[evmSelectors[0]].Users[0]
 
 	// now deploy MCMS again so that only the proposer is new
-	updatedEnv, err = commonchangeset.Apply(t, updatedEnv, nil, configuredChangeset)
+	updatedEnv, err = commonchangeset.Apply(t, updatedEnv, configuredChangeset)
 	require.NoError(t, err)
 	mcmsState, err = mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, evmSelectors)
 	require.NoError(t, err)
 
 	require.NotEqual(t, existingProposer.Address(), mcmsState[evmSelectors[0]].ProposerMcm.Address())
-	updatedEnv, err = commonchangeset.Apply(t, updatedEnv, nil, commonchangeset.Configure(
+	updatedEnv, err = commonchangeset.Apply(t, updatedEnv, commonchangeset.Configure(
 		commonchangeset.GrantRoleInTimeLock,
 		commonchangeset.GrantRoleInput{
 			ExistingProposerByChain: map[uint64]common.Address{
@@ -89,7 +96,7 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 	mcmsState, err = mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, evmSelectors)
 	require.NoError(t, err)
 
-	evmTimelockInspector := mcmsevmsdk.NewTimelockInspector(updatedEnv.Chains[evmSelectors[0]].Client)
+	evmTimelockInspector := mcmsevmsdk.NewTimelockInspector(updatedEnv.BlockChains.EVMChains()[evmSelectors[0]].Client)
 
 	proposers, err := evmTimelockInspector.GetProposers(ctx, mcmsState[evmSelectors[0]].Timelock.Address().Hex())
 	require.NoError(t, err)
@@ -100,7 +107,7 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 	ctx := testutils.Context(t)
 	env := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{Chains: 2})
-	evmSelectors := env.AllChainSelectors()
+	evmSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	changesetConfig := map[uint64]commontypes.MCMSWithTimelockConfigV2{
 		evmSelectors[0]: {
 			Proposer: mcmstypes.Config{
@@ -153,15 +160,15 @@ func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 	// set up some dummy address in env address book for callproxy, canceller and bypasser
 	// to simulate the case where they already exist
 	// this is to test that the changeset will not try to deploy them again
-	addrBook := deployment.NewMemoryAddressBook()
+	addrBook := cldf.NewMemoryAddressBook()
 	callProxyAddress := utils.RandomAddress()
 	mcmsAddress := utils.RandomAddress()
-	mcmsType := deployment.NewTypeAndVersion(commontypes.ManyChainMultisig, deployment.Version1_0_0)
+	mcmsType := cldf.NewTypeAndVersion(commontypes.ManyChainMultisig, deployment.Version1_0_0)
 	// we use same address for bypasser and canceller
 	mcmsType.AddLabel(commontypes.BypasserRole.String())
 	mcmsType.AddLabel(commontypes.CancellerRole.String())
 	require.NoError(t, addrBook.Save(evmSelectors[0], callProxyAddress.String(),
-		deployment.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0)))
+		cldf.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0)))
 	require.NoError(t, addrBook.Save(evmSelectors[0], mcmsAddress.String(), mcmsType))
 	require.NoError(t, env.ExistingAddresses.Merge(addrBook))
 
@@ -171,7 +178,7 @@ func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 	)
 
 	// --- act ---
-	updatedEnv, err := commonchangeset.Apply(t, env, nil, configuredChangeset)
+	updatedEnv, err := commonchangeset.Apply(t, env, configuredChangeset)
 	require.NoError(t, err)
 
 	state, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, evmSelectors)
@@ -185,7 +192,7 @@ func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 	// proposer should be newly deployed
 	require.NotEqual(t, mcmsAddress, evmState0.ProposerMcm.Address())
 
-	evmTimelockInspector := mcmsevmsdk.NewTimelockInspector(updatedEnv.Chains[evmSelectors[0]].Client)
+	evmTimelockInspector := mcmsevmsdk.NewTimelockInspector(updatedEnv.BlockChains.EVMChains()[evmSelectors[0]].Client)
 
 	proposers, err := evmTimelockInspector.GetProposers(ctx, evmState0.Timelock.Address().Hex())
 	require.NoError(t, err)
@@ -213,8 +220,8 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 	log := logger.TestLogger(t)
 	envConfig := memory.MemoryEnvironmentConfig{Chains: 2, SolChains: 1}
 	env := memory.NewMemoryEnvironment(t, log, zapcore.InfoLevel, envConfig)
-	evmSelectors := env.AllChainSelectors()
-	solanaSelectors := env.AllChainSelectorsSolana()
+	evmSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+	solanaSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	changesetConfig := map[uint64]commontypes.MCMSWithTimelockConfigV2{
 		evmSelectors[0]: {
 			Proposer: mcmstypes.Config{
@@ -314,7 +321,7 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 	commonchangeset.SetPreloadedSolanaAddresses(t, env, solanaSelectors[0])
 
 	// --- act ---
-	updatedEnv, err := commonchangeset.Apply(t, env, nil, configuredChangeset)
+	updatedEnv, err := commonchangeset.Apply(t, env, configuredChangeset)
 	require.NoError(t, err)
 
 	evmState, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, evmSelectors)
@@ -329,8 +336,9 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 
 	// evm chain 0
 	evmState0 := evmState[evmSelectors[0]]
-	evmInspector := mcmsevmsdk.NewInspector(updatedEnv.Chains[evmSelectors[0]].Client)
-	evmTimelockInspector := mcmsevmsdk.NewTimelockInspector(updatedEnv.Chains[evmSelectors[0]].Client)
+	evmChains := updatedEnv.BlockChains.EVMChains()
+	evmInspector := mcmsevmsdk.NewInspector(evmChains[evmSelectors[0]].Client)
+	evmTimelockInspector := mcmsevmsdk.NewTimelockInspector(evmChains[evmSelectors[0]].Client)
 
 	config, err := evmInspector.GetConfig(ctx, evmState0.ProposerMcm.Address().Hex())
 	require.NoError(t, err)
@@ -366,8 +374,8 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 
 	// evm chain 1
 	evmState1 := evmState[evmSelectors[1]]
-	evmInspector = mcmsevmsdk.NewInspector(updatedEnv.Chains[evmSelectors[1]].Client)
-	evmTimelockInspector = mcmsevmsdk.NewTimelockInspector(updatedEnv.Chains[evmSelectors[1]].Client)
+	evmInspector = mcmsevmsdk.NewInspector(evmChains[evmSelectors[1]].Client)
+	evmTimelockInspector = mcmsevmsdk.NewTimelockInspector(evmChains[evmSelectors[1]].Client)
 
 	config, err = evmInspector.GetConfig(ctx, evmState1.ProposerMcm.Address().Hex())
 	require.NoError(t, err)
@@ -403,7 +411,7 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 
 	// solana chain 0
 	solanaState0 := solanaState[solanaSelectors[0]]
-	solanaChain0 := updatedEnv.SolChains[solanaSelectors[0]]
+	solanaChain0 := updatedEnv.BlockChains.SolanaChains()[solanaSelectors[0]]
 	solanaInspector := mcmssolanasdk.NewInspector(solanaChain0.Client)
 	solanaTimelockInspector := mcmssolanasdk.NewTimelockInspector(solanaChain0.Client)
 
@@ -457,7 +465,7 @@ func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
 	log := logger.TestLogger(t)
 	envConfig := memory.MemoryEnvironmentConfig{Chains: 0, SolChains: 1}
 	env := memory.NewMemoryEnvironment(t, log, zapcore.InfoLevel, envConfig)
-	solanaSelectors := env.AllChainSelectorsSolana()
+	solanaSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	changesetConfig := map[uint64]commontypes.MCMSWithTimelockConfigV2{
 		solanaSelectors[0]: {
 			Proposer: mcmstypes.Config{
@@ -510,14 +518,14 @@ func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
 	)
 	commonchangeset.SetPreloadedSolanaAddresses(t, env, solanaSelectors[0])
 	// --- act ---
-	updatedEnv, err := commonchangeset.Apply(t, env, nil, configuredChangeset)
+	updatedEnv, err := commonchangeset.Apply(t, env, configuredChangeset)
 	require.NoError(t, err)
 
 	solanaState, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockStateSolana(updatedEnv, solanaSelectors)
 	require.NoError(t, err)
 
 	// Call deploy again, seeds and addresses from original state should not change
-	updatedEnvReTriggered, err := commonchangeset.Apply(t, updatedEnv, nil, configuredChangeset)
+	updatedEnvReTriggered, err := commonchangeset.Apply(t, updatedEnv, configuredChangeset)
 	require.NoError(t, err)
 	solanaStateNew, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockStateSolana(updatedEnvReTriggered, solanaSelectors)
 	require.NoError(t, err)
@@ -550,7 +558,7 @@ func timelockSignerPDA(programID solana.PublicKey, seed mcmschangesetstate.PDASe
 }
 
 func solanaTimelockConfig(
-	ctx context.Context, t *testing.T, chain deployment.SolChain, programID solana.PublicKey, seed mcmschangesetstate.PDASeed,
+	ctx context.Context, t *testing.T, chain cldf_solana.Chain, programID solana.PublicKey, seed mcmschangesetstate.PDASeed,
 ) timelockBindings.Config {
 	t.Helper()
 

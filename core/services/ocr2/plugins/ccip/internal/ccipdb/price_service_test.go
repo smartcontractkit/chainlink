@@ -9,15 +9,15 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -65,7 +65,7 @@ func TestPriceService_writeGasPrices(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 
 			var gasPricesError error
 			if tc.gasPriceError {
@@ -136,7 +136,7 @@ func TestPriceService_writeTokenPrices(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 
 			var tokenPricesError error
 			if tc.tokenPriceError {
@@ -695,7 +695,7 @@ func TestPriceService_GetGasAndTokenPrices(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 
 			mockOrm := ccipmocks.NewORM(t)
 			if tc.gasPriceError {
@@ -747,7 +747,7 @@ func setupORM(t *testing.T) cciporm.ORM {
 }
 
 func checkResultLen(t *testing.T, priceService PriceService, destChainSelector uint64, gasCount int, tokenCount int) error {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	dbGasResult, dbTokenResult, err := priceService.GetGasAndTokenPrices(ctx, destChainSelector)
 	if err != nil {
 		return nil
@@ -766,7 +766,7 @@ func TestPriceService_priceWriteInBackground(t *testing.T) {
 	jobId := int32(1)
 	destChain := chainselectors.TEST_1338
 	sourceChain := chainselectors.TEST_1000
-	ctx := tests.Context(t)
+	ctx := t.Context()
 
 	sourceNative := ccipcommon.TokenID{
 		TokenAddress:  ccipcalc.EvmAddrToGeneric(common.HexToAddress("0x001")),

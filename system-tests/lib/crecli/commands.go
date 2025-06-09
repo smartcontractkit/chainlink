@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
-	"strconv"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 )
 
@@ -18,10 +16,28 @@ type CompilationResult struct {
 	ConfigURL   string
 }
 
-func CompileWorkflow(creCLICommandPath, workflowFolder, workflowFileName string, configFile *string, settingsFile *os.File) (CompilationResult, error) {
+func CompileWorkflow(creCLICommandPath, workflowFolder, workflowFileName string, configFile *string, workflowSettingsFile, settingsFile *os.File) (CompilationResult, error) {
 	var outputBuffer bytes.Buffer
 
-	compileArgs := []string{"workflow", "compile", "-S", settingsFile.Name()}
+	// the CLI expects the workflow code to be located in the same directory as its `go.mod`` file. That's why we assume that the file, which
+	// the CLI also expects `cre.yaml` settings file to be present either in the present directory or any of its parent tree directories.
+
+	cliFile, err := os.Create(filepath.Join(workflowFolder, CRECLISettingsFileName))
+	if err != nil {
+		return CompilationResult{}, err
+	}
+
+	settingsFileBytes, err := os.ReadFile(settingsFile.Name())
+	if err != nil {
+		return CompilationResult{}, err
+	}
+
+	_, err = cliFile.Write(settingsFileBytes)
+	if err != nil {
+		return CompilationResult{}, err
+	}
+
+	compileArgs := []string{"workflow", "compile", "-S", workflowSettingsFile.Name()}
 	if configFile != nil {
 		compileArgs = append(compileArgs, "-c", *configFile)
 	}
@@ -31,7 +47,7 @@ func CompileWorkflow(creCLICommandPath, workflowFolder, workflowFileName string,
 	compileCmd.Stderr = &outputBuffer
 	// the CLI expects the workflow code to be located in the same directory as its `go.mod` file
 	compileCmd.Dir = workflowFolder
-	err := compileCmd.Start()
+	err = compileCmd.Start()
 	if err != nil {
 		return CompilationResult{}, errors.Wrap(err, "failed to start compile command")
 	}
@@ -73,8 +89,8 @@ func CompileWorkflow(creCLICommandPath, workflowFolder, workflowFileName string,
 }
 
 // Same command to register a workflow or update an existing one
-func DeployWorkflow(creCLICommandPath, workflowName, workflowURL string, configURL, secretsURL *string, settingsFile *os.File) error {
-	commandArgs := []string{"workflow", "deploy", workflowName, "-b", workflowURL, "-S", settingsFile.Name(), "-v"}
+func DeployWorkflow(creCLICommandPath, workflowURL string, configURL, secretsURL *string, settingsFile *os.File) error {
+	commandArgs := []string{"workflow", "deploy", "-b", workflowURL, "-S", settingsFile.Name(), "-v"}
 	if configURL != nil {
 		commandArgs = append(commandArgs, "-c", *configURL)
 	}
@@ -85,8 +101,13 @@ func DeployWorkflow(creCLICommandPath, workflowName, workflowURL string, configU
 	deployCmd := exec.Command(creCLICommandPath, commandArgs...) // #nosec G204
 	deployCmd.Stdout = os.Stdout
 	deployCmd.Stderr = os.Stderr
-	if err := deployCmd.Start(); err != nil {
-		return errors.Wrap(err, "failed to start register command")
+	if startErr := deployCmd.Start(); startErr != nil {
+		return errors.Wrap(startErr, "failed to start deploy command")
+	}
+
+	waitErr := deployCmd.Wait()
+	if waitErr != nil {
+		return errors.Wrap(waitErr, "failed to wait for deploy command")
 	}
 
 	return nil
@@ -129,72 +150,37 @@ func EncryptSecrets(creCLICommandPath, secretsFile string, secrets map[string]st
 	return re.ReplaceAllString(matches[0][1], ""), nil
 }
 
-func SetFeedAdmin(creCLICommandPath string, chainID int, adminAddress common.Address, settingsFile *os.File) error {
-	setFeedAdminCmd := exec.Command(creCLICommandPath, "-S", settingsFile.Name(), "df", "set-feed-admin", "--chain-id", strconv.Itoa(chainID), "--feed-admin", adminAddress.Hex()) // #nosec G204
-	var outputBuffer bytes.Buffer
-	setFeedAdminCmd.Stdout = &outputBuffer
-	setFeedAdminCmd.Stderr = &outputBuffer
-	if err := setFeedAdminCmd.Start(); err != nil {
-		return errors.Wrap(err, "failed to start DF set feed admin command")
+func PauseWorkflow(creCLICommandPath string, settingsFile *os.File) error {
+	commandArgs := []string{"workflow", "pause", "-S", settingsFile.Name(), "-v"}
+
+	pauseCmd := exec.Command(creCLICommandPath, commandArgs...) // #nosec G204
+	pauseCmd.Stdout = os.Stdout
+	pauseCmd.Stderr = os.Stderr
+	if startErr := pauseCmd.Start(); startErr != nil {
+		return errors.Wrap(startErr, "failed to start pause command")
 	}
 
-	waitErr := setFeedAdminCmd.Wait()
-	fmt.Println("Set Feed Admin output:\n", outputBuffer.String())
+	waitErr := pauseCmd.Wait()
 	if waitErr != nil {
-		return errors.Wrap(waitErr, "failed to wait for compile command")
+		return errors.Wrap(waitErr, "failed to wait for pause command")
 	}
 
 	return nil
 }
 
-func SetFeedConfig(creCLICommandPath, feedID, feedDecimals, feedDescription string, chainID int, allowedSenders, allowedWorkflowOwners []common.Address, allowedWorkflowNames []string, settingsFile *os.File) error {
-	allowedSendersHex := make([]string, len(allowedSenders))
-	for i, addr := range allowedSenders {
-		allowedSendersHex[i] = addr.Hex()
-	}
-	allowedSendersStr := strings.Join(allowedSendersHex, ",")
+func ActivateWorkflow(creCLICommandPath string, settingsFile *os.File) error {
+	commandArgs := []string{"workflow", "activate", "-S", settingsFile.Name(), "-v"}
 
-	allowedWorkflowOwnersHex := make([]string, len(allowedWorkflowOwners))
-	for i, addr := range allowedWorkflowOwners {
-		allowedWorkflowOwnersHex[i] = addr.Hex()
-	}
-	allowedWorkflowOwnersStr := strings.Join(allowedWorkflowOwnersHex, ",")
-
-	cleanFeedID := strings.TrimPrefix(feedID, "0x")
-	feedLength := len(cleanFeedID)
-
-	if feedLength < 32 {
-		return errors.Errorf("feed ID must be at least 32 characters long, but was %d", feedLength)
+	activateCmd := exec.Command(creCLICommandPath, commandArgs...) // #nosec G204
+	activateCmd.Stdout = os.Stdout
+	activateCmd.Stderr = os.Stderr
+	if startErr := activateCmd.Start(); startErr != nil {
+		return errors.Wrap(startErr, "failed to start activate command")
 	}
 
-	if feedLength > 32 {
-		cleanFeedID = cleanFeedID[:32]
-	}
-
-	setFeedConfigCmd := exec.Command(creCLICommandPath,
-		"-S", settingsFile.Name(),
-		"df",
-		"set-feed-config",
-		"--chain-id", strconv.Itoa(chainID),
-		"--allowed-senders", allowedSendersStr,
-		"--allowed-workflow-owners", allowedWorkflowOwnersStr,
-		"--allowed-workflow-names", strings.Join(allowedWorkflowNames, ","),
-		"--data-id", cleanFeedID,
-		"--decimals-arr", fmt.Sprintf("[%s]", feedDecimals),
-		"--description", feedDescription,
-	) // #nosec G204
-
-	var outputBuffer bytes.Buffer
-	setFeedConfigCmd.Stdout = &outputBuffer
-	setFeedConfigCmd.Stderr = &outputBuffer
-	if err := setFeedConfigCmd.Start(); err != nil {
-		return errors.Wrap(err, "failed to start DF set feed config command")
-	}
-
-	waitErr := setFeedConfigCmd.Wait()
-	fmt.Println("Set Feed Config output:\n", outputBuffer.String())
+	waitErr := activateCmd.Wait()
 	if waitErr != nil {
-		return errors.Wrap(waitErr, "failed to wait for compile command")
+		return errors.Wrap(waitErr, "failed to wait for activate command")
 	}
 
 	return nil

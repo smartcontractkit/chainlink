@@ -14,19 +14,18 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jonboulle/clockwork"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/jonboulle/clockwork"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper"
+	workflow_registry_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -672,16 +671,18 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 			w.lggr.Debug("shutting down readRegistryStateLoop")
 			return
 		case <-ticker:
-			workflowMetadata, _, err := w.getWorkflowMetadata(ctx, don, reader)
+			workflowMetadata, head, err := w.getWorkflowMetadata(ctx, don, reader)
 			if err != nil {
 				w.lggr.Errorw("failed to get registry state", "err", err)
 				continue
 			}
+			w.lggr.Debugw("preparing events to reconcile", "numWorkflowMetadata", len(workflowMetadata), "blockHeight", head.Height, "numPendingEvents", len(pendingEvents))
 			events, err := w.generateReconciliationEvents(ctx, pendingEvents, workflowMetadata, don.ID)
 			if err != nil {
 				w.lggr.Errorw("failed to generate reconciliation events", "err", err)
 				continue
 			}
+			w.lggr.Debugw("generated events to reconcile", "num", len(events))
 
 			pendingEvents = map[string]*reconciliationEvent{}
 
@@ -715,7 +716,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 				}
 			}
 
-			w.lggr.Debugw("generated events to reconcile", "num", len(events), "report", reconcileReport)
+			w.lggr.Debugw("reconciled events", "report", reconcileReport)
 		}
 	}
 }

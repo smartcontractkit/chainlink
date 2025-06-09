@@ -4,12 +4,12 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	v4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func newValidReportFields() v4.ReportFields {
@@ -28,7 +28,7 @@ func Test_ReportCodec_BuildReport(t *testing.T) {
 	r := ReportCodec{}
 
 	t.Run("BuildReport errors on zero values", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		_, err := r.BuildReport(ctx, v4.ReportFields{})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "benchmarkPrice may not be nil")
@@ -37,7 +37,7 @@ func Test_ReportCodec_BuildReport(t *testing.T) {
 	})
 
 	t.Run("BuildReport constructs a report from observations", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		rf := newValidReportFields()
 		// only need to test happy path since validations are done in relaymercury
 
@@ -62,8 +62,7 @@ func Test_ReportCodec_BuildReport(t *testing.T) {
 		assert.LessOrEqual(t, len(report), max)
 
 		t.Run("Decode decodes the report", func(t *testing.T) {
-			ctx := tests.Context(t)
-			decoded, err := r.Decode(ctx, report)
+			decoded, err := r.Decode(t.Context(), report)
 			require.NoError(t, err)
 
 			require.NotNil(t, decoded)
@@ -79,7 +78,7 @@ func Test_ReportCodec_BuildReport(t *testing.T) {
 	})
 
 	t.Run("errors on negative fee", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		rf := newValidReportFields()
 		rf.LinkFee = big.NewInt(-1)
 		rf.NativeFee = big.NewInt(-1)
@@ -91,7 +90,7 @@ func Test_ReportCodec_BuildReport(t *testing.T) {
 	})
 
 	t.Run("Decode errors on invalid report", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		_, err := r.Decode(ctx, []byte{1, 2, 3})
 		assert.EqualError(t, err, "failed to decode report: abi: cannot marshal in to go type: length insufficient 3 require 32")
 
@@ -125,7 +124,7 @@ func Test_ReportCodec_ObservationTimestampFromReport(t *testing.T) {
 	r := ReportCodec{}
 
 	t.Run("ObservationTimestampFromReport extracts observation timestamp from a valid report", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		report := buildSampleReport(123)
 
 		ts, err := r.ObservationTimestampFromReport(ctx, report)
@@ -134,7 +133,7 @@ func Test_ReportCodec_ObservationTimestampFromReport(t *testing.T) {
 		assert.Equal(t, ts, uint32(123))
 	})
 	t.Run("ObservationTimestampFromReport returns error when report is invalid", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		report := []byte{1, 2, 3}
 
 		_, err := r.ObservationTimestampFromReport(ctx, report)
@@ -148,7 +147,7 @@ func Test_ReportCodec_BenchmarkPriceFromReport(t *testing.T) {
 	r := ReportCodec{}
 
 	t.Run("BenchmarkPriceFromReport extracts the benchmark price from valid report", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		report := buildSampleReport(123)
 
 		bp, err := r.BenchmarkPriceFromReport(ctx, report)
@@ -157,7 +156,7 @@ func Test_ReportCodec_BenchmarkPriceFromReport(t *testing.T) {
 		assert.Equal(t, big.NewInt(242), bp)
 	})
 	t.Run("BenchmarkPriceFromReport errors on invalid report", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		_, err := r.BenchmarkPriceFromReport(ctx, []byte{1, 2, 3})
 		require.Error(t, err)
 		assert.EqualError(t, err, "failed to decode report: abi: cannot marshal in to go type: length insufficient 3 require 32")

@@ -3,7 +3,8 @@ package consensus
 import (
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
@@ -22,7 +23,7 @@ var ConsensusJobSpecFactoryFn = func(chainID uint64) types.JobSpecFactoryFn {
 	}
 }
 
-func GenerateJobSpecs(donTopology *types.DonTopology, addressBook deployment.AddressBook, chainID uint64) (types.DonsToJobSpecs, error) {
+func GenerateJobSpecs(donTopology *types.DonTopology, addressBook cldf.AddressBook, chainID uint64) (types.DonsToJobSpecs, error) {
 	if donTopology == nil {
 		return nil, errors.New("topology is nil")
 	}

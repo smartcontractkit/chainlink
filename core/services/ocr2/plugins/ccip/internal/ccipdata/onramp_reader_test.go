@@ -14,7 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
@@ -24,7 +23,7 @@ import (
 
 	evm_2_evm_onramp_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
-	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
@@ -38,7 +37,7 @@ type onRampReaderTH struct {
 }
 
 func TestNewOnRampReader_noContractAtAddress(t *testing.T) {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	_, bc := ccipdata.NewSimulation(t)
 	addr := ccipcalc.EvmAddrToGeneric(utils.RandomAddress())
 	_, err := factory.NewOnRampReader(ctx, logger.Test(t), factory.NewEvmVersionFinder(), testutils.SimulatedChainID.Uint64(), testutils.SimulatedChainID.Uint64(), addr, lpmocks.NewLogPoller(t), bc)
@@ -69,7 +68,7 @@ func TestOnRampReaderInit(t *testing.T) {
 }
 
 func setupOnRampReaderTH(t *testing.T, version string) onRampReaderTH {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	user, bc := ccipdata.NewSimulation(t)
 	log := logger.Test(t)
 	orm := logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), log)
@@ -312,7 +311,7 @@ func TestNewOnRampReader(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(tc.typeAndVersion, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			b, err := utils.ABIEncode(`[{"type":"string"}]`, tc.typeAndVersion)
 			require.NoError(t, err)
 			c := clienttest.NewClient(t)

@@ -33,10 +33,10 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	clevmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
-	lpMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -216,7 +216,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 }
 
 func TestChainReader_HealthReport(t *testing.T) {
-	lp := lpMocks.NewLogPoller(t)
+	lp := lpmocks.NewLogPoller(t)
 	lp.EXPECT().HealthReport().Return(map[string]error{"lp_name": clcommontypes.ErrFinalityViolated}).Once()
 	ht := headstest.NewTracker[*clevmtypes.Head, common.Hash](t)
 	htError := errors.New("head tracker error")

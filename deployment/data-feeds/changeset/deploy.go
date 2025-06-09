@@ -9,11 +9,14 @@ import (
 	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
 	bundleproxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/bundle_aggregator_proxy"
 	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-func DeployCache(chain deployment.Chain, labels []string) (*types.DeployCacheResponse, error) {
+func DeployCache(chain cldf_evm.Chain, labels []string) (*types.DeployCacheResponse, error) {
 	cacheAddr, tx, cacheContract, err := cache.DeployDataFeedsCache(chain.DeployerKey, chain.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy DataFeedsCache: %w", err)
@@ -29,7 +32,7 @@ func DeployCache(chain deployment.Chain, labels []string) (*types.DeployCacheRes
 		return nil, fmt.Errorf("failed to get type and version: %w", err)
 	}
 
-	tv, err := deployment.TypeAndVersionFromString(tvStr)
+	tv, err := cldf.TypeAndVersionFromString(tvStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 	}
@@ -47,7 +50,7 @@ func DeployCache(chain deployment.Chain, labels []string) (*types.DeployCacheRes
 	return resp, nil
 }
 
-func DeployAggregatorProxy(chain deployment.Chain, aggregator common.Address, accessController common.Address, labels []string) (*types.DeployProxyResponse, error) {
+func DeployAggregatorProxy(chain cldf_evm.Chain, aggregator common.Address, accessController common.Address, labels []string) (*types.DeployProxyResponse, error) {
 	proxyAddr, tx, proxyContract, err := proxy.DeployAggregatorProxy(chain.DeployerKey, chain.Client, aggregator, accessController)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy AggregatorProxy: %w", err)
@@ -60,7 +63,7 @@ func DeployAggregatorProxy(chain deployment.Chain, aggregator common.Address, ac
 
 	// AggregatorProxy contract doesn't implement typeAndVersion interface, so we have to set it manually
 	tvStr := "AggregatorProxy 1.0.0"
-	tv, err := deployment.TypeAndVersionFromString(tvStr)
+	tv, err := cldf.TypeAndVersionFromString(tvStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 	}
@@ -78,7 +81,7 @@ func DeployAggregatorProxy(chain deployment.Chain, aggregator common.Address, ac
 	return resp, nil
 }
 
-func DeployBundleAggregatorProxy(chain deployment.Chain, aggregator common.Address, owner common.Address, labels []string) (*types.DeployBundleAggregatorProxyResponse, error) {
+func DeployBundleAggregatorProxy(chain cldf_evm.Chain, aggregator common.Address, owner common.Address, labels []string) (*types.DeployBundleAggregatorProxyResponse, error) {
 	proxyAddr, tx, proxyContract, err := bundleproxy.DeployBundleAggregatorProxy(chain.DeployerKey, chain.Client, aggregator, owner)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy BundleAggregatorProxy: %w", err)
@@ -93,7 +96,7 @@ func DeployBundleAggregatorProxy(chain deployment.Chain, aggregator common.Addre
 	if err != nil {
 		return nil, fmt.Errorf("failed to get type and version: %w", err)
 	}
-	tv, err := deployment.TypeAndVersionFromString(tvStr)
+	tv, err := cldf.TypeAndVersionFromString(tvStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 	}

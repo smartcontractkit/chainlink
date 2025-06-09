@@ -9,8 +9,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
@@ -47,6 +48,7 @@ type Master interface {
 	StarkNet() StarkNet
 	Aptos() Aptos
 	Tron() Tron
+	TON() TON
 	VRF() VRF
 	Workflow() Workflow
 	Unlock(ctx context.Context, password string) error
@@ -64,6 +66,7 @@ type master struct {
 	starknet *starknet
 	aptos    *aptos
 	tron     *tron
+	ton      *ton
 	vrf      *vrf
 	workflow *workflow
 }
@@ -73,13 +76,13 @@ func New(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logger.Log
 }
 
 func newMaster(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logger.Logger) *master {
-	orm := NewORM(ds, lggr)
+	orm := NewORM(ds)
 	km := &keyManager{
 		orm:          orm,
 		keystateORM:  orm,
 		scryptParams: scryptParams,
 		lock:         &sync.RWMutex{},
-		logger:       lggr.Named("KeyStore"),
+		logger:       logger.Named(lggr, "KeyStore"),
 	}
 
 	return &master{
@@ -94,6 +97,7 @@ func newMaster(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logg
 		starknet:   newStarkNetKeyStore(km),
 		aptos:      newAptosKeyStore(km),
 		tron:       newTronKeyStore(km),
+		ton:        newTONKeyStore(km),
 		vrf:        newVRFKeyStore(km),
 		workflow:   newWorkflowKeyStore(km),
 	}
@@ -137,6 +141,10 @@ func (ks *master) Aptos() Aptos {
 
 func (ks *master) Tron() Tron {
 	return ks.tron
+}
+
+func (ks *master) TON() TON {
+	return ks.ton
 }
 
 func (ks *master) VRF() VRF {
@@ -282,6 +290,8 @@ func GetFieldNameForKey(unknownKey Key) (string, error) {
 		return "Aptos", nil
 	case tronkey.Key:
 		return "Tron", nil
+	case tonkey.Key:
+		return "TON", nil
 	case vrfkey.KeyV2:
 		return "VRF", nil
 	case workflowkey.Key:

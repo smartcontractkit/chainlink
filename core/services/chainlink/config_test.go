@@ -433,6 +433,7 @@ func TestConfig_Marshal(t *testing.T) {
 		TransmitterAddress:           ptr(types.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
 		CaptureEATelemetry:           ptr(false),
 		TraceLogging:                 ptr(false),
+		ConfigLogValidation:          ptr(false),
 	}
 	full.P2P = toml.P2P{
 		IncomingMessageBufferSize: ptr[int64](13),
@@ -567,6 +568,15 @@ func TestConfig_Marshal(t *testing.T) {
 		EmitterBatchProcessor: ptr(true),
 		EmitterExportTimeout:  commoncfg.MustNewDuration(1 * time.Second),
 		ChipIngressEndpoint:   ptr("example.com/chip-ingress"),
+	}
+	full.CRE = toml.CreConfig{
+		Streams: &toml.StreamsConfig{
+			WsURL:   ptr("streams.url"),
+			RestURL: ptr("streams.url"),
+		},
+	}
+	full.Billing = toml.Billing{
+		URL: ptr("localhost:4319"),
 	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
@@ -704,6 +714,7 @@ func TestConfig_Marshal(t *testing.T) {
 						Fatal:                             ptr[string]("(: |^)fatal"),
 						ServiceUnavailable:                ptr[string]("(: |^)service unavailable"),
 						TooManyResults:                    ptr[string]("(: |^)too many results"),
+						MissingBlocks:                     ptr[string]("(: |^)missing blocks"),
 					},
 				},
 				OCR: evmcfg.OCR{
@@ -994,6 +1005,7 @@ SimulateTransactions = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 CaptureEATelemetry = false
 TraceLogging = false
+ConfigLogValidation = false
 `},
 		{"OCR2", Config{Core: toml.Core{OCR2: full.OCR2}}, `[OCR2]
 Enabled = true
@@ -1190,6 +1202,7 @@ TransactionAlreadyMined = '(: |^)transaction already mined'
 Fatal = '(: |^)fatal'
 ServiceUnavailable = '(: |^)service unavailable'
 TooManyResults = '(: |^)too many results'
+MissingBlocks = '(: |^)missing blocks'
 
 [EVM.OCR]
 ContractConfirmations = 11
@@ -1380,9 +1393,11 @@ func TestConfig_full(t *testing.T) {
 		if got.EVM[c].GasEstimator.DAOracle.OracleAddress == nil {
 			got.EVM[c].GasEstimator.DAOracle.OracleAddress = new(types.EIP55Address)
 		}
-
 		if got.EVM[c].GasEstimator.DAOracle.CustomGasPriceCalldata == nil {
 			got.EVM[c].GasEstimator.DAOracle.CustomGasPriceCalldata = new(string)
+		}
+		if got.EVM[c].GasEstimator.SenderAddress == nil {
+			got.EVM[c].GasEstimator.SenderAddress = new(types.EIP55Address)
 		}
 	}
 
@@ -1398,7 +1413,7 @@ func TestConfig_Validate(t *testing.T) {
 		toml string
 		exp  string
 	}{
-		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 9 errors:
+		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 10 errors:
 	- P2P.V2.Enabled: invalid value (false): P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2.
 	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
 	- WebServer: 8 errors:
@@ -1497,6 +1512,11 @@ func TestConfig_Validate(t *testing.T) {
 			- ChainID: missing: required for all chains
 	- Tron: 2 errors:
 		- 0.Nodes.1.Name: invalid value (tron-test): duplicate - must be unique
+		- 0: 2 errors:
+			- Enabled: invalid value (1): expected bool
+			- ChainID: missing: required for all chains
+	- TON: 2 errors:
+		- 0.Nodes.1.Name: invalid value (ton-test): duplicate - must be unique
 		- 0: 2 errors:
 			- Enabled: invalid value (1): expected bool
 			- ChainID: missing: required for all chains`},
