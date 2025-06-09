@@ -231,14 +231,9 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	switch tc.ValidationType {
 	case ValidationTypeCommit:
 		commitStart := time.Now()
-<<<<<<< HEAD
-		tc.T.Logf("waiting for commit of seq nums %+v", expectedSeqNum)
-		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNum, startBlocks)
-		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNum, time.Since(commitStart).String())
-=======
+		tc.T.Logf("waiting for commit of seq nums %+v", expectedSeqNumRange)
 		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNumRange, startBlocks)
 		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNumRange, time.Since(commitStart).String())
->>>>>>> a42741926f1c9417de1ff04edbb54719b1ede95b
 		// Explicitly log that only commit was validated if only Commit was requested
 		tc.T.Logf("only commit validation was performed")
 
