@@ -138,10 +138,11 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 }
 
 func assertEvmMessageReceived(t *testing.T, ctx context.Context, state stateview.CCIPOnChainState, destChain uint64, latestHead uint64, message []byte) {
-	receivedMessage, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
+	iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
 		Context: ctx,
 		Start:   latestHead,
 	})
 	require.NoError(t, err)
-	require.Equal(t, message, receivedMessage.Event.Data, "Message data should match the sent message")
+	require.True(t, iter.Next())
+	require.Equal(t, message, iter.Event.Data, "Message data should match the sent message")
 }
