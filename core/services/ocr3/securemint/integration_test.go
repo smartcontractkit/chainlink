@@ -132,7 +132,7 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 	validateJobsRunningSuccessfully(t, nodes, jobIDs)
 
 	// wait for a minute for the jobs to run and collect data
-	// time.Sleep(1 * time.Minute)
+	time.Sleep(1 * time.Minute)
 }
 
 func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
@@ -228,7 +228,7 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []Node, jobIDs map[int]
 				return
 			}
 			t.Logf("Pipeline itself is %+v", pr[0])
-			t.Logf("Pipeline run outputs are %s", string(outputs))
+			t.Logf("Pipeline run outputs are %s", string(outputs)) // TODO(gg): assert on the expected output from the ea observation
 
 			// assert.Equalf(t, []byte(fmt.Sprintf("[\"%d\"]", 1000*i)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1], "assert error: something unexpected happened")
 		}()
@@ -236,6 +236,27 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []Node, jobIDs map[int]
 	t.Logf("waiting for pipeline runs to complete")
 	wg.Wait()
 	t.Logf("All pipeline runs completed successfully")
+
+	// 3. Check that jobs are correct
+	// for _, app := range apps {
+	// 	jobs, _, err2 := app.JobORM().FindJobs(ctx, 0, 1000)
+	// 	require.NoError(t, err2)
+	// 	// No spec errors
+	// 	for _, j := range jobs {
+	// 		ignore := 0
+	// 		for i := range j.JobSpecErrors {
+	// 			// Non-fatal timing related error, ignore for testing.
+	// 			if strings.Contains(j.JobSpecErrors[i].Description, "leader's phase conflicts tGrace timeout") {
+	// 				ignore++
+	// 			}
+	// 		}
+	// 		require.Len(t, j.JobSpecErrors, ignore)
+	// 	}
+	// }
+
+	// 4. Check that transmissions work
+	// maybe hook into the stub transmitter somehow?
+
 }
 
 // TODO(gg): to set config on DF Cache contract

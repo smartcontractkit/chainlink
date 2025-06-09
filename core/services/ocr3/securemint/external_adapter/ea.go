@@ -2,6 +2,7 @@ package external_adapter
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -66,6 +67,20 @@ func (ea *externalAdapter) GetPayload(ctx context.Context, blocks por.Blocks) (p
 		if trr.IsTerminal() {
 			if m, ok := trr.Result.Value.(por.ExternalAdapterPayload); ok {
 				return m, nil
+			}
+			// Try to parse from map[string]interface{} using JSON marshal/unmarshal (TODO(gg): clean up if needed)
+			if m, ok := trr.Result.Value.(map[string]any); ok {
+				b, err := json.Marshal(m)
+				if err != nil {
+					return por.ExternalAdapterPayload{}, fmt.Errorf("failed to marshal EA payload map: %w", err)
+				}
+				var payload por.ExternalAdapterPayload
+				err = json.Unmarshal(b, &payload)
+				if err != nil {
+					return por.ExternalAdapterPayload{}, fmt.Errorf("failed to unmarshal EA payload: %w", err)
+				}
+				ea.lggr.Debugw("GetPayload result", "payload", payload)
+				return payload, nil
 			}
 			return por.ExternalAdapterPayload{}, fmt.Errorf("unexpected result type for GetPayload: %T", trr.Result.Value)
 		}

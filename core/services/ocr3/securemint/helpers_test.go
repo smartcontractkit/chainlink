@@ -292,6 +292,71 @@ updateInterval = "1m"
 		bridgeName)         // bridge name
 }
 
+//https://chainlink-core.slack.com/archives/C090PQH50M6/p1749483857095389?thread_ts=1749482941.061609&cid=C090PQH50M6:
+/**
+Input
+{
+    "data": {
+        "token": "usd1",
+        "reserves": "Bitgo",
+        "supplyChains": [
+            "5009297550715157269"
+        ],
+        "supplyChainBlocks": [
+            0
+        ]
+    }
+}
+Output
+{
+    "data": {
+        "mintables": {
+            "5009297550715157269": {
+                "mintable": "0",
+                "block": 0
+            }
+        },
+        "reserveInfo": {
+            "reserveAmount": "10332550000000000000000",
+            "timestamp": 1749483841486
+        },
+        "latestRelevantBlocks": {
+            "5009297550715157269": 22667990
+        },
+        "supplyDetails": {
+            "supply": "47550052000000000000000000",
+            "premint": "0",
+            "chains": {
+                "5009297550715157269": {
+                    "latest_block": 22667990,
+                    "response_block": 0,
+                    "request_block": 22667990,
+                    "mintable": "0",
+                    "token_supply": "44153737311060787567559446",
+                    "token_native_mint": "0",
+                    "token_ccip_mint": "1637953921482741588493980",
+                    "token_ccip_burn": "5034268610421954020934534",
+                    "token_pre_mint": "0",
+                    "aggregate_pre_mint": false
+                }
+            }
+        }
+    },
+    "statusCode": 200,
+    "result": 0,
+    "timestamps": {
+        "providerDataRequestedUnixMs": 1749483841817,
+        "providerDataReceivedUnixMs": 1749483841984
+    },
+    "meta": {
+        "adapterName": "SECURE_MINT",
+        "metrics": {
+            "feedId": "{\"token\":\"usd1\",\"reserves\":\"bitgo\",\"supplyChains\":[\"5009297550715157269\"],\"supplyChainBlocks\":[0]}"
+        }
+    }
+}
+*/
+
 func createSecureMintBridge(t *testing.T, name string, i int, response por.ExternalAdapterPayload, borm bridges.ORM) (bridgeName string) {
 	ctx := testutils.Context(t)
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -301,6 +366,26 @@ func createSecureMintBridge(t *testing.T, name string, i int, response por.Exter
 		body, err := io.ReadAll(req.Body)
 		defer req.Body.Close()
 		require.NoError(t, err)
+
+		// 		ds1 [type=bridge name="%s" timeout=0 requestData=<{"data": {"address": "0x1234"}}>]
+
+		// ds1 [type=bridge name=\"bridge-api0\" requestData="{\\\"data\\": {\\\"from\\\":\\\"LINK\\\",\\\"to\\\":\\\"ETH\\\"}}"];
+
+		//     submit [type=bridge name="substrate-adapter1" requestData=<{ "value": $(parse) }>]
+
+		// 		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		// 			b, err := io.ReadAll(req.Body)
+		// 			require.NoError(t, err)
+		// 			var m bridges.BridgeMetaDataJSON
+		// 			require.NoError(t, json.Unmarshal(b, &m))
+		// 			if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
+		// 				metaLock.Lock()
+		// 				delete(expectedMeta, m.Meta.LatestAnswer.String())
+		// 				metaLock.Unlock()
+		// 			}
+		// 			res.WriteHeader(http.StatusOK)
+		// 			_, err = res.Write([]byte(`{"data":10}`))
+		// 			require.NoError(t, err)
 
 		t.Logf("Received request for secure mint bridge %s on node %d: path %s, request body %s", name, i, req.URL.String(), string(body))
 
