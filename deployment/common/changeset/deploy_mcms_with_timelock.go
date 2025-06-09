@@ -71,7 +71,7 @@ func DeployMCMSWithTimelockV2(
 				if s != nil {
 					chainstate = s[chainSel]
 				}
-				_, err = evminternal.DeployMCMSWithTimelockContractsEVM(env.GetContext(), env.Logger, env.BlockChains.EVMChains()[chainSel], newAddresses, cfg, chainstate)
+				_, err = evminternal.DeployMCMSWithTimelockContractsEVM(env, env.BlockChains.EVMChains()[chainSel], newAddresses, cfg, chainstate)
 				return err
 
 			case chain_selectors.FamilySolana:
@@ -151,8 +151,7 @@ func grantRoleLogic(e cldf.Environment, cfg GrantRoleInput) (cldf.ChangesetOutpu
 		stateForChain := mcmsState[chain]
 		evmChains := e.BlockChains.EVMChains()
 		mcmsTxs, err := evminternal.GrantRolesForTimelock(
-			e.GetContext(),
-			e.Logger, evmChains[chain], &proposalutils.MCMSWithTimelockContracts{
+			e, evmChains[chain], &proposalutils.MCMSWithTimelockContracts{
 				CancellerMcm: stateForChain.CancellerMcm,
 				BypasserMcm:  stateForChain.BypasserMcm,
 				ProposerMcm:  stateForChain.ProposerMcm,

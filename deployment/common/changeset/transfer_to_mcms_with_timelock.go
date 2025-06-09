@@ -2,7 +2,6 @@ package changeset
 
 import (
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"time"
@@ -17,7 +16,9 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/seqs"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -103,34 +104,24 @@ func TransferToMCMSWithTimelockV2(
 		proposerAddressByChain[chainSelector] = proposerAddr
 		inspectorPerChain[chainSelector] = evm.NewInspector(evmChains[chainSelector].Client)
 
-		var ops []mcmstypes.Transaction
-		for _, contract := range contracts {
-			// Just using the ownership interface.
-			// Already validated is ownable.
-			owner, c, _ := LoadOwnableContract(contract, evmChains[chainSelector].Client)
-			if owner.String() == timelockAddr {
-				// Already owned by timelock.
-				e.Logger.Infof("contract %s already owned by timelock", contract)
-				continue
-			}
-			tx, err := c.TransferOwnership(evmChains[chainSelector].DeployerKey, common.HexToAddress(timelockAddr))
-			_, err = cldf.ConfirmIfNoError(evmChains[chainSelector], tx, err)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of contract %T: %w", contract, err)
-			}
-			tx, err = c.AcceptOwnership(cldf.SimTransactOpts())
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate accept ownership calldata of %s: %w", contract, err)
-			}
-			ops = append(ops, mcmstypes.Transaction{
-				To:               contract.Hex(),
-				Data:             tx.Data(),
-				AdditionalFields: json.RawMessage(`{"value": 0}`), // JSON-encoded `{"value": 0}`
-			})
+		seqReport, err := operations.ExecuteSequence(e.OperationsBundle, seqs.SeqTransferToMCMSWithTimelockV2,
+			seqs.SeqTransferToMCMSWithTimelockV2Deps{
+				Chain: evmChains[chainSelector],
+			},
+			seqs.SeqTransferToMCMSWithTimelockV2Input{
+				ChainSelector: chainSelector,
+				Timelock:      common.HexToAddress(timelockAddr),
+				Contracts:     contracts,
+			},
+		)
+
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute sequence: %w", err)
 		}
+
 		batches = append(batches, mcmstypes.BatchOperation{
 			ChainSelector: mcmstypes.ChainSelector(chainSelector),
-			Transactions:  ops,
+			Transactions:  seqReport.Output.OpsMcms,
 		})
 	}
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
