@@ -1,5 +1,5 @@
 # This file defines testing plugins to be installed via `loopinstall`.
-# This file should only include testing plugins that are not meant to be released to the public.
+# This file should only include testing plugins that are not meant to be released to the public. Relayer and other plugins that make it into the final release should not be added here. They should be tested within their own repo's CI pipelines.
 
 # Common plugin configuration
 defaults:
