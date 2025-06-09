@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -31,16 +30,16 @@ func (m mockCfg) Protocol() config.MercuryTransmitterProtocol {
 	return config.MercuryTransmitterProtocolGRPC
 }
 
-func (m mockCfg) ReaperMaxAge() commonconfig.Duration {
-	return *commonconfig.MustNewDuration(0)
+func (m mockCfg) ReaperMaxAge() time.Duration {
+	return 0
 }
 
 func (m mockCfg) TransmitQueueMaxSize() uint32 {
 	return 10_000
 }
 
-func (m mockCfg) TransmitTimeout() commonconfig.Duration {
-	return *commonconfig.MustNewDuration(1 * time.Hour)
+func (m mockCfg) TransmitTimeout() time.Duration {
+	return 1 * time.Hour
 }
 
 func (m mockCfg) TransmitConcurrency() uint32 {

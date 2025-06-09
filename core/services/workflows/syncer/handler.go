@@ -185,6 +185,12 @@ func NewEventHandler(
 	workflowArtifacts WorkflowArtifactsStore,
 	opts ...func(*eventHandler),
 ) (*eventHandler, error) {
+	if workflowStore == nil {
+		return nil, errors.New("workflow store must be provided")
+	}
+	if capRegistry == nil {
+		return nil, errors.New("capabilities registry must be provided")
+	}
 	if engineRegistry == nil {
 		return nil, errors.New("engine registry must be provided")
 	}
