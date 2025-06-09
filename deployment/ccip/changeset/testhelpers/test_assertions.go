@@ -478,7 +478,7 @@ func SolEventEmitter[T any](
 				return
 			case <-ticker.C:
 				// Scan for transactions referencing the address
-				ctx := context.Background()
+				ctx := t.Context()
 				txSigs, err := client.GetSignaturesForAddressWithOpts(
 					ctx,
 					address,

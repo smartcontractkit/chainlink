@@ -34,7 +34,7 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test  -run "Test_CCIPMessaging_EVM2EVM" -timeout 18m -test.parallel=2 -count=1 -json
+    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_EVM2EVM" -timeout 18m -test.parallel=2 -count=1 -json
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_EVM2Solana
@@ -44,7 +44,7 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test  -run "Test_CCIPMessaging_EVM2Solana" -timeout 18m -test.parallel=2 -count=1 -json
+    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_EVM2Solana" -timeout 18m -test.parallel=2 -count=1 -json
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_Solana2EVM
@@ -54,17 +54,17 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test  -run "Test_CCIPMessaging_Solana2EVM" -timeout 18m -test.parallel=2 -count=1 -json
+    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_Solana2EVM" -timeout 18m -test.parallel=2 -count=1 -json
     test_go_project_path: integration-tests
 
-  - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_EVM2SolanaMultiExecReports
+  - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_MultiExecReports_EVM2Solana
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test  -run "Test_CCIPMessaging_EVM2SolanaMultiExecReports" -timeout 18m -test.parallel=2 -count=1 -json
+    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_MultiExecReports_EVM2Solana" -timeout 18m -test.parallel=2 -count=1 -json
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_message_limitations_test.go:*
@@ -107,7 +107,6 @@ runner-test-matrix:
     test_cmd: cd smoke/ccip && go test -run "^Test_CCIPBatching_MultiSource_MultiRoot$" -timeout 25m -test.parallel=2 -count=1 -json
     test_go_project_path: integration-tests
 
-
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_MultiSource_MultiPrice
     path: integration-tests/smoke/ccip/ccip_batching_test.go
     test_env_type: in-memory
@@ -117,7 +116,6 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: cd smoke/ccip && go test -run "^Test_CCIPBatching_MultiSource_MultiPrice$" -timeout 25m -test.parallel=2 -count=1 -json
     test_go_project_path: integration-tests
-
 
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_SingleSource
     path: integration-tests/smoke/ccip/ccip_batching_test.go

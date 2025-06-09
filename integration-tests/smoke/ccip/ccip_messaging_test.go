@@ -205,7 +205,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	require.Equal(t, int32(0), ms.reExecutionsObserved.Load())
 }
 
-func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
+func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
