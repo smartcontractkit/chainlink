@@ -1099,7 +1099,7 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 				continue
 			}
 
-			t.Logf("Found pipeline run %d with status %s on node %d for job %d with task runs: %#v", pr.ID, pr.State, nodeID, jobID, pr.PipelineTaskRuns)
+			t.Logf("Found pipeline run %d with status %s on node %d for job %d with %d task runs", pr.ID, pr.State, nodeID, jobID, len(pr.PipelineTaskRuns))
 			// txdb effectively ignores transactionality of queries, so we need to explicitly expect a number of task runs
 			// (if the read occurs mid-transaction and a job run is inserted but task runs not yet).
 			if len(pr.PipelineTaskRuns) == expectedTaskRuns {

@@ -1,7 +1,9 @@
 package llo_test
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -10,7 +12,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -34,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
+	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
 	"github.com/smartcontractkit/wsrpc/credentials"
 )
 
@@ -168,7 +170,15 @@ func addSecureMintOCRJobs(
 	// Create one bridge and one SM Feed OCR job on each node
 	for i, node := range nodes {
 		name := "securemint-ea"
-		bmBridge := createSecureMintBridge(t, name, i, decimal.NewFromFloat32(1000), node.App.BridgeORM())
+		bridgeResp := por.Mintables{
+			BlockMintables: map[por.ChainSelector]por.BlockMintablePair{
+				por.ChainSelector(uint64(1)): por.BlockMintablePair{
+					Block:    por.BlockNumber(1),
+					Mintable: big.NewInt(1000000000),
+				},
+			},
+		}
+		bmBridge := createSecureMintBridge(t, name, i, bridgeResp, node.App.BridgeORM())
 		t.Logf("Created secure mint bridge %s on node %d", bmBridge, i)
 
 		addresses, err := node.App.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), testutils.SimulatedChainID)
@@ -216,11 +226,9 @@ func addSecureMintJob(i int,
 
 func getSecureMintJobSpec(ocrContractAddress, keyBundleID, transmitterAddress, bridgeName string) string {
 
-	// TODO(gg): allowNoBootstrappers set to true to make it start up - not sure if we want to set this to false later
-
-	// TODO(gg): update the observation ds1_parse step to use the correct path for the secure mint EA response
-
-	// TODO(gg): add pluginConfig, depending on new plugin
+	// TODO(gg): check/update EA request/response format
+	// TODO(gg): update pluginConfig
+	// TODO(gg): is `answer1 [type=any index=0];` correct? Does it actually enable the plugin to come to consensus?
 
 	return fmt.Sprintf(`
 type               = "offchainreporting2"
@@ -237,11 +245,10 @@ observationSource  = """
     // data source 1
     ds1          [type=bridge name="%s"];
     ds1_parse    [type=jsonparse path="data"];
-    ds1_multiply [type=multiply times=1];
 
-    ds1 -> ds1_parse -> ds1_multiply -> answer1;
+    ds1 -> ds1_parse -> answer1;
 
-	answer1 [type=median index=0];
+	answer1 [type=any index=0];
 """
 
 allowNoBootstrappers = false
@@ -278,16 +285,25 @@ updateInterval = "1m"
 		bridgeName)         // bridge name
 }
 
-func createSecureMintBridge(t *testing.T, name string, i int, p decimal.Decimal, borm bridges.ORM) (bridgeName string) {
+func createSecureMintBridge(t *testing.T, name string, i int, response por.Mintables, borm bridges.ORM) (bridgeName string) {
 	ctx := testutils.Context(t)
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		// TODO(gg): assert on the EA request format here
 		// require.JSONEq(t, `{"meta":{"latestAnswer":"", "updatedAt": ""}}`, string(b))
 
+		body, err := io.ReadAll(req.Body)
+		defer req.Body.Close()
+		require.NoError(t, err)
+
+		t.Logf("Received request for secure mint bridge %s on node %d: path %s, request body %s", name, i, req.URL.String(), string(body))
+
+		jsonResp, err := json.Marshal(response)
+		require.NoError(t, err)
+
 		res.WriteHeader(http.StatusOK)
-		val := p.String()
-		resp := fmt.Sprintf(`{"data": %s}`, val)
-		_, err := res.Write([]byte(resp))
+		resp := fmt.Sprintf(`{"data": %s}`, string(jsonResp))
+		t.Logf("Responding from secure mint bridge %s on node %d with: %s", name, i, resp)
+		_, err = res.Write([]byte(resp))
 		require.NoError(t, err)
 	}))
 	t.Cleanup(bridge.Close)
