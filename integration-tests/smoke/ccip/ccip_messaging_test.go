@@ -8,10 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
@@ -207,146 +203,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	require.Equal(t, int32(0), ms.reExecutionsObserved.Load())
 }
 
-func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
-	t.Skip("Skipping for now since this has been flaky")
-
-	// Setup 2 chains (EVM and Solana) and a single lane.
-	ctx := testhelpers.Context(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(t,
-		testhelpers.WithSolChains(1),
-		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-			params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(1 * time.Hour)
-			params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(1 * time.Hour)
-			params.ExecuteOffChainConfig.MultipleReportsEnabled = true
-			params.ExecuteOffChainConfig.MaxReportMessages = 1
-			params.ExecuteOffChainConfig.MaxSingleChainReports = 1
-			return params
-		}),
-	)
-
-	testhelpers.DeploySolanaCcipReceiver(t, e.Env)
-
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
-	allChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chainsel.FamilyEVM))
-	allSolChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chainsel.FamilySolana))
-	sourceChain := allChainSelectors[0]
-	destChain := allSolChainSelectors[0]
-	t.Log("All chain selectors:", allChainSelectors,
-		", sol chain selectors:", allSolChainSelectors,
-		", home chain selector:", e.HomeChainSel,
-		", feed chain selector:", e.FeedChainSel,
-		", source chain selector:", sourceChain,
-		", dest chain selector:", destChain,
-	)
-	// connect a single lane, source to dest
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
-
-	var (
-		// nonce    uint64 // Nonce not used as Solana check is skipped
-		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
-		setup  = mt.NewTestSetupWithDeployedEnv(
-			t,
-			e,
-			state,
-			sourceChain,
-			destChain,
-			sender,
-			false, // testRouter
-		)
-	)
-
-	receiverProgram := state.SolChains[destChain].Receiver
-	receiver := receiverProgram.Bytes()
-	receiverTargetAccountPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverProgram)
-	receiverExternalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverProgram)
-
-	solChains := e.Env.BlockChains.SolanaChains()
-
-	accounts := [][32]byte{
-		receiverExternalExecutionConfigPDA,
-		receiverTargetAccountPDA,
-		solana.SystemProgramID,
-	}
-
-	extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
-		AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
-		Accounts:                 accounts,
-		ComputeUnits:             80_000,
-		AllowOutOfOrderExecution: true,
-	})
-	require.NoError(t, err)
-
-	// check that counter is 0
-	var receiverCounterAccount soltesthelpers.ReceiverCounter
-	err = solcommon.GetAccountDataBorshInto(ctx, solChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccount)
-	require.NoError(t, err, "failed to get account info")
-	// Already sent a message earlier
-	require.Equal(t, uint8(0), receiverCounterAccount.Value)
-
-	numMessages := 5
-	_ = mt.Run(
-		t,
-		mt.TestCase{
-			ValidationType:         mt.ValidationTypeExec,
-			TestSetup:              setup,
-			Nonce:                  nil, // Solana nonce check is skipped
-			Receiver:               receiver,
-			MsgData:                []byte("hello CCIPReceiver"),
-			ExtraArgs:              extraArgs,
-			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-			NumberOfMessages:       numMessages,
-		},
-	)
-
-	t.Logf("Checking TransmittedEvents")
-	done := make(chan any)
-	defer close(done)
-	offrampAddress := state.SolChains[destChain].OffRamp
-	sink, errCh := testhelpers.SolEventEmitter[solccip.EventTransmitted](
-		t,
-		solChains[destChain].Client,
-		offrampAddress, "Transmitted", 0, done)
-	timeout := time.NewTimer(tests.WaitTimeout(t) - 5*time.Second) // 5 seconds buffer for cleanup
-	defer timeout.Stop()
-
-	// create a map/set to keep track of transmittedEvent.SequenceNumber
-	sequenceNumbers := make(map[uint64]int)
-
-	for {
-		select {
-		case transmittedEvent := <-sink:
-			if transmittedEvent.OcrPluginType == uint8(cctypes.PluginTypeCCIPExec) {
-				ocrSeqNr := transmittedEvent.SequenceNumber
-				_, exists := sequenceNumbers[ocrSeqNr]
-				if !exists {
-					sequenceNumbers[ocrSeqNr] = 0
-				}
-				sequenceNumbers[ocrSeqNr]++
-				t.Logf("Current sequence numbers: %+v", sequenceNumbers)
-				// All exec reports should have the same sequence number
-				if len(sequenceNumbers) > 1 {
-					t.Errorf("More than one sequence number: %+v", sequenceNumbers)
-					break
-				}
-
-				// All messages were reported with different reports but same sequence number
-				if sequenceNumbers[ocrSeqNr] >= numMessages {
-					return
-				}
-			}
-		case err := <-errCh:
-			require.NoError(t, err)
-		case <-timeout.C:
-			require.Fail(t, "Timed out waiting for all messages to complete")
-		}
-	}
-}
-
 func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
-	t.Skip("Skipping for now since this has been flaky")
-
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
@@ -400,13 +257,6 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 	receiver := receiverProgram.Bytes()
 	receiverTargetAccountPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverProgram)
 	receiverExternalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverProgram)
-
-	// message := ccip_router.SVM2AnyMessage{
-	// 	Receiver:     validReceiverAddress[:],
-	// 	FeeToken:     wsol.mint,
-	// 	TokenAmounts: []ccip_router.SVMTokenAmount{{Token: token0.Mint.PublicKey(), Amount: 1}},
-	// 	ExtraArgs:    emptyEVMExtraArgsV2,
-	// }
 
 	solChains := e.Env.BlockChains.SolanaChains()
 
@@ -531,12 +381,58 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		)
 	})
 
+	t.Run("multi exec reports", func(t *testing.T) {
+		accounts := [][32]byte{
+			receiverExternalExecutionConfigPDA,
+			receiverTargetAccountPDA,
+			solana.SystemProgramID,
+		}
+
+		extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
+			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
+			Accounts:                 accounts,
+			ComputeUnits:             80_000,
+			AllowOutOfOrderExecution: true,
+		})
+		require.NoError(t, err)
+
+		// check that counter is 0
+		var receiverCounterAccount soltesthelpers.ReceiverCounter
+		err = solcommon.GetAccountDataBorshInto(ctx, solChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccount)
+		require.NoError(t, err, "failed to get account info")
+		// Already sent a message earlier
+		require.Equal(t, uint8(0), receiverCounterAccount.Value)
+
+		numMessages := 5
+		_ = mt.Run(
+			t,
+			mt.TestCase{
+				ValidationType:         mt.ValidationTypeExec,
+				TestSetup:              setup,
+				Nonce:                  nil, // Solana nonce check is skipped
+				Receiver:               receiver,
+				MsgData:                []byte("hello CCIPReceiver"),
+				ExtraArgs:              extraArgs,
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				NumberOfMessages:       numMessages,
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) {
+						// Check counter is now 1
+						var receiverCounterAccountAfterSuccess soltesthelpers.ReceiverCounter
+						err = solcommon.GetAccountDataBorshInto(ctx, solChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccountAfterSuccess)
+						require.NoError(t, err, "failed to get account info after second message")
+						require.Equal(t, uint8(7), receiverCounterAccountAfterSuccess.Value, "Counter should have incremented 5 times to 7")
+						t.Logf("Confirmed counter incremented to 7 after multi exec reports")
+					},
+				},
+			},
+		)
+	})
+
 	_ = out
 }
 
 func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
-	t.Skip("Skipping for now since this has been flaky")
-
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithSolChains(1))
