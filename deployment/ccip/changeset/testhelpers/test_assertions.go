@@ -596,12 +596,14 @@ func (c *SolanaDestConfirmer) ConfirmCommitWithExpectedSeqNumRangeSol(args *Conf
 	for {
 		select {
 		case commitEvent := <-sink:
+			// if merkle root is zero, it only contains price updates
 			if commitEvent.Report == nil {
 				args.T.Logf("Skipping CommitReportAccepted with only price updates")
 				continue
 			}
 			require.Equal(args.T, args.SrcSelector, commitEvent.Report.SourceChainSelector)
 
+			// TODO: this logic is duplicated with verifyCommitReport, share
 			mr := commitEvent.Report
 			seenMessages.visitCommitReport(mr.SourceChainSelector, mr.MinSeqNr, mr.MaxSeqNr)
 			if mr.SourceChainSelector == args.SrcSelector &&
@@ -799,6 +801,7 @@ func (c *SolanaDestConfirmer) ConfirmExecWithSeqNrsSol(args *ConfirmExecArgs) (e
 	for {
 		select {
 		case execEvent := <-sink:
+			// TODO: share with EVM
 			_, found := seqNrsToWatch[execEvent.SequenceNumber]
 			if found && execEvent.SourceChainSelector == args.SourceChain {
 				args.T.Logf("Received ExecutionStateChanged (state %s) on chain %d (offramp %s) from chain %d with expected sequence number %d",
