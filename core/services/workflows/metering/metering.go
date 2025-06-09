@@ -265,7 +265,7 @@ func (r *Report) FormatReport() *events.MeteringReport {
 		Metadata: &events.WorkflowMetadata{},
 	}
 
-	for key, step := range r.steps {
+	for ref, step := range r.steps {
 		nodeDetails := []*events.MeteringReportNodeDetail{}
 
 		for unit, details := range step.Spends {
@@ -278,7 +278,7 @@ func (r *Report) FormatReport() *events.MeteringReport {
 			}
 		}
 
-		protoReport.Steps[key] = &events.MeteringReportStep{
+		protoReport.Steps[ref] = &events.MeteringReportStep{
 			Nodes: nodeDetails,
 		}
 	}
@@ -390,11 +390,13 @@ func (s *Reports) End(ctx context.Context, workflowExecutionID string) error {
 		return ErrReportNotFound
 	}
 
-	if err := report.SendReceipt(ctx); err != nil {
-		return err
-	}
+	err := report.SendReceipt(ctx)
 
 	delete(s.reports, workflowExecutionID)
+
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
