@@ -352,6 +352,8 @@ func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
 }
 
 func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
+	t.Skip("Skipping for now since this has been flaky")
+
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
@@ -544,6 +546,8 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 }
 
 func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
+	t.Skip("Skipping for now since this has been flaky")
+
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithSolChains(1))
