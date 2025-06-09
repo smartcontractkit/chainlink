@@ -117,7 +117,9 @@ jobs:
           github.ref_type == 'tag' ||
           steps.changes.outputs.github_ci_changes == 'true'
         }}
-      builder-runner-label: ${{ steps.runner-labels.outputs.runner-label }}
+      builder-runner-label: ${{ steps.runner-labels.outputs.builder-runner-label }}
+      solana-runner-label: ${{ steps.runner-labels.outputs.solana-runner-label }}
+      should-use-self-hosted-runners: ${{ steps.label-runs-on-opt-out.outputs.check-label-found == 'false' }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4
@@ -159,17 +161,21 @@ jobs:
         with:
           check-label: "runs-on-opt-out"
 
-      - name: Set Runner Labels
+      - name: Set runner labels
         id: runner-labels
         env:
           OPT_OUT: ${{ steps.label-runs-on-opt-out.outputs.check-label-found || 'false' }}
           GH_BUILDER_RUNNER: ubuntu22.04-8cores-32GB
           SH_BUILDER_RUNNER: runs-on=${{ github.run_id }}/cpu=32/memory=64/family=c6i/extras=s3-cache+tmpfs
+          GH_SOLANA_RUNNER: ubuntu22.04-8cores-32GB
+          SH_SOLANA_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu22-full-x64/extras=s3-cache+tmpfs
         run: |
           if [[ "${OPT_OUT}" == "true" ]]; then
-            echo "runner-label=${GH_BUILDER_RUNNER}" | tee -a $GITHUB_OUTPUT
+            echo "builder-runner-label=${GH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"
+            echo "solana-runner-label=${GH_SOLANA_RUNNER}" | tee -a "$GITHUB_OUTPUT"
           else
-            echo "runner-label=${SH_BUILDER_RUNNER}" | tee -a $GITHUB_OUTPUT
+            echo "builder-runner-label=${SH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"
+            echo "solana-runner-label=${SH_SOLANA_RUNNER}" | tee -a "$GITHUB_OUTPUT"
           fi
 
 
@@ -1052,7 +1058,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Smoke Tests
-    runs-on: ubuntu22.04-8cores-32GB
+    runs-on: ${{ needs.changes.outputs.builder-runner-label || 'ubuntu22.04-8cores-32GB' }}
     needs:
       [
         build-chainlink,
@@ -1067,6 +1073,11 @@ jobs:
       TEST_LOG_LEVEL: debug
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
     steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
+        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
+        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+
       - name: Checkout the repo
         uses: actions/checkout@v4
         with:
