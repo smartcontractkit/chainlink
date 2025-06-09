@@ -34,10 +34,6 @@ func (c *CapabilityExecutor) CallCapability(ctx context.Context, request *sdkpb.
 	if err != nil {
 		return nil, fmt.Errorf("trigger capability not found: %w", err)
 	}
-	_, err = capability.Info(ctx)
-	if err != nil {
-		c.lggr.Error("could not get capability info for %v", request.Id)
-	}
 
 	capReq := capabilities.CapabilityRequest{
 		Payload:      request.Payload,
@@ -54,12 +50,16 @@ func (c *CapabilityExecutor) CallCapability(ctx context.Context, request *sdkpb.
 	}
 	meteringRef := strconv.Itoa(int(request.CallbackId))
 
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-477 Get capability info by getting the workflow vertex and talking to the capaiblity
+
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-285 get max spend per step. Compare to availability and limits.
 
-	availableForCall, err := meterReport.GetAvailablity(int(c.cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow) - len(c.capCallsSemaphore))
+	availableForCall, err := meterReport.GetAvailableForInvocation(int(c.cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow) - len(c.capCallsSemaphore))
 	if err != nil {
 		c.lggr.Errorw("could not reserve for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 	}
+
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461 if availability is math.MaxInt64 there is no limit. Possibly flag this in a different way.
 
 	err = meterReport.Deduct(meteringRef, availableForCall)
 	if err != nil {

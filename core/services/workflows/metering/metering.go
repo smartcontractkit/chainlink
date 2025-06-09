@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"sync"
 
@@ -37,56 +38,6 @@ type BillingClient interface {
 	ReserveCredits(context.Context, *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error)
 }
 
-type SpendUnit string
-
-func (s SpendUnit) String() string {
-	return string(s)
-}
-
-func (s SpendUnit) DecimalToSpendValue(value decimal.Decimal) SpendValue {
-	return SpendValue{value: value, roundingPlace: 18}
-}
-
-func (s SpendUnit) IntToSpendValue(value int64) SpendValue {
-	return SpendValue{value: decimal.NewFromInt(value), roundingPlace: 18}
-}
-
-func (s SpendUnit) StringToSpendValue(value string) (SpendValue, error) {
-	dec, err := decimal.NewFromString(value)
-	if err != nil {
-		return SpendValue{}, err
-	}
-
-	return SpendValue{value: dec, roundingPlace: 18}, nil
-}
-
-type SpendValue struct {
-	value         decimal.Decimal
-	roundingPlace uint8
-}
-
-func (v SpendValue) Add(value SpendValue) SpendValue {
-	return SpendValue{
-		value:         v.value.Add(value.value),
-		roundingPlace: v.roundingPlace,
-	}
-}
-
-func (v SpendValue) Div(value SpendValue) SpendValue {
-	return SpendValue{
-		value:         v.value.Div(value.value),
-		roundingPlace: v.roundingPlace,
-	}
-}
-
-func (v SpendValue) GreaterThan(value SpendValue) bool {
-	return v.value.GreaterThan(value.value)
-}
-
-func (v SpendValue) String() string {
-	return v.value.StringFixedBank(int32(v.roundingPlace))
-}
-
 type SpendTuple struct {
 	Unit  string
 	Value int64
@@ -101,13 +52,13 @@ type ProtoDetail struct {
 type ReportStep struct {
 	// The maximum amount of universal credits that should be used in this step
 	Deduction int64
-	// The actual spend of this step
-	Spend map[SpendUnit][]ReportStepDetail
+	// The actual resource spend that each node used for this step
+	Spends map[string][]ReportStepDetail
 }
 
 type ReportStepDetail struct {
 	Peer2PeerID string
-	SpendValue  SpendValue
+	SpendValue  string
 }
 
 type Report struct {
@@ -152,10 +103,7 @@ func (r *Report) Reserve(ctx context.Context) error {
 		return ErrNoBillingClient
 	}
 
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-460 get rate card from billing service
-	rateCard := map[string]decimal.Decimal{}
-
-	balanceStore := NewBalanceStore(0, rateCard, r.lggr)
+	var balanceStore *balanceStore
 
 	// If there is no credit limit defined in the workflow, then open an empty reservation
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-284 consume user defined workflow execution limit
@@ -170,59 +118,23 @@ func (r *Report) Reserve(ctx context.Context) error {
 	// If there is an error communicating with the billing service, fail open
 	if err != nil {
 		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-453 track causes of metering mode
+		balanceStore = NewBalanceStore(0, map[string]decimal.Decimal{}, r.lggr)
 		balanceStore.AllowNegative()
 		r.lggr.Warnf("failed to reserve credits: %s", err)
 	} else {
 		if success := resp.GetSuccess(); !success {
 			return ErrInsufficientFunding
 		}
+		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-460 parse rate card from billing service response
+		dummyRateCard := map[string]decimal.Decimal{}
 		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-290 once billing client response contains balance set using balanceStore.Add
 		dummyInitialBalance := int64(10000)
-		if addErr := balanceStore.Add(dummyInitialBalance); addErr != nil {
-			return addErr
-		}
+		balanceStore = NewBalanceStore(dummyInitialBalance, dummyRateCard, r.lggr)
 	}
 
 	r.ready = true
 	r.balance = balanceStore
 	return nil
-}
-
-func (r *Report) MedianSpend() map[SpendUnit]SpendValue {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	values := map[SpendUnit][]SpendValue{}
-	medians := map[SpendUnit]SpendValue{}
-
-	for _, step := range r.steps {
-		for unit, details := range step.Spend {
-			_, ok := values[unit]
-			if !ok {
-				values[unit] = []SpendValue{}
-			}
-
-			for _, detail := range details {
-				values[unit] = append(values[unit], detail.SpendValue)
-			}
-		}
-	}
-
-	for unit, set := range values {
-		sort.Slice(set, func(i, j int) bool {
-			return set[j].GreaterThan(set[i])
-		})
-
-		if len(set)%2 > 0 {
-			medians[unit] = set[len(set)/2]
-
-			continue
-		}
-
-		medians[unit] = set[len(set)/2-1].Add(set[len(set)/2]).Div(unit.IntToSpendValue(2))
-	}
-
-	return medians
 }
 
 // ConvertFromBalance converts a credit amount to a resource dimensions amount
@@ -256,22 +168,28 @@ func (r *Report) Deduct(ref string, amount int64) error {
 
 	r.steps[ref] = ReportStep{
 		Deduction: amount,
-		Spend:     nil,
+		Spends:    nil,
 	}
 
 	return nil
 }
 
-// GetAvailablity returns the amount of balance that is available to be used when split among a number of potential concurrent calls
-func (r *Report) GetAvailablity(openConcurrentCallSlots int) (int64, error) {
+// GetAvailableForInvocation returns the amount of credits that can be used based on the available credit balance.
+// This is determined by dividing unearmarked local credit balance by the number of potential concurrent calls.
+func (r *Report) GetAvailableForInvocation(openConcurrentCallSlots int) (int64, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if openConcurrentCallSlots == 0 {
+		// invariant: this should be managed by the consumer (engine)
 		return 0, ErrNoOpenCalls
 	}
 
-	// Split the available local balance between the number of concurrent calls that can still be made
+	if r.balance.allowNegative {
+		return math.MaxInt64, nil
+	}
+
+	// Split the available local balance between the potential number of concurrent calls that can be made
 	available := r.balance.Get()
 	share := decimal.NewFromInt(available).Div(decimal.NewFromInt(int64(openConcurrentCallSlots)))
 	roundedShare := share.RoundDown(0).IntPart()
@@ -279,10 +197,11 @@ func (r *Report) GetAvailablity(openConcurrentCallSlots int) (int64, error) {
 	return roundedShare, nil
 }
 
-// Settle records the actual spend for a given capability invocation in the engine.
-// The Deduct method must be called before Settle
-// We expect to only set this value once - an error is returned if a step would be overwritten
-func (r *Report) Settle(ref string, steps []capabilities.MeteringNodeDetail) error {
+// Settle handles the actual spends that each node used for a given capability invocation in the engine,
+// by returning earmarked local balance to the available to use pool and adding the spend to the metering report.
+// The Deduct method must be called before Settle.
+// We expect to only set this value once - an error is returned if a step would be overwritten.
+func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDetail) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -294,32 +213,44 @@ func (r *Report) Settle(ref string, steps []capabilities.MeteringNodeDetail) err
 	if !ok {
 		return ErrNoDeduct
 	}
-
-	if step.Spend != nil {
+	if step.Spends != nil {
 		return ErrStepSpendExists
 	}
 
-	spent := int64(0)
-	spends := make(map[SpendUnit][]ReportStepDetail)
+	spentCredits := int64(0)
+	resourceSpends := make(map[string][]ReportStepDetail)
 
-	for _, detail := range steps {
-		unit := SpendUnit(detail.SpendUnit)
-		value, err := unit.StringToSpendValue(detail.SpendValue)
-		if err != nil {
-			r.lggr.Error(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
-		}
-		spends[unit] = append(spends[unit], ReportStepDetail{
-			Peer2PeerID: detail.Peer2PeerID,
-			SpendValue:  value,
+	// Group by resource dimension
+	for _, nodeDetail := range spendsByNode {
+		resourceSpends[nodeDetail.SpendUnit] = append(resourceSpends[nodeDetail.SpendUnit], ReportStepDetail{
+			Peer2PeerID: nodeDetail.Peer2PeerID,
+			SpendValue:  nodeDetail.SpendValue,
 		})
-		spent += r.balance.ConvertToBalance(detail.SpendUnit, value.value.IntPart())
 	}
 
-	step.Spend = spends
+	// Aggregate node responses to a single number
+	for unit, spendDetails := range resourceSpends {
+		deciVals := []decimal.Decimal{}
+		for _, detail := range spendDetails {
+			value, err := decimal.NewFromString(detail.SpendValue)
+			if err != nil {
+				r.lggr.Error(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
+				// throw out invalid values for local balance settlement. they will still be included in metering report.
+				continue
+			}
+			deciVals = append(deciVals, value)
+		}
+
+		aggregateSpend := medianSpend(deciVals)
+
+		spentCredits += r.balance.ConvertToBalance(unit, aggregateSpend.IntPart())
+	}
+
+	step.Spends = resourceSpends
 	r.steps[ref] = step
 
-	// Refund the difference between what local balance what earmarked and the actual spend
-	err := r.balance.Add(step.Deduction - spent)
+	// Refund the difference between what local balance had been earmarked and the actual spend
+	err := r.balance.Add(step.Deduction - spentCredits)
 	if err != nil {
 		// invariant: capability should not let spend exceed reserve
 		r.lggr.Error("invariant: spend exceeded reserve")
@@ -328,7 +259,7 @@ func (r *Report) Settle(ref string, steps []capabilities.MeteringNodeDetail) err
 	return nil
 }
 
-func (r *Report) Message() *events.MeteringReport {
+func (r *Report) FormatReport() *events.MeteringReport {
 	protoReport := &events.MeteringReport{
 		Steps:    map[string]*events.MeteringReportStep{},
 		Metadata: &events.WorkflowMetadata{},
@@ -337,12 +268,12 @@ func (r *Report) Message() *events.MeteringReport {
 	for key, step := range r.steps {
 		nodeDetails := []*events.MeteringReportNodeDetail{}
 
-		for unit, details := range step.Spend {
+		for unit, details := range step.Spends {
 			for _, detail := range details {
 				nodeDetails = append(nodeDetails, &events.MeteringReportNodeDetail{
 					Peer_2PeerId: detail.Peer2PeerID,
-					SpendUnit:    unit.String(),
-					SpendValue:   detail.SpendValue.String(),
+					SpendUnit:    unit,
+					SpendValue:   detail.SpendValue,
 				})
 			}
 		}
@@ -364,7 +295,7 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 		AccountId:           r.owner,
 		WorkflowId:          r.workflowID,
 		WorkflowExecutionId: r.workflowExecutionID,
-		Metering:            r.Message(),
+		Metering:            r.FormatReport(),
 	}
 
 	resp, err := r.client.SubmitWorkflowReceipt(ctx, &req)
@@ -377,6 +308,18 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func medianSpend(spends []decimal.Decimal) decimal.Decimal {
+	sort.Slice(spends, func(i, j int) bool {
+		return spends[j].GreaterThan(spends[i])
+	})
+
+	if len(spends)%2 > 0 {
+		return spends[len(spends)/2]
+	}
+
+	return spends[len(spends)/2-1].Add(spends[len(spends)/2]).Div(decimal.NewFromInt(2))
 }
 
 // Reports is a concurrency-safe wrapper around map[string]*Report.
@@ -406,43 +349,43 @@ func NewReports(client BillingClient, owner, workflowID string, lggr logger.Logg
 	}
 }
 
-// Get retrieves a Report for a given key (if it exists).
-func (s *Reports) Get(key string) (*Report, bool) {
+// Get retrieves a Report for a given workflowExecutionID (if it exists).
+func (s *Reports) Get(workflowExecutionID string) (*Report, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	val, ok := s.reports[key]
+	val, ok := s.reports[workflowExecutionID]
 	return val, ok
 }
 
-// Start creates a new report and inserts it under the specified key.
-func (s *Reports) Start(ctx context.Context, key string) (*Report, error) {
+// Start creates a new report and inserts it under the specified workflowExecutionID.
+func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Report, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, ok := s.reports[key]
+	_, ok := s.reports[workflowExecutionID]
 	if ok {
 		return nil, ErrReportExists
 	}
 
-	report := NewReport(s.owner, s.workflowID, key, s.lggr, s.client)
+	report := NewReport(s.owner, s.workflowID, workflowExecutionID, s.lggr, s.client)
 
 	err := report.Reserve(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	s.reports[key] = report
+	s.reports[workflowExecutionID] = report
 
 	return report, nil
 }
 
-// End removes the Report with the specified key.
-func (s *Reports) End(ctx context.Context, key string) error {
+// End removes the Report with the specified workflowExecutionID.
+func (s *Reports) End(ctx context.Context, workflowExecutionID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	report, ok := s.reports[key]
+	report, ok := s.reports[workflowExecutionID]
 	if !ok {
 		return ErrReportNotFound
 	}
@@ -451,7 +394,7 @@ func (s *Reports) End(ctx context.Context, key string) error {
 		return err
 	}
 
-	delete(s.reports, key)
+	delete(s.reports, workflowExecutionID)
 
 	return nil
 }

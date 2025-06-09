@@ -488,13 +488,13 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 }
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
-func (e *Engine) startExecution(ctx context.Context, executionID string, triggerID string, event *values.Map) error {
+func (e *Engine) startExecution(ctx context.Context, executionID string, triggerEventID string, event *values.Map) error {
 	_, err := e.meterReports.Start(ctx, executionID)
 	if err != nil {
 		e.logger.Errorw("could not meter workflow execution", "err", err)
 	}
 
-	err = events.EmitExecutionStartedEvent(ctx, e.cma.Labels(), triggerID, executionID)
+	err = events.EmitExecutionStartedEvent(ctx, e.cma.Labels(), triggerEventID, executionID)
 	if err != nil {
 		e.logger.Errorf("failed to emit execution started event: %+v", err)
 	}
@@ -641,7 +641,7 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 	report, exists := e.meterReports.Get(executionID)
 	if exists {
 		// send metering report to beholder
-		if err = events.EmitMeteringReport(ctx, cma.Labels(), report.Message()); err != nil {
+		if err = events.EmitMeteringReport(ctx, cma.Labels(), report.FormatReport()); err != nil {
 			e.metrics.IncrementWorkflowMissingMeteringReport(ctx)
 			l.Warn(fmt.Sprintf("metering report send to beholder error %s", err))
 		}
@@ -769,22 +769,17 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	meteringReport, mrOK := e.meterReports.Get(msg.state.ExecutionID)
 	if mrOK {
-		curStep, err := e.workflow.Vertex(msg.stepRef)
-		if err != nil {
-			l.Error(fmt.Sprintf("failed to get current step %s for metering report: %s", stepState.Ref, err))
-		}
-		_, err = curStep.capability.Info(ctx)
-		if err != nil {
-			l.Error(fmt.Sprintf("failed to get capability info for %s: %s", stepState.Ref, err))
-		}
+		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-477 Get capability info by getting the workflow vertex and talking to the capaiblity
 		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-285 get max spend per step. Compare to availability and limits.
-		availableForCall, err := meteringReport.GetAvailablity(e.maxWorkerLimit)
+		// NOTE: e.maxWorkerLimit is a static number leading to the availability always being undercut.
+		availableForCall, err := meteringReport.GetAvailableForInvocation(e.maxWorkerLimit)
 		if err != nil {
 			l.Error(fmt.Sprintf("could get available balance for %s: %s", stepState.Ref, err))
 		}
+		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461 if availability is math.MaxInt64 there is no limit. Possibly flag this in a different way.
 		err = meteringReport.Deduct(stepState.Ref, availableForCall)
 		if err != nil {
-			l.Error(fmt.Sprintf("could not deduct balance for capability request for %s: %s", stepState.Ref, err))
+			l.Error(fmt.Sprintf("could not deduct balance for capability request %s: %s", stepState.Ref, err))
 		}
 	} else {
 		e.metrics.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, msg.state.ExecutionID).IncrementWorkflowMissingMeteringReport(ctx)
