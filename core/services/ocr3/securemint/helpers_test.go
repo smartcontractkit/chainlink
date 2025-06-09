@@ -170,22 +170,8 @@ func addSecureMintOCRJobs(
 	// Create one bridge and one SM Feed OCR job on each node
 	for i, node := range nodes {
 		name := "securemint-ea"
-		bridgeResp := por.ExternalAdapterPayload{
-			Mintables: por.Mintables{
-				por.ChainSelector(uint64(1)): por.BlockMintablePair{
-					Block:    por.BlockNumber(1),
-					Mintable: big.NewInt(1000000000),
-				},
-			},
-			LatestRelevantBlocks: por.Blocks{
-				por.ChainSelector(uint64(1)): por.BlockNumber(1),
-			},
-			ReserveInfo: por.ReserveInfo{
-				ReserveAmount: big.NewInt(1000000000),
-				Timestamp:     time.Now(),
-			},
-		}
-		bmBridge := createSecureMintBridge(t, name, i, bridgeResp, node.App.BridgeORM())
+
+		bmBridge := createSecureMintBridge(t, name, i, node.App.BridgeORM())
 		t.Logf("Created secure mint bridge %s on node %d", bmBridge, i)
 
 		addresses, err := node.App.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), testutils.SimulatedChainID)
@@ -250,7 +236,7 @@ contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
 observationSource  = """
     // data source 1
-    ds1          [type=bridge name="%s"];
+    ds1          [type=bridge name="%s" requestData=<{ "data": $(blocks) }>];
     ds1_parse    [type=jsonparse path="data"];
 
     ds1 -> ds1_parse -> answer1;
@@ -357,8 +343,46 @@ Output
 }
 */
 
-func createSecureMintBridge(t *testing.T, name string, i int, response por.ExternalAdapterPayload, borm bridges.ORM) (bridgeName string) {
+func createSecureMintBridge(t *testing.T, name string, i int, borm bridges.ORM) (bridgeName string) {
 	ctx := testutils.Context(t)
+
+	initialResponse := por.ExternalAdapterPayload{
+		Mintables: por.Mintables{},
+		LatestRelevantBlocks: por.Blocks{
+			8953668971247136127: 5, // "bitcoin-testnet-rootstock"
+			729797994450396300:  5, // "telos-evm-testnet"
+		},
+		ReserveInfo: por.ReserveInfo{
+			ReserveAmount: big.NewInt(1000),
+			Timestamp:     time.Now(),
+		},
+	}
+	jsonInitialResp, err := json.Marshal(initialResponse)
+	require.NoError(t, err)
+
+	laterResponse := por.ExternalAdapterPayload{
+		Mintables: por.Mintables{
+			8953668971247136127: por.BlockMintablePair{
+				Block:    por.BlockNumber(5),
+				Mintable: big.NewInt(10),
+			},
+			729797994450396300: por.BlockMintablePair{
+				Block:    por.BlockNumber(5),
+				Mintable: big.NewInt(25),
+			},
+		},
+		LatestRelevantBlocks: por.Blocks{
+			8953668971247136127: 8, // "bitcoin-testnet-rootstock"
+			729797994450396300:  7, // "telos-evm-testnet"
+		},
+		ReserveInfo: por.ReserveInfo{
+			ReserveAmount: big.NewInt(500),
+			Timestamp:     time.Now(),
+		},
+	}
+	jsonLaterResp, err := json.Marshal(laterResponse)
+	require.NoError(t, err)
+
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		// TODO(gg): assert on the EA request format here
 		// require.JSONEq(t, `{"meta":{"latestAnswer":"", "updatedAt": ""}}`, string(b))
@@ -389,11 +413,16 @@ func createSecureMintBridge(t *testing.T, name string, i int, response por.Exter
 
 		t.Logf("Received request for secure mint bridge %s on node %d: path %s, request body %s", name, i, req.URL.String(), string(body))
 
-		jsonResp, err := json.Marshal(response)
-		require.NoError(t, err)
+		if body == nil || string(body) == "{\"data\":\"{}\"}" {
+			t.Logf("Received empty request body for secure mint bridge %s on node %d, returning initial response", name, i)
+			res.WriteHeader(http.StatusOK)
+			_, err = res.Write([]byte(fmt.Sprintf(`{"data": %s}`, string(jsonInitialResp))))
+			require.NoError(t, err)
+			return
+		}
 
 		res.WriteHeader(http.StatusOK)
-		resp := fmt.Sprintf(`{"data": %s}`, string(jsonResp))
+		resp := fmt.Sprintf(`{"data": %s}`, string(jsonLaterResp))
 		t.Logf("Responding from secure mint bridge %s on node %d with: %s", name, i, resp)
 		_, err = res.Write([]byte(resp))
 		require.NoError(t, err)

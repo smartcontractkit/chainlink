@@ -42,10 +42,7 @@ func (ea *externalAdapter) GetChains(ctx context.Context) ([]por.ChainSelector, 
 func (ea *externalAdapter) GetPayload(ctx context.Context, blocks por.Blocks) (por.ExternalAdapterPayload, error) {
 	ea.lggr.Debugf("GetPayload called with blocks: %v", blocks)
 
-	// 		ds1 [type=bridge name="%s" timeout=0 requestData=<{"data": {"address": "0x1234"}}>]
-	// ds1 [type=bridge name=\"bridge-api0\" requestData="{\\\"data\\": {\\\"from\\\":\\\"LINK\\\",\\\"to\\\":\\\"ETH\\\"}}"];
-	//     submit [type=bridge name="substrate-adapter1" requestData=<{ "value": $(parse) }>]
-
+	// ds1          [type=bridge name="%s" requestData=<{ "data": $(blocks) }>];
 	// {
 	//     "data": {
 	//         "token": "eth",
@@ -59,6 +56,15 @@ func (ea *externalAdapter) GetPayload(ctx context.Context, blocks por.Blocks) (p
 	//     }
 	// }
 
+	// Serialize blocks as JSON string
+	blocksJSON, err := json.Marshal(blocks)
+	if err != nil {
+		ea.lggr.Errorw("Error marshaling blocks parameter to JSON", "error", err, "blocks", blocks)
+		return por.ExternalAdapterPayload{}, fmt.Errorf("failed to marshal blocks: %w", err)
+	}
+
+	ea.lggr.Debugf("GetPayload serialized blocks to JSON: %v", string(blocksJSON))
+
 	// execute
 	vars := map[string]any{
 		"jb": map[string]any{
@@ -67,7 +73,7 @@ func (ea *externalAdapter) GetPayload(ctx context.Context, blocks por.Blocks) (p
 			"name":          ea.job.Name.ValueOrZero(),
 		},
 		"action": "get_payload",
-		"blocks": blocks,
+		"blocks": string(blocksJSON),
 	}
 
 	run, trrs, err := ea.runner.ExecuteRun(ctx, ea.spec, pipeline.NewVarsFrom(vars))
