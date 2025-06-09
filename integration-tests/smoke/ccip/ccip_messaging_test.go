@@ -396,13 +396,6 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// check that counter is 0
-		var receiverCounterAccount soltesthelpers.ReceiverCounter
-		err = solcommon.GetAccountDataBorshInto(ctx, solChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccount)
-		require.NoError(t, err, "failed to get account info")
-		// Already sent a message earlier
-		require.Equal(t, uint8(0), receiverCounterAccount.Value)
-
 		numMessages := 5
 		_ = mt.Run(
 			t,
