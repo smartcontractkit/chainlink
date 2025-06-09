@@ -25,57 +25,24 @@ func (c DeployPrerequisitesTONChainConfig) Validate() error {
 var _ cldf.ChangeSetV2[DeployPrerequisitesTONChainConfig] = DeployPrerequisitesTONChain{}
 
 type DeployPrerequisitesTONChain struct {
-	TonChainSelectors []uint64 // List of Ton chain selectors to deploy
 }
 
 func (cs DeployPrerequisitesTONChain) VerifyPreconditions(env cldf.Environment, config DeployPrerequisitesTONChainConfig) error {
-	// TODO: Implement precondition checks for contract deployment
+	// TODO: Implement precondition checks for prerequisite operation
 	return nil
 }
 
 func (cs DeployPrerequisitesTONChain) Apply(env cldf.Environment, config DeployPrerequisitesTONChainConfig) (cldf.ChangesetOutput, error) {
-	env.Logger.Infof("TON_E2E: Deploying prerequisites for TON chains: %v", cs.TonChainSelectors)
-	tonChains, err := tonstate.LoadOnchainState(env)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-	if len(tonChains) == 0 {
-		return cldf.ChangesetOutput{}, nil // No Ton chains to deploy
-	}
-
-	for _, chainSelector := range cs.TonChainSelectors {
-		tonChainState := tonChains[chainSelector]
-		// TODO: these have to be in prerequisites, but we don't have prerequisites for TON yet????????
-
-		// TODO(ton): once all contracts are deployed, we can remove the hardcoded addresses from the TonTestDeployPrerequisitesChangeSet
-		// TODO(ton): Deploy TON MCMS, https://smartcontract-it.atlassian.net/browse/NONEVM-1939
-		// TODO(ton): Deploy TON CCIP, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
-		// TODO(ton): Deploy TON CCIP Offramp, Router, Onramp, Dummy Receiver and set the contract address
-		// TODO(ton): Initialize Onramp, Offramp, FeeQuoter, RMNRemote
-
-		// TODO: replace with actual TON addresses after contracts are supported, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
-		address := tonaddress.MustParseAddr("EQDtFpEwcFAEcRe5mLVh2N6C0x-_hJEM7W61_JLnSF74p4q2")
-		tonChainState.OffRamp = *address
-		address = tonaddress.MustParseAddr("UQCfQRaJr2vxgZr5NHc0CTx6tAb0jverj9QQFirNfoCkGcUy")
-		tonChainState.Router = *address
-		address = tonaddress.MustParseAddr("EQADa3W6G0nSiTV4a6euRA42fU9QxSEnb-WeDpcrtWzA2jM8")
-		tonChainState.LinkTokenAddress = *address
-		address = tonaddress.MustParseAddr("UQDgFwiokL1ojVwXa3Ac7xCLfGB0Ti0foSw5NZ48Aj_vhs_6")
-		tonChainState.CCIPAddress = *address
-		address = tonaddress.MustParseAddr("UQCk4967vNM_V46Dn8I0x-gB_QE2KkdW1GQ7mWz1DtYGLEd8")
-		tonChainState.ReceiverAddress = *address
-
-		err = tonstate.SaveOnchainState(chainSelector, tonChainState, env)
-	}
-
+	// TODO: Implement business logics for prerequisite operation
 	return cldf.ChangesetOutput{}, nil
 }
 
-//////////////////////////////////////////////////////////////////////////////
+// ////////////////////////////////////////////////////////////////////////////
 // DeployTONChain is a change set for deploying Ton chain packages and modules.
-//////////////////////////////////////////////////////////////////////////////
-
-type DeployTONChainConfig struct{}
+// ////////////////////////////////////////////////////////////////////////////
+type DeployTONChainConfig struct {
+	TonChainSelector uint64 // TODO: temp, Ton chain selector to deploy
+}
 
 func (c DeployTONChainConfig) Validate() error {
 	// TODO: implement chain selector validation, contract parameters validation
@@ -86,7 +53,6 @@ var _ cldf.ChangeSetV2[DeployTONChainConfig] = DeployTONChain{}
 
 // DeployTONChain deploys Ton chain packages and modules
 type DeployTONChain struct {
-	TonChainSelectors []uint64 // List of Ton chain selectors to deploy
 }
 
 func (cs DeployTONChain) VerifyPreconditions(env cldf.Environment, config DeployTONChainConfig) error {
@@ -95,8 +61,35 @@ func (cs DeployTONChain) VerifyPreconditions(env cldf.Environment, config Deploy
 }
 
 func (cs DeployTONChain) Apply(env cldf.Environment, config DeployTONChainConfig) (cldf.ChangesetOutput, error) {
-	env.Logger.Infof("TON_E2E: Deploying contracts for TON chains: %v", cs.TonChainSelectors)
 	// TODO: Implement logic of deploying Ton chain packages and modules
+
+	env.Logger.Infof("TON_E2E: Deploying contracts for TON chains: %v", config.TonChainSelector)
+	selector := config.TonChainSelector
+
+	tonChains, err := tonstate.LoadOnchainState(env)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	tonChainState := tonChains[selector]
+	// TODO(ton): once all contracts are deployed, we can remove the hardcoded addresses from the TonTestDeployPrerequisitesChangeSet
+	// TODO(ton): Deploy TON MCMS, https://smartcontract-it.atlassian.net/browse/NONEVM-1939
+	// TODO(ton): Deploy TON CCIP, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
+	// TODO(ton): Deploy TON CCIP Offramp, Router, Onramp, Dummy Receiver and set the contract address
+	// TODO(ton): Initialize Onramp, Offramp, FeeQuoter, RMNRemote
+
+	// TODO: replace with actual TON addresses after contracts are supported, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
+	address := tonaddress.MustParseAddr("EQDtFpEwcFAEcRe5mLVh2N6C0x-_hJEM7W61_JLnSF74p4q2")
+	tonChainState.OffRamp = *address
+	address = tonaddress.MustParseAddr("UQCfQRaJr2vxgZr5NHc0CTx6tAb0jverj9QQFirNfoCkGcUy")
+	tonChainState.Router = *address
+	address = tonaddress.MustParseAddr("EQADa3W6G0nSiTV4a6euRA42fU9QxSEnb-WeDpcrtWzA2jM8")
+	tonChainState.LinkTokenAddress = *address
+	address = tonaddress.MustParseAddr("UQDgFwiokL1ojVwXa3Ac7xCLfGB0Ti0foSw5NZ48Aj_vhs_6")
+	tonChainState.CCIPAddress = *address
+	address = tonaddress.MustParseAddr("UQCk4967vNM_V46Dn8I0x-gB_QE2KkdW1GQ7mWz1DtYGLEd8")
+	tonChainState.ReceiverAddress = *address
+
+	err = tonstate.SaveOnchainState(selector, tonChainState, env)
 	return cldf.ChangesetOutput{}, nil
 }
 

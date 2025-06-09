@@ -14,7 +14,9 @@ import (
 
 func DeployChainContractsToTonCS(t *testing.T, e DeployedEnv, chainSelector uint64) commoncs.ConfiguredChangeSet {
 	// TODO(ton): Implement this function to deploy chain contracts to Ton chain, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
-	ccipConfig := toncs.DeployTONChainConfig{}
+	ccipConfig := toncs.DeployTONChainConfig{
+		TonChainSelector: chainSelector,
+	}
 	return commoncs.Configure(toncs.DeployTONChain{}, ccipConfig)
 }
 

@@ -54,7 +54,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes"
-	toncs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/ton"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -553,7 +552,6 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	e := NewEnvironment(t, tEnv)
 	evmChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	solChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
-	tonChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyTon))
 	//nolint:gocritic // we need to segregate EVM and Solana chains
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, c := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
@@ -615,14 +613,6 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 		e.Env, err = commonchangeset.Apply(t, e.Env,
 			deploySolanaLinkApp,
 		)
-		require.NoError(t, err)
-	}
-	if len(tonChains) > 0 {
-		cfg := toncs.DeployPrerequisitesTONChainConfig{}
-		e.Env, err = commonchangeset.Apply(t, e.Env,
-			commonchangeset.Configure(toncs.DeployPrerequisitesTONChain{
-				TonChainSelectors: tonChains,
-			}, cfg))
 		require.NoError(t, err)
 	}
 	tEnv.UpdateDeployedEnvironment(e)
@@ -837,7 +827,6 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	}
 
 	if len(tonChains) != 0 {
-		// TODO: currently hardcoded contract addresses are being injected to tonstate
 		// Currently only one ton chain is supported in test environment
 		tonCs := DeployChainContractsToTonCS(t, e, tonChains[0])
 		if tonCs != nil {
