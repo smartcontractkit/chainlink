@@ -792,6 +792,26 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		Ref:         msg.stepRef,
 	}
 
+	meteringReport, mrOK := e.meterReports.Get(msg.state.ExecutionID)
+	if mrOK {
+		curStep, err := e.workflow.Vertex(msg.stepRef)
+		if err != nil {
+			l.Error(fmt.Sprintf("failed to get current step %s for metering report: %s", stepState.Ref, err))
+		}
+		capInfo, err := curStep.capability.Info(ctx)
+		if err != nil {
+			l.Error(fmt.Sprintf("failed to get capability info for %s: %s", stepState.Ref, err))
+		}
+		err = meteringReport.ReserveStep(metering.ReportStepRef(stepState.Ref), capInfo)
+		if err != nil {
+			l.Error(fmt.Sprintf("failed to reserve on metering report for %s: %s", stepState.Ref, err))
+		}
+	} else {
+		e.metrics.With(platform.KeyWorkflowID, e.workflow.id).IncrementWorkflowMissingMeteringReport(ctx)
+		// TODO: to be bumped to error if all capabilities must implement metering
+		l.Warnf("no metering report found for %v", msg.state.ExecutionID)
+	}
+
 	logCustMsg(ctx, cma, "executing step", l)
 
 	stepExecutionStartTime := time.Now()
