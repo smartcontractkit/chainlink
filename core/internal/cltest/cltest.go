@@ -450,7 +450,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		MercuryPool:              mercuryPool,
 		NewOracleFactoryFn:       newOracleFactoryFn,
 		RetirementReportCache:    retirement.NewRetirementReportCache(lggr, ds),
-		LLOTransmissionReaper:    llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency().Duration(), cfg.Mercury().Transmitter().ReaperMaxAge().Duration()),
+		LLOTransmissionReaper:    llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency(), cfg.Mercury().Transmitter().ReaperMaxAge()),
 		EVMFactoryConfigFn:       evmFactoryConfigFn,
 	})
 

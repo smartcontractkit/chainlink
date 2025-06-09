@@ -10,8 +10,6 @@ import (
 
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -64,6 +62,19 @@ func main() {
 	logCfg := logger.Config{LogLevel: logLevel}
 	lggr, _ := logCfg.New()
 
+	run(ctx, lggr, binary, config, billingClientAddr, enableBeholder)
+}
+
+// run instantiates the engine, starts it and blocks until the context is canceled.
+func run(
+	ctx context.Context,
+	lggr logger.Logger,
+	binary, config []byte,
+	billingClientAddr string,
+	enableBeholder bool,
+) {
+	lggr.Infof("executing engine in process: %d", os.Getpid())
+
 	// Create the registry and fake capabilities
 	registry := capabilities.NewRegistry(lggr)
 	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
@@ -73,19 +84,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	run(ctx, lggr, registry, capabilities, binary, config, billingClientAddr, enableBeholder)
-}
-
-// run instantiates the engine, starts it and blocks until the context is canceled.
-func run(
-	ctx context.Context,
-	lggr logger.Logger,
-	registry *capabilities.Registry,
-	capabilities []services.Service,
-	binary, config []byte,
-	billingClientAddr string,
-	enableBeholder bool,
-) {
 	if enableBeholder {
 		_ = setupBeholder(lggr.Named("Fake_Stdlog_Beholder"))
 	}
@@ -94,15 +92,9 @@ func run(
 		billingClientAddr = "localhost:4319"
 	}
 	bs := NewBillingService(lggr.Named("Fake_Billing_Client"))
-	err := bs.Start(ctx)
+	err = bs.Start(ctx)
 	if err != nil {
 		fmt.Printf("Failed to start billing service: %v\n", err)
-		os.Exit(1)
-	}
-
-	engine, err := NewStandaloneEngine(ctx, lggr, registry, binary, config, billingClientAddr)
-	if err != nil {
-		fmt.Printf("Failed to create engine: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -111,7 +103,22 @@ func run(
 			fmt.Printf("Failed to start capability: %v\n", err2)
 			os.Exit(1)
 		}
+
+		// await the capability to be initialized if using a loop plugin
+		if standardcap, ok := cap.(*standaloneLoopWrapper); ok {
+			if err = standardcap.Await(ctx); err != nil {
+				fmt.Printf("Failed to await capability: %v\n", err)
+				os.Exit(1)
+			}
+		}
 	}
+
+	engine, err := NewStandaloneEngine(ctx, lggr, registry, binary, config, billingClientAddr)
+	if err != nil {
+		fmt.Printf("Failed to create engine: %v\n", err)
+		os.Exit(1)
+	}
+
 	err = engine.Start(ctx)
 	if err != nil {
 		fmt.Printf("Failed to start engine: %v\n", err)
@@ -120,7 +127,7 @@ func run(
 
 	<-ctx.Done()
 
-	fmt.Println("Shutting down the Engine")
+	lggr.Info("Shutting down the Engine")
 	_ = engine.Close()
 	for _, cap := range capabilities {
 		lggr.Infow("Shutting down capability", "id", cap.Name())

@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -38,8 +37,8 @@ func (m mockCfg) TransmitQueueMaxSize() uint32 {
 	return 100_000
 }
 
-func (m mockCfg) TransmitTimeout() commonconfig.Duration {
-	return *commonconfig.MustNewDuration(1 * time.Hour)
+func (m mockCfg) TransmitTimeout() time.Duration {
+	return 1 * time.Hour
 }
 
 func Test_MercuryTransmitter_Transmit(t *testing.T) {
