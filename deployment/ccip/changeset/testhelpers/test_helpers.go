@@ -897,8 +897,18 @@ func SendRequestAptos(
 		tokenAddressStrings []string
 		tokenStoreStrings   []string
 	)
+	feeTokenBalance, err := GetFungibleAssetBalance(client, senderAddress, msg.FeeToken)
+	if err != nil {
+		return nil, err
+	}
+	e.Logger.Debugw("Fungible Asset balance", "feeToken", feeTokenBalance)
 	for _, address := range tokenAddresses {
 		tokenAddressStrings = append(tokenAddressStrings, address.StringLong())
+		transferTokenBalance, err := GetFungibleAssetBalance(client, senderAddress, address)
+		if err != nil {
+			return nil, err
+		}
+		e.Logger.Debugw("Fungible Asset balance", "transferToken", transferTokenBalance)
 	}
 	for _, address := range tokenStoreAddresses {
 		tokenStoreStrings = append(tokenStoreStrings, address.StringLong())

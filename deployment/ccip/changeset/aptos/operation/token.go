@@ -2,6 +2,7 @@ package operation
 
 import (
 	"fmt"
+	"log"
 	"math/big"
 
 	"github.com/aptos-labs/aptos-go-sdk"
@@ -174,6 +175,9 @@ func mintTokens(b operations.Bundle, deps AptosDeps, in MintTokensInput) (types.
 	if err != nil {
 		return types.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
 	}
+
+	// TODO debug
+	log.Printf("Minting token %v to account: %v", in.TokenObjAddress.StringLong(), in.To.String())
 
 	return tx, nil
 }
