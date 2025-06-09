@@ -1887,9 +1887,17 @@ func Transfer(
 
 	onRampAddr, err := state.GetOnRampAddressBytes(sourceChain)
 	require.NoError(t, err)
-	// Ensure CCIPMessageSent event filter is registered
+	// Ensure CCIPMessageSent event filter is registered for the onramp
 	// Sending message too early could result in LogPoller missing the send event
 	err = WaitForEventFilterRegistration(t, env.Offchain, sourceChain, consts.EventNameCCIPMessageSent, onRampAddr)
+	require.NoError(t, err)
+	// Ensure CommitReportAccepted and ExecutionStateChanged event filters are registered for the offramp
+	// The LogPoller could pick up the message sent event but miss the commit or execute event
+	offRampAddr, err := state.GetOffRampAddressBytes(destChain)
+	require.NoError(t, err)
+	err = WaitForEventFilterRegistration(t, env.Offchain, sourceChain, consts.EventNameCommitReportAccepted, offRampAddr)
+	require.NoError(t, err)
+	err = WaitForEventFilterRegistration(t, env.Offchain, sourceChain, consts.EventNameExecutionStateChanged, offRampAddr)
 	require.NoError(t, err)
 
 	t.Logf("%s filter registered", consts.EventNameCCIPMessageSent)

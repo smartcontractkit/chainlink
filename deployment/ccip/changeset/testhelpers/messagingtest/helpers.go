@@ -184,6 +184,14 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	// Sending message too early could result in LogPoller missing the send event
 	err = testhelpers.WaitForEventFilterRegistration(t, tc.Env.Offchain, tc.SourceChain, consts.EventNameCCIPMessageSent, onRampAddr)
 	require.NoError(t, err)
+	// Ensure CommitReportAccepted and ExecutionStateChanged event filters are registered for the offramp
+	// The LogPoller could pick up the message sent event but miss the commit or execute event
+	offRampAddr, err := tc.OnchainState.GetOffRampAddressBytes(tc.DestChain)
+	require.NoError(t, err)
+	err = testhelpers.WaitForEventFilterRegistration(t, tc.Env.Offchain, tc.DestChain, consts.EventNameCommitReportAccepted, offRampAddr)
+	require.NoError(t, err)
+	err = testhelpers.WaitForEventFilterRegistration(t, tc.Env.Offchain, tc.DestChain, consts.EventNameExecutionStateChanged, offRampAddr)
+	require.NoError(t, err)
 
 	t.Logf("%s filter registered", consts.EventNameCCIPMessageSent)
 
