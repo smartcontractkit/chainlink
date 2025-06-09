@@ -230,11 +230,11 @@ var PromoteCandidateSequence = operations.NewSequence(
 	})
 
 type ApplyChainConfigUpdatesSequenceInput struct {
-	CCIPHome             common.Address
-	NoSend               bool
-	ChainConfigAdds      []ccip_home.CCIPHomeChainConfigArgs
-	ChainSelectorRemoves []uint64
-	BatchSize            int
+	CCIPHome           common.Address
+	NoSend             bool
+	RemoteChainAdds    []ccip_home.CCIPHomeChainConfigArgs
+	RemoteChainRemoves []uint64
+	BatchSize          int
 }
 
 var ApplyChainConfigUpdatesSequence = operations.NewSequence(
@@ -247,44 +247,40 @@ var ApplyChainConfigUpdatesSequence = operations.NewSequence(
 
 		batches := make([]ccipops.ApplyChainConfigUpdatesOpInput, 0)
 		currentBatch := ccipops.ApplyChainConfigUpdatesOpInput{
-			ChainSelectorRemoves: make([]uint64, 0),
-			ChainConfigAdds:      make([]ccip_home.CCIPHomeChainConfigArgs, 0),
+			RemoteChainRemoves: make([]uint64, 0),
+			RemoteChainAdds:    make([]ccip_home.CCIPHomeChainConfigArgs, 0),
 		}
 
-		// Track removals and additions for quick lookups. These lookups are necessary because,
-		// although we generally process removals first, if an addition for the same chain exists we must batch it with the removal.
+		// Track additions for quick lookups. Although we generally process removals first,
+		// if an addition for the same chain exists we must batch it with the removal.
 		// This is to ensure that there isn't any downtime for the chain in question.
-		removals := make(map[uint64]struct{}, len(input.ChainSelectorRemoves))
-		for _, chainSel := range input.ChainSelectorRemoves {
-			removals[chainSel] = struct{}{}
-		}
 		adds := make(map[uint64]ccip_home.CCIPHomeChainConfigArgs)
-		for _, add := range input.ChainConfigAdds {
+		for _, add := range input.RemoteChainAdds {
 			adds[add.ChainSelector] = add
 		}
 
 		processedAdds := make(map[uint64]struct{})
-		for _, removal := range input.ChainSelectorRemoves {
-			currentBatch.ChainSelectorRemoves = append(currentBatch.ChainSelectorRemoves, removal)
+		for _, removal := range input.RemoteChainRemoves {
+			currentBatch.RemoteChainRemoves = append(currentBatch.RemoteChainRemoves, removal)
 			// If there's an addition for the same chain, add it to the same batch
 			if add, ok := adds[removal]; ok {
-				currentBatch.ChainConfigAdds = append(currentBatch.ChainConfigAdds, add)
+				currentBatch.RemoteChainAdds = append(currentBatch.RemoteChainAdds, add)
 				processedAdds[removal] = struct{}{}
 			}
 			batches, currentBatch = maybeSaveCurrentBatch(batches, currentBatch, input.BatchSize)
 		}
 
 		// Now, process the remaining additions (those not already processed)
-		for _, add := range input.ChainConfigAdds {
+		for _, add := range input.RemoteChainAdds {
 			if _, ok := processedAdds[add.ChainSelector]; ok {
 				continue
 			}
-			currentBatch.ChainConfigAdds = append(currentBatch.ChainConfigAdds, add)
+			currentBatch.RemoteChainAdds = append(currentBatch.RemoteChainAdds, add)
 			batches, currentBatch = maybeSaveCurrentBatch(batches, currentBatch, input.BatchSize)
 		}
 
 		// If any remaining items in the current batch, save it
-		if len(currentBatch.ChainSelectorRemoves) > 0 || len(currentBatch.ChainConfigAdds) > 0 {
+		if len(currentBatch.RemoteChainRemoves) > 0 || len(currentBatch.RemoteChainAdds) > 0 {
 			batches = append(batches, currentBatch)
 		}
 
@@ -314,11 +310,11 @@ func maybeSaveCurrentBatch(
 	currentBatch ccipops.ApplyChainConfigUpdatesOpInput,
 	batchSize int,
 ) ([]ccipops.ApplyChainConfigUpdatesOpInput, ccipops.ApplyChainConfigUpdatesOpInput) {
-	if len(currentBatch.ChainSelectorRemoves)+len(currentBatch.ChainConfigAdds) >= batchSize {
+	if len(currentBatch.RemoteChainRemoves)+len(currentBatch.RemoteChainAdds) >= batchSize {
 		batches = append(batches, currentBatch)
 		currentBatch = ccipops.ApplyChainConfigUpdatesOpInput{
-			ChainSelectorRemoves: make([]uint64, 0),
-			ChainConfigAdds:      make([]ccip_home.CCIPHomeChainConfigArgs, 0),
+			RemoteChainRemoves: make([]uint64, 0),
+			RemoteChainAdds:    make([]ccip_home.CCIPHomeChainConfigArgs, 0),
 		}
 	}
 	return batches, currentBatch

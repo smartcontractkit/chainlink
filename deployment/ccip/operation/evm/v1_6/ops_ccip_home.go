@@ -54,8 +54,8 @@ var UpdateDONOp = opsutil.NewEVMCallOperation(
 )
 
 type ApplyChainConfigUpdatesOpInput struct {
-	ChainSelectorRemoves []uint64
-	ChainConfigAdds      []ccip_home.CCIPHomeChainConfigArgs
+	RemoteChainRemoves []uint64
+	RemoteChainAdds    []ccip_home.CCIPHomeChainConfigArgs
 }
 
 var ApplyChainConfigUpdatesOp = opsutil.NewEVMCallOperation(
@@ -66,6 +66,6 @@ var ApplyChainConfigUpdatesOp = opsutil.NewEVMCallOperation(
 	shared.CCIPHome,
 	ccip_home.NewCCIPHome,
 	func(ccipHome *ccip_home.CCIPHome, opts *bind.TransactOpts, input ApplyChainConfigUpdatesOpInput) (*types.Transaction, error) {
-		return ccipHome.ApplyChainConfigUpdates(opts, input.ChainSelectorRemoves, input.ChainConfigAdds)
+		return ccipHome.ApplyChainConfigUpdates(opts, input.RemoteChainRemoves, input.RemoteChainAdds)
 	},
 )

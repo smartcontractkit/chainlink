@@ -1113,11 +1113,11 @@ func UpdateChainConfigChangeset(e cldf.Environment, cfg UpdateChainConfigConfig)
 			HomeChain: e.BlockChains.EVMChains()[cfg.HomeChainSelector],
 		},
 		ccipseqs.ApplyChainConfigUpdatesSequenceInput{
-			CCIPHome:             state.Chains[cfg.HomeChainSelector].CCIPHome.Address(),
-			NoSend:               cfg.MCMS != nil,
-			ChainConfigAdds:      adds,
-			ChainSelectorRemoves: cfg.RemoteChainRemoves,
-			BatchSize:            4, // Conservative batch size to avoid exceeding gas limits (TODO: Make this configurable)
+			CCIPHome:           state.Chains[cfg.HomeChainSelector].CCIPHome.Address(),
+			NoSend:             cfg.MCMS != nil,
+			RemoteChainAdds:    adds,
+			RemoteChainRemoves: cfg.RemoteChainRemoves,
+			BatchSize:          4, // Conservative batch size to avoid exceeding gas limits (TODO: Make this configurable)
 		},
 	)
 	e.Logger.Infof("Proposed chain config update on chain %d removes %v, adds %v", cfg.HomeChainSelector, cfg.RemoteChainRemoves, cfg.RemoteChainAdds)
