@@ -306,7 +306,11 @@ func createSecureMintBridge(t *testing.T, name string, i int, response por.Minta
 		_, err = res.Write([]byte(resp))
 		require.NoError(t, err)
 	}))
-	t.Cleanup(bridge.Close)
+	t.Cleanup(func() {
+		t.Logf("Closing secure mint bridge %s on node %d with url %s", name, i, bridge.URL)
+		bridge.Close()
+	})
+	t.Logf("Created secure mint bridge %s on node %d with URL %s", name, i, bridge.URL)
 	u, _ := url.Parse(bridge.URL)
 	bridgeName = fmt.Sprintf("bridge-%s-%d", name, i)
 	require.NoError(t, borm.CreateBridgeType(ctx, &bridges.BridgeType{
