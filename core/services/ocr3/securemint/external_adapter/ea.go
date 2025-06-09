@@ -28,6 +28,7 @@ func NewExternalAdapter(runner pipeline.Runner, job job.Job, spec pipeline.Spec,
 	return &externalAdapter{runner: runner, job: job, spec: spec, saver: saver, lggr: lggr}
 }
 
+// Ensure externalAdapter implements por.ExternalAdapter
 func (ea *externalAdapter) GetChains(ctx context.Context) ([]por.ChainSelector, error) {
 	// TODO(gg): pass this through to the EA
 
@@ -39,6 +40,9 @@ func (ea *externalAdapter) GetChains(ctx context.Context) ([]por.ChainSelector, 
 	return chains, nil
 }
 
+// TODO(gg): write unit tests for GetPayload
+
+// GetPayload retrieves the payload for the given blocks by executing a pipeline run.
 func (ea *externalAdapter) GetPayload(ctx context.Context, blocks por.Blocks) (por.ExternalAdapterPayload, error) {
 	ea.lggr.Debugf("GetPayload called with blocks: %v", blocks)
 

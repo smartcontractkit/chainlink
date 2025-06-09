@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -27,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/securemint"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/freeport"
@@ -132,7 +134,7 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 	validateJobsRunningSuccessfully(t, nodes, jobIDs)
 
 	// wait for a minute for the jobs to run and collect data
-	time.Sleep(1 * time.Minute)
+	// time.Sleep(1 * time.Minute)
 }
 
 func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
@@ -255,8 +257,15 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []Node, jobIDs map[int]
 	// }
 
 	// 4. Check that transmissions work
-	// maybe hook into the stub transmitter somehow?
-
+	expectedNumTransmissions := int32(4)
+	gomega.NewWithT(t).Eventually(func() bool {
+		numTransmissions := securemint.StubTransmissionCounter.Load()
+		t.Logf("Number of (stub) report transmissions: %d", numTransmissions)
+		return numTransmissions >= expectedNumTransmissions
+	}, 30*time.Second, 1*time.Second).Should(
+		gomega.BeTrue(),
+		fmt.Sprintf("expected at least %d reports transmitted, but got less", expectedNumTransmissions),
+	)
 }
 
 // TODO(gg): to set config on DF Cache contract

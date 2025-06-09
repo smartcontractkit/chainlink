@@ -3,11 +3,11 @@ package securemint
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
 )
 
@@ -20,6 +20,10 @@ type stubContractTransmitter struct {
 	logger      logger.Logger
 	fromAccount types.Account
 }
+
+// StubTransmissionCounter is a global counter to track the number of transmissions, used for testing purposes.
+// Since this is a stub implementation, we can get away with it.
+var StubTransmissionCounter atomic.Int32
 
 // newStubContractTransmitter creates a new StubContractTransmitter instance
 func newStubContractTransmitter(logger logger.Logger, fromAccount types.Account) *stubContractTransmitter {
@@ -62,6 +66,7 @@ func (s *stubContractTransmitter) Transmit(
 	}
 
 	s.logger.Info("Transmit completed successfully (stub implementation)", nil)
+	StubTransmissionCounter.Add(1)
 	return nil
 }
 
