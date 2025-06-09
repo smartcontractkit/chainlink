@@ -37,7 +37,7 @@ func (s *stubContractTransmitter) Transmit(
 	reportWithInfo ocr3types.ReportWithInfo[por.ChainSelector],
 	aos []types.AttributedOnchainSignature,
 ) error {
-	s.logger.Info("Transmit called ", map[string]interface{}{
+	s.logger.Info("Transmit called ", map[string]any{
 		"configDigest":    fmt.Sprintf("%x", configDigest),
 		"sequenceNumber":  seqNr,
 		"reportLength":    len(reportWithInfo.Report),
@@ -47,14 +47,14 @@ func (s *stubContractTransmitter) Transmit(
 
 	// Log report details if available
 	if len(reportWithInfo.Report) > 0 {
-		s.logger.Debug("Report data ", map[string]interface{}{
+		s.logger.Debug("Report data ", map[string]any{
 			"reportHex": fmt.Sprintf("%x", reportWithInfo.Report),
 		})
 	}
 
 	// Log signature details
 	for i, sig := range aos {
-		s.logger.Debug("Signature details ", map[string]interface{}{
+		s.logger.Debug("Signature details ", map[string]any{
 			"signatureIndex": i,
 			"signer":         fmt.Sprintf("%x", sig.Signer),
 			"signatureHex":   fmt.Sprintf("%x", sig.Signature),
@@ -67,7 +67,7 @@ func (s *stubContractTransmitter) Transmit(
 
 // FromAccount returns the configured account and logs the call
 func (s *stubContractTransmitter) FromAccount(ctx context.Context) (types.Account, error) {
-	s.logger.Debug("FromAccount called ", map[string]interface{}{
+	s.logger.Debug("FromAccount called ", map[string]any{
 		"account": string(s.fromAccount),
 	})
 
