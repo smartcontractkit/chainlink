@@ -54,6 +54,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes"
+	toncs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/ton"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -616,13 +617,12 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 		)
 		require.NoError(t, err)
 	}
-
 	if len(tonChains) > 0 {
+		cfg := toncs.DeployPrerequisitesTONChainConfig{}
 		e.Env, err = commonchangeset.Apply(t, e.Env,
-			TonTestDeployPrerequisitesChangeSet{
-				T:                 t,
+			commonchangeset.Configure(toncs.DeployPrerequisitesTONChain{
 				TonChainSelectors: tonChains,
-			})
+			}, cfg))
 		require.NoError(t, err)
 	}
 	tEnv.UpdateDeployedEnvironment(e)
@@ -754,11 +754,6 @@ func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, pr
 		)}, nil
 }
 
-func deployChainContractsToTonChainCS(e DeployedEnv, tonChainSelector uint64) commonchangeset.ConfiguredChangeSet {
-	// TODO(ton): Implement this function to deploy chain contracts to Ton chain, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
-	return nil
-}
-
 func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEnvironment, mcmsEnabled bool) DeployedEnv {
 	tc := tEnv.TestConfigs()
 	e := tEnv.DeployedEnvironment()
@@ -842,8 +837,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	}
 
 	if len(tonChains) != 0 {
+		// TODO: currently hardcoded contract addresses are being injected to tonstate
 		// Currently only one ton chain is supported in test environment
-		tonCs := deployChainContractsToTonChainCS(e, tonChains[0])
+		tonCs := DeployChainContractsToTonCS(t, e, tonChains[0])
 		if tonCs != nil {
 			e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{tonCs})
 			require.NoError(t, err)
