@@ -27,7 +27,7 @@ import (
 	gasmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-	"github.com/smartcontractkit/chainlink-evm/pkg/monitoring/pb/data-feeds/on-chain/registry"
+	"github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds"
 	df_processor "github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds/processor"
 	por_processor "github.com/smartcontractkit/chainlink-evm/pkg/report/por/processor"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
@@ -177,7 +177,7 @@ func TestEvmWrite(t *testing.T) {
 	}
 
 	generateReportEncoded := func(reportType string) []byte {
-		feedReports := registry.Reports{
+		feedReports := datafeeds.Reports{
 			{
 				FeedID:    [32]byte{0x01},
 				Price:     big.NewInt(1234567890123456789),
@@ -185,7 +185,7 @@ func TestEvmWrite(t *testing.T) {
 			},
 		}
 
-		ccipFeedReports := registry.CCIPReports{
+		ccipFeedReports := datafeeds.CCIPReports{
 			{
 				FeedID:    [32]byte{0x01},
 				Timestamp: 1620000000,
@@ -193,9 +193,9 @@ func TestEvmWrite(t *testing.T) {
 			},
 		}
 
-		porFeedReports := registry.PORReports{
+		porFeedReports := datafeeds.PORReports{
 			{
-				DataId:    [32]byte{0x01},
+				DataID:    [32]byte{0x01},
 				Timestamp: 1620000000,
 				Bundle:    []byte{0x01, 0x02, 0x03},
 			},

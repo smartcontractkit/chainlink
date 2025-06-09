@@ -18,9 +18,9 @@ import (
 
 	dfprocessor "github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds/processor"
 	porprocessor "github.com/smartcontractkit/chainlink-evm/pkg/report/por/processor"
+	df "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/data-feeds/on-chain/registry"
 	processor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform/processor"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/monitoring/pb/data-feeds/on-chain/registry"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
 	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder"
 
@@ -94,7 +94,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, fmt.Errorf("failed to get chain info: %w", err)
 	}
 
-	registryMetrics, err := registry.NewMetrics()
+	registryMetrics, err := df.NewMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new registry metrics: %w", err)
 	}
@@ -128,8 +128,8 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		ID:     id,
 		Logger: lggr,
 		Config: writetarget.Config{
-			ConfirmerPollPeriod: *config.PollPeriod(),
-			ConfirmerTimeout:    *config.AcceptanceTimeout(),
+			ConfirmerPollPeriod: config.PollPeriod(),
+			ConfirmerTimeout:    config.AcceptanceTimeout(),
 		},
 		ChainInfo:            chainInfo,
 		Beholder:             beholder,
@@ -249,7 +249,7 @@ func getChainInfo(chainID uint64) (monitor.ChainInfo, error) {
 	}
 
 	return monitor.ChainInfo{
-		ChainFamilyName: chainFamily,
+		FamilyName:      chainFamily,
 		ChainID:         strconv.Itoa(int(chainID)),
 		NetworkName:     neworkName,
 		NetworkNameFull: chainDetails.ChainName,
