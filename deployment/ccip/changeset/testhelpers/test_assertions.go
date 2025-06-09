@@ -17,9 +17,8 @@ import (
 	solrpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xssnick/tonutils-go/address"
 	"golang.org/x/sync/errgroup"
-
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
@@ -28,12 +27,13 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -42,6 +42,48 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/fee_quoter"
 )
+
+type EVMDestConfirmer struct {
+	DestChain cldf_evm.Chain
+	OffRamp   offramp.OffRampInterface
+}
+
+func NewEVMDestConfirmer(dest cldf_evm.Chain, offramp offramp.OffRampInterface) *EVMDestConfirmer {
+	return &EVMDestConfirmer{DestChain: dest, OffRamp: offramp}
+}
+
+type SolanaDestConfirmer struct {
+	DestChain      cldf_solana.Chain
+	OffRampAddress solana.PublicKey
+}
+
+func NewSolanaDestConfirmer(dest cldf_solana.Chain, offramp solana.PublicKey) *SolanaDestConfirmer {
+	return &SolanaDestConfirmer{DestChain: dest, OffRampAddress: offramp}
+}
+
+type TonDestConfirmer struct {
+	DestChain   cldf_ton.Chain
+	OffRampAddr address.Address
+}
+
+func NewTonDestConfirmer(dest cldf_ton.Chain, offRampAddr address.Address) *TonDestConfirmer {
+	return &TonDestConfirmer{DestChain: dest, OffRampAddr: offRampAddr}
+}
+
+type ConfirmCommitArgs struct {
+	T                   *testing.T
+	SrcSelector         uint64
+	StartBlock          *uint64
+	ExpectedSeqNumRange ccipocr3.SeqNumRange
+	EnforceSingleCommit bool
+}
+
+type ConfirmExecArgs struct {
+	T              *testing.T
+	SourceChain    uint64
+	StartBlock     *uint64
+	ExpectedSeqNrs []uint64
+}
 
 func ConfirmGasPriceUpdatedForAll(
 	t *testing.T,
@@ -201,59 +243,48 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 ) {
 	var wg errgroup.Group
 	for sourceDest, expectedSeqNum := range expectedSeqNums {
-		srcChain := sourceDest.SourceChainSelector
-		dstChain := sourceDest.DestChainSelector
+		srcChainSel := sourceDest.SourceChainSelector
+		dstChainSel := sourceDest.DestChainSelector
 		if expectedSeqNum.Start() == 0 {
 			continue
 		}
+
 		wg.Go(func() error {
-			var startBlock *uint64
-			if startBlocks != nil {
-				startBlock = startBlocks[dstChain]
+			commitArgs := &ConfirmCommitArgs{
+				T:                   t,
+				SrcSelector:         srcChainSel,
+				StartBlock:          startBlocks[dstChainSel],
+				ExpectedSeqNumRange: expectedSeqNum,
+				EnforceSingleCommit: true,
 			}
 
-			family, err := chainsel.GetSelectorFamily(dstChain)
+			family, err := chainsel.GetSelectorFamily(dstChainSel)
 			if err != nil {
 				return err
 			}
+
 			switch family {
 			case chainsel.FamilyEVM:
-				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(
-					t,
-					srcChain,
-					e.BlockChains.EVMChains()[dstChain],
-					state.MustGetEVMChainState(dstChain).OffRamp,
-					startBlock,
-					expectedSeqNum,
-					true,
-				))
+				confirmer := NewEVMDestConfirmer(
+					e.BlockChains.EVMChains()[dstChainSel],
+					state.MustGetEVMChainState(dstChainSel).OffRamp,
+				)
+				_, err = confirmer.ConfirmCommitWithExpectedSeqNumRange(commitArgs)
+				return err
 			case chainsel.FamilySolana:
-				var startSlot uint64
-				if startBlock != nil {
-					startSlot = *startBlock
-				}
-				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRangeSol(
-					t,
-					srcChain,
-					e.BlockChains.SolanaChains()[dstChain],
-					state.SolChains[dstChain].OffRamp,
-					startSlot,
-					expectedSeqNum,
-					true,
-				))
+				confirmer := NewSolanaDestConfirmer(
+					e.BlockChains.SolanaChains()[dstChainSel],
+					state.SolChains[dstChainSel].OffRamp,
+				)
+				_, err = confirmer.ConfirmCommitWithExpectedSeqNumRangeSol(commitArgs)
+				return err
 			case chainsel.FamilyTon:
-				var startSlot uint64
-				if startBlock != nil {
-					startSlot = *startBlock
-				}
-				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRangeTon(
-					t,
-					srcChain,
-					e.BlockChains.TonChains()[dstChain],
-					state.TonChains[dstChain].OffRamp,
-					startSlot,
-					expectedSeqNum,
-					true))
+				confirmer := NewTonDestConfirmer(
+					e.BlockChains.TonChains()[dstChainSel],
+					state.TonChains[dstChainSel].OffRamp,
+				)
+				_, err = confirmer.ConfirmCommitWithExpectedSeqNumRangeTon(commitArgs)
+				return err
 			default:
 				return fmt.Errorf("unsupported chain family; %v", family)
 			}
@@ -326,41 +357,37 @@ func ConfirmMultipleCommits(
 	errGrp := &errgroup.Group{}
 
 	for sourceDest, seqRange := range expectedSeqNums {
+		srcChainSel := sourceDest.SourceChainSelector
+		destChainSel := sourceDest.DestChainSelector
 		seqRange := seqRange
-		srcChain := sourceDest.SourceChainSelector
-		destChain := sourceDest.DestChainSelector
 
 		errGrp.Go(func() error {
-			family, err := chainsel.GetSelectorFamily(destChain)
+			commitArgs := &ConfirmCommitArgs{
+				T:                   t,
+				SrcSelector:         srcChainSel,
+				StartBlock:          startBlocks[destChainSel],
+				ExpectedSeqNumRange: seqRange,
+				EnforceSingleCommit: enforceSingleCommit,
+			}
+
+			family, err := chainsel.GetSelectorFamily(destChainSel)
 			if err != nil {
 				return err
 			}
 			switch family {
 			case chainsel.FamilyEVM:
-				_, err := ConfirmCommitWithExpectedSeqNumRange(
-					t,
-					srcChain,
-					env.BlockChains.EVMChains()[destChain],
-					state.MustGetEVMChainState(destChain).OffRamp,
-					startBlocks[destChain],
-					seqRange,
-					enforceSingleCommit,
+				confirmer := NewEVMDestConfirmer(
+					env.BlockChains.EVMChains()[destChainSel],
+					state.MustGetEVMChainState(destChainSel).OffRamp,
 				)
+				_, err = confirmer.ConfirmCommitWithExpectedSeqNumRange(commitArgs)
 				return err
 			case chainsel.FamilySolana:
-				var startSlot uint64
-				if startBlocks[destChain] != nil {
-					startSlot = *startBlocks[destChain]
-				}
-				_, err := ConfirmCommitWithExpectedSeqNumRangeSol(
-					t,
-					srcChain,
-					env.BlockChains.SolanaChains()[destChain],
-					state.SolChains[destChain].OffRamp,
-					startSlot,
-					seqRange,
-					enforceSingleCommit,
+				confirmer := NewSolanaDestConfirmer(
+					env.BlockChains.SolanaChains()[destChainSel],
+					state.SolChains[destChainSel].OffRamp,
 				)
+				_, err = confirmer.ConfirmCommitWithExpectedSeqNumRangeSol(commitArgs)
 				return err
 			default:
 				return fmt.Errorf("unsupported chain family; %v", family)
@@ -374,49 +401,41 @@ func ConfirmMultipleCommits(
 // ConfirmCommitWithExpectedSeqNumRange waits for a commit report on the destination chain with the expected sequence number range.
 // startBlock is the block number to start watching from.
 // If startBlock is nil, it will start watching from the latest block.
-func ConfirmCommitWithExpectedSeqNumRange(
-	t *testing.T,
-	srcSelector uint64,
-	dest cldf_evm.Chain,
-	offRamp offramp.OffRampInterface,
-	startBlock *uint64,
-	expectedSeqNumRange ccipocr3.SeqNumRange,
-	enforceSingleCommit bool,
-) (*offramp.OffRampCommitReportAccepted, error) {
+func (c *EVMDestConfirmer) ConfirmCommitWithExpectedSeqNumRange(args *ConfirmCommitArgs) (*offramp.OffRampCommitReportAccepted, error) {
 	sink := make(chan *offramp.OffRampCommitReportAccepted)
-	subscription, err := offRamp.WatchCommitReportAccepted(&bind.WatchOpts{
+	subscription, err := c.OffRamp.WatchCommitReportAccepted(&bind.WatchOpts{
 		Context: context.Background(),
-		Start:   startBlock,
+		Start:   args.StartBlock,
 	}, sink)
 	if err != nil {
 		return nil, fmt.Errorf("error to subscribe CommitReportAccepted : %w", err)
 	}
 
-	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
+	seenMessages := NewCommitReportTracker(args.SrcSelector, args.ExpectedSeqNumRange)
 
 	verifyCommitReport := func(report *offramp.OffRampCommitReportAccepted) bool {
 		processRoots := func(roots []offramp.InternalMerkleRoot) bool {
 			for _, mr := range roots {
-				t.Logf(
+				args.T.Logf(
 					"Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
-					mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, srcSelector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates,
+					mr.MinSeqNr, mr.MaxSeqNr, c.DestChain.Selector, args.SrcSelector, args.ExpectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates,
 				)
-				seenMessages.visitCommitReport(srcSelector, mr.MinSeqNr, mr.MaxSeqNr)
+				seenMessages.visitCommitReport(args.SrcSelector, mr.MinSeqNr, mr.MaxSeqNr)
 
-				if mr.SourceChainSelector == srcSelector &&
-					uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
-					uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-					t.Logf(
+				if mr.SourceChainSelector == args.SrcSelector &&
+					uint64(args.ExpectedSeqNumRange.Start()) >= mr.MinSeqNr &&
+					uint64(args.ExpectedSeqNumRange.End()) <= mr.MaxSeqNr {
+					args.T.Logf(
 						"All sequence numbers committed in a single report [%d, %d]",
-						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
+						args.ExpectedSeqNumRange.Start(), args.ExpectedSeqNumRange.End(),
 					)
 					return true
 				}
 
-				if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
-					t.Logf(
+				if !args.EnforceSingleCommit && seenMessages.allCommited(args.SrcSelector) {
+					args.T.Logf(
 						"All sequence numbers already committed from range [%d, %d]",
-						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
+						args.ExpectedSeqNumRange.Start(), args.ExpectedSeqNumRange.End(),
 					)
 					return true
 				}
@@ -428,25 +447,25 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	}
 
 	defer subscription.Unsubscribe()
-	timeout := time.NewTimer(tests.WaitTimeout(t))
+	timeout := time.NewTimer(tests.WaitTimeout(args.T))
 	defer timeout.Stop()
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
-		case <-t.Context().Done():
+		case <-args.T.Context().Done():
 			return nil, nil
 		case <-ticker.C:
-			t.Logf("Waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
-				dest.Selector, srcSelector, expectedSeqNumRange.String())
+			args.T.Logf("Waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
+				c.DestChain.Selector, args.SrcSelector, args.ExpectedSeqNumRange.String())
 
 			// Need to do this because the subscription sometimes fails to get the event.
-			iter, err := offRamp.FilterCommitReportAccepted(&bind.FilterOpts{
-				Context: t.Context(),
+			iter, err := c.OffRamp.FilterCommitReportAccepted(&bind.FilterOpts{
+				Context: args.T.Context(),
 			})
 			// In some test case the test ends while the filter is still running resulting in a context.Canceled error.
 			if err != nil && !errors.Is(err, context.Canceled) {
-				require.NoError(t, err)
+				require.NoError(args.T, err)
 			}
 			for iter.Next() {
 				event := iter.Event
@@ -459,7 +478,7 @@ func ConfirmCommitWithExpectedSeqNumRange(
 			return nil, fmt.Errorf("subscription error: %w", subErr)
 		case <-timeout.C:
 			return nil, fmt.Errorf("timed out after waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
-				dest.Selector, srcSelector, expectedSeqNumRange.String())
+				c.DestChain.Selector, args.SrcSelector, args.ExpectedSeqNumRange.String())
 		case report := <-sink:
 			verified := verifyCommitReport(report)
 			if verified {
@@ -559,55 +578,55 @@ func SolEventEmitter[T any](
 	return ch, errorCh
 }
 
-func ConfirmCommitWithExpectedSeqNumRangeSol(
-	t *testing.T,
-	srcSelector uint64,
-	dest cldf_solana.Chain,
-	offrampAddress solana.PublicKey,
-	startSlot uint64,
-	expectedSeqNumRange ccipocr3.SeqNumRange,
-	enforceSingleCommit bool,
-) (bool, error) {
-	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
+func (c *SolanaDestConfirmer) ConfirmCommitWithExpectedSeqNumRangeSol(args *ConfirmCommitArgs) (bool, error) {
+	seenMessages := NewCommitReportTracker(args.SrcSelector, args.ExpectedSeqNumRange)
+
+	var startSlot uint64
+	if args.StartBlock != nil {
+		startSlot = *args.StartBlock
+	}
 
 	done := make(chan any)
 	defer close(done)
-	sink, errCh := SolEventEmitter[solccip.EventCommitReportAccepted](t, dest.Client, offrampAddress, "CommitReportAccepted", startSlot, done)
+	sink, errCh := SolEventEmitter[solccip.EventCommitReportAccepted](args.T, c.DestChain.Client, c.OffRampAddress, "CommitReportAccepted", startSlot, done)
 
-	timeout := time.NewTimer(tests.WaitTimeout(t))
+	timeout := time.NewTimer(tests.WaitTimeout(args.T))
 	defer timeout.Stop()
 
 	for {
 		select {
 		case commitEvent := <-sink:
-			// if merkle root is zero, it only contains price updates
 			if commitEvent.Report == nil {
-				t.Logf("Skipping CommitReportAccepted with only price updates")
+				args.T.Logf("Skipping CommitReportAccepted with only price updates")
 				continue
 			}
-			require.Equal(t, srcSelector, commitEvent.Report.SourceChainSelector)
+			require.Equal(args.T, args.SrcSelector, commitEvent.Report.SourceChainSelector)
 
-			// TODO: this logic is duplicated with verifyCommitReport, share
 			mr := commitEvent.Report
 			seenMessages.visitCommitReport(mr.SourceChainSelector, mr.MinSeqNr, mr.MaxSeqNr)
-			if mr.SourceChainSelector == srcSelector &&
-				uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
-				uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-				t.Logf("All sequence numbers committed in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+			if mr.SourceChainSelector == args.SrcSelector &&
+				uint64(args.ExpectedSeqNumRange.Start()) >= mr.MinSeqNr &&
+				uint64(args.ExpectedSeqNumRange.End()) <= mr.MaxSeqNr {
+				args.T.Logf("All sequence numbers committed in a single report [%d, %d]", args.ExpectedSeqNumRange.Start(), args.ExpectedSeqNumRange.End())
 				return true, nil
 			}
 
-			if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
-				t.Logf("All sequence numbers already committed from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+			if !args.EnforceSingleCommit && seenMessages.allCommited(args.SrcSelector) {
+				args.T.Logf("All sequence numbers already committed from range [%d, %d]", args.ExpectedSeqNumRange.Start(), args.ExpectedSeqNumRange.End())
 				return true, nil
 			}
 		case err := <-errCh:
-			require.NoError(t, err)
+			require.NoError(args.T, err)
 		case <-timeout.C:
 			return false, fmt.Errorf("timed out after waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
-				dest.Selector, srcSelector, expectedSeqNumRange.String())
+				c.DestChain.Selector, args.SrcSelector, args.ExpectedSeqNumRange.String())
 		}
 	}
+}
+
+func (c *TonDestConfirmer) ConfirmCommitWithExpectedSeqNumRangeTon(args *ConfirmCommitArgs) (any, error) {
+	// TODO once offramp contracts are supported, we can add the logic to confirm commit with expected sequence number range
+	return true, nil
 }
 
 // ConfirmExecWithSeqNrsForAll waits for all chains in the environment to execute the given expectedSeqNums.
@@ -628,18 +647,19 @@ func ConfirmExecWithSeqNrsForAll(
 		mx sync.Mutex
 	)
 	executionStates = make(map[SourceDestPair]map[uint64]int)
-	for sourceDest, seqRange := range expectedSeqNums {
-		seqRange := seqRange
-		srcChain := sourceDest.SourceChainSelector
-		dstChain := sourceDest.DestChainSelector
-
-		var startBlock *uint64
-		if startBlocks != nil {
-			startBlock = startBlocks[dstChain]
-		}
+	for sourceDest, seqNrs := range expectedSeqNums {
+		sourceDest := sourceDest
+		seqNrs := seqNrs
 
 		wg.Go(func() error {
-			family, err := chainsel.GetSelectorFamily(dstChain)
+			execArgs := &ConfirmExecArgs{
+				T:              t,
+				SourceChain:    sourceDest.SourceChainSelector,
+				StartBlock:     startBlocks[sourceDest.DestChainSelector],
+				ExpectedSeqNrs: seqNrs,
+			}
+
+			family, err := chainsel.GetSelectorFamily(sourceDest.DestChainSelector)
 			if err != nil {
 				return err
 			}
@@ -647,44 +667,27 @@ func ConfirmExecWithSeqNrsForAll(
 			var innerExecutionStates map[uint64]int
 			switch family {
 			case chainsel.FamilyEVM:
-				innerExecutionStates, err = ConfirmExecWithSeqNrs(
-					t,
-					srcChain,
-					e.BlockChains.EVMChains()[dstChain],
-					state.MustGetEVMChainState(dstChain).OffRamp,
-					startBlock,
-					seqRange,
+				confirmer := NewEVMDestConfirmer(
+					e.BlockChains.EVMChains()[sourceDest.DestChainSelector],
+					state.MustGetEVMChainState(sourceDest.DestChainSelector).OffRamp,
 				)
-				if err != nil {
-					return err
-				}
+				innerExecutionStates, err = confirmer.ConfirmExecWithSeqNrs(execArgs)
 			case chainsel.FamilySolana:
-				var startSlot uint64
-				if startBlock != nil {
-					startSlot = *startBlock
-				}
-				innerExecutionStates, err = ConfirmExecWithSeqNrsSol(
-					t,
-					srcChain,
-					e.BlockChains.SolanaChains()[dstChain],
-					state.SolChains[dstChain].OffRamp,
-					startSlot,
-					seqRange,
+				confirmer := NewSolanaDestConfirmer(
+					e.BlockChains.SolanaChains()[sourceDest.DestChainSelector],
+					state.SolChains[sourceDest.DestChainSelector].OffRamp,
 				)
-				if err != nil {
-					return err
-				}
+				innerExecutionStates, err = confirmer.ConfirmExecWithSeqNrsSol(execArgs)
 			case chainsel.FamilyTon:
-				innerExecutionStates, err = ConfirmExecWithSeqNrsTon(
-					t,
-					srcChain,
-					e.BlockChains.TonChains()[dstChain],
-					state.TonChains[dstChain].OffRamp,
-					startBlock,
-					seqRange,
+				confirmer := NewTonDestConfirmer(
+					e.BlockChains.TonChains()[sourceDest.DestChainSelector],
+					state.TonChains[sourceDest.DestChainSelector].OffRamp,
 				)
-			default:
-				return fmt.Errorf("unsupported chain family; %v", family)
+				innerExecutionStates, err = confirmer.ConfirmExecWithSeqNrsTon(execArgs)
+			}
+
+			if err != nil {
+				return err
 			}
 
 			mx.Lock()
@@ -703,26 +706,19 @@ func ConfirmExecWithSeqNrsForAll(
 // startBlock is the block number to start watching from.
 // If startBlock is nil, it will start watching from the latest block.
 // Returns a map that maps the expected sequence number to its execution state.
-func ConfirmExecWithSeqNrs(
-	t *testing.T,
-	sourceSelector uint64,
-	dest cldf_evm.Chain,
-	offRamp offramp.OffRampInterface,
-	startBlock *uint64,
-	expectedSeqNrs []uint64,
-) (executionStates map[uint64]int, err error) {
-	if len(expectedSeqNrs) == 0 {
+func (c *EVMDestConfirmer) ConfirmExecWithSeqNrs(args *ConfirmExecArgs) (executionStates map[uint64]int, err error) {
+	if len(args.ExpectedSeqNrs) == 0 {
 		return nil, errors.New("no expected sequence numbers provided")
 	}
 
-	timeout := time.NewTimer(tests.WaitTimeout(t))
+	timeout := time.NewTimer(tests.WaitTimeout(args.T))
 	defer timeout.Stop()
 	tick := time.NewTicker(3 * time.Second)
 	defer tick.Stop()
 	sink := make(chan *offramp.OffRampExecutionStateChanged)
-	subscription, err := offRamp.WatchExecutionStateChanged(&bind.WatchOpts{
+	subscription, err := c.OffRamp.WatchExecutionStateChanged(&bind.WatchOpts{
 		Context: context.Background(),
-		Start:   startBlock,
+		Start:   args.StartBlock,
 	}, sink, nil, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error to subscribe ExecutionStateChanged : %w", err)
@@ -733,19 +729,19 @@ func ConfirmExecWithSeqNrs(
 	// of all the expected sequence numbers.
 	executionStates = make(map[uint64]int)
 	seqNrsToWatch := make(map[uint64]struct{})
-	for _, seqNr := range expectedSeqNrs {
+	for _, seqNr := range args.ExpectedSeqNrs {
 		seqNrsToWatch[seqNr] = struct{}{}
 	}
 	for {
 		select {
 		case <-tick.C:
 			for expectedSeqNr := range seqNrsToWatch {
-				scc, executionState := getExecutionState(t, sourceSelector, offRamp, expectedSeqNr)
-				t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
-					dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
+				scc, executionState := getExecutionState(args.T, args.SourceChain, c.OffRamp, expectedSeqNr)
+				args.T.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
+					c.DestChain.Selector, c.OffRamp.Address().String(), args.SourceChain, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
 				if executionState == EXECUTION_STATE_SUCCESS || executionState == EXECUTION_STATE_FAILURE {
-					t.Logf("Observed %s execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
-						executionStateToString(executionState), dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr)
+					args.T.Logf("Observed %s execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
+						executionStateToString(executionState), c.DestChain.Selector, c.OffRamp.Address().String(), args.SourceChain, expectedSeqNr)
 					executionStates[expectedSeqNr] = int(executionState)
 					delete(seqNrsToWatch, expectedSeqNr)
 					if len(seqNrsToWatch) == 0 {
@@ -754,15 +750,15 @@ func ConfirmExecWithSeqNrs(
 				}
 			}
 		case execEvent := <-sink:
-			t.Logf("Received ExecutionStateChanged (state %s) for seqNum %d on chain %d (offramp %s) from chain %d",
-				executionStateToString(execEvent.State), execEvent.SequenceNumber, dest.Selector, offRamp.Address().String(),
-				sourceSelector,
+			args.T.Logf("Received ExecutionStateChanged (state %s) for seqNum %d on chain %d (offramp %s) from chain %d",
+				executionStateToString(execEvent.State), execEvent.SequenceNumber, c.DestChain.Selector, c.OffRamp.Address().String(),
+				args.SourceChain,
 			)
 
 			_, found := seqNrsToWatch[execEvent.SequenceNumber]
-			if found && execEvent.SourceChainSelector == sourceSelector {
-				t.Logf("Received ExecutionStateChanged (state %s) on chain %d (offramp %s) from chain %d with expected sequence number %d",
-					executionStateToString(execEvent.State), dest.Selector, offRamp.Address().String(), sourceSelector, execEvent.SequenceNumber)
+			if found && execEvent.SourceChainSelector == args.SourceChain {
+				args.T.Logf("Received ExecutionStateChanged (state %s) on chain %d (offramp %s) from chain %d with expected sequence number %d",
+					executionStateToString(execEvent.State), c.DestChain.Selector, c.OffRamp.Address().String(), args.SourceChain, execEvent.SequenceNumber)
 				executionStates[execEvent.SequenceNumber] = int(execEvent.State)
 				delete(seqNrsToWatch, execEvent.SequenceNumber)
 				if len(seqNrsToWatch) == 0 {
@@ -771,45 +767,42 @@ func ConfirmExecWithSeqNrs(
 			}
 		case <-timeout.C:
 			return nil, fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
-				dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNrs)
+				c.DestChain.Selector, c.OffRamp.Address().String(), args.SourceChain, args.ExpectedSeqNrs)
 		case subErr := <-subscription.Err():
 			return nil, fmt.Errorf("subscription error: %w", subErr)
 		}
 	}
 }
 
-func ConfirmExecWithSeqNrsSol(
-	t *testing.T,
-	srcSelector uint64,
-	dest cldf_solana.Chain,
-	offrampAddress solana.PublicKey,
-	startSlot uint64,
-	expectedSeqNrs []uint64,
-) (executionStates map[uint64]int, err error) {
+func (c *SolanaDestConfirmer) ConfirmExecWithSeqNrsSol(args *ConfirmExecArgs) (executionStates map[uint64]int, err error) {
 	// TODO: share with EVM
 	// some state to efficiently track the execution states
 	// of all the expected sequence numbers.
 	executionStates = make(map[uint64]int)
 	seqNrsToWatch := make(map[uint64]struct{})
-	for _, seqNr := range expectedSeqNrs {
+	for _, seqNr := range args.ExpectedSeqNrs {
 		seqNrsToWatch[seqNr] = struct{}{}
+	}
+
+	var startSlot uint64
+	if args.StartBlock != nil {
+		startSlot = *args.StartBlock
 	}
 
 	done := make(chan any)
 	defer close(done)
-	sink, errCh := SolEventEmitter[solccip.EventExecutionStateChanged](t, dest.Client, offrampAddress, "ExecutionStateChanged", startSlot, done)
+	sink, errCh := SolEventEmitter[solccip.EventExecutionStateChanged](args.T, c.DestChain.Client, c.OffRampAddress, "ExecutionStateChanged", startSlot, done)
 
-	timeout := time.NewTimer(tests.WaitTimeout(t))
+	timeout := time.NewTimer(tests.WaitTimeout(args.T))
 	defer timeout.Stop()
 
 	for {
 		select {
 		case execEvent := <-sink:
-			// TODO: share with EVM
 			_, found := seqNrsToWatch[execEvent.SequenceNumber]
-			if found && execEvent.SourceChainSelector == srcSelector {
-				t.Logf("Received ExecutionStateChanged (state %s) on chain %d (offramp %s) from chain %d with expected sequence number %d",
-					execEvent.State.String(), dest.Selector, offrampAddress.String(), srcSelector, execEvent.SequenceNumber)
+			if found && execEvent.SourceChainSelector == args.SourceChain {
+				args.T.Logf("Received ExecutionStateChanged (state %s) on chain %d (offramp %s) from chain %d with expected sequence number %d",
+					execEvent.State.String(), c.DestChain.Selector, c.OffRampAddress.String(), args.SourceChain, execEvent.SequenceNumber)
 				if execEvent.State == ccip_offramp.InProgress_MessageExecutionState {
 					// skip the in progress state, executed event should follow
 					continue
@@ -821,12 +814,21 @@ func ConfirmExecWithSeqNrsSol(
 				}
 			}
 		case err := <-errCh:
-			require.NoError(t, err)
+			require.NoError(args.T, err)
 		case <-timeout.C:
 			return nil, fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
-				dest.Selector, offrampAddress.String(), srcSelector, expectedSeqNrs)
+				c.DestChain.Selector, c.OffRampAddress.String(), args.SourceChain, args.ExpectedSeqNrs)
 		}
 	}
+}
+
+func (c *TonDestConfirmer) ConfirmExecWithSeqNrsTon(args *ConfirmExecArgs) (executionStates map[uint64]int, err error) {
+	args.T.Logf("DEBUG: TODO(ton): ConfirmExecWithSeqNrsTon\n")
+	seqNrsToWatch := make(map[uint64]int)
+	for _, seqNr := range args.ExpectedSeqNrs {
+		seqNrsToWatch[seqNr] = EXECUTION_STATE_SUCCESS
+	}
+	return seqNrsToWatch, nil
 }
 
 func ConfirmNoExecConsistentlyWithSeqNr(
