@@ -232,7 +232,7 @@ jobs:
     secrets: inherit
 
   call-cre-workflow-load-test:
-    if: ${{ github.event_name == 'schedule' }}
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     needs: [ docker-core-plugins-testing ]
     permissions:
       contents: read
