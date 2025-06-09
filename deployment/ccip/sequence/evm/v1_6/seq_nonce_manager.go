@@ -112,18 +112,21 @@ var (
 			}
 
 			for chainSel, update := range input.UpdatesByChain {
-				// build inputs
-				callerOpInput := ccipops.NonceManagerUpdateAuthorizedCallerInput{
-					ChainSelector: chainSel,
-					Callers: nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
-						AddedCallers:   update.AddedAuthCallers,
-						RemovedCallers: update.RemovedAuthCallers,
-					},
-					MCMS: input.MCMS,
+				// build NonceManagerUpdateAuthorizedCallerInput
+				var callerOpInput *ccipops.NonceManagerUpdateAuthorizedCallerInput
+				if len(update.AddedAuthCallers) > 0 || len(update.RemovedAuthCallers) > 0 {
+					callerOpInput = &(ccipops.NonceManagerUpdateAuthorizedCallerInput{
+						ChainSelector: chainSel,
+						Callers: nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
+							AddedCallers:   update.AddedAuthCallers,
+							RemovedCallers: update.RemovedAuthCallers,
+						},
+						MCMS: input.MCMS,
+					})
 				}
 
+				// build NonceManagerApplyPreviousRampsUpdatesInput
 				var rampUpdatesOpInput *ccipops.NonceManagerApplyPreviousRampsUpdatesInput
-
 				if len(update.PreviousRampsArgs) > 0 {
 					previousRampsArgs := make([]nonce_manager.NonceManagerPreviousRampsArgs, 0)
 					for _, prevRamp := range update.PreviousRampsArgs {
@@ -151,12 +154,14 @@ var (
 				}
 
 				// execute NonceManagerUpdateAuthorizedCallerOp
-				report, err := operations.ExecuteOperation(b, ccipops.NonceManagerUpdateAuthorizedCallerOp, deps, callerOpInput)
-				if err != nil {
-					return report.Output, fmt.Errorf("failed to execute NonceManagerUpdateAuthorizedCallerOp on %d: %w", chainSel, err)
-				}
-				if err := finalOutput.Merge(report.Output); err != nil {
-					return opsutil.OpOutput{}, fmt.Errorf("failed to merge output for chain %d: %w", chainSel, err)
+				if callerOpInput != nil {
+					report, err := operations.ExecuteOperation(b, ccipops.NonceManagerUpdateAuthorizedCallerOp, deps, *callerOpInput)
+					if err != nil {
+						return report.Output, fmt.Errorf("failed to execute NonceManagerUpdateAuthorizedCallerOp on %d: %w", chainSel, err)
+					}
+					if err := finalOutput.Merge(report.Output); err != nil {
+						return opsutil.OpOutput{}, fmt.Errorf("failed to merge output for chain %d: %w", chainSel, err)
+					}
 				}
 
 				// execute NonceManagerPreviousRampsUpdatesOp
