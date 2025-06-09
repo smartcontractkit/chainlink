@@ -47,7 +47,7 @@ func SetRMNRemoteOnRMNProxyChangeset(e cldf.Environment, cfg ccipseq.SetRMNRemot
 		CurrentState: state,
 	}
 
-	seqReport, err := operations.ExecuteSequence(e.OperationsBundle, ccipseq.SetRMNRemoteOnRMNProxySeq, cfg, deps)
+	seqReport, err := operations.ExecuteSequence(e.OperationsBundle, ccipseq.SetRMNRemoteOnRMNProxySeq, deps, cfg)
 
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute SetRMNRemoteOnRMNProxy sequence: %w", err)

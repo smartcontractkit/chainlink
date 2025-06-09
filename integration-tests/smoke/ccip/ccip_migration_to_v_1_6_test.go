@@ -148,7 +148,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 	tEnv.UpdateDeployedEnvironment(e)
 
 	_, err = cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset).Apply(e.Env,
-		v1_6.SetRMNRemoteOnRMNProxyConfig{
+		ccipseq.SetRMNRemoteOnRMNProxyConfig{
 			ChainSelectors: e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)),
 		})
 	require.NoError(t, err)
@@ -276,7 +276,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	tEnv.UpdateDeployedEnvironment(e)
 
 	_, err = cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset).Apply(e.Env,
-		v1_6.SetRMNRemoteOnRMNProxyConfig{
+		ccipseq.SetRMNRemoteOnRMNProxyConfig{
 			ChainSelectors: e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)),
 		})
 	require.NoError(t, err)
@@ -413,7 +413,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	tEnv.UpdateDeployedEnvironment(e)
 
 	_, err = cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset).Apply(e.Env,
-		v1_6.SetRMNRemoteOnRMNProxyConfig{
+		ccipseq.SetRMNRemoteOnRMNProxyConfig{
 			ChainSelectors: e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)),
 		})
 	require.NoError(t, err)
@@ -647,7 +647,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	e.Env, err = commonchangeset.Apply(t, e.Env, commonchangeset.Configure(
 		// as we have already transferred ownership for RMNProxy to MCMS, it needs to be done via MCMS proposal
 		cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
-		v1_6.SetRMNRemoteOnRMNProxyConfig{
+		ccipseq.SetRMNRemoteOnRMNProxyConfig{
 			ChainSelectors: e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)),
 			MCMSConfig: &proposalutils.TimelockConfig{
 				MinDelay: 0,
@@ -655,11 +655,11 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		},
 	), commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(v1_6.UpdateNonceManagersChangeset),
-		v1_6.UpdateNonceManagerConfig{
+		ccipseq.UpdateNonceManagerConfig{
 			// we only have lanes between src1 --> dest
-			UpdatesByChain: map[uint64]v1_6.NonceManagerUpdate{
+			UpdatesByChain: map[uint64]ccipseq.NonceManagerUpdate{
 				src1: {
-					PreviousRampsArgs: []v1_6.PreviousRampCfg{
+					PreviousRampsArgs: []ccipseq.PreviousRampCfg{
 						{
 							RemoteChainSelector: dest,
 							AllowEmptyOffRamp:   true,
@@ -667,7 +667,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 					},
 				},
 				src2: {
-					PreviousRampsArgs: []v1_6.PreviousRampCfg{
+					PreviousRampsArgs: []ccipseq.PreviousRampCfg{
 						{
 							RemoteChainSelector: dest,
 							AllowEmptyOffRamp:   true,
@@ -675,7 +675,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 					},
 				},
 				dest: {
-					PreviousRampsArgs: []v1_6.PreviousRampCfg{
+					PreviousRampsArgs: []ccipseq.PreviousRampCfg{
 						{
 							RemoteChainSelector: src1,
 							AllowEmptyOnRamp:    true,

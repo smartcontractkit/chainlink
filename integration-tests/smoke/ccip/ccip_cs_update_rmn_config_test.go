@@ -413,7 +413,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 		},
 	), commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
-		v1_6.SetRMNRemoteOnRMNProxyConfig{
+		ccipseq.SetRMNRemoteOnRMNProxyConfig{
 			ChainSelectors: allChains,
 			MCMSConfig: &proposalutils.TimelockConfig{
 				MinDelay: 0,

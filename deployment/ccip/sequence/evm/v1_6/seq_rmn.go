@@ -65,7 +65,7 @@ var (
 		"SetRMNRemoteOnRMNProxySeq",
 		semver.MustParse("1.0.0"),
 		"Setting SetRMNRemote on RMNProxy across multiple EVM chains",
-		func(b operations.Bundle, input SetRMNRemoteOnRMNProxyConfig, deps opsutil.ConfigureDependencies) (opsutil.OpOutput, error) {
+		func(b operations.Bundle, deps opsutil.ConfigureDependencies, input SetRMNRemoteOnRMNProxyConfig) (opsutil.OpOutput, error) {
 			finalOutput := &opsutil.OpOutput{}
 
 			// validate input
