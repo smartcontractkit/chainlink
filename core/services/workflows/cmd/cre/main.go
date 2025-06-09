@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
 func main() {
@@ -94,7 +95,7 @@ func run(
 		}
 	}
 
-	engine, err := NewStandaloneEngine(ctx, lggr, registry, binary, config, billingClientAddr)
+	engine, err := NewStandaloneEngine(ctx, lggr, registry, binary, config, billingClientAddr, v2.LifecycleHooks{})
 	if err != nil {
 		fmt.Printf("Failed to create engine: %v\n", err)
 		os.Exit(1)
