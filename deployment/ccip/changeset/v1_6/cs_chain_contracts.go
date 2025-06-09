@@ -86,7 +86,7 @@ func UpdateNonceManagersChangeset(e cldf.Environment, cfg ccipseqs.UpdateNonceMa
 		CurrentState: state,
 	}
 
-	seqReport, err := operations.ExecuteSequence(e.OperationsBundle, ccipseqs.UpdateNonceManagerSequence, cfg, deps)
+	seqReport, err := operations.ExecuteSequence(e.OperationsBundle, ccipseqs.UpdateNonceManagerSequence, deps, cfg)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute UpdateNonceManager sequence: %w", err)
 	}

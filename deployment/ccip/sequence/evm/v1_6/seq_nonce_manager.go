@@ -20,7 +20,7 @@ import (
 )
 
 type UpdateNonceManagerConfig struct {
-	UpdatesByChain map[uint64]NonceManagerUpdate // source -> dest -> update
+	UpdatesByChain map[uint64]NonceManagerUpdate `json:"updatesByChain"` // source -> dest -> update
 	MCMS           *proposalutils.TimelockConfig
 }
 
@@ -97,7 +97,7 @@ var (
 		"UpdateNonceManagerSequence",
 		semver.MustParse("1.0.0"),
 		"Apply updates to the Nonce Manager contract across multiple EVM chains",
-		func(b operations.Bundle, input UpdateNonceManagerConfig, deps opsutil.ConfigureDependencies) (opsutil.OpOutput, error) {
+		func(b operations.Bundle, deps opsutil.ConfigureDependencies, input UpdateNonceManagerConfig) (opsutil.OpOutput, error) {
 			finalOutput := &opsutil.OpOutput{}
 
 			// validate input
