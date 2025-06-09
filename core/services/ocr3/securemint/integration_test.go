@@ -239,24 +239,7 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []Node, jobIDs map[int]
 	wg.Wait()
 	t.Logf("All pipeline runs completed successfully")
 
-	// 3. Check that jobs are correct
-	// for _, app := range apps {
-	// 	jobs, _, err2 := app.JobORM().FindJobs(ctx, 0, 1000)
-	// 	require.NoError(t, err2)
-	// 	// No spec errors
-	// 	for _, j := range jobs {
-	// 		ignore := 0
-	// 		for i := range j.JobSpecErrors {
-	// 			// Non-fatal timing related error, ignore for testing.
-	// 			if strings.Contains(j.JobSpecErrors[i].Description, "leader's phase conflicts tGrace timeout") {
-	// 				ignore++
-	// 			}
-	// 		}
-	// 		require.Len(t, j.JobSpecErrors, ignore)
-	// 	}
-	// }
-
-	// 4. Check that transmissions work
+	// 3. Check that transmissions work
 	expectedNumTransmissions := int32(4)
 	gomega.NewWithT(t).Eventually(func() bool {
 		numTransmissions := securemint.StubTransmissionCounter.Load()
