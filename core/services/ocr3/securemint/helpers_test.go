@@ -297,8 +297,8 @@ updateInterval = "1m"
 Input
 {
     "data": {
-        "token": "usd1",
-        "reserves": "Bitgo",
+        "token": "eth",
+        "reserves": "platform",
         "supplyChains": [
             "5009297550715157269"
         ],
@@ -351,7 +351,7 @@ Output
     "meta": {
         "adapterName": "SECURE_MINT",
         "metrics": {
-            "feedId": "{\"token\":\"usd1\",\"reserves\":\"bitgo\",\"supplyChains\":[\"5009297550715157269\"],\"supplyChainBlocks\":[0]}"
+            "feedId": "{\"token\":\"eth\",\"reserves\":\"platform\",\"supplyChains\":[\"5009297550715157269\"],\"supplyChainBlocks\":[0]}"
         }
     }
 }

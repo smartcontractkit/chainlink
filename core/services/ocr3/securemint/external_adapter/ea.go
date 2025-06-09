@@ -42,6 +42,23 @@ func (ea *externalAdapter) GetChains(ctx context.Context) ([]por.ChainSelector, 
 func (ea *externalAdapter) GetPayload(ctx context.Context, blocks por.Blocks) (por.ExternalAdapterPayload, error) {
 	ea.lggr.Debugf("GetPayload called with blocks: %v", blocks)
 
+	// 		ds1 [type=bridge name="%s" timeout=0 requestData=<{"data": {"address": "0x1234"}}>]
+	// ds1 [type=bridge name=\"bridge-api0\" requestData="{\\\"data\\": {\\\"from\\\":\\\"LINK\\\",\\\"to\\\":\\\"ETH\\\"}}"];
+	//     submit [type=bridge name="substrate-adapter1" requestData=<{ "value": $(parse) }>]
+
+	// {
+	//     "data": {
+	//         "token": "eth",
+	//         "reserves": "platform",
+	//         "supplyChains": [
+	//             "5009297550715157269"
+	//         ],
+	//         "supplyChainBlocks": [
+	//             0
+	//         ]
+	//     }
+	// }
+
 	// execute
 	vars := map[string]any{
 		"jb": map[string]any{

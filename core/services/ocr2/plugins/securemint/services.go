@@ -201,6 +201,8 @@ func NewSecureMintServices(ctx context.Context,
 		}
 	}
 
+	// TODO(gg): use promwrapper plugin to get ocr metrics?
+
 	var oracle libocr.Oracle
 	oracle, err = libocr.NewOracle(argsNoPlugin)
 	if err != nil {
