@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -1370,6 +1372,8 @@ func SetOCR3OffRampChangeset(e cldf.Environment, cfg SetOCR3OffRampConfig) (cldf
 	timelocks := make(map[uint64]string)
 	inspectors := make(map[uint64]mcmssdk.Inspector)
 
+	xg := new(errgroup.Group)
+
 	for _, remote := range cfg.RemoteChainSels {
 		donID, err := internal.DonIDForChain(
 			state.Chains[cfg.HomeChainSel].CapabilityRegistry,
@@ -1398,12 +1402,16 @@ func SetOCR3OffRampChangeset(e cldf.Environment, cfg SetOCR3OffRampConfig) (cldf
 		offRamp := state.Chains[remote].OffRamp
 		tx, err := offRamp.SetOCR3Configs(txOpts, args)
 		if cfg.MCMS == nil {
-			if _, err := cldf.ConfirmIfNoErrorWithABI(e.BlockChains.EVMChains()[remote], tx, offramp.OffRampABI, err); err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("error setting OCR3 config for chain %d: %w", remote, err)
-			}
-			e.Logger.Infow("Set OCR3 config on offramp", "chain", remote,
-				"offRamp", offRamp.Address().Hex(), "donID", donID,
-				"config", args)
+			remote := remote
+			xg.Go(func() error {
+				if _, err := cldf.ConfirmIfNoErrorWithABI(e.BlockChains.EVMChains()[remote], tx, offramp.OffRampABI, err); err != nil {
+					return fmt.Errorf("error setting OCR3 config for chain %d: %w", remote, err)
+				}
+				e.Logger.Infow("Set OCR3 config on offramp", "chain", remote,
+					"offRamp", offRamp.Address().Hex(), "donID", donID,
+					"config", args)
+				return nil
+			})
 		} else {
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
@@ -1422,6 +1430,10 @@ func SetOCR3OffRampChangeset(e cldf.Environment, cfg SetOCR3OffRampConfig) (cldf
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", remote, err)
 			}
 		}
+	}
+
+	if err := xg.Wait(); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("error confirming OCR3 config: %w", err)
 	}
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
