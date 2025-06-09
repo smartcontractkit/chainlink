@@ -242,7 +242,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'pull_request' && needs.changes.outputs.should-run-cre-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run Core CRE Tests For PR
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -251,6 +251,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -285,7 +286,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'merge_group' && needs.changes.outputs.should-run-cre-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run Core CRE Tests For Merge Queue
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -294,6 +295,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -328,7 +330,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'push'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run Core E2E CRE Tests For Push
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -337,6 +339,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -371,7 +374,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'workflow_dispatch'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run Core E2E CRE Tests For Workflow Dispatch
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -380,6 +383,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -414,7 +418,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'pull_request' && needs.changes.outputs.should-run-core-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run Core E2E Tests For PR
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -423,6 +427,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -455,7 +460,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'merge_group' && needs.changes.outputs.should-run-core-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run Core E2E Tests For Merge Queue
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -466,6 +471,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -498,7 +504,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'push'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run Core E2E Tests For Push
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -509,6 +515,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -541,7 +548,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'workflow_dispatch'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run Core E2E Tests For Workflow Dispatch
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -551,6 +558,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -583,7 +591,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'pull_request' && needs.changes.outputs.should-run-ccip-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025 # june 2, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025 # june 2, 2025
     with:
       workflow_name: Run CCIP E2E Tests For PR
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -592,6 +600,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
       team: "CCIP"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -627,7 +636,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'merge_group' && needs.changes.outputs.should-run-ccip-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run CCIP E2E Tests For Merge Queue
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -638,6 +647,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
       team: "CCIP"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -673,7 +683,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'push'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run CCIP E2E Tests For Push
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -684,6 +694,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
       team: "CCIP"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -719,7 +730,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'workflow_dispatch'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run CCIP E2E Tests For Workflow Dispatch
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -729,6 +740,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
       team: "CCIP"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
