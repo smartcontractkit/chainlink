@@ -936,6 +936,29 @@ func SendRequestAptos(
 		return nil, fmt.Errorf("transaction reverted: %v", data.VmStatus)
 	}
 	e.Logger.Infof("(Aptos) CCIP message sent (tx %s) from chain selector %d to chain selector %d", tx.Hash, cfg.SourceChain, cfg.DestChain)
+
+	// Debug information
+	var (
+		tokenAddressStrings []string
+		tokenStoreStrings   []string
+	)
+	for _, address := range tokenAddresses {
+		tokenAddressStrings = append(tokenAddressStrings, address.StringLong())
+	}
+	for _, address := range tokenStoreAddresses {
+		tokenStoreStrings = append(tokenStoreStrings, address.StringLong())
+	}
+	e.Logger.Debugw("Sent message: ",
+		"destChainSelector", cfg.DestChain,
+		"receiver", msg.Receiver,
+		"data", msg.Data,
+		"tokenAddresses", tokenAddressStrings,
+		"tokenAmounts", tokenAmounts,
+		"tokenStoreAddresses", tokenStoreStrings,
+		"feeToken", msg.FeeToken.StringLong(),
+		"feeTokenStore", msg.FeeTokenStore.StringLong(),
+		"extraArgs", msg.ExtraArgs,
+	)
 	for _, event := range data.Events {
 		e.Logger.Infof("Event type: %v", event.Type)
 		if event.Type == fmt.Sprintf("%s::onramp::CCIPMessageSent", router.StringLong()) {
