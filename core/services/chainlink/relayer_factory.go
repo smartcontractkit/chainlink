@@ -102,7 +102,7 @@ type SolanaFactoryConfig struct {
 	DS sqlutil.DataSource
 }
 
-func (r *RelayerFactory) NewSolana(ks coretypes.Keystore, config SolanaFactoryConfig) (map[types.RelayID]loop.Relayer, error) {
+func (r *RelayerFactory) NewSolana(ks coretypes.Keystore, ksCSA coretypes.Keystore, config SolanaFactoryConfig) (map[types.RelayID]loop.Relayer, error) {
 	chainCfgs, ds := config.TOMLConfigs, config.DS
 	solanaRelayers := make(map[types.RelayID]loop.Relayer)
 	var solLggr = logger.Named(r.Logger, "Solana")
@@ -146,7 +146,7 @@ func (r *RelayerFactory) NewSolana(ks coretypes.Keystore, config SolanaFactoryCo
 				return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
 			}
 
-			solanaRelayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, solCmdFn, string(cfgTOML), ks, ks, r.CapabilitiesRegistry)
+			solanaRelayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, solCmdFn, string(cfgTOML), ks, ksCSA, r.CapabilitiesRegistry)
 		} else {
 			// fallback to embedded chain
 			opts := solana.ChainOpts{
@@ -165,8 +165,8 @@ func (r *RelayerFactory) NewSolana(ks coretypes.Keystore, config SolanaFactoryCo
 	return solanaRelayers, nil
 }
 
-func (r *RelayerFactory) NewStarkNet(ks coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
-	return r.NewLOOPRelayer("StarkNet", relay.NetworkStarkNet, env.StarknetPlugin, ks, chainCfgs)
+func (r *RelayerFactory) NewStarkNet(ks coretypes.Keystore, ksCSA coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
+	return r.NewLOOPRelayer("StarkNet", relay.NetworkStarkNet, env.StarknetPlugin, ks, ksCSA, chainCfgs)
 }
 
 type CosmosFactoryConfig struct {
@@ -189,15 +189,15 @@ func (c CosmosFactoryConfig) Validate() error {
 	return err
 }
 
-func (r *RelayerFactory) NewCosmos(ks coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
-	return r.NewLOOPRelayer("Cosmos", relay.NetworkCosmos, env.CosmosPlugin, ks, chainCfgs)
+func (r *RelayerFactory) NewCosmos(ks coretypes.Keystore, ksCSA coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
+	return r.NewLOOPRelayer("Cosmos", relay.NetworkCosmos, env.CosmosPlugin, ks, ksCSA, chainCfgs)
 }
 
-func (r *RelayerFactory) NewAptos(ks coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
-	return r.NewLOOPRelayer("Aptos", relay.NetworkAptos, env.AptosPlugin, ks, chainCfgs)
+func (r *RelayerFactory) NewAptos(ks coretypes.Keystore, ksCSA coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
+	return r.NewLOOPRelayer("Aptos", relay.NetworkAptos, env.AptosPlugin, ks, ksCSA, chainCfgs)
 }
 
-func (r *RelayerFactory) NewLOOPRelayer(name string, network string, plugin env.Plugin, ks coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
+func (r *RelayerFactory) NewLOOPRelayer(name string, network string, plugin env.Plugin, ks coretypes.Keystore, ksCSA coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
 	relayers := make(map[types.RelayID]loop.Relayer)
 	lggr := logger.Named(r.Logger, name)
 
@@ -238,11 +238,11 @@ func (r *RelayerFactory) NewLOOPRelayer(name string, network string, plugin env.
 		}
 		// the relayer service has a delicate keystore dependency. the value that is passed to NewRelayerService must
 		// be compatible with instantiating a starknet transaction manager KeystoreAdapter within the LOOPp executable.
-		relayers[relayID] = loop.NewRelayerService(logger.Named(lggr, relayID.ChainID), r.GRPCOpts, cmdFn, string(cfgTOML), ks, ks, r.CapabilitiesRegistry)
+		relayers[relayID] = loop.NewRelayerService(logger.Named(lggr, relayID.ChainID), r.GRPCOpts, cmdFn, string(cfgTOML), ks, ksCSA, r.CapabilitiesRegistry)
 	}
 	return relayers, nil
 }
 
-func (r *RelayerFactory) NewTron(ks coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
-	return r.NewLOOPRelayer("Tron", relay.NetworkTron, env.TronPlugin, ks, chainCfgs)
+func (r *RelayerFactory) NewTron(ks coretypes.Keystore, ksCSA coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
+	return r.NewLOOPRelayer("Tron", relay.NetworkTron, env.TronPlugin, ks, ksCSA, chainCfgs)
 }
