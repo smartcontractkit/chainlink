@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	chainsel "github.com/smartcontractkit/chain-selectors"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -88,16 +90,16 @@ var randomExecuteReport = func(t *testing.T, chainSelector uint64, gasLimit *big
 
 func TestExecutePluginCodecV1(t *testing.T) {
 	ctx := testutils.Context(t)
-	mockExtraDataCodec := &mocks.ExtraDataCodec{}
+	mockExtraDataCodec := &mocks.SourceChainExtraDataCodec{}
 	destGasAmount := rand.Uint32()
 	gasLimit := utils.RandUint256()
 
 	// Update mock return values to use the correct keys expected by the codec
 	// The codec uses the ExtraDataDecoder internally, which returns maps like these.
-	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
+	mockExtraDataCodec.On("DecodeDestExecDataToMap", mock.Anything, mock.Anything).Return(map[string]any{
 		aptosDestExecDataKey: destGasAmount, // Use the constant defined in the decoder
 	}, nil)
-	mockExtraDataCodec.On("DecodeExtraArgs", mock.Anything, mock.Anything).Return(map[string]any{
+	mockExtraDataCodec.On("DecodeExtraArgsToMap", mock.Anything, mock.Anything).Return(map[string]any{
 		"gasLimit": gasLimit, // Match the key used in the decoder for EVM V1/V2 gasLimit
 		// "allowOutOfOrderExecution": false, // Optionally mock other fields if needed by codec logic
 	}, nil)
@@ -150,9 +152,15 @@ func TestExecutePluginCodecV1(t *testing.T) {
 		},
 	}
 
+	registeredMockExtraDataCodecMap := map[string]ccipcommon.SourceChainExtraDataCodec{
+		chainsel.FamilyEVM:    mockExtraDataCodec,
+		chainsel.FamilySolana: mockExtraDataCodec,
+		chainsel.FamilyAptos:  mockExtraDataCodec,
+	}
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			codec := NewExecutePluginCodecV1(mockExtraDataCodec)
+			codec := NewExecutePluginCodecV1(registeredMockExtraDataCodecMap)
 			// randomExecuteReport now uses the new encoding internally
 			report := tc.report(randomExecuteReport(t, tc.chainSelector, tc.gasLimit, tc.destGasAmount))
 			bytes, err := codec.Encode(ctx, report)
