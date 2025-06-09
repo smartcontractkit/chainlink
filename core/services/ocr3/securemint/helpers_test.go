@@ -170,12 +170,19 @@ func addSecureMintOCRJobs(
 	// Create one bridge and one SM Feed OCR job on each node
 	for i, node := range nodes {
 		name := "securemint-ea"
-		bridgeResp := por.Mintables{
-			BlockMintables: map[por.ChainSelector]por.BlockMintablePair{
+		bridgeResp := por.ExternalAdapterPayload{
+			Mintables: por.Mintables{
 				por.ChainSelector(uint64(1)): por.BlockMintablePair{
 					Block:    por.BlockNumber(1),
 					Mintable: big.NewInt(1000000000),
 				},
+			},
+			LatestRelevantBlocks: por.Blocks{
+				por.ChainSelector(uint64(1)): por.BlockNumber(1),
+			},
+			ReserveInfo: por.ReserveInfo{
+				ReserveAmount: big.NewInt(1000000000),
+				Timestamp:     time.Now(),
 			},
 		}
 		bmBridge := createSecureMintBridge(t, name, i, bridgeResp, node.App.BridgeORM())
@@ -285,7 +292,7 @@ updateInterval = "1m"
 		bridgeName)         // bridge name
 }
 
-func createSecureMintBridge(t *testing.T, name string, i int, response por.Mintables, borm bridges.ORM) (bridgeName string) {
+func createSecureMintBridge(t *testing.T, name string, i int, response por.ExternalAdapterPayload, borm bridges.ORM) (bridgeName string) {
 	ctx := testutils.Context(t)
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		// TODO(gg): assert on the EA request format here
