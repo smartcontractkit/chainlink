@@ -50,7 +50,7 @@ func (m *mercuryTransmitterConfig) TransmitQueueMaxSize() uint32 {
 }
 
 func (m *mercuryTransmitterConfig) TransmitTimeout() time.Duration {
-	return *m.c.TransmitTimeout
+	return m.c.TransmitTimeout.Duration()
 }
 
 func (m *mercuryTransmitterConfig) TransmitConcurrency() uint32 {
@@ -58,11 +58,11 @@ func (m *mercuryTransmitterConfig) TransmitConcurrency() uint32 {
 }
 
 func (m *mercuryTransmitterConfig) ReaperFrequency() time.Duration {
-	return *m.c.ReaperFrequency
+	return m.c.ReaperFrequency.Duration()
 }
 
 func (m *mercuryTransmitterConfig) ReaperMaxAge() time.Duration {
-	return *m.c.ReaperMaxAge
+	return m.c.ReaperMaxAge.Duration()
 }
 
 type mercuryConfig struct {
