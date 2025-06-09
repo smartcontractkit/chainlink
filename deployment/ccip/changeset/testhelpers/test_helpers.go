@@ -183,7 +183,7 @@ func ReplayLogs(t *testing.T, oc cldf.OffchainClient, replayBlocks map[uint64]ui
 	}
 }
 
-func WaitForEventFilterRegistration(t *testing.T, oc cldf.OffchainClient, chainSel uint64, eventName string, onRampAddr []byte) error {
+func WaitForEventFilterRegistration(t *testing.T, oc cldf.OffchainClient, chainSel uint64, eventName string, address []byte) error {
 	family, err := chainsel.GetSelectorFamily(chainSel)
 	if err != nil {
 		return err
@@ -212,7 +212,7 @@ func WaitForEventFilterRegistration(t *testing.T, oc cldf.OffchainClient, chainS
 	}
 
 	require.Eventually(t, func() bool {
-		registered, err := isLogFilterRegistered(t, oc, chainSel, eventID, onRampAddr)
+		registered, err := isLogFilterRegistered(t, oc, chainSel, eventID, address)
 		require.NoError(t, err)
 		return registered
 	}, 10*time.Minute, 5*time.Second)
@@ -1895,12 +1895,12 @@ func Transfer(
 	// The LogPoller could pick up the message sent event but miss the commit or execute event
 	offRampAddr, err := state.GetOffRampAddressBytes(destChain)
 	require.NoError(t, err)
-	err = WaitForEventFilterRegistration(t, env.Offchain, sourceChain, consts.EventNameCommitReportAccepted, offRampAddr)
+	err = WaitForEventFilterRegistration(t, env.Offchain, destChain, consts.EventNameCommitReportAccepted, offRampAddr)
 	require.NoError(t, err)
-	err = WaitForEventFilterRegistration(t, env.Offchain, sourceChain, consts.EventNameExecutionStateChanged, offRampAddr)
+	err = WaitForEventFilterRegistration(t, env.Offchain, destChain, consts.EventNameExecutionStateChanged, offRampAddr)
 	require.NoError(t, err)
 
-	t.Logf("%s filter registered", consts.EventNameCCIPMessageSent)
+	t.Logf("%s, %s, and %s filters registered", consts.EventNameCCIPMessageSent, consts.EventNameCommitReportAccepted, consts.EventNameExecutionStateChanged)
 
 	msgSentEvent := TestSendRequest(t, env, state, sourceChain, destChain, useTestRouter, msg)
 	return msgSentEvent, startBlocks

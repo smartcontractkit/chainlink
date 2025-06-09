@@ -193,7 +193,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	err = testhelpers.WaitForEventFilterRegistration(t, tc.Env.Offchain, tc.DestChain, consts.EventNameExecutionStateChanged, offRampAddr)
 	require.NoError(t, err)
 
-	t.Logf("%s filter registered", consts.EventNameCCIPMessageSent)
+	t.Logf("%s, %s, and %s filters registered", consts.EventNameCCIPMessageSent, consts.EventNameCommitReportAccepted, consts.EventNameExecutionStateChanged)
 
 	if tc.NumberOfMessages == 0 {
 		tc.NumberOfMessages = 1 // default to sending one message if not specified
