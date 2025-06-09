@@ -892,6 +892,29 @@ func SendRequestAptos(
 		tokenStoreAddresses[i] = aptos.AccountAddress{}
 	}
 
+	// Debug information
+	var (
+		tokenAddressStrings []string
+		tokenStoreStrings   []string
+	)
+	for _, address := range tokenAddresses {
+		tokenAddressStrings = append(tokenAddressStrings, address.StringLong())
+	}
+	for _, address := range tokenStoreAddresses {
+		tokenStoreStrings = append(tokenStoreStrings, address.StringLong())
+	}
+	e.Logger.Debugw("Sending message: ",
+		"destChainSelector", cfg.DestChain,
+		"receiver", msg.Receiver,
+		"data", msg.Data,
+		"tokenAddresses", tokenAddressStrings,
+		"tokenAmounts", tokenAmounts,
+		"tokenStoreAddresses", tokenStoreStrings,
+		"feeToken", msg.FeeToken.StringLong(),
+		"feeTokenStore", msg.FeeTokenStore.StringLong(),
+		"extraArgs", msg.ExtraArgs,
+	)
+
 	routerContract := aptos_router.Bind(router, client)
 	fee, err := routerContract.Router().GetFee(
 		nil,
@@ -937,31 +960,9 @@ func SendRequestAptos(
 	}
 	e.Logger.Infof("(Aptos) CCIP message sent (tx %s) from chain selector %d to chain selector %d", tx.Hash, cfg.SourceChain, cfg.DestChain)
 
-	// Debug information
-	var (
-		tokenAddressStrings []string
-		tokenStoreStrings   []string
-	)
-	for _, address := range tokenAddresses {
-		tokenAddressStrings = append(tokenAddressStrings, address.StringLong())
-	}
-	for _, address := range tokenStoreAddresses {
-		tokenStoreStrings = append(tokenStoreStrings, address.StringLong())
-	}
-	e.Logger.Debugw("Sent message: ",
-		"destChainSelector", cfg.DestChain,
-		"receiver", msg.Receiver,
-		"data", msg.Data,
-		"tokenAddresses", tokenAddressStrings,
-		"tokenAmounts", tokenAmounts,
-		"tokenStoreAddresses", tokenStoreStrings,
-		"feeToken", msg.FeeToken.StringLong(),
-		"feeTokenStore", msg.FeeTokenStore.StringLong(),
-		"extraArgs", msg.ExtraArgs,
-	)
 	for _, event := range data.Events {
 		e.Logger.Infof("Event type: %v", event.Type)
-		if event.Type == fmt.Sprintf("%s::onramp::CCIPMessageSent", router.StringLong()) {
+		if event.Type == fmt.Sprintf("%s::onramp::CCIPMessageSent", router.String()) {
 			var msgSentEvent module_onramp.CCIPMessageSent
 			if err := codec.DecodeAptosJsonValue(event.Data, &msgSentEvent); err != nil {
 				return nil, fmt.Errorf("failed to decode CCIPMessageSentEvent: %w", err)
@@ -973,7 +974,7 @@ func SendRequestAptos(
 			}, nil
 		}
 	}
-	return nil, errors.New("failed to send CCIPMessageSentEvent")
+	return nil, errors.New("sent message but didn't receive CCIPMessageSent event")
 }
 
 func ConvertSolanaCrossChainAmountToBigInt(amount ccip_router.CrossChainAmount) *big.Int {
