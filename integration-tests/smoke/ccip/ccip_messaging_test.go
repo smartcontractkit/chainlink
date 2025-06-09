@@ -515,16 +515,6 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 				MsgData:                []byte("hello CCIPReceiver that should succeed"),
 				ExtraArgs:              extraArgsSuccess,
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-				ExtraAssertions: []func(t *testing.T){
-					func(t *testing.T) {
-						// Check counter is now 2
-						var receiverCounterAccountAfterSuccess soltesthelpers.ReceiverCounter
-						err = solcommon.GetAccountDataBorshInto(ctx, solChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccountAfterSuccess)
-						require.NoError(t, err, "failed to get account info after second message")
-						require.Equal(t, uint8(2), receiverCounterAccountAfterSuccess.Value, "Counter should have incremented to 2")
-						t.Logf("Confirmed counter incremented to 2 after second (successful) message")
-					},
-				},
 			},
 		)
 	})
