@@ -17,7 +17,6 @@ import (
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
-	solanaUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	cldfsol "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -28,43 +27,28 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
-	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/shared"
+	seq "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence/operation"
 )
 
-var Version1_0_0 = semver.MustParse("1.0.0")
+const (
+	ForwarderContract datastore.ContractType = "Forwarder"
+	ForwarderState    datastore.ContractType = "ForwarderState"
+)
 
-var _ cldf.ChangeSetV2[*DeployRequest] = DeploySolanaChain{}
+var _ cldf.ChangeSetV2[*DeployRequest] = DeployForwarder{}
 
-type DeploySolanaChain struct{}
+type DeployForwarder struct{}
 
-// TODO
-func (cs DeploySolanaChain) VerifyPreconditions(env cldf.Environment, cfg *DeployRequest) error {
-	if _, ok := env.BlockChains.SolanaChains()[cfg.ChainSel]; !ok {
-		return fmt.Errorf("solana chain not found for chain selector %d", cfg.ChainSel)
+func (cs DeployForwarder) VerifyPreconditions(env cldf.Environment, req *DeployRequest) error {
+	if _, ok := env.BlockChains.SolanaChains()[req.ChainSel]; !ok {
+		return fmt.Errorf("solana chain not found for chain selector %d", req.ChainSel)
+	}
+	if _, err := semver.NewVersion(req.Version); err != nil {
+		return err
 	}
 
 	return nil
-}
-
-// TODO
-func (cs DeploySolanaChain) Apply(env cldf.Environment, config *DeployRequest) (cldf.ChangesetOutput, error) {
-	return cldf.ChangesetOutput{}, nil
-}
-
-var DeployForwarderOp = operations.NewOperation(
-	"deploy-forwarder-op",
-	Version1_0_0,
-	"Deploys deploys forwarder for Solana Chain",
-	deployForwarderOp,
-)
-
-type DeployForwarderInput struct{}
-type DeployForwarderOutput struct{}
-type SolanaDeps struct{}
-
-// TODO
-func deployForwarderOp(b operations.Bundle, deps SolanaDeps, in DeployForwarderInput) (DeployForwarderOutput, error) {
-	return DeployForwarderOutput{}, nil
 }
 
 type DeployRequest = struct {
@@ -75,70 +59,62 @@ type DeployRequest = struct {
 	Version     string
 }
 
-var _ cldf.ChangeSet[*DeployRequest] = DeployForwarder
-
-func DeployForwarder(env cldf.Environment, req *DeployRequest) (cldf.ChangesetOutput, error) {
+func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
+
 	out.DataStore = datastore.NewMemoryDataStore()
-
-	tversion, err := cldf.TypeAndVersionFromString(req.Version)
-	if err != nil {
-		return out, fmt.Errorf("failed to parse version from request: %w", err)
+	version := semver.MustParse(req.Version)
+	ch, ok := env.BlockChains.SolanaChains()[req.ChainSel]
+	if !ok {
+		return out, fmt.Errorf("solana chain not found for chain selector %d", req.ChainSel)
 	}
 
-	if req.BuildConfig != nil {
-		err := helpers.BuildSolana(env, *req.BuildConfig, keystoneBuildParams)
-		if err != nil {
-			return out, err
-		}
+	deploySeqInput := seq.DeployForwarderSeqInput{
+		ChainSel:     req.ChainSel,
+		ProgramName:  deployment.KeystoneForwarderProgramName,
+		Overallocate: true,
 	}
-	chain := env.BlockChains.SolanaChains()[req.ChainSel]
-	ab := cldf.NewMemoryAddressBook()
 
-	address, err := helpers.DeployAndMaybeSaveToAddressBook(env, chain, ab, shared.Forwarder, deployment.Version1_0_0, false, "")
+	deps := operation.Deps{
+		Datastore: out.DataStore.Seal(),
+		Env:       env,
+		Chain:     ch,
+	}
+
+	deploySeqReport, err := operations.ExecuteSequence(env.OperationsBundle, seq.DeployForwarderSeq, deps, deploySeqInput)
 	if err != nil {
 		return out, err
 	}
 
-	// initialize
-	ks_forwarder.SetProgramID(address)
-
-	stateKey, err := solana.NewRandomPrivateKey()
-	if err != nil {
-		return out, fmt.Errorf("failed to create random keys: %w", err)
-	}
-
-	instruction, err := ks_forwarder.NewInitializeInstruction(stateKey.PublicKey(), chain.DeployerKey.PublicKey(), solana.SystemProgramID).ValidateAndBuild()
-	if err != nil {
-		return out, fmt.Errorf("failed to build and validate initialize instruction %w", err)
-	}
-
-	instructions := []solana.Instruction{instruction}
-	if err = chain.Confirm(instructions, solanaUtils.AddSigners(stateKey)); err != nil {
-		return out, errors.New("failed to confirm ")
-	}
-
-	tv := cldf.NewTypeAndVersion(shared.ForwarderState, deployment.Version1_0_0)
-	err = ab.Save(req.ChainSel, stateKey.PublicKey().String(), tv)
-	if err != nil {
-		return out, fmt.Errorf("failed to save forwarder state address to address book: %w", err)
-	}
-
-	r := datastore.AddressRef{
-		Address:       stateKey.PublicKey().String(),
-		ChainSelector: req.ChainSel,
-		Qualifier:     req.Qualifier,
-		Type:          datastore.ContractType(shared.ForwarderState),
-		Version:       &tversion.Version,
-	}
-	if req.LabelSet != nil {
-		r.Labels = *req.LabelSet
-	}
-
-	err = out.DataStore.Addresses().Add(r)
+	// save programID
+	err = out.DataStore.Addresses().Add(
+		datastore.AddressRef{
+			Address:       deploySeqReport.Output.ProgramID,
+			ChainSelector: req.ChainSel,
+			Type:          ForwarderContract,
+			Version:       version,
+			Qualifier:     req.Qualifier,
+			Labels:        *req.LabelSet,
+		},
+	)
 
 	if err != nil {
-		return out, fmt.Errorf("failed to save forwarder state address to datastore: %w", err)
+		return out, err
+	}
+	// save StateID
+	err = out.DataStore.Addresses().Add(
+		datastore.AddressRef{
+			Address:       deploySeqReport.Output.StatePubKey,
+			ChainSelector: req.ChainSel,
+			Type:          ForwarderState,
+			Version:       version,
+			Qualifier:     req.Qualifier,
+			Labels:        *req.LabelSet,
+		},
+	)
+
+	if err != nil {
+		return out, err
 	}
 
 	return out, nil
@@ -147,64 +123,79 @@ func DeployForwarder(env cldf.Environment, req *DeployRequest) (cldf.ChangesetOu
 type SetForwarderUpgradeAuthorityRequest = struct {
 	ChainSel            uint64
 	NewUpgradeAuthority solana.PublicKey
+	SpillAddress        solana.PublicKey
+	Qualifier           string
+	Version             string
 	MCMS                *proposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
 }
 
-var _ cldf.ChangeSet[*SetForwarderUpgradeAuthorityRequest] = SetForwarderUpgradeAuthority
+var _ cldf.ChangeSetV2[*SetForwarderUpgradeAuthorityRequest] = SetForwarderUpgradeAuthority{}
 
-func SetForwarderUpgradeAuthority(env cldf.Environment, req *SetForwarderUpgradeAuthorityRequest) (cldf.ChangesetOutput, error) {
-	chain, ok := env.BlockChains.SolanaChains()[req.ChainSel]
-	if !ok {
-		return cldf.ChangesetOutput{}, fmt.Errorf("can't get chain for chain selector %d", req.ChainSel)
+type SetForwarderUpgradeAuthority struct{}
+
+func (cs SetForwarderUpgradeAuthority) VerifyPreconditions(env cldf.Environment, req *SetForwarderUpgradeAuthorityRequest) error {
+	if _, ok := env.BlockChains.SolanaChains()[req.ChainSel]; !ok {
+		return fmt.Errorf("solana chain not found for chain selector %d", req.ChainSel)
 	}
 
-	state, err := loadOnchainState(env, req.ChainSel)
+	version, err := semver.NewVersion(req.Version)
 	if err != nil {
-		return cldf.ChangesetOutput{}, err
+		return err
 	}
 
-	if state.forwarderProgramID.IsZero() {
-		return cldf.ChangesetOutput{}, fmt.Errorf("forwarder not found for chain selector %d", req.ChainSel)
+	forwarderKey := datastore.NewAddressRefKey(req.ChainSel, ForwarderContract, version, req.Qualifier)
+	_, err = env.DataStore.Addresses().Get(forwarderKey)
+	if err != nil {
+		return fmt.Errorf("failed to load forwarder: %w", err)
 	}
 
-	currentAuthority := chain.DeployerKey.PublicKey()
 	if req.MCMS != nil {
-		timelockSignerPDA, err := helpers.FetchTimelockSigner(env, chain.Selector)
+		_, err := helpers.FetchTimelockSigner(env, req.ChainSel)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get timelock signer: %w", err)
+			return fmt.Errorf("failed fetch timelock signer: %w")
 		}
-		currentAuthority = timelockSignerPDA
 	}
 
-	env.Logger.Infof("Setting upgrade authority for %q. New upgrade authority %q.", state.forwarderProgramID.String(), req.NewUpgradeAuthority.String())
-	mcmsTxns := make([]mcmsTypes.Transaction, 0)
-	ixn := helpers.SetUpgradeAuthority(&env, state.forwarderProgramID, currentAuthority, req.NewUpgradeAuthority, false)
-	if req.MCMS == nil {
-		if err := chain.Confirm([]solana.Instruction{ixn}); err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
-		}
-	} else {
-		tx, err := helpers.BuildMCMSTxn(
-			ixn,
-			solana.BPFLoaderUpgradeableProgramID.String(),
-			cldf.ContractType(solana.BPFLoaderUpgradeableProgramID.String()))
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
-		}
-		mcmsTxns = append(mcmsTxns, *tx)
-	}
-	if len(mcmsTxns) > 0 {
-		proposal, err := helpers.BuildProposalsForTxns(
-			env, req.ChainSel, "proposal to SetUpgradeAuthority in Solana", req.MCMS.MinDelay, mcmsTxns)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
-		}
-		return cldf.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-		}, nil
+	return nil
+}
+
+func (cs SetForwarderUpgradeAuthority) Apply(env cldf.Environment, req *SetForwarderUpgradeAuthorityRequest) (cldf.ChangesetOutput, error) {
+	var out cldf.ChangesetOutput
+
+	version := semver.MustParse(req.Version)
+
+	ch, ok := env.BlockChains.SolanaChains()[req.ChainSel]
+	if !ok {
+		return out, fmt.Errorf("solana chain not found for chain selector %d", req.ChainSel)
 	}
 
-	return cldf.ChangesetOutput{}, nil
+	forwarderKey := datastore.NewAddressRefKey(req.ChainSel, ForwarderContract, version, req.Qualifier)
+	addr, err := env.DataStore.Addresses().Get(forwarderKey)
+	if err != nil {
+		return out, fmt.Errorf("failed to load forwarder: %w", err)
+	}
+
+	setAuthorityInput := operation.SetUpgradeAuthorityInput{
+		ChainSel:            req.ChainSel,
+		NewUpgradeAuthority: req.NewUpgradeAuthority.String(),
+		MCMS:                req.MCMS,
+		ProgramID:           addr.Address,
+	}
+
+	deps := operation.Deps{
+		Datastore: out.DataStore.Seal(),
+		Env:       env,
+		Chain:     ch,
+	}
+
+	execSetAuthOut, err := operations.ExecuteOperation(env.OperationsBundle, operation.SetUpgradeAuthorityOp, deps, setAuthorityInput)
+	if err != nil {
+		return out, err
+	}
+
+	out.MCMSTimelockProposals = execSetAuthOut.Output.Proposals
+
+	return out, nil
 }
 
 type ConfigureForwarderRequest struct {
@@ -216,10 +207,59 @@ type ConfigureForwarderRequest struct {
 	MCMS *proposalutils.TimelockConfig // if set, assumes current ownership is the timelock
 
 	// Chains is optional. Defines chains for which request will be executed. If empty, runs for all available chains.
-	Chains map[uint64]struct{}
+	Chains    map[uint64]struct{}
+	Qualifier string
+	Version   string
 }
 
-func ConfigureForwarders(env cldf.Environment, req ConfigureForwarderRequest) (cldf.ChangesetOutput, error) {
+var _ cldf.ChangeSetV2[*ConfigureForwarderRequest] = ConfigureForwarders{}
+
+type ConfigureForwarders struct{}
+
+func (cs ConfigureForwarders) VerifyPreconditions(env cldf.Environment, req *ConfigureForwarderRequest) error {
+	version, err := semver.NewVersion(req.Version)
+	if err != nil {
+		return err
+	}
+
+	if req.Chains != nil {
+		for sel := range req.Chains {
+			if _, ok := env.BlockChains.SolanaChains()[sel]; !ok {
+				return fmt.Errorf("solana chain not found for chain selector %d", sel)
+			}
+			forwarderKey := datastore.NewAddressRefKey(sel, ForwarderContract, version, req.Qualifier)
+			_, err := env.DataStore.Addresses().Get(forwarderKey)
+
+			if err != nil {
+				return fmt.Errorf("failed get fowarder for chain selector %d: %w", sel, err)
+			}
+			if req.MCMS != nil {
+				_, err := helpers.FetchTimelockSigner(env, sel)
+				if err != nil {
+					return fmt.Errorf("failed fetch timelock signer for chain selector %d: %w", sel, err)
+				}
+			}
+		}
+	}
+
+	if _, err := internal.NewRegisteredDon(env, internal.RegisteredDonConfig{
+		NodeIDs:          req.WFNodeIDs,
+		Name:             req.WFDonName,
+		RegistryChainSel: req.RegistryChainSel}); err != nil {
+		return fmt.Errorf("failed to create registered don: %w", err)
+	}
+
+	return nil
+}
+
+func (cs ConfigureForwarders) Apply(env cldf.Environment, req *ConfigureForwarderRequest) (cldf.ChangesetOutput, error) {
+	var out cldf.ChangesetOutput
+
+	// TODO
+	return out, nil
+}
+
+func ConfigureForwarders_(env cldf.Environment, req ConfigureForwarderRequest) (cldf.ChangesetOutput, error) {
 	wfDon, err := internal.NewRegisteredDon(env, internal.RegisteredDonConfig{
 		NodeIDs:          req.WFNodeIDs,
 		Name:             req.WFDonName,
@@ -231,7 +271,7 @@ func ConfigureForwarders(env cldf.Environment, req ConfigureForwarderRequest) (c
 
 	mcmsBatches, err := configureForwarders(env, req, wfDon)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure forwarder: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to requre forwarder: %w", err)
 	}
 
 	if req.MCMS == nil {
@@ -302,7 +342,7 @@ func configureForwarders(env cldf.Environment, req ConfigureForwarderRequest,
 
 		op, err := configureForwarder(req, st, chain, wfdon, owner)
 		if err != nil {
-			return nil, fmt.Errorf("failed to configure forwarder for chain selector %d: %w", chain.Selector, err)
+			return nil, fmt.Errorf("failed to requre forwarder for chain selector %d: %w", chain.Selector, err)
 		}
 
 		ops[chain.Selector] = op
@@ -312,7 +352,7 @@ func configureForwarders(env cldf.Environment, req ConfigureForwarderRequest,
 }
 
 func configureForwarder(req ConfigureForwarderRequest, state *state, ch cldfsol.Chain, wfdon *internal.RegisteredDon, owner solana.PublicKey) (mcmsTypes.BatchOperation, error) {
-	// 1. derive config pda
+	// 1. derive req pda
 	forwarderState := state.forwarderState
 	if forwarderState.IsZero() {
 		return mcmsTypes.BatchOperation{}, fmt.Errorf("forwarder state not found for chain sel %d", ch.Selector)
@@ -322,11 +362,11 @@ func configureForwarder(req ConfigureForwarderRequest, state *state, ch cldfsol.
 		return mcmsTypes.BatchOperation{}, fmt.Errorf("forwarder program not found for chain sel %d", ch.Selector)
 	}
 
-	configPDA := getConfigPDA(forwarderState, wfdon.Info.Id, wfdon.Info.ConfigCount, forwarderProgramID)
+	reqPDA := getConfigPDA(forwarderState, wfdon.Info.Id, wfdon.Info.ConfigCount, forwarderProgramID)
 
 	// 2. check if account exists
 	var oracleExists bool
-	_, err := ch.Client.GetAccountInfo(context.Background(), configPDA)
+	_, err := ch.Client.GetAccountInfo(context.Background(), reqPDA)
 	if err != nil {
 		if !errors.Is(err, rpc.ErrNotFound) {
 			return mcmsTypes.BatchOperation{}, fmt.Errorf("can't confirm oracle existence: %w", err)
@@ -346,7 +386,7 @@ func configureForwarder(req ConfigureForwarderRequest, state *state, ch cldfsol.
 			wfdon.Info.F,
 			signers,
 			state.forwarderState,
-			configPDA,
+			reqPDA,
 			owner,
 			solana.SystemProgramID,
 		).ValidateAndBuild()
@@ -360,7 +400,7 @@ func configureForwarder(req ConfigureForwarderRequest, state *state, ch cldfsol.
 			wfdon.Info.F,
 			signers,
 			state.forwarderState,
-			configPDA,
+			reqPDA,
 			owner,
 			solana.SystemProgramID,
 		).ValidateAndBuild()
@@ -391,13 +431,13 @@ func configureForwarder(req ConfigureForwarderRequest, state *state, ch cldfsol.
 
 func getConfigPDA(statePubkey solana.PublicKey, donID uint32, configVersion uint32, programID solana.PublicKey) solana.PublicKey {
 	configID := getConfigID(donID, configVersion)
-	configIDBytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(configIDBytes, configID)
+	reqIDBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(reqIDBytes, configID)
 
 	seeds := [][]byte{
 		[]byte("config"),
 		statePubkey.Bytes(),
-		configIDBytes,
+		reqIDBytes,
 	}
 
 	addr, _, _ := solana.FindProgramAddress(seeds, programID)

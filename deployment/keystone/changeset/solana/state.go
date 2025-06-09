@@ -4,7 +4,6 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/shared"
 )
 
 type state struct {
@@ -17,12 +16,12 @@ func loadOnchainState(env cldf.Environment, chainSel uint64) (*state, error) {
 		return nil, err
 	}
 	state := &state{}
-	for address, tvStr := range addresses {
+	for _, tvStr := range addresses {
 		switch tvStr.Type {
-		case shared.Forwarder:
-			state.forwarderProgramID = solana.MustPublicKeyFromBase58(address)
-		case shared.ForwarderState:
-			state.forwarderState = solana.MustPublicKeyFromBase58(address)
+		case ForwarderContract:
+			state.forwarderProgramID = solana.MustPublicKeyFromBase58(tvStr.Address)
+		case ForwarderState:
+			state.forwarderState = solana.MustPublicKeyFromBase58(tvStr.Address)
 		}
 	}
 
