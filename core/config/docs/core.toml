@@ -198,15 +198,14 @@ ListenIP = '0.0.0.0' # Default
 
 # Optional OIDC config if WebServer.AuthenticationMethod is set to 'oidc'
 [WebServer.OIDC]
-# Expected audience of the token, usually expected to be the ID of the client 
-# that initialized the login flow/the auth client application ID 
-ClientID = ""
+# ClientID is the ID of the OIDC application registered with the identity provider
+ClientID = "abc123" # Example
 # ProviderURL is the base URL for your OIDC Identity provider. 
-ProviderURL = 'https://id[.]example[.]com/oauth2/default'
+ProviderURL = 'https://id[.]example[.]com/oauth2/default' # Example
 # RedirectURL will always be <NODE_BASE_URL>/signin. This needs to match the configuration on the provider side.
-RedirectURL = 'http://localhost:8080/signin'
+RedirectURL = 'http://localhost:8080/signin' # Example
 # ClaimName is the name of the field in the id_token where to find the user's ID claims.
-ClaimName = 'groups'
+ClaimName = 'groups' # Default
 # AdminClaim is string label of the id claim that maps the core node's 'Admin' role
 AdminClaim = 'NodeAdmins' # Default
 # EditClaim is string label of the id claim that maps the core node's 'Edit' role
