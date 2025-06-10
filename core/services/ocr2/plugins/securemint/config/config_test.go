@@ -1,60 +1,44 @@
 package config
 
 import (
-	"errors"
 	"testing"
-	"time"
 
-	"github.com/stretchr/testify/assert"
-
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	sm_plugin "github.com/smartcontractkit/por_mock_ocr3plugin/por"
 )
 
-// TODO(gg): update
-
 func TestValidatePluginConfig(t *testing.T) {
-	type testCase struct {
-		name          string
-		pipeline      string
-		cacheDuration models.Interval
-		expectedError error
+	tests := []struct {
+		name    string
+		cfg     *sm_plugin.PorOffchainConfig
+		wantErr bool
+	}{
+		{
+			name: "valid config with MaxChains=2",
+			cfg: &sm_plugin.PorOffchainConfig{
+				MaxChains: 2,
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid config with MaxChains=0",
+			cfg: &sm_plugin.PorOffchainConfig{
+				MaxChains: 0,
+			},
+			wantErr: true,
+		},
+		{
+			name:    "nil config",
+			cfg:     nil,
+			wantErr: true,
+		},
 	}
 
-	t.Run("pipeline validation", func(t *testing.T) {
-		for _, tc := range []testCase{
-			{"empty pipeline", "", models.Interval(time.Minute), errors.New("invalid juelsPerFeeCoinSource pipeline: empty pipeline")},
-			{"blank pipeline", " ", models.Interval(time.Minute), errors.New("invalid juelsPerFeeCoinSource pipeline: empty pipeline")},
-			{"foo pipeline", "foo", models.Interval(time.Minute), errors.New("invalid juelsPerFeeCoinSource pipeline: UnmarshalTaskFromMap: unknown task type: \"\"")},
-		} {
-			t.Run(tc.name, func(t *testing.T) {
-				pc := PluginConfig{JuelsPerFeeCoinPipeline: tc.pipeline}
-				assert.EqualError(t, pc.Validate(), tc.expectedError.Error())
-			})
-		}
-	})
-
-	t.Run("cache duration validation", func(t *testing.T) {
-		for _, tc := range []testCase{
-			{"cache duration below minimum", `ds1 [type=bridge name=voter_turnout];`, models.Interval(time.Second * 29), errors.New("juelsPerFeeCoinSourceCache update interval: 29s is below 30 second minimum")},
-			{"cache duration above maximum", `ds1 [type=bridge name=voter_turnout];`, models.Interval(time.Minute*20 + time.Second), errors.New("juelsPerFeeCoinSourceCache update interval: 20m1s is above 20 minute maximum")},
-		} {
-			t.Run(tc.name, func(t *testing.T) {
-				pc := PluginConfig{JuelsPerFeeCoinPipeline: tc.pipeline, JuelsPerFeeCoinCache: &JuelsPerFeeCoinCache{UpdateInterval: tc.cacheDuration}}
-				assert.EqualError(t, pc.Validate(), tc.expectedError.Error())
-			})
-		}
-	})
-
-	t.Run("valid values", func(t *testing.T) {
-		for _, s := range []testCase{
-			{"valid 0 cache duration and valid pipeline", `ds1 [type=bridge name=voter_turnout];`, 0, nil},
-			{"valid duration and valid pipeline", `ds1 [type=bridge name=voter_turnout];`, models.Interval(time.Second * 30), nil},
-			{"valid duration and valid pipeline", `ds1 [type=bridge name=voter_turnout];`, models.Interval(time.Minute * 20), nil},
-		} {
-			t.Run(s.name, func(t *testing.T) {
-				pc := PluginConfig{JuelsPerFeeCoinPipeline: s.pipeline}
-				assert.NoError(t, pc.Validate())
-			})
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateSecureMintConfig(tt.cfg)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateSecureMintConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }

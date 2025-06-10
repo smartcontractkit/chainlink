@@ -311,7 +311,6 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 					}
 				}
 			}
-			// TODO(gg): anything to validate for SecureMint here?
 
 			if enableDualTransmission, ok := jb.OCR2OracleSpec.RelayConfig["enableDualTransmission"]; ok && enableDualTransmission != nil {
 				if jb.OCR2OracleSpec.Relay != relay.NetworkEVM {

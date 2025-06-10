@@ -4,7 +4,6 @@ package securemint
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -21,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	sm_plugin_config "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/securemint/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -68,16 +68,17 @@ func NewSecureMintServices(ctx context.Context,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryData,
 	errorLog loop.ErrorLog,
 ) (srvs []job.ServiceCtx, err error) {
-	var pluginConfig sm_plugin.PorOffchainConfig
-	err = json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
+
+	pluginConfig, err := sm_plugin.DeserializePorOffchainConfig(jb.OCR2OracleSpec.PluginConfig.Bytes())
 	if err != nil {
 		return
 	}
-	// TODO(gg): enable if validation exists
-	// err = pluginConfig.Validate()
-	// if err != nil {
-	// 	return
-	// }
+
+	if err = sm_plugin_config.ValidateSecureMintConfig(pluginConfig); err != nil {
+		err = fmt.Errorf("invalid secure mint plugin config: %#v, %w", pluginConfig, err)
+		return
+	}
+
 	spec := jb.OCR2OracleSpec
 
 	runSaver := ocrcommon.NewResultRunSaver(
@@ -104,7 +105,7 @@ func NewSecureMintServices(ctx context.Context,
 	}
 	srvs = append(srvs, provider)
 
-	// TODO(gg): to be implemented when needed
+	// TODO(gg): SecureMintProvider to be implemented when needed
 	// secureMintProvider, ok := provider.(types.SecureMintProvider)
 	// if !ok {
 	// 	return nil, errors.New("could not coerce PluginProvider to SecureMintProvider")

@@ -196,15 +196,11 @@ func addSecureMintJob(i int,
 	bridgeName string,
 ) (id int32) {
 
-	// TODO(gg): validate SM spec
-	// job, err := streams.ValidatedStreamSpec(spec)
-	// require.NoError(t, err)
-
 	addresses, err := node.App.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
-	spec := getSecureMintJobSpec(configuratorAddress.Hex(), node.KeyBundle.ID(), addresses[0].String(), bridgeName)
-
 	c := node.App.GetConfig()
+
+	spec := getSecureMintJobSpec(configuratorAddress.Hex(), node.KeyBundle.ID(), addresses[0].String(), bridgeName)
 
 	job, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), spec, nil)
 	require.NoError(t, err)
@@ -248,30 +244,11 @@ chainID = 1337
 fromBlock = 1
 
 [pluginConfig]
-juelsPerFeeCoinSource = """
-		// data source 1
-		ds1          [type=bridge name="%s"];
-		ds1_parse    [type=jsonparse path="data"];
-		ds1_multiply [type=multiply times=1];
-
-		ds1 -> ds1_parse -> ds1_multiply -> answer1;
-
-	answer1 [type=median index=0];
-"""
-gasPriceSubunitsSource = """
-		// data source
-		dsp          [type=bridge name="%s"];
-		dsp_parse    [type=jsonparse path="data"];
-		dsp -> dsp_parse;
-"""
-[pluginConfig.juelsPerFeeCoinCache]
-updateInterval = "1m"
+maxChains = 5
 `,
 		ocrContractAddress, // contract address
 		keyBundleID,        // ocr key bundle id
 		transmitterAddress, // transmitter id
-		bridgeName,         // bridge name
-		bridgeName,         // bridge name
 		bridgeName)         // bridge name
 }
 
