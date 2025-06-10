@@ -9,24 +9,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gagliardetto/solana-go"
+	solrpc "github.com/gagliardetto/solana-go/rpc"
+	"go.uber.org/atomic"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
-	"github.com/gagliardetto/solana-go"
-	solrpc "github.com/gagliardetto/solana-go/rpc"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	soltestutils "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
-	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-	"go.uber.org/atomic"
-
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
+	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 )
 
@@ -414,80 +412,4 @@ func prepSolAccount(ctx context.Context, t *testing.T, lggr logger.Logger, e *cl
 	lggr.Infow("wsol account balance", "decimals", dec, "value", val)
 
 	return err
-}
-
-func prepareAccountToSendLinkSolana(
-	lggr logger.Logger,
-	state stateview.CCIPOnChainState,
-	e cldf.Environment,
-	src uint64,
-	srcAccount solana.PrivateKey) error {
-	lggr.Infow("Setting up link token on sol chain", "src", src)
-	chainState := state.SolChains[src]
-	deployerKey := e.BlockChains.SolanaChains()[src].DeployerKey
-	link := state.SolChains[src].LinkToken
-	IXs := make([]solana.Instruction, 0)
-
-	tokenprogramID, _ := chainState.TokenToTokenProgram(link)
-	billingSignerPDA, _, err := solstate.FindFeeBillingSignerPDA(chainState.Router)
-	if err != nil {
-		return fmt.Errorf("failed to find fee billing signer pda: %w", err)
-	}
-
-	// need to double check
-	e.Logger.Infow("Setting mint authority", "srcAccount", srcAccount.PublicKey().String())
-	ixSetMint, err := solTokenUtil.SetTokenMintAuthority(
-		tokenprogramID,
-		srcAccount.PublicKey(),
-		link,
-		deployerKey.PublicKey(),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to generate instructions to set source address as minter: %w", err)
-	}
-	err = e.BlockChains.SolanaChains()[src].Confirm([]solana.Instruction{ixSetMint})
-	if err != nil {
-		return fmt.Errorf("failed to confirm set mint authority: %w", err)
-	}
-	IXs = append(IXs, ixSetMint)
-
-	e.Logger.Infow("Minting to load source transmit key")
-	ixMint, err := solTokenUtil.MintTo(
-		math.MaxUint64,
-		tokenprogramID,
-		link,
-		srcAccount.PublicKey(),
-		srcAccount.PublicKey(),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to generate instructions to mint tokens: %w", err)
-	}
-	err = e.BlockChains.SolanaChains()[src].Confirm([]solana.Instruction{ixMint})
-	if err != nil {
-		return fmt.Errorf("failed to confirm mint tokens: %w", err)
-	}
-	IXs = append(IXs, ixMint)
-
-	e.Logger.Infow("Approving billingPDA to transfer tokens")
-	ixApprove, err := soltokens.TokenApproveChecked(
-		math.MaxUint64,
-		9,
-		tokenprogramID,
-		srcAccount.PublicKey(),
-		link,
-		billingSignerPDA,
-		deployerKey.PublicKey(),
-		[]solana.PublicKey{})
-	if err != nil {
-		return fmt.Errorf("failed to approve token transfer: %w", err)
-	}
-	err = e.BlockChains.SolanaChains()[src].Confirm([]solana.Instruction{ixApprove})
-	if err != nil {
-		return fmt.Errorf("failed to confirm approve token transfer: %w", err)
-	}
-	IXs = append(IXs, ixApprove)
-
-	e.Logger.Infow("Sending confirmations")
-	return nil
-	//return e.SolChains[src].Confirm(IXs)
 }

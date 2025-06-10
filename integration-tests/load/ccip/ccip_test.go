@@ -8,12 +8,17 @@ import (
 	"testing"
 	"time"
 
+	// Third-party imports
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/gagliardetto/solana-go"
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	solrpc "github.com/gagliardetto/solana-go/rpc"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	solrpc "github.com/gagliardetto/solana-go/rpc"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	solState "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+
 	selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/burnmint_token_pool"
@@ -22,20 +27,12 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/lockrelease_token_pool"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
-
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/stretchr/testify/require"
-
-	solState "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 )
 
 var (
@@ -99,9 +96,6 @@ func SetProgramIDsSafe(state solState.CCIPChainState) {
 // wait for ccip to finish, push remaining data
 func TestCCIPLoad_RPS(t *testing.T) {
 	lggr := logger.Test(t)
-	ctx, cancel := context.WithCancel(tests.Context(t))
-	defer cancel()
-
 	// get user defined configurations
 	config, err := tc.GetConfig([]string{"Load"}, tc.CCIP)
 	require.NoError(t, err)
@@ -116,9 +110,13 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	require.NotNil(t, env)
 	userOverrides.Validate(t, env)
 
+	ctx := env.GetContext()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	destinationChains := env.BlockChains.ListChainSelectors()[:*userOverrides.NumDestinationChains]
-	evmChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
-	solChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
+	evmChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilyEVM))
+	solChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilySolana))
 
 	// initialize the block time for each chain
 	blockTimes := make(map[uint64]uint64)
