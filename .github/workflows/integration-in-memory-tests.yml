@@ -29,6 +29,11 @@ jobs:
     runs-on: ubuntu-latest
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: github.actor != 'dependabot[bot]'
+    outputs:
+      github_ci_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.github_ci_changes }}
+      core_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.core_changes }}
+      ccip_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.ccip_changes }}
+      should_use_self_hosted_runner: ${{ steps.label-runs-on-opt-out.outputs.check-label-found == 'false' }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4
@@ -36,6 +41,7 @@ jobs:
           persist-credentials: false
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
+
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
         with:
@@ -55,14 +61,17 @@ jobs:
             ccip_changes:
               - '**/*ccip*'
               - '**/*ccip*/**'
+
       - name: Ignore Filter On Workflow Dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter
         run: echo "changes=true" >> $GITHUB_OUTPUT
-    outputs:
-      github_ci_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.github_ci_changes }}
-      core_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.core_changes }}
-      ccip_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.ccip_changes }}
+
+      - name: Get PR Labels (runs-on-opt-out)
+        id: label-runs-on-opt-out
+        uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
+        with:
+          check-label: "runs-on-opt-out"
 
   run-ccip-integration-in-memory--tests-for-pr:
     name: Run CCIP integration In Memory Tests For PR
@@ -74,12 +83,13 @@ jobs:
       contents: read
     needs: changes
     if: github.event_name == 'pull_request' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@608298f511acfbcfd1099e5907ba1b1b0dda8b14
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # June 6, 2025
     with:
       workflow_name: Run CCIP Integration Tests For PR
       chainlink_version: ${{ inputs.cl_ref || github.sha }}
       test_path: .github/integration-in-memory-tests.yml
       test_trigger: PR Integration CCIP Tests
+      use-self-hosted-runners: ${{ needs.changes.outputs.should_use_self_hosted_runner }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -102,7 +112,7 @@ jobs:
       contents: read
     needs: changes
     if: github.event_name == 'merge_group' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@608298f511acfbcfd1099e5907ba1b1b0dda8b14
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # June 6, 2025
     with:
       workflow_name: Run CCIP Integration Tests For Merge Queue
       chainlink_version: ${{ inputs.cl_ref || github.sha }}
@@ -111,6 +121,7 @@ jobs:
       slack_notification_after_tests: on_failure
       slack_notification_after_tests_channel_id: "#ccip-testing"
       slack_notification_after_tests_name: CCIP Integration Tests In Merge Queue
+      use-self-hosted-runners: ${{ needs.changes.outputs.should_use_self_hosted_runner }}
       extraArgs: ${{ '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

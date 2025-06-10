@@ -9,7 +9,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -17,10 +16,10 @@ import (
 
 func EmitWorkflowStatusChangedEvent(
 	ctx context.Context,
-	cma custmsg.MessageEmitter,
+	labels map[string]string,
 	status string,
 ) error {
-	metadata := buildWorkflowMetadata(cma.Labels())
+	metadata := buildWorkflowMetadata(labels)
 	event := &events.WorkflowStatusChanged{
 		M:      metadata,
 		Status: status,
@@ -31,25 +30,25 @@ func EmitWorkflowStatusChangedEvent(
 
 func EmitExecutionStartedEvent(
 	ctx context.Context,
-	cma custmsg.MessageEmitter,
-	triggerID string,
+	labels map[string]string,
+	triggerEventID string,
 	executionID string,
 ) error {
-	cma = cma.With(platform.KeyWorkflowExecutionID, executionID)
-	metadata := buildWorkflowMetadata(cma.Labels())
+	labels[platform.KeyWorkflowExecutionID] = executionID
+	metadata := buildWorkflowMetadata(labels)
 
 	event := &events.WorkflowExecutionStarted{
 		M:         metadata,
 		Timestamp: time.Now().Format(time.RFC3339Nano),
-		TriggerID: triggerID,
+		TriggerID: triggerEventID,
 	}
 
 	return emitProtoMessage(ctx, event)
 }
 
-func EmitExecutionFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter, status string, executionID string) error {
-	cma = cma.With(platform.KeyWorkflowExecutionID, executionID)
-	metadata := buildWorkflowMetadata(cma.Labels())
+func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, status string, executionID string) error {
+	labels[platform.KeyWorkflowExecutionID] = executionID
+	metadata := buildWorkflowMetadata(labels)
 
 	event := &events.WorkflowExecutionFinished{
 		M:         metadata,
@@ -60,9 +59,9 @@ func EmitExecutionFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter,
 	return emitProtoMessage(ctx, event)
 }
 
-func EmitCapabilityStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, executionID, capabilityID, stepRef string) error {
-	cma = cma.With(platform.KeyWorkflowExecutionID, executionID)
-	metadata := buildWorkflowMetadata(cma.Labels())
+func EmitCapabilityStartedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef string) error {
+	labels[platform.KeyWorkflowExecutionID] = executionID
+	metadata := buildWorkflowMetadata(labels)
 
 	event := &events.CapabilityExecutionStarted{
 		M:            metadata,
@@ -74,9 +73,9 @@ func EmitCapabilityStartedEvent(ctx context.Context, cma custmsg.MessageEmitter,
 	return emitProtoMessage(ctx, event)
 }
 
-func EmitCapabilityFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter, executionID, capabilityID, stepRef, status string) error {
-	cma = cma.With(platform.KeyWorkflowExecutionID, executionID)
-	metadata := buildWorkflowMetadata(cma.Labels())
+func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef, status string) error {
+	labels[platform.KeyWorkflowExecutionID] = executionID
+	metadata := buildWorkflowMetadata(labels)
 
 	event := &events.CapabilityExecutionFinished{
 		M:            metadata,
@@ -89,8 +88,8 @@ func EmitCapabilityFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter
 	return emitProtoMessage(ctx, event)
 }
 
-func EmitMeteringReport(ctx context.Context, cma custmsg.MessageEmitter, rpt *events.MeteringReport) error {
-	rpt.Metadata = buildWorkflowMetadata(cma.Labels())
+func EmitMeteringReport(ctx context.Context, labels map[string]string, rpt *events.MeteringReport) error {
+	rpt.Metadata = buildWorkflowMetadata(labels)
 
 	return emitProtoMessage(ctx, rpt)
 }
@@ -121,6 +120,9 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	case *events.MeteringReport:
 		schema = MeteringReportSchema
 		entity = fmt.Sprintf("%s.%s", ProtoPkg, MeteringReportEntity)
+	case *events.WorkflowStatusChanged:
+		schema = SchemaWorkflowStatusChanged
+		entity = fmt.Sprintf("%s.%s", ProtoPkg, WorkflowStatusChanged)
 	default:
 		return fmt.Errorf("unknown message type: %T", msg)
 	}

@@ -197,7 +197,7 @@ func TestValidateRemoteChains(t *testing.T) {
 func TestValidateTokenPoolConfig(t *testing.T) {
 	t.Parallel()
 
-	e, selectorA, _, tokens, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
 		selectorA: {
@@ -439,7 +439,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 	for _, test := range tests {
 		for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} { // Run all tests with and without MCMS
 			t.Run(test.Msg, func(t *testing.T) {
-				e, selectorA, selectorB, tokens, timelockContracts := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), mcmsConfig != nil)
+				e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), mcmsConfig != nil)
 
 				e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
 					selectorA: {
@@ -553,69 +553,64 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 						)
 					}
 					// Configure & set the active pools on the registry
-					e, err = commonchangeset.Apply(t, e, timelockContracts,
-						configurePoolCS,
-						commonchangeset.Configure(
-							cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
-							v1_5_1.TokenAdminRegistryChangesetConfig{
-								MCMS: mcmsConfig,
-								Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
-									selectorA: {
-										testhelpers.TestTokenSymbol: {
-											Type:    shared.LockReleaseTokenPool,
-											Version: deployment.Version1_5_1,
-										},
+					e, err = commonchangeset.Apply(t, e, configurePoolCS, commonchangeset.Configure(
+						cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
+						v1_5_1.TokenAdminRegistryChangesetConfig{
+							MCMS: mcmsConfig,
+							Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+								selectorA: {
+									testhelpers.TestTokenSymbol: {
+										Type:    shared.LockReleaseTokenPool,
+										Version: deployment.Version1_5_1,
 									},
-									selectorB: {
-										testhelpers.TestTokenSymbol: {
-											Type:    shared.LockReleaseTokenPool,
-											Version: deployment.Version1_5_1,
-										},
+								},
+								selectorB: {
+									testhelpers.TestTokenSymbol: {
+										Type:    shared.LockReleaseTokenPool,
+										Version: deployment.Version1_5_1,
 									},
 								},
 							},
-						),
-						commonchangeset.Configure(
-							cldf.CreateLegacyChangeSet(v1_5_1.AcceptAdminRoleChangeset),
-							v1_5_1.TokenAdminRegistryChangesetConfig{
-								MCMS: mcmsConfig,
-								Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
-									selectorA: {
-										testhelpers.TestTokenSymbol: {
-											Type:    shared.LockReleaseTokenPool,
-											Version: deployment.Version1_5_1,
-										},
+						},
+					), commonchangeset.Configure(
+						cldf.CreateLegacyChangeSet(v1_5_1.AcceptAdminRoleChangeset),
+						v1_5_1.TokenAdminRegistryChangesetConfig{
+							MCMS: mcmsConfig,
+							Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+								selectorA: {
+									testhelpers.TestTokenSymbol: {
+										Type:    shared.LockReleaseTokenPool,
+										Version: deployment.Version1_5_1,
 									},
-									selectorB: {
-										testhelpers.TestTokenSymbol: {
-											Type:    shared.LockReleaseTokenPool,
-											Version: deployment.Version1_5_1,
-										},
+								},
+								selectorB: {
+									testhelpers.TestTokenSymbol: {
+										Type:    shared.LockReleaseTokenPool,
+										Version: deployment.Version1_5_1,
 									},
 								},
 							},
-						),
-						commonchangeset.Configure(
-							cldf.CreateLegacyChangeSet(v1_5_1.SetPoolChangeset),
-							v1_5_1.TokenAdminRegistryChangesetConfig{
-								MCMS: mcmsConfig,
-								Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
-									selectorA: {
-										testhelpers.TestTokenSymbol: {
-											Type:    shared.LockReleaseTokenPool,
-											Version: deployment.Version1_5_1,
-										},
+						},
+					), commonchangeset.Configure(
+						cldf.CreateLegacyChangeSet(v1_5_1.SetPoolChangeset),
+						v1_5_1.TokenAdminRegistryChangesetConfig{
+							MCMS: mcmsConfig,
+							Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+								selectorA: {
+									testhelpers.TestTokenSymbol: {
+										Type:    shared.LockReleaseTokenPool,
+										Version: deployment.Version1_5_1,
 									},
-									selectorB: {
-										testhelpers.TestTokenSymbol: {
-											Type:    shared.LockReleaseTokenPool,
-											Version: deployment.Version1_5_1,
-										},
+								},
+								selectorB: {
+									testhelpers.TestTokenSymbol: {
+										Type:    shared.LockReleaseTokenPool,
+										Version: deployment.Version1_5_1,
 									},
 								},
 							},
-						),
-					)
+						},
+					))
 					require.NoError(t, err)
 
 					for _, selector := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
@@ -654,7 +649,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 					if test.UpdatePass.UpdatePoolOnB {
 						bType = shared.BurnMintTokenPool
 					}
-					e, err = commonchangeset.Apply(t, e, timelockContracts,
+					e, err = commonchangeset.Apply(t, e,
 						commonchangeset.Configure(
 							cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 							v1_5_1.ConfigureTokenPoolContractsConfig{
@@ -777,7 +772,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 	// DEPLOY SOLANA TOKEN POOL //
 	//////////////////////////////
 	for _, selector := range solanaSelectors {
-		e, err = commonchangeset.Apply(t, e, nil,
+		e, err = commonchangeset.Apply(t, e,
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
 				changeset_solana.DeploySolanaTokenConfig{
@@ -793,7 +788,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		require.NoError(t, err)
 		tokenAddress := state.SolChains[selector].SPL2022Tokens[0]
 		bnm := solTestTokenPool.BurnAndMint_PoolType
-		e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+		e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
 				changeset_solana.TokenPoolConfig{
@@ -823,7 +818,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 				Metadata:          shared.CLLMetadata,
 			}
 		}
-		e, err = commonchangeset.Apply(t, e, nil,
+		e, err = commonchangeset.Apply(t, e,
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 				v1_5_1.ConfigureTokenPoolContractsConfig{
@@ -859,7 +854,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 			}
 		}
 		e.BlockChains.EVMChains()[selector].DeployerKey.GasLimit = 1_000_000 // Hack: Increase gas limit to avoid out of gas error (could this be a cause for test flakiness?)
-		e, err = commonchangeset.Apply(t, e, nil,
+		e, err = commonchangeset.Apply(t, e,
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 				v1_5_1.ConfigureTokenPoolContractsConfig{
@@ -887,7 +882,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 	remoteTokenAddresses := make(map[uint64]solana.PublicKey, len(solanaSelectors))
 	for _, selector := range solanaSelectors {
 		tokensBefore := state.SolChains[selector].SPL2022Tokens
-		e, err = commonchangeset.Apply(t, e, nil,
+		e, err = commonchangeset.Apply(t, e,
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
 				changeset_solana.DeploySolanaTokenConfig{
@@ -906,7 +901,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 			if slices.Contains(tokensBefore, tokenAddress) {
 				continue
 			}
-			e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
 					changeset_solana.TokenPoolConfig{
@@ -935,7 +930,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 				Metadata:          shared.CLLMetadata,
 			}
 		}
-		e, err = commonchangeset.Apply(t, e, nil,
+		e, err = commonchangeset.Apply(t, e,
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 				v1_5_1.ConfigureTokenPoolContractsConfig{
@@ -964,7 +959,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 	lr := solTestTokenPool.LockAndRelease_PoolType
 	for _, selector := range solanaSelectors {
 		for _, tokenAddress := range remoteTokenAddresses {
-			e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
 					changeset_solana.TokenPoolConfig{
@@ -992,7 +987,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 				Metadata:          shared.CLLMetadata,
 			}
 		}
-		e, err = commonchangeset.Apply(t, e, nil,
+		e, err = commonchangeset.Apply(t, e,
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 				v1_5_1.ConfigureTokenPoolContractsConfig{

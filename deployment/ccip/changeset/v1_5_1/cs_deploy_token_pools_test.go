@@ -102,7 +102,7 @@ func TestValidateDeployTokenPoolContractsConfig(t *testing.T) {
 func TestValidateDeployTokenPoolInput(t *testing.T) {
 	t.Parallel()
 
-	e, selectorA, _, tokens, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 	acceptLiquidity := false
 	invalidAddress := utils.RandomAddress()
 
@@ -286,11 +286,11 @@ func TestDeployTokenPoolContracts(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			e, selectorA, _, tokens, timelockContracts := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+			e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 			test.Input.TokenAddress = tokens[selectorA].Address
 
-			e, err := commonchangeset.Apply(t, e, timelockContracts,
+			e, err := commonchangeset.Apply(t, e,
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(v1_5_1.DeployTokenPoolContractsChangeset),
 					v1_5_1.DeployTokenPoolContractsConfig{

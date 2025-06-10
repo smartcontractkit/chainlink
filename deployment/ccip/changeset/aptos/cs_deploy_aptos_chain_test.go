@@ -5,19 +5,17 @@ import (
 	"testing"
 	"time"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
@@ -29,6 +27,7 @@ import (
 )
 
 func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		env       cldf.Environment
@@ -194,6 +193,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			cs := DeployAptosChain{}
 			err := cs.VerifyPreconditions(tt.env, tt.config)
 			if tt.wantErr {
@@ -208,6 +208,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 }
 
 func TestDeployAptosChain_Apply(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	// Setup memory environment with 1 Aptos chain
@@ -243,7 +244,7 @@ func TestDeployAptosChain_Apply(t *testing.T) {
 			},
 		},
 	}
-	env, _, err := commonchangeset.ApplyChangesetsV2(t, env, []commonchangeset.ConfiguredChangeSet{
+	env, _, err := commonchangeset.ApplyChangesets(t, env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(DeployAptosChain{}, ccipConfig),
 	})
 	require.NoError(t, err)

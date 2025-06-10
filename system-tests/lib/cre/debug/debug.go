@@ -160,7 +160,8 @@ func ReportTransmissions(ctx context.Context, logFiles []*os.File, l zerolog.Log
 	sc, err := seth.NewClientBuilder().
 		WithRpcUrl(wsRPCURL).
 		WithReadOnlyMode().
-		WithGethWrappersFolders([]string{"../../../../core/gethwrappers/keystone/generated"}). // point Seth to the folder with keystone geth wrappers, so that it can load contract ABIs
+		// we assume that chainlink-evm is in the same directory as chainlink, so we can use relative path
+		WithGethWrappersFolders([]string{"../../../../../chainlink-evm/gethwrappers/keystone/generated"}). // point Seth to the folder with keystone geth wrappers, so that it can load contract ABIs
 		Build()
 
 	if err != nil {
@@ -172,7 +173,7 @@ func ReportTransmissions(ctx context.Context, logFiles []*os.File, l zerolog.Log
 		l.Info().Msgf("🔍 Tracing report transmission transaction %s", txHash)
 		// set tracing level to all to trace also successful transactions
 		sc.Cfg.TracingLevel = seth.TracingLevel_All
-		ctxWithTimeout, cancel := context.WithTimeout(ctx, 30*time.Second)
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, 60*time.Second)
 		tx, _, txErr := sc.Client.TransactionByHash(ctxWithTimeout, common.HexToHash(txHash))
 		if txErr != nil {
 			cancel()

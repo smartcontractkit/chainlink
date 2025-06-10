@@ -169,7 +169,8 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 	}
 
 	// Wait for all commit reports to land.
-	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, testEnv.Env, onChainState, expectedSeqNum, startBlocks)
+	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, testEnv.Env, onChainState,
+		testhelpers.ToSeqRangeMap(expectedSeqNum), startBlocks)
 	// Wait for all exec reports to land
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, testEnv.Env, onChainState, expectedSeqNumExec, startBlocks)
 }

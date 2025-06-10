@@ -37,20 +37,16 @@ import (
 func AddLanes(t *testing.T, e cldf.Environment, state stateview.CCIPOnChainState, pairs []testhelpers.SourceDestPair) cldf.Environment {
 	addLanesCfg, commitOCR2Configs, execOCR2Configs, jobspecs := LaneConfigsForChains(t, e, state, pairs)
 	var err error
-	e, err = commonchangeset.Apply(t, e, nil,
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_5changeset.DeployLanesChangeset),
-			v1_5changeset.DeployLanesConfig{Configs: addLanesCfg},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_5changeset.SetOCR2ConfigForTestChangeset),
-			v1_5changeset.OCR2Config{CommitConfigs: commitOCR2Configs, ExecConfigs: execOCR2Configs},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_5changeset.JobSpecsForLanesChangeset),
-			v1_5changeset.JobSpecsForLanesConfig{Configs: jobspecs},
-		),
-	)
+	e, err = commonchangeset.Apply(t, e, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5changeset.DeployLanesChangeset),
+		v1_5changeset.DeployLanesConfig{Configs: addLanesCfg},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5changeset.SetOCR2ConfigForTestChangeset),
+		v1_5changeset.OCR2Config{CommitConfigs: commitOCR2Configs, ExecConfigs: execOCR2Configs},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5changeset.JobSpecsForLanesChangeset),
+		v1_5changeset.JobSpecsForLanesConfig{Configs: jobspecs},
+	))
 	require.NoError(t, err)
 	return e
 }

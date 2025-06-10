@@ -45,32 +45,29 @@ func TestInvalidOCR3Params(t *testing.T) {
 	require.NoError(t, err)
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
-	e.Env, err = commonchangeset.Apply(t, e.Env, nil,
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
-			v1_6.DeployHomeChainConfig{
-				HomeChainSel:     e.HomeChainSel,
-				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
-				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
-				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
-				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
-					testhelpers.TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
+	e.Env, err = commonchangeset.Apply(t, e.Env, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+		v1_6.DeployHomeChainConfig{
+			HomeChainSel:     e.HomeChainSel,
+			RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+			RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+			NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.BlockChains.EVMChains()[e.HomeChainSel].DeployerKey.From),
+			NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+				testhelpers.TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
+			},
+		},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
+		ccipseq.DeployChainContractsConfig{
+			HomeChainSelector: e.HomeChainSel,
+			ContractParamsPerChain: map[uint64]ccipseq.ChainContractParams{
+				chain1: {
+					FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
+					OffRampParams:   ccipops.DefaultOffRampParams(),
 				},
 			},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
-			ccipseq.DeployChainContractsConfig{
-				HomeChainSelector: e.HomeChainSel,
-				ContractParamsPerChain: map[uint64]ccipseq.ChainContractParams{
-					chain1: {
-						FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
-						OffRampParams:   ccipops.DefaultOffRampParams(),
-					},
-				},
-			},
-		),
-	)
+		},
+	))
 	require.NoError(t, err)
 
 	state, err := stateview.LoadOnchainState(e.Env)
@@ -160,12 +157,6 @@ func Test_PromoteCandidate(t *testing.T) {
 			}
 			// promotes zero digest on commit and ensure exec is not affected
 			_, err = commonchangeset.Apply(t, tenv.Env,
-				map[uint64]*proposalutils.TimelockExecutionContracts{
-					tenv.HomeChainSel: {
-						Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
-						CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
-					},
-				},
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(v1_6.PromoteCandidateChangeset),
 					v1_6.PromoteCandidateChangesetConfig{
@@ -258,67 +249,57 @@ func Test_SetCandidate(t *testing.T) {
 
 			tokenConfig := shared.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
 
-			_, err = commonchangeset.Apply(t, tenv.Env,
-				map[uint64]*proposalutils.TimelockExecutionContracts{
-					tenv.HomeChainSel: {
-						Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
-						CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+			_, err = commonchangeset.Apply(t, tenv.Env, commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
+				v1_6.SetCandidateChangesetConfig{
+					SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
+						HomeChainSelector: tenv.HomeChainSel,
+						FeedChainSelector: tenv.FeedChainSel,
+						MCMS:              mcmsConfig,
+					},
+					PluginInfo: []v1_6.SetCandidatePluginInfo{
+						{
+							OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
+								dest: v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t),
+									state.Chains[dest].LinkToken.Address(),
+									state.Chains[dest].Weth9.Address()), nil),
+							},
+							PluginType: types.PluginTypeCCIPCommit,
+						},
+						{
+							OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
+								dest: v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, nil, nil),
+							},
+							PluginType: types.PluginTypeCCIPExec,
+						},
 					},
 				},
-				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
-					v1_6.SetCandidateChangesetConfig{
-						SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
-							HomeChainSelector: tenv.HomeChainSel,
-							FeedChainSelector: tenv.FeedChainSel,
-							MCMS:              mcmsConfig,
+			), commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
+				v1_6.SetCandidateChangesetConfig{
+					SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
+						HomeChainSelector: tenv.HomeChainSel,
+						FeedChainSelector: tenv.FeedChainSel,
+						MCMS:              mcmsConfig,
+					},
+					PluginInfo: []v1_6.SetCandidatePluginInfo{
+						{
+							OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
+								dest: v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t),
+									state.Chains[dest].LinkToken.Address(),
+									state.Chains[dest].Weth9.Address()), nil),
+							},
+							PluginType: types.PluginTypeCCIPCommit,
 						},
-						PluginInfo: []v1_6.SetCandidatePluginInfo{
-							{
-								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
-									dest: v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t),
-										state.Chains[dest].LinkToken.Address(),
-										state.Chains[dest].Weth9.Address()), nil),
-								},
-								PluginType: types.PluginTypeCCIPCommit,
+						{
+							OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
+								dest: v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, nil, nil),
 							},
-							{
-								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
-									dest: v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, nil, nil),
-								},
-								PluginType: types.PluginTypeCCIPExec,
-							},
+							PluginType: types.PluginTypeCCIPExec,
 						},
 					},
-				),
-				// Set Candidate again to ensure that with non-empty candidate config, it can be set again
-				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
-					v1_6.SetCandidateChangesetConfig{
-						SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
-							HomeChainSelector: tenv.HomeChainSel,
-							FeedChainSelector: tenv.FeedChainSel,
-							MCMS:              mcmsConfig,
-						},
-						PluginInfo: []v1_6.SetCandidatePluginInfo{
-							{
-								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
-									dest: v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t),
-										state.Chains[dest].LinkToken.Address(),
-										state.Chains[dest].Weth9.Address()), nil),
-								},
-								PluginType: types.PluginTypeCCIPCommit,
-							},
-							{
-								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
-									dest: v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, nil, nil),
-								},
-								PluginType: types.PluginTypeCCIPExec,
-							},
-						},
-					},
-				),
-			)
+				},
+			))
 			require.NoError(t, err)
 			// after setting a new candidate on both plugins, the candidate config digest
 			// should be nonzero.
@@ -397,12 +378,6 @@ func Test_RevokeCandidate(t *testing.T) {
 			}
 			tokenConfig := shared.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
 			_, err = commonchangeset.Apply(t, tenv.Env,
-				map[uint64]*proposalutils.TimelockExecutionContracts{
-					tenv.HomeChainSel: {
-						Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
-						CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
-					},
-				},
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
 					v1_6.SetCandidateChangesetConfig{
@@ -449,32 +424,23 @@ func Test_RevokeCandidate(t *testing.T) {
 			require.NotEqual(t, candidateDigestExecBefore, candidateDigestExecAfter)
 
 			// next we can revoke candidate - this should set the candidate digest back to zero
-			_, err = commonchangeset.Apply(t, tenv.Env,
-				map[uint64]*proposalutils.TimelockExecutionContracts{
-					tenv.HomeChainSel: {
-						Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
-						CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
-					},
+			_, err = commonchangeset.Apply(t, tenv.Env, commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_6.RevokeCandidateChangeset),
+				v1_6.RevokeCandidateChangesetConfig{
+					HomeChainSelector:   tenv.HomeChainSel,
+					RemoteChainSelector: dest,
+					PluginType:          types.PluginTypeCCIPCommit,
+					MCMS:                mcmsConfig,
 				},
-				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(v1_6.RevokeCandidateChangeset),
-					v1_6.RevokeCandidateChangesetConfig{
-						HomeChainSelector:   tenv.HomeChainSel,
-						RemoteChainSelector: dest,
-						PluginType:          types.PluginTypeCCIPCommit,
-						MCMS:                mcmsConfig,
-					},
-				),
-				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(v1_6.RevokeCandidateChangeset),
-					v1_6.RevokeCandidateChangesetConfig{
-						HomeChainSelector:   tenv.HomeChainSel,
-						RemoteChainSelector: dest,
-						PluginType:          types.PluginTypeCCIPExec,
-						MCMS:                mcmsConfig,
-					},
-				),
-			)
+			), commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_6.RevokeCandidateChangeset),
+				v1_6.RevokeCandidateChangesetConfig{
+					HomeChainSelector:   tenv.HomeChainSel,
+					RemoteChainSelector: dest,
+					PluginType:          types.PluginTypeCCIPExec,
+					MCMS:                mcmsConfig,
+				},
+			))
 			require.NoError(t, err)
 
 			// after revoking the candidate, the candidate digest should be zero
@@ -534,12 +500,6 @@ func Test_UpdateChainConfigs(t *testing.T) {
 				}
 			}
 			_, err = commonchangeset.Apply(t, tenv.Env,
-				map[uint64]*proposalutils.TimelockExecutionContracts{
-					tenv.HomeChainSel: {
-						Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
-						CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
-					},
-				},
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
 					v1_6.UpdateChainConfigConfig{
@@ -559,12 +519,6 @@ func Test_UpdateChainConfigs(t *testing.T) {
 
 			// Lets add it back now.
 			_, err = commonchangeset.Apply(t, tenv.Env,
-				map[uint64]*proposalutils.TimelockExecutionContracts{
-					tenv.HomeChainSel: {
-						Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
-						CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
-					},
-				},
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
 					v1_6.UpdateChainConfigConfig{

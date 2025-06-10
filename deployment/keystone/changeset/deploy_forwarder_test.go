@@ -19,7 +19,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -206,19 +205,14 @@ func TestConfigureForwarders(t *testing.T) {
 				require.Len(t, csOut.MCMSTimelockProposals, expectedProposals)
 				require.Nil(t, csOut.AddressBook)
 
-				timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 				x := te.OwnedForwarders()
-				for selector, forwardersByChain := range x {
+				for _, forwardersByChain := range x {
 					require.Len(t, forwardersByChain, 1)
 					f := forwardersByChain[0]
 					require.NotNil(t, f.McmsContracts.Timelock)
 					require.NotNil(t, f.McmsContracts.CallProxy)
-					timelockContracts[selector] = &proposalutils.TimelockExecutionContracts{
-						Timelock:  f.McmsContracts.Timelock,
-						CallProxy: f.McmsContracts.CallProxy,
-					}
 				}
-				_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
+				_, err = commonchangeset.Apply(t, te.Env,
 					commonchangeset.Configure(
 						cldf.CreateLegacyChangeSet(changeset.ConfigureForwardContracts),
 						cfg,

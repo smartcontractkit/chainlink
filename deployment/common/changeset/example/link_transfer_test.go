@@ -37,23 +37,20 @@ func setupLinkTransferTestEnv(t *testing.T) cldf.Environment {
 	config := proposalutils.SingleGroupMCMSV2(t)
 
 	// Deploy MCMS and Timelock
-	env, err := changeset.Apply(t, env, nil,
-		changeset.Configure(
-			cldf.CreateLegacyChangeSet(changeset.DeployLinkToken),
-			[]uint64{chainSelector},
-		),
-		changeset.Configure(
-			cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
-			map[uint64]types.MCMSWithTimelockConfigV2{
-				chainSelector: {
-					Canceller:        config,
-					Bypasser:         config,
-					Proposer:         config,
-					TimelockMinDelay: big.NewInt(0),
-				},
+	env, err := changeset.Apply(t, env, changeset.Configure(
+		cldf.CreateLegacyChangeSet(changeset.DeployLinkToken),
+		[]uint64{chainSelector},
+	), changeset.Configure(
+		cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
+		map[uint64]types.MCMSWithTimelockConfigV2{
+			chainSelector: {
+				Canceller:        config,
+				Bypasser:         config,
+				Proposer:         config,
+				TimelockMinDelay: big.NewInt(0),
 			},
-		),
-	)
+		},
+	))
 	require.NoError(t, err)
 	return env
 }
@@ -255,14 +252,8 @@ func TestLinkTransferMCMSV2(t *testing.T) {
 	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
-	timelocks := map[uint64]*proposalutils.TimelockExecutionContracts{
-		chainSelector: {
-			Timelock:  mcmsState.Timelock,
-			CallProxy: mcmsState.CallProxy,
-		},
-	}
 	// Apply the changeset
-	_, err = changeset.Apply(t, env, timelocks,
+	_, err = changeset.Apply(t, env,
 		// the changeset produces proposals, ApplyChangesets will sign & execute them.
 		// in practice, signing and executing are separated processes.
 		changeset.Configure(

@@ -198,7 +198,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 			}
 
 			if test.DeployMCMS {
-				e, err = commonchangeset.Apply(t, e, nil,
+				e, err = commonchangeset.Apply(t, e,
 					commonchangeset.Configure(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]types.MCMSWithTimelockConfigV2{
 						homeChainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
 					}),
@@ -216,12 +216,6 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 				}
 				if len(addrs) > 0 {
 					e, err = commonchangeset.Apply(t, e,
-						map[uint64]*proposalutils.TimelockExecutionContracts{
-							homeChainSelector: &proposalutils.TimelockExecutionContracts{
-								Timelock:  state.Chains[homeChainSelector].Timelock,
-								CallProxy: state.Chains[homeChainSelector].CallProxy,
-							},
-						},
 						commonchangeset.Configure(
 							cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 							commonchangeset.TransferToMCMSWithTimelockConfig{

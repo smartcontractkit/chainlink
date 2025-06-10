@@ -30,42 +30,27 @@ func TestAcceptAllOwnership(t *testing.T) {
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
 	registrySel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-	env, err := commonchangeset.Apply(t, env, nil,
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(changeset.DeployCapabilityRegistry),
-			registrySel,
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(changeset.DeployOCR3),
-			registrySel,
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(changeset.DeployForwarder),
-			changeset.DeployForwarderRequest{},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(changeset.DeployFeedsConsumer),
-			&changeset.DeployFeedsConsumerRequest{ChainSelector: registrySel},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
-			map[uint64]types.MCMSWithTimelockConfigV2{
-				registrySel: proposalutils.SingleGroupTimelockConfigV2(t),
-			},
-		),
-	)
-	require.NoError(t, err)
-	addrs, err := env.ExistingAddresses.AddressesForChain(registrySel)
-	require.NoError(t, err)
-	timelock, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(
-		env.BlockChains.EVMChains()[registrySel], addrs,
-	)
+	env, err := commonchangeset.Apply(t, env, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(changeset.DeployCapabilityRegistry),
+		registrySel,
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(changeset.DeployOCR3),
+		registrySel,
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(changeset.DeployForwarder),
+		changeset.DeployForwarderRequest{},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(changeset.DeployFeedsConsumer),
+		&changeset.DeployFeedsConsumerRequest{ChainSelector: registrySel},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		map[uint64]types.MCMSWithTimelockConfigV2{
+			registrySel: proposalutils.SingleGroupTimelockConfigV2(t),
+		},
+	))
 	require.NoError(t, err)
 
 	_, err = commonchangeset.Apply(t, env,
-		map[uint64]*proposalutils.TimelockExecutionContracts{
-			registrySel: {Timelock: timelock.Timelock, CallProxy: timelock.CallProxy},
-		},
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(changeset.AcceptAllOwnershipsProposal),
 			&changeset.AcceptAllOwnershipRequest{

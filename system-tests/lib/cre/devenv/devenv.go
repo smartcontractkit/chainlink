@@ -11,12 +11,11 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
@@ -92,7 +91,7 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *type
 			Chains:   chains,
 		}
 
-		ctxWithTimeout, cancel := context.WithTimeout(ctx, 30*time.Second)
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, 3*time.Minute)
 		env, don, envErr := devenv.NewEnvironment(func() context.Context {
 			return ctxWithTimeout
 		}, lgr, devenvConfig)
@@ -134,7 +133,7 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *type
 		// Otherwise, JD would fail to accept job proposals for unknown nodes, even though it would still propose jobs to them. And that
 		// would be happening silently, without any error messages, and we wouldn't know about it until much later.
 		var jdErr error
-		ctxWithTimeout, cancel := context.WithTimeout(ctx, 30*time.Second)
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, 2*time.Minute)
 		jd, jdErr = devenv.NewJDClient(ctxWithTimeout, devenv.JDConfig{
 			GRPC:     input.JdOutput.ExternalGRPCUrl,
 			WSRPC:    input.JdOutput.InternalWSRPCUrl,

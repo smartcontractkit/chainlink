@@ -48,7 +48,7 @@ func setupFundingTestEnv(t *testing.T) cldf.Environment {
 	require.NoError(t, err)
 
 	// Deploy MCMS and Timelock
-	env, err = changeset.Apply(t, env, nil,
+	env, err = changeset.Apply(t, env,
 		changeset.Configure(
 			cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
 			map[uint64]types.MCMSWithTimelockConfigV2{
@@ -254,7 +254,7 @@ func TestFundMCMSignersChangeset_Apply(t *testing.T) {
 
 	changesetInstance := commonSolana.FundMCMSignersChangeset{}
 
-	env, _, err := changeset.ApplyChangesetsV2(t, env, []changeset.ConfiguredChangeSet{
+	env, _, err := changeset.ApplyChangesets(t, env, []changeset.ConfiguredChangeSet{
 		changeset.Configure(changesetInstance, config),
 	})
 	require.NoError(t, err)

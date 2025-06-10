@@ -40,7 +40,7 @@ func ValidateTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraIn
 	if infraInput.InfraType == types.CRIB {
 		if len(nodeSetInput) == 1 && slices.Contains(nodeSetInput[0].DONTypes, cretypes.GatewayDON) {
 			if len(nodeSetInput[0].Capabilities) > 1 {
-				return errors.New("you must use at least 2 nodeSets when using CRIB and gateway DON. Gateway DON must be in a separate nodeSet and it must be named 'gateway'")
+				return errors.New("you must use at least 2 nodeSets when using CRIB and gateway DON. Gateway DON must be in a separate nodeSet and it must be named 'gateway'. Try using 'full' topology by passing '-t full' to the CLI")
 			}
 		}
 
@@ -110,7 +110,7 @@ func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraInput
 
 			// TODO think whether it would make sense for infraInput to also hold functions that resolve hostnames for various infra and node types
 			// and use it with some default, so that we can easily modify it with little effort
-			host := infra.Host(nodeIdx, nodeType, donMetadata.Name, infraInput)
+			internalHost := infra.InternalHost(nodeIdx, nodeType, donMetadata.Name, infraInput)
 
 			if flags.HasFlag(donMetadata.Flags, cretypes.GatewayDON) {
 				if nodeSetInput[donIdx].GatewayNodeIndex != -1 && nodeIdx == nodeSetInput[donIdx].GatewayNodeIndex {
@@ -119,15 +119,21 @@ func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraInput
 						Value: cretypes.GatewayNode,
 					})
 
-					gatewayHost := host
-					if infraInput.InfraType == types.CRIB {
-						gatewayHost += "-gtwnode"
-					}
+					gatewayInternalHost := infra.InternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput)
 
 					topology.GatewayConnectorOutput = &cretypes.GatewayConnectorOutput{
-						Path: "/node",
-						Port: 5003,
-						Host: gatewayHost,
+						Outgoing: cretypes.Outgoing{
+							Path: "/node",
+							Port: 5003,
+							Host: gatewayInternalHost,
+						},
+						Incoming: cretypes.Incoming{
+							Protocol:     "http",
+							Path:         "/",
+							InternalPort: 5002,
+							ExternalPort: infra.ExternalGatewayPort(infraInput),
+							Host:         infra.ExternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput),
+						},
 						// do not set gateway connector dons, they will be resolved automatically
 					}
 				}
@@ -140,7 +146,7 @@ func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraInput
 
 			nodeWithLabels.Labels = append(nodeWithLabels.Labels, &cretypes.Label{
 				Key:   node.HostLabelKey,
-				Value: host,
+				Value: internalHost,
 			})
 
 			donsWithMetadata[donIdx].NodesMetadata[nodeIdx] = &nodeWithLabels
