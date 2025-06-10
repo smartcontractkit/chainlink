@@ -8,8 +8,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings"
 	"github.com/xssnick/tonutils-go/address"
-	"github.com/xssnick/tonutils-go/tlb"
-	cell2 "github.com/xssnick/tonutils-go/tvm/cell"
+	"github.com/xssnick/tonutils-go/tvm/cell"
 )
 
 // CommitPluginCodecV1 is a codec for encoding and decoding commit plugin reports.
@@ -21,8 +20,7 @@ func NewCommitPluginCodecV1() *CommitPluginCodecV1 {
 	return &CommitPluginCodecV1{}
 }
 
-func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.CommitPluginReport) ([]byte, error) {
-	var cellReport *bindings.CommitReport
+func (cr *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.CommitPluginReport) ([]byte, error) {
 	tpuSlice := make([]bindings.TokenPriceUpdate, len(report.PriceUpdates.TokenPriceUpdates))
 	for i, tpu := range report.PriceUpdates.TokenPriceUpdates {
 		tpuSlice[i] = bindings.TokenPriceUpdate{
@@ -79,7 +77,7 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 
 	sigSlice := make([]bindings.Signature, len(report.RMNSignatures))
 	for i, sig := range report.RMNSignatures {
-		var rmnSig64Array [64]uint8
+		rmnSig64Array := make([]byte, 64)
 		copy(rmnSig64Array[:32], sig.R[:])
 		copy(rmnSig64Array[32:], sig.S[:])
 		sigSlice[i] = bindings.Signature{
@@ -91,38 +89,40 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 		return nil, fmt.Errorf("cannot encode RMN signatures: %w", err)
 	}
 
-	cellReport = &bindings.CommitReport{
+	cellReport := bindings.CommitReport{
 		PriceUpdates: bindings.PriceUpdates{
 			TokenPriceUpdates: tpu,
 			GasPriceUpdates:   gpu,
 		},
-		BlessedMerkleRoots:   merkleRoots,
-		UnblessedMerkleRoots: unblessedRoots,
-		RMNSignatures:        signatures,
+		MerkleRoot: bindings.MerkleRoots{
+			BlessedMerkleRoots:   merkleRoots,
+			UnblessedMerkleRoots: unblessedRoots,
+		},
+		RMNSignatures: signatures,
 	}
 
-	cell, err := tlb.ToCell(cellReport)
+	c, err := cellReport.ToCell()
 	if err != nil {
 		return nil, fmt.Errorf("cannot encode commit report to cell: %w", err)
 	}
 
 	// Serialize the cell to bytes
-	return cell.ToBOC(), nil
+	return c.ToBOC(), nil
 }
 
-func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptypes.CommitPluginReport, error) {
-	cell, err := cell2.FromBOC(bytes)
+func (cr *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptypes.CommitPluginReport, error) {
+	c, err := cell.FromBOC(bytes)
 	if err != nil {
 		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode BOC: %w", err)
 	}
 
 	var report bindings.CommitReport
-	if err := tlb.LoadFromCell(&report, cell.BeginParse()); err != nil {
+	if err := report.LoadFromCell(c.BeginParse()); err != nil {
 		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode commit report from cell: %w", err)
 	}
 
 	priceUpdate := report.PriceUpdates
-	tpu, err := bindings.DictToSliceTokenPriceUpdate(priceUpdate.TokenPriceUpdates)
+	tpu, err := bindings.DictToSlice[bindings.TokenPriceUpdate](priceUpdate.TokenPriceUpdates)
 	if err != nil {
 		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode token price updates: %w", err)
 	}
@@ -134,7 +134,7 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 			Price:   cciptypes.NewBigInt(update.UsdPerToken),
 		}
 	}
-	gpu, err := bindings.DictToSliceGasPriceUpdate(priceUpdate.GasPriceUpdates)
+	gpu, err := bindings.DictToSlice[bindings.GasPriceUpdate](priceUpdate.GasPriceUpdates)
 	if err != nil {
 		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode gas price updates: %w", err)
 	}
@@ -147,12 +147,12 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 		}
 	}
 
-	sigs, err := bindings.DictToSliceSignature(report.RMNSignatures)
+	sigs, err := bindings.DictToSlice[bindings.Signature](report.RMNSignatures)
 	if err != nil {
 		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode RMN signatures: %w", err)
 	}
 
-	sigSlice := make([]cciptypes.RMNECDSASignature, 0, len(sigs))
+	sigSlice := make([]cciptypes.RMNECDSASignature, len(sigs))
 	for i, sig := range sigs {
 		if len(sig.Sig) != 64 {
 			return cciptypes.CommitPluginReport{}, fmt.Errorf("invalid RMN signature length: %d", len(sig.Sig))
@@ -167,7 +167,8 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 		}
 	}
 
-	bmr, err := bindings.DictToSliceMerkleRoot(report.BlessedMerkleRoots)
+	mr := report.MerkleRoot
+	bmr, err := bindings.DictToSlice[bindings.MerkleRoot](mr.BlessedMerkleRoots)
 	if err != nil {
 		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode blessed merkle roots: %w", err)
 	}
@@ -182,7 +183,7 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 		}
 	}
 
-	unblessedMr, err := bindings.DictToSliceMerkleRoot(report.UnblessedMerkleRoots)
+	unblessedMr, err := bindings.DictToSlice[bindings.MerkleRoot](mr.UnblessedMerkleRoots)
 	if err != nil {
 		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode unblessed merkle roots: %w", err)
 	}
