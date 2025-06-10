@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
 	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	ocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -105,20 +104,20 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 	ccipDfProcessor := dfprocessor.NewCCIPDataFeedsProcessor(registryMetrics, emitter)
 	porProcessor := porprocessor.NewPORProcessor(registryMetrics, emitter)
 
-	evmProcessors, err := processor.NewPlatformProcessors(emitter)
+	processors, err := processor.NewPlatformProcessors(emitter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create EVM platform processors: %w", err)
 	}
 
+	processors["evm-data-feeds"] = dfProcessor
+	processors["evm-data-feeds-ccip"] = ccipDfProcessor
+	processors["evm-por-feeds"] = porProcessor
+
 	beholder, err := writetarget.NewMonitor(writetarget.MonitorOpts{
-		Lggr:                      lggr,
-		ProductAgnosticProcessors: evmProcessors,
-		ProductSpecificProcessors: map[string]beholder.ProtoProcessor{
-			"evm-data-feeds":      dfProcessor,
-			"evm-data-feeds-ccip": ccipDfProcessor,
-			"evm-por-feeds":       porProcessor,
-		},
-		Emitter: emitter,
+		Lggr:              lggr,
+		Processors:        processors,
+		EnabledProcessors: processor.GetDefaultPlatformProcessors(),
+		Emitter:           emitter,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Aptos WT monitor client: %+w", err)
@@ -148,41 +147,41 @@ type Inputs struct {
 	SignedReport ocr3types.SignedReport
 }
 
-type Request struct {
+type TargetRequest struct {
 	Metadata capabilities.RequestMetadata
 	Config   Config
 	Inputs   Inputs
 }
 
 func getEVMRequest(rawRequest capabilities.CapabilityRequest) (
-	Request, error) {
-	var r Request
+	TargetRequest, error) {
+	var r TargetRequest
 	r.Metadata = rawRequest.Metadata
 
 	if rawRequest.Config == nil {
-		return Request{}, errors.New("missing config field")
+		return TargetRequest{}, errors.New("missing config field")
 	}
 
 	if err := rawRequest.Config.UnwrapTo(&r.Config); err != nil {
-		return Request{}, err
+		return TargetRequest{}, err
 	}
 
 	if !common.IsHexAddress(r.Config.Address) {
-		return Request{}, fmt.Errorf("'%v' is not a valid address", r.Config.Address)
+		return TargetRequest{}, fmt.Errorf("'%v' is not a valid address", r.Config.Address)
 	}
 
 	if rawRequest.Inputs == nil {
-		return Request{}, errors.New("missing inputs field")
+		return TargetRequest{}, errors.New("missing inputs field")
 	}
 
 	// required field of target's config in the workflow spec
 	signedReport, ok := rawRequest.Inputs.Underlying[writetarget.KeySignedReport]
 	if !ok {
-		return Request{}, fmt.Errorf("missing required field %s", writetarget.KeySignedReport)
+		return TargetRequest{}, fmt.Errorf("missing required field %s", writetarget.KeySignedReport)
 	}
 
 	if err := signedReport.UnwrapTo(&r.Inputs.SignedReport); err != nil {
-		return Request{}, err
+		return TargetRequest{}, err
 	}
 	return r, nil
 }

@@ -27,6 +27,7 @@ import (
 )
 
 func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		env       cldf.Environment
@@ -192,6 +193,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			cs := DeployAptosChain{}
 			err := cs.VerifyPreconditions(tt.env, tt.config)
 			if tt.wantErr {
@@ -206,6 +208,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 }
 
 func TestDeployAptosChain_Apply(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	// Setup memory environment with 1 Aptos chain
