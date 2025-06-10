@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -874,7 +875,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 		return errors.Wrap(err, "orm: job proposal")
 	}
 
-	if err = s.isApprovable(ctx, proposal.Status, proposal.ID, spec.Status); err != nil {
+	if err = s.isApprovable(ctx, proposal.Status, proposal.ID, spec.Status, spec.ID); err != nil {
 		return err
 	}
 
@@ -1590,7 +1591,7 @@ func extractName(defn string) null.String {
 // isApprovable returns nil if a spec can be approved based on the current
 // proposal and spec status, and if it can't be approved, the reason as an
 // error.
-func (s *service) isApprovable(ctx context.Context, propStatus JobProposalStatus, proposalID int64, specStatus SpecStatus) error {
+func (s *service) isApprovable(ctx context.Context, propStatus JobProposalStatus, proposalID int64, specStatus SpecStatus, specID int64) error {
 	if propStatus == JobProposalStatusDeleted {
 		return errors.New("cannot approve spec for a deleted job proposal")
 	}
@@ -1612,13 +1613,28 @@ func (s *service) isApprovable(ctx context.Context, propStatus JobProposalStatus
 		if serr != nil {
 			return errors.Wrap(serr, "failed to get latest spec")
 		}
+
 		for _, spec := range specs {
 			if spec.Status == SpecStatusApproved {
 				return fmt.Errorf("the job spec with version %d is already approved", spec.Version)
 			}
 		}
 
-		return nil
+		slices.SortFunc(specs, func(a, b JobProposalSpec) int { return int(b.Version - a.Version) })
+		cancelledIndex := 0
+		for _, spec := range specs {
+			if spec.ID == specID {
+				if cancelledIndex >= 2 {
+					return errors.New("only the last two cancelled spec versions may be approved")
+				}
+				return nil
+			}
+			if spec.Status == SpecStatusCancelled {
+				cancelledIndex++
+			}
+		}
+
+		return fmt.Errorf("failed to find spec %d associated with proposal %d", specID, proposalID)
 	case SpecStatusPending:
 		return nil
 	default:
