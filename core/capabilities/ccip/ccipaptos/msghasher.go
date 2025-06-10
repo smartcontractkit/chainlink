@@ -67,9 +67,19 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 
 	rampTokenAmounts := make([]any2AptosTokenTransfer, len(msg.TokenAmounts))
 	for i, rta := range msg.TokenAmounts {
-		destGasAmount, err := abiDecodeUint32(rta.DestExecData)
+		destExecDataDecodedMap, err := h.extraDataCodec.DecodeTokenAmountDestExecData(rta.DestExecData, msg.Header.SourceChainSelector)
 		if err != nil {
-			return [32]byte{}, fmt.Errorf("decode dest gas amount: %w", err)
+			return [32]byte{}, fmt.Errorf("failed to decode dest exec data: %w", err)
+		}
+
+		destGasAmountValue, ok := destExecDataDecodedMap["destGasAmount"]
+		if !ok {
+			return [32]byte{}, errors.New("destGasAmount not found in destExecDataDecodedMap")
+		}
+
+		destGasAmount, ok := destGasAmountValue.(uint32)
+		if !ok {
+			return [32]byte{}, fmt.Errorf("invalid type for destGasAmount, expected uint32, got %T", destGasAmount)
 		}
 
 		lggr.Debugw("decoded dest gas amount",
