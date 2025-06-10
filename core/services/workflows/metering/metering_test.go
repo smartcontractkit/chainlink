@@ -101,17 +101,14 @@ func Test_Report_Reserve(t *testing.T) {
 		require.ErrorIs(t, err, ErrNoBillingClient)
 	})
 
-	t.Run("Reserve allows negative balances if the billing client cannot be communicated with", func(t *testing.T) {
+	t.Run("Reserve turns on metering mode if the billing client cannot be communicated with", func(t *testing.T) {
 		t.Parallel()
 		billingClient := mocks.NewBillingClient(t)
 		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(nil, errors.New("some err"))
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 		err := report.Reserve(t.Context())
+		require.NoError(t, err)
 		require.True(t, report.balance.allowNegative)
-		require.NoError(t, err)
-		err = report.Deduct("ref1", 1)
-		require.NoError(t, err)
-		require.Negative(t, report.balance.balance)
 	})
 
 	t.Run("Reserve returns an error if insufficient funding", func(t *testing.T) {
