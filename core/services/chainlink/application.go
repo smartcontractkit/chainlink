@@ -331,23 +331,23 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	initOps := []CoreRelayerChainInitFunc{InitDummy(relayerFactory), InitEVM(relayerFactory, evmFactoryCfg)}
 
 	if cfg.CosmosEnabled() {
-		initOps = append(initOps, InitCosmos(relayerFactory, keyStore.Cosmos(), cfg.CosmosConfigs()))
+		initOps = append(initOps, InitCosmos(relayerFactory, keyStore.Cosmos(), keyStore.CSA(), cfg.CosmosConfigs()))
 	}
 	if cfg.SolanaEnabled() {
 		solanaCfg := SolanaFactoryConfig{
 			TOMLConfigs: cfg.SolanaConfigs(),
 			DS:          opts.DS,
 		}
-		initOps = append(initOps, InitSolana(relayerFactory, keyStore.Solana(), solanaCfg))
+		initOps = append(initOps, InitSolana(relayerFactory, keyStore.Solana(), keyStore.CSA(), solanaCfg))
 	}
 	if cfg.StarkNetEnabled() {
-		initOps = append(initOps, InitStarknet(relayerFactory, keyStore.StarkNet(), cfg.StarknetConfigs()))
+		initOps = append(initOps, InitStarknet(relayerFactory, keyStore.StarkNet(), keyStore.CSA(), cfg.StarknetConfigs()))
 	}
 	if cfg.AptosEnabled() {
-		initOps = append(initOps, InitAptos(relayerFactory, keyStore.Aptos(), cfg.AptosConfigs()))
+		initOps = append(initOps, InitAptos(relayerFactory, keyStore.Aptos(), keyStore.CSA(), cfg.AptosConfigs()))
 	}
 	if cfg.TronEnabled() {
-		initOps = append(initOps, InitTron(relayerFactory, keyStore.Tron(), cfg.TronConfigs()))
+		initOps = append(initOps, InitTron(relayerFactory, keyStore.Tron(), keyStore.CSA(), cfg.TronConfigs()))
 	}
 
 	relayChainInterops, err := NewCoreRelayerChainInteroperators(initOps...)

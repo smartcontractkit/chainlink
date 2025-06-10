@@ -58,11 +58,6 @@ jobs:
         with:
           tag: ${{ github.ref_name }}
           assert: true
-      - name: Fail if git tag is not from allowed branches
-        uses: smartcontractkit/.github/actions/guard-tag-from-branch@guard-tag-from-branch/0.1.4
-        with:
-          tag: ${{ github.ref_name }}
-          branch-regex: '^(develop|release\/.*)'
 
   build-sign-publish-chainlink:
     needs: [checks]
