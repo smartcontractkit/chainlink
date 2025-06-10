@@ -22,7 +22,6 @@ import (
 const (
 	capabilityTypeTarget           = uint8(3)
 	capabilityTypeTargetNamePrefix = "write_"
-	capabilityTypeTargetNameSuffix = "@1.0.0"
 )
 
 // AddCapabilitiesRequest is a request to add capabilities
@@ -58,9 +57,9 @@ func (r *AddCapabilitiesRequest) Validate(env cldf.Environment) error {
 			errs = append(errs, fmt.Sprintf("capability labelled name must start with %s, got %s", capabilityTypeTargetNamePrefix, c.LabelledName))
 			continue
 		}
-		extracted := strings.TrimSuffix(strings.TrimPrefix(c.LabelledName, capabilityTypeTargetNamePrefix), capabilityTypeTargetNameSuffix)
+		extracted := strings.TrimPrefix(c.LabelledName, capabilityTypeTargetNamePrefix)
 		if extracted == "" {
-			errs = append(errs, fmt.Sprintf("capability labelled name must not be empty after removing prefix %s and suffix %s, got %s", capabilityTypeTargetNamePrefix, capabilityTypeTargetNameSuffix, c.LabelledName))
+			errs = append(errs, fmt.Sprintf("capability labelled name must not be empty after removing prefix %s, got %s", capabilityTypeTargetNamePrefix, c.LabelledName))
 			continue
 		}
 		_, err := chainselectors.ChainIdFromName(extracted)
