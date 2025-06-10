@@ -201,6 +201,10 @@ func (r *Report) GetAvailableForInvocation(openConcurrentCallSlots int) (int64, 
 		return 0, ErrNoOpenCalls
 	}
 
+	if !r.ready {
+		return 0, ErrNoReserve
+	}
+
 	if r.balance.allowNegative {
 		return math.MaxInt64, nil
 	}

@@ -2,6 +2,7 @@ package metering
 
 import (
 	"errors"
+	"math"
 	"strconv"
 	"sync"
 	"testing"
@@ -190,6 +191,50 @@ func Test_Report_ConvertToBalance(t *testing.T) {
 		amount, err := report.ConvertToBalance(testUnitA, 1)
 		require.NoError(t, err)
 		require.Equal(t, int64(1), amount)
+	})
+}
+
+func Test_Report_GetAvailableForInvocation(t *testing.T) {
+	t.Parallel()
+
+	t.Run("error if open slots is 0", func(t *testing.T) {
+		t.Parallel()
+		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), nil)
+		_, err := report.GetAvailableForInvocation(0)
+		require.ErrorIs(t, ErrNoOpenCalls, err)
+	})
+
+	t.Run("error if reserve is not called first", func(t *testing.T) {
+		t.Parallel()
+		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), nil)
+		_, err := report.GetAvailableForInvocation(1)
+		require.ErrorIs(t, ErrNoReserve, err)
+	})
+
+	t.Run("returns maxint64 in metering mode", func(t *testing.T) {
+		t.Parallel()
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(nil, errors.New("nope"))
+		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
+		err := report.Reserve(t.Context())
+		require.NoError(t, err)
+		available, err := report.GetAvailableForInvocation(1)
+		require.NoError(t, err)
+		require.Equal(t, int64(math.MaxInt64), available)
+	})
+
+	t.Run("happy path", func(t *testing.T) {
+		t.Parallel()
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: testUnitA, ConversionRate: "2"}}}, nil)
+		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
+		err := report.Reserve(t.Context())
+		require.NoError(t, err)
+		// 1 slot = all of available balance
+		available, err := report.GetAvailableForInvocation(1)
+		require.NoError(t, err)
+		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-290 once billing client response contains balance take out dummy balance
+		require.Equal(t, int64(10000), available)
 	})
 }
 
