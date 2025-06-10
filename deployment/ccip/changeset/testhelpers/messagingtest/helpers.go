@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
-	module_onramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp/onramp"
 	"github.com/stretchr/testify/require"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
@@ -180,7 +179,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		if len(tc.FeeToken) > 0 {
 			feeToken.ParseStringRelaxed(tc.FeeToken)
 		}
-		msg = module_onramp.Aptos2AnyRampMessage{
+		msg = testhelpers.AptosSendRequest{
 			Data:         tc.MsgData,
 			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
 			ExtraArgs:    tc.ExtraArgs,

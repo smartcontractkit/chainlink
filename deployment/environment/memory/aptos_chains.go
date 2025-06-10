@@ -11,6 +11,7 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_aptos_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos/provider"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
@@ -40,6 +41,9 @@ func generateChainsAptos(t *testing.T, numChains int) []cldf_chain.BlockChain {
 		require.NoError(t, err)
 
 		chains = append(chains, c)
+		aptosChain := c.(cldf_aptos.Chain)
+		err = migrateAccountToFA(t, aptosChain.DeployerSigner, aptosChain.Client)
+		require.NoError(t, err)
 	}
 
 	t.Logf("Created %d Aptos chains", len(chains))
@@ -62,6 +66,38 @@ func createAptosChainConfig(chainID string, chain cldf_aptos.Chain) chainlink.Ra
 	}
 
 	return chainConfig
+}
+
+func migrateAccountToFA(t *testing.T, signer aptos.TransactionSigner, client aptos.AptosRpcClient) error {
+	// Migrate APT Coin to FA, required for CCIP
+	payload := aptos.TransactionPayload{
+		Payload: &aptos.EntryFunction{
+			Module: aptos.ModuleId{
+				Address: aptos.AccountOne,
+				Name:    "coin",
+			},
+			Function: "migrate_to_fungible_store",
+			ArgTypes: []aptos.TypeTag{
+				{
+					Value: &aptos.StructTag{
+						Address: aptos.AccountOne,
+						Module:  "aptos_coin",
+						Name:    "AptosCoin",
+					},
+				},
+			},
+			Args: nil,
+		},
+	}
+	// TODO - this might fail once this function is removed, should be optional?
+	res, err := client.BuildSignAndSubmitTransaction(signer, payload)
+	require.NoError(t, err)
+	tx, err := client.WaitForTransaction(res.Hash)
+	require.NoError(t, err)
+	require.Truef(t, tx.Success, "Migrating APT to FungibleAsset failed: %v", tx.VmStatus)
+	accountAddress := signer.AccountAddress()
+	logger.TestLogger(t).Infof("Migrated account %v to Fungible Asset APT", accountAddress.StringLong())
+	return err
 }
 
 func fundAptosAccount(t *testing.T, signer aptos.TransactionSigner, to aptos.AccountAddress, amount uint64, client aptos.AptosRpcClient) {

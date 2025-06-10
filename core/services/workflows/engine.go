@@ -792,7 +792,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 			l.Error(fmt.Sprintf("failed to reserve on metering report for %s: %s", stepState.Ref, err))
 		}
 	} else {
-		e.metrics.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, msg.state.ExecutionID).IncrementWorkflowMissingMeteringReport(ctx)
+		e.metrics.With(platform.KeyWorkflowID, e.workflow.id).IncrementWorkflowMissingMeteringReport(ctx)
 		// TODO: to be bumped to error if all capabilities must implement metering
 		l.Warnf("no metering report found for %v", msg.state.ExecutionID)
 	}

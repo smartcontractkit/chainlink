@@ -850,6 +850,21 @@ func SendRequestSol(
 	}, nil
 }
 
+// Aptos doesn't provide any struct that we could reuse here
+type AptosSendRequest struct {
+	Receiver      []byte
+	Data          []byte
+	ExtraArgs     []byte
+	FeeToken      aptos.AccountAddress
+	FeeTokenStore aptos.AccountAddress
+	TokenAmounts  []AptosTokenAmount
+}
+
+type AptosTokenAmount struct {
+	Token  aptos.AccountAddress
+	Amount uint64
+}
+
 func SendRequestAptos(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
@@ -862,24 +877,56 @@ func SendRequestAptos(
 	e.Logger.Infof("(Aptos) Sending CCIP request from chain selector %d to chain selector %d from sender %s",
 		cfg.SourceChain, cfg.DestChain, senderAddress.StringLong())
 
-	msg := cfg.Message.(module_onramp.Aptos2AnyRampMessage)
-	r := state.AptosChains[cfg.SourceChain].CCIPAddress
+	msg := cfg.Message.(AptosSendRequest)
+	router := state.AptosChains[cfg.SourceChain].CCIPAddress
 	if cfg.IsTestRouter {
-		r = state.AptosChains[cfg.DestChain].TestRouterAddress
+		router = state.AptosChains[cfg.DestChain].TestRouterAddress
 	}
 
 	tokenAddresses := make([]aptos.AccountAddress, len(msg.TokenAmounts))
 	tokenAmounts := make([]uint64, len(msg.TokenAmounts))
 	tokenStoreAddresses := make([]aptos.AccountAddress, len(msg.TokenAmounts))
 	for i, v := range msg.TokenAmounts {
-		// TODO - struct missing input data
-		tokenAddresses[i] = v.SourcePoolAddress
+		tokenAddresses[i] = v.Token
 		tokenAmounts[i] = v.Amount
 		tokenStoreAddresses[i] = aptos.AccountAddress{}
 	}
 
-	router := aptos_router.Bind(r, client)
-	fee, err := router.Router().GetFee(
+	// Debug information
+	var (
+		tokenAddressStrings []string
+		tokenStoreStrings   []string
+	)
+	feeTokenBalance, err := GetFungibleAssetBalance(client, senderAddress, msg.FeeToken)
+	if err != nil {
+		return nil, err
+	}
+	e.Logger.Debugw("Fungible Asset balance", "feeToken", feeTokenBalance)
+	for _, address := range tokenAddresses {
+		tokenAddressStrings = append(tokenAddressStrings, address.StringLong())
+		transferTokenBalance, err := GetFungibleAssetBalance(client, senderAddress, address)
+		if err != nil {
+			return nil, err
+		}
+		e.Logger.Debugw("Fungible Asset balance", "transferToken", transferTokenBalance)
+	}
+	for _, address := range tokenStoreAddresses {
+		tokenStoreStrings = append(tokenStoreStrings, address.StringLong())
+	}
+	e.Logger.Debugw("Sending message: ",
+		"destChainSelector", cfg.DestChain,
+		"receiver", msg.Receiver,
+		"data", msg.Data,
+		"tokenAddresses", tokenAddressStrings,
+		"tokenAmounts", tokenAmounts,
+		"tokenStoreAddresses", tokenStoreStrings,
+		"feeToken", msg.FeeToken.StringLong(),
+		"feeTokenStore", msg.FeeTokenStore.StringLong(),
+		"extraArgs", msg.ExtraArgs,
+	)
+
+	routerContract := aptos_router.Bind(router, client)
+	fee, err := routerContract.Router().GetFee(
 		nil,
 		cfg.DestChain,
 		msg.Receiver,
@@ -888,7 +935,7 @@ func SendRequestAptos(
 		tokenAmounts,
 		tokenStoreAddresses,
 		msg.FeeToken,
-		aptos.AccountAddress{}, // TODO missing parameter
+		msg.FeeTokenStore,
 		msg.ExtraArgs,
 	)
 	if err != nil {
@@ -899,7 +946,7 @@ func SendRequestAptos(
 	opts := &aptosBind.TransactOpts{
 		Signer: sender,
 	}
-	tx, err := router.Router().CCIPSend(
+	tx, err := routerContract.Router().CCIPSend(
 		opts,
 		cfg.DestChain,
 		msg.Receiver,
@@ -908,11 +955,11 @@ func SendRequestAptos(
 		tokenAmounts,
 		tokenStoreAddresses,
 		msg.FeeToken,
-		aptos.AccountAddress{}, // TODO missing parameter
+		msg.FeeTokenStore,
 		msg.ExtraArgs,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send fee: %w", err)
+		return nil, fmt.Errorf("failed to send CCIP message: %w", err)
 	}
 	data, err := client.WaitForTransaction(tx.Hash)
 	if err != nil {
@@ -922,9 +969,10 @@ func SendRequestAptos(
 		return nil, fmt.Errorf("transaction reverted: %v", data.VmStatus)
 	}
 	e.Logger.Infof("(Aptos) CCIP message sent (tx %s) from chain selector %d to chain selector %d", tx.Hash, cfg.SourceChain, cfg.DestChain)
+
 	for _, event := range data.Events {
 		e.Logger.Infof("Event type: %v", event.Type)
-		if event.Type == fmt.Sprintf("%s::onramp::CCIPMessageSent", r.StringLong()) {
+		if event.Type == fmt.Sprintf("%s::onramp::CCIPMessageSent", router.String()) {
 			var msgSentEvent module_onramp.CCIPMessageSent
 			if err := codec.DecodeAptosJsonValue(event.Data, &msgSentEvent); err != nil {
 				return nil, fmt.Errorf("failed to decode CCIPMessageSentEvent: %w", err)
@@ -936,7 +984,7 @@ func SendRequestAptos(
 			}, nil
 		}
 	}
-	return nil, errors.New("failed to send CCIPMessageSentEvent")
+	return nil, errors.New("sent message but didn't receive CCIPMessageSent event")
 }
 
 func ConvertSolanaCrossChainAmountToBigInt(amount ccip_router.CrossChainAmount) *big.Int {
@@ -1556,6 +1604,7 @@ func DeployTransferableTokenAptos(
 	e cldf.Environment,
 	evmChainSel, aptosChainSel uint64,
 	tokenName string,
+	mintAmounts []config.Mint,
 ) (
 	*burn_mint_erc677.BurnMintERC677,
 	*burn_mint_token_pool.BurnMintTokenPool,
@@ -1600,9 +1649,10 @@ func DeployTransferableTokenAptos(
 					},
 				},
 				TokenParams: config.TokenParams{
-					Name:     tokenName,
-					Symbol:   "TKN",
-					Decimals: 8,
+					Name:         tokenName,
+					Symbol:       "TKN",
+					Decimals:     8,
+					InitialMints: mintAmounts,
 				},
 				MCMSConfig: &proposalutils.TimelockConfig{
 					MinDelay: time.Second, // TODO
@@ -2179,7 +2229,18 @@ func Transfer(
 			FeeToken:     feeTokenAddr,
 			ExtraArgs:    extraArgs,
 		}
-
+	case chainsel.FamilyAptos:
+		feeTokenAddr := aptos.AccountAddress{}
+		if len(feeToken) > 0 {
+			feeTokenAddr.ParseStringRelaxed(feeToken)
+		}
+		msg = AptosSendRequest{
+			Data:         data,
+			Receiver:     common.LeftPadBytes(receiver, 32),
+			ExtraArgs:    extraArgs,
+			FeeToken:     feeTokenAddr,
+			TokenAmounts: tokens.([]AptosTokenAmount),
+		}
 	default:
 		t.Errorf("unsupported source chain: %v", family)
 	}
@@ -2197,6 +2258,7 @@ type TestTransferRequest struct {
 	// optional
 	Tokens                []router.ClientEVMTokenAmount
 	SolTokens             []ccip_router.SVMTokenAmount
+	AptosTokens           []AptosTokenAmount
 	Data                  []byte
 	ExtraArgs             []byte
 	ExpectedTokenBalances []ExpectedBalance
@@ -2264,6 +2326,9 @@ func TransferMultiple(
 				}
 			case chainsel.FamilySolana:
 				tokens = tt.SolTokens
+				expectedTokenBalances.add(tt.DestChain, tt.Receiver, tt.ExpectedTokenBalances)
+			case chainsel.FamilyAptos:
+				tokens = tt.AptosTokens
 				expectedTokenBalances.add(tt.DestChain, tt.Receiver, tt.ExpectedTokenBalances)
 			default:
 				t.Errorf("unsupported source chain: %v", family)
