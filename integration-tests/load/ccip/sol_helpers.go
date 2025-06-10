@@ -62,7 +62,7 @@ func subscribeSolTransmitEvents(
 	}
 
 	done := make(chan any)
-	sink, errCh := testhelpers.SolEventEmitter[solccip.EventCCIPMessageSent](client, onrampAddress, "CCIPMessageSent", startSlot, done, time.NewTicker(15*time.Second))
+	sink, errCh := testhelpers.SolEventEmitter[solccip.EventCCIPMessageSent](ctx, client, onrampAddress, "CCIPMessageSent", startSlot, done, time.NewTicker(15*time.Second))
 	defer close(done)
 	for {
 		select {
@@ -164,7 +164,7 @@ func subscribeSolCommitEvents(
 	}
 
 	done := make(chan any)
-	sink, errCh := testhelpers.SolEventEmitter[solccip.EventCommitReportAccepted](client, offrampAddress, "CommitReportAccepted", startSlot, done, time.NewTicker(15*time.Second))
+	sink, errCh := testhelpers.SolEventEmitter[solccip.EventCommitReportAccepted](ctx, client, offrampAddress, "CommitReportAccepted", startSlot, done, time.NewTicker(15*time.Second))
 	defer close(done)
 
 	ticker := time.NewTicker(tickerDuration)
@@ -287,7 +287,7 @@ func subscribeSolExecutionEvents(
 		completedSrcChains[srcChain] = false
 	}
 	done := make(chan any)
-	sink, errCh := testhelpers.SolEventEmitter[solccip.EventExecutionStateChanged](client, offrampAddress, "ExecutionStateChanged", startSlot, done, time.NewTicker(15*time.Second))
+	sink, errCh := testhelpers.SolEventEmitter[solccip.EventExecutionStateChanged](ctx, client, offrampAddress, "ExecutionStateChanged", startSlot, done, time.NewTicker(15*time.Second))
 	defer close(done)
 
 	ticker := time.NewTicker(tickerDuration)

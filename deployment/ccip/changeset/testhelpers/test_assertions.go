@@ -463,14 +463,7 @@ type EventWithTxn[T any] struct {
 }
 
 // Scan for events referencing address
-func SolEventEmitter[T any](
-	client *solrpc.Client,
-	address solana.PublicKey,
-	eventType string,
-	startSlot uint64,
-	done chan any,
-	ticker *time.Ticker,
-) (<-chan EventWithTxn[T], <-chan error) {
+func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address solana.PublicKey, eventType string, startSlot uint64, done chan any, ticker *time.Ticker) (<-chan EventWithTxn[T], <-chan error) {
 	ch := make(chan EventWithTxn[T])
 	errorCh := make(chan error)
 	go func() {
@@ -482,7 +475,6 @@ func SolEventEmitter[T any](
 				return
 			case <-ticker.C:
 				// Scan for transactions referencing the address
-				ctx := context.Background()
 				txSigs, err := client.GetSignaturesForAddressWithOpts(
 					ctx,
 					address,
@@ -567,7 +559,7 @@ func ConfirmCommitWithExpectedSeqNumRangeSol(
 
 	done := make(chan any)
 	defer close(done)
-	sink, errCh := SolEventEmitter[solccip.EventCommitReportAccepted](dest.Client, offrampAddress, consts.EventNameCommitReportAccepted, startSlot, done, time.NewTicker(2*time.Second))
+	sink, errCh := SolEventEmitter[solccip.EventCommitReportAccepted](t.Context(), dest.Client, offrampAddress, consts.EventNameCommitReportAccepted, startSlot, done, time.NewTicker(2*time.Second))
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
@@ -784,7 +776,7 @@ func ConfirmExecWithSeqNrsSol(
 
 	done := make(chan any)
 	defer close(done)
-	sink, errCh := SolEventEmitter[solccip.EventExecutionStateChanged](dest.Client, offrampAddress, consts.EventNameExecutionStateChanged, startSlot, done, time.NewTicker(2*time.Second))
+	sink, errCh := SolEventEmitter[solccip.EventExecutionStateChanged](t.Context(), dest.Client, offrampAddress, consts.EventNameExecutionStateChanged, startSlot, done, time.NewTicker(2*time.Second))
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
