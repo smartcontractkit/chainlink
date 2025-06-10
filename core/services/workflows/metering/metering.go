@@ -92,8 +92,8 @@ func NewReport(owner, workflowID, workflowExecutionID string, lggr logger.Logger
 	}
 }
 
-// Reserve calls the billing service for the initial credit balance that can be used in an execution
-// This method must be called before Deduct or Settle
+// Reserve calls the billing service for the initial credit balance that can be used in an execution.
+// This method must be called before Deduct or Settle.
 func (r *Report) Reserve(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -102,8 +102,6 @@ func (r *Report) Reserve(ctx context.Context) error {
 		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-427 more robust check of billing service health
 		return ErrNoBillingClient
 	}
-
-	var balanceStore *balanceStore
 
 	// If there is no credit limit defined in the workflow, then open an empty reservation
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-284 consume user defined workflow execution limit
@@ -115,40 +113,52 @@ func (r *Report) Reserve(ctx context.Context) error {
 	}
 
 	resp, err := r.client.ReserveCredits(ctx, &req)
+
 	// If there is an error communicating with the billing service, fail open
 	if err != nil {
-		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-453 track causes of metering mode
-		balanceStore = NewBalanceStore(0, map[string]decimal.Decimal{}, r.lggr)
-		balanceStore.AllowNegative()
 		r.lggr.Warnf("failed to reserve credits: %s", err)
-	} else {
-		if success := resp.GetSuccess(); !success {
-			return ErrInsufficientFunding
-		}
-		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-460 parse rate card from billing service response
-		dummyRateCard := map[string]decimal.Decimal{}
-		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-290 once billing client response contains balance set using balanceStore.Add
-		dummyInitialBalance := int64(10000)
-		balanceStore = NewBalanceStore(dummyInitialBalance, dummyRateCard, r.lggr)
+		r.enterMeteringMode()
+		return nil
 	}
 
+	if success := resp.GetSuccess(); !success {
+		return ErrInsufficientFunding
+	}
+
+	rateCard, err := toRateCard(resp.GetRates())
+	if err != nil {
+		r.lggr.Warnf("failed to parse rate card: %s", err)
+		r.enterMeteringMode()
+		return nil
+	}
+
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-290 once billing client response contains balance set using balanceStore.Add
+	dummyInitialBalance := int64(10000)
 	r.ready = true
-	r.balance = balanceStore
+	r.balance = NewBalanceStore(dummyInitialBalance, rateCard, r.lggr)
 	return nil
 }
 
-// ConvertFromBalance converts a credit amount to a resource dimensions amount
+func (r *Report) enterMeteringMode() {
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-453 pass through errors and persist cause of metering mode on to meteringReport
+	balanceStore := NewBalanceStore(0, map[string]decimal.Decimal{}, r.lggr)
+	balanceStore.AllowNegative()
+	r.ready = true
+	r.balance = balanceStore
+}
+
+// ConvertFromBalance converts a credit amount to a resource dimensions amount.
 func (r *Report) ConvertFromBalance(toUnit string, amount int64) (resources int64) {
 	return r.balance.ConvertFromBalance(toUnit, amount)
 }
 
-// ConvertToBalance converts a resource dimensions amount to a credit amount
+// ConvertToBalance converts a resource dimensions amount to a credit amount.
 func (r *Report) ConvertToBalance(fromUnit string, amount int64) (credits int64) {
 	return r.balance.ConvertToBalance(fromUnit, amount)
 }
 
-// Deduct earmarks an amount of local universal credit balance
-// We expect to only set this value once - an error is returned if a step would be overwritten
+// Deduct earmarks an amount of local universal credit balance.
+// We expect to only set this value once - an error is returned if a step would be overwritten.
 func (r *Report) Deduct(ref string, amount int64) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -308,6 +318,18 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func toRateCard(rates []*billing.ResourceUnitRate) (map[string]decimal.Decimal, error) {
+	rateCard := map[string]decimal.Decimal{}
+	for _, rate := range rates {
+		conversionDeci, err := decimal.NewFromString(rate.ConversionRate)
+		if err != nil {
+			return map[string]decimal.Decimal{}, fmt.Errorf("could not convert unit %s's value %s to decimal", rate.ResourceUnit, rate.ConversionRate)
+		}
+		rateCard[rate.ResourceUnit] = conversionDeci
+	}
+	return rateCard, nil
 }
 
 func medianSpend(spends []decimal.Decimal) decimal.Decimal {

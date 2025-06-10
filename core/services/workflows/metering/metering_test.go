@@ -21,6 +21,7 @@ const (
 	testAccountID           = "accountId"
 	testWorkflowID          = "workflowId"
 	testWorkflowExecutionID = "workflowExecutionId"
+	testUnitA               = "a"
 )
 
 type mockBillingClient struct {
@@ -182,14 +183,12 @@ func Test_Report_Deduct(t *testing.T) {
 
 func Test_Report_Settle(t *testing.T) {
 	t.Parallel()
-	testUnitA := "a"
 
-	t.Run("Settle returns an error if not initialized", func(t *testing.T) {
+	t.Run("returns an error if not initialized", func(t *testing.T) {
 		billingClient := newMockBillingClient()
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 
 		spendsByNode := []capabilities.MeteringNodeDetail{
-			{Peer2PeerID: "xyz", SpendUnit: testUnitA, SpendValue: "42"},
 			{Peer2PeerID: "abc", SpendUnit: testUnitA, SpendValue: "1"},
 		}
 
@@ -197,7 +196,7 @@ func Test_Report_Settle(t *testing.T) {
 		require.ErrorIs(t, err, ErrNoReserve)
 	})
 
-	t.Run("Settle returns an error if Deduct is not called first", func(t *testing.T) {
+	t.Run("returns an error if Deduct is not called first", func(t *testing.T) {
 		billingClient := newMockBillingClient()
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 		err := report.Reserve(t.Context())
@@ -206,14 +205,13 @@ func Test_Report_Settle(t *testing.T) {
 		require.NoError(t, err)
 
 		spendsByNode := []capabilities.MeteringNodeDetail{
-			{Peer2PeerID: "xyz", SpendUnit: testUnitA, SpendValue: "42"},
 			{Peer2PeerID: "abc", SpendUnit: testUnitA, SpendValue: "1"},
 		}
 
 		require.ErrorIs(t, report.Settle("ref1", spendsByNode), ErrNoDeduct)
 	})
 
-	t.Run("Settle returns an error if step already exists", func(t *testing.T) {
+	t.Run("returns an error if step already exists", func(t *testing.T) {
 		billingClient := newMockBillingClient()
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 		err := report.Reserve(t.Context())
@@ -222,14 +220,48 @@ func Test_Report_Settle(t *testing.T) {
 		require.NoError(t, err)
 
 		steps := []capabilities.MeteringNodeDetail{
-			{Peer2PeerID: "xyz", SpendUnit: testUnitA, SpendValue: "42"},
 			{Peer2PeerID: "abc", SpendUnit: testUnitA, SpendValue: "1"},
+		}
+
+		require.NoError(t, report.Deduct("ref1", 2))
+		require.NoError(t, report.Settle("ref1", steps))
+		err = report.Settle("ref1", steps)
+		require.ErrorIs(t, err, ErrStepSpendExists)
+	})
+
+	t.Run("ignores invalid spend values", func(t *testing.T) {
+		billingClient := newMockBillingClient()
+		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
+		err := report.Reserve(t.Context())
+		require.NoError(t, err)
+		err = report.balance.Add(100)
+		require.NoError(t, err)
+
+		steps := []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "xyz", SpendUnit: testUnitA, SpendValue: "????"},
+			{Peer2PeerID: "abc", SpendUnit: testUnitA, SpendValue: "1"},
+		}
+
+		err = report.Deduct("ref1", 2)
+		require.NoError(t, err)
+		require.NoError(t, report.Settle("ref1", steps))
+	})
+
+	t.Run("does not error when spend exceeds reservation", func(t *testing.T) {
+		billingClient := newMockBillingClient()
+		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
+		err := report.Reserve(t.Context())
+		require.NoError(t, err)
+		err = report.balance.Add(100)
+		require.NoError(t, err)
+
+		steps := []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "xyz", SpendUnit: testUnitA, SpendValue: "2"},
 		}
 
 		err = report.Deduct("ref1", 1)
 		require.NoError(t, err)
 		require.NoError(t, report.Settle("ref1", steps))
-		require.ErrorIs(t, report.Settle("ref1", steps), ErrStepSpendExists)
 	})
 }
 
