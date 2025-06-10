@@ -273,7 +273,7 @@ func Test_Report_FormatReport(t *testing.T) {
 		err := report.Reserve(t.Context())
 		require.NoError(t, err)
 		meteringReport := report.FormatReport()
-		require.Equal(t, meteringReport.Metadata, &events.WorkflowMetadata{})
+		require.Equal(t, &events.WorkflowMetadata{}, meteringReport.Metadata)
 	})
 
 	t.Run("contains all step data", func(t *testing.T) {
@@ -485,7 +485,7 @@ func Test_MeterReports_End(t *testing.T) {
 		require.Len(t, mrs.reports, 1)
 		err = mrs.End(t.Context(), "exec1")
 		require.NoError(t, err)
-		require.Len(t, mrs.reports, 0)
+		require.Empty(t, mrs.reports)
 	})
 
 	t.Run("cleans up report on failed transmission to billing client", func(t *testing.T) {
@@ -497,6 +497,6 @@ func Test_MeterReports_End(t *testing.T) {
 		require.Len(t, mrs.reports, 1)
 		err = mrs.End(t.Context(), "exec1")
 		require.Error(t, err)
-		require.Len(t, mrs.reports, 0)
+		require.Empty(t, mrs.reports)
 	})
 }
