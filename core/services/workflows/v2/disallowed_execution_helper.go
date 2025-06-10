@@ -18,6 +18,6 @@ func (d DisallowedExecutionHelper) CallCapability(_ context.Context, _ *sdkpb.Ca
 	return nil, errors.New("capability calls cannot be made during this execution")
 }
 
-func (d DisallowedExecutionHelper) GetId() string {
+func (d DisallowedExecutionHelper) GetID() string {
 	return ""
 }

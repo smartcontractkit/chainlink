@@ -88,6 +88,6 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 	}, nil
 }
 
-func (c *ExecutionHelper) GetId() string {
+func (c *ExecutionHelper) GetID() string {
 	return c.WorkflowExecutionID
 }
