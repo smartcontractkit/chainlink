@@ -31,14 +31,15 @@ type VerifyBuildConfig struct {
 	VerifyAccessController       bool
 	VerifyMCM                    bool
 	VerifyTimelock               bool
-	// if program is owned by deployer key, set to true
-	// verification and remote job submission will be done in the same call to this changeset
-	// if program is owned by timelock signer, set to false in the first call to this changeset
+	// if program is owned by deployer key
+	// set to true -> verification and remote job submission will be done in the same call to this changeset
+	// if program is owned by timelock signer
+	// set to false in the first call to this changeset
 	// get the proposal -> signed -> executed on chain
 	// once thats done, call this changeset again, set to true and it will submit the remote job
 	RemoteVerification bool
-	// set this to timelock signer if the upgrade authority of the program is the timelock signer
-	// if not, set to deployer key
+	// set to the same as upgrade authority of the program
+	// timelock signer or deployer key
 	UpgradeAuthority solana.PublicKey
 	MCMS             *proposalutils.TimelockConfig
 }
@@ -64,22 +65,14 @@ func runSolanaVerify(e cldf.Environment,
 	}
 	e.Logger.Infow("solana verify params", "params", string(log))
 
-	cmdArgs := []string{
-		"config",
-		"set",
-		"--keypair", chain.KeypairPath,
-	}
-	output, err := runCommand("solana", cmdArgs, ".")
-	e.Logger.Infow("solana config set output", "output", output)
-	if err != nil {
-		return fmt.Errorf("failed to set keypair during program verification: %s %w", output, err)
-	}
-
+	// if timelock signer exists
+	// and user has set the upgrade authority to the timelock signer
+	// then we need to create mcms txs
 	if !timelockSignerPDA.IsZero() && cfg.UpgradeAuthority == timelockSignerPDA {
 		// enter here only if mcms tx has been signed and submitted to the chain
 		// https://solana.com/developers/guides/advanced/verified-builds#7-submit-remote-verification-job
 		if cfg.RemoteVerification {
-			cmdArgs = []string{
+			cmdArgs := []string{
 				"remote",
 				"submit-job",
 				"--url", chain.URL,
@@ -94,7 +87,9 @@ func runSolanaVerify(e cldf.Environment,
 			// only need to submit job this time as we are assuming here that the mcms tx has been signed and submitted to the chain
 			return nil
 		}
-		cmdArgs = []string{
+
+		// run cli command
+		cmdArgs := []string{
 			"export-pda-tx",
 			"--url", chain.URL,
 			"--program-id", programID,
@@ -104,13 +99,13 @@ func runSolanaVerify(e cldf.Environment,
 			"--mount-path", mountPath,
 			"--uploader", timelockSignerPDA.String(),
 		}
-
-		output, err = runCommand("solana-verify", cmdArgs, ".")
+		output, err := runCommand("solana-verify", cmdArgs, ".")
 		e.Logger.Infow("export-pda-tx output", "output", output)
 		if err != nil {
 			return fmt.Errorf("solana program verification failed: %s %w", output, err)
 		}
 
+		// get ix from output
 		resolvedIxn, err := getIxnFromEncodedTx(e, output, timelockSignerPDA)
 		if err != nil {
 			return fmt.Errorf("failed to get ixn from encoded tx: %w", err)
@@ -119,6 +114,7 @@ func runSolanaVerify(e cldf.Environment,
 			return fmt.Errorf("failed to get ixn from encoded tx")
 		}
 
+		// build mcms tx from ix
 		upgradeTx, err := BuildMCMSTxn(resolvedIxn, programID, cldf.ContractType(libraryName))
 		if err != nil {
 			return fmt.Errorf("failed to build upgrade transaction: %w", err)
@@ -127,36 +123,40 @@ func runSolanaVerify(e cldf.Environment,
 			e.Logger.Infow("upgradeTx", "tx", upgradeTx)
 			mcmsTxs = append(mcmsTxs, *upgradeTx)
 		}
-	} else {
-		cmdArgs = []string{
-			"verify-from-repo",
-			"--url", chain.URL,
-			"--program-id", programID,
-			"--library-name", libraryName,
-			strings.TrimSuffix(repoURL, ".git"),
-			"--commit-hash", cfg.GitCommitSha,
-			"--mount-path", mountPath,
-			"--skip-prompt",
-		}
+		return nil
+	}
 
-		output, err = runCommand("solana-verify", cmdArgs, ".")
-		e.Logger.Infow("verify-from-repo output", "output", output)
+	// if timelock signer does not exist
+	// or user has set the upgrade authority to the deployer key
+	// then we need to run the cli command
+	cmdArgs := []string{
+		"verify-from-repo",
+		"--url", chain.URL,
+		"--program-id", programID,
+		"--library-name", libraryName,
+		strings.TrimSuffix(repoURL, ".git"),
+		"--commit-hash", cfg.GitCommitSha,
+		"--mount-path", mountPath,
+		"--skip-prompt",
+	}
+
+	output, err := runCommand("solana-verify", cmdArgs, ".")
+	e.Logger.Infow("verify-from-repo output", "output", output)
+	if err != nil {
+		return fmt.Errorf("solana program verification failed: %s %w", output, err)
+	}
+	if cfg.RemoteVerification {
+		cmdArgs = []string{
+			"remote",
+			"submit-job",
+			"--url", chain.URL,
+			"--uploader", chain.DeployerKey.PublicKey().String(),
+			"--program-id", programID,
+		}
+		output, err := runCommand("solana-verify", cmdArgs, chain.ProgramsPath)
+		e.Logger.Infow("remote submit-job output", "output", output)
 		if err != nil {
 			return fmt.Errorf("solana program verification failed: %s %w", output, err)
-		}
-		if cfg.RemoteVerification {
-			cmdArgs = []string{
-				"remote",
-				"submit-job",
-				"--url", chain.URL,
-				"--uploader", chain.DeployerKey.PublicKey().String(),
-				"--program-id", programID,
-			}
-			output, err := runCommand("solana-verify", cmdArgs, chain.ProgramsPath)
-			e.Logger.Infow("remote submit-job output", "output", output)
-			if err != nil {
-				return fmt.Errorf("solana program verification failed: %s %w", output, err)
-			}
 		}
 	}
 
@@ -235,6 +235,30 @@ func resolveCompiledInstruction(
 	}, nil
 }
 
+func setConfig(e cldf.Environment, chain cldf_solana.Chain) error {
+	cmdArgs := []string{
+		"config",
+		"set",
+		"--keypair", chain.KeypairPath,
+	}
+	output, err := runCommand("solana", cmdArgs, ".")
+	e.Logger.Infow("solana config set output", "output", output)
+	if err != nil {
+		return fmt.Errorf("failed to set keypair during program verification: %s %w", output, err)
+	}
+	cmdArgs = []string{
+		"config",
+		"set",
+		"--url", chain.URL,
+	}
+	output, err = runCommand("solana", cmdArgs, ".")
+	e.Logger.Infow("solana config set output", "output", output)
+	if err != nil {
+		return fmt.Errorf("failed to set url during program verification: %s %w", output, err)
+	}
+	return nil
+}
+
 func VerifyBuild(e cldf.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutput, error) {
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
@@ -294,6 +318,12 @@ func VerifyBuild(e cldf.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutpu
 			enabled:    true,
 		})
 	}
+
+	err = setConfig(e, chain)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to set config: %w", err)
+	}
+
 	mcmsTxs := make([]mcmsTypes.Transaction, 0)
 	for _, v := range verifications {
 		if !v.enabled {
