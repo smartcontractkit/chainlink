@@ -167,7 +167,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		Request:         &wasmpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		// no Config needed
-	}, DisallowedCapabilityExecutor{})
+	}, &DisallowedExecutionHelper{})
 	if err != nil {
 		return fmt.Errorf("failed to execute subscribe: %w", err)
 	}
@@ -338,7 +338,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		// TODO(CAPPL-729): pass workflow config
-	}, &CapabilityExecutor{Engine: e, WorkflowExecutionID: executionID})
+	}, &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID})
 
 	endTime := time.Now()
 	executionMS := strconv.Itoa(int(endTime.Sub(startTime).Milliseconds()))

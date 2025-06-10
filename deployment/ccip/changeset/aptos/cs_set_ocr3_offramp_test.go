@@ -21,6 +21,7 @@ import (
 )
 
 func TestSetOCR3Offramp_Apply(t *testing.T) {
+	t.Parallel()
 	// Setup environment and config
 	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(
 		t,
