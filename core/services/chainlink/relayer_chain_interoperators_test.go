@@ -161,7 +161,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 		{name: "2 solana chain with 2 node",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
-				chainlink.InitSolana(factory, keyStore.Solana(), chainlink.SolanaFactoryConfig{
+				chainlink.InitSolana(factory, keyStore.Solana(), keyStore.CSA(), chainlink.SolanaFactoryConfig{
 					TOMLConfigs: newConfig().SolanaConfigs()}),
 			},
 			expectedSolanaChainCnt: 2,
@@ -174,7 +174,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		},
 
 		{name: "all chains",
-			initFuncs: []chainlink.CoreRelayerChainInitFunc{chainlink.InitSolana(factory, keyStore.Solana(), chainlink.SolanaFactoryConfig{
+			initFuncs: []chainlink.CoreRelayerChainInitFunc{chainlink.InitSolana(factory, keyStore.Solana(), keyStore.CSA(), chainlink.SolanaFactoryConfig{
 				TOMLConfigs: newConfig().SolanaConfigs()}),
 				chainlink.InitEVM(factory, chainlink.EVMFactoryConfig{
 					ChainOpts: legacyevm.ChainOpts{
@@ -189,8 +189,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					EthKeystore: keyStore.Eth(),
 					CSAKeystore: &keystore.CSASigner{CSA: keyStore.CSA()},
 				}),
-				chainlink.InitStarknet(factory, keyStore.StarkNet(), cfg.StarknetConfigs()),
-				chainlink.InitCosmos(factory, keyStore.Cosmos(), cfg.CosmosConfigs()),
+				chainlink.InitStarknet(factory, keyStore.StarkNet(), keyStore.CSA(), cfg.StarknetConfigs()),
+				chainlink.InitCosmos(factory, keyStore.Cosmos(), keyStore.CSA(), cfg.CosmosConfigs()),
 			},
 			expectedEVMChainCnt: 2,
 			expectedEVMNodeCnt:  3,
