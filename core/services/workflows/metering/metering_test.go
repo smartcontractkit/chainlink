@@ -25,13 +25,6 @@ const (
 	testUnitA               = "a"
 )
 
-func defaultMockBillingClient(t *testing.T) *mocks.BillingClient {
-	billingClient := mocks.NewBillingClient(t)
-	billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
-	billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
-	return billingClient
-}
-
 func Test_medianSpend(t *testing.T) {
 	tt := []struct {
 		name     string
