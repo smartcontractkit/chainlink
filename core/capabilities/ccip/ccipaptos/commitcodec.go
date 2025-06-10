@@ -32,10 +32,11 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 		}
 		s.Struct(&sourceToken)
 		if item.Price.IsEmpty() {
-			s.U256(*big.NewInt(0))
-		} else {
-			s.U256(*item.Price.Int)
+			s.SetError(fmt.Errorf("empty price for token: %s", item.TokenID))
+			return
 		}
+
+		s.U256(*item.Price.Int)
 	})
 	if s.Error() != nil {
 		return nil, fmt.Errorf("failed to serialize TokenPriceUpdates: %w", s.Error())
@@ -43,10 +44,10 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 	bcs.SerializeSequenceWithFunction(report.PriceUpdates.GasPriceUpdates, s, func(s *bcs.Serializer, item cciptypes.GasPriceChain) {
 		s.U64(uint64(item.ChainSel))
 		if item.GasPrice.IsEmpty() {
-			s.U256(*big.NewInt(0))
-		} else {
-			s.U256(*item.GasPrice.Int)
+			s.SetError(fmt.Errorf("empty gas price for chain: %d", item.ChainSel))
+			return
 		}
+		s.U256(*item.GasPrice.Int)
 	})
 	if s.Error() != nil {
 		return nil, fmt.Errorf("failed to serialize GasPriceUpdates: %w", s.Error())
