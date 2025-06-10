@@ -37,7 +37,7 @@ func generateChainsAptos(t *testing.T, numChains int) []cldf_chain.BlockChain {
 				Once:              once,
 				DeployerSignerGen: cldf_aptos_provider.AccountGenCTFDefault(),
 			},
-		).Initialize()
+		).Initialize(t.Context())
 		require.NoError(t, err)
 
 		chains = append(chains, c)

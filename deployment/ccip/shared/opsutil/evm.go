@@ -82,7 +82,10 @@ func NewEVMCallOperation[IN any, C any](
 				if err != nil {
 					return EVMCallOutput{}, fmt.Errorf("failed to confirm %s tx against %s on %s: %w", name, input.Address, chain, err)
 				}
+				b.Logger.Debugw(fmt.Sprintf("Confirmed %s tx against %s on %s", name, input.Address, chain), "hash", tx.Hash().Hex(), "input", input.CallInput)
 				confirmed = true
+			} else {
+				b.Logger.Debugw(fmt.Sprintf("Prepared %s tx against %s on %s", name, input.Address, chain), "input", input.CallInput)
 			}
 			return EVMCallOutput{
 				Tx:           tx,

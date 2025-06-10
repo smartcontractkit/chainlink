@@ -43,6 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -63,6 +64,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/autotelemetry21"
 	ocr2keeper21core "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -123,8 +125,9 @@ type Delegate struct {
 	mailMon               *mailbox.Monitor
 	retirementReportCache retirement.RetirementReportCache
 
-	legacyChains         legacyevm.LegacyChainContainer // legacy: use relayers instead
-	capabilitiesRegistry core.CapabilitiesRegistry
+	legacyChains                   legacyevm.LegacyChainContainer // legacy: use relayers instead
+	capabilitiesRegistry           core.CapabilitiesRegistry
+	gatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
 }
 
 type DelegateConfig interface {
@@ -216,22 +219,23 @@ func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Th
 var _ job.Delegate = (*Delegate)(nil)
 
 type DelegateOpts struct {
-	Ds                    sqlutil.DataSource
-	JobORM                job.ORM
-	BridgeORM             bridges.ORM
-	MercuryORM            evmmercury.ORM
-	PipelineRunner        pipeline.Runner
-	StreamRegistry        streams.Getter
-	PeerWrapper           *ocrcommon.SingletonPeerWrapper
-	MonitoringEndpointGen telemetry.MonitoringEndpointGenerator
-	LegacyChains          legacyevm.LegacyChainContainer
-	Lggr                  logger.Logger
-	Ks                    keystore.OCR2
-	EthKs                 keystore.Eth
-	Relayers              RelayGetter
-	MailMon               *mailbox.Monitor
-	CapabilitiesRegistry  core.CapabilitiesRegistry
-	RetirementReportCache retirement.RetirementReportCache
+	Ds                             sqlutil.DataSource
+	JobORM                         job.ORM
+	BridgeORM                      bridges.ORM
+	MercuryORM                     evmmercury.ORM
+	PipelineRunner                 pipeline.Runner
+	StreamRegistry                 streams.Getter
+	PeerWrapper                    *ocrcommon.SingletonPeerWrapper
+	MonitoringEndpointGen          telemetry.MonitoringEndpointGenerator
+	LegacyChains                   legacyevm.LegacyChainContainer
+	Lggr                           logger.Logger
+	Ks                             keystore.OCR2
+	EthKs                          keystore.Eth
+	Relayers                       RelayGetter
+	MailMon                        *mailbox.Monitor
+	CapabilitiesRegistry           core.CapabilitiesRegistry
+	RetirementReportCache          retirement.RetirementReportCache
+	GatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
 }
 
 func NewDelegate(
@@ -239,24 +243,25 @@ func NewDelegate(
 	cfg DelegateConfig,
 ) *Delegate {
 	return &Delegate{
-		ds:                    opts.Ds,
-		jobORM:                opts.JobORM,
-		bridgeORM:             opts.BridgeORM,
-		mercuryORM:            opts.MercuryORM,
-		pipelineRunner:        opts.PipelineRunner,
-		streamRegistry:        opts.StreamRegistry,
-		peerWrapper:           opts.PeerWrapper,
-		monitoringEndpointGen: opts.MonitoringEndpointGen,
-		legacyChains:          opts.LegacyChains,
-		cfg:                   cfg,
-		lggr:                  opts.Lggr.Named("OCR2"),
-		ks:                    opts.Ks,
-		ethKs:                 opts.EthKs,
-		RelayGetter:           opts.Relayers,
-		isNewlyCreatedJob:     false,
-		mailMon:               opts.MailMon,
-		capabilitiesRegistry:  opts.CapabilitiesRegistry,
-		retirementReportCache: opts.RetirementReportCache,
+		ds:                             opts.Ds,
+		jobORM:                         opts.JobORM,
+		bridgeORM:                      opts.BridgeORM,
+		mercuryORM:                     opts.MercuryORM,
+		pipelineRunner:                 opts.PipelineRunner,
+		streamRegistry:                 opts.StreamRegistry,
+		peerWrapper:                    opts.PeerWrapper,
+		monitoringEndpointGen:          opts.MonitoringEndpointGen,
+		legacyChains:                   opts.LegacyChains,
+		cfg:                            cfg,
+		lggr:                           opts.Lggr.Named("OCR2"),
+		ks:                             opts.Ks,
+		ethKs:                          opts.EthKs,
+		RelayGetter:                    opts.Relayers,
+		isNewlyCreatedJob:              false,
+		mailMon:                        opts.MailMon,
+		capabilitiesRegistry:           opts.CapabilitiesRegistry,
+		retirementReportCache:          opts.RetirementReportCache,
+		gatewayConnectorServiceWrapper: opts.GatewayConnectorServiceWrapper,
 	}
 }
 
@@ -533,6 +538,10 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return d.newServicesCCIPCommit(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, transmitterID)
 	case types.CCIPExecution:
 		return d.newServicesCCIPExecution(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, transmitterID)
+
+	case types.VaultPlugin:
+		return d.newServicesVaultPlugin(ctx, lggr, jb, d.gatewayConnectorServiceWrapper)
+
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
@@ -587,6 +596,39 @@ func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, chain legacy
 
 type connProvider interface {
 	ClientConn() grpc.ClientConnInterface
+}
+
+func (d *Delegate) newServicesVaultPlugin(
+	ctx context.Context,
+	lggr logger.SugaredLogger,
+	jb job.Job,
+	wrapper *gatewayconnector.ServiceWrapper,
+) (srvs []job.ServiceCtx, err error) {
+	spec := jb.OCR2OracleSpec
+
+	cfg := &vault.Config{}
+	err = json.Unmarshal(spec.PluginConfig.Bytes(), cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to unmarshal plugin config: %w", err)
+	}
+
+	gwconnector := wrapper.GetGatewayConnector()
+	if gwconnector == nil {
+		return nil, errors.New("failed to instantiate vault plugin: gateway connector is not set")
+	}
+
+	service := vault.NewService()
+
+	handler := vault.NewHandler(service, gwconnector, d.lggr)
+	if err = handler.Start(ctx); err != nil {
+		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to start vault handler: %w", err)
+	}
+
+	if err := gwconnector.AddHandler([]string{vault.ConnectorMethod}, handler); err != nil {
+		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to add vault handler to connector: %w", err)
+	}
+
+	return []job.ServiceCtx{service, handler}, nil
 }
 
 func (d *Delegate) newServicesGenericPlugin(
