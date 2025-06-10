@@ -79,9 +79,7 @@ func (e *ServiceWrapper) Start(ctx context.Context) error {
 	})
 }
 
-func (e *ServiceWrapper) Sign(data ...[]byte) ([]byte, error) {
-	ctx, cancel := e.stopCh.NewCtx()
-	defer cancel()
+func (e *ServiceWrapper) Sign(ctx context.Context, data ...[]byte) ([]byte, error) {
 	account := common.HexToAddress(e.config.NodeAddress())
 	return e.keystore.SignMessage(ctx, account, gwcommon.Flatten(data...))
 }

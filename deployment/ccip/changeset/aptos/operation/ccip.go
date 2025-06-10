@@ -108,7 +108,7 @@ type DeployModulesInput struct {
 var DeployRouterOp = operations.NewOperation(
 	"deploy-router-op",
 	Version1_0_0,
-	"Generates MCMS proposals that deployes Router module on CCIP package",
+	"Generates MCMS proposals that deploys Router module on CCIP package",
 	deployRouter,
 )
 
@@ -133,7 +133,7 @@ func deployRouter(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([
 var DeployOffRampOp = operations.NewOperation(
 	"deploy-offramp-op",
 	Version1_0_0,
-	"Generates MCMS proposals that deployes OffRamp module on CCIP package",
+	"Generates MCMS proposals that deploys OffRamp module on CCIP package",
 	deployOffRamp,
 )
 
@@ -156,7 +156,7 @@ func deployOffRamp(b operations.Bundle, deps AptosDeps, in DeployModulesInput) (
 var DeployOnRampOp = operations.NewOperation(
 	"deploy-onramp-op",
 	Version1_0_0,
-	"Generates MCMS proposals that deployes OnRamp module on CCIP package",
+	"Generates MCMS proposals that deploys OnRamp module on CCIP package",
 	deployOnRamp,
 )
 
