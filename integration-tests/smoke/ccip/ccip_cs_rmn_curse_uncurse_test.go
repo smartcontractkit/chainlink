@@ -248,6 +248,7 @@ func TestRMNUncurseBypass(t *testing.T) {
 func TestRMNCurseConfigValidate(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_VALIDATE", func(t *testing.T) {
+			t.Parallel()
 			runRmnCurseConfigValidateTest(t, tc)
 		})
 	}
