@@ -195,7 +195,6 @@ func SetupNodeOCR2(
 	}
 }
 
-// TODO(gg): we can use this test for inspiration as well
 func RunTestIntegrationOCR2(t *testing.T) {
 	for _, test := range []struct {
 		name                string

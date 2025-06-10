@@ -150,7 +150,6 @@ func createSecureMintBootstrapJob(t *testing.T, bootstrapNode Node, configurator
 		[relayConfig]
 		chainID = %s
 		fromBlock = %s
-
 		providerType = "securemint"`,
 		configuratorAddress.Hex(),
 		chainID,
@@ -219,9 +218,7 @@ func addSecureMintJob(i int,
 
 func getSecureMintJobSpec(ocrContractAddress, keyBundleID, transmitterAddress, bridgeName string) string {
 
-	// TODO(gg): check/update EA request/response format
 	// TODO(gg): update pluginConfig
-	// TODO(gg): is `answer1 [type=any index=0];` correct? Does it actually enable the plugin to come to consensus?
 
 	return fmt.Sprintf(`
 type               = "offchainreporting2"

@@ -30,7 +30,7 @@ func NewExternalAdapter(runner pipeline.Runner, job job.Job, spec pipeline.Spec,
 
 // Ensure externalAdapter implements por.ExternalAdapter
 func (ea *externalAdapter) GetChains(ctx context.Context) ([]por.ChainSelector, error) {
-	// TODO(gg): pass this through to the EA
+	// TODO(gg): remove this when it's removed from the plugin's adapter
 
 	ea.lggr.Warnf("GetChains not implemented yet, returning mock data")
 	chains := []por.ChainSelector{

@@ -1485,7 +1485,7 @@ func (d *Delegate) newServicesMedian(
 	return medianServices, err2
 }
 
-// TODO(gg): update to use separate services for securemint
+// TODO(gg): how to distribute between this code and securemint/services.go?
 func (d *Delegate) newServicesSecureMint(
 	ctx context.Context,
 	lggr logger.SugaredLogger,

@@ -716,7 +716,7 @@ func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayA
 	}
 
 	switch args.ProviderType {
-	case "median":
+	case "median", "securemint":
 		configProvider, err = newStandardConfigProvider(ctx, lggr, r.chain, relayOpts)
 	case "mercury":
 		configProvider, err = newMercuryConfigProvider(ctx, lggr, r.chain, relayOpts)

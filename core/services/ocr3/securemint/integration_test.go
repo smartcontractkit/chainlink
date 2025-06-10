@@ -46,7 +46,9 @@ var (
 )
 
 // TODO(gg) see also:
-// https://github.com/smartcontractkit/mercury-pipeline/blob/9f0bc5d457d57d5807122446cb936306ecf1b263/e2e_tests/mercuryhelpers/helpers.go#L308 for example of onchain config
+// * https://github.com/smartcontractkit/mercury-pipeline/blob/9f0bc5d457d57d5807122446cb936306ecf1b263/e2e_tests/mercuryhelpers/helpers.go#L308 for example of onchain config
+// * core/internal/features/ocr2/features_ocr2_helper.go
+// * core/services/ocr2/plugins/ocr2keeper/integration_21_test.go
 
 func setupBlockchain(t *testing.T) (
 	*bind.TransactOpts,
@@ -118,7 +120,6 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 	t.Logf("Created bootstrap job: %s with id %d", bootstrapJob.Name.ValueOrZero(), bootstrapJob.ID)
 
 	// TODO(gg): enable this for writing step
-	// TODO(gg): deduplicate
 	// feedIDBytes := [16]byte{}
 	// copy(feedIDBytes[:], common.FromHex("0xA1B2C3D4E5F600010203040506070809"))
 
@@ -206,22 +207,6 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []Node, jobIDs map[int]
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			// t.Logf("finding pipeline runs for job %d on node %d", jobIDs[i], i)
-			// completedRuns, err := node.App.JobORM().FindPipelineRunIDsByJobID(testutils.Context(t), jobIDs[i], 0, 10)
-			// if !assert.NoError(t, err) {
-			// 	t.Logf("assert error finding pipeline runs for job %d: %v", jobIDs[i], err)
-			// 	return
-			// }
-			// t.Logf("found pipeline runs for job %d on node %d: %v", jobIDs[i], i, completedRuns)
-
-			// Want at least 2 runs so we see all the metadata.
-
-			// TODO(gg): fix this, the pipeline completes now
-			/**
-				cltest.go:969: Found pipeline run 9 with status completed on node 3 for job 1 with task runs: []pipeline.TaskRun(nil)
-			    cltest.go:969: Found pipeline run 8 with status completed on node 3 for job 1 with task runs: []pipeline.TaskRun(nil)
-			    cltest.go:969: Found pipeline run 7 with status completed on node 3 for job 1 with task runs: []pipeline.TaskRun(nil)
-			*/
 
 			pr := cltest.WaitForPipelineComplete(t, i, jobIDs[i], 1, 0, node.App.JobORM(), 30*time.Second, 1*time.Second)
 			outputs, err := pr[0].Outputs.MarshalJSON()
