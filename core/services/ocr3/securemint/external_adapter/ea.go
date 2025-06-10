@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
+	"strconv"
 	"sync"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -40,34 +43,28 @@ func (ea *externalAdapter) GetChains(ctx context.Context) ([]por.ChainSelector, 
 	return chains, nil
 }
 
-// TODO(gg): write unit tests for GetPayload
-
 // GetPayload retrieves the payload for the given blocks by executing a pipeline run.
 func (ea *externalAdapter) GetPayload(ctx context.Context, blocks por.Blocks) (por.ExternalAdapterPayload, error) {
 	ea.lggr.Debugf("GetPayload called with blocks: %v", blocks)
 
-	// ds1          [type=bridge name="%s" requestData=<{ "data": $(blocks) }>];
-	// {
-	//     "data": {
-	//         "token": "eth",
-	//         "reserves": "platform",
-	//         "supplyChains": [
-	//             "5009297550715157269"
-	//         ],
-	//         "supplyChainBlocks": [
-	//             0
-	//         ]
-	//     }
-	// }
-
-	// Serialize blocks as JSON string
-	blocksJSON, err := json.Marshal(blocks)
-	if err != nil {
-		ea.lggr.Errorw("Error marshaling blocks parameter to JSON", "error", err, "blocks", blocks)
-		return por.ExternalAdapterPayload{}, fmt.Errorf("failed to marshal blocks: %w", err)
+	req := EARequest{
+		Token:    "eth",
+		Reserves: "platform",
 	}
 
-	ea.lggr.Debugf("GetPayload serialized blocks to JSON: %v", string(blocksJSON))
+	for chainSelector, blockNumber := range blocks {
+		req.SupplyChains = append(req.SupplyChains, fmt.Sprintf("%d", chainSelector))
+		req.SupplyChainBlocks = append(req.SupplyChainBlocks, uint64(blockNumber))
+	}
+
+	// Serialize EA request as JSON string
+	reqJSON, err := json.Marshal(req)
+	if err != nil {
+		ea.lggr.Errorw("Error marshaling ea request to JSON", "error", err, "request", req)
+		return por.ExternalAdapterPayload{}, fmt.Errorf("failed to marshal ea request: %w", err)
+	}
+
+	ea.lggr.Debugf("GetPayload serialized blocks to JSON: %v", string(reqJSON))
 
 	// execute
 	vars := map[string]any{
@@ -76,8 +73,8 @@ func (ea *externalAdapter) GetPayload(ctx context.Context, blocks por.Blocks) (p
 			"externalJobID": ea.job.ExternalJobID,
 			"name":          ea.job.Name.ValueOrZero(),
 		},
-		"action": "get_payload",
-		"blocks": string(blocksJSON),
+		"action":     "get_payload",
+		"ea_request": req,
 	}
 
 	run, trrs, err := ea.runner.ExecuteRun(ctx, ea.spec, pipeline.NewVarsFrom(vars))
@@ -95,17 +92,63 @@ func (ea *externalAdapter) GetPayload(ctx context.Context, blocks por.Blocks) (p
 			if m, ok := trr.Result.Value.(por.ExternalAdapterPayload); ok {
 				return m, nil
 			}
-			// Try to parse from map[string]interface{} using JSON marshal/unmarshal (TODO(gg): clean up if needed)
+
+			// TODO(gg): clean up, depends also on EA and plugin types
+
 			if m, ok := trr.Result.Value.(map[string]any); ok {
+				ea.lggr.Debugw("GetPayload result as map", "result", m)
 				b, err := json.Marshal(m)
 				if err != nil {
 					return por.ExternalAdapterPayload{}, fmt.Errorf("failed to marshal EA payload map: %w", err)
 				}
-				var payload por.ExternalAdapterPayload
-				err = json.Unmarshal(b, &payload)
+
+				ea.lggr.Debugw("GetPayload result as map marshaled to JSON", "json", string(b))
+
+				var eaResp EAResponse
+				err = json.Unmarshal(b, &eaResp)
 				if err != nil {
-					return por.ExternalAdapterPayload{}, fmt.Errorf("failed to unmarshal EA payload: %w", err)
+					return por.ExternalAdapterPayload{}, fmt.Errorf("failed to unmarshal EA response: %w", err)
 				}
+
+				// Convert eaResponse to por.ExternalAdapterPayload
+				payload := por.ExternalAdapterPayload{
+					Mintables:            make(por.Mintables),
+					ReserveInfo:          por.ReserveInfo{},
+					LatestRelevantBlocks: make(por.Blocks),
+				}
+
+				for chainSelector, mintable := range eaResp.Mintables {
+					blockMintablePair := por.BlockMintablePair{
+						Block:    por.BlockNumber(mintable.Block),
+						Mintable: new(big.Int),
+					}
+					blockMintablePair.Mintable, ok = big.NewInt(0).SetString(mintable.Mintable, 10)
+					if !ok {
+						return por.ExternalAdapterPayload{}, fmt.Errorf("failed to parse mintable amount: %s", mintable.Mintable)
+					}
+					chainSelectorUint64, err := strconv.ParseUint(chainSelector, 10, 64)
+					if err != nil {
+						return por.ExternalAdapterPayload{}, fmt.Errorf("failed to parse chain selector: %s", chainSelector)
+					}
+					payload.Mintables[por.ChainSelector(chainSelectorUint64)] = blockMintablePair
+				}
+				payload.ReserveInfo = por.ReserveInfo{
+					ReserveAmount: new(big.Int),
+				}
+				payload.ReserveInfo.ReserveAmount, ok = big.NewInt(0).SetString(eaResp.ReserveInfo.ReserveAmount, 10)
+				if !ok {
+					return por.ExternalAdapterPayload{}, fmt.Errorf("failed to parse reserve amount: %s", eaResp.ReserveInfo.ReserveAmount)
+				}
+				payload.ReserveInfo.Timestamp = time.UnixMilli(eaResp.ReserveInfo.Timestamp)
+				for chainSelector, block := range eaResp.LatestRelevantBlocks {
+					chainSelectorUint64, err := strconv.ParseUint(chainSelector, 10, 64)
+					if err != nil {
+						return por.ExternalAdapterPayload{}, fmt.Errorf("failed to parse chain selector: %s", chainSelector)
+					}
+
+					payload.LatestRelevantBlocks[por.ChainSelector(chainSelectorUint64)] = por.BlockNumber(block)
+				}
+
 				ea.lggr.Debugw("GetPayload result", "payload", payload)
 				return payload, nil
 			}

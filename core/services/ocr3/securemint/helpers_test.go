@@ -32,10 +32,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	sm_ea "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/external_adapter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
-	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
 	"github.com/smartcontractkit/wsrpc/credentials"
 )
 
@@ -229,7 +229,7 @@ contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
 observationSource  = """
     // data source 1
-    ds1          [type=bridge name="%s" requestData=<{ "data": $(blocks) }>];
+    ds1          [type=bridge name="%s" requestData=<{ "data": $(ea_request) }>];
     ds1_parse    [type=jsonparse path="data"];
 
     ds1 -> ds1_parse -> answer1;
@@ -320,38 +320,38 @@ Output
 func createSecureMintBridge(t *testing.T, name string, i int, borm bridges.ORM) (bridgeName string) {
 	ctx := testutils.Context(t)
 
-	initialResponse := por.ExternalAdapterPayload{
-		Mintables: por.Mintables{},
-		LatestRelevantBlocks: por.Blocks{
-			8953668971247136127: 5, // "bitcoin-testnet-rootstock"
-			729797994450396300:  5, // "telos-evm-testnet"
+	initialResponse := sm_ea.EAResponse{
+		Mintables: map[string]sm_ea.MintableInfo{},
+		LatestRelevantBlocks: map[string]uint64{
+			"8953668971247136127": 5, // "bitcoin-testnet-rootstock"
+			"729797994450396300":  5, // "telos-evm-testnet"
 		},
-		ReserveInfo: por.ReserveInfo{
-			ReserveAmount: big.NewInt(1000),
-			Timestamp:     time.Now(),
+		ReserveInfo: sm_ea.ReserveInfo{
+			ReserveAmount: "1000",
+			Timestamp:     time.Now().UnixMilli(),
 		},
 	}
 	jsonInitialResp, err := json.Marshal(initialResponse)
 	require.NoError(t, err)
 
-	laterResponse := por.ExternalAdapterPayload{
-		Mintables: por.Mintables{
-			8953668971247136127: por.BlockMintablePair{
-				Block:    por.BlockNumber(5),
-				Mintable: big.NewInt(10),
+	laterResponse := sm_ea.EAResponse{
+		Mintables: map[string]sm_ea.MintableInfo{
+			"8953668971247136127": sm_ea.MintableInfo{
+				Block:    uint64(5),
+				Mintable: "10",
 			},
-			729797994450396300: por.BlockMintablePair{
-				Block:    por.BlockNumber(5),
-				Mintable: big.NewInt(25),
+			"729797994450396300": sm_ea.MintableInfo{
+				Block:    uint64(5),
+				Mintable: "25",
 			},
 		},
-		LatestRelevantBlocks: por.Blocks{
-			8953668971247136127: 8, // "bitcoin-testnet-rootstock"
-			729797994450396300:  7, // "telos-evm-testnet"
+		LatestRelevantBlocks: map[string]uint64{
+			"8953668971247136127": 8, // "bitcoin-testnet-rootstock"
+			"729797994450396300":  7, // "telos-evm-testnet"
 		},
-		ReserveInfo: por.ReserveInfo{
-			ReserveAmount: big.NewInt(500),
-			Timestamp:     time.Now(),
+		ReserveInfo: sm_ea.ReserveInfo{
+			ReserveAmount: "500",
+			Timestamp:     time.Now().UnixMilli(),
 		},
 	}
 	jsonLaterResp, err := json.Marshal(laterResponse)
@@ -387,13 +387,67 @@ func createSecureMintBridge(t *testing.T, name string, i int, borm bridges.ORM) 
 
 		t.Logf("Received request for secure mint bridge %s on node %d: path %s, request body %s", name, i, req.URL.String(), string(body))
 
-		if body == nil || string(body) == "{\"data\":\"{}\"}" {
-			t.Logf("Received empty request body for secure mint bridge %s on node %d, returning initial response", name, i)
+		// First parse the request body into a map to extract the data field
+		var requestMap map[string]any
+		err = json.Unmarshal(body, &requestMap)
+		require.NoError(t, err, "Failed to parse request body as map for bridge %s on node %d", name, i)
+
+		// Extract the data field
+		dataField, exists := requestMap["data"]
+		require.True(t, exists, "Request body should contain 'data' field for bridge %s on node %d", name, i)
+
+		// Marshal the data field back to JSON and parse as EARequest
+		dataBytes, err := json.Marshal(dataField)
+		require.NoError(t, err, "Failed to marshal data field for bridge %s on node %d", name, i)
+		var eaRequest sm_ea.EARequest
+		err = json.Unmarshal(dataBytes, &eaRequest)
+		require.NoError(t, err, "Failed to parse request body as EARequest for bridge %s on node %d", name, i)
+
+		// Assert on the parsed EARequest
+		assert.Equal(t, "eth", eaRequest.Token, "Token should be 'eth'")
+		assert.Equal(t, "platform", eaRequest.Reserves, "Reserves should be 'platform'")
+
+		if len(eaRequest.SupplyChains) == 0 && len(eaRequest.SupplyChains) == 0 {
+			t.Logf("Received empty supply chains for secure mint bridge %s on node %d, returning initial response", name, i)
 			res.WriteHeader(http.StatusOK)
 			_, err = res.Write([]byte(fmt.Sprintf(`{"data": %s}`, string(jsonInitialResp))))
 			require.NoError(t, err)
 			return
 		}
+
+		assert.Contains(t, eaRequest.SupplyChains, "8953668971247136127", "Supply chains should contain bitcoin-testnet-rootstock")
+		assert.Contains(t, eaRequest.SupplyChains, "729797994450396300", "Supply chains should contain telos-evm-testnet")
+		assert.Len(t, eaRequest.SupplyChains, 2, "Should have exactly 2 supply chains")
+
+		assert.Len(t, eaRequest.SupplyChainBlocks, 2, "Should have exactly 2 supply chain blocks")
+		assert.GreaterOrEqual(t, eaRequest.SupplyChainBlocks[0], uint64(5), "Supply chain block should be at least 5 (based on initial EA response)")
+		assert.GreaterOrEqual(t, eaRequest.SupplyChainBlocks[1], uint64(5), "Supply chain block should be at least 5 (based on initial EA response)")
+
+		// {
+		//     "data": {
+		//         "token": "eth",
+		//         "reserves": "platform",
+		//         "supplyChains": [
+		//             "5009297550715157269"
+		//         ],
+		//         "supplyChainBlocks": [
+		//             0
+		//         ]
+		//     }
+		// }
+
+		// if body == nil || string(body) == `{"data":{"token":"eth","reserves":"platform"}}` {
+		// 	t.Logf("Received empty request body for secure mint bridge %s on node %d, returning initial response", name, i)
+		// 	res.WriteHeader(http.StatusOK)
+		// 	_, err = res.Write([]byte(fmt.Sprintf(`{"data": %s}`, string(jsonInitialResp))))
+		// 	require.NoError(t, err)
+		// 	return
+		// }
+
+		// Check if the request body contains the expected data
+
+		// assert.JSONEqf(t, `{"data":{"token":"eth","reserves":"platform","supplyChains":["8953668971247136127", "729797994450396300"],"supplyChainBlocks":[5, 5]}}`, string(body),
+		// 	"Request body does not match empty body or expected format for secure mint bridge %s on node %d", name, i)
 
 		res.WriteHeader(http.StatusOK)
 		resp := fmt.Sprintf(`{"data": %s}`, string(jsonLaterResp))
