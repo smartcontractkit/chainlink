@@ -32,6 +32,7 @@ contract EtherSenderReceiver is CCIPReceiver, ITypeAndVersion {
   error InvalidTokenAmounts(uint256 gotAmounts);
   error InvalidToken(address gotToken, address expectedToken);
   error TokenAmountNotEqualToMsgValue(uint256 gotAmount, uint256 msgValue);
+  error InsufficientFee(uint256 gotFee, uint256 requiredFee);
 
   string public constant override typeAndVersion = "EtherSenderReceiver 1.5.0";
 
@@ -95,6 +96,10 @@ contract EtherSenderReceiver is CCIPReceiver, ITypeAndVersion {
       // If the fee token is not native, we need to transfer the fee to this contract and re-approve it to the router.
       // Its not possible to have any leftover tokens in this path because we transferFrom the exact fee that CCIP
       // requires from the caller.
+      uint256 requiredFee = IERC20(validatedMessage.feeToken).allowance(msg.sender, getRouter());
+      if (requiredFee > fee) {
+        revert InsufficientFee(requiredFee, fee);
+      }
       IERC20(validatedMessage.feeToken).safeTransferFrom(msg.sender, address(this), fee);
 
       // We gave an infinite approval of weth to the router in the constructor.

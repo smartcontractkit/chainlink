@@ -322,4 +322,30 @@ contract EtherSenderReceiverTest_ccipSend is EtherSenderReceiverTestSetup {
     uint256 routerAllowance = s_weth.allowance(address(s_etherSenderReceiver), ROUTER);
     assertEq(routerAllowance, type(uint256).max, "router allowance must be max for weth");
   }
+
+  function test_ccipSend_InsufficientFee() public {
+    Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
+    tokenAmounts[0] = Client.EVMTokenAmount({
+      token: address(0), 
+      amount: AMOUNT
+    });
+    Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
+      receiver: abi.encode(XCHAIN_RECEIVER),
+      data: "",
+      tokenAmounts: tokenAmounts,
+      feeToken: address(0),
+      extraArgs: ""
+    });
+
+    Client.EVM2AnyMessage memory validatedMessage = s_etherSenderReceiver.validatedMessage(message);
+
+    vm.mockCall(
+      ROUTER,
+      abi.encodeWithSelector(IRouterClient.getFee.selector, DESTINATION_CHAIN_SELECTOR, validatedMessage),
+      abi.encode(FEE_WEI)
+    );
+
+    vm.expectRevert(InsufficientFee({gotFee: FEE_WEI, fee: FEE_WEI + 1}));
+    s_etherSenderReceiver.ccipSend{value: AMOUNT}(DESTINATION_CHAIN_SELECTOR, message);
+  }
 }
