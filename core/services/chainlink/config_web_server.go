@@ -393,11 +393,11 @@ func (l *oidcConfig) SessionTimeout() commonconfig.Duration {
 	return *l.c.SessionTimeout
 }
 
-func (l *oidcConfig) UserApiTokenEnabled() bool {
-	if l.c.UserApiTokenEnabled == nil {
+func (l *oidcConfig) UserAPITokenEnabled() bool {
+	if l.c.UserAPITokenEnabled == nil {
 		return false
 	}
-	return *l.c.UserApiTokenEnabled
+	return *l.c.UserAPITokenEnabled
 }
 
 func (l *oidcConfig) UserAPITokenDuration() commonconfig.Duration {

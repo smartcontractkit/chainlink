@@ -66,7 +66,7 @@ type OIDC interface {
 	RunClaim() string
 	ReadClaim() string
 	SessionTimeout() commonconfig.Duration
-	UserApiTokenEnabled() bool
+	UserAPITokenEnabled() bool
 	UserAPITokenDuration() commonconfig.Duration
 }
 

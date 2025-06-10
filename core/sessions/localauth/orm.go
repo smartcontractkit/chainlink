@@ -367,7 +367,6 @@ func (o *orm) FindExternalInitiator(
 	return exi, err
 }
 
-
-func (a *orm) ExtendRouter(r *gin.RouterGroup) error {
+func (o *orm) ExtendRouter(r *gin.RouterGroup) error {
 	return nil
 }

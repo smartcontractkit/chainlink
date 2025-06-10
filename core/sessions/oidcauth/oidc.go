@@ -145,7 +145,7 @@ func (oi *oidcAuthenticator) generateState() string {
 	b := make([]byte, 32) // 256 bits of entropy
 	_, err := io.ReadFull(rand.Reader, b)
 	if err != nil {
-		oi.lggr.Fatalf("failed to generate random bytes: %w", err)
+		oi.lggr.Fatalf("failed to generate random bytes: %v", err)
 	}
 	return base64.URLEncoding.EncodeToString(b)[:43]
 }
@@ -222,7 +222,7 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 	}
 
 	var claims map[string]interface{}
-	if err := idToken.Claims(&claims); err != nil {
+	if err = idToken.Claims(&claims); err != nil {
 		oi.lggr.Errorf("Failed to parse OIDC return claims: %v", err)
 		c.String(http.StatusInternalServerError, "Failed to parse OIDC return claims")
 		return
@@ -235,7 +235,7 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 	}
 	email, ok := claims["email"].(string)
 	if !ok {
-		oi.lggr.Errorf("Failed to get email from claims", err)
+		oi.lggr.Errorf("Failed to get email from claims. error: %v", err)
 		c.String(http.StatusInternalServerError, "Failed to get email from claims")
 	}
 	oi.lggr.Tracef("Recieved and validated ID claims: %v\n", idClaims)
@@ -275,7 +275,7 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 	ginSession.Set(webauth.SessionIDKey, clSession.ID)
 	err = ginSession.Save()
 	if err != nil {
-		oi.lggr.Errorf("failed to saved session", err)
+		oi.lggr.Errorf("failed to saved session %v", err)
 		c.String(http.StatusInternalServerError, "Authentication failed")
 		return
 	}
@@ -310,7 +310,7 @@ func (oi *oidcAuthenticator) FindUser(ctx context.Context, email string) (clsess
 
 // FindUserByAPIToken retrieves a possible stored user and role from the oidc_user_api_tokens table store
 func (oi *oidcAuthenticator) FindUserByAPIToken(ctx context.Context, apiToken string) (clsessions.User, error) {
-	if !oi.config.UserApiTokenEnabled() {
+	if !oi.config.UserAPITokenEnabled() {
 		return clsessions.User{}, errors.New("API token is not enabled ")
 	}
 
@@ -358,7 +358,7 @@ func (oi *oidcAuthenticator) ListUsers(ctx context.Context) ([]clsessions.User, 
 		sql := "SELECT * FROM users ORDER BY email ASC;"
 		return tx.SelectContext(ctx, &returnUsers, sql)
 	}); err != nil {
-		oi.lggr.Errorf("error listing local users: ", err)
+		oi.lggr.Errorf("error listing local users: %v", err)
 	}
 	return returnUsers, nil
 }
@@ -521,7 +521,7 @@ func (oi *oidcAuthenticator) CreateAndSetAuthToken(ctx context.Context, user *cl
 
 // SetAuthToken updates the user to use the given Authentication Token.
 func (oi *oidcAuthenticator) SetAuthToken(ctx context.Context, user *clsessions.User, token *auth.Token) error {
-	if !oi.config.UserApiTokenEnabled() {
+	if !oi.config.UserAPITokenEnabled() {
 		return errors.New("API token is not enabled ")
 	}
 

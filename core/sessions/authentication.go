@@ -64,4 +64,3 @@ type AuthenticationProvider interface {
 
 	FindExternalInitiator(ctx context.Context, eia *auth.Token) (initiator *bridges.ExternalInitiator, err error)
 }
-

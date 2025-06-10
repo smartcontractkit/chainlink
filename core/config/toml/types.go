@@ -830,7 +830,6 @@ func (w *WebServer) ValidateConfig() (err error) {
 		}
 		return err
 	case string(sessions.OIDCAuth):
-		fmt.Println("%#v", w.OIDC)
 		if *w.OIDC.ClientID == "" {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.ClientID", Msg: "OIDC ClientID can not be empty"})
 		}
@@ -858,7 +857,7 @@ func (w *WebServer) ValidateConfig() (err error) {
 		if w.OIDC.SessionTimeout == commonconfig.MustNewDuration(0) {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.SessionTimeout", Msg: "OIDC SessionTimeout can not be empty"})
 		}
-		if w.OIDC.UserApiTokenEnabled == nil {
+		if w.OIDC.UserAPITokenEnabled == nil {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.UserApiTokenEnabled", Msg: "OIDC UserApiTokenEnabled can not be empty"})
 		}
 		if w.OIDC.UserAPITokenDuration == commonconfig.MustNewDuration(0) {
@@ -1041,7 +1040,7 @@ type WebServerOIDC struct {
 	RunClaim             *string
 	ReadClaim            *string
 	SessionTimeout       *commonconfig.Duration
-	UserApiTokenEnabled  *bool
+	UserAPITokenEnabled  *bool
 	UserAPITokenDuration *commonconfig.Duration
 }
 
@@ -1073,8 +1072,8 @@ func (w *WebServerOIDC) setFrom(f *WebServerOIDC) {
 	if v := f.SessionTimeout; v != nil {
 		w.SessionTimeout = v
 	}
-	if v := f.UserApiTokenEnabled; v != nil {
-		w.UserApiTokenEnabled = v
+	if v := f.UserAPITokenEnabled; v != nil {
+		w.UserAPITokenEnabled = v
 	}
 	if v := f.UserAPITokenDuration; v != nil {
 		w.UserAPITokenDuration = v
