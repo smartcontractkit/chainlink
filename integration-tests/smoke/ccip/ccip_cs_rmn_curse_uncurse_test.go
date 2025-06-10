@@ -176,6 +176,7 @@ var testCases = []CurseTestCase{
 func TestRMNCurse(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_NO_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnCurseTest(t, tc)
 		})
 	}
@@ -184,6 +185,7 @@ func TestRMNCurse(t *testing.T) {
 func TestRMNCurseMCMS(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnCurseMCMSTest(t, tc, types.TimelockActionSchedule)
 		})
 	}
@@ -192,6 +194,7 @@ func TestRMNCurseMCMS(t *testing.T) {
 func TestRMNCurseBypass(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnCurseMCMSTest(t, tc, types.TimelockActionBypass)
 		})
 	}
@@ -216,6 +219,7 @@ func TestRMNUncurseIdempotent(t *testing.T) {
 func TestRMNUncurse(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_UNCURSE", func(t *testing.T) {
+			t.Parallel()
 			runRmnUncurseTest(t, tc)
 		})
 	}
@@ -224,6 +228,7 @@ func TestRMNUncurse(t *testing.T) {
 func TestRMNUncurseMCMS(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_UNCURSE_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnUncurseMCMSTest(t, tc, types.TimelockActionSchedule)
 		})
 	}
@@ -232,6 +237,7 @@ func TestRMNUncurseMCMS(t *testing.T) {
 func TestRMNUncurseBypass(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_UNCURSE_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnUncurseMCMSTest(t, tc, types.TimelockActionBypass)
 		})
 	}
