@@ -203,6 +203,7 @@ func TestRMNCurseBypass(t *testing.T) {
 func TestRMNCurseIdempotent(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_CURSE_IDEMPOTENT_NO_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnCurseIdempotentTest(t, tc)
 		})
 	}
@@ -211,6 +212,7 @@ func TestRMNCurseIdempotent(t *testing.T) {
 func TestRMNUncurseIdempotent(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_UNCURSE_IDEMPOTENT_NO_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnUncurseIdempotentTest(t, tc)
 		})
 	}
