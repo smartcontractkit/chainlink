@@ -4,7 +4,6 @@ import (
 	"errors"
 	"math"
 	"strconv"
-	"sync"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -486,6 +485,8 @@ func Test_MeterReports(t *testing.T) {
 		mrs := NewReports(billingClient, testAccountID, testWorkflowID, logger.Test(t))
 		r, err := mrs.Start(t.Context(), workflowExecutionID1)
 		require.NoError(t, err)
+		err = r.Reserve(t.Context())
+		require.NoError(t, err)
 		err = r.Deduct(capabilityCall1, 1)
 		require.NoError(t, err)
 		err = r.Settle(capabilityCall1, []capabilities.MeteringNodeDetail{
@@ -507,6 +508,8 @@ func Test_MeterReports(t *testing.T) {
 		mrs := NewReports(billingClient, testAccountID, testWorkflowID, logger.Test(t))
 		r, err := mrs.Start(t.Context(), workflowExecutionID1)
 		require.NoError(t, err)
+		err = r.Reserve(t.Context())
+		require.NoError(t, err)
 		err = r.Deduct(capabilityCall1, 1)
 		require.NoError(t, err)
 		err = r.Settle(capabilityCall1, []capabilities.MeteringNodeDetail{
@@ -518,65 +521,6 @@ func Test_MeterReports(t *testing.T) {
 		require.NoError(t, err)
 		err = mrs.End(t.Context(), workflowExecutionID1)
 		require.NoError(t, err)
-	})
-
-	t.Run("has concurrent safe access", func(t *testing.T) {
-		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
-		billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
-		mrs := NewReports(billingClient, "", "", logger.Test(t))
-		assert.Equal(t, 0, mrs.Len())
-
-		goRoutines := 3
-		actions := 4
-		possibleErrs := goRoutines * actions
-		errs := make(chan LabeledError, possibleErrs)
-		wg := sync.WaitGroup{}
-		wg.Add(3)
-
-		go func() {
-			r, err := mrs.Start(t.Context(), workflowExecutionID1)
-			errs <- LabeledError{err: err, label: workflowExecutionID1}
-			err = r.Deduct(capabilityCall1, 1)
-			errs <- LabeledError{err: err, label: workflowExecutionID1}
-			err = r.Settle(capabilityCall1, []capabilities.MeteringNodeDetail{})
-			errs <- LabeledError{err: err, label: workflowExecutionID1}
-			err = mrs.End(t.Context(), workflowExecutionID1)
-			errs <- LabeledError{err: err, label: workflowExecutionID1}
-			wg.Done()
-		}()
-
-		go func() {
-			r, err := mrs.Start(t.Context(), workflowExecutionID2)
-			errs <- LabeledError{err: err, label: workflowExecutionID2}
-			err = r.Deduct(capabilityCall1, 1)
-			errs <- LabeledError{err: err, label: workflowExecutionID2}
-			err = r.Settle(capabilityCall1, []capabilities.MeteringNodeDetail{})
-			errs <- LabeledError{err: err, label: workflowExecutionID2}
-			err = mrs.End(t.Context(), workflowExecutionID2)
-			errs <- LabeledError{err: err, label: workflowExecutionID2}
-			wg.Done()
-		}()
-
-		go func() {
-			r, err := mrs.Start(t.Context(), workflowExecutionID1)
-			errs <- LabeledError{err: err, label: workflowExecutionID1}
-			err = r.Deduct(capabilityCall1, 1)
-			errs <- LabeledError{err: err, label: workflowExecutionID1}
-			err = r.Settle(capabilityCall1, []capabilities.MeteringNodeDetail{})
-			errs <- LabeledError{err: err, label: workflowExecutionID1}
-			err = mrs.End(t.Context(), workflowExecutionID1)
-			errs <- LabeledError{err: err, label: workflowExecutionID1}
-			wg.Done()
-		}()
-
-		wg.Wait()
-
-		// // wait for all to finish
-		for i := 0; i < possibleErrs; i++ {
-			lErr := <-errs
-			require.NoError(t, lErr.err)
-		}
 	})
 }
 
@@ -590,12 +534,14 @@ func Test_MeterReports_Length(t *testing.T) {
 
 	_, err := mrs.Start(t.Context(), "exec1")
 	require.NoError(t, err)
-	_, err = mrs.Start(t.Context(), "exec2")
+	mr, err := mrs.Start(t.Context(), "exec2")
 	require.NoError(t, err)
 	_, err = mrs.Start(t.Context(), "exec3")
 	require.NoError(t, err)
 	assert.Equal(t, 3, mrs.Len())
 
+	err = mr.Reserve(t.Context())
+	require.NoError(t, err)
 	err = mrs.End(t.Context(), "exec2")
 	require.NoError(t, err)
 	assert.Equal(t, 2, mrs.Len())
@@ -608,7 +554,6 @@ func Test_MeterReports_Start(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
 		mrs := NewReports(billingClient, "", "", logger.Test(t))
 		_, err := mrs.Start(t.Context(), "exec1")
 		require.NoError(t, err)
@@ -623,7 +568,6 @@ func Test_MeterReports_Get(t *testing.T) {
 	t.Run("returns when report exists", func(t *testing.T) {
 		t.Parallel()
 		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
 		lggr := logger.Test(t)
 		mrs := NewReports(billingClient, "", "", lggr)
 		_, err := mrs.Start(t.Context(), "exec1")
@@ -659,9 +603,11 @@ func Test_MeterReports_End(t *testing.T) {
 		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
 		billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
 		mrs := NewReports(billingClient, "", "", logger.Test(t))
-		_, err := mrs.Start(t.Context(), "exec1")
+		mr, err := mrs.Start(t.Context(), "exec1")
 		require.NoError(t, err)
 		require.Len(t, mrs.reports, 1)
+		err = mr.Reserve(t.Context())
+		require.NoError(t, err)
 		err = mrs.End(t.Context(), "exec1")
 		require.NoError(t, err)
 		require.Empty(t, mrs.reports)
@@ -673,9 +619,11 @@ func Test_MeterReports_End(t *testing.T) {
 		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
 		billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(nil, errors.New("errrrr"))
 		mrs := NewReports(billingClient, "", "", logger.Test(t))
-		_, err := mrs.Start(t.Context(), "exec1")
+		mr, err := mrs.Start(t.Context(), "exec1")
 		require.NoError(t, err)
 		require.Len(t, mrs.reports, 1)
+		err = mr.Reserve(t.Context())
+		require.NoError(t, err)
 		err = mrs.End(t.Context(), "exec1")
 		require.Error(t, err)
 		require.Empty(t, mrs.reports)
