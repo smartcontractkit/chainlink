@@ -99,9 +99,10 @@ func (r *Report) Reserve(ctx context.Context) error {
 	defer r.mu.Unlock()
 
 	if r.client == nil {
-		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-427 more robust check of billing service health
 		return ErrNoBillingClient
 	}
+
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-427 more robust check of billing service health
 
 	// If there is no credit limit defined in the workflow, then open an empty reservation
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-284 consume user defined workflow execution limit
@@ -321,6 +322,8 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 		return ErrNoReserve
 	}
 
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-427 more robust check of billing service health
+
 	req := billing.SubmitWorkflowReceiptRequest{
 		AccountId:           r.owner,
 		WorkflowId:          r.workflowID,
@@ -410,9 +413,8 @@ func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Repor
 
 	report := NewReport(s.owner, s.workflowID, workflowExecutionID, s.lggr, s.client)
 
-	err := report.Reserve(ctx)
-	if err != nil {
-		return nil, err
+	if s.client == nil {
+		return nil, ErrNoBillingClient
 	}
 
 	s.reports[workflowExecutionID] = report

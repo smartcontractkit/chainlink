@@ -490,13 +490,14 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, triggerEventID string, event *values.Map) error {
 	meteringReport, err := e.meterReports.Start(ctx, executionID)
-	if err != nil {
-		e.logger.Errorw("could start metering workflow execution", "err", err)
-	}
-
-	err = meteringReport.Reserve(ctx)
-	if err != nil {
-		e.logger.Errorw("could not initialize metering workflow execution", "err", err)
+	switch {
+	case err != nil:
+		e.logger.Errorw("could start metering workflow execution. continuing without metering", "err", err)
+	default:
+		mrErr := meteringReport.Reserve(ctx)
+		if mrErr != nil {
+			return mrErr
+		}
 	}
 
 	err = events.EmitExecutionStartedEvent(ctx, e.cma.Labels(), triggerEventID, executionID)
@@ -772,8 +773,8 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		Ref:         msg.stepRef,
 	}
 
-	meteringReport, mrOK := e.meterReports.Get(msg.state.ExecutionID)
-	if mrOK {
+	meteringReport, meteringOK := e.meterReports.Get(msg.state.ExecutionID)
+	if meteringOK {
 		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-477 Get capability info by getting the workflow vertex and talking to the capaiblity
 		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-285 get max spend per step. Compare to availability and limits.
 		// NOTE: e.maxWorkerLimit is a static number leading to the availability always being undercut.
@@ -830,7 +831,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		stepStatus = store.StatusCompleted
 	}
 
-	if mrOK {
+	if meteringOK {
 		err := meteringReport.Settle(stepState.Ref, response.Metadata.Metering)
 		if err != nil {
 			l.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", stepState.Ref, err))

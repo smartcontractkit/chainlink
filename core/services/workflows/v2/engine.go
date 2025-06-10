@@ -307,33 +307,33 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 
-	meteringReport, err := e.meterReports.Start(ctx, executionID)
-	if err != nil {
-		e.cfg.Lggr.Errorw("could start metering workflow execution", "err", err)
-		return
+	meteringReport, meteringErr := e.meterReports.Start(ctx, executionID)
+	if meteringErr != nil {
+		e.cfg.Lggr.Errorw("could start metering workflow execution. continuing without metering", "err", err)
 	}
 
-	err = meteringReport.Reserve(ctx)
-	if err != nil {
-		e.cfg.Lggr.Errorw("could not initialize metering workflow execution", "err", err)
-		return
-	}
+	isMetering := meteringErr == nil
+	if isMetering {
+		mrErr := meteringReport.Reserve(ctx)
+		if mrErr != nil {
+			e.cfg.Lggr.Errorw("could not reserve metering", "err", mrErr)
+			return
+		}
 
-	// V2Engine runs the entirety of a module's execution as compute. Ensure that the max execution time can run.
-	// Add an extra second of metering padding for context cancel propagation
-	ctxCancelPadding := (time.Millisecond * 1000).Milliseconds()
-	computeAmount, err := meteringReport.ConvertToBalance(metering.ComputeResourceDimension, int64(e.cfg.LocalLimits.WorkflowExecutionTimeoutMs)+ctxCancelPadding)
-	if err != nil {
-		e.cfg.Lggr.Errorw("could not determine compute amount to meter", "err", err)
-		return
-	}
-	err = meteringReport.Deduct(
-		metering.ComputeResourceDimension,
-		computeAmount,
-	)
-	if err != nil {
-		e.cfg.Lggr.Errorw("could not meter compute", "err", err)
-		return
+		// V2Engine runs the entirety of a module's execution as compute. Ensure that the max execution time can run.
+		// Add an extra second of metering padding for context cancel propagation
+		ctxCancelPadding := (time.Millisecond * 1000).Milliseconds()
+		computeAmount, mrErr := meteringReport.ConvertToBalance(metering.ComputeResourceDimension, int64(e.cfg.LocalLimits.WorkflowExecutionTimeoutMs)+ctxCancelPadding)
+		if mrErr != nil {
+			e.cfg.Lggr.Errorw("could not determine compute amount to meter", "err", mrErr)
+		}
+		mrErr = meteringReport.Deduct(
+			metering.ComputeResourceDimension,
+			computeAmount,
+		)
+		if mrErr != nil {
+			e.cfg.Lggr.Errorw("could not meter compute", "err", mrErr)
+		}
 	}
 
 	startTime := time.Now()
@@ -354,11 +354,15 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	endTime := time.Now()
 	executionMS := strconv.Itoa(int(endTime.Sub(startTime).Milliseconds()))
 
-	if mrErr := meteringReport.Settle(metering.ComputeResourceDimension, []capabilities.MeteringNodeDetail{{Peer2PeerID: e.localNode.PeerID.String(), SpendUnit: metering.ComputeResourceDimension, SpendValue: executionMS}}); mrErr != nil {
-		e.cfg.Lggr.Errorw("could not set metering for compute", "err", err)
-	}
-	if mrErr := e.meterReports.End(ctx, executionID); mrErr != nil {
-		e.cfg.Lggr.Errorw("could not send metering report", "err", err)
+	if isMetering {
+		mrErr := meteringReport.Settle(metering.ComputeResourceDimension, []capabilities.MeteringNodeDetail{{Peer2PeerID: e.localNode.PeerID.String(), SpendUnit: metering.ComputeResourceDimension, SpendValue: executionMS}})
+		if mrErr != nil {
+			e.cfg.Lggr.Errorw("could not set metering for compute", "err", mrErr)
+		}
+		mrErr = e.meterReports.End(ctx, executionID)
+		if mrErr != nil {
+			e.cfg.Lggr.Errorw("could not send metering report", "err", mrErr)
+		}
 	}
 
 	if err != nil {
