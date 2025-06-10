@@ -480,7 +480,6 @@ func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.Ch
 		}
 	} else if cfg.IsUpgrade {
 		e.Logger.Infow("Deploying new receiver", "addr", chainState.Receiver.String())
-		receiverAddress = chainState.Receiver
 		// only support deployer key as upgrade authority. never transfer to timelock
 		_, err := generateUpgradeTxns(e, chain, ab, DeployChainContractsConfig{
 			UpgradeConfig: UpgradeConfig{
