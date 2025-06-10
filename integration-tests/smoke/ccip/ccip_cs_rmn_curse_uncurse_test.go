@@ -874,6 +874,7 @@ func TestGetAllCursableChainsWithRMNRemote(t *testing.T) {
 func TestRMNUncurseForceOption(t *testing.T) {
 	for _, tc := range forceOptionTestCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2), testhelpers.WithSolChains(1))
 
 			mapIDToSelector := func(id uint64) uint64 {
