@@ -178,8 +178,8 @@ func (m *FakeLibOCR) Start(ctx context.Context) error {
 				select {
 				case <-m.stopCh:
 					return
-				case <-ctx.Done():
-					return
+					//				case <-ctx.Done():
+					//					return
 				case <-ticker.C:
 					serviceCtx, cancel := m.stopCh.NewCtx()
 					err := m.simulateProtocolRound(serviceCtx)

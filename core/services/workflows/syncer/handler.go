@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -529,6 +530,19 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		return workflows.NewEngine(ctx, cfg)
 	}
 
+	resultLogger := custmsg.NewLabeler().With(platform.KeyWorkflowID, workflowID,
+		platform.KeyWorkflowOwner, owner,
+		platform.KeyWorkflowName, name.String())
+
+	hooks := v2.LifecycleHooks{
+		OnResultReceived: func(result *wasmpb.ExecutionResult) {
+			err = resultLogger.Emit(context.Background(), fmt.Sprintf("V2 Workflow Execution Result: %s", result.String()))
+			if err != nil {
+				h.lggr.Errorw("failed to emit workflow execution result", "error", err, "result", result.String())
+			}
+		},
+	}
+
 	// V2 aka "NoDAG"
 	cfg := &v2.EngineConfig{
 		Lggr:            h.lggr,
@@ -546,6 +560,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 
 		BeholderEmitter: h.emitter,
 		BillingClient:   h.billingClient,
+		Hooks: hooks,
 	}
 	return v2.NewEngine(ctx, cfg)
 }
