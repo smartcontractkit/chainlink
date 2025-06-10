@@ -20,7 +20,7 @@
   type = "docker"
 
 [[workflow_configs]]
-  workflow_name = "abcdefgasd"
+  workflow_name = "chain1337por"
   # 0x01 8e16c39e 0000 20 0000000000000000 = ETH/USD Benchmark Price with 0 decimals
   feed_id = "018e16c39e000320000000000000000000000000000000000000000000000000"
 
@@ -35,7 +35,7 @@
     config_url = "https://gist.githubusercontent.com/Tofel/03d25021292bd4895e45b42ca2c5afb3/raw/ba7dc07f76c7d332d9463b67864ea597b2354984/three-dons-config.json_16_05_2025"
 
 [[workflow_configs]]
-  workflow_name = "abcdefgasd"
+  workflow_name = "chain2337por"
   # 0x01 8e16c38e 0000 20 0000000000000000 = ETH/USD Benchmark Price with 0 decimals
   feed_id = "018e16c38e000320000000000000000000000000000000000000000000000000"
 

@@ -771,12 +771,7 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 		}
 	}
 
-	//TODO modify the test config in such a way that the workflow only writes to the second chain
-
-	// firstBlockchain := in.Blockchains[0]
-	// chainIDInt, chainErr := strconv.Atoi(firstBlockchain.ChainID)
-	// require.NoError(t, chainErr, "failed to convert chain ID to int")
-
+	// we want to register write EVM capability only for the second blockchain
 	secondBlockchain := in.Blockchains[1]
 	secondChainIDInt, secondChainErr := strconv.Atoi(secondBlockchain.ChainID)
 	require.NoError(t, secondChainErr, "failed to convert chain ID to int")
