@@ -148,13 +148,19 @@ func (r *Report) enterMeteringMode() {
 }
 
 // ConvertFromBalance converts a credit amount to a resource dimensions amount.
-func (r *Report) ConvertFromBalance(toUnit string, amount int64) (resources int64) {
-	return r.balance.ConvertFromBalance(toUnit, amount)
+func (r *Report) ConvertFromBalance(toUnit string, amount int64) (resources int64, err error) {
+	if !r.ready {
+		return 0, ErrNoReserve
+	}
+	return r.balance.ConvertFromBalance(toUnit, amount), nil
 }
 
 // ConvertToBalance converts a resource dimensions amount to a credit amount.
-func (r *Report) ConvertToBalance(fromUnit string, amount int64) (credits int64) {
-	return r.balance.ConvertToBalance(fromUnit, amount)
+func (r *Report) ConvertToBalance(fromUnit string, amount int64) (credits int64, err error) {
+	if !r.ready {
+		return 0, ErrNoReserve
+	}
+	return r.balance.ConvertToBalance(fromUnit, amount), nil
 }
 
 // Deduct earmarks an amount of local universal credit balance.
