@@ -89,11 +89,37 @@ jobs:
     name: Check Paths That Require Tests To Run
     runs-on: ubuntu-latest
     outputs:
-      github_ci_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.github_ci_changes }}
-      core_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.core_changes }}
-      ccip_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.ccip_changes }}
-      cre_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.cre_changes }}
-      builder-runner-label: ${{ steps.runner-labels.outputs.runner-label }}
+      should-run-core-tests: >-
+        ${{
+          steps.changes.outputs.core_changes == 'true' ||
+          github.event_name == 'workflow_dispatch' ||
+          github.ref_type == 'tag' ||
+          steps.changes.outputs.github_ci_changes == 'true'
+        }}
+      should-run-cre-tests: >-
+        ${{
+          steps.changes.outputs.cre_changes == 'true' ||
+          github.event_name == 'workflow_dispatch' ||
+          github.ref_type == 'tag' ||
+          steps.changes.outputs.github_ci_changes == 'true'
+        }}
+      should-run-ccip-tests: >-
+        ${{
+          steps.changes.outputs.ccip_changes == 'true' ||
+          github.event_name == 'workflow_dispatch' ||
+          github.ref_type == 'tag' ||
+          steps.changes.outputs.github_ci_changes == 'true'
+        }}
+      should-run-solana-tests: >-
+        ${{
+          steps.changes.outputs.core_changes == 'true' ||
+          github.event_name == 'workflow_dispatch' ||
+          github.ref_type == 'tag' ||
+          steps.changes.outputs.github_ci_changes == 'true'
+        }}
+      builder-runner-label: ${{ steps.runner-labels.outputs.builder-runner-label }}
+      solana-runner-label: ${{ steps.runner-labels.outputs.solana-runner-label }}
+      should-use-self-hosted-runners: ${{ steps.label-runs-on-opt-out.outputs.check-label-found == 'false' }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4
@@ -129,28 +155,27 @@ jobs:
               - '**/*ccip*'
               - '**/*ccip*/**'
 
-      - name: Ignore Filter On Workflow Dispatch or Tag
-        if: ${{ github.event_name == 'workflow_dispatch' || github.ref_type == 'tag' }}
-        id: ignore-filter
-        run: echo "changes=true" >> $GITHUB_OUTPUT
-
       - name: Get PR Labels (runs-on-opt-out)
         id: label-runs-on-opt-out
         uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
         with:
           check-label: "runs-on-opt-out"
 
-      - name: Set Runner Labels
+      - name: Set runner labels
         id: runner-labels
         env:
           OPT_OUT: ${{ steps.label-runs-on-opt-out.outputs.check-label-found || 'false' }}
           GH_BUILDER_RUNNER: ubuntu22.04-8cores-32GB
           SH_BUILDER_RUNNER: runs-on=${{ github.run_id }}/cpu=32/memory=64/family=c6i/extras=s3-cache+tmpfs
+          GH_SOLANA_RUNNER: ubuntu22.04-8cores-32GB
+          SH_SOLANA_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu22-full-x64/extras=s3-cache+tmpfs
         run: |
           if [[ "${OPT_OUT}" == "true" ]]; then
-            echo "runner-label=${GH_BUILDER_RUNNER}" | tee -a $GITHUB_OUTPUT
+            echo "builder-runner-label=${GH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"
+            echo "solana-runner-label=${GH_SOLANA_RUNNER}" | tee -a "$GITHUB_OUTPUT"
           else
-            echo "runner-label=${SH_BUILDER_RUNNER}" | tee -a $GITHUB_OUTPUT
+            echo "builder-runner-label=${SH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"
+            echo "solana-runner-label=${SH_SOLANA_RUNNER}" | tee -a "$GITHUB_OUTPUT"
           fi
 
 
@@ -197,7 +222,7 @@ jobs:
           set-git-config: "true"
 
       - name: Build Chainlink Image
-        if: needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.cre_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true' || github.event_name == 'workflow_dispatch'
+        if: ${{ needs.changes.outputs.should-run-core-tests == 'true' || needs.changes.outputs.should-run-cre-tests == 'true' || needs.changes.outputs.should-run-ccip-tests == 'true '}}
         uses: ./.github/actions/build-chainlink-image
         with:
           tag_suffix: ${{ matrix.image.tag-suffix }}
@@ -216,8 +241,8 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: github.event_name == 'pull_request' && ( needs.changes.outputs.cre_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    if: github.event_name == 'pull_request' && needs.changes.outputs.should-run-cre-tests == 'true'
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run Core CRE Tests For PR
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -226,6 +251,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -259,8 +285,8 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: github.event_name == 'merge_group' && ( needs.changes.outputs.cre_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    if: github.event_name == 'merge_group' && needs.changes.outputs.should-run-cre-tests == 'true'
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run Core CRE Tests For Merge Queue
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -269,6 +295,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -303,7 +330,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'push'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run Core E2E CRE Tests For Push
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -312,6 +339,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -346,7 +374,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'workflow_dispatch'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run Core E2E CRE Tests For Workflow Dispatch
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -355,6 +383,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -388,8 +417,8 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: github.event_name == 'pull_request' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    if: github.event_name == 'pull_request' && needs.changes.outputs.should-run-core-tests == 'true'
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run Core E2E Tests For PR
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -398,6 +427,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -429,8 +459,8 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: github.event_name == 'merge_group' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    if: github.event_name == 'merge_group' && needs.changes.outputs.should-run-core-tests == 'true'
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run Core E2E Tests For Merge Queue
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -441,6 +471,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -473,7 +504,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'push'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run Core E2E Tests For Push
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -484,6 +515,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -516,7 +548,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'workflow_dispatch'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run Core E2E Tests For Workflow Dispatch
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -526,6 +558,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -557,8 +590,8 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: github.event_name == 'pull_request' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025 # june 2, 2025
+    if: github.event_name == 'pull_request' && needs.changes.outputs.should-run-ccip-tests == 'true'
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025 # june 2, 2025
     with:
       workflow_name: Run CCIP E2E Tests For PR
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -567,6 +600,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
       team: "CCIP"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -601,8 +635,8 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: github.event_name == 'merge_group' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    if: github.event_name == 'merge_group' && needs.changes.outputs.should-run-ccip-tests == 'true'
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run CCIP E2E Tests For Merge Queue
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -613,6 +647,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
       team: "CCIP"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -648,7 +683,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'push'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run CCIP E2E Tests For Push
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -659,6 +694,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
       team: "CCIP"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -694,7 +730,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'workflow_dispatch'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@31ea968c2fff6582e95cd51b0f7f95932a3bf25f # june 2, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run CCIP E2E Tests For Workflow Dispatch
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -704,6 +740,7 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+      use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
       team: "CCIP"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -931,24 +968,6 @@ jobs:
           echo "sha is: ${full_sha}"
           echo "sha=${full_sha}" >> "$GITHUB_OUTPUT"
 
-  get_projectserum_version:
-    name: Get ProjectSerum Version
-    environment: integration
-    runs-on: ubuntu-latest
-    needs: [get_solana_sha]
-    outputs:
-      projectserum_version: ${{ steps.psversion.outputs.projectserum_version }}
-    steps:
-      - name: Checkout the solana repo
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          repository: smartcontractkit/chainlink-solana
-          ref: ${{ needs.get_solana_sha.outputs.sha }}
-      - name: Get ProjectSerum Version
-        id: psversion
-        uses: smartcontractkit/chainlink-solana/.github/actions/projectserum_version@4b971869e26b79c7ce3fb7c98005cc2e3f350915 # stable action on Oct 12 2022
-
   solana-test-image-exists:
     environment: integration
     permissions:
@@ -983,7 +1002,6 @@ jobs:
     needs:
       [
         changes,
-        get_projectserum_version,
         solana-test-image-exists,
         get_solana_sha,
       ]
@@ -995,7 +1013,7 @@ jobs:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Build contracts
-        if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
+        if: needs.changes.outputs.should-run-solana-tests == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
         uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@841f6229b6a0be0114c47cb676b1136d92f935c9 # node20 update on may 10, 2024
         with:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
@@ -1022,20 +1040,19 @@ jobs:
       GOTOOLCHAIN: auto
     steps:
       - name: Checkout the repo
-        if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
         uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Download Artifacts
-        if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
+        if: needs.changes.outputs.should-run-solana-tests == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
         uses: actions/download-artifact@v4
         with:
           name: artifacts
           path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
       - name: Build Test Image
-        if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
+        if: needs.changes.outputs.should-run-solana-tests == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
         uses: smartcontractkit/.github/actions/ctf-build-test-image@a5e4f4c8fbb8e15ab2ad131552eca6ac83c4f4b3 # ctf-build-test-image@0.1.0
         with:
           repository: chainlink-solana-tests
@@ -1044,8 +1061,6 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-      - run: echo "this exists so we don't have to run anything else if the build is skipped"
-        if: needs.changes.outputs.core_changes == 'false' || needs.solana-test-image-exists.outputs.exists == 'true'
 
   solana-smoke-tests:
     environment: integration
@@ -1055,7 +1070,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Smoke Tests
-    runs-on: ubuntu22.04-8cores-32GB
+    runs-on: ${{ needs.changes.outputs.builder-runner-label || 'ubuntu22.04-8cores-32GB' }}
     needs:
       [
         build-chainlink,
@@ -1070,6 +1085,11 @@ jobs:
       TEST_LOG_LEVEL: debug
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
     steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
+        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
+        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+
       - name: Checkout the repo
         uses: actions/checkout@v4
         with:
@@ -1077,7 +1097,7 @@ jobs:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Run Setup
-        if: needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch'
+        if: needs.changes.outputs.should-run-solana-tests == 'true'
         uses: smartcontractkit/.github/actions/ctf-setup-run-tests-environment@4ff522b1aef76519d2ced17b5d052927754fd34b # ctf-setup-run-tests-environment@v0.2.1
         with:
           go_mod_path: ./integration-tests/go.mod
@@ -1091,7 +1111,7 @@ jobs:
           main-dns-zone: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
           k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
       - name: Pull Artifacts
-        if: needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch'
+        if: needs.changes.outputs.should-run-solana-tests == 'true'
         run: |
           IMAGE_NAME=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }}
           # Pull the Docker image
@@ -1134,8 +1154,12 @@ jobs:
           # shellcheck disable=SC2086
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
       - name: Run Tests
-        if: needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch'
+        if: needs.changes.outputs.should-run-solana-tests == 'true'
         uses: smartcontractkit/.github/actions/ctf-run-tests@725dd141dd77cc87dad420e9484416fc4ae26be2 # ctf-run-tests@v0.5.0
+        env:
+          E2E_TEST_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
+          E2E_TEST_SOLANA_SECRET: thisisatestingonlysecret
+          CHAINLINK_USER_TEAM: "BIX"
         with:
           test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
           test_config_override_base64: ${{ env.BASE64_CONFIG_OVERRIDE }}
@@ -1160,10 +1184,7 @@ jobs:
           main-dns-zone: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
           k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
 
-        env:
-          E2E_TEST_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
-          E2E_TEST_SOLANA_SECRET: thisisatestingonlysecret
-          CHAINLINK_USER_TEAM: "BIX"
+
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@v4

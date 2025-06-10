@@ -29,6 +29,7 @@ import (
 )
 
 func TestAddTokenPool_Apply(t *testing.T) {
+	t.Parallel()
 	// Setup environment and config with 1 Aptos chain
 	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(
 		t,

@@ -3,34 +3,31 @@ package ccip
 import (
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"golang.org/x/exp/maps"
-
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/maps"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	soltestutils "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 )
 
 func TestTokenTransfer_EVM2EVM(t *testing.T) {
@@ -519,9 +516,6 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances :=
 		testhelpers.TransferMultiple(ctx, t, e, state, tcs)
-
-	// HACK: we need to replay blocks only after the CCIP plugin has already properly booted
-	testhelpers.SleepAndReplay(t, e, 30*time.Second, sourceChain, destChain)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,

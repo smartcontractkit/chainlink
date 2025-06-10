@@ -8,10 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
@@ -21,6 +17,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
@@ -40,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
 func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
@@ -81,11 +79,10 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
 	var (
-		replayed bool
-		nonce    uint64
-		sender   = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
-		out      mt.TestCaseOutput
-		setup    = mt.NewTestSetupWithDeployedEnv(
+		nonce  uint64
+		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
+		out    mt.TestCaseOutput
+		setup  = mt.NewTestSetupWithDeployedEnv(
 			t,
 			e,
 			state,
@@ -111,7 +108,6 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 			mt.TestCase{
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
-				Replayed:               replayed,
 				Nonce:                  &nonce,
 				Receiver:               common.HexToAddress("0xdead").Bytes(),
 				MsgData:                []byte("hello eoa"),
@@ -131,7 +127,6 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 			mt.TestCase{
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
-				Replayed:               out.Replayed,
 				Nonce:                  &out.Nonce,
 				Receiver:               state.MustGetEVMChainState(destChain).FeeQuoter.Address().Bytes(),
 				MsgData:                []byte("hello FeeQuoter"),
@@ -149,7 +144,6 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 			mt.TestCase{
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
-				Replayed:               out.Replayed,
 				Nonce:                  &out.Nonce,
 				Receiver:               state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver"),
@@ -176,7 +170,6 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 			mt.TestCase{
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
-				Replayed:               out.Replayed,
 				Nonce:                  &out.Nonce,
 				Receiver:               state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver with low exec gas"),
@@ -212,7 +205,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	require.Equal(t, int32(0), ms.reExecutionsObserved.Load())
 }
 
-func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
+func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 	t.Skip("Skipping for now since this has been flaky")
 
 	// Setup 2 chains (EVM and Solana) and a single lane.
@@ -249,7 +242,6 @@ func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
 	var (
-		replayed bool
 		// nonce    uint64 // Nonce not used as Solana check is skipped
 		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
 		setup  = mt.NewTestSetupWithDeployedEnv(
@@ -288,7 +280,6 @@ func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
 	var receiverCounterAccount soltesthelpers.ReceiverCounter
 	err = solcommon.GetAccountDataBorshInto(ctx, solChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccount)
 	require.NoError(t, err, "failed to get account info")
-	// Already sent a message earlier
 	require.Equal(t, uint8(0), receiverCounterAccount.Value)
 
 	numMessages := 5
@@ -297,7 +288,6 @@ func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
 		mt.TestCase{
 			ValidationType:         mt.ValidationTypeExec,
 			TestSetup:              setup,
-			Replayed:               replayed,
 			Nonce:                  nil, // Solana nonce check is skipped
 			Receiver:               receiver,
 			MsgData:                []byte("hello CCIPReceiver"),
@@ -352,8 +342,6 @@ func Test_CCIPMessaging_EVM2SolanaMultiExecReports(t *testing.T) {
 }
 
 func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
-	t.Skip("Skipping for now since this has been flaky")
-
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
@@ -389,7 +377,6 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
 	var (
-		replayed bool
 		// nonce    uint64 // Nonce not used as Solana check is skipped
 		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
 		out    mt.TestCaseOutput
@@ -408,13 +395,6 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 	receiver := receiverProgram.Bytes()
 	receiverTargetAccountPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverProgram)
 	receiverExternalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverProgram)
-
-	// message := ccip_router.SVM2AnyMessage{
-	// 	Receiver:     validReceiverAddress[:],
-	// 	FeeToken:     wsol.mint,
-	// 	TokenAmounts: []ccip_router.SVMTokenAmount{{Token: token0.Mint.PublicKey(), Amount: 1}},
-	// 	ExtraArgs:    emptyEVMExtraArgsV2,
-	// }
 
 	solChains := e.Env.BlockChains.SolanaChains()
 
@@ -444,7 +424,6 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 			mt.TestCase{
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
-				Replayed:               replayed,
 				Nonce:                  nil, // Solana nonce check is skipped
 				Receiver:               receiver,
 				MsgData:                []byte("hello CCIPReceiver"),
@@ -492,7 +471,6 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 			mt.TestCase{
 				ValidationType: mt.ValidationTypeCommit,
 				TestSetup:      setup,
-				Replayed:       out.Replayed,
 				Nonce:          nil, // Nonce check skipped for Commit validation and Solana
 				Receiver:       receiver,
 				MsgData:        []byte("hello with too many accounts"),
@@ -522,7 +500,6 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 			mt.TestCase{
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
-				Replayed:               out.Replayed,
 				Nonce:                  nil, // Solana nonce check is skipped
 				Receiver:               receiver,
 				MsgData:                []byte("hello CCIPReceiver that should succeed"),
@@ -530,7 +507,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) {
-						// Check counter is now 1
+						// Check counter is now 2
 						var receiverCounterAccountAfterSuccess soltesthelpers.ReceiverCounter
 						err = solcommon.GetAccountDataBorshInto(ctx, solChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccountAfterSuccess)
 						require.NoError(t, err, "failed to get account info after second message")
@@ -546,8 +523,6 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 }
 
 func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
-	t.Skip("Skipping for now since this has been flaky")
-
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithSolChains(1))
@@ -570,11 +545,10 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
 	var (
-		replayed bool
-		nonce    uint64
-		sender   = common.LeftPadBytes(e.Env.BlockChains.SolanaChains()[sourceChain].DeployerKey.PublicKey().Bytes(), 32)
-		out      mt.TestCaseOutput
-		setup    = mt.NewTestSetupWithDeployedEnv(
+		nonce  uint64
+		sender = common.LeftPadBytes(e.Env.BlockChains.SolanaChains()[sourceChain].DeployerKey.PublicKey().Bytes(), 32)
+		out    mt.TestCaseOutput
+		setup  = mt.NewTestSetupWithDeployedEnv(
 			t,
 			e,
 			state,
@@ -596,7 +570,6 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 			mt.TestCase{
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
-				Replayed:               replayed,
 				Nonce:                  &nonce,
 				Receiver:               state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver"),

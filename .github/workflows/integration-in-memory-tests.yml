@@ -47,7 +47,6 @@ jobs:
         with:
           filters: |
             github_ci_changes:
-              - '.github/workflows/integration-tests.yml'
               - '.github/workflows/integration-in-memory-tests.yml'
               - '.github/integration-in-memory-tests.yml'
             core_changes:
