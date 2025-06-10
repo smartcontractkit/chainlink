@@ -2,6 +2,7 @@ package solana
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -49,7 +50,7 @@ func runSolanaVerify(e cldf.Environment,
 	chain cldf_solana.Chain,
 	programID, libraryName, mountPath string,
 	timelockSignerPDA solana.PublicKey,
-	mcmsTxs []mcmsTypes.Transaction,
+	mcmsTxs *[]mcmsTypes.Transaction,
 ) error {
 	params := map[string]string{
 		"Keypair Path": chain.KeypairPath,
@@ -111,7 +112,7 @@ func runSolanaVerify(e cldf.Environment,
 			return fmt.Errorf("failed to get ixn from encoded tx: %w", err)
 		}
 		if resolvedIxn == nil {
-			return fmt.Errorf("failed to get ixn from encoded tx")
+			return errors.New("failed to get ixn from encoded tx")
 		}
 
 		// build mcms tx from ix
@@ -121,7 +122,7 @@ func runSolanaVerify(e cldf.Environment,
 		}
 		if upgradeTx != nil {
 			e.Logger.Infow("upgradeTx", "tx", upgradeTx)
-			mcmsTxs = append(mcmsTxs, *upgradeTx)
+			*mcmsTxs = append(*mcmsTxs, *upgradeTx)
 		}
 		return nil
 	}
@@ -173,7 +174,7 @@ func getIxnFromEncodedTx(e cldf.Environment, output string, timelockSignerPDA so
 		}
 	}
 	if base58EncodedTx == "" {
-		return nil, fmt.Errorf("failed to extract base58-encoded transaction")
+		return nil, errors.New("failed to extract base58-encoded transaction")
 	}
 	e.Logger.Infow("base58-encoded transaction", "tx", base58EncodedTx)
 
@@ -225,7 +226,7 @@ func resolveCompiledInstruction(
 
 	data, err := base58.Decode(compiled.Data.String())
 	if err != nil {
-		fmt.Errorf("failed to decode instruction data: %w", err)
+		return nil, fmt.Errorf("failed to decode instruction data: %w", err)
 	}
 
 	return &solana.GenericInstruction{
@@ -339,7 +340,7 @@ func VerifyBuild(e cldf.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutpu
 			v.programLib,
 			anchorDir,
 			timelockSignerPDA,
-			mcmsTxs,
+			&mcmsTxs,
 		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("error verifying %s: %w", v.name, err)

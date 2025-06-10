@@ -51,7 +51,7 @@ type BillingTokenConfig struct {
 	MCMS          *proposalutils.TimelockConfig
 
 	// inferred from state
-	isUpdate bool
+	IsUpdate bool
 }
 
 func (cfg *BillingTokenConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -78,7 +78,7 @@ func (cfg *BillingTokenConfig) Validate(e cldf.Environment, state stateview.CCIP
 	var token0ConfigAccount solFeeQuoter.BillingTokenConfigWrapper
 	if err := chain.GetAccountDataBorshInto(context.Background(), billingConfigPDA, &token0ConfigAccount); err == nil {
 		e.Logger.Infow("Billing token already exists. Configuring as update", "chainSelector", cfg.ChainSelector, "tokenPubKey", tokenPubKey.String())
-		cfg.isUpdate = true
+		cfg.IsUpdate = true
 	}
 	return nil
 }
@@ -171,7 +171,7 @@ func AddBillingTokenChangeset(e cldf.Environment, cfg BillingTokenConfig) (cldf.
 
 	solFeeQuoter.SetProgramID(chainState.FeeQuoter)
 
-	txns, err := AddBillingToken(e, chain, chainState, cfg.Config, cfg.MCMS, cfg.isUpdate, chainState.FeeQuoter, chainState.Router)
+	txns, err := AddBillingToken(e, chain, chainState, cfg.Config, cfg.MCMS, cfg.IsUpdate, chainState.FeeQuoter, chainState.Router)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

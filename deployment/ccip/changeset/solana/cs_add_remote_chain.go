@@ -48,7 +48,7 @@ type RouterConfig struct {
 	// so you have to clone what is in state, edit the list, and then pass into this changeset
 	RouterDestinationConfig solRouter.DestChainConfig
 	// inferred from onchain state
-	isUpdate bool
+	IsUpdate bool
 }
 
 func (cfg *AddRemoteChainToRouterConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -88,7 +88,7 @@ func (cfg *AddRemoteChainToRouterConfig) Validate(e cldf.Environment, state stat
 		err = chain.GetAccountDataBorshInto(context.Background(), routerDestChainPDA, &destChainStateAccount)
 		if err == nil {
 			e.Logger.Infow("remote chain already configured. setting as update", "remoteChainSel", remote)
-			remoteConfig.isUpdate = true
+			remoteConfig.IsUpdate = true
 		}
 	}
 	return nil
@@ -163,7 +163,7 @@ func doAddRemoteChainToRouter(
 		routerRemoteStatePDA, _ := solState.FindDestChainStatePDA(remoteChainSel, ccipRouterID)
 		allowedOffRampRemotePDA, _ := solState.FindAllowedOfframpPDA(remoteChainSel, offRampID, ccipRouterID)
 
-		if update.isUpdate {
+		if update.IsUpdate {
 			routerIx, err := solRouter.NewUpdateDestChainConfigInstruction(
 				remoteChainSel,
 				// TODO: this needs to be merged with what the user is sending in and whats their onchain.
@@ -269,7 +269,7 @@ type AddRemoteChainToFeeQuoterConfig struct {
 type FeeQuoterConfig struct {
 	FeeQuoterDestinationConfig solFeeQuoter.DestChainConfig
 	// inferred from onchain state
-	isUpdate bool
+	IsUpdate bool
 }
 
 func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -301,7 +301,7 @@ func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e cldf.Environment, state s
 		err = chain.GetAccountDataBorshInto(context.Background(), fqRemoteChainPDA, &destChainStateAccount)
 		if err == nil {
 			e.Logger.Infow("remote chain already configured. setting as update", "remoteChainSel", remote)
-			remoteConfig.isUpdate = true
+			remoteConfig.IsUpdate = true
 		}
 	}
 	return nil
@@ -374,7 +374,7 @@ func doAddRemoteChainToFeeQuoter(
 		fqRemoteChainPDA, _, _ := solState.FindFqDestChainPDA(remoteChainSel, feeQuoterID)
 		var feeQuoterIx solana.Instruction
 		var err error
-		if update.isUpdate {
+		if update.IsUpdate {
 			feeQuoterIx, err = solFeeQuoter.NewUpdateDestChainConfigInstruction(
 				remoteChainSel,
 				// TODO: this needs to be merged with what the user is sending in and whats their onchain.
@@ -439,7 +439,7 @@ type OffRampConfig struct {
 	// source
 	EnabledAsSource bool
 	// inferred from onchain state
-	isUpdate bool
+	IsUpdate bool
 }
 
 func (cfg *AddRemoteChainToOffRampConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -472,7 +472,7 @@ func (cfg *AddRemoteChainToOffRampConfig) Validate(e cldf.Environment, state sta
 		err = chain.GetAccountDataBorshInto(context.Background(), offRampRemoteStatePDA, &destChainStateAccount)
 		if err == nil {
 			e.Logger.Infow("remote chain already configured. setting as update", "remoteChainSel", remote)
-			remoteConfig.isUpdate = true
+			remoteConfig.IsUpdate = true
 		}
 	}
 	return nil
@@ -549,7 +549,7 @@ func doAddRemoteChainToOffRamp(
 		}
 
 		var offRampIx solana.Instruction
-		if update.isUpdate {
+		if update.IsUpdate {
 			offRampIx, err = solOffRamp.NewUpdateSourceChainConfigInstruction(
 				remoteChainSel,
 				validSourceChainConfig,
