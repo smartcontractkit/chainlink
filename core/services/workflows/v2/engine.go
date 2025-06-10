@@ -309,7 +309,13 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	meteringReport, err := e.meterReports.Start(ctx, executionID)
 	if err != nil {
-		e.cfg.Lggr.Errorw("could not meter workflow execution", "err", err)
+		e.cfg.Lggr.Errorw("could start metering workflow execution", "err", err)
+		return
+	}
+
+	err = meteringReport.Reserve(ctx)
+	if err != nil {
+		e.cfg.Lggr.Errorw("could not initialize metering workflow execution", "err", err)
 		return
 	}
 

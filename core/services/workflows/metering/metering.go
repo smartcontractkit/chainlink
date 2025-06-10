@@ -378,8 +378,6 @@ type Reports struct {
 
 // NewReports initializes and returns a new Reports.
 func NewReports(client BillingClient, owner, workflowID string, lggr logger.Logger) *Reports {
-	// sugaredLggr := lggr.Named("Metering").With("workflowExecutionID", workflowExecutionID)
-
 	return &Reports{
 		reports: make(map[string]*Report),
 		client:  client,
