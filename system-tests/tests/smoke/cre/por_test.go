@@ -753,12 +753,14 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 				Capabilities:       []string{keystonetypes.OCR3Capability, keystonetypes.CustomComputeCapability, keystonetypes.CronCapability},
 				DONTypes:           []string{keystonetypes.WorkflowDON},
 				BootstrapNodeIndex: 0,
+				SupportedChains:    []uint64{1337}, // workflow DON has to support only home chain
 			},
 			{
 				Input:              input[1],
 				Capabilities:       []string{keystonetypes.WriteEVMCapability},
 				DONTypes:           []string{keystonetypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
 				BootstrapNodeIndex: -1,                                      // <----- indicate that capabilities DON doesn't have a bootstrap node and will use the global bootstrap node
+				SupportedChains:    []uint64{1337, 2337},                    // capabilities DON has to support both chains, because we want to make sure that second workflow that writes to the second chain is run using a remote capability
 			},
 			{
 				Input:              input[2],
@@ -770,9 +772,15 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 		}
 	}
 
-	firstBlockchain := in.Blockchains[0]
-	chainIDInt, chainErr := strconv.Atoi(firstBlockchain.ChainID)
-	require.NoError(t, chainErr, "failed to convert chain ID to int")
+	//TODO modify the test config in such a way that the workflow only writes to the second chain
+
+	// firstBlockchain := in.Blockchains[0]
+	// chainIDInt, chainErr := strconv.Atoi(firstBlockchain.ChainID)
+	// require.NoError(t, chainErr, "failed to convert chain ID to int")
+
+	secondBlockchain := in.Blockchains[1]
+	secondChainIDInt, secondChainErr := strconv.Atoi(secondBlockchain.ChainID)
+	require.NoError(t, secondChainErr, "failed to convert chain ID to int")
 
 	priceProvider := NewTrueUSDPriceProvider(testLogger, []string{in.WorkflowConfigs[0].FeedID})
 	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, []keystonetypes.DONCapabilityWithConfigFactoryFn{
@@ -781,7 +789,7 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 		computecap.ComputeCapabilityFactoryFn,
 		consensuscap.OCR3CapabilityFactoryFn,
 		croncap.CronCapabilityFactoryFn,
-		writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))),
+		writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(secondChainIDInt))),
 	})
 
 	// Log extra information that might help debugging
