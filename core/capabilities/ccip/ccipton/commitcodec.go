@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math/big"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings"
@@ -24,8 +25,16 @@ func NewCommitPluginCodecV1() *CommitPluginCodecV1 {
 func (cr *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.CommitPluginReport) ([]byte, error) {
 	tpuSlice := make([]bindings.TokenPriceUpdate, len(report.PriceUpdates.TokenPriceUpdates))
 	for i, tpu := range report.PriceUpdates.TokenPriceUpdates {
+		addr, err := address.ParseAddr(string(tpu.TokenID))
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse token address %s: %w", tpu.TokenID, err)
+		}
+
+		if tpu.Price.IsEmpty() {
+			return nil, fmt.Errorf("empty token price for token %s", tpu.TokenID)
+		}
 		tpuSlice[i] = bindings.TokenPriceUpdate{
-			SourceToken: address.MustParseAddr(string(tpu.TokenID)),
+			SourceToken: addr,
 			UsdPerToken: tpu.Price.Int,
 		}
 	}
@@ -36,6 +45,9 @@ func (cr *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Comm
 
 	gpuSlice := make([]bindings.GasPriceUpdate, len(report.PriceUpdates.GasPriceUpdates))
 	for i, gpu := range report.PriceUpdates.GasPriceUpdates {
+		if gpu.GasPrice.IsEmpty() {
+			return nil, fmt.Errorf("empty gas price for chain selector %d", gpu.ChainSel)
+		}
 		gpuSlice[i] = bindings.GasPriceUpdate{
 			DestChainSelector: uint64(gpu.ChainSel),
 			UsdPerUnitGas:     gpu.GasPrice.Int,
@@ -128,11 +140,20 @@ func (cr *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (ccipty
 		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode token price updates: %w", err)
 	}
 
-	tpuSlice := make([]cciptypes.TokenPrice, len(tpu))
-	for i, update := range tpu {
-		tpuSlice[i] = cciptypes.TokenPrice{
-			TokenID: cciptypes.UnknownEncodedAddress(update.SourceToken.String()),
-			Price:   cciptypes.NewBigInt(update.UsdPerToken),
+	var tpuSlice []cciptypes.TokenPrice
+	if len(tpu) > 0 {
+		tpuSlice = make([]cciptypes.TokenPrice, len(tpu))
+		for i, update := range tpu {
+			var tokenPrice *big.Int
+			if update.UsdPerToken != nil && update.UsdPerToken.Sign() != 0 {
+				tokenPrice = update.UsdPerToken
+			} else if update.UsdPerToken != nil {
+				tokenPrice = big.NewInt(0)
+			}
+			tpuSlice[i] = cciptypes.TokenPrice{
+				TokenID: cciptypes.UnknownEncodedAddress(update.SourceToken.String()),
+				Price:   cciptypes.NewBigInt(tokenPrice),
+			}
 		}
 	}
 	gpu, err := bindings.DictToSlice[bindings.GasPriceUpdate](priceUpdate.GasPriceUpdates)
@@ -140,31 +161,41 @@ func (cr *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (ccipty
 		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode gas price updates: %w", err)
 	}
 
-	gpuSlice := make([]cciptypes.GasPriceChain, len(gpu))
-	for i, update := range gpu {
-		gpuSlice[i] = cciptypes.GasPriceChain{
-			ChainSel: cciptypes.ChainSelector(update.DestChainSelector),
-			GasPrice: cciptypes.NewBigInt(update.UsdPerUnitGas),
+	var gpuSlice []cciptypes.GasPriceChain
+	if len(gpu) > 0 {
+		gpuSlice = make([]cciptypes.GasPriceChain, len(gpu))
+		for i, update := range gpu {
+			var gasPrice *big.Int
+			if update.UsdPerUnitGas != nil && update.UsdPerUnitGas.Sign() != 0 {
+				gasPrice = update.UsdPerUnitGas
+			} else if update.UsdPerUnitGas != nil {
+				gasPrice = big.NewInt(0)
+			}
+			gpuSlice[i] = cciptypes.GasPriceChain{
+				ChainSel: cciptypes.ChainSelector(update.DestChainSelector),
+				GasPrice: cciptypes.NewBigInt(gasPrice),
+			}
 		}
 	}
-
 	sigs, err := bindings.DictToSlice[bindings.Signature](report.RMNSignatures)
 	if err != nil {
 		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode RMN signatures: %w", err)
 	}
+	var sigSlice []cciptypes.RMNECDSASignature
+	if len(sigs) > 0 {
+		sigSlice = make([]cciptypes.RMNECDSASignature, len(sigs))
+		for i, sig := range sigs {
+			if len(sig.Sig) != 64 {
+				return cciptypes.CommitPluginReport{}, fmt.Errorf("invalid RMN signature length: %d", len(sig.Sig))
+			}
 
-	sigSlice := make([]cciptypes.RMNECDSASignature, len(sigs))
-	for i, sig := range sigs {
-		if len(sig.Sig) != 64 {
-			return cciptypes.CommitPluginReport{}, fmt.Errorf("invalid RMN signature length: %d", len(sig.Sig))
-		}
-
-		var r, s [32]byte
-		copy(r[:], sig.Sig[:32])
-		copy(s[:], sig.Sig[32:])
-		sigSlice[i] = cciptypes.RMNECDSASignature{
-			R: r,
-			S: s,
+			var r, s [32]byte
+			copy(r[:], sig.Sig[:32])
+			copy(s[:], sig.Sig[32:])
+			sigSlice[i] = cciptypes.RMNECDSASignature{
+				R: r,
+				S: s,
+			}
 		}
 	}
 
@@ -173,14 +204,16 @@ func (cr *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (ccipty
 	if err != nil {
 		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode blessed merkle roots: %w", err)
 	}
-
-	bmrSlice := make([]cciptypes.MerkleRootChain, len(bmr))
-	for i, mr := range bmr {
-		bmrSlice[i] = cciptypes.MerkleRootChain{
-			ChainSel:      cciptypes.ChainSelector(mr.SourceChainSelector),
-			OnRampAddress: mr.OnRampAddress,
-			SeqNumsRange:  cciptypes.NewSeqNumRange(cciptypes.SeqNum(mr.MinSeqNr), cciptypes.SeqNum(mr.MaxSeqNr)),
-			MerkleRoot:    cciptypes.Bytes32(mr.MerkleRoot),
+	var bmrSlice []cciptypes.MerkleRootChain
+	if len(bmr) > 0 {
+		bmrSlice = make([]cciptypes.MerkleRootChain, len(bmr))
+		for i, mr := range bmr {
+			bmrSlice[i] = cciptypes.MerkleRootChain{
+				ChainSel:      cciptypes.ChainSelector(mr.SourceChainSelector),
+				OnRampAddress: mr.OnRampAddress,
+				SeqNumsRange:  cciptypes.NewSeqNumRange(cciptypes.SeqNum(mr.MinSeqNr), cciptypes.SeqNum(mr.MaxSeqNr)),
+				MerkleRoot:    cciptypes.Bytes32(mr.MerkleRoot),
+			}
 		}
 	}
 
@@ -188,13 +221,16 @@ func (cr *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (ccipty
 	if err != nil {
 		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode unblessed merkle roots: %w", err)
 	}
-	unblessedMrSlice := make([]cciptypes.MerkleRootChain, len(unblessedMr))
-	for i, mr := range unblessedMr {
-		unblessedMrSlice[i] = cciptypes.MerkleRootChain{
-			ChainSel:      cciptypes.ChainSelector(mr.SourceChainSelector),
-			OnRampAddress: mr.OnRampAddress,
-			SeqNumsRange:  cciptypes.NewSeqNumRange(cciptypes.SeqNum(mr.MinSeqNr), cciptypes.SeqNum(mr.MaxSeqNr)),
-			MerkleRoot:    cciptypes.Bytes32(mr.MerkleRoot),
+	var unblessedMrSlice []cciptypes.MerkleRootChain
+	if len(unblessedMr) > 0 {
+		unblessedMrSlice = make([]cciptypes.MerkleRootChain, len(unblessedMr))
+		for i, mr := range unblessedMr {
+			unblessedMrSlice[i] = cciptypes.MerkleRootChain{
+				ChainSel:      cciptypes.ChainSelector(mr.SourceChainSelector),
+				OnRampAddress: mr.OnRampAddress,
+				SeqNumsRange:  cciptypes.NewSeqNumRange(cciptypes.SeqNum(mr.MinSeqNr), cciptypes.SeqNum(mr.MaxSeqNr)),
+				MerkleRoot:    cciptypes.Bytes32(mr.MerkleRoot),
+			}
 		}
 	}
 

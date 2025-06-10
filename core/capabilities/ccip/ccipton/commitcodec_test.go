@@ -74,60 +74,60 @@ func TestCommitPluginCodecV1(t *testing.T) {
 				return report
 			},
 		},
-		//{
-		//	name: "base report unblessed",
-		//	report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
-		//		report.RMNSignatures = nil
-		//		report.UnblessedMerkleRoots = report.BlessedMerkleRoots
-		//		report.BlessedMerkleRoots = nil
-		//		return report
-		//	},
-		//},
-		//{
-		//	name: "empty token address",
-		//	report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
-		//		report.PriceUpdates.TokenPriceUpdates[0].TokenID = ""
-		//		return report
-		//	},
-		//	expErr: true,
-		//},
-		//{
-		//	name: "empty merkle root",
-		//	report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
-		//		report.BlessedMerkleRoots[0].MerkleRoot = cciptypes.Bytes32{}
-		//		return report
-		//	},
-		//},
-		//{
-		//	name: "both blessed and unblessed merkle roots",
-		//	report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
-		//		report.UnblessedMerkleRoots = []cciptypes.MerkleRootChain{
-		//			report.BlessedMerkleRoots[0]}
-		//		return report
-		//	},
-		//},
-		//{
-		//	name: "zero token price",
-		//	report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
-		//		report.PriceUpdates.TokenPriceUpdates[0].Price = cciptypes.NewBigInt(big.NewInt(0))
-		//		return report
-		//	},
-		//},
-		//{
-		//	name: "zero gas price",
-		//	report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
-		//		report.PriceUpdates.GasPriceUpdates[0].GasPrice = cciptypes.NewBigInt(big.NewInt(0))
-		//		return report
-		//	},
-		//},
-		//{
-		//	name: "empty gas price",
-		//	report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
-		//		report.PriceUpdates.GasPriceUpdates[0].GasPrice = cciptypes.NewBigInt(nil)
-		//		return report
-		//	},
-		//	expErr: true,
-		//},
+		{
+			name: "base report unblessed",
+			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
+				report.RMNSignatures = nil
+				report.UnblessedMerkleRoots = report.BlessedMerkleRoots
+				report.BlessedMerkleRoots = nil
+				return report
+			},
+		},
+		{
+			name: "empty token address",
+			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
+				report.PriceUpdates.TokenPriceUpdates[0].TokenID = ""
+				return report
+			},
+			expErr: true,
+		},
+		{
+			name: "empty merkle root",
+			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
+				report.BlessedMerkleRoots[0].MerkleRoot = cciptypes.Bytes32{}
+				return report
+			},
+		},
+		{
+			name: "both blessed and unblessed merkle roots",
+			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
+				report.UnblessedMerkleRoots = []cciptypes.MerkleRootChain{
+					report.BlessedMerkleRoots[0]}
+				return report
+			},
+		},
+		{
+			name: "zero token price",
+			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
+				report.PriceUpdates.TokenPriceUpdates[0].Price = cciptypes.NewBigInt(big.NewInt(0))
+				return report
+			},
+		},
+		{
+			name: "zero gas price",
+			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
+				report.PriceUpdates.GasPriceUpdates[0].GasPrice = cciptypes.NewBigInt(big.NewInt(0))
+				return report
+			},
+		},
+		{
+			name: "empty gas price",
+			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
+				report.PriceUpdates.GasPriceUpdates[0].GasPrice = cciptypes.NewBigInt(nil)
+				return report
+			},
+			expErr: true,
+		},
 	}
 
 	for _, tc := range testCases {
