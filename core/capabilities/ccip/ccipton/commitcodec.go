@@ -8,6 +8,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings"
 	"github.com/xssnick/tonutils-go/address"
+	"github.com/xssnick/tonutils-go/tlb"
 	"github.com/xssnick/tonutils-go/tvm/cell"
 )
 
@@ -101,7 +102,7 @@ func (cr *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Comm
 		RMNSignatures: signatures,
 	}
 
-	c, err := cellReport.ToCell()
+	c, err := tlb.ToCell(cellReport)
 	if err != nil {
 		return nil, fmt.Errorf("cannot encode commit report to cell: %w", err)
 	}
@@ -117,7 +118,7 @@ func (cr *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (ccipty
 	}
 
 	var report bindings.CommitReport
-	if err := report.LoadFromCell(c.BeginParse()); err != nil {
+	if err := tlb.LoadFromCell(&report, c.BeginParse()); err != nil {
 		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode commit report from cell: %w", err)
 	}
 
