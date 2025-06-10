@@ -177,14 +177,19 @@ func (r *Report) Deduct(ref string, amount int64) error {
 		return ErrStepDeductExists
 	}
 
-	err := r.balance.Minus(amount)
-	if err != nil {
-		return err
-	}
-
 	r.steps[ref] = ReportStep{
 		Deduction: amount,
 		Spends:    nil,
+	}
+
+	// if in metering mode, exit early without modifying local balance
+	if r.balance.allowNegative {
+		return nil
+	}
+
+	err := r.balance.Minus(amount)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -268,6 +273,11 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 
 	step.Spends = resourceSpends
 	r.steps[ref] = step
+
+	// if in metering mode, exit early without modifying local balance
+	if r.balance.allowNegative {
+		return nil
+	}
 
 	// Refund the difference between what local balance had been earmarked and the actual spend
 	err := r.balance.Add(step.Deduction - spentCredits)

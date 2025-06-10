@@ -255,12 +255,24 @@ func Test_Report_Deduct(t *testing.T) {
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 		err := report.Reserve(t.Context())
 		require.NoError(t, err)
-		err = report.balance.Add(100)
-		require.NoError(t, err)
 		err = report.Deduct("ref1", 2)
 		require.NoError(t, err)
 		err = report.Deduct("ref1", 1)
 		require.ErrorIs(t, err, ErrStepDeductExists)
+	})
+
+	t.Run("does not modify local balance in metering mode", func(t *testing.T) {
+		t.Parallel()
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(nil, errors.New("everything is on fire"))
+		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
+		err := report.Reserve(t.Context())
+		require.NoError(t, err)
+		balanceBefore := report.balance.balance
+		err = report.Deduct("ref1", 2)
+		require.NoError(t, err)
+		balanceAfter := report.balance.balance
+		require.Equal(t, balanceBefore, balanceAfter)
 	})
 }
 
@@ -271,7 +283,6 @@ func Test_Report_Settle(t *testing.T) {
 		t.Parallel()
 		billingClient := mocks.NewBillingClient(t)
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-
 		spendsByNode := []capabilities.MeteringNodeDetail{
 			{Peer2PeerID: "abc", SpendUnit: testUnitA, SpendValue: "1"},
 		}
@@ -287,9 +298,6 @@ func Test_Report_Settle(t *testing.T) {
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 		err := report.Reserve(t.Context())
 		require.NoError(t, err)
-		err = report.balance.Add(100)
-		require.NoError(t, err)
-
 		spendsByNode := []capabilities.MeteringNodeDetail{
 			{Peer2PeerID: "abc", SpendUnit: testUnitA, SpendValue: "1"},
 		}
@@ -303,8 +311,6 @@ func Test_Report_Settle(t *testing.T) {
 		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 		err := report.Reserve(t.Context())
-		require.NoError(t, err)
-		err = report.balance.Add(100)
 		require.NoError(t, err)
 
 		steps := []capabilities.MeteringNodeDetail{
@@ -324,8 +330,6 @@ func Test_Report_Settle(t *testing.T) {
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 		err := report.Reserve(t.Context())
 		require.NoError(t, err)
-		err = report.balance.Add(100)
-		require.NoError(t, err)
 
 		steps := []capabilities.MeteringNodeDetail{
 			{Peer2PeerID: "xyz", SpendUnit: testUnitA, SpendValue: "????"},
@@ -344,8 +348,6 @@ func Test_Report_Settle(t *testing.T) {
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 		err := report.Reserve(t.Context())
 		require.NoError(t, err)
-		err = report.balance.Add(100)
-		require.NoError(t, err)
 
 		steps := []capabilities.MeteringNodeDetail{
 			{Peer2PeerID: "xyz", SpendUnit: testUnitA, SpendValue: "2"},
@@ -354,6 +356,25 @@ func Test_Report_Settle(t *testing.T) {
 		err = report.Deduct("ref1", 1)
 		require.NoError(t, err)
 		require.NoError(t, report.Settle("ref1", steps))
+	})
+
+	t.Run("does not modify local balance in metering mode", func(t *testing.T) {
+		t.Parallel()
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(nil, errors.New("everything is still on fire"))
+		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
+		err := report.Reserve(t.Context())
+		require.NoError(t, err)
+		balanceBefore := report.balance.balance
+		err = report.Deduct("ref1", 2)
+		require.NoError(t, err)
+		steps := []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "xyz", SpendUnit: testUnitA, SpendValue: "2"},
+		}
+		err = report.Settle("ref1", steps)
+		require.NoError(t, err)
+		balanceAfter := report.balance.balance
+		require.Equal(t, balanceBefore, balanceAfter)
 	})
 }
 
