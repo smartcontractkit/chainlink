@@ -465,16 +465,10 @@ func Test_Report_SendReceipt(t *testing.T) {
 	})
 }
 
-type LabeledError struct {
-	err   error
-	label string
-}
-
 func Test_MeterReports(t *testing.T) {
 	t.Parallel()
 
 	workflowExecutionID1 := "exec1"
-	workflowExecutionID2 := "exec2"
 	capabilityCall1 := "ref1"
 
 	t.Run("happy path", func(t *testing.T) {
