@@ -1,7 +1,6 @@
 package metering
 
 import (
-	"context"
 	"errors"
 	"strconv"
 	"sync"
@@ -9,12 +8,14 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 )
 
 const (
@@ -24,42 +25,11 @@ const (
 	testUnitA               = "a"
 )
 
-type mockBillingClient struct {
-	submitWorkflowReceiptResponse *billing.SubmitWorkflowReceiptResponse
-	submitWorkflowReceiptError    error
-	reserveCreditResponse         *billing.ReserveCreditsResponse
-	reserveCreditError            error
-}
-
-type MockBillingClient interface {
-	SubmitWorkflowReceipt(context.Context, *billing.SubmitWorkflowReceiptRequest) (*billing.SubmitWorkflowReceiptResponse, error)
-	SetSubmitWorkflowReceipt(*billing.SubmitWorkflowReceiptResponse, error)
-	ReserveCredits(context.Context, *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error)
-	SetReserveCredits(*billing.ReserveCreditsResponse, error)
-}
-
-func (m *mockBillingClient) SubmitWorkflowReceipt(context.Context, *billing.SubmitWorkflowReceiptRequest) (*billing.SubmitWorkflowReceiptResponse, error) {
-	return m.submitWorkflowReceiptResponse, m.submitWorkflowReceiptError
-}
-func (m *mockBillingClient) SetSubmitWorkflowReceipt(response *billing.SubmitWorkflowReceiptResponse, err error) {
-	m.submitWorkflowReceiptResponse = response
-	m.submitWorkflowReceiptError = err
-}
-func (m *mockBillingClient) ReserveCredits(context.Context, *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error) {
-	return m.reserveCreditResponse, m.reserveCreditError
-}
-func (m *mockBillingClient) SetReserveCredits(response *billing.ReserveCreditsResponse, err error) {
-	m.reserveCreditResponse = response
-	m.reserveCreditError = err
-}
-
-func newMockBillingClient() MockBillingClient {
-	return &mockBillingClient{
-		submitWorkflowReceiptResponse: &billing.SubmitWorkflowReceiptResponse{Success: true},
-		submitWorkflowReceiptError:    nil,
-		reserveCreditResponse:         &billing.ReserveCreditsResponse{Success: true},
-		reserveCreditError:            nil,
-	}
+func defaultMockBillingClient(t *testing.T) *mocks.BillingClient {
+	billingClient := mocks.NewBillingClient(t)
+	billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
+	billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
+	return billingClient
 }
 
 func Test_medianSpend(t *testing.T) {
@@ -133,8 +103,8 @@ func Test_Report_Reserve(t *testing.T) {
 	})
 
 	t.Run("Reserve allows negative balances if the billing client cannot be communicated with", func(t *testing.T) {
-		billingClient := newMockBillingClient()
-		billingClient.SetReserveCredits(nil, errors.New("some err"))
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(nil, errors.New("some err"))
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 		err := report.Reserve(t.Context())
 		require.True(t, report.balance.allowNegative)
@@ -145,8 +115,8 @@ func Test_Report_Reserve(t *testing.T) {
 	})
 
 	t.Run("Reserve returns an error if insufficient funding", func(t *testing.T) {
-		billingClient := newMockBillingClient()
-		billingClient.SetReserveCredits(&billing.ReserveCreditsResponse{Success: false}, nil)
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: false}, nil)
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 		err := report.Reserve(t.Context())
 		require.ErrorIs(t, err, ErrInsufficientFunding)
@@ -158,16 +128,15 @@ func Test_Report_Deduct(t *testing.T) {
 
 	t.Run("returns an error if not initialized", func(t *testing.T) {
 		t.Parallel()
-		billingClient := newMockBillingClient()
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-
+		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), nil)
 		err := report.Deduct("ref1", 1)
 		require.ErrorIs(t, err, ErrNoReserve)
 	})
 
 	t.Run("returns an error if step already exists", func(t *testing.T) {
 		t.Parallel()
-		billingClient := newMockBillingClient()
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 		err := report.Reserve(t.Context())
 		require.NoError(t, err)
@@ -184,7 +153,7 @@ func Test_Report_Settle(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns an error if not initialized", func(t *testing.T) {
-		billingClient := newMockBillingClient()
+		billingClient := mocks.NewBillingClient(t)
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 
 		spendsByNode := []capabilities.MeteringNodeDetail{
@@ -196,7 +165,8 @@ func Test_Report_Settle(t *testing.T) {
 	})
 
 	t.Run("returns an error if Deduct is not called first", func(t *testing.T) {
-		billingClient := newMockBillingClient()
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 		err := report.Reserve(t.Context())
 		require.NoError(t, err)
@@ -211,7 +181,8 @@ func Test_Report_Settle(t *testing.T) {
 	})
 
 	t.Run("returns an error if step already exists", func(t *testing.T) {
-		billingClient := newMockBillingClient()
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 		err := report.Reserve(t.Context())
 		require.NoError(t, err)
@@ -229,7 +200,8 @@ func Test_Report_Settle(t *testing.T) {
 	})
 
 	t.Run("ignores invalid spend values", func(t *testing.T) {
-		billingClient := newMockBillingClient()
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 		err := report.Reserve(t.Context())
 		require.NoError(t, err)
@@ -247,7 +219,8 @@ func Test_Report_Settle(t *testing.T) {
 	})
 
 	t.Run("does not error when spend exceeds reservation", func(t *testing.T) {
-		billingClient := newMockBillingClient()
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 		err := report.Reserve(t.Context())
 		require.NoError(t, err)
@@ -268,7 +241,8 @@ func Test_Report_FormatReport(t *testing.T) {
 	t.Parallel()
 
 	t.Run("does not contain metadata", func(t *testing.T) {
-		billingClient := newMockBillingClient()
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 		err := report.Reserve(t.Context())
 		require.NoError(t, err)
@@ -278,8 +252,9 @@ func Test_Report_FormatReport(t *testing.T) {
 
 	t.Run("contains all step data", func(t *testing.T) {
 		numSteps := 100
-		billingClient := newMockBillingClient()
+		billingClient := mocks.NewBillingClient(t)
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
 		err := report.Reserve(t.Context())
 		require.NoError(t, err)
 
@@ -311,7 +286,7 @@ func Test_Report_SendReceipt(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns an error if not initialized", func(t *testing.T) {
-		billingClient := newMockBillingClient()
+		billingClient := mocks.NewBillingClient(t)
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 		err := report.SendReceipt(t.Context())
 		require.ErrorIs(t, err, ErrNoReserve)
@@ -319,8 +294,9 @@ func Test_Report_SendReceipt(t *testing.T) {
 
 	t.Run("returns an error if unable to call billing client", func(t *testing.T) {
 		someErr := errors.New("error")
-		billingClient := newMockBillingClient()
-		billingClient.SetSubmitWorkflowReceipt(nil, someErr)
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
+		billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(nil, someErr)
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 		err := report.Reserve(t.Context())
 		require.NoError(t, err)
@@ -329,18 +305,19 @@ func Test_Report_SendReceipt(t *testing.T) {
 	})
 
 	t.Run("returns an error if billing client call is unsuccessful", func(t *testing.T) {
-		billingClient := newMockBillingClient()
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
 		err := report.Reserve(t.Context())
 		require.NoError(t, err)
 
 		// errors on nil response
-		billingClient.SetSubmitWorkflowReceipt(nil, nil)
+		billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(nil, nil)
 		err = report.SendReceipt(t.Context())
 		require.ErrorIs(t, err, ErrReceiptFailed)
 
 		// errors on unsuccessful response
-		billingClient.SetSubmitWorkflowReceipt(&billing.SubmitWorkflowReceiptResponse{Success: false}, nil)
+		billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(&billing.SubmitWorkflowReceiptResponse{Success: false}, nil)
 		err = report.SendReceipt(t.Context())
 		require.ErrorIs(t, err, ErrReceiptFailed)
 	})
@@ -351,72 +328,117 @@ type LabeledError struct {
 	label string
 }
 
-// Test_MeterReports tests the Add, Get, Delete, and Len methods of a MeterReports.
-// It also tests concurrent safe access.
 func Test_MeterReports(t *testing.T) {
-	billingClient := newMockBillingClient()
-	mrs := NewReports(billingClient, "", "", logger.Test(t))
-	assert.Equal(t, 0, mrs.Len())
-
 	workflowExecutionID1 := "exec1"
 	workflowExecutionID2 := "exec2"
+	capabilityCall1 := "ref1"
 
-	goRoutines := 3
-	actions := 4
-	possibleErrs := goRoutines * actions
-	errs := make(chan LabeledError, possibleErrs)
-	wg := sync.WaitGroup{}
-	wg.Add(3)
-
-	go func() {
+	t.Run("happy path", func(t *testing.T) {
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
+		billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
+		mrs := NewReports(billingClient, testAccountID, testWorkflowID, logger.Test(t))
 		r, err := mrs.Start(t.Context(), workflowExecutionID1)
-		errs <- LabeledError{err: err, label: workflowExecutionID1}
-		err = r.Deduct("ref1", 1)
-		errs <- LabeledError{err: err, label: workflowExecutionID1}
-		err = r.Settle("ref1", []capabilities.MeteringNodeDetail{})
-		errs <- LabeledError{err: err, label: workflowExecutionID1}
+		require.NoError(t, err)
+		err = r.Deduct(capabilityCall1, 1)
+		require.NoError(t, err)
+		err = r.Settle(capabilityCall1, []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "1", SpendUnit: testUnitA, SpendValue: "0.8"},
+			{Peer2PeerID: "2", SpendUnit: testUnitA, SpendValue: "0.9"},
+			{Peer2PeerID: "3", SpendUnit: testUnitA, SpendValue: "1"},
+			{Peer2PeerID: "4", SpendUnit: testUnitA, SpendValue: "1"},
+		})
+		require.NoError(t, err)
 		err = mrs.End(t.Context(), workflowExecutionID1)
-		errs <- LabeledError{err: err, label: workflowExecutionID1}
-		wg.Done()
-	}()
+		require.NoError(t, err)
+	})
 
-	go func() {
-		r, err := mrs.Start(t.Context(), workflowExecutionID2)
-		errs <- LabeledError{err: err, label: workflowExecutionID2}
-		err = r.Deduct("ref1", 1)
-		errs <- LabeledError{err: err, label: workflowExecutionID2}
-		err = r.Settle("ref1", []capabilities.MeteringNodeDetail{})
-		errs <- LabeledError{err: err, label: workflowExecutionID2}
-		err = mrs.End(t.Context(), workflowExecutionID2)
-		errs <- LabeledError{err: err, label: workflowExecutionID2}
-		wg.Done()
-	}()
-
-	go func() {
+	t.Run("happy path in metering mode", func(t *testing.T) {
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(nil, errors.New("cannot"))
+		billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
+		mrs := NewReports(billingClient, testAccountID, testWorkflowID, logger.Test(t))
 		r, err := mrs.Start(t.Context(), workflowExecutionID1)
-		errs <- LabeledError{err: err, label: workflowExecutionID1}
-		err = r.Deduct("ref1", 1)
-		errs <- LabeledError{err: err, label: workflowExecutionID1}
-		err = r.Settle("ref1", []capabilities.MeteringNodeDetail{})
-		errs <- LabeledError{err: err, label: workflowExecutionID1}
+		require.NoError(t, err)
+		err = r.Deduct(capabilityCall1, 1)
+		require.NoError(t, err)
+		err = r.Settle(capabilityCall1, []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "1", SpendUnit: testUnitA, SpendValue: "1"},
+			{Peer2PeerID: "2", SpendUnit: testUnitA, SpendValue: "1"},
+			{Peer2PeerID: "3", SpendUnit: testUnitA, SpendValue: "1"},
+			{Peer2PeerID: "4", SpendUnit: testUnitA, SpendValue: "1"},
+		})
+		require.NoError(t, err)
 		err = mrs.End(t.Context(), workflowExecutionID1)
-		errs <- LabeledError{err: err, label: workflowExecutionID1}
-		wg.Done()
-	}()
+		require.NoError(t, err)
+	})
 
-	wg.Wait()
+	t.Run("has concurrent safe access", func(t *testing.T) {
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
+		billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
+		mrs := NewReports(billingClient, "", "", logger.Test(t))
+		assert.Equal(t, 0, mrs.Len())
 
-	// // wait for all to finish
-	for i := 0; i < possibleErrs; i++ {
-		lErr := <-errs
-		require.NoError(t, lErr.err)
-	}
+		goRoutines := 3
+		actions := 4
+		possibleErrs := goRoutines * actions
+		errs := make(chan LabeledError, possibleErrs)
+		wg := sync.WaitGroup{}
+		wg.Add(3)
+
+		go func() {
+			r, err := mrs.Start(t.Context(), workflowExecutionID1)
+			errs <- LabeledError{err: err, label: workflowExecutionID1}
+			err = r.Deduct(capabilityCall1, 1)
+			errs <- LabeledError{err: err, label: workflowExecutionID1}
+			err = r.Settle(capabilityCall1, []capabilities.MeteringNodeDetail{})
+			errs <- LabeledError{err: err, label: workflowExecutionID1}
+			err = mrs.End(t.Context(), workflowExecutionID1)
+			errs <- LabeledError{err: err, label: workflowExecutionID1}
+			wg.Done()
+		}()
+
+		go func() {
+			r, err := mrs.Start(t.Context(), workflowExecutionID2)
+			errs <- LabeledError{err: err, label: workflowExecutionID2}
+			err = r.Deduct(capabilityCall1, 1)
+			errs <- LabeledError{err: err, label: workflowExecutionID2}
+			err = r.Settle(capabilityCall1, []capabilities.MeteringNodeDetail{})
+			errs <- LabeledError{err: err, label: workflowExecutionID2}
+			err = mrs.End(t.Context(), workflowExecutionID2)
+			errs <- LabeledError{err: err, label: workflowExecutionID2}
+			wg.Done()
+		}()
+
+		go func() {
+			r, err := mrs.Start(t.Context(), workflowExecutionID1)
+			errs <- LabeledError{err: err, label: workflowExecutionID1}
+			err = r.Deduct(capabilityCall1, 1)
+			errs <- LabeledError{err: err, label: workflowExecutionID1}
+			err = r.Settle(capabilityCall1, []capabilities.MeteringNodeDetail{})
+			errs <- LabeledError{err: err, label: workflowExecutionID1}
+			err = mrs.End(t.Context(), workflowExecutionID1)
+			errs <- LabeledError{err: err, label: workflowExecutionID1}
+			wg.Done()
+		}()
+
+		wg.Wait()
+
+		// // wait for all to finish
+		for i := 0; i < possibleErrs; i++ {
+			lErr := <-errs
+			require.NoError(t, lErr.err)
+		}
+	})
 }
 
 func Test_MeterReports_Length(t *testing.T) {
 	t.Parallel()
 
-	billingClient := newMockBillingClient()
+	billingClient := mocks.NewBillingClient(t)
+	billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
+	billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
 	mrs := NewReports(billingClient, "", "", logger.Test(t))
 
 	_, err := mrs.Start(t.Context(), "exec1")
@@ -436,7 +458,8 @@ func Test_MeterReports_Start(t *testing.T) {
 	t.Parallel()
 
 	t.Run("can only start report once", func(t *testing.T) {
-		billingClient := newMockBillingClient()
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
 		mrs := NewReports(billingClient, "", "", logger.Test(t))
 		_, err := mrs.Start(t.Context(), "exec1")
 		require.NoError(t, err)
@@ -449,7 +472,8 @@ func Test_MeterReports_Get(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns when report exists", func(t *testing.T) {
-		billingClient := newMockBillingClient()
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
 		lggr := logger.Test(t)
 		mrs := NewReports(billingClient, "", "", lggr)
 		_, err := mrs.Start(t.Context(), "exec1")
@@ -459,7 +483,7 @@ func Test_MeterReports_Get(t *testing.T) {
 		require.NotEmpty(t, report)
 	})
 	t.Run("returns when no report exists", func(t *testing.T) {
-		billingClient := newMockBillingClient()
+		billingClient := mocks.NewBillingClient(t)
 		mrs := NewReports(billingClient, "", "", logger.Test(t))
 		report, exists := mrs.Get("exec1")
 		require.False(t, exists)
@@ -471,14 +495,16 @@ func Test_MeterReports_End(t *testing.T) {
 	t.Parallel()
 
 	t.Run("can only end existing report", func(t *testing.T) {
-		billingClient := newMockBillingClient()
+		billingClient := mocks.NewBillingClient(t)
 		mrs := NewReports(billingClient, "", "", logger.Test(t))
 		err := mrs.End(t.Context(), "exec1")
 		require.ErrorIs(t, err, ErrReportNotFound)
 	})
 
 	t.Run("cleans up report on successful transmission to billing client", func(t *testing.T) {
-		billingClient := newMockBillingClient()
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
+		billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
 		mrs := NewReports(billingClient, "", "", logger.Test(t))
 		_, err := mrs.Start(t.Context(), "exec1")
 		require.NoError(t, err)
@@ -489,8 +515,9 @@ func Test_MeterReports_End(t *testing.T) {
 	})
 
 	t.Run("cleans up report on failed transmission to billing client", func(t *testing.T) {
-		billingClient := newMockBillingClient()
-		billingClient.SetSubmitWorkflowReceipt(nil, errors.New("errrrr"))
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true}, nil)
+		billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(nil, errors.New("errrrr"))
 		mrs := NewReports(billingClient, "", "", logger.Test(t))
 		_, err := mrs.Start(t.Context(), "exec1")
 		require.NoError(t, err)
