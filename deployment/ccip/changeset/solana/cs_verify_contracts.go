@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 )
 
@@ -39,6 +40,7 @@ type VerifyBuildConfig struct {
 	// set this to timelock signer if the upgrade authority of the program is the timelock signer
 	// if not, set to deployer key
 	UpgradeAuthority solana.PublicKey
+	MCMS             *proposalutils.TimelockConfig
 }
 
 func runSolanaVerify(e cldf.Environment,

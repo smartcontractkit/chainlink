@@ -350,7 +350,6 @@ func doTestBilling(t *testing.T, mcms bool) {
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
 			ccipChangesetSolana.BillingTokenConfig{
 				ChainSelector: solChain,
-				TokenPubKey:   tokenAddress.String(),
 				Config: solFeeQuoter.BillingTokenConfig{
 					Enabled: true,
 					Mint:    tokenAddress,
@@ -368,7 +367,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 			ccipChangesetSolana.TokenTransferFeeForRemoteChainConfig{
 				ChainSelector:       solChain,
 				RemoteChainSelector: evmChain,
-				TokenPubKey:         tokenAddress.String(),
+				TokenPubKey:         tokenAddress,
 				Config: solFeeQuoter.TokenTransferFeeConfig{
 					MinFeeUsdcents:    800,
 					MaxFeeUsdcents:    1600,
@@ -405,7 +404,6 @@ func doTestBilling(t *testing.T, mcms bool) {
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
 			ccipChangesetSolana.BillingTokenConfig{
 				ChainSelector: solChain,
-				TokenPubKey:   tokenAddress.String(),
 				Config: solFeeQuoter.BillingTokenConfig{
 					Enabled: true,
 					Mint:    tokenAddress,
@@ -561,7 +559,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 			ccipChangesetSolana.WithdrawBilledFundsConfig{
 				ChainSelector: solChain,
 				TransferAll:   true,
-				TokenPubKey:   tokenAddress.String(),
+				TokenPubKey:   tokenAddress,
 				MCMS:          mcmsConfig,
 			},
 		),

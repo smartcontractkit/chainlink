@@ -47,15 +47,15 @@ var _ cldf.ChangeSet[ModifyPriceUpdaterConfig] = ModifyPriceUpdater
 // ADD BILLING TOKEN
 type BillingTokenConfig struct {
 	ChainSelector uint64
-	TokenPubKey   string // billing token mint address
 	Config        solFeeQuoter.BillingTokenConfig
-	// We have different instructions for add vs update, so we need to know which one to use
-	IsUpdate bool
-	MCMS     *proposalutils.TimelockConfig
+	MCMS          *proposalutils.TimelockConfig
+
+	// inferred from state
+	isUpdate bool
 }
 
 func (cfg *BillingTokenConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	tokenPubKey := cfg.Config.Mint
 	chainState := state.SolChains[cfg.ChainSelector]
 	if err := chainState.CommonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
@@ -78,7 +78,7 @@ func (cfg *BillingTokenConfig) Validate(e cldf.Environment, state stateview.CCIP
 	var token0ConfigAccount solFeeQuoter.BillingTokenConfigWrapper
 	if err := chain.GetAccountDataBorshInto(context.Background(), billingConfigPDA, &token0ConfigAccount); err == nil {
 		e.Logger.Infow("Billing token already exists. Configuring as update", "chainSelector", cfg.ChainSelector, "tokenPubKey", tokenPubKey.String())
-		cfg.IsUpdate = true
+		cfg.isUpdate = true
 	}
 	return nil
 }
@@ -94,7 +94,7 @@ func AddBillingToken(
 	routerAddress solana.PublicKey,
 ) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
-	tokenPubKey := solana.MustPublicKeyFromBase58(billingTokenConfig.Mint.String())
+	tokenPubKey := billingTokenConfig.Mint
 	tokenBillingPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenPubKey, feeQuoterAddress)
 	// we dont need to handle test router here because we explicitly create this and token Receiver for test router
 	billingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(routerAddress)
@@ -171,12 +171,12 @@ func AddBillingTokenChangeset(e cldf.Environment, cfg BillingTokenConfig) (cldf.
 
 	solFeeQuoter.SetProgramID(chainState.FeeQuoter)
 
-	txns, err := AddBillingToken(e, chain, chainState, cfg.Config, cfg.MCMS, cfg.IsUpdate, chainState.FeeQuoter, chainState.Router)
+	txns, err := AddBillingToken(e, chain, chainState, cfg.Config, cfg.MCMS, cfg.isUpdate, chainState.FeeQuoter, chainState.Router)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	tokenPubKey := cfg.Config.Mint
 	tokenBillingPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenPubKey, chainState.FeeQuoter)
 	if err := extendLookupTable(e, chain, chainState.OffRamp, []solana.PublicKey{tokenBillingPDA}); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to extend lookup table: %w", err)
@@ -202,15 +202,16 @@ func AddBillingTokenChangeset(e cldf.Environment, cfg BillingTokenConfig) (cldf.
 type TokenTransferFeeForRemoteChainConfig struct {
 	ChainSelector       uint64
 	RemoteChainSelector uint64
-	Config              solFeeQuoter.TokenTransferFeeConfig
-	TokenPubKey         string
-	MCMS                *proposalutils.TimelockConfig
+	// need to provide complete config, onchain does not do an upsert, it does a overwrite
+	Config      solFeeQuoter.TokenTransferFeeConfig
+	TokenPubKey solana.PublicKey
+	MCMS        *proposalutils.TimelockConfig
 }
 
 const MinDestBytesOverhead = 32
 
 func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	tokenPubKey := cfg.TokenPubKey
 	chainState := state.SolChains[cfg.ChainSelector]
 	if err := chainState.CommonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
@@ -243,7 +244,7 @@ func AddTokenTransferFeeForRemoteChain(e cldf.Environment, cfg TokenTransferFeeF
 
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	chainState := state.SolChains[cfg.ChainSelector]
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	tokenPubKey := cfg.TokenPubKey
 	remoteBillingPDA, _, _ := solState.FindFqPerChainPerTokenConfigPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.FeeQuoter)
 	feeQuoterUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
@@ -528,12 +529,12 @@ type WithdrawBilledFundsConfig struct {
 	ChainSelector uint64
 	TransferAll   bool                          // transfer all or specific amount
 	Amount        uint64                        // amount to transfer
-	TokenPubKey   string                        // billing token to transfer
+	TokenPubKey   solana.PublicKey              // billing token to transfer
 	MCMS          *proposalutils.TimelockConfig // timelock config for mcms
 }
 
 func (cfg WithdrawBilledFundsConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	tokenPubKey := cfg.TokenPubKey
 	chainState := state.SolChains[cfg.ChainSelector]
 	if err := chainState.CommonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
@@ -560,7 +561,7 @@ func WithdrawBilledFunds(e cldf.Environment, cfg WithdrawBilledFundsConfig) (cld
 	chainSel := cfg.ChainSelector
 	chain := e.BlockChains.SolanaChains()[chainSel]
 	chainState := s.SolChains[cfg.ChainSelector]
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	tokenPubKey := cfg.TokenPubKey
 	billingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(chainState.Router)
 	tokenProgramID, _ := chainState.TokenToTokenProgram(tokenPubKey)
 	tokenReceiverPDA, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, billingSignerPDA)

@@ -29,8 +29,10 @@
     - [Deploy New Token Pool Executable (Parnters)](#deploy-new-token-pool-executable-parnters)
   - [Adding Token Pools for Solana Tokens (Deploying Token Pool PDAs)](#adding-token-pools-for-solana-tokens-deploying-token-pool-pdas)
 
-
-
+# Set Rate limits (evm + solana lane)
+# Local build and retain keys (ohm testnet token pool example)
+# Transfer token pool ownership to timelock, transfer idl authority to timelock, transfer upgradeAuthority to timelock
+# Program verification after mcms
 
 ## Deploy Chain Contracts
 
