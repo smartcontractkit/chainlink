@@ -29,6 +29,7 @@ import (
 )
 
 func TestAddAptosLanes_Apply(t *testing.T) {
+	t.Parallel()
 	// Setup environment and config
 	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(
 		t,
