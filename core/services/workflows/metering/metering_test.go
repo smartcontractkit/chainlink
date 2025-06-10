@@ -121,7 +121,6 @@ func Test_medianSpend(t *testing.T) {
 			assert.Equal(t, tc.expected, medianSpend(tc.input).String())
 		})
 	}
-
 }
 
 func Test_Report_Reserve(t *testing.T) {
@@ -271,7 +270,8 @@ func Test_Report_FormatReport(t *testing.T) {
 	t.Run("does not contain metadata", func(t *testing.T) {
 		billingClient := newMockBillingClient()
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		report.Reserve(t.Context())
+		err := report.Reserve(t.Context())
+		require.NoError(t, err)
 		meteringReport := report.FormatReport()
 		require.Equal(t, meteringReport.Metadata, &events.WorkflowMetadata{})
 	})
@@ -280,7 +280,8 @@ func Test_Report_FormatReport(t *testing.T) {
 		numSteps := 100
 		billingClient := newMockBillingClient()
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		report.Reserve(t.Context())
+		err := report.Reserve(t.Context())
+		require.NoError(t, err)
 
 		expected := map[string]*events.MeteringReportStep{}
 
@@ -321,19 +322,21 @@ func Test_Report_SendReceipt(t *testing.T) {
 		billingClient := newMockBillingClient()
 		billingClient.SetSubmitWorkflowReceipt(nil, someErr)
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		report.Reserve(t.Context())
-		err := report.SendReceipt(t.Context())
+		err := report.Reserve(t.Context())
+		require.NoError(t, err)
+		err = report.SendReceipt(t.Context())
 		require.ErrorIs(t, err, someErr)
 	})
 
 	t.Run("returns an error if billing client call is unsuccessful", func(t *testing.T) {
 		billingClient := newMockBillingClient()
 		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		report.Reserve(t.Context())
+		err := report.Reserve(t.Context())
+		require.NoError(t, err)
 
 		// errors on nil response
 		billingClient.SetSubmitWorkflowReceipt(nil, nil)
-		err := report.SendReceipt(t.Context())
+		err = report.SendReceipt(t.Context())
 		require.ErrorIs(t, err, ErrReceiptFailed)
 
 		// errors on unsuccessful response
