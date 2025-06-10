@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	beholderpb "github.com/smartcontractkit/chainlink-common/pkg/beholder/pb"
@@ -35,7 +36,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	meteringmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -334,10 +336,14 @@ func TestEngine_MockCapabilityRegistry_NoDAGBinary(t *testing.T) {
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil).Once()
 
+	billingClient := mocks.NewBillingClient(t)
+	billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: metering.ComputeResourceDimension, ConversionRate: "0.0001"}}}, nil)
+	billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
+
 	cfg := defaultTestConfig(t)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.BillingClient = new(meteringmocks.BillingClient)
+	cfg.BillingClient = billingClient
 
 	initDoneCh := make(chan error, 1)
 	subscribedToTriggersCh := make(chan []string, 1)
