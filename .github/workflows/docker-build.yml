@@ -236,7 +236,7 @@ jobs:
     needs: [ docker-core-plugins-testing ]
     permissions:
       contents: read
-    uses: smartcontractkit/chainlink/.github/workflows/cre-workflow-load-tests.yaml@CAPPL-885-workflow-load-test-ci
+    uses: smartcontractkit/chainlink/.github/workflows/cre-workflow-load-tests.yaml@2a444d257b8a08428294e911175914001f6d8ceb
     with:
       chainlink_image_tag: ${{ needs.docker-core-plugins-testing.outputs.docker-manifest-tag }}
       chainlink_version: develop
