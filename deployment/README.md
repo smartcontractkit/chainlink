@@ -96,7 +96,7 @@ TODO: Add various examples in deployment/example.
 - Support non-EVMs (yet to be implemented)
 
 /deployment/common
-- Deploymnet/configuration/view logic for product agnostic
+- Deployment/configuration/view logic for product agnostic
 contracts (like MCMS, LinkToken etc) which can be shared
 by products.
 
