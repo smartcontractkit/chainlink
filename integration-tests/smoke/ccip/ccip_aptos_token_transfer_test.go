@@ -132,6 +132,12 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 	deployerSourceChain := e.Env.BlockChains.AptosChains()[sourceChain].DeployerSigner.AccountAddress()
 	deployerDestChain := e.Env.BlockChains.EVMChains()[destChain].DeployerKey
 
+	// Chain State
+	destChainState := state.Chains[destChain]
+
+	// Receiver Address
+	ccipReceiverAddress := destChainState.Receiver.Address()
+
 	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Aptos): ", destChain)
 
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
@@ -143,6 +149,9 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
+
+	// Fee Tokens
+	var NativeFeeToken = "0xa" // coin
 
 	tcs := []testhelpers.TestTransferRequest{
 		{
@@ -157,8 +166,51 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 					Amount: 1e8,
 				},
 			},
-			FeeToken:  "0xa",
+			FeeToken:  NativeFeeToken,
 			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(100000, true),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{
+					Token:  evmToken.Address().Bytes(),
+					Amount: big.NewInt(1e18),
+				},
+			},
+		},
+		{
+			Name:           "Send token and message to EOA",
+			SourceChain:    sourceChain,
+			DestChain:      destChain,
+			Receiver:       deployerDestChain.From.Bytes(),
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			Data:           []byte("Hello, World!"),
+			AptosTokens: []testhelpers.AptosTokenAmount{
+				{
+					Token:  aptosToken,
+					Amount: 1e8,
+				},
+			},
+			FeeToken:  NativeFeeToken,
+			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(0, true),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{
+					Token:  evmToken.Address().Bytes(),
+					Amount: big.NewInt(1e18),
+				},
+			},
+		},
+		{
+			Name:           "Send token to Receiver",
+			SourceChain:    sourceChain,
+			DestChain:      destChain,
+			Receiver:       ccipReceiverAddress.Bytes(),
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			AptosTokens: []testhelpers.AptosTokenAmount{
+				{
+					Token:  aptosToken,
+					Amount: 1e8,
+				},
+			},
+			FeeToken:  NativeFeeToken,
+			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(0, true),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  evmToken.Address().Bytes(),
