@@ -536,7 +536,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 
 	hooks := v2.LifecycleHooks{
 		OnResultReceived: func(result *wasmpb.ExecutionResult) {
-			err = resultLogger.Emit(context.Background(), fmt.Sprintf("V2 Workflow Execution Result: %s", result.String()))
+			err = resultLogger.Emit(context.Background(), "V2 Workflow Execution Result: "+result.String())
 			if err != nil {
 				h.lggr.Errorw("failed to emit workflow execution result", "error", err, "result", result.String())
 			}
@@ -560,7 +560,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 
 		BeholderEmitter: h.emitter,
 		BillingClient:   h.billingClient,
-		Hooks: hooks,
+		Hooks:           hooks,
 	}
 	return v2.NewEngine(ctx, cfg)
 }
