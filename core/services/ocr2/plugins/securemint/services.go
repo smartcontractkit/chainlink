@@ -8,12 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	sm_ea "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/external_adapter"
-	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
-	ocr2plus_types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
-	sm_plugin "github.com/smartcontractkit/por_mock_ocr3plugin/por"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -21,9 +15,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	sm_plugin_config "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/securemint/config"
+	sm_ea "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/ea"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
+	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	ocr2plus_types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
+	sm_plugin "github.com/smartcontractkit/por_mock_ocr3plugin/por"
 )
 
 type SecureMintConfig interface {

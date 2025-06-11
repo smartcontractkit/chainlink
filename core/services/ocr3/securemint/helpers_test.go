@@ -32,7 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
-	sm_ea "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/external_adapter"
+	sm_ea "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/ea"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
@@ -162,7 +162,6 @@ func addSecureMintOCRJobs(
 	nodes []Node,
 	configuratorAddress common.Address,
 ) (jobIDs map[int]int32) {
-
 	// node idx => job id
 	jobIDs = make(map[int]int32)
 
@@ -177,7 +176,7 @@ func addSecureMintOCRJobs(
 		require.NoError(t, err)
 		t.Logf("Using transmitter address %s for node %d", addresses[0].String(), i)
 
-		jobID := addSecureMintJob(i,
+		jobID := addSecureMintJob(
 			t,
 			node,
 			configuratorAddress,
@@ -189,7 +188,7 @@ func addSecureMintOCRJobs(
 	return jobIDs
 }
 
-func addSecureMintJob(i int,
+func addSecureMintJob(
 	t *testing.T,
 	node Node,
 	configuratorAddress common.Address,
@@ -213,8 +212,6 @@ func addSecureMintJob(i int,
 }
 
 func getSecureMintJobSpec(ocrContractAddress, keyBundleID, transmitterAddress, bridgeName string) string {
-
-	// TODO(gg): update pluginConfig
 
 	return fmt.Sprintf(`
 type               = "offchainreporting2"
@@ -252,75 +249,11 @@ maxChains = 5
 		bridgeName)         // bridge name
 }
 
-//https://chainlink-core.slack.com/archives/C090PQH50M6/p1749483857095389?thread_ts=1749482941.061609&cid=C090PQH50M6:
-/**
-Input
-{
-    "data": {
-        "token": "eth",
-        "reserves": "platform",
-        "supplyChains": [
-            "5009297550715157269"
-        ],
-        "supplyChainBlocks": [
-            0
-        ]
-    }
-}
-Output
-{
-    "data": {
-        "mintables": {
-            "5009297550715157269": {
-                "mintable": "0",
-                "block": 0
-            }
-        },
-        "reserveInfo": {
-            "reserveAmount": "10332550000000000000000",
-            "timestamp": 1749483841486
-        },
-        "latestRelevantBlocks": {
-            "5009297550715157269": 22667990
-        },
-        "supplyDetails": {
-            "supply": "47550052000000000000000000",
-            "premint": "0",
-            "chains": {
-                "5009297550715157269": {
-                    "latest_block": 22667990,
-                    "response_block": 0,
-                    "request_block": 22667990,
-                    "mintable": "0",
-                    "token_supply": "44153737311060787567559446",
-                    "token_native_mint": "0",
-                    "token_ccip_mint": "1637953921482741588493980",
-                    "token_ccip_burn": "5034268610421954020934534",
-                    "token_pre_mint": "0",
-                    "aggregate_pre_mint": false
-                }
-            }
-        }
-    },
-    "statusCode": 200,
-    "result": 0,
-    "timestamps": {
-        "providerDataRequestedUnixMs": 1749483841817,
-        "providerDataReceivedUnixMs": 1749483841984
-    },
-    "meta": {
-        "adapterName": "SECURE_MINT",
-        "metrics": {
-            "feedId": "{\"token\":\"eth\",\"reserves\":\"platform\",\"supplyChains\":[\"5009297550715157269\"],\"supplyChainBlocks\":[0]}"
-        }
-    }
-}
-*/
-
+// Based on https://chainlink-core.slack.com/archives/C090PQH50M6/p1749483857095389?thread_ts=1749482941.061609&cid=C090PQH50M6
 func createSecureMintBridge(t *testing.T, name string, i int, borm bridges.ORM) (bridgeName string) {
 	ctx := testutils.Context(t)
 
-	initialResponse := sm_ea.EAResponse{
+	initialResponse := sm_ea.Response{
 		Mintables: map[string]sm_ea.MintableInfo{},
 		LatestRelevantBlocks: map[string]uint64{
 			"8953668971247136127": 5, // "bitcoin-testnet-rootstock"
@@ -334,13 +267,13 @@ func createSecureMintBridge(t *testing.T, name string, i int, borm bridges.ORM) 
 	jsonInitialResp, err := json.Marshal(initialResponse)
 	require.NoError(t, err)
 
-	laterResponse := sm_ea.EAResponse{
+	fullResponse := sm_ea.Response{
 		Mintables: map[string]sm_ea.MintableInfo{
-			"8953668971247136127": sm_ea.MintableInfo{
+			"8953668971247136127": {
 				Block:    uint64(5),
 				Mintable: "10",
 			},
-			"729797994450396300": sm_ea.MintableInfo{
+			"729797994450396300": {
 				Block:    uint64(5),
 				Mintable: "25",
 			},
@@ -354,67 +287,45 @@ func createSecureMintBridge(t *testing.T, name string, i int, borm bridges.ORM) 
 			Timestamp:     time.Now().UnixMilli(),
 		},
 	}
-	jsonLaterResp, err := json.Marshal(laterResponse)
+	jsonFullResponse, err := json.Marshal(fullResponse)
 	require.NoError(t, err)
 
+	//nolint:testifylint // allow require.NoError in the http server
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		// TODO(gg): assert on the EA request format here
-		// require.JSONEq(t, `{"meta":{"latestAnswer":"", "updatedAt": ""}}`, string(b))
-
 		body, err := io.ReadAll(req.Body)
 		defer req.Body.Close()
 		require.NoError(t, err)
-
-		// 		ds1 [type=bridge name="%s" timeout=0 requestData=<{"data": {"address": "0x1234"}}>]
-
-		// ds1 [type=bridge name=\"bridge-api0\" requestData="{\\\"data\\": {\\\"from\\\":\\\"LINK\\\",\\\"to\\\":\\\"ETH\\\"}}"];
-
-		//     submit [type=bridge name="substrate-adapter1" requestData=<{ "value": $(parse) }>]
-
-		// 		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		// 			b, err := io.ReadAll(req.Body)
-		// 			require.NoError(t, err)
-		// 			var m bridges.BridgeMetaDataJSON
-		// 			require.NoError(t, json.Unmarshal(b, &m))
-		// 			if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
-		// 				metaLock.Lock()
-		// 				delete(expectedMeta, m.Meta.LatestAnswer.String())
-		// 				metaLock.Unlock()
-		// 			}
-		// 			res.WriteHeader(http.StatusOK)
-		// 			_, err = res.Write([]byte(`{"data":10}`))
-		// 			require.NoError(t, err)
-
 		t.Logf("Received request for secure mint bridge %s on node %d: path %s, request body %s", name, i, req.URL.String(), string(body))
 
-		// First parse the request body into a map to extract the data field
+		// Parse the request body into a map to extract the 'data' field
 		var requestMap map[string]any
 		err = json.Unmarshal(body, &requestMap)
 		require.NoError(t, err, "Failed to parse request body as map for bridge %s on node %d", name, i)
 
-		// Extract the data field
 		dataField, exists := requestMap["data"]
 		require.True(t, exists, "Request body should contain 'data' field for bridge %s on node %d", name, i)
 
-		// Marshal the data field back to JSON and parse as EARequest
+		// Marshal the data field back to JSON and parse as ea.Request
 		dataBytes, err := json.Marshal(dataField)
 		require.NoError(t, err, "Failed to marshal data field for bridge %s on node %d", name, i)
-		var eaRequest sm_ea.EARequest
+		var eaRequest sm_ea.Request
 		err = json.Unmarshal(dataBytes, &eaRequest)
-		require.NoError(t, err, "Failed to parse request body as EARequest for bridge %s on node %d", name, i)
+		require.NoError(t, err, "Failed to parse request body as ea.Request for bridge %s on node %d", name, i)
 
-		// Assert on the parsed EARequest
+		// Validate the parsed ea.Request
 		assert.Equal(t, "eth", eaRequest.Token, "Token should be 'eth'")
 		assert.Equal(t, "platform", eaRequest.Reserves, "Reserves should be 'platform'")
 
-		if len(eaRequest.SupplyChains) == 0 && len(eaRequest.SupplyChains) == 0 {
+		// Return initial EA response if empty request (first round)
+		if len(eaRequest.SupplyChains) == 0 && len(eaRequest.SupplyChainBlocks) == 0 {
 			t.Logf("Received empty supply chains for secure mint bridge %s on node %d, returning initial response", name, i)
 			res.WriteHeader(http.StatusOK)
-			_, err = res.Write([]byte(fmt.Sprintf(`{"data": %s}`, string(jsonInitialResp))))
+			_, err = res.Write(fmt.Appendf(nil, `{"data": %s}`, string(jsonInitialResp)))
 			require.NoError(t, err)
 			return
 		}
 
+		// Validate non-empty request
 		assert.Contains(t, eaRequest.SupplyChains, "8953668971247136127", "Supply chains should contain bitcoin-testnet-rootstock")
 		assert.Contains(t, eaRequest.SupplyChains, "729797994450396300", "Supply chains should contain telos-evm-testnet")
 		assert.Len(t, eaRequest.SupplyChains, 2, "Should have exactly 2 supply chains")
@@ -423,34 +334,9 @@ func createSecureMintBridge(t *testing.T, name string, i int, borm bridges.ORM) 
 		assert.GreaterOrEqual(t, eaRequest.SupplyChainBlocks[0], uint64(5), "Supply chain block should be at least 5 (based on initial EA response)")
 		assert.GreaterOrEqual(t, eaRequest.SupplyChainBlocks[1], uint64(5), "Supply chain block should be at least 5 (based on initial EA response)")
 
-		// {
-		//     "data": {
-		//         "token": "eth",
-		//         "reserves": "platform",
-		//         "supplyChains": [
-		//             "5009297550715157269"
-		//         ],
-		//         "supplyChainBlocks": [
-		//             0
-		//         ]
-		//     }
-		// }
-
-		// if body == nil || string(body) == `{"data":{"token":"eth","reserves":"platform"}}` {
-		// 	t.Logf("Received empty request body for secure mint bridge %s on node %d, returning initial response", name, i)
-		// 	res.WriteHeader(http.StatusOK)
-		// 	_, err = res.Write([]byte(fmt.Sprintf(`{"data": %s}`, string(jsonInitialResp))))
-		// 	require.NoError(t, err)
-		// 	return
-		// }
-
-		// Check if the request body contains the expected data
-
-		// assert.JSONEqf(t, `{"data":{"token":"eth","reserves":"platform","supplyChains":["8953668971247136127", "729797994450396300"],"supplyChainBlocks":[5, 5]}}`, string(body),
-		// 	"Request body does not match empty body or expected format for secure mint bridge %s on node %d", name, i)
-
+		// Return full EA response with mintable amounts
 		res.WriteHeader(http.StatusOK)
-		resp := fmt.Sprintf(`{"data": %s}`, string(jsonLaterResp))
+		resp := fmt.Sprintf(`{"data": %s}`, string(jsonFullResponse))
 		t.Logf("Responding from secure mint bridge %s on node %d with: %s", name, i, resp)
 		_, err = res.Write([]byte(resp))
 		require.NoError(t, err)
@@ -460,6 +346,7 @@ func createSecureMintBridge(t *testing.T, name string, i int, borm bridges.ORM) 
 		bridge.Close()
 	})
 	t.Logf("Created secure mint bridge %s on node %d with URL %s", name, i, bridge.URL)
+
 	u, _ := url.Parse(bridge.URL)
 	bridgeName = fmt.Sprintf("bridge-%s-%d", name, i)
 	require.NoError(t, borm.CreateBridgeType(ctx, &bridges.BridgeType{

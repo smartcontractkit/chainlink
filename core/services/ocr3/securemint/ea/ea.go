@@ -1,4 +1,4 @@
-package external_adapter
+package ea
 
 import (
 	"context"
@@ -32,7 +32,7 @@ func NewExternalAdapter(runner pipeline.Runner, job job.Job, spec pipeline.Spec,
 }
 
 // Ensure externalAdapter implements por.ExternalAdapter
-func (ea *externalAdapter) GetChains(ctx context.Context) ([]por.ChainSelector, error) {
+func (ea *externalAdapter) GetChains(_ context.Context) ([]por.ChainSelector, error) {
 	// TODO(gg): remove this when it's removed from the plugin's adapter
 
 	ea.lggr.Warnf("GetChains not implemented yet, returning mock data")
@@ -47,7 +47,7 @@ func (ea *externalAdapter) GetChains(ctx context.Context) ([]por.ChainSelector, 
 func (ea *externalAdapter) GetPayload(ctx context.Context, blocks por.Blocks) (por.ExternalAdapterPayload, error) {
 	ea.lggr.Debugf("GetPayload called with blocks: %v", blocks)
 
-	req := EARequest{
+	req := Request{
 		Token:    "eth",
 		Reserves: "platform",
 	}
@@ -104,7 +104,7 @@ func (ea *externalAdapter) GetPayload(ctx context.Context, blocks por.Blocks) (p
 
 				ea.lggr.Debugw("GetPayload result as map marshaled to JSON", "json", string(b))
 
-				var eaResp EAResponse
+				var eaResp Response
 				err = json.Unmarshal(b, &eaResp)
 				if err != nil {
 					return por.ExternalAdapterPayload{}, fmt.Errorf("failed to unmarshal EA response: %w", err)
