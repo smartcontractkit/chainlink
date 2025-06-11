@@ -291,7 +291,6 @@ func overtimeContext(ctx context.Context) (context.Context, context.CancelFunc) 
 }
 
 func (r *runner) ExecuteRun(ctx context.Context, spec Spec, vars Vars) (*Run, TaskRunResults, error) {
-	r.lggr.Infof("TRACE ExecuteRun Executing run for spec ID %v, job ID %v, job name %s", spec.ID, spec.JobID, spec.JobName)
 	// Pipeline runs may return results after the context is cancelled, so we modify the
 	// deadline to give them time to return before the parent context deadline.
 	var cancel func()
@@ -381,9 +380,9 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Vars) TaskRunResults {
 
 	l := r.lggr.With("run.ID", run.ID, "executionID", uuid.New(), "specID", run.PipelineSpecID, "jobID", run.PipelineSpec.JobID, "jobName", run.PipelineSpec.JobName)
-	// if r.config.VerboseLogging() {
-	l.Debug("Initiating tasks for pipeline run of spec")
-	// }
+	if r.config.VerboseLogging() {
+		l.Debug("Initiating tasks for pipeline run of spec")
+	}
 
 	scheduler := newScheduler(pipeline, run, vars, l)
 	go scheduler.Run()
@@ -618,7 +617,6 @@ func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
 
 // ExecuteAndInsertFinishedRun executes a run in memory then inserts the finished run/task run records, returning the final result
 func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, saveSuccessfulTaskRuns bool) (runID int64, results TaskRunResults, err error) {
-	r.lggr.Infof("TRACE ExecuteAndInsertFinishedRun Executing run for spec ID %v, job ID %v, job name %s", spec.ID, spec.JobID, spec.JobName)
 	run, trrs, err := r.ExecuteRun(ctx, spec, vars)
 	if err != nil {
 		return 0, trrs, pkgerrors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
@@ -641,7 +639,6 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 }
 
 func (r *runner) Run(ctx context.Context, run *Run, saveSuccessfulTaskRuns bool, fn func(tx sqlutil.DataSource) error) (incomplete bool, err error) {
-	r.lggr.Infof("TRACE Starting pipeline run for spec ID %v, job ID %v, job name %s", run.PipelineSpecID, run.JobID, run.PipelineSpec.JobName)
 	pipeline, err := r.InitializePipeline(run.PipelineSpec)
 	if err != nil {
 		return false, err

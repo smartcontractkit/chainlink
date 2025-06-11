@@ -233,10 +233,7 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 
 	var ms services.MultiStart
 	for _, srv := range srvs {
-		js.lggr.Infof("TRACE JobSpawner: Starting service %T for job %d", srv, jb.ID)
-
 		err = ms.Start(ctx, srv)
-		js.lggr.Infof("TRACE JobSpawner: Started service %T for job %d, err: %v", srv, jb.ID, err)
 		if err != nil {
 			lggr.Criticalw("Error starting service for job", "err", err)
 			return err
