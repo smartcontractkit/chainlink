@@ -7,6 +7,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -23,7 +24,7 @@ func Test_SeqDeploySolTokens(t *testing.T) {
 
 	// Boots up a Solana testing chain in a container. This is done outside of the tests to
 	// avoid booting up the container for each test.
-	chains := memory.NewMemoryChainsSol(t, 1)
+	chains := cldf_chain.NewBlockChainsFromSlice(memory.NewMemoryChainsSol(t, 1)).SolanaChains()
 
 	tests := []struct {
 		name               string

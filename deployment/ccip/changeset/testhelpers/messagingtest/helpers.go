@@ -12,6 +12,7 @@ import (
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
@@ -83,7 +84,6 @@ type TestSetup struct {
 type TestCase struct {
 	TestSetup
 	ValidationType         ValidationType
-	Replayed               bool
 	Nonce                  *uint64
 	Receiver               []byte
 	MsgData                []byte
@@ -178,6 +178,23 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		tc.T.Errorf("unsupported source chain: %v", family)
 	}
 
+	onRampAddr, err := tc.OnchainState.GetOnRampAddressBytes(tc.SourceChain)
+	require.NoError(t, err)
+	// Ensure CCIPMessageSent event filter is registered
+	// Sending message too early could result in LogPoller missing the send event
+	err = testhelpers.WaitForEventFilterRegistration(t, tc.Env.Offchain, tc.SourceChain, consts.EventNameCCIPMessageSent, onRampAddr)
+	require.NoError(t, err)
+	// Ensure CommitReportAccepted and ExecutionStateChanged event filters are registered for the offramp
+	// The LogPoller could pick up the message sent event but miss the commit or execute event
+	offRampAddr, err := tc.OnchainState.GetOffRampAddressBytes(tc.DestChain)
+	require.NoError(t, err)
+	err = testhelpers.WaitForEventFilterRegistration(t, tc.Env.Offchain, tc.DestChain, consts.EventNameCommitReportAccepted, offRampAddr)
+	require.NoError(t, err)
+	err = testhelpers.WaitForEventFilterRegistration(t, tc.Env.Offchain, tc.DestChain, consts.EventNameExecutionStateChanged, offRampAddr)
+	require.NoError(t, err)
+
+	t.Logf("%s, %s, and %s filters registered", consts.EventNameCCIPMessageSent, consts.EventNameCommitReportAccepted, consts.EventNameExecutionStateChanged)
+
 	if tc.NumberOfMessages == 0 {
 		tc.NumberOfMessages = 1 // default to sending one message if not specified
 	}
@@ -213,14 +230,6 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		// return only last msg event
 		out.MsgSentEvent = msgSentEventLocal
 		msgSentEvents[i] = msgSentEventLocal
-	}
-
-	// HACK: if the node booted or the logpoller filters got registered after ccipSend,
-	// we need to replay missed logs
-	if !tc.Replayed {
-		require.NotNil(tc.T, tc.DeployedEnv)
-		testhelpers.SleepAndReplay(tc.T, tc.DeployedEnv.Env, 30*time.Second, tc.SourceChain, tc.DestChain)
-		out.Replayed = true
 	}
 
 	// Perform validation based on ValidationType
