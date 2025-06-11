@@ -9,8 +9,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
@@ -76,13 +76,13 @@ func New(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logger.Log
 }
 
 func newMaster(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logger.Logger) *master {
-	orm := NewORM(ds, lggr)
+	orm := NewORM(ds)
 	km := &keyManager{
 		orm:          orm,
 		keystateORM:  orm,
 		scryptParams: scryptParams,
 		lock:         &sync.RWMutex{},
-		logger:       lggr.Named("KeyStore"),
+		logger:       logger.Named(lggr, "KeyStore"),
 	}
 
 	return &master{

@@ -21,12 +21,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
+
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
@@ -47,7 +49,6 @@ import (
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
@@ -621,7 +622,7 @@ func (s *StreamsGun) precomputeReports() {
 		}
 	}
 
-	event, eventID, err := createFeedReport(logger.NullLogger, price, uint64(timestamp.UnixNano()), feeds, s.keyBundles) //nolint:gosec // G115 don't care in test code
+	event, eventID, err := createFeedReport(logger.Nop(), price, uint64(timestamp.UnixNano()), feeds, s.keyBundles) //nolint:gosec // G115 don't care in test code
 	if err != nil {
 		panic(err)
 	}

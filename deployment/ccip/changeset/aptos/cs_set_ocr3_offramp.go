@@ -5,7 +5,7 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms"
-	"github.com/smartcontractkit/mcms/types"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -37,7 +37,7 @@ func (cs SetOCR3Offramp) VerifyPreconditions(env cldf.Environment, config v1_6.S
 
 func (cs SetOCR3Offramp) Apply(env cldf.Environment, config v1_6.SetOCR3OffRampConfig) (cldf.ChangesetOutput, error) {
 	seqReports := make([]operations.Report[any, any], 0)
-	timeLockProposals := []mcms.TimelockProposal{}
+	var timeLockProposals []mcms.TimelockProposal
 
 	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
@@ -64,7 +64,7 @@ func (cs SetOCR3Offramp) Apply(env cldf.Environment, config v1_6.SetOCR3OffRampC
 			deps.AptosChain.Client,
 			state.AptosChains[remoteSelector].MCMSAddress,
 			deps.AptosChain.Selector,
-			[]types.BatchOperation{setOCR3SeqReport.Output},
+			[]mcmstypes.BatchOperation{setOCR3SeqReport.Output},
 			"Set OCR3 Configs",
 			*config.MCMS,
 		)

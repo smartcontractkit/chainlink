@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 var _ ocr3types.ContractTransmitter[[]byte] = (*noOpTransmitter)(nil)
@@ -18,7 +18,7 @@ const errMsg = "no-op transmitter %s called, it shouldn't be! Check the CCIPHome
 // role DONs where the node that is participating cannot transmit to the destination chain.
 func NewNoOpTransmitter(lggr logger.Logger, myP2PID string, fakeTransmitAccount types.Account) *noOpTransmitter {
 	return &noOpTransmitter{
-		lggr:                lggr,
+		lggr:                logger.Sugared(lggr),
 		myP2PID:             myP2PID,
 		fakeTransmitAccount: fakeTransmitAccount,
 	}
@@ -28,7 +28,7 @@ func NewNoOpTransmitter(lggr logger.Logger, myP2PID string, fakeTransmitAccount 
 // that does nothing. It is intended to be used in role DONs where the
 // node that is participating cannot transmit to the destination chain.
 type noOpTransmitter struct {
-	lggr    logger.Logger
+	lggr    logger.SugaredLogger
 	myP2PID string
 	// fakeTransmitAccount is a transmit account that we return from the FromAccount() method.
 	// it should be equal to the account that is returned for this oracle from the configTracker.PublicConfig() method.

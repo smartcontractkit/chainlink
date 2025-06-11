@@ -736,7 +736,8 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	testhelpers.ReplayLogs(t, e.Env.Offchain, map[uint64]uint64{
 		src1: msgSentEvent.Raw.BlockNumber,
 	})
-	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNums, startBlocks)
+	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state,
+		testhelpers.ToSeqRangeMap(expectedSeqNums), startBlocks)
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
 
 	// now that the 1.6 lane is working, we can enable the real router
@@ -836,7 +837,8 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		}] = msg.Message.Header.SequenceNumber
 	}
 	startBlocks[dest] = &initialBlock
-	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNums, startBlocks)
+	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state,
+		testhelpers.ToSeqRangeMap(expectedSeqNums), startBlocks)
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
 	// this seems to be flakey, also might be incorrect?
 	require.Equal(t, lastNonce+1, firstNonce, "sender nonce in 1.6 OnRamp event is not plus one to sender nonce in 1.5 OnRamp")

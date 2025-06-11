@@ -31,6 +31,7 @@ import (
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -177,6 +178,16 @@ type SourceDestPair struct {
 	DestChainSelector   uint64
 }
 
+func ToSeqRangeMap(seqNrs map[SourceDestPair]uint64) map[SourceDestPair]ccipocr3.SeqNumRange {
+	seqRangeMap := make(map[SourceDestPair]ccipocr3.SeqNumRange)
+	for sourceDest, seqNr := range seqNrs {
+		seqRangeMap[sourceDest] = ccipocr3.SeqNumRange{
+			ccipocr3.SeqNum(seqNr), ccipocr3.SeqNum(seqNr),
+		}
+	}
+	return seqRangeMap
+}
+
 // ConfirmCommitForAllWithExpectedSeqNums waits for all chains in the environment to commit the given expectedSeqNums.
 // expectedSeqNums is a map that maps a (source, dest) selector pair to the expected sequence number
 // to confirm the commit for.
@@ -186,14 +197,14 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 	t *testing.T,
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
-	expectedSeqNums map[SourceDestPair]uint64,
+	expectedSeqNums map[SourceDestPair]ccipocr3.SeqNumRange,
 	startBlocks map[uint64]*uint64,
 ) {
 	var wg errgroup.Group
 	for sourceDest, expectedSeqNum := range expectedSeqNums {
 		srcChain := sourceDest.SourceChainSelector
 		dstChain := sourceDest.DestChainSelector
-		if expectedSeqNum == 0 {
+		if expectedSeqNum.Start() == 0 {
 			continue
 		}
 		wg.Go(func() error {
@@ -214,10 +225,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					e.BlockChains.EVMChains()[dstChain],
 					state.MustGetEVMChainState(dstChain).OffRamp,
 					startBlock,
-					ccipocr3.SeqNumRange{
-						ccipocr3.SeqNum(expectedSeqNum),
-						ccipocr3.SeqNum(expectedSeqNum),
-					},
+					expectedSeqNum,
 					true,
 				))
 			case chainsel.FamilySolana:
@@ -231,10 +239,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					e.BlockChains.SolanaChains()[dstChain],
 					state.SolChains[dstChain].OffRamp,
 					startSlot,
-					ccipocr3.SeqNumRange{
-						ccipocr3.SeqNum(expectedSeqNum),
-						ccipocr3.SeqNum(expectedSeqNum),
-					},
+					expectedSeqNum,
 					true,
 				))
 			default:
@@ -452,19 +457,16 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	}
 }
 
+type EventWithTxn[T any] struct {
+	Event T
+	Txn   *solrpc.GetTransactionResult
+}
+
 // Scan for events referencing address
-func SolEventEmitter[T any](
-	t *testing.T,
-	client *solrpc.Client,
-	address solana.PublicKey,
-	eventType string,
-	startSlot uint64,
-	done chan any,
-) (<-chan T, <-chan error) {
-	ch := make(chan T)
+func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address solana.PublicKey, eventType string, startSlot uint64, done chan any, ticker *time.Ticker) (<-chan EventWithTxn[T], <-chan error) {
+	ch := make(chan EventWithTxn[T])
 	errorCh := make(chan error)
 	go func() {
-		ticker := time.NewTicker(2 * time.Second)
 		defer ticker.Stop()
 		var until solana.Signature
 		for {
@@ -473,7 +475,6 @@ func SolEventEmitter[T any](
 				return
 			case <-ticker.C:
 				// Scan for transactions referencing the address
-				ctx := context.Background()
 				txSigs, err := client.GetSignaturesForAddressWithOpts(
 					ctx,
 					address,
@@ -527,7 +528,10 @@ func SolEventEmitter[T any](
 
 					for _, event := range events {
 						select {
-						case ch <- event:
+						case ch <- EventWithTxn[T]{
+							Event: event,
+							Txn:   tx,
+						}:
 						case <-done:
 							return
 						}
@@ -555,14 +559,15 @@ func ConfirmCommitWithExpectedSeqNumRangeSol(
 
 	done := make(chan any)
 	defer close(done)
-	sink, errCh := SolEventEmitter[solccip.EventCommitReportAccepted](t, dest.Client, offrampAddress, "CommitReportAccepted", startSlot, done)
+	sink, errCh := SolEventEmitter[solccip.EventCommitReportAccepted](t.Context(), dest.Client, offrampAddress, consts.EventNameCommitReportAccepted, startSlot, done, time.NewTicker(2*time.Second))
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
 
 	for {
 		select {
-		case commitEvent := <-sink:
+		case eventWithTxn := <-sink:
+			commitEvent := eventWithTxn.Event
 			// if merkle root is zero, it only contains price updates
 			if commitEvent.Report == nil {
 				t.Logf("Skipping CommitReportAccepted with only price updates")
@@ -771,14 +776,15 @@ func ConfirmExecWithSeqNrsSol(
 
 	done := make(chan any)
 	defer close(done)
-	sink, errCh := SolEventEmitter[solccip.EventExecutionStateChanged](t, dest.Client, offrampAddress, "ExecutionStateChanged", startSlot, done)
+	sink, errCh := SolEventEmitter[solccip.EventExecutionStateChanged](t.Context(), dest.Client, offrampAddress, consts.EventNameExecutionStateChanged, startSlot, done, time.NewTicker(2*time.Second))
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
 
 	for {
 		select {
-		case execEvent := <-sink:
+		case eventWithTxn := <-sink:
+			execEvent := eventWithTxn.Event
 			// TODO: share with EVM
 			_, found := seqNrsToWatch[execEvent.SequenceNumber]
 			if found && execEvent.SourceChainSelector == srcSelector {
