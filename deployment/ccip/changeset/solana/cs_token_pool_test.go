@@ -189,6 +189,23 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 			),
 		})
 		require.NoError(t, err)
+
+		if testCase.poolType == solTestTokenPool.BurnAndMint_PoolType {
+			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+				commonchangeset.Configure(
+					cldf.CreateLegacyChangeSet(ccipChangesetSolana.ModifyMintAuthority),
+					ccipChangesetSolana.TokenPoolConfig3{
+						ChainSelector:    solChain,
+						TokenPubKey:      tokenAddress,
+						PoolType:         typePtr,
+						Metadata:         tokenMetadata,
+						NewMintAuthority: deployerKey,
+					},
+				),
+			})
+			require.NoError(t, err)
+		}
+
 		// test AddTokenPool results
 		configAccount := solTestTokenPool.State{}
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, testCase.poolAddress)
