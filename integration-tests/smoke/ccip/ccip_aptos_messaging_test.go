@@ -402,7 +402,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 				Receiver:       ccipReceiverAddress,
 				MsgData:        message,
 				// Just ensuring enough gas is provided to execute the message, doesn't matter if it's way too much
-				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(300_000), false),
+				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(defaultDestinationChainConfig.MaxPerMsgGasLimit), false),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertEvmMessageReceived(t, ctx, state, destChain, latestHead, message) },
