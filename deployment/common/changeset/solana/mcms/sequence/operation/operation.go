@@ -2,11 +2,14 @@ package operation
 
 import (
 	"fmt"
+	"math/rand"
 
+	binary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
 	accessControllerBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/access_controller"
+	mcmBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/mcm"
 	solanaUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	cldfsol "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -15,6 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/operations"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	mcmsSolanaSdk "github.com/smartcontractkit/mcms/sdk/solana"
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/smartcontractkit/wsrpc/logger"
 )
 
@@ -33,11 +38,25 @@ var (
 		commonOps.Deploy,
 	)
 
-	InitAccessControllerOp = operations.NewOperation(
-		"deploy-access-controller",
+	DeployMCMProgramOp = operations.NewOperation(
+		"deploy-mcm-program",
 		&deployment.Version1_0_0,
-		"Deploys access controller for solana",
+		"Deploys mcm for solana",
+		commonOps.Deploy,
+	)
+
+	InitAccessControllerOp = operations.NewOperation(
+		"init-access-controller",
+		&deployment.Version1_0_0,
+		"Initializes access controller for solana",
 		initAccessController,
+	)
+
+	InitMCMOp = operations.NewOperation(
+		"init-mcm-program",
+		&deployment.Version1_0_0,
+		"Initializes MCMProgram for solana",
+		initMCM,
 	)
 )
 
@@ -47,10 +66,21 @@ type (
 	}
 
 	InitAccessControllerOutput struct{}
+
+	InitMCMInput struct {
+		ContractType cldf.ContractType
+		MCMConfig    mcmsTypes.Config
+	}
+
+	InitMCMOutput struct{}
 )
 
 func initAccessController(b operations.Bundle, deps Deps, in InitAccessControllerInput) (InitAccessControllerOutput, error) {
 	var out InitAccessControllerOutput
+
+	if deps.State.AccessControllerProgram.IsZero() {
+		return out, fmt.Errorf("access controller program is not deployed for chain sel %d", deps.Chain.ChainSelector())
+	}
 
 	typeAndVersion := cldf.NewTypeAndVersion(in.ContractType, deployment.Version1_0_0)
 	_, accessControllerAccountSeed, err := deps.State.GetStateFromType(in.ContractType)
@@ -145,4 +175,124 @@ func initializeAccessController(
 	}
 
 	return nil
+}
+
+func initMCM(b operations.Bundle, deps Deps, in InitMCMInput) (InitMCMOutput, error) {
+	var out InitMCMOutput
+
+	if deps.State.McmProgram.IsZero() {
+		return out, fmt.Errorf("mcm program is not deployed for chain sel %d", deps.Chain.ChainSelector())
+	}
+
+	programID := deps.State.McmProgram
+	mcmBindings.SetProgramID(programID)
+
+	typeAndVersion := cldf.NewTypeAndVersion(in.ContractType, deployment.Version1_0_0)
+	mcmProgram, mcmSeed, err := deps.State.GetStateFromType(in.ContractType)
+	if err != nil {
+		return out, fmt.Errorf("failed to get mcm state: %w", err)
+	}
+
+	if mcmSeed != (state.PDASeed{}) {
+		mcmConfigPDA := state.GetMCMConfigPDA(mcmProgram, mcmSeed)
+		var data mcmBindings.MultisigConfig
+		err = solanaUtils.GetAccountDataBorshInto(b.GetContext(), deps.Chain.Client, mcmConfigPDA, rpc.CommitmentConfirmed, &data)
+		if err == nil {
+			b.Logger.Infow("mcm config already initialized, skipping initialization", "chain", deps.Chain.String())
+			return out, nil
+		}
+		return out, fmt.Errorf("unable to read mcm ConfigPDA account config %q", mcmConfigPDA.String())
+	}
+
+	b.Logger.Infow("mcm config not initialized, initializing", "chain", deps.Chain.String())
+	log := logger.With(b.Logger, "chain", deps.Chain.String(), "contract", typeAndVersion.String())
+
+	seed := randomSeed()
+	log.Infow("generated MCM seed", "seed", string(seed[:]))
+	err = initializeMCM(b, deps, programID, seed)
+	if err != nil {
+		return out, fmt.Errorf("failed to initialize mcm: %w", err)
+	}
+
+	mcmAddress := state.EncodeAddressWithSeed(programID, seed)
+
+	configurer := mcmsSolanaSdk.NewConfigurer(deps.Chain.Client, *deps.Chain.DeployerKey, mcmsTypes.ChainSelector(deps.Chain.ChainSelector()))
+	tx, err := configurer.SetConfig(b.GetContext(), mcmAddress, &in.MCMConfig, false)
+	if err != nil {
+		return out, fmt.Errorf("failed to set config on mcm: %w", err)
+	}
+	log.Infow("called SetConfig on MCM", "transaction", tx.Hash)
+
+	err = deps.Datastore.Addresses().Add(datastore.AddressRef{
+		Address:       mcmAddress,
+		ChainSelector: deps.Chain.Selector,
+		Type:          datastore.ContractType(in.ContractType),
+	})
+	if err != nil {
+		return out, fmt.Errorf("failed to save address to datastore: %w", err)
+	}
+
+	err = deps.State.SetState(in.ContractType, programID, seed)
+	if err != nil {
+		return out, fmt.Errorf("failed to save onchain state: %w", err)
+	}
+
+	return out, nil
+}
+
+func initializeMCM(b operations.Bundle, deps Deps, mcmProgram solana.PublicKey, multisigID state.PDASeed) error {
+	var mcmConfig mcmBindings.MultisigConfig
+	err := deps.Chain.GetAccountDataBorshInto(b.GetContext(), state.GetMCMConfigPDA(mcmProgram, multisigID), &mcmConfig)
+	if err == nil {
+		b.Logger.Infow("MCM already initialized, skipping initialization", "chain", deps.Chain.String())
+		return nil
+	}
+
+	var programData struct {
+		DataType uint32
+		Address  solana.PublicKey
+	}
+	opts := &rpc.GetAccountInfoOpts{Commitment: rpc.CommitmentConfirmed}
+
+	data, err := deps.Chain.Client.GetAccountInfoWithOpts(b.GetContext(), mcmProgram, opts)
+	if err != nil {
+		return fmt.Errorf("failed to get mcm program account info: %w", err)
+	}
+	err = binary.UnmarshalBorsh(&programData, data.Bytes())
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal program data: %w", err)
+	}
+
+	instruction, err := mcmBindings.NewInitializeInstruction(
+		deps.Chain.Selector,
+		multisigID,
+		state.GetMCMConfigPDA(mcmProgram, multisigID),
+		deps.Chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+		mcmProgram,
+		programData.Address,
+		state.GetMCMRootMetadataPDA(mcmProgram, multisigID),
+		state.GetMCMExpiringRootAndOpCountPDA(mcmProgram, multisigID),
+	).ValidateAndBuild()
+	if err != nil {
+		return fmt.Errorf("failed to build instruction: %w", err)
+	}
+
+	err = deps.Chain.Confirm([]solana.Instruction{instruction})
+	if err != nil {
+		return fmt.Errorf("failed to confirm instructions: %w", err)
+	}
+
+	return nil
+}
+
+func randomSeed() state.PDASeed {
+	const alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+	seed := state.PDASeed{}
+	for i := range seed {
+		seed[i] = alphabet[rand.Intn(len(alphabet))]
+	}
+
+	return seed
 }
