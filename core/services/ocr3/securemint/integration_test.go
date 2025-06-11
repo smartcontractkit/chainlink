@@ -94,7 +94,6 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 
 	// Setup oracle nodes
 	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-
 		// inform node about bootstrap node
 		c.P2P.V2.DefaultBootstrappers = &p2pV2Bootstrappers
 	})

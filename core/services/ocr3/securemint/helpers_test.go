@@ -69,9 +69,7 @@ func setupNode(
 
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 
-	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		// TODO(gg): potentially update node config here
-
+	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, _ *chainlink.Secrets) {
 		// set finality depth to 1 so we don't have to wait for multiple blocks
 		c.EVM[0].FinalityDepth = ptr[uint32](1)
 
@@ -89,7 +87,7 @@ func setupNode(
 
 		// [OCR2]
 		c.OCR2.Enabled = ptr(true)
-		c.OCR2.ContractPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.OCR2.ContractPollInterval = commonconfig.MustNewDuration(500 * time.Millisecond)
 
 		// [P2P]
 		c.P2P.PeerID = ptr(p2pKey.PeerID())
@@ -102,15 +100,12 @@ func setupNode(
 		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 
-		// [Mercury]
-		c.Mercury.VerboseLogging = ptr(true)
-
 		// [Log]
 		c.Log.Level = ptr(toml.LogLevel(zapcore.DebugLevel)) // generally speaking we want debug level for logs unless overridden
 
 		// [EVM.Transactions]
 		for _, evmCfg := range c.EVM {
-			evmCfg.Transactions.Enabled = ptr(false) // don't need txmgr
+			evmCfg.Transactions.Enabled = ptr(false) // don't need txmgr // TODO(gg): enable this for chain writing
 		}
 
 		// Optional overrides
@@ -120,11 +115,8 @@ func setupNode(
 	})
 
 	lggr, observedLogs := logger.TestLoggerObserved(t, config.Log().Level())
-	if backend != nil {
-		app = cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
-	} else {
-		app = cltest.NewApplicationWithConfig(t, config, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
-	}
+
+	app = cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
 	err := app.Start(testutils.Context(t))
 	require.NoError(t, err)
 
@@ -269,11 +261,11 @@ func createSecureMintBridge(t *testing.T, name string, i int, borm bridges.ORM) 
 
 	fullResponse := sm_ea.Response{
 		Mintables: map[string]sm_ea.MintableInfo{
-			"8953668971247136127": {
+			"8953668971247136127": { // "bitcoin-testnet-rootstock"
 				Block:    uint64(5),
 				Mintable: "10",
 			},
-			"729797994450396300": {
+			"729797994450396300": { // "telos-evm-testnet"
 				Block:    uint64(5),
 				Mintable: "25",
 			},
