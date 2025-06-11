@@ -1556,44 +1556,44 @@ func populateDatabaseForExecutionStateChanged(
 
 func Benchmark_CCIPReader_MessageSentRanges(b *testing.B) {
 	tests := []struct {
-		name              string
-		logsInserted      int
-		startSeqNum       cciptypes.SeqNum
-		endSeqNum         cciptypes.SeqNum
-		sourceChainsCount int
-		destChainsCount   int
+		name                 string
+		logsInsertedPerChain int
+		startSeqNum          cciptypes.SeqNum
+		endSeqNum            cciptypes.SeqNum
+		sourceChainsCount    int
+		destChainsCount      int
 
 		expectedLogs   int
 		expectedLatest cciptypes.SeqNum
 	}{
 		{
 			// Case in which we have 5 chains densely connected generating large volume of logs
-			name:              "Populating database with 5 source chains and 5 destination chains, any-to-any",
-			logsInserted:      50_000, // ~250k logs in total inserted
-			startSeqNum:       5_000,
-			endSeqNum:         5_256,
-			sourceChainsCount: 5,
-			destChainsCount:   5,
-			expectedLogs:      257,
-			expectedLatest:    9_899,
+			name:                 "Populating database with 5 source chains and 5 destination chains, any-to-any",
+			logsInsertedPerChain: 50_000, // 250k logs in total inserted (50k * 5 chains)
+			startSeqNum:          5_000,
+			endSeqNum:            5_256,
+			sourceChainsCount:    5,
+			destChainsCount:      5,
+			expectedLogs:         257,
+			expectedLatest:       9_899, // it's always smaller than latestBlock, because last 500 logs are not finalized
 		},
 		{
 			// Case in which we have multiple a lot of source chains, but only a few destinations are in use
-			name:              "Populating database with 70 source chains and 10 destination chains",
-			logsInserted:      25_000, // ~1.75kk logs in total inserted
-			startSeqNum:       2_000,
-			endSeqNum:         2_300,
-			sourceChainsCount: 70,
-			destChainsCount:   10,
-			expectedLogs:      301,
-			expectedLatest:    2_449,
+			name:                 "Populating database with 70 source chains and 10 destination chains",
+			logsInsertedPerChain: 25_000, // 1.75kk logs in total inserted (25000 * 70 chains)
+			startSeqNum:          2_000,
+			endSeqNum:            2_300,
+			sourceChainsCount:    70,
+			destChainsCount:      10,
+			expectedLogs:         301,
+			expectedLatest:       2_449,
 		},
 	}
 
 	for _, tt := range tests {
 		reader := prepareMessageSentEventsInDb(
 			b,
-			tt.logsInserted,
+			tt.logsInsertedPerChain,
 			tt.sourceChainsCount,
 			tt.destChainsCount,
 		)
