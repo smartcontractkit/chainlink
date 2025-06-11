@@ -268,13 +268,13 @@ func TestDeployAptosChain_Apply(t *testing.T) {
 
 	// Check premium multiplier
 	ccipBind := ccip.Bind(ccipAddr, env.BlockChains.AptosChains()[chainSelector].Client)
-	require.NotEqual(t, state.LinkTokenAddress, aptos.AccountAddress{}, "Link token address should not be empty")
+	require.NotEqual(t, aptos.AccountAddress{}, state.LinkTokenAddress, "Link token address should not be empty")
 	mult, err := ccipBind.FeeQuoter().GetPremiumMultiplierWeiPerEth(nil, state.LinkTokenAddress)
 	require.NoError(t, err)
-	require.Equal(t, mult, mockCCIPParams.FeeQuoterParams.PremiumMultiplierWeiPerEthByFeeToken[shared.LinkSymbol])
+	require.Equal(t, mockCCIPParams.FeeQuoterParams.PremiumMultiplierWeiPerEthByFeeToken[shared.LinkSymbol], mult)
 
 	aptTokenAdd := mustParseAddress(t, "0xa")
 	mult, err = ccipBind.FeeQuoter().GetPremiumMultiplierWeiPerEth(nil, aptTokenAdd)
 	require.NoError(t, err)
-	require.Equal(t, mult, mockCCIPParams.FeeQuoterParams.PremiumMultiplierWeiPerEthByFeeToken[shared.APTSymbol])
+	require.Equal(t, mockCCIPParams.FeeQuoterParams.PremiumMultiplierWeiPerEthByFeeToken[shared.APTSymbol], mult)
 }
