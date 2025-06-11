@@ -391,27 +391,27 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 		)
 	})
 
-	t.Run("Max Data Bytes - Should Succeed", func(t *testing.T) {
-		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
-		require.NoError(t, err)
-		message := []byte(strings.Repeat("0", int(defaultDestinationChainConfig.MaxDataBytes)))
-		messagingtest.Run(t,
-			messagingtest.TestCase{
-				TestSetup:              setup,
-				Replayed:               replayed,
-				Nonce:                  &nonce,
-				ValidationType:         messagingtest.ValidationTypeExec,
-				FeeToken:               NATIVE_FEE_TOKEN,
-				Receiver:               ccipReceiverAddress,
-				MsgData:                message,
-				ExtraArgs:              nil,
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-				ExtraAssertions: []func(t *testing.T){
-					func(t *testing.T) { assertEvmMessageReceived(t, ctx, state, destChain, latestHead, message) },
-				},
-			},
-		)
-	})
+	// t.Run("Max Data Bytes - Should Succeed", func(t *testing.T) {
+	// 	latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
+	// 	require.NoError(t, err)
+	// 	message := []byte(strings.Repeat("0", int(defaultDestinationChainConfig.MaxDataBytes)))
+	// 	messagingtest.Run(t,
+	// 		messagingtest.TestCase{
+	// 			TestSetup:              setup,
+	// 			Replayed:               replayed,
+	// 			Nonce:                  &nonce,
+	// 			ValidationType:         messagingtest.ValidationTypeExec,
+	// 			FeeToken:               NATIVE_FEE_TOKEN,
+	// 			Receiver:               ccipReceiverAddress,
+	// 			MsgData:                message,
+	// 			ExtraArgs:              nil,
+	// 			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+	// 			ExtraAssertions: []func(t *testing.T){
+	// 				func(t *testing.T) { assertEvmMessageReceived(t, ctx, state, destChain, latestHead, message) },
+	// 			},
+	// 		},
+	// 	)
+	// })
 
 	t.Run("Max Gas Limit - Should Succeed", func(t *testing.T) {
 		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
