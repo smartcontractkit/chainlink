@@ -6,9 +6,10 @@ import (
 
 	"dario.cat/mergo"
 
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
+
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 )
 
 type ConfigType string
@@ -73,6 +74,7 @@ var (
 		// Remaining fields cannot be statically set:
 		// PriceFeedChainSelector: , // Must be configured in CLD
 		// TokenInfo: , // Must be configured in CLD
+		EnableDonBreakingChanges: true,
 	}
 
 	// DefaultExecuteOffChainCfg represents the default offchain configuration for the Execute plugin
