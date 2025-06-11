@@ -89,36 +89,6 @@ type SetRMNRemoteOnRMNProxySequenceInput struct {
 	UpdatesByChain map[uint64]opsutil.EVMCallInput[common.Address] `json:"updatesByChain"`
 }
 
-type SetRMNRemoteOnRMNProxyConfig struct {
-	ChainSelectors []uint64
-	MCMSConfig     *proposalutils.TimelockConfig
-}
-
-func (c SetRMNRemoteOnRMNProxyConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
-	for _, chain := range c.ChainSelectors {
-		err := cldf.IsValidChainSelector(chain)
-		if err != nil {
-			return err
-		}
-		chainState, exists := state.Chains[chain]
-		if !exists {
-			return fmt.Errorf("chain %d not found in state", chain)
-		}
-		if chainState.RMNRemote == nil {
-			return fmt.Errorf("RMNRemote not found for chain %d", chain)
-		}
-		if chainState.RMNProxy == nil {
-			return fmt.Errorf("RMNProxy not found for chain %d", chain)
-		}
-
-		chainEnv := e.BlockChains.EVMChains()[chain]
-		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMSConfig != nil, chainEnv.DeployerKey.From, chainState.Timelock.Address(), chainState.RMNProxy); err != nil {
-			return fmt.Errorf("failed to validate ownership of RMNProxy on %s: %w", chainEnv, err)
-		}
-	}
-	return nil
-}
-
 type SetRMNRemoteConfig struct {
 	RMNRemoteConfigs map[uint64]ccipops.RMNRemoteConfig `json:"rmnRemoteConfigs"`
 	MCMSConfig       *proposalutils.TimelockConfig      `json:"mcmsConfig,omitempty"`

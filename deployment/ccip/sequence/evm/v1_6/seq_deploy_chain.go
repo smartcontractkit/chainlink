@@ -352,18 +352,16 @@ var (
 					}
 					// should only update callers if there are none, otherwise we might overwrite some existing callers for existing nonce manager
 					if len(nmCallers) == 0 {
-						nonceManagerUpdateOpArgs := nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
-							AddedCallers: []common.Address{
-								chainState.OffRamp.Address(),
-								chainState.OnRamp.Address(),
-							},
-						}
-
 						_, err = operations.ExecuteOperation(b, ccipopsv1_6.NonceManagerUpdateAuthorizedCallerOp, chain,
 							opsutil.EVMCallInput[nonce_manager.AuthorizedCallersAuthorizedCallerArgs]{
 								Address:       state.Chains[chainSelector].NonceManager.Address(),
 								ChainSelector: chainSelector,
-								CallInput:     nonceManagerUpdateOpArgs,
+								CallInput: nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
+									AddedCallers: []common.Address{
+										chainState.OffRamp.Address(),
+										chainState.OnRamp.Address(),
+									},
+								},
 							})
 						if err != nil {
 							b.Logger.Errorw("Failed to apply nonce manager authorized callers",
