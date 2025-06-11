@@ -238,7 +238,7 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 		oi.lggr.Errorf("Failed to get email from claims. error: %v", err)
 		c.String(http.StatusInternalServerError, "Failed to get email from claims")
 	}
-	oi.lggr.Tracef("Recieved and validated ID claims: %v\n", idClaims)
+	oi.lggr.Tracef("Received and validated ID claims: %v\n", idClaims)
 
 	// Map the groups and insert a newly created session paired with role mapping for user
 	role, err := idClaimsToUserRole(
@@ -249,7 +249,7 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 		oi.config.ReadClaim(),
 	)
 	if err != nil {
-		oi.lggr.Errorf("Failed to map configured RBAC role name against recieved list of group claims: %v", err)
+		oi.lggr.Errorf("Failed to map configured RBAC role name against received list of group claims: %v", err)
 		c.String(http.StatusBadRequest, "No matching role within attested user group claims")
 		return
 	}
