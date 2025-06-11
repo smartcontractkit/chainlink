@@ -5,28 +5,29 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
-	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/base_token_pool"
-	solBurnMintTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/burnmint_token_pool"
 	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_common"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
-	solLockReleaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/lockrelease_token_pool"
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/base_token_pool"
+	solBurnMintTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/burnmint_token_pool"
+	solLockReleaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/lockrelease_token_pool"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 
+	cldfSolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset_v1_5_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -454,7 +455,7 @@ func SetupTokenPoolForRemoteChain(e cldf.Environment, cfg RemoteChainTokenPoolCo
 }
 
 // checks if the evmChainSelector is supported for the given token and pool type
-func isSupportedChain(chain cldf_solana.Chain, solTokenPubKey solana.PublicKey, solPoolAddress solana.PublicKey, evmChainSelector uint64) (bool, solTestTokenPool.ChainConfig, error) {
+func isSupportedChain(chain cldfSolana.Chain, solTokenPubKey solana.PublicKey, solPoolAddress solana.PublicKey, evmChainSelector uint64) (bool, solTestTokenPool.ChainConfig, error) {
 	var remoteChainConfigAccount solTestTokenPool.ChainConfig
 	// check if this remote chain is already configured for this token
 	remoteChainConfigPDA, _, err := solTokenUtil.TokenPoolChainConfigPDA(evmChainSelector, solTokenPubKey, solPoolAddress)
@@ -470,7 +471,7 @@ func isSupportedChain(chain cldf_solana.Chain, solTokenPubKey solana.PublicKey, 
 
 func getNewSetuptInstructionsForBurnMint(
 	e cldf.Environment,
-	chain cldf_solana.Chain,
+	chain cldfSolana.Chain,
 	chainState solanastateview.CCIPChainState,
 	cfg RemoteChainTokenPoolConfig,
 	evmChainSelector uint64,
@@ -544,7 +545,7 @@ func getNewSetuptInstructionsForBurnMint(
 
 func getInstructionsForBurnMint(
 	e cldf.Environment,
-	chain cldf_solana.Chain,
+	chain cldfSolana.Chain,
 	envState stateview.CCIPOnChainState,
 	solChainState solanastateview.CCIPChainState,
 	cfg RemoteChainTokenPoolConfig,
@@ -641,7 +642,7 @@ func getInstructionsForBurnMint(
 
 func getNewSetuptInstructionsForLockRelease(
 	e cldf.Environment,
-	chain cldf_solana.Chain,
+	chain cldfSolana.Chain,
 	chainState solanastateview.CCIPChainState,
 	cfg RemoteChainTokenPoolConfig,
 	evmChainSelector uint64,
@@ -716,7 +717,7 @@ func getNewSetuptInstructionsForLockRelease(
 
 func getInstructionsForLockRelease(
 	e cldf.Environment,
-	chain cldf_solana.Chain,
+	chain cldfSolana.Chain,
 	envState stateview.CCIPOnChainState,
 	solChainState solanastateview.CCIPChainState,
 	cfg RemoteChainTokenPoolConfig,
@@ -1356,7 +1357,7 @@ func LockReleaseLiquidityOps(e cldf.Environment, cfg LockReleaseLiquidityOpsConf
 				e.GetContext(),
 				chain.Client,
 				cfg.LiquidityCfg.RemoteTokenAccount,
-				cldf_solana.SolDefaultCommitment)
+				cldfSolana.SolDefaultCommitment)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token balance: %w", err)
 			}
