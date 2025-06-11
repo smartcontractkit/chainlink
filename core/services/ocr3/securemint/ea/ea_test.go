@@ -23,7 +23,7 @@ func Test_GetPayload(t *testing.T) {
 
 	// Setup test context, logger, and other dependencies
 	ctx := testutils.Context(t)
-	lggr := logger.TestLogger(t)
+	lggr := logger.NullLogger
 	runner := mocks.NewRunner(t)
 	saver := ocrcommon.NewResultRunSaver(
 		runner,
