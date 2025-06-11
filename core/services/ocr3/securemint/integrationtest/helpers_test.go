@@ -39,17 +39,17 @@ import (
 	"github.com/smartcontractkit/wsrpc/credentials"
 )
 
-type Node struct {
-	App          chainlink.Application
-	ClientPubKey credentials.StaticSizedPublicKey
-	KeyBundle    ocr2key.KeyBundle
-	ObservedLogs *observer.ObservedLogs
+type node struct {
+	app          chainlink.Application
+	clientPubKey credentials.StaticSizedPublicKey
+	keyBundle    ocr2key.KeyBundle
+	observedLogs *observer.ObservedLogs
 }
 
-func (node *Node) addBootstrapJob(t *testing.T, spec string) *job.Job {
+func (node *node) addBootstrapJob(t *testing.T, spec string) *job.Job {
 	job, err := ocrbootstrap.ValidatedBootstrapSpecToml(spec)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(testutils.Context(t), &job)
+	err = node.app.AddJobV2(testutils.Context(t), &job)
 	require.NoError(t, err)
 	return &job
 }
@@ -129,20 +129,20 @@ func setupNode(
 
 func ptr[T any](t T) *T { return &t }
 
-func createSecureMintBootstrapJob(t *testing.T, bootstrapNode Node, configuratorAddress common.Address, chainID, fromBlock string) *job.Job {
+func createSecureMintBootstrapJob(t *testing.T, bootstrapNode node, configuratorAddress common.Address, chainID, fromBlock string) *job.Job {
 	return bootstrapNode.addBootstrapJob(t, fmt.Sprintf(`
-		type                              = "bootstrap"
-		relay                             = "evm"
-		schemaVersion                     = 1
-		name                              = "bootstrap-secure-mint"
-		contractID                        = "%s"
-		contractConfigTrackerPollInterval = "1s"
-		contractConfigConfirmations = 1
+			type                              = "bootstrap"
+			relay                             = "evm"
+			schemaVersion                     = 1
+			name                              = "bootstrap-secure-mint"
+			contractID                        = "%s"
+			contractConfigTrackerPollInterval = "1s"
+			contractConfigConfirmations       = 1
 
-		[relayConfig]
-		chainID = %s
-		fromBlock = %s
-		providerType = "securemint"`,
+			[relayConfig]
+			chainID                           = %s
+			fromBlock                         = %s
+			providerType                      = "securemint"`,
 		configuratorAddress.Hex(),
 		chainID,
 		fromBlock),
@@ -151,7 +151,7 @@ func createSecureMintBootstrapJob(t *testing.T, bootstrapNode Node, configurator
 
 func addSecureMintOCRJobs(
 	t *testing.T,
-	nodes []Node,
+	nodes []node,
 	configuratorAddress common.Address,
 ) (jobIDs map[int]int32) {
 	// node idx => job id
@@ -161,10 +161,10 @@ func addSecureMintOCRJobs(
 	for i, node := range nodes {
 		name := "securemint-ea"
 
-		bmBridge := createSecureMintBridge(t, name, i, node.App.BridgeORM())
+		bmBridge := createSecureMintBridge(t, name, i, node.app.BridgeORM())
 		t.Logf("Created secure mint bridge %s on node %d", bmBridge, i)
 
-		addresses, err := node.App.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), testutils.SimulatedChainID)
+		addresses, err := node.app.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), testutils.SimulatedChainID)
 		require.NoError(t, err)
 		t.Logf("Using transmitter address %s for node %d", addresses[0].String(), i)
 
@@ -182,21 +182,21 @@ func addSecureMintOCRJobs(
 
 func addSecureMintJob(
 	t *testing.T,
-	node Node,
+	node node,
 	configuratorAddress common.Address,
 	bridgeName string,
 ) (id int32) {
 
-	addresses, err := node.App.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), testutils.SimulatedChainID)
+	addresses, err := node.app.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
-	c := node.App.GetConfig()
+	c := node.app.GetConfig()
 
-	spec := getSecureMintJobSpec(configuratorAddress.Hex(), node.KeyBundle.ID(), addresses[0].String(), bridgeName)
+	spec := getSecureMintJobSpec(configuratorAddress.Hex(), node.keyBundle.ID(), addresses[0].String(), bridgeName)
 
 	job, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), spec, nil)
 	require.NoError(t, err)
 
-	err = node.App.AddJobV2(testutils.Context(t), &job)
+	err = node.app.AddJobV2(testutils.Context(t), &job)
 	require.NoError(t, err)
 	t.Logf("Added secure mint job spec %s", job.ExternalJobID)
 
@@ -206,35 +206,35 @@ func addSecureMintJob(
 func getSecureMintJobSpec(ocrContractAddress, keyBundleID, transmitterAddress, bridgeName string) string {
 
 	return fmt.Sprintf(`
-type               = "offchainreporting2"
-relay              = "evm"
-schemaVersion      = 1
-pluginType         = "securemint"
-name               = "secure mint spec"
-contractID         = "%s"
-ocrKeyBundleID     = "%s"
-transmitterID      = "%s"
-contractConfigConfirmations = 1
-contractConfigTrackerPollInterval = "1s"
-observationSource  = """
-    // data source 1
-    ds1          [type=bridge name="%s" requestData=<{ "data": $(ea_request) }>];
-    ds1_parse    [type=jsonparse path="data"];
+			type                              = "offchainreporting2"
+			relay                             = "evm"
+			schemaVersion                     = 1
+			pluginType                        = "securemint"
+			name                              = "secure mint spec"
+			contractID                        = "%s"
+			ocrKeyBundleID                    = "%s"
+			transmitterID                     = "%s"
+			contractConfigConfirmations       = 1
+			contractConfigTrackerPollInterval = "1s"
+			observationSource  = """
+				// data source 1
+				ds1          [type=bridge name="%s" requestData=<{ "data": $(ea_request) }>];
+				ds1_parse    [type=jsonparse path="data"];
 
-    ds1 -> ds1_parse -> answer1;
+				ds1 -> ds1_parse -> answer1;
 
-	answer1 [type=any index=0];
-"""
+				answer1 [type=any index=0];
+			"""
 
-allowNoBootstrappers = false
+			allowNoBootstrappers              = false
 
-[relayConfig]
-chainID = 1337
-fromBlock = 1
+			[relayConfig]
+			chainID                           = 1337
+			fromBlock                         = 1
 
-[pluginConfig]
-maxChains = 5
-`,
+			[pluginConfig]
+			maxChains                         = 5
+		`,
 		ocrContractAddress, // contract address
 		keyBundleID,        // ocr key bundle id
 		transmitterAddress, // transmitter id

@@ -62,7 +62,7 @@ func Test_GetPayload(t *testing.T) {
 		},
 	}
 
-	// capture the 'ea_request' parameter from the pipeline run
+	// Capture the 'ea_request' parameter from the pipeline run
 	var eaRequest any
 	runner.EXPECT().ExecuteRun(mock.Anything, mock.Anything, mock.Anything).Return(executedRun, results, nil).Run(func(_ context.Context, _ pipeline.Spec, vars pipeline.Vars) {
 		var err error
@@ -73,7 +73,7 @@ func Test_GetPayload(t *testing.T) {
 	payload, err := ea.GetPayload(ctx, por.Blocks{1234567890: 1234567890})
 	require.NoError(t, err, "GetPayload should not return an error")
 
-	// validate the 'ea_request' parameter serialized to json
+	// Validate the 'ea_request' parameter serialized to json
 	eaRequestJSON, err := json.Marshal(eaRequest)
 	require.NoError(t, err, "Failed to marshal ea_request to JSON")
 	assert.JSONEq(t,
@@ -104,7 +104,7 @@ func Test_GetPayload(t *testing.T) {
 			ReserveAmount: amount,
 			Timestamp:     time.UnixMilli(1749483841486),
 		},
-		LatestRelevantBlocks: por.Blocks{
+		LatestBlocks: por.Blocks{
 			1234567890: 23,
 		},
 	}

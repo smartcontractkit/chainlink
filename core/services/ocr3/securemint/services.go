@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -185,13 +184,13 @@ func NewSecureMintServices(ctx context.Context,
 		argsNoPlugin.ReportingPluginFactory = &sm_plugin.PorReportingPluginFactory{
 			Logger:          argsNoPlugin.Logger,
 			ExternalAdapter: sm_ea.NewExternalAdapter(pipelineRunner, jb, *jb.PipelineSpec, runSaver, lggr),
-			ContractReader: &mockContractReader{
+			ContractReader: newStubContractReader(
 				// since we don't write to chain yet, we mock the contract reader which returns a the most recent config digest from the config contract
-				getConfigDigestFunc: func() ([32]byte, error) {
+				func() ([32]byte, error) {
 					_, configDigest, err := argsNoPlugin.ContractConfigTracker.LatestConfigDetails(ctx)
 					return configDigest, err
 				},
-			},
+			),
 			ReportMarshaler: sm_plugin.NewMockReportMarshaler(),
 			// ExternalAdapter: provider.ExternalAdapter(),
 			// ContractReader:  provider.ContractReader(),
@@ -217,24 +216,4 @@ func NewSecureMintServices(ctx context.Context,
 		lggr.Infof("Enhanced EA telemetry is disabled for job %s", jb.Name.ValueOrZero())
 	}
 	return
-}
-
-// mockContractReader is a mock implementation of the ContractReader interface.
-// It retrieves the latest config digest from the config contract and then uses that to return a mocked report.
-// This is needed so that sm_plugin.ShouldTransmitAcceptedReport() does not fail (it checks the config digest).
-type mockContractReader struct {
-	getConfigDigestFunc func() ([32]byte, error)
-}
-
-func (m *mockContractReader) GetLatestTransmittedReportDetails(ctx context.Context, chainId por.ChainSelector) (sm_plugin.TransmittedReportDetails, error) {
-	configDigest, err := m.getConfigDigestFunc()
-	if err != nil {
-		return sm_plugin.TransmittedReportDetails{}, fmt.Errorf("failed to get config digest: %w", err)
-	}
-
-	return sm_plugin.TransmittedReportDetails{
-		ConfigDigest:    configDigest,
-		SeqNr:           1,          // Mock sequence number
-		LatestTimestamp: time.Now(), // Mock timestamp
-	}, nil
 }

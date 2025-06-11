@@ -72,7 +72,7 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
 	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_securemint", backend, bootstrapCSAKey, nil)
-	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+	bootstrapNode := node{app: appBootstrap, keyBundle: bootstrapKb}
 
 	p2pV2Bootstrappers := []commontypes.BootstrapperLocator{
 		// Supply the bootstrap IP and port as a V2 peer address
@@ -87,7 +87,7 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 
 	allowedSenders := make([]common.Address, len(nodes))
 	for i, node := range nodes {
-		keys, err := node.App.GetKeyStore().Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
+		keys, err := node.app.GetKeyStore().Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
 		require.NoError(t, err)
 		allowedSenders[i] = keys[0].Address // assuming the first key is the transmitter
 	}
@@ -118,16 +118,16 @@ func setupBlockchain(t *testing.T) (
 	return steve, backend
 }
 
-func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
+func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []node) {
 	ports := freeport.GetN(t, nNodes)
 	for i := range nNodes {
 		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_securemint_%d", i), backend, clientCSAKeys[i], f)
 
-		nodes = append(nodes, Node{
-			App:          app,
-			ClientPubKey: transmitter,
-			KeyBundle:    kb,
-			ObservedLogs: observedLogs,
+		nodes = append(nodes, node{
+			app:          app,
+			clientPubKey: transmitter,
+			keyBundle:    kb,
+			observedLogs: observedLogs,
 		})
 		offchainPublicKey, err := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
 		require.NoError(t, err)
@@ -144,11 +144,11 @@ func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKey
 	return
 }
 
-func validateJobsRunningSuccessfully(t *testing.T, nodes []Node, jobIDs map[int]int32) {
+func validateJobsRunningSuccessfully(t *testing.T, nodes []node, jobIDs map[int]int32) {
 
 	// 1. Assert no job spec errors
 	for i, node := range nodes {
-		jobs, _, err := node.App.JobORM().FindJobs(testutils.Context(t), 0, 1000)
+		jobs, _, err := node.app.JobORM().FindJobs(testutils.Context(t), 0, 1000)
 		require.NoErrorf(t, err, "assert error finding jobs for node %d", i)
 		t.Logf("%d jobs found for node %d", len(jobs), i)
 		for _, j := range jobs {
@@ -174,7 +174,7 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []Node, jobIDs map[int]
 
 	// time.Sleep(30 * time.Second) // wait for jobs to run
 
-	runs, err := nodes[0].App.PipelineORM().GetAllRuns(testutils.Context(t))
+	runs, err := nodes[0].app.PipelineORM().GetAllRuns(testutils.Context(t))
 	require.NoError(t, err, "assert error getting all runs")
 	t.Logf("Found %d runs", len(runs))
 	for _, run := range runs {
@@ -188,7 +188,7 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []Node, jobIDs map[int]
 		go func() {
 			defer wg.Done()
 
-			pr := cltest.WaitForPipelineComplete(t, i, jobIDs[i], 1, 0, node.App.JobORM(), 30*time.Second, 1*time.Second)
+			pr := cltest.WaitForPipelineComplete(t, i, jobIDs[i], 1, 0, node.app.JobORM(), 30*time.Second, 1*time.Second)
 			outputs, err := pr[0].Outputs.MarshalJSON()
 			if !assert.NoError(t, err) {
 				t.Logf("assert error marshalling outputs for job %d: %v", jobIDs[i], err)
@@ -214,7 +214,7 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []Node, jobIDs map[int]
 	)
 }
 
-func setSecureMintOnchainConfigUsingAggregator(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend, nodes []Node, oracles []confighelper.OracleIdentityExtra) common.Address {
+func setSecureMintOnchainConfigUsingAggregator(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend, nodes []node, oracles []confighelper.OracleIdentityExtra) common.Address {
 
 	// 1. Deploy aggregator contract
 
@@ -279,7 +279,7 @@ func setSecureMintOnchainConfigUsingAggregator(t *testing.T, steve *bind.Transac
 
 	transmitterAddresses := make([]common.Address, len(nodes))
 	for i := range nodes {
-		keys, err := nodes[i].App.GetKeyStore().Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
+		keys, err := nodes[i].app.GetKeyStore().Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
 		require.NoError(t, err)
 		transmitterAddresses[i] = keys[0].Address // assuming the first key is the transmitter
 	}
