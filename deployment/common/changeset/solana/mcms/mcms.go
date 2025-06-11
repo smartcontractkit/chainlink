@@ -5,8 +5,12 @@ import (
 	"fmt"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms/sequence"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms/sequence/operation"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -87,4 +91,30 @@ func DeployMCMSWithTimelockProgramsSolana(
 	}
 
 	return chainState, nil
+}
+
+// DeployMCMSWithTimelockProgramsSolanaV2 deploys an MCMS program
+// saves addresses to datastore
+func DeployMCMSWithTimelockProgramsSolanaV2(
+	e cldf.Environment,
+	ds datastore.MutableDataStore,
+	chain cldf_solana.Chain,
+	config commontypes.MCMSWithTimelockConfigV2) (*state.MCMSWithTimelockStateSolana, error) {
+	chainstate, err := state.LoadMCMSWithTimelockChainStateSolana(e.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chain.Selector)))
+	if err != nil {
+		return nil, err
+	}
+
+	deps := operation.Deps{
+		State:     chainstate,
+		Chain:     chain,
+		Datastore: ds,
+	}
+
+	_, err = operations.ExecuteSequence(e.OperationsBundle, sequence.DeployMCMSWithTimelockSeq, deps, sequence.DeployMCMSWithTimelockInput{})
+	if err != nil {
+		return nil, err
+	}
+
+	return chainstate, nil
 }

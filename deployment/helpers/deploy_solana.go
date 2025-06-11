@@ -12,6 +12,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/mcms"
@@ -381,12 +382,8 @@ func BuildProposalsForTxns(
 	return proposal, nil
 }
 
-func FetchTimelockSigner(e cldf.Environment, chainSelector uint64) (solana.PublicKey, error) {
-	addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
-	if err != nil {
-		return solana.PublicKey{}, fmt.Errorf("failed to load addresses for chain %d: %w", chainSelector, err)
-	}
-	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[chainSelector], addresses)
+func FetchTimelockSigner(refs []datastore.AddressRef) (solana.PublicKey, error) {
+	mcmState, err := state.LoadMCMSWithTimelockChainStateSolana(refs)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to load mcm state: %w", err)
 	}

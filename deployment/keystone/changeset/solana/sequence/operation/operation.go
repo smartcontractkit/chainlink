@@ -6,13 +6,14 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	solanaUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	cldfsol "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	ks_forwarder "github.com/smartcontractkit/chainlink-solana/contracts/generated/keystone_forwarder"
-	"github.com/smartcontractkit/chainlink/deployment"
+	commonOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/operations"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	"github.com/smartcontractkit/mcms"
@@ -26,7 +27,7 @@ var (
 		"deploy-forwarder-op",
 		Version1_0_0,
 		"Deploys deploys forwarder for Solana Chain",
-		deploy,
+		commonOps.Deploy,
 	)
 	InitForwarderOp = operations.NewOperation(
 		"init-forwarder-op",
@@ -40,6 +41,12 @@ var (
 		"Sets upgrade forwarder's upgrade authority for Solana Chain",
 		setUpgradeAuthority,
 	)
+	ConfigureForwarderOp = operations.NewOperation(
+		"configer-forwarder-op",
+		Version1_0_0,
+		"Configure's forwarder for Solana Chain",
+		configureForwarder,
+	)
 )
 
 type (
@@ -49,23 +56,13 @@ type (
 		Datastore datastore.DataStore
 	}
 
-	DeployInput struct {
-		ChainSel     uint64
-		ProgramName  string
-		Overallocate bool
-	}
-
-	DeployOutput struct {
-		ProgramID string
-	}
-
 	InitForwarderInput struct {
-		ProgramID string
+		ProgramID solana.PublicKey
 		ChainSel  uint64
 	}
 
 	InitForwarderOutput struct {
-		StatePubKey string
+		StatePubKey solana.PublicKey
 	}
 
 	SetUpgradeAuthorityInput struct {
@@ -79,36 +76,26 @@ type (
 		Proposals []mcms.TimelockProposal // will be returned in case if timelock config is passed
 	}
 
-	ConfigureForwarderInput struct{}
+	ConfigureForwarderInput struct {
+		MCMS           *proposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
+		ConfigPDA      string
+		ProgramID      solana.PublicKey
+		ForwarderState solana.PublicKey
+		Owner          string
+		Signers        [][20]uint8
+		DonId          uint32
+		ConfigVersion  uint32
+		F              uint8
+	}
 
 	ConfigureForwarderOutput struct {
 		Batch mcmsTypes.BatchOperation
 	}
 )
 
-func deploy(b operations.Bundle, deps Deps, in DeployInput) (DeployOutput, error) {
-	var out DeployOutput
-
-	programID, err := deps.Chain.DeployProgram(deps.Env.Logger, cldfsol.ProgramInfo{
-		Name:  in.ProgramName,
-		Bytes: deployment.SolanaProgramBytes[in.ProgramName],
-	}, false, in.Overallocate)
-	if err != nil {
-		return out, err
-	}
-
-	out.ProgramID = programID
-
-	return out, nil
-}
-
 func initForwarder(b operations.Bundle, deps Deps, in InitForwarderInput) (InitForwarderOutput, error) {
 	var out InitForwarderOutput
-	address, err := solana.PublicKeyFromBase58(in.ProgramID)
-	if err != nil {
-		return out, err
-	}
-	ks_forwarder.SetProgramID(address)
+	ks_forwarder.SetProgramID(in.ProgramID)
 
 	stateKey, err := solana.NewRandomPrivateKey()
 	if err != nil {
@@ -125,7 +112,7 @@ func initForwarder(b operations.Bundle, deps Deps, in InitForwarderInput) (InitF
 		return out, errors.New("failed to confirm ")
 	}
 
-	out.StatePubKey = stateKey.PublicKey().String()
+	out.StatePubKey = stateKey.PublicKey()
 
 	return out, nil
 }
@@ -145,7 +132,7 @@ func setUpgradeAuthority(b operations.Bundle, deps Deps, in SetUpgradeAuthorityI
 
 	currentAuthority := deps.Chain.DeployerKey.PublicKey()
 	if in.MCMS != nil {
-		timelockSignerPDA, err := helpers.FetchTimelockSigner(deps.Env, deps.Chain.Selector)
+		timelockSignerPDA, err := helpers.FetchTimelockSigner(deps.Datastore.Addresses().Filter(datastore.AddressRefByChainSelector(in.ChainSel)))
 		if err != nil {
 			return out, fmt.Errorf("failed to get timelock signer: %w", err)
 		}
@@ -185,4 +172,75 @@ func setUpgradeAuthority(b operations.Bundle, deps Deps, in SetUpgradeAuthorityI
 }
 
 func configureForwarder(b operations.Bundle, deps Deps, in ConfigureForwarderInput) (ConfigureForwarderOutput, error) {
+	var out ConfigureForwarderOutput
+
+	var instructions *ks_forwarder.Instruction
+
+	ks_forwarder.SetProgramID(in.ProgramID)
+
+	configPDA := solana.MustPublicKeyFromBase58(in.ConfigPDA)
+
+	var oracleExists bool
+
+	_, err := deps.Chain.Client.GetAccountInfo(b.GetContext(), configPDA)
+	if err != nil {
+		if !errors.Is(err, rpc.ErrNotFound) {
+			return out, fmt.Errorf("can't confirm oracle existence: %w", err)
+		}
+		oracleExists = false
+	} else {
+		oracleExists = true
+	}
+
+	owner := solana.MustPublicKeyFromBase58(in.Owner)
+
+	if !oracleExists {
+		instructions, err = ks_forwarder.NewInitOraclesConfigInstruction(
+			in.DonId,
+			in.ConfigVersion,
+			in.F,
+			in.Signers,
+			in.ForwarderState,
+			configPDA,
+			owner,
+			solana.SystemProgramID,
+		).ValidateAndBuild()
+		if err != nil {
+			return out, fmt.Errorf("cant build init oracle instruction: %w", err)
+		}
+	} else {
+		instructions, err = ks_forwarder.NewUpdateOraclesConfigInstruction(
+			in.DonId,
+			in.ConfigVersion,
+			in.F,
+			in.Signers,
+			in.ForwarderState,
+			configPDA,
+			owner,
+			solana.SystemProgramID,
+		).ValidateAndBuild()
+		if err != nil {
+			return out, fmt.Errorf("cant build init oracle instruction: %w", err)
+		}
+	}
+
+	if in.MCMS == nil {
+		err := deps.Chain.Confirm([]solana.Instruction{instructions})
+		return out, err
+	}
+
+	tx, err := helpers.BuildMCMSTxn(
+		instructions,
+		solana.BPFLoaderUpgradeableProgramID.String(),
+		cldf.ContractType(solana.BPFLoaderUpgradeableProgramID.String()))
+	if err != nil {
+		return out, fmt.Errorf("failed to create transaction: %w", err)
+	}
+
+	out.Batch = mcmsTypes.BatchOperation{
+		ChainSelector: mcmsTypes.ChainSelector(deps.Chain.ChainSelector()),
+		Transactions:  []mcmsTypes.Transaction{*tx},
+	}
+
+	return out, nil
 }

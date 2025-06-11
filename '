@@ -1,11 +1,10 @@
 package sequence
 
 import (
-	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink/deployment"
-	commonOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/operations"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence/operation"
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
 )
 
 var (
@@ -14,6 +13,12 @@ var (
 		operation.Version1_0_0,
 		"Deploys forwarder contract and initializes it",
 		deployForwarder,
+	)
+	ConfigureForwarderSeq = operations.NewSequence(
+		"configure-forwarder-seq",
+		operation.Version1_0_0,
+		"Configures fprwarder contract",
+		configureForwarder,
 	)
 )
 
@@ -25,8 +30,24 @@ type (
 	}
 
 	DeployForwarderSeqOutput struct {
-		ProgramID solana.PublicKey
-		State     solana.PublicKey
+		ProgramID   string
+		StatePubKey string
+		// will see what return here
+	}
+	ConfigureForwarderSeqInput struct {
+		Chains map[uint64]struct{}
+		MCMS           *proposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
+		ConfigPDA      string
+		ForwarderState string
+		Owner          string
+		Signers        [][20]uint8
+		DonId          uint32
+		ConfigVersion  uint32
+		F              uint8
+	}
+
+	ConfigureForwarderSeqOutput struct {
+		Batches map[uint64]mcmsTypes.BatchOperation
 	}
 )
 
@@ -34,10 +55,11 @@ func deployForwarder(b operations.Bundle, deps operation.Deps, in DeployForwarde
 	var out DeployForwarderSeqOutput
 
 	// 1. Deploy
-	deployOut, err := operations.ExecuteOperation(b, operation.DeployForwarderOp, commonOps.Deps{Chain: deps.Chain}, commonOps.DeployInput{
+	// IsUpgrade false because it's initial deploy sequence
+	deployOut, err := operations.ExecuteOperation(b, operation.DeployForwarderOp, deps, operation.DeployInput{
 		ProgramName:  in.ProgramName,
 		Overallocate: in.Overallocate,
-		Size:         deployment.SolanaProgramBytes[deployment.KeystoneForwarderProgramName],
+		ChainSel:     in.ChainSel,
 	})
 
 	if err != nil {
@@ -58,3 +80,5 @@ func deployForwarder(b operations.Bundle, deps operation.Deps, in DeployForwarde
 
 	return out, nil
 }
+
+func configureForwarder(b operations.Bundle, deps operation.Deps, in ConfigureForwarderSeqInput) (ConfigureForwarderSeqOutput, error)
