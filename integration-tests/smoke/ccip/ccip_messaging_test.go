@@ -539,7 +539,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 				TestSetup:              setup,
 				Nonce:                  nil, // Solana nonce check is skipped
 				Receiver:               receiver,
-				MsgData:                make([]byte, 2000), // set large payload that cannot fit in single transaction
+				MsgData:                make([]byte, 1000), // set large payload that cannot fit in single transaction but does not overflow memory allocation
 				ExtraArgs:              extraArgs,
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				ExtraAssertions: []func(t *testing.T){
