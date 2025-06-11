@@ -31,6 +31,7 @@ import (
 )
 
 func TestTokenTransfer_EVM2EVM(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -232,6 +233,7 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 }
 
 func TestTokenTransfer_EVM2Solana(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -367,6 +369,7 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 }
 
 func TestTokenTransfer_Solana2EVM(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 

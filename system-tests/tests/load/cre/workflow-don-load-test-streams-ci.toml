@@ -10,7 +10,7 @@ docker_cmd_params = ["-b", "5"]
 # ----- JOB DISTRIBUTOR -----
 # Docker image for the job distributor service
 [jd]
-image = "localhost:5000/job-distributor:sha-44349dd-arm64"
+image = "injected-at-runtime"
 
 # ----- MOCK CAPABILITIES -----
 # Trigger capability that simulates streams of data
@@ -68,7 +68,7 @@ volume_name = "workflow_volume"
 # Chainlink node configuration for workflow nodes
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "localhost:5001/chainlink-plugins"  # Local development image
+image = "injected-at-runtime"
 user_config_overrides = """
         [Feature]
         LogPoller = true
@@ -94,7 +94,7 @@ port = 13200
 # Capability node 1 configuration
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "localhost:5001/chainlink-plugins"
+image = "injected-at-runtime"
 custom_ports = ["13401:7777"]   # External:internal port mapping
 user_config_overrides = """
         [Feature]
@@ -108,7 +108,7 @@ user_config_overrides = """
 # Capability node 2 configuration
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "localhost:5001/chainlink-plugins"
+image = "injected-at-runtime"
 custom_ports = ["13402:7777"]   # External:internal port mapping
 user_config_overrides = """
         [Feature]
@@ -122,7 +122,7 @@ user_config_overrides = """
 # Capability node 3 configuration
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "localhost:5001/chainlink-plugins"
+image = "injected-at-runtime"
 custom_ports = ["13403:7777"]   # External:internal port mapping
 user_config_overrides = """
         [Feature]

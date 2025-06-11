@@ -457,19 +457,16 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	}
 }
 
+type EventWithTxn[T any] struct {
+	Event T
+	Txn   *solrpc.GetTransactionResult
+}
+
 // Scan for events referencing address
-func SolEventEmitter[T any](
-	t *testing.T,
-	client *solrpc.Client,
-	address solana.PublicKey,
-	eventType string,
-	startSlot uint64,
-	done chan any,
-) (<-chan T, <-chan error) {
-	ch := make(chan T)
+func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address solana.PublicKey, eventType string, startSlot uint64, done chan any, ticker *time.Ticker) (<-chan EventWithTxn[T], <-chan error) {
+	ch := make(chan EventWithTxn[T])
 	errorCh := make(chan error)
 	go func() {
-		ticker := time.NewTicker(2 * time.Second)
 		defer ticker.Stop()
 		var until solana.Signature
 		for {
@@ -478,7 +475,6 @@ func SolEventEmitter[T any](
 				return
 			case <-ticker.C:
 				// Scan for transactions referencing the address
-				ctx := t.Context()
 				txSigs, err := client.GetSignaturesForAddressWithOpts(
 					ctx,
 					address,
@@ -532,7 +528,10 @@ func SolEventEmitter[T any](
 
 					for _, event := range events {
 						select {
-						case ch <- event:
+						case ch <- EventWithTxn[T]{
+							Event: event,
+							Txn:   tx,
+						}:
 						case <-done:
 							return
 						}
@@ -560,14 +559,15 @@ func ConfirmCommitWithExpectedSeqNumRangeSol(
 
 	done := make(chan any)
 	defer close(done)
-	sink, errCh := SolEventEmitter[solccip.EventCommitReportAccepted](t, dest.Client, offrampAddress, consts.EventNameCommitReportAccepted, startSlot, done)
+	sink, errCh := SolEventEmitter[solccip.EventCommitReportAccepted](t.Context(), dest.Client, offrampAddress, consts.EventNameCommitReportAccepted, startSlot, done, time.NewTicker(2*time.Second))
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
 
 	for {
 		select {
-		case commitEvent := <-sink:
+		case eventWithTxn := <-sink:
+			commitEvent := eventWithTxn.Event
 			// if merkle root is zero, it only contains price updates
 			if commitEvent.Report == nil {
 				t.Logf("Skipping CommitReportAccepted with only price updates")
@@ -776,14 +776,15 @@ func ConfirmExecWithSeqNrsSol(
 
 	done := make(chan any)
 	defer close(done)
-	sink, errCh := SolEventEmitter[solccip.EventExecutionStateChanged](t, dest.Client, offrampAddress, consts.EventNameExecutionStateChanged, startSlot, done)
+	sink, errCh := SolEventEmitter[solccip.EventExecutionStateChanged](t.Context(), dest.Client, offrampAddress, consts.EventNameExecutionStateChanged, startSlot, done, time.NewTicker(2*time.Second))
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
 
 	for {
 		select {
-		case execEvent := <-sink:
+		case eventWithTxn := <-sink:
+			execEvent := eventWithTxn.Event
 			// TODO: share with EVM
 			_, found := seqNrsToWatch[execEvent.SequenceNumber]
 			if found && execEvent.SourceChainSelector == srcSelector {
