@@ -5,24 +5,25 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
-type NoopTransmitter struct {
-	extraDataCodec common.ExtraDataCodec
+type NoopContractTransmitterFactory struct {
+	extraDataCodec ccipcommon.ExtraDataCodec
 }
 
-// NewNoopTransmitter constructs a Noop transmitter.
-func NewNoopTransmitter(extraDataCodec common.ExtraDataCodec) *NoopTransmitter {
-	return &NoopTransmitter{
+// NewNoopContractTransmitterFactory constructs a Noop transmitter.
+func NewNoopContractTransmitterFactory(extraDataCodec ccipcommon.ExtraDataCodec) *NoopContractTransmitterFactory {
+	return &NoopContractTransmitterFactory{
 		extraDataCodec: extraDataCodec,
 	}
 }
 
-// NewCommitTransmitter constructs an EVM commit transmitter.
-func (f *NoopTransmitter) NewCommitTransmitter(
+// NewCommitTransmitter constructs a Noop commit transmitter.
+func (f *NoopContractTransmitterFactory) NewCommitTransmitter(
 	lggr logger.Logger,
 	cw types.ContractWriter,
 	fromAccount ocrtypes.Account,
@@ -34,13 +35,13 @@ func (f *NoopTransmitter) NewCommitTransmitter(
 		cw:             cw,
 		fromAccount:    fromAccount,
 		offrampAddress: offrampAddress,
-		toCalldataFn:   NewNoopCommitCalldataFunc(commitMethod),
+		toCalldataFn:   NewEVMCommitCalldataFunc(commitMethod),
 		extraDataCodec: f.extraDataCodec,
 	}
 }
 
-// NewExecTransmitter constructs an EVM execute transmitter.
-func (f *NoopTransmitter) NewExecTransmitter(
+// NewExecTransmitter constructs a Noop execute transmitter.
+func (f *NoopContractTransmitterFactory) NewExecTransmitter(
 	lggr logger.Logger,
 	cw types.ContractWriter,
 	fromAccount ocrtypes.Account,
@@ -51,7 +52,7 @@ func (f *NoopTransmitter) NewExecTransmitter(
 		cw:             cw,
 		fromAccount:    fromAccount,
 		offrampAddress: offrampAddress,
-		toCalldataFn:   NoopExecCallDataFunc,
+		toCalldataFn:   EVMExecCallDataFunc,
 		extraDataCodec: f.extraDataCodec,
 	}
 }
@@ -63,7 +64,7 @@ func NewNoopCommitCalldataFunc(commitMethod string) ToCalldataFunc {
 		report ocr3types.ReportWithInfo[[]byte],
 		rs, ss [][32]byte,
 		vs [32]byte,
-		_ common.ExtraDataCodec,
+		_ ccipcommon.ExtraDataCodec,
 	) (string, string, any, error) {
 		return consts.ContractNameOffRamp,
 			commitMethod,
@@ -78,7 +79,7 @@ var NoopExecCallDataFunc = func(
 	report ocr3types.ReportWithInfo[[]byte],
 	_, _ [][32]byte,
 	_ [32]byte,
-	_ common.ExtraDataCodec,
+	_ ccipcommon.ExtraDataCodec,
 ) (contract string, method string, args any, err error) {
 	return consts.ContractNameOffRamp,
 		consts.MethodExecute,

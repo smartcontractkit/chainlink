@@ -3,7 +3,7 @@ package ccipnoop
 import (
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 // InitializePluginConfig returns a pluginConfig for Solana chains.
@@ -17,7 +17,7 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraD
 		RMNCrypto:                  &NoopRMNCrypto{},
 		AddressCodec:               NoopAddressCodec{},
 		ChainRW:                    NoopChainRWProvider{},
-		ContractTransmitterFactory: ocrimpls.NewNoopTransmitter(extraDataCodec),
+		ContractTransmitterFactory: ocrimpls.NewNoopContractTransmitterFactory(extraDataCodec),
 		ExtraDataCodec:             NoopExtraDataDecoder{},
 	}
 }
