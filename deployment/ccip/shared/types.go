@@ -70,9 +70,11 @@ var (
 	CLLMetadata = "CLL"
 
 	// Aptos
-	AptosMCMSType     deployment.ContractType = "AptosManyChainMultisig"
-	AptosCCIPType     deployment.ContractType = "AptosCCIP"
-	AptosReceiverType deployment.ContractType = "AptosReceiver"
+	AptosMCMSType             deployment.ContractType = "AptosManyChainMultisig"
+	AptosCCIPType             deployment.ContractType = "AptosCCIP"
+	AptosReceiverType         deployment.ContractType = "AptosReceiver"
+	AptosManagedTokenPoolType deployment.ContractType = "AptosManagedTokenPool"
+	AptosManagedTokenType     deployment.ContractType = "AptosManagedTokenType"
 
 	// TON
 	TonCCIP     deployment.ContractType = "TonCCIP"

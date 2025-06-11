@@ -4,17 +4,18 @@ import (
 	"math/big"
 	"testing"
 
-	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
@@ -36,7 +37,7 @@ func Test_createDON(t *testing.T) {
 		{
 			"not a member of the DON and not a bootstrap node",
 			args{
-				logger.TestLogger(t),
+				logger.Test(t),
 				p2pID1,
 				mocks.NewHomeChainReader(t),
 				mocks.NewOracleCreator(t),
@@ -77,7 +78,7 @@ func Test_createDON(t *testing.T) {
 		{
 			"not a member of the DON but a running a bootstrap oracle creator",
 			args{
-				logger.TestLogger(t),
+				logger.Test(t),
 				ragep2ptypes.PeerID(p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)).PeerID()),
 				mocks.NewHomeChainReader(t),
 				mocks.NewOracleCreator(t),
@@ -119,7 +120,7 @@ func Test_createDON(t *testing.T) {
 		{
 			"success",
 			args{
-				logger.TestLogger(t),
+				logger.Test(t),
 				p2pID1,
 				mocks.NewHomeChainReader(t),
 				mocks.NewOracleCreator(t),
@@ -166,7 +167,7 @@ func Test_createDON(t *testing.T) {
 		{
 			"if a don is created with active and candidate configs, all should be created",
 			args{
-				logger.TestLogger(t),
+				logger.Test(t),
 				p2pID1,
 				mocks.NewHomeChainReader(t),
 				mocks.NewOracleCreator(t),
@@ -265,7 +266,7 @@ func Test_updateDON(t *testing.T) {
 		{
 			name: "should start new plugins",
 			args: args{
-				logger.TestLogger(t),
+				logger.Test(t),
 				p2pID3,
 				mocks.NewHomeChainReader(t),
 				mocks.NewOracleCreator(t),
@@ -318,7 +319,7 @@ func Test_updateDON(t *testing.T) {
 		{
 			name: "should return no plugins if config is empty",
 			args: args{
-				logger.TestLogger(t),
+				logger.Test(t),
 				p2pID3,
 				mocks.NewHomeChainReader(t),
 				mocks.NewOracleCreator(t),
@@ -354,7 +355,7 @@ func Test_updateDON(t *testing.T) {
 		{
 			name: "should maintain existing plugins",
 			args: args{
-				logger.TestLogger(t),
+				logger.Test(t),
 				p2pID3,
 				mocks.NewHomeChainReader(t),
 				mocks.NewOracleCreator(t),
@@ -419,7 +420,7 @@ func Test_updateDON(t *testing.T) {
 		{
 			name: "should start brand new plugins if all are new",
 			args: args{
-				logger.TestLogger(t),
+				logger.Test(t),
 				p2pID3,
 				mocks.NewHomeChainReader(t),
 				mocks.NewOracleCreator(t),
@@ -568,7 +569,7 @@ func Test_launcher_processDiff(t *testing.T) {
 		{
 			"don added success",
 			fields{
-				lggr:  logger.TestLogger(t),
+				lggr:  logger.Test(t),
 				p2pID: p2pID1,
 				homeChainReader: newMock(t, func(t *testing.T) *mocks.HomeChainReader {
 					return mocks.NewHomeChainReader(t)
@@ -633,7 +634,7 @@ func Test_launcher_processDiff(t *testing.T) {
 		{
 			"don updated new candidate instance success",
 			fields{
-				lggr:  logger.TestLogger(t),
+				lggr:  logger.Test(t),
 				p2pID: p2pID1,
 				homeChainReader: newMock(t, func(t *testing.T) *mocks.HomeChainReader {
 					return mocks.NewHomeChainReader(t)

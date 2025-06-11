@@ -10,7 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
@@ -259,7 +260,7 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 }
 
 func (kr *keyRing) logPubKeys(lggr logger.Logger) {
-	lggr = lggr.Named("KeyRing")
+	lggr = logger.Named(lggr, "KeyRing")
 	var csaIDs []string
 	for _, CSAKey := range kr.CSA {
 		csaIDs = append(csaIDs, CSAKey.ID())

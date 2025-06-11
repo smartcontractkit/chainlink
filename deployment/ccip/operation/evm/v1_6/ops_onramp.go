@@ -2,6 +2,7 @@ package v1_6
 
 import (
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
@@ -76,6 +77,18 @@ var (
 			}
 			return onRamp.Address, nil
 		})
+
+	OnRampApplyDestChainConfigUpdatesOp = opsutil.NewEVMCallOperation(
+		"OnRampApplyDestChainConfigUpdatesOp",
+		semver.MustParse("1.0.0"),
+		"Applies updates to destination chain configurations stored on the OnRamp contract",
+		onramp.OnRampABI,
+		shared.OnRamp,
+		onramp.NewOnRamp,
+		func(onRamp *onramp.OnRamp, opts *bind.TransactOpts, input []onramp.OnRampDestChainConfigArgs) (*types.Transaction, error) {
+			return onRamp.ApplyDestChainConfigUpdates(opts, input)
+		},
+	)
 )
 
 type DeployOnRampInput struct {

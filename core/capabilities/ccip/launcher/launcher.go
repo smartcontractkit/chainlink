@@ -6,24 +6,20 @@ import (
 	"sync"
 	"time"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
-
 	"go.uber.org/multierr"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 var (

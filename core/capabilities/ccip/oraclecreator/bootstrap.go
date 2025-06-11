@@ -12,10 +12,10 @@ import (
 
 	mapset "github.com/deckarep/golang-set/v2"
 
-	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	"github.com/smartcontractkit/libocr/networking"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -25,17 +25,16 @@ import (
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/peergroup"
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	"github.com/smartcontractkit/chainlink-ccip/pkg/peergroup"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
@@ -174,7 +173,7 @@ func (i *bootstrapOracleCreator) Create(ctx context.Context, _ uint32, config cc
 	}
 
 	pgd := newPeerGroupDialer(
-		i.lggr.Named("PeerGroupDialer"),
+		logger.Named(i.lggr, "PeerGroupDialer"),
 		i.peerWrapper.PeerGroupFactory,
 		rmnHomeReader,
 		i.bootstrapperLocators,
@@ -189,7 +188,7 @@ func (i *bootstrapOracleCreator) Create(ctx context.Context, _ uint32, config cc
 		Database:              i.db,
 		LocalConfig:           defaultLocalConfig(),
 		Logger: ocrcommon.NewOCRWrapper(
-			i.lggr.
+			logger.Sugared(i.lggr).
 				Named("CCIPBootstrap").
 				Named(destRelayID.String()).
 				Named(config.Config.ChainSelector.String()).
@@ -398,7 +397,7 @@ func calculateSyncActions(
 func (d *peerGroupDialer) sync() {
 	activeRmnHomeDigest, candidateRmnHomeDigest := d.rmnHomeReader.GetAllConfigDigests()
 
-	lggr := commonlogger.With(
+	lggr := logger.With(
 		d.lggr,
 		"method", "sync",
 		"activeRmnHomeDigest", activeRmnHomeDigest.String(),
@@ -417,7 +416,7 @@ func (d *peerGroupDialer) sync() {
 
 	// Handle each action
 	for _, action := range actions {
-		actionLggr := commonlogger.With(lggr,
+		actionLggr := logger.With(lggr,
 			"action", action.actionType,
 			"endpointConfigDigest", action.endpointConfigDigest,
 			"rmnHomeConfigDigest", action.rmnHomeConfigDigest)
@@ -439,7 +438,7 @@ func (d *peerGroupDialer) sync() {
 
 // Helper function to close specific peer group
 func (d *peerGroupDialer) closePeerGroup(endpointConfigDigest cciptypes.Bytes32) {
-	lggr := d.lggr.With("genericEndpointConfigDigest", endpointConfigDigest.String())
+	lggr := logger.With(d.lggr, "genericEndpointConfigDigest", endpointConfigDigest.String())
 
 	for i, digest := range d.activeEndpointConfigDigests {
 		if digest == endpointConfigDigest {
@@ -467,7 +466,7 @@ func (d *peerGroupDialer) createPeerGroup(
 		return fmt.Errorf("get RMN nodes info: %w", err)
 	}
 
-	lggr := d.lggr.With(
+	lggr := logger.With(d.lggr,
 		"genericEndpointConfigDigest", endpointConfigDigest.String(),
 		"rmnHomeConfigDigest", rmnHomeConfigDigest.String(),
 	)

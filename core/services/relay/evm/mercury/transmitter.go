@@ -25,7 +25,6 @@ import (
 
 	capStreams "github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
@@ -105,7 +104,7 @@ type BenchmarkPriceDecoder func(ctx context.Context, feedID mercuryutils.FeedID,
 var _ Transmitter = (*mercuryTransmitter)(nil)
 
 type TransmitterConfig interface {
-	TransmitTimeout() commonconfig.Duration
+	TransmitTimeout() time.Duration
 }
 
 type mercuryTransmitter struct {
@@ -290,7 +289,7 @@ const TransmitQueueMaxSize = 10_000 // hardcode this for legacy transmitter sinc
 func newServer(lggr logger.Logger, cfg TransmitterConfig, client wsrpc.Client, pm *PersistenceManager, serverURL, feedIDHex string) *server {
 	return &server{
 		logger.Sugared(lggr),
-		cfg.TransmitTimeout().Duration(),
+		cfg.TransmitTimeout(),
 		client,
 		pm,
 		NewTransmitQueue(lggr, serverURL, feedIDHex, TransmitQueueMaxSize, pm),
