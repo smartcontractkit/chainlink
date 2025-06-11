@@ -1,4 +1,4 @@
-package llo_test
+package integrationtest
 
 import (
 	"encoding/json"

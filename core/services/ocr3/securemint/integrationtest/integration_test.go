@@ -1,4 +1,4 @@
-package llo_test
+package integrationtest
 
 import (
 	"crypto/ed25519"
@@ -28,8 +28,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/securemint"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/freeport"
 	"github.com/smartcontractkit/libocr/commontypes"

@@ -1,7 +1,5 @@
 package securemint
 
-// TODO(gg): maybe this should live in ocr3 instead of ocr2?
-
 import (
 	"context"
 	"errors"
@@ -14,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	sm_plugin_config "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/securemint/config"
+	sm_plugin_config "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/config"
 	sm_ea "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/ea"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
