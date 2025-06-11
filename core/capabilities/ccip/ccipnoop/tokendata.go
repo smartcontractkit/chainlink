@@ -3,15 +3,15 @@ package ccipnoop
 import (
 	"context"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
-type NoopTokenDataEncoder struct{}
+type tokenDataEncoder struct{}
 
-func NewNoopTokenDataEncoder() NoopTokenDataEncoder {
-	return NoopTokenDataEncoder{}
+func NewTokenDataEncoder() ccipocr3.TokenDataEncoder {
+	return tokenDataEncoder{}
 }
 
-func (e NoopTokenDataEncoder) EncodeUSDC(_ context.Context, message cciptypes.Bytes, attestation cciptypes.Bytes) (cciptypes.Bytes, error) {
+func (e tokenDataEncoder) EncodeUSDC(_ context.Context, message ccipocr3.Bytes, attestation ccipocr3.Bytes) (ccipocr3.Bytes, error) {
 	return []byte{}, nil
 }

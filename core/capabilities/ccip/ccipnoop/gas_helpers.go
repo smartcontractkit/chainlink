@@ -1,27 +1,26 @@
 package ccipnoop
 
 import (
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
-func NewNoopGasEstimateProvider(codec ccipcommon.ExtraDataCodec) NoopEstimateProvider {
-	return NoopEstimateProvider{
+func NewGasEstimateProvider(codec common.ExtraDataCodec) ccipocr3.EstimateProvider {
+	return estimateProvider{
 		extraDataCodec: codec,
 	}
 }
 
-type NoopEstimateProvider struct {
-	extraDataCodec ccipcommon.ExtraDataCodec
+type estimateProvider struct {
+	extraDataCodec common.ExtraDataCodec
 }
 
 // CalculateMerkleTreeGas is not implemented
-func (gp NoopEstimateProvider) CalculateMerkleTreeGas(numRequests int) uint64 {
+func (gp estimateProvider) CalculateMerkleTreeGas(numRequests int) uint64 {
 	return 1
 }
 
 // CalculateMessageMaxGas is not implemented.
-func (gp NoopEstimateProvider) CalculateMessageMaxGas(msg cciptypes.Message) uint64 {
+func (gp estimateProvider) CalculateMessageMaxGas(msg ccipocr3.Message) uint64 {
 	return 1
 }

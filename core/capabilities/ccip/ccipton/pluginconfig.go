@@ -9,5 +9,5 @@ import (
 
 func init() {
 	// Register the Noop plugin config factory for Ton
-	ccipcommon.RegisterPluginConfig(chainsel.FamilyTon, ccipnoop.InitializePluginConfig)
+	ccipcommon.RegisterPluginConfig(chainsel.FamilyTon, ccipnoop.NewPluginConfig)
 }

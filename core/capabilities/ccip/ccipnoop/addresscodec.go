@@ -1,15 +1,15 @@
 package ccipnoop
 
-type NoopAddressCodec struct{}
+type AddressCodec struct{}
 
-func (n NoopAddressCodec) AddressBytesToString(addr []byte) (string, error) {
+func (n AddressCodec) AddressBytesToString(addr []byte) (string, error) {
 	return string(addr), nil
 }
 
-func (n NoopAddressCodec) AddressStringToBytes(addr string) ([]byte, error) {
+func (n AddressCodec) AddressStringToBytes(addr string) ([]byte, error) {
 	return []byte(addr), nil
 }
 
-func (n NoopAddressCodec) OracleIDAsAddressBytes(oracleID uint8) ([]byte, error) {
+func (n AddressCodec) OracleIDAsAddressBytes(oracleID uint8) ([]byte, error) {
 	return []byte{oracleID}, nil
 }

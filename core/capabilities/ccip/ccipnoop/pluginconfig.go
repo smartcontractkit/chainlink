@@ -1,23 +1,23 @@
 package ccipnoop
 
 import (
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-// InitializePluginConfig returns a pluginConfig for Solana chains.
-func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraDataCodec) ccipcommon.PluginConfig {
+// NewPluginConfig returns a pluginConfig .
+func NewPluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraDataCodec) ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{
-		CommitPluginCodec:          NewNoopCommitPluginCodecV1(),
-		ExecutePluginCodec:         NewNoopExecutePluginCodecV1(extraDataCodec),
-		MessageHasher:              NewNoopMessageHasherV1(lggr, extraDataCodec),
-		TokenDataEncoder:           NewNoopTokenDataEncoder(),
-		GasEstimateProvider:        NewNoopGasEstimateProvider(extraDataCodec),
+		CommitPluginCodec:          NewCommitPluginCodecV1(),
+		ExecutePluginCodec:         NewExecutePluginCodecV1(extraDataCodec),
+		MessageHasher:              NewMessageHasherV1(lggr, extraDataCodec),
+		TokenDataEncoder:           NewTokenDataEncoder(),
+		GasEstimateProvider:        NewGasEstimateProvider(extraDataCodec),
 		RMNCrypto:                  &NoopRMNCrypto{},
-		AddressCodec:               NoopAddressCodec{},
-		ChainRW:                    NoopChainRWProvider{},
-		ContractTransmitterFactory: ocrimpls.NewNoopContractTransmitterFactory(extraDataCodec),
-		ExtraDataCodec:             NoopExtraDataDecoder{},
+		AddressCodec:               AddressCodec{},
+		ChainRW:                    chainRWProvider{},
+		ContractTransmitterFactory: ocrimpls.NewContractTransmitterFactory(extraDataCodec),
+		ExtraDataCodec:             extraDataDecoder{},
 	}
 }

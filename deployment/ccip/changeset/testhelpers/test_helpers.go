@@ -472,7 +472,6 @@ type CCIPSendReqConfig struct {
 	Sender       *bind.TransactOpts
 	Message      any
 	MaxRetries   int // Number of retries for errors (excluding insufficient fee errors)
-	AssertError  bool
 }
 
 type SendReqOpts func(*CCIPSendReqConfig)

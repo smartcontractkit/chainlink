@@ -1,6 +1,7 @@
 package ocrimpls
 
 import (
+	cciptypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -11,19 +12,19 @@ import (
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
-type NoopContractTransmitterFactory struct {
+type contractTransmitterFactory struct {
 	extraDataCodec ccipcommon.ExtraDataCodec
 }
 
-// NewNoopContractTransmitterFactory constructs a Noop transmitter.
-func NewNoopContractTransmitterFactory(extraDataCodec ccipcommon.ExtraDataCodec) *NoopContractTransmitterFactory {
-	return &NoopContractTransmitterFactory{
+// NewContractTransmitterFactory constructs a Noop transmitter.
+func NewContractTransmitterFactory(extraDataCodec ccipcommon.ExtraDataCodec) cciptypes.ContractTransmitterFactory {
+	return &contractTransmitterFactory{
 		extraDataCodec: extraDataCodec,
 	}
 }
 
 // NewCommitTransmitter constructs a Noop commit transmitter.
-func (f *NoopContractTransmitterFactory) NewCommitTransmitter(
+func (f *contractTransmitterFactory) NewCommitTransmitter(
 	lggr logger.Logger,
 	cw types.ContractWriter,
 	fromAccount ocrtypes.Account,
@@ -41,7 +42,7 @@ func (f *NoopContractTransmitterFactory) NewCommitTransmitter(
 }
 
 // NewExecTransmitter constructs a Noop execute transmitter.
-func (f *NoopContractTransmitterFactory) NewExecTransmitter(
+func (f *contractTransmitterFactory) NewExecTransmitter(
 	lggr logger.Logger,
 	cw types.ContractWriter,
 	fromAccount ocrtypes.Account,
