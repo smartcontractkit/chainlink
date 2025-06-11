@@ -270,7 +270,7 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 	if owner == state.Chains[c.NewChain.Selector].Timelock.Address() {
 		mcmsConfig = c.MCMSConfig
 	}
-	out, err := SetRMNRemoteOnRMNProxyChangeset(e, ccipseq.SetRMNRemoteOnRMNProxyConfig{
+	out, err := SetRMNRemoteOnRMNProxyChangeset(e, SetRMNRemoteOnRMNProxyConfig{
 		ChainSelectors: []uint64{c.NewChain.Selector},
 		MCMSConfig:     mcmsConfig,
 	})

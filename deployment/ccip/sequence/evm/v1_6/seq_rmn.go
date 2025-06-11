@@ -4,8 +4,10 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/exp/maps"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -65,44 +67,27 @@ var (
 		"SetRMNRemoteOnRMNProxySequece",
 		semver.MustParse("1.0.0"),
 		"Setting SetRMNRemote on RMNProxy across multiple EVM chains",
-		func(b operations.Bundle, deps opsutil.ConfigureDependencies, input SetRMNRemoteOnRMNProxyConfig) (opsutil.OpOutput, error) {
-			finalOutput := &opsutil.OpOutput{}
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input SetRMNRemoteOnRMNProxySequenceInput) (map[uint64][]opsutil.EVMCallOutput, error) {
+			opOutputs := make(map[uint64][]opsutil.EVMCallOutput, len(input.UpdatesByChain))
 
-			// validate input
-			if err := input.Validate(deps.Env, deps.CurrentState); err != nil {
-				return opsutil.OpOutput{}, err
-			}
-
-			for _, sel := range input.ChainSelectors {
-				report, err := operations.ExecuteOperation(b, ccipops.SetRMNRemoteOnRMNProxyOp, deps, ccipops.SetRMNRemoteOnRMNProxyInput{
-					ChainSelector: sel,
-					MCMSConfig:    input.MCMSConfig,
-				})
+			for chainSel, update := range input.UpdatesByChain {
+				chain, ok := chains[chainSel]
+				if !ok {
+					return nil, fmt.Errorf("chain with selector %d not defined", chainSel)
+				}
+				report, err := operations.ExecuteOperation(b, ccipops.SetRMNRemoteOnRMNProxyOp, chain, update)
 				if err != nil {
-					return opsutil.OpOutput{}, fmt.Errorf("failed to execute SetRMNRemoteOnRMNProxyOp on %d: %w", sel, err)
+					return nil, fmt.Errorf("failed to execute SetRMNRemoteOnRMNProxyOp on %s: %w", chain, err)
 				}
-				if err := finalOutput.Merge(report.Output); err != nil {
-					return opsutil.OpOutput{}, fmt.Errorf("failed to merge output for chain %d: %w", sel, err)
-				}
+				opOutputs[chainSel] = []opsutil.EVMCallOutput{report.Output}
 			}
-			// if the MCMSConfig is not nil, we need to aggregate the proposals
-			if len(finalOutput.Proposals) > 0 {
-				report, err := operations.ExecuteOperation(b, ccipsharedops.PostOpsAggregateProposals, deps, ccipsharedops.PostOpsInput{
-					MCMSConfig: input.MCMSConfig,
-					Proposals:  finalOutput.Proposals,
-				})
-				if err != nil {
-					return opsutil.OpOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
-				}
-				b.Logger.Infow("Generated proposal to Update NonceManagers")
-				return opsutil.OpOutput{
-					Proposals:                  report.Output,
-					DescribedTimelockProposals: finalOutput.DescribedTimelockProposals,
-				}, err
-			}
-			return *finalOutput, nil
+			return opOutputs, nil
 		})
 )
+
+type SetRMNRemoteOnRMNProxySequenceInput struct {
+	UpdatesByChain map[uint64]opsutil.EVMCallInput[common.Address] `json:"updatesByChain"`
+}
 
 type SetRMNRemoteOnRMNProxyConfig struct {
 	ChainSelectors []uint64

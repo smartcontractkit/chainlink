@@ -348,7 +348,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
-			ccipseq.SetRMNRemoteOnRMNProxyConfig{
+			v1_6.SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: evmChainSelectors,
 			},
 		),

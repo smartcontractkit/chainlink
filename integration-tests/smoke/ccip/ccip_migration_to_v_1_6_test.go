@@ -148,7 +148,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 	tEnv.UpdateDeployedEnvironment(e)
 
 	_, err = cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset).Apply(e.Env,
-		ccipseq.SetRMNRemoteOnRMNProxyConfig{
+		v1_6.SetRMNRemoteOnRMNProxyConfig{
 			ChainSelectors: e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)),
 		})
 	require.NoError(t, err)
@@ -276,7 +276,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	tEnv.UpdateDeployedEnvironment(e)
 
 	_, err = cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset).Apply(e.Env,
-		ccipseq.SetRMNRemoteOnRMNProxyConfig{
+		v1_6.SetRMNRemoteOnRMNProxyConfig{
 			ChainSelectors: e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)),
 		})
 	require.NoError(t, err)
@@ -413,7 +413,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	tEnv.UpdateDeployedEnvironment(e)
 
 	_, err = cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset).Apply(e.Env,
-		ccipseq.SetRMNRemoteOnRMNProxyConfig{
+		v1_6.SetRMNRemoteOnRMNProxyConfig{
 			ChainSelectors: e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)),
 		})
 	require.NoError(t, err)
@@ -647,7 +647,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	e.Env, err = commonchangeset.Apply(t, e.Env, commonchangeset.Configure(
 		// as we have already transferred ownership for RMNProxy to MCMS, it needs to be done via MCMS proposal
 		cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
-		ccipseq.SetRMNRemoteOnRMNProxyConfig{
+		v1_6.SetRMNRemoteOnRMNProxyConfig{
 			ChainSelectors: e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)),
 			MCMSConfig: &proposalutils.TimelockConfig{
 				MinDelay: 0,

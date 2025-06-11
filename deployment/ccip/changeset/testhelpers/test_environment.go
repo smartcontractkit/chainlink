@@ -643,7 +643,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
-			ccipseq.SetRMNRemoteOnRMNProxyConfig{
+			v1_6.SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: evmChains,
 			},
 		),
