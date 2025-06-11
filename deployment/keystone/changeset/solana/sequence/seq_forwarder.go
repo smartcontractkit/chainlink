@@ -54,7 +54,7 @@ func deployForwarder(b operations.Bundle, deps operation.Deps, in DeployForwarde
 	if err != nil {
 		return DeployForwarderSeqOutput{}, nil
 	}
-	out.StatePubKey = initOut.Output.StatePubKey
+	out.State = initOut.Output.StatePubKey
 
 	return out, nil
 }

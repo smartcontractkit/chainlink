@@ -93,7 +93,7 @@ func DeployMCMSWithTimelockProgramsSolana(
 	return chainState, nil
 }
 
-// DeployMCMSWithTimelockProgramsSolanaV2 deploys an MCMS program
+// DeployMCMSWithTimelockProgramsSolanaV2 deploys an MCMS program using Operations API
 // saves addresses to datastore
 func DeployMCMSWithTimelockProgramsSolanaV2(
 	e cldf.Environment,

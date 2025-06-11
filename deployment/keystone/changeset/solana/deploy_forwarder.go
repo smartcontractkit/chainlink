@@ -32,11 +32,11 @@ const (
 	ForwarderState    datastore.ContractType = "ForwarderState"
 )
 
-var _ cldf.ChangeSetV2[*DeployRequest] = DeployForwarder{}
+var _ cldf.ChangeSetV2[*DeployForwarderRequest] = DeployForwarder{}
 
 type DeployForwarder struct{}
 
-func (cs DeployForwarder) VerifyPreconditions(env cldf.Environment, req *DeployRequest) error {
+func (cs DeployForwarder) VerifyPreconditions(env cldf.Environment, req *DeployForwarderRequest) error {
 	if _, ok := env.BlockChains.SolanaChains()[req.ChainSel]; !ok {
 		return fmt.Errorf("solana chain not found for chain selector %d", req.ChainSel)
 	}
@@ -47,15 +47,15 @@ func (cs DeployForwarder) VerifyPreconditions(env cldf.Environment, req *DeployR
 	return nil
 }
 
-type DeployRequest = struct {
+type DeployForwarderRequest = struct {
 	ChainSel    uint64
 	BuildConfig *helpers.BuildSolanaConfig
 	Qualifier   string
-	LabelSet    *datastore.LabelSet
+	LabelSet    datastore.LabelSet
 	Version     string
 }
 
-func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployRequest) (cldf.ChangesetOutput, error) {
+func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployForwarderRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
 
 	out.DataStore = datastore.NewMemoryDataStore()
@@ -90,7 +90,7 @@ func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployRequest) (cldf.
 			Type:          ForwarderContract,
 			Version:       version,
 			Qualifier:     req.Qualifier,
-			Labels:        *req.LabelSet,
+			Labels:        req.LabelSet,
 		},
 	)
 
@@ -105,7 +105,7 @@ func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployRequest) (cldf.
 			Type:          ForwarderState,
 			Version:       version,
 			Qualifier:     req.Qualifier,
-			Labels:        *req.LabelSet,
+			Labels:        req.LabelSet,
 		},
 	)
 
@@ -119,7 +119,6 @@ func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployRequest) (cldf.
 type SetForwarderUpgradeAuthorityRequest = struct {
 	ChainSel            uint64
 	NewUpgradeAuthority solana.PublicKey
-	SpillAddress        solana.PublicKey
 	Qualifier           string
 	Version             string
 	MCMS                *proposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
@@ -149,7 +148,7 @@ func (cs SetForwarderUpgradeAuthority) VerifyPreconditions(env cldf.Environment,
 		refs := env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(req.ChainSel))
 		_, err := helpers.FetchTimelockSigner(refs)
 		if err != nil {
-			return fmt.Errorf("failed fetch timelock signer: %w")
+			return fmt.Errorf("failed fetch timelock signer: %w", err)
 		}
 	}
 
@@ -263,7 +262,7 @@ func (cs ConfigureForwarders) Apply(env cldf.Environment, req *ConfigureForwarde
 
 	mcmsBatches, err := configureForwarders(env, req, wfDon)
 	if err != nil {
-		return out, fmt.Errorf("failed to requre forwarder: %w", err)
+		return out, fmt.Errorf("failed to configure forwarder: %w", err)
 	}
 
 	if req.MCMS == nil {

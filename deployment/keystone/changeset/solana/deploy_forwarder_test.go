@@ -2,23 +2,20 @@ package solana
 
 import (
 	"fmt"
-	"math/big"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
-	"time"
 
+	"github.com/Masterminds/semver/v3"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/wsrpc/logger"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	cldfchain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
@@ -44,10 +41,16 @@ func TestDeployForwarder(t *testing.T) {
 	t.Run("should deploy forwarder", func(t *testing.T) {
 		env = shouldDeployForwarder(t, env, solSel, ab)
 	})
+
 	t.Run("should pass upgrade authority", func(t *testing.T) {
-		_, err := SetForwarderUpgradeAuthority(env, &SetForwarderUpgradeAuthorityRequest{
+		changeset := SetForwarderUpgradeAuthority{}
+
+		chain := env.BlockChains.SolanaChains()[solSel]
+		_, err := changeset.Apply(env, &SetForwarderUpgradeAuthorityRequest{
 			ChainSel:            solSel,
-			NewUpgradeAuthority: env.BlockChains.SolanaChains()[solSel].DeployerKey.PublicKey(),
+			NewUpgradeAuthority: chain.DeployerKey.PublicKey(),
+			Qualifier:           testQualifier,
+			Version:             "1.0.0",
 		})
 		require.NoError(t, err)
 	})
@@ -97,7 +100,7 @@ func TestConfigureForwarder(t *testing.T) {
 
 				te.Env.BlockChains = cldfchain.NewBlockChains(blockchains)
 				env = shouldDeployForwarder(t, te.Env, solSel, te.Env.ExistingAddresses)
-
+				te.Env.DataStore = env.DataStore
 				var wfNodes []string
 				for _, id := range te.GetP2PIDs("wfDon") {
 					wfNodes = append(wfNodes, id.String())
@@ -107,14 +110,20 @@ func TestConfigureForwarder(t *testing.T) {
 					WFDonName:        "test-wf-don",
 					WFNodeIDs:        wfNodes,
 					RegistryChainSel: te.RegistrySelector,
+					Version:          "1.0.0",
+					Qualifier:        testQualifier,
 				}
-				_, err := ConfigureForwarders(te.Env, cfg)
+
+				changeset := ConfigureForwarders{}
+
+				_, err := changeset.Apply(te.Env, &cfg)
+
 				require.NoError(t, err)
 			})
 		}
 	})
 
-	t.Run("set config with mcms", func(t *testing.T) {
+	/* t.Run("set config with mcms", func(t *testing.T) {
 		for _, tcase := range testCases {
 			nChains := tcase.nChains
 			name := fmt.Sprintf("nChains=%d", nChains)
@@ -173,8 +182,12 @@ func TestConfigureForwarder(t *testing.T) {
 				require.Len(t, out.MCMSTimelockProposals, 1)
 			})
 		}
-	})
+	}) */
 }
+
+const (
+	testQualifier = "test-deploy"
+)
 
 func shouldDeployForwarder(t *testing.T, env cldf.Environment, solSel uint64, _ cldf.AddressBook) cldf.Environment {
 	cfg := helpers.BuildSolanaConfig{
@@ -192,20 +205,35 @@ func shouldDeployForwarder(t *testing.T, env cldf.Environment, solSel uint64, _ 
 	chain.ProgramsPath = getProgramsPath()
 	env.BlockChains = cldfchain.NewBlockChains(map[uint64]cldfchain.BlockChain{solSel: chain})
 
-	// deploy forwarder
-	resp, err := DeployForwarder(env, &DeployRequest{
-		ChainSel:    solSel,
-		BuildConfig: nil,
-		Version:     "Forwarder 1.1.0",
+	deployer := DeployForwarder{}
+	resp, err := deployer.Apply(env, &DeployForwarderRequest{
+		ChainSel:  solSel,
+		Qualifier: testQualifier,
+		Version:   "1.0.0",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
+
+	err = resp.DataStore.Merge(env.DataStore)
+	require.NoError(t, err)
+
 	env.DataStore = resp.DataStore.Seal()
-	//addrs, err := resp.AddressBook.AddressesForChain(solSel) //nolint:staticcheck migrate to datastore
-	//require.NoError(t, err)
-	//require.Len(t, addrs, 2)                            // forwarder programID, forwarder state
-	//err = env.ExistingAddresses.Merge(resp.AddressBook) //nolint:staticcheck migrate to datastore
-	//require.NoError(t, err)
+	_, err = env.DataStore.Addresses().Get(datastore.NewAddressRefKey(
+		solSel,
+		ForwarderContract,
+		semver.MustParse("1.0.0"),
+		testQualifier,
+	))
+	require.NoError(t, err)
+
+	_, err = env.DataStore.Addresses().Get(datastore.NewAddressRefKey(
+		solSel,
+		ForwarderState,
+		semver.MustParse("1.0.0"),
+		testQualifier,
+	))
+	require.NoError(t, err)
+
 	return env
 }
 

@@ -95,7 +95,9 @@ type (
 
 func initForwarder(b operations.Bundle, deps Deps, in InitForwarderInput) (InitForwarderOutput, error) {
 	var out InitForwarderOutput
-	ks_forwarder.SetProgramID(in.ProgramID)
+	if ks_forwarder.ProgramID.IsZero() {
+		ks_forwarder.SetProgramID(in.ProgramID)
+	}
 
 	stateKey, err := solana.NewRandomPrivateKey()
 	if err != nil {
@@ -175,8 +177,9 @@ func configureForwarder(b operations.Bundle, deps Deps, in ConfigureForwarderInp
 	var out ConfigureForwarderOutput
 
 	var instructions *ks_forwarder.Instruction
-
-	ks_forwarder.SetProgramID(in.ProgramID)
+	if ks_forwarder.ProgramID.IsZero() {
+		ks_forwarder.SetProgramID(in.ProgramID)
+	}
 
 	configPDA := solana.MustPublicKeyFromBase58(in.ConfigPDA)
 
