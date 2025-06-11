@@ -320,7 +320,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			},
 		},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
-		// TODO(CAPPL-729): pass workflow config
+		Config:          e.cfg.Config,
 	}, &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID})
 	if err != nil {
 		status := store.StatusErrored
