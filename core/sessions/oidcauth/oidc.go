@@ -674,10 +674,10 @@ func constantTimeEmailCompare(left, right string) bool {
 	return subtle.ConstantTimeCompare(leftBytes, rightBytes) == 1
 }
 
-func (oidc *oidcAuthenticator) ExtendRouter(api *gin.RouterGroup) error {
-	api.GET("/oidc-enabled", oidc.handleCheckEnabled)
-	api.GET("/oidc-login", oidc.handleSignIn)
-	api.POST("/oidc-exchange", oidc.handleTokenExchange)
+func (oi *oidcAuthenticator) ExtendRouter(api *gin.RouterGroup) error {
+	api.GET("/oidc-enabled", oi.handleCheckEnabled)
+	api.GET("/oidc-login", oi.handleSignIn)
+	api.POST("/oidc-exchange", oi.handleTokenExchange)
 
 	return nil
 }
