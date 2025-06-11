@@ -426,7 +426,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 				FeeToken:               NATIVE_FEE_TOKEN,
 				Receiver:               ccipReceiverAddress,
 				MsgData:                message,
-				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(defaultDestinationChainConfig.MaxPerMsgGasLimit), true),
+				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(defaultDestinationChainConfig.MaxPerMsgGasLimit), false),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertEvmMessageReceived(t, ctx, state, destChain, latestHead, message) },
