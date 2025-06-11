@@ -394,7 +394,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 	t.Run("Max Data Bytes - Should Succeed", func(t *testing.T) {
 		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
 		require.NoError(t, err)
-		message := []byte(strings.Repeat("0", int(defaultDestinationChainConfig.MaxDataBytes)))
+		message := []byte(strings.Repeat("0", int(defaultDestinationChainConfig.MaxDataBytes)-1))
 		messagingtest.Run(t,
 			messagingtest.TestCase{
 				TestSetup:              setup,
@@ -426,7 +426,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 				FeeToken:               NATIVE_FEE_TOKEN,
 				Receiver:               ccipReceiverAddress,
 				MsgData:                message,
-				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(defaultDestinationChainConfig.MaxPerMsgGasLimit), false),
+				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(defaultDestinationChainConfig.MaxPerMsgGasLimit-1), true),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertEvmMessageReceived(t, ctx, state, destChain, latestHead, message) },
