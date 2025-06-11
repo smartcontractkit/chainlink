@@ -134,6 +134,7 @@ func NewStandaloneEngine(
 	cfg := &v2.EngineConfig{
 		Lggr:            lggr,
 		Module:          module,
+		Config:          config,
 		CapRegistry:     registry,
 		ExecutionsStore: store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 
