@@ -71,3 +71,5 @@
       Level = 'debug'
       JSONConsole = true
       """
+    [nodesets.node_specs.node.env_vars]
+    CL_EVM_CMD=""
