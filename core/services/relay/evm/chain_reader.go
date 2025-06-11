@@ -301,6 +301,7 @@ func (cr *chainReader) QueryKey(
 			return nil, err
 		}
 		sequenceOfValues[idx] = commontypes.Sequence{
+			TxHash: entry.TxHash,
 			Cursor: entry.Cursor,
 			Head:   entry.Head,
 			Data:   &value,
