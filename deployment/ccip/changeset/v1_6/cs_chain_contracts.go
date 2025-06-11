@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 
@@ -71,29 +72,163 @@ var (
 	_ cldf.ChangeSet[SetOCR3OffRampConfig]                     = SetOCR3OffRampChangeset
 	_ cldf.ChangeSet[UpdateDynamicConfigOffRampConfig]         = UpdateDynamicConfigOffRampChangeset
 	_ cldf.ChangeSet[UpdateFeeQuoterPricesConfig]              = UpdateFeeQuoterPricesChangeset
-	_ cldf.ChangeSet[ccipseqs.UpdateNonceManagerConfig]        = UpdateNonceManagersChangeset
+	_ cldf.ChangeSet[UpdateNonceManagerConfig]                 = UpdateNonceManagersChangeset
 	_ cldf.ChangeSet[ApplyFeeTokensUpdatesConfig]              = ApplyFeeTokensUpdatesFeeQuoterChangeset
 	_ cldf.ChangeSet[UpdateTokenPriceFeedsConfig]              = UpdateTokenPriceFeedsFeeQuoterChangeset
 	_ cldf.ChangeSet[PremiumMultiplierWeiPerEthUpdatesConfig]  = ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset
 	_ cldf.ChangeSet[ApplyTokenTransferFeeConfigUpdatesConfig] = ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset
 )
 
-func UpdateNonceManagersChangeset(e cldf.Environment, cfg ccipseqs.UpdateNonceManagerConfig) (cldf.ChangesetOutput, error) {
+type UpdateNonceManagerConfig struct {
+	UpdatesByChain map[uint64]NonceManagerUpdate // source -> dest -> update
+	MCMS           *proposalutils.TimelockConfig
+}
+
+type NonceManagerUpdate struct {
+	AddedAuthCallers   []common.Address
+	RemovedAuthCallers []common.Address
+	PreviousRampsArgs  []PreviousRampCfg
+}
+
+type PreviousRampCfg struct {
+	RemoteChainSelector uint64
+	OverrideExisting    bool
+	// Set these only if the prevOnRamp or prevOffRamp addresses are not required to be in nonce manager.
+	// If one of the onRamp or OffRamp is set with non-zero address and other is set with zero address,
+	// it will not be possible to update the previous ramps later unless OverrideExisting is set to true.
+	AllowEmptyOnRamp  bool // If true, the prevOnRamp address can be 0x0.
+	AllowEmptyOffRamp bool // If true, the prevOffRamp address can be 0x0.
+}
+
+func (cfg UpdateNonceManagerConfig) Validate(e cldf.Environment) error {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return err
 	}
-	deps := opsutil.ConfigureDependencies{
-		Env:          e,
-		CurrentState: state,
+	for sourceSel, update := range cfg.UpdatesByChain {
+		sourceChainState, ok := state.Chains[sourceSel]
+		if !ok {
+			return fmt.Errorf("chain %d not found in onchain state", sourceSel)
+		}
+		if sourceChainState.NonceManager == nil {
+			return fmt.Errorf("missing nonce manager for chain %d", sourceSel)
+		}
+		sourceChain, ok := e.BlockChains.EVMChains()[sourceSel]
+		if !ok {
+			return fmt.Errorf("missing chain %d in environment", sourceSel)
+		}
+		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, sourceChain.DeployerKey.From, sourceChainState.Timelock.Address(), sourceChainState.OnRamp); err != nil {
+			return fmt.Errorf("chain %s: %w", sourceChain.String(), err)
+		}
+		for _, prevRamp := range update.PreviousRampsArgs {
+			if prevRamp.RemoteChainSelector == sourceSel {
+				return errors.New("source and dest chain cannot be the same")
+			}
+			if _, ok := state.Chains[prevRamp.RemoteChainSelector]; !ok {
+				return fmt.Errorf("dest chain %d not found in onchain state for chain %d", prevRamp.RemoteChainSelector, sourceSel)
+			}
+			// If one of the onRamp or OffRamp is set with non-zero address and other is set with zero address,
+			// it will not be possible to update the previous ramps later.
+			// Allow blank onRamp or offRamp only if AllowEmptyOnRamp or AllowEmptyOffRamp is set to true.
+			// see https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/ccip/NonceManager.sol#L139-L142
+			if !prevRamp.AllowEmptyOnRamp {
+				if prevOnRamp := state.Chains[sourceSel].EVM2EVMOnRamp; prevOnRamp == nil ||
+					prevOnRamp[prevRamp.RemoteChainSelector] == nil ||
+					prevOnRamp[prevRamp.RemoteChainSelector].Address() == (common.Address{}) {
+					return fmt.Errorf("no previous onramp for source chain %d and dest chain %d, "+
+						"If you want to set zero address for onRamp, set AllowEmptyOnRamp to true", sourceSel, prevRamp.RemoteChainSelector)
+				}
+			}
+			if !prevRamp.AllowEmptyOffRamp {
+				if prevOffRamp := state.Chains[sourceSel].EVM2EVMOffRamp; prevOffRamp == nil ||
+					prevOffRamp[prevRamp.RemoteChainSelector] == nil ||
+					prevOffRamp[prevRamp.RemoteChainSelector].Address() == (common.Address{}) {
+					return fmt.Errorf("no previous offramp for source chain %d and dest chain %d"+
+						"If you want to set zero address for offRamp, set AllowEmptyOffRamp to true", prevRamp.RemoteChainSelector, sourceSel)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (cfg UpdateNonceManagerConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.NonceManagerUpdatesSequenceInput {
+	updatesByChain := make(map[uint64]ccipseqs.NonceManagerUpdateInput, len(cfg.UpdatesByChain))
+
+	for chainSel, update := range cfg.UpdatesByChain {
+		var callerOpInput *opsutil.EVMCallInput[nonce_manager.AuthorizedCallersAuthorizedCallerArgs]
+		if len(update.AddedAuthCallers) > 0 || len(update.RemovedAuthCallers) > 0 {
+			callerOpInputArgs := nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
+				AddedCallers:   update.AddedAuthCallers,
+				RemovedCallers: update.RemovedAuthCallers,
+			}
+			callerOpInput = &(opsutil.EVMCallInput[nonce_manager.AuthorizedCallersAuthorizedCallerArgs]{
+				Address:       state.Chains[chainSel].NonceManager.Address(),
+				ChainSelector: chainSel,
+				CallInput:     callerOpInputArgs,
+				NoSend:        cfg.MCMS != nil, // If MCMS exists, we do not want to send the transaction.
+			})
+		}
+
+		// construct this input
+		var rampUpdatesOpInput *opsutil.EVMCallInput[[]nonce_manager.NonceManagerPreviousRampsArgs]
+		if len(update.PreviousRampsArgs) > 0 {
+			rampUpdatesOpInputArgs := make([]nonce_manager.NonceManagerPreviousRampsArgs, 0)
+			for _, prevRamp := range update.PreviousRampsArgs {
+				var onRamp, offRamp common.Address
+				if !prevRamp.AllowEmptyOnRamp {
+					onRamp = state.Chains[chainSel].EVM2EVMOnRamp[prevRamp.RemoteChainSelector].Address()
+				}
+				if !prevRamp.AllowEmptyOffRamp {
+					offRamp = state.Chains[chainSel].EVM2EVMOffRamp[prevRamp.RemoteChainSelector].Address()
+				}
+				rampUpdatesOpInputArgs = append(rampUpdatesOpInputArgs, nonce_manager.NonceManagerPreviousRampsArgs{
+					RemoteChainSelector:   prevRamp.RemoteChainSelector,
+					OverrideExistingRamps: prevRamp.OverrideExisting,
+					PrevRamps: nonce_manager.NonceManagerPreviousRamps{
+						PrevOnRamp:  onRamp,
+						PrevOffRamp: offRamp,
+					},
+				})
+			}
+			rampUpdatesOpInput = &(opsutil.EVMCallInput[[]nonce_manager.NonceManagerPreviousRampsArgs]{
+				Address:       state.Chains[chainSel].NonceManager.Address(),
+				ChainSelector: chainSel,
+				CallInput:     rampUpdatesOpInputArgs,
+				NoSend:        cfg.MCMS != nil, // If MCMS exists, we do not want to send the transaction.
+			})
+		}
+
+		if callerOpInput != nil || rampUpdatesOpInput != nil {
+			updatesByChain[chainSel] = ccipseqs.NonceManagerUpdateInput{
+				AuthorizedCallerArgs: callerOpInput,
+				PreviousRampsArgs:    rampUpdatesOpInput,
+			}
+		}
 	}
 
-	seqReport, err := operations.ExecuteSequence(e.OperationsBundle, ccipseqs.UpdateNonceManagerSequence, deps, cfg)
+	return ccipseqs.NonceManagerUpdatesSequenceInput{
+		UpdatesByChain: updatesByChain,
+	}
+}
+
+func UpdateNonceManagersChangeset(e cldf.Environment, cfg UpdateNonceManagerConfig) (cldf.ChangesetOutput, error) {
+	output := cldf.ChangesetOutput{}
+	if err := cfg.Validate(e); err != nil {
+		return output, err
+	}
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute UpdateNonceManager sequence: %w", err)
+		return output, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	return seqReport.Output.ToChangesetOutput(nil), nil
+	report, err := operations.ExecuteSequence(
+		e.OperationsBundle,
+		ccipseqs.UpdateNonceManagerSequence,
+		e.BlockChains.EVMChains(),
+		cfg.ToSequenceInput(s),
+	)
+	return opsutil.AddEVMCallSequenceToCSOutput(e, s, output, report, err, cfg.MCMS, "Call ApplyAuthorizedCallerUpdates and ApplyPreviousRampsUpdates on NonceManagers")
 }
 
 type OnRampDestinationUpdate struct {

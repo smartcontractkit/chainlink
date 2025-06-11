@@ -655,11 +655,11 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		},
 	), commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(v1_6.UpdateNonceManagersChangeset),
-		ccipseq.UpdateNonceManagerConfig{
+		v1_6.UpdateNonceManagerConfig{
 			// we only have lanes between src1 --> dest
-			UpdatesByChain: map[uint64]ccipseq.NonceManagerUpdate{
+			UpdatesByChain: map[uint64]v1_6.NonceManagerUpdate{
 				src1: {
-					PreviousRampsArgs: []ccipseq.PreviousRampCfg{
+					PreviousRampsArgs: []v1_6.PreviousRampCfg{
 						{
 							RemoteChainSelector: dest,
 							AllowEmptyOffRamp:   true,
@@ -667,7 +667,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 					},
 				},
 				src2: {
-					PreviousRampsArgs: []ccipseq.PreviousRampCfg{
+					PreviousRampsArgs: []v1_6.PreviousRampCfg{
 						{
 							RemoteChainSelector: dest,
 							AllowEmptyOffRamp:   true,
@@ -675,7 +675,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 					},
 				},
 				dest: {
-					PreviousRampsArgs: []ccipseq.PreviousRampCfg{
+					PreviousRampsArgs: []v1_6.PreviousRampCfg{
 						{
 							RemoteChainSelector: src1,
 							AllowEmptyOnRamp:    true,

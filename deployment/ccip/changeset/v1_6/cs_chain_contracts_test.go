@@ -728,8 +728,8 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 			_, err = commonchangeset.Apply(t, tenv.Env,
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(v1_6.UpdateNonceManagersChangeset),
-					ccipseq.UpdateNonceManagerConfig{
-						UpdatesByChain: map[uint64]ccipseq.NonceManagerUpdate{
+					v1_6.UpdateNonceManagerConfig{
+						UpdatesByChain: map[uint64]v1_6.NonceManagerUpdate{
 							source: {
 								RemovedAuthCallers: []common.Address{state.Chains[source].OnRamp.Address()},
 							},
@@ -790,10 +790,10 @@ func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
 	_, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.UpdateNonceManagersChangeset),
-			ccipseq.UpdateNonceManagerConfig{
-				UpdatesByChain: map[uint64]ccipseq.NonceManagerUpdate{
+			v1_6.UpdateNonceManagerConfig{
+				UpdatesByChain: map[uint64]v1_6.NonceManagerUpdate{
 					srcChain.Selector: {
-						PreviousRampsArgs: []ccipseq.PreviousRampCfg{
+						PreviousRampsArgs: []v1_6.PreviousRampCfg{
 							{
 								RemoteChainSelector: destChain.Selector,
 							},
@@ -811,10 +811,10 @@ func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
 	_, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.UpdateNonceManagersChangeset),
-			ccipseq.UpdateNonceManagerConfig{
-				UpdatesByChain: map[uint64]ccipseq.NonceManagerUpdate{
+			v1_6.UpdateNonceManagerConfig{
+				UpdatesByChain: map[uint64]v1_6.NonceManagerUpdate{
 					srcChain.Selector: {
-						PreviousRampsArgs: []ccipseq.PreviousRampCfg{
+						PreviousRampsArgs: []v1_6.PreviousRampCfg{
 							{
 								RemoteChainSelector: destChain.Selector,
 							},
@@ -830,10 +830,10 @@ func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
 	_, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.UpdateNonceManagersChangeset),
-			ccipseq.UpdateNonceManagerConfig{
-				UpdatesByChain: map[uint64]ccipseq.NonceManagerUpdate{
+			v1_6.UpdateNonceManagerConfig{
+				UpdatesByChain: map[uint64]v1_6.NonceManagerUpdate{
 					srcChain.Selector: {
-						PreviousRampsArgs: []ccipseq.PreviousRampCfg{
+						PreviousRampsArgs: []v1_6.PreviousRampCfg{
 							{
 								RemoteChainSelector: destChain.Selector,
 								AllowEmptyOffRamp:   true,

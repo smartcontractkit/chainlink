@@ -28,47 +28,6 @@ var (
 		semver.MustParse("1.0.0"),
 		"Apply updates to the Nonce Manager contract across multiple EVM chains",
 		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input NonceManagerUpdatesSequenceInput) (map[uint64][]opsutil.EVMCallOutput, error) {
-
-			/*
-				// load on-chain state
-				s, err := stateview.LoadOnchainState(cldf.Environment)
-				if err != nil {
-					return opsutil.OpOutput{}, err
-				}
-
-				for chainSel, update := range input.UpdatesByChain {
-					// build NonceManagerUpdateAuthorizedCallerOp input
-					var callerOpInput *nonce_manager.AuthorizedCallersAuthorizedCallerArgs
-					if len(update.AddedAuthCallers) > 0 || len(update.RemovedAuthCallers) > 0 {
-						callerOpInput = &(nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
-							AddedCallers:   update.AddedAuthCallers,
-							RemovedCallers: update.RemovedAuthCallers,
-						})
-					}
-
-					// build NonceManagerApplyPreviousRampsUpdatesOp input
-					var rampUpdatesOpInput *[]nonce_manager.NonceManagerPreviousRampsArgs
-					if len(update.PreviousRampsArgs) > 0 {
-						rampUpdatesOpInput := make([]nonce_manager.NonceManagerPreviousRampsArgs, 0)
-						for _, prevRamp := range update.PreviousRampsArgs {
-							var onRamp, offRamp common.Address
-							if !prevRamp.AllowEmptyOnRamp {
-								onRamp = s.Chains[chainSel].EVM2EVMOnRamp[prevRamp.RemoteChainSelector].Address()
-							}
-							if !prevRamp.AllowEmptyOffRamp {
-								offRamp = s.Chains[chainSel].EVM2EVMOffRamp[prevRamp.RemoteChainSelector].Address()
-							}
-							rampUpdatesOpInput = append(rampUpdatesOpInput, nonce_manager.NonceManagerPreviousRampsArgs{
-								RemoteChainSelector:   prevRamp.RemoteChainSelector,
-								OverrideExistingRamps: prevRamp.OverrideExisting,
-								PrevRamps: nonce_manager.NonceManagerPreviousRamps{
-									PrevOnRamp:  onRamp,
-									PrevOffRamp: offRamp,
-								},
-							})
-						}
-					}
-			*/
 			opOutputs := make(map[uint64][]opsutil.EVMCallOutput, len(input.UpdatesByChain))
 
 			for chainSel, update := range input.UpdatesByChain {
