@@ -63,8 +63,8 @@ func (f FeeQuoterParams) Validate() error {
 	if f.TokenPriceStalenessThreshold == 0 {
 		return errors.New("TokenPriceStalenessThreshold can't be 0")
 	}
-	if f.PremiumMultiplierWeiPerEthByFeeToken == nil {
-		return errors.New("PremiumMultiplierWeiPerEthByFeeToken is nil, at least one token must be configured")
+	if len(f.PremiumMultiplierWeiPerEthByFeeToken) == 0 {
+		return errors.New("PremiumMultiplierWeiPerEthByFeeToken is nil or empty, at least one token must be configured")
 	}
 	return nil
 }

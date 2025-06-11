@@ -53,6 +53,7 @@ func GetMockChainContractParams(t *testing.T, chainSelector uint64) config.Chain
 			MaxFeeJuelsPerMsg:            1000000,
 			TokenPriceStalenessThreshold: 1000000,
 			FeeTokens:                    []aptos.AccountAddress{mockParsedLinkAddress},
+			// Using default EVM values for PremiumMultiplierWeiPerEthByFeeToken
 			PremiumMultiplierWeiPerEthByFeeToken: map[shared.TokenSymbol]uint64{
 				shared.APTSymbol:  1_000_000_000_000_000_000,
 				shared.LinkSymbol: 900_000_000_000_000_000,
