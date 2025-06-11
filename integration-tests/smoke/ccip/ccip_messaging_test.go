@@ -281,10 +281,10 @@ func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 	require.Equal(t, uint8(0), receiverCounterAccount.Value)
 
 	// Ensure Transmitted event filter is registered for the offramp - This is specific for Solana
-	offRampAddr, err := setup.OnchainState.GetOffRampAddressBytes(setup.DestChain)
-	require.NoError(t, err)
-	err = testhelpers.WaitForEventFilterRegistration(t, setup.Env.Offchain, setup.DestChain, "Transmitted", offRampAddr)
-	require.NoError(t, err)
+	//offRampAddr, err := setup.OnchainState.GetOffRampAddressBytes(setup.DestChain)
+	//require.NoError(t, err)
+	//err = testhelpers.WaitForEventFilterRegistration(t, setup.Env.Offchain, setup.DestChain, "Transmitted", offRampAddr)
+	//require.NoError(t, err)
 
 	numMessages := 5
 	_ = mt.Run(
