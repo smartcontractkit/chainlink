@@ -12,6 +12,7 @@ type (
 	}
 
 	DeployInput struct {
+		ChainSel     uint64
 		ProgramName  string
 		Size         int
 		Overallocate bool

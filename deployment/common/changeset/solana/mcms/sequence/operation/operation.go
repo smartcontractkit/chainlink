@@ -1,7 +1,9 @@
 package operation
 
 import (
+	"errors"
 	"fmt"
+	"math/big"
 	"math/rand"
 
 	binary "github.com/gagliardetto/binary"
@@ -10,6 +12,7 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	accessControllerBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/access_controller"
 	mcmBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/mcm"
+	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 	solanaUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	cldfsol "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -45,6 +48,13 @@ var (
 		commonOps.Deploy,
 	)
 
+	DeployTimelockOp = operations.NewOperation(
+		"deploy-timelock-program",
+		&deployment.Version1_0_0,
+		"Deploys timelock for solana",
+		commonOps.Deploy,
+	)
+
 	InitAccessControllerOp = operations.NewOperation(
 		"init-access-controller",
 		&deployment.Version1_0_0,
@@ -58,11 +68,19 @@ var (
 		"Initializes MCMProgram for solana",
 		initMCM,
 	)
+
+	InitTimelockOp = operations.NewOperation(
+		"init-timelock-program",
+		&deployment.Version1_0_0,
+		"Initializes timelock for solana",
+		initTimelock,
+	)
 )
 
 type (
 	InitAccessControllerInput struct {
 		ContractType cldf.ContractType
+		ChainSel     uint64
 	}
 
 	InitAccessControllerOutput struct{}
@@ -70,9 +88,17 @@ type (
 	InitMCMInput struct {
 		ContractType cldf.ContractType
 		MCMConfig    mcmsTypes.Config
+		ChainSel     uint64
 	}
 
 	InitMCMOutput struct{}
+
+	InitTimelockInput struct {
+		ContractType cldf.ContractType
+		ChainSel     uint64
+		MinDelay     *big.Int
+	}
+	InitTimelockOutput struct{}
 )
 
 func initAccessController(b operations.Bundle, deps Deps, in InitAccessControllerInput) (InitAccessControllerOutput, error) {
@@ -273,6 +299,117 @@ func initializeMCM(b operations.Bundle, deps Deps, mcmProgram solana.PublicKey, 
 		programData.Address,
 		state.GetMCMRootMetadataPDA(mcmProgram, multisigID),
 		state.GetMCMExpiringRootAndOpCountPDA(mcmProgram, multisigID),
+	).ValidateAndBuild()
+	if err != nil {
+		return fmt.Errorf("failed to build instruction: %w", err)
+	}
+
+	err = deps.Chain.Confirm([]solana.Instruction{instruction})
+	if err != nil {
+		return fmt.Errorf("failed to confirm instructions: %w", err)
+	}
+
+	return nil
+}
+
+func initTimelock(b operations.Bundle, deps Deps, in InitTimelockInput) (InitTimelockOutput, error) {
+	var out InitTimelockOutput
+
+	if deps.State.TimelockProgram.IsZero() {
+		return out, errors.New("mcm program is not deployed")
+	}
+	programID := deps.State.TimelockProgram
+	timelockBindings.SetProgramID(programID)
+
+	typeAndVersion := cldf.NewTypeAndVersion(in.ContractType, deployment.Version1_0_0)
+	timelockProgram, timelockSeed, err := deps.State.GetStateFromType(in.ContractType)
+	if err != nil {
+		return out, fmt.Errorf("failed to get timelock state: %w", err)
+	}
+
+	if (timelockSeed != state.PDASeed{}) {
+		timelockConfigPDA := state.GetTimelockConfigPDA(timelockProgram, timelockSeed)
+		var timelockConfig timelockBindings.Config
+		err = deps.Chain.GetAccountDataBorshInto(b.GetContext(), timelockConfigPDA, &timelockConfig)
+		if err == nil {
+			b.Logger.Infow("timelock config already initialized, skipping initialization", "chain", deps.Chain.String())
+			return out, nil
+		}
+		return out, fmt.Errorf("unable to read timelock ConfigPDA account config %s", timelockConfigPDA.String())
+	}
+
+	b.Logger.Infow("timelock config not initialized, initializing", "chain", deps.Chain.String())
+	log := logger.With(b.Logger, "chain", deps.Chain.String(), "contract", typeAndVersion.String())
+
+	seed := randomSeed()
+	log.Infow("generated Timelock seed", "seed", string(seed[:]))
+
+	err = initializeTimelock(b, deps, programID, seed, in.MinDelay)
+	if err != nil {
+		return out, fmt.Errorf("failed to initialize timelock: %w", err)
+	}
+
+	timelockAddress := state.EncodeAddressWithSeed(programID, seed)
+
+	err = deps.Datastore.Addresses().Add(datastore.AddressRef{
+		Address:       timelockAddress,
+		ChainSelector: deps.Chain.Selector,
+		Type:          datastore.ContractType(in.ContractType),
+	})
+	if err != nil {
+		return out, fmt.Errorf("failed to save address to datastore: %w", err)
+	}
+
+	err = deps.State.SetState(in.ContractType, programID, seed)
+	if err != nil {
+		return out, fmt.Errorf("failed to save onchain state: %w", err)
+	}
+
+	return out, nil
+}
+
+func initializeTimelock(b operations.Bundle, deps Deps, timelockProgram solana.PublicKey,
+	timelockID state.PDASeed, minDelay *big.Int) error {
+	if minDelay == nil {
+		minDelay = big.NewInt(0)
+	}
+
+	var timelockConfig timelockBindings.Config
+	err := deps.Chain.GetAccountDataBorshInto(b.GetContext(), state.GetTimelockConfigPDA(timelockProgram, timelockID),
+		&timelockConfig)
+	if err == nil {
+		b.Logger.Infow("Timelock already initialized, skipping initialization", "chain", deps.Chain.String())
+		return nil
+	}
+
+	var programData struct {
+		DataType uint32
+		Address  solana.PublicKey
+	}
+	opts := &rpc.GetAccountInfoOpts{Commitment: rpc.CommitmentConfirmed}
+
+	data, err := deps.Chain.Client.GetAccountInfoWithOpts(b.GetContext(), timelockProgram, opts)
+	if err != nil {
+		return fmt.Errorf("failed to get timelock program account info: %w", err)
+	}
+	err = binary.UnmarshalBorsh(&programData, data.Bytes())
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal program data: %w", err)
+	}
+
+	instruction, err := timelockBindings.NewInitializeInstruction(
+		timelockID,
+		minDelay.Uint64(),
+		state.GetTimelockConfigPDA(timelockProgram, timelockID),
+		deps.Chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+		timelockProgram,
+		programData.Address,
+		deps.State.AccessControllerProgram,
+		deps.State.ProposerAccessControllerAccount,
+		deps.State.ExecutorAccessControllerAccount,
+		deps.State.CancellerAccessControllerAccount,
+		deps.State.BypasserAccessControllerAccount,
 	).ValidateAndBuild()
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)

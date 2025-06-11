@@ -1,7 +1,9 @@
 package sequence
 
 import (
+	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -26,7 +28,8 @@ var (
 
 type (
 	DeployMCMSWithTimelockInput struct {
-		MCMConfig commontypes.MCMSWithTimelockConfigV2
+		MCMConfig        commontypes.MCMSWithTimelockConfigV2
+		TimelockMinDelay *big.Int
 	}
 
 	DeployMCMSWithTimelockOutput struct{}
@@ -56,7 +59,19 @@ func deployMCMSWithTimelock(b operations.Bundle, deps operation.Deps, in DeployM
 	if err != nil {
 		return out, err
 	}
-	// TODO timelock
+
+	// timelock
+	err = deployTimelock(b, deps)
+	if err != nil {
+		return out, err
+	}
+
+	err = initTimelock(b, deps, in.TimelockMinDelay)
+	if err != nil {
+		return out, err
+	}
+
+	// TODO roles
 
 	return out, nil
 }
@@ -80,6 +95,7 @@ func deployAccessController(b operations.Bundle, deps operation.Deps) error {
 			ProgramName:  deployment.AccessControllerProgramName,
 			Overallocate: true,
 			Size:         deployment.SolanaProgramBytes[deployment.AccessControllerProgramName],
+			ChainSel:     deps.Chain.ChainSelector(),
 		},
 	)
 	if err != nil {
@@ -114,6 +130,7 @@ func initAccessController(b operations.Bundle, deps operation.Deps) error {
 		_, err := operations.ExecuteOperation(b, operation.InitAccessControllerOp, operation.Deps{State: deps.State, Chain: deps.Chain},
 			operation.InitAccessControllerInput{
 				ContractType: role,
+				ChainSel:     deps.Chain.ChainSelector(),
 			})
 		if err != nil {
 			return fmt.Errorf("failed to init access controller account role %q: %w", role, err)
@@ -133,6 +150,7 @@ func deployMCM(b operations.Bundle, deps operation.Deps) error {
 	}
 	if !programID.IsZero() {
 		log.Infow("using existing MCM program", "programId", programID.String())
+		return nil
 	}
 
 	opOut, err := operations.ExecuteOperation(b, operation.DeployMCMProgramOp, commonOps.Deps{Chain: deps.Chain},
@@ -140,6 +158,7 @@ func deployMCM(b operations.Bundle, deps operation.Deps) error {
 			ProgramName:  deployment.McmProgramName,
 			Overallocate: true,
 			Size:         deployment.SolanaProgramBytes[deployment.McmProgramName],
+			ChainSel:     deps.Chain.ChainSelector(),
 		},
 	)
 	if err != nil {
@@ -187,10 +206,74 @@ func initMCM(b operations.Bundle, deps operation.Deps, cfg commontypes.MCMSWithT
 	}
 
 	for _, cfg := range configs {
-		_, err := operations.ExecuteOperation(b, operation.InitMCMOp, deps, operation.InitMCMInput{ContractType: cfg.ctype, MCMConfig: cfg.cfg})
+		_, err := operations.ExecuteOperation(b, operation.InitMCMOp, deps,
+			operation.InitMCMInput{ContractType: cfg.ctype, MCMConfig: cfg.cfg, ChainSel: deps.Chain.ChainSelector()})
 		if err != nil {
 			return fmt.Errorf("failed to init config type:%q, err:%w", cfg.ctype, err)
 		}
 	}
 	return nil
+}
+
+func deployTimelock(b operations.Bundle, deps operation.Deps) error {
+	typeAndVersion := cldf.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
+	log := logger.With(b.Logger, "chain", deps.Chain.String(), "contract", typeAndVersion.String())
+
+	programID, _, err := deps.State.GetStateFromType(commontypes.RBACTimelock)
+	if err != nil {
+		return fmt.Errorf("failed to get timelock state: %w", err)
+	}
+
+	if !programID.IsZero() {
+		log.Infow("using existing Timelock program", "programId", programID.String())
+		return nil
+	}
+
+	opOut, err := operations.ExecuteOperation(b, operation.DeployTimelockOp, commonOps.Deps{Chain: deps.Chain},
+		commonOps.DeployInput{
+			ProgramName:  deployment.TimelockProgramName,
+			Overallocate: true,
+			Size:         deployment.SolanaProgramBytes[deployment.TimelockProgramName],
+			ChainSel:     deps.Chain.ChainSelector(),
+		},
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to deploy timelock program: %w", err)
+	}
+
+	programID = opOut.Output.ProgramID
+
+	log.Infow("deployed timelock program", "programId", programID)
+
+	err = deps.Datastore.Addresses().Add(datastore.AddressRef{
+		ChainSelector: deps.Chain.ChainSelector(),
+		Address:       programID.String(),
+		Version:       &deployment.Version1_0_0,
+		Type:          datastore.ContractType(commontypes.RBACTimelockProgram),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to add timelock to datastore: %w", err)
+	}
+
+	err = deps.State.SetState(commontypes.RBACTimelockProgram, programID, state.PDASeed{})
+	if err != nil {
+		return fmt.Errorf("failed to save onchain state: %w", err)
+	}
+
+	return nil
+}
+
+func initTimelock(b operations.Bundle, deps operation.Deps, minDelay *big.Int) error {
+	if deps.State.TimelockProgram.IsZero() {
+		return errors.New("mcm program is not deployed")
+	}
+
+	_, err := operations.ExecuteOperation(b, operation.InitTimelockOp, deps, operation.InitTimelockInput{
+		ContractType: commontypes.RBACTimelock,
+		ChainSel:     deps.Chain.ChainSelector(),
+		MinDelay:     minDelay,
+	})
+
+	return err
 }
