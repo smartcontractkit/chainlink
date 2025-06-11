@@ -46,7 +46,6 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
-	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
@@ -74,7 +73,6 @@ type TestConfigLoadTestWriter struct {
 	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
 	Infra                         *libtypes.InfraInput                 `toml:"infra" validate:"required"`
 	MockCapabilities              []*MockCapabilities                  `toml:"mock_capabilities"`
-	BinariesConfig                *BinariesConfig                      `toml:"binaries_config"`
 	WriterTest                    *WriterTest                          `toml:"writer_test"`
 }
 
@@ -88,8 +86,6 @@ func setupLoadTestWriterEnvironment(
 	feedIDs []string,
 	workflowNames []string,
 ) *loadTestSetupOutput {
-	absMockCapabilityBinaryPath, err := filepath.Abs(in.BinariesConfig.MockCapabilityBinaryPath)
-	require.NoError(t, err, "failed to get absolute path for mock capability binary")
 
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
@@ -97,7 +93,6 @@ func setupLoadTestWriterEnvironment(
 		BlockchainsInput:                     in.Blockchains,
 		JdInput:                              *in.JD,
 		InfraInput:                           *in.Infra,
-		CustomBinariesPaths:                  map[string]string{keystonetypes.MockCapability: absMockCapabilityBinaryPath},
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 	}
 
@@ -168,9 +163,6 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		}
 	}
 
-	containerPath, pathErr := crecapabilities.DefaultContainerDirectory(in.Infra.InfraType)
-	require.NoError(t, pathErr, "failed to get default container directory")
-
 	loadTestJobSpecsFactoryFn := func(input *keystonetypes.JobSpecFactoryInput) (keystonetypes.DonsToJobSpecs, error) {
 		donTojobSpecs := make(keystonetypes.DonsToJobSpecs, 0)
 
@@ -188,7 +180,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 				}
 
 				if flags.HasFlag(donWithMetadata.Flags, keystonetypes.MockCapability) && in.MockCapabilities != nil {
-					jobSpecs = append(jobSpecs, MockCapabilitiesJob(nodeID, filepath.Join(containerPath, filepath.Base(in.BinariesConfig.MockCapabilityBinaryPath)), in.MockCapabilities))
+					jobSpecs = append(jobSpecs, MockCapabilitiesJob(nodeID, "mock", in.MockCapabilities))
 				}
 			}
 
@@ -274,7 +266,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 			debugDons := make([]*keystonetypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
 			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
 				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
-				for _, output := range setupOutput.nodeOutput[i].Output.CLNodes {
+				for _, output := range setupOutput.nodeOutput[i].CLNodes {
 					containerNames = append(containerNames, output.Node.ContainerName)
 				}
 				debugDons = append(debugDons, &keystonetypes.DebugDon{
@@ -378,10 +370,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 
 	// Use insecure gRPC connection for local Docker containers. For AWS, use TLS credentials
 	// due to ingress requirements, as grpc.insecure.NewCredentials() doesn't work properly with AWS ingress
-	useInsecure := false
-	if in.Infra.InfraType == "docker" {
-		useInsecure = true
-	}
+	useInsecure := in.Infra.InfraType == "docker"
 
 	require.NoError(t, mocksClient.ConnectAll(mockClientsAddress, useInsecure, true), "could not connect to mock capabilities")
 

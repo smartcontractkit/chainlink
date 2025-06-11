@@ -356,7 +356,7 @@ func SetupTestEnvironment(
 		// If both are provided, we assume that the user knows what they are doing and we don't need to validate anything
 		// And that configs match the secrets
 		if configsFound > 0 && secretsFound == 0 {
-			return nil, fmt.Errorf("nodese config overrides are provided for DON %d, but not secrets. You need to either provide both, only secrets or nothing at all", donMetadata.ID)
+			return nil, fmt.Errorf("nodeSet config overrides are provided for DON %d, but not secrets. You need to either provide both, only secrets or nothing at all", donMetadata.ID)
 		}
 
 		// generate configs only if they are not provided

@@ -301,10 +301,7 @@ func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 	done := make(chan any)
 	defer close(done)
 	offrampAddress := state.SolChains[destChain].OffRamp
-	sink, errCh := testhelpers.SolEventEmitter[solccip.EventTransmitted](
-		t,
-		solChains[destChain].Client,
-		offrampAddress, "Transmitted", 0, done)
+	sink, errCh := testhelpers.SolEventEmitter[solccip.EventTransmitted](ctx, solChains[destChain].Client, offrampAddress, "Transmitted", 0, done, time.NewTicker(2*time.Second))
 	timeout := time.NewTimer(tests.WaitTimeout(t) - 5*time.Second) // 5 seconds buffer for cleanup
 	defer timeout.Stop()
 
@@ -313,7 +310,8 @@ func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 
 	for {
 		select {
-		case transmittedEvent := <-sink:
+		case eventWithTxn := <-sink:
+			transmittedEvent := eventWithTxn.Event
 			if transmittedEvent.OcrPluginType == uint8(cctypes.PluginTypeCCIPExec) {
 				ocrSeqNr := transmittedEvent.SequenceNumber
 				_, exists := sequenceNumbers[ocrSeqNr]
@@ -513,6 +511,43 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 						require.NoError(t, err, "failed to get account info after second message")
 						require.Equal(t, uint8(2), receiverCounterAccountAfterSuccess.Value, "Counter should have incremented to 2")
 						t.Logf("Confirmed counter incremented to 2 after second (successful) message")
+					},
+				},
+			},
+		)
+	})
+
+	t.Run("message requiring buffering", func(t *testing.T) {
+		accounts := [][32]byte{
+			receiverExternalExecutionConfigPDA,
+			receiverTargetAccountPDA,
+			solana.SystemProgramID,
+		}
+
+		extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
+			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
+			Accounts:                 accounts,
+			ComputeUnits:             1_000_000,
+			AllowOutOfOrderExecution: true,
+		})
+		require.NoError(t, err)
+
+		out = mt.Run(
+			t,
+			mt.TestCase{
+				ValidationType:         mt.ValidationTypeExec,
+				TestSetup:              setup,
+				Nonce:                  nil, // Solana nonce check is skipped
+				Receiver:               receiver,
+				MsgData:                make([]byte, 1233), // set large payload that cannot fit in single transaction but does not overflow memory allocation
+				ExtraArgs:              extraArgs,
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) {
+						var receiverCounterAccount soltesthelpers.ReceiverCounter
+						err = solcommon.GetAccountDataBorshInto(ctx, solChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccount)
+						require.NoError(t, err, "failed to get account info")
+						require.Equal(t, uint8(3), receiverCounterAccount.Value)
 					},
 				},
 			},

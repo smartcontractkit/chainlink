@@ -2,13 +2,13 @@ package cre
 
 import (
 	"bytes"
+	"context"
 	crand "crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/rand/v2"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -34,12 +34,11 @@ import (
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp/benchspy"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
-	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
@@ -79,12 +78,7 @@ type TestConfigLoadTest struct {
 	Infra                         *libtypes.InfraInput                 `toml:"infra" validate:"required"`
 	WorkflowDONLoad               *WorkflowLoad                        `toml:"workflow_load"`
 	MockCapabilities              []*MockCapabilities                  `toml:"mock_capabilities"`
-	BinariesConfig                *BinariesConfig                      `toml:"binaries_config"`
 	Chaos                         *Chaos                               `toml:"chaos"`
-}
-
-type BinariesConfig struct {
-	MockCapabilityBinaryPath string `toml:"mock_capability_binary_path"`
 }
 
 type MockCapabilities struct {
@@ -121,8 +115,6 @@ func setupLoadTestEnvironment(
 	capabilityFactoryFns []func([]string) []keystone_changeset.DONCapabilityWithConfig,
 	jobSpecFactoryFns []keystonetypes.JobSpecFactoryFn,
 ) *loadTestSetupOutput {
-	absMockCapabilityBinaryPath, err := filepath.Abs(in.BinariesConfig.MockCapabilityBinaryPath)
-	require.NoError(t, err, "failed to get absolute path for mock capability binary")
 
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
@@ -130,7 +122,6 @@ func setupLoadTestEnvironment(
 		BlockchainsInput:                     in.Blockchains,
 		JdInput:                              *in.JD,
 		InfraInput:                           *in.Infra,
-		CustomBinariesPaths:                  map[string]string{keystonetypes.MockCapability: absMockCapabilityBinaryPath},
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 	}
 
@@ -172,7 +163,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 				Input:              input[1],
 				Capabilities:       []string{keystonetypes.MockCapability},
 				DONTypes:           []string{keystonetypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex: 0,
+				BootstrapNodeIndex: -1,
 			},
 		}
 	}
@@ -188,9 +179,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 			})
 		}
 	}
-
-	containerPath, pathErr := crecapabilities.DefaultContainerDirectory(in.Infra.InfraType)
-	require.NoError(t, pathErr, "failed to get default container directory")
 
 	loadTestJobSpecsFactoryFn := func(input *keystonetypes.JobSpecFactoryInput) (keystonetypes.DonsToJobSpecs, error) {
 		donTojobSpecs := make(keystonetypes.DonsToJobSpecs, 0)
@@ -230,7 +218,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 				}
 
 				if flags.HasFlag(donWithMetadata.Flags, keystonetypes.MockCapability) && in.MockCapabilities != nil {
-					jobSpecs = append(jobSpecs, MockCapabilitiesJob(nodeID, filepath.Join(containerPath, filepath.Base(in.BinariesConfig.MockCapabilityBinaryPath)), in.MockCapabilities))
+					jobSpecs = append(jobSpecs, MockCapabilitiesJob(nodeID, "mock", in.MockCapabilities))
 				}
 			}
 
@@ -291,7 +279,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		testLogger,
 		in,
 		mustSetCapabilitiesFn,
-		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WorkflowDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(homeChainIDUint64)},
+		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WorkflowDONLoadTestCapabilitiesFactoryFn, crecontracts.ChainWriterCapabilityFactory(homeChainIDUint64)},
 		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(homeChainIDUint64)},
 	)
 
@@ -318,7 +306,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 			debugDons := make([]*keystonetypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
 			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
 				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
-				for _, output := range setupOutput.nodeOutput[i].Output.CLNodes {
+				for _, output := range setupOutput.nodeOutput[i].CLNodes {
 					containerNames = append(containerNames, output.Node.ContainerName)
 				}
 				debugDons = append(debugDons, &keystonetypes.DebugDon{
@@ -337,17 +325,11 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		}
 	})
 
-	require.NoError(t, saveFeedAddresses(feedsAddresses), "could not save feeds")
-
 	// Get OCR2 keys needed to sign the reports
 	kb := make([]ocr2key.KeyBundle, 0)
 	for _, don := range setupOutput.donTopology.DonsWithMetadata {
 		if flags.HasFlag(don.Flags, keystonetypes.MockCapability) {
-			for i, n := range don.DON.Nodes {
-				if i == 0 {
-					continue // Skip bootstrap nodes
-				}
-
+			for _, n := range don.DON.Nodes {
 				key, err2 := n.ExportOCR2Keys(n.Ocr2KeyBundleID)
 				if err2 == nil {
 					b, err3 := json.Marshal(key)
@@ -362,20 +344,23 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		}
 	}
 
-	// Export key bundles so we can import them later in another test, used when crib cluster is already setup and we just want to connect to mocks for a different test
-	require.NoError(t, saveKeyBundles(kb), "could not save OCR2 Keys")
+	// If were not running in CI then save the feeds and OCR2 keys to a file so we can reuse them later
+	cacheClients := false
+	if os.Getenv("CI") != "true" {
+		cacheClients = true
+		require.NoError(t, saveFeedAddresses(feedsAddresses), "could not save feeds")
 
+		// Export key bundles so we can import them later in another test, used when crib cluster is already setup and we just want to connect to mocks for a different test
+		require.NoError(t, saveKeyBundles(kb), "could not save OCR2 Keys")
+	}
 	testLogger.Info().Msg("Connecting to mock capabilities...")
 
 	mocksClient := mock_capability.NewMockCapabilityController(testLogger)
 	mockClientsAddress := make([]string, 0)
 	if in.Infra.InfraType == "docker" {
 		for _, nodeSet := range in.NodeSets {
-			if nodeSet.Name == "writer" {
-				for i, n := range nodeSet.NodeSpecs {
-					if i == 0 {
-						continue
-					}
+			if nodeSet.Name == "capabilities" {
+				for _, n := range nodeSet.NodeSpecs {
 					if len(n.Node.CustomPorts) == 0 {
 						panic("no custom port specified, mock capability running in kind must have a custom port in order to connect")
 					}
@@ -386,50 +371,65 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		}
 	} else {
 		for i := range setupOutput.nodeOutput[1].CLNodes {
-			// TODO: This is brittle, switch to checking the node label
-			if i == 0 { // Skip bootstrap node
-				continue
-			}
 			mockClientsAddress = append(mockClientsAddress, fmt.Sprintf("%s-%s-%d-mock.main.stage.cldev.sh:443", in.Infra.CRIB.Namespace, setupOutput.nodeOutput[1].NodeSetName, i-1))
 		}
 	}
 
+	require.NotEmpty(t, mockClientsAddress, "Could not create mock capability client addresses")
+
 	// Use insecure gRPC connection for local Docker containers. For AWS, use TLS credentials
 	// due to ingress requirements, as grpc.insecure.NewCredentials() doesn't work properly with AWS ingress
-	useInsecure := false
-	if in.Infra.InfraType == "docker" {
-		useInsecure = true
-	}
+	useInsecure := in.Infra.InfraType == "docker"
 
-	require.NoError(t, mocksClient.ConnectAll(mockClientsAddress, useInsecure, true), "could not connect to mock capabilities")
+	require.NoError(t, mocksClient.ConnectAll(mockClientsAddress, useInsecure, cacheClients), "could not connect to mock capabilities")
 
 	testLogger.Info().Msg("Hooking into mock executable capabilities")
 
 	receiveChannel := make(chan capabilities.CapabilityRequest, 1000)
 	require.NoError(t, mocksClient.HookExecutables(ctx, receiveChannel), "could not hook into mock executable")
 
+	// Wait for the remote capability to be exposed, we check if the streams-trigger has subscribers
+	require.NoError(t, mocksClient.WaitForTriggerSubscribers(ctx, "streams-trigger@2.0.0", time.Minute*5), "error while waiting for trigger subscribers")
+
 	labels := map[string]string{
-		"go_test_name": "test1",
+		"go_test_name": "workflow-don-load-test",
 		"branch":       "profile-check",
 		"commit":       "profile-check",
 	}
 
-	g, err := wasp.NewProfile().
-		Add(wasp.NewGenerator(&wasp.Config{
-			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
-			LoadType:    wasp.RPS,
-			Schedule: wasp.Combine(
-				wasp.Plain(4, 120*time.Minute),
-			),
-			Gun:                   NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@2.0.0", receiveChannel, 500, 1),
-			Labels:                labels,
-			LokiConfig:            wasp.NewEnvLokiConfig(),
-			RateLimitUnitDuration: time.Minute,
-		})).
-		Run(false)
-	require.NoError(t, err, "wasp load test did not finish successfully")
+	generator, err := wasp.NewGenerator(&wasp.Config{
+		T:           t,
+		CallTimeout: time.Minute * 2, // Give enough time for the workflow to execute
+		LoadType:    wasp.RPS,
+		Schedule: wasp.Combine(
+			wasp.Plain(4, 5*time.Minute),
+		),
+		Gun:    NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@2.0.0", receiveChannel, 500, 1),
+		Labels: labels,
+		// LokiConfig:            wasp.NewEnvLokiConfig(), // TODO: Set up loki after we have the observability stack working
+		RateLimitUnitDuration: time.Minute,
+	})
+	require.NoError(t, err, "could not create generator")
+	// run the load
+	generator.Run(true)
 
-	g.Wait()
+	baseLineReport, err := benchspy.NewStandardReport(
+		"v1.0.0",
+		benchspy.WithStandardQueries(benchspy.StandardQueryExecutor_Direct),
+		benchspy.WithGenerators(generator),
+	)
+	require.NoError(t, err, "failed to create baseline report")
+
+	fetchCtx, cancelFn := context.WithTimeout(ctx, 60*time.Second)
+	defer cancelFn()
+
+	fetchErr := baseLineReport.FetchData(fetchCtx)
+	require.NoError(t, fetchErr, "failed to fetch data for baseline report")
+
+	path, storeErr := baseLineReport.Store()
+	require.NoError(t, storeErr, "failed to store baseline report", path)
+	require.NoError(t, err, "workflow load test did not finish successfully")
+
 }
 
 // TestWithReconnect Re-runs the load test against an existing DON deployment. It expects feeds, OCR2 keys, and
@@ -468,7 +468,7 @@ func TestWithReconnect(t *testing.T) {
 			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
 			LoadType:    wasp.RPS,
 			Schedule: wasp.Combine(
-				wasp.Plain(4, 15*time.Minute),
+				wasp.Plain(4, 5*time.Minute),
 			),
 			Gun:                   sg,
 			Labels:                labels,
@@ -506,7 +506,7 @@ func NewStreamsGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.Ke
 		feedLimit:   feedLimit,
 		jobLimit:    jobLimit,
 	}
-	go sg.precomputeReports()
+	sg.precomputeReports()
 	go sg.waitHOOKloop()
 	return sg
 }
@@ -631,7 +631,7 @@ func (s *StreamsGun) precomputeReports() {
 	s.eventID = eventID
 	s.timestamp = timestamp
 
-	framework.L.Info().Msgf("precomputeReports took %s", time.Since(start))
+	framework.L.Info().Msgf("create %d reports in %s", len(feeds), time.Since(start))
 }
 
 func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint64,
@@ -856,7 +856,7 @@ func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1
        encoder_config:
          abi: "(bytes32 RemappedID, uint224 Price, uint32 Timestamp)[] Reports"
  targets:
-   - id: write_ethereum@1.0.0
+   - id: write_ethereum_mock@1.0.0
      inputs:
        signed_report: "$(evm_median.outputs)"
      config:
