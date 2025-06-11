@@ -20,8 +20,16 @@ import (
 )
 
 const (
+	// See: https://github.com/smartcontractkit/chainlink/blob/3684365e78ef911d7668e724aa782d3b3f3e8801/deployment/keystone/changeset/internal/capability_definitions.go#L15
 	capabilityTypeTarget           = uint8(3)
 	capabilityTypeTargetNamePrefix = "write_"
+)
+
+var (
+	ErrEmptyWriteCapName         = errors.New("capability labelled name must not be empty")
+	ErrInvalidWriteCapName       = errors.New("capability labelled name must start with " + capabilityTypeTargetNamePrefix)
+	ErrEmptyTrimmedWriteCapName  = errors.New("capability labelled name must not be empty after removing prefix " + capabilityTypeTargetNamePrefix)
+	ErrInvalidWriteCapNameFormat = errors.New("capability labelled name is not a valid chain name or chain ID")
 )
 
 // AddCapabilitiesRequest is a request to add capabilities
@@ -43,23 +51,23 @@ func (r *AddCapabilitiesRequest) Validate(env cldf.Environment) error {
 		return errors.New("capabilities must be set")
 	}
 
-	var errs []string
+	var capNameErr error
 	// Validate write target capabilities labelled name
 	for _, c := range r.Capabilities {
 		if c.CapabilityType != capabilityTypeTarget {
 			continue
 		}
 		if c.LabelledName == "" {
-			errs = append(errs, "capability label name must be set")
+			capNameErr = errors.Join(ErrEmptyWriteCapName, capNameErr)
 			continue
 		}
 		if !strings.HasPrefix(c.LabelledName, capabilityTypeTargetNamePrefix) {
-			errs = append(errs, fmt.Sprintf("capability labelled name must start with %s, got %s", capabilityTypeTargetNamePrefix, c.LabelledName))
+			capNameErr = errors.Join(ErrInvalidWriteCapName, capNameErr)
 			continue
 		}
 		extracted := strings.TrimPrefix(c.LabelledName, capabilityTypeTargetNamePrefix)
 		if extracted == "" {
-			errs = append(errs, fmt.Sprintf("capability labelled name must not be empty after removing prefix %s, got %s", capabilityTypeTargetNamePrefix, c.LabelledName))
+			capNameErr = errors.Join(ErrEmptyTrimmedWriteCapName, capNameErr)
 			continue
 		}
 		_, err := chainselectors.ChainIdFromName(extracted)
@@ -76,12 +84,12 @@ func (r *AddCapabilitiesRequest) Validate(env cldf.Environment) error {
 				}
 			}
 
-			errs = append(errs, fmt.Sprintf("capability labelled name %s is a non-existent chain-name/ID", extracted))
+			capNameErr = errors.Join(ErrInvalidWriteCapNameFormat, capNameErr)
 		}
 	}
 
-	if len(errs) > 0 {
-		return fmt.Errorf("write target capabilities validation errors:\n- %s", strings.Join(errs, "\n- "))
+	if capNameErr != nil {
+		return capNameErr
 	}
 
 	if err := shouldUseDatastore(env, r.RegistryRef); err != nil {
