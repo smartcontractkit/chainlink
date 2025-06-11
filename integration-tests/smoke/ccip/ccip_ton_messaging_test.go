@@ -89,7 +89,6 @@ func Test_CCIPMessaging_EVM2Ton(t *testing.T) {
 			mt.TestCase{
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
-				Replayed:               true,
 				Nonce:                  &nonce,
 				Receiver:               receiverBase64Bytes,
 				MsgData:                []byte("hello CCIPReceiver"),

@@ -237,8 +237,7 @@ func (r *RelayerFactory) NewTON(ks coretypes.Keystore, ksCSA coretypes.Keystore,
 			if err != nil {
 				return nil, fmt.Errorf("failed to create TON LOOP command: %w", err)
 			}
-
-			tonRelayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, tonCmdFn, "", ks, r.CapabilitiesRegistry)
+			tonRelayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, tonCmdFn, "", ks, ksCSA, r.CapabilitiesRegistry)
 		} else {
 			opts := ton.ChainOpts{
 				Logger:   lggr,
