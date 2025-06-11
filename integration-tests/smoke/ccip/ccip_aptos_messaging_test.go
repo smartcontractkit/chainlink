@@ -346,10 +346,9 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 
 	var (
 		replayed      bool
-		nonce         uint64 = 0
-		senderAddress        = e.Env.BlockChains.AptosChains()[sourceChain].DeployerSigner.AccountAddress()
-		sender               = common.LeftPadBytes(senderAddress[:], 32)
-		setup                = messagingtest.NewTestSetupWithDeployedEnv(
+		senderAddress = e.Env.BlockChains.AptosChains()[sourceChain].DeployerSigner.AccountAddress()
+		sender        = common.LeftPadBytes(senderAddress[:], 32)
+		setup         = messagingtest.NewTestSetupWithDeployedEnv(
 			t,
 			e,
 			state,
@@ -377,7 +376,6 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 			messagingtest.TestCase{
 				TestSetup:              setup,
 				Replayed:               replayed,
-				Nonce:                  &nonce,
 				ValidationType:         messagingtest.ValidationTypeExec,
 				FeeToken:               NATIVE_FEE_TOKEN,
 				Receiver:               ccipReceiverAddress,
@@ -421,7 +419,6 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 			messagingtest.TestCase{
 				TestSetup:              setup,
 				Replayed:               replayed,
-				Nonce:                  &nonce,
 				ValidationType:         messagingtest.ValidationTypeExec,
 				FeeToken:               NATIVE_FEE_TOKEN,
 				Receiver:               ccipReceiverAddress,
