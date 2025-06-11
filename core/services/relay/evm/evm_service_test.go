@@ -92,6 +92,17 @@ func TestEVMService(t *testing.T) {
 		require.Equal(t, transaction.Gas(), tx.Gas)
 		require.Equal(t, transaction.To().Bytes(), tx.To[:])
 	})
+
+	t.Run("GetFiltersNames", func(t *testing.T) {
+		// TODO PLEX-1465: once code is moved away, remove this test
+		filtersMap := map[string]logpoller.Filter{
+			"filterA": {},
+			"filterB": {},
+		}
+		poller.On("GetFilters").Return(filtersMap)
+		names, _ := relayer.GetFiltersNames(ctx)
+		require.ElementsMatch(t, []string{"filterA", "filterB"}, names)
+	})
 }
 
 func TestConverters(t *testing.T) {
