@@ -143,7 +143,9 @@ func initAccessController(b operations.Bundle, deps Deps, in InitAccessControlle
 	b.Logger.Infow("access controller not initialized, initializing", "chain", deps.Chain.String())
 
 	programID := deps.State.AccessControllerProgram
-	accessControllerBindings.SetProgramID(programID)
+	if accessControllerBindings.ProgramID.IsZero() {
+		accessControllerBindings.SetProgramID(programID)
+	}
 
 	log := logger.With(b.Logger, "chain", deps.Chain.String(), "contract", typeAndVersion.String(), "programID", programID)
 
@@ -165,7 +167,7 @@ func initAccessController(b operations.Bundle, deps Deps, in InitAccessControlle
 	}
 
 	err = deps.Datastore.Addresses().Add(datastore.AddressRef{
-		Address:       account.String(),
+		Address:       account.PublicKey().String(),
 		ChainSelector: deps.Chain.Selector,
 		Type:          datastore.ContractType(in.ContractType),
 	})

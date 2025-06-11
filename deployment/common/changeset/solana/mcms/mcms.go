@@ -111,7 +111,10 @@ func DeployMCMSWithTimelockProgramsSolanaV2(
 		Datastore: ds,
 	}
 
-	_, err = operations.ExecuteSequence(e.OperationsBundle, sequence.DeployMCMSWithTimelockSeq, deps, sequence.DeployMCMSWithTimelockInput{})
+	_, err = operations.ExecuteSequence(e.OperationsBundle, sequence.DeployMCMSWithTimelockSeq, deps, sequence.DeployMCMSWithTimelockInput{
+		MCMConfig:        config,
+		TimelockMinDelay: config.TimelockMinDelay,
+	})
 	if err != nil {
 		return nil, err
 	}

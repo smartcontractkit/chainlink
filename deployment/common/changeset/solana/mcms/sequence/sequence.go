@@ -130,7 +130,7 @@ func initAccessController(b operations.Bundle, deps operation.Deps) error {
 	roles := []cldf.ContractType{commontypes.ProposerAccessControllerAccount, commontypes.ExecutorAccessControllerAccount,
 		commontypes.CancellerAccessControllerAccount, commontypes.BypasserAccessControllerAccount}
 	for _, role := range roles {
-		_, err := operations.ExecuteOperation(b, operation.InitAccessControllerOp, operation.Deps{State: deps.State, Chain: deps.Chain},
+		_, err := operations.ExecuteOperation(b, operation.InitAccessControllerOp, deps,
 			operation.InitAccessControllerInput{
 				ContractType: role,
 				ChainSel:     deps.Chain.ChainSelector(),
@@ -181,7 +181,7 @@ func deployMCM(b operations.Bundle, deps operation.Deps) error {
 		return fmt.Errorf("failed to add mcm to datastore: %w", err)
 	}
 
-	err = deps.State.SetState(commontypes.ManyChainMultisig, programID, state.PDASeed{})
+	err = deps.State.SetState(commontypes.ManyChainMultisigProgram, programID, state.PDASeed{})
 	if err != nil {
 		return fmt.Errorf("failed to save onchain state: %w", err)
 	}

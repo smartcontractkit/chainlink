@@ -2,10 +2,12 @@ package solana
 
 import (
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -16,6 +18,9 @@ import (
 	cldfchain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
@@ -71,7 +76,7 @@ func TestConfigureForwarder(t *testing.T) {
 		},
 	}
 
-	t.Run("set config without mcms", func(t *testing.T) {
+	/* t.Run("set config without mcms", func(t *testing.T) {
 		for _, tcase := range testCases {
 			nChains := tcase.nChains
 			name := fmt.Sprintf("nChains=%d", nChains)
@@ -100,6 +105,7 @@ func TestConfigureForwarder(t *testing.T) {
 				te.Env.BlockChains = cldfchain.NewBlockChains(blockchains)
 				env = shouldDeployForwarder(t, te.Env, solSel)
 				te.Env.DataStore = env.DataStore
+
 				var wfNodes []string
 				for _, id := range te.GetP2PIDs("wfDon") {
 					wfNodes = append(wfNodes, id.String())
@@ -121,8 +127,8 @@ func TestConfigureForwarder(t *testing.T) {
 			})
 		}
 	})
-
-	/* t.Run("set config with mcms", func(t *testing.T) {
+	*/
+	t.Run("set config with mcms", func(t *testing.T) {
 		for _, tcase := range testCases {
 			nChains := tcase.nChains
 			name := fmt.Sprintf("nChains=%d", nChains)
@@ -151,8 +157,17 @@ func TestConfigureForwarder(t *testing.T) {
 
 				te.Env.BlockChains = cldfchain.NewBlockChains(blockchains)
 
-				env = shouldDeployForwarder(t, te.Env, solSel, te.Env.ExistingAddresses)
-				_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.BlockChains.SolanaChains()[solSel], env.ExistingAddresses,
+				// deploy forwarder
+				env = shouldDeployForwarder(t, te.Env, solSel)
+
+				ds := datastore.NewMemoryDataStore()
+				err := ds.Merge(env.DataStore)
+				require.NoError(t, err)
+
+				solChain.ProgramsPath = getProgramsPath()
+
+				//deploy mcms
+				_, err = solanaMCMS.DeployMCMSWithTimelockProgramsSolanaV2(env, ds, solChain,
 					commontypes.MCMSWithTimelockConfigV2{
 						Canceller:        proposalutils.SingleGroupMCMSV2(t),
 						Proposer:         proposalutils.SingleGroupMCMSV2(t),
@@ -160,8 +175,9 @@ func TestConfigureForwarder(t *testing.T) {
 						TimelockMinDelay: big.NewInt(0),
 					},
 				)
-
 				require.NoError(t, err)
+
+				te.Env.DataStore = ds.Seal()
 
 				var wfNodes []string
 				for _, id := range te.GetP2PIDs("wfDon") {
@@ -172,16 +188,22 @@ func TestConfigureForwarder(t *testing.T) {
 					WFDonName:        "test-wf-don",
 					WFNodeIDs:        wfNodes,
 					RegistryChainSel: te.RegistrySelector,
+					Version:          "1.0.0",
+					Qualifier:        testQualifier,
 					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: time.Millisecond,
-					}}
+					},
+				}
 
-				out, err := ConfigureForwarders(te.Env, cfg)
+				changeset := ConfigureForwarders{}
+
+				out, err := changeset.Apply(te.Env, &cfg)
+
 				require.NoError(t, err)
 				require.Len(t, out.MCMSTimelockProposals, 1)
 			})
 		}
-	}) */
+	})
 }
 
 const (

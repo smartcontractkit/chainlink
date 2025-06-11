@@ -300,11 +300,12 @@ func (cs ConfigureForwarders) Apply(env cldf.Environment, req *ConfigureForwarde
 			*req.MCMS)
 
 		if err != nil {
-			return cldf.ChangesetOutput{}, nil
+			return cldf.ChangesetOutput{}, err
 		}
 		proposals = append(proposals, *proposal)
 	}
 	out.MCMSTimelockProposals = proposals
+
 	return out, nil
 }
 
