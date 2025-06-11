@@ -45,11 +45,6 @@ var (
 	nNodes = 4 // number of nodes (not including bootstrap)
 )
 
-// TODO(gg) see also:
-// * https://github.com/smartcontractkit/mercury-pipeline/blob/9f0bc5d457d57d5807122446cb936306ecf1b263/e2e_tests/mercuryhelpers/helpers.go#L308 for example of onchain config
-// * core/internal/features/ocr2/features_ocr2_helper.go
-// * core/services/ocr2/plugins/ocr2keeper/integration_21_test.go
-
 func setupBlockchain(t *testing.T) (
 	*bind.TransactOpts,
 	evmtypes.Backend,
@@ -63,6 +58,12 @@ func setupBlockchain(t *testing.T) (
 	return steve, backend
 }
 
+// TestIntegration_SecureMint_happy_path tests runs a small DON which runs the secure mint plugin
+// and verifies that it can successfully create reports.
+//
+// Inspired by:
+// * core/internal/features/ocr2/features_ocr2_helper.go
+// * core/services/ocr2/plugins/ocr2keeper/integration_21_test.go
 func TestIntegration_SecureMint_happy_path(t *testing.T) {
 	const salt = 100
 
@@ -93,8 +94,6 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 
 	// Setup oracle nodes
 	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-		// TODO(gg): something like this + extra config
-		// c.Feature.SecureMint.Enabled = true
 
 		// inform node about bootstrap node
 		c.P2P.V2.DefaultBootstrappers = &p2pV2Bootstrappers
@@ -215,9 +214,7 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []Node, jobIDs map[int]
 				return
 			}
 			t.Logf("Pipeline itself is %+v", pr[0])
-			t.Logf("Pipeline run outputs are %s", string(outputs)) // TODO(gg): assert on the expected output from the ea observation
-
-			// assert.Equalf(t, []byte(fmt.Sprintf("[\"%d\"]", 1000*i)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1], "assert error: something unexpected happened")
+			t.Logf("Pipeline run outputs are %s", string(outputs))
 		}()
 	}
 	t.Logf("waiting for pipeline runs to complete")
@@ -264,20 +261,16 @@ func setSecureMintOnchainConfigUsingAggregator(t *testing.T, steve *bind.Transac
 	// 1. Deploy aggregator contract
 
 	// these min and max answers are not used by the secure mint oracle but they're needed for validation in aggregator.setConfig()
-	// TODO(gg): maybe these could be 0 and max int?
-	minAnswer, maxAnswer := new(big.Int), new(big.Int)
-	minAnswer.Exp(big.NewInt(-2), big.NewInt(191), nil)
-	maxAnswer.Exp(big.NewInt(2), big.NewInt(191), nil)
-	maxAnswer.Sub(maxAnswer, big.NewInt(1))
-
+	minAnswer := big.NewInt(0)
+	maxAnswer := big.NewInt(999999)
 	aggregatorAddress, _, aggregatorContract, err := ocr2aggregator.DeployOCR2Aggregator(
 		steve,
 		backend.Client(),
-		common.Address{},   // _link common.Address,
-		minAnswer,          // -2**191
-		maxAnswer,          // 2**191 - 1
-		common.Address{},   // accessAddress
-		common.Address{},   // accessAddress
+		common.Address{}, // LINK address
+		minAnswer,
+		maxAnswer,
+		common.Address{},   // billingAccessController
+		common.Address{},   // requesterAccessController
 		9,                  // decimals
 		"secure mint test", // description
 	)
@@ -293,10 +286,10 @@ func setSecureMintOnchainConfigUsingAggregator(t *testing.T, steve *bind.Transac
 	t.Logf("Deployed OCR2Aggregator contract at: %s", aggregatorAddress.Hex())
 
 	// 2. Create config
-	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(minAnswer, maxAnswer) // TODO(gg): this uses the median codec, not sure if this is correct
+	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(minAnswer, maxAnswer)
 	require.NoError(t, err)
 
-	smPluginConfig := por.PorOffchainConfig{MaxChains: 5} // TODO(gg): set config values
+	smPluginConfig := por.PorOffchainConfig{MaxChains: 5}
 	smPluginConfigBytes, err := smPluginConfig.Serialize()
 	require.NoError(t, err)
 

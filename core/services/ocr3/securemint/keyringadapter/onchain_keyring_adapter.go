@@ -1,4 +1,4 @@
-package onchain_keyring_adapter
+package keyringadapter
 
 import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -9,7 +9,7 @@ import (
 // SecureMintOCR3OnchainKeyringAdapter adapts an OCR2 OnchainKeyring to implement ocr3types.OnchainKeyring[ChainSelector]
 // This adapter enables the use of existing OCR2 keyrings with the OCR3 PoR plugin.
 // Copied and adapted from core/services/ocrcommon/adapters.go
-// TODO(gg): maybe we should implement OCR3OnchainKeyringMultiChainAdapter instead? Problem is that that one is not typed, it assumes []byte as the Report type, while we need to use por.ChainSelector.
+// Ideally we use ocrcommon.OCR3OnchainKeyringMultiChainAdapter instead? Problem is that that one is not typed, it assumes []byte as the Report type, while we use por.ChainSelector.
 type SecureMintOCR3OnchainKeyringAdapter struct {
 	ocr2Keyring types.OnchainKeyring
 }

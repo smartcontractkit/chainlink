@@ -1,4 +1,4 @@
-package onchain_keyring_adapter
+package keyringadapter
 
 import (
 	"testing"

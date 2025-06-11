@@ -78,7 +78,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/securemint"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
-	sm_adapter "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/onchain_keyring_adapter"
+	sm_adapter "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/keyringadapter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
