@@ -507,7 +507,7 @@ func ModifyMintAuthority(e cldf.Environment, cfg TokenPoolConfig3) (cldf.Changes
 		newMintAuthority,
 		poolConfig,
 		tokenPubKey,
-		solana.TokenProgramID,
+		solana.Token2022ProgramID,
 		tokenPoolSigner,
 		chain.DeployerKey.PublicKey(),
 		tokenPool,
