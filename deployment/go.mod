@@ -41,7 +41,7 @@ require (
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250522110034-65c54665034a
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.11.0
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.7.0
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250611164618-daf63b8d5280
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250611193111-99542a0c5d58
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.9.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4
 	github.com/smartcontractkit/freeport v0.1.1
