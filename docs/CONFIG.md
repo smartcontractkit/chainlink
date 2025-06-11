@@ -580,7 +580,7 @@ Optional OIDC config if WebServer.AuthenticationMethod is set to 'oidc'
 
 ### ClientID
 ```toml
-ClientID = "abc123" # Example
+ClientID = "abcd1234" # Example
 ```
 ClientID is the ID of the OIDC application registered with the identity provider
 
