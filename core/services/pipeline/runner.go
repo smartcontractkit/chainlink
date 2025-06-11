@@ -378,7 +378,6 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 }
 
 func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Vars) TaskRunResults {
-
 	l := r.lggr.With("run.ID", run.ID, "executionID", uuid.New(), "specID", run.PipelineSpecID, "jobID", run.PipelineSpec.JobID, "jobName", run.PipelineSpec.JobName)
 	if r.config.VerboseLogging() {
 		l.Debug("Initiating tasks for pipeline run of spec")
