@@ -75,6 +75,12 @@ var (
 		"Initializes timelock for solana",
 		initTimelock,
 	)
+	AddAccessOp = operations.NewOperation(
+		"add-access-op",
+		&deployment.Version1_0_0,
+		"Adds access to provided role for timelock",
+		addAccess,
+	)
 )
 
 type (
@@ -99,6 +105,14 @@ type (
 		MinDelay     *big.Int
 	}
 	InitTimelockOutput struct{}
+
+	AddAccessInput struct {
+		Role     timelockBindings.Role
+		Accounts []solana.PublicKey
+		ChainSel uint64
+	}
+
+	AddAccessOutput struct{}
 )
 
 func initAccessController(b operations.Bundle, deps Deps, in InitAccessControllerInput) (InitAccessControllerOutput, error) {
@@ -421,6 +435,30 @@ func initializeTimelock(b operations.Bundle, deps Deps, timelockProgram solana.P
 	}
 
 	return nil
+}
+
+func addAccess(b operations.Bundle, deps Deps, in AddAccessInput) (AddAccessOutput, error) {
+	var out AddAccessOutput
+
+	timelockConfigPDA := state.GetTimelockConfigPDA(deps.State.TimelockProgram, deps.State.TimelockSeed)
+
+	instructionBuilder := timelockBindings.NewBatchAddAccessInstruction([32]uint8(deps.State.TimelockSeed), in.Role,
+		timelockConfigPDA, deps.State.AccessControllerProgram, deps.State.RoleAccount(in.Role), deps.Chain.DeployerKey.PublicKey())
+
+	for _, account := range in.Accounts {
+		instructionBuilder.Append(solana.Meta(account))
+	}
+
+	instruction, err := instructionBuilder.ValidateAndBuild()
+	if err != nil {
+		return out, fmt.Errorf("failed to build BatchAddAccess instruction: %w", err)
+	}
+
+	err = deps.Chain.Confirm([]solana.Instruction{instruction})
+	if err != nil {
+		return out, fmt.Errorf("failed to confirm BatchAddAccess instruction: %w", err)
+	}
+	return out, nil
 }
 
 func randomSeed() state.PDASeed {

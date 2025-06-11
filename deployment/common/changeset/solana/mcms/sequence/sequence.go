@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/gagliardetto/solana-go"
+	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -21,7 +23,7 @@ var (
 	DeployMCMSWithTimelockSeq = operations.NewSequence(
 		"deploy-access-controller-seq",
 		&deployment.Version1_0_0,
-		"Deploys AccessController,MCM and Timelock contracts and initializes them",
+		"Deploy AccessController,MCM and Timelock programs, Initialize them, set up role",
 		deployMCMSWithTimelock,
 	)
 )
@@ -71,9 +73,10 @@ func deployMCMSWithTimelock(b operations.Bundle, deps operation.Deps, in DeployM
 		return out, err
 	}
 
-	// TODO roles
+	// roles
+	err = setupRoles(b, deps)
 
-	return out, nil
+	return out, err
 }
 
 func deployAccessController(b operations.Bundle, deps operation.Deps) error {
@@ -276,4 +279,42 @@ func initTimelock(b operations.Bundle, deps operation.Deps, minDelay *big.Int) e
 	})
 
 	return err
+}
+
+func setupRoles(b operations.Bundle, deps operation.Deps) error {
+	proposerPDA := state.GetMCMSignerPDA(deps.State.McmProgram, deps.State.ProposerMcmSeed)
+	cancellerPDA := state.GetMCMSignerPDA(deps.State.McmProgram, deps.State.CancellerMcmSeed)
+	bypasserPDA := state.GetMCMSignerPDA(deps.State.McmProgram, deps.State.BypasserMcmSeed)
+	roles := []struct {
+		pdas []solana.PublicKey
+		role timelockBindings.Role
+	}{
+		{
+			role: timelockBindings.Proposer_Role,
+			pdas: []solana.PublicKey{proposerPDA},
+		},
+		{
+			role: timelockBindings.Executor_Role,
+			pdas: []solana.PublicKey{deps.Chain.DeployerKey.PublicKey()},
+		},
+		{
+			role: timelockBindings.Canceller_Role,
+			pdas: []solana.PublicKey{cancellerPDA, proposerPDA, bypasserPDA},
+		},
+		{
+			role: timelockBindings.Bypasser_Role,
+			pdas: []solana.PublicKey{bypasserPDA},
+		},
+	}
+	for _, role := range roles {
+		_, err := operations.ExecuteOperation(b, operation.AddAccessOp, deps, operation.AddAccessInput{
+			Role:     role.role,
+			Accounts: role.pdas,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to add access for role %d: %w", role.role, err)
+		}
+	}
+
+	return nil
 }
