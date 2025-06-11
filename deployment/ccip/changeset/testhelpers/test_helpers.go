@@ -950,7 +950,7 @@ func AddLane(
 	gasprice map[uint64]*big.Int,
 	tokenPrices map[common.Address]*big.Int,
 	fqCfg fee_quoter.FeeQuoterDestChainConfig,
-) {
+) error {
 	var err error
 	fromFamily, _ := chainsel.GetSelectorFamily(from)
 	toFamily, _ := chainsel.GetSelectorFamily(to)
@@ -976,7 +976,10 @@ func AddLane(
 		changesets = append(changesets, AddLaneTONChangesets(e, to, from, toFamily, fromFamily))
 	}
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
-	require.NoError(t, err)
+	if err != nil {
+		return errors.Wrapf(err, "failed to apply changesets for lane %d -> %d", from, to)
+	}
+	return nil
 }
 
 func AddLaneSolanaChangesets(e *DeployedEnv, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
@@ -1173,7 +1176,7 @@ func RemoveLane(t *testing.T, e *DeployedEnv, src, dest uint64, isTestRouter boo
 	require.NoError(t, err)
 }
 
-func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state stateview.CCIPOnChainState, from, to uint64, isTestRouter bool) {
+func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state stateview.CCIPOnChainState, from, to uint64, isTestRouter bool) error {
 	gasPrices := map[uint64]*big.Int{
 		to: DefaultGasPrice,
 	}
@@ -1187,7 +1190,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		}
 	}
 	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)
-	AddLane(
+	err := AddLane(
 		t,
 		e,
 		from, to,
@@ -1196,6 +1199,10 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		tokenPrices,
 		fqCfg,
 	)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain
