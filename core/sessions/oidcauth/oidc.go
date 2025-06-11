@@ -47,6 +47,7 @@ import (
 const (
 	RouterRateLimitterPeriod = 1 * time.Minute
 	RouterRateLimitterLimit  = 1000
+	SQLSelectUserbyEmail     = "SELECT * FROM users WHERE lower(email) = lower($1)"
 )
 
 var ErrUserNoOIDCGroups = errors.New("user claims response from identity server received, but no matching role group names in claim")
@@ -292,8 +293,7 @@ func (oi *oidcAuthenticator) FindUser(ctx context.Context, email string) (clsess
 
 	var foundLocalAdminUser clsessions.User
 	checkErr := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
-		sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
-		return tx.GetContext(ctx, &foundLocalAdminUser, sql, email)
+		return tx.GetContext(ctx, &foundLocalAdminUser, SQLSelectUserbyEmail, email)
 	})
 	if checkErr == nil {
 		return foundLocalAdminUser, nil
@@ -474,8 +474,7 @@ func (oi *oidcAuthenticator) SetPassword(ctx context.Context, user *clsessions.U
 	// Ensure specified user is part of the local admins user table
 	var localAdminUser clsessions.User
 	if err := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
-		sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
-		return tx.GetContext(ctx, &localAdminUser, sql, user.Email)
+		return tx.GetContext(ctx, &localAdminUser, SQLSelectUserbyEmail, user.Email)
 	}); err != nil {
 		oi.lggr.Infof("Can not change password, local user with email not found in users table: %s, err: %v", user.Email, err)
 		return clsessions.ErrNotSupported
@@ -590,8 +589,7 @@ func (oi *oidcAuthenticator) FindExternalInitiator(ctx context.Context, eia *aut
 // This covers the case of local CLI API calls requiring local login separate from the OIDC server
 func (oi *oidcAuthenticator) localLoginFallback(ctx context.Context, sr clsessions.SessionRequest) (clsessions.User, error) {
 	var user clsessions.User
-	sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
-	err := oi.ds.GetContext(ctx, &user, sql, sr.Email)
+	err := oi.ds.GetContext(ctx, &user, SQLSelectUserbyEmail, sr.Email)
 	if err != nil {
 		return user, err
 	}
