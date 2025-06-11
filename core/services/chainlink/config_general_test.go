@@ -204,6 +204,8 @@ func TestConfig_SecretsMerging(t *testing.T) {
 		assert.Equal(t, webserverLDAPSecrets.WebServer.LDAP.ReadOnlyUserLogin, opts.Secrets.WebServer.LDAP.ReadOnlyUserLogin)
 		assert.Equal(t, webserverLDAPSecrets.WebServer.LDAP.ReadOnlyUserPass, opts.Secrets.WebServer.LDAP.ReadOnlyUserPass)
 
+		// TODO: harry oidc asserts
+
 		err = assertDeepEqualityMercurySecrets(*merge(mercurySecrets_a.Mercury, mercurySecrets_b.Mercury), opts.Secrets.Mercury)
 		require.NoErrorf(t, err, "merged mercury secrets unequal")
 	})
