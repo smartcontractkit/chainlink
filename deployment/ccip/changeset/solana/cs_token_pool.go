@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -14,7 +13,7 @@ import (
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
-	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_common"
+	solCcipCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_common"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
@@ -103,6 +102,26 @@ func (cfg TokenPoolConfig) Validate(e cldf.Environment, chainState solanastatevi
 	return chainState.ValidatePoolDeployment(&e, *cfg.PoolType, cfg.ChainSelector, cfg.TokenPubKey, false, cfg.Metadata)
 }
 
+type TokenPoolConfig2 struct {
+	ChainSelector uint64
+	PoolType      *solTestTokenPool.PoolType
+	TokenPubKey   solana.PublicKey
+	Metadata      string
+	MCMS          *proposalutils.TimelockConfig
+}
+
+// TODO:
+func (cfg TokenPoolConfig2) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
+	if err := chainState.CommonValidation(e, cfg.ChainSelector, cfg.TokenPubKey); err != nil {
+		return err
+	}
+	if cfg.PoolType == nil {
+		return errors.New("pool type must be defined")
+	}
+
+	return chainState.ValidatePoolDeployment(&e, *cfg.PoolType, cfg.ChainSelector, cfg.TokenPubKey, false, cfg.Metadata)
+}
+
 func AddTokenPoolAndLookupTable(e cldf.Environment, cfg TokenPoolConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Adding token pool", "cfg", cfg)
 	state, err := stateview.LoadOnchainState(e)
@@ -156,14 +175,6 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg TokenPoolConfig) (cldf.C
 	}
 	switch *cfg.PoolType {
 	case solTestTokenPool.BurnAndMint_PoolType:
-
-		// TODO: Move this to a separate function
-		ix, err := solBurnMintTokenPool.NewInitGlobalConfigInstruction(configPDA, chain.DeployerKey.PublicKey(), solana.SystemProgramID, tokenPool, programData.Address).ValidateAndBuild()
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to init global config: %w", err)
-		}
-		instructions = append(instructions, ix)
-
 		// initialize token pool for token
 		poolInitI, err = solBurnMintTokenPool.NewInitializeInstruction(
 			routerProgramAddress,
@@ -362,6 +373,81 @@ func getOnChainEVMPoolConfig(e cldf.Environment, state stateview.CCIPOnChainStat
 		Decimals: evmTokenDecimals,
 	}
 	return onChainEVMRemoteConfig, nil
+}
+
+func InitGlobalConfigTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfig2) (cldf.ChangesetOutput, error) {
+	e.Logger.Infow("Setting up token pool global config", "cfg", cfg)
+
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	solChainState := state.SolChains[cfg.ChainSelector]
+	if err := cfg.Validate(e, solChainState); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
+	tokenPubKey := cfg.TokenPubKey
+	tokenPool, contractType := solChainState.GetActiveTokenPool(*cfg.PoolType, cfg.Metadata)
+
+	if *cfg.PoolType == solTestTokenPool.BurnAndMint_PoolType {
+		solBurnMintTokenPool.SetProgramID(tokenPool)
+	} else if *cfg.PoolType == solTestTokenPool.LockAndRelease_PoolType {
+		solLockReleaseTokenPool.SetProgramID(tokenPool)
+	}
+
+	var configPDA solana.PublicKey
+	// Global Configuration
+	configPDA, err = tokens.TokenPoolGlobalConfigPDA(tokenPool)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool global config PDA: %w", err)
+	}
+	programData, err := getSolProgramData(e, chain, tokenPool)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool program data: %w", err)
+	}
+
+	initGlobalConfigIx, err := solBurnMintTokenPool.NewInitGlobalConfigInstruction(configPDA, chain.DeployerKey.PublicKey(), solana.SystemProgramID, tokenPool, programData.Address).ValidateAndBuild()
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to init global config: %w", err)
+	}
+
+	var txns []mcmsTypes.Transaction
+
+	useMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
+		&e,
+		chain,
+		solChainState,
+		shared.BurnMintTokenPool,
+		tokenPubKey,
+		cfg.Metadata,
+	)
+
+	instructions := []solana.Instruction{initGlobalConfigIx}
+
+	if useMcms {
+		err := appendTxs(instructions, tokenPool, contractType, &txns)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
+		}
+	} else {
+		if err := chain.Confirm(instructions); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+		}
+	}
+
+	if len(txns) > 0 {
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.ChainSelector, "proposal to init global config in Solana Token Pool", cfg.MCMS.MinDelay, txns)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	}
+
+	return cldf.ChangesetOutput{}, nil
 }
 
 func SetupTokenPoolForRemoteChain(e cldf.Environment, cfg RemoteChainTokenPoolConfig) (cldf.ChangesetOutput, error) {
@@ -932,7 +1018,7 @@ func (cfg SetPoolConfig) Validate(e cldf.Environment, chainState solanastateview
 		if err != nil {
 			return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), routerProgramAddress.String(), err)
 		}
-		var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
+		var tokenAdminRegistryAccount solCcipCommon.TokenAdminRegistry
 		if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
 			return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot set pool", tokenPubKey.String(), routerProgramAddress.String())
 		}
