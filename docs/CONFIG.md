@@ -564,7 +564,7 @@ ListenIP specifies the IP to bind the HTTP server to
 ## WebServer.OIDC
 ```toml
 [WebServer.OIDC]
-ClientID = "abc123" # Example
+ClientID = "abcd1234" # Example
 ProviderURL = 'https://id[.]example[.]com/oauth2/default' # Example
 RedirectURL = 'http://localhost:8080/signin' # Example
 ClaimName = 'groups' # Default

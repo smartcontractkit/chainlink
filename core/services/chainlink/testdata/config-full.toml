@@ -102,7 +102,7 @@ UpstreamSyncRateLimit = '2m0s'
 
 [WebServer.OIDC]
 ClientID = "abcd1234"
-ProviderURL = 'https://dev-14912014.okta.com/oauth2/default'
+ProviderURL = 'https://id.provider.com/oauth2/default'
 RedirectURL = 'http://localhost:3000/signin' 
 ClaimName = "groups"
 AdminClaim = 'NodeAdmins' 
