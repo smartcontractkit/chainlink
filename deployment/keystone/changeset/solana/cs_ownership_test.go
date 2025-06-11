@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	cldfchain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -28,7 +27,6 @@ func Test_TransferOwnershipForwarder(t *testing.T) {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 	solSel := env.BlockChains.ListChainSelectors(cldfchain.WithFamily(chain_selectors.FamilySolana))[0]
-	ab := cldf.NewMemoryAddressBook()
 
 	mcfg := map[uint64]commontypes.MCMSWithTimelockConfigV2{
 		solSel: {
@@ -39,7 +37,7 @@ func Test_TransferOwnershipForwarder(t *testing.T) {
 		},
 	}
 
-	env = shouldDeployForwarder(t, env, solSel, ab)
+	env = shouldDeployForwarder(t, env, solSel)
 
 	_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.BlockChains.SolanaChains()[solSel], env.ExistingAddresses, mcfg[solSel])
 	require.NoError(t, err)

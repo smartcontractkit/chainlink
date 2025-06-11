@@ -36,10 +36,9 @@ func TestDeployForwarder(t *testing.T) {
 
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 	solSel := env.BlockChains.ListChainSelectors(cldfchain.WithFamily(chain_selectors.FamilySolana))[0]
-	ab := cldf.NewMemoryAddressBook()
 
 	t.Run("should deploy forwarder", func(t *testing.T) {
-		env = shouldDeployForwarder(t, env, solSel, ab)
+		env = shouldDeployForwarder(t, env, solSel)
 	})
 
 	t.Run("should pass upgrade authority", func(t *testing.T) {
@@ -99,7 +98,7 @@ func TestConfigureForwarder(t *testing.T) {
 				}
 
 				te.Env.BlockChains = cldfchain.NewBlockChains(blockchains)
-				env = shouldDeployForwarder(t, te.Env, solSel, te.Env.ExistingAddresses)
+				env = shouldDeployForwarder(t, te.Env, solSel)
 				te.Env.DataStore = env.DataStore
 				var wfNodes []string
 				for _, id := range te.GetP2PIDs("wfDon") {
@@ -189,7 +188,7 @@ const (
 	testQualifier = "test-deploy"
 )
 
-func shouldDeployForwarder(t *testing.T, env cldf.Environment, solSel uint64, _ cldf.AddressBook) cldf.Environment {
+func shouldDeployForwarder(t *testing.T, env cldf.Environment, solSel uint64) cldf.Environment {
 	cfg := helpers.BuildSolanaConfig{
 		GitCommitSha:   "d047073ea230f965626716029f8d902729ddffed",
 		DestinationDir: "./solana_contracts",
