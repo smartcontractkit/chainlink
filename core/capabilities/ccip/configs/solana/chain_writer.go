@@ -121,6 +121,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 		ChainSpecificName:        "execute",
 		ArgsTransform:            "CCIPExecute",
 		ComputeUnitLimitOverhead: 150_000,
+		BufferPayloadMethod:      "CCIPExecutionReportBuffer",
 		LookupTables: chainwriter.LookupTables{
 			DerivedLookupTables: []chainwriter.DerivedLookupTable{
 				{

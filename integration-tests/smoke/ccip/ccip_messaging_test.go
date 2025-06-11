@@ -519,6 +519,43 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		)
 	})
 
+	t.Run("message requiring buffering", func(t *testing.T) {
+		accounts := [][32]byte{
+			receiverExternalExecutionConfigPDA,
+			receiverTargetAccountPDA,
+			solana.SystemProgramID,
+		}
+
+		extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
+			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
+			Accounts:                 accounts,
+			ComputeUnits:             80_000,
+			AllowOutOfOrderExecution: true,
+		})
+		require.NoError(t, err)
+
+		out = mt.Run(
+			t,
+			mt.TestCase{
+				ValidationType:         mt.ValidationTypeExec,
+				TestSetup:              setup,
+				Nonce:                  nil, // Solana nonce check is skipped
+				Receiver:               receiver,
+				MsgData:                make([]byte, 2000), // set large payload that cannot fit in single transaction
+				ExtraArgs:              extraArgs,
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) {
+						var receiverCounterAccount soltesthelpers.ReceiverCounter
+						err = solcommon.GetAccountDataBorshInto(ctx, solChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccount)
+						require.NoError(t, err, "failed to get account info")
+						require.Equal(t, uint8(3), receiverCounterAccount.Value)
+					},
+				},
+			},
+		)
+	})
+
 	_ = out
 }
 
