@@ -18,6 +18,8 @@ import (
 )
 
 // externalAdapter implements por.ExternalAdapter
+var _ por.ExternalAdapter = &externalAdapter{}
+
 type externalAdapter struct {
 	runner pipeline.Runner
 	job    job.Job
@@ -29,18 +31,6 @@ type externalAdapter struct {
 
 func NewExternalAdapter(runner pipeline.Runner, job job.Job, spec pipeline.Spec, saver ocrcommon.Saver, lggr logger.Logger) *externalAdapter {
 	return &externalAdapter{runner: runner, job: job, spec: spec, saver: saver, lggr: lggr}
-}
-
-// Ensure externalAdapter implements por.ExternalAdapter
-func (ea *externalAdapter) GetChains(_ context.Context) ([]por.ChainSelector, error) {
-	// TODO(gg): remove this when it's removed from the plugin's adapter
-
-	ea.lggr.Warnf("GetChains not implemented yet, returning mock data")
-	chains := []por.ChainSelector{
-		8953668971247136127, // "bitcoin-testnet-rootstock"
-		729797994450396300,  // "telos-evm-testnet"
-	}
-	return chains, nil
 }
 
 // GetPayload retrieves the payload for the given blocks by executing a pipeline run.
@@ -122,8 +112,8 @@ func (ea *externalAdapter) convertMapToPayload(resultMap map[string]any) (por.Ex
 
 	// Create the payload
 	payload := por.ExternalAdapterPayload{
-		Mintables:            make(por.Mintables),
-		LatestRelevantBlocks: make(por.Blocks),
+		Mintables:    make(por.Mintables),
+		LatestBlocks: make(por.Blocks),
 	}
 
 	// Convert mintables
@@ -154,13 +144,13 @@ func (ea *externalAdapter) convertMapToPayload(resultMap map[string]any) (por.Ex
 		Timestamp:     time.UnixMilli(eaResponse.ReserveInfo.Timestamp),
 	}
 
-	// Convert latest relevant blocks
+	// Convert latest blocks
 	for chainSelector, block := range eaResponse.LatestRelevantBlocks {
 		chainSelectorUint64, err := strconv.ParseUint(chainSelector, 10, 64)
 		if err != nil {
 			return por.ExternalAdapterPayload{}, fmt.Errorf("failed to parse chain selector: %s", chainSelector)
 		}
-		payload.LatestRelevantBlocks[por.ChainSelector(chainSelectorUint64)] = por.BlockNumber(block)
+		payload.LatestBlocks[por.ChainSelector(chainSelectorUint64)] = por.BlockNumber(block)
 	}
 
 	return payload, nil
