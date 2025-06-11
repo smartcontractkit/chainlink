@@ -439,3 +439,30 @@ func TestIDL(t *testing.T) {
 	})
 	require.NoError(t, err)
 }
+
+func TestVerify(t *testing.T) {
+	skipInCI(t)
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
+	// deploy timelock
+	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChain, true,
+		ccipChangesetSolana.CCIPContractsToTransfer{
+			FeeQuoter: true,
+		})
+
+	_, _, err := commonchangeset.ApplyChangesets(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.VerifyBuild),
+			ccipChangesetSolana.VerifyBuildConfig{
+				ChainSelector:    solChain,
+				GitCommitSha:     "0ee732e80586",
+				VerifyFeeQuoter:  true,
+				UpgradeAuthority: timelockSignerPDA,
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
+				},
+			},
+		),
+	})
+	require.NoError(t, err)
+}

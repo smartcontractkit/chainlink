@@ -46,88 +46,77 @@ type VerifyBuildConfig struct {
 	MCMS             *proposalutils.TimelockConfig
 }
 
-func runSolanaVerify(e cldf.Environment,
+func runSolanaVerifyMCMS(e cldf.Environment,
 	cfg VerifyBuildConfig,
 	chain cldf_solana.Chain,
 	programID, libraryName, mountPath string,
 	timelockSignerPDA solana.PublicKey,
 	mcmsTxs *[]mcmsTypes.Transaction,
 ) error {
-	params := map[string]string{
-		"Keypair Path": chain.KeypairPath,
-		"Network URL":  chain.URL,
-		"Program ID":   programID,
-		"Lib Name":     libraryName,
-		"Commit Hash":  cfg.GitCommitSha,
-		"Mount Path":   mountPath,
-	}
-	log, err := json.MarshalIndent(params, "", "")
-	if err != nil {
-		return err
-	}
-	e.Logger.Infow("solana verify params", "params", string(log))
-
-	// if timelock signer exists
-	// and user has set the upgrade authority to the timelock signer
-	// then we need to create mcms txs
-	if !timelockSignerPDA.IsZero() && cfg.UpgradeAuthority == timelockSignerPDA {
-		// enter here only if mcms tx has been signed and submitted to the chain
-		// https://solana.com/developers/guides/advanced/verified-builds#7-submit-remote-verification-job
-		if cfg.RemoteVerification {
-			cmdArgs := []string{
-				"remote",
-				"submit-job",
-				"--url", chain.URL,
-				"--uploader", timelockSignerPDA.String(),
-				"--program-id", programID,
-			}
-			output, err := runCommand("solana-verify", cmdArgs, chain.ProgramsPath)
-			e.Logger.Infow("remote submit-job output", "output", output)
-			if err != nil {
-				return fmt.Errorf("solana program verification failed: %s %w", output, err)
-			}
-			// only need to submit job this time as we are assuming here that the mcms tx has been signed and submitted to the chain
-			return nil
-		}
-
-		// run cli command
+	// enter here only if mcms tx has been signed and submitted to the chain
+	// https://solana.com/developers/guides/advanced/verified-builds#7-submit-remote-verification-job
+	if cfg.RemoteVerification {
 		cmdArgs := []string{
-			"export-pda-tx",
+			"remote",
+			"submit-job",
 			"--url", chain.URL,
-			"--program-id", programID,
-			"--library-name", libraryName,
-			strings.TrimSuffix(repoURL, ".git"),
-			"--commit-hash", cfg.GitCommitSha,
-			"--mount-path", mountPath,
 			"--uploader", timelockSignerPDA.String(),
+			"--program-id", programID,
 		}
-		output, err := runCommand("solana-verify", cmdArgs, ".")
-		e.Logger.Infow("export-pda-tx output", "output", output)
+		output, err := runCommand("solana-verify", cmdArgs, chain.ProgramsPath)
+		e.Logger.Infow("remote submit-job output", "output", output)
 		if err != nil {
 			return fmt.Errorf("solana program verification failed: %s %w", output, err)
 		}
-
-		// get ix from output
-		resolvedIxn, err := getIxnFromEncodedTx(e, output, timelockSignerPDA)
-		if err != nil {
-			return fmt.Errorf("failed to get ixn from encoded tx: %w", err)
-		}
-		if resolvedIxn == nil {
-			return errors.New("failed to get ixn from encoded tx")
-		}
-
-		// build mcms tx from ix
-		upgradeTx, err := BuildMCMSTxn(resolvedIxn, programID, cldf.ContractType(libraryName))
-		if err != nil {
-			return fmt.Errorf("failed to build upgrade transaction: %w", err)
-		}
-		if upgradeTx != nil {
-			e.Logger.Infow("upgradeTx", "tx", upgradeTx)
-			*mcmsTxs = append(*mcmsTxs, *upgradeTx)
-		}
+		// only need to submit job this time as we are assuming here that the mcms tx has been signed and submitted to the chain
 		return nil
 	}
 
+	// run cli command
+	cmdArgs := []string{
+		"export-pda-tx",
+		"--url", chain.URL,
+		"--program-id", programID,
+		"--library-name", libraryName,
+		strings.TrimSuffix(repoURL, ".git"),
+		"--commit-hash", cfg.GitCommitSha,
+		"--mount-path", mountPath,
+		"--uploader", timelockSignerPDA.String(),
+	}
+	e.Logger.Infow("export-pda-tx cmdArgs", "cmdArgs", cmdArgs)
+	output, err := runCommand("solana-verify", cmdArgs, ".")
+	e.Logger.Infow("export-pda-tx output", "output", output)
+	if err != nil {
+		return fmt.Errorf("solana program verification failed: %s %w", output, err)
+	}
+
+	// get ix from output
+	resolvedIxn, err := getIxnFromEncodedTx(e, output, timelockSignerPDA)
+	if err != nil {
+		return fmt.Errorf("failed to get ixn from encoded tx: %w", err)
+	}
+	if resolvedIxn == nil {
+		return errors.New("failed to get ixn from encoded tx")
+	}
+
+	// build mcms tx from ix
+	upgradeTx, err := BuildMCMSTxn(resolvedIxn, programID, cldf.ContractType(libraryName))
+	if err != nil {
+		return fmt.Errorf("failed to build upgrade transaction: %w", err)
+	}
+	if upgradeTx != nil {
+		e.Logger.Infow("upgradeTx", "tx", upgradeTx)
+		*mcmsTxs = append(*mcmsTxs, *upgradeTx)
+	}
+	return nil
+}
+
+func runSolanaVerifyWithoutMCMS(e cldf.Environment,
+	cfg VerifyBuildConfig,
+	chain cldf_solana.Chain,
+	programID, libraryName, mountPath string,
+	timelockSignerPDA solana.PublicKey,
+) error {
 	// if timelock signer does not exist
 	// or user has set the upgrade authority to the deployer key
 	// then we need to run the cli command
@@ -161,8 +150,37 @@ func runSolanaVerify(e cldf.Environment,
 			return fmt.Errorf("solana program verification failed: %s %w", output, err)
 		}
 	}
-
 	return nil
+}
+
+func runSolanaVerify(e cldf.Environment,
+	cfg VerifyBuildConfig,
+	chain cldf_solana.Chain,
+	programID, libraryName, mountPath string,
+	timelockSignerPDA solana.PublicKey,
+	mcmsTxs *[]mcmsTypes.Transaction,
+) error {
+	params := map[string]string{
+		"Keypair Path": chain.KeypairPath,
+		"Network URL":  chain.URL,
+		"Program ID":   programID,
+		"Lib Name":     libraryName,
+		"Commit Hash":  cfg.GitCommitSha,
+		"Mount Path":   mountPath,
+	}
+	log, err := json.MarshalIndent(params, "", "")
+	if err != nil {
+		return err
+	}
+	e.Logger.Infow("solana verify params", "params", string(log))
+
+	// if timelock signer exists
+	// and user has set the upgrade authority to the timelock signer
+	// then we need to create mcms txs
+	if !timelockSignerPDA.IsZero() && cfg.UpgradeAuthority == timelockSignerPDA {
+		return runSolanaVerifyMCMS(e, cfg, chain, programID, libraryName, mountPath, timelockSignerPDA, mcmsTxs)
+	}
+	return runSolanaVerifyWithoutMCMS(e, cfg, chain, programID, libraryName, mountPath, timelockSignerPDA)
 }
 
 func getIxnFromEncodedTx(e cldf.Environment, output string, timelockSignerPDA solana.PublicKey) (*solana.GenericInstruction, error) {
@@ -189,7 +207,7 @@ func getIxnFromEncodedTx(e cldf.Environment, output string, timelockSignerPDA so
 		return nil, fmt.Errorf("failed to create transaction from bytes: %w", err)
 	}
 	inst := tx.Message.Instructions[0]
-	resolved, err := resolveCompiledInstruction(timelockSignerPDA, tx.Message, inst)
+	resolved, err := resolveCompiledInstruction(e, timelockSignerPDA, tx.Message, inst)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve compiled instruction: %w", err)
 	}
@@ -197,6 +215,7 @@ func getIxnFromEncodedTx(e cldf.Environment, output string, timelockSignerPDA so
 }
 
 func resolveCompiledInstruction(
+	e cldf.Environment,
 	timelockSignerPDA solana.PublicKey,
 	msg solana.Message,
 	compiled solana.CompiledInstruction,
@@ -207,6 +226,7 @@ func resolveCompiledInstruction(
 			return nil, fmt.Errorf("account index out of range: %d", idx)
 		}
 		pub := msg.AccountKeys[idx]
+		e.Logger.Infow("pub", "pub", pub)
 		isSigner := msg.IsSigner(pub)
 
 		isWritable, err := msg.IsWritable(pub)
@@ -226,6 +246,7 @@ func resolveCompiledInstruction(
 	programID := msg.AccountKeys[compiled.ProgramIDIndex]
 
 	data, err := base58.Decode(compiled.Data.String())
+	e.Logger.Infow("data", "data", data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode instruction data: %w", err)
 	}
