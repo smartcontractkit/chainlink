@@ -110,9 +110,11 @@ func NewSecureMintServices(ctx context.Context,
 	// 	return nil, errors.New("could not coerce PluginProvider to SecureMintProvider")
 	// }
 
-	argsNoPlugin.ContractTransmitter = newStubContractTransmitter(lggr, ocr2plus_types.Account(spec.TransmitterID.String)) // TODO(gg): implement chain writing here
 	argsNoPlugin.ContractConfigTracker = provider.ContractConfigTracker()
 	argsNoPlugin.OffchainConfigDigester = provider.OffchainConfigDigester()
+
+	// Using a stub contract transmitter for testing purposes until DF-21404 is done
+	argsNoPlugin.ContractTransmitter = newStubContractTransmitter(lggr, ocr2plus_types.Account(spec.TransmitterID.String))
 
 	abort := func() {
 		if cerr := services.MultiCloser(srvs).Close(); err != nil {

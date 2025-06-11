@@ -35,7 +35,7 @@ func newStubContractTransmitter(logger logger.Logger, fromAccount types.Account)
 
 // Transmit logs the transmission details instead of actually transmitting
 func (s *stubContractTransmitter) Transmit(
-	ctx context.Context,
+	_ context.Context,
 	configDigest types.ConfigDigest,
 	seqNr uint64,
 	reportWithInfo ocr3types.ReportWithInfo[por.ChainSelector],
@@ -56,22 +56,13 @@ func (s *stubContractTransmitter) Transmit(
 		})
 	}
 
-	// Log signature details
-	for i, sig := range aos {
-		s.logger.Debug("Signature details ", map[string]any{
-			"signatureIndex": i,
-			"signer":         fmt.Sprintf("%x", sig.Signer),
-			"signatureHex":   fmt.Sprintf("%x", sig.Signature),
-		})
-	}
-
 	s.logger.Info("Transmit completed successfully (stub implementation)", nil)
 	StubTransmissionCounter.Add(1)
 	return nil
 }
 
 // FromAccount returns the configured account and logs the call
-func (s *stubContractTransmitter) FromAccount(ctx context.Context) (types.Account, error) {
+func (s *stubContractTransmitter) FromAccount(_ context.Context) (types.Account, error) {
 	s.logger.Debug("FromAccount called ", map[string]any{
 		"account": string(s.fromAccount),
 	})

@@ -45,19 +45,6 @@ var (
 	nNodes = 4 // number of nodes (not including bootstrap)
 )
 
-func setupBlockchain(t *testing.T) (
-	*bind.TransactOpts,
-	evmtypes.Backend,
-) {
-	steve := evmtestutils.MustNewSimTransactor(t) // config contract deployer and owner
-	genesisData := gethtypes.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
-	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
-	backend.Commit()
-	backend.Commit() // ensure starting block number at least 1
-
-	return steve, backend
-}
-
 // TestIntegration_SecureMint_happy_path tests runs a small DON which runs the secure mint plugin
 // and verifies that it can successfully create reports.
 //
@@ -98,12 +85,6 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 		c.P2P.V2.DefaultBootstrappers = &p2pV2Bootstrappers
 	})
 
-	// pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
-	// donID = %d
-	// channelDefinitionsContractAddress = "0x%x"
-	// channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
-	// addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, legacyVerifierAddr, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
-
 	allowedSenders := make([]common.Address, len(nodes))
 	for i, node := range nodes {
 		keys, err := node.App.GetKeyStore().Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
@@ -117,23 +98,24 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 	bootstrapJob := createSecureMintBootstrapJob(t, bootstrapNode, aggregatorAddress, testutils.SimulatedChainID.String(), fmt.Sprintf("%d", fromBlock))
 	t.Logf("Created bootstrap job: %s with id %d", bootstrapJob.Name.ValueOrZero(), bootstrapJob.ID)
 
-	// TODO(gg): enable this for writing step
-	// feedIDBytes := [16]byte{}
-	// copy(feedIDBytes[:], common.FromHex("0xA1B2C3D4E5F600010203040506070809"))
-
-	// dfCacheAddress, dfCacheContract := setupDataFeedsCacheContract(t, steve, backend, allowedSenders, steve.From.Hex(), "securemint")
-	// t.Logf("Deployed and configured DataFeedsCache contract at: %s", dfCacheAddress.Hex())
-	// desc, err := dfCacheContract.GetDescription(&bind.CallOpts{}, feedIDBytes)
-	// require.NoError(t, err)
-	// t.Logf("DataFeedsCache description: %s", desc)
-
 	jobIDs := addSecureMintOCRJobs(t, nodes, aggregatorAddress)
 
 	t.Logf("jobIDs: %v", jobIDs)
 	validateJobsRunningSuccessfully(t, nodes, jobIDs)
 
-	// wait for a minute for the jobs to run and collect data
-	// time.Sleep(1 * time.Minute)
+}
+
+func setupBlockchain(t *testing.T) (
+	*bind.TransactOpts,
+	evmtypes.Backend,
+) {
+	steve := evmtestutils.MustNewSimTransactor(t) // config contract deployer and owner
+	genesisData := gethtypes.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
+	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
+	backend.Commit()
+	backend.Commit() // ensure starting block number at least 1
+
+	return steve, backend
 }
 
 func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
@@ -231,29 +213,6 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []Node, jobIDs map[int]
 		fmt.Sprintf("expected at least %d reports transmitted, but got less", expectedNumTransmissions),
 	)
 }
-
-// TODO(gg): to set config on DF Cache contract
-// func setSecureMintOnchainConfigOnDFCacheContract(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend, nodes []Node, oracles []confighelper.OracleIdentityExtra, dfCacheAddress common.Address, dfCacheContract *data_feeds_cache.DataFeedsCache) [32]byte {
-
-// 	_, err = dfCacheContract.SetConfig(steve, signerAddresses, transmitterAddresses, f, outOnchainConfig, offchainConfigVersion, offchainConfig)
-// 	if err != nil {
-// 		errString, err := rPCErrorFromError(err)
-// 		require.NoError(t, err)
-
-// 		t.Fatalf("Failed to configure contract: %s", errString)
-// 	}
-
-// 	// libocr requires a few confirmations to accept the config
-// 	backend.Commit()
-// 	backend.Commit()
-// 	backend.Commit()
-// 	backend.Commit()
-
-// 	l, err := dfCacheContract.LatestConfigDigestAndEpoch(&bind.CallOpts{})
-// 	require.NoError(t, err)
-
-// 	return l.ConfigDigest
-// }
 
 func setSecureMintOnchainConfigUsingAggregator(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend, nodes []Node, oracles []confighelper.OracleIdentityExtra) common.Address {
 

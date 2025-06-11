@@ -105,7 +105,7 @@ func setupNode(
 
 		// [EVM.Transactions]
 		for _, evmCfg := range c.EVM {
-			evmCfg.Transactions.Enabled = ptr(false) // don't need txmgr // TODO(gg): enable this for chain writing
+			evmCfg.Transactions.Enabled = ptr(false) // don't need txmgr
 		}
 
 		// Optional overrides

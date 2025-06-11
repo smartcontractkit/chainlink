@@ -978,17 +978,6 @@ func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, e
 			configWatcher.chain.ID(),
 			ethKeystore,
 		)
-	case commontypes.SecureMint:
-		// TODO(gg): here's where the Transmitter is created based on the OCR2PluginType, update this when writing path is clear
-		transmitter, err = ocrcommon.NewTransmitter(
-			configWatcher.chain.TxManager(),
-			fromAddresses,
-			gasLimit,
-			effectiveTransmitterAddress,
-			strategy,
-			checker,
-			ethKeystore,
-		)
 	default:
 		transmitter, err = ocrcommon.NewTransmitter(
 			configWatcher.chain.TxManager(),
