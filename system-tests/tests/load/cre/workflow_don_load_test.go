@@ -39,7 +39,6 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
@@ -280,7 +279,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		testLogger,
 		in,
 		mustSetCapabilitiesFn,
-		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WorkflowDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(homeChainIDUint64)},
+		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WorkflowDONLoadTestCapabilitiesFactoryFn, crecontracts.ChainWriterCapabilityFactory(homeChainIDUint64)},
 		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(homeChainIDUint64)},
 	)
 
@@ -307,7 +306,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 			debugDons := make([]*keystonetypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
 			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
 				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
-				for _, output := range setupOutput.nodeOutput[i].Output.CLNodes {
+				for _, output := range setupOutput.nodeOutput[i].CLNodes {
 					containerNames = append(containerNames, output.Node.ContainerName)
 				}
 				debugDons = append(debugDons, &keystonetypes.DebugDon{
@@ -380,10 +379,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 
 	// Use insecure gRPC connection for local Docker containers. For AWS, use TLS credentials
 	// due to ingress requirements, as grpc.insecure.NewCredentials() doesn't work properly with AWS ingress
-	useInsecure := false
-	if in.Infra.InfraType == "docker" {
-		useInsecure = true
-	}
+	useInsecure := in.Infra.InfraType == "docker"
 
 	require.NoError(t, mocksClient.ConnectAll(mockClientsAddress, useInsecure, cacheClients), "could not connect to mock capabilities")
 
