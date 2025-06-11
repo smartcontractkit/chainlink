@@ -28,24 +28,13 @@ Before running the load tests, ensure you have the following set up:
     - Devspace installed
     - VPN turned on
 
-### How to compile the mock capability
-#### 1. Clone the capabilities repository
-`git clone https://github.com/smartcontractkit/capabilities`
+## Building the Test Image with Mock Plugins
+To create a Docker image with mock plugins pre-installed use the `CL_INSTALL_TESTING_PLUGINS` environment variable when creating the docker image
 
-#### 2. Navigate to the repository
-`cd capabilities`
-
-#### 3. Build the mock capability
-`nx build mock`
-
-After compilation, the mock binary will be located at `capabilities/bin/amd64/mock`.
-
-Then update your test configuration file:
+```bash
+CL_INSTALL_PRIVATE_PLUGINS=true CL_INSTALL_TESTING_PLUGINS=true GITHUB_TOKEN=... make docker-plugins
 ```
-[binaries_config]
-mock_capability_binary_path = "/path/to/capabilities/bin/amd64/mock"
-```
-Use either an absolute path or a relative path pointing to your compiled binary.
+You will have to provide a github access token that has read access to the capabilities repo
 
 ### Setting Up Observability stack
 

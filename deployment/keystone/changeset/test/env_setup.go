@@ -207,7 +207,7 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env cldf.Envir
 		GetContext:        t.Context,
 		Logger:            logger.Test(t),
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		DataStore:         datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]().Seal(),
+		DataStore:         datastore.NewMemoryDataStore().Seal(),
 		BlockChains:       chain.NewBlockChains(blockChains),
 	}
 
@@ -455,10 +455,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 		"view only nodes",
 		logger.Test(t),
 		cldf.NewMemoryAddressBook(),
-		datastore.NewMemoryDataStore[
-			datastore.DefaultMetadata,
-			datastore.DefaultMetadata,
-		]().Seal(),
+		datastore.NewMemoryDataStore().Seal(),
 		dons.NodeList().IDs(),
 		envtest.NewJDService(dons.NodeList()),
 		t.Context,

@@ -4,10 +4,9 @@ import (
 	"testing"
 	"time"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
-
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -22,6 +21,7 @@ import (
 )
 
 func TestSetOCR3Offramp_Apply(t *testing.T) {
+	t.Parallel()
 	// Setup environment and config
 	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(
 		t,

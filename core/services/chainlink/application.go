@@ -85,6 +85,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
@@ -331,23 +332,23 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	initOps := []CoreRelayerChainInitFunc{InitDummy(relayerFactory), InitEVM(relayerFactory, evmFactoryCfg)}
 
 	if cfg.CosmosEnabled() {
-		initOps = append(initOps, InitCosmos(relayerFactory, keyStore.Cosmos(), cfg.CosmosConfigs()))
+		initOps = append(initOps, InitCosmos(relayerFactory, keyStore.Cosmos(), keyStore.CSA(), cfg.CosmosConfigs()))
 	}
 	if cfg.SolanaEnabled() {
 		solanaCfg := SolanaFactoryConfig{
 			TOMLConfigs: cfg.SolanaConfigs(),
 			DS:          opts.DS,
 		}
-		initOps = append(initOps, InitSolana(relayerFactory, keyStore.Solana(), solanaCfg))
+		initOps = append(initOps, InitSolana(relayerFactory, keyStore.Solana(), keyStore.CSA(), solanaCfg))
 	}
 	if cfg.StarkNetEnabled() {
-		initOps = append(initOps, InitStarknet(relayerFactory, keyStore.StarkNet(), cfg.StarknetConfigs()))
+		initOps = append(initOps, InitStarknet(relayerFactory, keyStore.StarkNet(), keyStore.CSA(), cfg.StarknetConfigs()))
 	}
 	if cfg.AptosEnabled() {
-		initOps = append(initOps, InitAptos(relayerFactory, keyStore.Aptos(), cfg.AptosConfigs()))
+		initOps = append(initOps, InitAptos(relayerFactory, keyStore.Aptos(), keyStore.CSA(), cfg.AptosConfigs()))
 	}
 	if cfg.TronEnabled() {
-		initOps = append(initOps, InitTron(relayerFactory, keyStore.Tron(), cfg.TronConfigs()))
+		initOps = append(initOps, InitTron(relayerFactory, keyStore.Tron(), keyStore.CSA(), cfg.TronConfigs()))
 	}
 
 	relayChainInterops, err := NewCoreRelayerChainInteroperators(initOps...)
@@ -631,22 +632,23 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			ocr2.DelegateOpts{
-				Ds:                    opts.DS,
-				JobORM:                jobORM,
-				BridgeORM:             bridgeORM,
-				MercuryORM:            mercuryORM,
-				PipelineRunner:        pipelineRunner,
-				StreamRegistry:        streamRegistry,
-				PeerWrapper:           peerWrapper,
-				MonitoringEndpointGen: telemetryManager,
-				LegacyChains:          legacyEVMChains,
-				Lggr:                  globalLogger,
-				Ks:                    keyStore.OCR2(),
-				EthKs:                 keyStore.Eth(),
-				Relayers:              relayChainInterops,
-				MailMon:               mailMon,
-				CapabilitiesRegistry:  opts.CapabilitiesRegistry,
-				RetirementReportCache: opts.RetirementReportCache,
+				Ds:                             opts.DS,
+				JobORM:                         jobORM,
+				BridgeORM:                      bridgeORM,
+				MercuryORM:                     mercuryORM,
+				PipelineRunner:                 pipelineRunner,
+				StreamRegistry:                 streamRegistry,
+				PeerWrapper:                    peerWrapper,
+				MonitoringEndpointGen:          telemetryManager,
+				LegacyChains:                   legacyEVMChains,
+				Lggr:                           globalLogger,
+				Ks:                             keyStore.OCR2(),
+				EthKs:                          keyStore.Eth(),
+				Relayers:                       relayChainInterops,
+				MailMon:                        mailMon,
+				CapabilitiesRegistry:           opts.CapabilitiesRegistry,
+				RetirementReportCache:          opts.RetirementReportCache,
+				GatewayConnectorServiceWrapper: creServices.gatewayConnectorWrapper,
 			},
 			ocr2DelegateConfig,
 		)
@@ -811,7 +813,7 @@ func newCREServices(
 	wCfg config.Workflows,
 	relayerChainInterops *CoreRelayerChainInteroperators,
 	opts CREOpts,
-	billingClient workflows.BillingClient,
+	billingClient metering.BillingClient,
 ) (*CREServices, error) {
 	var srvcs []services.ServiceCtx
 	workflowRateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{

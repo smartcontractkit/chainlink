@@ -160,6 +160,18 @@ var (
 			return feeQuoter.ApplyDestChainConfigUpdates(opts, input)
 		},
 	)
+
+	FeeQuoterUpdatePricesOp = opsutil.NewEVMCallOperation(
+		"FeeQuoterUpdatePricesOp",
+		semver.MustParse("1.0.0"),
+		"Update token and gas prices on the FeeQuoter 1.6.0 contract",
+		fee_quoter.FeeQuoterABI,
+		shared.FeeQuoter,
+		fee_quoter.NewFeeQuoter,
+		func(feeQuoter *fee_quoter.FeeQuoter, opts *bind.TransactOpts, input fee_quoter.InternalPriceUpdates) (*types.Transaction, error) {
+			return feeQuoter.UpdatePrices(opts, input)
+		},
+	)
 )
 
 type FeeQApplyAuthorizedCallerOpInput struct {

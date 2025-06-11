@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/onramp"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -820,7 +822,7 @@ func isTypeHardcoded(t any) bool {
 	switch t.(type) {
 	case *reader.CommitReportAcceptedEvent:
 		return true
-	case *reader.SendRequestedEvent:
+	case *chainaccessor.SendRequestedEvent:
 		return true
 	case *reader.ExecutionStateChangedEvent:
 		return true
@@ -841,7 +843,7 @@ func decodeHardcodedType(out any, log *logpoller.Log) error {
 		populateCommitReportAcceptFromEvent(out, internalEvent)
 
 		return nil
-	case *reader.SendRequestedEvent:
+	case *chainaccessor.SendRequestedEvent:
 		var internalEvent onramp.OnRampCCIPMessageSent
 		err := unpackLog(&internalEvent, ccipMessageSentEvent, log, onrampABI)
 		if err != nil {
@@ -909,7 +911,7 @@ func populateExecutionStateChangedFromEvent(out *reader.ExecutionStateChangedEve
 	out.GasUsed = *internalEvent.GasUsed
 }
 
-func populateSendRequestFromEvent(out *reader.SendRequestedEvent, internalEvent onramp.OnRampCCIPMessageSent) {
+func populateSendRequestFromEvent(out *chainaccessor.SendRequestedEvent, internalEvent onramp.OnRampCCIPMessageSent) {
 	out.DestChainSelector = ccipocr3.ChainSelector(internalEvent.DestChainSelector)
 	out.SequenceNumber = ccipocr3.SeqNum(internalEvent.SequenceNumber)
 

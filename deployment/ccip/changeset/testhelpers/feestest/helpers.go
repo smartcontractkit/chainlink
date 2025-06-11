@@ -199,7 +199,8 @@ func RunFeeTokenTestCase(tc FeeTokenTestCase) {
 
 	if tc.assertExecution {
 		// Wait for all commit reports to land.
-		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.env, state, expectedSeqNum, startBlocks)
+		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.env, state,
+			testhelpers.ToSeqRangeMap(expectedSeqNum), startBlocks)
 
 		// After commit is reported on all chains, token prices should be updated in FeeQuoter.
 		linkAddress := state.Chains[tc.dst].LinkToken.Address()

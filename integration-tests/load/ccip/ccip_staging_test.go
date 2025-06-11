@@ -28,7 +28,7 @@ func TestStaging_CCIP_Load(t *testing.T) {
 	lggr := logger.Test(t)
 
 	evmSourceKey := simChainTestKey
-	solSourceKey := solChainTestKey
+	solSourceKey := solTestKey
 
 	// get user defined configurations
 	config, err := tc.GetConfig([]string{"Load"}, tc.CCIP)
@@ -79,7 +79,7 @@ func TestStaging_CCIP_Load(t *testing.T) {
 			cs,
 			*env,
 			&state,
-			state.MustGetEVMChainState(cs).Receiver.Address(),
+			state.MustGetEVMChainState(cs).Receiver.Address().Bytes(),
 			userOverrides,
 			messageKeys,
 			nil,
