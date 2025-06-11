@@ -319,7 +319,7 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 			Name:        "Send token to contract with large data payload",
 			SourceChain: sourceChain,
 			DestChain:   destChain,
-			Data: make([]byte, 1000), // set large payload that cannot fit in single transaction but does not overflow memory allocation
+			Data:        make([]byte, 1233), // set large payload that cannot fit in single transaction but does not overflow memory allocation
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  srcToken.Address(),
