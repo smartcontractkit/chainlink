@@ -17,6 +17,8 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
+	evm_fee_quoter "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -154,8 +156,14 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	// Set up EVM lanes
-	lggr.Infow("setting up EVM lanes...")
+	// Set up lanes
+	lggr.Infow("setting up EVM <> EVM lanes...")
+	*e, err = setupEVM2EVMLanes(e, state)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to apply connecting evm lanes changesets: %w", err)
+	}
+
+	lggr.Infow("setting up EVM <> Sol lanes...")
 	*e, err = setupSolEvmLanes(lggr, e, state, homeChainSel, feedChainSel)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply connecting lanes changesets: %w", err)
@@ -690,6 +698,129 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 	return *e, nil
 }
 
+func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (cldf.Environment, error) {
+	poolUpdates := make(map[uint64]v1_5_1.TokenPoolConfig)
+	rateLimitPerChain := make(v1_5_1.RateLimiterPerChain)
+	evmChains := e.BlockChains.EVMChains()
+	eg := new(xerrgroup.Group)
+	mu := sync.Mutex{}
+	for src := range evmChains {
+		src := src
+		eg.Go(func() error {
+			onRampUpdatesByChain := make(map[uint64]map[uint64]v1_6.OnRampDestinationUpdate)
+			pricesByChain := make(map[uint64]v1_6.FeeQuoterPriceUpdatePerSource)
+			feeQuoterDestsUpdatesByChain := make(map[uint64]map[uint64]evm_fee_quoter.FeeQuoterDestChainConfig)
+			updateOffRampSources := make(map[uint64]map[uint64]v1_6.OffRampSourceUpdate)
+			updateRouterChanges := make(map[uint64]v1_6.RouterUpdates)
+			onRampUpdatesByChain[src] = make(map[uint64]v1_6.OnRampDestinationUpdate)
+			pricesByChain[src] = v1_6.FeeQuoterPriceUpdatePerSource{
+				TokenPrices: map[common.Address]*big.Int{
+					state.Chains[src].LinkToken.Address(): testhelpers.DefaultLinkPrice,
+					state.Chains[src].Weth9.Address():     testhelpers.DefaultWethPrice,
+				},
+				GasPrices: map[uint64]*big.Int{},
+			}
+			feeQuoterDestsUpdatesByChain[src] = make(map[uint64]evm_fee_quoter.FeeQuoterDestChainConfig)
+			updateOffRampSources[src] = make(map[uint64]v1_6.OffRampSourceUpdate)
+			updateRouterChanges[src] = v1_6.RouterUpdates{
+				OffRampUpdates: make(map[uint64]bool),
+				OnRampUpdates:  make(map[uint64]bool),
+			}
+			mu.Lock()
+			poolUpdates[src] = v1_5_1.TokenPoolConfig{
+				Type:         shared.BurnMintTokenPool,
+				Version:      deployment.Version1_5_1,
+				ChainUpdates: rateLimitPerChain,
+			}
+			mu.Unlock()
+			for dst := range evmChains {
+				if src == dst {
+					continue
+				}
+
+				onRampUpdatesByChain[src][dst] = v1_6.OnRampDestinationUpdate{
+					IsEnabled:        true,
+					AllowListEnabled: false,
+				}
+				pricesByChain[src].GasPrices[dst] = testhelpers.DefaultGasPrice
+				feeQuoterDestsUpdatesByChain[src][dst] = v1_6.DefaultFeeQuoterDestChainConfig(true)
+
+				updateOffRampSources[src][dst] = v1_6.OffRampSourceUpdate{
+					IsEnabled:                 true,
+					IsRMNVerificationDisabled: true,
+				}
+
+				updateRouterChanges[src].OffRampUpdates[dst] = true
+				updateRouterChanges[src].OnRampUpdates[dst] = true
+				mu.Lock()
+				rateLimitPerChain[dst] = v1_5_1.RateLimiterConfig{
+					Inbound: token_pool.RateLimiterConfig{
+						IsEnabled: false,
+						Capacity:  big.NewInt(0),
+						Rate:      big.NewInt(0),
+					},
+					Outbound: token_pool.RateLimiterConfig{
+						IsEnabled: false,
+						Capacity:  big.NewInt(0),
+						Rate:      big.NewInt(0),
+					},
+				}
+				mu.Unlock()
+			}
+
+			appliedChangesets := []commonchangeset.ConfiguredChangeSet{
+				commonchangeset.Configure(
+					cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+					v1_6.UpdateOnRampDestsConfig{
+						UpdatesByChain: onRampUpdatesByChain,
+					},
+				),
+				commonchangeset.Configure(
+					cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
+					v1_6.UpdateFeeQuoterPricesConfig{
+						PricesByChain: pricesByChain,
+					},
+				),
+				commonchangeset.Configure(
+					cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
+					v1_6.UpdateFeeQuoterDestsConfig{
+						UpdatesByChain: feeQuoterDestsUpdatesByChain,
+					},
+				),
+				commonchangeset.Configure(
+					cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
+					v1_6.UpdateOffRampSourcesConfig{
+						UpdatesByChain: updateOffRampSources,
+					},
+				),
+				commonchangeset.Configure(
+					cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+					v1_6.UpdateRouterRampsConfig{
+						UpdatesByChain: updateRouterChanges,
+					},
+				),
+			}
+			_, err := commonchangeset.Apply(nil, *e, appliedChangesets[0], appliedChangesets[1:]...)
+
+			return err
+		})
+	}
+
+	err := eg.Wait()
+	if err != nil {
+		return *e, err
+	}
+
+	_, err = commonchangeset.Apply(nil, *e, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+		v1_5_1.ConfigureTokenPoolContractsConfig{
+			TokenSymbol: shared.LinkSymbol,
+			PoolUpdates: poolUpdates,
+		},
+	))
+
+	return *e, err
+}
 func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool, rmnEnabled bool) (cldf.Environment, error) {
 	chainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	var commitOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
