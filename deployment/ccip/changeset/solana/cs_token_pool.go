@@ -645,6 +645,77 @@ func SetupTokenPoolForRemoteChain(e cldf.Environment, cfg RemoteChainTokenPoolCo
 	return cldf.ChangesetOutput{}, nil
 }
 
+func InitializeStateVersion(e cldf.Environment, cfg TokenPoolConfig2) (cldf.ChangesetOutput, error) {
+	e.Logger.Infow("Init state version for old tp", "cfg", cfg)
+
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	solChainState := state.SolChains[cfg.ChainSelector]
+	if err := cfg.Validate(e, solChainState); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
+	tokenPubKey := cfg.TokenPubKey
+	tokenPool, contractType := solChainState.GetActiveTokenPool(*cfg.PoolType, cfg.Metadata)
+
+	if *cfg.PoolType == solTestTokenPool.BurnAndMint_PoolType {
+		solBurnMintTokenPool.SetProgramID(tokenPool)
+	} else if *cfg.PoolType == solTestTokenPool.LockAndRelease_PoolType {
+		solLockReleaseTokenPool.SetProgramID(tokenPool)
+	}
+
+	poolConfig, err := tokens.TokenPoolConfigAddress(tokenPubKey, tokenPool)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to calculate the pool configg: %w", err)
+	}
+
+	initGlobalConfigIx, err := solBurnMintTokenPool.NewInitializeStateVersionInstruction(
+		tokenPubKey,
+		poolConfig).ValidateAndBuild()
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to init global config: %w", err)
+	}
+
+	var txns []mcmsTypes.Transaction
+
+	useMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
+		&e,
+		chain,
+		solChainState,
+		shared.BurnMintTokenPool,
+		tokenPubKey,
+		cfg.Metadata,
+	)
+
+	instructions := []solana.Instruction{initGlobalConfigIx}
+
+	if useMcms {
+		err := appendTxs(instructions, tokenPool, contractType, &txns)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
+		}
+	} else {
+		if err := chain.Confirm(instructions); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+		}
+	}
+
+	if len(txns) > 0 {
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.ChainSelector, "proposal to init global config in Solana Token Pool", cfg.MCMS.MinDelay, txns)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	}
+
+	return cldf.ChangesetOutput{}, nil
+}
+
 // checks if the evmChainSelector is supported for the given token and pool type
 func isSupportedChain(chain cldfSolana.Chain, solTokenPubKey solana.PublicKey, solPoolAddress solana.PublicKey, evmChainSelector uint64) (bool, solTestTokenPool.ChainConfig, error) {
 	var remoteChainConfigAccount solTestTokenPool.ChainConfig

@@ -187,6 +187,15 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 					MCMS: mcmsConfig,
 				},
 			),
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitializeStateVersion),
+				ccipChangesetSolana.TokenPoolConfig2{
+					ChainSelector: solChain,
+					TokenPubKey:   tokenAddress,
+					PoolType:      typePtr,
+					Metadata:      tokenMetadata,
+				},
+			),
 		})
 		require.NoError(t, err)
 
