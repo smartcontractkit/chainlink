@@ -208,7 +208,7 @@ func addCandidatesForNewChainPrecondition(e cldf.Environment, c AddCandidatesFor
 	if !c.NewChain.ExecOCRParams.ExecuteOffChainConfig.MultipleReportsEnabled {
 		for _, remoteChain := range c.RemoteChains {
 			if !remoteChain.FeeQuoterDestChainConfig.EnforceOutOfOrder {
-				return fmt.Errorf("EnforceOutOfOrder must be set to true in the FeeQuoterDestChainConfig")
+				return errors.New("EnforceOutOfOrder must be set to true in the FeeQuoterDestChainConfig")
 			}
 		}
 	}
