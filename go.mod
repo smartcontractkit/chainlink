@@ -74,7 +74,7 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.60
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250612154800-17cfcfd32b02
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250612204658-161a84b90fd7
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250513174048-af3e6b6d21fb
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250513180746-113c305fde94
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250417193446-eeb0a7d1e049
