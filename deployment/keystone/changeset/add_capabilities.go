@@ -20,15 +20,14 @@ import (
 )
 
 const (
-	// See: https://github.com/smartcontractkit/chainlink/blob/3684365e78ef911d7668e724aa782d3b3f3e8801/deployment/keystone/changeset/internal/capability_definitions.go#L15
-	capabilityTypeTarget           = uint8(3)
-	capabilityTypeTargetNamePrefix = "write_"
+	CapabilityTypeTarget           = uint8(3) // See: https://github.com/smartcontractkit/chainlink/blob/3684365e78ef911d7668e724aa782d3b3f3e8801/deployment/keystone/changeset/internal/capability_definitions.go#L15
+	CapabilityTypeTargetNamePrefix = "write_"
 )
 
 var (
 	ErrEmptyWriteCapName         = errors.New("capability labelled name must not be empty")
-	ErrInvalidWriteCapName       = errors.New("capability labelled name must start with " + capabilityTypeTargetNamePrefix)
-	ErrEmptyTrimmedWriteCapName  = errors.New("capability labelled name must not be empty after removing prefix " + capabilityTypeTargetNamePrefix)
+	ErrInvalidWriteCapName       = errors.New("capability labelled name must start with " + CapabilityTypeTargetNamePrefix)
+	ErrEmptyTrimmedWriteCapName  = errors.New("capability labelled name must not be empty after removing prefix " + CapabilityTypeTargetNamePrefix)
 	ErrInvalidWriteCapNameFormat = errors.New("capability labelled name is not a valid chain name or chain ID")
 )
 
@@ -54,22 +53,24 @@ func (r *AddCapabilitiesRequest) Validate(env cldf.Environment) error {
 	var capNameErr error
 	// Validate write target capabilities labelled name
 	for _, c := range r.Capabilities {
-		if c.CapabilityType != capabilityTypeTarget {
+		if c.CapabilityType != CapabilityTypeTarget {
 			continue
 		}
+		env.Logger.Debugf(c.LabelledName)
 		if c.LabelledName == "" {
 			capNameErr = errors.Join(ErrEmptyWriteCapName, capNameErr)
 			continue
 		}
-		if !strings.HasPrefix(c.LabelledName, capabilityTypeTargetNamePrefix) {
+		if !strings.HasPrefix(c.LabelledName, CapabilityTypeTargetNamePrefix) {
 			capNameErr = errors.Join(ErrInvalidWriteCapName, capNameErr)
 			continue
 		}
-		extracted := strings.TrimPrefix(c.LabelledName, capabilityTypeTargetNamePrefix)
+		extracted := strings.TrimPrefix(c.LabelledName, CapabilityTypeTargetNamePrefix)
 		if extracted == "" {
 			capNameErr = errors.Join(ErrEmptyTrimmedWriteCapName, capNameErr)
 			continue
 		}
+		env.Logger.Debugf("Extracted chain name or ID: %s", extracted)
 		_, err := chainselectors.ChainIdFromName(extracted)
 		if err != nil {
 			// Validate if the extracted value is the chain ID instead, since the labelled name can contain
@@ -84,6 +85,7 @@ func (r *AddCapabilitiesRequest) Validate(env cldf.Environment) error {
 				}
 			}
 
+			env.Logger.Debugf(err.Error())
 			capNameErr = errors.Join(ErrInvalidWriteCapNameFormat, capNameErr)
 		}
 	}
