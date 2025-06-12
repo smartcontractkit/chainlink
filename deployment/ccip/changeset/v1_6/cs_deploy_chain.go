@@ -3,8 +3,10 @@ package v1_6
 import (
 	"errors"
 	"fmt"
+	"reflect"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -12,7 +14,6 @@ import (
 
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
@@ -33,13 +34,21 @@ func DeployChainContractsChangeset(env cldf.Environment, c ccipseq.DeployChainCo
 	if err := c.Validate(); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
-	newAddresses, err := deployChainContractsForChains(env, c.HomeChainSelector, c.ContractParamsPerChain)
+	report, err := deployChainContractsForChains(env, c.HomeChainSelector, c)
 	if err != nil {
-		env.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", newAddresses)
-		return cldf.ChangesetOutput{AddressBook: newAddresses}, cldf.MaybeDataErr(err)
+		return cldf.ChangesetOutput{
+			Reports: report.ExecutionReports,
+		}, fmt.Errorf("failed to deploy CCIP contracts: %w", err)
+	}
+	addressBook := cldf.NewMemoryAddressBook()
+	for chainSel, addresses := range report.Output {
+		for address, typeAndVersion := range addresses {
+			addressBook.Save(chainSel, address, cldf.MustTypeAndVersionFromString(typeAndVersion))
+		}
 	}
 	return cldf.ChangesetOutput{
-		AddressBook: newAddresses,
+		Reports:     report.ExecutionReports,
+		AddressBook: addressBook,
 	}, nil
 }
 
@@ -89,30 +98,69 @@ func ValidateHomeChainState(e cldf.Environment, homeChainSel uint64, existingSta
 func deployChainContractsForChains(
 	e cldf.Environment,
 	homeChainSel uint64,
-	contractParamsPerChain map[uint64]ccipseq.ChainContractParams) (cldf.AddressBook, error) {
+	c ccipseq.DeployChainContractsConfig,
+) (operations.SequenceReport[ccipseq.DeployChainContractsSeqConfig, map[uint64]map[string]string], error) {
 	existingState, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
-		return nil, err
+		return operations.SequenceReport[ccipseq.DeployChainContractsSeqConfig, map[uint64]map[string]string]{}, err
 	}
 
 	err = ValidateHomeChainState(e, homeChainSel, existingState)
 	if err != nil {
-		return nil, err
-	}
-	deps := opsutil.ConfigureDependencies{
-		Env:          e,
-		CurrentState: existingState,
-		AddressBook:  cldf.NewMemoryAddressBook(),
-	}
-	_, err = operations.ExecuteSequence(e.OperationsBundle, ccipseq.DeployChainContractsSeq, deps, ccipseq.DeployChainContractsConfig{
-		HomeChainSelector:      homeChainSel,
-		ContractParamsPerChain: contractParamsPerChain,
-	})
-	if err != nil {
-		e.Logger.Errorw("Failed to deploy chain contracts", "err", err)
-		return nil, err
+		return operations.SequenceReport[ccipseq.DeployChainContractsSeqConfig, map[uint64]map[string]string]{}, err
 	}
 
-	return deps.AddressBook, nil
+	addresses := make(map[uint64]ccipseq.CCIPAddresses)
+	for chainSel := range c.ContractParamsPerChain {
+		linkToken, err := existingState.Chains[chainSel].LinkTokenAddress()
+		if err != nil {
+			return operations.SequenceReport[ccipseq.DeployChainContractsSeqConfig, map[uint64]map[string]string]{}, err
+		}
+		addresses[chainSel] = ccipseq.CCIPAddresses{
+			LegacyRMNAddress:          getAddressSafely(existingState.Chains[chainSel].RMN),
+			RMNProxyAddress:           getAddressSafely(existingState.Chains[chainSel].RMNProxy),
+			WrappedNativeAddress:      getAddressSafely(existingState.Chains[chainSel].Weth9),
+			TimelockAddress:           getAddressSafely(existingState.Chains[chainSel].Timelock),
+			LinkAddress:               linkToken,
+			FeeAggregatorAddress:      existingState.Chains[chainSel].FeeAggregator,
+			TokenAdminRegistryAddress: getAddressSafely(existingState.Chains[chainSel].TokenAdminRegistry),
+			OnRampAddress:             getAddressSafely(existingState.Chains[chainSel].OnRamp),
+			TestRouterAddress:         getAddressSafely(existingState.Chains[chainSel].TestRouter),
+			OffRampAddress:            getAddressSafely(existingState.Chains[chainSel].OffRamp),
+			NonceManagerAddress:       getAddressSafely(existingState.Chains[chainSel].NonceManager),
+			FeeQuoterAddress:          getAddressSafely(existingState.Chains[chainSel].FeeQuoter),
+			RMNRemoteAddress:          getAddressSafely(existingState.Chains[chainSel].RMNRemote),
+		}
+	}
+
+	report, err := operations.ExecuteSequence(
+		e.OperationsBundle,
+		ccipseq.DeployChainContractsSeq,
+		ccipseq.DeployChainContractsDeps{
+			Ctx:    e.GetContext(),
+			Chains: e.BlockChains.EVMChains(),
+		},
+		ccipseq.DeployChainContractsSeqConfig{
+			RMNHomeAddress:             getAddressSafely(existingState.Chains[homeChainSel].RMNHome),
+			DeployChainContractsConfig: c,
+			AddressesPerChain:          addresses,
+		},
+	)
+	if err != nil {
+		return report, fmt.Errorf("failed to deploy chain contracts: %w", err)
+	}
+
+	return report, nil
+}
+
+type addressable interface {
+	Address() common.Address
+}
+
+func getAddressSafely(a addressable) common.Address {
+	if a == nil || reflect.ValueOf(a).IsNil() { // assumes 'a' is a pointer type
+		return common.Address{}
+	}
+	return a.Address()
 }
