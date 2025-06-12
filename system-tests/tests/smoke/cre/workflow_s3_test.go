@@ -107,13 +107,13 @@ func mockWorkflowConfig(t *testing.T, workflowConfigPath string) {
 
 	config, err := json.Marshal(workflowConfig)
 	require.NoError(t, err)
-	err = os.WriteFile(workflowConfigPath, config, 0644)
+	err = os.WriteFile(workflowConfigPath, config, 0600)
 	require.NoError(t, err)
 
 	// another hack to get CRE CLI to work; same configuration as JSON to get verification to work
 	config, err = yaml.Marshal(workflowConfig)
 	require.NoError(t, err)
-	err = os.WriteFile(path.Join(filepath.Dir(workflowConfigPath), "workflow.yaml"), config, 0644)
+	err = os.WriteFile(path.Join(filepath.Dir(workflowConfigPath), "workflow.yaml"), config, 0600)
 	require.NoError(t, err)
 }
 
@@ -167,7 +167,7 @@ func mockCreConfig(t *testing.T, configPath string, provider s3provider.Provider
 	require.NoError(t, err)
 
 	creConfigFilePath := path.Join(configPath, CreConfigDefaultFileName)
-	err = os.WriteFile(creConfigFilePath, creConfig, 0644)
+	err = os.WriteFile(creConfigFilePath, creConfig, 0600)
 	require.NoError(t, err)
 }
 
@@ -197,7 +197,8 @@ func TestWorkflowS3(t *testing.T) {
 	// hack to address CRE CLI broken behaviour: `-o` fileName.wasm.br produces `fileName.wasm.br.b64`
 	// and its `upload` command returns:
 	// `Error: failed to create or update object: ... supported extensions: .wasm.br, .json, .yaml, .yml
-	err = os.Rename(fmt.Sprintf("%s.b64", wasmFilePath), wasmFilePath)
+	wrongName := fmt.Sprintf("%s.b64", wasmFilePath)
+	err = os.Rename(wrongName, wasmFilePath)
 	require.NoError(t, err)
 
 	stats, err := os.Stat(wasmFilePath)

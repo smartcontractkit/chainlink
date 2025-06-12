@@ -3,12 +3,13 @@ package crecli
 import (
 	"bytes"
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+
+	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 )
 
 type UploadType int
@@ -113,7 +114,7 @@ func (c CLI) Upload(uploadType UploadType, wasmfilePath string, configPath strin
 
 		fmt.Printf("%s %#v\n", c.CreCLICommandPath, args)
 
-		uploadCmd := exec.Command(c.CreCLICommandPath, args...)
+		uploadCmd := exec.Command(c.CreCLICommandPath, args...) // #nosec G204
 
 		var outputBuffer bytes.Buffer
 		uploadCmd.Stdout = &outputBuffer
@@ -144,8 +145,7 @@ func (c CLI) Upload(uploadType UploadType, wasmfilePath string, configPath strin
 
 		fmt.Printf("%#v\n", matches)
 
-		switch len(matches) {
-		case 2: //nolint:mnd
+		if len(matches) == 2 {
 			output.BinaryURL = cleanRe.ReplaceAllString(matches[0][1], "")
 			output.ConfigURL = cleanRe.ReplaceAllString(matches[1][1], "")
 		}
@@ -153,7 +153,7 @@ func (c CLI) Upload(uploadType UploadType, wasmfilePath string, configPath strin
 		return output, nil
 
 	default:
-		return nil, errors.New("unsupported by this interface, yet!")
+		return nil, errors.New("unsupported by this interface, yet")
 	}
 }
 
