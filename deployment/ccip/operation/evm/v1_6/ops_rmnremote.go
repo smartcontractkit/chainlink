@@ -38,11 +38,6 @@ type DeployRMNRemoteInput struct {
 	ChainSelector uint64         `json:"chainSelector"`
 }
 
-type SetRMNRemoteOnRMNProxyInput struct {
-	ChainSelector uint64
-	MCMSConfig    *proposalutils.TimelockConfig
-}
-
 var (
 	DeployRMNRemoteOp = operations.NewOperation(
 		"DeployRMNRemote",
