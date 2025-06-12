@@ -161,6 +161,7 @@ jobs:
               - 'contracts/GNUmakefile'
               - 'contracts/foundry.toml'
               - 'contracts/package.json'
+              - 'system-tests/**'
             ccip_changes:
               - '**/*ccip*'
               - '**/*ccip*/**'
