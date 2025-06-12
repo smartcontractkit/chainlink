@@ -51,7 +51,6 @@ import (
 	webapicap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapi"
 	writeevmcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/writeevm"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	gatewayconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/gateway"
 	crecompute "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/compute"
@@ -271,7 +270,7 @@ func configureDataFeedsCacheContract(testLogger zerolog.Logger, input *configure
 		AllowedWorkflowOwners: []common.Address{input.sethClient.MustGetRootKeyAddress()},
 	}
 
-	_, configErr := libcontracts.ConfigureDataFeedsCache(testLogger, configInput)
+	_, configErr := crecontracts.ConfigureDataFeedsCache(testLogger, configInput)
 
 	return configErr
 }

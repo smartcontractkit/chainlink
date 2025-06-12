@@ -115,7 +115,6 @@ func setupLoadTestEnvironment(
 	capabilityFactoryFns []func([]string) []keystone_changeset.DONCapabilityWithConfig,
 	jobSpecFactoryFns []keystonetypes.JobSpecFactoryFn,
 ) *loadTestSetupOutput {
-
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
@@ -429,7 +428,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	path, storeErr := baseLineReport.Store()
 	require.NoError(t, storeErr, "failed to store baseline report", path)
 	require.NoError(t, err, "workflow load test did not finish successfully")
-
 }
 
 // TestWithReconnect Re-runs the load test against an existing DON deployment. It expects feeds, OCR2 keys, and
