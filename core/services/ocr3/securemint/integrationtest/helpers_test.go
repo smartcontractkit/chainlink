@@ -247,7 +247,7 @@ func createSecureMintBridge(t *testing.T, name string, i int, borm bridges.ORM) 
 
 	initialResponse := sm_ea.Response{
 		Mintables: map[string]sm_ea.MintableInfo{},
-		LatestRelevantBlocks: map[string]uint64{
+		LatestBlocks: map[string]uint64{
 			"8953668971247136127": 5, // "bitcoin-testnet-rootstock"
 			"729797994450396300":  5, // "telos-evm-testnet"
 		},
@@ -270,7 +270,7 @@ func createSecureMintBridge(t *testing.T, name string, i int, borm bridges.ORM) 
 				Mintable: "25",
 			},
 		},
-		LatestRelevantBlocks: map[string]uint64{
+		LatestBlocks: map[string]uint64{
 			"8953668971247136127": 8, // "bitcoin-testnet-rootstock"
 			"729797994450396300":  7, // "telos-evm-testnet"
 		},

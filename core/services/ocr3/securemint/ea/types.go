@@ -36,14 +36,14 @@ type Request struct {
 //	        "reserveAmount": "10332550000000000000000",
 //	        "timestamp": 1749483841486
 //	    },
-//	    "latestRelevantBlocks": {
+//	    "latestBlocks": {
 //	        "5009297550715157269": 22667990
 //	    }
 //	}
 type Response struct {
-	Mintables            map[string]MintableInfo `json:"mintables"`
-	ReserveInfo          ReserveInfo             `json:"reserveInfo"`
-	LatestRelevantBlocks map[string]uint64       `json:"latestRelevantBlocks"`
+	Mintables    map[string]MintableInfo `json:"mintables"`
+	ReserveInfo  ReserveInfo             `json:"reserveInfo"`
+	LatestBlocks map[string]uint64       `json:"latestBlocks"`
 }
 
 type MintableInfo struct {

@@ -145,7 +145,7 @@ func (ea *externalAdapter) convertMapToPayload(resultMap map[string]any) (por.Ex
 	}
 
 	// Convert latest blocks
-	for chainSelector, block := range eaResponse.LatestRelevantBlocks {
+	for chainSelector, block := range eaResponse.LatestBlocks {
 		chainSelectorUint64, err := strconv.ParseUint(chainSelector, 10, 64)
 		if err != nil {
 			return por.ExternalAdapterPayload{}, fmt.Errorf("failed to parse chain selector: %s", chainSelector)

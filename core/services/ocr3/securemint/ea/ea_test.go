@@ -53,7 +53,7 @@ func Test_GetPayload(t *testing.T) {
 						"reserveAmount": "10332550000000000000000",
 						"timestamp":     1749483841486,
 					},
-					"latestRelevantBlocks": map[string]any{
+					"latestBlocks": map[string]any{
 						"1234567890": 23,
 					},
 				},
