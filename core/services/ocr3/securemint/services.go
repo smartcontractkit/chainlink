@@ -125,13 +125,7 @@ func NewSecureMintServices(ctx context.Context,
 	smPluginFactory := &sm_plugin.PorReportingPluginFactory{
 		Logger:          argsNoPlugin.Logger,
 		ExternalAdapter: sm_ea.NewExternalAdapter(secureMintPluginConfig, pipelineRunner, jb, *jb.PipelineSpec, runSaver, lggr),
-		ContractReader: newStubContractReader(
-			// since we don't write to chain yet, we mock the contract reader which returns the most recent config digest from the config contract
-			func() ([32]byte, error) {
-				_, configDigest, err := argsNoPlugin.ContractConfigTracker.LatestConfigDetails(ctx)
-				return configDigest, err
-			},
-		),
+		ContractReader:  newStubContractReader(argsNoPlugin.ContractConfigTracker), // since we don't write to chain yet, we mock the contract reader which returns the most recent config digest from the config contract
 		ReportMarshaler: sm_plugin.NewMockReportMarshaler(),
 	}
 

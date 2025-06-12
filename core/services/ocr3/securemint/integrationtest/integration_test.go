@@ -49,7 +49,7 @@ var (
 // and verifies that it can successfully create reports.
 //
 // Inspired by:
-// * core/internal/features/ocr2/features_ocr2_helper.go
+// * core/internal/features/ocr2/features_ocr2_test.go
 // * core/services/ocr2/plugins/ocr2keeper/integration_21_test.go
 func TestIntegration_SecureMint_happy_path(t *testing.T) {
 	const salt = 100
@@ -264,10 +264,10 @@ func setSecureMintOnchainConfigUsingAggregator(t *testing.T, steve *bind.Transac
 		oracles,              // oracles,
 		smPluginConfigBytes,  // reportingPluginConfig,
 		nil,                  // maxDurationInitialization,
-		0,                    // maxDurationQuery,
-		250*time.Millisecond, // maxDurationObservation,
-		0,                    // maxDurationShouldAcceptAttestedReport,
-		0,                    // maxDurationShouldTransmitAcceptedReport,
+		250*time.Millisecond, // maxDurationQuery,
+		1*time.Second,        // maxDurationObservation,
+		1*time.Second,        // maxDurationShouldAcceptAttestedReport,
+		1*time.Second,        // maxDurationShouldTransmitAcceptedReport,
 		int(fNodes),          // f,
 		onchainConfig,        // onchainConfig (binary blob containing configuration passed through to the ReportingPlugin and also available to the contract. Unlike ReportingPluginConfig which is only available offchain.)
 	)
