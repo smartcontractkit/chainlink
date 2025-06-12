@@ -1,6 +1,8 @@
 package sequence
 
 import (
+	"fmt"
+
 	"github.com/aptos-labs/aptos-go-sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
@@ -8,7 +10,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
+
+const aptosTokenAddress = "0xa"
 
 type DeployCCIPSeqInput struct {
 	MCMSAddress      aptos.AccountAddress
@@ -78,7 +83,8 @@ func deployCCIPSequence(b operations.Bundle, deps operation.AptosDeps, in Deploy
 	}
 	mcmsOperations = append(mcmsOperations, utils.ToBatchOperations(deployRouterReport.Output)...)
 
-	// Generate batch operations to initialize CCIP
+	var txs []mcmstypes.Transaction
+	// Generate txs to Initialize CCIP
 	initCCIPInput := operation.InitializeCCIPInput{
 		MCMSAddress:      in.MCMSAddress,
 		CCIPAddress:      ccipAddress,
@@ -89,10 +95,51 @@ func deployCCIPSequence(b operations.Bundle, deps operation.AptosDeps, in Deploy
 	if err != nil {
 		return DeployCCIPSeqOutput{}, err
 	}
-	mcmsOperations = append(mcmsOperations, initCCIPReport.Output)
+	txs = append(txs, initCCIPReport.Output...)
+
+	// Apply Premium multiplier on fee tokens
+	multiplierConfig, err := getMultiplierConfig(in.CCIPConfig.FeeQuoterParams.PremiumMultiplierWeiPerEthByFeeToken, in.LinkTokenAddress)
+	if err != nil {
+		return DeployCCIPSeqOutput{}, fmt.Errorf("failed to get multiplier config: %w", err)
+	}
+	apmInput := operation.ApplyPremiumMultiplierInput{
+		CCIPAddress:             ccipAddress,
+		MultiplierBySourceToken: multiplierConfig,
+	}
+	applyPMultReport, err := operations.ExecuteOperation(b, operation.ApplyPremiumMultiplierOp, deps, apmInput)
+	if err != nil {
+		return DeployCCIPSeqOutput{}, err
+	}
+	txs = append(txs, applyPMultReport.Output...)
+
+	//  Generate batch operation
+	mcmsOperations = append(mcmsOperations, mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
+		Transactions:  txs,
+	})
 
 	return DeployCCIPSeqOutput{
 		CCIPAddress:    ccipAddress,
 		MCMSOperations: mcmsOperations,
 	}, nil
+}
+
+func getMultiplierConfig(multiplierBySymbol map[shared.TokenSymbol]uint64, linkTokenAddress aptos.AccountAddress) (map[string]uint64, error) {
+	multiplierByToken := make(map[string]uint64)
+	for symbol, multiplier := range multiplierBySymbol {
+		switch symbol {
+		case shared.APTSymbol:
+			address := aptos.AccountAddress{}
+			err := address.ParseStringRelaxed(aptosTokenAddress)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse Aptos token address %s: %w", aptosTokenAddress, err)
+			}
+			multiplierByToken[address.StringLong()] = multiplier
+		case shared.LinkSymbol:
+			multiplierByToken[linkTokenAddress.StringLong()] = multiplier
+		default:
+			return nil, fmt.Errorf("unsupported fee token symbol %s for Aptos CCIP", symbol)
+		}
+	}
+	return multiplierByToken, nil
 }
