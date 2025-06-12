@@ -39,6 +39,7 @@ var (
 	bytes32ArrType = mustNewType("bytes32[]")
 
 	// Arguments for decoding destGasAmount
+	// TODO: this is now BCS encoded
 	destGasAmountArguments = abi.Arguments{
 		{Name: aptosDestExecDataKey, Type: uint32Type},
 	}
