@@ -210,6 +210,8 @@ func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithSolChains(1),
+		// because source is evm, sending multiple messages at once with same sender causes issues.
+		testhelpers.WithNumOfUsersPerChain(numMessages),
 		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 			params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(1 * time.Hour)
 			params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(1 * time.Hour)
@@ -280,13 +282,6 @@ func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 	require.NoError(t, err, "failed to get account info")
 	require.Equal(t, uint8(0), receiverCounterAccount.Value)
 
-	// Ensure Transmitted event filter is registered for the offramp - This is specific for Solana
-	//offRampAddr, err := setup.OnchainState.GetOffRampAddressBytes(setup.DestChain)
-	//require.NoError(t, err)
-	//err = testhelpers.WaitForEventFilterRegistration(t, setup.Env.Offchain, setup.DestChain, "Transmitted", offRampAddr)
-	//require.NoError(t, err)
-
-	numMessages := 5
 	_ = mt.Run(
 		t,
 		mt.TestCase{
@@ -298,6 +293,7 @@ func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 			ExtraArgs:              extraArgs,
 			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 			NumberOfMessages:       numMessages,
+			UserPerMessage:         true,
 		},
 	)
 

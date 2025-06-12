@@ -92,6 +92,10 @@ type TestCase struct {
 	ExpectedExecutionState int
 	ExtraAssertions        []func(t *testing.T)
 	NumberOfMessages       int // number of messages to send, use same data and extraArgs
+
+	// If true, use different user address as sender for each message, otherwise use TestSetup.Sender
+	// This can be useful if we want to send multiple messages in parallel especially in evm chains.
+	UserPerMessage bool
 }
 
 type ValidationType int
@@ -207,8 +211,17 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		DestChainSelector:   tc.DestChain,
 	}
 
+	srcChainUsers := tc.DeployedEnv.Users[sourceDest.SourceChainSelector]
+	if tc.UserPerMessage {
+		require.GreaterOrEqual(t, tc.NumberOfMessages, len(srcChainUsers),
+			"UserPerMessage is true but not enough users available for the number of messages to send")
+	}
 	// send all messages first, then validate them
 	for i := 0; i < tc.NumberOfMessages; i++ {
+		var opts []testhelpers.SendReqOpts
+		if tc.UserPerMessage {
+			opts = append(opts, testhelpers.WithSender(srcChainUsers[i]))
+		}
 		msgSentEventLocal := testhelpers.TestSendRequest(
 			tc.T,
 			tc.Env,
@@ -216,7 +229,8 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 			tc.SourceChain,
 			tc.DestChain,
 			tc.TestRouter,
-			msg)
+			msg,
+			opts...)
 
 		_, ok := expectedSeqNumRange[sourceDest]
 		if !ok {
