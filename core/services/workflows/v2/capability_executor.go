@@ -3,13 +3,13 @@ package v2
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
@@ -35,10 +35,6 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 	if err != nil {
 		return nil, fmt.Errorf("trigger capability not found: %w", err)
 	}
-	capInfo, err := capability.Info(ctx)
-	if err != nil {
-		c.lggr.Error("could not get capability info for %v", request.Id)
-	}
 
 	capReq := capabilities.CapabilityRequest{
 		Payload:      request.Payload,
@@ -53,11 +49,27 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 	if !ok {
 		c.lggr.Errorf("no metering report found for %v", c.WorkflowExecutionID)
 	}
-	meteringRef := metering.ReportStepRef(request.CallbackId)
-	err = meterReport.ReserveStep(meteringRef, capInfo)
+	meteringRef := strconv.Itoa(int(request.CallbackId))
+
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-477 Get capability info by getting the workflow vertex and talking to the capaiblity
+
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-285 get max spend per step. Compare to availability and limits.
+
+	availableForCall, err := meterReport.GetAvailableForInvocation(int(c.cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow) - len(c.capCallsSemaphore))
 	if err != nil {
 		c.lggr.Errorw("could not reserve for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 	}
+
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461 if availability is math.MaxInt64 there is no limit. Possibly flag this in a different way.
+
+	err = meterReport.Deduct(meteringRef, availableForCall)
+	if err != nil {
+		c.cfg.Lggr.Errorw("could not deduct balance for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+	}
+
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461
+	// convert balance to CapabilityInfo resource types for use in Capability call
+	// pass deducted amount as max spend to capability.Execute
 
 	// TODO(CAPPL-737): run with a timeout
 	c.lggr.Debugw("Executing capability ...", "capID", request.Id, "capReqCallbackID", request.CallbackId, "capReqMethod", request.Method)
@@ -76,7 +88,7 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 	c.lggr.Debugw("Capability execution succeeded", "capID", request.Id, "capReqCallbackID", request.CallbackId)
 	_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, string(meteringRef), store.StatusCompleted)
 
-	err = meterReport.SetStep(meteringRef, capResp.Metadata.Metering)
+	err = meterReport.Settle(meteringRef, capResp.Metadata.Metering)
 	if err != nil {
 		c.lggr.Errorw("failed to set metering for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 	}
