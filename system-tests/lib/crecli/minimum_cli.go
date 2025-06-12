@@ -9,6 +9,7 @@ import (
 	"regexp"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 )
 
@@ -145,7 +146,8 @@ func (c CLI) Upload(uploadType UploadType, wasmfilePath string, configPath strin
 
 		fmt.Printf("%#v\n", matches)
 
-		if len(matches) == 2 {
+		const urlsFound = 2
+		if len(matches) == urlsFound {
 			output.BinaryURL = cleanRe.ReplaceAllString(matches[0][1], "")
 			output.ConfigURL = cleanRe.ReplaceAllString(matches[1][1], "")
 		}
