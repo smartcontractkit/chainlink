@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
 	sm_plugin_config "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/config"
 	sm_ea "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/ea"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -53,8 +54,6 @@ func (m *smJobConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return m.jobPipelineResultWriteQueueDepth
 }
 
-// TODO(gg): use promwrapper plugin to get ocr metrics?
-
 // NewSecureMintServices creates all securemint plugin specific services.
 func NewSecureMintServices(ctx context.Context,
 	jb job.Job,
@@ -65,7 +64,6 @@ func NewSecureMintServices(ctx context.Context,
 	argsNoPlugin libocr.OCR3OracleArgs[por.ChainSelector],
 	cfg JobConfig,
 ) (srvs []job.ServiceCtx, err error) {
-
 	// Parse and validate the secure mint plugin configuration
 	secureMintPluginConfig, err := sm_plugin_config.Parse(jb.OCR2OracleSpec.PluginConfig.Bytes())
 	if err != nil {
@@ -123,8 +121,8 @@ func NewSecureMintServices(ctx context.Context,
 		return nil, errors.New("LOOPP for securemint plugin not implemented yet")
 	}
 
-	// Create the SecureMint plugin factory
-	argsNoPlugin.ReportingPluginFactory = &sm_plugin.PorReportingPluginFactory{
+	// Create the original SecureMint plugin factory
+	smPluginFactory := &sm_plugin.PorReportingPluginFactory{
 		Logger:          argsNoPlugin.Logger,
 		ExternalAdapter: sm_ea.NewExternalAdapter(secureMintPluginConfig, pipelineRunner, jb, *jb.PipelineSpec, runSaver, lggr),
 		ContractReader: newStubContractReader(
@@ -136,6 +134,20 @@ func NewSecureMintServices(ctx context.Context,
 		),
 		ReportMarshaler: sm_plugin.NewMockReportMarshaler(),
 	}
+
+	// Get relay ID for chain identification
+	rid, err := spec.RelayID()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get relay ID: %w", err)
+	}
+
+	// Wrap the factory with prometheus metrics monitoring
+	argsNoPlugin.ReportingPluginFactory = promwrapper.NewReportingPluginFactory(
+		smPluginFactory,
+		lggr,
+		rid.ChainID,
+		"secure-mint",
+	)
 
 	// Create the oracle
 	var oracle libocr.Oracle
