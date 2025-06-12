@@ -197,8 +197,7 @@ func TestWorkflowS3(t *testing.T) {
 	// hack to address CRE CLI broken behaviour: `-o` fileName.wasm.br produces `fileName.wasm.br.b64`
 	// and its `upload` command returns:
 	// `Error: failed to create or update object: ... supported extensions: .wasm.br, .json, .yaml, .yml
-	wrongName := fmt.Sprintf("%s.b64", wasmFilePath)
-	err = os.Rename(wrongName, wasmFilePath)
+	err = os.Rename(wasmFilePath+".b64", wasmFilePath)
 	require.NoError(t, err)
 
 	stats, err := os.Stat(wasmFilePath)
