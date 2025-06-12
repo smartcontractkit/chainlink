@@ -428,8 +428,6 @@ func assertEvmMessageReceived(t *testing.T, ctx context.Context, state stateview
 		Start:   latestHead,
 	})
 	require.NoError(t, err)
-	fmt.Println("Log message received event", iter.Event)
-	fmt.Println("Log message received event data", iter.Event.Data)
 	require.True(t, iter.Next())
 	fmt.Println("Log message received event after iterating", iter.Event)
 	fmt.Println("Log message received event data after iterating", iter.Event.Data)
