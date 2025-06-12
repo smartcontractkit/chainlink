@@ -64,7 +64,7 @@ var (
 			MerkleRootAsyncObserverSyncTimeout: 12 * time.Second,
 			ChainFeeAsyncObserverSyncFreq:      10 * time.Second,
 			ChainFeeAsyncObserverSyncTimeout:   12 * time.Second,
-			EnableDonBreakingChanges:           true,
+			DonBreakingChangesVersion:          pluginconfig.DonBreakingChangesVersion1RoleDonSupport,
 		},
 		ExecuteOffChainConfig: &pluginconfig.ExecuteOffchainConfig{
 			BatchGasLimit:             globals.BatchGasLimit,

@@ -74,7 +74,8 @@ var (
 		// Remaining fields cannot be statically set:
 		// PriceFeedChainSelector: , // Must be configured in CLD
 		// TokenInfo: , // Must be configured in CLD
-		EnableDonBreakingChanges: true,
+
+		DonBreakingChangesVersion: pluginconfig.DonBreakingChangesVersion1RoleDonSupport,
 	}
 
 	// DefaultExecuteOffChainCfg represents the default offchain configuration for the Execute plugin
