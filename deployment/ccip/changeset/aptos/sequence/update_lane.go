@@ -129,7 +129,6 @@ func setAptosSourceUpdates(lane config.LaneConfig, updateInputsByAptosChain map[
 
 	// Setting the destination on the on ramp
 	input := updateInputsByAptosChain[source.Selector]
-	input.UpdateOnRampDestsConfig.MCMSAddress = mcmsAddress
 	if input.UpdateOnRampDestsConfig.Updates == nil {
 		input.UpdateOnRampDestsConfig.Updates = make(map[uint64]v1_6.OnRampDestinationUpdate)
 	}
@@ -140,21 +139,18 @@ func setAptosSourceUpdates(lane config.LaneConfig, updateInputsByAptosChain map[
 	}
 
 	// Setting gas prices updates
-	input.UpdateFeeQuoterPricesConfig.MCMSAddress = mcmsAddress
-	if input.UpdateFeeQuoterPricesConfig.Prices.GasPrices == nil {
-		input.UpdateFeeQuoterPricesConfig.Prices.GasPrices = make(map[uint64]*big.Int)
+	if input.UpdateFeeQuoterPricesConfig.GasPrices == nil {
+		input.UpdateFeeQuoterPricesConfig.GasPrices = make(map[uint64]*big.Int)
 	}
-	input.UpdateFeeQuoterPricesConfig.Prices.GasPrices[dest.Selector] = dest.GasPrice
+	input.UpdateFeeQuoterPricesConfig.GasPrices[dest.Selector] = dest.GasPrice
 
 	// Setting the fee quoter destination on the source chain
-	input.UpdateFeeQuoterDestsConfig.MCMSAddress = mcmsAddress
 	if input.UpdateFeeQuoterDestsConfig.Updates == nil {
 		input.UpdateFeeQuoterDestsConfig.Updates = make(map[uint64]aptos_fee_quoter.DestChainConfig)
 	}
 	input.UpdateFeeQuoterDestsConfig.Updates[dest.Selector] = dest.GetConvertedAptosFeeQuoterConfig()
 
 	// Setting Router OnRamp version updates
-	input.UpdateRouterDestConfig.MCMSAddress = mcmsAddress
 	if input.UpdateRouterDestConfig.Updates == nil {
 		input.UpdateRouterDestConfig.Updates = []aptos_router.OnRampSet{}
 	}
@@ -177,7 +173,6 @@ func setAptosDestinationUpdates(lane config.LaneConfig, updateInputsByAptosChain
 
 	// Setting off ramp updates
 	input := updateInputsByAptosChain[dest.Selector]
-	input.UpdateOffRampSourcesConfig.MCMSAddress = mcmsAddress
 	if input.UpdateOffRampSourcesConfig.Updates == nil {
 		input.UpdateOffRampSourcesConfig.Updates = make(map[uint64]v1_6.OffRampSourceUpdate)
 	}

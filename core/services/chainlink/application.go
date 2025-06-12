@@ -85,6 +85,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
@@ -631,22 +632,23 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			ocr2.DelegateOpts{
-				Ds:                    opts.DS,
-				JobORM:                jobORM,
-				BridgeORM:             bridgeORM,
-				MercuryORM:            mercuryORM,
-				PipelineRunner:        pipelineRunner,
-				StreamRegistry:        streamRegistry,
-				PeerWrapper:           peerWrapper,
-				MonitoringEndpointGen: telemetryManager,
-				LegacyChains:          legacyEVMChains,
-				Lggr:                  globalLogger,
-				Ks:                    keyStore.OCR2(),
-				EthKs:                 keyStore.Eth(),
-				Relayers:              relayChainInterops,
-				MailMon:               mailMon,
-				CapabilitiesRegistry:  opts.CapabilitiesRegistry,
-				RetirementReportCache: opts.RetirementReportCache,
+				Ds:                             opts.DS,
+				JobORM:                         jobORM,
+				BridgeORM:                      bridgeORM,
+				MercuryORM:                     mercuryORM,
+				PipelineRunner:                 pipelineRunner,
+				StreamRegistry:                 streamRegistry,
+				PeerWrapper:                    peerWrapper,
+				MonitoringEndpointGen:          telemetryManager,
+				LegacyChains:                   legacyEVMChains,
+				Lggr:                           globalLogger,
+				Ks:                             keyStore.OCR2(),
+				EthKs:                          keyStore.Eth(),
+				Relayers:                       relayChainInterops,
+				MailMon:                        mailMon,
+				CapabilitiesRegistry:           opts.CapabilitiesRegistry,
+				RetirementReportCache:          opts.RetirementReportCache,
+				GatewayConnectorServiceWrapper: creServices.gatewayConnectorWrapper,
 			},
 			ocr2DelegateConfig,
 		)
@@ -811,7 +813,7 @@ func newCREServices(
 	wCfg config.Workflows,
 	relayerChainInterops *CoreRelayerChainInteroperators,
 	opts CREOpts,
-	billingClient workflows.BillingClient,
+	billingClient metering.BillingClient,
 ) (*CREServices, error) {
 	var srvcs []services.ServiceCtx
 	workflowRateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{

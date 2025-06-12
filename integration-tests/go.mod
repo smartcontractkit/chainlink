@@ -468,10 +468,10 @@ require (
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250501150903-3e93089d9ad5 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250527212035-5d0564786d15 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250611193111-99542a0c5d58 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.9.0 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250528121202-292529af39df // indirect
-	github.com/smartcontractkit/freeport v0.1.0 // indirect
+	github.com/smartcontractkit/freeport v0.1.1 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de // indirect

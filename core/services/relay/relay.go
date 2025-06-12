@@ -61,7 +61,7 @@ func (r *ServerAdapter) NewPluginProvider(ctx context.Context, rargs types.Relay
 		return r.NewCCIPCommitProvider(ctx, rargs, pargs)
 	case types.CCIPExecution:
 		return r.NewCCIPExecProvider(ctx, rargs, pargs)
-	case types.DKG, types.OCR2VRF, types.GenericPlugin:
+	case types.DKG, types.OCR2VRF, types.GenericPlugin, types.VaultPlugin:
 		return r.Relayer.NewPluginProvider(ctx, rargs, pargs)
 	case types.LLO:
 		return nil, fmt.Errorf("provider type not supported: %s", rargs.ProviderType)

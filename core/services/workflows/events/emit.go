@@ -120,6 +120,9 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	case *events.MeteringReport:
 		schema = MeteringReportSchema
 		entity = fmt.Sprintf("%s.%s", ProtoPkg, MeteringReportEntity)
+	case *events.WorkflowStatusChanged:
+		schema = SchemaWorkflowStatusChanged
+		entity = fmt.Sprintf("%s.%s", ProtoPkg, WorkflowStatusChanged)
 	default:
 		return fmt.Errorf("unknown message type: %T", msg)
 	}

@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -13,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -26,35 +24,20 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
-
-	"github.com/smartcontractkit/freeport"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
+	"github.com/stretchr/testify/require"
 	"golang.org/x/mod/modfile"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_solana_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana/provider"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 )
 
 type EVMChain struct {
 	Backend     *simulated.Backend
 	DeployerKey *bind.TransactOpts
 	Users       []*bind.TransactOpts
-}
-
-type SolanaChain struct {
-	Client      *solRpc.Client
-	DeployerKey solana.PrivateKey
-	URL         string
-	WSURL       string
-	KeypairPath string
 }
 
 func fundAddress(t *testing.T, from *bind.TransactOpts, to common.Address, amount *big.Int, backend *simulated.Backend) {
@@ -94,38 +77,6 @@ func getTestSolanaChainSelectors() []uint64 {
 		}
 	}
 	return result
-}
-
-func generateSolanaKeypair(t testing.TB) (solana.PrivateKey, string, error) {
-	// Create a temporary directory that will be cleaned up after the test
-	tmpDir := t.TempDir()
-
-	privateKey, err := solana.NewRandomPrivateKey()
-	if err != nil {
-		return solana.PrivateKey{}, "", fmt.Errorf("failed to generate private key: %w", err)
-	}
-
-	// Convert private key bytes to JSON array
-	privateKeyBytes := []byte(privateKey)
-
-	// Convert bytes to array of integers for JSON
-	intArray := make([]int, len(privateKeyBytes))
-	for i, b := range privateKeyBytes {
-		intArray[i] = int(b)
-	}
-
-	keypairJSON, err := json.Marshal(intArray)
-	if err != nil {
-		return solana.PrivateKey{}, "", fmt.Errorf("failed to marshal keypair: %w", err)
-	}
-
-	// Create the keypair file in the temporary directory
-	keypairPath := filepath.Join(tmpDir, "solana-keypair.json")
-	if err := os.WriteFile(keypairPath, keypairJSON, 0600); err != nil {
-		return solana.PrivateKey{}, "", fmt.Errorf("failed to write keypair to file: %w", err)
-	}
-
-	return privateKey, keypairPath, nil
 }
 
 func FundSolanaAccounts(
@@ -178,30 +129,37 @@ func FundSolanaAccounts(
 	return nil
 }
 
-func GenerateChainsSol(t *testing.T, numChains int) map[uint64]SolanaChain {
+func generateChainsSol(t *testing.T, numChains int) []cldf_chain.BlockChain {
+	t.Helper()
+
+	once.Do(func() {
+		err := DownloadSolanaCCIPProgramArtifacts(t.Context(), ProgramsPath, logger.Test(t), "")
+		require.NoError(t, err)
+	})
+
 	testSolanaChainSelectors := getTestSolanaChainSelectors()
 	if len(testSolanaChainSelectors) < numChains {
 		t.Fatalf("not enough test solana chain selectors available")
 	}
-	chains := make(map[uint64]SolanaChain)
+
+	chains := make([]cldf_chain.BlockChain, 0, numChains)
 	for i := 0; i < numChains; i++ {
-		chainID := testSolanaChainSelectors[i]
-		admin, keypairPath, err := generateSolanaKeypair(t)
+		selector := testSolanaChainSelectors[i]
+
+		c, err := cldf_solana_provider.NewCTFChainProvider(t, selector,
+			cldf_solana_provider.CTFChainProviderConfig{
+				Once:                         once,
+				DeployerKeyGen:               cldf_solana_provider.PrivateKeyRandom(),
+				ProgramsPath:                 ProgramsPath,
+				ProgramIDs:                   SolanaProgramIDs,
+				WaitDelayAfterContainerStart: 15 * time.Second, // we have slot errors that force retries if the chain is not given enough time to boot
+			},
+		).Initialize(t.Context())
 		require.NoError(t, err)
-		url, wsURL, err := solChain(t, chainID, &admin)
-		require.NoError(t, err)
-		client := solRpc.New(url)
-		balance, err := client.GetBalance(context.Background(), admin.PublicKey(), solRpc.CommitmentConfirmed)
-		require.NoError(t, err)
-		require.NotEqual(t, 0, balance.Value) // auto funded 500000000.000000000 SOL
-		chains[chainID] = SolanaChain{
-			Client:      client,
-			DeployerKey: admin,
-			URL:         url,
-			WSURL:       wsURL,
-			KeypairPath: keypairPath,
-		}
+
+		chains = append(chains, c)
 	}
+
 	return chains
 }
 
@@ -257,80 +215,6 @@ var SolanaProgramIDs = map[string]string{
 }
 
 var once = &sync.Once{}
-
-func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string, string, error) {
-	t.Helper()
-
-	once.Do(func() {
-		err := DownloadSolanaCCIPProgramArtifacts(t.Context(), ProgramsPath, logger.Test(t), "")
-		require.NoError(t, err)
-	})
-
-	// initialize the docker network used by CTF
-	err := framework.DefaultNetwork(once)
-	require.NoError(t, err)
-
-	maxRetries := 10
-	var url, wsURL string
-	for i := 0; i < maxRetries; i++ {
-		// solana requires 2 ports, one for http and one for ws, but only allows one to be specified
-		// the other is +1 of the first one
-		// must reserve 2 to avoid port conflicts in the freeport library with other tests
-		// https://github.com/smartcontractkit/chainlink-testing-framework/blob/e109695d311e6ed42ca3194907571ce6454fae8d/framework/components/blockchain/blockchain.go#L39
-		ports := freeport.GetN(t, 2)
-
-		image := ""
-		if runtime.GOOS == "linux" {
-			image = "solanalabs/solana:v1.18.26" // TODO: workaround on linux
-		}
-
-		bcInput := &blockchain.Input{
-			Image:          image,
-			Type:           "solana",
-			ChainID:        strconv.FormatUint(chainID, 10),
-			PublicKey:      adminKey.PublicKey().String(),
-			Port:           strconv.Itoa(ports[0]),
-			ContractsDir:   ProgramsPath,
-			SolanaPrograms: SolanaProgramIDs,
-		}
-		output, err := blockchain.NewBlockchainNetwork(bcInput)
-		if err != nil {
-			t.Logf("Error creating solana network: %v", err)
-			freeport.Return(ports)
-			time.Sleep(time.Second)
-			maxRetries -= 1
-			continue
-		}
-		require.NoError(t, err)
-		testcontainers.CleanupContainer(t, output.Container)
-		url = output.Nodes[0].ExternalHTTPUrl
-		wsURL = output.Nodes[0].ExternalWSUrl
-		break
-	}
-	require.NoError(t, err)
-
-	// Wait for api server to boot
-	client := solRpc.New(url)
-	var ready bool
-	for i := 0; i < 30; i++ {
-		time.Sleep(time.Second)
-		out, err := client.GetHealth(t.Context())
-		if err != nil || out != solRpc.HealthOk {
-			t.Logf("API server not ready yet (attempt %d)\n", i+1)
-			continue
-		}
-		ready = true
-		break
-	}
-	if !ready {
-		t.Logf("solana-test-validator is not ready after 30 attempts")
-	}
-	require.True(t, ready)
-	t.Logf("solana-test-validator is ready at %s", url)
-	time.Sleep(15 * time.Second) // we have slot errors that force retries if the chain is not given enough time to boot
-
-	return url, wsURL, nil
-}
 
 // TODO: these functions should be moved to a better location
 
