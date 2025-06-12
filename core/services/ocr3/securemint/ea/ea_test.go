@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	sm_config "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
@@ -32,11 +33,15 @@ func Test_GetPayload(t *testing.T) {
 		100,
 	)
 
+	config := &sm_config.SecureMintConfig{
+		Token:    "eth",
+		Reserves: "platform",
+	}
 	job := job.Job{}
 	spec := pipeline.Spec{}
 	executedRun := &pipeline.Run{}
 
-	ea := NewExternalAdapter(runner, job, spec, saver, lggr)
+	ea := NewExternalAdapter(config, runner, job, spec, saver, lggr)
 
 	results := pipeline.TaskRunResults{
 		{

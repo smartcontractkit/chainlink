@@ -20,14 +20,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
-	sm_plugin_config "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/config"
+	sm_config "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
-	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
 )
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
@@ -394,16 +393,16 @@ func validateOCR2LLOSpec(jsonConfig job.JSONConfig) error {
 
 func validateSecureMintSpec(jsonConfig job.JSONConfig) error {
 	if jsonConfig == nil {
-		return errors.New("secure mint pluginConfig is empty")
+		return errors.New("secure mint plugin config is empty")
 	}
 
-	cfg, err := por.DeserializePorOffchainConfig(jsonConfig.Bytes())
+	smConfig, err := sm_config.Parse(jsonConfig.Bytes())
 	if err != nil {
-		return pkgerrors.Wrap(err, "error while deserializing PorOffchainConfig")
+		return pkgerrors.Wrap(err, "error while parsing secure mint plugin config")
 	}
 
-	if err := sm_plugin_config.ValidateSecureMintConfig(cfg); err != nil {
-		return fmt.Errorf("invalid secure mint config: %#v, err: %w", cfg, err)
+	if err := smConfig.Validate(); err != nil {
+		return fmt.Errorf("invalid secure mint plugin config: %#v, err: %w", smConfig, err)
 	}
 
 	return nil

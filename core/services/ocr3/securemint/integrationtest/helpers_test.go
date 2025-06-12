@@ -234,6 +234,8 @@ func getSecureMintJobSpec(ocrContractAddress, keyBundleID, transmitterAddress, b
 
 			[pluginConfig]
 			maxChains                         = 5
+			token                             = "btc"
+			reserves                          = "custom"
 		`,
 		ocrContractAddress, // contract address
 		keyBundleID,        // ocr key bundle id
@@ -305,8 +307,8 @@ func createSecureMintBridge(t *testing.T, name string, i int, borm bridges.ORM) 
 		require.NoError(t, err, "Failed to parse request body as ea.Request for bridge %s on node %d", name, i)
 
 		// Validate the parsed ea.Request
-		assert.Equal(t, "eth", eaRequest.Token, "Token should be 'eth'")
-		assert.Equal(t, "platform", eaRequest.Reserves, "Reserves should be 'platform'")
+		assert.Equal(t, "btc", eaRequest.Token, "Token should be 'eth'")
+		assert.Equal(t, "custom", eaRequest.Reserves, "Reserves should be 'platform'")
 
 		// Return initial EA response if empty request (first round)
 		if len(eaRequest.SupplyChains) == 0 && len(eaRequest.SupplyChainBlocks) == 0 {

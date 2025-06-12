@@ -65,13 +65,15 @@ func NewSecureMintServices(ctx context.Context,
 	errorLog loop.ErrorLog,
 ) (srvs []job.ServiceCtx, err error) {
 
-	pluginConfig, err := sm_plugin.DeserializePorOffchainConfig(jb.OCR2OracleSpec.PluginConfig.Bytes())
+	// Parse the secure mint plugin configuration
+	secureMintPluginConfig, err := sm_plugin_config.Parse(jb.OCR2OracleSpec.PluginConfig.Bytes())
 	if err != nil {
+		err = fmt.Errorf("failed to parse secure mint plugin config: %w", err)
 		return
 	}
 
-	if err = sm_plugin_config.ValidateSecureMintConfig(pluginConfig); err != nil {
-		err = fmt.Errorf("invalid secure mint plugin config: %#v, %w", pluginConfig, err)
+	if err = secureMintPluginConfig.Validate(); err != nil {
+		err = fmt.Errorf("invalid secure mint plugin config: %#v, %w", secureMintPluginConfig, err)
 		return
 	}
 
@@ -114,7 +116,7 @@ func NewSecureMintServices(ctx context.Context,
 	argsNoPlugin.ContractTransmitter = newStubContractTransmitter(lggr, ocr2plus_types.Account(spec.TransmitterID.String))
 
 	abort := func() {
-		if cerr := services.MultiCloser(srvs).Close(); err != nil {
+		if cerr := services.MultiCloser(srvs).Close(); cerr != nil {
 			lggr.Errorw("Error closing unused services", "err", cerr)
 		}
 	}
@@ -183,7 +185,7 @@ func NewSecureMintServices(ctx context.Context,
 		// TODO(gg): fill in params for the factory
 		argsNoPlugin.ReportingPluginFactory = &sm_plugin.PorReportingPluginFactory{
 			Logger:          argsNoPlugin.Logger,
-			ExternalAdapter: sm_ea.NewExternalAdapter(pipelineRunner, jb, *jb.PipelineSpec, runSaver, lggr),
+			ExternalAdapter: sm_ea.NewExternalAdapter(secureMintPluginConfig, pipelineRunner, jb, *jb.PipelineSpec, runSaver, lggr),
 			ContractReader: newStubContractReader(
 				// since we don't write to chain yet, we mock the contract reader which returns a the most recent config digest from the config contract
 				func() ([32]byte, error) {
@@ -215,5 +217,6 @@ func NewSecureMintServices(ctx context.Context,
 	if !jb.OCR2OracleSpec.CaptureEATelemetry {
 		lggr.Infof("Enhanced EA telemetry is disabled for job %s", jb.Name.ValueOrZero())
 	}
+
 	return
 }

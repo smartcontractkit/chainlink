@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	sm_config "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
@@ -21,16 +21,16 @@ import (
 var _ por.ExternalAdapter = &externalAdapter{}
 
 type externalAdapter struct {
+	config *sm_config.SecureMintConfig
 	runner pipeline.Runner
 	job    job.Job
 	spec   pipeline.Spec
 	saver  ocrcommon.Saver
 	lggr   logger.Logger
-	mu     sync.RWMutex
 }
 
-func NewExternalAdapter(runner pipeline.Runner, job job.Job, spec pipeline.Spec, saver ocrcommon.Saver, lggr logger.Logger) *externalAdapter {
-	return &externalAdapter{runner: runner, job: job, spec: spec, saver: saver, lggr: lggr}
+func NewExternalAdapter(config *sm_config.SecureMintConfig, runner pipeline.Runner, job job.Job, spec pipeline.Spec, saver ocrcommon.Saver, lggr logger.Logger) *externalAdapter {
+	return &externalAdapter{config: config, runner: runner, job: job, spec: spec, saver: saver, lggr: lggr}
 }
 
 // GetPayload retrieves the payload for the given blocks by executing a pipeline run.
@@ -39,8 +39,8 @@ func (ea *externalAdapter) GetPayload(ctx context.Context, blocks por.Blocks) (p
 
 	// Create the request for the external adapter
 	req := Request{
-		Token:    "eth",
-		Reserves: "platform",
+		Token:    ea.config.Token,
+		Reserves: ea.config.Reserves,
 	}
 
 	for chainSelector, blockNumber := range blocks {

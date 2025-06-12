@@ -1,19 +1,43 @@
 package config
 
 import (
-	"github.com/pkg/errors"
+	"encoding/json"
 
-	sm_plugin "github.com/smartcontractkit/por_mock_ocr3plugin/por"
+	"github.com/pkg/errors"
 )
 
-// ValidateSecureMintConfig validates the secure mint plugin config.
-func ValidateSecureMintConfig(cfg *sm_plugin.PorOffchainConfig) error {
-	if cfg == nil {
-		return errors.New("secure mint config cannot be nil")
+// SecureMintConfig holds secure mint specific configuration
+type SecureMintConfig struct {
+	Token    string `json:"token"`
+	Reserves string `json:"reserves"`
+}
+
+// Parse parses the secure mint configuration from JSON bytes
+func Parse(configBytes []byte) (*SecureMintConfig, error) {
+	if len(configBytes) == 0 {
+		return nil, errors.New("secure mint config cannot be empty")
 	}
 
-	if cfg.MaxChains <= 0 {
-		return errors.New("secure mint config MaxChains must be positive")
+	var config SecureMintConfig
+	if err := json.Unmarshal(configBytes, &config); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal SecureMintConfig")
+	}
+
+	return &config, nil
+}
+
+// Validate validates the secure mint plugin-specific config.
+func (cfg *SecureMintConfig) Validate() error {
+	if cfg == nil {
+		return errors.New("secure mint plugin config cannot be nil")
+	}
+
+	if cfg.Token == "" {
+		return errors.New("token cannot be empty")
+	}
+
+	if cfg.Reserves == "" {
+		return errors.New("reserves cannot be empty")
 	}
 
 	return nil
