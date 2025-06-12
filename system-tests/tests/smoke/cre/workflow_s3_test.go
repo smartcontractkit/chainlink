@@ -171,9 +171,19 @@ func mockCreConfig(t *testing.T, configPath string, provider s3provider.Provider
 	require.NoError(t, err)
 }
 
+func derefString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
 func TestWorkflowS3(t *testing.T) {
+	in, err := framework.Load[TestConfig](t)
+	require.NoError(t, err)
+
 	// TODO: PoR repo path coming from the framework runner
-	porRepoPath := "/Users/mw/repos/proof-of-reserves-workflow-e2e-test"
+	porRepoPath := derefString(in.WorkflowConfigs[0].WorkflowFolderLocation)
 
 	workflowFilePath := path.Join(porRepoPath, "cron-based/main.go")
 	workflowConfigPath := path.Join(porRepoPath, "cron-based/config.json")
@@ -181,9 +191,6 @@ func TestWorkflowS3(t *testing.T) {
 	prepEnv(t)
 
 	mockWorkflowConfig(t, workflowConfigPath)
-
-	in, err := framework.Load[TestConfig](t)
-	require.NoError(t, err)
 
 	cli := crecli.NewCreCli(in.DependenciesConfig.CRECLIBinaryPath)
 	err = cli.Compile(
