@@ -372,7 +372,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		", dest chain selector:", destChain,
 	)
 	// connect a single lane, source to dest
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	testhelpers.AddLaneWithEnforceOutOfOrder(t, &e, state, sourceChain, destChain, false)
 
 	var (
 		// nonce    uint64 // Nonce not used as Solana check is skipped
