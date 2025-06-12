@@ -230,7 +230,7 @@ func (cs ConfigureForwarders) VerifyPreconditions(env cldf.Environment, req *Con
 				return fmt.Errorf("failed get fowarder for chain selector %d: %w", sel, err)
 			}
 			if req.MCMS != nil {
-				_, err = commonstate.LoadMCMSWithTimelockChainStateSolana(env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(sel)))
+				_, err = commonstate.MaybeLoadMCMSWithTimelockChainStateSolanaV2(env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(sel)))
 				if err != nil {
 					return fmt.Errorf("failed to load MCMS for chain selector %d: %w", sel, err)
 				}
@@ -275,7 +275,7 @@ func (cs ConfigureForwarders) Apply(env cldf.Environment, req *ConfigureForwarde
 		solChain := env.BlockChains.SolanaChains()[chainSel]
 
 		addresses := env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chainSel))
-		mcmState, _ := commonstate.LoadMCMSWithTimelockChainStateSolana(addresses)
+		mcmState, _ := commonstate.MaybeLoadMCMSWithTimelockChainStateSolanaV2(addresses)
 		if mcmState.TimelockProgram.IsZero() {
 			return cldf.ChangesetOutput{}, errors.New("timelock is not found")
 		}

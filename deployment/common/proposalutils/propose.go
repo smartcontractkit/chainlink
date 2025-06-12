@@ -287,7 +287,7 @@ func getSolanaState(env cldf.Environment, selector uint64) (*state.MCMSWithTimel
 	}
 
 	env.Logger.Info("failed to load MCMSState from address book")
-	solanaState, err2 := state.LoadMCMSWithTimelockChainStateSolana(env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(selector)))
+	solanaState, err2 := state.MaybeLoadMCMSWithTimelockChainStateSolanaV2(env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(selector)))
 	if err2 != nil {
 		return nil, fmt.Errorf("failed to load solana state: %w", errors.Join(err1, err2))
 	}

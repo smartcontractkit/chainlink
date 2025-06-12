@@ -161,13 +161,11 @@ func TestConfigureForwarder(t *testing.T) {
 				env = shouldDeployForwarder(t, te.Env, solSel)
 
 				ds := datastore.NewMemoryDataStore()
-				err := ds.Merge(env.DataStore)
-				require.NoError(t, err)
 
 				solChain.ProgramsPath = getProgramsPath()
 
 				//deploy mcms
-				_, err = solanaMCMS.DeployMCMSWithTimelockProgramsSolanaV2(env, ds, solChain,
+				_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolanaV2(env, ds, solChain,
 					commontypes.MCMSWithTimelockConfigV2{
 						Canceller:        proposalutils.SingleGroupMCMSV2(t),
 						Proposer:         proposalutils.SingleGroupMCMSV2(t),
@@ -175,6 +173,9 @@ func TestConfigureForwarder(t *testing.T) {
 						TimelockMinDelay: big.NewInt(0),
 					},
 				)
+				require.NoError(t, err)
+
+				err = ds.Merge(env.DataStore)
 				require.NoError(t, err)
 
 				te.Env.DataStore = ds.Seal()

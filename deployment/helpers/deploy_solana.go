@@ -383,7 +383,7 @@ func BuildProposalsForTxns(
 }
 
 func FetchTimelockSigner(refs []datastore.AddressRef) (solana.PublicKey, error) {
-	mcmState, err := state.LoadMCMSWithTimelockChainStateSolana(refs)
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolanaV2(refs)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to load mcm state: %w", err)
 	}

@@ -315,7 +315,8 @@ func MaybeLoadMCMSWithTimelockChainStateSolana(chain cldf_solana.Chain, addresse
 	return &state, nil
 }
 
-func LoadMCMSWithTimelockChainStateSolana(refs []datastore.AddressRef) (*MCMSWithTimelockStateSolana, error) {
+// Loads MCMSSolanaState from Datastore address refs
+func MaybeLoadMCMSWithTimelockChainStateSolanaV2(refs []datastore.AddressRef) (*MCMSWithTimelockStateSolana, error) {
 	state := MCMSWithTimelockStateSolana{MCMSWithTimelockProgramsSolana: &MCMSWithTimelockProgramsSolana{}}
 
 	mcmProgram := datastore.ContractType(types.ManyChainMultisigProgram)

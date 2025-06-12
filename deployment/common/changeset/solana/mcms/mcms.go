@@ -100,7 +100,7 @@ func DeployMCMSWithTimelockProgramsSolanaV2(
 	ds datastore.MutableDataStore,
 	chain cldf_solana.Chain,
 	config commontypes.MCMSWithTimelockConfigV2) (*state.MCMSWithTimelockStateSolana, error) {
-	chainstate, err := state.LoadMCMSWithTimelockChainStateSolana(e.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chain.Selector)))
+	chainstate, err := state.MaybeLoadMCMSWithTimelockChainStateSolanaV2(e.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chain.Selector)))
 	if err != nil {
 		return nil, err
 	}

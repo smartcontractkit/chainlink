@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	cldfchain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -27,26 +28,32 @@ func Test_TransferOwnershipForwarder(t *testing.T) {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 	solSel := env.BlockChains.ListChainSelectors(cldfchain.WithFamily(chain_selectors.FamilySolana))[0]
+	solChain := env.BlockChains.SolanaChains()[solSel]
 
-	mcfg := map[uint64]commontypes.MCMSWithTimelockConfigV2{
-		solSel: {
-			Canceller:        proposalutils.SingleGroupMCMSV2(t),
-			Proposer:         proposalutils.SingleGroupMCMSV2(t),
-			Bypasser:         proposalutils.SingleGroupMCMSV2(t),
-			TimelockMinDelay: big.NewInt(0),
-		},
+	mcfg := commontypes.MCMSWithTimelockConfigV2{
+		Canceller:        proposalutils.SingleGroupMCMSV2(t),
+		Proposer:         proposalutils.SingleGroupMCMSV2(t),
+		Bypasser:         proposalutils.SingleGroupMCMSV2(t),
+		TimelockMinDelay: big.NewInt(0),
 	}
 
 	env = shouldDeployForwarder(t, env, solSel)
 
-	_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.BlockChains.SolanaChains()[solSel], env.ExistingAddresses, mcfg[solSel])
+	ds := datastore.NewMemoryDataStore()
+	solChain.ProgramsPath = getProgramsPath()
+	_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolanaV2(env, ds, solChain, mcfg)
 	require.NoError(t, err)
 
-	result, err := TransferOwnershipForwarder(env, &TransferOwnershipForwarderRequest{
-		ChainSel: solSel,
-		MCMSCfg:  proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+	err = ds.Merge(env.DataStore)
+	require.NoError(t, err)
+
+	env.DataStore = ds.Seal()
+	out, err := TransferOwnershipForwarder{}.Apply(env, &TransferOwnershipForwarderRequest{
+		ChainSel:  solSel,
+		MCMSCfg:   proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+		Qualifier: testQualifier,
+		Version:   "1.0.0",
 	})
-
 	require.NoError(t, err)
-	require.NotNil(t, result.MCMSTimelockProposals)
+	require.Len(t, out.MCMSTimelockProposals, 1)
 }
