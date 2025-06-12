@@ -267,7 +267,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 			return // Error handled by caller
 		}
 		// Encode dest gas amount back into DestExecData
-		destData, err := abiEncodeUint32(destGasAmount)
+		destData, err := bcs.SerializeU32(destGasAmount)
 		if err != nil {
 			des.SetError(fmt.Errorf("abi encode dest gas amount: %w", err))
 			return
