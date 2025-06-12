@@ -534,7 +534,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	cfg := &v2.EngineConfig{
 		Lggr:            h.lggr,
 		Module:          module,
-		Config:          config,
+		WorkflowConfig:  config,
 		CapRegistry:     h.capRegistry,
 		ExecutionsStore: h.workflowStore,
 

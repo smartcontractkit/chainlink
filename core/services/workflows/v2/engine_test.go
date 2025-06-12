@@ -457,7 +457,7 @@ func TestEngine_Config_MockCapabilityRegistry_NoDAGBinary(t *testing.T) {
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil).Once()
 
 	cfg := defaultTestConfig(t)
-	cfg.Config = config
+	cfg.WorkflowConfig = config
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.BillingClient = new(mockBillingClient)

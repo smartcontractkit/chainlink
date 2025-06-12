@@ -22,7 +22,7 @@ import (
 type EngineConfig struct {
 	Lggr            logger.Logger
 	Module          host.ModuleV2
-	Config          []byte
+	WorkflowConfig  []byte
 	CapRegistry     core.CapabilitiesRegistry
 	ExecutionsStore store.Store
 	Clock           clockwork.Clock
