@@ -70,7 +70,6 @@ func (r *AddCapabilitiesRequest) Validate(env cldf.Environment) error {
 			capNameErr = errors.Join(ErrEmptyTrimmedWriteCapName, capNameErr)
 			continue
 		}
-		env.Logger.Debugf("Extracted chain name or ID: %s", extracted)
 		_, err := chainselectors.ChainIdFromName(extracted)
 		if err != nil {
 			// Validate if the extracted value is the chain ID instead, since the labelled name can contain
@@ -85,7 +84,6 @@ func (r *AddCapabilitiesRequest) Validate(env cldf.Environment) error {
 				}
 			}
 
-			env.Logger.Debugf(err.Error())
 			capNameErr = errors.Join(ErrInvalidWriteCapNameFormat, capNameErr)
 		}
 	}
