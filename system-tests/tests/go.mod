@@ -31,7 +31,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.7
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.0
-	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.0
+	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.1
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-20250402195829-918b2a02a926
 	github.com/smartcontractkit/libocr v0.0.0-20250604151357-2fe8c61bbf2e

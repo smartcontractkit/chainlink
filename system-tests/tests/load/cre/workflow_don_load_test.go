@@ -412,8 +412,20 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	// run the load
 	generator.Run(true)
 
+	tag := "local-test"
+	if os.Getenv("CI") == "true" {
+		// When running in CI, use the GitHub commit SHA
+		commitSHA := os.Getenv("GITHUB_SHA")
+		if commitSHA != "" {
+			tag = commitSHA
+		}
+	} else if gitSHA := os.Getenv("GITHUB_SHA"); gitSHA != "" {
+		// For local runs with manually set GITHUB_SHA
+		tag = gitSHA
+	}
+
 	baseLineReport, err := benchspy.NewStandardReport(
-		"v1.0.0",
+		tag,
 		benchspy.WithStandardQueries(benchspy.StandardQueryExecutor_Direct),
 		benchspy.WithGenerators(generator),
 	)
