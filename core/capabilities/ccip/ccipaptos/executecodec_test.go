@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
@@ -31,8 +32,8 @@ var randomExecuteReport = func(t *testing.T, chainSelector uint64, gasLimit *big
 
 			tokenAmounts := make([]cciptypes.RampTokenAmount, numTokensPerMsg)
 			for z := 0; z < numTokensPerMsg; z++ {
-				// Use the predefined ABI arguments to pack destGasAmount
-				encodedDestExecData, err2 := destGasAmountArguments.Pack(destGasAmount)
+				// Use BCS to pack destGasAmount
+				encodedDestExecData, err2 := bcs.SerializeU32(destGasAmount)
 				require.NoError(t, err2)
 
 				tokenAmounts[z] = cciptypes.RampTokenAmount{
@@ -44,8 +45,8 @@ var randomExecuteReport = func(t *testing.T, chainSelector uint64, gasLimit *big
 				}
 			}
 
-			// Use the predefined ABI arguments to pack EVM V1 fields
-			encodedExtraArgsFields, err := evmExtraArgsV1Fields.Pack(gasLimit)
+			// Use BCS to pack EVM V1 fields
+			encodedExtraArgsFields, err := bcs.SerializeU256(*gasLimit)
 			require.NoError(t, err, "failed to pack extra args fields")
 
 			// Prepend the tag
