@@ -56,7 +56,6 @@ func (r *AddCapabilitiesRequest) Validate(env cldf.Environment) error {
 		if c.CapabilityType != CapabilityTypeTarget {
 			continue
 		}
-		env.Logger.Debugf(c.LabelledName)
 		if c.LabelledName == "" {
 			capNameErr = errors.Join(ErrEmptyWriteCapName, capNameErr)
 			continue
@@ -75,10 +74,10 @@ func (r *AddCapabilitiesRequest) Validate(env cldf.Environment) error {
 			// Validate if the extracted value is the chain ID instead, since the labelled name can contain
 			// both the chain ID or the chain name.
 			// See: https://github.com/smartcontractkit/chainlink/blob/3684365e78ef911d7668e724aa782d3b3f3e8801/core/services/relay/evm/write_target.go#L75
-			chainID, chainIdErr := strconv.ParseUint(extracted, 10, 64)
-			if chainIdErr == nil {
-				_, chainIdErr = chainselectors.NameFromChainId(chainID)
-				if chainIdErr == nil {
+			chainID, chainIDErr := strconv.ParseUint(extracted, 10, 64)
+			if chainIDErr == nil {
+				_, chainIDErr = chainselectors.NameFromChainId(chainID)
+				if chainIDErr == nil {
 					// If it is a valid chain ID, we don't error and continue
 					continue
 				}

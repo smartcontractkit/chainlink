@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
@@ -103,7 +104,7 @@ func TestAddCapabilitiesRequest_Validate_WriterCapability(t *testing.T) {
 		},
 		// Cannot test this since `chainselectors.ChainIdFromName()` uses the chains from the `.yaml` files,
 		// and the chain name is not set in the `test_selectors.yaml` file.
-		//{
+		// {
 		//	name: "valid request with chain name on capability name",
 		//	req: func(te test.EnvWrapper) (*changeset.AddCapabilitiesRequest, error) {
 		//		chain := te.Env.BlockChains.EVMChains()[chainselectors.TEST_90000001.Selector]
@@ -114,7 +115,7 @@ func TestAddCapabilitiesRequest_Validate_WriterCapability(t *testing.T) {
 		//		}, nil
 		//	},
 		//	expectError: false,
-		//},
+		// },
 		{
 			name: "empty capability name",
 			req: func(te test.EnvWrapper) (*changeset.AddCapabilitiesRequest, error) {
@@ -153,7 +154,7 @@ func TestAddCapabilitiesRequest_Validate_WriterCapability(t *testing.T) {
 			req: func(te test.EnvWrapper) (*changeset.AddCapabilitiesRequest, error) {
 				return &changeset.AddCapabilitiesRequest{
 					RegistryChainSel: te.RegistrySelector,
-					Capabilities:     []kcr.CapabilitiesRegistryCapability{{LabelledName: fmt.Sprintf("%stest-cap", changeset.CapabilityTypeTargetNamePrefix), Version: "1.0.0", CapabilityType: 3}},
+					Capabilities:     []kcr.CapabilitiesRegistryCapability{{LabelledName: changeset.CapabilityTypeTargetNamePrefix + "test-cap", Version: "1.0.0", CapabilityType: 3}},
 					RegistryRef:      te.CapabilityRegistryAddressRef(),
 				}, nil
 			},
@@ -164,7 +165,7 @@ func TestAddCapabilitiesRequest_Validate_WriterCapability(t *testing.T) {
 			req: func(te test.EnvWrapper) (*changeset.AddCapabilitiesRequest, error) {
 				return &changeset.AddCapabilitiesRequest{
 					RegistryChainSel: te.RegistrySelector,
-					Capabilities:     []kcr.CapabilitiesRegistryCapability{{LabelledName: fmt.Sprintf("%s12345", changeset.CapabilityTypeTargetNamePrefix), Version: "1.0.0", CapabilityType: 3}},
+					Capabilities:     []kcr.CapabilitiesRegistryCapability{{LabelledName: changeset.CapabilityTypeTargetNamePrefix + "12345", Version: "1.0.0", CapabilityType: 3}},
 					RegistryRef:      te.CapabilityRegistryAddressRef(),
 				}, nil
 			},
