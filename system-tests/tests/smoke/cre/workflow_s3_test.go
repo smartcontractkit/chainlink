@@ -185,8 +185,8 @@ func TestWorkflowS3(t *testing.T) {
 	// TODO: PoR repo path coming from the framework runner
 	porRepoPath := derefString(in.WorkflowConfigs[0].WorkflowFolderLocation)
 
-	workflowFilePath := path.Join(porRepoPath, "cron-based/main.go")
-	workflowConfigPath := path.Join(porRepoPath, "cron-based/config.json")
+	workflowFilePath := path.Join(porRepoPath, "main.go")
+	workflowConfigPath := path.Join(porRepoPath, "config.json")
 
 	prepEnv(t)
 
