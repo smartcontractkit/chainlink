@@ -76,7 +76,7 @@ func TestConfigureForwarder(t *testing.T) {
 		},
 	}
 
-	/* t.Run("set config without mcms", func(t *testing.T) {
+	t.Run("set config without mcms", func(t *testing.T) {
 		for _, tcase := range testCases {
 			nChains := tcase.nChains
 			name := fmt.Sprintf("nChains=%d", nChains)
@@ -127,7 +127,6 @@ func TestConfigureForwarder(t *testing.T) {
 			})
 		}
 	})
-	*/
 	t.Run("set config with mcms", func(t *testing.T) {
 		for _, tcase := range testCases {
 			nChains := tcase.nChains

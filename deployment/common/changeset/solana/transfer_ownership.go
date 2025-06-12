@@ -16,10 +16,10 @@ import (
 	mcmBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/mcm"
 
 	cldfsol "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -113,8 +113,7 @@ func (t *TransferToTimelockSolana) Apply(
 	timelocks := map[uint64]string{}
 	proposers := map[uint64]string{}
 	inspectors := map[uint64]mcmssdk.Inspector{}
-	instructions := map[uint64][]solana.Instruction{}
-
+	var out cldf.ChangesetOutput
 	for chainSelector, contractsToTransfer := range cfg.ContractsByChain {
 		solChain, ok := solChains[chainSelector]
 		if !ok {
@@ -125,51 +124,33 @@ func (t *TransferToTimelockSolana) Apply(
 			return cldf.ChangesetOutput{}, fmt.Errorf("chain state not found for selector: %v", chainSelector)
 		}
 
-		// FIX it here
-		chainState, _ = state.MaybeLoadMCMSWithTimelockChainStateSolanaV2(env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chainSelector)))
+		inspectors[chainSelector] = mcmssolanasdk.NewInspector(solChain.Client)
 		timelocks[chainSelector] = solanaAddress(chainState.TimelockProgram, mcmssolanasdk.PDASeed(chainState.TimelockSeed))
 		proposers[chainSelector] = solanaAddress(chainState.McmProgram, mcmssolanasdk.PDASeed(chainState.ProposerMcmSeed))
-		inspectors[chainSelector] = mcmssolanasdk.NewInspector(solChain.Client)
 
-		timelockSignerPDA := state.GetTimelockSignerPDA(chainState.TimelockProgram, chainState.TimelockSeed)
-
-		transactions := []mcmstypes.Transaction{}
 		for _, contract := range contractsToTransfer {
-			transferInstruction, err := transferOwnershipInstruction(contract.ProgramID, contract.Seed, timelockSignerPDA,
-				contract.OwnerPDA, solChain.DeployerKey.PublicKey())
+			execOut, err := operations.ExecuteOperation(env.OperationsBundle,
+				operations.NewOperation(
+					"transfer-ownership",
+					&deployment.Version1_0_0,
+					"transfers ownership of contracts to mcms",
+					TransferToTimelockSolanaOp,
+				),
+				Deps{
+					Env:   env,
+					State: chainState,
+					Chain: solChain,
+				},
+				TransferToTimelockInput{
+					Contract: contract,
+					MCMSCfg:  cfg.MCMSCfg,
+				},
+			)
 			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transfer ownership instruction: %w", err)
+				return out, err
 			}
-			instructions[chainSelector] = append(instructions[chainSelector], transferInstruction)
 
-			acceptMCMSTransaction, err := acceptMCMSTransaction(contract, timelockSignerPDA)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create accept ownership mcms transaction: %w", err)
-			}
-			transactions = append(transactions, acceptMCMSTransaction)
-		}
-
-		// FIXME: remove the chunking logic once we have custom CU limit support in MCMS
-		for chunk := range slices.Chunk(transactions, maxAcceptInstructionsPerBatch) {
-			batches = append(batches, mcmstypes.BatchOperation{
-				ChainSelector: mcmstypes.ChainSelector(chainSelector),
-				Transactions:  chunk,
-			})
-			env.Logger.Debugw("added BatchOperation with accept ownwership instructions",
-				"# transactions", len(transactions), "chain", chainSelector)
-		}
-	}
-
-	// send & confim TransferOwnership instructions
-	for chainSelector, chainInstructions := range instructions {
-		solChain := solChains[chainSelector]
-		// REVIEW: are we limited by the 1232 byte limit? or can we confirm all instructions in one go?
-		for _, instruction := range chainInstructions {
-			env.Logger.Debugw("confirming solana transfer ownership instruction", "instruction", instruction.ProgramID())
-			err = solChain.Confirm([]solana.Instruction{instruction})
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instruction: %w", err)
-			}
+			batches = append(batches, execOut.Output.Batches...)
 		}
 	}
 
@@ -197,7 +178,7 @@ type (
 	}
 
 	TransferToTimelockOutput struct {
-		Proposals []mcms.TimelockProposal
+		Batches []mcmstypes.BatchOperation
 	}
 )
 
@@ -252,16 +233,7 @@ func TransferToTimelockSolanaOp(b operations.Bundle, deps Deps, in TransferToTim
 			return out, fmt.Errorf("failed to confirm instruction: %w", err)
 		}
 	}
-
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(deps.Env, timelocks, proposers, inspectors,
-		batches, "proposal to transfer ownership of contracts to timelock", in.MCMSCfg)
-	if err != nil {
-		return out, fmt.Errorf("failed to build proposal: %w", err)
-	}
-
-	b.Logger.Debugw("created timelock proposal", "# batches", len(batches))
-
-	out.Proposals = []mcms.TimelockProposal{*proposal}
+	out.Batches = append(out.Batches, batches...)
 
 	return out, nil
 }

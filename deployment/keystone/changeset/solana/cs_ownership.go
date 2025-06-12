@@ -1,6 +1,8 @@
 package solana
 
 import (
+	"fmt"
+
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
 
@@ -10,6 +12,9 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 )
 
 type TransferOwnershipForwarderRequest struct {
@@ -71,7 +76,23 @@ func (cs TransferOwnershipForwarder) Apply(env cldf.Environment, req *TransferOw
 		return out, err
 	}
 
-	out.MCMSTimelockProposals = execOut.Output.Proposals
+	timelocks := map[uint64]string{}
+	proposers := map[uint64]string{}
+	inspectors := map[uint64]mcmssdk.Inspector{}
+
+	inspectors[req.ChainSel] = mcmssolanasdk.NewInspector(solChain.Client)
+	timelocks[req.ChainSel] = mcmssolanasdk.ContractAddress(mcmsState.TimelockProgram, mcmssolanasdk.PDASeed(mcmsState.TimelockSeed))
+	proposers[req.ChainSel] = mcmssolanasdk.ContractAddress(mcmsState.McmProgram, mcmssolanasdk.PDASeed(mcmsState.ProposerMcmSeed))
+
+	// create timelock proposal with accept transactions
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(env, timelocks, proposers, inspectors,
+		execOut.Output.Batches, "proposal to transfer ownership of contracts to timelock", req.MCMSCfg)
+	if err != nil {
+		return out, fmt.Errorf("failed to build proposal: %w", err)
+	}
+	env.Logger.Debugw("created timelock proposal", "# batches", len(execOut.Output.Batches))
+
+	out.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
 
 	return out, nil
 }
