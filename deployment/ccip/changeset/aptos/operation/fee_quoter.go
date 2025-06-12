@@ -148,21 +148,6 @@ func updateFeeQuoterPrices(b operations.Bundle, deps AptosDeps, in UpdateFeeQuot
 		"gasPriceCount", len(gasDestChainSelectors),
 	)
 
-	// TODO
-	multipliers := make([]uint64, len(sourceTokens))
-	for i := range multipliers {
-		multipliers[i] = uint64(1)
-	}
-	moduleInfo, function, _, args, err = ccipBind.FeeQuoter().Encoder().ApplyPremiumMultiplierWeiPerEthUpdates(sourceTokens, multipliers)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode ApplyPremiumMultiplierWeiPerEth: %w", err)
-	}
-	tx, err = utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create transaction: %w", err)
-	}
-	txs = append(txs, tx)
-
 	return txs, nil
 }
 

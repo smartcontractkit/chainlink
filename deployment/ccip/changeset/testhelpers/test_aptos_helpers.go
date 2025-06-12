@@ -14,6 +14,7 @@ import (
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -24,16 +25,19 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 	err := e.Env.ExistingAddresses.Save(chainSelector, aptoscs.MockLinkAddress, cldf.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_6_0))
 	require.NoError(t, err)
 
-	linkTokenAddress := aptos.AccountAddress{}
-	// TODO APT - replace with LINK once available
-	linkTokenAddress.ParseStringRelaxed("0xa")
+	aptTokenAddress := aptos.AccountAddress{}
+	aptTokenAddress.ParseStringRelaxed("0xa")
 	ccipConfig := config.DeployAptosChainConfig{
 		ContractParamsPerChain: map[uint64]config.ChainContractParams{
 			chainSelector: {
 				FeeQuoterParams: config.FeeQuoterParams{
 					MaxFeeJuelsPerMsg:            new(big.Int).Mul(big.NewInt(100_000_000), big.NewInt(1e18)), // 100M LINK @ 18 decimals
 					TokenPriceStalenessThreshold: 24 * 60 * 60,
-					FeeTokens:                    []aptos.AccountAddress{linkTokenAddress},
+					FeeTokens:                    []aptos.AccountAddress{aptTokenAddress},
+					PremiumMultiplierWeiPerEthByFeeToken: map[shared.TokenSymbol]uint64{
+						shared.APTSymbol:  1,
+						shared.LinkSymbol: 1,
+					},
 				},
 				OffRampParams: config.OffRampParams{
 					ChainSelector:                    chainSelector,
