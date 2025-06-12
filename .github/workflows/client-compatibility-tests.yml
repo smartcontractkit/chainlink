@@ -136,7 +136,7 @@ jobs:
       chainlink_version: ${{ steps.select-chainlink-version.outputs.chainlink_version }}
       chainlink_image_version: ${{ steps.select-chainlink-version.outputs.chainlink_image_version }}
       latest_image_count: ${{ steps.get-image-count.outputs.image_count }}
-      chainlink_ref_path:  ${{ steps.select-chainlink-version.outputs.cl_ref_path }}
+      chainlink_ref_path: ${{ steps.select-chainlink-version.outputs.cl_ref_path }}
     steps:
       # ghlatestreleasechecker is a tool to check if new release is available for a given repo
       - name: Set Up ghlatestreleasechecker
@@ -707,7 +707,14 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: [run-client-compatibility-matrix, should-run, select-versions, build-chainlink, prepare-compatibility-matrix]
+    needs:
+      [
+        run-client-compatibility-matrix,
+        should-run,
+        select-versions,
+        build-chainlink,
+        prepare-compatibility-matrix,
+      ]
     steps:
       - name: Debug Result
         run: echo ${{ join(needs.*.result, ',') }}
@@ -734,7 +741,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ needs.prepare-compatibility-matrix.result == 'failure' && 'Failed to prepare test matrix, notifying <!subteam^S06US88D6AK|guardian-test-tooling>' || needs.build-chainlink.result == 'failure' && 'Failed to build Chainlink image, notifying <!subteam^S06US88D6AK|guardian-test-tooling>' || contains(join(needs.*.result, ','), 'failure') && format('Some tests failed, notifying <!subteam^{0}|bix-ship-emergent-task>', secrets.COMPAT_SLACK_NOTIFICATION_HANDLE) || 'All Good!' }}"
+                        "text": "${{ needs.prepare-compatibility-matrix.result == 'failure' && 'Failed to prepare test matrix, notifying <!subteam^S06US88D6AK|guardian-test-tooling>' || needs.build-chainlink.result == 'failure' && 'Failed to build Chainlink image, notifying <!subteam^S06US88D6AK|guardian-test-tooling>' || contains(join(needs.*.result, ','), 'failure') && format('Some tests failed, notifying <!subteam^{0}|@ccip-evm-expansion-oncall>', secrets.COMPAT_SLACK_NOTIFICATION_HANDLE) || 'All Good!' }}"
                       }
                     },
                     {
