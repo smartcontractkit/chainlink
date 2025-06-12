@@ -250,7 +250,7 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 		svmExtraArgs = message_hasher.ClientSVMExtraArgsV1{
 			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
 			Accounts:                 accounts,
-			AllowOutOfOrderExecution: *m.testConfig.OOOExecution,
+			AllowOutOfOrderExecution: true, // OOO is always true for Solana
 			ComputeUnits:             150000,
 		}
 	}

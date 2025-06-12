@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"k8s.io/utils/pointer"
 	"math"
 	"math/big"
 	"os"
@@ -136,7 +137,8 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 }
 
 // DeployCCIPAndAddLanes is the actual ccip setup once the nodes are initialized.
-func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab cldf.AddressBook, rmnEnabled bool) (DeployCCIPOutput, error) {
+func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel,
+	feedChainSel uint64, ab cldf.AddressBook, rmnEnabled bool, laneConfig *LaneConfiguration) (DeployCCIPOutput, error) {
 	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
@@ -156,9 +158,18 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
+	// Set up the LaneConfiguration with any to any if not provided
+	if laneConfig == nil {
+		allChains := e.BlockChains.ListChainSelectors()
+		laneConfig = &LaneConfiguration{
+			Mode: pointer.String(LaneModeAnyToAny),
+		}
+		laneConfig.GenerateLanes(allChains)
+	}
+
 	// Set up lanes
 	lggr.Infow("setting up EVM <> EVM lanes...")
-	*e, err = setupEVM2EVMLanes(e, state)
+	*e, err = setupEVM2EVMLanes(e, state, laneConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply connecting evm lanes changesets: %w", err)
 	}
@@ -698,20 +709,51 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 	return *e, nil
 }
 
-func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (cldf.Environment, error) {
+func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState, laneConfig *LaneConfiguration) (cldf.Environment, error) {
+
+	lanes, err := laneConfig.GetLanes()
+	if err != nil {
+		return *e, fmt.Errorf("failed to get lanes from config: %w", err)
+	}
+
 	poolUpdates := make(map[uint64]v1_5_1.TokenPoolConfig)
 	rateLimitPerChain := make(v1_5_1.RateLimiterPerChain)
 	evmChains := e.BlockChains.EVMChains()
+
+	// Filter to only include EVM chains
+	evmLanes := make([]LaneConfig, 0)
+
+	for _, lane := range lanes {
+		_, srcExists := evmChains[lane.SourceChain]
+		_, dstExists := evmChains[lane.DestinationChain]
+		if srcExists && dstExists {
+			evmLanes = append(evmLanes, lane)
+		}
+	}
+
 	eg := new(xerrgroup.Group)
 	mu := sync.Mutex{}
+
+	// Group lanes by source chain for parallel processing
+	lanesBySource := make(map[uint64][]LaneConfig)
+	for _, lane := range evmLanes {
+		lanesBySource[lane.SourceChain] = append(lanesBySource[lane.SourceChain], lane)
+	}
+
 	for src := range evmChains {
 		src := src
+		lanesFromSrc := lanesBySource[src]
+		if len(lanesFromSrc) == 0 {
+			continue // Skip chains that don't have any outgoing lanes
+		}
+
 		eg.Go(func() error {
 			onRampUpdatesByChain := make(map[uint64]map[uint64]v1_6.OnRampDestinationUpdate)
 			pricesByChain := make(map[uint64]v1_6.FeeQuoterPriceUpdatePerSource)
 			feeQuoterDestsUpdatesByChain := make(map[uint64]map[uint64]evm_fee_quoter.FeeQuoterDestChainConfig)
 			updateOffRampSources := make(map[uint64]map[uint64]v1_6.OffRampSourceUpdate)
 			updateRouterChanges := make(map[uint64]v1_6.RouterUpdates)
+
 			onRampUpdatesByChain[src] = make(map[uint64]v1_6.OnRampDestinationUpdate)
 			pricesByChain[src] = v1_6.FeeQuoterPriceUpdatePerSource{
 				TokenPrices: map[common.Address]*big.Int{
@@ -726,6 +768,7 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (c
 				OffRampUpdates: make(map[uint64]bool),
 				OnRampUpdates:  make(map[uint64]bool),
 			}
+
 			mu.Lock()
 			poolUpdates[src] = v1_5_1.TokenPoolConfig{
 				Type:         shared.BurnMintTokenPool,
@@ -733,10 +776,10 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (c
 				ChainUpdates: rateLimitPerChain,
 			}
 			mu.Unlock()
-			for dst := range evmChains {
-				if src == dst {
-					continue
-				}
+
+			// Only configure lanes that actually exist in our configuration
+			for _, lane := range lanesFromSrc {
+				dst := lane.DestinationChain
 
 				onRampUpdatesByChain[src][dst] = v1_6.OnRampDestinationUpdate{
 					IsEnabled:        true,
@@ -752,6 +795,7 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (c
 
 				updateRouterChanges[src].OffRampUpdates[dst] = true
 				updateRouterChanges[src].OnRampUpdates[dst] = true
+
 				mu.Lock()
 				rateLimitPerChain[dst] = v1_5_1.RateLimiterConfig{
 					Inbound: token_pool.RateLimiterConfig{
@@ -801,12 +845,11 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (c
 				),
 			}
 			_, err := commonchangeset.Apply(nil, *e, appliedChangesets[0], appliedChangesets[1:]...)
-
 			return err
 		})
 	}
 
-	err := eg.Wait()
+	err = eg.Wait()
 	if err != nil {
 		return *e, err
 	}
@@ -821,6 +864,7 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (c
 
 	return *e, err
 }
+
 func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool, rmnEnabled bool) (cldf.Environment, error) {
 	chainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	var commitOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
