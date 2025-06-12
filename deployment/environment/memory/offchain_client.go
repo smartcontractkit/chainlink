@@ -48,12 +48,26 @@ func (j JobClient) ListKeypairs(ctx context.Context, in *csav1.ListKeypairsReque
 }
 
 func (j JobClient) ReplayLogs(ctx context.Context, selectorToBlock map[uint64]uint64) error {
-	for _, node := range j.nodeStore.list() {
+	for _, node := range j.list() {
 		if err := node.ReplayLogs(ctx, selectorToBlock); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// Checks if a filter exists in DB for event name in all nodes
+func (j JobClient) IsLogFilterRegistered(ctx context.Context, chainSel uint64, eventName string, address []byte) (bool, error) {
+	for _, node := range j.list() {
+		if node.IsBoostrap {
+			continue
+		}
+		registered, err := node.IsLogFilterRegistered(ctx, chainSel, eventName, address)
+		if err != nil || !registered {
+			return false, err
+		}
+	}
+	return true, nil
 }
 
 func ApplyNodeFilter(filter *nodev1.ListNodesRequest_Filter, node *nodev1.Node) bool {

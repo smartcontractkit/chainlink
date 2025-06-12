@@ -21,50 +21,55 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_fees_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test ccip_fees_test.go -timeout 20m -test.parallel=2 -count=1 -json
+    test_cmd: cd smoke/ccip && go test ccip_fees_test.go -timeout 20m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_EVM2EVM
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test  -run "Test_CCIPMessaging_EVM2EVM" -timeout 18m -test.parallel=2 -count=1 -json
+    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_EVM2EVM" -timeout 18m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_EVM2Solana
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test  -run "Test_CCIPMessaging_EVM2Solana" -timeout 18m -test.parallel=2 -count=1 -json
+    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_EVM2Solana" -timeout 18m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_Solana2EVM
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test  -run "Test_CCIPMessaging_Solana2EVM" -timeout 18m -test.parallel=2 -count=1 -json
+    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_Solana2EVM" -timeout 18m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
 
-  - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_EVM2SolanaMultiExecReports
+  - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_MultiExecReports_EVM2Solana
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test  -run "Test_CCIPMessaging_EVM2SolanaMultiExecReports" -timeout 18m -test.parallel=2 -count=1 -json
+    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_MultiExecReports_EVM2Solana" -timeout 18m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_message_limitations_test.go:*
@@ -107,7 +112,6 @@ runner-test-matrix:
     test_cmd: cd smoke/ccip && go test -run "^Test_CCIPBatching_MultiSource_MultiRoot$" -timeout 25m -test.parallel=2 -count=1 -json
     test_go_project_path: integration-tests
 
-
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_MultiSource_MultiPrice
     path: integration-tests/smoke/ccip/ccip_batching_test.go
     test_env_type: in-memory
@@ -117,7 +121,6 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: cd smoke/ccip && go test -run "^Test_CCIPBatching_MultiSource_MultiPrice$" -timeout 25m -test.parallel=2 -count=1 -json
     test_go_project_path: integration-tests
-
 
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_SingleSource
     path: integration-tests/smoke/ccip/ccip_batching_test.go
@@ -203,10 +206,11 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_token_transfer_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_token_transfer_test.go -timeout 16m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_token_transfer_test.go -timeout 16m -test.parallel=2 -count=1 -json
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_update_rmn_config_test.go:*
@@ -227,7 +231,7 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurse$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurse$" -timeout 20m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseMCMS
@@ -238,7 +242,7 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseMCMS$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseMCMS$" -timeout 20m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseBypass
@@ -249,7 +253,7 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseBypass$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseBypass$" -timeout 20m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseIdempotent
@@ -259,7 +263,7 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseIdempotent$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseIdempotent$" -timeout 20m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseIdempotent
@@ -269,7 +273,7 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseIdempotent$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseIdempotent$" -timeout 20m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurse
@@ -280,7 +284,7 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurse$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurse$" -timeout 20m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseMCMS
@@ -291,7 +295,7 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseMCMS$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseMCMS$" -timeout 20m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseBypass
@@ -302,17 +306,18 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseBypass$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseBypass$" -timeout 20m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseConfigValidate
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseConfigValidate$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseConfigValidate$" -timeout 20m -test.parallel=2 -count=1 -json
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseNoConnectedLanes
@@ -369,10 +374,11 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseForceOption$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseForceOption$" -timeout 20m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_disable_lane_test.go:*

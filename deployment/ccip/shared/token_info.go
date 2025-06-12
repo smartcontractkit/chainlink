@@ -86,6 +86,7 @@ const (
 	CCIPBnMSymbol              TokenSymbol = "CCIP-BnM"
 	CCIPLnMSymbol              TokenSymbol = "CCIP-LnM"
 	CLCCIPLnMSymbol            TokenSymbol = "clCCIP-LnM"
+	APTSymbol                  TokenSymbol = "APT"
 	USDCName                   string      = "USD Coin"
 	LinkDecimals                           = 18
 	WethDecimals                           = 18
