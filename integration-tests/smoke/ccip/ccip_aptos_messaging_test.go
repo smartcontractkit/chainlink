@@ -7,8 +7,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
@@ -44,11 +45,10 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
 	var (
-		replayed bool
-		nonce    uint64
-		sender   = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
-		out      messagingtest.TestCaseOutput
-		setup    = messagingtest.NewTestSetupWithDeployedEnv(
+		nonce  uint64
+		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
+		out    messagingtest.TestCaseOutput
+		setup  = messagingtest.NewTestSetupWithDeployedEnv(
 			t,
 			e,
 			state,
@@ -65,7 +65,6 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 		out = messagingtest.Run(t,
 			messagingtest.TestCase{
 				TestSetup:      setup,
-				Replayed:       replayed,
 				Nonce:          &nonce,
 				ValidationType: messagingtest.ValidationTypeExec,
 				Receiver:       ccipChainState.ReceiverAddress[:],
@@ -117,7 +116,6 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
 	var (
-		replayed      bool
 		nonce         uint64
 		senderAddress = e.Env.BlockChains.AptosChains()[sourceChain].DeployerSigner.AccountAddress()
 		sender        = common.LeftPadBytes(senderAddress[:], 32)
@@ -140,7 +138,6 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 		out = messagingtest.Run(t,
 			messagingtest.TestCase{
 				TestSetup:              setup,
-				Replayed:               replayed,
 				Nonce:                  &nonce,
 				ValidationType:         messagingtest.ValidationTypeExec,
 				FeeToken:               "0xa",
