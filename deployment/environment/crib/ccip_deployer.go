@@ -871,9 +871,9 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 			})
 		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, tokenDataProviders,
 			func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-				params.ExecuteOffChainConfig.MaxReportMessages = 1
 				params.ExecuteOffChainConfig.MaxSingleChainReports = 1
 				params.ExecuteOffChainConfig.BatchGasLimit = 1000000
+				params.ExecuteOffChainConfig.MaxReportMessages = 1
 				params.ExecuteOffChainConfig.MultipleReportsEnabled = true
 
 				return params
