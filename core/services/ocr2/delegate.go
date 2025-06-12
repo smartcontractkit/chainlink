@@ -573,7 +573,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	case types.DonTimePlugin:
 		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 	case types.SecureMint:
-		return d.newServicesSecureMint(ctx, lggr, jb, bootstrapPeers, kb, kvStore, ocrDB, lc)
+		return d.newServicesSecureMint(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
@@ -1484,19 +1484,16 @@ func (d *Delegate) newServicesMedian(
 	return medianServices, err2
 }
 
-// TODO(gg): how to distribute between this code and securemint/services.go?
 func (d *Delegate) newServicesSecureMint(
 	ctx context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
 	kb ocr2key.KeyBundle,
-	kvStore job.KVStore,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
 ) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
-
 	rid, err := spec.RelayID()
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "securemint"}
@@ -1517,9 +1514,8 @@ func (d *Delegate) newServicesSecureMint(
 		OnchainKeyring:               sm_adapter.NewSecureMintOCR3OnchainKeyringAdapter(kb),
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
-	errorLog := &errorLog{jobID: jb.ID, recordError: d.jobORM.RecordError}
-	enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
-	smConfig := securemint.NewSecureMintConfig(
+
+	smConfig := securemint.NewJobConfig(
 		d.cfg.JobPipeline().MaxSuccessfulRuns(),
 		d.cfg.JobPipeline().ResultWriteQueueDepth(),
 		d.cfg,
@@ -1530,18 +1526,10 @@ func (d *Delegate) newServicesSecureMint(
 		return nil, ErrRelayNotEnabled{Err: err, PluginName: "securemint", Relay: spec.Relay}
 	}
 
-	secureMintServices, err2 := securemint.NewSecureMintServices(ctx, jb, d.isNewlyCreatedJob, relayer, kvStore, d.pipelineRunner, lggr, oracleArgsNoPlugin, smConfig, enhancedTelemChan, errorLog)
-
-	if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
-		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.EnhancedEA), lggr.Named("EnhancedTelemetry"))
-		secureMintServices = append(secureMintServices, enhancedTelemService)
-	} else {
-		lggr.Infow("Enhanced telemetry is disabled for job", "job", jb.Name)
-	}
-
+	secureMintServices, err := securemint.NewSecureMintServices(ctx, jb, d.isNewlyCreatedJob, relayer, d.pipelineRunner, lggr, oracleArgsNoPlugin, smConfig)
 	secureMintServices = append(secureMintServices, ocrLogger)
 
-	return secureMintServices, err2
+	return secureMintServices, err
 }
 
 func (d *Delegate) newServicesOCR2Keepers(

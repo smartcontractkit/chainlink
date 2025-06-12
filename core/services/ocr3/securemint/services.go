@@ -22,63 +22,63 @@ import (
 	sm_plugin "github.com/smartcontractkit/por_mock_ocr3plugin/por"
 )
 
-type SecureMintConfig interface {
+var _ JobConfig = (*smJobConfig)(nil)
+
+type JobConfig interface {
 	JobPipelineMaxSuccessfulRuns() uint64
 	JobPipelineResultWriteQueueDepth() uint64
 	plugins.RegistrarConfig
 }
 
-// concrete implementation of SecureMintConfig
-type secureMintConfig struct {
+// concrete implementation of JobConfig
+type smJobConfig struct {
 	jobPipelineMaxSuccessfulRuns     uint64
 	jobPipelineResultWriteQueueDepth uint64
 	plugins.RegistrarConfig
 }
 
-func NewSecureMintConfig(jobPipelineMaxSuccessfulRuns uint64, jobPipelineResultWriteQueueDepth uint64, pluginProcessCfg plugins.RegistrarConfig) SecureMintConfig {
-	return &secureMintConfig{
+func NewJobConfig(jobPipelineMaxSuccessfulRuns uint64, jobPipelineResultWriteQueueDepth uint64, pluginProcessCfg plugins.RegistrarConfig) JobConfig {
+	return &smJobConfig{
 		jobPipelineMaxSuccessfulRuns:     jobPipelineMaxSuccessfulRuns,
 		jobPipelineResultWriteQueueDepth: jobPipelineResultWriteQueueDepth,
 		RegistrarConfig:                  pluginProcessCfg,
 	}
 }
 
-func (m *secureMintConfig) JobPipelineMaxSuccessfulRuns() uint64 {
+func (m *smJobConfig) JobPipelineMaxSuccessfulRuns() uint64 {
 	return m.jobPipelineMaxSuccessfulRuns
 }
 
-func (m *secureMintConfig) JobPipelineResultWriteQueueDepth() uint64 {
+func (m *smJobConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return m.jobPipelineResultWriteQueueDepth
 }
 
-// Create all securemint plugin Oracles and all extra services needed to run a SecureMint job.
+// TODO(gg): use promwrapper plugin to get ocr metrics?
+
+// NewSecureMintServices creates all securemint plugin specific services.
 func NewSecureMintServices(ctx context.Context,
 	jb job.Job,
 	isNewlyCreatedJob bool,
 	relayer loop.Relayer,
-	kvStore job.KVStore,
 	pipelineRunner pipeline.Runner,
 	lggr logger.Logger,
 	argsNoPlugin libocr.OCR3OracleArgs[por.ChainSelector],
-	cfg SecureMintConfig,
-	chEnhancedTelem chan ocrcommon.EnhancedTelemetryData,
-	errorLog loop.ErrorLog,
+	cfg JobConfig,
 ) (srvs []job.ServiceCtx, err error) {
 
-	// Parse the secure mint plugin configuration
+	// Parse and validate the secure mint plugin configuration
 	secureMintPluginConfig, err := sm_plugin_config.Parse(jb.OCR2OracleSpec.PluginConfig.Bytes())
 	if err != nil {
-		err = fmt.Errorf("failed to parse secure mint plugin config: %w", err)
-		return
+		return nil, fmt.Errorf("failed to parse secure mint plugin config: %w", err)
 	}
 
 	if err = secureMintPluginConfig.Validate(); err != nil {
-		err = fmt.Errorf("invalid secure mint plugin config: %#v, %w", secureMintPluginConfig, err)
-		return
+		return nil, fmt.Errorf("invalid secure mint plugin config: %#v, %w", secureMintPluginConfig, err)
 	}
 
 	spec := jb.OCR2OracleSpec
 
+	// Create result run saver for pipeline execution
 	runSaver := ocrcommon.NewResultRunSaver(
 		pipelineRunner,
 		lggr,
@@ -86,6 +86,7 @@ func NewSecureMintServices(ctx context.Context,
 		cfg.JobPipelineResultWriteQueueDepth(),
 	)
 
+	// Create plugin provider
 	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
 		ExternalJobID: jb.ExternalJobID,
 		JobID:         jb.ID,
@@ -99,16 +100,11 @@ func NewSecureMintServices(ctx context.Context,
 		PluginConfig:  spec.PluginConfig.Bytes(),
 	})
 	if err != nil {
-		return
+		return nil, fmt.Errorf("failed to create plugin provider: %w", err)
 	}
 	srvs = append(srvs, provider)
 
-	// TODO(gg): SecureMintProvider to be implemented when needed
-	// secureMintProvider, ok := provider.(types.SecureMintProvider)
-	// if !ok {
-	// 	return nil, errors.New("could not coerce PluginProvider to SecureMintProvider")
-	// }
-
+	// Set up provider-specific oracle args
 	argsNoPlugin.ContractConfigTracker = provider.ContractConfigTracker()
 	argsNoPlugin.OffchainConfigDigester = provider.OffchainConfigDigester()
 
@@ -117,106 +113,40 @@ func NewSecureMintServices(ctx context.Context,
 
 	abort := func() {
 		if cerr := services.MultiCloser(srvs).Close(); cerr != nil {
-			lggr.Errorw("Error closing unused services", "err", cerr)
+			lggr.Errorw("Error closing services", "err", cerr)
 		}
 	}
 
-	// dataSource := ocrcommon.NewDataSourceV2(pipelineRunner,
-	// 	jb,
-	// 	*jb.PipelineSpec,
-	// 	lggr,
-	// 	runSaver,
-	// 	chEnhancedTelem)
-	// lggr.Infof("Created data source %#v", dataSource)
-
-	// juelsPerFeeCoinSource := ocrcommon.NewInMemoryDataSource(pipelineRunner, jb, pipeline.Spec{
-	// 	ID:           jb.ID,
-	// 	DotDagSource: pluginConfig.JuelsPerFeeCoinPipeline,
-	// 	CreatedAt:    time.Now(),
-	// }, lggr)
-
-	// if pluginConfig.JuelsPerFeeCoinCache == nil || (pluginConfig.JuelsPerFeeCoinCache != nil && !pluginConfig.JuelsPerFeeCoinCache.Disable) {
-	// 	lggr.Infof("juelsPerFeeCoin data source caching is enabled")
-	// 	juelsPerFeeCoinSourceCache, err2 := ocrcommon.NewInMemoryDataSourceCache(juelsPerFeeCoinSource, kvStore, pluginConfig.JuelsPerFeeCoinCache)
-	// 	if err2 != nil {
-	// 		return nil, err2
-	// 	}
-	// 	juelsPerFeeCoinSource = juelsPerFeeCoinSourceCache
-	// 	srvs = append(srvs, juelsPerFeeCoinSourceCache)
-	// }
-
-	// var gasPriceSubunitsDataSource libocr_median.DataSource
-	// if pluginConfig.HasGasPriceSubunitsPipeline() {
-	// 	gasPriceSubunitsDataSource = ocrcommon.NewInMemoryDataSource(pipelineRunner, jb, pipeline.Spec{
-	// 		ID:           jb.ID,
-	// 		DotDagSource: pluginConfig.GasPriceSubunitsPipeline,
-	// 		CreatedAt:    time.Now(),
-	// 	}, lggr)
-	// } else {
-	// 	gasPriceSubunitsDataSource = &median.ZeroDataSource{}
-	// }
-
+	// Create the reporting plugin factory
 	if cmdName := env.SecureMintPlugin.Cmd.Get(); cmdName != "" {
-		err = errors.New("loop for securemint plugin not implemented yet")
 		abort()
-		return
-		// // use unique logger names so we can use it to register a loop
-		// medianLggr := lggr.Named("Median").Named(spec.ContractID).Named(spec.GetID())
-		// envVars, err2 := plugins.ParseEnvFile(env.MedianPlugin.Env.Get())
-		// if err2 != nil {
-		// 	err = fmt.Errorf("failed to parse median env file: %w", err2)
-		// 	abort()
-		// 	return
-		// }
-		// cmdFn, telem, err2 := cfg.RegisterLOOP(plugins.CmdConfig{
-		// 	ID:  medianLggr.Name(),
-		// 	Cmd: cmdName,
-		// 	Env: envVars,
-		// })
-		// if err2 != nil {
-		// 	err = fmt.Errorf("failed to register loop: %w", err2)
-		// 	abort()
-		// 	return
-		// }
-		// median := loop.NewMedianService(lggr, telem, cmdFn, medianProvider, spec.ContractID, dataSource, juelsPerFeeCoinSource, gasPriceSubunitsDataSource, errorLog, pluginConfig.DeviationFunctionDefinition)
-		// argsNoPlugin.ReportingPluginFactory = median
-		// srvs = append(srvs, median)
-	} else {
-		// TODO(gg): fill in params for the factory
-		argsNoPlugin.ReportingPluginFactory = &sm_plugin.PorReportingPluginFactory{
-			Logger:          argsNoPlugin.Logger,
-			ExternalAdapter: sm_ea.NewExternalAdapter(secureMintPluginConfig, pipelineRunner, jb, *jb.PipelineSpec, runSaver, lggr),
-			ContractReader: newStubContractReader(
-				// since we don't write to chain yet, we mock the contract reader which returns a the most recent config digest from the config contract
-				func() ([32]byte, error) {
-					_, configDigest, err := argsNoPlugin.ContractConfigTracker.LatestConfigDetails(ctx)
-					return configDigest, err
-				},
-			),
-			ReportMarshaler: sm_plugin.NewMockReportMarshaler(),
-			// ExternalAdapter: provider.ExternalAdapter(),
-			// ContractReader:  provider.ContractReader(),
-			// ReportMarshaler: provider.ReportMarshaler(),
-		}
-		if err != nil {
-			err = fmt.Errorf("failed to create secure mint factory: %w", err)
-			abort()
-			return
-		}
+		return nil, errors.New("LOOPP for securemint plugin not implemented yet")
 	}
 
-	// TODO(gg): use promwrapper plugin to get ocr metrics?
+	// Create the SecureMint plugin factory
+	argsNoPlugin.ReportingPluginFactory = &sm_plugin.PorReportingPluginFactory{
+		Logger:          argsNoPlugin.Logger,
+		ExternalAdapter: sm_ea.NewExternalAdapter(secureMintPluginConfig, pipelineRunner, jb, *jb.PipelineSpec, runSaver, lggr),
+		ContractReader: newStubContractReader(
+			// since we don't write to chain yet, we mock the contract reader which returns the most recent config digest from the config contract
+			func() ([32]byte, error) {
+				_, configDigest, err := argsNoPlugin.ContractConfigTracker.LatestConfigDetails(ctx)
+				return configDigest, err
+			},
+		),
+		ReportMarshaler: sm_plugin.NewMockReportMarshaler(),
+	}
 
+	// Create the oracle
 	var oracle libocr.Oracle
 	oracle, err = libocr.NewOracle(argsNoPlugin)
 	if err != nil {
 		abort()
-		return
-	}
-	srvs = append(srvs, runSaver, job.NewServiceAdapter(oracle))
-	if !jb.OCR2OracleSpec.CaptureEATelemetry {
-		lggr.Infof("Enhanced EA telemetry is disabled for job %s", jb.Name.ValueOrZero())
+		return nil, fmt.Errorf("failed to create oracle: %w", err)
 	}
 
-	return
+	// Assemble all services
+	srvs = append(srvs, runSaver, job.NewServiceAdapter(oracle))
+
+	return srvs, nil
 }
