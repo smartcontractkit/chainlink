@@ -111,7 +111,7 @@ func NewEngine(ctx context.Context, cfg *EngineConfig) (*Engine, error) {
 		allTriggerEventsQueueCh: make(chan enqueuedTriggerEvent, cfg.LocalLimits.TriggerEventQueueSize),
 		executionsSemaphore:     make(chan struct{}, cfg.LocalLimits.MaxConcurrentWorkflowExecutions),
 		capCallsSemaphore:       make(chan struct{}, cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow),
-		meterReports:            metering.NewReports(),
+		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger),
 		metrics:                 metricsLabeler,
 	}
 	engine.Service, engine.srvcEng = services.Config{
@@ -167,7 +167,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		Request:         &wasmpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		// no Config needed
-	}, DisallowedCapabilityExecutor{})
+	}, &DisallowedExecutionHelper{})
 	if err != nil {
 		return fmt.Errorf("failed to execute subscribe: %w", err)
 	}
@@ -307,8 +307,36 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 
-	e.meterReports.Add(executionID, metering.NewReport(e.cfg.Lggr))
+	meteringReport, meteringErr := e.meterReports.Start(ctx, executionID)
+	if meteringErr != nil {
+		e.cfg.Lggr.Errorw("could start metering workflow execution. continuing without metering", "err", err)
+	}
 
+	isMetering := meteringErr == nil
+	if isMetering {
+		mrErr := meteringReport.Reserve(ctx)
+		if mrErr != nil {
+			e.cfg.Lggr.Errorw("could not reserve metering", "err", mrErr)
+			return
+		}
+
+		// V2Engine runs the entirety of a module's execution as compute. Ensure that the max execution time can run.
+		// Add an extra second of metering padding for context cancel propagation
+		ctxCancelPadding := (time.Millisecond * 1000).Milliseconds()
+		computeAmount, mrErr := meteringReport.ConvertToBalance(metering.ComputeResourceDimension, int64(e.cfg.LocalLimits.WorkflowExecutionTimeoutMs)+ctxCancelPadding)
+		if mrErr != nil {
+			e.cfg.Lggr.Errorw("could not determine compute amount to meter", "err", mrErr)
+		}
+		mrErr = meteringReport.Deduct(
+			metering.ComputeResourceDimension,
+			computeAmount,
+		)
+		if mrErr != nil {
+			e.cfg.Lggr.Errorw("could not meter compute", "err", mrErr)
+		}
+	}
+
+	startTime := time.Now()
 	executionLogger.Infow("Workflow execution starting ...")
 	_ = events.EmitExecutionStartedEvent(ctx, e.loggerLabels, triggerEvent.ID, executionID)
 
@@ -321,7 +349,22 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		// TODO(CAPPL-729): pass workflow config
-	}, &CapabilityExecutor{Engine: e, WorkflowExecutionID: executionID})
+	}, &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID})
+
+	endTime := time.Now()
+	executionMS := strconv.Itoa(int(endTime.Sub(startTime).Milliseconds()))
+
+	if isMetering {
+		mrErr := meteringReport.Settle(metering.ComputeResourceDimension, []capabilities.MeteringNodeDetail{{Peer2PeerID: e.localNode.PeerID.String(), SpendUnit: metering.ComputeResourceDimension, SpendValue: executionMS}})
+		if mrErr != nil {
+			e.cfg.Lggr.Errorw("could not set metering for compute", "err", mrErr)
+		}
+		mrErr = e.meterReports.End(ctx, executionID)
+		if mrErr != nil {
+			e.cfg.Lggr.Errorw("could not send metering report", "err", mrErr)
+		}
+	}
+
 	if err != nil {
 		status := store.StatusErrored
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -329,14 +372,12 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		}
 		executionLogger.Errorw("Workflow execution failed", "err", err, "status", status)
 		_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, status, executionID)
-		e.meterReports.Delete(executionID)
 		return
 	}
 	// TODO(CAPPL-737): measure and report execution time
 
 	executionLogger.Infow("Workflow execution finished successfully")
 	_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, store.StatusCompleted, executionID)
-	e.meterReports.Delete(executionID)
 
 	e.cfg.Hooks.OnResultReceived(result)
 	e.cfg.Hooks.OnExecutionFinished(executionID)

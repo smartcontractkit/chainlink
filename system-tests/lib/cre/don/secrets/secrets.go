@@ -3,6 +3,7 @@ package secrets
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml/v2"
@@ -106,6 +107,7 @@ func AddKeysToTopology(topology *cretypes.Topology, keys *cretypes.GenerateKeysO
 			if len(evmKeys.PublicAddresses) != len(donMetadata.NodesMetadata) {
 				return nil, fmt.Errorf("number of EVM keys for DON %d and chain ID %d does not match the number of nodes. Expected %d, got %d", donMetadata.ID, chainID, len(donMetadata.NodesMetadata), len(evmKeys.PublicAddresses))
 			}
+
 			for idx, nodeMetadata := range donMetadata.NodesMetadata {
 				nodeMetadata.Labels = append(nodeMetadata.Labels, &cretypes.Label{
 					Key:   node.AddressKeyFromSelector(chainSelector),
@@ -215,6 +217,11 @@ func KeysOutputFromConfig(nodeSets []*cretypes.CapabilitiesAwareNodeSet) (*crety
 						return nil, errors.Wrapf(publicEVMAddressErr, "failed to get public evm address for node %d in DON %d from encrypted JSON", nodeIdx, donIdx)
 					}
 
+					// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
+					if len(nodeSet.SupportedChains) > 0 && !slices.Contains(nodeSet.SupportedChains, libc.MustSafeUint64(int64(*evmKey.ID))) {
+						continue
+					}
+
 					if _, ok := evmKeysPerChainID[*evmKey.ID]; !ok {
 						evmKeysPerChainID[*evmKey.ID] = &types.EVMKeys{}
 					}
@@ -284,6 +291,10 @@ func GenereteKeys(input *cretypes.GenerateKeysInput) (*cretypes.GenerateKeysOutp
 
 		if len(input.GenerateEVMKeysForChainIDs) > 0 {
 			for _, chainID := range input.GenerateEVMKeysForChainIDs {
+				// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
+				if len(donMetadata.SupportedChains) > 0 && !slices.Contains(donMetadata.SupportedChains, libc.MustSafeUint64(int64(chainID))) {
+					continue
+				}
 				evmKeys, err := crypto.GenerateEVMKeys(input.Password, len(donMetadata.NodesMetadata))
 				if err != nil {
 					return nil, errors.Wrap(err, "failed to generate EVM keys")

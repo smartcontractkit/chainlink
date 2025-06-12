@@ -58,6 +58,12 @@ func TestAddressBytesToString(t *testing.T) {
 			true,
 			"",
 		},
+		{
+			"shorter than required",
+			"010203040506",
+			false,
+			"0x0000000000000000000000000000000000000000000000000000010203040506",
+		},
 	}
 
 	codec := AddressCodec{}

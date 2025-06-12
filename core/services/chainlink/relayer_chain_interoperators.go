@@ -136,10 +136,10 @@ func InitEVM(factory RelayerFactory, config EVMFactoryConfig) CoreRelayerChainIn
 }
 
 // InitCosmos is a option for instantiating Cosmos relayers
-func InitCosmos(factory RelayerFactory, ks keystore.Cosmos, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
+func InitCosmos(factory RelayerFactory, ks keystore.Cosmos, csaKS keystore.CSA, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) (err error) {
 		loopKs := &keystore.CosmosLoopSigner{Cosmos: ks}
-		relayers, err := factory.NewCosmos(loopKs, chainCfgs)
+		relayers, err := factory.NewCosmos(loopKs, &keystore.CSASigner{CSA: csaKS}, chainCfgs)
 		if err != nil {
 			return fmt.Errorf("failed to setup Cosmos relayer: %w", err)
 		}
@@ -153,10 +153,10 @@ func InitCosmos(factory RelayerFactory, ks keystore.Cosmos, chainCfgs RawConfigs
 }
 
 // InitSolana is a option for instantiating Solana relayers
-func InitSolana(factory RelayerFactory, ks keystore.Solana, config SolanaFactoryConfig) CoreRelayerChainInitFunc {
+func InitSolana(factory RelayerFactory, ks keystore.Solana, csaKS keystore.CSA, config SolanaFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) error {
 		loopKs := &keystore.SolanaLooppSigner{Solana: ks}
-		solRelayers, err := factory.NewSolana(loopKs, config)
+		solRelayers, err := factory.NewSolana(loopKs, &keystore.CSASigner{CSA: csaKS}, config)
 		if err != nil {
 			return fmt.Errorf("failed to setup Solana relayer: %w", err)
 		}
@@ -171,10 +171,10 @@ func InitSolana(factory RelayerFactory, ks keystore.Solana, config SolanaFactory
 }
 
 // InitStarknet is a option for instantiating Starknet relayers
-func InitStarknet(factory RelayerFactory, ks keystore.StarkNet, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
+func InitStarknet(factory RelayerFactory, ks keystore.StarkNet, csaKS keystore.CSA, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) (err error) {
 		loopKs := &keystore.StarknetLooppSigner{StarkNet: ks}
-		starkRelayers, err := factory.NewStarkNet(loopKs, chainCfgs)
+		starkRelayers, err := factory.NewStarkNet(loopKs, &keystore.CSASigner{CSA: csaKS}, chainCfgs)
 		if err != nil {
 			return fmt.Errorf("failed to setup StarkNet relayer: %w", err)
 		}
@@ -189,10 +189,10 @@ func InitStarknet(factory RelayerFactory, ks keystore.StarkNet, chainCfgs RawCon
 }
 
 // InitAptos is a option for instantiating Aptos relayers
-func InitAptos(factory RelayerFactory, ks keystore.Aptos, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
+func InitAptos(factory RelayerFactory, ks keystore.Aptos, csaKS keystore.CSA, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) (err error) {
 		loopKs := &keystore.AptosLooppSigner{Aptos: ks}
-		relayers, err := factory.NewAptos(loopKs, chainCfgs)
+		relayers, err := factory.NewAptos(loopKs, &keystore.CSASigner{CSA: csaKS}, chainCfgs)
 		if err != nil {
 			return fmt.Errorf("failed to setup aptos relayer: %w", err)
 		}
@@ -207,10 +207,10 @@ func InitAptos(factory RelayerFactory, ks keystore.Aptos, chainCfgs RawConfigs) 
 }
 
 // InitTron is a option for instantiating Tron relayers
-func InitTron(factory RelayerFactory, ks keystore.Tron, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
+func InitTron(factory RelayerFactory, ks keystore.Tron, csaKS keystore.CSA, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) error {
 		loopKs := &keystore.TronLOOPSigner{Tron: ks}
-		tronRelayers, err := factory.NewTron(loopKs, chainCfgs)
+		tronRelayers, err := factory.NewTron(loopKs, &keystore.CSASigner{CSA: csaKS}, chainCfgs)
 		if err != nil {
 			return fmt.Errorf("failed to setup Tron relayer: %w", err)
 		}

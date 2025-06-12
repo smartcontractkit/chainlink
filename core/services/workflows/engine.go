@@ -2,7 +2,6 @@ package workflows
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -21,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
-	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -101,10 +99,6 @@ func (sucm *stepUpdateManager) len() int64 {
 
 type SecretsFor func(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error)
 
-type BillingClient interface {
-	SubmitWorkflowReceipt(context.Context, *billing.SubmitWorkflowReceiptRequest) (*billing.SubmitWorkflowReceiptResponse, error)
-}
-
 // Engine handles the lifecycle of a single workflow and its executions.
 type Engine struct {
 	services.StateMachine
@@ -126,7 +120,6 @@ type Engine struct {
 	maxExecutionDuration time.Duration
 	heartbeatCadence     time.Duration
 	stepTimeoutDuration  time.Duration
-	billingClient        BillingClient
 
 	// testing lifecycle hook to signal when an execution is finished.
 	onExecutionFinished func(string)
@@ -496,9 +489,18 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, triggerEventID string, event *values.Map) error {
-	e.meterReports.Add(executionID, metering.NewReport(e.logger))
+	meteringReport, err := e.meterReports.Start(ctx, executionID)
+	switch {
+	case err != nil:
+		e.logger.Errorw("could start metering workflow execution. continuing without metering", "err", err)
+	default:
+		mrErr := meteringReport.Reserve(ctx)
+		if mrErr != nil {
+			return mrErr
+		}
+	}
 
-	err := events.EmitExecutionStartedEvent(ctx, e.cma.Labels(), triggerEventID, executionID)
+	err = events.EmitExecutionStartedEvent(ctx, e.cma.Labels(), triggerEventID, executionID)
 	if err != nil {
 		e.logger.Errorf("failed to emit execution started event: %+v", err)
 	}
@@ -585,11 +587,6 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 
 		logCustMsg(ctx, cma, "execution status: "+status, l)
 
-		// this case is only for resuming executions and should be updated when metering is added to save execution state
-		if _, ok := e.meterReports.Get(stepUpdate.ExecutionID); !ok {
-			e.meterReports.Add(stepUpdate.ExecutionID, metering.NewReport(e.logger))
-		}
-
 		return e.finishExecution(ctx, cma, state.ExecutionID, status)
 	}
 
@@ -650,13 +647,13 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 	report, exists := e.meterReports.Get(executionID)
 	if exists {
 		// send metering report to beholder
-		if err = events.EmitMeteringReport(ctx, cma.Labels(), report.Message()); err != nil {
+		if err = events.EmitMeteringReport(ctx, cma.Labels(), report.FormatReport()); err != nil {
 			e.metrics.IncrementWorkflowMissingMeteringReport(ctx)
 			l.Warn(fmt.Sprintf("metering report send to beholder error %s", err))
 		}
 
 		// send metering report to billing if billing client is not nil
-		if err = e.sendReportToBilling(ctx, report, e.workflow.id, executionID); err != nil {
+		if err = e.meterReports.End(ctx, executionID); err != nil {
 			e.metrics.IncrementWorkflowMissingMeteringReport(ctx)
 			l.Warn(fmt.Sprintf("metering report send to billing error %s", err))
 		}
@@ -664,7 +661,6 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 
 	// clean all per execution state trackers
 	e.stepUpdatesChMap.remove(executionID)
-	e.meterReports.Delete(executionID)
 
 	executionDuration := int64(execState.FinishedAt.Sub(*execState.CreatedAt).Seconds())
 	switch status {
@@ -777,19 +773,19 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		Ref:         msg.stepRef,
 	}
 
-	meteringReport, mrOK := e.meterReports.Get(msg.state.ExecutionID)
-	if mrOK {
-		curStep, err := e.workflow.Vertex(msg.stepRef)
+	meteringReport, meteringOK := e.meterReports.Get(msg.state.ExecutionID)
+	if meteringOK {
+		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-477 Get capability info by getting the workflow vertex and talking to the capaiblity
+		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-285 get max spend per step. Compare to availability and limits.
+		// NOTE: e.maxWorkerLimit is a static number leading to the availability always being undercut.
+		availableForCall, err := meteringReport.GetAvailableForInvocation(e.maxWorkerLimit)
 		if err != nil {
-			l.Error(fmt.Sprintf("failed to get current step %s for metering report: %s", stepState.Ref, err))
+			l.Error(fmt.Sprintf("could get available balance for %s: %s", stepState.Ref, err))
 		}
-		capInfo, err := curStep.capability.Info(ctx)
+		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461 if availability is math.MaxInt64 there is no limit. Possibly flag this in a different way.
+		err = meteringReport.Deduct(stepState.Ref, availableForCall)
 		if err != nil {
-			l.Error(fmt.Sprintf("failed to get capability info for %s: %s", stepState.Ref, err))
-		}
-		err = meteringReport.ReserveStep(metering.ReportStepRef(stepState.Ref), capInfo)
-		if err != nil {
-			l.Error(fmt.Sprintf("failed to reserve on metering report for %s: %s", stepState.Ref, err))
+			l.Error(fmt.Sprintf("could not deduct balance for capability request %s: %s", stepState.Ref, err))
 		}
 	} else {
 		e.metrics.With(platform.KeyWorkflowID, e.workflow.id).IncrementWorkflowMissingMeteringReport(ctx)
@@ -800,6 +796,9 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	logCustMsg(ctx, cma, "executing step", l)
 
 	stepExecutionStartTime := time.Now()
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461
+	// convert balance to CapabilityInfo resource types for use in Capability call
+	// pass deducted amount as max spend to capability.Execute
 	inputs, response, sErr := e.executeStep(ctx, l, msg)
 	stepExecutionDuration := time.Since(stepExecutionStartTime).Seconds()
 
@@ -832,8 +831,8 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		stepStatus = store.StatusCompleted
 	}
 
-	if mrOK {
-		err := meteringReport.SetStep(metering.ReportStepRef(stepState.Ref), response.Metadata.Metering)
+	if meteringOK {
+		err := meteringReport.Settle(stepState.Ref, response.Metadata.Metering)
 		if err != nil {
 			l.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", stepState.Ref, err))
 		}
@@ -1189,28 +1188,6 @@ func (e *Engine) heartbeat(ctx context.Context) {
 	}
 }
 
-func (e *Engine) sendReportToBilling(ctx context.Context, report *metering.Report, workflowID string, executionID string) error {
-	if e.billingClient != nil {
-		req := billing.SubmitWorkflowReceiptRequest{
-			AccountId:           e.workflow.owner,
-			WorkflowId:          workflowID,
-			WorkflowExecutionId: executionID,
-			Metering:            report.Message(),
-		}
-
-		resp, err := e.billingClient.SubmitWorkflowReceipt(ctx, &req)
-		if err != nil {
-			return err
-		}
-
-		if resp == nil || !resp.Success {
-			return errors.New("failed to submit workflow receipt")
-		}
-	}
-
-	return nil
-}
-
 func (e *Engine) Close() error {
 	return e.StopOnce("Engine", func() error {
 		e.logger.Info("shutting down engine")
@@ -1308,7 +1285,7 @@ type Config struct {
 	SecretsFetcher       SecretsFor
 	HeartbeatCadence     time.Duration
 	StepTimeout          time.Duration
-	BillingClient        BillingClient
+	BillingClient        metering.BillingClient
 
 	// RateLimiter limits the workflow execution steps globally and per
 	// second that a workflow owner can make
@@ -1485,8 +1462,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
 		workflowLimits:       cfg.WorkflowLimits,
-		meterReports:         metering.NewReports(),
-		billingClient:        cfg.BillingClient,
+		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr),
 	}
 
 	return engine, nil
