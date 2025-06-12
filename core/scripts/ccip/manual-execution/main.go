@@ -427,10 +427,7 @@ func (args *execArgs) approxDestStartBlock() error {
 		}
 	}
 
-	for {
-		if closestBlockHdr.Time <= sendTxTime {
-			break
-		}
+	for closestBlockHdr.Time > sendTxTime {
 		closestBlockNum -= blockOffset
 		if closestBlockNum <= 0 {
 			return errors.New("approx destination blocknumber not found")

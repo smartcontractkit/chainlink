@@ -265,7 +265,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 					return nil
 				}
 			})
-
 		}
 		require.NoError(t, g.Wait())
 

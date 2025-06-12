@@ -315,6 +315,25 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 			ExtraArgs:      extraArgs,
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
+		{
+			Name:        "Send token to contract with large data payload",
+			SourceChain: sourceChain,
+			DestChain:   destChain,
+			Data:        make([]byte, 1233), // set large payload that cannot fit in single transaction but does not overflow memory allocation
+			Tokens: []router.ClientEVMTokenAmount{
+				{
+					Token:  srcToken.Address(),
+					Amount: oneE9,
+				},
+			},
+			TokenReceiver: tokenReceiver.Bytes(),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				// due to the differences in decimals, 1e9 on EVM results to 1 on SVM
+				{Token: destToken.Bytes(), Amount: big.NewInt(1)},
+			},
+			ExtraArgs:      extraArgs,
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+		},
 		// {
 		// 	Name:        "Send N tokens to contract",
 		// 	SourceChain: destChain,
