@@ -19,7 +19,6 @@ import (
 
 func Test_CCIPMessaging_EVM2Ton(t *testing.T) {
 	// Setup 2 chains (EVM and Ton) and a single lane.
-	// TODO: Looks like 2 EVM chains are required for test config
 	// ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithTonChains(1))
 
@@ -49,15 +48,14 @@ func Test_CCIPMessaging_EVM2Ton(t *testing.T) {
 	masterInfo, err := tonClient.GetMasterchainInfo(t.Context())
 	require.NoError(t, err, "Failed to get masterchain info")
 	acc, err := tonClient.GetAccount(t.Context(), masterInfo, deployerWallet.Address())
-	if err != nil || acc == nil || acc.State == nil || !acc.IsActive {
-		t.Fatalf("Account not ready yet: %v\n", err)
-	}
+	require.NoError(t, err, "Failed to get deployer account")
+	require.NotNil(t, acc, "Deployer account should not be nil")
+	require.NotNil(t, acc.State, "Deployer account state should not be nil")
+	require.True(t, acc.IsActive, "Deployer account should be active")
 
-	balance := acc.State.Balance
+	// Check deployer wallet balance
 	expected := tlb.MustFromTON("1000")
-	if balance.Compare(&expected) >= 0 {
-		t.Logf("Success: Balance for %s reached: %s TON\n", deployerWallet.Address().String(), balance.String())
-	}
+	require.GreaterOrEqual(t, acc.State.Balance.Compare(&expected), 0)
 
 	// Should fail, we don't have Fee Quoter support yet for TON chain
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
