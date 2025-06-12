@@ -204,11 +204,11 @@ func addCandidatesForNewChainPrecondition(e cldf.Environment, c AddCandidatesFor
 		return fmt.Errorf("deployerKey %v is not authorized deployer on donIDClaimer. ", txOpts.From.String())
 	}
 
-	// If MultipleReportsEnabled is false, then EnforceOutOfOrder must be true for all remote chains.
-	if !c.NewChain.ExecOCRParams.ExecuteOffChainConfig.MultipleReportsEnabled {
+	// If MultipleReportsEnabled is true, then EnforceOutOfOrder must also be true for all remote chains.
+	if c.NewChain.ExecOCRParams.ExecuteOffChainConfig.MultipleReportsEnabled {
 		for _, remoteChain := range c.RemoteChains {
 			if !remoteChain.FeeQuoterDestChainConfig.EnforceOutOfOrder {
-				return errors.New("EnforceOutOfOrder must be set to true in the FeeQuoterDestChainConfig")
+				return errors.New("EnforceOutOfOrder must be true when MultipleReportsEnabled is true")
 			}
 		}
 	}

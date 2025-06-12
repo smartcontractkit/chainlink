@@ -268,8 +268,8 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			DonIDOffSet: &offset,
 		},
 		{
-			Msg:    "fail when multiple reports are disabled and enforce out of order is disabled",
-			ErrStr: "EnforceOutOfOrder must be set to true in the FeeQuoterDestChainConfig",
+			Msg:    "fail when multiple reports are enabled and enforce out of order is disabled",
+			ErrStr: "EnforceOutOfOrder must be true when MultipleReportsEnabled is true",
 		},
 	}
 
@@ -428,7 +428,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			}
 
 			if test.ErrStr != "" {
-				newChain.ExecOCRParams.ExecuteOffChainConfig.MultipleReportsEnabled = false
+				newChain.ExecOCRParams.ExecuteOffChainConfig.MultipleReportsEnabled = true
 				remoteChains[0].FeeQuoterDestChainConfig.EnforceOutOfOrder = false
 			}
 
