@@ -163,3 +163,10 @@ func (c CLI) Deploy(wasmURL string, configURL string) error {
 	// TODO implement me
 	panic("implement me")
 }
+
+func DerefString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}

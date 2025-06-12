@@ -89,11 +89,18 @@ func CompileWorkflow(creCLICommandPath, workflowFolder, workflowFileName string,
 }
 
 // Same command to register a workflow or update an existing one
-func DeployWorkflow(creCLICommandPath, workflowURL string, configURL, secretsURL *string, settingsFile *os.File) error {
+func DeployWorkflow(
+	creCLICommandPath, workflowURL string,
+	configURL, secretsURL *string,
+	settingsFile *os.File,
+	workflowPath *string,
+) error {
 	commandArgs := []string{"workflow", "deploy", "-b", workflowURL, "-S", settingsFile.Name(), "-v"}
+
 	if configURL != nil {
 		commandArgs = append(commandArgs, "-c", *configURL)
 	}
+
 	if secretsURL != nil {
 		commandArgs = append(commandArgs, "-s", *secretsURL)
 	}
@@ -101,7 +108,7 @@ func DeployWorkflow(creCLICommandPath, workflowURL string, configURL, secretsURL
 	deployCmd := exec.Command(creCLICommandPath, commandArgs...) // #nosec G204
 	deployCmd.Stdout = os.Stdout
 	deployCmd.Stderr = os.Stderr
-	deployCmd.Dir = "/Users/mw/repos/proof-of-reserves-workflow-e2e-test/cron-based/"
+	deployCmd.Dir = DerefString(workflowPath)
 
 	if startErr := deployCmd.Start(); startErr != nil {
 		return errors.Wrap(startErr, "failed to start deploy command")

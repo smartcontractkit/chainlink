@@ -171,19 +171,12 @@ func mockCreConfig(t *testing.T, configPath string, provider s3provider.Provider
 	require.NoError(t, err)
 }
 
-func derefString(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
-}
-
 func TestWorkflowS3(t *testing.T) {
 	in, err := framework.Load[TestConfig](t)
 	require.NoError(t, err)
 
 	// TODO: PoR repo path coming from the framework runner
-	porRepoPath := derefString(in.WorkflowConfigs[0].WorkflowFolderLocation)
+	porRepoPath := crecli.DerefString(in.WorkflowConfigs[0].WorkflowFolderLocation)
 
 	workflowFilePath := path.Join(porRepoPath, "main.go")
 	workflowConfigPath := path.Join(porRepoPath, "config.json")
@@ -285,6 +278,7 @@ func TestWorkflowS3(t *testing.T) {
 		&output.ConfigURL,
 		nil,
 		creCofigHandle,
+		&porRepoPath,
 	)
 	require.NoError(t, err)
 }
