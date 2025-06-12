@@ -7,13 +7,13 @@ import (
 	"strings"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -75,9 +75,9 @@ func (r *AddCapabilitiesRequest) Validate(env cldf.Environment) error {
 			// Validate if the extracted value is the chain ID instead, since the labelled name can contain
 			// both the chain ID or the chain name.
 			// See: https://github.com/smartcontractkit/chainlink/blob/3684365e78ef911d7668e724aa782d3b3f3e8801/core/services/relay/evm/write_target.go#L75
-			chainId, chainIdErr := strconv.ParseUint(extracted, 10, 64)
+			chainID, chainIdErr := strconv.ParseUint(extracted, 10, 64)
 			if chainIdErr == nil {
-				_, chainIdErr = chainselectors.NameFromChainId(chainId)
+				_, chainIdErr = chainselectors.NameFromChainId(chainID)
 				if chainIdErr == nil {
 					// If it is a valid chain ID, we don't error and continue
 					continue
