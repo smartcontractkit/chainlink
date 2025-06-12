@@ -16,9 +16,15 @@ type runtimeConfig struct {
 }
 
 func RunSimpleCronWorkflow(runner sdk.DonRunner) {
+	b := runner.Config()
+	var runnerCfg runtimeConfig
+	if err := yaml.Unmarshal(b, &runnerCfg); err != nil {
+		panic(err)
+	}
+
 	cron := &croncap.Cron{}
 	cfg := &croncap.Config{
-		Schedule: "*/3 * * * * *", // every 3 seconds
+		Schedule: runnerCfg.Schedule,
 	}
 
 	runner.Run(&sdk.WorkflowArgs[sdk.DonRuntime]{

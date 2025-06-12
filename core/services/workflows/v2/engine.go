@@ -166,7 +166,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	result, err := e.cfg.Module.Execute(subCtx, &wasmpb.ExecuteRequest{
 		Request:         &wasmpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
-		// no Config needed
+		Config:          e.cfg.Config,
 	}, &DisallowedExecutionHelper{})
 	if err != nil {
 		return fmt.Errorf("failed to execute subscribe: %w", err)
