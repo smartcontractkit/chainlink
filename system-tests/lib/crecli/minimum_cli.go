@@ -38,9 +38,9 @@ type CLI struct {
 	CreCLICommandPath string
 }
 
-func NewCreCli() *CLI {
+func NewCreCli(creCLIPath string) *CLI {
 	return &CLI{
-		CreCLICommandPath: "/Users/mw/bin/cre_v0.2.1_darwin_arm64",
+		CreCLICommandPath: creCLIPath,
 	}
 }
 

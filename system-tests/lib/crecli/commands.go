@@ -101,6 +101,8 @@ func DeployWorkflow(creCLICommandPath, workflowURL string, configURL, secretsURL
 	deployCmd := exec.Command(creCLICommandPath, commandArgs...) // #nosec G204
 	deployCmd.Stdout = os.Stdout
 	deployCmd.Stderr = os.Stderr
+	deployCmd.Dir = "/Users/mw/repos/proof-of-reserves-workflow-e2e-test/cron-based/"
+
 	if startErr := deployCmd.Start(); startErr != nil {
 		return errors.Wrap(startErr, "failed to start deploy command")
 	}
