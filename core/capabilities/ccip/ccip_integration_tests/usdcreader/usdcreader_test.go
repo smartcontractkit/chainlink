@@ -24,8 +24,6 @@ import (
 
 	sel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -49,16 +47,33 @@ import (
 
 const ChainID = 1337
 
+// TODO: Make this public in chainlink-ccip/pkg/reader/usdc_reader.go
+// it was made private on accident.
+var cctpDestDomains = map[uint64]uint32{
+	sel.ETHEREUM_MAINNET.Selector:                    0,
+	sel.AVALANCHE_MAINNET.Selector:                   1,
+	sel.ETHEREUM_MAINNET_OPTIMISM_1.Selector:         2,
+	sel.ETHEREUM_MAINNET_ARBITRUM_1.Selector:         3,
+	sel.ETHEREUM_MAINNET_BASE_1.Selector:             6,
+	sel.POLYGON_MAINNET.Selector:                     7,
+	sel.ETHEREUM_TESTNET_SEPOLIA.Selector:            0,
+	sel.AVALANCHE_TESTNET_FUJI.Selector:              1,
+	sel.ETHEREUM_TESTNET_SEPOLIA_OPTIMISM_1.Selector: 2,
+	sel.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.Selector: 3,
+	sel.ETHEREUM_TESTNET_SEPOLIA_BASE_1.Selector:     6,
+	sel.POLYGON_TESTNET_AMOY.Selector:                7,
+}
+
 func Test_USDCReader_MessageHashes(t *testing.T) {
 	finalityDepth := 5
 
 	ctx := testutils.Context(t)
 	ethereumChain := cciptypes.ChainSelector(sel.ETHEREUM_MAINNET_OPTIMISM_1.Selector)
-	ethereumDomainCCTP := reader.CCTPDestDomains[uint64(ethereumChain)]
+	ethereumDomainCCTP := cctpDestDomains[uint64(ethereumChain)]
 	avalancheChain := cciptypes.ChainSelector(sel.AVALANCHE_MAINNET.Selector)
-	avalancheDomainCCTP := reader.CCTPDestDomains[uint64(avalancheChain)]
+	avalancheDomainCCTP := cctpDestDomains[uint64(avalancheChain)]
 	polygonChain := cciptypes.ChainSelector(sel.POLYGON_MAINNET.Selector)
-	polygonDomainCCTP := reader.CCTPDestDomains[uint64(polygonChain)]
+	polygonDomainCCTP := cctpDestDomains[uint64(polygonChain)]
 
 	ts := testSetup(ctx, t, ethereumChain, evmconfig.USDCReaderConfig, finalityDepth, false)
 
@@ -83,7 +98,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 				SourceMessageTransmitterAddr: ts.contractAddr.String(),
 			},
 		},
-		map[cciptypes.ChainSelector]contractreader.ContractReaderFacade{
+		map[cciptypes.ChainSelector]contractreader.Extended{
 			ethereumChain: ts.reader,
 		}, mokAddrCodec)
 	require.NoError(t, err)
@@ -269,9 +284,9 @@ func Benchmark_MessageHashes(b *testing.B) {
 		b.Run(tc.name, func(b *testing.B) {
 			ctx := testutils.Context(b)
 			sourceChain := cciptypes.ChainSelector(sel.ETHEREUM_MAINNET_OPTIMISM_1.Selector)
-			sourceDomainCCTP := reader.CCTPDestDomains[uint64(sourceChain)]
+			sourceDomainCCTP := cctpDestDomains[uint64(sourceChain)]
 			destChain := cciptypes.ChainSelector(sel.AVALANCHE_MAINNET.Selector)
-			destDomainCCTP := reader.CCTPDestDomains[uint64(destChain)]
+			destDomainCCTP := cctpDestDomains[uint64(destChain)]
 
 			ts := testSetup(ctx, b, sourceChain, evmconfig.USDCReaderConfig, finalityDepth, true)
 
@@ -283,7 +298,7 @@ func Benchmark_MessageHashes(b *testing.B) {
 						SourceMessageTransmitterAddr: ts.contractAddr.String(),
 					},
 				},
-				map[cciptypes.ChainSelector]contractreader.ContractReaderFacade{
+				map[cciptypes.ChainSelector]contractreader.Extended{
 					sourceChain: ts.reader,
 				}, mokAddrCodec)
 			require.NoError(b, err)
@@ -473,13 +488,16 @@ func testSetup(ctx context.Context, t testing.TB, readerChain cciptypes.ChainSel
 		require.NoError(t, db.Close())
 	})
 
+	// Convert to the extended contract reader interface.
+	ecr := contractreader.NewExtendedContractReader(
+		(contractreader.ContractReaderFacade)(cr))
 	return &testSetupData{
 		contractAddr: address,
 		contract:     contract,
 		sb:           simulatedBackend,
 		auth:         auth,
 		cl:           cl,
-		reader:       cr,
+		reader:       ecr,
 		orm:          orm,
 		db:           db,
 		lp:           lp,
@@ -492,7 +510,7 @@ type testSetupData struct {
 	sb           *simulated.Backend
 	auth         *bind.TransactOpts
 	cl           client.Client
-	reader       types.ContractReader
+	reader       contractreader.Extended
 	orm          logpoller.ORM
 	db           *sqlx.DB
 	lp           logpoller.LogPoller
