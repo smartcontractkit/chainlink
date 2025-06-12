@@ -108,7 +108,10 @@ func DeployWorkflow(
 	deployCmd := exec.Command(creCLICommandPath, commandArgs...) // #nosec G204
 	deployCmd.Stdout = os.Stdout
 	deployCmd.Stderr = os.Stderr
-	deployCmd.Dir = DerefString(workflowPath)
+
+	if workflowPath != nil {
+		deployCmd.Dir = DerefString(workflowPath)
+	}
 
 	if startErr := deployCmd.Start(); startErr != nil {
 		return errors.Wrap(startErr, "failed to start deploy command")
