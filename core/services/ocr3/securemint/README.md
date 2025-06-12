@@ -1,7 +1,14 @@
-TODO(gg): update
+# SecureMint Plugin
 
-## Run integration test:
+## Overview
 
+The SecureMint plugin is a plugin that allows for secure minting of tokens.
+
+## Validation
+
+Validating whether the SecureMint plugin is working as expected is done by running the integration test.
+
+The test is located in the `core/services/ocr3/securemint` directory.
 
 ### Prerequisites:
 ```bash
@@ -20,12 +27,12 @@ go mod tidy && go mod vendor
 modvendor -copy="**/*.a **/*.h" -v
 ```
 
-(modvendor step might not be necessary, for me it was, see also https://github.com/marcboeker/go-duckdb/issues/174#issuecomment-1979097864)
+(the `modvendor` step might not be necessary, but for me it was (see also https://github.com/marcboeker/go-duckdb/issues/174#issuecomment-1979097864))
 
 ### Logs
 
-* other.log: Contains all non-node output from the test run
-* node_logs.log: Contains all logs from the nodes started up in the test run
-* all.log: Contains the complete output of the test run
+* other.log: Contains all non-node output from the test run, this can be used to quickly see test failures
+* node_logs.log: Contains all logs from the nodes started up in the test run, this can be used to see the full output of the test run
+* all.log: Contains the complete output of the test run, this can be used to see test failures within the context of the node logs
 
 
