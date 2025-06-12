@@ -678,7 +678,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	}
 	chain, ok := chainService.(legacyevm.Chain)
 	if !ok {
-		return fmt.Errorf("not available in loop mode: %w", stderrors.ErrUnsupported)
+		return fmt.Errorf("transaction rebroadcast is not available in loop mode: %w", stderrors.ErrUnsupported)
 	}
 	keyStore := app.GetKeyStore()
 
