@@ -424,7 +424,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		tag = gitSHA
 	}
 
-	baseLineReport, err := benchspy.NewStandardReport(
+	benchmarkReport, err := benchspy.NewStandardReport(
 		tag,
 		benchspy.WithStandardQueries(benchspy.StandardQueryExecutor_Direct),
 		benchspy.WithGenerators(generator),
@@ -434,10 +434,10 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	fetchCtx, cancelFn := context.WithTimeout(ctx, 60*time.Second)
 	defer cancelFn()
 
-	fetchErr := baseLineReport.FetchData(fetchCtx)
+	fetchErr := benchmarkReport.FetchData(fetchCtx)
 	require.NoError(t, fetchErr, "failed to fetch data for baseline report")
 
-	path, storeErr := baseLineReport.Store()
+	path, storeErr := benchmarkReport.Store()
 	require.NoError(t, storeErr, "failed to store baseline report", path)
 	require.NoError(t, err, "workflow load test did not finish successfully")
 }
