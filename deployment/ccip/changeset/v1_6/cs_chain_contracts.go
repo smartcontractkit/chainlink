@@ -34,8 +34,8 @@ import (
 	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"

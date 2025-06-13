@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 type OffRampApplySourceChainConfigUpdatesSequenceInput struct {

@@ -22,7 +22,7 @@ import (
 
 	ccipopsv1_2 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_2"
 	ccipopsv1_6 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 type ChainContractParams struct {

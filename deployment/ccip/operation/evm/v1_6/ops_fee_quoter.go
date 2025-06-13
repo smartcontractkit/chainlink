@@ -17,7 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 type DeployFeeQInput struct {
