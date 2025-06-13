@@ -80,6 +80,7 @@ const (
 	WBNBSymbol                 TokenSymbol = "WBNB"
 	WPOLSymbol                 TokenSymbol = "WPOL"
 	WSSymbol                   TokenSymbol = "WS"
+	USDCSymbol TokenSymbol = "USDC"
 	WBTCNSymbol                TokenSymbol = "WBTCN"
 	WAPESymbol                 TokenSymbol = "WAPE"
 	WCoreSymbol                TokenSymbol = "WCORE"
