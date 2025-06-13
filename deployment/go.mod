@@ -15,13 +15,10 @@ require (
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/aptos-labs/aptos-go-sdk v1.7.1-0.20250602153733-bb1facae1d43
 	github.com/aws/aws-sdk-go v1.55.6
-	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/ethereum/go-ethereum v1.15.7
 	github.com/gagliardetto/binary v0.8.0
-	github.com/gagliardetto/gofuzz v1.2.2
 	github.com/gagliardetto/solana-go v1.12.0
-	github.com/gagliardetto/treeout v0.1.4
 	github.com/go-resty/resty/v2 v2.16.3
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
@@ -169,6 +166,7 @@ require (
 	github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a // indirect
 	github.com/crate-crypto/go-kzg-4844 v1.1.0 // indirect
 	github.com/danieljoos/wincred v1.2.1 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/dgraph-io/badger/v4 v4.3.0 // indirect
 	github.com/dgraph-io/ristretto v0.1.2-0.20240116140435-c67e07994f91 // indirect
@@ -195,6 +193,7 @@ require (
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
+	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/gagliardetto/utilz v0.1.1 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
 	github.com/gin-contrib/sessions v0.0.5 // indirect
