@@ -45,7 +45,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	// 1. Deploy 1.5 pre-requisites
 	v1_5_deployment_config := &changeset.V1_5DeploymentConfig{
 		PriceRegStalenessThreshold: 60 * 60 * 24, // 1 day
-		RMNConfig: &rmn_contract.RMNConfig{ // Dummy RMN config
+		RMNConfig: &rmn_contract.RMNConfig{
 			BlessWeightThreshold: 1,
 			CurseWeightThreshold: 1,
 			Voters: []rmn_contract.RMNVoter{
@@ -56,7 +56,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 
 	e, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfChains(2),
-		testhelpers.WithPrerequisiteDeploymentOnly(v1_5_deployment_config), //price registry
+		testhelpers.WithPrerequisiteDeploymentOnly(v1_5_deployment_config), // price registry
 	)
 
 	tenv := e.Env
