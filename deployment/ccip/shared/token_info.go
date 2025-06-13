@@ -80,7 +80,9 @@ const (
 	WBNBSymbol                 TokenSymbol = "WBNB"
 	WPOLSymbol                 TokenSymbol = "WPOL"
 	WSSymbol                   TokenSymbol = "WS"
-	USDCSymbol                 TokenSymbol = "USDC"
+	WBTCNSymbol                TokenSymbol = "WBTCN"
+	WAPESymbol                 TokenSymbol = "WAPE"
+	WCoreSymbol                TokenSymbol = "WCORE"
 	LBTCSymbol                 TokenSymbol = "LBTC"
 	FactoryBurnMintERC20Symbol TokenSymbol = "Factory-BnM-ERC20"
 	CCIPBnMSymbol              TokenSymbol = "CCIP-BnM"
@@ -114,6 +116,7 @@ const (
 var (
 	MockLinkPrice = deployment.E18Mult(500)
 	MockWethPrice = big.NewInt(9e8)
+	// TODO: This might need to be updated to map multiple tokens to the same aggregator
 	// DescriptionToTokenSymbol maps price feed description to token descriptor
 	DescriptionToTokenSymbol = map[string]TokenSymbol{
 		MockLinkAggregatorDescription: LinkSymbol,
@@ -124,6 +127,9 @@ var (
 		MaticUSD:                      WPOLSymbol,
 		BNBUSD:                        WBNBSymbol,
 		FTMUSD:                        WSSymbol,
+		BTCUSD:                        WBTCNSymbol,
+		USDCUSD:                       WAPESymbol,
+		ARBUSD:                        WCoreSymbol,
 	}
 	MockSymbolToDescription = map[TokenSymbol]string{
 		LinkSymbol: MockLinkAggregatorDescription,
