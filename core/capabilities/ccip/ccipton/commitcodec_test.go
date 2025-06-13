@@ -23,7 +23,7 @@ var randomBlessedCommitReport = func() cciptypes.CommitPluginReport {
 	return cciptypes.CommitPluginReport{
 		BlessedMerkleRoots: []cciptypes.MerkleRootChain{
 			{
-				OnRampAddress: addr.Data(),
+				OnRampAddress: make(cciptypes.UnknownAddress, 64),
 				ChainSel:      cciptypes.ChainSelector(rand.Uint64()),
 				SeqNumsRange: cciptypes.NewSeqNumRange(
 					cciptypes.SeqNum(rand.Uint64()),
@@ -34,7 +34,7 @@ var randomBlessedCommitReport = func() cciptypes.CommitPluginReport {
 		},
 		UnblessedMerkleRoots: []cciptypes.MerkleRootChain{
 			{
-				OnRampAddress: addr.Data(),
+				OnRampAddress: make(cciptypes.UnknownAddress, 64),
 				ChainSel:      cciptypes.ChainSelector(rand.Uint64()),
 				SeqNumsRange: cciptypes.NewSeqNumRange(
 					cciptypes.SeqNum(rand.Uint64()),

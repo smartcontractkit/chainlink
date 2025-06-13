@@ -38,7 +38,7 @@ func (cr *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Comm
 			UsdPerToken: tpu.Price.Int,
 		}
 	}
-	tpu, err := bindings.SliceToDict(tpuSlice)
+	tpu, err := bindings.PackArray(tpuSlice)
 	if err != nil {
 		return nil, fmt.Errorf("cannot encode token price updates: %w", err)
 	}
@@ -53,7 +53,7 @@ func (cr *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Comm
 			UsdPerUnitGas:     gpu.GasPrice.Int,
 		}
 	}
-	gpu, err := bindings.SliceToDict(gpuSlice)
+	gpu, err := bindings.PackArray(gpuSlice)
 	if err != nil {
 		return nil, fmt.Errorf("cannot encode gas price updates: %w", err)
 	}
@@ -68,7 +68,7 @@ func (cr *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Comm
 			MerkleRoot:          bytes.Clone(mr.MerkleRoot[:]),
 		}
 	}
-	merkleRoots, err := bindings.SliceToDict(mkSlice)
+	merkleRoots, err := bindings.PackArray(mkSlice)
 	if err != nil {
 		return nil, fmt.Errorf("cannot encode blessed merkle roots: %w", err)
 	}
@@ -83,7 +83,7 @@ func (cr *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Comm
 			MerkleRoot:          bytes.Clone(mr.MerkleRoot[:]),
 		}
 	}
-	unblessedRoots, err := bindings.SliceToDict(unblessedMkSlice)
+	unblessedRoots, err := bindings.PackArray(unblessedMkSlice)
 	if err != nil {
 		return nil, fmt.Errorf("cannot encode unblessed merkle roots: %w", err)
 	}
@@ -97,7 +97,7 @@ func (cr *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Comm
 			Sig: bytes.Clone(rmnSig64Array[:]),
 		}
 	}
-	signatures, err := bindings.SliceToDict(sigSlice)
+	signatures, err := bindings.PackArray(sigSlice)
 	if err != nil {
 		return nil, fmt.Errorf("cannot encode RMN signatures: %w", err)
 	}
@@ -135,7 +135,7 @@ func (cr *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (ccipty
 	}
 
 	priceUpdate := report.PriceUpdates
-	tpu, err := bindings.DictToSlice[bindings.TokenPriceUpdate](priceUpdate.TokenPriceUpdates)
+	tpu, err := bindings.UnpackArray[bindings.TokenPriceUpdate](priceUpdate.TokenPriceUpdates)
 	if err != nil {
 		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode token price updates: %w", err)
 	}
@@ -156,7 +156,7 @@ func (cr *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (ccipty
 			}
 		}
 	}
-	gpu, err := bindings.DictToSlice[bindings.GasPriceUpdate](priceUpdate.GasPriceUpdates)
+	gpu, err := bindings.UnpackArray[bindings.GasPriceUpdate](priceUpdate.GasPriceUpdates)
 	if err != nil {
 		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode gas price updates: %w", err)
 	}
@@ -177,7 +177,7 @@ func (cr *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (ccipty
 			}
 		}
 	}
-	sigs, err := bindings.DictToSlice[bindings.Signature](report.RMNSignatures)
+	sigs, err := bindings.UnpackArray[bindings.Signature](report.RMNSignatures)
 	if err != nil {
 		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode RMN signatures: %w", err)
 	}
@@ -200,7 +200,7 @@ func (cr *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (ccipty
 	}
 
 	mr := report.MerkleRoot
-	bmr, err := bindings.DictToSlice[bindings.MerkleRoot](mr.BlessedMerkleRoots)
+	bmr, err := bindings.UnpackArray[bindings.MerkleRoot](mr.BlessedMerkleRoots)
 	if err != nil {
 		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode blessed merkle roots: %w", err)
 	}
@@ -217,7 +217,7 @@ func (cr *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (ccipty
 		}
 	}
 
-	unblessedMr, err := bindings.DictToSlice[bindings.MerkleRoot](mr.UnblessedMerkleRoots)
+	unblessedMr, err := bindings.UnpackArray[bindings.MerkleRoot](mr.UnblessedMerkleRoots)
 	if err != nil {
 		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode unblessed merkle roots: %w", err)
 	}
