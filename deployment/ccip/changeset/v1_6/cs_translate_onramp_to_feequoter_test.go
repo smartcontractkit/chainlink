@@ -15,16 +15,13 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	// 1.5.0 contracts
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 
-	// 1.6.0 contracts
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
-	// Workspace specific
 
-	// For V1_5DeploymentConfig
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -134,9 +131,14 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	_, err = v1_6.TranslateEVM2EVMOnRampsToFeeQuoterChangeset(tenv, translateConfig)
 	require.NoError(t, err, "TranslateEVM2EVMOnRampsToFeeQuoterChangeset execution failed")
 
-	// 8. get onramp & feequoter dynamic & default configs to compare
+	// 8. get onramp & feequoter dynamic, tokenCfg & default configs to compare
 	onRampDynamicCfg, err := onRamp1_5_contract.GetDynamicConfig(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err, "Failed to get DestChainConfig from 1.5 onramp")
+	priceReg, err := price_registry.NewPriceRegistry(onRampDynamicCfg.PriceRegistry, tenv.BlockChains.EVMChains()[sourceChainSelector].Client)
+	require.NoError(t, err, "Failed to create PriceRegistry contract binding")
+	allFeeTokens, _ := priceReg.GetFeeTokens(nil)
+	require.Len(t, allFeeTokens, 2, "Expected 2 fee tokens in PriceRegistry before translation")
+	feeTokenCfg, _ := onRamp1_5_contract.GetFeeTokenConfig(&bind.CallOpts{Context: ctx}, allFeeTokens[0])
 	actualFeeQuoterDestCfg, err := feeQuoterContract.GetDestChainConfig(&bind.CallOpts{Context: ctx}, destChainSelector)
 	require.NoError(t, err, "Failed to get DestChainConfig from FeeQuoter after translation")
 
@@ -155,6 +157,9 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	require.Equal(t, onRampDynamicCfg.DestDataAvailabilityMultiplierBps, actualFeeQuoterDestCfg.DestDataAvailabilityMultiplierBps, "DestDataAvailabilityMultiplierBps mismatch")
 	require.Equal(t, onRampDynamicCfg.DefaultTokenDestGasOverhead, actualFeeQuoterDestCfg.DefaultTokenDestGasOverhead, "DefaultTokenDestGasOverhead mismatch")
 	require.Equal(t, defaultCfgForFamily.ChainFamilySelector, actualFeeQuoterDestCfg.ChainFamilySelector, "ChainFamilySelector mismatch")
+	// These two should come from the GetFeeTokenConfig
+	require.Equal(t, feeTokenCfg.GasMultiplierWeiPerEth, actualFeeQuoterDestCfg.GasMultiplierWeiPerEth, "GasMultiplierWeiPerEth mismatch")
+	require.Equal(t, feeTokenCfg.NetworkFeeUSDCents, actualFeeQuoterDestCfg.NetworkFeeUSDCents, "NetworkFeeUSDCents mismatch")
 
 	t.Logf("Successfully verified translation of 1.5.0 OnRamp config for chain %d to 1.6.0 FeeQuoter DestChainConfig for destination %d", sourceChainSelector, destChainSelector)
 

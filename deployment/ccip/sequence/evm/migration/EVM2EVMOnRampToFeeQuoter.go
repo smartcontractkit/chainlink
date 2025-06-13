@@ -51,8 +51,8 @@ func (m *EVM2EVMOnRampMigrateDestChainConfig) TranslateOnrampToFeequoterFeeToken
 
 	// m.DefaultTxGasLimit = destChainEVM2EVMDynamicCfg.DefaultTxGasLimit // is this from static config?
 	// m.GasPriceStalenessThreshold = destChainEVM2EVMDynamicCfg.GasPriceStalenessThreshold // where do we get this from?
-	m.GasMultiplierWeiPerEth = feetokenCfg.GasMultiplierWeiPerEth // where do we get this from? : FeeTokenConfig in onramp -- Probably not needed & can use the default instantiation
-	m.NetworkFeeUSDCents = feetokenCfg.NetworkFeeUSDCents         // where do we get this from? : FeeTokenConfig in onramp - -- Probably not needed & can use the default instantiation
+	m.GasMultiplierWeiPerEth = feetokenCfg.GasMultiplierWeiPerEth
+	m.NetworkFeeUSDCents = feetokenCfg.NetworkFeeUSDCents
 }
 
 func (m EVM2EVMOnRampMigrate) TranslateOnrampToFeequoterTokenTransferFeeConfig(destChainSel uint64, token common.Address, onRampTokenTransferFeeConfig onramp1_5.EVM2EVMOnRampTokenTransferFeeConfig) fee_quoter.FeeQuoterTokenTransferFeeConfigSingleTokenArgs {
