@@ -8,14 +8,13 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 var randomExecuteReport = func(t *testing.T, chainSelector uint64, gasLimit *big.Int, destGasAmount uint32) cciptypes.ExecutePluginReport {

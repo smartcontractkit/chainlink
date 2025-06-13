@@ -215,29 +215,11 @@ func computeMessageDataHash(
 
 	dataHash := crypto.Keccak256Hash(data)
 
-	type tokenTuple struct {
-		SourcePoolAddress []byte
-		DestTokenAddress  [32]byte
-		DestGasAmount     uint32
-		ExtraData         []byte
-		Amount            *big.Int
-	}
-	tokens := make([]tokenTuple, len(tokenAmounts))
-	for i, token := range tokenAmounts {
-		tokens[i] = tokenTuple{
-			SourcePoolAddress: token.SourcePoolAddress,
-			DestTokenAddress:  token.DestTokenAddress,
-			DestGasAmount:     token.DestGasAmount,
-			ExtraData:         token.ExtraData,
-			Amount:            token.Amount,
-		}
-	}
-
 	// Manually encode tokens to match the Move implementation, because abi.Pack has different behavior
 	// for dynamic types.
 	var tokenHashData []byte
-	tokenHashData = append(tokenHashData, encodeUint256(big.NewInt(int64(len(tokens))))...)
-	for _, token := range tokens {
+	tokenHashData = append(tokenHashData, encodeUint256(big.NewInt(int64(len(tokenAmounts))))...)
+	for _, token := range tokenAmounts {
 		tokenHashData = append(tokenHashData, encodeBytes(token.SourcePoolAddress)...)
 		tokenHashData = append(tokenHashData, token.DestTokenAddress[:]...)
 		tokenHashData = append(tokenHashData, encodeUint32(token.DestGasAmount)...)

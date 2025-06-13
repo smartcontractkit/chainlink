@@ -2,6 +2,7 @@ package ccipaptos
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -18,7 +19,7 @@ func (a AddressCodec) AddressStringToBytes(addr string) ([]byte, error) {
 
 func (a AddressCodec) OracleIDAsAddressBytes(oracleID uint8) ([]byte, error) {
 	// todo
-	return nil, fmt.Errorf("not implemented: OracleIDAsAddressBytes for Aptos")
+	return nil, errors.New("not implemented: OracleIDAsAddressBytes for Aptos")
 }
 
 func addressBytesToString(addr []byte) (string, error) {
@@ -56,17 +57,4 @@ func addressBytesToBytes32(addr []byte) ([32]byte, error) {
 	// Left pad by copying to the end of the 32 byte array
 	copy(result[32-len(addr):], addr)
 	return result, nil
-}
-
-func addressStringToBytes32(addr string) ([32]byte, error) {
-	bytes, err := addressStringToBytes(addr)
-	if err != nil {
-		return [32]byte{}, err
-	}
-	return addressBytesToBytes32(bytes)
-}
-
-func addressIsValid(addr string) bool {
-	_, err := addressStringToBytes(addr)
-	return err == nil
 }

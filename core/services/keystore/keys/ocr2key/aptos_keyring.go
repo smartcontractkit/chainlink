@@ -56,7 +56,7 @@ func (akr *aptosKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.
 	return akr.SignBlob(sigData)
 }
 
-func (ekr *aptosKeyring) reportToSigData3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) ([]byte, error) {
+func (akr *aptosKeyring) reportToSigData3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) ([]byte, error) {
 	rawReportContext := RawReportContext3(digest, seqNr)
 	h, err := blake2b.New256(nil)
 	if err != nil {

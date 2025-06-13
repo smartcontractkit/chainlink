@@ -103,13 +103,14 @@ func (c *ccipTransmitter) Transmit(
 	var args any
 	var err error
 
-	if c.toCalldataFn != nil {
+	switch {
+	case c.toCalldataFn != nil:
 		var rs [][32]byte
 		var ss [][32]byte
 		var vs [32]byte
 		for i, as := range sigs {
-			r, s, v, err := evmutil.SplitSignature(as.Signature)
-			if err != nil {
+			r, s, v, err2 := evmutil.SplitSignature(as.Signature)
+			if err2 != nil {
 				return fmt.Errorf("failed to split signature: %w", err)
 			}
 			rs = append(rs, r)
@@ -122,7 +123,7 @@ func (c *ccipTransmitter) Transmit(
 		if err != nil {
 			return fmt.Errorf("failed to generate ecdsa call data: %w", err)
 		}
-	} else if c.toEd25519CalldataFn != nil {
+	case c.toEd25519CalldataFn != nil:
 		var signatures [][96]byte
 		for _, as := range sigs {
 			sig := as.Signature
@@ -138,15 +139,15 @@ func (c *ccipTransmitter) Transmit(
 		if err != nil {
 			return fmt.Errorf("failed to generate ed25519 call data: %w", err)
 		}
-	} else {
+	default:
 		return errors.New("no calldata function")
 	}
 
 	// TODO: no meta fields yet, what should we add?
 	// probably whats in the info part of the report?
 	meta := commontypes.TxMeta{}
-	txID, err := uuid.NewRandom() // NOTE: CW expects us to generate an ID, rather than return one
-	if err != nil {
+	txID, err2 := uuid.NewRandom() // NOTE: CW expects us to generate an ID, rather than return one
+	if err2 != nil {
 		return fmt.Errorf("failed to generate UUID: %w", err)
 	}
 	zero := big.NewInt(0)

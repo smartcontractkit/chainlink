@@ -73,10 +73,9 @@ func (d ExtraDataDecoder) decodeEvmExtraArgsV1(des *bcs.Deserializer) (map[strin
 	gasLimit := des.U256()
 	if des.Error() != nil {
 		return nil, fmt.Errorf("error whilst decoding evm extra args v1: %w", des.Error())
-	} else {
-		extraArgs["gasLimit"] = &gasLimit
 	}
 
+	extraArgs["gasLimit"] = &gasLimit
 	return extraArgs, nil
 }
 
@@ -86,9 +85,9 @@ func (d ExtraDataDecoder) decodeGenericExtraArgsV2(des *bcs.Deserializer) (map[s
 	gasLimit := des.U256()
 	if des.Error() != nil {
 		return nil, fmt.Errorf("error whilst decoding generic extra args v2: %w", des.Error())
-	} else {
-		extraArgs["gasLimit"] = &gasLimit
 	}
+
+	extraArgs["gasLimit"] = &gasLimit
 
 	allowOutOfOrderExecution := des.Bool()
 	if des.Error() != nil {
@@ -107,9 +106,8 @@ func (d ExtraDataDecoder) decodeSvmExtraArgsV1(des *bcs.Deserializer) (map[strin
 	computeUnits := des.U32()
 	if des.Error() != nil {
 		return nil, fmt.Errorf("error whilst decoding svm extra args v1: %w", des.Error())
-	} else {
-		extraArgs["computeUnits"] = computeUnits
 	}
+	extraArgs["computeUnits"] = computeUnits
 
 	accountIsWritableBitmap := des.U64()
 	if des.Error() != nil {

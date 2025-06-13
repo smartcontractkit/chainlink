@@ -109,7 +109,7 @@ func Test_decodeExtraData(t *testing.T) {
 
 		accounts, exist := m["accounts"]
 		require.True(t, exist)
-		require.Equal(t, 2, len(accounts.([][]byte)))
+		require.Len(t, accounts.([][]byte), 2)
 		require.Equal(t, encodedAccounts[0], accounts.([][]byte)[0])
 		require.Equal(t, encodedAccounts[1], accounts.([][]byte)[1])
 	})
@@ -136,10 +136,10 @@ func Test_decodeExtraData(t *testing.T) {
 	})
 
 	t.Run("error on unknown tag", func(t *testing.T) {
-		unknownTag := []byte{0xde, 0xad, 0xbe, 0xef}
+		dataWithUnknownTag := []byte{0xde, 0xad, 0xbe, 0xef}
 		dummyData, err := bcs.SerializeU256(*big.NewInt(1))
 		require.NoError(t, err)
-		dataWithUnknownTag := append(unknownTag, dummyData...)
+		dataWithUnknownTag = append(dataWithUnknownTag, dummyData...)
 		_, err = extraDataDecoder.DecodeExtraArgsToMap(dataWithUnknownTag)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unknown extra args tag")
@@ -148,7 +148,8 @@ func Test_decodeExtraData(t *testing.T) {
 	t.Run("error on malformed evm v1 data", func(t *testing.T) {
 		malformedData, err := bcs.SerializeU256(*big.NewInt(1))
 		require.NoError(t, err)
-		encoded := append(evmExtraArgsV1Tag, malformedData[:4]...)
+		encoded := append([]byte{}, evmExtraArgsV1Tag...)
+		encoded = append(encoded, malformedData[:4]...)
 		_, err = extraDataDecoder.DecodeExtraArgsToMap(encoded)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not enough bytes remaining to deserialize u256")
