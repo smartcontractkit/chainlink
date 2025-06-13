@@ -19,9 +19,12 @@ func ViewCCIP(e deployment.Environment) (json.Marshaler, error) {
 	if err != nil {
 		return nil, err
 	}
+	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	solSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
-	allChains := append(e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)), solSelectors...)
-	chainView, solanaView, err := state.View(&e, allChains)
+	aptosSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyAptos))
+	allChains := append(evmSelectors, solSelectors...)
+	allChains = append(allChains, aptosSelectors...)
+	chainView, solanaView, aptosView, err := state.View(&e, allChains)
 	if err != nil {
 		return nil, err
 	}
@@ -30,8 +33,9 @@ func ViewCCIP(e deployment.Environment) (json.Marshaler, error) {
 		return nil, err
 	}
 	return ccipview.CCIPView{
-		Chains:    chainView,
-		SolChains: solanaView,
-		Nops:      nopsView,
+		Chains:      chainView,
+		SolChains:   solanaView,
+		AptosChains: aptosView,
+		Nops:        nopsView,
 	}, nil
 }

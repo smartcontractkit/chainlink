@@ -2428,7 +2428,7 @@ func DeployCCIPContractsTest(t *testing.T, solChains int) {
 	var allChains []uint64
 	allChains = append(allChains, evmChainSelectors...)
 	allChains = append(allChains, solChainSelectors...)
-	snap, solana, err := state.View(&e.Env, allChains)
+	snap, solana, aptos, err := state.View(&e.Env, allChains)
 	require.NoError(t, err)
 	if solChains > 0 {
 		DeploySolanaCcipReceiver(t, e.Env)
@@ -2440,6 +2440,9 @@ func DeployCCIPContractsTest(t *testing.T, solChains int) {
 	require.NoError(t, err)
 	fmt.Println(string(b))
 	b, err = json.MarshalIndent(solana, "", "	")
+	require.NoError(t, err)
+	fmt.Println(string(b))
+	b, err = json.MarshalIndent(aptos, "", "	")
 	require.NoError(t, err)
 	fmt.Println(string(b))
 }

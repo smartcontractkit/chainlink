@@ -1,12 +1,17 @@
 package aptos
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
+
 	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
+	aptosview "github.com/smartcontractkit/chainlink/deployment/ccip/view/aptos"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
@@ -20,9 +25,11 @@ import (
 )
 
 type CCIPChainState struct {
-	MCMSAddress      aptos.AccountAddress
-	CCIPAddress      aptos.AccountAddress
+	MCMSAddress aptos.AccountAddress
+	CCIPAddress aptos.AccountAddress
+
 	LinkTokenAddress aptos.AccountAddress
+	ManagedTokens    map[shared.TokenSymbol]aptos.AccountAddress
 
 	AptosManagedTokenPools map[aptos.AccountAddress]aptos.AccountAddress // TokenAddress -> TokenPoolAddress
 	BurnMintTokenPools     map[aptos.AccountAddress]aptos.AccountAddress // TokenAddress -> TokenPoolAddress
@@ -141,4 +148,157 @@ func loadAptosChainStateFromAddresses(addresses map[string]cldf.TypeAndVersion, 
 func GetOfframpDynamicConfig(c cldf_aptos.Chain, ccipAddress aptos.AccountAddress) (module_offramp.DynamicConfig, error) {
 	offrampBind := ccip_offramp.Bind(ccipAddress, c.Client)
 	return offrampBind.Offramp().GetDynamicConfig(&bind.CallOpts{})
+}
+
+func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chainName string) (view.AptosChainView, error) {
+	lggr := e.Logger
+	chain := e.BlockChains.AptosChains()[selector]
+	chainView := view.NewAptosChainView()
+	errGroup := errgroup.Group{}
+	lggr.Infow("generating Aptos chain view",
+		"chain", chain.Name,
+		"selector", selector)
+
+	// Tokens
+	errGroup.Go(func() error {
+		linkTokenView, err := aptosview.GenerateTokenView(chain, s.LinkTokenAddress)
+		if err != nil {
+			return errors.Wrapf(err, "failed to generate link token view for link token %s", s.LinkTokenAddress.StringLong())
+		}
+		chainView.UpdateMu.Lock()
+		chainView.LinkToken = linkTokenView
+		chainView.UpdateMu.Unlock()
+		lggr.Infow("generated link token view", "linkToken", s.LinkTokenAddress.StringLong(), "chain", chainName)
+		return nil
+	})
+	errGroup.Go(func() error {
+		for symbol, address := range s.ManagedTokens {
+			tokenView, err := aptosview.GenerateTokenView(chain, address)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate token view for managed token (%s) %s", symbol, address)
+			}
+			chainView.UpdateMu.Lock()
+			chainView.Tokens[symbol.String()] = tokenView
+			chainView.UpdateMu.Unlock()
+			lggr.Infow("generated token view", "tokenAddress", address.StringLong(), "symbol", symbol, "chain", chainName)
+		}
+		return nil
+	})
+
+	// MCMS
+	errGroup.Go(func() error {
+		mcmsView, err := aptosview.GenerateMCMSWithTimelockView(chain, s.MCMSAddress)
+		if err != nil {
+			return errors.Wrapf(err, "failed to generate MCMS with timelock view for MCMS with timelock %s", s.MCMSAddress.StringLong())
+		}
+		chainView.UpdateMu.Lock()
+		chainView.MCMSWithTimelock = mcmsView
+		chainView.UpdateMu.Unlock()
+		lggr.Infow("generated MCMS with timelock view", "MCMSAddress", s.MCMSAddress.StringLong(), "chain", chainName)
+		return nil
+	})
+
+	// CCIP
+	errGroup.Go(func() error {
+		ccipView, err := aptosview.GenerateCCIPView(chain, s.CCIPAddress, s.CCIPAddress)
+		if err != nil {
+			return errors.Wrapf(err, "failed to generate CCIP view for CCIP contract %s", s.CCIPAddress.StringLong())
+		}
+		chainView.UpdateMu.Lock()
+		chainView.CCIP = ccipView
+		chainView.UpdateMu.Unlock()
+		lggr.Infow("generated CCIP view", "CCIPAddress", s.CCIPAddress.StringLong(), "chain", chainName)
+		return nil
+	})
+
+	errGroup.Go(func() error {
+		routerView, err := aptosview.GenerateRouterView(chain, s.CCIPAddress)
+		if err != nil {
+			return errors.Wrapf(err, "failed to generate router view for router %s", s.CCIPAddress.StringLong())
+		}
+		chainView.UpdateMu.Lock()
+		chainView.Router[s.CCIPAddress.StringLong()] = routerView
+		chainView.UpdateMu.Unlock()
+		lggr.Infow("generated router view", "routerAddress", s.CCIPAddress.StringLong(), "chain", chainName)
+		return nil
+	})
+
+	errGroup.Go(func() error {
+		onRampView, err := aptosview.GenerateOnRampView(chain, s.CCIPAddress, s.CCIPAddress, s.CCIPAddress)
+		if err != nil {
+			return errors.Wrapf(err, "failed to generate OnRamp view for OnRamp contract %s", s.CCIPAddress.StringLong())
+		}
+		chainView.UpdateMu.Lock()
+		chainView.OnRamp[s.CCIPAddress.StringLong()] = onRampView
+		chainView.UpdateMu.Unlock()
+		lggr.Infow("generated onRamp view", "onRampAddress", s.CCIPAddress.StringLong(), "chain", chainName)
+		return nil
+	})
+
+	errGroup.Go(func() error {
+		offRampView, err := aptosview.GenerateOffRampView(chain, s.CCIPAddress, s.CCIPAddress)
+		if err != nil {
+			return errors.Wrapf(err, "failed to generate OffRamp view for OffRamp contract %s", s.CCIPAddress.StringLong())
+		}
+		chainView.UpdateMu.Lock()
+		chainView.OffRamp[s.CCIPAddress.StringLong()] = offRampView
+		chainView.UpdateMu.Unlock()
+		lggr.Infow("gneerated offRamp view", "offRampAddress", s.CCIPAddress.StringLong(), "chain", chainName)
+		return nil
+	})
+
+	// Token pools
+	errGroup.Go(func() error {
+		for tokenAddress, tokenPoolAddress := range s.AptosManagedTokenPools {
+			faMetadata, err := aptosview.GetFungibleAssetMetadata(chain.Client, tokenAddress)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get fungible asset metadata for token %s", tokenAddress)
+			}
+			contract := managed_token_pool.Bind(tokenPoolAddress, chain.Client)
+			tokenPoolView, err := aptosview.GenerateTokenPoolView(chain, tokenPoolAddress, contract.ManagedTokenPool())
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate token pool view for ManagedTokenPool %s", tokenPoolAddress.StringLong())
+			}
+			chainView.UpdateMu.Lock()
+			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, faMetadata.Symbol, tokenPoolAddress.StringLong(), tokenPoolView)
+			chainView.UpdateMu.Unlock()
+		}
+		return nil
+	})
+	errGroup.Go(func() error {
+		for tokenAddress, tokenPoolAddress := range s.BurnMintTokenPools {
+			faMetadata, err := aptosview.GetFungibleAssetMetadata(chain.Client, tokenAddress)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get fungible asset metadata for token %s", tokenAddress)
+			}
+			contract := burn_mint_token_pool.Bind(tokenPoolAddress, chain.Client)
+			tokenPoolView, err := aptosview.GenerateTokenPoolView(chain, tokenPoolAddress, contract.BurnMintTokenPool())
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate token pool view for BurnMintTokenPool %s", tokenPoolAddress.StringLong())
+			}
+			chainView.UpdateMu.Lock()
+			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, faMetadata.Symbol, tokenPoolAddress.StringLong(), tokenPoolView)
+			chainView.UpdateMu.Unlock()
+		}
+		return nil
+	})
+	errGroup.Go(func() error {
+		for tokenAddress, tokenPoolAddress := range s.LockReleaseTokenPools {
+			faMetadata, err := aptosview.GetFungibleAssetMetadata(chain.Client, tokenAddress)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get fungible asset metadata for token %s", tokenAddress)
+			}
+			contract := lock_release_token_pool.Bind(tokenPoolAddress, chain.Client)
+			tokenPoolView, err := aptosview.GenerateTokenPoolView(chain, tokenPoolAddress, contract.LockReleaseTokenPool())
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate token pool view for LockReleaseTokenPool %s", tokenPoolAddress.StringLong())
+			}
+			chainView.UpdateMu.Lock()
+			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, faMetadata.Symbol, tokenPoolAddress.StringLong(), tokenPoolView)
+			chainView.UpdateMu.Unlock()
+		}
+		return nil
+	})
+
+	return chainView, errGroup.Wait()
 }
