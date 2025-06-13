@@ -1,8 +1,8 @@
 package ccipaptos
 
 import (
+	"encoding/binary"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"strings"
 )
@@ -18,8 +18,12 @@ func (a AddressCodec) AddressStringToBytes(addr string) ([]byte, error) {
 }
 
 func (a AddressCodec) OracleIDAsAddressBytes(oracleID uint8) ([]byte, error) {
-	// todo
-	return nil, errors.New("not implemented: OracleIDAsAddressBytes for Aptos")
+	addr := make([]byte, 32)
+
+	// write oracleID in big endian as done by BCS for addresses
+	binary.BigEndian.PutUint32(addr[28:], uint32(oracleID))
+
+	return addr, nil
 }
 
 func addressBytesToString(addr []byte) (string, error) {
