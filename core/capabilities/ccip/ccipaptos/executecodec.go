@@ -103,21 +103,21 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 
 		// 11b. dest_token_address: address
 		var destTokenAddr aptos.AccountAddress
-		if err := destTokenAddr.ParseStringRelaxed(item.DestTokenAddress.String()); err != nil {
-			s.SetError(fmt.Errorf("failed to parse dest_token_address '%s': %w", item.DestTokenAddress.String(), err))
+		if err2 := destTokenAddr.ParseStringRelaxed(item.DestTokenAddress.String()); err2 != nil {
+			s.SetError(fmt.Errorf("failed to parse dest_token_address '%s': %w", item.DestTokenAddress.String(), err2))
 		}
 		s.Struct(&destTokenAddr)
 
 		// 11c. dest_gas_amount: u32
 		// Extract dest gas amount from DestExecData
-		destExecDataDecodedMap, err := e.extraDataCodec.DecodeTokenAmountDestExecData(item.DestExecData, chainReport.SourceChainSelector)
-		if err != nil {
-			s.SetError(fmt.Errorf("failed to decode DestExecData for token %s: %w", destTokenAddr.String(), err))
+		destExecDataDecodedMap, err2 := e.extraDataCodec.DecodeTokenAmountDestExecData(item.DestExecData, chainReport.SourceChainSelector)
+		if err2 != nil {
+			s.SetError(fmt.Errorf("failed to decode DestExecData for token %s: %w", destTokenAddr.String(), err2))
 			return
 		}
-		destGasAmount, err := extractDestGasAmountFromMap(destExecDataDecodedMap) // Use a helper
-		if err != nil {
-			s.SetError(fmt.Errorf("failed to extract dest gas amount from decoded DestExecData map for token %s: %w", destTokenAddr.String(), err))
+		destGasAmount, err3 := extractDestGasAmountFromMap(destExecDataDecodedMap)
+		if err3 != nil {
+			s.SetError(fmt.Errorf("failed to extract dest gas amount from decoded DestExecData map for token %s: %w", destTokenAddr.String(), err3))
 			return
 		}
 		s.U32(destGasAmount)
@@ -267,7 +267,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 			return // Error handled by caller
 		}
 		// Encode dest gas amount back into DestExecData
-		destData, err := abiEncodeUint32(destGasAmount)
+		destData, err := bcs.SerializeU32(destGasAmount)
 		if err != nil {
 			des.SetError(fmt.Errorf("abi encode dest gas amount: %w", err))
 			return

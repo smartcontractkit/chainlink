@@ -74,7 +74,7 @@ func TestAddressBytesToString(t *testing.T) {
 
 			if test.isErr {
 				_, err := codec.AddressBytesToString(bytes)
-				require.Error(t, err, fmt.Sprintf("expected error for %s, input %s", test.name, test.inHex))
+				require.Error(t, err, "expected error for %s, input %s", test.name, test.inHex)
 			} else {
 				actual, err := codec.AddressBytesToString(bytes)
 				require.NoError(t, err)
