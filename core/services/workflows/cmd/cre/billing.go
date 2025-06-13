@@ -66,11 +66,13 @@ func (s *BillingService) start(ctx context.Context) error {
 
 	billing.RegisterWorkflowServiceServer(server, &BillingService{lggr: s.lggr})
 
-	err = server.Serve(lis)
-	if err != nil {
-		log.Fatalf("billing failed to serve: %v", err)
-		return err
-	}
+	go func() {
+		err = server.Serve(lis)
+		if err != nil {
+			log.Fatalf("billing failed to serve: %v", err)
+			return
+		}
+	}()
 
 	s.server = server
 
