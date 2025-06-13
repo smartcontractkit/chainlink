@@ -2,6 +2,7 @@ package v1_6
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -109,7 +110,7 @@ func (c DeployChainContractsSeqConfig) Validate() error {
 		return fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
 	if c.RMNHomeAddress == (common.Address{}) {
-		return fmt.Errorf("rmn home is not defined, deploy the home chain first")
+		return errors.New("rmn home is not defined, deploy the home chain first")
 	}
 	for chainSelector, addresses := range c.AddressesPerChain {
 		if _, ok := c.ContractParamsPerChain[chainSelector]; !ok {
@@ -128,17 +129,12 @@ func (c DeployChainContractsSeqConfig) Validate() error {
 	return nil
 }
 
-type DeployChainContractsDeps struct {
-	Ctx    context.Context
-	Chains map[uint64]cldf_evm.Chain
-}
-
 var (
 	DeployChainContractsSeq = operations.NewSequence(
 		"DeployChainContractsSeq",
 		semver.MustParse("1.0.0"),
 		"Deploys all 1.6 chain contracts for the specified evm chain(s)",
-		func(b operations.Bundle, deps DeployChainContractsDeps, input DeployChainContractsSeqConfig) (map[uint64]map[string]string, error) {
+		func(b operations.Bundle, deps map[uint64]cldf_evm.Chain, input DeployChainContractsSeqConfig) (map[uint64]map[string]string, error) {
 			err := input.Validate()
 			if err != nil {
 				return nil, fmt.Errorf("invalid DeployChainContractsSeqConfig: %w", err)
@@ -146,7 +142,7 @@ var (
 
 			out := make(map[uint64]map[string]string)
 			grp := errgroup.Group{}
-			homeChain, ok := deps.Chains[input.HomeChainSelector]
+			homeChain, ok := deps[input.HomeChainSelector]
 			if !ok {
 				return nil, fmt.Errorf("home chain with selector %d not defined in dependencies", input.HomeChainSelector)
 			}
@@ -156,7 +152,7 @@ var (
 				chainSelector := chainSelector
 				contractParams := contractParams
 				chainAddresses := input.AddressesPerChain[chainSelector]
-				chain, ok := deps.Chains[chainSelector]
+				chain, ok := deps[chainSelector]
 				if !ok {
 					return nil, fmt.Errorf("chain with selector %d not defined in dependencies", chainSelector)
 				}
@@ -188,7 +184,7 @@ var (
 					}
 					// Set RMNRemote config if not already set
 					// If no config is set, we need to set it with active digest and initial empty signers
-					digest, set, err := isRMNRemoteInitialSetUpCompleted(deps.Ctx, input.RMNHomeAddress, homeChain, rmnRemoteAddress, chain)
+					digest, set, err := isRMNRemoteInitialSetUpCompleted(b.GetContext(), input.RMNHomeAddress, homeChain, rmnRemoteAddress, chain)
 					if err != nil {
 						return fmt.Errorf("failed to check if RMNRemote config is set for %s: %w", chain, err)
 					}
@@ -250,10 +246,9 @@ var (
 								Params:   contractParams.FeeQuoterParams,
 								LinkAddr: chainAddresses.LinkAddress,
 								WethAddr: chainAddresses.WrappedNativeAddress,
-								// Allow timelock to set prices.
-								// Deployer key used to be allowed here, but this is a security risk,
-								// as an attacker could compromise the deployer key to set prices.
-								PriceUpdaters: []common.Address{chainAddresses.TimelockAddress},
+								// Allow timelock and deployer key to set prices.
+								// Deployer key should be removed sometime after initial deployment
+								PriceUpdaters: []common.Address{chainAddresses.TimelockAddress, chain.DeployerKey.From},
 							},
 						})
 						if err != nil {

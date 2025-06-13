@@ -43,7 +43,12 @@ func DeployChainContractsChangeset(env cldf.Environment, c ccipseq.DeployChainCo
 	addressBook := cldf.NewMemoryAddressBook()
 	for chainSel, addresses := range report.Output {
 		for address, typeAndVersion := range addresses {
-			addressBook.Save(chainSel, address, cldf.MustTypeAndVersionFromString(typeAndVersion))
+			err := addressBook.Save(chainSel, address, cldf.MustTypeAndVersionFromString(typeAndVersion))
+			if err != nil {
+				return cldf.ChangesetOutput{
+					Reports: report.ExecutionReports,
+				}, fmt.Errorf("failed to save address %s for chain %d: %w", address, chainSel, err)
+			}
 		}
 	}
 	return cldf.ChangesetOutput{
@@ -137,10 +142,7 @@ func deployChainContractsForChains(
 	report, err := operations.ExecuteSequence(
 		e.OperationsBundle,
 		ccipseq.DeployChainContractsSeq,
-		ccipseq.DeployChainContractsDeps{
-			Ctx:    e.GetContext(),
-			Chains: e.BlockChains.EVMChains(),
-		},
+		e.BlockChains.EVMChains(),
 		ccipseq.DeployChainContractsSeqConfig{
 			RMNHomeAddress:             getAddressSafely(existingState.Chains[homeChainSel].RMNHome),
 			DeployChainContractsConfig: c,
