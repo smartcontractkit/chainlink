@@ -3,11 +3,19 @@ package crib
 import (
 	"errors"
 	"fmt"
-	"github.com/AlekSi/pointer"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"math/rand"
 	"sort"
-	//"github.com/stretchr/testify/require"
+
+	"github.com/AlekSi/pointer"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
+	solState "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 )
 
 // LaneConfig represents a unidirectional lane from source to destination
@@ -227,7 +235,8 @@ func generateRandomLanesWithMinConnectivity(chains []uint64, numLanes int, bidir
 	return finalLanes
 }
 
-// calculateMinimumLanesNeeded calculates minimum lanes needed for connectivity
+// calculateMinimumLanesNeeded calculates minimum lanes needed for connectivity where each chain
+// must be both a source and destination.
 func calculateMinimumLanesNeeded(numChains int, bidirectional bool) int {
 	if numChains <= 1 {
 		return 0
@@ -270,15 +279,177 @@ func (lc *LaneConfiguration) GetConnectedChains() []uint64 {
 	return connectedChains
 }
 
+// DiscoverLanesFromDeployedState reverse engineers the lane configuration from deployed state
+func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment, state *stateview.CCIPOnChainState) error {
+	var discoveredLanes []LaneConfig
+
+	evmChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilyEVM))
+	solChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilySolana))
+
+	// Discover EVM to EVM lanes
+	for _, srcChain := range evmChains {
+		srcChainState, exists := state.Chains[srcChain]
+		if !exists {
+			continue
+		}
+
+		// Check which destination chains are configured on the OnRamp
+		destinations, err := lc.getEnabledDestinationsFromOnRamp(srcChainState, evmChains)
+		if err != nil {
+			return fmt.Errorf("failed to get enabled destinations for EVM chain %d: %w", srcChain, err)
+		}
+
+		for _, dstChain := range destinations {
+			discoveredLanes = append(discoveredLanes, LaneConfig{
+				SourceChain:      srcChain,
+				DestinationChain: dstChain,
+			})
+		}
+	}
+
+	// Discover EVM to Solana lanes
+	for _, srcChain := range evmChains {
+		srcChainState, exists := state.Chains[srcChain]
+		if !exists {
+			continue
+		}
+
+		// Check which Solana destination chains are configured
+		destinations, err := lc.getEnabledDestinationsFromOnRamp(srcChainState, solChains)
+		if err != nil {
+			return fmt.Errorf("failed to get enabled Solana destinations for EVM chain %d: %w", srcChain, err)
+		}
+
+		for _, dstChain := range destinations {
+			discoveredLanes = append(discoveredLanes, LaneConfig{
+				SourceChain:      srcChain,
+				DestinationChain: dstChain,
+			})
+		}
+	}
+
+	// Discover Solana to EVM lanes
+	for _, srcChain := range solChains {
+		srcChainState, exists := state.SolChains[srcChain]
+		if !exists {
+			continue
+		}
+
+		// Check which EVM destination chains are configured on the Solana Router
+		destinations, err := lc.getEnabledDestinationsFromSolanaRouter(srcChainState, evmChains)
+		if err != nil {
+			return fmt.Errorf("failed to get enabled EVM destinations for Solana chain %d: %w", srcChain, err)
+		}
+
+		for _, dstChain := range destinations {
+			discoveredLanes = append(discoveredLanes, LaneConfig{
+				SourceChain:      srcChain,
+				DestinationChain: dstChain,
+			})
+		}
+	}
+
+	// Discover Solana to Solana lanes (if any)
+	for _, srcChain := range solChains {
+		srcChainState, exists := state.SolChains[srcChain]
+		if !exists {
+			continue
+		}
+
+		// Check which Solana destination chains are configured
+		destinations, err := lc.getEnabledDestinationsFromSolanaRouter(srcChainState, solChains)
+		if err != nil {
+			return fmt.Errorf("failed to get enabled Solana destinations for Solana chain %d: %w", srcChain, err)
+		}
+
+		for _, dstChain := range destinations {
+			if dstChain != srcChain { // Skip self-loops
+				discoveredLanes = append(discoveredLanes, LaneConfig{
+					SourceChain:      srcChain,
+					DestinationChain: dstChain,
+				})
+			}
+		}
+	}
+
+	// Sort lanes for deterministic behavior
+	sort.Slice(discoveredLanes, func(i, j int) bool {
+		if discoveredLanes[i].SourceChain != discoveredLanes[j].SourceChain {
+			return discoveredLanes[i].SourceChain < discoveredLanes[j].SourceChain
+		}
+		return discoveredLanes[i].DestinationChain < discoveredLanes[j].DestinationChain
+	})
+
+	// Store discovered lanes in the same field used by deployment configuration
+	lc.generatedLanes = discoveredLanes
+	return nil
+}
+
+// getEnabledDestinationsFromOnRamp checks which destinations are enabled on the OnRamp
+func (lc *LaneConfiguration) getEnabledDestinationsFromOnRamp(chainState evm.CCIPChainState, candidateDestinations []uint64) ([]uint64, error) {
+	var enabledDestinations []uint64
+
+	// For each candidate destination, check if it's enabled on the OnRamp
+	for _, dstChain := range candidateDestinations {
+		isEnabled, err := lc.isDestinationEnabledOnOnRamp(chainState, dstChain)
+		if err != nil {
+			// Log but continue - some destinations might not be configured
+			continue
+		}
+
+		if isEnabled {
+			enabledDestinations = append(enabledDestinations, dstChain)
+		}
+	}
+
+	return enabledDestinations, nil
+}
+
+// getEnabledDestinationsFromSolanaRouter checks which destinations are enabled on the Solana Router
+func (lc *LaneConfiguration) getEnabledDestinationsFromSolanaRouter(chainState solState.CCIPChainState, candidateDestinations []uint64) ([]uint64, error) {
+	var enabledDestinations []uint64
+
+	// For each candidate destination, check if it's enabled on the Solana Router
+	for _, dstChain := range candidateDestinations {
+		isEnabled, err := lc.isDestinationEnabledOnSolanaRouter(chainState, dstChain)
+		if err != nil {
+			// Log but continue - some destinations might not be configured
+			continue
+		}
+
+		if isEnabled {
+			enabledDestinations = append(enabledDestinations, dstChain)
+		}
+	}
+
+	return enabledDestinations, nil
+}
+
+// isDestinationEnabledOnOnRamp checks if a destination is enabled on the EVM OnRamp
+func (lc *LaneConfiguration) isDestinationEnabledOnOnRamp(chainState evm.CCIPChainState, destinationChain uint64) (bool, error) {
+	destConfig, err := chainState.OnRamp.GetDestChainConfig(&bind.CallOpts{}, destinationChain)
+	if err != nil {
+		// If we can't get the config, assume it's not enabled
+		return false, err
+	}
+
+	// Check if the destination is enabled (router address should not be zero)
+	return destConfig.Router != common.HexToAddress("0x0"), nil
+}
+
+// isDestinationEnabledOnSolanaRouter checks if a destination is enabled on the Solana Router
+func (lc *LaneConfiguration) isDestinationEnabledOnSolanaRouter(chainState solState.CCIPChainState, destinationChain uint64) (bool, error) {
+	panic("isDestinationEnabledOnSolanaRouter not implemented yet") // TODO: Implement this function
+}
+
 // GetSourceChainsForDestination returns all source chains that can send to a specific destination
 func (lc *LaneConfiguration) GetSourceChainsForDestination(destination uint64) []uint64 {
-	lanes, err := lc.GetLanes()
-	if err != nil {
+	if lc == nil {
 		return nil
 	}
 
 	var sources []uint64
-	for _, lane := range lanes {
+	for _, lane := range lc.generatedLanes {
 		if lane.DestinationChain == destination {
 			sources = append(sources, lane.SourceChain)
 		}
@@ -294,13 +465,12 @@ func (lc *LaneConfiguration) GetSourceChainsForDestination(destination uint64) [
 
 // GetDestinationChainsForSource returns all destination chains that a source can send to
 func (lc *LaneConfiguration) GetDestinationChainsForSource(source uint64) []uint64 {
-	lanes, err := lc.GetLanes()
-	if err != nil {
+	if lc == nil {
 		return nil
 	}
 
 	var destinations []uint64
-	for _, lane := range lanes {
+	for _, lane := range lc.generatedLanes {
 		if lane.SourceChain == source {
 			destinations = append(destinations, lane.DestinationChain)
 		}
@@ -312,6 +482,64 @@ func (lc *LaneConfiguration) GetDestinationChainsForSource(source uint64) []uint
 	})
 
 	return destinations
+}
+
+// LaneStats provides statistics about the discovered lane configuration
+type LaneStats struct {
+	TotalLanes        int
+	UniqueChains      int
+	AvgLanesPerChain  float64
+	MaxLanesPerChain  int
+	MinLanesPerChain  int
+	SourceChains      int
+	DestinationChains int
+}
+
+// GetLaneStats For metrics and reporting on the lane configuration
+func (lc *LaneConfiguration) GetLaneStats() LaneStats {
+	if lc == nil {
+		return LaneStats{}
+	}
+
+	chainLaneCount := make(map[uint64]int)
+	sourceChains := make(map[uint64]bool)
+	destChains := make(map[uint64]bool)
+
+	for _, lane := range lc.generatedLanes {
+		chainLaneCount[lane.SourceChain]++
+		chainLaneCount[lane.DestinationChain]++
+		sourceChains[lane.SourceChain] = true
+		destChains[lane.DestinationChain] = true
+	}
+
+	stats := LaneStats{
+		TotalLanes:        len(lc.generatedLanes),
+		UniqueChains:      len(chainLaneCount),
+		SourceChains:      len(sourceChains),
+		DestinationChains: len(destChains),
+	}
+
+	if len(chainLaneCount) > 0 {
+		total := 0
+		max := 0
+		min := int(^uint(0) >> 1) // max int
+
+		for _, count := range chainLaneCount {
+			total += count
+			if count > max {
+				max = count
+			}
+			if count < min {
+				min = count
+			}
+		}
+
+		stats.AvgLanesPerChain = float64(total) / float64(len(chainLaneCount))
+		stats.MaxLanesPerChain = max
+		stats.MinLanesPerChain = min
+	}
+
+	return stats
 }
 
 // Example TOML configurations:
