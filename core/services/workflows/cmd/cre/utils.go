@@ -103,7 +103,10 @@ func NewStandaloneEngine(
 		return nil, err
 	}
 
-	billingClient, _ := billing.NewWorkflowClient(billingClientAddr)
+	var billingClient billing.WorkflowClient
+	if billingClientAddr != "" {
+		billingClient, _ = billing.NewWorkflowClient(billingClientAddr)
+	}
 
 	if module.IsLegacyDAG() {
 		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
