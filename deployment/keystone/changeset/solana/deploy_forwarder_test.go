@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/wsrpc/logger"
@@ -25,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 )
 
@@ -258,54 +256,6 @@ func TestConfigureForwarder(t *testing.T) {
 const (
 	testQualifier = "test-deploy"
 )
-
-func shouldDeployForwarder(t *testing.T, env cldf.Environment, solSel uint64) cldf.Environment {
-	cfg := helpers.BuildSolanaConfig{
-		GitCommitSha:   "d047073ea230f965626716029f8d902729ddffed",
-		DestinationDir: "./solana_contracts",
-		LocalBuild: helpers.LocalBuildConfig{
-			BuildLocally:         true,
-			CreateDestinationDir: true,
-		},
-	}
-	// defult
-	fmt.Println(cfg.GitCommitSha)
-	// default solChain looking for contracts in ccip directory
-	chain := env.BlockChains.SolanaChains()[solSel]
-	chain.ProgramsPath = getProgramsPath()
-	env.BlockChains = cldfchain.NewBlockChains(map[uint64]cldfchain.BlockChain{solSel: chain})
-
-	deployer := DeployForwarder{}
-	resp, err := deployer.Apply(env, &DeployForwarderRequest{
-		ChainSel:  solSel,
-		Qualifier: testQualifier,
-		Version:   "1.0.0",
-	})
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-
-	err = resp.DataStore.Merge(env.DataStore)
-	require.NoError(t, err)
-
-	env.DataStore = resp.DataStore.Seal()
-	_, err = env.DataStore.Addresses().Get(datastore.NewAddressRefKey(
-		solSel,
-		ForwarderContract,
-		semver.MustParse("1.0.0"),
-		testQualifier,
-	))
-	require.NoError(t, err)
-
-	_, err = env.DataStore.Addresses().Get(datastore.NewAddressRefKey(
-		solSel,
-		ForwarderState,
-		semver.MustParse("1.0.0"),
-		testQualifier,
-	))
-	require.NoError(t, err)
-
-	return env
-}
 
 func getProgramsPath() string {
 	// Get the directory of the current file (environment.go)
