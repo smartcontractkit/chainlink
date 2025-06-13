@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"math/big"
 	"os"
 	"strings"
@@ -435,11 +436,17 @@ func main() {
 		blockRange, err := blockhashstore.DecreasingBlockRange(big.NewInt(*startBlock-1), big.NewInt(*endBlock))
 		helpers.PanicErr(err)
 
+		numBatches := int(math.Ceil(float64(len(blockRange)) / float64(*batchSize)))
+		batchNum := 1
+
 		for i := 0; i < len(blockRange); i += int(*batchSize) {
 			j := i + int(*batchSize)
 			if j > len(blockRange) {
 				j = len(blockRange)
 			}
+
+			fmt.Printf("[%d/%d]\n", batchNum, numBatches)
+			batchNum++
 
 			// Get suggested gas price and multiply by multiplier on every iteration
 			// so we don't have our transaction getting stuck. Need to be as fast as

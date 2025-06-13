@@ -1389,16 +1389,6 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	}, testutils.WaitTimeout(t), cltest.DBPollingInterval)
 }
 
-func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
-	for _, chain := range app.GetRelayers().LegacyEVMChains().Slice() {
-		keys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.Context(t), chain.ID())
-		require.NoError(t, err)
-		for _, k := range keys {
-			chain.TxManager().Trigger(k.Address)
-		}
-	}
-}
-
 func assertPricesUint256(t *testing.T, usd, eur, jpy *big.Int, consumer *multiwordconsumer_wrapper.MultiWordConsumer) {
 	haveUsd, err := consumer.UsdInt(nil)
 	require.NoError(t, err)
