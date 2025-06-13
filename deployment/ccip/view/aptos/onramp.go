@@ -16,10 +16,10 @@ import (
 type OnRampView struct {
 	aptosCommon.ContractMetaData
 
-	StaticConfig          OnRampStaticConfig
-	DynamicConfig         OnRampDynamicConfig
-	SourceTokenToPool     map[string]string
-	DestChainSpecificData map[uint64]DestChainSpecificData
+	StaticConfig          OnRampStaticConfig               `json:"staticConfig"`
+	DynamicConfig         OnRampDynamicConfig              `json:"dynamicConfig"`
+	SourceTokenToPool     map[string]string                `json:"sourceTokenToPool"`
+	DestChainSpecificData map[uint64]DestChainSpecificData `json:"destChainSpecificData"`
 }
 
 type OnRampStaticConfig struct {
@@ -32,9 +32,9 @@ type OnRampDynamicConfig struct {
 }
 
 type DestChainSpecificData struct {
-	AllowedSendersList []string
-	DestChainConfig    OnRampDestChainConfig
-	ExpectedNextSeqNum uint64
+	AllowedSendersList []string              `json:"allowedSendersList"`
+	DestChainConfig    OnRampDestChainConfig `json:"destChainConfig"`
+	ExpectedNextSeqNum uint64                `json:"expectedNextSeqNum"`
 }
 
 type OnRampDestChainConfig struct {
@@ -53,22 +53,26 @@ func GenerateOnRampView(
 	boundRouter := ccip_router.Bind(routerAddress, chain.Client)
 	boundCCIP := ccip.Bind(ccipAddress, chain.Client)
 
+	typeAndVersion, err := boundOnRamp.Onramp().TypeAndVersion(nil)
+	if err != nil {
+		return OnRampView{}, fmt.Errorf("failed to get typeAndVersion of onRamp %s: %w", onRampAddress.StringLong(), err)
+	}
 	destinationChainSelectors, err := boundRouter.Router().GetDestChains(nil)
 	if err != nil {
-		return OnRampView{}, fmt.Errorf("failed to get dest chain selectors: %w", err)
+		return OnRampView{}, fmt.Errorf("failed to get destChainSelectors of router %s: %w", routerAddress.StringLong(), err)
 	}
 
 	owner, err := boundOnRamp.Onramp().Owner(nil)
 	if err != nil {
-		return OnRampView{}, fmt.Errorf("failed to get owner for onramp %v: %w", onRampAddress.StringLong(), err)
+		return OnRampView{}, fmt.Errorf("failed to get owner of onramp %s: %w", onRampAddress.StringLong(), err)
 	}
 	staticConfig, err := boundOnRamp.Onramp().GetStaticConfig(nil)
 	if err != nil {
-		return OnRampView{}, fmt.Errorf("failed to get static config for onramp %v: %w", onRampAddress.StringLong(), err)
+		return OnRampView{}, fmt.Errorf("failed to get staticConfig of onRamp %s: %w", onRampAddress.StringLong(), err)
 	}
 	dynamicConfig, err := boundOnRamp.Onramp().GetDynamicConfig(nil)
 	if err != nil {
-		return OnRampView{}, fmt.Errorf("failed to get dynamic config for onramp %v: %w", onRampAddress.StringLong(), err)
+		return OnRampView{}, fmt.Errorf("failed to get dynamicConfig of onRamp %s: %w", onRampAddress.StringLong(), err)
 	}
 
 	nodeInfo, err := chain.Client.Info()
@@ -88,11 +92,11 @@ func GenerateOnRampView(
 	for next {
 		sourceTokens, nextKey, next, err = boundCCIP.TokenAdminRegistry().GetAllConfiguredTokens(callOpts, nextKey, 100)
 		if err != nil {
-			return OnRampView{}, fmt.Errorf("failed to get all configured tokens from tokenAdminRegistry %v: %w", ccipAddress.StringLong(), err)
+			return OnRampView{}, fmt.Errorf("failed to get allConfiguredTokens of tokenAdminRegistry %s: %w", ccipAddress.StringLong(), err)
 		}
 		pools, err := boundCCIP.TokenAdminRegistry().GetPools(callOpts, sourceTokens)
 		if err != nil {
-			return OnRampView{}, fmt.Errorf("failed to get pools from tokenAdminRegistry %v: %w", ccipAddress.StringLong(), err)
+			return OnRampView{}, fmt.Errorf("failed to get pools of tokenAdminRegistry %s: %w", ccipAddress.StringLong(), err)
 		}
 		for i, pool := range pools {
 			sourceTokensToPool[sourceTokens[i].StringLong()] = pool.StringLong()
@@ -103,23 +107,23 @@ func GenerateOnRampView(
 	for _, selector := range destinationChainSelectors {
 		expectedNextSequenceNumber, err := boundOnRamp.Onramp().GetExpectedNextSequenceNumber(nil, selector)
 		if err != nil {
-			return OnRampView{}, fmt.Errorf("failed to get expected next sequence number for selector %v: %w", selector, err)
+			return OnRampView{}, fmt.Errorf("failed to get expected nextSequenceNumber for selector %d of onRamp %s: %w", selector, onRampAddress.StringLong(), err)
 		}
 		sequenceNumber, allowlistEnabled, routerAddr, err := boundOnRamp.Onramp().GetDestChainConfig(nil, selector)
 		if err != nil {
-			return OnRampView{}, fmt.Errorf("failed to get dest chain config for selector %v: %w", selector, err)
+			return OnRampView{}, fmt.Errorf("failed to get destChainConfig for selector %d of onRamp %s: %w", selector, onRampAddress.StringLong(), err)
 		}
 		_, allowedSenders, err := boundOnRamp.Onramp().GetAllowedSendersList(nil, selector)
 		if err != nil {
-			return OnRampView{}, fmt.Errorf("failed to get allowlist for selector %v: %w", selector, err)
+			return OnRampView{}, fmt.Errorf("failed to get allowedSendersList for selector %d of onRamp %s: %w", selector, onRampAddress.StringLong(), err)
 		}
 		allowedSenderStrings := make([]string, len(allowedSenders))
 		for i, allowedSender := range allowedSenders {
 			allowedSenderStrings[i] = allowedSender.StringLong()
 		}
-		destChainSpecificData[selector]  = DestChainSpecificData{
+		destChainSpecificData[selector] = DestChainSpecificData{
 			AllowedSendersList: allowedSenderStrings,
-			DestChainConfig:    OnRampDestChainConfig{
+			DestChainConfig: OnRampDestChainConfig{
 				SequenceNumber:   sequenceNumber,
 				AllowlistEnabled: allowlistEnabled,
 				Router:           routerAddr.StringLong(),
@@ -130,8 +134,9 @@ func GenerateOnRampView(
 
 	return OnRampView{
 		ContractMetaData: aptosCommon.ContractMetaData{
-			Address: onRampAddress.StringLong(),
-			Owner:   owner.StringLong(),
+			Address:        onRampAddress.StringLong(),
+			Owner:          owner.StringLong(),
+			TypeAndVersion: typeAndVersion,
 		},
 		StaticConfig: OnRampStaticConfig{
 			ChainSelector: staticConfig.ChainSelector,
@@ -140,7 +145,7 @@ func GenerateOnRampView(
 			FeeAggregator:  dynamicConfig.FeeAggregator.StringLong(),
 			AllowlistAdmin: dynamicConfig.AllowlistAdmin.StringLong(),
 		},
-		SourceTokenToPool: sourceTokensToPool,
-		DestChainSpecificData:destChainSpecificData,
+		SourceTokenToPool:     sourceTokensToPool,
+		DestChainSpecificData: destChainSpecificData,
 	}, nil
 }

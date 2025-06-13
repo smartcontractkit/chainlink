@@ -19,33 +19,38 @@ type RouterView struct {
 func GenerateRouterView(chain cldf_aptos.Chain, routerAddress aptos.AccountAddress) (RouterView, error) {
 	boundRouter := ccip_router.Bind(routerAddress, chain.Client)
 
+	typeAndVersion, err := boundRouter.Router().TypeAndVersion(nil)
+	if err != nil {
+		return RouterView{}, fmt.Errorf("failed to get typeAndVersion of router %s: %w", routerAddress.StringLong(), err)
+	}
 	owner, err := boundRouter.Router().Owner(nil)
 	if err != nil {
-		return RouterView{}, fmt.Errorf("failed to retrieve owner of router %s: %w", routerAddress.String(), err)
+		return RouterView{}, fmt.Errorf("failed to get owner of router %s: %w", routerAddress.StringLong(), err)
 	}
 
 	destinationChainSelectors, err := boundRouter.Router().GetDestChains(nil)
 	if err != nil {
-		return RouterView{}, fmt.Errorf("failed to get dest chain selectors: %w", err)
+		return RouterView{}, fmt.Errorf("failed to get destChainSelectors of router %s: %w", routerAddress.StringLong(), err)
 	}
 	onrampVersions, err := boundRouter.Router().GetOnRampVersions(nil, destinationChainSelectors)
 	if err != nil {
-		return RouterView{}, fmt.Errorf("failed to get onRamp versions: %w", err)
+		return RouterView{}, fmt.Errorf("failed to get onRamp versions of router %s: %w", routerAddress.StringLong(), err)
 	}
 
 	onRamps := make(map[uint64]string, len(onrampVersions))
 	for i, destChainSelector := range destinationChainSelectors {
 		onRampAddress, err := boundRouter.Router().GetOnRampForVersion(nil, onrampVersions[i])
 		if err != nil {
-			return RouterView{}, fmt.Errorf("failed to get onRamp for version %d: %w", onrampVersions[i], err)
+			return RouterView{}, fmt.Errorf("failed to get onRamp for version %d of router %s: %w", onrampVersions[i], routerAddress.StringLong(), err)
 		}
 		onRamps[destChainSelector] = onRampAddress.StringLong()
 	}
 
 	return RouterView{
 		ContractMetaData: aptosCommon.ContractMetaData{
-			Address: routerAddress.StringLong(),
-			Owner:   owner.StringLong(),
+			Address:        routerAddress.StringLong(),
+			Owner:          owner.StringLong(),
+			TypeAndVersion: typeAndVersion,
 		},
 		OnRamps: onRamps,
 	}, nil

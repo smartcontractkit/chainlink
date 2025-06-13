@@ -101,6 +101,12 @@ type CCIPOnChainState struct {
 	evmMu       *sync.RWMutex
 }
 
+type CCIPStateView struct {
+	Chains      map[string]view.ChainView
+	SolChains   map[string]view.SolChainView
+	AptosChains map[string]view.AptosChainView
+}
+
 func (c CCIPOnChainState) EVMChains() []uint64 {
 	c.evmMu.RLock()
 	defer c.evmMu.RUnlock()
@@ -484,7 +490,7 @@ func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel 
 	return nil
 }
 
-func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (map[string]view.ChainView, map[string]view.SolChainView, map[string]view.AptosChainView, error) {
+func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateView, error) {
 	m := sync.Map{}
 	sm := sync.Map{}
 	am := sync.Map{}
@@ -555,24 +561,26 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (map[string
 		})
 	}
 	if err := grp.Wait(); err != nil {
-		return nil, nil, nil, err
+		return CCIPStateView{}, err
 	}
-	finalEVMMap := make(map[string]view.ChainView)
+	stateView := CCIPStateView{
+		Chains:      make(map[string]view.ChainView),
+		SolChains:   make(map[string]view.SolChainView),
+		AptosChains: make(map[string]view.AptosChainView),
+	}
 	m.Range(func(key, value interface{}) bool {
-		finalEVMMap[key.(string)] = value.(view.ChainView)
+		stateView.Chains[key.(string)] = value.(view.ChainView)
 		return true
 	})
-	finalSolanaMap := make(map[string]view.SolChainView)
 	sm.Range(func(key, value interface{}) bool {
-		finalSolanaMap[key.(string)] = value.(view.SolChainView)
+		stateView.SolChains[key.(string)] = value.(view.SolChainView)
 		return true
 	})
-	finalAptosMap := make(map[string]view.AptosChainView)
 	am.Range(func(key, value interface{}) bool {
-		finalAptosMap[key.(string)] = value.(view.AptosChainView)
+		stateView.AptosChains[key.(string)] = value.(view.AptosChainView)
 		return true
 	})
-	return finalEVMMap, finalSolanaMap, finalAptosMap, grp.Wait()
+	return stateView, grp.Wait()
 }
 
 func (c CCIPOnChainState) GetOffRampAddressBytes(chainSelector uint64) ([]byte, error) {

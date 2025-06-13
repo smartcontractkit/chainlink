@@ -140,7 +140,7 @@ type AptosChainView struct {
 	OnRamp  map[string]aptos.OnRampView  `json:"onRamp,omitempty"`
 	OffRamp map[string]aptos.OffRampView `json:"offRamp,omitempty"`
 
-	TokenPools map[string]map[string]aptos.TokenPoolView // TokenSymbol => TokenPool Address => PoolView
+	TokenPools map[string]map[string]aptos.TokenPoolView `json:"poolByTokens,omitempty"` // TokenSymbol => TokenPool Address => PoolView
 
 	UpdateMu *sync.Mutex `json:"-"`
 }
@@ -164,7 +164,7 @@ func NewAptosChainView() AptosChainView {
 type CCIPView struct {
 	Chains      map[string]ChainView      `json:"chains,omitempty"`
 	SolChains   map[string]SolChainView   `json:"solChains,omitempty"`
-	AptosChains map[string]AptosChainView `json:"aptosChains,omitempty	"`
+	AptosChains map[string]AptosChainView `json:"aptosChains,omitempty"`
 	Nops        map[string]view.NopView   `json:"nops,omitempty"`
 }
 

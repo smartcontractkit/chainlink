@@ -8,6 +8,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
+	aptosHelpers "github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/managed_token"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
 	aptosview "github.com/smartcontractkit/chainlink/deployment/ccip/view/aptos"
@@ -62,7 +64,13 @@ func LoadOnchainStateAptos(env cldf.Environment) (map[uint64]CCIPChainState, err
 }
 
 func loadAptosChainStateFromAddresses(addresses map[string]cldf.TypeAndVersion, client aptos.AptosRpcClient) (CCIPChainState, error) {
-	chainState := CCIPChainState{}
+	chainState := CCIPChainState{
+		ManagedTokens:          make(map[shared.TokenSymbol]aptos.AccountAddress),
+		AptosManagedTokenPools: make(map[aptos.AccountAddress]aptos.AccountAddress),
+		BurnMintTokenPools:     make(map[aptos.AccountAddress]aptos.AccountAddress),
+		LockReleaseTokenPools:  make(map[aptos.AccountAddress]aptos.AccountAddress),
+	}
+
 	for addrStr, typeAndVersion := range addresses {
 		// Parse address
 		address := &aptos.AccountAddress{}
@@ -80,6 +88,24 @@ func loadAptosChainStateFromAddresses(addresses map[string]cldf.TypeAndVersion, 
 			chainState.LinkTokenAddress = *address
 		case shared.AptosReceiverType:
 			chainState.ReceiverAddress = *address
+		case shared.AptosManagedTokenType:
+			noLabel := typeAndVersion.Labels.IsEmpty()
+			symbol := shared.TokenSymbol("")
+			if noLabel {
+				token := managed_token.Bind(*address, client)
+				metadataAddress, err := token.ManagedToken().TokenMetadata(nil)
+				if err != nil {
+					return chainState, fmt.Errorf("failed to get FA Metadata for ManagedToken %s: %w", addrStr, err)
+				}
+				metadata, err := aptosHelpers.GetFungibleAssetMetadata(client, metadataAddress)
+				if err != nil {
+					return chainState, fmt.Errorf("failed to get Fungible Asset Metadata for Managed Token %s: %w", addrStr, err)
+				}
+				symbol = shared.TokenSymbol(metadata.Symbol)
+			} else {
+				symbol = shared.TokenSymbol(typeAndVersion.Labels.List()[0])
+			}
+			chainState.ManagedTokens[symbol] = *address
 		case shared.AptosManagedTokenPoolType:
 			noLabel := typeAndVersion.Labels.IsEmpty()
 			token := aptos.AccountAddress{}
@@ -98,7 +124,6 @@ func loadAptosChainStateFromAddresses(addresses map[string]cldf.TypeAndVersion, 
 					return chainState, fmt.Errorf("failed to parse token address %s for ManagedTokenPool %s: %w", tokenStr, addrStr, err)
 				}
 			}
-			chainState.AptosManagedTokenPools = make(map[aptos.AccountAddress]aptos.AccountAddress)
 			chainState.AptosManagedTokenPools[token] = *address
 		case shared.BurnMintTokenPool:
 			noLabel := typeAndVersion.Labels.IsEmpty()
@@ -118,7 +143,6 @@ func loadAptosChainStateFromAddresses(addresses map[string]cldf.TypeAndVersion, 
 					return chainState, fmt.Errorf("failed to parse token address %s for BurnMintTokenPool %s: %w", tokenStr, addrStr, err)
 				}
 			}
-			chainState.BurnMintTokenPools = make(map[aptos.AccountAddress]aptos.AccountAddress)
 			chainState.BurnMintTokenPools[token] = *address
 		case shared.LockReleaseTokenPool:
 			noLabel := typeAndVersion.Labels.IsEmpty()
@@ -138,7 +162,6 @@ func loadAptosChainStateFromAddresses(addresses map[string]cldf.TypeAndVersion, 
 					return chainState, fmt.Errorf("failed to parse token address %s for LockReleaseTokenPool %s: %w", tokenStr, addrStr, err)
 				}
 			}
-			chainState.LockReleaseTokenPools = make(map[aptos.AccountAddress]aptos.AccountAddress)
 			chainState.LockReleaseTokenPools[token] = *address
 		}
 	}
@@ -161,24 +184,17 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 
 	// Tokens
 	errGroup.Go(func() error {
-		linkTokenView, err := aptosview.GenerateTokenView(chain, s.LinkTokenAddress)
-		if err != nil {
-			return errors.Wrapf(err, "failed to generate link token view for link token %s", s.LinkTokenAddress.StringLong())
-		}
-		chainView.UpdateMu.Lock()
-		chainView.LinkToken = linkTokenView
-		chainView.UpdateMu.Unlock()
-		lggr.Infow("generated link token view", "linkToken", s.LinkTokenAddress.StringLong(), "chain", chainName)
-		return nil
-	})
-	errGroup.Go(func() error {
 		for symbol, address := range s.ManagedTokens {
 			tokenView, err := aptosview.GenerateTokenView(chain, address)
 			if err != nil {
 				return errors.Wrapf(err, "failed to generate token view for managed token (%s) %s", symbol, address)
 			}
 			chainView.UpdateMu.Lock()
-			chainView.Tokens[symbol.String()] = tokenView
+			if symbol == shared.LinkSymbol {
+				chainView.LinkToken = tokenView
+			} else {
+				chainView.Tokens[symbol.String()] = tokenView
+			}
 			chainView.UpdateMu.Unlock()
 			lggr.Infow("generated token view", "tokenAddress", address.StringLong(), "symbol", symbol, "chain", chainName)
 		}
@@ -250,7 +266,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 	// Token pools
 	errGroup.Go(func() error {
 		for tokenAddress, tokenPoolAddress := range s.AptosManagedTokenPools {
-			faMetadata, err := aptosview.GetFungibleAssetMetadata(chain.Client, tokenAddress)
+			faMetadata, err := aptosHelpers.GetFungibleAssetMetadata(chain.Client, tokenAddress)
 			if err != nil {
 				return errors.Wrapf(err, "failed to get fungible asset metadata for token %s", tokenAddress)
 			}
@@ -267,7 +283,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 	})
 	errGroup.Go(func() error {
 		for tokenAddress, tokenPoolAddress := range s.BurnMintTokenPools {
-			faMetadata, err := aptosview.GetFungibleAssetMetadata(chain.Client, tokenAddress)
+			faMetadata, err := aptosHelpers.GetFungibleAssetMetadata(chain.Client, tokenAddress)
 			if err != nil {
 				return errors.Wrapf(err, "failed to get fungible asset metadata for token %s", tokenAddress)
 			}
@@ -284,7 +300,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 	})
 	errGroup.Go(func() error {
 		for tokenAddress, tokenPoolAddress := range s.LockReleaseTokenPools {
-			faMetadata, err := aptosview.GetFungibleAssetMetadata(chain.Client, tokenAddress)
+			faMetadata, err := aptosHelpers.GetFungibleAssetMetadata(chain.Client, tokenAddress)
 			if err != nil {
 				return errors.Wrapf(err, "failed to get fungible asset metadata for token %s", tokenAddress)
 			}
