@@ -446,7 +446,7 @@ func main() {
 			}
 
 			fmt.Printf("[%d/%d]\n", batchNum, numBatches)
-			batchNum += 1
+			batchNum++
 
 			// Get suggested gas price and multiply by multiplier on every iteration
 			// so we don't have our transaction getting stuck. Need to be as fast as
