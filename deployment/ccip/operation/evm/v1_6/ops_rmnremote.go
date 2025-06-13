@@ -5,9 +5,11 @@ import (
 	"reflect"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -137,4 +139,16 @@ var (
 				DescribedTimelockProposals: csOutput.DescribedTimelockProposals,
 			}, nil
 		})
+
+	SetRMNRemoteOnRMNProxyOp = opsutil.NewEVMCallOperation(
+		"SetRMNRemoteOnRMNProxyOp",
+		semver.MustParse("1.0.0"),
+		"Sets SetRMNRemote on RMNProxy contract on the specified evm chain",
+		rmn_proxy_contract.RMNProxyABI,
+		shared.ARMProxy,
+		rmn_proxy_contract.NewRMNProxy,
+		func(rmnProxy *rmn_proxy_contract.RMNProxy, opts *bind.TransactOpts, input common.Address) (*types.Transaction, error) {
+			return rmnProxy.SetARM(opts, input)
+		},
+	)
 )

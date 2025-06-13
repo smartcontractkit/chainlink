@@ -1,10 +1,8 @@
 package v1_6
 
 import (
-	"errors"
-	"fmt"
-
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
@@ -15,11 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var (
@@ -64,67 +58,27 @@ var (
 			return nonceManager.Address, nil
 		})
 
-	NonceManagerUpdateAuthorizedCallerOp = operations.NewOperation(
-		"NonceManagerUpdateAuthorizedCaller",
+	NonceManagerUpdateAuthorizedCallerOp = opsutil.NewEVMCallOperation(
+		"NonceManagerUpdateAuthorizedCallerOp",
 		semver.MustParse("1.0.0"),
-		"Update authorized callers in NonceManager 1.6 contract on the specified evm chain",
-		func(b operations.Bundle, deps opsutil.ConfigureDependencies, input NonceManagerUpdateAuthorizedCallerInput) (opsutil.OpOutput, error) {
-			state := deps.CurrentState
-			e := deps.Env
-			err := input.Validate(e, state)
-			if err != nil {
-				return opsutil.OpOutput{}, err
-			}
-			chain := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
-			chainState := state.MustGetEVMChainState(input.ChainSelector)
-			deployerGroup := deployergroup.NewDeployerGroup(e, state, input.MCMS).
-				WithDeploymentContext("set NonceManager authorized caller on " + chain.String())
-			opts, err := deployerGroup.GetDeployer(input.ChainSelector)
-			if err != nil {
-				return opsutil.OpOutput{}, fmt.Errorf("failed to get deployer for %s", chain)
-			}
-			nonceManager := chainState.NonceManager
-			_, err = nonceManager.ApplyAuthorizedCallerUpdates(opts, input.Callers)
-			if err != nil {
-				b.Logger.Errorw("Failed to apply authorized caller updates on NonceManager", "chain", chain.String(), "err", err)
-				return opsutil.OpOutput{}, fmt.Errorf("failed to apply authorized caller updates on NonceManager: %w", err)
-			}
-			csOutput, err := deployerGroup.Enact()
-			if err != nil {
-				return opsutil.OpOutput{}, fmt.Errorf("failed to apply authorized caller updates on NonceManager: %w", err)
-			}
-			return opsutil.OpOutput{
-				Proposals:                  csOutput.MCMSTimelockProposals,
-				DescribedTimelockProposals: csOutput.DescribedTimelockProposals,
-			}, nil
-		})
-)
-
-type NonceManagerUpdateAuthorizedCallerInput struct {
-	ChainSelector uint64
-	Callers       nonce_manager.AuthorizedCallersAuthorizedCallerArgs
-	MCMS          *proposalutils.TimelockConfig
-}
-
-func (n NonceManagerUpdateAuthorizedCallerInput) Validate(env cldf.Environment, state stateview.CCIPOnChainState) error {
-	err := stateview.ValidateChain(env, state, n.ChainSelector, n.MCMS)
-	if err != nil {
-		return err
-	}
-	chain := env.BlockChains.EVMChains()[n.ChainSelector]
-	if state.MustGetEVMChainState(n.ChainSelector).NonceManager == nil {
-		return fmt.Errorf("NonceManager not found for chain %s", chain.String())
-	}
-	err = commoncs.ValidateOwnership(
-		env.GetContext(), n.MCMS != nil,
-		chain.DeployerKey.From, state.MustGetEVMChainState(n.ChainSelector).Timelock.Address(),
-		state.MustGetEVMChainState(n.ChainSelector).NonceManager,
+		"Updates authorized callers in NonceManager 1.6 contract on the specified evm chain",
+		nonce_manager.NonceManagerABI,
+		shared.NonceManager,
+		nonce_manager.NewNonceManager,
+		func(nonceManager *nonce_manager.NonceManager, opts *bind.TransactOpts, input nonce_manager.AuthorizedCallersAuthorizedCallerArgs) (*types.Transaction, error) {
+			return nonceManager.ApplyAuthorizedCallerUpdates(opts, input)
+		},
 	)
-	if err != nil {
-		return fmt.Errorf("failed to validate ownership: %w", err)
-	}
-	if len(n.Callers.AddedCallers) == 0 && len(n.Callers.RemovedCallers) == 0 {
-		return errors.New("at least one caller is required")
-	}
-	return nil
-}
+
+	NonceManagerPreviousRampsUpdatesOp = opsutil.NewEVMCallOperation(
+		"NonceManagerPreviousRampsUpdatesOp",
+		semver.MustParse("1.0.0"),
+		"Applies previous ramps updates in NonceManager 1.6 contract on the specified evm chain",
+		nonce_manager.NonceManagerABI,
+		shared.NonceManager,
+		nonce_manager.NewNonceManager,
+		func(nonceManager *nonce_manager.NonceManager, opts *bind.TransactOpts, input []nonce_manager.NonceManagerPreviousRampsArgs) (*types.Transaction, error) {
+			return nonceManager.ApplyPreviousRampsUpdates(opts, input)
+		},
+	)
+)
