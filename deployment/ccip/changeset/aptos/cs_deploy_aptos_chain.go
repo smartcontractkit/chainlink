@@ -120,7 +120,7 @@ func (cs DeployAptosChain) Apply(env cldf.Environment, cfg config.DeployAptosCha
 			mcmsOperations = append(mcmsOperations, linkSeqReport.Output.MCMSOperations...)
 
 			// Save token object address in address book
-			typeAndVersion := cldf.NewTypeAndVersion(shared.AptosManagedTokenType, deployment.Version1_6_0)
+			typeAndVersion = cldf.NewTypeAndVersion(shared.AptosManagedTokenType, deployment.Version1_6_0)
 			typeAndVersion.AddLabel(string(shared.LinkSymbol))
 			err = deps.AB.Save(deps.AptosChain.Selector, linkSeqReport.Output.TokenObjAddress.StringLong(), typeAndVersion)
 			if err != nil {

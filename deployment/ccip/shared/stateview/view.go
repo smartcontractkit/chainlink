@@ -19,11 +19,10 @@ func ViewCCIP(e deployment.Environment) (json.Marshaler, error) {
 	if err != nil {
 		return nil, err
 	}
-	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
-	solSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
-	aptosSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyAptos))
-	allChains := append(evmSelectors, solSelectors...)
-	allChains = append(allChains, aptosSelectors...)
+	var allChains []uint64
+	allChains = append(allChains, e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))...)
+	allChains = append(allChains, e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))...)
+	allChains = append(allChains, e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyAptos))...)
 	stateView, err := state.View(&e, allChains)
 	if err != nil {
 		return nil, err

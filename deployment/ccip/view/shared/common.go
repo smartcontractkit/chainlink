@@ -52,7 +52,7 @@ func GetAddressFromBytes(chainSelector uint64, address []byte) string {
 	case chain_selectors.FamilySolana:
 		return base58.Encode(address)
 	case chain_selectors.FamilyAptos:
-		return fmt.Sprintf("0x%s", hex.EncodeToString(common.LeftPadBytes(address, 32)))
+		return "0x" + hex.EncodeToString(common.LeftPadBytes(address, 32))
 	default:
 		return "unsupported chain family"
 	}
