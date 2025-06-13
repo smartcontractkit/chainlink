@@ -80,9 +80,15 @@ type Report struct {
 
 func NewReport(owner, workflowID, workflowExecutionID string, lggr logger.Logger, client BillingClient) *Report {
 	return &Report{
-		balance: balanceStore,
-		steps:   make(map[ReportStepRef]ReportStep),
-		lggr:    logger,
+		owner:               owner,
+		workflowID:          workflowID,
+		workflowExecutionID: workflowExecutionID,
+
+		client: client,
+		lggr:   logger.Sugared(lggr).Named("Metering").With("workflowExecutionID", workflowExecutionID),
+
+		ready: false,
+		steps: make(map[string]ReportStep),
 	}
 }
 

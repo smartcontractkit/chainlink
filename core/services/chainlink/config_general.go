@@ -558,4 +558,8 @@ func (g *generalConfig) CRE() coreconfig.CRE {
 	return &creConfig{s: g.secrets.CRE, c: g.c.CRE}
 }
 
+func (g *generalConfig) Billing() coreconfig.Billing {
+	return &billingConfig{t: g.c.Billing}
+}
+
 var zeroSha256Hash = models.Sha256Hash{}

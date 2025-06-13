@@ -99,10 +99,6 @@ func (sucm *stepUpdateManager) len() int64 {
 
 type SecretsFor func(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error)
 
-type billingClient interface {
-	SubmitWorkflowReceipt(context.Context, *billing.SubmitWorkflowReceiptRequest) (*billing.SubmitWorkflowReceiptResponse, error)
-}
-
 // Engine handles the lifecycle of a single workflow and its executions.
 type Engine struct {
 	services.StateMachine
@@ -124,7 +120,6 @@ type Engine struct {
 	maxExecutionDuration time.Duration
 	heartbeatCadence     time.Duration
 	stepTimeoutDuration  time.Duration
-	billingClient        billingClient
 
 	// testing lifecycle hook to signal when an execution is finished.
 	onExecutionFinished func(string)
@@ -1290,7 +1285,7 @@ type Config struct {
 	SecretsFetcher       SecretsFor
 	HeartbeatCadence     time.Duration
 	StepTimeout          time.Duration
-	BillingClient        billingClient
+	BillingClient        metering.BillingClient
 
 	// RateLimiter limits the workflow execution steps globally and per
 	// second that a workflow owner can make

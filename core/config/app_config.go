@@ -60,6 +60,7 @@ type AppConfig interface {
 	Tracing() Tracing
 	Telemetry() Telemetry
 	CRE() CRE
+	Billing() Billing
 }
 
 type DatabaseBackupMode string

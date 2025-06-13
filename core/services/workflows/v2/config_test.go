@@ -1,6 +1,7 @@
 package v2_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/jonboulle/clockwork"
@@ -58,6 +59,7 @@ func defaultTestConfig(t *testing.T) *v2.EngineConfig {
 		PerSenderBurst: 100,
 	})
 	require.NoError(t, err)
+
 	return &v2.EngineConfig{
 		Lggr:                 lggr,
 		Module:               modulemocks.NewModuleV2(t),
@@ -72,4 +74,23 @@ func defaultTestConfig(t *testing.T) *v2.EngineConfig {
 		BeholderEmitter:      &noopBeholderEmitter{},
 		BillingClient:        metmocks.NewBillingClient(t),
 	}
+}
+
+type noopBeholderEmitter struct {
+}
+
+func (m *noopBeholderEmitter) Emit(_ context.Context, _ string) error {
+	return nil
+}
+
+func (m *noopBeholderEmitter) WithMapLabels(labels map[string]string) custmsg.MessageEmitter {
+	return m
+}
+
+func (m *noopBeholderEmitter) With(kvs ...string) custmsg.MessageEmitter {
+	return m
+}
+
+func (m *noopBeholderEmitter) Labels() map[string]string {
+	return map[string]string{}
 }
