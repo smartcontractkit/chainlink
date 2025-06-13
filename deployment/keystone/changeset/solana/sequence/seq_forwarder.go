@@ -3,7 +3,6 @@ package sequence
 import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink/deployment"
 	commonOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/operations"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence/operation"
 )
@@ -30,6 +29,8 @@ type (
 	}
 )
 
+const KeystoneForwarderProgramSize = 5 * 1024 * 1024
+
 func deployForwarder(b operations.Bundle, deps operation.Deps, in DeployForwarderSeqInput) (DeployForwarderSeqOutput, error) {
 	var out DeployForwarderSeqOutput
 
@@ -37,7 +38,7 @@ func deployForwarder(b operations.Bundle, deps operation.Deps, in DeployForwarde
 	deployOut, err := operations.ExecuteOperation(b, operation.DeployForwarderOp, commonOps.Deps{Chain: deps.Chain}, commonOps.DeployInput{
 		ProgramName:  in.ProgramName,
 		Overallocate: in.Overallocate,
-		Size:         deployment.SolanaProgramBytes[deployment.KeystoneForwarderProgramName],
+		Size:         KeystoneForwarderProgramSize,
 		ChainSel:     in.ChainSel,
 	})
 
