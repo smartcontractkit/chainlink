@@ -7,6 +7,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -140,6 +141,21 @@ func (s *MCMSWithTimelockProgramsSolana) RoleAccount(role timelockBindings.Role)
 		return s.BypasserAccessControllerAccount
 	default:
 		return solana.PublicKey{}
+	}
+}
+
+func (s *MCMSWithTimelockProgramsSolana) TimelockAddress() string {
+	return EncodeAddressWithSeed(s.TimelockProgram, s.TimelockSeed)
+}
+
+func (s *MCMSWithTimelockProgramsSolana) ProposalMCM(action mcmstypes.TimelockAction) (string, error) {
+	switch action {
+	case "", mcmstypes.TimelockActionSchedule:
+		return EncodeAddressWithSeed(s.McmProgram, s.ProposerMcmSeed), nil
+	case mcmstypes.TimelockActionBypass:
+		return EncodeAddressWithSeed(s.McmProgram, s.BypasserMcmSeed), nil
+	default:
+		return "", fmt.Errorf("invalid mcms action: %v", action)
 	}
 }
 
