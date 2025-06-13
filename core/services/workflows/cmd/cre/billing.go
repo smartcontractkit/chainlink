@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 )
 
 type BillingService struct {
@@ -43,7 +44,7 @@ func (s *BillingService) ReserveCredits(
 ) (*billing.ReserveCreditsResponse, error) {
 	s.lggr.Infof("ReserveCredits: %v", request)
 
-	return &billing.ReserveCreditsResponse{Success: true}, nil
+	return &billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: metering.ComputeResourceDimension, ConversionRate: "0.0001"}}, Credits: 10000}, nil
 }
 
 func (s *BillingService) WorkflowReceipt(
