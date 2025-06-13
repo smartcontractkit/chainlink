@@ -20,6 +20,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
+const (
+	SolanaVerifyProgramID = "verifycLy8mB96wd9wqq3WDXQwM4oU6r42Th37Db9fC"
+)
+
 // https://solana.com/developers/guides/advanced/verified-builds
 type VerifyBuildConfig struct {
 	GitCommitSha                 string
@@ -100,7 +104,7 @@ func runSolanaVerifyMCMS(e cldf.Environment,
 	}
 
 	// build mcms tx from ix
-	upgradeTx, err := BuildMCMSTxn(resolvedIxn, programID, cldf.ContractType(libraryName))
+	upgradeTx, err := BuildMCMSTxn(resolvedIxn, resolvedIxn.ProgID.String(), cldf.ContractType(libraryName))
 	if err != nil {
 		return fmt.Errorf("failed to build upgrade transaction: %w", err)
 	}
@@ -183,7 +187,12 @@ func runSolanaVerify(e cldf.Environment,
 	return runSolanaVerifyWithoutMCMS(e, cfg, chain, programID, libraryName, mountPath, timelockSignerPDA)
 }
 
+// each tx contains 2 things
+// 1. message (which contains a list of instructions)
+// 2. signatures
+// we will extract out the relevant instruction from the message by decoding the different layers
 func getIxnFromEncodedTx(e cldf.Environment, output string, timelockSignerPDA solana.PublicKey) (*solana.GenericInstruction, error) {
+	// get the base58-encoded transaction from the output
 	lines := strings.Split(output, "\n")
 	var base58EncodedTx string
 	for i := len(lines) - 1; i >= 0; i-- {
@@ -197,58 +206,75 @@ func getIxnFromEncodedTx(e cldf.Environment, output string, timelockSignerPDA so
 	}
 	e.Logger.Infow("base58-encoded transaction", "tx", base58EncodedTx)
 
-	txBytes, err := base58.Decode(base58EncodedTx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode base58-encoded transaction: %w", err)
-	}
-	e.Logger.Infow("txBytes", "txBytes", txBytes)
-	tx, err := solana.TransactionFromBytes(txBytes)
+	// create a transaction object from the base58EncodedTx
+	tx, err := solana.TransactionFromBase58(base58EncodedTx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create transaction from bytes: %w", err)
 	}
-	inst := tx.Message.Instructions[0]
-	resolved, err := resolveCompiledInstruction(e, timelockSignerPDA, tx.Message, inst)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve compiled instruction: %w", err)
+
+	// we will now find the instruction within the tx that is being executed on the verify program
+
+	// list of all accounts in the tx
+	txAccountList := tx.Message.AccountKeys
+	for _, inst := range tx.Message.Instructions {
+		// this should not happen unless solana-verify cli has a bug
+		if int(inst.ProgramIDIndex) >= len(txAccountList) {
+			return nil, fmt.Errorf("program ID index out of range: %d", inst.ProgramIDIndex)
+		}
+		// the programID on which this instruction is being executed
+		programID := txAccountList[inst.ProgramIDIndex]
+		// if its the verify program, resolve the instruction
+		// this is the ix we need to get signed by mcms
+		if programID.String() == SolanaVerifyProgramID {
+			resolved, err := resolveVerifyInstruction(e, timelockSignerPDA, tx.Message, inst)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve the verify instruction: %w", err)
+			}
+			return resolved, nil
+		}
 	}
-	return resolved, nil
+	return nil, errors.New("failed to find verify instruction")
 }
 
-func resolveCompiledInstruction(
+// this function takes in an ix which is part of a tx
+// and creates an independent ixn object
+// which will then be used to create an independent mcms tx
+// it uses the tx.Message to do so
+func resolveVerifyInstruction(
 	e cldf.Environment,
 	timelockSignerPDA solana.PublicKey,
 	msg solana.Message,
-	compiled solana.CompiledInstruction,
+	verifyIxn solana.CompiledInstruction,
 ) (*solana.GenericInstruction, error) {
-	accounts := make(solana.AccountMetaSlice, len(compiled.Accounts))
-	for i, idx := range compiled.Accounts {
+	// the programID on which this instruction is being executed
+	// this must be the verify program
+	programID := msg.AccountKeys[verifyIxn.ProgramIDIndex]
+	// the data of the instruction that we want to run on the verify programs
+	data, err := base58.Decode(verifyIxn.Data.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode instruction data: %w", err)
+	}
+
+	// the accounts that are being used in the instruction
+	// we need to get the pubkeys of these accounts from the tx.Message
+	// and then create an AccountMeta object for each account
+	// this is the list of accounts that will be used to create the verify ix
+	accounts := make(solana.AccountMetaSlice, len(verifyIxn.Accounts))
+	for i, idx := range verifyIxn.Accounts {
 		if int(idx) >= len(msg.AccountKeys) {
 			return nil, fmt.Errorf("account index out of range: %d", idx)
 		}
-		pub := msg.AccountKeys[idx]
-		e.Logger.Infow("pub", "pub", pub)
-		isSigner := msg.IsSigner(pub)
-
-		isWritable, err := msg.IsWritable(pub)
+		accountPubKey := msg.AccountKeys[idx]
+		isSigner := msg.IsSigner(accountPubKey)
+		isWritable, err := msg.IsWritable(accountPubKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to check if account is writable: %w", err)
 		}
 		accounts[i] = &solana.AccountMeta{
-			PublicKey:  pub,
+			PublicKey:  accountPubKey,
 			IsSigner:   isSigner,
 			IsWritable: isWritable,
 		}
-	}
-	if int(compiled.ProgramIDIndex) >= len(msg.AccountKeys) {
-		return nil, fmt.Errorf("program ID index out of range: %d", compiled.ProgramIDIndex)
-	}
-
-	programID := msg.AccountKeys[compiled.ProgramIDIndex]
-
-	data, err := base58.Decode(compiled.Data.String())
-	e.Logger.Infow("data", "data", data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode instruction data: %w", err)
 	}
 
 	return &solana.GenericInstruction{
@@ -284,6 +310,8 @@ func setConfig(e cldf.Environment, chain cldf_solana.Chain) error {
 
 func VerifyBuild(e cldf.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutput, error) {
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
+	chain.URL = "https://api.devnet.solana.com"
+	chain.KeypairPath = "/Users/yashvardhan/.config/solana/id_devnet.json"
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 

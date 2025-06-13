@@ -1,6 +1,7 @@
 package solana_test
 
 import (
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -465,4 +466,18 @@ func TestVerify(t *testing.T) {
 		),
 	})
 	require.NoError(t, err)
+}
+
+func TestIxDecoding(t *testing.T) {
+	base58encoded := "2MpyGB3Xdr1PU83aPiBgr1xZYt3fJLfwCUs3sUBCiThtJaSJtTz8Yi4QhpGWFUV8G1gLwEHBkCpVZXt8oqA2qykFjurs39JN3BA14s7GG8RM2WFsjjV3SkgzhnVbjwDfu3LVxW3ViqjD3R52A14hfgYZgY83Scx17BFB3JzyxQkp3ufmEtEVNMzzpBAMRm5DLmgPbfuBm32YRXAUESYaiGUZ63EuZ2aYuZ6NpuHVi2oTkeYRuJapx4xYftuRVmwU3WiiXJV2fWQKb9AgpZtpLbHBccq9gkznSX9msS6fnSuLgxRh2LjDCZ18TZQXXHDG2wq44ozjvjtbC7npFoTZ7VkTUzRdr85KBoNUPp7xsaD9uXFWtPa1vNg8x2wAZTkm17PwHydLQEgNmZ6DxivKzWGaXenE1obycuwm4fd9Mxgo1CAyuGNLcpvNGuBSLn7vVegXucwNngZvdfQbWT2V4kRTnrr9YgpgBvBWeE4tiJ52g3zfMFjB72k4ErUGsPmdQ5CMsYzVrjzftZcFJmf2ZcpYZJKuw3uhVePESm7M6nTmoWzQFHmSuPYjGzvFovHJPJdFjZWfVGDUrai8xoZhJ5ZbTKybMoCsKBGyCjj2ZMXLb39Z8qNANbDmqYus1Gpeoi3DVvKoaNJZhjPhHYnqQdcQF1"
+	// txBytes, err := base58.Decode(base58encoded)
+	// require.NoError(t, err)
+	tx, err := solana.TransactionFromBase58(base58encoded)
+	require.NoError(t, err)
+	for _, acc := range tx.Message.AccountKeys {
+		fmt.Println(acc.String())
+	}
+	for _, inst := range tx.Message.Instructions {
+		fmt.Println(inst)
+	}
 }
