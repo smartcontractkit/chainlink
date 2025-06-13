@@ -33,6 +33,16 @@ type DeployFeeQInput struct {
 	PriceUpdaters []common.Address
 }
 
+type ApplyTokenTransferFeeConfigUpdatesConfigPerChain struct {
+	TokenTransferFeeConfigs       []fee_quoter.FeeQuoterTokenTransferFeeConfigArgs
+	TokenTransferFeeConfigsRemove []fee_quoter.FeeQuoterTokenTransferFeeConfigRemoveArgs
+}
+
+type ApplyFeeTokensUpdatesInput struct {
+	FeeTokensToAdd    []common.Address
+	FeeTokensToRemove []common.Address
+}
+
 var (
 	DeployFeeQuoterOp = operations.NewOperation(
 		"DeployFeeQuoter",
@@ -170,6 +180,42 @@ var (
 		fee_quoter.NewFeeQuoter,
 		func(feeQuoter *fee_quoter.FeeQuoter, opts *bind.TransactOpts, input fee_quoter.InternalPriceUpdates) (*types.Transaction, error) {
 			return feeQuoter.UpdatePrices(opts, input)
+		},
+	)
+
+	FeeQuoterApplyTokenTransferFeeCfgOp = opsutil.NewEVMCallOperation(
+		"FeeQuoterApplyTokenTransferFeeCfgOp",
+		semver.MustParse("1.0.0"),
+		"Update or Remove token transfer Fee Configs on the FeeQuoter 1.6.0 contract",
+		fee_quoter.FeeQuoterABI,
+		shared.FeeQuoter,
+		fee_quoter.NewFeeQuoter,
+		func(feeQuoter *fee_quoter.FeeQuoter, opts *bind.TransactOpts, input ApplyTokenTransferFeeConfigUpdatesConfigPerChain) (*types.Transaction, error) {
+			return feeQuoter.ApplyTokenTransferFeeConfigUpdates(opts, input.TokenTransferFeeConfigs, input.TokenTransferFeeConfigsRemove)
+		},
+	)
+
+	FeeQuoterApplyFeeTokensUpdatesOp = opsutil.NewEVMCallOperation(
+		"FeeQuoterApplyFeeTokensUpdatesOp",
+		semver.MustParse("1.0.0"),
+		"Add or Remove supported fee tokens FeeQuoter 1.6.0 contract",
+		fee_quoter.FeeQuoterABI,
+		shared.FeeQuoter,
+		fee_quoter.NewFeeQuoter,
+		func(feeQuoter *fee_quoter.FeeQuoter, opts *bind.TransactOpts, input ApplyFeeTokensUpdatesInput) (*types.Transaction, error) {
+			return feeQuoter.ApplyFeeTokensUpdates(opts, input.FeeTokensToRemove, input.FeeTokensToAdd)
+		},
+	)
+
+	FeeQApplyPremiumMultiplierWeiPerEthUpdateOp = opsutil.NewEVMCallOperation(
+		"FeeQApplyPremiumMultiplierWeiPerEthUpdateOp",
+		semver.MustParse("1.0.0"),
+		"Applies premiumMultiplierWeiPerEth for tokens in FeeQuoter 1.6.0 contract",
+		fee_quoter.FeeQuoterABI,
+		shared.FeeQuoter,
+		fee_quoter.NewFeeQuoter,
+		func(feeQuoter *fee_quoter.FeeQuoter, opts *bind.TransactOpts, input []fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs) (*types.Transaction, error) {
+			return feeQuoter.ApplyPremiumMultiplierWeiPerEthUpdates(opts, input)
 		},
 	)
 )

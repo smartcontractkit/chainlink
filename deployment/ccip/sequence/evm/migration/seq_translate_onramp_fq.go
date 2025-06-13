@@ -13,27 +13,29 @@ import (
 	ops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/migration"
 )
 
-type TranslateOnRampToFeeQuoterDestChainConfigDeps struct {
+type OnRampToFeeQuoterDestChainConfigDeps struct {
 	Chain cldf_evm.Chain
 }
 
-type TranslateOnRampToFeeQuoterDestChainConfigInput struct {
+type OnRampToFeeQuoterDestChainConfigInput struct {
 	OnRamps             map[uint64]common.Address
 	TokenAdminRegistry  common.Address
 	SourceChainSelector uint64
 }
 
-type SeqTranslateOnRampToFeeQFeeTokensInp struct {
+type OnRampToFeeQuoterDestChainConfigOutput struct {
+	FeeQuoterUpdates map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig
+	Feetokens        []common.Address
 }
 
 var (
 	SeqTranslateOnRampToFeeQDestConfig = operations.NewSequence(
 		"translate-on-ramp-to-feequoter-dest-config",
 		semver.MustParse("1.0.0"),
-		"Translates existing 1.5.0 EVM2EVMOnRamp configs into appropriate 1.6.0 FeeQuoter Destination configs",
-		func(b operations.Bundle, deps TranslateOnRampToFeeQuoterDestChainConfigDeps, input TranslateOnRampToFeeQuoterDestChainConfigInput) (map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig, error) {
+		"Translates existing 1.5.0 EVM2EVMOnRamp configs into appropriate 1.6.0 FeeQuoter Destination configs & returns all supported Fee tokens",
+		func(b operations.Bundle, deps OnRampToFeeQuoterDestChainConfigDeps, input OnRampToFeeQuoterDestChainConfigInput) (OnRampToFeeQuoterDestChainConfigOutput, error) {
 			feeQuoterUpdates := make(map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig)
-
+			allFeeTokens := make([]common.Address, 0)
 			lggr := b.Logger
 			srcChain := deps.Chain
 
@@ -43,8 +45,9 @@ var (
 				feeQuoterDestChainConfig := fee_quoter.FeeQuoterDestChainConfig{}
 				feeQuoterTranslatedDestCfg := EVM2EVMOnRampMigrateDestChainConfig{FeeQuoterDestChainConfig: feeQuoterDestChainConfig}
 
-				evm2evmOnRampDynamicCfgOp, err := operations.ExecuteOperation(
-					b, ops.TranslateDestDynamicCfgOps, // todo: rename this op
+				evm2evmOnRampDynamicCfgReport, err := operations.ExecuteOperation(
+					b,
+					ops.EVM2EVMOnrampGetDynamicCfgOp,
 					ops.MigrateOnRampToFQDeps{
 						Chain: srcChain,
 					},
@@ -54,28 +57,30 @@ var (
 					},
 				)
 				if err != nil {
-					return nil, fmt.Errorf("Failed to execute TranslateOnRampToFQDestDynamicCfgOps", err)
+					return OnRampToFeeQuoterDestChainConfigOutput{}, fmt.Errorf("Failed to execute TranslateOnRampToFQDestDynamicCfgOps: %w", err)
 				}
 
-				feeQuoterTranslatedDestCfg.TranslateOnrampToFeequoterDynamicConfig(destChainSel, evm2evmOnRampDynamicCfgOp.Output.EVM2EVMOnRampDynamicConfig)
+				feeQuoterTranslatedDestCfg.TranslateOnrampToFeequoterDynamicConfig(destChainSel, evm2evmOnRampDynamicCfgReport.Output)
 
 				allFeeTokensOp, err := operations.ExecuteOperation(
-					b, ops.GetAllFeeTokensOps,
+					b, ops.PriceRegistryGetAllFeeTokensOps,
 					ops.MigrateOnRampToFQDeps{
 						Chain: srcChain,
 					},
-					evm2evmOnRampDynamicCfgOp.Output.EVM2EVMOnRampDynamicConfig.PriceRegistry,
+					evm2evmOnRampDynamicCfgReport.Output.PriceRegistry,
 				)
 				if err != nil {
-					return nil, fmt.Errorf("failed to Execute GetAllFeeTokensOps", err)
+					return OnRampToFeeQuoterDestChainConfigOutput{}, fmt.Errorf("failed to Execute GetAllFeeTokensOps: %w", err)
 				}
+
+				// add supported fee token config to FeeQuoter
 
 				// This is per token in 1.5.0 onRamp, but in FeeQuoter its per destination chain,
 				// But from RDD the values are constant (either 10/50 regardless of FeeToken)
 				// So we can just use the first token's config
 				// for _, ft := range allFeeTokensOp.Output {
 				feetokenCfgReport, err := operations.ExecuteOperation(
-					b, ops.GetEVM2EVMOnRampGetFeeTokenConfigOps,
+					b, ops.EVM2EVMOnrampGetFeeTokenConfigOp,
 					ops.MigrateOnRampToFQDeps{
 						Chain: srcChain,
 					},
@@ -85,7 +90,7 @@ var (
 					},
 				)
 				if err != nil {
-					return nil, fmt.Errorf("failed to Execute GetOnRampGetFeeTokenConfigOps", err)
+					return OnRampToFeeQuoterDestChainConfigOutput{}, fmt.Errorf("failed to Execute GetOnRampGetFeeTokenConfigOps: %w", err)
 				}
 				// }
 				feeQuoterTranslatedDestCfg.TranslateOnrampToFeequoterFeeTokenCfg(feetokenCfgReport.Output)
@@ -96,14 +101,17 @@ var (
 				feeQuoterUpdates[input.SourceChainSelector][destChainSel] = feeQuoterTranslatedDestCfg.FeeQuoterDestChainConfig
 			}
 
-			return feeQuoterUpdates, nil
+			return OnRampToFeeQuoterDestChainConfigOutput{
+				FeeQuoterUpdates: feeQuoterUpdates,
+				Feetokens:        allFeeTokens,
+			}, nil
 		})
 
 	SeqTranslateOnRampToFeeQTokenTransferFeeCfg = operations.NewSequence(
 		"translate-on-ramp-to-feeQuoter-token-transfer-fee-configs",
 		semver.MustParse("1.0.0"),
 		"Translates existing 1.5.0 EVM2EVMOnRamp Token Transfer Fee Configs into appropriate 1.6.0 FeeQuoter Destination configs",
-		func(b operations.Bundle, deps TranslateOnRampToFeeQuoterDestChainConfigDeps, input TranslateOnRampToFeeQuoterDestChainConfigInput) (map[uint64]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs, error) {
+		func(b operations.Bundle, deps OnRampToFeeQuoterDestChainConfigDeps, input OnRampToFeeQuoterDestChainConfigInput) (map[uint64]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs, error) {
 			lggr := b.Logger
 			tokenTransferFeeConfigsPerSrcChain := make(map[uint64]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs)
 			var tokenTransferFeeConfigsPerDestChain fee_quoter.FeeQuoterTokenTransferFeeConfigArgs
@@ -127,13 +135,11 @@ var (
 				//		--> if targetSelector not in supportedChains then continue
 				// 		--> add this token to validTokens to process
 				getAllConfiguredTokensOps, err := operations.ExecuteOperation(
-					b, ops.GetAllConfiguredTokensOps,
+					b, ops.TokenAdminRegistryGetAllConfiguredTokensOp,
 					ops.MigrateOnRampToFQDeps{
 						Chain: deps.Chain,
 					},
-					ops.GetAllConfiguredTokensInput{
-						TokenAdminRegistry: input.TokenAdminRegistry,
-					},
+					input.TokenAdminRegistry,
 				)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get all configured tokens from TokenAdminRegistry on source chain %d: %w", input.SourceChainSelector, err)
@@ -141,7 +147,7 @@ var (
 				allTokens := getAllConfiguredTokensOps.Output
 				for _, token := range allTokens {
 					getPoolBySourceTokenOps, err := operations.ExecuteOperation(
-						b, ops.GetEVM2EVMOnRampPoolBySourceTokenOps,
+						b, ops.EVM2EVMOnrampGetPoolBySourceTokenOp,
 						ops.MigrateOnRampToFQDeps{
 							Chain: deps.Chain,
 						},
@@ -160,7 +166,7 @@ var (
 					}
 
 					getSupportedChainsForTokenPool, err := operations.ExecuteOperation(
-						b, ops.GetSupportedChainsForTokenPool,
+						b, ops.TokenPoolGetSupportedChainsOp,
 						ops.MigrateOnRampToFQDeps{
 							Chain: deps.Chain,
 						},
@@ -198,7 +204,7 @@ var (
 			if tokenTransferFeeConfigsPerDestChain.DestChainSelector != 0 {
 				tokenTransferFeeConfigsPerSrcChain[input.SourceChainSelector] = tokenTransferFeeConfigsPerDestChain
 			} else {
-				return nil, fmt.Errorf("Empty token transfer fee configs for chain %d: %w", input.SourceChainSelector)
+				return nil, fmt.Errorf("Empty token transfer fee configs for chain %d", input.SourceChainSelector)
 			}
 			return tokenTransferFeeConfigsPerSrcChain, nil
 		})

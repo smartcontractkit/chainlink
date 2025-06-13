@@ -140,12 +140,14 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	defaultCfgForFamily := v1_6.DefaultFeeQuoterDestChainConfig(true, destChainSelector)
 
 	// 11.Compare the actual configuration with the expected one
+
+	// TODO: ensure all the fields are compared
 	require.Equal(t, onRampDynamicCfg.MaxNumberOfTokensPerMsg, actualFeeQuoterDestCfg.MaxNumberOfTokensPerMsg, "MaxNumberOfTokensPerMsg mismatch")
 	require.Equal(t, onRampDynamicCfg.MaxDataBytes, actualFeeQuoterDestCfg.MaxDataBytes, "MaxDataBytes mismatch")
 	require.Equal(t, onRampDynamicCfg.MaxPerMsgGasLimit, actualFeeQuoterDestCfg.MaxPerMsgGasLimit, "MaxPerMsgGasLimit mismatch")
 	require.Equal(t, onRampDynamicCfg.DestGasOverhead, actualFeeQuoterDestCfg.DestGasOverhead, "DestGasOverhead mismatch")
 	require.Equal(t, onRampDynamicCfg.DefaultTokenFeeUSDCents, actualFeeQuoterDestCfg.DefaultTokenFeeUSDCents, "DefaultTokenFeeUSDCents mismatch")
-	require.Equal(t, onRampDynamicCfg.DestGasPerPayloadByte, actualFeeQuoterDestCfg.DestGasPerPayloadByteBase, "DestGasPerPayloadByteBase mismatch")
+	require.Equal(t, onRampDynamicCfg.DestGasPerPayloadByte, uint16(actualFeeQuoterDestCfg.DestGasPerPayloadByteBase), "DestGasPerPayloadByteBase mismatch")
 	require.Equal(t, onRampDynamicCfg.DestDataAvailabilityOverheadGas, actualFeeQuoterDestCfg.DestDataAvailabilityOverheadGas, "DestDataAvailabilityOverheadGas mismatch")
 	require.Equal(t, onRampDynamicCfg.DestGasPerDataAvailabilityByte, actualFeeQuoterDestCfg.DestGasPerDataAvailabilityByte, "DestGasPerDataAvailabilityByte mismatch")
 	require.Equal(t, onRampDynamicCfg.DestDataAvailabilityMultiplierBps, actualFeeQuoterDestCfg.DestDataAvailabilityMultiplierBps, "DestDataAvailabilityMultiplierBps mismatch")
