@@ -162,6 +162,12 @@ func (l *DeployedLocalDevEnvironment) MockUSDCAttestationServer(t *testing.T, is
 	return l.testEnv.MockAdapter.InternalEndpoint
 }
 
+func (l *DeployedLocalDevEnvironment) MockLBTCAttestationServer(t *testing.T, isAttestationMissing bool) string {
+	err := ccipactions.SetMockServerWithLBTCAttestation(l.testEnv.MockAdapter, isAttestationMissing)
+	require.NoError(t, err)
+	return l.testEnv.MockAdapter.InternalEndpoint
+}
+
 func (l *DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error {
 	errGrp := errgroup.Group{}
 	for _, n := range l.testEnv.ClCluster.Nodes {

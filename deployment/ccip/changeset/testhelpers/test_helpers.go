@@ -1406,7 +1406,7 @@ func DeployTransferableTokenSolana(
 		return nil, nil, solana.PublicKey{}, err
 	}
 	// attach token and pool to the registry
-	if err := attachTokenToTheRegistry(e.BlockChains.EVMChains()[evmChainSel], state.MustGetEVMChainState(evmChainSel), evmDeployer, evmToken.Address(), evmPool.Address()); err != nil {
+	if err := AttachTokenToTheRegistry(e.BlockChains.EVMChains()[evmChainSel], state.MustGetEVMChainState(evmChainSel), evmDeployer, evmToken.Address(), evmPool.Address()); err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
 	solDeployerKey := e.BlockChains.SolanaChains()[solChainSel].DeployerKey.PublicKey()
@@ -1564,7 +1564,7 @@ func deployTokenPoolsInParallel(
 		if err != nil {
 			return err
 		}
-		err = attachTokenToTheRegistry(chains[src], state.MustGetEVMChainState(src), srcActor, srcToken.Address(), srcPool.Address())
+		err = AttachTokenToTheRegistry(chains[src], state.MustGetEVMChainState(src), srcActor, srcToken.Address(), srcPool.Address())
 		return err
 	})
 	deployGrp.Go(func() error {
@@ -1573,7 +1573,7 @@ func deployTokenPoolsInParallel(
 		if err != nil {
 			return err
 		}
-		err = attachTokenToTheRegistry(chains[dst], state.MustGetEVMChainState(dst), dstActor, dstToken.Address(), dstPool.Address())
+		err = AttachTokenToTheRegistry(chains[dst], state.MustGetEVMChainState(dst), dstActor, dstToken.Address(), dstPool.Address())
 		return err
 	})
 	if err := deployGrp.Wait(); err != nil {
@@ -1672,7 +1672,7 @@ func setTokenPoolCounterPart(
 	return err
 }
 
-func attachTokenToTheRegistry(
+func AttachTokenToTheRegistry(
 	chain cldf_evm.Chain,
 	state evm.CCIPChainState,
 	owner *bind.TransactOpts,
@@ -2488,4 +2488,71 @@ func TransferToTimelock(
 	)
 	require.NoError(t, err)
 	AssertTimelockOwnership(t, tenv, chains, state, withTestRouterTransfer)
+}
+
+func UpdateFeeQuoters(
+	t *testing.T,
+	lggr logger.Logger,
+	e cldf.Environment,
+	tokenSymbol shared.TokenSymbol,
+	chainA, chainB, chainC uint64,
+) error {
+	evmChains := e.BlockChains.EVMChains()
+	updateFeeQtrGrp := errgroup.Group{}
+	updateFeeQtrGrp.Go(func() error {
+		return UpdateFeeQuoterForToken(t, e, lggr, evmChains[chainA], chainC, tokenSymbol)
+	})
+	updateFeeQtrGrp.Go(func() error {
+		return UpdateFeeQuoterForToken(t, e, lggr, evmChains[chainB], chainC, tokenSymbol)
+	})
+	updateFeeQtrGrp.Go(func() error {
+		err1 := UpdateFeeQuoterForToken(t, e, lggr, evmChains[chainC], chainA, tokenSymbol)
+		if err1 != nil {
+			return err1
+		}
+		return UpdateFeeQuoterForToken(t, e, lggr, evmChains[chainC], chainB, tokenSymbol)
+	})
+	return updateFeeQtrGrp.Wait()
+}
+
+func UpdateFeeQuoterForToken(
+	t *testing.T,
+	e cldf.Environment,
+	lggr logger.Logger,
+	chain cldf_evm.Chain,
+	dstChain uint64,
+	tokenSymbol shared.TokenSymbol,
+) error {
+	config := fee_quoter.FeeQuoterTokenTransferFeeConfig{
+		MinFeeUSDCents:    50,
+		MaxFeeUSDCents:    50_000,
+		DeciBps:           0,
+		DestGasOverhead:   180_000,
+		DestBytesOverhead: 640,
+		IsEnabled:         true,
+	}
+	_, err := commoncs.Apply(t, e,
+		commoncs.Configure(
+			cldf.CreateLegacyChangeSet(v1_6.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset),
+			v1_6.ApplyTokenTransferFeeConfigUpdatesConfig{
+				UpdatesByChain: map[uint64]v1_6.ApplyTokenTransferFeeConfigUpdatesConfigPerChain{
+					chain.Selector: {
+						TokenTransferFeeConfigArgs: []v1_6.TokenTransferFeeConfigArg{
+							{
+								DestChain: dstChain,
+								TokenTransferFeeConfigPerToken: map[shared.TokenSymbol]fee_quoter.FeeQuoterTokenTransferFeeConfig{
+									tokenSymbol: config,
+								},
+							},
+						},
+					},
+				},
+			}),
+	)
+
+	if err != nil {
+		lggr.Errorw("Failed to apply token transfer fee config updates", "err", err, "config", config)
+		return err
+	}
+	return nil
 }

@@ -160,7 +160,7 @@ testscripts-update: ## Update testdata/scripts/* files via testscript.
 
 .PHONY: start-testdb
 start-testdb:
-	docker run --name test-db-core -p 5432:5432 -e POSTGRES_PASSWORD=postgres -d postgres
+	docker run --name test-db-core -p 5432:5432 -e POSTGRES_PASSWORD=postgres -d postgres:15
 
 .PHONY: setup-testdb
 setup-testdb: ## Setup the test database.

@@ -91,6 +91,7 @@ const (
 	LinkDecimals                           = 18
 	WethDecimals                           = 18
 	UsdcDecimals                           = 6
+	LBTCDecimals                           = 8
 
 	// Price Feed Descriptions
 	AvaxUSD  = "AVAX / USD"

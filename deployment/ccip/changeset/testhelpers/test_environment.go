@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strconv"
 	"testing"
@@ -95,6 +97,7 @@ type TestConfigs struct {
 	Nodes                      int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	Bootstraps                 int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	IsUSDC                     bool
+	IsLBTC                     bool
 	IsTokenPoolFactory         bool
 	IsUSDCAttestationMissing   bool
 	IsMultiCall3               bool
@@ -265,6 +268,12 @@ func WithUSDC() TestOps {
 	}
 }
 
+func WithLBTC() TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.IsLBTC = true
+	}
+}
+
 func WithTokenPoolFactory() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.IsTokenPoolFactory = true
@@ -322,6 +331,7 @@ type TestEnvironment interface {
 	DeployedEnvironment() DeployedEnv
 	UpdateDeployedEnvironment(env DeployedEnv)
 	MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string
+	MockLBTCAttestationServer(t *testing.T, isAttestationMissing bool) string
 }
 
 type DeployedEnv struct {
@@ -470,6 +480,37 @@ func (m *MemoryEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttest
 	return endpoint
 }
 
+func (m *MemoryEnvironment) MockLBTCAttestationServer(t *testing.T, isAttestationMissing bool) string {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var response string
+		if isAttestationMissing {
+			response = `{
+			    "code": 3,
+			    "message": "invalid hash"
+			}`
+		} else {
+			response = `{
+			    "attestations": [
+					{
+						"message_hash": "0x9b11457aa29d65e4940b67b7da16bd370d29bf6a3247a28066f93ac407b8b811",
+						"status": "NOTARIZATION_STATUS_SESSION_APPROVED",
+						"attestation": "0x0000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000e45c70a5050000000000000000000000000000000000000000000000000000000000aa36a7000000000000000000000000845f8e3c214d8d0e4d83fc094f302aa26a12a0bc0000000000000000000000000000000000000000000000000000000000014a34000000000000000000000000845f8e3c214d8d0e4d83fc094f302aa26a12a0bc00000000000000000000000062f10ce5b727edf787ea45776bd050308a61150800000000000000000000000000000000000000000000000000000000000003e60000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001200000000000000000000000000000000000000000000000000000000000000040277eeafba008d767c2636d9428f2ebb13ab29ac70337f4fc34b0f5606767cae546f9be3f12160de6d142e5b3c1c3ebd0bf4298662b32b597d0cc5970c7742fc10000000000000000000000000000000000000000000000000000000000000040bbcd60ecc9e06f2effe7c94161219498a1eb435b419387adadb86ec9a52dfb066ce027532517df7216404049d193a25b85c35edfa3e7c5aa4757bfe84887a3980000000000000000000000000000000000000000000000000000000000000040da4a6dc619b5ca2349783cabecc4efdbc910090d3e234d7b8d0430165f8fae532f9a965ceb85c18bb92e059adefa7ce5835850a705761ab9e026d2db4a13ef9a",
+					}
+				],
+			}`
+		}
+		_, err := w.Write([]byte(response))
+		if err != nil {
+			panic(err)
+		}
+	}))
+	endpoint := server.URL
+	t.Cleanup(func() {
+		server.Close()
+	})
+	return endpoint
+}
+
 // mineBlocks forces the simulated backend to produce a new block every X seconds
 // NOTE: based on implementation in cltest/simulated_backend.go
 func mineBlocks(backend *memory.Backend, blockTime time.Duration) (stopMining func()) {
@@ -552,6 +593,9 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 			}
 			if tc.IsUSDC {
 				opts = append(opts, changeset.WithUSDCEnabled())
+			}
+			if tc.IsLBTC {
+				opts = append(opts, changeset.WithLBTCEnabled())
 			}
 			if tc.IsMultiCall3 {
 				opts = append(opts, changeset.WithMultiCall3Enabled())
@@ -838,6 +882,32 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 					AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
 				},
 				Tokens: cctpContracts,
+			}})
+	}
+	if tc.IsLBTC {
+		endpoint := tEnv.MockLBTCAttestationServer(t, tc.IsUSDCAttestationMissing)
+		lbtcPools := make(map[cciptypes.ChainSelector]string)
+		for _, chain := range evmChains {
+			evmChain := e.Env.BlockChains.EVMChains()[chain]
+			chainState := state.MustGetEVMChainState(chain)
+			lbtcToken := chainState.BurnMintTokens677[shared.LBTCSymbol]
+			require.NotNil(t, lbtcToken)
+			lbtcPool := chainState.BurnMintTokenPools[shared.LBTCSymbol][deployment.Version1_5_1]
+			require.NotNil(t, lbtcPool)
+			err := AttachTokenToTheRegistry(evmChain, chainState, evmChain.DeployerKey, lbtcToken.Address(), lbtcPool.Address())
+			require.NoError(t, err)
+			lbtcPools[cciptypes.ChainSelector(chain)] = lbtcPool.Address().String()
+		}
+		tokenDataProviders = append(tokenDataProviders, pluginconfig.TokenDataObserverConfig{
+			Type:    pluginconfig.LBTCHandlerType,
+			Version: "1.0",
+			LBTCObserverConfig: &pluginconfig.LBTCObserverConfig{
+				AttestationConfig: pluginconfig.AttestationConfig{
+					AttestationAPI:         endpoint,
+					AttestationAPITimeout:  commonconfig.MustNewDuration(time.Second),
+					AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+				},
+				SourcePoolAddressByChain: lbtcPools,
 			}})
 	}
 
