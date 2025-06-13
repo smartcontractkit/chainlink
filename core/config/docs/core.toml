@@ -780,8 +780,3 @@ foo = "bar" # Example
 WsURL = "streams.url" # Example
 # RestURL is the REST url for the streams sdk config
 RestURL = "streams.url" # Example
-
-# Billing holds settings for connecting to the billing service.
-[Billing]
-# URL is the locator for the Chainlink billing service.
-URL = "localhost:4319" # Default

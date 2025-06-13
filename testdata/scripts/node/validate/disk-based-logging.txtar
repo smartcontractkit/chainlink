@@ -378,9 +378,6 @@ PerOwner = 200
 WsURL = ''
 RestURL = ''
 
-[Billing]
-URL = 'localhost:4319'
-
 [[EVM]]
 ChainID = '1'
 AutoCreateKey = true

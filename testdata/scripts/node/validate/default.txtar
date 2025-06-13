@@ -334,9 +334,6 @@ PerOwner = 200
 WsURL = ''
 RestURL = ''
 
-[Billing]
-URL = 'localhost:4319'
-
 Invalid configuration: invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty
 	- Password.Keystore: empty: must be provided and non-empty

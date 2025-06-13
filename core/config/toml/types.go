@@ -62,7 +62,6 @@ type Core struct {
 	Telemetry        Telemetry        `toml:",omitempty"`
 	Workflows        Workflows        `toml:",omitempty"`
 	CRE              CreConfig        `toml:",omitempty"`
-	Billing          Billing          `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -105,7 +104,6 @@ func (c *Core) SetFrom(f *Core) {
 	c.Tracing.setFrom(&f.Tracing)
 	c.Telemetry.setFrom(&f.Telemetry)
 	c.CRE.setFrom(&f.CRE)
-	c.Billing.setFrom(&f.Billing)
 }
 
 func (c *Core) ValidateConfig() (err error) {
@@ -2081,22 +2079,4 @@ func isValidHostname(hostname string) bool {
 
 func isValidFilePath(path string) bool {
 	return len(path) > 0 && len(path) < 4096
-}
-
-type Billing struct {
-	URL *string
-}
-
-func (b *Billing) setFrom(f *Billing) {
-	if f.URL != nil {
-		b.URL = f.URL
-	}
-}
-
-func (b *Billing) ValidateConfig() error {
-	if b.URL == nil || *b.URL == "" {
-		return configutils.ErrInvalid{Name: "URL", Value: "", Msg: "billing service url must be set"}
-	}
-
-	return nil
 }

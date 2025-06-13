@@ -363,9 +363,6 @@ PerOwner = 200
 WsURL = ''
 RestURL = ''
 
-[Billing]
-URL = 'localhost:4319'
-
 Invalid configuration: invalid configuration: P2P.V2.Enabled: invalid value (false): P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2.
 
 -- err.txt --

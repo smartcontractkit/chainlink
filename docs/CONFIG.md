@@ -2170,19 +2170,6 @@ RestURL = "streams.url" # Example
 ```
 RestURL is the REST url for the streams sdk config
 
-## Billing
-```toml
-[Billing]
-URL = "localhost:4319" # Default
-```
-Billing holds settings for connecting to the billing service.
-
-### URL
-```toml
-URL = "localhost:4319" # Default
-```
-URL is the locator for the Chainlink billing service.
-
 ## EVM
 EVM defaults depend on ChainID:
 

@@ -9,7 +9,7 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/billing"
+	cronserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -38,35 +38,7 @@ const (
 	defaultName                      = "myworkflow"
 )
 
-type standardCapConfig struct {
-	Config string
-
-	// Set enabled to true to run the loop plugin.  Requires the plugin be installed.
-	// Config will be passed to Initialise method of plugin.
-	Enabled bool
-}
-
-var (
-	goBinPath            = os.Getenv("GOBIN")
-	standardCapabilities = map[string]standardCapConfig{
-		"cron": {
-			Config:  `{"fastestScheduleIntervalSeconds": 1}`,
-			Enabled: true,
-		},
-		"readcontract":  {},
-		"kvstore":       {},
-		"workflowevent": {},
-	}
-)
-
-func NewStandaloneEngine(
-	ctx context.Context,
-	lggr logger.Logger,
-	registry *capabilities.Registry,
-	binary []byte, config []byte,
-	billingClientAddr string,
-	lifecycleHooks v2.LifecycleHooks,
-) (services.Service, error) {
+func NewStandaloneEngine(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry, binary []byte, config []byte) (services.Service, error) {
 	labeler := custmsg.NewLabeler()
 	moduleConfig := &host.ModuleConfig{
 		Logger:                  lggr,
@@ -103,8 +75,6 @@ func NewStandaloneEngine(
 		return nil, err
 	}
 
-	billingClient, _ := billing.NewWorkflowClient(billingClientAddr)
-
 	if module.IsLegacyDAG() {
 		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
 		if err != nil {
@@ -127,7 +97,6 @@ func NewStandaloneEngine(
 			NewWorkerTimeout:     time.Minute,
 			StepTimeout:          time.Minute,
 			MaxExecutionDuration: time.Minute,
-			BillingClient:        billingClient,
 		}
 		return workflows.NewEngine(ctx, cfg)
 	}
@@ -146,11 +115,6 @@ func NewStandaloneEngine(
 		LocalLimits:          v2.EngineLimits{},
 		GlobalLimits:         workflowLimits,
 		ExecutionRateLimiter: rl,
-
-		BeholderEmitter: custmsg.NewLabeler(),
-
-		BillingClient: billingClient,
-		Hooks:         lifecycleHooks,
 	}
 
 	return v2.NewEngine(ctx, cfg)

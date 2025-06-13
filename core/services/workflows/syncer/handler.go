@@ -123,7 +123,6 @@ type eventHandler struct {
 	ratelimiter            *ratelimiter.RateLimiter
 	workflowLimits         *syncerlimiter.Limits
 	workflowArtifactsStore WorkflowArtifactsStore
-	billingClient          metering.BillingClient
 }
 
 type Event struct {
@@ -148,12 +147,6 @@ func WithStaticEngine(engine services.Service) func(*eventHandler) {
 		e.engineFactory = func(_ context.Context, _ string, _ string, _ types.WorkflowName, _ []byte, _ []byte) (services.Service, error) {
 			return engine, nil
 		}
-	}
-}
-
-func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
-	return func(e *eventHandler) {
-		e.billingClient = client
 	}
 }
 
@@ -525,7 +518,6 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 			SecretsFetcher: h.workflowArtifactsStore.SecretsFor,
 			RateLimiter:    h.ratelimiter,
 			WorkflowLimits: h.workflowLimits,
-			BillingClient:  h.billingClient,
 		}
 		return workflows.NewEngine(ctx, cfg)
 	}

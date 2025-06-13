@@ -321,6 +321,3 @@ PerOwner = 200
 [CRE.Streams]
 WsURL = ''
 RestURL = ''
-
-[Billing]
-URL = 'localhost:4319'

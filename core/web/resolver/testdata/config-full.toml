@@ -336,9 +336,6 @@ PerOwner = 200
 WsURL = 'streams.url'
 RestURL = 'streams.url'
 
-[Billing]
-URL = 'localhost:4319'
-
 [[EVM]]
 ChainID = '1'
 Enabled = false
