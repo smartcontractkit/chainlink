@@ -115,7 +115,7 @@ func TransferToMCMSWithTimelockV2(
 				Contracts:     contracts,
 			},
 		)
-		execReports := append(execReports, seqReport.ExecutionReports...)
+		execReports = append(execReports, seqReport.ExecutionReports...)
 
 		if err != nil {
 			return cldf.ChangesetOutput{
