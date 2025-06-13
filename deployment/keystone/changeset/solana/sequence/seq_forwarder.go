@@ -38,6 +38,7 @@ func deployForwarder(b operations.Bundle, deps operation.Deps, in DeployForwarde
 		ProgramName:  in.ProgramName,
 		Overallocate: in.Overallocate,
 		Size:         deployment.SolanaProgramBytes[deployment.KeystoneForwarderProgramName],
+		ChainSel:     in.ChainSel,
 	})
 
 	if err != nil {

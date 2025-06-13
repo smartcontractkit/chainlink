@@ -26,6 +26,7 @@ type (
 func Deploy(b operations.Bundle, deps Deps, in DeployInput) (DeployOutput, error) {
 	var out DeployOutput
 
+	b.Logger.Infof("deploying program %q, size %d, chain sel %d", in.ProgramName, in.Size, in.ChainSel)
 	programID, err := deps.Chain.DeployProgram(b.Logger, cldfsol.ProgramInfo{
 		Name:  in.ProgramName,
 		Bytes: in.Size,

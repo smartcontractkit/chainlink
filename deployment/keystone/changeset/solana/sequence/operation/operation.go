@@ -42,9 +42,9 @@ var (
 		setUpgradeAuthority,
 	)
 	ConfigureForwarderOp = operations.NewOperation(
-		"configer-forwarder-op",
+		"configure-forwarder-op",
 		Version1_0_0,
-		"Configure's forwarder for Solana Chain",
+		"Configure forwarder for Solana Chain",
 		configureForwarder,
 	)
 )
@@ -77,7 +77,7 @@ type (
 	}
 
 	ConfigureForwarderInput struct {
-		MCMS           *proposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
+		MCMS           *proposalutils.TimelockConfig // if set, assumes current owner is the timelock
 		ConfigPDA      string
 		ProgramID      solana.PublicKey
 		ForwarderState solana.PublicKey
@@ -86,6 +86,7 @@ type (
 		DonId          uint32
 		ConfigVersion  uint32
 		F              uint8
+		Type           cldf.ContractType
 	}
 
 	ConfigureForwarderOutput struct {
@@ -234,12 +235,13 @@ func configureForwarder(b operations.Bundle, deps Deps, in ConfigureForwarderInp
 
 	tx, err := helpers.BuildMCMSTxn(
 		instructions,
-		solana.BPFLoaderUpgradeableProgramID.String(),
-		cldf.ContractType(solana.BPFLoaderUpgradeableProgramID.String()))
+		in.ProgramID.String(),
+		in.Type)
 	if err != nil {
 		return out, fmt.Errorf("failed to create transaction: %w", err)
 	}
 
+	b.Logger.Infof("build mcmstxn contract type: %q program_id: %q", in.Type.String(), in.ProgramID.String())
 	out.Batch = mcmsTypes.BatchOperation{
 		ChainSelector: mcmsTypes.ChainSelector(deps.Chain.ChainSelector()),
 		Transactions:  []mcmsTypes.Transaction{*tx},

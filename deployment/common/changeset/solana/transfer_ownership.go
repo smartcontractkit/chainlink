@@ -357,8 +357,7 @@ func acceptMCMSTransaction(
 	return acceptMCMSTx, nil
 }
 
-func acceptOwnershipInstruction(
-	programID solana.PublicKey, seed state.PDASeed, ownerPDA, auth solana.PublicKey,
+func acceptOwnershipInstruction(programID solana.PublicKey, seed state.PDASeed, ownerPDA, auth solana.PublicKey,
 ) (solana.Instruction, error) {
 	if (seed == state.PDASeed{}) {
 		return newSeedlessAcceptOwnershipInstruction(programID, ownerPDA, auth)

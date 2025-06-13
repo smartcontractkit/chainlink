@@ -268,6 +268,7 @@ func (cs ConfigureForwarders) Apply(env cldf.Environment, req *ConfigureForwarde
 	if req.MCMS == nil {
 		return out, nil
 	}
+	env.Logger.Info("req delay", req.MCMS.MinDelay)
 
 	var proposals []mcms.TimelockProposal
 	for chainSel, batch := range mcmsBatches {
@@ -348,6 +349,7 @@ func configureForwarders(env cldf.Environment, req *ConfigureForwarderRequest,
 		signers := toSolSigners(wfdon.Signers(chainsel.FamilySolana))
 
 		opOut, err := operations.ExecuteOperation(env.OperationsBundle, operation.ConfigureForwarderOp, deps, operation.ConfigureForwarderInput{
+			ProgramID:      solana.MustPublicKeyFromBase58(forwarderProgramID.Address),
 			MCMS:           req.MCMS,
 			Owner:          owner.String(),
 			Signers:        signers,
@@ -356,6 +358,7 @@ func configureForwarders(env cldf.Environment, req *ConfigureForwarderRequest,
 			F:              wfdon.Info.F,
 			ForwarderState: solana.MustPublicKeyFromBase58(forwarderState.Address),
 			ConfigPDA:      configPDA.String(),
+			Type:           cldf.ContractType(ForwarderContract),
 		})
 
 		if err != nil {
