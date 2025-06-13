@@ -15,11 +15,6 @@ type MigrateOnRampToFQDeps struct {
 	Chain cldf_evm.Chain
 }
 
-type MigrateDestChainCfgInput struct {
-	OnRamp            common.Address
-	DestChainSelector uint64
-}
-
 type OnRampGetFeeTokenCfgInput struct {
 	OnRamp          common.Address
 	FeeTokenAddress common.Address
@@ -32,18 +27,18 @@ type GetPoolBySourceTokenInput struct {
 }
 
 var (
-	EVM2EVMOnrampGetDynamicCfgOp = operations.NewOperation( //todo: rename this
+	EVM2EVMOnrampGetDynamicCfgOp = operations.NewOperation(
 		"EVM2EVMOnrampGetDynamicCfgOp",
 		semver.MustParse("1.0.0"),
 		"Get DynamicConfig from 1.5.0 OnRamps",
-		func(b operations.Bundle, deps MigrateOnRampToFQDeps, input MigrateDestChainCfgInput) (evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig, error) {
-			onRamp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(input.OnRamp, deps.Chain.Client)
+		func(b operations.Bundle, deps MigrateOnRampToFQDeps, input common.Address) (evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig, error) {
+			onRamp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(input, deps.Chain.Client)
 			if err != nil {
-				return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, fmt.Errorf("Failed to create EVM2EVMOnRamp contract binding at address %s: %w", input.OnRamp.Hex(), err)
+				return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, fmt.Errorf("Failed to create EVM2EVMOnRamp contract binding at address %s: %w", input.Hex(), err)
 			}
 			destChainEVM2EVMDynamicCfg, err2 := onRamp.GetDynamicConfig(nil)
 			if err2 != nil && destChainEVM2EVMDynamicCfg.PriceRegistry == (common.Address{}) {
-				return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, fmt.Errorf("Cannot GetDynamicConfig for destination Chain: %d, for 1.5.0 OnRamp %s: %w", input.DestChainSelector, onRamp.Address().Hex(), err2)
+				return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, fmt.Errorf("Cannot GetDynamicConfig for destination Chain from 1.5.0 OnRamp %s: %w", onRamp.Address().Hex(), err2)
 			}
 			return destChainEVM2EVMDynamicCfg, nil
 		})
