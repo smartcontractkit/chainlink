@@ -98,9 +98,9 @@ func run(
 		}
 
 		defer func(bs *BillingService) {
-			err := bs.close()
-			if err != nil {
-				fmt.Printf("Failed to close billing service: %v\n", err)
+			cerr := bs.close()
+			if cerr != nil {
+				fmt.Printf("Failed to close billing service: %v\n", cerr)
 			}
 		}(bs)
 	}
