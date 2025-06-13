@@ -1197,7 +1197,9 @@ func AddLaneWithEnforceOutOfOrder(t *testing.T, e *DeployedEnv, state stateview.
 	gasPrices := map[uint64]*big.Int{
 		to: DefaultGasPrice,
 	}
-	fromFamily, _ := chainsel.GetSelectorFamily(from)
+	fromFamily, err := chainsel.GetSelectorFamily(from)
+	require.NoError(t, err)
+
 	tokenPrices := map[common.Address]*big.Int{}
 	if fromFamily == chainsel.FamilyEVM {
 		stateChainFrom := state.MustGetEVMChainState(from)
