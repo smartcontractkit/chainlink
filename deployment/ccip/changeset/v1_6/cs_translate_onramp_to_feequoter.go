@@ -5,10 +5,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
@@ -76,13 +78,12 @@ func TranslateEVM2EVMOnRampsToFeeQuoterChangeset(e cldf.Environment, cfg Transla
 		return cldf.ChangesetOutput{}, fmt.Errorf("No chains to process TranslateEVM2EVMOnRampsToFeeQuoter")
 	}
 
-	seqInput := cfg.ToSequenceInput(state)
 	// Translate the 1.5.0 OnRamp to the FeeQuoterDestChainConfig
 	translateDynamicCfgReport, err := operations.ExecuteSequence(
 		e.OperationsBundle,
 		migrate_seq.SeqTranslateOnRampToFeeQDestConfig,
 		e.BlockChains.EVMChains(),
-		seqInput,
+		cfg.toSequenceInput(state),
 	)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to translate 1.5.0 OnRamp dynamic config: %w", err)
@@ -105,10 +106,21 @@ func TranslateEVM2EVMOnRampsToFeeQuoterChangeset(e cldf.Environment, cfg Transla
 	if err != nil {
 		return csOutput, fmt.Errorf("failed to apply FeeQuoter dest chain config updates: %w", err)
 	}
-	return csOutput, nil
+
+	feeTokensReport, err := operations.ExecuteSequence(
+		e.OperationsBundle,
+		ccipseqs.FeeQuoterApplyFeeTokensUpdatesSeq,
+		e.BlockChains.EVMChains(),
+		cfg.toFeeTokenApplySeqInput(state, translateDynamicCfgReport.Output.Feetokens),
+	)
+	csOutput2, err := opsutil.AddEVMCallSequenceToCSOutput(e, state, cldf.ChangesetOutput{}, feeTokensReport, err, cfg.MCMS, "Call ApplyFeeTokensUpdatesConfig on FeeQuoter")
+	if err != nil {
+		return csOutput2, fmt.Errorf("failed to apply FeeQuoter fee tokens updates: %w", err)
+	}
+	return csOutput2, nil
 }
 
-func (cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) ToSequenceInput(state stateview.CCIPOnChainState) migrate_seq.FeeQuoterUpdateTokenTransferConfig {
+func (cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) toSequenceInput(state stateview.CCIPOnChainState) migrate_seq.FeeQuoterUpdateTokenTransferConfig {
 	input := make(map[uint64]opsutil.EVMCallInput[migrate_seq.OnRampToFeeQuoterDestChainConfigInput], len(cfg.SourceChainSelectors))
 	for _, sel := range cfg.SourceChainSelectors {
 		srcChainState := state.Chains[sel]
@@ -130,6 +142,98 @@ func (cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) ToSequenceInput(state statev
 		}
 	}
 	return migrate_seq.FeeQuoterUpdateTokenTransferConfig{
+		UpdatesByChain: input,
+	}
+}
+
+func (cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) toFeeTokenApplySeqInput(state stateview.CCIPOnChainState, tokens map[uint64][]common.Address) ccipseqs.FeeQuoterUpdateFeeTokensConfig {
+	input := make(map[uint64]opsutil.EVMCallInput[ccipops.ApplyFeeTokensUpdatesInput], len(tokens))
+
+	for chainSel, tokens := range tokens {
+		var tokensToRemove, tokensToAdd []common.Address
+		for _, token := range tokens {
+			tokensToAdd = append(tokensToAdd, token)
+		}
+		input[chainSel] = opsutil.EVMCallInput[ccipops.ApplyFeeTokensUpdatesInput]{
+			ChainSelector: chainSel,
+			Address:       state.Chains[chainSel].FeeQuoter.Address(),
+			CallInput: ccipops.ApplyFeeTokensUpdatesInput{
+				FeeTokensToAdd:    tokensToAdd,
+				FeeTokensToRemove: tokensToRemove,
+			},
+			NoSend: cfg.MCMS != nil,
+		}
+	}
+	return ccipseqs.FeeQuoterUpdateFeeTokensConfig{
+		UpdatesByChain: input,
+	}
+}
+
+func TranslateEVM2EVMOnRampsToFeeQTokenTransferFeeConfigChangeset(e cldf.Environment, cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) (cldf.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid config: %w", err)
+	}
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	if len(cfg.SourceChainSelectors) > 0 {
+		for _, sel := range cfg.SourceChainSelectors {
+			if chain, ok := e.BlockChains.EVMChains()[sel]; ok {
+				srcChainState := state.MustGetEVMChainState(sel)
+				err := ValidatePreReqContractsInState(chain, srcChainState)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate pre-requisite contracts in state for source chain %d: %w", sel, err)
+				}
+			} else {
+				return cldf.ChangesetOutput{}, fmt.Errorf("Chain selector not found in environment, skipping (chainSelector: %d)", sel)
+			}
+		}
+	} else {
+		return cldf.ChangesetOutput{}, fmt.Errorf("No chains to process TranslateEVM2EVMOnRampsToFeeQuoter")
+	}
+
+	// Translate the 1.5.0 OnRamp token transfer fee configs to FeeQuoterTokenTransferFeeConfig
+	translateTokenTransferFeeCfgReport, err := operations.ExecuteSequence(
+		e.OperationsBundle,
+		migrate_seq.SeqTranslateOnRampToFeeQTokenTransferFeeCfg,
+		e.BlockChains.EVMChains(),
+		cfg.toSequenceInput(state),
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to translate 1.5.0 OnRamp dynamic config: %w", err)
+	}
+
+	// ApplyTokenTransferFeeConfigUpdates on the FeeQuoter contract
+	report, err := operations.ExecuteSequence(
+		e.OperationsBundle,
+		ccipseqs.FeeQUpdateTransferTokenFeeCfgSeq,
+		e.BlockChains.EVMChains(),
+		cfg.tokenTransferFeeConfigArgsToSeqInput(state, translateTokenTransferFeeCfgReport.Output.FeeQuoterUpdates),
+	)
+
+	csOutput2, err := opsutil.AddEVMCallSequenceToCSOutput(e, state, cldf.ChangesetOutput{}, report, err, cfg.MCMS, "Call ApplyTokenTransferFeeConfigUpdates on FeeQuoter")
+	if err != nil {
+		return csOutput2, fmt.Errorf("failed to apply FeeQuoter fee tokens updates: %w", err)
+	}
+	return csOutput2, nil
+}
+
+func (cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) tokenTransferFeeConfigArgsToSeqInput(state stateview.CCIPOnChainState, tokenTransferFeeCfgArgs map[uint64][]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs) ccipseqs.FeeQuoterUpdateTokenTransferConfig {
+	input := make(map[uint64]opsutil.EVMCallInput[ccipops.ApplyTokenTransferFeeConfigUpdatesConfigPerChain])
+	for chainSel, tokensFeeCfgArgs := range tokenTransferFeeCfgArgs {
+		input[chainSel] = opsutil.EVMCallInput[ccipops.ApplyTokenTransferFeeConfigUpdatesConfigPerChain]{
+			ChainSelector: chainSel,
+			Address:       state.Chains[chainSel].FeeQuoter.Address(),
+			CallInput: ccipops.ApplyTokenTransferFeeConfigUpdatesConfigPerChain{
+				TokenTransferFeeConfigs:       tokensFeeCfgArgs,
+				TokenTransferFeeConfigsRemove: nil, //not removing any token transfer configs for now
+			},
+			NoSend: cfg.MCMS != nil, // If MCMS exists, we do not want to send the transaction.
+		}
+	}
+
+	return ccipseqs.FeeQuoterUpdateTokenTransferConfig{
 		UpdatesByChain: input,
 	}
 }

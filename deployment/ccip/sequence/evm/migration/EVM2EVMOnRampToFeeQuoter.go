@@ -23,30 +23,6 @@ type EVM2EVMOnRampMigrateDestChainConfig struct {
 
 // Translate the dynamic config fields from the 1.5.0 OnRamp to the FeeQuoterDestChainConfig on 1.6 FeeQuoter
 // Start with default base values & then override with the values from the 1.5.0 OnRamp
-func (m EVM2EVMOnRampMigrate) TranslateOnrampToFeequoterDynamicConfig(destChainSel uint64, destChainEVM2EVMDynamicCfg onramp1_5.EVM2EVMOnRampDynamicConfig) fee_quoter.FeeQuoterDestChainConfig {
-	fqDestConfig := DefaultFeeQuoterDestChainConfig(true, destChainSel)
-
-	fqDestConfig.MaxNumberOfTokensPerMsg = destChainEVM2EVMDynamicCfg.MaxNumberOfTokensPerMsg
-	fqDestConfig.MaxDataBytes = destChainEVM2EVMDynamicCfg.MaxDataBytes
-	fqDestConfig.MaxPerMsgGasLimit = destChainEVM2EVMDynamicCfg.MaxPerMsgGasLimit
-	fqDestConfig.DestGasOverhead = destChainEVM2EVMDynamicCfg.DestGasOverhead
-	// fqDestConfig.DestGasPerPayloadByteBase = destChainEVM2EVMDynamicCfg.DestGasPerPayloadByte
-	// fqDestConfig.DestGasPerPayloadByteHigh = destChainEVM2EVMDynamicCfg.DestGasPerPayloadByte
-	// fqDestConfig.DestGasPerPayloadByteThreshold = destChainEVM2EVMDynamicCfg.DestGasPerPayloadByte
-	fqDestConfig.DestDataAvailabilityOverheadGas = destChainEVM2EVMDynamicCfg.DestDataAvailabilityOverheadGas
-	fqDestConfig.DestGasPerDataAvailabilityByte = destChainEVM2EVMDynamicCfg.DestGasPerDataAvailabilityByte
-	fqDestConfig.DestDataAvailabilityMultiplierBps = destChainEVM2EVMDynamicCfg.DestDataAvailabilityMultiplierBps
-	fqDestConfig.EnforceOutOfOrder = destChainEVM2EVMDynamicCfg.EnforceOutOfOrder
-	fqDestConfig.DefaultTokenFeeUSDCents = destChainEVM2EVMDynamicCfg.DefaultTokenFeeUSDCents
-	fqDestConfig.DefaultTokenDestGasOverhead = destChainEVM2EVMDynamicCfg.DefaultTokenDestGasOverhead
-	// fqDestConfig.DefaultTxGasLimit = destChainEVM2EVMDynamicCfg.DefaultTxGasLimit // is this from static config?
-	// fqDestConfig.GasPriceStalenessThreshold = destChainEVM2EVMDynamicCfg.GasPriceStalenessThreshold // where do we get this from?
-	// fqDestConfig.GasMultiplierWeiPerEth = destChainEVM2EVMDynamicCfg.GasMultiplierWeiPerEth // where do we get this from? : FeeTokenConfig in onramp -- Probably not needed & can use the default instantiation
-	// fqDestConfig.NetworkFeeUSDCents = destChainEVM2EVMDynamicCfg.NetworkFeeUSDCents // where do we get this from? : FeeTokenConfig in onramp - -- Probably not needed & can use the default instantiation
-
-	return fqDestConfig
-}
-
 func (m *EVM2EVMOnRampMigrateDestChainConfig) TranslateOnrampToFeequoterDynamicConfig(destChainSel uint64, destChainEVM2EVMDynamicCfg onramp1_5.EVM2EVMOnRampDynamicConfig) {
 	fqDestDefaults := DefaultFeeQuoterDestChainConfig(true, destChainSel)
 
@@ -93,7 +69,7 @@ func (m EVM2EVMOnRampMigrate) TranslateOnrampToFeequoterTokenTransferFeeConfig(d
 	}
 }
 
-// the below needs to be moved to a common package
+// TODO: the below needs to be moved to a common package, cannot right now due to circular dependencies
 const (
 	// https://github.com/smartcontractkit/chainlink/blob/1423e2581e8640d9e5cd06f745c6067bb2893af2/contracts/src/v0.8/ccip/libraries/Internal.sol#L275-L279
 	/*

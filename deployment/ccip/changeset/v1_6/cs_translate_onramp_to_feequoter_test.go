@@ -25,6 +25,7 @@ import (
 	// Workspace specific
 
 	// For V1_5DeploymentConfig
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -36,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -43,7 +45,7 @@ import (
 func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	ctx := testcontext.Get(t)
 
-	// 1. 1.5 deployment
+	// 1. Deploy 1.5 pre-requisites
 	v1_5_deployment_config := &changeset.V1_5DeploymentConfig{
 		PriceRegStalenessThreshold: 60 * 60 * 24, // 1 day
 		RMNConfig: &rmn_contract.RMNConfig{ // Dummy RMN config
@@ -54,13 +56,14 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 			},
 		},
 	}
+
 	e, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfChains(2),
 		testhelpers.WithPrerequisiteDeploymentOnly(v1_5_deployment_config), //price registry
 	)
 
-	// e, _ := testhelpers.NewMemoryEnvironment(t) // testrouter
 	tenv := e.Env
+
 	allChainSelectors := tenv.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	require.Len(t, allChainSelectors, 2, "Expected 2 EVM chains")
 	sourceChainSelector := allChainSelectors[0]
@@ -80,15 +83,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 		{SourceChainSelector: selectorA, DestChainSelector: selectorB},
 	}
 
-	// 3. Deploy 1.5 Lanes
-	tenv = v1_5.AddLanes(t, tenv, state, pairs)
-	require.NoError(t, err)
-
-	// 4. reload state after adding lanes
-	state, err = stateview.LoadOnchainState(tenv)
-	require.NoError(t, err)
-
-	// 5. Remove link token as it will be deployed by 1.6 contracts again
+	// 3. Remove link token as it will be deployed by 1.6 contracts again
 	ab := cldf.NewMemoryAddressBook()
 	for _, sel := range allChains {
 		require.NoError(t, ab.Save(sel, state.Chains[sel].LinkToken.Address().Hex(),
@@ -97,7 +92,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	//nolint:staticcheck //SA1019 ignoring deprecated
 	require.NoError(t, tenv.ExistingAddresses.Remove(ab))
 
-	// 6. Set the test router as the source chain's router
+	// 4. Set the test router as the source chain's router
 	ab = cldf.NewMemoryAddressBook()
 	for _, sel := range allChains {
 		require.NoError(t, ab.Save(sel, utils.RandomAddress().Hex(),
@@ -106,10 +101,15 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	//nolint:staticcheck //SA1019 ignoring deprecated
 	require.NoError(t, tenv.ExistingAddresses.Merge(ab))
 
-	// 7. Deploy 1.6.0 Pre-reqs contracts
+	// 4. Deploy 1.6.0 Pre-reqs contracts
 	DeployUtil(t, &tenv, sourceChainSelector)
+	state, err = stateview.LoadOnchainState(tenv)
 
-	// 8. Validate all needed contracts are deployed
+	// 5. Deploy 1.5 Lanes
+	tenv = v1_5.AddLanes(t, tenv, state, pairs)
+	require.NoError(t, err)
+
+	// 6. Validate all needed contracts are deployed
 	state, err = stateview.LoadOnchainState(tenv)
 	require.NoError(t, err, "Failed to load initial onchain state")
 	sourceChainState = state.MustGetEVMChainState(sourceChainSelector)
@@ -121,8 +121,11 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	require.NoError(t, err)
 	feeQuoterContract, err := fee_quoter.NewFeeQuoter(sourceChainState.FeeQuoter.Address(), tenv.BlockChains.EVMChains()[sourceChainSelector].Client)
 	require.NoError(t, err)
+	feetokensFromFeeQ, err := feeQuoterContract.GetFeeTokens(&bind.CallOpts{Context: ctx})
+	require.NoError(t, err, "Failed to get GetFeeTokens from FeeQuoter")
+	require.Len(t, feetokensFromFeeQ, 2, "Expected 2 fee token in FeeQuoter before translation changeset")
 
-	// 9. Apply Translation Changeset
+	// 7. Apply Translation Changeset
 	translateConfig := v1_6.TranslateEVM2EVMOnRampsToFeeQuoterConfig{
 		SourceChainSelectors: []uint64{sourceChainSelector},
 		MCMS:                 nil, // Not testing MCMS interactions in this specific test
@@ -131,7 +134,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	_, err = v1_6.TranslateEVM2EVMOnRampsToFeeQuoterChangeset(tenv, translateConfig)
 	require.NoError(t, err, "TranslateEVM2EVMOnRampsToFeeQuoterChangeset execution failed")
 
-	// 10. get onramp & feequoter dynamic & default configs to compare
+	// 8. get onramp & feequoter dynamic & default configs to compare
 	onRampDynamicCfg, err := onRamp1_5_contract.GetDynamicConfig(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err, "Failed to get DestChainConfig from 1.5 onramp")
 	actualFeeQuoterDestCfg, err := feeQuoterContract.GetDestChainConfig(&bind.CallOpts{Context: ctx}, destChainSelector)
@@ -139,8 +142,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 
 	defaultCfgForFamily := v1_6.DefaultFeeQuoterDestChainConfig(true, destChainSelector)
 
-	// 11.Compare the actual configuration with the expected one
-
+	// 9.Compare the actual configuration with the expected one
 	// TODO: ensure all the fields are compared
 	require.Equal(t, onRampDynamicCfg.MaxNumberOfTokensPerMsg, actualFeeQuoterDestCfg.MaxNumberOfTokensPerMsg, "MaxNumberOfTokensPerMsg mismatch")
 	require.Equal(t, onRampDynamicCfg.MaxDataBytes, actualFeeQuoterDestCfg.MaxDataBytes, "MaxDataBytes mismatch")
@@ -155,60 +157,41 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	require.Equal(t, defaultCfgForFamily.ChainFamilySelector, actualFeeQuoterDestCfg.ChainFamilySelector, "ChainFamilySelector mismatch")
 
 	t.Logf("Successfully verified translation of 1.5.0 OnRamp config for chain %d to 1.6.0 FeeQuoter DestChainConfig for destination %d", sourceChainSelector, destChainSelector)
-	/*
-		externalAdmin := utils.ZeroAddress
-		SelectorA2B := createSymmetricRateLimits(100, 1000)
-		SelectorB2A := createSymmetricRateLimits(100, 1000)
-		addTokenE2EConfig := v1_5_1.AddTokensE2EConfig{
-			MCMS: nil,
-		}
-		for _, chain := range tenv.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
-			if addTokenE2EConfig.Tokens == nil {
-				addTokenE2EConfig.Tokens = make(map[shared.TokenSymbol]v1_5_1.AddTokenE2EConfig)
-			}
-			if _, ok := addTokenE2EConfig.Tokens[testhelpers.TestTokenSymbol]; !ok {
-				addTokenE2EConfig.Tokens[testhelpers.TestTokenSymbol] = v1_5_1.AddTokenE2EConfig{
-					PoolConfig: make(map[uint64]v1_5_1.E2ETokenAndPoolConfig),
-				}
-			}
-			rateLimiterPerChain := make(map[uint64]v1_5_1.RateLimiterConfig)
-			for range []uint64{selectorA, selectorB} {
-				switch chain {
-				case selectorA:
-					rateLimiterPerChain[selectorB] = SelectorA2B
-				case selectorB:
-					rateLimiterPerChain[selectorA] = SelectorB2A
-				}
-			}
-			poolConfig := addTokenE2EConfig.Tokens[testhelpers.TestTokenSymbol].PoolConfig
-			var deployPoolConfig *v1_5_1.DeployTokenPoolInput
-			var deployTokenConfig *v1_5_1.DeployTokenConfig
-			var _ *cldf.ContractType
-			recipientAddress := utils.RandomAddress()
-			topupAmount := big.NewInt(1000)
-			deployTokenConfig = &v1_5_1.DeployTokenConfig{
-				TokenName:     string(testhelpers.TestTokenSymbol),
-				TokenSymbol:   testhelpers.TestTokenSymbol,
-				TokenDecimals: testhelpers.LocalTokenDecimals,
-				MaxSupply:     big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
-				Type:          shared.BurnMintToken,
-				PoolType:      shared.BurnMintTokenPool,
-				MintTokenForRecipients: map[common.Address]*big.Int{
-					recipientAddress: topupAmount,
-				},
-			}
-			poolConfig[chain] = v1_5_1.E2ETokenAndPoolConfig{
-				TokenDeploymentConfig: deployTokenConfig,
-				DeployPoolConfig:      deployPoolConfig,
-				PoolVersion:           deployment.Version1_5_1,
-				ExternalAdmin:         externalAdmin,
-			}
-		} */
 
-	// 2. E2E AddTokens
-	/* 	tenv, err = commonchangeset.Apply(t, tenv,
-		commonchangeset.Configure(v1_5_1.AddTokensE2E, addTokenE2EConfig))
-	require.NoError(t, err) */
+	feetokensFromFeeQ, err = feeQuoterContract.GetFeeTokens(&bind.CallOpts{Context: ctx})
+	require.NoError(t, err, "Failed to get GetFeeTokens from FeeQuoter")
+	require.Len(t, feetokensFromFeeQ, 3, "Expected 3 fee tokens in FeeQuoter after translation") // same common token already exists between 1.5 & 1.6
+
+	// 10. E2E AddTokens & TokenPools
+	tenv = DeployTokensAndTokenPools(t, tenv, &tenv.ExistingAddresses)
+
+	tokenArContract, err := token_admin_registry.NewTokenAdminRegistry(sourceChainState.TokenAdminRegistry.Address(), tenv.BlockChains.EVMChains()[sourceChainSelector].Client)
+	require.NoError(t, err, "Failed to create TokenAdminRegistry contract binding")
+	allTokens, _ := tokenArContract.GetAllConfiguredTokens(&bind.CallOpts{Context: ctx}, 0, 1000)
+	require.Len(t, allTokens, 1, "Expected 1 token in TokenAdminRegistry after AddTokensE2E")
+	tokenTransferFeeCfgFromOnRamp, err := onRamp1_5_contract.GetTokenTransferFeeConfig(&bind.CallOpts{Context: ctx}, allTokens[0])
+	require.NoError(t, err, "Failed to get TokenTransferFeeConfig from Onramp")
+	tokenTransferFeeCfgFromFeeQ, err := feeQuoterContract.GetTokenTransferFeeConfig(&bind.CallOpts{Context: ctx}, destChainSelector, allTokens[0])
+	require.NoError(t, err, "Failed to get TokenTransferFeeConfig from FeeQuoter")
+
+	// Should not match before translation
+	require.NotEqual(t, tokenTransferFeeCfgFromOnRamp.DestBytesOverhead, tokenTransferFeeCfgFromFeeQ.DestBytesOverhead, "TokenTransferFeeConfig should not match before translation")
+
+	// 11. Translate TokenTransferFeeConfig from OnRamp to FeeQuoter TokenTransferFeeConfig
+	_, err = v1_6.TranslateEVM2EVMOnRampsToFeeQTokenTransferFeeConfigChangeset(tenv, translateConfig)
+	require.NoError(t, err, "TranslateEVM2EVMOnRampsToFeeQuoterChangeset execution failed")
+
+	// Should match after translation
+	tokenTransferFeeCfgFromOnRamp, err = onRamp1_5_contract.GetTokenTransferFeeConfig(&bind.CallOpts{Context: ctx}, allTokens[0])
+	tokenTransferFeeCfgFromFeeQ, err = feeQuoterContract.GetTokenTransferFeeConfig(&bind.CallOpts{Context: ctx}, destChainSelector, allTokens[0])
+	require.NoError(t, err, "Failed to get TokenTransferFeeConfig from FeeQuoter")
+	require.Equal(t, tokenTransferFeeCfgFromOnRamp.DestBytesOverhead, tokenTransferFeeCfgFromFeeQ.DestBytesOverhead, "TokenTransferFeeConfig should match after translation(DestBytesOverhead)")
+	require.Equal(t, tokenTransferFeeCfgFromOnRamp.MaxFeeUSDCents, tokenTransferFeeCfgFromFeeQ.MaxFeeUSDCents, "TokenTransferFeeConfig should match after translation (MaxFeeUSDCents)")
+	require.Equal(t, tokenTransferFeeCfgFromOnRamp.DeciBps, tokenTransferFeeCfgFromFeeQ.DeciBps, "TokenTransferFeeConfig should match after translation (DeciBps)")
+	require.Equal(t, tokenTransferFeeCfgFromOnRamp.DestGasOverhead, tokenTransferFeeCfgFromFeeQ.DestGasOverhead, "TokenTransferFeeConfig should match after translation (DestGasOverhead)")
+	require.Equal(t, tokenTransferFeeCfgFromOnRamp.MinFeeUSDCents, tokenTransferFeeCfgFromFeeQ.MinFeeUSDCents, "TokenTransferFeeConfig should match after translation (MinFeeUSDCents)")
+	require.Equal(t, tokenTransferFeeCfgFromOnRamp.IsEnabled, tokenTransferFeeCfgFromFeeQ.IsEnabled, "TokenTransferFeeConfig should match after translation (IsEnabled)")
+
 }
 
 func createSymmetricRateLimits(rate int64, capacity int64) v1_5_1.RateLimiterConfig {
@@ -300,4 +283,127 @@ func DeployUtil(t *testing.T, e *cldf.Environment, homeChainSel uint64) {
 		require.NotNil(t, state.Chains[sel].OffRamp)
 		require.NotNil(t, state.Chains[sel].OnRamp)
 	}
+}
+
+const (
+	LocalTokenDecimals                    = 18
+	TestTokenSymbol    shared.TokenSymbol = "LINK"
+)
+
+func DeployTokensAndTokenPools(t *testing.T, e cldf.Environment, addressBook *cldf.AddressBook) cldf.Environment {
+	selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+	selectorA, selectorB := selectors[0], selectors[1]
+	state, err := stateview.LoadOnchainState(e)
+	require.NoError(t, err)
+	newPools := map[uint64]v1_5_1.DeployTokenPoolInput{
+		selectorA: {
+			Type:               shared.BurnMintTokenPool,
+			TokenAddress:       state.Chains[selectorA].LinkToken.Address(),
+			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+		},
+		selectorB: {
+			Type:               shared.BurnMintTokenPool,
+			TokenAddress:       state.Chains[selectorB].LinkToken.Address(),
+			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+		},
+	}
+
+	e, err = commonchangeset.Apply(t, e,
+		commoncs.Configure(
+			cldf.CreateLegacyChangeSet(v1_5_1.DeployTokenPoolContractsChangeset),
+			v1_5_1.DeployTokenPoolContractsConfig{
+				TokenSymbol: TestTokenSymbol,
+				NewPools:    newPools,
+			},
+		),
+	)
+	require.NoError(t, err)
+	SelectorA2B := createSymmetricRateLimits(100, 1000)
+	SelectorB2A := createSymmetricRateLimits(100, 1000)
+	e, err = commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+			v1_5_1.ConfigureTokenPoolContractsConfig{
+				TokenSymbol: TestTokenSymbol,
+				MCMS:        nil,
+				PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
+					selectorA: {
+						Type:    shared.BurnMintTokenPool,
+						Version: deployment.Version1_5_1,
+						ChainUpdates: v1_5_1.RateLimiterPerChain{
+							selectorB: SelectorA2B,
+						},
+					},
+					selectorB: {
+						Type:    shared.BurnMintTokenPool,
+						Version: deployment.Version1_5_1,
+						ChainUpdates: v1_5_1.RateLimiterPerChain{
+							selectorA: SelectorB2A,
+						},
+					},
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+	e, err = commonchangeset.Apply(t, e, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
+		v1_5_1.TokenAdminRegistryChangesetConfig{
+			MCMS: nil,
+			Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+				selectorA: {
+					TestTokenSymbol: {
+						Type:    shared.BurnMintTokenPool,
+						Version: deployment.Version1_5_1,
+					},
+				},
+				selectorB: {
+					TestTokenSymbol: {
+						Type:    shared.BurnMintTokenPool,
+						Version: deployment.Version1_5_1,
+					},
+				},
+			},
+		},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5_1.AcceptAdminRoleChangeset),
+		v1_5_1.TokenAdminRegistryChangesetConfig{
+			MCMS: nil,
+			Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+				selectorA: {
+					TestTokenSymbol: {
+						Type:    shared.BurnMintTokenPool,
+						Version: deployment.Version1_5_1,
+					},
+				},
+				selectorB: {
+					TestTokenSymbol: {
+						Type:    shared.BurnMintTokenPool,
+						Version: deployment.Version1_5_1,
+					},
+				},
+			},
+		},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5_1.SetPoolChangeset),
+		v1_5_1.TokenAdminRegistryChangesetConfig{
+			MCMS: nil,
+			Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+				selectorA: {
+					TestTokenSymbol: {
+						Type:    shared.BurnMintTokenPool,
+						Version: deployment.Version1_5_1,
+					},
+				},
+				selectorB: {
+					TestTokenSymbol: {
+						Type:    shared.BurnMintTokenPool,
+						Version: deployment.Version1_5_1,
+					},
+				},
+			},
+		},
+	))
+	require.NoError(t, err)
+	return e
 }
