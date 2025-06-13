@@ -159,7 +159,7 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 				},
 			},
 			FeeToken:  "0xa",
-			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(100000, true),
+			ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(100000), true),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  evmToken.Address().Bytes(),
