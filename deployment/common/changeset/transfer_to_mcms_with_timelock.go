@@ -96,6 +96,7 @@ func TransferToMCMSWithTimelockV2(
 	inspectorPerChain := map[uint64]sdk.Inspector{}
 	proposerAddressByChain := make(map[uint64]string)
 	evmChains := e.BlockChains.EVMChains()
+	execReports := make([]operations.Report[any, any], 0)
 	for chainSelector, contracts := range cfg.ContractsByChain {
 		// Already validated that the timelock/proposer exists.
 		timelockAddr, _ := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock)
@@ -114,9 +115,12 @@ func TransferToMCMSWithTimelockV2(
 				Contracts:     contracts,
 			},
 		)
+		execReports := append(execReports, seqReport.ExecutionReports...)
 
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute sequence: %w", err)
+			return cldf.ChangesetOutput{
+				Reports: execReports,
+			}, fmt.Errorf("failed to execute sequence: %w", err)
 		}
 
 		batches = append(batches, mcmstypes.BatchOperation{
@@ -129,10 +133,10 @@ func TransferToMCMSWithTimelockV2(
 		timelockAddressByChain, proposerAddressByChain, inspectorPerChain,
 		batches, "Transfer ownership to timelock", cfg.MCMSConfig)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w, batches: %+v", err, batches)
+		return cldf.ChangesetOutput{Reports: execReports}, fmt.Errorf("failed to build proposal from batch: %w, batches: %+v", err, batches)
 	}
 
-	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+	return cldf.ChangesetOutput{Reports: execReports, MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
 var _ cldf.ChangeSet[TransferToDeployerConfig] = TransferToDeployer

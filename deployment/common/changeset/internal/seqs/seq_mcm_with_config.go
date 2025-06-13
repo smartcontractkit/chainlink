@@ -1,22 +1,21 @@
 package seqs
 
 import (
+	"fmt"
+
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/mcms/sdk/evm"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/ops"
+	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
-
-type SeqDeployMCMWithConfigDeps struct {
-	Chain    cldf_evm.Chain
-	AddrBook cldf.AddressBook
-	Options  []func(*cldf.TypeAndVersion)
-}
 
 type SeqDeployMCMWithConfigInput struct {
 	ContractType  cldf.ContractType `json:"contractType"`
@@ -32,42 +31,53 @@ var SeqEVMDeployMCMWithConfig = operations.NewSequence(
 	"seq-deploy-mcm-with-config",
 	semver.MustParse("1.0.0"),
 	"Deploys MCM contract & sets config",
-	func(b operations.Bundle, deps SeqDeployMCMWithConfigDeps, in SeqDeployMCMWithConfigInput) (SeqDeployMCMWithConfigOutput, error) {
-		seqOp := SeqDeployMCMWithConfigOutput{}
+	func(b operations.Bundle, deps cldf_evm.Chain, in SeqDeployMCMWithConfigInput) (opsutils.EVMDeployOutput, error) {
 		// Deploy MCM contract
-		deployReport, err := operations.ExecuteOperation(b, ops.OpEVMDeployMCM,
-			ops.OpEVMMCMSDeps{
-				Chain:    deps.Chain,
-				Options:  deps.Options,
-				AddrBook: deps.AddrBook,
-			},
-			ops.OpEVMDeployMCMInput{
-				ContractType:  in.ContractType,
+		var deployReport operations.Report[opsutils.EVMDeployInput[any], opsutils.EVMDeployOutput]
+		var deployErr error
+		switch in.ContractType {
+		case commontypes.BypasserManyChainMultisig:
+			deployReport, deployErr = operations.ExecuteOperation(b, ops.OpEVMDeployBypasserMCM, deps, opsutils.EVMDeployInput[any]{
 				ChainSelector: in.ChainSelector,
-			},
-		)
-		if err != nil {
-			return seqOp, err
+			})
+		case commontypes.ProposerManyChainMultisig:
+			deployReport, deployErr = operations.ExecuteOperation(b, ops.OpEVMDeployProposerMCM, deps, opsutils.EVMDeployInput[any]{
+				ChainSelector: in.ChainSelector,
+			})
+		case commontypes.CancellerManyChainMultisig:
+			deployReport, deployErr = operations.ExecuteOperation(b, ops.OpEVMDeployCancellerMCM, deps, opsutils.EVMDeployInput[any]{
+				ChainSelector: in.ChainSelector,
+			})
+		default:
+			return opsutils.EVMDeployOutput{}, fmt.Errorf("unsupported contract type for seq-deploy-mcm-with-config: %s", in.ContractType)
 		}
-
-		seqOp.Address = deployReport.Output.Address
+		if deployErr != nil {
+			return opsutils.EVMDeployOutput{}, fmt.Errorf("failed to deploy %s: %w", in.ContractType, deployErr)
+		}
 
 		// Set config
+		groupQuorums, groupParents, signerAddresses, signerGroups, err := evm.ExtractSetConfigInputs(&in.MCMConfig)
+		if err != nil {
+			return opsutils.EVMDeployOutput{}, err
+		}
 		_, err = operations.ExecuteOperation(b, ops.OpEVMSetConfigMCM,
-			ops.OpEVMMCMSDeps{
-				Chain:   deps.Chain,
-				Options: deps.Options,
-			},
-			ops.OpEVMSetConfigMCMInput{
-				Address:      deployReport.Output.Address,
-				ContractType: in.ContractType,
-				MCMConfig:    in.MCMConfig,
+			deps,
+			opsutils.EVMCallInput[ops.OpEVMSetConfigMCMInput]{
+				ChainSelector: in.ChainSelector,
+				Address:       deployReport.Output.Address,
+				NoSend:        false,
+				CallInput: ops.OpEVMSetConfigMCMInput{
+					SignerAddresses: signerAddresses,
+					SignerGroups:    signerGroups,
+					GroupQuorums:    groupQuorums,
+					GroupParents:    groupParents,
+				},
 			},
 		)
 		if err != nil {
-			return seqOp, err
+			return opsutils.EVMDeployOutput{}, err
 		}
 
-		return seqOp, nil
+		return deployReport.Output, nil
 	},
 )

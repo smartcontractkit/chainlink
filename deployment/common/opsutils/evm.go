@@ -1,8 +1,9 @@
-package opsutil
+package opsutils
 
 import (
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -14,8 +15,7 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	mcmslib "github.com/smartcontractkit/mcms"
@@ -187,10 +187,10 @@ func NewEVMDeployOperation[IN any](
 // If the sequence execution was successful and MCMS configuration is provided, it adds a proposal to the output.
 func AddEVMCallSequenceToCSOutput[IN any](
 	e cldf.Environment,
-	state stateview.CCIPOnChainState,
 	csOutput cldf.ChangesetOutput,
 	seqReport operations.SequenceReport[IN, map[uint64][]EVMCallOutput],
 	seqErr error,
+	mcmsStateByChain map[uint64]state.MCMSWithTimelockState,
 	mcmsCfg *proposalutils.TimelockConfig,
 	mcmsDescription string,
 ) (cldf.ChangesetOutput, error) {
@@ -207,6 +207,7 @@ func AddEVMCallSequenceToCSOutput[IN any](
 	batches := []mcmstypes.BatchOperation{}
 	timelocks := make(map[uint64]string)
 	inspectors := make(map[uint64]mcmssdk.Inspector)
+	mcmContractByChain := make(map[uint64]string)
 	for chainSel, outs := range seqReport.Output {
 		for _, out := range outs {
 			// If a transaction has already been confirmed, we do not need an operation for it.
@@ -221,24 +222,31 @@ func AddEVMCallSequenceToCSOutput[IN any](
 			}
 			batches = append(batches, batchOperation)
 
-			if state.Chains[chainSel].Timelock == nil {
-				return csOutput, fmt.Errorf("timelock not found for chain with selector %d", chainSel)
+			mcmsState, ok := mcmsStateByChain[chainSel]
+			if !ok {
+				return csOutput, fmt.Errorf("mcms state not found for chain with selector %d", chainSel)
 			}
-			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
+			timelocks[chainSel] = mcmsState.Timelock.Address().Hex()
 			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return csOutput, fmt.Errorf("failed to get inspector for chain with selector %d: %w", chainSel, err)
 			}
+			mcm, err := mcmsCfg.MCMBasedOnAction(mcmsState)
+			if err != nil {
+				return csOutput, fmt.Errorf("failed to get MCM contract for chain with selector %d: %w", chainSel, err)
+			}
+			mcmContractByChain[chainSel] = mcm.Address().Hex()
 		}
 	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, mcmsCfg)
-	if err != nil {
-		return csOutput, fmt.Errorf("failed to get mcms contracts by chain: %w", err)
+	if len(batches) == 0 {
+		return csOutput, nil
 	}
+
+	// Build new proposal from the batches and MCMS configuration.
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
-		mcmsContractByChain,
+		mcmContractByChain,
 		inspectors,
 		batches,
 		mcmsDescription,
@@ -248,6 +256,25 @@ func AddEVMCallSequenceToCSOutput[IN any](
 		return csOutput, fmt.Errorf("failed to build mcms proposal: %w", err)
 	}
 
-	csOutput.MCMSTimelockProposals = []mcmslib.TimelockProposal{*proposal}
+	// Add the new proposal to the ChangesetOutput.
+	if csOutput.MCMSTimelockProposals == nil {
+		csOutput.MCMSTimelockProposals = make([]mcmslib.TimelockProposal, 1)
+	}
+	csOutput.MCMSTimelockProposals = append(csOutput.MCMSTimelockProposals, *proposal)
+	// Aggregate the proposals into a single proposal.
+	// Aggregate the descriptions of all proposals into a single string.
+	var builder strings.Builder
+	for i, prop := range csOutput.MCMSTimelockProposals {
+		builder.WriteString(prop.Description)
+		if i < len(csOutput.MCMSTimelockProposals)-1 {
+			builder.WriteString(", ")
+		}
+	}
+	aggProposal, err := proposalutils.AggregateProposals(e, mcmsStateByChain, nil, csOutput.MCMSTimelockProposals, builder.String(), mcmsCfg)
+	if err != nil {
+		return csOutput, fmt.Errorf("failed to aggregate proposals: %w", err)
+	}
+
+	csOutput.MCMSTimelockProposals = []mcmslib.TimelockProposal{*aggProposal}
 	return csOutput, nil
 }

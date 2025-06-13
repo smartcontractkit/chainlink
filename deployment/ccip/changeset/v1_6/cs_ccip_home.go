@@ -423,7 +423,15 @@ func PromoteCandidateChangeset(
 			DONs:                 dons,
 		},
 	)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, state, cldf.ChangesetOutput{}, report, err, cfg.MCMS, "PromoteCandidateChangeset")
+	return opsutil.AddEVMCallSequenceToCSOutput(
+		e,
+		cldf.ChangesetOutput{},
+		report,
+		err,
+		state.EVMMCMSStateByChain(),
+		cfg.MCMS,
+		"PromoteCandidateChangeset",
+	)
 }
 
 type SetCandidatePluginInfo struct {
@@ -676,7 +684,7 @@ func AddDonAndSetCandidateChangeset(
 			DONs:                 dons,
 		},
 	)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, state, cldf.ChangesetOutput{}, report, err, cfg.MCMS, fmt.Sprintf("addDON and setCandidates for %s plugin on new chains", cfg.PluginInfo.PluginType.String()))
+	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, report, err, state.EVMMCMSStateByChain(), cfg.MCMS, fmt.Sprintf("addDON and setCandidates for %s plugin on new chains", cfg.PluginInfo.PluginType.String()))
 }
 
 type SetCandidateChangesetConfig struct {
@@ -808,7 +816,7 @@ func SetCandidateChangeset(
 			DONs:                 dons,
 		},
 	)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, state, cldf.ChangesetOutput{}, report, err, cfg.MCMS, fmt.Sprintf("setCandidates for plugins: %v", pluginInfos))
+	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, report, err, state.EVMMCMSStateByChain(), cfg.MCMS, fmt.Sprintf("setCandidates for plugins: %v", pluginInfos))
 }
 
 type RevokeCandidateChangesetConfig struct {
@@ -1121,7 +1129,7 @@ func UpdateChainConfigChangeset(e cldf.Environment, cfg UpdateChainConfigConfig)
 		},
 	)
 	e.Logger.Infof("Proposed chain config update on chain %d removes %v, adds %v", cfg.HomeChainSelector, cfg.RemoteChainRemoves, cfg.RemoteChainAdds)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, state, cldf.ChangesetOutput{}, report, err, cfg.MCMS, "Update chain configs on CCIPHome")
+	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, report, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Update chain configs on CCIPHome")
 }
 
 func isChainConfigEqual(a, b ccip_home.CCIPHomeChainConfig) bool {

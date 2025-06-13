@@ -101,7 +101,7 @@ func SetRMNRemoteOnRMNProxyChangeset(e cldf.Environment, cfg SetRMNRemoteOnRMNPr
 		e.BlockChains.EVMChains(),
 		cfg.ToSequenceInput(state),
 	)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, state, output, report, err, cfg.MCMSConfig, "Call SetARM on RMNProxies")
+	return opsutil.AddEVMCallSequenceToCSOutput(e, output, report, err, state.EVMMCMSStateByChain(), cfg.MCMSConfig, "Call SetARM on RMNProxies")
 }
 
 type RMNNopConfig struct {
@@ -636,5 +636,5 @@ func SetRMNRemoteConfigChangeset(e cldf.Environment, config ccipseq.SetRMNRemote
 		e.BlockChains.EVMChains(),
 		input,
 	)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, state, cldf.ChangesetOutput{}, seqReport, err, config.MCMSConfig, "Set RMNRemote configs")
+	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, seqReport, err, state.EVMMCMSStateByChain(), config.MCMSConfig, "Set RMNRemote configs")
 }

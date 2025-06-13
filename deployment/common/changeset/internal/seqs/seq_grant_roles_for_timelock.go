@@ -12,6 +12,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/ops"
+	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 )
 
@@ -41,12 +42,12 @@ var SeqGrantRolesTimelock = operations.NewSequence(
 	"seq-grant-role-with-config",
 	semver.MustParse("1.0.0"),
 	"Grants appropriate roles to MCMS contracts in the EVM Timelock contract",
-	func(b operations.Bundle, deps SeqGrantRolesTimelockDeps, in SeqGrantRolesTimelockInput) (SeqGrantRolesTimelockOutput, error) {
+	func(b operations.Bundle, deps SeqGrantRolesTimelockDeps, in SeqGrantRolesTimelockInput) (map[uint64][]opsutils.EVMCallOutput, error) {
 		var (
-			mcmsTxs              []mcmsTypes.Transaction
 			addressesInInspector []string
 			err2                 error
 		)
+		out := make([]opsutils.EVMCallOutput, 0)
 
 		timelockInspector := evmMcms.NewTimelockInspector(deps.Chain.Client)
 
@@ -71,19 +72,20 @@ var SeqGrantRolesTimelock = operations.NewSequence(
 					"Role", roleAndAddress.Name,
 					"Error", err2,
 				)
-				return SeqGrantRolesTimelockOutput{}, err2
+				return nil, err2
 			}
 			for _, addressToGrantRole := range roleAndAddress.Addresses {
 				if !slices.Contains(addressesInInspector, addressToGrantRole.Hex()) {
 					opReport, err := operations.ExecuteOperation(b, ops.OpEVMGrantRole,
-						ops.OpEVMGrantRoleDeps{
-							Chain: deps.Chain,
-						},
-						ops.OpEVMGrantRoleInput{
-							TimelockAddress:    in.Timelock,
-							Address:            addressToGrantRole,
-							IsDeployerKeyAdmin: in.IsDeployerKeyAdmin,
-							RoleID:             roleAndAddress.Role,
+						deps.Chain,
+						opsutils.EVMCallInput[ops.OpEVMGrantRoleInput]{
+							ChainSelector: in.ChainSelector,
+							CallInput: ops.OpEVMGrantRoleInput{
+								Account: addressToGrantRole,
+								RoleID:  roleAndAddress.Role,
+							},
+							NoSend:  !in.IsDeployerKeyAdmin,
+							Address: in.Timelock,
 						},
 					)
 					if err != nil {
@@ -94,12 +96,11 @@ var SeqGrantRolesTimelock = operations.NewSequence(
 							"Role Name", roleAndAddress.Name,
 							"Address", addressToGrantRole.Hex(),
 						)
-						return SeqGrantRolesTimelockOutput{}, err
+						return nil, err
 					}
+					out = append(out, opReport.Output)
 
-					if !in.IsDeployerKeyAdmin {
-						mcmsTxs = append(mcmsTxs, opReport.Output.MCMSTx)
-					} else {
+					if in.IsDeployerKeyAdmin {
 						b.Logger.Infow("Role granted",
 							"Role Name", roleAndAddress.Name,
 							"chainSelector", deps.Chain.ChainSelector(),
@@ -112,6 +113,8 @@ var SeqGrantRolesTimelock = operations.NewSequence(
 			}
 		}
 
-		return SeqGrantRolesTimelockOutput{McmsTxs: mcmsTxs}, nil
+		return map[uint64][]opsutils.EVMCallOutput{
+			in.ChainSelector: out,
+		}, nil
 	},
 )

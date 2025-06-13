@@ -220,10 +220,10 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConf
 	})
 	return opsutil.AddEVMCallSequenceToCSOutput(
 		e,
-		state,
 		cldf.ChangesetOutput{},
 		report,
 		err,
+		state.EVMMCMSStateByChain(),
 		mcmsConfig,
 		"Update lanes on CCIP 1.6.0",
 	)

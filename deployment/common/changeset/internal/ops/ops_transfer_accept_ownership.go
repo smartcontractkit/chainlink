@@ -20,6 +20,7 @@ type OpEVMOwnershipDeps struct {
 }
 
 type OpEVMTransferOwnershipInput struct {
+	ChainSelector   uint64         `json:"chainSelector"`   // Chain selector for the EVM chain
 	TimelockAddress common.Address `json:"timelockAddress"` // Address of the EVM Timelock contract
 	Address         common.Address `json:"address"`         // Address to Contract for which ownership is being transferred
 }
