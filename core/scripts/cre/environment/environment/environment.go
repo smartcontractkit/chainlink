@@ -3,6 +3,8 @@ package environment
 import (
 	"context"
 	"crypto/ecdsa"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -264,8 +266,6 @@ var startCmd = &cobra.Command{
 		}
 
 		// TODO print urls?
-		fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(startTime).Seconds()))
-		fmt.Print("To terminate execute: ctf d rm\n\n")
 
 		if withExampleFlag {
 			fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
@@ -273,10 +273,10 @@ var startCmd = &cobra.Command{
 			if deployErr != nil {
 				fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 			}
-
-			fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(startTime).Seconds()))
-			fmt.Print("To terminate execute: ctf d rm\n\n")
 		}
+
+		fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(startTime).Seconds()))
+		fmt.Print("To terminate execute: env stop\n\n")
 
 		return nil
 	},
@@ -495,6 +495,15 @@ func startCLIEnvironment(cmdContext context.Context, topologyFlag string, withPl
 		))
 	}
 
+	if in.JD.CSAEncryptionKey == "" {
+		// generate a new key
+		key, keyErr := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
+		if keyErr != nil {
+			return nil, fmt.Errorf("failed to generate CSA encryption key: %w", keyErr)
+		}
+		in.JD.CSAEncryptionKey = hex.EncodeToString(crypto.FromECDSA(key)[:32])
+		fmt.Printf("Generated new CSA encryption key for JD: %s\n", in.JD.CSAEncryptionKey)
+	}
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:            capabilitiesAwareNodeSets,
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
