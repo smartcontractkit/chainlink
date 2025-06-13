@@ -10,6 +10,10 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
+	evmserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm/server"
+	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
+	crontrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron/server"
+	httptrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/http/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -103,7 +107,10 @@ func NewStandaloneEngine(
 		return nil, err
 	}
 
-	billingClient, _ := billing.NewWorkflowClient(billingClientAddr)
+	var billingClient billing.WorkflowClient
+	if billingClientAddr != "" {
+		billingClient, _ = billing.NewWorkflowClient(billingClientAddr)
+	}
 
 	if module.IsLegacyDAG() {
 		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
@@ -161,14 +168,56 @@ func SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWork
 	return map[string]string{}, nil
 }
 
-func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
-	caps := make([]services.Service, 0)
+func NewFakeManualTriggerCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]fakes.ManualTriggerCapability, error) {
+	caps := make([]fakes.ManualTriggerCapability, 0)
 
-	streamsTrigger := fakes.NewFakeStreamsTrigger(lggr, 6)
-	if err := registry.Add(ctx, streamsTrigger); err != nil {
+	// Cron
+	manualCronTrigger := fakes.NewFakeCronTriggerService(lggr)
+	manualCronTriggerServer := crontrigger.NewCronServer(manualCronTrigger)
+	if err := registry.Add(ctx, manualCronTriggerServer); err != nil {
 		return nil, err
 	}
-	caps = append(caps, streamsTrigger)
+	caps = append(caps, manualCronTrigger)
+
+	// HTTP
+	manualHttpTrigger := fakes.NewFakeManualHttpTriggerService(lggr)
+	manualHttpTriggerServer := httptrigger.NewHTTPServer(manualHttpTrigger)
+	if err := registry.Add(ctx, manualHttpTriggerServer); err != nil {
+		return nil, err
+	}
+	caps = append(caps, manualHttpTrigger)
+
+	return caps, nil
+}
+
+func NewFakeComputeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
+	caps := make([]services.Service, 0)
+
+	// EVM
+	evm := fakes.NewFakeEvmChain(lggr, nil)
+	evmServer := evmserver.NewClientServer(evm)
+	if err := registry.Add(ctx, evmServer); err != nil {
+		return nil, err
+	}
+	caps = append(caps, evm)
+
+	// Consensus
+	consensus, err := fakes.NewFakeConsensus(lggr, fakes.DefaultFakeConsensusConfig())
+	consensusServer := consensusserver.NewConsensusServer(consensus)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := registry.Add(ctx, consensusServer); err != nil {
+		return nil, err
+	}
+	caps = append(caps, consensus)
+
+	return caps, nil
+}
+
+func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
+	caps := make([]services.Service, 0)
 
 	caps = append(caps, newStandardCapabilities(standardCapabilities, lggr, registry)...)
 
@@ -180,15 +229,6 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 		return nil, err
 	}
 	caps = append(caps, fakeConsensus)
-
-	writers := []string{"write_aptos-testnet@1.0.0"}
-	for _, writer := range writers {
-		writeCap := fakes.NewFakeWriteChain(lggr, writer)
-		if err := registry.Add(ctx, writeCap); err != nil {
-			return nil, err
-		}
-		caps = append(caps, writeCap)
-	}
 
 	return caps, nil
 }

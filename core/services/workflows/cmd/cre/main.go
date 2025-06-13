@@ -79,9 +79,16 @@ func run(
 	// Create the registry and fake capabilities
 	registry := capabilities.NewRegistry(lggr)
 	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-	capabilities, err := NewFakeCapabilities(ctx, lggr, registry)
+
+	triggerCaps, err := NewFakeManualTriggerCapabilities(ctx, lggr, registry)
 	if err != nil {
-		fmt.Printf("Failed to create capabilities: %v\n", err)
+		fmt.Printf("Failed to create trigger capabilities: %v\n", err)
+		os.Exit(1)
+	}
+
+	computeCaps, err := NewFakeComputeCapabilities(ctx, lggr, registry)
+	if err != nil {
+		fmt.Printf("Failed to create compute capabilities: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -89,32 +96,54 @@ func run(
 		_ = setupBeholder(lggr.Named("Fake_Stdlog_Beholder"))
 	}
 
-	if billingClientAddr == "" {
+	if billingClientAddr != "" {
 		billingClientAddr = "localhost:4319"
 	}
-	bs := NewBillingService(lggr.Named("Fake_Billing_Client"))
-	err = bs.Start(ctx)
-	if err != nil {
-		fmt.Printf("Failed to start billing service: %v\n", err)
-		os.Exit(1)
+
+	if billingClientAddr != "" {
+		bs := NewBillingService(lggr.Named("Fake_Billing_Client"))
+		err = bs.Start(ctx)
+		if err != nil {
+			fmt.Printf("Failed to start billing service: %v\n", err)
+			os.Exit(1)
+		}
+
+		defer func(bs *BillingService) {
+			cerr := bs.close()
+			if cerr != nil {
+				fmt.Printf("Failed to close billing service: %v\n", cerr)
+			}
+		}(bs)
 	}
 
-	for _, cap := range capabilities {
+	for _, cap := range triggerCaps {
 		if err2 := cap.Start(ctx); err2 != nil {
 			fmt.Printf("Failed to start capability: %v\n", err2)
 			os.Exit(1)
 		}
+	}
 
-		// await the capability to be initialized if using a loop plugin
-		if standardcap, ok := cap.(*standaloneLoopWrapper); ok {
-			if err = standardcap.Await(ctx); err != nil {
-				fmt.Printf("Failed to await capability: %v\n", err)
-				os.Exit(1)
-			}
+	for _, cap := range computeCaps {
+		if err2 := cap.Start(ctx); err2 != nil {
+			fmt.Printf("Failed to start capability: %v\n", err2)
+			os.Exit(1)
 		}
 	}
 
-	engine, err := NewStandaloneEngine(ctx, lggr, registry, binary, config, billingClientAddr, v2.LifecycleHooks{})
+	// Channels to coordinate blocking
+	initializedCh := make(chan struct{})
+	executionFinishedCh := make(chan struct{})
+
+	engine, err := NewStandaloneEngine(ctx, lggr, registry, binary, config, billingClientAddr, v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			lggr.Info("Engine initialized")
+			close(initializedCh)
+		},
+		OnExecutionFinished: func(executionID string) {
+			lggr.Infow("Execution finished", "executionID", executionID)
+			close(executionFinishedCh)
+		},
+	})
 	if err != nil {
 		fmt.Printf("Failed to create engine: %v\n", err)
 		os.Exit(1)
@@ -126,13 +155,23 @@ func run(
 		os.Exit(1)
 	}
 
-	<-ctx.Done()
+	<-initializedCh
+
+	// Manual trigger
+	for _, triggerCap := range triggerCaps {
+		triggerCap.ManualTrigger(ctx)
+	}
+
+	<-executionFinishedCh
 
 	lggr.Info("Shutting down the Engine")
 	_ = engine.Close()
-	for _, cap := range capabilities {
+	for _, cap := range triggerCaps {
 		lggr.Infow("Shutting down capability", "id", cap.Name())
 		_ = cap.Close()
 	}
-	_ = bs.Close()
+	for _, cap := range computeCaps {
+		lggr.Infow("Shutting down capability", "id", cap.Name())
+		_ = cap.Close()
+	}
 }
