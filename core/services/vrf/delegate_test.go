@@ -701,8 +701,10 @@ func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 		vuni.legacyChains,
 		logger.TestLogger(t),
 		mailMon)
-	chain, err := vuni.legacyChains.Get(testutils.FixtureChainID.String())
+	chainService, err := vuni.legacyChains.Get(testutils.FixtureChainID.String())
 	require.NoError(t, err)
+	chain, ok := chainService.(legacyevm.Chain)
+	require.True(t, ok)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		VRFVersion:    vrfcommon.V2Plus,
 		PublicKey:     vuni.vrfkey.PublicKey.String(),

@@ -54,7 +54,7 @@ func mockEstimator(t *testing.T) gas.EvmFeeEstimator {
 	return estimator
 }
 
-func setup(t *testing.T, estimator gas.EvmFeeEstimator, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (
+func setup(t *testing.T, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (
 	*sqlx.DB,
 	chainlink.GeneralConfig,
 	*clienttest.Client,
@@ -90,7 +90,6 @@ func setup(t *testing.T, estimator gas.EvmFeeEstimator, overrideFn func(c *chain
 		DatabaseConfig: cfg.Database(),
 		FeatureConfig:  cfg.Feature(),
 		ListenerConfig: cfg.Database().Listener(),
-		GasEstimator:   estimator,
 	})
 	jpv2 := cltest.NewJobPipelineV2(t, cfg.WebServer(), cfg.JobPipeline(), legacyChains, db, keyStore, nil, nil)
 	ch := evmtest.MustGetDefaultChain(t, legacyChains)
@@ -126,7 +125,7 @@ var checkPerformResponse = struct {
 
 func Test_UpkeepExecuter_ErrorsIfStartedTwice(t *testing.T) {
 	t.Parallel()
-	_, _, _, executer, _, _, _, _, _, _, _, _ := setup(t, mockEstimator(t), nil)
+	_, _, _, executer, _, _, _, _, _, _, _, _ := setup(t, nil)
 	err := executer.Start(testutils.Context(t)) // already started in setup()
 	require.Error(t, err)
 }
@@ -137,7 +136,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	t.Parallel()
 
 	t.Run("runs upkeep on triggering block number", func(t *testing.T) {
-		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t, mockEstimator(t),
+		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t,
 			func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 			})
@@ -182,7 +181,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 	t.Run("runs upkeep on triggering block number on EIP1559 and non-EIP1559 chains", func(t *testing.T) {
 		runTest := func(t *testing.T, eip1559 bool) {
-			db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t, mockEstimator(t), func(c *chainlink.Config, s *chainlink.Secrets) {
+			db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = &eip1559
 				c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 			})
@@ -237,7 +236,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 	t.Run("errors if submission key not found", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		_, _, ethMock, executer, registry, _, job, jpv2, _, keyStore, _, _ := setup(t, mockEstimator(t), func(c *chainlink.Config, s *chainlink.Secrets) {
+		_, _, ethMock, executer, registry, _, job, jpv2, _, keyStore, _, _ := setup(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 		})
 
@@ -271,7 +270,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	})
 
 	t.Run("errors if submission chain not found", func(t *testing.T) {
-		db, cfg, ethMock, _, _, _, _, jpv2, _, keyStore, ch, orm := setup(t, mockEstimator(t), nil)
+		db, cfg, ethMock, _, _, _, _, jpv2, _, keyStore, ch, orm := setup(t, nil)
 
 		registry, jb := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth(), 0, 1, 20)
 		// change chain ID to non-configured chain
@@ -289,7 +288,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	})
 
 	t.Run("triggers if heads are skipped but later heads arrive within range", func(t *testing.T) {
-		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t, mockEstimator(t), func(c *chainlink.Config, s *chainlink.Secrets) {
+		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 		})
 
@@ -331,7 +330,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 
 	g := gomega.NewWithT(t)
 
-	db, _, ethMock, executer, registry, _, _, _, _, _, _, _ := setup(t, mockEstimator(t),
+	db, _, ethMock, executer, registry, _, _, _, _, _, _, _ := setup(t,
 		func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 		})

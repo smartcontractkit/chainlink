@@ -1,3 +1,4 @@
+env CL_EVM_CMD=chainlink-evm
 env CL_SOLANA_CMD=chainlink-solana
 
 # start node
@@ -77,20 +78,24 @@ ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos
 ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Chain
 ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Relayer
 ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Txm
-ok EVM.1
-ok EVM.1.BalanceMonitor
-ok EVM.1.HeadBroadcaster
-ok EVM.1.HeadTracker
-!  EVM.1.HeadTracker.HeadListener
+ok EVM.1.RelayerService
+ok EVM.1.RelayerService.PluginRelayerClient
+ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM
+ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.BalanceMonitor
+ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadBroadcaster
+ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker
+!  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker.HeadListener
 	Listener connected = false, receiving heads = false
-ok EVM.1.LogBroadcaster
-ok EVM.1.Relayer
-ok EVM.1.Txm
-ok EVM.1.Txm.BlockHistoryEstimator
-ok EVM.1.Txm.Broadcaster
-ok EVM.1.Txm.Confirmer
-ok EVM.1.Txm.Finalizer
-ok EVM.1.Txm.WrappedEvmEstimator
+ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.LogBroadcaster
+!  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor
+	service is "Unstarted", not started
+ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Relayer
+ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm
+ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm.BlockHistoryEstimator
+ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm.Broadcaster
+ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm.Confirmer
+ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm.Finalizer
+ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm.WrappedEvmEstimator
 ok HeadReporter
 ok Heartbeat
 ok JobSpawner
@@ -119,8 +124,10 @@ ok TelemetryManager
 ok WorkflowStore
 
 -- out-unhealthy.txt --
-!  EVM.1.HeadTracker.HeadListener
+!  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker.HeadListener
 	Listener connected = false, receiving heads = false
+!  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor
+	service is "Unstarted", not started
 
 -- out.json --
 {
@@ -181,117 +188,144 @@ ok WorkflowStore
     },
     {
       "type": "checks",
-      "id": "EVM.1",
+      "id": "EVM.1.RelayerService",
       "attributes": {
-        "name": "EVM.1",
+        "name": "EVM.1.RelayerService",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "EVM.1.BalanceMonitor",
+      "id": "EVM.1.RelayerService.PluginRelayerClient",
       "attributes": {
-        "name": "EVM.1.BalanceMonitor",
+        "name": "EVM.1.RelayerService.PluginRelayerClient",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "EVM.1.HeadBroadcaster",
+      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM",
       "attributes": {
-        "name": "EVM.1.HeadBroadcaster",
+        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "EVM.1.HeadTracker",
+      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.BalanceMonitor",
       "attributes": {
-        "name": "EVM.1.HeadTracker",
+        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.BalanceMonitor",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "EVM.1.HeadTracker.HeadListener",
+      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadBroadcaster",
       "attributes": {
-        "name": "EVM.1.HeadTracker.HeadListener",
+        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadBroadcaster",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker",
+      "attributes": {
+        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker.HeadListener",
+      "attributes": {
+        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker.HeadListener",
         "status": "failing",
         "output": "Listener connected = false, receiving heads = false"
       }
     },
     {
       "type": "checks",
-      "id": "EVM.1.LogBroadcaster",
+      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.LogBroadcaster",
       "attributes": {
-        "name": "EVM.1.LogBroadcaster",
+        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.LogBroadcaster",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "EVM.1.Relayer",
+      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor",
       "attributes": {
-        "name": "EVM.1.Relayer",
+        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor",
+        "status": "failing",
+        "output": "service is \"Unstarted\", not started"
+      }
+    },
+    {
+      "type": "checks",
+      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Relayer",
+      "attributes": {
+        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Relayer",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "EVM.1.Txm",
+      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm",
       "attributes": {
-        "name": "EVM.1.Txm",
+        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "EVM.1.Txm.BlockHistoryEstimator",
+      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm.BlockHistoryEstimator",
       "attributes": {
-        "name": "EVM.1.Txm.BlockHistoryEstimator",
+        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm.BlockHistoryEstimator",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "EVM.1.Txm.Broadcaster",
+      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm.Broadcaster",
       "attributes": {
-        "name": "EVM.1.Txm.Broadcaster",
+        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm.Broadcaster",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "EVM.1.Txm.Confirmer",
+      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm.Confirmer",
       "attributes": {
-        "name": "EVM.1.Txm.Confirmer",
+        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm.Confirmer",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "EVM.1.Txm.Finalizer",
+      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm.Finalizer",
       "attributes": {
-        "name": "EVM.1.Txm.Finalizer",
+        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm.Finalizer",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "EVM.1.Txm.WrappedEvmEstimator",
+      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm.WrappedEvmEstimator",
       "attributes": {
-        "name": "EVM.1.Txm.WrappedEvmEstimator",
+        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm.WrappedEvmEstimator",
         "status": "passing",
         "output": ""
       }
@@ -537,11 +571,20 @@ ok WorkflowStore
   "data": [
     {
       "type": "checks",
-      "id": "EVM.1.HeadTracker.HeadListener",
+      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker.HeadListener",
       "attributes": {
-        "name": "EVM.1.HeadTracker.HeadListener",
+        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker.HeadListener",
         "status": "failing",
         "output": "Listener connected = false, receiving heads = false"
+      }
+    },
+    {
+      "type": "checks",
+      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor",
+      "attributes": {
+        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor",
+        "status": "failing",
+        "output": "service is \"Unstarted\", not started"
       }
     }
   ]

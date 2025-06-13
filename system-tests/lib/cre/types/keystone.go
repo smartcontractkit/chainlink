@@ -339,8 +339,9 @@ type CapabilitiesAwareNodeSet struct {
 	Capabilities       []string
 	DONTypes           []string
 	SupportedChains    []uint64 // chain IDs that the DON supports, empty means all chains
-	BootstrapNodeIndex int      // -1 -> no bootstrap, only used if the DON doesn't hae the GatewayDON flag
-	GatewayNodeIndex   int      // -1 -> no gateway, only used if the DON has the GatewayDON flag
+	BootstrapNodeIndex int               // -1 -> no bootstrap, only used if the DON doesn't hae the GatewayDON flag
+	GatewayNodeIndex   int               // -1 -> no gateway, only used if the DON has the GatewayDON flag
+	EnvVars            map[string]string // additional environment variables to be set on each node
 }
 
 type CapabilitiesPeeringData struct {

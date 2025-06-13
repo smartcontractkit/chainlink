@@ -1193,6 +1193,34 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 	)
 }
 
+func AddLaneWithEnforceOutOfOrder(t *testing.T, e *DeployedEnv, state stateview.CCIPOnChainState, from, to uint64, isTestRouter bool) {
+	gasPrices := map[uint64]*big.Int{
+		to: DefaultGasPrice,
+	}
+	fromFamily, err := chainsel.GetSelectorFamily(from)
+	require.NoError(t, err)
+
+	tokenPrices := map[common.Address]*big.Int{}
+	if fromFamily == chainsel.FamilyEVM {
+		stateChainFrom := state.MustGetEVMChainState(from)
+		tokenPrices = map[common.Address]*big.Int{
+			stateChainFrom.LinkToken.Address(): DefaultLinkPrice,
+			stateChainFrom.Weth9.Address():     DefaultWethPrice,
+		}
+	}
+	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)
+	fqCfg.EnforceOutOfOrder = true
+	AddLane(
+		t,
+		e,
+		from, to,
+		isTestRouter,
+		gasPrices,
+		tokenPrices,
+		fqCfg,
+	)
+}
+
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain
 // is connected to every other chain except itself.
 func AddLanesForAll(t *testing.T, e *DeployedEnv, state stateview.CCIPOnChainState) {

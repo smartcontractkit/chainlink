@@ -2,6 +2,7 @@ package ocr
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"strings"
 	"time"
@@ -92,9 +93,13 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 	if jb.OCROracleSpec == nil {
 		return nil, errors.Errorf("offchainreporting.Delegate expects an *job.OffchainreportingOracleSpec to be present, got %v", jb)
 	}
-	chain, err := d.legacyChains.Get(jb.OCROracleSpec.EVMChainID.String())
+	chainService, err := d.legacyChains.Get(jb.OCROracleSpec.EVMChainID.String())
 	if err != nil {
 		return nil, err
+	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		return nil, fmt.Errorf("ocr is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 	}
 	concreteSpec, err := job.LoadConfigVarsOCR(chain.Config().EVM().OCR(), d.cfg.OCR(), *jb.OCROracleSpec)
 	if err != nil {

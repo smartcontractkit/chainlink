@@ -64,9 +64,7 @@ gh auth setup-git
 Then you can build the plugins with:
 
 ```shell
-make install-loopinstall # install loopinstall
-make install-plugins-public # install public plugins
-make install-plugins-private # install private plugins
+make install-plugins
 ```
 
 ### Apple Silicon - ARM64

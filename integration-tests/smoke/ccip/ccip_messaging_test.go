@@ -372,7 +372,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		", dest chain selector:", destChain,
 	)
 	// connect a single lane, source to dest
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	testhelpers.AddLaneWithEnforceOutOfOrder(t, &e, state, sourceChain, destChain, false)
 
 	var (
 		// nonce    uint64 // Nonce not used as Solana check is skipped
@@ -456,9 +456,10 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		accountsFailure[2] = solana.SystemProgramID
 
 		extraArgsFailure, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
-			AccountIsWritableBitmap: solccip.GenerateBitMapForIndexes(writableIndexes),
-			Accounts:                accountsFailure,
-			ComputeUnits:            80_000,
+			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes(writableIndexes),
+			Accounts:                 accountsFailure,
+			ComputeUnits:             80_000,
+			AllowOutOfOrderExecution: true,
 		})
 		require.NoError(t, err, "failed to serialize extra args for failing message")
 
@@ -485,9 +486,10 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		}
 
 		extraArgsSuccess, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
-			AccountIsWritableBitmap: solccip.GenerateBitMapForIndexes([]int{0, 1}), // Mark relevant accounts as writable
-			Accounts:                accountsSuccess,
-			ComputeUnits:            80_000,
+			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}), // Mark relevant accounts as writable
+			Accounts:                 accountsSuccess,
+			ComputeUnits:             80_000,
+			AllowOutOfOrderExecution: true,
 		})
 		require.NoError(t, err, "failed to serialize extra args for successful message")
 
@@ -511,6 +513,43 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 						require.NoError(t, err, "failed to get account info after second message")
 						require.Equal(t, uint8(2), receiverCounterAccountAfterSuccess.Value, "Counter should have incremented to 2")
 						t.Logf("Confirmed counter incremented to 2 after second (successful) message")
+					},
+				},
+			},
+		)
+	})
+
+	t.Run("message requiring buffering", func(t *testing.T) {
+		accounts := [][32]byte{
+			receiverExternalExecutionConfigPDA,
+			receiverTargetAccountPDA,
+			solana.SystemProgramID,
+		}
+
+		extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
+			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
+			Accounts:                 accounts,
+			ComputeUnits:             1_000_000,
+			AllowOutOfOrderExecution: true,
+		})
+		require.NoError(t, err)
+
+		out = mt.Run(
+			t,
+			mt.TestCase{
+				ValidationType:         mt.ValidationTypeExec,
+				TestSetup:              setup,
+				Nonce:                  nil, // Solana nonce check is skipped
+				Receiver:               receiver,
+				MsgData:                make([]byte, 1233), // set large payload that cannot fit in single transaction but does not overflow memory allocation
+				ExtraArgs:              extraArgs,
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) {
+						var receiverCounterAccount soltesthelpers.ReceiverCounter
+						err = solcommon.GetAccountDataBorshInto(ctx, solChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccount)
+						require.NoError(t, err, "failed to get account info")
+						require.Equal(t, uint8(3), receiverCounterAccount.Value)
 					},
 				},
 			},
