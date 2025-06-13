@@ -16,7 +16,7 @@
 -- idx_evm_logs_ccip_message_sent_read_seq
 -- This it the main index used for reading CCIPMessageSent events for sequence number range.
 -- In order to reduce the heap access cost, we include most of the fields that are needed for the query
--- Data column can't be included in the index because it's unbounded and mit hit the Postgres limit of 8kB
+-- Data column can't be included in the index because it's unbounded and might hit the Postgres limit of 8kB
 -- topics[2] is used to filter by destChainSelector and topics[3] is used to filter by sequenceNumber
 -- We start index with address column because this filter should immediately narrow down the result set
 -- it's caused by the fact that a single chain might have multiple OnRamp contracts deployed during active-candidate
