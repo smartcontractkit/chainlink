@@ -1,6 +1,7 @@
 package evmtest
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"slices"
@@ -23,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	configtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	evmheads "github.com/smartcontractkit/chainlink-evm/pkg/heads"
 	"github.com/smartcontractkit/chainlink-evm/pkg/log"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -65,7 +65,6 @@ type TestChainOpts struct {
 	TxManager      txmgr.TxManager
 	KeyStore       keystore.Eth
 	MailMon        *mailbox.Monitor
-	GasEstimator   gas.EvmFeeEstimator
 }
 
 // NewLegacyChains returns a simple chain collection with one chain and
@@ -117,11 +116,6 @@ func NewChainOpts(t testing.TB, testopts TestChainOpts) (logger.Logger, keystore
 	if opts.MailMon == nil {
 		opts.MailMon = servicetest.Run(t, mailboxtest.NewMonitor(t))
 	}
-	if testopts.GasEstimator != nil {
-		opts.GenGasEstimator = func(*big.Int) gas.EvmFeeEstimator {
-			return testopts.GasEstimator
-		}
-	}
 
 	return lggr, testopts.KeyStore, opts
 }
@@ -140,7 +134,11 @@ func MustGetDefaultChain(t testing.TB, cc legacyevm.LegacyChainContainer) legacy
 		t.Fatalf("at least one evm chain container must be defined")
 	}
 
-	return cc.Slice()[0]
+	c, ok := cc.Slice()[0].(legacyevm.Chain)
+	if !ok {
+		t.Fatalf("not available in LOOPP mode: %v", errors.ErrUnsupported)
+	}
+	return c
 }
 
 type TestConfigs struct {

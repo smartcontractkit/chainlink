@@ -10,9 +10,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
+	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	clhttp "github.com/smartcontractkit/chainlink/v2/core/utils/http"
 )
 
 // Return types:

@@ -22,6 +22,7 @@ import (
 type EngineConfig struct {
 	Lggr            logger.Logger
 	Module          host.ModuleV2
+	WorkflowConfig  []byte // workflow author provided config
 	CapRegistry     core.CapabilitiesRegistry
 	ExecutionsStore store.Store
 	Clock           clockwork.Clock
