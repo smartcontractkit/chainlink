@@ -227,35 +227,6 @@ func generateRandomLanesWithMinConnectivity(chains []uint64, numLanes int, bidir
 	return finalLanes
 }
 
-// validateMinimumConnectivity ensures each chain appears as both source and destination
-func validateMinimumConnectivity(lanes []LaneConfig, chains []uint64) error {
-	sources := make(map[uint64]bool)
-	destinations := make(map[uint64]bool)
-
-	for _, lane := range lanes {
-		sources[lane.SourceChain] = true
-		destinations[lane.DestinationChain] = true
-	}
-
-	var missingSources, missingDestinations []uint64
-
-	for _, chain := range chains {
-		if !sources[chain] {
-			missingSources = append(missingSources, chain)
-		}
-		if !destinations[chain] {
-			missingDestinations = append(missingDestinations, chain)
-		}
-	}
-
-	if len(missingSources) > 0 || len(missingDestinations) > 0 {
-		return fmt.Errorf("minimum connectivity not satisfied. Missing sources: %v, Missing destinations: %v",
-			missingSources, missingDestinations)
-	}
-
-	return nil
-}
-
 // calculateMinimumLanesNeeded calculates minimum lanes needed for connectivity
 func calculateMinimumLanesNeeded(numChains int, bidirectional bool) int {
 	if numChains <= 1 {
@@ -274,8 +245,11 @@ func calculateMinimumLanesNeeded(numChains int, bidirectional bool) int {
 }
 
 // GetConnectedChains returns all chains that are involved in the configured lanes
-func (lc *LaneConfiguration) GetConnectedChains(allChains []uint64) []uint64 {
-	lanes := lc.GetLanes(allChains)
+func (lc *LaneConfiguration) GetConnectedChains() []uint64 {
+	lanes, err := lc.GetLanes()
+	if err != nil {
+		return nil
+	}
 
 	chainSet := make(map[uint64]bool)
 	for _, lane := range lanes {
@@ -297,8 +271,11 @@ func (lc *LaneConfiguration) GetConnectedChains(allChains []uint64) []uint64 {
 }
 
 // GetSourceChainsForDestination returns all source chains that can send to a specific destination
-func (lc *LaneConfiguration) GetSourceChainsForDestination(destination uint64, allChains []uint64) []uint64 {
-	lanes := lc.GetLanes(allChains)
+func (lc *LaneConfiguration) GetSourceChainsForDestination(destination uint64) []uint64 {
+	lanes, err := lc.GetLanes()
+	if err != nil {
+		return nil
+	}
 
 	var sources []uint64
 	for _, lane := range lanes {
@@ -316,8 +293,11 @@ func (lc *LaneConfiguration) GetSourceChainsForDestination(destination uint64, a
 }
 
 // GetDestinationChainsForSource returns all destination chains that a source can send to
-func (lc *LaneConfiguration) GetDestinationChainsForSource(source uint64, allChains []uint64) []uint64 {
-	lanes := lc.GetLanes(allChains)
+func (lc *LaneConfiguration) GetDestinationChainsForSource(source uint64) []uint64 {
+	lanes, err := lc.GetLanes()
+	if err != nil {
+		return nil
+	}
 
 	var destinations []uint64
 	for _, lane := range lanes {
