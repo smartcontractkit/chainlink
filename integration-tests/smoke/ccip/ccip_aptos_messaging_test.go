@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	v1_6 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
@@ -335,7 +334,8 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
-	defaultDestinationChainConfig := v1_6.DefaultFeeQuoterDestChainConfig(true, destChain)
+	callOpts := &bind.CallOpts{Context: ctx}
+	destinationChainFeeQuoterConfig, err := state.Chains[destChain].FeeQuoter.GetDestChainConfig(callOpts, destChain)
 
 	var (
 		senderAddress = e.Env.BlockChains.AptosChains()[sourceChain].DeployerSigner.AccountAddress()
@@ -358,7 +358,26 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 		NATIVE_FEE_TOKEN = "0xa"
 	)
 
+	const rawAddress = "0xa"
+	var addr aptos.AccountAddress
+	err = addr.ParseStringRelaxed(rawAddress)
+	require.NoError(t, err, "Failed to parse address from string")
+	aptosNativeFeeTokenAddress := addr
+
 	require.NoError(t, err)
+
+	// For testing messages that revert on source
+	mltTestSetup := mlt.NewTestSetup(
+		t,
+		state,
+		sourceChain,
+		destChain,
+		common.HexToAddress("0x0"),
+		destinationChainFeeQuoterConfig,
+		false, // testRouter
+		true,  // validateResp
+		mlt.WithDeployedEnv(e),
+	)
 
 	t.Run("Message from Aptos to EVM", func(t *testing.T) {
 		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
@@ -383,7 +402,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 	t.Run("Max Data Bytes - Should Succeed", func(t *testing.T) {
 		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
 		require.NoError(t, err)
-		message := []byte(strings.Repeat("0", int(defaultDestinationChainConfig.MaxDataBytes)))
+		message := []byte(strings.Repeat("0", int(destinationChainFeeQuoterConfig.MaxDataBytes)))
 		messagingtest.Run(t,
 			messagingtest.TestCase{
 				TestSetup:      setup,
@@ -412,13 +431,43 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 				FeeToken:               NATIVE_FEE_TOKEN,
 				Receiver:               ccipReceiverAddress,
 				MsgData:                message,
-				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(defaultDestinationChainConfig.MaxPerMsgGasLimit), false),
+				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(destinationChainFeeQuoterConfig.MaxPerMsgGasLimit), false),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertEvmMessageReceived(t, ctx, state, destChain, latestHead, message) },
 				},
 			},
 		)
+	})
+
+	t.Run("Max Data Bytes + 1 - Should Fail", func(t *testing.T) {
+		message := []byte(strings.Repeat("0", int(destinationChainFeeQuoterConfig.MaxDataBytes)+1))
+		mlt.Run(mlt.TestCase{
+			TestSetup: mltTestSetup,
+			Name:      "Max Data Bytes + 1 - Should Fail",
+			Msg: testhelpers.AptosSendRequest{
+				Receiver:  ccipReceiverAddress,
+				Data:      message,
+				FeeToken:  aptosNativeFeeTokenAddress,
+				ExtraArgs: nil,
+			},
+			ExpRevert: true,
+		})
+	})
+
+	t.Run("Missing ExtraArgs - Should Fail", func(t *testing.T) {
+		message := []byte("Hello Aptos, from EVM!")
+		mlt.Run(mlt.TestCase{
+			TestSetup: mltTestSetup,
+			Name:      "Missing ExtraArgs - Should Fail",
+			Msg: testhelpers.AptosSendRequest{
+				Receiver:  ccipReceiverAddress,
+				Data:      message,
+				FeeToken:  aptosNativeFeeTokenAddress,
+				ExtraArgs: []byte{},
+			},
+			ExpRevert: true,
+		})
 	})
 }
 

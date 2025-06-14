@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -77,7 +78,7 @@ type TestSetup struct {
 type TestCase struct {
 	TestSetup
 	Name      string
-	Msg       router.ClientEVM2AnyMessage
+	Msg       any
 	ExpRevert bool
 }
 
@@ -99,17 +100,46 @@ func Run(tc TestCase) TestCaseOutput {
 		require.NoError(tc.T, err)
 	}
 
+	var msgOpt testhelpers.SendReqOpts
+
+	family, err := chain_selectors.GetSelectorFamily(tc.SrcChain)
+	require.NoError(tc.T, err)
+
+	switch family {
+	case chain_selectors.FamilyEVM:
+		evmMsg, ok := tc.Msg.(router.ClientEVM2AnyMessage)
+		require.True(tc.T, ok, "expected EVM message type")
+		msgOpt = testhelpers.WithEvm2AnyMessage(evmMsg)
+	case chain_selectors.FamilyAptos:
+		aptosMsg, ok := tc.Msg.(testhelpers.AptosSendRequest)
+		require.True(tc.T, ok, "expected Aptos message type")
+		msgOpt = testhelpers.WithMessage(aptosMsg)
+	default:
+		tc.T.Fatalf("unsupported source chain family %v", family)
+	}
+
 	out, err := testhelpers.SendRequest(
 		tc.Env, tc.OnchainState,
 		testhelpers.WithSourceChain(tc.SrcChain),
 		testhelpers.WithDestChain(tc.DestChain),
 		testhelpers.WithTestRouter(tc.TestRouter),
-		testhelpers.WithEvm2AnyMessage(tc.Msg))
+		msgOpt)
+
+	var errorMsg string
 
 	if tc.ExpRevert {
+		switch family {
+		case chain_selectors.FamilyEVM:
+			errorMsg = "execution reverted"
+		case chain_selectors.FamilyAptos:
+			errorMsg = "transaction reverted:"
+		default:
+			tc.T.Fatalf("unsupported source chain family %v", family)
+		}
+
 		tc.T.Logf("Message reverted as expected")
 		require.Error(tc.T, err)
-		require.Contains(tc.T, err.Error(), "execution reverted")
+		require.Contains(tc.T, err.Error(), errorMsg)
 		return TestCaseOutput{}
 	}
 	require.NoError(tc.T, err)
