@@ -18,29 +18,29 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
-type OpSolanaGrantRoleDeps struct {
+type OpSolanaGrantRoleTimelockDeps struct {
 	Chain cldfsolana.Chain
 }
 
-type OpSolanaGrantRolesInput struct {
+type OpSolanaGrantRoleTimelockInput struct {
 	ChainState         *state.MCMSWithTimelockStateSolana `json:"chainState"`
 	Role               timelockbindings.Role              `json:"role"`
-	Accounts           []solana.PublicKey                 `json:"accounts"`
+	Account            solana.PublicKey                   `json:"account"`
 	IsDeployerKeyAdmin bool                               `json:"isDeployerKeyAdmin"`
 }
 
-type OpSolanaGrantRolesOutput struct {
-	MCMSBatchOperation mcmstypes.BatchOperation `json:"mcmsBatchOperation"`
+type OpSolanaGrantRoleTimelockOutput struct {
+	MCMSTransaction mcmstypes.Transaction `json:"mcmsTransaction"`
 }
 
-var OpSolanaGrantRoles = operations.NewOperation(
-	"solana-grant-role",
+var OpSolanaGrantRoleTimelock = operations.NewOperation(
+	"solana-grant-role-timelock",
 	semver.MustParse("1.0.0"),
-	"Grant Role in a Timelock instance",
-	func(b operations.Bundle, deps OpSolanaGrantRoleDeps, in OpSolanaGrantRolesInput) (OpSolanaGrantRolesOutput, error) {
+	"Grant a role to an account in a Solana Timelock instance",
+	func(b operations.Bundle, deps OpSolanaGrantRoleTimelockDeps, in OpSolanaGrantRoleTimelockInput) (OpSolanaGrantRoleTimelockOutput, error) {
 		accessController, err := selectAccessController(in)
 		if err != nil {
-			return OpSolanaGrantRolesOutput{}, fmt.Errorf("failed to select access controller: %w", err)
+			return OpSolanaGrantRoleTimelockOutput{}, fmt.Errorf("failed to select access controller: %w", err)
 		}
 
 		timelockbindings.SetProgramID(in.ChainState.TimelockProgram)
@@ -52,36 +52,30 @@ var OpSolanaGrantRoles = operations.NewOperation(
 			signer = state.GetTimelockSignerPDA(in.ChainState.TimelockProgram, in.ChainState.TimelockSeed)
 		}
 
-		transactions := make([]mcmstypes.Transaction, len(in.Accounts))
-		for i, account := range in.Accounts {
-			ix, err := accesscontrollerbindings.NewAddAccessInstruction(accessController, signer, account).ValidateAndBuild()
-			if err != nil {
-				return OpSolanaGrantRolesOutput{}, fmt.Errorf("failed to create update delay instruction: %w", err)
-			}
-			if in.IsDeployerKeyAdmin {
-				cerr := deps.Chain.SendAndConfirm(b.GetContext(), []solana.Instruction{ix})
-				if cerr != nil {
-					return OpSolanaGrantRolesOutput{}, fmt.Errorf("failed to confirm instructions: %w", cerr)
-				}
-				continue
-			}
-
-			transactions[i], err = mcmssolanasdk.NewTransactionFromInstruction(ix, "AccessController", []string{})
-			if err != nil {
-				return OpSolanaGrantRolesOutput{}, fmt.Errorf("failed to create transaction: %w", err)
-			}
+		ix, err := accesscontrollerbindings.NewAddAccessInstruction(accessController, signer, in.Account).ValidateAndBuild()
+		if err != nil {
+			return OpSolanaGrantRoleTimelockOutput{}, fmt.Errorf("failed to create update delay instruction: %w", err)
 		}
 
-		return OpSolanaGrantRolesOutput{
-			MCMSBatchOperation: mcmstypes.BatchOperation{
-				ChainSelector: mcmstypes.ChainSelector(deps.Chain.ChainSelector()),
-				Transactions:  transactions,
-			},
-		}, nil
+		if in.IsDeployerKeyAdmin {
+			cerr := deps.Chain.SendAndConfirm(b.GetContext(), []solana.Instruction{ix})
+			if cerr != nil {
+				return OpSolanaGrantRoleTimelockOutput{}, fmt.Errorf("failed to confirm instructions: %w", cerr)
+			}
+
+			return OpSolanaGrantRoleTimelockOutput{}, nil
+		}
+
+		transaction, err := mcmssolanasdk.NewTransactionFromInstruction(ix, "AccessController", []string{})
+		if err != nil {
+			return OpSolanaGrantRoleTimelockOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+		}
+
+		return OpSolanaGrantRoleTimelockOutput{MCMSTransaction: transaction}, nil
 	},
 )
 
-func selectAccessController(in OpSolanaGrantRolesInput) (solana.PublicKey, error) {
+func selectAccessController(in OpSolanaGrantRoleTimelockInput) (solana.PublicKey, error) {
 	switch in.Role {
 	case timelockbindings.Admin_Role:
 		return solana.PublicKey{}, errors.New("admin role not supported")

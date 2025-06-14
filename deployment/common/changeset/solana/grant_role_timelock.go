@@ -15,7 +15,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/ops"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/seqs"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -101,20 +101,23 @@ func (t GrantRoleTimelockSolana) Apply(
 		}
 		mcmsChainState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
 
-		opDeps := ops.OpSolanaGrantRoleDeps{Chain: solChain}
-		opInput := ops.OpSolanaGrantRolesInput{
+		deps := seqs.SeqSolanaGrantRoleTimelockDeps{Chain: solChain}
+		input := seqs.SeqSolanaGrantRoleTimelockInput{
 			ChainState:         mcmsChainState,
 			Role:               cfg.Role,
 			Accounts:           accountsList,
 			IsDeployerKeyAdmin: cfg.MCMS == nil,
 		}
-		report, err := operations.ExecuteOperation(env.OperationsBundle, ops.OpSolanaGrantRoles, opDeps, opInput)
+		report, err := operations.ExecuteSequence(env.OperationsBundle, seqs.SeqSolanaGrantRoleTimelock, deps, input)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute operation %q: %w", ops.OpSolanaGrantRoles.ID(), err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute operation %q: %w", seqs.SeqSolanaGrantRoleTimelock.ID(), err)
 		}
 
 		if cfg.MCMS != nil {
-			batchOps = append(batchOps, report.Output.MCMSBatchOperation)
+			batchOps = append(batchOps, mcmstypes.BatchOperation{
+				ChainSelector: mcmstypes.ChainSelector(chainSelector),
+				Transactions:  report.Output.McmsTransactions,
+			})
 			proposers[chainSelector], _ = mcmsChainState.ProposalMCM(cfg.MCMS.MCMSAction)
 			timelocks[chainSelector] = mcmsChainState.TimelockAddress()
 			inspectors[chainSelector] = mcmssolanasdk.NewInspector(solChain.Client)
