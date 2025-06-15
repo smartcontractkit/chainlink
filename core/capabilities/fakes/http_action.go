@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	customhttp "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http"
@@ -49,6 +51,17 @@ func NewFakeHttpAction(lggr logger.Logger) *FakeHttpAction {
 		Close: fc.Close,
 	}.NewServiceEngine(lggr)
 	return fc
+}
+
+type ReserveInfo struct {
+	LastUpdated  time.Time       `consensus_aggregation:"median" json:"lastUpdated"`
+	TotalReserve decimal.Decimal `consensus_aggregation:"median" json:"totalReserve"`
+}
+
+type PorResponse struct {
+	DataSignature string `json:"dataSignature"`
+	Ripcord       bool   `json:"ripcord"`
+	Data          string `json:"data"`
 }
 
 func (fh *FakeHttpAction) SendRequest(ctx context.Context, metadata capabilities.RequestMetadata, input *customhttp.Request) (*customhttp.Response, error) {
@@ -132,9 +145,7 @@ func (fh *FakeHttpAction) SendRequest(ctx context.Context, metadata capabilities
 		response.ErrorMessage = resp.Status
 	}
 
-	fh.eng.Infow("HTTP response", "response", response)
-	fh.eng.Infow("HTTP request completed", "status", resp.StatusCode, "url", input.GetUrl())
-
+	fh.eng.Debugw("HTTP request completed", "status", resp.StatusCode, "url", input.GetUrl())
 	return response, nil
 }
 

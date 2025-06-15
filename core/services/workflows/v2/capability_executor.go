@@ -47,7 +47,7 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 
 	_, ok := c.meterReports.Get(c.WorkflowExecutionID)
 	if !ok {
-		c.lggr.Errorf("no metering report found for %v", c.WorkflowExecutionID)
+		// c.lggr.Errorf("no metering report found for %v", c.WorkflowExecutionID)
 	}
 	meteringRef := strconv.Itoa(int(request.CallbackId))
 

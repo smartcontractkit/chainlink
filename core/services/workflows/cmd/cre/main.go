@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"go.uber.org/zap/zapcore"
 
@@ -162,7 +163,12 @@ func run(
 		triggerCap.ManualTrigger(ctx)
 	}
 
-	<-executionFinishedCh
+	select {
+	case <-executionFinishedCh:
+		lggr.Info("Execution finished signal received")
+	case <-time.After(15 * time.Second):
+		lggr.Info("Timeout waiting for execution to finish")
+	}
 
 	lggr.Info("Shutting down the Engine")
 	_ = engine.Close()

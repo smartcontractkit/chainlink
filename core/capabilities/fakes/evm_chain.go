@@ -72,19 +72,8 @@ func (fc *fakeEvmChain) Initialise(ctx context.Context, config string, _ core.Te
 func (fc *fakeEvmChain) CallContract(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.CallContractRequest) (*evmpb.CallContractReply, error) {
 	fc.eng.Infow("Fake EVM Chain CallContract Started", "input", input)
 
-	// Prepare call msg
-	// toAddress := common.Address(common.Address(input.Call.To.Address))
-	toAddress := common.HexToAddress("0x779877A7B0D9E8603169DdbD7836e478b4624789")
-	walletAddress := common.HexToAddress("0x437bb34CbdB6c0Eaf859FfDC2DfC424d710e4C5B")
-
-	// balanceOf(address) selector
-	methodID := []byte{0x70, 0xa0, 0x82, 0x31}
-
-	// Pad the address to 32 bytes
-	paddedAddress := common.LeftPadBytes(walletAddress.Bytes(), 32)
-
-	// Combine method selector and padded address
-	data := append(methodID, paddedAddress...)
+	toAddress := common.Address(input.Call.To)
+	data := input.Call.Data
 
 	// Make the call
 	msg := ethereum.CallMsg{

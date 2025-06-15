@@ -21,7 +21,7 @@ import (
 	croncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron"
 	"github.com/smartcontractkit/chainlink-common/pkg/chains/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/cmd/cre/examples/v2/e2e/pkg/bindings"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/cmd/cre/examples/v2/por/bindings"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2"
 )
@@ -74,33 +74,51 @@ func onTrigger(runtime sdk.DonRuntime, outputs *croncap.Payload) (string, error)
 	}
 
 	// TODO: Fix
-	return doPor(runtime, parsedTime, "https://api.github.com/users/octocat", "publicKey", []EvmConfig{})
+	return doPor(runtime, parsedTime, "http://localhost:3000", "publicKey", []EvmConfig{
+		{
+			TokenAddress:  "0x779877A7B0D9E8603169DdbD7836e478b4624789",
+			PorAddress:    "0x0000000000000000000000000000000000000000",
+			ChainSelector: 1,
+			GasLimit:      1000000,
+		},
+	})
 }
 
 func doPor(runtime sdk.DonRuntime, runTime time.Time, url string, publicKey string, evms []EvmConfig) (string, error) {
 	// Fetch Por
+	runtime.Logger().Info("fetching por", "url", url, "publicKey", publicKey, "evms", evms)
 	reserveInfo, err := sdk.RunInNodeMode(runtime, func(nodeRuntime sdk.NodeRuntime) (*ReserveInfo, error) {
-		return fetchPor(url, publicKey, nodeRuntime)
+		reserveInfo, err := fetchPor(url, publicKey, nodeRuntime)
+		if err != nil {
+			nodeRuntime.Logger().Error("error fetching por", "err", err)
+			return nil, err
+		}
+		return reserveInfo, nil
 	}, sdk.ConsensusAggregationFromTags[*ReserveInfo]()).Await()
 	if err != nil {
 		return "", err
 	}
 
+	runtime.Logger().Info("ReserveInfo", reserveInfo)
+
 	if reserveInfo.LastUpdated.Before(runTime.Add(-time.Hour * 24)) {
-		// logger.Warn("reserve time is too old", "time", reserveInfo.LastUpdated)
-		return "", errors.New("reserved time is too old")
+		runtime.Logger().Warn("reserve time is too old", "time", reserveInfo.LastUpdated)
+		// return "", errors.New("reserved time is too old")
 	}
 
 	// TODO: Make this work
-	// totalSupply, err := getTotalSupply(runtime, evms)
-	// if err != nil {
-	// 	return "", err
-	// }
-	// totalReserveScaled := reserveInfo.TotalReserve.Mul(decimal.NewFromUint64(10e18)).BigInt()
+	totalSupply, err := getTotalSupply(runtime, evms)
+	if err != nil {
+		return "", err
+	}
 
-	// if err = updateReserve(runtime, totalSupply, totalReserveScaled, evms); err != nil {
-	// 	return "", err
-	// }
+	runtime.Logger().Info("TotalSupply", totalSupply)
+	totalReserveScaled := reserveInfo.TotalReserve.Mul(decimal.NewFromUint64(1e18)).BigInt()
+	runtime.Logger().Info("TotalReserveScaled", totalReserveScaled)
+
+	if err = updateReserve(runtime, totalSupply, totalReserveScaled, evms); err != nil {
+		return "", err
+	}
 
 	return reserveInfo.TotalReserve.String(), nil
 }

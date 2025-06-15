@@ -108,7 +108,7 @@ func NewFakeConsensus(lggr logger.Logger, config FakeConsensusConfig) (*fakeCons
 }
 
 func (fc *fakeConsensus) Simple(ctx context.Context, metadata pkgcaps.RequestMetadata, input *pb1.SimpleConsensusInputs) (*pb.Value, error) {
-	return nil, nil
+	return input.GetValue(), nil
 }
 
 func (fc *fakeConsensus) Initialise(ctx context.Context, config string, _ core.TelemetryService,

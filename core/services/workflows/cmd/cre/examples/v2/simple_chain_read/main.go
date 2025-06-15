@@ -57,7 +57,7 @@ func onTrigger(runtime sdk.DonRuntime, outputs *croncap.Payload) (string, error)
 			Data: data,
 		},
 		BlockNumber: &pb.BigInt{
-			AbsVal: []byte{0x0B, 0xB8}, // 3000 in hex
+			AbsVal: []byte{}, // 3000 in hex
 		},
 	})
 
