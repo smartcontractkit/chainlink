@@ -7,9 +7,11 @@ import (
 	"path"
 	"time"
 
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
+	httpaction "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	evmserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
 	crontrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron/server"
@@ -194,7 +196,12 @@ func NewFakeComputeCapabilities(ctx context.Context, lggr logger.Logger, registr
 	caps := make([]services.Service, 0)
 
 	// EVM
-	evm := fakes.NewFakeEvmChain(lggr, nil)
+	evmClient, err := ethclient.Dial("https://sepolia.infura.io/v3/dbe1bfd45172477084dfe080e0754c1e")
+	if err != nil {
+		return nil, err
+	}
+
+	evm := fakes.NewFakeEvmChain(lggr, evmClient)
 	evmServer := evmserver.NewClientServer(evm)
 	if err := registry.Add(ctx, evmServer); err != nil {
 		return nil, err
@@ -207,6 +214,14 @@ func NewFakeComputeCapabilities(ctx context.Context, lggr logger.Logger, registr
 	if err != nil {
 		return nil, err
 	}
+
+	// HTTP Action
+	httpAction := fakes.NewFakeHttpAction(lggr)
+	httpActionServer := httpaction.NewClientServer(httpAction)
+	if err := registry.Add(ctx, httpActionServer); err != nil {
+		return nil, err
+	}
+	caps = append(caps, httpAction)
 
 	if err := registry.Add(ctx, consensusServer); err != nil {
 		return nil, err

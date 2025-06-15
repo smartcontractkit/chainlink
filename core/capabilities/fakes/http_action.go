@@ -1,11 +1,16 @@
 package fakes
 
 import (
+	"bytes"
 	"context"
+	"io"
+	"net/http"
+	"strings"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	http "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http"
+	customhttp "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http"
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -33,9 +38,104 @@ type FakeHttpAction struct {
 	lggr logger.Logger
 }
 
-func (fh *FakeHttpAction) SendRequest(ctx context.Context, metadata capabilities.RequestMetadata, input *http.Request) (*http.Response, error) {
+func NewFakeHttpAction(lggr logger.Logger) *FakeHttpAction {
+	fc := &FakeHttpAction{
+		lggr: lggr,
+	}
+
+	fc.Service, fc.eng = services.Config{
+		Name:  "fakeHttpAction",
+		Start: fc.Start,
+		Close: fc.Close,
+	}.NewServiceEngine(lggr)
+	return fc
+}
+
+func (fh *FakeHttpAction) SendRequest(ctx context.Context, metadata capabilities.RequestMetadata, input *customhttp.Request) (*customhttp.Response, error) {
 	fh.eng.Infow("Fake Http Action SendRequest Started", "input", input)
-	return nil, nil
+
+	// Create HTTP client with timeout
+	timeout := time.Duration(30) * time.Second // default timeout
+	if input.GetTimeoutMs() > 0 {
+		timeout = time.Duration(input.GetTimeoutMs()) * time.Millisecond
+	}
+
+	client := &http.Client{
+		Timeout: timeout,
+	}
+
+	// Determine HTTP method (default to GET if not specified)
+	method := input.GetMethod()
+	if method == "" {
+		method = "GET"
+	}
+	method = strings.ToUpper(method)
+
+	// Create request body
+	var body io.Reader
+	if len(input.GetBody()) > 0 {
+		body = bytes.NewReader(input.GetBody())
+	}
+
+	// Create the HTTP request
+	req, err := http.NewRequestWithContext(ctx, method, input.GetUrl(), body)
+	if err != nil {
+		fh.eng.Errorw("Failed to create HTTP request", "error", err)
+		return &customhttp.Response{
+			ErrorMessage: err.Error(),
+			StatusCode:   0,
+		}, err
+	}
+
+	// Add headers
+	for k, v := range input.GetHeaders() {
+		req.Header.Set(k, v)
+	}
+
+	// Make the HTTP request
+	resp, err := client.Do(req)
+	if err != nil {
+		fh.eng.Errorw("Failed to execute HTTP request", "error", err)
+		return &customhttp.Response{
+			ErrorMessage: err.Error(),
+			StatusCode:   0,
+		}, err
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fh.eng.Errorw("Failed to read response body", "error", err)
+		return &customhttp.Response{
+			ErrorMessage: err.Error(),
+			StatusCode:   uint32(resp.StatusCode),
+		}, err
+	}
+
+	// Convert headers
+	headers := make(map[string]string)
+	for k, v := range resp.Header {
+		// Join multiple header values with comma
+		headers[k] = strings.Join(v, ", ")
+	}
+
+	// Create response
+	response := &customhttp.Response{
+		StatusCode: uint32(resp.StatusCode),
+		Headers:    headers,
+		Body:       respBody,
+	}
+
+	// Add error message if status code indicates an error
+	if resp.StatusCode >= 400 {
+		response.ErrorMessage = resp.Status
+	}
+
+	fh.eng.Infow("HTTP response", "response", response)
+	fh.eng.Infow("HTTP request completed", "status", resp.StatusCode, "url", input.GetUrl())
+
+	return response, nil
 }
 
 func (fh *FakeHttpAction) Start(ctx context.Context) error {

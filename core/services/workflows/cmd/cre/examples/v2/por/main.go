@@ -1,0 +1,249 @@
+//go:build wasip1
+
+package main
+
+import (
+	"crypto"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+	"encoding/pem"
+	"errors"
+	"fmt"
+	"math/big"
+	"time"
+
+	"github.com/shopspring/decimal"
+	httpaction "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http"
+	evmcap "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
+	croncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron"
+	"github.com/smartcontractkit/chainlink-common/pkg/chains/evm"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/cmd/cre/examples/v2/e2e/pkg/bindings"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2"
+)
+
+type EvmConfig struct {
+	TokenAddress  string
+	PorAddress    string
+	ChainSelector uint32
+	GasLimit      uint64
+}
+
+type Config struct {
+	PublicKey string
+	Schedule  string
+	Url       string
+	Evms      []EvmConfig
+}
+
+type ReserveInfo struct {
+	LastUpdated  time.Time       `consensus_aggregation:"median" json:"lastUpdated"`
+	TotalReserve decimal.Decimal `consensus_aggregation:"median" json:"totalReserve"`
+}
+
+type PorResponse struct {
+	DataSignature string `json:"dataSignature"`
+	Ripcord       bool   `json:"ripcord"`
+	Data          string `json:"data"`
+}
+
+func RunSimpleCronWorkflow(runner sdk.DonRunner) {
+	cron := &croncap.Cron{}
+	cfg := &croncap.Config{
+		Schedule: "*/3 * * * * *", // every three seconds
+	}
+
+	runner.Run(&sdk.WorkflowArgs[sdk.DonRuntime]{
+		Handlers: []sdk.Handler[sdk.DonRuntime]{
+			sdk.NewDonHandler(
+				cron.Trigger(cfg),
+				onTrigger,
+			),
+		},
+	})
+}
+
+func onTrigger(runtime sdk.DonRuntime, outputs *croncap.Payload) (string, error) {
+	parsedTime, err := time.Parse(time.RFC3339, outputs.ScheduledExecutionTime)
+	if err != nil {
+		return "", err
+	}
+
+	// TODO: Fix
+	return doPor(runtime, parsedTime, "https://api.github.com/users/octocat", "publicKey", []EvmConfig{})
+}
+
+func doPor(runtime sdk.DonRuntime, runTime time.Time, url string, publicKey string, evms []EvmConfig) (string, error) {
+	// Fetch Por
+	reserveInfo, err := sdk.RunInNodeMode(runtime, func(nodeRuntime sdk.NodeRuntime) (*ReserveInfo, error) {
+		return fetchPor(url, publicKey, nodeRuntime)
+	}, sdk.ConsensusAggregationFromTags[*ReserveInfo]()).Await()
+	if err != nil {
+		return "", err
+	}
+
+	if reserveInfo.LastUpdated.Before(runTime.Add(-time.Hour * 24)) {
+		// logger.Warn("reserve time is too old", "time", reserveInfo.LastUpdated)
+		return "", errors.New("reserved time is too old")
+	}
+
+	// TODO: Make this work
+	// totalSupply, err := getTotalSupply(runtime, evms)
+	// if err != nil {
+	// 	return "", err
+	// }
+	// totalReserveScaled := reserveInfo.TotalReserve.Mul(decimal.NewFromUint64(10e18)).BigInt()
+
+	// if err = updateReserve(runtime, totalSupply, totalReserveScaled, evms); err != nil {
+	// 	return "", err
+	// }
+
+	return reserveInfo.TotalReserve.String(), nil
+}
+
+func updateReserve(runtime sdk.DonRuntime, totalSupply, totalReserveScaled *big.Int, evms []EvmConfig) error {
+	reportWrites := make([]sdk.Promise[*evm.WriteReportReply], len(evms))
+	for i, evmConfig := range evms {
+		evmClient := &evmcap.Client{}
+
+		// Address must be parsable or the workflow would fail to initialize the trigger.
+		address, _ := hexToBytes(evmConfig.PorAddress)
+		reserveManager := bindings.NewIReserveManager(bindings.ContractInputs{EVM: evmClient, Address: address, Options: &bindings.ContractOptions{
+			GasConfig: &evm.GasConfig{
+				GasLimit: evmConfig.GasLimit,
+			},
+		}})
+		reportWrites[i] = reserveManager.WriteReportUpdateReserves(runtime, bindings.UpdateReservesStruct{
+			TotalMinted:  totalSupply,
+			TotalReserve: totalReserveScaled,
+		}, nil)
+	}
+
+	var errs []error
+	for i, promise := range reportWrites {
+		_, err := promise.Await()
+		if err == nil {
+			// wcx.Logger.Debug("update reserve write report reply", "chain_selector", evms[i].ChainSelector, "tx hash", writeReportReply.TxHash)
+		} else {
+			selector := evms[i].ChainSelector
+			// wcx.Logger.Error("Could not write to contract", "contract_chain", selector, "err", err.Error())
+			errs = append(errs, fmt.Errorf("failed to write report for chain %d: %w", selector, err))
+			continue
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
+func getTotalSupply(runtime sdk.DonRuntime, evms []EvmConfig) (*big.Int, error) {
+	// Fetch supply from all EVMs in parallel
+	supplyPromises := make([]sdk.Promise[*big.Int], len(evms))
+	for i, evmConfig := range evms {
+		evmClient := &evmcap.Client{}
+
+		address, err := hexToBytes(evmConfig.TokenAddress)
+		if err != nil {
+			// logger.Error("failed to decode token address", "address", evmConfig.TokenAddress, "err", err)
+			return nil, fmt.Errorf("failed to decode token address %s: %w", evmConfig.TokenAddress, err)
+		}
+		token := bindings.NewIERC20(bindings.ContractInputs{EVM: evmClient, Address: address})
+		evmTotalSupplyPromise := token.Methods.TotalSupply.Call(runtime, nil)
+		supplyPromises[i] = evmTotalSupplyPromise
+	}
+
+	// We can add sdk.AwaitAll that takes []sdk.Promise[T] and returns ([]T, error)
+	totalSupply := big.NewInt(0)
+	for _, promise := range supplyPromises {
+		supply, err := promise.Await()
+		if err != nil {
+			// selector := evms[i].ChainSelector
+			// logger.Error("Could not read from contract", "contract_chain", selector, "err", err.Error())
+			return nil, err
+		}
+
+		totalSupply = totalSupply.Add(totalSupply, supply)
+	}
+
+	return totalSupply, nil
+}
+
+func fetchPor(urlString string, publicKey string, runtime sdk.NodeRuntime) (*ReserveInfo, error) {
+	httpAction := httpaction.Client{}
+	httpActionOut, err := httpAction.SendRequest(runtime, &httpaction.Request{
+		Method: "GET",
+		Url:    urlString,
+	}).Await()
+
+	if err != nil {
+		return nil, err
+	}
+
+	porResponse := &PorResponse{}
+	if err = json.Unmarshal(httpActionOut.Body, porResponse); err != nil {
+		return nil, err
+	}
+
+	// TODO: Make this work
+	// err = verifySignature(porResponse, publicKey)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	if porResponse.Ripcord {
+		return nil, errors.New("ripcord is true")
+	}
+
+	reserveInfo := &ReserveInfo{}
+	if err = json.Unmarshal([]byte(porResponse.Data), reserveInfo); err != nil {
+		return nil, err
+	}
+
+	return reserveInfo, nil
+}
+
+func verifySignature(porResponse *PorResponse, publicKey string) error {
+	// Decode the signature
+	rawSig, err := base64.RawURLEncoding.DecodeString(porResponse.DataSignature)
+	if err != nil {
+		return fmt.Errorf("failed to decode signature: %w", err)
+	}
+
+	// Parse the PEM public key
+	block, _ := pem.Decode([]byte(publicKey))
+	if block == nil || block.Type != "PUBLIC KEY" {
+		return fmt.Errorf("invalid PEM block")
+	}
+
+	pubInterface, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return fmt.Errorf("failed to parse public key: %w", err)
+	}
+
+	pubKey, ok := pubInterface.(*rsa.PublicKey)
+	if !ok {
+		return fmt.Errorf("not an RSA public key")
+	}
+
+	// Hash the payload
+	hasher := crypto.SHA256.New()
+	hasher.Write([]byte(porResponse.Data))
+	digest := hasher.Sum(nil)
+
+	// Verify
+	if err := rsa.VerifyPKCS1v15(pubKey, crypto.SHA256, digest, rawSig); err != nil {
+		return fmt.Errorf("signature verification failed: %w", err)
+	}
+	return nil
+}
+
+func hexToBytes(hexStr string) ([]byte, error) {
+	return hex.DecodeString(hexStr[2:])
+}
+
+func main() {
+	RunSimpleCronWorkflow(wasm.NewDonRunner())
+}

@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	httpaction "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http"
 	evmcap "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
 	consensuscap "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus"
 	croncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron"
@@ -56,7 +57,7 @@ func onTrigger(runtime sdk.DonRuntime, outputs *croncap.Payload) (string, error)
 			Data: data,
 		},
 		BlockNumber: &pb.BigInt{
-			AbsVal: []byte{},
+			AbsVal: []byte{0x0B, 0xB8}, // 3000 in hex
 		},
 	})
 
@@ -87,6 +88,32 @@ func onTrigger(runtime sdk.DonRuntime, outputs *croncap.Payload) (string, error)
 	}
 
 	outInt := val.GetBigintValue().GetAbsVal()
+
+	// Call HTTP Action Capability
+	_, err = runtime.RunInNodeMode(func(runtime sdk.NodeRuntime) *consensusbpb.SimpleConsensusInputs {
+		httpAction := httpaction.Client{}
+		httpActionOut, err := httpAction.SendRequest(runtime, &httpaction.Request{
+			Url: "https://api.github.com/users/octocat",
+		}).Await()
+		if err != nil {
+			return &consensusbpb.SimpleConsensusInputs{}
+		}
+		return &consensusbpb.SimpleConsensusInputs{
+			Default:     pb.NewBytesValue(httpActionOut.GetBody()),
+			Descriptors: sdk.ConsensusIdenticalAggregation[bool]().Descriptor(),
+			Observation: &consensusbpb.SimpleConsensusInputs_Value{
+				Value: pb.NewBytesValue(httpActionOut.GetBody()),
+			},
+		}
+	}).Await()
+	if err != nil {
+		return "", err
+	}
+
+	// evm.WriteReport(runtime, &evmpb.WriteReportRequest{
+	// 	Report: ,
+	// })
+
 	return new(big.Int).SetBytes(outInt).String(), nil
 }
 
