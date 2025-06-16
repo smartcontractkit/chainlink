@@ -15,8 +15,7 @@ import (
 
 // UpdateFeeQuoterDestsInput contains configuration for updating FeeQuoter destination configs
 type UpdateFeeQuoterDestsInput struct {
-	MCMSAddress aptos.AccountAddress
-	Updates     map[uint64]aptos_fee_quoter.DestChainConfig
+	Updates map[uint64]aptos_fee_quoter.DestChainConfig
 }
 
 // UpdateFeeQuoterDestsOp operation to update FeeQuoter destination configurations
@@ -80,11 +79,6 @@ func updateFeeQuoterDests(b operations.Bundle, deps AptosDeps, in UpdateFeeQuote
 
 // UpdateFeeQuoterPricesInput contains configuration for updating FeeQuoter price configs
 type UpdateFeeQuoterPricesInput struct {
-	MCMSAddress aptos.AccountAddress
-	Prices      FeeQuoterPriceUpdatePerSource
-}
-
-type FeeQuoterPriceUpdatePerSource struct {
 	TokenPrices map[string]*big.Int // token address (string) -> price
 	GasPrices   map[uint64]*big.Int // dest chain -> gas price
 }
@@ -111,7 +105,7 @@ func updateFeeQuoterPrices(b operations.Bundle, deps AptosDeps, in UpdateFeeQuot
 	var gasUsdPerUnitGas []*big.Int
 
 	// Process token prices if any
-	for tokenAddr, price := range in.Prices.TokenPrices {
+	for tokenAddr, price := range in.TokenPrices {
 		address := aptos.AccountAddress{}
 		err := address.ParseStringRelaxed(tokenAddr)
 		if err != nil {
@@ -122,7 +116,7 @@ func updateFeeQuoterPrices(b operations.Bundle, deps AptosDeps, in UpdateFeeQuot
 	}
 
 	// Process gas prices if any
-	for destChainSel, gasPrice := range in.Prices.GasPrices {
+	for destChainSel, gasPrice := range in.GasPrices {
 		gasDestChainSelectors = append(gasDestChainSelectors, destChainSel)
 		gasUsdPerUnitGas = append(gasUsdPerUnitGas, gasPrice)
 	}
@@ -152,6 +146,69 @@ func updateFeeQuoterPrices(b operations.Bundle, deps AptosDeps, in UpdateFeeQuot
 	b.Logger.Infow("Adding FeeQuoter price update operation",
 		"tokenPriceCount", len(sourceTokens),
 		"gasPriceCount", len(gasDestChainSelectors),
+	)
+
+	return txs, nil
+}
+
+// ApplyPremiumMultiplierInput contains configuration for updating FeeQuoter price configs
+type ApplyPremiumMultiplierInput struct {
+	CCIPAddress             aptos.AccountAddress
+	MultiplierBySourceToken map[string]uint64 // source token address (aptos) -> premium wei per eth
+}
+
+// ApplyPremiumMultiplierOp operation to update FeeQuoter prices
+var ApplyPremiumMultiplierOp = operations.NewOperation(
+	"apply-premium-multiplier-op",
+	Version1_0_0,
+	"Applies premium multiplier wei per eth updates to FeeQuoter prices",
+	applyPremiumMultiplier,
+)
+
+func applyPremiumMultiplier(b operations.Bundle, deps AptosDeps, in ApplyPremiumMultiplierInput) ([]mcmstypes.Transaction, error) {
+	var txs []mcmstypes.Transaction
+
+	// Bind CCIP Package
+	ccipBind := ccip.Bind(in.CCIPAddress, deps.AptosChain.Client)
+
+	// Convert token prices and gas prices to format expected by Aptos contract
+	var sourceTokens []aptos.AccountAddress
+	var multiplier []uint64
+
+	// Process token multipliers if any
+	for tokenAddr, price := range in.MultiplierBySourceToken {
+		address := aptos.AccountAddress{}
+		err := address.ParseStringRelaxed(tokenAddr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse Aptos token address %s: %w", tokenAddr, err)
+		}
+		sourceTokens = append(sourceTokens, address)
+		multiplier = append(multiplier, price)
+	}
+
+	// Generate MCMS tx to update prices
+	if len(sourceTokens) == 0 && len(multiplier) == 0 {
+		b.Logger.Infow("No price updates to apply")
+		return nil, nil
+	}
+
+	// Encode the update tx
+	moduleInfo, function, _, args, err := ccipBind.FeeQuoter().Encoder().ApplyPremiumMultiplierWeiPerEthUpdates(
+		sourceTokens,
+		multiplier,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode ApplyPremiumMultiplierWeiPerEthUpdates: %w", err)
+	}
+	tx, err := utils.GenerateMCMSTx(in.CCIPAddress, moduleInfo, function, args)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create transaction: %w", err)
+	}
+	txs = append(txs, tx)
+
+	b.Logger.Infow("Adding ApplyPremiumMultiplierWeiPerEthUpdates operation",
+		"tokenCount", len(sourceTokens),
+		"multiplierCount", len(multiplier),
 	)
 
 	return txs, nil

@@ -65,6 +65,7 @@ func NewStandaloneEngine(
 	registry *capabilities.Registry,
 	binary []byte, config []byte,
 	billingClientAddr string,
+	lifecycleHooks v2.LifecycleHooks,
 ) (services.Service, error) {
 	labeler := custmsg.NewLabeler()
 	moduleConfig := &host.ModuleConfig{
@@ -134,6 +135,7 @@ func NewStandaloneEngine(
 	cfg := &v2.EngineConfig{
 		Lggr:            lggr,
 		Module:          module,
+		WorkflowConfig:  config,
 		CapRegistry:     registry,
 		ExecutionsStore: store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 
@@ -148,6 +150,7 @@ func NewStandaloneEngine(
 		BeholderEmitter: custmsg.NewLabeler(),
 
 		BillingClient: billingClient,
+		Hooks:         lifecycleHooks,
 	}
 
 	return v2.NewEngine(ctx, cfg)

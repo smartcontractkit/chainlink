@@ -48,6 +48,7 @@
 /core/services/pipeline/task.vrf.go @smartcontractkit/dev-services
 /core/services/pipeline/task.vrfv2.go @smartcontractkit/dev-services
 /core/services/pipeline/task.vrfv2plus.go @smartcontractkit/dev-services
+/core/scripts/vrf* @smartcontractkit/dev-services
 
 # Keeper/Automation-related services
 /core/services/keeper @smartcontractkit/dev-services

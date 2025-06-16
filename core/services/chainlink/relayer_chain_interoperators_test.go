@@ -301,8 +301,10 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					assert.Equal(t, wantId.ChainID, stat.ID)
 					// check legacy chains for evm and cosmos
 					if wantId.Network == relay.NetworkEVM {
-						c, err := cr.LegacyEVMChains().Get(wantId.ChainID)
+						cs, err := cr.LegacyEVMChains().Get(wantId.ChainID)
 						assert.NoError(t, err)
+						c, ok := cs.(legacyevm.Chain)
+						require.True(t, ok)
 						assert.NotNil(t, c)
 						assert.Equal(t, wantId.ChainID, c.ID().String())
 					}

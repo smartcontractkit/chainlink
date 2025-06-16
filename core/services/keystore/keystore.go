@@ -13,7 +13,7 @@ type getDefault[K any] interface {
 func GetDefault[K any, KS getDefault[K]](ctx context.Context, ks KS) (K, error) {
 	var zero K
 	if err := ks.EnsureKey(ctx); err != nil {
-		return zero, fmt.Errorf("failed to ensure %T key", zero)
+		return zero, fmt.Errorf("failed to ensure %T key: %w", zero, err)
 	}
 	keys, err := ks.GetAll()
 	if err != nil {

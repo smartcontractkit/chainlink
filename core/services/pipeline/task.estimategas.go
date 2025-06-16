@@ -84,8 +84,12 @@ func (t *EstimateGasLimitTask) Run(ctx context.Context, lggr logger.Logger, vars
 		err = fmt.Errorf("%w: %s: %w", ErrInvalidEVMChainID, chainID, err)
 		return Result{Error: err}, runInfo
 	}
+	legacyChain, ok := chain.(legacyevm.Chain)
+	if !ok {
+		return Result{Error: ErrUnsupportedInLOOPPMode}, runInfo
+	}
 
-	maximumGasLimit := SelectGasLimit(chain.Config().EVM().GasEstimator(), t.jobType, t.specGasLimit)
+	maximumGasLimit := SelectGasLimit(legacyChain.Config().EVM().GasEstimator(), t.jobType, t.specGasLimit)
 	to := common.Address(toAddr)
 	var gasLimit hexutil.Uint64
 	args := map[string]interface{}{
@@ -98,7 +102,7 @@ func (t *EstimateGasLimitTask) Run(ctx context.Context, lggr logger.Logger, vars
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
-	err = chain.Client().CallContext(ctx,
+	err = legacyChain.Client().CallContext(ctx,
 		&gasLimit,
 		"eth_estimateGas",
 		args,
