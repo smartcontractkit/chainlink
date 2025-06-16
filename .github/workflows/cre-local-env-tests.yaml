@@ -121,6 +121,8 @@ jobs:
             [[nodesets.node_specs]]
               [nodesets.node_specs.node]
                 image = "injected-at-runtime"
+                [nodesets.node_specs.node.env_vars]
+                CL_EVM_CMD=""
           EOF
 
       - name: Start the CLI
