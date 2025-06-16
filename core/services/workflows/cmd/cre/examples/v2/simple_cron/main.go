@@ -8,26 +8,24 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2"
 )
 
-func RunSimpleCronWorkflow(runner sdk.DonRunner) {
+func RunSimpleCronWorkflow(_ *sdk.WorkflowContext[struct{}]) (sdk.Workflow[struct{}], error) {
 	cron := &croncap.Cron{}
 	cfg := &croncap.Config{
 		Schedule: "*/3 * * * * *", // every 3 seconds
 	}
 
-	runner.Run(&sdk.WorkflowArgs[sdk.DonRuntime]{
-		Handlers: []sdk.Handler[sdk.DonRuntime]{
-			sdk.NewDonHandler(
-				cron.Trigger(cfg),
-				onTrigger,
-			),
-		},
-	})
+	return sdk.Workflow[struct{}]{
+		sdk.On(
+			cron.Trigger(cfg),
+			onTrigger,
+		),
+	}, nil
 }
 
-func onTrigger(runtime sdk.DonRuntime, outputs *croncap.Payload) (string, error) {
+func onTrigger(_ *sdk.WorkflowContext[struct{}], runtime sdk.Runtime, outputs *croncap.Payload) (string, error) {
 	return "ping", nil
 }
 
 func main() {
-	RunSimpleCronWorkflow(wasm.NewDonRunner())
+	wasm.NewRunner(func(_ []byte) (struct{}, error) { return struct{}{}, nil }).Run(RunSimpleCronWorkflow)
 }
