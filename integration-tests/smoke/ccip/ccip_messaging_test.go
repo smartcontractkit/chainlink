@@ -372,7 +372,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		", dest chain selector:", destChain,
 	)
 	// connect a single lane, source to dest
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	testhelpers.AddLaneWithEnforceOutOfOrder(t, &e, state, sourceChain, destChain, false)
 
 	var (
 		// nonce    uint64 // Nonce not used as Solana check is skipped
@@ -456,9 +456,10 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		accountsFailure[2] = solana.SystemProgramID
 
 		extraArgsFailure, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
-			AccountIsWritableBitmap: solccip.GenerateBitMapForIndexes(writableIndexes),
-			Accounts:                accountsFailure,
-			ComputeUnits:            80_000,
+			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes(writableIndexes),
+			Accounts:                 accountsFailure,
+			ComputeUnits:             80_000,
+			AllowOutOfOrderExecution: true,
 		})
 		require.NoError(t, err, "failed to serialize extra args for failing message")
 
@@ -485,9 +486,10 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		}
 
 		extraArgsSuccess, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
-			AccountIsWritableBitmap: solccip.GenerateBitMapForIndexes([]int{0, 1}), // Mark relevant accounts as writable
-			Accounts:                accountsSuccess,
-			ComputeUnits:            80_000,
+			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}), // Mark relevant accounts as writable
+			Accounts:                 accountsSuccess,
+			ComputeUnits:             80_000,
+			AllowOutOfOrderExecution: true,
 		})
 		require.NoError(t, err, "failed to serialize extra args for successful message")
 

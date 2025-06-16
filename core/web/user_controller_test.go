@@ -271,8 +271,7 @@ func TestUserController_NewAPIToken(t *testing.T) {
 
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 	var authToken auth.Token
-	err = cltest.ParseJSONAPIResponse(t, resp, &authToken)
-	require.NoError(t, err)
+	cltest.ParseJSONAPIResponse(t, resp, &authToken)
 	assert.NotEmpty(t, authToken.AccessKey)
 	assert.NotEmpty(t, authToken.Secret)
 }

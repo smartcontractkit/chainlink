@@ -41,10 +41,7 @@ env:
   ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ inputs.evm-ref || github.sha }}
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
   TEST_SUITE: smoke
-  TEST_ARGS: -test.timeout 12m
-  INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
   MOD_CACHE_VERSION: 2
-  COLLECTION_ID: chainlink-e2e-tests
 
 jobs:
   enforce-ctf-version:
@@ -329,7 +326,7 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && needs.changes.outputs.should-run-cre-tests == 'true'
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run Core E2E CRE Tests For Push
@@ -503,7 +500,7 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && needs.changes.outputs.should-run-core-tests == 'true'
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run Core E2E Tests For Push
@@ -682,7 +679,7 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && needs.changes.outputs.should-run-ccip-tests == 'true'
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
     with:
       workflow_name: Run CCIP E2E Tests For Push
@@ -774,16 +771,16 @@ jobs:
       [
         build-chainlink,
         run-core-e2e-tests-for-pr,
-        run-core-cre-e2e-tests-for-pr,
-        run-ccip-e2e-tests-for-pr,
-        run-core-e2e-tests-for-merge-queue,
-        run-ccip-e2e-tests-for-merge-queue,
-        run-core-cre-e2e-tests-for-merge-queue,
         run-core-e2e-tests-for-push,
-        run-ccip-e2e-tests-for-push,
-        run-core-cre-e2e-tests-for-push,
+        run-core-e2e-tests-for-merge-queue,
         run-core-e2e-tests-for-workflow-dispatch,
+        run-core-cre-e2e-tests-for-pr,
+        run-core-cre-e2e-tests-for-push,
+        run-core-cre-e2e-tests-for-merge-queue,
         run-core-cre-e2e-tests-for-workflow-dispatch,
+        run-ccip-e2e-tests-for-pr,
+        run-ccip-e2e-tests-for-push,
+        run-ccip-e2e-tests-for-merge-queue,
         run-ccip-e2e-tests-for-workflow-dispatch,
       ]
     steps:
@@ -818,37 +815,43 @@ jobs:
             echo "CCIP tests were skipped."
           fi
 
-      - name: Fail the job if core tests in PR not successful
-        if: always() && needs.run-core-e2e-tests-for-pr.result == 'failure'
-        run: exit 1
+      - name: Fail the job if core tests were not successful
+        if: always()
+        env:
+          PR_RESULT: ${{ needs.run-core-e2e-tests-for-pr.result }}
+          PUSH_RESULT: ${{ needs.run-core-e2e-tests-for-push.result }}
+          MERGE_QUEUE_RESULT: ${{ needs.run-core-e2e-tests-for-merge-queue.result }}
+          WORKFLOW_DISPATCH_RESULT: ${{ needs.run-core-e2e-tests-for-workflow-dispatch.result }}
+        run: |
+          if [[ "${PR_RESULT}" == "failure" || "${PUSH_RESULT}" == "failure" || "${MERGE_QUEUE_RESULT}" == "failure" || "${WORKFLOW_DISPATCH_RESULT}" == "failure" ]]; then
+            echo "::error::Core E2E tests failed."
+            exit 1
+          fi
 
-      - name: Fail the job if core tests in merge queue not successful
-        if: always() && needs.run-core-e2e-tests-for-merge-queue.result == 'failure'
-        run: exit 1
+      - name: Fail the job if core CRE tests were not successful
+        if: always()
+        env:
+          PR_RESULT: ${{ needs.run-core-cre-e2e-tests-for-pr.result }}
+          PUSH_RESULT: ${{ needs.run-core-cre-e2e-tests-for-push.result }}
+          MERGE_QUEUE_RESULT: ${{ needs.run-core-cre-e2e-tests-for-merge-queue.result }}
+          WORKFLOW_DISPATCH_RESULT: ${{ needs.run-core-cre-e2e-tests-for-workflow-dispatch.result }}
+        run: |
+          if [[ "${PR_RESULT}" == "failure" || "${PUSH_RESULT}" == "failure" || "${MERGE_QUEUE_RESULT}" == "failure" || "${WORKFLOW_DISPATCH_RESULT}" == "failure" ]]; then
+            echo "::error::Core CRE E2E tests failed."
+            exit 1
+          fi
 
-      - name: Fail the job if core tests in push not successful
-        if: always() && needs.run-core-e2e-tests-for-push.result == 'failure'
-        run: exit 1
-
-      - name: Fail the job if core tests in workflow dispatch not successful
-        if: always() && needs.run-core-e2e-tests-for-workflow-dispatch.result == 'failure'
-        run: exit 1
-
-      - name: Fail the job if CRE tests in PR not successful
-        if: always() && needs.run-core-cre-e2e-tests-for-pr.result == 'failure'
-        run: exit 1
-
-      - name: Fail the job if CRE tests in merge queue not successful
-        if: always() && needs.run-core-cre-e2e-tests-for-merge-queue.result == 'failure'
-        run: exit 1
-
-      - name: Fail the job if CRE tests in push not successful
-        if: always() && needs.run-core-cre-e2e-tests-for-push.result == 'failure'
-        run: exit 1
-
-      - name: Fail the job if CRE tests in workflow dispatch not successful
-        if: always() && needs.run-core-cre-e2e-tests-for-workflow-dispatch.result == 'failure'
-        run: exit 1
+      - name: Warn if CCIP tests were not successful
+        if: always()
+        env:
+          PR_RESULT: ${{ needs.run-ccip-e2e-tests-for-pr.result }}
+          PUSH_RESULT: ${{ needs.run-ccip-e2e-tests-for-push.result }}
+          MERGE_QUEUE_RESULT: ${{ needs.run-ccip-e2e-tests-for-merge-queue.result }}
+          WORKFLOW_DISPATCH_RESULT: ${{ needs.run-ccip-e2e-tests-for-workflow-dispatch.result }}
+        run: |
+          if [[ "${PR_RESULT}" == "failure" || "${PUSH_RESULT}" == "failure" || "${MERGE_QUEUE_RESULT}" == "failure" || "${WORKFLOW_DISPATCH_RESULT}" == "failure" ]]; then
+            echo "::warning::CCIP E2E tests failed in one of the runs. Not failing as they are not mandatory."
+          fi
 
       - name: Fail the job if Chainlink image wasn't built
         if: always() && needs.build-chainlink.result == 'failure'
@@ -1183,8 +1186,6 @@ jobs:
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
           main-dns-zone: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
           k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
-
-
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@v4

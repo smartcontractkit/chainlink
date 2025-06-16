@@ -28,7 +28,7 @@ func Test_DecodeHardcodedType(t *testing.T) {
 		log, err := generateOfframpLog(fixtLog)
 		require.NoError(t, err)
 
-		var out reader.CommitReportAcceptedEvent
+		var out chainaccessor.CommitReportAcceptedEvent
 		err = decodeHardcodedType(&out, log)
 		require.NoError(t, err)
 

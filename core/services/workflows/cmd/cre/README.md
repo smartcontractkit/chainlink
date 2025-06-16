@@ -45,3 +45,16 @@ GOOS=wasip1 GOARCH=wasm go build -o cron.wasm ./examples/v2/simple_cron/main.go
 ```bash
 go run . --wasm cron.wasm --debug --beholder 2> stderr.log
 ```
+
+### V2 `cron` Example with Config
+
+Build the example workflow with config
+
+```bash
+GOOS=wasip1 GOARCH=wasm go build -o cron.wasm ./examples/v2/simple_cron_with_config/main.go
+```
+
+Run the script with the config passed as an argument
+```bash
+go run . --wasm cron.wasm --config ./examples/v2/simple_cron_with_config/config.yaml --debug 2> stderr.log
+```

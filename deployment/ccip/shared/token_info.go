@@ -99,6 +99,9 @@ const (
 	MaticUSD = "MATIC / USD"
 	BNBUSD   = "BNB / USD"
 	FTMUSD   = "FTM / USD" // S token uses FTM / USD price feed under the hood
+	USDCUSD  = "USDC / USD"
+	BTCUSD   = "BTC / USD"
+	ARBUSD   = "ARB / USD"
 
 	// MockLinkAggregatorDescription is the description of the MockV3Aggregator.sol contract
 	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/tests/MockV3Aggregator.sol#L76-L76
