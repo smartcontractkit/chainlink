@@ -3,6 +3,7 @@ package ccip
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -1667,6 +1668,10 @@ func populateDatabaseForMessageSent(
 	messageSentEventSig := messageSentEvent.ID
 	messageSentEventAddress := testEnv.contractAddr
 
+	largePayload := make([]byte, 8*1024)
+	_, err := rand.Read(largePayload)
+	require.NoError(b, err)
+
 	for i := 0; i < numOfEvents; i++ {
 		// Calculate unique BlockNumber and LogIndex
 		blockNumber := int64(offset + i + 1) // Offset ensures unique block numbers
@@ -1701,11 +1706,19 @@ func populateDatabaseForMessageSent(
 			},
 		}
 
+		// Make it large every 1000th event to simulate large payloads
+		// especially to verify lack of errors related to index sizes
+		// e.g. index row requires 9560 bytes, maximum size is 8191 (SQLSTATE 54000)
+		data := []byte{0x04, 0x05}
+		if i%1000 == 0 {
+			data = largePayload
+		}
+
 		// Create InternalEVM2AnyRampMessage struct
 		message := onramp.InternalEVM2AnyRampMessage{
 			Header:    header,
 			Sender:    utils.RandomAddress(),
-			Data:      []byte{0x04, 0x05},
+			Data:      data,
 			Receiver:  []byte{0x06, 0x07},
 			ExtraArgs: []byte{0x08},
 			FeeToken:  utils.RandomAddress(),

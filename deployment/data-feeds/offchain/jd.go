@@ -167,9 +167,13 @@ func DeleteJobs(ctx context.Context, env cldf.Environment, jobIDs []string, work
 			return
 		}
 		for _, job := range listJobResponse.Jobs {
-			jobIDs = append(jobIDs, job.Id)
+			if job.DeletedAt == nil {
+				jobIDs = append(jobIDs, job.Id)
+			}
 		}
 	}
+
+	env.Logger.Debugf("Jobs to delete %s", jobIDs)
 
 	for _, jobID := range jobIDs {
 		env.Logger.Debugf("Deleting job %s", jobID)
