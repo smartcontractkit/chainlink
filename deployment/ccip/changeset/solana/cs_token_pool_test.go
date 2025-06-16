@@ -147,6 +147,16 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 		typePtr := &testCase.poolType
 		// for _, tokenAddress := range tokenMap {
 		e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
+				ccipChangesetSolana.TokenPoolConfig2{
+					ChainSelector: solChain,
+					TokenPubKey:   tokenAddress,
+					PoolType:      typePtr,
+					Metadata:      tokenMetadata,
+				},
+			),
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPoolAndLookupTable),
 				ccipChangesetSolana.TokenPoolConfig{
@@ -179,6 +189,23 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 			),
 		})
 		require.NoError(t, err)
+
+		if testCase.poolType == solTestTokenPool.BurnAndMint_PoolType {
+			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+				commonchangeset.Configure(
+					cldf.CreateLegacyChangeSet(ccipChangesetSolana.ModifyMintAuthority),
+					ccipChangesetSolana.TokenPoolConfig3{
+						ChainSelector:    solChain,
+						TokenPubKey:      tokenAddress,
+						PoolType:         typePtr,
+						Metadata:         tokenMetadata,
+						NewMintAuthority: deployerKey,
+					},
+				),
+			})
+			require.NoError(t, err)
+		}
+
 		// test AddTokenPool results
 		configAccount := solTestTokenPool.State{}
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, testCase.poolAddress)
@@ -432,7 +459,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 	}
 }
 
-func TestAddTokenPoolE2EWitMcms(t *testing.T) {
+func TestAddTokenPoolE2EWithMcms(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
