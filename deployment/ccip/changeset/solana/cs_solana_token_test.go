@@ -65,7 +65,7 @@ func TestSolanaTokenOps(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	addresses, err := e.ExistingAddresses.AddressesForChain(solChain1) //nolint:staticcheck // addressbook still valid
+	addresses, err := e.ExistingAddresses.AddressesForChain(solChain1)
 	require.NoError(t, err)
 	tokenAddress := solanastateview.FindSolanaAddress(
 		cldf.TypeAndVersion{
@@ -142,7 +142,7 @@ func TestSolanaTokenOps(t *testing.T) {
 		),
 	)
 	require.NoError(t, err)
-	addresses, err = e.ExistingAddresses.AddressesForChain(solChain1) //nolint:staticcheck // addressbook still valid
+	addresses, err = e.ExistingAddresses.AddressesForChain(solChain1)
 	require.NoError(t, err)
 	tokenAddress2 := solanastateview.FindSolanaAddress(
 		cldf.TypeAndVersion{

@@ -95,7 +95,7 @@ func validateMemberOfTokenPoolPair(
 		remotePoolAddresses, err := tokenPool.GetRemotePools(nil, supportedChain)
 		require.NoError(t, err)
 
-		require.Equal(t, len(expectedRemotePools), len(remotePoolAddresses))
+		require.Len(t, remotePoolAddresses, len(expectedRemotePools))
 		expectedRemotePoolAddressesBytes := make([][]byte, len(expectedRemotePools))
 		for i, remotePool := range expectedRemotePools {
 			expectedRemotePoolAddressesBytes[i] = common.LeftPadBytes(remotePool.Bytes(), 32)

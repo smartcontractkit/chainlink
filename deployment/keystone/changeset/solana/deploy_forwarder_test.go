@@ -202,7 +202,7 @@ func TestConfigureForwarder(t *testing.T) {
 
 				ds := datastore.NewMemoryDataStore()
 
-				//deploy mcms
+				// deploy mcms
 				mcmsState, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolanaV2(env, ds, solChain,
 					commontypes.MCMSWithTimelockConfigV2{
 						Canceller:        proposalutils.SingleGroupMCMSV2(t),

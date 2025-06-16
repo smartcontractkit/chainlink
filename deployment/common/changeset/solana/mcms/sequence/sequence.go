@@ -6,6 +6,9 @@ import (
 	"math/big"
 
 	"github.com/gagliardetto/solana-go"
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
+	"github.com/smartcontractkit/wsrpc/logger"
+
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -15,8 +18,6 @@ import (
 	commonOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/operations"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	mcmsTypes "github.com/smartcontractkit/mcms/types"
-	"github.com/smartcontractkit/wsrpc/logger"
 )
 
 var (

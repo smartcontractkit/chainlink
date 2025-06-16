@@ -243,12 +243,10 @@ func DeployAndMaybeSaveToAddressBook(
 	isUpgrade bool,
 	metadata string) (solana.PublicKey, error) {
 	programName := getTypeToProgramDeployName()[contractType]
-	overallocate := true
+	overallocate := !(metadata != "" && metadata != shared.CLLMetadata)
 	// by default we want to overallocate buffers, but if metadata is set (i.e. we're managing partner programs)
 	// we want to set the overallocate flag to false
-	if metadata != "" && metadata != shared.CLLMetadata {
-		overallocate = false
-	}
+
 	programID, err := chain.DeployProgram(e.Logger, cldf_solana.ProgramInfo{
 		Name:  programName,
 		Bytes: deployment.SolanaProgramBytes[programName],

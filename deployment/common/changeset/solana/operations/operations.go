@@ -2,6 +2,7 @@ package operations
 
 import (
 	"github.com/gagliardetto/solana-go"
+
 	cldfsol "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 )

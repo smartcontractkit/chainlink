@@ -42,7 +42,6 @@ func proposeWFJobsToJDLogic(env cldf.Environment, c types.ProposeWFJobsConfig) (
 	workflowSpecConfig := c.WorkflowSpecConfig
 	workflowState := feedState.Workflows[workflowSpecConfig.WorkflowName]
 
-	//nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, &c.CacheLabel)
 
 	// default values
@@ -187,7 +186,6 @@ func proposeWFJobsToJDPrecondition(env cldf.Environment, c types.ProposeWFJobsCo
 		return fmt.Errorf("no workflow found for hash %s in %s", c.WorkflowSpecConfig.WorkflowName, inputFileName)
 	}
 
-	//nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, &c.CacheLabel)
 	if cacheAddress == "" {
 		return errors.New("failed to get data feeds cache address")

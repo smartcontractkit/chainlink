@@ -123,7 +123,7 @@ func (tc *TimelockConfig) ValidateSolana(e cldf.Environment, chainSelector uint6
 	}
 
 	validateContract := func(contractType cldf.ContractType) error {
-		timelockID, err := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, contractType) //nolint:staticcheck // Uncomment above once datastore is updated to contains addresses
+		timelockID, err := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, contractType)
 		if err != nil {
 			return fmt.Errorf("%s not present on the chain %w", contractType, err)
 		}

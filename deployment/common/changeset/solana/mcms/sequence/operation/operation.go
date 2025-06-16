@@ -10,6 +10,10 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
+	mcmsSolanaSdk "github.com/smartcontractkit/mcms/sdk/solana"
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
+	"github.com/smartcontractkit/wsrpc/logger"
+
 	accessControllerBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/access_controller"
 	mcmBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/mcm"
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
@@ -21,9 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/operations"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	mcmsSolanaSdk "github.com/smartcontractkit/mcms/sdk/solana"
-	mcmsTypes "github.com/smartcontractkit/mcms/types"
-	"github.com/smartcontractkit/wsrpc/logger"
 )
 
 type Deps struct {

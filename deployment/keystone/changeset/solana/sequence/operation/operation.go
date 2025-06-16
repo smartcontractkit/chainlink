@@ -7,6 +7,9 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/smartcontractkit/mcms"
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
+
 	solanaUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	cldfsol "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -16,8 +19,6 @@ import (
 	commonOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/operations"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
-	"github.com/smartcontractkit/mcms"
-	mcmsTypes "github.com/smartcontractkit/mcms/types"
 )
 
 var Version1_0_0 = semver.MustParse("1.0.0")

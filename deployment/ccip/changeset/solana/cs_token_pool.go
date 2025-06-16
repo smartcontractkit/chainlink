@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	"github.com/smartcontractkit/mcms"
@@ -118,9 +119,10 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg TokenPoolConfig) (cldf.C
 	tokenPubKey := cfg.TokenPubKey
 	tokenPool, _ := chainState.GetActiveTokenPool(*cfg.PoolType, cfg.Metadata)
 
-	if *cfg.PoolType == solTestTokenPool.BurnAndMint_PoolType {
+	switch *cfg.PoolType {
+	case solTestTokenPool.BurnAndMint_PoolType:
 		solBurnMintTokenPool.SetProgramID(tokenPool)
-	} else if *cfg.PoolType == solTestTokenPool.LockAndRelease_PoolType {
+	case solTestTokenPool.LockAndRelease_PoolType:
 		solLockReleaseTokenPool.SetProgramID(tokenPool)
 	}
 

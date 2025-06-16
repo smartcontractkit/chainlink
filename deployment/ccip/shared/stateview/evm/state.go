@@ -909,9 +909,9 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			return nil
 		})
 	}
-	if c.MCMSWithTimelockState.Timelock != nil {
+	if c.Timelock != nil {
 		grp.Go(func() error {
-			mcmsView, err := c.MCMSWithTimelockState.GenerateMCMSWithTimelockView()
+			mcmsView, err := c.GenerateMCMSWithTimelockView()
 			if err != nil {
 				return errors.Wrapf(err, "failed to generate MCMS with timelock view for MCMS with timelock %s", c.MCMSWithTimelockState.Timelock.Address().String())
 			}

@@ -6,15 +6,16 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
 
+	"github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/mcms"
-	mcmssdk "github.com/smartcontractkit/mcms/sdk"
-	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 )
 
 type TransferOwnershipForwarderRequest struct {
@@ -49,7 +50,7 @@ func (cs TransferOwnershipForwarder) Apply(env cldf.Environment, req *TransferOw
 		return out, err
 	}
 
-	solChain, _ := env.BlockChains.SolanaChains()[req.ChainSel]
+	solChain := env.BlockChains.SolanaChains()[req.ChainSel]
 
 	execOut, err := operations.ExecuteOperation(env.OperationsBundle,
 		operations.NewOperation(

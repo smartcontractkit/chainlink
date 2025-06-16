@@ -469,7 +469,8 @@ func ConfigureCCIPVersion(e cldf.Environment, cfg ConfigureCCIPVersionConfig) (c
 		"")
 	solRouter.SetProgramID(chainState.Router)
 	var ixn solana.Instruction
-	if cfg.Operation == Bump {
+	switch cfg.Operation {
+	case Bump:
 		ixn, err = solRouter.NewBumpCcipVersionForDestChainInstruction(
 			cfg.DestChainSelector,
 			destChainStatePDA,
@@ -479,7 +480,7 @@ func ConfigureCCIPVersion(e cldf.Environment, cfg ConfigureCCIPVersionConfig) (c
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
 		}
-	} else if cfg.Operation == Rollback {
+	case Rollback:
 		ixn, err = solRouter.NewRollbackCcipVersionForDestChainInstruction(
 			cfg.DestChainSelector,
 			destChainStatePDA,
