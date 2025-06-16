@@ -14,6 +14,8 @@ import (
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
+
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -242,16 +244,12 @@ func DeployAndMaybeSaveToAddressBook(
 	isUpgrade bool,
 	metadata string) (solana.PublicKey, error) {
 	programName := getTypeToProgramDeployName()[contractType]
-	overallocate := true
-	// by default we want to overallocate buffers, but if metadata is set (i.e. we're managing partner programs)
-	// we want to set the overallocate flag to false
-	if metadata != "" && metadata != shared.CLLMetadata {
-		overallocate = false
-	}
+	// the last bool is whether to overallocate the buffer account, if the program is going to be managed
+	// by timelock/mcms we want to overallocate the buffer account so that future upgrades can be performed
 	programID, err := chain.DeployProgram(e.Logger, cldf_solana.ProgramInfo{
 		Name:  programName,
 		Bytes: deployment.SolanaProgramBytes[programName],
-	}, isUpgrade, overallocate)
+	}, isUpgrade, true)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to deploy program: %w", err)
 	}
@@ -911,13 +909,19 @@ func generateUpgradeTxns(
 	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	// if we're not upgrading via timelock, execute the raw ixns
 	if config.UpgradeConfig.UpgradeAuthority != timelockSignerPDA {
+		programName := getTypeToProgramDeployName()[contractType]
+		newBytes := deployment.SolanaProgramBytes[programName]
+		bufferSize, err := GetSolProgramSize(&e, chain, bufferProgram)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get buffer size: %w", err)
+		}
 		ixns := []solana.Instruction{upgradeIxn}
 		extendIxn, err := generateExtendIxn(
 			&e,
 			chain,
 			programID,
-			bufferProgram,
 			config.UpgradeConfig.UpgradeAuthority,
+			mathutil.Max(newBytes, bufferSize),
 		)
 		if err != nil {
 			return txns, fmt.Errorf("failed to generate extend buffer instruction: %w", err)
@@ -980,8 +984,8 @@ func generateExtendIxn(
 	e *cldf.Environment,
 	chain cldf_solana.Chain,
 	programID solana.PublicKey,
-	bufferAddress solana.PublicKey,
 	payer solana.PublicKey,
+	newProgramSize int,
 ) (*solana.GenericInstruction, error) {
 	// Derive the program data address
 	programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programID.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
@@ -992,16 +996,12 @@ func generateExtendIxn(
 	}
 	e.Logger.Debugw("Program data size", "programDataSize", programDataSize)
 
-	bufferSize, err := GetSolProgramSize(e, chain, bufferAddress)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get buffer size: %w", err)
-	}
-	e.Logger.Debugw("Buffer account size", "bufferSize", bufferSize)
-	if bufferSize <= programDataSize {
-		e.Logger.Debugf("Buffer account size %d is less than program account size %d", bufferSize, programDataSize)
+	e.Logger.Debugw("New program size", "newProgramSize", newProgramSize)
+	if newProgramSize <= programDataSize {
+		e.Logger.Debugf("Buffer account size %d is less than program account size %d", newProgramSize, programDataSize)
 		return nil, nil
 	}
-	extraBytes := bufferSize - programDataSize
+	extraBytes := newProgramSize - programDataSize
 	if extraBytes > math.MaxUint32 {
 		return nil, fmt.Errorf("extra bytes %d exceeds maximum value %d", extraBytes, math.MaxUint32)
 	}
