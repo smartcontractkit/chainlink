@@ -123,9 +123,6 @@ func (c *EngineConfig) Validate() error {
 	if c.BeholderEmitter == nil {
 		return errors.New("beholder emitter not set")
 	}
-	if c.BillingClient == nil {
-		return errors.New("billing client not set")
-	}
 
 	c.Hooks.setDefaultHooks()
 	return nil
