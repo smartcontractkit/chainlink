@@ -41,6 +41,7 @@ import (
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	v4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
 	datastreamsmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/fee_manager"
@@ -202,10 +203,7 @@ func integration_MercuryV1(t *testing.T) {
 
 	// cannot use zero, start from finality depth
 	fromBlock := func() int {
-		// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
-		ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
-		require.NoError(t, err)
-		finalityDepth := ch.Config().EVM().FinalityDepth()
+		finalityDepth := finalityDepthForChain(t, bootstrapNode.App.GetConfig().EVMConfigs())
 		for i := 0; i < int(finalityDepth); i++ {
 			commit()
 		}
@@ -561,9 +559,7 @@ func integration_MercuryV2(t *testing.T) {
 	logObservers = append(logObservers, observedLogs)
 
 	// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
-	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
-	require.NoError(t, err)
-	finalityDepth := ch.Config().EVM().FinalityDepth()
+	finalityDepth := finalityDepthForChain(t, bootstrapNode.App.GetConfig().EVMConfigs())
 	for i := 0; i < int(finalityDepth); i++ {
 		commit()
 	}
@@ -851,9 +847,7 @@ func integration_MercuryV3(t *testing.T) {
 	logObservers = append(logObservers, observedLogs)
 
 	// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
-	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
-	require.NoError(t, err)
-	finalityDepth := ch.Config().EVM().FinalityDepth()
+	finalityDepth := finalityDepthForChain(t, bootstrapNode.App.GetConfig().EVMConfigs())
 	for i := 0; i < int(finalityDepth); i++ {
 		commit()
 	}
@@ -1147,9 +1141,7 @@ func integration_MercuryV4(t *testing.T) {
 	logObservers = append(logObservers, observedLogs)
 
 	// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
-	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
-	require.NoError(t, err)
-	finalityDepth := ch.Config().EVM().FinalityDepth()
+	finalityDepth := finalityDepthForChain(t, bootstrapNode.App.GetConfig().EVMConfigs())
 	for i := 0; i < int(finalityDepth); i++ {
 		commit()
 	}
@@ -1356,4 +1348,15 @@ func integration_MercuryV4(t *testing.T) {
 			runTestSetup(reqs)
 		}
 	})
+}
+
+func finalityDepthForChain(t *testing.T, evmConfigs toml.EVMConfigs) uint32 {
+	for _, cs := range evmConfigs {
+		if cs.ChainID.ToInt().Cmp(testutils.SimulatedChainID) == 0 {
+			require.NotNil(t, cs.FinalityDepth)
+			return *cs.FinalityDepth
+		}
+	}
+	t.Fatalf("no config found for simulated chain ID: %d", testutils.SimulatedChainID)
+	return 0
 }

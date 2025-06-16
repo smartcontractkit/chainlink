@@ -13,6 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
@@ -21,11 +23,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	ccipops1_2 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_2"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -911,6 +915,23 @@ func (cfg UpdateFeeQuoterDestsConfig) Validate(e cldf.Environment) error {
 			if destination == sc.ChainSelector {
 				return errors.New("source and destination chain cannot be the same")
 			}
+
+			homeChainSelector, err := state.HomeChainSelector()
+			if err != nil {
+				return fmt.Errorf("failed to get home chain selector: %w", err)
+			}
+			execConfigs, err := GetAllActiveExecConfigs(e, homeChainSelector, destination)
+			if err != nil {
+				return fmt.Errorf("failed to get exec configs for destination chain %d: %w", destination, err)
+			}
+
+			for _, execOffchainCfg := range execConfigs {
+				if execOffchainCfg.MultipleReportsEnabled {
+					if !updates[destination].EnforceOutOfOrder {
+						return errors.New("EnforceOutOfOrder must be true when MultipleReportsEnabled is true")
+					}
+				}
+			}
 		}
 	}
 	return nil
@@ -959,6 +980,85 @@ func UpdateFeeQuoterDestsChangeset(e cldf.Environment, cfg UpdateFeeQuoterDestsC
 		cfg.ToSequenceInput(s),
 	)
 	return opsutil.AddEVMCallSequenceToCSOutput(e, s, output, report, err, cfg.MCMS, "Call ApplyDestChainConfigUpdates on FeeQuoters")
+}
+
+func GetAllActiveExecConfigs(e cldf.Environment, homeChainSelector uint64, destChainSelector uint64) ([]*pluginconfig.ExecuteOffchainConfig, error) {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	homeChainState, ok := state.Chains[homeChainSelector]
+	if !ok {
+		return nil, fmt.Errorf("home chain %d not found in state", homeChainSelector)
+	}
+
+	var executeOffchainConfigs []*pluginconfig.ExecuteOffchainConfig
+
+	if homeChainState.CCIPHome == nil {
+		return nil, errors.New("no CCIPHome contract found in the state for home chain")
+	}
+	if homeChainState.CapabilityRegistry == nil {
+		return nil, errors.New("no CapabilityRegistry contract found in the state for home chain")
+	}
+
+	// get capReg from CCIPHome to ensure they match
+	capRegAddr, err := homeChainState.CCIPHome.GetCapabilityRegistry(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get capability registry from CCIPHome contract: %w", err)
+	}
+	if capRegAddr != homeChainState.CapabilityRegistry.Address() {
+		return nil, fmt.Errorf("capability registry mismatch: expected %s, got %s", capRegAddr.Hex(), homeChainState.CapabilityRegistry.Address().Hex())
+	}
+
+	ccipDons, err := shared.GetCCIPDonsFromCapRegistry(e.GetContext(), homeChainState.CapabilityRegistry)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CCIP Dons from capability registry: %w", err)
+	}
+
+	if len(ccipDons) == 0 {
+		return executeOffchainConfigs, nil
+	}
+
+	for _, don := range ccipDons {
+		execConfigs, err := homeChainState.CCIPHome.GetAllConfigs(&bind.CallOpts{Context: e.GetContext()}, don.Id, uint8(cctypes.PluginTypeCCIPExec))
+		if err != nil {
+			return nil, fmt.Errorf("failed to get exec config for DON %d: %w", don.Id, err)
+		}
+
+		// We only care about active configs. It's possible for a DON to not have an active config.
+		// An empty config will have version 0.
+		if execConfigs.ActiveConfig.Version != 0 {
+			if execConfigs.ActiveConfig.Config.ChainSelector == destChainSelector {
+				signers := make([]ocrtypes.OnchainPublicKey, 0)
+				transmitters := make([]ocrtypes.Account, 0)
+				for _, node := range execConfigs.ActiveConfig.Config.Nodes {
+					signers = append(signers, node.SignerKey)
+					transmitters = append(transmitters, ocrtypes.Account(node.TransmitterKey))
+				}
+				publicConfig, err := ocr3confighelper.PublicConfigFromContractConfig(false, ocrtypes.ContractConfig{
+					Signers:               signers,
+					Transmitters:          transmitters,
+					F:                     execConfigs.ActiveConfig.Config.FRoleDON,
+					OnchainConfig:         []byte{}, // empty OnChainConfig
+					OffchainConfigVersion: execConfigs.ActiveConfig.Config.OffchainConfigVersion,
+					OffchainConfig:        execConfigs.ActiveConfig.Config.OffchainConfig,
+				})
+				if err != nil {
+					return nil, err
+				}
+				execOffchainCfg, err := pluginconfig.DecodeExecuteOffchainConfig(publicConfig.ReportingPluginConfig)
+				if err != nil {
+					return nil, fmt.Errorf("failed to decode execute offchain config for don %d: %w", don.Id, err)
+				}
+				executeOffchainConfigs = append(executeOffchainConfigs, &execOffchainCfg)
+			}
+		}
+	}
+
+	return executeOffchainConfigs, nil
 }
 
 type OffRampSourceUpdate struct {
@@ -1173,7 +1273,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e cldf.Environment, state stateview.
 }
 
 func (cfg UpdateRouterRampsConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.RouterApplyRampUpdatesSequenceInput {
-	input := make(map[uint64]opsutil.EVMCallInput[ccipops.RouterApplyRampUpdatesOpInput], len(cfg.UpdatesByChain))
+	input := make(map[uint64]opsutil.EVMCallInput[ccipops1_2.RouterApplyRampUpdatesOpInput], len(cfg.UpdatesByChain))
 	for chainSel, update := range cfg.UpdatesByChain {
 		routerC := state.Chains[chainSel].Router
 		if cfg.TestRouter {
@@ -1213,10 +1313,10 @@ func (cfg UpdateRouterRampsConfig) ToSequenceInput(state stateview.CCIPOnChainSt
 				})
 			}
 		}
-		input[chainSel] = opsutil.EVMCallInput[ccipops.RouterApplyRampUpdatesOpInput]{
+		input[chainSel] = opsutil.EVMCallInput[ccipops1_2.RouterApplyRampUpdatesOpInput]{
 			ChainSelector: chainSel,
 			Address:       routerC.Address(),
-			CallInput: ccipops.RouterApplyRampUpdatesOpInput{
+			CallInput: ccipops1_2.RouterApplyRampUpdatesOpInput{
 				OnRampUpdates:  onRampUpdates,
 				OffRampRemoves: removes,
 				OffRampAdds:    adds,

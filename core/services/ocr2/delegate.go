@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -306,10 +307,14 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 	//  at all (no rows deleted).
 	spec := jb.OCR2OracleSpec
 	transmitterID := spec.TransmitterID.String
-	chain, err := d.legacyChains.Get(relayID.ChainID)
+	chainService, err := d.legacyChains.Get(relayID.ChainID)
 	if err != nil {
 		d.lggr.Errorw("cleanupEVM: failed to get chain id", "chainId", relayID.ChainID, "err", err)
 		return nil
+	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		return fmt.Errorf("not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 	}
 	lp := chain.LogPoller()
 
@@ -378,12 +383,12 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 		if err != nil {
 			return err
 		}
-		var chainSelector uint64
-		chainSelector, err = chainselectors.SelectorFromChainId(chain.ID().Uint64())
+		var chainDetails chainselectors.ChainDetails
+		chainDetails, err = chainselectors.GetChainDetailsByChainIDAndFamily(relayID.ChainID, relayID.Network)
 		if err != nil {
 			return err
 		}
-		if err = llo.Cleanup(ctx, lp, pluginCfg.ChannelDefinitionsContractAddress, pluginCfg.DonID, d.ds, chainSelector); err != nil {
+		if err = llo.Cleanup(ctx, lp, pluginCfg.ChannelDefinitionsContractAddress, pluginCfg.DonID, d.ds, chainDetails.ChainSelector); err != nil {
 			// Cleanup is optimistic. Don't return error here, as we don't want
 			// to block job deletion
 			d.lggr.Errorw("failed to cleanup llo", "err", err, "spec", spec)
@@ -451,9 +456,13 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	if rid.Network == relay.NetworkEVM {
 		lggr = logger.Sugared(lggr.With("evmChainID", rid.ChainID))
 
-		chain, err2 := d.legacyChains.Get(rid.ChainID)
+		chainService, err2 := d.legacyChains.Get(rid.ChainID)
 		if err2 != nil {
 			return nil, fmt.Errorf("ServicesForSpec: could not get EVM chain %s: %w", rid.ChainID, err2)
+		}
+		chain, ok := chainService.(legacyevm.Chain)
+		if !ok {
+			return nil, fmt.Errorf("effective transmitter ID is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 		}
 		effectiveTransmitterID, err2 = GetEVMEffectiveTransmitterID(ctx, &jb, chain, lggr)
 		if err2 != nil {
@@ -556,7 +565,7 @@ func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, chain legacy
 	if spec.RelayConfig["sendingKeys"] == nil {
 		spec.RelayConfig["sendingKeys"] = []string{spec.TransmitterID.String}
 	} else if !spec.TransmitterID.Valid {
-		sendingKeys, err := job.SendingKeysForJob(jb)
+		sendingKeys, err := job.SendingKeysForJob(jb.OCR2OracleSpec)
 		if err != nil {
 			return "", err
 		}
@@ -1393,9 +1402,13 @@ func (d *Delegate) newServicesOCR2Keepers20(
 	if rid.Network != relay.NetworkEVM {
 		return nil, fmt.Errorf("keepers2.0 services: expected EVM relayer got %q", rid.Network)
 	}
-	chain, err2 := d.legacyChains.Get(rid.ChainID)
+	chainService, err2 := d.legacyChains.Get(rid.ChainID)
 	if err2 != nil {
 		return nil, fmt.Errorf("keepers2.0 services: failed to get chain (%s): %w", rid.ChainID, err2)
+	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		return nil, fmt.Errorf("keepers is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 	}
 
 	cid := chain.ID()
@@ -1523,9 +1536,13 @@ func (d *Delegate) newServicesOCR2Functions(
 	if rid.Network != relay.NetworkEVM {
 		return nil, fmt.Errorf("functions services: expected EVM relayer got %q", rid.Network)
 	}
-	chain, err := d.legacyChains.Get(rid.ChainID)
+	chainService, err := d.legacyChains.Get(rid.ChainID)
 	if err != nil {
 		return nil, fmt.Errorf("functions services: failed to get chain %s: %w", rid.ChainID, err)
+	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		return nil, fmt.Errorf("functions is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 	}
 	cid := chain.ID()
 	ks := keys.NewChainStore(keystore.NewEthSigner(d.ethKs, cid), cid)

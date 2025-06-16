@@ -416,6 +416,24 @@ func SetupTestEnvironment(
 		}
 	}
 
+	// Add env vars, which were provided programmatically, to the node specs
+	// or fail, if node specs already had some env vars set in the TOML config
+	for donIdx, donMetadata := range topology.DonsMetadata {
+		hasEnvVarsInTomlConfig := false
+		for nodeIdx, nodeSpec := range input.CapabilitiesAwareNodeSets[donIdx].NodeSpecs {
+			if len(nodeSpec.Node.EnvVars) > 0 {
+				hasEnvVarsInTomlConfig = true
+				break
+			}
+
+			input.CapabilitiesAwareNodeSets[donIdx].NodeSpecs[nodeIdx].Node.EnvVars = input.CapabilitiesAwareNodeSets[donIdx].EnvVars
+		}
+
+		if hasEnvVarsInTomlConfig && len(input.CapabilitiesAwareNodeSets[donIdx].EnvVars) > 0 {
+			return nil, fmt.Errorf("extra env vars for Chainlink Nodes are provided in the TOML config for the %s DON, but you tried to provide them programatically. Please set them only in one place", donMetadata.Name)
+		}
+	}
+
 	// Deploy the DONs
 	// Hack for CI that allows us to dynamically set the chainlink image and version
 	// CTFv2 currently doesn't support dynamic image and version setting

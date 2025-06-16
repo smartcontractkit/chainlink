@@ -36,6 +36,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
@@ -523,6 +524,96 @@ func TestUpdateFQDests(t *testing.T) {
 			testhelpers.AssertEqualFeeConfig(t, fqCfg2, dest2sourceCfg)
 		})
 	}
+}
+
+func TestUpdateFeeQuoterDestsConfig_Validate_MultipleReportsEnabled(t *testing.T) {
+	tenv, _ := testhelpers.NewMemoryEnvironment(t)
+	allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
+	source := allChains[0]
+	dest := allChains[1]
+	state, err := stateview.LoadOnchainState(tenv.Env)
+	require.NoError(t, err)
+	homeChainSelector, err := state.HomeChainSelector()
+	require.NoError(t, err)
+
+	// Set a candidate config with MultipleReportsEnabled = true
+	execParams := v1_6.DeriveOCRParamsForExec(v1_6.Default, nil, nil)
+	execParams.ExecuteOffChainConfig.MultipleReportsEnabled = true
+
+	tokenConfig := shared.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
+
+	_, err = commonchangeset.Apply(t, tenv.Env,
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
+			v1_6.SetCandidateChangesetConfig{
+				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
+					HomeChainSelector: homeChainSelector,
+					FeedChainSelector: tenv.FeedChainSel,
+				},
+				PluginInfo: []v1_6.SetCandidatePluginInfo{
+					{
+						OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
+							dest: v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t),
+								state.Chains[dest].LinkToken.Address(),
+								state.Chains[dest].Weth9.Address()), nil),
+						},
+						PluginType: types.PluginTypeCCIPCommit,
+					},
+					{
+						OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
+							dest: execParams,
+						},
+						PluginType: types.PluginTypeCCIPExec,
+					},
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	// Promote candidate to active
+	_, err = commonchangeset.Apply(t, tenv.Env,
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(v1_6.PromoteCandidateChangeset),
+			v1_6.PromoteCandidateChangesetConfig{
+				HomeChainSelector: homeChainSelector,
+				PluginInfo: []v1_6.PromoteCandidatePluginInfo{
+					{
+						RemoteChainSelectors: []uint64{dest},
+						PluginType:           types.PluginTypeCCIPExec,
+					},
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	// Now run the validation
+	cfg := v1_6.UpdateFeeQuoterDestsConfig{
+		UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
+			source: {
+				dest: {
+					EnforceOutOfOrder: false,
+				},
+			},
+		},
+	}
+	err = cfg.Validate(tenv.Env)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "EnforceOutOfOrder must be true when MultipleReportsEnabled is true")
+
+	// now test a valid config
+	validCfg := v1_6.UpdateFeeQuoterDestsConfig{
+		UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
+			source: {
+				dest: {
+					EnforceOutOfOrder: true,
+				},
+			},
+		},
+	}
+	err = validCfg.Validate(tenv.Env)
+	require.NoError(t, err)
 }
 
 func TestUpdateRouterRamps(t *testing.T) {

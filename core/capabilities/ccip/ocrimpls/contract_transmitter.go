@@ -139,7 +139,6 @@ func (c *ccipTransmitter) Transmit(
 		if err != nil {
 			return fmt.Errorf("failed to generate ed25519 call data: %w", err)
 		}
-
 	default:
 		return errors.New("no calldata function")
 	}

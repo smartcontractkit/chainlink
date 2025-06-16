@@ -1,4 +1,4 @@
-name: CRE Workflow DON Load Tests
+name: CRE Workflow DON Benchmark
 
 on:
   workflow_dispatch:
@@ -27,14 +27,14 @@ on:
     types: [labeled, synchronize]
 
 jobs:
-  workflow-don-load-test:
+  workflow-don-benchmark:
     runs-on: ubuntu-latest
     environment: "integration"
     timeout-minutes: 20
     permissions:
       contents: read
       id-token: write
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-cre-workflow-don-test'))
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-cre-workflow-don-benchmark'))
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -77,9 +77,10 @@ jobs:
           E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins-testing', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}
           # Anvil developer key, not a secret
           PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-          CTF_CONFIGS: "workflow-don-load-test-streams-ci.toml"
+          CTF_CONFIGS: "workflow-don-benchmark-ci.toml"
           LOAD_TEST: "true"
           CI: "true"
+          GH_SHA: ${{ github.sha }}
         run: |
           cd system-tests/tests/load/cre
           go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 15m
