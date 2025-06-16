@@ -6,11 +6,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	aptos_feequoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -24,7 +25,7 @@ func NewTestSetup(
 	sourceChain,
 	destChain uint64,
 	srctoken common.Address,
-	srcFeeQuoterDestChainConfig fee_quoter.FeeQuoterDestChainConfig,
+	srcFeeQuoterDestChainConfig any,
 	testRouter,
 	validateResp bool,
 	opts ...TestSetupOpts,
@@ -42,6 +43,22 @@ func NewTestSetup(
 
 	for _, opt := range opts {
 		opt(&ts)
+	}
+
+	family, err := chain_selectors.GetSelectorFamily(ts.SrcChain)
+	require.NoError(ts.T, err)
+
+	switch family {
+	case chain_selectors.FamilyEVM:
+		evmFeeQuoterDestChainConfig, ok := ts.SrcFeeQuoterDestChainConfig.(fee_quoter.FeeQuoterDestChainConfig)
+		require.True(ts.T, ok, "expected Evm Fee quoter destination chain config type")
+		ts.SrcFeeQuoterDestChainConfig = evmFeeQuoterDestChainConfig
+	case chain_selectors.FamilyAptos:
+		aptosFeeQuoterDestChainConfig, ok := ts.SrcFeeQuoterDestChainConfig.(aptos_feequoter.DestChainConfig)
+		require.True(ts.T, ok, "expected Aptos Fee quoter destination chain config type")
+		ts.SrcFeeQuoterDestChainConfig = aptosFeeQuoterDestChainConfig
+	default:
+		ts.T.Fatalf("unsupported source chain family %v", family)
 	}
 
 	return ts
@@ -70,7 +87,7 @@ type TestSetup struct {
 	SrcChain                    uint64
 	DestChain                   uint64
 	SrcToken                    common.Address
-	SrcFeeQuoterDestChainConfig fee_quoter.FeeQuoterDestChainConfig
+	SrcFeeQuoterDestChainConfig any
 	TestRouter                  bool
 	ValidateResp                bool
 }
