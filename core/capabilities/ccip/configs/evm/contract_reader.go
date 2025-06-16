@@ -276,10 +276,9 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetEventName("CCIPMessageSent", onrampABI),
 					ReadType:          evmrelaytypes.Event,
 					EventDefinitions: &evmrelaytypes.EventDefinitions{
-						GenericDataWordDetails: map[string]evmrelaytypes.DataWordDetail{
-							consts.EventAttributeSourceChain:    {Name: "message.header.sourceChainSelector"},
-							consts.EventAttributeDestChain:      {Name: "message.header.destChainSelector"},
-							consts.EventAttributeSequenceNumber: {Name: "message.header.sequenceNumber"},
+						GenericTopicNames: map[string]string{
+							"destChainSelector": consts.EventAttributeDestChain,
+							"sequenceNumber":    consts.EventAttributeSequenceNumber,
 						},
 					},
 					OutputModifications: codec.ModifiersConfig{
