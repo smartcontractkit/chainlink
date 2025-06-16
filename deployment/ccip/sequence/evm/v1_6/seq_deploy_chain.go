@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/sync/errgroup"
@@ -173,7 +174,9 @@ var (
 								ChainSelector: chainSelector,
 								RMNLegacyAddr: chainAddresses.LegacyRMNAddress,
 							},
-						})
+						}, opsutil.RetryDeploymentWithGasBoost[ccipopsv1_6.DeployRMNRemoteInput](opsutil.GasBoostConfig{}, operations.RetryPolicy{
+							MaxAttempts: 10,
+						}))
 						if err != nil {
 							return fmt.Errorf("failed to deploy RMNRemote for %s: %w", chain, err)
 						}
@@ -200,7 +203,9 @@ var (
 								},
 								FSign: 0,
 							},
-						})
+						}, opsutil.RetryCallWithGasBoost[rmn_remote.RMNRemoteConfig](opsutil.GasBoostConfig{}, operations.RetryPolicy{
+							MaxAttempts: 10,
+						}))
 						if err != nil {
 							return fmt.Errorf("failed to set RMNRemote config for chain %d: %w", chainSelector, err)
 						}
@@ -216,7 +221,9 @@ var (
 								RMNProxy:      chainAddresses.RMNProxyAddress,
 								WethAddress:   chainAddresses.WrappedNativeAddress,
 							},
-						})
+						}, opsutil.RetryDeploymentWithGasBoost[ccipopsv1_2.DeployRouterInput](opsutil.GasBoostConfig{}, operations.RetryPolicy{
+							MaxAttempts: 10,
+						}))
 						if err != nil {
 							return fmt.Errorf("failed to deploy test router for %s: %w", chain, err)
 						}
@@ -228,7 +235,9 @@ var (
 						report, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployNonceManagerOp, chain, opsutil.EVMDeployInput[[]common.Address]{
 							ChainSelector: chainSelector,
 							DeployInput:   []common.Address{},
-						})
+						}, opsutil.RetryDeploymentWithGasBoost[[]common.Address](opsutil.GasBoostConfig{}, operations.RetryPolicy{
+							MaxAttempts: 10,
+						}))
 						if err != nil {
 							return fmt.Errorf("failed to deploy nonce manager for %s: %w", chain, err)
 						}
@@ -250,7 +259,9 @@ var (
 								// Deployer key should be removed sometime after initial deployment
 								PriceUpdaters: []common.Address{chainAddresses.TimelockAddress, chain.DeployerKey.From},
 							},
-						})
+						}, opsutil.RetryDeploymentWithGasBoost[ccipopsv1_6.DeployFeeQInput](opsutil.GasBoostConfig{}, operations.RetryPolicy{
+							MaxAttempts: 10,
+						}))
 						if err != nil {
 							return fmt.Errorf("failed to deploy fee quoter for %s: %w", chain, err)
 						}
@@ -278,7 +289,9 @@ var (
 								FeeQuoter:          feeQuoterAddress,
 								FeeAggregator:      feeAggregator,
 							},
-						})
+						}, opsutil.RetryDeploymentWithGasBoost[ccipopsv1_6.DeployOnRampInput](opsutil.GasBoostConfig{}, operations.RetryPolicy{
+							MaxAttempts: 10,
+						}))
 						if err != nil {
 							return fmt.Errorf("failed to deploy on ramp for %s: %w", chain, err)
 						}
@@ -299,7 +312,9 @@ var (
 								TokenAdminRegistry: chainAddresses.TokenAdminRegistryAddress,
 								FeeQuoter:          feeQuoterAddress,
 							},
-						})
+						}, opsutil.RetryDeploymentWithGasBoost[ccipopsv1_6.DeployOffRampInput](opsutil.GasBoostConfig{}, operations.RetryPolicy{
+							MaxAttempts: 10,
+						}))
 						if err != nil {
 							return fmt.Errorf("failed to deploy off ramp for %s: %w", chain, err)
 						}
@@ -318,7 +333,9 @@ var (
 						CallInput: fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
 							AddedCallers: []common.Address{offRampAddress},
 						},
-					})
+					}, opsutil.RetryCallWithGasBoost[fee_quoter.AuthorizedCallersAuthorizedCallerArgs](opsutil.GasBoostConfig{}, operations.RetryPolicy{
+						MaxAttempts: 10,
+					}))
 					if err != nil {
 						return fmt.Errorf("failed to set off ramp as authorized caller of FeeQuoter on chain %s: %w", chain, err)
 					}
@@ -334,7 +351,9 @@ var (
 									onRampAddress,
 								},
 							},
-						})
+						}, opsutil.RetryCallWithGasBoost[nonce_manager.AuthorizedCallersAuthorizedCallerArgs](opsutil.GasBoostConfig{}, operations.RetryPolicy{
+							MaxAttempts: 10,
+						}))
 					if err != nil {
 						return fmt.Errorf("failed to set off ramp and on ramp as authorized callers of NonceManager on chain %s: %w", chain, err)
 					}

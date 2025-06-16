@@ -284,6 +284,12 @@ func DeployMCMSWithTimelockContractsEVM(
 				ChainSelector: chain.Selector,
 				DeployInput:   opInput,
 			},
+			opsutils.RetryDeploymentWithGasBoost[ops.OpEVMDeployTimelockInput](
+				opsutils.GasBoostConfig{},
+				operations.RetryPolicy{
+					MaxAttempts: 10,
+				},
+			),
 		)
 		execReports = append(execReports, report.ToGenericReport())
 		if err != nil {
@@ -324,6 +330,12 @@ func DeployMCMSWithTimelockContractsEVM(
 				ChainSelector: chain.Selector,
 				DeployInput:   opInput,
 			},
+			opsutils.RetryDeploymentWithGasBoost[ops.OpEVMDeployCallProxyInput](
+				opsutils.GasBoostConfig{},
+				operations.RetryPolicy{
+					MaxAttempts: 10,
+				},
+			),
 		)
 		execReports = append(execReports, report.ToGenericReport())
 		if err != nil {

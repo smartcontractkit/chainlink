@@ -87,6 +87,12 @@ var SeqGrantRolesTimelock = operations.NewSequence(
 							NoSend:  !in.IsDeployerKeyAdmin,
 							Address: in.Timelock,
 						},
+						opsutils.RetryCallWithGasBoost[ops.OpEVMGrantRoleInput](
+							opsutils.GasBoostConfig{},
+							operations.RetryPolicy{
+								MaxAttempts: 10,
+							},
+						),
 					)
 					if err != nil {
 						b.Logger.Errorw("Failed to grant role",

@@ -23,6 +23,8 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
+// TODO @ccip-tooling: these utilities need to be thoroughly tested.
+
 // EVMCallInput is the input structure for an EVM call operation.
 // Why not pull the chain selector from the chain dependency? Because addresses might be the same across chains and we need to differentiate them.
 // This ensures no false report matches between operation runs that have the same call input and address but a different target chain.
@@ -36,6 +38,10 @@ type EVMCallInput[IN any] struct {
 	// NoSend indicates whether or not the transaction should be sent.
 	// If true, the transaction data be prepared and returned but not sent.
 	NoSend bool `json:"noSend"`
+	// GasPrice is a custom gas price to set for the transaction.
+	GasPrice *big.Int `json:"gasPrice"`
+	// GasLimit is a custom gas limit to set for the transaction.
+	GasLimit uint64 `json:"gasLimit"`
 }
 
 // EVMCallOutput is the output structure for an EVM call operation.
@@ -49,30 +55,6 @@ type EVMCallOutput struct {
 	ContractType cldf.ContractType `json:"contractType"`
 	// Confirmed indicates whether or not the transaction was confirmed.
 	Confirmed bool `json:"confirmed"`
-}
-
-// EVMDeployInput is the input structure for an EVM deploy operation.
-type EVMDeployInput[IN any] struct {
-	// ChainSelector is the selector for the chain on which the contract will be deployed.
-	ChainSelector uint64 `json:"chainSelector"`
-	// DeployInput is the input data for the call.
-	DeployInput IN `json:"deployInput"`
-}
-
-// EVMDeployOutput is the output structure for an EVM deploy operation.
-// It contains the new address, the deployment transaction, and the type and version of the contract that was deployed.
-type EVMDeployOutput struct {
-	// Address is the address of the deployed contract.
-	Address common.Address `json:"address"`
-	// TypeAndVersion is the type and version of the contract that was deployed.
-	TypeAndVersion string `json:"typeAndVersion"`
-}
-
-// VMDeployers defines the various deployer functions available for EVM-based chains.
-// Currently, it defines an EVM deployer and a ZksyncVM deployer, but can be extended.
-type VMDeployers[IN any] struct {
-	DeployEVM      func(opts *bind.TransactOpts, backend bind.ContractBackend, deployInput IN) (common.Address, *types.Transaction, error)
-	DeployZksyncVM func(opts *accounts.TransactOpts, client *clients.Client, wallet *accounts.Wallet, backend bind.ContractBackend, deployInput IN) (common.Address, error)
 }
 
 // NewEVMCallOperation creates a new operation that performs an EVM call.
@@ -94,7 +76,7 @@ func NewEVMCallOperation[IN any, C any](
 			if input.ChainSelector != chain.Selector {
 				return EVMCallOutput{}, fmt.Errorf("mismatch between inputted chain selector and selector defined within dependencies: %d != %d", input.ChainSelector, chain.Selector)
 			}
-			opts := chain.DeployerKey
+			opts := cloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, input.GasPrice.Int64())
 			if input.NoSend {
 				opts = cldf.SimTransactOpts()
 			}
@@ -120,63 +102,6 @@ func NewEVMCallOperation[IN any, C any](
 				Data:         tx.Data(),
 				ContractType: contractType,
 				Confirmed:    confirmed,
-			}, err
-		},
-	)
-}
-
-// NewEVMDeployOperation creates a new operation that deploys an EVM contract.
-// Any interfacing with gethwrappers should happen in the deploy function.
-func NewEVMDeployOperation[IN any](
-	name string,
-	version *semver.Version,
-	description string,
-	typeAndVersion cldf.TypeAndVersion,
-	deployers VMDeployers[IN],
-) *operations.Operation[EVMDeployInput[IN], EVMDeployOutput, cldf_evm.Chain] {
-	return operations.NewOperation(
-		name,
-		version,
-		description,
-		func(b operations.Bundle, chain cldf_evm.Chain, input EVMDeployInput[IN]) (EVMDeployOutput, error) {
-			if input.ChainSelector != chain.Selector {
-				return EVMDeployOutput{}, fmt.Errorf("mismatch between inputted chain selector and selector defined within dependencies: %d != %d", input.ChainSelector, chain.Selector)
-			}
-			var (
-				addr common.Address
-				tx   *types.Transaction
-				err  error
-			)
-			if chain.IsZkSyncVM {
-				addr, err = deployers.DeployZksyncVM(
-					nil,
-					chain.ClientZkSyncVM,
-					chain.DeployerKeyZkSyncVM,
-					chain.Client,
-					input.DeployInput,
-				)
-			} else {
-				addr, tx, err = deployers.DeployEVM(
-					chain.DeployerKey,
-					chain.Client,
-					input.DeployInput,
-				)
-			}
-			if err != nil {
-				b.Logger.Errorw("Failed to deploy contract", "typeAndVersion", typeAndVersion, "chain", chain.String(), "err", err.Error())
-				return EVMDeployOutput{}, fmt.Errorf("failed to deploy %s on %s: %w", typeAndVersion, chain, err)
-			}
-			// Non-ZkSyncVM chains require manual confirmation of the deployment transaction.
-			if !chain.IsZkSyncVM {
-				_, err := chain.Confirm(tx)
-				if err != nil {
-					b.Logger.Errorw("Failed to confirm deployment", "typeAndVersion", typeAndVersion, "chain", chain.String(), "err", err.Error())
-					return EVMDeployOutput{}, fmt.Errorf("failed to confirm deployment of %s on %s: %w", typeAndVersion, chain, err)
-				}
-			}
-			return EVMDeployOutput{
-				Address:        addr,
-				TypeAndVersion: typeAndVersion.String(),
 			}, err
 		},
 	)
@@ -277,4 +202,182 @@ func AddEVMCallSequenceToCSOutput[IN any](
 
 	csOutput.MCMSTimelockProposals = []mcmslib.TimelockProposal{*aggProposal}
 	return csOutput, nil
+}
+
+// EVMDeployInput is the input structure for an EVM deploy operation.
+type EVMDeployInput[IN any] struct {
+	// ChainSelector is the selector for the chain on which the contract will be deployed.
+	ChainSelector uint64 `json:"chainSelector"`
+	// DeployInput is the input data for the call.
+	DeployInput IN `json:"deployInput"`
+	// GasPrice is a custom gas price to set for the transaction.
+	GasPrice *big.Int `json:"gasPrice"`
+	// GasLimit is a custom gas limit to set for the transaction.
+	GasLimit uint64 `json:"gasLimit"`
+}
+
+// EVMDeployOutput is the output structure for an EVM deploy operation.
+// It contains the new address, the deployment transaction, and the type and version of the contract that was deployed.
+type EVMDeployOutput struct {
+	// Address is the address of the deployed contract.
+	Address common.Address `json:"address"`
+	// TypeAndVersion is the type and version of the contract that was deployed.
+	TypeAndVersion string `json:"typeAndVersion"`
+}
+
+// VMDeployers defines the various deployer functions available for EVM-based chains.
+// Currently, it defines an EVM deployer and a ZksyncVM deployer, but can be extended.
+type VMDeployers[IN any] struct {
+	DeployEVM      func(opts *bind.TransactOpts, backend bind.ContractBackend, deployInput IN) (common.Address, *types.Transaction, error)
+	DeployZksyncVM func(opts *accounts.TransactOpts, client *clients.Client, wallet *accounts.Wallet, backend bind.ContractBackend, deployInput IN) (common.Address, error)
+}
+
+// NewEVMDeployOperation creates a new operation that deploys an EVM contract.
+// Any interfacing with gethwrappers should happen in the deploy function.
+func NewEVMDeployOperation[IN any](
+	name string,
+	version *semver.Version,
+	description string,
+	typeAndVersion cldf.TypeAndVersion,
+	deployers VMDeployers[IN],
+) *operations.Operation[EVMDeployInput[IN], EVMDeployOutput, cldf_evm.Chain] {
+	return operations.NewOperation(
+		name,
+		version,
+		description,
+		func(b operations.Bundle, chain cldf_evm.Chain, input EVMDeployInput[IN]) (EVMDeployOutput, error) {
+			if input.ChainSelector != chain.Selector {
+				return EVMDeployOutput{}, fmt.Errorf("mismatch between inputted chain selector and selector defined within dependencies: %d != %d", input.ChainSelector, chain.Selector)
+			}
+			var (
+				addr common.Address
+				tx   *types.Transaction
+				err  error
+			)
+			if chain.IsZkSyncVM {
+				addr, err = deployers.DeployZksyncVM(
+					nil,
+					chain.ClientZkSyncVM,
+					chain.DeployerKeyZkSyncVM,
+					chain.Client,
+					input.DeployInput,
+				)
+			} else {
+				addr, tx, err = deployers.DeployEVM(
+					cloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, input.GasPrice.Int64()),
+					chain.Client,
+					input.DeployInput,
+				)
+			}
+			if err != nil {
+				b.Logger.Errorw("Failed to deploy contract", "typeAndVersion", typeAndVersion, "chain", chain.String(), "err", err.Error())
+				return EVMDeployOutput{}, fmt.Errorf("failed to deploy %s on %s: %w", typeAndVersion, chain, err)
+			}
+			// Non-ZkSyncVM chains require manual confirmation of the deployment transaction.
+			if !chain.IsZkSyncVM {
+				_, err := chain.Confirm(tx)
+				if err != nil {
+					b.Logger.Errorw("Failed to confirm deployment", "typeAndVersion", typeAndVersion, "chain", chain.String(), "err", err.Error())
+					return EVMDeployOutput{}, fmt.Errorf("failed to confirm deployment of %s on %s: %w", typeAndVersion, chain, err)
+				}
+			}
+			return EVMDeployOutput{
+				Address:        addr,
+				TypeAndVersion: typeAndVersion.String(),
+			}, err
+		},
+	)
+}
+
+// cloneTransactOptsWithGas ensures that we don't impact the transact opts used by other operations.
+func cloneTransactOptsWithGas(opts *bind.TransactOpts, gasLimit uint64, gasPrice int64) *bind.TransactOpts {
+	if opts == nil {
+		return nil
+	}
+	newOpts := *opts
+	if gasLimit > 0 {
+		newOpts.GasLimit = gasLimit
+	}
+	if gasPrice > 0 {
+		newOpts.GasPrice = big.NewInt(gasPrice)
+	}
+	return &newOpts
+}
+
+// GasBoostConfig defines the configuration for gas boosting during retries.
+// It allows customization of the initial gas limit, gas limit increment, initial gas price, and gas price increment.
+// Defaults will be used if values are not provided.
+type GasBoostConfig struct {
+	InitialGasLimit   uint64
+	GasLimitIncrement uint64
+	InitialGasPrice   *big.Int
+	GasPriceIncrement *big.Int
+}
+
+// RetryDeploymentWithGasBoost is an ExecuteOption that retries EVM deployments with gas boosting.
+// It uses the provided GasBoostConfig to adjust the gas limit and gas price on each retry attempt.
+func RetryDeploymentWithGasBoost[IN any](cfg GasBoostConfig, policy operations.RetryPolicy) operations.ExecuteOption[EVMDeployInput[IN], cldf_evm.Chain] {
+	return operations.WithRetryConfig(operations.RetryConfig[EVMDeployInput[IN], cldf_evm.Chain]{
+		Policy: policy,
+		InputHook: func(attempt uint, err error, in EVMDeployInput[IN], deps cldf_evm.Chain) EVMDeployInput[IN] {
+			gasLimit, gasPrice := getBoostedGasForAttempt(cfg, attempt)
+			in.GasLimit = gasLimit
+			in.GasPrice = gasPrice
+
+			return in
+		},
+	})
+}
+
+// RetryCallWithGasBoost is an ExecuteOption that retries EVM calls with gas boosting.
+// It uses the provided GasBoostConfig to adjust the gas limit and gas price on each retry attempt.
+// If NoSend is true, it will not apply gas boosting since the transaction is never sent.
+func RetryCallWithGasBoost[IN any](cfg GasBoostConfig, policy operations.RetryPolicy) operations.ExecuteOption[EVMCallInput[IN], cldf_evm.Chain] {
+	return operations.WithRetryConfig(operations.RetryConfig[EVMCallInput[IN], cldf_evm.Chain]{
+		Policy: policy,
+		InputHook: func(attempt uint, err error, in EVMCallInput[IN], deps cldf_evm.Chain) EVMCallInput[IN] {
+			if in.NoSend {
+				return in // No gas boost for calls that do not send transactions
+			}
+
+			gasLimit, gasPrice := getBoostedGasForAttempt(cfg, attempt)
+			in.GasLimit = gasLimit
+			in.GasPrice = gasPrice
+
+			return in
+		},
+	})
+}
+
+func getBoostedGasForAttempt(cfg GasBoostConfig, attempt uint) (gasLimit uint64, gasPrice *big.Int) {
+	initialGasLimit := uint64(1_000_000)            // 1M
+	gasLimitIncrement := uint64(100_000)            // 100k
+	initialGasPrice := big.NewInt(30_000_000_000)   // 30 Gwei
+	gasPriceIncrement := big.NewInt(10_000_000_000) // 10 Gwei
+
+	// Override defaults with config values if provided
+	if cfg.InitialGasLimit > 0 {
+		initialGasLimit = cfg.InitialGasLimit
+	}
+	if cfg.GasLimitIncrement > 0 {
+		gasLimitIncrement = cfg.GasLimitIncrement
+	}
+	if cfg.InitialGasPrice != nil {
+		initialGasPrice = cfg.InitialGasPrice
+	}
+	if cfg.GasPriceIncrement != nil {
+		gasPriceIncrement = cfg.GasPriceIncrement
+	}
+
+	// initial + attempt * increment
+	gasLimit = initialGasLimit + uint64(attempt)*gasLimitIncrement
+	gasPrice = new(big.Int).Add(
+		initialGasPrice,
+		new(big.Int).Mul(
+			big.NewInt(int64(attempt)),
+			gasPriceIncrement,
+		),
+	)
+
+	return
 }
