@@ -27,6 +27,15 @@ on:
     types: [labeled, synchronize]
 
 jobs:
+  log-workflow-trigger:
+    name: Log Workflow Trigger
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log Workflow Trigger
+        run: |
+          echo "Workflow Trigger: ${{ github.event_name }}"
+
   test-cli:
     strategy:
       matrix:
@@ -37,7 +46,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-local-cre-env-tests'))
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-local-cre-env-tests'))
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -112,6 +121,8 @@ jobs:
             [[nodesets.node_specs]]
               [nodesets.node_specs.node]
                 image = "injected-at-runtime"
+                [nodesets.node_specs.node.env_vars]
+                CL_EVM_CMD=""
           EOF
 
       - name: Start the CLI
