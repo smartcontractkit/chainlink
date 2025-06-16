@@ -39,7 +39,7 @@ type EVMCallInput[IN any] struct {
 	// If true, the transaction data be prepared and returned but not sent.
 	NoSend bool `json:"noSend"`
 	// GasPrice is a custom gas price to set for the transaction.
-	GasPrice *big.Int `json:"gasPrice"`
+	GasPrice uint64 `json:"gasPrice"`
 	// GasLimit is a custom gas limit to set for the transaction.
 	GasLimit uint64 `json:"gasLimit"`
 }
@@ -76,7 +76,7 @@ func NewEVMCallOperation[IN any, C any](
 			if input.ChainSelector != chain.Selector {
 				return EVMCallOutput{}, fmt.Errorf("mismatch between inputted chain selector and selector defined within dependencies: %d != %d", input.ChainSelector, chain.Selector)
 			}
-			opts := cloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, convertToInt64(input.GasPrice))
+			opts := cloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, input.GasPrice)
 			if input.NoSend {
 				opts = cldf.SimTransactOpts()
 			}
@@ -211,7 +211,7 @@ type EVMDeployInput[IN any] struct {
 	// DeployInput is the input data for the call.
 	DeployInput IN `json:"deployInput"`
 	// GasPrice is a custom gas price to set for the transaction.
-	GasPrice *big.Int `json:"gasPrice"`
+	GasPrice uint64 `json:"gasPrice"`
 	// GasLimit is a custom gas limit to set for the transaction.
 	GasLimit uint64 `json:"gasLimit"`
 }
@@ -264,7 +264,7 @@ func NewEVMDeployOperation[IN any](
 				)
 			} else {
 				addr, tx, err = deployers.DeployEVM(
-					cloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, convertToInt64(input.GasPrice)),
+					cloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, input.GasPrice),
 					chain.Client,
 					input.DeployInput,
 				)
@@ -289,15 +289,8 @@ func NewEVMDeployOperation[IN any](
 	)
 }
 
-func convertToInt64(i *big.Int) int64 {
-	if i == nil {
-		return 0
-	}
-	return i.Int64()
-}
-
 // cloneTransactOptsWithGas ensures that we don't impact the transact opts used by other operations.
-func cloneTransactOptsWithGas(opts *bind.TransactOpts, gasLimit uint64, gasPrice int64) *bind.TransactOpts {
+func cloneTransactOptsWithGas(opts *bind.TransactOpts, gasLimit uint64, gasPrice uint64) *bind.TransactOpts {
 	if opts == nil {
 		return nil
 	}
@@ -306,7 +299,7 @@ func cloneTransactOptsWithGas(opts *bind.TransactOpts, gasLimit uint64, gasPrice
 		newOpts.GasLimit = gasLimit
 	}
 	if gasPrice > 0 {
-		newOpts.GasPrice = big.NewInt(gasPrice)
+		newOpts.GasPrice = new(big.Int).SetUint64(gasPrice)
 	}
 	return &newOpts
 }
@@ -317,8 +310,8 @@ func cloneTransactOptsWithGas(opts *bind.TransactOpts, gasLimit uint64, gasPrice
 type GasBoostConfig struct {
 	InitialGasLimit   uint64
 	GasLimitIncrement uint64
-	InitialGasPrice   *big.Int
-	GasPriceIncrement *big.Int
+	InitialGasPrice   uint64
+	GasPriceIncrement uint64
 }
 
 // RetryDeploymentWithGasBoost is an ExecuteOption that retries EVM deployments with gas boosting.
@@ -356,11 +349,11 @@ func RetryCallWithGasBoost[IN any](cfg GasBoostConfig, policy operations.RetryPo
 	})
 }
 
-func getBoostedGasForAttempt(cfg GasBoostConfig, attempt uint) (gasLimit uint64, gasPrice *big.Int) {
-	initialGasLimit := uint64(1_000_000)            // 1M
-	gasLimitIncrement := uint64(100_000)            // 100k
-	initialGasPrice := big.NewInt(30_000_000_000)   // 30 Gwei
-	gasPriceIncrement := big.NewInt(10_000_000_000) // 10 Gwei
+func getBoostedGasForAttempt(cfg GasBoostConfig, attempt uint) (gasLimit uint64, gasPrice uint64) {
+	initialGasLimit := uint64(1_000_000)        // 1M
+	gasLimitIncrement := uint64(100_000)        // 100k
+	initialGasPrice := uint64(30_000_000_000)   // 30 Gwei
+	gasPriceIncrement := uint64(10_000_000_000) // 10 Gwei
 
 	// Override defaults with config values if provided
 	if cfg.InitialGasLimit > 0 {
@@ -369,22 +362,16 @@ func getBoostedGasForAttempt(cfg GasBoostConfig, attempt uint) (gasLimit uint64,
 	if cfg.GasLimitIncrement > 0 {
 		gasLimitIncrement = cfg.GasLimitIncrement
 	}
-	if cfg.InitialGasPrice != nil {
+	if cfg.InitialGasPrice > 0 {
 		initialGasPrice = cfg.InitialGasPrice
 	}
-	if cfg.GasPriceIncrement != nil {
+	if cfg.GasPriceIncrement > 0 {
 		gasPriceIncrement = cfg.GasPriceIncrement
 	}
 
 	// initial + attempt * increment
 	gasLimit = initialGasLimit + uint64(attempt)*gasLimitIncrement
-	gasPrice = new(big.Int).Add(
-		initialGasPrice,
-		new(big.Int).Mul(
-			new(big.Int).SetUint64(uint64(attempt)),
-			gasPriceIncrement,
-		),
-	)
+	gasPrice = initialGasPrice + uint64(attempt)*gasPriceIncrement
 
 	return
 }
