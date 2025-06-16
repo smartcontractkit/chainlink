@@ -355,9 +355,12 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, err
 	}
 
-	billingClient, err := billing.NewWorkflowClient(opts.Config.Billing().URL())
-	if err != nil {
-		globalLogger.Infof("NewApplication: failed to create billing client; %s", err)
+	var billingClient billing.WorkflowClient
+	if cfg.Billing().URL() != "" {
+		billingClient, err = billing.NewWorkflowClient(opts.Config.Billing().URL())
+		if err != nil {
+			globalLogger.Infof("NewApplication: failed to create billing client; %s", err)
+		}
 	}
 
 	creServices, err := newCREServices(ctx, globalLogger, opts.DS, keyStore, cfg.Capabilities(), cfg.Workflows(), relayChainInterops, opts.CREOpts, billingClient)
@@ -1243,7 +1246,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					evmutils.NewHash().Bytes(),               // sender
 					evmutils.NewHash().Bytes(),               // fee
-					evmutils.NewHash().Bytes()},              // requestID
+					evmutils.NewHash().Bytes()}, // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      evmutils.NewHash(),
