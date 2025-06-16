@@ -374,7 +374,7 @@ func getBoostedGasForAttempt(cfg GasBoostConfig, attempt uint) (gasLimit uint64,
 	gasPrice = new(big.Int).Add(
 		initialGasPrice,
 		new(big.Int).Mul(
-			big.NewInt(int64(attempt)),
+			new(big.Int).SetUint64(uint64(attempt)),
 			gasPriceIncrement,
 		),
 	)
