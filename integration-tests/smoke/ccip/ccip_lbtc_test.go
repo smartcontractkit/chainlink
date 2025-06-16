@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"golang.org/x/exp/maps"
 
@@ -91,7 +92,18 @@ func TestLBTCTokenTransfer(t *testing.T) {
 		},
 	)
 
-	err = testhelpers.UpdateFeeQuoters(t, lggr, e, shared.LBTCSymbol, chainA, chainB, chainC)
+	updateFeeQtrGrp := errgroup.Group{}
+	for _, chainSel1 := range allChainSelectors {
+		for _, chainSel2 := range allChainSelectors {
+			if chainSel1 == chainSel2 {
+				continue
+			}
+			updateFeeQtrGrp.Go(func() error {
+				return testhelpers.UpdateFeeQuoterForToken(t, e, lggr, evmChains[chainSel1], chainSel2, shared.LBTCSymbol)
+			})
+		}
+	}
+	err = updateFeeQtrGrp.Wait()
 	require.NoError(t, err)
 
 	tinyOneCoin := new(big.Int).SetUint64(1)

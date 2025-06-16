@@ -2490,31 +2490,6 @@ func TransferToTimelock(
 	AssertTimelockOwnership(t, tenv, chains, state, withTestRouterTransfer)
 }
 
-func UpdateFeeQuoters(
-	t *testing.T,
-	lggr logger.Logger,
-	e cldf.Environment,
-	tokenSymbol shared.TokenSymbol,
-	chainA, chainB, chainC uint64,
-) error {
-	evmChains := e.BlockChains.EVMChains()
-	updateFeeQtrGrp := errgroup.Group{}
-	updateFeeQtrGrp.Go(func() error {
-		return UpdateFeeQuoterForToken(t, e, lggr, evmChains[chainA], chainC, tokenSymbol)
-	})
-	updateFeeQtrGrp.Go(func() error {
-		return UpdateFeeQuoterForToken(t, e, lggr, evmChains[chainB], chainC, tokenSymbol)
-	})
-	updateFeeQtrGrp.Go(func() error {
-		err1 := UpdateFeeQuoterForToken(t, e, lggr, evmChains[chainC], chainA, tokenSymbol)
-		if err1 != nil {
-			return err1
-		}
-		return UpdateFeeQuoterForToken(t, e, lggr, evmChains[chainC], chainB, tokenSymbol)
-	})
-	return updateFeeQtrGrp.Wait()
-}
-
 func UpdateFeeQuoterForToken(
 	t *testing.T,
 	e cldf.Environment,

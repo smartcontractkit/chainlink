@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -87,7 +88,18 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		},
 	)
 
-	err = testhelpers.UpdateFeeQuoters(t, lggr, e, shared.USDCSymbol, chainA, chainB, chainC)
+	updateFeeQtrGrp := errgroup.Group{}
+	for _, chainSel1 := range allChainSelectors {
+		for _, chainSel2 := range allChainSelectors {
+			if chainSel1 == chainSel2 {
+				continue
+			}
+			updateFeeQtrGrp.Go(func() error {
+				return testhelpers.UpdateFeeQuoterForToken(t, e, lggr, evmChains[chainSel1], chainSel2, shared.USDCSymbol)
+			})
+		}
+	}
+	err = updateFeeQtrGrp.Wait()
 	require.NoError(t, err)
 
 	// MockE2EUSDCTransmitter always mint 1, see MockE2EUSDCTransmitter.sol for more details
