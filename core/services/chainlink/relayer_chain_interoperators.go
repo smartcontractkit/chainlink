@@ -81,7 +81,7 @@ type DummyFactory interface {
 type CoreRelayerChainInteroperators struct {
 	mu           sync.Mutex
 	loopRelayers map[types.RelayID]loop.Relayer
-	legacyChains legacyChains
+	legacyChains legacyevm.LegacyChainContainer
 
 	dummyFactory DummyFactory
 
@@ -123,14 +123,14 @@ func InitEVM(factory RelayerFactory, config EVMFactoryConfig) CoreRelayerChainIn
 			return fmt.Errorf("failed to setup EVM relayer: %w", err2)
 		}
 
-		legacyMap := make(map[string]legacyevm.Chain)
+		legacyMap := make(map[string]types.ChainService)
 		for id, a := range adapters {
 			// adapter is a service
 			op.srvs = append(op.srvs, a)
 			op.loopRelayers[id] = a
 			legacyMap[id.ChainID] = a.Chain()
 		}
-		op.legacyChains.EVMChains = legacyevm.NewLegacyChains(legacyMap, config.ChainConfigs)
+		op.legacyChains = legacyevm.NewLegacyChains(legacyMap)
 		return nil
 	}
 }
@@ -155,8 +155,7 @@ func InitCosmos(factory RelayerFactory, ks keystore.Cosmos, csaKS keystore.CSA, 
 // InitSolana is a option for instantiating Solana relayers
 func InitSolana(factory RelayerFactory, ks keystore.Solana, csaKS keystore.CSA, config SolanaFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) error {
-		loopKs := &keystore.SolanaLooppSigner{Solana: ks}
-		solRelayers, err := factory.NewSolana(loopKs, &keystore.CSASigner{CSA: csaKS}, config)
+		solRelayers, err := factory.NewSolana(&keystore.SolanaLooppSigner{Solana: ks}, &keystore.CSASigner{CSA: csaKS}, config)
 		if err != nil {
 			return fmt.Errorf("failed to setup Solana relayer: %w", err)
 		}
@@ -261,7 +260,7 @@ func (rs *CoreRelayerChainInteroperators) GetIDToRelayerMap() map[types.RelayID]
 func (rs *CoreRelayerChainInteroperators) LegacyEVMChains() legacyevm.LegacyChainContainer {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
-	return rs.legacyChains.EVMChains
+	return rs.legacyChains
 }
 
 // ChainStatus gets [types.ChainStatus]
@@ -412,10 +411,4 @@ func (rs *CoreRelayerChainInteroperators) Slice() []loop.Relayer {
 }
 func (rs *CoreRelayerChainInteroperators) Services() (s []services.ServiceCtx) {
 	return rs.srvs
-}
-
-// legacyChains encapsulates the chain-specific dependencies. Will be
-// deprecated when chain-specific logic is removed from products.
-type legacyChains struct {
-	EVMChains legacyevm.LegacyChainContainer
 }

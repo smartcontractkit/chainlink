@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
+	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -57,7 +58,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	clhttp "github.com/smartcontractkit/chainlink/v2/core/utils/http"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
@@ -228,7 +228,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		LatestReportDeadline: cfg.Mercury().Cache().LatestReportDeadline(),
 	})
 
-	unrestrictedClient := clhttp.NewUnrestrictedHTTPClient()
+	unrestrictedClient := clhttp.NewUnrestrictedClient()
 
 	// Configure and optionally start the audit log forwarder service
 	auditLogger, err := audit.NewAuditLogger(appLggr, cfg.AuditLogger())
@@ -248,7 +248,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		AuditLogger:              auditLogger,
 		ExternalInitiatorManager: webhook.NewExternalInitiatorManager(ds, unrestrictedClient),
 		Version:                  static.Version,
-		RestrictedHTTPClient:     clhttp.NewRestrictedHTTPClient(cfg.Database(), appLggr),
+		RestrictedHTTPClient:     clhttp.NewRestrictedClient(cfg.Database(), appLggr),
 		UnrestrictedHTTPClient:   unrestrictedClient,
 		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
 		GRPCOpts:                 grpcOpts,

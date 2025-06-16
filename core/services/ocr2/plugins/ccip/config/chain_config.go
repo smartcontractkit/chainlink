@@ -1,9 +1,12 @@
 package config
 
 import (
+	stderrors "errors"
+	"fmt"
 	"strconv"
 
 	"github.com/pkg/errors"
+
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
@@ -28,9 +31,13 @@ func GetChainByChainSelector(chainSet legacyevm.LegacyChainContainer, chainSelec
 }
 
 func GetChainByChainID(chainSet legacyevm.LegacyChainContainer, chainID uint64) (legacyevm.Chain, int64, error) {
-	chain, err := chainSet.Get(strconv.FormatUint(chainID, 10))
+	chainService, err := chainSet.Get(strconv.FormatUint(chainID, 10))
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "chain not found in chainset")
+	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		return nil, 0, fmt.Errorf("embedded chains are not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 	}
 	return chain, chain.ID().Int64(), nil
 }

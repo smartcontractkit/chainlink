@@ -8,6 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/zksync-sdk/zksync2-go/accounts"
+	"github.com/zksync-sdk/zksync2-go/clients"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -26,25 +28,51 @@ import (
 // This ensures no false report matches between operation runs that have the same call input and address but a different target chain.
 type EVMCallInput[IN any] struct {
 	// Address is the address of the contract to call.
-	Address common.Address
+	Address common.Address `json:"address"`
 	// ChainSelector is the selector for the chain on which the contract resides.
-	ChainSelector uint64
+	ChainSelector uint64 `json:"chainSelector"`
 	// CallInput is the input data for the call.
-	CallInput IN
+	CallInput IN `json:"callInput"`
 	// NoSend indicates whether or not the transaction should be sent.
 	// If true, the transaction data be prepared and returned but not sent.
-	NoSend bool
+	NoSend bool `json:"noSend"`
 }
 
 // EVMCallOutput is the output structure for an EVM call operation.
 // It contains the transaction and the type of contract that is being called.
 type EVMCallOutput struct {
-	// Tx is the transaction formed by the call.
-	Tx *types.Transaction
+	// To is the address that initiated the transaction.
+	To common.Address `json:"to"`
+	// Data is the transaction data
+	Data []byte `json:"data"`
 	// ContractType is the type of contract that is being called.
-	ContractType cldf.ContractType
+	ContractType cldf.ContractType `json:"contractType"`
 	// Confirmed indicates whether or not the transaction was confirmed.
-	Confirmed bool
+	Confirmed bool `json:"confirmed"`
+}
+
+// EVMDeployInput is the input structure for an EVM deploy operation.
+type EVMDeployInput[IN any] struct {
+	// ChainSelector is the selector for the chain on which the contract will be deployed.
+	ChainSelector uint64 `json:"chainSelector"`
+	// DeployInput is the input data for the call.
+	DeployInput IN `json:"deployInput"`
+}
+
+// EVMDeployOutput is the output structure for an EVM deploy operation.
+// It contains the new address, the deployment transaction, and the type and version of the contract that was deployed.
+type EVMDeployOutput struct {
+	// Address is the address of the deployed contract.
+	Address common.Address `json:"address"`
+	// TypeAndVersion is the type and version of the contract that was deployed.
+	TypeAndVersion string `json:"typeAndVersion"`
+}
+
+// VMDeployers defines the various deployer functions available for EVM-based chains.
+// Currently, it defines an EVM deployer and a ZksyncVM deployer, but can be extended.
+type VMDeployers[IN any] struct {
+	DeployEVM      func(opts *bind.TransactOpts, backend bind.ContractBackend, deployInput IN) (common.Address, *types.Transaction, error)
+	DeployZksyncVM func(opts *accounts.TransactOpts, client *clients.Client, wallet *accounts.Wallet, backend bind.ContractBackend, deployInput IN) (common.Address, error)
 }
 
 // NewEVMCallOperation creates a new operation that performs an EVM call.
@@ -88,9 +116,67 @@ func NewEVMCallOperation[IN any, C any](
 				b.Logger.Debugw(fmt.Sprintf("Prepared %s tx against %s on %s", name, input.Address, chain), "input", input.CallInput)
 			}
 			return EVMCallOutput{
-				Tx:           tx,
+				To:           input.Address,
+				Data:         tx.Data(),
 				ContractType: contractType,
 				Confirmed:    confirmed,
+			}, err
+		},
+	)
+}
+
+// NewEVMDeployOperation creates a new operation that deploys an EVM contract.
+// Any interfacing with gethwrappers should happen in the deploy function.
+func NewEVMDeployOperation[IN any](
+	name string,
+	version *semver.Version,
+	description string,
+	typeAndVersion cldf.TypeAndVersion,
+	deployers VMDeployers[IN],
+) *operations.Operation[EVMDeployInput[IN], EVMDeployOutput, cldf_evm.Chain] {
+	return operations.NewOperation(
+		name,
+		version,
+		description,
+		func(b operations.Bundle, chain cldf_evm.Chain, input EVMDeployInput[IN]) (EVMDeployOutput, error) {
+			if input.ChainSelector != chain.Selector {
+				return EVMDeployOutput{}, fmt.Errorf("mismatch between inputted chain selector and selector defined within dependencies: %d != %d", input.ChainSelector, chain.Selector)
+			}
+			var (
+				addr common.Address
+				tx   *types.Transaction
+				err  error
+			)
+			if chain.IsZkSyncVM {
+				addr, err = deployers.DeployZksyncVM(
+					nil,
+					chain.ClientZkSyncVM,
+					chain.DeployerKeyZkSyncVM,
+					chain.Client,
+					input.DeployInput,
+				)
+			} else {
+				addr, tx, err = deployers.DeployEVM(
+					chain.DeployerKey,
+					chain.Client,
+					input.DeployInput,
+				)
+			}
+			if err != nil {
+				b.Logger.Errorw("Failed to deploy contract", "typeAndVersion", typeAndVersion, "chain", chain.String(), "err", err.Error())
+				return EVMDeployOutput{}, fmt.Errorf("failed to deploy %s on %s: %w", typeAndVersion, chain, err)
+			}
+			// Non-ZkSyncVM chains require manual confirmation of the deployment transaction.
+			if !chain.IsZkSyncVM {
+				_, err := chain.Confirm(tx)
+				if err != nil {
+					b.Logger.Errorw("Failed to confirm deployment", "typeAndVersion", typeAndVersion, "chain", chain.String(), "err", err.Error())
+					return EVMDeployOutput{}, fmt.Errorf("failed to confirm deployment of %s on %s: %w", typeAndVersion, chain, err)
+				}
+			}
+			return EVMDeployOutput{
+				Address:        addr,
+				TypeAndVersion: typeAndVersion.String(),
 			}, err
 		},
 	)
@@ -128,7 +214,7 @@ func AddEVMCallSequenceToCSOutput[IN any](
 			if out.Confirmed {
 				continue
 			}
-			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, out.Tx.To().Hex(), out.Tx.Data(),
+			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, out.To.Hex(), out.Data,
 				big.NewInt(0), string(out.ContractType), []string{})
 			if err != nil {
 				return csOutput, fmt.Errorf("failed to create batch operation for chain with selector %d: %w", chainSel, err)

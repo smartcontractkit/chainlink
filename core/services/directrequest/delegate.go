@@ -2,6 +2,7 @@ package directrequest
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -74,10 +75,15 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	if jb.DirectRequestSpec == nil {
 		return nil, errors.Errorf("DirectRequest: directrequest.Delegate expects a *job.DirectRequestSpec to be present, got %v", jb)
 	}
-	chain, err := d.legacyChains.Get(jb.DirectRequestSpec.EVMChainID.String())
+	chainService, err := d.legacyChains.Get(jb.DirectRequestSpec.EVMChainID.String())
 	if err != nil {
 		return nil, err
 	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		return nil, fmt.Errorf("directrequest is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
+	}
+
 	concreteSpec := job.SetDRMinIncomingConfirmations(chain.Config().EVM().MinIncomingConfirmations(), *jb.DirectRequestSpec)
 
 	oracle, err := operator.NewOperator(concreteSpec.ContractAddress.Address(), chain.Client())
