@@ -34,11 +34,11 @@ var (
 		func(b operations.Bundle, deps MigrateOnRampToFQDeps, input common.Address) (evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig, error) {
 			onRamp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(input, deps.Chain.Client)
 			if err != nil {
-				return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, fmt.Errorf("Failed to create EVM2EVMOnRamp contract binding at address %s: %w", input.Hex(), err)
+				return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, fmt.Errorf("failed to create EVM2EVMOnRamp contract binding at address %s: %w", input.Hex(), err)
 			}
 			destChainEVM2EVMDynamicCfg, err2 := onRamp.GetDynamicConfig(nil)
 			if err2 != nil && destChainEVM2EVMDynamicCfg.PriceRegistry == (common.Address{}) {
-				return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, fmt.Errorf("Cannot GetDynamicConfig for destination Chain from 1.5.0 OnRamp %s: %w", onRamp.Address().Hex(), err2)
+				return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, fmt.Errorf("cannot GetDynamicConfig for destination Chain from 1.5.0 OnRamp %s: %w", onRamp.Address().Hex(), err2)
 			}
 			return destChainEVM2EVMDynamicCfg, nil
 		})
@@ -50,11 +50,11 @@ var (
 		func(b operations.Bundle, deps MigrateOnRampToFQDeps, input OnRampGetTokenCfgInput) (evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig, error) {
 			onRamp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(input.OnRamp, deps.Chain.Client)
 			if err != nil {
-				return evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig{}, fmt.Errorf("Failed to create EVM2EVMOnRamp contract binding at address %s: %w", input.OnRamp.Hex(), err)
+				return evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig{}, fmt.Errorf("failed to create EVM2EVMOnRamp contract binding at address %s: %w", input.OnRamp.Hex(), err)
 			}
 			feeTokenCfg, err2 := onRamp.GetFeeTokenConfig(nil, input.Address)
 			if err2 != nil {
-				return evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig{}, fmt.Errorf("Cannot GetFeeTokenConfig for Feetoken address: %d, for 1.5.0 OnRamp %s: %w", input.Address, onRamp.Address().Hex(), err2)
+				return evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig{}, fmt.Errorf("cannot GetFeeTokenConfig for Feetoken address: %d, for 1.5.0 OnRamp %s: %w", input.Address, onRamp.Address().Hex(), err2)
 			}
 
 			return feeTokenCfg, nil
@@ -67,11 +67,11 @@ var (
 		func(b operations.Bundle, deps MigrateOnRampToFQDeps, input GetPoolBySourceTokenInput) (common.Address, error) {
 			onramp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(input.OnRamp, deps.Chain.Client)
 			if err != nil {
-				return common.Address{}, fmt.Errorf("Failed to create EVM2EVMOnRamp contract binding: chainSelector=%d, OnRamp Address=%s, error=%v", deps.Chain.ChainSelector(), input.OnRamp.Hex(), err)
+				return common.Address{}, fmt.Errorf("failed to create EVM2EVMOnRamp contract binding: chainSelector=%d, OnRamp Address=%s, error=%w", deps.Chain.ChainSelector(), input.OnRamp.Hex(), err)
 			}
 			tokenPoolAddress, err := onramp.GetPoolBySourceToken(nil, input.DestChainSelector, input.FeeTokenAddress)
 			if err != nil {
-				return common.Address{}, fmt.Errorf("Failed to get pool for token on 1.5.0 OnRamp: destinationChainSelector=%d, Fee Token=%s, error=%v", input.DestChainSelector, input.FeeTokenAddress.Hex(), err)
+				return common.Address{}, fmt.Errorf("failed to get pool for token on 1.5.0 OnRamp: destinationChainSelector=%d, Fee Token=%s, error=%w", input.DestChainSelector, input.FeeTokenAddress.Hex(), err)
 
 			}
 			return tokenPoolAddress, nil
@@ -84,11 +84,11 @@ var (
 		func(b operations.Bundle, deps MigrateOnRampToFQDeps, input OnRampGetTokenCfgInput) (evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfig, error) {
 			onramp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(input.OnRamp, deps.Chain.Client)
 			if err != nil {
-				return evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfig{}, fmt.Errorf("Failed to create EVM2EVMOnRamp contract binding: chainSelector=%d, OnRamp Address=%s, error=%v", deps.Chain.ChainSelector(), input.OnRamp.Hex(), err)
+				return evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfig{}, fmt.Errorf("failed to create EVM2EVMOnRamp contract binding: chainSelector=%d, OnRamp Address=%s, error=%w", deps.Chain.ChainSelector(), input.OnRamp.Hex(), err)
 			}
 			tokenTransferFeeCfg, err := onramp.GetTokenTransferFeeConfig(nil, input.Address)
 			if err != nil {
-				return evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfig{}, fmt.Errorf("Failed to Get Token Transfer Fee Config for token on 1.5.0 OnRamp Token=%s, error=%v", input.Address.Hex(), err)
+				return evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfig{}, fmt.Errorf("failed to Get Token Transfer Fee Config for token on 1.5.0 OnRamp Token=%s, error=%w", input.Address.Hex(), err)
 
 			}
 			return tokenTransferFeeCfg, nil

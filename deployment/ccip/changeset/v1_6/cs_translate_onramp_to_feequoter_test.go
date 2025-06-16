@@ -1,12 +1,10 @@
 package v1_6_test
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -18,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 
@@ -34,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -43,7 +39,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	ctx := testcontext.Get(t)
 
 	// 1. Deploy 1.5 pre-requisites
-	v1_5_deployment_config := &changeset.V1_5DeploymentConfig{
+	v1_5DeploymentConfig := &changeset.V1_5DeploymentConfig{
 		PriceRegStalenessThreshold: 60 * 60 * 24, // 1 day
 		RMNConfig: &rmn_contract.RMNConfig{
 			BlessWeightThreshold: 1,
@@ -56,12 +52,12 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 
 	e, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfChains(2),
-		testhelpers.WithPrerequisiteDeploymentOnly(v1_5_deployment_config), // price registry
+		testhelpers.WithPrerequisiteDeploymentOnly(v1_5DeploymentConfig), // price registry
 	)
 
 	tenv := e.Env
 
-	allChainSelectors := tenv.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
+	allChainSelectors := tenv.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	require.Len(t, allChainSelectors, 2, "Expected 2 EVM chains")
 	sourceChainSelector := allChainSelectors[0]
 	destChainSelector := allChainSelectors[1]
@@ -71,8 +67,8 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	sourceChainState := state.MustGetEVMChainState(sourceChainSelector)
 
 	allChains := tenv.BlockChains.ListChainSelectors(
-		cldf_chain.WithFamily(chainselectors.FamilyEVM),
-		cldf_chain.WithChainSelectorsExclusion([]uint64{chainselectors.GETH_TESTNET.Selector}),
+		cldf_chain.WithFamily(chain_selectors.FamilyEVM),
+		cldf_chain.WithChainSelectorsExclusion([]uint64{chain_selectors.GETH_TESTNET.Selector}),
 	)
 
 	selectorA, selectorB := allChains[0], allChains[1]
@@ -86,7 +82,6 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 		require.NoError(t, ab.Save(sel, state.Chains[sel].LinkToken.Address().Hex(),
 			cldf.NewTypeAndVersion("LinkToken", deployment.Version1_0_0)))
 	}
-	//nolint:staticcheck //SA1019 ignoring deprecated
 	require.NoError(t, tenv.ExistingAddresses.Remove(ab))
 
 	// 4. Set the test router as the source chain's router
@@ -95,7 +90,6 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 		require.NoError(t, ab.Save(sel, utils.RandomAddress().Hex(),
 			cldf.NewTypeAndVersion(shared.TestRouter, deployment.Version1_2_0)))
 	}
-	//nolint:staticcheck //SA1019 ignoring deprecated
 	require.NoError(t, tenv.ExistingAddresses.Merge(ab))
 
 	// 4. Deploy 1.6.0 Pre-reqs contracts
@@ -111,17 +105,17 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	require.NoError(t, err, "Failed to load initial onchain state")
 	sourceChainState = state.MustGetEVMChainState(sourceChainSelector)
 	require.NotNil(t, sourceChainState.EVM2EVMOnRamp, "1.5.0 OnRamps should be deployed on source chain")
-	onRamp1_5_info, _ := sourceChainState.EVM2EVMOnRamp[destChainSelector]
-	require.NotNil(t, onRamp1_5_info, "1.5.0 OnRamp instance info should not be nil")
+	onRamp1_5Info, _ := sourceChainState.EVM2EVMOnRamp[destChainSelector]
+	require.NotNil(t, onRamp1_5Info, "1.5.0 OnRamp instance info should not be nil")
 
-	onRamp1_5_contract, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(onRamp1_5_info.Address(), tenv.BlockChains.EVMChains()[sourceChainSelector].Client)
+	onRamp1_5Contract, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(onRamp1_5Info.Address(), tenv.BlockChains.EVMChains()[sourceChainSelector].Client)
 	require.NoError(t, err)
 	feeQuoterContract, err := fee_quoter.NewFeeQuoter(sourceChainState.FeeQuoter.Address(), tenv.BlockChains.EVMChains()[sourceChainSelector].Client)
 	require.NoError(t, err)
 	feetokensFromFeeQ, err := feeQuoterContract.GetFeeTokens(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err, "Failed to get GetFeeTokens from FeeQuoter")
 	require.Len(t, feetokensFromFeeQ, 2, "Expected 2 fee token in FeeQuoter before translation changeset")
-	onRampDynamicCfg, err := onRamp1_5_contract.GetDynamicConfig(&bind.CallOpts{Context: ctx})
+	onRampDynamicCfg, err := onRamp1_5Contract.GetDynamicConfig(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err, "Failed to get DestChainConfig from 1.5 onramp")
 	priceReg, err := price_registry.NewPriceRegistry(onRampDynamicCfg.PriceRegistry, tenv.BlockChains.EVMChains()[sourceChainSelector].Client)
 	require.NoError(t, err, "Failed to create PriceRegistry contract binding")
@@ -139,7 +133,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 
 	// 8. get onramp & feequoter dynamic, tokenCfg & default configs to compare
 
-	feeTokenCfg, _ := onRamp1_5_contract.GetFeeTokenConfig(&bind.CallOpts{Context: ctx}, allFeeTokens[0])
+	feeTokenCfg, _ := onRamp1_5Contract.GetFeeTokenConfig(&bind.CallOpts{Context: ctx}, allFeeTokens[0])
 	actualFeeQuoterDestCfg, err := feeQuoterContract.GetDestChainConfig(&bind.CallOpts{Context: ctx}, destChainSelector)
 	require.NoError(t, err, "Failed to get DestChainConfig from FeeQuoter after translation")
 
@@ -182,7 +176,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	require.NoError(t, err, "Failed to create TokenAdminRegistry contract binding")
 	allTokens, _ := tokenArContract.GetAllConfiguredTokens(&bind.CallOpts{Context: ctx}, 0, 1000)
 	require.Len(t, allTokens, 1, "Expected 1 token in TokenAdminRegistry after AddTokensE2E")
-	tokenTransferFeeCfgFromOnRamp, err := onRamp1_5_contract.GetTokenTransferFeeConfig(&bind.CallOpts{Context: ctx}, allTokens[0])
+	tokenTransferFeeCfgFromOnRamp, err := onRamp1_5Contract.GetTokenTransferFeeConfig(&bind.CallOpts{Context: ctx}, allTokens[0])
 	require.NoError(t, err, "Failed to get TokenTransferFeeConfig from Onramp")
 	tokenTransferFeeCfgFromFeeQ, err := feeQuoterContract.GetTokenTransferFeeConfig(&bind.CallOpts{Context: ctx}, destChainSelector, allTokens[0])
 	require.NoError(t, err, "Failed to get TokenTransferFeeConfig from FeeQuoter")
@@ -196,7 +190,8 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 
 	// Should match after translation
 	// Criteria 2: Ports token transfer fee config args from all 1.5.0 OnRamps into FeeQuoter
-	tokenTransferFeeCfgFromOnRamp, err = onRamp1_5_contract.GetTokenTransferFeeConfig(&bind.CallOpts{Context: ctx}, allTokens[0])
+	tokenTransferFeeCfgFromOnRamp, err = onRamp1_5Contract.GetTokenTransferFeeConfig(&bind.CallOpts{Context: ctx}, allTokens[0])
+	require.NoError(t, err, "Failed to get tokenTransferFeeCfgFromOnRamp from FeeQuoter")
 	tokenTransferFeeCfgFromFeeQ, err = feeQuoterContract.GetTokenTransferFeeConfig(&bind.CallOpts{Context: ctx}, destChainSelector, allTokens[0])
 	require.NoError(t, err, "Failed to get TokenTransferFeeConfig from FeeQuoter")
 	require.Equal(t, tokenTransferFeeCfgFromOnRamp.DestBytesOverhead, tokenTransferFeeCfgFromFeeQ.DestBytesOverhead, "TokenTransferFeeConfig should match after translation(DestBytesOverhead)")
@@ -208,26 +203,11 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	t.Logf("Successfully verified translation of 1.5.0 token transfer fee config args OnRamp config for chain %d to 1.6.0 FeeQuoter %d", sourceChainSelector, destChainSelector)
 }
 
-func createSymmetricRateLimits(rate int64, capacity int64) v1_5_1.RateLimiterConfig {
-	return v1_5_1.RateLimiterConfig{
-		Inbound: token_pool.RateLimiterConfig{
-			IsEnabled: rate != 0 || capacity != 0,
-			Rate:      big.NewInt(rate),
-			Capacity:  big.NewInt(capacity),
-		},
-		Outbound: token_pool.RateLimiterConfig{
-			IsEnabled: rate != 0 || capacity != 0,
-			Rate:      big.NewInt(rate),
-			Capacity:  big.NewInt(capacity),
-		},
-	}
-}
-
 func DeployUtil(t *testing.T, e *cldf.Environment, homeChainSel uint64) {
 	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
-	p2pIds := nodes.NonBootstraps().PeerIDs()
+	p2pIDs := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	contractParams := make(map[uint64]ccipseq.ChainContractParams)
 	for _, chain := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
@@ -252,7 +232,7 @@ func DeployUtil(t *testing.T, e *cldf.Environment, homeChainSel uint64) {
 			RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 			NodeOperators:    testhelpers.NewTestNodeOperator(e.BlockChains.EVMChains()[homeChainSel].DeployerKey.From),
 			NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
-				"NodeOperator": p2pIds,
+				"NodeOperator": p2pIDs,
 			},
 		},
 	), commonchangeset.Configure(
@@ -323,7 +303,7 @@ func DeployTokensAndTokenPools(t *testing.T, e cldf.Environment, addressBook *cl
 	}
 
 	e, err = commonchangeset.Apply(t, e,
-		commoncs.Configure(
+		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_5_1.DeployTokenPoolContractsChangeset),
 			v1_5_1.DeployTokenPoolContractsConfig{
 				TokenSymbol: TestTokenSymbol,

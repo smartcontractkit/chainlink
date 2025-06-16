@@ -205,7 +205,6 @@ func (cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) toPremiumMultiplierCfgSequen
 			CallInput:     premiumMultiplierUpdates,
 			NoSend:        cfg.MCMS != nil, // If MCMS exists, we do not want to send the transaction.
 		}
-
 	}
 	return ccipseqs.FeeQuoterUpdatePremiumMultiplierWeiPerEthConfig{
 		UpdatesByChain: input,

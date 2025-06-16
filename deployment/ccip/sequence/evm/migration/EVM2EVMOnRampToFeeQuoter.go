@@ -96,9 +96,10 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 	familySelector, _ := hex.DecodeString(EVMFamilySelector) // evm
 	if len(destChainSelector) > 0 {
 		destFamily, _ := chain_selectors.GetSelectorFamily(destChainSelector[0])
-		if destFamily == chain_selectors.FamilySolana {
+		switch destFamily {
+		case chain_selectors.FamilySolana:
 			familySelector, _ = hex.DecodeString(SVMFamilySelector) // solana
-		} else if destFamily == chain_selectors.FamilyAptos {
+		case chain_selectors.FamilyAptos:
 			familySelector, _ = hex.DecodeString(AptosFamilySelector) // aptos
 		}
 	}
