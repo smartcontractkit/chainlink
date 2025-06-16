@@ -5,9 +5,11 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 	"math/big"
 	mathrand "math/rand"
+	"sync"
 	"time"
 
 	selectors "github.com/smartcontractkit/chain-selectors"
@@ -35,6 +37,33 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 )
 
+// Global mutex map for source chains - shared across all DestinationGun instances
+var (
+	sourceChainMutexes   = make(map[uint64]*sync.Mutex)
+	sourceChainMutexLock sync.RWMutex
+)
+
+// getSourceChainMutex returns a mutex for the given source chain
+func getSourceChainMutex(chainSelector uint64) *sync.Mutex {
+	sourceChainMutexLock.RLock()
+	if mutex, exists := sourceChainMutexes[chainSelector]; exists {
+		sourceChainMutexLock.RUnlock()
+		return mutex
+	}
+	sourceChainMutexLock.RUnlock()
+
+	// Double-checked locking pattern
+	sourceChainMutexLock.Lock()
+	defer sourceChainMutexLock.Unlock()
+
+	if mutex, exists := sourceChainMutexes[chainSelector]; exists {
+		return mutex
+	}
+
+	sourceChainMutexes[chainSelector] = &sync.Mutex{}
+	return sourceChainMutexes[chainSelector]
+}
+
 type SeqNumRange struct {
 	Start *atomic.Uint64
 	End   *atomic.Uint64
@@ -50,7 +79,6 @@ type DestinationGun struct {
 	testConfig       *ccip.LoadConfig
 	evmSourceKeys    map[uint64]*bind.TransactOpts
 	solanaSourceKeys map[uint64]*solana.PrivateKey
-	chainOffset      int
 	metricPipe       chan messageData
 	laneConfig       *crib.LaneConfiguration // Lane configuration with discovered lanes
 	availableSources []uint64                // Cache of available source chains for this destination
@@ -65,7 +93,6 @@ func NewDestinationGun(
 	overrides *ccip.LoadConfig,
 	evmSourceKeys map[uint64]*bind.TransactOpts,
 	solanaSourceKeys map[uint64]*solana.PrivateKey,
-	chainOffset int,
 	metricPipe chan messageData,
 	laneConfig *crib.LaneConfiguration, // Lane configuration parameter
 ) (*DestinationGun, error) {
@@ -78,11 +105,9 @@ func NewDestinationGun(
 	// Fallback to any-to-any if no lane config or no sources found
 	if len(availableSources) == 0 {
 		l.Infow("No lane configuration found, falling back to any-to-any setup")
-		allChains := env.BlockChains.ListChainSelectors()
+		allChains := env.BlockChains.ListChainSelectors(cldf_chain.WithChainSelectorsExclusion([]uint64{chainSelector}))
 		for _, chain := range allChains {
-			if chain != chainSelector {
-				availableSources = append(availableSources, chain)
-			}
+			availableSources = append(availableSources, chain)
 		}
 	}
 
@@ -105,7 +130,6 @@ func NewDestinationGun(
 		testConfig:       overrides,
 		evmSourceKeys:    evmSourceKeys,
 		solanaSourceKeys: solanaSourceKeys,
-		chainOffset:      chainOffset,
 		metricPipe:       metricPipe,
 		laneConfig:       laneConfig,
 		availableSources: availableSources,
@@ -167,20 +191,26 @@ func (m *DestinationGun) mustSourceChain() (uint64, error) {
 	}
 
 	// Round-robin through available sources with chain offset
-	index := (int(m.roundNum.Load()) + m.chainOffset) % len(m.availableSources)
+	index := (int(m.roundNum.Load())) % len(m.availableSources)
 	selectedSource := m.availableSources[index]
 
 	m.l.Debugw("Selected source chain",
 		"destination", m.chainSelector,
 		"source", selectedSource,
 		"roundNum", m.roundNum.Load(),
-		"chainOffset", m.chainOffset,
 		"index", index)
 
 	return selectedSource, nil
 }
 
 func (m *DestinationGun) sendEVMSourceMessage(src uint64) error {
+	// CRITICAL: Lock the source chain to prevent nonce collisions
+	mutex := getSourceChainMutex(src)
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	m.l.Debugw("Acquired source chain lock", "sourceChain", src)
+
 	acc, exists := m.evmSourceKeys[src]
 	if !exists {
 		return fmt.Errorf("no EVM source key available for chain %d", src)

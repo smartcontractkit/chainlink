@@ -88,7 +88,6 @@ func TestStaging_CCIP_Load(t *testing.T) {
 			userOverrides,
 			messageKeys,
 			nil,
-			ind,
 			nil,
 			laneConfig,
 		)

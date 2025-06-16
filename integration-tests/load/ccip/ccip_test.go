@@ -249,7 +249,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	}
 
 	// confirmed dest chains need a subscription
-	for ind, cs := range destinationChains {
+	for _, cs := range destinationChains {
 		srcChains := laneConfig.GetSourceChainsForDestination(cs)
 
 		g := new(errgroup.Group)
@@ -290,7 +290,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				userOverrides,
 				evmSourceKeys,
 				solSourceKeys,
-				ind,
 				mm.InputChan,
 				laneConfig,
 			)
@@ -345,7 +344,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				userOverrides,
 				evmSourceKeys,
 				solSourceKeys,
-				ind,
 				mm.InputChan,
 				laneConfig,
 			)
