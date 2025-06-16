@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -122,7 +123,7 @@ type eventHandler struct {
 	ratelimiter            *ratelimiter.RateLimiter
 	workflowLimits         *syncerlimiter.Limits
 	workflowArtifactsStore WorkflowArtifactsStore
-	billingClient          workflows.BillingClient
+	billingClient          metering.BillingClient
 }
 
 type Event struct {
@@ -150,7 +151,7 @@ func WithStaticEngine(engine services.Service) func(*eventHandler) {
 	}
 }
 
-func WithBillingClient(client workflows.BillingClient) func(*eventHandler) {
+func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.billingClient = client
 	}
@@ -185,6 +186,12 @@ func NewEventHandler(
 	workflowArtifacts WorkflowArtifactsStore,
 	opts ...func(*eventHandler),
 ) (*eventHandler, error) {
+	if workflowStore == nil {
+		return nil, errors.New("workflow store must be provided")
+	}
+	if capRegistry == nil {
+		return nil, errors.New("capabilities registry must be provided")
+	}
 	if engineRegistry == nil {
 		return nil, errors.New("engine registry must be provided")
 	}
@@ -251,7 +258,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
-		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter, string(event.EventType)); err != nil {
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.EventType)); err != nil {
 			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
@@ -276,7 +283,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
-		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter, string(event.EventType)); err != nil {
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.EventType)); err != nil {
 			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
@@ -301,7 +308,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
-		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter, string(event.EventType)); err != nil {
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.EventType)); err != nil {
 			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
@@ -325,7 +332,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
-		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter, string(event.EventType)); err != nil {
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.EventType)); err != nil {
 			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
@@ -351,7 +358,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
-		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter, string(event.EventType)); err != nil {
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.EventType)); err != nil {
 			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
@@ -527,6 +534,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	cfg := &v2.EngineConfig{
 		Lggr:            h.lggr,
 		Module:          module,
+		WorkflowConfig:  config,
 		CapRegistry:     h.capRegistry,
 		ExecutionsStore: h.workflowStore,
 

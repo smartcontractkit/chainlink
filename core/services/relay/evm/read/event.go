@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/onramp"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -351,7 +353,7 @@ func (b *EventBinding) QueryKey(ctx context.Context, address common.Address, fil
 	}
 	remapped.Expressions = append(defaultExpressions, remapped.Expressions...)
 
-	logs, err := b.lp.FilteredLogs(ctx, remapped.Expressions, limitAndSort, b.contractName+"-"+address.String()+"-"+b.eventName)
+	logs, err := b.lp.FilteredLogs(ctx, remapped.Expressions, limitAndSort, b.contractName+"-"+b.eventName)
 	if err != nil {
 		return nil, wrapInternalErr(err)
 	}
@@ -389,7 +391,7 @@ func (b *EventBinding) getLatestLog(ctx context.Context, address common.Address,
 	}
 
 	// Gets the latest log that matches the filter and limiter.
-	logs, err := b.lp.FilteredLogs(ctx, filter, limiter, b.contractName+"-"+address.String()+"-"+b.eventName)
+	logs, err := b.lp.FilteredLogs(ctx, filter, limiter, b.contractName+"-"+b.eventName)
 	if err != nil {
 		return nil, wrapInternalErr(err)
 	}
@@ -818,9 +820,9 @@ const executionStateChangedEvent = ccipconsts.EventNameExecutionStateChanged
 
 func isTypeHardcoded(t any) bool {
 	switch t.(type) {
-	case *reader.CommitReportAcceptedEvent:
+	case *chainaccessor.CommitReportAcceptedEvent:
 		return true
-	case *reader.SendRequestedEvent:
+	case *chainaccessor.SendRequestedEvent:
 		return true
 	case *reader.ExecutionStateChangedEvent:
 		return true
@@ -831,7 +833,7 @@ func isTypeHardcoded(t any) bool {
 
 func decodeHardcodedType(out any, log *logpoller.Log) error {
 	switch out := out.(type) {
-	case *reader.CommitReportAcceptedEvent:
+	case *chainaccessor.CommitReportAcceptedEvent:
 		var internalEvent offramp.OffRampCommitReportAccepted
 		err := unpackLog(&internalEvent, commitReportAcceptedEvent, log, offrampABI)
 		if err != nil {
@@ -841,7 +843,7 @@ func decodeHardcodedType(out any, log *logpoller.Log) error {
 		populateCommitReportAcceptFromEvent(out, internalEvent)
 
 		return nil
-	case *reader.SendRequestedEvent:
+	case *chainaccessor.SendRequestedEvent:
 		var internalEvent onramp.OnRampCCIPMessageSent
 		err := unpackLog(&internalEvent, ccipMessageSentEvent, log, onrampABI)
 		if err != nil {
@@ -909,7 +911,7 @@ func populateExecutionStateChangedFromEvent(out *reader.ExecutionStateChangedEve
 	out.GasUsed = *internalEvent.GasUsed
 }
 
-func populateSendRequestFromEvent(out *reader.SendRequestedEvent, internalEvent onramp.OnRampCCIPMessageSent) {
+func populateSendRequestFromEvent(out *chainaccessor.SendRequestedEvent, internalEvent onramp.OnRampCCIPMessageSent) {
 	out.DestChainSelector = ccipocr3.ChainSelector(internalEvent.DestChainSelector)
 	out.SequenceNumber = ccipocr3.SeqNum(internalEvent.SequenceNumber)
 
@@ -948,13 +950,13 @@ func convertOnRampCCIPMessage(m onramp.InternalEVM2AnyRampMessage) ccipocr3.Mess
 	return out
 }
 
-func populateCommitReportAcceptFromEvent(out *reader.CommitReportAcceptedEvent, internalEvent offramp.OffRampCommitReportAccepted) {
+func populateCommitReportAcceptFromEvent(out *chainaccessor.CommitReportAcceptedEvent, internalEvent offramp.OffRampCommitReportAccepted) {
 	out.BlessedMerkleRoots = convertRoots(internalEvent.BlessedMerkleRoots)
 	out.UnblessedMerkleRoots = convertRoots(internalEvent.UnblessedMerkleRoots)
 
 	for _, update := range internalEvent.PriceUpdates.TokenPriceUpdates {
 		out.PriceUpdates.TokenPriceUpdates = append(out.PriceUpdates.TokenPriceUpdates,
-			reader.TokenPriceUpdate{
+			chainaccessor.TokenPriceUpdate{
 				SourceToken: update.SourceToken.Bytes(),
 				UsdPerToken: update.UsdPerToken,
 			},
@@ -963,14 +965,14 @@ func populateCommitReportAcceptFromEvent(out *reader.CommitReportAcceptedEvent, 
 
 	for _, update := range internalEvent.PriceUpdates.GasPriceUpdates {
 		out.PriceUpdates.GasPriceUpdates = append(out.PriceUpdates.GasPriceUpdates,
-			reader.GasPriceUpdate(update),
+			chainaccessor.GasPriceUpdate(update),
 		)
 	}
 
 }
 
-func convertRoots(r []offramp.InternalMerkleRoot) []reader.MerkleRoot {
-	res := make([]reader.MerkleRoot, 0, len(r))
+func convertRoots(r []offramp.InternalMerkleRoot) []chainaccessor.MerkleRoot {
+	res := make([]chainaccessor.MerkleRoot, 0, len(r))
 	for _, root := range r {
 		res = append(res, convertRoot(root))
 	}
@@ -978,8 +980,8 @@ func convertRoots(r []offramp.InternalMerkleRoot) []reader.MerkleRoot {
 	return res
 }
 
-func convertRoot(r offramp.InternalMerkleRoot) reader.MerkleRoot {
-	return reader.MerkleRoot{
+func convertRoot(r offramp.InternalMerkleRoot) chainaccessor.MerkleRoot {
+	return chainaccessor.MerkleRoot{
 		SourceChainSelector: r.SourceChainSelector,
 		OnRampAddress:       r.OnRampAddress,
 		MinSeqNr:            r.MinSeqNr,

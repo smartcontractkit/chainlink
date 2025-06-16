@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/mock"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -108,8 +109,8 @@ func TestWSServer_WSClient_DefaultConfig_Success(t *testing.T) {
 	})
 
 	initiator := mocks.NewConnectionInitiator(t)
-	initiator.On("NewAuthHeader", mock.Anything).Return([]byte{}, nil)
-	initiator.On("ChallengeResponse", mock.Anything, mock.Anything).Return([]byte{}, nil)
+	initiator.On("NewAuthHeader", mock.AnythingOfType("*context.cancelCtx"), mock.Anything).Return([]byte{}, nil)
+	initiator.On("ChallengeResponse", mock.AnythingOfType("*context.cancelCtx"), mock.Anything, mock.Anything).Return([]byte{}, nil)
 
 	client := network.NewWebSocketClient(network.WebSocketClientConfig{}, initiator, logger.TestLogger(t))
 
@@ -136,9 +137,9 @@ func TestWSServer_WSClient_DefaultConfig_Failure(t *testing.T) {
 	})
 
 	initiator := mocks.NewConnectionInitiator(t)
-	initiator.On("NewAuthHeader", mock.Anything).Return([]byte{}, nil)
+	initiator.On("NewAuthHeader", mock.AnythingOfType("*context.cancelCtx"), mock.Anything).Return([]byte{}, nil)
 	resp := make([]byte, 20000)
-	initiator.On("ChallengeResponse", mock.Anything, mock.Anything).Return(resp, nil)
+	initiator.On("ChallengeResponse", mock.AnythingOfType("*context.cancelCtx"), mock.Anything, mock.Anything).Return(resp, nil)
 
 	client := network.NewWebSocketClient(network.WebSocketClientConfig{}, initiator, logger.TestLogger(t))
 

@@ -6,8 +6,7 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	"go.uber.org/zap/zapcore"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -58,9 +57,11 @@ func TestDeployMCMSWithTimelockContracts(t *testing.T) {
 	chains, _ := memory.NewMemoryChainsWithChainIDs(t, []uint64{
 		chainsel.TEST_90000001.EvmChainID,
 	}, 1)
-	ctx := testutils.Context(t)
 	ab := cldf.NewMemoryAddressBook()
-	_, err := evminternal.DeployMCMSWithTimelockContractsEVM(ctx, lggr,
+	tenv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		Chains: 1,
+	})
+	_, err := evminternal.DeployMCMSWithTimelockContractsEVM(tenv,
 		chains[chainsel.TEST_90000001.Selector],
 		ab, proposalutils.SingleGroupTimelockConfigV2(t), nil)
 	require.NoError(t, err)

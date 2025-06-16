@@ -5,14 +5,13 @@ import (
 	"testing"
 
 	"github.com/jonboulle/clockwork"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
-	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -73,23 +72,8 @@ func defaultTestConfig(t *testing.T) *v2.EngineConfig {
 		GlobalLimits:         sLimiter,
 		ExecutionRateLimiter: rateLimiter,
 		BeholderEmitter:      &noopBeholderEmitter{},
-		BillingClient:        &mockBillingClient{},
+		BillingClient:        metmocks.NewBillingClient(t),
 	}
-}
-
-type mockBillingClient struct {
-	mock.Mock
-}
-
-func (_m *mockBillingClient) SubmitWorkflowReceipt(ctx context.Context, req *billing.SubmitWorkflowReceiptRequest) (*billing.SubmitWorkflowReceiptResponse, error) {
-	args := _m.Called(ctx, req)
-
-	var a0 *billing.SubmitWorkflowReceiptResponse
-	if arg, ok := args.Get(0).(*billing.SubmitWorkflowReceiptResponse); ok {
-		a0 = arg
-	}
-
-	return a0, args.Error(1)
 }
 
 type noopBeholderEmitter struct {

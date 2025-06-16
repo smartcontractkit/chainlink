@@ -44,7 +44,7 @@ func TestCreateQueryName(t *testing.T) {
 		},
 	}
 
-	expectedQueryName := "ContractA-0x0000000000000000000000000000000000000123-EventA-EventA1-ContractB-0x0000000000000000000000000000000000000456-EventB"
+	expectedQueryName := "ContractA-EventA-EventA1-ContractB-EventB"
 	queryName := createQueryName(eventQueries)
 
 	assert.Equal(t, expectedQueryName, queryName)

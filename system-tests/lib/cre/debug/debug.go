@@ -87,6 +87,8 @@ func PrintTestDebug(ctx context.Context, testName string, l zerolog.Logger, inpu
 			l.Info().Msg("✅ OCR was executing")
 		}
 
+		// TODO think how to make it handle better a situation when different DONs have writeEVM capability, but for different chains
+		// or when they run multple workflows and we care which one sent the report and which didn't
 		if flags.HasFlag(debugDon.Flags, types.WriteEVMCapability) {
 			if !checkIfAtLeastOneReportWasSent(logFiles, workflowNodeCount) {
 				l.Error().Msg("❌ Reports were not sent")

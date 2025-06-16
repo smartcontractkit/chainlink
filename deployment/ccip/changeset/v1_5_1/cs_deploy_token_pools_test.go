@@ -178,6 +178,16 @@ func TestValidateDeployTokenPoolInput(t *testing.T) {
 			ErrStr: "accept liquidity must be defined for lock release pools",
 		},
 		{
+			Msg:    "External Minter should be defined",
+			Symbol: testhelpers.TestTokenSymbol,
+			Input: v1_5_1.DeployTokenPoolInput{
+				Type:               shared.BurnMintWithExternalMinterFastTransferTokenPool,
+				TokenAddress:       tokens[selectorA].Address,
+				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+			},
+			ErrStr: "external minter must be defined for burn mint with external minter fast transfer pools",
+		},
+		{
 			Msg:    "Accept liquidity should be omitted",
 			Symbol: testhelpers.TestTokenSymbol,
 			Input: v1_5_1.DeployTokenPoolInput{
@@ -221,9 +231,10 @@ func TestDeployTokenPoolContracts(t *testing.T) {
 	}
 
 	tests := []struct {
-		Msg     string
-		Input   v1_5_1.DeployTokenPoolInput
-		GetPool func(evm.CCIPChainState) Ownable
+		Msg                 string
+		Input               v1_5_1.DeployTokenPoolInput
+		GetPool             func(evm.CCIPChainState) Ownable
+		SetupExternalMinter bool
 	}{
 		{
 			Msg: "BurnMint",
@@ -268,6 +279,35 @@ func TestDeployTokenPoolContracts(t *testing.T) {
 			},
 		},
 		{
+			Msg: "BurnMintFastTransfer",
+			Input: v1_5_1.DeployTokenPoolInput{
+				Type:               shared.BurnMintFastTransferTokenPool,
+				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+				AllowList:          []common.Address{},
+			},
+			GetPool: func(cs evm.CCIPChainState) Ownable {
+				tokenPools, ok := cs.BurnMintFastTransferTokenPools[testhelpers.TestTokenSymbol]
+				require.True(t, ok)
+				require.Len(t, tokenPools, 1)
+				return tokenPools[deployment.Version1_6_1Dev]
+			},
+		},
+		{
+			Msg:                 "BurnMintWithExternalMinterFastTransfer",
+			SetupExternalMinter: true,
+			Input: v1_5_1.DeployTokenPoolInput{
+				Type:               shared.BurnMintWithExternalMinterFastTransferTokenPool,
+				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+				AllowList:          []common.Address{},
+			},
+			GetPool: func(cs evm.CCIPChainState) Ownable {
+				tokenPools, ok := cs.BurnMintWithExternalMinterFastTransferTokenPools[testhelpers.TestTokenSymbol]
+				require.True(t, ok)
+				require.Len(t, tokenPools, 1)
+				return tokenPools[deployment.Version1_6_0]
+			},
+		},
+		{
 			Msg: "LockRelease",
 			Input: v1_5_1.DeployTokenPoolInput{
 				Type:               shared.LockReleaseTokenPool,
@@ -287,6 +327,10 @@ func TestDeployTokenPoolContracts(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
 			e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+
+			if test.SetupExternalMinter {
+				test.Input.ExternalMinter, _ = testhelpers.DeployTokenGovernor(t, e, selectorA, tokens[selectorA].Address)
+			}
 
 			test.Input.TokenAddress = tokens[selectorA].Address
 

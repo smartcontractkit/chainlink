@@ -172,7 +172,7 @@ func (mm *MetricManager) Start(ctx context.Context) {
 
 func SendMetricsToLoki(l logger.Logger, lc *wasp.LokiClient, updatedLabels map[string]string, metrics *LokiMetric) {
 	if err := lc.HandleStruct(wasp.LabelsMapToModel(updatedLabels), time.Now(), metrics); err != nil {
-		l.Error(ErrLokiPush)
+		l.Error(ErrLokiPush, err)
 	}
 }
 

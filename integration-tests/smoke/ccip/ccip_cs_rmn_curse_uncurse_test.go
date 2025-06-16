@@ -176,9 +176,16 @@ var testCases = []CurseTestCase{
 func TestRMNCurse(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_NO_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnCurseTest(t, tc)
 		})
+	}
+}
+
+func TestRMNCurseMCMS(t *testing.T) {
+	for _, tc := range testCases {
 		t.Run(tc.name+"_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnCurseMCMSTest(t, tc, types.TimelockActionSchedule)
 		})
 	}
@@ -187,6 +194,7 @@ func TestRMNCurse(t *testing.T) {
 func TestRMNCurseBypass(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnCurseMCMSTest(t, tc, types.TimelockActionBypass)
 		})
 	}
@@ -195,6 +203,7 @@ func TestRMNCurseBypass(t *testing.T) {
 func TestRMNCurseIdempotent(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_CURSE_IDEMPOTENT_NO_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnCurseIdempotentTest(t, tc)
 		})
 	}
@@ -203,6 +212,7 @@ func TestRMNCurseIdempotent(t *testing.T) {
 func TestRMNUncurseIdempotent(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_UNCURSE_IDEMPOTENT_NO_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnUncurseIdempotentTest(t, tc)
 		})
 	}
@@ -211,9 +221,16 @@ func TestRMNUncurseIdempotent(t *testing.T) {
 func TestRMNUncurse(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_UNCURSE", func(t *testing.T) {
+			t.Parallel()
 			runRmnUncurseTest(t, tc)
 		})
+	}
+}
+
+func TestRMNUncurseMCMS(t *testing.T) {
+	for _, tc := range testCases {
 		t.Run(tc.name+"_UNCURSE_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnUncurseMCMSTest(t, tc, types.TimelockActionSchedule)
 		})
 	}
@@ -222,6 +239,7 @@ func TestRMNUncurse(t *testing.T) {
 func TestRMNUncurseBypass(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_UNCURSE_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnUncurseMCMSTest(t, tc, types.TimelockActionBypass)
 		})
 	}
@@ -230,6 +248,7 @@ func TestRMNUncurseBypass(t *testing.T) {
 func TestRMNCurseConfigValidate(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_VALIDATE", func(t *testing.T) {
+			t.Parallel()
 			runRmnCurseConfigValidateTest(t, tc)
 		})
 	}
@@ -855,6 +874,7 @@ func TestGetAllCursableChainsWithRMNRemote(t *testing.T) {
 func TestRMNUncurseForceOption(t *testing.T) {
 	for _, tc := range forceOptionTestCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2), testhelpers.WithSolChains(1))
 
 			mapIDToSelector := func(id uint64) uint64 {

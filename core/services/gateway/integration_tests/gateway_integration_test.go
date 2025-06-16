@@ -15,6 +15,7 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/onsi/gomega"
 	"github.com/pelletier/go-toml/v2"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -123,7 +124,7 @@ func (c *client) HandleGatewayMessage(ctx context.Context, gatewayId string, msg
 	_ = c.connector.SendToGateway(ctx, gatewayId, responseMsg)
 }
 
-func (c *client) Sign(data ...[]byte) ([]byte, error) {
+func (c *client) Sign(ctx context.Context, data ...[]byte) ([]byte, error) {
 	return common.SignData(c.privateKey, data...)
 }
 

@@ -1,7 +1,6 @@
 package v2
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
@@ -11,22 +10,19 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
-	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
-type BillingClient interface {
-	SubmitWorkflowReceipt(context.Context, *billing.SubmitWorkflowReceiptRequest) (*billing.SubmitWorkflowReceiptResponse, error)
-}
-
 type EngineConfig struct {
 	Lggr            logger.Logger
 	Module          host.ModuleV2
+	WorkflowConfig  []byte // workflow author provided config
 	CapRegistry     core.CapabilitiesRegistry
 	ExecutionsStore store.Store
 	Clock           clockwork.Clock
@@ -42,7 +38,7 @@ type EngineConfig struct {
 	BeholderEmitter custmsg.MessageEmitter
 
 	Hooks         LifecycleHooks
-	BillingClient BillingClient
+	BillingClient metering.BillingClient
 }
 
 const (
@@ -56,7 +52,8 @@ const (
 	defaultWorkflowExecutionTimeoutMs              = 1000 * 60 * 10 // 10 minutes
 	defaultCapabilityCallTimeoutMs                 = 1000 * 60 * 8  // 8 minutes
 
-	defaultShutdownTimeoutMs = 5000
+	defaultHeartbeatFrequencyMs = 1000 * 60 // 1 minute
+	defaultShutdownTimeoutMs    = 5000
 )
 
 type EngineLimits struct {
@@ -70,7 +67,8 @@ type EngineLimits struct {
 	WorkflowExecutionTimeoutMs              uint32
 	CapabilityCallTimeoutMs                 uint32
 
-	ShutdownTimeoutMs uint32
+	HeartbeatFrequencyMs uint32
+	ShutdownTimeoutMs    uint32
 }
 
 type LifecycleHooks struct {
@@ -157,6 +155,9 @@ func (l *EngineLimits) setDefaultLimits() {
 	}
 	if l.CapabilityCallTimeoutMs == 0 {
 		l.CapabilityCallTimeoutMs = defaultCapabilityCallTimeoutMs
+	}
+	if l.HeartbeatFrequencyMs == 0 {
+		l.HeartbeatFrequencyMs = defaultHeartbeatFrequencyMs
 	}
 	if l.ShutdownTimeoutMs == 0 {
 		l.ShutdownTimeoutMs = defaultShutdownTimeoutMs

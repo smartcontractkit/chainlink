@@ -171,9 +171,9 @@ type RelayerOpts struct {
 	EVMKeystore           keys.ChainStore
 	MercuryPool           wsrpc.Pool
 	RetirementReportCache retirement.RetirementReportCache
-	MercuryConfig
-	CapabilitiesRegistry coretypes.CapabilitiesRegistry
-	HTTPClient           *http.Client
+	MercuryConfig         MercuryConfig
+	CapabilitiesRegistry  coretypes.CapabilitiesRegistry
+	HTTPClient            *http.Client
 }
 
 func (c RelayerOpts) Validate() error {
@@ -471,6 +471,7 @@ func chainToUUID(chainID *big.Int) uuid.UUID {
 // subset of implementations of the complete interface as certain contracts in a CCIP lane are only deployed on the src
 // chain or on the dst chain. This results in the two implementations of providers: a src and dst implementation.
 func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.CCIPCommitProvider, error) {
+	lggr := r.lggr.Named(rargs.ExternalJobID.String()).Named("CCIPCommitProvider")
 	versionFinder := ccip.NewEvmVersionFinder()
 
 	var commitPluginConfig ccipconfig.CommitPluginConfig
@@ -500,7 +501,7 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 	// bail early.
 	if commitPluginConfig.IsSourceProvider {
 		return NewSrcCommitProvider(
-			r.lggr,
+			lggr,
 			sourceStartBlock,
 			r.chain.Client(),
 			r.chain.LogPoller(),
@@ -511,7 +512,7 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 	}
 
 	relayOpts := types.NewRelayOpts(rargs)
-	configWatcher, err := newStandardConfigProvider(ctx, r.lggr, r.chain, relayOpts)
+	configWatcher, err := newStandardConfigProvider(ctx, lggr, r.chain, relayOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -526,7 +527,7 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 	}
 	subjectID := chainToUUID(configWatcher.chain.ID())
 
-	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{
+	contractTransmitter, err := newOnChainContractTransmitter(ctx, lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{
 		subjectID: &subjectID,
 	}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0))
 	if err != nil {
@@ -534,7 +535,7 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 	}
 
 	return NewDstCommitProvider(
-		r.lggr,
+		lggr,
 		versionFinder,
 		destStartBlock,
 		r.chain.Client(),
@@ -553,6 +554,7 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 // subset of implementations of the complete interface as certain contracts in a CCIP lane are only deployed on the src
 // chain or on the dst chain. This results in the two implementations of providers: a src and dst implementation.
 func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.CCIPExecProvider, error) {
+	lggr := r.lggr.Named(rargs.ExternalJobID.String()).Named("CCIPExecProvider")
 	versionFinder := ccip.NewEvmVersionFinder()
 
 	var execPluginConfig ccipconfig.ExecPluginConfig
@@ -581,7 +583,7 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 	if execPluginConfig.IsSourceProvider {
 		return NewSrcExecProvider(
 			ctx,
-			r.lggr,
+			lggr,
 			versionFinder,
 			r.chain.Client(),
 			r.chain.GasEstimator(),
@@ -596,7 +598,7 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 	}
 
 	relayOpts := types.NewRelayOpts(rargs)
-	configWatcher, err := newStandardConfigProvider(ctx, r.lggr, r.chain, relayOpts)
+	configWatcher, err := newStandardConfigProvider(ctx, lggr, r.chain, relayOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -611,7 +613,7 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 	}
 	subjectID := chainToUUID(configWatcher.chain.ID())
 
-	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{
+	contractTransmitter, err := newOnChainContractTransmitter(ctx, lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{
 		subjectID: &subjectID,
 	}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0), WithExcludeSignatures())
 	if err != nil {
@@ -619,7 +621,7 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 	}
 
 	return NewDstExecProvider(
-		r.lggr,
+		lggr,
 		versionFinder,
 		r.chain.Client(),
 		r.chain.LogPoller(),
@@ -653,7 +655,7 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 		return nil, errors.New("donID must be specified in relayConfig for LLO jobs")
 	}
 	// ensure that child loggers are namespaced by job ID which ought to be globally unique
-	lggr := r.lggr.Named(fmt.Sprintf("job-%d", rargs.JobID)).With("donID", relayConfig.LLODONID, "transmitterID", relayConfig.EffectiveTransmitterID.String)
+	lggr := r.lggr.Named(rargs.ExternalJobID.String()).With("donID", relayConfig.LLODONID, "transmitterID", relayConfig.EffectiveTransmitterID.String)
 
 	switch relayConfig.LLOConfigMode {
 	case types.LLOConfigModeMercury, types.LLOConfigModeBlueGreen:
@@ -671,14 +673,14 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 }
 
 func (r *Relayer) NewFunctionsProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.FunctionsProvider, error) {
-	lggr := r.lggr.Named("FunctionsProvider").Named(rargs.ExternalJobID.String())
+	lggr := r.lggr.Named(rargs.ExternalJobID.String()).Named("FunctionsProvider")
 	// TODO(FUN-668): Not ready yet (doesn't implement FunctionsEvents() properly)
 	return NewFunctionsProvider(ctx, r.chain, rargs, pargs, lggr, r.evmKeystore, functions.FunctionsPlugin)
 }
 
 // NewConfigProvider is called by bootstrap jobs
 func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayArgs) (configProvider commontypes.ConfigProvider, err error) {
-	lggr := r.lggr.Named("ConfigProvider").Named(args.ExternalJobID.String())
+	lggr := r.lggr.Named(args.ExternalJobID.String()).Named("ConfigProvider")
 	relayOpts := types.NewRelayOpts(args)
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
@@ -1002,7 +1004,7 @@ func (r *Relayer) EVM() (commontypes.EVMService, error) {
 }
 
 func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MedianProvider, error) {
-	lggr := logger.Sugared(r.lggr).Named("MedianProvider").Named(rargs.ExternalJobID.String())
+	lggr := logger.Sugared(r.lggr).Named(rargs.ExternalJobID.String()).Named("MedianProvider")
 	relayOpts := types.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
@@ -1071,7 +1073,7 @@ func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.Relay
 }
 
 func (r *Relayer) NewAutomationProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.AutomationProvider, error) {
-	lggr := logger.Sugared(r.lggr).Named("AutomationProvider").Named(rargs.ExternalJobID.String())
+	lggr := logger.Sugared(r.lggr).Named(rargs.ExternalJobID.String()).Named("AutomationProvider")
 	ocr2keeperRelayer := NewOCR2KeeperRelayer(r.ds, r.chain, lggr.Named("OCR2KeeperRelayer"), r.evmKeystore)
 
 	return ocr2keeperRelayer.NewOCR2KeeperProvider(ctx, rargs, pargs)
