@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 )
 
@@ -54,6 +55,11 @@ func TestDeployForwarder(t *testing.T) {
 				ChainSel:  solSel,
 				Qualifier: testQualifier,
 				Version:   "1.0.0",
+				BuildConfig: &helpers.BuildSolanaConfig{
+					GitCommitSha:   "ba5a33ab378020fac73bda72b6bc2f9ae6bddb83",
+					DestinationDir: getProgramsPath(),
+					LocalBuild:     helpers.LocalBuildConfig{BuildLocally: true, CreateDestinationDir: true},
+				},
 			},
 		)
 
@@ -66,9 +72,10 @@ func TestDeployForwarder(t *testing.T) {
 	t.Run("should pass upgrade authority", func(t *testing.T) {
 		configuredChangeset := commonchangeset.Configure(SetForwarderUpgradeAuthority{},
 			&SetForwarderUpgradeAuthorityRequest{
-				ChainSel:  solSel,
-				Qualifier: testQualifier,
-				Version:   "1.0.0",
+				ChainSel:            solSel,
+				Qualifier:           testQualifier,
+				Version:             "1.0.0",
+				NewUpgradeAuthority: chain.DeployerKey.PublicKey(),
 			},
 		)
 
@@ -245,7 +252,8 @@ func TestConfigureForwarder(t *testing.T) {
 						Version:   "1.0.0",
 					})
 
-				_, _, err = commonchangeset.ApplyChangesets(t, te.Env, []commonchangeset.ConfiguredChangeSet{deployChangeset, transferOwnershipChangeset, configureChangeset})
+				_, _, err = commonchangeset.ApplyChangesets(t, te.Env, []commonchangeset.ConfiguredChangeSet{deployChangeset, transferOwnershipChangeset,
+					configureChangeset})
 				require.NoError(t, err)
 			})
 			break

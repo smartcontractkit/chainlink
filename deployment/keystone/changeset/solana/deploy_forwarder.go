@@ -58,6 +58,13 @@ type DeployForwarderRequest = struct {
 func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployForwarderRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
 
+	if req.BuildConfig != nil {
+		err := helpers.BuildSolana(env, *req.BuildConfig, keystoneBuildParams)
+		if err != nil {
+			return out, fmt.Errorf("failed build solana artifacts: %w", err)
+		}
+	}
+
 	out.DataStore = datastore.NewMemoryDataStore()
 	version := semver.MustParse(req.Version)
 	ch, ok := env.BlockChains.SolanaChains()[req.ChainSel]
