@@ -9,7 +9,6 @@ import (
 
 	onramp1_5 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
@@ -107,7 +106,7 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 		IsEnabled:                         configEnabled,
 		MaxNumberOfTokensPerMsg:           10,
 		MaxDataBytes:                      30_000,
-		MaxPerMsgGasLimit:                 3_000_000,
+		MaxPerMsgGasLimit:                 3_000_000, // TODO: this needs to be updated based on RMN sig verification per chain?! 220/250K
 		DestGasOverhead:                   ccipevm.DestGasOverhead,
 		DefaultTokenFeeUSDCents:           25,
 		DestGasPerPayloadByteBase:         ccipevm.CalldataGasPerByteBase,

@@ -93,9 +93,9 @@ var (
 							migration_ops.MigrateOnRampToFQDeps{
 								Chain: srcChain,
 							},
-							migration_ops.OnRampGetFeeTokenCfgInput{
-								OnRamp:          onRamp1_5,
-								FeeTokenAddress: ft,
+							migration_ops.OnRampGetTokenCfgInput{
+								OnRamp:  onRamp1_5,
+								Address: ft,
 							},
 						)
 						if err != nil {
@@ -208,14 +208,21 @@ var (
 						if !found {
 							continue // skip this token if the destination chain is not supported
 						}
-						//TODO: convert this to a Operation
-						onRamp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(onRamp1_5, srcChain.Client)
-						tokenTransferFeeCfg, err2 := onRamp.GetTokenTransferFeeConfig(nil, token)
-						if err2 != nil {
+						tokenTransferFeeCfgOp, err := operations.ExecuteOperation(
+							b, migration_ops.EVM2EVMOnrampGetTokenTransferFeeConfigOp,
+							migration_ops.MigrateOnRampToFQDeps{
+								Chain: srcChain,
+							},
+							migration_ops.OnRampGetTokenCfgInput{
+								OnRamp:  onRamp1_5,
+								Address: token,
+							},
+						)
+						if err != nil {
 							return OnRampToFeeQuoterTokenTransferFeeCfgOutput{}, fmt.Errorf("failed to get suported chains for the toksn Pool on source chain %d: %w", chainSel, err)
 						}
 						allTransferTokensAndCfgs = append(allTransferTokensAndCfgs,
-							migrateOnRamp.TranslateOnrampToFeequoterTokenTransferFeeConfig(token, tokenTransferFeeCfg),
+							migrateOnRamp.TranslateOnrampToFeequoterTokenTransferFeeConfig(token, tokenTransferFeeCfgOp.Output),
 						)
 					}
 					tokenTransferFeeConfigsPerDestChain = append(tokenTransferFeeConfigsPerDestChain, fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{

@@ -15,9 +15,9 @@ type MigrateOnRampToFQDeps struct {
 	Chain cldf_evm.Chain
 }
 
-type OnRampGetFeeTokenCfgInput struct {
-	OnRamp          common.Address
-	FeeTokenAddress common.Address
+type OnRampGetTokenCfgInput struct {
+	OnRamp  common.Address
+	Address common.Address
 }
 
 type GetPoolBySourceTokenInput struct {
@@ -47,14 +47,14 @@ var (
 		"EVM2EVMOnrampGetFeeTokenConfigOp",
 		semver.MustParse("1.0.0"),
 		"Gets the FeeTokenConfigs for a given fee token",
-		func(b operations.Bundle, deps MigrateOnRampToFQDeps, input OnRampGetFeeTokenCfgInput) (evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig, error) {
+		func(b operations.Bundle, deps MigrateOnRampToFQDeps, input OnRampGetTokenCfgInput) (evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig, error) {
 			onRamp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(input.OnRamp, deps.Chain.Client)
 			if err != nil {
 				return evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig{}, fmt.Errorf("Failed to create EVM2EVMOnRamp contract binding at address %s: %w", input.OnRamp.Hex(), err)
 			}
-			feeTokenCfg, err2 := onRamp.GetFeeTokenConfig(nil, input.FeeTokenAddress)
+			feeTokenCfg, err2 := onRamp.GetFeeTokenConfig(nil, input.Address)
 			if err2 != nil {
-				return evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig{}, fmt.Errorf("Cannot GetFeeTokenConfig for Feetoken address: %d, for 1.5.0 OnRamp %s: %w", input.FeeTokenAddress, onRamp.Address().Hex(), err2)
+				return evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig{}, fmt.Errorf("Cannot GetFeeTokenConfig for Feetoken address: %d, for 1.5.0 OnRamp %s: %w", input.Address, onRamp.Address().Hex(), err2)
 			}
 
 			return feeTokenCfg, nil
@@ -75,5 +75,22 @@ var (
 
 			}
 			return tokenPoolAddress, nil
+		})
+
+	EVM2EVMOnrampGetTokenTransferFeeConfigOp = operations.NewOperation(
+		"EVM2EVMOnrampGetTokenTransferFeeConfigOp",
+		semver.MustParse("1.0.0"),
+		"Gets all TokenPools for a given destination chain And source token",
+		func(b operations.Bundle, deps MigrateOnRampToFQDeps, input OnRampGetTokenCfgInput) (evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfig, error) {
+			onramp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(input.OnRamp, deps.Chain.Client)
+			if err != nil {
+				return evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfig{}, fmt.Errorf("Failed to create EVM2EVMOnRamp contract binding: chainSelector=%d, OnRamp Address=%s, error=%v", deps.Chain.ChainSelector(), input.OnRamp.Hex(), err)
+			}
+			tokenTransferFeeCfg, err := onramp.GetTokenTransferFeeConfig(nil, input.Address)
+			if err != nil {
+				return evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfig{}, fmt.Errorf("Failed to Get Token Transfer Fee Config for token on 1.5.0 OnRamp Token=%s, error=%v", input.Address.Hex(), err)
+
+			}
+			return tokenTransferFeeCfg, nil
 		})
 )
