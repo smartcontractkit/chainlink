@@ -285,6 +285,7 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 
 	evmChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilyEVM))
 	solChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilySolana))
+	allChains := append(evmChains, solChains...)
 
 	// Discover EVM to EVM lanes
 	for _, srcChain := range evmChains {
@@ -294,30 +295,9 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 		}
 
 		// Check which destination chains are configured on the OnRamp
-		destinations, err := lc.getEnabledDestinationsFromOnRamp(srcChainState, evmChains)
+		destinations, err := lc.getEnabledDestinationsFromOnRamp(srcChainState, allChains)
 		if err != nil {
 			return fmt.Errorf("failed to get enabled destinations for EVM chain %d: %w", srcChain, err)
-		}
-
-		for _, dstChain := range destinations {
-			discoveredLanes = append(discoveredLanes, LaneConfig{
-				SourceChain:      srcChain,
-				DestinationChain: dstChain,
-			})
-		}
-	}
-
-	// Discover EVM to Solana lanes
-	for _, srcChain := range evmChains {
-		srcChainState, exists := state.Chains[srcChain]
-		if !exists {
-			continue
-		}
-
-		// Check which Solana destination chains are configured
-		destinations, err := lc.getEnabledDestinationsFromOnRamp(srcChainState, solChains)
-		if err != nil {
-			return fmt.Errorf("failed to get enabled Solana destinations for EVM chain %d: %w", srcChain, err)
 		}
 
 		for _, dstChain := range destinations {
@@ -336,7 +316,7 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 		}
 
 		// Check which EVM destination chains are configured on the Solana Router
-		destinations, err := lc.getEnabledDestinationsFromSolanaRouter(srcChainState, evmChains)
+		destinations, err := lc.getEnabledDestinationsFromSolanaRouter(srcChainState, allChains)
 		if err != nil {
 			return fmt.Errorf("failed to get enabled EVM destinations for Solana chain %d: %w", srcChain, err)
 		}
@@ -346,29 +326,6 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 				SourceChain:      srcChain,
 				DestinationChain: dstChain,
 			})
-		}
-	}
-
-	// Discover Solana to Solana lanes (if any)
-	for _, srcChain := range solChains {
-		srcChainState, exists := state.SolChains[srcChain]
-		if !exists {
-			continue
-		}
-
-		// Check which Solana destination chains are configured
-		destinations, err := lc.getEnabledDestinationsFromSolanaRouter(srcChainState, solChains)
-		if err != nil {
-			return fmt.Errorf("failed to get enabled Solana destinations for Solana chain %d: %w", srcChain, err)
-		}
-
-		for _, dstChain := range destinations {
-			if dstChain != srcChain { // Skip self-loops
-				discoveredLanes = append(discoveredLanes, LaneConfig{
-					SourceChain:      srcChain,
-					DestinationChain: dstChain,
-				})
-			}
 		}
 	}
 

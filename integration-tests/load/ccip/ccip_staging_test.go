@@ -50,6 +50,11 @@ func TestStaging_CCIP_Load(t *testing.T) {
 	transmitKeys, err := fundAdditionalKeys(lggr, *env, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[:*userOverrides.NumDestinationChains])
 	require.NoError(t, err)
 
+	// Discover lanes from deployed state
+	laneConfig := &crib.LaneConfiguration{}
+	err = laneConfig.DiscoverLanesFromDeployedState(*env, &state)
+	require.NoError(t, err)
+
 	// gunMap holds a destinationGun for every enabled destination chain
 	gunMap := make(map[uint64]*DestinationGun)
 	p := wasp.NewProfile()
@@ -85,6 +90,7 @@ func TestStaging_CCIP_Load(t *testing.T) {
 			nil,
 			ind,
 			nil,
+			laneConfig,
 		)
 		if err != nil {
 			lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
