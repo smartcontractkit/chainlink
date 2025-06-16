@@ -202,6 +202,7 @@ func (c *Config) New() (Logger, func() error) {
 	}
 	l = newPrometheusLogger(l)
 	l = l.With("version", verShaNameStatic())
+	l = l.With("commit", static.Sha)
 	return l, closeLogger
 }
 

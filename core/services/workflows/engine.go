@@ -711,7 +711,7 @@ func (e *Engine) worker(ctx context.Context) {
 
 			if resp.Err != nil {
 				e.logger.Errorf("trigger event was an error %v; not executing", resp.Err)
-				logCustMsg(ctx, e.cma, fmt.Sprintf("failed to resolve trigger: %s", resp.Err), e.logger)
+				logCustMsg(ctx, e.cma, fmt.Sprintf("failed to resolve trigger in worker: %s", resp.Err), e.logger)
 				continue
 			}
 
