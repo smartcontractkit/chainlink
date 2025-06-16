@@ -629,6 +629,9 @@ func (c CCIPChainState) TokenDetailsBySymbol() (map[shared.TokenSymbol]shared.To
 }
 
 func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
+	if c.LinkToken != nil && c.StaticLinkToken != nil {
+		return common.Address{}, errors.New("link token and static link token both exist on chain, please check the state")
+	}
 	if c.LinkToken != nil {
 		return c.LinkToken.Address(), nil
 	}

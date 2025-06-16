@@ -585,7 +585,7 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 				// continue attempting other capabilities
 			}
 		case capabilities.CapabilityTypeConsensus:
-			w.lggr.Warn("no remote client configured for capability type consensus, skipping configuration")
+			w.lggr.Debug("no remote client configured for capability type consensus, skipping configuration")
 		case capabilities.CapabilityTypeTarget:
 			newTargetServer := func(cap capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error) {
 				targetCapability, ok := (cap).(capabilities.TargetCapability)

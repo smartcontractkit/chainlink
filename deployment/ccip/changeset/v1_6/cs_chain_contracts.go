@@ -29,6 +29,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	ccipops1_2 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_2"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -1272,7 +1273,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e cldf.Environment, state stateview.
 }
 
 func (cfg UpdateRouterRampsConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.RouterApplyRampUpdatesSequenceInput {
-	input := make(map[uint64]opsutil.EVMCallInput[ccipops.RouterApplyRampUpdatesOpInput], len(cfg.UpdatesByChain))
+	input := make(map[uint64]opsutil.EVMCallInput[ccipops1_2.RouterApplyRampUpdatesOpInput], len(cfg.UpdatesByChain))
 	for chainSel, update := range cfg.UpdatesByChain {
 		routerC := state.Chains[chainSel].Router
 		if cfg.TestRouter {
@@ -1312,10 +1313,10 @@ func (cfg UpdateRouterRampsConfig) ToSequenceInput(state stateview.CCIPOnChainSt
 				})
 			}
 		}
-		input[chainSel] = opsutil.EVMCallInput[ccipops.RouterApplyRampUpdatesOpInput]{
+		input[chainSel] = opsutil.EVMCallInput[ccipops1_2.RouterApplyRampUpdatesOpInput]{
 			ChainSelector: chainSel,
 			Address:       routerC.Address(),
-			CallInput: ccipops.RouterApplyRampUpdatesOpInput{
+			CallInput: ccipops1_2.RouterApplyRampUpdatesOpInput{
 				OnRampUpdates:  onRampUpdates,
 				OffRampRemoves: removes,
 				OffRampAdds:    adds,

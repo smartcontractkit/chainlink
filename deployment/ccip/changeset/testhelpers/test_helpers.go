@@ -2451,12 +2451,11 @@ func DeployCCIPContractsTest(t *testing.T, solChains int) {
 	// Deploy all the CCIP contracts.
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))
-	solChainSelectors := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilySolana))
 	var allChains []uint64
-	allChains = append(allChains, evmChainSelectors...)
-	allChains = append(allChains, solChainSelectors...)
-	snap, solana, err := state.View(&e.Env, allChains)
+	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))...)
+	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilySolana))...)
+	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyAptos))...)
+	stateView, err := state.View(&e.Env, allChains)
 	require.NoError(t, err)
 	if solChains > 0 {
 		DeploySolanaCcipReceiver(t, e.Env)
@@ -2464,10 +2463,13 @@ func DeployCCIPContractsTest(t *testing.T, solChains int) {
 
 	// Assert expect every deployed address to be in the address book.
 	// TODO (CCIP-3047): Add the rest of CCIPv2 representation
-	b, err := json.MarshalIndent(snap, "", "	")
+	b, err := json.MarshalIndent(stateView.Chains, "", "	")
 	require.NoError(t, err)
 	fmt.Println(string(b))
-	b, err = json.MarshalIndent(solana, "", "	")
+	b, err = json.MarshalIndent(stateView.SolChains, "", "	")
+	require.NoError(t, err)
+	fmt.Println(string(b))
+	b, err = json.MarshalIndent(stateView.AptosChains, "", "	")
 	require.NoError(t, err)
 	fmt.Println(string(b))
 }
