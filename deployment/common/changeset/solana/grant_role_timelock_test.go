@@ -16,6 +16,7 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	solanachangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -39,7 +40,7 @@ func TestGrantRoleTimelockSolana(t *testing.T) {
 
 	// validate initial executors
 	inspector := mcmssolanasdk.NewTimelockInspector(rpcClient)
-	onChainExecutors, err := inspector.GetExecutors(t.Context(), chainState.TimelockAddress())
+	onChainExecutors, err := inspector.GetExecutors(t.Context(), timelockAddress(chainState))
 	require.NoError(t, err)
 	require.ElementsMatch(t, onChainExecutors, []string{deployer.PublicKey().String()})
 
@@ -57,7 +58,7 @@ func TestGrantRoleTimelockSolana(t *testing.T) {
 		require.NoError(t, err)
 
 		// --- assert ---
-		onChainExecutors, err = inspector.GetExecutors(t.Context(), chainState.TimelockAddress())
+		onChainExecutors, err = inspector.GetExecutors(t.Context(), timelockAddress(chainState))
 		require.NoError(t, err)
 		require.ElementsMatch(t, onChainExecutors, []string{
 			deployer.PublicKey().String(), executors1[0].String(), executors1[1].String(),
@@ -81,7 +82,7 @@ func TestGrantRoleTimelockSolana(t *testing.T) {
 		require.NoError(t, err)
 
 		// --- assert ---
-		onChainExecutors, err = inspector.GetExecutors(t.Context(), chainState.TimelockAddress())
+		onChainExecutors, err = inspector.GetExecutors(t.Context(), timelockAddress(chainState))
 		require.NoError(t, err)
 		require.ElementsMatch(t, onChainExecutors, []string{
 			deployer.PublicKey().String(),
@@ -116,4 +117,8 @@ func transferMCMSToTimelock(t *testing.T, env cldf.Environment, selector uint64)
 	_, _, err := commonchangeset.ApplyChangesets(t, env, []commonchangeset.ConfiguredChangeSet{configuredChangeset})
 	require.NoError(t, err)
 	t.Logf("transferred MCMS contracts to timelock")
+}
+
+func timelockAddress(chainState *state.MCMSWithTimelockStateSolana) string {
+	return state.EncodeAddressWithSeed(chainState.TimelockProgram, chainState.TimelockSeed)
 }

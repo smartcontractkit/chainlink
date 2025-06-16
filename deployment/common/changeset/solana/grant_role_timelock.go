@@ -118,8 +118,8 @@ func (t GrantRoleTimelockSolana) Apply(
 				ChainSelector: mcmstypes.ChainSelector(chainSelector),
 				Transactions:  report.Output.McmsTransactions,
 			})
-			proposers[chainSelector], _ = mcmsChainState.ProposalMCM(cfg.MCMS.MCMSAction)
-			timelocks[chainSelector] = mcmsChainState.TimelockAddress()
+			proposers[chainSelector], _ = proposalMCM(mcmsChainState, cfg.MCMS.MCMSAction)
+			timelocks[chainSelector] = state.EncodeAddressWithSeed(mcmsChainState.TimelockProgram, mcmsChainState.TimelockSeed)
 			inspectors[chainSelector] = mcmssolanasdk.NewInspector(solChain.Client)
 		}
 	}
@@ -137,4 +137,15 @@ func (t GrantRoleTimelockSolana) Apply(
 	}
 
 	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcms.TimelockProposal{*proposal}}, nil
+}
+
+func proposalMCM(mcmsState *state.MCMSWithTimelockStateSolana, action mcmstypes.TimelockAction) (string, error) {
+	switch action {
+	case "", mcmstypes.TimelockActionSchedule:
+		return state.EncodeAddressWithSeed(mcmsState.McmProgram, mcmsState.ProposerMcmSeed), nil
+	case mcmstypes.TimelockActionBypass:
+		return state.EncodeAddressWithSeed(mcmsState.McmProgram, mcmsState.BypasserMcmSeed), nil
+	default:
+		return "", fmt.Errorf("invalid mcms action: %v", action)
+	}
 }

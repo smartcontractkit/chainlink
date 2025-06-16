@@ -49,7 +49,8 @@ var SeqSolanaGrantRoleTimelock = operations.NewSequence(
 			)
 			if err != nil {
 				b.Logger.Errorw("Failed to grant role", "chainSelector", deps.Chain.ChainSelector(), "chainName", deps.Chain.Name(),
-					"timelock", in.ChainState.TimelockAddress(), "role", in.Role, "account", account)
+					"timelock", state.EncodeAddressWithSeed(in.ChainState.TimelockProgram, in.ChainState.TimelockSeed),
+					"role", in.Role, "account", account)
 				return SeqSolanaGrantRoleTimelockOutput{}, err
 			}
 
