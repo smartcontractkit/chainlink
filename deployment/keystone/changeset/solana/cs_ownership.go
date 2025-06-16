@@ -33,6 +33,23 @@ var _ cldf.ChangeSetV2[*TransferOwnershipForwarderRequest] = TransferOwnershipFo
 type TransferOwnershipForwarder struct{}
 
 func (cs TransferOwnershipForwarder) VerifyPreconditions(env cldf.Environment, req *TransferOwnershipForwarderRequest) error {
+	sel := req.ChainSel
+
+	version, err := semver.NewVersion(req.Version)
+	if err != nil {
+		return err
+	}
+
+	if _, ok := env.BlockChains.SolanaChains()[sel]; !ok {
+		return fmt.Errorf("solana chain not found for chain selector %d", sel)
+	}
+
+	forwarderKey := datastore.NewAddressRefKey(sel, ForwarderContract, version, req.Qualifier)
+	_, err = env.DataStore.Addresses().Get(forwarderKey)
+
+	if err != nil {
+		return fmt.Errorf("failed get fowarder for chain selector %d: %w", sel, err)
+	}
 	return nil
 }
 
