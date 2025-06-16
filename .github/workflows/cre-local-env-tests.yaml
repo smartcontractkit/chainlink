@@ -28,7 +28,10 @@ on:
 
 jobs:
   test-cli:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
     environment: "integration"
     timeout-minutes: 30
     permissions:
@@ -42,9 +45,30 @@ jobs:
           ref: ${{ github.event_name == 'pull_request' && github.sha || inputs.chainlink_version }}
 
       - name: Set up Go
+        id: setup-go
         uses: actions/setup-go@v5
         with:
           go-version-file: core/scripts/go.mod
+          cache: true
+
+      - name: Download Go dependencies
+        id: go-deps
+        working-directory: core/scripts/cre/environment
+        env:
+          SETUP_GO_CACHE_HIT: ${{ steps.setup-go.outputs.cache-hit }}
+        run: |
+          if [[ "${SETUP_GO_CACHE_HIT}" == "true" ]]; then
+            echo "::debug::Cache hit - skipping dependency download"
+            echo "deps_download_seconds=0" >> $GITHUB_OUTPUT
+          else
+            echo "::debug::Cache miss - downloading dependencies"
+            { time go mod tidy && go mod download; } 2> >(tee /tmp/go_deps_time >&2)
+            deps_time=$(cat /tmp/go_deps_time | grep real | awk '{print $2}')
+            minutes=$(echo $deps_time | awk -F'm' '{print $1}')
+            seconds=$(echo $deps_time | awk -F'm' '{print $2}' | sed 's/s//')
+            total_seconds=$(echo "$minutes * 60 + $seconds" | bc)
+            echo "deps_download_seconds=$total_seconds" >> $GITHUB_OUTPUT
+          fi
 
       # We need to login to ECR to allow the test to pull the Job Distributor and Chainlink images
       - name: Configure AWS Credentials
@@ -91,7 +115,9 @@ jobs:
           EOF
 
       - name: Start the CLI
+        id: start-cli
         shell: bash
+        working-directory: core/scripts/cre/environment
         env:
           CTF_CONFIGS: "./configs/single-don.toml,./configs/ci-override.toml"
           E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
@@ -99,8 +125,50 @@ jobs:
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
           E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}
         run: |
-          cd core/scripts/cre/environment
-          go run main.go env start
+          { time go run main.go env start; } 2> >(tee /tmp/time_output >&2)
+
+          # Convert time to total seconds
+          time_str=$(cat /tmp/time_output | grep real | awk '{print $2}')
+          minutes=$(echo $time_str | awk -F'm' '{print $1}')
+          seconds=$(echo $time_str | awk -F'm' '{print $2}' | sed 's/s//')
+          total_seconds=$(echo "$minutes * 60 + $seconds" | bc)
+          echo "execution_time=$total_seconds" >> $GITHUB_OUTPUT
+
+      - name: Track local env startup success rate
+        # track only scheduled runs to exclude failures in PRs or manual runs
+        if: always() && github.event_name == 'workflow_call'
+        shell: bash
+        env:
+          START_CLI_OUTCOME: ${{ steps.start-cli.outcome }}
+          GETDX_SECRET_KEY: ${{ secrets.GETDX_SECRET_KEY }}
+          RUNNER: ${{ matrix.runner }}
+        run: |
+            success=false
+            if [[ "${START_CLI_OUTCOME}" == "success" ]]; then success=true; fi
+
+            echo "::debug::success: $success"
+
+            printf -v data '{"name": "cre.local.startup.result", "github_username": "%s", "timestamp": "%s", "metadata": {"success": "%s", "is_ci": true, "error": "N/A", "panicked": "N/A", "runner": "%s", "infra": "docker"}}' "$GITHUB_ACTOR" "$EPOCHSECONDS" "$success" "${RUNNER}"
+            curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${GETDX_SECRET_KEY}" -d "$data" https://api.getdx.com/events.track
+
+      - name: Track local env startup duration
+        # track only scheduled runs to exclude failures in PRs or manual runs
+        if: github.event_name == 'workflow_call'
+        shell: bash
+        env:
+          GETDX_SECRET_KEY: ${{ secrets.GETDX_SECRET_KEY }}
+          RUNNER: ${{ matrix.runner }}
+          EXECUTION_TIME: ${{ steps.start-cli.outputs.execution_time }}
+          CACHE_HIT: ${{ steps.setup-go.outputs.cache-hit }}
+          DEPS_DOWNLOAD_SECONDS: ${{ steps.go-deps.outputs.deps_download_seconds }}
+        run: |
+            echo "::debug::execution_time: ${EXECUTION_TIME}"
+            echo "::debug::cache_hit: ${CACHE_HIT}"
+            echo "::debug::deps_download_seconds: ${DEPS_DOWNLOAD_SECONDS}"
+
+            printf -v data '{"name": "cre.local.startup.time", "github_username": "%s", "timestamp": "%s", "metadata": {"startup_seconds": %s, "is_ci": true, "runner": "%s", "infra": "docker", "go_cache_hit": %s, "deps_download_seconds": %s}}' "$GITHUB_ACTOR" "$EPOCHSECONDS" "${EXECUTION_TIME}" "${RUNNER}" "${CACHE_HIT}" "${DEPS_DOWNLOAD_SECONDS}"
+            curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${GETDX_SECRET_KEY}" -d "$data" https://api.getdx.com/events.track
+
 
   notify-test-failure:
     name: Notify about local env startup failure

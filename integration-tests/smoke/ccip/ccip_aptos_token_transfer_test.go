@@ -166,8 +166,8 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 					Amount: 1e8,
 				},
 			},
-			FeeToken:  NativeFeeToken,
-			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(100000, true),
+			FeeToken:  "0xa",
+			ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(100000), true),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  evmToken.Address().Bytes(),
@@ -189,7 +189,7 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 				},
 			},
 			FeeToken:  NativeFeeToken,
-			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(0, true),
+			ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(0), true),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  evmToken.Address().Bytes(),
@@ -210,7 +210,7 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 				},
 			},
 			FeeToken:  NativeFeeToken,
-			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(0, true),
+			ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(0), true),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  evmToken.Address().Bytes(),

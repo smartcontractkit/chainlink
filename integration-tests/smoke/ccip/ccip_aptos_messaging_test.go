@@ -3,6 +3,7 @@ package ccip
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"strings"
 	"testing"
 
@@ -372,7 +373,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 		state,
 		sourceChain,
 		destChain,
-		common.HexToAddress("0x0"),
+		common.HexToAddress(rawAddress),
 		destinationChainFeeQuoterConfig,
 		false, // testRouter
 		true,  // validateResp
@@ -411,7 +412,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 				Receiver:       ccipReceiverAddress,
 				MsgData:        message,
 				// Just ensuring enough gas is provided to execute the message, doesn't matter if it's way too much
-				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(300_000), false),
+				ExtraArgs:              testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(300000), true),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertEvmMessageReceived(t, ctx, state, destChain, latestHead, message) },
@@ -431,7 +432,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 				FeeToken:               NATIVE_FEE_TOKEN,
 				Receiver:               ccipReceiverAddress,
 				MsgData:                message,
-				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(destinationChainFeeQuoterConfig.MaxPerMsgGasLimit), false),
+				ExtraArgs:              testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(destinationChainFeeQuoterConfig.MaxPerMsgGasLimit)), false),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertEvmMessageReceived(t, ctx, state, destChain, latestHead, message) },

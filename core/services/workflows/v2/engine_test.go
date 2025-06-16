@@ -438,6 +438,112 @@ func TestEngine_MockCapabilityRegistry_NoDAGBinary(t *testing.T) {
 	})
 }
 
+func TestEngine_Config_MockCapabilityRegistry_NoDAGBinary(t *testing.T) {
+	cmd := "core/services/workflows/test/wasm/v2/cmd/with_config"
+	log := logger.TestLogger(t)
+	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
+
+	// Define a custom config to validate against
+	giveName := "Foo"
+	giveNum := int32(42)
+	config := fmt.Appendf(nil, "name: %s\nnumber: %d\n", giveName, giveNum)
+	module, err := host.NewModule(&host.ModuleConfig{
+		Logger:         log,
+		IsUncompressed: true,
+	}, binaryB)
+	require.NoError(t, err)
+
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil).Once()
+
+	billingClient := metmocks.NewBillingClient(t)
+	billingClient.EXPECT().
+		ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
+			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
+		})).
+		Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: metering.ComputeResourceDimension, ConversionRate: "0.0001"}}}, nil)
+	billingClient.EXPECT().
+		SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
+		})).
+		Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
+
+	cfg := defaultTestConfig(t)
+	cfg.WorkflowConfig = config
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.BillingClient = billingClient
+
+	initDoneCh := make(chan error, 1)
+	subscribedToTriggersCh := make(chan []string, 1)
+	resultReceivedCh := make(chan *wasmpb.ExecutionResult, 1)
+	executionFinishedCh := make(chan string, 1)
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			initDoneCh <- err
+		},
+		OnSubscribedToTriggers: func(triggerIDs []string) {
+			subscribedToTriggersCh <- triggerIDs
+		},
+		OnExecutionFinished: func(executionID string) {
+			executionFinishedCh <- executionID
+		},
+		OnResultReceived: func(er *wasmpb.ExecutionResult) {
+			resultReceivedCh <- er
+		},
+	}
+
+	triggerMock := &basictriggermock.BasicCapability{}
+	triggerMock.Trigger = func(ctx context.Context, input *basictrigger.Config) (*basictrigger.Outputs, error) {
+		// Validate that config is as expected during subscription phase
+		require.Equal(t, giveName, input.Name)
+		require.Equal(t, giveNum, input.Number)
+		return &basictrigger.Outputs{CoolOutput: "Hello, "}, nil
+	}
+	wrappedTriggerMock := &registry.CapabilityWrapper{
+		Capability: triggerMock,
+	}
+
+	t.Run("OK received expected config", func(t *testing.T) {
+		engine, err := v2.NewEngine(testutils.Context(t), cfg)
+		require.NoError(t, err)
+
+		capreg.EXPECT().
+			GetTrigger(matches.AnyContext, wrappedTriggerMock.ID()).
+			Return(wrappedTriggerMock, nil).
+			Once()
+
+		require.NoError(t, engine.Start(t.Context()))
+		require.NoError(t, <-initDoneCh)
+		require.Equal(t, []string{wrappedTriggerMock.ID()}, <-subscribedToTriggersCh)
+
+		// Read the result from the hook and assert that the wanted response was
+		// received.
+		res := <-resultReceivedCh
+		switch output := res.Result.(type) {
+		case *wasmpb.ExecutionResult_Value:
+			var value values.Value
+			var execErr error
+			var unwrapped any
+
+			valuePb := output.Value
+			value, execErr = values.FromProto(valuePb)
+			require.NoError(t, execErr)
+			unwrapped, execErr = value.Unwrap()
+			require.NoError(t, execErr)
+			require.Equal(t, string(config), unwrapped)
+		default:
+			t.Fatalf("unexpected response type %T", output)
+		}
+
+		execID, err := types.GenerateExecutionID(cfg.WorkflowID, "")
+		require.NoError(t, err)
+
+		require.Equal(t, execID, <-executionFinishedCh)
+		require.NoError(t, engine.Close())
+	})
+}
+
 // setupExpectedCalls mocks single call to trigger and two calls to the basic action
 // mock capability
 func setupExpectedCalls(t *testing.T) (

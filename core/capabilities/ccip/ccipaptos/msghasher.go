@@ -145,27 +145,9 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 	return msgHash, nil
 }
 
-// This is the equivalent of offramp::calculate_message_hash.
-// This is very similar to the EVM version, except for 32-byte addresses:
-//
-//	bytes32 messageDataHash = keccak256(
-//	  abi.encode(
-//	    LEAF_DOMAIN_SEPARATOR,
-//	    metadataHash,
-//	    keccak256(
-//	      abi.encode(
-//	        original.header.originalId,
-//	        original.receiver,
-//	        original.header.sequenceNumber,
-//	        original.gasLimit,
-//	        original.header.nonce
-//	      )
-//	    ),
-//	    keccak256(original.sender),
-//	    keccak256(original.data),
-//	    keccak256(abi.encode(original.tokenAmounts))
-//	  )
-//	);
+// This is the equivalent of ccip_offramp::calculate_message_hash.
+// This is similar to the EVM version, except for 32-byte addresses and no dynamic offsets.
+// See https://github.com/smartcontractkit/chainlink-aptos/blob/d2cf1852ffdbf80fa55b0c834ebef7f44a46d843/contracts/ccip/ccip_offramp/sources/offramp.move#L1057
 func computeMessageDataHash(
 	metadataHash [32]byte,
 	messageID [32]byte,
@@ -215,29 +197,11 @@ func computeMessageDataHash(
 
 	dataHash := crypto.Keccak256Hash(data)
 
-	type tokenTuple struct {
-		SourcePoolAddress []byte
-		DestTokenAddress  [32]byte
-		DestGasAmount     uint32
-		ExtraData         []byte
-		Amount            *big.Int
-	}
-	tokens := make([]tokenTuple, len(tokenAmounts))
-	for i, token := range tokenAmounts {
-		tokens[i] = tokenTuple{
-			SourcePoolAddress: token.SourcePoolAddress,
-			DestTokenAddress:  token.DestTokenAddress,
-			DestGasAmount:     token.DestGasAmount,
-			ExtraData:         token.ExtraData,
-			Amount:            token.Amount,
-		}
-	}
-
 	// Manually encode tokens to match the Move implementation, because abi.Pack has different behavior
 	// for dynamic types.
 	var tokenHashData []byte
-	tokenHashData = append(tokenHashData, encodeUint256(big.NewInt(int64(len(tokens))))...)
-	for _, token := range tokens {
+	tokenHashData = append(tokenHashData, encodeUint256(big.NewInt(int64(len(tokenAmounts))))...)
+	for _, token := range tokenAmounts {
 		tokenHashData = append(tokenHashData, encodeBytes(token.SourcePoolAddress)...)
 		tokenHashData = append(tokenHashData, token.DestTokenAddress[:]...)
 		tokenHashData = append(tokenHashData, encodeUint32(token.DestGasAmount)...)
@@ -270,17 +234,9 @@ func computeMessageDataHash(
 	return crypto.Keccak256Hash(finalEncoded), nil
 }
 
-// ComputeMetadataHash calculates the metadataHash as per offramp::calculate_metadata_hash
-// This is the same as the EVM version minus the separator:
-//
-//	bytes32 metaDataHash = keccak256(
-//	  abi.encode(
-//	    Internal.ANY_2_APTOS_MESSAGE_HASH,
-//	    sourceChainSelector,
-//	    i_chainSelector,
-//	    keccak256(_getEnabledSourceChainConfig(sourceChainSelector).onRamp)
-//	  )
-//	);
+// This is the equivalent of ccip_offramp::calculate_metadata_hash.
+// This is similar to the EVM version, except for the separator, 32-byte addresses, and no dynamic offsets.
+// See https://github.com/smartcontractkit/chainlink-aptos/blob/d2cf1852ffdbf80fa55b0c834ebef7f44a46d843/contracts/ccip/ccip_offramp/sources/offramp.move#L1044
 func computeMetadataHash(
 	sourceChainSelector uint64,
 	destinationChainSelector uint64,

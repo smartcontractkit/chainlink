@@ -13,7 +13,7 @@ require (
 	dario.cat/mergo v1.0.1
 	github.com/Khan/genqlient v0.7.0
 	github.com/Masterminds/semver/v3 v3.3.1
-	github.com/aptos-labs/aptos-go-sdk v1.8.0
+	github.com/aptos-labs/aptos-go-sdk v1.9.0
 	github.com/aws/aws-sdk-go v1.55.6
 	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/ethereum/go-ethereum v1.15.7
@@ -32,8 +32,8 @@ require (
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
 	github.com/smartcontractkit/chain-selectors v1.0.60
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250605152726-d2cf1852ffdb
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250610112507-2a6e86a83c4a
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250612232513-06beaec2289c
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250612205233-2103b4b0449f
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250609091505-5c8cd74b92ed
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250611104723-26e78071ce46
 	github.com/smartcontractkit/chainlink-deployments-framework v0.12.1
