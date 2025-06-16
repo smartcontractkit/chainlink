@@ -178,10 +178,11 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	laneConfig := &crib.LaneConfiguration{}
 	err = laneConfig.DiscoverLanesFromDeployedState(*env, &state)
 	require.NoError(t, err)
+	laneConfig.LogLaneConfigInfo(lggr)
 
 	// potential source chains need a subscription
 	for _, cs := range env.BlockChains.ListChainSelectors() {
-		srcChains := laneConfig.GetSourceChainsForDestination(cs)
+		destChains := laneConfig.GetDestinationChainsForSource(cs)
 		selectorFamily, err := selectors.GetSelectorFamily(cs)
 		require.NoError(t, err)
 		wg.Add(1)
@@ -195,7 +196,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				ctx,
 				lggr,
 				state.Chains[cs].OnRamp,
-				srcChains,
+				destChains,
 				startBlocks[cs],
 				cs,
 				loadFinished,
@@ -213,7 +214,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				ctx,
 				lggr,
 				state.SolChains[cs].Router,
-				srcChains,
+				destChains,
 				block,
 				cs,
 				loadFinished,

@@ -169,15 +169,25 @@ func generateRandomLanesWithMinConnectivity(chains []uint64, numLanes int, bidir
 		shuffledChains[i], shuffledChains[j] = shuffledChains[j], shuffledChains[i]
 	})
 
-	// Create minimum connectivity: each chain as source at least once, each chain as destination at least once
-	// We'll create a cycle to ensure connectivity while using minimal lanes
+	// Create minimum connectivity: each chain as source and destination at least twice
+	// This is especially for evms to not have to handle nonces if we're using the same chain to send 2 messages
+	// within same block
+	// We'll create two cycles to ensure each chain appears twice in each role
 	for i := 0; i < len(shuffledChains); i++ {
+		// First cycle - connect to next chain
 		src := shuffledChains[i]
-		dst := shuffledChains[(i+1)%len(shuffledChains)] // Create a cycle
-
+		dst := shuffledChains[(i+1)%len(shuffledChains)]
 		guaranteedLanes = append(guaranteedLanes, LaneConfig{
 			SourceChain:      src,
 			DestinationChain: dst,
+		})
+
+		// Second cycle - connect to chain that's two positions ahead
+		// This ensures each chain is both source and destination at least twice
+		dst2 := shuffledChains[(i+2)%len(shuffledChains)]
+		guaranteedLanes = append(guaranteedLanes, LaneConfig{
+			SourceChain:      src,
+			DestinationChain: dst2,
 		})
 	}
 
@@ -244,8 +254,8 @@ func calculateMinimumLanesNeeded(numChains int, bidirectional bool) int {
 		return 0
 	}
 
-	// Minimum is a cycle: each chain -> next chain
-	minLanes := numChains
+	// Minimum is: each chain[i] -> [chain[i+1], chain[i+2]]
+	minLanes := numChains * 2
 
 	if bidirectional {
 		// If bidirectional, we need reverse lanes too
@@ -447,9 +457,6 @@ func (lc *LaneConfiguration) GetDestinationChainsForSource(source uint64) []uint
 type LaneStats struct {
 	TotalLanes        int
 	UniqueChains      int
-	AvgLanesPerChain  float64
-	MaxLanesPerChain  int
-	MinLanesPerChain  int
 	SourceChains      int
 	DestinationChains int
 }
@@ -478,26 +485,6 @@ func (lc *LaneConfiguration) GetLaneStats() LaneStats {
 		DestinationChains: len(destChains),
 	}
 
-	if len(chainLaneCount) > 0 {
-		total := 0
-		max := 0
-		min := int(^uint(0) >> 1) // max int
-
-		for _, count := range chainLaneCount {
-			total += count
-			if count > max {
-				max = count
-			}
-			if count < min {
-				min = count
-			}
-		}
-
-		stats.AvgLanesPerChain = float64(total) / float64(len(chainLaneCount))
-		stats.MaxLanesPerChain = max
-		stats.MinLanesPerChain = min
-	}
-
 	return stats
 }
 
@@ -511,9 +498,6 @@ func (lc *LaneConfiguration) LogLaneConfigInfo(lggr logger.Logger) {
 	lggr.Infow("Lane Configuration Stats",
 		"TotalLanes", stats.TotalLanes,
 		"UniqueChains", stats.UniqueChains,
-		"AvgLanesPerChain", stats.AvgLanesPerChain,
-		"MaxLanesPerChain", stats.MaxLanesPerChain,
-		"MinLanesPerChain", stats.MinLanesPerChain,
 		"SourceChains", stats.SourceChains,
 		"DestinationChains", stats.DestinationChains,
 		"GeneratedLanes", lc.generatedLanes,
