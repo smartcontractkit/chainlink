@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/onramp"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -27,7 +28,7 @@ func Test_DecodeHardcodedType(t *testing.T) {
 		log, err := generateOfframpLog(fixtLog)
 		require.NoError(t, err)
 
-		var out reader.CommitReportAcceptedEvent
+		var out chainaccessor.CommitReportAcceptedEvent
 		err = decodeHardcodedType(&out, log)
 		require.NoError(t, err)
 
@@ -40,7 +41,7 @@ func Test_DecodeHardcodedType(t *testing.T) {
 		log, err := generateOnRampLog(fixtLog)
 		require.NoError(t, err)
 
-		var out reader.SendRequestedEvent
+		var out chainaccessor.SendRequestedEvent
 		err = decodeHardcodedType(&out, log)
 		require.NoError(t, err)
 

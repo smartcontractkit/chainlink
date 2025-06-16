@@ -382,11 +382,12 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	}
 
 	m.Chains = chains
-	m.SolChains = memory.NewMemoryChainsSol(t, tc.SolChains)
+	solChains := memory.NewMemoryChainsSol(t, tc.SolChains)
 	aptosChains := memory.NewMemoryChainsAptos(t, tc.AptosChains)
-	// if we have Aptos chains, we need to set the Aptos chain selectors on the wrapper
+	// if we have Aptos and Solana chains, we need to set their chain selectors on the wrapper
 	// environment, so we have to convert it back to the concrete type. This needs to be refactored
 	m.AptosChains = cldf_chain.NewBlockChainsFromSlice(aptosChains).AptosChains()
+	m.SolChains = cldf_chain.NewBlockChainsFromSlice(solChains).SolanaChains()
 
 	blockChains := map[uint64]cldf_chain.BlockChain{}
 	for selector, ch := range m.Chains {

@@ -42,7 +42,7 @@ type GatewayConnector interface {
 // in order to sign handshake messages with node's private key.
 type Signer interface {
 	// Sign keccak256 hash of data.
-	Sign(data ...[]byte) ([]byte, error)
+	Sign(ctx context.Context, data ...[]byte) ([]byte, error)
 }
 
 // GatewayConnector user (node) implements application logic in the Handler interface.
@@ -194,7 +194,7 @@ func (c *gatewayConnector) SendToGateway(ctx context.Context, gatewayID string, 
 }
 
 func (c *gatewayConnector) SignAndSendToGateway(ctx context.Context, gatewayID string, body *api.MessageBody) error {
-	signature, err := c.signer.Sign(api.GetRawMessageBody(body)...)
+	signature, err := c.signer.Sign(ctx, api.GetRawMessageBody(body)...)
 	if err != nil {
 		return err
 	}
@@ -319,7 +319,7 @@ func (c *gatewayConnector) Close() error {
 	})
 }
 
-func (c *gatewayConnector) NewAuthHeader(url *url.URL) ([]byte, error) {
+func (c *gatewayConnector) NewAuthHeader(ctx context.Context, url *url.URL) ([]byte, error) {
 	gatewayId, found := c.urlToId[url.String()]
 	if !found {
 		return nil, network.ErrAuthInvalidGateway
@@ -330,14 +330,14 @@ func (c *gatewayConnector) NewAuthHeader(url *url.URL) ([]byte, error) {
 		GatewayId: gatewayId,
 	}
 	packedElems := network.PackAuthHeader(authHeaderElems)
-	signature, err := c.signer.Sign(packedElems)
+	signature, err := c.signer.Sign(ctx, packedElems)
 	if err != nil {
 		return nil, err
 	}
 	return append(packedElems, signature...), nil
 }
 
-func (c *gatewayConnector) ChallengeResponse(url *url.URL, challenge []byte) ([]byte, error) {
+func (c *gatewayConnector) ChallengeResponse(ctx context.Context, url *url.URL, challenge []byte) ([]byte, error) {
 	challengeElems, err := network.UnpackChallenge(challenge)
 	if err != nil {
 		return nil, err
@@ -354,5 +354,5 @@ func (c *gatewayConnector) ChallengeResponse(url *url.URL, challenge []byte) ([]
 	if ts < nowTs-c.config.AuthTimestampToleranceSec || nowTs+c.config.AuthTimestampToleranceSec < ts {
 		return nil, network.ErrAuthInvalidTimestamp
 	}
-	return c.signer.Sign(challenge)
+	return c.signer.Sign(ctx, challenge)
 }

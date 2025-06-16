@@ -1,7 +1,7 @@
 package ccip
 
 import (
-	"fmt"
+	"errors"
 	"math/big"
 	"testing"
 
@@ -277,5 +277,5 @@ func pickFirstAvailableUser(
 			return user, nil
 		}
 	}
-	return nil, fmt.Errorf("user not found")
+	return nil, errors.New("user not found")
 }

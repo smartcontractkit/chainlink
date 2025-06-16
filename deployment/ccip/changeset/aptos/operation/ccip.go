@@ -108,7 +108,7 @@ type DeployModulesInput struct {
 var DeployRouterOp = operations.NewOperation(
 	"deploy-router-op",
 	Version1_0_0,
-	"Generates MCMS proposals that deployes Router module on CCIP package",
+	"Generates MCMS proposals that deploys Router module on CCIP package",
 	deployRouter,
 )
 
@@ -133,7 +133,7 @@ func deployRouter(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([
 var DeployOffRampOp = operations.NewOperation(
 	"deploy-offramp-op",
 	Version1_0_0,
-	"Generates MCMS proposals that deployes OffRamp module on CCIP package",
+	"Generates MCMS proposals that deploys OffRamp module on CCIP package",
 	deployOffRamp,
 )
 
@@ -156,7 +156,7 @@ func deployOffRamp(b operations.Bundle, deps AptosDeps, in DeployModulesInput) (
 var DeployOnRampOp = operations.NewOperation(
 	"deploy-onramp-op",
 	Version1_0_0,
-	"Generates MCMS proposals that deployes OnRamp module on CCIP package",
+	"Generates MCMS proposals that deploys OnRamp module on CCIP package",
 	deployOnRamp,
 )
 
@@ -190,7 +190,7 @@ var InitializeCCIPOp = operations.NewOperation(
 	initializeCCIP,
 )
 
-func initializeCCIP(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput) (mcmstypes.BatchOperation, error) {
+func initializeCCIP(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput) ([]mcmstypes.Transaction, error) {
 	var txs []mcmstypes.Transaction
 
 	// Config OnRamp with empty lane configs. We're only able to get router address after deploying the router module
@@ -204,11 +204,11 @@ func initializeCCIP(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput)
 		[]bool{},
 	)
 	if err != nil {
-		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to encode onramp initialize: %w", err)
+		return nil, fmt.Errorf("failed to encode onramp initialize: %w", err)
 	}
 	mcmsTx, err := utils.GenerateMCMSTx(in.CCIPAddress, moduleInfo, function, args)
 	if err != nil {
-		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to generate MCMS operations for OnRamp Initialize: %w", err)
+		return nil, fmt.Errorf("failed to generate MCMS operations for OnRamp Initialize: %w", err)
 	}
 	txs = append(txs, mcmsTx)
 
@@ -223,11 +223,11 @@ func initializeCCIP(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput)
 		in.CCIPConfig.OffRampParams.SourceChainsOnRamp,
 	)
 	if err != nil {
-		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to encode offramp initialize: %w", err)
+		return nil, fmt.Errorf("failed to encode offramp initialize: %w", err)
 	}
 	mcmsTx, err = utils.GenerateMCMSTx(in.CCIPAddress, moduleInfo, function, args)
 	if err != nil {
-		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to generate MCMS operations for OffRamp Initialize: %w", err)
+		return nil, fmt.Errorf("failed to generate MCMS operations for OffRamp Initialize: %w", err)
 	}
 	txs = append(txs, mcmsTx)
 
@@ -242,28 +242,25 @@ func initializeCCIP(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput)
 		in.CCIPConfig.FeeQuoterParams.FeeTokens,
 	)
 	if err != nil {
-		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to encode feequoter initialize: %w", err)
+		return nil, fmt.Errorf("failed to encode feequoter initialize: %w", err)
 	}
 	mcmsTx, err = utils.GenerateMCMSTx(in.CCIPAddress, moduleInfo, function, args)
 	if err != nil {
-		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to generate MCMS operations for FeeQuoter Initialize: %w", err)
+		return nil, fmt.Errorf("failed to generate MCMS operations for FeeQuoter Initialize: %w", err)
 	}
 	txs = append(txs, mcmsTx)
 
 	moduleInfo, function, _, args, err = ccipBind.RMNRemote().Encoder().Initialize(deps.AptosChain.Selector)
 	if err != nil {
-		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to encode rmnremote initialize: %w", err)
+		return nil, fmt.Errorf("failed to encode rmnremote initialize: %w", err)
 	}
 	mcmsTx, err = utils.GenerateMCMSTx(in.CCIPAddress, moduleInfo, function, args)
 	if err != nil {
-		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to generate MCMS operations for RMNRemote Initialize: %w", err)
+		return nil, fmt.Errorf("failed to generate MCMS operations for RMNRemote Initialize: %w", err)
 	}
 	txs = append(txs, mcmsTx)
 
-	return mcmstypes.BatchOperation{
-		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
-		Transactions:  txs,
-	}, nil
+	return txs, nil
 }
 
 // OP: ApplyAllowedOfframpUpdates Operation

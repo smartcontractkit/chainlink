@@ -13,8 +13,8 @@ import (
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/requests"
 	pbtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
@@ -49,7 +49,7 @@ type fakeConsensus struct {
 	config      FakeConsensusConfig
 	plugin      ocr3types.ReportingPlugin[[]byte]
 	transmitter *ocr3.ContractTransmitter
-	store       *requests.Store
+	store       *requests.Store[*ocr3.ReportRequest, ocr3.ReportResponse]
 	cap         capIface
 	stats       SimpleStats
 
@@ -68,7 +68,7 @@ const consensusCapID = "offchain_reporting@1.0.0"
 
 func NewFakeConsensus(lggr logger.Logger, config FakeConsensusConfig) (*fakeConsensus, error) {
 	rpConfig := ocr3types.ReportingPluginConfig{}
-	store := requests.NewStore()
+	store := requests.NewStore[*ocr3.ReportRequest]()
 
 	capability := ocr3.NewCapability(store, clockwork.NewRealClock(), config.RequestTimeout, capabilities.NewAggregator, capabilities.NewEncoder, lggr, 100)
 

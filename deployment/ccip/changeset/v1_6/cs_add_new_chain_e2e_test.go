@@ -242,6 +242,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 		Msg         string
 		MCMS        *proposalutils.TimelockConfig
 		DonIDOffSet *uint32
+		ErrStr      string
 	}
 
 	offset := uint32(0)
@@ -265,6 +266,10 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 		{
 			Msg:         "Remote chains with donID offset (Sync with capReg reg after wrong donIDClaim)",
 			DonIDOffSet: &offset,
+		},
+		{
+			Msg:    "fail when multiple reports are enabled and enforce out of order is disabled",
+			ErrStr: "EnforceOutOfOrder must be true when MultipleReportsEnabled is true",
 		},
 	}
 
@@ -422,6 +427,11 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				// RMNRemoteConfig:   &v1_6.RMNRemoteConfig{...}, // TODO: Enable?
 			}
 
+			if test.ErrStr != "" {
+				newChain.ExecOCRParams.ExecuteOffChainConfig.MultipleReportsEnabled = true
+				remoteChains[0].FeeQuoterDestChainConfig.EnforceOutOfOrder = false
+			}
+
 			// deploy donIDClaimer
 			e, err = commonchangeset.Apply(t, e,
 				commonchangeset.Configure(
@@ -456,6 +466,10 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 					},
 				),
 			)
+			if test.ErrStr != "" {
+				require.ErrorContains(t, err, test.ErrStr)
+				return
+			}
 			require.NoError(t, err, "must apply AddCandidatesForNewChainChangeset")
 			state, err = stateview.LoadOnchainState(e)
 			require.NoError(t, err, "must load onchain state")

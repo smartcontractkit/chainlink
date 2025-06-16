@@ -65,6 +65,7 @@ func NewStandaloneEngine(
 	registry *capabilities.Registry,
 	binary []byte, config []byte,
 	billingClientAddr string,
+	lifecycleHooks v2.LifecycleHooks,
 ) (services.Service, error) {
 	labeler := custmsg.NewLabeler()
 	moduleConfig := &host.ModuleConfig{
@@ -102,7 +103,10 @@ func NewStandaloneEngine(
 		return nil, err
 	}
 
-	billingClient, _ := billing.NewWorkflowClient(billingClientAddr)
+	var billingClient billing.WorkflowClient
+	if billingClientAddr != "" {
+		billingClient, _ = billing.NewWorkflowClient(billingClientAddr)
+	}
 
 	if module.IsLegacyDAG() {
 		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
@@ -134,6 +138,7 @@ func NewStandaloneEngine(
 	cfg := &v2.EngineConfig{
 		Lggr:            lggr,
 		Module:          module,
+		WorkflowConfig:  config,
 		CapRegistry:     registry,
 		ExecutionsStore: store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 
@@ -148,9 +153,10 @@ func NewStandaloneEngine(
 		BeholderEmitter: custmsg.NewLabeler(),
 
 		BillingClient: billingClient,
+		Hooks:         lifecycleHooks,
 	}
 
-	return v2.NewEngine(ctx, cfg)
+	return v2.NewEngine(cfg)
 }
 
 // TODO support fetching secrets (from a local file)

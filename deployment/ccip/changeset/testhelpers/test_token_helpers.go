@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
+	token_governor "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/token_governor"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -53,6 +54,15 @@ func CreateSymmetricRateLimits(rate int64, capacity int64) v1_5_1.RateLimiterCon
 			Capacity:  big.NewInt(capacity),
 		},
 	}
+}
+
+func DeployTokenGovernor(t *testing.T, e cldf.Environment, selector uint64, token common.Address) (common.Address, *token_governor.TokenGovernor) {
+	chain := e.BlockChains.EVMChains()[selector]
+	tgAddress, tx, contract, err := token_governor.DeployTokenGovernor(chain.DeployerKey, chain.Client, token, big.NewInt(0), chain.DeployerKey.From)
+	require.NoError(t, err)
+	_, err = chain.Confirm(tx)
+	require.NoError(t, err)
+	return tgAddress, contract
 }
 
 // SetupTwoChainEnvironmentWithTokens preps the environment for token pool deployment testing.
@@ -103,6 +113,7 @@ func SetupTwoChainEnvironmentWithTokens(
 		)
 		require.NoError(t, err)
 		tokens[selector] = token
+
 	}
 
 	// Deploy MCMS setup & prerequisite contracts
@@ -192,6 +203,10 @@ func DeployTestTokenPools(
 					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).BurnMintTokenPools[TestTokenSymbol], e.BlockChains.EVMChains()[selector])
 				case shared.LockReleaseTokenPool:
 					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).LockReleaseTokenPools[TestTokenSymbol], e.BlockChains.EVMChains()[selector])
+				case shared.BurnMintFastTransferTokenPool:
+					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).BurnMintFastTransferTokenPools[TestTokenSymbol], e.BlockChains.EVMChains()[selector])
+				case shared.BurnMintWithExternalMinterFastTransferTokenPool:
+					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).BurnMintWithExternalMinterFastTransferTokenPools[TestTokenSymbol], e.BlockChains.EVMChains()[selector])
 				}
 			}
 		}

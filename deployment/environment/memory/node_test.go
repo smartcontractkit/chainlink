@@ -11,6 +11,9 @@ import (
 
 	"github.com/smartcontractkit/freeport"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -33,8 +36,7 @@ func TestNode(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, keys, 3)
 	// We expect 3 chains supported
-	evmChains := node.App.GetRelayers().LegacyEVMChains().Slice()
-	require.NoError(t, err)
+	evmChains := node.App.GetRelayers().List(chainlink.FilterRelayersByType(relay.NetworkEVM)).Slice()
 	require.Len(t, evmChains, 3)
 
 	t.Run("DeploymentNode", func(t *testing.T) {
