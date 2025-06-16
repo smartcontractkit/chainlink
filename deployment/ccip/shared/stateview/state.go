@@ -103,6 +103,12 @@ type CCIPOnChainState struct {
 	evmMu       *sync.RWMutex
 }
 
+type CCIPStateView struct {
+	Chains      map[string]view.ChainView
+	SolChains   map[string]view.SolChainView
+	AptosChains map[string]view.AptosChainView
+}
+
 func (c CCIPOnChainState) EVMChains() []uint64 {
 	c.evmMu.RLock()
 	defer c.evmMu.RUnlock()
@@ -486,9 +492,10 @@ func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel 
 	return nil
 }
 
-func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (map[string]view.ChainView, map[string]view.SolChainView, error) {
+func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateView, error) {
 	m := sync.Map{}
 	sm := sync.Map{}
+	am := sync.Map{}
 	grp := errgroup.Group{}
 	for _, chainSelector := range chains {
 		var name string
@@ -537,6 +544,18 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (map[string
 				chainView.ChainSelector = chainSelector
 				chainView.ChainID = id
 				sm.Store(name, chainView)
+			case chain_selectors.FamilyAptos:
+				chainState, ok := c.AptosChains[chainSelector]
+				if !ok {
+					return fmt.Errorf("chain not supported %d", chainSelector)
+				}
+				chainView, err := chainState.GenerateView(e, chainSelector, name)
+				if err != nil {
+					return err
+				}
+				chainView.ChainSelector = chainSelector
+				chainView.ChainID = id
+				am.Store(name, chainView)
 			default:
 				return fmt.Errorf("unsupported chain family %s", family)
 			}
@@ -544,19 +563,26 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (map[string
 		})
 	}
 	if err := grp.Wait(); err != nil {
-		return nil, nil, err
+		return CCIPStateView{}, err
 	}
-	finalEVMMap := make(map[string]view.ChainView)
+	stateView := CCIPStateView{
+		Chains:      make(map[string]view.ChainView),
+		SolChains:   make(map[string]view.SolChainView),
+		AptosChains: make(map[string]view.AptosChainView),
+	}
 	m.Range(func(key, value interface{}) bool {
-		finalEVMMap[key.(string)] = value.(view.ChainView)
+		stateView.Chains[key.(string)] = value.(view.ChainView)
 		return true
 	})
-	finalSolanaMap := make(map[string]view.SolChainView)
 	sm.Range(func(key, value interface{}) bool {
-		finalSolanaMap[key.(string)] = value.(view.SolChainView)
+		stateView.SolChains[key.(string)] = value.(view.SolChainView)
 		return true
 	})
-	return finalEVMMap, finalSolanaMap, grp.Wait()
+	am.Range(func(key, value interface{}) bool {
+		stateView.AptosChains[key.(string)] = value.(view.AptosChainView)
+		return true
+	})
+	return stateView, grp.Wait()
 }
 
 func (c CCIPOnChainState) GetOffRampAddressBytes(chainSelector uint64) ([]byte, error) {

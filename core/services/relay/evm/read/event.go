@@ -353,7 +353,7 @@ func (b *EventBinding) QueryKey(ctx context.Context, address common.Address, fil
 	}
 	remapped.Expressions = append(defaultExpressions, remapped.Expressions...)
 
-	logs, err := b.lp.FilteredLogs(ctx, remapped.Expressions, limitAndSort, b.contractName+"-"+address.String()+"-"+b.eventName)
+	logs, err := b.lp.FilteredLogs(ctx, remapped.Expressions, limitAndSort, b.contractName+"-"+b.eventName)
 	if err != nil {
 		return nil, wrapInternalErr(err)
 	}
@@ -391,7 +391,7 @@ func (b *EventBinding) getLatestLog(ctx context.Context, address common.Address,
 	}
 
 	// Gets the latest log that matches the filter and limiter.
-	logs, err := b.lp.FilteredLogs(ctx, filter, limiter, b.contractName+"-"+address.String()+"-"+b.eventName)
+	logs, err := b.lp.FilteredLogs(ctx, filter, limiter, b.contractName+"-"+b.eventName)
 	if err != nil {
 		return nil, wrapInternalErr(err)
 	}
