@@ -264,7 +264,7 @@ func TestSequencesHaveTxHash(t *testing.T) {
 	}
 	assert.Eventually(t, func() bool {
 		sequences, err := cr.QueryKey(ctx, bindings[0], q, query.LimitAndSort{}, &interfacetests.TestStruct{})
-		return err == nil && len(sequences) == 1 && event.Hash().Hex() == hexutil.Encode(sequences[0].TxHash[:])
+		return err == nil && len(sequences) == 1 && event.Hash().Hex() == hexutil.Encode(sequences[0].TxHash)
 	}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
 
 	assert.Eventually(t, func() bool {
@@ -277,7 +277,7 @@ func TestSequencesHaveTxHash(t *testing.T) {
 		}, query.LimitAndSort{})
 
 		for _, seq := range sequences {
-			return err == nil && event.Hash().Hex() == hexutil.Encode(seq.TxHash[:])
+			return err == nil && event.Hash().Hex() == hexutil.Encode(seq.TxHash)
 		}
 		return false
 	}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
