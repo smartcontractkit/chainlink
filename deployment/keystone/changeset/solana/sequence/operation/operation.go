@@ -84,7 +84,7 @@ type (
 		ForwarderState solana.PublicKey
 		Owner          string
 		Signers        [][20]uint8
-		DonId          uint32
+		DonID          uint32
 		ConfigVersion  uint32
 		F              uint8
 		Type           cldf.ContractType
@@ -201,7 +201,7 @@ func configureForwarder(b operations.Bundle, deps Deps, in ConfigureForwarderInp
 
 	if !oracleExists {
 		instructions, err = ks_forwarder.NewInitOraclesConfigInstruction(
-			in.DonId,
+			in.DonID,
 			in.ConfigVersion,
 			in.F,
 			in.Signers,
@@ -215,7 +215,7 @@ func configureForwarder(b operations.Bundle, deps Deps, in ConfigureForwarderInp
 		}
 	} else {
 		instructions, err = ks_forwarder.NewUpdateOraclesConfigInstruction(
-			in.DonId,
+			in.DonID,
 			in.ConfigVersion,
 			in.F,
 			in.Signers,

@@ -124,6 +124,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg TokenPoolConfig) (cldf.C
 		solBurnMintTokenPool.SetProgramID(tokenPool)
 	case solTestTokenPool.LockAndRelease_PoolType:
 		solLockReleaseTokenPool.SetProgramID(tokenPool)
+	default:
 	}
 
 	// verified
