@@ -25,8 +25,9 @@ type FeeQuoterUpdateTokenTransferConfig struct {
 }
 
 type OnRampToFeeQuoterDestChainConfigOutput struct {
-	FeeQuoterUpdates map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig
-	Feetokens        map[uint64][]common.Address
+	FeeQuoterUpdates           map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig
+	Feetokens                  map[uint64][]common.Address
+	FeeTokenPremiumMultipliers map[uint64][]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs
 }
 
 type OnRampToFeeQuoterTokenTransferFeeCfgOutput struct {
@@ -40,7 +41,8 @@ var (
 		"Translates existing 1.5.0 EVM2EVMOnRamp configs into appropriate 1.6.0 FeeQuoter Destination configs & returns all supported Fee tokens",
 		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input FeeQuoterUpdateTokenTransferConfig) (OnRampToFeeQuoterDestChainConfigOutput, error) {
 			feeQuoterUpdates := make(map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig)
-			allFeeTokens := make(map[uint64][]common.Address, 0)
+			allFeeTokens := make(map[uint64][]common.Address)
+			allFeetokenPremiumMultipliers := make(map[uint64][]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs)
 			lggr := b.Logger
 			for chainSel, update := range input.UpdatesByChain {
 				srcChain, ok := chains[chainSel]
@@ -80,36 +82,49 @@ var (
 					// add supported fee token config to FeeQuoter
 
 					// This is per token in 1.5.0 onRamp, but in FeeQuoter its per destination chain,
-					// But from RDD the values are constant (either 10/50 regardless of FeeToken)
-					// So we can just use the first token's config
-					// for _, ft := range allFeeTokensOp.Output {
-					feetokenCfgReport, err := operations.ExecuteOperation(
-						b, migration_ops.EVM2EVMOnrampGetFeeTokenConfigOp,
-						migration_ops.MigrateOnRampToFQDeps{
-							Chain: srcChain,
-						},
-						migration_ops.OnRampGetFeeTokenCfgInput{
-							OnRamp:          onRamp1_5,
-							FeeTokenAddress: allFeeTokensOp.Output[0],
-						},
-					)
-					if err != nil {
-						return OnRampToFeeQuoterDestChainConfigOutput{}, fmt.Errorf("failed to Execute GetOnRampGetFeeTokenConfigOps: %w", err)
+					// But RDD values are just redundant & can be adjusted by the premium multiplier, so simplified in 1.6 FQ
+					// So we can just use the any token's config (the last one in the loop here)
+					onRampFeeTokenCfgReport := evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig{}
+
+					feeTokenPremiumMultipliers := make([]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs, len(allFeeTokensOp.Output))
+					for idx, ft := range allFeeTokensOp.Output {
+						feetokenCfgReport, err := operations.ExecuteOperation(
+							b, migration_ops.EVM2EVMOnrampGetFeeTokenConfigOp,
+							migration_ops.MigrateOnRampToFQDeps{
+								Chain: srcChain,
+							},
+							migration_ops.OnRampGetFeeTokenCfgInput{
+								OnRamp:          onRamp1_5,
+								FeeTokenAddress: ft,
+							},
+						)
+						if err != nil {
+							return OnRampToFeeQuoterDestChainConfigOutput{}, fmt.Errorf("failed to Execute GetOnRampGetFeeTokenConfigOps: %w", err)
+						}
+
+						// Translate the feeToken PremiumMultiplierCfg to 1.6 FeeQuoter config
+						premiumMultiplierCfg := EVM2EVMOnRampMigratePremiumMultiplierCfg{}
+						premiumMultiplierCfg.TranslateOnrampToFeeQFeePremiumCfg(ft, feetokenCfgReport.Output)
+						feeTokenPremiumMultipliers[idx] = premiumMultiplierCfg.FeeQuoterPremiumMultiplierWeiPerEthArgs
+						if onRampFeeTokenCfgReport == (evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig{}) {
+							onRampFeeTokenCfgReport = feetokenCfgReport.Output
+						}
 					}
-					// }
-					feeQuoterTranslatedDestCfg.TranslateOnrampToFeequoterFeeTokenCfg(feetokenCfgReport.Output)
+					feeQuoterTranslatedDestCfg.TranslateOnrampToFeequoterFeeTokenCfg(onRampFeeTokenCfgReport)
 
 					if _, ok := feeQuoterUpdates[chainSel]; !ok {
 						feeQuoterUpdates[chainSel] = make(map[uint64]fee_quoter.FeeQuoterDestChainConfig)
 					}
 					feeQuoterUpdates[chainSel][destChainSel] = feeQuoterTranslatedDestCfg.FeeQuoterDestChainConfig
 					allFeeTokens[chainSel] = append(allFeeTokens[chainSel], allFeeTokensOp.Output...)
+					allFeetokenPremiumMultipliers[chainSel] = append(allFeetokenPremiumMultipliers[chainSel], feeTokenPremiumMultipliers...)
 				}
 			}
 
 			return OnRampToFeeQuoterDestChainConfigOutput{
-				FeeQuoterUpdates: feeQuoterUpdates,
-				Feetokens:        allFeeTokens,
+				FeeQuoterUpdates:           feeQuoterUpdates,
+				Feetokens:                  allFeeTokens,
+				FeeTokenPremiumMultipliers: allFeetokenPremiumMultipliers,
 			}, nil
 		})
 
@@ -168,7 +183,7 @@ var (
 						}
 						if getPoolBySourceTokenOps.Output == (common.Address{}) {
 							lggr.Warnw("Failed to get pool for token on 1.5.0 OnRamp", "sourceChainSelector", chainSel, "destinationChainSelector", destChainSel, "token", token.Hex(), "error", err)
-							continue // continue or exit?
+							continue // TODO: continue or exit?
 						}
 
 						getSupportedChainsForTokenPool, err := operations.ExecuteOperation(
@@ -200,7 +215,7 @@ var (
 							return OnRampToFeeQuoterTokenTransferFeeCfgOutput{}, fmt.Errorf("failed to get suported chains for the toksn Pool on source chain %d: %w", chainSel, err)
 						}
 						allTransferTokensAndCfgs = append(allTransferTokensAndCfgs,
-							migrateOnRamp.TranslateOnrampToFeequoterTokenTransferFeeConfig(destChainSel, token, tokenTransferFeeCfg),
+							migrateOnRamp.TranslateOnrampToFeequoterTokenTransferFeeConfig(token, tokenTransferFeeCfg),
 						)
 					}
 					tokenTransferFeeConfigsPerDestChain = append(tokenTransferFeeConfigsPerDestChain, fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{
@@ -210,6 +225,7 @@ var (
 				}
 				tokenTransferFeeConfigsPerSrcChain[chainSel] = tokenTransferFeeConfigsPerDestChain
 			}
+
 			return OnRampToFeeQuoterTokenTransferFeeCfgOutput{
 				FeeQuoterUpdates: tokenTransferFeeConfigsPerSrcChain,
 			}, nil

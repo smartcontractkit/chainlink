@@ -21,14 +21,16 @@ type EVM2EVMOnRampMigrateDestChainConfig struct {
 	fee_quoter.FeeQuoterDestChainConfig
 }
 
+type EVM2EVMOnRampMigratePremiumMultiplierCfg struct {
+	fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs
+}
+
 // Translate the dynamic config fields from the 1.5.0 OnRamp to the FeeQuoterDestChainConfig on 1.6 FeeQuoter
 // Start with default base values & then override with the values from the 1.5.0 OnRamp
 func (m *EVM2EVMOnRampMigrateDestChainConfig) TranslateOnrampToFeequoterDynamicConfig(destChainSel uint64, destChainEVM2EVMDynamicCfg onramp1_5.EVM2EVMOnRampDynamicConfig) {
 	fqDestDefaults := DefaultFeeQuoterDestChainConfig(true, destChainSel)
 
 	m.MaxNumberOfTokensPerMsg = destChainEVM2EVMDynamicCfg.MaxNumberOfTokensPerMsg
-	m.MaxDataBytes = destChainEVM2EVMDynamicCfg.MaxDataBytes
-	m.MaxPerMsgGasLimit = destChainEVM2EVMDynamicCfg.MaxPerMsgGasLimit
 	m.DestGasOverhead = destChainEVM2EVMDynamicCfg.DestGasOverhead
 	m.DestGasPerPayloadByteBase = fqDestDefaults.DestGasPerPayloadByteBase
 	m.DestGasPerPayloadByteHigh = fqDestDefaults.DestGasPerPayloadByteHigh
@@ -36,26 +38,32 @@ func (m *EVM2EVMOnRampMigrateDestChainConfig) TranslateOnrampToFeequoterDynamicC
 	m.DestDataAvailabilityOverheadGas = destChainEVM2EVMDynamicCfg.DestDataAvailabilityOverheadGas
 	m.DestGasPerDataAvailabilityByte = destChainEVM2EVMDynamicCfg.DestGasPerDataAvailabilityByte
 	m.DestDataAvailabilityMultiplierBps = destChainEVM2EVMDynamicCfg.DestDataAvailabilityMultiplierBps
+	m.MaxDataBytes = destChainEVM2EVMDynamicCfg.MaxDataBytes
+	m.MaxPerMsgGasLimit = destChainEVM2EVMDynamicCfg.MaxPerMsgGasLimit
 	m.EnforceOutOfOrder = destChainEVM2EVMDynamicCfg.EnforceOutOfOrder
 	m.DefaultTokenFeeUSDCents = destChainEVM2EVMDynamicCfg.DefaultTokenFeeUSDCents
 	m.DefaultTokenDestGasOverhead = destChainEVM2EVMDynamicCfg.DefaultTokenDestGasOverhead
 	m.DefaultTxGasLimit = fqDestDefaults.DefaultTxGasLimit
 	m.ChainFamilySelector = fqDestDefaults.ChainFamilySelector
 	m.IsEnabled = fqDestDefaults.IsEnabled
-	// m.GasPriceStalenessThreshold = destChainEVM2EVMDynamicCfg.GasPriceStalenessThreshold // where do we get this from?
-	// m.GasMultiplierWeiPerEth = destChainEVM2EVMDynamicCfg.GasMultiplierWeiPerEth // where do we get this from? : FeeTokenConfig in onramp -- Probably not needed & can use the default instantiation
-	// m.NetworkFeeUSDCents = destChainEVM2EVMDynamicCfg.NetworkFeeUSDCents // where do we get this from? : FeeTokenConfig in onramp - -- Probably not needed & can use the default instantiation
+	m.GasPriceStalenessThreshold = fqDestDefaults.GasPriceStalenessThreshold
 }
 
 func (m *EVM2EVMOnRampMigrateDestChainConfig) TranslateOnrampToFeequoterFeeTokenCfg(feetokenCfg onramp1_5.EVM2EVMOnRampFeeTokenConfig) {
-
-	// m.DefaultTxGasLimit = destChainEVM2EVMDynamicCfg.DefaultTxGasLimit // is this from static config?
-	// m.GasPriceStalenessThreshold = destChainEVM2EVMDynamicCfg.GasPriceStalenessThreshold // where do we get this from?
 	m.GasMultiplierWeiPerEth = feetokenCfg.GasMultiplierWeiPerEth
 	m.NetworkFeeUSDCents = feetokenCfg.NetworkFeeUSDCents
 }
 
-func (m EVM2EVMOnRampMigrate) TranslateOnrampToFeequoterTokenTransferFeeConfig(destChainSel uint64, token common.Address, onRampTokenTransferFeeConfig onramp1_5.EVM2EVMOnRampTokenTransferFeeConfig) fee_quoter.FeeQuoterTokenTransferFeeConfigSingleTokenArgs {
+func (m *EVM2EVMOnRampMigratePremiumMultiplierCfg) TranslateOnrampToFeeQFeePremiumCfg(token common.Address, feetokenCfg onramp1_5.EVM2EVMOnRampFeeTokenConfig) {
+	m.Token = token
+	m.PremiumMultiplierWeiPerEth = feetokenCfg.GasMultiplierWeiPerEth
+	/* return fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
+		Token:                      token,
+		PremiumMultiplierWeiPerEth: feetokenCfg.GasMultiplierWeiPerEth,
+	} */
+}
+
+func (m EVM2EVMOnRampMigrate) TranslateOnrampToFeequoterTokenTransferFeeConfig(token common.Address, onRampTokenTransferFeeConfig onramp1_5.EVM2EVMOnRampTokenTransferFeeConfig) fee_quoter.FeeQuoterTokenTransferFeeConfigSingleTokenArgs {
 	return fee_quoter.FeeQuoterTokenTransferFeeConfigSingleTokenArgs{
 		Token: token,
 		TokenTransferFeeConfig: fee_quoter.FeeQuoterTokenTransferFeeConfig{

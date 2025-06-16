@@ -121,6 +121,12 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	feetokensFromFeeQ, err := feeQuoterContract.GetFeeTokens(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err, "Failed to get GetFeeTokens from FeeQuoter")
 	require.Len(t, feetokensFromFeeQ, 2, "Expected 2 fee token in FeeQuoter before translation changeset")
+	onRampDynamicCfg, err := onRamp1_5_contract.GetDynamicConfig(&bind.CallOpts{Context: ctx})
+	require.NoError(t, err, "Failed to get DestChainConfig from 1.5 onramp")
+	priceReg, err := price_registry.NewPriceRegistry(onRampDynamicCfg.PriceRegistry, tenv.BlockChains.EVMChains()[sourceChainSelector].Client)
+	require.NoError(t, err, "Failed to create PriceRegistry contract binding")
+	allFeeTokens, _ := priceReg.GetFeeTokens(nil)
+	require.Len(t, allFeeTokens, 2, "Expected 2 fee tokens in PriceRegistry before translation")
 
 	// 7. Apply Translation Changeset
 	translateConfig := v1_6.TranslateEVM2EVMOnRampsToFeeQuoterConfig{
@@ -132,12 +138,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	require.NoError(t, err, "TranslateEVM2EVMOnRampsToFeeQuoterChangeset execution failed")
 
 	// 8. get onramp & feequoter dynamic, tokenCfg & default configs to compare
-	onRampDynamicCfg, err := onRamp1_5_contract.GetDynamicConfig(&bind.CallOpts{Context: ctx})
-	require.NoError(t, err, "Failed to get DestChainConfig from 1.5 onramp")
-	priceReg, err := price_registry.NewPriceRegistry(onRampDynamicCfg.PriceRegistry, tenv.BlockChains.EVMChains()[sourceChainSelector].Client)
-	require.NoError(t, err, "Failed to create PriceRegistry contract binding")
-	allFeeTokens, _ := priceReg.GetFeeTokens(nil)
-	require.Len(t, allFeeTokens, 2, "Expected 2 fee tokens in PriceRegistry before translation")
+
 	feeTokenCfg, _ := onRamp1_5_contract.GetFeeTokenConfig(&bind.CallOpts{Context: ctx}, allFeeTokens[0])
 	actualFeeQuoterDestCfg, err := feeQuoterContract.GetDestChainConfig(&bind.CallOpts{Context: ctx}, destChainSelector)
 	require.NoError(t, err, "Failed to get DestChainConfig from FeeQuoter after translation")
@@ -146,6 +147,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 
 	// 9.Compare the actual configuration with the expected one
 	// TODO: ensure all the fields are compared
+	// Criteria 1: Ports dynamic config from all 1.5.0 OnRamps into FeeQuoter DestChainConfig
 	require.Equal(t, onRampDynamicCfg.MaxNumberOfTokensPerMsg, actualFeeQuoterDestCfg.MaxNumberOfTokensPerMsg, "MaxNumberOfTokensPerMsg mismatch")
 	require.Equal(t, onRampDynamicCfg.MaxDataBytes, actualFeeQuoterDestCfg.MaxDataBytes, "MaxDataBytes mismatch")
 	require.Equal(t, onRampDynamicCfg.MaxPerMsgGasLimit, actualFeeQuoterDestCfg.MaxPerMsgGasLimit, "MaxPerMsgGasLimit mismatch")
@@ -158,14 +160,20 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	require.Equal(t, onRampDynamicCfg.DefaultTokenDestGasOverhead, actualFeeQuoterDestCfg.DefaultTokenDestGasOverhead, "DefaultTokenDestGasOverhead mismatch")
 	require.Equal(t, defaultCfgForFamily.ChainFamilySelector, actualFeeQuoterDestCfg.ChainFamilySelector, "ChainFamilySelector mismatch")
 	// These two should come from the GetFeeTokenConfig
+	// Criteria 4 (b): Ports fee token config args from all 1.5.0 OnRamps into PremiumMultiplierWeiPerEthArgs
 	require.Equal(t, feeTokenCfg.GasMultiplierWeiPerEth, actualFeeQuoterDestCfg.GasMultiplierWeiPerEth, "GasMultiplierWeiPerEth mismatch")
 	require.Equal(t, feeTokenCfg.NetworkFeeUSDCents, actualFeeQuoterDestCfg.NetworkFeeUSDCents, "NetworkFeeUSDCents mismatch")
 
-	t.Logf("Successfully verified translation of 1.5.0 OnRamp config for chain %d to 1.6.0 FeeQuoter DestChainConfig for destination %d", sourceChainSelector, destChainSelector)
-
+	// Criteria 3: Port supported fee tokens to the FeeQuoter if they do not yet exist on the FeeQuoter
 	feetokensFromFeeQ, err = feeQuoterContract.GetFeeTokens(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err, "Failed to get GetFeeTokens from FeeQuoter")
 	require.Len(t, feetokensFromFeeQ, 3, "Expected 3 fee tokens in FeeQuoter after translation") // same common token already exists between 1.5 & 1.6
+
+	// Criteria 4: Ports fee token config args from all 1.5.0 OnRamps into PremiumMultiplierWeiPerEthArgs
+	fqPremiumMultiplierCfg, err := feeQuoterContract.GetPremiumMultiplierWeiPerEth(&bind.CallOpts{Context: ctx}, allFeeTokens[0])
+	require.NoError(t, err, "Failed to get PremiumMultiplierWeiPerEth from FeeQuoter")
+	require.Equal(t, feeTokenCfg.PremiumMultiplierWeiPerEth, fqPremiumMultiplierCfg, "PremiumMultiplierWeiPerEth should match after translation")
+	t.Logf("Successfully verified translation of 1.5.0 OnRamp config for chain %d to 1.6.0 FeeQuoter DestChainConfig for destination %d", sourceChainSelector, destChainSelector)
 
 	// 10. E2E AddTokens & TokenPools
 	tenv = DeployTokensAndTokenPools(t, tenv, &tenv.ExistingAddresses)
@@ -187,6 +195,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	require.NoError(t, err, "TranslateEVM2EVMOnRampsToFeeQuoterChangeset execution failed")
 
 	// Should match after translation
+	// Criteria 2: Ports token transfer fee config args from all 1.5.0 OnRamps into FeeQuoter
 	tokenTransferFeeCfgFromOnRamp, err = onRamp1_5_contract.GetTokenTransferFeeConfig(&bind.CallOpts{Context: ctx}, allTokens[0])
 	tokenTransferFeeCfgFromFeeQ, err = feeQuoterContract.GetTokenTransferFeeConfig(&bind.CallOpts{Context: ctx}, destChainSelector, allTokens[0])
 	require.NoError(t, err, "Failed to get TokenTransferFeeConfig from FeeQuoter")
@@ -196,7 +205,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	require.Equal(t, tokenTransferFeeCfgFromOnRamp.DestGasOverhead, tokenTransferFeeCfgFromFeeQ.DestGasOverhead, "TokenTransferFeeConfig should match after translation (DestGasOverhead)")
 	require.Equal(t, tokenTransferFeeCfgFromOnRamp.MinFeeUSDCents, tokenTransferFeeCfgFromFeeQ.MinFeeUSDCents, "TokenTransferFeeConfig should match after translation (MinFeeUSDCents)")
 	require.Equal(t, tokenTransferFeeCfgFromOnRamp.IsEnabled, tokenTransferFeeCfgFromFeeQ.IsEnabled, "TokenTransferFeeConfig should match after translation (IsEnabled)")
-
+	t.Logf("Successfully verified translation of 1.5.0 token transfer fee config args OnRamp config for chain %d to 1.6.0 FeeQuoter %d", sourceChainSelector, destChainSelector)
 }
 
 func createSymmetricRateLimits(rate int64, capacity int64) v1_5_1.RateLimiterConfig {
@@ -323,8 +332,8 @@ func DeployTokensAndTokenPools(t *testing.T, e cldf.Environment, addressBook *cl
 		),
 	)
 	require.NoError(t, err)
-	SelectorA2B := createSymmetricRateLimits(100, 1000)
-	SelectorB2A := createSymmetricRateLimits(100, 1000)
+	SelectorA2B := testhelpers.CreateSymmetricRateLimits(100, 1000)
+	SelectorB2A := testhelpers.CreateSymmetricRateLimits(100, 1000)
 	e, err = commonchangeset.Apply(t, e,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
