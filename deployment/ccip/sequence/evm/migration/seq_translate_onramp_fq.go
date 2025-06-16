@@ -63,7 +63,7 @@ var (
 						onRamp1_5,
 					)
 					if err != nil {
-						return OnRampToFeeQuoterDestChainConfigOutput{}, fmt.Errorf("Failed to execute TranslateOnRampToFQDestDynamicCfgOps: %w", err)
+						return OnRampToFeeQuoterDestChainConfigOutput{}, fmt.Errorf("failed to execute TranslateOnRampToFQDestDynamicCfgOps: %w", err)
 					}
 
 					feeQuoterTranslatedDestCfg.TranslateOnrampToFeequoterDynamicConfig(destChainSel, evm2evmOnRampDynamicCfgReport.Output)
@@ -182,7 +182,7 @@ var (
 							return OnRampToFeeQuoterTokenTransferFeeCfgOutput{}, fmt.Errorf("failed to get all configured tokens from TokenAdminRegistry on source chain %d: %w", chainSel, err)
 						}
 						if getPoolBySourceTokenOps.Output == (common.Address{}) {
-							lggr.Warnw("failed to get pool for token on 1.5.0 OnRamp", "sourceChainSelector", chainSel, "destinationChainSelector", destChainSel, "token", token.Hex(), "error", err)
+							lggr.Warnw("failed to get pool for token on 1.5.0 OnRamp", "sourceChainSelector", chainSel, "destinationChainSelector", destChainSel, "token", token.Hex())
 							continue // TODO: continue or exit?
 						}
 
