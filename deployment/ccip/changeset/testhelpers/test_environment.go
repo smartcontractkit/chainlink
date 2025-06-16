@@ -888,14 +888,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		endpoint := tEnv.MockLBTCAttestationServer(t, tc.IsUSDCAttestationMissing)
 		lbtcPools := make(map[cciptypes.ChainSelector]string)
 		for _, chain := range evmChains {
-			evmChain := e.Env.BlockChains.EVMChains()[chain]
-			chainState := state.MustGetEVMChainState(chain)
-			lbtcToken := chainState.BurnMintTokens677[shared.LBTCSymbol]
-			require.NotNil(t, lbtcToken)
-			lbtcPool := chainState.BurnMintTokenPools[shared.LBTCSymbol][deployment.Version1_5_1]
+			lbtcPool := state.MustGetEVMChainState(chain).BurnMintTokenPools[shared.LBTCSymbol][deployment.Version1_5_1]
 			require.NotNil(t, lbtcPool)
-			err := AttachTokenToTheRegistry(evmChain, chainState, evmChain.DeployerKey, lbtcToken.Address(), lbtcPool.Address())
-			require.NoError(t, err)
 			lbtcPools[cciptypes.ChainSelector(chain)] = lbtcPool.Address().String()
 		}
 		tokenDataProviders = append(tokenDataProviders, pluginconfig.TokenDataObserverConfig{

@@ -77,7 +77,7 @@ func configureSingleChainForLBTC(
 	dstPool *burn_mint_token_pool.BurnMintTokenPool,
 ) func() error {
 	return func() error {
-		if err := AttachTokenToTheRegistry(sourceChain, state, sourceChain.DeployerKey, srcToken.Address(), srcPool.Address()); err != nil {
+		if err := attachTokenToTheRegistry(sourceChain, state, sourceChain.DeployerKey, srcToken.Address(), srcPool.Address()); err != nil {
 			lggr.Errorw("Failed to attach token to the registry", "err", err, "token", srcToken.Address(), "pool", srcPool.Address())
 			return err
 		}

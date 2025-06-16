@@ -1406,7 +1406,7 @@ func DeployTransferableTokenSolana(
 		return nil, nil, solana.PublicKey{}, err
 	}
 	// attach token and pool to the registry
-	if err := AttachTokenToTheRegistry(e.BlockChains.EVMChains()[evmChainSel], state.MustGetEVMChainState(evmChainSel), evmDeployer, evmToken.Address(), evmPool.Address()); err != nil {
+	if err := attachTokenToTheRegistry(e.BlockChains.EVMChains()[evmChainSel], state.MustGetEVMChainState(evmChainSel), evmDeployer, evmToken.Address(), evmPool.Address()); err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
 	solDeployerKey := e.BlockChains.SolanaChains()[solChainSel].DeployerKey.PublicKey()
@@ -1564,7 +1564,7 @@ func deployTokenPoolsInParallel(
 		if err != nil {
 			return err
 		}
-		err = AttachTokenToTheRegistry(chains[src], state.MustGetEVMChainState(src), srcActor, srcToken.Address(), srcPool.Address())
+		err = attachTokenToTheRegistry(chains[src], state.MustGetEVMChainState(src), srcActor, srcToken.Address(), srcPool.Address())
 		return err
 	})
 	deployGrp.Go(func() error {
@@ -1573,7 +1573,7 @@ func deployTokenPoolsInParallel(
 		if err != nil {
 			return err
 		}
-		err = AttachTokenToTheRegistry(chains[dst], state.MustGetEVMChainState(dst), dstActor, dstToken.Address(), dstPool.Address())
+		err = attachTokenToTheRegistry(chains[dst], state.MustGetEVMChainState(dst), dstActor, dstToken.Address(), dstPool.Address())
 		return err
 	})
 	if err := deployGrp.Wait(); err != nil {
@@ -1672,7 +1672,7 @@ func setTokenPoolCounterPart(
 	return err
 }
 
-func AttachTokenToTheRegistry(
+func attachTokenToTheRegistry(
 	chain cldf_evm.Chain,
 	state evm.CCIPChainState,
 	owner *bind.TransactOpts,
