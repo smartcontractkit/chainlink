@@ -176,7 +176,15 @@ func (w *chainWriter) parseContracts() error {
 }
 
 func (w *chainWriter) GetTransactionStatus(ctx context.Context, transactionID string) (commontypes.TransactionStatus, error) {
-	return w.txm.GetTransactionStatus(ctx, transactionID)
+	//TODO PLEX-1524 - Refactor TXManager to return it's internal status and not the common one created for CR/CW approach. 
+	txStatus, err := w.txm.GetTransactionStatus(ctx, transactionID)
+	if err != nil {
+		return commontypes.Fatal, err
+	}
+	if txStatus == commontypes.Confirmed {
+		return commontypes.Unconfirmed, nil
+	}
+	return txStatus, nil
 }
 
 // GetFeeComponents the execution and data availability (L1Oracle) fees for the chain.
