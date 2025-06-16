@@ -256,7 +256,6 @@ func TestConfigureForwarder(t *testing.T) {
 					configureChangeset})
 				require.NoError(t, err)
 			})
-			break
 		}
 	})
 }
