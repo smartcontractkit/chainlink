@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"k8s.io/utils/pointer"
 	"math"
 	"math/big"
 	"os"
 	"sync"
+
+	"k8s.io/utils/pointer"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
@@ -167,6 +168,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 
 	allChains := e.BlockChains.ListChainSelectors()
 	laneConfig.GenerateLanes(allChains)
+	laneConfig.LogLaneConfigInfo(lggr)
 
 	// Set up lanes
 	lggr.Infow("setting up EVM <> EVM lanes...")

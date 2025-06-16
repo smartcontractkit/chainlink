@@ -6,6 +6,8 @@ import (
 	"math/rand"
 	"sort"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -497,6 +499,25 @@ func (lc *LaneConfiguration) GetLaneStats() LaneStats {
 	}
 
 	return stats
+}
+
+func (lc *LaneConfiguration) LogLaneConfigInfo(lggr logger.Logger) {
+	if lc == nil {
+		lggr.Warn("LaneConfiguration is nil, cannot log stats")
+		return
+	}
+
+	stats := lc.GetLaneStats()
+	lggr.Infow("Lane Configuration Stats",
+		"TotalLanes", stats.TotalLanes,
+		"UniqueChains", stats.UniqueChains,
+		"AvgLanesPerChain", stats.AvgLanesPerChain,
+		"MaxLanesPerChain", stats.MaxLanesPerChain,
+		"MinLanesPerChain", stats.MinLanesPerChain,
+		"SourceChains", stats.SourceChains,
+		"DestinationChains", stats.DestinationChains,
+		"GeneratedLanes", lc.generatedLanes,
+	)
 }
 
 // Example TOML configurations:
