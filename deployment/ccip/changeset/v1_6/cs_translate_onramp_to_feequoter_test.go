@@ -105,7 +105,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	require.NoError(t, err, "Failed to load initial onchain state")
 	sourceChainState = state.MustGetEVMChainState(sourceChainSelector)
 	require.NotNil(t, sourceChainState.EVM2EVMOnRamp, "1.5.0 OnRamps should be deployed on source chain")
-	onRamp1_5Info, _ := sourceChainState.EVM2EVMOnRamp[destChainSelector]
+	onRamp1_5Info := sourceChainState.EVM2EVMOnRamp[destChainSelector]
 	require.NotNil(t, onRamp1_5Info, "1.5.0 OnRamp instance info should not be nil")
 
 	onRamp1_5Contract, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(onRamp1_5Info.Address(), tenv.BlockChains.EVMChains()[sourceChainSelector].Client)
@@ -119,7 +119,8 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	require.NoError(t, err, "Failed to get DestChainConfig from 1.5 onramp")
 	priceReg, err := price_registry.NewPriceRegistry(onRampDynamicCfg.PriceRegistry, tenv.BlockChains.EVMChains()[sourceChainSelector].Client)
 	require.NoError(t, err, "Failed to create PriceRegistry contract binding")
-	allFeeTokens, _ := priceReg.GetFeeTokens(nil)
+	allFeeTokens, err := priceReg.GetFeeTokens(nil)
+	require.NoError(t, err, "Failed to get all fee tokens from PriceRegistry")
 	require.Len(t, allFeeTokens, 2, "Expected 2 fee tokens in PriceRegistry before translation")
 
 	// 7. Apply Translation Changeset
@@ -133,7 +134,8 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 
 	// 8. get onramp & feequoter dynamic, tokenCfg & default configs to compare
 
-	feeTokenCfg, _ := onRamp1_5Contract.GetFeeTokenConfig(&bind.CallOpts{Context: ctx}, allFeeTokens[0])
+	feeTokenCfg, err := onRamp1_5Contract.GetFeeTokenConfig(&bind.CallOpts{Context: ctx}, allFeeTokens[0])
+	require.NoError(t, err, "Failed to get FeeTokenConfig from OnRamp")
 	actualFeeQuoterDestCfg, err := feeQuoterContract.GetDestChainConfig(&bind.CallOpts{Context: ctx}, destChainSelector)
 	require.NoError(t, err, "Failed to get DestChainConfig from FeeQuoter after translation")
 

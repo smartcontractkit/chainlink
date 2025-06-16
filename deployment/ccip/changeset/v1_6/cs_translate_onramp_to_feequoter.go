@@ -42,13 +42,13 @@ func (cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) Validate(e cldf.Environment)
 
 func ValidatePreReqContractsInState(srcChain cldf_evm.Chain, srcChainState evm.CCIPChainState) error {
 	if len(srcChainState.EVM2EVMOnRamp) == 0 {
-		return fmt.Errorf("No 1.5.0 OnRamps found, skipping (chainSelector: %d, chainName: %s)", srcChain.Selector, srcChain.Name())
+		return fmt.Errorf("no 1.5.0 OnRamps found, skipping (chainSelector: %d, chainName: %s)", srcChain.Selector, srcChain.Name())
 	}
 	if srcChainState.PriceRegistry == nil {
-		return fmt.Errorf("PriceRegistry not found for source chain %d (%s), cannot process 1.5.0 OnRamps", srcChain.Selector, srcChain.Name())
+		return fmt.Errorf("priceRegistry not found for source chain %d (%s), cannot process 1.5.0 OnRamps", srcChain.Selector, srcChain.Name())
 	}
 	if srcChainState.TokenAdminRegistry == nil {
-		return fmt.Errorf("TokenAdminRegistry not found for source chain %d (%s), cannot process 1.5.0 OnRamps", srcChain.Selector, srcChain.Name())
+		return fmt.Errorf("tokenAdminRegistry not found for source chain %d (%s), cannot process 1.5.0 OnRamps", srcChain.Selector, srcChain.Name())
 	}
 
 	return nil
@@ -64,12 +64,12 @@ func TranslateEVM2EVMOnRampsToFeeQuoterChangeset(e cldf.Environment, cfg Transla
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	if len(cfg.SourceChainSelectors) == 0 {
-		return cldf.ChangesetOutput{}, errors.New("No chains to process TranslateEVM2EVMOnRampsToFeeQuoter")
+		return cldf.ChangesetOutput{}, errors.New("no chains to process TranslateEVM2EVMOnRampsToFeeQuoter")
 	}
 	for _, sel := range cfg.SourceChainSelectors {
 		chain, ok := e.BlockChains.EVMChains()[sel]
 		if !ok {
-			return cldf.ChangesetOutput{}, fmt.Errorf("Chain selector not found in environment, skipping (chainSelector: %d)", sel)
+			return cldf.ChangesetOutput{}, fmt.Errorf("chain selector not found in environment, skipping (chainSelector: %d)", sel)
 		}
 		srcChainState := state.MustGetEVMChainState(sel)
 		err := ValidatePreReqContractsInState(chain, srcChainState)
@@ -102,7 +102,7 @@ func TranslateEVM2EVMOnRampsToFeeQuoterChangeset(e cldf.Environment, cfg Transla
 		updateFeeQuoterDestsConfig.ToSequenceInput(state),
 	)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("Failed to execute FeeQuoterApplyDestChainConfigUpdatesSequence: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute FeeQuoterApplyDestChainConfigUpdatesSequence: %w", err)
 	}
 	csOutput, err = opsutil.AddEVMCallSequenceToCSOutput(e, state, csOutput, report, err, cfg.MCMS, "Call ApplyDestChainConfigUpdates on FeeQuoters")
 	if err != nil {
@@ -114,10 +114,10 @@ func TranslateEVM2EVMOnRampsToFeeQuoterChangeset(e cldf.Environment, cfg Transla
 		e.OperationsBundle,
 		ccipseqs.FeeQuoterApplyFeeTokensUpdatesSeq,
 		e.BlockChains.EVMChains(),
-		cfg.toFeeTokenApplySeqInput(state, translateDynamicCfgReport.Output.Feetokens),
+		cfg.toFeeTokenApplySeqInput(state, translateDynamicCfgReport.Output.FeeTokens),
 	)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("Failed to execute FeeQuoterApplyFeeTokensUpdatesSeq: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute FeeQuoterApplyFeeTokensUpdatesSeq: %w", err)
 	}
 	csOutput, err = opsutil.AddEVMCallSequenceToCSOutput(e, state, csOutput, feeTokensReport, err, cfg.MCMS, "Call ApplyFeeTokensUpdatesConfig on FeeQuoter")
 	if err != nil {
@@ -132,7 +132,7 @@ func TranslateEVM2EVMOnRampsToFeeQuoterChangeset(e cldf.Environment, cfg Transla
 		cfg.toPremiumMultiplierCfgSequencInput(state, translateDynamicCfgReport.Output.FeeTokenPremiumMultipliers),
 	)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("Failed to execute FeeQApplyPremiumMultiplierWeiPerEthUpdatesSeq: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute FeeQApplyPremiumMultiplierWeiPerEthUpdatesSeq: %w", err)
 	}
 	csOutput, err = opsutil.AddEVMCallSequenceToCSOutput(e, state, csOutput, premiumMultiplierSqReport, err, cfg.MCMS, "Call ApplyFeeTokensUpdatesConfig on FeeQuoter")
 	if err != nil {
@@ -221,12 +221,12 @@ func TranslateEVM2EVMOnRampsToFeeQTokenTransferFeeConfigChangeset(e cldf.Environ
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	if len(cfg.SourceChainSelectors) == 0 {
-		return cldf.ChangesetOutput{}, errors.New("No chains to process TranslateEVM2EVMOnRampsToFeeQuoter")
+		return cldf.ChangesetOutput{}, errors.New("no chains to process TranslateEVM2EVMOnRampsToFeeQuoter")
 	}
 	for _, sel := range cfg.SourceChainSelectors {
 		chain, ok := e.BlockChains.EVMChains()[sel]
 		if !ok {
-			return cldf.ChangesetOutput{}, fmt.Errorf("Chain selector not found in environment, skipping (chainSelector: %d)", sel)
+			return cldf.ChangesetOutput{}, fmt.Errorf("chain selector not found in environment, skipping (chainSelector: %d)", sel)
 		}
 		srcChainState := state.MustGetEVMChainState(sel)
 		err := ValidatePreReqContractsInState(chain, srcChainState)
@@ -254,7 +254,7 @@ func TranslateEVM2EVMOnRampsToFeeQTokenTransferFeeConfigChangeset(e cldf.Environ
 		cfg.tokenTransferFeeConfigArgsToSeqInput(state, translateTokenTransferFeeCfgReport.Output.FeeQuoterUpdates),
 	)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("Failed to execute FeeQUpdateTransferTokenFeeCfgSeq: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute FeeQUpdateTransferTokenFeeCfgSeq: %w", err)
 	}
 
 	// TODO: check the output: its empty

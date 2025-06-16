@@ -18,11 +18,11 @@ var (
 		func(b operations.Bundle, deps MigrateOnRampToFQDeps, tokenPoolAddress common.Address) ([]uint64, error) {
 			tokenPool, err := token_pool.NewTokenPool(tokenPoolAddress, deps.Chain.Client)
 			if err != nil {
-				return nil, fmt.Errorf("Failed to create tokenpool contract binding: chainSelector=%v, Token Pool=%s, error=%v", deps.Chain.ChainSelector(), tokenPoolAddress.Hex(), err)
+				return nil, fmt.Errorf("failed to create tokenpool contract binding: chainSelector=%v, Token Pool=%s, error=%w", deps.Chain.ChainSelector(), tokenPoolAddress.Hex(), err)
 			}
 			supportedChains, err := tokenPool.GetSupportedChains(nil)
 			if err != nil {
-				return nil, fmt.Errorf("Failed to get supported chains from token pool: chainSelector=%v, Token Pool=%s, error=%v", deps.Chain.ChainSelector(), tokenPoolAddress.Hex(), err)
+				return nil, fmt.Errorf("failed to get supported chains from token pool: chainSelector=%v, Token Pool=%s, error=%w", deps.Chain.ChainSelector(), tokenPoolAddress.Hex(), err)
 			}
 			return supportedChains, nil
 		})

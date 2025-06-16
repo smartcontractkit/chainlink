@@ -87,7 +87,7 @@ var (
 				}
 				report, err := operations.ExecuteOperation(b, ccipops.FeeQuoterApplyTokenTransferFeeCfgOp, chain, update)
 				if err != nil {
-					return nil, fmt.Errorf("failed to execute FeeQuoterUpdatePricesOp on %s: %w", chain, err)
+					return nil, fmt.Errorf("failed to execute FeeQuoterApplyTokenTransferFeeCfgOp on %s: %w", chain, err)
 				}
 				opOutputs[chainSel] = []opsutil.EVMCallOutput{report.Output}
 			}
@@ -107,7 +107,7 @@ var (
 				}
 				report, err := operations.ExecuteOperation(b, ccipops.FeeQuoterApplyFeeTokensUpdatesOp, chain, input)
 				if err != nil {
-					return nil, fmt.Errorf("failed to execute FeeQuoterUpdatePricesOp on %s: %w", chain, err)
+					return nil, fmt.Errorf("failed to execute FeeQuoterApplyFeeTokensUpdatesOp on %s: %w", chain, err)
 				}
 				opOutputs[chainSel] = []opsutil.EVMCallOutput{report.Output}
 			}

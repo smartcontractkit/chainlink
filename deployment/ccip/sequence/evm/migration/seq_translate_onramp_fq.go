@@ -26,7 +26,7 @@ type FeeQuoterUpdateTokenTransferConfig struct {
 
 type OnRampToFeeQuoterDestChainConfigOutput struct {
 	FeeQuoterUpdates           map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig
-	Feetokens                  map[uint64][]common.Address
+	FeeTokens                  map[uint64][]common.Address
 	FeeTokenPremiumMultipliers map[uint64][]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs
 }
 
@@ -123,7 +123,7 @@ var (
 
 			return OnRampToFeeQuoterDestChainConfigOutput{
 				FeeQuoterUpdates:           feeQuoterUpdates,
-				Feetokens:                  allFeeTokens,
+				FeeTokens:                  allFeeTokens,
 				FeeTokenPremiumMultipliers: allFeetokenPremiumMultipliers,
 			}, nil
 		})
@@ -135,10 +135,10 @@ var (
 		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input FeeQuoterUpdateTokenTransferConfig) (OnRampToFeeQuoterTokenTransferFeeCfgOutput, error) {
 			lggr := b.Logger
 			tokenTransferFeeConfigsPerSrcChain := make(map[uint64][]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs)
-			var tokenTransferFeeConfigsPerDestChain []fee_quoter.FeeQuoterTokenTransferFeeConfigArgs
 
 			for chainSel, update := range input.UpdatesByChain {
 				srcChain, ok := chains[chainSel]
+				var tokenTransferFeeConfigsPerDestChain []fee_quoter.FeeQuoterTokenTransferFeeConfigArgs
 				if !ok {
 					return OnRampToFeeQuoterTokenTransferFeeCfgOutput{}, fmt.Errorf("chain with selector %d not defined", chainSel)
 				}
@@ -182,7 +182,7 @@ var (
 							return OnRampToFeeQuoterTokenTransferFeeCfgOutput{}, fmt.Errorf("failed to get all configured tokens from TokenAdminRegistry on source chain %d: %w", chainSel, err)
 						}
 						if getPoolBySourceTokenOps.Output == (common.Address{}) {
-							lggr.Warnw("Failed to get pool for token on 1.5.0 OnRamp", "sourceChainSelector", chainSel, "destinationChainSelector", destChainSel, "token", token.Hex(), "error", err)
+							lggr.Warnw("failed to get pool for token on 1.5.0 OnRamp", "sourceChainSelector", chainSel, "destinationChainSelector", destChainSel, "token", token.Hex(), "error", err)
 							continue // TODO: continue or exit?
 						}
 
@@ -194,7 +194,7 @@ var (
 							getPoolBySourceTokenOps.Output,
 						)
 						if err != nil {
-							return OnRampToFeeQuoterTokenTransferFeeCfgOutput{}, fmt.Errorf("failed to get suuported chains for the toksn Pool on source chain %d: %w", chainSel, err)
+							return OnRampToFeeQuoterTokenTransferFeeCfgOutput{}, fmt.Errorf("failed to get suported chains for the token Pool on source chain %d: %w", chainSel, err)
 						}
 
 						// Check if the destination chain selector is in the supported chains of token pool

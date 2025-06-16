@@ -2006,7 +2006,6 @@ func (cfg PremiumMultiplierWeiPerEthUpdatesConfig) ToSequenceInput(state statevi
 			CallInput:     premiumMultiplierUpdates,
 			NoSend:        cfg.MCMS != nil, // If MCMS exists, we do not want to send the transaction.
 		}
-
 	}
 	return ccipseqs.FeeQuoterUpdatePremiumMultiplierWeiPerEthConfig{
 		UpdatesByChain: input,
@@ -2110,7 +2109,7 @@ func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(e cldf.Environment, cf
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	s, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -2119,9 +2118,9 @@ func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(e cldf.Environment, cf
 		e.OperationsBundle,
 		ccipseqs.FeeQUpdateTransferTokenFeeCfgSeq,
 		e.BlockChains.EVMChains(),
-		cfg.ToSequenceInput(s),
+		cfg.ToSequenceInput(state),
 	)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, s, cldf.ChangesetOutput{}, report, err, cfg.MCMS, "Call ApplyTokenTransferFeeConfigUpdates on FeeQuoter")
+	return opsutil.AddEVMCallSequenceToCSOutput(e, state, cldf.ChangesetOutput{}, report, err, cfg.MCMS, "Call ApplyTokenTransferFeeConfigUpdates on FeeQuoter")
 }
 
 func (cfg ApplyTokenTransferFeeConfigUpdatesConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.FeeQuoterUpdateTokenTransferConfig {

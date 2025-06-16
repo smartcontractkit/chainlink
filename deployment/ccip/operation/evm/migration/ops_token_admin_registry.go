@@ -18,7 +18,7 @@ var (
 		func(b operations.Bundle, deps MigrateOnRampToFQDeps, input common.Address) ([]common.Address, error) {
 			tokenAdminReg, err := token_admin_registry.NewTokenAdminRegistry(input, deps.Chain.Client)
 			if err != nil {
-				return nil, fmt.Errorf("Failed to create TokenAdminRegistry contract binding: chainSelector=%v, TokenAdminRegistry Address=%s, error=%v", deps.Chain.ChainSelector(), input.Hex(), err)
+				return nil, fmt.Errorf("failed to create TokenAdminRegistry contract binding: chainSelector=%v, TokenAdminRegistry Address=%s, error=%w", deps.Chain.ChainSelector(), input.Hex(), err)
 			}
 
 			allTransferTokens := []common.Address{}

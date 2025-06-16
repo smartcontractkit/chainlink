@@ -23,7 +23,7 @@ var (
 
 			allFeeTokens, err2 := priceRegistry.GetFeeTokens(nil)
 			if err2 != nil {
-				return nil, fmt.Errorf("failed to all tokens on PriceRegistry %s for  source chain %d: %w", input.Hex(), deps.Chain.Selector, err)
+				return nil, fmt.Errorf("failed to all tokens on PriceRegistry %s for  source chain %d: %w", input.Hex(), deps.Chain.Selector, err2)
 			}
 
 			return allFeeTokens, nil
