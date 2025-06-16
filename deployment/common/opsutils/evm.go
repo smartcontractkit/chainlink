@@ -76,7 +76,7 @@ func NewEVMCallOperation[IN any, C any](
 			if input.ChainSelector != chain.Selector {
 				return EVMCallOutput{}, fmt.Errorf("mismatch between inputted chain selector and selector defined within dependencies: %d != %d", input.ChainSelector, chain.Selector)
 			}
-			opts := cloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, input.GasPrice.Int64())
+			opts := cloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, convertToInt64(input.GasPrice))
 			if input.NoSend {
 				opts = cldf.SimTransactOpts()
 			}
@@ -264,7 +264,7 @@ func NewEVMDeployOperation[IN any](
 				)
 			} else {
 				addr, tx, err = deployers.DeployEVM(
-					cloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, input.GasPrice.Int64()),
+					cloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, convertToInt64(input.GasPrice)),
 					chain.Client,
 					input.DeployInput,
 				)
@@ -287,6 +287,13 @@ func NewEVMDeployOperation[IN any](
 			}, err
 		},
 	)
+}
+
+func convertToInt64(i *big.Int) int64 {
+	if i == nil {
+		return 0
+	}
+	return i.Int64()
 }
 
 // cloneTransactOptsWithGas ensures that we don't impact the transact opts used by other operations.
