@@ -193,6 +193,8 @@ func runSolanaVerify(e cldf.Environment,
 // we will extract out the relevant instruction from the message by decoding the different layers
 func getIxnFromEncodedTx(e cldf.Environment, output string, timelockSignerPDA solana.PublicKey) (*solana.GenericInstruction, error) {
 	// get the base58-encoded transaction from the output
+	// this is based on the current tx output format
+	// if solana-verify cli changes the output format, this will break
 	lines := strings.Split(output, "\n")
 	var base58EncodedTx string
 	for i := len(lines) - 1; i >= 0; i-- {
@@ -310,8 +312,6 @@ func setConfig(e cldf.Environment, chain cldf_solana.Chain) error {
 
 func VerifyBuild(e cldf.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutput, error) {
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	chain.URL = "https://api.devnet.solana.com"
-	chain.KeypairPath = "/Users/yashvardhan/.config/solana/id_devnet.json"
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
