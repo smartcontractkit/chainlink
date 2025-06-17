@@ -14,11 +14,12 @@ import (
 type RouterView struct {
 	aptosCommon.ContractMetaData
 
-	OnRamps  map[uint64]string `json:"onRamps"`  // Map of DestinationChainSelector to OnRampAddress
-	OffRamps map[uint64]string `json:"offRamps"` // Map of DestinationChainSelector to OffRampAddress
+	IsTestRouter bool              `json:"isTestRouter"`
+	OnRamps      map[uint64]string `json:"onRamps"`  // Map of DestinationChainSelector to OnRampAddress
+	OffRamps     map[uint64]string `json:"offRamps"` // Map of DestinationChainSelector to OffRampAddress
 }
 
-func GenerateRouterView(chain cldf_aptos.Chain, routerAddress aptos.AccountAddress, offRampAddresses []aptos.AccountAddress) (RouterView, error) {
+func GenerateRouterView(chain cldf_aptos.Chain, routerAddress aptos.AccountAddress, offRampAddresses []aptos.AccountAddress, isTestRouter bool) (RouterView, error) {
 	boundRouter := ccip_router.Bind(routerAddress, chain.Client)
 
 	typeAndVersion, err := boundRouter.Router().TypeAndVersion(nil)
@@ -72,7 +73,8 @@ func GenerateRouterView(chain cldf_aptos.Chain, routerAddress aptos.AccountAddre
 			Owner:          owner.StringLong(),
 			TypeAndVersion: typeAndVersion,
 		},
-		OnRamps:  onRamps,
-		OffRamps: offRamps,
+		IsTestRouter: isTestRouter,
+		OnRamps:      onRamps,
+		OffRamps:     offRamps,
 	}, nil
 }
