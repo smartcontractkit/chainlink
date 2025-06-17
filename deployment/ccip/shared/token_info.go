@@ -88,6 +88,7 @@ const (
 	WHYPESymbol TokenSymbol = "WHYPE"
 	WAPESymbol  TokenSymbol = "WAPE"
 	WCoreSymbol TokenSymbol = "WCORE"
+	WCROSymbol  TokenSymbol = "WCRO"
 	WA0GISymbol TokenSymbol = "WA0GI"
 
 	LBTCSymbol                 TokenSymbol = "LBTC"
@@ -136,7 +137,7 @@ var (
 		FTMUSD:                        {WSSymbol},
 		BTCUSD:                        {WBTCNSymbol, WBTCSymbol},
 		LTCUSD:                        {WHYPESymbol},
-		USDCUSD:                       {WAPESymbol, WHSKSymbol, WSBYSymbol},
+		USDCUSD:                       {WAPESymbol, WHSKSymbol, WSBYSymbol, WCROSymbol},
 		ARBUSD:                        {WCoreSymbol},
 	}
 	MockSymbolToDescription = map[TokenSymbol]string{
