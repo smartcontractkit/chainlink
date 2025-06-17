@@ -10,8 +10,8 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 
 	migrate_seq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/migration"
 	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
@@ -99,7 +99,7 @@ func TranslateEVM2EVMOnRampsToFeeQuoterChangeset(e cldf.Environment, cfg Transla
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute FeeQuoterApplyDestChainConfigUpdatesSequence: %w", err)
 	}
-	csOutput, err = opsutil.AddEVMCallSequenceToCSOutput(e, state, csOutput, report, err, cfg.MCMS, "Call ApplyDestChainConfigUpdates on FeeQuoter")
+	csOutput, err = opsutil.AddEVMCallSequenceToCSOutput(e, csOutput, report, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Call ApplyDestChainConfigUpdates on FeeQuoter")
 	if err != nil {
 		return csOutput, fmt.Errorf("failed to apply FeeQuoter dest chain config updates: %w", err)
 	}
@@ -114,7 +114,7 @@ func TranslateEVM2EVMOnRampsToFeeQuoterChangeset(e cldf.Environment, cfg Transla
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute FeeQuoterApplyFeeTokensUpdatesSeq: %w", err)
 	}
-	csOutput, err = opsutil.AddEVMCallSequenceToCSOutput(e, state, csOutput, feeTokensReport, err, cfg.MCMS, "Call ApplyFeeTokensUpdatesConfig on FeeQuoter")
+	csOutput, err = opsutil.AddEVMCallSequenceToCSOutput(e, csOutput, feeTokensReport, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Call ApplyFeeTokensUpdatesConfig on FeeQuoter")
 	if err != nil {
 		return csOutput, fmt.Errorf("failed to apply FeeQuoter fee tokens updates: %w", err)
 	}
@@ -129,7 +129,7 @@ func TranslateEVM2EVMOnRampsToFeeQuoterChangeset(e cldf.Environment, cfg Transla
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute FeeQApplyPremiumMultiplierWeiPerEthUpdatesSeq: %w", err)
 	}
-	csOutput, err = opsutil.AddEVMCallSequenceToCSOutput(e, state, csOutput, premiumMultiplierSqReport, err, cfg.MCMS, "Call ApplyPremiumMultiplierWeiPerEthUpdates on FeeQuoter")
+	csOutput, err = opsutil.AddEVMCallSequenceToCSOutput(e, csOutput, premiumMultiplierSqReport, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Call ApplyPremiumMultiplierWeiPerEthUpdates on FeeQuoter")
 	if err != nil {
 		return csOutput, fmt.Errorf("failed to apply FeeQuoter premium Multiplier config updates: %w", err)
 	}
@@ -234,7 +234,7 @@ func TranslateEVM2EVMOnRampsToFeeQTokenTransferFeeConfigChangeset(e cldf.Environ
 	}
 
 	// TODO: check the output: its empty
-	csOutput, err = opsutil.AddEVMCallSequenceToCSOutput(e, state, csOutput, report, err, cfg.MCMS, "Call ApplyTokenTransferFeeConfigUpdates on FeeQuoter")
+	csOutput, err = opsutil.AddEVMCallSequenceToCSOutput(e, csOutput, report, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Call ApplyTokenTransferFeeConfigUpdates on FeeQuoter")
 	if err != nil {
 		return csOutput, fmt.Errorf("failed to apply FeeQuoter fee tokens updates: %w", err)
 	}
