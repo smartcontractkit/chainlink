@@ -10,7 +10,7 @@ import (
 	burn_mint_external "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/burn_mint_with_external_minter_fast_transfer_token_pool"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 // UpdateDestChainConfigInput defines the input for updating destination chain configuration

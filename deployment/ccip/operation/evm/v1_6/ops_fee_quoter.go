@@ -20,7 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
