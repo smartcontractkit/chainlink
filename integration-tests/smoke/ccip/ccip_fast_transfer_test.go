@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
@@ -42,6 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -657,7 +659,123 @@ func configureFastTransferSettings(t *testing.T, e cldf.Environment, tokenSymbol
 	return err
 }
 
-func configureTokenPoolContracts(t *testing.T, e cldf.Environment, tokenSymbol string, sourceChainSelector, destinationChainSelector uint64, sourceTokenAddress, destinationTokenAddress common.Address, tokenDecimals uint8, fillerAddress common.Address, tc *fastTransferE2ETestCase, sourceLock *sync.Mutex, destinationLock *sync.Mutex) (sourcePoolAddr common.Address, destPoolAddr common.Address, version semver.Version, poolWrapper *bindings.FastTransferTokenPoolWrapper, sourceMinter mintableToken, destMinter mintableToken) {
+func configureFastTransferSettingsWithMCMS(t *testing.T, e cldf.Environment, tokenSymbol string, sourceChainSelector, destinationChainSelector uint64, fillerAddress common.Address, tc *fastTransferE2ETestCase, poolType cldf.ContractType, version semver.Version, useMCMS bool) error {
+	fillers := []common.Address{}
+	if tc.allowlistEnabled && tc.allowlistFiller {
+		fillers = append(fillers, fillerAddress)
+	}
+
+	// Configure filler allowlist
+	if tc.allowlistFiller {
+		config := v1_5_1.FastTransferFillerAllowlistConfig{
+			TokenSymbol:     shared.TokenSymbol(tokenSymbol),
+			ContractType:    poolType,
+			ContractVersion: version,
+			Updates: map[uint64]v1_5_1.FillerAllowlistConfig{
+				sourceChainSelector: {
+					AddFillers:    fillers,
+					RemoveFillers: []common.Address{},
+				},
+				destinationChainSelector: {
+					AddFillers:    fillers,
+					RemoveFillers: []common.Address{},
+				},
+			},
+		}
+
+		// Add MCMS configuration if requested
+		if useMCMS {
+			config.MCMS = &proposalutils.TimelockConfig{
+				MinDelay:   0 * time.Second,
+				MCMSAction: mcmstypes.TimelockActionSchedule,
+			}
+		}
+
+		_, _, err := commonchangeset.ApplyChangesets(t, e,
+			[]commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
+				v1_5_1.FastTransferFillerAllowlistChangeset,
+				config,
+			)}, commonchangeset.WithRealBackend())
+		if err != nil {
+			return err
+		}
+	}
+
+	// Configure lane settings
+	settlementGasOverhead := tc.settlementGasOverhead
+	laneConfig := v1_5_1.FastTransferUpdateLaneConfigConfig{
+		TokenSymbol:     shared.TokenSymbol(tokenSymbol),
+		ContractType:    poolType,
+		ContractVersion: version,
+		Updates: map[uint64](map[uint64]v1_5_1.UpdateLaneConfig){
+			sourceChainSelector: {
+				destinationChainSelector: {
+					FastTransferFillerFeeBps: 10,
+					FastTransferPoolFeeBps:   tc.fastTransferPoolFeeBps,
+					FillerAllowlistEnabled:   tc.allowlistEnabled,
+					FillAmountMaxRequest:     big.NewInt(100000),
+					SettlementOverheadGas:    &settlementGasOverhead,
+					SkipAllowlistValidation:  true,
+				},
+			},
+			destinationChainSelector: {
+				sourceChainSelector: {
+					FastTransferFillerFeeBps: 20,
+					FastTransferPoolFeeBps:   tc.fastTransferPoolFeeBps,
+					FillerAllowlistEnabled:   tc.allowlistEnabled,
+					FillAmountMaxRequest:     big.NewInt(100000),
+					SettlementOverheadGas:    &settlementGasOverhead,
+					SkipAllowlistValidation:  true,
+				},
+			},
+		},
+	}
+
+	// Add MCMS configuration if requested
+	if useMCMS {
+		laneConfig.MCMS = &proposalutils.TimelockConfig{
+			MinDelay:   0 * time.Second,
+			MCMSAction: mcmstypes.TimelockActionSchedule,
+		}
+	}
+
+	_, _, err := commonchangeset.ApplyChangesets(t, e,
+		[]commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
+			v1_5_1.FastTransferUpdateLaneConfigChangeset,
+			laneConfig,
+		)}, commonchangeset.WithRealBackend())
+	return err
+}
+
+func transferTokenPoolOwnershipToMCMS(t *testing.T, e cldf.Environment, poolAddresses map[uint64][]common.Address) {
+	_, _, err := commonchangeset.ApplyChangesets(t, e,
+		[]commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
+			commonchangeset.TransferToMCMSWithTimelockConfig{
+				ContractsByChain: poolAddresses,
+				MCMSConfig: proposalutils.TimelockConfig{
+					MinDelay: 0 * time.Second, // No delay for tests
+				},
+			},
+		)}, commonchangeset.WithRealBackend(),
+	)
+	require.NoError(t, err)
+
+	// Renounce timelock deployer for the chains
+	for chainSelector, _ := range poolAddresses {
+		_, _, err := commonchangeset.ApplyChangesets(t, e,
+			[]commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(commonchangeset.RenounceTimelockDeployer),
+				commonchangeset.RenounceTimelockDeployerConfig{
+					ChainSel: chainSelector,
+				},
+			)}, commonchangeset.WithRealBackend(),
+		)
+		require.NoError(t, err)
+	}
+}
+
+func configureTokenPoolContractsWithMCMS(t *testing.T, e cldf.Environment, tokenSymbol string, sourceChainSelector, destinationChainSelector uint64, sourceTokenAddress, destinationTokenAddress common.Address, tokenDecimals uint8, fillerAddress common.Address, tc *fastTransferE2ETestCase, sourceLock *sync.Mutex, destinationLock *sync.Mutex, useMCMS bool) (sourcePoolAddr common.Address, destPoolAddr common.Address, version semver.Version, poolWrapper *bindings.FastTransferTokenPoolWrapper, sourceMinter mintableToken, destMinter mintableToken) {
 	sourceLock.Lock()
 	defer sourceLock.Unlock()
 	destinationLock.Lock()
@@ -670,6 +788,7 @@ func configureTokenPoolContracts(t *testing.T, e cldf.Environment, tokenSymbol s
 		config = configureBurnMintTokenPool(t, e, sourceChainSelector, destinationChainSelector, sourceTokenAddress, destinationTokenAddress, tokenDecimals)
 	}
 
+	// Step 1: Deploy token pools without MCMS
 	cs, err := v1_5_1.DeployTokenPoolContractsChangeset(e, v1_5_1.DeployTokenPoolContractsConfig{
 		TokenSymbol: shared.TokenSymbol(tokenSymbol),
 		NewPools:    config.poolConfig,
@@ -682,13 +801,24 @@ func configureTokenPoolContracts(t *testing.T, e cldf.Environment, tokenSymbol s
 	err = e.ExistingAddresses.Merge(cs.AddressBook) //nolint:staticcheck // AddressBook is deprecated but still required
 	require.NoError(t, err)
 
+	// Step 2: Configure basic token pool settings without MCMS (rate limits, admin registry)
 	err = configureTokenPoolRateLimits(e, tokenSymbol, sourceChainSelector, destinationChainSelector, config.poolType, config.version)
 	require.NoError(t, err)
 
 	err = configureTokenAdminRegistry(e, tokenSymbol, sourceChainSelector, destinationChainSelector, config.poolType, config.version)
 	require.NoError(t, err)
 
-	err = configureFastTransferSettings(t, e, tokenSymbol, sourceChainSelector, destinationChainSelector, fillerAddress, tc, config.poolType, config.version)
+	// Step 3: Transfer ownership to MCMS if requested
+	if useMCMS {
+		poolAddresses := map[uint64][]common.Address{
+			sourceChainSelector:      {sourceTokenPoolAddress},
+			destinationChainSelector: {destinationTokenPoolAddress},
+		}
+		transferTokenPoolOwnershipToMCMS(t, e, poolAddresses)
+	}
+
+	// Step 4: Configure fast transfer settings (with or without MCMS)
+	err = configureFastTransferSettingsWithMCMS(t, e, tokenSymbol, sourceChainSelector, destinationChainSelector, fillerAddress, tc, config.poolType, config.version, useMCMS)
 	require.NoError(t, err)
 
 	sourceTokenPool, err := bindings.GetFastTransferTokenPoolContract(e, shared.TokenSymbol(tokenSymbol), config.poolType, config.version, sourceChainSelector)
@@ -770,7 +900,7 @@ func startRelayer(t *testing.T, sourceChainSelector, destinationChainSelector ui
 	return func() error { return relayer.Stop(context.Background()) }
 }
 
-func TestFastTransfer1_5Lanes(t *testing.T) {
+func setupFastTransfer1_5TestEnvironment(t *testing.T, useMCMS bool) (cldf.Environment, evm.CCIPChainState, testhelpers.TestEnvironment, sequenceNumberRetriever, waitForExecutionFn, waitForExecutionFn, *sync.Mutex, *sync.Mutex, *sync.Mutex) {
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithPrerequisiteDeploymentOnly(
@@ -871,9 +1001,15 @@ func TestFastTransfer1_5Lanes(t *testing.T) {
 	destinationLock := &sync.Mutex{}
 	sendLock := &sync.Mutex{}
 
+	return e.Env, sourceChainState, tEnv, seqNumRetriever, waitForExecution, waitForExecutionError, sourceLock, destinationLock, sendLock
+}
+
+func TestFastTransfer1_5Lanes(t *testing.T) {
+	e, sourceChainState, tEnv, seqNumRetriever, waitForExecution, waitForExecutionError, sourceLock, destinationLock, sendLock := setupFastTransfer1_5TestEnvironment(t, false)
+
 	for i, tc := range fastTransferTestCases {
 		ctx := newFastTransferTestContext(
-			e.Env,
+			e,
 			i,
 			sourceChainState,
 			tEnv,
@@ -883,12 +1019,13 @@ func TestFastTransfer1_5Lanes(t *testing.T) {
 			sourceLock,
 			destinationLock,
 			sendLock,
+			false, // useMCMS = false
 		)
 		runFastTransferTestCase(t, ctx, tc)
 	}
 }
 
-func TestFastTransfer1_6Lanes(t *testing.T) {
+func setupFastTransfer1_6TestEnvironment(t *testing.T, useMCMS bool) (cldf.Environment, evm.CCIPChainState, testhelpers.TestEnvironment, sequenceNumberRetriever, waitForExecutionFn, waitForExecutionFn, *sync.Mutex, *sync.Mutex, *sync.Mutex) {
 	e, _, deployedEnv := testsetups.NewIntegrationEnvironment(t)
 
 	onChainState, err := stateview.LoadOnchainState(e.Env)
@@ -925,9 +1062,15 @@ func TestFastTransfer1_6Lanes(t *testing.T) {
 	destinationLock := &sync.Mutex{}
 	sendLock := &sync.Mutex{}
 
+	return e.Env, sourceChainState, deployedEnv, seqNumRetriever, waitForExecution, waitForExecutionError, sourceLock, destinationLock, sendLock
+}
+
+func TestFastTransfer1_6Lanes(t *testing.T) {
+	e, sourceChainState, deployedEnv, seqNumRetriever, waitForExecution, waitForExecutionError, sourceLock, destinationLock, sendLock := setupFastTransfer1_6TestEnvironment(t, false)
+
 	for i, tc := range fastTransferTestCases {
 		ctx := newFastTransferTestContext(
-			e.Env,
+			e,
 			i,
 			sourceChainState,
 			deployedEnv,
@@ -937,6 +1080,49 @@ func TestFastTransfer1_6Lanes(t *testing.T) {
 			sourceLock,
 			destinationLock,
 			sendLock,
+			false, // useMCMS = false
+		)
+		runFastTransferTestCase(t, ctx, tc)
+	}
+}
+
+func TestFastTransfer1_5LanesWithMCMS(t *testing.T) {
+	e, sourceChainState, tEnv, seqNumRetriever, waitForExecution, waitForExecutionError, sourceLock, destinationLock, sendLock := setupFastTransfer1_5TestEnvironment(t, true)
+
+	for i, tc := range fastTransferTestCases {
+		ctx := newFastTransferTestContext(
+			e,
+			i,
+			sourceChainState,
+			tEnv,
+			seqNumRetriever,
+			waitForExecution,
+			waitForExecutionError,
+			sourceLock,
+			destinationLock,
+			sendLock,
+			true, // useMCMS = true
+		)
+		runFastTransferTestCase(t, ctx, tc)
+	}
+}
+
+func TestFastTransfer1_6LanesWithMCMS(t *testing.T) {
+	e, sourceChainState, deployedEnv, seqNumRetriever, waitForExecution, waitForExecutionError, sourceLock, destinationLock, sendLock := setupFastTransfer1_6TestEnvironment(t, true)
+
+	for i, tc := range fastTransferTestCases {
+		ctx := newFastTransferTestContext(
+			e,
+			i,
+			sourceChainState,
+			deployedEnv,
+			seqNumRetriever,
+			waitForExecution,
+			waitForExecutionError,
+			sourceLock,
+			destinationLock,
+			sendLock,
+			true, // useMCMS = true
 		)
 		runFastTransferTestCase(t, ctx, tc)
 	}
@@ -953,6 +1139,7 @@ type fastTransferTestContext struct {
 	sequenceNumberRetriever sequenceNumberRetriever
 	waitForExecution        waitForExecutionFn
 	waitForExecutionError   waitForExecutionFn
+	useMCMS                 bool
 }
 
 func (ctx *fastTransferTestContext) SourceChainSelector() uint64 {
@@ -994,6 +1181,7 @@ func newFastTransferTestContext(
 	sourceLock *sync.Mutex,
 	destinationLock *sync.Mutex,
 	sendLock *sync.Mutex,
+	useMCMS bool,
 ) *fastTransferTestContext {
 	return &fastTransferTestContext{
 		env:                     env,
@@ -1006,6 +1194,7 @@ func newFastTransferTestContext(
 		sequenceNumberRetriever: sequenceNumberRetriever,
 		waitForExecution:        waitForExecution,
 		waitForExecutionError:   waitForExecutionError,
+		useMCMS:                 useMCMS,
 	}
 }
 
@@ -1018,7 +1207,7 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 		sourceToken := deployTokenAndGrantAllRoles(t, ctx.SourceChain(), tc.tokenSymbol, tokenDecimals, ctx.sourceLock, tc.externalMinter)
 		destinationToken := deployTokenAndGrantAllRoles(t, ctx.DestinationChain(), tc.tokenSymbol, tokenDecimals, ctx.destinationLock, tc.externalMinter)
 
-		sourceTokenPoolAddress, destinationTokenPoolAddress, _, _, sourceMinter, destinationMinter := configureTokenPoolContracts(t, ctx.env, tc.tokenSymbol, ctx.SourceChainSelector(), ctx.DestinationChainSelector(), sourceToken.Address(), destinationToken.Address(), tokenDecimals, fillerAddress, tc, ctx.sourceLock, ctx.destinationLock)
+		sourceTokenPoolAddress, destinationTokenPoolAddress, _, _, sourceMinter, destinationMinter := configureTokenPoolContractsWithMCMS(t, ctx.env, tc.tokenSymbol, ctx.SourceChainSelector(), ctx.DestinationChainSelector(), sourceToken.Address(), destinationToken.Address(), tokenDecimals, fillerAddress, tc, ctx.sourceLock, ctx.destinationLock, ctx.useMCMS)
 		var contractType cldf.ContractType
 		if tc.externalMinter {
 			contractType = shared.BurnMintWithExternalMinterFastTransferTokenPool
