@@ -7,13 +7,15 @@ There are two step to executing the engine in stand alone mode:
 2. Run the engine with the compiled workflow binary
 
 ## Installing Capability Binaries
+Ensure GOBIN is set in your shell. The asdf tool manager does not currently work for this setup (sorry!).
+
 Install the capability binaries you need in a workflow via the core node make file scripts:
 
 ```bash
 make install-loopinstall
 make install-plugins-private
 ```
-
+Run `$GOBIN/cron -h` to confirm the installation.
 
 ### Legacy `data_feeds` Example
 

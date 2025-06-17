@@ -370,6 +370,35 @@ func WaitForNoCommit(
 	}
 }
 
+func WaitForNoExec(
+	t *testing.T,
+	src cldf_evm.Chain,
+	dest cldf_evm.Chain,
+	offRamp *evm_2_evm_offramp.EVM2EVMOffRamp,
+	seqNr uint64,
+) {
+	timer := time.NewTimer(30 * time.Second)
+	defer timer.Stop()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			state, err := offRamp.GetExecutionState(nil, seqNr)
+			require.NoError(t, err)
+			t.Logf("Waiting for no execution for sequence number %d, current state %d", seqNr, state)
+			// We expect the state to be untouched or in a failure state
+			if cciptypes.MessageExecutionState(state) == cciptypes.ExecutionStateSuccess {
+				t.Fatalf("Execution for sequence number %d found while it was not expected, current state %d", seqNr, state)
+				return
+			}
+		case <-timer.C:
+			t.Logf("Successfully observed no execution for sequence number %d for offramp %s during 30s period", seqNr, offRamp.Address().String())
+			return
+		}
+	}
+}
+
 func WaitForExecute(
 	t *testing.T,
 	src cldf_evm.Chain,

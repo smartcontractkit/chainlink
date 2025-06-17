@@ -74,7 +74,7 @@ func setBundleFeedConfigPrecondition(env cldf.Environment, c types.SetFeedBundle
 	}
 
 	if c.McmsConfig != nil {
-		if err := ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector); err != nil { //nolint:staticcheck // TODO: replace with DataStore when ready
+		if err := ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector); err != nil { // TODO: replace with DataStore when ready
 			return err
 		}
 	}

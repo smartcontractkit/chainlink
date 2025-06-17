@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -18,25 +19,33 @@ import (
 )
 
 const (
-	timeout = 240 * time.Second
+	timeoutV2 = 240 * time.Second
 )
 
-// ProposeWFJobsToJDChangeset is a changeset that reads a feed state file, creates a workflow job spec from it and proposes it to JD.
-var ProposeWFJobsToJDChangeset = cldf.CreateChangeSet(proposeWFJobsToJDLogic, proposeWFJobsToJDPrecondition)
+type NOPWorkflowMetadata struct {
+}
 
-func proposeWFJobsToJDLogic(env cldf.Environment, c types.ProposeWFJobsConfig) (cldf.ChangesetOutput, error) {
-	ctx, cancel := context.WithTimeout(env.GetContext(), timeout)
+// ProposeWFJobsToJDV2Changeset is a Durable Pipeline compatible changeset that reads a feed state file,
+// creates a workflow job spec from it and proposes it to JD.
+var ProposeWFJobsToJDV2Changeset = cldf.CreateChangeSet(proposeWFJobsToJDV2Logic, proposeWFJobsToJDV2Precondition)
+
+func proposeWFJobsToJDV2Logic(env cldf.Environment, c types.ProposeWFJobsV2Config) (cldf.ChangesetOutput, error) {
+	ctx, cancel := context.WithTimeout(env.GetContext(), timeoutV2)
 	defer cancel()
 
 	chainInfo, _ := cldf_chain_utils.ChainInfo(c.ChainSelector)
 
-	feedStatePath := filepath.Join("feeds", chainInfo.ChainName+".json")
-	feedState, _ := LoadJSON[*v1_0.FeedState](feedStatePath, c.InputFS)
+	domain := getDomain(c.Domain)
+	feedStatePath := filepath.Join("domains", domain, env.Name, "inputs", "feeds", chainInfo.ChainName+".json")
+	feedState, _ := readFeedStateFile(feedStatePath)
+
+	// Only get feeds that are part of the workflow
+	feeds := *getFeedsByWorkflow(&feedState.Feeds, c.WorkflowSpecConfig.WorkflowName)
 
 	// Add extra padded zeros to the feed IDs
-	for i := range feedState.Feeds {
+	for i := range feeds {
 		extraPaddedZeros := strings.Repeat("0", 32)
-		feedState.Feeds[i].FeedID += extraPaddedZeros
+		feeds[i].FeedID += extraPaddedZeros
 	}
 
 	workflowSpecConfig := c.WorkflowSpecConfig
@@ -46,40 +55,16 @@ func proposeWFJobsToJDLogic(env cldf.Environment, c types.ProposeWFJobsConfig) (
 	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, env.DataStore.Addresses(), c.ChainSelector, &c.CacheLabel)
 
 	// default values
-	consensusEncoderAbi, _ := getWorkflowConsensusEncoderAbi(workflowSpecConfig.TargetContractEncoderType)
-
-	consensusConfigKeyID := workflowSpecConfig.ConsensusConfigKeyID
-	if consensusConfigKeyID == "" {
-		consensusConfigKeyID = "evm"
-	}
-
-	consensusRef := workflowSpecConfig.ConsensusRef
-	if consensusRef == "" {
-		consensusRef = "data-feeds"
-	}
-
-	var triggersMaxFrequencyMs int
-	if workflowSpecConfig.TriggersMaxFrequencyMs == nil {
-		triggersMaxFrequencyMs = 5000
-	} else {
-		triggersMaxFrequencyMs = *workflowSpecConfig.TriggersMaxFrequencyMs
-	}
-
-	var deltaStageSec int
-	if workflowSpecConfig.DeltaStageSec == nil {
-		deltaStageSec = 45
-	} else {
-		deltaStageSec = *workflowSpecConfig.DeltaStageSec
-	}
-
-	targetSchedule := workflowSpecConfig.TargetsSchedule
-	if targetSchedule == "" {
-		targetSchedule = "oneAtATime"
-	}
+	consensusEncoderAbi, _ := _getWorkflowConsensusEncoderAbi(workflowSpecConfig.TargetContractEncoderType)
+	consensusConfigKeyID := getConsensusConfigKey(workflowSpecConfig.ConsensusConfigKeyID)
+	consensusRef := getConsensusRef(workflowSpecConfig.ConsensusRef)
+	triggersMaxFrequencyMs := getMaxFrequencyMs(workflowSpecConfig.TriggersMaxFrequencyMs)
+	deltaStageSec := getDeltaStage(workflowSpecConfig.DeltaStageSec)
+	targetSchedule := getTargetSchedule(workflowSpecConfig.TargetsSchedule)
 
 	// create the workflow YAML spec
 	workflowSpec, err := offchain.CreateWorkflowSpec(
-		feedState.Feeds,
+		feeds,
 		workflowSpecConfig.WorkflowName,
 		workflowState.Owner,
 		triggersMaxFrequencyMs,
@@ -100,6 +85,9 @@ func proposeWFJobsToJDLogic(env cldf.Environment, c types.ProposeWFJobsConfig) (
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create workflow spec: %w", err)
 	}
 
+	// log the workflow spec for debugging purposes. We don't yet store it anywhere
+	fmt.Println(workflowSpec)
+
 	// create workflow job spec TOML
 	workflowJobSpec, err := offchain.JobSpecFromWorkflowSpec(workflowSpec, c.WorkflowJobName, workflowState.Owner)
 	if err != nil {
@@ -113,30 +101,10 @@ func proposeWFJobsToJDLogic(env cldf.Environment, c types.ProposeWFJobsConfig) (
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose workflow job spec: %w", err)
 	}
 
-	// write the workflow spec to artifacts/migration_name folder. Do not exit on error as the jobs are already proposed
-	// using the absolute path to the file as the command is run from root in CLD pipeline
-	wfSpecPath := filepath.Join("domains", "data-feeds", env.Name, "artifacts", c.MigrationName, workflowState.Name+".yaml")
-	err = os.MkdirAll(filepath.Dir(wfSpecPath), 0755)
-	if err != nil {
-		env.Logger.Errorf("failed to create directory for workflow file: %s", err)
-		env.Logger.Debugf("%s", workflowJobSpec)
-		return out, nil
-	}
-
-	err = os.WriteFile(wfSpecPath, []byte(workflowSpec), 0600)
-	if err != nil {
-		env.Logger.Errorf("failed to write workflow to file: %s", err)
-		env.Logger.Debugf("%s", workflowJobSpec)
-	}
-
 	return out, nil
 }
 
-func proposeWFJobsToJDPrecondition(env cldf.Environment, c types.ProposeWFJobsConfig) error {
-	if c.MigrationName == "" {
-		return errors.New("migration name is required")
-	}
-
+func proposeWFJobsToJDV2Precondition(env cldf.Environment, c types.ProposeWFJobsV2Config) error {
 	if c.WorkflowJobName == "" {
 		return errors.New("workflow job name is required")
 	}
@@ -166,15 +134,16 @@ func proposeWFJobsToJDPrecondition(env cldf.Environment, c types.ProposeWFJobsCo
 		return fmt.Errorf("failed to get consensus encoder abi: %w", err)
 	}
 
+	domain := getDomain(c.Domain)
 	chainInfo, err := cldf_chain_utils.ChainInfo(c.ChainSelector)
 	if err != nil {
 		return fmt.Errorf("failed to get chain info for chain %d: %w", c.ChainSelector, err)
 	}
-	inputFileName := filepath.Join("feeds", chainInfo.ChainName+".json")
+	feedStatePath := filepath.Join("domains", domain, env.Name, "inputs", "feeds", chainInfo.ChainName+".json")
 
-	feedState, err := LoadJSON[*v1_0.FeedState](inputFileName, c.InputFS)
+	feedState, err := readFeedStateFile(feedStatePath)
 	if err != nil {
-		return fmt.Errorf("failed to load feed mapping from %s: %w", inputFileName, err)
+		return fmt.Errorf("failed to read feed state file %s: %w", feedStatePath, err)
 	}
 
 	err = feedState.Validate()
@@ -184,7 +153,7 @@ func proposeWFJobsToJDPrecondition(env cldf.Environment, c types.ProposeWFJobsCo
 
 	workflowState := feedState.Workflows[c.WorkflowSpecConfig.WorkflowName]
 	if workflowState.Name == "" || workflowState.Owner == "" || workflowState.Forwarder == "" {
-		return fmt.Errorf("no workflow found for hash %s in %s", c.WorkflowSpecConfig.WorkflowName, inputFileName)
+		return fmt.Errorf("no workflow found for hash %s in %s", c.WorkflowSpecConfig.WorkflowName, feedStatePath)
 	}
 
 	// Addressbook is deprecated, but we still use it for the time being
@@ -200,7 +169,7 @@ func proposeWFJobsToJDPrecondition(env cldf.Environment, c types.ProposeWFJobsCo
 	return nil
 }
 
-func getWorkflowConsensusEncoderAbi(targetContractEncoderType string) (string, error) {
+func _getWorkflowConsensusEncoderAbi(targetContractEncoderType string) (string, error) {
 	switch targetContractEncoderType {
 	case "data-feeds_decimal":
 		return "(bytes32 RemappedID, uint32 Timestamp, uint224 Price)[] Reports", nil
@@ -211,4 +180,75 @@ func getWorkflowConsensusEncoderAbi(targetContractEncoderType string) (string, e
 	default:
 		return "", fmt.Errorf("unknown consensus encoder type %s", targetContractEncoderType)
 	}
+}
+
+func getDomain(domain string) string {
+	if domain == "" {
+		return "data-feeds"
+	}
+	return domain
+}
+
+func readFeedStateFile(inputFileName string) (*v1_0.FeedState, error) {
+	content, err := os.ReadFile(inputFileName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load feed mapping from %s: %w", inputFileName, err)
+	}
+
+	var feedState *v1_0.FeedState
+
+	err = json.Unmarshal(content, &feedState)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal feed state from %s: %w", inputFileName, err)
+	}
+	return feedState, nil
+}
+
+func getConsensusConfigKey(consensusConfigKeyID string) string {
+	if consensusConfigKeyID == "" {
+		return "evm"
+	}
+	return consensusConfigKeyID
+}
+
+func getConsensusRef(consensusRef string) string {
+	if consensusRef == "" {
+		return "data-feeds"
+	}
+	return consensusRef
+}
+
+func getMaxFrequencyMs(maxFrequencyMs *int) int {
+	if maxFrequencyMs == nil {
+		return 5000
+	}
+	return *maxFrequencyMs
+}
+
+func getDeltaStage(deltaStageSec *int) int {
+	if deltaStageSec == nil {
+		return 45
+	}
+	return *deltaStageSec
+}
+
+func getTargetSchedule(targetSchedule string) string {
+	if targetSchedule == "" {
+		return "oneAtATime"
+	}
+	return targetSchedule
+}
+
+func getFeedsByWorkflow(allFeeds *[]v1_0.Feed, workflowHash string) *[]v1_0.Feed {
+	var result []v1_0.Feed
+	for _, feed := range *allFeeds {
+		for _, workflow := range feed.Workflows {
+			if workflow == workflowHash {
+				result = append(result, feed)
+				break
+			}
+		}
+	}
+
+	return &result
 }
