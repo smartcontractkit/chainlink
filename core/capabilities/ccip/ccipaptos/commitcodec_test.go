@@ -13,7 +13,6 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 var randomCommitReport = func() cciptypes.CommitPluginReport {
@@ -126,7 +125,7 @@ func TestCommitPluginCodecV1(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			report := tc.report(randomCommitReport())
 			commitCodec := NewCommitPluginCodecV1()
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			encodedReport, err := commitCodec.Encode(ctx, report)
 			if tc.expErr {
 				assert.Error(t, err)
@@ -160,7 +159,7 @@ func TestCommitPluginCodecV1_Decode(t *testing.T) {
 	require.NoError(t, err)
 
 	codec := NewCommitPluginCodecV1()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	commitReport, err := codec.Decode(ctx, commitReportBytes)
 	require.NoError(t, err)
@@ -187,7 +186,7 @@ func TestCommitPluginCodecV1_Decode(t *testing.T) {
 
 func BenchmarkCommitPluginCodecV1_Encode(b *testing.B) {
 	commitCodec := NewCommitPluginCodecV1()
-	ctx := testutils.Context(b)
+	ctx := b.Context()
 
 	rep := randomCommitReport()
 	for i := 0; i < b.N; i++ {
@@ -198,7 +197,8 @@ func BenchmarkCommitPluginCodecV1_Encode(b *testing.B) {
 
 func BenchmarkCommitPluginCodecV1_Decode(b *testing.B) {
 	commitCodec := NewCommitPluginCodecV1()
-	ctx := testutils.Context(b)
+	ctx := b.Context()
+
 	encodedReport, err := commitCodec.Encode(ctx, randomCommitReport())
 	require.NoError(b, err)
 

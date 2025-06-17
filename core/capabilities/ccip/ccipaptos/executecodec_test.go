@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 var randomExecuteReport = func(t *testing.T, chainSelector uint64, gasLimit *big.Int, destGasAmount uint32) cciptypes.ExecutePluginReport {
@@ -92,7 +91,7 @@ var randomExecuteReport = func(t *testing.T, chainSelector uint64, gasLimit *big
 }
 
 func TestExecutePluginCodecV1(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	mockExtraDataCodec := &mocks.SourceChainExtraDataCodec{}
 	destGasAmount := rand.Uint32()
 	gasLimit := utils.RandUint256()
