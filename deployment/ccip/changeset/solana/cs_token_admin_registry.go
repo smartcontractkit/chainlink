@@ -209,25 +209,7 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment
 	if err := chainState.ValidateRouterConfig(chain); err != nil {
 		return err
 	}
-	currentAdmin := GetAuthorityForIxn(
-		&e,
-		chain,
-		chainState,
-		shared.Router,
-		solana.PublicKey{},
-		"",
-	)
-
 	newRegistryAdminPubKey := solana.MustPublicKeyFromBase58(cfg.NewRegistryAdminPublicKey)
-
-	if currentAdmin.Equals(newRegistryAdminPubKey) {
-		return fmt.Errorf("new registry admin public key (%s) cannot be the same as current registry admin public key (%s) for token %s",
-			newRegistryAdminPubKey.String(),
-			currentAdmin.String(),
-			tokenPubKey.String(),
-		)
-	}
-
 	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.Router: true}); err != nil {
 		return err
 	}
@@ -240,6 +222,15 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment
 	if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
 		return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot transfer admin role", tokenPubKey.String(), routerProgramAddress.String())
 	}
+	currentAdmin := tokenAdminRegistryAccount.Administrator
+	if currentAdmin.Equals(newRegistryAdminPubKey) {
+		return fmt.Errorf("new registry admin public key (%s) cannot be the same as current registry admin public key (%s) for token %s",
+			newRegistryAdminPubKey.String(),
+			currentAdmin.String(),
+			tokenPubKey.String(),
+		)
+	}
+
 	return nil
 }
 
