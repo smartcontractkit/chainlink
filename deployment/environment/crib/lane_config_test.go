@@ -214,10 +214,11 @@ func findBidirectionalPairs(lanes []LaneConfig) [][]LaneConfig {
 
 func TestLaneConfiguration_GenerateLanes_BidirectionalMode(t *testing.T) {
 	tests := []struct {
-		name     string
-		lc       *LaneConfiguration
-		chains   []uint64
-		expected int
+		name            string
+		lc              *LaneConfiguration
+		chains          []uint64
+		expected        int
+		validationError bool
 	}{
 		{
 			name: "Random lanes with bidirectional",
@@ -227,6 +228,32 @@ func TestLaneConfiguration_GenerateLanes_BidirectionalMode(t *testing.T) {
 			},
 			chains:   []uint64{1, 2, 3},
 			expected: 6,
+		},
+		{
+			name: "Nil mode",
+			lc: &LaneConfiguration{
+				NumLanes: pointer.Int(5),
+			},
+			chains:          []uint64{1, 2, 3, 4},
+			validationError: true,
+		},
+		{
+			name: "Random lanes with bidirectional - wrong lane count",
+			lc: &LaneConfiguration{
+				Mode:     pointer.String(LaneModeRandomLanes),
+				NumLanes: pointer.Int(5),
+			},
+			chains:          []uint64{1, 2, 3, 4},
+			validationError: true,
+		},
+		{
+			name: "Random lanes with bidirectional - odd lane count",
+			lc: &LaneConfiguration{
+				Mode:     pointer.String(LaneModeRandomLanes),
+				NumLanes: pointer.Int(9),
+			},
+			chains:   []uint64{1, 2, 3, 4},
+			expected: 10,
 		},
 		{
 			name: "Any-to-any mode",
@@ -240,13 +267,30 @@ func TestLaneConfiguration_GenerateLanes_BidirectionalMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			err := tt.lc.Validate(len(tt.chains))
+			if tt.validationError {
+				require.Error(t, err,
+					"Lane configuration validation should fail for invalid cases")
+				return
+			}
+
+			require.NoError(t, err,
+				"Lane configuration validation should not fail")
+
 			lanes := tt.lc.GenerateLanes(tt.chains)
 
-			// Validate basic properties
-			require.Equal(t, len(lanes), tt.expected)
+			require.Equal(t, tt.expected, len(lanes))
 
 			if tt.lc.Mode != nil && *tt.lc.Mode == LaneModeAnyToAny {
 				validateFullBidirectionalConnectivity(t, lanes, tt.chains, tt.expected)
+			}
+
+			if tt.lc.Mode != nil && *tt.lc.Mode == LaneModeRandomLanes {
+				if tt.expected == len(tt.chains)*(len(tt.chains)-1) {
+					validateFullBidirectionalConnectivity(t, lanes, tt.chains, tt.expected)
+				} else {
+					validatePartialBidirectionalConnectivity(t, lanes, tt.chains, tt.expected)
+				}
 			}
 		})
 	}

@@ -185,10 +185,6 @@ func generateRandomLanesWithMinConnectivity(chains []uint64, numLanes int) []Lan
 
 	// Fill remaining slots with random lanes
 	if numLanes <= len(generatedLanes) {
-		// If requested lanes <= guaranteed lanes, just return a subset of guaranteed lanes
-		if numLanes < len(generatedLanes) {
-			return generatedLanes[:numLanes]
-		}
 		return generatedLanes
 	}
 
