@@ -74,6 +74,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	selectorA, selectorB := allChains[0], allChains[1]
 	pairs := []testhelpers.SourceDestPair{
 		{SourceChainSelector: selectorA, DestChainSelector: selectorB},
+		{SourceChainSelector: selectorB, DestChainSelector: selectorA},
 	}
 
 	// 3. Remove link token as it will be deployed by 1.6 contracts again
@@ -104,7 +105,9 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	state, err = stateview.LoadOnchainState(tenv)
 	require.NoError(t, err, "Failed to load initial onchain state")
 	sourceChainState = state.MustGetEVMChainState(sourceChainSelector)
-	require.NotNil(t, sourceChainState.EVM2EVMOnRamp, "1.5.0 OnRamps should be deployed on source chain")
+	require.NotNil(t, sourceChainState, "Src Chain state should not be nil")
+	destChainState := state.MustGetEVMChainState(destChainSelector)
+	require.NotNil(t, destChainState.EVM2EVMOnRamp, "1.5.0 OnRamps should be deployed on dest chain")
 	onRamp1_5Info := sourceChainState.EVM2EVMOnRamp[destChainSelector]
 	require.NotNil(t, onRamp1_5Info, "1.5.0 OnRamp instance info should not be nil")
 
@@ -125,8 +128,8 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 
 	// 7. Apply Translation Changeset
 	translateConfig := v1_6.TranslateEVM2EVMOnRampsToFeeQuoterConfig{
-		SourceChainSelectors: []uint64{sourceChainSelector},
-		MCMS:                 nil, // Not testing MCMS interactions in this specific test
+		DestChainSelector: destChainSelector,
+		MCMS:              nil, // Not testing MCMS interactions in this specific test
 	}
 
 	_, err = v1_6.TranslateEVM2EVMOnRampsToFeeQuoterChangeset(tenv, translateConfig)
