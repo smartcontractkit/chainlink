@@ -174,6 +174,7 @@ func (r *Relayer) SubmitTransaction(ctx context.Context, txRequest evmtypes.Subm
 		return nil, err
 	}
 
+	//PLEX-1524 - Use ticker instead of time.Sleep
 	time.Sleep(config.EVM().TxMinimumWaitTimeForConfirmation())
 
 	start := time.Now()
