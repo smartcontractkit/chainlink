@@ -155,6 +155,10 @@ func generateAnyToAnyLanes(chains []uint64) []LaneConfig {
 }
 
 func generateRandomLanesWithMinConnectivity(chains []uint64, numLanes int) []LaneConfig {
+	if len(chains) <= 1 {
+		// If there's only one chain or none, no lanes can be generated
+		return []LaneConfig{}
+	}
 	rng := rand.New(rand.NewSource(rand.Int63()))
 
 	// Ensure minimum connectivity - each chain must be both source and destination
@@ -493,10 +497,9 @@ func (lc *LaneConfiguration) LogLaneConfigInfo(lggr logger.Logger) {
 Mode = "any-to-any"
 */
 
-// Random lanes - deterministic based on configuration
+// Random lanes
 /*
 
 Mode = "random-lanes"
 NumLanes = 350
-EnsureBidirectional = true
 */

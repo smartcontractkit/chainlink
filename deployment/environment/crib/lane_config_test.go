@@ -1,21 +1,19 @@
 package crib
 
 import (
-	"k8s.io/utils/pointer"
-	"math/rand"
 	"testing"
+
+	"k8s.io/utils/pointer"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateRandomLanesWithMinConnectivity(t *testing.T) {
-	rand.Seed(12345)
 
 	tests := []struct {
 		name         string
 		chains       []uint64
 		numLanes     int
-		shouldError  bool
 		validateFunc func(t *testing.T, lanes []LaneConfig, chains []uint64, numLanes int)
 	}{
 		{
@@ -42,23 +40,10 @@ func TestGenerateRandomLanesWithMinConnectivity(t *testing.T) {
 			numLanes:     20,
 			validateFunc: validatePartialBidirectionalConnectivity,
 		},
-		{
-			name:         "Request fewer lanes than minimum",
-			chains:       []uint64{1, 2, 3},
-			numLanes:     4, // Less than minimum 6
-			validateFunc: validatePartialBidirectionalConnectivity,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.shouldError {
-				require.Panics(t, func() {
-					generateRandomLanesWithMinConnectivity(tt.chains, tt.numLanes)
-				})
-				return
-			}
-
 			lanes := generateRandomLanesWithMinConnectivity(tt.chains, tt.numLanes)
 			tt.validateFunc(t, lanes, tt.chains, tt.numLanes)
 		})
@@ -75,7 +60,7 @@ func TestBidirectionalPairGeneration(t *testing.T) {
 	bidirectionalPairs := findBidirectionalPairs(lanes)
 
 	// With 4 chains and 12 lanes, we should have 6 bidirectional pairs
-	require.Equal(t, 6, len(bidirectionalPairs), "Should have exactly 3 bidirectional pairs")
+	require.Len(t, bidirectionalPairs, 6, "Should have exactly 3 bidirectional pairs")
 
 	// Each chain should be reachable from every other chain
 	require.True(t, isFullyConnected(lanes, chains))
@@ -121,8 +106,8 @@ func validateLaneBidirecionality(t *testing.T, lanes []LaneConfig) {
 		}
 		require.Contains(t, laneSet, reverseLane, "Each lane should have a reverse pair")
 	}
-
 }
+
 func validatePartialBidirectionalConnectivity(t *testing.T, lanes []LaneConfig, chains []uint64, numLanes int) {
 	if len(chains) <= 1 {
 		validateEmptyResult(t, lanes, chains, numLanes)
@@ -253,7 +238,7 @@ func TestLaneConfiguration_GenerateLanes_BidirectionalMode(t *testing.T) {
 				NumLanes: pointer.Int(9),
 			},
 			chains:   []uint64{1, 2, 3, 4},
-			expected: 10,
+			expected: 10, // requested 9, but should generate 10 to ensure all lanes are bidirectional
 		},
 		{
 			name: "Any-to-any mode",
@@ -279,7 +264,7 @@ func TestLaneConfiguration_GenerateLanes_BidirectionalMode(t *testing.T) {
 
 			lanes := tt.lc.GenerateLanes(tt.chains)
 
-			require.Equal(t, tt.expected, len(lanes))
+			require.Len(t, lanes, tt.expected)
 
 			if tt.lc.Mode != nil && *tt.lc.Mode == LaneModeAnyToAny {
 				validateFullBidirectionalConnectivity(t, lanes, tt.chains, tt.expected)

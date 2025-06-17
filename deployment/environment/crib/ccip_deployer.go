@@ -9,8 +9,6 @@ import (
 	"os"
 	"sync"
 
-	"k8s.io/utils/pointer"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/rs/zerolog"
@@ -159,11 +157,10 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	// Set up the LaneConfiguration with any to any if not provided
-	if laneConfig == nil {
-		laneConfig = &LaneConfiguration{
-			Mode: pointer.String(LaneModeAnyToAny),
-		}
+	err = laneConfig.Validate(len(e.BlockChains.ListChainSelectors()))
+	if err != nil {
+		return DeployCCIPOutput{},
+			fmt.Errorf("failed to validate lane configuration against deployed env: %w", err)
 	}
 
 	allChains := e.BlockChains.ListChainSelectors()
@@ -790,7 +787,6 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 }
 
 func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState, laneConfig *LaneConfiguration) (cldf.Environment, error) {
-
 	lanes, err := laneConfig.GetLanes()
 	if err != nil {
 		return *e, fmt.Errorf("failed to get lanes from config: %w", err)

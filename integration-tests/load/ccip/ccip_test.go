@@ -441,15 +441,15 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	}()
 
 	// after load is finished, wait for a "timeout duration" before considering that messages are timed out
-	//timeout := userOverrides.GetTimeoutDuration()
-	//if timeout != 0 {
-	//	testTimer := time.NewTimer(timeout)
-	//	go func() {
-	//		<-testTimer.C
-	//		cancel()
-	//		t.Fail()
-	//	}()
-	//}
+	timeout := userOverrides.GetTimeoutDuration()
+	if timeout != 0 {
+		testTimer := time.NewTimer(timeout)
+		go func() {
+			<-testTimer.C
+			cancel()
+			t.Fail()
+		}()
+	}
 
 	wg.Wait()
 	lggr.Infow("closed event subscribers")
