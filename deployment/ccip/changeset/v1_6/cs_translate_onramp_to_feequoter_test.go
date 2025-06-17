@@ -103,7 +103,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	// 6. Validate all needed contracts are deployed
 	state, err = stateview.LoadOnchainState(tenv)
 	require.NoError(t, err, "Failed to load initial onchain state")
-	sourceChainState = state.MustGetEVMChainState(sourceChainSelector)
+	sourceChainState := state.MustGetEVMChainState(sourceChainSelector)
 	require.NotNil(t, sourceChainState, "Src Chain state should not be nil")
 	destChainState := state.MustGetEVMChainState(destChainSelector)
 	require.NotNil(t, destChainState.EVM2EVMOnRamp, "1.5.0 OnRamps should be deployed on dest chain")
