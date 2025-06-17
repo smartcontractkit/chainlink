@@ -31,7 +31,7 @@ type E2ETokenPoolConfig struct {
 	RegisterTokenAdminRegistry            []RegisterTokenAdminRegistryConfig
 	AcceptAdminRoleTokenAdminRegistry     []AcceptAdminRoleTokenAdminRegistryConfig
 	SetPool                               []SetPoolConfig
-	RemoteChainTokenPool                  []RemoteChainTokenPoolConfig               // setup evm remote pools ON solana
+	RemoteChainTokenPool                  []RemoteChainTokenPoolConfig               // setup evm remote pools on solana
 	ConfigureTokenPoolContractsChangesets []v1_5_1.ConfigureTokenPoolContractsConfig // setup evm/solana remote pools on evm
 	MCMS                                  *proposalutils.TimelockConfig              // set it to aggregate all the proposals
 }
