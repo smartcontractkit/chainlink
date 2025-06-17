@@ -762,7 +762,7 @@ func transferTokenPoolOwnershipToMCMS(t *testing.T, e cldf.Environment, poolAddr
 	require.NoError(t, err)
 
 	// Renounce timelock deployer for the chains
-	for chainSelector, _ := range poolAddresses {
+	for chainSelector := range poolAddresses {
 		_, _, err := commonchangeset.ApplyChangesets(t, e,
 			[]commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(commonchangeset.RenounceTimelockDeployer),
@@ -900,7 +900,7 @@ func startRelayer(t *testing.T, sourceChainSelector, destinationChainSelector ui
 	return func() error { return relayer.Stop(context.Background()) }
 }
 
-func setupFastTransfer1_5TestEnvironment(t *testing.T, useMCMS bool) (cldf.Environment, evm.CCIPChainState, testhelpers.TestEnvironment, sequenceNumberRetriever, waitForExecutionFn, waitForExecutionFn, *sync.Mutex, *sync.Mutex, *sync.Mutex) {
+func setupFastTransfer1_5TestEnvironment(t *testing.T, useMCMS bool) *fastTransferTestContext {
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithPrerequisiteDeploymentOnly(
@@ -1001,31 +1001,30 @@ func setupFastTransfer1_5TestEnvironment(t *testing.T, useMCMS bool) (cldf.Envir
 	destinationLock := &sync.Mutex{}
 	sendLock := &sync.Mutex{}
 
-	return e.Env, sourceChainState, tEnv, seqNumRetriever, waitForExecution, waitForExecutionError, sourceLock, destinationLock, sendLock
+	return newFastTransferTestContext(
+		e.Env,
+		sourceChainState,
+		tEnv,
+		seqNumRetriever,
+		waitForExecution,
+		waitForExecutionError,
+		sourceLock,
+		destinationLock,
+		sendLock,
+		useMCMS,
+	)
 }
 
 func TestFastTransfer1_5Lanes(t *testing.T) {
-	e, sourceChainState, tEnv, seqNumRetriever, waitForExecution, waitForExecutionError, sourceLock, destinationLock, sendLock := setupFastTransfer1_5TestEnvironment(t, false)
+	baseCtx := setupFastTransfer1_5TestEnvironment(t, false)
 
 	for i, tc := range fastTransferTestCases {
-		ctx := newFastTransferTestContext(
-			e,
-			i,
-			sourceChainState,
-			tEnv,
-			seqNumRetriever,
-			waitForExecution,
-			waitForExecutionError,
-			sourceLock,
-			destinationLock,
-			sendLock,
-			false, // useMCMS = false
-		)
+		ctx := baseCtx.WithTestIndex(i)
 		runFastTransferTestCase(t, ctx, tc)
 	}
 }
 
-func setupFastTransfer1_6TestEnvironment(t *testing.T, useMCMS bool) (cldf.Environment, evm.CCIPChainState, testhelpers.TestEnvironment, sequenceNumberRetriever, waitForExecutionFn, waitForExecutionFn, *sync.Mutex, *sync.Mutex, *sync.Mutex) {
+func setupFastTransfer1_6TestEnvironment(t *testing.T, useMCMS bool) *fastTransferTestContext {
 	e, _, deployedEnv := testsetups.NewIntegrationEnvironment(t)
 
 	onChainState, err := stateview.LoadOnchainState(e.Env)
@@ -1062,68 +1061,43 @@ func setupFastTransfer1_6TestEnvironment(t *testing.T, useMCMS bool) (cldf.Envir
 	destinationLock := &sync.Mutex{}
 	sendLock := &sync.Mutex{}
 
-	return e.Env, sourceChainState, deployedEnv, seqNumRetriever, waitForExecution, waitForExecutionError, sourceLock, destinationLock, sendLock
+	return newFastTransferTestContext(
+		e.Env,
+		sourceChainState,
+		deployedEnv,
+		seqNumRetriever,
+		waitForExecution,
+		waitForExecutionError,
+		sourceLock,
+		destinationLock,
+		sendLock,
+		useMCMS,
+	)
 }
 
 func TestFastTransfer1_6Lanes(t *testing.T) {
-	e, sourceChainState, deployedEnv, seqNumRetriever, waitForExecution, waitForExecutionError, sourceLock, destinationLock, sendLock := setupFastTransfer1_6TestEnvironment(t, false)
+	baseCtx := setupFastTransfer1_6TestEnvironment(t, false)
 
 	for i, tc := range fastTransferTestCases {
-		ctx := newFastTransferTestContext(
-			e,
-			i,
-			sourceChainState,
-			deployedEnv,
-			seqNumRetriever,
-			waitForExecution,
-			waitForExecutionError,
-			sourceLock,
-			destinationLock,
-			sendLock,
-			false, // useMCMS = false
-		)
+		ctx := baseCtx.WithTestIndex(i)
 		runFastTransferTestCase(t, ctx, tc)
 	}
 }
 
 func TestFastTransfer1_5LanesWithMCMS(t *testing.T) {
-	e, sourceChainState, tEnv, seqNumRetriever, waitForExecution, waitForExecutionError, sourceLock, destinationLock, sendLock := setupFastTransfer1_5TestEnvironment(t, true)
+	baseCtx := setupFastTransfer1_5TestEnvironment(t, true)
 
 	for i, tc := range fastTransferTestCases {
-		ctx := newFastTransferTestContext(
-			e,
-			i,
-			sourceChainState,
-			tEnv,
-			seqNumRetriever,
-			waitForExecution,
-			waitForExecutionError,
-			sourceLock,
-			destinationLock,
-			sendLock,
-			true, // useMCMS = true
-		)
+		ctx := baseCtx.WithTestIndex(i)
 		runFastTransferTestCase(t, ctx, tc)
 	}
 }
 
 func TestFastTransfer1_6LanesWithMCMS(t *testing.T) {
-	e, sourceChainState, deployedEnv, seqNumRetriever, waitForExecution, waitForExecutionError, sourceLock, destinationLock, sendLock := setupFastTransfer1_6TestEnvironment(t, true)
+	baseCtx := setupFastTransfer1_6TestEnvironment(t, true)
 
 	for i, tc := range fastTransferTestCases {
-		ctx := newFastTransferTestContext(
-			e,
-			i,
-			sourceChainState,
-			deployedEnv,
-			seqNumRetriever,
-			waitForExecution,
-			waitForExecutionError,
-			sourceLock,
-			destinationLock,
-			sendLock,
-			true, // useMCMS = true
-		)
+		ctx := baseCtx.WithTestIndex(i)
 		runFastTransferTestCase(t, ctx, tc)
 	}
 }
@@ -1170,9 +1144,14 @@ func (ctx *fastTransferTestContext) SendLock() *sync.Mutex {
 	return ctx.sendLock
 }
 
+func (ctx *fastTransferTestContext) WithTestIndex(testIndex int) *fastTransferTestContext {
+	clone := *ctx
+	clone.testIndex = testIndex
+	return &clone
+}
+
 func newFastTransferTestContext(
 	env cldf.Environment,
-	testIndex int,
 	sourceChainState evm.CCIPChainState,
 	deployedEnv testhelpers.TestEnvironment,
 	sequenceNumberRetriever sequenceNumberRetriever,
@@ -1185,7 +1164,7 @@ func newFastTransferTestContext(
 ) *fastTransferTestContext {
 	return &fastTransferTestContext{
 		env:                     env,
-		testIndex:               testIndex,
+		testIndex:               0,
 		sourceLock:              sourceLock,
 		destinationLock:         destinationLock,
 		sendLock:                sendLock,
