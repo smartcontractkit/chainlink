@@ -203,24 +203,6 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 		)
 	})
 
-	t.Run("Send message to EOA using more than max Gas Limit - Should Fail", func(t *testing.T) {
-		message := []byte("Hello Aptos, from EVM!")
-		atposEOAAddress := e.Env.BlockChains.AptosChains()[destChain].DeployerSigner.AccountAddress()
-		messagingtest.Run(t,
-			messagingtest.TestCase{
-				TestSetup:      setup,
-				Nonce:          &nonce,
-				ValidationType: messagingtest.ValidationTypeExec,
-				Receiver:       atposEOAAddress[:], // Sending to EOA
-				MsgData:        message,
-				// true for out of order execution, which is necessary and enforced for Aptos
-				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit)+1, true),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_FAILURE,
-				FeeToken:               NATIVE_FEE_TOKEN,
-			},
-		)
-	})
-
 	t.Run("Not Enough Gas on Destination - Should Fail (Status = 3)", func(t *testing.T) {
 		t.Skip("TODO: Unskip this test when we have a fix for this bug")
 		message := []byte("Hello Aptos, from EVM!")
@@ -288,6 +270,22 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 			Name:      "Max Data Bytes + 1 - Should Fail",
 			Msg: router.ClientEVM2AnyMessage{
 				Receiver:  ccipChainState.ReceiverAddress[:],
+				Data:      message,
+				FeeToken:  common.HexToAddress(NATIVE_FEE_TOKEN),
+				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit)+1, true),
+			},
+			ExpRevert: true,
+		})
+	})
+
+	t.Run("Max Data Bytes + 1 to EOA - Should Fail", func(t *testing.T) {
+		atposEOAAddress := e.Env.BlockChains.AptosChains()[destChain].DeployerSigner.AccountAddress()
+		message := []byte(strings.Repeat("0", int(srcFeeQuoterDestChainConfig.MaxDataBytes)+1))
+		mlt.Run(mlt.TestCase{
+			TestSetup: mltTestSetup,
+			Name:      "Max Data Bytes + 1 to EOA - Should Fail",
+			Msg: router.ClientEVM2AnyMessage{
+				Receiver:  atposEOAAddress[:], // Sending to EOA
 				Data:      message,
 				FeeToken:  common.HexToAddress(NATIVE_FEE_TOKEN),
 				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit)+1, true),
