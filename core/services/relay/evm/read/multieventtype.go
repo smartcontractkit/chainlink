@@ -102,7 +102,7 @@ func createQueryName(eventQueries []EventQuery) string {
 	queryName := ""
 	contractToEvents := map[string][]string{}
 	for _, eq := range eventQueries {
-		contractName := eq.EventBinding.contractName + "-" + eq.Address.String()
+		contractName := eq.EventBinding.contractName
 
 		if _, exists := contractToEvents[contractName]; !exists {
 			contractToEvents[contractName] = []string{}

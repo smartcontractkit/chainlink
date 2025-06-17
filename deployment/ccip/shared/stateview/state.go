@@ -69,6 +69,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/burn_mint_erc677_helper"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -86,6 +87,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/multicall3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/weth9"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/burn_mint_with_external_minter_fast_transfer_token_pool"
 )
 
 // CCIPOnChainState state always derivable from an address book.
@@ -99,6 +101,12 @@ type CCIPOnChainState struct {
 	SolChains   map[uint64]solana.CCIPChainState
 	AptosChains map[uint64]aptosstate.CCIPChainState
 	evmMu       *sync.RWMutex
+}
+
+type CCIPStateView struct {
+	Chains      map[string]view.ChainView
+	SolChains   map[string]view.SolChainView
+	AptosChains map[string]view.AptosChainView
 }
 
 func (c CCIPOnChainState) EVMChains() []uint64 {
@@ -484,9 +492,10 @@ func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel 
 	return nil
 }
 
-func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (map[string]view.ChainView, map[string]view.SolChainView, error) {
+func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateView, error) {
 	m := sync.Map{}
 	sm := sync.Map{}
+	am := sync.Map{}
 	grp := errgroup.Group{}
 	for _, chainSelector := range chains {
 		var name string
@@ -535,6 +544,18 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (map[string
 				chainView.ChainSelector = chainSelector
 				chainView.ChainID = id
 				sm.Store(name, chainView)
+			case chain_selectors.FamilyAptos:
+				chainState, ok := c.AptosChains[chainSelector]
+				if !ok {
+					return fmt.Errorf("chain not supported %d", chainSelector)
+				}
+				chainView, err := chainState.GenerateView(e, chainSelector, name)
+				if err != nil {
+					return err
+				}
+				chainView.ChainSelector = chainSelector
+				chainView.ChainID = id
+				am.Store(name, chainView)
 			default:
 				return fmt.Errorf("unsupported chain family %s", family)
 			}
@@ -542,19 +563,26 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (map[string
 		})
 	}
 	if err := grp.Wait(); err != nil {
-		return nil, nil, err
+		return CCIPStateView{}, err
 	}
-	finalEVMMap := make(map[string]view.ChainView)
+	stateView := CCIPStateView{
+		Chains:      make(map[string]view.ChainView),
+		SolChains:   make(map[string]view.SolChainView),
+		AptosChains: make(map[string]view.AptosChainView),
+	}
 	m.Range(func(key, value interface{}) bool {
-		finalEVMMap[key.(string)] = value.(view.ChainView)
+		stateView.Chains[key.(string)] = value.(view.ChainView)
 		return true
 	})
-	finalSolanaMap := make(map[string]view.SolChainView)
 	sm.Range(func(key, value interface{}) bool {
-		finalSolanaMap[key.(string)] = value.(view.SolChainView)
+		stateView.SolChains[key.(string)] = value.(view.SolChainView)
 		return true
 	})
-	return finalEVMMap, finalSolanaMap, grp.Wait()
+	am.Range(func(key, value interface{}) bool {
+		stateView.AptosChains[key.(string)] = value.(view.AptosChainView)
+		return true
+	})
+	return stateView, grp.Wait()
 }
 
 func (c CCIPOnChainState) GetOffRampAddressBytes(chainSelector uint64) ([]byte, error) {
@@ -936,6 +964,22 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			state.BurnMintTokenPools = helpers.AddValueToNestedMap(state.BurnMintTokenPools, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = burn_mint_token_pool.BurnMintTokenPoolABI
+		case cldf.NewTypeAndVersion(ccipshared.BurnMintFastTransferTokenPool, deployment.Version1_6_1Dev).String():
+			ethAddress := common.HexToAddress(address)
+			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, fast_transfer_token_pool.NewBurnMintFastTransferTokenPool, ethAddress, chain.Client)
+			if err != nil {
+				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+			}
+			state.BurnMintFastTransferTokenPools = helpers.AddValueToNestedMap(state.BurnMintFastTransferTokenPools, metadata.Symbol, metadata.Version, pool)
+			state.ABIByAddress[address] = fast_transfer_token_pool.BurnMintFastTransferTokenPoolABI
+		case cldf.NewTypeAndVersion(ccipshared.BurnMintWithExternalMinterFastTransferTokenPool, deployment.Version1_6_0).String():
+			ethAddress := common.HexToAddress(address)
+			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_mint_with_external_minter_fast_transfer_token_pool.NewBurnMintWithExternalMinterFastTransferTokenPool, ethAddress, chain.Client)
+			if err != nil {
+				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+			}
+			state.BurnMintWithExternalMinterFastTransferTokenPools = helpers.AddValueToNestedMap(state.BurnMintWithExternalMinterFastTransferTokenPools, metadata.Symbol, metadata.Version, pool)
+			state.ABIByAddress[address] = burn_mint_with_external_minter_fast_transfer_token_pool.BurnMintWithExternalMinterFastTransferTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnWithFromMintTokenPool, deployment.Version1_5_1).String():
 			ethAddress := common.HexToAddress(address)
 			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_with_from_mint_token_pool.NewBurnWithFromMintTokenPool, ethAddress, chain.Client)

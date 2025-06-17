@@ -58,6 +58,8 @@
       InsecureConnection = true
       TraceSampleRatio = 1
       """
+      [nodesets.node_specs.node.env_vars]
+      CL_EVM_CMD=""
 
 [[nodesets]]
   nodes = 2
@@ -85,6 +87,8 @@
       InsecureConnection = true
       TraceSampleRatio = 1
       """
+      [nodesets.node_specs.node.env_vars]
+      CL_EVM_CMD=""
 
 [[nodesets]]
   nodes = 1
@@ -113,3 +117,5 @@
       InsecureConnection = true
       TraceSampleRatio = 1
       """
+      [nodesets.node_specs.node.env_vars]
+      CL_EVM_CMD=""

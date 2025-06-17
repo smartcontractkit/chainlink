@@ -2,6 +2,7 @@ package headreporter
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -69,9 +70,13 @@ func NewLegacyEVMPrometheusReporter(ds sqlutil.DataSource, chainContainer legacy
 }
 
 func (pr *prometheusReporter) getTxm(evmChainID *big.Int) (txmgr.TxManager, error) {
-	chain, err := pr.chains.Get(evmChainID.String())
+	chainService, err := pr.chains.Get(evmChainID.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain: %w", err)
+	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		return nil, fmt.Errorf("txm is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 	}
 	return chain.TxManager(), nil
 }

@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	deleteJobTimeout = 120 * time.Second
+	deleteJobTimeout = 5 * time.Minute
 )
 
 // DeleteJobsJDChangeset is a changeset that deletes jobs from JD either using job ids or workflow name

@@ -2,13 +2,14 @@ package v1_2
 
 import (
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/zksync-sdk/zksync2-go/accounts"
+	"github.com/zksync-sdk/zksync2-go/clients"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -16,76 +17,66 @@ import (
 )
 
 type DeployRouterInput struct {
-	IsTestRouter bool
-	RMNProxy     common.Address
-	WethAddress  common.Address
+	RMNProxy      common.Address
+	WethAddress   common.Address
+	ChainSelector uint64
+}
+
+type RouterApplyRampUpdatesOpInput struct {
+	OnRampUpdates  []router.RouterOnRamp
+	OffRampRemoves []router.RouterOffRamp
+	OffRampAdds    []router.RouterOffRamp
 }
 
 var (
-	DeployRouter = operations.NewOperation(
+	routerDeployers = opsutil.VMDeployers[DeployRouterInput]{
+		DeployEVM: func(opts *bind.TransactOpts, backend bind.ContractBackend, input DeployRouterInput) (common.Address, *types.Transaction, error) {
+			addr, tx, _, err := router.DeployRouter(
+				opts,
+				backend,
+				input.WethAddress,
+				input.RMNProxy,
+			)
+			return addr, tx, err
+		},
+		DeployZksyncVM: func(opts *accounts.TransactOpts, client *clients.Client, wallet *accounts.Wallet, backend bind.ContractBackend, input DeployRouterInput) (common.Address, error) {
+			addr, _, _, err := router.DeployRouterZk(
+				opts,
+				client,
+				wallet,
+				backend,
+				input.WethAddress,
+				input.RMNProxy,
+			)
+			return addr, err
+		},
+	}
+
+	DeployRouter = opsutil.NewEVMDeployOperation(
 		"DeployRouter",
 		semver.MustParse("1.0.0"),
 		"Deploys Router 1.2 contract on the specified evm chain",
-		func(b operations.Bundle, deps opsutil.DeployContractDependencies, input DeployRouterInput) (common.Address, error) {
-			ab := deps.AddressBook
-			chain := deps.Chain
+		cldf.NewTypeAndVersion(shared.Router, deployment.Version1_2_0),
+		routerDeployers,
+	)
 
-			deployFn := func(chain cldf_evm.Chain, tv cldf.TypeAndVersion) (cldf.ContractDeploy[*router.Router], error) {
-				r, err := cldf.DeployContract(b.Logger, chain, ab,
-					func(chain cldf_evm.Chain) cldf.ContractDeploy[*router.Router] {
-						var (
-							routerAddr common.Address
-							tx2        *types.Transaction
-							routerC    *router.Router
-							err2       error
-						)
-						if chain.IsZkSyncVM {
-							routerAddr, _, routerC, err2 = router.DeployRouterZk(
-								nil,
-								chain.ClientZkSyncVM,
-								chain.DeployerKeyZkSyncVM,
-								chain.Client,
-								input.WethAddress,
-								input.RMNProxy,
-							)
-						} else {
-							routerAddr, tx2, routerC, err2 = router.DeployRouter(
-								chain.DeployerKey,
-								chain.Client,
-								input.WethAddress,
-								input.RMNProxy,
-							)
-						}
-						return cldf.ContractDeploy[*router.Router]{
-							Address: routerAddr, Contract: routerC, Tx: tx2, Tv: tv, Err: err2,
-						}
-					})
-				if err != nil {
-					b.Logger.Errorw("Failed to deploy router", "chain", chain.String(), "err", err)
-					return cldf.ContractDeploy[*router.Router]{}, err
-				}
-				return cldf.ContractDeploy[*router.Router]{
-					Address:  r.Address,
-					Contract: r.Contract,
-					Tx:       r.Tx,
-					Tv:       r.Tv,
-					Err:      nil,
-				}, nil
-			}
-			if input.IsTestRouter {
-				r, err := deployFn(chain, cldf.NewTypeAndVersion(shared.TestRouter, deployment.Version1_2_0))
-				if err != nil {
-					return common.Address{}, err
-				}
-				b.Logger.Infow("deployed test router", "chain", chain.String(), "addr", r.Address)
-				return r.Address, nil
-			}
+	DeployTestRouter = opsutil.NewEVMDeployOperation(
+		"DeployTestRouter",
+		semver.MustParse("1.0.0"),
+		"Deploys TestRouter 1.2 contract on the specified evm chain",
+		cldf.NewTypeAndVersion(shared.TestRouter, deployment.Version1_2_0),
+		routerDeployers,
+	)
 
-			r, err := deployFn(chain, cldf.NewTypeAndVersion(shared.Router, deployment.Version1_2_0))
-			if err != nil {
-				return common.Address{}, err
-			}
-			b.Logger.Infow("deployed router", "chain", chain.String(), "addr", r.Address)
-			return r.Address, err
-		})
+	RouterApplyRampUpdatesOp = opsutil.NewEVMCallOperation(
+		"RouterApplyRampUpdatesOp",
+		semver.MustParse("1.0.0"),
+		"Updates OnRamps and OffRamps on the Router contract",
+		router.RouterABI,
+		shared.Router,
+		router.NewRouter,
+		func(router *router.Router, opts *bind.TransactOpts, input RouterApplyRampUpdatesOpInput) (*types.Transaction, error) {
+			return router.ApplyRampUpdates(opts, input.OnRampUpdates, input.OffRampRemoves, input.OffRampAdds)
+		},
+	)
 )

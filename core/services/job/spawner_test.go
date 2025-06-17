@@ -69,7 +69,7 @@ type relayGetter struct {
 }
 
 func (g *relayGetter) Get(id types.RelayID) (loop.Relayer, error) {
-	return evmrelayer.NewLOOPRelayAdapter(g.r), nil
+	return evmrelayer.NewLegacyAdapter(g.r), nil
 }
 
 func (g *relayGetter) GetIDToRelayerMap() map[types.RelayID]loop.Relayer {

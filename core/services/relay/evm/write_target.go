@@ -116,7 +116,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 	beholder, err := writetarget.NewMonitor(writetarget.MonitorOpts{
 		Lggr:              lggr,
 		Processors:        processors,
-		EnabledProcessors: processor.GetDefaultPlatformProcessors(),
+		EnabledProcessors: processor.PlatformDefaultProcessors,
 		Emitter:           emitter,
 	})
 	if err != nil {
@@ -127,8 +127,8 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		ID:     id,
 		Logger: lggr,
 		Config: writetarget.Config{
-			ConfirmerPollPeriod: config.PollPeriod(),
-			ConfirmerTimeout:    config.AcceptanceTimeout(),
+			PollPeriod:        config.PollPeriod(),
+			AcceptanceTimeout: config.AcceptanceTimeout(),
 		},
 		ChainInfo:            chainInfo,
 		Beholder:             beholder,

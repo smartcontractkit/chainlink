@@ -75,9 +75,13 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 		err = fmt.Errorf("%w: %s: %w", ErrInvalidEVMChainID, chainID, err)
 		return Result{Error: err}, retryableRunInfo()
 	}
+	legacyChain, ok := chain.(legacyevm.Chain)
+	if !ok {
+		return Result{Error: ErrUnsupportedInLOOPPMode}, RunInfo{}
+	}
 
-	cfg := chain.Config().EVM()
-	txManager := chain.TxManager()
+	cfg := legacyChain.Config().EVM()
+	txManager := legacyChain.TxManager()
 	_, err = CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}, RunInfo{}
@@ -122,7 +126,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 		return Result{Error: err}, RunInfo{}
 	}
 
-	fromAddr, err := t.keyStore.GetRoundRobinAddress(ctx, chain.ID(), fromAddrs...)
+	fromAddr, err := t.keyStore.GetRoundRobinAddress(ctx, legacyChain.ID(), fromAddrs...)
 	if err != nil {
 		err = errors.Wrap(err, "ETHTxTask failed to get fromAddress")
 		lggr.Error(err)
@@ -135,7 +139,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 	var forwarderAddress common.Address
 	if t.forwardingAllowed {
 		var fwderr error
-		forwarderAddress, fwderr = chain.TxManager().GetForwarderForEOA(ctx, fromAddr)
+		forwarderAddress, fwderr = legacyChain.TxManager().GetForwarderForEOA(ctx, fromAddr)
 		if fwderr != nil {
 			lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "err", fwderr)
 		}

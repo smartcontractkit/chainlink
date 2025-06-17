@@ -86,7 +86,6 @@ func setupLoadTestWriterEnvironment(
 	feedIDs []string,
 	workflowNames []string,
 ) *loadTestSetupOutput {
-
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,

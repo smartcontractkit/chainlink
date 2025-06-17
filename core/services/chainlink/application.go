@@ -3,6 +3,7 @@ package chainlink
 import (
 	"bytes"
 	"context"
+	stderrors "errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -39,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -121,7 +121,6 @@ type Application interface {
 	// V2 Jobs (TOML specified)
 	JobSpawner() job.Spawner
 	JobORM() job.ORM
-	EVMORM() evmtypes.Configs
 	PipelineORM() pipeline.ORM
 	BridgeORM() bridges.ORM
 	BasicAdminUsersORM() sessions.BasicAdminUsersORM
@@ -296,7 +295,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to build Beholder auth: %w", err)
 	}
-	loopRegistry := plugins.NewLoopRegistry(globalLogger, cfg.Database(), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
+	loopRegistry := plugins.NewLoopRegistry(globalLogger, cfg.AppID().String(), cfg.Feature().LogPoller(), cfg.Database(), cfg.Mercury(), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
 
 	relayerFactory := RelayerFactory{
 		Logger:                opts.Logger,
@@ -356,9 +355,12 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, err
 	}
 
-	billingClient, err := billing.NewWorkflowClient(opts.Config.Billing().URL())
-	if err != nil {
-		globalLogger.Infof("NewApplication: failed to create billing client; %s", err)
+	var billingClient billing.WorkflowClient
+	if cfg.Billing().URL() != "" {
+		billingClient, err = billing.NewWorkflowClient(opts.Config.Billing().URL())
+		if err != nil {
+			globalLogger.Infof("NewApplication: failed to create billing client; %s", err)
+		}
 	}
 
 	creServices, err := newCREServices(ctx, globalLogger, opts.DS, keyStore, cfg.Capabilities(), cfg.Workflows(), relayChainInterops, opts.CREOpts, billingClient)
@@ -371,7 +373,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	// We will have a non-nil registry here in LOOP relayers are being used, otherwise
 	// we need to initialize in case we serve OCR2 LOOPs
 	if loopRegistry == nil {
-		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.Database(), opts.Config.Tracing(), opts.Config.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
+		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.AppID().String(), opts.Config.Feature().LogPoller(), opts.Config.Database(), opts.Config.Mercury(), opts.Config.Tracing(), opts.Config.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
 	}
 
 	// If the audit logger is enabled
@@ -479,9 +481,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	srvcs = append(srvcs, workflowORM)
 
 	promReporter := headreporter.NewLegacyEVMPrometheusReporter(opts.DS, legacyEVMChains)
-	evmChainIDs := make([]*big.Int, legacyEVMChains.Len())
-	for i, chain := range legacyEVMChains.Slice() {
-		evmChainIDs[i] = chain.ID()
+	evmChainIDs := make([]*big.Int, len(cfg.EVMConfigs()))
+	for i, chain := range cfg.EVMConfigs() {
+		evmChainIDs[i] = chain.ChainID.ToInt()
 	}
 
 	legacyEVMTelemReporter := headreporter.NewLegacyEVMTelemetryReporter(telemetryManager, globalLogger, evmChainIDs...)
@@ -489,8 +491,12 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	headReporter := headreporter.NewHeadReporterService(opts.DS, globalLogger, promReporter, legacyEVMTelemReporter, loopTelemReporter)
 	srvcs = append(srvcs, headReporter)
 	for _, chain := range legacyEVMChains.Slice() {
-		chain.HeadBroadcaster().Subscribe(headReporter)
-		chain.TxManager().RegisterResumeCallback(pipelineRunner.ResumeRun)
+		legacyChain, ok := chain.(legacyevm.Chain)
+		if !ok {
+			continue
+		}
+		legacyChain.HeadBroadcaster().Subscribe(headReporter)
+		legacyChain.TxManager().RegisterResumeCallback(pipelineRunner.ResumeRun)
 	}
 
 	srvcs = append(srvcs, pipelineORM)
@@ -681,7 +687,11 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	var lbs []utils.DependentAwaiter
 	for _, c := range legacyEVMChains.Slice() {
-		lbs = append(lbs, c.LogBroadcaster())
+		legacyChain, ok := c.(legacyevm.Chain)
+		if !ok {
+			continue
+		}
+		lbs = append(lbs, legacyChain.LogBroadcaster())
 	}
 	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), healthChecker, delegates, globalLogger, lbs)
 	srvcs = append(srvcs, jobSpawner, pipelineRunner)
@@ -690,7 +700,11 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	// so jobs have a chance to apply their initial log filters.
 	if cfg.Feature().LogPoller() {
 		for _, c := range legacyEVMChains.Slice() {
-			srvcs = append(srvcs, c.LogPoller())
+			legacyChain, ok := c.(legacyevm.Chain)
+			if !ok {
+				continue
+			}
+			srvcs = append(srvcs, legacyChain.LogPoller())
 		}
 	}
 
@@ -1160,11 +1174,6 @@ func (app *ChainlinkApplication) AuthenticationProvider() sessions.Authenticatio
 	return app.authenticationProvider
 }
 
-// TODO BCF-2516 remove this all together remove EVM specifics
-func (app *ChainlinkApplication) EVMORM() evmtypes.Configs {
-	return app.GetRelayers().LegacyEVMChains().ChainNodeConfigs()
-}
-
 func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {
 	return app.pipelineORM
 }
@@ -1287,8 +1296,7 @@ func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 
 // ReplayFromBlock implements the Application interface.
 func (app *ChainlinkApplication) ReplayFromBlock(ctx context.Context, chainFamily string, chainID string, number uint64, forceBroadcast bool) error {
-	switch chainFamily {
-	case relay.NetworkEVM:
+	if chainFamily == relay.NetworkEVM {
 		// TODO: Implement EVM Replay on Relayer instead of using LegacyChains - BCFR-1160
 		chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID)
 		if err != nil {
@@ -1296,24 +1304,24 @@ func (app *ChainlinkApplication) ReplayFromBlock(ctx context.Context, chainFamil
 		}
 		//nolint:gosec // this won't overflow
 		fromBlock := int64(number)
-		chain.LogBroadcaster().ReplayFromBlock(fromBlock, forceBroadcast)
-		if app.Config.Feature().LogPoller() {
-			chain.LogPoller().ReplayAsync(fromBlock)
+
+		if legacyChain, ok := chain.(legacyevm.Chain); ok {
+			legacyChain.LogBroadcaster().ReplayFromBlock(fromBlock, forceBroadcast)
+			if app.Config.Feature().LogPoller() {
+				legacyChain.LogPoller().ReplayAsync(fromBlock)
+			}
+			return nil
 		}
-	default:
-		relayer, err := app.GetRelayers().Get(commontypes.RelayID{
-			Network: chainFamily,
-			ChainID: chainID,
-		})
-		if err != nil {
-			return err
-		}
-		err = relayer.Replay(ctx, strconv.FormatUint(number, 10), map[string]any{})
-		if err != nil {
-			return err
-		}
+		// else LOOPP mode, so fall back to default
 	}
-	return nil
+	relayer, err := app.GetRelayers().Get(commontypes.RelayID{
+		Network: chainFamily,
+		ChainID: chainID,
+	})
+	if err != nil {
+		return err
+	}
+	return relayer.Replay(ctx, strconv.FormatUint(number, 10), map[string]any{})
 }
 
 func (app *ChainlinkApplication) GetRelayers() RelayerChainInteroperators {
@@ -1347,6 +1355,8 @@ func (app *ChainlinkApplication) ID() uuid.UUID {
 	return app.Config.AppID()
 }
 
+var ErrUnsupportedInLOOPPMode = fmt.Errorf("legacy command not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
+
 // FindLCA - finds last common ancestor
 func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.Block, error) {
 	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
@@ -1356,8 +1366,12 @@ func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) 
 	if !app.Config.Feature().LogPoller() {
 		return nil, errors.New("FindLCA is only available if LogPoller is enabled")
 	}
+	legacyChain, ok := chain.(legacyevm.Chain)
+	if !ok {
+		return nil, ErrUnsupportedInLOOPPMode
+	}
 
-	lca, err := chain.LogPoller().FindLCA(ctx)
+	lca, err := legacyChain.LogPoller().FindLCA(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find lca: %w", err)
 	}
@@ -1374,8 +1388,12 @@ func (app *ChainlinkApplication) DeleteLogPollerDataAfter(ctx context.Context, c
 	if !app.Config.Feature().LogPoller() {
 		return errors.New("DeleteLogPollerDataAfter is only available if LogPoller is enabled")
 	}
+	legacyChain, ok := chain.(legacyevm.Chain)
+	if !ok {
+		return ErrUnsupportedInLOOPPMode
+	}
 
-	err = chain.LogPoller().DeleteLogsAndBlocksAfter(ctx, start)
+	err = legacyChain.LogPoller().DeleteLogsAndBlocksAfter(ctx, start)
 	if err != nil {
 		return fmt.Errorf("failed to recover LogPoller: %w", err)
 	}

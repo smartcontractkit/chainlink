@@ -89,14 +89,20 @@ func run(
 		_ = setupBeholder(lggr.Named("Fake_Stdlog_Beholder"))
 	}
 
-	if billingClientAddr == "" {
-		billingClientAddr = "localhost:4319"
-	}
-	bs := NewBillingService(lggr.Named("Fake_Billing_Client"))
-	err = bs.Start(ctx)
-	if err != nil {
-		fmt.Printf("Failed to start billing service: %v\n", err)
-		os.Exit(1)
+	if billingClientAddr != "" {
+		bs := NewBillingService(lggr.Named("Fake_Billing_Client"))
+		err = bs.Start(ctx)
+		if err != nil {
+			fmt.Printf("Failed to start billing service: %v\n", err)
+			os.Exit(1)
+		}
+
+		defer func(bs *BillingService) {
+			cerr := bs.close()
+			if cerr != nil {
+				fmt.Printf("Failed to close billing service: %v\n", cerr)
+			}
+		}(bs)
 	}
 
 	for _, cap := range capabilities {
@@ -134,5 +140,4 @@ func run(
 		lggr.Infow("Shutting down capability", "id", cap.Name())
 		_ = cap.Close()
 	}
-	_ = bs.Close()
 }
