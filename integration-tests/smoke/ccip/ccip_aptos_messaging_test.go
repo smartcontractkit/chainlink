@@ -203,7 +203,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 		)
 	})
 
-	t.Run("Send message to EOA using more than max Gas Limit - Should Succeed", func(t *testing.T) {
+	t.Run("Send message to EOA using more than max Gas Limit - Should Fail", func(t *testing.T) {
 		message := []byte("Hello Aptos, from EVM!")
 		atposEOAAddress := e.Env.BlockChains.AptosChains()[destChain].DeployerSigner.AccountAddress()
 		messagingtest.Run(t,
@@ -215,7 +215,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 				MsgData:        message,
 				// true for out of order execution, which is necessary and enforced for Aptos
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit)+1, true),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_FAILURE,
 				FeeToken:               NATIVE_FEE_TOKEN,
 			},
 		)
@@ -520,22 +520,6 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 		)
 	})
 
-	t.Run("Sending message to EOA using more than max Gas Limit - Should Succeed", func(t *testing.T) {
-		require.NoError(t, err)
-		message := STANDARD_MESSAGE
-		messagingtest.Run(t,
-			messagingtest.TestCase{
-				TestSetup:              setup,
-				ValidationType:         messagingtest.ValidationTypeExec,
-				FeeToken:               NATIVE_FEE_TOKEN,
-				Receiver:               e.Env.BlockChains.EVMChains()[destChain].DeployerKey.From[:], // Sending to EOA
-				MsgData:                message,
-				ExtraArgs:              testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(aptosFeeQuoterDestChainConfig.MaxPerMsgGasLimit+1)), false),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-			},
-		)
-	})
-
 	t.Run("Max Data Bytes + 1 - Should Fail", func(t *testing.T) {
 		message := []byte(strings.Repeat("0", int(aptosFeeQuoterDestChainConfig.MaxDataBytes)+1))
 		mlt.Run(mlt.TestCase{
@@ -543,6 +527,21 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 			Name:      "Max Data Bytes + 1 - Should Fail",
 			Msg: testhelpers.AptosSendRequest{
 				Receiver:  ccipReceiverAddress,
+				Data:      message,
+				FeeToken:  aptosNativeFeeTokenAddress,
+				ExtraArgs: nil,
+			},
+			ExpRevert: true,
+		})
+	})
+
+	t.Run("Max Data Bytes + 1 to EOA - Should Fail", func(t *testing.T) {
+		message := []byte(strings.Repeat("0", int(aptosFeeQuoterDestChainConfig.MaxDataBytes)+1))
+		mlt.Run(mlt.TestCase{
+			TestSetup: mltTestSetup,
+			Name:      "Max Data Bytes + 1 to EOA - Should Fail",
+			Msg: testhelpers.AptosSendRequest{
+				Receiver:  e.Env.BlockChains.EVMChains()[destChain].DeployerKey.From[:], // Sending to EOA
 				Data:      message,
 				FeeToken:  aptosNativeFeeTokenAddress,
 				ExtraArgs: nil,
