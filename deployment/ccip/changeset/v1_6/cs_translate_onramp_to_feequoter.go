@@ -76,6 +76,9 @@ func ValidatePreReqContractsInState(e cldf.Environment, cfg TranslateEVM2EVMOnRa
 func TranslateEVM2EVMOnRampsToFeeQuoterChangeset(e cldf.Environment, cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) (cldf.ChangesetOutput, error) {
 	csOutput := cldf.ChangesetOutput{}
 	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
 
 	// Translate the 1.5.0 OnRamp to the FeeQuoterDestChainConfig
 	translateDynamicCfgReport, err := operations.ExecuteSequence(
@@ -213,6 +216,9 @@ func (cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) toPremiumMultiplierCfgSeqInp
 func TranslateEVM2EVMOnRampsToFeeQTokenTransferFeeConfigChangeset(e cldf.Environment, cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) (cldf.ChangesetOutput, error) {
 	csOutput := cldf.ChangesetOutput{}
 	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
 	// Translate the 1.5.0 OnRamp token transfer fee configs to FeeQuoterTokenTransferFeeConfig
 	translateTokenTransferFeeCfgReport, err := operations.ExecuteSequence(
 		e.OperationsBundle,
