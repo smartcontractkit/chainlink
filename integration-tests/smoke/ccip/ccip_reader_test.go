@@ -567,7 +567,8 @@ func commitSqNrs(
 	s *testSetupData,
 	chainSel cciptypes.ChainSelector,
 	seqNums []uint64,
-	state uint8) error {
+	state uint8,
+) error {
 	for _, sqnr := range seqNums {
 		_, err := s.contract.EmitExecutionStateChanged(
 			s.auth,
@@ -589,11 +590,21 @@ func TestCCIPReader_ExecutedMessages_SingleChain(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	s := setupExecutedMessagesTest(ctx, t, false)
-	err := commitSqNrs(s, chainS1, []uint64{14}, 1)
+	// State 0 and 1 should never be emitted by the contract, but
+	// checking if they are ignored properly by the reader
+	err := commitSqNrs(s, chainS1, []uint64{13}, 1)
 	require.NoError(t, err)
 	s.sb.Commit()
 
-	err = commitSqNrs(s, chainS1, []uint64{15}, 1)
+	err = commitSqNrs(s, chainS1, []uint64{13}, 0)
+	require.NoError(t, err)
+	s.sb.Commit()
+
+	err = commitSqNrs(s, chainS1, []uint64{14}, 2)
+	require.NoError(t, err)
+	s.sb.Commit()
+
+	err = commitSqNrs(s, chainS1, []uint64{15}, 2)
 	require.NoError(t, err)
 	s.sb.Commit()
 
@@ -623,11 +634,11 @@ func TestCCIPReader_ExecutedMessages_MultiChain(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	s := setupExecutedMessagesTest(ctx, t, false)
-	err := commitSqNrs(s, chainS1, []uint64{15}, 1)
+	err := commitSqNrs(s, chainS1, []uint64{15}, 2)
 	require.NoError(t, err)
 	s.sb.Commit()
 
-	err = commitSqNrs(s, chainS2, []uint64{15}, 1)
+	err = commitSqNrs(s, chainS2, []uint64{15}, 2)
 	require.NoError(t, err)
 	s.sb.Commit()
 
@@ -664,11 +675,11 @@ func TestCCIPReader_ExecutedMessages_MultiChainDisjoint(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	s := setupExecutedMessagesTest(ctx, t, false)
-	err := commitSqNrs(s, chainS1, []uint64{15, 17, 70}, 1)
+	err := commitSqNrs(s, chainS1, []uint64{15, 17, 70}, 2)
 	require.NoError(t, err)
 	s.sb.Commit()
 
-	err = commitSqNrs(s, chainS2, []uint64{15, 16}, 1)
+	err = commitSqNrs(s, chainS2, []uint64{15, 16}, 2)
 	require.NoError(t, err)
 	s.sb.Commit()
 
@@ -1577,7 +1588,7 @@ func populateDatabaseForExecutionStateChanged(
 		sequenceNumber := uint64(i / sourceChainCount)
 		messageID := utils.NewHash()
 		messageHash := utils.NewHash()
-		state := uint8(1)
+		state := uint8(2)
 		returnData := []byte{0x01, 0x02}
 		gasUsed := big.NewInt(int64(10000 + i))
 
