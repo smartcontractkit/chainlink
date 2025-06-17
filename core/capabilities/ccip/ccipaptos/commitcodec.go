@@ -93,7 +93,9 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, data []byte) (cciptype
 		if des.Error() != nil {
 			return
 		}
-		item.TokenID = cciptypes.UnknownEncodedAddress(sourceToken.String())
+		// StringLong() instead of String() to standardize encoding across all addresses,
+		// since String() shortens system addresses.
+		item.TokenID = cciptypes.UnknownEncodedAddress(sourceToken.StringLong())
 		price := des.U256()
 		if des.Error() != nil {
 			return
