@@ -92,9 +92,14 @@ install-plugins-testing: ## Build & install testing LOOPP binaries (plugins).
 
 .PHONY: install-plugins-local
 install-plugins-local: ## Build & install local plugins.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-evm
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-ocr3-capability
 	go install $(GOFLAGS) ./plugins/cmd/capabilities/log-event-trigger
+
+.PHONY: make install-plugins
+install-plugins: install-loopinstall install-plugins-local install-plugins-public ## Build and install local and public plugins via loopinstall
+
 .PHONY: docker ## Build the chainlink docker image
 docker:
 	docker buildx build \

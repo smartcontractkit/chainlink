@@ -75,6 +75,8 @@
       Level = 'debug'
       JSONConsole = true
       """
+    [nodesets.node_specs.node.env_vars]
+    CL_EVM_CMD=""
 
 [[nodesets]]
   nodes = 2
@@ -96,6 +98,8 @@
       Level = 'debug'
       JSONConsole = true
       """
+    [nodesets.node_specs.node.env_vars]
+    CL_EVM_CMD=""
 
 [[nodesets]]
   nodes = 1
@@ -116,3 +120,5 @@
       Level = 'debug'
       JSONConsole = true
       """
+    [nodesets.node_specs.node.env_vars]
+    CL_EVM_CMD=""

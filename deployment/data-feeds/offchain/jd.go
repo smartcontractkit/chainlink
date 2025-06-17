@@ -17,12 +17,12 @@ import (
 )
 
 type NodesFilter struct {
-	DONID        uint64 // Required
-	EnvLabel     string
-	ProductLabel string
-	Size         int
-	IsBootstrap  bool
-	NodeIDs      []string // Optional, if other filters are provided
+	DONID        uint64   `json:"donId"` // Required
+	EnvLabel     string   `json:"envLabel"`
+	ProductLabel string   `json:"productLabel"`
+	Size         int      `json:"size"`
+	IsBootstrap  bool     `json:"isBootstrap"`
+	NodeIDs      []string `json:"nodeIds"` // Optional, if other filters are provided
 }
 
 func (f *NodesFilter) filter() *nodeapiv1.ListNodesRequest_Filter {
@@ -167,9 +167,13 @@ func DeleteJobs(ctx context.Context, env cldf.Environment, jobIDs []string, work
 			return
 		}
 		for _, job := range listJobResponse.Jobs {
-			jobIDs = append(jobIDs, job.Id)
+			if job.DeletedAt == nil {
+				jobIDs = append(jobIDs, job.Id)
+			}
 		}
 	}
+
+	env.Logger.Debugf("Jobs to delete %s", jobIDs)
 
 	for _, jobID := range jobIDs {
 		env.Logger.Debugf("Deleting job %s", jobID)

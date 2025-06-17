@@ -12,11 +12,13 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/gethwrappers/link_token_interface"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/libocr/gethwrappers/link_token_interface"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_logic1_3"
@@ -422,7 +424,9 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		_, err = forwarderORM.CreateForwarder(ctx, fwdrAddress, chainID)
 		require.NoError(t, err)
 
-		addr, err := app.GetRelayers().LegacyEVMChains().Slice()[0].TxManager().GetForwarderForEOA(ctx, nodeAddress)
+		chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain)
+		require.True(t, ok)
+		addr, err := chain.TxManager().GetForwarderForEOA(ctx, nodeAddress)
 		require.NoError(t, err)
 		require.Equal(t, addr, fwdrAddress)
 

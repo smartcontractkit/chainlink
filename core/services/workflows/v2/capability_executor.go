@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
@@ -71,12 +72,14 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 	// convert balance to CapabilityInfo resource types for use in Capability call
 	// pass deducted amount as max spend to capability.Execute
 
-	// TODO(CAPPL-737): run with a timeout
 	c.lggr.Debugw("Executing capability ...", "capID", request.Id, "capReqCallbackID", request.CallbackId, "capReqMethod", request.Method)
 	c.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityInvocationCounter(ctx)
 	_ = events.EmitCapabilityStartedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, string(meteringRef))
 
-	capResp, err := capability.Execute(ctx, capReq)
+	execCtx, execCancel := context.WithTimeout(ctx, time.Millisecond*time.Duration(c.cfg.LocalLimits.CapabilityCallTimeoutMs))
+	defer execCancel()
+
+	capResp, err := capability.Execute(execCtx, capReq)
 	if err != nil {
 		c.lggr.Debugw("Capability execution failed", "capID", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 		_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, string(meteringRef), store.StatusErrored)

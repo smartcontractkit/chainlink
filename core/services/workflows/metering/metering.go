@@ -110,7 +110,7 @@ func (r *Report) Reserve(ctx context.Context) error {
 		AccountId:           r.owner,
 		WorkflowId:          r.workflowID,
 		WorkflowExecutionId: r.workflowExecutionID,
-		Credits:             []*billing.AccountCreditsInput{}, // TODO: https://smartcontract-it.atlassian.net/browse/CRE-290 send the credit balance, not resource types
+		Credits:             0,
 	}
 
 	resp, err := r.client.ReserveCredits(ctx, &req)
@@ -133,10 +133,8 @@ func (r *Report) Reserve(ctx context.Context) error {
 		return nil
 	}
 
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-290 once billing client response contains balance set using balanceStore.Add
-	dummyInitialBalance := int64(10000)
 	r.ready = true
-	r.balance = NewBalanceStore(dummyInitialBalance, rateCard, r.lggr)
+	r.balance = NewBalanceStore(decimal.NewFromFloat32(resp.Credits).IntPart(), rateCard, r.lggr) // TODO remove .IntPart() once balance store uses decimal
 	return nil
 }
 

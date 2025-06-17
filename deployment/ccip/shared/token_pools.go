@@ -18,6 +18,8 @@ import (
 )
 
 var CurrentTokenPoolVersion = deployment.Version1_5_1
+var FastTransferTokenPoolVersion = deployment.Version1_6_1Dev
+var BurnMintWithExternalMinterFastTransferTokenPoolVersion = deployment.Version1_6_0
 
 var TokenTypes = map[cldf.ContractType]struct{}{
 	BurnMintToken:     {},
@@ -27,16 +29,20 @@ var TokenTypes = map[cldf.ContractType]struct{}{
 }
 
 var TokenPoolTypes = map[cldf.ContractType]struct{}{
-	BurnMintTokenPool:              {},
-	BurnWithFromMintTokenPool:      {},
-	BurnFromMintTokenPool:          {},
-	LockReleaseTokenPool:           {},
-	USDCTokenPool:                  {},
-	HybridLockReleaseUSDCTokenPool: {},
+	BurnMintFastTransferTokenPool:                   {},
+	BurnMintTokenPool:                               {},
+	BurnWithFromMintTokenPool:                       {},
+	BurnFromMintTokenPool:                           {},
+	LockReleaseTokenPool:                            {},
+	USDCTokenPool:                                   {},
+	HybridLockReleaseUSDCTokenPool:                  {},
+	BurnMintWithExternalMinterFastTransferTokenPool: {},
 }
 
 var TokenPoolVersions = map[semver.Version]struct{}{
-	deployment.Version1_5_1: {},
+	deployment.Version1_5_1:      {},
+	FastTransferTokenPoolVersion: {},
+	deployment.Version1_6_0:      {},
 }
 
 // tokenPool defines behavior common to all token pools.

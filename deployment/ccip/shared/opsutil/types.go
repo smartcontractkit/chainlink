@@ -1,6 +1,7 @@
 package opsutil
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/mcms"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -21,6 +22,12 @@ type ConfigureDependencies struct {
 type DeployContractDependencies struct {
 	Chain       cldf_evm.Chain
 	AddressBook cldf.AddressBook
+}
+
+// DeployContractOutput is used to return the output of a deploy contract operation
+type DeployContractOutput struct {
+	Address  common.Address
+	Contract cldf.TypeAndVersion
 }
 
 type OpOutput struct {

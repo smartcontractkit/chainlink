@@ -10,14 +10,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 
@@ -26,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -71,94 +68,40 @@ func (c SetRMNRemoteOnRMNProxyConfig) Validate(e cldf.Environment, state statevi
 	return nil
 }
 
-func SetRMNRemoteOnRMNProxyChangeset(e cldf.Environment, cfg SetRMNRemoteOnRMNProxyConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
-	}
-	if err := cfg.Validate(e, state); err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
+func (c SetRMNRemoteOnRMNProxyConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseq.SetRMNRemoteOnRMNProxySequenceInput {
+	updatesByChain := make(map[uint64]opsutil.EVMCallInput[common.Address], len(c.ChainSelectors))
 
-	timelocks := deployergroup.BuildTimelockAddressPerChain(e, state)
-
-	inspectors := map[uint64]mcmssdk.Inspector{}
-	timelockBatch := []mcmstypes.BatchOperation{}
-	for _, sel := range cfg.ChainSelectors {
-		chain, exists := e.BlockChains.EVMChains()[sel]
-		if !exists {
-			return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found", sel)
-		}
-
-		inspectors[sel], err = proposalutils.McmsInspectorForChain(e, sel)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", chain.String(), err)
-		}
-
-		txOpts := chain.DeployerKey
-		if cfg.MCMSConfig != nil {
-			txOpts = cldf.SimTransactOpts()
-		}
-		batchOperation, err := setRMNRemoteOnRMNProxyOp(txOpts, chain, state.Chains[sel], cfg.MCMSConfig != nil)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to set RMNRemote on RMNProxy for chain %s: %w", chain.String(), err)
-		}
-
-		if cfg.MCMSConfig != nil {
-			timelockBatch = append(timelockBatch, batchOperation)
+	for _, chainSel := range c.ChainSelectors {
+		updatesByChain[chainSel] = opsutil.EVMCallInput[common.Address]{
+			Address:       state.Chains[chainSel].RMNProxy.Address(),
+			ChainSelector: chainSel,
+			CallInput:     state.Chains[chainSel].RMNRemote.Address(),
+			NoSend:        c.MCMSConfig != nil, // If MCMS exists, we do not want to send the transaction.
 		}
 	}
-	// If we're not using MCMS, we can just return now as we've already confirmed the transactions
-	if len(timelockBatch) == 0 {
-		return cldf.ChangesetOutput{}, nil
+
+	return ccipseq.SetRMNRemoteOnRMNProxySequenceInput{
+		UpdatesByChain: updatesByChain,
 	}
-	mcmContract, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMSConfig)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-	prop, err := proposalutils.BuildProposalFromBatchesV2(
-		e,
-		timelocks,
-		mcmContract,
-		inspectors,
-		timelockBatch,
-		fmt.Sprintf("proposal to set RMNRemote on RMNProxy for chains %v", cfg.ChainSelectors),
-		*cfg.MCMSConfig,
-	)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-	return cldf.ChangesetOutput{
-		MCMSTimelockProposals: []mcmslib.TimelockProposal{
-			*prop,
-		},
-	}, nil
 }
 
-func setRMNRemoteOnRMNProxyOp(
-	txOpts *bind.TransactOpts, chain cldf_evm.Chain, chainState evm.CCIPChainState, mcmsEnabled bool,
-) (mcmstypes.BatchOperation, error) {
-	rmnProxy := chainState.RMNProxy
-	rmnRemoteAddr := chainState.RMNRemote.Address()
-	setRMNTx, err := rmnProxy.SetARM(txOpts, rmnRemoteAddr)
-
-	// note: error check is handled below
-	if !mcmsEnabled {
-		_, err = cldf.ConfirmIfNoErrorWithABI(chain, setRMNTx, rmn_proxy_contract.RMNProxyABI, err)
-		if err != nil {
-			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to confirm tx to set RMNRemote on RMNProxy  for chain %s: %w", chain.String(), cldf.MaybeDataErr(err))
-		}
-	} else if err != nil {
-		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to build call data/transaction to set RMNRemote on RMNProxy for chain %s: %w", chain.String(), err)
-	}
-
-	batchOperation, err := proposalutils.BatchOperationForChain(chain.Selector, rmnProxy.Address().Hex(),
-		setRMNTx.Data(), big.NewInt(0), string(shared.RMN), []string{})
+func SetRMNRemoteOnRMNProxyChangeset(e cldf.Environment, cfg SetRMNRemoteOnRMNProxyConfig) (cldf.ChangesetOutput, error) {
+	output := cldf.ChangesetOutput{}
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
-		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to create batch operation for chain%s: %w", chain.String(), err)
+		return output, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	if err = cfg.Validate(e, state); err != nil {
+		return output, err
 	}
 
-	return batchOperation, nil
+	report, err := operations.ExecuteSequence(
+		e.OperationsBundle,
+		ccipseq.SetRMNRemoteOnRMNProxySequence,
+		e.BlockChains.EVMChains(),
+		cfg.ToSequenceInput(state),
+	)
+	return opsutil.AddEVMCallSequenceToCSOutput(e, state, output, report, err, cfg.MCMSConfig, "Call SetARM on RMNProxies")
 }
 
 type RMNNopConfig struct {
@@ -658,14 +601,40 @@ func SetRMNRemoteConfigChangeset(e cldf.Environment, config ccipseq.SetRMNRemote
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	deps := opsutil.ConfigureDependencies{
-		Env:          e,
-		CurrentState: state,
-	}
-	seqReport, err := operations.ExecuteSequence(e.OperationsBundle, ccipseq.SetRMNRemoteConfigSequence, deps, config)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute SetRMNRemoteConfig sequence: %w", err)
+	if err := config.Validate(e, state); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid SetRMNRemoteConfig: %w", err)
 	}
 
-	return seqReport.Output.ToChangesetOutput(nil), nil
+	homeChainSelector, err := state.HomeChainSelector()
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get home chain selector: %w", err)
+	}
+
+	rmnHome := state.Chains[homeChainSelector].RMNHome
+	activeDigest, err := rmnHome.GetActiveDigest(&bind.CallOpts{Context: e.GetContext()})
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get active digest from RMNHome contract with address %s: %w", rmnHome.Address(), err)
+	}
+
+	input := make(map[uint64]opsutil.EVMCallInput[rmn_remote.RMNRemoteConfig])
+	for chainSel, cfg := range config.RMNRemoteConfigs {
+		input[chainSel] = opsutil.EVMCallInput[rmn_remote.RMNRemoteConfig]{
+			ChainSelector: chainSel,
+			NoSend:        config.MCMSConfig != nil,
+			Address:       state.Chains[chainSel].RMNRemote.Address(),
+			CallInput: rmn_remote.RMNRemoteConfig{
+				RmnHomeContractConfigDigest: activeDigest,
+				Signers:                     cfg.Signers,
+				FSign:                       cfg.F,
+			},
+		}
+	}
+
+	seqReport, err := operations.ExecuteSequence(
+		e.OperationsBundle,
+		ccipseq.SetRMNRemoteConfigSequence,
+		e.BlockChains.EVMChains(),
+		input,
+	)
+	return opsutil.AddEVMCallSequenceToCSOutput(e, state, cldf.ChangesetOutput{}, seqReport, err, config.MCMSConfig, "Set RMNRemote configs")
 }

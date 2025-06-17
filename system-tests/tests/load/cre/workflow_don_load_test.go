@@ -412,8 +412,20 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	// run the load
 	generator.Run(true)
 
-	baseLineReport, err := benchspy.NewStandardReport(
-		"v1.0.0",
+	tag := "local-test"
+	if os.Getenv("CI") == "true" {
+		// When running in CI, use the GitHub commit SHA
+		commitSHA := os.Getenv("GITHUB_SHA")
+		if commitSHA != "" {
+			tag = commitSHA
+		}
+	} else if gitSHA := os.Getenv("GITHUB_SHA"); gitSHA != "" {
+		// For local runs with manually set GITHUB_SHA
+		tag = gitSHA
+	}
+
+	benchmarkReport, err := benchspy.NewStandardReport(
+		tag,
 		benchspy.WithStandardQueries(benchspy.StandardQueryExecutor_Direct),
 		benchspy.WithGenerators(generator),
 	)
@@ -422,10 +434,10 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	fetchCtx, cancelFn := context.WithTimeout(ctx, 60*time.Second)
 	defer cancelFn()
 
-	fetchErr := baseLineReport.FetchData(fetchCtx)
+	fetchErr := benchmarkReport.FetchData(fetchCtx)
 	require.NoError(t, fetchErr, "failed to fetch data for baseline report")
 
-	path, storeErr := baseLineReport.Store()
+	path, storeErr := benchmarkReport.Store()
 	require.NoError(t, storeErr, "failed to store baseline report", path)
 	require.NoError(t, err, "workflow load test did not finish successfully")
 }

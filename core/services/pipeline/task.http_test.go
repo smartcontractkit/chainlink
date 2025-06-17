@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -27,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	clhttp "github.com/smartcontractkit/chainlink/v2/core/utils/http"
 )
 
 // ethUSDPairing has the ETH/USD parameters needed when POSTing to the price
@@ -228,8 +228,8 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 		RequestData: ethUSDPairing,
 	}
 	// Use real clients here to actually test the local connection blocking
-	r := clhttp.NewRestrictedHTTPClient(config.Database(), logger.TestLogger(t))
-	u := clhttp.NewUnrestrictedHTTPClient()
+	r := clhttp.NewRestrictedClient(config.Database(), logger.TestLogger(t))
+	u := clhttp.NewUnrestrictedClient()
 	task.HelperSetDependencies(config.JobPipeline(), r, u)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)

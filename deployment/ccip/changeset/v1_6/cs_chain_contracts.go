@@ -12,8 +12,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
@@ -22,11 +23,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	ccipops1_2 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_2"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -153,53 +156,37 @@ func (cfg UpdateNonceManagerConfig) Validate(e cldf.Environment) error {
 	return nil
 }
 
-func UpdateNonceManagersChangeset(e cldf.Environment, cfg UpdateNonceManagerConfig) (cldf.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-	s, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
+func (cfg UpdateNonceManagerConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.NonceManagerUpdatesSequenceInput {
+	updatesByChain := make(map[uint64]ccipseqs.NonceManagerUpdateInput, len(cfg.UpdatesByChain))
 
-	batches := []mcmstypes.BatchOperation{}
-	timelocks := make(map[uint64]string)
-	inspectors := make(map[uint64]mcmssdk.Inspector)
-
-	for chainSel, updates := range cfg.UpdatesByChain {
-		txOpts := e.BlockChains.EVMChains()[chainSel].DeployerKey
-		if cfg.MCMS != nil {
-			txOpts = cldf.SimTransactOpts()
-		}
-		nm := s.Chains[chainSel].NonceManager
-		var authTx, prevRampsTx *types.Transaction
-		if len(updates.AddedAuthCallers) > 0 || len(updates.RemovedAuthCallers) > 0 {
-			authTx, err = nm.ApplyAuthorizedCallerUpdates(txOpts, nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
-				AddedCallers:   updates.AddedAuthCallers,
-				RemovedCallers: updates.RemovedAuthCallers,
-			})
-			if cfg.MCMS == nil {
-				if _, err := cldf.ConfirmIfNoErrorWithABI(e.BlockChains.EVMChains()[chainSel], authTx, nonce_manager.NonceManagerABI, err); err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("error updating authorized callers for chain %s: %w",
-						e.BlockChains.EVMChains()[chainSel].String(), err)
-				}
-			} else {
-				if err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("error updating previous ramps for chain %s: %w", e.BlockChains.EVMChains()[chainSel].String(), err)
-				}
+	for chainSel, update := range cfg.UpdatesByChain {
+		var callerOpInput *opsutil.EVMCallInput[nonce_manager.AuthorizedCallersAuthorizedCallerArgs]
+		if len(update.AddedAuthCallers) > 0 || len(update.RemovedAuthCallers) > 0 {
+			callerOpInputArgs := nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
+				AddedCallers:   update.AddedAuthCallers,
+				RemovedCallers: update.RemovedAuthCallers,
 			}
+			callerOpInput = &(opsutil.EVMCallInput[nonce_manager.AuthorizedCallersAuthorizedCallerArgs]{
+				Address:       state.Chains[chainSel].NonceManager.Address(),
+				ChainSelector: chainSel,
+				CallInput:     callerOpInputArgs,
+				NoSend:        cfg.MCMS != nil, // If MCMS exists, we do not want to send the transaction.
+			})
 		}
-		if len(updates.PreviousRampsArgs) > 0 {
-			previousRampsArgs := make([]nonce_manager.NonceManagerPreviousRampsArgs, 0)
-			for _, prevRamp := range updates.PreviousRampsArgs {
+
+		// construct this input
+		var rampUpdatesOpInput *opsutil.EVMCallInput[[]nonce_manager.NonceManagerPreviousRampsArgs]
+		if len(update.PreviousRampsArgs) > 0 {
+			rampUpdatesOpInputArgs := make([]nonce_manager.NonceManagerPreviousRampsArgs, 0)
+			for _, prevRamp := range update.PreviousRampsArgs {
 				var onRamp, offRamp common.Address
 				if !prevRamp.AllowEmptyOnRamp {
-					onRamp = s.Chains[chainSel].EVM2EVMOnRamp[prevRamp.RemoteChainSelector].Address()
+					onRamp = state.Chains[chainSel].EVM2EVMOnRamp[prevRamp.RemoteChainSelector].Address()
 				}
 				if !prevRamp.AllowEmptyOffRamp {
-					offRamp = s.Chains[chainSel].EVM2EVMOffRamp[prevRamp.RemoteChainSelector].Address()
+					offRamp = state.Chains[chainSel].EVM2EVMOffRamp[prevRamp.RemoteChainSelector].Address()
 				}
-				previousRampsArgs = append(previousRampsArgs, nonce_manager.NonceManagerPreviousRampsArgs{
+				rampUpdatesOpInputArgs = append(rampUpdatesOpInputArgs, nonce_manager.NonceManagerPreviousRampsArgs{
 					RemoteChainSelector:   prevRamp.RemoteChainSelector,
 					OverrideExistingRamps: prevRamp.OverrideExisting,
 					PrevRamps: nonce_manager.NonceManagerPreviousRamps{
@@ -208,74 +195,44 @@ func UpdateNonceManagersChangeset(e cldf.Environment, cfg UpdateNonceManagerConf
 					},
 				})
 			}
-			prevRampsTx, err = nm.ApplyPreviousRampsUpdates(txOpts, previousRampsArgs)
-			if cfg.MCMS == nil {
-				if _, err := cldf.ConfirmIfNoErrorWithABI(e.BlockChains.EVMChains()[chainSel], prevRampsTx, nonce_manager.NonceManagerABI, err); err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("error updating previous ramps for chain %s: %w", e.BlockChains.EVMChains()[chainSel].String(), err)
-				}
-			} else {
-				if err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("error updating previous ramps for chain %s: %w", e.BlockChains.EVMChains()[chainSel].String(), err)
-				}
-			}
-		}
-		if cfg.MCMS != nil {
-			mcmsTransactions := make([]mcmstypes.Transaction, 0)
-			if authTx != nil {
-				mcmsTx, err := proposalutils.TransactionForChain(chainSel, nm.Address().Hex(), authTx.Data(), big.NewInt(0),
-					string(shared.NonceManager), []string{})
-				if err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction for chain %d: %w", chainSel, err)
-				}
-
-				mcmsTransactions = append(mcmsTransactions, mcmsTx)
-			}
-			if prevRampsTx != nil {
-				mcmsTx, err := proposalutils.TransactionForChain(chainSel, nm.Address().Hex(), prevRampsTx.Data(), big.NewInt(0),
-					string(shared.NonceManager), []string{})
-				if err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction for chain %d: %w", chainSel, err)
-				}
-
-				mcmsTransactions = append(mcmsTransactions, mcmsTx)
-			}
-			if len(mcmsTransactions) == 0 {
-				return cldf.ChangesetOutput{}, errors.New("no operations to batch")
-			}
-
-			batches = append(batches, mcmstypes.BatchOperation{
-				ChainSelector: mcmstypes.ChainSelector(chainSel),
-				Transactions:  mcmsTransactions,
+			rampUpdatesOpInput = &(opsutil.EVMCallInput[[]nonce_manager.NonceManagerPreviousRampsArgs]{
+				Address:       state.Chains[chainSel].NonceManager.Address(),
+				ChainSelector: chainSel,
+				CallInput:     rampUpdatesOpInputArgs,
+				NoSend:        cfg.MCMS != nil, // If MCMS exists, we do not want to send the transaction.
 			})
+		}
 
-			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address().Hex()
-			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
+		if callerOpInput != nil || rampUpdatesOpInput != nil {
+			updatesByChain[chainSel] = ccipseqs.NonceManagerUpdateInput{
+				AuthorizedCallerArgs: callerOpInput,
+				PreviousRampsArgs:    rampUpdatesOpInput,
 			}
 		}
 	}
-	if cfg.MCMS == nil {
-		return cldf.ChangesetOutput{}, nil
+
+	return ccipseqs.NonceManagerUpdatesSequenceInput{
+		UpdatesByChain: updatesByChain,
 	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, s, cfg.MCMS)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
+}
+
+func UpdateNonceManagersChangeset(e cldf.Environment, cfg UpdateNonceManagerConfig) (cldf.ChangesetOutput, error) {
+	output := cldf.ChangesetOutput{}
+	if err := cfg.Validate(e); err != nil {
+		return output, err
 	}
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e,
-		timelocks,
-		mcmsContractByChain,
-		inspectors,
-		batches,
-		"Update nonce manager for previous ramps and authorized callers",
-		*cfg.MCMS,
-	)
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
-		return cldf.ChangesetOutput{}, err
+		return output, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+	report, err := operations.ExecuteSequence(
+		e.OperationsBundle,
+		ccipseqs.UpdateNonceManagerSequence,
+		e.BlockChains.EVMChains(),
+		cfg.ToSequenceInput(s),
+	)
+	return opsutil.AddEVMCallSequenceToCSOutput(e, s, output, report, err, cfg.MCMS, "Call ApplyAuthorizedCallerUpdates and ApplyPreviousRampsUpdates on NonceManagers")
 }
 
 type OnRampDestinationUpdate struct {
@@ -958,6 +915,23 @@ func (cfg UpdateFeeQuoterDestsConfig) Validate(e cldf.Environment) error {
 			if destination == sc.ChainSelector {
 				return errors.New("source and destination chain cannot be the same")
 			}
+
+			homeChainSelector, err := state.HomeChainSelector()
+			if err != nil {
+				return fmt.Errorf("failed to get home chain selector: %w", err)
+			}
+			execConfigs, err := GetAllActiveExecConfigs(e, homeChainSelector, destination)
+			if err != nil {
+				return fmt.Errorf("failed to get exec configs for destination chain %d: %w", destination, err)
+			}
+
+			for _, execOffchainCfg := range execConfigs {
+				if execOffchainCfg.MultipleReportsEnabled {
+					if !updates[destination].EnforceOutOfOrder {
+						return errors.New("EnforceOutOfOrder must be true when MultipleReportsEnabled is true")
+					}
+				}
+			}
 		}
 	}
 	return nil
@@ -1006,6 +980,85 @@ func UpdateFeeQuoterDestsChangeset(e cldf.Environment, cfg UpdateFeeQuoterDestsC
 		cfg.ToSequenceInput(s),
 	)
 	return opsutil.AddEVMCallSequenceToCSOutput(e, s, output, report, err, cfg.MCMS, "Call ApplyDestChainConfigUpdates on FeeQuoters")
+}
+
+func GetAllActiveExecConfigs(e cldf.Environment, homeChainSelector uint64, destChainSelector uint64) ([]*pluginconfig.ExecuteOffchainConfig, error) {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	homeChainState, ok := state.Chains[homeChainSelector]
+	if !ok {
+		return nil, fmt.Errorf("home chain %d not found in state", homeChainSelector)
+	}
+
+	var executeOffchainConfigs []*pluginconfig.ExecuteOffchainConfig
+
+	if homeChainState.CCIPHome == nil {
+		return nil, errors.New("no CCIPHome contract found in the state for home chain")
+	}
+	if homeChainState.CapabilityRegistry == nil {
+		return nil, errors.New("no CapabilityRegistry contract found in the state for home chain")
+	}
+
+	// get capReg from CCIPHome to ensure they match
+	capRegAddr, err := homeChainState.CCIPHome.GetCapabilityRegistry(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get capability registry from CCIPHome contract: %w", err)
+	}
+	if capRegAddr != homeChainState.CapabilityRegistry.Address() {
+		return nil, fmt.Errorf("capability registry mismatch: expected %s, got %s", capRegAddr.Hex(), homeChainState.CapabilityRegistry.Address().Hex())
+	}
+
+	ccipDons, err := shared.GetCCIPDonsFromCapRegistry(e.GetContext(), homeChainState.CapabilityRegistry)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CCIP Dons from capability registry: %w", err)
+	}
+
+	if len(ccipDons) == 0 {
+		return executeOffchainConfigs, nil
+	}
+
+	for _, don := range ccipDons {
+		execConfigs, err := homeChainState.CCIPHome.GetAllConfigs(&bind.CallOpts{Context: e.GetContext()}, don.Id, uint8(cctypes.PluginTypeCCIPExec))
+		if err != nil {
+			return nil, fmt.Errorf("failed to get exec config for DON %d: %w", don.Id, err)
+		}
+
+		// We only care about active configs. It's possible for a DON to not have an active config.
+		// An empty config will have version 0.
+		if execConfigs.ActiveConfig.Version != 0 {
+			if execConfigs.ActiveConfig.Config.ChainSelector == destChainSelector {
+				signers := make([]ocrtypes.OnchainPublicKey, 0)
+				transmitters := make([]ocrtypes.Account, 0)
+				for _, node := range execConfigs.ActiveConfig.Config.Nodes {
+					signers = append(signers, node.SignerKey)
+					transmitters = append(transmitters, ocrtypes.Account(node.TransmitterKey))
+				}
+				publicConfig, err := ocr3confighelper.PublicConfigFromContractConfig(false, ocrtypes.ContractConfig{
+					Signers:               signers,
+					Transmitters:          transmitters,
+					F:                     execConfigs.ActiveConfig.Config.FRoleDON,
+					OnchainConfig:         []byte{}, // empty OnChainConfig
+					OffchainConfigVersion: execConfigs.ActiveConfig.Config.OffchainConfigVersion,
+					OffchainConfig:        execConfigs.ActiveConfig.Config.OffchainConfig,
+				})
+				if err != nil {
+					return nil, err
+				}
+				execOffchainCfg, err := pluginconfig.DecodeExecuteOffchainConfig(publicConfig.ReportingPluginConfig)
+				if err != nil {
+					return nil, fmt.Errorf("failed to decode execute offchain config for don %d: %w", don.Id, err)
+				}
+				executeOffchainConfigs = append(executeOffchainConfigs, &execOffchainCfg)
+			}
+		}
+	}
+
+	return executeOffchainConfigs, nil
 }
 
 type OffRampSourceUpdate struct {
@@ -1220,7 +1273,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e cldf.Environment, state stateview.
 }
 
 func (cfg UpdateRouterRampsConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.RouterApplyRampUpdatesSequenceInput {
-	input := make(map[uint64]opsutil.EVMCallInput[ccipops.RouterApplyRampUpdatesOpInput], len(cfg.UpdatesByChain))
+	input := make(map[uint64]opsutil.EVMCallInput[ccipops1_2.RouterApplyRampUpdatesOpInput], len(cfg.UpdatesByChain))
 	for chainSel, update := range cfg.UpdatesByChain {
 		routerC := state.Chains[chainSel].Router
 		if cfg.TestRouter {
@@ -1260,10 +1313,10 @@ func (cfg UpdateRouterRampsConfig) ToSequenceInput(state stateview.CCIPOnChainSt
 				})
 			}
 		}
-		input[chainSel] = opsutil.EVMCallInput[ccipops.RouterApplyRampUpdatesOpInput]{
+		input[chainSel] = opsutil.EVMCallInput[ccipops1_2.RouterApplyRampUpdatesOpInput]{
 			ChainSelector: chainSel,
 			Address:       routerC.Address(),
-			CallInput: ccipops.RouterApplyRampUpdatesOpInput{
+			CallInput: ccipops1_2.RouterApplyRampUpdatesOpInput{
 				OnRampUpdates:  onRampUpdates,
 				OffRampRemoves: removes,
 				OffRampAdds:    adds,

@@ -121,6 +121,7 @@ func (n *AvaBlockNonce) UnmarshalText(input []byte) error {
 }
 
 // AvaHeader is a copy of [github.com/ava-labs/coreth/core/types.Header] to avoid importing the whole module.
+// NOTE: latest changes: https://github.com/ava-labs/coreth/blob/48165128c05d486f715a8060ca55b7cb8d51526d/plugin/evm/customtypes/header_ext.go#L171
 type AvaHeader struct {
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
 	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
@@ -152,29 +153,41 @@ type AvaHeader struct {
 	// BlockGasCost was added by Apricot Phase 4 and is ignored in legacy
 	// headers.
 	BlockGasCost *big.Int `json:"blockGasCost" rlp:"optional"`
+
+	// BlobGasUsed was added by EIP-4844 and is ignored in legacy headers.
+	BlobGasUsed *uint64 `json:"blobGasUsed" rlp:"optional"`
+
+	// ExcessBlobGas was added by EIP-4844 and is ignored in legacy headers.
+	ExcessBlobGas *uint64 `json:"excessBlobGas" rlp:"optional"`
+
+	// ParentBeaconRoot was added by EIP-4788 and is ignored in legacy headers.
+	ParentBeaconRoot *common.Hash `json:"parentBeaconBlockRoot" rlp:"optional"`
 }
 
 func (h *AvaHeader) UnmarshalJSON(input []byte) error {
 	type Header struct {
-		ParentHash     *common.Hash    `json:"parentHash"       gencodec:"required"`
-		UncleHash      *common.Hash    `json:"sha3Uncles"       gencodec:"required"`
-		Coinbase       *common.Address `json:"miner"            gencodec:"required"`
-		Root           *common.Hash    `json:"stateRoot"        gencodec:"required"`
-		TxHash         *common.Hash    `json:"transactionsRoot" gencodec:"required"`
-		ReceiptHash    *common.Hash    `json:"receiptsRoot"     gencodec:"required"`
-		Bloom          *AvaBloom       `json:"logsBloom"        gencodec:"required"`
-		Difficulty     *hexutil.Big    `json:"difficulty"       gencodec:"required"`
-		Number         *hexutil.Big    `json:"number"           gencodec:"required"`
-		GasLimit       *hexutil.Uint64 `json:"gasLimit"         gencodec:"required"`
-		GasUsed        *hexutil.Uint64 `json:"gasUsed"          gencodec:"required"`
-		Time           *hexutil.Uint64 `json:"timestamp"        gencodec:"required"`
-		Extra          *hexutil.Bytes  `json:"extraData"        gencodec:"required"`
-		MixDigest      *common.Hash    `json:"mixHash"`
-		Nonce          *AvaBlockNonce  `json:"nonce"`
-		ExtDataHash    *common.Hash    `json:"extDataHash"      gencodec:"required"`
-		BaseFee        *hexutil.Big    `json:"baseFeePerGas" rlp:"optional"`
-		ExtDataGasUsed *hexutil.Big    `json:"extDataGasUsed" rlp:"optional"`
-		BlockGasCost   *hexutil.Big    `json:"blockGasCost" rlp:"optional"`
+		ParentHash       *common.Hash    `json:"parentHash"       gencodec:"required"`
+		UncleHash        *common.Hash    `json:"sha3Uncles"       gencodec:"required"`
+		Coinbase         *common.Address `json:"miner"            gencodec:"required"`
+		Root             *common.Hash    `json:"stateRoot"        gencodec:"required"`
+		TxHash           *common.Hash    `json:"transactionsRoot" gencodec:"required"`
+		ReceiptHash      *common.Hash    `json:"receiptsRoot"     gencodec:"required"`
+		Bloom            *AvaBloom       `json:"logsBloom"        gencodec:"required"`
+		Difficulty       *hexutil.Big    `json:"difficulty"       gencodec:"required"`
+		Number           *hexutil.Big    `json:"number"           gencodec:"required"`
+		GasLimit         *hexutil.Uint64 `json:"gasLimit"         gencodec:"required"`
+		GasUsed          *hexutil.Uint64 `json:"gasUsed"          gencodec:"required"`
+		Time             *hexutil.Uint64 `json:"timestamp"        gencodec:"required"`
+		Extra            *hexutil.Bytes  `json:"extraData"        gencodec:"required"`
+		MixDigest        *common.Hash    `json:"mixHash"`
+		Nonce            *AvaBlockNonce  `json:"nonce"`
+		ExtDataHash      *common.Hash    `json:"extDataHash"      gencodec:"required"`
+		BaseFee          *hexutil.Big    `json:"baseFeePerGas" rlp:"optional"`
+		ExtDataGasUsed   *hexutil.Big    `json:"extDataGasUsed" rlp:"optional"`
+		BlockGasCost     *hexutil.Big    `json:"blockGasCost" rlp:"optional"`
+		BlobGasUsed      *hexutil.Uint64 `json:"blobGasUsed" rlp:"optional"`
+		ExcessBlobGas    *hexutil.Uint64 `json:"excessBlobGas" rlp:"optional"`
+		ParentBeaconRoot *common.Hash    `json:"parentBeaconBlockRoot" rlp:"optional"`
 	}
 	var dec Header
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -250,6 +263,15 @@ func (h *AvaHeader) UnmarshalJSON(input []byte) error {
 	}
 	if dec.BlockGasCost != nil {
 		h.BlockGasCost = (*big.Int)(dec.BlockGasCost)
+	}
+	if dec.BlobGasUsed != nil {
+		h.BlobGasUsed = (*uint64)(dec.BlobGasUsed)
+	}
+	if dec.ExcessBlobGas != nil {
+		h.ExcessBlobGas = (*uint64)(dec.ExcessBlobGas)
+	}
+	if dec.ParentBeaconRoot != nil {
+		h.ParentBeaconRoot = dec.ParentBeaconRoot
 	}
 	return nil
 }
