@@ -2505,7 +2505,7 @@ func UpdateFeeQuoterForToken(
 		MaxFeeUSDCents:    50_000,
 		DeciBps:           0,
 		DestGasOverhead:   180_000,
-		DestBytesOverhead: 640,
+		DestBytesOverhead: 960,
 		IsEnabled:         true,
 	}
 	_, err := commoncs.Apply(t, e,
