@@ -284,12 +284,7 @@ func DeployMCMSWithTimelockContractsEVM(
 				ChainSelector: chain.Selector,
 				DeployInput:   opInput,
 			},
-			opsutils.RetryDeploymentWithGasBoost[ops.OpEVMDeployTimelockInput](
-				opsutils.GasBoostConfig{},
-				operations.RetryPolicy{
-					MaxAttempts: 10,
-				},
-			),
+			opsutils.RetryDeploymentWithGasBoost[ops.OpEVMDeployTimelockInput](config.GasBoostConfig),
 		)
 		execReports = append(execReports, report.ToGenericReport())
 		if err != nil {
@@ -330,12 +325,7 @@ func DeployMCMSWithTimelockContractsEVM(
 				ChainSelector: chain.Selector,
 				DeployInput:   opInput,
 			},
-			opsutils.RetryDeploymentWithGasBoost[ops.OpEVMDeployCallProxyInput](
-				opsutils.GasBoostConfig{},
-				operations.RetryPolicy{
-					MaxAttempts: 10,
-				},
-			),
+			opsutils.RetryDeploymentWithGasBoost[ops.OpEVMDeployCallProxyInput](config.GasBoostConfig),
 		)
 		execReports = append(execReports, report.ToGenericReport())
 		if err != nil {
@@ -369,7 +359,7 @@ func DeployMCMSWithTimelockContractsEVM(
 	}
 	// grant roles for timelock
 	// this is called only if deployer key is an admin in timelock
-	seqReport, err := GrantRolesForTimelock(env, chain, timelockContracts, true)
+	seqReport, err := GrantRolesForTimelock(env, chain, timelockContracts, true, config.GasBoostConfig)
 	execReports = append(execReports, seqReport.ExecutionReports...)
 	if err != nil {
 		return execReports, err
@@ -412,6 +402,7 @@ func GrantRolesForTimelock(
 	chain cldf_evm.Chain,
 	timelockContracts *proposalutils.MCMSWithTimelockContracts,
 	skipIfDeployerKeyNotAdmin bool, // If true, skip role grants if the deployer key is not an admin.
+	gasBoostConfig *commontypes.GasBoostConfig,
 ) (operations.SequenceReport[seqs.SeqGrantRolesTimelockInput, map[uint64][]opsutils.EVMCallOutput], error) {
 	lggr := env.Logger
 	ctx := env.GetContext()
@@ -473,6 +464,7 @@ func GrantRolesForTimelock(
 				Addresses: []common.Address{callProxy.Address()},
 			},
 		},
+		GasBoostConfig: gasBoostConfig,
 	}
 
 	if !isTimelockAdmin {

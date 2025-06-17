@@ -9,6 +9,7 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 )
 
 type MCMSRole string
@@ -66,6 +67,7 @@ type MCMSWithTimelockConfigV2 struct {
 	Proposer         mcmstypes.Config `json:"proposer"`
 	TimelockMinDelay *big.Int         `json:"timelockMinDelay"`
 	Label            *string          `json:"label"`
+	GasBoostConfig   *GasBoostConfig  `json:"gasBoostConfig"`
 }
 
 type OCRParameters struct {
@@ -121,4 +123,15 @@ func (params OCRParameters) Validate() error {
 		return errors.New("maxDurationShouldTransmitAcceptedReport must be positive")
 	}
 	return nil
+}
+
+// GasBoostConfig defines the configuration for EVM gas boosting during retries.
+// It allows customization of the initial gas limit, gas limit increment, initial gas price, and gas price increment.
+// Defaults will be used if values are not provided.
+type GasBoostConfig struct {
+	InitialGasLimit   uint64
+	GasLimitIncrement uint64
+	InitialGasPrice   uint64
+	GasPriceIncrement uint64
+	RetryPolicy       operations.RetryPolicy
 }

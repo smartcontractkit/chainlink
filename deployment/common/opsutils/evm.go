@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
@@ -304,21 +305,35 @@ func cloneTransactOptsWithGas(opts *bind.TransactOpts, gasLimit uint64, gasPrice
 	return &newOpts
 }
 
-// GasBoostConfig defines the configuration for gas boosting during retries.
-// It allows customization of the initial gas limit, gas limit increment, initial gas price, and gas price increment.
-// Defaults will be used if values are not provided.
-type GasBoostConfig struct {
-	InitialGasLimit   uint64
-	GasLimitIncrement uint64
-	InitialGasPrice   uint64
-	GasPriceIncrement uint64
+// GasBoostConfigsForChainMap creates a map of GasBoostConfig pointers for each chain in the provided chainMap.
+// If a chain selector exists in gasBoostConfigs, it uses that config; otherwise, it sets nil.
+func GasBoostConfigsForChainMap[T any](chainMap map[uint64]T, gasBoostConfigs map[uint64]commontypes.GasBoostConfig) map[uint64]*commontypes.GasBoostConfig {
+	cfgs := make(map[uint64]*commontypes.GasBoostConfig, len(chainMap))
+	for chainSelector := range chainMap {
+		if _, ok := gasBoostConfigs[chainSelector]; ok {
+			gasBoostConfig := gasBoostConfigs[chainSelector]
+			cfgs[chainSelector] = &gasBoostConfig
+		} else {
+			cfgs[chainSelector] = nil
+		}
+	}
+
+	return cfgs
 }
 
 // RetryDeploymentWithGasBoost is an ExecuteOption that retries EVM deployments with gas boosting.
 // It uses the provided GasBoostConfig to adjust the gas limit and gas price on each retry attempt.
-func RetryDeploymentWithGasBoost[IN any](cfg GasBoostConfig, policy operations.RetryPolicy) operations.ExecuteOption[EVMDeployInput[IN], cldf_evm.Chain] {
+func RetryDeploymentWithGasBoost[IN any](cfg *commontypes.GasBoostConfig) operations.ExecuteOption[EVMDeployInput[IN], cldf_evm.Chain] {
+	// Use default retry option if no gas boost config is provided
+	if cfg == nil {
+		return operations.WithRetry[EVMDeployInput[IN], cldf_evm.Chain]()
+	}
+	if cfg.RetryPolicy.MaxAttempts == 0 {
+		cfg.RetryPolicy.MaxAttempts = 5 // Default to 5 attempts if not specified
+	}
+
 	return operations.WithRetryConfig(operations.RetryConfig[EVMDeployInput[IN], cldf_evm.Chain]{
-		Policy: policy,
+		Policy: cfg.RetryPolicy,
 		InputHook: func(attempt uint, err error, in EVMDeployInput[IN], deps cldf_evm.Chain) EVMDeployInput[IN] {
 			gasLimit, gasPrice := getBoostedGasForAttempt(cfg, attempt)
 			in.GasLimit = gasLimit
@@ -332,9 +347,17 @@ func RetryDeploymentWithGasBoost[IN any](cfg GasBoostConfig, policy operations.R
 // RetryCallWithGasBoost is an ExecuteOption that retries EVM calls with gas boosting.
 // It uses the provided GasBoostConfig to adjust the gas limit and gas price on each retry attempt.
 // If NoSend is true, it will not apply gas boosting since the transaction is never sent.
-func RetryCallWithGasBoost[IN any](cfg GasBoostConfig, policy operations.RetryPolicy) operations.ExecuteOption[EVMCallInput[IN], cldf_evm.Chain] {
+func RetryCallWithGasBoost[IN any](cfg *commontypes.GasBoostConfig) operations.ExecuteOption[EVMCallInput[IN], cldf_evm.Chain] {
+	// Use default retry option if no gas boost config is provided
+	if cfg == nil {
+		return operations.WithRetry[EVMCallInput[IN], cldf_evm.Chain]()
+	}
+	if cfg.RetryPolicy.MaxAttempts == 0 {
+		cfg.RetryPolicy.MaxAttempts = 5 // Default to 5 attempts if not specified
+	}
+
 	return operations.WithRetryConfig(operations.RetryConfig[EVMCallInput[IN], cldf_evm.Chain]{
-		Policy: policy,
+		Policy: cfg.RetryPolicy,
 		InputHook: func(attempt uint, err error, in EVMCallInput[IN], deps cldf_evm.Chain) EVMCallInput[IN] {
 			if in.NoSend {
 				return in // No gas boost for calls that do not send transactions
@@ -349,10 +372,10 @@ func RetryCallWithGasBoost[IN any](cfg GasBoostConfig, policy operations.RetryPo
 	})
 }
 
-func getBoostedGasForAttempt(cfg GasBoostConfig, attempt uint) (gasLimit uint64, gasPrice uint64) {
-	initialGasLimit := uint64(1_000_000)        // 1M
-	gasLimitIncrement := uint64(100_000)        // 100k
-	initialGasPrice := uint64(30_000_000_000)   // 30 Gwei
+func getBoostedGasForAttempt(cfg *commontypes.GasBoostConfig, attempt uint) (gasLimit uint64, gasPrice uint64) {
+	initialGasLimit := uint64(200_000)          // 200k
+	gasLimitIncrement := uint64(50_000)         // 50k
+	initialGasPrice := uint64(20_000_000_000)   // 20 Gwei
 	gasPriceIncrement := uint64(10_000_000_000) // 10 Gwei
 
 	// Override defaults with config values if provided

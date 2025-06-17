@@ -18,9 +18,10 @@ import (
 )
 
 type SeqDeployMCMWithConfigInput struct {
-	ContractType  cldf.ContractType `json:"contractType"`
-	MCMConfig     mcmsTypes.Config  `json:"mcmConfig"`
-	ChainSelector uint64            `json:"chainSelector"`
+	ContractType   cldf.ContractType           `json:"contractType"`
+	MCMConfig      mcmsTypes.Config            `json:"mcmConfig"`
+	ChainSelector  uint64                      `json:"chainSelector"`
+	GasBoostConfig *commontypes.GasBoostConfig `json:"gasBoostConfig"`
 }
 
 type SeqDeployMCMWithConfigOutput struct {
@@ -39,21 +40,15 @@ var SeqEVMDeployMCMWithConfig = operations.NewSequence(
 		case commontypes.BypasserManyChainMultisig:
 			deployReport, deployErr = operations.ExecuteOperation(b, ops.OpEVMDeployBypasserMCM, deps, opsutils.EVMDeployInput[any]{
 				ChainSelector: in.ChainSelector,
-			}, opsutils.RetryDeploymentWithGasBoost[any](opsutils.GasBoostConfig{}, operations.RetryPolicy{
-				MaxAttempts: 10,
-			}))
+			}, opsutils.RetryDeploymentWithGasBoost[any](in.GasBoostConfig))
 		case commontypes.ProposerManyChainMultisig:
 			deployReport, deployErr = operations.ExecuteOperation(b, ops.OpEVMDeployProposerMCM, deps, opsutils.EVMDeployInput[any]{
 				ChainSelector: in.ChainSelector,
-			}, opsutils.RetryDeploymentWithGasBoost[any](opsutils.GasBoostConfig{}, operations.RetryPolicy{
-				MaxAttempts: 10,
-			}))
+			}, opsutils.RetryDeploymentWithGasBoost[any](in.GasBoostConfig))
 		case commontypes.CancellerManyChainMultisig:
 			deployReport, deployErr = operations.ExecuteOperation(b, ops.OpEVMDeployCancellerMCM, deps, opsutils.EVMDeployInput[any]{
 				ChainSelector: in.ChainSelector,
-			}, opsutils.RetryDeploymentWithGasBoost[any](opsutils.GasBoostConfig{}, operations.RetryPolicy{
-				MaxAttempts: 10,
-			}))
+			}, opsutils.RetryDeploymentWithGasBoost[any](in.GasBoostConfig))
 		default:
 			return opsutils.EVMDeployOutput{}, fmt.Errorf("unsupported contract type for seq-deploy-mcm-with-config: %s", in.ContractType)
 		}
@@ -79,12 +74,7 @@ var SeqEVMDeployMCMWithConfig = operations.NewSequence(
 					GroupParents:    groupParents,
 				},
 			},
-			opsutils.RetryCallWithGasBoost[ops.OpEVMSetConfigMCMInput](
-				opsutils.GasBoostConfig{},
-				operations.RetryPolicy{
-					MaxAttempts: 10,
-				},
-			),
+			opsutils.RetryCallWithGasBoost[ops.OpEVMSetConfigMCMInput](in.GasBoostConfig),
 		)
 		if err != nil {
 			return opsutils.EVMDeployOutput{}, err

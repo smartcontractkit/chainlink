@@ -104,6 +104,7 @@ func DeployMCMSWithTimelockV2(
 type GrantRoleInput struct {
 	ExistingProposerByChain map[uint64]common.Address // if needed in the future, need to add bypasser and canceller here
 	MCMS                    *proposalutils.TimelockConfig
+	GasBoostConfigPerChain  map[uint64]types.GasBoostConfig
 }
 
 func grantRolePreconditions(e cldf.Environment, cfg GrantRoleInput) error {
@@ -155,6 +156,7 @@ func grantRoleLogic(e cldf.Environment, cfg GrantRoleInput) (cldf.ChangesetOutpu
 	}
 
 	out := cldf.ChangesetOutput{}
+	gasBoostConfigs := opsutils.GasBoostConfigsForChainMap(cfg.ExistingProposerByChain, cfg.GasBoostConfigPerChain)
 	for chain := range cfg.ExistingProposerByChain {
 		stateForChain := mcmsState[chain]
 		evmChains := e.BlockChains.EVMChains()
@@ -165,7 +167,7 @@ func grantRoleLogic(e cldf.Environment, cfg GrantRoleInput) (cldf.ChangesetOutpu
 				ProposerMcm:  stateForChain.ProposerMcm,
 				Timelock:     stateForChain.Timelock,
 				CallProxy:    stateForChain.CallProxy,
-			}, false)
+			}, false, gasBoostConfigs[chain])
 		out, err = opsutils.AddEVMCallSequenceToCSOutput(e, out, seqReport, err, mcmsStateNoPtr, cfg.MCMS, fmt.Sprintf("GrantRolesForTimelock on %s", evmChains[chain]))
 		if err != nil {
 			return out, fmt.Errorf("failed to grant roles for timelock on chain %d: %w", chain, err)
