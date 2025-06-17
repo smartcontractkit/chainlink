@@ -11,7 +11,7 @@ import (
 
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 // FastTransferTokenPoolUpdateDestChainConfigSequenceInput defines inputs for updating destination chain configs across multiple chains

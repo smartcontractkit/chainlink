@@ -223,12 +223,12 @@ jobs:
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   call-cre-local-env-tests:
-    if: ${{ github.event_name == 'schedule' }}
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     needs: [docker-core-plugins]
-    uses: smartcontractkit/chainlink/.github/workflows/cre-local-env-tests.yaml@c4ef87cfa2eea0bada24a0ea6e4131604e25d8b9 # develop SHA from 13th June 2025
+    uses: smartcontractkit/chainlink/.github/workflows/cre-local-env-tests.yaml@d0fc90f78ed3740be3a40df1b1be0a0804fc1b91 # develop SHA from 16th June 2025
     with:
       chainlink_image_tag: ${{ needs.docker-core-plugins.outputs.docker-manifest-tag }}
-      chainlink_version: develop
+      chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}
     secrets: inherit
 
   call-cre-workflow-don-benchmark:
@@ -240,5 +240,5 @@ jobs:
     uses: smartcontractkit/chainlink/.github/workflows/cre-workflow-don-benchmark.yaml@9092b6ad0873cb0a41df4bf65904e7eae91b4c54
     with:
       chainlink_image_tag: ${{ needs.docker-core-plugins-testing.outputs.docker-manifest-tag }}
-      chainlink_version: develop
+      chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}
     secrets: inherit
