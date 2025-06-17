@@ -2,6 +2,7 @@ package testhelpers
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -967,16 +968,17 @@ func SendRequestAptos(
 	for _, address := range tokenStoreAddresses {
 		tokenStoreStrings = append(tokenStoreStrings, address.StringLong())
 	}
-	e.Logger.Debugw("Sending message: ",
+	e.Logger.Debugw("(Aptos) Sending message: ",
 		"destChainSelector", cfg.DestChain,
-		"receiver", msg.Receiver,
-		"data", msg.Data,
+		"routerAddress", router.StringLong(),
+		"receiver", hex.EncodeToString(msg.Receiver),
+		"data", hex.EncodeToString(msg.Data),
 		"tokenAddresses", tokenAddressStrings,
 		"tokenAmounts", tokenAmounts,
 		"tokenStoreAddresses", tokenStoreStrings,
 		"feeToken", msg.FeeToken.StringLong(),
 		"feeTokenStore", msg.FeeTokenStore.StringLong(),
-		"extraArgs", msg.ExtraArgs,
+		"extraArgs", hex.EncodeToString(msg.ExtraArgs),
 	)
 
 	routerContract := aptos_router.Bind(router, client)
