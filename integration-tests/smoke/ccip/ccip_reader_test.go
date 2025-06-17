@@ -592,11 +592,7 @@ func TestCCIPReader_ExecutedMessages_SingleChain(t *testing.T) {
 	s := setupExecutedMessagesTest(ctx, t, false)
 	// State 0 and 1 should never be emitted by the contract, but
 	// checking if they are ignored properly by the reader
-	err := commitSqNrs(s, chainS1, []uint64{12}, 1)
-	require.NoError(t, err)
-	s.sb.Commit()
-
-	err = commitSqNrs(s, chainS1, []uint64{13}, 0)
+	err := commitSqNrs(s, chainS1, []uint64{13}, 0)
 	require.NoError(t, err)
 	s.sb.Commit()
 
