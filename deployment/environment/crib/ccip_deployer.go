@@ -826,12 +826,15 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (c
 func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool, rmnEnabled bool) (cldf.Environment, error) {
 	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	solSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
-	allSelectors := append(evmSelectors, solSelectors...)
+	// need to have extra definition here for golint
+	var allSelectors = make([]uint64, 0)
+	allSelectors = append(allSelectors, evmSelectors...)
+	allSelectors = append(allSelectors, solSelectors...)
 	var commitOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	var execOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	// Should be configured in the future based on the load test scenario
 	chainType := v1_6.Default
-	_, err := testhelpers.DeployFeeds(e.Logger, e.ExistingAddresses, e.BlockChains.EVMChains()[feedChainSel], testhelpers.DefaultLinkPrice, testhelpers.DefaultWethPrice) //nolint:staticcheck // SA1019
+	_, err := testhelpers.DeployFeeds(e.Logger, e.ExistingAddresses, e.BlockChains.EVMChains()[feedChainSel], testhelpers.DefaultLinkPrice, testhelpers.DefaultWethPrice)
 	if err != nil {
 		return *e, fmt.Errorf("failed to deploy feeds: %w", err)
 	}
