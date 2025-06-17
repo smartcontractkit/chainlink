@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 	"math/big"
 	mathrand "math/rand"
-	"sync"
 	"time"
 
 	selectors "github.com/smartcontractkit/chain-selectors"
@@ -35,33 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 )
-
-// Global mutex map for source chains - shared across all DestinationGun instances
-var (
-	sourceChainMutexes   = make(map[uint64]*sync.Mutex)
-	sourceChainMutexLock sync.RWMutex
-)
-
-// getSourceChainMutex returns a mutex for the given source chain
-func getSourceChainMutex(chainSelector uint64) *sync.Mutex {
-	sourceChainMutexLock.RLock()
-	if mutex, exists := sourceChainMutexes[chainSelector]; exists {
-		sourceChainMutexLock.RUnlock()
-		return mutex
-	}
-	sourceChainMutexLock.RUnlock()
-
-	// Double-checked locking pattern
-	sourceChainMutexLock.Lock()
-	defer sourceChainMutexLock.Unlock()
-
-	if mutex, exists := sourceChainMutexes[chainSelector]; exists {
-		return mutex
-	}
-
-	sourceChainMutexes[chainSelector] = &sync.Mutex{}
-	return sourceChainMutexes[chainSelector]
-}
 
 type SeqNumRange struct {
 	Start *atomic.Uint64
@@ -195,11 +167,6 @@ func (m *DestinationGun) mustSourceChain() (uint64, error) {
 }
 
 func (m *DestinationGun) sendEVMSourceMessage(src uint64) error {
-	// CRITICAL: Lock the source chain to prevent nonce collisions
-	mutex := getSourceChainMutex(src)
-	mutex.Lock()
-	defer mutex.Unlock()
-
 	m.l.Debugw("Acquired source chain lock", "sourceChain", src)
 
 	acc, exists := m.evmSourceKeys[src]
