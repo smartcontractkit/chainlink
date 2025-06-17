@@ -181,14 +181,6 @@ func generateRandomLanesWithMinConnectivity(chains []uint64, numLanes int, bidir
 			SourceChain:      src,
 			DestinationChain: dst,
 		})
-
-		// Second cycle - connect to chain that's two positions ahead
-		// This ensures each chain is both source and destination at least twice
-		dst2 := shuffledChains[(i+2)%len(shuffledChains)]
-		guaranteedLanes = append(guaranteedLanes, LaneConfig{
-			SourceChain:      src,
-			DestinationChain: dst2,
-		})
 	}
 
 	// If bidirectional, add reverse lanes for guaranteed connectivity
@@ -254,8 +246,8 @@ func calculateMinimumLanesNeeded(numChains int, bidirectional bool) int {
 		return 0
 	}
 
-	// Minimum is: each chain[i] -> [chain[i+1], chain[i+2]]
-	minLanes := numChains * 2
+	// Minimum is: each chain[i] -> [chain[i+1]]
+	minLanes := numChains
 
 	if bidirectional {
 		// If bidirectional, we need reverse lanes too

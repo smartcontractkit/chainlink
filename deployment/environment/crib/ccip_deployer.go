@@ -814,6 +814,18 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState, la
 	eg := new(xerrgroup.Group)
 	mu := sync.Mutex{}
 
+	globalUpdateOffRampSources := make(map[uint64]map[uint64]v1_6.OffRampSourceUpdate)
+	globalUpdateRouterChanges := make(map[uint64]v1_6.RouterUpdates)
+
+	// Initialize maps for all chains that will be used
+	for chainID := range evmChains {
+		globalUpdateOffRampSources[chainID] = make(map[uint64]v1_6.OffRampSourceUpdate)
+		globalUpdateRouterChanges[chainID] = v1_6.RouterUpdates{
+			OffRampUpdates: make(map[uint64]bool),
+			OnRampUpdates:  make(map[uint64]bool),
+		}
+	}
+
 	// Group lanes by source chain for parallel processing
 	lanesBySource := make(map[uint64][]LaneConfig)
 	for _, lane := range evmLanes {
@@ -831,8 +843,6 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState, la
 			onRampUpdatesByChain := make(map[uint64]map[uint64]v1_6.OnRampDestinationUpdate)
 			pricesByChain := make(map[uint64]v1_6.FeeQuoterPriceUpdatePerSource)
 			feeQuoterDestsUpdatesByChain := make(map[uint64]map[uint64]evm_fee_quoter.FeeQuoterDestChainConfig)
-			updateOffRampSources := make(map[uint64]map[uint64]v1_6.OffRampSourceUpdate)
-			updateRouterChanges := make(map[uint64]v1_6.RouterUpdates)
 
 			onRampUpdatesByChain[src] = make(map[uint64]v1_6.OnRampDestinationUpdate)
 			pricesByChain[src] = v1_6.FeeQuoterPriceUpdatePerSource{
@@ -843,11 +853,6 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState, la
 				GasPrices: map[uint64]*big.Int{},
 			}
 			feeQuoterDestsUpdatesByChain[src] = make(map[uint64]evm_fee_quoter.FeeQuoterDestChainConfig)
-			updateOffRampSources[src] = make(map[uint64]v1_6.OffRampSourceUpdate)
-			updateRouterChanges[src] = v1_6.RouterUpdates{
-				OffRampUpdates: make(map[uint64]bool),
-				OnRampUpdates:  make(map[uint64]bool),
-			}
 
 			mu.Lock()
 			poolUpdates[src] = v1_5_1.TokenPoolConfig{
@@ -868,15 +873,16 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState, la
 				pricesByChain[src].GasPrices[dst] = testhelpers.DefaultGasPrice
 				feeQuoterDestsUpdatesByChain[src][dst] = v1_6.DefaultFeeQuoterDestChainConfig(true)
 
-				updateOffRampSources[src][dst] = v1_6.OffRampSourceUpdate{
+				mu.Lock()
+				// Use the pre-initialized global maps
+				globalUpdateOffRampSources[dst][src] = v1_6.OffRampSourceUpdate{
 					IsEnabled:                 true,
 					IsRMNVerificationDisabled: true,
 				}
 
-				updateRouterChanges[src].OffRampUpdates[dst] = true
-				updateRouterChanges[src].OnRampUpdates[dst] = true
+				globalUpdateRouterChanges[dst].OffRampUpdates[src] = true
+				globalUpdateRouterChanges[src].OnRampUpdates[dst] = true
 
-				mu.Lock()
 				rateLimitPerChain[dst] = v1_5_1.RateLimiterConfig{
 					Inbound: token_pool.RateLimiterConfig{
 						IsEnabled: false,
@@ -911,18 +917,6 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState, la
 						UpdatesByChain: feeQuoterDestsUpdatesByChain,
 					},
 				),
-				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
-					v1_6.UpdateOffRampSourcesConfig{
-						UpdatesByChain: updateOffRampSources,
-					},
-				),
-				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
-					v1_6.UpdateRouterRampsConfig{
-						UpdatesByChain: updateRouterChanges,
-					},
-				),
 			}
 			_, err := commonchangeset.Apply(nil, *e, appliedChangesets[0], appliedChangesets[1:]...)
 			return err
@@ -934,14 +928,30 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState, la
 		return *e, err
 	}
 
-	_, err = commonchangeset.Apply(nil, *e, commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
-		v1_5_1.ConfigureTokenPoolContractsConfig{
-			TokenSymbol: shared.LinkSymbol,
-			PoolUpdates: poolUpdates,
-		},
-	))
+	// Apply the global updates after all goroutines complete
+	finalChangesets := []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
+			v1_6.UpdateOffRampSourcesConfig{
+				UpdatesByChain: globalUpdateOffRampSources,
+			},
+		),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+			v1_6.UpdateRouterRampsConfig{
+				UpdatesByChain: globalUpdateRouterChanges,
+			},
+		),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+			v1_5_1.ConfigureTokenPoolContractsConfig{
+				TokenSymbol: shared.LinkSymbol,
+				PoolUpdates: poolUpdates,
+			},
+		),
+	}
 
+	_, err = commonchangeset.Apply(nil, *e, finalChangesets[0], finalChangesets[1:]...)
 	return *e, err
 }
 
