@@ -309,6 +309,10 @@ func cloneTransactOptsWithGas(opts *bind.TransactOpts, gasLimit uint64, gasPrice
 // If a chain selector exists in gasBoostConfigs, it uses that config; otherwise, it sets nil.
 func GasBoostConfigsForChainMap[T any](chainMap map[uint64]T, gasBoostConfigs map[uint64]commontypes.GasBoostConfig) map[uint64]*commontypes.GasBoostConfig {
 	cfgs := make(map[uint64]*commontypes.GasBoostConfig, len(chainMap))
+	if gasBoostConfigs == nil || chainMap == nil { // in either case, gas boosting should be empty
+		return cfgs
+	}
+
 	for chainSelector := range chainMap {
 		if _, ok := gasBoostConfigs[chainSelector]; ok {
 			gasBoostConfig := gasBoostConfigs[chainSelector]
@@ -328,19 +332,14 @@ func RetryDeploymentWithGasBoost[IN any](cfg *commontypes.GasBoostConfig) operat
 	if cfg == nil {
 		return operations.WithRetry[EVMDeployInput[IN], cldf_evm.Chain]()
 	}
-	if cfg.RetryPolicy.MaxAttempts == 0 {
-		cfg.RetryPolicy.MaxAttempts = 5 // Default to 5 attempts if not specified
-	}
+	c := *cfg
 
-	return operations.WithRetryConfig(operations.RetryConfig[EVMDeployInput[IN], cldf_evm.Chain]{
-		Policy: cfg.RetryPolicy,
-		InputHook: func(attempt uint, err error, in EVMDeployInput[IN], deps cldf_evm.Chain) EVMDeployInput[IN] {
-			gasLimit, gasPrice := getBoostedGasForAttempt(cfg, attempt)
-			in.GasLimit = gasLimit
-			in.GasPrice = gasPrice
+	return operations.WithRetryInput(func(attempt uint, err error, in EVMDeployInput[IN], deps cldf_evm.Chain) EVMDeployInput[IN] {
+		gasLimit, gasPrice := getBoostedGasForAttempt(c, attempt)
+		in.GasLimit = gasLimit
+		in.GasPrice = gasPrice
 
-			return in
-		},
+		return in
 	})
 }
 
@@ -352,27 +351,22 @@ func RetryCallWithGasBoost[IN any](cfg *commontypes.GasBoostConfig) operations.E
 	if cfg == nil {
 		return operations.WithRetry[EVMCallInput[IN], cldf_evm.Chain]()
 	}
-	if cfg.RetryPolicy.MaxAttempts == 0 {
-		cfg.RetryPolicy.MaxAttempts = 5 // Default to 5 attempts if not specified
-	}
+	c := *cfg
 
-	return operations.WithRetryConfig(operations.RetryConfig[EVMCallInput[IN], cldf_evm.Chain]{
-		Policy: cfg.RetryPolicy,
-		InputHook: func(attempt uint, err error, in EVMCallInput[IN], deps cldf_evm.Chain) EVMCallInput[IN] {
-			if in.NoSend {
-				return in // No gas boost for calls that do not send transactions
-			}
+	return operations.WithRetryInput(func(attempt uint, err error, in EVMCallInput[IN], deps cldf_evm.Chain) EVMCallInput[IN] {
+		if in.NoSend {
+			return in // No gas boost for calls that do not send transactions
+		}
 
-			gasLimit, gasPrice := getBoostedGasForAttempt(cfg, attempt)
-			in.GasLimit = gasLimit
-			in.GasPrice = gasPrice
+		gasLimit, gasPrice := getBoostedGasForAttempt(c, attempt)
+		in.GasLimit = gasLimit
+		in.GasPrice = gasPrice
 
-			return in
-		},
+		return in
 	})
 }
 
-func getBoostedGasForAttempt(cfg *commontypes.GasBoostConfig, attempt uint) (gasLimit uint64, gasPrice uint64) {
+func getBoostedGasForAttempt(cfg commontypes.GasBoostConfig, attempt uint) (gasLimit uint64, gasPrice uint64) {
 	initialGasLimit := uint64(200_000)          // 200k
 	gasLimitIncrement := uint64(50_000)         // 50k
 	initialGasPrice := uint64(20_000_000_000)   // 20 Gwei
