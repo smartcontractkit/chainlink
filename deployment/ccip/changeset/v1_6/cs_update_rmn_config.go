@@ -22,9 +22,9 @@ import (
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -101,7 +101,7 @@ func SetRMNRemoteOnRMNProxyChangeset(e cldf.Environment, cfg SetRMNRemoteOnRMNPr
 		e.BlockChains.EVMChains(),
 		cfg.ToSequenceInput(state),
 	)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, state, output, report, err, cfg.MCMSConfig, "Call SetARM on RMNProxies")
+	return opsutil.AddEVMCallSequenceToCSOutput(e, output, report, err, state.EVMMCMSStateByChain(), cfg.MCMSConfig, "Call SetARM on RMNProxies")
 }
 
 type RMNNopConfig struct {
@@ -636,5 +636,5 @@ func SetRMNRemoteConfigChangeset(e cldf.Environment, config ccipseq.SetRMNRemote
 		e.BlockChains.EVMChains(),
 		input,
 	)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, state, cldf.ChangesetOutput{}, seqReport, err, config.MCMSConfig, "Set RMNRemote configs")
+	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, seqReport, err, state.EVMMCMSStateByChain(), config.MCMSConfig, "Set RMNRemote configs")
 }

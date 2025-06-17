@@ -15939,6 +15939,28 @@ ChainType = 'arbitrum' # Example
 ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
 Available types: `arbitrum`, `celo`, `gnosis`, `hedera`, `kroma`, `metis`, `optimismBedrock`, `scroll`, `wemix`, `xlayer`, `zksync`
 
+### SafeDepth
+```toml
+SafeDepth = 0 # Default
+```
+SafeDepth is the number of blocks after which an ethereum transaction is considered "safe."
+Note that this setting is only used for chains with FinalityTags = false
+This number represents a number of blocks we consider large enough that reorgs are generally not likely to happen.
+Note that this number is different from FinalityDepth, which is the number of blocks after which a transaction is considered final.
+It is used in cases where we don't want to wait for finality.
+
+Special cases:
+`SafeDepth`=0 would imply that its value will fall back to the `FinalityDepth` value, if FinalityTagEnabled is false.
+
+Examples:
+
+Transaction sending:
+A transaction is sent at block height 42
+
+`SafeDepth` is set to 5, FinalityTagEnabled = false, and FinalityDepth = 10
+At block height 47, the transaction is considered safe, but not final.
+At block height 52, the transaction is considered final.
+
 ### FinalityDepth
 ```toml
 FinalityDepth = 50 # Default

@@ -10,8 +10,6 @@ import (
 	"github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms"
-	"github.com/smartcontractkit/mcms/sdk"
-	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
@@ -63,15 +61,18 @@ func getTypeToProgramDeployName() map[cldf.ContractType]string {
 }
 
 type DeployChainContractsConfig struct {
-	HomeChainSelector      uint64
+	HomeChainSelector      uint64 // eth mainnet/testnet
 	ChainSelector          uint64
 	ContractParamsPerChain ChainContractParams
-	UpgradeConfig          UpgradeConfig
-	BuildConfig            *BuildSolanaConfig
+	// include the version of the contracts you want to upgrade here
+	// the cs will use this config to determine what contracts to upgrade
+	UpgradeConfig UpgradeConfig
+	// this will be used to build the solana programs
+	BuildConfig *BuildSolanaConfig
 	// identifier for which token pool to deploy (i.e. partner identifier). defaults to CLL
 	BurnMintTokenPoolMetadata    string
 	LockReleaseTokenPoolMetadata string
-	// TODO: add validation for this
+	// if specified, the mcms contracts will be deployed and initialized if they are not already deployed
 	MCMSWithTimelockConfig *types.MCMSWithTimelockConfigV2
 }
 
@@ -82,7 +83,8 @@ type ChainContractParams struct {
 
 type FeeQuoterParams struct {
 	DefaultMaxFeeJuelsPerMsg solBinary.Uint128
-	BillingConfig            []solFeeQuoter.BillingTokenConfig
+	// use this to setup billing tokens during initial deploy
+	BillingConfig []solFeeQuoter.BillingTokenConfig
 }
 
 type OffRampParams struct {
@@ -189,21 +191,6 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 		e.Logger.Debugw("Skipping solana build as no build config provided")
 	}
 
-	if err := c.UpgradeConfig.Validate(e, chainSel); err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("invalid UpgradeConfig: %w", err)
-	}
-	addresses, _ := e.ExistingAddresses.AddressesForChain(chainSel)
-	mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
-	timelocks := map[uint64]string{}
-	proposers := map[uint64]string{}
-	inspectors := map[uint64]sdk.Inspector{}
-	timelocks[chainSel] = mcmsSolana.ContractAddress(
-		mcmState.TimelockProgram,
-		mcmsSolana.PDASeed(mcmState.TimelockSeed),
-	)
-	proposers[chainSel] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
-	inspectors[chainSel] = mcmsSolana.NewInspector(chain.Client)
-
 	batches, err := deployChainContractsSolana(e, chain, newAddresses, c)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", newAddresses)
@@ -211,14 +198,13 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 	}
 
 	if len(batches) > 0 {
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		proposal, err := BuildProposalsForBatches(
 			e,
-			timelocks,
-			proposers,
-			inspectors,
-			batches,
+			chain.Selector,
 			"proposal to upgrade CCIP contracts",
-			*c.UpgradeConfig.MCMS)
+			c.UpgradeConfig.MCMS.MinDelay,
+			batches,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}

@@ -15,9 +15,9 @@ import (
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -319,16 +319,12 @@ func fastTransferUpdateLaneConfigLogic(env cldf.Environment, c FastTransferUpdat
 	}
 
 	seqReport, err := operations.ExecuteSequence(env.OperationsBundle, ccipseq.FastTransferTokenPoolUpdateDestChainConfigSequence, env.BlockChains.EVMChains(), seqInput)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute fast transfer token pool update dest chain config sequence: %w", err)
-	}
-
 	return opsutil.AddEVMCallSequenceToCSOutput(
 		env,
-		state,
 		cldf.ChangesetOutput{},
 		seqReport,
-		nil, // no error since we already handled it above
+		err,
+		state.EVMMCMSStateByChain(),
 		c.MCMS,
 		fmt.Sprintf("Update %s fast transfer token pool destination chain configurations", c.TokenSymbol),
 	)
@@ -375,16 +371,12 @@ func fastTransferUpdateFillerAllowlistLogic(env cldf.Environment, c FastTransfer
 	}
 
 	seqReport, err := operations.ExecuteSequence(env.OperationsBundle, ccipseq.FastTransferTokenPoolUpdateFillerAllowlistSequence, env.BlockChains.EVMChains(), seqInput)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute fast transfer token pool update filler allowlist sequence: %w", err)
-	}
-
 	return opsutil.AddEVMCallSequenceToCSOutput(
 		env,
-		state,
 		cldf.ChangesetOutput{},
 		seqReport,
-		nil, // no error since we already handled it above
+		err,
+		state.EVMMCMSStateByChain(),
 		c.MCMS,
 		fmt.Sprintf("Update %s fast transfer token pool filler allowlists", c.TokenSymbol),
 	)
