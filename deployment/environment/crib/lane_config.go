@@ -36,11 +36,8 @@ type LaneConfiguration struct {
 	// NumLanes - number of random lanes to generate when Mode is "random-lanes"
 	NumLanes *int `toml:",omitempty"`
 
-	// EnsureBidirectional - when true, ensures that for every A->B lane, there's also a B->A lane
-	EnsureBidirectional *bool `toml:",omitempty"`
-
-	// Internal fields for caching and deterministic generation
-	generatedLanes []LaneConfig `toml:"-"` // Cache for generated lanes
+	// Internal fields for caching
+	generatedLanes []LaneConfig
 }
 
 const (
@@ -48,21 +45,16 @@ const (
 	LaneModeRandomLanes = "random-lanes"
 )
 
-func (lc *LaneConfiguration) Validate(e *cldf.Environment) error {
+// Validate checks the lane configuration for correctness, ensuring that
+// the mode is set and that the number of lanes is valid for the given mode based on the expected number of chains.
+func (lc *LaneConfiguration) Validate(chainCount int) error {
 	if lc == nil {
-		// Default to any-to-any if not specified
-		return nil
+		return errors.New("lane configuration is nil")
 	}
 
 	mode := pointer.GetString(lc.Mode)
 	if mode == "" {
-		mode = LaneModeAnyToAny
-	}
-
-	chains := e.BlockChains.ListChainSelectors()
-	chainSet := make(map[uint64]bool)
-	for _, chain := range chains {
-		chainSet[chain] = true
+		return errors.New("mode must be set in LaneConfiguration")
 	}
 
 	switch mode {
@@ -75,21 +67,22 @@ func (lc *LaneConfiguration) Validate(e *cldf.Environment) error {
 			return errors.New("NumLanes must be provided and greater than 0 when Mode is 'random-lanes'")
 		}
 
-		maxPossibleLanes := len(chains) * (len(chains) - 1)
+		maxPossibleLanes := chainCount * (chainCount - 1)
 		if *lc.NumLanes > maxPossibleLanes {
 			return fmt.Errorf("NumLanes (%d) cannot exceed maximum possible lanes (%d) for %d chains",
-				*lc.NumLanes, maxPossibleLanes, len(chains))
+				*lc.NumLanes, maxPossibleLanes, chainCount)
 		}
 
 		// Calculate minimum lanes needed for connectivity
-		minLanesNeeded := calculateMinimumLanesNeeded(len(chains), pointer.GetBool(lc.EnsureBidirectional))
+		minLanesNeeded := calculateMinimumLanesNeeded(chainCount)
 		if *lc.NumLanes < minLanesNeeded {
-			return fmt.Errorf("NumLanes (%d) is too low to ensure each chain is both source and destination. Minimum needed: %d",
+			return fmt.Errorf("NumLanes (%d) is too low to ensure each chain is both source and destination"+
+				"bidirecionally. Minimum needed: %d",
 				*lc.NumLanes, minLanesNeeded)
 		}
 
 	default:
-		return fmt.Errorf("invalid Mode: %s. Must be one of: %s, %s, %s",
+		return fmt.Errorf("invalid Mode: %s. Must be one of: %s, %s",
 			mode, LaneModeAnyToAny, LaneModeRandomLanes)
 	}
 
@@ -114,7 +107,12 @@ func (lc *LaneConfiguration) GetLanes() ([]LaneConfig, error) {
 func (lc *LaneConfiguration) GenerateLanes(chains []uint64) []LaneConfig {
 	mode := pointer.GetString(lc.Mode)
 	if mode == "" {
-		mode = LaneModeAnyToAny
+		panic("LaneConfiguration mode is not set, cannot generate lanes")
+	}
+
+	if lc.generatedLanes != nil {
+		// If lanes are already generated, return cached result
+		return lc.generatedLanes
 	}
 
 	switch mode {
@@ -127,7 +125,7 @@ func (lc *LaneConfiguration) GenerateLanes(chains []uint64) []LaneConfig {
 			return []LaneConfig{}
 		}
 
-		lc.generatedLanes = generateRandomLanesWithMinConnectivity(chains, *lc.NumLanes, pointer.GetBool(lc.EnsureBidirectional))
+		lc.generatedLanes = generateRandomLanesWithMinConnectivity(chains, *lc.NumLanes)
 
 		return lc.generatedLanes
 
@@ -156,11 +154,11 @@ func generateAnyToAnyLanes(chains []uint64) []LaneConfig {
 	return lanes
 }
 
-func generateRandomLanesWithMinConnectivity(chains []uint64, numLanes int, bidirectional bool) []LaneConfig {
+func generateRandomLanesWithMinConnectivity(chains []uint64, numLanes int) []LaneConfig {
 	rng := rand.New(rand.NewSource(rand.Int63()))
 
-	// Step 1: Ensure minimum connectivity - each chain must be both source and destination
-	var guaranteedLanes []LaneConfig
+	// Ensure minimum connectivity - each chain must be both source and destination
+	var generatedLanes []LaneConfig
 
 	// Shuffle chains for randomness in connectivity pattern
 	shuffledChains := make([]uint64, len(chains))
@@ -169,46 +167,35 @@ func generateRandomLanesWithMinConnectivity(chains []uint64, numLanes int, bidir
 		shuffledChains[i], shuffledChains[j] = shuffledChains[j], shuffledChains[i]
 	})
 
-	// Create minimum connectivity: each chain as source and destination at least twice
-	// This is especially for evms to not have to handle nonces if we're using the same chain to send 2 messages
-	// within same block
-	// We'll create two cycles to ensure each chain appears twice in each role
+	// Create minimum connectivity: each chain as source and destination bidirectionally
 	for i := 0; i < len(shuffledChains); i++ {
 		// First cycle - connect to next chain
 		src := shuffledChains[i]
 		dst := shuffledChains[(i+1)%len(shuffledChains)]
-		guaranteedLanes = append(guaranteedLanes, LaneConfig{
+		generatedLanes = append(generatedLanes, LaneConfig{
 			SourceChain:      src,
 			DestinationChain: dst,
 		})
+		// bidirectional connection
+		generatedLanes = append(generatedLanes, LaneConfig{
+			SourceChain:      dst,
+			DestinationChain: src,
+		})
 	}
 
-	// If bidirectional, add reverse lanes for guaranteed connectivity
-	if bidirectional {
-		reverseLanes := make([]LaneConfig, len(guaranteedLanes))
-		for i, lane := range guaranteedLanes {
-			reverseLanes[i] = LaneConfig{
-				SourceChain:      lane.DestinationChain,
-				DestinationChain: lane.SourceChain,
-			}
-		}
-		guaranteedLanes = append(guaranteedLanes, reverseLanes...)
-	}
-
-	// Step 2: Fill remaining slots with random lanes
-	if numLanes <= len(guaranteedLanes) {
+	// Fill remaining slots with random lanes
+	if numLanes <= len(generatedLanes) {
 		// If requested lanes <= guaranteed lanes, just return a subset of guaranteed lanes
-		if numLanes < len(guaranteedLanes) {
-			return guaranteedLanes[:numLanes]
+		if numLanes < len(generatedLanes) {
+			return generatedLanes[:numLanes]
 		}
-		return guaranteedLanes
+		return generatedLanes
 	}
 
 	// Create set of used lanes to avoid duplicates
-	usedLanes := make(map[string]bool)
-	for _, lane := range guaranteedLanes {
-		laneKey := fmt.Sprintf("%d->%d", lane.SourceChain, lane.DestinationChain)
-		usedLanes[laneKey] = true
+	usedLanes := make(map[LaneConfig]bool)
+	for _, lane := range generatedLanes {
+		usedLanes[lane] = true
 	}
 
 	// Generate additional random lanes
@@ -217,8 +204,7 @@ func generateRandomLanesWithMinConnectivity(chains []uint64, numLanes int, bidir
 
 	// Filter out already used lanes
 	for _, lane := range allPossibleLanes {
-		laneKey := fmt.Sprintf("%d->%d", lane.SourceChain, lane.DestinationChain)
-		if !usedLanes[laneKey] {
+		if !usedLanes[lane] {
 			availableLanes = append(availableLanes, lane)
 		}
 	}
@@ -228,31 +214,38 @@ func generateRandomLanesWithMinConnectivity(chains []uint64, numLanes int, bidir
 		availableLanes[i], availableLanes[j] = availableLanes[j], availableLanes[i]
 	})
 
-	// Add random lanes until we reach numLanes
-	remainingSlots := numLanes - len(guaranteedLanes)
-	if remainingSlots > len(availableLanes) {
-		remainingSlots = len(availableLanes)
+	for _, availableLane := range availableLanes {
+		if len(generatedLanes) >= numLanes {
+			break
+		}
+		// Add only if it doesn't already exist in guaranteed lanes
+		if !usedLanes[availableLane] {
+			// Add the available lane and its reverse to ensure bidirectionality
+			reverseLane := LaneConfig{
+				SourceChain:      availableLane.DestinationChain,
+				DestinationChain: availableLane.SourceChain,
+			}
+			generatedLanes = append(generatedLanes, availableLane)
+			generatedLanes = append(generatedLanes, reverseLane)
+			usedLanes[availableLane] = true
+			usedLanes[reverseLane] = true
+		}
 	}
 
-	finalLanes := append(guaranteedLanes, availableLanes[:remainingSlots]...)
-
-	return finalLanes
+	return generatedLanes
 }
 
 // calculateMinimumLanesNeeded calculates minimum lanes needed for connectivity where each chain
 // must be both a source and destination.
-func calculateMinimumLanesNeeded(numChains int, bidirectional bool) int {
+func calculateMinimumLanesNeeded(numChains int) int {
 	if numChains <= 1 {
 		return 0
 	}
 
-	// Minimum is: each chain[i] -> [chain[i+1]]
-	minLanes := numChains
-
-	if bidirectional {
-		// If bidirectional, we need reverse lanes too
-		minLanes *= 2
-	}
+	// Minimum is:
+	// bidirectional lanes for each chain
+	// each chain[i] <-> [chain[i+1]]
+	minLanes := numChains * 2
 
 	return minLanes
 }
@@ -289,6 +282,7 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 
 	evmChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilyEVM))
 	solChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilySolana))
+	//nolint: gocritic // append is fine here
 	allChains := append(evmChains, solChains...)
 
 	// Discover EVM to EVM lanes
@@ -406,7 +400,7 @@ func (lc *LaneConfiguration) isDestinationEnabledOnSolanaRouter(chainState solSt
 // GetSourceChainsForDestination returns all source chains that can send to a specific destination
 func (lc *LaneConfiguration) GetSourceChainsForDestination(destination uint64) []uint64 {
 	if lc == nil {
-		return nil
+		panic("LaneConfiguration is nil, cannot get source chains for destination")
 	}
 
 	var sources []uint64
@@ -427,7 +421,7 @@ func (lc *LaneConfiguration) GetSourceChainsForDestination(destination uint64) [
 // GetDestinationChainsForSource returns all destination chains that a source can send to
 func (lc *LaneConfiguration) GetDestinationChainsForSource(source uint64) []uint64 {
 	if lc == nil {
-		return nil
+		panic("LaneConfiguration is nil, cannot get destination chains for source")
 	}
 
 	var destinations []uint64
@@ -456,7 +450,7 @@ type LaneStats struct {
 // GetLaneStats For metrics and reporting on the lane configuration
 func (lc *LaneConfiguration) GetLaneStats() LaneStats {
 	if lc == nil {
-		return LaneStats{}
+		panic("LaneConfiguration is nil")
 	}
 
 	chainLaneCount := make(map[uint64]int)

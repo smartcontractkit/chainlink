@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 	"math/big"
 	mathrand "math/rand"
@@ -96,20 +95,12 @@ func NewDestinationGun(
 	metricPipe chan messageData,
 	laneConfig *crib.LaneConfiguration, // Lane configuration parameter
 ) (*DestinationGun, error) {
-	// Get available source chains based on lane configuration
-	var availableSources []uint64
-	if laneConfig != nil {
-		availableSources = laneConfig.GetSourceChainsForDestination(chainSelector)
+	if laneConfig == nil {
+		panic("laneConfig should not be nil")
 	}
 
-	// Fallback to any-to-any if no lane config or no sources found
-	if len(availableSources) == 0 {
-		l.Infow("No lane configuration found, falling back to any-to-any setup")
-		allChains := env.BlockChains.ListChainSelectors(cldf_chain.WithChainSelectorsExclusion([]uint64{chainSelector}))
-		for _, chain := range allChains {
-			availableSources = append(availableSources, chain)
-		}
-	}
+	// Get available source chains based on lane configuration
+	availableSources := laneConfig.GetSourceChainsForDestination(chainSelector)
 
 	if len(availableSources) == 0 {
 		return nil, fmt.Errorf("no source chains available for destination %d", chainSelector)
