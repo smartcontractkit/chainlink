@@ -1794,7 +1794,6 @@ func (s *service) deleteSimpleJobProposal(ctx context.Context, proposal *JobProp
 // Returns true if the job was successfully deleted as a workflow, false if it's not a workflow job.
 // Returns an error if deletion failed.
 func (s *service) tryDeleteWorkflowJob(ctx context.Context, proposal *JobProposal, logger logger.Logger) (bool, error) {
-	// Check if we can perform full workflow cancellation
 	var canCancelWorkflow bool
 	var job *job.Job
 	var jpSpec *JobProposalSpec
@@ -1807,7 +1806,6 @@ func (s *service) tryDeleteWorkflowJob(ctx context.Context, proposal *JobProposa
 			job = &jobFound
 			jobSpecID = int64(*jobFound.WorkflowSpecID)
 
-			// Get approved spec for workflow cancellation
 			jpSpec, err = s.orm.GetApprovedSpec(ctx, proposal.ID)
 			if err != nil {
 				logger.Errorw("GetApprovedSpec failed - no approved specs to cancel?", "id", proposal.ID, "err", err, "name", jobFound.Name)
