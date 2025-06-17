@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
+	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"  // Register Aptos plugin config factories
 	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"    // Register EVM plugin config factories
 	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana" // Register Solana plugin config factories
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"

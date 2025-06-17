@@ -492,7 +492,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, trigger
 	meteringReport, err := e.meterReports.Start(ctx, executionID)
 	switch {
 	case err != nil:
-		e.logger.Errorw("could start metering workflow execution. continuing without metering", "err", err)
+		e.logger.Errorw("could not start metering workflow execution. continuing without metering", "err", err)
 	default:
 		mrErr := meteringReport.Reserve(ctx)
 		if mrErr != nil {

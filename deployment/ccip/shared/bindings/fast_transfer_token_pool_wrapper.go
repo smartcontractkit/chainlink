@@ -152,6 +152,18 @@ func (w *FastTransferTokenPoolWrapper) GetAllowedFillers(opts *bind.CallOpts) ([
 	}
 }
 
+// GetToken returns the token address associated with the pool
+func (w *FastTransferTokenPoolWrapper) GetToken(opts *bind.CallOpts) (common.Address, error) {
+	switch w.contractType {
+	case shared.BurnMintFastTransferTokenPool:
+		return w.burnMintPool.GetToken(opts)
+	case shared.BurnMintWithExternalMinterFastTransferTokenPool:
+		return w.burnMintExternalPool.GetToken(opts)
+	default:
+		return common.Address{}, errors.New("unsupported contract type")
+	}
+}
+
 // UpdateFillerAllowList updates the filler allowlist
 func (w *FastTransferTokenPoolWrapper) UpdateFillerAllowList(
 	opts *bind.TransactOpts,

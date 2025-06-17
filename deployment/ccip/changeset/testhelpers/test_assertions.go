@@ -830,6 +830,27 @@ func ConfirmNoExecConsistentlyWithSeqNr(
 	}, timeout, 3*time.Second, "Expected no execution state change on chain %d (offramp %s) from chain %d with expected sequence number %d", dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr)
 }
 
+func ConfirmNoExecSuccessConsistentlyWithSeqNr(
+	t *testing.T,
+	sourceSelector uint64,
+	dest cldf_evm.Chain,
+	offRamp offramp.OffRampInterface,
+	expectedSeqNr uint64,
+	timeout time.Duration,
+) {
+	RequireConsistently(t, func() bool {
+		scc, executionState := getExecutionState(t, sourceSelector, offRamp, expectedSeqNr)
+		t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
+			dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
+		if executionState == EXECUTION_STATE_SUCCESS {
+			t.Logf("Observed %s execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
+				executionStateToString(executionState), dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr)
+			return false
+		}
+		return true
+	}, timeout, 3*time.Second, "Expected no execution success on chain %d (offramp %s) from chain %d with expected sequence number %d", dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr)
+}
+
 func getExecutionState(t *testing.T, sourceSelector uint64, offRamp offramp.OffRampInterface, expectedSeqNr uint64) (offramp.OffRampSourceChainConfig, uint8) {
 	scc, err := offRamp.GetSourceChainConfig(nil, sourceSelector)
 	require.NoError(t, err)
