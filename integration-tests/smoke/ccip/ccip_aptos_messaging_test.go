@@ -308,6 +308,21 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 		})
 	})
 
+	t.Run("Send message to invalid receiver - Should Fail", func(t *testing.T) {
+		message := []byte("Hello Aptos, from EVM!")
+		mlt.Run(mlt.TestCase{
+			TestSetup: mltTestSetup,
+			Name:      "Send message to invalid receiver - Should Fail",
+			Msg: router.ClientEVM2AnyMessage{
+				Receiver:  []byte("0x000"),
+				Data:      message,
+				FeeToken:  common.HexToAddress(NATIVE_FEE_TOKEN),
+				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(100000, false),
+			},
+			ExpRevert: true,
+		})
+	})
+
 	t.Run("Send message to invalid chain selector - Should Fail", func(t *testing.T) {
 		message := []byte("Hello Aptos, from EVM!")
 		mlt.Run(mlt.TestCase{
@@ -518,12 +533,27 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 	})
 
 	t.Run("Missing ExtraArgs - Should Fail", func(t *testing.T) {
-		message := []byte("Hello Aptos, from EVM!")
+		message := STANDARD_MESSAGE
 		mlt.Run(mlt.TestCase{
 			TestSetup: mltTestSetup,
 			Name:      "Missing ExtraArgs - Should Fail",
 			Msg: testhelpers.AptosSendRequest{
 				Receiver:  ccipReceiverAddress,
+				Data:      message,
+				FeeToken:  aptosNativeFeeTokenAddress,
+				ExtraArgs: []byte{},
+			},
+			ExpRevert: true,
+		})
+	})
+
+	t.Run("Send message to invalid receiver - Should Fail", func(t *testing.T) {
+		message := STANDARD_MESSAGE
+		mlt.Run(mlt.TestCase{
+			TestSetup: mltTestSetup,
+			Name:      "Send message to invalid receiver - Should Fail",
+			Msg: testhelpers.AptosSendRequest{
+				Receiver:  []byte("0x0000"),
 				Data:      message,
 				FeeToken:  aptosNativeFeeTokenAddress,
 				ExtraArgs: []byte{},
