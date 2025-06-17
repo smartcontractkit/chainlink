@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/protobuf/proto"
 
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 )
 

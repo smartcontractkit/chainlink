@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	proxy "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/aggregator_proxy"
+	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
 )
 
 type ProxyView struct {
@@ -25,7 +25,8 @@ func GenerateAggregatorProxyView(proxy *proxy.AggregatorProxy) (ProxyView, error
 
 	description, err := proxy.Description(nil)
 	if err != nil {
-		return ProxyView{}, fmt.Errorf("failed to get description for AggregatorProxy: %w", err)
+		fmt.Printf("failed to get description for AggregatorProxy: %v\n", err)
+		description = ""
 	}
 
 	owner, err := proxy.Owner(nil)

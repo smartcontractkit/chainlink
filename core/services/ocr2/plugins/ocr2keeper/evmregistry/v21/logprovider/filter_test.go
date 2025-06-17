@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 )
 
 func TestUpkeepFilter_Select(t *testing.T) {

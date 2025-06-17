@@ -10,10 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
-	"github.com/smartcontractkit/chainlink-integrations/evm/gas/mocks"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
 )
 
 func TestExecPriceEstimator_GetGasPrice(t *testing.T) {
@@ -138,7 +137,7 @@ func TestExecPriceEstimator_DenoteInUSD(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			g := ExecGasPriceEstimator{}
 
 			gasPrice, err := g.DenoteInUSD(ctx, tc.gasPrice, tc.nativePrice)
@@ -190,7 +189,7 @@ func TestExecPriceEstimator_Median(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			g := ExecGasPriceEstimator{}
 
 			gasPrice, err := g.Median(ctx, tc.gasPrices)
@@ -240,7 +239,7 @@ func TestExecPriceEstimator_Deviates(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			g := ExecGasPriceEstimator{
 				deviationPPB: tc.deviationPPB,
 			}
@@ -346,7 +345,7 @@ func TestExecPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			g := ExecGasPriceEstimator{}
 
 			costUSD, err := g.EstimateMsgCostUSD(ctx, tc.gasPrice, tc.wrappedNativePrice, tc.msg)

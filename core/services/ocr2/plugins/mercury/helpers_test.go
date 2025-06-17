@@ -28,8 +28,8 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"

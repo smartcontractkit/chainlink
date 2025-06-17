@@ -1,0 +1,94 @@
+
+type = "workflow"
+schemaVersion = 1
+name = "test-spec"
+workflowId = "5b48f7604a6cb1118e6080173f8a2904ce30f22670b5970a99f952b1b1c303e2"
+workflow = """
+
+name: "abcdef0123"
+owner: "0x0100000000000000000000000000000000000001"
+triggers:
+  - id: "streams-trigger@2.0.0"
+    config:
+      feedIds:
+        - "1"
+        - "2"
+        - "3"
+        - "4"
+        - "5"
+        - "6"
+        - "7"
+        - "8"
+        - "9"
+        - "10"
+
+
+consensus:
+  - id: "offchain_reporting@1.0.0"
+    ref: "evm_median"
+    inputs:
+      observations:
+        - "$(trigger.outputs)"
+    config:
+      report_id: "0001"
+      key_id: "evm"	
+      aggregation_method: "llo_streams"
+      aggregation_config:
+        streams:
+          "1":
+            deviation: "0.001"
+            heartbeat: 3600
+            remappedID: "0xeacfa7a5d9e761c2147eeb55e0d1bd7898a3dd11dae0cfe85ed451978abed1fb"
+          "2":
+            deviation: "0.001"
+            heartbeat: 3600
+            remappedID: "0x7522d6a7e66da6ad5c1faea7fdbe519485bf1d8171b0e9e3e252599447695950"
+          "3":
+            deviation: "0.001"
+            heartbeat: 3600
+            remappedID: "0xbf48b6a627754556e91c3fa2b5808e5cb3dcf9dbc3ff8f71fec412f99e0c0973"
+          "4":
+            deviation: "0.001"
+            heartbeat: 3600
+            remappedID: "0x45c262759475c1300e58d7bb04d80b7db270152cace305ef32fc11c5028bda87"
+          "5":
+            deviation: "0.001"
+            heartbeat: 3600
+            remappedID: "0x844272bc4e7a6b02c55fa0039192b586a9daa0d535cba3d4a2e0d348d6b6db2e"
+          "6":
+            deviation: "0.001"
+            heartbeat: 3600
+            remappedID: "0x80e1bbe6822cbd6640fd3715971dd70c0d57653793e50ae76f939995f98c6e93"
+          "7":
+            deviation: "0.001"
+            heartbeat: 3600
+            remappedID: "0xc0f527aedff116a1081f12a8f3d0660cfdd9fd0be10017b35efdf5c039112341"
+          "8":
+            deviation: "0.001"
+            heartbeat: 3600
+            remappedID: "0xd879d09478ca66e4769c98e9e818f292bae7e3594ad671db9531dded9bf9cfc7"
+          "9":
+            deviation: "0.001"
+            heartbeat: 3600
+            remappedID: "0xbfbf2e48e151f357564ed5b5ab069ddd017711e86fbfd2da546ae8607da08460"
+          "10":
+            deviation: "0.001"
+            heartbeat: 3600
+            remappedID: "0x9565b70d249586034c2d0238948ff69ef62638a5a73b62404b50ecad00b94b16"
+
+      encoder: "EVM"
+      encoder_config:
+        abi: "(bytes32 RemappedID, uint224 Price, uint32 Timestamp)[] Reports"
+
+targets:
+  - id: "write_geth-testnet@1.0.0"
+    inputs:
+      signed_report: "$(evm_median.outputs)"
+    config:
+      address: "0x53fbE802B80D56423a5B4dd8C73D1Aa488C6BDeB"
+      params: ["$(report)"]
+      abi: "receive(report bytes)"
+      deltaStage: 1s
+      schedule: oneAtATime
+
+"""

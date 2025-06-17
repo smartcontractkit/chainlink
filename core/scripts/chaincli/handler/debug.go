@@ -24,12 +24,12 @@ import (
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 	commonhex "github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
+	autov2common "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cbor"
-	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
-	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
@@ -257,7 +257,8 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			failUnknown("failed to pack raw checkUpkeep call", err)
 		}
 		addLink("checkUpkeep simulation", tenderlySimLink(ctx, k.cfg, chainID, blockNum, rawCall, registryAddress))
-		rawCall = append(core.ILogAutomationABI.Methods["checkLog"].ID, triggerData...)
+		rawCall = core.ILogAutomationABI.Methods["checkLog"].ID
+		rawCall = append(rawCall, triggerData...)
 		addLink("checkLog (direct) simulation", tenderlySimLink(ctx, k.cfg, chainID, blockNum, rawCall, upkeepInfo.Target))
 	} else {
 		resolveIneligible(fmt.Sprintf("invalid trigger type: %d", triggerType))

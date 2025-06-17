@@ -19,8 +19,8 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 )
 
 // TODO: Remove when new dual transmitter contracts are merged

@@ -8,18 +8,18 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 type MCMSRole string
 
 const (
-	BypasserManyChainMultisig  deployment.ContractType = "BypasserManyChainMultiSig"
-	CancellerManyChainMultisig deployment.ContractType = "CancellerManyChainMultiSig"
-	ProposerManyChainMultisig  deployment.ContractType = "ProposerManyChainMultiSig"
-	ManyChainMultisig          deployment.ContractType = "ManyChainMultiSig"
-	RBACTimelock               deployment.ContractType = "RBACTimelock"
-	CallProxy                  deployment.ContractType = "CallProxy"
+	BypasserManyChainMultisig  cldf.ContractType = "BypasserManyChainMultiSig"
+	CancellerManyChainMultisig cldf.ContractType = "CancellerManyChainMultiSig"
+	ProposerManyChainMultisig  cldf.ContractType = "ProposerManyChainMultiSig"
+	ManyChainMultisig          cldf.ContractType = "ManyChainMultiSig"
+	RBACTimelock               cldf.ContractType = "RBACTimelock"
+	CallProxy                  cldf.ContractType = "CallProxy"
 
 	// roles
 	ProposerRole  MCMSRole = "PROPOSER"
@@ -29,21 +29,21 @@ const (
 	// LinkToken is the burn/mint link token. It should be used everywhere for
 	// new deployments. Corresponds to
 	// https://github.com/smartcontractkit/chainlink/blob/develop/core/gethwrappers/shared/generated/link_token/link_token.go#L34
-	LinkToken deployment.ContractType = "LinkToken"
+	LinkToken cldf.ContractType = "LinkToken"
 	// StaticLinkToken represents the (very old) non-burn/mint link token.
 	// It is not used in new deployments, but still exists on some chains
 	// and has a distinct ABI from the new LinkToken.
 	// Corresponds to the ABI
 	// https://github.com/smartcontractkit/chainlink/blob/develop/core/gethwrappers/generated/link_token_interface/link_token_interface.go#L34
-	StaticLinkToken deployment.ContractType = "StaticLinkToken"
+	StaticLinkToken cldf.ContractType = "StaticLinkToken"
 	// mcms Solana specific
-	ManyChainMultisigProgram         deployment.ContractType = "ManyChainMultiSigProgram"
-	RBACTimelockProgram              deployment.ContractType = "RBACTimelockProgram"
-	AccessControllerProgram          deployment.ContractType = "AccessControllerProgram"
-	ProposerAccessControllerAccount  deployment.ContractType = "ProposerAccessControllerAccount"
-	ExecutorAccessControllerAccount  deployment.ContractType = "ExecutorAccessControllerAccount"
-	CancellerAccessControllerAccount deployment.ContractType = "CancellerAccessControllerAccount"
-	BypasserAccessControllerAccount  deployment.ContractType = "BypasserAccessControllerAccount"
+	ManyChainMultisigProgram         cldf.ContractType = "ManyChainMultiSigProgram"
+	RBACTimelockProgram              cldf.ContractType = "RBACTimelockProgram"
+	AccessControllerProgram          cldf.ContractType = "AccessControllerProgram"
+	ProposerAccessControllerAccount  cldf.ContractType = "ProposerAccessControllerAccount"
+	ExecutorAccessControllerAccount  cldf.ContractType = "ExecutorAccessControllerAccount"
+	CancellerAccessControllerAccount cldf.ContractType = "CancellerAccessControllerAccount"
+	BypasserAccessControllerAccount  cldf.ContractType = "BypasserAccessControllerAccount"
 )
 
 func (role MCMSRole) String() string {
@@ -51,36 +51,36 @@ func (role MCMSRole) String() string {
 }
 
 type MCMSWithTimelockConfig struct {
-	Canceller        config.Config
-	Bypasser         config.Config
-	Proposer         config.Config
-	TimelockMinDelay *big.Int
-	Label            *string
+	Canceller        config.Config `json:"canceller"`
+	Bypasser         config.Config `json:"bypasser"`
+	Proposer         config.Config `json:"proposer"`
+	TimelockMinDelay *big.Int      `json:"timelockMinDelay"`
+	Label            *string       `json:"label"`
 }
 
 // MCMSWithTimelockConfigV2 holds the configuration for an MCMS with timelock.
 // Note that this type already exists in types.go, but this one is using the new lib version.
 type MCMSWithTimelockConfigV2 struct {
-	Canceller        mcmstypes.Config
-	Bypasser         mcmstypes.Config
-	Proposer         mcmstypes.Config
-	TimelockMinDelay *big.Int
-	Label            *string
+	Canceller        mcmstypes.Config `json:"canceller"`
+	Bypasser         mcmstypes.Config `json:"bypasser"`
+	Proposer         mcmstypes.Config `json:"proposer"`
+	TimelockMinDelay *big.Int         `json:"timelockMinDelay"`
+	Label            *string          `json:"label"`
 }
 
 type OCRParameters struct {
-	DeltaProgress                           time.Duration
-	DeltaResend                             time.Duration
-	DeltaInitial                            time.Duration
-	DeltaRound                              time.Duration
-	DeltaGrace                              time.Duration
-	DeltaCertifiedCommitRequest             time.Duration
-	DeltaStage                              time.Duration
-	Rmax                                    uint64
-	MaxDurationQuery                        time.Duration
-	MaxDurationObservation                  time.Duration
-	MaxDurationShouldAcceptAttestedReport   time.Duration
-	MaxDurationShouldTransmitAcceptedReport time.Duration
+	DeltaProgress                           time.Duration `json:"deltaProgress"`
+	DeltaResend                             time.Duration `json:"deltaResend"`
+	DeltaInitial                            time.Duration `json:"deltaInitial"`
+	DeltaRound                              time.Duration `json:"deltaRound"`
+	DeltaGrace                              time.Duration `json:"deltaGrace"`
+	DeltaCertifiedCommitRequest             time.Duration `json:"deltaCertifiedCommitRequest"`
+	DeltaStage                              time.Duration `json:"deltaStage"`
+	Rmax                                    uint64        `json:"rmax"`
+	MaxDurationQuery                        time.Duration `json:"maxDurationQuery"`
+	MaxDurationObservation                  time.Duration `json:"maxDurationObservation"`
+	MaxDurationShouldAcceptAttestedReport   time.Duration `json:"maxDurationShouldAcceptAttestedReport"`
+	MaxDurationShouldTransmitAcceptedReport time.Duration `json:"maxDurationShouldTransmitAcceptedReport"`
 }
 
 func (params OCRParameters) Validate() error {

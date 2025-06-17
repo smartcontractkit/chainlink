@@ -10,7 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
@@ -21,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
@@ -161,6 +163,7 @@ type keyRing struct {
 	StarkNet   map[string]starkkey.Key
 	Aptos      map[string]aptoskey.Key
 	Tron       map[string]tronkey.Key
+	TON        map[string]tonkey.Key
 	VRF        map[string]vrfkey.KeyV2
 	Workflow   map[string]workflowkey.Key
 	LegacyKeys LegacyKeyStorage
@@ -178,6 +181,7 @@ func newKeyRing() *keyRing {
 		StarkNet: make(map[string]starkkey.Key),
 		Aptos:    make(map[string]aptoskey.Key),
 		Tron:     make(map[string]tronkey.Key),
+		TON:      make(map[string]tonkey.Key),
 		VRF:      make(map[string]vrfkey.KeyV2),
 		Workflow: make(map[string]workflowkey.Key),
 	}
@@ -214,46 +218,49 @@ func (kr *keyRing) Encrypt(password string, scryptParams utils.ScryptParams) (ek
 
 func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	for _, csaKey := range kr.CSA {
-		rawKeys.CSA = append(rawKeys.CSA, csaKey.Raw().Bytes())
+		rawKeys.CSA = append(rawKeys.CSA, internal.RawBytes(csaKey))
 	}
 	for _, ethKey := range kr.Eth {
-		rawKeys.Eth = append(rawKeys.Eth, ethKey.Raw().Bytes())
+		rawKeys.Eth = append(rawKeys.Eth, internal.RawBytes(ethKey))
 	}
 	for _, ocrKey := range kr.OCR {
-		rawKeys.OCR = append(rawKeys.OCR, ocrKey.Raw().Bytes())
+		rawKeys.OCR = append(rawKeys.OCR, internal.RawBytes(ocrKey))
 	}
 	for _, ocr2key := range kr.OCR2 {
-		rawKeys.OCR2 = append(rawKeys.OCR2, ocr2key.Raw().Bytes())
+		rawKeys.OCR2 = append(rawKeys.OCR2, internal.RawBytes(ocr2key))
 	}
 	for _, p2pKey := range kr.P2P {
-		rawKeys.P2P = append(rawKeys.P2P, p2pKey.Raw().Bytes())
+		rawKeys.P2P = append(rawKeys.P2P, internal.RawBytes(p2pKey))
 	}
 	for _, cosmoskey := range kr.Cosmos {
-		rawKeys.Cosmos = append(rawKeys.Cosmos, cosmoskey.Raw().Bytes())
+		rawKeys.Cosmos = append(rawKeys.Cosmos, internal.RawBytes(cosmoskey))
 	}
 	for _, solkey := range kr.Solana {
-		rawKeys.Solana = append(rawKeys.Solana, solkey.Raw().Bytes())
+		rawKeys.Solana = append(rawKeys.Solana, internal.RawBytes(solkey))
 	}
 	for _, starkkey := range kr.StarkNet {
-		rawKeys.StarkNet = append(rawKeys.StarkNet, starkkey.Raw().Bytes())
+		rawKeys.StarkNet = append(rawKeys.StarkNet, internal.RawBytes(starkkey))
 	}
 	for _, aptoskey := range kr.Aptos {
-		rawKeys.Aptos = append(rawKeys.Aptos, aptoskey.Raw().Bytes())
+		rawKeys.Aptos = append(rawKeys.Aptos, internal.RawBytes(aptoskey))
 	}
 	for _, tronkey := range kr.Tron {
-		rawKeys.Tron = append(rawKeys.Tron, tronkey.Raw().Bytes())
+		rawKeys.Tron = append(rawKeys.Tron, internal.RawBytes(tronkey))
+	}
+	for _, tonkey := range kr.TON {
+		rawKeys.TON = append(rawKeys.TON, internal.RawBytes(tonkey))
 	}
 	for _, vrfKey := range kr.VRF {
-		rawKeys.VRF = append(rawKeys.VRF, vrfKey.Raw().Bytes())
+		rawKeys.VRF = append(rawKeys.VRF, internal.RawBytes(vrfKey))
 	}
 	for _, workflowKey := range kr.Workflow {
-		rawKeys.Workflow = append(rawKeys.Workflow, workflowKey.Raw().Bytes())
+		rawKeys.Workflow = append(rawKeys.Workflow, internal.RawBytes(workflowKey))
 	}
 	return rawKeys
 }
 
 func (kr *keyRing) logPubKeys(lggr logger.Logger) {
-	lggr = lggr.Named("KeyRing")
+	lggr = logger.Named(lggr, "KeyRing")
 	var csaIDs []string
 	for _, CSAKey := range kr.CSA {
 		csaIDs = append(csaIDs, CSAKey.ID())
@@ -293,6 +300,10 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	tronIDs := []string{}
 	for _, tronKey := range kr.Tron {
 		tronIDs = append(tronIDs, tronKey.ID())
+	}
+	tonIDs := []string{}
+	for _, tonKey := range kr.TON {
+		tonIDs = append(tonIDs, tonKey.ID())
 	}
 	var vrfIDs []string
 	for _, VRFKey := range kr.VRF {
@@ -334,6 +345,9 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	if len(tronIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d Tron keys", len(tronIDs)), "keys", tronIDs)
 	}
+	if len(tonIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d TON keys", len(tonIDs)), "keys", tonIDs)
+	}
 	if len(vrfIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d VRF keys", len(vrfIDs)), "keys", vrfIDs)
 	}
@@ -359,6 +373,7 @@ type rawKeyRing struct {
 	StarkNet   [][]byte
 	Aptos      [][]byte
 	Tron       [][]byte
+	TON        [][]byte
 	VRF        [][]byte
 	Workflow   [][]byte
 	LegacyKeys LegacyKeyStorage `json:"-"`
@@ -406,6 +421,10 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 	for _, rawTronKey := range rawKeys.Tron {
 		tronKey := tronkey.KeyFor(internal.NewRaw(rawTronKey))
 		keyRing.Tron[tronKey.ID()] = tronKey
+	}
+	for _, rawTONKey := range rawKeys.TON {
+		tonKey := tonkey.KeyFor(internal.NewRaw(rawTONKey))
+		keyRing.TON[tonKey.ID()] = tonKey
 	}
 	for _, rawVRFKey := range rawKeys.VRF {
 		vrfKey := vrfkey.KeyFor(internal.NewRaw(rawVRFKey))

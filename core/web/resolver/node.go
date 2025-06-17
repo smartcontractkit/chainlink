@@ -9,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	evmtoml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	evmtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
 )
 

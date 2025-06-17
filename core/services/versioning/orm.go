@@ -3,6 +3,7 @@ package versioning
 import (
 	"context"
 	"database/sql"
+	"os"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -46,7 +47,9 @@ func (o *orm) UpsertNodeVersion(ctx context.Context, version NodeVersion) error 
 	}
 
 	return sqlutil.TransactDataSource(ctx, o.ds, nil, func(tx sqlutil.DataSource) error {
-		if _, _, err := CheckVersion(ctx, tx, logger.NullLogger, version.Version); err != nil {
+		if os.Getenv("CL_SKIP_APP_VERSION_CHECK") == "true" {
+			o.lggr.Warnw("Skipping app version check", "appVersion", version.Version)
+		} else if _, _, err := CheckVersion(ctx, tx, logger.NullLogger, version.Version); err != nil {
 			return err
 		}
 

@@ -22,13 +22,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/foundry"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/mockserver-cfg"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/parrot"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
 
-	evmcfg "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
@@ -489,8 +488,7 @@ func DeployEnvironments(
 							"fullnameOverride": actions.NetworkName(network.Name),
 							"image": map[string]interface{}{
 								"repository": "ghcr.io/foundry-rs/foundry",
-								"tag":        "nightly-5ac78a9cd4b94dc53d1fe5e0f42372b28b5a7559",
-								//	"tag":        "nightly-ea2eff95b5c17edd3ffbdfc6daab5ce5cc80afc0",
+								"tag":        "v0.3.0",
 							},
 							"anvil": map[string]interface{}{
 								"chainId":                   fmt.Sprintf("%d", network.ChainID),
@@ -548,9 +546,7 @@ func DeployEnvironments(
 	}
 	if pointer.GetBool(testInputs.TestGroupInput.USDCMockDeployment) ||
 		pointer.GetBool(testInputs.TestGroupInput.TokenConfig.WithPipeline) {
-		testEnvironment.
-			AddHelm(mockservercfg.New(nil)).
-			AddHelm(mockserver.New(nil))
+		testEnvironment.AddHelm(parrot.New(nil))
 	}
 	err := testEnvironment.Run()
 	require.NoError(t, err)

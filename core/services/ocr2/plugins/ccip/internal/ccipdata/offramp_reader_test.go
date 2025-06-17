@@ -13,18 +13,17 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-integrations/evm/client"
-	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
-	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	evm_2_evm_offramp_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/commit_store_helper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/mock_rmn_contract"
+	evm_2_evm_offramp_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store_helper"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
+	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -310,7 +309,7 @@ func TestNewOffRampReader(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(tc.typeAndVersion, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			b, err := utils.ABIEncode(`[{"type":"string"}]`, tc.typeAndVersion)
 			require.NoError(t, err)
 			c := clienttest.NewClient(t)

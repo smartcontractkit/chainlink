@@ -3,8 +3,6 @@ package v1_6
 import (
 	"time"
 
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 
@@ -23,7 +21,7 @@ var (
 
 	DefaultOCRParamsForCommitForETH = CCIPOCRParams{
 		OCRParameters:        globals.CommitOCRParamsForEthereum,
-		CommitOffChainConfig: &globals.DefaultCommitOffChainCfg,
+		CommitOffChainConfig: &globals.DefaultCommitOffChainCfgForEth,
 	}
 
 	DefaultOCRParamsForExecForNonETH = CCIPOCRParams{
@@ -66,6 +64,7 @@ var (
 			MerkleRootAsyncObserverSyncTimeout: 12 * time.Second,
 			ChainFeeAsyncObserverSyncFreq:      10 * time.Second,
 			ChainFeeAsyncObserverSyncTimeout:   12 * time.Second,
+			DonBreakingChangesVersion:          pluginconfig.DonBreakingChangesVersion1RoleDonSupport,
 		},
 		ExecuteOffChainConfig: &pluginconfig.ExecuteOffchainConfig{
 			BatchGasLimit:             globals.BatchGasLimit,
@@ -73,6 +72,7 @@ var (
 			RootSnoozeTime:            *config.MustNewDuration(globals.RootSnoozeTime),
 			MessageVisibilityInterval: *config.MustNewDuration(globals.PermissionLessExecutionThreshold),
 			BatchingStrategyID:        globals.BatchingStrategyID,
+			MaxCommitReportsToFetch:   globals.MaxCommitReportsToFetch,
 		},
 	}
 )
@@ -86,17 +86,6 @@ const (
 	// migrate to using Default or Ethereum
 	SimulationTest
 )
-
-func DeriveOCRConfigTypeFromSelector(chainsel uint64) OCRConfigChainType {
-	switch chainsel {
-	case chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
-		chain_selectors.ETHEREUM_TESTNET_HOLESKY.Selector,
-		chain_selectors.ETHEREUM_MAINNET.Selector:
-		return Ethereum
-	default:
-		return Default
-	}
-}
 
 func (c OCRConfigChainType) CommitOCRParams() CCIPOCRParams {
 	switch c {

@@ -1,23 +1,30 @@
 package ccipevm
 
 import (
-	"encoding/hex"
+	"encoding/binary"
 	"fmt"
-	"strings"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type AddressCodec struct{}
 
 func (a AddressCodec) AddressBytesToString(addr []byte) (string, error) {
-	// TODO support EIP-55 checksum, https://smartcontract-it.atlassian.net/browse/CCIP-5340
-	return "0x" + hex.EncodeToString(addr), nil
+	return common.BytesToAddress(addr).Hex(), nil
 }
 
 func (a AddressCodec) AddressStringToBytes(addr string) ([]byte, error) {
-	addrBytes, err := hex.DecodeString(strings.ToLower(strings.TrimPrefix(addr, "0x")))
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode EVM address '%s': %w", addr, err)
+	if !common.IsHexAddress(addr) {
+		return nil, fmt.Errorf("invalid EVM address: %s", addr)
 	}
+	return common.HexToAddress(addr).Bytes(), nil
+}
 
-	return addrBytes, nil
+func (a AddressCodec) OracleIDAsAddressBytes(oracleID uint8) ([]byte, error) {
+	addr := make([]byte, 20)
+
+	// write oracleID into addr in big endian
+	binary.BigEndian.PutUint32(addr, uint32(oracleID))
+
+	return common.BytesToAddress(addr).Bytes(), nil
 }

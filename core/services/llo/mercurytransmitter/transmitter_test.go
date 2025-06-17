@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -31,16 +30,16 @@ func (m mockCfg) Protocol() config.MercuryTransmitterProtocol {
 	return config.MercuryTransmitterProtocolGRPC
 }
 
-func (m mockCfg) ReaperMaxAge() commonconfig.Duration {
-	return *commonconfig.MustNewDuration(0)
+func (m mockCfg) ReaperMaxAge() time.Duration {
+	return 0
 }
 
 func (m mockCfg) TransmitQueueMaxSize() uint32 {
 	return 10_000
 }
 
-func (m mockCfg) TransmitTimeout() commonconfig.Duration {
-	return *commonconfig.MustNewDuration(1 * time.Hour)
+func (m mockCfg) TransmitTimeout() time.Duration {
+	return 1 * time.Hour
 }
 
 func (m mockCfg) TransmitConcurrency() uint32 {
@@ -110,6 +109,7 @@ func Test_Transmitter_Transmit(t *testing.T) {
 				require.NoError(t, mt.servers[sURL].q.Init([]*Transmission{}))
 				require.NoError(t, mt.servers[sURL2].q.Init([]*Transmission{}))
 				require.NoError(t, mt.servers[sURL3].q.Init([]*Transmission{}))
+				mt.spawnCommitLoops()
 
 				return nil
 			})
@@ -125,8 +125,11 @@ func Test_Transmitter_Transmit(t *testing.T) {
 			err = mt.Transmit(testutils.Context(t), digest, seqNr, report, sigs)
 			require.NoError(t, err)
 
+			// wait for the commit loop to run
+			time.Sleep(2 * commitInterval)
+
 			// ensure it was added to the queue
-			require.Equal(t, 1, mt.servers[sURL].q.(*transmitQueue).pq.Len())
+			require.Equal(t, 1, mt.servers[sURL].q.(*transmitQueue).Len())
 			assert.Equal(t, &Transmission{
 				ServerURL:    sURL,
 				ConfigDigest: digest,
@@ -134,7 +137,7 @@ func Test_Transmitter_Transmit(t *testing.T) {
 				Report:       report,
 				Sigs:         sigs,
 			}, mt.servers[sURL].q.(*transmitQueue).pq.Pop().(*Transmission))
-			require.Equal(t, 1, mt.servers[sURL2].q.(*transmitQueue).pq.Len())
+			require.Equal(t, 1, mt.servers[sURL2].q.(*transmitQueue).Len())
 			assert.Equal(t, &Transmission{
 				ServerURL:    sURL2,
 				ConfigDigest: digest,
@@ -142,7 +145,7 @@ func Test_Transmitter_Transmit(t *testing.T) {
 				Report:       report,
 				Sigs:         sigs,
 			}, mt.servers[sURL2].q.(*transmitQueue).pq.Pop().(*Transmission))
-			require.Equal(t, 1, mt.servers[sURL3].q.(*transmitQueue).pq.Len())
+			require.Equal(t, 1, mt.servers[sURL3].q.(*transmitQueue).Len())
 			assert.Equal(t, &Transmission{
 				ServerURL:    sURL3,
 				ConfigDigest: digest,

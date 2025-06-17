@@ -12,8 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -98,7 +96,7 @@ func TestNewPlugin(t *testing.T) {
 	prov := provider{}
 
 	f, err := p.newFactory(
-		tests.Context(t),
+		t.Context(),
 		config,
 		prov,
 		pr,

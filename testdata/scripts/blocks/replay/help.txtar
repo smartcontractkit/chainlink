@@ -10,6 +10,7 @@ USAGE:
 
 OPTIONS:
    --block-number value  Block number to replay from (default: 0)
-   --force               Whether to force broadcasting logs which were already consumed and that would otherwise be skipped
-   --evm-chain-id value  Chain ID of the EVM-based blockchain (default: 0)
+   --family value        Chain family for specified chain-id such as evm or solana
+   --chain-id value      Chain ID of the blockchain
+   --force               Whether to force broadcasting logs which were already consumed and that would otherwise be skipped (only for EVM chain family)
    

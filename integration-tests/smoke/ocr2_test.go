@@ -19,6 +19,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/parrot"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	ctf_docker "github.com/smartcontractkit/chainlink-testing-framework/lib/docker"
@@ -42,8 +43,10 @@ type ocr2test struct {
 
 func defaultTestData() ocr2test {
 	return ocr2test{
-		name:                "n/a",
-		env:                 make(map[string]string),
+		name: "n/a",
+		env: map[string]string{
+			string(env.EVMPlugin.Cmd): "", // not yet supported
+		},
 		chainReaderAndCodec: false,
 	}
 }
@@ -51,14 +54,19 @@ func defaultTestData() ocr2test {
 // Tests a basic OCRv2 median feed
 func TestOCRv2Basic(t *testing.T) {
 	t.Parallel()
-	t.Skip("skipping until txm issues are fixed")
-	noMedianPlugin := map[string]string{string(env.MedianPlugin.Cmd): ""}
-	medianPlugin := map[string]string{string(env.MedianPlugin.Cmd): "chainlink-feeds"}
+	noPlugins := map[string]string{
+		string(env.EVMPlugin.Cmd):    "",
+		string(env.MedianPlugin.Cmd): "",
+	}
+	plugins := map[string]string{
+		string(env.EVMPlugin.Cmd):    "", // not yet supported
+		string(env.MedianPlugin.Cmd): "chainlink-feeds",
+	}
 	for _, test := range []ocr2test{
-		{"legacy", noMedianPlugin, false},
-		{"legacy-chain-reader", noMedianPlugin, true},
-		{"plugins", medianPlugin, false},
-		{"plugins-chain-reader", medianPlugin, true},
+		{"legacy", noPlugins, false},
+		{"legacy-chain-reader", noPlugins, true},
+		{"plugins", plugins, false},
+		{"plugins-chain-reader", plugins, true},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
@@ -67,8 +75,14 @@ func TestOCRv2Basic(t *testing.T) {
 
 			testEnv, aggregatorContracts, sethClient := prepareORCv2SmokeTestEnv(t, test, l, 5)
 
-			err := testEnv.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, 10)
-			require.NoError(t, err)
+			route := &parrot.Route{
+				Method:             parrot.MethodAny,
+				Path:               "/ocr2",
+				ResponseBody:       10,
+				ResponseStatusCode: http.StatusOK,
+			}
+			err := testEnv.MockAdapter.SetAdapterRoute(route)
+			require.NoError(t, err, "Failed to set route in mock adapter")
 			err = actions.WatchNewOCRRound(l, sethClient, 2, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(aggregatorContracts), time.Minute*5)
 			require.NoError(t, err)
 
@@ -85,7 +99,6 @@ func TestOCRv2Basic(t *testing.T) {
 // Tests that just calling requestNewRound() will properly induce more rounds
 func TestOCRv2Request(t *testing.T) {
 	t.Parallel()
-	t.Skip("skipping until txm issues are fixed")
 	l := logging.GetTestLogger(t)
 
 	_, aggregatorContracts, sethClient := prepareORCv2SmokeTestEnv(t, defaultTestData(), l, 5)
@@ -114,8 +127,14 @@ func TestOCRv2JobReplacement(t *testing.T) {
 	nodeClients := testEnv.ClCluster.NodeAPIs()
 	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
 
-	err := testEnv.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, 10)
-	require.NoError(t, err)
+	route := &parrot.Route{
+		Method:             parrot.MethodAny,
+		Path:               "/ocr2",
+		ResponseBody:       10,
+		ResponseStatusCode: http.StatusOK,
+	}
+	err := testEnv.MockAdapter.SetAdapterRoute(route)
+	require.NoError(t, err, "Failed to set route in mock adapter")
 	err = actions.WatchNewOCRRound(l, sethClient, 2, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(aggregatorContracts), time.Minute*5)
 	require.NoError(t, err, "Error watching for new OCR2 round")
 
@@ -132,7 +151,19 @@ func TestOCRv2JobReplacement(t *testing.T) {
 	err = actions.DeleteBridges(nodeClients)
 	require.NoError(t, err)
 
-	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, testEnv.MockAdapter, "ocr2", 15, uint64(sethClient.ChainID), false, false) //nolint:gosec // G115 false positive
+	route.ResponseBody = 15
+	require.NoError(t, err, "Failed to set route in mock adapter")
+	require.GreaterOrEqual(t, sethClient.ChainID, int64(0), "Chain ID should be greater than or equal to 0")
+	err = actions.CreateOCRv2JobsLocal(
+		aggregatorContracts,
+		bootstrapNode,
+		workerNodes,
+		testEnv.MockAdapter,
+		route,
+		uint64(sethClient.ChainID), //nolint:gosec // Conversion from int64 to uint64 is safe
+		false,
+		false,
+	)
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
 	err = actions.WatchNewOCRRound(l, sethClient, 3, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(aggregatorContracts), time.Minute*3)
@@ -205,7 +236,23 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 	if sethClient.ChainID < 0 {
 		t.Errorf("negative chain ID: %d", sethClient.ChainID)
 	}
-	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, testEnv.MockAdapter, "ocr2", 5, uint64(sethClient.ChainID), false, testData.chainReaderAndCodec) //nolint:gosec // G115 false positive
+	ocrRoute := &parrot.Route{
+		Method:             parrot.MethodAny,
+		Path:               "/ocr2",
+		ResponseBody:       firstRoundResult,
+		ResponseStatusCode: http.StatusOK,
+	}
+	require.GreaterOrEqual(t, sethClient.ChainID, int64(0), "Chain ID should be greater than or equal to 0")
+	err = actions.CreateOCRv2JobsLocal(
+		aggregatorContracts,
+		bootstrapNode,
+		workerNodes,
+		testEnv.MockAdapter,
+		ocrRoute,
+		uint64(sethClient.ChainID), //nolint:gosec // Conversion from int64 to uint64 is safe
+		false,
+		testData.chainReaderAndCodec,
+	)
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
 	if !config.OCR2.UseExistingOffChainAggregatorsContracts() || (config.OCR2.UseExistingOffChainAggregatorsContracts() && config.OCR2.ConfigureExistingOffChainAggregatorsContracts()) {
@@ -329,7 +376,6 @@ func assertCorrectNodeConfiguration(t *testing.T, l zerolog.Logger, totalNodeCou
 				if pc.MatchString(jsonLogLine) {
 					return true
 				}
-
 			}
 			return false
 		}

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/stretchr/testify/require"
 )
@@ -17,7 +17,7 @@ type ChaosConfig struct {
 	ExperimentInjectionInterval string
 }
 
-func (l *ChaosConfig) Validate(t *testing.T, e *deployment.Environment) {
+func (l *ChaosConfig) Validate(t *testing.T, e *cldf.Environment) {
 	require.NotEmpty(t, l.Namespace, "k8s namespace can't be empty")
 	require.NotEmpty(t, l.DashboardUIDs, "dashboard UIDs can't be empty")
 	require.NotEmpty(t, l.ExperimentFullInterval, "experiment full interval can't be null, use Go time format 1h2m3s")

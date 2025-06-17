@@ -8,15 +8,16 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/freeport"
+
 	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"

@@ -24,21 +24,19 @@ import (
 
 	sel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/client"
-	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/usdc_reader_tester"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/usdc_reader_tester"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -83,7 +81,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 				SourceMessageTransmitterAddr: ts.contractAddr.String(),
 			},
 		},
-		map[cciptypes.ChainSelector]contractreader.ContractReaderFacade{
+		map[cciptypes.ChainSelector]contractreader.Extended{
 			ethereumChain: ts.reader,
 		}, mokAddrCodec)
 	require.NoError(t, err)
@@ -283,7 +281,7 @@ func Benchmark_MessageHashes(b *testing.B) {
 						SourceMessageTransmitterAddr: ts.contractAddr.String(),
 					},
 				},
-				map[cciptypes.ChainSelector]contractreader.ContractReaderFacade{
+				map[cciptypes.ChainSelector]contractreader.Extended{
 					sourceChain: ts.reader,
 				}, mokAddrCodec)
 			require.NoError(b, err)
@@ -473,13 +471,16 @@ func testSetup(ctx context.Context, t testing.TB, readerChain cciptypes.ChainSel
 		require.NoError(t, db.Close())
 	})
 
+	// Convert to the extended contract reader interface.
+	ecr := contractreader.NewExtendedContractReader(
+		(contractreader.ContractReaderFacade)(cr))
 	return &testSetupData{
 		contractAddr: address,
 		contract:     contract,
 		sb:           simulatedBackend,
 		auth:         auth,
 		cl:           cl,
-		reader:       cr,
+		reader:       ecr,
 		orm:          orm,
 		db:           db,
 		lp:           lp,
@@ -492,7 +493,7 @@ type testSetupData struct {
 	sb           *simulated.Backend
 	auth         *bind.TransactOpts
 	cl           client.Client
-	reader       types.ContractReader
+	reader       contractreader.Extended
 	orm          logpoller.ORM
 	db           *sqlx.DB
 	lp           logpoller.LogPoller

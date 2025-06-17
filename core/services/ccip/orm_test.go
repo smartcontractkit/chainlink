@@ -11,8 +11,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

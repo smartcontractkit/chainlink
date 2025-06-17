@@ -2,29 +2,35 @@ package evm
 
 import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
-type LOOPRelayAdapter interface {
+// RelayAdapter extends loop.Relayer with a method for accessing the internal legacy chain type.
+// Only avaialable in embedded mode, not LOOPP mode.
+type RelayAdapter interface {
 	loop.Relayer
-	Chain() legacyevm.Chain
+	Chain() types.ChainService
 }
-type loopRelayAdapter struct {
+type relayAdapter struct {
 	loop.Relayer
-	chain legacyevm.Chain
+	chain types.ChainService
 }
 
-var _ LOOPRelayAdapter = &loopRelayAdapter{}
+var _ RelayAdapter = &relayAdapter{}
 
-func NewLOOPRelayAdapter(r *Relayer) *loopRelayAdapter {
-	return &loopRelayAdapter{
+func NewLOOPAdapter(r loop.Relayer) *relayAdapter {
+	return &relayAdapter{Relayer: r, chain: r}
+}
+
+func NewLegacyAdapter(r *Relayer) *relayAdapter {
+	return &relayAdapter{
 		Relayer: relay.NewServerAdapter(r),
 		chain:   r.chain,
 	}
 }
 
-func (la *loopRelayAdapter) Chain() legacyevm.Chain {
+func (la *relayAdapter) Chain() types.ChainService {
 	return la.chain
 }

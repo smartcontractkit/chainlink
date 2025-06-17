@@ -1,6 +1,7 @@
 package evmtest
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"slices"
@@ -16,24 +17,23 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
-	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
-	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
-	evmconfig "github.com/smartcontractkit/chainlink-integrations/evm/config"
-	configtoml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
-	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
-	evmheads "github.com/smartcontractkit/chainlink-integrations/evm/heads"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
+	configtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	evmheads "github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	"github.com/smartcontractkit/chainlink-evm/pkg/log"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
@@ -65,7 +65,6 @@ type TestChainOpts struct {
 	TxManager      txmgr.TxManager
 	KeyStore       keystore.Eth
 	MailMon        *mailbox.Monitor
-	GasEstimator   gas.EvmFeeEstimator
 }
 
 // NewLegacyChains returns a simple chain collection with one chain and
@@ -86,7 +85,6 @@ func NewChainOpts(t testing.TB, testopts TestChainOpts) (logger.Logger, keystore
 		ListenerConfig: testopts.ListenerConfig,
 		FeatureConfig:  testopts.FeatureConfig,
 		MailMon:        testopts.MailMon,
-		GasEstimator:   testopts.GasEstimator,
 		DS:             testopts.DB,
 	}
 	opts.GenEthClient = func(*big.Int) evmclient.Client {
@@ -118,11 +116,6 @@ func NewChainOpts(t testing.TB, testopts TestChainOpts) (logger.Logger, keystore
 	if opts.MailMon == nil {
 		opts.MailMon = servicetest.Run(t, mailboxtest.NewMonitor(t))
 	}
-	if testopts.GasEstimator != nil {
-		opts.GenGasEstimator = func(*big.Int) gas.EvmFeeEstimator {
-			return testopts.GasEstimator
-		}
-	}
 
 	return lggr, testopts.KeyStore, opts
 }
@@ -141,7 +134,11 @@ func MustGetDefaultChain(t testing.TB, cc legacyevm.LegacyChainContainer) legacy
 		t.Fatalf("at least one evm chain container must be defined")
 	}
 
-	return cc.Slice()[0]
+	c, ok := cc.Slice()[0].(legacyevm.Chain)
+	if !ok {
+		t.Fatalf("not available in LOOPP mode: %v", errors.ErrUnsupported)
+	}
+	return c
 }
 
 type TestConfigs struct {

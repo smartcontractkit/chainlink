@@ -17,7 +17,7 @@ func TestTronKeyNewKeyGeneration(t *testing.T) {
 
 		// Verify key components
 		assert.NotNil(t, key.pubKey, "Public key should not be nil")
-		assert.NotNil(t, key.privKey, "Private key should not be nil")
+		assert.NotNil(t, key.raw, "Private key should not be nil")
 	})
 
 	t.Run("Multiple key generations produce unique keys", func(t *testing.T) {
@@ -27,7 +27,7 @@ func TestTronKeyNewKeyGeneration(t *testing.T) {
 		key2, err := New()
 		require.NoError(t, err, "Failed to generate second key")
 
-		assert.NotEqual(t, key1.privKey, key2.privKey, "Generated private keys should be unique")
+		assert.NotEqual(t, key1.raw, key2.raw, "Generated private keys should be unique")
 		assert.NotEqual(t, key1.pubKey, key2.pubKey, "Generated public keys should be unique")
 	})
 }
@@ -44,11 +44,7 @@ func TestKeyAddress(t *testing.T) {
 		privateKey, err := crypto.ToECDSA(privateKeyBytes)
 		require.NoError(t, err, "Failed to convert private key to ECDSA")
 
-		key := Key{
-			privKey: privateKey,
-			pubKey:  &privateKey.PublicKey,
-		}
-		require.NotNil(t, key.privKey, "Private key is nil")
+		key := Key{pubKey: &privateKey.PublicKey}
 
 		address := key.Base58Address()
 		require.Equal(t, expectedAddress, address, "Generated address does not match expected address")

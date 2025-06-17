@@ -10,7 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
-	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
+	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
 )
 
 type triggerWrapper = ac.IAutomationV21PlusCommonLogTrigger

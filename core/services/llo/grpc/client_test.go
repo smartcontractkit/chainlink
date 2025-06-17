@@ -14,14 +14,12 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc/mtls"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_Client(t *testing.T) {
-	ctx := tests.Context(t)
 	clientPrivKey := ed25519.NewKeyFromSeed(randomBytes(t, 32))
 	serverPrivKey := ed25519.NewKeyFromSeed(randomBytes(t, 32))
 
@@ -33,7 +31,7 @@ func Test_Client(t *testing.T) {
 			ServerURL:    "example.com",
 		})
 
-		resp, err := c.Transmit(tests.Context(t), &rpc.TransmitRequest{})
+		resp, err := c.Transmit(t.Context(), &rpc.TransmitRequest{})
 		assert.Nil(t, resp)
 		require.EqualError(t, err, "service is Unstarted, not started")
 	})
@@ -55,7 +53,7 @@ func Test_Client(t *testing.T) {
 			Payload:      []byte("report"),
 			ReportFormat: 42,
 		}
-		resp, err := c.Transmit(ctx, req)
+		resp, err := c.Transmit(t.Context(), req)
 		require.NoError(t, err)
 
 		assert.Equal(t, "", resp.Error)

@@ -8,14 +8,17 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/deployment"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 // RemoveDONsRequest holds the parameters for the RemoveDONs operation.
 type RemoveDONsRequest struct {
-	Chain                deployment.Chain
+	Chain                cldf_evm.Chain
 	CapabilitiesRegistry *kcr.CapabilitiesRegistry
 	DONs                 []uint32
 	UseMCMS              bool
@@ -58,12 +61,12 @@ func RemoveDONs(lggr logger.Logger, req *RemoveDONsRequest) (*RemoveDONsResponse
 	}
 
 	if req.UseMCMS {
-		txOpts = deployment.SimTransactOpts()
+		txOpts = cldf.SimTransactOpts()
 	}
 
 	tx, err := req.CapabilitiesRegistry.RemoveDONs(txOpts, req.DONs)
 	if err != nil {
-		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = cldf.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call RemoveDONs: %w", err)
 	}
 

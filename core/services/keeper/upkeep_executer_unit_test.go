@@ -6,9 +6,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"

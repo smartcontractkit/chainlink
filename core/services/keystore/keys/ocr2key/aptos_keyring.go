@@ -18,7 +18,7 @@ import (
 var _ ocrtypes.OnchainKeyring = &aptosKeyring{}
 
 type aptosKeyring struct {
-	privKey ed25519.PrivateKey
+	privKey func() ed25519.PrivateKey
 	pubKey  ed25519.PublicKey
 }
 
@@ -27,7 +27,7 @@ func newAptosKeyring(material io.Reader) (*aptosKeyring, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &aptosKeyring{pubKey: pubKey, privKey: privKey}, nil
+	return &aptosKeyring{pubKey: pubKey, privKey: func() ed25519.PrivateKey { return privKey }}, nil
 }
 
 func (akr *aptosKeyring) PublicKey() ocrtypes.OnchainPublicKey {
@@ -61,7 +61,7 @@ func (akr *aptosKeyring) Sign3(digest types.ConfigDigest, seqNr uint64, r ocrtyp
 }
 
 func (akr *aptosKeyring) SignBlob(b []byte) ([]byte, error) {
-	signedMsg := ed25519.Sign(akr.privKey, b)
+	signedMsg := ed25519.Sign(akr.privKey(), b)
 	// match on-chain parsing (first 32 bytes are for pubkey, remaining are for signature)
 	return utils.ConcatBytes(akr.PublicKey(), signedMsg), nil
 }
@@ -97,7 +97,7 @@ func (akr *aptosKeyring) MaxSignatureLength() int {
 }
 
 func (akr *aptosKeyring) Marshal() ([]byte, error) {
-	return akr.privKey.Seed(), nil
+	return akr.privKey().Seed(), nil
 }
 
 func (akr *aptosKeyring) Unmarshal(in []byte) error {
@@ -105,7 +105,7 @@ func (akr *aptosKeyring) Unmarshal(in []byte) error {
 		return errors.Errorf("unexpected seed size, got %d want %d", len(in), ed25519.SeedSize)
 	}
 	privKey := ed25519.NewKeyFromSeed(in)
-	akr.privKey = privKey
+	akr.privKey = func() ed25519.PrivateKey { return privKey }
 	pubKey, ok := privKey.Public().(ed25519.PublicKey)
 	if !ok {
 		return errors.New("failed to cast public key to ed25519.PublicKey")

@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/parrot"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -38,7 +39,7 @@ func CreateOCRJobsLocal(
 	bootstrapNode *nodeclient.ChainlinkClient,
 	workerNodes []*nodeclient.ChainlinkClient,
 	mockValue int,
-	mockAdapter *test_env.Killgrave,
+	mockAdapter *test_env.Parrot,
 	evmChainID *big.Int,
 ) error {
 	for _, ocrInstance := range ocrInstances {
@@ -73,7 +74,7 @@ func CreateOCRJobsLocal(
 			if err != nil {
 				return fmt.Errorf("getting OCR keys from OCR node have failed: %w", err)
 			}
-			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
+			nodeOCRKeyID := nodeOCRKeys.Data[0].ID
 
 			nodeContractPairID, err := BuildNodeContractPairID(node, ocrInstance)
 			if err != nil {
@@ -89,7 +90,7 @@ func CreateOCRJobsLocal(
 			}
 			err = node.MustCreateBridge(bta)
 			if err != nil {
-				return fmt.Errorf("creating bridge on CL node failed: %w", err)
+				return fmt.Errorf("creating bridge to %s CL node failed: %w", bta.URL, err)
 			}
 
 			bootstrapPeers := []*nodeclient.ChainlinkClient{bootstrapNode}
@@ -98,7 +99,7 @@ func CreateOCRJobsLocal(
 				EVMChainID:         evmChainID.String(),
 				P2PPeerID:          nodeP2PId,
 				P2PBootstrapPeers:  bootstrapPeers,
-				KeyBundleID:        nodeOCRKeyId,
+				KeyBundleID:        nodeOCRKeyID,
 				TransmitterAddress: nodeTransmitterAddress,
 				ObservationSource:  nodeclient.ObservationSourceSpecBridge(bta),
 			}
@@ -111,29 +112,36 @@ func CreateOCRJobsLocal(
 	return nil
 }
 
+// SetAdapterResponseLocal sets the response of the mock adapter for a given OCR instance and Chainlink node
 func SetAdapterResponseLocal(
 	response int,
 	ocrInstance contracts.OffchainAggregator,
 	chainlinkNode *nodeclient.ChainlinkClient,
-	mockAdapter *test_env.Killgrave,
+	mockAdapter *test_env.Parrot,
 ) error {
 	nodeContractPairID, err := BuildNodeContractPairID(chainlinkNode, ocrInstance)
 	if err != nil {
 		return err
 	}
-	path := fmt.Sprintf("/%s", nodeContractPairID)
-	err = mockAdapter.SetAdapterBasedIntValuePath(path, []string{http.MethodGet, http.MethodPost}, response)
+	route := &parrot.Route{
+		Method:             parrot.MethodAny,
+		Path:               "/" + nodeContractPairID,
+		ResponseBody:       response,
+		ResponseStatusCode: http.StatusOK,
+	}
+	err = mockAdapter.SetAdapterRoute(route)
 	if err != nil {
 		return fmt.Errorf("setting mock adapter value path failed: %w", err)
 	}
 	return nil
 }
 
+// SetAllAdapterResponsesToTheSameValueLocal sets the response of the mock adapter for all OCR instances and Chainlink nodes to the same value
 func SetAllAdapterResponsesToTheSameValueLocal(
 	response int,
 	ocrInstances []contracts.OffchainAggregator,
 	chainlinkNodes []*nodeclient.ChainlinkClient,
-	mockAdapter *test_env.Killgrave,
+	mockAdapter *test_env.Parrot,
 ) error {
 	eg := &errgroup.Group{}
 	for _, o := range ocrInstances {
@@ -153,7 +161,7 @@ func CreateOCRJobsWithForwarderLocal(
 	bootstrapNode *nodeclient.ChainlinkClient,
 	workerNodes []*nodeclient.ChainlinkClient,
 	mockValue int,
-	mockAdapter *test_env.Killgrave,
+	mockAdapter *test_env.Parrot,
 	evmChainID string,
 ) error {
 	for _, ocrInstance := range ocrInstances {
@@ -188,7 +196,7 @@ func CreateOCRJobsWithForwarderLocal(
 			if err != nil {
 				return err
 			}
-			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
+			nodeOCRKeyID := nodeOCRKeys.Data[0].ID
 
 			nodeContractPairID, err := BuildNodeContractPairID(node, ocrInstance)
 			if err != nil {
@@ -213,7 +221,7 @@ func CreateOCRJobsWithForwarderLocal(
 				EVMChainID:         evmChainID,
 				P2PPeerID:          nodeP2PId,
 				P2PBootstrapPeers:  bootstrapPeers,
-				KeyBundleID:        nodeOCRKeyId,
+				KeyBundleID:        nodeOCRKeyID,
 				TransmitterAddress: nodeTransmitterAddress,
 				ObservationSource:  nodeclient.ObservationSourceSpecBridge(bta),
 				ForwardingAllowed:  true,

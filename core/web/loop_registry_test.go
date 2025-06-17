@@ -7,13 +7,14 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"

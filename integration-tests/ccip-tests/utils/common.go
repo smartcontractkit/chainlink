@@ -1,20 +1,9 @@
 package utils
 
 import (
-	"path/filepath"
 	"runtime"
 	"sync"
-	"testing"
 )
-
-func ProjectRoot() string {
-	_, b, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(b), "/..")
-}
-
-func SkipFlakey(t *testing.T, ticketURL string) {
-	t.Skip("Flakey", ticketURL)
-}
 
 // DeleteNilEntriesFromMap checks for nil entry in map, store all not-nil entries to another map and deallocates previous map
 // Deleting keys from a map actually does not delete the key, It just sets the corresponding value to nil.

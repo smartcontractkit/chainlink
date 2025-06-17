@@ -11,7 +11,7 @@ import (
 
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
@@ -161,6 +161,10 @@ func (t p2pPeer) Send(peerID p2ptypes.PeerID, msg []byte) error {
 
 func (t p2pPeer) Receive() <-chan p2ptypes.Message {
 	return nil
+}
+
+func (t p2pPeer) IsBootstrap() bool {
+	return false
 }
 
 func NewPeerID(donName string, nodeOrdinal int) string {

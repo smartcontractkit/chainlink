@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/v2/internal/testdb"

@@ -57,8 +57,11 @@ selected_networks=`
 	return fmt.Errorf("%s\n%s", errStr, intro)
 }
 
-func GetChainAndTestTypeSpecificConfig(testType string, product Product) (TestConfig, error) {
-	config, err := GetConfig([]string{testType}, product)
+// GetChainAndTestTypeSpecificConfig returns a TestConfig with the chain and test type specific configuration.
+// extraFileNames are optional and can be used to specify additional config files to load
+// in order to override certain config values (e.g NodeConfig.ChainConfigTOMLByChainID).
+func GetChainAndTestTypeSpecificConfig(testType string, product Product, extraFileNames ...string) (TestConfig, error) {
+	config, err := GetConfig([]string{testType}, product, extraFileNames...)
 	if err != nil {
 		return TestConfig{}, fmt.Errorf("error getting config: %w", err)
 	}
@@ -69,6 +72,7 @@ func GetChainAndTestTypeSpecificConfig(testType string, product Product) (TestCo
 			fmt.Sprintf("%s-%s", config.GetNetworkConfig().SelectedNetworks[0], testType),
 		},
 		product,
+		extraFileNames...,
 	)
 	if err != nil {
 		return TestConfig{}, fmt.Errorf("error getting config: %w", err)

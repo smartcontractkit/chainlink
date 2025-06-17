@@ -93,6 +93,7 @@ runs:
           SHARED_BUILD_ARGS=$(cat << EOF
         COMMIT_SHA=${GIT_COMMIT_SHA}
         CL_CHAIN_DEFAULTS=/ccip-config
+        CL_SOLANA_CMD=
         EOF
         )
         else
@@ -173,7 +174,7 @@ runs:
           CHAINLINK_USER=root
           ${{ env.shared-build-args }}
 
-    - name: Save root image name in GITHUB_ENV
+    - name: Save root image name in environment variables
       id: save-root-image-name-env
       shell: sh
       run: |
@@ -182,7 +183,7 @@ runs:
         IMAGE_DIGEST=${{ fromJSON(steps.buildpush-root.outputs.metadata)['containerimage.digest'] }}
         echo "root_image_name=${IMAGE_NAME}" >> $GITHUB_ENV
         echo "root_image_digest=${IMAGE_DIGEST}" >> $GITHUB_ENV
-
+        
     - name: Generate docker metadata for non-root image
       id: meta-nonroot
       uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
@@ -256,25 +257,10 @@ runs:
 
     # This automatically signs the image with the correct OIDC provider from Github
     - if: inputs.sign-images == 'true'
-      name: Sign the published root Docker image using keyless method
-      shell: sh
-      run: |
-        cosign sign "${{ env.root_image_name }}" --yes
-
-    - if: inputs.verify-signature == 'true'
-      name: Verify the signature of the published root Docker image using keyless
-      shell: sh
-      run: |
-        cosign verify "${{ env.root_image_name }}" \
-        --certificate-oidc-issuer ${{ env.oidc-issuer }} \
-        --certificate-identity "${{ env.oidc-identity }}"
-
-    # This automatically signs the image with the correct OIDC provider from Github
-    - if: inputs.sign-images == 'true'
       name: Sign the published non-root Docker image using keyless method
       shell: sh
       run: |
-        cosign sign "${{ env.nonroot_image_name }}" --yes
+        cosign sign -y "${{ env.nonroot_image_name }}@${{ env.nonroot_image_digest }}"
 
     - if: inputs.verify-signature == 'true'
       name: Verify the signature of the published non-root Docker image using keyless

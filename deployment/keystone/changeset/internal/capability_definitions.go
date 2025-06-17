@@ -1,6 +1,6 @@
 package internal
 
-import kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+import kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 // TODO: KS-457 configuration management for capabilities from external sources
 var StreamTriggerCap = kcr.CapabilitiesRegistryCapability{

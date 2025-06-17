@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
@@ -23,11 +22,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/freeport"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"

@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

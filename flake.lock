@@ -26,35 +26,17 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1730625090,
-        "narHash": "sha256-lWfkkj+GEUM0UqYLD2Rx3zzILTL3xdmGJKGR4fwONpA=",
+        "lastModified": 1743239492,
+        "narHash": "sha256-k0bIm1PPZmFVhDdEmN9KxcP3QZ9xBKNxMhsk6VDIcBI=",
         "owner": "shazow",
         "repo": "foundry.nix",
-        "rev": "1c6a742bcbfd55a80de0e1f967a60174716a1560",
+        "rev": "8fe509e0be0a5995e13e74d80cc8d459f695602a",
         "type": "github"
       },
       "original": {
         "owner": "shazow",
         "ref": "monthly",
         "repo": "foundry.nix",
-        "type": "github"
-      }
-    },
-    "goreleaser-nur": {
-      "inputs": {
-        "nixpkgs": "nixpkgs_2"
-      },
-      "locked": {
-        "lastModified": 1732296943,
-        "narHash": "sha256-I1RVZIODsNWyidRW4E7Mhwjj0iDHL1wEE90VyxmXBKc=",
-        "owner": "goreleaser",
-        "repo": "nur",
-        "rev": "d65134bd2cc0e930e6c03694734deb41ec72e030",
-        "type": "github"
-      },
-      "original": {
-        "owner": "goreleaser",
-        "repo": "nur",
         "type": "github"
       }
     },
@@ -74,27 +56,11 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1624561540,
-        "narHash": "sha256-izJ2PYZMGMsSkg+e7c9A1x3t/yOLT+qzUM6WQsc2tqo=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "c6a049a3d32293b24c0f894a840872cf67fd7c11",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "ref": "nixpkgs-unstable",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "nixpkgs_3": {
-      "locked": {
-        "lastModified": 1732521221,
-        "narHash": "sha256-2ThgXBUXAE1oFsVATK1ZX9IjPcS4nKFOAjhPNKuiMn0=",
+        "lastModified": 1743315132,
+        "narHash": "sha256-6hl6L/tRnwubHcA4pfUUtk542wn2Om+D4UnDhlDW9BE=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "4633a7c72337ea8fd23a4f2ba3972865e3ec685d",
+        "rev": "52faf482a3889b7619003c0daec593a1912fddc1",
         "type": "github"
       },
       "original": {
@@ -104,28 +70,11 @@
         "type": "github"
       }
     },
-    "nur": {
-      "locked": {
-        "lastModified": 1732854630,
-        "narHash": "sha256-ZliP697Djpq+JM4MuO6kvj5RWjCdg39ZQ2moFoqFbdE=",
-        "owner": "nix-community",
-        "repo": "NUR",
-        "rev": "cc2a3158b6a714b98a8b891d6dcfc3a43039051f",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nix-community",
-        "repo": "NUR",
-        "type": "github"
-      }
-    },
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
         "foundry": "foundry",
-        "goreleaser-nur": "goreleaser-nur",
-        "nixpkgs": "nixpkgs_3",
-        "nur": "nur"
+        "nixpkgs": "nixpkgs_2"
       }
     },
     "systems": {

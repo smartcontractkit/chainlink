@@ -6,10 +6,10 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/evm"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -24,7 +24,7 @@ func TestDeployMCMSWithConfig(t *testing.T) {
 	chains, _ := memory.NewMemoryChainsWithChainIDs(t, []uint64{
 		chainsel.TEST_90000001.EvmChainID,
 	}, 1)
-	ab := deployment.NewMemoryAddressBook()
+	ab := cldf.NewMemoryAddressBook()
 
 	// 1) Test WITHOUT a label
 	mcmNoLabel, err := evminternal.DeployMCMSWithConfigEVM(
@@ -57,9 +57,11 @@ func TestDeployMCMSWithTimelockContracts(t *testing.T) {
 	chains, _ := memory.NewMemoryChainsWithChainIDs(t, []uint64{
 		chainsel.TEST_90000001.EvmChainID,
 	}, 1)
-	ctx := testutils.Context(t)
-	ab := deployment.NewMemoryAddressBook()
-	_, err := evminternal.DeployMCMSWithTimelockContractsEVM(ctx, lggr,
+	ab := cldf.NewMemoryAddressBook()
+	tenv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		Chains: 1,
+	})
+	_, err := evminternal.DeployMCMSWithTimelockContractsEVM(tenv,
 		chains[chainsel.TEST_90000001.Selector],
 		ab, proposalutils.SingleGroupTimelockConfigV2(t), nil)
 	require.NoError(t, err)

@@ -16,17 +16,18 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_external_sub_owner_example"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	v2 "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	v2 "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -248,9 +249,11 @@ func testMultipleConsumersNeedBHS(
 		t, bhsKeyAddresses, app, uni.bhsContractAddress.String(), "",
 		v2CoordinatorAddress, v2PlusCoordinatorAddress, "", 0, 200, 0, 100)
 
+	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain)
+	require.True(t, ok)
 	// Ensure log poller is ready and has all logs.
-	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
-	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Replay(ctx, 1))
+	require.NoError(t, chain.LogPoller().Ready())
+	require.NoError(t, chain.LogPoller().Replay(ctx, 1))
 
 	for i := 0; i < nConsumers; i++ {
 		consumer := consumers[i]
@@ -402,7 +405,8 @@ func testMultipleConsumersNeedTrustedBHS(
 		v2CoordinatorAddress, v2PlusCoordinatorAddress, uni.trustedBhsContractAddress.String(), 20, 1000, 0, waitBlocks)
 
 	// Ensure log poller is ready and has all logs.
-	chain := app.GetRelayers().LegacyEVMChains().Slice()[0]
+	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain)
+	require.True(t, ok)
 	require.NoError(t, chain.LogPoller().Ready())
 	require.NoError(t, chain.LogPoller().Replay(ctx, 1))
 
@@ -795,8 +799,10 @@ func testBlockHeaderFeeder(
 		v2coordinatorAddress, v2plusCoordinatorAddress)
 
 	// Ensure log poller is ready and has all logs.
-	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
-	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Replay(ctx, 1))
+	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain)
+	require.True(t, ok)
+	require.NoError(t, chain.LogPoller().Ready())
+	require.NoError(t, chain.LogPoller().Replay(ctx, 1))
 
 	for i := 0; i < nConsumers; i++ {
 		consumer := consumers[i]
@@ -1724,8 +1730,10 @@ func testMaliciousConsumer(
 	}, testutils.WaitTimeout(t), 1*time.Second)
 
 	// The fulfillment tx should succeed
-	ch, err := app.GetRelayers().LegacyEVMChains().Get(evmtest.MustGetDefaultChainID(t, config.EVMConfigs()).String())
+	cs, err := app.GetRelayers().LegacyEVMChains().Get(evmtest.MustGetDefaultChainID(t, config.EVMConfigs()).String())
 	require.NoError(t, err)
+	ch, ok := cs.(legacyevm.Chain)
+	require.True(t, ok)
 	r, err := ch.Client().TransactionReceipt(ctx, attempts[0].Hash)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), r.Status)

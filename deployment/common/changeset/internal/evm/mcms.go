@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/spf13/cast"
 
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
@@ -18,58 +19,83 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/ops"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/seqs"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
+
+	mcmsnew_zksync "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/evm/zksync"
 )
 
 // DeployMCMSOption is a function that modifies a TypeAndVersion before or after deployment.
-type DeployMCMSOption func(*deployment.TypeAndVersion)
+type DeployMCMSOption func(*cldf.TypeAndVersion)
 
 // WithLabel is a functional option that sets a label on the TypeAndVersion.
 func WithLabel(label string) DeployMCMSOption {
-	return func(tv *deployment.TypeAndVersion) {
+	return func(tv *cldf.TypeAndVersion) {
 		tv.AddLabel(label)
 	}
 }
 
 // MCMSWithTimelockEVMDeploy holds a bundle of MCMS contract deploys.
 type MCMSWithTimelockEVMDeploy struct {
-	Canceller *deployment.ContractDeploy[*bindings.ManyChainMultiSig]
-	Bypasser  *deployment.ContractDeploy[*bindings.ManyChainMultiSig]
-	Proposer  *deployment.ContractDeploy[*bindings.ManyChainMultiSig]
-	Timelock  *deployment.ContractDeploy[*bindings.RBACTimelock]
-	CallProxy *deployment.ContractDeploy[*bindings.CallProxy]
+	Canceller *cldf.ContractDeploy[*bindings.ManyChainMultiSig]
+	Bypasser  *cldf.ContractDeploy[*bindings.ManyChainMultiSig]
+	Proposer  *cldf.ContractDeploy[*bindings.ManyChainMultiSig]
+	Timelock  *cldf.ContractDeploy[*bindings.RBACTimelock]
+	CallProxy *cldf.ContractDeploy[*bindings.CallProxy]
 }
 
+// TODO: Remove this function once the tests are implemented for the new sequence.
 func DeployMCMSWithConfigEVM(
-	contractType deployment.ContractType,
+	contractType cldf.ContractType,
 	lggr logger.Logger,
-	chain deployment.Chain,
-	ab deployment.AddressBook,
+	chain cldf_evm.Chain,
+	ab cldf.AddressBook,
 	mcmConfig mcmsTypes.Config,
 	options ...DeployMCMSOption,
-) (*deployment.ContractDeploy[*bindings.ManyChainMultiSig], error) {
+) (*cldf.ContractDeploy[*bindings.ManyChainMultiSig], error) {
 	groupQuorums, groupParents, signerAddresses, signerGroups, err := evmMcms.ExtractSetConfigInputs(&mcmConfig)
 	if err != nil {
 		lggr.Errorw("Failed to extract set config inputs", "chain", chain.String(), "err", err)
 		return nil, err
 	}
-	mcm, err := deployment.DeployContract(lggr, chain, ab,
-		func(chain deployment.Chain) deployment.ContractDeploy[*bindings.ManyChainMultiSig] {
-			mcmAddr, tx, mcm, err2 := bindings.DeployManyChainMultiSig(
-				chain.DeployerKey,
-				chain.Client,
+	mcm, err := cldf.DeployContract(lggr, chain, ab,
+		func(chain cldf_evm.Chain) cldf.ContractDeploy[*bindings.ManyChainMultiSig] {
+			var (
+				mcmAddr common.Address
+				tx      *types.Transaction
+				mcm     *bindings.ManyChainMultiSig
+				err2    error
 			)
+			if chain.IsZkSyncVM {
+				mcmAddr, _, mcm, err2 = mcmsnew_zksync.DeployManyChainMultiSigZk(
+					nil,
+					chain.ClientZkSyncVM,
+					chain.DeployerKeyZkSyncVM,
+					chain.Client,
+				)
+			} else {
+				mcmAddr, tx, mcm, err2 = bindings.DeployManyChainMultiSig(
+					chain.DeployerKey,
+					chain.Client,
+				)
+			}
 
-			tv := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
+			tv := cldf.NewTypeAndVersion(contractType, deployment.Version1_0_0)
 			for _, option := range options {
 				option(&tv)
 			}
 
-			return deployment.ContractDeploy[*bindings.ManyChainMultiSig]{
+			return cldf.ContractDeploy[*bindings.ManyChainMultiSig]{
 				Address: mcmAddr, Contract: mcm, Tx: tx, Tv: tv, Err: err2,
 			}
 		})
@@ -85,7 +111,7 @@ func DeployMCMSWithConfigEVM(
 		groupParents,
 		false,
 	)
-	if _, err := deployment.ConfirmIfNoError(chain, mcmsTx, err); err != nil {
+	if _, err := cldf.ConfirmIfNoError(chain, mcmsTx, err); err != nil {
 		lggr.Errorw("Failed to confirm mcm config", "chain", chain.String(), "err", err)
 		return mcm, err
 	}
@@ -98,14 +124,14 @@ func DeployMCMSWithConfigEVM(
 // as well as the timelock. It's not necessarily the only way to use
 // the timelock and MCMS, but its reasonable pattern.
 func DeployMCMSWithTimelockContractsEVM(
-	ctx context.Context,
-	lggr logger.Logger,
-	chain deployment.Chain,
-	ab deployment.AddressBook,
+	env cldf.Environment,
+	chain cldf_evm.Chain,
+	ab cldf.AddressBook,
 	config commontypes.MCMSWithTimelockConfigV2,
 	state *state.MCMSWithTimelockState,
 ) (*proposalutils.MCMSWithTimelockContracts, error) {
-	opts := []DeployMCMSOption{}
+	lggr := env.Logger
+	opts := []func(*cldf.TypeAndVersion){}
 	if config.Label != nil {
 		opts = append(opts, WithLabel(*config.Label))
 	}
@@ -119,103 +145,168 @@ func DeployMCMSWithTimelockContractsEVM(
 		timelock = state.Timelock
 		callProxy = state.CallProxy
 	}
+	seqDeps := seqs.SeqDeployMCMWithConfigDeps{
+		Chain:    chain,
+		AddrBook: ab,
+		Options:  opts,
+	}
 	if bypasser == nil {
-		bypasserC, err := DeployMCMSWithConfigEVM(commontypes.BypasserManyChainMultisig, lggr, chain, ab, config.Bypasser, opts...)
+		seqInput := seqs.SeqDeployMCMWithConfigInput{
+			ContractType:  commontypes.BypasserManyChainMultisig,
+			MCMConfig:     config.Bypasser,
+			ChainSelector: chain.Selector,
+		}
+
+		report, err := operations.ExecuteSequence(
+			env.OperationsBundle,
+			seqs.SeqEVMDeployMCMWithConfig,
+			seqDeps,
+			seqInput,
+		)
 		if err != nil {
+			lggr.Errorw("Failed to deploy bypasser MCMS", "chain", chain.String(), "err", err)
 			return nil, err
 		}
-		bypasser = bypasserC.Contract
-		lggr.Infow("Bypasser MCMS deployed", "chain", chain.String(), "address", bypasser.Address)
+
+		bypasser, err = bindings.NewManyChainMultiSig(report.Output.Address, chain.Client)
+		if err != nil {
+			lggr.Errorw("Failed to create bypasser MCMS binding", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+		lggr.Infow("Bypasser MCMS deployed", "chain", chain.String(), "address", bypasser.Address().String())
 	} else {
-		lggr.Infow("Bypasser MCMS already deployed", "chain", chain.String(), "address", bypasser.Address)
+		lggr.Infow("Bypasser MCMS already deployed", "chain", chain.String(), "address", bypasser.Address().String())
 	}
 
 	if canceller == nil {
-		cancellerC, err := DeployMCMSWithConfigEVM(commontypes.CancellerManyChainMultisig, lggr, chain, ab, config.Canceller, opts...)
+		seqInput := seqs.SeqDeployMCMWithConfigInput{
+			ContractType:  commontypes.CancellerManyChainMultisig,
+			MCMConfig:     config.Canceller,
+			ChainSelector: chain.Selector,
+		}
+
+		report, err := operations.ExecuteSequence(
+			env.OperationsBundle,
+			seqs.SeqEVMDeployMCMWithConfig,
+			seqDeps,
+			seqInput,
+		)
 		if err != nil {
+			lggr.Errorw("Failed to deploy Canceller MCMS", "chain", chain.String(), "err", err)
 			return nil, err
 		}
-		canceller = cancellerC.Contract
-		lggr.Infow("Canceller MCMS deployed", "chain", chain.String(), "address", canceller.Address)
+
+		canceller, err = bindings.NewManyChainMultiSig(report.Output.Address, chain.Client)
+		if err != nil {
+			lggr.Errorw("Failed to create Canceller MCMS binding", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+		lggr.Infow("Canceller MCMS deployed", "chain", chain.String(), "address", canceller.Address().String())
 	} else {
-		lggr.Infow("Canceller MCMS already deployed", "chain", chain.String(), "address", canceller.Address)
+		lggr.Infow("Canceller MCMS already deployed", "chain", chain.String(), "address", canceller.Address().String())
 	}
 
 	if proposer == nil {
-		proposerC, err := DeployMCMSWithConfigEVM(commontypes.ProposerManyChainMultisig, lggr, chain, ab, config.Proposer, opts...)
+		seqInput := seqs.SeqDeployMCMWithConfigInput{
+			ContractType:  commontypes.ProposerManyChainMultisig,
+			MCMConfig:     config.Proposer,
+			ChainSelector: chain.Selector,
+		}
+
+		report, err := operations.ExecuteSequence(
+			env.OperationsBundle,
+			seqs.SeqEVMDeployMCMWithConfig,
+			seqDeps,
+			seqInput,
+		)
 		if err != nil {
+			lggr.Errorw("Failed to deploy Proposer MCMS", "chain", chain.String(), "err", err)
 			return nil, err
 		}
-		proposer = proposerC.Contract
-		lggr.Infow("Proposer MCMS deployed", "chain", chain.String(), "address", proposer.Address)
+
+		proposer, err = bindings.NewManyChainMultiSig(report.Output.Address, chain.Client)
+		if err != nil {
+			lggr.Errorw("Failed to create Proposer MCMS binding", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+		lggr.Infow("Proposer MCMS deployed", "chain", chain.String(), "address", proposer.Address().String())
 	} else {
-		lggr.Infow("Proposer MCMS already deployed", "chain", chain.String(), "address", proposer.Address)
+		lggr.Infow("Proposer MCMS already deployed", "chain", chain.String(), "address", proposer.Address().String())
 	}
 
 	if timelock == nil {
-		timelockC, err := deployment.DeployContract(lggr, chain, ab,
-			func(chain deployment.Chain) deployment.ContractDeploy[*bindings.RBACTimelock] {
-				timelock, tx2, cc, err2 := bindings.DeployRBACTimelock(
-					chain.DeployerKey,
-					chain.Client,
-					config.TimelockMinDelay,
-					// Deployer is the initial admin.
-					// TODO: Could expose this as config?
-					// Or keep this enforced to follow the same pattern?
-					chain.DeployerKey.From,
-					[]common.Address{proposer.Address()}, // proposers
-					// Executors field is empty here because we grant the executor role to the call proxy later
-					// and the call proxy cannot be deployed before the timelock.
-					[]common.Address{},
-					[]common.Address{canceller.Address(), proposer.Address(), bypasser.Address()}, // cancellers
-					[]common.Address{bypasser.Address()},                                          // bypassers
-				)
+		opDeps := ops.OpEVMMCMSDeps{
+			Chain:    chain,
+			AddrBook: ab,
+			Options:  opts,
+		}
+		opInput := ops.OpEVMDeployTimelockInput{
+			ContractType: commontypes.RBACTimelock,
+			// Deployer is the initial admin.
+			// TODO: Could expose this as config?
+			// Or keep this enforced to follow the same pattern?
+			Admin:     chain.DeployerKey.From,
+			Proposers: []common.Address{proposer.Address()},
+			// Executors field is empty here because we grant the executor role to the call proxy later
+			// and the call proxy cannot be deployed before the timelock.
+			Executors:        []common.Address{},
+			Cancellers:       []common.Address{canceller.Address(), proposer.Address(), bypasser.Address()}, // cancellers
+			Bypassers:        []common.Address{bypasser.Address()},                                          // bypassers
+			TimelockMinDelay: config.TimelockMinDelay,
+		}
 
-				tv := deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0)
-				if config.Label != nil {
-					tv.AddLabel(*config.Label)
-				}
-
-				return deployment.ContractDeploy[*bindings.RBACTimelock]{
-					Address: timelock, Contract: cc, Tx: tx2, Tv: tv, Err: err2,
-				}
-			})
+		report, err := operations.ExecuteOperation(
+			env.OperationsBundle,
+			ops.OpEVMDeployTimelock,
+			opDeps,
+			opInput,
+		)
 		if err != nil {
 			lggr.Errorw("Failed to deploy timelock", "chain", chain.String(), "err", err)
 			return nil, err
 		}
-		timelock = timelockC.Contract
-		lggr.Infow("Timelock deployed", "chain", chain.String(), "address", timelock.Address)
+
+		timelock, err = bindings.NewRBACTimelock(report.Output.Address, chain.Client)
+		if err != nil {
+			lggr.Errorw("Failed to create Timelock binding", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+
+		lggr.Infow("Timelock deployed", "chain", chain.String(), "address", timelock.Address().String())
 	} else {
-		lggr.Infow("Timelock already deployed", "chain", chain.String(), "address", timelock.Address)
+		lggr.Infow("Timelock already deployed", "chain", chain.String(), "address", timelock.Address().String())
 	}
 
 	if callProxy == nil {
-		callProxyC, err := deployment.DeployContract(lggr, chain, ab,
-			func(chain deployment.Chain) deployment.ContractDeploy[*bindings.CallProxy] {
-				callProxy, tx2, cc, err2 := bindings.DeployCallProxy(
-					chain.DeployerKey,
-					chain.Client,
-					timelock.Address(),
-				)
+		opDeps := ops.OpEVMMCMSDeps{
+			Chain:    chain,
+			AddrBook: ab,
+			Options:  opts,
+		}
+		opInput := ops.OpEVMDeployCallProxyInput{
+			ContractType: commontypes.CallProxy, // bypassers
+			Timelock:     timelock.Address(),
+		}
 
-				tv := deployment.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0)
-				if config.Label != nil {
-					tv.AddLabel(*config.Label)
-				}
-
-				return deployment.ContractDeploy[*bindings.CallProxy]{
-					Address: callProxy, Contract: cc, Tx: tx2, Tv: tv, Err: err2,
-				}
-			})
+		report, err := operations.ExecuteOperation(
+			env.OperationsBundle,
+			ops.OpEVMDeployCallProxy,
+			opDeps,
+			opInput,
+		)
 		if err != nil {
-			lggr.Errorw("Failed to deploy call proxy", "chain", chain.String(), "err", err)
+			lggr.Errorw("Failed to deploy CallProxy", "chain", chain.String(), "err", err)
 			return nil, err
 		}
-		callProxy = callProxyC.Contract
-		lggr.Infow("CallProxy deployed", "chain", chain.String(), "address", callProxy.Address)
+
+		callProxy, err = bindings.NewCallProxy(report.Output.Address, chain.Client)
+		if err != nil {
+			lggr.Errorw("Failed to create CallProxy binding", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+		lggr.Infow("CallProxy deployed", "chain", chain.String(), "address", callProxy.Address().String())
 	} else {
-		lggr.Infow("CallProxy already deployed", "chain", chain.String(), "address", callProxy.Address)
+		lggr.Infow("CallProxy already deployed", "chain", chain.String(), "address", callProxy.Address().String())
 	}
 	timelockContracts := &proposalutils.MCMSWithTimelockContracts{
 		BypasserMcm:  bypasser,
@@ -226,7 +317,7 @@ func DeployMCMSWithTimelockContractsEVM(
 	}
 	// grant roles for timelock
 	// this is called only if deployer key is an admin in timelock
-	_, err := GrantRolesForTimelock(ctx, lggr, chain, timelockContracts, true)
+	_, err := GrantRolesForTimelock(env, chain, timelockContracts, true)
 	if err != nil {
 		return nil, err
 	}
@@ -264,12 +355,14 @@ func getAdminAddresses(ctx context.Context, timelock *bindings.RBACTimelock) ([]
 }
 
 func GrantRolesForTimelock(
-	ctx context.Context,
-	lggr logger.Logger,
-	chain deployment.Chain,
+	env cldf.Environment,
+	chain cldf_evm.Chain,
 	timelockContracts *proposalutils.MCMSWithTimelockContracts,
 	skipIfDeployerKeyNotAdmin bool, // If true, skip role grants if the deployer key is not an admin.
 ) ([]mcmsTypes.Transaction, error) {
+	lggr := env.Logger
+	ctx := env.GetContext()
+
 	if timelockContracts == nil {
 		lggr.Errorw("Timelock contracts not found", "chain", chain.String())
 		return nil, fmt.Errorf("timelock contracts not found for chain %s", chain.String())
@@ -298,134 +391,59 @@ func GrantRolesForTimelock(
 
 	var mcmsTxs []mcmsTypes.Transaction
 
-	timelockInspector := evmMcms.NewTimelockInspector(chain.Client)
-	proposerAddresses, err := timelockInspector.GetProposers(ctx, timelock.Address().String())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get proposers for chain %s: %w", chain.String(), err)
-	}
-	if !slices.Contains(proposerAddresses, proposer.Address().String()) {
-		tx, err := grantRoleTx(lggr, timelock, chain, isDeployerKeyAdmin, v1_0.PROPOSER_ROLE.ID, proposer.Address())
-		if err != nil {
-			lggr.Errorw("Failed to grant timelock proposer role", "chain", chain.String(), "err", err)
-			return nil, err
-		}
-		if !isDeployerKeyAdmin {
-			mcmsTxs = append(mcmsTxs, tx)
-		} else {
-			lggr.Infow("Proposer role granted", "chain", chain.String(), "address", proposer.Address())
-		}
-	}
-	cancellerAddresses, err := timelockInspector.GetCancellers(ctx, timelock.Address().String())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get proposers for chain %s: %w", chain.String(), err)
-	}
-	for _, addr := range []common.Address{proposer.Address(), canceller.Address(), bypasser.Address()} {
-		if !slices.Contains(cancellerAddresses, addr.String()) {
-			tx, err := grantRoleTx(lggr, timelock, chain, isDeployerKeyAdmin, v1_0.CANCELLER_ROLE.ID, addr)
-			if err != nil {
-				lggr.Errorw("Failed to grant timelock canceller role", "chain", chain.String(), "err", err)
-				return nil, err
-			}
-			if !isDeployerKeyAdmin {
-				mcmsTxs = append(mcmsTxs, tx)
-			} else {
-				lggr.Infow("Canceller role granted", "chain", chain.String(), "address", addr)
-			}
-		}
+	seqDeps := seqs.SeqGrantRolesTimelockDeps{
+		Chain: chain,
 	}
 
-	bypasserAddresses, err := timelockInspector.GetBypassers(ctx, timelock.Address().String())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get bypassers for chain %s: %w", chain.String(), err)
-	}
-	if !slices.Contains(bypasserAddresses, bypasser.Address().String()) {
-		tx, err := grantRoleTx(lggr, timelock, chain, isDeployerKeyAdmin, v1_0.BYPASSER_ROLE.ID, bypasser.Address())
-		if err != nil {
-			lggr.Errorw("Failed to grant timelock bypasser role", "chain", chain.String(), "err", err)
-			return nil, err
-		}
-		if !isDeployerKeyAdmin {
-			mcmsTxs = append(mcmsTxs, tx)
-		} else {
-			lggr.Infow("Bypasser role granted", "chain", chain.String(), "address", bypasser.Address())
-		}
-	}
-	executorAddresses, err := timelockInspector.GetExecutors(ctx, timelock.Address().String())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get executors for chain %s: %w", chain.String(), err)
-	}
-	if !slices.Contains(executorAddresses, callProxy.Address().String()) {
-		tx, err := grantRoleTx(lggr, timelock, chain, isDeployerKeyAdmin, v1_0.EXECUTOR_ROLE.ID, callProxy.Address())
-		if err != nil {
-			lggr.Errorw("Failed to grant timelock executor role", "chain", chain.String(), "err", err)
-			return nil, err
-		}
-		if !isDeployerKeyAdmin {
-			mcmsTxs = append(mcmsTxs, tx)
-		} else {
-			lggr.Infow("Executor role granted", "chain", chain.String(), "address", callProxy.Address())
-		}
+	seqInput := seqs.SeqGrantRolesTimelockInput{
+		ContractType:       commontypes.RBACTimelock,
+		ChainSelector:      chain.Selector,
+		Timelock:           timelock.Address(),
+		IsDeployerKeyAdmin: isDeployerKeyAdmin,
+		RolesAndAddresses: []seqs.RolesAndAddresses{
+			{
+				Role:      v1_0.PROPOSER_ROLE.ID,
+				Name:      v1_0.PROPOSER_ROLE.Name,
+				Addresses: []common.Address{proposer.Address()},
+			},
+			{
+				Role:      v1_0.CANCELLER_ROLE.ID,
+				Name:      v1_0.CANCELLER_ROLE.Name,
+				Addresses: []common.Address{proposer.Address(), canceller.Address(), bypasser.Address()},
+			},
+			{
+				Role:      v1_0.BYPASSER_ROLE.ID,
+				Name:      v1_0.BYPASSER_ROLE.Name,
+				Addresses: []common.Address{bypasser.Address()},
+			},
+			{
+				Role:      v1_0.EXECUTOR_ROLE.ID,
+				Name:      v1_0.EXECUTOR_ROLE.Name,
+				Addresses: []common.Address{callProxy.Address()},
+			},
+		},
 	}
 
 	if !isTimelockAdmin {
 		// We grant the timelock the admin role on the MCMS contracts.
-		tx, err := grantRoleTx(lggr, timelock, chain, isDeployerKeyAdmin, v1_0.ADMIN_ROLE.ID, timelock.Address())
-		if err != nil {
-			lggr.Errorw("Failed to grant timelock admin role", "chain", chain.String(), "err", err)
-			return nil, err
-		}
-		if !isDeployerKeyAdmin {
-			mcmsTxs = append(mcmsTxs, tx)
-		} else {
-			lggr.Infow("Admin role granted", "chain", chain.String(), "address", timelock.Address())
-		}
+		seqInput.RolesAndAddresses = append(seqInput.RolesAndAddresses, seqs.RolesAndAddresses{
+			Role:      v1_0.ADMIN_ROLE.ID,
+			Name:      v1_0.ADMIN_ROLE.Name,
+			Addresses: []common.Address{timelock.Address()},
+		})
 	}
-	return mcmsTxs, nil
-}
 
-func grantRoleTx(
-	lggr logger.Logger,
-	timelock *bindings.RBACTimelock,
-	chain deployment.Chain,
-	isDeployerKeyAdmin bool,
-	roleID [32]byte,
-	address common.Address,
-) (mcmsTypes.Transaction, error) {
-	txOpts := deployment.SimTransactOpts()
-	if isDeployerKeyAdmin {
-		txOpts = chain.DeployerKey
-	}
-	grantRoleTx, err := timelock.GrantRole(
-		txOpts, roleID, address,
+	report, err := operations.ExecuteSequence(
+		env.OperationsBundle,
+		seqs.SeqGrantRolesTimelock,
+		seqDeps,
+		seqInput,
 	)
-	if isDeployerKeyAdmin {
-		if _, err2 := deployment.ConfirmIfNoErrorWithABI(chain, grantRoleTx, bindings.RBACTimelockABI, err); err != nil {
-			lggr.Errorw("Failed to grant timelock role",
-				"chain", chain.String(),
-				"timelock", timelock.Address().Hex(),
-				"Address to grant role", address.Hex(),
-				"err", err2)
-			return mcmsTypes.Transaction{}, err2
-		}
-		return mcmsTypes.Transaction{}, err
-	}
 	if err != nil {
-		lggr.Errorw("Failed to grant timelock role",
-			"chain", chain.String(),
-			"timelock", timelock.Address().Hex(),
-			"Address to grant role", address.Hex(),
-			"err", err)
-		return mcmsTypes.Transaction{}, err
+		lggr.Errorw("Failed to grant roles for timelock", "chain", chain.String(), "err", err)
+		return nil, err
 	}
-	tx, err := proposalutils.TransactionForChain(chain.Selector, timelock.Address().Hex(), grantRoleTx.Data(),
-		big.NewInt(0), commontypes.RBACTimelock.String(), []string{})
-	if err != nil {
-		lggr.Errorw("Failed to create transaction for chain",
-			"chain", chain.String(),
-			"timelock", timelock.Address().Hex(),
-			"Address to grant role", address.Hex(),
-			"err", err)
-		return mcmsTypes.Transaction{}, err
-	}
-	return tx, nil
+	mcmsTxs = report.Output.McmsTxs
+
+	return mcmsTxs, nil
 }

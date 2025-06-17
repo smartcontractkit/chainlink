@@ -16,7 +16,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
-	evmcfg "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -218,6 +218,10 @@ func (g *generalConfig) TronConfigs() RawConfigs {
 	return g.c.Tron
 }
 
+func (g *generalConfig) TONConfigs() RawConfigs {
+	return g.c.TON
+}
+
 func (g *generalConfig) Validate() error {
 	return g.validate(g.secrets.Validate)
 }
@@ -356,6 +360,15 @@ func (g *generalConfig) TronEnabled() bool {
 	return false
 }
 
+func (g *generalConfig) TONEnabled() bool {
+	for _, c := range g.c.TON {
+		if c.IsEnabled() {
+			return true
+		}
+	}
+	return false
+}
+
 func (g *generalConfig) WebServer() config.WebServer {
 	return &webServerConfig{c: g.c.WebServer, s: g.secrets.WebServer, rootDir: g.RootDir}
 }
@@ -430,6 +443,10 @@ func (g *generalConfig) FluxMonitor() config.FluxMonitor {
 
 func (g *generalConfig) InsecureFastScrypt() bool {
 	return *g.c.InsecureFastScrypt
+}
+
+func (g *generalConfig) InsecurePPROFHeap() bool {
+	return *g.c.InsecurePPROFHeap
 }
 
 func (g *generalConfig) JobPipelineReaperInterval() time.Duration {
@@ -535,6 +552,14 @@ func (g *generalConfig) Tracing() coreconfig.Tracing {
 }
 func (g *generalConfig) Telemetry() coreconfig.Telemetry {
 	return &telemetryConfig{s: g.c.Telemetry}
+}
+
+func (g *generalConfig) CRE() coreconfig.CRE {
+	return &creConfig{s: g.secrets.CRE, c: g.c.CRE}
+}
+
+func (g *generalConfig) Billing() coreconfig.Billing {
+	return &billingConfig{t: g.c.Billing}
 }
 
 var zeroSha256Hash = models.Sha256Hash{}

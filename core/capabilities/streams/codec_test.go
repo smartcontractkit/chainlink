@@ -14,7 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -110,9 +109,8 @@ func newFeedID(t *testing.T) ([32]byte, string) {
 }
 
 func newReport(t *testing.T, feedID [32]byte, price *big.Int, timestamp int64) []byte {
-	ctx := tests.Context(t)
 	v3Codec := reportcodec.NewReportCodec(feedID, logger.TestLogger(t))
-	raw, err := v3Codec.BuildReport(ctx, v3.ReportFields{
+	raw, err := v3Codec.BuildReport(t.Context(), v3.ReportFields{
 		BenchmarkPrice:     price,
 		Timestamp:          uint32(timestamp),
 		ValidFromTimestamp: uint32(timestamp),

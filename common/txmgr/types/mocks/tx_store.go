@@ -676,6 +676,66 @@ func (_c *TxStore_FindNextUnstartedTransactionFromAddress_Call[ADDR, CID, THASH,
 	return _c
 }
 
+// FindReceiptWithIdempotencyKey provides a mock function with given fields: ctx, idempotencyKey, chainID
+func (_m *TxStore[ADDR, CID, THASH, BHASH, R, SEQ, FEE]) FindReceiptWithIdempotencyKey(ctx context.Context, idempotencyKey string, chainID CID) (types.ChainReceipt[THASH, BHASH], error) {
+	ret := _m.Called(ctx, idempotencyKey, chainID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindReceiptWithIdempotencyKey")
+	}
+
+	var r0 types.ChainReceipt[THASH, BHASH]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, CID) (types.ChainReceipt[THASH, BHASH], error)); ok {
+		return rf(ctx, idempotencyKey, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, CID) types.ChainReceipt[THASH, BHASH]); ok {
+		r0 = rf(ctx, idempotencyKey, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(types.ChainReceipt[THASH, BHASH])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, CID) error); ok {
+		r1 = rf(ctx, idempotencyKey, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// TxStore_FindReceiptWithIdempotencyKey_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindReceiptWithIdempotencyKey'
+type TxStore_FindReceiptWithIdempotencyKey_Call[ADDR chains.Hashable, CID chains.ID, THASH chains.Hashable, BHASH chains.Hashable, R types.ChainReceipt[THASH, BHASH], SEQ chains.Sequence, FEE fees.Fee] struct {
+	*mock.Call
+}
+
+// FindReceiptWithIdempotencyKey is a helper method to define mock.On call
+//   - ctx context.Context
+//   - idempotencyKey string
+//   - chainID CID
+func (_e *TxStore_Expecter[ADDR, CID, THASH, BHASH, R, SEQ, FEE]) FindReceiptWithIdempotencyKey(ctx interface{}, idempotencyKey interface{}, chainID interface{}) *TxStore_FindReceiptWithIdempotencyKey_Call[ADDR, CID, THASH, BHASH, R, SEQ, FEE] {
+	return &TxStore_FindReceiptWithIdempotencyKey_Call[ADDR, CID, THASH, BHASH, R, SEQ, FEE]{Call: _e.mock.On("FindReceiptWithIdempotencyKey", ctx, idempotencyKey, chainID)}
+}
+
+func (_c *TxStore_FindReceiptWithIdempotencyKey_Call[ADDR, CID, THASH, BHASH, R, SEQ, FEE]) Run(run func(ctx context.Context, idempotencyKey string, chainID CID)) *TxStore_FindReceiptWithIdempotencyKey_Call[ADDR, CID, THASH, BHASH, R, SEQ, FEE] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(CID))
+	})
+	return _c
+}
+
+func (_c *TxStore_FindReceiptWithIdempotencyKey_Call[ADDR, CID, THASH, BHASH, R, SEQ, FEE]) Return(_a0 types.ChainReceipt[THASH, BHASH], _a1 error) *TxStore_FindReceiptWithIdempotencyKey_Call[ADDR, CID, THASH, BHASH, R, SEQ, FEE] {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *TxStore_FindReceiptWithIdempotencyKey_Call[ADDR, CID, THASH, BHASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, string, CID) (types.ChainReceipt[THASH, BHASH], error)) *TxStore_FindReceiptWithIdempotencyKey_Call[ADDR, CID, THASH, BHASH, R, SEQ, FEE] {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FindReorgOrIncludedTxs provides a mock function with given fields: ctx, fromAddress, nonce, chainID
 func (_m *TxStore[ADDR, CID, THASH, BHASH, R, SEQ, FEE]) FindReorgOrIncludedTxs(ctx context.Context, fromAddress ADDR, nonce SEQ, chainID CID) ([]*types.Tx[CID, ADDR, THASH, BHASH, SEQ, FEE], []*types.Tx[CID, ADDR, THASH, BHASH, SEQ, FEE], error) {
 	ret := _m.Called(ctx, fromAddress, nonce, chainID)

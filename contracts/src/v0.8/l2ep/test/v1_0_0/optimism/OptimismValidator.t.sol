@@ -6,6 +6,7 @@ import {ISequencerUptimeFeed} from "../../../interfaces/ISequencerUptimeFeed.sol
 import {MockOptimismL1CrossDomainMessenger} from "../../mocks/MockOptimismL1CrossDomainMessenger.sol";
 import {MockOptimismL2CrossDomainMessenger} from "../../mocks/MockOptimismL2CrossDomainMessenger.sol";
 import {OptimismSequencerUptimeFeed} from "../../../optimism/OptimismSequencerUptimeFeed.sol";
+import {BaseValidator} from "../../../base/BaseValidator.sol";
 import {OptimismValidator} from "../../../optimism/OptimismValidator.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
@@ -55,6 +56,10 @@ contract OptimismValidator_Validate is OptimismValidator_Setup {
     // Gives access to the s_eoaValidator
     s_optimismValidator.addAccess(s_eoaValidator);
 
+    uint256 previousRoundId = 0;
+    int256 previousAnswer = 0;
+    uint256 currentRoundId = 0;
+    int256 currentAnswer = 0;
     // Sets block.timestamp to a later date
     uint256 futureTimestampInSeconds = block.timestamp + 5000;
     vm.startPrank(s_eoaValidator);
@@ -70,15 +75,20 @@ contract OptimismValidator_Validate is OptimismValidator_Setup {
       INIT_GAS_LIMIT // gas limit
     );
 
+    vm.expectEmit(address(s_optimismValidator));
+    emit BaseValidator.ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
     // Runs the function (which produces the event to test)
-    s_optimismValidator.validate(0, 0, 0, 0);
+    s_optimismValidator.validate(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
   }
 
   /// @notice it posts sequencer offline
   function test_Validate_PostSequencerOffline() public {
     // Gives access to the s_eoaValidator
     s_optimismValidator.addAccess(s_eoaValidator);
-
+    uint256 previousRoundId = 0;
+    int256 previousAnswer = 0;
+    uint256 currentRoundId = 1;
+    int256 currentAnswer = 1;
     // Sets block.timestamp to a later date
     uint256 futureTimestampInSeconds = block.timestamp + 10000;
     vm.startPrank(s_eoaValidator);
@@ -94,7 +104,9 @@ contract OptimismValidator_Validate is OptimismValidator_Setup {
       INIT_GAS_LIMIT // gas limit
     );
 
+    vm.expectEmit(address(s_optimismValidator));
+    emit BaseValidator.ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
     // Runs the function (which produces the event to test)
-    s_optimismValidator.validate(0, 0, 1, 1);
+    s_optimismValidator.validate(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
   }
 }

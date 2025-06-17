@@ -14,7 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"

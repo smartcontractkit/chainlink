@@ -41,7 +41,7 @@ on:
 jobs:
   call-nightly-run-e2e-tests-workflow:
     name: Run Integration In-Memory Tests
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@52c57ff58abdf960d5c8367b019d43fe1c201a41
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@f3caa3782440b436ecc5375ef1b5ae408db636ef
     with:
       chainlink_version: ${{ inputs.chainlink_version || 'develop' }}
       test_path: .github/integration-in-memory-tests.yml

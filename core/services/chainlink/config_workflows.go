@@ -28,3 +28,7 @@ func (l *limits) Global() int32 {
 func (l *limits) PerOwner() int32 {
 	return *l.l.PerOwner
 }
+
+func (l *limits) PerOwnerOverrides() map[string]int32 {
+	return l.l.Overrides
+}

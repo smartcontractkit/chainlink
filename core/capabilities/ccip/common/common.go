@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/crypto"
-
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
 // ExtraDataDecoded contains a generic representation of chain specific message parameters. A
@@ -30,4 +30,22 @@ func HashedCapabilityID(capabilityLabelledName, capabilityVersion string) (r [32
 	h := crypto.Keccak256(abiEncoded)
 	copy(r[:], h)
 	return r, nil
+}
+
+type OffChainConfig struct {
+	Commit  *pluginconfig.CommitOffchainConfig
+	Execute *pluginconfig.ExecuteOffchainConfig
+}
+
+func (ofc OffChainConfig) CommitEmpty() bool {
+	return ofc.Commit == nil
+}
+
+func (ofc OffChainConfig) ExecEmpty() bool {
+	return ofc.Execute == nil
+}
+
+// IsValid Exactly one of both plugins should be empty at any given time.
+func (ofc OffChainConfig) IsValid() bool {
+	return (ofc.CommitEmpty() && !ofc.ExecEmpty()) || (!ofc.CommitEmpty() && ofc.ExecEmpty())
 }

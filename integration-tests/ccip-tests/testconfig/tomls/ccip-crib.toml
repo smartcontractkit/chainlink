@@ -1,6 +1,6 @@
 [CCIP]
 [CCIP.Env]
-Mockserver = 'http://mockserver:1080'
+Mockserver = 'http://parrot'
 
 [CCIP.Env.Network]
 selected_networks = ['AVALANCHE_FUJI', 'BSC_TESTNET']

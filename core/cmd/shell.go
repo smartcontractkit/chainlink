@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
+	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -52,12 +53,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	clhttp "github.com/smartcontractkit/chainlink/v2/core/utils/http"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
@@ -100,19 +100,21 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 			}
 
 			clientCfg := beholder.Config{
-				InsecureConnection:       cfgTelemetry.InsecureConnection(),
-				CACertFile:               cfgTelemetry.CACertFile(),
-				OtelExporterGRPCEndpoint: cfgTelemetry.OtelExporterGRPCEndpoint(),
-				ResourceAttributes:       attributes,
-				TraceSampleRatio:         cfgTelemetry.TraceSampleRatio(),
-				EmitterBatchProcessor:    cfgTelemetry.EmitterBatchProcessor(),
-				EmitterExportTimeout:     cfgTelemetry.EmitterExportTimeout(),
-				AuthPublicKeyHex:         csaPubKeyHex,
-				AuthHeaders:              beholderAuthHeaders,
+				InsecureConnection:             cfgTelemetry.InsecureConnection(),
+				CACertFile:                     cfgTelemetry.CACertFile(),
+				OtelExporterGRPCEndpoint:       cfgTelemetry.OtelExporterGRPCEndpoint(),
+				ResourceAttributes:             attributes,
+				TraceSampleRatio:               cfgTelemetry.TraceSampleRatio(),
+				EmitterBatchProcessor:          cfgTelemetry.EmitterBatchProcessor(),
+				EmitterExportTimeout:           cfgTelemetry.EmitterExportTimeout(),
+				AuthPublicKeyHex:               csaPubKeyHex,
+				AuthHeaders:                    beholderAuthHeaders,
+				ChipIngressEmitterEnabled:      cfgTelemetry.ChipIngressEndpoint() != "",
+				ChipIngressEmitterGRPCEndpoint: cfgTelemetry.ChipIngressEndpoint(),
 			}
 			// note: due to the OTEL specification, all histogram buckets
 			// must be defined when the beholder client is created
-			clientCfg.MetricViews = append(clientCfg.MetricViews, workflows.MetricViews()...)
+			clientCfg.MetricViews = append(clientCfg.MetricViews, monitoring.MetricViews()...)
 
 			if tracingCfg.Enabled {
 				clientCfg.TraceSpanExporter, err = tracingCfg.NewSpanExporter()
@@ -226,7 +228,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		LatestReportDeadline: cfg.Mercury().Cache().LatestReportDeadline(),
 	})
 
-	unrestrictedClient := clhttp.NewUnrestrictedHTTPClient()
+	unrestrictedClient := clhttp.NewUnrestrictedClient()
 
 	// Configure and optionally start the audit log forwarder service
 	auditLogger, err := audit.NewAuditLogger(appLggr, cfg.AuditLogger())
@@ -246,13 +248,13 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		AuditLogger:              auditLogger,
 		ExternalInitiatorManager: webhook.NewExternalInitiatorManager(ds, unrestrictedClient),
 		Version:                  static.Version,
-		RestrictedHTTPClient:     clhttp.NewRestrictedHTTPClient(cfg.Database(), appLggr),
+		RestrictedHTTPClient:     clhttp.NewRestrictedClient(cfg.Database(), appLggr),
 		UnrestrictedHTTPClient:   unrestrictedClient,
 		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
 		GRPCOpts:                 grpcOpts,
 		MercuryPool:              mercuryPool,
 		RetirementReportCache:    retirement.NewRetirementReportCache(appLggr, ds),
-		LLOTransmissionReaper:    llo.NewTransmissionReaper(ds, appLggr, cfg.Mercury().Transmitter().ReaperFrequency().Duration(), cfg.Mercury().Transmitter().ReaperMaxAge().Duration()),
+		LLOTransmissionReaper:    llo.NewTransmissionReaper(ds, appLggr, cfg.Mercury().Transmitter().ReaperFrequency(), cfg.Mercury().Transmitter().ReaperMaxAge()),
 	})
 }
 
@@ -372,21 +374,19 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	g, gCtx := errgroup.WithContext(ctx)
 	serverStartTimeoutDuration := config.WebServer().StartTimeout()
 	if ws.HTTPPort() != 0 {
-		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), serverStartTimeoutDuration, func() error {
-			return server.run(ws.ListenIP(), ws.HTTPPort(), config.WebServer().HTTPWriteTimeout())
-		})
+		runServer := server.runFn(ws.ListenIP(), ws.HTTPPort(), config.WebServer().HTTPWriteTimeout())
+		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), serverStartTimeoutDuration, runServer)
 	}
 
 	tls := config.WebServer().TLS()
 	if tls.HTTPSPort() != 0 {
-		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), serverStartTimeoutDuration, func() error {
-			return server.runTLS(
-				tls.ListenIP(),
-				tls.HTTPSPort(),
-				tls.CertFile(),
-				tls.KeyFile(),
-				config.WebServer().HTTPWriteTimeout())
-		})
+		runServer := server.runTLS(
+			tls.ListenIP(),
+			tls.HTTPSPort(),
+			tls.CertFile(),
+			tls.KeyFile(),
+			config.WebServer().HTTPWriteTimeout())
+		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), serverStartTimeoutDuration, runServer)
 	}
 
 	g.Go(func() error {
@@ -462,20 +462,24 @@ type server struct {
 	lggr       logger.Logger
 }
 
-func (s *server) run(ip net.IP, port uint16, writeTimeout time.Duration) error {
+func (s *server) runFn(ip net.IP, port uint16, writeTimeout time.Duration) func() error {
 	addr := fmt.Sprintf("%s:%d", ip.String(), port)
 	s.lggr.Infow("Listening and serving HTTP on "+addr, "ip", ip, "port", port)
 	s.httpServer = createServer(s.handler, addr, writeTimeout)
-	err := s.httpServer.ListenAndServe()
-	return errors.Wrap(err, "failed to run plaintext HTTP server")
+	return func() error {
+		err := s.httpServer.ListenAndServe()
+		return errors.Wrap(err, "failed to run plaintext HTTP server")
+	}
 }
 
-func (s *server) runTLS(ip net.IP, port uint16, certFile, keyFile string, requestTimeout time.Duration) error {
+func (s *server) runTLS(ip net.IP, port uint16, certFile, keyFile string, requestTimeout time.Duration) func() error {
 	addr := fmt.Sprintf("%s:%d", ip.String(), port)
 	s.lggr.Infow("Listening and serving HTTPS on "+addr, "ip", ip, "port", port)
 	s.tlsServer = createServer(s.handler, addr, requestTimeout)
-	err := s.tlsServer.ListenAndServeTLS(certFile, keyFile)
-	return errors.Wrap(err, "failed to run TLS server (NOTE: you can disable TLS server completely and silence these errors by setting WebServer.TLS.HTTPSPort=0 in your config)")
+	return func() error {
+		err := s.tlsServer.ListenAndServeTLS(certFile, keyFile)
+		return errors.Wrap(err, "failed to run TLS server (NOTE: you can disable TLS server completely and silence these errors by setting WebServer.TLS.HTTPSPort=0 in your config)")
+	}
 }
 
 func createServer(handler *gin.Engine, addr string, requestTimeout time.Duration) *http.Server {

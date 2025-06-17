@@ -23,7 +23,7 @@ import (
 
 	logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 
-	logpoller "github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	logpoller "github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -37,9 +37,7 @@ import (
 
 	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
-	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-
-	types "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	txmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 
 	uuid "github.com/google/uuid"
 
@@ -340,53 +338,6 @@ func (_c *Application_DeleteLogPollerDataAfter_Call) Return(_a0 error) *Applicat
 }
 
 func (_c *Application_DeleteLogPollerDataAfter_Call) RunAndReturn(run func(context.Context, *big.Int, int64) error) *Application_DeleteLogPollerDataAfter_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// EVMORM provides a mock function with no fields
-func (_m *Application) EVMORM() types.Configs {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for EVMORM")
-	}
-
-	var r0 types.Configs
-	if rf, ok := ret.Get(0).(func() types.Configs); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(types.Configs)
-		}
-	}
-
-	return r0
-}
-
-// Application_EVMORM_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EVMORM'
-type Application_EVMORM_Call struct {
-	*mock.Call
-}
-
-// EVMORM is a helper method to define mock.On call
-func (_e *Application_Expecter) EVMORM() *Application_EVMORM_Call {
-	return &Application_EVMORM_Call{Call: _e.mock.On("EVMORM")}
-}
-
-func (_c *Application_EVMORM_Call) Run(run func()) *Application_EVMORM_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *Application_EVMORM_Call) Return(_a0 types.Configs) *Application_EVMORM_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *Application_EVMORM_Call) RunAndReturn(run func() types.Configs) *Application_EVMORM_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1200,17 +1151,17 @@ func (_c *Application_PipelineORM_Call) RunAndReturn(run func() pipeline.ORM) *A
 	return _c
 }
 
-// ReplayFromBlock provides a mock function with given fields: chainID, number, forceBroadcast
-func (_m *Application) ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error {
-	ret := _m.Called(chainID, number, forceBroadcast)
+// ReplayFromBlock provides a mock function with given fields: ctx, chainFamily, chainID, number, forceBroadcast
+func (_m *Application) ReplayFromBlock(ctx context.Context, chainFamily string, chainID string, number uint64, forceBroadcast bool) error {
+	ret := _m.Called(ctx, chainFamily, chainID, number, forceBroadcast)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ReplayFromBlock")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*big.Int, uint64, bool) error); ok {
-		r0 = rf(chainID, number, forceBroadcast)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, uint64, bool) error); ok {
+		r0 = rf(ctx, chainFamily, chainID, number, forceBroadcast)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -1224,16 +1175,18 @@ type Application_ReplayFromBlock_Call struct {
 }
 
 // ReplayFromBlock is a helper method to define mock.On call
-//   - chainID *big.Int
+//   - ctx context.Context
+//   - chainFamily string
+//   - chainID string
 //   - number uint64
 //   - forceBroadcast bool
-func (_e *Application_Expecter) ReplayFromBlock(chainID interface{}, number interface{}, forceBroadcast interface{}) *Application_ReplayFromBlock_Call {
-	return &Application_ReplayFromBlock_Call{Call: _e.mock.On("ReplayFromBlock", chainID, number, forceBroadcast)}
+func (_e *Application_Expecter) ReplayFromBlock(ctx interface{}, chainFamily interface{}, chainID interface{}, number interface{}, forceBroadcast interface{}) *Application_ReplayFromBlock_Call {
+	return &Application_ReplayFromBlock_Call{Call: _e.mock.On("ReplayFromBlock", ctx, chainFamily, chainID, number, forceBroadcast)}
 }
 
-func (_c *Application_ReplayFromBlock_Call) Run(run func(chainID *big.Int, number uint64, forceBroadcast bool)) *Application_ReplayFromBlock_Call {
+func (_c *Application_ReplayFromBlock_Call) Run(run func(ctx context.Context, chainFamily string, chainID string, number uint64, forceBroadcast bool)) *Application_ReplayFromBlock_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*big.Int), args[1].(uint64), args[2].(bool))
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(uint64), args[4].(bool))
 	})
 	return _c
 }
@@ -1243,7 +1196,7 @@ func (_c *Application_ReplayFromBlock_Call) Return(_a0 error) *Application_Repla
 	return _c
 }
 
-func (_c *Application_ReplayFromBlock_Call) RunAndReturn(run func(*big.Int, uint64, bool) error) *Application_ReplayFromBlock_Call {
+func (_c *Application_ReplayFromBlock_Call) RunAndReturn(run func(context.Context, string, string, uint64, bool) error) *Application_ReplayFromBlock_Call {
 	_c.Call.Return(run)
 	return _c
 }

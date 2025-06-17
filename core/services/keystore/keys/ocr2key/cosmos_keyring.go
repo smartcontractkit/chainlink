@@ -19,7 +19,7 @@ import (
 var _ ocrtypes.OnchainKeyring = &cosmosKeyring{}
 
 type cosmosKeyring struct {
-	privKey ed25519.PrivateKey
+	privKey func() ed25519.PrivateKey
 	pubKey  ed25519.PublicKey
 }
 
@@ -28,7 +28,7 @@ func newCosmosKeyring(material io.Reader) (*cosmosKeyring, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &cosmosKeyring{pubKey: pubKey, privKey: privKey}, nil
+	return &cosmosKeyring{pubKey: pubKey, privKey: func() ed25519.PrivateKey { return privKey }}, nil
 }
 
 func (ckr *cosmosKeyring) PublicKey() ocrtypes.OnchainPublicKey {
@@ -64,7 +64,7 @@ func (ckr *cosmosKeyring) Sign3(digest types.ConfigDigest, seqNr uint64, r ocrty
 }
 
 func (ckr *cosmosKeyring) SignBlob(b []byte) ([]byte, error) {
-	signedMsg := ed25519.Sign(ckr.privKey, b)
+	signedMsg := ed25519.Sign(ckr.privKey(), b)
 	// match on-chain parsing (first 32 bytes are for pubkey, remaining are for signature)
 	return utils.ConcatBytes(ckr.PublicKey(), signedMsg), nil
 }
@@ -100,7 +100,7 @@ func (ckr *cosmosKeyring) MaxSignatureLength() int {
 }
 
 func (ckr *cosmosKeyring) Marshal() ([]byte, error) {
-	return ckr.privKey.Seed(), nil
+	return ckr.privKey().Seed(), nil
 }
 
 func (ckr *cosmosKeyring) Unmarshal(in []byte) error {
@@ -108,7 +108,7 @@ func (ckr *cosmosKeyring) Unmarshal(in []byte) error {
 		return errors.Errorf("unexpected seed size, got %d want %d", len(in), ed25519.SeedSize)
 	}
 	privKey := ed25519.NewKeyFromSeed(in)
-	ckr.privKey = privKey
+	ckr.privKey = func() ed25519.PrivateKey { return privKey }
 	pubKey, ok := privKey.Public().(ed25519.PublicKey)
 	if !ok {
 		return errors.New("failed to cast public key to ed25519.PublicKey")

@@ -16,20 +16,20 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
-	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
-	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/log"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	log_mocks "github.com/smartcontractkit/chainlink/v2/common/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -701,8 +701,10 @@ func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 		vuni.legacyChains,
 		logger.TestLogger(t),
 		mailMon)
-	chain, err := vuni.legacyChains.Get(testutils.FixtureChainID.String())
+	chainService, err := vuni.legacyChains.Get(testutils.FixtureChainID.String())
 	require.NoError(t, err)
+	chain, ok := chainService.(legacyevm.Chain)
+	require.True(t, ok)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		VRFVersion:    vrfcommon.V2Plus,
 		PublicKey:     vuni.vrfkey.PublicKey.String(),

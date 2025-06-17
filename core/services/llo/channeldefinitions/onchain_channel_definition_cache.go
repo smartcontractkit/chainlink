@@ -27,11 +27,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
+	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	clhttp "github.com/smartcontractkit/chainlink/v2/core/utils/http"
 )
 
 const (
@@ -171,8 +171,10 @@ func (c *channelDefinitionCache) Start(ctx context.Context) error {
 			return err
 		} else if pd != nil {
 			c.definitions = pd.Definitions
-			c.initialBlockNum = pd.BlockNum + 1
 			c.definitionsVersion = uint32(pd.Version)
+			if pd.BlockNum+1 > c.initialBlockNum {
+				c.initialBlockNum = pd.BlockNum + 1
+			}
 		} else {
 			// ensure non-nil map ready for assignment later
 			c.definitions = make(llotypes.ChannelDefinitions)
@@ -264,6 +266,9 @@ func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 		}
 		unpacked.DonId = new(big.Int).SetBytes(log.Topics[1])
 
+		//nolint:gosec // disable G115
+		unpacked.Raw.BlockNumber = uint64(log.BlockNumber)
+
 		if unpacked.DonId.Cmp(big.NewInt(int64(c.donID))) != 0 {
 			// skip logs for other donIDs, shouldn't happen given the
 			// FilterLogs call, but belts and braces
@@ -286,7 +291,8 @@ func (c *channelDefinitionCache) scanFromBlockNum() int64 {
 	c.newLogMu.RLock()
 	defer c.newLogMu.RUnlock()
 	if c.newLog != nil {
-		return int64(c.newLog.Raw.BlockNumber) + 1
+		//nolint:gosec // disable G115
+		return int64(c.newLog.Raw.BlockNumber)
 	}
 	return c.initialBlockNum
 }
@@ -387,10 +393,10 @@ func (c *channelDefinitionCache) fetchChannelDefinitions(ctx context.Context, ur
 	}
 	request.Header.Set("Content-Type", "application/json")
 
-	httpRequest := clhttp.HTTPRequest{
+	httpRequest := clhttp.Request{
 		Client:  c.client,
 		Request: request,
-		Config:  clhttp.HTTPRequestConfig{SizeLimit: c.httpLimit},
+		Config:  clhttp.RequestConfig{SizeLimit: c.httpLimit},
 		Logger:  c.lggr.Named("HTTPRequest").With("url", url, "expectedSHA", hex.EncodeToString(expectedSha[:])),
 	}
 

@@ -2,27 +2,37 @@ package ccip
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
-
+	// Third-party imports
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/stretchr/testify/assert"
+	"github.com/gagliardetto/solana-go"
+	solrpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	solState "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+
+	selectors "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/burnmint_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/lockrelease_token_pool"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 )
 
 var (
@@ -33,9 +43,48 @@ var (
 	wg sync.WaitGroup
 )
 
-// todo: add multiple keys and rotate them when sending messages
 // this key only works on simulated geth chains in crib
-const simChainTestKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+const (
+	simChainTestKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	solTestKey      = "57qbvFjTChfNwQxqkFZwjHp7xYoPZa7f9ow6GA59msfCH1g6onSjKUTrrLp4w1nAwbwQuit8YgJJ2AwT9BSwownC"
+)
+
+func runSafely(ops ...func()) {
+	for _, op := range ops {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("Recovered from panic: %v\n", r)
+				}
+			}()
+			op()
+		}()
+	}
+}
+
+func SetProgramIDsSafe(state solState.CCIPChainState) {
+	runSafely(
+		func() {
+			ccip_router.SetProgramID(state.Router)
+		},
+		func() {
+			fee_quoter.SetProgramID(state.FeeQuoter)
+		},
+		func() {
+			ccip_offramp.SetProgramID(state.OffRamp)
+		},
+		func() {
+			for _, key := range state.LockReleaseTokenPools {
+				lockrelease_token_pool.SetProgramID(key)
+			}
+		},
+		func() {
+			for _, key := range state.BurnMintTokenPools {
+				burnmint_token_pool.SetProgramID(key)
+			}
+		},
+	)
+}
 
 // step 1: setup
 // Parse the test config
@@ -46,41 +95,79 @@ const simChainTestKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7
 // step 4: teardown
 // wait for ccip to finish, push remaining data
 func TestCCIPLoad_RPS(t *testing.T) {
-	// comment out when executing the test
-	// t.Skip("Skipping test as this test should not be auto triggered")
 	lggr := logger.Test(t)
-	ctx, cancel := context.WithCancel(tests.Context(t))
-	defer cancel()
-
 	// get user defined configurations
 	config, err := tc.GetConfig([]string{"Load"}, tc.CCIP)
 	require.NoError(t, err)
 	userOverrides := config.CCIP.Load
 
 	// generate environment from crib-produced files
-	cribEnv := crib.NewDevspaceEnvFromStateDir(*userOverrides.CribEnvDirectory)
-	cribDeployOutput, err := cribEnv.GetConfig(simChainTestKey)
+	cribEnv := crib.NewDevspaceEnvFromStateDir(lggr, *userOverrides.CribEnvDirectory)
+	cribDeployOutput, err := cribEnv.GetConfig(simChainTestKey, solTestKey)
 	require.NoError(t, err)
 	env, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
 	require.NoError(t, err)
 	require.NotNil(t, env)
 	userOverrides.Validate(t, env)
 
-	// initialize additional accounts on other chains
-	transmitKeys, err := fundAdditionalKeys(lggr, *env, env.AllChainSelectors()[:*userOverrides.NumDestinationChains])
+	ctx := env.GetContext()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	destinationChains := env.BlockChains.ListChainSelectors()[:*userOverrides.NumDestinationChains]
+	evmChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilyEVM))
+	solChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilySolana))
+
+	// initialize the block time for each chain
+	blockTimes := make(map[uint64]uint64)
+	for _, cs := range evmChains {
+		// Get the first block
+		block1, err := env.BlockChains.EVMChains()[cs].Client.HeaderByNumber(context.Background(), big.NewInt(1))
+		require.NoError(t, err)
+		time1 := time.Unix(int64(block1.Time), 0) //nolint:gosec // G115
+
+		// Get the second block
+		block2, err := env.BlockChains.EVMChains()[cs].Client.HeaderByNumber(context.Background(), big.NewInt(2))
+		require.NoError(t, err)
+		time2 := time.Unix(int64(block2.Time), 0) //nolint:gosec // G115
+
+		blockTimeDiff := int64(time2.Sub(time1))
+		blockNumberDiff := new(big.Int).Sub(block2.Number, block1.Number).Int64()
+		blockTime := blockTimeDiff / blockNumberDiff / int64(time.Second)
+		blockTimes[cs] = uint64(blockTime) //nolint:gosec // G115
+		lggr.Infow("Chain block time", "chainSelector", cs, "blockTime", blockTime)
+	}
+	for _, cs := range solChains {
+		blockTimes[cs] = 0
+	}
+
+	// initialize additional accounts on EVM, we need more accounts to avoid nonce issues
+	// Solana doesn't have a nonce concept so we just use a single account for all chains
+	evmSenders, err := fundAdditionalKeys(lggr, *env, destinationChains)
 	require.NoError(t, err)
-	// todo: defer returning funds
 
 	// Keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
-	state, err := ccipchangeset.LoadOnchainState(*env)
+	state, err := stateview.LoadOnchainState(*env)
 	require.NoError(t, err)
+
+	for chainSel := range state.SolChains {
+		SetProgramIDsSafe(state.SolChains[chainSel])
+		err := prepSolAccount(
+			ctx,
+			t,
+			lggr,
+			env,
+			state,
+			chainSel)
+		require.NoError(t, err)
+	}
 
 	finalSeqNrCommitChannels := make(map[uint64]chan finalSeqNrReport)
 	finalSeqNrExecChannels := make(map[uint64]chan finalSeqNrReport)
 	loadFinished := make(chan struct{})
 
-	mm := NewMetricsManager(t, env.Logger, userOverrides)
+	mm := NewMetricsManager(t, env.Logger, userOverrides, blockTimes)
 	go mm.Start(ctx)
 
 	// gunMap holds a destinationGun for every enabled destination chain
@@ -88,109 +175,201 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	p := wasp.NewProfile()
 
 	// potential source chains need a subscription
-	for _, cs := range env.AllChainSelectors() {
-		latesthdr, err := env.Chains[cs].Client.HeaderByNumber(ctx, nil)
+	for _, cs := range env.BlockChains.ListChainSelectors() {
+		otherChains := env.BlockChains.ListChainSelectors(cldf_chain.WithChainSelectorsExclusion([]uint64{cs}))
+		selectorFamily, err := selectors.GetSelectorFamily(cs)
 		require.NoError(t, err)
-		block := latesthdr.Number.Uint64()
-		startBlocks[cs] = &block
-		other := env.AllChainSelectorsExcluding([]uint64{cs})
 		wg.Add(1)
-		go subscribeTransmitEvents(
-			ctx,
-			lggr,
-			state.Chains[cs].OnRamp,
-			other,
-			startBlocks[cs],
-			cs,
-			loadFinished,
-			env.Chains[cs].Client,
-			&wg,
-			mm.InputChan,
-			finalSeqNrCommitChannels,
-			finalSeqNrExecChannels)
+		switch selectorFamily {
+		case selectors.FamilyEVM:
+			latesthdr, err := env.BlockChains.EVMChains()[cs].Client.HeaderByNumber(ctx, nil)
+			require.NoError(t, err)
+			block := latesthdr.Number.Uint64()
+			startBlocks[cs] = &block
+			go subscribeTransmitEvents(
+				ctx,
+				lggr,
+				state.Chains[cs].OnRamp,
+				otherChains,
+				startBlocks[cs],
+				cs,
+				loadFinished,
+				env.BlockChains.EVMChains()[cs].Client,
+				&wg,
+				mm.InputChan,
+				finalSeqNrCommitChannels,
+				finalSeqNrExecChannels)
+		case selectors.FamilySolana:
+			client := env.BlockChains.SolanaChains()[cs].Client
+			block, err := client.GetBlockHeight(ctx, solrpc.CommitmentConfirmed)
+			require.NoError(t, err)
+			startBlocks[cs] = &block
+			go subscribeSolTransmitEvents(
+				ctx,
+				lggr,
+				state.SolChains[cs].Router,
+				otherChains,
+				block,
+				cs,
+				loadFinished,
+				client,
+				&wg,
+				mm.InputChan,
+				finalSeqNrCommitChannels,
+				finalSeqNrExecChannels)
+		}
+	}
+
+	evmSourceKeys := make(map[uint64]*bind.TransactOpts)
+	solSourceKeys := make(map[uint64]*solana.PrivateKey)
+	var mu sync.Mutex
+	for ind, cs := range destinationChains {
+		otherChains := env.BlockChains.ListChainSelectors(cldf_chain.WithChainSelectorsExclusion([]uint64{cs}))
+		for _, src := range otherChains {
+			selFamily, err := selectors.GetSelectorFamily(src)
+			if err != nil {
+				lggr.Errorw("Failed to get selector family", "chainSelector", src, "error", err)
+			}
+			mu.Lock()
+			switch selFamily {
+			case selectors.FamilyEVM:
+				evmSourceKeys[src] = evmSenders[src][ind]
+
+			case selectors.FamilySolana:
+				solSourceKeys[src] = env.BlockChains.SolanaChains()[src].DeployerKey
+			}
+			mu.Unlock()
+		}
 	}
 
 	// confirmed dest chains need a subscription
-	for ind := range *userOverrides.NumDestinationChains {
-		cs := env.AllChainSelectors()[ind]
+	for ind, cs := range destinationChains {
+		otherChains := env.BlockChains.ListChainSelectors(cldf_chain.WithChainSelectorsExclusion([]uint64{cs}))
 
-		messageKeys := make(map[uint64]*bind.TransactOpts)
-		other := env.AllChainSelectorsExcluding([]uint64{cs})
-		var mu sync.Mutex
-		var wg2 sync.WaitGroup
-		wg2.Add(len(other))
-		for _, src := range other {
-			go func(src uint64) {
-				defer wg2.Done()
-				mu.Lock()
-				messageKeys[src] = transmitKeys[src][ind]
-				mu.Unlock()
-				assert.NoError(t, prepareAccountToSendLink(
-					t,
-					state,
-					*env,
-					src,
-					messageKeys[src],
-				))
-			}(src)
+		g := new(errgroup.Group)
+		for _, src := range otherChains {
+			src := src
+			g.Go(func() error {
+				selFamily, err := selectors.GetSelectorFamily(src)
+				require.NoError(t, err)
+				switch selFamily {
+				case selectors.FamilyEVM:
+					return prepareAccountToSendLink(
+						lggr,
+						state,
+						*env,
+						src,
+						evmSourceKeys[src],
+					)
+				default:
+					return nil
+				}
+			})
 		}
-		wg2.Wait()
-
-		gunMap[cs], err = NewDestinationGun(
-			env.Logger,
-			cs,
-			*env,
-			&state,
-			state.Chains[cs].Receiver.Address(),
-			userOverrides,
-			messageKeys,
-			ind,
-			mm.InputChan,
-		)
-		if err != nil {
-			lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
-			t.Fatal(err)
-		}
+		require.NoError(t, g.Wait())
 
 		finalSeqNrCommitChannels[cs] = make(chan finalSeqNrReport)
 		finalSeqNrExecChannels[cs] = make(chan finalSeqNrReport)
 
-		wg.Add(2)
-		go subscribeCommitEvents(
-			ctx,
-			lggr,
-			state.Chains[cs].OffRamp,
-			other,
-			startBlocks[cs],
-			cs,
-			env.Chains[cs].Client,
-			finalSeqNrCommitChannels[cs],
-			&wg,
-			mm.InputChan)
-		go subscribeExecutionEvents(
-			ctx,
-			lggr,
-			state.Chains[cs].OffRamp,
-			other,
-			startBlocks[cs],
-			cs,
-			env.Chains[cs].Client,
-			finalSeqNrExecChannels[cs],
-			&wg,
-			mm.InputChan)
+		selectorFamily, err := selectors.GetSelectorFamily(cs)
+		require.NoError(t, err)
+		switch selectorFamily {
+		case selectors.FamilyEVM:
+			gunMap[cs], err = NewDestinationGun(
+				env.Logger,
+				cs,
+				*env,
+				&state,
+				state.Chains[cs].Receiver.Address().Bytes(),
+				userOverrides,
+				evmSourceKeys,
+				solSourceKeys,
+				ind,
+				mm.InputChan,
+			)
+			if err != nil {
+				lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
+				t.Fatal(err)
+			}
+			wg.Add(2)
+			go subscribeCommitEvents(
+				ctx,
+				lggr,
+				state.Chains[cs].OffRamp,
+				otherChains,
+				startBlocks[cs],
+				cs,
+				env.BlockChains.EVMChains()[cs].Client,
+				finalSeqNrCommitChannels[cs],
+				&wg,
+				mm.InputChan)
+			go subscribeExecutionEvents(
+				ctx,
+				lggr,
+				state.Chains[cs].OffRamp,
+				otherChains,
+				startBlocks[cs],
+				cs,
+				env.BlockChains.EVMChains()[cs].Client,
+				finalSeqNrExecChannels[cs],
+				&wg,
+				mm.InputChan)
 
-		// error watchers
-		go subscribeSkippedIncorrectNonce(
-			ctx,
-			cs,
-			state.Chains[cs].NonceManager,
-			lggr)
+			// error watchers
+			go subscribeSkippedIncorrectNonce(
+				ctx,
+				cs,
+				state.Chains[cs].NonceManager,
+				lggr)
 
-		go subscribeAlreadyExecuted(
-			ctx,
-			cs,
-			state.Chains[cs].OffRamp,
-			lggr)
+			go subscribeAlreadyExecuted(
+				ctx,
+				cs,
+				state.Chains[cs].OffRamp,
+				lggr)
+		case selectors.FamilySolana:
+
+			gunMap[cs], err = NewDestinationGun(
+				env.Logger,
+				cs,
+				*env,
+				&state,
+				state.SolChains[cs].Receiver.Bytes(),
+				userOverrides,
+				evmSourceKeys,
+				solSourceKeys,
+				ind,
+				mm.InputChan,
+			)
+			if err != nil {
+				lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
+				t.Fatal(err)
+			}
+			wg.Add(2)
+			go subscribeSolCommitEvents(
+				ctx,
+				lggr,
+				state.SolChains[cs].OffRamp,
+				otherChains,
+				*startBlocks[cs],
+				cs,
+				env.BlockChains.SolanaChains()[cs].Client,
+				finalSeqNrCommitChannels[cs],
+				&wg,
+				mm.InputChan)
+
+			go subscribeSolExecutionEvents(
+				ctx,
+				lggr,
+				state.SolChains[cs].OffRamp,
+				otherChains,
+				*startBlocks[cs],
+				cs,
+				env.BlockChains.SolanaChains()[cs].Client,
+				finalSeqNrExecChannels[cs],
+				&wg,
+				mm.InputChan)
+		}
 	}
 
 	requestFrequency, err := time.ParseDuration(*userOverrides.RequestFrequency)
@@ -220,9 +399,10 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	switch config.CCIP.Load.ChaosMode {
 	case ccip.ChaosModeTypeRPCLatency:
 		go runRealisticRPCLatencySuite(t,
-			config.CCIP.Load.GetLoadDuration(),
+			config.CCIP.Load.GetLoadDuration()+userOverrides.GetTimeoutDuration(),
 			config.CCIP.Load.GetRPCLatency(),
 			config.CCIP.Load.GetRPCJitter(),
+			len(evmChains),
 		)
 	case ccip.ChaosModeTypeFull:
 		go runFullChaosSuite(t)
@@ -244,48 +424,10 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		go func() {
 			<-testTimer.C
 			cancel()
+			t.Fail()
 		}()
 	}
 
 	wg.Wait()
 	lggr.Infow("closed event subscribers")
-}
-
-func prepareAccountToSendLink(
-	t *testing.T,
-	state ccipchangeset.CCIPOnChainState,
-	e deployment.Environment,
-	src uint64,
-	srcAccount *bind.TransactOpts) error {
-	lggr := logger.Test(t)
-	srcDeployer := e.Chains[src].DeployerKey
-	lggr.Infow("Setting up link token", "src", src)
-	srcLink := state.Chains[src].LinkToken
-
-	lggr.Infow("Granting mint and burn roles")
-	tx, err := srcLink.GrantMintAndBurnRoles(srcDeployer, srcAccount.From)
-	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
-	if err != nil {
-		return err
-	}
-
-	lggr.Infow("Minting transfer amounts")
-	//--------------------------------------------------------------------------------------------
-	tx, err = srcLink.Mint(
-		srcAccount,
-		srcAccount.From,
-		big.NewInt(20_000),
-	)
-	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
-	if err != nil {
-		return err
-	}
-
-	//--------------------------------------------------------------------------------------------
-	lggr.Infow("Approving routers")
-	// Approve the router to spend the tokens and confirm the tx's
-	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount
-	tx, err = srcLink.Approve(srcAccount, state.Chains[src].Router.Address(), math.MaxBig256)
-	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
-	return err
 }

@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	v1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 

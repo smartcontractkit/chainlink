@@ -22,10 +22,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
@@ -34,16 +35,17 @@ import (
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/operatorforwarder/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -149,7 +151,7 @@ func SetupNodeOCR2(
 	n, err := b.Client().NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
-	tx := cltest.NewLegacyTransaction(
+	tx := evmtestutils.NewLegacyTransaction(
 		n, transmitter,
 		assets.Ether(1).ToInt(),
 		21000,
@@ -613,7 +615,9 @@ updateInterval = "1m"
 				require.NoError(t, err2)
 				apps[0].GetRelayers().LegacyEVMChains().Slice()
 				store := keys.NewStore(keystore.NewEthSigner(apps[0].KeyStore.Eth(), testutils.SimulatedChainID))
-				ct, err2 := evm.NewOCRContractTransmitter(testutils.Context(t), ocrContractAddress, apps[0].GetRelayers().LegacyEVMChains().Slice()[0].Client(), contractABI, nil, apps[0].GetRelayers().LegacyEVMChains().Slice()[0].LogPoller(), lggr, store)
+				chain, ok := apps[0].GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain)
+				require.True(t, ok)
+				ct, err2 := evm.NewOCRContractTransmitter(testutils.Context(t), ocrContractAddress, chain.Client(), contractABI, nil, chain.LogPoller(), lggr, store)
 				require.NoError(t, err2)
 				configDigest, epoch, err2 := ct.LatestConfigDigestAndEpoch(testutils.Context(t))
 				require.NoError(t, err2)

@@ -7,8 +7,11 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -36,6 +39,7 @@ type handler struct {
 	httpClient      network.HTTPClient
 	nodeRateLimiter *common.RateLimiter
 	wg              sync.WaitGroup
+	metrics         *metrics
 }
 
 type HandlerConfig struct {
@@ -61,6 +65,11 @@ func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don 
 		return nil, err
 	}
 
+	metrics, err := newMetrics()
+	if err != nil {
+		return nil, err
+	}
+
 	return &handler{
 		config:          cfg,
 		don:             don,
@@ -70,6 +79,7 @@ func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don 
 		nodeRateLimiter: nodeRateLimiter,
 		wg:              sync.WaitGroup{},
 		savedCallbacks:  make(map[string]*savedCallback),
+		metrics:         metrics,
 	}, nil
 }
 
@@ -192,14 +202,18 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 }
 
 func (h *handler) HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
+	start := time.Now()
+	var err error
 	switch msg.Body.Method {
 	case MethodWebAPITrigger:
-		return h.handleWebAPITriggerMessage(ctx, msg, nodeAddr)
+		err = h.handleWebAPITriggerMessage(ctx, msg, nodeAddr)
 	case MethodWebAPITarget, MethodComputeAction, MethodWorkflowSyncer:
-		return h.handleWebAPIOutgoingMessage(ctx, msg, nodeAddr)
+		err = h.handleWebAPIOutgoingMessage(ctx, msg, nodeAddr)
 	default:
-		return fmt.Errorf("unsupported method: %s", msg.Body.Method)
+		err = fmt.Errorf("unsupported method: %s", msg.Body.Method)
 	}
+	h.metrics.recordHandleDuration(ctx, time.Since(start), msg.Body.Method, err == nil)
+	return err
 }
 
 func (h *handler) Start(context.Context) error {
@@ -251,4 +265,28 @@ func (h *handler) HandleUserMessage(ctx context.Context, msg *api.Message, callb
 		err = multierr.Combine(err, don.SendToNode(ctx, member.Address, msg))
 	}
 	return err
+}
+
+type metrics struct {
+	handleDuration metric.Int64Histogram
+}
+
+func (m *metrics) recordHandleDuration(ctx context.Context, d time.Duration, method string, success bool) {
+	successStr := "false"
+	if success {
+		successStr = "true"
+	}
+	m.handleDuration.Record(ctx, d.Milliseconds(), metric.WithAttributes(
+		attribute.String("success", successStr),
+		attribute.String("method", method),
+	))
+}
+
+func newMetrics() (*metrics, error) {
+	h, err := beholder.GetMeter().Int64Histogram("platform_gateway_capabilities_handle_node_message_duration_ms")
+	if err != nil {
+		return nil, err
+	}
+
+	return &metrics{handleDuration: h}, nil
 }

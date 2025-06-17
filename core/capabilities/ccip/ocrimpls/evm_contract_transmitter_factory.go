@@ -5,6 +5,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
@@ -32,7 +33,16 @@ type EVMExecCallArgs struct {
 }
 
 // EVMContractTransmitterFactory implements the transmitter factory for EVM chains.
-type EVMContractTransmitterFactory struct{}
+type EVMContractTransmitterFactory struct {
+	extraDataCodec ccipcommon.ExtraDataCodec
+}
+
+// NewEVMContractTransmitterFactory returns a new EVMContractTransmitterFactory.
+func NewEVMContractTransmitterFactory(extraDataCodec ccipcommon.ExtraDataCodec) *EVMContractTransmitterFactory {
+	return &EVMContractTransmitterFactory{
+		extraDataCodec: extraDataCodec,
+	}
+}
 
 // EVMExecCallDataFunc builds the execute call data for EVM.
 var EVMExecCallDataFunc = func(
@@ -74,29 +84,35 @@ func NewEVMCommitCalldataFunc(commitMethod string) ToCalldataFunc {
 
 // NewCommitTransmitter constructs an EVM commit transmitter.
 func (f *EVMContractTransmitterFactory) NewCommitTransmitter(
+	lggr logger.Logger,
 	cw types.ContractWriter,
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
 	commitMethod, _ string, // priceOnlyMethod is ignored for EVM
 ) ocr3types.ContractTransmitter[[]byte] {
 	return &ccipTransmitter{
+		lggr:           lggr,
 		cw:             cw,
 		fromAccount:    fromAccount,
 		offrampAddress: offrampAddress,
 		toCalldataFn:   NewEVMCommitCalldataFunc(commitMethod),
+		extraDataCodec: f.extraDataCodec,
 	}
 }
 
 // NewExecTransmitter constructs an EVM execute transmitter.
 func (f *EVMContractTransmitterFactory) NewExecTransmitter(
+	lggr logger.Logger,
 	cw types.ContractWriter,
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
 ) ocr3types.ContractTransmitter[[]byte] {
 	return &ccipTransmitter{
+		lggr:           lggr,
 		cw:             cw,
 		fromAccount:    fromAccount,
 		offrampAddress: offrampAddress,
 		toCalldataFn:   EVMExecCallDataFunc,
+		extraDataCodec: f.extraDataCodec,
 	}
 }

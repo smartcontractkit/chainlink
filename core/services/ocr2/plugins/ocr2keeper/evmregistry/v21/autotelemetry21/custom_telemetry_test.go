@@ -7,8 +7,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"

@@ -3,6 +3,7 @@ package toml
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/url"
 	"reflect"
@@ -17,7 +18,7 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
@@ -35,6 +36,7 @@ type Core struct {
 	// General/misc
 	AppID               uuid.UUID `toml:"-"` // random or test
 	InsecureFastScrypt  *bool
+	InsecurePPROFHeap   *bool
 	RootDir             *string
 	ShutdownGracePeriod *commonconfig.Duration
 
@@ -59,12 +61,17 @@ type Core struct {
 	Capabilities     Capabilities     `toml:",omitempty"`
 	Telemetry        Telemetry        `toml:",omitempty"`
 	Workflows        Workflows        `toml:",omitempty"`
+	CRE              CreConfig        `toml:",omitempty"`
+	Billing          Billing          `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
 func (c *Core) SetFrom(f *Core) {
 	if v := f.InsecureFastScrypt; v != nil {
 		c.InsecureFastScrypt = v
+	}
+	if v := f.InsecurePPROFHeap; v != nil {
+		c.InsecurePPROFHeap = v
 	}
 	if v := f.RootDir; v != nil {
 		c.RootDir = v
@@ -97,6 +104,8 @@ func (c *Core) SetFrom(f *Core) {
 	c.Insecure.setFrom(&f.Insecure)
 	c.Tracing.setFrom(&f.Tracing)
 	c.Telemetry.setFrom(&f.Telemetry)
+	c.CRE.setFrom(&f.CRE)
+	c.Billing.setFrom(&f.Billing)
 }
 
 func (c *Core) ValidateConfig() (err error) {
@@ -128,6 +137,7 @@ type Secrets struct {
 	Threshold  ThresholdKeyShareSecrets `toml:",omitempty"`
 	EVM        EthKeys                  `toml:",omitempty"` // choose EVM as the TOML field name to align with relayer config convention
 	P2PKey     P2PKey                   `toml:",omitempty"`
+	CRE        CreSecrets               `toml:",omitempty"`
 }
 
 type EthKeys struct {
@@ -1132,6 +1142,7 @@ type OCR struct {
 	TransmitterAddress   *types.EIP55Address
 	CaptureEATelemetry   *bool
 	TraceLogging         *bool
+	ConfigLogValidation  *bool
 }
 
 func (o *OCR) setFrom(f *OCR) {
@@ -1167,6 +1178,9 @@ func (o *OCR) setFrom(f *OCR) {
 	}
 	if v := f.TraceLogging; v != nil {
 		o.TraceLogging = v
+	}
+	if v := f.ConfigLogValidation; v != nil {
+		o.ConfigLogValidation = v
 	}
 }
 
@@ -1576,6 +1590,73 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 	return err
 }
 
+// StreamsConfig holds the WsURL and RestURL for configuring the
+// Streams SDK for use in the workflow engine
+type StreamsConfig struct {
+	WsURL   *string `toml:",omitempty"`
+	RestURL *string `toml:",omitempty"`
+}
+
+type CreConfig struct {
+	Streams *StreamsConfig `toml:",omitempty"`
+}
+
+func (c *CreConfig) setFrom(f *CreConfig) {
+	if f.Streams != nil {
+		if c.Streams == nil {
+			c.Streams = &StreamsConfig{}
+		}
+		if v := f.Streams.WsURL; v != nil {
+			c.Streams.WsURL = v
+		}
+		if v := f.Streams.RestURL; v != nil {
+			c.Streams.RestURL = v
+		}
+	}
+}
+
+type StreamsSecretConfig struct {
+	APIKey    *commonconfig.SecretString `toml:",omitempty"`
+	APISecret *commonconfig.SecretString `toml:",omitempty"`
+}
+
+type CreSecrets struct {
+	Streams *StreamsSecretConfig `toml:",omitempty"`
+}
+
+func (c *CreSecrets) SetFrom(f *CreSecrets) (err error) {
+	err = c.validateMerge(f)
+	if err != nil {
+		return err
+	}
+
+	if f.Streams != nil {
+		if c.Streams == nil {
+			c.Streams = &StreamsSecretConfig{}
+		}
+		if v := f.Streams.APIKey; v != nil {
+			c.Streams.APIKey = v
+		}
+		if v := f.Streams.APISecret; v != nil {
+			c.Streams.APISecret = v
+		}
+	}
+
+	return nil
+}
+
+func (c *CreSecrets) validateMerge(f *CreSecrets) (err error) {
+	if c.Streams != nil && f.Streams != nil {
+		if c.Streams.APIKey != nil && f.Streams.APIKey != nil {
+			err = multierr.Append(err, configutils.ErrOverride{Name: "Streams.APIKey"})
+		}
+		if c.Streams.APISecret != nil && f.Streams.APISecret != nil {
+			err = multierr.Append(err, configutils.ErrOverride{Name: "Streams.APISecret"})
+		}
+	}
+	return err
+}
+
 type EngineExecutionRateLimit struct {
 	GlobalRPS      *float64
 	GlobalBurst    *int
@@ -1623,8 +1704,9 @@ type Workflows struct {
 }
 
 type Limits struct {
-	Global   *int32
-	PerOwner *int32
+	Global    *int32
+	PerOwner  *int32
+	Overrides map[string]int32
 }
 
 func (r *Workflows) setFrom(f *Workflows) {
@@ -1639,6 +1721,11 @@ func (r *Limits) setFrom(f *Limits) {
 	if f.PerOwner != nil {
 		r.PerOwner = f.PerOwner
 	}
+
+	if f.Overrides != nil {
+		r.Overrides = make(map[string]int32)
+		maps.Copy(r.Overrides, f.Overrides)
+	}
 }
 
 type WorkflowRegistry struct {
@@ -1648,6 +1735,7 @@ type WorkflowRegistry struct {
 	MaxBinarySize           *utils.FileSize
 	MaxEncryptedSecretsSize *utils.FileSize
 	MaxConfigSize           *utils.FileSize
+	SyncStrategy            *string
 }
 
 func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
@@ -1673,6 +1761,10 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 
 	if f.MaxConfigSize != nil {
 		r.MaxConfigSize = f.MaxConfigSize
+	}
+
+	if f.SyncStrategy != nil {
+		r.SyncStrategy = f.SyncStrategy
 	}
 }
 
@@ -1897,6 +1989,7 @@ type Telemetry struct {
 	TraceSampleRatio      *float64
 	EmitterBatchProcessor *bool
 	EmitterExportTimeout  *commonconfig.Duration
+	ChipIngressEndpoint   *string
 }
 
 func (b *Telemetry) setFrom(f *Telemetry) {
@@ -1924,6 +2017,9 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	if v := f.EmitterExportTimeout; v != nil {
 		b.EmitterExportTimeout = v
 	}
+	if v := f.ChipIngressEndpoint; v != nil {
+		b.ChipIngressEndpoint = v
+	}
 }
 
 func (b *Telemetry) ValidateConfig() (err error) {
@@ -1942,7 +2038,6 @@ func (b *Telemetry) ValidateConfig() (err error) {
 	if ratio := b.TraceSampleRatio; ratio != nil && (*ratio < 0 || *ratio > 1) {
 		err = multierr.Append(err, configutils.ErrInvalid{Name: "TraceSampleRatio", Value: *ratio, Msg: "must be between 0 and 1"})
 	}
-
 	return err
 }
 
@@ -1986,4 +2081,22 @@ func isValidHostname(hostname string) bool {
 
 func isValidFilePath(path string) bool {
 	return len(path) > 0 && len(path) < 4096
+}
+
+type Billing struct {
+	URL *string
+}
+
+func (b *Billing) setFrom(f *Billing) {
+	if f.URL != nil {
+		b.URL = f.URL
+	}
+}
+
+func (b *Billing) ValidateConfig() error {
+	if b.URL == nil || *b.URL == "" {
+		return configutils.ErrInvalid{Name: "URL", Value: "", Msg: "billing service url must be set"}
+	}
+
+	return nil
 }

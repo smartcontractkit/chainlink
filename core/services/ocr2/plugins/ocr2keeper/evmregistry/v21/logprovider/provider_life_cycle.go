@@ -12,7 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 )
 
 var (

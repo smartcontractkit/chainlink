@@ -184,11 +184,15 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 	}
 	t.lastReportMs = tsMs
 	alignedTsMs := tsMs - tsMs%uint64(t.config.TriggerTickerMinResolutionMs) //nolint:gosec // disable G115
+	o, err := event.ToMap()
+	if err != nil {
+		return fmt.Errorf("failed to convert OCRTriggerEvent to map: %w", err)
+	}
 	capResponse := capabilities.TriggerResponse{
 		Event: capabilities.TriggerEvent{
 			TriggerType: t.CapabilityInfo.ID,
 			ID:          p.EventID,
-			OCREvent:    event,
+			Outputs:     o,
 		},
 	}
 

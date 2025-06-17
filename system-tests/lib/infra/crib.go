@@ -32,10 +32,10 @@ func ReadBlockchainURL(cribConfigsDir, chainType, chainID string) (*blockchain.O
 	out.Family = chainType
 	out.Nodes = []*blockchain.Node{
 		{
-			HostWSUrl:             chainURLs.WSHostURL,
-			HostHTTPUrl:           chainURLs.HTTPHostURL,
-			DockerInternalWSUrl:   chainURLs.WSInternalURL,
-			DockerInternalHTTPUrl: chainURLs.HTTPInternalURL,
+			ExternalWSUrl:   chainURLs.WSExternalURL,
+			ExternalHTTPUrl: chainURLs.HTTPExternalURL,
+			InternalWSUrl:   chainURLs.WSInternalURL,
+			InternalHTTPUrl: chainURLs.HTTPInternalURL,
 		},
 	}
 
@@ -53,10 +53,10 @@ func ReadJdURL(cribConfigsDir string) (*jd.Output, error) {
 
 	out := &jd.Output{}
 	out.UseCache = true
-	out.HostGRPCUrl = jdURLs.GRPCHostURL
-	out.HostWSRPCUrl = jdURLs.WSHostURL
-	out.DockerGRPCUrl = jdURLs.GRCPInternalURL
-	out.DockerWSRPCUrl = jdURLs.WSInternalURL
+	out.ExternalGRPCUrl = jdURLs.GRPCExternalURL
+	out.ExternalWSRPCUrl = jdURLs.WSExternalURL
+	out.InternalGRPCUrl = jdURLs.GRCPInternalURL
+	out.InternalWSRPCUrl = jdURLs.WSInternalURL
 
 	return out, nil
 }
@@ -107,9 +107,9 @@ func ReadNodeSetURL(cribConfigsDir string, donMetadata *cretypes.DonMetadata) (*
 			Node: &clnode.NodeOut{
 				APIAuthUser:     apiCredentials.Username,
 				APIAuthPassword: apiCredentials.Password,
-				HostURL:         donURLs.BootstrapNodes[i].HostURL,
-				DockerURL:       donURLs.BootstrapNodes[i].InternalURL,
-				DockerP2PUrl:    donURLs.BootstrapNodes[i].P2PInternalURL,
+				ExternalURL:     donURLs.BootstrapNodes[i].ExternalURL,
+				InternalURL:     donURLs.BootstrapNodes[i].InternalURL,
+				InternalP2PUrl:  donURLs.BootstrapNodes[i].P2PInternalURL,
 				InternalIP:      donURLs.BootstrapNodes[i].InternalIP,
 			},
 		})
@@ -121,9 +121,9 @@ func ReadNodeSetURL(cribConfigsDir string, donMetadata *cretypes.DonMetadata) (*
 			Node: &clnode.NodeOut{
 				APIAuthUser:     apiCredentials.Username,
 				APIAuthPassword: apiCredentials.Password,
-				HostURL:         donURLs.WorkerNodes[i].HostURL,
-				DockerURL:       donURLs.WorkerNodes[i].InternalURL,
-				DockerP2PUrl:    donURLs.WorkerNodes[i].P2PInternalURL,
+				ExternalURL:     donURLs.WorkerNodes[i].ExternalURL,
+				InternalURL:     donURLs.WorkerNodes[i].InternalURL,
+				InternalP2PUrl:  donURLs.WorkerNodes[i].P2PInternalURL,
 				InternalIP:      donURLs.WorkerNodes[i].InternalIP,
 			},
 		})

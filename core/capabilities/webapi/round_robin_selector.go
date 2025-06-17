@@ -1,6 +1,7 @@
 package webapi
 
 import (
+	"math/rand"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -14,11 +15,30 @@ type RoundRobinSelector struct {
 	mu    sync.Mutex
 }
 
-func NewRoundRobinSelector(items []string) *RoundRobinSelector {
-	return &RoundRobinSelector{
-		items: items,
-		index: 0,
+// WithFixedStart option will set the start point for the round robin selector.
+func WithFixedStart() func(*RoundRobinSelector) {
+	return func(rrs *RoundRobinSelector) {
+		rrs.index = 0
 	}
+}
+
+// NewRoundRobinSelector creates a selector that will select a string from a list using the round robin strategy.
+// By default the index starts on a random start point in the list.
+func NewRoundRobinSelector(items []string, opts ...func(*RoundRobinSelector)) *RoundRobinSelector {
+	var index int
+	if len(items) > 0 {
+		index = rand.Intn(len(items)) //nolint:gosec // No need for crpto secure randomness to select an index
+	}
+	rrs := &RoundRobinSelector{
+		items: items,
+		index: index,
+	}
+
+	for _, opt := range opts {
+		opt(rrs)
+	}
+
+	return rrs
 }
 
 func (r *RoundRobinSelector) NextGateway() (string, error) {

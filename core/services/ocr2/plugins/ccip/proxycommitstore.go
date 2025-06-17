@@ -9,7 +9,7 @@ import (
 
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 )

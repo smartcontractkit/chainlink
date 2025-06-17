@@ -20,7 +20,6 @@ All major release versions have pre-built docker images available for download f
 If you are interested in contributing please see our [contribution guidelines](./docs/CONTRIBUTING.md).
 If you are here to report a bug or request a feature, please [check currently open Issues](https://github.com/smartcontractkit/chainlink/issues).
 For more information about how to get started with Chainlink, check our [official documentation](https://docs.chain.link/).
-Resources for Solidity developers can be found in the [Chainlink Hardhat Box](https://github.com/smartcontractkit/hardhat-starter-kit).
 
 ## Community
 
@@ -39,12 +38,34 @@ regarding Chainlink social accounts, news, and networking.
 3. Install [Postgres (>= 12.x)](https://wiki.postgresql.org/wiki/Detailed_installation_guides). It is recommended to run the latest major version of postgres.
    - Note if you are running the official Chainlink docker image, the highest supported Postgres version is 16.x due to the bundled client.
    - You should [configure Postgres](https://www.postgresql.org/docs/current/ssl-tcp.html) to use SSL connection (or for testing you can set `?sslmode=disable` in your Postgres query string).
-4. Ensure you have Python 3 installed (this is required by [solc-select](https://github.com/crytic/solc-select) which is needed to compile solidity contracts)
-5. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
-6. Build and install Chainlink: `make install`
-7. Run the node: `chainlink help`
+4. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
+5. Build and install Chainlink: `make install`
+6. Run the node: `chainlink help`
 
 For the latest information on setting up a development environment, see the [Development Setup Guide](https://github.com/smartcontractkit/chainlink/wiki/Development-Setup-Guide).
+
+### Build from PR
+
+To build an unofficial testing-only image from a feature branch or PR. You can do one of the following:
+1. Send a workflow dispatch event from our [`docker-build` workflow](https://github.com/smartcontractkit/chainlink/actions/workflows/docker-build.yml).
+2. Add the `build-publish` label to your PR and then either retry the `docker-build` workflow, or push a new commit.
+
+### Build Plugins
+
+Plugins are defined in yaml files within the `plugins/` directory. Each plugin file is a yaml file and has a `plugins.` prefix name. Plugins are installed with [loopinstall](https://github.com/smartcontractkit/chainlink-common/tree/main/pkg/loop/cmd/loopinstall).
+
+Some plugins (such as those in `plugins/plugins.private.yaml`) reference private GitHub repositories. To build these plugins, you must have a GITHUB_TOKEN env var set, or preferably use the [gh](https://cli.github.com/manual/gh) GitHub CLI tool to use the [GitHub CLI credential helper](https://cli.github.com/manual/gh_auth_setup-git) like:
+
+```shell
+# Sets up a credential helper.
+gh auth setup-git
+```
+
+Then you can build the plugins with:
+
+```shell
+make install-plugins
+```
 
 ### Apple Silicon - ARM64
 
@@ -161,15 +182,6 @@ cosign verify index.docker.io/smartcontract/chainlink:${tag} \
 
 Using the `make` command will install the correct version.
 
-4. Build contracts:
-
-```bash
-pushd contracts
-pnpm i
-pnpm compile:native
-popd
-```
-
 4. Generate and compile static assets:
 
 ```bash
@@ -195,6 +207,7 @@ This script will save the `CL_DATABASE_URL` in `.dbenv`
 
 Changes to database require migrations to be run. Similarly, `pull`'ing the repo may require migrations to run.
 After the one-time setup above:
+
 ```
 source .dbenv
 make testdb
@@ -202,11 +215,11 @@ make testdb
 
 If you encounter the error `database accessed by other users (SQLSTATE 55006) exit status 1`
 and you want force the database creation then use
+
 ```
 source .dbenv
 make testdb-force
 ```
-
 
 7. Run tests:
 
@@ -260,30 +273,14 @@ flowchart RL
     github.com/smartcontractkit/chainlink/core/scripts --> github.com/smartcontractkit/chainlink/v2
 
 ```
+
 The `integration-tests` and `core/scripts` modules import the root module using a relative replace in their `go.mod` files,
 so dependency changes in the root `go.mod` often require changes in those modules as well. After making a change, `go mod tidy`
 can be run on all three modules using:
+
 ```
 make gomodtidy
 ```
-
-### Solidity
-
-Inside the `contracts/` directory:
-
-1. Install dependencies:
-
-```bash
-pnpm i
-```
-
-2. Run tests:
-
-```bash
-pnpm test
-```
-NOTE: Chainlink is currently in the process of migrating to Foundry and contains both Foundry and Hardhat tests in some versions. More information can be found here: [Chainlink Foundry Documentation](https://github.com/smartcontractkit/chainlink/blob/develop/contracts/foundry.md).
-Any 't.sol' files associated with Foundry tests, contained within the src directories will be ignored by Hardhat.
 
 ### Code Generation
 
@@ -329,8 +326,9 @@ We use [changesets](https://github.com/changesets/changesets) to manage versioni
 Every PR that modifies any configuration or code, should most likely accompanied by a changeset file.
 
 To install `changesets`:
-  1. Install `pnpm` if it is not already installed - [docs](https://pnpm.io/installation).
-  2. Run `pnpm install`.
+
+1. Install `pnpm` if it is not already installed - [docs](https://pnpm.io/installation).
+2. Run `pnpm install`.
 
 Either after or before you create a commit, run the `pnpm changeset` command to create an accompanying changeset entry which will reflect on the CHANGELOG for the next release.
 

@@ -11,10 +11,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -111,10 +112,7 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	relayersMap, err := r.App.GetRelayers().GetIDToRelayerMap()
-	if err != nil {
-		return nil, err
-	}
+	relayersMap := r.App.GetRelayers().GetIDToRelayerMap()
 
 	chains := make([]chainlink.NetworkChainStatus, 0, len(relayersMap))
 	for k, v := range relayersMap {
@@ -470,7 +468,7 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 			return nil, err
 		}
 
-		chain, err := r.App.GetRelayers().LegacyEVMChains().Get(state.EVMChainID.String())
+		chainService, err := r.App.GetRelayers().LegacyEVMChains().Get(state.EVMChainID.String())
 		if errors.Is(errors.Cause(err), evmrelay.ErrNoChains) {
 			ethKeys = append(ethKeys, ETHKey{
 				addr:  k.EIP55Address,
@@ -479,14 +477,19 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 
 			continue
 		}
+
 		// Don't include keys without valid chain.
 		// OperatorUI fails to show keys where chains are not in the config.
 		if err == nil {
-			ethKeys = append(ethKeys, ETHKey{
+			k := ETHKey{
 				addr:  k.EIP55Address,
 				state: state,
-				chain: chain,
-			})
+			}
+			chain, ok := chainService.(legacyevm.Chain)
+			if ok {
+				k.chain = chain
+			}
+			ethKeys = append(ethKeys, k)
 		}
 	}
 	// Put disabled keys to the end
@@ -636,6 +639,19 @@ func (r *Resolver) TronKeys(ctx context.Context) (*TronKeysPayloadResolver, erro
 	}
 
 	return NewTronKeysPayload(keys), nil
+}
+
+func (r *Resolver) TONKeys(ctx context.Context) (*TONKeysPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	keys, err := r.App.GetKeyStore().TON().GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewTONKeysPayload(keys), nil
 }
 
 func (r *Resolver) SQLLogging(ctx context.Context) (*GetSQLLoggingPayloadResolver, error) {

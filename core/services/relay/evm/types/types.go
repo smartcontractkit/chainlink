@@ -16,10 +16,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 

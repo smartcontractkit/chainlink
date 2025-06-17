@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -141,7 +140,7 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 			}
 			localTargetCapability := NewLocalTargetCapability(log, "capabilityID", localDON, mt)
 
-			_, err = localTargetCapability.Execute(tests.Context(t), req)
+			_, err = localTargetCapability.Execute(t.Context(), req)
 
 			require.NoError(t, err)
 			require.True(t, called)

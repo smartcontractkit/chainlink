@@ -14,6 +14,7 @@ COMMANDS:
    evm       Commands for handling evm chains
    solana    Commands for handling solana chains
    starknet  Commands for handling starknet chains
+   ton       Commands for handling ton chains
    tron      Commands for handling tron chains
 
 OPTIONS:

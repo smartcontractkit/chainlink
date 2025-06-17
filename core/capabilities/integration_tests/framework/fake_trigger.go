@@ -5,8 +5,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/google/uuid"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -63,10 +61,11 @@ func (r *TriggerSink) Close() error {
 	})
 }
 
-func (r *TriggerSink) SendOutput(outputs *values.Map) {
+// SendOutput wraps the given output in a TriggerEvent and sends it to all triggers created by this factory
+func (r *TriggerSink) SendOutput(outputs *values.Map, eventID string) {
 	triggerEvent := capabilities.TriggerEvent{
 		TriggerType: r.triggerID,
-		ID:          uuid.New().String(),
+		ID:          eventID,
 		Outputs:     outputs,
 	}
 

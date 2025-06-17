@@ -11,19 +11,16 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	feeds_consumer "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
-	feeds_consumer "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
-
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 )
@@ -33,7 +30,7 @@ var (
 	workflowOwnerID = "0100000000000000000000000000000000000001"
 )
 
-func setupKeystoneDons(ctx context.Context, t *testing.T, lggr logger.SugaredLogger,
+func setupKeystoneDons(ctx context.Context, t *testing.T, lggr logger.Logger,
 	workflowDonInfo framework.DonConfiguration,
 	triggerDonInfo framework.DonConfiguration,
 	targetDonInfo framework.DonConfiguration,
@@ -58,7 +55,7 @@ func setupKeystoneDons(ctx context.Context, t *testing.T, lggr logger.SugaredLog
 	return workflowDon, consumer
 }
 
-func createKeystoneTriggerDon(ctx context.Context, t *testing.T, lggr logger.SugaredLogger, triggerDonInfo framework.DonConfiguration,
+func createKeystoneTriggerDon(ctx context.Context, t *testing.T, lggr logger.Logger, triggerDonInfo framework.DonConfiguration,
 	donContext framework.DonContext, trigger framework.TriggerFactory) *framework.DON {
 	triggerDon := framework.NewDON(ctx, t, lggr, triggerDonInfo,
 		[]commoncap.DON{}, donContext, false, 1*time.Second)
@@ -68,7 +65,7 @@ func createKeystoneTriggerDon(ctx context.Context, t *testing.T, lggr logger.Sug
 	return triggerDon
 }
 
-func createKeystoneWriteTargetDon(ctx context.Context, t *testing.T, lggr logger.SugaredLogger, targetDonInfo framework.DonConfiguration, donContext framework.DonContext, forwarderAddr common.Address) *framework.DON {
+func createKeystoneWriteTargetDon(ctx context.Context, t *testing.T, lggr logger.Logger, targetDonInfo framework.DonConfiguration, donContext framework.DonContext, forwarderAddr common.Address) *framework.DON {
 	writeTargetDon := framework.NewDON(ctx, t, lggr, targetDonInfo,
 		[]commoncap.DON{}, donContext, false, 1*time.Second)
 	_, err := writeTargetDon.AddPublishedEthereumWriteTargetNonStandardCapability(forwarderAddr)
@@ -77,7 +74,7 @@ func createKeystoneWriteTargetDon(ctx context.Context, t *testing.T, lggr logger
 	return writeTargetDon
 }
 
-func createKeystoneWorkflowDon(ctx context.Context, t *testing.T, lggr logger.SugaredLogger, workflowDonInfo framework.DonConfiguration,
+func createKeystoneWorkflowDon(ctx context.Context, t *testing.T, lggr logger.Logger, workflowDonInfo framework.DonConfiguration,
 	triggerDonInfo framework.DonConfiguration, targetDonInfo framework.DonConfiguration, donContext framework.DonContext) *framework.DON {
 	workflowDon := framework.NewDON(ctx, t, lggr, workflowDonInfo,
 		[]commoncap.DON{triggerDonInfo.DON, targetDonInfo.DON},
@@ -127,12 +124,11 @@ func RawReportContext(reportCtx ocrTypes.ReportContext) []byte {
 }
 
 func newReport(t *testing.T, feedID [32]byte, price *big.Int, timestamp int64) []byte {
-	ctx := tests.Context(t)
-	v3Codec := reportcodec.NewReportCodec(feedID, logger.TestLogger(t))
-	raw, err := v3Codec.BuildReport(ctx, v3.ReportFields{
+	v3Codec := reportcodec.NewReportCodec(feedID, logger.Test(t))
+	raw, err := v3Codec.BuildReport(t.Context(), v3.ReportFields{
 		BenchmarkPrice: price,
 
-		Timestamp: uint32(timestamp),
+		Timestamp: uint32(timestamp), //nolint:gosec // G115
 		Bid:       big.NewInt(0),
 		Ask:       big.NewInt(0),
 		LinkFee:   big.NewInt(0),

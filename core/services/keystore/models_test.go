@@ -9,12 +9,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -34,23 +36,25 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 	for _, chain := range chaintype.SupportedChainTypes {
 		key := ocr2key.MustNewInsecure(rand.Reader, chain)
 		ocr2 = append(ocr2, key)
-		ocr2Raw = append(ocr2Raw, key.Raw().Bytes())
+		ocr2Raw = append(ocr2Raw, internal.RawBytes(key))
 	}
 	p2p1, p2p2 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)), p2pkey.MustNewV2XXXTestingOnly(big.NewInt(2))
 	sol1, sol2 := solkey.MustNewInsecure(rand.Reader), solkey.MustNewInsecure(rand.Reader)
 	vrf1, vrf2 := vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1)), vrfkey.MustNewV2XXXTestingOnly(big.NewInt(2))
 	tk1, tk2 := cosmoskey.MustNewInsecure(rand.Reader), cosmoskey.MustNewInsecure(rand.Reader)
 	uk1, uk2 := tronkey.MustNewInsecure(rand.Reader), tronkey.MustNewInsecure(rand.Reader)
+	ton1, ton2 := tonkey.MustNewInsecure(rand.Reader), tonkey.MustNewInsecure(rand.Reader)
 	originalKeyRingRaw := rawKeyRing{
-		CSA:    [][]byte{csa1.Raw().Bytes(), csa2.Raw().Bytes()},
-		Eth:    [][]byte{eth1.Raw().Bytes(), eth2.Raw().Bytes()},
-		OCR:    [][]byte{ocr[0].Raw().Bytes(), ocr[1].Raw().Bytes()},
+		CSA:    [][]byte{internal.RawBytes(csa1), internal.RawBytes(csa2)},
+		Eth:    [][]byte{internal.RawBytes(eth1), internal.RawBytes(eth2)},
+		OCR:    [][]byte{internal.RawBytes(ocr[0]), internal.RawBytes(ocr[1])},
 		OCR2:   ocr2Raw,
-		P2P:    [][]byte{p2p1.Raw().Bytes(), p2p2.Raw().Bytes()},
-		Solana: [][]byte{sol1.Raw().Bytes(), sol2.Raw().Bytes()},
-		VRF:    [][]byte{vrf1.Raw().Bytes(), vrf2.Raw().Bytes()},
-		Cosmos: [][]byte{tk1.Raw().Bytes(), tk2.Raw().Bytes()},
-		Tron:   [][]byte{uk1.Raw().Bytes(), uk2.Raw().Bytes()},
+		P2P:    [][]byte{internal.RawBytes(p2p1), internal.RawBytes(p2p2)},
+		Solana: [][]byte{internal.RawBytes(sol1), internal.RawBytes(sol2)},
+		VRF:    [][]byte{internal.RawBytes(vrf1), internal.RawBytes(vrf2)},
+		Cosmos: [][]byte{internal.RawBytes(tk1), internal.RawBytes(tk2)},
+		Tron:   [][]byte{internal.RawBytes(uk1), internal.RawBytes(uk2)},
+		TON:    [][]byte{internal.RawBytes(ton1), internal.RawBytes(ton2)},
 	}
 	originalKeyRing, kerr := originalKeyRingRaw.keys()
 	require.NoError(t, kerr)
@@ -68,6 +72,10 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		require.Len(t, decryptedKeyRing.Tron, 2)
 		require.Equal(t, originalKeyRing.Tron[uk1.ID()].Base58Address(), decryptedKeyRing.Tron[uk1.ID()].Base58Address())
 		require.Equal(t, originalKeyRing.Tron[uk2.ID()].Base58Address(), decryptedKeyRing.Tron[uk2.ID()].Base58Address())
+		// compare ton keys
+		require.Len(t, decryptedKeyRing.TON, 2)
+		require.Equal(t, originalKeyRing.TON[ton1.ID()].AddressBase64(), decryptedKeyRing.TON[ton1.ID()].AddressBase64())
+		require.Equal(t, originalKeyRing.TON[ton2.ID()].AddressBase64(), decryptedKeyRing.TON[ton2.ID()].AddressBase64())
 		// compare csa keys
 		require.Len(t, decryptedKeyRing.CSA, 2)
 		require.Equal(t, originalKeyRing.CSA[csa1.ID()].PublicKey, decryptedKeyRing.CSA[csa1.ID()].PublicKey)
@@ -78,15 +86,9 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		require.Equal(t, originalKeyRing.Eth[eth2.ID()].Address, decryptedKeyRing.Eth[eth2.ID()].Address)
 		// compare ocr keys
 		require.Len(t, decryptedKeyRing.OCR, 2)
-		require.Equal(t, originalKeyRing.OCR[ocr[0].ID()].OnChainSigning.X, decryptedKeyRing.OCR[ocr[0].ID()].OnChainSigning.X)
-		require.Equal(t, originalKeyRing.OCR[ocr[0].ID()].OnChainSigning.Y, decryptedKeyRing.OCR[ocr[0].ID()].OnChainSigning.Y)
-		require.Equal(t, originalKeyRing.OCR[ocr[0].ID()].OnChainSigning.D, decryptedKeyRing.OCR[ocr[0].ID()].OnChainSigning.D)
-		require.Equal(t, originalKeyRing.OCR[ocr[0].ID()].OffChainSigning, decryptedKeyRing.OCR[ocr[0].ID()].OffChainSigning)
+		require.Equal(t, internal.RawBytes(originalKeyRing.OCR[ocr[0].ID()]), internal.RawBytes(decryptedKeyRing.OCR[ocr[0].ID()]))
 		require.Equal(t, originalKeyRing.OCR[ocr[0].ID()].OffChainEncryption, decryptedKeyRing.OCR[ocr[0].ID()].OffChainEncryption)
-		require.Equal(t, originalKeyRing.OCR[ocr[1].ID()].OnChainSigning.X, decryptedKeyRing.OCR[ocr[1].ID()].OnChainSigning.X)
-		require.Equal(t, originalKeyRing.OCR[ocr[1].ID()].OnChainSigning.Y, decryptedKeyRing.OCR[ocr[1].ID()].OnChainSigning.Y)
-		require.Equal(t, originalKeyRing.OCR[ocr[1].ID()].OnChainSigning.D, decryptedKeyRing.OCR[ocr[1].ID()].OnChainSigning.D)
-		require.Equal(t, originalKeyRing.OCR[ocr[1].ID()].OffChainSigning, decryptedKeyRing.OCR[ocr[1].ID()].OffChainSigning)
+		require.Equal(t, internal.RawBytes(originalKeyRing.OCR[ocr[1].ID()]), internal.RawBytes(decryptedKeyRing.OCR[ocr[1].ID()]))
 		require.Equal(t, originalKeyRing.OCR[ocr[1].ID()].OffChainEncryption, decryptedKeyRing.OCR[ocr[1].ID()].OffChainEncryption)
 		// compare ocr2 keys
 		require.Equal(t, len(chaintype.SupportedChainTypes), len(decryptedKeyRing.OCR2))

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
 	"github.com/ethereum/go-ethereum/common"
 )

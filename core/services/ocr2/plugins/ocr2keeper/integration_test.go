@@ -15,12 +15,13 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
+
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -30,20 +31,21 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/basic_upkeep_contract"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_logic2_0"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/operatorforwarder/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -451,8 +453,10 @@ func setupForwarderForNode(
 	_, err = forwarderORM.CreateForwarder(ctx, faddr, ubig.Big(*chainID))
 	require.NoError(t, err)
 
-	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	chainService, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	require.NoError(t, err)
+	chain, ok := chainService.(legacyevm.Chain)
+	require.True(t, ok)
 	fwdr, err := chain.TxManager().GetForwarderForEOA(ctx, recipient)
 	require.NoError(t, err)
 	require.Equal(t, faddr, fwdr)

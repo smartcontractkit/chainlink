@@ -19,7 +19,7 @@ import (
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	v4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury"
-	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"

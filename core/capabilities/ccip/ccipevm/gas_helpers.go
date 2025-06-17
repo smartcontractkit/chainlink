@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/pkg/errors"
+
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -46,7 +47,7 @@ type EstimateProvider struct {
 
 // CalculateMerkleTreeGas estimates the merkle tree gas based on number of requests
 func (gp EstimateProvider) CalculateMerkleTreeGas(numRequests int) uint64 {
-	if numRequests == 0 {
+	if numRequests <= 0 {
 		return 0
 	}
 	merkleProofBytes := (math.Ceil(math.Log2(float64(numRequests))))*32 + (1+2)*32 // only ever one outer root hash
@@ -124,6 +125,6 @@ func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message
 		SupportsInterfaceCheck +
 		adminRegistryOverhead +
 		rateLimiterOverhead +
-		PerTokenOverheadGas*uint64(numTokens) +
+		PerTokenOverheadGas*uint64(numTokens) + // TODO: remove
 		totalTokenDestGasOverhead, nil
 }

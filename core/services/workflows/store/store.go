@@ -5,11 +5,11 @@ import (
 )
 
 type Store interface {
-	Add(ctx context.Context, state *WorkflowExecution) (WorkflowExecution, error)
+	Add(ctx context.Context, steps map[string]*WorkflowExecutionStep,
+		executionID string, workflowID string, status string) (WorkflowExecution, error)
 	UpsertStep(ctx context.Context, step *WorkflowExecutionStep) (WorkflowExecution, error)
-	UpdateStatus(ctx context.Context, executionID string, status string) error
+	FinishExecution(ctx context.Context, executionID string, status string) (WorkflowExecution, error)
 	Get(ctx context.Context, executionID string) (WorkflowExecution, error)
-	GetUnfinished(ctx context.Context, workflowID string, offset, limit int) ([]WorkflowExecution, error)
 }
 
-var _ Store = (*DBStore)(nil)
+var _ Store = (*InMemoryStore)(nil)

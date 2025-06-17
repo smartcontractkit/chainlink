@@ -17,7 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
@@ -115,9 +115,7 @@ func (h *functionsConnectorHandler) SetConnector(connector connector.GatewayConn
 	h.connector = connector
 }
 
-func (h *functionsConnectorHandler) Sign(data ...[]byte) ([]byte, error) {
-	ctx, cancel := h.chStop.NewCtx()
-	defer cancel()
+func (h *functionsConnectorHandler) Sign(ctx context.Context, data ...[]byte) ([]byte, error) {
 	return h.keystore.SignMessage(ctx, h.signAddr, common.Flatten(data...))
 }
 

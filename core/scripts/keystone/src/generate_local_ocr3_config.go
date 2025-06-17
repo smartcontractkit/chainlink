@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 

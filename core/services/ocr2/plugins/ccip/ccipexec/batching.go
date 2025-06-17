@@ -267,8 +267,10 @@ func performCommonChecks(
 	// calculate gasLimit * gasPrice, we assume we're operating with 18 decimals. Since the multiplier in the jobspec
 	// is set to 1e10, calculateUsdPer1e18TokenAmount() will return a value of 1e28 instead of 1e18 which in turn will
 	// trigger the 'insufficient remaining fee' error below.
-	if isHederaSelector(batchCtx.destChainSelector) {
-		msgLggr.Infow("Skipping fee boosting for Hedera destination chain")
+
+	// Currently, this applies to Hedera and Tron.
+	if isSkipFeeBoostingSelector(batchCtx.destChainSelector) {
+		msgLggr.Infow("Skipping fee boosting for destination chain", "selector", batchCtx.destChainSelector)
 		return SuccesfullyValidated, messageMaxGas, tokenData, msgValue, nil
 	}
 
@@ -294,17 +296,24 @@ func performCommonChecks(
 	availableFeeUsd := waitBoostedFee(time.Since(msg.BlockTimestamp), availableFee, batchCtx.offchainConfig.RelativeBoostPerWaitHour)
 	if availableFeeUsd.Cmp(execCostUsd) < 0 {
 		msgLggr.Infow(
-			"Skipping message - insufficient remaining fee",
+			"Message underpaid - insufficient remaining fee",
 			"availableFeeUsd", availableFeeUsd,
 			"execCostUsd", execCostUsd,
 			"sourceBlockTimestamp", msg.BlockTimestamp,
 			"waitTime", time.Since(msg.BlockTimestamp),
 			"boost", batchCtx.offchainConfig.RelativeBoostPerWaitHour,
 		)
-		return InsufficientRemainingFee, 0, nil, nil, nil
 	}
 
 	return SuccesfullyValidated, messageMaxGas, tokenData, msgValue, nil
+}
+
+func isSkipFeeBoostingSelector(selector uint64) bool {
+	return isHederaSelector(selector) || isTronSelector(selector)
+}
+
+func isTronSelector(selector uint64) bool {
+	return selector == chainsel.TRON_MAINNET_EVM.Selector || selector == chainsel.TRON_TESTNET_NILE_EVM.Selector || selector == chainsel.TRON_TESTNET_SHASTA_EVM.Selector
 }
 
 // isHederaSelector returns true if the selector is for Hedera mainnet or testnet.
@@ -521,7 +530,6 @@ const (
 	TokenDataFetchError                  messageStatus = "token_data_fetch_error"
 	TokenNotInDestTokenPrices            messageStatus = "token_not_in_dest_token_prices"
 	TokenNotInSrcTokenPrices             messageStatus = "token_not_in_src_token_prices"
-	InsufficientRemainingFee             messageStatus = "insufficient_remaining_fee"
 	AddedToBatch                         messageStatus = "added_to_batch"
 	TXMCheckError                        messageStatus = "txm_check_error"
 	TXMFatalStatus                       messageStatus = "txm_fatal_status"

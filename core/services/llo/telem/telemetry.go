@@ -250,10 +250,16 @@ func (t *telemeter) collectObservationTelemetry(p interface{}, opts llo.DSOpts) 
 			ConfigDigest:             cd[:],
 			ObservationTimestamp:     opts.ObservationTimestamp().UnixNano(),
 		}
+		if opts.VerboseLogging() {
+			t.eng.Infow("Sending LLOBridgeTelemetry telemetry", "StreamId", v.StreamID, "BridgeAdapterName", v.Name, "BridgeResponseError", v.ResponseError)
+		}
 	case *LLOObservationTelemetry:
 		telemType = synchronization.LLOObservation
 		v.DonId = t.donID
 		msg = v
+		if opts.VerboseLogging() {
+			t.eng.Infow("Sending LLOObservationTelemetry telemetry", "StreamId", v.StreamId, "ObservationTimestamp", v.ObservationTimestamp)
+		}
 	default:
 		t.eng.Warnw("Unknown telemetry type", "type", fmt.Sprintf("%T", p))
 		return

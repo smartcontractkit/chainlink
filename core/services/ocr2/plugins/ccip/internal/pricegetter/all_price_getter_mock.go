@@ -6,7 +6,7 @@ import (
 	context "context"
 	big "math/big"
 
-	ccip "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -69,92 +69,24 @@ func (_c *MockAllTokensPriceGetter_Close_Call) RunAndReturn(run func() error) *M
 	return _c
 }
 
-// FilterConfiguredTokens provides a mock function with given fields: ctx, tokens
-func (_m *MockAllTokensPriceGetter) FilterConfiguredTokens(ctx context.Context, tokens []ccip.Address) ([]ccip.Address, []ccip.Address, error) {
-	ret := _m.Called(ctx, tokens)
-
-	if len(ret) == 0 {
-		panic("no return value specified for FilterConfiguredTokens")
-	}
-
-	var r0 []ccip.Address
-	var r1 []ccip.Address
-	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, []ccip.Address) ([]ccip.Address, []ccip.Address, error)); ok {
-		return rf(ctx, tokens)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, []ccip.Address) []ccip.Address); ok {
-		r0 = rf(ctx, tokens)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]ccip.Address)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, []ccip.Address) []ccip.Address); ok {
-		r1 = rf(ctx, tokens)
-	} else {
-		if ret.Get(1) != nil {
-			r1 = ret.Get(1).([]ccip.Address)
-		}
-	}
-
-	if rf, ok := ret.Get(2).(func(context.Context, []ccip.Address) error); ok {
-		r2 = rf(ctx, tokens)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
-}
-
-// MockAllTokensPriceGetter_FilterConfiguredTokens_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterConfiguredTokens'
-type MockAllTokensPriceGetter_FilterConfiguredTokens_Call struct {
-	*mock.Call
-}
-
-// FilterConfiguredTokens is a helper method to define mock.On call
-//   - ctx context.Context
-//   - tokens []ccip.Address
-func (_e *MockAllTokensPriceGetter_Expecter) FilterConfiguredTokens(ctx interface{}, tokens interface{}) *MockAllTokensPriceGetter_FilterConfiguredTokens_Call {
-	return &MockAllTokensPriceGetter_FilterConfiguredTokens_Call{Call: _e.mock.On("FilterConfiguredTokens", ctx, tokens)}
-}
-
-func (_c *MockAllTokensPriceGetter_FilterConfiguredTokens_Call) Run(run func(ctx context.Context, tokens []ccip.Address)) *MockAllTokensPriceGetter_FilterConfiguredTokens_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].([]ccip.Address))
-	})
-	return _c
-}
-
-func (_c *MockAllTokensPriceGetter_FilterConfiguredTokens_Call) Return(configured []ccip.Address, unconfigured []ccip.Address, err error) *MockAllTokensPriceGetter_FilterConfiguredTokens_Call {
-	_c.Call.Return(configured, unconfigured, err)
-	return _c
-}
-
-func (_c *MockAllTokensPriceGetter_FilterConfiguredTokens_Call) RunAndReturn(run func(context.Context, []ccip.Address) ([]ccip.Address, []ccip.Address, error)) *MockAllTokensPriceGetter_FilterConfiguredTokens_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // GetJobSpecTokenPricesUSD provides a mock function with given fields: ctx
-func (_m *MockAllTokensPriceGetter) GetJobSpecTokenPricesUSD(ctx context.Context) (map[ccip.Address]*big.Int, error) {
+func (_m *MockAllTokensPriceGetter) GetJobSpecTokenPricesUSD(ctx context.Context) (map[ccipcommon.TokenID]*big.Int, error) {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetJobSpecTokenPricesUSD")
 	}
 
-	var r0 map[ccip.Address]*big.Int
+	var r0 map[ccipcommon.TokenID]*big.Int
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (map[ccip.Address]*big.Int, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) (map[ccipcommon.TokenID]*big.Int, error)); ok {
 		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) map[ccip.Address]*big.Int); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) map[ccipcommon.TokenID]*big.Int); ok {
 		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[ccip.Address]*big.Int)
+			r0 = ret.Get(0).(map[ccipcommon.TokenID]*big.Int)
 		}
 	}
 
@@ -185,38 +117,38 @@ func (_c *MockAllTokensPriceGetter_GetJobSpecTokenPricesUSD_Call) Run(run func(c
 	return _c
 }
 
-func (_c *MockAllTokensPriceGetter_GetJobSpecTokenPricesUSD_Call) Return(_a0 map[ccip.Address]*big.Int, _a1 error) *MockAllTokensPriceGetter_GetJobSpecTokenPricesUSD_Call {
+func (_c *MockAllTokensPriceGetter_GetJobSpecTokenPricesUSD_Call) Return(_a0 map[ccipcommon.TokenID]*big.Int, _a1 error) *MockAllTokensPriceGetter_GetJobSpecTokenPricesUSD_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockAllTokensPriceGetter_GetJobSpecTokenPricesUSD_Call) RunAndReturn(run func(context.Context) (map[ccip.Address]*big.Int, error)) *MockAllTokensPriceGetter_GetJobSpecTokenPricesUSD_Call {
+func (_c *MockAllTokensPriceGetter_GetJobSpecTokenPricesUSD_Call) RunAndReturn(run func(context.Context) (map[ccipcommon.TokenID]*big.Int, error)) *MockAllTokensPriceGetter_GetJobSpecTokenPricesUSD_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// TokenPricesUSD provides a mock function with given fields: ctx, tokens
-func (_m *MockAllTokensPriceGetter) TokenPricesUSD(ctx context.Context, tokens []ccip.Address) (map[ccip.Address]*big.Int, error) {
+// GetTokenPricesUSD provides a mock function with given fields: ctx, tokens
+func (_m *MockAllTokensPriceGetter) GetTokenPricesUSD(ctx context.Context, tokens []ccipcommon.TokenID) (map[ccipcommon.TokenID]*big.Int, error) {
 	ret := _m.Called(ctx, tokens)
 
 	if len(ret) == 0 {
-		panic("no return value specified for TokenPricesUSD")
+		panic("no return value specified for GetTokenPricesUSD")
 	}
 
-	var r0 map[ccip.Address]*big.Int
+	var r0 map[ccipcommon.TokenID]*big.Int
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []ccip.Address) (map[ccip.Address]*big.Int, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []ccipcommon.TokenID) (map[ccipcommon.TokenID]*big.Int, error)); ok {
 		return rf(ctx, tokens)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []ccip.Address) map[ccip.Address]*big.Int); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []ccipcommon.TokenID) map[ccipcommon.TokenID]*big.Int); ok {
 		r0 = rf(ctx, tokens)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[ccip.Address]*big.Int)
+			r0 = ret.Get(0).(map[ccipcommon.TokenID]*big.Int)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []ccip.Address) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, []ccipcommon.TokenID) error); ok {
 		r1 = rf(ctx, tokens)
 	} else {
 		r1 = ret.Error(1)
@@ -225,31 +157,31 @@ func (_m *MockAllTokensPriceGetter) TokenPricesUSD(ctx context.Context, tokens [
 	return r0, r1
 }
 
-// MockAllTokensPriceGetter_TokenPricesUSD_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TokenPricesUSD'
-type MockAllTokensPriceGetter_TokenPricesUSD_Call struct {
+// MockAllTokensPriceGetter_GetTokenPricesUSD_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTokenPricesUSD'
+type MockAllTokensPriceGetter_GetTokenPricesUSD_Call struct {
 	*mock.Call
 }
 
-// TokenPricesUSD is a helper method to define mock.On call
+// GetTokenPricesUSD is a helper method to define mock.On call
 //   - ctx context.Context
-//   - tokens []ccip.Address
-func (_e *MockAllTokensPriceGetter_Expecter) TokenPricesUSD(ctx interface{}, tokens interface{}) *MockAllTokensPriceGetter_TokenPricesUSD_Call {
-	return &MockAllTokensPriceGetter_TokenPricesUSD_Call{Call: _e.mock.On("TokenPricesUSD", ctx, tokens)}
+//   - tokens []ccipcommon.TokenID
+func (_e *MockAllTokensPriceGetter_Expecter) GetTokenPricesUSD(ctx interface{}, tokens interface{}) *MockAllTokensPriceGetter_GetTokenPricesUSD_Call {
+	return &MockAllTokensPriceGetter_GetTokenPricesUSD_Call{Call: _e.mock.On("GetTokenPricesUSD", ctx, tokens)}
 }
 
-func (_c *MockAllTokensPriceGetter_TokenPricesUSD_Call) Run(run func(ctx context.Context, tokens []ccip.Address)) *MockAllTokensPriceGetter_TokenPricesUSD_Call {
+func (_c *MockAllTokensPriceGetter_GetTokenPricesUSD_Call) Run(run func(ctx context.Context, tokens []ccipcommon.TokenID)) *MockAllTokensPriceGetter_GetTokenPricesUSD_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].([]ccip.Address))
+		run(args[0].(context.Context), args[1].([]ccipcommon.TokenID))
 	})
 	return _c
 }
 
-func (_c *MockAllTokensPriceGetter_TokenPricesUSD_Call) Return(_a0 map[ccip.Address]*big.Int, _a1 error) *MockAllTokensPriceGetter_TokenPricesUSD_Call {
+func (_c *MockAllTokensPriceGetter_GetTokenPricesUSD_Call) Return(_a0 map[ccipcommon.TokenID]*big.Int, _a1 error) *MockAllTokensPriceGetter_GetTokenPricesUSD_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockAllTokensPriceGetter_TokenPricesUSD_Call) RunAndReturn(run func(context.Context, []ccip.Address) (map[ccip.Address]*big.Int, error)) *MockAllTokensPriceGetter_TokenPricesUSD_Call {
+func (_c *MockAllTokensPriceGetter_GetTokenPricesUSD_Call) RunAndReturn(run func(context.Context, []ccipcommon.TokenID) (map[ccipcommon.TokenID]*big.Int, error)) *MockAllTokensPriceGetter_GetTokenPricesUSD_Call {
 	_c.Call.Return(run)
 	return _c
 }

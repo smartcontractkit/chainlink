@@ -3,7 +3,7 @@ package chainlink
 import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 )

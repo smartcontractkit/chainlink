@@ -8,6 +8,8 @@ import (
 
 	chains "github.com/smartcontractkit/chainlink-framework/chains"
 
+	evm "github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
+
 	fees "github.com/smartcontractkit/chainlink-framework/chains/fees"
 
 	mock "github.com/stretchr/testify/mock"
@@ -665,6 +667,65 @@ func (_c *TxManager_GetForwarderForEOAOCR2Feeds_Call[CID, HEAD, ADDR, THASH, BHA
 }
 
 func (_c *TxManager_GetForwarderForEOAOCR2Feeds_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) RunAndReturn(run func(context.Context, ADDR, ADDR) (ADDR, error)) *TxManager_GetForwarderForEOAOCR2Feeds_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetTransactionFee provides a mock function with given fields: ctx, transactionID
+func (_m *TxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) GetTransactionFee(ctx context.Context, transactionID string) (*evm.TransactionFee, error) {
+	ret := _m.Called(ctx, transactionID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetTransactionFee")
+	}
+
+	var r0 *evm.TransactionFee
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*evm.TransactionFee, error)); ok {
+		return rf(ctx, transactionID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *evm.TransactionFee); ok {
+		r0 = rf(ctx, transactionID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*evm.TransactionFee)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, transactionID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// TxManager_GetTransactionFee_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTransactionFee'
+type TxManager_GetTransactionFee_Call[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THASH chains.Hashable, BHASH chains.Hashable, SEQ chains.Sequence, FEE fees.Fee] struct {
+	*mock.Call
+}
+
+// GetTransactionFee is a helper method to define mock.On call
+//   - ctx context.Context
+//   - transactionID string
+func (_e *TxManager_Expecter[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) GetTransactionFee(ctx interface{}, transactionID interface{}) *TxManager_GetTransactionFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
+	return &TxManager_GetTransactionFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]{Call: _e.mock.On("GetTransactionFee", ctx, transactionID)}
+}
+
+func (_c *TxManager_GetTransactionFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) Run(run func(ctx context.Context, transactionID string)) *TxManager_GetTransactionFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *TxManager_GetTransactionFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) Return(fee *evm.TransactionFee, err error) *TxManager_GetTransactionFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
+	_c.Call.Return(fee, err)
+	return _c
+}
+
+func (_c *TxManager_GetTransactionFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) RunAndReturn(run func(context.Context, string) (*evm.TransactionFee, error)) *TxManager_GetTransactionFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
 	_c.Call.Return(run)
 	return _c
 }

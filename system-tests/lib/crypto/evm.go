@@ -9,7 +9,7 @@ func GenerateEVMKeys(password string, n int) (*types.EVMKeys, error) {
 	result := &types.EVMKeys{
 		Password: password,
 	}
-	for i := 0; i < n; i++ {
+	for range n {
 		key, addr, err := clclient.NewETHKey(password)
 		if err != nil {
 			return result, nil

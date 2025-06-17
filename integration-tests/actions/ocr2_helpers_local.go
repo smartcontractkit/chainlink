@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/parrot"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -35,26 +37,32 @@ func CreateOCRv2JobsLocal(
 	ocrInstances []contracts.OffchainAggregatorV2,
 	bootstrapNode *nodeclient.ChainlinkClient,
 	workerChainlinkNodes []*nodeclient.ChainlinkClient,
-	mockAdapter *test_env.Killgrave,
-	mockAdapterPath string, // Path on the mock server for the Chainlink nodes to query
-	mockAdapterValue int, // Value to get from the mock server when querying the path
+	mockAdapter *test_env.Parrot,
+	valueRoute *parrot.Route,
 	chainId uint64, // EVM chain ID
 	forwardingAllowed bool,
 	enableChainReaderAndCodec bool,
 ) error {
 	// Collect P2P ID
+	valPath := strings.TrimPrefix(valueRoute.Path, "/")
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 	if err != nil {
 		return err
 	}
 	p2pV2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PIds.Data[0].Attributes.PeerID, bootstrapNode.InternalIP(), 6690)
 	// Set the value for the jobs to report on
-	err = mockAdapter.SetAdapterBasedIntValuePath(mockAdapterPath, []string{http.MethodGet, http.MethodPost}, mockAdapterValue)
+	err = mockAdapter.SetAdapterRoute(valueRoute)
 	if err != nil {
 		return err
 	}
 	// Set the juelsPerFeeCoinSource config value
-	err = mockAdapter.SetAdapterBasedIntValuePath(fmt.Sprintf("%s/juelsPerFeeCoinSource", mockAdapterPath), []string{http.MethodGet, http.MethodPost}, mockAdapterValue)
+	juelsRoute := &parrot.Route{
+		Method:             parrot.MethodAny,
+		Path:               filepath.Join(valPath, "juelsPerFeeCoinSource"),
+		ResponseBody:       valueRoute.ResponseBody,
+		ResponseStatusCode: http.StatusOK,
+	}
+	err = mockAdapter.SetAdapterRoute(juelsRoute)
 	if err != nil {
 		return err
 	}
@@ -69,7 +77,7 @@ func CreateOCRv2JobsLocal(
 				RelayConfig: map[string]interface{}{
 					"chainID": chainId,
 				},
-				MonitoringEndpoint:                null.StringFrom(fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, mockAdapterPath)),
+				MonitoringEndpoint:                null.StringFrom(fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, valPath)),
 				ContractConfigTrackerPollInterval: *models.NewInterval(15 * time.Second),
 			},
 		}
@@ -87,23 +95,23 @@ func CreateOCRv2JobsLocal(
 			if err != nil {
 				return fmt.Errorf("getting OCR keys from OCR node have failed: %w", err)
 			}
-			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
+			nodeOCRKeyID := nodeOCRKeys.Data[0].ID
 
 			bta := &nodeclient.BridgeTypeAttributes{
-				Name: fmt.Sprintf("%s-%s", mockAdapterPath, uuid.NewString()),
-				URL:  fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, mockAdapterPath),
+				Name: fmt.Sprintf("%s-%s", valPath, uuid.NewString()),
+				URL:  fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, valPath),
 			}
 			juelsBridge := &nodeclient.BridgeTypeAttributes{
 				Name: fmt.Sprintf("juels-%s", uuid.NewString()),
-				URL:  fmt.Sprintf("%s/%s/juelsPerFeeCoinSource", mockAdapter.InternalEndpoint, mockAdapterPath),
+				URL:  fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, juelsRoute.Path),
 			}
 			err = chainlinkNode.MustCreateBridge(bta)
 			if err != nil {
-				return fmt.Errorf("creating bridge on CL node failed: %w", err)
+				return fmt.Errorf("creating bridge to %s on CL node failed: %w", bta.URL, err)
 			}
 			err = chainlinkNode.MustCreateBridge(juelsBridge)
 			if err != nil {
-				return fmt.Errorf("creating bridge on CL node failed: %w", err)
+				return fmt.Errorf("creating bridge to %s CL node failed: %w", juelsBridge.URL, err)
 			}
 
 			ocrSpec := &nodeclient.OCR2TaskJobSpec{
@@ -123,7 +131,7 @@ func CreateOCRv2JobsLocal(
 					},
 					ContractConfigTrackerPollInterval: *models.NewInterval(15 * time.Second),
 					ContractID:                        ocrInstance.Address(),                   // registryAddr
-					OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId),           // get node ocr2config.ID
+					OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyID),           // get node ocr2config.ID
 					TransmitterID:                     null.StringFrom(nodeTransmitterAddress), // node addr
 					P2PV2Bootstrappers:                pq.StringArray{p2pV2Bootstrapper},       // bootstrap node key and address <p2p-key>@bootstrap:6690
 				},

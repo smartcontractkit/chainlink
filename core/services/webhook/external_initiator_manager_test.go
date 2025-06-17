@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -59,7 +58,7 @@ func Test_ExternalInitiatorManager_Load(t *testing.T) {
 }
 
 func Test_ExternalInitiatorManager_Notify(t *testing.T) {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 	borm := bridges.NewORM(db)
 

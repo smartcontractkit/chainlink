@@ -9,15 +9,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -38,8 +38,8 @@ func (m mockCfg) TransmitQueueMaxSize() uint32 {
 	return 100_000
 }
 
-func (m mockCfg) TransmitTimeout() commonconfig.Duration {
-	return *commonconfig.MustNewDuration(1 * time.Hour)
+func (m mockCfg) TransmitTimeout() time.Duration {
+	return 1 * time.Hour
 }
 
 func Test_MercuryTransmitter_Transmit(t *testing.T) {

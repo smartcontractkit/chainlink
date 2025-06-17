@@ -5,14 +5,11 @@ VERSION = $(shell jq -r '.version' package.json)
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 GCFLAGS = -gcflags "$(GO_GCFLAGS)"
-
-# LOOP Plugin version defaults
-ifndef COSMOS_SHA
-override COSMOS_SHA = "f740e9ae54e79762991bdaf8ad6b50363261c056"
-endif
-ifndef STARKNET_SHA
-override STARKNET_SHA = "9a780650af4708e4bd9b75495feff2c5b4054e46"
-endif
+# Set to true to install private plugins (will require GitHub auth).
+CL_INSTALL_PRIVATE_PLUGINS ?= false
+CL_INSTALL_TESTING_PLUGINS ?= false
+# Output directory for loopinstall plugin manifests (set by caller)
+CL_LOOPINSTALL_OUTPUT_DIR ?=
 
 .PHONY: install
 install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -22,11 +19,7 @@ install-git-hooks: ## Install git hooks.
 	git config core.hooksPath .githooks
 
 .PHONY: install-chainlink-autoinstall
-install-chainlink-autoinstall: | pnpmdep gomod install-chainlink ## Autoinstall chainlink.
-
-.PHONY: pnpmdep
-pnpmdep: ## Install solidity contract dependencies through pnpm
-	(cd contracts && pnpm i)
+install-chainlink-autoinstall: | gomod install-chainlink ## Autoinstall chainlink.
 
 .PHONY: gomod
 gomod: ## Ensure chainlink's go dependencies are installed.
@@ -69,26 +62,43 @@ chainlink-dev: ## Build a dev build of chainlink binary.
 chainlink-test: ## Build a test build of chainlink binary.
 	go build $(GOFLAGS) .
 
-.PHONY: install-medianpoc
-install-medianpoc: ## Build & install the chainlink-medianpoc binary.
+.PHONY: install-loopinstall
+install-loopinstall:
+	go install github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
+
+.PHONY: install-plugins-public
+install-plugins-public: ## Build & install public remote LOOPP binaries (plugins).
+	@if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
+		loopinstall --concurrency 5 --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/public.json ./plugins/plugins.public.yaml; \
+	else \
+		loopinstall --concurrency 5 ./plugins/plugins.public.yaml; \
+	fi
+
+.PHONY: install-plugins-private
+install-plugins-private: ## Build & install private remote LOOPP binaries (plugins).
+	if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
+		GOPRIVATE=github.com/smartcontractkit/* loopinstall --concurrency 5 --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json ./plugins/plugins.private.yaml; \
+	else \
+		GOPRIVATE=github.com/smartcontractkit/* loopinstall --concurrency 5 ./plugins/plugins.private.yaml; \
+	fi
+
+.PHONY: install-plugins-testing
+install-plugins-testing: ## Build & install testing LOOPP binaries (plugins).
+	if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
+		GOPRIVATE=github.com/smartcontractkit/* loopinstall --concurrency 5 --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json ./plugins/plugins.testing.yaml; \
+	else \
+		GOPRIVATE=github.com/smartcontractkit/* loopinstall --concurrency 5 ./plugins/plugins.testing.yaml; \
+	fi
+
+.PHONY: install-plugins-local
+install-plugins-local: ## Build & install local plugins.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-evm
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
-
-.PHONY: install-ocr3-capability
-install-ocr3-capability: ## Build & install the chainlink-ocr3-capability binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-ocr3-capability
+	go install $(GOFLAGS) ./plugins/cmd/capabilities/log-event-trigger
 
-.PHONY: install-plugins
-install-plugins: ## Build & install LOOPP binaries for products and chains.
-	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds) && \
-	go install $(GOFLAGS) ./cmd/chainlink-feeds
-	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-data-streams) && \
-	go install $(GOFLAGS) ./mercury/cmd/chainlink-mercury
-	cd $(shell go mod download -json github.com/smartcontractkit/chainlink-cosmos@$(COSMOS_SHA) | jq -r .Dir) && \
-	go install $(GOFLAGS) ./pkg/cosmos/cmd/chainlink-cosmos
-	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana) && \
-	go install $(GOFLAGS) ./pkg/solana/cmd/chainlink-solana
-	cd $(shell go mod download -json github.com/smartcontractkit/chainlink-starknet/relayer@$(STARKNET_SHA) | jq -r .Dir) && \
-	go install $(GOFLAGS) ./pkg/chainlink/cmd/chainlink-starknet
+.PHONY: make install-plugins
+install-plugins: install-loopinstall install-plugins-local install-plugins-public ## Build and install local and public plugins via loopinstall
 
 .PHONY: docker ## Build the chainlink docker image
 docker:
@@ -106,24 +116,30 @@ docker-ccip:
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	-f ccip/ccip.Dockerfile .
 
+# Define a comma variable for use in $(eval) (needed for the PRIVATE_PLUGIN_ARGS)
+comma := ,
 .PHONY: docker-plugins ## Build the chainlink-plugins docker image
 docker-plugins:
+	@if ([ "$(CL_INSTALL_PRIVATE_PLUGINS)" = "true" ] || [ "$(CL_INSTALL_TESTING_PLUGINS)" = "true" ]) && [ -z "$(GITHUB_TOKEN)" ]; then \
+		echo "Error: GITHUB_TOKEN environment variable is required when CL_INSTALL_PRIVATE_PLUGINS=true or CL_INSTALL_TESTING_PLUGINS=true"; \
+		exit 1; \
+	fi
+	$(eval PRIVATE_PLUGIN_ARGS := $(if $(and $(or $(filter true,$(CL_INSTALL_PRIVATE_PLUGINS)),$(filter true,$(CL_INSTALL_TESTING_PLUGINS))),$(GITHUB_TOKEN)),--secret id=GIT_AUTH_TOKEN$(comma)env=GITHUB_TOKEN))
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
-	--build-arg COSMOS_SHA=$(COSMOS_SHA) \
-	--build-arg STARKNET_SHA=$(STARKNET_SHA) \
-	-f plugins/chainlink.Dockerfile .
+	--build-arg CL_APTOS_CMD=chainlink-aptos \
+	--build-arg CL_INSTALL_TESTING_PLUGINS=$(CL_INSTALL_TESTING_PLUGINS) \
+	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
+	$(PRIVATE_PLUGIN_ARGS) \
+	-f plugins/chainlink.Dockerfile . \
+	-t chainlink-plugins:latest
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend
 	go run operator_ui/install.go .
 
-.PHONY: abigen
-abigen: ## Build & install abigen.
-	./tools/bin/build_abigen
-
 .PHONY: generate
-generate: abigen codecgen mockery protoc gomods ## Execute all go:generate commands.
+generate: codecgen mockery protoc gomods ## Execute all go:generate commands.
 	## Updating PATH makes sure that go:generate uses the version of protoc installed by the protoc make command.
 	export PATH="$(HOME)/.local/bin:$(PATH)"; gomods -w go generate -x ./...
 	find . -type f -name .mockery.yaml -execdir mockery \; ## Execute mockery for all .mockery.yaml files
@@ -202,7 +218,7 @@ config-docs: ## Generate core node configuration documentation
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
 	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.64.7 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 | tee ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.1.6 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 | tee ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
 
 .PHONY: modgraph
 modgraph:

@@ -208,10 +208,10 @@ func (o *orm) Prune(ctx context.Context, serverURL string, maxSize, batchSize in
 		res, err = o.ds.ExecContext(ctx, `
 DELETE FROM llo_mercury_transmit_queue AS q
 USING (
-    SELECT transmission_hash 
+    SELECT transmission_hash
     FROM llo_mercury_transmit_queue
-    WHERE don_id = $1 
-      AND server_url = $2 
+    WHERE don_id = $1
+      AND server_url = $2
       AND seq_nr < $3
     ORDER BY seq_nr ASC
     LIMIT $4

@@ -24,7 +24,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/ethereum"
@@ -39,6 +38,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 
+	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -46,9 +48,6 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	aconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
-	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/log_emitter"
 )
 
 const (
@@ -154,7 +153,7 @@ func setUpDataStreamsWireMock(ctx context.Context, url string) error {
 }
 
 func TestLogTrigger(t *testing.T) {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	l := logging.GetTestLogger(t)
 	registryVersion := contractseth.RegistryVersion_2_1
 

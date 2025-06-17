@@ -11,8 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 )
 
 func Test_CheckMessageStatus(t *testing.T) {

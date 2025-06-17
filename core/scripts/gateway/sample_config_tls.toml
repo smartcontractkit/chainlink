@@ -9,6 +9,8 @@ ReadTimeoutMillis = 1000
 WriteTimeoutMillis = 1000
 RequestTimeoutMillis = 1000
 MaxRequestBytes = 10_000
+CORSEnabled = false
+CORSAllowedOrigins = []
 
 [NodeServerConfig]
 Port = 8089

@@ -78,7 +78,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   }
 
   /// @dev Struct that contains the static configuration.
-  /// RMN depends on this struct, if changing, please notify the RMN maintainers.
   // solhint-disable-next-line gas-struct-packing
   struct StaticConfig {
     uint96 maxFeeJuelsPerMsg; // ─╮ Maximum fee that can be charged for a message.
@@ -1197,7 +1196,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   }
 
   /// @notice Returns the static FeeQuoter config.
-  /// @dev RMN depends on this function, if updated, please notify the RMN maintainers.
   /// @return staticConfig The static configuration.
   function getStaticConfig() external view returns (StaticConfig memory) {
     return StaticConfig({

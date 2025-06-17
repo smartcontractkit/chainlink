@@ -95,6 +95,7 @@ contract CCIPHome is Ownable2StepMsgSender, ITypeAndVersion, ICapabilityConfigur
 
   /// @notice Represents an oracle node in OCR3 configs part of the role DON.
   /// Every configured node should be a signer, but does not have to be a transmitter.
+  /// Note RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct OCR3Node {
     bytes32 p2pId; // Peer2Peer connection ID of the oracle.
     bytes signerKey; // On-chain signer public key.
@@ -105,6 +106,7 @@ contract CCIPHome is Ownable2StepMsgSender, ITypeAndVersion, ICapabilityConfigur
   /// Note that FRoleDON >= fChain, since FRoleDON represents the role DON, and fChain represents sub-committees.
   /// FRoleDON values are typically identical across multiple OCR3 configs since the chains pertain to one role DON,
   /// but FRoleDON values can change across OCR3 configs to indicate role DON splits.
+  /// Note RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct OCR3Config {
     Internal.OCRPluginType pluginType; // ─╮ The plugin that the configuration is for.
     uint64 chainSelector; //               │ The (remote) chain that the configuration is for.
@@ -116,6 +118,7 @@ contract CCIPHome is Ownable2StepMsgSender, ITypeAndVersion, ICapabilityConfigur
     bytes offchainConfig; // The offchain configuration for the OCR3 plugin. Protobuf encoded.
   }
 
+  /// Note RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct VersionedConfig {
     uint32 version;
     bytes32 configDigest;
@@ -304,6 +307,7 @@ contract CCIPHome is Ownable2StepMsgSender, ITypeAndVersion, ICapabilityConfigur
   /// @param donId The unique key for the DON that the configuration applies to.
   /// @return activeConfig The active configuration.
   /// @return candidateConfig The candidate configuration.
+  /// Note RMN depends on this function, if changing, please notify the RMN maintainers.
   function getAllConfigs(
     uint32 donId,
     Internal.OCRPluginType pluginType

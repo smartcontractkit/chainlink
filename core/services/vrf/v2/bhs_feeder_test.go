@@ -7,10 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -72,8 +73,10 @@ func TestStartHeartbeats(t *testing.T) {
 			uni.rootContractAddress.String(), "", "", 0, 200, heartbeatPeriod, 100)
 
 		// Ensure log poller is ready and has all logs.
-		require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
-		require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Replay(testutils.Context(t), 1))
+		chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain)
+		require.True(t, ok)
+		require.NoError(t, chain.LogPoller().Ready())
+		require.NoError(t, chain.LogPoller().Replay(testutils.Context(t), 1))
 
 		initTxns := 260
 		// Wait 260 blocks.

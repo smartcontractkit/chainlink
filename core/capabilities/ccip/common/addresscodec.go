@@ -4,41 +4,21 @@ import (
 	"fmt"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
-// ChainSpecificAddressCodec is an interface that defines the methods for encoding and decoding addresses
-type ChainSpecificAddressCodec interface {
-	AddressBytesToString([]byte) (string, error)
-	AddressStringToBytes(string) ([]byte, error)
-}
+var _ cciptypes.AddressCodec = &AddressCodec{}
 
-// AddressCodec is a struct that holds the chain specific address codecs
+// AddressCodec is a struct that holds the chain specific address codecs and
+// implements a superset of the cciptypes.AddressCodec interface.
 type AddressCodec struct {
-	EVMAddressCodec    ChainSpecificAddressCodec
-	SolanaAddressCodec ChainSpecificAddressCodec
+	registeredAddressCodecMap map[string]ChainSpecificAddressCodec
 }
 
-// AddressCodecParams is a struct that holds the parameters for creating a AddressCodec
-type AddressCodecParams struct {
-	evmAddressCodec    ChainSpecificAddressCodec
-	solanaAddressCodec ChainSpecificAddressCodec
-}
-
-// NewAddressCodecParams is a constructor for AddressCodecParams
-func NewAddressCodecParams(evmAddressCodec ChainSpecificAddressCodec, solanaAddressCodec ChainSpecificAddressCodec) AddressCodecParams {
-	return AddressCodecParams{
-		evmAddressCodec:    evmAddressCodec,
-		solanaAddressCodec: solanaAddressCodec,
-	}
-}
-
-// NewAddressCodec is a constructor for AddressCodec
-func NewAddressCodec(params AddressCodecParams) AddressCodec {
+// NewAddressCodec is a constructor for NewAddressCodec
+func NewAddressCodec(registeredMap map[string]ChainSpecificAddressCodec) AddressCodec {
 	return AddressCodec{
-		EVMAddressCodec:    params.evmAddressCodec,
-		SolanaAddressCodec: params.solanaAddressCodec,
+		registeredAddressCodecMap: registeredMap,
 	}
 }
 
@@ -49,16 +29,12 @@ func (ac AddressCodec) AddressBytesToString(addr cciptypes.UnknownAddress, chain
 		return "", fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)
 	}
 
-	switch family {
-	case chainsel.FamilyEVM:
-		return ac.EVMAddressCodec.AddressBytesToString(addr)
-
-	case chainsel.FamilySolana:
-		return ac.SolanaAddressCodec.AddressBytesToString(addr)
-
-	default:
-		return "", fmt.Errorf("unsupported family for address encode type %s", family)
+	codec, exist := ac.registeredAddressCodecMap[family]
+	if !exist {
+		return "", fmt.Errorf("unsupported family for address decode type %s", family)
 	}
+
+	return codec.AddressBytesToString(addr)
 }
 
 // AddressStringToBytes converts an address from string to bytes
@@ -67,15 +43,24 @@ func (ac AddressCodec) AddressStringToBytes(addr string, chainSelector cciptypes
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)
 	}
-
-	switch family {
-	case chainsel.FamilyEVM:
-		return ac.EVMAddressCodec.AddressStringToBytes(addr)
-
-	case chainsel.FamilySolana:
-		return ac.SolanaAddressCodec.AddressStringToBytes(addr)
-
-	default:
+	codec, exist := ac.registeredAddressCodecMap[family]
+	if !exist {
 		return nil, fmt.Errorf("unsupported family for address decode type %s", family)
 	}
+
+	return codec.AddressStringToBytes(addr)
+}
+
+// OracleIDAsAddressBytes returns valid address bytes for a given chain selector and oracle ID.
+func (ac AddressCodec) OracleIDAsAddressBytes(oracleID uint8, chainSelector cciptypes.ChainSelector) ([]byte, error) {
+	family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)
+	}
+	codec, exist := ac.registeredAddressCodecMap[family]
+	if !exist {
+		return nil, fmt.Errorf("unsupported family for address decode type %s", family)
+	}
+
+	return codec.OracleIDAsAddressBytes(oracleID)
 }

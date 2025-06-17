@@ -34,7 +34,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -454,12 +454,11 @@ func createSingleDecimalBridge(t *testing.T, name string, i int, p decimal.Decim
 	return bridgeName
 }
 
-func createBridge(t *testing.T, bridgeName string, resultJSON string, borm bridges.ORM) {
+func createBridge(t *testing.T, bridgeName string, responseJSON string, borm bridges.ORM) {
 	ctx := testutils.Context(t)
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(http.StatusOK)
-		resp := fmt.Sprintf(`{"result": %s}`, resultJSON)
-		_, err := res.Write([]byte(resp))
+		_, err := res.Write([]byte(responseJSON))
 		if err != nil {
 			t.Fatalf("failed to write response: %v", err)
 		}

@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 func TestMasterKeystore_Unlock_Save(t *testing.T) {
@@ -62,4 +63,14 @@ func TestMasterKeystore_Unlock_Save(t *testing.T) {
 		keyStore.ResetXXXTestOnly()
 		require.NoError(t, keyStore.Unlock(ctx, cltest.Password))
 	})
+}
+
+func requireEqualKeys(t *testing.T, a, b interface {
+	ID() string
+	Raw() internal.Raw
+}) {
+	t.Helper()
+	require.Equal(t, a.ID(), b.ID(), "ids be equal")
+	require.Equal(t, a.Raw(), b.Raw(), "raw bytes must be equal")
+	require.EqualExportedValues(t, a, b)
 }

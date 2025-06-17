@@ -7,8 +7,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/balance_reader"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/balance_reader"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 type BalanceReaderDeployer struct {
@@ -45,7 +46,7 @@ func (c *BalanceReaderDeployer) deploy(req DeployRequest) (*DeployResponse, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to get type and version: %w", err)
 	}
-	tv, err := deployment.TypeAndVersionFromString(tvStr)
+	tv, err := cldf.TypeAndVersionFromString(tvStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 	}

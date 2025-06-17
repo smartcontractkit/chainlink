@@ -14,49 +14,77 @@ import (
 )
 
 func TestORM_NodeVersion_UpsertNodeVersion(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
-	orm := NewORM(db, logger.TestLogger(t))
 
-	err := orm.UpsertNodeVersion(ctx, NewNodeVersion("9.9.8"))
-	require.NoError(t, err)
+	t.Run("With App Version Check", func(t *testing.T) {
+		orm := NewORM(db, logger.TestLogger(t))
 
-	ver, err := orm.FindLatestNodeVersion(ctx)
+		err := orm.UpsertNodeVersion(ctx, NewNodeVersion("9.9.8"))
+		require.NoError(t, err)
 
-	require.NoError(t, err)
-	require.NotNil(t, ver)
-	require.Equal(t, "9.9.8", ver.Version)
-	require.NotZero(t, ver.CreatedAt)
+		ver, err := orm.FindLatestNodeVersion(ctx)
 
-	// Testing Upsert
-	require.NoError(t, orm.UpsertNodeVersion(ctx, NewNodeVersion("9.9.8")))
+		require.NoError(t, err)
+		require.NotNil(t, ver)
+		require.Equal(t, "9.9.8", ver.Version)
+		require.NotZero(t, ver.CreatedAt)
 
-	err = orm.UpsertNodeVersion(ctx, NewNodeVersion("9.9.7"))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Application version (9.9.7) is lower than database version (9.9.8). Only Chainlink 9.9.8 or higher can be run on this database")
+		// Testing Upsert
+		require.NoError(t, orm.UpsertNodeVersion(ctx, NewNodeVersion("9.9.8")))
 
-	require.NoError(t, orm.UpsertNodeVersion(ctx, NewNodeVersion("9.9.9")))
+		err = orm.UpsertNodeVersion(ctx, NewNodeVersion("9.9.7"))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Application version (9.9.7) is lower than database version (9.9.8). Only Chainlink 9.9.8 or higher can be run on this database")
 
-	var count int
-	err = db.QueryRowx(`SELECT count(*) FROM node_versions`).Scan(&count)
-	require.NoError(t, err)
-	assert.Equal(t, 1, count)
+		require.NoError(t, orm.UpsertNodeVersion(ctx, NewNodeVersion("9.9.9")))
 
-	ver, err = orm.FindLatestNodeVersion(ctx)
+		var count int
+		err = db.QueryRowx(`SELECT count(*) FROM node_versions`).Scan(&count)
+		require.NoError(t, err)
+		assert.Equal(t, 1, count)
 
-	require.NoError(t, err)
-	require.NotNil(t, ver)
-	require.Equal(t, "9.9.9", ver.Version)
+		ver, err = orm.FindLatestNodeVersion(ctx)
 
-	// invalid semver returns error
-	err = orm.UpsertNodeVersion(ctx, NewNodeVersion("random_12345"))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "\"random_12345\" is not valid semver: Invalid Semantic Version")
+		require.NoError(t, err)
+		require.NotNil(t, ver)
+		require.Equal(t, "9.9.9", ver.Version)
 
-	ver, err = orm.FindLatestNodeVersion(ctx)
-	require.NoError(t, err)
-	require.NotNil(t, ver)
-	require.Equal(t, "9.9.9", ver.Version)
+		// invalid semver returns error
+		err = orm.UpsertNodeVersion(ctx, NewNodeVersion("random_12345"))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "\"random_12345\" is not valid semver: Invalid Semantic Version")
+
+		ver, err = orm.FindLatestNodeVersion(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, ver)
+		require.Equal(t, "9.9.9", ver.Version)
+	})
+	t.Run("Without App Version Check", func(t *testing.T) {
+		orm := NewORM(db, logger.TestLogger(t))
+		// Set the environment variable to skip the app version check
+		t.Setenv("CL_SKIP_APP_VERSION_CHECK", "true")
+
+		err := orm.UpsertNodeVersion(ctx, NewNodeVersion("9.9.8"))
+		require.NoError(t, err)
+
+		ver, err := orm.FindLatestNodeVersion(ctx)
+
+		require.NoError(t, err)
+		require.NotNil(t, ver)
+		require.Equal(t, "9.9.8", ver.Version)
+		require.NotZero(t, ver.CreatedAt)
+
+		// previous version allowed
+		err = orm.UpsertNodeVersion(ctx, NewNodeVersion("9.9.7"))
+		require.NoError(t, err)
+		ver, err = orm.FindLatestNodeVersion(ctx)
+
+		require.NoError(t, err)
+		require.NotNil(t, ver)
+		require.Equal(t, "9.9.7", ver.Version)
+		require.NotZero(t, ver.CreatedAt)
+	})
 }
 
 func Test_Version_CheckVersion(t *testing.T) {
@@ -95,6 +123,7 @@ func Test_Version_CheckVersion(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "9.9.9", appv.String())
 	assert.Equal(t, "9.9.8", dbv.String())
+
 }
 
 func TestORM_CheckVersion_CCIP(t *testing.T) {

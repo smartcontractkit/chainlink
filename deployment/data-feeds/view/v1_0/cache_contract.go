@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
+	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
-	cache "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/data_feeds_cache"
 )
 
 type CacheView struct {

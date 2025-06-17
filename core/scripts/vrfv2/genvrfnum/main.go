@@ -16,7 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
 
-	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"

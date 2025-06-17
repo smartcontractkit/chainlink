@@ -17,18 +17,19 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/pelletier/go-toml"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/freeport"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"

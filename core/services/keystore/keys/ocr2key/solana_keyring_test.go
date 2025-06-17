@@ -51,5 +51,5 @@ func TestSolanaKeyring_Marshalling(t *testing.T) {
 	err = kr2.Unmarshal(m)
 	require.NoError(t, err)
 	assert.True(t, bytes.Equal(kr1.PublicKey(), kr2.PublicKey()))
-	assert.True(t, bytes.Equal(kr1.privateKey.D.Bytes(), kr2.privateKey.D.Bytes()))
+	assert.True(t, bytes.Equal(kr1.privateKey().D.Bytes(), kr2.privateKey().D.Bytes()))
 }

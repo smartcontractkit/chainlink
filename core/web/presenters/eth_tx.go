@@ -6,9 +6,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 )
 
 // EthTxResource represents a Ethereum Transaction JSONAPI resource.

@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	evmkeystore "github.com/smartcontractkit/chainlink-integrations/evm/keys"
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+	evmkeystore "github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 )

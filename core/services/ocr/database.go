@@ -15,7 +15,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

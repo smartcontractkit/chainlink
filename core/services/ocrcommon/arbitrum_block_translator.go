@@ -12,8 +12,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 

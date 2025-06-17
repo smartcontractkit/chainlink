@@ -1,4 +1,5 @@
 InsecureFastScrypt = false
+InsecurePPROFHeap = false
 RootDir = 'my/root/dir'
 ShutdownGracePeriod = '5s'
 
@@ -156,6 +157,7 @@ SimulateTransactions = false
 TransmitterAddress = ''
 CaptureEATelemetry = false
 TraceLogging = false
+ConfigLogValidation = false
 
 [P2P]
 IncomingMessageBufferSize = 999
@@ -286,6 +288,7 @@ ChainID = '1'
 MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
+SyncStrategy = 'event'
 
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''
@@ -307,11 +310,20 @@ InsecureConnection = false
 TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
+ChipIngressEndpoint = ''
 
 [Workflows]
 [Workflows.Limits]
 Global = 200
 PerOwner = 200
+
+[CRE]
+[CRE.Streams]
+WsURL = ''
+RestURL = ''
+
+[Billing]
+URL = 'localhost:4319'
 
 [[EVM]]
 ChainID = '1'
@@ -402,6 +414,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -516,6 +529,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -624,6 +638,7 @@ FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -646,6 +661,7 @@ WSURL = 'wss://web.socket/test/bar'
 
 [[Solana]]
 ChainID = 'mainnet'
+BlockTime = '500ms'
 BalancePollPeriod = '5s'
 ConfirmPollPeriod = '500ms'
 OCR2CachePollPeriod = '1s'
@@ -665,8 +681,10 @@ ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
 BlockHistoryPollPeriod = '5s'
 BlockHistorySize = 1
+BlockHistoryBatchLoadSize = 20
 ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
+LogPollerStartingLookback = '24h0m0s'
 
 [Solana.MultiNode]
 Enabled = false
@@ -679,6 +697,7 @@ LeaseDuration = '1m0s'
 FinalizedBlockPollInterval = '1s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
+VerifyChainID = true
 NodeNoNewHeadsThreshold = '1m0s'
 NoNewFinalizedHeadsThreshold = '1m0s'
 FinalityDepth = 0
@@ -692,6 +711,7 @@ SendOnly = false
 
 [[Solana]]
 ChainID = 'testnet'
+BlockTime = '500ms'
 BalancePollPeriod = '5s'
 ConfirmPollPeriod = '500ms'
 OCR2CachePollPeriod = '1m0s'
@@ -711,8 +731,10 @@ ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
 BlockHistoryPollPeriod = '5s'
 BlockHistorySize = 1
+BlockHistoryBatchLoadSize = 20
 ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
+LogPollerStartingLookback = '24h0m0s'
 
 [Solana.MultiNode]
 Enabled = false
@@ -725,6 +747,7 @@ LeaseDuration = '1m0s'
 FinalizedBlockPollInterval = '1s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
+VerifyChainID = true
 NodeNoNewHeadsThreshold = '1m0s'
 NoNewFinalizedHeadsThreshold = '1m0s'
 FinalityDepth = 0

@@ -39,6 +39,9 @@ func NewSignedReportRemoteAggregator(allowedSigners [][]byte, minRequiredSignatu
 	for _, signer := range allowedSigners {
 		signersMap[common.BytesToAddress(signer)] = struct{}{}
 	}
+	lggr = logger.Named(lggr, "SignedReportRemoteAggregator")
+
+	lggr.Infow("created", "allowedSigners", signersMap, "minRequiredSignatures", minRequiredSignatures, "maxAgeSec", maxAgeSec, "capID", capID)
 	return &signedReportRemoteAggregator{
 		allowedSigners:        signersMap,
 		minRequiredSignatures: minRequiredSignatures,
@@ -49,6 +52,9 @@ func NewSignedReportRemoteAggregator(allowedSigners [][]byte, minRequiredSignatu
 }
 
 // Accept first response with valid signatures and expected event ID
+// every element in responses is must be a [capabilitypb.TriggerResponse]
+// and for each of them, we expect the [capabilitypb.TriggerResponse.Event.Outputs] field
+// to be the [values.Map] representation a [capabilities.OCRTriggerEvent] (see [capabilities.OCRTriggerEvent.ToMap])
 func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, responses [][]byte) (capabilities.TriggerResponse, error) {
 	for _, response := range responses {
 		triggerResp, err := capabilitiespb.UnmarshalTriggerResponse(response)
@@ -56,12 +62,12 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 			a.lggr.Errorw("could not unmarshal one of capability responses (faulty sender?)", "err", err)
 			continue
 		}
-		if triggerResp.Event.OCREvent == nil || len(triggerResp.Event.OCREvent.Report) == 0 {
-			a.lggr.Errorw("trigger response does not contain an OCR report", "id", triggerResp.Event.ID)
-			continue
+		ocrEvent := &capabilities.OCRTriggerEvent{}
+		err = ocrEvent.FromMap(triggerResp.Event.Outputs)
+		if err != nil {
+			a.lggr.Errorw("trigger response does not contain an OCR report", "id", triggerResp.Event.ID, "err", err)
 		}
-
-		rawReport := triggerResp.Event.OCREvent.Report
+		rawReport := ocrEvent.Report
 		rep := &capabilitiespb.OCRTriggerReport{}
 		err = proto.Unmarshal(rawReport, rep)
 		if err != nil {
@@ -84,7 +90,7 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 			continue
 		}
 
-		if err2 := a.validateSignatures(triggerResp.Event.OCREvent); err2 != nil {
+		if err2 := a.validateSignatures(ocrEvent); err2 != nil {
 			a.lggr.Errorw("invalid signatures", "err", err2)
 			continue
 		}
@@ -95,7 +101,6 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 			continue
 		}
 		triggerResp.Event.Outputs = outputsMap
-		triggerResp.Event.OCREvent = nil
 		return triggerResp, nil
 	}
 	return capabilities.TriggerResponse{}, fmt.Errorf("%w: %s", ErrMissingResponse, triggerEventID)

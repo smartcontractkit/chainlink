@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 )
 
 type StaticLinkTokenView struct {
@@ -27,7 +30,7 @@ func GenerateStaticLinkTokenView(lt *link_token_interface.LinkToken) (StaticLink
 	}
 	return StaticLinkTokenView{
 		ContractMetaData: types.ContractMetaData{
-			TypeAndVersion: deployment.TypeAndVersion{
+			TypeAndVersion: cldf.TypeAndVersion{
 				Type:    commontypes.StaticLinkToken,
 				Version: deployment.Version1_0_0,
 			}.String(),

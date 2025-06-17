@@ -18,11 +18,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	types3 "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/jmoiron/sqlx"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"k8s.io/utils/ptr"
+
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -34,20 +35,20 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/client"
-	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	evmUtils "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	evmUtils "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
+	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	price_registry_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/price_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -172,8 +173,10 @@ func (node *Node) FindJobIDForContract(t *testing.T, addr common.Address) int32 
 }
 
 func (node *Node) EventuallyNodeUsesUpdatedPriceRegistry(t *testing.T, ccipContracts CCIPIntegrationTestHarness) logpoller.Log {
-	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
+	cs, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
+	c, ok := cs.(legacyevm.Chain)
+	require.True(t, ok)
 	var log logpoller.Log
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		ccipContracts.Source.Chain.Commit()
@@ -194,8 +197,10 @@ func (node *Node) EventuallyNodeUsesUpdatedPriceRegistry(t *testing.T, ccipContr
 }
 
 func (node *Node) EventuallyNodeUsesNewCommitConfig(t *testing.T, ccipContracts CCIPIntegrationTestHarness, commitCfg ccipdata.CommitOnchainConfig) logpoller.Log {
-	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
+	cs, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
+	c, ok := cs.(legacyevm.Chain)
+	require.True(t, ok)
 	var log logpoller.Log
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		ccipContracts.Source.Chain.Commit()
@@ -219,8 +224,10 @@ func (node *Node) EventuallyNodeUsesNewCommitConfig(t *testing.T, ccipContracts 
 }
 
 func (node *Node) EventuallyNodeUsesNewExecConfig(t *testing.T, ccipContracts CCIPIntegrationTestHarness, execCfg v1_5_0.ExecOnchainConfig) logpoller.Log {
-	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
+	cs, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
+	c, ok := cs.(legacyevm.Chain)
+	require.True(t, ok)
 	var log logpoller.Log
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		ccipContracts.Source.Chain.Commit()
@@ -244,8 +251,10 @@ func (node *Node) EventuallyNodeUsesNewExecConfig(t *testing.T, ccipContracts CC
 }
 
 func (node *Node) EventuallyHasReqSeqNum(t *testing.T, ccipContracts *CCIPIntegrationTestHarness, onRamp common.Address, seqNum int) logpoller.Log {
-	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Source.ChainID, 10))
+	cs, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Source.ChainID, 10))
 	require.NoError(t, err)
+	c, ok := cs.(legacyevm.Chain)
+	require.True(t, ok)
 	var log logpoller.Log
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		ccipContracts.Source.Chain.Commit()
@@ -271,8 +280,10 @@ func (node *Node) EventuallyHasReqSeqNum(t *testing.T, ccipContracts *CCIPIntegr
 }
 
 func (node *Node) EventuallyHasExecutedSeqNums(t *testing.T, ccipContracts *CCIPIntegrationTestHarness, offRamp common.Address, minSeqNum int, maxSeqNum int) []logpoller.Log {
-	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
+	cs, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
+	c, ok := cs.(legacyevm.Chain)
+	require.True(t, ok)
 	var logs []logpoller.Log
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		ccipContracts.Source.Chain.Commit()
@@ -299,8 +310,10 @@ func (node *Node) EventuallyHasExecutedSeqNums(t *testing.T, ccipContracts *CCIP
 }
 
 func (node *Node) ConsistentlySeqNumHasNotBeenExecuted(t *testing.T, ccipContracts *CCIPIntegrationTestHarness, offRamp common.Address, seqNum int) logpoller.Log {
-	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
+	cs, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
+	c, ok := cs.(legacyevm.Chain)
+	require.True(t, ok)
 	var log logpoller.Log
 	gomega.NewGomegaWithT(t).Consistently(func() bool {
 		ccipContracts.Source.Chain.Commit()
@@ -337,7 +350,7 @@ func (node *Node) AddJob(t *testing.T, spec *OCR2TaskJobSpec) {
 		nil,
 	)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(tests.Context(t), &ccipJob)
+	err = node.App.AddJobV2(t.Context(), &ccipJob)
 	require.NoError(t, err)
 }
 
@@ -346,7 +359,7 @@ func (node *Node) AddBootstrapJob(t *testing.T, spec *OCR2TaskJobSpec) {
 	require.NoError(t, err)
 	ccipJob, err := ocrbootstrap.ValidatedBootstrapSpecToml(specString)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(tests.Context(t), &ccipJob)
+	err = node.App.AddJobV2(t.Context(), &ccipJob)
 	require.NoError(t, err)
 }
 
@@ -478,13 +491,13 @@ func setupNodeCCIP(
 	lggr.Debug(fmt.Sprintf("Transmitter address %s chainID %s", transmitter, s.EVMChainID.String()))
 
 	// Fund the commitTransmitter address with some ETH
-	n, err := destChain.Client().NonceAt(tests.Context(t), owner.From, nil)
+	n, err := destChain.Client().NonceAt(t.Context(), owner.From, nil)
 	require.NoError(t, err)
 
 	tx := types3.NewTransaction(n, transmitter, big.NewInt(1000000000000000000), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
-	err = destChain.Client().SendTransaction(tests.Context(t), signedTx)
+	err = destChain.Client().SendTransaction(t.Context(), signedTx)
 	require.NoError(t, err)
 	destChain.Commit()
 
@@ -963,11 +976,10 @@ func (c *CCIPIntegrationTestHarness) SetupAndStartNodes(ctx context.Context, t *
 	return bootstrapNode, nodes, uint64(configBlock)
 }
 
+// setup Jobs
 func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeline string, priceGetterConfig string, usdcAttestationAPI string) CCIPJobSpecParams {
-	// setup Jobs
-	ctx := tests.Context(t)
 	// Starts nodes and configures them in the OCR contracts.
-	bootstrapNode, _, configBlock := c.SetupAndStartNodes(ctx, t, int64(freeport.GetOne(t)))
+	bootstrapNode, _, configBlock := c.SetupAndStartNodes(t.Context(), t, int64(freeport.GetOne(t)))
 
 	jobParams := c.NewCCIPJobSpecParams(pricePipeline, priceGetterConfig, configBlock, usdcAttestationAPI)
 
@@ -976,10 +988,12 @@ func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeli
 	c.AddAllJobs(t, jobParams)
 
 	// Replay for bootstrap.
-	bc, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(c.Dest.ChainID, 10))
+	bs, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(c.Dest.ChainID, 10))
 	require.NoError(t, err)
 	require.LessOrEqual(t, configBlock, uint64(math.MaxInt64))
-	require.NoError(t, bc.LogPoller().Replay(ctx, int64(configBlock))) //nolint:gosec // G115 false positive
+	bc, ok := bs.(legacyevm.Chain)
+	require.True(t, ok)
+	require.NoError(t, bc.LogPoller().Replay(t.Context(), int64(configBlock))) //nolint:gosec // G115 false positive
 	c.Dest.Chain.Commit()
 
 	return jobParams

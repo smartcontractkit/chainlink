@@ -10,13 +10,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -70,7 +71,7 @@ func Test_EVMForwardersController_Track(t *testing.T) {
 
 	assert.Equal(t, resource.Address, address)
 
-	require.Len(t, controller.app.GetRelayers().LegacyEVMChains().Slice(), 1)
+	require.Len(t, controller.app.GetRelayers().List(chainlink.FilterRelayersByType(relay.NetworkEVM)).Slice(), 1)
 
 	resp, cleanup = controller.client.Delete("/v2/nodes/evm/forwarders/" + resource.ID)
 	t.Cleanup(cleanup)

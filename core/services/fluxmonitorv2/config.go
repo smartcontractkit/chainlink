@@ -5,7 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-integrations/evm/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 )
 
 // Config defines the Flux Monitor configuration.

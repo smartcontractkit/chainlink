@@ -5,13 +5,26 @@ import (
 
 	"github.com/pkg/errors"
 
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-
 	libjobs "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
+
+// Deprecated: use capabilities.readcontract.ReadContractJobSpecFactoryFn and capabilities.logevent.LogEventTriggerJobSpecFactoryFn instead
+var ChainReaderJobSpecFactoryFn = func(chainID int, networkFamily, logEventTriggerBinaryPath, readContractBinaryPath string) types.JobSpecFactoryFn {
+	return func(input *types.JobSpecFactoryInput) (types.DonsToJobSpecs, error) {
+		return GenerateJobSpecs(input.DonTopology, chainID, networkFamily, logEventTriggerBinaryPath, readContractBinaryPath)
+	}
+}
+
+var LogEventTriggerJobName = func(chainID int) string {
+	return fmt.Sprintf("log-event-trigger-%d", chainID)
+}
+
+var ReadContractJobName = func(chainID int) string {
+	return fmt.Sprintf("read-contract-%d", chainID)
+}
 
 func GenerateJobSpecs(donTopology *types.DonTopology, chainID int, networkFamily, logEventTriggerBinaryPath, readContractBinaryPath string) (types.DonsToJobSpecs, error) {
 	if donTopology == nil {
@@ -36,18 +49,13 @@ func GenerateJobSpecs(donTopology *types.DonTopology, chainID int, networkFamily
 					return nil, errors.New("log event trigger binary path is empty")
 				}
 
-				jobSpec := libjobs.WorkerStandardCapability(nodeID, fmt.Sprintf("log-event-trigger-capability-%d", chainID), logEventTriggerBinaryPath, fmt.Sprintf(`'{"chainId":"%d","network":"%s","lookbackBlocks":1000,"pollPeriod":1000}'`, chainID, networkFamily))
-				jobDesc := types.JobDescription{Flag: types.LogTriggerCapability, NodeType: types.WorkerNode}
+				jobSpec := libjobs.WorkerStandardCapability(nodeID, LogEventTriggerJobName(chainID), logEventTriggerBinaryPath, fmt.Sprintf(`'{"chainId":"%d","network":"%s","lookbackBlocks":1000,"pollPeriod":1000}'`, chainID, networkFamily))
 
 				if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
-					donToJobSpecs[donWithMetadata.ID] = make(map[types.JobDescription][]*jobv1.ProposeJobRequest)
+					donToJobSpecs[donWithMetadata.ID] = make(types.DonJobs, 0)
 				}
 
-				if _, ok := donToJobSpecs[donWithMetadata.ID][jobDesc]; !ok {
-					donToJobSpecs[donWithMetadata.ID][jobDesc] = []*jobv1.ProposeJobRequest{jobSpec}
-				} else {
-					donToJobSpecs[donWithMetadata.ID][jobDesc] = append(donToJobSpecs[donWithMetadata.ID][jobDesc], jobSpec)
-				}
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobSpec)
 			}
 
 			if flags.HasFlag(donWithMetadata.Flags, types.ReadContractCapability) {
@@ -55,18 +63,13 @@ func GenerateJobSpecs(donTopology *types.DonTopology, chainID int, networkFamily
 					return nil, errors.New("read contract binary path is empty")
 				}
 
-				jobSpec := libjobs.WorkerStandardCapability(nodeID, fmt.Sprintf("read-contract-capability-%d", chainID), readContractBinaryPath, fmt.Sprintf(`'{"chainId":%d,"network":"%s"}'`, chainID, networkFamily))
-				jobDesc := types.JobDescription{Flag: types.LogTriggerCapability, NodeType: types.WorkerNode}
+				jobSpec := libjobs.WorkerStandardCapability(nodeID, ReadContractJobName(chainID), readContractBinaryPath, fmt.Sprintf(`'{"chainId":%d,"network":"%s"}'`, chainID, networkFamily))
 
 				if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
-					donToJobSpecs[donWithMetadata.ID] = make(map[types.JobDescription][]*jobv1.ProposeJobRequest)
+					donToJobSpecs[donWithMetadata.ID] = make(types.DonJobs, 0)
 				}
 
-				if _, ok := donToJobSpecs[donWithMetadata.ID][jobDesc]; !ok {
-					donToJobSpecs[donWithMetadata.ID][jobDesc] = []*jobv1.ProposeJobRequest{jobSpec}
-				} else {
-					donToJobSpecs[donWithMetadata.ID][jobDesc] = append(donToJobSpecs[donWithMetadata.ID][jobDesc], jobSpec)
-				}
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobSpec)
 			}
 		}
 	}

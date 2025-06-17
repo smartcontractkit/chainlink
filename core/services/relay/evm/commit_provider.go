@@ -15,11 +15,11 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/client"
-	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
 )
@@ -68,7 +68,7 @@ type DstCommitProvider struct {
 	startBlock          uint64
 	client              client.Client
 	lp                  logpoller.LogPoller
-	contractTransmitter *contractTransmitter
+	contractTransmitter ContractTransmitter
 	configWatcher       *configWatcher
 	gasEstimator        gas.EvmFeeEstimator
 	maxGasPrice         big.Int
@@ -87,7 +87,7 @@ func NewDstCommitProvider(
 	lp logpoller.LogPoller,
 	gasEstimator gas.EvmFeeEstimator,
 	maxGasPrice big.Int,
-	contractTransmitter contractTransmitter,
+	contractTransmitter ContractTransmitter,
 	configWatcher *configWatcher,
 	feeEstimatorConfig estimatorconfig.FeeEstimatorConfigProvider,
 ) commontypes.CCIPCommitProvider {
@@ -97,7 +97,7 @@ func NewDstCommitProvider(
 		startBlock:          startBlock,
 		client:              client,
 		lp:                  lp,
-		contractTransmitter: &contractTransmitter,
+		contractTransmitter: contractTransmitter,
 		configWatcher:       configWatcher,
 		gasEstimator:        gasEstimator,
 		maxGasPrice:         maxGasPrice,
@@ -196,6 +196,7 @@ func (p *DstCommitProvider) Close() error {
 			multiErr = multierr.Append(multiErr, err)
 		}
 	}
+
 	return multiErr
 }
 

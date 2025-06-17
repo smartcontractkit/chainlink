@@ -66,9 +66,9 @@ contract ZKSyncValidator is BaseValidator {
   /// @dev A message is sent using the Bridgehub. This method is accessed controlled.
   /// @param currentAnswer new aggregator answer - value of 1 considers the sequencer offline.
   function validate(
-    uint256 /* previousRoundId */,
-    int256 /* previousAnswer */,
-    uint256 /* currentRoundId */,
+    uint256 previousRoundId,
+    int256 previousAnswer,
+    uint256 currentRoundId,
     int256 currentAnswer
   ) external override checkAccess returns (bool) {
     IBridgehub bridgeHub = IBridgehub(L1_CROSS_DOMAIN_MESSENGER_ADDRESS);
@@ -98,6 +98,8 @@ contract ZKSyncValidator is BaseValidator {
 
     // Make the xDomain call
     bridgeHub.requestL2TransactionDirect{value: transactionBaseCostEstimate}(l2TransactionRequestDirect);
+
+    emit BaseValidator.ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
 
     return true;
   }

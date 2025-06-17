@@ -13,7 +13,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmslib "github.com/smartcontractkit/mcms"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 const Indent = "    "
@@ -53,7 +53,7 @@ func ContextGet[T any](ctx *ArgumentContext, key string) (T, error) {
 	return ctxElem, nil
 }
 
-func NewArgumentContext(addresses deployment.AddressesByChain) *ArgumentContext {
+func NewArgumentContext(addresses cldf.AddressesByChain) *ArgumentContext {
 	return &ArgumentContext{
 		Ctx: map[string]interface{}{
 			"AddressesByChain": addresses,
@@ -164,12 +164,12 @@ func (a BytesArgument) Describe(_ *ArgumentContext) string {
 }
 
 type AddressArgument struct {
-	Value common.Address
+	Value string
 }
 
 func (a AddressArgument) Describe(ctx *ArgumentContext) string {
-	description := a.Value.Hex() + " (address of <type unknown> from <chain unknown>)"
-	addresses, err := ContextGet[deployment.AddressesByChain](ctx, "AddressesByChain")
+	description := a.Value + " (address of <type unknown> from <chain unknown>)"
+	addresses, err := ContextGet[cldf.AddressesByChain](ctx, "AddressesByChain")
 	if err != nil {
 		return description
 	}
@@ -178,9 +178,9 @@ func (a AddressArgument) Describe(ctx *ArgumentContext) string {
 		if err != nil || chainName == "" {
 			chainName = strconv.FormatUint(chainSel, 10)
 		}
-		typeAndVersion, ok := addresses[a.Value.Hex()]
+		typeAndVersion, ok := addresses[a.Value]
 		if ok {
-			return fmt.Sprintf("%s (address of %s from %s)", a.Value.Hex(), typeAndVersion.String(), chainName)
+			return fmt.Sprintf("%s (address of %s from %s)", a.Value, typeAndVersion.String(), chainName)
 		}
 	}
 	return description
@@ -195,7 +195,7 @@ type DecodedCall struct {
 
 func (d *DecodedCall) Describe(context *ArgumentContext) string {
 	description := strings.Builder{}
-	description.WriteString(fmt.Sprintf("Address: %s\n", AddressArgument{Value: common.HexToAddress(d.Address)}.Describe(context)))
+	description.WriteString(fmt.Sprintf("Address: %s\n", AddressArgument{Value: d.Address}.Describe(context)))
 	description.WriteString(fmt.Sprintf("Method: %s\n", d.Method))
 	describedInputs := d.describeArguments(d.Inputs, context)
 	if len(describedInputs) > 0 {
@@ -211,8 +211,11 @@ func (d *DecodedCall) Describe(context *ArgumentContext) string {
 func (d *DecodedCall) describeArguments(arguments []NamedArgument, context *ArgumentContext) string {
 	description := strings.Builder{}
 	for _, argument := range arguments {
-		description.WriteString(argument.Describe(context))
-		description.WriteRune('\n')
+		describedContent := argument.Describe(context)
+		description.WriteString(describedContent)
+		if describedContent[len(describedContent)-1] != '\n' {
+			description.WriteRune('\n')
+		}
 	}
 	return description.String()
 }
@@ -230,6 +233,9 @@ func NewTxCallDecoder(extraAnalyzers []Analyzer) *TxCallDecoder {
 }
 
 func (p *TxCallDecoder) Analyze(address string, abi *abi.ABI, data []byte) (*DecodedCall, error) {
+	if len(data) < 4 {
+		return nil, fmt.Errorf("data with value %s is too short", hexutil.Encode(data))
+	}
 	methodID, methodData := data[:4], data[4:]
 	method, err := abi.MethodById(methodID)
 	if err != nil {
@@ -338,11 +344,11 @@ func BytesAndAddressAnalyzer(_ string, argAbi *abi.Type, argVal interface{}, _ [
 	if argAbi.T == abi.FixedBytesTy || argAbi.T == abi.BytesTy || argAbi.T == abi.AddressTy {
 		argArrTyp := reflect.ValueOf(argVal)
 		argArr := make([]byte, argArrTyp.Len())
-		for i := 0; i < argArrTyp.Len(); i++ {
+		for i := range argArrTyp.Len() {
 			argArr[i] = byte(argArrTyp.Index(i).Uint())
 		}
 		if argAbi.T == abi.AddressTy {
-			return AddressArgument{Value: common.BytesToAddress(argArr)}
+			return AddressArgument{Value: common.BytesToAddress(argArr).Hex()}
 		}
 		return BytesArgument{Value: argArr}
 	}

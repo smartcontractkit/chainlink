@@ -12,24 +12,27 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/gethwrappers/link_token_interface"
 	"github.com/stretchr/testify/require"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/libocr/gethwrappers/link_token_interface"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/client"
-	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic1_3"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/operatorforwarder/generated/authorized_forwarder"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/basic_upkeep_contract"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_logic1_3"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_1"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_3"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -150,6 +153,8 @@ func getUpkeepIDFromTx(t *testing.T, registryWrapper *keeper.RegistryWrapper, re
 }
 
 func TestKeeperEthIntegration(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-400")
+
 	t.Parallel()
 	tests := []struct {
 		name            string
@@ -419,7 +424,9 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		_, err = forwarderORM.CreateForwarder(ctx, fwdrAddress, chainID)
 		require.NoError(t, err)
 
-		addr, err := app.GetRelayers().LegacyEVMChains().Slice()[0].TxManager().GetForwarderForEOA(ctx, nodeAddress)
+		chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain)
+		require.True(t, ok)
+		addr, err := chain.TxManager().GetForwarderForEOA(ctx, nodeAddress)
 		require.NoError(t, err)
 		require.Equal(t, addr, fwdrAddress)
 

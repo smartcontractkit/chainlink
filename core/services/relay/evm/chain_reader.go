@@ -8,7 +8,6 @@ import (
 	"maps"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -21,8 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read"
@@ -172,12 +171,9 @@ func (cr *chainReader) Start(ctx context.Context) error {
 	})
 }
 
-// Close unregisters polling filters for bound contracts.
 func (cr *chainReader) Close() error {
 	return cr.StopOnce("ChainReader", func() error {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		return cr.bindings.UnregisterAll(ctx, cr.lp)
+		return nil
 	})
 }
 

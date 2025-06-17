@@ -3,7 +3,6 @@ package workflowkey
 import (
 	cryptorand "crypto/rand"
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -19,7 +18,7 @@ func TestNew(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NotNil(t, key.PublicKey)
-	assert.NotNil(t, key.privateKey)
+	assert.NotNil(t, key.raw)
 }
 
 func TestPublicKey(t *testing.T) {
@@ -38,14 +37,12 @@ func TestEncryptKeyFromRawPrivateKey(t *testing.T) {
 	key := KeyFor(internal.NewRaw(privKey))
 
 	assert.Equal(t, boxPubKey, key.publicKey)
-	assert.Equal(t, boxPrivKey, key.privateKey)
-	assert.Equal(t, key.String(), key.GoString())
+	assert.Equal(t, boxPrivKey[:], internal.Bytes(key.raw))
 
 	byteBoxPubKey := make([]byte, 32)
 	copy(byteBoxPubKey, boxPubKey[:])
 
 	assert.Equal(t, hex.EncodeToString(byteBoxPubKey), key.PublicKeyString())
-	assert.Equal(t, fmt.Sprintf("WorkflowKey{PrivateKey: <redacted>, PublicKey: %s}", byteBoxPubKey), key.String())
 }
 
 func TestPublicKeyStringAndID(t *testing.T) {
@@ -106,7 +103,7 @@ func TestMustNewXXXTestingOnly(t *testing.T) {
 			}
 
 			key := MustNewXXXTestingOnly(tt.k)
-			require.NotNil(t, key.privateKey)
+			require.NotNil(t, key.raw)
 			require.NotNil(t, key.publicKey)
 
 			// Verify key generation is deterministic

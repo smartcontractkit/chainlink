@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 func provisionCapabillitiesRegistry(env helpers.Environment, nodeSets NodeSets, chainID int64, artefactsDir string) kcr.CapabilitiesRegistryInterface {

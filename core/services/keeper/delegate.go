@@ -2,12 +2,14 @@ package keeper
 
 import (
 	"context"
+	stderrors "errors"
+	"fmt"
 
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -67,9 +69,13 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	if spec.KeeperSpec == nil {
 		return nil, errors.Errorf("Delegate expects a *job.KeeperSpec to be present, got %v", spec)
 	}
-	chain, err := d.legacyChains.Get(spec.KeeperSpec.EVMChainID.String())
+	chainService, err := d.legacyChains.Get(spec.KeeperSpec.EVMChainID.String())
 	if err != nil {
 		return nil, err
+	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		return nil, fmt.Errorf("keeper is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 	}
 	registryAddress := spec.KeeperSpec.ContractAddress
 	orm := NewORM(d.ds, d.logger)

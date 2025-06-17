@@ -6,23 +6,24 @@ import (
 
 	mcmslib "github.com/smartcontractkit/mcms"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
 // UpdateDataIDProxyChangeset is a changeset that updates the proxy-dataId mapping on DataFeedsCache contract.
 // This changeset may return a timelock proposal if the MCMS config is provided, otherwise it will execute the transaction with the deployer key.
-var UpdateDataIDProxyChangeset = deployment.CreateChangeSet(updateDataIDProxyLogic, updateDataIDProxyPrecondition)
+var UpdateDataIDProxyChangeset = cldf.CreateChangeSet(updateDataIDProxyLogic, updateDataIDProxyPrecondition)
 
-func updateDataIDProxyLogic(env deployment.Environment, c types.UpdateDataIDProxyConfig) (deployment.ChangesetOutput, error) {
+func updateDataIDProxyLogic(env cldf.Environment, c types.UpdateDataIDProxyConfig) (cldf.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)
-	chain := env.Chains[c.ChainSelector]
+	chain := env.BlockChains.EVMChains()[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
 	contract := chainState.DataFeedsCache[c.CacheAddress]
 
 	txOpt := chain.DeployerKey
 	if c.McmsConfig != nil {
-		txOpt = deployment.SimTransactOpts()
+		txOpt = cldf.SimTransactOpts()
 	}
 
 	dataIDs, _ := FeedIDsToBytes16(c.DataIDs)
@@ -40,20 +41,20 @@ func updateDataIDProxyLogic(env deployment.Environment, c types.UpdateDataIDProx
 
 		proposal, err := BuildMultiChainProposals(env, "proposal to update proxy-dataId mapping on a cache", proposals, c.McmsConfig.MinDelay)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+		return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 	}
 
-	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
+	if _, err := cldf.ConfirmIfNoError(chain, tx, err); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{}, nil
 }
 
-func updateDataIDProxyPrecondition(env deployment.Environment, c types.UpdateDataIDProxyConfig) error {
-	_, ok := env.Chains[c.ChainSelector]
+func updateDataIDProxyPrecondition(env cldf.Environment, c types.UpdateDataIDProxyConfig) error {
+	_, ok := env.BlockChains.EVMChains()[c.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}

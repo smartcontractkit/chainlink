@@ -11,12 +11,12 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
-	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )

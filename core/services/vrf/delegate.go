@@ -3,6 +3,7 @@ package vrf
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"time"
 
@@ -14,15 +15,15 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2_5"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_owner"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/log"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -92,9 +93,13 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	if err != nil {
 		return nil, err
 	}
-	chain, err := d.legacyChains.Get(jb.VRFSpec.EVMChainID.String())
+	chainService, err := d.legacyChains.Get(jb.VRFSpec.EVMChainID.String())
 	if err != nil {
 		return nil, err
+	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		return nil, fmt.Errorf("vrf is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 	}
 	coordinator, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
 	if err != nil {

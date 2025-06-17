@@ -1659,6 +1659,26 @@ contract DataFeedsCacheTest is BaseTest {
     string memory description = s_dataFeedsCache.getDescription(dataIds[0]);
     assertEq(description, s_descriptions[0]);
   }
+
+  function test_feedCanBeWrittenToByMultipleWorkflows() public {
+    bytes16[] memory dataIds = new bytes16[](1);
+    dataIds[0] = bytes16(DATAID1);
+    string[] memory _descriptions = new string[](1);
+    _descriptions[0] = s_descriptions[0];
+
+    DataFeedsCache.WorkflowMetadata[] memory workflowMetadata = new DataFeedsCache.WorkflowMetadata[](2);
+    workflowMetadata[0] = s_workflowMetadata1;
+    workflowMetadata[1] = s_workflowMetadata2;
+
+    // Check that multiple Workflows can be permitted to write to a Data ID.
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, workflowMetadata);
+
+    bool permitted1 = s_dataFeedsCache.checkFeedPermission(dataIds[0], s_workflowMetadata1);
+    assertEq(permitted1, true);
+
+    bool permitted2 = s_dataFeedsCache.checkFeedPermission(dataIds[0], s_workflowMetadata2);
+    assertEq(permitted2, true);
+  }
 }
 
 contract DataFeedsCacheHarness is DataFeedsCache {

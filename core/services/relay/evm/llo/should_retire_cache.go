@@ -11,7 +11,7 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"

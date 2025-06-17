@@ -6,16 +6,19 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -31,7 +34,7 @@ func TestDeployOCR3(t *testing.T) {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	registrySel := env.AllChainSelectors()[0]
+	registrySel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
 	resp, err := changeset.DeployOCR3(env, registrySel)
 	require.NoError(t, err)
@@ -42,8 +45,8 @@ func TestDeployOCR3(t *testing.T) {
 	require.Len(t, addrs, 1)
 
 	// nothing on chain 1
-	require.NotEqual(t, registrySel, env.AllChainSelectors()[1])
-	oaddrs, _ := resp.AddressBook.AddressesForChain(env.AllChainSelectors()[1])
+	require.NotEqual(t, registrySel, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1])
+	oaddrs, _ := resp.AddressBook.AddressesForChain(env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1])
 	assert.Empty(t, oaddrs)
 }
 
@@ -93,7 +96,7 @@ func TestConfigureOCR3(t *testing.T) {
 			NumChains:       1,
 		})
 
-		registrySel := te.Env.AllChainSelectors()[0]
+		registrySel := te.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
 		existingContracts, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
 		require.NoError(t, err)
@@ -158,7 +161,7 @@ func TestConfigureOCR3(t *testing.T) {
 			NumChains:       1,
 		})
 
-		registrySel := te.Env.AllChainSelectors()[0]
+		registrySel := te.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
 		existingContracts, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
 		require.NoError(t, err)
@@ -198,17 +201,21 @@ func TestConfigureOCR3(t *testing.T) {
 			NumChains:       1,
 		})
 
-		registrySel := te.Env.AllChainSelectors()[0]
+		registrySel := te.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
 		existingContracts, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
 		require.NoError(t, err)
 		require.Len(t, existingContracts, 4)
 
 		// Deploy a new OCR3 contract
-		resp, err := changeset.DeployOCR3(te.Env, registrySel)
+		resp, err := changeset.DeployOCR3V2(te.Env, &changeset.DeployRequestV2{
+			ChainSel:  registrySel,
+			Qualifier: "test-ocr-contract"})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.NoError(t, te.Env.ExistingAddresses.Merge(resp.AddressBook))
+		refs := resp.DataStore.Addresses().Filter(datastore.AddressRefByQualifier("test-ocr-contract"))
+		require.Len(t, refs, 1)
 
 		// Verify after merge there are original contracts plus one new one
 		addrs, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
@@ -243,12 +250,28 @@ func TestConfigureOCR3(t *testing.T) {
 
 		wfNodes := te.GetP2PIDs("wfDon").Strings()
 
+		registrySel := te.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+		// Verify after merge there are three original contracts plus one new one
+		addrs, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
+		require.NoError(t, err)
+
+		// Find new OCR3 contract
+		var existingOCR3Addr string
+		for addr, tv := range addrs {
+			if tv.Type == internal.OCR3Capability {
+				existingOCR3Addr = addr
+				break
+			}
+		}
+
 		w := &bytes.Buffer{}
+		addr := common.HexToAddress(existingOCR3Addr)
 		cfg := changeset.ConfigureOCR3Config{
 			ChainSel:             te.RegistrySelector,
 			NodeIDs:              wfNodes,
 			OCR3Config:           &c,
 			WriteGeneratedConfig: w,
+			Address:              &addr,
 			MCMSConfig:           &changeset.MCMSConfig{MinDuration: 0},
 		}
 
@@ -262,24 +285,11 @@ func TestConfigureOCR3(t *testing.T) {
 		assert.NotNil(t, csOut.MCMSTimelockProposals)
 		t.Logf("got: %v", csOut.MCMSTimelockProposals[0])
 
-		contracts := te.ContractSets()[te.RegistrySelector]
-		require.NoError(t, err)
-		var timelockContracts = map[uint64]*proposalutils.TimelockExecutionContracts{
-			te.RegistrySelector: {
-				Timelock:  contracts.Timelock,
-				CallProxy: contracts.CallProxy,
-			},
-		}
-
 		// now apply the changeset such that the proposal is signed and execed
 		w2 := &bytes.Buffer{}
 		cfg.WriteGeneratedConfig = w2
-		_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
-			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(changeset.ConfigureOCR3Contract),
-				cfg,
-			),
-		)
+
+		err = applyProposal(t, te, commonchangeset.Configure(cldf.CreateLegacyChangeSet(changeset.ConfigureOCR3Contract), cfg))
 		require.NoError(t, err)
 	})
 }

@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 )
 
@@ -58,6 +59,7 @@ type TransmitterOpts struct {
 	MercuryTransmitterOpts *mercurytransmitter.Opts
 	Subtransmitters        []config.TransmitterConfig
 	RetirementReportCache  TransmitterRetirementReportCacheWriter
+	CapabilitiesRegistry   coretypes.CapabilitiesRegistry
 }
 
 // The transmitter will handle starting and stopping the subtransmitters
@@ -79,7 +81,7 @@ func NewTransmitter(opts TransmitterOpts) (Transmitter, error) {
 				return nil, fmt.Errorf("failed to unmarshal CRE transmitter config: %w", err)
 			}
 			creTransmitterCfg.Logger = opts.Lggr
-			creTransmitterCfg.CapabilitiesRegistry = opts.MercuryTransmitterOpts.CapabilitiesRegistry
+			creTransmitterCfg.CapabilitiesRegistry = opts.CapabilitiesRegistry
 			creTransmitterCfg.DonID = opts.DonID
 			creTransmitter, err := creTransmitterCfg.NewTransmitter()
 			if err != nil {

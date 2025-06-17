@@ -60,6 +60,10 @@ func (m *mockOpts) ObservationTimestamp() time.Time {
 	return time.Unix(1737936858, 0)
 }
 
+func (m *mockOpts) OutcomeCodec() llo.OutcomeCodec {
+	return nil
+}
+
 const bridgeResponse = `{
 			"meta":{
 				"adapterName":"data-source-name"

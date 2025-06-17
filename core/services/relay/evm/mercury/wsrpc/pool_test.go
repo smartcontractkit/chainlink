@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
@@ -70,7 +70,7 @@ func Test_Pool(t *testing.T) {
 				return client
 			}
 
-			c, err := p.Checkout(ctx, clientPrivKey.PublicKeyString(), clientPrivKey.Signer(), serverPubKey, serverURL)
+			c, err := p.Checkout(ctx, clientPrivKey.PublicKeyString(), clientPrivKey, serverPubKey, serverURL)
 			require.NoError(t, err)
 
 			assert.True(t, client.started)
@@ -259,7 +259,7 @@ func Test_Pool(t *testing.T) {
 }
 
 func mustCheckout(t *testing.T, p *pool, csaKey csakey.KeyV2, serverPubKey []byte, serverURL string) Client {
-	c, err := p.Checkout(testutils.Context(t), csaKey.PublicKeyString(), csaKey.Signer(), serverPubKey, serverURL)
+	c, err := p.Checkout(testutils.Context(t), csaKey.PublicKeyString(), csaKey, serverPubKey, serverURL)
 	require.NoError(t, err)
 	return c
 }

@@ -2,10 +2,15 @@ package ocrcommon
 
 import (
 	"context"
+	"crypto"
+	"crypto/rand"
 	"io"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+
+	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	"github.com/smartcontractkit/libocr/networking/rageping"
 
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
@@ -126,10 +131,14 @@ func (p *SingletonPeerWrapper) peerConfig() (ocrnetworking.PeerConfig, error) {
 
 	discovererDB := NewOCRDiscovererDatabase(p.ds, p.PeerID.Raw())
 
+	peerKeyring, err := NewSignerPeerKeyring(key)
+	if err != nil {
+		return ocrnetworking.PeerConfig{}, err
+	}
 	config := p.p2pCfg
 	peerConfig := ocrnetworking.PeerConfig{
-		PrivKey: key.PrivKey,
-		Logger:  commonlogger.NewOCRWrapper(p.lggr, p.ocrCfg.TraceLogging(), func(string) {}),
+		PeerKeyring: peerKeyring,
+		Logger:      commonlogger.NewOCRWrapper(p.lggr, p.ocrCfg.TraceLogging(), func(string) {}),
 
 		// V2 config
 		V2ListenAddresses:    config.V2().ListenAddresses(),
@@ -169,4 +178,25 @@ func (p *SingletonPeerWrapper) HealthReport() map[string]error {
 
 func (p *SingletonPeerWrapper) P2PConfig() config.P2P {
 	return p.p2pCfg
+}
+
+type signerPeerKeyring struct {
+	signer        crypto.Signer
+	peerPublicKey ragetypes.PeerPublicKey
+}
+
+func NewSignerPeerKeyring(signer crypto.Signer) (ragetypes.PeerKeyring, error) {
+	peerPublicKey, err := ragetypes.PeerPublicKeyFromGenericPublicKey(signer.Public())
+	if err != nil {
+		return nil, err
+	}
+	return &signerPeerKeyring{signer, peerPublicKey}, nil
+}
+
+func (s *signerPeerKeyring) PublicKey() ragetypes.PeerPublicKey {
+	return s.peerPublicKey
+}
+
+func (s *signerPeerKeyring) Sign(msg []byte) (signature []byte, err error) {
+	return s.signer.Sign(rand.Reader, msg, crypto.Hash(0))
 }

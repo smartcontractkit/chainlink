@@ -7,8 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
@@ -47,7 +45,7 @@ func Test_EVMTokenDataEncoder(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := encoder.EncodeUSDC(tests.Context(t), tc.message, tc.attestation)
+			got, err := encoder.EncodeUSDC(t.Context(), tc.message, tc.attestation)
 			require.NoError(t, err)
 
 			decoded, err := abihelpers.ABIDecode(empty.AbiString(), got)

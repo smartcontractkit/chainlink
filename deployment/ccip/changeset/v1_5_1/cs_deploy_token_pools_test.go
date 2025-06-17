@@ -7,15 +7,23 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -31,7 +39,7 @@ func TestValidateDeployTokenPoolContractsConfig(t *testing.T) {
 
 	tests := []struct {
 		Msg         string
-		TokenSymbol changeset.TokenSymbol
+		TokenSymbol shared.TokenSymbol
 		Input       v1_5_1.DeployTokenPoolContractsConfig
 		ErrStr      string
 	}{
@@ -65,7 +73,7 @@ func TestValidateDeployTokenPoolContractsConfig(t *testing.T) {
 			Input: v1_5_1.DeployTokenPoolContractsConfig{
 				TokenSymbol: "TEST",
 				NewPools: map[uint64]v1_5_1.DeployTokenPoolInput{
-					e.AllChainSelectors()[0]: v1_5_1.DeployTokenPoolInput{},
+					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: v1_5_1.DeployTokenPoolInput{},
 				},
 			},
 			ErrStr: "missing router",
@@ -75,7 +83,7 @@ func TestValidateDeployTokenPoolContractsConfig(t *testing.T) {
 			Input: v1_5_1.DeployTokenPoolContractsConfig{
 				TokenSymbol: "TEST",
 				NewPools: map[uint64]v1_5_1.DeployTokenPoolInput{
-					e.AllChainSelectors()[0]: v1_5_1.DeployTokenPoolInput{},
+					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: v1_5_1.DeployTokenPoolInput{},
 				},
 				IsTestRouter: true,
 			},
@@ -94,13 +102,13 @@ func TestValidateDeployTokenPoolContractsConfig(t *testing.T) {
 func TestValidateDeployTokenPoolInput(t *testing.T) {
 	t.Parallel()
 
-	e, selectorA, _, tokens, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 	acceptLiquidity := false
 	invalidAddress := utils.RandomAddress()
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
 		selectorA: {
-			Type:               changeset.BurnMintTokenPool,
+			Type:               shared.BurnMintTokenPool,
 			TokenAddress:       tokens[selectorA].Address,
 			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
 		},
@@ -108,7 +116,7 @@ func TestValidateDeployTokenPoolInput(t *testing.T) {
 
 	tests := []struct {
 		Msg    string
-		Symbol changeset.TokenSymbol
+		Symbol shared.TokenSymbol
 		Input  v1_5_1.DeployTokenPoolInput
 		ErrStr string
 	}{
@@ -128,14 +136,14 @@ func TestValidateDeployTokenPoolInput(t *testing.T) {
 			Msg: "Token pool type is invalid",
 			Input: v1_5_1.DeployTokenPoolInput{
 				TokenAddress: invalidAddress,
-				Type:         deployment.ContractType("InvalidTokenPool"),
+				Type:         cldf.ContractType("InvalidTokenPool"),
 			},
 			ErrStr: "requested token pool type InvalidTokenPool is unknown",
 		},
 		{
 			Msg: "Token address is invalid",
 			Input: v1_5_1.DeployTokenPoolInput{
-				Type:         changeset.BurnMintTokenPool,
+				Type:         shared.BurnMintTokenPool,
 				TokenAddress: invalidAddress,
 			},
 			ErrStr: fmt.Sprintf("failed to fetch symbol from token with address %s", invalidAddress),
@@ -144,7 +152,7 @@ func TestValidateDeployTokenPoolInput(t *testing.T) {
 			Msg:    "Token symbol mismatch",
 			Symbol: "WRONG",
 			Input: v1_5_1.DeployTokenPoolInput{
-				Type:         changeset.BurnMintTokenPool,
+				Type:         shared.BurnMintTokenPool,
 				TokenAddress: tokens[selectorA].Address,
 			},
 			ErrStr: fmt.Sprintf("symbol of token with address %s (%s) does not match expected symbol (WRONG)", tokens[selectorA].Address, testhelpers.TestTokenSymbol),
@@ -153,7 +161,7 @@ func TestValidateDeployTokenPoolInput(t *testing.T) {
 			Msg:    "Token decimal mismatch",
 			Symbol: testhelpers.TestTokenSymbol,
 			Input: v1_5_1.DeployTokenPoolInput{
-				Type:               changeset.BurnMintTokenPool,
+				Type:               shared.BurnMintTokenPool,
 				TokenAddress:       tokens[selectorA].Address,
 				LocalTokenDecimals: 17,
 			},
@@ -163,17 +171,27 @@ func TestValidateDeployTokenPoolInput(t *testing.T) {
 			Msg:    "Accept liquidity should be defined",
 			Symbol: testhelpers.TestTokenSymbol,
 			Input: v1_5_1.DeployTokenPoolInput{
-				Type:               changeset.LockReleaseTokenPool,
+				Type:               shared.LockReleaseTokenPool,
 				TokenAddress:       tokens[selectorA].Address,
 				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
 			},
 			ErrStr: "accept liquidity must be defined for lock release pools",
 		},
 		{
+			Msg:    "External Minter should be defined",
+			Symbol: testhelpers.TestTokenSymbol,
+			Input: v1_5_1.DeployTokenPoolInput{
+				Type:               shared.BurnMintWithExternalMinterFastTransferTokenPool,
+				TokenAddress:       tokens[selectorA].Address,
+				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+			},
+			ErrStr: "external minter must be defined for burn mint with external minter fast transfer pools",
+		},
+		{
 			Msg:    "Accept liquidity should be omitted",
 			Symbol: testhelpers.TestTokenSymbol,
 			Input: v1_5_1.DeployTokenPoolInput{
-				Type:               changeset.BurnMintTokenPool,
+				Type:               shared.BurnMintTokenPool,
 				TokenAddress:       tokens[selectorA].Address,
 				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
 				AcceptLiquidity:    &acceptLiquidity,
@@ -184,7 +202,7 @@ func TestValidateDeployTokenPoolInput(t *testing.T) {
 			Msg:    "Token pool already exists",
 			Symbol: testhelpers.TestTokenSymbol,
 			Input: v1_5_1.DeployTokenPoolInput{
-				Type:               changeset.BurnMintTokenPool,
+				Type:               shared.BurnMintTokenPool,
 				TokenAddress:       tokens[selectorA].Address,
 				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
 			},
@@ -194,10 +212,10 @@ func TestValidateDeployTokenPoolInput(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			state, err := changeset.LoadOnchainState(e)
+			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
-			err = test.Input.Validate(context.Background(), e.Chains[selectorA], state.Chains[selectorA], test.Symbol)
+			err = test.Input.Validate(context.Background(), e.BlockChains.EVMChains()[selectorA], state.Chains[selectorA], test.Symbol)
 			require.Contains(t, err.Error(), test.ErrStr)
 		})
 	}
@@ -213,18 +231,19 @@ func TestDeployTokenPoolContracts(t *testing.T) {
 	}
 
 	tests := []struct {
-		Msg     string
-		Input   v1_5_1.DeployTokenPoolInput
-		GetPool func(changeset.CCIPChainState) Ownable
+		Msg                 string
+		Input               v1_5_1.DeployTokenPoolInput
+		GetPool             func(evm.CCIPChainState) Ownable
+		SetupExternalMinter bool
 	}{
 		{
 			Msg: "BurnMint",
 			Input: v1_5_1.DeployTokenPoolInput{
-				Type:               changeset.BurnMintTokenPool,
+				Type:               shared.BurnMintTokenPool,
 				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
 				AllowList:          []common.Address{},
 			},
-			GetPool: func(cs changeset.CCIPChainState) Ownable {
+			GetPool: func(cs evm.CCIPChainState) Ownable {
 				tokenPools, ok := cs.BurnMintTokenPools[testhelpers.TestTokenSymbol]
 				require.True(t, ok)
 				require.Len(t, tokenPools, 1)
@@ -234,11 +253,11 @@ func TestDeployTokenPoolContracts(t *testing.T) {
 		{
 			Msg: "BurnWithFromMint",
 			Input: v1_5_1.DeployTokenPoolInput{
-				Type:               changeset.BurnWithFromMintTokenPool,
+				Type:               shared.BurnWithFromMintTokenPool,
 				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
 				AllowList:          []common.Address{},
 			},
-			GetPool: func(cs changeset.CCIPChainState) Ownable {
+			GetPool: func(cs evm.CCIPChainState) Ownable {
 				tokenPools, ok := cs.BurnWithFromMintTokenPools[testhelpers.TestTokenSymbol]
 				require.True(t, ok)
 				require.Len(t, tokenPools, 1)
@@ -248,11 +267,11 @@ func TestDeployTokenPoolContracts(t *testing.T) {
 		{
 			Msg: "BurnFromMint",
 			Input: v1_5_1.DeployTokenPoolInput{
-				Type:               changeset.BurnFromMintTokenPool,
+				Type:               shared.BurnFromMintTokenPool,
 				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
 				AllowList:          []common.Address{},
 			},
-			GetPool: func(cs changeset.CCIPChainState) Ownable {
+			GetPool: func(cs evm.CCIPChainState) Ownable {
 				tokenPools, ok := cs.BurnFromMintTokenPools[testhelpers.TestTokenSymbol]
 				require.True(t, ok)
 				require.Len(t, tokenPools, 1)
@@ -260,14 +279,43 @@ func TestDeployTokenPoolContracts(t *testing.T) {
 			},
 		},
 		{
+			Msg: "BurnMintFastTransfer",
+			Input: v1_5_1.DeployTokenPoolInput{
+				Type:               shared.BurnMintFastTransferTokenPool,
+				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+				AllowList:          []common.Address{},
+			},
+			GetPool: func(cs evm.CCIPChainState) Ownable {
+				tokenPools, ok := cs.BurnMintFastTransferTokenPools[testhelpers.TestTokenSymbol]
+				require.True(t, ok)
+				require.Len(t, tokenPools, 1)
+				return tokenPools[deployment.Version1_6_1Dev]
+			},
+		},
+		{
+			Msg:                 "BurnMintWithExternalMinterFastTransfer",
+			SetupExternalMinter: true,
+			Input: v1_5_1.DeployTokenPoolInput{
+				Type:               shared.BurnMintWithExternalMinterFastTransferTokenPool,
+				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+				AllowList:          []common.Address{},
+			},
+			GetPool: func(cs evm.CCIPChainState) Ownable {
+				tokenPools, ok := cs.BurnMintWithExternalMinterFastTransferTokenPools[testhelpers.TestTokenSymbol]
+				require.True(t, ok)
+				require.Len(t, tokenPools, 1)
+				return tokenPools[deployment.Version1_6_0]
+			},
+		},
+		{
 			Msg: "LockRelease",
 			Input: v1_5_1.DeployTokenPoolInput{
-				Type:               changeset.LockReleaseTokenPool,
+				Type:               shared.LockReleaseTokenPool,
 				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
 				AllowList:          []common.Address{},
 				AcceptLiquidity:    &acceptLiquidity,
 			},
-			GetPool: func(cs changeset.CCIPChainState) Ownable {
+			GetPool: func(cs evm.CCIPChainState) Ownable {
 				tokenPools, ok := cs.LockReleaseTokenPools[testhelpers.TestTokenSymbol]
 				require.True(t, ok)
 				require.Len(t, tokenPools, 1)
@@ -278,13 +326,17 @@ func TestDeployTokenPoolContracts(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			e, selectorA, _, tokens, timelockContracts := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+			e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+
+			if test.SetupExternalMinter {
+				test.Input.ExternalMinter, _ = testhelpers.DeployTokenGovernor(t, e, selectorA, tokens[selectorA].Address)
+			}
 
 			test.Input.TokenAddress = tokens[selectorA].Address
 
-			e, err := commonchangeset.Apply(t, e, timelockContracts,
+			e, err := commonchangeset.Apply(t, e,
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_5_1.DeployTokenPoolContractsChangeset),
+					cldf.CreateLegacyChangeSet(v1_5_1.DeployTokenPoolContractsChangeset),
 					v1_5_1.DeployTokenPoolContractsConfig{
 						TokenSymbol: testhelpers.TestTokenSymbol,
 						NewPools: map[uint64]v1_5_1.DeployTokenPoolInput{
@@ -295,13 +347,13 @@ func TestDeployTokenPoolContracts(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			state, err := changeset.LoadOnchainState(e)
+			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
 			pool := test.GetPool(state.Chains[selectorA])
 			owner, err := pool.Owner(nil)
 			require.NoError(t, err)
-			require.Equal(t, e.Chains[selectorA].DeployerKey.From, owner)
+			require.Equal(t, e.BlockChains.EVMChains()[selectorA].DeployerKey.From, owner)
 		})
 	}
 }

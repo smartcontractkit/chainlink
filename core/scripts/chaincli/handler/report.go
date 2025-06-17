@@ -23,7 +23,7 @@ import (
 
 	ocr2keepers20 "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v20"
 )
 
@@ -257,9 +257,8 @@ func (t *OCR2Transaction) From() (common.Address, error) {
 		from, err := types.Sender(types.NewLondonSigner(t.tx.ChainId()), t.tx)
 		if err != nil {
 			return common.Address{}, fmt.Errorf("failed to get from addr: %w", err)
-		} else {
-			return from, nil
 		}
+		return from, nil
 	}
 
 	return common.Address{}, errors.New("from address not found")
@@ -398,13 +397,13 @@ func NewBaseOCR2Tx(tx *types.Transaction) (*BaseOCR2Tx, error) {
 
 	return &BaseOCR2Tx{
 		abi:         contract,
-		Transaction: *tx,
+		Transaction: tx,
 	}, nil
 }
 
 type BaseOCR2Tx struct {
 	abi abi.ABI
-	types.Transaction
+	*types.Transaction
 }
 
 func (tx *BaseOCR2Tx) Method() (*abi.Method, error) {

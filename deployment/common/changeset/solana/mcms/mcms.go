@@ -1,10 +1,17 @@
 package mcmsnew
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"time"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
+
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -14,13 +21,13 @@ import (
 // as well as the timelock program. It's not necessarily the only way to use
 // the timelock and MCMS, but its reasonable pattern.
 func DeployMCMSWithTimelockProgramsSolana(
-	e deployment.Environment,
-	chain deployment.SolChain,
-	addressBook deployment.AddressBook,
+	e cldf.Environment,
+	chain cldf_solana.Chain,
+	addressBook cldf.AddressBook,
 	config commontypes.MCMSWithTimelockConfigV2,
 ) (*state.MCMSWithTimelockStateSolana, error) {
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
-	if err != nil && !errors.Is(err, deployment.ErrChainNotFound) {
+	if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
 		return nil, fmt.Errorf("failed to get addresses for chain %v from environment: %w", chain.Selector, err)
 	}
 
@@ -31,6 +38,10 @@ func DeployMCMSWithTimelockProgramsSolana(
 
 	// access controller
 	err = deployAccessControllerProgram(e, chainState, chain, addressBook)
+	err = waitForProgramDeployment(e.GetContext(), chain.Client, chainState.AccessControllerProgram, 10*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("access controller program not ready: %w", err)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy access controller program: %w", err)
 	}
@@ -53,6 +64,10 @@ func DeployMCMSWithTimelockProgramsSolana(
 
 	// mcm
 	err = deployMCMProgram(e, chainState, chain, addressBook)
+	err = waitForProgramDeployment(e.GetContext(), chain.Client, chainState.AccessControllerProgram, 10*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("access controller program not ready: %w", err)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy mcm program: %w", err)
 	}
@@ -71,6 +86,10 @@ func DeployMCMSWithTimelockProgramsSolana(
 
 	// timelock
 	err = deployTimelockProgram(e, chainState, chain, addressBook)
+	err = waitForProgramDeployment(e.GetContext(), chain.Client, chainState.AccessControllerProgram, 10*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("access controller program not ready: %w", err)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy timelock program: %w", err)
 	}
@@ -84,19 +103,26 @@ func DeployMCMSWithTimelockProgramsSolana(
 		return nil, fmt.Errorf("failed to setup roles and ownership: %w", err)
 	}
 
-	err = transferOwnership(chainState, chain)
-	if err != nil {
-		return nil, fmt.Errorf("failed to transfer ownership: %w", err)
-	}
-
 	return chainState, nil
 }
 
-func transferOwnership(chainState *state.MCMSWithTimelockStateSolana, chain deployment.SolChain) error {
-	err := transferOwnershipTimelock(chain, chainState.TimelockProgram, chainState.TimelockSeed)
-	if err != nil {
-		return fmt.Errorf("failed to transfer ownership of timelock: %w", err)
-	}
+func waitForProgramDeployment(ctx context.Context, client *rpc.Client, programID solana.PublicKey, maxWait time.Duration) error {
+	timeout := time.After(maxWait)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
 
-	return nil
+	for {
+		select {
+		case <-timeout:
+			return fmt.Errorf("timed out waiting for program %s to be deployed", programID.String())
+		case <-ticker.C:
+			resp, err := client.GetAccountInfo(ctx, programID)
+			if err != nil {
+				continue // Retry on RPC errors
+			}
+			if resp != nil && resp.Value != nil && resp.Value.Executable {
+				return nil // Ready
+			}
+		}
+	}
 }

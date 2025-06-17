@@ -15,8 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 // FirstBlockAge is used to compute first block's timestamp in SimulatedBackend (time.Now() - FirstBlockAge)
@@ -42,7 +40,7 @@ func SetupChain(t *testing.T) (*simulated.Backend, *bind.TransactOpts) {
 
 func ConfirmTxs(t *testing.T, txs []*ethtypes.Transaction, chain *Backend) {
 	chain.Commit()
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	for _, tx := range txs {
 		rec, err := bind.WaitMined(ctx, chain.Client(), tx)
 		require.NoError(t, err)

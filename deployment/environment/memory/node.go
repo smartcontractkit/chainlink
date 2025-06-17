@@ -15,32 +15,43 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
+	solrpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
-	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
+
 	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	sollptesting "github.com/smartcontractkit/chainlink-solana/pkg/solana/logpoller/testing"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/logger"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/client"
-	v2toml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
-	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
-	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
-	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	v2toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	evmlptesting "github.com/smartcontractkit/chainlink-evm/pkg/logpoller/testing"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -54,6 +65,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
@@ -61,12 +73,15 @@ import (
 )
 
 type Node struct {
-	App chainlink.Application
+	ID     string
+	Name   string
+	App    chainlink.Application
+	Chains []uint64 // chain selectors
 	// Transmitter key/OCR keys for this node
-	Chains     []uint64 // chain selectors
 	Keys       Keys
 	Addr       net.TCPAddr
 	IsBoostrap bool
+	Labels     []*ptypes.Label
 }
 
 func (n Node) MultiAddr() string {
@@ -77,14 +92,44 @@ func (n Node) MultiAddr() string {
 	return a
 }
 
-func (n Node) ReplayLogs(chains map[uint64]uint64) error {
+func (n Node) ReplayLogs(ctx context.Context, chains map[uint64]uint64) error {
 	for sel, block := range chains {
-		chainID, _ := chainsel.ChainIdFromSelector(sel)
-		if err := n.App.ReplayFromBlock(big.NewInt(int64(chainID)), block, false); err != nil {
+		family, _ := chainsel.GetSelectorFamily(sel)
+		chainID, _ := chainsel.GetChainIDFromSelector(sel)
+
+		if err := n.App.ReplayFromBlock(ctx, family, chainID, block, false); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (n Node) IsLogFilterRegistered(ctx context.Context, chainSel uint64, eventName string, address []byte) (bool, error) {
+	family, err := chainsel.GetSelectorFamily(chainSel)
+	if err != nil {
+		return false, err
+	}
+	chainID, err := chainsel.GetChainIDFromSelector(chainSel)
+	if err != nil {
+		return false, err
+	}
+
+	var exists bool
+	switch family {
+	case chainsel.FamilyEVM:
+		orm := evmlptesting.NewTestORM(n.App.GetDB())
+		exists, err = orm.HasFilterByEventSig(ctx, chainID, common.HexToHash(eventName), address)
+	case chainsel.FamilySolana:
+		orm := sollptesting.NewTestORM(n.App.GetDB())
+		exists, err = orm.HasFilterByEventName(ctx, chainID, eventName, address)
+	default:
+		return false, fmt.Errorf("unsupported chain family; %v", family)
+	}
+
+	if err != nil || !exists {
+		return false, err
+	}
+	return true, nil
 }
 
 // DeploymentNode is an adapter for deployment.Node
@@ -173,6 +218,7 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 		transmitter := n.Keys.Transmitters[selector]
 
 		chainConfigs = append(chainConfigs, &nodev1.ChainConfig{
+			NodeId: n.ID,
 			Chain: &nodev1.Chain{
 				Id:   chainID,
 				Type: ctype,
@@ -213,22 +259,33 @@ func WithFinalityDepths(finalityDepths map[uint64]uint32) ConfigOpt {
 	}
 }
 
+type NewNodeConfig struct {
+	// Port for the P2P V2 listener.
+	Port int
+	// EVM chains to be configured. Optional.
+	Chains map[uint64]cldf_evm.Chain
+	// Solana chains to be configured. Optional.
+	Solchains map[uint64]cldf_solana.Chain
+	// Aptos chains to be configured. Optional.
+	Aptoschains    map[uint64]cldf_aptos.Chain
+	LogLevel       zapcore.Level
+	Bootstrap      bool
+	RegistryConfig deployment.CapabilityRegistryConfig
+	// SQL queries to run after DB creation, typically used for setting up testing state. Optional.
+	CustomDBSetup []string
+}
+
 // Creates a CL node which is:
 // - Configured for OCR
 // - Configured for the chains specified
 // - Transmitter keys funded.
 func NewNode(
 	t *testing.T,
-	port int, // Port for the P2P V2 listener.
-	chains map[uint64]deployment.Chain,
-	solchains map[uint64]deployment.SolChain,
-	logLevel zapcore.Level,
-	bootstrap bool,
-	registryConfig deployment.CapabilityRegistryConfig,
+	nodecfg NewNodeConfig,
 	configOpts ...ConfigOpt,
 ) *Node {
 	evmchains := make(map[uint64]EVMChain)
-	for _, chain := range chains {
+	for _, chain := range nodecfg.Chains {
 		family, err := chainsel.GetSelectorFamily(chain.Selector)
 		if err != nil {
 			t.Fatal(err)
@@ -241,10 +298,14 @@ func NewNode(
 		if err != nil {
 			t.Fatal(err)
 		}
-		evmchains[evmChainID] = EVMChain{
-			Backend:     chain.Client.(*Backend).Sim,
+		evmchain := EVMChain{
 			DeployerKey: chain.DeployerKey,
 		}
+		backend, ok := chain.Client.(*Backend)
+		if ok {
+			evmchain.Backend = backend.Sim
+		}
+		evmchains[evmChainID] = evmchain
 	}
 
 	// Do not want to load fixtures as they contain a dummy chainID.
@@ -258,13 +319,13 @@ func NewNode(
 		c.P2P.V2.Enabled = ptr(true)
 		c.P2P.V2.DeltaDial = config.MustNewDuration(500 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = config.MustNewDuration(5 * time.Second)
-		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", port)}
+		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", nodecfg.Port)}
 
 		// Enable Capabilities, This is a pre-requisite for registrySyncer to work.
-		if registryConfig.Contract != common.HexToAddress("0x0") {
+		if nodecfg.RegistryConfig.Contract != common.HexToAddress("0x0") {
 			c.Capabilities.ExternalRegistry.NetworkID = ptr(relay.NetworkEVM)
-			c.Capabilities.ExternalRegistry.ChainID = ptr(strconv.FormatUint(uint64(registryConfig.EVMChainID), 10))
-			c.Capabilities.ExternalRegistry.Address = ptr(registryConfig.Contract.String())
+			c.Capabilities.ExternalRegistry.ChainID = ptr(strconv.FormatUint(nodecfg.RegistryConfig.EVMChainID, 10))
+			c.Capabilities.ExternalRegistry.Address = ptr(nodecfg.RegistryConfig.Contract.String())
 		}
 
 		// OCR configs
@@ -273,7 +334,7 @@ func NewNode(
 		c.OCR2.Enabled = ptr(true)
 		c.OCR2.ContractPollInterval = config.MustNewDuration(5 * time.Second)
 
-		c.Log.Level = ptr(configv2.LogLevel(logLevel))
+		c.Log.Level = ptr(configv2.LogLevel(nodecfg.LogLevel))
 
 		var evmConfigs v2toml.EVMConfigs
 		for chainID := range evmchains {
@@ -282,7 +343,7 @@ func NewNode(
 		c.EVM = evmConfigs
 
 		var solConfigs solcfg.TOMLConfigs
-		for chainID, chain := range solchains {
+		for chainID, chain := range nodecfg.Solchains {
 			solanaChainID, err := chainsel.GetChainIDFromSelector(chainID)
 			if err != nil {
 				t.Fatal(err)
@@ -291,26 +352,46 @@ func NewNode(
 		}
 		c.Solana = solConfigs
 
+		var aptosConfigs chainlink.RawConfigs
+		for chainID, chain := range nodecfg.Aptoschains {
+			aptosChainID, err := chainsel.GetChainIDFromSelector(chainID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			aptosConfigs = append(aptosConfigs, createAptosChainConfig(aptosChainID, chain))
+		}
+		c.Aptos = aptosConfigs
+
 		for _, opt := range configOpts {
 			opt(c)
 		}
 	})
 
+	// Execute custom DB setup queries. This allows us to set the state of the DB without using fixtures.
+	for _, query := range nodecfg.CustomDBSetup {
+		_, err := db.Exec(query)
+		if err != nil {
+			t.Fatal("Failed to execute custom DB setup query:", err)
+		}
+	}
+
 	// Set logging.
 	lggr := logger.NewSingleFileLogger(t)
-	lggr.SetLogLevel(logLevel)
 
 	// Create clients for the core node backed by sim.
 	clients := make(map[uint64]client.Client)
 	for chainID, chain := range evmchains {
-		clients[chainID] = client.NewSimulatedBackendClient(t, chain.Backend, big.NewInt(int64(chainID)))
+		if chain.Backend != nil {
+			clients[chainID] = client.NewSimulatedBackendClient(t, chain.Backend, big.NewInt(int64(chainID))) //nolint:gosec // it shouldn't overflow
+		}
 	}
 
 	master := keystore.New(db, utils.FastScryptParams, lggr)
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	require.NoError(t, master.Unlock(ctx, "password"))
 	require.NoError(t, master.CSA().EnsureKey(ctx))
 	require.NoError(t, master.Workflow().EnsureKey(ctx))
+	require.NoError(t, master.OCR2().EnsureKeys(ctx, chaintype.EVM, chaintype.Solana, chaintype.Aptos))
 
 	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
 		CREOpts: chainlink.CREOpts{
@@ -327,7 +408,7 @@ func NewNode(
 			fc.GenEthClient = func(i *big.Int) client.Client {
 				ethClient, ok := clients[i.Uint64()]
 				if !ok {
-					t.Fatal("no backend for chainID", i)
+					return client.NewNullClient(i, lggr)
 				}
 				return ethClient
 			}
@@ -338,22 +419,40 @@ func NewNode(
 		UnrestrictedHTTPClient:   &http.Client{},
 		RestrictedHTTPClient:     &http.Client{},
 		AuditLogger:              audit.NoopLogger,
+		RetirementReportCache:    retirement.NewRetirementReportCache(lggr, db),
 	})
 	require.NoError(t, err)
-	keys := CreateKeys(t, app, chains, solchains)
+	keys := CreateKeys(t, app, nodecfg.Chains, nodecfg.Solchains, nodecfg.Aptoschains)
+
+	nodeLabels := make([]*ptypes.Label, 1)
+	if nodecfg.Bootstrap {
+		nodeLabels[0] = &ptypes.Label{
+			Key:   devenv.LabelNodeTypeKey,
+			Value: pointer.To(devenv.LabelNodeTypeValueBootstrap),
+		}
+	} else {
+		nodeLabels[0] = &ptypes.Label{
+			Key:   devenv.LabelNodeTypeKey,
+			Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
+		}
+	}
 
 	// JD
 
 	setupJD(t, app)
 	return &Node{
-		App: app,
+		Name: "node-" + keys.PeerID.String(),
+		ID:   app.ID().String(),
+		App:  app,
 		Chains: slices.Concat(
-			maps.Keys(chains),
-			maps.Keys(solchains),
+			maps.Keys(nodecfg.Chains),
+			maps.Keys(nodecfg.Solchains),
+			maps.Keys(nodecfg.Aptoschains),
 		),
 		Keys:       keys,
-		Addr:       net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: port},
-		IsBoostrap: bootstrap,
+		Addr:       net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: nodecfg.Port},
+		IsBoostrap: nodecfg.Bootstrap,
+		Labels:     nodeLabels,
 	}
 }
 
@@ -367,10 +466,11 @@ type Keys struct {
 
 func CreateKeys(t *testing.T,
 	app chainlink.Application,
-	chains map[uint64]deployment.Chain,
-	solchains map[uint64]deployment.SolChain,
+	chains map[uint64]cldf_evm.Chain,
+	solchains map[uint64]cldf_solana.Chain,
+	aptoschains map[uint64]cldf_aptos.Chain,
 ) Keys {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	_, err := app.GetKeyStore().P2P().Create(ctx)
 	require.NoError(t, err)
 
@@ -438,15 +538,18 @@ func CreateKeys(t *testing.T,
 			}
 			transmitters[chain.Selector] = transmitter.String()
 
-			backend := chain.Client.(*Backend).Sim
-			fundAddress(t, chain.DeployerKey, transmitter, assets.Ether(1000).ToInt(), backend)
-			// need to look more into it, but it seems like with sim chains nodes are sending txs with 0x from address
-			fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), backend)
+			backend, ok := chain.Client.(*Backend)
+			if ok {
+				fundAddress(t, chain.DeployerKey, transmitter, assets.Ether(1000).ToInt(), backend.Sim)
+				// need to look more into it, but it seems like with sim chains nodes are sending txs with 0x from address
+				fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), backend.Sim)
+			}
 		case chainsel.FamilyAptos:
-			err = app.GetKeyStore().Aptos().EnsureKey(ctx)
+			keystore := app.GetKeyStore().Aptos()
+			err = keystore.EnsureKey(ctx)
 			require.NoError(t, err, "failed to create key for aptos")
 
-			keys, err := app.GetKeyStore().Aptos().GetAll()
+			keys, err := keystore.GetAll()
 			require.NoError(t, err)
 			require.Len(t, keys, 1)
 
@@ -455,23 +558,22 @@ func CreateKeys(t *testing.T,
 
 			// TODO: funding
 		case chainsel.FamilyStarknet:
-			err = app.GetKeyStore().StarkNet().EnsureKey(ctx)
+			keystore := app.GetKeyStore().StarkNet()
+			err = keystore.EnsureKey(ctx)
 			require.NoError(t, err, "failed to create key for starknet")
 
-			keys, err := app.GetKeyStore().StarkNet().GetAll()
+			keys, err := keystore.GetAll()
 			require.NoError(t, err)
 			require.Len(t, keys, 1)
 
 			transmitter := keys[0]
 			transmitters[chain.Selector] = transmitter.ID()
-
-			// TODO: funding
 		default:
 			// TODO: other transmission keys unsupported for now
 		}
 	}
 
-	for chain := range solchains {
+	for chainSelector, chain := range solchains {
 		ctype := chaintype.Solana
 		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
 		require.NoError(t, err)
@@ -490,9 +592,31 @@ func CreateKeys(t *testing.T,
 		require.Len(t, solkeys, 1)
 
 		transmitter := solkeys[0]
-		transmitters[chain] = transmitter.ID()
+		transmitters[chainSelector] = transmitter.ID()
 
-		// TODO: funding
+		FundSolAccounts(ctx, []solana.PublicKey{transmitter.PublicKey()}, chain.Client, t)
+	}
+
+	if len(aptoschains) > 0 {
+		ctype := chaintype.Aptos
+		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
+		require.NoError(t, err)
+		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
+		require.NoError(t, err)
+		require.Len(t, keys, 1)
+		keybundle := keys[0]
+		keybundles[ctype] = keybundle
+
+		err = app.GetKeyStore().Aptos().EnsureKey(ctx)
+		require.NoError(t, err, "failed to create key for Aptos")
+
+		aptoskeys, err := app.GetKeyStore().Aptos().GetAll()
+		require.NoError(t, err)
+		require.Len(t, aptoskeys, 1)
+		transmitter := aptoskeys[0]
+		for chainSelector := range aptoschains {
+			transmitters[chainSelector] = transmitter.ID()
+		}
 	}
 
 	return Keys{
@@ -501,6 +625,14 @@ func CreateKeys(t *testing.T,
 		Transmitters:  transmitters,
 		OCRKeyBundles: keybundles,
 	}
+}
+
+func FundSolAccounts(ctx context.Context, accounts []solana.PublicKey, solanaGoClient *solrpc.Client, t *testing.T) {
+	for _, v := range accounts {
+		_, err := solanaGoClient.RequestAirdrop(ctx, v, 1000*solana.LAMPORTS_PER_SOL, solrpc.CommitmentConfirmed)
+		require.NoError(t, err)
+	}
+	// we don't wait for confirmation so we don't block the tests, it'll take a while before nodes start transmitting
 }
 
 func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
@@ -518,9 +650,15 @@ func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
 	}
 }
 
-func createSolanaChainConfig(chainID string, chain deployment.SolChain) *solcfg.TOMLConfig {
+func createSolanaChainConfig(chainID string, chain cldf_solana.Chain) *solcfg.TOMLConfig {
 	chainConfig := solcfg.Chain{}
 	chainConfig.SetDefaults()
+
+	// CCIP requires a non-zero execution fee estimate
+	computeUnitPriceDefault := uint64(100)
+	txRetentionTimeout := config.MustNewDuration(10 * time.Minute)
+	chainConfig.ComputeUnitPriceDefault = &computeUnitPriceDefault
+	chainConfig.TxRetentionTimeout = txRetentionTimeout
 
 	url, err := config.ParseURL(chain.URL)
 	if err != nil {
@@ -528,10 +666,14 @@ func createSolanaChainConfig(chainID string, chain deployment.SolChain) *solcfg.
 	}
 
 	return &solcfg.TOMLConfig{
-		ChainID:   &chainID,
-		Enabled:   ptr(true),
-		Chain:     chainConfig,
-		MultiNode: mnCfg.MultiNodeConfig{},
+		ChainID: &chainID,
+		Enabled: ptr(true),
+		Chain:   chainConfig,
+		MultiNode: mnCfg.MultiNodeConfig{
+			MultiNode: mnCfg.MultiNode{
+				VerifyChainID: ptr(false),
+			},
+		},
 		Nodes: []*solcfg.Node{{
 			Name:     ptr("primary"),
 			URL:      url,

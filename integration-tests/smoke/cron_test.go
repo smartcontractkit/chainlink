@@ -1,7 +1,6 @@
 package smoke
 
 import (
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/parrot"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -39,12 +39,18 @@ func TestCronBasic(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 
-	err = env.MockAdapter.SetAdapterBasedIntValuePath("/variable", []string{http.MethodGet, http.MethodPost}, 5)
-	require.NoError(t, err, "Setting value path in mock adapter shouldn't fail")
+	route := &parrot.Route{
+		Method:             parrot.MethodAny,
+		Path:               "/variable",
+		ResponseBody:       5,
+		ResponseStatusCode: http.StatusOK,
+	}
+	err = env.MockAdapter.SetAdapterRoute(route)
+	require.NoError(t, err, "Failed to set route in mock adapter")
 
 	bta := &nodeclient.BridgeTypeAttributes{
-		Name:        fmt.Sprintf("variable-%s", uuid.NewString()),
-		URL:         fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
+		Name:        "variable-" + uuid.NewString(),
+		URL:         env.MockAdapter.InternalEndpoint + "/variable",
 		RequestData: "{}",
 	}
 	err = env.ClCluster.Nodes[0].API.MustCreateBridge(bta)
@@ -67,7 +73,7 @@ func TestCronBasic(t *testing.T) {
 		g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically(">=", 5), "Expected number of job runs to be greater than 5, but got %d", len(jobRuns.Data))
 
 		for _, jr := range jobRuns.Data {
-			g.Expect(jr.Attributes.Errors).Should(gomega.Equal([]interface{}{nil}), "Job run %s shouldn't have errors", jr.ID)
+			g.Expect(jr.Attributes.Errors).Should(gomega.Equal([]any{nil}), "Job run %s shouldn't have errors", jr.ID)
 		}
 	}, "2m", "3s").Should(gomega.Succeed())
 }
@@ -94,12 +100,18 @@ func TestCronJobReplacement(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 
-	err = env.MockAdapter.SetAdapterBasedIntValuePath("/variable", []string{http.MethodGet, http.MethodPost}, 5)
-	require.NoError(t, err, "Setting value path in mockserver shouldn't fail")
+	route := &parrot.Route{
+		Method:             parrot.MethodAny,
+		Path:               "/variable",
+		ResponseBody:       5,
+		ResponseStatusCode: http.StatusOK,
+	}
+	err = env.MockAdapter.SetAdapterRoute(route)
+	require.NoError(t, err, "Failed to set route in mock adapter")
 
 	bta := &nodeclient.BridgeTypeAttributes{
-		Name:        fmt.Sprintf("variable-%s", uuid.NewString()),
-		URL:         fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
+		Name:        "variable-" + uuid.NewString(),
+		URL:         env.MockAdapter.InternalEndpoint + "/variable",
 		RequestData: "{}",
 	}
 	err = env.ClCluster.Nodes[0].API.MustCreateBridge(bta)
@@ -149,5 +161,4 @@ func TestCronJobReplacement(t *testing.T) {
 			g.Expect(jr.Attributes.Errors).Should(gomega.Equal([]interface{}{nil}), "Job run %s shouldn't have errors", jr.ID)
 		}
 	}, "3m", "3s").Should(gomega.Succeed())
-
 }

@@ -13,12 +13,12 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -68,7 +68,7 @@ func NewDispatcher(cfg config.Dispatcher, peerWrapper p2ptypes.PeerWrapper, sign
 		rateLimiter: rl,
 		receivers:   make(map[key]*receiver),
 		stopCh:      make(services.StopChan),
-		lggr:        lggr.Named("Dispatcher"),
+		lggr:        logger.Named(lggr, "Dispatcher"),
 	}, nil
 }
 
@@ -188,7 +188,7 @@ func (d *dispatcher) receive() {
 			return
 		case msg := <-recvCh:
 			if !d.rateLimiter.Allow(msg.Sender.String()) {
-				d.lggr.Debugw("rate limit exceeded, dropping message", "sender", msg.Sender)
+				d.lggr.Errorw("rate limit exceeded, dropping message", "sender", msg.Sender)
 				continue
 			}
 			body, err := ValidateMessage(msg, d.peerID)

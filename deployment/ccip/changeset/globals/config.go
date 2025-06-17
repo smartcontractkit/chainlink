@@ -1,11 +1,15 @@
 package globals
 
 import (
+	"fmt"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	"dario.cat/mergo"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
+
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 )
 
 type ConfigType string
@@ -14,18 +18,17 @@ const (
 	ConfigTypeActive    ConfigType = "active"
 	ConfigTypeCandidate ConfigType = "candidate"
 	// ========= Changeset Defaults =========
-	PermissionLessExecutionThreshold  = 8 * time.Hour
-	RemoteGasPriceBatchWriteFrequency = 30 * time.Minute
-	TokenPriceBatchWriteFrequency     = 30 * time.Minute
+	PermissionLessExecutionThreshold  = 1 * time.Hour
+	RemoteGasPriceBatchWriteFrequency = 20 * time.Minute
+	TokenPriceBatchWriteFrequency     = 2 * time.Hour
 	// Building batches with 6.5m and transmit with 8m to account for overhead.
 	BatchGasLimit               = 6_500_000
 	InflightCacheExpiry         = 1 * time.Minute
 	RootSnoozeTime              = 5 * time.Minute
 	BatchingStrategyID          = 0
-	GasPriceDeviationPPB        = 1000
-	DAGasPriceDeviationPPB      = 0
 	OptimisticConfirmations     = 1
 	TransmissionDelayMultiplier = 15 * time.Second
+	MaxCommitReportsToFetch     = 250
 	// ======================================
 
 	// ========= Onchain consts =========
@@ -55,16 +58,24 @@ var (
 		MerkleRootAsyncObserverDisabled:    false,
 		MerkleRootAsyncObserverSyncFreq:    4 * time.Second,
 		MerkleRootAsyncObserverSyncTimeout: 12 * time.Second,
-		ChainFeeAsyncObserverDisabled:      false,
-		ChainFeeAsyncObserverSyncFreq:      10 * time.Second,
-		ChainFeeAsyncObserverSyncTimeout:   12 * time.Second,
-		TokenPriceAsyncObserverDisabled:    false,
-		TokenPriceAsyncObserverSyncFreq:    *config.MustNewDuration(10 * time.Second),
-		TokenPriceAsyncObserverSyncTimeout: *config.MustNewDuration(12 * time.Second),
+
+		// Disabling the chainfee + tokenprice async observers because the low cache TTL + low timeout
+		// is currently not a viable combo.
+		// Super aggressive frequency and timeout causes rpc timeouts more frequently.
+		ChainFeeAsyncObserverDisabled: true,
+		// TODO: revisit
+		// ChainFeeAsyncObserverSyncFreq:      1*time.Second + 500*time.Millisecond,
+		// ChainFeeAsyncObserverSyncTimeout:   1 * time.Second,
+		TokenPriceAsyncObserverDisabled: true,
+		// TODO: revisit
+		// TokenPriceAsyncObserverSyncFreq:    *config.MustNewDuration(1*time.Second + 500*time.Millisecond),
+		// TokenPriceAsyncObserverSyncTimeout: *config.MustNewDuration(1 * time.Second),
 
 		// Remaining fields cannot be statically set:
 		// PriceFeedChainSelector: , // Must be configured in CLD
 		// TokenInfo: , // Must be configured in CLD
+
+		DonBreakingChangesVersion: pluginconfig.DonBreakingChangesVersion1RoleDonSupport,
 	}
 
 	// DefaultExecuteOffChainCfg represents the default offchain configuration for the Execute plugin
@@ -74,13 +85,29 @@ var (
 		BatchGasLimit:               BatchGasLimit,
 		InflightCacheExpiry:         *config.MustNewDuration(InflightCacheExpiry),
 		RootSnoozeTime:              *config.MustNewDuration(RootSnoozeTime),
-		MessageVisibilityInterval:   *config.MustNewDuration(PermissionLessExecutionThreshold),
+		MessageVisibilityInterval:   *config.MustNewDuration(8 * time.Hour),
 		BatchingStrategyID:          BatchingStrategyID,
 		TransmissionDelayMultiplier: TransmissionDelayMultiplier,
 		MaxReportMessages:           0,
 		MaxSingleChainReports:       0,
-
+		MaxCommitReportsToFetch:     MaxCommitReportsToFetch,
 		// Remaining fields cannot be statically set:
 		// TokenDataObservers: , // Must be configured in CLD
 	}
+
+	DefaultCommitOffChainCfgForEth = withCommitOffchainConfigOverrides(
+		DefaultCommitOffChainCfg,
+		pluginconfig.CommitOffchainConfig{
+			RemoteGasPriceBatchWriteFrequency: *config.MustNewDuration(2 * time.Hour),
+			TokenPriceBatchWriteFrequency:     *config.MustNewDuration(12 * time.Hour),
+		},
+	)
 )
+
+func withCommitOffchainConfigOverrides(base pluginconfig.CommitOffchainConfig, overrides pluginconfig.CommitOffchainConfig) pluginconfig.CommitOffchainConfig {
+	outcome := base
+	if err := mergo.Merge(&outcome, overrides, mergo.WithOverride); err != nil {
+		panic(fmt.Sprintf("error while building an OCR config %v", err))
+	}
+	return outcome
+}

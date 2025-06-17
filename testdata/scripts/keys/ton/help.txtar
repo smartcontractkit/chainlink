@@ -1,0 +1,20 @@
+exec chainlink keys ton --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink keys ton - Remote commands for administering the node's TON keys
+
+USAGE:
+   chainlink keys ton command [command options] [arguments...]
+
+COMMANDS:
+   create  Create a TON key
+   import  Import TON key from keyfile
+   export  Export TON key to keyfile
+   delete  Delete TON key if present
+   list    List the TON keys
+
+OPTIONS:
+   --help, -h  show help
+   

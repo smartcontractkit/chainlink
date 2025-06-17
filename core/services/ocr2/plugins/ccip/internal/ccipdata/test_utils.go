@@ -9,8 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/client"
-	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 

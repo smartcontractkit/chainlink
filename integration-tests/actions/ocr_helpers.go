@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -70,7 +71,7 @@ func CreateOCRJobs(
 			if err != nil {
 				return fmt.Errorf("getting OCR keys from OCR node have failed: %w", err)
 			}
-			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
+			nodeOCRKeyID := nodeOCRKeys.Data[0].ID
 
 			nodeContractPairID, err := BuildNodeContractPairID(node, ocrInstance)
 			if err != nil {
@@ -86,7 +87,7 @@ func CreateOCRJobs(
 			}
 			err = node.MustCreateBridge(bta)
 			if err != nil {
-				return fmt.Errorf("creating bridge on CL node failed: %w", err)
+				return fmt.Errorf("creating bridge to %s CL node failed: %w", bta.URL, err)
 			}
 
 			bootstrapPeers := []*nodeclient.ChainlinkClient{bootstrapNode.ChainlinkClient}
@@ -95,7 +96,7 @@ func CreateOCRJobs(
 				EVMChainID:         evmChainID,
 				P2PPeerID:          nodeP2PId,
 				P2PBootstrapPeers:  bootstrapPeers,
-				KeyBundleID:        nodeOCRKeyId,
+				KeyBundleID:        nodeOCRKeyID,
 				TransmitterAddress: nodeTransmitterAddress,
 				ObservationSource:  nodeclient.ObservationSourceSpecBridge(bta),
 			}
@@ -126,7 +127,7 @@ func CreateOCRJobsWithForwarder(
 		bootstrapSpec := &nodeclient.OCRBootstrapJobSpec{
 			Name:            fmt.Sprintf("bootstrap-%s", uuid.New().String()),
 			ContractAddress: ocrInstance.Address(),
-			EVMChainID:      fmt.Sprint(evmChainID),
+			EVMChainID:      strconv.FormatInt(evmChainID, 10),
 			P2PPeerID:       bootstrapP2PId,
 			IsBootstrapPeer: true,
 		}
@@ -141,7 +142,7 @@ func CreateOCRJobsWithForwarder(
 			require.NoError(t, err, "Shouldn't fail getting primary ETH address from OCR node %d", nodeIndex+1)
 			nodeOCRKeys, err := node.MustReadOCRKeys()
 			require.NoError(t, err, "Shouldn't fail getting OCR keys from OCR node %d", nodeIndex+1)
-			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
+			nodeOCRKeyID := nodeOCRKeys.Data[0].ID
 
 			nodeContractPairID, err := BuildNodeContractPairID(node, ocrInstance)
 			require.NoError(t, err, "Failed building node contract pair ID for mockserver")
@@ -157,10 +158,10 @@ func CreateOCRJobsWithForwarder(
 			bootstrapPeers := []*nodeclient.ChainlinkClient{bootstrapNode.ChainlinkClient}
 			ocrSpec := &nodeclient.OCRTaskJobSpec{
 				ContractAddress:    ocrInstance.Address(),
-				EVMChainID:         fmt.Sprint(evmChainID),
+				EVMChainID:         strconv.FormatInt(evmChainID, 10),
 				P2PPeerID:          nodeP2PId,
 				P2PBootstrapPeers:  bootstrapPeers,
-				KeyBundleID:        nodeOCRKeyId,
+				KeyBundleID:        nodeOCRKeyID,
 				TransmitterAddress: nodeTransmitterAddress,
 				ObservationSource:  nodeclient.ObservationSourceSpecBridge(bta),
 				ForwardingAllowed:  true,

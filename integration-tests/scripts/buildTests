@@ -25,7 +25,7 @@ do
       echo "Changing directory and executing go test -c ./... for 'load' package"
       pushd "./load" && go test -c -tags embed -o ../ ./...
       popd
-    elif [ "$x" = "ccip-load" ]; then
+    elif [ "$x" = "ccip-tests/load" ]; then
       echo "Changing directory and executing go test -c ./... for 'ccip-load' package"
       pushd "./ccip-tests/load" && go test -c -tags embed -o ../ ./...
       mv ../load.test ../ccip-load.test # rename the binary to match the suite name

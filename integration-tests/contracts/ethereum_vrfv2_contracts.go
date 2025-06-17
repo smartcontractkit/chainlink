@@ -15,19 +15,19 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_mock_ethlink_aggregator"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_mock_ethlink_aggregator"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper_load_test_consumer"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_consumer_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_load_test_with_metrics"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_wrapper_load_test_consumer"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2_consumer_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_v2_consumer_wrapper"
 )
 
 type EthereumVRFOwner struct {

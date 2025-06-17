@@ -17,11 +17,12 @@ import (
 
 var ccipOfframpIDL = idl.FetchCCIPOfframpIDL()
 var ccipRouterIDL = idl.FetchCCIPRouterIDL()
+var ccipCommonIDL = idl.FetchCommonIDL()
 
 const (
 	sourceChainSelectorPath       = "Info.AbstractReports.Messages.Header.SourceChainSelector"
 	destTokenAddress              = "Info.AbstractReports.Messages.TokenAmounts.DestTokenAddress"
-	receiverAddress               = "Info.AbstractReports.Messages.Receiver"
+	tokenReceiverAddress          = "ExtraData.ExtraArgsDecoded.tokenReceiver"
 	merkleRootSourceChainSelector = "Info.MerkleRoots.ChainSel"
 	merkleRoot                    = "Info.MerkleRoots.MerkleRoot"
 )
@@ -117,8 +118,10 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 				Fields: map[string]string{"RawExecutionReport": "Report"},
 			},
 		},
-		ChainSpecificName: "execute",
-		ArgsTransform:     "CCIPExecute",
+		ChainSpecificName:        "execute",
+		ArgsTransform:            "CCIPExecute",
+		ComputeUnitLimitOverhead: 150_000,
+		BufferPayloadMethod:      "CCIPExecutionReportBuffer",
 		LookupTables: chainwriter.LookupTables{
 			DerivedLookupTables: []chainwriter.DerivedLookupTable{
 				{
@@ -136,8 +139,8 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 							InternalField: chainwriter.InternalField{
 								TypeName: "TokenAdminRegistry",
 								Location: "LookupTable",
-								// TokenAdminRegistry is in the router program so need to provide the router's IDL
-								IDL: ccipRouterIDL,
+								// TokenAdminRegistry is in the common program so need to provide the IDL
+								IDL: ccipCommonIDL,
 							},
 						},
 					},
@@ -149,7 +152,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 		ATAs: []chainwriter.ATALookup{
 			{
 				Location:      destTokenAddress,
-				WalletAddress: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: receiverAddress}},
+				WalletAddress: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: tokenReceiverAddress}},
 				TokenProgram: chainwriter.Lookup{
 					AccountsFromLookupTable: &chainwriter.AccountsFromLookupTable{
 						LookupTableName: "PoolLookupTable",
@@ -207,107 +210,15 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 					IsWritable: false,
 				},
 			},
-			{
-				PDALookups: &chainwriter.PDALookups{
-					Name:      "ExternalExecutionConfig",
-					PublicKey: getAddressConstant(offrampProgramAddress),
-					Seeds: []chainwriter.Seed{
-						{Static: []byte("external_execution_config")},
-					},
-					IsSigner:   false,
-					IsWritable: false,
-				},
-			},
 			getAuthorityAccountConstant(fromAddress),
 			getSystemProgramConstant(),
 			getSysVarInstructionConstant(),
-			{
-				PDALookups: &chainwriter.PDALookups{
-					Name:      "ExternalTokenPoolsSigner",
-					PublicKey: getAddressConstant(offrampProgramAddress),
-					Seeds: []chainwriter.Seed{
-						{Static: []byte("external_token_pools_signer")},
-					},
-					IsSigner:   false,
-					IsWritable: false,
-				},
-			},
 			getRMNRemoteProgramAccount(offrampProgramAddress),
 			getRMNRemoteCursesLookup(offrampProgramAddress),
 			getRMNRemoteConfigLookup(offrampProgramAddress),
-			{
-				AccountLookup: &chainwriter.AccountLookup{
-					Name:       "UserAccounts",
-					Location:   "ExtraData.ExtraArgsDecoded.accounts",
-					IsWritable: chainwriter.MetaBool{BitmapLocation: "ExtraData.ExtraArgsDecoded.accountIsWritableBitmap"},
-					IsSigner:   chainwriter.MetaBool{Value: false},
-				},
-				Optional: true,
-			},
-			{
-				PDALookups: &chainwriter.PDALookups{
-					Name: "ReceiverAssociatedTokenAccount",
-					PublicKey: chainwriter.Lookup{
-						AccountConstant: &chainwriter.AccountConstant{
-							Address: solana.SPLAssociatedTokenAccountProgramID.String(),
-						},
-					},
-					Seeds: []chainwriter.Seed{
-						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: "Info.AbstractReports.Messages.Receiver"}}},
-						// Token Program stored in PoolLookupTable
-						{Dynamic: chainwriter.Lookup{
-							AccountsFromLookupTable: &chainwriter.AccountsFromLookupTable{
-								LookupTableName: "PoolLookupTable",
-								IncludeIndexes:  []int{6},
-							},
-						}},
-						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}}},
-					},
-					IsSigner:   false,
-					IsWritable: true,
-				},
-				Optional: true,
-			},
-			{
-				PDALookups: &chainwriter.PDALookups{
-					Name:      "PerChainTokenConfig",
-					PublicKey: getFeeQuoterProgramAccount(offrampProgramAddress),
-					Seeds: []chainwriter.Seed{
-						{Static: []byte("per_chain_per_token_config")},
-						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: sourceChainSelectorPath}}},
-						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}}},
-					},
-					IsSigner:   false,
-					IsWritable: false,
-				},
-				Optional: true,
-			},
-			{
-				PDALookups: &chainwriter.PDALookups{
-					Name: "PoolChainConfig",
-					PublicKey: chainwriter.Lookup{
-						AccountsFromLookupTable: &chainwriter.AccountsFromLookupTable{
-							LookupTableName: "PoolLookupTable",
-							IncludeIndexes:  []int{2},
-						},
-					},
-					Seeds: []chainwriter.Seed{
-						{Static: []byte("ccip_tokenpool_chainconfig")},
-						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: sourceChainSelectorPath}}},
-						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}}},
-					},
-					IsSigner:   false,
-					IsWritable: true,
-				},
-				Optional: true,
-			},
-			{
-				AccountsFromLookupTable: &chainwriter.AccountsFromLookupTable{
-					LookupTableName: "PoolLookupTable",
-					IncludeIndexes:  []int{},
-				},
-				Optional: true,
-			},
+			// logic receiver and user defined messaging accounts are appended in the CCIPExecute args transform
+			// user token account, token billing config, pool chain config, and pool lookup table accounts
+			// are appended to the accounts list in the CCIPExecute args transform for each token transfer
 		},
 		DebugIDLocation: "Info.AbstractReports.Messages.Header.MessageID",
 	}

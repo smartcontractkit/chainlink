@@ -9,6 +9,7 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/mock"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -122,7 +123,7 @@ func TestGatewayConnector_CleanStartAndClose(t *testing.T) {
 	t.Parallel()
 
 	connector, signer, _ := newTestConnector(t, parseTOMLConfig(t, defaultConfig))
-	signer.On("Sign", mock.Anything).Return(nil, errors.New("cannot sign"))
+	signer.On("Sign", mock.AnythingOfType("*context.cancelCtx"), mock.Anything).Return(nil, errors.New("cannot sign"))
 	servicetest.Run(t, connector)
 }
 
@@ -130,11 +131,11 @@ func TestGatewayConnector_NewAuthHeader_SignerError(t *testing.T) {
 	t.Parallel()
 
 	connector, signer, _ := newTestConnector(t, parseTOMLConfig(t, defaultConfig))
-	signer.On("Sign", mock.Anything).Return(nil, errors.New("cannot sign"))
+	signer.On("Sign", mock.AnythingOfType("*context.cancelCtx"), mock.Anything).Return(nil, errors.New("cannot sign"))
 
 	url, err := url.Parse("ws://localhost:8081/node")
 	require.NoError(t, err)
-	_, err = connector.NewAuthHeader(url)
+	_, err = connector.NewAuthHeader(t.Context(), url)
 	require.Error(t, err)
 }
 
@@ -144,11 +145,11 @@ func TestGatewayConnector_NewAuthHeader_Success(t *testing.T) {
 	testSignature := make([]byte, network.HandshakeSignatureLen)
 	testSignature[1] = 0xfa
 	connector, signer, _ := newTestConnector(t, parseTOMLConfig(t, defaultConfig))
-	signer.On("Sign", mock.Anything).Return(testSignature, nil)
+	signer.On("Sign", mock.AnythingOfType("*context.cancelCtx"), mock.Anything).Return(testSignature, nil)
 	url, err := url.Parse("ws://localhost:8081/node")
 	require.NoError(t, err)
 
-	header, err := connector.NewAuthHeader(url)
+	header, err := connector.NewAuthHeader(t.Context(), url)
 	require.NoError(t, err)
 	require.Equal(t, testSignature, header[len(header)-65:])
 }
@@ -160,7 +161,7 @@ func TestGatewayConnector_ChallengeResponse(t *testing.T) {
 	testSignature[1] = 0xfa
 	now := time.Now()
 	connector, signer, _ := newTestConnector(t, parseTOMLConfig(t, defaultConfig))
-	signer.On("Sign", mock.Anything).Return(testSignature, nil)
+	signer.On("Sign", mock.AnythingOfType("*context.cancelCtx"), mock.Anything).Return(testSignature, nil)
 	url, err := url.Parse("ws://localhost:8081/node")
 	require.NoError(t, err)
 
@@ -171,26 +172,26 @@ func TestGatewayConnector_ChallengeResponse(t *testing.T) {
 	}
 
 	// valid
-	signature, err := connector.ChallengeResponse(url, network.PackChallenge(&challenge))
+	signature, err := connector.ChallengeResponse(t.Context(), url, network.PackChallenge(&challenge))
 	require.NoError(t, err)
 	require.Equal(t, testSignature, signature)
 
 	// invalid timestamp
 	badChallenge := challenge
 	badChallenge.Timestamp += 100
-	_, err = connector.ChallengeResponse(url, network.PackChallenge(&badChallenge))
+	_, err = connector.ChallengeResponse(t.Context(), url, network.PackChallenge(&badChallenge))
 	require.Equal(t, network.ErrAuthInvalidTimestamp, err)
 
 	// too short
 	badChallenge = challenge
 	badChallenge.ChallengeBytes = []byte("aabb")
-	_, err = connector.ChallengeResponse(url, network.PackChallenge(&badChallenge))
+	_, err = connector.ChallengeResponse(t.Context(), url, network.PackChallenge(&badChallenge))
 	require.Equal(t, network.ErrChallengeTooShort, err)
 
 	// invalid GatewayId
 	badChallenge = challenge
 	badChallenge.GatewayId = "wrong"
-	_, err = connector.ChallengeResponse(url, network.PackChallenge(&badChallenge))
+	_, err = connector.ChallengeResponse(t.Context(), url, network.PackChallenge(&badChallenge))
 	require.Equal(t, network.ErrAuthInvalidGateway, err)
 }
 

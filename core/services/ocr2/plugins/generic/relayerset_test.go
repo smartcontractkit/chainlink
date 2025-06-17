@@ -124,8 +124,8 @@ func (t TestRelayGetter) Get(id types.RelayID) (loop.Relayer, error) {
 	return nil, fmt.Errorf("relayer with id %s not found", id)
 }
 
-func (t TestRelayGetter) GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error) {
-	return t.relayers, nil
+func (t TestRelayGetter) GetIDToRelayerMap() map[types.RelayID]loop.Relayer {
+	return t.relayers
 }
 
 type TestRelayer struct {
@@ -158,6 +158,10 @@ func (t *TestRelayer) NewContractReader(_ context.Context, _ []byte) (types.Cont
 	panic("implement me")
 }
 
+func (t *TestRelayer) EVM() (types.EVMService, error) {
+	panic("implement me")
+}
+
 func (t *TestRelayer) LatestHead(_ context.Context) (types.Head, error) {
 	panic("implement me")
 }
@@ -171,6 +175,10 @@ func (t *TestRelayer) ListNodeStatuses(ctx context.Context, pageSize int32, page
 }
 
 func (t *TestRelayer) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+	panic("implement me")
+}
+
+func (t *TestRelayer) Replay(ctx context.Context, fromBlock string, args map[string]any) error {
 	panic("implement me")
 }
 

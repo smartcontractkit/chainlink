@@ -331,7 +331,7 @@ func (k *KeeperBenchmarkTest) Run() {
 					case <-stopAllGoroutinesCh: // header listening failed, exit
 						return errors.New("header distribution channel closed")
 					case <-errCtx.Done(): //one of goroutines errored, shut down gracefully, no need to return error
-						k.log.Error().Err(errCtx.Err()).Str("UpkeepID", upkeepIDCopy.String()).Msg("Stopping obervations due to error in one of the goroutines")
+						k.log.Error().Err(errCtx.Err()).Str("UpkeepID", upkeepIDCopy.String()).Msg("Stopping observations due to error in one of the goroutines")
 						return nil
 					case header := <-contractChannels[chIndex]: // new block, check if upkeep was performed
 						k.log.Trace().Interface("Header number", header.Number).Str("UpkeepID", upkeepIDCopy.String()).Msg("Started processing new header")

@@ -11,8 +11,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
-	evmcfg "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	itutils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"

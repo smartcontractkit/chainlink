@@ -16,7 +16,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/bindings"
 	evmcodec "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"

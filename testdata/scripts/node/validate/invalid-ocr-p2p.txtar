@@ -40,6 +40,7 @@ Enabled = false
 
 # Effective Configuration, with defaults applied:
 InsecureFastScrypt = false
+InsecurePPROFHeap = false
 RootDir = '~/.chainlink'
 ShutdownGracePeriod = '5s'
 
@@ -197,6 +198,7 @@ SimulateTransactions = false
 TransmitterAddress = ''
 CaptureEATelemetry = false
 TraceLogging = false
+ConfigLogValidation = false
 
 [P2P]
 IncomingMessageBufferSize = 10
@@ -327,6 +329,7 @@ ChainID = '1'
 MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
+SyncStrategy = 'event'
 
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''
@@ -348,11 +351,20 @@ InsecureConnection = false
 TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
+ChipIngressEndpoint = ''
 
 [Workflows]
 [Workflows.Limits]
 Global = 200
 PerOwner = 200
+
+[CRE]
+[CRE.Streams]
+WsURL = ''
+RestURL = ''
+
+[Billing]
+URL = 'localhost:4319'
 
 Invalid configuration: invalid configuration: P2P.V2.Enabled: invalid value (false): P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2.
 

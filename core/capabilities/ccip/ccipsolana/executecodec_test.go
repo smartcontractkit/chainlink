@@ -9,14 +9,17 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/mock"
+
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
@@ -39,7 +42,7 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) cciptyp
 			}
 			extraData, err := cciptypes.NewBytesFromString("0x1234")
 			require.NoError(t, err)
-
+			tokenReceiver := solanago.MustPublicKeyFromBase58("42Gia5bGsh8R2S44e37t9fsucap1qsgjr6GjBmWotgdF")
 			destGasAmount := uint32(10)
 			destExecData := make([]byte, 4)
 			binary.LittleEndian.PutUint32(destExecData, destGasAmount)
@@ -77,7 +80,7 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) cciptyp
 				},
 				Sender:         cciptypes.UnknownAddress(key.PublicKey().String()),
 				Data:           extraData,
-				Receiver:       key.PublicKey().Bytes(),
+				Receiver:       tokenReceiver.Bytes(),
 				ExtraArgs:      buf.Bytes(),
 				FeeToken:       cciptypes.UnknownAddress(key.PublicKey().String()),
 				FeeTokenAmount: cciptypes.NewBigInt(big.NewInt(rand.Int63())),
@@ -168,18 +171,26 @@ func TestExecutePluginCodecV1(t *testing.T) {
 	}
 
 	ctx := testutils.Context(t)
-	mockExtraDataCodec := mocks.NewExtraDataCodec(t)
-	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
+	mockExtraDataCodec := mocks.NewSourceChainExtraDataCodec(t)
+	mockExtraDataCodec.On("DecodeDestExecDataToMap", mock.Anything).Return(map[string]any{
 		"destGasAmount": uint32(10),
 	}, nil).Maybe()
-	mockExtraDataCodec.On("DecodeExtraArgs", mock.Anything, mock.Anything).Return(map[string]any{
+	mockExtraDataCodec.On("DecodeExtraArgsToMap", mock.Anything).Return(map[string]any{
 		"ComputeUnits":            uint32(1000),
 		"accountIsWritableBitmap": uint64(2),
+		"TokenReceiver":           [32]byte(solanago.MustPublicKeyFromBase58("42Gia5bGsh8R2S44e37t9fsucap1qsgjr6GjBmWotgdF").Bytes()),
 	}, nil).Maybe()
+	registeredMockExtraDataCodecMap := map[string]ccipcommon.SourceChainExtraDataCodec{
+		chainsel.FamilyEVM:    mockExtraDataCodec,
+		chainsel.FamilySolana: mockExtraDataCodec,
+	}
+
+	edc := ccipcommon.ExtraDataCodec(registeredMockExtraDataCodecMap)
+	cd := NewExecutePluginCodecV1(edc)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cd := NewExecutePluginCodecV1(mockExtraDataCodec)
+
 			report := tc.report(randomExecuteReport(t, tc.chainSelector))
 			bytes, err := cd.Encode(ctx, report)
 			if tc.expErr {
@@ -207,14 +218,19 @@ func TestExecutePluginCodecV1(t *testing.T) {
 }
 
 func Test_DecodingExecuteReport(t *testing.T) {
-	mockExtraDataCodec := mocks.NewExtraDataCodec(t)
-	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
+	mockExtraDataCodec := mocks.NewSourceChainExtraDataCodec(t)
+	mockExtraDataCodec.On("DecodeDestExecDataToMap", mock.Anything, mock.Anything).Return(map[string]any{
 		"destGasAmount": uint32(10),
 	}, nil)
-	mockExtraDataCodec.On("DecodeExtraArgs", mock.Anything, mock.Anything).Return(map[string]any{
+	mockExtraDataCodec.On("DecodeExtraArgsToMap", mock.Anything, mock.Anything).Return(map[string]any{
 		"ComputeUnits":            uint32(1000),
 		"accountIsWritableBitmap": uint64(2),
 	}, nil)
+	registeredMockExtraDataCodecMap := map[string]ccipcommon.SourceChainExtraDataCodec{
+		chainsel.FamilyEVM:    mockExtraDataCodec,
+		chainsel.FamilySolana: mockExtraDataCodec,
+	}
+
 	t.Run("decode on-chain execute report", func(t *testing.T) {
 		chainSel := cciptypes.ChainSelector(rand.Uint64())
 
@@ -253,7 +269,8 @@ func Test_DecodingExecuteReport(t *testing.T) {
 		err = onChainReport.MarshalWithEncoder(encoder)
 		require.NoError(t, err)
 
-		executeCodec := NewExecutePluginCodecV1(mockExtraDataCodec)
+		edc := ccipcommon.ExtraDataCodec(registeredMockExtraDataCodecMap)
+		executeCodec := NewExecutePluginCodecV1(edc)
 		decode, err := executeCodec.Decode(testutils.Context(t), buf.Bytes())
 		require.NoError(t, err)
 
@@ -264,12 +281,13 @@ func Test_DecodingExecuteReport(t *testing.T) {
 		require.Equal(t, cciptypes.UnknownAddress(tokenReceiver.Bytes()), msg.Receiver)
 		require.Equal(t, cciptypes.Bytes(extraArgsBuf.Bytes()), msg.ExtraArgs)
 		require.Equal(t, tokenAmount, msg.TokenAmounts[0].Amount.Int)
-		require.Equal(t, destGasAmount, bytesToUint32LE(msg.TokenAmounts[0].DestExecData))
+		require.Equal(t, destGasAmount, binary.LittleEndian.Uint32(msg.TokenAmounts[0].DestExecData))
 	})
 
 	t.Run("decode Borsh encoded execute report", func(t *testing.T) {
 		ocrReport := randomExecuteReport(t, 124615329519749607)
-		cd := NewExecutePluginCodecV1(mockExtraDataCodec)
+		edc := ccipcommon.ExtraDataCodec(registeredMockExtraDataCodecMap)
+		cd := NewExecutePluginCodecV1(edc)
 		encodedReport, err := cd.Encode(testutils.Context(t), ocrReport)
 		require.NoError(t, err)
 
@@ -295,7 +313,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 		originTokenAmount := originMsg.TokenAmounts[0]
 		require.Equal(t, originTokenAmount.Amount, decodeLEToBigInt(executeReport.Message.TokenAmounts[0].Amount.LeBytes[:]))
 		require.Equal(t, originTokenAmount.DestTokenAddress, cciptypes.UnknownAddress(executeReport.Message.TokenAmounts[0].DestTokenAddress.Bytes()))
-		require.Equal(t, bytesToUint32LE(originTokenAmount.DestExecData), executeReport.Message.TokenAmounts[0].DestGasAmount)
+		require.Equal(t, binary.LittleEndian.Uint32(originTokenAmount.DestExecData), executeReport.Message.TokenAmounts[0].DestGasAmount)
 		require.Equal(t, originMsg.Sender, cciptypes.UnknownAddress(executeReport.Message.Sender))
 	})
 }

@@ -15,7 +15,7 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )

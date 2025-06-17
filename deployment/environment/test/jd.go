@@ -12,7 +12,8 @@ import (
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	//	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -72,7 +73,7 @@ func (s *JDNodeService) ListNodes(ctx context.Context, req *nodev1.ListNodesRequ
 	var nodes []*nodev1.Node
 	for _, w := range s.store.list() {
 		n := newJDNode(w.Node)
-		if memory.ApplyNodeFilter(req.Filter, n) {
+		if ApplyNodeFilter(req.Filter, n) {
 			nodes = append(nodes, n)
 		}
 	}
@@ -144,7 +145,7 @@ func (s *JDNodeService) ListNodeChainConfigs(ctx context.Context, req *nodev1.Li
 	}
 	var out []*nodev1.ChainConfig
 	for _, w := range s.store.list() {
-		if memory.ApplyNodeFilter(filter, w.toJDNode()) {
+		if ApplyNodeFilter(filter, w.toJDNode()) {
 			cc, err := w.Node.ChainConfigs()
 			if err != nil {
 				return nil, err

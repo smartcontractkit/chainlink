@@ -10,7 +10,9 @@ import (
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/environment/test"
 )
 
 var _ deployment.OffchainClient = &JobClient{}
@@ -18,7 +20,7 @@ var _ deployment.OffchainClient = &JobClient{}
 type JobClient struct {
 	RegisteredNodes map[string]Node
 	nodeStore
-	*JobServiceClient
+	*test.JobServiceClient
 }
 
 func NewMemoryJobClient(nodesByPeerID map[string]Node) *JobClient {
@@ -27,10 +29,10 @@ func NewMemoryJobClient(nodesByPeerID map[string]Node) *JobClient {
 		m[id] = &node
 	}
 	ns := newMapNodeStore(m)
+	jg := &jobApproverGetter{s: ns}
 	return &JobClient{
-		//		Nodes:            nodesByPeerID,
 		RegisteredNodes:  make(map[string]Node),
-		JobServiceClient: NewJobServiceClient(ns),
+		JobServiceClient: test.NewJobServiceClient(jg),
 		nodeStore:        ns,
 	}
 }
@@ -45,13 +47,27 @@ func (j JobClient) ListKeypairs(ctx context.Context, in *csav1.ListKeypairsReque
 	panic("implement me")
 }
 
-func (j JobClient) ReplayLogs(selectorToBlock map[uint64]uint64) error {
-	for _, node := range j.nodeStore.list() {
-		if err := node.ReplayLogs(selectorToBlock); err != nil {
+func (j JobClient) ReplayLogs(ctx context.Context, selectorToBlock map[uint64]uint64) error {
+	for _, node := range j.list() {
+		if err := node.ReplayLogs(ctx, selectorToBlock); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// Checks if a filter exists in DB for event name in all nodes
+func (j JobClient) IsLogFilterRegistered(ctx context.Context, chainSel uint64, eventName string, address []byte) (bool, error) {
+	for _, node := range j.list() {
+		if node.IsBoostrap {
+			continue
+		}
+		registered, err := node.IsLogFilterRegistered(ctx, chainSel, eventName, address)
+		if err != nil || !registered {
+			return false, err
+		}
+	}
+	return true, nil
 }
 
 func ApplyNodeFilter(filter *nodev1.ListNodesRequest_Filter, node *nodev1.Node) bool {
@@ -61,6 +77,14 @@ func ApplyNodeFilter(filter *nodev1.ListNodesRequest_Filter, node *nodev1.Node) 
 	if len(filter.Ids) > 0 {
 		idx := slices.IndexFunc(filter.Ids, func(id string) bool {
 			return node.Id == id
+		})
+		if idx < 0 {
+			return false
+		}
+	}
+	if len(filter.PublicKeys) > 0 {
+		idx := slices.IndexFunc(filter.PublicKeys, func(pk string) bool {
+			return node.PublicKey == pk
 		})
 		if idx < 0 {
 			return false

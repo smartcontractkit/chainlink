@@ -18,7 +18,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/wsrpc/credentials"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/exposed_configurator"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/exposed_configurator"
 )
 
 // Originally sourced from: https://github.com/smartcontractkit/offchain-reporting/blob/991ebe1462fd56826a1ddfb34287d542acb2baee/lib/offchainreporting2/chains/evmutil/offchain_config_digester.go

@@ -21,7 +21,7 @@ import (
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	cnull "github.com/smartcontractkit/chainlink/v2/core/null"
 )
 

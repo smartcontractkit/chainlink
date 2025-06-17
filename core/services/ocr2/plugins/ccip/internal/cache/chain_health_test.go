@@ -11,15 +11,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 )
 
 func Test_RMNStateCaching(t *testing.T) {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	mockCommitStore := mocks.NewCommitStoreReader(t)
 	mockOnRamp := mocks.NewOnRampReader(t)
@@ -63,7 +61,7 @@ func Test_RMNStateCaching(t *testing.T) {
 }
 
 func Test_ChainStateIsCached(t *testing.T) {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	mockCommitStore := mocks.NewCommitStoreReader(t)
 	mockOnRamp := mocks.NewOnRampReader(t)
@@ -168,7 +166,7 @@ func Test_ChainStateIsHealthy(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := tests.Context(t)
+			ctx := t.Context()
 			mockCommitStore := mocks.NewCommitStoreReader(t)
 			mockOnRamp := mocks.NewOnRampReader(t)
 
@@ -205,7 +203,7 @@ func Test_RefreshingInBackground(t *testing.T) {
 		10*time.Microsecond,
 		10*time.Microsecond,
 	)
-	require.NoError(t, chainState.Start(tests.Context(t)))
+	require.NoError(t, chainState.Start(t.Context()))
 
 	// All healthy
 	assertHealthy(t, chainState, true)

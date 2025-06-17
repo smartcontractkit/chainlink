@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
@@ -39,6 +39,11 @@ func (r *relayer) NewContractWriter(ctx context.Context, chainWriterConfig []byt
 func (r *relayer) NewContractReader(ctx context.Context, contractReaderConfig []byte) (types.ContractReader, error) {
 	return nil, nil
 }
+
+func (r *relayer) EVM() (types.EVMService, error) {
+	return nil, nil
+}
+
 func (r *relayer) NewConfigProvider(_ context.Context, rargs types.RelayArgs) (types.ConfigProvider, error) {
 	var cfg RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &cfg); err != nil {
@@ -76,6 +81,9 @@ func (r *relayer) ListNodeStatuses(ctx context.Context, pageSize int32, pageToke
 	return nil, "", 0, nil
 }
 func (r *relayer) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+	return nil
+}
+func (r *relayer) Replay(ctx context.Context, fromBlock string, args map[string]any) error {
 	return nil
 }
 func (r *relayer) Name() string                { return r.lggr.Name() }

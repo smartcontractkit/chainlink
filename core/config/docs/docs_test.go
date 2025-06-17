@@ -13,10 +13,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
-	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
@@ -101,6 +101,9 @@ func TestDoc(t *testing.T) {
 
 		// Fallback DA oracle is not set
 		docDefaults.GasEstimator.DAOracle = toml.DAOracle{}
+
+		// GasEstimator SendAddress is only set if EstimateLimit is enabled
+		docDefaults.GasEstimator.SenderAddress = nil
 
 		assertTOML(t, fallbackDefaults, docDefaults)
 	})

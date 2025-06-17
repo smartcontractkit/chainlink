@@ -2,6 +2,7 @@ package headreporter
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -13,10 +14,10 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 )
 
 type (
@@ -60,7 +61,7 @@ var (
 	})
 )
 
-func NewPrometheusReporter(ds sqlutil.DataSource, chainContainer legacyevm.LegacyChainContainer) *prometheusReporter {
+func NewLegacyEVMPrometheusReporter(ds sqlutil.DataSource, chainContainer legacyevm.LegacyChainContainer) *prometheusReporter {
 	return &prometheusReporter{
 		ds:      ds,
 		chains:  chainContainer,
@@ -69,9 +70,13 @@ func NewPrometheusReporter(ds sqlutil.DataSource, chainContainer legacyevm.Legac
 }
 
 func (pr *prometheusReporter) getTxm(evmChainID *big.Int) (txmgr.TxManager, error) {
-	chain, err := pr.chains.Get(evmChainID.String())
+	chainService, err := pr.chains.Get(evmChainID.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain: %w", err)
+	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		return nil, fmt.Errorf("txm is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 	}
 	return chain.TxManager(), nil
 }

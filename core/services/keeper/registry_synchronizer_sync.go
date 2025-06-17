@@ -8,9 +8,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 )
 
 func (rs *RegistrySynchronizer) fullSync(ctx context.Context) {

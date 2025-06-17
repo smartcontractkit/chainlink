@@ -10,9 +10,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/rogpeppe/go-internal/testscript"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/chainlink/v2/core"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -47,11 +48,8 @@ func TestMain(m *testing.M) {
 var (
 	// Temporary workaround for skipping flaky tests as we improve our tracking process
 	skipFlakyTests = map[string]string{ // test name: issue number
-		"TestScripts/nodes/evm/list/list":       "https://smartcontract-it.atlassian.net/browse/DX-107",
-		"TestScripts/keys/eth/list/unavailable": "https://smartcontract-it.atlassian.net/browse/DX-110",
-		"TestScripts/nodes/solana/list/list":    "https://smartcontract-it.atlassian.net/browse/CRE-155",
-		"TestScripts/health/multi-chain":        "https://smartcontract-it.atlassian.net/browse/CRE-159",
-		"TestScripts/health/default":            "https://smartcontract-it.atlassian.net/browse/DX-109",
+		// "TestScripts/nodes/evm/list/list":       "https://smartcontract-it.atlassian.net/browse/DX-107",
+		// "TestScripts/keys/eth/list/unavailable": "https://smartcontract-it.atlassian.net/browse/DX-110",
 	}
 )
 

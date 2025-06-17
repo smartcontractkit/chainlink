@@ -2,19 +2,15 @@ package syncer
 
 import (
 	"context"
-	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -23,15 +19,17 @@ import (
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
-	wfstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
 	"github.com/jonboulle/clockwork"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -43,14 +41,24 @@ type mockFetchResp struct {
 
 type mockFetcher struct {
 	responseMap map[string]mockFetchResp
+	calledMap   map[string]int
 }
 
 func (m *mockFetcher) Fetch(_ context.Context, mid string, req ghcapabilities.Request) ([]byte, error) {
+	m.calledMap[req.URL]++
 	return m.responseMap[req.URL].Body, m.responseMap[req.URL].Err
 }
 
-func newMockFetcher(m map[string]mockFetchResp) FetcherFunc {
-	return (&mockFetcher{responseMap: m}).Fetch
+func (m *mockFetcher) Calls(url string) int {
+	return m.calledMap[url]
+}
+
+func (m *mockFetcher) FetcherFunc() artifacts.FetcherFunc {
+	return m.Fetch
+}
+
+func newMockFetcher(m map[string]mockFetchResp) *mockFetcher {
+	return &mockFetcher{responseMap: m, calledMap: map[string]int{}}
 }
 
 type mockEngine struct {
@@ -99,11 +107,6 @@ func (m *mockDecrypter) decryptSecrets(data []byte, owner string) (map[string]st
 	return map[string]string{}, nil
 }
 
-func (m *mockDecrypter) registerMock(data []byte, owner string, output map[string]string, err error) {
-	input := string(data) + owner
-	m.mocks[input] = decryptSecretsOutput{output: output, err: err}
-}
-
 func newMockDecrypter() *mockDecrypter {
 	return &mockDecrypter{
 		mocks: map[string]decryptSecretsOutput{},
@@ -113,12 +116,15 @@ func newMockDecrypter() *mockDecrypter {
 func Test_Handler(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	emitter := custmsg.NewLabeler()
+	wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
+	registry := capabilities.NewRegistry(lggr)
+	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 	t.Run("success", func(t *testing.T) {
 		mockORM := mocks.NewORM(t)
 		ctx := testutils.Context(t)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 
 		giveURL := "https://original-url.com"
@@ -127,9 +133,9 @@ func Test_Handler(t *testing.T) {
 
 		giveHash := hex.EncodeToString(giveBytes)
 
-		giveEvent := WorkflowRegistryEvent{
+		giveEvent := Event{
 			EventType: ForceUpdateSecretsEvent,
-			Data: WorkflowRegistryForceUpdateSecretsRequestedV1{
+			Data: ForceUpdateSecretsRequestedV1{
 				SecretsURLHash: giveBytes,
 			},
 		}
@@ -139,9 +145,13 @@ func Test_Handler(t *testing.T) {
 		}
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)
 		mockORM.EXPECT().Update(matches.AnyContext, giveHash, "contents").Return(int64(1), nil)
-		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, workflowLimits)
+
 		decrypter := newMockDecrypter()
-		h.decryptSecrets = decrypter.decryptSecrets
+		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+
+		h, err := NewEventHandler(lggr, wfStore, registry, NewEngineRegistry(), emitter, rl, workflowLimits, store)
+		require.NoError(t, err)
+
 		err = h.Handle(ctx, giveEvent)
 		require.NoError(t, err)
 	})
@@ -151,17 +161,20 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 
-		giveEvent := WorkflowRegistryEvent{}
+		giveEvent := Event{}
 		fetcher := func(_ context.Context, _ string, _ ghcapabilities.Request) ([]byte, error) {
 			return []byte("contents"), nil
 		}
 
-		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, workflowLimits)
 		decrypter := newMockDecrypter()
-		h.decryptSecrets = decrypter.decryptSecrets
+		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+
+		h, err := NewEventHandler(lggr, wfStore, registry, NewEngineRegistry(), emitter, rl, workflowLimits, store)
+		require.NoError(t, err)
+
 		err = h.Handle(ctx, giveEvent)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "event type unsupported")
@@ -172,21 +185,24 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 
-		h := NewEventHandler(lggr, mockORM, nil, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, workflowLimits)
 		decrypter := newMockDecrypter()
-		h.decryptSecrets = decrypter.decryptSecrets
+		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, nil, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+
+		h, err := NewEventHandler(lggr, wfStore, registry, NewEngineRegistry(), emitter, rl, workflowLimits, store)
+		require.NoError(t, err)
+
 		giveURL := "https://original-url.com"
 		giveBytes, err := crypto.Keccak256([]byte(giveURL))
 		require.NoError(t, err)
 
 		giveHash := hex.EncodeToString(giveBytes)
 
-		giveEvent := WorkflowRegistryEvent{
+		giveEvent := Event{
 			EventType: ForceUpdateSecretsEvent,
-			Data: WorkflowRegistryForceUpdateSecretsRequestedV1{
+			Data: ForceUpdateSecretsRequestedV1{
 				SecretsURLHash: giveBytes,
 			},
 		}
@@ -201,7 +217,7 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 
 		giveURL := "http://example.com"
@@ -210,9 +226,9 @@ func Test_Handler(t *testing.T) {
 
 		giveHash := hex.EncodeToString(giveBytes)
 
-		giveEvent := WorkflowRegistryEvent{
+		giveEvent := Event{
 			EventType: ForceUpdateSecretsEvent,
-			Data: WorkflowRegistryForceUpdateSecretsRequestedV1{
+			Data: ForceUpdateSecretsRequestedV1{
 				SecretsURLHash: giveBytes,
 			},
 		}
@@ -221,11 +237,13 @@ func Test_Handler(t *testing.T) {
 			return nil, assert.AnError
 		}
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)
-		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, workflowLimits)
+
 		decrypter := newMockDecrypter()
-		h.decryptSecrets = decrypter.decryptSecrets
+		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+
+		h, err := NewEventHandler(lggr, wfStore, registry, NewEngineRegistry(), emitter, rl, workflowLimits, store)
+		require.NoError(t, err)
 		err = h.Handle(ctx, giveEvent)
-		require.Error(t, err)
 		require.ErrorIs(t, err, assert.AnError)
 	})
 
@@ -234,7 +252,7 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 
 		giveURL := "http://example.com"
@@ -243,9 +261,9 @@ func Test_Handler(t *testing.T) {
 
 		giveHash := hex.EncodeToString(giveBytes)
 
-		giveEvent := WorkflowRegistryEvent{
+		giveEvent := Event{
 			EventType: ForceUpdateSecretsEvent,
-			Data: WorkflowRegistryForceUpdateSecretsRequestedV1{
+			Data: ForceUpdateSecretsRequestedV1{
 				SecretsURLHash: giveBytes,
 			},
 		}
@@ -255,10 +273,15 @@ func Test_Handler(t *testing.T) {
 		}
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)
 		mockORM.EXPECT().Update(matches.AnyContext, giveHash, "contents").Return(0, assert.AnError)
-		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, workflowLimits)
+
 		decrypter := newMockDecrypter()
-		h.decryptSecrets = decrypter.decryptSecrets
+		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+
+		h, err := NewEventHandler(lggr, wfStore, registry, NewEngineRegistry(), emitter, rl, workflowLimits, store)
+		require.NoError(t, err)
+
 		err = h.Handle(ctx, giveEvent)
+
 		require.Error(t, err)
 		require.ErrorIs(t, err, assert.AnError)
 	})
@@ -275,26 +298,35 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 	var configURL = "http://example.com/config"
 	var config = []byte("")
 	var wfOwner = []byte("0xOwner")
-	var binary = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+	var binary = wasmtest.CreateTestBinary(binaryCmd, true, t)
 	var encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 	var workflowName = "workflow-name"
 
-	defaultValidationFn := func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, wfOwner []byte, wfName string, wfID string) {
+	defaultValidationFn := func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 		err := h.workflowRegisteredEvent(ctx, event)
 		require.NoError(t, err)
 
 		// Verify the record is updated in the database
-		dbSpec, err := h.orm.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), workflowName)
+		dbSpec, err := s.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), workflowName)
 		require.NoError(t, err)
 		require.Equal(t, hex.EncodeToString(wfOwner), dbSpec.WorkflowOwner)
 		require.Equal(t, workflowName, dbSpec.WorkflowName)
 		require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
 
 		// Verify the engine is started
-		engine, err := h.engineRegistry.Get(wfID)
-		require.NoError(t, err)
+		engine, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: workflowName})
+		require.True(t, ok)
 		err = engine.Ready()
 		require.NoError(t, err)
+	}
+
+	defaultValidationFnWithFetch := func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+		defaultValidationFn(t, ctx, event, h, s, wfOwner, wfName, wfID, fetcher)
+
+		// Verify that the URLs have been called
+		require.Equal(t, 1, fetcher.Calls(event.BinaryURL))
+		require.Equal(t, 1, fetcher.Calls(event.ConfigURL))
+		require.Equal(t, 1, fetcher.Calls(event.SecretsURL))
 	}
 
 	var tt = []testCase{
@@ -305,7 +337,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				configURL:  {Body: config, Err: nil},
 				secretsURL: {Body: []byte("secrets"), Err: nil},
 			}),
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, config []byte, binary []byte) (services.Service, error) {
 				return &mockEngine{}, nil
 			},
 			GiveConfig: config,
@@ -314,8 +346,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURL:  binaryURL,
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -325,7 +357,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					SecretsURL:    secretsURL,
 				}
 			},
-			validationFn: defaultValidationFn,
+			validationFn: defaultValidationFnWithFetch,
 		},
 		{
 			Name: "correctly generates the workflow name",
@@ -334,7 +366,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				configURL:  {Body: config, Err: nil},
 				secretsURL: {Body: []byte("secrets"), Err: nil},
 			}),
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, config []byte, binary []byte) (services.Service, error) {
 				if _, err := hex.DecodeString(name.Hex()); err != nil {
 					return nil, fmt.Errorf("invalid workflow name: %w", err)
 				}
@@ -350,8 +382,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURL:  binaryURL,
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -361,7 +393,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					SecretsURL:    secretsURL,
 				}
 			},
-			validationFn: defaultValidationFn,
+			validationFn: defaultValidationFnWithFetch,
 		},
 		{
 			Name: "fails to start engine",
@@ -370,7 +402,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				configURL:  {Body: config, Err: nil},
 				secretsURL: {Body: []byte("secrets"), Err: nil},
 			}),
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, config []byte, binary []byte) (services.Service, error) {
 				return &mockEngine{StartErr: assert.AnError}, nil
 			},
 			GiveConfig: config,
@@ -379,8 +411,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURL:  binaryURL,
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -390,14 +422,15 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					SecretsURL:    secretsURL,
 				}
 			},
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, wfOwner []byte, wfName string, wfID string) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler,
+				s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 				err := h.workflowRegisteredEvent(ctx, event)
 				require.Error(t, err)
 				require.ErrorIs(t, err, assert.AnError)
 			},
 		},
 		{
-			Name: "fails if running engine exists",
+			Name: "succeeds if correct engine already exists",
 			fetcher: newMockFetcher(map[string]mockFetchResp{
 				binaryURL:  {Body: encodedBinary, Err: nil},
 				configURL:  {Body: config, Err: nil},
@@ -409,8 +442,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURL:  binaryURL,
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -420,12 +453,50 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					SecretsURL:    secretsURL,
 				}
 			},
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, wfOwner []byte, wfName string, wfID string) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 				me := &mockEngine{}
-				h.engineRegistry.Add(wfID, me)
-				err := h.workflowRegisteredEvent(ctx, event)
-				require.Error(t, err)
-				require.ErrorContains(t, err, "workflow is already running")
+				var wfIDBytes [32]byte
+				copy(wfIDBytes[:], wfID)
+				err := h.engineRegistry.Add(EngineRegistryKey{Owner: wfOwner, Name: workflowName}, me, wfIDBytes)
+				require.NoError(t, err)
+				err = h.workflowRegisteredEvent(ctx, event)
+				require.NoError(t, err)
+			},
+		},
+		{
+			Name: "handles incorrect engine already exists",
+			fetcher: newMockFetcher(map[string]mockFetchResp{
+				binaryURL:  {Body: encodedBinary, Err: nil},
+				configURL:  {Body: config, Err: nil},
+				secretsURL: {Body: []byte("secrets"), Err: nil},
+			}),
+			GiveConfig: config,
+			ConfigURL:  configURL,
+			SecretsURL: secretsURL,
+			BinaryURL:  binaryURL,
+			GiveBinary: binary,
+			WFOwner:    wfOwner,
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
+					Status:        uint8(0),
+					WorkflowID:    [32]byte(wfID),
+					WorkflowOwner: wfOwner,
+					WorkflowName:  workflowName,
+					BinaryURL:     binaryURL,
+					ConfigURL:     configURL,
+					SecretsURL:    secretsURL,
+				}
+			},
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+				me := &mockEngine{}
+				oldWfIDBytes := [32]byte{0, 1, 2, 3, 5}
+				err := h.engineRegistry.Add(EngineRegistryKey{Owner: wfOwner, Name: workflowName}, me, oldWfIDBytes)
+				require.NoError(t, err)
+				err = h.workflowRegisteredEvent(ctx, event)
+				require.NoError(t, err)
+				engineInRegistry, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: workflowName})
+				assert.True(t, ok)
+				require.Equal(t, engineInRegistry.WorkflowID.Hex(), wfID)
 			},
 		},
 		{
@@ -441,8 +512,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURL:  binaryURL,
 			GiveBinary: binary,
 			WFOwner:    wfOwner,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(1),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -452,20 +523,80 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					SecretsURL:    secretsURL,
 				}
 			},
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, wfOwner []byte, wfName string, wfID string) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler,
+				s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
 				err := h.workflowRegisteredEvent(ctx, event)
 				require.NoError(t, err)
 
 				// Verify the record is updated in the database
-				dbSpec, err := h.orm.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), workflowName)
+				dbSpec, err := s.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), workflowName)
 				require.NoError(t, err)
 				require.Equal(t, hex.EncodeToString(wfOwner), dbSpec.WorkflowOwner)
 				require.Equal(t, workflowName, dbSpec.WorkflowName)
 				require.Equal(t, job.WorkflowSpecStatusPaused, dbSpec.Status)
 
 				// Verify there is no running engine
-				_, err = h.engineRegistry.Get(wfID)
-				require.Error(t, err)
+				_, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+				assert.False(t, ok)
+			},
+		},
+		{
+			Name: "same wf ID, different status",
+			fetcher: newMockFetcher(map[string]mockFetchResp{
+				binaryURL:  {Body: encodedBinary, Err: nil},
+				configURL:  {Body: config, Err: nil},
+				secretsURL: {Body: []byte("secrets"), Err: nil},
+			}),
+			GiveConfig: config,
+			ConfigURL:  configURL,
+			SecretsURL: secretsURL,
+			BinaryURL:  binaryURL,
+			GiveBinary: binary,
+			WFOwner:    wfOwner,
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
+					Status:        uint8(0),
+					WorkflowID:    [32]byte(wfID),
+					WorkflowOwner: wfOwner,
+					WorkflowName:  workflowName,
+					BinaryURL:     binaryURL,
+					ConfigURL:     configURL,
+					SecretsURL:    secretsURL,
+				}
+			},
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler,
+				s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+				// Create the record in the database
+				entry := &job.WorkflowSpec{
+					Workflow:      hex.EncodeToString(binary),
+					Config:        string(config),
+					WorkflowID:    event.WorkflowID.Hex(),
+					Status:        job.WorkflowSpecStatusPaused,
+					WorkflowOwner: hex.EncodeToString(event.WorkflowOwner),
+					WorkflowName:  event.WorkflowName,
+					SpecType:      job.WASMFile,
+					BinaryURL:     event.BinaryURL,
+					ConfigURL:     event.ConfigURL,
+				}
+				urlHash, err := crypto.Keccak256([]byte(event.SecretsURL))
+				require.NoError(t, err)
+				_, err = s.UpsertWorkflowSpecWithSecrets(ctx, entry, event.SecretsURL, hex.EncodeToString(urlHash), "secrets")
+				require.NoError(t, err)
+
+				err = h.workflowRegisteredEvent(ctx, event)
+				require.NoError(t, err)
+
+				// Verify the record is updated in the database
+				dbSpec, err := s.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), workflowName)
+				require.NoError(t, err)
+				require.Equal(t, hex.EncodeToString(wfOwner), dbSpec.WorkflowOwner)
+				require.Equal(t, workflowName, dbSpec.WorkflowName)
+
+				// This reflects the event status, not what was previously stored in the DB
+				require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
+
+				_, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+				assert.True(t, ok)
 			},
 		},
 		{
@@ -480,9 +611,16 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				binaryURL:  {Body: encodedBinary, Err: nil},
 				secretsURL: {Body: []byte("secrets"), Err: nil},
 			}),
-			validationFn: defaultValidationFn,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+				defaultValidationFn(t, ctx, event, h, s, wfOwner, wfName, wfID, fetcher)
+
+				// Verify that the URLs have been called
+				require.Equal(t, 1, fetcher.Calls(event.BinaryURL))
+				require.Equal(t, 0, fetcher.Calls(event.ConfigURL))
+				require.Equal(t, 1, fetcher.Calls(event.SecretsURL))
+			},
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -503,9 +641,61 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				binaryURL: {Body: encodedBinary, Err: nil},
 				configURL: {Body: config, Err: nil},
 			}),
-			validationFn: defaultValidationFn,
-			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
-				return WorkflowRegistryWorkflowRegisteredV1{
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+				defaultValidationFn(t, ctx, event, h, s, wfOwner, wfName, wfID, fetcher)
+
+				// Verify that the URLs have been called
+				require.Equal(t, 1, fetcher.Calls(event.BinaryURL))
+				require.Equal(t, 1, fetcher.Calls(event.ConfigURL))
+				require.Equal(t, 0, fetcher.Calls(event.SecretsURL))
+			},
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
+					Status:        uint8(0),
+					WorkflowID:    [32]byte(wfID),
+					WorkflowOwner: wfOwner,
+					WorkflowName:  workflowName,
+					BinaryURL:     binaryURL,
+					ConfigURL:     configURL,
+				}
+			},
+		},
+		{
+			Name:       "skips fetching if same DB entry exists",
+			GiveConfig: config,
+			ConfigURL:  configURL,
+			BinaryURL:  binaryURL,
+			GiveBinary: binary,
+			WFOwner:    wfOwner,
+			fetcher: newMockFetcher(map[string]mockFetchResp{
+				binaryURL: {Body: encodedBinary, Err: nil},
+				configURL: {Body: config, Err: nil},
+			}),
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher) {
+				// Create the record in the database
+				entry := &job.WorkflowSpec{
+					Workflow:      hex.EncodeToString(binary),
+					Config:        string(config),
+					WorkflowID:    hex.EncodeToString(event.WorkflowID[:]),
+					Status:        job.WorkflowSpecStatusActive,
+					WorkflowOwner: hex.EncodeToString(event.WorkflowOwner),
+					WorkflowName:  event.WorkflowName,
+					SpecType:      job.WASMFile,
+					BinaryURL:     event.BinaryURL,
+					ConfigURL:     event.ConfigURL,
+				}
+				_, err := s.UpsertWorkflowSpec(ctx, entry)
+				require.NoError(t, err)
+
+				defaultValidationFn(t, ctx, event, h, s, wfOwner, wfName, wfID, fetcher)
+
+				// Verify that the URLs have not been called
+				require.Equal(t, 0, fetcher.Calls(event.BinaryURL))
+				require.Equal(t, 0, fetcher.Calls(event.ConfigURL))
+				require.Equal(t, 0, fetcher.Calls(event.SecretsURL))
+			},
+			Event: func(wfID []byte) WorkflowRegisteredV1 {
+				return WorkflowRegisteredV1{
 					Status:        uint8(0),
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
@@ -530,10 +720,10 @@ type testCase struct {
 	GiveConfig      []byte
 	ConfigURL       string
 	WFOwner         []byte
-	fetcher         FetcherFunc
-	Event           func([]byte) WorkflowRegistryWorkflowRegisteredV1
-	validationFn    func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, wfOwner []byte, wfName string, wfID string)
-	engineFactoryFn func(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error)
+	fetcher         *mockFetcher
+	Event           func([]byte) WorkflowRegisteredV1
+	validationFn    func(t *testing.T, ctx context.Context, event WorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string, fetcher *mockFetcher)
+	engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, config []byte, binary []byte) (services.Service, error)
 }
 
 func testRunningWorkflow(t *testing.T, tc testCase) {
@@ -543,7 +733,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 			ctx     = testutils.Context(t)
 			lggr    = logger.TestLogger(t)
 			db      = pgtest.NewSqlxDB(t)
-			orm     = NewWorkflowRegistryDS(db, lggr)
+			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
 			binary     = tc.GiveBinary
@@ -569,20 +759,72 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 			opts = append(opts, WithEngineFactoryFn(tc.engineFactoryFn))
 		}
 
-		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
+		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
-		h := NewEventHandler(lggr, orm, fetcher, store, registry, emitter, clockwork.NewFakeClock(),
-			workflowkey.Key{}, rl, workflowLimits, opts...)
-		decrypter := newMockDecrypter()
-		h.decryptSecrets = decrypter.decryptSecrets
 
-		tc.validationFn(t, ctx, event, h, wfOwner, "workflow-name", wfID)
+		decrypter := newMockDecrypter()
+		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+
+		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, opts...)
+		require.NoError(t, err)
+		t.Cleanup(func() { assert.NoError(t, h.Close()) })
+
+		tc.validationFn(t, ctx, event, h, artifactStore, wfOwner, "workflow-name", wfID, fetcher)
 	})
+}
+
+type mockArtifactStore struct {
+	artifactStore              *artifacts.Store
+	deleteWorkflowArtifactsErr error
+}
+
+func (m *mockArtifactStore) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string) ([]byte, []byte, error) {
+	return m.artifactStore.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL)
+}
+func (m *mockArtifactStore) GetWorkflowSpec(ctx context.Context, workflowOwner string, workflowName string) (*job.WorkflowSpec, error) {
+	return m.artifactStore.GetWorkflowSpec(ctx, workflowOwner, workflowName)
+}
+func (m *mockArtifactStore) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
+	return m.artifactStore.UpsertWorkflowSpec(ctx, spec)
+}
+func (m *mockArtifactStore) UpsertWorkflowSpecWithSecrets(ctx context.Context, entry *job.WorkflowSpec, secretsURL, urlHash, secrets string) (int64, error) {
+	return m.artifactStore.UpsertWorkflowSpecWithSecrets(ctx, entry, secretsURL, urlHash, secrets)
+}
+func (m *mockArtifactStore) DeleteWorkflowArtifacts(ctx context.Context, workflowOwner string, workflowName string, workflowID string) error {
+	if m.deleteWorkflowArtifactsErr != nil {
+		return m.deleteWorkflowArtifactsErr
+	}
+	return m.artifactStore.DeleteWorkflowArtifacts(ctx, workflowOwner, workflowName, workflowID)
+}
+func (m *mockArtifactStore) GetSecrets(ctx context.Context, secretsURL string, workflowID [32]byte, workflowOwner []byte) ([]byte, error) {
+	return m.artifactStore.GetSecrets(ctx, secretsURL, workflowID, workflowOwner)
+}
+func (m *mockArtifactStore) ValidateSecrets(ctx context.Context, workflowID, workflowOwner string) error {
+	return m.artifactStore.ValidateSecrets(ctx, workflowID, workflowOwner)
+}
+func (m *mockArtifactStore) SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error) {
+	return m.artifactStore.SecretsFor(ctx, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID)
+}
+func (m *mockArtifactStore) GetSecretsURLHash(workflowOwner []byte, secretsURL []byte) ([]byte, error) {
+	return m.artifactStore.GetSecretsURLHash(workflowOwner, secretsURL)
+}
+func (m *mockArtifactStore) GetSecretsURLByID(ctx context.Context, id int64) (string, error) {
+	return m.artifactStore.GetSecretsURLByID(ctx, id)
+}
+func (m *mockArtifactStore) ForceUpdateSecrets(ctx context.Context, secretsURLHash []byte, owner []byte) (string, error) {
+	return m.artifactStore.ForceUpdateSecrets(ctx, secretsURLHash, owner)
+}
+
+func newMockArtifactStore(as *artifacts.Store, deleteWorkflowArtifactsErr error) WorkflowArtifactsStore {
+	return &mockArtifactStore{
+		artifactStore:              as,
+		deleteWorkflowArtifactsErr: deleteWorkflowArtifactsErr,
+	}
 }
 
 func Test_workflowDeletedHandler(t *testing.T) {
@@ -591,10 +833,10 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			ctx     = testutils.Context(t)
 			lggr    = logger.TestLogger(t)
 			db      = pgtest.NewSqlxDB(t)
-			orm     = NewWorkflowRegistryDS(db, lggr)
+			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary        = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			secretsURL    = "http://example.com"
@@ -612,9 +854,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, config, secretsURL)
 
 		require.NoError(t, err)
-		wfIDs := hex.EncodeToString(giveWFID[:])
 
-		active := WorkflowRegistryWorkflowRegisteredV1{
+		active := WorkflowRegisteredV1{
 			Status:        uint8(0),
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
@@ -625,29 +866,21 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		}
 
 		er := NewEngineRegistry()
-		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
+		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
-		h := NewEventHandler(
-			lggr,
-			orm,
-			fetcher,
-			store,
-			registry,
-			emitter,
-			clockwork.NewFakeClock(),
-			workflowkey.Key{},
-			rl,
-			workflowLimits,
-			WithEngineRegistry(er),
-		)
+
 		decrypter := newMockDecrypter()
-		h.decryptSecrets = decrypter.decryptSecrets
-		err = h.workflowRegisteredEvent(ctx, active)
+		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+
+		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, WithEngineRegistry(er))
+		require.NoError(t, err)
+		err =
+			h.workflowRegisteredEvent(ctx, active)
 		require.NoError(t, err)
 
 		// Verify the record is updated in the database
@@ -658,12 +891,12 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
 
 		// Verify the engine is started
-		engine, err := h.engineRegistry.Get(wfIDs)
-		require.NoError(t, err)
+		engine, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.True(t, ok)
 		err = engine.Ready()
 		require.NoError(t, err)
 
-		deleteEvent := WorkflowRegistryWorkflowDeletedV1{
+		deleteEvent := WorkflowDeletedV1{
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "workflow-name",
@@ -677,18 +910,18 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.Error(t, err)
 
 		// Verify the engine is deleted
-		_, err = h.engineRegistry.Get(wfIDs)
-		require.Error(t, err)
+		_, ok = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.False(t, ok)
 	})
 	t.Run("success deleting non-existing workflow spec", func(t *testing.T) {
 		var (
 			ctx     = testutils.Context(t)
 			lggr    = logger.TestLogger(t)
 			db      = pgtest.NewSqlxDB(t)
-			orm     = NewWorkflowRegistryDS(db, lggr)
+			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary        = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			secretsURL    = "http://example.com"
@@ -707,30 +940,20 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		er := NewEngineRegistry()
-		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
+		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
-		h := NewEventHandler(
-			lggr,
-			orm,
-			fetcher,
-			store,
-			registry,
-			emitter,
-			clockwork.NewFakeClock(),
-			workflowkey.Key{},
-			rl,
-			workflowLimits,
-			WithEngineRegistry(er),
-		)
 		decrypter := newMockDecrypter()
-		h.decryptSecrets = decrypter.decryptSecrets
+		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 
-		deleteEvent := WorkflowRegistryWorkflowDeletedV1{
+		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, WithEngineRegistry(er))
+		require.NoError(t, err)
+
+		deleteEvent := WorkflowDeletedV1{
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "workflow-name",
@@ -743,6 +966,94 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		_, err = orm.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), "workflow-name")
 		require.Error(t, err)
 	})
+	t.Run("removes from DB before engine registry", func(t *testing.T) {
+		var (
+			ctx     = testutils.Context(t)
+			lggr    = logger.TestLogger(t)
+			db      = pgtest.NewSqlxDB(t)
+			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
+			emitter = custmsg.NewLabeler()
+
+			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
+			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
+			config        = []byte("")
+			secretsURL    = "http://example.com"
+			binaryURL     = "http://example.com/binary"
+			configURL     = "http://example.com/config"
+			wfOwner       = []byte("0xOwner")
+
+			fetcher = newMockFetcher(map[string]mockFetchResp{
+				binaryURL:  {Body: encodedBinary, Err: nil},
+				configURL:  {Body: config, Err: nil},
+				secretsURL: {Body: []byte("secrets"), Err: nil},
+			})
+
+			failWith = "mocked fail DB delete"
+		)
+
+		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, config, secretsURL)
+
+		require.NoError(t, err)
+
+		active := WorkflowRegisteredV1{
+			Status:        uint8(0),
+			WorkflowID:    giveWFID,
+			WorkflowOwner: wfOwner,
+			WorkflowName:  "workflow-name",
+			BinaryURL:     binaryURL,
+			ConfigURL:     configURL,
+			SecretsURL:    secretsURL,
+		}
+
+		er := NewEngineRegistry()
+		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
+		registry := capabilities.NewRegistry(lggr)
+		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
+		require.NoError(t, err)
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
+		require.NoError(t, err)
+
+		decrypter := newMockDecrypter()
+		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+		mockAS := newMockArtifactStore(artifactStore, errors.New(failWith))
+
+		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, mockAS, WithEngineRegistry(er))
+		require.NoError(t, err)
+		err =
+			h.workflowRegisteredEvent(ctx, active)
+		require.NoError(t, err)
+
+		// Verify the record is updated in the database
+		dbSpec, err := orm.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), "workflow-name")
+		require.NoError(t, err)
+		require.Equal(t, hex.EncodeToString(wfOwner), dbSpec.WorkflowOwner)
+		require.Equal(t, "workflow-name", dbSpec.WorkflowName)
+		require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
+
+		// Verify the engine is started
+		engine, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.True(t, ok)
+		err = engine.Ready()
+		require.NoError(t, err)
+
+		deleteEvent := WorkflowDeletedV1{
+			WorkflowID:    giveWFID,
+			WorkflowOwner: wfOwner,
+			WorkflowName:  "workflow-name",
+			DonID:         1,
+		}
+		err = h.workflowDeletedEvent(ctx, deleteEvent)
+		require.Error(t, err, failWith)
+
+		// Verify the record is still in the DB
+		_, err = orm.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), "workflow-name")
+		require.NoError(t, err)
+
+		// Verify the engine is still running
+		_, ok = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.True(t, ok)
+	})
 }
 
 func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
@@ -751,10 +1062,10 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 			ctx     = testutils.Context(t)
 			lggr    = logger.TestLogger(t)
 			db      = pgtest.NewSqlxDB(t)
-			orm     = NewWorkflowRegistryDS(db, lggr)
+			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary        = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			updateConfig  = []byte("updated")
@@ -776,14 +1087,9 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.NoError(t, err)
 		updatedWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, updateConfig, secretsURL)
 		require.NoError(t, err)
-
-		require.NoError(t, err)
-		wfIDs := hex.EncodeToString(giveWFID[:])
-
-		require.NoError(t, err)
 		newWFIDs := hex.EncodeToString(updatedWFID[:])
 
-		active := WorkflowRegistryWorkflowRegisteredV1{
+		active := WorkflowRegisteredV1{
 			Status:        uint8(0),
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
@@ -794,28 +1100,20 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		}
 
 		er := NewEngineRegistry()
-		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
+		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
-		h := NewEventHandler(
-			lggr,
-			orm,
-			fetcher,
-			store,
-			registry,
-			emitter,
-			clockwork.NewFakeClock(),
-			workflowkey.Key{},
-			rl,
-			workflowLimits,
-			WithEngineRegistry(er),
-		)
+
 		decrypter := newMockDecrypter()
-		h.decryptSecrets = decrypter.decryptSecrets
+		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+
+		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, WithEngineRegistry(er))
+		require.NoError(t, err)
+
 		err = h.workflowRegisteredEvent(ctx, active)
 		require.NoError(t, err)
 
@@ -827,13 +1125,13 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
 
 		// Verify the engine is started
-		engine, err := h.engineRegistry.Get(wfIDs)
-		require.NoError(t, err)
+		engine, ok := h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.True(t, ok)
 		err = engine.Ready()
 		require.NoError(t, err)
 
 		// create a paused event
-		pauseEvent := WorkflowRegistryWorkflowPausedV1{
+		pauseEvent := WorkflowPausedV1{
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "workflow-name",
@@ -850,35 +1148,11 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.Equal(t, job.WorkflowSpecStatusPaused, dbSpec.Status)
 
 		// Verify the engine is removed
-		_, err = h.engineRegistry.Get(wfIDs)
-		require.Error(t, err)
-
-		// create an activated workflow event
-		activatedEvent := WorkflowRegistryWorkflowActivatedV1{
-			WorkflowID:    giveWFID,
-			WorkflowOwner: wfOwner,
-			WorkflowName:  "workflow-name",
-			DonID:         1,
-		}
-
-		err = h.workflowActivatedEvent(ctx, activatedEvent)
-		require.NoError(t, err)
-
-		// Verify the record is updated in the database
-		dbSpec, err = orm.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), "workflow-name")
-		require.NoError(t, err)
-		require.Equal(t, hex.EncodeToString(wfOwner), dbSpec.WorkflowOwner)
-		require.Equal(t, "workflow-name", dbSpec.WorkflowName)
-		require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
-
-		// Verify the engine is started
-		engine, err = h.engineRegistry.Get(wfIDs)
-		require.NoError(t, err)
-		err = engine.Ready()
-		require.NoError(t, err)
+		_, ok = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.False(t, ok)
 
 		// create an updated event
-		updatedEvent := WorkflowRegistryWorkflowUpdatedV1{
+		updatedEvent := WorkflowUpdatedV1{
 			OldWorkflowID: giveWFID,
 			NewWorkflowID: updatedWFID,
 			WorkflowOwner: wfOwner,
@@ -901,274 +1175,12 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.Equal(t, newConfigURL, dbSpec.ConfigURL)
 		require.Equal(t, string(updateConfig), dbSpec.Config)
 
-		// old engine is no longer running
-		_, err = h.engineRegistry.Get(wfIDs)
-		require.Error(t, err)
-
 		// new engine is started
-		engine, err = h.engineRegistry.Get(newWFIDs)
-		require.NoError(t, err)
+		engine, ok = h.engineRegistry.Get(EngineRegistryKey{Owner: wfOwner, Name: dbSpec.WorkflowName})
+		assert.True(t, ok)
 		err = engine.Ready()
 		require.NoError(t, err)
-	})
-}
-
-func Test_Handler_SecretsFor(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	db := pgtest.NewSqlxDB(t)
-	orm := &orm{ds: db, lggr: lggr}
-
-	workflowOwner := hex.EncodeToString([]byte("anOwner"))
-	workflowName := "aName"
-	workflowID := "anID"
-	decodedWorkflowName := "decodedName"
-	encryptionKey, err := workflowkey.New()
-	require.NoError(t, err)
-
-	url := "http://example.com"
-	hash := hex.EncodeToString([]byte(url))
-	secretsPayload, err := generateSecrets(workflowOwner, map[string][]string{"Foo": []string{"Bar"}}, encryptionKey)
-	require.NoError(t, err)
-	secretsID, err := orm.Create(testutils.Context(t), url, hash, string(secretsPayload))
-	require.NoError(t, err)
-
-	_, err = orm.UpsertWorkflowSpec(testutils.Context(t), &job.WorkflowSpec{
-		Workflow:      "",
-		Config:        "",
-		SecretsID:     sql.NullInt64{Int64: secretsID, Valid: true},
-		WorkflowID:    workflowID,
-		WorkflowOwner: workflowOwner,
-		WorkflowName:  workflowName,
-		BinaryURL:     "",
-		ConfigURL:     "",
-		CreatedAt:     time.Now(),
-		SpecType:      job.DefaultSpecType,
-	})
-	require.NoError(t, err)
-
-	fetcher := &mockFetcher{
-		responseMap: map[string]mockFetchResp{
-			url: mockFetchResp{Err: errors.New("could not fetch")},
-		},
-	}
-	rl, err := ratelimiter.NewRateLimiter(rlConfig)
-	require.NoError(t, err)
-	workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
-	require.NoError(t, err)
-	h := NewEventHandler(
-		lggr,
-		orm,
-		fetcher.Fetch,
-		wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock()),
-		capabilities.NewRegistry(lggr),
-		custmsg.NewLabeler(),
-		clockwork.NewFakeClock(),
-		encryptionKey,
-		rl,
-		workflowLimits,
-	)
-	expectedSecrets := map[string]string{
-		"Foo": "Bar",
-	}
-	decrypter := newMockDecrypter()
-	decrypter.registerMock(secretsPayload, workflowOwner, expectedSecrets, nil)
-	h.decryptSecrets = decrypter.decryptSecrets
-	gotSecrets, err := h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
-	require.NoError(t, err)
-
-	assert.Equal(t, expectedSecrets, gotSecrets)
-}
-
-func Test_Handler_SecretsFor_RefreshesSecrets(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	db := pgtest.NewSqlxDB(t)
-	orm := &orm{ds: db, lggr: lggr}
-
-	workflowOwner := hex.EncodeToString([]byte("anOwner"))
-	workflowName := "aName"
-	workflowID := "anID"
-	decodedWorkflowName := "decodedName"
-	encryptionKey, err := workflowkey.New()
-	require.NoError(t, err)
-
-	secretsPayload, err := generateSecrets(workflowOwner, map[string][]string{"Foo": []string{"Bar"}}, encryptionKey)
-	require.NoError(t, err)
-
-	url := "http://example.com"
-	hash := hex.EncodeToString([]byte(url))
-
-	secretsID, err := orm.Create(testutils.Context(t), url, hash, string(secretsPayload))
-	require.NoError(t, err)
-
-	_, err = orm.UpsertWorkflowSpec(testutils.Context(t), &job.WorkflowSpec{
-		Workflow:      "",
-		Config:        "",
-		SecretsID:     sql.NullInt64{Int64: secretsID, Valid: true},
-		WorkflowID:    workflowID,
-		WorkflowOwner: workflowOwner,
-		WorkflowName:  workflowName,
-		BinaryURL:     "",
-		ConfigURL:     "",
-		CreatedAt:     time.Now(),
-		SpecType:      job.DefaultSpecType,
-	})
-	require.NoError(t, err)
-
-	secretsPayload, err = generateSecrets(workflowOwner, map[string][]string{"Baz": []string{"Bar"}}, encryptionKey)
-	require.NoError(t, err)
-	fetcher := &mockFetcher{
-		responseMap: map[string]mockFetchResp{
-			url: mockFetchResp{Body: secretsPayload},
-		},
-	}
-	rl, err := ratelimiter.NewRateLimiter(rlConfig)
-	require.NoError(t, err)
-	workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
-	require.NoError(t, err)
-	h := NewEventHandler(
-		lggr,
-		orm,
-		fetcher.Fetch,
-		wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock()),
-		capabilities.NewRegistry(lggr),
-		custmsg.NewLabeler(),
-		clockwork.NewFakeClock(),
-		encryptionKey,
-		rl,
-		workflowLimits,
-	)
-	expectedSecrets := map[string]string{
-		"Baz": "Bar",
-	}
-	decrypter := newMockDecrypter()
-	decrypter.registerMock(secretsPayload, workflowOwner, expectedSecrets, nil)
-	h.decryptSecrets = decrypter.decryptSecrets
-
-	gotSecrets, err := h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
-	require.NoError(t, err)
-
-	assert.Equal(t, expectedSecrets, gotSecrets)
-}
-
-func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	db := pgtest.NewSqlxDB(t)
-	orm := &orm{ds: db, lggr: lggr}
-
-	workflowOwner := hex.EncodeToString([]byte("anOwner"))
-	workflowName := "aName"
-	workflowID := "anID"
-	decodedWorkflowName := "decodedName"
-	encryptionKey, err := workflowkey.New()
-	require.NoError(t, err)
-
-	secretsPayload, err := generateSecrets(workflowOwner, map[string][]string{"Foo": []string{"Bar"}}, encryptionKey)
-	require.NoError(t, err)
-
-	url := "http://example.com"
-	hash := hex.EncodeToString([]byte(url))
-
-	secretsID, err := orm.Create(testutils.Context(t), url, hash, string(secretsPayload))
-	require.NoError(t, err)
-
-	_, err = orm.UpsertWorkflowSpec(testutils.Context(t), &job.WorkflowSpec{
-		Workflow:      "",
-		Config:        "",
-		SecretsID:     sql.NullInt64{Int64: secretsID, Valid: true},
-		WorkflowID:    workflowID,
-		WorkflowOwner: workflowOwner,
-		WorkflowName:  workflowName,
-		BinaryURL:     "",
-		ConfigURL:     "",
-		CreatedAt:     time.Now(),
-		SpecType:      job.DefaultSpecType,
-	})
-	require.NoError(t, err)
-
-	fetcher := &mockFetcher{
-		responseMap: map[string]mockFetchResp{
-			url: {
-				Body: secretsPayload,
-			},
-		},
-	}
-	clock := clockwork.NewFakeClock()
-	rl, err := ratelimiter.NewRateLimiter(rlConfig)
-	require.NoError(t, err)
-	workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
-	require.NoError(t, err)
-	h := NewEventHandler(
-		lggr,
-		orm,
-		fetcher.Fetch,
-		wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock()),
-		capabilities.NewRegistry(lggr),
-		custmsg.NewLabeler(),
-		clock,
-		encryptionKey,
-		rl,
-		workflowLimits,
-	)
-	expectedSecrets := map[string]string{
-		"Foo": "Bar",
-	}
-	decrypter := newMockDecrypter()
-	decrypter.registerMock(secretsPayload, workflowOwner, expectedSecrets, nil)
-	h.decryptSecrets = decrypter.decryptSecrets
-
-	gotSecrets, err := h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
-	require.NoError(t, err)
-
-	assert.Equal(t, expectedSecrets, gotSecrets)
-
-	// Now stub out an unparseable response, since we already fetched it recently above, we shouldn't need to refetch
-	// SecretsFor should still succeed.
-	fetcher.responseMap[url] = mockFetchResp{}
-
-	gotSecrets, err = h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
-	require.NoError(t, err)
-
-	assert.Equal(t, expectedSecrets, gotSecrets)
-
-	secretsPayload, err = generateSecrets(workflowOwner, map[string][]string{"Baz": []string{"Bar"}}, encryptionKey)
-	require.NoError(t, err)
-	fetcher.responseMap[url] = mockFetchResp{
-		Body: secretsPayload,
-	}
-
-	expectedSecrets = map[string]string{
-		"Baz": "Bar",
-	}
-	decrypter.registerMock(secretsPayload, workflowOwner, expectedSecrets, nil)
-
-	// Now advance so that we hit the freshness limit
-	clock.Advance(48 * time.Hour)
-
-	gotSecrets, err = h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
-	require.NoError(t, err)
-	assert.Equal(t, expectedSecrets, gotSecrets)
-}
-
-func generateSecrets(workflowOwner string, secretsMap map[string][]string, encryptionKey workflowkey.Key) ([]byte, error) {
-	sm, secretsEnvVars, err := secrets.EncryptSecretsForNodes(
-		workflowOwner,
-		secretsMap,
-		map[string][32]byte{
-			"p2pId": encryptionKey.PublicKey(),
-		},
-		secrets.SecretsConfig{},
-	)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(secrets.EncryptedSecretsResult{
-		EncryptedSecrets: sm,
-		Metadata: secrets.Metadata{
-			WorkflowOwner:          workflowOwner,
-			EnvVarsAssignedToNodes: secretsEnvVars,
-			NodePublicEncryptionKeys: map[string]string{
-				"p2pId": encryptionKey.PublicKeyString(),
-			},
-		},
+		// old engine is no longer running
+		require.Equal(t, types.WorkflowID(updatedWFID), engine.WorkflowID)
 	})
 }

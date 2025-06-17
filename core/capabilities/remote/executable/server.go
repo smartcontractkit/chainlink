@@ -11,14 +11,14 @@ import (
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // server manages all external users of a local executable capability.
@@ -82,7 +82,7 @@ func NewServer(remoteExecutableConfig *commoncap.RemoteExecutableConfig, peerID 
 		messageIDToRequestIDsCount: map[string]map[string]int{},
 		requestTimeout:             requestTimeout,
 
-		lggr:   lggr.Named("ExecutableCapabilityServer"),
+		lggr:   logger.Named(lggr, "ExecutableCapabilityServer"),
 		stopCh: make(services.StopChan),
 
 		parallelExecutor: newParallelExecutor(maxParallelRequests),
@@ -111,16 +111,24 @@ func (r *server) Start(ctx context.Context) error {
 				}
 			}
 		}()
+
+		err := r.parallelExecutor.Start(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to start parallel executor: %w", err)
+		}
 		return nil
 	})
 }
 
 func (r *server) Close() error {
 	return r.StopOnce(r.Name(), func() error {
-		r.parallelExecutor.Close()
-
 		close(r.stopCh)
 		r.wg.Wait()
+		err := r.parallelExecutor.Close()
+		if err != nil {
+			return fmt.Errorf("failed to close parallel executor: %w", err)
+		}
+
 		r.lggr.Info("executable capability server closed")
 		return nil
 	})
@@ -132,7 +140,9 @@ func (r *server) expireRequests() {
 
 	for requestID, executeReq := range r.requestIDToRequest {
 		if executeReq.request.Expired() {
-			err := executeReq.request.Cancel(types.Error_TIMEOUT, "request expired by executable server")
+			ctx, cancelFn := r.stopCh.NewCtx()
+			err := executeReq.request.Cancel(ctx, types.Error_TIMEOUT, "request expired by executable server")
+			cancelFn()
 			if err != nil {
 				r.lggr.Errorw("failed to cancel request", "request", executeReq, "err", err)
 			}
@@ -191,9 +201,15 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 			return
 		}
 
+		sr, ierr := request.NewServerRequest(r.underlying, msg.Method, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
+			callingDon, messageID, r.dispatcher, r.requestTimeout, r.lggr)
+		if ierr != nil {
+			r.lggr.Errorw("failed to instantiate server request", "err", ierr)
+			return
+		}
+
 		r.requestIDToRequest[requestID] = requestAndMsgID{
-			request: request.NewServerRequest(r.underlying, msg.Method, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
-				callingDon, messageID, r.dispatcher, r.requestTimeout, r.lggr),
+			request:   sr,
 			messageID: messageID,
 		}
 	}

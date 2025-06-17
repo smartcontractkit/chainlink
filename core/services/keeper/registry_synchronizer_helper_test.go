@@ -13,9 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/log"
+	logmocks "github.com/smartcontractkit/chainlink/v2/common/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"

@@ -6,6 +6,7 @@ import {AccessControllerInterface} from "../../../../shared/interfaces/AccessCon
 import {SimpleWriteAccessController} from "../../../../shared/access/SimpleWriteAccessController.sol";
 import {ArbitrumSequencerUptimeFeed} from "../../../arbitrum/ArbitrumSequencerUptimeFeed.sol";
 import {ArbitrumValidator} from "../../../arbitrum/ArbitrumValidator.sol";
+import {BaseValidator} from "../../../base/BaseValidator.sol";
 import {MockArbitrumInbox} from "../../mocks/MockArbitrumInbox.sol";
 import {MockAggregatorV2V3} from "../../mocks/MockAggregatorV2V3.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
@@ -81,7 +82,14 @@ contract ArbitrumValidator_Validate is ArbitrumValidatorTest {
       abi.encodeWithSelector(ArbitrumSequencerUptimeFeed.updateStatus.selector, true, futureTimestampInSeconds) // data
     );
 
+    uint256 previousRoundId = 0;
+    int256 previousAnswer = 0;
+    uint256 currentRoundId = 1;
+    int256 currentAnswer = 1;
+
+    vm.expectEmit(address(s_arbitrumValidator));
+    emit BaseValidator.ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
     // Runs the function (which produces the event to test)
-    s_arbitrumValidator.validate(0, 0, 1, 1);
+    s_arbitrumValidator.validate(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
   }
 }

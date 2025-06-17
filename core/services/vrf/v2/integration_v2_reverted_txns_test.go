@@ -16,15 +16,16 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_external_sub_owner_example"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -280,8 +281,10 @@ func fulfillVRFReq(t *testing.T,
 	ec := th.uni.backend
 	chainID, err := th.uni.backend.Client().ChainID(testutils.Context(t))
 	require.NoError(t, err)
-	chain, err := th.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	chainService, err := th.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	require.NoError(t, err)
+	chain, ok := chainService.(legacyevm.Chain)
+	require.True(t, ok)
 
 	metadata := &txmgr.TxMeta{
 		RequestID:     ptr(common.BytesToHash(req.requestID.Bytes())),
@@ -347,8 +350,10 @@ func fulfilBatchVRFReq(t *testing.T,
 	ec := th.uni.backend
 	chainID, err := th.uni.backend.Client().ChainID(testutils.Context(t))
 	require.NoError(t, err)
-	chain, err := th.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	chainService, err := th.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	require.NoError(t, err)
+	chain, ok := chainService.(legacyevm.Chain)
+	require.True(t, ok)
 
 	etx, err := chain.TxManager().CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 		FromAddress:    th.key1.EIP55Address.Address(),

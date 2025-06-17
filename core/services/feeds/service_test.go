@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"math/big"
+	"math/rand/v2"
 	"slices"
 	"testing"
 	"time"
@@ -26,11 +27,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	proto "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
-	evmbig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	evmbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -311,9 +312,6 @@ func Test_Service_RegisterManager(t *testing.T) {
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 
 	actual, err := svc.RegisterManager(testutils.Context(t), params)
-	// We need to stop the service because the manager will attempt to make a
-	// connection
-	svc.Close()
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, id)
@@ -345,7 +343,7 @@ func Test_Service_RegisterManager_MultiFeedsManager(t *testing.T) {
 	)
 
 	svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		var multiFeedsManagers = true
+		multiFeedsManagers := true
 		c.Feature.MultiFeedsManagers = &multiFeedsManagers
 	})
 	ctx := testutils.Context(t)
@@ -365,9 +363,6 @@ func Test_Service_RegisterManager_MultiFeedsManager(t *testing.T) {
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 
 	actual, err := svc.RegisterManager(ctx, params)
-	// We need to stop the service because the manager will attempt to make a
-	// connection
-	svc.Close()
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, id)
@@ -412,9 +407,6 @@ func Test_Service_RegisterManager_InvalidCreateManager(t *testing.T) {
 		transactCall.ReturnArguments = mock.Arguments{fn(svc.orm)}
 	})
 	_, err = svc.RegisterManager(testutils.Context(t), params)
-	// We need to stop the service because the manager will attempt to make a
-	// connection
-	svc.Close()
 	require.Error(t, err)
 	assert.Equal(t, "orm error", err.Error())
 }
@@ -422,7 +414,7 @@ func Test_Service_RegisterManager_InvalidCreateManager(t *testing.T) {
 func Test_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
 	t.Parallel()
 
-	var pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
+	pubKeyHex := "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
 	var pubKey crypto.PublicKey
 	_, err := hex.Decode([]byte(pubKeyHex), pubKey)
 	require.NoError(t, err)
@@ -441,7 +433,7 @@ func Test_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
 	)
 
 	svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		var multiFeedsManagers = true
+		multiFeedsManagers := true
 		c.Feature.MultiFeedsManagers = &multiFeedsManagers
 	})
 	ctx := testutils.Context(t)
@@ -451,9 +443,6 @@ func Test_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
 	svc.orm.On("ListManagers", ctx).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
 
 	_, err = svc.RegisterManager(ctx, params)
-	// We need to stop the service because the manager will attempt to make a
-	// connection
-	svc.Close()
 	require.Error(t, err)
 
 	assert.Equal(t, "manager was previously registered using the same public key", err.Error())
@@ -499,10 +488,7 @@ func Test_Service_GetManager(t *testing.T) {
 }
 
 func Test_Service_UpdateFeedsManager(t *testing.T) {
-
-	var (
-		mgr = feeds.FeedsManager{ID: 1}
-	)
+	mgr := feeds.FeedsManager{ID: 1}
 
 	svc := setupTestService(t)
 
@@ -630,6 +616,10 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 				svc = setupTestService(t)
 			)
 
+			p2pKey, err := p2pkey.NewV2()
+			require.NoError(t, err)
+			svc.p2pKeystore.On("GetAll").Return([]p2pkey.KeyV2{p2pKey}, nil)
+
 			workflowKey, err := workflowkey.New()
 			require.NoError(t, err)
 			svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
@@ -656,7 +646,8 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 						Ocr2Config:              &proto.OCR2Config{Enabled: false},
 					},
 				},
-				WorkflowKey: &wkID,
+				WorkflowKey:   &wkID,
+				P2PKeyBundles: []*proto.P2PKeyBundle{{PeerId: p2pKey.PeerID().String(), PublicKey: p2pKey.PublicKeyHex()}},
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
 			actual, err := svc.CreateChainConfig(testutils.Context(t), cfg)
@@ -706,6 +697,7 @@ func Test_Service_DeleteChainConfig(t *testing.T) {
 	require.NoError(t, err)
 	svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 	svc.workflowKeystore.On("GetAll").Return([]workflowkey.Key{workflowKey}, nil)
+	svc.p2pKeystore.On("GetAll").Return([]p2pkey.KeyV2{}, nil)
 
 	svc.orm.On("GetChainConfig", mock.Anything, cfg.ID).Return(&cfg, nil)
 	svc.orm.On("DeleteChainConfig", mock.Anything, cfg.ID).Return(cfg.ID, nil)
@@ -714,9 +706,10 @@ func Test_Service_DeleteChainConfig(t *testing.T) {
 	svc.orm.On("ListChainConfigsByManagerIDs", mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{}, nil)
 	wkID := workflowKey.ID()
 	svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
-		Version:      nodeVersion.Version,
-		ChainConfigs: []*proto.ChainConfig{},
-		WorkflowKey:  &wkID,
+		Version:       nodeVersion.Version,
+		ChainConfigs:  []*proto.ChainConfig{},
+		WorkflowKey:   &wkID,
+		P2PKeyBundles: []*proto.P2PKeyBundle{},
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
 	actual, err := svc.DeleteChainConfig(testutils.Context(t), cfg.ID)
@@ -804,6 +797,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 			require.NoError(t, err)
 			svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 			svc.workflowKeystore.On("GetAll").Return([]workflowkey.Key{workflowKey}, nil)
+			svc.p2pKeystore.On("GetAll").Return([]p2pkey.KeyV2{}, nil)
 
 			svc.orm.On("UpdateChainConfig", mock.Anything, cfg).Return(int64(1), nil)
 			svc.orm.On("GetChainConfig", mock.Anything, cfg.ID).Return(&cfg, nil)
@@ -826,7 +820,8 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 						Ocr2Config:              &proto.OCR2Config{Enabled: false},
 					},
 				},
-				WorkflowKey: &wkID,
+				WorkflowKey:   &wkID,
+				P2PKeyBundles: []*proto.P2PKeyBundle{},
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
 			actual, err := svc.UpdateChainConfig(testutils.Context(t), cfg)
@@ -1754,7 +1749,9 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+			p2pKey1 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+			p2pKey2 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(2))
+			p2pKey3 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(3))
 
 			ocrKey, err := ocrkey.NewV2()
 			require.NoError(t, err)
@@ -1779,7 +1776,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 					OCR1Config: feeds.OCR1Config{
 						Enabled:     true,
 						IsBootstrap: false,
-						P2PPeerID:   null.StringFrom(p2pKey.PeerID().String()),
+						P2PPeerID:   null.StringFrom(p2pKey1.PeerID().String()),
 						KeyBundleID: null.StringFrom(ocrKey.GetID()),
 					},
 					OCR2Config: feeds.OCR2ConfigModel{
@@ -1806,11 +1803,12 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 			svc.orm.On("ListChainConfigsByManagerIDs", mock.Anything, []int64{mgr.ID}).Return(chainConfigs, nil)
 
 			// OCR1 key fetching
-			svc.p2pKeystore.On("Get", p2pKey.PeerID()).Return(p2pKey, nil)
+			svc.p2pKeystore.On("Get", p2pKey1.PeerID()).Return(p2pKey1, nil)
 			svc.ocr1Keystore.On("Get", ocrKey.GetID()).Return(ocrKey, nil)
 
 			svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 			svc.workflowKeystore.On("GetAll").Return([]workflowkey.Key{workflowKey}, nil)
+			svc.p2pKeystore.On("GetAll").Return([]p2pkey.KeyV2{p2pKey1, p2pKey2, p2pKey3}, nil)
 			wkID := workflowKey.ID()
 			svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
 				Version: nodeVersion.Version,
@@ -1827,8 +1825,8 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 							Enabled:     true,
 							IsBootstrap: ccfg.OCR1Config.IsBootstrap,
 							P2PKeyBundle: &proto.OCR1Config_P2PKeyBundle{
-								PeerId:    p2pKey.PeerID().String(),
-								PublicKey: p2pKey.PublicKeyHex(),
+								PeerId:    p2pKey1.PeerID().String(),
+								PublicKey: p2pKey1.PublicKeyHex(),
 							},
 							OcrKeyBundle: &proto.OCR1Config_OCRKeyBundle{
 								BundleId:              ocrKey.GetID(),
@@ -1853,6 +1851,11 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 					},
 				},
 				WorkflowKey: &wkID,
+				P2PKeyBundles: []*proto.P2PKeyBundle{
+					{PeerId: p2pKey1.PeerID().String(), PublicKey: p2pKey1.PublicKeyHex()},
+					{PeerId: p2pKey2.PeerID().String(), PublicKey: p2pKey2.PublicKeyHex()},
+					{PeerId: p2pKey3.PeerID().String(), PublicKey: p2pKey3.PublicKeyHex()},
+				},
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
 			err = svc.SyncNodeInfo(testutils.Context(t), mgr.ID)
@@ -1880,25 +1883,30 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 	workflowKey, err := workflowkey.New()
 	require.NoError(t, err)
 
-	request := &proto.UpdateNodeRequest{
-		Version: nodeVersion.Version,
-		ChainConfigs: []*proto.ChainConfig{
-			{
-				Chain: &proto.Chain{
-					Id:   cfg.ChainID,
-					Type: proto.ChainType_CHAIN_TYPE_EVM,
+	request := func() *proto.UpdateNodeRequest {
+		return &proto.UpdateNodeRequest{
+			Version: nodeVersion.Version,
+			ChainConfigs: []*proto.ChainConfig{
+				{
+					Chain: &proto.Chain{
+						Id:   cfg.ChainID,
+						Type: proto.ChainType_CHAIN_TYPE_EVM,
+					},
+					AccountAddress:          cfg.AccountAddress,
+					AccountAddressPublicKey: &cfg.AccountAddressPublicKey.String,
+					AdminAddress:            cfg.AdminAddress,
+					FluxMonitorConfig:       &proto.FluxMonitorConfig{Enabled: true},
+					Ocr1Config:              &proto.OCR1Config{Enabled: false},
+					Ocr2Config:              &proto.OCR2Config{Enabled: false},
 				},
-				AccountAddress:          cfg.AccountAddress,
-				AccountAddressPublicKey: &cfg.AccountAddressPublicKey.String,
-				AdminAddress:            cfg.AdminAddress,
-				FluxMonitorConfig:       &proto.FluxMonitorConfig{Enabled: true},
-				Ocr1Config:              &proto.OCR1Config{Enabled: false},
-				Ocr2Config:              &proto.OCR2Config{Enabled: false},
 			},
-		},
-		WorkflowKey: func(s string) *string { return &s }(workflowKey.ID()),
+			WorkflowKey:   func(s string) *string { return &s }(workflowKey.ID()),
+			P2PKeyBundles: []*proto.P2PKeyBundle{},
+		}
 	}
-	successResponse := &proto.UpdateNodeResponse{ChainConfigErrors: map[string]*proto.ChainConfigError{}}
+	successResponse := func() *proto.UpdateNodeResponse {
+		return &proto.UpdateNodeResponse{ChainConfigErrors: map[string]*proto.ChainConfigError{}}
+	}
 	failureResponse := func(chainID string) *proto.UpdateNodeResponse {
 		return &proto.UpdateNodeResponse{
 			ChainConfigErrors: map[string]*proto.ChainConfigError{chainID: {Message: "error chain " + chainID}},
@@ -1916,14 +1924,15 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 			setup: func(t *testing.T, svc *TestService) {
 				svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.workflowKeystore.EXPECT().GetAll().Return([]workflowkey.Key{workflowKey}, nil)
+				svc.p2pKeystore.EXPECT().GetAll().Return([]p2pkey.KeyV2{}, nil)
 				svc.orm.EXPECT().CreateChainConfig(mock.Anything, cfg).Return(int64(1), nil)
 				svc.orm.EXPECT().GetManager(mock.Anything, mgr.ID).Return(&mgr, nil)
 				svc.orm.EXPECT().ListChainConfigsByManagerIDs(mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
 				svc.connMgr.EXPECT().GetClient(mgr.ID).Return(svc.fmsClient, nil)
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(nil, errors.New("error-0")).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("1"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("2"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(successResponse, nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(nil, errors.New("error-0")).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("1"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("2"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(successResponse(), nil).Once()
 			},
 			run: func(svc *TestService) (any, error) {
 				return svc.CreateChainConfig(testutils.Context(t), cfg)
@@ -1940,14 +1949,15 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 			setup: func(t *testing.T, svc *TestService) {
 				svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.workflowKeystore.EXPECT().GetAll().Return([]workflowkey.Key{workflowKey}, nil)
+				svc.p2pKeystore.EXPECT().GetAll().Return([]p2pkey.KeyV2{}, nil)
 				svc.orm.EXPECT().UpdateChainConfig(mock.Anything, cfg).Return(int64(1), nil)
 				svc.orm.EXPECT().GetChainConfig(mock.Anything, cfg.ID).Return(&cfg, nil)
 				svc.orm.EXPECT().ListChainConfigsByManagerIDs(mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
 				svc.connMgr.EXPECT().GetClient(mgr.ID).Return(svc.fmsClient, nil)
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("3"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(nil, errors.New("error-4")).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("5"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(successResponse, nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("3"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(nil, errors.New("error-4")).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("5"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(successResponse(), nil).Once()
 			},
 			run: func(svc *TestService) (any, error) {
 				return svc.UpdateChainConfig(testutils.Context(t), cfg)
@@ -1964,15 +1974,16 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 			setup: func(t *testing.T, svc *TestService) {
 				svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.workflowKeystore.EXPECT().GetAll().Return([]workflowkey.Key{workflowKey}, nil)
+				svc.p2pKeystore.EXPECT().GetAll().Return([]p2pkey.KeyV2{}, nil)
 				svc.orm.EXPECT().GetChainConfig(mock.Anything, cfg.ID).Return(&cfg, nil)
 				svc.orm.EXPECT().DeleteChainConfig(mock.Anything, cfg.ID).Return(cfg.ID, nil)
 				svc.orm.EXPECT().GetManager(mock.Anything, mgr.ID).Return(&mgr, nil)
 				svc.orm.EXPECT().ListChainConfigsByManagerIDs(mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
 				svc.connMgr.EXPECT().GetClient(mgr.ID).Return(svc.fmsClient, nil)
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("6"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("7"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(nil, errors.New("error-8")).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(successResponse, nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("6"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("7"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(nil, errors.New("error-8")).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(successResponse(), nil).Once()
 			},
 			run: func(svc *TestService) (any, error) {
 				return svc.DeleteChainConfig(testutils.Context(t), cfg.ID)
@@ -1989,14 +2000,15 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 			setup: func(t *testing.T, svc *TestService) {
 				svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.workflowKeystore.EXPECT().GetAll().Return([]workflowkey.Key{workflowKey}, nil)
+				svc.p2pKeystore.EXPECT().GetAll().Return([]p2pkey.KeyV2{}, nil)
 				svc.orm.EXPECT().CreateChainConfig(mock.Anything, cfg).Return(int64(1), nil)
 				svc.orm.EXPECT().GetManager(mock.Anything, mgr.ID).Return(&mgr, nil)
 				svc.orm.EXPECT().ListChainConfigsByManagerIDs(mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
 				svc.connMgr.EXPECT().GetClient(mgr.ID).Return(svc.fmsClient, nil)
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("9"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("10"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(nil, errors.New("error-11")).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("12"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("9"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("10"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(nil, errors.New("error-11")).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("12"), nil).Once()
 			},
 			run: func(svc *TestService) (any, error) {
 				return svc.CreateChainConfig(testutils.Context(t), cfg)
@@ -2358,6 +2370,7 @@ func Test_Service_ApproveSpec(t *testing.T) {
 	var evmChainID *evmbig.Big
 	address := types.EIP55AddressFromAddress(common.Address{})
 	externalJobID := uuid.New()
+	now := time.Now()
 
 	var (
 		ctx  = testutils.Context(t)
@@ -2470,13 +2483,22 @@ answer1 [type=median index=0];
 			force: false,
 		},
 		{
-			name:        "cancelled spec success when it is the latest spec",
+			name:        "last cancelled spec success when no other spec is approved",
 			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
-				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID).Return(cancelledSpec, nil)
+				specs := []feeds.JobProposalSpec{
+					{20, fmt.Sprintf(defn, uuid.New()), feeds.SpecStatusCancelled, 1, jp.ID, now, now, now},
+					{21, fmt.Sprintf(defn, uuid.New()), feeds.SpecStatusCancelled, 2, jp.ID, now, now, now},
+					{22, fmt.Sprintf(defn, uuid.New()), feeds.SpecStatusRevoked, 3, jp.ID, now, now, now},
+					{23, fmt.Sprintf(defn, externalJobID), feeds.SpecStatusCancelled, 4, jp.ID, now, now, now},
+				}
+				lastCancelledSpec := specs[3]
+
+				svc.orm.On("GetSpec", mock.Anything, lastCancelledSpec.ID).Return(&lastCancelledSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(cancelledSpec, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{lastCancelledSpec.JobProposalID}).
+					Return(shuffle(specs), nil)
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
@@ -2494,22 +2516,114 @@ answer1 [type=median index=0];
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
-					cancelledSpec.ID,
+					lastCancelledSpec.ID,
 					externalJobID,
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
 					mock.MatchedBy(func(ctx context.Context) bool { return true }),
 					&proto.ApprovedJobRequest{
 						Uuid:    jp.RemoteUUID.String(),
-						Version: int64(spec.Version),
+						Version: int64(lastCancelledSpec.Version),
 					},
 				).Return(&proto.ApprovedJobResponse{}, nil)
 				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
 				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
 				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
 			},
-			id:    cancelledSpec.ID,
+			id:    23, // lastCancelledSpec.ID
 			force: false,
+		},
+		{
+			name:        "second to last cancelled spec success when no other spec is approved",
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				specs := []feeds.JobProposalSpec{
+					{20, fmt.Sprintf(defn, uuid.New()), feeds.SpecStatusCancelled, 1, jp.ID, now, now, now},
+					{21, fmt.Sprintf(defn, externalJobID), feeds.SpecStatusCancelled, 2, jp.ID, now, now, now},
+					{22, fmt.Sprintf(defn, uuid.New()), feeds.SpecStatusRevoked, 3, jp.ID, now, now, now},
+					{23, fmt.Sprintf(defn, uuid.New()), feeds.SpecStatusCancelled, 4, jp.ID, now, now, now},
+				}
+				secondToLastCancelledSpec := specs[1]
+
+				svc.orm.On("GetSpec", mock.Anything, secondToLastCancelledSpec.ID).Return(&secondToLastCancelledSpec, nil)
+				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{secondToLastCancelledSpec.JobProposalID}).
+					Return(shuffle(specs), nil)
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
+
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
+				svc.jobORM.On("FindJobIDByAddress", mock.Anything, address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
+
+				svc.spawner.
+					On("CreateJob",
+						mock.Anything,
+						mock.Anything,
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
+						}),
+					).
+					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Return(nil)
+				svc.orm.On("ApproveSpec",
+					mock.Anything,
+					secondToLastCancelledSpec.ID,
+					externalJobID,
+				).Return(nil)
+				svc.fmsClient.On("ApprovedJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.ApprovedJobRequest{
+						Uuid:    jp.RemoteUUID.String(),
+						Version: int64(secondToLastCancelledSpec.Version),
+					},
+				).Return(&proto.ApprovedJobResponse{}, nil)
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
+				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+			},
+			id:    21, // secondToLastCancelledSpec.ID
+			force: false,
+		},
+		{
+			name:        "third to last cancelled spec fails even when no other spec is approved",
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				specs := []feeds.JobProposalSpec{
+					{20, fmt.Sprintf(defn, externalJobID), feeds.SpecStatusCancelled, 1, jp.ID, now, now, now},
+					{21, fmt.Sprintf(defn, uuid.New()), feeds.SpecStatusCancelled, 2, jp.ID, now, now, now},
+					{22, fmt.Sprintf(defn, uuid.New()), feeds.SpecStatusRevoked, 3, jp.ID, now, now, now},
+					{23, fmt.Sprintf(defn, uuid.New()), feeds.SpecStatusCancelled, 4, jp.ID, now, now, now},
+				}
+				thirdToLastCancelledSpec := specs[0]
+
+				svc.orm.On("GetSpec", mock.Anything, thirdToLastCancelledSpec.ID).Return(&thirdToLastCancelledSpec, nil)
+				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{thirdToLastCancelledSpec.JobProposalID}).
+					Return(shuffle(specs), nil)
+			},
+			id:      20, // thirdToLastCancelledSpec.ID
+			force:   false,
+			wantErr: "only the last two cancelled spec versions may be approved",
+		},
+		{
+			name: "cancelled spec failed when another spec is approved",
+			before: func(svc *TestService) {
+				otherSpec := feeds.JobProposalSpec{
+					ID:            21,
+					Status:        feeds.SpecStatusApproved,
+					JobProposalID: jp.ID,
+					Version:       2,
+					Definition:    fmt.Sprintf(defn, jp.ID),
+				}
+
+				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID).Return(cancelledSpec, nil)
+				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{jp.ID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
+			},
+			id:      cancelledSpec.ID,
+			force:   false,
+			wantErr: "the job spec with version 2 is already approved",
 		},
 		{
 			name:        "pending job fail due to spec missing external job id",
@@ -2573,23 +2687,6 @@ answer1 [type=median index=0];
 			id:      rejectedSpec.ID,
 			force:   false,
 			wantErr: "cannot approve a rejected spec",
-		},
-		{
-			name: "cancelled spec failed not latest spec",
-			before: func(svc *TestService) {
-				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
-				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(&feeds.JobProposalSpec{
-					ID:            21,
-					Status:        feeds.SpecStatusPending,
-					JobProposalID: jp.ID,
-					Version:       2,
-					Definition:    defn,
-				}, nil)
-			},
-			id:      cancelledSpec.ID,
-			force:   false,
-			wantErr: "cannot approve a cancelled spec",
 		},
 		{
 			name:        "already existing job replacement (found via external job id) error",
@@ -3157,13 +3254,22 @@ updateInterval = "20m"
 			force: false,
 		},
 		{
-			name:        "cancelled spec success when it is the latest spec",
+			name:        "cancelled spec success when when no other spec is approved",
 			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
+				otherSpec := feeds.JobProposalSpec{
+					ID:            21,
+					Status:        feeds.SpecStatusRevoked,
+					JobProposalID: jp.ID,
+					Version:       2,
+					Definition:    fmt.Sprintf(defn, externalJobID.String()),
+				}
+
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(cancelledSpec, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
@@ -3199,21 +3305,24 @@ updateInterval = "20m"
 			force: false,
 		},
 		{
-			name: "cancelled spec failed not latest spec",
+			name: "cancelled spec failed when another spec is approved",
 			before: func(svc *TestService) {
-				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
-				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(&feeds.JobProposalSpec{
+				otherSpec := feeds.JobProposalSpec{
 					ID:            21,
-					Status:        feeds.SpecStatusPending,
+					Status:        feeds.SpecStatusApproved,
 					JobProposalID: jp.ID,
 					Version:       2,
-					Definition:    defn,
-				}, nil)
+					Definition:    fmt.Sprintf(defn, externalJobID.String()),
+				}
+
+				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
+				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
 			},
 			id:      cancelledSpec.ID,
 			force:   false,
-			wantErr: "cannot approve a cancelled spec",
+			wantErr: "the job spec with version 2 is already approved",
 		},
 		{
 			name: "rejected spec failed cannot be approved",
@@ -3665,15 +3774,23 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 			force: false,
 		},
 		{
-			name:        "cancelled spec success when it is the latest spec",
+			name:        "cancelled spec success when no other spec is approved",
 			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
+				otherSpec := feeds.JobProposalSpec{
+					ID:            21,
+					Status:        feeds.SpecStatusRevoked,
+					JobProposalID: jp.ID,
+					Version:       2,
+					Definition:    fmt.Sprintf(StreamTestSpecTemplate, streamName, externalJobID.String(), streamID),
+				}
+
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(cancelledSpec, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
-
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindJobIDByStreamID", mock.Anything, mock.Anything).Return(int32(0), sql.ErrNoRows)
 
@@ -3707,21 +3824,24 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 			force: false,
 		},
 		{
-			name: "cancelled spec failed not latest spec",
+			name: "cancelled spec failed when another spec is approved",
 			before: func(svc *TestService) {
-				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
-				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(&feeds.JobProposalSpec{
+				otherSpec := feeds.JobProposalSpec{
 					ID:            21,
-					Status:        feeds.SpecStatusPending,
+					Status:        feeds.SpecStatusApproved,
 					JobProposalID: jp.ID,
 					Version:       2,
-					Definition:    StreamTestSpecTemplate,
-				}, nil)
+					Definition:    fmt.Sprintf(StreamTestSpecTemplate, streamName, externalJobID.String(), streamID),
+				}
+
+				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
+				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
 			},
 			id:      cancelledSpec.ID,
 			force:   false,
-			wantErr: "cannot approve a cancelled spec",
+			wantErr: "the job spec with version 2 is already approved",
 		},
 		{
 			name: "rejected spec failed cannot be approved",
@@ -4197,13 +4317,22 @@ chainID = 0
 			force: false,
 		},
 		{
-			name:        "cancelled spec success when it is the latest spec",
+			name:        "cancelled spec success when no other spec is approved",
 			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
+				otherSpec := feeds.JobProposalSpec{
+					ID:            21,
+					Status:        feeds.SpecStatusRevoked,
+					JobProposalID: jp.ID,
+					Version:       2,
+					Definition:    fmt.Sprintf(defn, externalJobID.String()),
+				}
+
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(cancelledSpec, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
@@ -4239,21 +4368,24 @@ chainID = 0
 			force: false,
 		},
 		{
-			name: "cancelled spec failed not latest spec",
+			name: "cancelled spec failed when another spec is approved",
 			before: func(svc *TestService) {
-				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
-				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(&feeds.JobProposalSpec{
+				otherSpec := feeds.JobProposalSpec{
 					ID:            21,
-					Status:        feeds.SpecStatusPending,
+					Status:        feeds.SpecStatusApproved,
 					JobProposalID: jp.ID,
 					Version:       2,
-					Definition:    defn,
-				}, nil)
+					Definition:    fmt.Sprintf(defn, externalJobID.String()),
+				}
+
+				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
+				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
 			},
 			id:      cancelledSpec.ID,
 			force:   false,
-			wantErr: "cannot approve a cancelled spec",
+			wantErr: "the job spec with version 2 is already approved",
 		},
 		{
 			name: "rejected spec failed cannot be approved",
@@ -4950,4 +5082,13 @@ func waitSyncNodeInfoCall(t *testing.T, logs *observer.ObservedLogs) {
 	assert.EventuallyWithT(t, func(collect *assert.CollectT) {
 		assert.Contains(collect, logMessages(logs.All()), "successfully synced node info")
 	}, 1*time.Second, 5*time.Millisecond)
+}
+
+func shuffle[T any](slice []T) []T {
+	sliceCopy := slices.Clone(slice)
+	rand.Shuffle(len(sliceCopy), func(i, j int) {
+		sliceCopy[i], sliceCopy[j] = sliceCopy[j], sliceCopy[i]
+	})
+
+	return sliceCopy
 }

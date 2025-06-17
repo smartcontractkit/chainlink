@@ -7,8 +7,8 @@ import (
 	mrand "math/rand"
 	"testing"
 
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

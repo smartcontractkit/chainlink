@@ -10,10 +10,12 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
-	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+
+	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -133,8 +135,10 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		require.NoError(t, err)
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom("some transmitterID string")
 		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = nil
-		chain, err := legacyChains.Get(customChainID.String())
+		chainService, err := legacyChains.Get(customChainID.String())
 		require.NoError(t, err)
+		chain, ok := chainService.(legacyevm.Chain)
+		require.True(t, ok)
 		effectiveTransmitterID, err := ocr2.GetEVMEffectiveTransmitterID(ctx, &jb, chain, lggr)
 		require.NoError(t, err)
 		require.Equal(t, "some transmitterID string", effectiveTransmitterID)
@@ -147,8 +151,10 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 			jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 			require.NoError(t, err)
 			setTestCase(&jb, tc, txManager)
-			chain, err := legacyChains.Get(customChainID.String())
+			chainService, err := legacyChains.Get(customChainID.String())
 			require.NoError(t, err)
+			chain, ok := chainService.(legacyevm.Chain)
+			require.True(t, ok)
 
 			effectiveTransmitterID, err := ocr2.GetEVMEffectiveTransmitterID(ctx, &jb, chain, lggr)
 			if tc.expectedError {
@@ -166,14 +172,11 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 	}
 
 	t.Run("when forwarders are enabled and chain retrieval fails, error should be handled", func(t *testing.T) {
-		ctx := testutils.Context(t)
 		jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 		require.NoError(t, err)
 		jb.ForwardingAllowed = true
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom("0x7e57000000000000000000000000000000000001")
-		chain, err := legacyChains.Get("not an id")
-		require.Error(t, err)
-		_, err = ocr2.GetEVMEffectiveTransmitterID(ctx, &jb, chain, lggr)
+		_, err = legacyChains.Get("not an id")
 		require.Error(t, err)
 	})
 }

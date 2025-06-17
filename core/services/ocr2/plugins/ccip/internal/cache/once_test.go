@@ -8,8 +8,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 // TestCallOnceOnNoErrorCachingSuccess tests caching behavior when the function succeeds.
@@ -23,10 +21,10 @@ func TestCallOnceOnNoErrorCachingSuccess(t *testing.T) {
 	cachedFunc := CallOnceOnNoError(testFunc)
 
 	// Call the function twice.
-	_, err := cachedFunc(tests.Context(t))
+	_, err := cachedFunc(t.Context())
 	assert.NoError(t, err, "Expected no error on the first call")
 
-	_, err = cachedFunc(tests.Context(t))
+	_, err = cachedFunc(t.Context())
 	assert.NoError(t, err, "Expected no error on the second call")
 
 	assert.Equal(t, 1, callCount, "Function should be called exactly once")
@@ -46,11 +44,11 @@ func TestCallOnceOnNoErrorCachingError(t *testing.T) {
 	cachedFunc := CallOnceOnNoError(testFunc)
 
 	// First call should fail.
-	_, err := cachedFunc(tests.Context(t))
+	_, err := cachedFunc(t.Context())
 	require.Error(t, err, "Expected an error on the first call")
 
 	// Second call should succeed.
-	r, err := cachedFunc(tests.Context(t))
+	r, err := cachedFunc(t.Context())
 	assert.NoError(t, err, "Expected no error on the second call")
 	assert.Equal(t, "test result", r)
 	assert.Equal(t, 2, callCount, "Function should be called exactly twice")
@@ -72,7 +70,7 @@ func TestCallOnceOnNoErrorCachingConcurrency(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, err := cachedFunc(tests.Context(t))
+			_, err := cachedFunc(t.Context())
 			assert.NoError(t, err, "Expected no error in concurrent execution")
 		}()
 	}

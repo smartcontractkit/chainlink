@@ -1,7 +1,6 @@
 package ocr2key_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -59,6 +58,6 @@ func TestOCR2KeyBundle_BundleBase(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NotNil(t, kb.ID())
-		assert.Equal(t, fmt.Sprintf(`bundle: KeyBundle{chainType: %s, id: %s}`, chain, kb.ID()), fmt.Sprintf(`bundle: %s`, kb))
+		assert.Equal(t, chain, kb.ChainType())
 	}
 }

@@ -19,10 +19,10 @@ import (
 	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	v1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"

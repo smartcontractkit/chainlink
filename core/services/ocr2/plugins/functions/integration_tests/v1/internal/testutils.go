@@ -19,9 +19,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -29,18 +30,18 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/client"
-	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_allow_list"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_client_example"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_coordinator"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_router"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_allow_list"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_client_example"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -362,7 +363,7 @@ func StartNewNode(
 	n, err := b.Client().NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
-	tx := cltest.NewLegacyTransaction(
+	tx := evmtestutils.NewLegacyTransaction(
 		n, transmitter,
 		assets.Ether(1).ToInt(),
 		21000,

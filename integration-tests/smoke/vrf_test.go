@@ -3,6 +3,7 @@ package smoke
 import (
 	"fmt"
 	"math/big"
+	"strconv"
 	"testing"
 	"time"
 
@@ -47,7 +48,7 @@ func TestVRFBasic(t *testing.T) {
 			MinIncomingConfirmations: 1,
 			PublicKey:                pubKeyCompressed,
 			ExternalJobID:            jobUUID.String(),
-			EVMChainID:               fmt.Sprint(sethClient.ChainID),
+			EVMChainID:               strconv.FormatInt(sethClient.ChainID, 10),
 			ObservationSource:        ost,
 		})
 		require.NoError(t, err, "Creating VRF Job shouldn't fail")
@@ -66,7 +67,6 @@ func TestVRFBasic(t *testing.T) {
 		encodedProvingKeys := make([][2]*big.Int, 0)
 		encodedProvingKeys = append(encodedProvingKeys, provingKey)
 
-		//nolint:gosec // G602
 		requestHash, err := vrfContracts.Coordinator.HashOfKey(testcontext.Get(t), encodedProvingKeys[0])
 		require.NoError(t, err, "Getting Hash of encoded proving keys shouldn't fail")
 		err = vrfContracts.Consumer.RequestRandomness(requestHash, big.NewInt(1))
@@ -81,7 +81,7 @@ func TestVRFBasic(t *testing.T) {
 			out, err := vrfContracts.Consumer.RandomnessOutput(testcontext.Get(t))
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Getting the randomness output of the consumer shouldn't fail")
 			// Checks that the job has actually run
-			g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically(">=", 1),
+			g.Expect(jobRuns.Data).ShouldNot(gomega.BeEmpty(),
 				fmt.Sprintf("Expected the VRF job to run once or more after %s", timeout))
 
 			// TODO: This is an imperfect check, given it's a random number, it CAN be 0, but chances are unlikely.
@@ -116,7 +116,7 @@ func TestVRFJobReplacement(t *testing.T) {
 			MinIncomingConfirmations: 1,
 			PublicKey:                pubKeyCompressed,
 			ExternalJobID:            jobUUID.String(),
-			EVMChainID:               fmt.Sprint(sethClient.ChainID),
+			EVMChainID:               strconv.FormatInt(sethClient.ChainID, 10),
 			ObservationSource:        ost,
 		})
 		require.NoError(t, err, "Creating VRF Job shouldn't fail")
@@ -135,7 +135,6 @@ func TestVRFJobReplacement(t *testing.T) {
 		encodedProvingKeys := make([][2]*big.Int, 0)
 		encodedProvingKeys = append(encodedProvingKeys, provingKey)
 
-		//nolint:gosec // G602
 		requestHash, err := contracts.Coordinator.HashOfKey(testcontext.Get(t), encodedProvingKeys[0])
 		require.NoError(t, err, "Getting Hash of encoded proving keys shouldn't fail")
 		err = contracts.Consumer.RequestRandomness(requestHash, big.NewInt(1))
@@ -150,7 +149,7 @@ func TestVRFJobReplacement(t *testing.T) {
 			out, err := contracts.Consumer.RandomnessOutput(testcontext.Get(t))
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Getting the randomness output of the consumer shouldn't fail")
 			// Checks that the job has actually run
-			g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically(">=", 1),
+			g.Expect(jobRuns.Data).ShouldNot(gomega.BeEmpty(),
 				fmt.Sprintf("Expected the VRF job to run once or more after %s", timeout))
 
 			g.Expect(out.Uint64()).ShouldNot(gomega.BeNumerically("==", 0), "Expected the VRF job give an answer other than 0")
@@ -166,7 +165,7 @@ func TestVRFJobReplacement(t *testing.T) {
 			MinIncomingConfirmations: 1,
 			PublicKey:                pubKeyCompressed,
 			ExternalJobID:            jobUUID.String(),
-			EVMChainID:               fmt.Sprint(sethClient.ChainID),
+			EVMChainID:               strconv.FormatInt(sethClient.ChainID, 10),
 			ObservationSource:        ost,
 		})
 		require.NoError(t, err, "Recreating VRF Job shouldn't fail")
@@ -177,7 +176,7 @@ func TestVRFJobReplacement(t *testing.T) {
 			out, err := contracts.Consumer.RandomnessOutput(testcontext.Get(t))
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Getting the randomness output of the consumer shouldn't fail")
 			// Checks that the job has actually run
-			g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically(">=", 1),
+			g.Expect(jobRuns.Data).ShouldNot(gomega.BeEmpty(),
 				fmt.Sprintf("Expected the VRF job to run once or more after %s", timeout))
 			g.Expect(out.Uint64()).ShouldNot(gomega.BeNumerically("==", 0), "Expected the VRF job give an answer other than 0")
 			l.Debug().Uint64("Output", out.Uint64()).Msg("Randomness fulfilled")

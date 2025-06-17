@@ -23,7 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -31,6 +30,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/freeport"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -41,23 +42,23 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/client"
-	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/consumer_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flags_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/multiwordconsumer_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/operator"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/consumer_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/multiwordconsumer_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/operatorforwarder/generated/authorized_forwarder"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/operatorforwarder/generated/operator"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -385,7 +386,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			// Fund node account with ETH.
 			n, err := b.Client().NonceAt(testutils.Context(t), operatorContracts.user.From, nil)
 			require.NoError(t, err)
-			tx = cltest.NewLegacyTransaction(n, sendingKeys[0].Address, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
+			tx = evmtestutils.NewLegacyTransaction(n, sendingKeys[0].Address, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
 			signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
 			require.NoError(t, err)
 			err = b.Client().SendTransaction(testutils.Context(t), signedTx)
@@ -481,7 +482,7 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 	// Fund node account with ETH.
 	n, err := b.Client().NonceAt(testutils.Context(t), operatorContracts.user.From, nil)
 	require.NoError(t, err)
-	tx := cltest.NewLegacyTransaction(n, sendingKeys[0].Address, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
+	tx := evmtestutils.NewLegacyTransaction(n, sendingKeys[0].Address, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
 	require.NoError(t, err)
 	err = b.Client().SendTransaction(testutils.Context(t), signedTx)
@@ -726,7 +727,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV2 int,
 	n, err := b.Client().NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
-	tx := cltest.NewLegacyTransaction(n, transmitter, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
+	tx := evmtestutils.NewLegacyTransaction(n, transmitter, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
 	err = b.Client().SendTransaction(testutils.Context(t), signedTx)
@@ -769,7 +770,7 @@ func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 in
 	n, err := b.Client().NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
-	tx := cltest.NewLegacyTransaction(n, transmitter, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
+	tx := evmtestutils.NewLegacyTransaction(n, transmitter, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
 	err = b.Client().SendTransaction(testutils.Context(t), signedTx)
@@ -1386,16 +1387,6 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		require.NoError(t, err)
 		return gasPrice.GasPrice.String() == "45 gwei"
 	}, testutils.WaitTimeout(t), cltest.DBPollingInterval)
-}
-
-func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
-	for _, chain := range app.GetRelayers().LegacyEVMChains().Slice() {
-		keys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.Context(t), chain.ID())
-		require.NoError(t, err)
-		for _, k := range keys {
-			chain.TxManager().Trigger(k.Address)
-		}
-	}
 }
 
 func assertPricesUint256(t *testing.T, usd, eur, jpy *big.Int, consumer *multiwordconsumer_wrapper.MultiWordConsumer) {

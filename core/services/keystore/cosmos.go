@@ -163,7 +163,7 @@ func (lk *CosmosLoopSigner) Sign(ctx context.Context, id string, hash []byte) ([
 		return nil, nil
 	}
 
-	return k.ToPrivKey().Sign(hash)
+	return k.Sign(hash)
 }
 
 func (lk *CosmosLoopSigner) Accounts(ctx context.Context) ([]string, error) {

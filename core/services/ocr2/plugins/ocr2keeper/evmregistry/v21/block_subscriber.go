@@ -13,9 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
-	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
