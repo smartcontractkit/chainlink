@@ -76,7 +76,6 @@ func buildProposalCommon(
 	description string,
 	minDelay time.Duration,
 	batches []mcmsTypes.BatchOperation) (*mcms.TimelockProposal, error) {
-
 	timelocks := map[uint64]string{}
 	proposers := map[uint64]string{}
 	inspectors := map[uint64]sdk.Inspector{}
@@ -112,7 +111,6 @@ func BuildProposalsForTxns(
 	description string,
 	minDelay time.Duration,
 	txns []mcmsTypes.Transaction) (*mcms.TimelockProposal, error) {
-
 	batches := []mcmsTypes.BatchOperation{
 		{
 			ChainSelector: mcmsTypes.ChainSelector(chainSelector),
@@ -128,7 +126,6 @@ func BuildProposalsForBatches(
 	description string,
 	minDelay time.Duration,
 	batches []mcmsTypes.BatchOperation) (*mcms.TimelockProposal, error) {
-
 	return buildProposalCommon(e, chainSelector, description, minDelay, batches)
 }
 
