@@ -93,14 +93,17 @@ func TestLBTCTokenTransfer(t *testing.T) {
 
 	updateFeeQtrGrp := errgroup.Group{}
 	for _, chainSel1 := range allChainSelectors {
-		for _, chainSel2 := range allChainSelectors {
-			if chainSel1 == chainSel2 {
-				continue
+		updateFeeQtrGrp.Go(func() error {
+			for _, chainSel2 := range allChainSelectors {
+				if chainSel1 == chainSel2 {
+					continue
+				}
+				if err := testhelpers.UpdateFeeQuoterForToken(t, e, lggr, evmChains[chainSel1], chainSel2, shared.LBTCSymbol); err != nil {
+					return err
+				}
 			}
-			updateFeeQtrGrp.Go(func() error {
-				return testhelpers.UpdateFeeQuoterForToken(t, e, lggr, evmChains[chainSel1], chainSel2, shared.LBTCSymbol)
-			})
-		}
+			return nil
+		})
 	}
 	err = updateFeeQtrGrp.Wait()
 	require.NoError(t, err)
