@@ -50,7 +50,8 @@ func Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest(t *tes
 		// chains, of which only some nodes will support the dest chain.
 		numChains = 3
 
-		fChain = 2
+		fChainSource = 2
+		fChainDest   = 1
 	)
 
 	e, _, _ := testsetups.NewIntegrationEnvironment(
@@ -60,7 +61,8 @@ func Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest(t *tes
 		testhelpers.WithRoleDONTopology(cciptesthelpertypes.NewRandomTopology(
 			cciptesthelpertypes.RandomTopologyArgs{
 				FChainToNumChains: map[int]int{
-					fChain: 2,
+					fChainSource: 1, // 1 chain with fChain fChainSource
+					fChainDest:   1, // 1 chain with fChain fChainDest
 				},
 				Seed: 42, // for reproducible setups.
 			},
@@ -98,14 +100,21 @@ func Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest(t *tes
 	}, nonHomeChains[1])
 	require.NoError(t, err)
 	// the fChain values must be different, otherwise setup is incorrect.
-	//require.NotEqual(t, chainConfig0.FChain, chainConfig1.FChain)
+	require.NotEqual(t, chainConfig0.FChain, chainConfig1.FChain)
 
 	var sourceChain, destChain uint64
 	var sourceChainConfig, destChainConfig ccip_home.CCIPHomeChainConfig
-	sourceChain = nonHomeChains[0]
-	destChain = nonHomeChains[1]
-	sourceChainConfig = chainConfig0
-	destChainConfig = chainConfig1
+	if chainConfig0.FChain == fChainSource {
+		sourceChain = nonHomeChains[0]
+		destChain = nonHomeChains[1]
+		sourceChainConfig = chainConfig0
+		destChainConfig = chainConfig1
+	} else {
+		sourceChain = nonHomeChains[1]
+		destChain = nonHomeChains[0]
+		sourceChainConfig = chainConfig1
+		destChainConfig = chainConfig0
+	}
 
 	t.Logf("home chain: %d, source chain: %d, dest chain: %d", e.HomeChainSel, sourceChain, destChain)
 	t.Logf("source chain is supported by %d readers", len(sourceChainConfig.Readers))
