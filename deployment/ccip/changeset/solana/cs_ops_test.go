@@ -20,13 +20,13 @@ import (
 
 func TestGenericOpsWithMcms(t *testing.T) {
 	t.Parallel()
-	doTestAddRemoteChain(t, true)
+	doTestGenericOps(t, true)
 }
 
 func TestGenericOpsWithoutMcms(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
-	doTestAddRemoteChain(t, false)
+	doTestGenericOps(t, false)
 }
 
 func doTestGenericOps(t *testing.T, mcms bool) {
