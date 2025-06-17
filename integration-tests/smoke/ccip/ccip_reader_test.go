@@ -447,10 +447,10 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
-	s, _, onRampAddress := setupGetCommitGTETimestampTest(ctx, t, 0, true)
+	s, _, onRampAddress := setupGetCommitGTETimestampTest(ctx, t, 0, false)
 
 	tokenA := common.HexToAddress("123")
-	const numReports = 3
+	const numReports = 5
 
 	firstReportTs := emitCommitReports(ctx, t, s, numReports, tokenA, onRampAddress)
 
@@ -622,7 +622,7 @@ func TestCCIPReader_ExecutedMessages_SingleChain(t *testing.T) {
 func TestCCIPReader_ExecutedMessages_MultiChain(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
-	s := setupExecutedMessagesTest(ctx, t, true)
+	s := setupExecutedMessagesTest(ctx, t, false)
 	err := commitSqNrs(s, chainS1, []uint64{15}, 1)
 	require.NoError(t, err)
 	s.sb.Commit()
