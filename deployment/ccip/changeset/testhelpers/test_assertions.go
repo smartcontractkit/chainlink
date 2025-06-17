@@ -13,7 +13,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gagliardetto/solana-go"
 	solrpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/assert"
@@ -734,15 +733,15 @@ func ConfirmExecWithSeqNrs(
 				}
 			}
 		case execEvent := <-sink:
-			t.Logf("Received ExecutionStateChanged (state %s) for seqNum %d on chain %d (offramp %s) from chain %d, returnData=%s",
+			t.Logf("Received ExecutionStateChanged (state %s) for seqNum %d on chain %d (offramp %s) from chain %d",
 				executionStateToString(execEvent.State), execEvent.SequenceNumber, dest.Selector, offRamp.Address().String(),
-				sourceSelector, hexutil.Encode(execEvent.ReturnData),
+				sourceSelector,
 			)
 
 			_, found := seqNrsToWatch[execEvent.SequenceNumber]
 			if found && execEvent.SourceChainSelector == sourceSelector {
-				t.Logf("Received ExecutionStateChanged (state %s) on chain %d (offramp %s) from chain %d with expected sequence number %d, returnData=%s",
-					executionStateToString(execEvent.State), dest.Selector, offRamp.Address().String(), sourceSelector, execEvent.SequenceNumber, hexutil.Encode(execEvent.ReturnData))
+				t.Logf("Received ExecutionStateChanged (state %s) on chain %d (offramp %s) from chain %d with expected sequence number %d",
+					executionStateToString(execEvent.State), dest.Selector, offRamp.Address().String(), sourceSelector, execEvent.SequenceNumber)
 				executionStates[execEvent.SequenceNumber] = int(execEvent.State)
 				delete(seqNrsToWatch, execEvent.SequenceNumber)
 				if len(seqNrsToWatch) == 0 {
