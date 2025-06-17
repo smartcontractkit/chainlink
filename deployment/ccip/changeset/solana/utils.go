@@ -70,16 +70,17 @@ func ValidateMCMSConfigSolana(
 	return nil
 }
 
-func BuildProposalsForTxns(
+func buildProposalCommon(
 	e cldf.Environment,
 	chainSelector uint64,
 	description string,
 	minDelay time.Duration,
-	txns []mcmsTypes.Transaction) (*mcms.TimelockProposal, error) {
+	batches []mcmsTypes.BatchOperation) (*mcms.TimelockProposal, error) {
+
 	timelocks := map[uint64]string{}
 	proposers := map[uint64]string{}
 	inspectors := map[uint64]sdk.Inspector{}
-	batches := make([]mcmsTypes.BatchOperation, 0)
+
 	chain := e.BlockChains.SolanaChains()[chainSelector]
 	addresses, _ := e.ExistingAddresses.AddressesForChain(chainSelector)
 	mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
@@ -90,10 +91,7 @@ func BuildProposalsForTxns(
 	)
 	proposers[chainSelector] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
 	inspectors[chainSelector] = mcmsSolana.NewInspector(chain.Client)
-	batches = append(batches, mcmsTypes.BatchOperation{
-		ChainSelector: mcmsTypes.ChainSelector(chainSelector),
-		Transactions:  txns,
-	})
+
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
@@ -106,6 +104,32 @@ func BuildProposalsForTxns(
 		return nil, fmt.Errorf("failed to build proposal: %w", err)
 	}
 	return proposal, nil
+}
+
+func BuildProposalsForTxns(
+	e cldf.Environment,
+	chainSelector uint64,
+	description string,
+	minDelay time.Duration,
+	txns []mcmsTypes.Transaction) (*mcms.TimelockProposal, error) {
+
+	batches := []mcmsTypes.BatchOperation{
+		{
+			ChainSelector: mcmsTypes.ChainSelector(chainSelector),
+			Transactions:  txns,
+		},
+	}
+	return buildProposalCommon(e, chainSelector, description, minDelay, batches)
+}
+
+func BuildProposalsForBatches(
+	e cldf.Environment,
+	chainSelector uint64,
+	description string,
+	minDelay time.Duration,
+	batches []mcmsTypes.BatchOperation) (*mcms.TimelockProposal, error) {
+
+	return buildProposalCommon(e, chainSelector, description, minDelay, batches)
 }
 
 func BuildMCMSTxn(ixn solana.Instruction, programID string, contractType cldf.ContractType) (*mcmsTypes.Transaction, error) {

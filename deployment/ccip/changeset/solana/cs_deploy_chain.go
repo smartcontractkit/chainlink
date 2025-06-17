@@ -10,8 +10,6 @@ import (
 	"github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms"
-	"github.com/smartcontractkit/mcms/sdk"
-	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
@@ -72,7 +70,7 @@ type DeployChainContractsConfig struct {
 	// identifier for which token pool to deploy (i.e. partner identifier). defaults to CLL
 	BurnMintTokenPoolMetadata    string
 	LockReleaseTokenPoolMetadata string
-	// this will be used to deploy the mcms contracts
+	// if specified, the mcms contracts will be deployed and initialized if they are not already deployed
 	MCMSWithTimelockConfig *types.MCMSWithTimelockConfigV2
 }
 
@@ -191,21 +189,6 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 		e.Logger.Debugw("Skipping solana build as no build config provided")
 	}
 
-	addresses, _ := e.ExistingAddresses.AddressesForChain(chainSel)
-	mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
-
-	// TODO: this seems like duplicate code from BuildProposalsForTxns
-	// is there some specific reason why we are doing this here ? something to do with state loading ?
-	timelocks := map[uint64]string{}
-	proposers := map[uint64]string{}
-	inspectors := map[uint64]sdk.Inspector{}
-	timelocks[chainSel] = mcmsSolana.ContractAddress(
-		mcmState.TimelockProgram,
-		mcmsSolana.PDASeed(mcmState.TimelockSeed),
-	)
-	proposers[chainSel] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
-	inspectors[chainSel] = mcmsSolana.NewInspector(chain.Client)
-
 	batches, err := deployChainContractsSolana(e, chain, newAddresses, c)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", newAddresses)
@@ -213,14 +196,13 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 	}
 
 	if len(batches) > 0 {
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		proposal, err := BuildProposalsForBatches(
 			e,
-			timelocks,
-			proposers,
-			inspectors,
-			batches,
+			chain.Selector,
 			"proposal to upgrade CCIP contracts",
-			*c.UpgradeConfig.MCMS)
+			c.UpgradeConfig.MCMS.MinDelay,
+			batches,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}

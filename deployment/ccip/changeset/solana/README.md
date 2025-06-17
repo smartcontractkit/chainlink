@@ -880,7 +880,7 @@ registry.Add("0172_configure_pepe_pool_solana",
 ## Verify Contracts
 
 ```golang
-// initially verify mcms programs
+// initially verify programs afer deploy
 registry.Add("0086_verify_solana_programs",
   migrations.ConfigureLegacy(ccipchangesetsolana.VerifyBuild).
     With(ccipchangesetsolana.VerifyBuildConfig{
@@ -900,6 +900,8 @@ registry.Add("0086_verify_solana_programs",
 
 // Step 1
 // register verify ix on timelock
+// this will spit out a proposal
+// get it signed and executed
 registry.Add("0086_verify_solana_programs",
   migrations.ConfigureLegacy(ccipchangesetsolana.VerifyBuild).
     With(ccipchangesetsolana.VerifyBuildConfig{
@@ -907,17 +909,14 @@ registry.Add("0086_verify_solana_programs",
       GitCommitSha:           "0ee732e80586",
       VerifyFeeQuoter:        true,
       MCMS: &proposalutils.TimelockConfig{
-        // we should make this very small, ideally 5 mins
+        // if possible, we should make this very small, ideally 5 mins
         // because otherwise we will non verified updated contracts for > 3 hours
 		    MinDelay: minDelay, 
 	    }
       UpgradeAuthority: timelockSignerPDA,
-      RemoteVerification: false
     }))
 
 // Step 2
-// That will spit out a proposal
-// Get it signed and executed
 registry.Add("0086_verify_solana_programs",
   migrations.ConfigureLegacy(ccipchangesetsolana.VerifyBuild).
     With(ccipchangesetsolana.VerifyBuildConfig{
@@ -925,12 +924,12 @@ registry.Add("0086_verify_solana_programs",
       GitCommitSha:           "0ee732e80586",
       VerifyFeeQuoter:        true,
       MCMS: &proposalutils.TimelockConfig{
-        // we should make this very small, ideally 5 mins
+        // if possible, we should make this very small, ideally 5 mins
         // because otherwise we will non verified updated contracts for > 3 hours
 		    MinDelay: minDelay, 
 	    },
       UpgradeAuthority: timelockSignerPDA,
-      RemoteVerification: true
+      RemoteVerification: true // this is KEY in step 2
     }))
 
 
