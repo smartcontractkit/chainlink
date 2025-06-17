@@ -14,38 +14,33 @@ type runtimeConfig struct {
 	Number int32  `yaml:"number"`
 }
 
-func RunConfiguredWorkflow(runner sdk.DonRunner) {
-	basic := &basictrigger.Basic{}
-	b := runner.Config()
-	var runnerCfg runtimeConfig
-	if err := yaml.Unmarshal(b, &runnerCfg); err != nil {
-		panic(err)
-	}
-
-	runner.Run(&sdk.WorkflowArgs[sdk.DonRuntime]{
-		Handlers: []sdk.Handler[sdk.DonRuntime]{
-			sdk.NewDonHandler(
-				basic.Trigger(&basictrigger.Config{
-					Name:   runnerCfg.Name,
-					Number: runnerCfg.Number,
-				}),
-				onTrigger,
-			),
-		},
-	})
+func CreateWorkflow(wcx *sdk.WorkflowContext[*runtimeConfig]) (sdk.Workflow[*runtimeConfig], error) {
+	runnerCfg := wcx.Config
+	return sdk.Workflow[*runtimeConfig]{
+		sdk.On(
+			basictrigger.Trigger(&basictrigger.Config{
+				Name:   runnerCfg.Name,
+				Number: runnerCfg.Number,
+			}),
+			onTrigger,
+		),
+	}, nil
 }
 
-func onTrigger(runtime sdk.DonRuntime, outputs *basictrigger.Outputs) (string, error) {
-	b := runtime.Config()
-
-	var cfg runtimeConfig
-	if err := yaml.Unmarshal(b, &cfg); err != nil {
+func onTrigger(wcx *sdk.WorkflowContext[*runtimeConfig], _ sdk.Runtime, _ *basictrigger.Outputs) (string, error) {
+	b, err := yaml.Marshal(wcx.Config)
+	if err != nil {
 		return "", err
 	}
-
 	return string(b), nil
 }
 
 func main() {
-	RunConfiguredWorkflow(wasm.NewDonRunner())
+	wasm.NewRunner(func(b []byte) (*runtimeConfig, error) {
+		tmp := &runtimeConfig{}
+		if err := yaml.Unmarshal(b, tmp); err != nil {
+			return nil, err
+		}
+		return tmp, nil
+	}).Run(CreateWorkflow)
 }

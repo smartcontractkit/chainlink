@@ -5,7 +5,7 @@ package main
 import (
 	"fmt"
 
-	croncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2"
 	"gopkg.in/yaml.v3"
@@ -15,39 +15,31 @@ type runtimeConfig struct {
 	Schedule string `yaml:"schedule"`
 }
 
-func RunSimpleCronWorkflow(runner sdk.DonRunner) {
-	b := runner.Config()
-	var runnerCfg runtimeConfig
-	if err := yaml.Unmarshal(b, &runnerCfg); err != nil {
-		panic(err)
+func RunSimpleCronWorkflow(wcx *sdk.WorkflowContext[*runtimeConfig]) (sdk.Workflow[*runtimeConfig], error) {
+
+	cfg := &cron.Config{
+		Schedule: wcx.Config.Schedule,
 	}
 
-	cron := &croncap.Cron{}
-	cfg := &croncap.Config{
-		Schedule: runnerCfg.Schedule,
-	}
-
-	runner.Run(&sdk.WorkflowArgs[sdk.DonRuntime]{
-		Handlers: []sdk.Handler[sdk.DonRuntime]{
-			sdk.NewDonHandler(
-				cron.Trigger(cfg),
-				onTrigger,
-			),
-		},
-	})
+	return sdk.Workflow[*runtimeConfig]{
+		sdk.On(
+			cron.Trigger(cfg),
+			onTrigger,
+		),
+	}, nil
 }
 
-func onTrigger(runtime sdk.DonRuntime, outputs *croncap.Payload) (string, error) {
-	b := runtime.Config()
-
-	var cfg runtimeConfig
-	if err := yaml.Unmarshal(b, &cfg); err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("ping (Schedule: %s)", cfg.Schedule), nil
+func onTrigger(wcx *sdk.WorkflowContext[*runtimeConfig], runtime sdk.Runtime, outputs *cron.Payload) (string, error) {
+	return fmt.Sprintf("ping (Schedule: %s)", wcx.Config.Schedule), nil
 }
 
 func main() {
-	RunSimpleCronWorkflow(wasm.NewDonRunner())
+	wasm.NewRunner(func(b []byte) (*runtimeConfig, error) {
+		cfg := &runtimeConfig{}
+		if err := yaml.Unmarshal(b, &cfg); err != nil {
+			return nil, err
+		}
+
+		return cfg, nil
+	}).Run(RunSimpleCronWorkflow)
 }
