@@ -20,7 +20,6 @@ import (
 )
 
 var (
-	// _ cldf.ChangeSet[TranslateEVM2EVMOnRampsToFeeQuoterConfig] = TranslateEVM2EVMOnRampsToFeeQuoterChangeset
 	TranslateEVM2EVMOnRampsToFQDestConfig          = cldf.CreateChangeSet(TranslateEVM2EVMOnRampsToFeeQuoterChangeset, ValidatePreReqContractsInState)
 	TranslateEVM2EVMOnRampsToFQTokenTransferConfig = cldf.CreateChangeSet(TranslateEVM2EVMOnRampsToFeeQTokenTransferFeeConfigChangeset, ValidatePreReqContractsInState)
 )

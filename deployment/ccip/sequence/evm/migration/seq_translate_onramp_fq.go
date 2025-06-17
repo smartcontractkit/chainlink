@@ -151,9 +151,8 @@ var (
 					// Port token transfer fee config args from all 1.5.0 OnRamps into FeeQuoter
 					//	-> get alltokens from tokenAdminReg.getAllConfiguredTokens
 					// 	-> for each token
-					// 		-->  get tokenpool on onRamp.getPoolBySourceToken(selector, token)
-					//		--> supportedChains := tokenPool.getSupportedChains()
-					//		--> if targetSelector not in supportedChains then continue
+					// 		-->  get tokenpool on onRamp.GetTokenTransferFeeConfig(token)
+					//		--> if isEnabled
 					// 		--> add this token to validTokens to process
 					getAllConfiguredTokensOps, err := operations.ExecuteOperation(
 						b, migration_ops.TokenAdminRegistryGetAllConfiguredTokensOp,
@@ -167,47 +166,6 @@ var (
 					}
 					allTokens := getAllConfiguredTokensOps.Output
 					for _, token := range allTokens {
-						getPoolBySourceTokenOps, err := operations.ExecuteOperation(
-							b, migration_ops.EVM2EVMOnrampGetPoolBySourceTokenOp,
-							migration_ops.MigrateOnRampToFQDeps{
-								Chain: srcChain,
-							},
-							migration_ops.GetPoolBySourceTokenInput{
-								OnRamp:            onRamp1_5,
-								DestChainSelector: destChainSel,
-								FeeTokenAddress:   token,
-							},
-						)
-						if err != nil {
-							return OnRampToFeeQuoterTokenTransferFeeCfgOutput{}, fmt.Errorf("failed to get all configured tokens from TokenAdminRegistry on source chain %d: %w", chainSel, err)
-						}
-						if getPoolBySourceTokenOps.Output == (common.Address{}) {
-							lggr.Warnw("failed to get pool for token on 1.5.0 OnRamp", "sourceChainSelector", chainSel, "destinationChainSelector", destChainSel, "token", token.Hex())
-							continue // TODO: continue or exit?
-						}
-
-						getSupportedChainsForTokenPool, err := operations.ExecuteOperation(
-							b, migration_ops.TokenPoolGetSupportedChainsOp,
-							migration_ops.MigrateOnRampToFQDeps{
-								Chain: srcChain,
-							},
-							getPoolBySourceTokenOps.Output,
-						)
-						if err != nil {
-							return OnRampToFeeQuoterTokenTransferFeeCfgOutput{}, fmt.Errorf("failed to get suported chains for the token Pool on source chain %d: %w", chainSel, err)
-						}
-
-						// Check if the destination chain selector is in the supported chains of token pool
-						found := false
-						for _, chainSel := range getSupportedChainsForTokenPool.Output {
-							if chainSel == destChainSel {
-								found = true
-								break
-							}
-						}
-						if !found {
-							continue // skip this token if the destination chain is not supported
-						}
 						tokenTransferFeeCfgOp, err := operations.ExecuteOperation(
 							b, migration_ops.EVM2EVMOnrampGetTokenTransferFeeConfigOp,
 							migration_ops.MigrateOnRampToFQDeps{
@@ -221,6 +179,10 @@ var (
 						if err != nil {
 							return OnRampToFeeQuoterTokenTransferFeeCfgOutput{}, fmt.Errorf("failed to get suported chains for the toksn Pool on source chain %d: %w", chainSel, err)
 						}
+						if !tokenTransferFeeCfgOp.Output.IsEnabled {
+							continue // skip this token if the transfer fee config is not enabled
+						}
+
 						allTransferTokensAndCfgs = append(allTransferTokensAndCfgs,
 							migrateOnRamp.TranslateOnrampToFeequoterTokenTransferFeeConfig(token, tokenTransferFeeCfgOp.Output),
 						)
