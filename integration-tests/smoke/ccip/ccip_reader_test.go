@@ -1431,6 +1431,8 @@ func populateDatabaseForCommitReportAccepted(
 	require.NoError(b, testEnv.orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfReports), timestamp, int64(offset+numOfReports)))
 }
 
+// Benchmark_CCIPReader_ExecutedMessages/ExecutedMessages_Populating_database_with_5_source_chains_and_5_destination_chains,_any-to-any-12         	      52	  25540214 ns/op
+// Benchmark_CCIPReader_ExecutedMessages/ExecutedMessages_Populating_database_with_20_dest_chains_and_40_sources_chains-12                         	     139	   8373795 ns/op
 func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 	tests := []struct {
 		name                 string
@@ -1475,20 +1477,20 @@ func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 			tt.destChainsCount,
 		)
 
-		b.Run("ExecutedMessages_"+tt.name, func(b *testing.B) {
-			filters := map[cciptypes.ChainSelector][]cciptypes.SeqNumRange{}
-			for i := 0; i < tt.sourceChainsCount; i++ {
-				// #nosec G115
-				chainSelector := cciptypes.ChainSelector(i + 1)
-				if chainSelector == chainD {
-					continue
-				}
-				filters[chainSelector] = append(
-					filters[chainSelector],
-					cciptypes.NewSeqNumRange(tt.startSeqNum, tt.endSeqNum),
-				)
+		filters := map[cciptypes.ChainSelector][]cciptypes.SeqNumRange{}
+		for i := 0; i < tt.sourceChainsCount; i++ {
+			// #nosec G115
+			chainSelector := cciptypes.ChainSelector(i + 1)
+			if chainSelector == chainD {
+				continue
 			}
+			filters[chainSelector] = append(
+				filters[chainSelector],
+				cciptypes.NewSeqNumRange(tt.startSeqNum, tt.endSeqNum),
+			)
+		}
 
+		b.Run("ExecutedMessages_"+tt.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				executedRanges, err := reader.ExecutedMessages(
 					b.Context(),
