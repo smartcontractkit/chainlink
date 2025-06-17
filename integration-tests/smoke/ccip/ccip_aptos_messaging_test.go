@@ -203,6 +203,24 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 		)
 	})
 
+	t.Run("Send message to EOA using more than max Gas Limit - Should Succeed", func(t *testing.T) {
+		message := []byte("Hello Aptos, from EVM!")
+		atposEOAAddress := e.Env.BlockChains.AptosChains()[destChain].DeployerSigner.AccountAddress()
+		messagingtest.Run(t,
+			messagingtest.TestCase{
+				TestSetup:      setup,
+				Nonce:          &nonce,
+				ValidationType: messagingtest.ValidationTypeExec,
+				Receiver:       atposEOAAddress[:], // Sending to EOA
+				MsgData:        message,
+				// true for out of order execution, which is necessary and enforced for Aptos
+				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit)+1, true),
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				FeeToken:               NATIVE_FEE_TOKEN,
+			},
+		)
+	})
+
 	t.Run("Not Enough Gas on Destination - Should Fail (Status = 3)", func(t *testing.T) {
 		t.Skip("TODO: Unskip this test when we have a fix for this bug")
 		message := []byte("Hello Aptos, from EVM!")
@@ -498,6 +516,22 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertEvmMessageReceived(t, ctx, state, destChain, latestHead, message) },
 				},
+			},
+		)
+	})
+
+	t.Run("Sending message to EOA using more than max Gas Limit - Should Succeed", func(t *testing.T) {
+		require.NoError(t, err)
+		message := STANDARD_MESSAGE
+		messagingtest.Run(t,
+			messagingtest.TestCase{
+				TestSetup:              setup,
+				ValidationType:         messagingtest.ValidationTypeExec,
+				FeeToken:               NATIVE_FEE_TOKEN,
+				Receiver:               e.Env.BlockChains.EVMChains()[destChain].DeployerKey.From[:], // Sending to EOA
+				MsgData:                message,
+				ExtraArgs:              testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(aptosFeeQuoterDestChainConfig.MaxPerMsgGasLimit+1)), false),
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 			},
 		)
 	})
