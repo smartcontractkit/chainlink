@@ -61,12 +61,12 @@ func TestDeployHomeChain(t *testing.T) {
 	require.NotNil(t, state.Chains[homeChainSel].CapabilityRegistry)
 	require.NotNil(t, state.Chains[homeChainSel].CCIPHome)
 	require.NotNil(t, state.Chains[homeChainSel].RMNHome)
-	snap, _, err := state.View(&e, []uint64{homeChainSel})
+	view, err := state.View(&e, []uint64{homeChainSel})
 	require.NoError(t, err)
 	chainName := e.BlockChains.EVMChains()[homeChainSel].Name()
-	_, ok := snap[chainName]
+	_, ok := view.Chains[chainName]
 	require.True(t, ok)
-	capRegSnap, ok := snap[chainName].CapabilityRegistry[state.Chains[homeChainSel].CapabilityRegistry.Address().String()]
+	capRegSnap, ok := view.Chains[chainName].CapabilityRegistry[state.Chains[homeChainSel].CapabilityRegistry.Address().String()]
 	require.True(t, ok)
 	require.NotNil(t, capRegSnap)
 	require.Equal(t, []v1_0.NopView{

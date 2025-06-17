@@ -94,7 +94,7 @@ func toOnchainPublicKeys(signers [][]byte) []types.OnchainPublicKey {
 func toOCRAccounts(transmitters [][]byte, addressCodec ccipcommon.AddressCodec, chainSelector ccipocr3.ChainSelector) []types.Account {
 	accounts := make([]types.Account, len(transmitters))
 	for i, transmitter := range transmitters {
-		address, _ := addressCodec.AddressBytesToString(transmitter, chainSelector)
+		address, _ := addressCodec.TransmitterBytesToString(transmitter, chainSelector)
 		accounts[i] = types.Account(address)
 	}
 	return accounts

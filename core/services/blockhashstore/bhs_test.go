@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
@@ -38,8 +39,10 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 		DB:             db,
 		Client:         ethClient,
 	})
-	chain, err := legacyChains.Get(cltest.FixtureChainID.String())
+	chainService, err := legacyChains.Get(cltest.FixtureChainID.String())
 	require.NoError(t, err)
+	chain, ok := chainService.(legacyevm.Chain)
+	require.True(t, ok)
 	coreKS := keystest.NewMemoryChainStore()
 	ks := keys.NewStore(coreKS)
 	addr1 := coreKS.MustCreate(t)

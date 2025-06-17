@@ -17,8 +17,7 @@ import (
 
 // UpdateOffRampSourcesInput contains configuration for updating OffRamp sources
 type UpdateOffRampSourcesInput struct {
-	MCMSAddress aptos.AccountAddress
-	Updates     map[uint64]v1_6.OffRampSourceUpdate
+	Updates map[uint64]v1_6.OffRampSourceUpdate
 }
 
 // UpdateOffRampSourcesOp operation to update OffRamp source configurations

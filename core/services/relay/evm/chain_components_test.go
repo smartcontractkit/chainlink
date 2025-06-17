@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -457,8 +458,10 @@ func (h *helper) TXM(t *testing.T, client client.Client) evmtxmgr.TxManager {
 	require.NoError(t, keyStore.Add(h.Context(t), h.accounts[1].From, h.ChainID()))
 	require.NoError(t, keyStore.Enable(h.Context(t), h.accounts[1].From, h.ChainID()))
 
-	chain, err := app.GetRelayers().LegacyEVMChains().Get((h.ChainID()).String())
+	chainService, err := app.GetRelayers().LegacyEVMChains().Get((h.ChainID()).String())
 	require.NoError(t, err)
+	chain, ok := chainService.(legacyevm.Chain)
+	require.True(t, ok)
 
 	h.txm = chain.TxManager()
 	return h.txm

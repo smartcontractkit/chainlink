@@ -163,19 +163,19 @@ type NodeConfig struct {
 }
 
 type WorkflowSpecConfig struct {
-	TargetContractEncoderType        string // Required. "data-feeds_decimal", "aptos" or "ccip"
-	ConsensusAggregationMethod       string // Required. "llo_streams" or "data_feeds"
-	WorkflowName                     string // Required
-	ConsensusReportID                string // Required
-	WriteTargetTrigger               string // Required
-	ConsensusRef                     string // Default "data-feeds"
-	ConsensusConfigKeyID             string // Default "evm"
-	ConsensusAllowedPartialStaleness string
-	DeltaStageSec                    *int   // Default 45
-	TargetsSchedule                  string // Default "oneAtATime"
-	TargetProcessor                  string
-	TriggersMaxFrequencyMs           *int // Default 5000
-	CREStepTimeout                   int64
+	TargetContractEncoderType        string `json:"targetContractEncoderType"`  // Required. "data-feeds_decimal", "aptos" or "ccip"
+	ConsensusAggregationMethod       string `json:"consensusAggregationMethod"` // Required. "llo_streams" or "data_feeds"
+	WorkflowName                     string `json:"workflowName"`               // Required
+	ConsensusReportID                string `json:"consensusReportID"`          // Required
+	WriteTargetTrigger               string `json:"writeTargetTrigger"`         // Required
+	ConsensusRef                     string `json:"consensusRef"`               // Default "data-feeds"
+	ConsensusConfigKeyID             string `json:"consensusConfigKeyID"`       // Default "evm"
+	ConsensusAllowedPartialStaleness string `json:"consensusAllowedPartialStaleness"`
+	DeltaStageSec                    *int   `json:"deltaStageSec"`   // Default 45
+	TargetsSchedule                  string `json:"targetsSchedule"` // Default "oneAtATime"
+	TargetProcessor                  string `json:"targetProcessor"`
+	TriggersMaxFrequencyMs           *int   `json:"triggersMaxFrequencyMs"` // Default 5000
+	CREStepTimeout                   int64  `json:"creStepTimeout"`
 }
 
 type ProposeWFJobsConfig struct {
@@ -186,6 +186,15 @@ type ProposeWFJobsConfig struct {
 	WorkflowJobName    string   // Required
 	WorkflowSpecConfig WorkflowSpecConfig
 	NodeFilter         *offchain.NodesFilter // Required. Node filter to select the nodes to send the jobs to.
+}
+
+type ProposeWFJobsV2Config struct {
+	ChainSelector      uint64                `json:"chainSelector"`
+	CacheLabel         string                `json:"cacheLabel"`      // Label for the DataFeedsCache contract in AB, or qualifier in DataStore
+	Domain             string                `json:"domain"`          // default to data-feeds
+	WorkflowJobName    string                `json:"workflowJobName"` // Required
+	WorkflowSpecConfig WorkflowSpecConfig    `json:"workflowSpecConfig"`
+	NodeFilter         *offchain.NodesFilter `json:"nodeFilter"` // Required. Node filter to select the nodes to send the jobs to.
 }
 
 type ProposeBtJobsConfig struct {
