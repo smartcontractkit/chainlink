@@ -131,6 +131,18 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 		mlt.WithDeployedEnv(e),
 	)
 
+	invalidDestChainSelectorTestSetup := mlt.NewTestSetup(
+		t,
+		state,
+		sourceChain,
+		destChain,
+		common.HexToAddress("0x0"),
+		srcFeeQuoterDestChainConfig,
+		false, // testRouter
+		true,  // validateResp
+		mlt.WithDeployedEnv(e),
+	)
+
 	t.Run("Hello World Message - Should Succeed", func(t *testing.T) {
 		message := []byte("Hello Aptos, from EVM!")
 		messagingtest.Run(t,
@@ -285,7 +297,22 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 		message := []byte("Hello Aptos, from EVM!")
 		mlt.Run(mlt.TestCase{
 			TestSetup: mltTestSetup,
-			Name:      "Missing ExtraArgs - Should Fail",
+			Name:      "OutOfOrder Execution False - Should Fail",
+			Msg: router.ClientEVM2AnyMessage{
+				Receiver:  ccipChainState.ReceiverAddress[:],
+				Data:      message,
+				FeeToken:  common.HexToAddress(NATIVE_FEE_TOKEN),
+				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(100000, false),
+			},
+			ExpRevert: true,
+		})
+	})
+
+	t.Run("Send message to invalid chain selector - Should Fail", func(t *testing.T) {
+		message := []byte("Hello Aptos, from EVM!")
+		mlt.Run(mlt.TestCase{
+			TestSetup: invalidDestChainSelectorTestSetup,
+			Name:      "Send message to invalid chain selector - Should Fail",
 			Msg: router.ClientEVM2AnyMessage{
 				Receiver:  ccipChainState.ReceiverAddress[:],
 				Data:      message,
@@ -387,6 +414,18 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 		mlt.WithDeployedEnv(e),
 	)
 
+	invalidDestChainSelectorTestSetup := mlt.NewTestSetup(
+		t,
+		state,
+		sourceChain,
+		destChain,
+		common.HexToAddress("0x0"),
+		aptosFeeQuoterDestChainConfig,
+		false, // testRouter
+		true,  // validateResp
+		mlt.WithDeployedEnv(e),
+	)
+
 	t.Run("Message from Aptos to EVM", func(t *testing.T) {
 		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
 		require.NoError(t, err)
@@ -463,6 +502,21 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 		})
 	})
 
+	t.Run("Max Gas Limit + 1 - Should Fail", func(t *testing.T) {
+		message := STANDARD_MESSAGE
+		mlt.Run(mlt.TestCase{
+			TestSetup: mltTestSetup,
+			Name:      "Max Gas Limit + 1 - Should Fail",
+			Msg: testhelpers.AptosSendRequest{
+				Receiver:  ccipReceiverAddress,
+				Data:      message,
+				FeeToken:  aptosNativeFeeTokenAddress,
+				ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(aptosFeeQuoterDestChainConfig.MaxPerMsgGasLimit)+1), false),
+			},
+			ExpRevert: true,
+		})
+	})
+
 	t.Run("Missing ExtraArgs - Should Fail", func(t *testing.T) {
 		message := []byte("Hello Aptos, from EVM!")
 		mlt.Run(mlt.TestCase{
@@ -473,6 +527,21 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 				Data:      message,
 				FeeToken:  aptosNativeFeeTokenAddress,
 				ExtraArgs: []byte{},
+			},
+			ExpRevert: true,
+		})
+	})
+
+	t.Run("Send message to invalid chain selector - Should Fail", func(t *testing.T) {
+		message := []byte("Hello Aptos, from EVM!")
+		mlt.Run(mlt.TestCase{
+			TestSetup: invalidDestChainSelectorTestSetup,
+			Name:      "Send message to invalid chain selector - Should Fail",
+			Msg: testhelpers.AptosSendRequest{
+				Receiver:  ccipReceiverAddress,
+				Data:      message,
+				FeeToken:  aptosNativeFeeTokenAddress,
+				ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(300000), false),
 			},
 			ExpRevert: true,
 		})
