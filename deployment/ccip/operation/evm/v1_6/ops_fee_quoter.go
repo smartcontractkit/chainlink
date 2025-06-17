@@ -1,6 +1,7 @@
 package v1_6
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -10,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -23,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
 type DeployFeeQInput struct {
@@ -283,5 +287,53 @@ func DefaultFeeQuoterParams() FeeQuoterParams {
 		TokenTransferFeeConfigArgs:     []fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{},
 		MorePremiumMultiplierWeiPerEth: []fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{},
 		DestChainConfigArgs:            []fee_quoter.FeeQuoterDestChainConfigArgs{},
+	}
+}
+
+const (
+	// https://github.com/smartcontractkit/chainlink/blob/1423e2581e8640d9e5cd06f745c6067bb2893af2/contracts/src/v0.8/ccip/libraries/Internal.sol#L275-L279
+	/*
+				```Solidity
+					// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
+					bytes4 public constant CHAIN_FAMILY_SELECTOR_EVM = 0x2812d52c;
+					// bytes4(keccak256("CCIP ChainFamilySelector SVM"));
+		  		bytes4 public constant CHAIN_FAMILY_SELECTOR_SVM = 0x1e10bdc4;
+				```
+	*/
+	EVMFamilySelector   = "2812d52c"
+	SVMFamilySelector   = "1e10bdc4"
+	AptosFamilySelector = "ac77ffec"
+)
+
+func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...uint64) fee_quoter.FeeQuoterDestChainConfig {
+	familySelector, _ := hex.DecodeString(EVMFamilySelector) // evm
+	if len(destChainSelector) > 0 {
+		destFamily, _ := chain_selectors.GetSelectorFamily(destChainSelector[0])
+		switch destFamily {
+		case chain_selectors.FamilySolana:
+			familySelector, _ = hex.DecodeString(SVMFamilySelector) // solana
+		case chain_selectors.FamilyAptos:
+			familySelector, _ = hex.DecodeString(AptosFamilySelector) // aptos
+		}
+	}
+	return fee_quoter.FeeQuoterDestChainConfig{
+		IsEnabled:                         configEnabled,
+		MaxNumberOfTokensPerMsg:           10,
+		MaxDataBytes:                      30_000,
+		MaxPerMsgGasLimit:                 3_000_000, // TODO: this needs to be updated based on RMN sig verification per chain?! 220/250K
+		DestGasOverhead:                   ccipevm.DestGasOverhead,
+		DefaultTokenFeeUSDCents:           25,
+		DestGasPerPayloadByteBase:         ccipevm.CalldataGasPerByteBase,
+		DestGasPerPayloadByteHigh:         ccipevm.CalldataGasPerByteHigh,
+		DestGasPerPayloadByteThreshold:    ccipevm.CalldataGasPerByteThreshold,
+		DestDataAvailabilityOverheadGas:   100,
+		DestGasPerDataAvailabilityByte:    16,
+		DestDataAvailabilityMultiplierBps: 1,
+		DefaultTokenDestGasOverhead:       90_000,
+		DefaultTxGasLimit:                 200_000,
+		GasMultiplierWeiPerEth:            11e17, // Gas multiplier in wei per eth is scaled by 1e18, so 11e17 is 1.1 = 110%
+		NetworkFeeUSDCents:                10,
+		ChainFamilySelector:               [4]byte(familySelector),
+		GasPriceStalenessThreshold:        90000,
 	}
 }

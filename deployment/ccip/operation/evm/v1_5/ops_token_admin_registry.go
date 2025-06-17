@@ -1,4 +1,4 @@
-package migration
+package v1_5
 
 import (
 	"fmt"
