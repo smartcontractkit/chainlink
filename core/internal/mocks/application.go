@@ -5,8 +5,6 @@ package mocks
 import (
 	big "math/big"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-
 	audit "github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 
 	bridges "github.com/smartcontractkit/chainlink/v2/core/bridges"
