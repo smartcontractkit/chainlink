@@ -80,8 +80,9 @@ const (
 	WBNBSymbol                 TokenSymbol = "WBNB"
 	WPOLSymbol                 TokenSymbol = "WPOL"
 	WSSymbol                   TokenSymbol = "WS"
-	USDCSymbol TokenSymbol = "USDC"
+	USDCSymbol                 TokenSymbol = "USDC"
 	WBTCNSymbol                TokenSymbol = "WBTCN"
+	WHYPESymbol                TokenSymbol = "WHYPE"
 	WAPESymbol                 TokenSymbol = "WAPE"
 	WCoreSymbol                TokenSymbol = "WCORE"
 	LBTCSymbol                 TokenSymbol = "LBTC"
@@ -104,6 +105,7 @@ const (
 	FTMUSD   = "FTM / USD" // S token uses FTM / USD price feed under the hood
 	USDCUSD  = "USDC / USD"
 	BTCUSD   = "BTC / USD"
+	LTCUSD   = "LTC / USD"
 	ARBUSD   = "ARB / USD"
 
 	// MockLinkAggregatorDescription is the description of the MockV3Aggregator.sol contract
@@ -129,6 +131,7 @@ var (
 		BNBUSD:                        WBNBSymbol,
 		FTMUSD:                        WSSymbol,
 		BTCUSD:                        WBTCNSymbol,
+		LTCUSD:                        WHYPESymbol,
 		USDCUSD:                       WAPESymbol,
 		ARBUSD:                        WCoreSymbol,
 	}
