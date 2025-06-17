@@ -340,7 +340,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 	aptosCallOpts := &aptos_call_opts.CallOpts{}
 
 	aptosFeeQuoter := aptos_feequoter.NewFeeQuoter(
-		state.AptosChains[sourceChain].FeeQuoter,
+		state.AptosChains[sourceChain].CCIPAddress,
 		e.Env.BlockChains.AptosChains()[sourceChain].Client)
 
 	aptosFeeQuoterDestChainConfig, err := aptosFeeQuoter.GetDestChainConfig(aptosCallOpts, destChain)
