@@ -1478,6 +1478,7 @@ func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 		b.Run("ExecutedMessages_"+tt.name, func(b *testing.B) {
 			filters := map[cciptypes.ChainSelector][]cciptypes.SeqNumRange{}
 			for i := 0; i < tt.sourceChainsCount; i++ {
+				// #nosec G115
 				chainSelector := cciptypes.ChainSelector(i + 1)
 				if chainSelector == chainD {
 					continue
@@ -1568,6 +1569,7 @@ func populateDatabaseForExecutionStateChanged(
 		logIndex := int64(offset + i + 1)    // Offset ensures unique log indices
 
 		// Every source chain will have its own message
+		// #nosec G115
 		sourceChainSelector := uint64(i%sourceChainCount + 1)
 		// #nosec G115
 		sequenceNumber := uint64(i / sourceChainCount)
