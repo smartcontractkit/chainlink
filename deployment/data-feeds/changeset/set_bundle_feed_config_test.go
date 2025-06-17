@@ -49,7 +49,7 @@ func TestSetBundleFeedConfig(t *testing.T) {
 	))
 	require.NoError(t, err)
 
-	cacheAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache") //nolint:staticcheck // TODO: replace with DataStore when ready
+	cacheAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache") // TODO: replace with DataStore when ready
 	require.NoError(t, err)
 
 	dataid := "0x01bb0467f50003040000000000000000"
@@ -83,7 +83,7 @@ func TestSetBundleFeedConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	// with MCMS
-	timeLockAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "RBACTimelock") //nolint:staticcheck // TODO: replace with DataStore when ready
+	timeLockAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "RBACTimelock") // TODO: replace with DataStore when ready
 	require.NoError(t, err)
 
 	newEnv, err = commonChangesets.Apply(t, newEnv, commonChangesets.Configure(

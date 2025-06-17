@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/ops"
 	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 )
 
@@ -27,11 +28,12 @@ type RolesAndAddresses struct {
 }
 
 type SeqGrantRolesTimelockInput struct {
-	ContractType       cldf.ContractType   `json:"contractType"`
-	ChainSelector      uint64              `json:"chainSelector"`
-	Timelock           common.Address      `json:"timelock"`
-	RolesAndAddresses  []RolesAndAddresses `json:"rolesAndAddresses"`
-	IsDeployerKeyAdmin bool                `json:"isDeployerKeyAdmin"`
+	ContractType       cldf.ContractType           `json:"contractType"`
+	ChainSelector      uint64                      `json:"chainSelector"`
+	Timelock           common.Address              `json:"timelock"`
+	RolesAndAddresses  []RolesAndAddresses         `json:"rolesAndAddresses"`
+	IsDeployerKeyAdmin bool                        `json:"isDeployerKeyAdmin"`
+	GasBoostConfig     *commontypes.GasBoostConfig `json:"gasBoostConfig"`
 }
 
 type SeqGrantRolesTimelockOutput struct {
@@ -87,12 +89,7 @@ var SeqGrantRolesTimelock = operations.NewSequence(
 							NoSend:  !in.IsDeployerKeyAdmin,
 							Address: in.Timelock,
 						},
-						opsutils.RetryCallWithGasBoost[ops.OpEVMGrantRoleInput](
-							opsutils.GasBoostConfig{},
-							operations.RetryPolicy{
-								MaxAttempts: 10,
-							},
-						),
+						opsutils.RetryCallWithGasBoost[ops.OpEVMGrantRoleInput](in.GasBoostConfig),
 					)
 					if err != nil {
 						b.Logger.Errorw("Failed to grant role",

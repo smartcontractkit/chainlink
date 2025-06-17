@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
@@ -39,7 +40,7 @@ type EVMCallInput[IN any] struct {
 	// If true, the transaction data be prepared and returned but not sent.
 	NoSend bool `json:"noSend"`
 	// GasPrice is a custom gas price to set for the transaction.
-	GasPrice *big.Int `json:"gasPrice"`
+	GasPrice uint64 `json:"gasPrice"`
 	// GasLimit is a custom gas limit to set for the transaction.
 	GasLimit uint64 `json:"gasLimit"`
 }
@@ -76,7 +77,7 @@ func NewEVMCallOperation[IN any, C any](
 			if input.ChainSelector != chain.Selector {
 				return EVMCallOutput{}, fmt.Errorf("mismatch between inputted chain selector and selector defined within dependencies: %d != %d", input.ChainSelector, chain.Selector)
 			}
-			opts := cloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, input.GasPrice.Int64())
+			opts := cloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, input.GasPrice)
 			if input.NoSend {
 				opts = cldf.SimTransactOpts()
 			}
@@ -211,7 +212,7 @@ type EVMDeployInput[IN any] struct {
 	// DeployInput is the input data for the call.
 	DeployInput IN `json:"deployInput"`
 	// GasPrice is a custom gas price to set for the transaction.
-	GasPrice *big.Int `json:"gasPrice"`
+	GasPrice uint64 `json:"gasPrice"`
 	// GasLimit is a custom gas limit to set for the transaction.
 	GasLimit uint64 `json:"gasLimit"`
 }
@@ -264,7 +265,7 @@ func NewEVMDeployOperation[IN any](
 				)
 			} else {
 				addr, tx, err = deployers.DeployEVM(
-					cloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, input.GasPrice.Int64()),
+					cloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, input.GasPrice),
 					chain.Client,
 					input.DeployInput,
 				)
@@ -290,7 +291,7 @@ func NewEVMDeployOperation[IN any](
 }
 
 // cloneTransactOptsWithGas ensures that we don't impact the transact opts used by other operations.
-func cloneTransactOptsWithGas(opts *bind.TransactOpts, gasLimit uint64, gasPrice int64) *bind.TransactOpts {
+func cloneTransactOptsWithGas(opts *bind.TransactOpts, gasLimit uint64, gasPrice uint64) *bind.TransactOpts {
 	if opts == nil {
 		return nil
 	}
@@ -299,61 +300,77 @@ func cloneTransactOptsWithGas(opts *bind.TransactOpts, gasLimit uint64, gasPrice
 		newOpts.GasLimit = gasLimit
 	}
 	if gasPrice > 0 {
-		newOpts.GasPrice = big.NewInt(gasPrice)
+		newOpts.GasPrice = new(big.Int).SetUint64(gasPrice)
 	}
 	return &newOpts
 }
 
-// GasBoostConfig defines the configuration for gas boosting during retries.
-// It allows customization of the initial gas limit, gas limit increment, initial gas price, and gas price increment.
-// Defaults will be used if values are not provided.
-type GasBoostConfig struct {
-	InitialGasLimit   uint64
-	GasLimitIncrement uint64
-	InitialGasPrice   *big.Int
-	GasPriceIncrement *big.Int
+// GasBoostConfigsForChainMap creates a map of GasBoostConfig pointers for each chain in the provided chainMap.
+// If a chain selector exists in gasBoostConfigs, it uses that config; otherwise, it sets nil.
+func GasBoostConfigsForChainMap[T any](chainMap map[uint64]T, gasBoostConfigs map[uint64]commontypes.GasBoostConfig) map[uint64]*commontypes.GasBoostConfig {
+	cfgs := make(map[uint64]*commontypes.GasBoostConfig, len(chainMap))
+	if gasBoostConfigs == nil || chainMap == nil { // in either case, gas boosting should be empty
+		return cfgs
+	}
+
+	for chainSelector := range chainMap {
+		if _, ok := gasBoostConfigs[chainSelector]; ok {
+			gasBoostConfig := gasBoostConfigs[chainSelector]
+			cfgs[chainSelector] = &gasBoostConfig
+		} else {
+			cfgs[chainSelector] = nil
+		}
+	}
+
+	return cfgs
 }
 
 // RetryDeploymentWithGasBoost is an ExecuteOption that retries EVM deployments with gas boosting.
 // It uses the provided GasBoostConfig to adjust the gas limit and gas price on each retry attempt.
-func RetryDeploymentWithGasBoost[IN any](cfg GasBoostConfig, policy operations.RetryPolicy) operations.ExecuteOption[EVMDeployInput[IN], cldf_evm.Chain] {
-	return operations.WithRetryConfig(operations.RetryConfig[EVMDeployInput[IN], cldf_evm.Chain]{
-		Policy: policy,
-		InputHook: func(attempt uint, err error, in EVMDeployInput[IN], deps cldf_evm.Chain) EVMDeployInput[IN] {
-			gasLimit, gasPrice := getBoostedGasForAttempt(cfg, attempt)
-			in.GasLimit = gasLimit
-			in.GasPrice = gasPrice
+func RetryDeploymentWithGasBoost[IN any](cfg *commontypes.GasBoostConfig) operations.ExecuteOption[EVMDeployInput[IN], cldf_evm.Chain] {
+	// Use default retry option if no gas boost config is provided
+	if cfg == nil {
+		return operations.WithRetry[EVMDeployInput[IN], cldf_evm.Chain]()
+	}
+	c := *cfg
 
-			return in
-		},
+	return operations.WithRetryInput(func(attempt uint, err error, in EVMDeployInput[IN], deps cldf_evm.Chain) EVMDeployInput[IN] {
+		gasLimit, gasPrice := getBoostedGasForAttempt(c, attempt)
+		in.GasLimit = gasLimit
+		in.GasPrice = gasPrice
+
+		return in
 	})
 }
 
 // RetryCallWithGasBoost is an ExecuteOption that retries EVM calls with gas boosting.
 // It uses the provided GasBoostConfig to adjust the gas limit and gas price on each retry attempt.
 // If NoSend is true, it will not apply gas boosting since the transaction is never sent.
-func RetryCallWithGasBoost[IN any](cfg GasBoostConfig, policy operations.RetryPolicy) operations.ExecuteOption[EVMCallInput[IN], cldf_evm.Chain] {
-	return operations.WithRetryConfig(operations.RetryConfig[EVMCallInput[IN], cldf_evm.Chain]{
-		Policy: policy,
-		InputHook: func(attempt uint, err error, in EVMCallInput[IN], deps cldf_evm.Chain) EVMCallInput[IN] {
-			if in.NoSend {
-				return in // No gas boost for calls that do not send transactions
-			}
+func RetryCallWithGasBoost[IN any](cfg *commontypes.GasBoostConfig) operations.ExecuteOption[EVMCallInput[IN], cldf_evm.Chain] {
+	// Use default retry option if no gas boost config is provided
+	if cfg == nil {
+		return operations.WithRetry[EVMCallInput[IN], cldf_evm.Chain]()
+	}
+	c := *cfg
 
-			gasLimit, gasPrice := getBoostedGasForAttempt(cfg, attempt)
-			in.GasLimit = gasLimit
-			in.GasPrice = gasPrice
+	return operations.WithRetryInput(func(attempt uint, err error, in EVMCallInput[IN], deps cldf_evm.Chain) EVMCallInput[IN] {
+		if in.NoSend {
+			return in // No gas boost for calls that do not send transactions
+		}
 
-			return in
-		},
+		gasLimit, gasPrice := getBoostedGasForAttempt(c, attempt)
+		in.GasLimit = gasLimit
+		in.GasPrice = gasPrice
+
+		return in
 	})
 }
 
-func getBoostedGasForAttempt(cfg GasBoostConfig, attempt uint) (gasLimit uint64, gasPrice *big.Int) {
-	initialGasLimit := uint64(1_000_000)            // 1M
-	gasLimitIncrement := uint64(100_000)            // 100k
-	initialGasPrice := big.NewInt(30_000_000_000)   // 30 Gwei
-	gasPriceIncrement := big.NewInt(10_000_000_000) // 10 Gwei
+func getBoostedGasForAttempt(cfg commontypes.GasBoostConfig, attempt uint) (gasLimit uint64, gasPrice uint64) {
+	initialGasLimit := uint64(200_000)          // 200k
+	gasLimitIncrement := uint64(50_000)         // 50k
+	initialGasPrice := uint64(20_000_000_000)   // 20 Gwei
+	gasPriceIncrement := uint64(10_000_000_000) // 10 Gwei
 
 	// Override defaults with config values if provided
 	if cfg.InitialGasLimit > 0 {
@@ -362,22 +379,16 @@ func getBoostedGasForAttempt(cfg GasBoostConfig, attempt uint) (gasLimit uint64,
 	if cfg.GasLimitIncrement > 0 {
 		gasLimitIncrement = cfg.GasLimitIncrement
 	}
-	if cfg.InitialGasPrice != nil {
+	if cfg.InitialGasPrice > 0 {
 		initialGasPrice = cfg.InitialGasPrice
 	}
-	if cfg.GasPriceIncrement != nil {
+	if cfg.GasPriceIncrement > 0 {
 		gasPriceIncrement = cfg.GasPriceIncrement
 	}
 
 	// initial + attempt * increment
 	gasLimit = initialGasLimit + uint64(attempt)*gasLimitIncrement
-	gasPrice = new(big.Int).Add(
-		initialGasPrice,
-		new(big.Int).Mul(
-			new(big.Int).SetUint64(uint64(attempt)),
-			gasPriceIncrement,
-		),
-	)
+	gasPrice = initialGasPrice + uint64(attempt)*gasPriceIncrement
 
 	return
 }

@@ -29,22 +29,31 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
+// use this changeset to upload the IDL for a program
+var _ cldf.ChangeSet[IDLConfig] = UploadIDL
+
+// use this changeset to set the authority for the IDL of a program (timelock)
+var _ cldf.ChangeSet[IDLConfig] = SetAuthorityIDL
+
+// use this changeset to upgrade the IDL of a program via timelock
+var _ cldf.ChangeSet[IDLConfig] = UpgradeIDL
+
 const IdlIxTag uint64 = 0x0a69e9a778bcf440
 
 // IDL
 type IDLConfig struct {
 	ChainSelector                uint64
-	GitCommitSha                 string
-	Router                       bool
-	FeeQuoter                    bool
-	OffRamp                      bool
-	RMNRemote                    bool
-	AccessController             bool
-	MCM                          bool
-	Timelock                     bool
-	BurnMintTokenPoolMetadata    []string
-	LockReleaseTokenPoolMetadata []string
-	MCMS                         *proposalutils.TimelockConfig
+	GitCommitSha                 string                        // this will be used to download the correct artifacts (idls) -> best if same as what was used to deploy the programs
+	Router                       bool                          // whether to upload the IDL for the router
+	FeeQuoter                    bool                          // whether to upload the IDL for the fee quoter
+	OffRamp                      bool                          // whether to upload the IDL for the off ramp
+	RMNRemote                    bool                          // whether to upload the IDL for the rmn remote
+	AccessController             bool                          // whether to upload the IDL for the access controller
+	MCM                          bool                          // whether to upload the IDL for the mcm
+	Timelock                     bool                          // whether to upload the IDL for the timelock
+	BurnMintTokenPoolMetadata    []string                      // whether to upload the IDL for the token pool (keyed my client identifier (metadata))
+	LockReleaseTokenPoolMetadata []string                      // metadata for the lock release token pool (keyed my client identifier (metadata))
+	MCMS                         *proposalutils.TimelockConfig // timelock config for mcms
 }
 
 // parse anchor version from running anchor --version
@@ -634,7 +643,6 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
 
-		// do we need to batch this ?
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil

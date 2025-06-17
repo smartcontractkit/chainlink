@@ -79,6 +79,8 @@ type fastTransferE2ETestCase struct {
 	feeTokenType                        string // "LINK" or "NATIVE"
 	fastTransferPoolFeeBps              uint16
 	externalMinter                      bool
+	settlementGasOverhead               uint32 // Used for fast transfer lane config
+	expectNoExecutionError              bool
 }
 
 var (
@@ -113,6 +115,8 @@ func ftfTc(name string, options ...fastTransferE2ETestCaseOption) *fastTransferE
 		postRegularTransferPoolAssertions:   []balanceAssertion{},
 		feeTokenType:                        feeTokenLink,
 		fastTransferPoolFeeBps:              0,
+		settlementGasOverhead:               200000,
+		expectNoExecutionError:              false,
 	}
 
 	for _, option := range options {
@@ -173,6 +177,20 @@ func withFastFillNoFillerSuccessAmountAssertions() fastTransferE2ETestCaseOption
 	}
 }
 
+func withExpectNoExecutionError() fastTransferE2ETestCaseOption {
+	return func(tc *fastTransferE2ETestCase) *fastTransferE2ETestCase {
+		tc.expectNoExecutionError = true
+		return tc
+	}
+}
+
+func withSettlementGasOverhead(settlementGasOverhead uint32) fastTransferE2ETestCaseOption {
+	return func(tc *fastTransferE2ETestCase) *fastTransferE2ETestCase {
+		tc.settlementGasOverhead = settlementGasOverhead
+		return tc
+	}
+}
+
 func withFeeTokenType(feeTokenType string) fastTransferE2ETestCaseOption {
 	return func(tc *fastTransferE2ETestCase) *fastTransferE2ETestCase {
 		tc.feeTokenType = feeTokenType
@@ -219,6 +237,7 @@ var fastTransferTestCases = []*fastTransferE2ETestCase{
 	ftfTc("pool fee without filler", withPoolFeeBps(50), withFastFillNoFillerSuccessAmountAssertions(), withFillerDisabled()),
 	ftfTc("external minter", withExternalMinter(), withFastFillSuccessAmountAssertions(), withFeeTokenType(feeTokenNative)),
 	ftfTc("external minter feeToken", withExternalMinter(), withFastFillSuccessAmountAssertions(), withFeeTokenType(feeTokenLink)),
+	ftfTc("Settlement Gas Overhead too low", withSettlementGasOverhead(1), withExpectNoExecutionError(), withFeeTokenType(feeTokenNative)),
 }
 
 func assertDestinationBalanceEventuallyEqual(expectedBalance *big.Int) balanceAssertion {
@@ -605,7 +624,7 @@ func configureFastTransferSettings(t *testing.T, e cldf.Environment, tokenSymbol
 			return err
 		}
 	}
-	settlementGasOverhead := uint32(200000)
+	settlementGasOverhead := tc.settlementGasOverhead
 	_, err := commonchangeset.Apply(t, e, commonchangeset.Configure(
 		v1_5_1.FastTransferUpdateLaneConfigChangeset,
 		v1_5_1.FastTransferUpdateLaneConfigConfig{
@@ -842,6 +861,11 @@ func TestFastTransfer1_5Lanes(t *testing.T) {
 		v1_5testhelpers.WaitForExecute(t, sourceChain, destinationChain, offramp, []uint64{sequenceNumber}, uint64(0))
 	}
 
+	waitForExecutionError := func(t *testing.T, sequenceNumber uint64) {
+		sourceChain := e.Env.BlockChains.EVMChains()[sourceChainSelector]
+		v1_5testhelpers.WaitForNoExec(t, sourceChain, destinationChain, offramp, sequenceNumber)
+	}
+
 	// Create shared locks for coordination between parallel test cases
 	sourceLock := &sync.Mutex{}
 	destinationLock := &sync.Mutex{}
@@ -855,6 +879,7 @@ func TestFastTransfer1_5Lanes(t *testing.T) {
 			tEnv,
 			seqNumRetriever,
 			waitForExecution,
+			waitForExecutionError,
 			sourceLock,
 			destinationLock,
 			sendLock,
@@ -891,6 +916,10 @@ func TestFastTransfer1_6Lanes(t *testing.T) {
 		_, _ = testhelpers.ConfirmExecWithSeqNrs(t, sourceChainSelector, destinationChain, offramp, &zero, []uint64{sequenceNumber})
 	}
 
+	waitForExecutionError := func(t *testing.T, sequenceNumber uint64) {
+		testhelpers.ConfirmNoExecSuccessConsistentlyWithSeqNr(t, sourceChainSelector, destinationChain, offramp, sequenceNumber, 30*time.Second)
+	}
+
 	// Create shared locks for coordination between parallel test cases
 	sourceLock := &sync.Mutex{}
 	destinationLock := &sync.Mutex{}
@@ -904,6 +933,7 @@ func TestFastTransfer1_6Lanes(t *testing.T) {
 			deployedEnv,
 			seqNumRetriever,
 			waitForExecution,
+			waitForExecutionError,
 			sourceLock,
 			destinationLock,
 			sendLock,
@@ -922,6 +952,7 @@ type fastTransferTestContext struct {
 	deployedEnv             testhelpers.TestEnvironment
 	sequenceNumberRetriever sequenceNumberRetriever
 	waitForExecution        waitForExecutionFn
+	waitForExecutionError   waitForExecutionFn
 }
 
 func (ctx *fastTransferTestContext) SourceChainSelector() uint64 {
@@ -959,6 +990,7 @@ func newFastTransferTestContext(
 	deployedEnv testhelpers.TestEnvironment,
 	sequenceNumberRetriever sequenceNumberRetriever,
 	waitForExecution waitForExecutionFn,
+	waitForExecutionError waitForExecutionFn,
 	sourceLock *sync.Mutex,
 	destinationLock *sync.Mutex,
 	sendLock *sync.Mutex,
@@ -973,6 +1005,7 @@ func newFastTransferTestContext(
 		deployedEnv:             deployedEnv,
 		sequenceNumberRetriever: sequenceNumberRetriever,
 		waitForExecution:        waitForExecution,
+		waitForExecutionError:   waitForExecutionError,
 	}
 }
 
@@ -1074,7 +1107,11 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 		runAssertions(t, sourceToken, destinationToken, userAddress, tc.postFastTransferUserAssertions, "Post Fast Transfer User Assertions")
 		runAssertions(t, sourceToken, destinationToken, destinationTokenPoolAddress, tc.postFastTransferPoolAssertions, "Post Fast Transfer Pool Assertions")
 
-		ctx.waitForExecution(t, seqNum)
+		if tc.expectNoExecutionError {
+			ctx.waitForExecutionError(t, seqNum)
+		} else {
+			ctx.waitForExecution(t, seqNum)
+		}
 
 		runAssertions(t, sourceToken, destinationToken, fillerAddress, tc.postRegularTransferFillerAssertions, "Post Regular Transfer Filler Assertions")
 		runAssertions(t, sourceToken, destinationToken, userAddress, tc.postRegularTransferUserAssertions, "Post Regular Transfer User Assertions")
