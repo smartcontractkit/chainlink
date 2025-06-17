@@ -50,7 +50,7 @@ func GetMockChainContractParams(t *testing.T, chainSelector uint64) config.Chain
 
 	return config.ChainContractParams{
 		FeeQuoterParams: config.FeeQuoterParams{
-			MaxFeeJuelsPerMsg:            1000000,
+			MaxFeeJuelsPerMsg:            big.NewInt(1000000),
 			TokenPriceStalenessThreshold: 1000000,
 			FeeTokens:                    []aptos.AccountAddress{mockParsedLinkAddress},
 			// Using default EVM values for PremiumMultiplierWeiPerEthByFeeToken
@@ -80,6 +80,6 @@ func getMockMCMSConfig(t *testing.T) types.MCMSWithTimelockConfigV2 {
 		Canceller:        proposalutils.SingleGroupMCMSV2(t),
 		Proposer:         proposalutils.SingleGroupMCMSV2(t),
 		Bypasser:         proposalutils.SingleGroupMCMSV2(t),
-		TimelockMinDelay: big.NewInt(0),
+		TimelockMinDelay: big.NewInt(1),
 	}
 }

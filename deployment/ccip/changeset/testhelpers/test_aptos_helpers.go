@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/require"
@@ -12,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -22,11 +25,34 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 	err := e.Env.ExistingAddresses.Save(chainSelector, aptoscs.MockLinkAddress, cldf.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_6_0))
 	require.NoError(t, err)
 
-	//  Deploy contracts
-	mockCCIPParams := aptoscs.GetMockChainContractParams(t, chainSelector)
+	aptTokenAddress := aptos.AccountAddress{}
+	aptTokenAddress.ParseStringRelaxed("0xa")
 	ccipConfig := config.DeployAptosChainConfig{
 		ContractParamsPerChain: map[uint64]config.ChainContractParams{
-			chainSelector: mockCCIPParams,
+			chainSelector: {
+				FeeQuoterParams: config.FeeQuoterParams{
+					MaxFeeJuelsPerMsg:            new(big.Int).Mul(big.NewInt(100_000_000), big.NewInt(1e18)), // 100M LINK @ 18 decimals
+					TokenPriceStalenessThreshold: 24 * 60 * 60,
+					FeeTokens:                    []aptos.AccountAddress{aptTokenAddress},
+					PremiumMultiplierWeiPerEthByFeeToken: map[shared.TokenSymbol]uint64{
+						shared.APTSymbol:  1,
+						shared.LinkSymbol: 1,
+					},
+				},
+				OffRampParams: config.OffRampParams{
+					ChainSelector:                    chainSelector,
+					PermissionlessExecutionThreshold: uint32(globals.PermissionLessExecutionThreshold.Seconds()),
+					IsRMNVerificationDisabled:        nil,
+					SourceChainSelectors:             nil,
+					SourceChainIsEnabled:             nil,
+					SourceChainsOnRamp:               nil,
+				},
+				OnRampParams: config.OnRampParams{
+					ChainSelector:  chainSelector,
+					AllowlistAdmin: e.Env.BlockChains.AptosChains()[chainSelector].DeployerSigner.AccountAddress(),
+					FeeAggregator:  e.Env.BlockChains.AptosChains()[chainSelector].DeployerSigner.AccountAddress(),
+				},
+			},
 		},
 		MCMSDeployConfigPerChain: map[uint64]commontypes.MCMSWithTimelockConfigV2{
 			chainSelector: {

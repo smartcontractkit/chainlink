@@ -17,7 +17,7 @@ require (
 	github.com/dominikbraun/graph v0.23.0
 	github.com/doyensec/safeurl v0.2.1
 	github.com/esote/minmaxheap v1.0.0
-	github.com/ethereum/go-ethereum v1.15.3
+	github.com/ethereum/go-ethereum v1.15.7
 	github.com/fatih/color v1.18.0
 	github.com/fbsobreira/gotron-sdk v0.0.0-20250403083053-2943ce8c759b
 	github.com/fxamacker/cbor/v2 v2.7.0

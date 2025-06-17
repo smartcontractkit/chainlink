@@ -33,6 +33,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
@@ -740,22 +741,16 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	var apps []commonchangeset.ConfiguredChangeSet
 	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 
-	evmChains := []uint64{}
+	var (
+		evmChains, solChains, aptosChains []uint64
+	)
 	for _, chain := range allChains {
 		if _, ok := e.Env.BlockChains.EVMChains()[chain]; ok {
 			evmChains = append(evmChains, chain)
 		}
-	}
-
-	solChains := []uint64{}
-	for _, chain := range allChains {
 		if _, ok := e.Env.BlockChains.SolanaChains()[chain]; ok {
 			solChains = append(solChains, chain)
 		}
-	}
-
-	aptosChains := []uint64{}
-	for _, chain := range allChains {
 		if _, ok := e.Env.BlockChains.AptosChains()[chain]; ok {
 			aptosChains = append(aptosChains, chain)
 		}
@@ -955,6 +950,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		// TODO(aptos): update this for token transfers
 		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
 		linkTokenAddress := state.AptosChains[chain].LinkTokenAddress
+		linkTokenAddress.ParseStringRelaxed("0xa")
 		tokenInfo[cciptypes.UnknownEncodedAddress(linkTokenAddress.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
 
 		ocrOverride := tc.OCRConfigOverride
@@ -1048,6 +1044,20 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				HomeChainSel:       e.HomeChainSel,
 				RemoteChainSels:    evmChains,
 				CCIPHomeConfigType: globals.ConfigTypeActive,
+			},
+		),
+		commonchangeset.Configure(
+			// Enable the OCR config on the remote chains.
+			aptoscs.SetOCR3Offramp{},
+			v1_6.SetOCR3OffRampConfig{
+				HomeChainSel:       e.HomeChainSel,
+				RemoteChainSels:    aptosChains,
+				CCIPHomeConfigType: globals.ConfigTypeActive,
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay:     time.Second,
+					MCMSAction:   mcmstypes.TimelockActionSchedule,
+					OverrideRoot: false,
+				},
 			},
 		),
 		commonchangeset.Configure(

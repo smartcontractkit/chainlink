@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 
@@ -53,7 +54,7 @@ func (c ChainContractParams) Validate() error {
 }
 
 type FeeQuoterParams struct {
-	MaxFeeJuelsPerMsg                    uint64
+	MaxFeeJuelsPerMsg                    *big.Int
 	TokenPriceStalenessThreshold         uint64
 	FeeTokens                            []aptos.AccountAddress
 	PremiumMultiplierWeiPerEthByFeeToken map[shared.TokenSymbol]uint64

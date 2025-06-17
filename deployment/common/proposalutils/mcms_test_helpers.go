@@ -2,6 +2,7 @@ package proposalutils
 
 import (
 	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"slices"
@@ -307,6 +308,11 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 			executorsMap[op.ChainSelector] = mcmsaptossdk.NewTimelockExecutor(
 				aptosChains[uint64(op.ChainSelector)].Client,
 				aptosChains[uint64(op.ChainSelector)].DeployerSigner)
+			for _, transaction := range op.Transactions {
+				af := mcmsaptossdk.AdditionalFields{}
+				_ = json.Unmarshal(transaction.AdditionalFields, &af)
+				fmt.Printf("Executing %s::%s::%s\n", af.PackageName, af.ModuleName, af.Function)
+			}
 
 		default:
 			require.FailNow(t, "unsupported chain family")
@@ -336,7 +342,7 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 		if err != nil {
 			return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Execute failed: %w", err)
 		}
-		t.Logf("[ExecuteMCMSTimelockProposalV2] Executed timelock operation index=%d on chain %d", i, uint64(op.ChainSelector))
+		t.Logf("[ExecuteMCMSTimelockProposalV2] Executed timelock operation index=%d on chain %d (tx %v)", i, uint64(op.ChainSelector), tx.Hash)
 		family, err := chainsel.GetSelectorFamily(uint64(op.ChainSelector))
 		require.NoError(t, err)
 
