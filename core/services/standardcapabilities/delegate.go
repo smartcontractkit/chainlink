@@ -2,6 +2,7 @@ package standardcapabilities
 
 import (
 	"context"
+	"crypto"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -111,6 +112,18 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	log := d.logger.Named("StandardCapabilities").Named(spec.StandardCapabilitiesSpec.GetID())
 
 	kvStore := job.NewKVStore(spec.ID, d.ds)
+
+	var accountIds []string
+	var signers []crypto.Signer
+	key, err := d.ks.P2P().GetOrFirst(d.peerWrapper.PeerID)
+	if err != nil {
+		log.Warnw("Failed to get P2P key", "error", err, "peerID", d.peerWrapper.PeerID)
+	} else {
+		accountIds = append(accountIds, "P2P_SIGNER")
+		signers = append(signers, key)
+	}
+	keystore := core.NewMultiAccountSigner(accountIds, signers)
+
 	telemetryService := generic.NewTelemetryAdapter(d.monitoringEndpointGen)
 	errorLog := &ErrorLog{jobID: spec.ID, recordError: d.jobORM.RecordError}
 	pr := generic.NewPipelineRunnerAdapter(log, spec, d.pipelineRunner)
@@ -283,7 +296,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 
 	standardCapability := NewStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,
-		pr, relayerSet, oracleFactory)
+		pr, relayerSet, oracleFactory, keystore)
 
 	return []job.ServiceCtx{standardCapability}, nil
 }
