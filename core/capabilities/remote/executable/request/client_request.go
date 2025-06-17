@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -156,6 +158,7 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		wg.Add(1)
 		go func(innerCtx context.Context, peerID ragep2ptypes.PeerID, delay time.Duration) {
 			defer wg.Done()
+
 			message := &types.MessageBody{
 				CapabilityId:    remoteCapabilityInfo.ID,
 				CapabilityDonId: remoteCapabilityDonInfo.ID,
@@ -164,6 +167,10 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 				Payload:         rawRequest,
 				MessageId:       []byte(requestID),
 			}
+
+			sc := trace.SpanContextFromContext(ctx)
+			traceID := sc.TraceID()
+			message.TraceId = traceID.String()
 
 			select {
 			case <-innerCtx.Done():
@@ -281,6 +288,16 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 	if err != nil {
 		return fmt.Errorf("failed to convert message sender to PeerID: %w", err)
 	}
+
+	// Create a new span for this message processing
+	_, span := beholder.GetTracer().Start(context.Background(), "client_request.process_message",
+		trace.WithAttributes(
+			attribute.String("p2p_id", sender.String()),
+			attribute.String("trace_id", msg.TraceId),
+			attribute.String("request_id", c.id),
+		),
+	)
+	defer span.End()
 
 	received, expected := c.responseReceived[sender]
 	if !expected {

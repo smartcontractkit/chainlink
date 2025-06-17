@@ -4,14 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
 
-	"slices"
-
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -164,6 +164,22 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method strin
 }
 
 func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) error {
+	// Create a new span for this message processing
+	ctx, span := beholder.GetTracer().Start(ctx, "server_request.process_message",
+		trace.WithAttributes(
+			attribute.String("p2p_id", e.capabilityPeerID.String()),
+			attribute.String("trace_id", msg.TraceId),
+			attribute.String("capability_id", e.capabilityID),
+			attribute.String("method", e.method),
+			attribute.String("request_id", e.requestMessageID),
+			attribute.String("caller_don_id", strconv.FormatUint(uint64(e.callingDon.ID), 10)),
+			attribute.String("requester_don_id", strconv.FormatUint(uint64(e.capabilityDonID), 10)),
+			attribute.String("requester_p2p_id", e.capabilityPeerID.String()),
+			attribute.String("requester_don_id", strconv.FormatUint(uint64(e.capabilityDonID), 10)),
+		),
+	)
+	defer span.End()
+
 	e.metrics.countExecutionRequest(ctx)
 
 	e.mux.Lock()
@@ -303,6 +319,9 @@ func (e *ServerRequest) sendResponse(ctx context.Context, requester p2ptypes.Pee
 		Sender:          e.capabilityPeerID[:],
 		Receiver:        requester[:],
 	}
+	sc := trace.SpanContextFromContext(ctx)
+	traceID := sc.TraceID()
+	responseMsg.TraceId = traceID.String()
 
 	if e.response.error != types.Error_OK {
 		responseMsg.Error = e.response.error
