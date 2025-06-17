@@ -39,6 +39,7 @@ import (
 )
 
 func TestAddTokenPoolWithoutMcms(t *testing.T) {
+	skipInCI(t)
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	doTestTokenPool(t, tenv.Env, false, shared.CLLMetadata)

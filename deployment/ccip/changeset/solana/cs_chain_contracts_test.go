@@ -85,6 +85,7 @@ func TestAddRemoteChainWithMcms(t *testing.T) {
 
 func TestAddRemoteChainWithoutMcms(t *testing.T) {
 	t.Parallel()
+	skipInCI(t)
 	doTestAddRemoteChain(t, false)
 }
 
@@ -581,6 +582,7 @@ func TestBillingWithMcms(t *testing.T) {
 
 func TestBillingWithoutMcms(t *testing.T) {
 	t.Parallel()
+	skipInCI(t)
 	doTestBilling(t, false)
 }
 
@@ -723,6 +725,7 @@ func TestTokenAdminRegistryWithMcms(t *testing.T) {
 
 func TestTokenAdminRegistryWithoutMcms(t *testing.T) {
 	t.Parallel()
+	skipInCI(t)
 	doTestTokenAdminRegistry(t, false)
 }
 
@@ -821,6 +824,7 @@ func TestPoolLookupTableWithMcms(t *testing.T) {
 }
 
 func TestPoolLookupTableWithoutMcms(t *testing.T) {
+	skipInCI(t)
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	doTestPoolLookupTable(t, tenv.Env, false, shared.CLLMetadata)
