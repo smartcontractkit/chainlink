@@ -64,7 +64,6 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	// 2. Load initial onchain state
 	state, err := stateview.LoadOnchainState(tenv)
 	require.NoError(t, err, "Failed to load initial onchain state")
-	sourceChainState := state.MustGetEVMChainState(sourceChainSelector)
 
 	allChains := tenv.BlockChains.ListChainSelectors(
 		cldf_chain.WithFamily(chain_selectors.FamilyEVM),
