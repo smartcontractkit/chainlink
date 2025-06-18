@@ -26,6 +26,12 @@ func (a AddressCodec) OracleIDAsAddressBytes(oracleID uint8) ([]byte, error) {
 	return addr, nil
 }
 
+func (a AddressCodec) TransmitterBytesToString(addr []byte) (string, error) {
+	// Transmitter accounts are ed25519 public keys, and encoded as a hex string without
+	// a 0x prefix.
+	return hex.EncodeToString(addr), nil
+}
+
 func addressBytesToString(addr []byte) (string, error) {
 	if len(addr) < 1 || len(addr) > 32 {
 		return "", fmt.Errorf("invalid Aptos address length (%d)", len(addr))

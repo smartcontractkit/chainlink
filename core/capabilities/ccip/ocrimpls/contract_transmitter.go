@@ -31,6 +31,11 @@ type ToCalldataFunc func(
 	codec ccipcommon.ExtraDataCodec,
 ) (contract string, method string, args any, err error)
 
+// ToEd25519CalldataFunc is a function that takes in the OCR3 report and Ed25519 signature data and processes them.
+// It returns the contract name, method name, and arguments for the on-chain contract call.
+// The ReportWithInfo bytes field is also decoded according to the implementation of this function,
+// the commit and execute plugins have different representations for this data.
+// Ed25519 signatures are 96 bytes long (64 bytes signature + 32 bytes public key).
 type ToEd25519CalldataFunc func(
 	rawReportCtx [2][32]byte,
 	report ocr3types.ReportWithInfo[[]byte],
@@ -111,7 +116,7 @@ func (c *ccipTransmitter) Transmit(
 		for i, as := range sigs {
 			r, s, v, err2 := evmutil.SplitSignature(as.Signature)
 			if err2 != nil {
-				return fmt.Errorf("failed to split signature: %w", err2)
+				return fmt.Errorf("failed to split signature: %w", err)
 			}
 			rs = append(rs, r)
 			ss = append(ss, s)

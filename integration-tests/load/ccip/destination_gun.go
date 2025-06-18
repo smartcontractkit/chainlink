@@ -250,7 +250,7 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 		svmExtraArgs = message_hasher.ClientSVMExtraArgsV1{
 			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
 			Accounts:                 accounts,
-			AllowOutOfOrderExecution: *m.testConfig.OOOExecution,
+			AllowOutOfOrderExecution: true,
 			ComputeUnits:             150000,
 		}
 	}
@@ -258,6 +258,16 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 		Receiver:  rcv,
 		FeeToken:  common.HexToAddress("0x0"),
 		ExtraArgs: extraArgs,
+	}
+
+	if dstSelFamily == selectors.FamilySolana {
+		extraArgs, err = ccipevm.SerializeClientSVMExtraArgsV1(svmExtraArgs)
+		if err != nil {
+			m.l.Errorw("Error encoding extra args for sol dest")
+			return router.ClientEVM2AnyMessage{}, 0, err
+		}
+		message.ExtraArgs = extraArgs
+		return message, int64(2_500_000), nil
 	}
 
 	// Set data length if it's a data transfer

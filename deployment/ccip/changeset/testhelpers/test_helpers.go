@@ -2,6 +2,7 @@ package testhelpers
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -24,6 +25,7 @@ import (
 	module_onramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp/onramp"
 	aptos_router "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
 	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 
@@ -950,14 +952,14 @@ func SendRequestAptos(
 		tokenAddressStrings []string
 		tokenStoreStrings   []string
 	)
-	feeTokenBalance, err := GetFungibleAssetBalance(client, senderAddress, msg.FeeToken)
+	feeTokenBalance, err := helpers.GetFungibleAssetBalance(client, senderAddress, msg.FeeToken)
 	if err != nil {
 		return nil, err
 	}
 	e.Logger.Debugw("Fungible Asset balance", "feeToken", feeTokenBalance)
 	for _, address := range tokenAddresses {
 		tokenAddressStrings = append(tokenAddressStrings, address.StringLong())
-		transferTokenBalance, err := GetFungibleAssetBalance(client, senderAddress, address)
+		transferTokenBalance, err := helpers.GetFungibleAssetBalance(client, senderAddress, address)
 		if err != nil {
 			return nil, err
 		}
@@ -966,16 +968,17 @@ func SendRequestAptos(
 	for _, address := range tokenStoreAddresses {
 		tokenStoreStrings = append(tokenStoreStrings, address.StringLong())
 	}
-	e.Logger.Debugw("Sending message: ",
+	e.Logger.Debugw("(Aptos) Sending message: ",
 		"destChainSelector", cfg.DestChain,
-		"receiver", msg.Receiver,
-		"data", msg.Data,
+		"routerAddress", router.StringLong(),
+		"receiver", hex.EncodeToString(msg.Receiver),
+		"data", hex.EncodeToString(msg.Data),
 		"tokenAddresses", tokenAddressStrings,
 		"tokenAmounts", tokenAmounts,
 		"tokenStoreAddresses", tokenStoreStrings,
 		"feeToken", msg.FeeToken.StringLong(),
 		"feeTokenStore", msg.FeeTokenStore.StringLong(),
-		"extraArgs", msg.ExtraArgs,
+		"extraArgs", hex.EncodeToString(msg.ExtraArgs),
 	)
 
 	routerContract := aptos_router.Bind(router, client)
@@ -1693,7 +1696,12 @@ func DeployTransferableTokenAptos(
 	managed_token_pool.ManagedTokenPool,
 	error,
 ) {
-	// TODO check families - similar to Solana
+	selectorFamily, err := chainsel.GetSelectorFamily(evmChainSel)
+	require.NoError(t, err)
+	require.Equal(t, chainsel.FamilyEVM, selectorFamily)
+	selectorFamily, err = chainsel.GetSelectorFamily(aptosChainSel)
+	require.NoError(t, err)
+	require.Equal(t, chainsel.FamilyAptos, selectorFamily)
 
 	// EVM
 	evmDeployerKey := e.BlockChains.EVMChains()[evmChainSel].DeployerKey
@@ -2616,7 +2624,7 @@ func WaitForTokenBalanceAptos(
 	expected uint64,
 ) {
 	require.Eventually(t, func() bool {
-		balance, err := GetFungibleAssetBalance(chain.Client, account, fungibleAsset)
+		balance, err := helpers.GetFungibleAssetBalance(chain.Client, account, fungibleAsset)
 		require.NoError(t, err)
 
 		t.Log("(Aptos) Waiting for the token balance",

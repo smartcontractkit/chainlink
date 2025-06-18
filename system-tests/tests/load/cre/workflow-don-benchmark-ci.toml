@@ -77,6 +77,8 @@ user_config_overrides = """
         Enabled = true
         DatabaseTimeout = '1s'
       """
+[nodesets.node_specs.node.env_vars]
+CL_EVM_CMD=""
 
 # ----- CAPABILITIES NODES CONFIGURATION -----
 # Setup for a 3-node Capabilities cluster with individual configurations
@@ -104,6 +106,8 @@ user_config_overrides = """
         Enabled = true
         DatabaseTimeout = '1s'
       """
+[nodesets.node_specs.node.env_vars]
+CL_EVM_CMD=""
 
 # Capability node 2 configuration
 [[nodesets.node_specs]]
@@ -118,6 +122,8 @@ user_config_overrides = """
         Enabled = true
         DatabaseTimeout = '1s'
       """
+[nodesets.node_specs.node.env_vars]
+CL_EVM_CMD=""
 
 # Capability node 3 configuration
 [[nodesets.node_specs]]
@@ -132,6 +138,8 @@ user_config_overrides = """
         Enabled = true
         DatabaseTimeout = '1s'
       """
+[nodesets.node_specs.node.env_vars]
+CL_EVM_CMD=""
 
 # ----- CHAOS TESTING CONFIGURATION -----
 #Settings for chaos engineering tests (optional), for simple load test you can ignore it
