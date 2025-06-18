@@ -171,7 +171,7 @@ func (r *Relayer) SubmitTransaction(ctx context.Context, txRequest evmtypes.Subm
 
 	_, err = r.chain.TxManager().CreateTransaction(ctx, txmReq)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w; failed to create tx", err)
 	}
 
 
@@ -194,20 +194,16 @@ func (r *Relayer) SubmitTransaction(ctx context.Context, txRequest evmtypes.Subm
 		if time.Since(start) > maximumWaitTimeForConfirmation {
 			return nil, errors.Errorf("Wait time for Tx %s to get confirmed was greater than maximum wait time %d", txID, maximumWaitTimeForConfirmation)
 		}
-		//PLEX-1524 - Use ticker instead of time.Sleep
+		//PLEX-1524 - Use ticker instead of time.Sleep and make the time configurable
 		time.Sleep(100 * time.Millisecond)
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("%w; failed to create tx", err)
 	}
 
 	receipt, err := r.chain.TxManager().GetTransactionReceipt(ctx, txID)
 	if err != nil {
-		return nil, fmt.Errorf("%w; failed to get TX receipt for tx with ID %s", err, txID)
+		return nil, fmt.Errorf("failed to get TX receipt for tx with ID %s: %w", txID, err)
 	}
 	if receipt == nil {
-		return nil, fmt.Errorf("%w, receipt was nil for TX with ID %s", err, txID)
+		return nil, fmt.Errorf("receipt was nil for TX with ID %s: %w", txID, err)
 	}
 
 	return &evmtypes.TransactionResult{

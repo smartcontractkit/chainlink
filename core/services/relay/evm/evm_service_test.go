@@ -111,7 +111,7 @@ func runSubmitTransactionTest(t *testing.T, tc SubmitTransactionTestCase) {
 func setCommonSubmitTransactionMocks(m *Mocks, ctx any) {
 	fromAddress := createFromAddress()
 	m.Workflow.EXPECT().FromAddress().Return(&fromAddress)
-	m.EVM.EXPECT().ConfirmationTimeout().Return(time.Millisecond)
+	m.EVM.EXPECT().ConfirmationTimeout().Return(500 * time.Millisecond)
 }
 
 func createFromAddress() types.EIP55Address {
@@ -235,11 +235,11 @@ func TestEVMService(t *testing.T) {
 			ExpectedError: "fail getting transaction status",
 		},
 		{
-			Name: "Success with unconfirmed status and then finalized status",
+			Name: "Success with pending status and then finalized status",
 			SetupMocks: func(m *Mocks, ctx any) {
 				expectedTx := txmgr.Tx{}
 				m.TxManager.EXPECT().CreateTransaction(ctx, mock.Anything).Return(expectedTx, nil)
-				m.TxManager.EXPECT().GetTransactionStatus(ctx, mock.Anything).Return(commontypes.Unconfirmed, nil).Once()
+				m.TxManager.EXPECT().GetTransactionStatus(ctx, mock.Anything).Return(commontypes.Pending, nil).Once()
 				m.TxManager.EXPECT().GetTransactionStatus(ctx, mock.Anything).Return(commontypes.Finalized, nil).Once()
 				txHash := common.HexToHash("0xabcd")
 				mockReceipt := NewChainReceipt(txHash, t)
