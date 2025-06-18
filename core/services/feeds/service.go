@@ -1797,14 +1797,12 @@ func (s *service) tryDeleteWorkflowJob(ctx context.Context, proposal *JobProposa
 	var canCancelWorkflow bool
 	var job *job.Job
 	var jpSpec *JobProposalSpec
-	var jobSpecID int64
 
 	if proposal.ExternalJobID.Valid {
 		jobFound, err := s.jobORM.FindJobByExternalJobID(ctx, proposal.ExternalJobID.UUID)
 		if err == nil && jobFound.WorkflowSpecID != nil {
 			canCancelWorkflow = true
 			job = &jobFound
-			jobSpecID = int64(*jobFound.WorkflowSpecID)
 
 			jpSpec, err = s.orm.GetApprovedSpec(ctx, proposal.ID)
 			if err != nil {
@@ -1819,11 +1817,13 @@ func (s *service) tryDeleteWorkflowJob(ctx context.Context, proposal *JobProposa
 		return false, nil
 	}
 
-	return true, s.deleteWorkflowJobWithTransaction(ctx, proposal, job, jpSpec, jobSpecID, logger)
+	return true, s.deleteWorkflowJobWithTransaction(ctx, proposal, job, jpSpec, logger)
 }
 
 // deleteWorkflowJobWithTransaction performs the workflow job deletion within a transaction.
-func (s *service) deleteWorkflowJobWithTransaction(ctx context.Context, proposal *JobProposal, job *job.Job, jpSpec *JobProposalSpec, jobSpecID int64, logger logger.Logger) error {
+func (s *service) deleteWorkflowJobWithTransaction(ctx context.Context, proposal *JobProposal, job *job.Job, jpSpec *JobProposalSpec, logger logger.Logger) error {
+	jobSpecID := int64(*job.WorkflowSpecID)
+
 	fmsClient, err := s.connMgr.GetClient(proposal.FeedsManagerID)
 	if err != nil {
 		logger.Errorw("Failed to get FMS client", "jobProposalID", proposal.ID, "jobProposalSpecID", jpSpec.ID, "err", err, "name", job.Name)
