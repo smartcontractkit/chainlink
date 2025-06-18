@@ -124,6 +124,8 @@ LogBroadcasterEnabled = true # Default
 NoNewFinalizedHeadsThreshold = '0' # Default
 
 [EVM.Transactions]
+# ConfirmationTimeout time to wait for a TX to get into a block in the blockchain. This is used for the EVMService.SubmitTransaction operation.
+ConfirmationTimeout = '60s' # Default
 # Enabled is a feature flag for the Transaction Manager. This flag also enables or disables the gas estimator since it is dependent on the TXM to start it.
 Enabled = true # Default
 # ForwardersEnabled enables or disables sending transactions through forwarder contracts.

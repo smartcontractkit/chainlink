@@ -111,8 +111,7 @@ func runSubmitTransactionTest(t *testing.T, tc SubmitTransactionTestCase) {
 func setCommonSubmitTransactionMocks(m *Mocks, ctx any) {
 	fromAddress := createFromAddress()
 	m.Workflow.EXPECT().FromAddress().Return(&fromAddress)
-	m.EVM.EXPECT().TxMinimumWaitTimeForConfirmation().Return(time.Millisecond)
-	m.EVM.EXPECT().TxMaximumWaitTimeForConfirmation().Return(time.Millisecond)
+	m.EVM.EXPECT().ConfirmationTimeout().Return(time.Millisecond)
 }
 
 func createFromAddress() types.EIP55Address {
@@ -204,7 +203,7 @@ func TestEVMService(t *testing.T) {
 						slices.Equal(txRequest.EncodedPayload, expectedTxRequest.EncodedPayload)
 
 				})).Return(expectedTx, nil)
-				m.TxManager.EXPECT().GetTransactionStatus(ctx, mock.Anything).Return(commontypes.Confirmed, nil)
+				m.TxManager.EXPECT().GetTransactionStatus(ctx, mock.Anything).Return(commontypes.Unconfirmed, nil)
 				txHash := common.HexToHash("0xabcd")
 				mockReceipt := NewChainReceipt(txHash, t)
 				m.TxManager.EXPECT().GetTransactionReceipt(ctx, mock.Anything).Return(&mockReceipt, nil)
@@ -219,7 +218,7 @@ func TestEVMService(t *testing.T) {
 			SetupMocks: func(m *Mocks, ctx any) {
 				expectedTx := txmgr.Tx{}
 				m.TxManager.EXPECT().CreateTransaction(ctx, mock.Anything).Return(expectedTx, nil)
-				m.TxManager.EXPECT().GetTransactionStatus(ctx, mock.Anything).Return(commontypes.Confirmed, nil)
+				m.TxManager.EXPECT().GetTransactionStatus(ctx, mock.Anything).Return(commontypes.Unconfirmed, nil)
 				expectedMessage := "fail creating transaction"
 				m.TxManager.EXPECT().GetTransactionReceipt(ctx, mock.Anything).Return(nil, errors.New(expectedMessage))
 			},

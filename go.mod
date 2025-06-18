@@ -392,9 +392,3 @@ require (
 )
 
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20250528121202-292529af39df
-
-replace github.com/smartcontractkit/chainlink-common => ../../chainlink-common
-
-replace github.com/smartcontractkit/chainlink-evm => ../../chainlink-evm
-
-replace github.com/smartcontractkit/chainlink-framework/chains => ../../chainlink-framework/chains

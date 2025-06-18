@@ -174,12 +174,9 @@ func (r *Relayer) SubmitTransaction(ctx context.Context, txRequest evmtypes.Subm
 		return nil, err
 	}
 
-	//PLEX-1524 - Use ticker instead of time.Sleep
-	time.Sleep(config.EVM().TxMinimumWaitTimeForConfirmation())
 
+	maximumWaitTimeForConfirmation := config.EVM().ConfirmationTimeout()
 	start := time.Now()
-	maximumWaitTimeForConfirmation := config.EVM().TxMaximumWaitTimeForConfirmation()
-
 	for {
 		txStatus, err := r.chain.TxManager().GetTransactionStatus(ctx, txID)
 		if err != nil {
@@ -191,12 +188,13 @@ func (r *Relayer) SubmitTransaction(ctx context.Context, txRequest evmtypes.Subm
 				TxHash:   evmtypes.Hash{},
 			}, nil
 		}
-		if txStatus == commontypes.Confirmed || txStatus == commontypes.Finalized {
+		if txStatus == commontypes.Unconfirmed || txStatus == commontypes.Finalized {
 			break
 		}
 		if time.Since(start) > maximumWaitTimeForConfirmation {
 			return nil, errors.Errorf("Wait time for Tx %s to get confirmed was greater than maximum wait time %d", txID, maximumWaitTimeForConfirmation)
 		}
+		//PLEX-1524 - Use ticker instead of time.Sleep
 		time.Sleep(100 * time.Millisecond)
 	}
 
