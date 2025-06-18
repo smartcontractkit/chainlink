@@ -950,11 +950,13 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, err
 			}
-			key, ok := ccipshared.GetSymbolFromDescription(desc)
+			keys, ok := ccipshared.GetSymbolsFromDescription(desc)
 			if !ok {
 				return state, fmt.Errorf("unknown feed description %s", desc)
 			}
-			state.USDFeeds[key] = feed
+			for _, key := range keys {
+				state.USDFeeds[key] = feed
+			}
 			state.ABIByAddress[address] = aggregator_v3_interface.AggregatorV3InterfaceABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintTokenPool, deployment.Version1_5_1).String():
 			ethAddress := common.HexToAddress(address)
