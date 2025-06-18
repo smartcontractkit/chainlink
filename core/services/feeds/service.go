@@ -581,14 +581,14 @@ func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, er
 		return 0, errors.New("cannot delete a job proposal belonging to another feeds manager")
 	}
 
-	// Try to delete as workflow job first, fallback to simple deletion if not applicable
-	deleted, err := s.tryDeleteAsWorkflowJob(ctx, proposal, logger)
+	// Try to delete as workflow job first (with auto-cancellation), fallback to simple deletion if not applicable
+	deleted, err := s.tryDeleteWithWorkflowCancellation(ctx, proposal, logger)
 	if err != nil {
 		return 0, err
 	}
 
 	if !deleted {
-		// For non-workflow jobs: simple proposal deletion
+		// For non-workflow jobs: simple proposal deletion (no cancellation, just job_proposal delete)
 		if err = s.deleteSimpleJobProposal(ctx, proposal, logger); err != nil {
 			return 0, err
 		}
@@ -1780,6 +1780,7 @@ func (ns NullService) Unsafe_SetConnectionsManager(_ ConnectionsManager) {}
 //revive:enable
 
 // deleteSimpleJobProposal deletes a simple (non-workflow) job proposal.
+// This only removes the proposal without any cancellation, unlike workflow jobs
 func (s *service) deleteSimpleJobProposal(ctx context.Context, proposal *JobProposal, logger logger.Logger) error {
 	if err := s.orm.DeleteProposal(ctx, proposal.ID); err != nil {
 		logger.Errorw("Failed to delete the proposal", "err", err)
@@ -1790,10 +1791,10 @@ func (s *service) deleteSimpleJobProposal(ctx context.Context, proposal *JobProp
 	return nil
 }
 
-// tryDeleteAsWorkflowJob attempts to delete a job as a workflow job.
+// tryDeleteWithWorkflowCancellation attempts to delete a job as a workflow job.
 // Returns true if the job was successfully deleted as a workflow, false if it's not a workflow job.
 // Returns an error if deletion failed.
-func (s *service) tryDeleteAsWorkflowJob(ctx context.Context, proposal *JobProposal, logger logger.Logger) (bool, error) {
+func (s *service) tryDeleteWithWorkflowCancellation(ctx context.Context, proposal *JobProposal, logger logger.Logger) (bool, error) {
 	// Early return if no external job ID (we won't find a job to delete without it)
 	if !proposal.ExternalJobID.Valid {
 		logger.Debugw("Proposal has no ExternalJobID, skipping workflow job deletion", "proposalID", proposal.ID)
@@ -1830,10 +1831,10 @@ func (s *service) tryDeleteAsWorkflowJob(ctx context.Context, proposal *JobPropo
 	return true, s.deleteWorkflowJobWithTransaction(ctx, *proposal, jobFound, *jpSpec, logger)
 }
 
-// deleteWorkflowJobWithTransaction performs the workflow job deletion within a transaction.
+// deleteWorkflowJobWithTransaction performs workflow job deletion with auto-cancellation within a transaction.
 func (s *service) deleteWorkflowJobWithTransaction(ctx context.Context, proposal JobProposal, job job.Job, jpSpec JobProposalSpec, logger logger.Logger) error {
 	if job.WorkflowSpecID == nil {
-		return fmt.Errorf("job WorkflowSpecID is nil, cannot delete workflow job")
+		return errors.New("job WorkflowSpecID is nil, cannot delete workflow job")
 	}
 	jobSpecID := int64(*job.WorkflowSpecID)
 
