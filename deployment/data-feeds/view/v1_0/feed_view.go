@@ -38,7 +38,7 @@ func (fv *FeedState) Validate() error {
 		return errors.New("at least one feed is required for workflow")
 	}
 
-	// Temporarly removing duplicate checks to allow CHANGE-35
+	// Temporary removing duplicate checks to allow CHANGE-35
 	//streamsIDMap := make(map[string]bool)
 	//feedIDMap := make(map[string]bool)
 	//descriptionMap := make(map[string]bool)
