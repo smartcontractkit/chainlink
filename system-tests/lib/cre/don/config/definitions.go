@@ -104,11 +104,8 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 	PollPeriod = '2s'
 	AcceptanceTimeout = '30s'
 
-[
-
 	[EVM.Transactions]
 	ForwardersEnabled = true
-
 `,
 			chain.ChainID,
 			chain.Name,
