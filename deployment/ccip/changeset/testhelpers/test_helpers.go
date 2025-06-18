@@ -2349,7 +2349,7 @@ func Transfer(
 	case chainsel.FamilyAptos:
 		feeTokenAddr := aptos.AccountAddress{}
 		if len(feeToken) > 0 {
-			feeTokenAddr.ParseStringRelaxed(feeToken)
+			feeTokenAddr = aptoscs.MustParseAddress(t, feeToken)
 		}
 		msg = AptosSendRequest{
 			Data:         data,

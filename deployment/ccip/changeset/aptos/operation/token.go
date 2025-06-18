@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 
-	"github.com/smartcontractkit/chainlink-aptos/bindings/managed_token"
+	managed_token "github.com/smartcontractkit/chainlink-aptos/bindings/managed_token"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 )
 

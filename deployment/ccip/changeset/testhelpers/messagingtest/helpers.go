@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
@@ -176,7 +177,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	case chain_selectors.FamilyAptos:
 		feeToken := aptos.AccountAddress{}
 		if len(tc.FeeToken) > 0 {
-			feeToken.ParseStringRelaxed(tc.FeeToken)
+			feeToken = aptoscs.MustParseAddress(t, tc.FeeToken)
 		}
 		msg = testhelpers.AptosSendRequest{
 			Data:         tc.MsgData,
