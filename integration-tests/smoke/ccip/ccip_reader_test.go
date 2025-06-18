@@ -1906,7 +1906,7 @@ func testSetup(
 
 	lggr := logger.TestLogger(t)
 	// Change that to DebugLevel to enable SQL logs
-	lggr.SetLogLevel(zapcore.ErrorLevel)
+	lggr.SetLogLevel(zapcore.DebugLevel)
 
 	var dbs sqlutil.DataSource
 	{
