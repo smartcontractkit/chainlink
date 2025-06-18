@@ -38,10 +38,9 @@ func (fv *FeedState) Validate() error {
 		return errors.New("at least one feed is required for workflow")
 	}
 
-	// Temporary removing duplicate checks to allow CHANGE-35
-	// streamsIDMap := make(map[string]bool)
-	// feedIDMap := make(map[string]bool)
-	// descriptionMap := make(map[string]bool)
+	streamsIDMap := make(map[string]bool)
+	feedIDMap := make(map[string]bool)
+	descriptionMap := make(map[string]bool)
 
 	for _, f := range fv.Feeds {
 		if f.StreamsID == "" {
@@ -75,20 +74,20 @@ func (fv *FeedState) Validate() error {
 			return fmt.Errorf("invalid feedID %s for feed %s: %w", f.FeedID, f.FeedID, err)
 		}
 
-		// if streamsIDMap[f.StreamsID] {
-		//	return fmt.Errorf("found duplicate StreamsID %s", f.StreamsID)
-		// }
-		// streamsIDMap[f.StreamsID] = true
-		//
-		// if feedIDMap[f.FeedID] {
-		//	return fmt.Errorf("found duplicate FeedID %s", f.FeedID)
-		// }
-		// feedIDMap[f.FeedID] = true
-		//
-		// if descriptionMap[f.Description] {
-		//	return fmt.Errorf("found duplicate Description %s", f.Description)
-		// }
-		// descriptionMap[f.Description] = true
+		if streamsIDMap[f.StreamsID] {
+			return fmt.Errorf("found duplicate StreamsID %s", f.StreamsID)
+		}
+		streamsIDMap[f.StreamsID] = true
+
+		if feedIDMap[f.FeedID] {
+			return fmt.Errorf("found duplicate FeedID %s", f.FeedID)
+		}
+		feedIDMap[f.FeedID] = true
+
+		if descriptionMap[f.Description] {
+			return fmt.Errorf("found duplicate Description %s", f.Description)
+		}
+		descriptionMap[f.Description] = true
 	}
 
 	return nil
