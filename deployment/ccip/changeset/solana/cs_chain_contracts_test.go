@@ -624,11 +624,15 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 			// register token admin registry for tokenAddress via admin instruction
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
 			ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
-				ChainSelector:           solChain,
-				TokenPubKey:             tokenAddress,
-				TokenAdminRegistryAdmin: newAdmin.String(),
-				RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
-				MCMS:                    mcmsConfig,
+				ChainSelector: solChain,
+				RegisterTokenConfigs: []ccipChangesetSolana.RegisterTokenConfig{
+					{
+						TokenPubKey:             tokenAddress,
+						TokenAdminRegistryAdmin: newAdmin,
+						RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
+					},
+				},
+				MCMS: mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
@@ -653,11 +657,15 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 			// register token admin registry for linkToken via owner instruction
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
 			ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
-				ChainSelector:           solChain,
-				TokenPubKey:             linkTokenAddress,
-				TokenAdminRegistryAdmin: newAdmin.String(),
-				RegisterType:            ccipChangesetSolana.ViaOwnerInstruction,
-				MCMS:                    mcmsConfig,
+				ChainSelector: solChain,
+				RegisterTokenConfigs: []ccipChangesetSolana.RegisterTokenConfig{
+					{
+						TokenPubKey:             linkTokenAddress,
+						TokenAdminRegistryAdmin: newAdmin,
+						RegisterType:            ccipChangesetSolana.ViaOwnerInstruction,
+					},
+				},
+				MCMS: mcmsConfig,
 			},
 		),
 	},
@@ -686,8 +694,12 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
 				ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
 					ChainSelector: solChain,
-					TokenPubKey:   tokenAddress,
-					MCMS:          mcmsConfig,
+					AcceptAdminRoleTokenConfigs: []ccipChangesetSolana.AcceptAdminRoleTokenConfig{
+						{
+							TokenPubKey: tokenAddress,
+						},
+					},
+					MCMS: mcmsConfig,
 				},
 			),
 		)
@@ -703,10 +715,14 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 				// transfer admin role for tokenAddress
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.TransferAdminRoleTokenAdminRegistry),
 				ccipChangesetSolana.TransferAdminRoleTokenAdminRegistryConfig{
-					ChainSelector:             solChain,
-					TokenPubKey:               tokenAddress.String(),
-					NewRegistryAdminPublicKey: newAdminNonTimelock.PublicKey().String(),
-					MCMS:                      mcmsConfig,
+					ChainSelector: solChain,
+					TransferTokenAdminConfigs: []ccipChangesetSolana.TrasnferTokenAdminConfig{
+						{
+							TokenPubKey:               tokenAddress,
+							NewRegistryAdminPublicKey: newAdminNonTimelock.PublicKey(),
+						},
+					},
+					MCMS: mcmsConfig,
 				},
 			),
 		},
@@ -781,28 +797,40 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 		// register token admin registry for linkToken via owner instruction
 		cldf.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
 		ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
-			ChainSelector:           solChain,
-			TokenPubKey:             tokenAddress,
-			TokenAdminRegistryAdmin: newAdmin.String(),
-			RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
-			MCMS:                    mcmsConfig,
+			ChainSelector: solChain,
+			RegisterTokenConfigs: []ccipChangesetSolana.RegisterTokenConfig{
+				{
+					TokenPubKey:             tokenAddress,
+					TokenAdminRegistryAdmin: newAdmin,
+					RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
+				},
+			},
+			MCMS: mcmsConfig,
 		},
 	), commonchangeset.Configure(
 		// accept admin role for tokenAddress
 		cldf.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
 		ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
 			ChainSelector: solChain,
-			TokenPubKey:   tokenAddress,
-			MCMS:          mcmsConfig,
+			AcceptAdminRoleTokenConfigs: []ccipChangesetSolana.AcceptAdminRoleTokenConfig{
+				{
+					TokenPubKey: tokenAddress,
+				},
+			},
+			MCMS: mcmsConfig,
 		},
 	), commonchangeset.Configure(
 		// set pool -> this updates tokenAdminRegistryPDA, hence above changeset is required
 		cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetPool),
 		ccipChangesetSolana.SetPoolConfig{
-			ChainSelector:   solChain,
-			TokenPubKey:     tokenAddress,
-			PoolType:        &pool,
-			Metadata:        tokenMetadata,
+			ChainSelector: solChain,
+			SetPoolTokenConfigs: []ccipChangesetSolana.SetPoolTokenConfig{
+				{
+					TokenPubKey: tokenAddress,
+					PoolType:    &pool,
+					Metadata:    tokenMetadata,
+				},
+			},
 			WritableIndexes: []uint8{3, 4, 7},
 			MCMS:            mcmsConfig,
 		},

@@ -214,20 +214,16 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 				_, _ = testhelpers.TransferOwnershipSolana(
 					t, &e, solChain, false,
 					ccipChangesetSolana.CCIPContractsToTransfer{
-						BurnMintTokenPools: map[string]map[solana.PublicKey]solana.PublicKey{
-							tokenMetadata: {
-								poolConfigPDA: tokenAddress,
-							},
+						BurnMintTokenPools: map[string]solana.PublicKey{
+							tokenMetadata: tokenAddress,
 						},
 					})
 			} else if testCase.poolType == solTestTokenPool.LockAndRelease_PoolType {
 				_, _ = testhelpers.TransferOwnershipSolana(
 					t, &e, solChain, false,
 					ccipChangesetSolana.CCIPContractsToTransfer{
-						LockReleaseTokenPools: map[string]map[solana.PublicKey]solana.PublicKey{
-							tokenMetadata: {
-								poolConfigPDA: tokenAddress,
-							},
+						LockReleaseTokenPools: map[string]solana.PublicKey{
+							tokenMetadata: tokenAddress,
 						},
 					})
 			}
@@ -365,10 +361,8 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 								ProposedOwner: deployerKey,
 								ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
 									solChain: ccipChangesetSolana.CCIPContractsToTransfer{
-										BurnMintTokenPools: map[string]map[solana.PublicKey]solana.PublicKey{
-											tokenMetadata: {
-												poolConfigPDA: tokenAddress,
-											},
+										BurnMintTokenPools: map[string]solana.PublicKey{
+											tokenMetadata: tokenAddress,
 										},
 									},
 								},
@@ -386,10 +380,8 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 								ProposedOwner: deployerKey,
 								ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
 									solChain: ccipChangesetSolana.CCIPContractsToTransfer{
-										LockReleaseTokenPools: map[string]map[solana.PublicKey]solana.PublicKey{
-											tokenMetadata: {
-												poolConfigPDA: tokenAddress,
-											},
+										LockReleaseTokenPools: map[string]solana.PublicKey{
+											tokenMetadata: tokenAddress,
 										},
 									},
 								},
@@ -472,30 +464,43 @@ func TestAddTokenPoolE2EWitMcms(t *testing.T) {
 				},
 				RegisterTokenAdminRegistry: []ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
 					{
-						ChainSelector:           solChain,
-						TokenPubKey:             newTokenAddress,
-						TokenAdminRegistryAdmin: newAdmin.String(),
-						RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
-						MCMS:                    mcmsConfig,
+						ChainSelector: solChain,
+						RegisterTokenConfigs: []ccipChangesetSolana.RegisterTokenConfig{
+							{
+								TokenPubKey:             newTokenAddress,
+								TokenAdminRegistryAdmin: newAdmin,
+								RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
+								Override:                true,
+							},
+						},
+						MCMS: mcmsConfig,
 					},
 				},
 				AcceptAdminRoleTokenAdminRegistry: []ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
 					{
-						ChainSelector:     solChain,
-						TokenPubKey:       newTokenAddress,
-						MCMS:              mcmsConfig,
-						SkipRegistryCheck: true,
+						ChainSelector: solChain,
+						AcceptAdminRoleTokenConfigs: []ccipChangesetSolana.AcceptAdminRoleTokenConfig{
+							{
+								TokenPubKey:       newTokenAddress,
+								SkipRegistryCheck: true,
+							},
+						},
+						MCMS: mcmsConfig,
 					},
 				},
 				SetPool: []ccipChangesetSolana.SetPoolConfig{
 					{
-						ChainSelector:     solChain,
-						TokenPubKey:       newTokenAddress,
-						PoolType:          &poolType,
-						Metadata:          shared.CLLMetadata,
-						WritableIndexes:   []uint8{3, 4, 7},
-						MCMS:              mcmsConfig,
-						SkipRegistryCheck: true,
+						ChainSelector: solChain,
+						SetPoolTokenConfigs: []ccipChangesetSolana.SetPoolTokenConfig{
+							{
+								TokenPubKey:       newTokenAddress,
+								PoolType:          &poolType,
+								Metadata:          shared.CLLMetadata,
+								SkipRegistryCheck: true,
+							},
+						},
+						WritableIndexes: []uint8{3, 4, 7},
+						MCMS:            mcmsConfig,
 					},
 				},
 				RemoteChainTokenPool: []ccipChangesetSolana.RemoteChainTokenPoolConfig{

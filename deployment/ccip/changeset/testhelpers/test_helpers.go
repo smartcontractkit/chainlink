@@ -1463,24 +1463,36 @@ func DeployTransferableTokenSolana(
 				},
 				RegisterTokenAdminRegistry: []ccipChangeSetSolana.RegisterTokenAdminRegistryConfig{
 					{
-						ChainSelector:           solChainSel,
-						TokenPubKey:             solTokenAddress,
-						TokenAdminRegistryAdmin: solDeployerKey.String(),
-						RegisterType:            ccipChangeSetSolana.ViaGetCcipAdminInstruction,
+						ChainSelector: solChainSel,
+						RegisterTokenConfigs: []ccipChangeSetSolana.RegisterTokenConfig{
+							{
+								TokenPubKey:             solTokenAddress,
+								TokenAdminRegistryAdmin: solDeployerKey,
+								RegisterType:            ccipChangeSetSolana.ViaGetCcipAdminInstruction,
+							},
+						},
 					},
 				},
 				AcceptAdminRoleTokenAdminRegistry: []ccipChangeSetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
 					{
 						ChainSelector: solChainSel,
-						TokenPubKey:   solTokenAddress,
+						AcceptAdminRoleTokenConfigs: []ccipChangeSetSolana.AcceptAdminRoleTokenConfig{
+							{
+								TokenPubKey: solTokenAddress,
+							},
+						},
 					},
 				},
 				SetPool: []ccipChangeSetSolana.SetPoolConfig{
 					{
-						ChainSelector:   solChainSel,
-						TokenPubKey:     solTokenAddress,
-						PoolType:        &bnm,
-						Metadata:        shared.CLLMetadata,
+						ChainSelector: solChainSel,
+						SetPoolTokenConfigs: []ccipChangeSetSolana.SetPoolTokenConfig{
+							{
+								TokenPubKey: solTokenAddress,
+								PoolType:    &bnm,
+								Metadata:    shared.CLLMetadata,
+							},
+						},
 						WritableIndexes: []uint8{3, 4, 7},
 					},
 				},
