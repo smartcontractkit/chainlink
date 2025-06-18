@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -119,7 +120,7 @@ func TestAddEVMCallSequenceToCSOutput_SequenceError(t *testing.T) {
 		"test",
 	)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to execute")
 	assert.Contains(t, err.Error(), "sequence failed")
 	assert.Equal(t, seqReport.ExecutionReports, result.Reports)
@@ -139,7 +140,7 @@ func TestAddEVMCallSequenceToCSOutput_NoMCMS(t *testing.T) {
 		"test",
 	)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, seqReport.ExecutionReports, result.Reports)
 }
 
@@ -158,7 +159,7 @@ func TestAddEVMCallSequenceToCSOutput_AllConfirmed(t *testing.T) {
 		"test",
 	)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, seqReport.ExecutionReports, result.Reports)
 	assert.Nil(t, result.MCMSTimelockProposals)
 }
