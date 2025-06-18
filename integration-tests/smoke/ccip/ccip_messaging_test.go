@@ -44,7 +44,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	// fix the chain ids for the test so we can appropriately set finality depth numbers on the destination chain.
 	chains := []chainsel.Chain{
 		chainsel.GETH_TESTNET,  // source
-		chainsel.TEST_90000001, // dest
+		chainsel.GETH_DEVNET_2, // dest
 	}
 	var chainIDs = []uint64{
 		chains[0].EvmChainID,
@@ -67,14 +67,14 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	require.Len(t, allChainSelectors, 2)
 	sourceChain := chains[0].Selector
 	destChain := chains[1].Selector
-	require.Contains(t, allChainSelectors, sourceChain)
-	require.Contains(t, allChainSelectors, destChain)
 	t.Log("All chain selectors:", allChainSelectors,
 		", home chain selector:", e.HomeChainSel,
 		", feed chain selector:", e.FeedChainSel,
 		", source chain selector:", sourceChain,
 		", dest chain selector:", destChain,
 	)
+	require.Contains(t, allChainSelectors, sourceChain)
+	require.Contains(t, allChainSelectors, destChain)
 	// connect a single lane, source to dest
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
