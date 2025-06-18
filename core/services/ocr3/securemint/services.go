@@ -54,6 +54,7 @@ func (m *smJobConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return m.jobPipelineResultWriteQueueDepth
 }
 
+// TODO(gg): add unit tests to chain reading & writing
 // NewSecureMintServices creates all securemint plugin specific services.
 func NewSecureMintServices(ctx context.Context,
 	jb job.Job,

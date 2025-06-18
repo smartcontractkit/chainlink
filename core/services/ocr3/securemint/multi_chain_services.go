@@ -29,7 +29,7 @@ type MultiChainSecureMintServices struct {
 	// Map of chain selectors to their respective contract transmitters
 	contractTransmitters map[por.ChainSelector]ocr3types.ContractTransmitter[por.ChainSelector]
 
-	// Map of chain selectors to their respective chain writers
+	// Map of chain selectors to their respective chain writers (internal implementation detail)
 	chainWriters map[por.ChainSelector]types.ContractWriter
 
 	// Map of relay IDs to relayers for different chains
@@ -115,7 +115,7 @@ func (m *MultiChainSecureMintServices) initializeChainServices(ctx context.Conte
 			return fmt.Errorf("relayer not found for chain selector %d with relay ID %s", chainSelector, chainConfig.RelayID)
 		}
 
-		// Create chain writer for this chain
+		// Create chain writer for this chain (internal implementation detail)
 		chainWriter, err := m.createChainWriter(ctx, relayer, chainConfig)
 		if err != nil {
 			return fmt.Errorf("failed to create chain writer for chain %d: %w", chainSelector, err)
@@ -259,18 +259,6 @@ func (m *MultiChainSecureMintServices) GetContractTransmitter(chainSelector por.
 		return nil, fmt.Errorf("contract transmitter not found for chain selector %d", chainSelector)
 	}
 	return transmitter, nil
-}
-
-// GetChainWriter returns the chain writer for a specific chain
-func (m *MultiChainSecureMintServices) GetChainWriter(chainSelector por.ChainSelector) (types.ContractWriter, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	writer, exists := m.chainWriters[chainSelector]
-	if !exists {
-		return nil, fmt.Errorf("chain writer not found for chain selector %d", chainSelector)
-	}
-	return writer, nil
 }
 
 // ListSupportedChains returns all supported chain selectors

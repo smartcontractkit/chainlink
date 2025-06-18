@@ -24,7 +24,7 @@ type MultiChainSecureMintServices struct {
     // Map of chain selectors to their respective contract transmitters
     contractTransmitters map[por.ChainSelector]ocr3types.ContractTransmitter[por.ChainSelector]
     
-    // Map of chain selectors to their respective chain writers
+    // Map of chain selectors to their respective chain writers (internal implementation detail)
     chainWriters map[por.ChainSelector]types.ContractWriter
     
     // Map of relay IDs to relayers for different chains
@@ -73,12 +73,12 @@ type secureMintContractReader struct {
 
 ### 2. Contract Transmitter Per Chain
 
-Each chain has its own contract transmitter that uses a chain writer:
+Each chain has its own contract transmitter that uses a chain writer internally:
 
 ```go
 type secureMintContractTransmitter struct {
     logger         logger.Logger
-    chainWriter    types.ContractWriter
+    chainWriter    types.ContractWriter  // Internal implementation detail
     fromAccount    ocrtypes.Account
     contractAddress string
     chainSelector  por.ChainSelector
@@ -89,13 +89,14 @@ type secureMintContractTransmitter struct {
 - Chain-specific gas settings
 - Independent transaction management
 - Separate retry logic per chain
+- Clean public API (only exposes ContractTransmitter interface)
 
-### 3. Chain Writer Per Chain
+### 3. Chain Writer Per Chain (Internal)
 
-Each chain has its own chain writer for submitting transactions:
+Each chain has its own chain writer for submitting transactions, but this is an internal implementation detail:
 
 ```go
-// Each chain writer manages transactions for its specific chain
+// Internal implementation detail - not exposed to users
 chainWriters map[por.ChainSelector]types.ContractWriter
 ```
 
@@ -103,6 +104,7 @@ chainWriters map[por.ChainSelector]types.ContractWriter
 - Chain-specific transaction management
 - Independent gas price monitoring
 - Separate nonce management
+- Encapsulated implementation details
 
 ## Usage Pattern
 
@@ -137,11 +139,7 @@ if err != nil {
     return fmt.Errorf("failed to get contract transmitter: %w", err)
 }
 
-// Get chain writer for a specific chain
-writer, err := multiChainServices.GetChainWriter(chainSelector)
-if err != nil {
-    return fmt.Errorf("failed to get chain writer: %w", err)
-}
+// Note: Chain writers are internal implementation details and not exposed
 ```
 
 ### 3. Health Monitoring
@@ -208,11 +206,17 @@ relayers := map[types.RelayID]loop.Relayer{
 - Clear separation of concerns
 - Chain-specific error handling
 - Independent testing per chain
+- Clean public API
 
 ### 4. **Reliability**
 - Chain-specific health monitoring
 - Independent retry logic
 - Separate transaction management
+
+### 5. **Encapsulation**
+- Internal implementation details are hidden
+- Clean public interface
+- Implementation can change without affecting users
 
 ## Comparison with CCIP
 
@@ -226,9 +230,10 @@ This pattern mirrors CCIP's multi-chain architecture:
 
 ### Secure Mint Pattern:
 - **Relayers**: One per chain (same as CCIP)
-- **Chain Writers**: One per chain (same as CCIP)
+- **Chain Writers**: One per chain (internal implementation detail)
 - **Contract Readers**: One per chain (same as CCIP)
-- **Contract Transmitters**: One per chain (Secure Mint specific)
+- **Contract Transmitters**: One per chain (public interface)
+- **Clean API**: Only exposes necessary interfaces
 
 ## Implementation Notes
 
@@ -252,6 +257,27 @@ This pattern mirrors CCIP's multi-chain architecture:
 - Dynamic configuration updates
 - Configuration inheritance and overrides
 
+### 5. **API Design**
+- Clean public interface
+- Internal implementation details hidden
+- Future-proof design
+
+## Public API
+
+The multi-chain services expose only the necessary interfaces:
+
+```go
+// Public methods
+GetContractReader(chainSelector) (ContractReader, error)
+GetContractTransmitter(chainSelector) (ContractTransmitter, error)
+ListSupportedChains() []ChainSelector
+HealthReport() map[string]error
+Start(ctx) error
+Close() error
+```
+
+**Note**: Chain writers are internal implementation details and not exposed to users. This provides a clean separation between the public API and internal implementation.
+
 ## Future Enhancements
 
 ### 1. **Dynamic Chain Addition**
@@ -269,4 +295,4 @@ This pattern mirrors CCIP's multi-chain architecture:
 - Intelligent chain selection
 - Performance-based routing
 
-This multi-chain pattern provides a robust foundation for the Secure Mint plugin to operate across multiple blockchain networks while maintaining the reliability and scalability characteristics of the CCIP implementation. 
+This multi-chain pattern provides a robust foundation for the Secure Mint plugin to operate across multiple blockchain networks while maintaining the reliability and scalability characteristics of the CCIP implementation, with a clean and encapsulated public API. 
