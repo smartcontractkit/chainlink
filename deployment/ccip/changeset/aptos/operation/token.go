@@ -2,7 +2,6 @@ package operation
 
 import (
 	"fmt"
-	"log"
 	"math/big"
 
 	"github.com/aptos-labs/aptos-go-sdk"
@@ -25,10 +24,10 @@ type DeployTokenInput struct {
 }
 
 type DeployTokenOutput struct {
-	TokenObjAddress   aptos.AccountAddress
-	TokenAddress      aptos.AccountAddress
-	TokenOwnerAddress aptos.AccountAddress
-	MCMSOps           []types.Operation
+	TokenCodeObjAddress aptos.AccountAddress
+	TokenAddress        aptos.AccountAddress
+	TokenOwnerAddress   aptos.AccountAddress
+	MCMSOps             []types.Operation
 }
 
 // DeployTokenOp generates proposal to deploy a token
@@ -68,16 +67,16 @@ func deployToken(b operations.Bundle, deps AptosDeps, in DeployTokenInput) (Depl
 	}
 
 	return DeployTokenOutput{
-		TokenObjAddress:   managedTokenObjectAddress,
-		TokenAddress:      managedTokenMetadataAddress,
-		TokenOwnerAddress: managedTokenOwnerAddress,
-		MCMSOps:           ops,
+		TokenCodeObjAddress: managedTokenObjectAddress,
+		TokenAddress:        managedTokenMetadataAddress,
+		TokenOwnerAddress:   managedTokenOwnerAddress,
+		MCMSOps:             ops,
 	}, nil
 }
 
 type DeployTokenRegistrarInput struct {
-	TokenObjAddress aptos.AccountAddress
-	MCMSAddress     aptos.AccountAddress
+	TokenCodeObjAddress aptos.AccountAddress
+	MCMSAddress         aptos.AccountAddress
 }
 
 // DeployTokenMCMSRegistrarOp generates proposal to deploy a MCMS registrar on a token package
@@ -92,11 +91,11 @@ func deployTokenMCMSRegistrar(b operations.Bundle, deps AptosDeps, in DeployToke
 	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 
 	// Deploy MCMS Registrar
-	mcmsRegistrarPayload, err := managed_token.CompileMCMSRegistrar(in.TokenObjAddress, in.MCMSAddress, true)
+	mcmsRegistrarPayload, err := managed_token.CompileMCMSRegistrar(in.TokenCodeObjAddress, in.MCMSAddress, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile MCMS registrar: %w", err)
 	}
-	ops, err := utils.CreateChunksAndStage(mcmsRegistrarPayload, mcmsContract, deps.AptosChain.Selector, "", &in.TokenObjAddress)
+	ops, err := utils.CreateChunksAndStage(mcmsRegistrarPayload, mcmsContract, deps.AptosChain.Selector, "", &in.TokenCodeObjAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chunks for token pool: %w", err)
 	}
@@ -105,13 +104,13 @@ func deployTokenMCMSRegistrar(b operations.Bundle, deps AptosDeps, in DeployToke
 }
 
 type InitializeTokenInput struct {
-	TokenObjAddress aptos.AccountAddress
-	MaxSupply       *big.Int
-	Name            string
-	Symbol          string
-	Decimals        byte
-	Icon            string
-	Project         string
+	TokenCodeObjAddress aptos.AccountAddress
+	MaxSupply           *big.Int
+	Name                string
+	Symbol              string
+	Decimals            byte
+	Icon                string
+	Project             string
 }
 
 // DeployTokenMCMSRegistrarOp generates proposal to deploy a MCMS registrar on a token package
@@ -128,7 +127,7 @@ func initializeToken(b operations.Bundle, deps AptosDeps, in InitializeTokenInpu
 	if in.MaxSupply != nil {
 		maxSupply = &in.MaxSupply
 	}
-	boundManagedToken := managed_token.Bind(in.TokenObjAddress, deps.AptosChain.Client)
+	boundManagedToken := managed_token.Bind(in.TokenCodeObjAddress, deps.AptosChain.Client)
 	moduleInfo, function, _, args, err := boundManagedToken.ManagedToken().Encoder().Initialize(
 		maxSupply,
 		in.Name,
@@ -142,7 +141,7 @@ func initializeToken(b operations.Bundle, deps AptosDeps, in InitializeTokenInpu
 	}
 
 	// Create MCMS tx
-	tx, err := utils.GenerateMCMSTx(in.TokenObjAddress, moduleInfo, function, args)
+	tx, err := utils.GenerateMCMSTx(in.TokenCodeObjAddress, moduleInfo, function, args)
 	if err != nil {
 		return types.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
 	}
@@ -151,9 +150,9 @@ func initializeToken(b operations.Bundle, deps AptosDeps, in InitializeTokenInpu
 }
 
 type MintTokensInput struct {
-	TokenObjAddress aptos.AccountAddress
-	To              aptos.AccountAddress
-	Amount          uint64
+	TokenCodeObjAddress aptos.AccountAddress
+	To                  aptos.AccountAddress
+	Amount              uint64
 }
 
 var MintTokensOp = operations.NewOperation(
@@ -164,20 +163,17 @@ var MintTokensOp = operations.NewOperation(
 )
 
 func mintTokens(b operations.Bundle, deps AptosDeps, in MintTokensInput) (types.Transaction, error) {
-	boundManagedToken := managed_token.Bind(in.TokenObjAddress, deps.AptosChain.Client)
+	boundManagedToken := managed_token.Bind(in.TokenCodeObjAddress, deps.AptosChain.Client)
 	moduleInfo, function, _, args, err := boundManagedToken.ManagedToken().Encoder().Mint(in.To, in.Amount)
 	if err != nil {
 		return types.Transaction{}, fmt.Errorf("failed to encode mint function: %w", err)
 	}
 
 	// Create MCMS tx
-	tx, err := utils.GenerateMCMSTx(in.TokenObjAddress, moduleInfo, function, args)
+	tx, err := utils.GenerateMCMSTx(in.TokenCodeObjAddress, moduleInfo, function, args)
 	if err != nil {
 		return types.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
 	}
-
-	// TODO debug
-	log.Printf("Minting token %v to account: %v", in.TokenObjAddress.StringLong(), in.To.String())
 
 	return tx, nil
 }

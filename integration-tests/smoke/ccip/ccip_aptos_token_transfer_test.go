@@ -142,11 +142,9 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
-	evmToken, _, aptosToken, _, err := testhelpers.DeployTransferableTokenAptos(t, lggr, e.Env, destChain, sourceChain, "TOKEN", []config.Mint{
-		{
-			To:     deployerSourceChain,
-			Amount: 10e8,
-		},
+	evmToken, _, aptosToken, _, err := testhelpers.DeployTransferableTokenAptos(t, lggr, e.Env, destChain, sourceChain, "TOKEN", &config.TokenMint{
+		To:     deployerSourceChain,
+		Amount: 10e8,
 	})
 	require.NoError(t, err)
 
