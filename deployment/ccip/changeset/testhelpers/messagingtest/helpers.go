@@ -283,7 +283,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		switch family {
 		// Solana doesn't support catching CPI errors, so nonces can't be ordered
 		case chain_selectors.FamilySolana:
-			fallthrough
+			unorderedExec = true
 		// Aptos does only support out-of-order execution
 		case chain_selectors.FamilyAptos:
 			unorderedExec = true
