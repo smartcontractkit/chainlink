@@ -1,12 +1,19 @@
 package opsutils
 
 import (
+	"errors"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/stretchr/testify/assert"
+
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 func TestCloneTransactOptsWithGas(t *testing.T) {
@@ -73,4 +80,85 @@ func TestRetryDeploymentWithGasBoost(t *testing.T) {
 	assert.NotNil(t, opt)
 	// Should fallback to default if nil
 	assert.NotNil(t, RetryDeploymentWithGasBoost[string](nil))
+}
+
+func TestRetryCallWithGasBoost_NoSendSkipsGasBoost(t *testing.T) {
+	cfg := &commontypes.GasBoostConfig{
+		InitialGasLimit:   1000,
+		GasLimitIncrement: 100,
+		InitialGasPrice:   2000,
+		GasPriceIncrement: 100,
+	}
+
+	// Test the retry input function with NoSend=true
+	retryInput := operations.WithRetryInput(func(attempt uint, err error, in EVMCallInput[string], deps cldf_evm.Chain) EVMCallInput[string] {
+		if in.NoSend {
+			return in // No gas boost for calls that do not send transactions
+		}
+		gasLimit, gasPrice := getBoostedGasForAttempt(*cfg, attempt)
+		in.GasLimit = gasLimit
+		in.GasPrice = gasPrice
+		return in
+	})
+
+	assert.NotNil(t, retryInput)
+}
+
+func TestAddEVMCallSequenceToCSOutput_SequenceError(t *testing.T) {
+	csOutput := cldf.ChangesetOutput{}
+	seqReport := operations.SequenceReport[string, map[uint64][]EVMCallOutput]{}
+	seqErr := errors.New("sequence failed")
+
+	result, err := AddEVMCallSequenceToCSOutput(
+		cldf.Environment{},
+		csOutput,
+		seqReport,
+		seqErr,
+		nil,
+		nil,
+		"test",
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to execute")
+	assert.Contains(t, err.Error(), "sequence failed")
+	assert.Equal(t, seqReport.ExecutionReports, result.Reports)
+}
+
+func TestAddEVMCallSequenceToCSOutput_NoMCMS(t *testing.T) {
+	csOutput := cldf.ChangesetOutput{}
+	seqReport := operations.SequenceReport[string, map[uint64][]EVMCallOutput]{}
+
+	result, err := AddEVMCallSequenceToCSOutput(
+		cldf.Environment{},
+		csOutput,
+		seqReport,
+		nil,
+		nil,
+		nil, // No MCMS config
+		"test",
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, seqReport.ExecutionReports, result.Reports)
+}
+
+func TestAddEVMCallSequenceToCSOutput_AllConfirmed(t *testing.T) {
+	csOutput := cldf.ChangesetOutput{}
+	seqReport := operations.SequenceReport[string, map[uint64][]EVMCallOutput]{}
+	mcmsCfg := &proposalutils.TimelockConfig{}
+
+	result, err := AddEVMCallSequenceToCSOutput(
+		cldf.Environment{},
+		csOutput,
+		seqReport,
+		nil,
+		map[uint64]state.MCMSWithTimelockState{},
+		mcmsCfg,
+		"test",
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, seqReport.ExecutionReports, result.Reports)
+	assert.Nil(t, result.MCMSTimelockProposals)
 }
