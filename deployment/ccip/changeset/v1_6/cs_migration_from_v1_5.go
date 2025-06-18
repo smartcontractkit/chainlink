@@ -239,8 +239,8 @@ func promoteChainUpgradesToMainRoutersLogic(e cldf.Environment, c PromoteChainUp
 			// Update OffRamp 1.6.0 on destination chain (use main router, no RMN verification).
 			out, err = UpdateOffRampSourcesChangeset(e, UpdateOffRampSourcesConfig{
 				UpdatesByChain: map[uint64]map[uint64]OffRampSourceUpdate{
-					sourceChainSel: {
-						chainSel: {
+					chainSel: {
+						sourceChainSel: {
 							TestRouter:                false,
 							IsRMNVerificationDisabled: true,
 							IsEnabled:                 true,
@@ -255,18 +255,16 @@ func promoteChainUpgradesToMainRoutersLogic(e cldf.Environment, c PromoteChainUp
 			}
 			allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
-			// Update Router on source and destination chains (use main router).
+			// Update OnRamp to router on source, OffRamp to router on destination (use main router).
 			out, err = UpdateRouterRampsChangeset(e, UpdateRouterRampsConfig{
 				TestRouter: false,
 				MCMS:       c.MCMSConfig,
 				UpdatesByChain: map[uint64]RouterUpdates{
 					chainSel: {
-						OnRampUpdates:  map[uint64]bool{sourceChainSel: true},
 						OffRampUpdates: map[uint64]bool{sourceChainSel: true},
 					},
 					sourceChainSel: {
-						OnRampUpdates:  map[uint64]bool{chainSel: true},
-						OffRampUpdates: map[uint64]bool{chainSel: true},
+						OnRampUpdates: map[uint64]bool{chainSel: true},
 					},
 				},
 			})
