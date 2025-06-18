@@ -24,8 +24,6 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
-// TODO @ccip-tooling: these utilities need to be thoroughly tested.
-
 // EVMCallInput is the input structure for an EVM call operation.
 // Why not pull the chain selector from the chain dependency? Because addresses might be the same across chains and we need to differentiate them.
 // This ensures no false report matches between operation runs that have the same call input and address but a different target chain.
