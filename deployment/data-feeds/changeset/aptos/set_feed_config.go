@@ -26,12 +26,6 @@ func setFeedConfigLogic(env cldf.Environment, c types.SetRegistryFeedConfig) (cl
 
 	dataIDs, _ := changeset.FeedIDsToBytes(c.DataIDs)
 
-	padding := make([]byte, 16)
-	for i, dataID := range dataIDs {
-		paddedDataID := append(dataID, padding...)
-		dataIDs[i] = paddedDataID
-	}
-
 	var configID []byte
 
 	txOps := &bind.TransactOpts{
