@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/credentials/insecure"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	cl "github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
@@ -119,10 +121,17 @@ func (l *DeployedLocalAnvilDevEnvironment) StartChains(t *testing.T) {
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
 	chains, _, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
+	blockChains := map[uint64]cldf_chain.BlockChain{}
+	for selector, chain := range chains {
+		blockChains[selector] = chain
+	}
 	// replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, chains)
 	// require.NoError(t, err)
+	env := cldf.Environment{
+		BlockChains: cldf_chain.NewBlockChains(blockChains),
+	}
 	l.DeployedEnv.Users = users
-	l.DeployedEnv.Env.Chains = chains
+	l.DeployedEnv.Env = env
 	l.DeployedEnv.FeedChainSel = feedSel
 	l.DeployedEnv.HomeChainSel = homeChainSel
 	// l.DeployedEnv.ReplayBlocks = replayBlocks
