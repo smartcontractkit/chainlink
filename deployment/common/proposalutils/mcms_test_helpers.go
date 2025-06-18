@@ -62,7 +62,7 @@ func SingleGroupMCMSV2(t *testing.T) mcmstypes.Config {
 }
 
 // SignMCMSTimelockProposal - Signs an MCMS timelock proposal.
-func SignMCMSTimelockProposal(t *testing.T, env cldf.Environment, proposal *mcmslib.TimelockProposal) *mcmslib.Proposal {
+func SignMCMSTimelockProposal(t *testing.T, env cldf.Environment, proposal *mcmslib.TimelockProposal, realBackend bool) *mcmslib.Proposal {
 	converters := make(map[mcmstypes.ChainSelector]mcmssdk.TimelockConverter)
 	inspectorsMap := make(map[mcmstypes.ChainSelector]mcmssdk.Inspector)
 	evmChains := env.BlockChains.EVMChains()
@@ -97,7 +97,7 @@ func SignMCMSTimelockProposal(t *testing.T, env cldf.Environment, proposal *mcms
 	p, _, err := proposal.Convert(env.GetContext(), converters)
 	require.NoError(t, err)
 
-	p.UseSimulatedBackend(true)
+	p.UseSimulatedBackend(!realBackend)
 
 	signable, err := mcmslib.NewSignable(&p, inspectorsMap)
 	require.NoError(t, err)

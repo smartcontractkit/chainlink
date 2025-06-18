@@ -388,6 +388,7 @@ require (
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
+	github.com/onsi/gomega v1.36.2 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/exp/metrics v0.116.0 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatautil v0.116.0 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/processor/deltatocumulativeprocessor v0.116.0 // indirect
@@ -461,6 +462,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250611193111-99542a0c5d58 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.51.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
+	github.com/smartcontractkit/chainlink-testing-framework/sentinel v0.1.2 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250528121202-292529af39df // indirect
 	github.com/smartcontractkit/freeport v0.1.1 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
@@ -475,6 +477,7 @@ require (
 	github.com/stephenlacy/go-ethereum-hdwallet v0.0.0-20230913225845-a4fa94429863 // indirect
 	github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
+	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/supranational/blst v0.3.14 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect

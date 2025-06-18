@@ -60,8 +60,16 @@ linters:
               desc: Use gopkg.in/guregu/null.v4 instead
             - pkg: github.com/go-gorm/gorm
               desc: Use github.com/jmoiron/sqlx directly instead
+#            - pkg: github.com/smartcontractkit/chainlink-aptos
+#              desc: Aptos only runs as a LOOPP
+            - pkg: github.com/smartcontractkit/chainlink-cosmos
+              desc: Cosmos only runs as a LOOPP
             - pkg: github.com/smartcontractkit/chainlink-integrations/evm
               desc: Use github.com/smartcontractkit/chainlink-evm instead
+            - pkg: github.com/smartcontractkit/chainlink-starknet/relayer
+              desc: Starknet only runs as a LOOPP
+#            - pkg: github.com/smartcontractkit/chainlink-tron
+#              desc: Tron only runs as a LOOPP
             - pkg: github.com/consul/sdk/freeport
               desc: Use github.com/smartcontractkit/freeport instead
     exhaustive:

@@ -11,6 +11,7 @@ require github.com/smartcontractkit/chainlink/v2 v2.22.1-por-beta.5.0.2025043015
 
 require (
 	dario.cat/mergo v1.0.1
+	github.com/AlekSi/pointer v1.1.0
 	github.com/Khan/genqlient v0.7.0
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/aptos-labs/aptos-go-sdk v1.9.1-0.20250613185448-581cb03acb8f
@@ -60,6 +61,7 @@ require (
 	google.golang.org/grpc v1.72.0
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/guregu/null.v4 v4.0.0
+	k8s.io/utils v0.0.0-20241104163129-6fe5fd82f078
 )
 
 require (
@@ -480,7 +482,6 @@ require (
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240709000822-3c01b740850f // indirect
 	k8s.io/kubectl v0.31.2 // indirect
-	k8s.io/utils v0.0.0-20241104163129-6fe5fd82f078 // indirect
 	pgregory.net/rapid v1.1.0 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 	sigs.k8s.io/controller-runtime v0.19.0 // indirect

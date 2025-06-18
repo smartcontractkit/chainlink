@@ -138,7 +138,10 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 }
 
 // DeployCCIPAndAddLanes is the actual ccip setup once the nodes are initialized.
-func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab cldf.AddressBook, rmnEnabled bool, evmFundingEth uint64) (DeployCCIPOutput, error) {
+func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig,
+	homeChainSel, feedChainSel uint64, ab cldf.AddressBook, rmnEnabled bool,
+	evmFundingEth uint64, laneConfig *LaneConfiguration,
+) (DeployCCIPOutput, error) {
 	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
@@ -158,15 +161,25 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
+	err = laneConfig.Validate(len(e.BlockChains.ListChainSelectors()))
+	if err != nil {
+		return DeployCCIPOutput{},
+			fmt.Errorf("failed to validate lane configuration against deployed env: %w", err)
+	}
+
+	allChains := e.BlockChains.ListChainSelectors()
+	laneConfig.GenerateLanes(allChains)
+	laneConfig.LogLaneConfigInfo(lggr)
+
 	// Set up lanes
 	lggr.Infow("setting up EVM <> EVM lanes...")
-	*e, err = setupEVM2EVMLanes(e, state)
+	*e, err = setupEVM2EVMLanes(e, state, laneConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply connecting evm lanes changesets: %w", err)
 	}
 
 	lggr.Infow("setting up EVM <> Sol lanes...")
-	*e, err = setupSolEvmLanes(lggr, e, state, homeChainSel, feedChainSel)
+	*e, err = setupSolEvmLanes(lggr, e, state, homeChainSel, feedChainSel, laneConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply connecting lanes changesets: %w", err)
 	}
@@ -609,24 +622,95 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 	return *e, nil
 }
 
-func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.CCIPOnChainState, homeCS, feedCS uint64) (cldf.Environment, error) {
+func hasLaneFromTo(lanes []LaneConfig, from, to uint64) bool {
+	for _, lane := range lanes {
+		if lane.SourceChain == from && lane.DestinationChain == to {
+			return true
+		}
+	}
+	return false
+}
+
+func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.CCIPOnChainState, homeCS, feedCS uint64, laneConfig *LaneConfiguration) (cldf.Environment, error) {
 	var err error
+
+	lanes, err := laneConfig.GetLanes()
+	if err != nil {
+		return *e, fmt.Errorf("failed to get lanes from lane configuration: %w", err)
+	}
+
 	evmSelectors := e.BlockChains.EVMChains()
 	solSelectors := e.BlockChains.SolanaChains()
 	g := new(xerrgroup.Group)
 	mu := sync.Mutex{}
 
+	// Filter lanes to only include Sol <-> EVM combinations
+	solEvmLanes := make([]LaneConfig, 0)
+	evmChainSet := make(map[uint64]bool)
+	solChainSet := make(map[uint64]bool)
+
+	for _, evmSelector := range evmSelectors {
+		evmChainSet[evmSelector.ChainSelector()] = true
+	}
+	for _, solSelector := range solSelectors {
+		solChainSet[solSelector.ChainSelector()] = true
+	}
+
+	for _, lane := range lanes {
+		isSolToEvm := solChainSet[lane.SourceChain] && evmChainSet[lane.DestinationChain]
+		isEvmToSol := evmChainSet[lane.SourceChain] && solChainSet[lane.DestinationChain]
+
+		if isSolToEvm || isEvmToSol {
+			solEvmLanes = append(solEvmLanes, lane)
+		}
+	}
+
+	// Group lanes by Solana chain
+	lanesBySolChain := make(map[uint64][]LaneConfig)
+	for _, lane := range solEvmLanes {
+		if solChainSet[lane.SourceChain] {
+			lanesBySolChain[lane.SourceChain] = append(lanesBySolChain[lane.SourceChain], lane)
+		}
+		if solChainSet[lane.DestinationChain] {
+			lanesBySolChain[lane.DestinationChain] = append(lanesBySolChain[lane.DestinationChain], lane)
+		}
+	}
+
 	for _, solSelector := range solSelectors {
 		solSelector := solSelector // capture range variable
-		solChainState := state.SolChains[solSelector.ChainSelector()]
+		solChainSel := solSelector.ChainSelector()
+		relevantLanes := lanesBySolChain[solChainSel]
+
+		if len(relevantLanes) == 0 {
+			continue // Skip if no lanes involve this Solana chain
+		}
+
+		solChainState := state.SolChains[solChainSel]
 		poolUpdates := make(map[uint64]ccipChangesetSolana.EVMRemoteConfig)
+
 		for _, evmSelector := range evmSelectors {
-			lggr.Infow("running against evm chain", "evm", evmSelector)
-			evmSelector := evmSelector // capture range variables
+			evmChainSel := evmSelector.ChainSelector()
+
+			// Check if there's a lane between this Sol and EVM chain
+			hasLane := false
+			for _, lane := range relevantLanes {
+				if (lane.SourceChain == solChainSel && lane.DestinationChain == evmChainSel) ||
+					(lane.SourceChain == evmChainSel && lane.DestinationChain == solChainSel) {
+					hasLane = true
+					break
+				}
+			}
+
+			if !hasLane {
+				continue // Skip if no lane exists between these chains
+			}
+
+			lggr.Infow("running against evm chain", "evm", evmChainSel)
+			evmSelector := evmSelector
 			g.Go(func() error {
-				lggr.Infow("Setting up sol evm lanes for chains", "evmSelector", evmSelector, "solSelector", solSelector)
+				lggr.Infow("Setting up sol evm lanes for chains", "evmSelector", evmChainSel, "solSelector", solChainSel)
 				laneChangesets := make([]commonchangeset.ConfiguredChangeSet, 0)
-				evmChainState := state.Chains[evmSelector.ChainSelector()]
+				evmChainState := state.Chains[evmChainSel]
 
 				deployedEnv := testhelpers.DeployedEnv{
 					Env:          *e,
@@ -634,17 +718,17 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 					FeedChainSel: feedCS,
 				}
 				gasPrices := map[uint64]*big.Int{
-					solSelector.ChainSelector(): testhelpers.DefaultGasPrice,
+					solChainSel: testhelpers.DefaultGasPrice,
 				}
 				stateChainFrom := evmChainState
 				tokenPrices := map[common.Address]*big.Int{
 					stateChainFrom.LinkToken.Address(): testhelpers.DefaultLinkPrice,
 					stateChainFrom.Weth9.Address():     testhelpers.DefaultWethPrice,
 				}
-				fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, solSelector.ChainSelector())
+				fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, solChainSel)
 
 				mu.Lock()
-				poolUpdates[evmSelector.ChainSelector()] = ccipChangesetSolana.EVMRemoteConfig{
+				poolUpdates[evmChainSel] = ccipChangesetSolana.EVMRemoteConfig{
 					TokenSymbol: shared.LinkSymbol,
 					PoolType:    shared.BurnMintTokenPool,
 					PoolVersion: shared.CurrentTokenPoolVersion,
@@ -655,15 +739,21 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 				}
 				mu.Unlock()
 
-				// EVM -> SOL
-				cs := testhelpers.AddEVMSrcChangesets(evmSelector.ChainSelector(), solSelector.ChainSelector(), false, gasPrices, tokenPrices, fqCfg)
-				laneChangesets = append(laneChangesets, cs...)
-				cs = testhelpers.AddLaneSolanaChangesets(&deployedEnv, solSelector.Selector, evmSelector.Selector, chainselectors.FamilyEVM)
-				laneChangesets = append(laneChangesets, cs...)
+				// TODO: Maybe use maps to make it more efficient (for the n chains/lanes we use now it doesn't really
+				//  matter
+				// EVM -> SOL (only if lane exists)
+				if hasLaneFromTo(relevantLanes, evmChainSel, solChainSel) {
+					cs := testhelpers.AddEVMSrcChangesets(evmChainSel, solChainSel, false, gasPrices, tokenPrices, fqCfg)
+					laneChangesets = append(laneChangesets, cs...)
+					cs = testhelpers.AddLaneSolanaChangesets(&deployedEnv, solSelector.Selector, evmSelector.Selector, chainselectors.FamilyEVM)
+					laneChangesets = append(laneChangesets, cs...)
+				}
 
-				// SOL -> EVM
-				cs = testhelpers.AddEVMDestChangesets(&deployedEnv, evmSelector.Selector, solSelector.Selector, false)
-				laneChangesets = append(laneChangesets, cs...)
+				// SOL -> EVM (only if lane exists)
+				if hasLaneFromTo(relevantLanes, solChainSel, evmChainSel) {
+					cs := testhelpers.AddEVMDestChangesets(&deployedEnv, evmSelector.Selector, solSelector.Selector, false)
+					laneChangesets = append(laneChangesets, cs...)
+				}
 
 				bnm := solTestTokenPool.BurnAndMint_PoolType
 				laneChangesets = append(laneChangesets,
@@ -687,7 +777,7 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 						},
 					),
 				)
-				lggr.Infow("Applying evm <> svm lane changesets", "len", len(laneChangesets), "evmSel", evmSelector, "svmSel", solSelector)
+				lggr.Infow("Applying evm <> svm lane changesets", "len", len(laneChangesets), "evmSel", evmChainSel, "svmSel", solChainSel)
 				_, err = commonchangeset.Apply(nil, *e, laneChangesets[0], laneChangesets[1:]...)
 				return err
 			})
@@ -700,20 +790,60 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 	return *e, nil
 }
 
-func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (cldf.Environment, error) {
+func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState, laneConfig *LaneConfiguration) (cldf.Environment, error) {
+	lanes, err := laneConfig.GetLanes()
+	if err != nil {
+		return *e, fmt.Errorf("failed to get lanes from config: %w", err)
+	}
+
 	poolUpdates := make(map[uint64]v1_5_1.TokenPoolConfig)
 	rateLimitPerChain := make(v1_5_1.RateLimiterPerChain)
 	evmChains := e.BlockChains.EVMChains()
+
+	// Filter to only include EVM chains
+	evmLanes := make([]LaneConfig, 0)
+
+	for _, lane := range lanes {
+		_, srcExists := evmChains[lane.SourceChain]
+		_, dstExists := evmChains[lane.DestinationChain]
+		if srcExists && dstExists {
+			evmLanes = append(evmLanes, lane)
+		}
+	}
+
 	eg := new(xerrgroup.Group)
 	mu := sync.Mutex{}
+
+	globalUpdateOffRampSources := make(map[uint64]map[uint64]v1_6.OffRampSourceUpdate)
+	globalUpdateRouterChanges := make(map[uint64]v1_6.RouterUpdates)
+
+	// Initialize maps for all chains that will be used
+	for chainID := range evmChains {
+		globalUpdateOffRampSources[chainID] = make(map[uint64]v1_6.OffRampSourceUpdate)
+		globalUpdateRouterChanges[chainID] = v1_6.RouterUpdates{
+			OffRampUpdates: make(map[uint64]bool),
+			OnRampUpdates:  make(map[uint64]bool),
+		}
+	}
+
+	// Group lanes by source chain for parallel processing
+	lanesBySource := make(map[uint64][]LaneConfig)
+	for _, lane := range evmLanes {
+		lanesBySource[lane.SourceChain] = append(lanesBySource[lane.SourceChain], lane)
+	}
+
 	for src := range evmChains {
 		src := src
+		lanesFromSrc := lanesBySource[src]
+		if len(lanesFromSrc) == 0 {
+			continue // Skip chains that don't have any outgoing lanes
+		}
+
 		eg.Go(func() error {
 			onRampUpdatesByChain := make(map[uint64]map[uint64]v1_6.OnRampDestinationUpdate)
 			pricesByChain := make(map[uint64]v1_6.FeeQuoterPriceUpdatePerSource)
 			feeQuoterDestsUpdatesByChain := make(map[uint64]map[uint64]evm_fee_quoter.FeeQuoterDestChainConfig)
-			updateOffRampSources := make(map[uint64]map[uint64]v1_6.OffRampSourceUpdate)
-			updateRouterChanges := make(map[uint64]v1_6.RouterUpdates)
+
 			onRampUpdatesByChain[src] = make(map[uint64]v1_6.OnRampDestinationUpdate)
 			pricesByChain[src] = v1_6.FeeQuoterPriceUpdatePerSource{
 				TokenPrices: map[common.Address]*big.Int{
@@ -723,11 +853,7 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (c
 				GasPrices: map[uint64]*big.Int{},
 			}
 			feeQuoterDestsUpdatesByChain[src] = make(map[uint64]evm_fee_quoter.FeeQuoterDestChainConfig)
-			updateOffRampSources[src] = make(map[uint64]v1_6.OffRampSourceUpdate)
-			updateRouterChanges[src] = v1_6.RouterUpdates{
-				OffRampUpdates: make(map[uint64]bool),
-				OnRampUpdates:  make(map[uint64]bool),
-			}
+
 			mu.Lock()
 			poolUpdates[src] = v1_5_1.TokenPoolConfig{
 				Type:         shared.BurnMintTokenPool,
@@ -735,10 +861,10 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (c
 				ChainUpdates: rateLimitPerChain,
 			}
 			mu.Unlock()
-			for dst := range evmChains {
-				if src == dst {
-					continue
-				}
+
+			// Only configure lanes that actually exist in our configuration
+			for _, lane := range lanesFromSrc {
+				dst := lane.DestinationChain
 
 				onRampUpdatesByChain[src][dst] = v1_6.OnRampDestinationUpdate{
 					IsEnabled:        true,
@@ -747,14 +873,16 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (c
 				pricesByChain[src].GasPrices[dst] = testhelpers.DefaultGasPrice
 				feeQuoterDestsUpdatesByChain[src][dst] = v1_6.DefaultFeeQuoterDestChainConfig(true)
 
-				updateOffRampSources[src][dst] = v1_6.OffRampSourceUpdate{
+				mu.Lock()
+				// Use the pre-initialized global maps
+				globalUpdateOffRampSources[dst][src] = v1_6.OffRampSourceUpdate{
 					IsEnabled:                 true,
 					IsRMNVerificationDisabled: true,
 				}
 
-				updateRouterChanges[src].OffRampUpdates[dst] = true
-				updateRouterChanges[src].OnRampUpdates[dst] = true
-				mu.Lock()
+				globalUpdateRouterChanges[dst].OffRampUpdates[src] = true
+				globalUpdateRouterChanges[src].OnRampUpdates[dst] = true
+
 				rateLimitPerChain[dst] = v1_5_1.RateLimiterConfig{
 					Inbound: token_pool.RateLimiterConfig{
 						IsEnabled: false,
@@ -789,40 +917,44 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (c
 						UpdatesByChain: feeQuoterDestsUpdatesByChain,
 					},
 				),
-				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
-					v1_6.UpdateOffRampSourcesConfig{
-						UpdatesByChain: updateOffRampSources,
-					},
-				),
-				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
-					v1_6.UpdateRouterRampsConfig{
-						UpdatesByChain: updateRouterChanges,
-					},
-				),
 			}
 			_, err := commonchangeset.Apply(nil, *e, appliedChangesets[0], appliedChangesets[1:]...)
-
 			return err
 		})
 	}
 
-	err := eg.Wait()
+	err = eg.Wait()
 	if err != nil {
 		return *e, err
 	}
 
-	_, err = commonchangeset.Apply(nil, *e, commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
-		v1_5_1.ConfigureTokenPoolContractsConfig{
-			TokenSymbol: shared.LinkSymbol,
-			PoolUpdates: poolUpdates,
-		},
-	))
+	// Apply the global updates after all goroutines complete
+	finalChangesets := []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
+			v1_6.UpdateOffRampSourcesConfig{
+				UpdatesByChain: globalUpdateOffRampSources,
+			},
+		),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+			v1_6.UpdateRouterRampsConfig{
+				UpdatesByChain: globalUpdateRouterChanges,
+			},
+		),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+			v1_5_1.ConfigureTokenPoolContractsConfig{
+				TokenSymbol: shared.LinkSymbol,
+				PoolUpdates: poolUpdates,
+			},
+		),
+	}
 
+	_, err = commonchangeset.Apply(nil, *e, finalChangesets[0], finalChangesets[1:]...)
 	return *e, err
 }
+
 func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool, rmnEnabled bool) (cldf.Environment, error) {
 	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	solSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
