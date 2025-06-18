@@ -1,6 +1,7 @@
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
+SafeDepth = 0
 FinalityDepth = 50
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
