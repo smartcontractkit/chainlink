@@ -598,67 +598,6 @@ func getFirstAddressFromChain(t *testing.T, addressBook cldf.AddressBook, chainS
 	return common.Address{}
 }
 
-func configureFastTransferSettings(t *testing.T, e cldf.Environment, tokenSymbol string, sourceChainSelector, destinationChainSelector uint64, fillerAddress common.Address, tc *fastTransferE2ETestCase, poolType cldf.ContractType, version semver.Version) error {
-	fillers := []common.Address{}
-	if tc.allowlistEnabled && tc.allowlistFiller {
-		fillers = append(fillers, fillerAddress)
-	}
-
-	if tc.allowlistFiller {
-		_, err := commonchangeset.Apply(t, e, commonchangeset.Configure(
-			v1_5_1.FastTransferFillerAllowlistChangeset,
-			v1_5_1.FastTransferFillerAllowlistConfig{
-				TokenSymbol:     shared.TokenSymbol(tokenSymbol),
-				ContractType:    poolType,
-				ContractVersion: version,
-				Updates: map[uint64]v1_5_1.FillerAllowlistConfig{
-					sourceChainSelector: {
-						AddFillers:    fillers,
-						RemoveFillers: []common.Address{},
-					},
-					destinationChainSelector: {
-						AddFillers:    fillers,
-						RemoveFillers: []common.Address{},
-					},
-				},
-			}))
-		if err != nil {
-			return err
-		}
-	}
-	settlementGasOverhead := tc.settlementGasOverhead
-	_, err := commonchangeset.Apply(t, e, commonchangeset.Configure(
-		v1_5_1.FastTransferUpdateLaneConfigChangeset,
-		v1_5_1.FastTransferUpdateLaneConfigConfig{
-			TokenSymbol:     shared.TokenSymbol(tokenSymbol),
-			ContractType:    poolType,
-			ContractVersion: version,
-			Updates: map[uint64](map[uint64]v1_5_1.UpdateLaneConfig){
-				sourceChainSelector: {
-					destinationChainSelector: {
-						FastTransferFillerFeeBps: 10,
-						FastTransferPoolFeeBps:   tc.fastTransferPoolFeeBps,
-						FillerAllowlistEnabled:   tc.allowlistEnabled,
-						FillAmountMaxRequest:     big.NewInt(100000),
-						SettlementOverheadGas:    &settlementGasOverhead,
-						SkipAllowlistValidation:  true,
-					},
-				},
-				destinationChainSelector: {
-					sourceChainSelector: {
-						FastTransferFillerFeeBps: 20,
-						FastTransferPoolFeeBps:   tc.fastTransferPoolFeeBps,
-						FillerAllowlistEnabled:   tc.allowlistEnabled,
-						FillAmountMaxRequest:     big.NewInt(100000),
-						SettlementOverheadGas:    &settlementGasOverhead,
-						SkipAllowlistValidation:  true,
-					},
-				},
-			},
-		}))
-	return err
-}
-
 func configureFastTransferSettingsWithMCMS(t *testing.T, e cldf.Environment, tokenSymbol string, sourceChainSelector, destinationChainSelector uint64, fillerAddress common.Address, tc *fastTransferE2ETestCase, poolType cldf.ContractType, version semver.Version, useMCMS bool) error {
 	fillers := []common.Address{}
 	if tc.allowlistEnabled && tc.allowlistFiller {
