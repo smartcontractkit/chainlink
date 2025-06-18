@@ -252,7 +252,7 @@ func WithFinalityDepths(finalityDepths map[uint64]uint32) ConfigOpt {
 			chainIDBig := evmutils.New(new(big.Int).SetUint64(chainID))
 			for _, evmChainConfig := range c.EVM {
 				if evmChainConfig.ChainID.Cmp(chainIDBig) == 0 {
-					evmChainConfig.FinalityDepth = ptr(depth)
+					evmChainConfig.Chain.FinalityDepth = ptr(depth)
 				}
 			}
 		}

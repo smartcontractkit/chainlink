@@ -61,7 +61,7 @@ func GenerateChainsZk(t *testing.T, numChains int) map[uint64]cldf_evm.Chain {
 			keyedTransactors = append(keyedTransactors, transactor)
 		}
 
-		require.Len(t, keyedTransactors, len(blockchain.AnvilZKSyncRichAccountPks))
+		require.Equal(t, len(blockchain.AnvilZKSyncRichAccountPks), len(keyedTransactors))
 
 		clientZk := clients.NewClient(client.Client())
 		deployerZk, err := accounts.NewWallet(common.Hex2Bytes(blockchain.AnvilZKSyncRichAccountPks[0]), clientZk, nil)
