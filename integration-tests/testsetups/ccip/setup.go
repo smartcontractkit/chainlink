@@ -141,7 +141,7 @@ func (l *DeployedLocalAnvilDevEnvironment) StartChains(t *testing.T) {
 func (l *DeployedLocalAnvilDevEnvironment) StartNodes(t *testing.T, crConfig deployment.CapabilityRegistryConfig) {
 	require.NotEmpty(t, l.devEnvTestCfg, "integration test config is empty, start chains first")
 	require.NotNil(t, l.devEnvCfg, "dev environment config is empty, start chains first")
-	l.in.NodeSets[0].Nodes = l.GenericTCConfig.Nodes
+	l.in.NodeSets[0].Nodes = 5
 	nodeOut := startCLNodes(t, crConfig, l.bcs, l.in)
 	ctx := testcontext.Get(t)
 	lggr := logger.TestLogger(t)
@@ -331,9 +331,11 @@ func startCLNodes(
 		ChainID = '%s'`,
 		crConfig.Contract.String(),
 		strconv.FormatUint(crConfig.EVMChainID, 10))
-	in.NodeSets[0].NodeSpecs[0].Node.TestConfigOverrides = tomlNodeConfig
+	for _, nodeSpec := range in.NodeSets[0].NodeSpecs {
+		nodeSpec.Node.TestConfigOverrides = tomlNodeConfig
+	}
 
-	nodeOut, err := ns.NewSharedDBNodeSet(in.NodeSets[0], blockchains[0])
+	nodeOut, err := ns.NewSharedDBNodeSet(in.NodeSets[0], nil)
 	require.NoError(t, err, "failed to create node set")
 	require.NotNil(t, nodeOut)
 	return nodeOut
