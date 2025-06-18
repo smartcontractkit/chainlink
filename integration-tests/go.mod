@@ -15,7 +15,7 @@ require (
 )
 
 require (
-	dario.cat/mergo v1.0.2
+	dario.cat/mergo v1.0.1
 	github.com/AlekSi/pointer v1.1.0
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/avast/retry-go v3.0.0+incompatible
