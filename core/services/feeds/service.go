@@ -565,10 +565,10 @@ func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, er
 	proposal, err := s.orm.GetJobProposalByRemoteUUID(ctx, args.RemoteUUID)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
-			return 0, errors.Wrap(err, "GetJobProposalByRemoteUUID failed to check existence of job proposal")
+			return 0, fmt.Errorf("GetJobProposalByRemoteUUID failed to check existence of job proposal: %w", err)
 		}
 
-		return 0, errors.Wrap(err, "GetJobProposalByRemoteUUID did not find any proposals to delete")
+		return 0, fmt.Errorf("GetJobProposalByRemoteUUID did not find any proposals to delete: %w", err)
 	}
 
 	logger := s.lggr.With(
@@ -582,7 +582,7 @@ func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, er
 	}
 
 	// Try to delete as workflow job first, fallback to simple deletion if not applicable
-	deleted, err := s.tryDeleteWorkflowJob(ctx, proposal, logger)
+	deleted, err := s.tryDeleteAsWorkflowJob(ctx, proposal, logger)
 	if err != nil {
 		return 0, err
 	}
@@ -1783,47 +1783,58 @@ func (ns NullService) Unsafe_SetConnectionsManager(_ ConnectionsManager) {}
 func (s *service) deleteSimpleJobProposal(ctx context.Context, proposal *JobProposal, logger logger.Logger) error {
 	if err := s.orm.DeleteProposal(ctx, proposal.ID); err != nil {
 		logger.Errorw("Failed to delete the proposal", "err", err)
-		return errors.Wrap(err, "DeleteProposal failed")
+		return fmt.Errorf("DeleteProposal failed: %w", err)
 	}
 
 	logger.Infow("Successfully deleted simple job proposal", "jobProposalID", proposal.ID)
 	return nil
 }
 
-// tryDeleteWorkflowJob attempts to delete a job as a workflow job.
+// tryDeleteAsWorkflowJob attempts to delete a job as a workflow job.
 // Returns true if the job was successfully deleted as a workflow, false if it's not a workflow job.
 // Returns an error if deletion failed.
-func (s *service) tryDeleteWorkflowJob(ctx context.Context, proposal *JobProposal, logger logger.Logger) (bool, error) {
-	var canCancelWorkflow bool
-	var job *job.Job
-	var jpSpec *JobProposalSpec
-
-	if proposal.ExternalJobID.Valid {
-		jobFound, err := s.jobORM.FindJobByExternalJobID(ctx, proposal.ExternalJobID.UUID)
-		if err != nil {
-			logger.Warnw("Failed to find job by external job ID", "externalJobID", proposal.ExternalJobID.UUID, "err", err)
-		} else if jobFound.WorkflowSpecID != nil {
-			canCancelWorkflow = true
-			job = &jobFound
-
-			jpSpec, err = s.orm.GetApprovedSpec(ctx, proposal.ID)
-			if err != nil {
-				logger.Errorw("GetApprovedSpec failed - no approved specs to cancel?", "id", proposal.ID, "err", err, "name", jobFound.Name)
-				// Fallback to simple proposal deletion
-				canCancelWorkflow = false
-			}
-		}
-	}
-
-	if !canCancelWorkflow {
+func (s *service) tryDeleteAsWorkflowJob(ctx context.Context, proposal *JobProposal, logger logger.Logger) (bool, error) {
+	// Early return if no external job ID (we won't find a job to delete without it)
+	if !proposal.ExternalJobID.Valid {
+		logger.Debugw("Proposal has no ExternalJobID, skipping workflow job deletion", "proposalID", proposal.ID)
 		return false, nil
 	}
 
-	return true, s.deleteWorkflowJobWithTransaction(ctx, proposal, job, jpSpec, logger)
+	// Try to find the job by external job ID
+	jobFound, err := s.jobORM.FindJobByExternalJobID(ctx, proposal.ExternalJobID.UUID)
+	if err != nil {
+		logger.Warnw("Failed to find job by external job ID, skipping workflow job deletion",
+			"externalJobID", proposal.ExternalJobID.UUID, "err", err)
+		return false, nil
+	}
+
+	// Check if this is actually a workflow job
+	if jobFound.WorkflowSpecID == nil {
+		logger.Debugw("Job is not a workflow job, skipping workflow job deletion",
+			"jobID", jobFound.ID, "jobType", jobFound.Type)
+		return false, nil
+	}
+
+	// Get the approved spec for workflow cancellation
+	jpSpec, err := s.orm.GetApprovedSpec(ctx, proposal.ID)
+	if err != nil {
+		logger.Errorw("GetApprovedSpec failed - cannot proceed with workflow job deletion",
+			"proposalID", proposal.ID, "err", err, "jobName", jobFound.Name)
+		return false, nil
+	}
+
+	// All validations passed - proceed with workflow job deletion
+	logger.Debugw("Proceeding with workflow job deletion",
+		"proposalID", proposal.ID, "jobID", jobFound.ID, "specID", jpSpec.ID)
+
+	return true, s.deleteWorkflowJobWithTransaction(ctx, *proposal, jobFound, *jpSpec, logger)
 }
 
 // deleteWorkflowJobWithTransaction performs the workflow job deletion within a transaction.
-func (s *service) deleteWorkflowJobWithTransaction(ctx context.Context, proposal *JobProposal, job *job.Job, jpSpec *JobProposalSpec, logger logger.Logger) error {
+func (s *service) deleteWorkflowJobWithTransaction(ctx context.Context, proposal JobProposal, job job.Job, jpSpec JobProposalSpec, logger logger.Logger) error {
+	if job.WorkflowSpecID == nil {
+		return fmt.Errorf("job WorkflowSpecID is nil, cannot delete workflow job")
+	}
 	jobSpecID := int64(*job.WorkflowSpecID)
 
 	fmsClient, err := s.connMgr.GetClient(proposal.FeedsManagerID)
@@ -1836,7 +1847,7 @@ func (s *service) deleteWorkflowJobWithTransaction(ctx context.Context, proposal
 
 	err = s.transact(ctx, func(tx datasources) error {
 		if txerr := tx.orm.DeleteProposal(ctx, proposal.ID); txerr != nil {
-			return errors.Wrap(txerr, "DeleteProposal failed")
+			return fmt.Errorf("DeleteProposal failed: %w", txerr)
 		}
 
 		if txerr := tx.orm.CancelSpec(ctx, jpSpec.ID); txerr != nil {
@@ -1844,10 +1855,9 @@ func (s *service) deleteWorkflowJobWithTransaction(ctx context.Context, proposal
 		}
 
 		if serr := s.jobSpawner.DeleteJob(ctx, tx.ds, job.ID); serr != nil {
-			return errors.Wrap(serr, "DeleteJob failed")
+			return fmt.Errorf("DeleteJob failed: %w", serr)
 		}
 
-		// Send to FMS Client
 		if _, err = fmsClient.CancelledJob(ctx, &pb.CancelledJobRequest{
 			Uuid:    proposal.RemoteUUID.String(),
 			Version: int64(jpSpec.Version),
