@@ -78,7 +78,7 @@ func TestStaging_CCIP_Load(t *testing.T) {
 			}(src)
 		}
 		wg2.Wait()
-
+		srcChains := laneConfig.GetSourceChainsForDestination(cs)
 		gunMap[cs], err = NewDestinationGun(
 			env.Logger,
 			cs,
@@ -89,7 +89,7 @@ func TestStaging_CCIP_Load(t *testing.T) {
 			messageKeys,
 			nil,
 			nil,
-			laneConfig,
+			srcChains,
 		)
 		if err != nil {
 			lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)

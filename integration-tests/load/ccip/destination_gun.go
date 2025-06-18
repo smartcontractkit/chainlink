@@ -65,15 +65,8 @@ func NewDestinationGun(
 	evmSourceKeys map[uint64]*bind.TransactOpts,
 	solanaSourceKeys map[uint64]*solana.PrivateKey,
 	metricPipe chan messageData,
-	laneConfig *crib.LaneConfiguration, // Lane configuration parameter
+	availableSources []uint64,
 ) (*DestinationGun, error) {
-	if laneConfig == nil {
-		panic("laneConfig should not be nil")
-	}
-
-	// Get available source chains based on lane configuration
-	availableSources := laneConfig.GetSourceChainsForDestination(chainSelector)
-
 	if len(availableSources) == 0 {
 		return nil, fmt.Errorf("no source chains available for destination %d", chainSelector)
 	}
@@ -94,7 +87,6 @@ func NewDestinationGun(
 		evmSourceKeys:    evmSourceKeys,
 		solanaSourceKeys: solanaSourceKeys,
 		metricPipe:       metricPipe,
-		laneConfig:       laneConfig,
 		availableSources: availableSources,
 	}
 

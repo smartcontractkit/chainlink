@@ -246,16 +246,15 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			switch selFamily {
 			case selectors.FamilyEVM:
 				// Check if we have enough senders for this source chain
-				if len(evmSenders[src]) <= ind {
+				if ind < len(evmSenders[src]) {
+					evmSourceKeys[cs][src] = evmSenders[src][ind]
+				} else {
 					lggr.Errorw("Not enough EVM senders for source chain",
 						"sourceChain", src,
 						"destinationChain", cs,
 						"requiredIndex", ind,
 						"availableSenders", len(evmSenders[src]))
-					mu.Unlock()
-					continue
 				}
-				evmSourceKeys[cs][src] = evmSenders[src][ind]
 			case selectors.FamilySolana:
 				if _, exists := solSourceKeys[src]; !exists {
 					solSourceKeys[src] = env.BlockChains.SolanaChains()[src].DeployerKey
@@ -308,7 +307,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				evmSourceKeys[cs],
 				solSourceKeys,
 				mm.InputChan,
-				laneConfig,
+				srcChains,
 			)
 			if err != nil {
 				lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
@@ -362,7 +361,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				evmSourceKeys[cs],
 				solSourceKeys,
 				mm.InputChan,
-				laneConfig,
+				srcChains,
 			)
 			if err != nil {
 				lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
