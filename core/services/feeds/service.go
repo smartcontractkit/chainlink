@@ -1800,7 +1800,9 @@ func (s *service) tryDeleteWorkflowJob(ctx context.Context, proposal *JobProposa
 
 	if proposal.ExternalJobID.Valid {
 		jobFound, err := s.jobORM.FindJobByExternalJobID(ctx, proposal.ExternalJobID.UUID)
-		if err == nil && jobFound.WorkflowSpecID != nil {
+		if err != nil {
+			logger.Warnw("Failed to find job by external job ID", "externalJobID", proposal.ExternalJobID.UUID, "err", err)
+		} else if jobFound.WorkflowSpecID != nil {
 			canCancelWorkflow = true
 			job = &jobFound
 
