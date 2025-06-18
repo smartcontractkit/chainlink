@@ -301,6 +301,16 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 		ExtraArgs: extraArgs,
 	}
 
+	if dstSelFamily == selectors.FamilySolana {
+		extraArgs, err = ccipevm.SerializeClientSVMExtraArgsV1(svmExtraArgs)
+		if err != nil {
+			m.l.Errorw("Error encoding extra args for sol dest")
+			return router.ClientEVM2AnyMessage{}, 0, err
+		}
+		message.ExtraArgs = extraArgs
+		return message, int64(2_500_000), nil
+	}
+
 	// Set data length if it's a data transfer
 	if selectedMsgDetails.IsDataTransfer() {
 		dataLength := *selectedMsgDetails.DataLengthBytes

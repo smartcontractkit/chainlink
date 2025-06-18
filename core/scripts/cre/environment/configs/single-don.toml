@@ -60,6 +60,8 @@
       InsecureConnection = true
       TraceSampleRatio = 1
       """
+      [nodesets.node_specs.node.env_vars]
+      CL_EVM_CMD=""
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
@@ -79,6 +81,8 @@
       InsecureConnection = true
       TraceSampleRatio = 1
       """
+      [nodesets.node_specs.node.env_vars]
+      CL_EVM_CMD=""
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
@@ -98,6 +102,8 @@
       InsecureConnection = true
       TraceSampleRatio = 1
       """
+      [nodesets.node_specs.node.env_vars]
+      CL_EVM_CMD=""
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
@@ -117,6 +123,8 @@
       InsecureConnection = true
       TraceSampleRatio = 1
       """
+      [nodesets.node_specs.node.env_vars]
+      CL_EVM_CMD=""
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
@@ -136,3 +144,5 @@
       InsecureConnection = true
       TraceSampleRatio = 1
       """
+      [nodesets.node_specs.node.env_vars]
+      CL_EVM_CMD=""

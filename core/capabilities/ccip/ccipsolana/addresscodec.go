@@ -33,3 +33,8 @@ func (a AddressCodec) OracleIDAsAddressBytes(oracleID uint8) ([]byte, error) {
 	// TODO: is it alright if the pub key is off the curve?
 	return solana.PublicKeyFromBytes(addr).Bytes(), nil
 }
+
+func (a AddressCodec) TransmitterBytesToString(addr []byte) (string, error) {
+	// Transmitter accounts are addresses
+	return a.AddressBytesToString(addr)
+}

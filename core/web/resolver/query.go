@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -467,7 +468,7 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 			return nil, err
 		}
 
-		chain, err := r.App.GetRelayers().LegacyEVMChains().Get(state.EVMChainID.String())
+		chainService, err := r.App.GetRelayers().LegacyEVMChains().Get(state.EVMChainID.String())
 		if errors.Is(errors.Cause(err), evmrelay.ErrNoChains) {
 			ethKeys = append(ethKeys, ETHKey{
 				addr:  k.EIP55Address,
@@ -476,14 +477,19 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 
 			continue
 		}
+
 		// Don't include keys without valid chain.
 		// OperatorUI fails to show keys where chains are not in the config.
 		if err == nil {
-			ethKeys = append(ethKeys, ETHKey{
+			k := ETHKey{
 				addr:  k.EIP55Address,
 				state: state,
-				chain: chain,
-			})
+			}
+			chain, ok := chainService.(legacyevm.Chain)
+			if ok {
+				k.chain = chain
+			}
+			ethKeys = append(ethKeys, k)
 		}
 	}
 	// Put disabled keys to the end

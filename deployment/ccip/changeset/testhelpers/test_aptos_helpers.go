@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/aptos-labs/aptos-go-sdk/bcs"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/require"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -37,4 +39,13 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 	}
 
 	return commonchangeset.Configure(aptoscs.DeployAptosChain{}, ccipConfig)
+}
+
+// MakeBCSEVMExtraArgsV2 makes the BCS encoded extra args for a message sent from an Move based chain that is destined for an EVM chain.
+// The extra args are used to specify the gas limit and allow out of order flag for the message.
+func MakeBCSEVMExtraArgsV2(gasLimit *big.Int, allowOOO bool) []byte {
+	s := &bcs.Serializer{}
+	s.U256(*gasLimit)
+	s.Bool(allowOOO)
+	return append(hexutil.MustDecode(GenericExtraArgsV2Tag), s.ToBytes()...)
 }

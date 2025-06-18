@@ -697,7 +697,7 @@ func validateKeyStoreMatchForRelay(ctx context.Context, network string, keyStore
 
 func areSendingKeysDefined(ctx context.Context, jb *Job, keystore keystore.Master) (bool, error) {
 	if jb.OCR2OracleSpec.RelayConfig["sendingKeys"] != nil {
-		sendingKeys, err := SendingKeysForJob(jb)
+		sendingKeys, err := SendingKeysForJob(jb.OCR2OracleSpec)
 		if err != nil {
 			return false, err
 		}

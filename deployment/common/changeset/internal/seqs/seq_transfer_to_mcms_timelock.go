@@ -61,6 +61,7 @@ var SeqTransferToMCMSWithTimelockV2 = operations.NewSequence(
 					OwnableC: c,
 				},
 				ops.OpEVMTransferOwnershipInput{
+					ChainSelector:   in.ChainSelector,
 					TimelockAddress: in.Timelock,
 					Address:         contract,
 				},
@@ -77,6 +78,7 @@ var SeqTransferToMCMSWithTimelockV2 = operations.NewSequence(
 					OwnableC: c,
 				},
 				ops.OpEVMTransferOwnershipInput{
+					ChainSelector:   in.ChainSelector,
 					TimelockAddress: in.Timelock,
 					Address:         contract,
 				},
