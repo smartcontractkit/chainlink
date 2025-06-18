@@ -22,7 +22,7 @@ var _ cldf.ChangeSetV2[DeployCCIPContractsCfg] = DeployCCIPContracts{}
 type DeployCCIPContracts struct {
 }
 
-func (cs DeployCCIPContracts) VerifyPreconditions(env cldf.Environment, config DeployCCIPContractsCfg) error {
+func (cs DeployCCIPContracts) VerifyPreconditions(_env cldf.Environment, _config DeployCCIPContractsCfg) error {
 	// TODO: Implement precondition checks for contract deployment
 	return nil
 }

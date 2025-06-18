@@ -61,10 +61,10 @@ func (f *contractTransmitterFactory) NewExecTransmitter(
 // NewNoopCommitCalldataFunc returns a ToCalldataFunc for noop commits that omits any Info object.
 func NewNoopCommitCalldataFunc(commitMethod string) ToCalldataFunc {
 	return func(
-		rawReportCtx [2][32]byte,
-		report ocr3types.ReportWithInfo[[]byte],
-		rs, ss [][32]byte,
-		vs [32]byte,
+		_rawReportCtx [2][32]byte,
+		_report ocr3types.ReportWithInfo[[]byte],
+		_rs, _ss [][32]byte,
+		_vs [32]byte,
 		_ ccipcommon.ExtraDataCodec,
 	) (string, string, any, error) {
 		return consts.ContractNameOffRamp,
@@ -76,8 +76,8 @@ func NewNoopCommitCalldataFunc(commitMethod string) ToCalldataFunc {
 
 // NoopExecCallDataFunc builds the noop execute call data.
 var NoopExecCallDataFunc = func(
-	rawReportCtx [2][32]byte,
-	report ocr3types.ReportWithInfo[[]byte],
+	_rawReportCtx [2][32]byte,
+	_report ocr3types.ReportWithInfo[[]byte],
 	_, _ [][32]byte,
 	_ [32]byte,
 	_ ccipcommon.ExtraDataCodec,
