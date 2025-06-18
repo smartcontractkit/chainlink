@@ -1,7 +1,6 @@
 package ccip
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -29,11 +29,7 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
 
-	fmt.Println("EVM: ", evmChainSelectors)
-	fmt.Println("Aptos: ", aptosChainSelectors)
-
 	// Deploy the dummy receiver contract
-	t.Log("Deploying CCIPDummyReceiver...")
 	testhelpers.DeployAptosCCIPReceiver(t, e.Env)
 
 	state, err := stateview.LoadOnchainState(e.Env)
@@ -44,7 +40,7 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 	deployerSourceChain := e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey
 	deployerDestChain := e.Env.BlockChains.AptosChains()[destChain].DeployerSigner.AccountAddress()
 
-	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Aptos): ", destChain)
+	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Aptos): ", destChain)
 
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
@@ -121,9 +117,6 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
 
-	fmt.Println("EVM: ", evmChainSelectors)
-	fmt.Println("Aptos: ", aptosChainSelectors)
-
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
@@ -133,7 +126,7 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 	deployerSourceChain := e.Env.BlockChains.AptosChains()[sourceChain].DeployerSigner.AccountAddress()
 	deployerDestChain := e.Env.BlockChains.EVMChains()[destChain].DeployerKey
 
-	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Aptos): ", destChain)
+	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Aptos): ", destChain)
 
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
@@ -156,7 +149,7 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 					Amount: 1e8,
 				},
 			},
-			FeeToken:  "0xa",
+			FeeToken:  shared.AptosAPTAddress,
 			ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(100000), true),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{

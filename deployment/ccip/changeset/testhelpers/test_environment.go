@@ -407,6 +407,11 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
 	replayBlocks, err := LatestBlocksByChain(ctx, env)
 	require.NoError(t, err)
+
+	// Aptos doesn't support replaying blocks
+	for selector := range env.BlockChains.AptosChains() {
+		delete(replayBlocks, selector)
+	}
 	m.DeployedEnv = DeployedEnv{
 		Env:          env,
 		HomeChainSel: homeChainSel,
@@ -947,10 +952,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	}
 
 	for _, chain := range aptosChains {
-		// TODO(aptos): update this for token transfers
 		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
 		linkTokenAddress := state.AptosChains[chain].LinkTokenAddress
-		linkTokenAddress.ParseStringRelaxed("0xa")
 		tokenInfo[cciptypes.UnknownEncodedAddress(linkTokenAddress.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
 
 		ocrOverride := tc.OCRConfigOverride

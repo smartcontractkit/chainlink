@@ -16,12 +16,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	solrpc "github.com/gagliardetto/solana-go/rpc"
-	aptosOffRamp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
-	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
-	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+
+	aptos_ccip_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
+	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
+	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -38,8 +39,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -703,7 +704,7 @@ func ConfirmCommitWithExpectedSeqNumRangeAptos(
 	expectedSeqNumRange ccipocr3.SeqNumRange,
 	enforceSingleCommit bool,
 ) (*module_offramp.CommitReportAccepted, error) {
-	boundOffRamp := aptosOffRamp.Bind(offRampAddress, dest.Client)
+	boundOffRamp := aptos_ccip_offramp.Bind(offRampAddress, dest.Client)
 	offRampStateAddress, err := boundOffRamp.Offramp().GetStateAddress(nil)
 	require.NoError(t, err)
 
@@ -997,7 +998,7 @@ func ConfirmExecWithExpectedSeqNrsAptos(
 	if len(expectedSeqNrs) == 0 {
 		return nil, fmt.Errorf("no expected sequence numbers provided")
 	}
-	boundOffRamp := aptosOffRamp.Bind(offRampAddress, dest.Client)
+	boundOffRamp := aptos_ccip_offramp.Bind(offRampAddress, dest.Client)
 	offRampStateAddress, err := boundOffRamp.Offramp().GetStateAddress(nil)
 	require.NoError(t, err)
 
