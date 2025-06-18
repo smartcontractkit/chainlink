@@ -46,5 +46,5 @@
 
     [nodesets.node_specs.node]
       custom_ports = []
-      image = "public.ecr.aws/chainlink/chainlink:v2.17.0"
+      image = "public.ecr.aws/chainlink/ccip:2.25.0-ccip-beta.3"
       test_config_overrides = "[Feature]\nFeedsManager = true\nLogPoller = true\nUICSAKeys = true\n\n[Log]\nLevel = 'debug'\nJSONConsole = true\n\n[Log.File]\nMaxSize = '0b'\n\n[WebServer]\nAllowOrigins = '*'\nHTTPPort = 6688\nSecureCookies = false\nHTTPWriteTimeout = '3m'\nSessionTimeout = '999h0m0s'\n\n[WebServer.RateLimit]\nAuthenticated = 2000\nUnauthenticated = 1000\n\n[WebServer.TLS]\nHTTPSPort = 0\n\n[Database]\nMaxIdleConns = 20\nMaxOpenConns = 40\nMigrateOnStartup = true\n\n[OCR2]\nEnabled = true\nContractPollInterval = '5s'\n\n[OCR]\nEnabled = false\nDefaultTransactionQueueDepth = 200\n\n[P2P]\n[P2P.V2]\nEnabled = true\nListenAddresses = ['0.0.0.0:6690']\nAnnounceAddresses = ['0.0.0.0:6690']\nDeltaDial = '500ms'\nDeltaReconcile = '5s'\n"
