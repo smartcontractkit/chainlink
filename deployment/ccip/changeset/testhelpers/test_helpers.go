@@ -1337,6 +1337,9 @@ func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector ui
 		}
 	case chainsel.FamilyAptos:
 		src = config.AptosChainDefinition{
+			TokenPrices: map[string]*big.Int{
+				"0xa": deployment.EDecMult(5, 28),
+			},
 			ConnectionConfig: v1_6.ConnectionConfig{
 				RMNVerificationDisabled: true,
 			},
@@ -1487,6 +1490,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 	tokenPrices := map[common.Address]*big.Int{}
 	if fromFamily == chainsel.FamilyEVM {
 		stateChainFrom := state.MustGetEVMChainState(from)
+		// TODO make this generic
 		tokenPrices = map[common.Address]*big.Int{
 			stateChainFrom.LinkToken.Address(): DefaultLinkPrice,
 			stateChainFrom.Weth9.Address():     DefaultWethPrice,
@@ -1688,7 +1692,7 @@ func DeployTransferableTokenAptos(
 	e cldf.Environment,
 	evmChainSel, aptosChainSel uint64,
 	tokenName string,
-	mintAmounts []config.Mint,
+	mintAmount *config.TokenMint,
 ) (
 	*burn_mint_erc677.BurnMintERC677,
 	*burn_mint_token_pool.BurnMintTokenPool,
@@ -1718,7 +1722,7 @@ func DeployTransferableTokenAptos(
 			config.AddTokenPoolConfig{
 				ChainSelector:                       aptosChainSel,
 				TokenAddress:                        aptos.AccountAddress{}, // Will be deployed
-				TokenObjAddress:                     aptos.AccountAddress{}, // Will be deployed
+				TokenCodeObjAddress:                 aptos.AccountAddress{}, // Will be deployed
 				TokenPoolAddress:                    aptos.AccountAddress{}, // Will be deployed
 				PoolType:                            shared.AptosManagedTokenPoolType,
 				TokenTransferFeeByRemoteChainConfig: nil, // TODO - not needed?
@@ -1738,11 +1742,11 @@ func DeployTransferableTokenAptos(
 					},
 				},
 				TokenParams: config.TokenParams{
-					Name:         tokenName,
-					Symbol:       "TKN",
-					Decimals:     8,
-					InitialMints: mintAmounts,
+					Name:     tokenName,
+					Symbol:   "TKN",
+					Decimals: 8,
 				},
+				TokenMint: mintAmount,
 				MCMSConfig: &proposalutils.TimelockConfig{
 					MinDelay: time.Second, // TODO
 				},

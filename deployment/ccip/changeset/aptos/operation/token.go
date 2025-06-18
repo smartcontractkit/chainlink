@@ -2,7 +2,6 @@ package operation
 
 import (
 	"fmt"
-	"log"
 	"math/big"
 
 	"github.com/aptos-labs/aptos-go-sdk"
@@ -175,38 +174,6 @@ func mintTokens(b operations.Bundle, deps AptosDeps, in MintTokensInput) (types.
 	if err != nil {
 		return types.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
 	}
-
-	return tx, nil
-}
-
-type MintTokensInput struct {
-	TokenObjAddress aptos.AccountAddress
-	To              aptos.AccountAddress
-	Amount          uint64
-}
-
-var MintTokensOp = operations.NewOperation(
-	"mint-tokens-op",
-	Version1_0_0,
-	"Mints tokens to a target account",
-	mintTokens,
-)
-
-func mintTokens(b operations.Bundle, deps AptosDeps, in MintTokensInput) (types.Transaction, error) {
-	boundManagedToken := managed_token.Bind(in.TokenObjAddress, deps.AptosChain.Client)
-	moduleInfo, function, _, args, err := boundManagedToken.ManagedToken().Encoder().Mint(in.To, in.Amount)
-	if err != nil {
-		return types.Transaction{}, fmt.Errorf("failed to encode mint function: %w", err)
-	}
-
-	// Create MCMS tx
-	tx, err := utils.GenerateMCMSTx(in.TokenObjAddress, moduleInfo, function, args)
-	if err != nil {
-		return types.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
-	}
-
-	// TODO debug
-	log.Printf("Minting token %v to account: %v", in.TokenObjAddress.StringLong(), in.To.String())
 
 	return tx, nil
 }

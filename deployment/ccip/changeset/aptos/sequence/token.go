@@ -101,23 +101,6 @@ func deployAptosTokenSequence(b operations.Bundle, deps operation.AptosDeps, in 
 		Transactions:  txs,
 	})
 
-	// Optionally mint the specified amounts
-	for _, mint := range in.TokenParams.InitialMints {
-		mintTokenInput := operation.MintTokensInput{
-			TokenObjAddress: deployTReport.Output.TokenObjAddress,
-			To:              mint.To,
-			Amount:          mint.Amount,
-		}
-		mintTokensReport, err := operations.ExecuteOperation(b, operation.MintTokensOp, deps, mintTokenInput)
-		if err != nil {
-			return DeployTokenSeqOutput{}, err
-		}
-		mcmsOperations = append(mcmsOperations, mcmstypes.BatchOperation{
-			ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
-			Transactions:  []mcmstypes.Transaction{mintTokensReport.Output},
-		})
-	}
-
 	return DeployTokenSeqOutput{
 		TokenAddress:        deployTReport.Output.TokenAddress,
 		TokenCodeObjAddress: deployTReport.Output.TokenCodeObjAddress,
