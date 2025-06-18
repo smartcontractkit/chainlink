@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/gagliardetto/solana-go"
-
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	"github.com/smartcontractkit/mcms"
@@ -26,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 // use these three changesets to add a remote chain to solana
@@ -49,7 +47,7 @@ type RouterConfig struct {
 	// and tooling does not handle upserts
 	// so you have to clone what is in state, edit the list, and then pass into this changeset
 	RouterDestinationConfig solRouter.DestChainConfig
-	// We have different instructions for add vs update, so we need to know which one to use
+	// inferred from onchain state
 	IsUpdate bool
 }
 
@@ -155,7 +153,6 @@ func doAddRemoteChainToRouter(
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		shared.Router,
 		solana.PublicKey{},
 		"",
@@ -182,7 +179,7 @@ func doAddRemoteChainToRouter(
 			}
 			e.Logger.Infow("update router config for remote chain", "remoteChainSel", remoteChainSel)
 			if routerUsingMCMS {
-				tx, err := helpers.BuildMCMSTxn(routerIx, ccipRouterID.String(), shared.Router)
+				tx, err := BuildMCMSTxn(routerIx, ccipRouterID.String(), shared.Router)
 				if err != nil {
 					return txns, fmt.Errorf("failed to create update router config transaction: %w", err)
 				}
@@ -226,7 +223,7 @@ func doAddRemoteChainToRouter(
 			if routerUsingMCMS {
 				// build transactions if mcms
 				for _, ix := range []solana.Instruction{routerIx, routerOfframpIx} {
-					tx, err := helpers.BuildMCMSTxn(ix, ccipRouterID.String(), shared.Router)
+					tx, err := BuildMCMSTxn(ix, ccipRouterID.String(), shared.Router)
 					if err != nil {
 						return txns, fmt.Errorf("failed to create add router config transaction: %w", err)
 					}
@@ -271,7 +268,7 @@ type AddRemoteChainToFeeQuoterConfig struct {
 
 type FeeQuoterConfig struct {
 	FeeQuoterDestinationConfig solFeeQuoter.DestChainConfig
-	// We have different instructions for add vs update, so we need to know which one to use
+	// inferred from onchain state
 	IsUpdate bool
 }
 
@@ -368,7 +365,6 @@ func doAddRemoteChainToFeeQuoter(
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		shared.FeeQuoter,
 		solana.PublicKey{},
 		"",
@@ -407,7 +403,7 @@ func doAddRemoteChainToFeeQuoter(
 			return txns, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		if feeQuoterUsingMCMS {
-			tx, err := helpers.BuildMCMSTxn(feeQuoterIx, feeQuoterID.String(), shared.FeeQuoter)
+			tx, err := BuildMCMSTxn(feeQuoterIx, feeQuoterID.String(), shared.FeeQuoter)
 			if err != nil {
 				return txns, fmt.Errorf("failed to create transaction: %w", err)
 			}
@@ -442,7 +438,7 @@ type AddRemoteChainToOffRampConfig struct {
 type OffRampConfig struct {
 	// source
 	EnabledAsSource bool
-	// We have different instructions for add vs update, so we need to know which one to use
+	// inferred from onchain state
 	IsUpdate bool
 }
 
@@ -538,7 +534,6 @@ func doAddRemoteChainToOffRamp(
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		shared.OffRamp,
 		solana.PublicKey{},
 		"",
@@ -592,7 +587,7 @@ func doAddRemoteChainToOffRamp(
 		}
 
 		if offRampUsingMCMS {
-			tx, err := helpers.BuildMCMSTxn(offRampIx, offRampID.String(), shared.OffRamp)
+			tx, err := BuildMCMSTxn(offRampIx, offRampID.String(), shared.OffRamp)
 			if err != nil {
 				return txns, fmt.Errorf("failed to create transaction: %w", err)
 			}

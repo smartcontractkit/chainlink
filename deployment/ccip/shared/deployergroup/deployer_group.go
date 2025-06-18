@@ -251,7 +251,7 @@ func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
 type DeployerForSVM func(solana.PublicKey) (solana.Instruction, string, cldf.ContractType, error)
 
 func (d *DeployerGroup) GetDeployerForSVM(chain uint64) (func(DeployerForSVM) (solana.Instruction, error), error) {
-	var authority = d.e.BlockChains.SolanaChains()[chain].DeployerKey.PublicKey()
+	var authority solana.PublicKey = d.e.BlockChains.SolanaChains()[chain].DeployerKey.PublicKey()
 
 	if d.mcmConfig != nil {
 		addresses, err := addressForChain(d.e, chain)
@@ -526,5 +526,5 @@ func BuildMcmAddressesPerChainByAction(e cldf.Environment, onchainState statevie
 }
 
 func addressForChain(e cldf.Environment, selector uint64) (map[string]cldf.TypeAndVersion, error) {
-	return e.ExistingAddresses.AddressesForChain(selector)
+	return e.ExistingAddresses.AddressesForChain(selector) //nolint:staticcheck // Uncomment above once datastore is updated to contains addresses
 }

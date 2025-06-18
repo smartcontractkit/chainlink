@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -68,7 +67,7 @@ func verifyProgramSizes(t *testing.T, e cldf.Environment) {
 	}
 }
 
-func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *helpers.BuildSolanaConfig) []commonchangeset.ConfiguredChangeSet {
+func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangesetSolana.BuildSolanaConfig) []commonchangeset.ConfiguredChangeSet {
 	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	homeChainSel := evmSelectors[0]
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
@@ -180,10 +179,10 @@ func TestUpgrade(t *testing.T) {
 	homeChainSel := evmSelectors[0]
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	e, _, err := commonchangeset.ApplyChangesets(t, e, initialDeployCS(t, e,
-		&helpers.BuildSolanaConfig{
+		&ccipChangesetSolana.BuildSolanaConfig{
 			GitCommitSha:   OldSha,
 			DestinationDir: e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
-			LocalBuild: helpers.LocalBuildConfig{
+			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 				BuildLocally:        true,
 				CleanDestinationDir: true,
 				GenerateVanityKeys:  true,
@@ -260,10 +259,10 @@ func TestUpgrade(t *testing.T) {
 					},
 				},
 				// build the contracts for upgrades
-				BuildConfig: &helpers.BuildSolanaConfig{
+				BuildConfig: &ccipChangesetSolana.BuildSolanaConfig{
 					GitCommitSha:   NewSha,
 					DestinationDir: e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
-					LocalBuild: helpers.LocalBuildConfig{
+					LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 						BuildLocally:        true,
 						CleanDestinationDir: true,
 						CleanGitDir:         true,
@@ -315,10 +314,10 @@ func TestUpgrade(t *testing.T) {
 						MinDelay: 1 * time.Second,
 					},
 				},
-				BuildConfig: &helpers.BuildSolanaConfig{
+				BuildConfig: &ccipChangesetSolana.BuildSolanaConfig{
 					GitCommitSha:   NewSha,
 					DestinationDir: e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
-					LocalBuild: helpers.LocalBuildConfig{
+					LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 						BuildLocally: true,
 					},
 				},

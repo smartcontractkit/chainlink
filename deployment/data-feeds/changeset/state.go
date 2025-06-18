@@ -37,8 +37,7 @@ import (
 )
 
 var (
-	DataFeedsCache            cldf.ContractType      = "DataFeedsCache"
-	ChainlinkDataFeedsPackage datastore.ContractType = "ChainlinkDataFeeds"
+	DataFeedsCache datastore.ContractType = "DataFeedsCache"
 )
 
 type DataFeedsChainState struct {
@@ -105,10 +104,10 @@ func LoadChainState(logger logger.Logger, chain cldf_evm.Chain, addresses map[st
 	}
 	state.MCMSWithTimelockState = *mcmsWithTimelock
 
-	dfCacheTV := cldf.NewTypeAndVersion(DataFeedsCache, deployment.Version1_0_0)
+	dfCacheTV := cldf.NewTypeAndVersion("DataFeedsCache", deployment.Version1_0_0)
 	dfCacheTV.Labels.Add("data-feeds")
 
-	devPlatformCacheTV := cldf.NewTypeAndVersion(DataFeedsCache, deployment.Version1_0_0)
+	devPlatformCacheTV := cldf.NewTypeAndVersion("DataFeedsCache", deployment.Version1_0_0)
 	devPlatformCacheTV.Labels.Add("dev-platform")
 
 	state.DataFeedsCache = make(map[common.Address]*cache.DataFeedsCache)
@@ -151,7 +150,7 @@ func LoadAptosChainState(logger logger.Logger, chain cldf_aptos.Chain, addresses
 	state.DataFeeds = make(map[aptos.AccountAddress]*modulefeeds.DataFeeds)
 
 	for _, address := range addresses {
-		if address.Type == ChainlinkDataFeedsPackage {
+		if address.Type == DataFeedsCache {
 			feedsAddress := aptos.AccountAddress{}
 			err := feedsAddress.ParseStringRelaxed(address.Address)
 			if err != nil {

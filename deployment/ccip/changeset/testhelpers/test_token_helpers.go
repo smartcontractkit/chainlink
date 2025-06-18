@@ -113,6 +113,7 @@ func SetupTwoChainEnvironmentWithTokens(
 		)
 		require.NoError(t, err)
 		tokens[selector] = token
+
 	}
 
 	// Deploy MCMS setup & prerequisite contracts

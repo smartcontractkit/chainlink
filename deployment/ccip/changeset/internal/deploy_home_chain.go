@@ -135,13 +135,12 @@ func BuildSetOCR3ConfigArgs(
 
 		configForOCR3 := ocrConfig.ActiveConfig
 		// we expect only an active config
-		switch configType {
-		case globals.ConfigTypeActive:
+		if configType == globals.ConfigTypeActive {
 			if ocrConfig.ActiveConfig.ConfigDigest == [32]byte{} {
 				return nil, fmt.Errorf("invalid OCR3 config state, expected active config, donID: %d, activeConfig: %v, candidateConfig: %v",
 					donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
 			}
-		case globals.ConfigTypeCandidate:
+		} else if configType == globals.ConfigTypeCandidate {
 			if ocrConfig.CandidateConfig.ConfigDigest == [32]byte{} {
 				return nil, fmt.Errorf("invalid OCR3 config state, expected candidate config, donID: %d, activeConfig: %v, candidateConfig: %v",
 					donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
@@ -286,13 +285,12 @@ func BuildSetOCR3ConfigArgsSolana(
 
 		configForOCR3 := ocrConfig.ActiveConfig
 		// we expect only an active config
-		switch configType {
-		case globals.ConfigTypeActive:
+		if configType == globals.ConfigTypeActive {
 			if ocrConfig.ActiveConfig.ConfigDigest == [32]byte{} {
 				return nil, fmt.Errorf("invalid OCR3 config state, expected active config, donID: %d, activeConfig: %v, candidateConfig: %v",
 					donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
 			}
-		case globals.ConfigTypeCandidate:
+		} else if configType == globals.ConfigTypeCandidate {
 			if ocrConfig.CandidateConfig.ConfigDigest == [32]byte{} {
 				return nil, fmt.Errorf("invalid OCR3 config state, expected candidate config, donID: %d, activeConfig: %v, candidateConfig: %v",
 					donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))

@@ -42,7 +42,7 @@ func (obj *ReceiverCounter) UnmarshalWithDecoder(decoder *ag_binary.Decoder) (er
 			return fmt.Errorf(
 				"wrong discriminator: wanted %+v, got %s",
 				test_ccip_receiver.CounterDiscriminator,
-				string(discriminator[:]))
+				fmt.Sprint(discriminator[:]))
 		}
 	}
 	// Deserialize `Value`:

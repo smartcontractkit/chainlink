@@ -27,25 +27,33 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
+
+// use this changeset to upload the IDL for a program
+var _ cldf.ChangeSet[IDLConfig] = UploadIDL
+
+// use this changeset to set the authority for the IDL of a program (timelock)
+var _ cldf.ChangeSet[IDLConfig] = SetAuthorityIDL
+
+// use this changeset to upgrade the IDL of a program via timelock
+var _ cldf.ChangeSet[IDLConfig] = UpgradeIDL
 
 const IdlIxTag uint64 = 0x0a69e9a778bcf440
 
 // IDL
 type IDLConfig struct {
 	ChainSelector                uint64
-	GitCommitSha                 string
-	Router                       bool
-	FeeQuoter                    bool
-	OffRamp                      bool
-	RMNRemote                    bool
-	AccessController             bool
-	MCM                          bool
-	Timelock                     bool
-	BurnMintTokenPoolMetadata    []string
-	LockReleaseTokenPoolMetadata []string
-	MCMS                         *proposalutils.TimelockConfig
+	GitCommitSha                 string                        // this will be used to download the correct artifacts (idls) -> best if same as what was used to deploy the programs
+	Router                       bool                          // whether to upload the IDL for the router
+	FeeQuoter                    bool                          // whether to upload the IDL for the fee quoter
+	OffRamp                      bool                          // whether to upload the IDL for the off ramp
+	RMNRemote                    bool                          // whether to upload the IDL for the rmn remote
+	AccessController             bool                          // whether to upload the IDL for the access controller
+	MCM                          bool                          // whether to upload the IDL for the mcm
+	Timelock                     bool                          // whether to upload the IDL for the timelock
+	BurnMintTokenPoolMetadata    []string                      // whether to upload the IDL for the token pool (keyed my client identifier (metadata))
+	LockReleaseTokenPoolMetadata []string                      // metadata for the lock release token pool (keyed my client identifier (metadata))
+	MCMS                         *proposalutils.TimelockConfig // timelock config for mcms
 }
 
 // parse anchor version from running anchor --version
@@ -98,7 +106,7 @@ func repoSetup(e cldf.Environment, chain cldf_solana.Chain, gitCommitSha string)
 	}
 
 	// get anchor version
-	output, err := helpers.RunCommand("anchor", []string{"--version"}, ".")
+	output, err := runCommand("anchor", []string{"--version"}, ".")
 	if err != nil {
 		return errors.New("anchor-cli not installed in path")
 	}
@@ -169,7 +177,7 @@ func idlInit(e cldf.Environment, programsPath, programID, programName string) er
 	e.Logger.Infow("Uploading IDL", "programName", programName)
 	args := []string{"idl", "init", "--filepath", idlFile, programID}
 	e.Logger.Info(args)
-	output, err := helpers.RunCommand("anchor", args, programsPath)
+	output, err := runCommand("anchor", args, programsPath)
 	e.Logger.Debugw("IDL init output", "output", output)
 	if err != nil {
 		e.Logger.Debugw("IDL init error", "error", err)
@@ -188,7 +196,7 @@ func setIdlAuthority(e cldf.Environment, newAuthority, programsPath, programID, 
 		args = append(args, bufferAccount)
 	}
 	e.Logger.Info(args)
-	_, err := helpers.RunCommand("anchor", args, programsPath)
+	_, err := runCommand("anchor", args, programsPath)
 	if err != nil {
 		return fmt.Errorf("error setting idl authority: %w", err)
 	}
@@ -223,7 +231,7 @@ func writeBuffer(e cldf.Environment, programsPath, programID, programName string
 	e.Logger.Infow("Writing IDL buffer", "programID", programID)
 	args := []string{"idl", "write-buffer", "--filepath", idlFile, programID}
 	e.Logger.Info(args)
-	output, err := helpers.RunCommand("anchor", args, programsPath)
+	output, err := runCommand("anchor", args, programsPath)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("error writing IDL buffer: %w", err)
 	}
@@ -283,7 +291,7 @@ func upgradeIDLIx(e cldf.Environment, programsPath, programID, programName strin
 		return nil, fmt.Errorf("error generating set buffer ix: %w", err)
 	}
 	if c.MCMS != nil {
-		upgradeTx, err := helpers.BuildMCMSTxn(&instruction, programID, cldf.ContractType(programName))
+		upgradeTx, err := BuildMCMSTxn(&instruction, programID, cldf.ContractType(programName))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create upgrade transaction: %w", err)
 		}
@@ -336,7 +344,7 @@ func (c IDLConfig) Validate(e cldf.Environment) error {
 			return fmt.Errorf("lockReleaseTokenPool not deployed for chain %d, cannot upload idl", c.ChainSelector)
 		}
 	}
-	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector)
+	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	if err != nil {
 		return fmt.Errorf("failed to get existing addresses: %w", err)
 	}
@@ -405,7 +413,7 @@ func UploadIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 			return cldf.ChangesetOutput{}, nil
 		}
 	}
-	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector)
+	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
@@ -489,7 +497,7 @@ func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 		}
 	}
 
-	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
@@ -591,7 +599,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 
-	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
@@ -635,7 +643,6 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
 
-		// do we need to batch this ?
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil

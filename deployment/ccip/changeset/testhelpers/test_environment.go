@@ -38,7 +38,6 @@ import (
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
@@ -658,7 +657,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	require.NoError(t, err)
 	return e
 }
-func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *helpers.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
+func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *ccipChangeSetSolana.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
 	var mcmsCfg *commontypes.MCMSWithTimelockConfigV2
 	if preload {
 		// Pre load default programs

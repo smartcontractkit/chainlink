@@ -2,6 +2,7 @@ package solana
 
 import (
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
@@ -69,16 +70,16 @@ func ValidateMCMSConfigSolana(
 	return nil
 }
 
-func BuildProposalsForTxns(
+func buildProposalCommon(
 	e cldf.Environment,
 	chainSelector uint64,
 	description string,
 	minDelay time.Duration,
-	txns []mcmsTypes.Transaction) (*mcms.TimelockProposal, error) {
+	batches []mcmsTypes.BatchOperation) (*mcms.TimelockProposal, error) {
 	timelocks := map[uint64]string{}
 	proposers := map[uint64]string{}
 	inspectors := map[uint64]sdk.Inspector{}
-	batches := make([]mcmsTypes.BatchOperation, 0)
+
 	chain := e.BlockChains.SolanaChains()[chainSelector]
 	addresses, _ := e.ExistingAddresses.AddressesForChain(chainSelector)
 	mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
@@ -89,10 +90,7 @@ func BuildProposalsForTxns(
 	)
 	proposers[chainSelector] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
 	inspectors[chainSelector] = mcmsSolana.NewInspector(chain.Client)
-	batches = append(batches, mcmsTypes.BatchOperation{
-		ChainSelector: mcmsTypes.ChainSelector(chainSelector),
-		Transactions:  txns,
-	})
+
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
@@ -105,6 +103,54 @@ func BuildProposalsForTxns(
 		return nil, fmt.Errorf("failed to build proposal: %w", err)
 	}
 	return proposal, nil
+}
+
+func BuildProposalsForTxns(
+	e cldf.Environment,
+	chainSelector uint64,
+	description string,
+	minDelay time.Duration,
+	txns []mcmsTypes.Transaction) (*mcms.TimelockProposal, error) {
+	batches := []mcmsTypes.BatchOperation{
+		{
+			ChainSelector: mcmsTypes.ChainSelector(chainSelector),
+			Transactions:  txns,
+		},
+	}
+	return buildProposalCommon(e, chainSelector, description, minDelay, batches)
+}
+
+func BuildProposalsForBatches(
+	e cldf.Environment,
+	chainSelector uint64,
+	description string,
+	minDelay time.Duration,
+	batches []mcmsTypes.BatchOperation) (*mcms.TimelockProposal, error) {
+	return buildProposalCommon(e, chainSelector, description, minDelay, batches)
+}
+
+func BuildMCMSTxn(ixn solana.Instruction, programID string, contractType cldf.ContractType) (*mcmsTypes.Transaction, error) {
+	data, err := ixn.Data()
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract data: %w", err)
+	}
+	for _, account := range ixn.Accounts() {
+		if account.IsSigner {
+			account.IsSigner = false
+		}
+	}
+	tx, err := mcmsSolana.NewTransaction(
+		programID,
+		data,
+		big.NewInt(0),        // e.g. value
+		ixn.Accounts(),       // pass along needed accounts
+		string(contractType), // some string identifying the target
+		[]string{},           // any relevant metadata
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create transaction: %w", err)
+	}
+	return &tx, nil
 }
 
 func FetchTimelockSigner(e cldf.Environment, chainSelector uint64) (solana.PublicKey, error) {
@@ -120,11 +166,11 @@ func FetchTimelockSigner(e cldf.Environment, chainSelector uint64) (solana.Publi
 	return timelockSignerPDA, nil
 }
 
+// returns the authority for the given ixn based on program ownership
 func GetAuthorityForIxn(
 	e *cldf.Environment,
 	chain cldf_solana.Chain,
 	chainState solanastateview.CCIPChainState,
-	mcms *proposalutils.TimelockConfig,
 	contractType cldf.ContractType,
 	tokenAddress solana.PublicKey, // used for burnmint and lockrelease
 	tokenMetadata string, // used for burnmint and lockrelease
@@ -137,4 +183,18 @@ func GetAuthorityForIxn(
 		return timelockSigner
 	}
 	return chain.DeployerKey.PublicKey()
+}
+
+// GetTokenProgramID returns the program ID for the given token program name
+func GetTokenProgramID(programName cldf.ContractType) (solana.PublicKey, error) {
+	tokenPrograms := map[cldf.ContractType]solana.PublicKey{
+		shared.SPLTokens:     solana.TokenProgramID,
+		shared.SPL2022Tokens: solana.Token2022ProgramID,
+	}
+
+	programID, ok := tokenPrograms[programName]
+	if !ok {
+		return solana.PublicKey{}, fmt.Errorf("invalid token program: %s. Must be one of: %s, %s", programName, shared.SPLTokens, shared.SPL2022Tokens)
+	}
+	return programID, nil
 }

@@ -6,7 +6,6 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -25,7 +24,6 @@ import (
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 const (
@@ -149,7 +147,7 @@ func SetOCR3ConfigSolana(e cldf.Environment, cfg v1_6.SetOCR3OffRampConfig) (cld
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 				}
 			} else {
-				tx, err := helpers.BuildMCMSTxn(instruction, state.SolChains[remote].OffRamp.String(), shared.OffRamp)
+				tx, err := BuildMCMSTxn(instruction, state.SolChains[remote].OffRamp.String(), shared.OffRamp)
 				if err != nil {
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 				}

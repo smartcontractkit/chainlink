@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 // use this changeset to disable a remote chain on solana
@@ -28,7 +27,7 @@ var _ cldf.ChangeSet[DisableRemoteChainConfig] = DisableRemoteChain
 
 type DisableRemoteChainConfig struct {
 	ChainSelector uint64
-	RemoteChains  []uint64
+	RemoteChains  []uint64 // the remote chain selectors to disable
 	MCMS          *proposalutils.TimelockConfig
 }
 
@@ -144,7 +143,6 @@ func doDisableRemoteChain(
 			&e,
 			chain,
 			chainState,
-			cfg.MCMS,
 			shared.FeeQuoter,
 			solana.PublicKey{},
 			"",
@@ -159,7 +157,7 @@ func doDisableRemoteChain(
 			return txns, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		if feeQuoterUsingMCMS {
-			tx, err := helpers.BuildMCMSTxn(feeQuoterIx, feeQuoterID.String(), shared.FeeQuoter)
+			tx, err := BuildMCMSTxn(feeQuoterIx, feeQuoterID.String(), shared.FeeQuoter)
 			if err != nil {
 				return txns, fmt.Errorf("failed to create transaction: %w", err)
 			}
@@ -173,7 +171,6 @@ func doDisableRemoteChain(
 			&e,
 			chain,
 			chainState,
-			cfg.MCMS,
 			shared.OffRamp,
 			solana.PublicKey{},
 			"")
@@ -187,7 +184,7 @@ func doDisableRemoteChain(
 			return txns, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		if offRampUsingMCMS {
-			tx, err := helpers.BuildMCMSTxn(offRampIx, offRampID.String(), shared.OffRamp)
+			tx, err := BuildMCMSTxn(offRampIx, offRampID.String(), shared.OffRamp)
 			if err != nil {
 				return txns, fmt.Errorf("failed to create transaction: %w", err)
 			}

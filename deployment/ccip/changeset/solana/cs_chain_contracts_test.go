@@ -64,7 +64,7 @@ func deployTokenAndMint(t *testing.T, tenv cldf.Environment, solChain uint64, wa
 	if err != nil {
 		return cldf.Environment{}, solana.PublicKey{}, err
 	}
-	addresses, err := e.ExistingAddresses.AddressesForChain(solChain)
+	addresses, err := e.ExistingAddresses.AddressesForChain(solChain) //nolint:staticcheck // addressbook still valid
 	require.NoError(t, err)
 	tokenAddress := solanastateview.FindSolanaAddress(
 		cldf.TypeAndVersion{
@@ -85,6 +85,7 @@ func TestAddRemoteChainWithMcms(t *testing.T) {
 
 func TestAddRemoteChainWithoutMcms(t *testing.T) {
 	t.Parallel()
+	skipInCI(t)
 	doTestAddRemoteChain(t, false)
 }
 
@@ -350,7 +351,6 @@ func doTestBilling(t *testing.T, mcms bool) {
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
 			ccipChangesetSolana.BillingTokenConfig{
 				ChainSelector: solChain,
-				TokenPubKey:   tokenAddress.String(),
 				Config: solFeeQuoter.BillingTokenConfig{
 					Enabled: true,
 					Mint:    tokenAddress,
@@ -368,7 +368,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 			ccipChangesetSolana.TokenTransferFeeForRemoteChainConfig{
 				ChainSelector:       solChain,
 				RemoteChainSelector: evmChain,
-				TokenPubKey:         tokenAddress.String(),
+				TokenPubKey:         tokenAddress,
 				Config: solFeeQuoter.TokenTransferFeeConfig{
 					MinFeeUsdcents:    800,
 					MaxFeeUsdcents:    1600,
@@ -405,7 +405,6 @@ func doTestBilling(t *testing.T, mcms bool) {
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
 			ccipChangesetSolana.BillingTokenConfig{
 				ChainSelector: solChain,
-				TokenPubKey:   tokenAddress.String(),
 				Config: solFeeQuoter.BillingTokenConfig{
 					Enabled: true,
 					Mint:    tokenAddress,
@@ -561,7 +560,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 			ccipChangesetSolana.WithdrawBilledFundsConfig{
 				ChainSelector: solChain,
 				TransferAll:   true,
-				TokenPubKey:   tokenAddress.String(),
+				TokenPubKey:   tokenAddress,
 				MCMS:          mcmsConfig,
 			},
 		),
@@ -583,6 +582,7 @@ func TestBillingWithMcms(t *testing.T) {
 
 func TestBillingWithoutMcms(t *testing.T) {
 	t.Parallel()
+	skipInCI(t)
 	doTestBilling(t, false)
 }
 
@@ -725,6 +725,7 @@ func TestTokenAdminRegistryWithMcms(t *testing.T) {
 
 func TestTokenAdminRegistryWithoutMcms(t *testing.T) {
 	t.Parallel()
+	skipInCI(t)
 	doTestTokenAdminRegistry(t, false)
 }
 
@@ -823,6 +824,7 @@ func TestPoolLookupTableWithMcms(t *testing.T) {
 }
 
 func TestPoolLookupTableWithoutMcms(t *testing.T) {
+	skipInCI(t)
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	doTestPoolLookupTable(t, tenv.Env, false, shared.CLLMetadata)

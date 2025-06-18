@@ -10,9 +10,9 @@ import (
 	"github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms"
-	"github.com/smartcontractkit/mcms/sdk"
-	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -62,15 +61,18 @@ func getTypeToProgramDeployName() map[cldf.ContractType]string {
 }
 
 type DeployChainContractsConfig struct {
-	HomeChainSelector      uint64
+	HomeChainSelector      uint64 // eth mainnet/testnet
 	ChainSelector          uint64
 	ContractParamsPerChain ChainContractParams
-	UpgradeConfig          UpgradeConfig
-	BuildConfig            *helpers.BuildSolanaConfig
+	// include the version of the contracts you want to upgrade here
+	// the cs will use this config to determine what contracts to upgrade
+	UpgradeConfig UpgradeConfig
+	// this will be used to build the solana programs
+	BuildConfig *BuildSolanaConfig
 	// identifier for which token pool to deploy (i.e. partner identifier). defaults to CLL
 	BurnMintTokenPoolMetadata    string
 	LockReleaseTokenPoolMetadata string
-	// TODO: add validation for this
+	// if specified, the mcms contracts will be deployed and initialized if they are not already deployed
 	MCMSWithTimelockConfig *types.MCMSWithTimelockConfigV2
 }
 
@@ -81,7 +83,8 @@ type ChainContractParams struct {
 
 type FeeQuoterParams struct {
 	DefaultMaxFeeJuelsPerMsg solBinary.Uint128
-	BillingConfig            []solFeeQuoter.BillingTokenConfig
+	// use this to setup billing tokens during initial deploy
+	BillingConfig []solFeeQuoter.BillingTokenConfig
 }
 
 type OffRampParams struct {
@@ -180,28 +183,13 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 	// on CI they wont be present and we want to fetch them here
 	if c.BuildConfig != nil {
 		e.Logger.Debugw("Building solana artifacts", "gitCommitSha", c.BuildConfig.GitCommitSha)
-		err = helpers.BuildSolana(e, *c.BuildConfig, ccipBuildParams)
+		err = BuildSolana(e, *c.BuildConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build solana: %w", err)
 		}
 	} else {
 		e.Logger.Debugw("Skipping solana build as no build config provided")
 	}
-
-	if err := c.UpgradeConfig.Validate(e, chainSel); err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("invalid UpgradeConfig: %w", err)
-	}
-	addresses, _ := e.ExistingAddresses.AddressesForChain(chainSel)
-	mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
-	timelocks := map[uint64]string{}
-	proposers := map[uint64]string{}
-	inspectors := map[uint64]sdk.Inspector{}
-	timelocks[chainSel] = mcmsSolana.ContractAddress(
-		mcmState.TimelockProgram,
-		mcmsSolana.PDASeed(mcmState.TimelockSeed),
-	)
-	proposers[chainSel] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
-	inspectors[chainSel] = mcmsSolana.NewInspector(chain.Client)
 
 	batches, err := deployChainContractsSolana(e, chain, newAddresses, c)
 	if err != nil {
@@ -210,14 +198,13 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 	}
 
 	if len(batches) > 0 {
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		proposal, err := BuildProposalsForBatches(
 			e,
-			timelocks,
-			proposers,
-			inspectors,
-			batches,
+			chain.Selector,
 			"proposal to upgrade CCIP contracts",
-			*c.UpgradeConfig.MCMS)
+			c.UpgradeConfig.MCMS.MinDelay,
+			batches,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -243,14 +230,12 @@ func DeployAndMaybeSaveToAddressBook(
 	isUpgrade bool,
 	metadata string) (solana.PublicKey, error) {
 	programName := getTypeToProgramDeployName()[contractType]
-	overallocate := metadata == "" || metadata == shared.CLLMetadata
-	// by default we want to overallocate buffers, but if metadata is set (i.e. we're managing partner programs)
-	// we want to set the overallocate flag to false
-
+	// the last bool is whether to overallocate the buffer account, if the program is going to be managed
+	// by timelock/mcms we want to overallocate the buffer account so that future upgrades can be performed
 	programID, err := chain.DeployProgram(e.Logger, cldf_solana.ProgramInfo{
 		Name:  programName,
 		Bytes: deployment.SolanaProgramBytes[programName],
-	}, isUpgrade, overallocate)
+	}, isUpgrade, true)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to deploy program: %w", err)
 	}
@@ -388,7 +373,7 @@ func deployChainContractsSolana(
 				return batches, fmt.Errorf("failed to build instruction: %w", err)
 			}
 			if config.UpgradeConfig.MCMS != nil {
-				priceUpdaterTx, err := helpers.BuildMCMSTxn(priceUpdaterix, feeQuoterAddress.String(), shared.FeeQuoter)
+				priceUpdaterTx, err := BuildMCMSTxn(priceUpdaterix, feeQuoterAddress.String(), shared.FeeQuoter)
 				if err != nil {
 					return batches, fmt.Errorf("failed to create price updater transaction: %w", err)
 				}
@@ -910,13 +895,19 @@ func generateUpgradeTxns(
 	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	// if we're not upgrading via timelock, execute the raw ixns
 	if config.UpgradeConfig.UpgradeAuthority != timelockSignerPDA {
+		programName := getTypeToProgramDeployName()[contractType]
+		newBytes := deployment.SolanaProgramBytes[programName]
+		bufferSize, err := GetSolProgramSize(&e, chain, bufferProgram)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get buffer size: %w", err)
+		}
 		ixns := []solana.Instruction{upgradeIxn}
 		extendIxn, err := generateExtendIxn(
 			&e,
 			chain,
 			programID,
-			bufferProgram,
 			config.UpgradeConfig.UpgradeAuthority,
+			mathutil.Max(newBytes, bufferSize),
 		)
 		if err != nil {
 			return txns, fmt.Errorf("failed to generate extend buffer instruction: %w", err)
@@ -930,11 +921,11 @@ func generateUpgradeTxns(
 		}
 		return []mcmsTypes.Transaction{}, nil
 	}
-	upgradeTx, err := helpers.BuildMCMSTxn(upgradeIxn, solana.BPFLoaderUpgradeableProgramID.String(), contractType)
+	upgradeTx, err := BuildMCMSTxn(upgradeIxn, solana.BPFLoaderUpgradeableProgramID.String(), contractType)
 	if err != nil {
 		return txns, fmt.Errorf("failed to create upgrade transaction: %w", err)
 	}
-	closeTx, err := helpers.BuildMCMSTxn(closeIxn, solana.BPFLoaderUpgradeableProgramID.String(), contractType)
+	closeTx, err := BuildMCMSTxn(closeIxn, solana.BPFLoaderUpgradeableProgramID.String(), contractType)
 	if err != nil {
 		return txns, fmt.Errorf("failed to create close transaction: %w", err)
 	}
@@ -979,8 +970,8 @@ func generateExtendIxn(
 	e *cldf.Environment,
 	chain cldf_solana.Chain,
 	programID solana.PublicKey,
-	bufferAddress solana.PublicKey,
 	payer solana.PublicKey,
+	newProgramSize int,
 ) (*solana.GenericInstruction, error) {
 	// Derive the program data address
 	programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programID.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
@@ -991,16 +982,12 @@ func generateExtendIxn(
 	}
 	e.Logger.Debugw("Program data size", "programDataSize", programDataSize)
 
-	bufferSize, err := GetSolProgramSize(e, chain, bufferAddress)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get buffer size: %w", err)
-	}
-	e.Logger.Debugw("Buffer account size", "bufferSize", bufferSize)
-	if bufferSize <= programDataSize {
-		e.Logger.Debugf("Buffer account size %d is less than program account size %d", bufferSize, programDataSize)
+	e.Logger.Debugw("New program size", "newProgramSize", newProgramSize)
+	if newProgramSize <= programDataSize {
+		e.Logger.Debugf("Buffer account size %d is less than program account size %d", newProgramSize, programDataSize)
 		return nil, nil
 	}
-	extraBytes := bufferSize - programDataSize
+	extraBytes := newProgramSize - programDataSize
 	if extraBytes > math.MaxUint32 {
 		return nil, fmt.Errorf("extra bytes %d exceeds maximum value %d", extraBytes, math.MaxUint32)
 	}

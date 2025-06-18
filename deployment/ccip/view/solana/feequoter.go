@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
-
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"

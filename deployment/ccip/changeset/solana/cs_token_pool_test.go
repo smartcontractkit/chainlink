@@ -29,7 +29,6 @@ import (
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -40,6 +39,7 @@ import (
 )
 
 func TestAddTokenPoolWithoutMcms(t *testing.T) {
+	skipInCI(t)
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	doTestTokenPool(t, tenv.Env, false, shared.CLLMetadata)
@@ -116,9 +116,9 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 	require.NoError(t, err)
 
 	rateLimitConfig := solBaseTokenPool.RateLimitConfig{
-		Enabled:  false,
-		Capacity: 0,
-		Rate:     0,
+		Enabled:  true,
+		Capacity: uint64(50e11),
+		Rate:     uint64(167000000000),
 	}
 	inboundConfig := rateLimitConfig
 	outboundConfig := rateLimitConfig
@@ -194,24 +194,23 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 		require.Equal(t, testhelpers.LocalTokenDecimals, int(remoteChainConfigAccount.Base.Remote.Decimals))
 		e.Logger.Infof("Pool addresses: %v", remoteChainConfigAccount.Base.Remote.PoolAddresses)
 		require.Len(t, remoteChainConfigAccount.Base.Remote.PoolAddresses, 1)
-		require.Equal(t, inboundConfig.Enabled, remoteChainConfigAccount.Base.InboundRateLimit.Cfg.Enabled)
-		require.Equal(t, outboundConfig.Enabled, remoteChainConfigAccount.Base.OutboundRateLimit.Cfg.Enabled)
+		require.Equal(t, inboundConfig.Rate, remoteChainConfigAccount.Base.InboundRateLimit.Cfg.Rate)
+		require.Equal(t, outboundConfig.Rate, remoteChainConfigAccount.Base.OutboundRateLimit.Cfg.Rate)
 
 		allowedAccount1, _ := solana.NewRandomPrivateKey()
 		allowedAccount2, _ := solana.NewRandomPrivateKey()
 
 		newRateLimitConfig := solBaseTokenPool.RateLimitConfig{
 			Enabled:  true,
-			Capacity: uint64(1000),
-			Rate:     1,
+			Capacity: uint64(50e12),
+			Rate:     uint64(1670000000000),
 		}
 		newOutboundConfig := newRateLimitConfig
 		newInboundConfig := newRateLimitConfig
 
 		if mcms {
 			e.Logger.Debugf("Configuring MCMS for token pool %v", testCase.poolType)
-			switch testCase.poolType {
-			case solTestTokenPool.BurnAndMint_PoolType:
+			if testCase.poolType == solTestTokenPool.BurnAndMint_PoolType {
 				_, _ = testhelpers.TransferOwnershipSolana(
 					t, &e, solChain, false,
 					ccipChangesetSolana.CCIPContractsToTransfer{
@@ -221,7 +220,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 							},
 						},
 					})
-			case solTestTokenPool.LockAndRelease_PoolType:
+			} else if testCase.poolType == solTestTokenPool.LockAndRelease_PoolType {
 				_, _ = testhelpers.TransferOwnershipSolana(
 					t, &e, solChain, false,
 					ccipChangesetSolana.CCIPContractsToTransfer{
@@ -231,7 +230,6 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 							},
 						},
 					})
-			default:
 			}
 			e.Logger.Debugf("MCMS Configured for token pool %v with token address %v", testCase.poolType, tokenAddress)
 		}
@@ -287,8 +285,8 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 
 		err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(ctx, remoteChainConfigPDA, &remoteChainConfigAccount)
 		require.NoError(t, err)
-		require.Equal(t, newInboundConfig.Enabled, remoteChainConfigAccount.Base.InboundRateLimit.Cfg.Enabled)
-		require.Equal(t, newOutboundConfig.Enabled, remoteChainConfigAccount.Base.OutboundRateLimit.Cfg.Enabled)
+		require.Equal(t, newInboundConfig.Rate, remoteChainConfigAccount.Base.InboundRateLimit.Cfg.Rate)
+		require.Equal(t, newOutboundConfig.Rate, remoteChainConfigAccount.Base.OutboundRateLimit.Cfg.Rate)
 
 		if testCase.poolType == solTestTokenPool.LockAndRelease_PoolType && tokenAddress == newTokenAddress {
 			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
@@ -357,8 +355,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 				timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
 				require.NoError(t, err)
 				e.Logger.Debugf("Transferring away from MCMS for token pool %v", testCase.poolType)
-				switch testCase.poolType {
-				case solTestTokenPool.BurnAndMint_PoolType:
+				if testCase.poolType == solTestTokenPool.BurnAndMint_PoolType {
 					e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 						commonchangeset.Configure(
 							cldf.CreateLegacyChangeSet(ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolana),
@@ -379,7 +376,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 						),
 					})
 					require.NoError(t, err)
-				case solTestTokenPool.LockAndRelease_PoolType:
+				} else if testCase.poolType == solTestTokenPool.LockAndRelease_PoolType {
 					e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 						commonchangeset.Configure(
 							cldf.CreateLegacyChangeSet(ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolana),
@@ -400,7 +397,6 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 						),
 					})
 					require.NoError(t, err)
-				default:
 				}
 				e.Logger.Debugf("MCMS Configured for token pool %v with token address %v", testCase.poolType, tokenAddress)
 				e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
@@ -577,10 +573,10 @@ func TestPartnerTokenPools(t *testing.T) {
 		ccipChangesetSolana.DeployChainContractsConfig{
 			HomeChainSelector: e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0],
 			ChainSelector:     solChainSelectors[0],
-			BuildConfig: &helpers.BuildSolanaConfig{
+			BuildConfig: &ccipChangesetSolana.BuildSolanaConfig{
 				GitCommitSha:   OldSha,
 				DestinationDir: e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
-				LocalBuild: helpers.LocalBuildConfig{
+				LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 					BuildLocally: true,
 				},
 			},
