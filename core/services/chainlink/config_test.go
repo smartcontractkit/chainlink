@@ -110,6 +110,7 @@ var (
 				ChainID: ubig.NewI(1),
 				Chain: evmcfg.Chain{
 					FinalityDepth:        ptr[uint32](26),
+					SafeDepth:            ptr[uint32](0),
 					FinalityTagEnabled:   ptr[bool](true),
 					FinalizedBlockOffset: ptr[uint32](12),
 				},
@@ -591,6 +592,7 @@ func TestConfig_Marshal(t *testing.T) {
 				BlockBackfillSkip:    ptr(true),
 				ChainType:            chaintype.NewConfig("Optimism"),
 				FinalityDepth:        ptr[uint32](42),
+				SafeDepth:            ptr[uint32](0),
 				FinalityTagEnabled:   ptr[bool](true),
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
 				FinalizedBlockOffset: ptr[uint32](16),
@@ -1084,6 +1086,7 @@ BlockBackfillDepth = 100
 BlockBackfillSkip = true
 ChainType = 'Optimism'
 FinalityDepth = 42
+SafeDepth = 0
 FinalityTagEnabled = true
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'

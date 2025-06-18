@@ -50,8 +50,8 @@ func createAptosChainConfig(chainID string, chain cldf_aptos.Chain) chainlink.Ra
 
 	chainConfig["Enabled"] = true
 	chainConfig["ChainID"] = chainID
-	chainConfig["NetworkName"] = "aptos-local"
-	chainConfig["NetworkNameFull"] = "aptos-local"
+	chainConfig["NetworkName"] = "localnet"
+	chainConfig["NetworkNameFull"] = "aptos-localnet"
 	chainConfig["Nodes"] = []any{
 		map[string]any{
 			"Name": "primary",

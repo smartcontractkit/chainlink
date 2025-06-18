@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
@@ -22,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -136,7 +138,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 }
 
 // DeployCCIPAndAddLanes is the actual ccip setup once the nodes are initialized.
-func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab cldf.AddressBook, rmnEnabled bool) (DeployCCIPOutput, error) {
+func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab cldf.AddressBook, rmnEnabled bool, evmFundingEth uint64) (DeployCCIPOutput, error) {
 	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
@@ -181,7 +183,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	// we need to use the nodeinfo from the envConfig here, because multiAddr is not
 	// populated in the environment variable
 	lggr.Infow("distributing funds...")
-	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
+	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e, evmFundingEth)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to distribute funds to node transmitters: %w", err)
 	}
@@ -197,7 +199,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 }
 
 // ConfigureCCIPOCR is a group of changesets used from CRIB to redeploy the chainlink don on an existing setup
-func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab cldf.AddressBook, rmnEnabled bool) (DeployCCIPOutput, error) {
+func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab cldf.AddressBook, rmnEnabled bool, evmFundingEth uint64) (DeployCCIPOutput, error) {
 	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
@@ -209,7 +211,7 @@ func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
 	}
-	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
+	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e, evmFundingEth)
 	if err != nil {
 		return DeployCCIPOutput{}, err
 	}
@@ -226,7 +228,7 @@ func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.
 
 // FundCCIPTransmitters is used from CRIB to provide funds to the node transmitters
 // This function sends funds from the deployer key to the chainlink node transmitters
-func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, ab cldf.AddressBook) (DeployCCIPOutput, error) {
+func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, ab cldf.AddressBook, evmFundingEth uint64) (DeployCCIPOutput, error) {
 	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
@@ -237,7 +239,7 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 	// we need to use the nodeinfo from the envConfig here, because multiAddr is not
 	// populated in the environment variable
 	lggr.Infow("distributing funds...")
-	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
+	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e, evmFundingEth)
 	if err != nil {
 		return DeployCCIPOutput{}, err
 	}
@@ -822,23 +824,64 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState) (c
 	return *e, err
 }
 func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool, rmnEnabled bool) (cldf.Environment, error) {
-	chainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
+	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
+	solSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
+	// need to have extra definition here for golint
+	var allSelectors = make([]uint64, 0)
+	allSelectors = append(allSelectors, evmSelectors...)
+	allSelectors = append(allSelectors, solSelectors...)
 	var commitOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	var execOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	// Should be configured in the future based on the load test scenario
 	chainType := v1_6.Default
-
-	overrides := func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams { return params }
-	if rmnEnabled {
-		overrides = func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-			params.CommitOffChainConfig.RMNEnabled = true
-			return params
-		}
+	_, err := testhelpers.DeployFeeds(e.Logger, e.ExistingAddresses, e.BlockChains.EVMChains()[feedChainSel], testhelpers.DefaultLinkPrice, testhelpers.DefaultWethPrice)
+	if err != nil {
+		return *e, fmt.Errorf("failed to deploy feeds: %w", err)
+	}
+	state, err := stateview.LoadOnchainState(*e)
+	if err != nil {
+		return *e, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	for selector := range e.BlockChains.EVMChains() {
+	overrides := func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams { return params }
+
+	tokenConfig := shared.NewTestTokenConfig(state.Chains[feedChainSel].USDFeeds)
+	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
+
+	for _, selector := range evmSelectors {
 		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, nil, overrides)
-		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, nil, nil)
+		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, tokenDataProviders, nil)
+	}
+
+	for _, selector := range solSelectors {
+		// TODO: this is a workaround for tokenConfig.GetTokenInfo
+		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
+		tokenInfo[cciptypes.UnknownEncodedAddress(state.SolChains[selector].LinkToken.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
+		// TODO: point this to proper SOL feed, apparently 0 signified SOL
+		tokenInfo[cciptypes.UnknownEncodedAddress(solana.SolMint.String())] = tokenConfig.TokenSymbolToInfo[shared.WethSymbol]
+		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, tokenInfo,
+			func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+				params.OCRParameters.MaxDurationQuery = 100 * time.Millisecond
+				params.OCRParameters.DeltaRound = 5 * time.Second
+				params.CommitOffChainConfig.RMNEnabled = false
+				params.CommitOffChainConfig.RMNSignaturesTimeout = 100 * time.Millisecond
+				params.CommitOffChainConfig.MultipleReportsEnabled = true
+				params.CommitOffChainConfig.MaxMerkleRootsPerReport = 1
+				params.CommitOffChainConfig.MaxPricesPerReport = 3
+				params.CommitOffChainConfig.MaxMerkleTreeSize = 1
+
+				return params
+			})
+		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, tokenDataProviders,
+			func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+				params.ExecuteOffChainConfig.MaxSingleChainReports = 1
+				params.ExecuteOffChainConfig.BatchGasLimit = 1000000
+				params.ExecuteOffChainConfig.MaxReportMessages = 1
+				params.ExecuteOffChainConfig.MultipleReportsEnabled = true
+
+				return params
+			})
+		commitOCRConfigPerSelector[selector].CommitOffChainConfig.RMNEnabled = false
 	}
 
 	var commitChangeset commonchangeset.ConfiguredChangeSet
@@ -898,11 +941,11 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 			HomeChainSelector: homeChainSel,
 			PluginInfo: []v1_6.PromoteCandidatePluginInfo{
 				{
-					RemoteChainSelectors: chainSelectors,
+					RemoteChainSelectors: allSelectors,
 					PluginType:           types.PluginTypeCCIPCommit,
 				},
 				{
-					RemoteChainSelectors: chainSelectors,
+					RemoteChainSelectors: allSelectors,
 					PluginType:           types.PluginTypeCCIPExec,
 				},
 			},
@@ -912,10 +955,19 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 		cldf.CreateLegacyChangeSet(v1_6.SetOCR3OffRampChangeset),
 		v1_6.SetOCR3OffRampConfig{
 			HomeChainSel:       homeChainSel,
-			RemoteChainSels:    chainSelectors,
+			RemoteChainSels:    evmSelectors,
 			CCIPHomeConfigType: globals.ConfigTypeActive,
 		},
-	))
+	), commonchangeset.Configure(
+		// Enable the OCR config on the remote chains.
+		cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetOCR3ConfigSolana),
+		v1_6.SetOCR3OffRampConfig{
+			HomeChainSel:       homeChainSel,
+			RemoteChainSels:    solSelectors,
+			CCIPHomeConfigType: globals.ConfigTypeActive,
+		},
+	),
+	)
 }
 
 type RMNNodeConfig struct {

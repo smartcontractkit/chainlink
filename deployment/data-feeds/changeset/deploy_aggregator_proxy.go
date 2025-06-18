@@ -22,7 +22,7 @@ func deployAggregatorProxyLogic(env cldf.Environment, c types.DeployAggregatorPr
 	for index, chainSelector := range c.ChainsToDeploy {
 		chain := env.BlockChains.EVMChains()[chainSelector]
 
-		dataFeedsCacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, chainSelector, nil)
+		dataFeedsCacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, env.DataStore.Addresses(), chainSelector, nil)
 		if dataFeedsCacheAddress == "" {
 			return cldf.ChangesetOutput{}, fmt.Errorf("DataFeedsCache contract address not found in addressbook for chain %d", chainSelector)
 		}
