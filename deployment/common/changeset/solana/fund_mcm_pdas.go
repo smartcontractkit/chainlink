@@ -32,8 +32,9 @@ type FundMCMSignersChangeset struct{}
 // VerifyPreconditions checks if the deployer has enough SOL to fund the MCMS signers on each chain.
 func (f FundMCMSignersChangeset) VerifyPreconditions(e cldf.Environment, config FundMCMSignerConfig) error {
 	// the number of accounts to fund per chain (bypasser, canceller, proposer, timelock)
+	solChains := e.BlockChains.SolanaChains()
 	for chainSelector, chainCfg := range config.AmountsPerChain {
-		solChain, ok := e.SolChains[chainSelector]
+		solChain, ok := solChains[chainSelector]
 		if !ok {
 			return fmt.Errorf("solana chain not found for selector %d", chainSelector)
 		}
@@ -67,8 +68,9 @@ func (f FundMCMSignersChangeset) VerifyPreconditions(e cldf.Environment, config 
 
 // Apply funds the MCMS signers on each chain.
 func (f FundMCMSignersChangeset) Apply(e cldf.Environment, config FundMCMSignerConfig) (cldf.ChangesetOutput, error) {
+	solChains := e.BlockChains.SolanaChains()
 	for chainSelector, cfgAmounts := range config.AmountsPerChain {
-		solChain := e.SolChains[chainSelector]
+		solChain := solChains[chainSelector]
 		addreses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)

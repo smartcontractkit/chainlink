@@ -21,9 +21,9 @@ func deployBundleAggregatorProxyLogic(env cldf.Environment, c types.DeployBundle
 	ab := cldf.NewMemoryAddressBook()
 
 	for _, chainSelector := range c.ChainsToDeploy {
-		chain := env.Chains[chainSelector]
+		chain := env.BlockChains.EVMChains()[chainSelector]
 
-		dataFeedsCacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, chainSelector, &c.CacheLabel) //nolint:staticcheck // TODO: replace with DataStore when ready
+		dataFeedsCacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, env.DataStore.Addresses(), chainSelector, &c.CacheLabel) // TODO: replace with DataStore when ready
 		if dataFeedsCacheAddress == "" {
 			return cldf.ChangesetOutput{}, fmt.Errorf("DataFeedsCache contract address not found in addressbook for chain %d", chainSelector)
 		}
@@ -45,11 +45,11 @@ func deployBundleAggregatorProxyLogic(env cldf.Environment, c types.DeployBundle
 
 func deployBundleAggregatorProxyPrecondition(env cldf.Environment, c types.DeployBundleAggregatorProxyConfig) error {
 	for _, chainSelector := range c.ChainsToDeploy {
-		_, ok := env.Chains[chainSelector]
+		_, ok := env.BlockChains.EVMChains()[chainSelector]
 		if !ok {
 			return errors.New("chain not found in environment")
 		}
-		_, err := env.ExistingAddresses.AddressesForChain(chainSelector) //nolint:staticcheck // TODO: replace with DataStore when ready
+		_, err := env.ExistingAddresses.AddressesForChain(chainSelector) // TODO: replace with DataStore when ready
 		if err != nil {
 			return fmt.Errorf("failed to get addessbook for chain %d: %w", chainSelector, err)
 		}

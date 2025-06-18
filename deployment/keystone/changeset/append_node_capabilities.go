@@ -38,6 +38,9 @@ func AppendNodeCapabilities(env cldf.Environment, req *AppendNodeCapabilitiesReq
 		if r.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
+		if capReg.McmsContracts == nil {
+			return out, fmt.Errorf("expected capabiity registry contract %s to be owned by MCMS", capReg.Contract.Address().String())
+		}
 		timelocksPerChain := map[uint64]string{
 			c.Chain.Selector: capReg.McmsContracts.Timelock.Address().Hex(),
 		}
@@ -73,7 +76,7 @@ func (req *AppendNodeCapabilitiesRequest) convert(e cldf.Environment, ref datast
 	if err := req.Validate(e); err != nil {
 		return nil, nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
 	}
-	registryChain := e.Chains[req.RegistryChainSel] // exists because of the validation above
+	registryChain := e.BlockChains.EVMChains()[req.RegistryChainSel] // exists because of the validation above
 	cr, err := loadCapabilityRegistry(registryChain, e, ref)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to load capability registry: %w", err)

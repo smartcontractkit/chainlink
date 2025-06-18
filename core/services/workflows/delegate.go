@@ -14,10 +14,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 )
+
+func WithBillingClient(client metering.BillingClient) func(*Delegate) {
+	return func(e *Delegate) {
+		e.billingClient = client
+	}
+}
 
 type Delegate struct {
 	registry       core.CapabilitiesRegistry
@@ -26,6 +33,7 @@ type Delegate struct {
 	store          store.Store
 	ratelimiter    *ratelimiter.RateLimiter
 	workflowLimits *syncerlimiter.Limits
+	billingClient  metering.BillingClient
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -91,6 +99,7 @@ func NewDelegate(
 	store store.Store,
 	ratelimiter *ratelimiter.RateLimiter,
 	workflowLimits *syncerlimiter.Limits,
+	opts ...func(*Delegate),
 ) *Delegate {
 	return &Delegate{
 		logger:   logger,

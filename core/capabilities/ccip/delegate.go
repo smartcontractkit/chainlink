@@ -10,8 +10,10 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/avast/retry-go/v4"
+
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -32,18 +34,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/oraclecreator"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -121,14 +122,17 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 
 	cfg := d.capabilityConfig
 	rid := cfg.ExternalRegistry().RelayID()
+
+	// The home chain relayer is required - all nodes must support the home chain,
+	// otherwise they cannot fetch any CCIP configuration or know what DON to join.
 	homeChainRelayer, err := d.relayers.Get(rid)
 	if err != nil {
-		return nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
+		return nil, fmt.Errorf("could not fetch home chain relayer %s that is configured for capabilities registry: %w", rid, err)
 	}
 	registrySyncer, err := registrysyncer.New(
 		d.lggr,
-		func() (p2ptypes.PeerID, error) {
-			return p2ptypes.PeerID(p2pID.PeerID()), nil
+		func() (ragep2ptypes.PeerID, error) {
+			return ragep2ptypes.PeerID(p2pID.PeerID()), nil
 		},
 		homeChainRelayer,
 		cfg.ExternalRegistry().Address(),
@@ -143,6 +147,10 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, err
 	}
 
+	// allRelayers are the relayers that are configured for the node.
+	// This may not be all chains that CCIP supports. Since the node
+	// has a relayer for a particular chain, it can also transmit to that chain,
+	// so we also fetch the transmitter keys for all relayers.
 	allRelayers := d.relayers.GetIDToRelayerMap()
 	transmitterKeys, err := d.getTransmitterKeys(ctx, maps.Keys(allRelayers))
 	if err != nil {
@@ -175,7 +183,10 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		retry.Delay(10*time.Second),
 		retry.DelayType(retry.FixedDelay),
 		retry.OnRetry(func(attempt uint, err error) {
-			d.lggr.Warnw("failed to get home chain contract reader, retrying", "attempt", attempt, "err", err)
+			d.lggr.Warnw(
+				"failed to get home chain contract reader, retrying. if this is consistently happening please check home chain RPC health",
+				"attempt", attempt,
+				"err", err)
 		}),
 	)
 	if err != nil {
@@ -185,7 +196,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 
 	hcr := ccipreaderpkg.NewObservedHomeChainReader(
 		homeChainContractReader,
-		d.lggr.Named("HomeChainReader"),
+		logger.Named(d.lggr, "HomeChainReader"),
 		ccipreaderpkg.HomeChainPollingInterval,
 		ccipConfigBinding,
 		d.capabilityConfig.ExternalRegistry().ChainID(),
@@ -205,7 +216,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	if err != nil {
 		return nil, err
 	}
-	addressCodec := pluginServices.AddrCodec
 
 	// if bootstrappers are provided we assume that the node is a plugin oracle.
 	// the reason for this is that bootstrap oracles do not need to be aware
@@ -228,7 +238,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			bootstrapperLocators,
 			hcr,
 			cciptypes.ChainSelector(homeChainChainSelector),
-			addressCodec,
+			pluginServices.AddrCodec,
+			p2pID,
 		)
 	} else {
 		oracleCreator = oraclecreator.NewBootstrapOracleCreator(
@@ -238,7 +249,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			d.monitoringEndpointGen,
 			d.lggr,
 			homeChainContractReader,
-			addressCodec,
+			pluginServices.AddrCodec,
 		)
 	}
 
@@ -248,7 +259,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		ragep2ptypes.PeerID(p2pID.PeerID()),
 		d.lggr,
 		hcr,
-		12*time.Second,
+		utils.WithJitter(ccipreaderpkg.HomeChainPollingInterval),
 		oracleCreator,
 	)
 

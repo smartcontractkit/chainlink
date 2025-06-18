@@ -17,13 +17,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -409,7 +410,7 @@ func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg 
 	ch.On("Config").Return(scopedCfg)
 	ch.On("HeadTracker").Return(nil)
 
-	return NewLegacyChainsWithChain(ch, cfg)
+	return NewLegacyChainsWithChain(ch)
 }
 
 func NewLegacyChainsWithMockChainAndTxManager(t testing.TB, ethClient evmclient.Client, cfg toml.HasEVMConfigs, txm txmgr.TxManager) legacyevm.LegacyChainContainer {
@@ -421,10 +422,10 @@ func NewLegacyChainsWithMockChainAndTxManager(t testing.TB, ethClient evmclient.
 	ch.On("Config").Return(scopedCfg)
 	ch.On("TxManager").Return(txm)
 
-	return NewLegacyChainsWithChain(ch, cfg)
+	return NewLegacyChainsWithChain(ch)
 }
 
-func NewLegacyChainsWithChain(ch legacyevm.Chain, cfg toml.HasEVMConfigs) legacyevm.LegacyChainContainer {
-	m := map[string]legacyevm.Chain{ch.ID().String(): ch}
-	return legacyevm.NewLegacyChains(m, cfg.EVMConfigs())
+func NewLegacyChainsWithChain(ch legacyevm.Chain) legacyevm.LegacyChainContainer {
+	m := map[string]types.ChainService{ch.ID().String(): ch}
+	return legacyevm.NewLegacyChains(m)
 }

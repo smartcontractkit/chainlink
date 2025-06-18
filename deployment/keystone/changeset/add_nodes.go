@@ -220,8 +220,7 @@ func AddNodes(env cldf.Environment, req *AddNodesRequest) (cldf.ChangesetOutput,
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid request: %w", err)
 	}
 
-	capReg, err := loadCapabilityRegistry(env.Chains[req.RegistryChainSel], env, req.RegistryRef)
-
+	capReg, err := loadCapabilityRegistry(env.BlockChains.EVMChains()[req.RegistryChainSel], env, req.RegistryRef)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load capability registry sets: %w", err)
 	}
@@ -241,7 +240,7 @@ func AddNodes(env cldf.Environment, req *AddNodesRequest) (cldf.ChangesetOutput,
 
 	var (
 		useMCMS       = req.MCMSConfig != nil
-		registryChain = env.Chains[req.RegistryChainSel]
+		registryChain = env.BlockChains.EVMChains()[req.RegistryChainSel]
 	)
 	resp, err := internal.AddNodes(env.Logger, &internal.AddNodesRequest{
 		RegistryChain:        registryChain,
@@ -257,6 +256,9 @@ func AddNodes(env cldf.Environment, req *AddNodesRequest) (cldf.ChangesetOutput,
 	if useMCMS {
 		if resp.Ops == nil || len(resp.Ops.Transactions) == 0 {
 			return out, errors.New("expected MCMS operation to be non-nil")
+		}
+		if capReg.McmsContracts == nil {
+			return out, fmt.Errorf("expected capabiity registry contract %s to be owned by MCMS", capReg.Contract.Address().String())
 		}
 		timelocksPerChain := map[uint64]string{
 			registryChain.Selector: capReg.McmsContracts.Timelock.Address().Hex(),

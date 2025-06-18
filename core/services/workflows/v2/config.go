@@ -6,10 +6,13 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -19,6 +22,7 @@ import (
 type EngineConfig struct {
 	Lggr            logger.Logger
 	Module          host.ModuleV2
+	WorkflowConfig  []byte // workflow author provided config
 	CapRegistry     core.CapabilitiesRegistry
 	ExecutionsStore store.Store
 	Clock           clockwork.Clock
@@ -31,53 +35,52 @@ type EngineConfig struct {
 	GlobalLimits         *syncerlimiter.Limits    // global to all workflows
 	ExecutionRateLimiter *ratelimiter.RateLimiter // global + per owner
 
-	Hooks LifecycleHooks
+	BeholderEmitter custmsg.MessageEmitter
+
+	Hooks         LifecycleHooks
+	BillingClient metering.BillingClient
 }
 
 const (
-	defaultMaxCapRegistryAccessRetries      = 0 // infinity
-	defaultCapRegistryAccessRetryIntervalMs = 5000
-
 	defaultModuleExecuteMaxResponseSizeBytes   = 100000
 	defaultTriggerSubscriptionRequestTimeoutMs = 500
+	defaultTriggerAllRegistrationsTimeoutMs    = 1000
 	defaultMaxTriggerSubscriptions             = 10
 	defaultTriggerEventQueueSize               = 1000
+	defaultTriggerEventMaxAgeMs                = 1000 * 60 * 10 // 10 minutes
 
 	defaultMaxConcurrentWorkflowExecutions         = 100
 	defaultMaxConcurrentCapabilityCallsPerWorkflow = 10
 	defaultWorkflowExecutionTimeoutMs              = 1000 * 60 * 10 // 10 minutes
 	defaultCapabilityCallTimeoutMs                 = 1000 * 60 * 8  // 8 minutes
 
-	defaultShutdownTimeoutMs = 5000
+	defaultHeartbeatFrequencyMs = 1000 * 60 // 1 minute
+	defaultShutdownTimeoutMs    = 5000
 )
 
 type EngineLimits struct {
-	MaxCapRegistryAccessRetries      uint16
-	CapRegistryAccessRetryIntervalMs uint32
-
 	ModuleExecuteMaxResponseSizeBytes   uint32
 	TriggerSubscriptionRequestTimeoutMs uint32
+	TriggerAllRegistrationsTimeoutMs    uint32
 	MaxTriggerSubscriptions             uint16
 	TriggerEventQueueSize               uint16
+	TriggerEventMaxAgeMs                uint32
 
 	MaxConcurrentWorkflowExecutions         uint16
 	MaxConcurrentCapabilityCallsPerWorkflow uint16
 	WorkflowExecutionTimeoutMs              uint32
 	CapabilityCallTimeoutMs                 uint32
 
-	ShutdownTimeoutMs uint32
+	HeartbeatFrequencyMs uint32
+	ShutdownTimeoutMs    uint32
 }
 
 type LifecycleHooks struct {
 	OnInitialized          func(err error)
 	OnSubscribedToTriggers func(triggerIDs []string)
-	OnExecutionFinished    func(executionID string)
-
-	// TODO(CAPPL-736): handle execution result.
-	// OnResultReceived exposes the execution result for now.  By default, if
-	// unspecified, it is a no-op and the result is logged.
-	OnResultReceived func(*wasmpb.ExecutionResult)
-	OnRateLimited    func(executionID string)
+	OnExecutionFinished    func(executionID string, status string)
+	OnResultReceived       func(*wasmpb.ExecutionResult)
+	OnRateLimited          func(executionID string)
 }
 
 func (c *EngineConfig) Validate() error {
@@ -117,28 +120,32 @@ func (c *EngineConfig) Validate() error {
 		return errors.New("execution rate limiter not set")
 	}
 
+	if c.BeholderEmitter == nil {
+		return errors.New("beholder emitter not set")
+	}
+
 	c.Hooks.setDefaultHooks()
 	return nil
 }
 
 func (l *EngineLimits) setDefaultLimits() {
-	if l.MaxCapRegistryAccessRetries == 0 {
-		l.MaxCapRegistryAccessRetries = defaultMaxCapRegistryAccessRetries
-	}
-	if l.CapRegistryAccessRetryIntervalMs == 0 {
-		l.CapRegistryAccessRetryIntervalMs = defaultCapRegistryAccessRetryIntervalMs
-	}
 	if l.ModuleExecuteMaxResponseSizeBytes == 0 {
 		l.ModuleExecuteMaxResponseSizeBytes = defaultModuleExecuteMaxResponseSizeBytes
 	}
 	if l.TriggerSubscriptionRequestTimeoutMs == 0 {
 		l.TriggerSubscriptionRequestTimeoutMs = defaultTriggerSubscriptionRequestTimeoutMs
 	}
+	if l.TriggerAllRegistrationsTimeoutMs == 0 {
+		l.TriggerAllRegistrationsTimeoutMs = defaultTriggerAllRegistrationsTimeoutMs
+	}
 	if l.MaxTriggerSubscriptions == 0 {
 		l.MaxTriggerSubscriptions = defaultMaxTriggerSubscriptions
 	}
 	if l.TriggerEventQueueSize == 0 {
 		l.TriggerEventQueueSize = defaultTriggerEventQueueSize
+	}
+	if l.TriggerEventMaxAgeMs == 0 {
+		l.TriggerEventMaxAgeMs = defaultTriggerEventMaxAgeMs
 	}
 	if l.MaxConcurrentWorkflowExecutions == 0 {
 		l.MaxConcurrentWorkflowExecutions = defaultMaxConcurrentWorkflowExecutions
@@ -151,6 +158,9 @@ func (l *EngineLimits) setDefaultLimits() {
 	}
 	if l.CapabilityCallTimeoutMs == 0 {
 		l.CapabilityCallTimeoutMs = defaultCapabilityCallTimeoutMs
+	}
+	if l.HeartbeatFrequencyMs == 0 {
+		l.HeartbeatFrequencyMs = defaultHeartbeatFrequencyMs
 	}
 	if l.ShutdownTimeoutMs == 0 {
 		l.ShutdownTimeoutMs = defaultShutdownTimeoutMs
@@ -169,7 +179,7 @@ func (h *LifecycleHooks) setDefaultHooks() {
 		h.OnResultReceived = func(res *wasmpb.ExecutionResult) {}
 	}
 	if h.OnExecutionFinished == nil {
-		h.OnExecutionFinished = func(executionID string) {}
+		h.OnExecutionFinished = func(executionID string, status string) {}
 	}
 	if h.OnRateLimited == nil {
 		h.OnRateLimited = func(executionID string) {}

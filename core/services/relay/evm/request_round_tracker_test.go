@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
-	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
+	logmocks "github.com/smartcontractkit/chainlink/v2/common/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"

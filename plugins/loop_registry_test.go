@@ -7,16 +7,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestPluginPortManager(t *testing.T) {
 	// register one
-	m := NewTestLoopRegistry(logger.TestLogger(t))
+	m := NewTestLoopRegistry(logger.Test(t))
 	pFoo, err := m.Register("foo")
 	require.NoError(t, err)
 	require.Equal(t, "foo", pFoo.Name)
@@ -70,7 +70,7 @@ type mockCfgDatabase struct{}
 
 func (m mockCfgDatabase) Backup() config.Backup { panic("unimplemented") }
 
-func (m mockCfgDatabase) Listener() config.Listener { panic("unimplemented") }
+func (m mockCfgDatabase) Listener() config.Listener { return mockCfgListener{} }
 
 func (m mockCfgDatabase) Lock() config.Lock { panic("unimplemented") }
 
@@ -94,19 +94,77 @@ func (m mockCfgDatabase) URL() url.URL {
 	return url.URL{Scheme: "fake", Host: "database.url"}
 }
 
+type mockCfgListener struct{}
+
+func (l mockCfgListener) MaxReconnectDuration() time.Duration { panic("unimplemented") }
+
+func (l mockCfgListener) MinReconnectInterval() time.Duration { panic("unimplemented") }
+
+func (l mockCfgListener) FallbackPollInterval() time.Duration { return time.Microsecond }
+
+type mockCfgMercury struct{}
+
+func (m mockCfgMercury) Credentials(credName string) *types.MercuryCredentials { panic("implement me") }
+
+func (m mockCfgMercury) Cache() config.MercuryCache {
+	return mockCfgCache{}
+}
+
+func (m mockCfgMercury) TLS() config.MercuryTLS { panic("implement me") }
+
+func (m mockCfgMercury) Transmitter() config.MercuryTransmitter {
+	return mockCfgTransmitter{}
+}
+
+func (m mockCfgMercury) VerboseLogging() bool {
+	return true
+}
+
+type mockCfgCache struct{}
+
+func (m mockCfgCache) LatestReportTTL() time.Duration {
+	return time.Microsecond
+}
+
+func (m mockCfgCache) MaxStaleAge() time.Duration {
+	return time.Nanosecond
+}
+
+func (m mockCfgCache) LatestReportDeadline() time.Duration {
+	return time.Millisecond
+}
+
+type mockCfgTransmitter struct{}
+
+func (t mockCfgTransmitter) Protocol() config.MercuryTransmitterProtocol { return "foo" }
+
+func (t mockCfgTransmitter) TransmitQueueMaxSize() uint32 { return 42 }
+
+func (t mockCfgTransmitter) TransmitTimeout() time.Duration { return time.Second }
+
+func (t mockCfgTransmitter) TransmitConcurrency() uint32 { return 13 }
+
+func (t mockCfgTransmitter) ReaperFrequency() time.Duration { return time.Hour }
+
+func (t mockCfgTransmitter) ReaperMaxAge() time.Duration { return time.Minute }
+
 func TestLoopRegistry_Register(t *testing.T) {
 	mockCfgDatabase := &mockCfgDatabase{}
+	mockCfgMercury := &mockCfgMercury{}
 	mockCfgTracing := &mockCfgTracing{}
 	mockCfgTelemetry := &mockCfgTelemetry{}
 	registry := make(map[string]*RegisteredLoop)
 
 	// Create a LoopRegistry instance with mockCfgTracing
 	loopRegistry := &LoopRegistry{
-		lggr:         logger.TestLogger(t),
-		registry:     registry,
-		cfgDatabase:  mockCfgDatabase,
-		cfgTracing:   mockCfgTracing,
-		cfgTelemetry: mockCfgTelemetry,
+		registry:         registry,
+		lggr:             logger.Test(t),
+		appID:            "app-id",
+		featureLogPoller: true,
+		cfgDatabase:      mockCfgDatabase,
+		cfgMercury:       mockCfgMercury,
+		cfgTracing:       mockCfgTracing,
+		cfgTelemetry:     mockCfgTelemetry,
 	}
 
 	// Test case 1: Register new loop
@@ -116,13 +174,28 @@ func TestLoopRegistry_Register(t *testing.T) {
 
 	envCfg := registeredLoop.EnvCfg
 
+	require.Equal(t, "app-id", envCfg.AppID)
 	require.Equal(t, (*commonconfig.SecretURL)(&url.URL{Scheme: "fake", Host: "database.url"}), envCfg.DatabaseURL)
 	require.Equal(t, time.Hour, envCfg.DatabaseIdleInTxSessionTimeout)
 	require.Equal(t, time.Minute, envCfg.DatabaseLockTimeout)
 	require.Equal(t, time.Second, envCfg.DatabaseQueryTimeout)
+	require.Equal(t, time.Microsecond, envCfg.DatabaseListenerFallbackPollInterval)
 	require.True(t, envCfg.DatabaseLogSQL)
 	require.Equal(t, 42, envCfg.DatabaseMaxOpenConns)
 	require.Equal(t, 99, envCfg.DatabaseMaxIdleConns)
+
+	require.True(t, envCfg.FeatureLogPoller)
+
+	require.Equal(t, time.Millisecond, envCfg.MercuryCacheLatestReportDeadline)
+	require.Equal(t, time.Microsecond, envCfg.MercuryCacheLatestReportTTL)
+	require.Equal(t, time.Nanosecond, envCfg.MercuryCacheMaxStaleAge)
+	require.Equal(t, "foo", envCfg.MercuryTransmitterProtocol)
+	require.Equal(t, uint32(42), envCfg.MercuryTransmitterTransmitQueueMaxSize)
+	require.Equal(t, time.Second, envCfg.MercuryTransmitterTransmitTimeout)
+	require.Equal(t, uint32(13), envCfg.MercuryTransmitterTransmitConcurrency)
+	require.Equal(t, time.Hour, envCfg.MercuryTransmitterReaperFrequency)
+	require.Equal(t, time.Minute, envCfg.MercuryTransmitterReaperMaxAge)
+	require.True(t, envCfg.MercuryVerboseLogging)
 
 	require.True(t, envCfg.TracingEnabled)
 	require.Equal(t, "http://localhost:9000", envCfg.TracingCollectorTarget)
@@ -134,7 +207,7 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.True(t, envCfg.TelemetryInsecureConnection)
 	require.Equal(t, "path/to/cert.pem", envCfg.TelemetryCACertFile)
 	require.Equal(t, "http://localhost:9001", envCfg.TelemetryEndpoint)
-	require.Equal(t, loop.OtelAttributes{"foo": "bar"}, envCfg.TelemetryAttributes)
+	require.Equal(t, beholder.OtelAttributes{"foo": "bar"}, envCfg.TelemetryAttributes)
 	require.Equal(t, 0.42, envCfg.TelemetryTraceSampleRatio)
 	require.True(t, envCfg.TelemetryEmitterBatchProcessor)
 	require.Equal(t, 1*time.Second, envCfg.TelemetryEmitterExportTimeout)

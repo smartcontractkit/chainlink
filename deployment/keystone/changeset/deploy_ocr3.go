@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -84,7 +85,7 @@ func ConfigureOCR3Contract(env cldf.Environment, cfg ConfigureOCR3Config) (cldf.
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 
-		chain, ok := env.Chains[cfg.ChainSel]
+		chain, ok := env.BlockChains.EVMChains()[cfg.ChainSel]
 		if !ok {
 			return out, fmt.Errorf("chain %d not found in environment", cfg.ChainSel)
 		}
@@ -92,6 +93,10 @@ func ConfigureOCR3Contract(env cldf.Environment, cfg ConfigureOCR3Config) (cldf.
 		contract, err := GetOwnedContractV2[*ocr3_capability.OCR3Capability](env.DataStore.Addresses(), chain, cfg.Address.Hex())
 		if err != nil {
 			return out, fmt.Errorf("failed to get OCR3 contract: %w", err)
+		}
+
+		if contract.McmsContracts == nil {
+			return out, fmt.Errorf("expected OCR3 capabilty contract %s to be owned by MCMS", contract.Contract.Address().String())
 		}
 
 		timelocksPerChain := map[uint64]string{

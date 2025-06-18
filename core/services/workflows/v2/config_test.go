@@ -1,14 +1,17 @@
 package v2_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -38,7 +41,7 @@ func TestEngineConfig_Validate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		cfg.Module = modulemocks.NewModuleV2(t)
 		require.NoError(t, cfg.Validate())
-		require.NotEqual(t, 0, cfg.LocalLimits.CapRegistryAccessRetryIntervalMs)
+		require.NotEqual(t, 0, cfg.LocalLimits.TriggerEventQueueSize)
 		require.NotNil(t, cfg.Hooks.OnInitialized)
 	})
 }
@@ -56,6 +59,7 @@ func defaultTestConfig(t *testing.T) *v2.EngineConfig {
 		PerSenderBurst: 100,
 	})
 	require.NoError(t, err)
+
 	return &v2.EngineConfig{
 		Lggr:                 lggr,
 		Module:               modulemocks.NewModuleV2(t),
@@ -67,5 +71,26 @@ func defaultTestConfig(t *testing.T) *v2.EngineConfig {
 		LocalLimits:          v2.EngineLimits{},
 		GlobalLimits:         sLimiter,
 		ExecutionRateLimiter: rateLimiter,
+		BeholderEmitter:      &noopBeholderEmitter{},
+		BillingClient:        metmocks.NewBillingClient(t),
 	}
+}
+
+type noopBeholderEmitter struct {
+}
+
+func (m *noopBeholderEmitter) Emit(_ context.Context, _ string) error {
+	return nil
+}
+
+func (m *noopBeholderEmitter) WithMapLabels(labels map[string]string) custmsg.MessageEmitter {
+	return m
+}
+
+func (m *noopBeholderEmitter) With(kvs ...string) custmsg.MessageEmitter {
+	return m
+}
+
+func (m *noopBeholderEmitter) Labels() map[string]string {
+	return map[string]string{}
 }

@@ -147,8 +147,7 @@ func TestExternalInitiatorsController_Create_success(t *testing.T) {
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusCreated)
 	ei := &presenters.ExternalInitiatorAuthentication{}
-	err := cltest.ParseJSONAPIResponse(t, resp, ei)
-	require.NoError(t, err)
+	cltest.ParseJSONAPIResponse(t, resp, ei)
 
 	assert.Equal(t, "bitcoin", ei.Name)
 	assert.Equal(t, "http://without.a.name", ei.URL.String())
@@ -175,8 +174,7 @@ func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, 201)
 	ei := &presenters.ExternalInitiatorAuthentication{}
-	err := cltest.ParseJSONAPIResponse(t, resp, ei)
-	require.NoError(t, err)
+	cltest.ParseJSONAPIResponse(t, resp, ei)
 
 	assert.Equal(t, "no-url", ei.Name)
 	assert.Equal(t, "", ei.URL.String())

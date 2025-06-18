@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
@@ -88,23 +89,25 @@ type SolChainView struct {
 	ChainSelector uint64 `json:"chainSelector,omitempty"`
 	ChainID       string `json:"chainID,omitempty"`
 	// v1.6
-	FeeQuoter map[string]solana.FeeQuoterView `json:"feeQuoter,omitempty"`
-	Router    map[string]solana.RouterView    `json:"router,omitempty"`
-	OffRamp   map[string]solana.OffRampView   `json:"offRamp,omitempty"`
-	RMNRemote map[string]solana.RMNRemoteView `json:"rmnRemote,omitempty"`
-	TokenPool map[string]solana.TokenPoolView `json:"tokenPool,omitempty"`
-	LinkToken solana.TokenView                `json:"linkToken,omitempty"`
-	Tokens    map[string]solana.TokenView     `json:"tokens,omitempty"`
+	FeeQuoter        map[string]solana.FeeQuoterView `json:"feeQuoter,omitempty"`
+	Router           map[string]solana.RouterView    `json:"router,omitempty"`
+	OffRamp          map[string]solana.OffRampView   `json:"offRamp,omitempty"`
+	RMNRemote        map[string]solana.RMNRemoteView `json:"rmnRemote,omitempty"`
+	TokenPool        map[string]solana.TokenPoolView `json:"tokenPool,omitempty"`
+	LinkToken        solana.TokenView                `json:"linkToken,omitempty"`
+	Tokens           map[string]solana.TokenView     `json:"tokens,omitempty"`
+	MCMSWithTimelock solana.MCMSWithTimelockView     `json:"mcmsWithTimelock,omitempty"`
 }
 
 func NewSolChain() SolChainView {
 	return SolChainView{
-		FeeQuoter: make(map[string]solana.FeeQuoterView),
-		Router:    make(map[string]solana.RouterView),
-		OffRamp:   make(map[string]solana.OffRampView),
-		RMNRemote: make(map[string]solana.RMNRemoteView),
-		TokenPool: make(map[string]solana.TokenPoolView),
-		Tokens:    make(map[string]solana.TokenView),
+		FeeQuoter:        make(map[string]solana.FeeQuoterView),
+		Router:           make(map[string]solana.RouterView),
+		OffRamp:          make(map[string]solana.OffRampView),
+		RMNRemote:        make(map[string]solana.RMNRemoteView),
+		TokenPool:        make(map[string]solana.TokenPoolView),
+		Tokens:           make(map[string]solana.TokenView),
+		MCMSWithTimelock: solana.MCMSWithTimelockView{},
 	}
 }
 
@@ -123,10 +126,46 @@ func (v *ChainView) UpdateRegistryModuleView(registryModuleAddress string, regis
 	v.RegistryModules[registryModuleAddress] = registryModuleView
 }
 
+type AptosChainView struct {
+	ChainSelector uint64 `json:"chainSelector,omitempty"`
+	ChainID       string `json:"chainID,omitempty"`
+
+	MCMSWithTimelock aptos.MCMSWithTimelockView `json:"mcmsWithTimelock,omitempty"`
+
+	LinkToken aptos.TokenView            `json:"linkToken,omitempty"`
+	Tokens    map[string]aptos.TokenView `json:"tokens,omitempty"`
+
+	CCIP    aptos.CCIPView               `json:"ccip,omitempty"`
+	Router  map[string]aptos.RouterView  `json:"router,omitempty"`
+	OnRamp  map[string]aptos.OnRampView  `json:"onRamp,omitempty"`
+	OffRamp map[string]aptos.OffRampView `json:"offRamp,omitempty"`
+
+	TokenPools map[string]map[string]aptos.TokenPoolView `json:"poolByTokens,omitempty"` // TokenSymbol => TokenPool Address => PoolView
+
+	UpdateMu *sync.Mutex `json:"-"`
+}
+
+func NewAptosChainView() AptosChainView {
+	return AptosChainView{
+		ChainSelector:    0,
+		ChainID:          "",
+		MCMSWithTimelock: aptos.MCMSWithTimelockView{},
+		LinkToken:        aptos.TokenView{},
+		Tokens:           make(map[string]aptos.TokenView),
+		CCIP:             aptos.CCIPView{},
+		Router:           make(map[string]aptos.RouterView),
+		OnRamp:           make(map[string]aptos.OnRampView),
+		OffRamp:          make(map[string]aptos.OffRampView),
+		TokenPools:       make(map[string]map[string]aptos.TokenPoolView),
+		UpdateMu:         &sync.Mutex{},
+	}
+}
+
 type CCIPView struct {
-	Chains    map[string]ChainView    `json:"chains,omitempty"`
-	SolChains map[string]SolChainView `json:"solChains,omitempty"`
-	Nops      map[string]view.NopView `json:"nops,omitempty"`
+	Chains      map[string]ChainView      `json:"chains,omitempty"`
+	SolChains   map[string]SolChainView   `json:"solChains,omitempty"`
+	AptosChains map[string]AptosChainView `json:"aptosChains,omitempty"`
+	Nops        map[string]view.NopView   `json:"nops,omitempty"`
 }
 
 func (v CCIPView) MarshalJSON() ([]byte, error) {

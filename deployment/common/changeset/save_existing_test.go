@@ -8,6 +8,8 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -20,10 +22,11 @@ func TestSaveExisting(t *testing.T) {
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		Chains: map[uint64]cldf.Chain{
-			chainsel.TEST_90000001.Selector: {},
-			chainsel.TEST_90000002.Selector: {},
-		},
+		BlockChains: cldf_chain.NewBlockChains(
+			map[uint64]cldf_chain.BlockChain{
+				chainsel.TEST_90000001.Selector: cldf_evm.Chain{},
+				chainsel.TEST_90000002.Selector: cldf_evm.Chain{},
+			}),
 	}
 	ExistingContracts := ExistingContractsConfig{
 		ExistingContracts: []Contract{
@@ -62,10 +65,11 @@ func TestSaveExistingAddressWithLabels(t *testing.T) {
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		Chains: map[uint64]cldf.Chain{
-			chainsel.TEST_90000001.Selector: {},
-			chainsel.TEST_90000002.Selector: {},
-		},
+		BlockChains: cldf_chain.NewBlockChains(
+			map[uint64]cldf_chain.BlockChain{
+				chainsel.TEST_90000001.Selector: cldf_evm.Chain{},
+				chainsel.TEST_90000002.Selector: cldf_evm.Chain{},
+			}),
 	}
 	dummyType1 := cldf.TypeAndVersion{
 		Type:    "dummyType",
@@ -100,10 +104,11 @@ func TestSaveExistingMCMSAddressWithLabels(t *testing.T) {
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		Chains: map[uint64]cldf.Chain{
-			chainsel.TEST_90000001.Selector: {},
-			chainsel.TEST_90000002.Selector: {},
-		},
+		BlockChains: cldf_chain.NewBlockChains(
+			map[uint64]cldf_chain.BlockChain{
+				chainsel.TEST_90000001.Selector: cldf_evm.Chain{},
+				chainsel.TEST_90000002.Selector: cldf_evm.Chain{},
+			}),
 	}
 	mcmsContractTV := cldf.TypeAndVersion{
 		Type:    types.ManyChainMultisig,
@@ -132,7 +137,7 @@ func TestSaveExistingMCMSAddressWithLabels(t *testing.T) {
 	require.True(t, exists)
 	require.Len(t, addressForChain1, 1)
 	// load mcms state
-	mcmsState, err := MaybeLoadMCMSWithTimelockChainState(dummyEnv.Chains[chainsel.TEST_90000001.Selector], addressForChain1)
+	mcmsState, err := MaybeLoadMCMSWithTimelockChainState(dummyEnv.BlockChains.EVMChains()[chainsel.TEST_90000001.Selector], addressForChain1)
 	require.NoError(t, err)
 	require.NotNil(t, mcmsState)
 	require.NotNil(t, mcmsState.ProposerMcm)

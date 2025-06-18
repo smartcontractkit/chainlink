@@ -398,7 +398,7 @@ const (
 	defaultNumWorkers                = 3
 	defaultMaxMemoryMBs              = 128
 	defaultMaxTickInterval           = 100 * time.Millisecond
-	defaultMaxTimeout                = 10 * time.Second
+	defaultMaxTimeout                = 120 * time.Second // 2 minutes
 	defaultMaxCompressedBinarySize   = 20 * 1024 * 1024  // 20 MB
 	defaultMaxDecompressedBinarySize = 100 * 1024 * 1024 // 100 MB
 	defaultMaxResponseSizeBytes      = 5 * 1024 * 1024   // 5 MB
@@ -406,8 +406,11 @@ const (
 
 type Config struct {
 	webapi.ServiceConfig
-	NumWorkers                int
-	MaxMemoryMBs              uint64
+	NumWorkers   int
+	MaxMemoryMBs uint64
+
+	// MaxTimeout is the maximum time that the WASM module may run to complete
+	// a custom compute step.
 	MaxTimeout                time.Duration
 	MaxTickInterval           time.Duration
 	MaxCompressedBinarySize   uint64

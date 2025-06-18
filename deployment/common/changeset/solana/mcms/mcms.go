@@ -1,9 +1,15 @@
 package mcmsnew
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"time"
 
+	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
+
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -16,7 +22,7 @@ import (
 // the timelock and MCMS, but its reasonable pattern.
 func DeployMCMSWithTimelockProgramsSolana(
 	e cldf.Environment,
-	chain cldf.SolChain,
+	chain cldf_solana.Chain,
 	addressBook cldf.AddressBook,
 	config commontypes.MCMSWithTimelockConfigV2,
 ) (*state.MCMSWithTimelockStateSolana, error) {
@@ -32,6 +38,10 @@ func DeployMCMSWithTimelockProgramsSolana(
 
 	// access controller
 	err = deployAccessControllerProgram(e, chainState, chain, addressBook)
+	err = waitForProgramDeployment(e.GetContext(), chain.Client, chainState.AccessControllerProgram, 10*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("access controller program not ready: %w", err)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy access controller program: %w", err)
 	}
@@ -54,6 +64,10 @@ func DeployMCMSWithTimelockProgramsSolana(
 
 	// mcm
 	err = deployMCMProgram(e, chainState, chain, addressBook)
+	err = waitForProgramDeployment(e.GetContext(), chain.Client, chainState.AccessControllerProgram, 10*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("access controller program not ready: %w", err)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy mcm program: %w", err)
 	}
@@ -72,6 +86,10 @@ func DeployMCMSWithTimelockProgramsSolana(
 
 	// timelock
 	err = deployTimelockProgram(e, chainState, chain, addressBook)
+	err = waitForProgramDeployment(e.GetContext(), chain.Client, chainState.AccessControllerProgram, 10*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("access controller program not ready: %w", err)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy timelock program: %w", err)
 	}
@@ -86,4 +104,25 @@ func DeployMCMSWithTimelockProgramsSolana(
 	}
 
 	return chainState, nil
+}
+
+func waitForProgramDeployment(ctx context.Context, client *rpc.Client, programID solana.PublicKey, maxWait time.Duration) error {
+	timeout := time.After(maxWait)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeout:
+			return fmt.Errorf("timed out waiting for program %s to be deployed", programID.String())
+		case <-ticker.C:
+			resp, err := client.GetAccountInfo(ctx, programID)
+			if err != nil {
+				continue // Retry on RPC errors
+			}
+			if resp != nil && resp.Value != nil && resp.Value.Executable {
+				return nil // Ready
+			}
+		}
+	}
 }

@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/libocr/ragep2p/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 type DonID uint32
@@ -30,21 +30,21 @@ type Capability struct {
 
 type LocalRegistry struct {
 	lggr              logger.Logger
-	getPeerID         func() (p2ptypes.PeerID, error)
+	getPeerID         func() (types.PeerID, error)
 	IDsToDONs         map[DonID]DON
-	IDsToNodes        map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo
+	IDsToNodes        map[types.PeerID]kcr.INodeInfoProviderNodeInfo
 	IDsToCapabilities map[string]Capability
 }
 
 func NewLocalRegistry(
 	lggr logger.Logger,
-	getPeerID func() (p2ptypes.PeerID, error),
+	getPeerID func() (types.PeerID, error),
 	IDsToDONs map[DonID]DON,
-	IDsToNodes map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo,
+	IDsToNodes map[types.PeerID]kcr.INodeInfoProviderNodeInfo,
 	IDsToCapabilities map[string]Capability,
 ) LocalRegistry {
 	return LocalRegistry{
-		lggr:              lggr.Named("LocalRegistry"),
+		lggr:              logger.Named(lggr, "LocalRegistry"),
 		getPeerID:         getPeerID,
 		IDsToDONs:         IDsToDONs,
 		IDsToNodes:        IDsToNodes,

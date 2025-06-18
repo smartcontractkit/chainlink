@@ -20,7 +20,7 @@ var _ cldf.ChangeSet[*MintLinkConfig] = MintLink
 
 // MintLink mints LINK to the provided contract.
 func MintLink(e cldf.Environment, cfg *MintLinkConfig) (cldf.ChangesetOutput, error) {
-	chain := e.Chains[cfg.ChainSelector]
+	chain := e.BlockChains.EVMChains()[cfg.ChainSelector]
 	addresses, err := e.ExistingAddresses.AddressesForChain(cfg.ChainSelector)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err

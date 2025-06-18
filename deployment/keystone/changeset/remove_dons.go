@@ -38,7 +38,7 @@ func (r *RemoveDONsRequest) Validate(e cldf.Environment) error {
 		return fmt.Errorf("invalid registry chain selector %d: selector does not exist", r.RegistryChainSel)
 	}
 
-	_, exists = e.Chains[r.RegistryChainSel]
+	_, exists = e.BlockChains.EVMChains()[r.RegistryChainSel]
 	if !exists {
 		return fmt.Errorf("invalid registry chain selector %d: chain does not exist in environment", r.RegistryChainSel)
 	}
@@ -58,7 +58,7 @@ func RemoveDONs(env cldf.Environment, req *RemoveDONsRequest) (cldf.ChangesetOut
 		return cldf.ChangesetOutput{}, err
 	}
 	// extract the registry contract and chain from the environment
-	registryChain, ok := env.Chains[req.RegistryChainSel]
+	registryChain, ok := env.BlockChains.EVMChains()[req.RegistryChainSel]
 	if !ok {
 		return cldf.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
@@ -81,6 +81,10 @@ func RemoveDONs(env cldf.Environment, req *RemoveDONsRequest) (cldf.ChangesetOut
 	if req.UseMCMS() {
 		if resp.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
+		}
+
+		if capReg.McmsContracts == nil {
+			return out, fmt.Errorf("expected capabiity registry contract %s to be owned by MCMS", capReg.Contract.Address().String())
 		}
 
 		timelocksPerChain := map[uint64]string{

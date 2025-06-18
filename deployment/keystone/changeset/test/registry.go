@@ -19,6 +19,8 @@ import (
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -47,7 +49,7 @@ type SetupTestRegistryRequest struct {
 
 type SetupTestRegistryResponse struct {
 	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
-	Chain                cldf.Chain
+	Chain                cldf_evm.Chain
 	RegistrySelector     uint64
 	CapabilityCache      *CapabilityCache
 	Nops                 []*capabilities_registry.CapabilitiesRegistryNodeOperatorAdded
@@ -154,7 +156,7 @@ func MustAddCapabilities(
 	t *testing.T,
 	lggr logger.Logger,
 	in map[p2pkey.PeerID][]capabilities_registry.CapabilitiesRegistryCapability,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	registry *capabilities_registry.CapabilitiesRegistry,
 ) ([]internal.RegisteredCapability, *CapabilityCache) {
 	t.Helper()
@@ -215,7 +217,7 @@ func ToP2PToCapabilities(
 	return out
 }
 
-func deployCapReg(t *testing.T, chain cldf.Chain) *capabilities_registry.CapabilitiesRegistry {
+func deployCapReg(t *testing.T, chain cldf_evm.Chain) *capabilities_registry.CapabilitiesRegistry {
 	capabilitiesRegistryDeployer, err := internal.NewCapabilitiesRegistryDeployer()
 	require.NoError(t, err)
 	_, err = capabilitiesRegistryDeployer.Deploy(internal.DeployRequest{Chain: chain})
@@ -223,12 +225,9 @@ func deployCapReg(t *testing.T, chain cldf.Chain) *capabilities_registry.Capabil
 	return capabilitiesRegistryDeployer.Contract()
 }
 
-func addNops(t *testing.T, lggr logger.Logger, chain cldf.Chain, registry *capabilities_registry.CapabilitiesRegistry, nops []capabilities_registry.CapabilitiesRegistryNodeOperator) *internal.RegisterNOPSResponse {
+func addNops(t *testing.T, lggr logger.Logger, chain cldf_evm.Chain, registry *capabilities_registry.CapabilitiesRegistry, nops []capabilities_registry.CapabilitiesRegistryNodeOperator) *internal.RegisterNOPSResponse {
 	env := &cldf.Environment{
 		Logger: lggr,
-		Chains: map[uint64]cldf.Chain{
-			chain.Selector: chain,
-		},
 		ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 			chain.Selector: {
 				registry.Address().String(): cldf.TypeAndVersion{
@@ -237,6 +236,10 @@ func addNops(t *testing.T, lggr logger.Logger, chain cldf.Chain, registry *capab
 				},
 			},
 		}),
+		BlockChains: cldf_chain.NewBlockChains(
+			map[uint64]cldf_chain.BlockChain{
+				chain.Selector: chain,
+			}),
 	}
 	resp, err := internal.RegisterNOPS(context.TODO(), lggr, internal.RegisterNOPSRequest{
 		Env:                   env,
@@ -250,7 +253,7 @@ func addNops(t *testing.T, lggr logger.Logger, chain cldf.Chain, registry *capab
 func AddNodes(
 	t *testing.T,
 	lggr logger.Logger,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	registry *capabilities_registry.CapabilitiesRegistry,
 	nodes []capabilities_registry.CapabilitiesRegistryNodeParams,
 ) {
@@ -266,7 +269,7 @@ func AddNodes(
 func addDons(
 	t *testing.T,
 	_ logger.Logger,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	registry *capabilities_registry.CapabilitiesRegistry,
 	capCache *CapabilityCache,
 	dons []Don,
@@ -346,7 +349,7 @@ func (cc *CapabilityCache) Get(c capabilities_registry.CapabilitiesRegistryCapab
 // AddCapabilities adds the capabilities to the registry and returns the registered capabilities
 // if the capability is already registered, it will not be re-registered
 // if duplicate capabilities are passed, they will be deduped
-func (cc *CapabilityCache) AddCapabilities(_ logger.Logger, chain cldf.Chain, registry *capabilities_registry.CapabilitiesRegistry, capabilities []capabilities_registry.CapabilitiesRegistryCapability) []internal.RegisteredCapability {
+func (cc *CapabilityCache) AddCapabilities(_ logger.Logger, chain cldf_evm.Chain, registry *capabilities_registry.CapabilitiesRegistry, capabilities []capabilities_registry.CapabilitiesRegistryCapability) []internal.RegisteredCapability {
 	t := cc.t
 	var out []internal.RegisteredCapability
 	// get the registered capabilities & dedup
@@ -395,9 +398,9 @@ func (cc *CapabilityCache) AddCapabilities(_ logger.Logger, chain cldf.Chain, re
 	return out
 }
 
-func testChain(t *testing.T) cldf.Chain {
+func testChain(t *testing.T) cldf_evm.Chain {
 	chains, _ := memory.NewMemoryChains(t, 1, 5)
-	var chain cldf.Chain
+	var chain cldf_evm.Chain
 	for _, c := range chains {
 		chain = c
 		break

@@ -31,11 +31,13 @@ func DeployForwarderX(env cldf.Environment, cfg DeployForwarderRequest) (cldf.Ch
 	lggr := env.Logger
 	ab := cldf.NewMemoryAddressBook()
 	selectors := cfg.ChainSelectors
+	evmChains := env.BlockChains.EVMChains()
+
 	if len(selectors) == 0 {
-		selectors = slices.Collect(maps.Keys(env.Chains))
+		selectors = slices.Collect(maps.Keys(evmChains))
 	}
 	for _, sel := range selectors {
-		chain, ok := env.Chains[sel]
+		chain, ok := evmChains[sel]
 		if !ok {
 			return cldf.ChangesetOutput{}, fmt.Errorf("chain with selector %d not found", sel)
 		}
@@ -53,11 +55,11 @@ func DeployForwarderX(env cldf.Environment, cfg DeployForwarderRequest) (cldf.Ch
 func DeployForwarder(env cldf.Environment, cfg DeployForwarderRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
 	out.AddressBook = cldf.NewMemoryAddressBook() //nolint:staticcheck // TODO CRE-400
-	out.DataStore = datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]()
+	out.DataStore = datastore.NewMemoryDataStore()
 
 	selectors := cfg.ChainSelectors
 	if len(selectors) == 0 {
-		selectors = slices.Collect(maps.Keys(env.Chains))
+		selectors = slices.Collect(maps.Keys(env.BlockChains.EVMChains()))
 	}
 
 	for _, sel := range selectors {
@@ -139,7 +141,7 @@ func ConfigureForwardContracts(env cldf.Environment, req ConfigureForwardContrac
 			if !ok {
 				return out, fmt.Errorf("expected configured forwarder address for chain selector %d", chainSelector)
 			}
-			fwr, err := GetOwnedContractV2[*forwarder.KeystoneForwarder](env.DataStore.Addresses(), env.Chains[chainSelector], fwrAddr.String())
+			fwr, err := GetOwnedContractV2[*forwarder.KeystoneForwarder](env.DataStore.Addresses(), env.BlockChains.EVMChains()[chainSelector], fwrAddr.String())
 			if err != nil {
 				return out, fmt.Errorf("failed to get forwarder contract for chain selector %d: %w", chainSelector, err)
 			}

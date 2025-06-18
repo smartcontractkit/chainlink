@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/token_pool_factory"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -39,7 +40,7 @@ func deployTokenPoolFactoryPrecondition(e cldf.Environment, config DeployTokenPo
 		if err != nil {
 			return fmt.Errorf("failed to validate chain with selector %d: %w", chainSel, err)
 		}
-		chain := e.Chains[chainSel]
+		chain := e.BlockChains.EVMChains()[chainSel]
 		state := state.Chains[chainSel]
 		if state.TokenPoolFactory != nil {
 			return fmt.Errorf("token pool factory already deployed on %s", chain.String())
@@ -88,7 +89,7 @@ func deployTokenPoolFactoryLogic(e cldf.Environment, config DeployTokenPoolFacto
 	}
 
 	for _, chainSel := range config.Chains {
-		chain := e.Chains[chainSel]
+		chain := e.BlockChains.EVMChains()[chainSel]
 		chainState := state.Chains[chainSel]
 
 		registryModuleAddress, ok := config.RegistryModule1_6Addresses[chainSel]
@@ -97,7 +98,7 @@ func deployTokenPoolFactoryLogic(e cldf.Environment, config DeployTokenPoolFacto
 		}
 
 		tokenPoolFactory, err := cldf.DeployContract(e.Logger, chain, addressBook,
-			func(chain cldf.Chain) cldf.ContractDeploy[*token_pool_factory.TokenPoolFactory] {
+			func(chain cldf_evm.Chain) cldf.ContractDeploy[*token_pool_factory.TokenPoolFactory] {
 				address, tx, tokenPoolFactory, err := token_pool_factory.DeployTokenPoolFactory(
 					chain.DeployerKey,
 					chain.Client,

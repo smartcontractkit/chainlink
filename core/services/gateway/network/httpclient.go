@@ -23,19 +23,24 @@ type HTTPClient interface {
 type HTTPClientConfig struct {
 	MaxResponseBytes uint32
 	DefaultTimeout   time.Duration
-	BlockedIPs       []string
-	BlockedIPsCIDR   []string
-	AllowedPorts     []int
-	AllowedSchemes   []string
-	AllowedIPs       []string
-	AllowedIPsCIDR   []string
+
+	// An HTTPRequest may override the DefaultTimeout, but is capped by
+	// maxRequestDuration.
+	maxRequestDuration time.Duration
+	BlockedIPs         []string
+	BlockedIPsCIDR     []string
+	AllowedPorts       []int
+	AllowedSchemes     []string
+	AllowedIPs         []string
+	AllowedIPsCIDR     []string
 }
 
 var (
-	defaultAllowedPorts     = []int{80, 443}
-	defaultAllowedSchemes   = []string{"http", "https"}
-	defaultMaxResponseBytes = uint32(26.4 * utils.KB)
-	defaultTimeout          = 5 * time.Second
+	defaultAllowedPorts       = []int{80, 443}
+	defaultAllowedSchemes     = []string{"http", "https"}
+	defaultMaxResponseBytes   = uint32(26.4 * utils.KB)
+	defaultMaxRequestDuration = 60 * time.Second
+	defaultTimeout            = 5 * time.Second
 )
 
 func (c *HTTPClientConfig) ApplyDefaults() {
@@ -54,6 +59,8 @@ func (c *HTTPClientConfig) ApplyDefaults() {
 	if c.DefaultTimeout == 0 {
 		c.DefaultTimeout = defaultTimeout
 	}
+
+	c.maxRequestDuration = defaultMaxRequestDuration
 
 	// safeurl automatically blocks internal IPs so no need
 	// to set defaults here.
@@ -89,7 +96,6 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 	config.ApplyDefaults()
 	safeConfig := safeurl.
 		GetConfigBuilder().
-		SetTimeout(config.DefaultTimeout).
 		SetAllowedIPs(config.AllowedIPs...).
 		SetAllowedIPsCIDR(config.AllowedIPsCIDR...).
 		SetAllowedPorts(config.AllowedPorts...).
@@ -110,15 +116,24 @@ func disableRedirects(req *http.Request, via []*http.Request) error {
 	return errors.New("redirects are not allowed")
 }
 
+// Send executes an http request that is always time limited by at least the
+// default timeout.  Override the default timeout with a non-zero duration by
+// passing a Timeout value on the request.
 func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, error) {
 	to := req.Timeout
 	if to == 0 {
 		to = c.config.DefaultTimeout
 	}
 
+	if to > c.config.maxRequestDuration {
+		to = c.config.maxRequestDuration
+	}
+
 	c.lggr.Debugw("sending HTTP request with timeout", "url", req.URL, "request timeout", to)
+
 	timeoutCtx, cancel := context.WithTimeout(ctx, to)
 	defer cancel()
+
 	r, err := http.NewRequestWithContext(timeoutCtx, req.Method, req.URL, bytes.NewBuffer(req.Body))
 	if err != nil {
 		return nil, err

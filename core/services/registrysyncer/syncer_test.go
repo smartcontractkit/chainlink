@@ -22,20 +22,21 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	syncerMocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -91,7 +92,7 @@ func (c *crFactory) NewContractReader(ctx context.Context, cfg []byte) (types.Co
 }
 
 func newContractReaderFactory(t *testing.T, simulatedBackend *simulated.Backend) *crFactory {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	client := evmclient.NewSimulatedBackendClient(
 		t,
 		simulatedBackend,
@@ -294,8 +295,8 @@ func TestReader_Integration(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	factory := newContractReaderFactory(t, sim)
-	syncerORM := registrysyncer.NewORM(db, logger.TestLogger(t))
-	syncer, err := registrysyncer.New(logger.TestLogger(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
+	syncerORM := registrysyncer.NewORM(db, logger.Test(t))
+	syncer, err := registrysyncer.New(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
 	require.NoError(t, err)
 
 	l := &launcher{}
@@ -466,7 +467,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 	syncerORM := newORM(t)
 	syncerORM.ormMock.On("LatestLocalRegistry", mock.Anything).Return(nil, errors.New("no state found"))
 	syncerORM.ormMock.On("AddLocalRegistry", mock.Anything, mock.Anything).Return(nil)
-	syncer, err := newTestSyncer(logger.TestLogger(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
+	syncer, err := newTestSyncer(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
 	require.NoError(t, err)
 	require.NoError(t, syncer.Start(ctx))
 	t.Cleanup(func() {
@@ -496,7 +497,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 
 func TestSyncer_LocalNode(t *testing.T) {
 	ctx := t.Context()
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	var pid p2ptypes.PeerID
 	err := pid.UnmarshalText([]byte("12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N"))

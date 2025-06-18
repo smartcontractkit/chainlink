@@ -91,8 +91,9 @@ type ConfigureForwarderContractsResponse struct {
 // ConfigureForwardContracts configures the forwarder contracts on all chains for the given DONS
 // the address book is required to contain the an address of the deployed forwarder contract for every chain in the environment
 func ConfigureForwardContracts(env *cldf.Environment, req ConfigureForwarderContractsRequest) (*ConfigureForwarderContractsResponse, error) {
+	evmChains := env.BlockChains.EVMChains()
 	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
-		Chains:      env.Chains,
+		Chains:      evmChains,
 		AddressBook: env.ExistingAddresses,
 	})
 	if err != nil {
@@ -102,7 +103,7 @@ func ConfigureForwardContracts(env *cldf.Environment, req ConfigureForwarderCont
 	opPerChain := make(map[uint64]mcmstypes.BatchOperation)
 	forwarderAddresses := make(map[uint64]common.Address)
 	// configure forwarders on all chains
-	for _, chain := range env.Chains {
+	for _, chain := range evmChains {
 		if _, shouldInclude := req.Chains[chain.Selector]; len(req.Chains) > 0 && !shouldInclude {
 			continue
 		}

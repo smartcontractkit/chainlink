@@ -8,6 +8,7 @@ import (
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -20,13 +21,13 @@ import (
 func TestMaybeLoadMCMSWithTimelockChainState(t *testing.T) {
 	type testCase struct {
 		name      string
-		chain     cldf.Chain
+		chain     cldf_evm.Chain
 		addresses map[string]cldf.TypeAndVersion
 		wantState *MCMSWithTimelockState // Expected state
 		wantErr   string
 	}
 
-	defaultChain := cldf.Chain{
+	defaultChain := cldf_evm.Chain{
 		Selector: chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector,
 	}
 	tests := []testCase{

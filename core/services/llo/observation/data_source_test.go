@@ -2,6 +2,7 @@ package observation
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -110,6 +111,10 @@ func (m *mockOpts) ObservationTimestamp() time.Time {
 		return time.Unix(1737936858, 0)
 	}
 	return m.observationTimestamp
+}
+
+func (m *mockOpts) OutcomeCodec() llo.OutcomeCodec {
+	return nil
 }
 
 type mockTelemeter struct {
@@ -284,8 +289,12 @@ func Test_DataSource(t *testing.T) {
 			reg.pipelines[2] = makePipelineWithSingleResult[*big.Int](2, big.NewInt(40602), nil)
 
 			vals := makeStreamValues()
-			opts2 := &mockOpts{configDigest: ocr2types.ConfigDigest{6, 5, 7}}
-			err := ds.Observe(ctx, vals, opts2)
+			key := make([]byte, 32)
+			_, err := rand.Read(key)
+			require.NoError(t, err)
+
+			opts2 := &mockOpts{configDigest: ocr2types.ConfigDigest(key)}
+			err = ds.Observe(ctx, vals, opts2)
 			require.NoError(t, err)
 
 			// Verify initial values

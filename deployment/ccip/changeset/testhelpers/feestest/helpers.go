@@ -69,9 +69,10 @@ func RunFeeTokenTestCase(tc FeeTokenTestCase) {
 	startBlocks := make(map[uint64]*uint64)
 	expectedSeqNum := make(map[testhelpers.SourceDestPair]uint64)
 	expectedSeqNumExec := make(map[testhelpers.SourceDestPair][]uint64)
+	evmChains := tc.env.BlockChains.EVMChains()
 
-	srcChain := tc.env.Chains[tc.src]
-	dstChain := tc.env.Chains[tc.dst]
+	srcChain := evmChains[tc.src]
+	dstChain := evmChains[tc.dst]
 
 	state, err := stateview.LoadOnchainState(tc.env)
 	require.NoError(tc.t, err)
@@ -198,7 +199,8 @@ func RunFeeTokenTestCase(tc FeeTokenTestCase) {
 
 	if tc.assertExecution {
 		// Wait for all commit reports to land.
-		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.env, state, expectedSeqNum, startBlocks)
+		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.env, state,
+			testhelpers.ToSeqRangeMap(expectedSeqNum), startBlocks)
 
 		// After commit is reported on all chains, token prices should be updated in FeeQuoter.
 		linkAddress := state.Chains[tc.dst].LinkToken.Address()

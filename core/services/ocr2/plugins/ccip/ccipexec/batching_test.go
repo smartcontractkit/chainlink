@@ -37,6 +37,7 @@ type testCase struct {
 	expectedStates                                   []messageExecStatus
 	statuschecker                                    func(m *mockstatuschecker.CCIPTransactionStatusChecker)
 	skipGasPriceEstimator                            bool
+	msgCost                                          int64
 }
 
 func Test_NewBatchingStrategy(t *testing.T) {
@@ -206,6 +207,20 @@ func TestBatchingStrategies(t *testing.T) {
 			offRampNoncesBySender:  map[cciptypes.Address]uint64{sender1: 0},
 			expectedSeqNrs:         []ccip.ObservedMessage{{SeqNr: uint64(1)}},
 			expectedStates:         []messageExecStatus{newMessageExecState(msg1.SequenceNumber, msg1.MessageID, AddedToBatch)},
+		},
+		{
+			name:                   "underpriced message is properly executed - no fee boosting",
+			reqs:                   []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{msg1},
+			inflight:               []InflightInternalExecutionReport{},
+			inflightAggregateValue: big.NewInt(0),
+			tokenLimit:             big.NewInt(0),
+			destGasPrice:           big.NewInt(10),
+			srcPrices:              map[cciptypes.Address]*big.Int{srcNative: big.NewInt(1)},
+			dstPrices:              map[cciptypes.Address]*big.Int{destNative: big.NewInt(1)},
+			offRampNoncesBySender:  map[cciptypes.Address]uint64{sender1: 0},
+			expectedSeqNrs:         []ccip.ObservedMessage{{SeqNr: uint64(1)}},
+			expectedStates:         []messageExecStatus{newMessageExecState(msg1.SequenceNumber, msg1.MessageID, AddedToBatch)},
+			msgCost:                math.MaxInt64,
 		},
 		{
 			name:                   "gasPriceEstimator returns error",
@@ -807,9 +822,9 @@ func runBatchingStrategyTests(t *testing.T, strategy BatchingStrategy, available
 			gasPriceEstimator := prices.NewMockGasPriceEstimatorExec(t)
 			if !tc.skipGasPriceEstimator {
 				if tc.expectedSeqNrs != nil {
-					gasPriceEstimator.On("EstimateMsgCostUSD", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(0), nil)
+					gasPriceEstimator.On("EstimateMsgCostUSD", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(tc.msgCost), nil)
 				} else {
-					gasPriceEstimator.On("EstimateMsgCostUSD", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(0), errors.New("error"))
+					gasPriceEstimator.On("EstimateMsgCostUSD", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(tc.msgCost), errors.New("error"))
 				}
 			}
 

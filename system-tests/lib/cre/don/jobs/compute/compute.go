@@ -4,8 +4,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
-	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
+	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
@@ -21,13 +20,13 @@ func GenerateJobSpecs(donTopology *types.DonTopology) (types.DonsToJobSpecs, err
 	donToJobSpecs := make(types.DonsToJobSpecs)
 
 	for _, donWithMetadata := range donTopology.DonsWithMetadata {
-		workflowNodeSet, err := libnode.FindManyWithLabel(donWithMetadata.NodesMetadata, &types.Label{Key: libnode.NodeTypeKey, Value: types.WorkerNode}, libnode.EqualLabels)
+		workflowNodeSet, err := crenode.FindManyWithLabel(donWithMetadata.NodesMetadata, &types.Label{Key: crenode.NodeTypeKey, Value: types.WorkerNode}, crenode.EqualLabels)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to find worker nodes")
 		}
 
 		for _, workerNode := range workflowNodeSet {
-			nodeID, nodeIDErr := node.FindLabelValue(workerNode, node.NodeIDKey)
+			nodeID, nodeIDErr := crenode.FindLabelValue(workerNode, crenode.NodeIDKey)
 			if nodeIDErr != nil {
 				return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 			}

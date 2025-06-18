@@ -32,7 +32,7 @@ func BuildMultiChainProposals(env cldf.Environment, description string, proposal
 	var batches []mcmstypes.BatchOperation
 
 	for chainSelector, proposalData := range proposalConfig {
-		chain := env.Chains[chainSelector]
+		chain := env.BlockChains.EVMChains()[chainSelector]
 		chainState := state.Chains[chainSelector]
 
 		inspectorPerChain[chainSelector] = evm.NewInspector(chain.Client)

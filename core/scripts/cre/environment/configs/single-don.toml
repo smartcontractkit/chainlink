@@ -19,11 +19,17 @@
   # either "docker" or "crib"
   type = "docker"
 
+#[infra.crib]
+#  namespace = "crib-local"
+#  folder_location = "/absolute/path/to/crib/deployments/cre"
+#  provider = "kind"  # or "aws"
+
 [extra_capabilities]
 # uncomment as needed and adjust paths to enable these capabilities and have them copied to containers/pods
-# cron_capability_binary_path = "../cron"
-# log_event_trigger_binary_path = "../logtrigger"
-# read_contract_capability_binary_path = "../readcontract"
+# these default paths assume that binaries are placed in core/scripts/cre/environment/ folder
+# cron_capability_binary_path = "./cron"
+# log_event_trigger_binary_path = "./logtrigger"
+# read_contract_capability_binary_path = "./readcontract"
 
 [[nodesets]]
   nodes = 5
@@ -47,7 +53,15 @@
       [Log]
       Level = 'debug'
       JSONConsole = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      InsecureConnection = true
+      TraceSampleRatio = 1
       """
+      [nodesets.node_specs.node.env_vars]
+      CL_EVM_CMD=""
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
@@ -60,7 +74,15 @@
       [Log]
       Level = 'debug'
       JSONConsole = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      InsecureConnection = true
+      TraceSampleRatio = 1
       """
+      [nodesets.node_specs.node.env_vars]
+      CL_EVM_CMD=""
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
@@ -73,7 +95,15 @@
       [Log]
       Level = 'debug'
       JSONConsole = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      InsecureConnection = true
+      TraceSampleRatio = 1
       """
+      [nodesets.node_specs.node.env_vars]
+      CL_EVM_CMD=""
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
@@ -86,7 +116,15 @@
       [Log]
       Level = 'debug'
       JSONConsole = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      InsecureConnection = true
+      TraceSampleRatio = 1
       """
+      [nodesets.node_specs.node.env_vars]
+      CL_EVM_CMD=""
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
@@ -99,4 +137,12 @@
       [Log]
       Level = 'debug'
       JSONConsole = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      InsecureConnection = true
+      TraceSampleRatio = 1
       """
+      [nodesets.node_specs.node.env_vars]
+      CL_EVM_CMD=""

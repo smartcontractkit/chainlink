@@ -64,6 +64,7 @@ var (
 			MerkleRootAsyncObserverSyncTimeout: 12 * time.Second,
 			ChainFeeAsyncObserverSyncFreq:      10 * time.Second,
 			ChainFeeAsyncObserverSyncTimeout:   12 * time.Second,
+			DonBreakingChangesVersion:          pluginconfig.DonBreakingChangesVersion1RoleDonSupport,
 		},
 		ExecuteOffChainConfig: &pluginconfig.ExecuteOffchainConfig{
 			BatchGasLimit:             globals.BatchGasLimit,
@@ -71,6 +72,7 @@ var (
 			RootSnoozeTime:            *config.MustNewDuration(globals.RootSnoozeTime),
 			MessageVisibilityInterval: *config.MustNewDuration(globals.PermissionLessExecutionThreshold),
 			BatchingStrategyID:        globals.BatchingStrategyID,
+			MaxCommitReportsToFetch:   globals.MaxCommitReportsToFetch,
 		},
 	}
 )

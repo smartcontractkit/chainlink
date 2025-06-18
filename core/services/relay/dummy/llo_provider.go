@@ -6,11 +6,11 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var _ commontypes.LLOProvider = (*lloProvider)(nil)
@@ -40,7 +40,7 @@ func NewLLOProvider(
 	return &lloProvider{
 		cp,
 		transmitter,
-		lggr.Named("LLOProvider"),
+		logger.Named(lggr, "LLOProvider"),
 		channelDefinitionCache,
 		shouldRetireCache,
 		services.MultiStart{},

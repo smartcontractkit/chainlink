@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -35,7 +36,7 @@ type DeployUSDCTokenPoolInput struct {
 	AllowList []common.Address
 }
 
-func (i DeployUSDCTokenPoolInput) Validate(ctx context.Context, chain cldf.Chain, state evm.CCIPChainState) error {
+func (i DeployUSDCTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.Chain, state evm.CCIPChainState) error {
 	// Ensure that required fields are populated
 	if i.TokenAddress == utils.ZeroAddress {
 		return errors.New("token address must be defined")
@@ -99,7 +100,7 @@ func (c DeployUSDCTokenPoolContractsConfig) Validate(env cldf.Environment) error
 		if err != nil {
 			return fmt.Errorf("failed to validate chain selector %d: %w", chainSelector, err)
 		}
-		chain, ok := env.Chains[chainSelector]
+		chain, ok := env.BlockChains.EVMChains()[chainSelector]
 		if !ok {
 			return fmt.Errorf("chain with selector %d does not exist in environment", chainSelector)
 		}
@@ -137,14 +138,14 @@ func DeployUSDCTokenPoolContractsChangeset(env cldf.Environment, c DeployUSDCTok
 	}
 
 	for chainSelector, poolConfig := range c.USDCPools {
-		chain := env.Chains[chainSelector]
+		chain := env.BlockChains.EVMChains()[chainSelector]
 		chainState := state.Chains[chainSelector]
 		router := chainState.Router
 		if c.IsTestRouter {
 			router = chainState.TestRouter
 		}
 		_, err := cldf.DeployContract(env.Logger, chain, newAddresses,
-			func(chain cldf.Chain) cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
+			func(chain cldf_evm.Chain) cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
 				poolAddress, tx, usdcTokenPool, err := usdc_token_pool.DeployUSDCTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenMessenger, poolConfig.TokenAddress,
 					poolConfig.AllowList, chainState.RMNProxy.Address(), router.Address(),

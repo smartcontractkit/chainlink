@@ -76,7 +76,7 @@ func (req *MutateNodeCapabilitiesRequest) Validate(e cldf.Environment) error {
 		return fmt.Errorf("invalid registry chain selector %d: selector does not exist", req.RegistryChainSel)
 	}
 
-	_, exists = e.Chains[req.RegistryChainSel]
+	_, exists = e.BlockChains.EVMChains()[req.RegistryChainSel]
 	if !exists {
 		return fmt.Errorf("invalid registry chain selector %d: chain does not exist in environment", req.RegistryChainSel)
 	}
@@ -94,7 +94,7 @@ func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e cl
 	if err := req.Validate(e); err != nil {
 		return nil, nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
 	}
-	registryChain := e.Chains[req.RegistryChainSel] // exists because of the validation above
+	registryChain := e.BlockChains.EVMChains()[req.RegistryChainSel] // exists because of the validation above
 	capReg, err := loadCapabilityRegistry(registryChain, e, req.RegistryRef)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to load capability registry: %w", err)
@@ -124,6 +124,9 @@ func UpdateNodeCapabilities(env cldf.Environment, req *UpdateNodeCapabilitiesReq
 	if req.UseMCMS() {
 		if r.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
+		}
+		if capReg.McmsContracts == nil {
+			return out, fmt.Errorf("expected capabiity registry contract %s to be owned by MCMS", capReg.Contract.Address().String())
 		}
 		timelocksPerChain := map[uint64]string{
 			c.Chain.Selector: capReg.McmsContracts.Timelock.Address().Hex(),

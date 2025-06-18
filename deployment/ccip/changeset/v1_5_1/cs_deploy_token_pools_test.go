@@ -7,8 +7,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
@@ -70,7 +73,7 @@ func TestValidateDeployTokenPoolContractsConfig(t *testing.T) {
 			Input: v1_5_1.DeployTokenPoolContractsConfig{
 				TokenSymbol: "TEST",
 				NewPools: map[uint64]v1_5_1.DeployTokenPoolInput{
-					e.AllChainSelectors()[0]: v1_5_1.DeployTokenPoolInput{},
+					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: v1_5_1.DeployTokenPoolInput{},
 				},
 			},
 			ErrStr: "missing router",
@@ -80,7 +83,7 @@ func TestValidateDeployTokenPoolContractsConfig(t *testing.T) {
 			Input: v1_5_1.DeployTokenPoolContractsConfig{
 				TokenSymbol: "TEST",
 				NewPools: map[uint64]v1_5_1.DeployTokenPoolInput{
-					e.AllChainSelectors()[0]: v1_5_1.DeployTokenPoolInput{},
+					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: v1_5_1.DeployTokenPoolInput{},
 				},
 				IsTestRouter: true,
 			},
@@ -99,7 +102,7 @@ func TestValidateDeployTokenPoolContractsConfig(t *testing.T) {
 func TestValidateDeployTokenPoolInput(t *testing.T) {
 	t.Parallel()
 
-	e, selectorA, _, tokens, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 	acceptLiquidity := false
 	invalidAddress := utils.RandomAddress()
 
@@ -175,6 +178,16 @@ func TestValidateDeployTokenPoolInput(t *testing.T) {
 			ErrStr: "accept liquidity must be defined for lock release pools",
 		},
 		{
+			Msg:    "External Minter should be defined",
+			Symbol: testhelpers.TestTokenSymbol,
+			Input: v1_5_1.DeployTokenPoolInput{
+				Type:               shared.BurnMintWithExternalMinterFastTransferTokenPool,
+				TokenAddress:       tokens[selectorA].Address,
+				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+			},
+			ErrStr: "external minter must be defined for burn mint with external minter fast transfer pools",
+		},
+		{
 			Msg:    "Accept liquidity should be omitted",
 			Symbol: testhelpers.TestTokenSymbol,
 			Input: v1_5_1.DeployTokenPoolInput{
@@ -202,7 +215,7 @@ func TestValidateDeployTokenPoolInput(t *testing.T) {
 			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
-			err = test.Input.Validate(context.Background(), e.Chains[selectorA], state.Chains[selectorA], test.Symbol)
+			err = test.Input.Validate(context.Background(), e.BlockChains.EVMChains()[selectorA], state.Chains[selectorA], test.Symbol)
 			require.Contains(t, err.Error(), test.ErrStr)
 		})
 	}
@@ -218,9 +231,10 @@ func TestDeployTokenPoolContracts(t *testing.T) {
 	}
 
 	tests := []struct {
-		Msg     string
-		Input   v1_5_1.DeployTokenPoolInput
-		GetPool func(evm.CCIPChainState) Ownable
+		Msg                 string
+		Input               v1_5_1.DeployTokenPoolInput
+		GetPool             func(evm.CCIPChainState) Ownable
+		SetupExternalMinter bool
 	}{
 		{
 			Msg: "BurnMint",
@@ -265,6 +279,35 @@ func TestDeployTokenPoolContracts(t *testing.T) {
 			},
 		},
 		{
+			Msg: "BurnMintFastTransfer",
+			Input: v1_5_1.DeployTokenPoolInput{
+				Type:               shared.BurnMintFastTransferTokenPool,
+				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+				AllowList:          []common.Address{},
+			},
+			GetPool: func(cs evm.CCIPChainState) Ownable {
+				tokenPools, ok := cs.BurnMintFastTransferTokenPools[testhelpers.TestTokenSymbol]
+				require.True(t, ok)
+				require.Len(t, tokenPools, 1)
+				return tokenPools[deployment.Version1_6_1Dev]
+			},
+		},
+		{
+			Msg:                 "BurnMintWithExternalMinterFastTransfer",
+			SetupExternalMinter: true,
+			Input: v1_5_1.DeployTokenPoolInput{
+				Type:               shared.BurnMintWithExternalMinterFastTransferTokenPool,
+				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+				AllowList:          []common.Address{},
+			},
+			GetPool: func(cs evm.CCIPChainState) Ownable {
+				tokenPools, ok := cs.BurnMintWithExternalMinterFastTransferTokenPools[testhelpers.TestTokenSymbol]
+				require.True(t, ok)
+				require.Len(t, tokenPools, 1)
+				return tokenPools[deployment.Version1_6_0]
+			},
+		},
+		{
 			Msg: "LockRelease",
 			Input: v1_5_1.DeployTokenPoolInput{
 				Type:               shared.LockReleaseTokenPool,
@@ -283,11 +326,15 @@ func TestDeployTokenPoolContracts(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			e, selectorA, _, tokens, timelockContracts := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+			e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+
+			if test.SetupExternalMinter {
+				test.Input.ExternalMinter, _ = testhelpers.DeployTokenGovernor(t, e, selectorA, tokens[selectorA].Address)
+			}
 
 			test.Input.TokenAddress = tokens[selectorA].Address
 
-			e, err := commonchangeset.Apply(t, e, timelockContracts,
+			e, err := commonchangeset.Apply(t, e,
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(v1_5_1.DeployTokenPoolContractsChangeset),
 					v1_5_1.DeployTokenPoolContractsConfig{
@@ -306,7 +353,7 @@ func TestDeployTokenPoolContracts(t *testing.T) {
 			pool := test.GetPool(state.Chains[selectorA])
 			owner, err := pool.Owner(nil)
 			require.NoError(t, err)
-			require.Equal(t, e.Chains[selectorA].DeployerKey.From, owner)
+			require.Equal(t, e.BlockChains.EVMChains()[selectorA].DeployerKey.From, owner)
 		})
 	}
 }

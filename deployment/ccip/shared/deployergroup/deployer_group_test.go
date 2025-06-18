@@ -7,7 +7,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
@@ -60,7 +63,7 @@ func dummyDeployerGroupGrantMintChangeset(e cldf.Environment, cfg dummyDeployerG
 		return cldf.ChangesetOutput{}, err
 	}
 
-	token := state.Chains[cfg.selector].LinkToken
+	token := state.MustGetEVMChainState(cfg.selector).LinkToken
 
 	group := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("grant mint role")
 	deployer, err := group.GetDeployer(cfg.selector)
@@ -82,7 +85,7 @@ func dummyDeployerGroupMintChangeset(e cldf.Environment, cfg dummyDeployerGroupC
 		return cldf.ChangesetOutput{}, err
 	}
 
-	token := state.Chains[cfg.selector].LinkToken
+	token := state.MustGetEVMChainState(cfg.selector).LinkToken
 
 	group := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("mint tokens")
 	deployer, err := group.GetDeployer(cfg.selector)
@@ -108,8 +111,8 @@ func dummyDeployerGroupGrantMintMultiChainChangeset(e cldf.Environment, cfg dumm
 
 	group := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("grant mint role")
 	for _, mint := range cfg.mints {
-		selector := e.AllChainSelectors()[mint.selectorIndex]
-		token := state.Chains[selector].LinkToken
+		selector := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[mint.selectorIndex]
+		token := state.MustGetEVMChainState(selector).LinkToken
 
 		deployer, err := group.GetDeployer(selector)
 		if err != nil {
@@ -135,8 +138,8 @@ func dummyDeployerGroupMintMultiDeploymentContextChangeset(e cldf.Environment, c
 	var deployer *bind.TransactOpts
 
 	for i, mint := range cfg.mints {
-		selector := e.AllChainSelectors()[mint.selectorIndex]
-		token := state.Chains[selector].LinkToken
+		selector := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[mint.selectorIndex]
+		token := state.MustGetEVMChainState(selector).LinkToken
 
 		if group == nil {
 			group = deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext(fmt.Sprintf("mint tokens %d", i+1))
@@ -201,7 +204,7 @@ func TestDeployerGroup(t *testing.T) {
 				state, err := stateview.LoadOnchainState(e.Env)
 				require.NoError(t, err)
 
-				token := state.Chains[e.HomeChainSel].LinkToken
+				token := state.MustGetEVMChainState(e.HomeChainSel).LinkToken
 
 				amount, err := token.BalanceOf(nil, tc.cfg.address)
 				require.NoError(t, err)
@@ -236,12 +239,10 @@ func TestDeployerGroupMCMS(t *testing.T) {
 			state, err := stateview.LoadOnchainState(e.Env)
 			require.NoError(t, err)
 
-			timelocksPerChain := deployergroup.BuildTimelockPerChain(e.Env, state)
-
 			contractsByChain := make(map[uint64][]common.Address)
-			contractsByChain[e.HomeChainSel] = []common.Address{state.Chains[e.HomeChainSel].LinkToken.Address()}
+			contractsByChain[e.HomeChainSel] = []common.Address{state.MustGetEVMChainState(e.HomeChainSel).LinkToken.Address()}
 
-			_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+			_, err = commonchangeset.Apply(t, e.Env,
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 					commonchangeset.TransferToMCMSWithTimelockConfig{
@@ -254,7 +255,7 @@ func TestDeployerGroupMCMS(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+			_, err = commonchangeset.Apply(t, e.Env,
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(dummyDeployerGroupGrantMintChangeset),
 					tc.cfg,
@@ -262,7 +263,7 @@ func TestDeployerGroupMCMS(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+			_, err = commonchangeset.Apply(t, e.Env,
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(dummyDeployerGroupMintChangeset),
 					tc.cfg,
@@ -273,7 +274,7 @@ func TestDeployerGroupMCMS(t *testing.T) {
 			state, err = stateview.LoadOnchainState(e.Env)
 			require.NoError(t, err)
 
-			token := state.Chains[e.HomeChainSel].LinkToken
+			token := state.MustGetEVMChainState(e.HomeChainSel).LinkToken
 
 			amount, err := token.BalanceOf(nil, tc.cfg.address)
 			require.NoError(t, err)
@@ -313,14 +314,12 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	timelocksPerChain := deployergroup.BuildTimelockPerChain(e.Env, state)
-
 	contractsByChain := make(map[uint64][]common.Address)
-	for _, chain := range e.Env.AllChainSelectors() {
-		contractsByChain[chain] = []common.Address{state.Chains[chain].LinkToken.Address()}
+	for _, chain := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
+		contractsByChain[chain] = []common.Address{state.MustGetEVMChainState(chain).LinkToken.Address()}
 	}
 
-	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+	_, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
@@ -333,7 +332,7 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+	_, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(dummyDeployerGroupGrantMintMultiChainChangeset),
 			tc,
@@ -347,9 +346,9 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 	require.Equal(t, "mint tokens 1", cs.MCMSTimelockProposals[0].Description)
 	require.Equal(t, "mint tokens 2", cs.MCMSTimelockProposals[1].Description)
 	require.Equal(t, "mint tokens 3", cs.MCMSTimelockProposals[2].Description)
-	require.Equal(t, uint64(2), cs.MCMSTimelockProposals[0].ChainMetadata[mcmstypes.ChainSelector(e.Env.AllChainSelectors()[tc.mints[0].selectorIndex])].StartingOpCount)
-	require.Equal(t, uint64(3), cs.MCMSTimelockProposals[1].ChainMetadata[mcmstypes.ChainSelector(e.Env.AllChainSelectors()[tc.mints[1].selectorIndex])].StartingOpCount)
-	require.Equal(t, uint64(2), cs.MCMSTimelockProposals[2].ChainMetadata[mcmstypes.ChainSelector(e.Env.AllChainSelectors()[tc.mints[2].selectorIndex])].StartingOpCount)
+	require.Equal(t, uint64(2), cs.MCMSTimelockProposals[0].ChainMetadata[mcmstypes.ChainSelector(e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[tc.mints[0].selectorIndex])].StartingOpCount)
+	require.Equal(t, uint64(3), cs.MCMSTimelockProposals[1].ChainMetadata[mcmstypes.ChainSelector(e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[tc.mints[1].selectorIndex])].StartingOpCount)
+	require.Equal(t, uint64(2), cs.MCMSTimelockProposals[2].ChainMetadata[mcmstypes.ChainSelector(e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[tc.mints[2].selectorIndex])].StartingOpCount)
 	require.Len(t, cs.DescribedTimelockProposals, len(tc.mints))
 	require.NotEmpty(t, cs.DescribedTimelockProposals[0])
 	require.NotEmpty(t, cs.DescribedTimelockProposals[1])
@@ -379,14 +378,12 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 	currentState, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	timelocksPerChain := deployergroup.BuildTimelockPerChain(e.Env, currentState)
-
 	contractsByChain := make(map[uint64][]common.Address)
-	for _, chain := range e.Env.AllChainSelectors() {
-		contractsByChain[chain] = []common.Address{currentState.Chains[chain].LinkToken.Address()}
+	for _, chain := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
+		contractsByChain[chain] = []common.Address{currentState.MustGetEVMChainState(chain).LinkToken.Address()}
 	}
 
-	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+	_, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
@@ -399,7 +396,7 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+	_, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(dummyDeployerGroupGrantMintMultiChainChangeset),
 			cfg,
@@ -407,7 +404,7 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+	_, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(dummyDeployerGroupMintMultiDeploymentContextChangeset),
 			cfg,
@@ -418,7 +415,7 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 	currentState, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	token := currentState.Chains[e.HomeChainSel].LinkToken
+	token := currentState.MustGetEVMChainState(e.HomeChainSel).LinkToken
 
 	amount, err := token.BalanceOf(nil, cfg.address)
 	require.NoError(t, err)

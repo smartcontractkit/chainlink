@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -24,10 +25,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
@@ -1607,17 +1608,33 @@ func (s *service) isApprovable(ctx context.Context, propStatus JobProposalStatus
 	case SpecStatusRevoked:
 		return errors.New("cannot approve a revoked spec")
 	case SpecStatusCancelled:
-		// Allowed to approve a cancelled job if it is the latest job
-		latest, serr := s.orm.GetLatestSpec(ctx, proposalID)
+		// allow approval of a cancelled job if no other spec is approved
+		specs, serr := s.orm.ListSpecsByJobProposalIDs(ctx, []int64{proposalID})
 		if serr != nil {
 			return errors.Wrap(serr, "failed to get latest spec")
 		}
 
-		if latest.ID != specID {
-			return errors.New("cannot approve a cancelled spec")
+		for _, spec := range specs {
+			if spec.Status == SpecStatusApproved {
+				return fmt.Errorf("the job spec with version %d is already approved", spec.Version)
+			}
 		}
 
-		return nil
+		slices.SortFunc(specs, func(a, b JobProposalSpec) int { return int(b.Version - a.Version) })
+		cancelledIndex := 0
+		for _, spec := range specs {
+			if spec.ID == specID {
+				if cancelledIndex >= 2 {
+					return errors.New("only the last two cancelled spec versions may be approved")
+				}
+				return nil
+			}
+			if spec.Status == SpecStatusCancelled {
+				cancelledIndex++
+			}
+		}
+
+		return fmt.Errorf("failed to find spec %d associated with proposal %d", specID, proposalID)
 	case SpecStatusPending:
 		return nil
 	default:

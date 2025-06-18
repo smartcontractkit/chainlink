@@ -15,9 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 )
@@ -72,7 +72,7 @@ func TestEVMService(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("TransactionByHash", func(t *testing.T) {
+	t.Run("GetTransactionByHash", func(t *testing.T) {
 		hash := common.HexToHash("0x123")
 		nonce := uint64(1)
 		to := common.HexToAddress("0x555")
@@ -83,7 +83,7 @@ func TestEVMService(t *testing.T) {
 
 		transaction := gethtypes.NewTransaction(nonce, to, amount, gasLimit, gasPrice, data)
 		evmClient.On("TransactionByHash", ctx, hash).Return(transaction, nil)
-		tx, err := relayer.TransactionByHash(ctx, hash)
+		tx, err := relayer.GetTransactionByHash(ctx, hash)
 		require.NoError(t, err)
 		require.Equal(t, transaction.Hash().Bytes(), tx.Hash[:])
 		require.Equal(t, transaction.Nonce(), tx.Nonce)

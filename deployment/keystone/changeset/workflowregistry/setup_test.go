@@ -6,8 +6,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper"
+	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -16,7 +17,7 @@ import (
 
 type SetupTestWorkflowRegistryResponse struct {
 	Registry         *workflow_registry.WorkflowRegistry
-	Chain            cldf.Chain
+	Chain            cldf_evm.Chain
 	RegistrySelector uint64
 	AddressBook      cldf.AddressBook
 }
@@ -45,9 +46,9 @@ func SetupTestWorkflowRegistry(t *testing.T, lggr logger.Logger, chainSel uint64
 	}
 }
 
-func testChain(t *testing.T) cldf.Chain {
+func testChain(t *testing.T) cldf_evm.Chain {
 	chains, _ := memory.NewMemoryChains(t, 1, 5)
-	var chain cldf.Chain
+	var chain cldf_evm.Chain
 	for _, c := range chains {
 		chain = c
 		break

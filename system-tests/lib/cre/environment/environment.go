@@ -13,28 +13,33 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"github.com/scylladb/go-reflectx"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	workflow_registry_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
-	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	workflow_registry_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
 
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -46,10 +51,10 @@ import (
 	libdevenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/devenv"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	creconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
+	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	cresecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
-	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 	libfunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
 	libinfra "github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -66,16 +71,15 @@ const (
 )
 
 type SetupOutput struct {
-	WorkflowRegistryConfigurationOutput *keystonetypes.WorkflowRegistryOutput
+	WorkflowRegistryConfigurationOutput *cretypes.WorkflowRegistryOutput
 	CldEnvironment                      *cldf.Environment
 	BlockchainOutput                    []*BlockchainOutput
-	DonTopology                         *keystonetypes.DonTopology
-	NodeOutput                          []*keystonetypes.WrappedNodeOutput
+	DonTopology                         *cretypes.DonTopology
+	NodeOutput                          []*cretypes.WrappedNodeOutput
 }
 
 type SetupInput struct {
-	ExtraAllowedPorts                    []int
-	CapabilitiesAwareNodeSets            []*keystonetypes.CapabilitiesAwareNodeSet
+	CapabilitiesAwareNodeSets            []*cretypes.CapabilitiesAwareNodeSet
 	CapabilitiesContractFactoryFunctions []func([]cretypes.CapabilityFlag) []keystone_changeset.DONCapabilityWithConfig
 	ConfigFactoryFunctions               []cretypes.ConfigFactoryFn
 	JobSpecFactoryFunctions              []cretypes.JobSpecFactoryFn
@@ -86,10 +90,15 @@ type SetupInput struct {
 	OCR3Config                           *keystone_changeset.OracleConfig
 }
 
+type backgroundStageResult struct {
+	err            error
+	successMessage string
+}
+
 func SetupTestEnvironment(
 	ctx context.Context,
 	testLogger zerolog.Logger,
-	singeFileLogger *cldlogger.SingleFileLogger,
+	singeFileLogger logger.Logger,
 	input SetupInput,
 ) (*SetupOutput, error) {
 	topologyErr := libdon.ValidateTopology(input.CapabilitiesAwareNodeSets, input.InfraInput)
@@ -101,7 +110,7 @@ func SetupTestEnvironment(
 	// We need to have this reference in the outer scope, because subsequent functions will need it
 	var nixShell *libnix.Shell
 	if input.InfraInput.InfraType == libtypes.CRIB {
-		startNixShellInput := &keystonetypes.StartNixShellInput{
+		startNixShellInput := &cretypes.StartNixShellInput{
 			InfraInput:     &input.InfraInput,
 			CribConfigsDir: cribConfigsDir,
 			PurgeNamespace: true,
@@ -127,7 +136,7 @@ func SetupTestEnvironment(
 	bi.blockchainsInput = append(bi.blockchainsInput, input.BlockchainsInput...)
 
 	startTime := time.Now()
-	fmt.Print(libformat.PurpleText("\n[Stage 1/10] Starting %d blockchain(s)\n\n", len(bi.blockchainsInput)))
+	fmt.Print(libformat.PurpleText("\n[Stage 1/8] Starting %d blockchain(s)\n\n", len(bi.blockchainsInput)))
 
 	blockchainsOutput, bcOutErr := CreateBlockchains(testLogger, bi)
 	if bcOutErr != nil {
@@ -159,22 +168,29 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(allChainsErr, "failed to create chains")
 	}
 
+	blockChains := map[uint64]chain.BlockChain{}
+	for selector, ch := range allChains {
+		blockChains[selector] = ch
+	}
+
 	allChainsCLDEnvironment := &cldf.Environment{
 		Logger:            singeFileLogger,
-		Chains:            allChains,
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
 		GetContext: func() context.Context {
 			return ctx
 		},
+		BlockChains: chain.NewBlockChains(blockChains),
 	}
 
-	fmt.Print(libformat.PurpleText("\n[Stage 1/10] Blockchains started in %.2f seconds\n", time.Since(startTime).Seconds()))
+	fmt.Print(libformat.PurpleText("\n[Stage 1/8] Blockchains started in %.2f seconds\n", time.Since(startTime).Seconds()))
 	startTime = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 2/10] Deploying Keystone contracts\n\n"))
+	fmt.Print(libformat.PurpleText("[Stage 2/8 Deploying Keystone contracts\n\n"))
 
 	// we could try to parallelise deployment of these contracts, but it's difficult, because there's no way to make chain.DeployerKey dynamic
 	// in order to manually increment the nonce for each contract
-	ocr3Output, ocr3Err := keystone_changeset.DeployOCR3(*allChainsCLDEnvironment, homeChainOutput.ChainSelector) // //nolint:staticcheck // will migrate in DX-641
+	ocr3Output, ocr3Err := keystone_changeset.DeployOCR3V2(*allChainsCLDEnvironment, &keystone_changeset.DeployRequestV2{
+		ChainSel: homeChainOutput.ChainSelector,
+	})
 	if ocr3Err != nil {
 		return nil, pkgerrors.Wrap(ocr3Err, "failed to deploy OCR3 contract")
 	}
@@ -232,9 +248,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(err, "failed to deploy Keystone contracts")
 	}
 
-	fmt.Print(libformat.PurpleText("\n[Stage 2/10] Contracts deployed in %.2f seconds\n", time.Since(startTime).Seconds()))
-	startTime = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 3/10] Configuring Workflow Registry contract\n\n"))
+	fmt.Print(libformat.PurpleText("\n[Stage 2/8] Contracts deployed in %.2f seconds\n", time.Since(startTime).Seconds()))
 
 	// Translate node input to structure required further down the road and put as much information
 	// as we have at this point in labels. It will be used to generate node configs
@@ -243,26 +257,42 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
 	}
 
-	// Configure Workflow Registry contract
-	workflowRegistryInput := &keystonetypes.WorkflowRegistryInput{
-		ChainSelector:  homeChainOutput.ChainSelector,
-		CldEnv:         allChainsCLDEnvironment,
-		AllowedDonIDs:  []uint32{topology.WorkflowDONID},
-		WorkflowOwners: []common.Address{homeChainOutput.SethClient.MustGetRootKeyAddress()},
-	}
+	// start 3 tasks in the background
+	backgroundStagesCount := 3
+	backgroundStagesWaitGroup := &sync.WaitGroup{}
+	backgroundStagesCh := make(chan backgroundStageResult, backgroundStagesCount)
+	backgroundStagesWaitGroup.Add(1)
 
-	_, workflowErr := libcontracts.ConfigureWorkflowRegistry(testLogger, workflowRegistryInput)
-	if workflowErr != nil {
-		return nil, pkgerrors.Wrap(workflowErr, "failed to configure workflow registry")
-	}
+	// configure workflow registry contract in the background, so that we can continue with the next stage
+	var workflowRegistryInput *cretypes.WorkflowRegistryInput
+	go func() {
+		defer backgroundStagesWaitGroup.Done()
+		startTime = time.Now()
+		fmt.Print(libformat.PurpleText("---> [BACKGROUND 1/3] Configuring Workflow Registry contract\n"))
 
-	fmt.Print(libformat.PurpleText("\n[Stage 3/10] Workflow Registry configured in %.2f seconds\n", time.Since(startTime).Seconds()))
+		// Configure Workflow Registry contract
+		workflowRegistryInput = &cretypes.WorkflowRegistryInput{
+			ChainSelector:  homeChainOutput.ChainSelector,
+			CldEnv:         allChainsCLDEnvironment,
+			AllowedDonIDs:  []uint32{topology.WorkflowDONID},
+			WorkflowOwners: []common.Address{homeChainOutput.SethClient.MustGetRootKeyAddress()},
+		}
+
+		_, workflowErr := libcontracts.ConfigureWorkflowRegistry(testLogger, workflowRegistryInput)
+		if workflowErr != nil {
+			backgroundStagesCh <- backgroundStageResult{err: pkgerrors.Wrap(workflowErr, "failed to configure workflow registry"), successMessage: libformat.PurpleText("\n<--- [BACKGROUND 1/3] Workflow Registry configured in %.2f seconds\n", time.Since(startTime).Seconds())}
+			return
+		}
+
+		backgroundStagesCh <- backgroundStageResult{successMessage: libformat.PurpleText("\n<--- [BACKGROUND 1/3] Workflow Registry configured in %.2f seconds\n", time.Since(startTime).Seconds())}
+	}()
+
 	startTime = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 4/10] Preparing DON(s) configuration\n\n"))
+	fmt.Print(libformat.PurpleText("[Stage 3/8] Preparing DON(s) configuration\n\n"))
 
 	// Generate EVM and P2P keys or read them from the config
 	// That way we can pass them final configs and do away with restarting the nodes
-	var keys *keystonetypes.GenerateKeysOutput
+	var keys *cretypes.GenerateKeysOutput
 
 	keysOutput, keysOutputErr := cresecrets.KeysOutputFromConfig(input.CapabilitiesAwareNodeSets)
 	if keysOutputErr != nil {
@@ -280,7 +310,7 @@ func SetupTestEnvironment(
 		sethClients[bcOut.ChainSelector] = bcOut.SethClient
 	}
 
-	generateKeysInput := &keystonetypes.GenerateKeysInput{
+	generateKeysInput := &cretypes.GenerateKeysInput{
 		GenerateEVMKeysForChainIDs: chainIDs,
 		GenerateP2PKeys:            true,
 		Topology:                   topology,
@@ -326,13 +356,13 @@ func SetupTestEnvironment(
 		// If both are provided, we assume that the user knows what they are doing and we don't need to validate anything
 		// And that configs match the secrets
 		if configsFound > 0 && secretsFound == 0 {
-			return nil, fmt.Errorf("nodese config overrides are provided for DON %d, but not secrets. You need to either provide both, only secrets or nothing at all", donMetadata.ID)
+			return nil, fmt.Errorf("nodeSet config overrides are provided for DON %d, but not secrets. You need to either provide both, only secrets or nothing at all", donMetadata.ID)
 		}
 
 		// generate configs only if they are not provided
 		if configsFound == 0 {
 			config, configErr := creconfig.Generate(
-				keystonetypes.GenerateConfigsInput{
+				cretypes.GenerateConfigsInput{
 					DonMetadata:            donMetadata,
 					BlockchainOutput:       bcOuts,
 					Flags:                  donMetadata.Flags,
@@ -354,7 +384,7 @@ func SetupTestEnvironment(
 
 		// generate secrets only if they are not provided
 		if secretsFound == 0 {
-			secretsInput := &keystonetypes.GenerateSecretsInput{
+			secretsInput := &cretypes.GenerateSecretsInput{
 				DonMetadata: donMetadata,
 			}
 
@@ -386,6 +416,24 @@ func SetupTestEnvironment(
 		}
 	}
 
+	// Add env vars, which were provided programmatically, to the node specs
+	// or fail, if node specs already had some env vars set in the TOML config
+	for donIdx, donMetadata := range topology.DonsMetadata {
+		hasEnvVarsInTomlConfig := false
+		for nodeIdx, nodeSpec := range input.CapabilitiesAwareNodeSets[donIdx].NodeSpecs {
+			if len(nodeSpec.Node.EnvVars) > 0 {
+				hasEnvVarsInTomlConfig = true
+				break
+			}
+
+			input.CapabilitiesAwareNodeSets[donIdx].NodeSpecs[nodeIdx].Node.EnvVars = input.CapabilitiesAwareNodeSets[donIdx].EnvVars
+		}
+
+		if hasEnvVarsInTomlConfig && len(input.CapabilitiesAwareNodeSets[donIdx].EnvVars) > 0 {
+			return nil, fmt.Errorf("extra env vars for Chainlink Nodes are provided in the TOML config for the %s DON, but you tried to provide them programatically. Please set them only in one place", donMetadata.Name)
+		}
+	}
+
 	// Deploy the DONs
 	// Hack for CI that allows us to dynamically set the chainlink image and version
 	// CTFv2 currently doesn't support dynamic image and version setting
@@ -400,12 +448,12 @@ func SetupTestEnvironment(
 		}
 	}
 
-	fmt.Print(libformat.PurpleText("\n[Stage 4/10] DONs configuration prepared in %.2f seconds\n", time.Since(startTime).Seconds()))
+	fmt.Print(libformat.PurpleText("\n[Stage 3/8] DONs configuration prepared in %.2f seconds\n", time.Since(startTime).Seconds()))
 	startTime = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 5/10] Starting Job Distributor\n\n"))
+	fmt.Print(libformat.PurpleText("[Stage 4/8] Starting Job Distributor\n"))
 
 	if input.InfraInput.InfraType == libtypes.CRIB {
-		deployCribJdInput := &keystonetypes.DeployCribJdInput{
+		deployCribJdInput := &cretypes.DeployCribJdInput{
 			JDInput:        &input.JdInput,
 			NixShell:       nixShell,
 			CribConfigsDir: cribConfigsDir,
@@ -418,24 +466,33 @@ func SetupTestEnvironment(
 		}
 	}
 
-	jdOutput, jdErr := CreateJobDistributor(&input.JdInput)
-	if jdErr != nil {
-		jdErr = fmt.Errorf("failed to start JD container for image %s: %w", input.JdInput.Image, jdErr)
+	jdAndDonsErrGroup := &errgroup.Group{}
+	var jdOutput *jd.Output
 
-		// useful end user messages
-		if strings.Contains(jdErr.Error(), "pull access denied") || strings.Contains(jdErr.Error(), "may require 'docker login'") {
-			jdErr = errors.Join(jdErr, errors.New("ensure that you either you have built the local image or you are logged into AWS with a profile that can read it (`aws sso login --profile <foo>)`"))
+	jdAndDonsErrGroup.Go(func() error {
+		var jdErr error
+		jdOutput, jdErr = CreateJobDistributor(&input.JdInput)
+		if jdErr != nil {
+			jdErr = fmt.Errorf("failed to start JD container for image %s: %w", input.JdInput.Image, jdErr)
+
+			// useful end user messages
+			if strings.Contains(jdErr.Error(), "pull access denied") || strings.Contains(jdErr.Error(), "may require 'docker login'") {
+				jdErr = errors.Join(jdErr, errors.New("ensure that you either you have built the local image or you are logged into AWS with a profile that can read it (`aws sso login --profile <foo>)`"))
+			}
+			return jdErr
 		}
-		return nil, jdErr
-	}
 
-	fmt.Print(libformat.PurpleText("\n[Stage 5/10] Job Distributor started in %.2f seconds\n", time.Since(startTime).Seconds()))
+		fmt.Print(libformat.PurpleText("\n[Stage 4/8] Job Distributor started in %.2f seconds\n", time.Since(startTime).Seconds()))
+
+		return nil
+	})
+
 	startTime = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 6/10] Starting %d DON(s)\n\n", len(input.CapabilitiesAwareNodeSets)))
+	fmt.Print(libformat.PurpleText("[Stage 5/8] Starting %d DON(s)\n\n", len(input.CapabilitiesAwareNodeSets)))
 
 	if input.InfraInput.InfraType == libtypes.CRIB {
 		testLogger.Info().Msg("Saving node configs and secret overrides")
-		deployCribDonsInput := &keystonetypes.DeployCribDonsInput{
+		deployCribDonsInput := &cretypes.DeployCribDonsInput{
 			Topology:       topology,
 			NodeSetInputs:  input.CapabilitiesAwareNodeSets,
 			NixShell:       nixShell,
@@ -449,23 +506,33 @@ func SetupTestEnvironment(
 		}
 	}
 
-	nodeSetOutput := make([]*keystonetypes.WrappedNodeOutput, 0, len(input.CapabilitiesAwareNodeSets))
-	for _, nodeSetInput := range input.CapabilitiesAwareNodeSets {
-		nodeset, nodesetErr := ns.NewSharedDBNodeSet(nodeSetInput.Input, homeChainOutput.BlockchainOutput)
-		if nodesetErr != nil {
-			return nil, pkgerrors.Wrapf(nodesetErr, "failed to create node set named %s", nodeSetInput.Name)
+	nodeSetOutput := make([]*cretypes.WrappedNodeOutput, 0, len(input.CapabilitiesAwareNodeSets))
+
+	jdAndDonsErrGroup.Go(func() error {
+		// TODO we could parallelise this as well in the future, but for single DON env this doesn't matter
+		for _, nodeSetInput := range input.CapabilitiesAwareNodeSets {
+			nodeset, nodesetErr := ns.NewSharedDBNodeSet(nodeSetInput.Input, homeChainOutput.BlockchainOutput)
+			if nodesetErr != nil {
+				return pkgerrors.Wrapf(nodesetErr, "failed to create node set named %s", nodeSetInput.Name)
+			}
+
+			nodeSetOutput = append(nodeSetOutput, &cretypes.WrappedNodeOutput{
+				Output:       nodeset,
+				NodeSetName:  nodeSetInput.Name,
+				Capabilities: nodeSetInput.Capabilities,
+			})
 		}
 
-		nodeSetOutput = append(nodeSetOutput, &keystonetypes.WrappedNodeOutput{
-			Output:       nodeset,
-			NodeSetName:  nodeSetInput.Name,
-			Capabilities: nodeSetInput.Capabilities,
-		})
+		return nil
+	})
+
+	if jdAndDonErr := jdAndDonsErrGroup.Wait(); jdAndDonErr != nil {
+		return nil, pkgerrors.Wrap(jdAndDonErr, "failed to start Job Distributor or DONs")
 	}
 
 	// Prepare the CLD environment that's required by the keystone changeset
 	// Ugly glue hack ¯\_(ツ)_/¯
-	fullCldInput := &keystonetypes.FullCLDEnvironmentInput{
+	fullCldInput := &cretypes.FullCLDEnvironmentInput{
 		JdOutput:          jdOutput,
 		BlockchainOutputs: bcOuts,
 		SethClients:       sethClients,
@@ -484,62 +551,72 @@ func SetupTestEnvironment(
 		creds = insecure.NewCredentials()
 	}
 
-	fullCldOutput, cldErr := libdevenv.BuildFullCLDEnvironment(singeFileLogger, fullCldInput, creds)
+	fullCldOutput, cldErr := libdevenv.BuildFullCLDEnvironment(ctx, singeFileLogger, fullCldInput, creds)
 	if cldErr != nil {
 		return nil, pkgerrors.Wrap(cldErr, "failed to build full CLD environment")
 	}
 
-	fmt.Print(libformat.PurpleText("\n[Stage 6/10] DONs started in %.2f seconds\n", time.Since(startTime).Seconds()))
-	startTime = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 7/10] Funding Chainlink nodes\n\n"))
+	fmt.Print(libformat.PurpleText("\n[Stage 5/8] DONs started in %.2f seconds\n", time.Since(startTime).Seconds()))
 
-	// Fund the nodes
-	concurrentNonceMap, concurrentNonceMapErr := NewConcurrentNonceMap(blockchainsOutput)
-	if concurrentNonceMapErr != nil {
-		return nil, pkgerrors.Wrap(concurrentNonceMapErr, "failed to create concurrent nonce map")
-	}
+	// Fund nodes in the background, so that we can continue with the next stage
+	backgroundStagesWaitGroup.Add(1)
+	go func() {
+		defer backgroundStagesWaitGroup.Done()
 
-	// Decrement the nonce for each chain, because we will increment it in the next loop
-	for _, bcOut := range blockchainsOutput {
-		concurrentNonceMap.Decrement(bcOut.ChainID)
-	}
+		startTime = time.Now()
+		fmt.Print(libformat.PurpleText("---> [BACKGROUND 2/3] Funding Chainlink nodes\n\n"))
 
-	errGroup := &errgroup.Group{}
-	for _, metaDon := range fullCldOutput.DonTopology.DonsWithMetadata {
+		// Fund the nodes
+		concurrentNonceMap, concurrentNonceMapErr := NewConcurrentNonceMap(ctx, blockchainsOutput)
+		if concurrentNonceMapErr != nil {
+			backgroundStagesCh <- backgroundStageResult{err: pkgerrors.Wrap(concurrentNonceMapErr, "failed to create concurrent nonce map")}
+			return
+		}
+
+		// Decrement the nonce for each chain, because we will increment it in the next loop
 		for _, bcOut := range blockchainsOutput {
-			for _, node := range metaDon.DON.Nodes {
-				errGroup.Go(func() error {
-					nodeAddress := node.AccountAddr[strconv.FormatUint(bcOut.ChainID, 10)]
-					if nodeAddress == "" {
+			concurrentNonceMap.Decrement(bcOut.ChainID)
+		}
+
+		errGroup := &errgroup.Group{}
+		for _, metaDon := range fullCldOutput.DonTopology.DonsWithMetadata {
+			for _, bcOut := range blockchainsOutput {
+				for _, node := range metaDon.DON.Nodes {
+					errGroup.Go(func() error {
+						nodeAddress := node.AccountAddr[strconv.FormatUint(bcOut.ChainID, 10)]
+						if nodeAddress == "" {
+							return nil
+						}
+
+						nonce := concurrentNonceMap.Increment(bcOut.ChainID)
+
+						_, fundingErr := libfunding.SendFunds(ctx, zerolog.Logger{}, bcOut.SethClient, libtypes.FundsToSend{
+							ToAddress:  common.HexToAddress(nodeAddress),
+							Amount:     big.NewInt(5000000000000000000),
+							PrivateKey: bcOut.SethClient.MustGetRootPrivateKey(),
+							Nonce:      ptr.Ptr(nonce),
+						})
+						if fundingErr != nil {
+							return pkgerrors.Wrapf(fundingErr, "failed to fund node %s", nodeAddress)
+						}
 						return nil
-					}
-
-					nonce := concurrentNonceMap.Increment(bcOut.ChainID)
-
-					_, fundingErr := libfunding.SendFunds(zerolog.Logger{}, bcOut.SethClient, libtypes.FundsToSend{
-						ToAddress:  common.HexToAddress(nodeAddress),
-						Amount:     big.NewInt(5000000000000000000),
-						PrivateKey: bcOut.SethClient.MustGetRootPrivateKey(),
-						Nonce:      ptr.Ptr(nonce),
 					})
-					if fundingErr != nil {
-						return pkgerrors.Wrapf(fundingErr, "failed to fund node %s", nodeAddress)
-					}
-					return nil
-				})
+				}
 			}
 		}
-	}
 
-	if err := errGroup.Wait(); err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to fund nodes")
-	}
+		if err := errGroup.Wait(); err != nil {
+			backgroundStagesCh <- backgroundStageResult{err: pkgerrors.Wrap(err, "failed to fund nodes")}
+			return
+		}
 
-	fmt.Print(libformat.PurpleText("\n[Stage 7/10] Chainlink nodes funded in %.2f seconds\033[0m\n", time.Since(startTime).Seconds()))
+		backgroundStagesCh <- backgroundStageResult{successMessage: libformat.PurpleText("\n<--- [BACKGROUND 2/3] Chainlink nodes funded in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())}
+	}()
+
 	startTime = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 8/10] Creating jobs with Job Distributor\n\n"))
+	fmt.Print(libformat.PurpleText("[Stage 6/8] Creating jobs with Job Distributor\n\n"))
 
-	donToJobSpecs := make(keystonetypes.DonsToJobSpecs)
+	donToJobSpecs := make(cretypes.DonsToJobSpecs)
 
 	for _, jobSpecGeneratingFn := range input.JobSpecFactoryFunctions {
 		singleDonToJobSpecs, jobSpecsErr := jobSpecGeneratingFn(&cretypes.JobSpecFactoryInput{
@@ -554,13 +631,13 @@ func SetupTestEnvironment(
 		mergeJobSpecSlices(singleDonToJobSpecs, donToJobSpecs)
 	}
 
-	createJobsInput := keystonetypes.CreateJobsInput{
+	createJobsInput := cretypes.CreateJobsInput{
 		CldEnv:        fullCldOutput.Environment,
 		DonTopology:   fullCldOutput.DonTopology,
 		DonToJobSpecs: donToJobSpecs,
 	}
 
-	jobsErr := libdon.CreateJobs(testLogger, createJobsInput)
+	jobsErr := libdon.CreateJobs(ctx, testLogger, createJobsInput)
 	if jobsErr != nil {
 		return nil, pkgerrors.Wrap(jobsErr, "failed to create jobs")
 	}
@@ -568,9 +645,9 @@ func SetupTestEnvironment(
 	// CAUTION: It is crucial to configure OCR3 jobs on nodes before configuring the workflow contracts.
 	// Wait for OCR listeners to be ready before setting the configuration.
 	// If the ConfigSet event is missed, OCR protocol will not start.
-	fmt.Print(libformat.PurpleText("\n[Stage 8/10] Jobs created in %.2f seconds\033[0m\n", time.Since(startTime).Seconds()))
+	fmt.Print(libformat.PurpleText("\n[Stage 6/8] Jobs created in %.2f seconds\033[0m\n", time.Since(startTime).Seconds()))
 	startTime = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 9/10] Waiting for Log Poller to start tracking OCR3 contract\n\n"))
+	fmt.Print(libformat.PurpleText("[Stage 7/8] Waiting for Log Poller to start tracking OCR3 contract\n\n"))
 
 	for idx, nodeSetOut := range nodeSetOutput {
 		if !flags.HasFlag(input.CapabilitiesAwareNodeSets[idx].Capabilities, cretypes.OCR3Capability) {
@@ -591,12 +668,42 @@ func SetupTestEnvironment(
 		}
 	}
 
-	fmt.Print(libformat.PurpleText("\n[Stage 9/10] Log Poller started in %.2f seconds\n", time.Since(startTime).Seconds()))
+	fmt.Print(libformat.PurpleText("\n[Stage 7/8] Log Poller started in %.2f seconds\n", time.Since(startTime).Seconds()))
+
+	// wait for log poller filters to be registered in the background, because we don't need it them at this stage yet
+	backgroundStagesWaitGroup.Add(1)
+	go func() {
+		defer backgroundStagesWaitGroup.Done()
+
+		if input.InfraInput.InfraType != libtypes.CRIB {
+			hasGateway := false
+			for _, don := range fullCldOutput.DonTopology.DonsWithMetadata {
+				if flags.HasFlag(don.Flags, cretypes.GatewayDON) {
+					hasGateway = true
+					break
+				}
+			}
+
+			if hasGateway {
+				startTime = time.Now()
+				fmt.Print(libformat.PurpleText("---> [BACKGROUND 3/3] Waiting for all nodes to have expected LogPoller filters registered\n\n"))
+
+				testLogger.Info().Msg("Waiting for all nodes to have expected LogPoller filters registered...")
+				lpErr := waitForAllNodesToHaveExpectedFiltersRegistered(singeFileLogger, testLogger, homeChainOutput.ChainID, *fullCldOutput.DonTopology, input.CapabilitiesAwareNodeSets)
+				if lpErr != nil {
+					backgroundStagesCh <- backgroundStageResult{err: pkgerrors.Wrap(lpErr, "failed to wait for all nodes to have expected LogPoller filters registered")}
+					return
+				}
+				backgroundStagesCh <- backgroundStageResult{successMessage: libformat.PurpleText("\n<--- [BACKGROUND 3/3] Waiting for all nodes to have expected LogPoller filters registered finished in %.2f seconds\n\n", time.Since(startTime).Seconds())}
+			}
+		}
+	}()
+
 	startTime = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 10/10] Configuring OCR3 and Keystone contracts\n\n"))
+	fmt.Print(libformat.PurpleText("[Stage 8/8] Configuring OCR3 and Keystone contracts\n\n"))
 
 	// Configure the Forwarder, OCR3 and Capabilities contracts
-	configureKeystoneInput := keystonetypes.ConfigureKeystoneInput{
+	configureKeystoneInput := cretypes.ConfigureKeystoneInput{
 		ChainSelector: homeChainOutput.ChainSelector,
 		CldEnv:        fullCldOutput.Environment,
 		Topology:      topology,
@@ -617,7 +724,18 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(keystoneErr, "failed to configure keystone contracts")
 	}
 
-	fmt.Print(libformat.PurpleText("\n[Stage 10/10] OCR3 and Keystone contracts configured in %.2f seconds\n\n", time.Since(startTime).Seconds()))
+	fmt.Print(libformat.PurpleText("\n[Stage 8/8] OCR3 and Keystone contracts configured in %.2f seconds\n", time.Since(startTime).Seconds()))
+
+	// block on background stages
+	backgroundStagesWaitGroup.Wait()
+	close(backgroundStagesCh)
+
+	for result := range backgroundStagesCh {
+		if result.err != nil {
+			return nil, pkgerrors.Wrap(result.err, "background stage failed")
+		}
+		fmt.Print(result.successMessage)
+	}
 
 	return &SetupOutput{
 		WorkflowRegistryConfigurationOutput: workflowRegistryInput.Out, // pass to caller, so that it can be optionally attached to TestConfig and saved to disk
@@ -662,7 +780,7 @@ func CreateBlockchains(
 				return nil, pkgerrors.New("nix shell is nil")
 			}
 
-			deployCribBlockchainInput := &keystonetypes.DeployCribBlockchainInput{
+			deployCribBlockchainInput := &cretypes.DeployCribBlockchainInput{
 				BlockchainInput: bi,
 				NixShell:        input.nixShell,
 				CribConfigsDir:  cribConfigsDir,
@@ -734,7 +852,7 @@ func CreateJobDistributor(input *jd.Input) (*jd.Output, error) {
 	return jdOutput, nil
 }
 
-func mergeJobSpecSlices(from, to keystonetypes.DonsToJobSpecs) {
+func mergeJobSpecSlices(from, to cretypes.DonsToJobSpecs) {
 	for fromDonID, fromJobSpecs := range from {
 		if _, ok := to[fromDonID]; !ok {
 			to[fromDonID] = make([]*jobv1.ProposeJobRequest, 0)
@@ -748,12 +866,12 @@ type ConcurrentNonceMap struct {
 	nonceByChainID map[uint64]uint64
 }
 
-func NewConcurrentNonceMap(blockchainOutputs []*BlockchainOutput) (*ConcurrentNonceMap, error) {
+func NewConcurrentNonceMap(ctx context.Context, blockchainOutputs []*BlockchainOutput) (*ConcurrentNonceMap, error) {
 	nonceByChainID := make(map[uint64]uint64)
 	for _, bcOut := range blockchainOutputs {
-		ctx, cancel := context.WithTimeout(context.Background(), bcOut.SethClient.Cfg.Network.TxnTimeout.Duration())
 		var err error
-		nonceByChainID[bcOut.ChainID], err = bcOut.SethClient.Client.PendingNonceAt(ctx, bcOut.SethClient.MustGetRootKeyAddress())
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, bcOut.SethClient.Cfg.Network.TxnTimeout.Duration())
+		nonceByChainID[bcOut.ChainID], err = bcOut.SethClient.Client.PendingNonceAt(ctxWithTimeout, bcOut.SethClient.MustGetRootKeyAddress())
 		cancel()
 		if err != nil {
 			cancel()
@@ -774,4 +892,101 @@ func (c *ConcurrentNonceMap) Increment(chainID uint64) uint64 {
 	defer c.mu.Unlock()
 	c.nonceByChainID[chainID]++
 	return c.nonceByChainID[chainID]
+}
+
+// must match nubmer of events we track in core/services/workflows/syncer/handler.go
+const NumberOfTrackedWorkflowRegistryEvents = 6
+
+// waitForAllNodesToHaveExpectedFiltersRegistered manually checks if all WorkflowRegistry filters used by the LogPoller are registered for all nodes. We want to see if this will help with the flakiness.
+func waitForAllNodesToHaveExpectedFiltersRegistered(singeFileLogger logger.Logger, testLogger zerolog.Logger, homeChainID uint64, donTopology cretypes.DonTopology, nodeSetInput []*cretypes.CapabilitiesAwareNodeSet) error {
+	for donIdx, don := range donTopology.DonsWithMetadata {
+		if !flags.HasFlag(don.Flags, cretypes.WorkflowDON) {
+			continue
+		}
+
+		workderNodes, workersErr := crenode.FindManyWithLabel(don.NodesMetadata, &cretypes.Label{Key: crenode.NodeTypeKey, Value: cretypes.WorkerNode}, crenode.EqualLabels)
+		if workersErr != nil {
+			return pkgerrors.Wrap(workersErr, "failed to find worker nodes")
+		}
+
+		results := make(map[int]bool)
+		ticker := 5 * time.Second
+		timeout := 2 * time.Minute
+
+	INNER_LOOP:
+		for {
+			select {
+			case <-time.After(timeout):
+				return fmt.Errorf("timed out, when waiting for %.2f seconds, waiting for all nodes to have expected filters registered", timeout.Seconds())
+			case <-time.Tick(ticker):
+				if len(results) == len(workderNodes) {
+					testLogger.Info().Msgf("All %d nodes in DON %d have expected filters registered", len(workderNodes), don.ID)
+					break INNER_LOOP
+				}
+
+				for _, workerNode := range workderNodes {
+					nodeIndex, nodeIndexErr := crenode.FindLabelValue(workerNode, crenode.IndexKey)
+					if nodeIndexErr != nil {
+						return pkgerrors.Wrap(nodeIndexErr, "failed to find node index")
+					}
+
+					nodeIndexInt, nodeIdxErr := strconv.Atoi(nodeIndex)
+					if nodeIdxErr != nil {
+						return pkgerrors.Wrap(nodeIdxErr, "failed to convert node index to int")
+					}
+
+					if _, ok := results[nodeIndexInt]; ok {
+						continue
+					}
+
+					testLogger.Info().Msgf("Checking if all WorkflowRegistry filters are registered for worker node %d", nodeIndexInt)
+					allFilters, filtersErr := getAllFilters(context.Background(), singeFileLogger, big.NewInt(libc.MustSafeInt64(homeChainID)), nodeIndexInt, nodeSetInput[donIdx].DbInput.Port)
+					if filtersErr != nil {
+						return pkgerrors.Wrap(filtersErr, "failed to get filters")
+					}
+
+					for _, filter := range allFilters {
+						if strings.Contains(filter.Name, "WorkflowRegistry") {
+							if len(filter.EventSigs) == NumberOfTrackedWorkflowRegistryEvents {
+								testLogger.Debug().Msgf("Found all WorkflowRegistry filters for node %d", nodeIndexInt)
+								results[nodeIndexInt] = true
+								continue
+							}
+
+							testLogger.Debug().Msgf("Found only %d WorkflowRegistry filters for node %d", len(filter.EventSigs), nodeIndexInt)
+						}
+					}
+				}
+
+				// return if we have results for all nodes, don't wait for next tick
+				if len(results) == len(workderNodes) {
+					testLogger.Info().Msgf("All %d nodes in DON %d have expected filters registered", len(workderNodes), don.ID)
+					break INNER_LOOP
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func NewORM(logger logger.Logger, chainID *big.Int, nodeIndex, externalPort int) (logpoller.ORM, *sqlx.DB, error) {
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", "127.0.0.1", externalPort, postgres.User, postgres.Password, fmt.Sprintf("db_%d", nodeIndex))
+	db, err := sqlx.Open("postgres", dsn)
+	if err != nil {
+		return nil, db, err
+	}
+
+	db.MapperFunc(reflectx.CamelToSnakeASCII)
+	return logpoller.NewORM(chainID, db, logger), db, nil
+}
+
+func getAllFilters(ctx context.Context, logger logger.Logger, chainID *big.Int, nodeIndex, externalPort int) (map[string]logpoller.Filter, error) {
+	orm, db, err := NewORM(logger, chainID, nodeIndex, externalPort)
+	if err != nil {
+		return nil, err
+	}
+
+	defer db.Close()
+	return orm.LoadFilters(ctx)
 }

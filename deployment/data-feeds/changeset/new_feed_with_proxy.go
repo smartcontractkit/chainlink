@@ -23,12 +23,12 @@ import (
 var NewFeedWithProxyChangeset = cldf.CreateChangeSet(newFeedWithProxyLogic, newFeedWithProxyPrecondition)
 
 func newFeedWithProxyLogic(env cldf.Environment, c types.NewFeedWithProxyConfig) (cldf.ChangesetOutput, error) {
-	chain := env.Chains[c.ChainSelector]
+	chain := env.BlockChains.EVMChains()[c.ChainSelector]
 	state, _ := LoadOnchainState(env)
 	chainState := state.Chains[c.ChainSelector]
 	ab := cldf.NewMemoryAddressBook()
 
-	dataFeedsCacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, nil)
+	dataFeedsCacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, env.DataStore.Addresses(), c.ChainSelector, nil)
 	if dataFeedsCacheAddress == "" {
 		return cldf.ChangesetOutput{}, fmt.Errorf("DataFeedsCache contract address not found in addressbook for chain %d", c.ChainSelector)
 	}
@@ -140,7 +140,7 @@ func newFeedWithProxyPrecondition(env cldf.Environment, c types.NewFeedWithProxy
 		return fmt.Errorf("failed to convert feed ids to bytes16: %w", err)
 	}
 
-	_, ok := env.Chains[c.ChainSelector]
+	_, ok := env.BlockChains.EVMChains()[c.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}

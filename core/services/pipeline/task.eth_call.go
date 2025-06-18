@@ -15,9 +15,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 )
 
 // Return types:
@@ -106,6 +106,10 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		err = fmt.Errorf("%w: %s: %w", ErrInvalidEVMChainID, chainID, err)
 		return Result{Error: err}, runInfo
 	}
+	legacyChain, ok := chain.(legacyevm.Chain)
+	if !ok {
+		return Result{Error: ErrUnsupportedInLOOPPMode}, runInfo
+	}
 
 	var selectedGas uint64
 	if gasUnlimited {
@@ -116,7 +120,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		if gas > 0 {
 			selectedGas = uint64(gas)
 		} else {
-			selectedGas = SelectGasLimit(chain.Config().EVM().GasEstimator(), t.jobType, t.specGasLimit)
+			selectedGas = SelectGasLimit(legacyChain.Config().EVM().GasEstimator(), t.jobType, t.specGasLimit)
 		}
 	}
 
@@ -140,9 +144,9 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 	var resp []byte
 	blockStr := block.String()
 	if blockStr == "" || strings.ToLower(blockStr) == "latest" {
-		resp, err = chain.Client().CallContract(ctx, call, nil)
+		resp, err = legacyChain.Client().CallContract(ctx, call, nil)
 	} else if strings.ToLower(blockStr) == "pending" {
-		resp, err = chain.Client().PendingCallContract(ctx, call)
+		resp, err = legacyChain.Client().PendingCallContract(ctx, call)
 	}
 
 	elapsed := time.Since(start)

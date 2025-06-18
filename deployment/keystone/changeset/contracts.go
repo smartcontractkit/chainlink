@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -18,7 +19,7 @@ import (
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
-	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper"
+	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 )
 
 // Ownable is an interface for contracts that have an owner.
@@ -37,7 +38,7 @@ type OwnedContract[T Ownable] struct {
 
 // NewOwnable creates an OwnedContract instance.
 // It checks if the contract is owned by a timelock contract and loads the MCMS state if necessary.
-func NewOwnable[T Ownable](contract T, ab cldf.AddressBook, chain cldf.Chain) (*OwnedContract[T], error) {
+func NewOwnable[T Ownable](contract T, ab cldf.AddressBook, chain cldf_evm.Chain) (*OwnedContract[T], error) {
 	var timelockTV = cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
 
 	// Look for MCMS contracts that might be owned by the contract
@@ -74,30 +75,18 @@ func NewOwnable[T Ownable](contract T, ab cldf.AddressBook, chain cldf.Chain) (*
 
 // NewOwnable creates an OwnedContract instance.
 // It checks if the contract is owned by a timelock contract and loads the MCMS state if necessary.
-func NewOwnableV2[T Ownable](contract T, ab datastore.AddressRefStore, chain cldf.Chain) (*OwnedContract[T], error) {
+func NewOwnableV2[T Ownable](contract T, ab datastore.AddressRefStore, chain cldf_evm.Chain) (*OwnedContract[T], error) {
 	var timelockTV = cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
-
-	// Look for MCMS contracts that might be owned by the contract
-	addresses := ab.Filter(datastore.AddressRefByChainSelector(chain.Selector))
 
 	ownerTV, err := GetOwnerTypeAndVersionV2[T](contract, ab, chain)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get owner type and version: %w", err)
 	}
 
-	// convert addresses to map[string]deployment.TypeAndVersion
-	addressesMap := make(map[string]cldf.TypeAndVersion)
-	for _, addr := range addresses {
-		addressesMap[addr.Address] = cldf.TypeAndVersion{
-			Type:    cldf.ContractType(addr.Type),
-			Version: *addr.Version,
-			Labels:  cldf.NewLabelSet(addr.Labels.List()...),
-		}
-	}
 	// Check if the owner is a timelock contract (owned by MCMS)
 	// If the owner is not in the address book (ownerTV = nil and err = nil), we assume it's not owned by MCMS
 	if ownerTV != nil && ownerTV.Type == timelockTV.Type && ownerTV.Version.String() == timelockTV.Version.String() {
-		// Load MCMS state
+		addressesMap := matchLabels(ab, *ownerTV, chain.Selector)
 		stateMCMS, mcmsErr := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addressesMap)
 		if mcmsErr != nil {
 			return nil, fmt.Errorf("failed to load MCMS state: %w", mcmsErr)
@@ -115,8 +104,24 @@ func NewOwnableV2[T Ownable](contract T, ab datastore.AddressRefStore, chain cld
 	}, nil
 }
 
+func matchLabels(ab datastore.AddressRefStore, tv cldf.TypeAndVersion, chainSelector uint64) map[string]cldf.TypeAndVersion {
+	addresses := ab.Filter(datastore.AddressRefByChainSelector(chainSelector))
+	addressesMap := make(map[string]cldf.TypeAndVersion)
+	for _, addr := range addresses {
+		if !tv.Labels.Equal(cldf.NewLabelSet(addr.Labels.List()...)) {
+			continue
+		}
+		addressesMap[addr.Address] = cldf.TypeAndVersion{
+			Type:    cldf.ContractType(addr.Type),
+			Version: *addr.Version,
+			Labels:  cldf.NewLabelSet(addr.Labels.List()...),
+		}
+	}
+	return addressesMap
+}
+
 // GetOwnerTypeAndVersion retrieves the owner type and version of a contract.
-func GetOwnerTypeAndVersion[T Ownable](contract T, ab cldf.AddressBook, chain cldf.Chain) (*cldf.TypeAndVersion, error) {
+func GetOwnerTypeAndVersion[T Ownable](contract T, ab cldf.AddressBook, chain cldf_evm.Chain) (*cldf.TypeAndVersion, error) {
 	// Get the contract owner
 	owner, err := contract.Owner(nil)
 	if err != nil {
@@ -148,7 +153,7 @@ func GetOwnerTypeAndVersion[T Ownable](contract T, ab cldf.AddressBook, chain cl
 }
 
 // GetOwnerTypeAndVersionV2 retrieves the owner type and version of a contract using the datastore instead of the address book.
-func GetOwnerTypeAndVersionV2[T Ownable](contract T, ab datastore.AddressRefStore, chain cldf.Chain) (*cldf.TypeAndVersion, error) {
+func GetOwnerTypeAndVersionV2[T Ownable](contract T, ab datastore.AddressRefStore, chain cldf_evm.Chain) (*cldf.TypeAndVersion, error) {
 	// Get the contract owner
 	owner, err := contract.Owner(nil)
 	if err != nil {
@@ -177,7 +182,7 @@ func GetOwnerTypeAndVersionV2[T Ownable](contract T, ab datastore.AddressRefStor
 // GetOwnableContract retrieves a contract instance of type T from the address book.
 // If `targetAddr` is provided, it will look for that specific address.
 // If not, it will default to looking one contract of type T, and if it doesn't find exactly one, it will error.
-func GetOwnableContract[T Ownable](ab cldf.AddressBook, chain cldf.Chain, targetAddr *string) (*T, error) {
+func GetOwnableContract[T Ownable](ab cldf.AddressBook, chain cldf_evm.Chain, targetAddr *string) (*T, error) {
 	var contractType cldf.ContractType
 	// Determine contract type based on T
 	switch any(*new(T)).(type) {
@@ -237,7 +242,7 @@ func GetOwnableContract[T Ownable](ab cldf.AddressBook, chain cldf.Chain, target
 // GetOwnableContractV2 retrieves a contract instance of type T from the datastore.
 // If `targetAddr` is provided, it will look for that specific address.
 // If not, it will default to looking one contract of type T, and if it doesn't find exactly one, it will error.
-func GetOwnableContractV2[T Ownable](addrs datastore.AddressRefStore, chain cldf.Chain, targetAddr string) (*T, error) {
+func GetOwnableContractV2[T Ownable](addrs datastore.AddressRefStore, chain cldf_evm.Chain, targetAddr string) (*T, error) {
 	// Determine contract type based on T
 	switch any(*new(T)).(type) {
 	case *forwarder.KeystoneForwarder:
@@ -265,7 +270,7 @@ func GetOwnableContractV2[T Ownable](addrs datastore.AddressRefStore, chain cldf
 }
 
 // createContractInstance is a helper function to create contract instances
-func createContractInstance[T Ownable](addr string, chain cldf.Chain) (*T, error) {
+func createContractInstance[T Ownable](addr string, chain cldf_evm.Chain) (*T, error) {
 	var instance T
 	var err error
 
@@ -294,7 +299,7 @@ func createContractInstance[T Ownable](addr string, chain cldf.Chain) (*T, error
 }
 
 // GetOwnedContract is a helper function that gets a contract and wraps it in OwnedContract
-func GetOwnedContract[T Ownable](addressBook cldf.AddressBook, chain cldf.Chain, addr string) (*OwnedContract[T], error) {
+func GetOwnedContract[T Ownable](addressBook cldf.AddressBook, chain cldf_evm.Chain, addr string) (*OwnedContract[T], error) {
 	contract, err := GetOwnableContract[T](addressBook, chain, &addr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get contract at %s: %w", addr, err)
@@ -308,7 +313,7 @@ func GetOwnedContract[T Ownable](addressBook cldf.AddressBook, chain cldf.Chain,
 	return ownedContract, nil
 }
 
-func GetOwnedContractV2[T Ownable](addrs datastore.AddressRefStore, chain cldf.Chain, addr string) (*OwnedContract[T], error) {
+func GetOwnedContractV2[T Ownable](addrs datastore.AddressRefStore, chain cldf_evm.Chain, addr string) (*OwnedContract[T], error) {
 	addresses := addrs.Filter(datastore.AddressRefByChainSelector(chain.Selector))
 
 	var foundAddr bool
@@ -335,7 +340,7 @@ func GetOwnedContractV2[T Ownable](addrs datastore.AddressRefStore, chain cldf.C
 }
 
 // loadCapabilityRegistry loads the CapabilitiesRegistry contract from the address book or datastore.
-func loadCapabilityRegistry(registryChain cldf.Chain, env cldf.Environment, ref datastore.AddressRefKey) (*OwnedContract[*capabilities_registry.CapabilitiesRegistry], error) {
+func loadCapabilityRegistry(registryChain cldf_evm.Chain, env cldf.Environment, ref datastore.AddressRefKey) (*OwnedContract[*capabilities_registry.CapabilitiesRegistry], error) {
 	err := shouldUseDatastore(env, ref)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check registry ref: %w", err)

@@ -686,13 +686,18 @@ func validateKeyStoreMatchForRelay(ctx context.Context, network string, keyStore
 		if err != nil {
 			return errors.Errorf("no Tron key matching: %q", key)
 		}
+	case relay.NetworkTON:
+		_, err := keyStore.TON().Get(key)
+		if err != nil {
+			return errors.Errorf("no TON key matching: %q", key)
+		}
 	}
 	return nil
 }
 
 func areSendingKeysDefined(ctx context.Context, jb *Job, keystore keystore.Master) (bool, error) {
 	if jb.OCR2OracleSpec.RelayConfig["sendingKeys"] != nil {
-		sendingKeys, err := SendingKeysForJob(jb)
+		sendingKeys, err := SendingKeysForJob(jb.OCR2OracleSpec)
 		if err != nil {
 			return false, err
 		}

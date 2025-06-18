@@ -13,7 +13,9 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	ccipTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -87,7 +89,7 @@ func (tc *TimelockConfig) validateCommon() error {
 	return nil
 }
 
-func (tc *TimelockConfig) Validate(chain cldf.Chain, s state.MCMSWithTimelockState) error {
+func (tc *TimelockConfig) Validate(chain cldf_evm.Chain, s state.MCMSWithTimelockState) error {
 	err := tc.validateCommon()
 	if err != nil {
 		return err
@@ -220,6 +222,7 @@ func buildProposalMetadataV2(
 	mcmsPerChain map[uint64]string, // can be proposer, canceller or bypasser
 	mcmsAction types.TimelockAction,
 ) (map[types.ChainSelector]types.ChainMetadata, error) {
+	solanaChains := env.BlockChains.SolanaChains()
 	metaDataPerChain := make(map[types.ChainSelector]types.ChainMetadata)
 	for _, selector := range chainSelectors {
 		proposerMcms, ok := mcmsPerChain[selector]
@@ -246,7 +249,7 @@ func buildProposalMetadataV2(
 			if err != nil {
 				return nil, fmt.Errorf("failed to load addresses for chain %d: %w", selector, err)
 			}
-			solanaState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(env.SolChains[selector], addresses)
+			solanaState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(solanaChains[selector], addresses)
 			if err != nil {
 				return nil, fmt.Errorf("failed to load solana state: %w", err)
 			}

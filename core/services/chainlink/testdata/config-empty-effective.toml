@@ -157,6 +157,7 @@ SimulateTransactions = false
 TransmitterAddress = ''
 CaptureEATelemetry = false
 TraceLogging = false
+ConfigLogValidation = false
 
 [P2P]
 IncomingMessageBufferSize = 10
@@ -320,3 +321,6 @@ PerOwner = 200
 [CRE.Streams]
 WsURL = ''
 RestURL = ''
+
+[Billing]
+URL = 'localhost:4319'

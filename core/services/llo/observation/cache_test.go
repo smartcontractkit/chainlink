@@ -169,9 +169,6 @@ func TestCache_Cleanup(t *testing.T) {
 	gotValue, gotFound := cache.Get(streamID)
 	assert.False(t, gotFound)
 	assert.Nil(t, gotValue)
-
-	_, ok := cache.values[streamID]
-	assert.False(t, ok)
 }
 
 func TestCache_ConcurrentAccess(t *testing.T) {

@@ -112,12 +112,13 @@ func jobSpecsForLane(
 		return nil, err
 	}
 	nodesToJobSpecs := make(map[string][]string)
+	evmChains := env.BlockChains.EVMChains()
 	for _, node := range nodes {
 		var specs []string
 		for _, cfg := range lanesCfg.Configs {
-			destChainState := state.Chains[cfg.DestinationChainSelector]
-			sourceChain := env.Chains[cfg.SourceChainSelector]
-			destChain := env.Chains[cfg.DestinationChainSelector]
+			destChainState := state.MustGetEVMChainState(cfg.DestinationChainSelector)
+			sourceChain := evmChains[cfg.SourceChainSelector]
+			destChain := evmChains[cfg.DestinationChainSelector]
 
 			ccipJobParam := integrationtesthelpers.CCIPJobSpecParams{
 				OffRamp:                destChainState.EVM2EVMOffRamp[cfg.SourceChainSelector].Address(),
