@@ -603,7 +603,7 @@ func prepareAccountToSendLink(
 	lggr.Infow("Setting up link token", "src", src)
 	srcLink := state.Chains[src].LinkToken
 
-	lggr.Infow("Granting mint and burn roles", "srcDeployer", srcDeployer.From, "srcACcount", srcAccount.From)
+	lggr.Infow("Granting mint and burn roles", "srcDeployer", srcDeployer.From, "srcAccount", srcAccount.From)
 	tx, err := srcLink.GrantMintAndBurnRoles(srcDeployer, srcAccount.From)
 	_, err = cldf.ConfirmIfNoError(e.BlockChains.EVMChains()[src], tx, err)
 	if err != nil {
