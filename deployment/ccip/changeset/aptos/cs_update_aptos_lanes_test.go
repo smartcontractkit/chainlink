@@ -225,7 +225,7 @@ func aptosTestDestFeeQuoterConfig(t *testing.T) aptosfeequoter.DestChainConfig {
 		DestDataAvailabilityMultiplierBps: 2,
 		DefaultTokenDestGasOverhead:       100_000,
 		DefaultTxGasLimit:                 100_000,
-		GasMultiplierWeiPerEth:            1e7,
+		GasMultiplierWeiPerEth:            11e17,
 		NetworkFeeUsdCents:                20,
 		ChainFamilySelector:               hexMustDecode(t, v1_6.AptosFamilySelector),
 		EnforceOutOfOrder:                 false,

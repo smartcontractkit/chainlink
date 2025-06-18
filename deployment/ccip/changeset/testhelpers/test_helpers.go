@@ -1387,7 +1387,7 @@ func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector ui
 					DefaultTokenFeeUSDCents:           25,
 					DefaultTokenDestGasOverhead:       90_000,
 					DefaultTxGasLimit:                 200_000,
-					GasMultiplierWeiPerEth:            11e8, // TODO what's the scale here ?
+					GasMultiplierWeiPerEth:            11e17,
 					GasPriceStalenessThreshold:        0,
 					NetworkFeeUSDCents:                10,
 				},
@@ -1405,22 +1405,22 @@ func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector ui
 				IsEnabled:                         true,
 				MaxNumberOfTokensPerMsg:           10,
 				MaxDataBytes:                      30_000,
-				MaxPerMsgGasLimit:                 3_000_000,
-				DestGasOverhead:                   ccipevm.DestGasOverhead,
-				DestGasPerPayloadByteBase:         ccipevm.CalldataGasPerByteBase,
-				DestGasPerPayloadByteHigh:         ccipevm.CalldataGasPerByteHigh,
-				DestGasPerPayloadByteThreshold:    ccipevm.CalldataGasPerByteThreshold,
-				DestDataAvailabilityOverheadGas:   100,
-				DestGasPerDataAvailabilityByte:    16,
-				DestDataAvailabilityMultiplierBps: 1,
+				MaxPerMsgGasLimit:                 100_000,
+				DestGasOverhead:                   112,
+				DestGasPerPayloadByteBase:         0,
+				DestGasPerPayloadByteHigh:         0,
+				DestGasPerPayloadByteThreshold:    0,
+				DestDataAvailabilityOverheadGas:   0,
+				DestGasPerDataAvailabilityByte:    0,
+				DestDataAvailabilityMultiplierBps: 0,
 				ChainFamilySelector:               []byte{0xac, 0x77, 0xff, 0xec},
 				EnforceOutOfOrder:                 true,
 				DefaultTokenFeeUsdCents:           25,
-				DefaultTokenDestGasOverhead:       90_000,
-				DefaultTxGasLimit:                 200_000,
+				DefaultTokenDestGasOverhead:       36,
+				DefaultTxGasLimit:                 200,
 				GasMultiplierWeiPerEth:            11e17,
 				GasPriceStalenessThreshold:        0,
-				NetworkFeeUsdCents:                10,
+				NetworkFeeUsdCents:                50,
 			},
 		}
 	default:
@@ -1744,12 +1744,11 @@ func DeployTransferableTokenAptos(
 	e, err = commoncs.Apply(t, e,
 		commoncs.Configure(aptoscs.AddTokenPool{},
 			config.AddTokenPoolConfig{
-				ChainSelector:                       aptosChainSel,
-				TokenAddress:                        aptos.AccountAddress{}, // Will be deployed
-				TokenCodeObjAddress:                 aptos.AccountAddress{}, // Will be deployed
-				TokenPoolAddress:                    aptos.AccountAddress{}, // Will be deployed
-				PoolType:                            shared.AptosManagedTokenPoolType,
-				TokenTransferFeeByRemoteChainConfig: nil, // TODO - not needed?
+				ChainSelector:       aptosChainSel,
+				TokenAddress:        aptos.AccountAddress{}, // Will be deployed
+				TokenCodeObjAddress: aptos.AccountAddress{}, // Will be deployed
+				TokenPoolAddress:    aptos.AccountAddress{}, // Will be deployed
+				PoolType:            shared.AptosManagedTokenPoolType,
 				EVMRemoteConfigs: map[uint64]config.EVMRemoteConfig{
 					evmChainSel: {
 						TokenAddress:     evmToken.Address(),
@@ -1772,7 +1771,7 @@ func DeployTransferableTokenAptos(
 				},
 				TokenMint: mintAmount,
 				MCMSConfig: &proposalutils.TimelockConfig{
-					MinDelay: time.Second, // TODO
+					MinDelay: time.Second,
 				},
 			},
 		),
