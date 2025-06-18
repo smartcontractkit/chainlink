@@ -1,6 +1,6 @@
 # Changelog Chainlink Core
 
-## 2.25.0 - UNRELEASED
+## 2.25.0 - 2025-06-16
 
 For DONs running OCR3, make sure that release 2.23.0 or newer has been deployed before upgrading to 2.25.0 or beyond.
 
