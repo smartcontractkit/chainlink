@@ -1,6 +1,8 @@
 package config
 
 import (
+	"errors"
+
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
 
@@ -13,13 +15,14 @@ type AddTokenPoolConfig struct {
 	// DeployAptosTokenConfig
 	ChainSelector                       uint64
 	TokenAddress                        aptos.AccountAddress // if empty, token will be deployed
-	TokenObjAddress                     aptos.AccountAddress // if empty, token will be deployed
+	TokenCodeObjAddress                 aptos.AccountAddress // if empty, token will be deployed
 	TokenPoolAddress                    aptos.AccountAddress // if empty, token pool will be deployed
 	PoolType                            cldf.ContractType
 	TokenTransferFeeByRemoteChainConfig map[uint64]fee_quoter.TokenTransferFeeConfig
 	EVMRemoteConfigs                    map[uint64]EVMRemoteConfig
 	TokenParams                         TokenParams
 	MCMSConfig                          *proposalutils.TimelockConfig
+	TokenMint                           *TokenMint
 }
 
 type EVMRemoteConfig struct {
@@ -27,6 +30,17 @@ type EVMRemoteConfig struct {
 	// TODO: EVM has a way of picking up Pool by token address and type, use this instead of passing PoolAddress
 	TokenPoolAddress common.Address
 	RateLimiterConfig
+}
+
+func (erc EVMRemoteConfig) Validate() error {
+	if erc.TokenAddress == (common.Address{}) {
+		return errors.New("TokenAddress cannot be empty")
+	}
+	if erc.TokenPoolAddress == (common.Address{}) {
+		return errors.New("TokenPoolAddress cannot be empty")
+	}
+
+	return nil
 }
 
 type RateLimiterConfig struct {

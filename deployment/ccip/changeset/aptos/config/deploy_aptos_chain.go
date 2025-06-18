@@ -67,6 +67,9 @@ func (f FeeQuoterParams) Validate() error {
 	if len(f.PremiumMultiplierWeiPerEthByFeeToken) == 0 {
 		return errors.New("PremiumMultiplierWeiPerEthByFeeToken is nil or empty, at least one token must be configured")
 	}
+	if f.MaxFeeJuelsPerMsg == nil {
+		return errors.New("MaxFeeJuelsPerMsg is nil, it must be set")
+	}
 	return nil
 }
 

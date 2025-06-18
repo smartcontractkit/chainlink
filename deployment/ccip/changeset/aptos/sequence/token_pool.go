@@ -17,10 +17,10 @@ import (
 
 // Deploy Token Pool sequence input
 type DeployTokenPoolSeqInput struct {
-	TokenObjAddress   aptos.AccountAddress
-	TokenAddress      aptos.AccountAddress
-	TokenOwnerAddress aptos.AccountAddress
-	PoolType          cldf.ContractType
+	TokenCodeObjAddress aptos.AccountAddress
+	TokenAddress        aptos.AccountAddress
+	TokenOwnerAddress   aptos.AccountAddress
+	PoolType            cldf.ContractType
 }
 type DeployTokenPoolSeqOutput struct {
 	TokenPoolAddress aptos.AccountAddress
@@ -52,7 +52,7 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 
 	// 2 - Deploy token pool package
 	// Get a deterministic seed using token address and pool type
-	tokenPoolSeed := fmt.Sprintf("%s::%s", in.TokenAddress.String(), in.PoolType.String())
+	tokenPoolSeed := fmt.Sprintf("%s::%s", in.TokenAddress.StringLong(), in.PoolType.String())
 	deployTokenPoolPackageReport, err := operations.ExecuteOperation(b, operation.DeployTokenPoolPackageOp, deps, tokenPoolSeed)
 	if err != nil {
 		return DeployTokenPoolSeqOutput{}, err
@@ -63,7 +63,7 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 	// 3 - Deploy token pool module
 	deployTokenPoolModuleInput := operation.DeployTokenPoolModuleInput{
 		TokenAddress:        in.TokenAddress,
-		TokenObjAddress:     in.TokenObjAddress,
+		TokenCodeObjAddress: in.TokenCodeObjAddress,
 		TokenPoolObjAddress: tokenPoolObjectAddress,
 		PoolType:            in.PoolType,
 	}
@@ -114,7 +114,7 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 		// Get the token pool state address
 		tokenPoolStateAddress := tokenPoolObjectAddress.ResourceAccount([]byte("CcipManagedTokenPool"))
 		gmReport, err := operations.ExecuteOperation(b, operation.GrantMinterPermissionsOp, deps, operation.GrantRolePermissionsInput{
-			TokenObjAddress:       in.TokenObjAddress,
+			TokenCodeObjAddress:   in.TokenCodeObjAddress,
 			TokenPoolStateAddress: tokenPoolStateAddress,
 		})
 		if err != nil {
@@ -123,7 +123,7 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 		txs = append(txs, gmReport.Output)
 
 		gbReport, err := operations.ExecuteOperation(b, operation.GrantBurnerPermissionsOp, deps, operation.GrantRolePermissionsInput{
-			TokenObjAddress:       in.TokenObjAddress,
+			TokenCodeObjAddress:   in.TokenCodeObjAddress,
 			TokenPoolStateAddress: tokenPoolStateAddress,
 		})
 		if err != nil {

@@ -39,10 +39,10 @@ func deployCCIP(b operations.Bundle, deps AptosDeps, in DeployCCIPInput) (Deploy
 	// Validate there's no package deployed XOR is update
 	if (onChainState.CCIPAddress == (aptos.AccountAddress{})) == (in.IsUpdate) {
 		if in.IsUpdate {
-			b.Logger.Infow("Trying to update a non-deployed package", "addr", onChainState.CCIPAddress.String())
+			b.Logger.Infow("Trying to update a non-deployed package", "addr", onChainState.CCIPAddress.StringLong())
 			return DeployCCIPOutput{}, fmt.Errorf("CCIP package not deployed on Aptos chain %d", deps.AptosChain.Selector)
 		}
-		b.Logger.Infow("CCIP Package already deployed", "addr", onChainState.CCIPAddress.String())
+		b.Logger.Infow("CCIP Package already deployed", "addr", onChainState.CCIPAddress.StringLong())
 		return DeployCCIPOutput{CCIPAddress: onChainState.CCIPAddress}, nil
 	}
 

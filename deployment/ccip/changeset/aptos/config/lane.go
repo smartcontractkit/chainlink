@@ -3,6 +3,7 @@ package config
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
@@ -133,6 +134,14 @@ func setEVMSourceUpdates(
 	}
 	feeQuoterPriceUpdatesOnSource.GasPrices[dest.Selector] = dest.GasPrice
 	feeQuoterPriceUpdatesByChain[source.Selector] = feeQuoterPriceUpdatesOnSource
+
+	// Setting the destination token prices on the source chain
+	if feeQuoterPriceUpdatesOnSource.TokenPrices == nil {
+		feeQuoterPriceUpdatesOnSource.TokenPrices = make(map[common.Address]*big.Int)
+	}
+	for tokenAddr, price := range source.TokenPrices {
+		feeQuoterPriceUpdatesOnSource.TokenPrices[tokenAddr] = price
+	}
 }
 
 // setEVMSourceUpdates requires Source: Aptos -> Destination: EVM

@@ -36,7 +36,7 @@ func getTestAddressBook(t *testing.T, addrByChain map[uint64]map[string]cldf.Typ
 	return ab
 }
 
-func mustParseAddress(t *testing.T, addr string) aptos.AccountAddress {
+func MustParseAddress(t *testing.T, addr string) aptos.AccountAddress {
 	t.Helper()
 	var address aptos.AccountAddress
 	err := address.ParseStringRelaxed(addr)
@@ -45,8 +45,8 @@ func mustParseAddress(t *testing.T, addr string) aptos.AccountAddress {
 }
 
 func GetMockChainContractParams(t *testing.T, chainSelector uint64) config.ChainContractParams {
-	mockParsedAddress := mustParseAddress(t, mockAddress)
-	mockParsedLinkAddress := mustParseAddress(t, MockLinkAddress)
+	mockParsedAddress := MustParseAddress(t, mockAddress)
+	mockParsedLinkAddress := MustParseAddress(t, MockLinkAddress)
 
 	return config.ChainContractParams{
 		FeeQuoterParams: config.FeeQuoterParams{
