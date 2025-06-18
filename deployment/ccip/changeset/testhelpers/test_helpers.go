@@ -232,6 +232,25 @@ func isLogFilterRegistered(t *testing.T, oc cldf.OffchainClient, chainSel uint64
 	return registered, err
 }
 
+func WaitForEventFilterRegistrationOnLane(t *testing.T, onchainState stateview.CCIPOnChainState, onchainClient cldf.OffchainClient, sourceChainSel, destChainSel uint64) {
+	onRampAddr, err := onchainState.GetOnRampAddressBytes(sourceChainSel)
+	require.NoError(t, err)
+	// Ensure CCIPMessageSent event filter is registered
+	// Sending message too early could result in LogPoller missing the send event
+	err = WaitForEventFilterRegistration(t, onchainClient, sourceChainSel, consts.EventNameCCIPMessageSent, onRampAddr)
+	require.NoError(t, err)
+	// Ensure CommitReportAccepted and ExecutionStateChanged event filters are registered for the offramp
+	// The LogPoller could pick up the message sent event but miss the commit or execute event
+	offRampAddr, err := onchainState.GetOffRampAddressBytes(destChainSel)
+	require.NoError(t, err)
+	err = WaitForEventFilterRegistration(t, onchainClient, destChainSel, consts.EventNameCommitReportAccepted, offRampAddr)
+	require.NoError(t, err)
+	err = WaitForEventFilterRegistration(t, onchainClient, destChainSel, consts.EventNameExecutionStateChanged, offRampAddr)
+	require.NoError(t, err)
+
+	t.Logf("%s, %s, and %s filters registered", consts.EventNameCCIPMessageSent, consts.EventNameCommitReportAccepted, consts.EventNameExecutionStateChanged)
+}
+
 func DeployTestContracts(t *testing.T,
 	lggr logger.Logger,
 	ab cldf.AddressBook,

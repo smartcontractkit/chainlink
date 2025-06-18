@@ -93,6 +93,9 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 		)
 	)
 
+	// Wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
+
 	monitorCtx, monitorCancel := context.WithCancel(ctx)
 	ms := &monitorState{}
 	wg := sync.WaitGroup{}
@@ -255,6 +258,9 @@ func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 		)
 	)
 
+	// Wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
+
 	receiverProgram := state.SolChains[destChain].Receiver
 	receiver := receiverProgram.Bytes()
 	receiverTargetAccountPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverProgram)
@@ -388,6 +394,9 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 			false, // testRouter
 		)
 	)
+
+	// Wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
 
 	receiverProgram := state.SolChains[destChain].Receiver
 	receiver := receiverProgram.Bytes()
@@ -595,6 +604,9 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 			false, // testRouter
 		)
 	)
+
+	// Wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
 
 	emptyEVMExtraArgsV2 := []byte{}
 

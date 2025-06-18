@@ -138,6 +138,9 @@ func Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest(t *tes
 		)
 	)
 
+	// Wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
+
 	monitorCtx, monitorCancel := context.WithCancel(ctx)
 	ms := &monitorState{}
 	wg := sync.WaitGroup{}
