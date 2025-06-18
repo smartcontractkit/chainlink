@@ -2,7 +2,6 @@ package memory
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"strings"
 
@@ -65,7 +64,6 @@ func (j JobClient) IsLogFilterRegistered(ctx context.Context, chainSel uint64, e
 		}
 		registered, err := node.IsLogFilterRegistered(ctx, chainSel, eventName, address)
 		if err != nil || !registered {
-			fmt.Println(">>>>>>>>>>>>>>> node chains: ", node.Chains, "target: ", chainSel, "nodeID", node.ID, err)
 			return false, err
 		}
 	}

@@ -48,12 +48,12 @@ func TestDeployAptosCache(t *testing.T) {
 	addrs, err := resp.DataStore.Addresses().Get(
 		datastore.NewAddressRefKey(
 			chainSelector,
-			"ChainlinkDataFeeds",
+			"DataFeedsCache",
 			semver.MustParse("1.0.0"),
 			"aptos",
 		))
 	require.NoError(t, err)
 	require.NotNil(t, addrs.Address)
-	require.Equal(t, datastore.ContractType("ChainlinkDataFeeds"), addrs.Type)
+	require.Equal(t, datastore.ContractType("DataFeedsCache"), addrs.Type)
 	require.Equal(t, "aptos", addrs.Qualifier)
 }

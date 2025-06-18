@@ -2,85 +2,66 @@ package ops
 
 import (
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/zksync-sdk/zksync2-go/accounts"
+	"github.com/zksync-sdk/zksync2-go/clients"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	mcmsnew_zksync "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/evm/zksync"
+	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
-
-// common dependency for MCMS Ops
-type OpEVMMCMSDeps struct {
-	Chain    cldf_evm.Chain
-	Options  []func(*cldf.TypeAndVersion)
-	AddrBook cldf.AddressBook
-}
-
-type OpEVMDeployMCMInput struct {
-	ContractType  cldf.ContractType
-	ChainSelector uint64 // Needed to distinguish different input for Operations API
-}
 
 type OpEVMDeployMCMOutput struct {
 	Address common.Address `json:"address"`
 }
 
-var OpEVMDeployMCM = operations.NewOperation(
-	"evm-mcm-deploy",
+var mcmDeployers = opsutils.VMDeployers[any]{
+	DeployEVM: func(opts *bind.TransactOpts, backend bind.ContractBackend, _ any) (common.Address, *types.Transaction, error) {
+		addr, tx, _, err := bindings.DeployManyChainMultiSig(
+			opts,
+			backend,
+		)
+		return addr, tx, err
+	},
+	DeployZksyncVM: func(opts *accounts.TransactOpts, client *clients.Client, wallet *accounts.Wallet, backend bind.ContractBackend, _ any) (common.Address, error) {
+		addr, _, _, err := mcmsnew_zksync.DeployManyChainMultiSigZk(
+			opts,
+			client,
+			wallet,
+			backend,
+		)
+		return addr, err
+	},
+}
+
+var OpEVMDeployProposerMCM = opsutils.NewEVMDeployOperation(
+	"evm-proposer-mcm-deploy",
 	semver.MustParse("1.0.0"),
-	"Deploys MCM contracts on the specified EVM chains",
-	func(b operations.Bundle, deps OpEVMMCMSDeps, input OpEVMDeployMCMInput) (OpEVMDeployMCMOutput, error) {
-		out := OpEVMDeployMCMOutput{}
+	"Deploys Proposer MCM contract",
+	cldf.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0),
+	mcmDeployers,
+)
 
-		mcm, err := cldf.DeployContract(b.Logger, deps.Chain, deps.AddrBook,
-			func(chain cldf_evm.Chain) cldf.ContractDeploy[*bindings.ManyChainMultiSig] {
-				var (
-					mcmAddr common.Address
-					tx      *types.Transaction
-					mcm     *bindings.ManyChainMultiSig
-					err2    error
-				)
-				if chain.IsZkSyncVM {
-					mcmAddr, _, mcm, err2 = mcmsnew_zksync.DeployManyChainMultiSigZk(
-						nil,
-						chain.ClientZkSyncVM,
-						chain.DeployerKeyZkSyncVM,
-						chain.Client,
-					)
-				} else {
-					mcmAddr, tx, mcm, err2 = bindings.DeployManyChainMultiSig(
-						deps.Chain.DeployerKey,
-						deps.Chain.Client,
-					)
-				}
+var OpEVMDeployBypasserMCM = opsutils.NewEVMDeployOperation(
+	"evm-bypasser-mcm-deploy",
+	semver.MustParse("1.0.0"),
+	"Deploys Bypasser MCM contract",
+	cldf.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0),
+	mcmDeployers,
+)
 
-				tv := cldf.NewTypeAndVersion(input.ContractType, deployment.Version1_0_0)
-				for _, option := range deps.Options {
-					option(&tv)
-				}
-
-				return cldf.ContractDeploy[*bindings.ManyChainMultiSig]{
-					Address: mcmAddr, Contract: mcm, Tx: tx, Tv: tv, Err: err2,
-				}
-			})
-
-		if err != nil {
-			b.Logger.Errorw("Failed to deploy MCM",
-				"chainSelector", deps.Chain.ChainSelector(),
-				"chainName", deps.Chain.Name(),
-				"err", err,
-			)
-			return out, err
-		}
-
-		return OpEVMDeployMCMOutput{
-			Address: mcm.Address,
-		}, nil
-	})
+var OpEVMDeployCancellerMCM = opsutils.NewEVMDeployOperation(
+	"evm-canceller-mcm-deploy",
+	semver.MustParse("1.0.0"),
+	"Deploys Canceller MCM contract",
+	cldf.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0),
+	mcmDeployers,
+)
