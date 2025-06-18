@@ -41,24 +41,24 @@ image = "postgres:13.0"
 port = 5436
 
 [jd]
-image = "jd:latest"
+image = "job-distributor:0.9.0"
 
 [fake]
 port = 9111
 
-[nodeset]
+[[nodesets]]
 name = "don"
 nodes = 5
 p2p_port_range_start = 6690
 override_mode = "all"
 
-[nodeset.db]
+[nodesets.db]
 image = "postgres:13.0"
 
-[[nodeset.node_specs]]
+[[nodesets.node_specs]]
 
-[nodeset.node_specs.node]
-image = "chainlink:latest"
+[nodesets.node_specs.node]
+image = "public.ecr.aws/chainlink/chainlink:v2.17.0"
 custom_ports = [] #["6690", "6691", "6692"]
 test_config_overrides = """
 [Feature]

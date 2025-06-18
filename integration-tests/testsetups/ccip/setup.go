@@ -18,6 +18,13 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	cl "github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
@@ -27,12 +34,6 @@ import (
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
-	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const DefaultChainNamePrefix = "chain-"
@@ -49,7 +50,7 @@ type CTFV2Conf struct {
 	Common             CommonConfig        `toml:"Common" validate:"required"`
 	Network            NetworkSetup        `toml:"Network" validate:"required"`
 	BlockchainNetworks []*blockchain.Input `toml:"Networks" validate:"required"`
-	NodeSet            *ns.Input           `toml:"nodeset" validate:"required"`
+	NodeSets           []*ns.Input         `toml:"nodesets" validate:"required"`
 	JDDbInput          *postgres.Input     `toml:"jd_db" validate:"required"`
 	JD                 *jd.Input           `toml:"jd" validate:"required"`
 	Fake               *fake.Input         `toml:"fake" validate:"required"`
@@ -140,7 +141,7 @@ func (l *DeployedLocalAnvilDevEnvironment) StartChains(t *testing.T) {
 func (l *DeployedLocalAnvilDevEnvironment) StartNodes(t *testing.T, crConfig deployment.CapabilityRegistryConfig) {
 	require.NotEmpty(t, l.devEnvTestCfg, "integration test config is empty, start chains first")
 	require.NotNil(t, l.devEnvCfg, "dev environment config is empty, start chains first")
-	l.in.NodeSet.Nodes = l.GenericTCConfig.Nodes
+	l.in.NodeSets[0].Nodes = l.GenericTCConfig.Nodes
 	nodeOut := startCLNodes(t, crConfig, l.bcs, l.in)
 	ctx := testcontext.Get(t)
 	lggr := logger.TestLogger(t)
@@ -319,7 +320,7 @@ func startCLNodes(
 	blockchains []*blockchain.Output,
 	in *CTFV2Conf,
 ) *ns.Output {
-	tomlNodeConfig := in.NodeSet.NodeSpecs[0].Node.TestConfigOverrides
+	tomlNodeConfig := in.NodeSets[0].NodeSpecs[0].Node.TestConfigOverrides
 	tomlNodeConfig += getChainSpecificNodeSpec(blockchains)
 	tomlNodeConfig += fmt.Sprintf(`
 		# This is needed for external registry
@@ -330,9 +331,9 @@ func startCLNodes(
 		ChainID = '%s'`,
 		crConfig.Contract.String(),
 		strconv.FormatUint(crConfig.EVMChainID, 10))
-	in.NodeSet.NodeSpecs[0].Node.TestConfigOverrides = tomlNodeConfig
+	in.NodeSets[0].NodeSpecs[0].Node.TestConfigOverrides = tomlNodeConfig
 
-	nodeOut, err := ns.NewSharedDBNodeSet(in.NodeSet, blockchains[0])
+	nodeOut, err := ns.NewSharedDBNodeSet(in.NodeSets[0], blockchains[0])
 	require.NoError(t, err, "failed to create node set")
 	require.NotNil(t, nodeOut)
 	return nodeOut
