@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -20,7 +21,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -31,6 +34,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/freeport"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
@@ -93,6 +98,7 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 	}
 
 	aggregatorAddress := setSecureMintOnchainConfigUsingAggregator(t, steve, backend, nodes, oracles)
+	setSecureMintOnchainConfigUsingOCR3Configurator(t, steve, backend, nodes, oracles)
 
 	t.Logf("Creating bootstrap job with aggregator address: %s", aggregatorAddress.Hex())
 	bootstrapJob := createSecureMintBootstrapJob(t, bootstrapNode, aggregatorAddress, testutils.SimulatedChainID.String(), fmt.Sprintf("%d", fromBlock))
@@ -212,6 +218,130 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []node, jobIDs map[int]
 		gomega.BeTrue(),
 		fmt.Sprintf("expected at least %d reports transmitted, but got less", expectedNumTransmissions),
 	)
+}
+
+func setSecureMintOnchainConfigUsingOCR3Configurator(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend, nodes []node, oracles []confighelper.OracleIdentityExtra) (*configurator.Configurator, common.Address) {
+
+	// 1. Deploy configurator contract
+	configuratorAddress, _, configurator, err := configurator.DeployConfigurator(steve, backend.Client())
+	require.NoError(t, err)
+	backend.Commit()
+
+	// Ensure we have finality depth worth of blocks to start.
+	for range 5 {
+		backend.Commit()
+	}
+	t.Logf("Deployed OCR3Configurator contract at: %s", configuratorAddress.Hex())
+
+	// 2. Create config
+	// onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(minAnswer, maxAnswer)
+	// require.NoError(t, err)
+	/**
+
+
+
+	// libocr requires a few confirmations to accept the config
+	backend.Commit()
+	backend.Commit()
+	backend.Commit()
+	backend.Commit()
+
+	var topic common.Hash
+	if isProduction {
+		topic = llo.ProductionConfigSet
+	} else {
+		topic = llo.StagingConfigSet
+	}
+	logs, err := backend.Client().FilterLogs(testutils.Context(t), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{[]common.Hash{topic, donIDPadded}}})
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(logs), 1)
+
+	cfg, err := mercury.ConfigFromLog(logs[len(logs)-1].Data)
+	require.NoError(t, err)
+
+	return cfg.ConfigDigest
+	*/
+
+	smPluginConfig := por.PorOffchainConfig{MaxChains: 5}
+	smPluginConfigBytes, err := smPluginConfig.Serialize()
+	require.NoError(t, err)
+
+	onchainConfig, err := (&datastreamsllo.EVMOnchainConfigCodec{}).Encode(datastreamsllo.OnchainConfig{
+		Version:                 1,
+		PredecessorConfigDigest: nil,
+	})
+	require.NoError(t, err)
+
+	signers, _, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTests(
+		2*time.Second,        // deltaProgress,
+		20*time.Second,       // deltaResend,
+		400*time.Millisecond, // deltaInitial,
+		500*time.Millisecond, // deltaRound,
+		250*time.Millisecond, // deltaGrace,
+		300*time.Millisecond, // deltaCertifiedCommitRequest,
+		1*time.Minute,        // deltaStage,
+		100,                  // rMax,
+		[]int{len(oracles)},  // s,
+		oracles,              // oracles,
+		smPluginConfigBytes,  // reportingPluginConfig,
+		nil,                  // maxDurationInitialization,
+		250*time.Millisecond, // maxDurationQuery,
+		1*time.Second,        // maxDurationObservation,
+		1*time.Second,        // maxDurationShouldAcceptAttestedReport,
+		1*time.Second,        // maxDurationShouldTransmitAcceptedReport,
+		int(fNodes),          // f,
+		onchainConfig,        // onchainConfig (binary blob containing configuration passed through to the ReportingPlugin and also available to the contract. Unlike ReportingPluginConfig which is only available offchain.)
+	)
+	require.NoError(t, err)
+
+	// 3. Set config on the contract
+	var signerKeys [][]byte
+	for _, signer := range signers {
+		signerKeys = append(signerKeys, signer)
+	}
+
+	offchainTransmitters := make([][32]byte, nNodes)
+	for i := 0; i < nNodes; i++ {
+		offchainTransmitters[i] = nodes[i].clientPubKey
+	}
+
+	configID := [32]byte{}
+	copy(configID[:], common.FromHex("0x0000000000000000000000000000000000000000000000000000000000000001"))
+	_, err = configurator.SetProductionConfig(steve, configID, signerKeys, offchainTransmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig)
+	if err != nil {
+		t.Logf("Error: %s", err)
+		errString, err := rPCErrorFromError(err)
+		require.NoError(t, err)
+		t.Fatalf("Failed to configure contract: %s %s", errString, err)
+	}
+
+	// make sure config is finalized
+	for range 5 {
+		backend.Commit()
+	}
+
+	var topic common.Hash
+	topic = llo.ProductionConfigSet
+
+	logs, err := backend.Client().FilterLogs(testutils.Context(t), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{[]common.Hash{topic, configID}}})
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(logs), 1)
+
+	cfg, err := mercury.ConfigFromLog(logs[len(logs)-1].Data)
+	require.NoError(t, err)
+
+	t.Logf("Configurator config digest: 0x%x", cfg.ConfigDigest)
+
+	// aggregatorConfigDigest, err := configurator..LatestConfigDigestAndEpoch(&bind.CallOpts{})
+	// if err != nil {
+	// 	rPCError, err := rPCErrorFromError(err)
+	// 	require.NoError(t, err)
+	// 	t.Fatalf("Failed to get latest config digest: %s", rPCError)
+	// }
+	// t.Logf("Aggregator config digest: 0x%x", aggregatorConfigDigest.ConfigDigest)
+
+	// return aggregatorAddress
+	return configurator, configuratorAddress
 }
 
 func setSecureMintOnchainConfigUsingAggregator(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend, nodes []node, oracles []confighelper.OracleIdentityExtra) common.Address {
