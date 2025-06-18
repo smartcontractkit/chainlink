@@ -34,8 +34,8 @@ import (
 	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
@@ -232,7 +232,7 @@ func UpdateNonceManagersChangeset(e cldf.Environment, cfg UpdateNonceManagerConf
 		e.BlockChains.EVMChains(),
 		cfg.ToSequenceInput(s),
 	)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, s, output, report, err, cfg.MCMS, "Call ApplyAuthorizedCallerUpdates and ApplyPreviousRampsUpdates on NonceManagers")
+	return opsutil.AddEVMCallSequenceToCSOutput(e, output, report, err, s.EVMMCMSStateByChain(), cfg.MCMS, "Call ApplyAuthorizedCallerUpdates and ApplyPreviousRampsUpdates on NonceManagers")
 }
 
 type OnRampDestinationUpdate struct {
@@ -350,7 +350,7 @@ func UpdateOnRampsDestsChangeset(e cldf.Environment, cfg UpdateOnRampDestsConfig
 		e.BlockChains.EVMChains(),
 		cfg.ToSequenceInput(s),
 	)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, s, cldf.ChangesetOutput{}, report, err, cfg.MCMS, "Call ApplyDestChainConfigUpdates on OnRamps")
+	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, report, err, s.EVMMCMSStateByChain(), cfg.MCMS, "Call ApplyDestChainConfigUpdates on OnRamps")
 }
 
 type OnRampDynamicConfigUpdate struct {
@@ -868,7 +868,7 @@ func UpdateFeeQuoterPricesChangeset(e cldf.Environment, cfg UpdateFeeQuoterPrice
 		e.BlockChains.EVMChains(),
 		cfg.ToSequenceInput(s),
 	)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, s, cldf.ChangesetOutput{}, report, err, cfg.MCMS, "Call UpdatePrices on FeeQuoters")
+	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, report, err, s.EVMMCMSStateByChain(), cfg.MCMS, "Call UpdatePrices on FeeQuoters")
 }
 
 type UpdateFeeQuoterDestsConfig struct {
@@ -979,7 +979,7 @@ func UpdateFeeQuoterDestsChangeset(e cldf.Environment, cfg UpdateFeeQuoterDestsC
 		e.BlockChains.EVMChains(),
 		cfg.ToSequenceInput(s),
 	)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, s, output, report, err, cfg.MCMS, "Call ApplyDestChainConfigUpdates on FeeQuoters")
+	return opsutil.AddEVMCallSequenceToCSOutput(e, output, report, err, s.EVMMCMSStateByChain(), cfg.MCMS, "Call ApplyDestChainConfigUpdates on FeeQuoters")
 }
 
 func GetAllActiveExecConfigs(e cldf.Environment, homeChainSelector uint64, destChainSelector uint64) ([]*pluginconfig.ExecuteOffchainConfig, error) {
@@ -1172,7 +1172,7 @@ func UpdateOffRampSourcesChangeset(e cldf.Environment, cfg UpdateOffRampSourcesC
 		cfg.ToSequenceInput(state),
 	)
 
-	return opsutil.AddEVMCallSequenceToCSOutput(e, state, cldf.ChangesetOutput{}, report, err, cfg.MCMS, "Call ApplySourceChainConfigUpdates on OffRamps")
+	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, report, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Call ApplySourceChainConfigUpdates on OffRamps")
 }
 
 type RouterUpdates struct {
@@ -1352,7 +1352,7 @@ func UpdateRouterRampsChangeset(e cldf.Environment, cfg UpdateRouterRampsConfig)
 		e.BlockChains.EVMChains(),
 		cfg.ToSequenceInput(state),
 	)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, state, cldf.ChangesetOutput{}, report, err, cfg.MCMS, "Call ApplyRampUpdates on Routers")
+	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, report, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Call ApplyRampUpdates on Routers")
 }
 
 type SetOCR3OffRampConfig struct {
@@ -1781,19 +1781,21 @@ func ApplyFeeTokensUpdatesFeeQuoterChangeset(e cldf.Environment, cfg ApplyFeeTok
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	var batches []mcmstypes.BatchOperation
-	timelocks := make(map[uint64]string)
-	inspectorPerChain := map[uint64]mcmssdk.Inspector{}
+
+	report, err := operations.ExecuteSequence(
+		e.OperationsBundle,
+		ccipseqs.FeeQuoterApplyFeeTokensUpdatesSeq,
+		e.BlockChains.EVMChains(),
+		cfg.ToSequenceInput(state),
+	)
+	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, report, err, state.EVMMCMSStateByChain(), cfg.MCMSConfig, "Call ApplyFeeTokensUpdatesConfig on FeeQuoter")
+}
+
+func (cfg ApplyFeeTokensUpdatesConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.FeeQuoterUpdateFeeTokensConfig {
+	input := make(map[uint64]opsutil.EVMCallInput[ccipops.ApplyFeeTokensUpdatesInput], len(cfg.UpdatesByChain))
+
 	for chainSel, updates := range cfg.UpdatesByChain {
-		txOpts := e.BlockChains.EVMChains()[chainSel].DeployerKey
-		if cfg.MCMSConfig != nil {
-			txOpts = cldf.SimTransactOpts()
-		}
-		fq := state.Chains[chainSel].FeeQuoter
-		tokenAddresses, err := state.Chains[chainSel].TokenAddressBySymbol()
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error getting token addresses for chain %d: %w", chainSel, err)
-		}
+		tokenAddresses, _ := state.Chains[chainSel].TokenAddressBySymbol()
 		var tokensToRemove, tokensToAdd []common.Address
 		for _, token := range updates.TokensToRemove {
 			tokensToRemove = append(tokensToRemove, tokenAddresses[token])
@@ -1801,51 +1803,19 @@ func ApplyFeeTokensUpdatesFeeQuoterChangeset(e cldf.Environment, cfg ApplyFeeTok
 		for _, token := range updates.TokensToAdd {
 			tokensToAdd = append(tokensToAdd, tokenAddresses[token])
 		}
-		tx, err := fq.ApplyFeeTokensUpdates(txOpts, tokensToRemove, tokensToAdd)
-		if cfg.MCMSConfig == nil {
-			if _, err := cldf.ConfirmIfNoErrorWithABI(e.BlockChains.EVMChains()[chainSel], tx, fee_quoter.FeeQuoterABI, err); err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("error applying token updates for chain %d: %w", chainSel, err)
-			}
-		} else {
-			if err != nil {
-				return cldf.ChangesetOutput{}, err
-			}
-			op, err := proposalutils.BatchOperationForChain(
-				chainSel, fq.Address().String(), tx.Data(), big.NewInt(0), shared.FeeQuoter.String(), nil)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("error creating batch operation for chain %d: %w", chainSel, err)
-			}
-			batches = append(batches, op)
-			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().String()
-			inspector, err := proposalutils.McmsInspectorForChain(e, chainSel)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("error creating inspector for chain %d: %w", chainSel, err)
-			}
-			inspectorPerChain[chainSel] = inspector
+		input[chainSel] = opsutil.EVMCallInput[ccipops.ApplyFeeTokensUpdatesInput]{
+			ChainSelector: chainSel,
+			Address:       state.Chains[chainSel].FeeQuoter.Address(),
+			CallInput: ccipops.ApplyFeeTokensUpdatesInput{
+				FeeTokensToAdd:    tokensToAdd,
+				FeeTokensToRemove: tokensToRemove,
+			},
+			NoSend: cfg.MCMSConfig != nil, // If MCMS exists, we do not want to send the transaction.
 		}
 	}
-	if cfg.MCMSConfig == nil {
-		return cldf.ChangesetOutput{}, nil
+	return ccipseqs.FeeQuoterUpdateFeeTokensConfig{
+		UpdatesByChain: input,
 	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMSConfig)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
-	}
-	p, err := proposalutils.BuildProposalFromBatchesV2(
-		e,
-		timelocks,
-		mcmsContractByChain,
-		inspectorPerChain,
-		batches,
-		"Apply fee tokens updates",
-		*cfg.MCMSConfig,
-	)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("error building proposal: %w", err)
-	}
-	return cldf.ChangesetOutput{
-		MCMSTimelockProposals: []mcmslib.TimelockProposal{*p},
-	}, nil
 }
 
 type UpdateTokenPriceFeedsConfig struct {
@@ -2062,19 +2032,20 @@ func ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(e cldf.Environment
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	var batches []mcmstypes.BatchOperation
-	timelocks := make(map[uint64]string)
-	inspectorPerChain := map[uint64]mcmssdk.Inspector{}
+	report, err := operations.ExecuteSequence(
+		e.OperationsBundle,
+		ccipseqs.FeeQApplyPremiumMultiplierWeiPerEthUpdatesSeq,
+		e.BlockChains.EVMChains(),
+		cfg.ToSequenceInput(state),
+	)
+	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, report, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Call ApplyPremiumMultiplierWeiPerEthUpdates on FeeQuoter")
+}
+
+func (cfg PremiumMultiplierWeiPerEthUpdatesConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.FeeQuoterUpdatePremiumMultiplierWeiPerEthConfig {
+	input := make(map[uint64]opsutil.EVMCallInput[[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs], len(cfg.Updates))
+
 	for chainSel, updates := range cfg.Updates {
-		txOpts := e.BlockChains.EVMChains()[chainSel].DeployerKey
-		if cfg.MCMS != nil {
-			txOpts = cldf.SimTransactOpts()
-		}
-		fq := state.Chains[chainSel].FeeQuoter
-		tokenAddresses, err := state.Chains[chainSel].TokenAddressBySymbol()
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error getting token addresses for chain %d: %w", chainSel, err)
-		}
+		tokenAddresses, _ := state.Chains[chainSel].TokenAddressBySymbol()
 		var premiumMultiplierUpdates []fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs
 		for _, update := range updates {
 			premiumMultiplierUpdates = append(premiumMultiplierUpdates, fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
@@ -2082,51 +2053,16 @@ func ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(e cldf.Environment
 				PremiumMultiplierWeiPerEth: update.PremiumMultiplierWeiPerEth,
 			})
 		}
-		tx, err := fq.ApplyPremiumMultiplierWeiPerEthUpdates(txOpts, premiumMultiplierUpdates)
-		if cfg.MCMS == nil {
-			if _, err := cldf.ConfirmIfNoErrorWithABI(e.BlockChains.EVMChains()[chainSel], tx, fee_quoter.FeeQuoterABI, err); err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("error applying premium multiplier updates for chain %d: %w", chainSel, err)
-			}
-		} else {
-			if err != nil {
-				return cldf.ChangesetOutput{}, err
-			}
-			op, err := proposalutils.BatchOperationForChain(
-				chainSel, fq.Address().String(), tx.Data(), big.NewInt(0), shared.FeeQuoter.String(), nil)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("error creating batch operation for chain %d: %w", chainSel, err)
-			}
-			batches = append(batches, op)
-			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().String()
-			inspector, err := proposalutils.McmsInspectorForChain(e, chainSel)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("error getting inspector for chain %d: %w", chainSel, err)
-			}
-			inspectorPerChain[chainSel] = inspector
+		input[chainSel] = opsutil.EVMCallInput[[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs]{
+			ChainSelector: chainSel,
+			Address:       state.Chains[chainSel].FeeQuoter.Address(),
+			CallInput:     premiumMultiplierUpdates,
+			NoSend:        cfg.MCMS != nil, // If MCMS exists, we do not want to send the transaction.
 		}
 	}
-	if cfg.MCMS == nil {
-		return cldf.ChangesetOutput{}, nil
+	return ccipseqs.FeeQuoterUpdatePremiumMultiplierWeiPerEthConfig{
+		UpdatesByChain: input,
 	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
-	}
-	p, err := proposalutils.BuildProposalFromBatchesV2(
-		e,
-		timelocks,
-		mcmsContractByChain,
-		inspectorPerChain,
-		batches,
-		"Apply premium multiplier updates",
-		*cfg.MCMS,
-	)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("error building proposal: %w", err)
-	}
-	return cldf.ChangesetOutput{
-		MCMSTimelockProposals: []mcmslib.TimelockProposal{*p},
-	}, nil
 }
 
 type ApplyTokenTransferFeeConfigUpdatesConfig struct {
@@ -2230,20 +2166,22 @@ func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(e cldf.Environment, cf
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	var batches []mcmstypes.BatchOperation
-	timelocks := make(map[uint64]string)
-	inspectorPerChain := map[uint64]mcmssdk.Inspector{}
+
+	report, err := operations.ExecuteSequence(
+		e.OperationsBundle,
+		ccipseqs.FeeQUpdateTransferTokenFeeCfgSeq,
+		e.BlockChains.EVMChains(),
+		cfg.ToSequenceInput(state),
+	)
+	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, report, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Call ApplyTokenTransferFeeConfigUpdates on FeeQuoter")
+}
+
+func (cfg ApplyTokenTransferFeeConfigUpdatesConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.FeeQuoterUpdateTokenTransferConfig {
+	input := make(map[uint64]opsutil.EVMCallInput[ccipops.ApplyTokenTransferFeeConfigUpdatesConfigPerChain], len(cfg.UpdatesByChain))
 	for chainSel, updates := range cfg.UpdatesByChain {
-		txOpts := e.BlockChains.EVMChains()[chainSel].DeployerKey
-		if cfg.MCMS != nil {
-			txOpts = cldf.SimTransactOpts()
-		}
-		fq := state.Chains[chainSel].FeeQuoter
-		tokenAddresses, err := state.Chains[chainSel].TokenAddressBySymbol()
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error getting token addresses for chain %d: %w", chainSel, err)
-		}
+		tokenAddresses, _ := state.Chains[chainSel].TokenAddressBySymbol()
 		var tokenTransferFeeConfigs []fee_quoter.FeeQuoterTokenTransferFeeConfigArgs
+
 		for _, update := range updates.TokenTransferFeeConfigArgs {
 			var tokenTransferFeeConfigPerToken []fee_quoter.FeeQuoterTokenTransferFeeConfigSingleTokenArgs
 			for token, feeConfig := range update.TokenTransferFeeConfigPerToken {
@@ -2264,49 +2202,18 @@ func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(e cldf.Environment, cf
 				Token:             tokenAddresses[remove.Token],
 			})
 		}
-		tx, err := fq.ApplyTokenTransferFeeConfigUpdates(txOpts, tokenTransferFeeConfigs, tokenTransferFeeConfigsRemove)
-		if cfg.MCMS == nil {
-			if _, err := cldf.ConfirmIfNoErrorWithABI(e.BlockChains.EVMChains()[chainSel], tx, fee_quoter.FeeQuoterABI, err); err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("error applying token transfer fee config updates for chain %d: %w", chainSel, err)
-			}
-		} else {
-			if err != nil {
-				return cldf.ChangesetOutput{}, err
-			}
-			op, err := proposalutils.BatchOperationForChain(
-				chainSel, fq.Address().String(), tx.Data(), big.NewInt(0), shared.FeeQuoter.String(), nil)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("error creating batch operation for chain %d: %w", chainSel, err)
-			}
-			batches = append(batches, op)
-			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().String()
-			inspector, err := proposalutils.McmsInspectorForChain(e, chainSel)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("error getting inspector for chain %d: %w", chainSel, err)
-			}
-			inspectorPerChain[chainSel] = inspector
+		input[chainSel] = opsutil.EVMCallInput[ccipops.ApplyTokenTransferFeeConfigUpdatesConfigPerChain]{
+			ChainSelector: chainSel,
+			Address:       state.Chains[chainSel].FeeQuoter.Address(),
+			CallInput: ccipops.ApplyTokenTransferFeeConfigUpdatesConfigPerChain{
+				TokenTransferFeeConfigs:       tokenTransferFeeConfigs,
+				TokenTransferFeeConfigsRemove: tokenTransferFeeConfigsRemove,
+			},
+			NoSend: cfg.MCMS != nil, // If MCMS exists, we do not want to send the transaction.
 		}
 	}
-	if cfg.MCMS == nil {
-		return cldf.ChangesetOutput{}, nil
+
+	return ccipseqs.FeeQuoterUpdateTokenTransferConfig{
+		UpdatesByChain: input,
 	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
-	}
-	p, err := proposalutils.BuildProposalFromBatchesV2(
-		e,
-		timelocks,
-		mcmsContractByChain,
-		inspectorPerChain,
-		batches,
-		"Apply token transfer fee config updates",
-		*cfg.MCMS,
-	)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("error building proposal: %w", err)
-	}
-	return cldf.ChangesetOutput{
-		MCMSTimelockProposals: []mcmslib.TimelockProposal{*p},
-	}, nil
 }

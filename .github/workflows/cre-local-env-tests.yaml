@@ -147,7 +147,7 @@ jobs:
 
       - name: Track local env startup success rate
         # track only scheduled runs to exclude failures in PRs or manual runs
-        if: always() && github.event_name == 'workflow_call'
+        if: always() && github.event_name == 'schedule'
         shell: bash
         env:
           START_CLI_OUTCOME: ${{ steps.start-cli.outcome }}
@@ -164,7 +164,7 @@ jobs:
 
       - name: Track local env startup duration
         # track only scheduled runs to exclude failures in PRs or manual runs
-        if: github.event_name == 'workflow_call'
+        if: always() && github.event_name == 'schedule'
         shell: bash
         env:
           GETDX_SECRET_KEY: ${{ secrets.GETDX_SECRET_KEY }}

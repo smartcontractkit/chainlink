@@ -147,6 +147,7 @@ func deployChainContractsForChains(
 			RMNHomeAddress:             getAddressSafely(existingState.Chains[homeChainSel].RMNHome),
 			DeployChainContractsConfig: c,
 			AddressesPerChain:          addresses,
+			GasBoostConfigPerChain:     c.GasBoostConfigPerChain,
 		},
 	)
 	if err != nil {
