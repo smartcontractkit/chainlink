@@ -345,6 +345,30 @@ type FastTransferRequestedEvent struct {
 	Raw                      types.Log
 }
 
+// GetAccumulatedPoolFees retrieves the accumulated pool fees
+func (w *FastTransferTokenPoolWrapper) GetAccumulatedPoolFees(opts *bind.CallOpts) (*big.Int, error) {
+	switch w.contractType {
+	case shared.BurnMintFastTransferTokenPool:
+		return w.burnMintPool.GetAccumulatedPoolFees(opts)
+	case shared.BurnMintWithExternalMinterFastTransferTokenPool:
+		return w.burnMintExternalPool.GetAccumulatedPoolFees(opts)
+	default:
+		return nil, errors.New("unsupported contract type")
+	}
+}
+
+// WithdrawPoolFees withdraws accumulated pool fees to the specified recipient
+func (w *FastTransferTokenPoolWrapper) WithdrawPoolFees(opts *bind.TransactOpts, recipient common.Address) (*types.Transaction, error) {
+	switch w.contractType {
+	case shared.BurnMintFastTransferTokenPool:
+		return w.burnMintPool.WithdrawPoolFees(opts, recipient)
+	case shared.BurnMintWithExternalMinterFastTransferTokenPool:
+		return w.burnMintExternalPool.WithdrawPoolFees(opts, recipient)
+	default:
+		return nil, errors.New("unsupported contract type")
+	}
+}
+
 func GetFastTransferTokenPoolContract(env cldf.Environment, tokenSymbol shared.TokenSymbol, contractType cldf.ContractType, contractVersion semver.Version, chainSelector uint64) (*FastTransferTokenPoolWrapper, error) {
 	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
