@@ -690,7 +690,6 @@ func AptosEventEmitter[T any](
 				continue
 			}
 		}
-
 	}()
 	return ch, errChan
 }
@@ -710,7 +709,7 @@ func ConfirmCommitWithExpectedSeqNumRangeAptos(
 
 	done := make(chan any)
 	defer close(done)
-	sink, errChan := AptosEventEmitter[module_offramp.CommitReportAccepted](t, dest.Client, offRampStateAddress, fmt.Sprintf("%s::offramp::OffRampState", offRampAddress.StringLong()), "commit_report_accepted_events", startVersion, done)
+	sink, errChan := AptosEventEmitter[module_offramp.CommitReportAccepted](t, dest.Client, offRampStateAddress, offRampAddress.StringLong()+"::offramp::OffRampState", "commit_report_accepted_events", startVersion, done)
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
@@ -760,8 +759,6 @@ func ConfirmCommitWithExpectedSeqNumRangeAptos(
 				dest.Selector, srcSelector, expectedSeqNumRange.String())
 		}
 	}
-
-	return nil, nil
 }
 
 // ConfirmExecWithSeqNrsForAll waits for all chains in the environment to execute the given expectedSeqNums.
@@ -996,7 +993,7 @@ func ConfirmExecWithExpectedSeqNrsAptos(
 	expectedSeqNrs []uint64,
 ) (executionStates map[uint64]int, err error) {
 	if len(expectedSeqNrs) == 0 {
-		return nil, fmt.Errorf("no expected sequence numbers provided")
+		return nil, errors.New("no expected sequence numbers provided")
 	}
 	boundOffRamp := aptos_ccip_offramp.Bind(offRampAddress, dest.Client)
 	offRampStateAddress, err := boundOffRamp.Offramp().GetStateAddress(nil)
@@ -1004,7 +1001,7 @@ func ConfirmExecWithExpectedSeqNrsAptos(
 
 	done := make(chan any)
 	defer close(done)
-	sink, errChan := AptosEventEmitter[module_offramp.ExecutionStateChanged](t, dest.Client, offRampStateAddress, fmt.Sprintf("%s::offramp::OffRampState", offRampAddress.StringLong()), "execution_state_changed_events", startVersion, done)
+	sink, errChan := AptosEventEmitter[module_offramp.ExecutionStateChanged](t, dest.Client, offRampStateAddress, offRampAddress.StringLong()+"::offramp::OffRampState", "execution_state_changed_events", startVersion, done)
 
 	executionStates = make(map[uint64]int)
 	seqNrsToWatch := make(map[uint64]bool)
@@ -1019,7 +1016,7 @@ func ConfirmExecWithExpectedSeqNrsAptos(
 		select {
 		case event := <-sink:
 			if seqNrsToWatch[event.Event.SequenceNumber] && event.Event.SourceChainSelector == srcSelector {
-				t.Logf("(Aptos) received ExecutionStateChanged (state %s) on chain %d (offramp %s) with expected sequence number %d (tx %s)",
+				t.Logf("(Aptos) received ExecutionStateChanged (state %s) on chain %d (offramp %s) with expected sequence number %d (tx %d)",
 					executionStateToString(event.Event.State), dest.Selector, offRampAddress.String(), event.Event.SequenceNumber, event.Version,
 				)
 				if event.Event.State == EXECUTION_STATE_INPROGRESS {

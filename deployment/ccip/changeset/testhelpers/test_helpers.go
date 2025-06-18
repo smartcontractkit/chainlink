@@ -2983,6 +2983,7 @@ func DeployAptosCCIPReceiver(t *testing.T, e cldf.Environment) {
 		require.NoError(t, err)
 		t.Logf("(Aptos) CCIPDummyReceiver(ccip: %s, mcms: %s) deployed to %s in tx %s", onchainState.CCIPAddress.StringLong(), onchainState.MCMSAddress.StringLong(), addr.StringLong(), tx.Hash)
 		require.NoError(t, e.BlockChains.AptosChains()[selector].Confirm(tx.Hash))
-		e.ExistingAddresses.Save(selector, addr.StringLong(), cldf.NewTypeAndVersion(shared.AptosReceiverType, deployment.Version1_0_0))
+		err = e.ExistingAddresses.Save(selector, addr.StringLong(), cldf.NewTypeAndVersion(shared.AptosReceiverType, deployment.Version1_0_0))
+		require.NoError(t, err)
 	}
 }
