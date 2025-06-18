@@ -92,6 +92,33 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "error - invalid min delay",
+			env: cldf.Environment{
+				Name:              "test",
+				Logger:            logger.TestLogger(t),
+				ExistingAddresses: cldf.NewMemoryAddressBook(),
+				BlockChains: chain.NewBlockChains(
+					map[uint64]chain.BlockChain{
+						4457093679053095497: aptoschain.Chain{},
+					}),
+			},
+			config: config.DeployAptosChainConfig{
+				ContractParamsPerChain: map[uint64]config.ChainContractParams{
+					4457093679053095497: GetMockChainContractParams(t, 4457093679053095497),
+				},
+				MCMSDeployConfigPerChain: map[uint64]types.MCMSWithTimelockConfigV2{
+					4457093679053095497: {
+						Canceller:        proposalutils.SingleGroupMCMSV2(t),
+						Proposer:         proposalutils.SingleGroupMCMSV2(t),
+						Bypasser:         proposalutils.SingleGroupMCMSV2(t),
+						TimelockMinDelay: nil, // Invalid min delay
+					},
+				},
+			},
+			wantErr:   true,
+			wantErrRe: `invalid MCMS timelock min delay for Aptos chain 4457093679053095497`,
+		},
+		{
 			name: "error - chain has no env",
 			env: cldf.Environment{
 				Name:   "test",
@@ -235,7 +262,7 @@ func TestDeployAptosChain_Apply(t *testing.T) {
 				Canceller:        proposalutils.SingleGroupMCMSV2(t),
 				Proposer:         proposalutils.SingleGroupMCMSV2(t),
 				Bypasser:         proposalutils.SingleGroupMCMSV2(t),
-				TimelockMinDelay: big.NewInt(0),
+				TimelockMinDelay: big.NewInt(1),
 			},
 		},
 		MCMSTimelockConfigPerChain: map[uint64]proposalutils.TimelockConfig{
@@ -273,7 +300,7 @@ func TestDeployAptosChain_Apply(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, mockCCIPParams.FeeQuoterParams.PremiumMultiplierWeiPerEthByFeeToken[shared.LinkSymbol], mult)
 
-	aptTokenAdd := mustParseAddress(t, "0xa")
+	aptTokenAdd := MustParseAddress(t, "0xa")
 	mult, err = ccipBind.FeeQuoter().GetPremiumMultiplierWeiPerEth(nil, aptTokenAdd)
 	require.NoError(t, err)
 	require.Equal(t, mockCCIPParams.FeeQuoterParams.PremiumMultiplierWeiPerEthByFeeToken[shared.APTSymbol], mult)
