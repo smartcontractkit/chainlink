@@ -219,15 +219,20 @@ jobs:
           set-git-config: "true"
 
       - name: Build Chainlink Image
-        if: ${{ needs.changes.outputs.should-run-core-tests == 'true' || needs.changes.outputs.should-run-cre-tests == 'true' || needs.changes.outputs.should-run-ccip-tests == 'true '}}
-        uses: ./.github/actions/build-chainlink-image
+        if: needs.changes.outputs.should-run-core-tests == 'true' || needs.changes.outputs.should-run-cre-tests == 'true' || needs.changes.outputs.should-run-ccip-tests == 'true'
+        uses: smartcontractkit/.github/actions/ctf-build-image@feat/refactor-ctf-build-image
         with:
-          tag_suffix: ${{ matrix.image.tag-suffix }}
+          image-tag: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
-          git_commit_sha: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          dep_evm_sha: ${{ inputs.evm-ref }}
+          docker-registry-url: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
+          docker-repository-name: 'chainlink'
+          aws-account-number: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          docker-additional-build-args: |
+            GO_COVER_FLAG=true
+          go-get-overrides: |
+            github.com/smartcontractkit/chainlink-evm=${{ inputs.evm-ref }}
 
   run-core-cre-e2e-tests-for-pr:
     name: Run Core CRE E2E Tests For PR
