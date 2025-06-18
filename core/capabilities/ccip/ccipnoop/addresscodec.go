@@ -13,3 +13,7 @@ func (n AddressCodec) AddressStringToBytes(addr string) ([]byte, error) {
 func (n AddressCodec) OracleIDAsAddressBytes(oracleID uint8) ([]byte, error) {
 	return []byte{oracleID}, nil
 }
+
+func (n AddressCodec) TransmitterBytesToString(addr []byte) (string, error) {
+	return string(addr), nil
+}
