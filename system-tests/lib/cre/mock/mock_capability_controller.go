@@ -128,7 +128,7 @@ func (c *Controller) SendTrigger(ctx context.Context, id string, eventID string,
 			Payload: payload,
 		}
 
-		framework.L.Info().Msg(fmt.Sprintf("Sending trigger response %s:%s", id, eventID))
+		framework.L.Info().Msg(fmt.Sprintf("Sending trigger event %s to subscribers of %s", eventID, id))
 
 		_, err := client.API.SendTriggerEvent(ctx, &data)
 		if err != nil {

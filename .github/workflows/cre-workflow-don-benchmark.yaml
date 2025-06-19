@@ -116,58 +116,35 @@ jobs:
           cd system-tests/tests/load/cre
           go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 15m
 
-      - name: Set up cAdvisor for basic container monitoring
+      - name: Debug cAdvisor container visibility
         shell: bash
         run: |
-          # Run cAdvisor container
-          docker run -d \
-            --volume=/:/rootfs:ro \
-            --volume=/var/run:/var/run:ro \
-            --volume=/var/run/docker.sock:/var/run/docker.sock:ro \
-            --volume=/sys:/sys:ro \
-            --volume=/var/lib/docker/:/var/lib/docker:ro \
-            --volume=/dev/disk/:/dev/disk:ro \
-            --publish=8080:8080 \
-            --privileged=true \
-            --detach=true \
-            --name=cadvisor \
-            gcr.io/cadvisor/cadvisor:latest
+          echo "=== Docker containers (from docker ps) ==="
+          docker ps --format "{{.Names}} ({{.ID}})" | tee cadvisor-debug-docker-containers.txt
           
-          # Wait for cAdvisor to initialize
-          sleep 5
+          echo "=== cAdvisor API status check ==="
+          curl -s http://localhost:8080/api/v1.3/ | jq '.' | tee cadvisor-debug-api-status.txt
           
-          # Debug what cAdvisor sees
-          echo "=== Docker containers (from docker) ==="
-          docker ps --format "{{.Names}} ({{.ID}})"
+          echo "=== Root containers seen by cAdvisor ==="
+          curl -s http://localhost:8080/api/v1.3/containers/ | jq 'keys' | tee cadvisor-debug-root-paths.txt
           
-          echo "=== cAdvisor API status ==="
-          curl -s http://localhost:8080/api/v1.3/ | jq '.'
+          echo "=== Docker containers seen by cAdvisor ==="
+          curl -s http://localhost:8080/api/v1.3/containers/docker/ > cadvisor-docker-containers-raw.json
+          cat cadvisor-docker-containers-raw.json | jq '.subcontainers | map({name: .name, aliases: .aliases})' | tee cadvisor-debug-docker-containers.txt
           
-          echo "=== cAdvisor root containers ==="
-          curl -s http://localhost:8080/api/v1.3/containers/ | jq 'keys'
+          echo "=== cAdvisor machine info ==="
+          curl -s http://localhost:8080/api/v1.3/machine | jq '.' | tee cadvisor-debug-machine-info.txt
           
-          echo "=== cAdvisor Docker containers ==="
-          curl -s http://localhost:8080/api/v1.3/containers/docker/ > cadvisor-docker-debug.json
-          cat cadvisor-docker-debug.json | jq '.subcontainers | map({name: .name, aliases: .aliases})'
+          echo "=== Docker socket permissions ==="
+          ls -la /var/run/docker.sock | tee cadvisor-debug-socket-perms.txt
           
-          echo "=== Permission check on docker.sock ==="
-          ls -la /var/run/docker.sock
+          echo "=== cAdvisor container logs ==="
+          docker logs cadvisor | tail -n 50 | tee cadvisor-debug-logs.txt
           
-          # Create metrics directory
-          mkdir -p ./system-tests/tests/load/cre/metrics
-          
-          # Save debug info to file
-          curl -s http://localhost:8080/api/v1.3/containers/ | jq '.' > ./system-tests/tests/load/cre/metrics/cadvisor-debug-full.json
-          docker ps -a --format "{{json .}}" > ./system-tests/tests/load/cre/metrics/docker-containers.json
-          
-          # Start collecting metrics every 10 seconds
-          echo "Starting metrics collection..."
-          (while true; do
-            timestamp=$(date +%s)
-            curl -s http://localhost:8080/api/v1.3/containers/ > ./system-tests/tests/load/cre/metrics/cadvisor-${timestamp}.json
-            sleep 10
-          done) &
-          echo $! > ./system-tests/tests/load/cre/metrics/metrics-pid.txt
+          # Save debug files to the metrics directory for later analysis
+          mkdir -p ./system-tests/tests/load/cre/metrics/debug
+          mv cadvisor-debug-*.txt ./system-tests/tests/load/cre/metrics/debug/
+          mv cadvisor-docker-containers-raw.json ./system-tests/tests/load/cre/metrics/debug/
 
       - name: Stop metrics collection
         if: always()
