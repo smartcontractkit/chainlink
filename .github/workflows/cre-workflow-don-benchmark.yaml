@@ -116,6 +116,59 @@ jobs:
           cd system-tests/tests/load/cre
           go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 15m
 
+      - name: Set up cAdvisor for basic container monitoring
+        shell: bash
+        run: |
+          # Run cAdvisor container
+          docker run -d \
+            --volume=/:/rootfs:ro \
+            --volume=/var/run:/var/run:ro \
+            --volume=/var/run/docker.sock:/var/run/docker.sock:ro \
+            --volume=/sys:/sys:ro \
+            --volume=/var/lib/docker/:/var/lib/docker:ro \
+            --volume=/dev/disk/:/dev/disk:ro \
+            --publish=8080:8080 \
+            --privileged=true \
+            --detach=true \
+            --name=cadvisor \
+            gcr.io/cadvisor/cadvisor:latest
+          
+          # Wait for cAdvisor to initialize
+          sleep 5
+          
+          # Debug what cAdvisor sees
+          echo "=== Docker containers (from docker) ==="
+          docker ps --format "{{.Names}} ({{.ID}})"
+          
+          echo "=== cAdvisor API status ==="
+          curl -s http://localhost:8080/api/v1.3/ | jq '.'
+          
+          echo "=== cAdvisor root containers ==="
+          curl -s http://localhost:8080/api/v1.3/containers/ | jq 'keys'
+          
+          echo "=== cAdvisor Docker containers ==="
+          curl -s http://localhost:8080/api/v1.3/containers/docker/ > cadvisor-docker-debug.json
+          cat cadvisor-docker-debug.json | jq '.subcontainers | map({name: .name, aliases: .aliases})'
+          
+          echo "=== Permission check on docker.sock ==="
+          ls -la /var/run/docker.sock
+          
+          # Create metrics directory
+          mkdir -p ./system-tests/tests/load/cre/metrics
+          
+          # Save debug info to file
+          curl -s http://localhost:8080/api/v1.3/containers/ | jq '.' > ./system-tests/tests/load/cre/metrics/cadvisor-debug-full.json
+          docker ps -a --format "{{json .}}" > ./system-tests/tests/load/cre/metrics/docker-containers.json
+          
+          # Start collecting metrics every 10 seconds
+          echo "Starting metrics collection..."
+          (while true; do
+            timestamp=$(date +%s)
+            curl -s http://localhost:8080/api/v1.3/containers/ > ./system-tests/tests/load/cre/metrics/cadvisor-${timestamp}.json
+            sleep 10
+          done) &
+          echo $! > ./system-tests/tests/load/cre/metrics/metrics-pid.txt
+
       - name: Stop metrics collection
         if: always()
         run: |
