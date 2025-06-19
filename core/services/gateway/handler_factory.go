@@ -46,6 +46,8 @@ func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json
 		return handlers.NewDummyHandler(donConfig, don, hf.lggr)
 	case WebAPICapabilitiesType:
 		return capabilities.NewHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr)
+	case handlers.VaultHandlerType:
+		return vault.New(donConfig.HandlerConfig, &donConfig, donConnMgr, lggr)
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
 	}

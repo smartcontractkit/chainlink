@@ -49,7 +49,7 @@ type gateway struct {
 
 	codec          api.Codec
 	httpServer     gw_net.HttpServer
-	handlers       map[string]handlers.Handler
+	handlers       map[string]any
 	connMgr        ConnectionManager
 	lggr           logger.Logger
 	jsonrpcHandler *jsonrpc.Handler
@@ -64,7 +64,7 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 		return nil, err
 	}
 
-	handlerMap := make(map[string]handlers.Handler)
+	handlerMap := make(map[string]any)
 	services := make(map[string]jsonrpc.Service)
 
 	for _, donConfig := range config.Dons {
@@ -83,22 +83,22 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 				return nil, fmt.Errorf("invalid node address %s", nodeConfig.Address)
 			}
 		}
-		if donConfig.HandlerName == "vault" {
-			services[donConfig.HandlerName] = vault.New(donConfig.HandlerConfig, &donConfig, donConnMgr, lggr)
-		} else {
-			handler, err := handlerFactory.NewHandler(donConfig.HandlerName, donConfig.HandlerConfig, &donConfig, donConnMgr)
-			if err != nil {
-				return nil, err
-			}
-			handlerMap[donConfig.DonId] = handler
-			donConnMgr.SetHandler(handler)
+		// if donConfig.HandlerName == "vault" {
+		// 	handlerMap[donConfig.HandlerName] = vault.New(donConfig.HandlerConfig, &donConfig, donConnMgr, lggr)
+		// } else {
+		handler, err := handlerFactory.NewHandler(donConfig.HandlerName, donConfig.HandlerConfig, &donConfig, donConnMgr)
+		if err != nil {
+			return nil, err
+		}
+		handlerMap[donConfig.DonId] = handler
+		donConnMgr.SetHandler(handler)
 		}
 	}
 
 	return NewGateway(codec, httpServer, handlerMap, connMgr, lggr, services), nil
 }
 
-func NewGateway(codec api.Codec, httpServer gw_net.HttpServer, handlers map[string]handlers.Handler, connMgr ConnectionManager, lggr logger.Logger, services map[string]jsonrpc.Service) Gateway {
+func NewGateway(codec api.Codec, httpServer gw_net.HttpServer, handlers map[string]any, connMgr ConnectionManager, lggr logger.Logger, services map[string]jsonrpc.Service) Gateway {
 	gw := &gateway{
 		codec:          codec,
 		httpServer:     httpServer,
@@ -140,54 +140,30 @@ func (g *gateway) Close() error {
 }
 
 // Called by the server
-func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte) (rawResponse []byte, httpStatusCode int) {
-	// decode
-	msg, err := g.codec.DecodeRequest(rawRequest)
-	if err != nil {
-		return newError(g.codec, "", api.UserMessageParseError, err.Error())
-	}
-	if msg == nil {
-		return newError(g.codec, "", api.UserMessageParseError, "nil message")
-	}
-	if err = msg.Validate(); err != nil {
-		return newError(g.codec, msg.Body.MessageId, api.UserMessageParseError, err.Error())
-	}
-	// find correct handler
-	handler, ok := g.handlers[msg.Body.DonId]
+func (g *gateway) ProcessRequest(ctx context.Context, serviceName string, raw []byte, auth) (rawResponse []byte, httpStatusCode int) {
+	h, ok := g.handlers[serviceName]
 	if !ok {
-		return newError(g.codec, msg.Body.MessageId, api.UnsupportedDONIdError, "unsupported DON ID")
+		// TODO
 	}
-	// send to the handler
-	responseCh := make(chan handlers.UserCallbackPayload, 1)
-	err = handler.HandleUserMessage(ctx, msg, responseCh)
-	if err != nil {
-		return newError(g.codec, msg.Body.MessageId, api.HandlerError, err.Error())
+
+	switch handler := h.(type) {
+	case jsonrpc.Service:
+		return g.handleServiceRequest(ctx, raw, auth)
+	case handlers.Handler:
+		return g.handleLegacy(ctx, request)
 	}
-	// await response
-	var response handlers.UserCallbackPayload
-	select {
-	case <-ctx.Done():
-		return newError(g.codec, msg.Body.MessageId, api.RequestTimeoutError, "handler timeout")
-	case response = <-responseCh:
-		break
-	}
-	if response.ErrCode != api.NoError {
-		return newError(g.codec, msg.Body.MessageId, response.ErrCode, response.ErrMsg)
-	}
-	// encode
-	rawResponse, err = g.codec.EncodeResponse(response.Msg)
-	if err != nil {
-		return newError(g.codec, msg.Body.MessageId, api.NodeReponseEncodingError, "")
-	}
-	promRequest.WithLabelValues(api.NoError.String()).Inc()
-	return rawResponse, api.ToHttpErrorCode(api.NoError)
 }
 
-func (g *gateway) ProcessServiceRequest(ctx context.Context, request *jsonrpc.Request) (rawResponse []byte, httpStatusCode int) {
-	service, ok := g.services[request.ServiceName()]
-	if !ok {
-		return errorResponse(request, api.UnsupportedDONIdError, "request to unsupported service")
+func (g *gateway) handleLegacy(ctx context.Context, handler handler.Handler, request *jsonrpc.Request) (rawResponse []byte, httpStatusCode int) {
+	// This is incorrect
+}
+
+func (g *gateway) handleServiceRequest(ctx context.Context, service jsonrpc.Service, request *jsonrpc.Request, jwtToken string) (rawResponse []byte, httpStatusCode int) {
+	request, err := s.jsonrpcHandler.DecodeRequest(rawMessage, jwtToken)
+	if err != nil {
+		return errorResponse(request, api.HandlerError, err.Error())
 	}
+
 	responseCh := make(chan *jsonrpc.Response, 1)
 	err := service.HandleUserRequest(ctx, request, responseCh)
 	if err != nil {

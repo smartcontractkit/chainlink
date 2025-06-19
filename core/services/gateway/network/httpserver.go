@@ -2,6 +2,7 @@ package network
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -27,8 +28,7 @@ type HttpServer interface {
 }
 
 type HTTPRequestHandler interface {
-	ProcessRequest(ctx context.Context, rawRequest []byte) (rawResponse []byte, httpStatusCode int)
-	ProcessServiceRequest(ctx context.Context, request *jsonrpc.Request) (rawResponse []byte, httpStatusCode int)
+	ProcessRequest(ctx context.Context, serviceName string, rawMessage []byte, auth string) (rawResponse []byte, httpStatusCode int)
 }
 
 type HTTPServerConfig struct {
@@ -184,28 +184,13 @@ func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 		defer cancel()
 	}
 
-	// Optionally extract jwt token from authorization header
 	authHeader := r.Header.Get("Authorization")
 	jwtToken := ""
 	if authHeader != "" {
 		jwtToken = strings.TrimPrefix(authHeader, "Bearer ")
 	}
 
-	request, err := s.jsonrpcHandler.DecodeRequest(rawMessage, jwtToken)
-	if err != nil {
-		s.lggr.Error("error decoding JSON-RPC request", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	var rawResponse []byte
-	var httpStatusCode int
-
-	if request.ServiceName() == "vault" {
-		rawResponse, httpStatusCode = s.handler.ProcessServiceRequest(requestCtx, &request)
-	} else {
-		rawResponse, httpStatusCode = s.handler.ProcessRequest(requestCtx, rawMessage)
-	}
+	rawResponse, httpStatusCode := s.handler.ProcessRequest(requestCtx, s.serviceName(request), request, auth)
 
 	w.Header().Set("Content-Type", s.config.ContentTypeHeader)
 	w.WriteHeader(httpStatusCode)
@@ -213,6 +198,28 @@ func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.lggr.Error("error when writing response", err)
 	}
+}
+
+type Params struct {
+	Body body
+}
+
+type body struct {
+	DonID string `json:"donId"`
+}
+
+func (s *httpServer) serviceName(request *jsonrpc.Request) string {
+	p := &Params{}
+	err := json.Unmarshal(request.Params, p)
+	if err != nil {
+		return request.ServiceName()
+	}
+
+	if p.Body.DonID == "" {
+		return request.ServiceName()
+	}
+
+	return p.Body.DonID
 }
 
 func (s *httpServer) SetHTTPRequestHandler(handler HTTPRequestHandler) {
