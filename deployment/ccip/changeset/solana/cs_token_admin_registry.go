@@ -360,14 +360,14 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment, 
 			return err
 		}
 		// can only be deployer key or timelock signer
-		newAdmin := GetAuthorityForIxn(
-			&e,
-			chain,
-			chainState,
-			shared.Router,
-			solana.PublicKey{},
-			"",
-		)
+		newAdmin := chain.DeployerKey.PublicKey()
+		if cfg.MCMS != nil {
+			timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+			if err != nil {
+				return fmt.Errorf("failed to fetch timelock signer: %w", err)
+			}
+			newAdmin = timelockSignerPDA
+		}
 		if !acceptAdminRoleTokenConfig.SkipRegistryCheck {
 			tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 			if err != nil {
@@ -377,6 +377,9 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment, 
 			if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
 				return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot accept admin role", tokenPubKey.String(), routerProgramAddress.String())
 			}
+			// this will be hit if
+			// you register with timelock but accept without mcms config
+			// register with deployer key but accept with mcms config
 			if !tokenAdminRegistryAccount.PendingAdministrator.Equals(newAdmin) {
 				return fmt.Errorf("new admin public key (%s) does not match pending registry admin role (%s) for token %s",
 					newAdmin.String(),
@@ -408,13 +411,14 @@ func AcceptAdminRoleTokenAdminRegistry(e cldf.Environment, cfg AcceptAdminRoleTo
 		shared.Router,
 		solana.PublicKey{},
 		"")
-	authority := GetAuthorityForIxn(
-		&e,
-		chain,
-		chainState,
-		shared.Router,
-		solana.PublicKey{},
-		"")
+	authority := chain.DeployerKey.PublicKey()
+	if cfg.MCMS != nil {
+		timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+		}
+		authority = timelockSignerPDA
+	}
 	// verified
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
 	solRouter.SetProgramID(routerProgramAddress)

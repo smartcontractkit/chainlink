@@ -3,6 +3,8 @@ package solana
 import (
 	"fmt"
 
+	"github.com/gagliardetto/solana-go"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	"github.com/smartcontractkit/mcms"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -24,14 +26,14 @@ var _ cldf.ChangeSet[E2ETokenPoolConfig] = E2ETokenPool
 // use this changeset to deploy a solana token
 // upload token metadata
 // set the token authority
-var _ cldf.ChangeSet[E2ETokenConfig] = E2EToken
+// var _ cldf.ChangeSet[E2ETokenConfig] = E2EToken
 
 type E2ETokenPoolConfig struct {
-	AddTokenPoolAndLookupTable            []TokenPoolConfig
+	AddTokenPoolAndLookupTable            []AddTokenPoolAndLookupTableConfig
 	RegisterTokenAdminRegistry            []RegisterTokenAdminRegistryConfig
 	AcceptAdminRoleTokenAdminRegistry     []AcceptAdminRoleTokenAdminRegistryConfig
 	SetPool                               []SetPoolConfig
-	RemoteChainTokenPool                  []RemoteChainTokenPoolConfig               // setup evm remote pools on solana
+	RemoteChainTokenPool                  []SetupTokenPoolForRemoteChainConfig       // setup evm remote pools on solana
 	ConfigureTokenPoolContractsChangesets []v1_5_1.ConfigureTokenPoolContractsConfig // setup evm/solana remote pools on evm
 	MCMS                                  *proposalutils.TimelockConfig              // set it to aggregate all the proposals
 }
@@ -88,38 +90,194 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 }
 
 type E2ETokenConfig struct {
-	DeploySolanaToken   []DeploySolanaTokenConfig
-	UploadTokenMetadata []UploadTokenMetadataConfig
-	SetTokenAuthority   []SetTokenAuthorityConfig
+	TokenPubKey solana.PublicKey
+	Metadata    string
+	PoolType    *solTestTokenPool.PoolType
+	// evm chain id -> evm remote config
+	SolanaToEVMRemoteConfigs map[uint64]EVMRemoteConfig
+	// solana remote config for evm pool
+	EVMToSolanaRemoteConfigs v1_5_1.ConfigureTokenPoolContractsConfig
 }
 
-func E2EToken(e cldf.Environment, cfg E2ETokenConfig) (cldf.ChangesetOutput, error) {
-	finalOutput := cldf.ChangesetOutput{}
-	finalOutput.AddressBook = cldf.NewMemoryAddressBook() //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-	addressBookToRemove := cldf.NewMemoryAddressBook()
-	defer func(e cldf.Environment) {
-		e.Logger.Info("E2EToken changeset completed")
-		e.Logger.Info("Final output: ", finalOutput.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-	}(e)
-	err := ProcessConfig(&e, cfg.DeploySolanaToken, DeploySolanaToken, &finalOutput, addressBookToRemove)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy solana token: %w", err)
-	}
-	err = ProcessConfig(&e, cfg.UploadTokenMetadata, UploadTokenMetadata, &finalOutput, addressBookToRemove)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to upload token metadata: %w", err)
-	}
-	err = ProcessConfig(&e, cfg.SetTokenAuthority, SetTokenAuthority, &finalOutput, addressBookToRemove)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to set token authority: %w", err)
-	}
-	err = AggregateAndCleanup(e, &finalOutput, addressBookToRemove, nil, "E2EToken changeset")
-	if err != nil {
-		e.Logger.Error("failed to aggregate and cleanup: ", err)
+type E2ETokenPoolConfigv2 struct {
+	ChainSelector uint64
+	E2ETokens     []E2ETokenConfig
+	// this determines whether we want to set timelock as token admin or not
+	// this is also required if router is owned by timelock
+	// so you cannot really have a case where router is owned by timelock but you want to
+	// set deployer key as token admin
+	MCMS *proposalutils.TimelockConfig
+}
+
+func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.ChangesetOutput, error) {
+	// use a clone of env to avoid modifying the original env
+	// if you modify the original env, the in memory tests will fail
+	// because after the changeset is complete and the ApplyChangesets function is called,
+	// it will try to add addresses from the cs output which already exist in the env
+	e := env.Clone()
+	finalCSOut := &cldf.ChangesetOutput{
+		AddressBook: cldf.NewMemoryAddressBook(),
 	}
 
-	return finalOutput, nil
+	// token pool and lookup table
+	tokenPoolAndLookupTableCfg := AddTokenPoolAndLookupTableConfig{
+		ChainSelector:    cfg.ChainSelector,
+		TokenPoolConfigs: make([]TokenPoolConfig, 0),
+	}
+
+	// register token admin registry
+	registerTokenAdminRegistryCfg := RegisterTokenAdminRegistryConfig{
+		ChainSelector:        cfg.ChainSelector,
+		MCMS:                 cfg.MCMS,
+		RegisterTokenConfigs: make([]RegisterTokenConfig, 0),
+	}
+	var tokenAdminRegistryAdmin solana.PublicKey
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
+	if cfg.MCMS != nil {
+		tokenAdminRegistryAdmin = timelockSignerPDA
+	} else {
+		tokenAdminRegistryAdmin = e.BlockChains.SolanaChains()[cfg.ChainSelector].DeployerKey.PublicKey()
+	}
+
+	// accept admin role token admin registry
+	acceptAdminRoleTokenAdminRegistryCfg := AcceptAdminRoleTokenAdminRegistryConfig{
+		ChainSelector:               cfg.ChainSelector,
+		MCMS:                        cfg.MCMS,
+		AcceptAdminRoleTokenConfigs: make([]AcceptAdminRoleTokenConfig, 0),
+	}
+
+	// set pool
+	setPoolCfg := SetPoolConfig{
+		ChainSelector:       cfg.ChainSelector,
+		SetPoolTokenConfigs: make([]SetPoolTokenConfig, 0),
+		WritableIndexes:     []uint8{3, 4, 7},
+		MCMS:                cfg.MCMS,
+	}
+
+	// solana to evm remote pool setup
+	remotePoolConfig := SetupTokenPoolForRemoteChainConfig{
+		SolChainSelector:       cfg.ChainSelector,
+		RemoteTokenPoolConfigs: make([]RemoteChainTokenPoolConfig, 0),
+		MCMS:                   cfg.MCMS,
+	}
+
+	// evm to solana remote pool setup
+	evmToSolanaRemotePoolCfg := v1_5_1.ConfigureMultipleTokenPoolsConfig{
+		MCMS: cfg.MCMS,
+	}
+
+	for _, tokenCfg := range cfg.E2ETokens {
+		tokenPoolAndLookupTableCfg.TokenPoolConfigs = append(tokenPoolAndLookupTableCfg.TokenPoolConfigs, TokenPoolConfig{
+			PoolType:    tokenCfg.PoolType,
+			Metadata:    tokenCfg.Metadata,
+			TokenPubKey: tokenCfg.TokenPubKey,
+		})
+		registerTokenAdminRegistryCfg.RegisterTokenConfigs = append(registerTokenAdminRegistryCfg.RegisterTokenConfigs, RegisterTokenConfig{
+			TokenPubKey:             tokenCfg.TokenPubKey,
+			RegisterType:            ViaGetCcipAdminInstruction,
+			TokenAdminRegistryAdmin: tokenAdminRegistryAdmin,
+		})
+		acceptAdminRoleTokenAdminRegistryCfg.AcceptAdminRoleTokenConfigs = append(acceptAdminRoleTokenAdminRegistryCfg.AcceptAdminRoleTokenConfigs, AcceptAdminRoleTokenConfig{
+			TokenPubKey: tokenCfg.TokenPubKey,
+			// registering in the same changeset so skip registry check
+			SkipRegistryCheck: true,
+		})
+		setPoolCfg.SetPoolTokenConfigs = append(setPoolCfg.SetPoolTokenConfigs, SetPoolTokenConfig{
+			TokenPubKey: tokenCfg.TokenPubKey,
+			PoolType:    tokenCfg.PoolType,
+			Metadata:    tokenCfg.Metadata,
+			// registering in the same changeset so skip registry check
+			SkipRegistryCheck: true,
+		})
+		remotePoolConfig.RemoteTokenPoolConfigs = append(remotePoolConfig.RemoteTokenPoolConfigs, RemoteChainTokenPoolConfig{
+			SolTokenPubKey:   tokenCfg.TokenPubKey,
+			SolPoolType:      tokenCfg.PoolType,
+			Metadata:         tokenCfg.Metadata,
+			EVMRemoteConfigs: tokenCfg.SolanaToEVMRemoteConfigs,
+		})
+		evmToSolanaRemotePoolCfg.Tokens = append(evmToSolanaRemotePoolCfg.Tokens, &tokenCfg.EVMToSolanaRemoteConfigs)
+
+	}
+	output, err := AddTokenPoolAndLookupTable(e, tokenPoolAndLookupTableCfg)
+	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running AddTokenPoolAndLookupTable: %w", err)
+	}
+	output, err = SetupTokenPoolForRemoteChain(e, remotePoolConfig)
+	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running SetupTokenPoolForRemoteChain: %w", err)
+	}
+	output, err = RegisterTokenAdminRegistry(e, registerTokenAdminRegistryCfg)
+	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running RegisterTokenAdminRegistry: %w", err)
+	}
+	output, err = AcceptAdminRoleTokenAdminRegistry(e, acceptAdminRoleTokenAdminRegistryCfg)
+	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running AcceptAdminRoleTokenAdminRegistry: %w", err)
+	}
+	output, err = SetPool(e, setPoolCfg)
+	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running SetPool: %w", err)
+	}
+	output, err = v1_5_1.ConfigureMultiplePoolLogic(e, evmToSolanaRemotePoolCfg)
+	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running ConfigureTokenPoolContractsChangeset: %w", err)
+	}
+	if len(finalCSOut.MCMSTimelockProposals) > 1 {
+		state, err := stateview.LoadOnchainState(e)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		}
+		proposal, err := proposalutils.AggregateProposals(
+			e, state.EVMMCMSStateByChain(), state.SolanaMCMSStateByChain(e),
+			finalCSOut.MCMSTimelockProposals, "E2ETokenPoolv2 changeset", cfg.MCMS,
+		)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
+		}
+		if proposal != nil {
+			finalCSOut.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
+		}
+	}
+
+	return *finalCSOut, nil
 }
+
+// type E2ETokenConfig struct {
+// 	DeploySolanaToken   []DeploySolanaTokenConfig
+// 	UploadTokenMetadata []UploadTokenMetadataConfig
+// 	SetTokenAuthority   []SetTokenAuthorityConfig
+// }
+
+// func E2EToken(e cldf.Environment, cfg E2ETokenConfig) (cldf.ChangesetOutput, error) {
+// 	finalOutput := cldf.ChangesetOutput{}
+// 	finalOutput.AddressBook = cldf.NewMemoryAddressBook() //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+// 	addressBookToRemove := cldf.NewMemoryAddressBook()
+// 	defer func(e cldf.Environment) {
+// 		e.Logger.Info("E2EToken changeset completed")
+// 		e.Logger.Info("Final output: ", finalOutput.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+// 	}(e)
+// 	err := ProcessConfig(&e, cfg.DeploySolanaToken, DeploySolanaToken, &finalOutput, addressBookToRemove)
+// 	if err != nil {
+// 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy solana token: %w", err)
+// 	}
+// 	err = ProcessConfig(&e, cfg.UploadTokenMetadata, UploadTokenMetadata, &finalOutput, addressBookToRemove)
+// 	if err != nil {
+// 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to upload token metadata: %w", err)
+// 	}
+// 	err = ProcessConfig(&e, cfg.SetTokenAuthority, SetTokenAuthority, &finalOutput, addressBookToRemove)
+// 	if err != nil {
+// 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to set token authority: %w", err)
+// 	}
+// 	err = AggregateAndCleanup(e, &finalOutput, addressBookToRemove, nil, "E2EToken changeset")
+// 	if err != nil {
+// 		e.Logger.Error("failed to aggregate and cleanup: ", err)
+// 	}
+
+// 	return finalOutput, nil
+// }
 
 func ProcessConfig[T any](
 	e *cldf.Environment,
