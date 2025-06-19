@@ -3,9 +3,11 @@ package ccip
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"os"
 	"strconv"
 	"sync"
 	"testing"
@@ -774,6 +776,21 @@ func configureTokenPoolContractsWithMCMS(t *testing.T, e cldf.Environment, token
 	return
 }
 
+func getFillerImage() (string, error) {
+	envVersion := os.Getenv(devenv.E2eFastFillerVersion)
+	envImageBase64 := os.Getenv(devenv.E2eFastFillerImageBase64)
+
+	if envVersion != "" || envImageBase64 != "" {
+		return devenv.DefaultFastFillerImage, nil
+	} else {
+		envImage, err := base64.StdEncoding.DecodeString(envImageBase64)
+		if err != nil {
+			return "", fmt.Errorf("failed to decode E2E_FAST_FILLER_IMAGE_BASE64: %w", err)
+		}
+		return string(envImage) + ":" + envVersion, nil
+	}
+}
+
 func runAssertions(t *testing.T, sourceToken balanceToken, destinationToken balanceToken, address common.Address, assertions []balanceAssertion, description string) {
 	for _, assertion := range assertions {
 		assertion(t, sourceToken, destinationToken, address, description)
@@ -831,9 +848,11 @@ func startRelayer(t *testing.T, sourceChainSelector, destinationChainSelector ui
 			},
 		},
 	}
+	image, err := getFillerImage()
+	require.NoError(t, err, "Failed to get filler image")
 	l := logging.GetTestLogger(t)
-	relayer := devenv.NewCCIPFastFiller(fastFillerConfig, l, []string{dockerEnv.GetCLClusterTestEnv().DockerNetwork.ID})
-	err := relayer.Start(t.Context(), t)
+	relayer := devenv.NewCCIPFastFiller(fastFillerConfig, l, []string{dockerEnv.GetCLClusterTestEnv().DockerNetwork.ID}, image)
+	err = relayer.Start(t.Context(), t)
 	require.NoError(t, err, "Failed to start the relayer")
 
 	return func() error { return relayer.Stop(context.Background()) }
