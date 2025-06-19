@@ -107,7 +107,7 @@ func NewSecureMintServices(ctx context.Context,
 	argsNoPlugin.OffchainConfigDigester = provider.OffchainConfigDigester()
 
 	// Using a stub contract transmitter for testing purposes until DF-21404 is done
-	argsNoPlugin.ContractTransmitter = NewStubContractTransmitter(lggr, ocr2plus_types.Account(spec.TransmitterID.String))
+	argsNoPlugin.ContractTransmitter = newStubContractTransmitter(lggr, ocr2plus_types.Account(spec.TransmitterID.String))
 
 	abort := func() {
 		if cerr := services.MultiCloser(srvs).Close(); cerr != nil {

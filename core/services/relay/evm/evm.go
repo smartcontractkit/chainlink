@@ -853,7 +853,7 @@ func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayA
 		configProvider, err = newStandardConfigProvider(ctx, lggr, r.chain, relayOpts)
 	case "mercury":
 		configProvider, err = newMercuryConfigProvider(ctx, lggr, r.chain, relayOpts)
-	case "llo":
+	case "llo", "securemint": // TODO(gg): use llo config provider for now but we might have to copy and adapt it
 		// Use NullRetirementReportCache since we never run LLO jobs on
 		// bootstrap nodes, and there's no need to introduce a failure mode or
 		// performance hit no matter how minor.
@@ -903,7 +903,6 @@ type configWatcher struct {
 	fromBlock        uint64
 }
 
-// TODO(gg): maybe make a new type that embeds the config poller and the config provider?
 func newConfigWatcher(lggr logger.Logger,
 	contractAddress common.Address,
 	offchainDigester ocrtypes.OffchainConfigDigester,

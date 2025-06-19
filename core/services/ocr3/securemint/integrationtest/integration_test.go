@@ -31,13 +31,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
 	"github.com/smartcontractkit/freeport"
 	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -67,8 +64,6 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 		clientPubKeys[i] = key.PublicKey
 	}
 
-	t.Logf("clientPubKeys: %v", clientPubKeys)
-
 	steve, backend := setupBlockchain(t)
 	fromBlock, err := backend.Client().BlockNumber(testutils.Context(t))
 	require.NoError(t, err)
@@ -90,9 +85,6 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 		// inform node about bootstrap node
 		c.P2P.V2.DefaultBootstrappers = &p2pV2Bootstrappers
 	})
-	for i, node := range nodes {
-		t.Logf("node %d clientPubKey: %x", i, node.clientPubKey)
-	}
 
 	allowedSenders := make([]common.Address, len(nodes))
 	for i, node := range nodes {
@@ -101,7 +93,6 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 		allowedSenders[i] = keys[0].Address // assuming the first key is the transmitter
 	}
 
-	// aggregatorAddress := setSecureMintOnchainConfigUsingAggregator(t, steve, backend, nodes, oracles)
 	_, configuratorAddress := setSecureMintOnchainConfigUsingOCR3Configurator(t, steve, backend, nodes, oracles)
 
 	t.Logf("Creating bootstrap job with configurator address: %s", configuratorAddress.Hex())
@@ -237,165 +228,16 @@ func setSecureMintOnchainConfigUsingOCR3Configurator(t *testing.T, steve *bind.T
 	}
 	t.Logf("Deployed OCR3Configurator contract at: %s", configuratorAddress.Hex())
 
+	// 2. Get the oracle config
 	smPluginConfig := por.PorOffchainConfig{MaxChains: 5}
 	smPluginConfigBytes, err := smPluginConfig.Serialize()
 	require.NoError(t, err)
 
+	// using the data streams llo codec for the validation about version and predecessor config digest in the Configurator contract: https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/llo-feeds/v0.5.0/configuration/Configurator.sol#L116-L124
 	onchainConfig, err := (&datastreamsllo.EVMOnchainConfigCodec{}).Encode(datastreamsllo.OnchainConfig{
 		Version:                 1,
 		PredecessorConfigDigest: nil,
 	})
-	require.NoError(t, err)
-
-	signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTests(
-		2*time.Second,        // deltaProgress,
-		20*time.Second,       // deltaResend,
-		400*time.Millisecond, // deltaInitial,
-		500*time.Millisecond, // deltaRound,
-		250*time.Millisecond, // deltaGrace,
-		300*time.Millisecond, // deltaCertifiedCommitRequest,
-		1*time.Minute,        // deltaStage,
-		100,                  // rMax,
-		[]int{len(oracles)},  // s,
-		oracles,              // oracles,
-		smPluginConfigBytes,  // reportingPluginConfig,
-		nil,                  // maxDurationInitialization,
-		250*time.Millisecond, // maxDurationQuery,
-		1*time.Second,        // maxDurationObservation,
-		1*time.Second,        // maxDurationShouldAcceptAttestedReport,
-		1*time.Second,        // maxDurationShouldTransmitAcceptedReport,
-		int(fNodes),          // f,
-		onchainConfig,        // onchainConfig (binary blob containing configuration passed through to the ReportingPlugin and also available to the contract. Unlike ReportingPluginConfig which is only available offchain.)
-	)
-	require.NoError(t, err)
-
-	// clientPubKeys := make([]ed25519.PublicKey, nNodes)
-	// for i := 0; i < nNodes; i++ {
-	// 	k := big.NewInt(int64(salt + i))
-	// 	key := csakey.MustNewV2XXXTestingOnly(k)
-	// 	clientCSAKeys[i] = key
-	// 	clientPubKeys[i] = key.PublicKey
-	// }
-
-	// func (r wsrpcRequest) TransmitterID() ocr2types.Account {
-	// 	return ocr2types.Account(fmt.Sprintf("%x", r.pk))
-	// }
-
-	// TransmitAccount:   ocr2types.Account(hex.EncodeToString(transmitter[:])),
-
-	// 3. Set config on the contract
-	var signerKeys [][]byte
-	for _, signer := range signers {
-		signerKeys = append(signerKeys, signer)
-	}
-
-	transmitterAddresses := make([]common.Address, len(nodes))
-	for i := range nodes {
-		keys, err := nodes[i].app.GetKeyStore().Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
-		require.NoError(t, err)
-		transmitterAddresses[i] = keys[0].Address // assuming the first key is the transmitter
-	}
-	t.Logf("transmitterAddresses: %v", transmitterAddresses)
-
-	transmitterAddrs := make([][32]byte, len(transmitterAddresses))
-	for i := range transmitterAddresses {
-		copy(transmitterAddrs[i][:], transmitterAddresses[i][:])
-	}
-	t.Logf("transmitterAddrs: %v", transmitterAddrs)
-
-	offchainTransmitters := make([][32]byte, len(transmitters))
-	for i := range transmitters {
-		copy(offchainTransmitters[i][:], transmitters[i][:])
-	}
-	t.Logf("offchainTransmitters: %v", offchainTransmitters)
-
-	// transmitters should be the nodes' csa keys
-	offchainTransmitters2 := make([][32]byte, len(nodes))
-	for i := range nodes {
-		copy(offchainTransmitters2[i][:], nodes[i].clientPubKey[:])
-	}
-	t.Logf("offchainTransmitters2: %v", offchainTransmitters2)
-
-	offchainTransmitters3 := make([][32]byte, nNodes)
-	for i := 0; i < nNodes; i++ {
-		offchainTransmitters3[i] = nodes[i].clientPubKey // use csa keys as transmitters
-	}
-	t.Logf("offchainTransmitters3: %v", offchainTransmitters3)
-
-	configID := [32]byte{}
-	copy(configID[:], common.FromHex("0x0000000000000000000000000000000000000000000000000000000000000001"))
-
-	x := func(donID uint32) [32]byte {
-		var b [32]byte
-		copy(b[:], common.LeftPadBytes(big.NewInt(int64(donID)).Bytes(), 32))
-		return b
-	}
-	donIDBytes32 := x(1)
-	t.Logf("donIDBytes32: %x", donIDBytes32)
-	t.Logf("configID: %x", configID)
-
-	_, err = configurator.SetProductionConfig(steve, configID, signerKeys, offchainTransmitters3, f, outOnchainConfig, offchainConfigVersion, offchainConfig)
-	if err != nil {
-		t.Logf("Error: %s", err)
-		errString, err := rPCErrorFromError(err)
-		require.NoError(t, err)
-		t.Fatalf("Failed to configure contract: %s %s", errString, err)
-	}
-
-	// make sure config is finalized
-	for range 5 {
-		backend.Commit()
-	}
-
-	var topic common.Hash
-	topic = llo.ProductionConfigSet
-
-	logs, err := backend.Client().FilterLogs(testutils.Context(t), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{[]common.Hash{topic, configID}}})
-	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(logs), 1)
-	cfg, err := llo.DecodeProductionConfigSetLog(logs[len(logs)-1].Data)
-	require.NoError(t, err)
-
-	t.Logf("Configurator config digest: 0x%x", cfg.ConfigDigest)
-
-	return configurator, configuratorAddress
-}
-
-func setSecureMintOnchainConfigUsingAggregator(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend, nodes []node, oracles []confighelper.OracleIdentityExtra) common.Address {
-
-	// 1. Deploy aggregator contract
-
-	// these min and max answers are not used by the secure mint oracle but they're needed for validation in aggregator.setConfig()
-	minAnswer := big.NewInt(0)
-	maxAnswer := big.NewInt(999999)
-	aggregatorAddress, _, aggregatorContract, err := ocr2aggregator.DeployOCR2Aggregator(
-		steve,
-		backend.Client(),
-		common.Address{}, // LINK address
-		minAnswer,
-		maxAnswer,
-		common.Address{},   // billingAccessController
-		common.Address{},   // requesterAccessController
-		9,                  // decimals
-		"secure mint test", // description
-	)
-	if err != nil {
-		rPCError, err := rPCErrorFromError(err)
-		require.NoError(t, err)
-		t.Fatalf("Failed to deploy OCR2Aggregator contract: %s", rPCError)
-	}
-	// Ensure we have finality depth worth of blocks to start.
-	for range 20 {
-		backend.Commit()
-	}
-	t.Logf("Deployed OCR2Aggregator contract at: %s", aggregatorAddress.Hex())
-
-	// 2. Create config
-	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(minAnswer, maxAnswer)
-	require.NoError(t, err)
-
-	smPluginConfig := por.PorOffchainConfig{MaxChains: 5}
-	smPluginConfigBytes, err := smPluginConfig.Serialize()
 	require.NoError(t, err)
 
 	signers, _, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTests(
@@ -421,37 +263,46 @@ func setSecureMintOnchainConfigUsingAggregator(t *testing.T, steve *bind.Transac
 	require.NoError(t, err)
 
 	// 3. Set config on the contract
-	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
-	require.NoError(t, err)
-
-	transmitterAddresses := make([]common.Address, len(nodes))
-	for i := range nodes {
-		keys, err := nodes[i].app.GetKeyStore().Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
-		require.NoError(t, err)
-		transmitterAddresses[i] = keys[0].Address // assuming the first key is the transmitter
+	signerKeys := make([][]byte, len(signers))
+	for i, signer := range signers {
+		signerKeys[i] = signer
 	}
 
-	_, err = aggregatorContract.SetConfig(steve, signerAddresses, transmitterAddresses, f, outOnchainConfig, offchainConfigVersion, offchainConfig)
+	// similar to LLO: use csa keys as transmitters
+	transmitters := make([][32]byte, nNodes)
+	for i := range nNodes {
+		transmitters[i] = nodes[i].clientPubKey
+	}
+	t.Logf("transmitters: %v", transmitters)
+
+	configID := [32]byte{}
+	copy(configID[:], common.FromHex("0x0000000000000000000000000000000000000000000000000000000000000001"))
+
+	_, err = configurator.SetProductionConfig(steve, configID, signerKeys, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig)
 	if err != nil {
+		t.Logf("Error: %s", err)
 		errString, err := rPCErrorFromError(err)
 		require.NoError(t, err)
-		t.Fatalf("Failed to configure contract: %s", errString)
+		t.Fatalf("Failed to configure contract: %s %s", errString, err)
 	}
 
 	// make sure config is finalized
-	for range 20 {
+	for range 5 {
 		backend.Commit()
 	}
 
-	aggregatorConfigDigest, err := aggregatorContract.LatestConfigDigestAndEpoch(&bind.CallOpts{})
-	if err != nil {
-		rPCError, err := rPCErrorFromError(err)
-		require.NoError(t, err)
-		t.Fatalf("Failed to get latest config digest: %s", rPCError)
-	}
-	t.Logf("Aggregator config digest: 0x%x", aggregatorConfigDigest.ConfigDigest)
+	var topic common.Hash
+	topic = llo.ProductionConfigSet
 
-	return aggregatorAddress
+	logs, err := backend.Client().FilterLogs(testutils.Context(t), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{[]common.Hash{topic, configID}}})
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(logs), 1)
+	cfg, err := llo.DecodeProductionConfigSetLog(logs[len(logs)-1].Data)
+	require.NoError(t, err)
+
+	t.Logf("Configurator config digest: 0x%x", cfg.ConfigDigest)
+
+	return configurator, configuratorAddress
 }
 
 func rPCErrorFromError(txError error) (string, error) {
@@ -486,6 +337,7 @@ func rPCErrorFromError(txError error) (string, error) {
 	return revert, nil
 }
 
+// For chain writing
 func setupDataFeedsCacheContract(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend, allowedSenders []common.Address, workflowOwner, workflowName string) (
 	common.Address, *data_feeds_cache.DataFeedsCache) {
 

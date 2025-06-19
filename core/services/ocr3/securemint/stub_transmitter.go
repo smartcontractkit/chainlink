@@ -26,7 +26,7 @@ type stubContractTransmitter struct {
 var StubTransmissionCounter atomic.Int32
 
 // newStubContractTransmitter creates a new StubContractTransmitter instance
-func NewStubContractTransmitter(logger logger.Logger, fromAccount types.Account) *stubContractTransmitter {
+func newStubContractTransmitter(logger logger.Logger, fromAccount types.Account) *stubContractTransmitter {
 	t := &stubContractTransmitter{
 		logger:      logger,
 		fromAccount: fromAccount,
