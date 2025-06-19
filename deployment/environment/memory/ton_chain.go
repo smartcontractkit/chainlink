@@ -9,7 +9,9 @@ import (
 
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/xssnick/tonutils-go/address"
+	"github.com/xssnick/tonutils-go/liteclient"
 	"github.com/xssnick/tonutils-go/tlb"
+	"github.com/xssnick/tonutils-go/ton"
 	"github.com/xssnick/tonutils-go/ton/wallet"
 
 	"github.com/stretchr/testify/require"
@@ -19,8 +21,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/xssnick/tonutils-go/liteclient"
-	"github.com/xssnick/tonutils-go/ton"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
