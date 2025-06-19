@@ -145,7 +145,7 @@ func createSecureMintBootstrapJob(t *testing.T, bootstrapNode node, configurator
 			fromBlock                         = %s
 			providerType                      = "securemint"
 			lloDonID                          = 1
-			lloConfigMode = "bluegreen"`, // TODO(gg): bluegreen is the default for llo but don't think we should keep this necessarily
+			lloConfigMode 					  = "bluegreen"`, // Using lloConfigMode 'bluegreen' since otherwise LLO config poller won't work
 		configuratorAddress.Hex(),
 		chainID,
 		fromBlock),
@@ -237,7 +237,7 @@ func getSecureMintJobSpec(t *testing.T, ocrContractAddress, keyBundleID string, 
 			maxChains                         = 5
 			token                             = "btc"
 			reserves                          = "custom"
-		`, // TODO(gg): bluegreen is the default for llo but don't think we should keep this necessarily
+		`, // Using lloConfigMode 'bluegreen' since otherwise LLO config poller won't work
 		ocrContractAddress, // contract address
 		keyBundleID,        // ocr key bundle id
 		publicKey,          // transmitter id

@@ -690,7 +690,7 @@ func (r *Relayer) NewFunctionsProvider(ctx context.Context, rargs commontypes.Re
 	return NewFunctionsProvider(ctx, r.chain, rargs, pargs, lggr, r.evmKeystore, functions.FunctionsPlugin)
 }
 
-// NewConfigProvider is called by bootstrap jobs
+// NewConfigProvider is called by bootstrap jobs and by the secure mint plugin
 func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayArgs) (configProvider commontypes.ConfigProvider, err error) {
 	lggr := r.lggr.Named(args.ExternalJobID.String()).Named("ConfigProvider")
 	relayOpts := types.NewRelayOpts(args)
@@ -720,7 +720,7 @@ func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayA
 		configProvider, err = newStandardConfigProvider(ctx, lggr, r.chain, relayOpts)
 	case "mercury":
 		configProvider, err = newMercuryConfigProvider(ctx, lggr, r.chain, relayOpts)
-	case "llo", "securemint": // TODO(gg): use llo config provider for now but we might have to copy and adapt it
+	case "llo":
 		// Use NullRetirementReportCache since we never run LLO jobs on
 		// bootstrap nodes, and there's no need to introduce a failure mode or
 		// performance hit no matter how minor.
@@ -728,7 +728,7 @@ func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayA
 	case "ocr3-capability":
 		configProvider, err = NewOCR3CapabilityConfigProvider(ctx, lggr, r.chain, relayOpts)
 	case "securemint":
-		configProvider, err = newLLOConfigProvider(ctx, lggr, r.chain, &retirement.NullRetirementReportCache{}, relayOpts) // TODO(gg): use llo config provider for now but we might have to copy and adapt it
+		configProvider, err = newLLOConfigProvider(ctx, lggr, r.chain, relayOpts)
 	default:
 		return nil, fmt.Errorf("unrecognized provider type: %q", args.ProviderType)
 	}

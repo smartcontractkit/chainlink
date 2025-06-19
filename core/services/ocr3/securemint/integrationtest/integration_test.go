@@ -173,8 +173,6 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []node, jobIDs map[int]
 
 	t.Logf("No job spec errors identified for any node")
 
-	// time.Sleep(30 * time.Second) // wait for jobs to run
-
 	runs, err := nodes[0].app.PipelineORM().GetAllRuns(testutils.Context(t))
 	require.NoError(t, err, "assert error getting all runs")
 	t.Logf("Found %d runs", len(runs))
