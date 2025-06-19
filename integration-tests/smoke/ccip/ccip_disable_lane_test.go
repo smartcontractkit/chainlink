@@ -136,9 +136,9 @@ func TestDisableLane(t *testing.T) {
 			map[uint64]*big.Int{
 				pair.DestChainSelector: testhelpers.DefaultGasPrice,
 			},
-			map[common.Address]*big.Int{
-				state.MustGetEVMChainState(pair.SourceChainSelector).LinkToken.Address(): linkPrice,
-				state.MustGetEVMChainState(pair.SourceChainSelector).Weth9.Address():     wethPrice,
+			map[string]*big.Int{
+				state.MustGetEVMChainState(pair.SourceChainSelector).LinkToken.Address().String(): linkPrice,
+				state.MustGetEVMChainState(pair.SourceChainSelector).Weth9.Address().String():     wethPrice,
 			},
 			v1_6.DefaultFeeQuoterDestChainConfig(true))
 	}

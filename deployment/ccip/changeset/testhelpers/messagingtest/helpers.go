@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
@@ -177,7 +178,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	case chain_selectors.FamilyAptos:
 		feeToken := aptos.AccountAddress{}
 		if len(tc.FeeToken) > 0 {
-			feeToken.ParseStringRelaxed(tc.FeeToken)
+			feeToken = aptoscs.MustParseAddress(t, tc.FeeToken)
 		}
 		msg = testhelpers.AptosSendRequest{
 			Data:         tc.MsgData,
@@ -283,7 +284,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		switch family {
 		// Solana doesn't support catching CPI errors, so nonces can't be ordered
 		case chain_selectors.FamilySolana:
-			fallthrough
+			unorderedExec = true
 		// Aptos does only support out-of-order execution
 		case chain_selectors.FamilyAptos:
 			unorderedExec = true

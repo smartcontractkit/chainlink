@@ -89,7 +89,8 @@ func migrateAccountToFA(t *testing.T, signer aptos.TransactionSigner, client apt
 			Args: nil,
 		},
 	}
-	// TODO - this might fail once this function is removed, should be optional?
+
+	// This might fail once this function is removed, remove once the node has been upgraded
 	res, err := client.BuildSignAndSubmitTransaction(signer, payload)
 	require.NoError(t, err)
 	tx, err := client.WaitForTransaction(res.Hash)

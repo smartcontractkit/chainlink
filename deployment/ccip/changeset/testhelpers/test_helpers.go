@@ -173,7 +173,7 @@ func SleepAndReplay(t *testing.T, env cldf.Environment, duration time.Duration, 
 // By default, it will assert on errors. Use WithAssertOnError(false) to change this behavior.
 func ReplayLogs(t *testing.T, oc cldf.OffchainClient, replayBlocks map[uint64]uint64, opts ...ReplayLogsOption) {
 	options := &replayLogsOptions{
-		assertOnError: false,
+		assertOnError: true,
 	}
 
 	for _, opt := range opts {
@@ -929,7 +929,7 @@ func SendRequestAptos(
 	senderAddress := sender.AccountAddress()
 	client := e.BlockChains.AptosChains()[cfg.SourceChain].Client
 
-	e.Logger.Infof("(Aptos) Sending CCIP request from chain selector %d to chain selector %d from sender %s",
+	e.Logger.Infof("(Aptos) Sending CCIP request from chain selector %d to chain selector %d using sender %s",
 		cfg.SourceChain, cfg.DestChain, senderAddress.StringLong())
 
 	msg := cfg.Message.(AptosSendRequest)
@@ -1027,8 +1027,9 @@ func SendRequestAptos(
 	e.Logger.Infof("(Aptos) CCIP message sent (tx %s) from chain selector %d to chain selector %d", tx.Hash, cfg.SourceChain, cfg.DestChain)
 
 	for _, event := range data.Events {
-		e.Logger.Infof("Event type: %v", event.Type)
-		if event.Type == fmt.Sprintf("%s::onramp::CCIPMessageSent", router.String()) {
+		e.Logger.Debugf("(Aptos) Message contains event type: %v", event.Type)
+		// The RPC strips all leading zeroes from the event type
+		if event.Type == fmt.Sprintf("0x%s::onramp::CCIPMessageSent", strings.TrimLeft(strings.TrimPrefix(router.String(), "0x"), "0")) {
 			var msgSentEvent module_onramp.CCIPMessageSent
 			if err := codec.DecodeAptosJsonValue(event.Data, &msgSentEvent); err != nil {
 				return nil, fmt.Errorf("failed to decode CCIPMessageSentEvent: %w", err)
@@ -1128,8 +1129,8 @@ func AddLane(
 	e *DeployedEnv,
 	from, to uint64,
 	isTestRouter bool,
-	gasprice map[uint64]*big.Int,
-	tokenPrices map[common.Address]*big.Int,
+	gasPrices map[uint64]*big.Int,
+	tokenPrices map[string]*big.Int,
 	fqCfg fee_quoter.FeeQuoterDestChainConfig,
 ) {
 	var err error
@@ -1141,11 +1142,19 @@ func AddLane(
 
 	switch fromFamily {
 	case chainsel.FamilyEVM:
-		changesets = append(changesets, AddEVMSrcChangesets(from, to, isTestRouter, gasprice, tokenPrices, fqCfg)...)
+		evmTokenPrices := make(map[common.Address]*big.Int, len(tokenPrices))
+		for address, price := range tokenPrices {
+			evmTokenPrices[common.HexToAddress(address)] = price
+		}
+		changesets = append(changesets, AddEVMSrcChangesets(from, to, isTestRouter, gasPrices, evmTokenPrices, fqCfg)...)
 	case chainsel.FamilySolana:
 		changesets = append(changesets, AddLaneSolanaChangesets(e, from, to, toFamily)...)
 	case chainsel.FamilyAptos:
-		changesets = append(changesets, AddLaneAptosChangesets(t, from, to)...)
+		aptosTokenPrices := make(map[aptos.AccountAddress]*big.Int, len(tokenPrices))
+		for address, price := range tokenPrices {
+			aptosTokenPrices[aptoscs.MustParseAddress(t, address)] = price
+		}
+		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, aptosTokenPrices)...)
 	}
 
 	switch toFamily {
@@ -1154,7 +1163,7 @@ func AddLane(
 	case chainsel.FamilySolana:
 		changesets = append(changesets, AddLaneSolanaChangesets(e, to, from, fromFamily)...)
 	case chainsel.FamilyAptos:
-		changesets = append(changesets, AddLaneAptosChangesets(t, from, to)...)
+		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, nil)...)
 	}
 
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
@@ -1315,13 +1324,16 @@ func AddEVMDestChangesets(e *DeployedEnv, to, from uint64, isTestRouter bool) []
 	return evmDstChangesets
 }
 
-func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector uint64) []commoncs.ConfiguredChangeSet {
+func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector uint64, gasPrices map[uint64]*big.Int, tokenPrices map[aptos.AccountAddress]*big.Int) []commoncs.ConfiguredChangeSet {
 	srcFamily, err := chainsel.GetSelectorFamily(srcChainSelector)
 	require.NoError(t, err)
 	destFamily, err := chainsel.GetSelectorFamily(destChainSelector)
 	require.NoError(t, err)
 
-	t.Logf("Adding lane %s=>%s", srcFamily, destFamily)
+	if srcFamily != chainsel.FamilyAptos &&
+		destFamily != chainsel.FamilyAptos {
+		t.Fatalf("At least one of the provided source/destination chains has to be Aptos. srcFamily: %v destFamily: %v", srcFamily, destFamily)
+	}
 
 	var src, dest config.ChainDefinition
 
@@ -1337,9 +1349,7 @@ func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector ui
 		}
 	case chainsel.FamilyAptos:
 		src = config.AptosChainDefinition{
-			TokenPrices: map[string]*big.Int{
-				"0xa": deployment.EDecMult(5, 28),
-			},
+			TokenPrices: tokenPrices,
 			ConnectionConfig: v1_6.ConnectionConfig{
 				RMNVerificationDisabled: true,
 			},
@@ -1347,6 +1357,8 @@ func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector ui
 			AddTokenTransferFeeConfigs:    nil,
 			RemoveTokenTransferFeeConfigs: nil,
 		}
+	default:
+		t.Fatalf("Unsupported source chain family: %v", srcFamily)
 	}
 
 	switch destFamily {
@@ -1356,9 +1368,8 @@ func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector ui
 				ConnectionConfig: v1_6.ConnectionConfig{
 					AllowListEnabled: false,
 				},
-				Selector:    destChainSelector,
-				GasPrice:    big.NewInt(1e9),
-				TokenPrices: nil,
+				Selector: destChainSelector,
+				GasPrice: gasPrices[destChainSelector],
 				FeeQuoterDestChainConfig: fee_quoter.FeeQuoterDestChainConfig{
 					IsEnabled:                         true,
 					MaxNumberOfTokensPerMsg:           10,
@@ -1376,7 +1387,7 @@ func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector ui
 					DefaultTokenFeeUSDCents:           25,
 					DefaultTokenDestGasOverhead:       90_000,
 					DefaultTxGasLimit:                 200_000,
-					GasMultiplierWeiPerEth:            11e8, // TODO what's the scale here?
+					GasMultiplierWeiPerEth:            11e8, // TODO what's the scale here ?
 					GasPriceStalenessThreshold:        0,
 					NetworkFeeUSDCents:                10,
 				},
@@ -1389,7 +1400,7 @@ func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector ui
 				AllowListEnabled: false,
 			},
 			Selector: destChainSelector,
-			GasPrice: big.NewInt(1e7),
+			GasPrice: gasPrices[destChainSelector],
 			FeeQuoterDestChainConfig: aptos_fee_quoter.DestChainConfig{
 				IsEnabled:                         true,
 				MaxNumberOfTokensPerMsg:           10,
@@ -1412,6 +1423,8 @@ func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector ui
 				NetworkFeeUsdCents:                10,
 			},
 		}
+	default:
+		t.Fatalf("Unsupported dstination chain family: %v", srcFamily)
 	}
 
 	return []commoncs.ConfiguredChangeSet{
@@ -1486,15 +1499,21 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 	gasPrices := map[uint64]*big.Int{
 		to: DefaultGasPrice,
 	}
-	fromFamily, _ := chainsel.GetSelectorFamily(from)
-	tokenPrices := map[common.Address]*big.Int{}
-	if fromFamily == chainsel.FamilyEVM {
+	fromFamily, err := chainsel.GetSelectorFamily(from)
+	require.NoError(t, err)
+
+	// Maps token address => price
+	// Uses string to be re-usable across chains
+	tokenPrices := make(map[string]*big.Int)
+	switch fromFamily {
+	case chainsel.FamilyEVM:
 		stateChainFrom := state.MustGetEVMChainState(from)
-		// TODO make this generic
-		tokenPrices = map[common.Address]*big.Int{
-			stateChainFrom.LinkToken.Address(): DefaultLinkPrice,
-			stateChainFrom.Weth9.Address():     DefaultWethPrice,
-		}
+		tokenPrices[stateChainFrom.LinkToken.Address().String()] = DefaultLinkPrice
+		tokenPrices[stateChainFrom.Weth9.Address().String()] = DefaultWethPrice
+	case chainsel.FamilyAptos:
+		aptosState := state.AptosChains[from]
+		tokenPrices[aptosState.LinkTokenAddress.StringLong()] = deployment.EDecMult(20, 28)
+		tokenPrices[shared.AptosAPTAddress] = deployment.EDecMult(5, 28)
 	}
 	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)
 	AddLane(
@@ -1515,13 +1534,18 @@ func AddLaneWithEnforceOutOfOrder(t *testing.T, e *DeployedEnv, state stateview.
 	fromFamily, err := chainsel.GetSelectorFamily(from)
 	require.NoError(t, err)
 
-	tokenPrices := map[common.Address]*big.Int{}
-	if fromFamily == chainsel.FamilyEVM {
+	// Maps token address => price
+	// Uses string to be re-usable across chains
+	tokenPrices := make(map[string]*big.Int)
+	switch fromFamily {
+	case chainsel.FamilyEVM:
 		stateChainFrom := state.MustGetEVMChainState(from)
-		tokenPrices = map[common.Address]*big.Int{
-			stateChainFrom.LinkToken.Address(): DefaultLinkPrice,
-			stateChainFrom.Weth9.Address():     DefaultWethPrice,
-		}
+		tokenPrices[stateChainFrom.LinkToken.Address().String()] = DefaultLinkPrice
+		tokenPrices[stateChainFrom.Weth9.Address().String()] = DefaultWethPrice
+	case chainsel.FamilyAptos:
+		aptosState := state.AptosChains[from]
+		tokenPrices[aptosState.LinkTokenAddress.StringLong()] = deployment.EDecMult(20, 28)
+		tokenPrices[shared.AptosAPTAddress] = deployment.EDecMult(5, 28)
 	}
 	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)
 	fqCfg.EnforceOutOfOrder = true
@@ -2325,7 +2349,7 @@ func Transfer(
 	case chainsel.FamilyAptos:
 		feeTokenAddr := aptos.AccountAddress{}
 		if len(feeToken) > 0 {
-			feeTokenAddr.ParseStringRelaxed(feeToken)
+			feeTokenAddr = aptoscs.MustParseAddress(t, feeToken)
 		}
 		msg = AptosSendRequest{
 			Data:         data,
@@ -2959,6 +2983,7 @@ func DeployAptosCCIPReceiver(t *testing.T, e cldf.Environment) {
 		require.NoError(t, err)
 		t.Logf("(Aptos) CCIPDummyReceiver(ccip: %s, mcms: %s) deployed to %s in tx %s", onchainState.CCIPAddress.StringLong(), onchainState.MCMSAddress.StringLong(), addr.StringLong(), tx.Hash)
 		require.NoError(t, e.BlockChains.AptosChains()[selector].Confirm(tx.Hash))
-		e.ExistingAddresses.Save(selector, addr.StringLong(), cldf.NewTypeAndVersion(shared.AptosReceiverType, deployment.Version1_0_0))
+		err = e.ExistingAddresses.Save(selector, addr.StringLong(), cldf.NewTypeAndVersion(shared.AptosReceiverType, deployment.Version1_0_0))
+		require.NoError(t, err)
 	}
 }

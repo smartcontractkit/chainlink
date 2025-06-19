@@ -2,7 +2,6 @@ package proposalutils
 
 import (
 	"crypto/ecdsa"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"slices"
@@ -63,7 +62,7 @@ func SingleGroupMCMSV2(t *testing.T) mcmstypes.Config {
 }
 
 // SignMCMSTimelockProposal - Signs an MCMS timelock proposal.
-func SignMCMSTimelockProposal(t *testing.T, env cldf.Environment, proposal *mcmslib.TimelockProposal) *mcmslib.Proposal {
+func SignMCMSTimelockProposal(t *testing.T, env cldf.Environment, proposal *mcmslib.TimelockProposal, realBackend bool) *mcmslib.Proposal {
 	converters := make(map[mcmstypes.ChainSelector]mcmssdk.TimelockConverter)
 	inspectorsMap := make(map[mcmstypes.ChainSelector]mcmssdk.Inspector)
 	evmChains := env.BlockChains.EVMChains()
@@ -98,7 +97,7 @@ func SignMCMSTimelockProposal(t *testing.T, env cldf.Environment, proposal *mcms
 	p, _, err := proposal.Convert(env.GetContext(), converters)
 	require.NoError(t, err)
 
-	p.UseSimulatedBackend(true)
+	p.UseSimulatedBackend(!realBackend)
 
 	signable, err := mcmslib.NewSignable(&p, inspectorsMap)
 	require.NoError(t, err)
@@ -308,11 +307,6 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 			executorsMap[op.ChainSelector] = mcmsaptossdk.NewTimelockExecutor(
 				aptosChains[uint64(op.ChainSelector)].Client,
 				aptosChains[uint64(op.ChainSelector)].DeployerSigner)
-			for _, transaction := range op.Transactions {
-				af := mcmsaptossdk.AdditionalFields{}
-				_ = json.Unmarshal(transaction.AdditionalFields, &af)
-				fmt.Printf("Executing %s::%s::%s\n", af.PackageName, af.ModuleName, af.Function)
-			}
 
 		default:
 			require.FailNow(t, "unsupported chain family")
@@ -352,7 +346,7 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 			evmTransaction := tx.RawData.(*gethtypes.Transaction)
 			_, err = chain.Confirm(evmTransaction)
 			if err != nil {
-				return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Confirm failed: %w", err)
+				return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Confirm on EVM failed: %w", err)
 			}
 		}
 		if family == chainsel.FamilyAptos {
@@ -360,7 +354,7 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 			aptosTx := tx.RawData.(*aptosapi.PendingTransaction)
 			err = chain.Confirm(aptosTx.Hash)
 			if err != nil {
-				return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Confirm failed: %w", err)
+				return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Confirm on Aptos failed: %w", err)
 			}
 		}
 	}

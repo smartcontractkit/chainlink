@@ -16,12 +16,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	solrpc "github.com/gagliardetto/solana-go/rpc"
-	aptosOffRamp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
-	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
-	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+
+	aptos_ccip_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
+	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
+	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -38,8 +39,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -689,7 +690,6 @@ func AptosEventEmitter[T any](
 				continue
 			}
 		}
-
 	}()
 	return ch, errChan
 }
@@ -703,13 +703,13 @@ func ConfirmCommitWithExpectedSeqNumRangeAptos(
 	expectedSeqNumRange ccipocr3.SeqNumRange,
 	enforceSingleCommit bool,
 ) (*module_offramp.CommitReportAccepted, error) {
-	boundOffRamp := aptosOffRamp.Bind(offRampAddress, dest.Client)
+	boundOffRamp := aptos_ccip_offramp.Bind(offRampAddress, dest.Client)
 	offRampStateAddress, err := boundOffRamp.Offramp().GetStateAddress(nil)
 	require.NoError(t, err)
 
 	done := make(chan any)
 	defer close(done)
-	sink, errChan := AptosEventEmitter[module_offramp.CommitReportAccepted](t, dest.Client, offRampStateAddress, fmt.Sprintf("%s::offramp::OffRampState", offRampAddress.StringLong()), "commit_report_accepted_events", startVersion, done)
+	sink, errChan := AptosEventEmitter[module_offramp.CommitReportAccepted](t, dest.Client, offRampStateAddress, offRampAddress.StringLong()+"::offramp::OffRampState", "commit_report_accepted_events", startVersion, done)
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
@@ -759,8 +759,6 @@ func ConfirmCommitWithExpectedSeqNumRangeAptos(
 				dest.Selector, srcSelector, expectedSeqNumRange.String())
 		}
 	}
-
-	return nil, nil
 }
 
 // ConfirmExecWithSeqNrsForAll waits for all chains in the environment to execute the given expectedSeqNums.
@@ -995,15 +993,15 @@ func ConfirmExecWithExpectedSeqNrsAptos(
 	expectedSeqNrs []uint64,
 ) (executionStates map[uint64]int, err error) {
 	if len(expectedSeqNrs) == 0 {
-		return nil, fmt.Errorf("no expected sequence numbers provided")
+		return nil, errors.New("no expected sequence numbers provided")
 	}
-	boundOffRamp := aptosOffRamp.Bind(offRampAddress, dest.Client)
+	boundOffRamp := aptos_ccip_offramp.Bind(offRampAddress, dest.Client)
 	offRampStateAddress, err := boundOffRamp.Offramp().GetStateAddress(nil)
 	require.NoError(t, err)
 
 	done := make(chan any)
 	defer close(done)
-	sink, errChan := AptosEventEmitter[module_offramp.ExecutionStateChanged](t, dest.Client, offRampStateAddress, fmt.Sprintf("%s::offramp::OffRampState", offRampAddress.StringLong()), "execution_state_changed_events", startVersion, done)
+	sink, errChan := AptosEventEmitter[module_offramp.ExecutionStateChanged](t, dest.Client, offRampStateAddress, offRampAddress.StringLong()+"::offramp::OffRampState", "execution_state_changed_events", startVersion, done)
 
 	executionStates = make(map[uint64]int)
 	seqNrsToWatch := make(map[uint64]bool)
@@ -1018,7 +1016,7 @@ func ConfirmExecWithExpectedSeqNrsAptos(
 		select {
 		case event := <-sink:
 			if seqNrsToWatch[event.Event.SequenceNumber] && event.Event.SourceChainSelector == srcSelector {
-				t.Logf("(Aptos) received ExecutionStateChanged (state %s) on chain %d (offramp %s) with expected sequence number %d (tx %s)",
+				t.Logf("(Aptos) received ExecutionStateChanged (state %s) on chain %d (offramp %s) with expected sequence number %d (tx %d)",
 					executionStateToString(event.Event.State), dest.Selector, offRampAddress.String(), event.Event.SequenceNumber, event.Version,
 				)
 				if event.Event.State == EXECUTION_STATE_INPROGRESS {

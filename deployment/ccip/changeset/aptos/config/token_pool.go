@@ -44,7 +44,7 @@ func (erc EVMRemoteConfig) Validate() error {
 }
 
 type RateLimiterConfig struct {
-	RemoteChainSelector uint64 // TODO seems redundant, can we get from key of EVMRemoteConfigs?
+	RemoteChainSelector uint64
 	OutboundIsEnabled   bool
 	OutboundCapacity    uint64
 	OutboundRate        uint64

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 	"math/big"
 	mathrand "math/rand"
 	"time"
@@ -13,7 +14,6 @@ import (
 	"go.uber.org/atomic"
 
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -50,8 +50,9 @@ type DestinationGun struct {
 	testConfig       *ccip.LoadConfig
 	evmSourceKeys    map[uint64]*bind.TransactOpts
 	solanaSourceKeys map[uint64]*solana.PrivateKey
-	chainOffset      int
 	metricPipe       chan messageData
+	laneConfig       *crib.LaneConfiguration // Lane configuration with discovered lanes
+	availableSources []uint64                // Cache of available source chains for this destination
 }
 
 func NewDestinationGun(
@@ -63,9 +64,18 @@ func NewDestinationGun(
 	overrides *ccip.LoadConfig,
 	evmSourceKeys map[uint64]*bind.TransactOpts,
 	solanaSourceKeys map[uint64]*solana.PrivateKey,
-	chainOffset int,
 	metricPipe chan messageData,
+	availableSources []uint64,
 ) (*DestinationGun, error) {
+	if len(availableSources) == 0 {
+		return nil, fmt.Errorf("no source chains available for destination %d", chainSelector)
+	}
+
+	l.Infow("Created destination gun",
+		"destination", chainSelector,
+		"availableSources", availableSources,
+		"numAvailableSources", len(availableSources))
+
 	dg := DestinationGun{
 		l:                l,
 		env:              env,
@@ -76,8 +86,8 @@ func NewDestinationGun(
 		testConfig:       overrides,
 		evmSourceKeys:    evmSourceKeys,
 		solanaSourceKeys: solanaSourceKeys,
-		chainOffset:      chainOffset,
 		metricPipe:       metricPipe,
+		availableSources: availableSources,
 	}
 
 	return &dg, nil
@@ -102,13 +112,14 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	case selectors.FamilySolana:
 		err = m.sendSOLSourceMessage(src)
 	}
+
 	if err != nil {
 		m.l.Errorw("Failed to transmit message",
 			"gun", waspGroup,
 			"sourceChainFamily", selectorFamily,
 			err, cldf.MaybeDataErr(err))
 		if m.metricPipe != nil {
-			// in the event of an error, still push a metric
+			// In the event of an error, still push a metric
 			// sequence numbers start at 1 so using 0 as a sentinel value
 			data := messageData{
 				eventType: transmitted,
@@ -130,23 +141,43 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 
 // mustSourceChain will return a chain selector to send a message from
 func (m *DestinationGun) mustSourceChain() (uint64, error) {
-	otherCS := m.env.BlockChains.ListChainSelectors(cldf_chain.WithChainSelectorsExclusion([]uint64{m.chainSelector}))
-
-	if len(otherCS) == 0 {
-		return 0, errors.New("no other chains to send from")
+	if len(m.availableSources) == 0 {
+		return 0, fmt.Errorf("no source chains available for destination %d", m.chainSelector)
 	}
-	index := (int(m.roundNum.Load()) + m.chainOffset) % len(otherCS)
-	return otherCS[index], nil
+
+	// Round-robin through available sources with chain offset
+	index := (int(m.roundNum.Load())) % len(m.availableSources)
+	selectedSource := m.availableSources[index]
+
+	m.l.Debugw("Selected source chain",
+		"destination", m.chainSelector,
+		"source", selectedSource,
+		"roundNum", m.roundNum.Load(),
+		"index", index)
+
+	return selectedSource, nil
 }
 
 func (m *DestinationGun) sendEVMSourceMessage(src uint64) error {
-	acc := m.evmSourceKeys[src]
-	r := m.state.Chains[src].Router
+	m.l.Debugw("Acquired source chain lock", "sourceChain", src)
+
+	acc, exists := m.evmSourceKeys[src]
+	if !exists {
+		return fmt.Errorf("no EVM source key available for chain %d", src)
+	}
+
+	srcChainState, exists := m.state.Chains[src]
+	if !exists {
+		return fmt.Errorf("no state available for source chain %d", src)
+	}
+
+	r := srcChainState.Router
 
 	msg, gasLimit, err := m.GetEVMMessage(src)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get EVM message: %w", err)
 	}
+
 	// Set the gas limit for this tx
 	if gasLimit != 0 {
 		//nolint:gosec // it's okay here
@@ -156,33 +187,33 @@ func (m *DestinationGun) sendEVMSourceMessage(src uint64) error {
 	fee, err := r.GetFee(
 		&bind.CallOpts{Context: context.Background()}, m.chainSelector, msg)
 	if err != nil {
-		m.l.Errorw("could not get fee ",
+		m.l.Errorw("could not get fee",
 			"dstChainSelector", m.chainSelector,
 			"fee", fee,
 			"err", cldf.MaybeDataErr(err))
-		return err
+		return fmt.Errorf("failed to get fee: %w", err)
 	}
+
 	if msg.FeeToken == common.HexToAddress("0x0") {
 		acc.Value = fee
 	}
+
 	msgWithoutData := msg
 	msgWithoutData.Data = nil
-	m.l.Debugw("sending message ",
+	m.l.Debugw("sending message",
 		"srcChain", src,
 		"dstChain", m.chainSelector,
 		"fee", fee,
-		"msg size", len(msg.Data),
+		"msgSize", len(msg.Data),
 		"msgWithoutData", msgWithoutData)
-	tx, err := r.CcipSend(
-		acc,
-		m.chainSelector,
-		msg)
+
+	tx, err := r.CcipSend(acc, m.chainSelector, msg)
 	if err != nil {
-		m.l.Errorw("execution reverted from ",
+		m.l.Errorw("execution reverted",
 			"sourceChain", src,
-			"destchain", m.chainSelector,
+			"destChain", m.chainSelector,
 			"err", cldf.MaybeDataErr(err))
-		return err
+		return fmt.Errorf("failed to send CCIP message: %w", err)
 	}
 
 	_, err = m.env.BlockChains.EVMChains()[src].Confirm(tx)
@@ -199,7 +230,8 @@ func (m *DestinationGun) sendEVMSourceMessage(src uint64) error {
 func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage, int64, error) {
 	dstSelFamily, err := selectors.GetSelectorFamily(m.chainSelector)
 	if err != nil {
-		return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("destination chain family for %d is not supported ", m.chainSelector)
+		return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("destination chain family for %d is not supported:"+
+			" %w", m.chainSelector, err)
 	}
 	rcv, extraArgs := []byte{}, []byte{}
 	svmExtraArgs := message_hasher.ClientSVMExtraArgsV1{}
@@ -250,10 +282,11 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 		svmExtraArgs = message_hasher.ClientSVMExtraArgsV1{
 			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
 			Accounts:                 accounts,
-			AllowOutOfOrderExecution: true,
+			AllowOutOfOrderExecution: true, // OOO is always true for Solana
 			ComputeUnits:             150000,
 		}
 	}
+
 	message := router.ClientEVM2AnyMessage{
 		Receiver:  rcv,
 		FeeToken:  common.HexToAddress("0x0"),
@@ -301,20 +334,30 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 
 	// Set token amounts if it's a token transfer
 	if selectedMsgDetails.IsTokenTransfer() {
+		srcChainState, exists := m.state.Chains[src]
+		if !exists {
+			return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("no state available for source chain %d", src)
+		}
+
 		message.TokenAmounts = []router.ClientEVMTokenAmount{
 			{
-				Token:  m.state.Chains[src].LinkToken.Address(),
+				Token:  srcChainState.LinkToken.Address(),
 				Amount: big.NewInt(1),
 			},
 		}
+
 		if dstSelFamily == selectors.FamilySolana {
+			dstChainState, exists := m.state.SolChains[m.chainSelector]
+			if !exists {
+				return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("no Solana state available for destination chain %d", m.chainSelector)
+			}
+
 			tokenReceiver, _, err = soltokens.FindAssociatedTokenAddress(
 				solana.Token2022ProgramID,
-				m.state.SolChains[m.chainSelector].LinkToken,
-				m.state.SolChains[m.chainSelector].Receiver)
+				dstChainState.LinkToken,
+				dstChainState.Receiver)
 			if err != nil {
-				m.l.Errorw("Error getting token receiver address")
-				return router.ClientEVM2AnyMessage{}, 0, err
+				return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("error getting token receiver address: %w", err)
 			}
 			svmExtraArgs.TokenReceiver = tokenReceiver
 		}
@@ -328,8 +371,7 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 	if dstSelFamily == selectors.FamilySolana {
 		extraArgs, err = ccipevm.SerializeClientSVMExtraArgsV1(svmExtraArgs)
 		if err != nil {
-			m.l.Errorw("Error encoding extra args for sol dest")
-			return router.ClientEVM2AnyMessage{}, 0, err
+			return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("error encoding extra args for sol dest: %w", err)
 		}
 		message.ExtraArgs = extraArgs
 	}
@@ -349,9 +391,14 @@ func GetEVMExtraArgsV2(gasLimit *big.Int, allowOutOfOrder bool) ([]byte, error) 
 }
 
 func (m *DestinationGun) sendSOLSourceMessage(src uint64) error {
+	_, exists := m.solanaSourceKeys[src]
+	if !exists {
+		return fmt.Errorf("no Solana source key available for chain %d", src)
+	}
+
 	msg, err := m.getSolanaMessage(src)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get Solana message: %w", err)
 	}
 
 	sendRequestCfg := testhelpers.CCIPSendReqConfig{
@@ -361,14 +408,17 @@ func (m *DestinationGun) sendSOLSourceMessage(src uint64) error {
 		Message:      msg,
 		MaxRetries:   1,
 	}
+
 	_, err = testhelpers.SendRequestSol(m.env, *m.state, &sendRequestCfg)
 	if err != nil {
-		m.l.Errorw("execution reverted from ",
+		m.l.Errorw("execution reverted",
 			"sourceChain", src,
-			"destchain", m.chainSelector,
+			"destChain", m.chainSelector,
 			"err", cldf.MaybeDataErr(err))
+		return fmt.Errorf("failed to send Solana request: %w", err)
 	}
-	return err
+
+	return nil
 }
 
 func (m *DestinationGun) getSolanaMessage(src uint64) (ccip_router.SVM2AnyMessage, error) {
@@ -390,22 +440,30 @@ func (m *DestinationGun) getSolanaMessage(src uint64) (ccip_router.SVM2AnyMessag
 	}
 
 	m.l.Infow("Selected message type", "msgType", *selectedMsgDetails.MsgType)
+
 	message := ccip_router.SVM2AnyMessage{
 		Receiver:  common.LeftPadBytes(m.receiver, 32),
 		ExtraArgs: []byte{},
 	}
+
 	switch {
 	case selectedMsgDetails.IsDataTransfer():
 		data := make([]byte, *m.testConfig.SolanaDataSize)
 		_, err := rand.Read(data)
 		if err != nil {
-			return ccip_router.SVM2AnyMessage{}, err
+			return ccip_router.SVM2AnyMessage{}, fmt.Errorf("failed to generate random data: %w", err)
 		}
 		message.Data = data
+
 	case selectedMsgDetails.IsTokenTransfer():
+		srcChainState, exists := m.state.SolChains[src]
+		if !exists {
+			return ccip_router.SVM2AnyMessage{}, fmt.Errorf("no Solana state available for source chain %d", src)
+		}
+
 		message.TokenAmounts = []ccip_router.SVMTokenAmount{
 			{
-				Token:  m.state.SolChains[src].LinkToken,
+				Token:  srcChainState.LinkToken,
 				Amount: 1,
 			},
 		}

@@ -621,7 +621,7 @@ func CreateKeys(t *testing.T,
 		for chainSelector, aptosChain := range aptoschains {
 			transmitters[chainSelector] = transmitter.ID()
 			transmitterAccountAddress := aptos.AccountAddress{}
-			transmitterAccountAddress.ParseStringRelaxed(transmitter.Account())
+			require.NoError(t, transmitterAccountAddress.ParseStringRelaxed(transmitter.Account()))
 			fundAptosAccount(t, aptosChain.DeployerSigner, transmitterAccountAddress, 100*1e8, aptosChain.Client)
 		}
 	}

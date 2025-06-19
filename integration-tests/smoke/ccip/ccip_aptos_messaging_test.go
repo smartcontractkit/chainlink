@@ -15,6 +15,7 @@ import (
 
 	aptos_feequoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
@@ -37,6 +38,7 @@ import (
 )
 
 func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
+	lggr := logger.TestLogger(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
@@ -46,11 +48,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
 
-	fmt.Println("EVM: ", evmChainSelectors)
-	fmt.Println("Aptos: ", aptosChainSelectors)
-
-	// Deploy dummy receiver contract
-	t.Log("Deploying CCIPDummyReceiver...")
+	// Deploy the dummy receiver contract
 	testhelpers.DeployAptosCCIPReceiver(t, e.Env)
 
 	state, err := stateview.LoadOnchainState(e.Env)
@@ -59,7 +57,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 	sourceChain := evmChainSelectors[0]
 	destChain := aptosChainSelectors[0]
 
-	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Aptos): ", destChain)
+	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Aptos): ", destChain)
 
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
@@ -374,6 +372,7 @@ func getLatestDummyReceiverEvent(t *testing.T, rpcClient aptos.AptosRpcClient, d
 
 func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 	ctx := testhelpers.Context(t)
+	lggr := logger.TestLogger(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
@@ -382,16 +381,13 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
 
-	fmt.Println("EVM: ", evmChainSelectors)
-	fmt.Println("Aptos: ", aptosChainSelectors)
-
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	sourceChain := aptosChainSelectors[0]
 	destChain := evmChainSelectors[1]
 
-	t.Log("Source chain (Aptos): ", sourceChain, "Dest chain (EVM): ", destChain)
+	lggr.Debug("Source chain (Aptos): ", sourceChain, "Dest chain (EVM): ", destChain)
 
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
