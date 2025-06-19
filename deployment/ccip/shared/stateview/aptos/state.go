@@ -228,7 +228,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 	})
 
 	errGroup.Go(func() error {
-		routerView, err := aptosview.GenerateRouterView(chain, s.CCIPAddress)
+		routerView, err := aptosview.GenerateRouterView(chain, s.CCIPAddress, []aptos.AccountAddress{s.CCIPAddress}, false)
 		if err != nil {
 			return errors.Wrapf(err, "failed to generate router view for router %s", s.CCIPAddress.StringLong())
 		}

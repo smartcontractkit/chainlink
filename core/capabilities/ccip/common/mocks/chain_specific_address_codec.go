@@ -189,6 +189,62 @@ func (_c *ChainSpecificAddressCodec_OracleIDAsAddressBytes_Call) RunAndReturn(ru
 	return _c
 }
 
+// TransmitterBytesToString provides a mock function with given fields: _a0
+func (_m *ChainSpecificAddressCodec) TransmitterBytesToString(_a0 []byte) (string, error) {
+	ret := _m.Called(_a0)
+
+	if len(ret) == 0 {
+		panic("no return value specified for TransmitterBytesToString")
+	}
+
+	var r0 string
+	var r1 error
+	if rf, ok := ret.Get(0).(func([]byte) (string, error)); ok {
+		return rf(_a0)
+	}
+	if rf, ok := ret.Get(0).(func([]byte) string); ok {
+		r0 = rf(_a0)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func([]byte) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ChainSpecificAddressCodec_TransmitterBytesToString_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TransmitterBytesToString'
+type ChainSpecificAddressCodec_TransmitterBytesToString_Call struct {
+	*mock.Call
+}
+
+// TransmitterBytesToString is a helper method to define mock.On call
+//   - _a0 []byte
+func (_e *ChainSpecificAddressCodec_Expecter) TransmitterBytesToString(_a0 interface{}) *ChainSpecificAddressCodec_TransmitterBytesToString_Call {
+	return &ChainSpecificAddressCodec_TransmitterBytesToString_Call{Call: _e.mock.On("TransmitterBytesToString", _a0)}
+}
+
+func (_c *ChainSpecificAddressCodec_TransmitterBytesToString_Call) Run(run func(_a0 []byte)) *ChainSpecificAddressCodec_TransmitterBytesToString_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].([]byte))
+	})
+	return _c
+}
+
+func (_c *ChainSpecificAddressCodec_TransmitterBytesToString_Call) Return(_a0 string, _a1 error) *ChainSpecificAddressCodec_TransmitterBytesToString_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ChainSpecificAddressCodec_TransmitterBytesToString_Call) RunAndReturn(run func([]byte) (string, error)) *ChainSpecificAddressCodec_TransmitterBytesToString_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewChainSpecificAddressCodec creates a new instance of ChainSpecificAddressCodec. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewChainSpecificAddressCodec(t interface {

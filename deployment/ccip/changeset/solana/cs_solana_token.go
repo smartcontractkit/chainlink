@@ -32,6 +32,9 @@ var _ cldf.ChangeSet[CreateSolanaTokenATAConfig] = CreateSolanaTokenATA
 // use this changeset to set the authority of a token
 var _ cldf.ChangeSet[SetTokenAuthorityConfig] = SetTokenAuthority
 
+// use this changeset to upload or update token metadata
+var _ cldf.ChangeSet[UploadTokenMetadataConfig] = UploadTokenMetadata
+
 func getMintIxs(e cldf.Environment, chain cldf_solana.Chain, tokenprogramID, mint solana.PublicKey, amountToAddress map[string]uint64) error {
 	for toAddress, amount := range amountToAddress {
 		e.Logger.Infof("Minting %d to %s", amount, toAddress)

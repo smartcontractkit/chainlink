@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	aptosfeequoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp"
@@ -84,6 +85,11 @@ func TestAddAptosLanes_Apply(t *testing.T) {
 	versions, err := aptosRouter.Router().GetOnRampVersions(&bind.CallOpts{}, []uint64{emvSelector, emvSelector2})
 	require.NoError(t, err)
 	require.ElementsMatch(t, versions, [][]byte{{1, 6, 1}, {1, 6, 0}})
+
+	aptosCCIP := ccip.Bind(aptosCCIPAddr, env.BlockChains.AptosChains()[aptosSelector].Client)
+	price, err := aptosCCIP.FeeQuoter().GetTokenPrice(&bind.CallOpts{}, aptoscs.MustParseAddress(t, "0xa"))
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(1e18), price.Value)
 }
 
 func getMockUpdateConfig(
@@ -110,6 +116,7 @@ func getMockUpdateConfig(
 				Source: config.AptosChainDefinition{
 					Selector:                 aptosSelector,
 					GasPrice:                 big.NewInt(1e17),
+					TokenPrices:              map[string]*big.Int{"0xa": big.NewInt(1e18)},
 					FeeQuoterDestChainConfig: aptosTestDestFeeQuoterConfig(t),
 					ConnectionConfig: v1_6.ConnectionConfig{
 						RMNVerificationDisabled: true,
@@ -173,6 +180,7 @@ func getMockUpdateConfig(
 				Dest: config.AptosChainDefinition{
 					Selector:                 aptosSelector,
 					GasPrice:                 big.NewInt(1e17),
+					TokenPrices:              map[string]*big.Int{"0xa": big.NewInt(1e18)},
 					FeeQuoterDestChainConfig: aptosTestDestFeeQuoterConfig(t),
 				},
 				IsDisabled: false,
@@ -181,6 +189,7 @@ func getMockUpdateConfig(
 				Source: config.AptosChainDefinition{
 					Selector:                 aptosSelector,
 					GasPrice:                 big.NewInt(1e17),
+					TokenPrices:              map[string]*big.Int{"0xa": big.NewInt(1e18)},
 					FeeQuoterDestChainConfig: aptosTestDestFeeQuoterConfig(t),
 				},
 				Dest: config.EVMChainDefinition{

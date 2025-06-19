@@ -28,6 +28,7 @@ func CreateWorkflow(wcx *sdk.WorkflowContext[*runtimeConfig]) (sdk.Workflow[*run
 }
 
 func onTrigger(wcx *sdk.WorkflowContext[*runtimeConfig], _ sdk.Runtime, _ *basictrigger.Outputs) (string, error) {
+	wcx.Logger.Info("onTrigger called")
 	b, err := yaml.Marshal(wcx.Config)
 	if err != nil {
 		return "", err

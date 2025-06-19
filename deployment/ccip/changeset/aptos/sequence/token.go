@@ -11,15 +11,16 @@ import (
 )
 
 type DeployTokenSeqInput struct {
-	TokenParams config.TokenParams
 	MCMSAddress aptos.AccountAddress
+	TokenParams config.TokenParams
+	TokenMint   *config.TokenMint
 }
 
 type DeployTokenSeqOutput struct {
-	TokenAddress      aptos.AccountAddress
-	TokenObjAddress   aptos.AccountAddress
-	TokenOwnerAddress aptos.AccountAddress
-	MCMSOperations    []mcmstypes.BatchOperation
+	TokenAddress        aptos.AccountAddress
+	TokenCodeObjAddress aptos.AccountAddress
+	TokenOwnerAddress   aptos.AccountAddress
+	MCMSOperations      []mcmstypes.BatchOperation
 }
 
 var DeployAptosTokenSequence = operations.NewSequence(
@@ -30,7 +31,8 @@ var DeployAptosTokenSequence = operations.NewSequence(
 )
 
 func deployAptosTokenSequence(b operations.Bundle, deps operation.AptosDeps, in DeployTokenSeqInput) (DeployTokenSeqOutput, error) {
-	mcmsOperations := []mcmstypes.BatchOperation{}
+	var mcmsOperations []mcmstypes.BatchOperation
+	var txs []mcmstypes.Transaction
 
 	// Cleanup staging area
 	cleanupReport, err := operations.ExecuteOperation(b, operation.CleanupStagingAreaOp, deps, in.MCMSAddress)
@@ -55,8 +57,8 @@ func deployAptosTokenSequence(b operations.Bundle, deps operation.AptosDeps, in 
 
 	// Deploy token MCMS Registrar
 	deployTokenRegistrarIn := operation.DeployTokenRegistrarInput{
-		TokenObjAddress: deployTReport.Output.TokenObjAddress,
-		MCMSAddress:     in.MCMSAddress,
+		TokenCodeObjAddress: deployTReport.Output.TokenCodeObjAddress,
+		MCMSAddress:         in.MCMSAddress,
 	}
 	deployRegReport, err := operations.ExecuteOperation(b, operation.DeployTokenMCMSRegistrarOp, deps, deployTokenRegistrarIn)
 	if err != nil {
@@ -66,27 +68,43 @@ func deployAptosTokenSequence(b operations.Bundle, deps operation.AptosDeps, in 
 
 	// Initialize token
 	initTokenInput := operation.InitializeTokenInput{
-		TokenObjAddress: deployTReport.Output.TokenObjAddress,
-		MaxSupply:       in.TokenParams.MaxSupply,
-		Name:            in.TokenParams.Name,
-		Symbol:          string(in.TokenParams.Symbol),
-		Decimals:        in.TokenParams.Decimals,
-		Icon:            in.TokenParams.Icon,
-		Project:         in.TokenParams.Project,
+		TokenCodeObjAddress: deployTReport.Output.TokenCodeObjAddress,
+		MaxSupply:           in.TokenParams.MaxSupply,
+		Name:                in.TokenParams.Name,
+		Symbol:              string(in.TokenParams.Symbol),
+		Decimals:            in.TokenParams.Decimals,
+		Icon:                in.TokenParams.Icon,
+		Project:             in.TokenParams.Project,
 	}
 	initTokenReport, err := operations.ExecuteOperation(b, operation.InitializeTokenOp, deps, initTokenInput)
 	if err != nil {
 		return DeployTokenSeqOutput{}, err
 	}
+	txs = append(txs, initTokenReport.Output)
+
+	// Mint test tokens
+	if in.TokenMint != nil {
+		mintTokenInput := operation.MintTokensInput{
+			TokenCodeObjAddress: deployTReport.Output.TokenCodeObjAddress,
+			To:                  in.TokenMint.To,
+			Amount:              in.TokenMint.Amount,
+		}
+		mintTokenReport, err := operations.ExecuteOperation(b, operation.MintTokensOp, deps, mintTokenInput)
+		if err != nil {
+			return DeployTokenSeqOutput{}, err
+		}
+		txs = append(txs, mintTokenReport.Output)
+	}
+
 	mcmsOperations = append(mcmsOperations, mcmstypes.BatchOperation{
 		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
-		Transactions:  []mcmstypes.Transaction{initTokenReport.Output},
+		Transactions:  txs,
 	})
 
 	return DeployTokenSeqOutput{
-		TokenAddress:      deployTReport.Output.TokenAddress,
-		TokenObjAddress:   deployTReport.Output.TokenObjAddress,
-		TokenOwnerAddress: deployTReport.Output.TokenOwnerAddress,
-		MCMSOperations:    mcmsOperations,
+		TokenAddress:        deployTReport.Output.TokenAddress,
+		TokenCodeObjAddress: deployTReport.Output.TokenCodeObjAddress,
+		TokenOwnerAddress:   deployTReport.Output.TokenOwnerAddress,
+		MCMSOperations:      mcmsOperations,
 	}, nil
 }
