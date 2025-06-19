@@ -361,7 +361,9 @@ type approvableToken interface {
 	Approve(opts *bind.TransactOpts, spender common.Address, amount *big.Int) (*types.Transaction, error)
 }
 
-func approveToken(t *testing.T, chain evmChain.Chain, transactor *bind.TransactOpts, token approvableToken, spender common.Address) {
+func approveToken(t *testing.T, chain evmChain.Chain, transactor *bind.TransactOpts, token approvableToken, spender common.Address, lock *sync.Mutex) {
+	lock.Lock()
+	defer lock.Unlock()
 	tx, err := token.Approve(transactor, spender, big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(1e9))) // Approve a large amount
 	require.NoError(t, err)
 	_, err = chain.Confirm(tx)
@@ -1170,18 +1172,18 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 		// Setup source chain funding and approvals
 		fundAccount(t, ctx.SourceChain(), userAddress, defaultEthAmount, ctx.sourceLock)
 		fundAccountWithToken(t, ctx.SourceChain(), userAddress, sourceMinter, initialUserTokenAmountOnSource, ctx.sourceLock)
-		approveToken(t, ctx.SourceChain(), userTransactor(), sourceToken, sourceTokenPoolAddress)
+		approveToken(t, ctx.SourceChain(), userTransactor(), sourceToken, sourceTokenPoolAddress, ctx.sourceLock)
 
 		if tc.feeTokenType == feeTokenLink {
 			sourceLinkToken := getLinkTokenAndGrantMintRole(t, ctx.SourceChain(), ctx.sourceChainState, ctx.sourceLock)
 			fundAccountWithToken(t, ctx.SourceChain(), userAddress, sourceLinkToken, fees.CcipSettlementFee, ctx.sourceLock)
-			approveToken(t, ctx.SourceChain(), userTransactor(), sourceLinkToken, sourceTokenPoolAddress)
+			approveToken(t, ctx.SourceChain(), userTransactor(), sourceLinkToken, sourceTokenPoolAddress, ctx.sourceLock)
 		}
 
 		// Setup destination chain funding and approvals
 		fundAccount(t, ctx.DestinationChain(), fillerAddress, defaultEthAmount, ctx.destinationLock)
 		fundAccountWithToken(t, ctx.DestinationChain(), fillerAddress, destinationMinter, initialFillerTokenAmountOnDest, ctx.destinationLock)
-		approveToken(t, ctx.DestinationChain(), fillerTransactor(), destinationToken, destinationTokenPoolAddress)
+		approveToken(t, ctx.DestinationChain(), fillerTransactor(), destinationToken, destinationTokenPoolAddress, ctx.destinationLock)
 
 		if tc.enableFiller {
 			stop := startRelayer(t, ctx.SourceChainSelector(), ctx.DestinationChainSelector(), sourceTokenPoolAddress, destinationTokenPoolAddress, ctx.deployedEnv, fillerPrivateKey)
