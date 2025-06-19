@@ -154,9 +154,7 @@ var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
 	}()
 }
 
-var StartCmdRecoverFunc = func(waitOnErrorTimeoutFlag string) {
-	p := recover()
-
+var StartCmdRecoverHandlerFunc = func(p interface{}, waitOnErrorTimeoutFlag string) {
 	if p != nil {
 		fmt.Println("Panicked when starting environment")
 		if err, ok := p.(error); ok {
@@ -221,7 +219,10 @@ var startCmd = &cobra.Command{
 	Long:             `Start the local CRE environment with all supported capabilities`,
 	PersistentPreRun: StartCmdPreRunFunc,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		defer StartCmdRecoverFunc(waitOnErrorTimeoutFlag)
+		defer func() {
+			p := recover()
+			StartCmdRecoverHandlerFunc(p, waitOnErrorTimeoutFlag)
+		}()
 
 		if topologyFlag != TopologySimplified && topologyFlag != TopologyFull {
 			return fmt.Errorf("invalid topology: %s. Valid topologies are: %s, %s", topologyFlag, TopologySimplified, TopologyFull)
