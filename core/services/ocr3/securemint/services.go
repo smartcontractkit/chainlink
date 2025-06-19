@@ -84,8 +84,7 @@ func NewSecureMintServices(ctx context.Context,
 		cfg.JobPipelineResultWriteQueueDepth(),
 	)
 
-	// Create plugin provider
-	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
+	configProvider, err := relayer.NewConfigProvider(ctx, types.RelayArgs{
 		ExternalJobID: jb.ExternalJobID,
 		JobID:         jb.ID,
 		OracleSpecID:  *jb.OCR2OracleSpecID,
@@ -93,18 +92,14 @@ func NewSecureMintServices(ctx context.Context,
 		New:           isNewlyCreatedJob,
 		RelayConfig:   spec.RelayConfig.Bytes(),
 		ProviderType:  string(spec.PluginType),
-	}, types.PluginArgs{
-		TransmitterID: spec.TransmitterID.String,
-		PluginConfig:  spec.PluginConfig.Bytes(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create plugin provider: %w", err)
+		return nil, fmt.Errorf("failed to create config provider: %w", err)
 	}
-	srvs = append(srvs, provider)
+	srvs = append(srvs, configProvider)
 
-	// Set up provider-specific oracle args
-	argsNoPlugin.ContractConfigTracker = provider.ContractConfigTracker()
-	argsNoPlugin.OffchainConfigDigester = provider.OffchainConfigDigester()
+	argsNoPlugin.ContractConfigTracker = configProvider.ContractConfigTracker()
+	argsNoPlugin.OffchainConfigDigester = configProvider.OffchainConfigDigester()
 
 	// Using a stub contract transmitter for testing purposes until DF-21404 is done
 	argsNoPlugin.ContractTransmitter = newStubContractTransmitter(lggr, ocr2plus_types.Account(spec.TransmitterID.String))

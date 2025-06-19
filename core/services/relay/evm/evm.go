@@ -39,7 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	txm "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
@@ -380,11 +379,6 @@ func (r *Relayer) NewOCR3CapabilityProvider(ctx context.Context, rargs commontyp
 }
 
 func (r *Relayer) NewPluginProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.PluginProvider, error) {
-	// Route securemint provider type to the specialized implementation
-	if rargs.ProviderType == "securemint" {
-		return r.NewSecureMintProvider(ctx, rargs, pargs)
-	}
-
 	lggr := logger.Sugared(r.lggr).Named("PluginProvider").Named(rargs.ExternalJobID.String())
 	relayOpts := types.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
@@ -417,133 +411,6 @@ func (r *Relayer) NewPluginProvider(ctx context.Context, rargs commontypes.Relay
 		configWatcher,
 		lggr,
 	), nil
-}
-
-// NewSecureMintProvider is a copy of NewPluginProvider, but customized to use a different config provider
-func (r *Relayer) NewSecureMintProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.PluginProvider, error) {
-	lggr := logger.Sugared(r.lggr).Named("SecureMintProvider").Named(rargs.ExternalJobID.String())
-	relayOpts := types.NewRelayOpts(rargs)
-	relayConfig, err := relayOpts.RelayConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get relay config: %w", err)
-	}
-
-	// Use LLO config provider for OCR3 configurator contract
-	configProvider, err := newLLOConfigProvider(ctx, lggr, r.chain, &retirement.NullRetirementReportCache{}, relayOpts)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create an adapter that implements the ConfigPoller interface
-	configPollerAdapter := &configPollerAdapter{
-		configProvider: configProvider,
-		logPoller:      r.chain.LogPoller(),
-	}
-
-	// Create a config watcher that wraps the LLO config provider
-	configWatcher := newConfigWatcher(lggr, common.HexToAddress(relayOpts.ContractID), configProvider.OffchainConfigDigester(), configPollerAdapter, r.chain, relayConfig.FromBlock, rargs.New)
-
-	// Create a stub transmitter that implements the OCR2 ContractTransmitter interface
-	stubTransmitter := &stubContractTransmitter{
-		logger:      lggr,
-		fromAccount: ocrtypes.Account(pargs.TransmitterID),
-	}
-
-	var chainReaderService ChainReaderService
-	if relayConfig.ChainReader != nil {
-		if chainReaderService, err = NewChainReaderService(ctx, lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *relayConfig.ChainReader); err != nil {
-			return nil, err
-		}
-	} else {
-		lggr.Info("ChainReader missing from RelayConfig")
-	}
-
-	return NewPluginProvider(
-		chainReaderService,
-		r.codec,
-		stubTransmitter,
-		configWatcher,
-		lggr,
-	), nil
-}
-
-// configPollerAdapter adapts a commontypes.ConfigProvider to types.ConfigPoller
-type configPollerAdapter struct {
-	configProvider commontypes.ConfigProvider
-	logPoller      logpoller.LogPoller
-}
-
-func (a *configPollerAdapter) Start() {
-	a.configProvider.Start(context.Background())
-}
-
-func (a *configPollerAdapter) Close() error {
-	return a.configProvider.Close()
-}
-
-func (a *configPollerAdapter) Notify() <-chan struct{} {
-	return nil // rely on libocr's builtin config polling
-}
-
-func (a *configPollerAdapter) Replay(ctx context.Context, fromBlock int64) error {
-	return a.logPoller.Replay(ctx, fromBlock)
-}
-
-func (a *configPollerAdapter) LatestBlockHeight(ctx context.Context) (uint64, error) {
-	return a.configProvider.ContractConfigTracker().LatestBlockHeight(ctx)
-}
-
-func (a *configPollerAdapter) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
-	return a.configProvider.ContractConfigTracker().LatestConfig(ctx, changedInBlock)
-}
-
-func (a *configPollerAdapter) LatestConfigDetails(ctx context.Context) (uint64, ocrtypes.ConfigDigest, error) {
-	return a.configProvider.ContractConfigTracker().LatestConfigDetails(ctx)
-}
-
-// stubContractTransmitter implements the OCR2 ContractTransmitter interface for secure mint
-type stubContractTransmitter struct {
-	logger      logger.Logger
-	fromAccount ocrtypes.Account
-}
-
-func (s *stubContractTransmitter) Transmit(ctx context.Context, reportContext ocrtypes.ReportContext, report ocrtypes.Report, signatures []ocrtypes.AttributedOnchainSignature) error {
-	s.logger.Infow("Stub transmitter called",
-		"configDigest", fmt.Sprintf("%x", reportContext.ConfigDigest),
-		"epoch", reportContext.Epoch,
-		"round", reportContext.Round,
-		"reportLength", len(report),
-		"signaturesCount", len(signatures),
-	)
-	return nil
-}
-
-func (s *stubContractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Account, error) {
-	return s.fromAccount, nil
-}
-
-func (s *stubContractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (ocrtypes.ConfigDigest, uint32, error) {
-	return ocrtypes.ConfigDigest{}, 0, nil
-}
-
-func (s *stubContractTransmitter) Start(ctx context.Context) error {
-	return nil
-}
-
-func (s *stubContractTransmitter) Close() error {
-	return nil
-}
-
-func (s *stubContractTransmitter) Ready() error {
-	return nil
-}
-
-func (s *stubContractTransmitter) HealthReport() map[string]error {
-	return map[string]error{s.Name(): nil}
-}
-
-func (s *stubContractTransmitter) Name() string {
-	return "StubContractTransmitter"
 }
 
 func (r *Relayer) NewMercuryProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MercuryProvider, error) {
