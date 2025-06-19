@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/onramp"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
@@ -56,7 +55,7 @@ func Test_DecodeHardcodedType(t *testing.T) {
 		log, err := generateOffRampStateChangeLog(fixtLog)
 		require.NoError(t, err)
 
-		var out reader.ExecutionStateChangedEvent
+		var out chainaccessor.ExecutionStateChangedEvent
 		err = decodeHardcodedType(&out, log)
 		require.NoError(t, err)
 

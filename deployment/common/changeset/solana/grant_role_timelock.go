@@ -32,8 +32,7 @@ type GrantRoleTimelockSolanaConfig struct {
 func (t GrantRoleTimelockSolana) VerifyPreconditions(
 	env cldf.Environment, config GrantRoleTimelockSolanaConfig,
 ) error {
-	if config.MCMS != nil &&
-		(config.MCMS.MCMSAction == mcmstypes.TimelockActionSchedule || config.MCMS.MCMSAction == mcmstypes.TimelockActionBypass) {
+	if !validTimelockActions(config.MCMS) {
 		return fmt.Errorf("invalid mcms action: %v", config.MCMS.MCMSAction)
 	}
 
@@ -137,6 +136,19 @@ func (t GrantRoleTimelockSolana) Apply(
 	}
 
 	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcms.TimelockProposal{*proposal}}, nil
+}
+
+func validTimelockActions(timelockConfig *proposalutils.TimelockConfig) bool {
+	if timelockConfig == nil {
+		return true
+	}
+
+	switch timelockConfig.MCMSAction {
+	case "", mcmstypes.TimelockActionSchedule, mcmstypes.TimelockActionBypass:
+		return true
+	default:
+		return false
+	}
 }
 
 func proposalMCM(mcmsState *state.MCMSWithTimelockStateSolana, action mcmstypes.TimelockAction) (string, error) {

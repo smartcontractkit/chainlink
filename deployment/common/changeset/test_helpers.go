@@ -75,8 +75,26 @@ func Apply(t *testing.T, e cldf.Environment, first ConfiguredChangeSet, rest ...
 	return env, err
 }
 
+type applyChangesetOptions struct {
+	realBackend bool
+}
+
+type ApplyChangesetsOptions func(*applyChangesetOptions) *applyChangesetOptions
+
+func WithRealBackend() ApplyChangesetsOptions {
+	return func(o *applyChangesetOptions) *applyChangesetOptions {
+		o.realBackend = true
+		return o
+	}
+}
+
 // ApplyChangesets applies the changeset applications to the environment and returns the updated environment.
-func ApplyChangesets(t *testing.T, e cldf.Environment, changesetApplications []ConfiguredChangeSet) (cldf.Environment, []cldf.ChangesetOutput, error) {
+func ApplyChangesets(t *testing.T, e cldf.Environment, changesetApplications []ConfiguredChangeSet, opts ...ApplyChangesetsOptions) (cldf.Environment, []cldf.ChangesetOutput, error) {
+	opt := applyChangesetOptions{}
+	for _, o := range opts {
+		opt = *o(&opt)
+	}
+
 	currentEnv := e
 	outputs := make([]cldf.ChangesetOutput, 0, len(changesetApplications))
 	for i, csa := range changesetApplications {
@@ -147,7 +165,7 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, changesetApplications []C
 				saltOverride := utils.RandomHash()
 				prop.SaltOverride = &saltOverride
 
-				p := proposalutils.SignMCMSTimelockProposal(t, currentEnv, &prop)
+				p := proposalutils.SignMCMSTimelockProposal(t, currentEnv, &prop, opt.realBackend)
 				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)
 				if err != nil {
 					return cldf.Environment{}, nil, err
