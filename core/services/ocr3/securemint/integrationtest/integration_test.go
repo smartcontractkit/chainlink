@@ -268,7 +268,7 @@ func setSecureMintOnchainConfigUsingOCR3Configurator(t *testing.T, steve *bind.T
 		signerKeys[i] = signer
 	}
 
-	// similar to LLO: use csa keys as transmitters
+	// use csa keys as transmitters, similar to LLO
 	transmitters := make([][32]byte, nNodes)
 	for i := range nNodes {
 		transmitters[i] = nodes[i].clientPubKey
@@ -337,7 +337,7 @@ func rPCErrorFromError(txError error) (string, error) {
 	return revert, nil
 }
 
-// For chain writing
+// Not used yet, in scope for chain writing
 func setupDataFeedsCacheContract(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend, allowedSenders []common.Address, workflowOwner, workflowName string) (
 	common.Address, *data_feeds_cache.DataFeedsCache) {
 

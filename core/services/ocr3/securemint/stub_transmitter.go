@@ -27,12 +27,10 @@ var StubTransmissionCounter atomic.Int32
 
 // newStubContractTransmitter creates a new StubContractTransmitter instance
 func newStubContractTransmitter(logger logger.Logger, fromAccount types.Account) *stubContractTransmitter {
-	t := &stubContractTransmitter{
+	return &stubContractTransmitter{
 		logger:      logger,
 		fromAccount: fromAccount,
 	}
-
-	return t
 }
 
 // Transmit logs the transmission details instead of actually transmitting
