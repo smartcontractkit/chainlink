@@ -26,8 +26,8 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 					TokenPriceStalenessThreshold: 24 * 60 * 60,
 					FeeTokens:                    []aptos.AccountAddress{aptoscs.MustParseAddress(t, shared.AptosAPTAddress)}, // LINK token will be deployed and added here automatically
 					PremiumMultiplierWeiPerEthByFeeToken: map[shared.TokenSymbol]uint64{
-						shared.APTSymbol:  1e18,
-						shared.LinkSymbol: 9e17,
+						shared.APTSymbol:  11e17,
+						shared.LinkSymbol: 9e18,
 					},
 				},
 				OffRampParams: config.OffRampParams{
