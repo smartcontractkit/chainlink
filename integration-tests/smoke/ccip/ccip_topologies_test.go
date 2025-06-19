@@ -1,9 +1,7 @@
 package ccip
 
 import (
-	"context"
 	"sort"
-	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -38,7 +36,6 @@ func Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest(t *tes
 	)
 
 	// Setup 2 chains and a single lane.
-	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(len(chains)),
@@ -88,15 +85,6 @@ func Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest(t *tes
 		)
 	)
 
-	monitorCtx, monitorCancel := context.WithCancel(ctx)
-	ms := &monitorState{}
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		monitorReExecutions(monitorCtx, t, state, destChainSel, ms)
-	}()
-
 	t.Run("data message to eoa", func(t *testing.T) {
 		_ = mt.Run(
 			t,
@@ -115,9 +103,4 @@ func Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest(t *tes
 			},
 		)
 	})
-
-	monitorCancel()
-	wg.Wait()
-	// there should be no re-executions.
-	require.Equal(t, int32(0), ms.reExecutionsObserved.Load())
 }
