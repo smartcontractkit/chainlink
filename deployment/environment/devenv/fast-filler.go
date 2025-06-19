@@ -15,9 +15,9 @@ import (
 )
 
 var (
-	E2eFastFillerImageBase64 = "E2E_FAST_FILLER_IMAGE_BASE64"
-	E2eFastFillerVersion     = "E2E_FAST_FILLER_VERSION"
-	DefaultFastFillerImage   = "ccip-fast-filler:latest"
+	E2eFastFillerImage     = "804282218731.dkr.ecr.us-west-2.amazonaws.com/ccip-fast-transfer-filler"
+	E2eFastFillerVersion   = "E2E_FAST_FILLER_VERSION"
+	DefaultFastFillerImage = "ccip-fast-filler:latest"
 )
 
 type ListenerConfig struct {

@@ -3,7 +3,6 @@ package ccip
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -778,16 +777,11 @@ func configureTokenPoolContractsWithMCMS(t *testing.T, e cldf.Environment, token
 
 func getFillerImage() (string, error) {
 	envVersion := os.Getenv(devenv.E2eFastFillerVersion)
-	envImageBase64 := os.Getenv(devenv.E2eFastFillerImageBase64)
 
-	if envVersion != "" || envImageBase64 != "" {
+	if envVersion != "" {
 		return devenv.DefaultFastFillerImage, nil
 	} else {
-		envImage, err := base64.StdEncoding.DecodeString(envImageBase64)
-		if err != nil {
-			return "", fmt.Errorf("failed to decode E2E_FAST_FILLER_IMAGE_BASE64: %w", err)
-		}
-		return string(envImage) + ":" + envVersion, nil
+		return devenv.E2eFastFillerImage + ":" + envVersion, nil
 	}
 }
 

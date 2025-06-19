@@ -1242,7 +1242,6 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_FAST_FILLER_IMAGE_BASE64: ODA0MjgyMjE4NzMxLmRrci5lY3IudXMtd2VzdC0yLmFtYXpvbmF3cy5jb20vY2NpcC1mYXN0LXRyYW5zZmVyLWZpbGxlcgo
       E2E_FAST_FILLER_VERSION: main-amd64b7dd37f
       CCIP_V16_TEST_ENV: docker
 
@@ -1261,7 +1260,6 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_FAST_FILLER_IMAGE_BASE64: ODA0MjgyMjE4NzMxLmRrci5lY3IudXMtd2VzdC0yLmFtYXpvbmF3cy5jb20vY2NpcC1mYXN0LXRyYW5zZmVyLWZpbGxlcgo
       E2E_FAST_FILLER_VERSION: main-amd64b7dd37f
       CCIP_V16_TEST_ENV: docker
 
@@ -1280,7 +1278,6 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_FAST_FILLER_IMAGE_BASE64: ODA0MjgyMjE4NzMxLmRrci5lY3IudXMtd2VzdC0yLmFtYXpvbmF3cy5jb20vY2NpcC1mYXN0LXRyYW5zZmVyLWZpbGxlcgo
       E2E_FAST_FILLER_VERSION: main-amd64b7dd37f
       CCIP_V16_TEST_ENV: docker
 
@@ -1299,7 +1296,6 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_FAST_FILLER_IMAGE_BASE64: ODA0MjgyMjE4NzMxLmRrci5lY3IudXMtd2VzdC0yLmFtYXpvbmF3cy5jb20vY2NpcC1mYXN0LXRyYW5zZmVyLWZpbGxlcgo
       E2E_FAST_FILLER_VERSION: main-amd64b7dd37f
       CCIP_V16_TEST_ENV: docker
 
