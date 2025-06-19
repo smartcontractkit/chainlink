@@ -116,11 +116,12 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 	}
 
 	if msg.ErrorMsg != "" {
-		p.lggr.Errorw("trigger request failed with error",
+		p.lggr.Errorw("received a message with error",
 			"method", SanitizeLogString(msg.Method), "sender", sender, "errorMsg", SanitizeLogString(msg.ErrorMsg))
 	}
 
-	if msg.Method == types.MethodRegisterTrigger {
+	switch msg.Method {
+	case types.MethodRegisterTrigger:
 		req, err := pb.UnmarshalTriggerRegistrationRequest(msg.Payload)
 		if err != nil {
 			p.lggr.Errorw("failed to unmarshal trigger registration request", "capabilityId", p.capInfo.ID, "err", err)
@@ -182,8 +183,11 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			cancel()
 			p.lggr.Errorw("failed to register trigger", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "err", err)
 		}
-	} else {
-		p.lggr.Errorw("received trigger request with unknown method",
+	case types.MethodTriggerEvent:
+		p.lggr.Errorw("trigger request failed with error",
+			"method", SanitizeLogString(msg.Method), "sender", sender, "errorMsg", SanitizeLogString(msg.ErrorMsg))
+	default:
+		p.lggr.Errorw("received message with unknown method",
 			"method", SanitizeLogString(msg.Method), "sender", sender)
 	}
 }
