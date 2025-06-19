@@ -197,7 +197,7 @@ func (c *Controller) HookExecutables(ctx context.Context, ch chan capabilities.C
 					log.Fatalf("can not decode input: %v", err)
 				}
 
-				c.lggr.Info().Msgf("Got execute event for %s", resp.ID)
+				c.lggr.Info().Msgf("Got execute event for %s with workflowID %s", resp.ID, resp.RequestMetadata.WorkflowID)
 				ch <- capabilities.CapabilityRequest{
 					Metadata: capabilities.RequestMetadata{
 						WorkflowID:               resp.RequestMetadata.WorkflowID,
