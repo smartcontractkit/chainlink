@@ -8,7 +8,6 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -23,7 +22,7 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 		ContractParamsPerChain: map[uint64]config.ChainContractParams{
 			chainSelector: {
 				FeeQuoterParams: config.FeeQuoterParams{
-					MaxFeeJuelsPerMsg:            deployment.E18Mult(200), // 200 LINK @ 18 decimals
+					MaxFeeJuelsPerMsg:            new(big.Int).Mul(big.NewInt(100_000_000), big.NewInt(1e18)), // 100M LINK @ 18 decimals
 					TokenPriceStalenessThreshold: 24 * 60 * 60,
 					FeeTokens:                    []aptos.AccountAddress{aptoscs.MustParseAddress(t, shared.AptosAPTAddress)}, // LINK token will be deployed and added here automatically
 					PremiumMultiplierWeiPerEthByFeeToken: map[shared.TokenSymbol]uint64{
