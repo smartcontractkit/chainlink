@@ -80,9 +80,6 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 		EVM_LINK_TOKEN   = state.Chains[sourceChain].LinkToken
 		WETH_TOKEN       = state.Chains[sourceChain].Weth9
 	)
-
-	t.Log("Deploying CCIPDummyReceiver...")
-	testhelpers.DeployAptosCCIPReceiver(t, e.Env)
 	receiver := state.AptosChains[destChain].ReceiverAddress
 
 	ccipChainState := state.AptosChains[destChain]
@@ -583,7 +580,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 				Receiver:  []byte("0x0000"),
 				Data:      message,
 				FeeToken:  aptosNativeFeeTokenAddress,
-				ExtraArgs: []byte{},
+				ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(300000), false),
 			},
 			ExpRevert: true,
 		})
@@ -612,7 +609,5 @@ func assertEvmMessageReceived(t *testing.T, ctx context.Context, state stateview
 	})
 	require.NoError(t, err)
 	require.True(t, iter.Next())
-	fmt.Println("Log message received event after iterating", iter.Event)
-	fmt.Println("Log message received event data after iterating", iter.Event.Data)
 	require.Equal(t, message, iter.Event.Data, "Message data should match the sent message")
 }

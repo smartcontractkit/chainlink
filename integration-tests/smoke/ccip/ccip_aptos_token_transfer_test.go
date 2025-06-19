@@ -1,10 +1,16 @@
 package ccip
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
+	"github.com/aptos-labs/aptos-go-sdk"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	aptos_call_opts "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
+	aptos_feequoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/stretchr/testify/require"
 
@@ -16,6 +22,13 @@ import (
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
+
+func assertAptosSourceRevertExpectedError(t *testing.T, err error, execRevertErrorMsg string, execRevertCauseErrorMsg string) {
+	require.Error(t, err)
+	fmt.Println("Error: ", err.Error())
+	require.Contains(t, err.Error(), execRevertErrorMsg)
+	require.Contains(t, err.Error(), execRevertCauseErrorMsg)
+}
 
 func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 	ctx := t.Context()
@@ -39,6 +52,7 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 	destChain := aptosChainSelectors[0]
 	deployerSourceChain := e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey
 	deployerDestChain := e.Env.BlockChains.AptosChains()[destChain].DeployerSigner.AccountAddress()
+	ccipChainState := state.AptosChains[destChain]
 
 	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Aptos): ", destChain)
 
@@ -79,6 +93,67 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name:           "Send token to EOA with gas limit set to 0",
+			SourceChain:    sourceChain,
+			DestChain:      destChain,
+			Receiver:       deployerDestChain[:],
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			Tokens: []router.ClientEVMTokenAmount{
+				{
+					Token:  evmToken.Address(),
+					Amount: big.NewInt(1e18),
+				},
+			},
+			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(0, true),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{
+					Token:  aptosToken[:],
+					Amount: big.NewInt(1e8),
+				},
+			},
+		},
+		{
+			Name:           "Send token to Receiver",
+			SourceChain:    sourceChain,
+			DestChain:      destChain,
+			Receiver:       ccipChainState.ReceiverAddress[:],
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			Tokens: []router.ClientEVMTokenAmount{
+				{
+					Token:  evmToken.Address(),
+					Amount: big.NewInt(1e18),
+				},
+			},
+			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(100000, true),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{
+					Token:  aptosToken[:],
+					Amount: big.NewInt(1e8),
+				},
+			},
+		},
+		{
+			Name:           "Send token and message to EOA",
+			SourceChain:    sourceChain,
+			DestChain:      destChain,
+			Receiver:       deployerDestChain[:],
+			Data:           []byte("Hello, World!"),
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			Tokens: []router.ClientEVMTokenAmount{
+				{
+					Token:  evmToken.Address(),
+					Amount: big.NewInt(1e18),
+				},
+			},
+			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(100000, true),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{
+					Token:  aptosToken[:],
+					Amount: big.NewInt(1e8),
+				},
+			},
+		},
 	}
 
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
@@ -103,6 +178,87 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 	require.Equal(t, expectedExecutionStates, execStates)
 
 	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
+
+	callOpts := &bind.CallOpts{Context: ctx}
+	srcFeeQuoterDestChainConfig, err := state.Chains[sourceChain].FeeQuoter.GetDestChainConfig(callOpts, destChain)
+
+	t.Run("Send token to CCIP Receiver setting gas above max gas allowed - should fail", func(t *testing.T) {
+		msg := router.ClientEVM2AnyMessage{
+			Receiver:  ccipChainState.ReceiverAddress[:],
+			Data:      []byte("Hello, World!"),
+			FeeToken:  evmToken.Address(),
+			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
+			TokenAmounts: []router.ClientEVMTokenAmount{
+				{
+					Token:  evmToken.Address(),
+					Amount: big.NewInt(1e8),
+				},
+			}}
+
+		baseOpts := []testhelpers.SendReqOpts{
+			testhelpers.WithSourceChain(sourceChain),
+			testhelpers.WithDestChain(destChain),
+			testhelpers.WithTestRouter(false),
+			testhelpers.WithMessage(msg),
+		}
+
+		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "execution reverted")
+		t.Log("Expected error: ", err)
+	})
+
+	t.Run("Send token to CCIP Receiver with token amount set to 0 - should fail", func(t *testing.T) {
+		msg := router.ClientEVM2AnyMessage{
+			Receiver:  ccipChainState.ReceiverAddress[:],
+			Data:      []byte("Hello, World!"),
+			FeeToken:  evmToken.Address(),
+			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(100, true),
+			TokenAmounts: []router.ClientEVMTokenAmount{
+				{
+					Token:  evmToken.Address(),
+					Amount: big.NewInt(0),
+				},
+			}}
+
+		baseOpts := []testhelpers.SendReqOpts{
+			testhelpers.WithSourceChain(sourceChain),
+			testhelpers.WithDestChain(destChain),
+			testhelpers.WithTestRouter(false),
+			testhelpers.WithMessage(msg),
+		}
+
+		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "execution reverted")
+		t.Log("Expected error: ", err)
+	})
+
+	t.Run("Send invalid token to CCIP Receiver - should fail", func(t *testing.T) {
+		msg := router.ClientEVM2AnyMessage{
+			Receiver:  ccipChainState.ReceiverAddress[:],
+			Data:      []byte("Hello, World!"),
+			FeeToken:  evmToken.Address(),
+			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
+			TokenAmounts: []router.ClientEVMTokenAmount{
+				{
+					Token:  common.HexToAddress("0x0000000000000000000000000000000000000000"), // Invalid token
+					Amount: big.NewInt(1e8),
+				},
+			}}
+
+		baseOpts := []testhelpers.SendReqOpts{
+			testhelpers.WithSourceChain(sourceChain),
+			testhelpers.WithDestChain(destChain),
+			testhelpers.WithTestRouter(false),
+			testhelpers.WithMessage(msg),
+		}
+
+		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "execution reverted")
+		t.Log("Expected error: ", err)
+	})
 }
 func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 	ctx := t.Context()
@@ -144,6 +300,9 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 	// Fee Tokens
 	var NativeFeeToken = "0xa" // coin
 
+	// Invalid Fee Token
+	var aptosInvalidToken aptos.AccountAddress
+
 	tcs := []testhelpers.TestTransferRequest{
 		{
 			Name:           "Send token to EOA",
@@ -167,6 +326,27 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 			},
 		},
 		{
+			Name:           "Send token to EOA with gas limit set to 0",
+			SourceChain:    sourceChain,
+			DestChain:      destChain,
+			Receiver:       deployerDestChain.From.Bytes(),
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			AptosTokens: []testhelpers.AptosTokenAmount{
+				{
+					Token:  aptosToken,
+					Amount: 1e8,
+				},
+			},
+			FeeToken:  "0xa",
+			ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(0), true),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{
+					Token:  evmToken.Address().Bytes(),
+					Amount: big.NewInt(1e18),
+				},
+			},
+		},
+		{
 			Name:           "Send token and message to EOA",
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
@@ -181,6 +361,27 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 			},
 			FeeToken:  NativeFeeToken,
 			ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(0), true),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{
+					Token:  evmToken.Address().Bytes(),
+					Amount: big.NewInt(1e18),
+				},
+			},
+		},
+		{
+			Name:           "Send token and message to EOA without setting ExtraArgs",
+			SourceChain:    sourceChain,
+			DestChain:      destChain,
+			Receiver:       deployerDestChain.From.Bytes(),
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			Data:           []byte("Hello, World!"),
+			AptosTokens: []testhelpers.AptosTokenAmount{
+				{
+					Token:  aptosToken,
+					Amount: 1e8,
+				},
+			},
+			FeeToken: NativeFeeToken,
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  evmToken.Address().Bytes(),
@@ -233,4 +434,92 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 	require.Equal(t, expectedExecutionStates, execStates)
 
 	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
+
+	// parse the aptos native fee token hex string into an Aptos AccountAddress
+
+	var aptosFeeToken aptos.AccountAddress
+	require.NoError(t, aptosFeeToken.ParseStringRelaxed(NativeFeeToken))
+
+	aptosCallOpts := &aptos_call_opts.CallOpts{}
+
+	aptosFeeQuoter := aptos_feequoter.NewFeeQuoter(
+		state.AptosChains[sourceChain].CCIPAddress,
+		e.Env.BlockChains.AptosChains()[sourceChain].Client)
+
+	aptosFeeQuoterDestChainConfig, err := aptosFeeQuoter.GetDestChainConfig(aptosCallOpts, destChain)
+	t.Run("Send token to CCIP Receiver setting gas above max gas allowed - should fail", func(t *testing.T) {
+		msg := testhelpers.AptosSendRequest{
+			Receiver:  common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32), // left-pad 20-byte address up to 32 bytes to make it compatible with evm
+			Data:      []byte("Hello, World!"),
+			FeeToken:  aptosFeeToken,
+			ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(aptosFeeQuoterDestChainConfig.MaxPerMsgGasLimit)+1), false),
+			TokenAmounts: []testhelpers.AptosTokenAmount{
+				{
+					Token:  aptosToken,
+					Amount: 1e8,
+				},
+			}}
+
+		baseOpts := []testhelpers.SendReqOpts{
+			testhelpers.WithSourceChain(sourceChain),
+			testhelpers.WithDestChain(destChain),
+			testhelpers.WithTestRouter(false),
+			testhelpers.WithMessage(msg),
+		}
+
+		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
+		assertAptosSourceRevertExpectedError(t, err, "transaction reverted", "E_MESSAGE_GAS_LIMIT_TOO_HIGH")
+		t.Log("Expected error: ", err)
+	})
+
+	t.Run("Send token to CCIP Receiver with token amount set to 0 - should fail", func(t *testing.T) {
+		msg := testhelpers.AptosSendRequest{
+			Receiver:  common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32), // left-pad 20-byte address up to 32 bytes to make it compatible with evm
+			Data:      []byte("Hello, World!"),
+			FeeToken:  aptosFeeToken,
+			ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(0), true),
+			TokenAmounts: []testhelpers.AptosTokenAmount{
+				{
+					Token:  aptosToken,
+					Amount: 0,
+				},
+			}}
+
+		baseOpts := []testhelpers.SendReqOpts{
+			testhelpers.WithSourceChain(sourceChain),
+			testhelpers.WithDestChain(destChain),
+			testhelpers.WithTestRouter(false),
+			testhelpers.WithMessage(msg),
+		}
+
+		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
+		assertAptosSourceRevertExpectedError(t, err, "transaction reverted", "E_CANNOT_SEND_ZERO_TOKENS")
+		t.Log("Expected error: ", err)
+	})
+
+	t.Run("Send invalid token to CCIP Receiver - should fail", func(t *testing.T) {
+		msg := testhelpers.AptosSendRequest{
+			Receiver:  common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32), // left-pad 20-byte address up to 32 bytes to make it compatible with evm
+			Data:      []byte("Hello, World!"),
+			FeeToken:  aptosFeeToken,
+			ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(aptosFeeQuoterDestChainConfig.MaxPerMsgGasLimit)+1), false),
+			TokenAmounts: []testhelpers.AptosTokenAmount{
+				{
+					Token:  aptosInvalidToken,
+					Amount: 1e8,
+				},
+			}}
+
+		baseOpts := []testhelpers.SendReqOpts{
+			testhelpers.WithSourceChain(sourceChain),
+			testhelpers.WithDestChain(destChain),
+			testhelpers.WithTestRouter(false),
+			testhelpers.WithMessage(msg),
+		}
+
+		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
+		assertAptosSourceRevertExpectedError(t, err, "ABORTED", "invalid input")
+		t.Log("Expected error: ", err)
+	})
+
 }
