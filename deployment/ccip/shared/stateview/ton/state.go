@@ -10,9 +10,10 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 
+	"github.com/xssnick/tonutils-go/address"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/xssnick/tonutils-go/address"
 )
 
 // TonCCIPChainState holds a Go binding for all the currently deployed CCIP contracts

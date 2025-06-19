@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/xssnick/tonutils-go/address"
@@ -17,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -34,35 +34,32 @@ func getTestTonChainSelectors() []uint64 {
 	return []uint64{chainsel.TON_LOCALNET.Selector}
 }
 
+// Note: this utility functions can be replaced once we have in the chainlink-ton utils package
 func createTonWallet(t *testing.T, client ton.APIClientWrapped, version wallet.Version, option wallet.Option) *wallet.Wallet {
 	seed := wallet.NewSeed()
 	rw, err := wallet.FromSeed(client, seed, version)
-	require.NoError(t, err, fmt.Errorf("Failed to generate random wallet: %v", err))
+	require.NoError(t, err)
 	pw, perr := wallet.FromPrivateKeyWithOptions(client, rw.PrivateKey(), version, option)
 	require.NoError(t, perr)
-	require.NoError(t, perr, fmt.Errorf("Failed to generate random wallet: %v", err))
 	return pw
 }
 
 func fundTonWallets(t *testing.T, client ton.APIClientWrapped, recipients []*address.Address, amounts []tlb.Coins) {
+	require.Equal(t, len(recipients), len(amounts), "recipients and amounts must have the same length")
+	// initialize the prefunded wallet(Highload-V2), for other wallets, see https://github.com/neodix42/mylocalton-docker#pre-installed-wallets
 	rawHlWallet, err := wallet.FromSeed(client, strings.Fields(blockchain.DefaultTonHlWalletMnemonic), wallet.HighloadV2Verified)
-	require.NoError(t, err, "failed to create highload wallet")
+	require.NoError(t, err)
 	mcFunderWallet, err := wallet.FromPrivateKeyWithOptions(client, rawHlWallet.PrivateKey(), wallet.HighloadV2Verified, wallet.WithWorkchain(-1))
-	require.NoError(t, err, "failed to create highload wallet")
-	subWalletID := uint32(42)
-	funder, err := mcFunderWallet.GetSubwallet(subWalletID)
-	require.NoError(t, err, "failed to get highload subwallet")
+	require.NoError(t, err)
+	funder, err := mcFunderWallet.GetSubwallet(uint32(42))
+	require.NoError(t, err)
 	// double check funder address
-	require.Equal(t, funder.Address().StringRaw(), blockchain.DefaultTonHlWalletAddress, "funder address mismatch")
-
-	if len(recipients) != len(amounts) {
-		t.Fatalf("number of recipients (%d) does not match number of amounts (%d)", len(recipients), len(amounts))
-	}
-
+	require.Equal(t, blockchain.DefaultTonHlWalletAddress, funder.Address().StringRaw(), "funder address mismatch")
+	// create transfer messages for each recipient
 	messages := make([]*wallet.Message, len(recipients))
 	for i, addr := range recipients {
 		transfer, terr := funder.BuildTransfer(addr, amounts[i], false, "")
-		require.NoError(t, terr, fmt.Sprintf("failed to build transfer for %s", addr.String()))
+		require.NoError(t, terr)
 		messages[i] = transfer
 	}
 	_, _, txerr := funder.SendManyWaitTransaction(t.Context(), messages)
@@ -108,41 +105,25 @@ func tonChain(t *testing.T, chainID uint64) *ton.APIClient {
 		Image:   "ghcr.io/neodix42/mylocalton-docker:latest",
 		Port:    strconv.Itoa(freeport.GetOne(t)),
 	}
-	var bcOut *blockchain.Output
+	var bc *blockchain.Output
+	// spin up mylocalton with CTFv2
+	bc, err = blockchain.NewBlockchainNetwork(bcInput)
+	require.NoError(t, err, "Failed to create TON blockchain")
 
-	const maxRetries = 10
-	for i := 0; i < maxRetries; i++ {
-		bcOut, err = blockchain.NewBlockchainNetwork(bcInput)
-		if err == nil {
-			break
-		}
-		t.Logf("Error creating TON network (attempt %d/%d): %v", i+1, maxRetries, err)
-		time.Sleep(time.Second)
-	}
-	require.NoError(t, err, "Failed to create blockchain network after %d attempts", maxRetries)
-	networkCfg := fmt.Sprintf("http://%s/localhost.global.config.json", bcOut.Nodes[0].ExternalHTTPUrl)
+	// get local config from simple http server in genesis node
+	cfg, err := liteclient.GetConfigFromUrl(t.Context(), fmt.Sprintf("http://%s/localhost.global.config.json", bc.Nodes[0].ExternalHTTPUrl))
+	require.NoError(t, err)
 
-	cfg, err := liteclient.GetConfigFromUrl(t.Context(), networkCfg)
-	require.NoError(t, err, "Failed to get config from URL: %s", networkCfg)
-
+	// establish connection to the TON node
 	connectionPool := liteclient.NewConnectionPool()
 	err = connectionPool.AddConnectionsFromConfig(t.Context(), cfg)
 	require.NoError(t, err)
-
 	client := ton.NewAPIClient(connectionPool, ton.ProofCheckPolicyFast)
 	client.SetTrustedBlockFromConfig(cfg)
 
-	const readinessRetries = 30
-	var lastErr error
-	for i := 0; i < readinessRetries; i++ {
-		_, lastErr = client.GetMasterchainInfo(t.Context())
-		if lastErr == nil {
-			break
-		}
-		t.Logf("API server not ready yet (attempt %d/%d): %v", i+1, readinessRetries, lastErr)
-		time.Sleep(time.Second)
-	}
-	require.NoError(t, lastErr, "TON network not ready after %d attempts", readinessRetries)
+	// check connection, CTFv2 handles the readiness
+	_, err = client.GetMasterchainInfo(t.Context())
+	require.NoError(t, err, "TON network not ready")
 	return client
 }
 
