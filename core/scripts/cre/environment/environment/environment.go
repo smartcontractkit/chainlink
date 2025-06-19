@@ -94,7 +94,7 @@ func init() {
 	deployAndVerifyExampleWorkflowCmd.Flags().StringVarP(&gatewayURLFlag, "gateway-url", "g", "http://localhost:5002", "Gateway URL (only for web API trigger-based workflow)")
 }
 
-var waitOnErrorTimeoutDurationFn = func() {
+var WaitOnErrorTimeoutDurationFn = func(waitOnErrorTimeoutFlag string) {
 	if waitOnErrorTimeoutFlag != "" {
 		waitOnErrorTimeoutDuration, err := time.ParseDuration(waitOnErrorTimeoutFlag)
 		if err != nil {
@@ -134,57 +134,100 @@ type ExtraCapabilitiesConfig struct {
 	ReadContractBinaryPath    string `toml:"read_contract_capability_binary_path"`
 }
 
+var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
+	// remove all containers before starting the environment, just in case
+	_ = framework.RemoveTestContainers()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		sig := <-sigCh
+		fmt.Printf("\nReceived signal: %s\n", sig)
+
+		removeErr := framework.RemoveTestContainers()
+		if removeErr != nil {
+			fmt.Fprint(os.Stderr, removeErr, manualCleanupMsg)
+		}
+
+		os.Exit(1)
+	}()
+}
+
+var StartCmdRecoverFunc = func(waitOnErrorTimeoutFlag string) {
+	p := recover()
+
+	if p != nil {
+		fmt.Println("Panicked when starting environment")
+		if err, ok := p.(error); ok {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
+		} else {
+			fmt.Fprintf(os.Stderr, "panic: %v\n", p)
+			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
+		}
+
+		WaitOnErrorTimeoutDurationFn(waitOnErrorTimeoutFlag)
+
+		removeErr := framework.RemoveTestContainers()
+		if removeErr != nil {
+			fmt.Fprint(os.Stderr, errors.Wrap(removeErr, manualCleanupMsg).Error())
+		}
+	}
+}
+
+var StartCmdGenerateSettingsFile = func(homeChainOut *creenv.BlockchainOutput, output *creenv.SetupOutput) error {
+	rpcs := map[uint64]string{}
+	for _, bcOut := range output.BlockchainOutput {
+		rpcs[bcOut.ChainSelector] = bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl
+	}
+	creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
+		crecli.CRECLIProfile,
+		homeChainOut.SethClient.MustGetRootKeyAddress(),
+		output.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+		output.DonTopology.WorkflowDonID,
+		homeChainOut.ChainSelector,
+		rpcs,
+	)
+
+	if settingsErr != nil {
+		return settingsErr
+	}
+
+	// Copy the file to current directory as cre.yaml
+	currentDir, cErr := os.Getwd()
+	if cErr != nil {
+		return cErr
+	}
+
+	targetPath := filepath.Join(currentDir, "cre.yaml")
+	input, err := os.ReadFile(creCLISettingsFile.Name())
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(targetPath, input, 0600)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("CRE CLI settings file created: %s\n", targetPath)
+
+	return nil
+}
+
 var startCmd = &cobra.Command{
-	Use:   "start",
-	Short: "Start the environment",
-	Long:  `Start the local CRE environment with all supported capabilities`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		// remove all containers before starting the environment, just in case
-		_ = framework.RemoveTestContainers()
-
-		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-
-		go func() {
-			sig := <-sigCh
-			fmt.Printf("\nReceived signal: %s\n", sig)
-
-			removeErr := framework.RemoveTestContainers()
-			if removeErr != nil {
-				fmt.Fprint(os.Stderr, removeErr, manualCleanupMsg)
-			}
-
-			os.Exit(1)
-		}()
-	},
+	Use:              "start",
+	Short:            "Start the environment",
+	Long:             `Start the local CRE environment with all supported capabilities`,
+	PersistentPreRun: StartCmdPreRunFunc,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		defer func() {
-			p := recover()
-
-			if p != nil {
-				fmt.Println("Panicked when starting environment")
-				if err, ok := p.(error); ok {
-					fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-					fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
-				} else {
-					fmt.Fprintf(os.Stderr, "panic: %v\n", p)
-					fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
-				}
-
-				waitOnErrorTimeoutDurationFn()
-
-				removeErr := framework.RemoveTestContainers()
-				if removeErr != nil {
-					fmt.Fprint(os.Stderr, errors.Wrap(removeErr, manualCleanupMsg).Error())
-				}
-			}
-		}()
+		defer StartCmdRecoverFunc(waitOnErrorTimeoutFlag)
 
 		if topologyFlag != TopologySimplified && topologyFlag != TopologyFull {
 			return fmt.Errorf("invalid topology: %s. Valid topologies are: %s, %s", topologyFlag, TopologySimplified, TopologyFull)
 		}
 
-		printCRELogo()
+		PrintCRELogo()
 		startTime := time.Now()
 
 		if os.Getenv("CTF_CONFIGS") == "" {
@@ -219,12 +262,12 @@ var startCmd = &cobra.Command{
 
 		cmdContext := cmd.Context()
 
-		output, err := startCLIEnvironment(cmdContext, topologyFlag, exampleWorkflowTriggerFlag, withPluginsDockerImageFlag, withExampleFlag, extraAllowedGatewayPortsFlag)
+		output, err := StartCLIEnvironment(cmdContext, topologyFlag, exampleWorkflowTriggerFlag, withPluginsDockerImageFlag, withExampleFlag, extraAllowedGatewayPortsFlag, nil, nil)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
 
-			waitOnErrorTimeoutDurationFn()
+			WaitOnErrorTimeoutDurationFn(waitOnErrorTimeoutFlag)
 			removeErr := framework.RemoveTestContainers()
 			if removeErr != nil {
 				return errors.Wrap(removeErr, manualCleanupMsg)
@@ -235,44 +278,7 @@ var startCmd = &cobra.Command{
 
 		homeChainOut := output.BlockchainOutput[0]
 
-		sErr := func() error {
-			rpcs := map[uint64]string{}
-			for _, bcOut := range output.BlockchainOutput {
-				rpcs[bcOut.ChainSelector] = bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl
-			}
-			creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
-				crecli.CRECLIProfile,
-				homeChainOut.SethClient.MustGetRootKeyAddress(),
-				output.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-				output.DonTopology.WorkflowDonID,
-				homeChainOut.ChainSelector,
-				rpcs,
-			)
-
-			if settingsErr != nil {
-				return settingsErr
-			}
-
-			// Copy the file to current directory as cre.yaml
-			currentDir, cErr := os.Getwd()
-			if cErr != nil {
-				return cErr
-			}
-
-			targetPath := filepath.Join(currentDir, "cre.yaml")
-			input, err := os.ReadFile(creCLISettingsFile.Name())
-			if err != nil {
-				return err
-			}
-			err = os.WriteFile(targetPath, input, 0600)
-			if err != nil {
-				return err
-			}
-
-			fmt.Printf("CRE CLI settings file created: %s\n", targetPath)
-
-			return nil
-		}()
+		sErr := StartCmdGenerateSettingsFile(homeChainOut, output)
 
 		if sErr != nil {
 			fmt.Fprintf(os.Stderr, "failed to create CRE CLI settings file: %s. You need to create it manually.", sErr)
@@ -333,7 +339,16 @@ var deployAndVerifyExampleWorkflowCmd = &cobra.Command{
 	},
 }
 
-func startCLIEnvironment(cmdContext context.Context, topologyFlag string, workflowTrigger, withPluginsDockerImageFlag string, withExampleFlag bool, extraAllowedGatewayPorts []int) (*creenv.SetupOutput, error) {
+func StartCLIEnvironment(
+	cmdContext context.Context,
+	topologyFlag string,
+	workflowTrigger,
+	withPluginsDockerImageFlag string,
+	withExampleFlag bool,
+	extraAllowedGatewayPorts []int,
+	extraBinaries map[string]string,
+	extraJobFactoryFns []cretypes.JobSpecFactoryFn,
+) (*creenv.SetupOutput, error) {
 	testLogger := framework.L
 
 	// Load and validate test configuration
@@ -371,6 +386,13 @@ func startCLIEnvironment(cmdContext context.Context, topologyFlag string, workfl
 			capabilitiesBinaryPaths[cretypes.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
 		}
 
+		for capabilityName, binaryPath := range extraBinaries {
+			if binaryPath != "" || withPluginsDockerImageFlag != "" {
+				workflowDONCapabilities = append(workflowDONCapabilities, capabilityName)
+				capabilitiesBinaryPaths[capabilityName] = binaryPath
+			}
+		}
+
 		capabilitiesAwareNodeSets = []*cretypes.CapabilitiesAwareNodeSet{
 			{
 				Input:              in.NodeSets[0],
@@ -395,6 +417,13 @@ func startCLIEnvironment(cmdContext context.Context, topologyFlag string, workfl
 		if in.ExtraCapabilities.LogEventTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
 			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.LogTriggerCapability)
 			capabilitiesBinaryPaths[cretypes.LogTriggerCapability] = in.ExtraCapabilities.LogEventTriggerBinaryPath
+		}
+
+		for capabilityName, binaryPath := range extraBinaries {
+			if binaryPath != "" || withPluginsDockerImageFlag != "" {
+				workflowDONCapabilities = append(workflowDONCapabilities, capabilityName)
+				capabilitiesBinaryPaths[capabilityName] = binaryPath
+			}
 		}
 
 		capabiliitesDONCapabilities := []string{cretypes.WriteEVMCapability, cretypes.WebAPITargetCapability}
@@ -492,6 +521,8 @@ func startCLIEnvironment(cmdContext context.Context, topologyFlag string, workfl
 		cregateway.GatewayJobSpecFactoryFn(extraAllowedGatewayPorts, []string{}, []string{"0.0.0.0/0"}),
 		crecompute.ComputeJobSpecFactoryFn,
 	}
+
+	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, extraJobFactoryFns...)
 
 	for _, blockchain := range in.Blockchains {
 		chainIDInt, chainErr := strconv.Atoi(blockchain.ChainID)
@@ -863,7 +894,7 @@ func isBlockscoutRunning(cmdContext context.Context) bool {
 	return false
 }
 
-func printCRELogo() {
+func PrintCRELogo() {
 	blue := "\033[38;5;33m"
 	reset := "\033[0m"
 
