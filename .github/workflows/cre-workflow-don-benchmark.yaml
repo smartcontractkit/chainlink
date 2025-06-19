@@ -68,6 +68,35 @@ jobs:
         if:  ${{ github.event_name == 'pull_request' }}
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
+      - name: Set up cAdvisor for basic container monitoring
+        run: |
+          # Run cAdvisor container
+          docker run -d \
+            --volume=/:/rootfs:ro \
+            --volume=/var/run:/var/run:ro \
+            --volume=/sys:/sys:ro \
+            --volume=/var/lib/docker/:/var/lib/docker:ro \
+            --volume=/dev/disk/:/dev/disk:ro \
+            --publish=8080:8080 \
+            --detach=true \
+            --name=cadvisor \
+            gcr.io/cadvisor/cadvisor:latest
+
+          # Wait for cAdvisor to initialize
+          sleep 5
+
+          # Create metrics directory
+          mkdir -p ./system-tests/tests/load/cre/metrics
+
+          # Start collecting metrics every 10 seconds
+          echo "Starting metrics collection..."
+          (while true; do
+            timestamp=$(date +%s)
+            curl -s http://localhost:8080/api/v1.3/containers/ > ./system-tests/tests/load/cre/metrics/cadvisor-${timestamp}.json
+            sleep 10
+          done) &
+          echo $! > ./system-tests/tests/load/cre/metrics/metrics-pid.txt
+
       - name: Start the test
         shell: bash
         env:
@@ -85,7 +114,15 @@ jobs:
           cd system-tests/tests/load/cre
           go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 15m
 
-      - name: Upload cl node logs as artifact
+      - name: Stop metrics collection
+        if: always()
+        run: |
+          if [ -f ./system-tests/tests/load/cre/metrics/metrics-pid.txt ]; then
+            kill -9 $(cat ./system-tests/tests/load/cre/metrics/metrics-pid.txt) || true
+          fi
+          docker stop cadvisor || true
+
+      - name: Upload node logs and metrics as artifact
         if: always()
         uses: actions/upload-artifact@v4
         timeout-minutes: 2
@@ -96,4 +133,5 @@ jobs:
             ./system-tests/tests/load/cre/logs/*.log
             ./system-tests/tests/load/cre/logs/**/*.log
             ./system-tests/tests/load/cre/logs/**/logs/
+            ./system-tests/tests/load/cre/metrics/
           retention-days: 1
