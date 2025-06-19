@@ -35,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/freeport"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
@@ -98,10 +97,10 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 	}
 
 	aggregatorAddress := setSecureMintOnchainConfigUsingAggregator(t, steve, backend, nodes, oracles)
-	setSecureMintOnchainConfigUsingOCR3Configurator(t, steve, backend, nodes, oracles)
+	_, configuratorAddress := setSecureMintOnchainConfigUsingOCR3Configurator(t, steve, backend, nodes, oracles)
 
-	t.Logf("Creating bootstrap job with aggregator address: %s", aggregatorAddress.Hex())
-	bootstrapJob := createSecureMintBootstrapJob(t, bootstrapNode, aggregatorAddress, testutils.SimulatedChainID.String(), fmt.Sprintf("%d", fromBlock))
+	t.Logf("Creating bootstrap job with configurator address: %s", configuratorAddress.Hex())
+	bootstrapJob := createSecureMintBootstrapJob(t, bootstrapNode, configuratorAddress, testutils.SimulatedChainID.String(), fmt.Sprintf("%d", fromBlock))
 	t.Logf("Created bootstrap job: %s with id %d", bootstrapJob.Name.ValueOrZero(), bootstrapJob.ID)
 
 	jobIDs := addSecureMintOCRJobs(t, nodes, aggregatorAddress)
@@ -233,35 +232,6 @@ func setSecureMintOnchainConfigUsingOCR3Configurator(t *testing.T, steve *bind.T
 	}
 	t.Logf("Deployed OCR3Configurator contract at: %s", configuratorAddress.Hex())
 
-	// 2. Create config
-	// onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(minAnswer, maxAnswer)
-	// require.NoError(t, err)
-	/**
-
-
-
-	// libocr requires a few confirmations to accept the config
-	backend.Commit()
-	backend.Commit()
-	backend.Commit()
-	backend.Commit()
-
-	var topic common.Hash
-	if isProduction {
-		topic = llo.ProductionConfigSet
-	} else {
-		topic = llo.StagingConfigSet
-	}
-	logs, err := backend.Client().FilterLogs(testutils.Context(t), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{[]common.Hash{topic, donIDPadded}}})
-	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(logs), 1)
-
-	cfg, err := mercury.ConfigFromLog(logs[len(logs)-1].Data)
-	require.NoError(t, err)
-
-	return cfg.ConfigDigest
-	*/
-
 	smPluginConfig := por.PorOffchainConfig{MaxChains: 5}
 	smPluginConfigBytes, err := smPluginConfig.Serialize()
 	require.NoError(t, err)
@@ -307,6 +277,16 @@ func setSecureMintOnchainConfigUsingOCR3Configurator(t *testing.T, steve *bind.T
 
 	configID := [32]byte{}
 	copy(configID[:], common.FromHex("0x0000000000000000000000000000000000000000000000000000000000000001"))
+
+	x := func(donID uint32) [32]byte {
+		var b [32]byte
+		copy(b[:], common.LeftPadBytes(big.NewInt(int64(donID)).Bytes(), 32))
+		return b
+	}
+	donIDBytes32 := x(1)
+	t.Logf("donIDBytes32: %x", donIDBytes32)
+	t.Logf("configID: %x", configID)
+
 	_, err = configurator.SetProductionConfig(steve, configID, signerKeys, offchainTransmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig)
 	if err != nil {
 		t.Logf("Error: %s", err)
@@ -326,21 +306,11 @@ func setSecureMintOnchainConfigUsingOCR3Configurator(t *testing.T, steve *bind.T
 	logs, err := backend.Client().FilterLogs(testutils.Context(t), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{[]common.Hash{topic, configID}}})
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(logs), 1)
-
-	cfg, err := mercury.ConfigFromLog(logs[len(logs)-1].Data)
+	cfg, err := llo.DecodeProductionConfigSetLog(logs[len(logs)-1].Data)
 	require.NoError(t, err)
 
 	t.Logf("Configurator config digest: 0x%x", cfg.ConfigDigest)
 
-	// aggregatorConfigDigest, err := configurator..LatestConfigDigestAndEpoch(&bind.CallOpts{})
-	// if err != nil {
-	// 	rPCError, err := rPCErrorFromError(err)
-	// 	require.NoError(t, err)
-	// 	t.Fatalf("Failed to get latest config digest: %s", rPCError)
-	// }
-	// t.Logf("Aggregator config digest: 0x%x", aggregatorConfigDigest.ConfigDigest)
-
-	// return aggregatorAddress
 	return configurator, configuratorAddress
 }
 

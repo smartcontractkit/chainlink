@@ -716,7 +716,7 @@ func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayA
 	}
 
 	switch args.ProviderType {
-	case "median", "securemint":
+	case "median":
 		configProvider, err = newStandardConfigProvider(ctx, lggr, r.chain, relayOpts)
 	case "mercury":
 		configProvider, err = newMercuryConfigProvider(ctx, lggr, r.chain, relayOpts)
@@ -727,9 +727,8 @@ func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayA
 		configProvider, err = newLLOConfigProvider(ctx, lggr, r.chain, &retirement.NullRetirementReportCache{}, relayOpts)
 	case "ocr3-capability":
 		configProvider, err = NewOCR3CapabilityConfigProvider(ctx, lggr, r.chain, relayOpts)
-	// TODO(gg): for when bootstrap jobs are used for SecureMint, does it need changing?
 	case "securemint":
-		configProvider, err = newStandardConfigProvider(ctx, lggr, r.chain, relayOpts)
+		configProvider, err = newLLOConfigProvider(ctx, lggr, r.chain, &retirement.NullRetirementReportCache{}, relayOpts) // TODO(gg): use llo config provider for now but we might have to copy and adapt it
 	default:
 		return nil, fmt.Errorf("unrecognized provider type: %q", args.ProviderType)
 	}

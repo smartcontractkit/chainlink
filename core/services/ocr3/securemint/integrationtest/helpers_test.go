@@ -142,7 +142,9 @@ func createSecureMintBootstrapJob(t *testing.T, bootstrapNode node, configurator
 			[relayConfig]
 			chainID                           = %s
 			fromBlock                         = %s
-			providerType                      = "securemint"`,
+			providerType                      = "securemint"
+			lloDonID                          = 1
+			lloConfigMode = "bluegreen"`, // TODO(gg): bluegreen is the default for llo but don't think we should keep this necessarily
 		configuratorAddress.Hex(),
 		chainID,
 		fromBlock),
