@@ -1387,7 +1387,7 @@ func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector ui
 					DefaultTokenFeeUSDCents:           25,
 					DefaultTokenDestGasOverhead:       90_000,
 					DefaultTxGasLimit:                 200_000,
-					GasMultiplierWeiPerEth:            11e17,
+					GasMultiplierWeiPerEth:            11e8, // TODO - this should be e18
 					GasPriceStalenessThreshold:        0,
 					NetworkFeeUSDCents:                10,
 				},
