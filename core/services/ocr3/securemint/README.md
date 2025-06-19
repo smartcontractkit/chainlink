@@ -36,3 +36,40 @@ modvendor -copy="**/*.a **/*.h" -v
 * all.log: Contains the complete output of the test run, this can be used to see test failures within the context of the node logs
 
 
+### Debug test with VSCode:
+
+Create a launch.json file in the .vscode directory with the following content:
+
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Secure Mint Integration Test",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/core/services/ocr3/securemint/integrationtest",
+            "args": [
+                "-test.run",
+                "^TestIntegration_SecureMint_happy_path$",
+                "-test.v",
+                "-test.timeout",
+                "2m",
+                "2>&1",
+                "|",
+                "tee",
+                "all.log",
+                "|",
+                "awk '/DEBUG|INFO|WARN|ERROR/ { print > 'node_logs.log'; next }; { print > 'other.log' }'",
+            ],
+            "env": {
+                "ENV": "test",
+                "CL_DATABASE_URL": "postgresql://chainlink_dev:insecurepassword@localhost:5432/chainlink_development_test?sslmode=disable",
+            }
+        }
+    ]
+}
+```
+
+Then run the test by Cmd+P: "Start Debugging".
