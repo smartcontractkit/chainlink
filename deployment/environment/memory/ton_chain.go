@@ -44,7 +44,7 @@ func createTonWallet(t *testing.T, client ton.APIClientWrapped, version wallet.V
 }
 
 func fundTonWallets(t *testing.T, client ton.APIClientWrapped, recipients []*address.Address, amounts []tlb.Coins) {
-	require.Equal(t, len(recipients), len(amounts), "recipients and amounts must have the same length")
+	require.Len(t, amounts, len(recipients), "recipients and amounts must have the same length")
 	// initialize the prefunded wallet(Highload-V2), for other wallets, see https://github.com/neodix42/mylocalton-docker#pre-installed-wallets
 	version := wallet.HighloadV2Verified //nolint:staticcheck // SA1019: only available option in mylocalton-docker
 	rawHlWallet, err := wallet.FromSeed(client, strings.Fields(blockchain.DefaultTonHlWalletMnemonic), version)
