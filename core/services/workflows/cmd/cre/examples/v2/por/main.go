@@ -51,30 +51,38 @@ type PorResponse struct {
 	Data          string `json:"data"`
 }
 
-func RunSimpleCronWorkflow(runner sdk.DonRunner) {
-	cron := &croncap.Cron{}
+func RunSimpleCronWorkflow(runner sdk.Runner[[]byte]) {
+	// cron := &croncap.Cron{}
 	cfg := &croncap.Config{
 		Schedule: "*/3 * * * * *", // every three seconds
 	}
 
-	runner.Run(&sdk.WorkflowArgs[sdk.DonRuntime]{
-		Handlers: []sdk.Handler[sdk.DonRuntime]{
-			sdk.NewDonHandler(
-				cron.Trigger(cfg),
-				onTrigger,
-			),
-		},
+	// runner.Run(&sdk.[sdk.DonRuntime]{
+	// 	Handlers: []sdk.Handler[sdk.DonRuntime]{
+	// 		sdk.New(
+	// 			cron.Trigger(cfg),
+	// 			onTrigger,
+	// 		),
+	// 	},
+	// })
+
+	runner.Run(func(wcx *sdk.WorkflowContext[[]byte]) (sdk.Workflow[[]byte], error) {
+		return sdk.Workflow[[]byte]{
+			sdk.On(
+				croncap.Trigger(cfg),
+				onTrigger),
+		}, nil
 	})
 }
 
-func onTrigger(runtime sdk.DonRuntime, outputs *croncap.Payload) (string, error) {
+func onTrigger(wcx *sdk.WorkflowContext[[]byte], runtime sdk.Runtime, outputs *croncap.Payload) (string, error) {
 	parsedTime, err := time.Parse(time.RFC3339, outputs.ScheduledExecutionTime)
 	if err != nil {
 		return "", err
 	}
 
 	// TODO: Fix
-	return doPor(runtime, parsedTime, "http://localhost:3000", "publicKey", []EvmConfig{
+	return doPor(wcx, runtime, parsedTime, "http://localhost:3000", "publicKey", []EvmConfig{
 		{
 			TokenAddress:  "0x779877A7B0D9E8603169DdbD7836e478b4624789",
 			PorAddress:    "0x0000000000000000000000000000000000000000",
@@ -84,13 +92,13 @@ func onTrigger(runtime sdk.DonRuntime, outputs *croncap.Payload) (string, error)
 	})
 }
 
-func doPor(runtime sdk.DonRuntime, runTime time.Time, url string, publicKey string, evms []EvmConfig) (string, error) {
+func doPor(wcx *sdk.WorkflowContext[[]byte], runtime sdk.Runtime, runTime time.Time, url string, publicKey string, evms []EvmConfig) (string, error) {
 	// Fetch Por
-	runtime.Logger().Info("fetching por", "url", url, "publicKey", publicKey, "evms", evms)
-	reserveInfo, err := sdk.RunInNodeMode(runtime, func(nodeRuntime sdk.NodeRuntime) (*ReserveInfo, error) {
+	wcx.Logger.Info("fetching por", "url", url, "publicKey", publicKey, "evms", evms)
+	reserveInfo, err := sdk.RunInNodeMode(wcx, runtime, func(wcx *sdk.WorkflowContext[[]byte], nodeRuntime sdk.NodeRuntime) (*ReserveInfo, error) {
 		reserveInfo, err := fetchPor(url, publicKey, nodeRuntime)
 		if err != nil {
-			nodeRuntime.Logger().Error("error fetching por", "err", err)
+			wcx.Logger.Error("error fetching por", "err", err)
 			return nil, err
 		}
 		return reserveInfo, nil
@@ -99,32 +107,32 @@ func doPor(runtime sdk.DonRuntime, runTime time.Time, url string, publicKey stri
 		return "", err
 	}
 
-	runtime.Logger().Info("ReserveInfo", reserveInfo)
+	wcx.Logger.Info("ReserveInfo", reserveInfo)
 
 	if reserveInfo.LastUpdated.Before(runTime.Add(-time.Hour * 24)) {
-		runtime.Logger().Warn("reserve time is too old", "time", reserveInfo.LastUpdated)
+		wcx.Logger.Warn("reserve time is too old", "time", reserveInfo.LastUpdated)
 		// return "", errors.New("reserved time is too old")
 	}
 
 	// TODO: Make this work
-	totalSupply, err := getTotalSupply(runtime, evms)
+	totalSupply, err := getTotalSupply(wcx, runtime, evms)
 	if err != nil {
 		return "", err
 	}
 
-	runtime.Logger().Info("TotalSupply", totalSupply)
+	wcx.Logger.Info("TotalSupply", totalSupply)
 	totalReserveScaled := reserveInfo.TotalReserve.Mul(decimal.NewFromUint64(1e18)).BigInt()
-	runtime.Logger().Info("TotalReserveScaled", totalReserveScaled)
+	wcx.Logger.Info("TotalReserveScaled", totalReserveScaled)
 
-	if err = updateReserve(runtime, totalSupply, totalReserveScaled, evms); err != nil {
+	if err = updateReserve(wcx, runtime, totalSupply, totalReserveScaled, evms); err != nil {
 		return "", err
 	}
 
 	return reserveInfo.TotalReserve.String(), nil
 }
 
-func updateReserve(runtime sdk.DonRuntime, totalSupply, totalReserveScaled *big.Int, evms []EvmConfig) error {
-	reportWrites := make([]sdk.Promise[*evm.WriteReportReply], len(evms))
+func updateReserve(wcx *sdk.WorkflowContext[[]byte], runtime sdk.Runtime, totalSupply, totalReserveScaled *big.Int, evms []EvmConfig) error {
+	reportWrites := make([]sdk.Promise[*evmcap.WriteReportReply], len(evms))
 	for i, evmConfig := range evms {
 		evmClient := &evmcap.Client{}
 
@@ -145,10 +153,10 @@ func updateReserve(runtime sdk.DonRuntime, totalSupply, totalReserveScaled *big.
 	for i, promise := range reportWrites {
 		_, err := promise.Await()
 		if err == nil {
-			// wcx.Logger.Debug("update reserve write report reply", "chain_selector", evms[i].ChainSelector, "tx hash", writeReportReply.TxHash)
+			// runtime.Logger().Debug("update reserve write report reply", "chain_selector", evms[i].ChainSelector, "tx hash", writeReportReply.TxHash)
 		} else {
 			selector := evms[i].ChainSelector
-			// wcx.Logger.Error("Could not write to contract", "contract_chain", selector, "err", err.Error())
+			wcx.Logger.Error("Could not write to contract", "contract_chain", selector, "err", err.Error())
 			errs = append(errs, fmt.Errorf("failed to write report for chain %d: %w", selector, err))
 			continue
 		}
@@ -157,7 +165,7 @@ func updateReserve(runtime sdk.DonRuntime, totalSupply, totalReserveScaled *big.
 	return errors.Join(errs...)
 }
 
-func getTotalSupply(runtime sdk.DonRuntime, evms []EvmConfig) (*big.Int, error) {
+func getTotalSupply(wcx *sdk.WorkflowContext[[]byte], runtime sdk.Runtime, evms []EvmConfig) (*big.Int, error) {
 	// Fetch supply from all EVMs in parallel
 	supplyPromises := make([]sdk.Promise[*big.Int], len(evms))
 	for i, evmConfig := range evms {
@@ -165,7 +173,7 @@ func getTotalSupply(runtime sdk.DonRuntime, evms []EvmConfig) (*big.Int, error) 
 
 		address, err := hexToBytes(evmConfig.TokenAddress)
 		if err != nil {
-			// logger.Error("failed to decode token address", "address", evmConfig.TokenAddress, "err", err)
+			wcx.Logger.Error("failed to decode token address", "address", evmConfig.TokenAddress, "err", err)
 			return nil, fmt.Errorf("failed to decode token address %s: %w", evmConfig.TokenAddress, err)
 		}
 		token := bindings.NewIERC20(bindings.ContractInputs{EVM: evmClient, Address: address})
@@ -179,7 +187,7 @@ func getTotalSupply(runtime sdk.DonRuntime, evms []EvmConfig) (*big.Int, error) 
 		supply, err := promise.Await()
 		if err != nil {
 			// selector := evms[i].ChainSelector
-			// logger.Error("Could not read from contract", "contract_chain", selector, "err", err.Error())
+			// runtime.Logger().Error("Could not read from contract", "contract_chain", selector, "err", err.Error())
 			return nil, err
 		}
 
@@ -263,5 +271,7 @@ func hexToBytes(hexStr string) ([]byte, error) {
 }
 
 func main() {
-	RunSimpleCronWorkflow(wasm.NewDonRunner())
+	RunSimpleCronWorkflow(wasm.NewRunner(func(configBytes []byte) ([]byte, error) {
+		return configBytes, nil
+	}))
 }

@@ -7,9 +7,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-common/pkg/chains/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/values/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2"
+
+	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
 )
 
 // TODO figure out how we know the type...?
@@ -55,20 +56,20 @@ type UpdateReservesStruct struct {
 	TotalReserve *big.Int
 }
 
-func (irm IReserverManager) WriteReportUpdateReserves(runtime sdk.DonRuntime, updateReserves UpdateReservesStruct, options *WriteOptions) sdk.Promise[*evm.WriteReportReply] {
+func (irm IReserverManager) WriteReportUpdateReserves(runtime sdk.Runtime, updateReserves UpdateReservesStruct, options *WriteOptions) sdk.Promise[*evmcappb.WriteReportReply] {
 	// if ur.reserveManager.gasConfig == nil && options.GasConfig == nil {
 	// 	sdk.Primitive
 	// }
 
 	body, err := iReserveManagerApi.Methods["updateReserves"].Inputs.Pack(updateReserves)
 	if err != nil {
-		return sdk.PromiseFromResult[*evm.WriteReportReply](nil, err)
+		return sdk.PromiseFromResult[*evmcappb.WriteReportReply](nil, err)
 	}
 
 	commonReport := GenerateReport(1, body) // TODO: Fix chain selector
-	writeReportReplyPromise := irm.ContractInputs.EVM.WriteReport(runtime, &evm.WriteReportRequest{
+	writeReportReplyPromise := irm.ContractInputs.EVM.WriteReport(runtime, &evmcappb.WriteReportRequest{
 		Receiver: irm.ContractInputs.Address,
-		Report: &evm.SignedReport{
+		Report: &evmcappb.SignedReport{
 			RawReport:     commonReport.RawReport,
 			ReportContext: commonReport.ReportContext,
 			Signatures:    commonReport.Signatures,

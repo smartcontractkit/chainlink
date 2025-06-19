@@ -6,8 +6,8 @@ import (
 	"reflect"
 
 	"github.com/ethereum/go-ethereum/common"
+	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
 	evmmock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm/capabilitymock"
-	"github.com/smartcontractkit/chainlink-common/pkg/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/cmd/cre/examples/v2/por/bindings"
 )
 
@@ -22,7 +22,7 @@ func NewIReserverManagerMock(address common.Address, clientMock *evmmock.ClientC
 	a := bindings.NewIReserveManagerAbi()
 	updateReserves := a.Methods["updateReserves"]
 	funcMap := map[string]func([]byte) ([]byte, error){}
-	writeReport := func(payload []byte, config *evm.GasConfig) (*evm.WriteReportReply, error) {
+	writeReport := func(payload []byte, config *evmcappb.GasConfig) (*evmcappb.WriteReportReply, error) {
 		if reserveManagerMock.UpdateReserves == nil {
 			return nil, errors.New("method update reserves not found on the contract")
 		}
@@ -44,7 +44,7 @@ func NewIReserverManagerMock(address common.Address, clientMock *evmmock.ClientC
 		}
 
 		// TODO
-		return &evm.WriteReportReply{}, nil
+		return &evmcappb.WriteReportReply{}, nil
 	}
 	bindings.AddInterfaceMock(address, clientMock, funcMap, writeReport)
 	return reserveManagerMock

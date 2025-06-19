@@ -45,7 +45,7 @@ type TotalSupply struct {
 	IERC20 *IERC20
 }
 
-func (ts TotalSupply) Call(runtime sdk.DonRuntime, options *ReadOptions) sdk.Promise[*big.Int] {
+func (ts TotalSupply) Call(runtime sdk.Runtime, options *ReadOptions) sdk.Promise[*big.Int] {
 	method := iErc20Api.Methods["totalSupply"]
 	data := make([]byte, 4)
 	copy(data, method.ID)

@@ -90,7 +90,7 @@ func AddInterfaceMock(
 	address common.Address,
 	clientMock *evmmock.ClientCapability,
 	callContract map[string]func(payload []byte) ([]byte, error),
-	writeReport func(payload []byte, config *evm.GasConfig) (*evm.WriteReportReply, error),
+	writeReport func(payload []byte, config *evmcappb.GasConfig) (*evmcappb.WriteReportReply, error),
 ) {
 
 	// copy the mock so that other contract interfaces can be implemented on the same contract
@@ -130,7 +130,7 @@ func AddInterfaceMock(
 		}, nil
 	}
 
-	clientMock.WriteReport = func(ctx context.Context, input *evm.WriteReportRequest) (*evm.WriteReportReply, error) {
+	clientMock.WriteReport = func(ctx context.Context, input *evmcappb.WriteReportRequest) (*evmcappb.WriteReportReply, error) {
 		if !bytes.Equal(address[:], input.Receiver) {
 			if original.WriteReport == nil {
 				return nil, fmt.Errorf("contract %s not found", address.Hex())
