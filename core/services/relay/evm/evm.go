@@ -55,7 +55,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
 	cciptransmitter "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/transmitter"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
@@ -381,7 +380,7 @@ func (r *Relayer) NewOCR3CapabilityProvider(ctx context.Context, rargs commontyp
 }
 
 func (r *Relayer) NewPluginProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.PluginProvider, error) {
-	// TODO(gg): hack to see if we can make it work
+	// Route securemint provider type to the specialized implementation
 	if rargs.ProviderType == "securemint" {
 		return r.NewSecureMintProvider(ctx, rargs, pargs)
 	}
@@ -429,32 +428,25 @@ func (r *Relayer) NewSecureMintProvider(ctx context.Context, rargs commontypes.R
 		return nil, fmt.Errorf("failed to get relay config: %w", err)
 	}
 
-	configProvider, err := newLLOConfigProvider(ctx, lggr, r.chain, &retirement.NullRetirementReportCache{}, relayOpts) // TODO(gg): use llo config provider for now but we might have to copy and adapt it
+	// Use LLO config provider for OCR3 configurator contract
+	configProvider, err := newLLOConfigProvider(ctx, lggr, r.chain, &retirement.NullRetirementReportCache{}, relayOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	// lp := configProvider.ContractConfigTracker()
-
-	x := &x{
-		provider:  configProvider,
-		tracker:   configProvider.ContractConfigTracker(),
-		logPoller: r.chain.LogPoller(),
+	// Create an adapter that implements the ConfigPoller interface
+	configPollerAdapter := &configPollerAdapter{
+		configProvider: configProvider,
+		logPoller:      r.chain.LogPoller(),
 	}
 
-	configWatcher := newConfigWatcher(lggr, common.HexToAddress(relayOpts.ContractID), configProvider.OffchainConfigDigester(), x, r.chain, relayConfig.FromBlock, rargs.New)
+	// Create a config watcher that wraps the LLO config provider
+	configWatcher := newConfigWatcher(lggr, common.HexToAddress(relayOpts.ContractID), configProvider.OffchainConfigDigester(), configPollerAdapter, r.chain, relayConfig.FromBlock, rargs.New)
 
-	// configWatcher, err := newSecureMintConfigProvider(ctx, r.lggr, r.chain, relayOpts)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// TODO(gg): atm we don't use the transmitter that's set up here (since we use the stub transmitter), but we should or we should remove this transmitter
-
-	transmitter := securemint.NewStubContractTransmitter(lggr, ocrtypes.Account(pargs.TransmitterID))
-	transmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
-	if err != nil {
-		return nil, err
+	// Create a stub transmitter that implements the OCR2 ContractTransmitter interface
+	stubTransmitter := &stubContractTransmitter{
+		logger:      lggr,
+		fromAccount: ocrtypes.Account(pargs.TransmitterID),
 	}
 
 	var chainReaderService ChainReaderService
@@ -469,53 +461,89 @@ func (r *Relayer) NewSecureMintProvider(ctx context.Context, rargs commontypes.R
 	return NewPluginProvider(
 		chainReaderService,
 		r.codec,
-		transmitter,
+		stubTransmitter,
 		configWatcher,
 		lggr,
 	), nil
 }
 
-type x struct {
-	provider  commontypes.ConfigProvider
-	tracker   ocrtypes.ContractConfigTracker
-	logPoller logpoller.LogPoller
+// configPollerAdapter adapts a commontypes.ConfigProvider to types.ConfigPoller
+type configPollerAdapter struct {
+	configProvider commontypes.ConfigProvider
+	logPoller      logpoller.LogPoller
 }
 
-func (x *x) LatestBlockHeight(ctx context.Context) (uint64, error) {
-	return x.tracker.LatestBlockHeight(ctx)
+func (a *configPollerAdapter) Start() {
+	a.configProvider.Start(context.Background())
 }
 
-func (x *x) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
-	return x.provider.ContractConfigTracker().LatestConfig(ctx, changedInBlock)
+func (a *configPollerAdapter) Close() error {
+	return a.configProvider.Close()
 }
 
-func (x *x) LatestConfigDetails(ctx context.Context) (uint64, ocrtypes.ConfigDigest, error) {
-	return x.provider.ContractConfigTracker().LatestConfigDetails(ctx)
-}
-
-func (x *x) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
-	return x.provider.OffchainConfigDigester()
-}
-
-func (x *x) ContractConfigTracker() ocrtypes.ContractConfigTracker {
-	return x.provider.ContractConfigTracker()
-}
-
-func (x *x) Start() {
-	x.provider.Start(context.Background())
-}
-
-func (x *x) Close() error {
-	return x.provider.Close()
-}
-
-func (x *x) Notify() <-chan struct{} {
+func (a *configPollerAdapter) Notify() <-chan struct{} {
 	return nil // rely on libocr's builtin config polling
 }
 
-// Replay abstracts the logpoller.LogPoller Replay() implementation
-func (x *x) Replay(ctx context.Context, fromBlock int64) error {
-	return x.logPoller.Replay(ctx, fromBlock)
+func (a *configPollerAdapter) Replay(ctx context.Context, fromBlock int64) error {
+	return a.logPoller.Replay(ctx, fromBlock)
+}
+
+func (a *configPollerAdapter) LatestBlockHeight(ctx context.Context) (uint64, error) {
+	return a.configProvider.ContractConfigTracker().LatestBlockHeight(ctx)
+}
+
+func (a *configPollerAdapter) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
+	return a.configProvider.ContractConfigTracker().LatestConfig(ctx, changedInBlock)
+}
+
+func (a *configPollerAdapter) LatestConfigDetails(ctx context.Context) (uint64, ocrtypes.ConfigDigest, error) {
+	return a.configProvider.ContractConfigTracker().LatestConfigDetails(ctx)
+}
+
+// stubContractTransmitter implements the OCR2 ContractTransmitter interface for secure mint
+type stubContractTransmitter struct {
+	logger      logger.Logger
+	fromAccount ocrtypes.Account
+}
+
+func (s *stubContractTransmitter) Transmit(ctx context.Context, reportContext ocrtypes.ReportContext, report ocrtypes.Report, signatures []ocrtypes.AttributedOnchainSignature) error {
+	s.logger.Infow("Stub transmitter called",
+		"configDigest", fmt.Sprintf("%x", reportContext.ConfigDigest),
+		"epoch", reportContext.Epoch,
+		"round", reportContext.Round,
+		"reportLength", len(report),
+		"signaturesCount", len(signatures),
+	)
+	return nil
+}
+
+func (s *stubContractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Account, error) {
+	return s.fromAccount, nil
+}
+
+func (s *stubContractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (ocrtypes.ConfigDigest, uint32, error) {
+	return ocrtypes.ConfigDigest{}, 0, nil
+}
+
+func (s *stubContractTransmitter) Start(ctx context.Context) error {
+	return nil
+}
+
+func (s *stubContractTransmitter) Close() error {
+	return nil
+}
+
+func (s *stubContractTransmitter) Ready() error {
+	return nil
+}
+
+func (s *stubContractTransmitter) HealthReport() map[string]error {
+	return map[string]error{s.Name(): nil}
+}
+
+func (s *stubContractTransmitter) Name() string {
+	return "StubContractTransmitter"
 }
 
 func (r *Relayer) NewMercuryProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MercuryProvider, error) {

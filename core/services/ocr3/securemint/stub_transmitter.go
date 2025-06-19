@@ -6,7 +6,6 @@ import (
 	"sync/atomic"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
@@ -18,8 +17,6 @@ var _ ocr3types.ContractTransmitter[por.ChainSelector] = (*stubContractTransmitt
 // stubContractTransmitter is a stub implementation of the ContractTransmitter interface
 // that logs messages when its functions are invoked instead of performing actual operations.
 type stubContractTransmitter struct {
-	services.Service
-
 	logger      logger.Logger
 	fromAccount types.Account
 }
@@ -34,11 +31,6 @@ func NewStubContractTransmitter(logger logger.Logger, fromAccount types.Account)
 		logger:      logger,
 		fromAccount: fromAccount,
 	}
-	t.Service = services.Config{
-		Name:  "StubContractTransmitter",
-		Start: t.Start,
-		Close: t.Close,
-	}.NewService(logger)
 
 	return t
 }
