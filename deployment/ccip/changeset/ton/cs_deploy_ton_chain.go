@@ -20,7 +20,7 @@ func (c DeployCCIPContractsCfg) Validate() error {
 var _ cldf.ChangeSetV2[DeployCCIPContractsCfg] = DeployCCIPContracts{}
 
 // DeployCCIPContracts deploys Ton chain packages and modules
-type DeployCCIPContracts struct {}
+type DeployCCIPContracts struct{}
 
 func (cs DeployCCIPContracts) VerifyPreconditions(_ cldf.Environment, _ DeployCCIPContractsCfg) error {
 	// TODO: Implement precondition checks for contract deployment
@@ -41,7 +41,7 @@ func (cs DeployCCIPContracts) Apply(env cldf.Environment, config DeployCCIPContr
 		return cldf.ChangesetOutput{}, err
 	}
 	state := chains[selector]
-	
+
 	address := tonaddress.MustParseAddr("EQDtFpEwcFAEcRe5mLVh2N6C0x-_hJEM7W61_JLnSF74p4q2")
 	state.OffRamp = *address
 	address = tonaddress.MustParseAddr("UQCfQRaJr2vxgZr5NHc0CTx6tAb0jverj9QQFirNfoCkGcUy")

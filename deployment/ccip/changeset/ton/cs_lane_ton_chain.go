@@ -11,7 +11,8 @@ type AddLaneCfg struct {
 	ToFamily          string
 }
 
-type AddLane struct {}
+type AddLane struct{}
+
 var _ cldf.ChangeSetV2[AddLaneCfg] = AddLane{}
 
 func (cs AddLane) VerifyPreconditions(_ cldf.Environment, _ AddLaneCfg) error {
