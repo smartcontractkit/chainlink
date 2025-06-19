@@ -114,6 +114,28 @@ jobs:
           cd system-tests/tests/load/cre
           go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 15m
 
+      - name: Diagnose cAdvisor visibility issue
+        shell: bash
+        run: |
+          # Create diagnostics directory
+          mkdir -p ./system-tests/tests/load/cre/metrics/diagnostics
+          
+          # List what Docker sees
+          echo "=== Docker containers ==="
+          docker ps --format "{{.Names}} ({{.ID}})" | tee ./system-tests/tests/load/cre/metrics/diagnostics/docker-containers.txt
+          
+          # Check what cAdvisor sees (top-level paths)
+          echo "=== cAdvisor container paths ==="
+          curl -s http://localhost:8080/api/v1.3/containers/ | jq 'keys' | tee ./system-tests/tests/load/cre/metrics/diagnostics/cadvisor-paths.txt
+          
+          # See if docker containers are visible under docker subpath
+          echo "=== Docker containers in cAdvisor ==="
+          curl -s http://localhost:8080/api/v1.3/containers/docker/ | jq '.subcontainers | map(.name)' | tee ./system-tests/tests/load/cre/metrics/diagnostics/cadvisor-docker-containers.txt
+          
+          # Create a more detailed output with container names and aliases
+          echo "=== Container details with aliases ==="
+          curl -s http://localhost:8080/api/v1.3/containers/docker/ | jq '.subcontainers | map({path: .name, aliases: .aliases})' | tee ./system-tests/tests/load/cre/metrics/diagnostics/cadvisor-container-details.txt
+
       - name: Stop metrics collection
         if: always()
         run: |
