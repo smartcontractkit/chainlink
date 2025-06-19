@@ -1004,7 +1004,7 @@ func (r *Relayer) EVM() (commontypes.EVMService, error) {
 	return r, nil
 }
 
-func (r *Relayer) CalculateTransactionFee(ctx context.Context, receipt evm.Receipt) (*evm.TransactionFee, error) {
+func (r *Relayer) CalculateTransactionFee(ctx context.Context, receipt evm.ReceiptGasInfo) (*evm.TransactionFee, error) {
 	return nil, nil
 }
 

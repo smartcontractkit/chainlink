@@ -9,7 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
 	evmserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm/server"
+	"github.com/smartcontractkit/chainlink-common/pkg/chains/evm"
 	evmpb "github.com/smartcontractkit/chainlink-common/pkg/chains/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -96,34 +98,37 @@ func (fc *fakeEvmChain) CallContract(ctx context.Context, metadata capabilities.
 	}, nil
 }
 
-func (fc *fakeEvmChain) IsTxFinalized(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.IsTxFinalizedRequest) (*evmpb.IsTxFinalizedReply, error) {
-	fc.eng.Infow("Fake EVM Chain IsTxFinalized Started", "input", input)
-
-	// Prepare is tx finalized request
-	hash := common.Hash(input.TxHash)
-
-	// Get transaction receipt
-	receipt, err := fc.gethClient.TransactionReceipt(ctx, hash)
-	if err != nil {
-		return nil, err
-	}
-
-	return &evmpb.IsTxFinalizedReply{
-		IsFinalized: receipt.Status == 1,
-	}, nil
-}
-
-func (fc *fakeEvmChain) WriteReport(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.WriteReportRequest) (*evmpb.WriteReportReply, error) {
+func (fc *fakeEvmChain) WriteReport(ctx context.Context, metadata capabilities.RequestMetadata, input *evmcappb.WriteReportRequest) (*evmcappb.WriteReportReply, error) {
 	fc.eng.Infow("Fake EVM Chain WriteReport Started", "input", input)
 
+	// toAddress := common.Address(input.Receiver)
+	data := input.Report.RawReport
+	fc.eng.Infow("Fake EVM Chain WriteReport data", "data", data)
+
+	// err := fc.gethClient.SendTransaction(ctx, &types.Transaction{
+	// 	To:   toAddress,
+	// 	Data: data,
+	// })
+	// if err != nil {
+	// 	return nil, err
+	// }
+
 	errMsg := ""
-	return &evmpb.WriteReportReply{
-		TxStatus:                        evmpb.TransactionStatus_TX_SUCCESS,
+	return &evmcappb.WriteReportReply{
+		TxStatus:                        evm.TxStatus_TX_SUCCESS,
 		TxHash:                          []byte{},
-		ReceiverContractExecutionStatus: evmpb.ReceiverContractExecutionStatus_SUCCESS.Enum(),
+		ReceiverContractExecutionStatus: evmcappb.ReceiverContractExecutionStatus_SUCCESS.Enum(),
 		TransactionFee:                  pb.NewBigIntFromInt(big.NewInt(0)),
 		ErrorMessage:                    &errMsg,
 	}, nil
+}
+
+func (fc *fakeEvmChain) RegisterLogTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *evmcappb.FilterLogTriggerRequest) (<-chan capabilities.TriggerAndId[*evm.Log], error) {
+	return nil, nil
+}
+
+func (fc *fakeEvmChain) UnregisterLogTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *evmcappb.FilterLogTriggerRequest) error {
+	return nil
 }
 
 func (fc *fakeEvmChain) FilterLogs(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.FilterLogsRequest) (*evmpb.FilterLogsReply, error) {
