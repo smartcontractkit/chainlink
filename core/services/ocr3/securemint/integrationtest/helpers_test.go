@@ -1,6 +1,7 @@
 package integrationtest
 
 import (
+	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -166,10 +167,6 @@ func addSecureMintOCRJobs(
 		bmBridge := createSecureMintBridge(t, name, i, node.app.BridgeORM())
 		t.Logf("Created secure mint bridge %s on node %d", bmBridge, i)
 
-		addresses, err := node.app.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), testutils.SimulatedChainID)
-		require.NoError(t, err)
-		t.Logf("Using transmitter address %s for node %d", addresses[0].String(), i)
-
 		jobID := addSecureMintJob(
 			t,
 			node,
@@ -189,12 +186,9 @@ func addSecureMintJob(
 	bridgeName string,
 ) (id int32) {
 
-	addresses, err := node.app.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), testutils.SimulatedChainID)
-	require.NoError(t, err)
+	spec := getSecureMintJobSpec(t, configuratorAddress.Hex(), node.keyBundle.ID(), node.clientPubKey[:], bridgeName)
+
 	c := node.app.GetConfig()
-
-	spec := getSecureMintJobSpec(configuratorAddress.Hex(), node.keyBundle.ID(), addresses[0].String(), bridgeName)
-
 	job, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), spec, nil)
 	require.NoError(t, err)
 
@@ -205,7 +199,9 @@ func addSecureMintJob(
 	return job.ID
 }
 
-func getSecureMintJobSpec(ocrContractAddress, keyBundleID, transmitterAddress, bridgeName string) string {
+func getSecureMintJobSpec(t *testing.T, ocrContractAddress, keyBundleID string, publicKey ed25519.PublicKey, bridgeName string) string {
+
+	t.Logf("Using transmitter address %x for job", publicKey)
 
 	return fmt.Sprintf(`
 			type                              = "offchainreporting2"
@@ -215,7 +211,7 @@ func getSecureMintJobSpec(ocrContractAddress, keyBundleID, transmitterAddress, b
 			name                              = "secure mint spec"
 			contractID                        = "%s"
 			ocrKeyBundleID                    = "%s"
-			transmitterID                     = "%s"
+			transmitterID                     = "%x"
 			contractConfigConfirmations       = 1
 			contractConfigTrackerPollInterval = "1s"
 			observationSource  = """
@@ -233,15 +229,18 @@ func getSecureMintJobSpec(ocrContractAddress, keyBundleID, transmitterAddress, b
 			[relayConfig]
 			chainID                           = 1337
 			fromBlock                         = 1
+			providerType                      = "securemint"
+			lloDonID                          = 1
+			lloConfigMode                     = "bluegreen"
 
 			[pluginConfig]
 			maxChains                         = 5
 			token                             = "btc"
 			reserves                          = "custom"
-		`,
+		`, // TODO(gg): bluegreen is the default for llo but don't think we should keep this necessarily
 		ocrContractAddress, // contract address
 		keyBundleID,        // ocr key bundle id
-		transmitterAddress, // transmitter id
+		publicKey,          // transmitter id
 		bridgeName)         // bridge name
 }
 

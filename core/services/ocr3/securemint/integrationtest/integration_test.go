@@ -67,6 +67,8 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 		clientPubKeys[i] = key.PublicKey
 	}
 
+	t.Logf("clientPubKeys: %v", clientPubKeys)
+
 	steve, backend := setupBlockchain(t)
 	fromBlock, err := backend.Client().BlockNumber(testutils.Context(t))
 	require.NoError(t, err)
@@ -88,6 +90,9 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 		// inform node about bootstrap node
 		c.P2P.V2.DefaultBootstrappers = &p2pV2Bootstrappers
 	})
+	for i, node := range nodes {
+		t.Logf("node %d clientPubKey: %x", i, node.clientPubKey)
+	}
 
 	allowedSenders := make([]common.Address, len(nodes))
 	for i, node := range nodes {
@@ -96,14 +101,14 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 		allowedSenders[i] = keys[0].Address // assuming the first key is the transmitter
 	}
 
-	aggregatorAddress := setSecureMintOnchainConfigUsingAggregator(t, steve, backend, nodes, oracles)
+	// aggregatorAddress := setSecureMintOnchainConfigUsingAggregator(t, steve, backend, nodes, oracles)
 	_, configuratorAddress := setSecureMintOnchainConfigUsingOCR3Configurator(t, steve, backend, nodes, oracles)
 
 	t.Logf("Creating bootstrap job with configurator address: %s", configuratorAddress.Hex())
 	bootstrapJob := createSecureMintBootstrapJob(t, bootstrapNode, configuratorAddress, testutils.SimulatedChainID.String(), fmt.Sprintf("%d", fromBlock))
 	t.Logf("Created bootstrap job: %s with id %d", bootstrapJob.Name.ValueOrZero(), bootstrapJob.ID)
 
-	jobIDs := addSecureMintOCRJobs(t, nodes, aggregatorAddress)
+	jobIDs := addSecureMintOCRJobs(t, nodes, configuratorAddress)
 
 	t.Logf("jobIDs: %v", jobIDs)
 	validateJobsRunningSuccessfully(t, nodes, jobIDs)
@@ -242,7 +247,7 @@ func setSecureMintOnchainConfigUsingOCR3Configurator(t *testing.T, steve *bind.T
 	})
 	require.NoError(t, err)
 
-	signers, _, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTests(
+	signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTests(
 		2*time.Second,        // deltaProgress,
 		20*time.Second,       // deltaResend,
 		400*time.Millisecond, // deltaInitial,
@@ -264,16 +269,58 @@ func setSecureMintOnchainConfigUsingOCR3Configurator(t *testing.T, steve *bind.T
 	)
 	require.NoError(t, err)
 
+	// clientPubKeys := make([]ed25519.PublicKey, nNodes)
+	// for i := 0; i < nNodes; i++ {
+	// 	k := big.NewInt(int64(salt + i))
+	// 	key := csakey.MustNewV2XXXTestingOnly(k)
+	// 	clientCSAKeys[i] = key
+	// 	clientPubKeys[i] = key.PublicKey
+	// }
+
+	// func (r wsrpcRequest) TransmitterID() ocr2types.Account {
+	// 	return ocr2types.Account(fmt.Sprintf("%x", r.pk))
+	// }
+
+	// TransmitAccount:   ocr2types.Account(hex.EncodeToString(transmitter[:])),
+
 	// 3. Set config on the contract
 	var signerKeys [][]byte
 	for _, signer := range signers {
 		signerKeys = append(signerKeys, signer)
 	}
 
-	offchainTransmitters := make([][32]byte, nNodes)
-	for i := 0; i < nNodes; i++ {
-		offchainTransmitters[i] = nodes[i].clientPubKey
+	transmitterAddresses := make([]common.Address, len(nodes))
+	for i := range nodes {
+		keys, err := nodes[i].app.GetKeyStore().Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
+		require.NoError(t, err)
+		transmitterAddresses[i] = keys[0].Address // assuming the first key is the transmitter
 	}
+	t.Logf("transmitterAddresses: %v", transmitterAddresses)
+
+	transmitterAddrs := make([][32]byte, len(transmitterAddresses))
+	for i := range transmitterAddresses {
+		copy(transmitterAddrs[i][:], transmitterAddresses[i][:])
+	}
+	t.Logf("transmitterAddrs: %v", transmitterAddrs)
+
+	offchainTransmitters := make([][32]byte, len(transmitters))
+	for i := range transmitters {
+		copy(offchainTransmitters[i][:], transmitters[i][:])
+	}
+	t.Logf("offchainTransmitters: %v", offchainTransmitters)
+
+	// transmitters should be the nodes' csa keys
+	offchainTransmitters2 := make([][32]byte, len(nodes))
+	for i := range nodes {
+		copy(offchainTransmitters2[i][:], nodes[i].clientPubKey[:])
+	}
+	t.Logf("offchainTransmitters2: %v", offchainTransmitters2)
+
+	offchainTransmitters3 := make([][32]byte, nNodes)
+	for i := 0; i < nNodes; i++ {
+		offchainTransmitters3[i] = nodes[i].clientPubKey // use csa keys as transmitters
+	}
+	t.Logf("offchainTransmitters3: %v", offchainTransmitters3)
 
 	configID := [32]byte{}
 	copy(configID[:], common.FromHex("0x0000000000000000000000000000000000000000000000000000000000000001"))
@@ -287,7 +334,7 @@ func setSecureMintOnchainConfigUsingOCR3Configurator(t *testing.T, steve *bind.T
 	t.Logf("donIDBytes32: %x", donIDBytes32)
 	t.Logf("configID: %x", configID)
 
-	_, err = configurator.SetProductionConfig(steve, configID, signerKeys, offchainTransmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig)
+	_, err = configurator.SetProductionConfig(steve, configID, signerKeys, offchainTransmitters3, f, outOnchainConfig, offchainConfigVersion, offchainConfig)
 	if err != nil {
 		t.Logf("Error: %s", err)
 		errString, err := rPCErrorFromError(err)

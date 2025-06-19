@@ -647,7 +647,7 @@ func (o *orm) insertGatewaySpec(ctx context.Context, spec *GatewaySpec) (specID 
 // ValidateKeyStoreMatch confirms that the key has a valid match in the keystore
 func ValidateKeyStoreMatch(ctx context.Context, spec *OCR2OracleSpec, keyStore keystore.Master, key string) (err error) {
 	switch spec.PluginType {
-	case types.Mercury, types.LLO:
+	case types.Mercury, types.LLO, types.SecureMint:
 		_, err = keyStore.CSA().Get(key)
 		if err != nil {
 			err = errors.Errorf("no CSA key matching: %q", key)
