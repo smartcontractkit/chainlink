@@ -19,7 +19,6 @@ import (
 
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -47,9 +46,10 @@ func createTonWallet(t *testing.T, client ton.APIClientWrapped, version wallet.V
 func fundTonWallets(t *testing.T, client ton.APIClientWrapped, recipients []*address.Address, amounts []tlb.Coins) {
 	require.Equal(t, len(recipients), len(amounts), "recipients and amounts must have the same length")
 	// initialize the prefunded wallet(Highload-V2), for other wallets, see https://github.com/neodix42/mylocalton-docker#pre-installed-wallets
-	rawHlWallet, err := wallet.FromSeed(client, strings.Fields(blockchain.DefaultTonHlWalletMnemonic), wallet.HighloadV2Verified)
+	version := wallet.HighloadV2Verified
+	rawHlWallet, err := wallet.FromSeed(client, strings.Fields(blockchain.DefaultTonHlWalletMnemonic), version)
 	require.NoError(t, err)
-	mcFunderWallet, err := wallet.FromPrivateKeyWithOptions(client, rawHlWallet.PrivateKey(), wallet.HighloadV2Verified, wallet.WithWorkchain(-1))
+	mcFunderWallet, err := wallet.FromPrivateKeyWithOptions(client, rawHlWallet.PrivateKey(), version, wallet.WithWorkchain(-1))
 	require.NoError(t, err)
 	funder, err := mcFunderWallet.GetSubwallet(uint32(42))
 	require.NoError(t, err)
@@ -96,9 +96,7 @@ func GenerateChainsTon(t *testing.T, numChains int) map[uint64]cldf_ton.Chain {
 
 func tonChain(t *testing.T, chainID uint64) *ton.APIClient {
 	t.Helper()
-	err := framework.DefaultNetwork(once)
-	require.NoError(t, err)
-
+	
 	bcInput := &blockchain.Input{
 		ChainID: strconv.FormatUint(chainID, 10),
 		Type:    "ton",
@@ -107,7 +105,7 @@ func tonChain(t *testing.T, chainID uint64) *ton.APIClient {
 	}
 	var bc *blockchain.Output
 	// spin up mylocalton with CTFv2
-	bc, err = blockchain.NewBlockchainNetwork(bcInput)
+	bc, err := blockchain.NewBlockchainNetwork(bcInput)
 	require.NoError(t, err, "Failed to create TON blockchain")
 
 	// get local config from simple http server in genesis node

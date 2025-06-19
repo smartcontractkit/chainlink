@@ -11,17 +11,15 @@ type AddLaneCfg struct {
 	ToFamily          string
 }
 
-type AddLane struct {
-}
-
+type AddLane struct {}
 var _ cldf.ChangeSetV2[AddLaneCfg] = AddLane{}
 
-func (c AddLane) VerifyPreconditions(env cldf.Environment, config AddLaneCfg) error {
+func (cs AddLane) VerifyPreconditions(_ cldf.Environment, _ AddLaneCfg) error {
 	// TODO: Implement precondition checks for adding or updating a lane on Ton chain
 	return nil
 }
 
-func (cs AddLane) Apply(env cldf.Environment, config AddLaneCfg) (cldf.ChangesetOutput, error) {
+func (cs AddLane) Apply(_ cldf.Environment, _ AddLaneCfg) (cldf.ChangesetOutput, error) {
 	// TODO: Implement logic of adding or updating a lane on Ton chain
 	return cldf.ChangesetOutput{}, nil
 }
