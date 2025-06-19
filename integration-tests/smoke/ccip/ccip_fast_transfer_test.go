@@ -777,11 +777,12 @@ func configureTokenPoolContractsWithMCMS(t *testing.T, e cldf.Environment, token
 
 func getFillerImage() (string, error) {
 	envVersion := os.Getenv(devenv.E2eFastFillerVersion)
+	envImage := os.Getenv(devenv.E2eFastFillerImage)
 
-	if envVersion != "" {
+	if envVersion == "" || envImage == "" {
 		return devenv.DefaultFastFillerImage, nil
 	} else {
-		return devenv.E2eFastFillerImage + ":" + envVersion, nil
+		return envImage + ":" + envVersion, nil
 	}
 }
 

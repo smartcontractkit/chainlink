@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	E2eFastFillerImage     = "804282218731.dkr.ecr.us-west-2.amazonaws.com/ccip-fast-transfer-filler"
+	E2eFastFillerImage     = "E2E_FAST_FILLER_IMAGE"
 	E2eFastFillerVersion   = "E2E_FAST_FILLER_VERSION"
 	DefaultFastFillerImage = "ccip-fast-filler:latest"
 )
