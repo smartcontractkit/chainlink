@@ -17,8 +17,11 @@ import (
 type CCIPView struct {
 	aptosCommon.ContractMetaData
 
-	FeeQuoter FeeQuoterView `json:"feeQuoter,omitempty"`
-	RMNRemote RMNRemoteView `json:"rmnRemote,omitempty"`
+	FeeQuoter          FeeQuoterView          `json:"feeQuoter,omitempty"`
+	RMNRemote          RMNRemoteView          `json:"rmnRemote,omitempty"`
+	TokenAdminRegistry TokenAdminRegistryView `json:"tokenAdminRegistry,omitempty"`
+	NonceManager       NonceManagerView       `json:"nonceManager,omitempty"`
+	ReceiverRegistry   ReceiverRegistryView   `json:"receiverRegistry,omitempty"`
 }
 
 type FeeQuoterView struct {
@@ -78,6 +81,18 @@ type RMNRemoteSigner struct {
 type RMNRemoteCurseEntry struct {
 	Subject  string `json:"subject"`
 	Selector uint64 `json:"selector"`
+}
+
+type TokenAdminRegistryView struct {
+	aptosCommon.ContractMetaData
+}
+
+type NonceManagerView struct {
+	aptosCommon.ContractMetaData
+}
+
+type ReceiverRegistryView struct {
+	aptosCommon.ContractMetaData
 }
 
 func GenerateCCIPView(chain cldf_aptos.Chain, ccipAddress aptos.AccountAddress, routerAddress aptos.AccountAddress) (CCIPView, error) {
@@ -173,6 +188,24 @@ func GenerateCCIPView(chain cldf_aptos.Chain, ccipAddress aptos.AccountAddress, 
 		}
 	}
 
+	// Token Admin Registry
+	tokenAdminRegistryTypeAndVersion, err := boundCCIP.TokenAdminRegistry().TypeAndVersion(nil)
+	if err != nil {
+		return CCIPView{}, fmt.Errorf("failed to get typeAndVersion of TokenAdminRegistry %s: %w", ccipAddress.StringLong(), err)
+	}
+
+	// Nonce Manager
+	nonceManagerTypeAndVersion, err := boundCCIP.NonceManager().TypeAndVersion(nil)
+	if err != nil {
+		return CCIPView{}, fmt.Errorf("failed to get typeAndVersion of NonceManager %s: %w", ccipAddress.StringLong(), err)
+	}
+
+	// Receiver Registry
+	receiverRegistryTypeAndVersion, err := boundCCIP.ReceiverRegistry().TypeAndVersion(nil)
+	if err != nil {
+		return CCIPView{}, fmt.Errorf("failed to get typeAndVersion of ReceiverRegistry %s: %w", ccipAddress.StringLong(), err)
+	}
+
 	return CCIPView{
 		ContractMetaData: aptosCommon.ContractMetaData{
 			Address: ccipAddress.StringLong(),
@@ -180,6 +213,7 @@ func GenerateCCIPView(chain cldf_aptos.Chain, ccipAddress aptos.AccountAddress, 
 		},
 		FeeQuoter: FeeQuoterView{
 			ContractMetaData: aptosCommon.ContractMetaData{
+				Address:        ccipAddress.StringLong(),
 				TypeAndVersion: feeQuoterTypeAndVersion,
 			},
 			FeeTokens: feeQuoterFeeTokens,
@@ -192,11 +226,30 @@ func GenerateCCIPView(chain cldf_aptos.Chain, ccipAddress aptos.AccountAddress, 
 		},
 		RMNRemote: RMNRemoteView{
 			ContractMetaData: aptosCommon.ContractMetaData{
+				Address:        ccipAddress.StringLong(),
 				TypeAndVersion: rmnRemoteTypeAndVersion,
 			},
 			IsCursed:             len(cursedSubjectEntries) != 0,
 			Config:               rmnRemoteVersionedConfig,
 			CursedSubjectEntries: cursedSubjectEntries,
+		},
+		TokenAdminRegistry: TokenAdminRegistryView{
+			ContractMetaData: aptosCommon.ContractMetaData{
+				Address:        ccipAddress.StringLong(),
+				TypeAndVersion: tokenAdminRegistryTypeAndVersion,
+			},
+		},
+		NonceManager: NonceManagerView{
+			ContractMetaData: aptosCommon.ContractMetaData{
+				Address:        ccipAddress.StringLong(),
+				TypeAndVersion: nonceManagerTypeAndVersion,
+			},
+		},
+		ReceiverRegistry: ReceiverRegistryView{
+			ContractMetaData: aptosCommon.ContractMetaData{
+				Address:        ccipAddress.StringLong(),
+				TypeAndVersion: receiverRegistryTypeAndVersion,
+			},
 		},
 	}, nil
 }

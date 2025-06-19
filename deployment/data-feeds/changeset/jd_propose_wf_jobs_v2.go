@@ -146,6 +146,9 @@ func proposeWFJobsToJDV2Precondition(env cldf.Environment, c types.ProposeWFJobs
 		return fmt.Errorf("failed to read feed state file %s: %w", feedStatePath, err)
 	}
 
+	feeds := *getFeedsByWorkflow(&feedState.Feeds, c.WorkflowSpecConfig.WorkflowName)
+	feedState.Feeds = feeds
+
 	err = feedState.Validate()
 	if err != nil {
 		return fmt.Errorf("failed to validate feeds: %w", err)
