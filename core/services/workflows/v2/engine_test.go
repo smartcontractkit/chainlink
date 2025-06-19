@@ -517,7 +517,7 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	require.NoError(t, engine.Close())
 }
 
-func TestEngine_MockCapabilityRegistry_NoDAGBinary(t *testing.T) {
+func TestEngine_WASMBinary_Simple(t *testing.T) {
 	cmd := "core/services/workflows/test/wasm/v2/cmd"
 	log := logger.TestLogger(t)
 	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
@@ -610,17 +610,17 @@ func TestEngine_MockCapabilityRegistry_NoDAGBinary(t *testing.T) {
 	})
 }
 
-func TestEngine_Config_MockCapabilityRegistry_NoDAGBinary(t *testing.T) {
+func TestEngine_WASMBinary_With_Config(t *testing.T) {
 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_config"
-	log := logger.TestLogger(t)
 	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
 
 	// Define a custom config to validate against
 	giveName := "Foo"
 	giveNum := int32(42)
 	config := fmt.Appendf(nil, "name: %s\nnumber: %d\n", giveName, giveNum)
+	wasmLogger := logger.NewMockLogger(t)
 	module, err := host.NewModule(&host.ModuleConfig{
-		Logger:         log,
+		Logger:         wasmLogger,
 		IsUncompressed: true,
 	}, binaryB)
 	require.NoError(t, err)
@@ -674,6 +674,10 @@ func TestEngine_Config_MockCapabilityRegistry_NoDAGBinary(t *testing.T) {
 			GetTrigger(matches.AnyContext, wrappedTriggerMock.ID()).
 			Return(wrappedTriggerMock, nil).
 			Once()
+
+		wasmLogger.EXPECT().Info(mock.Anything).Run(func(args ...interface{}) {
+			require.Contains(t, args[0].(string), "onTrigger called")
+		}).Return().Once()
 
 		require.NoError(t, engine.Start(t.Context()))
 		require.NoError(t, <-initDoneCh)
