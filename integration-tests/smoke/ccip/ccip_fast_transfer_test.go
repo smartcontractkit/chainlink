@@ -781,9 +781,9 @@ func getFillerImage() (string, error) {
 
 	if envVersion == "" || envImage == "" {
 		return devenv.DefaultFastFillerImage, nil
-	} else {
-		return envImage + ":" + envVersion, nil
 	}
+
+	return envImage + ":" + envVersion, nil
 }
 
 func runAssertions(t *testing.T, sourceToken balanceToken, destinationToken balanceToken, address common.Address, assertions []balanceAssertion, description string) {
