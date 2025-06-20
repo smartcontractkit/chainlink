@@ -43,6 +43,8 @@ import (
 var (
 	//go:embed testdata/config-full.toml
 	fullTOML string
+	//go:embed testdata/config-full-effective.toml
+	fullEffectiveTOML string
 	//go:embed testdata/config-multi-chain.toml
 	multiChainTOML string
 
@@ -734,6 +736,8 @@ func TestConfig_Marshal(t *testing.T) {
 					},
 				},
 				Workflow: evmcfg.Workflow{
+					FromAddress:       ptr(types.MustEIP55Address("0x2a3e23c6f242F5345320814aC8a1b4E58707D292")),
+					ForwarderAddress:  ptr(types.MustEIP55Address("0x2a3e23c6f242F5345320814aC8a1b4E58707D292")),
 					GasLimitDefault:   ptr[uint64](400000),
 					TxAcceptanceState: ptr(commontypes.Unconfirmed),
 					PollPeriod:        commoncfg.MustNewDuration(time.Second * 2),
@@ -1224,6 +1228,8 @@ ObservationGracePeriod = '1s'
 GasLimit = 540
 
 [EVM.Workflow]
+FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
+ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
 GasLimitDefault = 400000
 TxAcceptanceState = 2
 PollPeriod = '2s'
@@ -1355,14 +1361,14 @@ func TestConfig_full(t *testing.T) {
 	for c := range got.EVM {
 		addr, err := types.NewEIP55Address("0x2a3e23c6f242F5345320814aC8a1b4E58707D292")
 		require.NoError(t, err)
-		if got.EVM[c].Workflow.FromAddress == nil {
-			got.EVM[c].Workflow.FromAddress = &addr
-		}
-		if got.EVM[c].Workflow.ForwarderAddress == nil {
-			got.EVM[c].Workflow.ForwarderAddress = &addr
-		}
-		if got.EVM[c].Workflow.GasLimitDefault == nil {
-			got.EVM[c].Workflow.GasLimitDefault = ptr(uint64(400000))
+		// set values for WriteCapablity. TODO; remove this when toml is updated to use WriteCapability instead of Workflow
+		got.EVM[c].WriteCapability = evmcfg.WriteCapability{
+			ForwarderAddress:  &addr,
+			FromAddress:       &addr,
+			GasLimitDefault:   ptr(uint64(400000)),
+			TxAcceptanceState: ptr(commontypes.Unconfirmed),
+			PollPeriod:        commoncfg.MustNewDuration(time.Second * 2),
+			AcceptanceTimeout: commoncfg.MustNewDuration(time.Second * 30),
 		}
 		for n := range got.EVM[c].Nodes {
 			if got.EVM[c].Nodes[n].WSURL == nil {
@@ -1596,7 +1602,7 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 	}{
 		{name: "empty", wantEffective: emptyEffectiveTOML, wantSecrets: emptyEffectiveSecretsTOML},
 		{name: "full", inputSecrets: secretsFullTOML, inputConfig: fullTOML,
-			wantConfig: fullTOML, wantEffective: fullTOML, wantSecrets: secretsFullRedactedTOML, wantWarning: deprecated},
+			wantConfig: fullTOML, wantEffective: fullEffectiveTOML, wantSecrets: secretsFullRedactedTOML, wantWarning: deprecated},
 		{name: "multi-chain", inputSecrets: secretsMultiTOML, inputConfig: multiChainTOML,
 			wantConfig: multiChainTOML, wantEffective: multiChainEffectiveTOML, wantSecrets: secretsMultiRedactedTOML},
 	}
