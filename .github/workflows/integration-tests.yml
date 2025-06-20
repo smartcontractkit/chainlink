@@ -210,7 +210,7 @@ jobs:
 
       - name: Build Chainlink Image
         if: needs.changes.outputs.should-run-core-tests == 'true' || needs.changes.outputs.should-run-cre-tests == 'true' || needs.changes.outputs.should-run-ccip-tests == 'true'
-        uses: smartcontractkit/.github/actions/ctf-build-image@feat/refactor-ctf-build-image
+        uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/v1
         with:
           image-tag: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
