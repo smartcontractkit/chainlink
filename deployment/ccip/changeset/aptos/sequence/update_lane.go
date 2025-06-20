@@ -149,7 +149,7 @@ func setAptosSourceUpdates(lane config.LaneConfig, updateInputsByAptosChain map[
 		input.UpdateFeeQuoterPricesConfig.TokenPrices = make(map[string]*big.Int)
 	}
 	for tokenAddr, price := range source.TokenPrices {
-		input.UpdateFeeQuoterPricesConfig.TokenPrices[tokenAddr] = price
+		input.UpdateFeeQuoterPricesConfig.TokenPrices[tokenAddr.StringLong()] = price
 	}
 
 	// Setting the fee quoter destination on the source chain

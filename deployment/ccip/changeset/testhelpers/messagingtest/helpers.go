@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
@@ -13,11 +14,11 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -105,7 +106,7 @@ const (
 type TestCaseOutput struct {
 	Replayed     bool
 	Nonce        uint64
-	MsgSentEvent *onramp.OnRampCCIPMessageSent
+	MsgSentEvent *testhelpers.AnyMsgSentEvent
 }
 
 func getLatestNonce(tc TestCase) uint64 {
@@ -173,7 +174,18 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 			FeeToken:     feeToken,
 			ExtraArgs:    tc.ExtraArgs,
 		}
-
+	case chain_selectors.FamilyAptos:
+		feeToken := aptos.AccountAddress{}
+		if len(tc.FeeToken) > 0 {
+			feeToken = aptoscs.MustParseAddress(t, tc.FeeToken)
+		}
+		msg = testhelpers.AptosSendRequest{
+			Data:         tc.MsgData,
+			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
+			ExtraArgs:    tc.ExtraArgs,
+			FeeToken:     feeToken,
+			TokenAmounts: nil,
+		}
 	default:
 		tc.T.Errorf("unsupported source chain: %v", family)
 	}
@@ -201,7 +213,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 
 	expectedSeqNumRange := map[testhelpers.SourceDestPair]ccipocr3.SeqNumRange{}
 	expectedSeqNumExec := map[testhelpers.SourceDestPair][]uint64{}
-	msgSentEvents := make([]*onramp.OnRampCCIPMessageSent, tc.NumberOfMessages)
+	msgSentEvents := make([]*testhelpers.AnyMsgSentEvent, tc.NumberOfMessages)
 	sourceDest := testhelpers.SourceDestPair{
 		SourceChainSelector: tc.SourceChain,
 		DestChainSelector:   tc.DestChain,
@@ -267,8 +279,15 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		family, err := chain_selectors.GetSelectorFamily(tc.DestChain)
 		require.NoError(tc.T, err)
 
+		unorderedExec := false
+		switch family {
 		// Solana doesn't support catching CPI errors, so nonces can't be ordered
-		unorderedExec := family == chain_selectors.FamilySolana
+		case chain_selectors.FamilySolana:
+			unorderedExec = true
+		// Aptos does only support out-of-order execution
+		case chain_selectors.FamilyAptos:
+			unorderedExec = true
+		}
 
 		if !unorderedExec {
 			latestNonce := getLatestNonce(tc)
