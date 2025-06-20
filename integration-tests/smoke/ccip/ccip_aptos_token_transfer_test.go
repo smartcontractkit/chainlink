@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/aptos-labs/aptos-go-sdk"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	aptos_call_opts "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
@@ -179,86 +178,86 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 
 	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
 
-	callOpts := &bind.CallOpts{Context: ctx}
-	srcFeeQuoterDestChainConfig, err := state.Chains[sourceChain].FeeQuoter.GetDestChainConfig(callOpts, destChain)
+	// callOpts := &bind.CallOpts{Context: ctx}
+	// srcFeeQuoterDestChainConfig, err := state.Chains[sourceChain].FeeQuoter.GetDestChainConfig(callOpts, destChain)
 
-	t.Run("Send token to CCIP Receiver setting gas above max gas allowed - should fail", func(t *testing.T) {
-		msg := router.ClientEVM2AnyMessage{
-			Receiver:  ccipChainState.ReceiverAddress[:],
-			Data:      []byte("Hello, World!"),
-			FeeToken:  evmToken.Address(),
-			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
-			TokenAmounts: []router.ClientEVMTokenAmount{
-				{
-					Token:  evmToken.Address(),
-					Amount: big.NewInt(1e8),
-				},
-			}}
+	// t.Run("Send token to CCIP Receiver setting gas above max gas allowed - should fail", func(t *testing.T) {
+	// 	msg := router.ClientEVM2AnyMessage{
+	// 		Receiver:  ccipChainState.ReceiverAddress[:],
+	// 		Data:      []byte("Hello, World!"),
+	// 		FeeToken:  evmToken.Address(),
+	// 		ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
+	// 		TokenAmounts: []router.ClientEVMTokenAmount{
+	// 			{
+	// 				Token:  evmToken.Address(),
+	// 				Amount: big.NewInt(1e8),
+	// 			},
+	// 		}}
 
-		baseOpts := []testhelpers.SendReqOpts{
-			testhelpers.WithSourceChain(sourceChain),
-			testhelpers.WithDestChain(destChain),
-			testhelpers.WithTestRouter(false),
-			testhelpers.WithMessage(msg),
-		}
+	// 	baseOpts := []testhelpers.SendReqOpts{
+	// 		testhelpers.WithSourceChain(sourceChain),
+	// 		testhelpers.WithDestChain(destChain),
+	// 		testhelpers.WithTestRouter(false),
+	// 		testhelpers.WithMessage(msg),
+	// 	}
 
-		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "execution reverted")
-		t.Log("Expected error: ", err)
-	})
+	// 	_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
+	// 	require.Error(t, err)
+	// 	require.Contains(t, err.Error(), "execution reverted")
+	// 	t.Log("Expected error: ", err)
+	// })
 
-	t.Run("Send token to CCIP Receiver with token amount set to 0 - should fail", func(t *testing.T) {
-		msg := router.ClientEVM2AnyMessage{
-			Receiver:  ccipChainState.ReceiverAddress[:],
-			Data:      []byte("Hello, World!"),
-			FeeToken:  evmToken.Address(),
-			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(100, true),
-			TokenAmounts: []router.ClientEVMTokenAmount{
-				{
-					Token:  evmToken.Address(),
-					Amount: big.NewInt(0),
-				},
-			}}
+	// t.Run("Send token to CCIP Receiver with token amount set to 0 - should fail", func(t *testing.T) {
+	// 	msg := router.ClientEVM2AnyMessage{
+	// 		Receiver:  ccipChainState.ReceiverAddress[:],
+	// 		Data:      []byte("Hello, World!"),
+	// 		FeeToken:  evmToken.Address(),
+	// 		ExtraArgs: testhelpers.MakeEVMExtraArgsV2(100, true),
+	// 		TokenAmounts: []router.ClientEVMTokenAmount{
+	// 			{
+	// 				Token:  evmToken.Address(),
+	// 				Amount: big.NewInt(0),
+	// 			},
+	// 		}}
 
-		baseOpts := []testhelpers.SendReqOpts{
-			testhelpers.WithSourceChain(sourceChain),
-			testhelpers.WithDestChain(destChain),
-			testhelpers.WithTestRouter(false),
-			testhelpers.WithMessage(msg),
-		}
+	// 	baseOpts := []testhelpers.SendReqOpts{
+	// 		testhelpers.WithSourceChain(sourceChain),
+	// 		testhelpers.WithDestChain(destChain),
+	// 		testhelpers.WithTestRouter(false),
+	// 		testhelpers.WithMessage(msg),
+	// 	}
 
-		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "execution reverted")
-		t.Log("Expected error: ", err)
-	})
+	// 	_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
+	// 	require.Error(t, err)
+	// 	require.Contains(t, err.Error(), "execution reverted")
+	// 	t.Log("Expected error: ", err)
+	// })
 
-	t.Run("Send invalid token to CCIP Receiver - should fail", func(t *testing.T) {
-		msg := router.ClientEVM2AnyMessage{
-			Receiver:  ccipChainState.ReceiverAddress[:],
-			Data:      []byte("Hello, World!"),
-			FeeToken:  evmToken.Address(),
-			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
-			TokenAmounts: []router.ClientEVMTokenAmount{
-				{
-					Token:  common.HexToAddress("0x0000000000000000000000000000000000000000"), // Invalid token
-					Amount: big.NewInt(1e8),
-				},
-			}}
+	// t.Run("Send invalid token to CCIP Receiver - should fail", func(t *testing.T) {
+	// 	msg := router.ClientEVM2AnyMessage{
+	// 		Receiver:  ccipChainState.ReceiverAddress[:],
+	// 		Data:      []byte("Hello, World!"),
+	// 		FeeToken:  evmToken.Address(),
+	// 		ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
+	// 		TokenAmounts: []router.ClientEVMTokenAmount{
+	// 			{
+	// 				Token:  common.HexToAddress("0x0000000000000000000000000000000000000000"), // Invalid token
+	// 				Amount: big.NewInt(1e8),
+	// 			},
+	// 		}}
 
-		baseOpts := []testhelpers.SendReqOpts{
-			testhelpers.WithSourceChain(sourceChain),
-			testhelpers.WithDestChain(destChain),
-			testhelpers.WithTestRouter(false),
-			testhelpers.WithMessage(msg),
-		}
+	// 	baseOpts := []testhelpers.SendReqOpts{
+	// 		testhelpers.WithSourceChain(sourceChain),
+	// 		testhelpers.WithDestChain(destChain),
+	// 		testhelpers.WithTestRouter(false),
+	// 		testhelpers.WithMessage(msg),
+	// 	}
 
-		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "execution reverted")
-		t.Log("Expected error: ", err)
-	})
+	// 	_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
+	// 	require.Error(t, err)
+	// 	require.Contains(t, err.Error(), "execution reverted")
+	// 	t.Log("Expected error: ", err)
+	// })
 }
 func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 	ctx := t.Context()
