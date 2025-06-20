@@ -75,7 +75,7 @@ type Report struct {
 	// internal state
 	mu    sync.RWMutex
 	ready bool
-	
+
 	// meteringMode turns off double spend checks.
 	// In meteringMode, no accounting wrt universal credits is required;
 	// only gathering resource types and spends from capabilities.
@@ -190,11 +190,7 @@ func (r *Report) Deduct(ref string, amount decimal.Decimal) error {
 		return nil
 	}
 
-	if err := r.balance.Minus(amount); err != nil {
-		return err
-	}
-
-	return nil
+	return r.balance.Minus(amount)
 }
 
 // CreditToSpendingLimits returns a slice of spend limits where the amount is applied to the spend types from the
