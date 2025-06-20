@@ -518,7 +518,7 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 		}
 
 		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
-		assertAptosSourceRevertExpectedError(t, err, "ABORTED", "invalid input")
+		assertAptosSourceRevertExpectedError(t, err, "ABORTED", "invalid_input")
 		t.Log("Expected error: ", err)
 	})
 
