@@ -132,7 +132,5 @@ jobs:
         with:
           name: node logs
           path: |
-            system-tests/tests/load/cre/logs/*.log
-            system-tests/tests/load/cre/logs/**/*.log
-            system-tests/tests/load/cre/logs/**/logs/
+            system-tests/tests/load/cre/logs
           retention-days: 1
