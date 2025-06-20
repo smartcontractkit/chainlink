@@ -228,16 +228,16 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 				_, _ = testhelpers.TransferOwnershipSolana(
 					t, &e, solChain, false,
 					ccipChangesetSolana.CCIPContractsToTransfer{
-						BurnMintTokenPools: map[string]solana.PublicKey{
-							tokenMetadata: tokenAddress,
+						BurnMintTokenPools: map[string][]solana.PublicKey{
+							tokenMetadata: {tokenAddress},
 						},
 					})
 			} else if testCase.poolType == solTestTokenPool.LockAndRelease_PoolType {
 				_, _ = testhelpers.TransferOwnershipSolana(
 					t, &e, solChain, false,
 					ccipChangesetSolana.CCIPContractsToTransfer{
-						LockReleaseTokenPools: map[string]solana.PublicKey{
-							tokenMetadata: tokenAddress,
+						LockReleaseTokenPools: map[string][]solana.PublicKey{
+							tokenMetadata: {tokenAddress},
 						},
 					})
 			}
@@ -379,8 +379,8 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 								ProposedOwner: deployerKey,
 								ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
 									solChain: ccipChangesetSolana.CCIPContractsToTransfer{
-										BurnMintTokenPools: map[string]solana.PublicKey{
-											tokenMetadata: tokenAddress,
+										BurnMintTokenPools: map[string][]solana.PublicKey{
+											tokenMetadata: {tokenAddress},
 										},
 									},
 								},
@@ -398,8 +398,8 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 								ProposedOwner: deployerKey,
 								ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
 									solChain: ccipChangesetSolana.CCIPContractsToTransfer{
-										LockReleaseTokenPools: map[string]solana.PublicKey{
-											tokenMetadata: tokenAddress,
+										LockReleaseTokenPools: map[string][]solana.PublicKey{
+											tokenMetadata: {tokenAddress},
 										},
 									},
 								},
@@ -560,6 +560,7 @@ func TestAddTokenPoolE2EWitMcms(t *testing.T) {
 				ConfigureTokenPoolContractsChangesets: []v1_5_1.ConfigureTokenPoolContractsConfig{
 					{
 						TokenSymbol: testhelpers.TestTokenSymbol,
+						MCMS:        mcmsConfig,
 						PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
 							evmChain: {
 								Type:    shared.BurnMintTokenPool,

@@ -31,8 +31,8 @@ type CCIPContractsToTransfer struct {
 	FeeQuoter bool
 	OffRamp   bool
 	// metadata -> Token Mint
-	LockReleaseTokenPools map[string]solana.PublicKey
-	BurnMintTokenPools    map[string]solana.PublicKey
+	LockReleaseTokenPools map[string][]solana.PublicKey
+	BurnMintTokenPools    map[string][]solana.PublicKey
 	RMNRemote             bool
 }
 
@@ -227,50 +227,54 @@ func TransferCCIPToMCMSWithTimelockSolana(
 				Transactions:  mcmsTxs,
 			})
 		}
-		for metadata, tokenMint := range contractsToTransfer.LockReleaseTokenPools {
-			lockReleaseTokenPool := ccipState.SolChains[chainSelector].LockReleaseTokenPools[metadata]
-			tokenPoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenMint, lockReleaseTokenPool)
-			mcmsTxs, err := transferOwnershipLockReleaseTokenPools(
-				ccipState,
-				tokenPoolConfigPDA,
-				tokenMint,
-				chainSelector,
-				solChain,
-				metadata,
-				currentOwner,
-				proposedOwner,
-				timelockSigner,
-			)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of lock-release token pools: %w", err)
+		for metadata, tokenMints := range contractsToTransfer.LockReleaseTokenPools {
+			for _, tokenMint := range tokenMints {
+				lockReleaseTokenPool := ccipState.SolChains[chainSelector].LockReleaseTokenPools[metadata]
+				tokenPoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenMint, lockReleaseTokenPool)
+				mcmsTxs, err := transferOwnershipLockReleaseTokenPools(
+					ccipState,
+					tokenPoolConfigPDA,
+					tokenMint,
+					chainSelector,
+					solChain,
+					metadata,
+					currentOwner,
+					proposedOwner,
+					timelockSigner,
+				)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of lock-release token pools: %w", err)
+				}
+				batches = append(batches, mcmsTypes.BatchOperation{
+					ChainSelector: mcmsTypes.ChainSelector(chainSelector),
+					Transactions:  mcmsTxs,
+				})
 			}
-			batches = append(batches, mcmsTypes.BatchOperation{
-				ChainSelector: mcmsTypes.ChainSelector(chainSelector),
-				Transactions:  mcmsTxs,
-			})
 		}
 
-		for metadata, tokenMint := range contractsToTransfer.BurnMintTokenPools {
-			burnMintTokenPool := ccipState.SolChains[chainSelector].BurnMintTokenPools[metadata]
-			tokenPoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenMint, burnMintTokenPool)
-			mcmsTxs, err := transferOwnershipBurnMintTokenPools(
-				ccipState,
-				tokenPoolConfigPDA,
-				tokenMint,
-				chainSelector,
-				solChain,
-				metadata,
-				currentOwner,
-				proposedOwner,
-				timelockSigner,
-			)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of burn-mint token pools: %w", err)
+		for metadata, tokenMints := range contractsToTransfer.BurnMintTokenPools {
+			for _, tokenMint := range tokenMints {
+				burnMintTokenPool := ccipState.SolChains[chainSelector].BurnMintTokenPools[metadata]
+				tokenPoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenMint, burnMintTokenPool)
+				mcmsTxs, err := transferOwnershipBurnMintTokenPools(
+					ccipState,
+					tokenPoolConfigPDA,
+					tokenMint,
+					chainSelector,
+					solChain,
+					metadata,
+					currentOwner,
+					proposedOwner,
+					timelockSigner,
+				)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of burn-mint token pools: %w", err)
+				}
+				batches = append(batches, mcmsTypes.BatchOperation{
+					ChainSelector: mcmsTypes.ChainSelector(chainSelector),
+					Transactions:  mcmsTxs,
+				})
 			}
-			batches = append(batches, mcmsTypes.BatchOperation{
-				ChainSelector: mcmsTypes.ChainSelector(chainSelector),
-				Transactions:  mcmsTxs,
-			})
 		}
 
 		if contractsToTransfer.RMNRemote {
