@@ -115,12 +115,14 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 
 	var accountIds []string
 	var signers []crypto.Signer
-	key, err := d.ks.P2P().GetOrFirst(d.peerWrapper.PeerID)
-	if err != nil {
-		log.Warnw("Failed to get P2P key", "error", err, "peerID", d.peerWrapper.PeerID)
-	} else {
-		accountIds = append(accountIds, "P2P_SIGNER")
-		signers = append(signers, key)
+	if d.ks.P2P() != nil && d.peerWrapper != nil {
+		key, err := d.ks.P2P().GetOrFirst(d.peerWrapper.PeerID)
+		if err != nil {
+			log.Warnw("Failed to get P2P key", "error", err, "peerID", d.peerWrapper.PeerID)
+		} else {
+			accountIds = append(accountIds, "P2P_SIGNER")
+			signers = append(signers, key)
+		}
 	}
 	keystore := core.NewMultiAccountSigner(accountIds, signers)
 
