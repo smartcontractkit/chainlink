@@ -68,6 +68,18 @@ jobs:
         if:  ${{ github.event_name == 'pull_request' }}
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
+      - name: Start cAdvisor
+        shell: bash
+        run: |
+          docker run -d \
+            --name cadvisor \
+            --volume=/:/rootfs:ro \
+            --volume=/var/run:/var/run:ro \
+            --volume=/sys:/sys:ro \
+            --volume=/var/lib/docker/:/var/lib/docker:ro \
+            --publish=8080:8080 \
+            gcr.io/cadvisor/cadvisor:latest
+
       - name: Start the test
         shell: bash
         env:
@@ -85,17 +97,20 @@ jobs:
           cd system-tests/tests/load/cre
           go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 15m
 
-      - name: Stream first few stats via Remote API
+      - name: Fetch container metrics
+        shell: bash
         run: |
-          echo "Streaming stats for all running containers"
-          for CID in $(docker ps -q); do
-            echo "— Container: $CID"
-            timeout 5s \
-              curl -s --unix-socket /var/run/docker.sock \
-                "http://localhost/containers/$CID/stats?stream=1" \
-              | head -n 5
-            echo
-          done
+          echo "=== Sample cAdvisor metrics ==="
+          curl -s http://localhost:8080/metrics \
+            | grep '^container_.*{.*name="' \
+            | head -n 20
+
+      - name: Cleanup
+        if: always()
+        shell: bash
+        run: |
+          docker stop cadvisor
+          docker rm   cadvisor
 
       - name: Upload node logs and metrics as artifact
         if: always()
