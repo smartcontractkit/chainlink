@@ -99,15 +99,19 @@ jobs:
           cd system-tests/tests/load/cre
           go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 15m
 
-      - name: Debug directory structure
+      - name: Debug log files
         if: always()
         shell: bash
         run: |
           echo "Current directory: $(pwd)"
-          echo "Checking if directory exists:"
-          ls -la system-tests/tests/load/cre/logs/metrics/ || echo "Metrics directory doesn't exist"
-          echo "Looking for any PID files:"
-          find . -name "*.pid" || echo "No PID files found anywhere"
+          echo "Checking logs structure:"
+          find system-tests/tests/load/cre/logs -type f | sort || echo "No log files found"
+          
+          echo "Files in the test directory:"
+          find system-tests/tests/load/cre -name "*.log" || echo "No .log files found"
+          
+          echo "Total files by extension:"
+          find system-tests/tests/load/cre -type f | grep -v "/\." | rev | cut -d. -f1 | rev | sort | uniq -c || echo "No files found"
 
       - name: Stop all streams and inspect files
         if: always()
