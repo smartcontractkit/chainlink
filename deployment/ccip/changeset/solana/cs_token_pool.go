@@ -133,17 +133,11 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		return cldf.ChangesetOutput{}, err
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	addressBook := cldf.NewMemoryAddressBook() //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+	addressBook := cldf.NewMemoryAddressBook()
 
 	for _, tokenPoolCfg := range cfg.TokenPoolConfigs {
 		tokenPubKey := tokenPoolCfg.TokenPubKey
 		tokenPool, _ := chainState.GetActiveTokenPool(*tokenPoolCfg.PoolType, tokenPoolCfg.Metadata)
-
-		if *tokenPoolCfg.PoolType == solTestTokenPool.BurnAndMint_PoolType {
-			solBurnMintTokenPool.SetProgramID(tokenPool)
-		} else if *tokenPoolCfg.PoolType == solTestTokenPool.LockAndRelease_PoolType {
-			solLockReleaseTokenPool.SetProgramID(tokenPool)
-		}
 
 		// verified
 		tokenprogramID, _ := chainState.TokenToTokenProgram(tokenPubKey)
@@ -170,6 +164,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		}
 		switch *tokenPoolCfg.PoolType {
 		case solTestTokenPool.BurnAndMint_PoolType:
+			solBurnMintTokenPool.SetProgramID(tokenPool)
 			// initialize token pool for token
 			poolInitI, err = solBurnMintTokenPool.NewInitializeInstruction(
 				routerProgramAddress,
@@ -182,6 +177,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 				programData.Address,
 			).ValidateAndBuild()
 		case solTestTokenPool.LockAndRelease_PoolType:
+			solLockReleaseTokenPool.SetProgramID(tokenPool)
 			// initialize token pool for token
 			poolInitI, err = solLockReleaseTokenPool.NewInitializeInstruction(
 				routerProgramAddress,
@@ -231,7 +227,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add token pool lookup table: %w", err)
 		}
-		err = addressBook.Merge(csOutput.AddressBook)
+		err = addressBook.Merge(csOutput.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
 		}

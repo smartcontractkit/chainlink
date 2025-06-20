@@ -1,12 +1,13 @@
 package solana
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	"github.com/smartcontractkit/mcms"
 
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
@@ -148,13 +149,13 @@ type E2ETokenConfig struct {
 
 func (cfg E2ETokenConfig) Validate() error {
 	if cfg.PoolType == nil {
-		return fmt.Errorf("pool type is required")
+		return errors.New("pool type is required")
 	}
 	if cfg.TokenPubKey.IsZero() {
-		return fmt.Errorf("token pubkey is required")
+		return errors.New("token pubkey is required")
 	}
 	if cfg.Metadata == "" {
-		return fmt.Errorf("metadata is required")
+		return errors.New("metadata is required")
 	}
 	return nil
 }
@@ -280,31 +281,52 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 		}
 	}
 	output, err := AddTokenPoolAndLookupTable(e, tokenPoolAndLookupTableCfg)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to add token pool and lookup table: %w", err)
+	}
 	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running AddTokenPoolAndLookupTable: %w", err)
 	}
 	output, err = SetupTokenPoolForRemoteChain(e, remotePoolConfig)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to setup token pool for remote chain: %w", err)
+	}
 	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running SetupTokenPoolForRemoteChain: %w", err)
 	}
 	output, err = RegisterTokenAdminRegistry(e, registerTokenAdminRegistryCfg)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to register token admin registry: %w", err)
+	}
 	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running RegisterTokenAdminRegistry: %w", err)
 	}
 	output, err = AcceptAdminRoleTokenAdminRegistry(e, acceptAdminRoleTokenAdminRegistryCfg)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to accept admin role: %w", err)
+	}
 	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running AcceptAdminRoleTokenAdminRegistry: %w", err)
 	}
 	output, err = SetPool(e, setPoolCfg)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to set pool: %w", err)
+	}
 	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running SetPool: %w", err)
 	}
 	output, err = v1_5_1.ConfigureMultiplePoolLogic(e, evmToSolanaRemotePoolCfg)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure token pool contracts: %w", err)
+	}
 	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running ConfigureTokenPoolContractsChangeset: %w", err)
 	}
 	// now that all thats done, lets transfer away the pool to timelock
 	output, err = TransferCCIPToMCMSWithTimelockSolana(e, transferPoolToTimelockConfig)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ccip to mcms with timelock: %w", err)
+	}
 	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running TransferCCIPToMCMSWithTimelockSolana: %w", err)
 	}
