@@ -169,7 +169,7 @@ func (s *service) HandleUserRequest(ctx context.Context, request *jsonrpc2.Reque
 	}
 }
 
-func (s *service) HandleNodeRequest(ctx context.Context, msg *api.Message, nodeAddr string) error {
+func (s *service) HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
 	// TODO: Implement this
 	return nil
 }

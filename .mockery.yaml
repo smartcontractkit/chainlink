@@ -133,7 +133,8 @@ packages:
       Signer:
   github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers:
     interfaces:
-      Handler:
+      UserMessageHandler:
+      NodeMessageHandler:
       DON:
   github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist:
     interfaces:
