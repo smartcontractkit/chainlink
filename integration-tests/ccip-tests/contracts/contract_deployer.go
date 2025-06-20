@@ -216,8 +216,8 @@ func (e *CCIPContractsDeployer) DeployBurnMintERC20(ownerMintingAmount *big.Int)
 		return burn_mint_erc20.DeployBurnMintERC20(
 			auth,
 			wrappers.MustNewWrappedContractBackend(e.evmClient, nil),
-			"Test Token ERC677",
-			"TERC677",
+			"Test Token ERC20",
+			"TERC20",
 			6,
 			new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9)),
 			big.NewInt(0),

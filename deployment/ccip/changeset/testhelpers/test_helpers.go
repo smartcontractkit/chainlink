@@ -1761,7 +1761,7 @@ func deployTransferTokenOneEnd(
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy Token ERC677", "err", err)
+		lggr.Errorw("Failed to deploy Token ERC20", "err", err)
 		return nil, nil, err
 	}
 

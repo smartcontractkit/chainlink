@@ -38,18 +38,16 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/log_message_data_receiver"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/token_pool_factory"
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_with_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc677"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -67,7 +65,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/burn_mint_erc20_helper"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/burn_mint_erc677_helper"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
@@ -1041,20 +1039,6 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			state.FactoryBurnMintERC20Token = tok
 			state.ABIByAddress[address] = factory_burn_mint_erc20.FactoryBurnMintERC20ABI
-		case cldf.NewTypeAndVersion(ccipshared.ERC677Token, deployment.Version1_0_0).String():
-			tok, err := erc677.NewERC677(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			if state.ERC677Tokens == nil {
-				state.ERC677Tokens = make(map[ccipshared.TokenSymbol]*erc677.ERC677)
-			}
-			symbol, err := tok.Symbol(nil)
-			if err != nil {
-				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
-			}
-			state.ERC677Tokens[ccipshared.TokenSymbol(symbol)] = tok
-			state.ABIByAddress[address] = erc677.ERC677ABI
 		// legacy addresses below
 		case cldf.NewTypeAndVersion(ccipshared.OnRamp, deployment.Version1_5_0).String():
 			onRampC, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(common.HexToAddress(address), chain.Client)
@@ -1133,20 +1117,20 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			state.DonIDClaimer = donIDClaimer
 			state.ABIByAddress[address] = don_id_claimer.DonIDClaimerABI
 		case cldf.NewTypeAndVersion(ccipshared.ERC677TokenHelper, deployment.Version1_0_0).String():
-			ERC677HelperToken, err := burn_mint_erc20_helper.NewBurnMintERC20Helper(common.HexToAddress(address), chain.Client)
+			ERC677HelperToken, err := burn_mint_erc677_helper.NewBurnMintERC677Helper(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 
 			if state.BurnMintTokens677Helper == nil {
-				state.BurnMintTokens677Helper = make(map[ccipshared.TokenSymbol]*burn_mint_erc20_helper.BurnMintERC20Helper)
+				state.BurnMintTokens677Helper = make(map[ccipshared.TokenSymbol]*burn_mint_erc677_helper.BurnMintERC677Helper)
 			}
 			symbol, err := ERC677HelperToken.Symbol(nil)
 			if err != nil {
 				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
 			}
 			state.BurnMintTokens677Helper[ccipshared.TokenSymbol(symbol)] = ERC677HelperToken
-			state.ABIByAddress[address] = burn_mint_erc20_helper.BurnMintERC20HelperABI
+			state.ABIByAddress[address] = burn_mint_erc677_helper.BurnMintERC677HelperABI
 		default:
 			// ManyChainMultiSig 1.0.0 can have any of these labels, it can have either 1,2 or 3 of these -
 			// bypasser, proposer and canceller

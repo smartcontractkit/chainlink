@@ -40,7 +40,6 @@ var (
 	BurnMintToken                                   deployment.ContractType = "BurnMintToken"
 	FactoryBurnMintERC20Token                       deployment.ContractType = "FactoryBurnMintERC20Token"
 	ERC20Token                                      deployment.ContractType = "ERC20Token"
-	ERC677Token                                     deployment.ContractType = "ERC677Token"
 	ERC677TokenHelper                               deployment.ContractType = "ERC677TokenHelper"
 	BurnMintTokenPool                               deployment.ContractType = "BurnMintTokenPool"
 	BurnWithFromMintTokenPool                       deployment.ContractType = "BurnWithFromMintTokenPool"
