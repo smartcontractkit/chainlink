@@ -111,7 +111,7 @@ func Test_Report_Reserve(t *testing.T) {
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
 			Return(&failureReserveResponse, nil)
 		require.ErrorIs(t, report.Reserve(t.Context()), ErrInsufficientFunding)
-		assert.False(t, report.balance.meteringMode)
+		assert.False(t, report.meteringMode)
 		assert.Empty(t, logs.All())
 		billingClient.AssertExpectations(t)
 	})
@@ -126,7 +126,7 @@ func Test_Report_Reserve(t *testing.T) {
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
 			Return(&successReserveResponse, nil)
 		require.NoError(t, report.Reserve(t.Context()))
-		assert.False(t, report.balance.meteringMode)
+		assert.False(t, report.meteringMode)
 		assert.Empty(t, logs.All())
 		billingClient.AssertExpectations(t)
 	})
@@ -711,7 +711,7 @@ func Test_Report_MeteringMode(t *testing.T) {
 			report := newTestReport(t, logger.Nop(), nil)
 
 			require.NoError(t, report.Reserve(t.Context()))
-			assert.True(t, report.balance.meteringMode)
+			assert.True(t, report.meteringMode)
 		})
 
 		t.Run("if billing client returns an error", func(t *testing.T) {
@@ -722,7 +722,7 @@ func Test_Report_MeteringMode(t *testing.T) {
 
 			billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(nil, errors.New("some err"))
 			require.NoError(t, report.Reserve(t.Context()))
-			require.True(t, report.balance.meteringMode)
+			require.True(t, report.meteringMode)
 			billingClient.AssertExpectations(t)
 		})
 
@@ -738,7 +738,7 @@ func Test_Report_MeteringMode(t *testing.T) {
 					{ResourceUnit: "unit", ConversionRate: "invalid"},
 				}, Credits: 10_000}, nil)
 			require.NoError(t, report.Reserve(t.Context()))
-			require.True(t, report.balance.meteringMode)
+			require.True(t, report.meteringMode)
 			assert.Len(t, logs.All(), 1)
 			billingClient.AssertExpectations(t)
 		})
@@ -760,7 +760,7 @@ func Test_Report_MeteringMode(t *testing.T) {
 		amount, err := report.ConvertToBalance(testUnitA, decimal.NewFromInt(1))
 		require.NoError(t, err)
 		assert.True(t, amount.Equal(decimal.NewFromInt(1)))
-		require.True(t, report.balance.meteringMode)
+		require.True(t, report.meteringMode)
 		assert.Len(t, logs.All(), 1)
 		billingClient.AssertExpectations(t)
 	})
@@ -844,7 +844,7 @@ func Test_Report_MeteringMode(t *testing.T) {
 		}, decimal.NewFromInt(1_000))
 
 		assert.Nil(t, limits)
-		assert.True(t, report.balance.meteringMode)
+		assert.True(t, report.meteringMode)
 		assert.Len(t, logs.All(), 1)
 		billingClient.AssertExpectations(t)
 	})

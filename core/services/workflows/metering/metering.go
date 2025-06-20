@@ -73,9 +73,15 @@ type Report struct {
 	lggr    logger.Logger
 
 	// internal state
-	ready bool
 	mu    sync.RWMutex
-	steps map[string]ReportStep
+	ready bool
+	
+	// meteringMode turns off double spend checks.
+	// In meteringMode, no accounting wrt universal credits is required;
+	// only gathering resource types and spends from capabilities.
+	// note: meteringMode == true allows negative balances.
+	meteringMode bool
+	steps        map[string]ReportStep
 }
 
 func NewReport(owner, workflowID, workflowExecutionID string, lggr logger.Logger, client BillingClient) *Report {
@@ -90,8 +96,9 @@ func NewReport(owner, workflowID, workflowExecutionID string, lggr logger.Logger
 		client:  client,
 		lggr:    sLggr,
 
-		ready: false,
-		steps: make(map[string]ReportStep),
+		ready:        false,
+		meteringMode: false,
+		steps:        make(map[string]ReportStep),
 	}
 }
 
@@ -150,7 +157,13 @@ func (r *Report) ConvertToBalance(fromUnit string, amount decimal.Decimal) (deci
 		return decimal.Zero, ErrNoReserve
 	}
 
-	return r.balance.ConvertToBalance(fromUnit, amount), nil
+	bal, err := r.balance.ConvertToBalance(fromUnit, amount)
+	if err != nil {
+		// Fail open, continue optimistically
+		r.switchToMeteringMode(err)
+	}
+
+	return bal, nil
 }
 
 // Deduct earmarks an amount of local universal credit balance. We expect to only set this value once - an error is
@@ -173,12 +186,11 @@ func (r *Report) Deduct(ref string, amount decimal.Decimal) error {
 	}
 
 	// if in metering mode, exit early without modifying local balance
-	if r.balance.meteringMode {
+	if r.meteringMode {
 		return nil
 	}
 
-	err := r.balance.Minus(amount)
-	if err != nil {
+	if err := r.balance.Minus(amount); err != nil {
 		return err
 	}
 
@@ -197,10 +209,10 @@ func (r *Report) CreditToSpendingLimits(
 		spendType := info.SpendTypes[0]
 
 		// use rate card to convert capSpendLimit to native units
-		spendLimit := r.balance.ConvertFromBalance(string(spendType), amount)
+		spendLimit, err := r.balance.ConvertFromBalance(string(spendType), amount)
+		if err != nil {
+			r.switchToMeteringMode(err)
 
-		// check to see if metering mode is active
-		if r.balance.meteringMode {
 			return nil
 		}
 
@@ -232,7 +244,7 @@ func (r *Report) GetMaxSpendForInvocation(
 		return nullCapSpendLimit, ErrNoReserve
 	}
 
-	if r.balance.meteringMode {
+	if r.meteringMode {
 		return nullCapSpendLimit, nil
 	}
 
@@ -293,14 +305,19 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 		}
 
 		aggregateSpend := medianSpend(deciVals)
-		spentCredits = spentCredits.Add(r.balance.ConvertToBalance(unit, aggregateSpend))
+		bal, err := r.balance.ConvertToBalance(unit, aggregateSpend)
+		if err != nil {
+			r.switchToMeteringMode(err)
+		}
+
+		spentCredits = spentCredits.Add(bal)
 	}
 
 	step.Spends = resourceSpends
 	r.steps[ref] = step
 
 	// if in metering mode, exit early without modifying local balance
-	if r.balance.meteringMode {
+	if r.meteringMode {
 		return nil
 	}
 
@@ -371,8 +388,8 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 }
 
 func (r *Report) switchToMeteringMode(err error) {
-	r.lggr.Warnf("failed to parse rate card; switching to metering mode: %s", err)
-	r.balance.meteringMode = true
+	r.lggr.Errorf("switching to metering mode: %s", err)
+	r.meteringMode = true
 	r.ready = true
 }
 
