@@ -232,7 +232,7 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			}
 		}
 	} else {
-		s.lggr.Errorw("received trigger event with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender)
+		s.lggr.Errorw("received trigger event with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender, "err", SanitizeLogString(msg.ErrorMsg))
 	}
 }
 

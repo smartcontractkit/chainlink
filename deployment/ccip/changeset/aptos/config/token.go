@@ -35,7 +35,6 @@ func (tp TokenParams) Validate() error {
 }
 
 type TokenMint struct {
-	Amount              uint64
-	To                  aptos.AccountAddress
-	TokenCodeObjAddress aptos.AccountAddress
+	Amount uint64
+	To     aptos.AccountAddress
 }
