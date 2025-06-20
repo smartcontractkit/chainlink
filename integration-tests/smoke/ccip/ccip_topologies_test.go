@@ -35,7 +35,7 @@ func Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest(t *tes
 		fChainDest   = 1
 	)
 
-	// Setup 2 chains and a single lane.
+	// Setup 3 chains and a single lane.
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(len(chains)),
