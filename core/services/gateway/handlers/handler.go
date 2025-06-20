@@ -36,6 +36,14 @@ type Handler interface {
 	HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error
 }
 
+type NodeMessageHandler interface {
+	job.ServiceCtx
+
+	// Handlers should not make any assumptions about goroutines calling HandleNodeMessage.
+	// should be non-blocking
+	HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error
+}
+
 // Representation of a DON from a Handler's perspective.
 type DON interface {
 	// Thread-safe

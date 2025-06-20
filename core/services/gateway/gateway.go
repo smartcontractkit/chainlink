@@ -14,11 +14,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api/jsonrpc"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api/jsonrpc/services/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	gw_net "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -41,7 +40,7 @@ type Gateway interface {
 type HandlerType = string
 
 type HandlerFactory interface {
-	NewHandler(handlerType HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON) (handlers.Handler, error)
+	NewHandler(handlerType HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON) (job.ServiceCtx, error)
 }
 
 type gateway struct {
@@ -49,11 +48,10 @@ type gateway struct {
 
 	codec          api.Codec
 	httpServer     gw_net.HttpServer
-	handlers       map[string]any
+	handlers       map[string]job.ServiceCtx
 	connMgr        ConnectionManager
 	lggr           logger.Logger
-	jsonrpcHandler *jsonrpc.Handler
-	services       map[string]jsonrpc.Service
+	jsonrpcHandler jsonrpc2.Handler
 }
 
 func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger) (Gateway, error) {
@@ -64,8 +62,7 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 		return nil, err
 	}
 
-	handlerMap := make(map[string]any)
-	services := make(map[string]jsonrpc.Service)
+	handlerMap := make(map[string]job.ServiceCtx)
 
 	for _, donConfig := range config.Dons {
 		donConfig := donConfig
@@ -83,29 +80,29 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 				return nil, fmt.Errorf("invalid node address %s", nodeConfig.Address)
 			}
 		}
-		// if donConfig.HandlerName == "vault" {
-		// 	handlerMap[donConfig.HandlerName] = vault.New(donConfig.HandlerConfig, &donConfig, donConnMgr, lggr)
-		// } else {
+
 		handler, err := handlerFactory.NewHandler(donConfig.HandlerName, donConfig.HandlerConfig, &donConfig, donConnMgr)
 		if err != nil {
 			return nil, err
 		}
 		handlerMap[donConfig.DonId] = handler
-		donConnMgr.SetHandler(handler)
+		nodeMsgHandler, ok := handler.(handlers.NodeMessageHandler)
+		if !ok {
+			return nil, fmt.Errorf("handler %s for DON %s does not implement NodeMessageHandler interface", donConfig.HandlerName, donConfig.DonId)
 		}
+		donConnMgr.SetHandler(nodeMsgHandler)
 	}
 
-	return NewGateway(codec, httpServer, handlerMap, connMgr, lggr, services), nil
+	return NewGateway(codec, httpServer, handlerMap, connMgr, lggr), nil
 }
 
-func NewGateway(codec api.Codec, httpServer gw_net.HttpServer, handlers map[string]any, connMgr ConnectionManager, lggr logger.Logger, services map[string]jsonrpc.Service) Gateway {
+func NewGateway(codec api.Codec, httpServer gw_net.HttpServer, handlers map[string]job.ServiceCtx, connMgr ConnectionManager, lggr logger.Logger) Gateway {
 	gw := &gateway{
 		codec:          codec,
 		httpServer:     httpServer,
 		handlers:       handlers,
 		connMgr:        connMgr,
-		jsonrpcHandler: &jsonrpc.Handler{},
-		services:       services,
+		jsonrpcHandler: jsonrpc2.Handler{},
 		lggr:           lggr.Named("Gateway"),
 	}
 	httpServer.SetHTTPRequestHandler(gw)
@@ -140,44 +137,87 @@ func (g *gateway) Close() error {
 }
 
 // Called by the server
-func (g *gateway) ProcessRequest(ctx context.Context, serviceName string, raw []byte, auth) (rawResponse []byte, httpStatusCode int) {
-	h, ok := g.handlers[serviceName]
+func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth string) (rawResponse []byte, httpStatusCode int) {
+	jsonRequest, _ := g.jsonrpcHandler.DecodeRequest(rawRequest, auth)
+
+	if jsonRequest.Version == jsonrpc2.JsonRpcVersion {
+		return g.processJsonRpc2Request(ctx, jsonRequest, auth)
+	} else {
+		return g.processLegacyRequest(ctx, rawRequest)
+	}
+}
+
+func (g *gateway) processLegacyRequest(ctx context.Context, rawRequest []byte) (rawResponse []byte, httpStatusCode int) {
+	// decode
+	msg, err := g.codec.DecodeRequest(rawRequest)
+	if err != nil {
+		return newError(g.codec, "", api.UserMessageParseError, err.Error())
+	}
+	if msg == nil {
+		return newError(g.codec, "", api.UserMessageParseError, "nil message")
+	}
+	if err = msg.Validate(); err != nil {
+		return newError(g.codec, msg.Body.MessageId, api.UserMessageParseError, err.Error())
+	}
+	// find correct handler
+	h, ok := g.handlers[msg.Body.DonId]
 	if !ok {
-		// TODO
+		return newError(g.codec, msg.Body.MessageId, api.UnsupportedDONIdError, "unsupported DON ID")
 	}
-
-	switch handler := h.(type) {
-	case jsonrpc.Service:
-		return g.handleServiceRequest(ctx, raw, auth)
-	case handlers.Handler:
-		return g.handleLegacy(ctx, request)
+	handler, ok := h.(handlers.Handler)
+	if !ok {
+		return newError(g.codec, msg.Body.MessageId, api.HandlerError, "Handler not found")
 	}
+	// send to the handler
+	responseCh := make(chan handlers.UserCallbackPayload, 1)
+	err = handler.HandleUserMessage(ctx, msg, responseCh)
+	if err != nil {
+		return newError(g.codec, msg.Body.MessageId, api.HandlerError, err.Error())
+	}
+	// await response
+	var response handlers.UserCallbackPayload
+	select {
+	case <-ctx.Done():
+		return newError(g.codec, msg.Body.MessageId, api.RequestTimeoutError, "handler timeout")
+	case response = <-responseCh:
+		break
+	}
+	if response.ErrCode != api.NoError {
+		return newError(g.codec, msg.Body.MessageId, response.ErrCode, response.ErrMsg)
+	}
+	// encode
+	rawResponse, err = g.codec.EncodeResponse(response.Msg)
+	if err != nil {
+		return newError(g.codec, msg.Body.MessageId, api.NodeReponseEncodingError, "")
+	}
+	promRequest.WithLabelValues(api.NoError.String()).Inc()
+	return rawResponse, api.ToHttpErrorCode(api.NoError)
 }
 
-func (g *gateway) handleLegacy(ctx context.Context, handler handler.Handler, request *jsonrpc.Request) (rawResponse []byte, httpStatusCode int) {
-	// This is incorrect
-}
-
-func (g *gateway) handleServiceRequest(ctx context.Context, service jsonrpc.Service, request *jsonrpc.Request, jwtToken string) (rawResponse []byte, httpStatusCode int) {
-	request, err := s.jsonrpcHandler.DecodeRequest(rawMessage, jwtToken)
-	if err != nil {
-		return errorResponse(request, api.HandlerError, err.Error())
+func (g *gateway) processJsonRpc2Request(ctx context.Context, request jsonrpc2.Request, jwtToken string) (rawResponse []byte, httpStatusCode int) {
+	handlerType := request.ServiceName()
+	h, ok := g.handlers[handlerType]
+	if !ok {
+		return errorResponse(&request, api.UnsupportedDONIdError, "unsupported DON ID")
 	}
-
-	responseCh := make(chan *jsonrpc.Response, 1)
-	err := service.HandleUserRequest(ctx, request, responseCh)
+	handler, ok := h.(jsonrpc2.Service)
+	if !ok {
+		return errorResponse(&request, api.HandlerError, "Handler not found")
+	}
+	responseCh := make(chan *jsonrpc2.Response, 1)
+	err := handler.HandleUserRequest(ctx, &request, responseCh)
 	if err != nil {
-		return errorResponse(request, api.HandlerError, err.Error())
+		return errorResponse(&request, api.HandlerError, err.Error())
 	}
 
 	response, ok := <-responseCh
 	if !ok {
-		return errorResponse(request, api.HandlerError, "handler timeout")
+		return errorResponse(&request, api.HandlerError, "handler timeout")
 	}
 
 	rawResponse, err = g.jsonrpcHandler.EncodeResponse(response)
 	if err != nil {
-		return errorResponse(request, api.NodeReponseEncodingError, "")
+		return errorResponse(&request, api.NodeReponseEncodingError, "")
 	}
 	promRequest.WithLabelValues(api.NoError.String()).Inc()
 	return rawResponse, api.ToHttpErrorCode(api.NoError)
@@ -194,9 +234,9 @@ func newError(codec api.Codec, id string, errCode api.ErrorCode, errMsg string) 
 	return rawResponse, api.ToHttpErrorCode(errCode)
 }
 
-func errorResponse(request *jsonrpc.Request, errCode api.ErrorCode, errMsg string) (rawResponse []byte, httpStatusCode int) {
-	rawResponse, err := request.EncodeErrorReponse(&jsonrpc.Error{
-		Code:    api.ToJsonRPCErrorCode(errCode),
+func errorResponse(request *jsonrpc2.Request, errCode api.ErrorCode, errMsg string) (rawResponse []byte, httpStatusCode int) {
+	rawResponse, err := request.EncodeErrorReponse(&jsonrpc2.WireError{
+		Code:    int64(api.ToJsonRPCErrorCode(errCode)),
 		Message: errMsg,
 	})
 	if err != nil {

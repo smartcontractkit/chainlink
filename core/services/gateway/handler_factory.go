@@ -6,18 +6,22 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api/jsonrpc/services/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 const (
 	FunctionsHandlerType   HandlerType = "functions"
 	DummyHandlerType       HandlerType = "dummy"
 	WebAPICapabilitiesType HandlerType = "web-api-capabilities"
+	VaultHandlerType       HandlerType = "vault"
 )
 
 type handlerFactory struct {
@@ -38,7 +42,7 @@ func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.D
 	}
 }
 
-func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON) (handlers.Handler, error) {
+func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON) (job.ServiceCtx, error) {
 	switch handlerType {
 	case FunctionsHandlerType:
 		return functions.NewFunctionsHandlerFromConfig(handlerConfig, donConfig, don, hf.legacyChains, hf.ds, hf.lggr)
@@ -46,8 +50,8 @@ func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json
 		return handlers.NewDummyHandler(donConfig, don, hf.lggr)
 	case WebAPICapabilitiesType:
 		return capabilities.NewHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr)
-	case handlers.VaultHandlerType:
-		return vault.New(donConfig.HandlerConfig, &donConfig, donConnMgr, lggr)
+	case VaultHandlerType:
+		return vault.New(donConfig.HandlerConfig, donConfig, don, hf.lggr), nil
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
 	}

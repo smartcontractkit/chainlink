@@ -69,7 +69,7 @@ func (m *connectionManager) Name() string { return m.lggr.Name() }
 type donConnectionManager struct {
 	donConfig  *config.DONConfig
 	nodes      map[string]*nodeState
-	handler    handlers.Handler
+	handler    handlers.NodeMessageHandler
 	codec      api.Codec
 	closeWait  sync.WaitGroup
 	shutdownCh services.StopChan
@@ -256,7 +256,7 @@ func (m *connectionManager) GetPort() int {
 	return m.wsServer.GetPort()
 }
 
-func (m *donConnectionManager) SetHandler(handler handlers.Handler) {
+func (m *donConnectionManager) SetHandler(handler handlers.NodeMessageHandler) {
 	m.handler = handler
 }
 
