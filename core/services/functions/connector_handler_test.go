@@ -30,8 +30,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	s4mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -102,7 +103,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 	})
 
 	t.Run("Sign", func(t *testing.T) {
-		signature, err := handler.Sign([]byte("test"))
+		signature, err := handler.Sign(t.Context(), []byte("test"))
 		require.NoError(t, err)
 
 		signer, err := common.ExtractSigner(signature, []byte("test"))

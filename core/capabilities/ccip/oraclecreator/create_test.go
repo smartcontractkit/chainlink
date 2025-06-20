@@ -6,30 +6,28 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	ocr3types "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-
-	"github.com/stretchr/testify/require"
-
-	ocr3types "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	ocrcommon "github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
@@ -39,7 +37,7 @@ import (
 func TestPluginOracleCreatorCreate_InvalidSelector(t *testing.T) {
 	t.Parallel()
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	// Minimal creator with empty/nil dependencies – these will not be hit as the
 	// selector validation fails first.
@@ -87,12 +85,12 @@ func TestPluginOracleCreatorCreate_InvalidSelector(t *testing.T) {
 func TestCreateFactoryAndTransmitter_PeerWrapperNotStarted(t *testing.T) {
 	t.Parallel()
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	p2pk := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 
 	creator := &pluginOracleCreator{
-		lggr:        lggr,
+		lggr:        logger.Sugared(lggr),
 		peerWrapper: &ocrcommon.SingletonPeerWrapper{}, // unstarted but non-nil to prevent panic
 		p2pID:       p2pk,
 	}
@@ -124,11 +122,11 @@ func TestCreateFactoryAndTransmitter_PeerWrapperNotStarted(t *testing.T) {
 func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
 	t.Parallel()
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	p2pk := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 
 	creator := &pluginOracleCreator{
-		lggr:  lggr,
+		lggr:  logger.Sugared(lggr),
 		p2pID: p2pk,
 	}
 

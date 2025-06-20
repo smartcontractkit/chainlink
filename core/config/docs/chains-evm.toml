@@ -16,6 +16,24 @@ BlockBackfillSkip = false # Default
 # ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
 # Available types: `arbitrum`, `celo`, `gnosis`, `hedera`, `kroma`, `metis`, `optimismBedrock`, `scroll`, `wemix`, `xlayer`, `zksync`
 ChainType = 'arbitrum' # Example
+# SafeDepth is the number of blocks after which an ethereum transaction is considered "safe."
+# Note that this setting is only used for chains with FinalityTags = false
+# This number represents a number of blocks we consider large enough that reorgs are generally not likely to happen.
+# Note that this number is different from FinalityDepth, which is the number of blocks after which a transaction is considered final.
+# It is used in cases where we don't want to wait for finality.
+#
+# Special cases:
+# `SafeDepth`=0 would imply that its value will fall back to the `FinalityDepth` value, if FinalityTagEnabled is false.
+#
+# Examples:
+#
+# Transaction sending:
+# A transaction is sent at block height 42
+#
+# `SafeDepth` is set to 5, FinalityTagEnabled = false, and FinalityDepth = 10
+# At block height 47, the transaction is considered safe, but not final.
+# At block height 52, the transaction is considered final.
+SafeDepth = 0 # Default
 # FinalityDepth is the number of blocks after which an ethereum transaction is considered "final". Note that the default is automatically set based on chain ID, so it should not be necessary to change this under normal operation.
 # BlocksConsideredFinal determines how deeply we look back to ensure that transactions are confirmed onto the longest chain
 # There is not a large performance penalty to setting this relatively high (on the order of hundreds)
@@ -209,6 +227,13 @@ LimitMultiplier = '1.0' # Default
 LimitTransfer = 21_000 # Default
 # EstimateLimit enables estimating gas limits for transactions. This feature respects the gas limit provided during transaction creation as an upper bound.
 EstimateLimit = false # Default
+# SenderAddress is optional and can be set to a specific sender address for gas limit estimation (i.e. `EstimateLimit = true`). If gas limit estimation is not enabled, this parameter is ignored.
+# 
+# If you are using gas limit estimation:
+# - Setting SenderAddress is optional for most products. If it is set, the from address for the transaction for gas estimation will be set to the inputted SenderAddress. If it is not set, the actual address the transaction is sent from is used if available.
+# - Setting SenderAddress is neccessary for gas limit estimation to function correctly for CCIP. Gas limit estimation works only in CCIP 1.6 and above if SenderAddress is set to the given example value (0x00c11c11c11C11c11C11c11c11C11C11c11C11c1). This value is hardcoded in the CCIP 1.6 contracts and is not needed for other products.
+#
+SenderAddress = '0x00c11c11c11C11c11C11c11c11C11C11c11C11c1' # Example
 # BumpMin is the minimum fixed amount of wei by which gas is bumped on each transaction attempt.
 BumpMin = '5 gwei' # Default
 # BumpPercent is the percentage by which to bump gas on a transaction that has exceeded `BumpThreshold`. The larger of `BumpPercent` and `BumpMin` is taken for gas bumps.
@@ -474,6 +499,8 @@ Fatal = '(: |^)fatal' # Example
 ServiceUnavailable = '(: |^)service unavailable' # Example
 # TooManyResults is a regex pattern to match an eth_getLogs error indicating the result set is too large to return
 TooManyResults = '(: |^)too many results' # Example
+# MissingBlocks is a regex pattern to match an eth_getLogs error indicating the rpc server is permanently missing some blocks in the requested block range
+MissingBlocks = '(: |^)missing blocks' # Example
 
 [EVM.OCR]
 # ContractConfirmations sets `OCR.ContractConfirmations` for this EVM chain.
@@ -518,3 +545,9 @@ FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 # GasLimitDefault is the default gas limit for workflow transactions.
 GasLimitDefault = 400_000 # Default
+# TxAcceptanceState is the default acceptance state for writer DON tranmissions.
+TxAcceptanceState = 2 # Default
+# PollPeriod is the default poll period for checking transmission state
+PollPeriod = '2s' # Default
+# AcceptanceTimeout is the default timeout for a tranmission to be accepted on chain
+AcceptanceTimeout = '30s' # Default

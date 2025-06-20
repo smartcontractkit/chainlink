@@ -3,6 +3,7 @@ package ccip
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math"
 	"math/big"
 	"slices"
@@ -18,6 +19,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/event"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -28,12 +31,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 )
 
@@ -71,6 +71,7 @@ func subscribeTransmitEvents(
 	defer wg.Done()
 	lggr.Infow("starting transmit event subscriber for ",
 		"srcChain", srcChainSel,
+		"otherChains", otherChains,
 		"startblock", startBlock,
 	)
 
@@ -140,23 +141,21 @@ func subscribeTransmitEvents(
 				"srcChain", srcChainSel)
 			return
 		case <-loadFinished:
-			lggr.Debugw("load finished, closing transmit watchers", "srcChainSel", srcChainSel)
-			for csPair, seqNums := range seqNums {
+			for csPair, seqNumRange := range maps.All(seqNums) {
 				lggr.Infow("pushing finalized sequence numbers for ",
-					"srcChainSelector", srcChainSel,
-					"destChainSelector", csPair.DestChainSelector,
-					"seqNums", seqNums)
+					"csPair", csPair,
+					"seqNumRange", seqNumRange)
 				finalSeqNrCommitChannels[csPair.DestChainSelector] <- finalSeqNrReport{
 					sourceChainSelector: csPair.SourceChainSelector,
 					expectedSeqNrRange: ccipocr3.SeqNumRange{
-						ccipocr3.SeqNum(seqNums.Start.Load()), ccipocr3.SeqNum(seqNums.End.Load()),
+						ccipocr3.SeqNum(seqNumRange.Start.Load()), ccipocr3.SeqNum(seqNumRange.End.Load()),
 					},
 				}
 
 				finalSeqNrExecChannels[csPair.DestChainSelector] <- finalSeqNrReport{
 					sourceChainSelector: csPair.SourceChainSelector,
 					expectedSeqNrRange: ccipocr3.SeqNumRange{
-						ccipocr3.SeqNum(seqNums.Start.Load()), ccipocr3.SeqNum(seqNums.End.Load()),
+						ccipocr3.SeqNum(seqNumRange.Start.Load()), ccipocr3.SeqNum(seqNumRange.End.Load()),
 					},
 				}
 			}
@@ -248,7 +247,7 @@ func subscribeCommitEvents(
 			return
 
 		case finalSeqNrUpdate, ok := <-finalSeqNrs:
-			if finalSeqNrUpdate.expectedSeqNrRange.Start() == math.MaxUint64 {
+			if finalSeqNrUpdate.expectedSeqNrRange.Start() == math.MaxUint64 || finalSeqNrUpdate.expectedSeqNrRange.End() == 0 {
 				delete(completedSrcChains, finalSeqNrUpdate.sourceChainSelector)
 				delete(seenMessages, finalSeqNrUpdate.sourceChainSelector)
 			} else if ok {
@@ -340,8 +339,8 @@ func subscribeExecutionEvents(
 			return
 		case event := <-sink:
 			lggr.Debugw("received execution event for",
-				"destChain", chainSelector,
 				"sourceChain", event.SourceChainSelector,
+				"destChain", chainSelector,
 				"sequenceNumber", event.SequenceNumber,
 				"blockNumber", event.Raw.BlockNumber)
 			// push metrics to loki here
@@ -374,7 +373,7 @@ func subscribeExecutionEvents(
 			return
 
 		case finalSeqNrUpdate := <-finalSeqNrs:
-			if finalSeqNrUpdate.expectedSeqNrRange.Start() == math.MaxUint64 {
+			if finalSeqNrUpdate.expectedSeqNrRange.Start() == math.MaxUint64 || finalSeqNrUpdate.expectedSeqNrRange.End() == 0 {
 				delete(completedSrcChains, finalSeqNrUpdate.sourceChainSelector)
 				delete(seenMessages, finalSeqNrUpdate.sourceChainSelector)
 			} else {
@@ -487,8 +486,7 @@ func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uin
 	deployerMap := make(map[uint64][]*bind.TransactOpts)
 	addressMap := make(map[uint64][]common.Address)
 	numAccounts := len(destChains)
-	evmChains := e.BlockChains.EVMChains()
-	for chain := range evmChains {
+	for chain := range e.BlockChains.EVMChains() {
 		deployerMap[chain] = make([]*bind.TransactOpts, 0, numAccounts)
 		addressMap[chain] = make([]common.Address, 0, numAccounts)
 		for range numAccounts {
@@ -518,7 +516,7 @@ func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uin
 	for sel, addresses := range addressMap {
 		sel, addresses := sel, addresses
 		g.Go(func() error {
-			return crib.SendFundsToAccounts(e.GetContext(), lggr, evmChains[sel], addresses, fundingAmount, sel)
+			return crib.SendFundsToAccounts(e.GetContext(), lggr, e.BlockChains.EVMChains()[sel], addresses, fundingAmount, sel)
 		})
 	}
 
@@ -593,4 +591,42 @@ func reclaimFunds(lggr logger.Logger, e cldf.Environment, addressesByChain map[u
 	}
 
 	return g.Wait()
+}
+
+func prepareAccountToSendLink(
+	lggr logger.Logger,
+	state stateview.CCIPOnChainState,
+	e cldf.Environment,
+	src uint64,
+	srcAccount *bind.TransactOpts) error {
+	srcDeployer := e.BlockChains.EVMChains()[src].DeployerKey
+	lggr.Infow("Setting up link token", "src", src)
+	srcLink := state.Chains[src].LinkToken
+
+	lggr.Infow("Granting mint and burn roles", "srcDeployer", srcDeployer.From, "srcAccount", srcAccount.From)
+	tx, err := srcLink.GrantMintAndBurnRoles(srcDeployer, srcAccount.From)
+	_, err = cldf.ConfirmIfNoError(e.BlockChains.EVMChains()[src], tx, err)
+	if err != nil {
+		return err
+	}
+
+	lggr.Infow("Minting transfer amounts")
+	//--------------------------------------------------------------------------------------------
+	tx, err = srcLink.Mint(
+		srcAccount,
+		srcAccount.From,
+		big.NewInt(20_000),
+	)
+	_, err = cldf.ConfirmIfNoError(e.BlockChains.EVMChains()[src], tx, err)
+	if err != nil {
+		return err
+	}
+
+	//--------------------------------------------------------------------------------------------
+	lggr.Infow("Approving routers")
+	// Approve the router to spend the tokens and confirm the tx's
+	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount
+	tx, err = srcLink.Approve(srcAccount, state.Chains[src].Router.Address(), big.NewInt(math.MaxInt64))
+	_, err = cldf.ConfirmIfNoError(e.BlockChains.EVMChains()[src], tx, err)
+	return err
 }

@@ -28,8 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
-	keystonenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
+	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 )
 
 // deprecated, use ComputeCapabilityFactoryFn, OCR3CapabilityFactoryFn, CronCapabilityFactoryFn instead
@@ -180,10 +179,10 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 			capabilities = append(capabilities, factoryFn(donMetadata.Flags)...)
 		}
 
-		workerNodes, workerNodesErr := node.FindManyWithLabel(donMetadata.NodesMetadata, &types.Label{
-			Key:   node.NodeTypeKey,
+		workerNodes, workerNodesErr := crenode.FindManyWithLabel(donMetadata.NodesMetadata, &types.Label{
+			Key:   crenode.NodeTypeKey,
 			Value: types.WorkerNode,
-		}, node.EqualLabels)
+		}, crenode.EqualLabels)
 
 		if workerNodesErr != nil {
 			return errors.Wrap(workerNodesErr, "failed to find worker nodes")
@@ -191,7 +190,7 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 
 		donPeerIDs := make([]string, len(workerNodes))
 		for i, node := range workerNodes {
-			p2pID, err := keystonenode.ToP2PID(node, keystonenode.NoOpTransformFn)
+			p2pID, err := crenode.ToP2PID(node, crenode.NoOpTransformFn)
 			if err != nil {
 				return errors.Wrapf(err, "failed to get p2p id for node %d", i)
 			}
@@ -229,10 +228,10 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 
 	for _, metaDon := range input.Topology.DonsMetadata {
 		if flags.HasFlag(metaDon.Flags, types.OCR3Capability) {
-			workerNodes, workerNodesErr := node.FindManyWithLabel(metaDon.NodesMetadata, &types.Label{
-				Key:   node.NodeTypeKey,
+			workerNodes, workerNodesErr := crenode.FindManyWithLabel(metaDon.NodesMetadata, &types.Label{
+				Key:   crenode.NodeTypeKey,
 				Value: types.WorkerNode,
-			}, node.EqualLabels)
+			}, crenode.EqualLabels)
 
 			if workerNodesErr != nil {
 				return errors.Wrap(workerNodesErr, "failed to find worker nodes")
@@ -291,10 +290,10 @@ func DefaultOCR3Config(topology *types.Topology) (*keystone_changeset.OracleConf
 
 	for _, metaDon := range topology.DonsMetadata {
 		if flags.HasFlag(metaDon.Flags, types.OCR3Capability) {
-			workerNodes, workerNodesErr := node.FindManyWithLabel(metaDon.NodesMetadata, &types.Label{
-				Key:   node.NodeTypeKey,
+			workerNodes, workerNodesErr := crenode.FindManyWithLabel(metaDon.NodesMetadata, &types.Label{
+				Key:   crenode.NodeTypeKey,
 				Value: types.WorkerNode,
-			}, node.EqualLabels)
+			}, crenode.EqualLabels)
 
 			if workerNodesErr != nil {
 				return nil, errors.Wrap(workerNodesErr, "failed to find worker nodes")

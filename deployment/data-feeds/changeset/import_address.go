@@ -25,10 +25,7 @@ type AddressSchema struct {
 }
 
 func importAddressToDatastoreLogic(env cldf.Environment, c types.ImportAddressesConfig) (cldf.ChangesetOutput, error) {
-	ds := datastore.NewMemoryDataStore[
-		datastore.DefaultMetadata,
-		datastore.DefaultMetadata,
-	]()
+	ds := datastore.NewMemoryDataStore()
 
 	addresses, _ := LoadJSON[[]*AddressSchema](c.InputFileName, c.InputFS)
 

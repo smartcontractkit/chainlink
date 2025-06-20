@@ -40,7 +40,7 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 	config := proposalutils.SingleGroupMCMSV2(t)
 
 	changeset.SetPreloadedSolanaAddresses(t, env, chainSelectorSolana)
-	env, err := changeset.Apply(t, env, nil,
+	env, err := changeset.Apply(t, env,
 		changeset.Configure(
 			cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
 			map[uint64]commontypes.MCMSWithTimelockConfigV2{

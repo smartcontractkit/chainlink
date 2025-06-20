@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
@@ -12,11 +13,13 @@ import (
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -82,7 +85,6 @@ type TestSetup struct {
 type TestCase struct {
 	TestSetup
 	ValidationType         ValidationType
-	Replayed               bool
 	Nonce                  *uint64
 	Receiver               []byte
 	MsgData                []byte
@@ -90,6 +92,7 @@ type TestCase struct {
 	FeeToken               string
 	ExpectedExecutionState int
 	ExtraAssertions        []func(t *testing.T)
+	NumberOfMessages       int // number of messages to send, use same data and extraArgs
 }
 
 type ValidationType int
@@ -103,7 +106,7 @@ const (
 type TestCaseOutput struct {
 	Replayed     bool
 	Nonce        uint64
-	MsgSentEvent *onramp.OnRampCCIPMessageSent
+	MsgSentEvent *testhelpers.AnyMsgSentEvent
 }
 
 func getLatestNonce(tc TestCase) uint64 {
@@ -171,73 +174,120 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 			FeeToken:     feeToken,
 			ExtraArgs:    tc.ExtraArgs,
 		}
-
+	case chain_selectors.FamilyAptos:
+		feeToken := aptos.AccountAddress{}
+		if len(tc.FeeToken) > 0 {
+			feeToken = aptoscs.MustParseAddress(t, tc.FeeToken)
+		}
+		msg = testhelpers.AptosSendRequest{
+			Data:         tc.MsgData,
+			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
+			ExtraArgs:    tc.ExtraArgs,
+			FeeToken:     feeToken,
+			TokenAmounts: nil,
+		}
 	default:
 		tc.T.Errorf("unsupported source chain: %v", family)
 	}
-	msgSentEvent := testhelpers.TestSendRequest(
-		tc.T,
-		tc.Env,
-		tc.OnchainState,
-		tc.SourceChain,
-		tc.DestChain,
-		tc.TestRouter,
-		msg)
+
+	onRampAddr, err := tc.OnchainState.GetOnRampAddressBytes(tc.SourceChain)
+	require.NoError(t, err)
+	// Ensure CCIPMessageSent event filter is registered
+	// Sending message too early could result in LogPoller missing the send event
+	err = testhelpers.WaitForEventFilterRegistration(t, tc.Env.Offchain, tc.SourceChain, consts.EventNameCCIPMessageSent, onRampAddr)
+	require.NoError(t, err)
+	// Ensure CommitReportAccepted and ExecutionStateChanged event filters are registered for the offramp
+	// The LogPoller could pick up the message sent event but miss the commit or execute event
+	offRampAddr, err := tc.OnchainState.GetOffRampAddressBytes(tc.DestChain)
+	require.NoError(t, err)
+	err = testhelpers.WaitForEventFilterRegistration(t, tc.Env.Offchain, tc.DestChain, consts.EventNameCommitReportAccepted, offRampAddr)
+	require.NoError(t, err)
+	err = testhelpers.WaitForEventFilterRegistration(t, tc.Env.Offchain, tc.DestChain, consts.EventNameExecutionStateChanged, offRampAddr)
+	require.NoError(t, err)
+
+	t.Logf("%s, %s, and %s filters registered", consts.EventNameCCIPMessageSent, consts.EventNameCommitReportAccepted, consts.EventNameExecutionStateChanged)
+
+	if tc.NumberOfMessages == 0 {
+		tc.NumberOfMessages = 1 // default to sending one message if not specified
+	}
+
+	expectedSeqNumRange := map[testhelpers.SourceDestPair]ccipocr3.SeqNumRange{}
+	expectedSeqNumExec := map[testhelpers.SourceDestPair][]uint64{}
+	msgSentEvents := make([]*testhelpers.AnyMsgSentEvent, tc.NumberOfMessages)
 	sourceDest := testhelpers.SourceDestPair{
 		SourceChainSelector: tc.SourceChain,
 		DestChainSelector:   tc.DestChain,
 	}
-	expectedSeqNum := map[testhelpers.SourceDestPair]uint64{
-		sourceDest: msgSentEvent.SequenceNumber,
-	}
-	expectedSeqNumExec := map[testhelpers.SourceDestPair][]uint64{
-		sourceDest: {msgSentEvent.SequenceNumber},
-	}
-	out.MsgSentEvent = msgSentEvent
 
-	// HACK: if the node booted or the logpoller filters got registered after ccipSend,
-	// we need to replay missed logs
-	if !tc.Replayed {
-		require.NotNil(tc.T, tc.DeployedEnv)
-		testhelpers.SleepAndReplay(tc.T, tc.DeployedEnv.Env, 30*time.Second, tc.SourceChain, tc.DestChain)
-		out.Replayed = true
+	// send all messages first, then validate them
+	for i := 0; i < tc.NumberOfMessages; i++ {
+		msgSentEventLocal := testhelpers.TestSendRequest(
+			tc.T,
+			tc.Env,
+			tc.OnchainState,
+			tc.SourceChain,
+			tc.DestChain,
+			tc.TestRouter,
+			msg)
+
+		_, ok := expectedSeqNumRange[sourceDest]
+		if !ok {
+			expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
+		}
+		expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{expectedSeqNumRange[sourceDest].Start(),
+			ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
+
+		expectedSeqNumExec[sourceDest] = append(expectedSeqNumExec[sourceDest], msgSentEventLocal.SequenceNumber)
+		// TODO: If this feature is needed more we can refactor the function to return a slice of events
+		// return only last msg event
+		out.MsgSentEvent = msgSentEventLocal
+		msgSentEvents[i] = msgSentEventLocal
 	}
 
 	// Perform validation based on ValidationType
 	switch tc.ValidationType {
 	case ValidationTypeCommit:
 		commitStart := time.Now()
-		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNum, startBlocks)
-		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNum, time.Since(commitStart).String())
+		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNumRange, startBlocks)
+		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNumRange, time.Since(commitStart).String())
 		// Explicitly log that only commit was validated if only Commit was requested
 		tc.T.Logf("only commit validation was performed")
 
 	case ValidationTypeExec: // will validate both commit and exec
 		// First, validate commit
 		commitStart := time.Now()
-		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNum, startBlocks)
-		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNum, time.Since(commitStart).String())
+		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNumRange, startBlocks)
+		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNumRange, time.Since(commitStart).String())
 
 		// Then, validate execution
 		execStart := time.Now()
 		execStates := testhelpers.ConfirmExecWithSeqNrsForAll(tc.T, tc.Env, tc.OnchainState, expectedSeqNumExec, startBlocks)
 		tc.T.Logf("confirmed exec of seq nums %+v in %s", expectedSeqNumExec, time.Since(execStart).String())
 
-		require.Equalf(
-			tc.T,
-			tc.ExpectedExecutionState,
-			execStates[sourceDest][msgSentEvent.SequenceNumber],
-			"wrong execution state for seq nr %d, expected %d, got %d",
-			msgSentEvent.SequenceNumber,
-			tc.ExpectedExecutionState,
-			execStates[sourceDest][msgSentEvent.SequenceNumber],
-		)
+		for _, msgSentEvent := range msgSentEvents {
+			require.Equalf(
+				tc.T,
+				tc.ExpectedExecutionState,
+				execStates[sourceDest][msgSentEvent.SequenceNumber],
+				"wrong execution state for seq nr %d, expected %d, got %d",
+				msgSentEvent.SequenceNumber,
+				tc.ExpectedExecutionState,
+				execStates[sourceDest][msgSentEvent.SequenceNumber],
+			)
+		}
 
 		family, err := chain_selectors.GetSelectorFamily(tc.DestChain)
 		require.NoError(tc.T, err)
 
+		unorderedExec := false
+		switch family {
 		// Solana doesn't support catching CPI errors, so nonces can't be ordered
-		unorderedExec := family == chain_selectors.FamilySolana
+		case chain_selectors.FamilySolana:
+			unorderedExec = true
+		// Aptos does only support out-of-order execution
+		case chain_selectors.FamilyAptos:
+			unorderedExec = true
+		}
 
 		if !unorderedExec {
 			latestNonce := getLatestNonce(tc)

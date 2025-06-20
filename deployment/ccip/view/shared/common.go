@@ -1,6 +1,7 @@
 package shared
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -50,6 +51,8 @@ func GetAddressFromBytes(chainSelector uint64, address []byte) string {
 		return strings.ToLower(common.BytesToAddress(address).Hex())
 	case chain_selectors.FamilySolana:
 		return base58.Encode(address)
+	case chain_selectors.FamilyAptos:
+		return "0x" + hex.EncodeToString(common.LeftPadBytes(address, 32))
 	default:
 		return "unsupported chain family"
 	}

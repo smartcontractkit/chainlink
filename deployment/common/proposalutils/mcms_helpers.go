@@ -25,55 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-// TimelockExecutionContracts is a helper struct for executing timelock proposals. it contains
-// the timelock and call proxy contracts.
-type TimelockExecutionContracts struct {
-	Timelock  *owner_helpers.RBACTimelock
-	CallProxy *owner_helpers.CallProxy
-}
-
-// NewTimelockExecutionContracts creates a new TimelockExecutionContracts struct.
-// If there are multiple timelocks or call proxy on the chain, an error is returned.
-// Used by CLD'S cli
-func NewTimelockExecutionContracts(env cldf.Environment, chainSelector uint64) (*TimelockExecutionContracts, error) {
-	addrTypeVer, err := env.ExistingAddresses.AddressesForChain(chainSelector)
-	if err != nil {
-		return nil, fmt.Errorf("error getting addresses for chain: %w", err)
-	}
-	var timelock *owner_helpers.RBACTimelock
-	var callProxy *owner_helpers.CallProxy
-	evmChains := env.BlockChains.EVMChains()
-	for addr, tv := range addrTypeVer {
-		if tv.Type == types.RBACTimelock {
-			if timelock != nil {
-				return nil, fmt.Errorf("multiple timelocks found on chain %d", chainSelector)
-			}
-			var err error
-			timelock, err = owner_helpers.NewRBACTimelock(common.HexToAddress(addr), evmChains[chainSelector].Client)
-			if err != nil {
-				return nil, fmt.Errorf("error creating timelock: %w", err)
-			}
-		}
-		if tv.Type == types.CallProxy {
-			if callProxy != nil {
-				return nil, fmt.Errorf("multiple call proxies found on chain %d", chainSelector)
-			}
-			var err error
-			callProxy, err = owner_helpers.NewCallProxy(common.HexToAddress(addr), evmChains[chainSelector].Client)
-			if err != nil {
-				return nil, fmt.Errorf("error creating call proxy: %w", err)
-			}
-		}
-	}
-	if timelock == nil || callProxy == nil {
-		return nil, fmt.Errorf("missing timelock (%T) or call proxy(%T) on chain %d", timelock == nil, callProxy == nil, chainSelector)
-	}
-	return &TimelockExecutionContracts{
-		Timelock:  timelock,
-		CallProxy: callProxy,
-	}, nil
-}
-
 func verboseDebug(lggr logger.Logger, event *owner_helpers.RBACTimelockCallScheduled) {
 	b, err := json.Marshal(event)
 	if err != nil {

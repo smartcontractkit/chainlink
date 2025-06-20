@@ -83,6 +83,7 @@ func TestLauncher(t *testing.T) {
 		peer := mocks.NewPeer(t)
 		peer.On("UpdateConnections", mock.Anything).Return(nil)
 		peer.On("ID").Return(pid)
+		peer.On("IsBootstrap").Return(false)
 		wrapper := mocks.NewPeerWrapper(t)
 		wrapper.On("GetPeer").Return(peer)
 
@@ -212,6 +213,7 @@ func TestLauncher(t *testing.T) {
 		peer := mocks.NewPeer(t)
 		peer.On("UpdateConnections", mock.Anything).Return(nil)
 		peer.On("ID").Return(pid)
+		peer.On("IsBootstrap").Return(false)
 		wrapper := mocks.NewPeerWrapper(t)
 		wrapper.On("GetPeer").Return(peer)
 
@@ -320,6 +322,7 @@ func TestLauncher(t *testing.T) {
 		peer := mocks.NewPeer(t)
 		peer.On("UpdateConnections", mock.Anything).Return(nil)
 		peer.On("ID").Return(pid)
+		peer.On("IsBootstrap").Return(false)
 		wrapper := mocks.NewPeerWrapper(t)
 		wrapper.On("GetPeer").Return(peer)
 
@@ -454,6 +457,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 	peer := mocks.NewPeer(t)
 	peer.On("UpdateConnections", mock.Anything).Return(nil)
 	peer.On("ID").Return(pid)
+	peer.On("IsBootstrap").Return(false)
 	wrapper := mocks.NewPeerWrapper(t)
 	wrapper.On("GetPeer").Return(peer)
 
@@ -663,6 +667,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 	peer := mocks.NewPeer(t)
 	peer.On("UpdateConnections", mock.Anything).Return(nil)
 	peer.On("ID").Return(pid)
+	peer.On("IsBootstrap").Return(false)
 	wrapper := mocks.NewPeerWrapper(t)
 	wrapper.On("GetPeer").Return(peer)
 
@@ -772,6 +777,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 	peer := mocks.NewPeer(t)
 	peer.On("UpdateConnections", mock.Anything).Return(nil)
 	peer.On("ID").Return(pid)
+	peer.On("IsBootstrap").Return(false)
 	wrapper := mocks.NewPeerWrapper(t)
 	wrapper.On("GetPeer").Return(peer)
 
@@ -940,6 +946,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 	peer := mocks.NewPeer(t)
 	peer.On("UpdateConnections", mock.Anything).Return(nil)
 	peer.On("ID").Return(pid)
+	peer.On("IsBootstrap").Return(false)
 	wrapper := mocks.NewPeerWrapper(t)
 	wrapper.On("GetPeer").Return(peer)
 
@@ -1102,6 +1109,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 	peer := mocks.NewPeer(t)
 	peer.On("UpdateConnections", mock.Anything).Return(nil)
 	peer.On("ID").Return(pid)
+	peer.On("IsBootstrap").Return(false)
 
 	wrapper := mocks.NewPeerWrapper(t)
 	wrapper.On("GetPeer").Return(peer)
@@ -1164,6 +1172,7 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 	peer := mocks.NewPeer(t)
 	peer.On("UpdateConnections", mock.Anything).Return(nil)
 	peer.On("ID").Return(pid)
+	peer.On("IsBootstrap").Return(false)
 
 	wrapper := mocks.NewPeerWrapper(t)
 	wrapper.On("GetPeer").Return(peer)
@@ -1206,11 +1215,14 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 		&mockDonNotifier{},
 	)
 
-	inputsWhereBelongs := [][]bool{
-		{true, true}, // { belongsToACapabilityDON, belongsToAWorkflowDON }
-		{true, false},
-		{false, true},
-		{false, false},
+	inputs := [][]bool{
+		// { belongsToACapabilityDON, belongsToAWorkflowDON, isBootstrap }
+		{true, true, false},
+		{true, false, false},
+		{false, true, false},
+		{false, false, false},
+		{false, false, true},
+		{true, true, true}, // invalid
 	}
 
 	expectedPeerCount := []int{
@@ -1218,12 +1230,15 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 		5, // we expect all capability DONs members (4+1)
 		4, // we expect all workflow DONs members
 		0, // the node does nothing, we expect no peers
+		8, // bootstrap node always adds all peers
+		8, // bootstrap node always adds all peers
 	}
 
-	for i := range inputsWhereBelongs {
+	for i := range inputs {
 		allPeers := launcher.peers(
-			inputsWhereBelongs[i][0],
-			inputsWhereBelongs[i][1],
+			inputs[i][0],
+			inputs[i][1],
+			inputs[i][2],
 			localRegistry,
 		)
 		require.Len(t, allPeers, expectedPeerCount[i])

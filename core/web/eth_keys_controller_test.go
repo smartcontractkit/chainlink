@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
@@ -61,8 +62,7 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var actualBalances []webpresenters.ETHKeyResource
-	err := cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
-	assert.NoError(t, err)
+	cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
 
 	require.Len(t, actualBalances, 3)
 
@@ -104,8 +104,7 @@ func TestETHKeysController_Index_Errors(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var actualBalances []webpresenters.ETHKeyResource
-	err := cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
-	assert.NoError(t, err)
+	cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
 
 	require.Len(t, actualBalances, 1)
 
@@ -139,8 +138,7 @@ func TestETHKeysController_Index_Disabled(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var actualBalances []webpresenters.ETHKeyResource
-	err := cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
-	assert.NoError(t, err)
+	cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
 
 	require.Len(t, actualBalances, 1)
 
@@ -177,8 +175,7 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 	expectedKeys, err := app.KeyStore.Eth().GetAll(testutils.Context(t))
 	require.NoError(t, err)
 	var actualBalances []webpresenters.ETHKeyResource
-	err = cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
-	assert.NoError(t, err)
+	cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
 
 	require.Len(t, actualBalances, 1)
 
@@ -201,8 +198,7 @@ func TestETHKeysController_Index_NoAccounts(t *testing.T) {
 	defer cleanup()
 
 	balances := []webpresenters.ETHKeyResource{}
-	err := cltest.ParseJSONAPIResponse(t, resp, &balances)
-	assert.NoError(t, err)
+	cltest.ParseJSONAPIResponse(t, resp, &balances)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Empty(t, balances)
@@ -242,8 +238,7 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	var balance webpresenters.ETHKeyResource
-	err := cltest.ParseJSONAPIResponse(t, resp, &balance)
-	assert.NoError(t, err)
+	cltest.ParseJSONAPIResponse(t, resp, &balance)
 
 	assert.Equal(t, ethBalanceInt, balance.EthBalance.ToInt())
 	assert.Equal(t, linkBalance, balance.LinkBalance)
@@ -284,8 +279,7 @@ func TestETHKeysController_ChainSuccess_UpdateNonce(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var updatedKey webpresenters.ETHKeyResource
-	err := cltest.ParseJSONAPIResponse(t, resp, &updatedKey)
-	assert.NoError(t, err)
+	cltest.ParseJSONAPIResponse(t, resp, &updatedKey)
 
 	assert.Equal(t, cltest.FormatWithPrefixedChainID(cltest.FixtureChainID.String(), key.Address.String()), updatedKey.ID)
 	assert.Equal(t, key.Address.String(), updatedKey.Address)
@@ -330,8 +324,7 @@ func TestETHKeysController_ChainSuccess_Disable(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var updatedKey webpresenters.ETHKeyResource
-	err := cltest.ParseJSONAPIResponse(t, resp, &updatedKey)
-	assert.NoError(t, err)
+	cltest.ParseJSONAPIResponse(t, resp, &updatedKey)
 
 	assert.Equal(t, cltest.FormatWithPrefixedChainID(updatedKey.EVMChainID.String(), key.Address.String()), updatedKey.ID)
 	assert.Equal(t, key.Address.String(), updatedKey.Address)
@@ -375,8 +368,7 @@ func TestETHKeysController_ChainSuccess_Enable(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var updatedKey webpresenters.ETHKeyResource
-	err := cltest.ParseJSONAPIResponse(t, resp, &updatedKey)
-	assert.NoError(t, err)
+	cltest.ParseJSONAPIResponse(t, resp, &updatedKey)
 
 	assert.Equal(t, cltest.FormatWithPrefixedChainID(cltest.FixtureChainID.String(), key.Address.String()), updatedKey.ID)
 	assert.Equal(t, key.Address.String(), updatedKey.Address)
@@ -406,7 +398,8 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 
 	require.NoError(t, app.Start(ctx))
 
-	chain := app.GetRelayers().LegacyEVMChains().Slice()[0]
+	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain)
+	require.True(t, ok)
 	subject := uuid.New()
 	strategy := commontxmmocks.NewTxStrategy(t)
 	strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
@@ -441,8 +434,7 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var updatedKey webpresenters.ETHKeyResource
-	err = cltest.ParseJSONAPIResponse(t, resp, &updatedKey)
-	assert.NoError(t, err)
+	cltest.ParseJSONAPIResponse(t, resp, &updatedKey)
 
 	assert.Equal(t, cltest.FormatWithPrefixedChainID(cltest.FixtureChainID.String(), key.Address.String()), updatedKey.ID)
 	assert.Equal(t, key.Address.String(), updatedKey.Address)
@@ -676,8 +668,7 @@ func TestETHKeysController_DeleteSuccess(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var deletedKey webpresenters.ETHKeyResource
-	err := cltest.ParseJSONAPIResponse(t, resp, &deletedKey)
-	assert.NoError(t, err)
+	cltest.ParseJSONAPIResponse(t, resp, &deletedKey)
 
 	assert.Equal(t, cltest.FormatWithPrefixedChainID(cltest.FixtureChainID.String(), key0.Address.String()), deletedKey.ID)
 	assert.Equal(t, key0.Address.String(), deletedKey.Address)
@@ -689,8 +680,7 @@ func TestETHKeysController_DeleteSuccess(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var actualBalances []webpresenters.ETHKeyResource
-	err = cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
-	assert.NoError(t, err)
+	cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
 
 	require.Len(t, actualBalances, 1)
 
