@@ -90,6 +90,15 @@ func EmitMeteringReport(ctx context.Context, labels map[string]string, rpt *even
 	return emitProtoMessage(ctx, rpt)
 }
 
+func EmitUserLogs(ctx context.Context, labels map[string]string, logLines []*events.LogLine, executionID string) error {
+	metadata := buildWorkflowMetadata(labels, executionID)
+	event := &events.UserLogs{
+		M:        metadata,
+		LogLines: logLines,
+	}
+	return emitProtoMessage(ctx, event)
+}
+
 // EmitProtoMessage marshals a proto.Message and emits it via beholder.
 func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	b, err := proto.Marshal(msg)
@@ -119,6 +128,9 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	case *events.WorkflowStatusChanged:
 		schema = SchemaWorkflowStatusChanged
 		entity = fmt.Sprintf("%s.%s", ProtoPkg, WorkflowStatusChanged)
+	case *events.UserLogs:
+		schema = SchemaUserLogs
+		entity = fmt.Sprintf("%s.%s", ProtoPkg, UserLogs)
 	default:
 		return fmt.Errorf("unknown message type: %T", msg)
 	}
