@@ -5,6 +5,8 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,15 +15,39 @@ import (
 )
 
 var (
-	//go:embed testdata/config-empty-effective.toml
 	configEmptyEffective string
-	//go:embed testdata/config-full.toml
-	configFull string
-	//go:embed testdata/config-multi-chain.toml
-	configMulti string
-	//go:embed testdata/config-multi-chain-effective.toml
+	configFull           string
+	configFullEffective  string
+	configMulti          string
 	configMultiEffective string
 )
+
+func init() {
+	d := "../../services/chainlink/testdata"
+
+	emptyEffectivePath := filepath.Join(d, "config-empty-effective.toml")
+	configEmptyEffective = mustRead(emptyEffectivePath)
+
+	fullPath := filepath.Join(d, "config-full.toml")
+	configFull = mustRead(fullPath)
+
+	fullEffectivePath := filepath.Join(d, "config-full-effective.toml")
+	configFullEffective = mustRead(fullEffectivePath)
+
+	multiPath := filepath.Join(d, "config-multi-chain.toml")
+	configMulti = mustRead(multiPath)
+
+	multiEffectivePath := filepath.Join(d, "config-multi-chain-effective.toml")
+	configMultiEffective = mustRead(multiEffectivePath)
+}
+
+func mustRead(p string) string {
+	data, err := os.ReadFile(p)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to read %s: %v", p, err))
+	}
+	return string(data)
+}
 
 func TestResolver_ConfigV2(t *testing.T) {
 	t.Parallel()
@@ -61,7 +87,7 @@ func TestResolver_ConfigV2(t *testing.T) {
 				f.App.On("GetConfig").Return(cfg)
 			},
 			query:  query,
-			result: fmt.Sprintf(`{"configv2":{"user":%s,"effective":%s}}`, mustJSONMarshal(t, configFull), mustJSONMarshal(t, configFull)),
+			result: fmt.Sprintf(`{"configv2":{"user":%s,"effective":%s}}`, mustJSONMarshal(t, configFull), mustJSONMarshal(t, configFullEffective)),
 		},
 		{
 			name:          "partial",
