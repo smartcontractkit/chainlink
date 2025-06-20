@@ -43,7 +43,7 @@ import (
 )
 
 // token setup
-func deployTokenAndMint(t *testing.T, tenv cldf.Environment, solChain uint64, walletPubKeys []string) (cldf.Environment, solana.PublicKey, error) {
+func deployTokenAndMint(t *testing.T, tenv cldf.Environment, solChain uint64, walletPubKeys []string, tokenSymbol string) (cldf.Environment, solana.PublicKey, error) {
 	mintMap := make(map[string]uint64)
 	for _, key := range walletPubKeys {
 		mintMap[key] = uint64(1000)
@@ -55,7 +55,7 @@ func deployTokenAndMint(t *testing.T, tenv cldf.Environment, solChain uint64, wa
 				ChainSelector:       solChain,
 				TokenProgramName:    shared.SPLTokens,
 				TokenDecimals:       9,
-				TokenSymbol:         "TEST_TOKEN",
+				TokenSymbol:         tokenSymbol,
 				ATAList:             walletPubKeys,
 				MintAmountToAddress: mintMap,
 			},
@@ -70,7 +70,7 @@ func deployTokenAndMint(t *testing.T, tenv cldf.Environment, solChain uint64, wa
 		cldf.TypeAndVersion{
 			Type:    shared.SPLTokens,
 			Version: deployment.Version1_0_0,
-			Labels:  cldf.NewLabelSet("TEST_TOKEN"),
+			Labels:  cldf.NewLabelSet(tokenSymbol),
 		},
 		addresses,
 	)
@@ -322,7 +322,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 	evmChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 
-	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{})
+	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{}, "TEST_TOKEN")
 	require.NoError(t, err)
 	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
@@ -591,7 +591,8 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 	ctx := testcontext.Get(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
-	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{})
+	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{}, "TEST_TOKEN")
+	e, tokenAddress2, err := deployTokenAndMint(t, e, solChain, []string{}, "TEST_TOKEN_2")
 	require.NoError(t, err)
 	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
@@ -628,6 +629,11 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 				RegisterTokenConfigs: []ccipChangesetSolana.RegisterTokenConfig{
 					{
 						TokenPubKey:             tokenAddress,
+						TokenAdminRegistryAdmin: newAdmin,
+						RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
+					},
+					{
+						TokenPubKey:             tokenAddress2,
 						TokenAdminRegistryAdmin: newAdmin,
 						RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
 					},
@@ -698,6 +704,9 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 						{
 							TokenPubKey: tokenAddress,
 						},
+						{
+							TokenPubKey: tokenAddress2,
+						},
 					},
 					MCMS: mcmsConfig,
 				},
@@ -719,6 +728,10 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 					TransferTokenAdminConfigs: []ccipChangesetSolana.TrasnferTokenAdminConfig{
 						{
 							TokenPubKey:               tokenAddress,
+							NewRegistryAdminPublicKey: newAdminNonTimelock.PublicKey(),
+						},
+						{
+							TokenPubKey:               tokenAddress2,
 							NewRegistryAdminPublicKey: newAdminNonTimelock.PublicKey(),
 						},
 					},
@@ -768,7 +781,7 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 		newAdmin = timelockSignerPDA
 	}
 
-	e, tokenAddress, err := deployTokenAndMint(t, e, solChain, []string{})
+	e, tokenAddress, err := deployTokenAndMint(t, e, solChain, []string{}, "TEST_TOKEN")
 	require.NoError(t, err)
 	pool := solTestTokenPool.LockAndRelease_PoolType
 	e, err = commonchangeset.Apply(t, e,

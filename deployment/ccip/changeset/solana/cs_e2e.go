@@ -245,21 +245,25 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 		if err := tokenCfg.Validate(); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate token config: %w, token cfg: %+v", err, tokenCfg)
 		}
+		// add token pool and lookup table
 		tokenPoolAndLookupTableCfg.TokenPoolConfigs = append(tokenPoolAndLookupTableCfg.TokenPoolConfigs, TokenPoolConfig{
 			PoolType:    tokenCfg.PoolType,
 			Metadata:    tokenCfg.Metadata,
 			TokenPubKey: tokenCfg.TokenPubKey,
 		})
+		// register token admin registry
 		registerTokenAdminRegistryCfg.RegisterTokenConfigs = append(registerTokenAdminRegistryCfg.RegisterTokenConfigs, RegisterTokenConfig{
 			TokenPubKey:             tokenCfg.TokenPubKey,
 			RegisterType:            ViaGetCcipAdminInstruction,
 			TokenAdminRegistryAdmin: tokenAdminRegistryAdmin,
 		})
+		// accept admin role token admin registry
 		acceptAdminRoleTokenAdminRegistryCfg.AcceptAdminRoleTokenConfigs = append(acceptAdminRoleTokenAdminRegistryCfg.AcceptAdminRoleTokenConfigs, AcceptAdminRoleTokenConfig{
 			TokenPubKey: tokenCfg.TokenPubKey,
 			// registering in the same changeset so skip registry check
 			SkipRegistryCheck: true,
 		})
+		// set pool
 		setPoolCfg.SetPoolTokenConfigs = append(setPoolCfg.SetPoolTokenConfigs, SetPoolTokenConfig{
 			TokenPubKey: tokenCfg.TokenPubKey,
 			PoolType:    tokenCfg.PoolType,
@@ -267,13 +271,20 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 			// registering in the same changeset so skip registry check
 			SkipRegistryCheck: true,
 		})
-		remotePoolConfig.RemoteTokenPoolConfigs = append(remotePoolConfig.RemoteTokenPoolConfigs, RemoteChainTokenPoolConfig{
-			SolTokenPubKey:   tokenCfg.TokenPubKey,
-			SolPoolType:      tokenCfg.PoolType,
-			Metadata:         tokenCfg.Metadata,
-			EVMRemoteConfigs: tokenCfg.SolanaToEVMRemoteConfigs,
-		})
-		evmToSolanaRemotePoolCfg.Tokens = append(evmToSolanaRemotePoolCfg.Tokens, &tokenCfg.EVMToSolanaRemoteConfigs)
+		// setup evm remote pool on solana
+		if len(tokenCfg.SolanaToEVMRemoteConfigs) > 0 {
+			remotePoolConfig.RemoteTokenPoolConfigs = append(remotePoolConfig.RemoteTokenPoolConfigs, RemoteChainTokenPoolConfig{
+				SolTokenPubKey:   tokenCfg.TokenPubKey,
+				SolPoolType:      tokenCfg.PoolType,
+				Metadata:         tokenCfg.Metadata,
+				EVMRemoteConfigs: tokenCfg.SolanaToEVMRemoteConfigs,
+			})
+		}
+		// setup solana remote pool on evm
+		if len(tokenCfg.EVMToSolanaRemoteConfigs.PoolUpdates) > 0 {
+			evmToSolanaRemotePoolCfg.Tokens = append(evmToSolanaRemotePoolCfg.Tokens, &tokenCfg.EVMToSolanaRemoteConfigs)
+		}
+		// transfer pool to timelock
 		if *tokenCfg.PoolType == solTestTokenPool.BurnAndMint_PoolType {
 			transferPoolToTimelockConfig.ContractsByChain[cfg.ChainSelector].BurnMintTokenPools[tokenCfg.Metadata] = tokenCfg.TokenPubKey
 		} else { // lock and release pool
@@ -322,7 +333,7 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running ConfigureTokenPoolContractsChangeset: %w", err)
 	}
-	// now that all thats done, lets transfer away the pool to timelock
+	// and finally lets transfer away the pool to timelock
 	output, err = TransferCCIPToMCMSWithTimelockSolana(e, transferPoolToTimelockConfig)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ccip to mcms with timelock: %w", err)

@@ -123,7 +123,6 @@ func (cfg AddTokenPoolAndLookupTableConfig) Validate(e cldf.Environment, chainSt
 }
 
 func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTableConfig) (cldf.ChangesetOutput, error) {
-	e.Logger.Infow("Adding token pool", "cfg", cfg)
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -134,8 +133,11 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	addressBook := cldf.NewMemoryAddressBook()
+	routerProgramAddress, _, _ := chainState.GetRouterInfo()
+	rmnRemoteAddress := chainState.RMNRemote
 
 	for _, tokenPoolCfg := range cfg.TokenPoolConfigs {
+		e.Logger.Infow("Adding token pool", "cfg", tokenPoolCfg)
 		tokenPubKey := tokenPoolCfg.TokenPubKey
 		tokenPool, _ := chainState.GetActiveTokenPool(*tokenPoolCfg.PoolType, tokenPoolCfg.Metadata)
 
@@ -143,8 +145,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		tokenprogramID, _ := chainState.TokenToTokenProgram(tokenPubKey)
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 		poolSigner, _ := solTokenUtil.TokenPoolSignerAddress(tokenPubKey, tokenPool)
-		routerProgramAddress, _, _ := chainState.GetRouterInfo()
-		rmnRemoteAddress := chainState.RMNRemote
+
 		// ata for token pool
 		createI, tokenPoolATA, err := solTokenUtil.CreateAssociatedTokenAccount(
 			tokenprogramID,
@@ -157,6 +158,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		}
 		instructions := []solana.Instruction{createI}
 
+		// initialize token pool config pda
 		var poolInitI solana.Instruction
 		programData, err := getSolProgramData(e, chain, tokenPool)
 		if err != nil {
@@ -198,8 +200,8 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 
 		instructions = append(instructions, poolInitI)
 
+		// make pool mint_authority for token
 		if *tokenPoolCfg.PoolType == solTestTokenPool.BurnAndMint_PoolType && tokenPubKey != solana.SolMint {
-			// make pool mint_authority for token
 			authI, err := solTokenUtil.SetTokenMintAuthority(
 				tokenprogramID,
 				poolSigner,
@@ -213,11 +215,13 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 			e.Logger.Infow("Setting mint authority", "poolSigner", poolSigner.String())
 		}
 
+		// confirm instructions
 		if err := chain.Confirm(instructions); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 		}
 		e.Logger.Infow("Created new token pool config", "token_pool_ata", tokenPoolATA.String(), "pool_config", poolConfigPDA.String(), "pool_signer", poolSigner.String())
 
+		// add token pool lookup table
 		csOutput, err := AddTokenPoolLookupTable(e, TokenPoolLookupTableConfig{
 			ChainSelector: cfg.ChainSelector,
 			TokenPubKey:   tokenPoolCfg.TokenPubKey,
