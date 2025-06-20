@@ -599,7 +599,7 @@ func (c *CCIPContracts) SetupLockAndMintTokenPool(
 	wrappedTokenName,
 	wrappedTokenSymbol string) (common.Address, *burn_mint_erc20.BurnMintERC20, error) {
 	// Deploy dest token & pool
-	destTokenAddress, _, _, err := burn_mint_erc20.DeployBurnMintERC20(c.Dest.User, c.Dest.Chain, wrappedTokenName, wrappedTokenSymbol, 18, big.NewInt(0))
+	destTokenAddress, _, _, err := burn_mint_erc20.DeployBurnMintERC20(c.Dest.User, c.Dest.Chain, wrappedTokenName, wrappedTokenSymbol, 18, big.NewInt(0), big.NewInt(0))
 	if err != nil {
 		return [20]byte{}, nil, err
 	}

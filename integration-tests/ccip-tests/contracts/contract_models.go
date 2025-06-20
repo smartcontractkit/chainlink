@@ -186,7 +186,7 @@ type TokenTransmitter struct {
 	ContractAddress common.Address
 }
 
-type ERC677Token struct {
+type ERC20Token struct {
 	client          blockchain.EVMClient
 	logger          *zerolog.Logger
 	instance        *burn_mint_erc20.BurnMintERC20
@@ -195,7 +195,7 @@ type ERC677Token struct {
 	OwnerWallet     *blockchain.EthereumWallet
 }
 
-func (token *ERC677Token) GrantMintAndBurn(burnAndMinter common.Address) error {
+func (token *ERC20Token) GrantMintAndBurn(burnAndMinter common.Address) error {
 	opts, err := token.client.TransactionOpts(token.OwnerWallet)
 	if err != nil {
 		return fmt.Errorf("failed to get transaction opts: %w", err)
@@ -212,7 +212,7 @@ func (token *ERC677Token) GrantMintAndBurn(burnAndMinter common.Address) error {
 	return token.client.ProcessTransaction(tx)
 }
 
-func (token *ERC677Token) GrantMintRole(minter common.Address) error {
+func (token *ERC20Token) GrantMintRole(minter common.Address) error {
 	opts, err := token.client.TransactionOpts(token.OwnerWallet)
 	if err != nil {
 		return err
@@ -229,7 +229,7 @@ func (token *ERC677Token) GrantMintRole(minter common.Address) error {
 	return token.client.ProcessTransaction(tx)
 }
 
-func (token *ERC677Token) Mint(to common.Address, amount *big.Int) error {
+func (token *ERC20Token) Mint(to common.Address, amount *big.Int) error {
 	opts, err := token.client.TransactionOpts(token.OwnerWallet)
 	if err != nil {
 		return err

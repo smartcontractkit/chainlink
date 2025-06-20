@@ -44,6 +44,7 @@ func deployUSDCPrerequisites(
 				"USDC",
 				6,
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
+				big.NewInt(0),
 			)
 			return cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20]{
 				Address:  tokenAddress,
@@ -159,6 +160,7 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 				"NOTUSDC",
 				6,
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
+				big.NewInt(0),
 			)
 			return cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20]{
 				Address:  tokenAddress,

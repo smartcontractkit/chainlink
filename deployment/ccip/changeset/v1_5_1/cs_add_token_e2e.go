@@ -459,6 +459,7 @@ func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfi
 						string(cfg.TokenSymbol),
 						cfg.TokenDecimals,
 						cfg.MaxSupply,
+						big.NewInt(0),
 					)
 					return cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20]{
 						Address:  tokenAddress,

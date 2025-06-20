@@ -779,6 +779,7 @@ func deployUSDC(
 					string(shared.USDCSymbol),
 					shared.UsdcDecimals,
 					big.NewInt(0),
+					big.NewInt(0),
 				)
 			} else {
 				tokenAddress, tx, tokenContract, err2 = burn_mint_erc20.DeployBurnMintERC20(
@@ -787,6 +788,7 @@ func deployUSDC(
 					shared.USDCName,
 					string(shared.USDCSymbol),
 					shared.UsdcDecimals,
+					big.NewInt(0),
 					big.NewInt(0),
 				)
 			}

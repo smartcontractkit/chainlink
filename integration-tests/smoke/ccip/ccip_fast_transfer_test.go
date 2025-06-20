@@ -309,6 +309,7 @@ func deployTokenAndGrantAllRoles(t *testing.T, chain evmChain.Chain, tokenSymbol
 		tokenSymbol,
 		tokenDecimals,
 		big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
+		big.NewInt(0),
 	)
 	require.NoError(t, err)
 	_, err = chain.Confirm(tx)

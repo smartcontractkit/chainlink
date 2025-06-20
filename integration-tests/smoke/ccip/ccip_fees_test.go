@@ -45,6 +45,7 @@ func setupNewFeeToken(
 		tokenSymbol,
 		tokenDecimals,
 		big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
+		big.NewInt(0),
 	)
 	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)

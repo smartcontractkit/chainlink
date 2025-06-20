@@ -208,18 +208,26 @@ func (e *CCIPContractsDeployer) DeployLinkTokenContract() (*LinkToken, error) {
 }
 
 // DeployBurnMintERC20 deploys a BurnMintERC20 contract, mints given amount ( if provided) to the owner address and returns the ERC20Token wrapper instance
-func (e *CCIPContractsDeployer) DeployBurnMintERC20(ownerMintingAmount *big.Int) (*ERC677Token, error) {
+func (e *CCIPContractsDeployer) DeployBurnMintERC20(ownerMintingAmount *big.Int) (*burn_mint_erc20., error) {
 	address, _, instance, err := e.evmClient.DeployContract("Burn Mint ERC 677", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return burn_mint_erc20.DeployBurnMintERC20(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil), "Test Token ERC677", "TERC677", 6, new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9)))
+		return burn_mint_erc20.DeployBurnMintERC20(
+			auth,
+			wrappers.MustNewWrappedContractBackend(e.evmClient, nil),
+			"Test Token ERC677",
+			"TERC677",
+			6,
+			new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9)),
+			big.NewInt(0),
+			)
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	token := &ERC677Token{
+	token := &ERC20Token{
 		client:          e.evmClient,
 		logger:          e.logger,
 		ContractAddress: *address,
@@ -245,18 +253,18 @@ func (e *CCIPContractsDeployer) DeployBurnMintERC20(ownerMintingAmount *big.Int)
 	return token, err
 }
 
-func (e *CCIPContractsDeployer) DeployCustomBurnMintERC20Token(name, symbol string, decimals uint8, ownerMintingAmount *big.Int) (*ERC677Token, error) {
+func (e *CCIPContractsDeployer) DeployCustomBurnMintERC20Token(name, symbol string, decimals uint8, ownerMintingAmount *big.Int) (*ERC20Token, error) {
 	address, _, instance, err := e.evmClient.DeployContract("Burn Mint ERC 677", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return burn_mint_erc20.DeployBurnMintERC20(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil), name, symbol, decimals, new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9)))
+		return burn_mint_erc20.DeployBurnMintERC20(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil), name, symbol, decimals, new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9)), big.NewInt(0)
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	token := &ERC677Token{
+	token := &ERC20Token{
 		client:          e.evmClient,
 		logger:          e.logger,
 		ContractAddress: *address,

@@ -1754,6 +1754,7 @@ func deployTransferTokenOneEnd(
 				tokenSymbol,
 				tokenDecimals,
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
+				big.NewInt(0),
 			)
 			return cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20]{
 				Address: tokenAddress, Contract: token, Tx: tx, Tv: cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_0_0), Err: err2,

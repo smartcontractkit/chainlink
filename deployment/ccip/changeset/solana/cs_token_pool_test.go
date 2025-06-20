@@ -62,6 +62,7 @@ func deployEVMTokenPool(t *testing.T, e cldf.Environment, evmChain uint64) (cldf
 				string(testhelpers.TestTokenSymbol),
 				testhelpers.LocalTokenDecimals,
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
+				big.NewInt(0),
 			)
 			return cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20]{
 				Address:  tokenAddress,
