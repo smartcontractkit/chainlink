@@ -71,6 +71,7 @@ jobs:
       - name: Start streaming metrics per container
         shell: bash
         run: |
+          mkdir -p system-tests/tests/load/cre/logs
           mkdir -p system-tests/tests/load/cre/logs/metrics
           mkdir -p system-tests/tests/load/cre/logs/metrics/container-stats
           for CID in $(docker ps -q); do
