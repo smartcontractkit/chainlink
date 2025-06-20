@@ -51,7 +51,7 @@ func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json
 	case WebAPICapabilitiesType:
 		return capabilities.NewHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr)
 	case VaultHandlerType:
-		return vault.New(donConfig.HandlerConfig, donConfig, don, hf.lggr), nil
+		return vault.NewService(donConfig.HandlerConfig, donConfig, don, hf.lggr), nil
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
 	}

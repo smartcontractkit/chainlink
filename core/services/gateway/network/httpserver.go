@@ -2,7 +2,6 @@ package network
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -12,8 +11,8 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api/jsonrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -56,7 +55,6 @@ type httpServer struct {
 	doneCh            chan struct{}
 	cancelBaseContext context.CancelFunc
 	lggr              logger.Logger
-	jsonrpcHandler    *jsonrpc.Handler
 }
 
 const (
@@ -71,7 +69,6 @@ func NewHttpServer(config *HTTPServerConfig, lggr logger.Logger) HttpServer {
 		doneCh:            make(chan struct{}),
 		cancelBaseContext: cancelBaseCtx,
 		lggr:              lggr.Named("WebSocketServer"),
-		jsonrpcHandler:    &jsonrpc.Handler{},
 	}
 	mux := http.NewServeMux()
 	mux.Handle(config.Path, http.HandlerFunc(server.handleRequest))
@@ -184,6 +181,7 @@ func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 		defer cancel()
 	}
 
+	// Optionally extract jwt token from authorization header
 	authHeader := r.Header.Get("Authorization")
 	jwtToken := ""
 	if authHeader != "" {
@@ -198,28 +196,6 @@ func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.lggr.Error("error when writing response", err)
 	}
-}
-
-type Params struct {
-	Body body
-}
-
-type body struct {
-	DonID string `json:"donId"`
-}
-
-func (s *httpServer) serviceName(request *jsonrpc.Request) string {
-	p := &Params{}
-	err := json.Unmarshal(request.Params, p)
-	if err != nil {
-		return request.ServiceName()
-	}
-
-	if p.Body.DonID == "" {
-		return request.ServiceName()
-	}
-
-	return p.Body.DonID
 }
 
 func (s *httpServer) SetHTTPRequestHandler(handler HTTPRequestHandler) {

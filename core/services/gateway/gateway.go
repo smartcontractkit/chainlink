@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -164,9 +165,9 @@ func (g *gateway) processLegacyRequest(ctx context.Context, rawRequest []byte) (
 	if !ok {
 		return newError(g.codec, msg.Body.MessageId, api.UnsupportedDONIdError, "unsupported DON ID")
 	}
-	handler, ok := h.(handlers.Handler)
+	handler, ok := h.(handlers.UserMessageHandler)
 	if !ok {
-		return newError(g.codec, msg.Body.MessageId, api.HandlerError, "Handler not found")
+		return newError(g.codec, msg.Body.MessageId, api.HandlerError, "UserMessageHandler not found")
 	}
 	// send to the handler
 	responseCh := make(chan handlers.UserCallbackPayload, 1)
@@ -202,7 +203,7 @@ func (g *gateway) processJsonRpc2Request(ctx context.Context, request jsonrpc2.R
 	}
 	handler, ok := h.(jsonrpc2.Service)
 	if !ok {
-		return errorResponse(&request, api.HandlerError, "Handler not found")
+		return errorResponse(&request, api.HandlerError, "UserMessageHandler not found")
 	}
 	responseCh := make(chan *jsonrpc2.Response, 1)
 	err := handler.HandleUserRequest(ctx, &request, responseCh)

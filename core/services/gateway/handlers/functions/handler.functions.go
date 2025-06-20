@@ -97,9 +97,9 @@ type PendingRequest struct {
 	errors     []*api.Message
 }
 
-var _ handlers.Handler = (*functionsHandler)(nil)
+var _ handlers.UserMessageHandler = (*functionsHandler)(nil)
 
-func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, lggr logger.Logger) (handlers.Handler, error) {
+func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, lggr logger.Logger) (handlers.UserMessageHandler, error) {
 	var cfg FunctionsHandlerConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
@@ -171,7 +171,7 @@ func NewFunctionsHandler(
 	userRateLimiter *hc.RateLimiter,
 	nodeRateLimiter *hc.RateLimiter,
 	allowedHeartbeatInitiators map[string]struct{},
-	lggr logger.Logger) handlers.Handler {
+	lggr logger.Logger) handlers.UserMessageHandler {
 	return &functionsHandler{
 		handlerConfig:              cfg,
 		donConfig:                  donConfig,

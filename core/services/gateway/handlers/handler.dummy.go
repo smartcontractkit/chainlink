@@ -25,9 +25,9 @@ type savedCallback struct {
 	callbackCh chan<- UserCallbackPayload
 }
 
-var _ Handler = (*dummyHandler)(nil)
+var _ UserMessageHandler = (*dummyHandler)(nil)
 
-func NewDummyHandler(donConfig *config.DONConfig, don DON, lggr logger.Logger) (Handler, error) {
+func NewDummyHandler(donConfig *config.DONConfig, don DON, lggr logger.Logger) (UserMessageHandler, error) {
 	return &dummyHandler{
 		donConfig:      donConfig,
 		don:            don,

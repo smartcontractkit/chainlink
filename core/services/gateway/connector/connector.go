@@ -45,7 +45,7 @@ type Signer interface {
 	Sign(data ...[]byte) ([]byte, error)
 }
 
-// GatewayConnector user (node) implements application logic in the Handler interface.
+// GatewayConnector user (node) implements application logic in the UserMessageHandler interface.
 type GatewayConnectorHandler interface {
 	job.ServiceCtx
 

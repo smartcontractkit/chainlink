@@ -48,7 +48,7 @@ var _ jsonrpc2.Service = (*service)(nil)
 
 type service struct {
 	services.StateMachine
-	gw_handlers.Handler
+	gw_handlers.UserMessageHandler
 	methodConfig VaultConfig
 	donConfig    *config.DONConfig
 	don          gw_handlers.DON
@@ -87,7 +87,7 @@ type VaultConfig struct {
 
 var _ jsonrpc2.Service = (*service)(nil)
 
-func New(methodConfig json.RawMessage, donConfig *config.DONConfig, don gw_handlers.DON, lggr logger.Logger) jsonrpc2.Service {
+func NewService(methodConfig json.RawMessage, donConfig *config.DONConfig, don gw_handlers.DON, lggr logger.Logger) jsonrpc2.Service {
 	lggr = lggr.Named("VaultHandler:" + donConfig.DonId)
 	var cfg VaultConfig
 	if err := json.Unmarshal(methodConfig, &cfg); err != nil {

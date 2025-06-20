@@ -12,6 +12,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -52,7 +53,7 @@ type savedCallback struct {
 	callbackCh chan<- handlers.UserCallbackPayload
 }
 
-var _ handlers.Handler = (*handler)(nil)
+var _ handlers.UserMessageHandler = (*handler)(nil)
 
 func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, httpClient network.HTTPClient, lggr logger.Logger) (*handler, error) {
 	var cfg HandlerConfig

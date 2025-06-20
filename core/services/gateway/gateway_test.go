@@ -147,7 +147,7 @@ func newGatewayWithMockHandler(t *testing.T) (gateway.Gateway, *handler_mocks.Ha
 	httpServer := net_mocks.NewHttpServer(t)
 	httpServer.On("SetHTTPRequestHandler", mock.Anything).Return(nil)
 	handler := handler_mocks.NewHandler(t)
-	handlers := map[string]handlers.Handler{
+	handlers := map[string]handlers.UserMessageHandler{
 		"testDON": handler,
 	}
 	services := map[string]jsonrpc.Service{}

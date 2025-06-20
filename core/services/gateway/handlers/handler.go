@@ -15,27 +15,24 @@ type UserCallbackPayload struct {
 	ErrMsg  string
 }
 
-// Handler implements service-specific logic for managing messages from users and nodes.
-// There is one Handler object created for each DON.
+// UserMessageHandler implements service-specific logic for managing messages from users and nodes.
+// There is one UserMessageHandler object created for each DON.
 //
-// The lifecycle of a Handler object is as follows:
+// The lifecycle of a UserMessageHandler object is as follows:
 //   - Start() call
 //   - a series of HandleUserMessage/HandleNodeMessage calls, executed in parallel
-//     (Handler needs to guarantee thread safety)
+//     (UserMessageHandler needs to guarantee thread safety)
 //   - Close() call
-type Handler interface {
+type UserMessageHandler interface {
 	job.ServiceCtx
 
 	// Each user request is processed by a separate goroutine, which:
 	//   1. calls HandleUserMessage
 	//   2. waits on callbackCh with a timeout
 	HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- UserCallbackPayload) error
-
-	// Handlers should not make any assumptions about goroutines calling HandleNodeMessage.
-	// should be non-blocking
-	HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error
 }
 
+// NodeMessageHandler implements service-specific logic for managing messages from nodes.
 type NodeMessageHandler interface {
 	job.ServiceCtx
 
@@ -44,7 +41,7 @@ type NodeMessageHandler interface {
 	HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error
 }
 
-// Representation of a DON from a Handler's perspective.
+// Representation of a DON from a UserMessageHandler's perspective.
 type DON interface {
 	// Thread-safe
 	SendToNode(ctx context.Context, nodeAddress string, msg *api.Message) error
