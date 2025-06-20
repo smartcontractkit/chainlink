@@ -89,6 +89,58 @@ func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOut
 	return finalOutput, nil
 }
 
+func ProcessConfig[T any](
+	e *cldf.Environment,
+	configs []T,
+	handler func(cldf.Environment, T) (cldf.ChangesetOutput, error),
+	finalOutput *cldf.ChangesetOutput,
+	tempRemoveBook cldf.AddressBook,
+) error {
+	for _, cfg := range configs {
+		output, err := handler(*e, cfg)
+		if err != nil {
+			return err
+		}
+		err = cldf.MergeChangesetOutput(*e, finalOutput, output)
+		if err != nil {
+			return fmt.Errorf("failed to merge changeset output: %w", err)
+		}
+
+		if ab := output.AddressBook; ab != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			if err := tempRemoveBook.Merge(ab); err != nil {
+				return fmt.Errorf("failed to merge into temp: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+func AggregateAndCleanup(e cldf.Environment, finalOutput *cldf.ChangesetOutput, abToRemove cldf.AddressBook, cfg *proposalutils.TimelockConfig, proposalDesc string) error {
+	allProposals := finalOutput.MCMSTimelockProposals
+	if len(allProposals) > 0 {
+		state, err := stateview.LoadOnchainState(e)
+		if err != nil {
+			return fmt.Errorf("failed to load onchain state: %w", err)
+		}
+		proposal, err := proposalutils.AggregateProposals(
+			e, state.EVMMCMSStateByChain(), state.SolanaMCMSStateByChain(e),
+			allProposals, proposalDesc, cfg,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to aggregate proposals: %w", err)
+		}
+		if proposal != nil {
+			finalOutput.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
+		}
+	}
+	if addresses, err := abToRemove.Addresses(); err == nil && len(addresses) > 0 {
+		if err := e.ExistingAddresses.Remove(abToRemove); err != nil {
+			return fmt.Errorf("failed to remove temp address book: %w", err)
+		}
+	}
+	return nil
+}
+
 type E2ETokenConfig struct {
 	TokenPubKey solana.PublicKey
 	Metadata    string
@@ -225,6 +277,7 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running ConfigureTokenPoolContractsChangeset: %w", err)
 	}
+	// TransferCCIPToMCMSWithTimelockSolana(e, finalCSOut, cfg.MCMS)
 	if len(finalCSOut.MCMSTimelockProposals) > 1 {
 		state, err := stateview.LoadOnchainState(e)
 		if err != nil {
@@ -243,90 +296,4 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 	}
 
 	return *finalCSOut, nil
-}
-
-// type E2ETokenConfig struct {
-// 	DeploySolanaToken   []DeploySolanaTokenConfig
-// 	UploadTokenMetadata []UploadTokenMetadataConfig
-// 	SetTokenAuthority   []SetTokenAuthorityConfig
-// }
-
-// func E2EToken(e cldf.Environment, cfg E2ETokenConfig) (cldf.ChangesetOutput, error) {
-// 	finalOutput := cldf.ChangesetOutput{}
-// 	finalOutput.AddressBook = cldf.NewMemoryAddressBook() //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-// 	addressBookToRemove := cldf.NewMemoryAddressBook()
-// 	defer func(e cldf.Environment) {
-// 		e.Logger.Info("E2EToken changeset completed")
-// 		e.Logger.Info("Final output: ", finalOutput.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-// 	}(e)
-// 	err := ProcessConfig(&e, cfg.DeploySolanaToken, DeploySolanaToken, &finalOutput, addressBookToRemove)
-// 	if err != nil {
-// 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy solana token: %w", err)
-// 	}
-// 	err = ProcessConfig(&e, cfg.UploadTokenMetadata, UploadTokenMetadata, &finalOutput, addressBookToRemove)
-// 	if err != nil {
-// 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to upload token metadata: %w", err)
-// 	}
-// 	err = ProcessConfig(&e, cfg.SetTokenAuthority, SetTokenAuthority, &finalOutput, addressBookToRemove)
-// 	if err != nil {
-// 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to set token authority: %w", err)
-// 	}
-// 	err = AggregateAndCleanup(e, &finalOutput, addressBookToRemove, nil, "E2EToken changeset")
-// 	if err != nil {
-// 		e.Logger.Error("failed to aggregate and cleanup: ", err)
-// 	}
-
-// 	return finalOutput, nil
-// }
-
-func ProcessConfig[T any](
-	e *cldf.Environment,
-	configs []T,
-	handler func(cldf.Environment, T) (cldf.ChangesetOutput, error),
-	finalOutput *cldf.ChangesetOutput,
-	tempRemoveBook cldf.AddressBook,
-) error {
-	for _, cfg := range configs {
-		output, err := handler(*e, cfg)
-		if err != nil {
-			return err
-		}
-		err = cldf.MergeChangesetOutput(*e, finalOutput, output)
-		if err != nil {
-			return fmt.Errorf("failed to merge changeset output: %w", err)
-		}
-
-		if ab := output.AddressBook; ab != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-			if err := tempRemoveBook.Merge(ab); err != nil {
-				return fmt.Errorf("failed to merge into temp: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-func AggregateAndCleanup(e cldf.Environment, finalOutput *cldf.ChangesetOutput, abToRemove cldf.AddressBook, cfg *proposalutils.TimelockConfig, proposalDesc string) error {
-	allProposals := finalOutput.MCMSTimelockProposals
-	if len(allProposals) > 0 {
-		state, err := stateview.LoadOnchainState(e)
-		if err != nil {
-			return fmt.Errorf("failed to load onchain state: %w", err)
-		}
-		proposal, err := proposalutils.AggregateProposals(
-			e, state.EVMMCMSStateByChain(), state.SolanaMCMSStateByChain(e),
-			allProposals, proposalDesc, cfg,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to aggregate proposals: %w", err)
-		}
-		if proposal != nil {
-			finalOutput.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
-		}
-	}
-	if addresses, err := abToRemove.Addresses(); err == nil && len(addresses) > 0 {
-		if err := e.ExistingAddresses.Remove(abToRemove); err != nil {
-			return fmt.Errorf("failed to remove temp address book: %w", err)
-		}
-	}
-	return nil
 }

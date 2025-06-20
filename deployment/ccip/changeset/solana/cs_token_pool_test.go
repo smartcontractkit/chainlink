@@ -486,7 +486,6 @@ func TestAddTokenPoolE2EWitMcms(t *testing.T) {
 								TokenPubKey:             newTokenAddress,
 								TokenAdminRegistryAdmin: newAdmin,
 								RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
-								Override:                true,
 							},
 						},
 						MCMS: mcmsConfig,
