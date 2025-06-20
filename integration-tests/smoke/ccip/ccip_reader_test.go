@@ -862,8 +862,8 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 	for i = 1; i < maxExpectedSeqNum; i++ {
 		msg := testhelpers.DefaultRouterMessage(state.MustGetEVMChainState(destChain).Receiver.Address())
 		msgSentEvent := testhelpers.TestSendRequest(t, env.Env, state, srcChain, destChain, false, msg)
-		require.Equal(t, uint64(i), msgSentEvent.SequenceNumber)
-		require.Equal(t, uint64(i), msgSentEvent.Message.Header.Nonce) // check outbound nonce incremented
+		require.Equal(t, i, msgSentEvent.SequenceNumber)
+		require.Equal(t, i, msgSentEvent.RawEvent.(*onramp.OnRampCCIPMessageSent).Message.Header.Nonce) // check outbound nonce incremented
 		seqNum, err2 := reader.GetExpectedNextSequenceNumber(ctx, cs(srcChain))
 		require.NoError(t, err2)
 		require.Equal(t, cciptypes.SeqNum(i+1), seqNum)
@@ -947,7 +947,7 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	ctx := t.Context()
 	sb, auth := setupSimulatedBackendAndAuth(t)
 
-	//--------------------------------Setup--------------------------------//
+	// --------------------------------Setup-------------------------------- //
 	onRampS1StaticConfig := onramp.OnRampStaticConfig{
 		ChainSelector:      uint64(chainS1),
 		RmnRemote:          utils.RandomAddress(),
@@ -1067,10 +1067,13 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 		assert.NoError(t, crD.Close())
 		assert.NoError(t, lpD.Close())
 	})
-	//--------------------------------Setup done--------------------------------//
+	// --------------------------------Setup done-------------------------------- //
 
 	// Call the ccip chain reader with DiscoverContracts for test
-	contractAddresses, err := reader.DiscoverContracts(ctx, []cciptypes.ChainSelector{chainS1, chainD})
+	contractAddresses, err := reader.DiscoverContracts(ctx,
+		[]cciptypes.ChainSelector{chainS1, chainD},
+		[]cciptypes.ChainSelector{chainS1, chainD},
+	)
 	require.NoError(t, err)
 
 	require.Equal(t, contractAddresses[consts.ContractNameOnRamp][chainS1], cciptypes.UnknownAddress(common.LeftPadBytes(onRampS1Addr.Bytes(), 32)))
@@ -1089,7 +1092,9 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 
 	// Since config poller has default refresh interval of 30s, we need to wait for the contract to be discovered
 	require.Eventually(t, func() bool {
-		contractAddresses, err = reader.DiscoverContracts(ctx, []cciptypes.ChainSelector{chainS1, chainD})
+		contractAddresses, err = reader.DiscoverContracts(ctx,
+			[]cciptypes.ChainSelector{chainS1, chainD},
+			[]cciptypes.ChainSelector{chainS1, chainD})
 		if err != nil {
 			return false
 		}
@@ -1104,7 +1109,9 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	}, tests.WaitTimeout(t), 100*time.Millisecond, "Router and FeeQuoter addresses were not discovered on source chain in time")
 
 	// Final assertions again for completeness:
-	contractAddresses, err = reader.DiscoverContracts(ctx, []cciptypes.ChainSelector{chainS1, chainD})
+	contractAddresses, err = reader.DiscoverContracts(ctx,
+		[]cciptypes.ChainSelector{chainS1, chainD},
+		[]cciptypes.ChainSelector{chainS1, chainD})
 	require.NoError(t, err)
 
 	require.Equal(t, contractAddresses[consts.ContractNameOnRamp][chainS1], cciptypes.UnknownAddress(common.LeftPadBytes(onRampS1Addr.Bytes(), 32)))

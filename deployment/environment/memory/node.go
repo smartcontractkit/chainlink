@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	solrpc "github.com/gagliardetto/solana-go/rpc"
@@ -100,7 +101,10 @@ func (n Node) ReplayLogs(ctx context.Context, chains map[uint64]uint64) error {
 	for sel, block := range chains {
 		family, _ := chainsel.GetSelectorFamily(sel)
 		chainID, _ := chainsel.GetChainIDFromSelector(sel)
-
+		if family == "aptos" {
+			fmt.Printf("ReplayFromBlock: family: %q chainID: %q\n", family, chainID)
+			continue
+		}
 		if err := n.App.ReplayFromBlock(ctx, family, chainID, block, false); err != nil {
 			return err
 		}
@@ -581,7 +585,7 @@ func CreateKeys(t *testing.T,
 
 			transmitter := keys[0]
 			transmitters[chain.Selector] = transmitter.ID()
-
+			t.Logf("Created Aptos Key: ID %v, Account %v", transmitter.ID(), transmitter.Account())
 			// TODO: funding
 		case chainsel.FamilyStarknet:
 			keystore := app.GetKeyStore().StarkNet()
@@ -640,8 +644,11 @@ func CreateKeys(t *testing.T,
 		require.NoError(t, err)
 		require.Len(t, aptoskeys, 1)
 		transmitter := aptoskeys[0]
-		for chainSelector := range aptoschains {
+		for chainSelector, aptosChain := range aptoschains {
 			transmitters[chainSelector] = transmitter.ID()
+			transmitterAccountAddress := aptos.AccountAddress{}
+			require.NoError(t, transmitterAccountAddress.ParseStringRelaxed(transmitter.Account()))
+			fundAptosAccount(t, aptosChain.DeployerSigner, transmitterAccountAddress, 100*1e8, aptosChain.Client)
 		}
 	}
 

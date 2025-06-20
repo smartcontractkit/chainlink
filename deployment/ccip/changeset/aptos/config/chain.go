@@ -68,7 +68,7 @@ type AptosChainDefinition struct {
 	// GasPrice defines the USD price (18 decimals) per unit gas for this chain as a destination.
 	GasPrice *big.Int `json:"gasPrice"`
 	// TokenPrices defines USD price for a token address (28 decimals)
-	TokenPrices map[string]*big.Int
+	TokenPrices map[aptos.AccountAddress]*big.Int
 	// FeeQuoterDestChainConfig is the configuration on a fee quoter for this chain as a destination.
 	FeeQuoterDestChainConfig aptos_fee_quoter.DestChainConfig `json:"feeQuoterDestChainConfig"`
 	// AddTokenTransferFeeConfigs is the configuration for token transfer fees to be added to fee quoter

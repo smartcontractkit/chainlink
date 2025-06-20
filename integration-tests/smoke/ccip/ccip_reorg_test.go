@@ -394,14 +394,15 @@ func sendCCIPMessage(
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
 	})
+	msgSentEvent := msgEvent.RawEvent.(*onramp.OnRampCCIPMessageSent)
 
 	l.Info().
-		Str("messageID", hexutil.Encode(msgEvent.Message.Header.MessageId[:])).
-		Uint64("blockNumber", msgEvent.Raw.BlockNumber).
-		Str("blockHash", msgEvent.Raw.BlockHash.String()).
+		Str("messageID", hexutil.Encode(msgSentEvent.Message.Header.MessageId[:])).
+		Uint64("blockNumber", msgSentEvent.Raw.BlockNumber).
+		Str("blockHash", msgSentEvent.Raw.BlockHash.String()).
 		Msg("Sent CCIP message")
 
-	return msgEvent
+	return msgSentEvent
 }
 
 // Check finality violations helper
