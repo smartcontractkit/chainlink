@@ -489,11 +489,12 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 	}
 
 	batchElems := make([]rpc.BatchElem, len(blockNumbers))
-	if IsAvaxNetwork(env.ChainID) {
+	switch {
+	case IsAvaxNetwork(env.ChainID):
 		return getRlpHeaders[*AvaHeader](env, blockNumbers, offset)
-	} else if IsAvaxSubnet(env.ChainID) {
+	case IsAvaxSubnet(env.ChainID):
 		return getRlpHeaders[*AvaSubnetHeader](env, blockNumbers, offset)
-	} else if IsPolygonEdgeNetwork(env.ChainID) {
+	case IsPolygonEdgeNetwork(env.ChainID):
 		hs := make([]*PolygonEdgeHeader, len(blockNumbers))
 		for i, blockNum := range blockNumbers {
 			// Get child block since it's the one that has the parent hash in its header.
@@ -522,9 +523,9 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 			headers[i] = rlpHeader
 		}
 		return headers, hashes, nil
-	} else if IsRoninChain(env.ChainID) {
+	case IsRoninChain(env.ChainID):
 		return getRlpHeaders[*RoninHeader](env, blockNumbers, offset)
-	} else {
+	default:
 		return getRlpHeaders[*types.Header](env, blockNumbers, offset)
 	}
 }
