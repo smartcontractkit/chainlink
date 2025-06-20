@@ -129,10 +129,6 @@ func (c *EVMKMSClient) GetKMSTransactOpts(ctx context.Context, chainID *big.Int)
 }
 
 func (c *EVMKMSClient) SignHash(hash []byte) ([]byte, error) {
-	if len(hash) != 32 {
-		return nil, fmt.Errorf("hash must be 32 bytes long, got %d bytes", len(hash))
-	}
-
 	mType := kms.MessageTypeDigest
 	algo := kms.SigningAlgorithmSpecEcdsaSha256
 	signOutput, err := c.Client.Sign(
