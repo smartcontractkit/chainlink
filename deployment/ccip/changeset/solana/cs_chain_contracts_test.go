@@ -645,19 +645,25 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetTokenAuthority),
 			ccipChangesetSolana.SetTokenAuthorityConfig{
-				ChainSelector: solChain,
-				AuthorityType: solToken.AuthorityMintTokens,
-				TokenPubkey:   linkTokenAddress,
-				NewAuthority:  newTokenAdmin,
+				TokenAuthorityConfigs: []ccipChangesetSolana.TokenAuthorityConfig{
+					{
+						AuthorityType: solToken.AuthorityMintTokens,
+						TokenPubkey:   linkTokenAddress,
+						NewAuthority:  newTokenAdmin,
+					},
+				},
 			},
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetTokenAuthority),
 			ccipChangesetSolana.SetTokenAuthorityConfig{
-				ChainSelector: solChain,
-				AuthorityType: solToken.AuthorityFreezeAccount,
-				TokenPubkey:   linkTokenAddress,
-				NewAuthority:  newTokenAdmin,
+				TokenAuthorityConfigs: []ccipChangesetSolana.TokenAuthorityConfig{
+					{
+						AuthorityType: solToken.AuthorityFreezeAccount,
+						TokenPubkey:   linkTokenAddress,
+						NewAuthority:  newTokenAdmin,
+					},
+				},
 			},
 		),
 		commonchangeset.Configure(
