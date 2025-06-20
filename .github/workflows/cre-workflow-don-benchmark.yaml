@@ -68,17 +68,18 @@ jobs:
         if:  ${{ github.event_name == 'pull_request' }}
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
-      - name: Start cAdvisor
+      - name: Start streaming metrics per container
         shell: bash
         run: |
-          docker run -d \
-            --name cadvisor \
-            --volume=/:/rootfs:ro \
-            --volume=/var/run:/var/run:ro \
-            --volume=/sys:/sys:ro \
-            --volume=/var/lib/docker/:/var/lib/docker:ro \
-            --publish=8080:8080 \
-            gcr.io/cadvisor/cadvisor:latest
+          mkdir -p ./system-tests/tests/load/cre/metrics/container-stats
+          for CID in $(docker ps -q); do
+            echo "Starting stream for $CID → ./system-tests/tests/load/cre/metrics/container-stats/${CID}.json"
+            curl -s --unix-socket /var/run/docker.sock \
+              "http://localhost/containers/$CID/stats?stream=1" \
+              > ./system-tests/tests/load/cre/metrics/container-stats/${CID}.json &
+            # record the PID so we can stop it later
+            echo $! > ./system-tests/tests/load/cre/metrics/container-stats/${CID}.pid
+          done
 
       - name: Start the test
         shell: bash
@@ -97,20 +98,14 @@ jobs:
           cd system-tests/tests/load/cre
           go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 15m
 
-      - name: Fetch container metrics
-        shell: bash
-        run: |
-          echo "=== Sample cAdvisor metrics ==="
-          curl -s http://localhost:8080/metrics \
-            | grep '^container_.*{.*name="' \
-            | head -n 20
-
-      - name: Cleanup
+      - name: Stop all streams and inspect files
         if: always()
         shell: bash
         run: |
-          docker stop cadvisor
-          docker rm   cadvisor
+          # stop background curls
+          for pidfile in ./system-tests/tests/load/cre/metrics/container-stats/*.pid; do
+            kill "$(cat $pidfile)" || true
+          done
 
       - name: Upload node logs and metrics as artifact
         if: always()
