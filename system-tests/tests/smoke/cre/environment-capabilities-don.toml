@@ -12,8 +12,9 @@
   block_speed_seconds = 5
 
 [jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
   # change to your version
-  image = "job-distributor:0.9.0"
+  image = "job-distributor:0.12.7"
 
 [infra]
   # either "docker" or "crib"

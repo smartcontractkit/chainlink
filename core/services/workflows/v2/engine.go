@@ -20,6 +20,7 @@ import (
 
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
+	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
@@ -327,6 +328,12 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	defer execCancel()
 	executionLogger := logger.With(e.lggr, "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID, "triggerIndex", wrappedTriggerEvent.triggerIndex)
 
+	userLogChan := make(chan *protoevents.LogLine, e.cfg.LocalLimits.MaxUserLogEventsPerExecution)
+	defer close(userLogChan)
+	e.srvcEng.Go(func(_ context.Context) {
+		e.emitUserLogs(execCtx, userLogChan, executionID)
+	})
+
 	tid, err := safe.IntToUint64(wrappedTriggerEvent.triggerIndex)
 	if err != nil {
 		executionLogger.Errorw("Failed to convert trigger index to uint64", "err", err)
@@ -347,7 +354,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
-	}, &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID})
+	}, &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan})
 
 	endTime := e.cfg.Clock.Now()
 	executionDuration := endTime.Sub(startTime)
@@ -452,5 +459,33 @@ func (e *Engine) deductStandardBalances(meteringReport *metering.Report) {
 		computeAmount,
 	); mrErr != nil {
 		e.cfg.Lggr.Errorw("could not meter compute", "err", mrErr)
+	}
+}
+
+// separate call for each workflow execution
+func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents.LogLine, executionID string) {
+	count := 0
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case logLine, ok := <-userLogChan:
+			if !ok {
+				return
+			}
+			if count >= int(e.cfg.LocalLimits.MaxUserLogEventsPerExecution) {
+				e.cfg.Lggr.Warnw("Max user log events per execution reached, dropping event", "maxEvents", e.cfg.LocalLimits.MaxUserLogEventsPerExecution)
+				return
+			}
+			if len(logLine.Message) > int(e.cfg.LocalLimits.MaxUserLogLineLength) {
+				logLine.Message = logLine.Message[:e.cfg.LocalLimits.MaxUserLogLineLength] + " ...(truncated)"
+			}
+
+			err := events.EmitUserLogs(ctx, e.loggerLabels, []*protoevents.LogLine{logLine}, executionID)
+			if err != nil {
+				e.cfg.Lggr.Errorw("Failed to emit user logs", "err", err)
+			}
+			count++
+		}
 	}
 }
