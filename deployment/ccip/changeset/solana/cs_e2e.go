@@ -231,14 +231,17 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 	}
 
 	// transfer away the pool to timelock
-	transferPoolToTimelockConfig := TransferCCIPToMCMSWithTimelockSolanaConfig{
-		MCMSCfg: *cfg.MCMS,
-		ContractsByChain: map[uint64]CCIPContractsToTransfer{
-			cfg.ChainSelector: {
-				BurnMintTokenPools:    map[string][]solana.PublicKey{},
-				LockReleaseTokenPools: map[string][]solana.PublicKey{},
+	var transferPoolToTimelockConfig TransferCCIPToMCMSWithTimelockSolanaConfig
+	if cfg.MCMS != nil {
+		transferPoolToTimelockConfig = TransferCCIPToMCMSWithTimelockSolanaConfig{
+			MCMSCfg: *cfg.MCMS,
+			ContractsByChain: map[uint64]CCIPContractsToTransfer{
+				cfg.ChainSelector: {
+					BurnMintTokenPools:    map[string][]solana.PublicKey{},
+					LockReleaseTokenPools: map[string][]solana.PublicKey{},
+				},
 			},
-		},
+		}
 	}
 	poolsByType := transferPoolToTimelockConfig.ContractsByChain[cfg.ChainSelector]
 
@@ -286,16 +289,18 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 			evmToSolanaRemotePoolCfg.Tokens = append(evmToSolanaRemotePoolCfg.Tokens, &tokenCfg.EVMToSolanaRemoteConfigs)
 		}
 		// transfer pool to timelock
-		if *tokenCfg.PoolType == solTestTokenPool.BurnAndMint_PoolType {
-			poolsByType.BurnMintTokenPools[tokenCfg.Metadata] = append(
-				poolsByType.BurnMintTokenPools[tokenCfg.Metadata],
-				tokenCfg.TokenPubKey,
-			)
-		} else { // lock and release pool
-			poolsByType.LockReleaseTokenPools[tokenCfg.Metadata] = append(
-				poolsByType.LockReleaseTokenPools[tokenCfg.Metadata],
-				tokenCfg.TokenPubKey,
-			)
+		if cfg.MCMS != nil {
+			if *tokenCfg.PoolType == solTestTokenPool.BurnAndMint_PoolType {
+				poolsByType.BurnMintTokenPools[tokenCfg.Metadata] = append(
+					poolsByType.BurnMintTokenPools[tokenCfg.Metadata],
+					tokenCfg.TokenPubKey,
+				)
+			} else { // lock and release pool
+				poolsByType.LockReleaseTokenPools[tokenCfg.Metadata] = append(
+					poolsByType.LockReleaseTokenPools[tokenCfg.Metadata],
+					tokenCfg.TokenPubKey,
+				)
+			}
 		}
 	}
 	e.Logger.Info("transferPoolToTimelockConfig: ", transferPoolToTimelockConfig)
@@ -342,12 +347,14 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running ConfigureTokenPoolContractsChangeset: %w", err)
 	}
 	// and finally lets transfer away the pool to timelock
-	output, err = TransferCCIPToMCMSWithTimelockSolana(e, transferPoolToTimelockConfig)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ccip to mcms with timelock: %w", err)
-	}
-	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running TransferCCIPToMCMSWithTimelockSolana: %w", err)
+	if cfg.MCMS != nil {
+		output, err = TransferCCIPToMCMSWithTimelockSolana(e, transferPoolToTimelockConfig)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ccip to mcms with timelock: %w", err)
+		}
+		if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running TransferCCIPToMCMSWithTimelockSolana: %w", err)
+		}
 	}
 
 	if len(finalCSOut.MCMSTimelockProposals) > 1 {
