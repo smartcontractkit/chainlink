@@ -156,7 +156,9 @@ jobs:
 
   cleanup:
     name: Clean up integration environment deployments
-    if: always()
+    # If the job was cancelled, it typically means that it was manually stopped, or a new commit was pushed.
+    # By always running this, it delays the start of the next workflow run due to concurrency rules.
+    if: always() && !cancelled()
     needs: [run-ccip-integration-in-memory--tests-for-pr, run-ccip-integration-in-memory-tests-for-merge-queue]
     runs-on: ubuntu-latest
     steps:
