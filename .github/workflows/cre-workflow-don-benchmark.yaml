@@ -71,13 +71,13 @@ jobs:
       - name: Start streaming metrics per container
         shell: bash
         run: |
-          mkdir -p metrics/container-stats
+          mkdir -p system-tests/tests/load/cre/metrics/container-stats
           for CID in $(docker ps -q); do
-            echo "Starting stream for $CID → metrics/container-stats/${CID}.json"
+            echo "Starting stream for $CID → system-tests/tests/load/cre/metrics/container-stats/${CID}.json"
             curl -s --unix-socket /var/run/docker.sock \
               "http://localhost/containers/$CID/stats?stream=1" \
-              > metrics/container-stats/${CID}.json &
-            echo $! > metrics/container-stats/${CID}.pid
+              > system-tests/tests/load/cre/metrics/container-stats/${CID}.json &
+            echo $! > system-tests/tests/load/cre/metrics/container-stats/${CID}.pid
           done
 
       - name: Start the test
@@ -102,15 +102,15 @@ jobs:
         shell: bash
         run: |
           # stop background curls
-          if [ -d "metrics/container-stats" ] && [ "$(find metrics/container-stats -name '*.pid' | wc -l)" -gt 0 ]; then
-            for pidfile in metrics/container-stats/*.pid; do
+          if [ -d "system-tests/tests/load/cre/metrics/container-stats" ] && [ "$(find system-tests/tests/load/cre/metrics/container-stats -name '*.pid' | wc -l)" -gt 0 ]; then
+            for pidfile in system-tests/tests/load/cre/metrics/container-stats/*.pid; do
               if [ -f "$pidfile" ]; then
                 echo "Stopping stream process $(cat $pidfile)"
                 kill "$(cat $pidfile)" 2>/dev/null || true
               fi
             done
           else
-            echo "No stream PID files found in metrics/container-stats/"
+            echo "No stream PID files found in system-tests/tests/load/cre/metrics/container-stats/"
           fi
 
       - name: Upload node logs and metrics as artifact
