@@ -1524,7 +1524,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		tokenPrices[shared.AptosAPTAddress] = deployment.EDecMult(5, 28)
 	}
 	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)
-	err := AddLane(
+	err = AddLane(
 		t,
 		e,
 		from, to,
