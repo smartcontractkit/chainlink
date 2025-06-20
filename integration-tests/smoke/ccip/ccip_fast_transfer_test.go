@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"os"
 	"strconv"
 	"sync"
 	"testing"
@@ -239,7 +240,7 @@ var fastTransferTestCases = []*fastTransferE2ETestCase{
 	ftfTc("pool fee without filler", withPoolFeeBps(50), withFastFillNoFillerSuccessAmountAssertions(), withFillerDisabled()),
 	ftfTc("external minter", withExternalMinter(), withFastFillSuccessAmountAssertions(), withFeeTokenType(feeTokenNative)),
 	ftfTc("external minter feeToken", withExternalMinter(), withFastFillSuccessAmountAssertions(), withFeeTokenType(feeTokenLink)),
-	ftfTc("Settlement Gas Overhead too low", withSettlementGasOverhead(1), withExpectNoExecutionError(), withFeeTokenType(feeTokenNative)),
+	ftfTc("settlement gas overhead too low", withSettlementGasOverhead(1), withExpectNoExecutionError(), withFeeTokenType(feeTokenNative)),
 }
 
 func assertDestinationBalanceEventuallyEqual(expectedBalance *big.Int) balanceAssertion {
@@ -360,7 +361,9 @@ type approvableToken interface {
 	Approve(opts *bind.TransactOpts, spender common.Address, amount *big.Int) (*types.Transaction, error)
 }
 
-func approveToken(t *testing.T, chain evmChain.Chain, transactor *bind.TransactOpts, token approvableToken, spender common.Address) {
+func approveToken(t *testing.T, chain evmChain.Chain, transactor *bind.TransactOpts, token approvableToken, spender common.Address, lock *sync.Mutex) {
+	lock.Lock()
+	defer lock.Unlock()
 	tx, err := token.Approve(transactor, spender, big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(1e9))) // Approve a large amount
 	require.NoError(t, err)
 	_, err = chain.Confirm(tx)
@@ -774,6 +777,17 @@ func configureTokenPoolContractsWithMCMS(t *testing.T, e cldf.Environment, token
 	return
 }
 
+func getFillerImage() (string, error) {
+	envVersion := os.Getenv(devenv.E2eFastFillerVersion)
+	envImage := os.Getenv(devenv.E2eFastFillerImage)
+
+	if envVersion == "" || envImage == "" {
+		return devenv.DefaultFastFillerImage, nil
+	}
+
+	return envImage + ":" + envVersion, nil
+}
+
 func runAssertions(t *testing.T, sourceToken balanceToken, destinationToken balanceToken, address common.Address, assertions []balanceAssertion, description string) {
 	for _, assertion := range assertions {
 		assertion(t, sourceToken, destinationToken, address, description)
@@ -831,9 +845,11 @@ func startRelayer(t *testing.T, sourceChainSelector, destinationChainSelector ui
 			},
 		},
 	}
+	image, err := getFillerImage()
+	require.NoError(t, err, "Failed to get filler image")
 	l := logging.GetTestLogger(t)
-	relayer := devenv.NewCCIPFastFiller(fastFillerConfig, l, []string{dockerEnv.GetCLClusterTestEnv().DockerNetwork.ID})
-	err := relayer.Start(t.Context(), t)
+	relayer := devenv.NewCCIPFastFiller(fastFillerConfig, l, []string{dockerEnv.GetCLClusterTestEnv().DockerNetwork.ID}, image)
+	err = relayer.Start(t.Context(), t)
 	require.NoError(t, err, "Failed to start the relayer")
 
 	return func() error { return relayer.Stop(context.Background()) }
@@ -1156,18 +1172,18 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 		// Setup source chain funding and approvals
 		fundAccount(t, ctx.SourceChain(), userAddress, defaultEthAmount, ctx.sourceLock)
 		fundAccountWithToken(t, ctx.SourceChain(), userAddress, sourceMinter, initialUserTokenAmountOnSource, ctx.sourceLock)
-		approveToken(t, ctx.SourceChain(), userTransactor(), sourceToken, sourceTokenPoolAddress)
+		approveToken(t, ctx.SourceChain(), userTransactor(), sourceToken, sourceTokenPoolAddress, ctx.sourceLock)
 
 		if tc.feeTokenType == feeTokenLink {
 			sourceLinkToken := getLinkTokenAndGrantMintRole(t, ctx.SourceChain(), ctx.sourceChainState, ctx.sourceLock)
 			fundAccountWithToken(t, ctx.SourceChain(), userAddress, sourceLinkToken, fees.CcipSettlementFee, ctx.sourceLock)
-			approveToken(t, ctx.SourceChain(), userTransactor(), sourceLinkToken, sourceTokenPoolAddress)
+			approveToken(t, ctx.SourceChain(), userTransactor(), sourceLinkToken, sourceTokenPoolAddress, ctx.sourceLock)
 		}
 
 		// Setup destination chain funding and approvals
 		fundAccount(t, ctx.DestinationChain(), fillerAddress, defaultEthAmount, ctx.destinationLock)
 		fundAccountWithToken(t, ctx.DestinationChain(), fillerAddress, destinationMinter, initialFillerTokenAmountOnDest, ctx.destinationLock)
-		approveToken(t, ctx.DestinationChain(), fillerTransactor(), destinationToken, destinationTokenPoolAddress)
+		approveToken(t, ctx.DestinationChain(), fillerTransactor(), destinationToken, destinationTokenPoolAddress, ctx.destinationLock)
 
 		if tc.enableFiller {
 			stop := startRelayer(t, ctx.SourceChainSelector(), ctx.DestinationChainSelector(), sourceTokenPoolAddress, destinationTokenPoolAddress, ctx.deployedEnv, fillerPrivateKey)
