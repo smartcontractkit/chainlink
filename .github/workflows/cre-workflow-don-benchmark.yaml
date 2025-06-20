@@ -68,36 +68,17 @@ jobs:
         if:  ${{ github.event_name == 'pull_request' }}
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
-      - name: Set up cAdvisor for basic container monitoring
+      - name: Start eBPF exporter
+        shell: bash
         run: |
-          # Run cAdvisor container
           docker run -d \
-            --volume=/:/rootfs:ro \
-            --volume=/var/run:/var/run:ro \
-            --volume=/var/run/docker.sock:/var/run/docker.sock:ro \
-            --volume=/sys:/sys:ro \
-            --volume=/var/lib/docker/:/var/lib/docker:ro \
-            --volume=/dev/disk/:/dev/disk:ro \
-            --publish=8080:8080 \
-            --privileged=true \
-            --detach=true \
-            --name=cadvisor \
-            gcr.io/cadvisor/cadvisor:latest
+            --name ebpf-exporter \
+            --privileged \
+            -v /sys:/sys:ro \
+            -v /lib/modules:/lib/modules:ro \
+            quay.io/cloudflare/ebpf_exporter:latest \
+            --port 9435
 
-          # Wait for cAdvisor to initialize
-          sleep 5
-
-          # Create metrics directory
-          mkdir -p ./system-tests/tests/load/cre/metrics
-
-          # Start collecting metrics every 10 seconds
-          echo "Starting metrics collection..."
-          (while true; do
-            timestamp=$(date +%s)
-            curl -s http://localhost:8080/api/v1.3/containers/ > ./system-tests/tests/load/cre/metrics/cadvisor-${timestamp}.json
-            sleep 10
-          done) &
-          echo $! > ./system-tests/tests/load/cre/metrics/metrics-pid.txt
 
       - name: Start the test
         shell: bash
@@ -116,50 +97,17 @@ jobs:
           cd system-tests/tests/load/cre
           go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 15m
 
-      - name: Debug cAdvisor container visibility
+      - name: Verify container metrics
         shell: bash
         run: |
-          echo "=== Docker containers (from docker ps) ==="
-          docker ps --format "{{.Names}} ({{.ID}})" | tee cadvisor-debug-docker-containers.txt
-          
-          echo "=== cAdvisor API status check (raw) ==="
-          curl -s http://localhost:8080/api/v1.3/ > cadvisor-api-raw.json
-          echo "Raw response saved to cadvisor-api-raw.json"
-          cat cadvisor-api-raw.json | tee cadvisor-debug-api-status.txt
-          
-          echo "=== Root containers seen by cAdvisor (raw) ==="
-          curl -s http://localhost:8080/api/v1.3/containers/ > cadvisor-root-containers-raw.json
-          echo "Raw response saved to cadvisor-root-containers-raw.json"
-          cat cadvisor-root-containers-raw.json | tee cadvisor-debug-root-paths.txt
-          
-          echo "=== Docker containers seen by cAdvisor (raw) ==="
-          curl -s http://localhost:8080/api/v1.3/containers/docker/ > cadvisor-docker-containers-raw.json
-          echo "Raw response saved to cadvisor-docker-containers-raw.json"
-          cat cadvisor-docker-containers-raw.json | tee cadvisor-debug-docker-containers.txt
-          
-          echo "=== cAdvisor machine info (raw) ==="
-          curl -s http://localhost:8080/api/v1.3/machine > cadvisor-machine-info-raw.json
-          echo "Raw response saved to cadvisor-machine-info-raw.json"
-          cat cadvisor-machine-info-raw.json | tee cadvisor-debug-machine-info.txt
-          
-          echo "=== Docker socket permissions ==="
-          ls -la /var/run/docker.sock | tee cadvisor-debug-socket-perms.txt
-          
-          echo "=== cAdvisor container logs ==="
-          docker logs cadvisor | tail -n 50 | tee cadvisor-debug-logs.txt
-          
-          # Save debug files to the metrics directory for later analysis
-          mkdir -p ./system-tests/tests/load/cre/metrics/debug
-          mv cadvisor-debug-*.txt ./system-tests/tests/load/cre/metrics/debug/
-          mv cadvisor-*-raw.json ./system-tests/tests/load/cre/metrics/debug/
+          echo "Fetched container metrics:"
+          curl -s http://localhost:9435/metrics | grep '^ebpf_container_'
 
-      - name: Stop metrics collection
+      - name: Cleanup
         if: always()
         run: |
-          if [ -f ./system-tests/tests/load/cre/metrics/metrics-pid.txt ]; then
-            kill -9 $(cat ./system-tests/tests/load/cre/metrics/metrics-pid.txt) || true
-          fi
-          docker stop cadvisor || true
+          docker stop ebpf-exporter
+          docker rm   ebpf-exporter
 
       - name: Upload node logs and metrics as artifact
         if: always()
