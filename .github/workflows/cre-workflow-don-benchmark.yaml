@@ -97,6 +97,16 @@ jobs:
           cd system-tests/tests/load/cre
           go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 15m
 
+      - name: Debug directory structure
+        if: always()
+        shell: bash
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Checking if directory exists:"
+          ls -la ./system-tests/tests/load/cre/metrics/ || echo "Metrics directory doesn't exist"
+          echo "Looking for any PID files:"
+          find . -name "*.pid" || echo "No PID files found anywhere"
+
       - name: Stop all streams and inspect files
         if: always()
         shell: bash
