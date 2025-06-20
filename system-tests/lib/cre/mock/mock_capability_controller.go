@@ -59,7 +59,7 @@ func NewMockCapabilityControllerFromCache(lggr zerolog.Logger, useInsecure bool)
 	}
 
 	controller := NewMockCapabilityController(lggr)
-	if err := controller.ConnectAll(addresses, useInsecure, false); err != nil {
+	if err := controller.ConnectAll(addresses, useInsecure); err != nil {
 		return nil, fmt.Errorf("failed to connect to cached URLs: %w", err)
 	}
 
@@ -67,18 +67,7 @@ func NewMockCapabilityControllerFromCache(lggr zerolog.Logger, useInsecure bool)
 }
 
 // ConnectAll connects to all addresses, for CTFv2 test useInsecure should be true, for CRIB useInsecure should be false
-func (c *Controller) ConnectAll(addresses []string, useInsecure bool, cacheClients bool) error {
-	if cacheClients {
-		cacheDir := "cache"
-		if err := os.MkdirAll(cacheDir, 0755); err != nil {
-			return fmt.Errorf("failed to create cache directory: %w", err)
-		}
-
-		urlsBytes := []byte(strings.Join(addresses, "\n"))
-		if err := os.WriteFile("cache/mock-clients.txt", urlsBytes, 0600); err != nil {
-			return fmt.Errorf("failed to save URLs to cache: %w", err)
-		}
-	}
+func (c *Controller) ConnectAll(addresses []string, useInsecure bool) error {
 	for _, p := range addresses {
 		client, err := proxyConnectToOne(p, useInsecure)
 		if err != nil {
@@ -87,6 +76,19 @@ func (c *Controller) ConnectAll(addresses []string, useInsecure bool, cacheClien
 		c.Nodes = append(c.Nodes, client)
 	}
 
+	return nil
+}
+
+func (c *Controller) CacheClientAddresses(addresses []string) error {
+	cacheDir := "cache"
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return fmt.Errorf("failed to create cache directory: %w", err)
+	}
+
+	urlsBytes := []byte(strings.Join(addresses, "\n"))
+	if err := os.WriteFile("cache/mock-clients.txt", urlsBytes, 0600); err != nil {
+		return fmt.Errorf("failed to save URLs to cache: %w", err)
+	}
 	return nil
 }
 

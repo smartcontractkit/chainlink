@@ -45,3 +45,10 @@ func BytesToMap(b []byte) (*values.Map, error) {
 
 	return &vm, nil
 }
+
+type MockCapabilities struct {
+	Name        string `toml:"name"`
+	Version     string `toml:"version"`
+	Type        string `toml:"type"`
+	Description string `toml:"description"`
+}

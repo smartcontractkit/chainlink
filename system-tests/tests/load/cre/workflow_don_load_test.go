@@ -1,9 +1,7 @@
 package cre
 
 import (
-	"bytes"
 	"context"
-	crand "crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -13,43 +11,35 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"text/template"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp/benchspy"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/app/keystonedatafeeds"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock"
+	mock_llo "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/triggers/llo"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -77,15 +67,8 @@ type TestConfigLoadTest struct {
 	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
 	Infra                         *libtypes.InfraInput                 `toml:"infra" validate:"required"`
 	WorkflowDONLoad               *WorkflowLoad                        `toml:"workflow_load"`
-	MockCapabilities              []*MockCapabilities                  `toml:"mock_capabilities"`
+	MockCapabilities              []*mock_capability.MockCapabilities  `toml:"mock_capabilities"`
 	Chaos                         *Chaos                               `toml:"chaos"`
-}
-
-type MockCapabilities struct {
-	Name        string `toml:"name"`
-	Version     string `toml:"version"`
-	Type        string `toml:"type"`
-	Description string `toml:"description"`
 }
 
 type WorkflowLoad struct {
@@ -94,9 +77,20 @@ type WorkflowLoad struct {
 	FeedAddresses [][]string
 }
 
-type FeedWithStreamID struct {
-	Feed     string `json:"feed"`
-	StreamID int32  `json:"streamID"`
+func (w WorkflowLoad) generateFeedAddresses(t *testing.T) [][]mock_llo.FeedWithStreamID {
+	t.Helper()
+	feedsAddresses := make([][]mock_llo.FeedWithStreamID, w.Jobs)
+	for i := range w.Jobs {
+		feedsAddresses[i] = make([]mock_llo.FeedWithStreamID, 0)
+		for streamID := int32(0); streamID < w.Streams; streamID++ {
+			_, id := mock_llo.NewFeedIDDF2()
+			feedsAddresses[i] = append(feedsAddresses[i], mock_llo.FeedWithStreamID{
+				Feed:     id,
+				StreamID: (w.Streams * i) + streamID + 1,
+			})
+		}
+	}
+	return feedsAddresses
 }
 
 type loadTestSetupOutput struct {
@@ -167,66 +161,45 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		}
 	}
 
-	feedsAddresses := make([][]FeedWithStreamID, in.WorkflowDONLoad.Jobs)
-	for i := range in.WorkflowDONLoad.Jobs {
-		feedsAddresses[i] = make([]FeedWithStreamID, 0)
-		for streamID := range in.WorkflowDONLoad.Streams {
-			_, id := NewFeedIDDF2(t)
-			feedsAddresses[i] = append(feedsAddresses[i], FeedWithStreamID{
-				Feed:     id,
-				StreamID: (in.WorkflowDONLoad.Streams * i) + streamID + 1,
-			})
-		}
-	}
+	feedsAddresses := in.WorkflowDONLoad.generateFeedAddresses(t)
+	loadTestJobSpecsFactoryFn := keystonedatafeeds.JobSpecFactoryGenerator(feedsAddresses, in.MockCapabilities)
+	/*
+		loadTestJobSpecsFactoryFn := func(input *keystonetypes.JobSpecFactoryInput) (keystonetypes.DonsToJobSpecs, error) {
+			donTojobSpecs := make(keystonetypes.DonsToJobSpecs, 0)
 
-	loadTestJobSpecsFactoryFn := func(input *keystonetypes.JobSpecFactoryInput) (keystonetypes.DonsToJobSpecs, error) {
-		donTojobSpecs := make(keystonetypes.DonsToJobSpecs, 0)
-
-		for _, donWithMetadata := range input.DonTopology.DonsWithMetadata {
-			jobSpecs := make(keystonetypes.DonJobs, 0)
-			workflowNodeSet, err2 := node.FindManyWithLabel(donWithMetadata.NodesMetadata, &keystonetypes.Label{Key: node.NodeTypeKey, Value: keystonetypes.WorkerNode}, node.EqualLabels)
-			if err2 != nil {
-				// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
-				return nil, errors.Wrap(err2, "failed to find worker nodes")
-			}
-			for _, workerNode := range workflowNodeSet {
-				nodeID, nodeIDErr := node.FindLabelValue(workerNode, node.NodeIDKey)
-				if nodeIDErr != nil {
-					return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
+			for _, donWithMetadata := range input.DonTopology.DonsWithMetadata {
+				jobSpecs := make(keystonetypes.DonJobs, 0)
+				workflowNodeSet, err2 := node.FindManyWithLabel(donWithMetadata.NodesMetadata, &keystonetypes.Label{Key: node.NodeTypeKey, Value: keystonetypes.WorkerNode}, node.EqualLabels)
+				if err2 != nil {
+					// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
+					return nil, errors.Wrap(err2, "failed to find worker nodes")
 				}
-				if flags.HasFlag(donWithMetadata.Flags, keystonetypes.WorkflowDON) {
-					for i := range feedsAddresses {
-						feedConfig := make([]FeedConfig, 0)
-
-						for _, feed := range feedsAddresses[i] {
-							feedID, err2 := datastreams.NewFeedID(feed.Feed)
-							if err2 != nil {
-								return nil, err2
+				for _, workerNode := range workflowNodeSet {
+					nodeID, nodeIDErr := node.FindLabelValue(workerNode, node.NodeIDKey)
+					if nodeIDErr != nil {
+						return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
+					}
+					if flags.HasFlag(donWithMetadata.Flags, keystonetypes.WorkflowDON) {
+						for i := range feedsAddresses {
+							feedConfig := make([]mock_llo.FeedConfig, 0)
+							for _, feed := range feedsAddresses[i] {
+								feedConfig = append(feedConfig, feed.MustFeedConfig())
 							}
-							feedBytes := feedID.Bytes()
-							feedConfig = append(feedConfig, FeedConfig{
-								FeedIDsIndex: feed.StreamID,
-								Deviation:    "0.001",
-								Heartbeat:    3600,
-								RemappedID:   "0x" + hex.EncodeToString(feedBytes[:]),
-							})
+							jobSpecs = append(jobSpecs, mock_llo.WorkflowsJob(nodeID, fmt.Sprintf("load_%d", i), feedConfig))
 						}
+					}
 
-						jobSpecs = append(jobSpecs, WorkflowsJob(nodeID, fmt.Sprintf("load_%d", i), feedConfig))
+					if flags.HasFlag(donWithMetadata.Flags, keystonetypes.MockCapability) && in.MockCapabilities != nil {
+						jobSpecs = append(jobSpecs, MockCapabilitiesJob(nodeID, "mock", in.MockCapabilities))
 					}
 				}
 
-				if flags.HasFlag(donWithMetadata.Flags, keystonetypes.MockCapability) && in.MockCapabilities != nil {
-					jobSpecs = append(jobSpecs, MockCapabilitiesJob(nodeID, "mock", in.MockCapabilities))
-				}
+				donTojobSpecs[donWithMetadata.ID] = jobSpecs
 			}
 
-			donTojobSpecs[donWithMetadata.ID] = jobSpecs
+			return donTojobSpecs, nil
 		}
-
-		return donTojobSpecs, nil
-	}
-
+	*/
 	WorkflowDONLoadTestCapabilitiesFactoryFn := func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
@@ -343,15 +316,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		}
 	}
 
-	// If were not running in CI then save the feeds and OCR2 keys to a file so we can reuse them later
-	cacheClients := false
-	if os.Getenv("CI") != "true" {
-		cacheClients = true
-		require.NoError(t, saveFeedAddresses(feedsAddresses), "could not save feeds")
-
-		// Export key bundles so we can import them later in another test, used when crib cluster is already setup and we just want to connect to mocks for a different test
-		require.NoError(t, saveKeyBundles(kb), "could not save OCR2 Keys")
-	}
 	testLogger.Info().Msg("Connecting to mock capabilities...")
 
 	mocksClient := mock_capability.NewMockCapabilityController(testLogger)
@@ -380,15 +344,23 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	// due to ingress requirements, as grpc.insecure.NewCredentials() doesn't work properly with AWS ingress
 	useInsecure := in.Infra.InfraType == "docker"
 
-	require.NoError(t, mocksClient.ConnectAll(mockClientsAddress, useInsecure, cacheClients), "could not connect to mock capabilities") //yes
+	require.NoError(t, mocksClient.ConnectAll(mockClientsAddress, useInsecure), "could not connect to mock capabilities") // yes
 
+	// If were not running in CI then save the feeds and OCR2 keys to a file so we can reuse them later
+	if os.Getenv("CI") != "true" {
+		require.NoError(t, saveFeedAddresses(feedsAddresses), "could not save feeds")
+
+		// Export key bundles so we can import them later in another test, used when crib cluster is already setup and we just want to connect to mocks for a different test
+		require.NoError(t, saveKeyBundles(kb), "could not save OCR2 Keys")
+		require.NoError(t, mocksClient.CacheClientAddresses(mockClientsAddress), "could not cache mock capability clients")
+	}
 	testLogger.Info().Msg("Hooking into mock executable capabilities")
 
 	receiveChannel := make(chan capabilities.CapabilityRequest, 1000)
 	require.NoError(t, mocksClient.HookExecutables(ctx, receiveChannel), "could not hook into mock executable")
 
 	// Wait for the remote capability to be exposed, we check if the streams-trigger has subscribers
-	require.NoError(t, mocksClient.WaitForTriggerSubscribers(ctx, "streams-trigger@2.0.0", time.Minute*5), "error while waiting for trigger subscribers") //yes
+	require.NoError(t, mocksClient.WaitForTriggerSubscribers(ctx, "streams-trigger@2.0.0", time.Minute*5), "error while waiting for trigger subscribers") // yes
 
 	labels := map[string]string{
 		"go_test_name": "workflow-don-load-test",
@@ -442,6 +414,48 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	require.NoError(t, err, "workflow load test did not finish successfully")
 }
 
+/*
+func newMockCapabilityClient(lggr zerolog.Logger) {
+		// If were not running in CI then save the feeds and OCR2 keys to a file so we can reuse them later
+	cacheClients := false
+	if os.Getenv("CI") != "true" {
+		cacheClients = true
+		require.NoError(t, saveFeedAddresses(feedsAddresses), "could not save feeds")
+
+		// Export key bundles so we can import them later in another test, used when crib cluster is already setup and we just want to connect to mocks for a different test
+		require.NoError(t, saveKeyBundles(kb), "could not save OCR2 Keys")
+	}
+	lggr.Info().Msg("Connecting to mock capabilities...")
+
+	mocksClient := mock_capability.NewMockCapabilityController(lggr)
+	mockClientsAddress := make([]string, 0)
+	if in.Infra.InfraType == "docker" {
+		for _, nodeSet := range in.NodeSets {
+			if nodeSet.Name == "capabilities" {
+				for _, n := range nodeSet.NodeSpecs {
+					if len(n.Node.CustomPorts) == 0 {
+						panic("no custom port specified, mock capability running in kind must have a custom port in order to connect")
+					}
+					ports := strings.Split(n.Node.CustomPorts[0], ":")
+					mockClientsAddress = append(mockClientsAddress, "127.0.0.1:"+ports[0])
+				}
+			}
+		}
+	} else {
+		for i := range setupOutput.nodeOutput[1].CLNodes {
+			mockClientsAddress = append(mockClientsAddress, fmt.Sprintf("%s-%s-%d-mock.main.stage.cldev.sh:443", in.Infra.CRIB.Namespace, setupOutput.nodeOutput[1].NodeSetName, i-1))
+		}
+	}
+
+	require.NotEmpty(t, mockClientsAddress, "Could not create mock capability client addresses")
+
+	// Use insecure gRPC connection for local Docker containers. For AWS, use TLS credentials
+	// due to ingress requirements, as grpc.insecure.NewCredentials() doesn't work properly with AWS ingress
+	useInsecure := in.Infra.InfraType == "docker"
+
+	require.NoError(t, mocksClient.ConnectAll(mockClientsAddress, useInsecure, cacheClients), "could not connect to mock capabilities") //yes
+}
+*/
 // TestWithReconnect Re-runs the load test against an existing DON deployment. It expects feeds, OCR2 keys, and
 // mock addresses to be cached from a previous test run. This is useful for tweaking load patterns or debugging
 // workflow execution without redeploying the entire test environment.
@@ -494,7 +508,7 @@ var _ wasp.Gun = (*StreamsGun)(nil)
 type StreamsGun struct {
 	capProxy    *mock_capability.Controller
 	keyBundles  []ocr2key.KeyBundle
-	feeds       [][]FeedWithStreamID
+	feeds       [][]mock_llo.FeedWithStreamID
 	triggerID   string
 	waitChans   map[int64]chan interface{}
 	receiveChan <-chan capabilities.CapabilityRequest
@@ -506,7 +520,7 @@ type StreamsGun struct {
 	timestamp   time.Time
 }
 
-func NewStreamsGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.KeyBundle, feeds [][]FeedWithStreamID, triggerID string, ch <-chan capabilities.CapabilityRequest, feedLimit int, jobLimit int) *StreamsGun {
+func NewStreamsGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.KeyBundle, feeds [][]mock_llo.FeedWithStreamID, triggerID string, ch <-chan capabilities.CapabilityRequest, feedLimit int, jobLimit int) *StreamsGun {
 	sg := &StreamsGun{
 		capProxy:    capProxy,
 		keyBundles:  keyBundles,
@@ -618,7 +632,7 @@ func (s *StreamsGun) precomputeReports() {
 
 	price := decimal.NewFromInt(int64(rand.IntN(100)))
 
-	feeds := make([]FeedWithStreamID, 0)
+	feeds := make([]mock_llo.FeedWithStreamID, 0)
 	for jobNr := range s.feeds {
 		if jobNr >= s.jobLimit {
 			break
@@ -632,7 +646,7 @@ func (s *StreamsGun) precomputeReports() {
 		}
 	}
 
-	event, eventID, err := createFeedReport(logger.Nop(), price, uint64(timestamp.UnixNano()), feeds, s.keyBundles) //nolint:gosec // G115 don't care in test code
+	event, eventID, err := mock_llo.CreateLLOFeedReport(logger.Nop(), price, uint64(timestamp.UnixNano()), feeds, s.keyBundles) //nolint:gosec // G115 don't care in test code
 	if err != nil {
 		panic(err)
 	}
@@ -642,64 +656,6 @@ func (s *StreamsGun) precomputeReports() {
 	s.timestamp = timestamp
 
 	framework.L.Info().Msgf("create %d reports in %s", len(feeds), time.Since(start))
-}
-
-func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint64,
-	feeds []FeedWithStreamID, keyBundles []ocr2key.KeyBundle) (*capabilities.OCRTriggerEvent, string, error) {
-	values := make([]datastreamsllo.StreamValue, 0)
-
-	priceBytes, err := price.MarshalBinary()
-	if err != nil {
-		return nil, "", err
-	}
-	streams := make([]llotypes.Stream, 0)
-
-	for _, f := range feeds {
-		dec := &datastreamsllo.Decimal{}
-		err2 := dec.UnmarshalBinary(priceBytes)
-		if err2 != nil {
-			return nil, "", err2
-		}
-		values = append(values, dec)
-		streams = append(streams, llotypes.Stream{
-			StreamID: llotypes.StreamID(f.StreamID), //nolint:gosec // G115 don't care in test code
-		})
-	}
-
-	reportCodec := cre.NewReportCodecCapabilityTrigger(lggr, 1)
-
-	report := datastreamsllo.Report{
-		ObservationTimestampNanoseconds: timestamp,
-		Values:                          values,
-	}
-
-	reportBytes, err := reportCodec.Encode(report, llotypes.ChannelDefinition{
-		Streams: streams,
-	})
-	if err != nil {
-		return nil, "", err
-	}
-	eventID := reportCodec.EventID(report)
-
-	event := &capabilities.OCRTriggerEvent{
-		ConfigDigest: []byte{0: 1, 31: 2},
-		SeqNr:        0,
-		Report:       reportBytes,
-		Sigs:         make([]capabilities.OCRAttributedOnchainSignature, 0, len(keyBundles)),
-	}
-
-	for i, key := range keyBundles {
-		sig, err2 := key.Sign3(ocrTypes.ConfigDigest(event.ConfigDigest), event.SeqNr, reportBytes)
-		if err2 != nil {
-			return nil, "", err
-		}
-		event.Sigs = append(event.Sigs, capabilities.OCRAttributedOnchainSignature{
-			Signer:    uint32(i), //nolint:gosec // G115 don't care in test code
-			Signature: sig,
-		})
-	}
-
-	return event, eventID, nil
 }
 
 func decodeTargetInput(inputs *values.Map) (evm.TargetRequest, error) {
@@ -770,24 +726,7 @@ func loadKeyBundlesFromCache() ([]ocr2key.KeyBundle, error) {
 	return keyBundles, nil
 }
 
-// NewFeedIDDF2 creates a random Data Feeds 2.0 format https://docs.google.com/document/d/13ciwTx8lSUfyz1IdETwpxlIVSn1lwYzGtzOBBTpl5Vg/edit?tab=t.0#heading=h.dxx2wwn1dmoz
-func NewFeedIDDF2(t *testing.T) ([32]byte, string) {
-	buf := [32]byte{}
-	_, err := crand.Read(buf[:])
-	require.NoError(t, err, "cannot create feedID")
-	buf[0] = 0x01 // format byte
-	buf[5] = 0x00 // attribute
-	buf[6] = 0x03 // attribute
-	buf[7] = 0x00 // data type byte
-
-	for i := 8; i < 16; i++ {
-		buf[i] = 0x00
-	}
-
-	return buf, "0x" + hex.EncodeToString(buf[:])
-}
-
-func saveFeedAddresses(feedsAddresses [][]FeedWithStreamID) error {
+func saveFeedAddresses(feedsAddresses [][]mock_llo.FeedWithStreamID) error {
 	cacheDir := "cache/feeds"
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
@@ -806,144 +745,18 @@ func saveFeedAddresses(feedsAddresses [][]FeedWithStreamID) error {
 	return nil
 }
 
-func loadFeedAddressesFromCache() ([][]FeedWithStreamID, error) {
+func loadFeedAddressesFromCache() ([][]mock_llo.FeedWithStreamID, error) {
 	bytes, err := os.ReadFile("cache/feeds/feed_addresses.json")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read feed addresses file: %w", err)
 	}
 
-	var feedsAddresses [][]FeedWithStreamID
+	var feedsAddresses [][]mock_llo.FeedWithStreamID
 	if err := json.Unmarshal(bytes, &feedsAddresses); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal feed addresses: %w", err)
 	}
 
 	return feedsAddresses, nil
-}
-
-type FeedConfig struct {
-	FeedIDsIndex int32  `json:"feedIDsIndex"`
-	Deviation    string `json:"deviation"`
-	Heartbeat    int32  `json:"heartbeat"`
-	RemappedID   string `json:"remappedID"`
-}
-
-// TODO shouldn't consumer address be configurable?
-func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1.ProposeJobRequest {
-	const workflowTemplateLoad = `
- type = "workflow"
- schemaVersion = 1
- name = "{{ .WorkflowName }}"
- externalJobID = "{{ .JobID }}"
- workflow = """
- name: "{{ .WorkflowName }}"
- owner: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512'
- triggers:
-  - id: streams-trigger@2.0.0
-    config:
-      feedIds:
- {{- range .Feeds }}
-        - '{{ .FeedIDsIndex }}'
- {{- end }}
- consensus:
-   - id: "offchain_reporting@1.0.0"
-     ref: "evm_median"
-     inputs:
-       observations:
-         - "$(trigger.outputs)"
-     config:
-       report_id: "0001"
-       key_id: "evm"
-       aggregation_method: "llo_streams"
-       aggregation_config:
-         streams:
-{{- range .Feeds }}
-           "{{ .FeedIDsIndex }}":
-             deviation: "{{ .Deviation }}"
-             heartbeat: {{ .Heartbeat }}
-             remappedID: {{ .RemappedID }}
-{{- end }}
-       encoder: "EVM"
-       encoder_config:
-         abi: "(bytes32 RemappedID, uint224 Price, uint32 Timestamp)[] Reports"
- targets:
-   - id: write_ethereum_mock@1.0.0
-     inputs:
-       signed_report: "$(evm_median.outputs)"
-     config:
-       address: "0xEB739A9641938934D21A325A0C6b26126D48926A"
-       params: ["$(report)"]
-       abi: "receive(report bytes)"
-       deltaStage: 2s
-       schedule: allAtOnce
- """
- `
-
-	tmpl, err := template.New("workflow").Parse(workflowTemplateLoad)
-
-	if err != nil {
-		panic(err)
-	}
-	var renderedTemplate bytes.Buffer
-	err = tmpl.Execute(&renderedTemplate, map[string]interface{}{
-		"WorkflowName": workflowName,
-		"Feeds":        feeds,
-		"JobID":        uuid.NewString(),
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	return &jobv1.ProposeJobRequest{
-		NodeId: nodeID,
-		Spec:   renderedTemplate.String()}
-}
-
-func MockCapabilitiesJob(nodeID, binaryPath string, mocks []*MockCapabilities) *jobv1.ProposeJobRequest {
-	jobTemplate := `type = "standardcapabilities"
-			schemaVersion = 1
-			externalJobID = "{{ .JobID }}"
-			name = "mock-capability"
-			forwardingAllowed = false
-			command = "{{ .BinaryPath }}"
-			config = """
-				port=7777
-		{{ range $index, $m := .Mocks }}
- 		  [[DefaultMocks]]
-				id="{{ $m.ID }}"
-				description="{{ $m.Description }}"
-				type="{{ $m.Type }}"
- 		{{- end }}
-			"""`
-	tmpl, err := template.New("mock-job").Parse(jobTemplate)
-
-	if err != nil {
-		panic(err)
-	}
-	mockJobsData := make([]map[string]string, 0)
-	for _, m := range mocks {
-		mockJobsData = append(mockJobsData, map[string]string{
-			"ID":          m.Name + "@" + m.Version,
-			"Description": m.Description,
-			"Type":        m.Type,
-		})
-	}
-
-	jobUUID := uuid.NewString()
-	var renderedTemplate bytes.Buffer
-	err = tmpl.Execute(&renderedTemplate, map[string]interface{}{
-		"JobID":      jobUUID,
-		"ShortID":    jobUUID[0:8],
-		"BinaryPath": binaryPath,
-		"Mocks":      mockJobsData,
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	return &jobv1.ProposeJobRequest{
-		NodeId: nodeID,
-		Spec:   renderedTemplate.String(),
-	}
 }
 
 func capTypeToInt(capType string) uint8 {

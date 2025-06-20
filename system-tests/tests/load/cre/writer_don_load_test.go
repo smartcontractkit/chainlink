@@ -54,6 +54,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock"
 	pb2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
+	mock_llo "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/triggers/llo"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
@@ -72,7 +73,7 @@ type TestConfigLoadTestWriter struct {
 	JD                            *jd.Input                            `toml:"jd" validate:"required"`
 	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
 	Infra                         *libtypes.InfraInput                 `toml:"infra" validate:"required"`
-	MockCapabilities              []*MockCapabilities                  `toml:"mock_capabilities"`
+	MockCapabilities              []*mock_capability.MockCapabilities  `toml:"mock_capabilities"`
 	WriterTest                    *WriterTest                          `toml:"writer_test"`
 }
 
@@ -179,7 +180,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 				}
 
 				if flags.HasFlag(donWithMetadata.Flags, keystonetypes.MockCapability) && in.MockCapabilities != nil {
-					jobSpecs = append(jobSpecs, MockCapabilitiesJob(nodeID, "mock", in.MockCapabilities))
+					jobSpecs = append(jobSpecs, mock_capability.MockCapabilitiesJob(nodeID, "mock", in.MockCapabilities))
 				}
 			}
 
@@ -226,7 +227,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 
 	feedIDs := make([]string, 0)
 	for range in.WriterTest.NrOfFeeds {
-		_, id := NewFeedIDDF2(t)
+		_, id := mock_llo.NewFeedIDDF2()
 		feedIDs = append(feedIDs, strings.TrimPrefix(id, "0x"))
 	}
 
@@ -341,8 +342,13 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	testLogger.Info().Msg("Connecting to mock capabilities...")
 
 	mocksClient := mock_capability.NewMockCapabilityController(testLogger)
+
+	// Use insecure gRPC connection for local Docker containers. For AWS, use TLS credentials
+	// due to ingress requirements, as grpc.insecure.NewCredentials() doesn't work properly with AWS ingress
+	useInsecure := false
 	mockClientsAddress := make([]string, 0)
 	if in.Infra.InfraType == "docker" {
+		useInsecure = true
 		for _, nodeSet := range in.NodeSets {
 			if nodeSet.Name == "writer" {
 				for i, n := range nodeSet.NodeSpecs {
@@ -367,12 +373,8 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		}
 	}
 
-	// Use insecure gRPC connection for local Docker containers. For AWS, use TLS credentials
-	// due to ingress requirements, as grpc.insecure.NewCredentials() doesn't work properly with AWS ingress
-	useInsecure := in.Infra.InfraType == "docker"
-
-	require.NoError(t, mocksClient.ConnectAll(mockClientsAddress, useInsecure, true), "could not connect to mock capabilities")
-
+	require.NoError(t, mocksClient.ConnectAll(mockClientsAddress, useInsecure), "could not connect to mock capabilities")
+	require.NoError(t, mocksClient.CacheClientAddresses(mockClientsAddress), "could not cache mock client addresses")
 	testLogger.Info().Msg("Hooking into mock executable capabilities")
 
 	receiveChannel := make(chan capabilities.CapabilityRequest, 1000)
