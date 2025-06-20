@@ -235,11 +235,12 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 		MCMSCfg: *cfg.MCMS,
 		ContractsByChain: map[uint64]CCIPContractsToTransfer{
 			cfg.ChainSelector: {
-				BurnMintTokenPools:    map[string]solana.PublicKey{},
-				LockReleaseTokenPools: map[string]solana.PublicKey{},
+				BurnMintTokenPools:    map[string][]solana.PublicKey{},
+				LockReleaseTokenPools: map[string][]solana.PublicKey{},
 			},
 		},
 	}
+	poolsByType := transferPoolToTimelockConfig.ContractsByChain[cfg.ChainSelector]
 
 	for _, tokenCfg := range cfg.E2ETokens {
 		if err := tokenCfg.Validate(); err != nil {
@@ -286,11 +287,18 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 		}
 		// transfer pool to timelock
 		if *tokenCfg.PoolType == solTestTokenPool.BurnAndMint_PoolType {
-			transferPoolToTimelockConfig.ContractsByChain[cfg.ChainSelector].BurnMintTokenPools[tokenCfg.Metadata] = tokenCfg.TokenPubKey
+			poolsByType.BurnMintTokenPools[tokenCfg.Metadata] = append(
+				poolsByType.BurnMintTokenPools[tokenCfg.Metadata],
+				tokenCfg.TokenPubKey,
+			)
 		} else { // lock and release pool
-			transferPoolToTimelockConfig.ContractsByChain[cfg.ChainSelector].LockReleaseTokenPools[tokenCfg.Metadata] = tokenCfg.TokenPubKey
+			poolsByType.LockReleaseTokenPools[tokenCfg.Metadata] = append(
+				poolsByType.LockReleaseTokenPools[tokenCfg.Metadata],
+				tokenCfg.TokenPubKey,
+			)
 		}
 	}
+	e.Logger.Info("transferPoolToTimelockConfig: ", transferPoolToTimelockConfig)
 	output, err := AddTokenPoolAndLookupTable(e, tokenPoolAndLookupTableCfg)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to add token pool and lookup table: %w", err)
