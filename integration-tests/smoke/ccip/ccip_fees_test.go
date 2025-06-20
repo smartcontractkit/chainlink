@@ -12,7 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
@@ -35,10 +35,10 @@ func setupNewFeeToken(
 	state stateview.CCIPOnChainState,
 	tokenSymbol string,
 	tokenDecimals uint8,
-) (feeToken *burn_mint_erc677.BurnMintERC677) {
+) (feeToken *burn_mint_erc20.BurnMintERC20) {
 	lggr := logger.TestLogger(t)
 	chain := tenv.Env.BlockChains.EVMChains()[chainSelector]
-	tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
+	tokenAddress, tx, token, err := burn_mint_erc20.DeployBurnMintERC20(
 		deployer,
 		chain.Client,
 		tokenSymbol,
@@ -100,8 +100,8 @@ func setupTokens(
 	transferTokenMintAmount,
 	feeTokenMintAmount *big.Int,
 ) (
-	srcToken *burn_mint_erc677.BurnMintERC677,
-	dstToken *burn_mint_erc677.BurnMintERC677,
+	srcToken *burn_mint_erc20.BurnMintERC20,
+	dstToken *burn_mint_erc20.BurnMintERC20,
 ) {
 	lggr := logger.TestLogger(t)
 	e := tenv.Env

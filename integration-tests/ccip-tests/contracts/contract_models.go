@@ -46,7 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
@@ -189,7 +189,7 @@ type TokenTransmitter struct {
 type ERC677Token struct {
 	client          blockchain.EVMClient
 	logger          *zerolog.Logger
-	instance        *burn_mint_erc677.BurnMintERC677
+	instance        *burn_mint_erc20.BurnMintERC20
 	ContractAddress common.Address
 	OwnerAddress    common.Address
 	OwnerWallet     *blockchain.EthereumWallet
@@ -721,7 +721,7 @@ func (pool *TokenPool) MintUSDCToUSDCPool() error {
 	if err != nil {
 		return fmt.Errorf("failed to get dest usdc token: %w", err)
 	}
-	usdcInstance, err := burn_mint_erc677.NewBurnMintERC677(usdcToken, pool.client.Backend())
+	usdcInstance, err := burn_mint_erc20.NewBurnMintERC20(usdcToken, pool.client.Backend())
 	if err != nil {
 		return fmt.Errorf("failed to get dest usdc token instance: %w", err)
 	}

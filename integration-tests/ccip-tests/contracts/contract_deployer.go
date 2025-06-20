@@ -49,7 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/type_and_version"
@@ -207,13 +207,13 @@ func (e *CCIPContractsDeployer) DeployLinkTokenContract() (*LinkToken, error) {
 	}, err
 }
 
-// DeployBurnMintERC677 deploys a BurnMintERC677 contract, mints given amount ( if provided) to the owner address and returns the ERC20Token wrapper instance
-func (e *CCIPContractsDeployer) DeployBurnMintERC677(ownerMintingAmount *big.Int) (*ERC677Token, error) {
+// DeployBurnMintERC20 deploys a BurnMintERC20 contract, mints given amount ( if provided) to the owner address and returns the ERC20Token wrapper instance
+func (e *CCIPContractsDeployer) DeployBurnMintERC20(ownerMintingAmount *big.Int) (*ERC677Token, error) {
 	address, _, instance, err := e.evmClient.DeployContract("Burn Mint ERC 677", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return burn_mint_erc677.DeployBurnMintERC677(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil), "Test Token ERC677", "TERC677", 6, new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9)))
+		return burn_mint_erc20.DeployBurnMintERC20(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil), "Test Token ERC677", "TERC677", 6, new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9)))
 	})
 	if err != nil {
 		return nil, err
@@ -223,7 +223,7 @@ func (e *CCIPContractsDeployer) DeployBurnMintERC677(ownerMintingAmount *big.Int
 		client:          e.evmClient,
 		logger:          e.logger,
 		ContractAddress: *address,
-		instance:        instance.(*burn_mint_erc677.BurnMintERC677),
+		instance:        instance.(*burn_mint_erc20.BurnMintERC20),
 		OwnerAddress:    common.HexToAddress(e.evmClient.GetDefaultWallet().Address()),
 		OwnerWallet:     e.evmClient.GetDefaultWallet(),
 	}
@@ -245,12 +245,12 @@ func (e *CCIPContractsDeployer) DeployBurnMintERC677(ownerMintingAmount *big.Int
 	return token, err
 }
 
-func (e *CCIPContractsDeployer) DeployCustomBurnMintERC677Token(name, symbol string, decimals uint8, ownerMintingAmount *big.Int) (*ERC677Token, error) {
+func (e *CCIPContractsDeployer) DeployCustomBurnMintERC20Token(name, symbol string, decimals uint8, ownerMintingAmount *big.Int) (*ERC677Token, error) {
 	address, _, instance, err := e.evmClient.DeployContract("Burn Mint ERC 677", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return burn_mint_erc677.DeployBurnMintERC677(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil), name, symbol, decimals, new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9)))
+		return burn_mint_erc20.DeployBurnMintERC20(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil), name, symbol, decimals, new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9)))
 	})
 	if err != nil {
 		return nil, err
@@ -260,7 +260,7 @@ func (e *CCIPContractsDeployer) DeployCustomBurnMintERC677Token(name, symbol str
 		client:          e.evmClient,
 		logger:          e.logger,
 		ContractAddress: *address,
-		instance:        instance.(*burn_mint_erc677.BurnMintERC677),
+		instance:        instance.(*burn_mint_erc20.BurnMintERC20),
 		OwnerAddress:    common.HexToAddress(e.evmClient.GetDefaultWallet().Address()),
 		OwnerWallet:     e.evmClient.GetDefaultWallet(),
 	}

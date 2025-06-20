@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -29,7 +29,7 @@ func ConfigureUSDCTokenPools(
 	chains map[uint64]cldf_evm.Chain,
 	src, dst uint64,
 	state stateview.CCIPOnChainState,
-) (*burn_mint_erc677.BurnMintERC677, *burn_mint_erc677.BurnMintERC677, error) {
+) (*burn_mint_erc20.BurnMintERC20, *burn_mint_erc20.BurnMintERC20, error) {
 	srcToken := state.MustGetEVMChainState(src).BurnMintTokens677[shared.USDCSymbol]
 	dstToken := state.MustGetEVMChainState(dst).BurnMintTokens677[shared.USDCSymbol]
 	srcPool := state.MustGetEVMChainState(src).USDCTokenPools[deployment.Version1_5_1]
@@ -39,9 +39,9 @@ func ConfigureUSDCTokenPools(
 		sourceChain cldf_evm.Chain
 		dstChainSel uint64
 		state       evm.CCIPChainState
-		srcToken    *burn_mint_erc677.BurnMintERC677
+		srcToken    *burn_mint_erc20.BurnMintERC20
 		srcPool     *usdc_token_pool.USDCTokenPool
-		dstToken    *burn_mint_erc677.BurnMintERC677
+		dstToken    *burn_mint_erc20.BurnMintERC20
 		dstPool     *usdc_token_pool.USDCTokenPool
 	}{
 		{
@@ -79,9 +79,9 @@ func configureSingleChain(
 	sourceChain cldf_evm.Chain,
 	dstChainSel uint64,
 	state evm.CCIPChainState,
-	srcToken *burn_mint_erc677.BurnMintERC677,
+	srcToken *burn_mint_erc20.BurnMintERC20,
 	srcPool *usdc_token_pool.USDCTokenPool,
-	dstToken *burn_mint_erc677.BurnMintERC677,
+	dstToken *burn_mint_erc20.BurnMintERC20,
 	dstPool *usdc_token_pool.USDCTokenPool,
 ) func() error {
 	return func() error {

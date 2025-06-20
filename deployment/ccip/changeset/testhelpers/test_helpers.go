@@ -84,7 +84,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/aggregator_v3_interface"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/mock_v3_aggregator_contract"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
@@ -1335,7 +1335,7 @@ func DeployTransferableToken(
 	state stateview.CCIPOnChainState,
 	addresses cldf.AddressBook,
 	token string,
-) (*burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
+) (*burn_mint_erc20.BurnMintERC20, *burn_mint_token_pool.BurnMintTokenPool, *burn_mint_erc20.BurnMintERC20, *burn_mint_token_pool.BurnMintTokenPool, error) {
 	// Deploy token and pools
 	srcToken, srcPool, dstToken, dstPool, err := deployTokenPoolsInParallel(lggr, chains, src, dst, srcActor, dstActor, state, addresses, token)
 	if err != nil {
@@ -1378,7 +1378,7 @@ func DeployTransferableTokenSolana(
 	evmChainSel, solChainSel uint64,
 	evmDeployer *bind.TransactOpts,
 	evmTokenName string,
-) (*burn_mint_erc677.BurnMintERC677,
+) (*burn_mint_erc20.BurnMintERC20,
 	*burn_mint_token_pool.BurnMintTokenPool, solana.PublicKey, error) {
 	selectorFamily, err := chainsel.GetSelectorFamily(evmChainSel)
 	if err != nil {
@@ -1545,17 +1545,17 @@ func deployTokenPoolsInParallel(
 	addresses cldf.AddressBook,
 	token string,
 ) (
-	*burn_mint_erc677.BurnMintERC677,
+	*burn_mint_erc20.BurnMintERC20,
 	*burn_mint_token_pool.BurnMintTokenPool,
-	*burn_mint_erc677.BurnMintERC677,
+	*burn_mint_erc20.BurnMintERC20,
 	*burn_mint_token_pool.BurnMintTokenPool,
 	error,
 ) {
 	deployGrp := errgroup.Group{}
 	// Deploy token and pools
-	var srcToken *burn_mint_erc677.BurnMintERC677
+	var srcToken *burn_mint_erc20.BurnMintERC20
 	var srcPool *burn_mint_token_pool.BurnMintTokenPool
-	var dstToken *burn_mint_erc677.BurnMintERC677
+	var dstToken *burn_mint_erc20.BurnMintERC20
 	var dstPool *burn_mint_token_pool.BurnMintTokenPool
 
 	deployGrp.Go(func() error {
@@ -1585,7 +1585,7 @@ func deployTokenPoolsInParallel(
 	return srcToken, srcPool, dstToken, dstPool, nil
 }
 
-func grantMintBurnPermissions(lggr logger.Logger, chain cldf_evm.Chain, token *burn_mint_erc677.BurnMintERC677, actor *bind.TransactOpts, address common.Address) error {
+func grantMintBurnPermissions(lggr logger.Logger, chain cldf_evm.Chain, token *burn_mint_erc20.BurnMintERC20, actor *bind.TransactOpts, address common.Address) error {
 	lggr.Infow("Granting burn/mint permissions", "token", token.Address(), "address", address)
 	tx, err := token.GrantMintAndBurnRoles(actor, address)
 	if err != nil {
@@ -1725,7 +1725,7 @@ func deployTransferTokenOneEnd(
 	deployer *bind.TransactOpts,
 	addressBook cldf.AddressBook,
 	tokenSymbol string,
-) (*burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
+) (*burn_mint_erc20.BurnMintERC20, *burn_mint_token_pool.BurnMintTokenPool, error) {
 	var rmnAddress, routerAddress string
 	chainAddresses, err := addressBook.AddressesForChain(chain.Selector)
 	if err != nil {
@@ -1746,8 +1746,8 @@ func deployTransferTokenOneEnd(
 	tokenDecimals := uint8(18)
 
 	tokenContract, err := cldf.DeployContract(lggr, chain, addressBook,
-		func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
-			tokenAddress, tx, token, err2 := burn_mint_erc677.DeployBurnMintERC677(
+		func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20] {
+			tokenAddress, tx, token, err2 := burn_mint_erc20.DeployBurnMintERC20(
 				deployer,
 				chain.Client,
 				tokenSymbol,
@@ -1755,7 +1755,7 @@ func deployTransferTokenOneEnd(
 				tokenDecimals,
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
-			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+			return cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20]{
 				Address: tokenAddress, Contract: token, Tx: tx, Tv: cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_0_0), Err: err2,
 			}
 		})
@@ -1799,14 +1799,14 @@ func deployTransferTokenOneEnd(
 type MintTokenInfo struct {
 	auth   *bind.TransactOpts
 	sender *bind.TransactOpts
-	tokens []*burn_mint_erc677.BurnMintERC677
+	tokens []*burn_mint_erc20.BurnMintERC20
 }
 
-func NewMintTokenInfo(auth *bind.TransactOpts, tokens ...*burn_mint_erc677.BurnMintERC677) MintTokenInfo {
+func NewMintTokenInfo(auth *bind.TransactOpts, tokens ...*burn_mint_erc20.BurnMintERC20) MintTokenInfo {
 	return MintTokenInfo{auth: auth, tokens: tokens}
 }
 
-func NewMintTokenWithCustomSender(auth *bind.TransactOpts, sender *bind.TransactOpts, tokens ...*burn_mint_erc677.BurnMintERC677) MintTokenInfo {
+func NewMintTokenWithCustomSender(auth *bind.TransactOpts, sender *bind.TransactOpts, tokens ...*burn_mint_erc20.BurnMintERC20) MintTokenInfo {
 	return MintTokenInfo{auth: auth, sender: sender, tokens: tokens}
 }
 
@@ -2142,7 +2142,7 @@ func WaitForTheTokenBalance(
 	chain cldf_evm.Chain,
 	expected *big.Int,
 ) {
-	tokenContract, err := burn_mint_erc677.NewBurnMintERC677(token, chain.Client)
+	tokenContract, err := burn_mint_erc20.NewBurnMintERC20(token, chain.Client)
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {

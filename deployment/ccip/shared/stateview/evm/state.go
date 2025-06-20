@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/burn_mint_erc677_helper"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/burn_mint_erc20_helper"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fast_transfer_token_pool"
@@ -45,7 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/aggregator_v3_interface"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/multicall3"
@@ -95,8 +95,8 @@ type CCIPChainState struct {
 	ERC20Tokens                                      map[shared.TokenSymbol]*erc20.ERC20
 	FactoryBurnMintERC20Token                        *factory_burn_mint_erc20.FactoryBurnMintERC20
 	ERC677Tokens                                     map[shared.TokenSymbol]*erc677.ERC677
-	BurnMintTokens677                                map[shared.TokenSymbol]*burn_mint_erc677.BurnMintERC677
-	BurnMintTokens677Helper                          map[shared.TokenSymbol]*burn_mint_erc677_helper.BurnMintERC677Helper
+	BurnMintTokens677                                map[shared.TokenSymbol]*burn_mint_erc20.BurnMintERC20
+	BurnMintTokens677Helper                          map[shared.TokenSymbol]*burn_mint_erc20_helper.BurnMintERC20Helper
 	BurnMintTokenPools                               map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
 	BurnMintFastTransferTokenPools                   map[shared.TokenSymbol]map[semver.Version]*fast_transfer_token_pool.BurnMintFastTransferTokenPool
 	BurnMintWithExternalMinterFastTransferTokenPools map[shared.TokenSymbol]map[semver.Version]*burn_mint_with_external_minter_fast_transfer_token_pool.BurnMintWithExternalMinterFastTransferTokenPool

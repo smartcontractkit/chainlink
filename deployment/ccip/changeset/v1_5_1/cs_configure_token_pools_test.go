@@ -18,7 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -58,7 +58,7 @@ func validateMemberOfTokenPoolPair(
 	state stateview.CCIPOnChainState,
 	tokenPool *token_pool.TokenPool,
 	expectedRemotePools []common.Address,
-	tokens map[uint64]*cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677],
+	tokens map[uint64]*cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20],
 	tokenSymbol shared.TokenSymbol,
 	chainSelector uint64,
 	rate *big.Int,
@@ -740,8 +740,8 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 	///////////////////////////
 	for _, selector := range evmSelectors {
 		token, err := cldf.DeployContract(e.Logger, e.BlockChains.EVMChains()[selector], addressBook,
-			func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
-				tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
+			func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20] {
+				tokenAddress, tx, token, err := burn_mint_erc20.DeployBurnMintERC20(
 					e.BlockChains.EVMChains()[selector].DeployerKey,
 					e.BlockChains.EVMChains()[selector].Client,
 					string(testhelpers.TestTokenSymbol),
@@ -749,7 +749,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 					testhelpers.LocalTokenDecimals,
 					big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 				)
-				return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+				return cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20]{
 					Address:  tokenAddress,
 					Contract: token,
 					Tv:       cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_0_0),

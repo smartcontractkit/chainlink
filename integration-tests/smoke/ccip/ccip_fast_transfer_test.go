@@ -29,7 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
@@ -302,7 +302,7 @@ func deployTokenAndGrantAllRoles(t *testing.T, chain evmChain.Chain, tokenSymbol
 		return token
 	}
 
-	_, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
+	_, tx, token, err := burn_mint_erc20.DeployBurnMintERC20(
 		chain.DeployerKey,
 		chain.Client,
 		tokenSymbol,
@@ -484,13 +484,13 @@ func configureBurnMintTokenPool(t *testing.T, e cldf.Environment, sourceChainSel
 		},
 	}
 
-	sourceToken, err := burn_mint_erc677.NewBurnMintERC677(sourceTokenAddress, sourceChain.Client)
+	sourceToken, err := burn_mint_erc20.NewBurnMintERC20(sourceTokenAddress, sourceChain.Client)
 	require.NoError(t, err)
-	destToken, err := burn_mint_erc677.NewBurnMintERC677(destinationTokenAddress, destChain.Client)
+	destToken, err := burn_mint_erc20.NewBurnMintERC20(destinationTokenAddress, destChain.Client)
 	require.NoError(t, err)
 
 	postSetupAction := func(sourceTokenPool common.Address, destinationTokenPool common.Address) {
-		sourceTokenInstance, err := burn_mint_erc677.NewBurnMintERC677(sourceTokenAddress, sourceChain.Client)
+		sourceTokenInstance, err := burn_mint_erc20.NewBurnMintERC20(sourceTokenAddress, sourceChain.Client)
 		require.NoError(t, err)
 		tx, err := sourceTokenInstance.GrantBurnRole(sourceChain.DeployerKey, sourceTokenPool)
 		require.NoError(t, err)

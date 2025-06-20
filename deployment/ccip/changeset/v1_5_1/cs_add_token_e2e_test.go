@@ -17,7 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -84,7 +84,7 @@ func TestAddTokenE2E(t *testing.T) {
 				err                  error
 			)
 
-			tokens := make(map[uint64]*cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677])
+			tokens := make(map[uint64]*cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20])
 			if test.withMCMS {
 				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay:   0,
@@ -200,7 +200,7 @@ func TestAddTokenE2E(t *testing.T) {
 				for chain, chainState := range state.Chains {
 					token, ok := chainState.BurnMintTokens677[testhelpers.TestTokenSymbol]
 					require.True(t, ok)
-					tokens[chain] = &cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+					tokens[chain] = &cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20]{
 						Address:  token.Address(),
 						Contract: token,
 					}

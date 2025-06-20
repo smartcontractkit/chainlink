@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/multicall3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/weth9"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/weth9_zksync"
@@ -755,22 +755,22 @@ func deployUSDC(
 	rmnProxy common.Address,
 	router common.Address,
 ) (
-	*burn_mint_erc677.BurnMintERC677,
+	*burn_mint_erc20.BurnMintERC20,
 	*usdc_token_pool.USDCTokenPool,
 	*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger,
 	*mock_usdc_token_transmitter.MockE2EUSDCTransmitter,
 	error,
 ) {
 	token, err := cldf.DeployContract(lggr, chain, addresses,
-		func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+		func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20] {
 			var (
 				tokenAddress  common.Address
 				tx            *types.Transaction
-				tokenContract *burn_mint_erc677.BurnMintERC677
+				tokenContract *burn_mint_erc20.BurnMintERC20
 				err2          error
 			)
 			if chain.IsZkSyncVM {
-				tokenAddress, _, tokenContract, err2 = burn_mint_erc677.DeployBurnMintERC677Zk(
+				tokenAddress, _, tokenContract, err2 = burn_mint_erc20.DeployBurnMintERC20Zk(
 					nil,
 					chain.ClientZkSyncVM,
 					chain.DeployerKeyZkSyncVM,
@@ -781,7 +781,7 @@ func deployUSDC(
 					big.NewInt(0),
 				)
 			} else {
-				tokenAddress, tx, tokenContract, err2 = burn_mint_erc677.DeployBurnMintERC677(
+				tokenAddress, tx, tokenContract, err2 = burn_mint_erc20.DeployBurnMintERC20(
 					chain.DeployerKey,
 					chain.Client,
 					shared.USDCName,
@@ -790,7 +790,7 @@ func deployUSDC(
 					big.NewInt(0),
 				)
 			}
-			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+			return cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20]{
 				Address:  tokenAddress,
 				Contract: tokenContract,
 				Tx:       tx,

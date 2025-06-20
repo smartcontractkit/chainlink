@@ -42,7 +42,7 @@ import (
 	lock_release_token_pool_1_4_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_4_0/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
@@ -597,15 +597,15 @@ func (c *CCIPContracts) SetupOnchainConfig(t *testing.T, commitOnchainConfig, co
 func (c *CCIPContracts) SetupLockAndMintTokenPool(
 	sourceTokenAddress common.Address,
 	wrappedTokenName,
-	wrappedTokenSymbol string) (common.Address, *burn_mint_erc677.BurnMintERC677, error) {
+	wrappedTokenSymbol string) (common.Address, *burn_mint_erc20.BurnMintERC20, error) {
 	// Deploy dest token & pool
-	destTokenAddress, _, _, err := burn_mint_erc677.DeployBurnMintERC677(c.Dest.User, c.Dest.Chain, wrappedTokenName, wrappedTokenSymbol, 18, big.NewInt(0))
+	destTokenAddress, _, _, err := burn_mint_erc20.DeployBurnMintERC20(c.Dest.User, c.Dest.Chain, wrappedTokenName, wrappedTokenSymbol, 18, big.NewInt(0))
 	if err != nil {
 		return [20]byte{}, nil, err
 	}
 	c.Dest.Chain.Commit()
 
-	destToken, err := burn_mint_erc677.NewBurnMintERC677(destTokenAddress, c.Dest.Chain)
+	destToken, err := burn_mint_erc20.NewBurnMintERC20(destTokenAddress, c.Dest.Chain)
 	if err != nil {
 		return [20]byte{}, nil, err
 	}

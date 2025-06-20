@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -1061,8 +1061,8 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 			ab := cldf.NewMemoryAddressBook()
 			for _, selector := range allChains {
 				_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.BlockChains.EVMChains()[selector], ab,
-					func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
-						tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
+					func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20] {
+						tokenAddress, tx, token, err := burn_mint_erc20.DeployBurnMintERC20(
 							tenv.Env.BlockChains.EVMChains()[selector].DeployerKey,
 							tenv.Env.BlockChains.EVMChains()[selector].Client,
 							string(testhelpers.TestTokenSymbol),
@@ -1070,7 +1070,7 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 							testhelpers.LocalTokenDecimals,
 							big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 						)
-						return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+						return cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20]{
 							Address:  tokenAddress,
 							Contract: token,
 							Tv:       cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_0_0),
@@ -1180,8 +1180,8 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 			ab := cldf.NewMemoryAddressBook()
 			for _, selector := range allChains {
 				_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.BlockChains.EVMChains()[selector], ab,
-					func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
-						tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
+					func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20] {
+						tokenAddress, tx, token, err := burn_mint_erc20.DeployBurnMintERC20(
 							tenv.Env.BlockChains.EVMChains()[selector].DeployerKey,
 							tenv.Env.BlockChains.EVMChains()[selector].Client,
 							string(testhelpers.TestTokenSymbol),
@@ -1189,7 +1189,7 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 							testhelpers.LocalTokenDecimals,
 							big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 						)
-						return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+						return cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20]{
 							Address:  tokenAddress,
 							Contract: token,
 							Tv:       cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_0_0),
@@ -1259,8 +1259,8 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 			// deploy a new token
 			ab := cldf.NewMemoryAddressBook()
 			_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.BlockChains.EVMChains()[source], ab,
-				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
-					tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
+				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20] {
+					tokenAddress, tx, token, err := burn_mint_erc20.DeployBurnMintERC20(
 						tenv.Env.BlockChains.EVMChains()[source].DeployerKey,
 						tenv.Env.BlockChains.EVMChains()[source].Client,
 						string(testhelpers.TestTokenSymbol),
@@ -1268,7 +1268,7 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 						testhelpers.LocalTokenDecimals,
 						big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 					)
-					return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+					return cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20]{
 						Address:  tokenAddress,
 						Contract: token,
 						Tv:       cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_0_0),

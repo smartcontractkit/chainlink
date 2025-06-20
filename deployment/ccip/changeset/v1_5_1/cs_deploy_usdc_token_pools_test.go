@@ -16,7 +16,7 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -34,10 +34,10 @@ func deployUSDCPrerequisites(
 	logger logger.Logger,
 	chain cldf_evm.Chain,
 	addressBook cldf.AddressBook,
-) (*cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677], *cldf.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger]) {
+) (*cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20], *cldf.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger]) {
 	usdcToken, err := cldf.DeployContract(logger, chain, addressBook,
-		func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
-			tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
+		func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20] {
+			tokenAddress, tx, token, err := burn_mint_erc20.DeployBurnMintERC20(
 				chain.DeployerKey,
 				chain.Client,
 				"USDC",
@@ -45,7 +45,7 @@ func deployUSDCPrerequisites(
 				6,
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
-			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+			return cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20]{
 				Address:  tokenAddress,
 				Contract: token,
 				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_5_1),
@@ -151,8 +151,8 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 	usdcToken, tokenMessenger := deployUSDCPrerequisites(t, lggr, chain, addressBook)
 
 	nonUsdcToken, err := cldf.DeployContract(e.Logger, chain, addressBook,
-		func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
-			tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
+		func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20] {
+			tokenAddress, tx, token, err := burn_mint_erc20.DeployBurnMintERC20(
 				chain.DeployerKey,
 				chain.Client,
 				"NOTUSDC",
@@ -160,7 +160,7 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 				6,
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
-			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+			return cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20]{
 				Address:  tokenAddress,
 				Contract: token,
 				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_5_1),

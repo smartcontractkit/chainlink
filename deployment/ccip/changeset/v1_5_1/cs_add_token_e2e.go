@@ -14,8 +14,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/burn_mint_erc677_helper"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/burn_mint_erc20_helper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc677"
 
@@ -451,8 +451,8 @@ func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfi
 		switch cfg.Type {
 		case shared.BurnMintToken:
 			token, err := cldf.DeployContract(e.Logger, e.BlockChains.EVMChains()[selector], ab,
-				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
-					tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
+				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20] {
+					tokenAddress, tx, token, err := burn_mint_erc20.DeployBurnMintERC20(
 						e.BlockChains.EVMChains()[selector].DeployerKey,
 						e.BlockChains.EVMChains()[selector].Client,
 						cfg.TokenName,
@@ -460,7 +460,7 @@ func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfi
 						cfg.TokenDecimals,
 						cfg.MaxSupply,
 					)
-					return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+					return cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20]{
 						Address:  tokenAddress,
 						Contract: token,
 						Tv:       cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_0_0),
@@ -470,7 +470,7 @@ func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfi
 				},
 			)
 			if err != nil {
-				return nil, ab, fmt.Errorf("failed to deploy BurnMintERC677 token "+
+				return nil, ab, fmt.Errorf("failed to deploy BurnMintERC20 token "+
 					"%s on chain %d: %w", cfg.TokenName, selector, err)
 			}
 			if err := addMinterAndMintTokenERC677(e, selector, token.Contract, e.BlockChains.EVMChains()[selector].DeployerKey.From,
@@ -536,14 +536,14 @@ func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfi
 			tokenAddresses[selector] = token.Address
 		case shared.ERC677TokenHelper:
 			token, err := cldf.DeployContract(e.Logger, e.BlockChains.EVMChains()[selector], ab,
-				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677_helper.BurnMintERC677Helper] {
-					tokenAddress, tx, token, err := burn_mint_erc677_helper.DeployBurnMintERC677Helper(
+				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc20_helper.BurnMintERC20Helper] {
+					tokenAddress, tx, token, err := burn_mint_erc20_helper.DeployBurnMintERC20Helper(
 						e.BlockChains.EVMChains()[selector].DeployerKey,
 						e.BlockChains.EVMChains()[selector].Client,
 						cfg.TokenName,
 						string(cfg.TokenSymbol),
 					)
-					return cldf.ContractDeploy[*burn_mint_erc677_helper.BurnMintERC677Helper]{
+					return cldf.ContractDeploy[*burn_mint_erc20_helper.BurnMintERC20Helper]{
 						Address:  tokenAddress,
 						Contract: token,
 						Tv:       cldf.NewTypeAndVersion(shared.ERC677TokenHelper, deployment.Version1_0_0),
@@ -586,7 +586,7 @@ func grantAccessToPool(
 	tpAddress common.Address,
 	tokenAddress common.Address,
 ) error {
-	token, err := burn_mint_erc677.NewBurnMintERC677(tokenAddress, chain.Client)
+	token, err := burn_mint_erc20.NewBurnMintERC20(tokenAddress, chain.Client)
 	if err != nil {
 		return fmt.Errorf("failed to connect address %s with erc677 bindings: %w", tokenAddress, err)
 	}
@@ -609,20 +609,20 @@ func grantAccessToPool(
 }
 
 // addMinterAndMintTokenERC677 adds the minter role to the recipient and mints the specified amount of tokens to the recipient's address.
-func addMinterAndMintTokenERC677(env cldf.Environment, selector uint64, token *burn_mint_erc677.BurnMintERC677, recipient common.Address, amount *big.Int) error {
+func addMinterAndMintTokenERC677(env cldf.Environment, selector uint64, token *burn_mint_erc20.BurnMintERC20, recipient common.Address, amount *big.Int) error {
 	return addMinterAndMintTokenHelper(env, selector, token, recipient, amount)
 }
 
 // addMinterAndMintTokenERC677Helper adds the minter role to the recipient and mints the specified amount of tokens to the recipient's address.
-func addMinterAndMintTokenERC677Helper(env cldf.Environment, selector uint64, token *burn_mint_erc677_helper.BurnMintERC677Helper, recipient common.Address, amount *big.Int) error {
-	baseToken, err := burn_mint_erc677.NewBurnMintERC677(token.Address(), env.BlockChains.EVMChains()[selector].Client)
+func addMinterAndMintTokenERC677Helper(env cldf.Environment, selector uint64, token *burn_mint_erc20_helper.BurnMintERC20Helper, recipient common.Address, amount *big.Int) error {
+	baseToken, err := burn_mint_erc20.NewBurnMintERC20(token.Address(), env.BlockChains.EVMChains()[selector].Client)
 	if err != nil {
 		return fmt.Errorf("failed to cast helper to base token: %w", err)
 	}
 	return addMinterAndMintTokenHelper(env, selector, baseToken, recipient, amount)
 }
 
-func addMinterAndMintTokenHelper(env cldf.Environment, selector uint64, token *burn_mint_erc677.BurnMintERC677, recipient common.Address, amount *big.Int) error {
+func addMinterAndMintTokenHelper(env cldf.Environment, selector uint64, token *burn_mint_erc20.BurnMintERC20, recipient common.Address, amount *big.Int) error {
 	deployerKey := env.BlockChains.EVMChains()[selector].DeployerKey
 	ctx := env.GetContext()
 	// check if owner is the deployer key

@@ -33,7 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 )
 
@@ -145,7 +145,7 @@ func getAllABIs() []string {
 		lock_release_token_pool_1_4_0.LockReleaseTokenPoolABI,
 		burn_mint_token_pool_1_2_0.BurnMintTokenPoolABI,
 		usdc_token_pool_1_4_0.USDCTokenPoolABI,
-		burn_mint_erc677.BurnMintERC677ABI,
+		burn_mint_erc20.BurnMintERC20ABI,
 		erc20.ERC20ABI,
 		lock_release_token_pool.LockReleaseTokenPoolABI,
 		burn_mint_token_pool.BurnMintTokenPoolABI,

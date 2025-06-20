@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/weth9"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
@@ -29,7 +29,7 @@ func NewFeeTokenTestCase(
 	src, dst uint64,
 	feeToken common.Address,
 	tokenAmounts []router.ClientEVMTokenAmount,
-	srcToken, dstToken *burn_mint_erc677.BurnMintERC677,
+	srcToken, dstToken *burn_mint_erc20.BurnMintERC20,
 	receiver []byte,
 	data []byte,
 	assertTokenBalance, assertExecution bool,
@@ -54,7 +54,7 @@ type FeeTokenTestCase struct {
 	t                  *testing.T
 	src, dst           uint64
 	env                cldf.Environment
-	srcToken, dstToken *burn_mint_erc677.BurnMintERC677
+	srcToken, dstToken *burn_mint_erc20.BurnMintERC20
 	tokenAmounts       []router.ClientEVMTokenAmount
 	feeToken           common.Address
 	receiver           []byte
@@ -88,7 +88,7 @@ func RunFeeTokenTestCase(tc FeeTokenTestCase) {
 	}
 
 	// if fee token is not native then approve the router to spend the fee token from the sender.
-	var feeTokenWrapper *burn_mint_erc677.BurnMintERC677
+	var feeTokenWrapper *burn_mint_erc20.BurnMintERC20
 	if tc.feeToken != common.HexToAddress("0x0") {
 		if tc.feeToken == state.Chains[tc.src].Weth9.Address() {
 			// Deposit some ETH into the WETH contract
@@ -108,7 +108,7 @@ func RunFeeTokenTestCase(tc FeeTokenTestCase) {
 		}
 
 		var err error
-		feeTokenWrapper, err = burn_mint_erc677.NewBurnMintERC677(tc.feeToken, srcChain.Client)
+		feeTokenWrapper, err = burn_mint_erc20.NewBurnMintERC20(tc.feeToken, srcChain.Client)
 		require.NoError(tc.t, err)
 
 		bal, err := feeTokenWrapper.BalanceOf(&bind.CallOpts{

@@ -17,7 +17,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/seqs"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -38,7 +38,7 @@ type Ownable interface {
 
 func LoadOwnableContract(addr common.Address, client bind.ContractBackend) (common.Address, Ownable, error) {
 	// Just using the ownership interface from here.
-	c, err := burn_mint_erc677.NewBurnMintERC677(addr, client)
+	c, err := burn_mint_erc20.NewBurnMintERC20(addr, client)
 	if err != nil {
 		return common.Address{}, nil, fmt.Errorf("failed to create contract: %w", err)
 	}

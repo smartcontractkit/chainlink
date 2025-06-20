@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -238,7 +238,7 @@ func updateFeeQuoters(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
 	chainA, chainB, chainC uint64,
-	aChainUSDC, bChainUSDC, cChainUSDC *burn_mint_erc677.BurnMintERC677,
+	aChainUSDC, bChainUSDC, cChainUSDC *burn_mint_erc20.BurnMintERC20,
 ) error {
 	evmChains := e.BlockChains.EVMChains()
 	updateFeeQtrGrp := errgroup.Group{}

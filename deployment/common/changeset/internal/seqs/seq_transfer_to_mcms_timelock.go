@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/ops"
 	mcms_shared "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/shared"
 )
@@ -101,7 +101,7 @@ var SeqTransferToMCMSWithTimelockV2 = operations.NewSequence(
 // TODO: convert this to an OP
 func LoadOwnableContract(addr common.Address, client bind.ContractBackend) (common.Address, mcms_shared.Ownable, error) {
 	// Just using the ownership interface from here.
-	c, err := burn_mint_erc677.NewBurnMintERC677(addr, client)
+	c, err := burn_mint_erc20.NewBurnMintERC20(addr, client)
 	if err != nil {
 		return common.Address{}, nil, fmt.Errorf("failed to create contract: %w", err)
 	}

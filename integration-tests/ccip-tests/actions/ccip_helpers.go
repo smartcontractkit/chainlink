@@ -58,7 +58,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
@@ -902,7 +902,7 @@ func (ccipModule *CCIPCommon) DeployContracts(
 			if len(tokenDeployerFns) != noOfTokens {
 				if ccipModule.IsUSDCDeployment() && i == 0 {
 					// if it's USDC deployment, we deploy the burn mint token 677 with decimal 6 and cast it to ERC20Token
-					usdcToken, err := ccipModule.tokenDeployer.DeployBurnMintERC677(new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)))
+					usdcToken, err := ccipModule.tokenDeployer.DeployBurnMintERC20(new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)))
 					if err != nil {
 						return fmt.Errorf("deploying bridge usdc token contract shouldn't fail %w", err)
 					}
@@ -946,7 +946,7 @@ func (ccipModule *CCIPCommon) DeployContracts(
 					}
 				} else if ccipModule.IsLBTCDeployment() && i == 0 {
 					// if it's LBTC deployment, we deploy the burn mint token 677 with decimal 8 and cast it to ERC20Token
-					lbtcToken, err := ccipModule.tokenDeployer.DeployCustomBurnMintERC677Token("Lombard LBTC", "LBTC", uint8(8), new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)))
+					lbtcToken, err := ccipModule.tokenDeployer.DeployCustomBurnMintERC20Token("Lombard LBTC", "LBTC", uint8(8), new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)))
 					if err != nil {
 						return fmt.Errorf("deploying bridge lbtc token contract shouldn't fail %w", err)
 					}
@@ -1037,7 +1037,7 @@ func (ccipModule *CCIPCommon) DeployContracts(
 				if err != nil {
 					return errors.Wrapf(err, "deploying mock lbtc bridge token pool shouldn't fail")
 				}
-				lbtcInstance, err := burn_mint_erc677.NewBurnMintERC677(token.ContractAddress, ccipModule.ChainClient.Backend())
+				lbtcInstance, err := burn_mint_erc20.NewBurnMintERC20(token.ContractAddress, ccipModule.ChainClient.Backend())
 				if err != nil {
 					return errors.Wrapf(err, "failed to get dest usdc token instance")
 				}
