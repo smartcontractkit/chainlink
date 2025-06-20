@@ -222,6 +222,10 @@ func explorerLinkPrefix(chainID int64) (prefix string) {
 	case 324: // zkSync mainnet
 		prefix = "https://explorer.zksync.io"
 
+	case RoninChainID:
+		prefix = "https://app.roninchain.com"
+	case RoninSaigonChainID:
+		prefix = "https://saigon-app.roninchain.com"
 	default: // Unknown chain, return prefix as-is
 		prefix = ""
 	}
@@ -612,11 +616,6 @@ func IsAvaxSubnet(chainID int64) bool {
 		chainID == 847799 || // Nexon Stage
 		chainID == 60118 || // Nexon Mainnet (Actually a testnet)
 		chainID == 68414 // Nexon Henesys Mainnet
-}
-
-func IsRoninChain(chainID int64) bool {
-	return chainID == 2020 || // Ronin Mainnet
-		chainID == 2021 // Ronin Saigon testnet
 }
 
 func UpkeepLink(chainID int64, upkeepID *big.Int) string {
