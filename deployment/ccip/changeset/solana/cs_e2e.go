@@ -303,7 +303,6 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 			}
 		}
 	}
-	e.Logger.Info("transferPoolToTimelockConfig: ", transferPoolToTimelockConfig)
 	output, err := AddTokenPoolAndLookupTable(e, tokenPoolAndLookupTableCfg)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to add token pool and lookup table: %w", err)
