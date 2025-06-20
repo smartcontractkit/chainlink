@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -19,6 +20,7 @@ var _ host.ExecutionHelper = (*ExecutionHelper)(nil)
 type ExecutionHelper struct {
 	*Engine
 	WorkflowExecutionID string
+	UserLogChan         chan<- *protoevents.LogLine
 	TimeProvider
 }
 
@@ -103,6 +105,19 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 	}, nil
 }
 
-func (c *ExecutionHelper) GetID() string {
+func (c *ExecutionHelper) GetWorkflowExecutionID() string {
 	return c.WorkflowExecutionID
+}
+
+func (c *ExecutionHelper) EmitUserLog(msg string) error {
+	select {
+	case c.UserLogChan <- &protoevents.LogLine{
+		NodeTimestamp: time.Now().Format(time.RFC3339Nano),
+		Message:       msg,
+	}:
+		// Successfully sent to channel
+	default:
+		c.lggr.Warnw("Exceeded max allowed user log messages, dropping")
+	}
+	return nil
 }
