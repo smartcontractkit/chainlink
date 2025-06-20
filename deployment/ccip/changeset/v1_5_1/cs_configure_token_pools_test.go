@@ -791,11 +791,15 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
-				changeset_solana.TokenPoolConfig{
+				changeset_solana.AddTokenPoolAndLookupTableConfig{
 					ChainSelector: selector,
-					TokenPubKey:   tokenAddress,
-					PoolType:      &bnm,
-					Metadata:      shared.CLLMetadata,
+					TokenPoolConfigs: []changeset_solana.TokenPoolConfig{
+						{
+							TokenPubKey: tokenAddress,
+							PoolType:    &bnm,
+							Metadata:    shared.CLLMetadata,
+						},
+					},
 				},
 			),
 		})
@@ -904,11 +908,15 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
-					changeset_solana.TokenPoolConfig{
+					changeset_solana.AddTokenPoolAndLookupTableConfig{
 						ChainSelector: selector,
-						TokenPubKey:   tokenAddress,
-						PoolType:      &bnm,
-						Metadata:      shared.CLLMetadata,
+						TokenPoolConfigs: []changeset_solana.TokenPoolConfig{
+							{
+								TokenPubKey: tokenAddress,
+								PoolType:    &bnm,
+								Metadata:    shared.CLLMetadata,
+							},
+						},
 					},
 				),
 			})
@@ -962,11 +970,15 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
-					changeset_solana.TokenPoolConfig{
+					changeset_solana.AddTokenPoolAndLookupTableConfig{
 						ChainSelector: selector,
-						TokenPubKey:   tokenAddress,
-						PoolType:      &lr,
-						Metadata:      shared.CLLMetadata,
+						TokenPoolConfigs: []changeset_solana.TokenPoolConfig{
+							{
+								TokenPubKey: tokenAddress,
+								PoolType:    &lr,
+								Metadata:    shared.CLLMetadata,
+							},
+						},
 					},
 				),
 			})

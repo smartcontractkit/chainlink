@@ -931,6 +931,8 @@ registry.Add("0086_verify_solana_programs",
       UpgradeAuthority: timelockSignerPDA,
       RemoteVerification: true // this is KEY in step 2
     }))
-
-
 ```
+### Example Verification PRs
+1. https://github.com/smartcontractkit/chainlink-deployments/pull/3907 (Step 1)
+2. https://github.com/smartcontractkit/chainlink-deployments/pull/3944 (Step 2)
+3. https://github.com/smartcontractkit/chainlink-deployments/actions/runs/15774291241/job/44465124148 (Successful e2e remote verification via MCMs)
