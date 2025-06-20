@@ -592,6 +592,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{}, "TEST_TOKEN")
+	require.NoError(t, err)
 	e, tokenAddress2, err := deployTokenAndMint(t, e, solChain, []string{}, "TEST_TOKEN_2")
 	require.NoError(t, err)
 	state, err := stateview.LoadOnchainStateSolana(e)
