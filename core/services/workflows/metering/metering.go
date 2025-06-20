@@ -73,8 +73,13 @@ type Report struct {
 	lggr    logger.Logger
 
 	// internal state
-	mu           sync.RWMutex
-	ready        bool
+	mu    sync.RWMutex
+	ready bool
+	
+	// meteringMode turns off double spend checks.
+	// In meteringMode, no accounting wrt universal credits is required;
+	// only gathering resource types and spends from capabilities.
+	// note: meteringMode == true allows negative balances.
 	meteringMode bool
 	steps        map[string]ReportStep
 }

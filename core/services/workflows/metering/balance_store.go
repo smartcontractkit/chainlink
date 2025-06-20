@@ -15,6 +15,9 @@ var (
 	ErrResourceTypeNotFound = errors.New("could not find conversion rate, continuing as 1:1")
 )
 
+// balanceStore is a locked down interface to the in-execution credit balance.
+// no state change details (like switching to metering mode) should be handled in it;
+// rather consumers should consider errors core to business logic of metering/billing.
 type balanceStore struct {
 	// A balance of credits
 	balance decimal.Decimal
@@ -38,7 +41,6 @@ func NewBalanceStore(
 	}
 
 	return &balanceStore{
-		// meteringMode: false,
 		balance:     startingBalance,
 		conversions: conversions,
 	}
